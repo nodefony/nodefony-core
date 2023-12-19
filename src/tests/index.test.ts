@@ -8,7 +8,7 @@ describe('Index', () => {
   it('Index  Singleton', () => {
     const inst = new nodefony.Container()
     expect(inst).to.be.instanceOf(nodefony.Container)
-    console.log( kernel)
+    //console.log( kernel)
   });
 
 })

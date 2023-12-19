@@ -1,7 +1,7 @@
 import clc from "cli-color";
 import {typeOf, extend} from "../Tools"
 import  Pdu, {Severity, ModuleName, Msgid, Message, PduDate ,Status} from './Pdu'
-import nodefony , { kernel} from "../Nodefony"
+//import nodefony , { kernel} from "../Nodefony"
 import Event  from '../Event'
 const yellow = clc.yellow.bold;
 const red = clc.red.bold ; 
@@ -23,19 +23,19 @@ interface Conditions {
   date : (pdu: Pdu, condition: ConditionSetting) => boolean;
   [key: string]: (pdu: Pdu, condition: ConditionSetting) => boolean;
 }
-export interface ConditionSetting {
+ interface ConditionSetting {
   operator?: Operator 
   data: Data,
   [key: string]: any;
 }
-export interface conditionsInterface {
+ interface conditionsInterface {
   severity?: ConditionSetting
   msgid?: ConditionSetting,
   data?: Data
   checkConditions?: Condition
   [key: string]: any;
 }
-export interface SyslogDefaultSettings  {
+ interface SyslogDefaultSettings  {
   moduleName?: ModuleName
   msgid?: Msgid
   maxStack?: number
@@ -780,20 +780,20 @@ class Syslog extends Event {
     let message = pdu.payload;
     switch (typeof message) {
     case "object":
-      switch (true) {
-      case message instanceof nodefony.Error:
-        if (kernel && kernel.console) {
-          message = message.message;
-        }
-        break;
-      case message instanceof Error:
-        if (kernel && kernel.console) {
-          message = message.message;
-        } else {
-          message = new nodefony.Error(message);
-        }
-        break;
-      }
+      // switch (true) {
+      // case message instanceof nodefony.Error:
+      //   if (kernel && kernel.console) {
+      //     message = message.message;
+      //   }
+      //   break;
+      // case message instanceof Error:
+      //   if (kernel && kernel.console) {
+      //     message = message.message;
+      //   } else {
+      //     message = new nodefony.Error(message);
+      //   }
+      //   break;
+      // }
       break;
     default:
     }
@@ -810,3 +810,8 @@ class Syslog extends Event {
 }
 
 export default Syslog
+export {
+  ConditionSetting,
+  conditionsInterface, 
+  SyslogDefaultSettings 
+}
