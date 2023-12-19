@@ -1,0 +1,33 @@
+# Ignore les fichiers de configuration spécifiques à l'IDE
+.vscode/
+.idea/
+
+# Ignore les fichiers de sauvegarde automatique et les fichiers de build
+*.bak
+*.log
+dist/
+node_modules/
+tmp/
+
+# Ignore les fichiers générés par TypeScript
+*.tsbuildinfo
+*.js.map
+
+# Ignore les fichiers d'environnement
+.env
+
+# Ignore les fichiers de sauvegarde
+*.swp
+*.swo
+
+# Ignore les fichiers système et cachés
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Ignore les fichiers d'exemple ou temporaires
+example/
+temp/
+
+yarn.lock
+package-lock.json

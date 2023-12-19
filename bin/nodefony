@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+import nodefony from '../dist/index.js';
+
+console.log(nodefony)

@@ -1,0 +1,10 @@
+/src/*
+!/src/types/
+
+/tests
+/dist/tests
+/dist/types
+
+/dist/package.json
+
+node_modules
