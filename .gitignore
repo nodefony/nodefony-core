@@ -30,4 +30,3 @@ example/
 temp/
 
 yarn.lock
-package-lock.json
