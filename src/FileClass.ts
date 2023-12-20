@@ -1,10 +1,10 @@
-import mime from "mime";
+import mime from 'mime-types';
 import crypto from "node:crypto";
 import path from "node:path"
 import fs from 'node:fs'
 import {extend} from './Tools'
 
-interface FileInterface {
+interface FileClassInterface {
   path: fs.PathOrFileDescriptor
   name: string
   ext: string
@@ -14,20 +14,20 @@ interface FileInterface {
   dirName: string
   parse: path.ParsedPath
   encoding?: string 
-  mimeType? : string | null
-  extention? : string | null
+  mimeType? : string | false
+  extention? : string | false
 }
 
 
-const checkPath = function (myPath: string): string{
+const checkPath = function (myPath: string | fs.PathOrFileDescriptor): string {
   if (!myPath) {
     throw new Error(`Bad path`) ;
   }
-  const abs = path.isAbsolute(myPath);
+  const abs = path.isAbsolute(<string>myPath);
   if (abs) {
-    return myPath;
+    return <string>myPath;
   }
-  return path.resolve(process.cwd(), myPath);
+  return path.resolve(process.cwd(), <string>myPath);
 };
 
 const regHidden: RegExp = /^\./;
@@ -56,14 +56,14 @@ class FileClass {
   public name : string
   public shortName : string
   public ext: string
-  public mimeType : string | null = null
+  public mimeType : string | false = false
   public encoding : string = "UTF-8"
-  public extention : string | null = null
+  public extention : string | false = false
   public dirName : string
   public match : RegExpExecArray | null = null
 
 
-  constructor (Path: string) {
+  constructor (Path: string | fs.PathOrFileDescriptor) {
     if (Path) {
       Path = checkPath(Path);
       this.stats = fs.lstatSync(Path);
@@ -88,14 +88,14 @@ class FileClass {
     } else {
       throw new Error(`error fileClass Path : ${Path}`);
     }
-  }
+   }
 
   toString () {
     return JSON.stringify(this.toJson(), null, "\n");
   }
 
-  toJson () : FileInterface {
-    const obj : FileInterface= {
+  toJson () : FileClassInterface {
+    const obj : FileClassInterface= {
       path: this.path,
       name: this.name,
       ext: this.ext,
@@ -149,15 +149,15 @@ class FileClass {
       .digest("hex");
   }
 
-  getMimeType (name: string) : string | null{
-    return mime.getType(name || this.name);
+  getMimeType (name: string) : string | false{
+    return mime.lookup(name || this.name);
   }
 
-  getExtension (mimeType: string | null) : string | null{
+  getExtension (mimeType: string | false) : string | false{
     if( mimeType){
-       return mime.getExtension(mimeType);
+       return mime.extension(mimeType);
     }
-    return mime.getExtension(<string>this.mimeType);
+    return mime.extension(<string>this.mimeType);
   }
 
   getRealpath (Path: string, options: fs.EncodingOption= {}) {
@@ -266,4 +266,5 @@ class FileClass {
   }
 }
 
-export default FileClass;
+export default FileClass 
+export {FileClassInterface}

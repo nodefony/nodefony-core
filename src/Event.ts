@@ -38,7 +38,7 @@ class Event extends EventEmitter {
     }
   }
 
-  settingsToListen (localSettings: EventDefaultInterface, context: ContextType ) {
+  settingsToListen (localSettings: EventDefaultInterface, context?: ContextType ) {
     for (const i in localSettings) {
       const res = regListenOn.exec(i);
       if (!res) {
