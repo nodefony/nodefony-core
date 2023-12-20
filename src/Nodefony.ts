@@ -77,7 +77,10 @@ class Nodefony {
 }
 
 const nodefony = Nodefony.getInstance()
+const kernel = Nodefony.getKernel()
 
 export default nodefony
-export const kernel = Nodefony.getKernel()
+export {
+  kernel
+}
 

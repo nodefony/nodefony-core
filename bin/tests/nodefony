@@ -1,0 +1,4 @@
+#!/usr/bin/env node
+const {nodefony, kernel} = require("../../dist/index.js")
+
+console.log(nodefony , kernel)

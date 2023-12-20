@@ -1,4 +1,4 @@
 #!/usr/bin/env node
-import nodefony from '../dist/index.js';
+import  {nodefony , kernel} from '../dist/index.js';
 
-console.log(nodefony)
+console.log(nodefony, kernel)
