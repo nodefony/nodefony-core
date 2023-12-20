@@ -35,10 +35,8 @@
     "eslint-test:fix": "npm run eslint-test -- --fix"
   },
   "dependencies": {
-    "@types/mime-types": "2.1.4",
     "cli-color": "2.0.3",
     "lodash": "4.17.21",
-    "mime": "4.0.1",
     "mime-types": "2.1.35",
     "shortid": "2.2.16"
   },
@@ -46,7 +44,7 @@
     "@types/chai": "4.3.11",
     "@types/cli-color": "2.0.6",
     "@types/lodash": "4.14.202",
-    "@types/mime": "3.0.4",
+    "@types/mime-types": "2.1.4",
     "@types/mocha": "10.0.6",
     "@types/node": "20.10.5",
     "@types/shortid": "0.0.32",
