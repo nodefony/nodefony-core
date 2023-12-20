@@ -1,5 +1,5 @@
-import Syslog from "./syslog/Syslog"
-import nodefony from "./Nodefony"
+//import Syslog from "./syslog/Syslog"
+//import nodefony from "./Nodefony"
 import Service from './Service'
 
 enum  environment {

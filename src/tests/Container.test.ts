@@ -1,14 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect, assert } from 'chai';
 import 'mocha';
 import  Container  from '../Container';  
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 declare namespace NodeJS {
   interface Global {
     container :Container
   }
 }
 
-declare var global: NodeJS.Global & { container?: Container };
+declare let global: NodeJS.Global & { container?: Container };
 
 class myClass{
   name: string
@@ -57,7 +59,7 @@ describe('Container', () => {
     assert.throws(() =>{
       global.container.setParameters("foo.bar.ele", {})
     }, Error, "Cannot create property 'ele' on string 'test'")
-    let obj = {}
+    const obj = {}
     global.container.setParameters("foo.bar", obj)
     expect(global.container.getParameters("foo.bar")).to.be.an("object")
     expect(global.container.getParameters("foo")).to.be.an("object")
@@ -76,7 +78,7 @@ describe('Container', () => {
   })
 
   it('Container Scope set and get parameters', () => {
-    let obj = {}
+    const obj = {}
     global.container.setParameters("foo.bar", obj)
     global.container.addScope("myscope")
     const scopeContainer = global.container.enterScope("myscope")

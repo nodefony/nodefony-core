@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *   MODEFONY FRAMEWORK UNIT TEST
  *
@@ -10,12 +11,12 @@
  *
  */
 
-import { expect, assert } from 'chai' 
+import {  assert } from 'chai' 
 import Event ,{create , notification} from '../Event'
 import {isPromise} from '../Tools'
 
 
-declare var global: NodeJS.Global & { notificationsCenter: Event };
+declare let global: NodeJS.Global & { notificationsCenter: Event };
 
 
 
@@ -157,31 +158,30 @@ describe("NODEFONY Notifications Center", () => {
         throw new Error("myError");
       };
       global.notificationsCenter.on("myEvent", async (count, args) => await myFunc(count, args));
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       global.notificationsCenter.on("myEvent", async (count, args) => await myFunc2());
       let res = null;
-      try {
-        res = await global.notificationsCenter.fireAsync("myEvent", i, obj)
-          .then((...args: any[]) => {
-            console.log(args);
-            throw new Error("then don't be call");
-          })
-          .catch((e) => {
-            assert.strictEqual(e.message, "myError");
-          });
-        assert.strictEqual(res, undefined);
-        res = null;
-        res = global.notificationsCenter.fireAsync("myEvent", i, obj)
-          .then((...args: any[]) => {
-            console.log(args);
-            throw new Error("then don't be call");
-          })
-          .catch((e) => {
-            assert.strictEqual(e.message, "myError");
-          });
-        assert(isPromise(res));
-      } catch (e) {
-        throw e;
-      }
+      
+      res = await global.notificationsCenter.fireAsync("myEvent", i, obj)
+        .then((...args: any[]) => {
+          console.log(args);
+          throw new Error("then don't be call");
+        })
+        .catch((e) => {
+          assert.strictEqual(e.message, "myError");
+        });
+      assert.strictEqual(res, undefined);
+      res = null;
+      res = global.notificationsCenter.fireAsync("myEvent", i, obj)
+        .then((...args: any[]) => {
+          console.log(args);
+          throw new Error("then don't be call");
+        })
+        .catch((e) => {
+          assert.strictEqual(e.message, "myError");
+        });
+      assert(isPromise(res));
+     
     });
   });
 })

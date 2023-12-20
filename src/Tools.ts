@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Container  from "./Container";
 import {isFunction, isRegExp, isArray} from 'lodash'
 const myobj = {};
@@ -7,24 +8,23 @@ const ObjectFunctionString = fnToString.call(Object);
 const getProto = Object.getPrototypeOf;
 
 
-const isPlainObject = (obj: any): Boolean => {
-  let proto: any, Ctor: any;
+const isPlainObject = (obj: any): boolean => {
   if (!obj || toString.call(obj) !== "[object Object]") {
     return false;
   }
-  proto = getProto(obj);
+  const proto : any= getProto(obj);
   if (!proto) {
     return true;
   }
-  Ctor = hasOwn.call(proto, "constructor") && proto.constructor;
+  const Ctor: any = hasOwn.call(proto, "constructor") && proto.constructor;
   return typeof Ctor === "function" && fnToString.call(Ctor) === ObjectFunctionString;
 };
 
-const isUndefined = (value: any) :Boolean => {
+const isUndefined = (value: any) :boolean => {
   return value === undefined;
 }
  
-const isEmptyObject  = (obj: any) :Boolean => {
+const isEmptyObject  = (obj: any) :boolean => {
   let name;
   for (name in obj) {
     return false;
@@ -36,8 +36,8 @@ const extend=  (...args: any[])=> {
   let options, name, src, copy, copyIsArray, clone,
     target = args[0] || {},
     i = 1,
-    {length} = args,
     deep = false;
+    const {length} = args
 
   // Handle a deep copy situation
   if (typeof target === "boolean") {
@@ -52,6 +52,7 @@ const extend=  (...args: any[])=> {
   }
   // Extend Nodefony itself if only one argument is passed
   if (i === length) {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     target = this;
     i--;
   }
@@ -133,7 +134,7 @@ const extend=  (...args: any[])=> {
     return t;
   }
 
-  const isContainer =  (container: Container) :Boolean => {
+  const isContainer =  (container: Container) :boolean => {
     if (container) {
       if (container instanceof Container) {
         return true;
@@ -143,11 +144,11 @@ const extend=  (...args: any[])=> {
     return false;
   }
 
-  const isError = (it: Error) : Boolean=> {
+  const isError = (it: Error) : boolean=> {
     return it instanceof Error
   }
 
-  const   isPromise =  (obj: any): Boolean =>  {
+  const   isPromise =  (obj: any): boolean =>  {
     switch (true) {
     case obj instanceof Promise:
     //case obj instanceof BlueBird:

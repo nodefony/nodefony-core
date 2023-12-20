@@ -1,4 +1,5 @@
-import assert, { AssertionError } from "node:assert";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import assert from "node:assert";
 import nodefony , { kernel} from "./Nodefony"
 
 import { STATUS_CODES } from "node:http";
@@ -98,11 +99,11 @@ class nodefonyError extends Error {
   //public actual : string
   [key: string]: any;
 
-  constructor (message: string | Error, code?: number) {
+  constructor (message: string | Error, code?: number) {
 
-    if( message instanceof  Error){
+    if( message instanceof Error){
       super(message.message);
-    }else{
+    }else {
       super(message);
     }
  

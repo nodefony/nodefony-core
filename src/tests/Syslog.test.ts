@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/ban-types */
 /*
  *   MODEFONY FRAMEWORK UNIT TEST
  *
@@ -9,9 +11,9 @@
  *  kernel :   instance of kernel who launch the test
  *
  */
-import { expect, assert as assertChai} from 'chai' 
-import Syslog ,{SyslogDefaultSettings, conditionsInterface}from "../syslog/Syslog";
-import nodefony , { kernel} from "../Nodefony"
+//import { expect, assert as assertChai} from 'chai' 
+import Syslog ,{ conditionsInterface}from "../syslog/Syslog";
+import nodefony  from "../Nodefony"
 import Pdu from '../syslog/Pdu'
 import assert from 'node:assert';
 
@@ -24,7 +26,7 @@ class TestPdu extends Pdu {
   before?: string;
 }
 
-declare var global: NodeJS.Global & { syslog: TestSyslog , logger: Function, Pdu:  TestPdu };
+declare let global: NodeJS.Global & { syslog: TestSyslog , logger: Function, Pdu:  TestPdu };
 
 const defaultOptions : conditionsInterface = {
   severity: {
@@ -37,7 +39,7 @@ describe("NODEFONY SYSLOG", () => {
   before(() => {
     global.syslog = new Syslog();
     
-    const ret = global.syslog.listenWithConditions(
+    global.syslog.listenWithConditions(
       defaultOptions,
       (pdu : Pdu) =>
         // nodefony.Syslog.normalizeLog(pdu);

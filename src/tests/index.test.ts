@@ -1,6 +1,6 @@
-import { expect, assert } from 'chai';
+import { expect } from 'chai';
 import 'mocha';
-import  nodefony ,{kernel} from '../index';  
+import  nodefony  from '../index';  
 
 describe('Index', () => {
    beforeEach(() => {})

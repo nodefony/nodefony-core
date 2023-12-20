@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {typeOf} from "../Tools"
 export type Pci = any
 export type ModuleName = string
 export type Message = string
 export type Msgid = string
-export type PduDate = String | number | Date
+export type PduDate = string | number | Date
 export type Status  = "NOTDEFINED" | "INVALID"| "ACCEPTED" | "DROPPED"
 
 type SeverityKeys = keyof typeof SysLogSeverity
@@ -162,7 +163,7 @@ class Pdu {
     }
     const severityKey =  Pdu.severityToString(SysLogSeverity[severity as number])
     return severityKey !== undefined ? severityKey : undefined;
-  };
+  }
 
   /**
      * Get Date in string format
@@ -189,17 +190,13 @@ class Pdu {
   }
 
   parseJson(str: string): Record<string, unknown> | null {
-    try {
-      let json = JSON.parse(str);
-      Object.entries(json).forEach(([key, value]) => {
-        if (key in this) {
-          (this as Record<string, unknown>)[key] = value;
-        }
-      });
-      return json
-    } catch (e) {
-      throw e;
-    }
+    const json = JSON.parse(str);
+    Object.entries(json).forEach(([key, value]) => {
+      if (key in this) {
+        (this as Record<string, unknown>)[key] = value;
+      }
+    });
+    return json
   }
 }
 

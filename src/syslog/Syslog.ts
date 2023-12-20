@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import clc from "cli-color";
 import {typeOf, extend} from "../Tools"
-import  Pdu, {Severity, ModuleName, Msgid, Message, PduDate ,Status} from './Pdu'
+import  Pdu, {Severity, ModuleName, Msgid, Message} from './Pdu'
 //import nodefony , { kernel} from "../Nodefony"
 import Event  from '../Event'
 const yellow = clc.yellow.bold;
@@ -39,14 +41,14 @@ interface Conditions {
   moduleName?: ModuleName
   msgid?: Msgid
   maxStack?: number
-  rateLimit?: Boolean | number
+  rateLimit?: boolean | number
   burstLimit?: number
   defaultSeverity?: Severity
   checkConditions?: Condition
-  async?: Boolean | undefined
-};
+  async?: boolean | undefined
+}
 //type ComparisonOperatorNumber = (ele1: number , ele2: number ) => boolean;
-type ComparisonOperator = (ele1: number | string, ele2: number | string | RegExp) => boolean;
+type ComparisonOperator = (ele1: number | string, ele2: number | string | RegExp) => boolean;
 //type RegExpOperator = (ele1: string, ele2: RegExp) => boolean;
 interface Operators {
   "<": ComparisonOperator;
@@ -63,19 +65,19 @@ const formatDebug = function (debug: DebugType) : DebugType {
   switch (typeOf(debug)) {
   case "boolean":
     return <boolean> debug;
-  case "string":
+  case "string":{
     if (["false", "undefined", "null"].includes(<string>debug)) {
       return false;
     }
     if (debug === "true" || debug === "*") {
       return true;
     }
-    let ele = <string>debug
-    let mytab : string[] = ele.split(/,| /);
+    const mytab : string[] = (<string>debug).split(/,| /);
     if (mytab[0] === "*") {
       return true;
     }
     return mytab;
+  }
   case "array":
     debug = <[]>debug
     if (debug[0] === "*") {
@@ -215,10 +217,11 @@ const checkFormatSeverity = (ele: any): string|number[]  => {
     case "number":
       res = [ele];
       break;
-    default:
+    default:{
       console.trace(ele);
       const error = `checkFormatSeverity bad format type : ${typeof ele}`;
       throw new Error(error);
+    }
   }
   return res;
 };
@@ -248,7 +251,7 @@ const checkFormatMsgId = function (ele: any) :  RegExp | any[] {
     res = [ele];
     break;
   case "RegExp":
-    res: RegExp = ele;
+    res = ele;
     break;
   case "array":
     res = ele;
@@ -261,42 +264,37 @@ const checkFormatMsgId = function (ele: any) :  RegExp | any[] {
 
 const wrapperCondition = function (this: Syslog ,conditions : conditionsInterface, callback: Function | Pdu[] | null) : any {
   let myFuncCondition : Function =()=>{};
-  let Conditions : ConditionSetting | boolean;
-  try {
-    if (conditions.checkConditions && conditions.checkConditions in logicCondition) {
-      myFuncCondition = logicCondition[conditions.checkConditions];
-      delete conditions.checkConditions;
-    } else {
-      if(this.settings.checkConditions ){
-        myFuncCondition = logicCondition[this.settings.checkConditions];
-      }
+  if (conditions.checkConditions && conditions.checkConditions in logicCondition) {
+    myFuncCondition = logicCondition[conditions.checkConditions];
+    delete conditions.checkConditions;
+  } else {
+    if(this.settings.checkConditions ){
+      myFuncCondition = logicCondition[this.settings.checkConditions];
     }
-    
-    Conditions  = sanitizeConditions(conditions);
-    //console.log("Sanitize : ", conditions, myFuncCondition)
-    const tab : Function[] = [];
-    switch (typeOf(callback)) {
-    case "function":
-       return  (pdu : Pdu) => {
-        const res = myFuncCondition(Conditions, pdu);
-        if (res) {
-          tab.push(  (callback as Function)(pdu) );
-        }
-      };
-    case "array":
-      for (let i = 0; i < (callback as []).length; i++) {
-        const res = myFuncCondition(Conditions, (callback as Pdu[])[i]);
-        if (res) {
-          tab.push( res);
-        }
-      }
-      return tab;
-    default:
-      throw new Error("Bad wrapper");
-    }
-  } catch (e) {
-    throw e;
   }
+  const Conditions : ConditionSetting | boolean = sanitizeConditions(conditions);
+  //console.log("Sanitize : ", conditions, myFuncCondition)
+  const tab : Function[] = [];
+  switch (typeOf(callback)) {
+  case "function":
+      return  (pdu : Pdu) => {
+      const res = myFuncCondition(Conditions, pdu);
+      if (res) {
+        tab.push(  (callback as Function)(pdu) );
+      }
+    };
+  case "array":
+    for (let i = 0; i < (callback as []).length; i++) {
+      const res = myFuncCondition(Conditions, (callback as Pdu[])[i]);
+      if (res) {
+        tab.push( res);
+      }
+    }
+    return tab;
+  default:
+    throw new Error("Bad wrapper");
+  }
+ 
 };
 
 const sanitizeConditions = function (settingsCondition: conditionsInterface) :boolean | ConditionSetting {
@@ -641,33 +639,25 @@ class Syslog extends Event {
     }
     switch (typeOf(stack)) {
     case "string":
-      try {
-          return this.loadStack(JSON.parse(<string>stack), doEvent, beforeConditions);
-      } catch (e) {
-        throw e;
-      }
+      return this.loadStack(JSON.parse(<string>stack), doEvent, beforeConditions);
     case "array":
     case "object":
-      try {
-        for (const stackItem of <Pdu[]>stack ) {
-          const pdu = new Pdu(
-            stackItem.payload,
-            stackItem.severity as Severity | undefined ,
-            stackItem.moduleName || this.settings.moduleName,
-            stackItem.msgid,
-            stackItem.msg,
-            stackItem.timeStamp
-          );
-          this.pushStack(pdu);
-          if (doEvent) {
-            if (beforeConditions && typeof beforeConditions === "function") {
-              beforeConditions.call(this, pdu, stackItem);
-            }
-            this.fire("onLog", pdu);
+      for (const stackItem of <Pdu[]>stack ) {
+        const pdu = new Pdu(
+          stackItem.payload,
+          stackItem.severity as Severity | undefined ,
+          stackItem.moduleName || this.settings.moduleName,
+          stackItem.msgid,
+          stackItem.msg,
+          stackItem.timeStamp
+        );
+        this.pushStack(pdu);
+        if (doEvent) {
+          if (beforeConditions && typeof beforeConditions === "function") {
+            beforeConditions.call(this, pdu, stackItem);
           }
+          this.fire("onLog", pdu);
         }
-      } catch (e) {
-        throw e;
       }
       break;
     default:
@@ -685,14 +675,10 @@ class Syslog extends Event {
     if (!conditions) {
       throw new Error("filter conditions not found ");
     }
-    try {
-      conditions = extend(true, {}, conditions);
-      const wrapper = wrapperCondition.call(this, conditions, callback);
-      if (wrapper) {
-         super.on("onLog", wrapper);
-      }
-    } catch (e) {
-      throw e;
+    conditions = extend(true, {}, conditions);
+    const wrapper = wrapperCondition.call(this, conditions, callback);
+    if (wrapper) {
+        super.on("onLog", wrapper);
     }
   }
 
@@ -777,7 +763,7 @@ class Syslog extends Event {
       console.trace(pdu);
       return pdu;
     }
-    let message = pdu.payload;
+    const message = pdu.payload;
     switch (typeof message) {
     case "object":
       // switch (true) {

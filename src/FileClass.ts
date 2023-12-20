@@ -3,7 +3,6 @@ import crypto from "node:crypto";
 import path from "node:path"
 import fs from 'node:fs'
 import {extend} from './Tools'
-import { PathLike } from "node:fs";
 
 interface FileInterface {
   path: fs.PathOrFileDescriptor
@@ -19,10 +18,6 @@ interface FileInterface {
   extention? : string | null
 }
 
-interface Encoding{
-  encoding: null
-  flag:string
-}
 
 const checkPath = function (myPath: string): string{
   if (!myPath) {
@@ -55,7 +50,7 @@ const defaultEncoding = {
  */
 class FileClass {
   public stats : fs.Stats
-  public type : string | undefined
+  public type : string | undefined
   public path : fs.PathOrFileDescriptor
   public parse :  path.ParsedPath
   public name : string
@@ -165,10 +160,6 @@ class FileClass {
     return mime.getExtension(<string>this.mimeType);
   }
 
-  /* getCharset (mimeType){
-    //return mime.charsets.lookup(mimeType || this.mimeType );
-  }*/
-
   getRealpath (Path: string, options: fs.EncodingOption= {}) {
     return fs.realpathSync(Path, options);
   }
@@ -265,21 +256,13 @@ class FileClass {
     fs.writeFileSync(this.path, data, extend({}, defautWriteOption, options));
   }
 
-  move (target: fs.PathLike) : FileClass{
-    try {
-      fs.renameSync(<fs.PathLike>this.path, target);
-      return new FileClass(<string>target);
-    } catch (e) {
-      throw e;
-    }
+  move (target: fs.PathLike) : FileClass {
+    fs.renameSync(<fs.PathLike>this.path, target);
+    return new FileClass(<string>target);
   }
 
   unlink () : void{
-    try {
-      fs.unlinkSync(<fs.PathLike>this.path);
-    } catch (e) {
-      throw e;
-    }
+    fs.unlinkSync(<fs.PathLike>this.path);
   }
 }
 

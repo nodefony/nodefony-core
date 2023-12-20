@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Nodefony.ts
 import Kernel from './Kernel';
 import Container from './Container';

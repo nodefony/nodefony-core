@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import Container from "./Container"
 import Event , {EventDefaultInterface} from "./Event"
-import  Pdu, {Severity, ModuleName, Msgid, Message, PduDate ,Status} from './syslog/Pdu'
+import  Pdu, {Severity, Msgid, Message, } from './syslog/Pdu'
 
-import Syslog ,{SyslogDefaultSettings, conditionsInterface} from "./syslog/Syslog";
+import Syslog ,{SyslogDefaultSettings} from "./syslog/Syslog";
 
 interface DefaultOptions {
   events?: {

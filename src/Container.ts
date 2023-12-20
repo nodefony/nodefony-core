@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import shortId from "shortid";
 import {extend, isPlainObject} from './Tools'
 
@@ -44,11 +45,11 @@ const parseParameterString = function (this: Container['parameters'] | ProtoPara
 // Déclaration d'un objet hétérogène
 interface DynamicService  {
   [cleDynamic: string]: any; // Propriétés dynamiques de tout type
-};
+}
 
 interface DynamicParam  {
   [cleDynamic: string]: any; // Propriétés dynamiques de tout type
-};
+}
 
 interface Scopes {
   [nameScope: string]: {
@@ -151,7 +152,7 @@ class Container {
     return null 
   }
 
-  public addScope(name: string)  :  Scope | {} {
+  public addScope(name: string)  :  Scope | object {
     if (!this.scopes[name]) {
       return (this.scopes[name] = {});
     }
@@ -188,25 +189,20 @@ class Container {
   }
 
   public setParameters<T>(name: string, ele: T): T | Error {
-    try{
-      if (typeof name !== "string") { 
-        throw new Error("setParameters : container parameter name must be a string")
-      }
-      if (ele === undefined) {   
-        throw new Error(`setParameters : ${name} container parameter value must be define`);
-      }
-      //parseParameterString.call(this.protoParameters.prototype, name, ele)
-      return parseParameterString.call(this.parameters, name, ele)
-    }catch(e){
-      //this.log(e,"ERROR");
-      throw e
+    if (typeof name !== "string") { 
+      throw new Error("setParameters : container parameter name must be a string")
     }
+    if (ele === undefined) {   
+      throw new Error(`setParameters : ${name} container parameter value must be define`);
+    }
+    //parseParameterString.call(this.protoParameters.prototype, name, ele)
+    return parseParameterString.call(this.parameters, name, ele)
   }
 
   public getParameters(name: string) {
     //console.log(`main getParameters : ${name}`)
     if(name){
-      let res = parseParameterString.call(this.parameters, name);
+      const res = parseParameterString.call(this.parameters, name);
       //console.log(`main After getParameters :  `, res)
       return res
     }
@@ -236,9 +232,9 @@ class Scope extends Container {
     this.parameters = Object.create(this.parent.protoParameters.prototype);
   }
 
-  public getParameters(name: string, merge: Boolean = true, deep: Boolean = true) {
-    let res = parseParameterString.call(this.parameters, name)
-    let obj = this.parent.getParameters(name)
+  public getParameters(name: string, merge: boolean = true, deep: boolean = true) {
+    const res = parseParameterString.call(this.parameters, name)
+    const obj = this.parent.getParameters(name)
     if(ISDefined(res)) {
       if( merge && isPlainObject(obj) && isPlainObject(res) ){
         return extend(deep, obj, res)

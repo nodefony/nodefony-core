@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {EventEmitter} from "node:events";
 import {isEmpty , get, isFunction} from 'lodash'
 
@@ -5,7 +6,7 @@ declare module 'events' {
   interface EventEmitter {
     _events: Record<string | symbol, any>;
     settingsToListen(localSettings: EventDefaultInterface, context: ContextType): void;
-    listen(context: ContextType, eventName: string | symbol, callback: Function): Function;
+    listen(context: ContextType, eventName: string | symbol, listener: (...args: any[]) => void): (...args: any[]) => boolean;
     fire(eventName: string | symbol, ...args: any[]): boolean;
     emitAsync(type: string | symbol, ...args: any[]): Promise<false | any[]>;
     fireAsync(type: string | symbol, ...args: any[]): Promise<false | any[]>;
@@ -51,8 +52,9 @@ class Event extends EventEmitter {
     }
   }
 
-  listen(context: ContextType, eventName: string | symbol, listener: (...args: any[]) => void): Function {
+  listen(context: ContextType, eventName: string | symbol, listener: (...args: any[]) => void): (...args: any[]) => boolean {
     const event = eventName;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const contextClosure = this;
     if (typeof listener === 'function') {
       this.addListener(eventName, listener.bind(context));
@@ -64,11 +66,7 @@ class Event extends EventEmitter {
   }
 
   fire(eventName: string | symbol, ...args: any[]): boolean {
-    try {
-      return super.emit(eventName, ...args);
-    } catch (e) {
-      throw e;
-    }
+    return super.emit(eventName, ...args);  
   }
 
   async emitAsync (eventName: string | symbol, ...args: any[]): Promise<any> {

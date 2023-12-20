@@ -1,4 +1,5 @@
-import { expect, assert } from 'chai';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import {  assert } from 'chai';
 import 'mocha';
 import {extend, isEmptyObject} from '../Tools'
 
