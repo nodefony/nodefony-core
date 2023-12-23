@@ -2,9 +2,31 @@
   "name": "@nodefony/nodefony-core",
   "version": "10.0.0",
   "description": "Core Nodefony Framework",
-  "main": "dist/index.js",
-  "types": "src/types/index.d.ts",
+  "main": "dist/node-cjs/index.cjs",
+  "module": "dist/node/index.js",
+  "browser": "dist/client/index.js",
+  "types": "dist/node/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/node/index.d.ts",
+        "default": "./dist/node/index.js"
+      },
+      "require": {
+        "types": "./dist/node/index.d.ts",
+        "default": "./dist/node-cjs/index.cjs"
+      }
+    },
+    "./client": {
+      "types": "./client.d.ts"
+    },
+    "./dist/client/*": "./dist/client/*",
+    "./types/*": {
+      "types": "./types/*"
+    },
+    "./package.json": "./package.json"
+  },
   "private": false,
   "engines": {
     "node": ">=16"
@@ -18,13 +40,16 @@
     "javascript"
   ],
   "scripts": {
-    "dev": "tsc --watch",
-    "build": "tsc",
     "nodefony": "node ./bin/nodefony",
+    "dev": "tsc --watch ",
+    "prebuild": "mkdir -p dist/types",
+    "typecheck": "tsc --noEmit",
+    "build": " npm run rollup && npm run test",
+    "rollup": "rimraf dist && rollup --config rollup.config.ts --configPlugin typescript",
     "start": "node ./bin/nodefony",
-    "test": "npm run test:ts && npm run test:transpiled",
-    "test:ts": "tsc && ts-mocha src/tests/**/*.test.ts",
-    "test:transpiled": "tsc -p tsconfig.test.json && mocha dist/tests/*.js",
+    "test": "run-s test:ts  test:transpiled",
+    "test:ts": " ts-mocha -p src/tests/mocha-ts/tsconfig.test.json  src/tests/**/*.test.ts",
+    "test:transpiled": " mocha dist/tests/tests/*.js",
     "lint": "npm run eslint-src && npm run eslint-test",
     "eslint-src": "eslint --ignore-pattern 'node_modules' --ignore-pattern 'src/tests' 'src/**/*.ts'",
     "eslint-types": "eslint --ignore-pattern 'node_modules' '**/*.d.ts'",
@@ -35,25 +60,50 @@
     "eslint-test:fix": "npm run eslint-test -- --fix"
   },
   "dependencies": {
+    "asciify": "1.3.5",
     "cli-color": "2.0.3",
+    "cli-table3": "0.6.3",
+    "clui": "0.3.6",
+    "commander": "11.1.0",
+    "inquirer": "9.2.12",
     "lodash": "4.17.21",
     "mime-types": "2.1.35",
-    "shortid": "2.2.16"
+    "moment": "2.29.4",
+    "node-emoji": "2.1.3",
+    "rxjs": "7.8.1",
+    "semver": "7.5.4",
+    "shelljs": "0.8.5",
+    "uuid": "9.0.1"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "25.0.7",
+    "@rollup/plugin-json": "6.1.0",
+    "@rollup/plugin-node-resolve": "15.2.3",
+    "@rollup/plugin-terser": "0.4.4",
+    "@rollup/plugin-typescript": "11.1.5",
+    "@types/asciify": "1.3.33",
     "@types/chai": "4.3.11",
     "@types/cli-color": "2.0.6",
+    "@types/clui": "0.3.4",
+    "@types/inquirer": "9.0.7",
     "@types/lodash": "4.14.202",
     "@types/mime-types": "2.1.4",
     "@types/mocha": "10.0.6",
     "@types/node": "20.10.5",
-    "@types/shortid": "0.0.32",
+    "@types/shelljs": "0.8.15",
+    "@types/uuid": "9.0.7",
     "@typescript-eslint/eslint-plugin": "6.15.0",
     "@typescript-eslint/parser": "6.15.0",
     "chai": "4.3.10",
     "eslint": "8.56.0",
     "mocha": "10.2.0",
+    "npm-run-all2": "6.1.1",
+    "rimraf": "5.0.5",
+    "rollup": "2.79.1",
+    "rollup-plugin-copy": "3.5.0",
+    "terser": "5.26.0",
     "ts-mocha": "10.0.0",
+    "ts-node": "10.9.2",
     "typescript": "5.3.3"
   },
   "repository": {
