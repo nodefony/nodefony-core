@@ -3,13 +3,12 @@ import { expect, assert } from 'chai';
 import 'mocha';
 import  Container  from '../Container';  
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
-declare namespace NodeJS {
-  interface Global {
-    container :Container
+
+declare global {
+  interface NodeJSGlobal {
+    container: Container;
   }
 }
-
 declare let global: NodeJS.Global & { container?: Container };
 
 class myClass{
@@ -47,16 +46,25 @@ describe('Container', () => {
   });
 
   it('Container set and get services', () => {
+    if(!  global.container){
+      throw new Error(`global not ready `)
+    }
     // Récupération du service
     expect(global.container.get('service1')).to.be.a('function');
     expect(global.container.get('myclass')).to.be.instanceOf(myClass)
   });
 
   it('Container set and get parameters', () => {
+    if(!  global.container){
+      throw new Error(`global not ready `)
+    }
     // Récupération du service
     global.container.setParameters("foo.bar", "test")
     expect(global.container.getParameters("foo.bar")).eq("test")
     assert.throws(() =>{
+      if(!  global.container){
+        throw new Error(`global not ready `)
+     }
       global.container.setParameters("foo.bar.ele", {})
     }, Error, "Cannot create property 'ele' on string 'test'")
     const obj = {}
@@ -67,6 +75,9 @@ describe('Container', () => {
   });
 
   it('Container Scope', () => {
+    if(!  global.container){
+      throw new Error(`global not ready `)
+    }
     global.container.addScope("myscope")
     const scopeContainer = global.container.enterScope("myscope")
     global.container.addScope("myscope2")
@@ -78,6 +89,9 @@ describe('Container', () => {
   })
 
   it('Container Scope set and get parameters', () => {
+    if(!  global.container){
+      throw new Error(`global not ready `)
+    }
     const obj = {}
     global.container.setParameters("foo.bar", obj)
     global.container.addScope("myscope")
@@ -95,6 +109,10 @@ describe('Container', () => {
   })
 
   it('Container Scope add service on scope', () => {
+    
+    if(!  global.container){
+      throw new Error(`global not ready `)
+    }
     global.container.addScope("myscope")
     const scopeContainer = global.container.enterScope("myscope")
     global.container.addScope("myscope2")
@@ -106,6 +124,9 @@ describe('Container', () => {
   })
 
   it('Container Scope add service on main container', () => {
+    if(!  global.container){
+      throw new Error(`global not ready `)
+    }
     global.container.addScope("myscope")
     const scopeContainer = global.container.enterScope("myscope")
     global.container.addScope("myscope2")

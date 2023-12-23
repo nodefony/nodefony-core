@@ -16,8 +16,12 @@ import Event ,{create , notification} from '../Event'
 import {isPromise} from '../Tools'
 
 
-declare let global: NodeJS.Global & { notificationsCenter: Event };
-
+declare global {
+  interface NodeJSGlobal {
+    notificationsCenter: Event;
+  }
+}
+declare let global: NodeJS.Global & { notificationsCenter?: Event };
 
 
 describe("NODEFONY Notifications Center", () => {
@@ -36,6 +40,9 @@ describe("NODEFONY Notifications Center", () => {
 
   describe("sync", () => {
     it("sync", (done) => {
+      if ( ! global.notificationsCenter){
+        throw new Error(`global not ready`)
+      }
       const obj = {};
       global.notificationsCenter.on("myEvent", (count, args) => {
         assert.strictEqual(args, obj);
@@ -47,6 +54,9 @@ describe("NODEFONY Notifications Center", () => {
       });
       let i = 0;
       setTimeout(() => {
+        if ( ! global.notificationsCenter){
+          throw new Error(`global not ready`)
+        }
         global.notificationsCenter.fire("myEvent", i, obj);
         global.notificationsCenter.emit("myEvent", ++i, obj);
       }, 500);
@@ -65,6 +75,9 @@ describe("NODEFONY Notifications Center", () => {
       global.notificationsCenter = create();
     });
     it("simple", async () => {
+      if ( ! global.notificationsCenter){
+        throw new Error(`global not ready`)
+      }
       const obj = {};
       global.notificationsCenter.on("myEvent", async (count, args) => new Promise((resolve) => {
         assert.strictEqual(args, obj);
@@ -89,6 +102,9 @@ describe("NODEFONY Notifications Center", () => {
     });
 
     it("multi", async () => {
+      if ( ! global.notificationsCenter){
+        throw new Error(`global not ready`)
+      }
       const obj = {};
       global.notificationsCenter.on("myEvent", async (count, args) => new Promise((resolve) => {
         setTimeout(() => {
@@ -117,6 +133,9 @@ describe("NODEFONY Notifications Center", () => {
     });
 
     it("await", async () => {
+      if ( ! global.notificationsCenter){
+        throw new Error(`global not ready`)
+      }
       const myFunc = async function (count: number, args: any) {
         if (count === 0) {
           return count + 1;
@@ -146,6 +165,9 @@ describe("NODEFONY Notifications Center", () => {
     });
 
     it("await error", async () => {
+      if ( ! global.notificationsCenter){
+        throw new Error(`global not ready`)
+      }
       const myFunc = async function (count: number, args: any) {
         if (count === 0) {
           return count + 1;

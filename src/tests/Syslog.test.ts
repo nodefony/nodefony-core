@@ -13,7 +13,7 @@
  */
 //import { expect, assert as assertChai} from 'chai' 
 import Syslog ,{ conditionsInterface}from "../syslog/Syslog";
-import nodefony  from "../Nodefony"
+//import nodefony  from "../Nodefony"
 import Pdu from '../syslog/Pdu'
 import assert from 'node:assert';
 
@@ -137,12 +137,12 @@ describe("NODEFONY SYSLOG", () => {
 
     it("1000  entries ", (done) => {
       let i = 0;
-      const res = global.syslog.on(
+       global.syslog.on(
         "onLog",
         (pdu) => i++
       );
       for (let i = 0; i < 1000; i++) {
-        const pdu = global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+         global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
       }
       assert.strict.equal(global.syslog.ringStack.length, 100);
       assert.strict.equal(global.syslog.ringStack[0].payload, 900);
@@ -189,6 +189,7 @@ describe("NODEFONY SYSLOG", () => {
   });
 
   describe("loadStack ", () => {
+
     it("loadStack 1000  entries ", (done) => {
       const inst = new Syslog({
         maxStack: 100
@@ -197,8 +198,9 @@ describe("NODEFONY SYSLOG", () => {
       assert.strict.equal(inst.ringStack.length, 100);
       done();
     });
+
     it("loadStack 1000 events  ", (done) => {
-      const inst = new nodefony.Syslog({
+      const inst = new Syslog({
         maxStack: 100
       });
       let i = 0;
@@ -215,8 +217,9 @@ describe("NODEFONY SYSLOG", () => {
       assert.strict.equal(i, 50);
       done();
     });
+
     it("loadStack 1000 events  ", (done) => {
-      const inst = new nodefony.Syslog({
+      const inst = new Syslog({
         maxStack: 100
       });
       let i = 0;
@@ -334,7 +337,7 @@ describe("NODEFONY SYSLOG", () => {
       );
       assert.strict.equal(global.syslog._eventsCount, 1);
       for (let i = 0; i < 10; i++) {
-        const pdu = global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+         global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
       }
       assert.strict.equal(i, 10);
       done();
@@ -353,7 +356,7 @@ describe("NODEFONY SYSLOG", () => {
       );
       assert.strict.equal(global.syslog._eventsCount, 1);
       for (let i = 0; i < 10; i++) {
-        const pdu = global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
       }
       assert.strict.equal(i, 5);
       done();
@@ -376,7 +379,7 @@ describe("NODEFONY SYSLOG", () => {
       );
       assert.strict.equal(global.syslog._eventsCount, 1);
       for (let i = 0; i < 10; i++) {
-        const pdu = global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
       }
       assert.strict.equal(i, 5);
       done();
@@ -398,7 +401,7 @@ describe("NODEFONY SYSLOG", () => {
         }
       );
       for (let i = 0; i < 10; i++) {
-        const pdu = global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
       }
       assert.strict.equal(i, 5);
       done();
@@ -422,7 +425,7 @@ describe("NODEFONY SYSLOG", () => {
       );
       assert.strict.equal(global.syslog._eventsCount, 1);
       for (let i = 0; i < 10; i++) {
-        const pdu = global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+         global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
       }
       assert.strict.equal(i, 5);
       done();

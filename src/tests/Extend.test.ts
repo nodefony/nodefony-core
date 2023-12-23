@@ -30,7 +30,7 @@ describe("TOOLS extend", () => {
         bar: "foo"
       });
       assert(res === myobj);
-      let obj:{[key: string]: any} = {};
+      let obj:{foo?: string, bar?:string} = {};
       res = extend(obj, myobj, {
         bar: "foo"
       });
