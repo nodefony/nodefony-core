@@ -11,7 +11,7 @@ class FileResult extends Result {
      Array.prototype.find
   }
 
-  toString () : string {
+  override toString () : string {
     let txt = "";
     for (let index = 0; index < this.length; index++) {
       const info = this[index];
@@ -20,7 +20,7 @@ class FileResult extends Result {
     return txt;
   }
 
-  toJson (json :any[]= []) : string{
+  override toJson (json :any[]= []) : string{
     for (let index = 0; index < this.length; index++) {
       const info :File = this[index];
       switch (info.type) {
@@ -45,7 +45,7 @@ class FileResult extends Result {
     return this;
   }
 
-  find <S>(predicate: (value: any, index: number, obj: any[]) => value is S, result : FileResult = new FileResult()) : FileResult {
+  override find <S>(predicate: (value: any, index: number, obj: any[]) => value is S, result : FileResult = new FileResult()) : FileResult {
     for (let index = 0; index < this.length; index++) {
       const info: File = this[index];
       const unknownType : unknown= predicate

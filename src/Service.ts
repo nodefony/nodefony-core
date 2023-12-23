@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import Container from "./Container"
+import Container, {DynamicParam} from "./Container"
 import Event , {EventDefaultInterface} from "./Event"
 import  Pdu, {Severity, Msgid, Message, } from './syslog/Pdu'
 
 import Syslog ,{SyslogDefaultSettings} from "./syslog/Syslog";
 
-interface DefaultOptions {
+export interface DefaultOptions extends EventDefaultInterface{
   events?: {
     nbListeners: number;
   }
@@ -26,7 +26,7 @@ const settingsSyslog : SyslogDefaultSettings = {
 
 class Service {
   name: string;
-  private options: DefaultOptions;
+  protected options: DefaultOptions;
   private container: Container | null;
   private kernel: any; // Remplacez ce type par le type réel de kernel si possible
   private syslog: Syslog | null;
@@ -61,7 +61,7 @@ class Service {
         throw new Error("Service nodefony notificationsCenter not valid, must be an instance of nodefony.Events");
       }
       if (notificationsCenter !== false) {
-        this.notificationsCenter = new Event(this.options, this, this.options.events);
+        this.notificationsCenter = new Event(this.options, this, this.options);
         this.notificationsCenter.on("error", (err: any) => {
           this.log(err, "ERROR", "Error events");
         });
@@ -282,13 +282,13 @@ class Service {
     return false;
   }
 
-  getParameters(name: string) {
-    return this.container?.getParameters(name);
+  getParameters(name: string) : DynamicParam | null {
+    return (<Container>this.container).getParameters(name);
   }
 
-  setParameters<T>(name: string, ele: T) :  T | Error {
+  setParameters<T>(name: string, ele: T) : DynamicParam | null {
     if( this.container){
-      return this.container?.setParameters(name,ele );
+      return (<Container>this.container).setParameters(name,ele );
     }
     throw new Error(`container not initialized`)
   }

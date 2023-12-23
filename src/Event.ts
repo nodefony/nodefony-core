@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {EventEmitter} from "node:events";
-import {isEmpty , get, isFunction} from 'lodash'
+import _ from 'lodash'
+const  {isEmpty , get, isFunction} = _
 
 declare module 'events' {
   interface EventEmitter {
@@ -18,7 +19,8 @@ interface EventDefaultInterface {
 }
 
 interface EventOptionInterface {
-  nbListeners: number
+  nbListeners?: number
+  [key: string]: any;
 }
 
 type ContextType = any;
@@ -38,7 +40,7 @@ class Event extends EventEmitter {
     }
   }
 
-  settingsToListen (localSettings: EventDefaultInterface, context?: ContextType ) {
+  override settingsToListen (localSettings: EventDefaultInterface, context?: ContextType ) {
     for (const i in localSettings) {
       const res = regListenOn.exec(i);
       if (!res) {
@@ -52,7 +54,7 @@ class Event extends EventEmitter {
     }
   }
 
-  listen(context: ContextType, eventName: string | symbol, listener: (...args: any[]) => void): (...args: any[]) => boolean {
+  override listen(context: ContextType, eventName: string | symbol, listener: (...args: any[]) => void): (...args: any[]) => boolean {
     const event = eventName;
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const contextClosure = this;
@@ -65,11 +67,11 @@ class Event extends EventEmitter {
     };
   }
 
-  fire(eventName: string | symbol, ...args: any[]): boolean {
+  override fire(eventName: string | symbol, ...args: any[]): boolean {
     return super.emit(eventName, ...args);  
   }
 
-  async emitAsync (eventName: string | symbol, ...args: any[]): Promise<any> {
+  override async emitAsync (eventName: string | symbol, ...args: any[]): Promise<any> {
     const handler = get(this._events, eventName);
     if (isEmpty(handler) && !isFunction(handler)) {
       return false;
@@ -95,7 +97,7 @@ class Event extends EventEmitter {
     return tab;
   }
 
-  async fireAsync (eventName: string | symbol, ...args: any[])  {
+  override async fireAsync (eventName: string | symbol, ...args: any[])  {
     return this.emitAsync(eventName, ...args);
   }
 }

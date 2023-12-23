@@ -29,7 +29,7 @@ class Result extends Array {
     return JSON.stringify(json);
   }
 
-  toString (json : any[]= []) : string{
+  override toString (json : any[]= []) : string{
     for (let index = 0; index < this.length; index++) {
       const ele  : any= this[index];
       json.push(ele);

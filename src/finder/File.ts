@@ -21,7 +21,7 @@ class File extends FileClass {
     return this.children.length;
   }
 
-  toJson () : FileInterface{
+  override toJson () : FileInterface{
     const obj : FileInterface= {
       path: this.path,
       name: this.name,

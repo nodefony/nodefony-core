@@ -5,6 +5,7 @@ import Container from './Container';
 import Syslog from './syslog/Syslog';
 import Error from './Error'
 import Service from './Service'
+import Cli from './Cli'
 import {
   extend,
   isEmptyObject,
@@ -20,6 +21,16 @@ import {version} from '../package.json';
 //import { createRequire } from "module";
 //const require = createRequire(import.meta.url);
 //const  {version} = require("../package.json");
+
+enum  Environment {
+  "dev",
+  "development",
+  "prod",
+  "production",
+  "stage"
+}
+type EnvironmentType = keyof typeof Environment
+type DebugType = boolean | string | string[]
 
 
 class Nodefony {
@@ -42,6 +53,9 @@ class Nodefony {
 
   static Service = Service;
   public Service: typeof Service  = Service;
+
+  static Cli = Cli;
+  public Cli: typeof Cli  = Cli;
 
   public extend : typeof extend = extend;
   public isEmptyObject : typeof isEmptyObject = isEmptyObject;
@@ -82,6 +96,8 @@ const kernel = Nodefony.getKernel()
 
 export default nodefony
 export {
-  kernel
+  kernel,
+  EnvironmentType,
+  DebugType
 }
 

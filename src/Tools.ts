@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Container  from "./Container";
-import {isFunction, isRegExp, isArray} from 'lodash'
+import _ from 'lodash';
+const { isArray, isFunction, isRegExp } = _;
 const myobj = {};
 const hasOwn = myobj.hasOwnProperty;
 const fnToString = hasOwn.toString;
@@ -53,7 +54,7 @@ const extend=  (...args: any[])=> {
   // Extend Nodefony itself if only one argument is passed
   if (i === length) {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    target = this;
+    target = {};
     i--;
   }
   for (; i < length; i++) {

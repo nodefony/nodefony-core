@@ -10,7 +10,8 @@ import FileClass from '../FileClass'
 import Result from './Result';
 import path from 'node:path'
 import fs from 'node:fs'
-import { isNull } from 'lodash';
+import _ from 'lodash';
+const { isNull} = _;
 
 interface DefaultSettingsInterface{
   recurse?: boolean

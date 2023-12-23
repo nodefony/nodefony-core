@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import shortId from "shortid";
+import { v4 as uuidv4 } from 'uuid';
 import {extend, isPlainObject} from './Tools'
 
 const generateId = function (): string {
-  return shortId.generate();
+  return uuidv4();
 };
 
 const ISDefined = function (ele: any): boolean {
@@ -13,7 +13,7 @@ const ISDefined = function (ele: any): boolean {
   return false;
 };
 
-const parseParameterString = function (this: Container['parameters'] | ProtoParametersPrototype, str: string, value?: any): any {
+const parseParameterString = function (this: Container['parameters'] | ProtoParametersPrototype, str: string, value?: any): DynamicParam | null {
   if (!this) {
     throw new Error(`Bad call`);
   }
@@ -118,7 +118,7 @@ class Container {
     }
   }
 
-  public get(name: string) {
+  public get(name: string) : any{
     if (this.services && (name in this.services)) {
       return this.services[name];
     }
@@ -145,11 +145,11 @@ class Container {
     return false;
   }
 
-  public has(name: string) : any | null {
+  public has(name: string) : boolean | any {
     if( this.services){
       return this.services[name]
     }
-    return null 
+    return false 
   }
 
   public addScope(name: string)  :  Scope | object {
@@ -166,7 +166,7 @@ class Container {
   }
 
 
-  public leaveScope(scope: Scope) {
+  public leaveScope(scope: Scope): void {
     if (this.scopes[scope.name]) {
       const sc = this.scopes[scope.name][scope.id];
       if (sc) {
@@ -176,7 +176,7 @@ class Container {
     }
   }
 
-  public removeScope(name: string) {
+  public removeScope(name: string) : void {
     const scopesForName = this.scopes[name];
     if (scopesForName) {
       const scopesArray = Object.values(scopesForName);
@@ -188,7 +188,7 @@ class Container {
     }
   }
 
-  public setParameters<T>(name: string, ele: T): T | Error {
+  public setParameters<T>(name: string, ele: T): DynamicParam | null {
     if (typeof name !== "string") { 
       throw new Error("setParameters : container parameter name must be a string")
     }
@@ -199,7 +199,7 @@ class Container {
     return parseParameterString.call(this.parameters, name, ele)
   }
 
-  public getParameters(name: string) {
+  public getParameters(name: string): DynamicParam | null{
     //console.log(`main getParameters : ${name}`)
     if(name){
       const res = parseParameterString.call(this.parameters, name);
@@ -209,7 +209,7 @@ class Container {
     throw new Error(`Bad name : ${name}`)
   }
 
-  public clean() {
+  public clean() : void {
     this.services = null;    
     this.parameters = null;
   }
@@ -232,7 +232,7 @@ class Scope extends Container {
     this.parameters = Object.create(this.parent.protoParameters.prototype);
   }
 
-  public getParameters(name: string, merge: boolean = true, deep: boolean = true) {
+  public override getParameters(name: string, merge: boolean = true, deep: boolean = true) : DynamicParam | null{
     const res = parseParameterString.call(this.parameters, name)
     const obj = this.parent.getParameters(name)
     if(ISDefined(res)) {
@@ -244,11 +244,14 @@ class Scope extends Container {
     return obj
   }
     
-  public clean() {
+  public override clean() : void{
     this.parent = null;
     return super.clean();
   }
 }
 
 export default Container
+export{
+  DynamicParam
+}
 

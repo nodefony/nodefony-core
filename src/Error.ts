@@ -93,7 +93,7 @@ const isMongooseError = function (error: Error) {
 
 class nodefonyError extends Error {
 
-  public code : number  | null
+  public override code : number  | null
   public error? : Error 
   public errorType: string
   //public actual : string
@@ -216,7 +216,7 @@ class nodefonyError extends Error {
     return "Error";
   }
 
-  toString () {
+  override toString () {
     let err = "";
     switch (this.errorType) {
     case "Error":
