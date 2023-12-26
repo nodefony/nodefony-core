@@ -5,6 +5,7 @@ import typescript from '@rollup/plugin-typescript'
 import commonjs from '@rollup/plugin-commonjs'
 import json from '@rollup/plugin-json'
 import copy from 'rollup-plugin-copy'
+import replace from '@rollup/plugin-replace';
 import glob from 'glob';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url'
@@ -150,6 +151,12 @@ function createTstPlugins(
       dynamicRequireTargets: []
     }),
     json(),
+    replace({
+      preventAssignment:true,
+      'navigator.userAgent': JSON.stringify('Mozilla/5.0 (compatible; Node.js)'),
+      'window.navigator.userAgent': JSON.stringify('Mozilla/5.0 (compatible; Node.js)'),
+      "document._defaultView.navigator.userAgent": JSON.stringify('Mozilla/5.0 (compatible; Node.js)')
+    }),
   ]
 }
 
