@@ -101,7 +101,7 @@ function createNodePlugins(
   return [
     nodeResolve({ preferBuiltins: true }),
     typescript({
-      tsconfig: path.resolve(__dirname, 'tsconfig.json'),
+      tsconfig: path.resolve( 'tsconfig.json'),
       sourceMap,
       declaration: declarationDir !== false,
       declarationDir: declarationDir !== false ? declarationDir : undefined,
@@ -139,7 +139,7 @@ function createTstPlugins(
    return [
     nodeResolve({ preferBuiltins: true }),
     typescript({
-      tsconfig: path.resolve(__dirname, 'src','tests','tsconfig.test.json'),
+      tsconfig: path.resolve( 'src','tests','tsconfig.test.json'),
       sourceMap,
       declaration: declarationDir !== false,
       declarationDir: declarationDir !== false ? declarationDir : undefined,
