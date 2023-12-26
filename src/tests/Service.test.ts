@@ -1,6 +1,7 @@
 import 'mocha';
 import assert from 'node:assert'
 import Service  from '../Service'
+import mochaJsdom from 'mocha-jsdom';
 
 
 declare global {
@@ -17,6 +18,10 @@ describe("NODEFONY Service", () => {
 
      before(() => {
       global.service = new Service("test");
+      mochaJsdom({
+        // Options jsdom
+        url: 'http://localhost',
+      });
     });
     it("register", (done) => {
       assert(Service);
