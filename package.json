@@ -1,20 +1,20 @@
 {
-  "name": "@nodefony/nodefony-core",
+  "name": "@nodefony/core",
   "version": "10.0.0",
   "description": "Core Nodefony Framework",
   "main": "dist/node-cjs/index.cjs",
   "module": "dist/node/index.js",
   "browser": "dist/client/index.js",
-  "types": "dist/node/index.d.ts",
+  "types": "src/types/types.d.ts",
   "type": "module",
   "exports": {
     ".": {
       "import": {
-        "types": "./dist/node/index.d.ts",
+        "types": "./dist/types/src/index.d.ts",
         "default": "./dist/node/index.js"
       },
       "require": {
-        "types": "./dist/node/index.d.ts",
+        "types": "./dist/types/src/index.d.ts",
         "default": "./dist/node-cjs/index.cjs"
       }
     },
@@ -41,15 +41,15 @@
   ],
   "scripts": {
     "nodefony": "node ./bin/nodefony",
-    "dev": "tsc --watch ",
+    "dev": "rimraf dist && pnpm run rollup -w",
     "prebuild": "rimraf dist && mkdirp dist/types",
     "typecheck": "tsc --noEmit",
-    "build": " npm run rollup && npm run test",
+    "build": " npm run rollup",
     "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "start": "node ./bin/nodefony",
-    "test": "run-s test:ts  test:transpiled",
-    "test:ts": " ts-mocha -p src/tests/mocha-ts/tsconfig.test.json  src/tests/**/*.test.ts",
-    "test:transpiled": " mocha dist/tests/tests/*.js",
+    "test": "npm run build && run-s test:ts  test:transpiled",
+    "test:ts": " ts-mocha -p src/tests/mocha-ts/tsconfig.test.json  src/tests/**/*.test.ts src/tests/*.test.ts",
+    "test:transpiled": " mocha dist/tests/tests/*.js dist/tests/tests/**/*.js",
     "lint": "npm run eslint-src && npm run eslint-test",
     "eslint-src": "eslint --ignore-pattern 'node_modules' --ignore-pattern 'src/tests' 'src/**/*.ts'",
     "eslint-types": "eslint --ignore-pattern 'node_modules' '**/*.d.ts'",

@@ -3,8 +3,13 @@
 
 /tests
 /dist/tests
-/dist/types
-
-/dist/package.json
+/dist/types/rollup.config.d.ts
 
 node_modules
+.github/**/*
+/bin/tests
+
+rollup.config.ts
+tsconfig.base.json
+tsconfig.json
+.eslintrc.cjs

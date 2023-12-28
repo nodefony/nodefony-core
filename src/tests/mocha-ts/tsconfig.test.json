@@ -4,11 +4,11 @@
     // Autres options de configuration pour les tests
   },
   "include": [
-    "../tests/**/*.test.ts"
+    "../*.test.ts",
+    "../**/*.test.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "../index.test.ts"
+    "dist"
   ]
 }
