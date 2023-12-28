@@ -1,9 +1,11 @@
 // index.ts
-import  nodefony, {kernel} from './Nodefony'; // Importe l'instance partagée de Nodefony
+import  nodefony, {kernel} from './Nodefony'; 
 
-// Utilisation du style ES6 pour les modules (import)
+// Vérifie si module.exports est défini (module CommonJS)
+if (typeof module !== 'undefined' && module.exports) {
+  // Exporte directement l'objet nodefony
+  module.exports = nodefony;
+} 
 export default nodefony;
-export { kernel, nodefony};
+export { kernel , nodefony};
 
-// Utilisation du style CommonJS (require)
-//module.exports =  nodefony ;

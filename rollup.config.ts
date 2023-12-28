@@ -187,11 +187,12 @@ function createNodeConfig(isProduction: boolean) : RollupOptions {
     input: "src/index.ts",
     ...sharedNodeOptions, 
     output: {
+      preserveModulesRoot:"src",
       ...sharedNodeOptions.output,
       sourcemap: !isProduction,
     },
     external,
-    plugins: createNodePlugins(isProduction, false, "dist/types")
+    plugins: createNodePlugins(isProduction, true, "dist/types")
   })
 }
 
@@ -210,7 +211,7 @@ function createCjsConfig(isProduction: boolean) {
       sourcemap: false,
     },
     external: externalCjs,
-    plugins: [...createNodePlugins(isProduction, false, false)]
+    plugins: [...createNodePlugins(isProduction, true, false)]
   })
 }
 
@@ -225,7 +226,7 @@ function createTestConfig(isProduction: boolean) : RollupOptions {
       sourcemap: !isProduction,
     },
     external,
-    plugins: createTstPlugins(isProduction, false, false)
+    plugins: createTstPlugins(isProduction, true, false)
   })
 }
 

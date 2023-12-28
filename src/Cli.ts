@@ -6,6 +6,7 @@
 import path from "node:path"
 import fs from "node:fs"
 import  commander , { program } from "commander";
+//import commander, { program } from '@commander-js/extra-typings';
 import { 
   spawn, 
   spawnSync, 
@@ -34,7 +35,7 @@ import Syslog from "./syslog/Syslog";
 //import Rx from 'rxjs'
 import Rx from 'rxjs'
 //import   {rm, ls, cd ,mkdir, ln, cp ,chmod, ShellString, ShellArray } from 'shelljs'
-import   shelljs from 'shelljs'
+import shelljs from 'shelljs'
 
 
 interface CliDefaultOptions extends DefaultOptions{
@@ -113,7 +114,7 @@ class Cli extends Service {
   public clui:  typeof clui  = clui
   public clc :typeof clc  = clc
   public spinner : clui.Spinner |  null  = null
-  public blankLine :  (() => void ) | null =  null 
+  public blankLine :  (() => void )  = ()=>{} 
   public columns : number = 0
   public rows : number = 0
 
@@ -530,15 +531,17 @@ class Cli extends Service {
     return null;
   }
 
-  initUi () {
-    this.blankLine  = function (this: Cli) {
-      // return () => {
-      //    console.log("")
-      // }
-      const myLine = new this.clui.Line().fill();
+  initUi () : void{
+    this.blankLine  = function (this: Cli): () => void  {
+      if( this.clui){
+         const myLine = new this.clui.Line().fill();
+         return () => {
+          myLine.output();
+        };
+      }
       return () => {
-        myLine.output();
-      };
+        console.log()
+      } 
     }.call(this);
     if (this.options.resize) {
       this.resize();
@@ -745,29 +748,29 @@ class Cli extends Service {
     return shelljs.rm(...files );
   }
 
-  // cp (options: string, source: string | string[], dest: string) :  ShellString{
-  //   return cp(options, source, dest ); 
-  // }
+  cp (options: string, source: string | string[], dest: string) :  shelljs.ShellString {
+    return shelljs.cp(options, source, dest ); 
+  }
 
-  // cd (dir?: string | undefined) :  ShellString{
-  //   return cd( dir);
-  // }
+  cd (dir?: string | undefined) :  shelljs.ShellString {
+    return shelljs.cd( dir);
+  }
 
-  // ln (options: string, source: string, dest: string):  ShellString {
-  //   return ln(options, source, dest );
-  // }
+  ln (options: string, source: string, dest: string):  shelljs.ShellString {
+    return shelljs.ln(options, source, dest );
+  }
 
-  // mkdir (...dir: string[]):  ShellString{
-  //   return mkdir(...dir );
-  // }
+  mkdir (...dir: string[]):  shelljs.ShellString {
+    return shelljs.mkdir(...dir );
+  }
 
-  // chmod (options: string, mode: string | number, file: string): ShellString {
-  //   return chmod(options, mode, file);
-  // }
+  chmod (options: string, mode: string | number, file: string): shelljs.ShellString {
+    return shelljs.chmod(options, mode, file);
+  }
 
-  // ls (...paths: string[]):  ShellArray{
-  //   return ls(...paths);
-  // }
+  ls (...paths: string[]):  shelljs.ShellArray{
+    return shelljs.ls(...paths);
+  }
 
   createDirectory (
     myPath: fs.PathLike | fs.PathOrFileDescriptor , 

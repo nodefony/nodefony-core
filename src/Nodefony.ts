@@ -5,6 +5,7 @@ import Container from './Container';
 import Syslog from './syslog/Syslog';
 import Error from './Error'
 import Service from './Service'
+import Command from './command/command'
 import Cli from './Cli'
 import {
   extend,
@@ -39,6 +40,9 @@ class Nodefony {
 
   static Container = Container;
   public Container: typeof Container  = Container;
+
+  static Command = Command;
+  public Command: typeof Command  = Command;
 
   public static Kernel = Kernel;
   public Kernel: typeof Kernel  = Kernel;
