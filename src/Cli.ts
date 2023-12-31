@@ -2,7 +2,6 @@
 /* eslint-disable no-async-promise-executor */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable max-lines-per-function */
-// const Table = require('cli-table3');
 import path from "node:path"
 import fs from "node:fs"
 import  commander , { program } from "commander";
@@ -18,7 +17,7 @@ import {
 import moment from "moment";
 import semver from "semver";
 import asciify from "asciify";
-import inquirer from "inquirer"
+//import inquirer from "inquirer"
 import Table from "cli-table3"
 import {get, random} from "node-emoji"
 import clc from "cli-color"
@@ -39,20 +38,20 @@ import shelljs from 'shelljs'
 
 
 interface CliDefaultOptions extends DefaultOptions{
-  processName: string
-  autostart: boolean
-  asciify: boolean
-  clear: boolean
-  color: bare.Format 
-  prompt: string
-  commander: boolean
-  signals: boolean
-  autoLogger: boolean
-  resize: boolean
-  version: null
-  warning: boolean
-  pid: boolean 
-  promiseRejection: boolean,
+  processName?: string
+  autostart?: boolean
+  asciify?: boolean
+  clear?: boolean
+  color?: bare.Format
+  prompt?: string
+  commander?: boolean
+  signals?: boolean
+  autoLogger?: boolean
+  resize?: boolean
+  version?: string
+  warning?: boolean
+  pid?: boolean
+  promiseRejection?: boolean
   font?:string
 }
 
@@ -64,8 +63,7 @@ const {green} = clc;
 const magenta = clc.magenta.bold;
 const {reset} = clc; // '\x1b[0m';
 
-
-let processName = null;
+let processName: string| null  = null;
 if (process.argv && process.argv[1]) {
   processName = path.basename(process.argv[1]);
 } else {
@@ -90,20 +88,19 @@ const defaultOptions = {
   signals: true,
   autoLogger: true,
   resize: false,
-  version: null,
+  version: "1.0.0",
   warning: false,
   pid: false,
   promiseRejection: true
 };
 
 class Cli extends Service {
-  public  declare options : CliDefaultOptions 
+  public override options : CliDefaultOptions  = extend({}, defaultOptions)
   public debug : DebugType = false
-  public environment : EnvironmentType | string
-  public inquirer : typeof inquirer = inquirer
+  public environment : EnvironmentType | string = "production"
+  //public inquirer : typeof inquirer = inquirer
   public commander : typeof program  | null = null
-  //public emoji: typeof emoji = emoji
-  public  pid : number  | null
+  public  pid : number  | null = null
   public interactive : boolean = false
   public prompt :Rx.Subject<unknown>| any | null = null
   public unhandledRejections: Map<Promise<unknown>, string> = new Map();
@@ -118,85 +115,57 @@ class Cli extends Service {
   public columns : number = 0
   public rows : number = 0
 
- // eslint-disable-next-line complexity
-  constructor(name: string, container?: Container , notificationsCenter?: Event | false, options?: CliDefaultOptions) {
-    options = extend({}, defaultOptions, options);
-    if(options){
-      name ||= options.processName; // Utilisation de l'opérateur de fusion nullish
-      options = extend({}, defaultOptions, options);
+  constructor(name?: string);
+  constructor(name: string, options: CliDefaultOptions);
+  constructor(name: string, container: Container, options: CliDefaultOptions);
+  constructor(name: string, container: Container, notificationsCenter: Event | false | undefined, options: CliDefaultOptions);
+  constructor(name?: string, ...args: any[]) {
+    const container : Container | undefined | null = args[0] instanceof Container ? args[0] : undefined;
+    const notificationsCenter: Event | undefined | false = (args[1] instanceof Event) ? args[1] : (args[1] === false) ? false: undefined;
+    const last = args[args.length - 1] 
+    let options = null
+    if( last instanceof Container || last instanceof Event  || last === false){
+      options = extend({}, defaultOptions) ;
     }else{
-      options = extend({}, defaultOptions, options);
+      options = extend({}, defaultOptions, last || {}) ;
     }
-
-     // Obtenez le nombre d'arguments
-    const numArgs: number = arguments.length;
-    switch (numArgs) {
-        case 0:
-        case 1:{
-          // @ts-ignore
-          super(name);
-          break;
-        }
-        case 2:{
-          // @ts-ignore
-          super(name, undefined, undefined, container);
-          break;
-        }
-        case 3:{
-          // @ts-ignore
-          super(name, <Container>container, undefined, <Event>notificationsCenter);
-          break;
-        }
-        default:{
-          // @ts-ignore
-          super(name, <Container>container, <Event>notificationsCenter, options);
-        }
-    }
+    super(name || <string>options.processName, container, notificationsCenter, options);
     this.options = <CliDefaultOptions>options;
     if ( process.env.NODE_ENV ){
       this.environment = process.env.NODE_ENV
     }else{
       this.environment  = "production";
     }
-    
     this.setProcessTitle();
     this.pid = this.options.pid ? this.setPid() : null;
-    
     if (this.options.autoLogger) {
       this.initSyslog();
     }
-
     this.initUi();
-
     // Optimisation : Utilisation de fireAsync pour les opérations asynchrones
     this.prependOnceListener("onStart", async () => {
       try {
-        this.initPrompt();
+        //this.initPrompt();
         await this.fireAsync("onStart", this);
       } catch (e) {
         this.log(e, "ERROR");
       }
     });
-
     this.initCommander();
-
     // Gestion des avertissements
     if (this.options.warning) {
       this.handleWarnings();
     } else {
       process.env.NODE_NO_WARNINGS = "1"; // Utilisation d'une chaîne pour la clarté
     }
-
     // Gestion des signaux
     if (this.options.signals) {
       this.handleSignals();
     }
-
     // Gestion des rejets de promesses
     if (this.options.promiseRejection) {
       this.listenRejection();
     }
-
     // Affichage ASCII (asciify)
     if (name && this.options.asciify) {
       this.showAsciify(name)
@@ -218,163 +187,7 @@ class Cli extends Service {
     }
   }
 
-
-  // eslint-disable-next-line complexity
-  // constructor (name: string, container?: Container, notificationsCenter?: Event | false , options: CliDefaultOptions ) {
-  //   switch (arguments.length) {
-  //   case 0:
-  //     options = extend({}, defaultOptions);
-  //     name = options.processName;
-  //     super(options.processName, undefined, undefined, options);
-  //     break;
-  //   case 1:
-  //     if (typeof name === "object" && name !== null) {
-  //       options = extend({}, defaultOptions, name);
-  //       name = options.processName;
-  //       super(options.processName, undefined, undefined, options);
-  //     } else {
-  //       options = extend({}, defaultOptions);
-  //       name ||= options.processName;
-  //       super(name, undefined, undefined, options);
-  //     }
-  //     break;
-  //   case 2:
-  //     if (container instanceof Container) {
-  //       options = extend({}, defaultOptions);
-  //       name ||= options.processName;
-  //       super(name, container, undefined, options);
-  //     } else if (typeof container === "object" && container !== null) {
-  //       options = extend({}, defaultOptions, container);
-  //       name ||= options.processName;
-  //       super(name, undefined, undefined, options);
-  //     } else {
-  //       options = extend({}, defaultOptions);
-  //       name ||= options.processName;
-  //       super(name, container, undefined, options);
-  //     }
-  //     break;
-  //   default:
-  //     options = extend({}, defaultOptions, options);
-  //     name ||= options.processName;
-  //     super(name, container, notificationsCenter, options);
-  //   }
-  //   this.options = options
-  //   this.environment = process.env.NODE_ENV || "production";
-  //   // process.env.NODE_ENV = this.environment;
-  //   this.unhandledRejections = new Map();
-
-  //   this.setProcessTitle();
-  //   this.pid = null;
-  //   if (this.options.pid) {
-  //     this.setPid();
-  //   }
-  //   this.wrapperLog = console.log;
-  //   this.response = {};
-  //   this.timers = {};
-  //   if (this.options.autoLogger) {
-  //     this.initSyslog();
-  //   }
-  //   this.initUi();
-  //   this.prependOnceListener("onStart", async () => {
-      
-  //   });
-
-  //   this.commander = null;
-  //   this.initCommander();
-
-  //   if (this.options.warning) {
-  //     process.on("warning", (warning) => {
-  //       this.log(warning, "WARNING");
-  //       this.fire("onNodeWarning", warning, this);
-  //     });
-  //   } else {
-  //     process.env.NODE_NO_WARNINGS = 1;
-  //   }
-
-  //   /**
-  //    *  @signals
-  //    */
-  //   if (this.options.signals) {
-  //     process.on("SIGINT", () => {
-  //       this.blankLine();
-  //       this.wrapperLog = console.log;
-  //       this.log("SIGINT", "CRITIC");
-  //       // this.clear();
-  //       this.fire("onSignal", "SIGINT", this);
-  //       process.nextTick(() => {
-  //         this.terminate();
-  //       });
-  //     });
-  //     process.on("SIGTERM", () => {
-  //       this.blankLine();
-  //       this.wrapperLog = console.log;
-  //       this.log("SIGTERM", "CRITIC");
-  //       this.fire("onSignal", "SIGTERM", this);
-  //       process.nextTick(() => {
-  //         this.terminate();
-  //       });
-  //     });
-  //     process.on("SIGHUP", () => {
-  //       this.blankLine();
-  //       this.wrapperLog = console.log;
-  //       this.log("SIGHUP", "CRITIC");
-  //       this.fire("onSignal", "SIGHUP", this);
-  //       process.nextTick(() => {
-  //         this.terminate();
-  //       });
-  //     });
-  //     process.on("SIGQUIT", () => {
-  //       this.blankLine();
-  //       this.wrapperLog = console.log;
-  //       this.log("SIGQUIT", "CRITIC");
-  //       // this.clear();
-  //       this.fire("onSignal", "SIGQUIT", this);
-  //       process.nextTick(() => {
-  //         this.terminate();
-  //       });
-  //     });
-  //     process.on("uncaughtException", (err) => {
-  //       this.log(err, "CRITIC", "uncaughtException");
-  //     });
-  //   }
-
-  //   /**
-  //    *  @promiseRejection
-  //    */
-  //   if (this.options.promiseRejection) {
-  //     this.listenRejection();
-  //   }
-
-  //   /**
-  //    *    ASCIIFY
-  //    */
-  //   if (name && this.options.asciify) {
-  //     this.showAsciify(name)
-  //       .then(async () => {
-  //         if (this.options.autostart) {
-  //           try {
-  //             await this.fireAsync("onStart", this);
-  //           } catch (e) {
-  //             this.log(e, "ERROR");
-  //           }
-  //         }
-  //       });
-  //   } else if (this.options.autostart) {
-  //     try {
-  //       async () => {
-  //         try {
-  //           await this.fireAsync("onStart", this);
-  //         } catch (e) {
-  //           this.log(e, "ERROR");
-  //         }
-  //       };
-  //     } catch (e) {
-  //       this.log(e, "ERROR");
-  //     }
-  //   }
-  // }
-
-    // Méthode privée pour gérer les signaux
+  //Méthode privée pour gérer les signaux
   private handleSignals(): void {
     const signalHandler = (signal: string) => {
       if( this.blankLine){
@@ -393,8 +206,7 @@ class Cli extends Service {
     process.on("SIGQUIT", () => signalHandler("SIGQUIT"));
   }
 
-
-   // Méthode privée pour gérer les avertissements
+  // Méthode privée pour gérer les avertissements
   private handleWarnings(): void {
     process.on("warning", (warning) => {
       this.log(warning, "WARNING");
@@ -459,11 +271,10 @@ class Cli extends Service {
     if (!name) {
       name = this.name;
     }
-    
     return await this.asciify(`      ${name}`, {
       font: this.options.font || "standard"
     })
-      .then((data) => {
+      .then((data: string) => {
         this.fire("onAsciify", data);
         if (this.options.clear) {
           this.clear();
@@ -472,7 +283,7 @@ class Cli extends Service {
         console.log(color(data));
         return data;
       })
-      .catch((err) => {
+      .catch((err: Error) => {
         this.log(err, "ERROR");
         throw err;
       });
@@ -548,16 +359,16 @@ class Cli extends Service {
     }
   }
 
-  initPrompt () : void {
-    this.inquirer = inquirer;
-    if (this.options.prompt === "rxjs") {
-      this.prompt = new Rx.Subject();
-      const prompt = inquirer.createPromptModule();
-      prompt(this.prompt);
-    } else {
-      this.prompt = inquirer.createPromptModule();
-    }
-  }
+  // initPrompt () : void {
+  //   this.inquirer = inquirer;
+  //   if (this.options.prompt === "rxjs") {
+  //     this.prompt = new Rx.Subject();
+  //     const prompt = inquirer.createPromptModule();
+  //     prompt(this.prompt);
+  //   } else {
+  //     this.prompt = inquirer.createPromptModule();
+  //   }
+  // }
 
   getFonts () : void {
     asciify.getFonts((err, fonts) => {
@@ -651,12 +462,12 @@ class Cli extends Service {
     throw new Error(`Bad vlue : ${values}`)
   }
 
-  getSeparator (sep: string | undefined) {
-    if (sep) {
-      return new inquirer.Separator(sep);
-    }
-    return new inquirer.Separator("--------");
-  }
+  // getSeparator (sep: string | undefined) {
+  //   if (sep) {
+  //     return new inquirer.Separator(sep);
+  //   }
+  //   return new inquirer.Separator("--------");
+  // }
 
   getSpinner (message: string, design?: string[]) {
     return new this.clui.Spinner(message, design );
@@ -1068,4 +879,7 @@ class Cli extends Service {
   }
 }
 
-export default  Cli;
+export default Cli;
+export{
+  CliDefaultOptions
+}

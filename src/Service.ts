@@ -26,12 +26,12 @@ const settingsSyslog : SyslogDefaultSettings = {
 
 class Service {
   name: string;
-  protected options: DefaultOptions;
-  private container: Container | null;
+  public options: DefaultOptions;
+  public container: Container | null | undefined;
   private kernel: any; // Remplacez ce type par le type réel de kernel si possible
   private syslog: Syslog | null;
   private settingsSyslog: SyslogDefaultSettings | null;
-  private notificationsCenter: Event | undefined | boolean ;
+  public notificationsCenter: Event | undefined | boolean ;
 
   constructor(name: string, container?: Container, notificationsCenter?: Event | false, options: DefaultOptions = {}) {
     this.name = name;

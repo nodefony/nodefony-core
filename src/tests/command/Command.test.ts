@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { assert } from 'chai';
+import  assert  from 'node:assert';
 import 'mocha';
 import  Command  from '../../command/command';  
-
 
 describe('Command', () => {
 
@@ -13,9 +12,9 @@ describe('Command', () => {
     beforeEach(() => {})
 
     it('instance', ()=>{
-      const inst = new Command("start") 
+      const inst = new Command("start")
       assert(inst)
-      //assert.equal(inst.name, "start")
+      assert.equal(inst.name, "start")
     })
 
   })
