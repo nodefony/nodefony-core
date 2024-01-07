@@ -5,7 +5,7 @@ import Container from './Container';
 import Syslog from './syslog/Syslog';
 import Error from './Error'
 import Service from './Service'
-import Command from './command/command'
+import Command from './command/Command'
 import Cli from './Cli'
 import {
   extend,

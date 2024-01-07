@@ -3,8 +3,8 @@
 import Container, {DynamicParam} from "./Container"
 import Event , {EventDefaultInterface} from "./Event"
 import  Pdu, {Severity, Msgid, Message, } from './syslog/Pdu'
-
-import Syslog ,{SyslogDefaultSettings} from "./syslog/Syslog";
+import Syslog ,{SyslogDefaultSettings, conditionsInterface } from "./syslog/Syslog";
+import {EnvironmentType, DebugType} from './Nodefony'
 
 export interface DefaultOptions extends EventDefaultInterface{
   events?: {
@@ -25,7 +25,7 @@ const settingsSyslog : SyslogDefaultSettings = {
 };
 
 class Service {
-  name: string;
+  public name: string;
   public options: DefaultOptions;
   public container: Container | null | undefined;
   private kernel: any; // Remplacez ce type par le type réel de kernel si possible
@@ -76,7 +76,7 @@ class Service {
     delete this.options.events;
   }
 
-  initSyslog(environment: string = "production", debug?: any, options: any = null) {
+  initSyslog(environment: EnvironmentType = "production", debug: DebugType= false, options?: conditionsInterface ) {
     return this.syslog ? this.syslog.init(environment, debug, options) : null;
   }
 

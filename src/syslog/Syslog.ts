@@ -3,7 +3,7 @@
 import clc from "cli-color";
 import {typeOf, extend} from "../Tools"
 import  Pdu, {Severity, ModuleName, Msgid, Message} from './Pdu'
-//import nodefony , { kernel} from "../Nodefony"
+import   { DebugType, EnvironmentType} from "../Nodefony"
 import Event  from '../Event'
 const yellow = clc.yellow.bold;
 const red = clc.red.bold ; 
@@ -11,7 +11,7 @@ const cyan = clc.cyan.bold;
 const blue = clc.blueBright.bold;
 const green = clc.green
 
-type DebugType = boolean | string | string[]
+//type DebugType = boolean | string | string[]
 type Operator = "<" | ">" | "<=" | ">=" | "==" | "===" | "!=" | "RegExp" 
 type Condition = "&&" | "||"
 type Data = any
@@ -458,7 +458,7 @@ class Syslog extends Event {
     return formatDebug(debug);
   }
 
-  init (environment : string, debug :DebugType , options = null) {
+  init (environment : EnvironmentType, debug?: DebugType , options? : conditionsInterface ) {
     return this.listenWithConditions(
       options || conditionOptions(environment, debug),
       (pdu : Pdu ) => Syslog.normalizeLog(pdu)

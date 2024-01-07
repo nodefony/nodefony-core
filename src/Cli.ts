@@ -17,7 +17,6 @@ import {
 import moment from "moment";
 import semver from "semver";
 import asciify from "asciify";
-//import inquirer from "inquirer"
 import Table from "cli-table3"
 import {get, random} from "node-emoji"
 import clc from "cli-color"
@@ -35,6 +34,7 @@ import Syslog from "./syslog/Syslog";
 import Rx from 'rxjs'
 //import   {rm, ls, cd ,mkdir, ln, cp ,chmod, ShellString, ShellArray } from 'shelljs'
 import shelljs from 'shelljs'
+
 
 
 interface CliDefaultOptions extends DefaultOptions{
@@ -98,7 +98,6 @@ class Cli extends Service {
   public override options : CliDefaultOptions  = extend({}, defaultOptions)
   public debug : DebugType = false
   public environment : EnvironmentType | string = "production"
-  //public inquirer : typeof inquirer = inquirer
   public commander : typeof program  | null = null
   public  pid : number  | null = null
   public interactive : boolean = false
@@ -117,8 +116,8 @@ class Cli extends Service {
 
   constructor(name?: string);
   constructor(name: string, options: CliDefaultOptions);
-  constructor(name: string, container: Container, options: CliDefaultOptions);
-  constructor(name: string, container: Container, notificationsCenter: Event | false | undefined, options: CliDefaultOptions);
+  constructor(name: string, container: Container | null | undefined, options: CliDefaultOptions);
+  constructor(name: string, container: Container | null | undefined, notificationsCenter: Event | false | undefined, options: CliDefaultOptions);
   constructor(name?: string, ...args: any[]) {
     const container : Container | undefined | null = args[0] instanceof Container ? args[0] : undefined;
     const notificationsCenter: Event | undefined | false = (args[1] instanceof Event) ? args[1] : (args[1] === false) ? false: undefined;
@@ -145,7 +144,6 @@ class Cli extends Service {
     // Optimisation : Utilisation de fireAsync pour les opérations asynchrones
     this.prependOnceListener("onStart", async () => {
       try {
-        //this.initPrompt();
         await this.fireAsync("onStart", this);
       } catch (e) {
         this.log(e, "ERROR");
@@ -334,6 +332,8 @@ class Cli extends Service {
   initCommander () {
     if (this.options.commander) {
       this.commander = program;
+      this.commander.option('-i, --interactive', 'Interaction mode')
+      this.commander.option('-d, --debug', 'Debug mode')
       if (this.options.version) {
         this.setCommandVersion(this.options.version);
       }
@@ -358,17 +358,6 @@ class Cli extends Service {
       this.resize();
     }
   }
-
-  // initPrompt () : void {
-  //   this.inquirer = inquirer;
-  //   if (this.options.prompt === "rxjs") {
-  //     this.prompt = new Rx.Subject();
-  //     const prompt = inquirer.createPromptModule();
-  //     prompt(this.prompt);
-  //   } else {
-  //     this.prompt = inquirer.createPromptModule();
-  //   }
-  // }
 
   getFonts () : void {
     asciify.getFonts((err, fonts) => {
@@ -461,13 +450,6 @@ class Cli extends Service {
     }
     throw new Error(`Bad vlue : ${values}`)
   }
-
-  // getSeparator (sep: string | undefined) {
-  //   if (sep) {
-  //     return new inquirer.Separator(sep);
-  //   }
-  //   return new inquirer.Separator("--------");
-  // }
 
   getSpinner (message: string, design?: string[]) {
     return new this.clui.Spinner(message, design );
@@ -575,59 +557,71 @@ class Cli extends Service {
     return shelljs.mkdir(...dir );
   }
 
-  chmod (options: string, mode: string | number, file: string): shelljs.ShellString {
-    return shelljs.chmod(options, mode, file);
+  // chmod(options: string, mode: string | number, file: string): shelljs.ShellString {
+  //    return shelljs.chmod(options, mode, file);
+  // }
+
+  chmod(options: string, mode: string | number, file: string): shelljs.ShellString;
+  chmod(mode: string | number, file: string): shelljs.ShellString;
+  chmod(...args: any[]): shelljs.ShellString {
+    if (args.length === 3) {
+      return shelljs.chmod(args[0], args[1], args[2]);
+    } else if (args.length === 2) {
+      return shelljs.chmod(args[0], args[1]);
+    } else {
+      // Gérer l'erreur ou lancer une exception si nécessaire
+      throw new Error('Nombre d\'arguments invalide pour la méthode chmod.');
+    }
   }
 
   ls (...paths: string[]):  shelljs.ShellArray{
     return shelljs.ls(...paths);
   }
 
-  createDirectory (
-    myPath: fs.PathLike | fs.PathOrFileDescriptor , 
-    mode : fs.MakeDirectoryOptions | fs.Mode | null | undefined, 
-    callback: (file:FileClass) =>void | null, 
-    force: boolean
-  ){
-    let file = null;
-    if (!callback) {
-      return new Promise((resolve, reject) => {
-        try {
-          fs.mkdirSync(<fs.PathLike>myPath, mode);
-          file = new FileClass(myPath);
-          return resolve(file);
-        } catch (e: any) {
-          switch (e.code) {
-          case "EEXIST":
-            if (force) {
-              file = new FileClass(myPath);
-              return resolve(file);
-            }
-            break;
-          }
-          return reject(e);
-        }
-      })
-        .catch((e) => {
-          throw e;
-        });
-    }
+  // async createDirectory (
+  //   myPath: fs.PathLike , 
+  //   mode ?: fs.MakeDirectoryOptions | fs.Mode | null , 
+  //   force: boolean = false
+  // ) : Promise<FileClass>  {
+  //   return new Promise<FileClass>((resolve, reject) => {
+  //     try {
+  //       console.log("pass", myPath)
+  //       const file = fs.mkdirSync(<fs.PathLike>myPath, mode)
+  //       console.log(file)
+  //       return resolve( new FileClass( myPath ) );
+  //     } catch (e: any) {
+  //       switch (e.code) {
+  //       case "EEXIST":
+  //         if (force) {
+  //           return resolve(new FileClass(myPath));
+  //         }
+  //         break;
+  //       }
+  //       return reject(e);
+  //     }
+  //   })
+  //   .catch((e) => {
+  //     throw e;
+  //   });
+  // }
+
+  async createDirectory(
+  myPath: fs.PathLike,
+  mode?: fs.MakeDirectoryOptions | fs.Mode | null,
+  force: boolean = false
+  ): Promise<FileClass> {
     try {
-      fs.mkdirSync(<fs.PathLike>myPath, mode);
-      file = new FileClass(myPath);
-      callback(file);
-      return file;
+      await fs.promises.mkdir(myPath, mode);
+      return new FileClass(myPath);
     } catch (e: any) {
       switch (e.code) {
-      case "EEXIST":
-        if (force) {
-          file = new FileClass(myPath);
-          callback(file);
-          return file;
-        }
-        break;
+        case "EEXIST":
+          if (force) {
+            return new FileClass(myPath);
+          }
+          break;
       }
-      throw e;
+      throw e
     }
   }
 
@@ -638,7 +632,7 @@ class Cli extends Service {
     return fs.existsSync(myPath);
   }
 
-  exists (myPath: fs.PathLike, mode: number | undefined, callback: fs.NoParamCallback) {
+  exists (myPath: fs.PathLike, mode?: number | undefined, callback?: fs.NoParamCallback) {
     if (!myPath) {
       throw new Error("exists no path found");
     }
