@@ -8,7 +8,7 @@ class FileResult extends Result {
 
   constructor (res?:  File[] | undefined) {
     super(res);
-     Array.prototype.find
+    //Array.prototype.find
   }
 
   override toString () : string {
@@ -30,8 +30,8 @@ class FileResult extends Result {
       case "symbolicLink":
       case "Directory":{
         const dir = info.toJson();
-        if (info.children) {
-          dir.children = info.children.toJson();
+        if (info.childrens) {
+          dir.childrens = info.childrens.toJson();
         }
         json.push(dir);
         break;
@@ -53,7 +53,7 @@ class FileResult extends Result {
       if (match) {
         result.push(info);
       }
-      info.children.find(predicate, result);
+      info.childrens.find(predicate, result);
     }
     return result.uniq();
   }
@@ -64,10 +64,10 @@ class FileResult extends Result {
       switch (info.type) {
       case "Directory":
         result.push(info);
-        info.children.getDirectories(result);
+        info.childrens.getDirectories(result);
         break;
       case "symbolicLink":
-        info.children.getDirectories(result);
+        info.childrens.getDirectories(result);
         break;
       }
     }
@@ -83,7 +83,7 @@ class FileResult extends Result {
         break;
       case "symbolicLink":
       case "Directory":
-        info.children.getFiles(result);
+        info.childrens.getFiles(result);
         break;
       }
     }

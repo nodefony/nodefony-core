@@ -1,43 +1,42 @@
 // Importez chaque déclaration de type individuelle
-import  globals  from './globals';
+import  Globals  from './globals';
 
-import  index  from '../../dist/types/src/index';
-import  container  from '../../dist/types/src/Container';
-import  error  from '../../dist/types/src/Error';
-import  event  from '../../dist/types/src/Event';
-import  fileclass  from '../../dist/types/src/FileClass';
-import  kernel  from '../../dist/types/src/Kernel';
+import  Index  from '../../dist/types/src/index';
+import  Container  from '../../dist/types/src/Container';
+import  nodefonyError  from '../../dist/types/src/Error';
+import  Event  from '../../dist/types/src/Event';
+import  Fileclass  from '../../dist/types/src/FileClass';
+import  Kernel  from '../../dist/types/src/Kernel';
 import  nodefony  from '../../dist/types/src/Nodefony';
-import  service  from '../../dist/types/src/Service';
-import  tool  from '../../dist/types/src/Tools';
-import  syslog  from '../../dist/types/src/syslog/Syslog';
-import  pdu  from '../../dist/types/src/syslog/Pdu';
-import  file    from '../../dist/types/src/finder/File';
-import  fileResult    from '../../dist/types/src/finder/FileResult';
+import  Service  from '../../dist/types/src/Service';
+import  Tool  from '../../dist/types/src/Tools';
+import  Syslog  from '../../dist/types/src/syslog/Syslog';
+import  Pdu  from '../../dist/types/src/syslog/Pdu';
+import  File    from '../../dist/types/src/finder/File';
+import  FileResult    from '../../dist/types/src/finder/FileResult';
 import  Finder    from '../../dist/types/src/finder/Finder';
-import  result    from '../../dist/types/src/finder/Result';
-import  Command    from '../../dist/types/src/command/command';
-import  task    from '../../dist/types/src/command/task';
-
+import  Result    from '../../dist/types/src/finder/Result';
+import  Command    from '../../dist/types/src/command/Command';
+import  Builder   from '../../dist/types/src/command/Builder';
 
 // Exportez tous les types
 export { 
-  globals, 
-  index, 
-  container, 
-  error, 
-  event, 
-  fileclass, 
-  kernel, 
+  Globals, 
+  Index, 
+  Container, 
+  nodefonyError, 
+  Event, 
+  Fileclass, 
+  Kernel, 
   nodefony, 
-  service, 
-  tool, 
-  syslog, 
-  pdu,
-  file,
-  fileResult,
+  Service, 
+  Tool, 
+  Syslog, 
+  Pdu,
+  File,
+  FileResult,
   Finder,
-  result,
+  Result,
   Command,
-  task
+  Builder
 };

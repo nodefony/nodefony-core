@@ -6,10 +6,12 @@ import Event from '../Event'
 import Command  from './Command'
 import {extend, typeOf} from "../Tools"
 import FileClass from '../FileClass'
+import File from '../finder/File'
 import Cli from '../Cli'
 import { PathLike } from "node:fs"
 import fs from 'node:fs'
 import twig from 'twig'
+import shelljs from 'shelljs'
 
 interface SymlinkParams {
   source: string;
@@ -86,10 +88,10 @@ class Builder extends Service{
     })
     .then((response) => {
       if (response) {
-        if (!this.cli?.exists(file)) {
+        if (! fs.existsSync(file)) {
           throw `${file} not exist`;
         }
-          this.cli.rm("-rf", file);
+          shelljs.rm("-rf", file);
           return response;
       } 
       return response;
@@ -98,7 +100,6 @@ class Builder extends Service{
       throw e;
     });
   }
-
 
   buildSkeleton(skeleton: string | FileClass, parse: boolean, data:Record<string, any>) : Promise <string | NodeJS.ArrayBufferView> {
      let skelete = null;
@@ -136,149 +137,34 @@ class Builder extends Service{
         return reject(e);
       }
     });
-    
-
   }
-
-
-  // async build (obj : BuilderObject | BuilderObject[] , parent? : FileClass | null , force: boolean =false) : Promise<FileClass | null> {
-  //   let child: FileClass | null  = null;
-  //   try {
-  //     if (parent && !(parent instanceof FileClass) ) {
-  //       parent = new FileClass(parent);
-  //     }
-  //     switch (typeOf(obj)) {
-  //     case "array":{
-  //       try {
-  //         const ele = obj as  BuilderObject[]
-  //         for (let i = 0; i < ele.length; i++) {
-  //           await this.build(ele[i] as BuilderObject , parent, force);
-  //         }
-  //       } catch (e) {
-  //         this.log(e, "ERROR");
-  //         throw e;
-  //       }
-  //       break;
-  //     }
-  //     case "object":{
-  //       let name :string  ='';
-  //       //const keys = Object.keys(obj) as (keyof BuilderObject)[];
-  //       const myobj =  obj as BuilderObject
-  //       for (const ele  in obj ) {
-  //         const value = (obj as BuilderObject)[ele as string] as any;
-  //         switch (ele as string ) {
-  //         case "name":
-  //           name = value;
-  //           break;
-  //         case "type":
-  //           switch (value as FileType) {
-  //           case "directory":{
-  //             try {
-  //               const directory = path.resolve((parent as FileClass)?.path as string , <string>name);
-  //               child  = await this.cli?.createDirectory(directory, 0o755, force) as FileClass;
-  //               if (force) {
-  //                 this.log(`Force Create Directory :${child?.name}`);
-  //               } else {
-  //                 this.log(`Create Directory :${child?.name}`);
-  //               }
-  //                this.cli?.chmod((<BuilderObject>obj).chmod as string, directory);
-  //             } catch (e) {
-  //               this.log(e, "ERROR");
-  //               throw e;
-  //             }
-  //             break;
-  //           }
-  //           case "file":
-  //             try {
-  //               const file = path.resolve((parent as FileClass)?.path as string, <string>name);
-  //               await this.createFile(file, (<BuilderObject>obj).skeleton as string , (<BuilderObject>obj).parse, (<BuilderObject>obj).params)
-  //               this.log(`Create File      :${file}`);
-  //               if ((<BuilderObject>obj).chmod) {
-  //                 this.cli?.chmod((<BuilderObject>obj).chmod as string, file);
-  //               }
-  //             } catch (e) {
-  //               this.log(e, "ERROR");
-  //               throw e;
-  //             }
-  //             break;
-  //           case "symlink":
-  //             try {
-  //               const params = (<BuilderObject>obj).params
-  //               const mypath = (parent as FileClass).path as string
-  //               if (force) {
-  //                 this.cli?.ln("-sf", 
-  //                   path.resolve(mypath, (params as SymlinkParams).source), 
-  //                   path.resolve(mypath, (params as SymlinkParams).dest)
-  //                 );
-  //               } else {
-  //                 this.cli?.ln("-s", 
-  //                   path.resolve(mypath, (params as SymlinkParams).source), 
-  //                   path.resolve(mypath, (params as SymlinkParams).dest)
-  //                 );
-  //               }
-  //               this.log(`Create symbolic link :${(<BuilderObject>obj).name}`);
-  //             } catch (e) {
-  //               this.log(e, "ERROR");
-  //               throw e;
-  //             }
-  //             break;
-  //           case "copy":
-  //             try {
-  //               const params = (<BuilderObject>obj).params
-  //               const file = path.resolve((parent as FileClass).path as string, <string>name);
-  //               if (params && (params as CopyParams ).recurse) {
-  //                 this.cli?.cp("-R", (<BuilderObject>obj).path as string, file);
-  //               } else {
-  //                 this.cli?.cp("-f", (<BuilderObject>obj).path as string , file);
-  //               }
-  //               this.log(`Copy             :${(<BuilderObject>obj).name}`);
-  //               if ((<BuilderObject>obj).chmod) {
-  //                 this.cli?.chmod((<BuilderObject>obj).chmod as string , file);
-  //               }
-  //             } catch (e) {
-  //               this.log(e, "ERROR");
-  //               throw e;
-  //             }
-  //             break;
-  //           }
-  //           break;
-  //         case "childs":
-  //           try {
-  //             await this.build(value as BuilderObject[], <FileClass>child , force);
-  //           } catch (e) {
-  //             this.log(e, "ERROR");
-  //             throw e;
-  //           }
-  //           break;
-  //         }
-  //       }
-  //       break;
-  //     }
-  //     default:
-  //       this.log("generate build error arguments : ", "ERROR");
-  //     }
-  //   } catch (e) {
-  //     this.log(obj, "ERROR");
-  //     throw e;
-  //   }
-  //   return Promise.resolve(<FileClass>child);
-  // }
 
   async build(
   obj: BuilderObject | BuilderObject[],
-  parent: FileClass | string  = new FileClass(process.cwd()),
+  parent: FileClass | string | File = new File(process.cwd()),
   force: boolean = false
-): Promise<FileClass | null> {
-  let child: FileClass | null = null;
+): Promise<FileClass | null | File> {
+  let child: FileClass | File | null = null;
+  //const result = null
   try {
-    if (parent && !(parent instanceof FileClass)) {
-      parent = new FileClass(parent);
+     if (parent) {
+      if( ! (parent instanceof File) ){
+        if(parent instanceof FileClass ){
+          parent = new File(parent.path);
+        }else{
+          parent = new File(parent);
+        }
+      }
     }
+   
     switch (typeOf(obj)) {
       case "array": {
         const elements = obj as BuilderObject[];
         for (const element of elements) {
-          await this.build(element, parent, force);
+          const res = await this.build(element, <File>parent, force);
+          if(parent && res){
+            //(parent as File).childrens.push(res)
+          }
         }
         break;
       }
@@ -294,7 +180,7 @@ class Builder extends Service{
               switch (value as FileType) {
                 case "directory":{
                   const directoryPath = path.resolve(
-                    (parent as FileClass)?.path as string,
+                    (parent as File)?.path as string,
                     name
                   );
                   child = <FileClass>await this.createDirectory(
@@ -305,12 +191,14 @@ class Builder extends Service{
                   .catch(e=>{
                     throw e
                   });
+                  if(parent){
+                    (parent as File).childrens.push(<File>child)
+                  }
                   if (force) {
                     this.log(`Force Create Directory: ${child?.name}`);
                   } else {
                     this.log(`Create Directory: ${child?.name}`);
                   }
-                  //this.cli?.chmod((myobj.chmod as string) || 755, directoryPath);
                   break;
                 }
                 case "file":{
@@ -318,7 +206,7 @@ class Builder extends Service{
                     (parent as FileClass)?.path as string,
                     name
                   );
-                   await this.createFile(
+                  await this.createFile(
                     filePath,
                     myobj.skeleton as string,
                     myobj.parse,
@@ -326,7 +214,11 @@ class Builder extends Service{
                   );
                   this.log(`Create File: ${filePath}`);
                   if (myobj.chmod) {
-                    this.cli?.chmod((myobj.chmod as string) || 644, filePath);
+                    shelljs.chmod((myobj.chmod as string) || 644, filePath)
+                  }
+                  child = new File(filePath, <File>parent)
+                  if(parent){
+                    (parent as File).childrens.push(child)
                   }
                   break;
                 }
@@ -336,23 +228,31 @@ class Builder extends Service{
                   const sourcePath = path.resolve(parentPath, symlinkParams.source);
                   const destPath = path.resolve(parentPath, symlinkParams.dest);
                   const symlinkArgs = force ? ["-sf", sourcePath, destPath] : ["-s", sourcePath, destPath];
-                  this.cli?.ln(...(symlinkArgs as [string, string, string]));
+                  shelljs.ln(...(symlinkArgs as [string, string, string]))
                   this.log(`Create symbolic link: ${myobj.name}`);
+                  child = new File(destPath, <File>parent)
+                  if(parent){
+                     (parent as File).childrens.push(child)
+                  }
                   break;
                 }
                 case "copy":{
-                    const copyParams = myobj.params as CopyParams;
-                    const copyFilePath = path.resolve(
-                      (parent as FileClass).path as string,
-                      name
-                    );
-                    const copyArgs = copyParams.recurse ? ["-R", myobj.path as string, copyFilePath] : ["-f", myobj.path as string, copyFilePath];
-                    this.cli?.cp(...(copyArgs as [string, string, string]));
-                    this.log(`Copy: ${myobj.name}`);
-                    if (myobj.chmod) {
-                      this.cli?.chmod((myobj.chmod as string) || 0o644, copyFilePath);
-                    }
-                    break;
+                  const copyParams = myobj.params as CopyParams;
+                  const copyFilePath = path.resolve(
+                    (parent as FileClass).path as string,
+                    name
+                  );
+                  const copyArgs = copyParams.recurse ? ["-R", myobj.path as string, copyFilePath] : ["-f", myobj.path as string, copyFilePath];
+                  shelljs.cp(...(copyArgs as [string, string, string]))
+                  this.log(`Copy: ${myobj.name}`);
+                  if (myobj.chmod) {
+                    shelljs.chmod((myobj.chmod as string) || 0o644, copyFilePath)
+                  }
+                  child = new File(copyFilePath, <File>parent)
+                  if(parent){
+                    (parent as File).childrens.push(child)
+                  }
+                  break;
                  }
               }
               break;
@@ -371,14 +271,14 @@ class Builder extends Service{
     this.log(e, "ERROR");
     throw e;
   }
-  return Promise.resolve(child as FileClass);
+  return Promise.resolve(child as File);
 }
 
 createFile (
   myPath: string , 
   skeleton: string, 
   parse: boolean = true, 
-  params: Record<string, any> = {} ) : FileClass | Promise<FileClass> { 
+  params: Record<string, any> = {} ) : File | Promise<File> { 
     return new Promise((resolve, reject) => {
       if (skeleton) {
         return this.buildSkeleton(skeleton, parse, params)
@@ -389,7 +289,7 @@ createFile (
               if (err) {
                 return reject(err);
               }
-              return resolve(new FileClass(myPath));
+              return resolve(new File(myPath));
             });
           })
           .catch((e: Error) => reject(e));
@@ -401,7 +301,7 @@ createFile (
         if (err) {
           return reject(err);
         }
-        return resolve(new FileClass(myPath));
+        return resolve(new File(myPath));
       });
     });
   }
@@ -410,15 +310,15 @@ createFile (
     myPath: fs.PathLike,
     mode?: fs.MakeDirectoryOptions | fs.Mode | null,
     force: boolean = false
-    ): Promise<FileClass> {
+    ): Promise<File> {
       try {
         await fs.promises.mkdir(myPath, mode);
-        return new FileClass(myPath);
+        return new File(myPath);
       } catch (e: any) {
         switch (e.code) {
           case "EEXIST":
             if (force) {
-              return new FileClass(myPath);
+              return new File(myPath);
             }
             break;
         }
@@ -427,7 +327,6 @@ createFile (
     }
 
   }
-
 
 export default Builder
 export {

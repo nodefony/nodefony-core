@@ -149,7 +149,7 @@ const parser = function (this: Finder ,file: FileClass, result = new FileResult(
     }
     let res = null;
     if (parent) {
-      parent.children = result;
+      parent.childrens = result;
     }
     
     try {

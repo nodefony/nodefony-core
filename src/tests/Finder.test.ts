@@ -145,8 +145,8 @@ describe("NODEFONY CORE FINDER", () => {
           assert.strictEqual(result.length, 1);
           assert(result[0]);
           assert.strictEqual(result[0].length, 5);
-          assert.strictEqual(result[0].children.length, 5);
-          const sort = result[0].children.sortByName();
+          assert.strictEqual(result[0].childrens.length, 5);
+          const sort = result[0].childrens.sortByName();
           assert.strictEqual(sort[0].name, ".gitignore");
           assert.strictEqual(sort[0].isHidden(), true);
           assert.strictEqual(sort[0].isFile(), true);
@@ -156,10 +156,10 @@ describe("NODEFONY CORE FINDER", () => {
           assert.strictEqual(sort[2].isFile(), true);
           assert.strictEqual(sort[3].name, "dir1");
           assert.strictEqual(sort[3].isDirectory(), true);
-          assert.strictEqual(sort[3].children.length, 0);
+          assert.strictEqual(sort[3].childrens.length, 0);
           assert.strictEqual(sort[4].name, "dir2");
           // assert.strictEqual(sort[4].isSymbolicLink(), true);
-          assert.strictEqual(sort[4].children.length, 0);
+          assert.strictEqual(sort[4].childrens.length, 0);
           return result[0];
         });
       assert(res);
@@ -190,13 +190,13 @@ describe("NODEFONY CORE FINDER", () => {
         .then((result) => {
           assert(result[0]);
           assert.strictEqual(result[0].length, 5);
-          const sort = result[0].children.sortByName();
+          const sort = result[0].childrens.sortByName();
           const dir1 = sort[3];
-          assert.strictEqual(dir1.children.length, 3);
+          assert.strictEqual(dir1.childrens.length, 3);
           assert.strictEqual(dir1.name, "dir1");
-          const dir2 = dir1.children[2];
+          const dir2 = dir1.childrens[2];
           assert.strictEqual(dir2.name, "dir2");
-          assert.strictEqual(dir2.children.length, 0);
+          assert.strictEqual(dir2.childrens.length, 0);
           return sort;
         });
       assert(res);
@@ -211,15 +211,15 @@ describe("NODEFONY CORE FINDER", () => {
         })
         .then((result) => {
           assert(result[0]);
-          const sort = result[0].children.sortByName();
+          const sort = result[0].childrens.sortByName();
           const dir1 = sort[3];
-          const dir2 = dir1.children[2];
-          assert.strictEqual(dir2.children.length, 4);
-          const sort2 = dir2.children.sortByName();
+          const dir2 = dir1.childrens[2];
+          assert.strictEqual(dir2.childrens.length, 4);
+          const sort2 = dir2.childrens.sortByName();
           assert.strictEqual(sort2.length, 4);
           const dir3 = sort2[3];
           assert.strictEqual(dir3.name, "dir3");
-          assert.strictEqual(dir3.children.length, 0);
+          assert.strictEqual(dir3.childrens.length, 0);
           return sort;
         });
       assert(res);
@@ -233,12 +233,12 @@ describe("NODEFONY CORE FINDER", () => {
           followSymLink: true
         })
         .then((result) => {
-          const sort = result[0].children.sortByName();
+          const sort = result[0].childrens.sortByName();
           const dir1 = sort[3];
-          const dir2 = dir1.children[2];
-          const sort2 = dir2.children.sortByName();
+          const dir2 = dir1.childrens[2];
+          const sort2 = dir2.childrens.sortByName();
           const dir3 = sort2[3];
-          assert.strictEqual(dir3.children.length, 2);
+          assert.strictEqual(dir3.childrens.length, 2);
           return sort;
         });
       assert(res);
@@ -277,7 +277,7 @@ describe("NODEFONY CORE FINDER", () => {
           followSymLink: false,
           onFinish: (res: Result , totals: TotalInterface) => {
             // console.log(res)
-            // console.log( res[0].children.getDirectories() )
+            // console.log( res[0].childrens.getDirectories() )
             // assert.strictEqual(totals.Directory, 4);
             if (process.platform !== "win32") {
               assert.strictEqual(totals.File, 9);
@@ -308,7 +308,7 @@ describe("NODEFONY CORE FINDER", () => {
           followSymLink: true
         });
          await finder.in(global.dataPath, {});
-        // let ret = res[0].children.find(/^dir/);
+        // let ret = res[0].childrens.find(/^dir/);
       });
     });
 
@@ -324,9 +324,9 @@ describe("NODEFONY CORE FINDER", () => {
       });
       it("SIMPLE RESULT JSON", async () => {
         const res = await global.finder.in(global.dataPath);
-        assert.strictEqual(res[0].children.length, 5);
+        assert.strictEqual(res[0].childrens.length, 5);
         assert(res[0] instanceof Object);
-        assert(res[0].children instanceof Array);
+        assert(res[0].childrens instanceof Array);
         // console.log(res[0].toJson())
         // console.log(res.toJson())
         // console.log(JSON.stringify(res.toJson()))

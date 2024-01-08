@@ -2,15 +2,15 @@ import FileClass, {FileClassInterface} from '../FileClass'
 import FileResult from './FileResult'
 import fs from 'node:fs'
 
-
 interface FileInterface extends FileClassInterface {
-  children?: string;
+  childrens?: string;
+  parent?: FileInterface
 }
 
 class File extends FileClass {
 
   public parent : File | null = null
-  public children : FileResult  = new FileResult()
+  public childrens : FileResult  = new FileResult()
 
   constructor (path: string | fs.PathOrFileDescriptor, parent :File | null = null) {
     super(path);
@@ -18,7 +18,7 @@ class File extends FileClass {
   }
 
   get length () : number{
-    return this.children.length;
+    return this.childrens.length;
   }
 
   override toJson () : FileInterface{
@@ -37,7 +37,8 @@ class File extends FileClass {
       obj.mimeType = this.mimeType;
       obj.extention = this.extention;
     }
-    obj.children = this.children.toJson();
+    obj.childrens = this.childrens.toJson();
+    obj.parent = this.parent?.toJson()
     return obj;
   }
 }

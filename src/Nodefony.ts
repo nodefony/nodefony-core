@@ -7,6 +7,7 @@ import Error from './Error'
 import Service from './Service'
 import Command from './command/Command'
 import Cli from './Cli'
+import Event from './Event'
 import {
   extend,
   isEmptyObject,
@@ -58,6 +59,9 @@ class Nodefony {
   static Service = Service;
   public Service: typeof Service  = Service;
 
+  static Event = Event;
+  public Event: typeof Event = Event;
+
   static Cli = Cli;
   public Cli: typeof Cli  = Cli;
 
@@ -71,7 +75,6 @@ class Nodefony {
   public isFunction : typeof isFunction = isFunction;
   public isArray : typeof isArray = isArray;
   public isPromise : typeof isPromise = isPromise;
-
 
   public sequelize : any = null
   public mongoose : any = null
