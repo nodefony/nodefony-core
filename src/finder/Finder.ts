@@ -1,40 +1,40 @@
 /* eslint-disable no-async-promise-executor */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { promises as fsPromises } from 'fs';
-import Event from '../Event'
-import {extend, typeOf} from '../Tools'
-import FileResult from './FileResult'
-import File from './File'
-import FileClass from '../FileClass'
-import Result from './Result';
-import path from 'node:path'
-import fs from 'node:fs'
-import _ from 'lodash';
-const { isNull} = _;
+import { promises as fsPromises } from "fs";
+import Event from "../Event";
+import { extend, typeOf } from "../Tools";
+import FileResult from "./FileResult";
+import File from "./File";
+import FileClass from "../FileClass";
+import Result from "./Result";
+import path from "node:path";
+import fs from "node:fs";
+import _ from "lodash";
+const { isNull } = _;
 
-interface DefaultSettingsInterface{
-  recurse?: boolean
-  depth?: number
-  seeHidden?: boolean
-  match?: RegExp | string | null
-  exclude?: string|RegExp|null
-  excludeFile?: string|RegExp|null
-  excludeDir?: string|RegExp|null
-  followSymLink?: boolean
-  matchFile?: string
-  matchDir?: string
+interface DefaultSettingsInterface {
+  recurse?: boolean;
+  depth?: number;
+  seeHidden?: boolean;
+  match?: RegExp | string | null;
+  exclude?: string | RegExp | null;
+  excludeFile?: string | RegExp | null;
+  excludeDir?: string | RegExp | null;
+  followSymLink?: boolean;
+  matchFile?: string;
+  matchDir?: string;
 }
 
 interface TotalInterface {
-  Directory: number
-  File: number
-  BlockDevice: number
-  CharacterDevice: number
-  symbolicLink: number
-  Fifo: number
-  Socket: number
-  hidden: number
+  Directory: number;
+  File: number;
+  BlockDevice: number;
+  CharacterDevice: number;
+  symbolicLink: number;
+  Fifo: number;
+  Socket: number;
+  hidden: number;
   [key: string]: number;
 }
 
@@ -46,7 +46,7 @@ const defaultSettings: DefaultSettingsInterface = {
   exclude: null,
   excludeFile: null,
   excludeDir: null,
-  followSymLink: false
+  followSymLink: false,
 };
 
 const checkExclude = function (info: File, options: DefaultSettingsInterface) {
@@ -80,13 +80,18 @@ const checkExclude = function (info: File, options: DefaultSettingsInterface) {
   return false;
 };
 
-const checkMatch = function (this: Finder, info: File, options: DefaultSettingsInterface= {}, result: Result) {
+const checkMatch = function (
+  this: Finder,
+  info: File,
+  options: DefaultSettingsInterface = {},
+  result: Result
+) {
   let match = false;
-  let rec : string | undefined = undefined;
+  let rec: string | undefined = undefined;
   const test = options.matchFile || options.matchDir || options.match;
   if (!test) {
     result.push(info);
-    if( info.type) {
+    if (info.type) {
       this.totals[info.type]++;
       this.fire(`on${info.type}`, info, this);
     }
@@ -128,21 +133,28 @@ const checkMatch = function (this: Finder, info: File, options: DefaultSettingsI
     return true;
   }
   switch (rec) {
-  // false match
-  case "Directory":
-  case "symbolicLink":
-    result.push(info);
-    this.totals[<string>info.type]++;
-    this.fire(`on${info.type}`, info, this);
-    return true;
-  default:
-    // false file
-    // console.log("bypass ", info.name)
-    return false;
+    // false match
+    case "Directory":
+    case "symbolicLink":
+      result.push(info);
+      this.totals[<string>info.type]++;
+      this.fire(`on${info.type}`, info, this);
+      return true;
+    default:
+      // false file
+      // console.log("bypass ", info.name)
+      return false;
   }
 };
 
-const parser = function (this: Finder ,file: FileClass, result = new FileResult(), options : DefaultSettingsInterface, depth :number| null = null, parent : File | null= null) {
+const parser = function (
+  this: Finder,
+  file: FileClass,
+  result = new FileResult(),
+  options: DefaultSettingsInterface,
+  depth: number | null = null,
+  parent: File | null = null
+) {
   return new Promise(async (resolve, reject) => {
     if (depth === 0) {
       return resolve(result);
@@ -151,17 +163,19 @@ const parser = function (this: Finder ,file: FileClass, result = new FileResult(
     if (parent) {
       parent.childrens = result;
     }
-    
+
     try {
       if (file.type !== "symbolicLink") {
-        res = await fsPromises.readdir(<fs.PathLike>file.path, {
-          encoding: "utf8",
-          withFileTypes: false
-        })
+        res = await fsPromises
+          .readdir(<fs.PathLike>file.path, {
+            encoding: "utf8",
+            withFileTypes: false,
+          })
           .catch((e) => reject(e));
       } else if (options.followSymLink) {
         // console.log("symbolicLink First", file.name)
-        res = await fsPromises.readlink(<fs.PathLike>file.path)
+        res = await fsPromises
+          .readlink(<fs.PathLike>file.path)
           .catch((e) => reject(e));
       }
       // console.log(res)
@@ -183,7 +197,10 @@ const parser = function (this: Finder ,file: FileClass, result = new FileResult(
           let symLink = null;
           if (info.type === "symbolicLink" && options.followSymLink) {
             try {
-              const read = path.resolve(info.dirName, await fsPromises.readlink(<fs.PathLike>info.path));
+              const read = path.resolve(
+                info.dirName,
+                await fsPromises.readlink(<fs.PathLike>info.path)
+              );
               symLink = new File(read, info);
             } catch (e) {
               this.fire("onError", e, this);
@@ -210,20 +227,29 @@ const parser = function (this: Finder ,file: FileClass, result = new FileResult(
           }
           // console.log("RECCCCCC", info.type, info.name)
           switch (info.type) {
-          case "Directory":{
-            const myDeph : null | number = isNull(depth) ? null : depth - 1 
-            await parser.call(this, info, undefined, options, myDeph, info);
-            break;
-          }
-          case "symbolicLink":
-            if (symLink) {
-              if (symLink.isDirectory()) {
-                // info.children = await parser.call(this, symLink, undefined, options, depth - 1, info);
-                const myDeph : null | number = isNull(depth) ? null : depth - 1
-                await parser.call(this, symLink, undefined, options, myDeph, info);
-              }
+            case "Directory": {
+              const myDeph: null | number = isNull(depth) ? null : depth - 1;
+              await parser.call(this, info, undefined, options, myDeph, info);
+              break;
             }
-            break;
+            case "symbolicLink":
+              if (symLink) {
+                if (symLink.isDirectory()) {
+                  // info.children = await parser.call(this, symLink, undefined, options, depth - 1, info);
+                  const myDeph: null | number = isNull(depth)
+                    ? null
+                    : depth - 1;
+                  await parser.call(
+                    this,
+                    symLink,
+                    undefined,
+                    options,
+                    myDeph,
+                    info
+                  );
+                }
+              }
+              break;
           }
         }
       }
@@ -237,13 +263,12 @@ const parser = function (this: Finder ,file: FileClass, result = new FileResult(
 };
 
 class Finder extends Event {
+  public settings: DefaultSettingsInterface;
+  public totals: TotalInterface;
 
-  public settings : DefaultSettingsInterface 
-  public totals : TotalInterface 
-
-  constructor (settings: DefaultSettingsInterface) {
+  constructor(settings: DefaultSettingsInterface) {
     super(settings);
-     this.settings = extend({}, defaultSettings, settings || {});
+    this.settings = extend({}, defaultSettings, settings || {});
     this.totals = {
       Directory: 0,
       File: 0,
@@ -252,40 +277,45 @@ class Finder extends Event {
       symbolicLink: 0,
       Fifo: 0,
       Socket: 0,
-      hidden: 0
+      hidden: 0,
     };
   }
 
-  clean () {
+  clean() {
     this.removeAllListeners();
     for (const total in this.totals) {
       this.totals[total] = 0;
     }
   }
 
-  ckeckPath (Path: string | FileClass | string[]) :Result{
+  ckeckPath(Path: string | FileClass | string[]): Result {
     const type = typeOf(Path);
     const result = new FileResult();
     switch (true) {
-    case type === "string":
-      result.push(new File(<string>Path));
-      return result;
-    case type === "array":{
-      const length: number = (<string[]>Path).length
-      for (let i = 0; i < length; i++) {
-        result.push(new File((<string>Path)[i]));
+      case type === "string":
+        result.push(new File(<string>Path));
+        return result;
+      case type === "array": {
+        const length: number = (<string[]>Path).length;
+        for (let i = 0; i < length; i++) {
+          result.push(new File((<string>Path)[i]));
+        }
+        return result;
       }
-      return result;
-    }
-    case Path instanceof FileClass:
-      result.push(new File((<FileClass>Path).path));
-      return result;
-    default:
-      throw new Error(`Bad Path type: ${type} Accept only String, Array or fileClass`);
+      case Path instanceof FileClass:
+        result.push(new File((<FileClass>Path).path));
+        return result;
+      default:
+        throw new Error(
+          `Bad Path type: ${type} Accept only String, Array or fileClass`
+        );
     }
   }
 
-  async in (Path: string | FileClass | string[], settings = {}) : Promise<Result>{
+  async in(
+    Path: string | FileClass | string[],
+    settings = {}
+  ): Promise<Result> {
     let result = null;
     try {
       result = this.ckeckPath(Path);
@@ -305,6 +335,4 @@ class Finder extends Event {
 }
 
 export default Finder;
-export {
-  TotalInterface
-}
+export { TotalInterface };

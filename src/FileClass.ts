@@ -1,27 +1,26 @@
-import mime from 'mime-types';
+import mime from "mime-types";
 import crypto from "node:crypto";
-import path from "node:path"
-import fs from 'node:fs'
-import {extend} from './Tools'
+import path from "node:path";
+import fs from "node:fs";
+import { extend } from "./Tools";
 
 interface FileClassInterface {
-  path: fs.PathOrFileDescriptor
-  name: string
-  ext: string
-  shortName: string
-  type: string | undefined
-  stats: fs.Stats
-  dirName: string
-  parse: path.ParsedPath
-  encoding?: string 
-  mimeType? : string | false
-  extention? : string | false
+  path: fs.PathOrFileDescriptor;
+  name: string;
+  ext: string;
+  shortName: string;
+  type: string | undefined;
+  stats: fs.Stats;
+  dirName: string;
+  parse: path.ParsedPath;
+  encoding?: string;
+  mimeType?: string | false;
+  extention?: string | false;
 }
-
 
 const checkPath = function (myPath: string | fs.PathOrFileDescriptor): string {
   if (!myPath) {
-    throw new Error(`Bad path`) ;
+    throw new Error(`Bad path`);
   }
   const abs = path.isAbsolute(<string>myPath);
   if (abs) {
@@ -33,14 +32,14 @@ const checkPath = function (myPath: string | fs.PathOrFileDescriptor): string {
 const regHidden: RegExp = /^\./;
 const defautWriteOption = {
   flags: "w",
-  defaultEncoding: "utf8"
+  defaultEncoding: "utf8",
   // mode: 0o666
 };
 
 const defaultEncoding = {
-    encoding:"utf8",
-    flag:  "w",
-}
+  encoding: "utf8",
+  flag: "w",
+};
 
 /*
  *
@@ -49,21 +48,20 @@ const defaultEncoding = {
  *
  */
 class FileClass {
-  public stats : fs.Stats
-  public type : string | undefined
-  public path : fs.PathOrFileDescriptor
-  public parse :  path.ParsedPath
-  public name : string
-  public shortName : string
-  public ext: string
-  public mimeType : string | false = false
-  public encoding : string = "UTF-8"
-  public extention : string | false = false
-  public dirName : string
-  public match : RegExpExecArray | null = null
+  public stats: fs.Stats;
+  public type: string | undefined;
+  public path: fs.PathOrFileDescriptor;
+  public parse: path.ParsedPath;
+  public name: string;
+  public shortName: string;
+  public ext: string;
+  public mimeType: string | false = false;
+  public encoding: string = "UTF-8";
+  public extention: string | false = false;
+  public dirName: string;
+  public match: RegExpExecArray | null = null;
 
-
-  constructor (Path: string | fs.PathOrFileDescriptor) {
+  constructor(Path: string | fs.PathOrFileDescriptor) {
     if (Path) {
       Path = checkPath(Path);
       this.stats = fs.lstatSync(Path);
@@ -88,14 +86,14 @@ class FileClass {
     } else {
       throw new Error(`error fileClass Path : ${Path}`);
     }
-   }
+  }
 
-  toString () {
+  toString() {
     return JSON.stringify(this.toJson(), null, "\n");
   }
 
-  toJson () : FileClassInterface {
-    const obj : FileClassInterface= {
+  toJson(): FileClassInterface {
+    const obj: FileClassInterface = {
       path: this.path,
       name: this.name,
       ext: this.ext,
@@ -103,7 +101,7 @@ class FileClass {
       type: this.type,
       stats: this.stats,
       dirName: this.dirName,
-      parse: this.parse
+      parse: this.parse,
     };
     if (this.type === "File") {
       obj.encoding = this.encoding;
@@ -113,7 +111,7 @@ class FileClass {
     return obj;
   }
 
-  checkType () : string | undefined{
+  checkType(): string | undefined {
     if (this.stats.isDirectory()) {
       return "Directory";
     }
@@ -137,34 +135,36 @@ class FileClass {
     }
   }
 
-  getType () : string | undefined{
+  getType(): string | undefined {
     return this.checkType();
   }
 
-  checkSum (type: string, hasOption?:crypto.HashOptions ) : string{
+  checkSum(type: string, hasOption?: crypto.HashOptions): string {
     if (!type) {
       type = "md5";
     }
-    return crypto.createHash(type, hasOption).update(this.content())
+    return crypto
+      .createHash(type, hasOption)
+      .update(this.content())
       .digest("hex");
   }
 
-  getMimeType (name: string) : string | false{
+  getMimeType(name: string): string | false {
     return mime.lookup(name || this.name);
   }
 
-  getExtension (mimeType: string | false) : string | false{
-    if( mimeType){
-       return mime.extension(mimeType);
+  getExtension(mimeType: string | false): string | false {
+    if (mimeType) {
+      return mime.extension(mimeType);
     }
     return mime.extension(<string>this.mimeType);
   }
 
-  getRealpath (Path: string, options: fs.EncodingOption= {}) {
+  getRealpath(Path: string, options: fs.EncodingOption = {}) {
     return fs.realpathSync(Path, options);
   }
 
-  matchName (ele: RegExp | string): boolean | RegExpExecArray | null{
+  matchName(ele: RegExp | string): boolean | RegExpExecArray | null {
     if (ele instanceof RegExp) {
       this.match = ele.exec(this.name);
       return this.match;
@@ -175,37 +175,41 @@ class FileClass {
     return false;
   }
 
-  matchType (type: string) : boolean{
+  matchType(type: string): boolean {
     return type === this.type;
   }
 
-  isFile () : boolean{
+  isFile(): boolean {
     return this.type === "File";
   }
 
-  isDirectory () : boolean{
+  isDirectory(): boolean {
     return this.type === "Directory";
   }
 
-  isSymbolicLink () : boolean{
+  isSymbolicLink(): boolean {
     return this.type === "symbolicLink";
   }
 
-  dirname () {
+  dirname() {
     return path.dirname(<string>this.path);
   }
 
-  isHidden () : boolean{
+  isHidden(): boolean {
     return regHidden.test(this.name);
   }
 
-  content (encoding?: string) : string | Buffer{
-    const encode : fs.ObjectEncodingOptions = extend({}, defaultEncoding, {encoding})
+  content(encoding?: string): string | Buffer {
+    const encode: fs.ObjectEncodingOptions = extend({}, defaultEncoding, {
+      encoding,
+    });
     return fs.readFileSync(this.path, encode);
   }
 
-  read (encoding?: string): string | Buffer {
-    const encode : fs.ObjectEncodingOptions = extend({}, defaultEncoding, {encoding})
+  read(encoding?: string): string | Buffer {
+    const encode: fs.ObjectEncodingOptions = extend({}, defaultEncoding, {
+      encoding,
+    });
     if (this.type === "symbolicLink") {
       const Path = fs.readlinkSync(<fs.PathLike>this.path, encode);
       return fs.readFileSync(Path, encode);
@@ -213,35 +217,42 @@ class FileClass {
     return fs.readFileSync(this.path, encode);
   }
 
-  readAsync (encoding?: string)  : Promise<string | Buffer >{
-    const encode : fs.ObjectEncodingOptions = extend({}, defaultEncoding, {encoding})
+  readAsync(encoding?: string): Promise<string | Buffer> {
+    const encode: fs.ObjectEncodingOptions = extend({}, defaultEncoding, {
+      encoding,
+    });
     if (this.type === "symbolicLink") {
       return new Promise((resolve, reject) => {
         const Path = fs.readlinkSync(<fs.PathLike>this.path, encode);
-        try{
-           return resolve (fs.readFileSync(Path, encode))
-        }catch(e){
+        try {
+          return resolve(fs.readFileSync(Path, encode));
+        } catch (e) {
           return reject(e);
         }
       });
     }
-    return new Promise((resolve, reject) =>{
-      fs.readFile(this.path, (err: NodeJS.ErrnoException| null , data:Buffer): void=>{
-        if (err) {
-          return reject(err)
+    return new Promise((resolve, reject) => {
+      fs.readFile(
+        this.path,
+        (err: NodeJS.ErrnoException | null, data: Buffer): void => {
+          if (err) {
+            return reject(err);
+          }
+          return resolve(data);
         }
-        return resolve(data)
-      })
-    })
+      );
+    });
   }
 
-  readByLine (callback: (line: string, n: number) => void, encoding: string) {
+  readByLine(callback: (line: string, n: number) => void, encoding: string) {
     return new Promise((resolve, reject) => {
       let res = null;
       try {
         res = this.content(encoding);
         let nb = 0;
-        res.toString().split("\n")
+        res
+          .toString()
+          .split("\n")
           .forEach((line: string) => {
             callback(line, ++nb);
           });
@@ -252,19 +263,22 @@ class FileClass {
     });
   }
 
-  write (data: string | NodeJS.ArrayBufferView, options:fs.WriteFileOptions) :void {
+  write(
+    data: string | NodeJS.ArrayBufferView,
+    options: fs.WriteFileOptions
+  ): void {
     fs.writeFileSync(this.path, data, extend({}, defautWriteOption, options));
   }
 
-  move (target: fs.PathLike) : FileClass {
+  move(target: fs.PathLike): FileClass {
     fs.renameSync(<fs.PathLike>this.path, target);
     return new FileClass(<string>target);
   }
 
-  unlink () : void{
+  unlink(): void {
     fs.unlinkSync(<fs.PathLike>this.path);
   }
 }
 
-export default FileClass 
-export {FileClassInterface}
+export default FileClass;
+export { FileClassInterface };

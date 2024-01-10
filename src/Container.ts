@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { v4 as uuidv4 } from 'uuid';
-import {extend, isPlainObject} from './Tools'
+import { v4 as uuidv4 } from "uuid";
+import { extend, isPlainObject } from "./Tools";
 
 const generateId = function (): string {
   return uuidv4();
@@ -13,11 +13,15 @@ const ISDefined = function (ele: any): boolean {
   return false;
 };
 
-const parseParameterString = function (this: Container['parameters'] | ProtoParametersPrototype, str: string, value?: any): DynamicParam | null {
+const parseParameterString = function (
+  this: Container["parameters"] | ProtoParametersPrototype,
+  str: string,
+  value?: any
+): DynamicParam | null {
   if (!this) {
     throw new Error(`Bad call`);
   }
-  const parts = str.split('.');
+  const parts = str.split(".");
   const currentPart = parts.shift();
   if (currentPart !== undefined) {
     if (!this[currentPart] && parts.length > 0) {
@@ -33,33 +37,39 @@ const parseParameterString = function (this: Container['parameters'] | ProtoPara
       }
       return this[currentPart];
     } else {
-      if( this[currentPart] ){
-        return parseParameterString.call(this[currentPart], parts.join('.'), value);
+      if (this[currentPart]) {
+        return parseParameterString.call(
+          this[currentPart],
+          parts.join("."),
+          value
+        );
       }
-      return null
+      return null;
     }
   }
   return this;
 };
 
 // Déclaration d'un objet hétérogène
-interface DynamicService  {
+interface DynamicService {
   [cleDynamic: string]: any; // Propriétés dynamiques de tout type
 }
 
-interface DynamicParam  {
+interface DynamicParam {
   [cleDynamic: string]: any; // Propriétés dynamiques de tout type
 }
 
 interface Scopes {
   [nameScope: string]: {
-    [idContainer: string] : Container;
+    [idContainer: string]: Container;
   };
 }
 
 type ProtoService = { (): void; [key: string]: any };
 type ProtoParameters = { (): void; [key: string]: any };
-type ProtoParametersPrototype = ReturnType<typeof Container.prototype.protoParameters.prototype>;
+type ProtoParametersPrototype = ReturnType<
+  typeof Container.prototype.protoParameters.prototype
+>;
 
 /*
  *
@@ -67,21 +77,18 @@ type ProtoParametersPrototype = ReturnType<typeof Container.prototype.protoParam
  *
  */
 class Container {
-
   public protoService: ProtoService = function () {};
   protected services: ProtoService | null;
 
   public protoParameters: ProtoParameters = function () {};
   protected parameters: ProtoService | null;
 
-
   private id: string;
   private scopes: Scopes = {};
-  
 
-  constructor(services: DynamicService = {}, parameters: DynamicParam= {}) {
+  constructor(services: DynamicService = {}, parameters: DynamicParam = {}) {
     this.id = generateId();
-    this.services = Object.create(this.protoService.prototype); 
+    this.services = Object.create(this.protoService.prototype);
     this.parameters = Object.create(this.protoParameters.prototype);
     if (services && typeof services === "object") {
       for (const service in services) {
@@ -107,7 +114,7 @@ class Container {
     return syslog.log(pci, severity, msgid, msg);
   }
 
-   public set(name: string, object: any) {
+  public set(name: string, object: any) {
     if (this.services && name) {
       // Ajouter la propriété au prototype de protoService spécifique à cette instance
       this.protoService.prototype[name] = object;
@@ -118,21 +125,21 @@ class Container {
     }
   }
 
-  public get(name: string) : any{
-    if (this.services && (name in this.services)) {
+  public get(name: string): any {
+    if (this.services && name in this.services) {
       return this.services[name];
     }
     return null;
   }
 
   public remove(name: string): boolean {
-    if (! this.services) {
-      throw new Error(`Bad call`)
+    if (!this.services) {
+      throw new Error(`Bad call`);
     }
     if (this.get(name)) {
       delete this.services[name];
-      if ((this.protoService.prototype)[name]) {
-        delete (this.protoService.prototype)[name];
+      if (this.protoService.prototype[name]) {
+        delete this.protoService.prototype[name];
       }
       for (const scope in this.scopes) {
         const subScopes = this.scopes[scope];
@@ -145,26 +152,25 @@ class Container {
     return false;
   }
 
-  public has(name: string) : boolean | any {
-    if( this.services){
-      return this.services[name]
+  public has(name: string): boolean | any {
+    if (this.services) {
+      return this.services[name];
     }
-    return false 
+    return false;
   }
 
-  public addScope(name: string)  :  Scope | object {
+  public addScope(name: string): Scope | object {
     if (!this.scopes[name]) {
       return (this.scopes[name] = {});
     }
     return this.scopes[name];
   }
 
-  public enterScope(name: string) :Scope {
+  public enterScope(name: string): Scope {
     const sc = new Scope(name, this);
     this.scopes[name][sc.id] = sc;
     return sc;
   }
-
 
   public leaveScope(scope: Scope): void {
     if (this.scopes[scope.name]) {
@@ -176,7 +182,7 @@ class Container {
     }
   }
 
-  public removeScope(name: string) : void {
+  public removeScope(name: string): void {
     const scopesForName = this.scopes[name];
     if (scopesForName) {
       const scopesArray = Object.values(scopesForName);
@@ -189,28 +195,32 @@ class Container {
   }
 
   public setParameters<T>(name: string, ele: T): DynamicParam | null {
-    if (typeof name !== "string") { 
-      throw new Error("setParameters : container parameter name must be a string")
+    if (typeof name !== "string") {
+      throw new Error(
+        "setParameters : container parameter name must be a string"
+      );
     }
-    if (ele === undefined) {   
-      throw new Error(`setParameters : ${name} container parameter value must be define`);
+    if (ele === undefined) {
+      throw new Error(
+        `setParameters : ${name} container parameter value must be define`
+      );
     }
     //parseParameterString.call(this.protoParameters.prototype, name, ele)
-    return parseParameterString.call(this.parameters, name, ele)
+    return parseParameterString.call(this.parameters, name, ele);
   }
 
-  public getParameters(name: string): DynamicParam | null{
+  public getParameters(name: string): DynamicParam | null {
     //console.log(`main getParameters : ${name}`)
-    if(name){
+    if (name) {
       const res = parseParameterString.call(this.parameters, name);
       //console.log(`main After getParameters :  `, res)
-      return res
+      return res;
     }
-    throw new Error(`Bad name : ${name}`)
+    throw new Error(`Bad name : ${name}`);
   }
 
-  public clean() : void {
-    this.services = null;    
+  public clean(): void {
+    this.services = null;
     this.parameters = null;
   }
 }
@@ -232,26 +242,27 @@ class Scope extends Container {
     this.parameters = Object.create(this.parent.protoParameters.prototype);
   }
 
-  public override getParameters(name: string, merge: boolean = true, deep: boolean = true) : DynamicParam | null{
-    const res = parseParameterString.call(this.parameters, name)
-    const obj = this.parent.getParameters(name)
-    if(ISDefined(res)) {
-      if( merge && isPlainObject(obj) && isPlainObject(res) ){
-        return extend(deep, obj, res)
+  public override getParameters(
+    name: string,
+    merge: boolean = true,
+    deep: boolean = true
+  ): DynamicParam | null {
+    const res = parseParameterString.call(this.parameters, name);
+    const obj = this.parent.getParameters(name);
+    if (ISDefined(res)) {
+      if (merge && isPlainObject(obj) && isPlainObject(res)) {
+        return extend(deep, obj, res);
       }
-      return res
+      return res;
     }
-    return obj
+    return obj;
   }
-    
-  public override clean() : void{
+
+  public override clean(): void {
     this.parent = null;
     return super.clean();
   }
 }
 
-export default Container
-export{
-  DynamicParam
-}
-
+export default Container;
+export { DynamicParam };

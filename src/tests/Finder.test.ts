@@ -1,37 +1,38 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import 'mocha';
-import assert from 'node:assert'
-import Finder , {TotalInterface}from '../finder/Finder'
-import path from 'node:path'
-import Result from '../finder/Result';
-import FileResult from '../finder/FileResult'
-import File from '../finder/File'
-import FileClass from '../FileClass'
+import "mocha";
+import assert from "node:assert";
+import Finder, { TotalInterface } from "../finder/Finder";
+import path from "node:path";
+import Result from "../finder/Result";
+import FileResult from "../finder/FileResult";
+import File from "../finder/File";
+import FileClass from "../FileClass";
 
-declare let global: NodeJS.Global & { 
-    bundlePath :string
-    nodefonyPath: string
-    dataPath: string
-    arrayPath: string[]
-    excludeDir: RegExp
-    finder:  Finder
-    finderInstance: Finder
- };
+declare let global: NodeJS.Global & {
+  bundlePath: string;
+  nodefonyPath: string;
+  dataPath: string;
+  arrayPath: string[];
+  excludeDir: RegExp;
+  finder: Finder;
+  finderInstance: Finder;
+};
 
 describe("NODEFONY CORE FINDER", () => {
-  before( () => {
-      try{
-        global.bundlePath = path.resolve("src", "tests", "finder" , "bundles");
-        global.nodefonyPath = path.resolve("src", "tests", "finder" ,"nodefony");
-        global.dataPath = path.resolve("src", "tests", "finder","data");
-        global.arrayPath = [global.bundlePath, global.nodefonyPath];
-        global.excludeDir = /node_modules|tmp|docker|.git|assets|tests|test|doc|documentation|public/;
-        global.finderInstance = new Finder({
-          // excludeDir: global.excludeDir
-         });
-      }catch(e){
-        console.error(e)
-      }
+  before(() => {
+    try {
+      global.bundlePath = path.resolve("src", "tests", "finder", "bundles");
+      global.nodefonyPath = path.resolve("src", "tests", "finder", "nodefony");
+      global.dataPath = path.resolve("src", "tests", "finder", "data");
+      global.arrayPath = [global.bundlePath, global.nodefonyPath];
+      global.excludeDir =
+        /node_modules|tmp|docker|.git|assets|tests|test|doc|documentation|public/;
+      global.finderInstance = new Finder({
+        // excludeDir: global.excludeDir
+      });
+    } catch (e) {
+      console.error(e);
+    }
   });
 
   describe("CONTRUSTROR ", () => {
@@ -42,7 +43,7 @@ describe("NODEFONY CORE FINDER", () => {
         recurse: true,
         depth: 1,
         seeHidden: true,
-        followSymLink: true
+        followSymLink: true,
       });
     });
 
@@ -93,32 +94,26 @@ describe("NODEFONY CORE FINDER", () => {
 
     it("PARSE IN", async () => {
       assert.rejects(global.finder.in("bad path"));
-      let res = await global.finder
-        .in("bad path")
-        .catch((e) => {
-          assert.ok(e.message.indexOf("no such file or director") >= 0);
-        });
+      let res = await global.finder.in("bad path").catch((e) => {
+        assert.ok(e.message.indexOf("no such file or director") >= 0);
+      });
       assert.equal(res, undefined);
       assert.rejects(async () => {
-        res = await global.finder
-          .in("bad path")
-          .catch((e) => {
-            assert.match(e.message, /no such file or director/);
-            throw e;
-          });
+        res = await global.finder.in("bad path").catch((e) => {
+          assert.match(e.message, /no such file or director/);
+          throw e;
+        });
       });
 
-      res = await global.finder
-        .in(global.nodefonyPath)
-        .then((result) => {
-          assert(result);
-          assert.strictEqual(result.length, 1);
-          const file = result[0];
-          assert(result instanceof FileResult);
-          assert.equal(file.name, "nodefony");
-          assert.equal(file.path, global.nodefonyPath);
-          return result;
-        });
+      res = await global.finder.in(global.nodefonyPath).then((result) => {
+        assert(result);
+        assert.strictEqual(result.length, 1);
+        const file = result[0];
+        assert(result instanceof FileResult);
+        assert.equal(file.name, "nodefony");
+        assert.equal(file.path, global.nodefonyPath);
+        return result;
+      });
       assert(res);
       assert.strictEqual(res.length, 1);
     });
@@ -129,7 +124,7 @@ describe("NODEFONY CORE FINDER", () => {
   describe("RESULT ", () => {
     beforeEach(() => {
       global.finder = new Finder({
-        excludeDir: global.excludeDir
+        excludeDir: global.excludeDir,
         // match: /.*.js$|.*.es6$/,
       });
     });
@@ -138,7 +133,7 @@ describe("NODEFONY CORE FINDER", () => {
       const res = await global.finder
         .in(global.dataPath, {
           recurse: false,
-          seeHidden: true
+          seeHidden: true,
         })
         .then((result) => {
           assert(result);
@@ -169,7 +164,7 @@ describe("NODEFONY CORE FINDER", () => {
     it("HIDDEN", async () => {
       const res = await global.finder
         .in(global.dataPath, {
-          seeHidden: false
+          seeHidden: false,
         })
         .then((result) => {
           assert(result[0]);
@@ -185,7 +180,7 @@ describe("NODEFONY CORE FINDER", () => {
         .in(global.dataPath, {
           seeHidden: true,
           recurse: true,
-          depth: 2
+          depth: 2,
         })
         .then((result) => {
           assert(result[0]);
@@ -207,7 +202,7 @@ describe("NODEFONY CORE FINDER", () => {
         .in(global.dataPath, {
           seeHidden: true,
           recurse: true,
-          depth: 3
+          depth: 3,
         })
         .then((result) => {
           assert(result[0]);
@@ -230,7 +225,7 @@ describe("NODEFONY CORE FINDER", () => {
         .in(global.dataPath, {
           recurse: true,
           seeHidden: true,
-          followSymLink: true
+          followSymLink: true,
         })
         .then((result) => {
           const sort = result[0].childrens.sortByName();
@@ -250,9 +245,9 @@ describe("NODEFONY CORE FINDER", () => {
           excludeDir: global.excludeDir,
           seeHidden: true,
           recurse: true,
-          followSymLink: true
+          followSymLink: true,
         });
-         await finder.in(global.dataPath, {
+        await finder.in(global.dataPath, {
           onFinish: (res: Result, totals: TotalInterface) => {
             if (process.platform !== "win32") {
               assert.strictEqual(totals.Directory, 4);
@@ -260,9 +255,9 @@ describe("NODEFONY CORE FINDER", () => {
               assert.strictEqual(totals.symbolicLink, 3);
               assert.strictEqual(totals.hidden, 3);
             }
-          }
+          },
         });
-         await finder.in(global.dataPath, {
+        await finder.in(global.dataPath, {
           seeHidden: false,
           onFinish: (res: Result, totals: TotalInterface) => {
             if (process.platform !== "win32") {
@@ -271,11 +266,11 @@ describe("NODEFONY CORE FINDER", () => {
               assert.strictEqual(totals.symbolicLink, 3);
               assert.strictEqual(totals.hidden, 0);
             }
-          }
+          },
         });
-         await finder.in(global.dataPath, {
+        await finder.in(global.dataPath, {
           followSymLink: false,
-          onFinish: (res: Result , totals: TotalInterface) => {
+          onFinish: (res: Result, totals: TotalInterface) => {
             // console.log(res)
             // console.log( res[0].childrens.getDirectories() )
             // assert.strictEqual(totals.Directory, 4);
@@ -284,7 +279,7 @@ describe("NODEFONY CORE FINDER", () => {
               assert.strictEqual(totals.symbolicLink, 2);
               assert.strictEqual(totals.hidden, 2);
             }
-          }
+          },
         });
       });
     });
@@ -296,7 +291,7 @@ describe("NODEFONY CORE FINDER", () => {
           // match: /.*.js$|.*.es6$/,
           seeHidden: true,
           recurse: true,
-          followSymLink: true
+          followSymLink: true,
         });
       });
 
@@ -305,9 +300,9 @@ describe("NODEFONY CORE FINDER", () => {
           excludeDir: global.excludeDir,
           seeHidden: true,
           recurse: true,
-          followSymLink: true
+          followSymLink: true,
         });
-         await finder.in(global.dataPath, {});
+        await finder.in(global.dataPath, {});
         // let ret = res[0].childrens.find(/^dir/);
       });
     });
@@ -319,7 +314,7 @@ describe("NODEFONY CORE FINDER", () => {
           // match: /.*.js$|.*.es6$/,
           seeHidden: true,
           recurse: true,
-          followSymLink: true
+          followSymLink: true,
         });
       });
       it("SIMPLE RESULT JSON", async () => {

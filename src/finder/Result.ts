@@ -2,8 +2,7 @@ import { Severity } from "../syslog/Pdu";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 class Result extends Array {
-
-  constructor (res? : any[]) {
+  constructor(res?: any[]) {
     if (res) {
       if (res instanceof Array) {
         super();
@@ -21,7 +20,7 @@ class Result extends Array {
     }
   }
 
-  toJson (json: any[] = []) : string{
+  toJson(json: any[] = []): string {
     for (let index = 0; index < this.length; index++) {
       const ele = this[index];
       json.push(ele);
@@ -29,15 +28,15 @@ class Result extends Array {
     return JSON.stringify(json);
   }
 
-  override toString (json : any[]= []) : string{
+  override toString(json: any[] = []): string {
     for (let index = 0; index < this.length; index++) {
-      const ele  : any= this[index];
+      const ele: any = this[index];
       json.push(ele);
     }
     return JSON.stringify(json, null, "\n");
   }
 
-  clean (callback?: (ele: any)=> void) {
+  clean(callback?: (ele: any) => void) {
     if (callback) {
       Array.prototype.forEach.call(this, (ele: any) => {
         return callback(ele);
@@ -46,28 +45,38 @@ class Result extends Array {
     this.length = 0;
   }
 
-  query (query: string, logger: boolean = false, options = {}, sevrity : Severity = "INFO", clean: boolean = false) : Result{
-      const res = new Result(this.filter((data: Result) => {
+  query(
+    query: string,
+    logger: boolean = false,
+    options = {},
+    sevrity: Severity = "INFO",
+    clean: boolean = false
+  ): Result {
+    const res = new Result(
+      this.filter((data: Result) => {
         const res = data.query(query, logger, options, sevrity);
         if (res) {
           return data;
         }
         return null;
-      }));
-      if (clean) {
-        this.clean();
-      }
-      return res;
+      })
+    );
+    if (clean) {
+      this.clean();
+    }
+    return res;
   }
 
-  queryGrep (query: string, grep: string, clean: boolean = false): Result {
-    const res = new Result(this.filter((data: Result) => {
-      const res = data.queryGrep(query, grep);
-      if (res) {
-        return data;
-      }
-      return null;
-    }));
+  queryGrep(query: string, grep: string, clean: boolean = false): Result {
+    const res = new Result(
+      this.filter((data: Result) => {
+        const res = data.queryGrep(query, grep);
+        if (res) {
+          return data;
+        }
+        return null;
+      })
+    );
     if (clean) {
       this.clean();
     }
@@ -75,4 +84,4 @@ class Result extends Array {
   }
 }
 
-export default Result
+export default Result;

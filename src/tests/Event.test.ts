@@ -11,10 +11,9 @@
  *
  */
 
-import {  assert } from 'chai' 
-import Event ,{create , notification} from '../Event'
-import {isPromise} from '../Tools'
-
+import { assert } from "chai";
+import Event, { create, notification } from "../Event";
+import { isPromise } from "../Tools";
 
 declare global {
   interface NodeJSGlobal {
@@ -22,7 +21,6 @@ declare global {
   }
 }
 declare let global: NodeJS.Global & { notificationsCenter?: Event };
-
 
 describe("NODEFONY Notifications Center", () => {
   describe("namespace", () => {
@@ -40,8 +38,8 @@ describe("NODEFONY Notifications Center", () => {
 
   describe("sync", () => {
     it("sync", (done) => {
-      if ( ! global.notificationsCenter){
-        throw new Error(`global not ready`)
+      if (!global.notificationsCenter) {
+        throw new Error(`global not ready`);
       }
       const obj = {};
       global.notificationsCenter.on("myEvent", (count, args) => {
@@ -54,8 +52,8 @@ describe("NODEFONY Notifications Center", () => {
       });
       let i = 0;
       setTimeout(() => {
-        if ( ! global.notificationsCenter){
-          throw new Error(`global not ready`)
+        if (!global.notificationsCenter) {
+          throw new Error(`global not ready`);
         }
         global.notificationsCenter.fire("myEvent", i, obj);
         global.notificationsCenter.emit("myEvent", ++i, obj);
@@ -69,31 +67,39 @@ describe("NODEFONY Notifications Center", () => {
       // global.notificationsCenter = nodefony.notificationsCenter.create();
     });
     beforeEach(() => {
-      if ('notificationsCenter' in global) {
+      if ("notificationsCenter" in global) {
         delete (global as any).notificationsCenter;
       }
       global.notificationsCenter = create();
     });
     it("simple", async () => {
-      if ( ! global.notificationsCenter){
-        throw new Error(`global not ready`)
+      if (!global.notificationsCenter) {
+        throw new Error(`global not ready`);
       }
       const obj = {};
-      global.notificationsCenter.on("myEvent", async (count, args) => new Promise((resolve) => {
-        assert.strictEqual(args, obj);
-        if (count === 1) {
-          setTimeout(() => {
-            resolve(count);
-          }, 100);
-        } else {
-          assert.strictEqual(count, 0);
-          setTimeout(() => {
-            resolve(args);
-          }, 500);
-        }
-      }));
+      global.notificationsCenter.on(
+        "myEvent",
+        async (count, args) =>
+          new Promise((resolve) => {
+            assert.strictEqual(args, obj);
+            if (count === 1) {
+              setTimeout(() => {
+                resolve(count);
+              }, 100);
+            } else {
+              assert.strictEqual(count, 0);
+              setTimeout(() => {
+                resolve(args);
+              }, 500);
+            }
+          })
+      );
       let i = 0;
-      let res :any[] = await global.notificationsCenter.fireAsync("myEvent", i, obj);
+      let res: any[] = await global.notificationsCenter.fireAsync(
+        "myEvent",
+        i,
+        obj
+      );
       assert.strictEqual(res.length, 1);
       assert.strictEqual(res[0], obj);
       res = await global.notificationsCenter.emitAsync("myEvent", ++i, obj);
@@ -102,23 +108,35 @@ describe("NODEFONY Notifications Center", () => {
     });
 
     it("multi", async () => {
-      if ( ! global.notificationsCenter){
-        throw new Error(`global not ready`)
+      if (!global.notificationsCenter) {
+        throw new Error(`global not ready`);
       }
       const obj = {};
-      global.notificationsCenter.on("myEvent", async (count, args) => new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(args);
-        }, 400);
-      }));
-      global.notificationsCenter.on("myEvent", async (count) => new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(count + 1);
-        }, 200);
-      }));
+      global.notificationsCenter.on(
+        "myEvent",
+        async (count, args) =>
+          new Promise((resolve) => {
+            setTimeout(() => {
+              resolve(args);
+            }, 400);
+          })
+      );
+      global.notificationsCenter.on(
+        "myEvent",
+        async (count) =>
+          new Promise((resolve) => {
+            setTimeout(() => {
+              resolve(count + 1);
+            }, 200);
+          })
+      );
       let i = 0;
       const res = await global.notificationsCenter.fireAsync("myEvent", i, obj);
-      const res1 = await global.notificationsCenter.emitAsync("myEvent", ++i, obj);
+      const res1 = await global.notificationsCenter.emitAsync(
+        "myEvent",
+        ++i,
+        obj
+      );
       assert.strictEqual(res.length, 2);
       assert.strictEqual(res[0], obj);
       assert.strictEqual(res[1], 1);
@@ -126,15 +144,19 @@ describe("NODEFONY Notifications Center", () => {
       assert.strictEqual(res1[0], obj);
       assert.strictEqual(res1[1], 2);
 
-      const res2 = await global.notificationsCenter.emitAsync("myEvent", --i, res1);
+      const res2 = await global.notificationsCenter.emitAsync(
+        "myEvent",
+        --i,
+        res1
+      );
       assert.strictEqual(res2.length, 2);
       assert.strictEqual(res2[0], res1);
       assert.strictEqual(res2[1], 1);
     });
 
     it("await", async () => {
-      if ( ! global.notificationsCenter){
-        throw new Error(`global not ready`)
+      if (!global.notificationsCenter) {
+        throw new Error(`global not ready`);
       }
       const myFunc = async function (count: number, args: any) {
         if (count === 0) {
@@ -144,15 +166,23 @@ describe("NODEFONY Notifications Center", () => {
       };
       const obj = {};
       const i = 0;
-      global.notificationsCenter.on("myEvent", async (count, args) => await myFunc(count, args));
-      global.notificationsCenter.on("myEvent", async (count, args) => await myFunc(count, args));
-      const res = await global.notificationsCenter.fireAsync("myEvent", i, obj)
+      global.notificationsCenter.on(
+        "myEvent",
+        async (count, args) => await myFunc(count, args)
+      );
+      global.notificationsCenter.on(
+        "myEvent",
+        async (count, args) => await myFunc(count, args)
+      );
+      const res = await global.notificationsCenter
+        .fireAsync("myEvent", i, obj)
         .then((args) => {
           assert.strictEqual(args[0], 1);
           assert.strictEqual(args[1], 1);
           return args;
         });
-      const res2 = await global.notificationsCenter.fireAsync("myEvent", res[0], obj)
+      const res2 = await global.notificationsCenter
+        .fireAsync("myEvent", res[0], obj)
         .then((args) => {
           assert.strictEqual(args[0], obj);
           assert.strictEqual(args[1], obj);
@@ -165,8 +195,8 @@ describe("NODEFONY Notifications Center", () => {
     });
 
     it("await error", async () => {
-      if ( ! global.notificationsCenter){
-        throw new Error(`global not ready`)
+      if (!global.notificationsCenter) {
+        throw new Error(`global not ready`);
       }
       const myFunc = async function (count: number, args: any) {
         if (count === 0) {
@@ -179,12 +209,19 @@ describe("NODEFONY Notifications Center", () => {
       const myFunc2 = async function () {
         throw new Error("myError");
       };
-      global.notificationsCenter.on("myEvent", async (count, args) => await myFunc(count, args));
+      global.notificationsCenter.on(
+        "myEvent",
+        async (count, args) => await myFunc(count, args)
+      );
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      global.notificationsCenter.on("myEvent", async (count, args) => await myFunc2());
+      global.notificationsCenter.on(
+        "myEvent",
+        async (count, args) => await myFunc2()
+      );
       let res = null;
-      
-      res = await global.notificationsCenter.fireAsync("myEvent", i, obj)
+
+      res = await global.notificationsCenter
+        .fireAsync("myEvent", i, obj)
         .then((...args: any[]) => {
           console.log(args);
           throw new Error("then don't be call");
@@ -194,7 +231,8 @@ describe("NODEFONY Notifications Center", () => {
         });
       assert.strictEqual(res, undefined);
       res = null;
-      res = global.notificationsCenter.fireAsync("myEvent", i, obj)
+      res = global.notificationsCenter
+        .fireAsync("myEvent", i, obj)
         .then((...args: any[]) => {
           console.log(args);
           throw new Error("then don't be call");
@@ -203,7 +241,6 @@ describe("NODEFONY Notifications Center", () => {
           assert.strictEqual(e.message, "myError");
         });
       assert(isPromise(res));
-     
     });
   });
-})
+});

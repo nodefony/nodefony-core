@@ -2,68 +2,65 @@
 /* eslint-disable no-async-promise-executor */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable max-lines-per-function */
-import path from "node:path"
-import fs from "node:fs"
-import  commander , { program } from "commander";
+import path from "node:path";
+import fs from "node:fs";
+import commander, { program } from "commander";
 //import commander, { program } from '@commander-js/extra-typings';
-import { 
-  spawn, 
-  spawnSync, 
-  SpawnSyncReturns, 
-  SpawnSyncOptionsWithStringEncoding, 
-  SpawnOptions
-} 
-  from "node:child_process";
+import {
+  spawn,
+  spawnSync,
+  SpawnSyncReturns,
+  SpawnSyncOptionsWithStringEncoding,
+  SpawnOptions,
+} from "node:child_process";
 import moment from "moment";
 import semver from "semver";
 import asciify from "asciify";
-import Table from "cli-table3"
-import {get, random} from "node-emoji"
-import clc from "cli-color"
-import Service, {DefaultOptions}  from "./Service";
-import {extend} from "./Tools"
+import Table from "cli-table3";
+import { get, random } from "node-emoji";
+import clc from "cli-color";
+import Service, { DefaultOptionsService } from "./Service";
+import { extend } from "./Tools";
 import Container from "./Container";
 import FileClass from "./FileClass";
-import Event  from "./Event"
+import Event from "./Event";
 //import { FSWatcher } from "node:fs";
-import {DebugType, EnvironmentType} from './Nodefony'
+import { DebugType, EnvironmentType } from "./Nodefony";
 import bare from "cli-color/bare";
-import clui from "clui"
+import clui from "clui";
 import Syslog from "./syslog/Syslog";
 //import Rx from 'rxjs'
-import Rx from 'rxjs'
+import Rx from "rxjs";
 //import   {rm, ls, cd ,mkdir, ln, cp ,chmod, ShellString, ShellArray } from 'shelljs'
-import shelljs from 'shelljs'
+import shelljs from "shelljs";
 
-
-
-interface CliDefaultOptions extends DefaultOptions{
-  processName?: string
-  autostart?: boolean
-  asciify?: boolean
-  clear?: boolean
-  color?: bare.Format
-  prompt?: string
-  commander?: boolean
-  signals?: boolean
-  autoLogger?: boolean
-  resize?: boolean
-  version?: string
-  warning?: boolean
-  pid?: boolean
-  promiseRejection?: boolean
-  font?:string
+interface CliDefaultOptions extends DefaultOptionsService {
+  processName?: string;
+  autostart?: boolean;
+  asciify?: boolean;
+  clear?: boolean;
+  color?: bare.Format;
+  prompt?: string;
+  commander?: boolean;
+  signals?: boolean;
+  autoLogger?: boolean;
+  resize?: boolean;
+  version?: string;
+  warning?: boolean;
+  pid?: boolean;
+  promiseRejection?: boolean;
+  font?: string;
 }
 
 // const red = clc.red.bold;
 // const cyan   = clc.cyan.bold;
 const blue = clc.blueBright.bold;
-const {green} = clc;
+const { green } = clc;
 // const yellow = clc.yellow.bold;
 const magenta = clc.magenta.bold;
-const {reset} = clc; // '\x1b[0m';
+const { reset } = clc; // '\x1b[0m';
 
-let processName: string| null  = null;
+let processName: string | null = null;
 if (process.argv && process.argv[1]) {
   processName = path.basename(process.argv[1]);
 } else {
@@ -73,8 +70,8 @@ if (process.argv && process.argv[1]) {
 const defaultTableCli = {
   style: {
     head: ["cyan"],
-    border: ["grey"]
-  }
+    border: ["grey"],
+  },
 };
 
 const defaultOptions = {
@@ -91,49 +88,69 @@ const defaultOptions = {
   version: "1.0.0",
   warning: false,
   pid: false,
-  promiseRejection: true
+  promiseRejection: true,
 };
 
 class Cli extends Service {
-  public override options : CliDefaultOptions  = extend({}, defaultOptions)
-  public debug : DebugType = false
-  public environment : EnvironmentType | string = "production"
-  public commander : typeof program  | null = null
-  public  pid : number  | null = null
-  public interactive : boolean = false
-  public prompt :Rx.Subject<unknown>| any | null = null
+  public override options: CliDefaultOptions = extend({}, defaultOptions);
+  public debug: DebugType = false;
+  public environment: EnvironmentType | string = "production";
+  public commander: typeof program | null = null;
+  public pid: number | null = null;
+  public interactive: boolean = false;
+  public prompt: Rx.Subject<unknown> | any | null = null;
   public unhandledRejections: Map<Promise<unknown>, string> = new Map();
   public response: Record<string, any> = {};
   public timers: Record<string, string> = {};
-  public wrapperLog : (...data: any[]) => void = console.log 
-  public version : string = "" 
-  public clui:  typeof clui  = clui
-  public clc :typeof clc  = clc
-  public spinner : clui.Spinner |  null  = null
-  public blankLine :  (() => void )  = ()=>{} 
-  public columns : number = 0
-  public rows : number = 0
+  public wrapperLog: (...data: any[]) => void = console.log;
+  public version: string = "";
+  public clui: typeof clui = clui;
+  public clc: typeof clc = clc;
+  public spinner: clui.Spinner | null = null;
+  public blankLine: () => void = () => {};
+  public columns: number = 0;
+  public rows: number = 0;
 
   constructor(name?: string);
   constructor(name: string, options: CliDefaultOptions);
-  constructor(name: string, container: Container | null | undefined, options: CliDefaultOptions);
-  constructor(name: string, container: Container | null | undefined, notificationsCenter: Event | false | undefined, options: CliDefaultOptions);
+  constructor(
+    name: string,
+    container: Container | null | undefined,
+    options: CliDefaultOptions
+  );
+  constructor(
+    name: string,
+    container: Container | null | undefined,
+    notificationsCenter: Event | false | undefined,
+    options: CliDefaultOptions
+  );
   constructor(name?: string, ...args: any[]) {
-    const container : Container | undefined | null = args[0] instanceof Container ? args[0] : undefined;
-    const notificationsCenter: Event | undefined | false = (args[1] instanceof Event) ? args[1] : (args[1] === false) ? false: undefined;
-    const last = args[args.length - 1] 
-    let options = null
-    if( last instanceof Container || last instanceof Event  || last === false){
-      options = extend({}, defaultOptions) ;
-    }else{
-      options = extend({}, defaultOptions, last || {}) ;
+    const container: Container | undefined | null =
+      args[0] instanceof Container ? args[0] : undefined;
+    const notificationsCenter: Event | undefined | false =
+      args[1] instanceof Event
+        ? args[1]
+        : args[1] === false
+          ? false
+          : undefined;
+    const last = args[args.length - 1];
+    let options = null;
+    if (last instanceof Container || last instanceof Event || last === false) {
+      options = extend({}, defaultOptions);
+    } else {
+      options = extend({}, defaultOptions, last || {});
     }
-    super(name || <string>options.processName, container, notificationsCenter, options);
+    super(
+      name || <string>options.processName,
+      container,
+      notificationsCenter,
+      options
+    );
     this.options = <CliDefaultOptions>options;
-    if ( process.env.NODE_ENV ){
-      this.environment = process.env.NODE_ENV
-    }else{
-      this.environment  = "production";
+    if (process.env.NODE_ENV) {
+      this.environment = process.env.NODE_ENV;
+    } else {
+      this.environment = "production";
     }
     this.setProcessTitle();
     this.pid = this.options.pid ? this.setPid() : null;
@@ -175,10 +192,10 @@ class Cli extends Service {
         .catch((e) => this.log(e, "ERROR"));
     } else if (this.options.autostart) {
       try {
-        const func = async function(this: Cli){
+        const func = async function (this: Cli) {
           await this.fireAsync("onStart", this);
-        }
-        func.call(this)
+        };
+        func.call(this);
       } catch (e) {
         this.log(e, "ERROR");
       }
@@ -188,7 +205,7 @@ class Cli extends Service {
   //Méthode privée pour gérer les signaux
   private handleSignals(): void {
     const signalHandler = (signal: string) => {
-      if( this.blankLine){
+      if (this.blankLine) {
         this.blankLine();
       }
       this.wrapperLog = console.log;
@@ -212,7 +229,7 @@ class Cli extends Service {
     });
   }
 
-  start () : Promise<Cli>{
+  start(): Promise<Cli> {
     return new Promise(async (resolve, reject) => {
       try {
         if (this.options.autostart) {
@@ -237,7 +254,7 @@ class Cli extends Service {
     });
   }
 
-  idle () {
+  idle() {
     let resolve = null;
     let reject = null;
     const promise = new Promise((res, rej) => {
@@ -248,13 +265,13 @@ class Cli extends Service {
       return {
         resolve,
         promise,
-        reject
+        reject,
       };
-    }());
+    })();
     // return this.idleId = setInterval(() => {}, 0);
   }
 
-  checkVersion (version : string | semver.SemVer | null | undefined = null) {
+  checkVersion(version: string | semver.SemVer | null | undefined = null) {
     if (!version) {
       version = this.version;
     }
@@ -265,12 +282,12 @@ class Cli extends Service {
     throw new Error(`Not valid version : ${version} check  http://semver.org `);
   }
 
-  async showAsciify (name: string | null  = null) {
+  async showAsciify(name: string | null = null) {
     if (!name) {
       name = this.name;
     }
     return await this.asciify(`      ${name}`, {
-      font: this.options.font || "standard"
+      font: this.options.font || "standard",
     })
       .then((data: string) => {
         this.fire("onAsciify", data);
@@ -287,53 +304,68 @@ class Cli extends Service {
       });
   }
 
-  showBanner () {
-    const version = this.commander ? this.commander.version() : this.options.version || "1.0.0";
+  showBanner() {
+    const version = this.commander
+      ? this.commander.version()
+      : this.options.version || "1.0.0";
     let banner = null;
     if (this.options.version) {
-      banner = `          Version : ${blue(version)}   Platform : ${green(process.platform)}   Process : ${green(process.title)}   Pid : ${process.pid}`;
-      if( this.blankLine){
-         this.blankLine();
+      banner = `          Version : ${blue(version)}   Platform : ${green(
+        process.platform
+      )}   Process : ${green(process.title)}   Pid : ${process.pid}`;
+      if (this.blankLine) {
+        this.blankLine();
       }
       console.log(banner);
     }
     return banner;
   }
 
-  listenRejection () {
+  listenRejection() {
     process.on("rejectionHandled", (promise) => {
       this.log("PROMISE REJECTION EVENT ", "CRITIC", "rejectionHandled");
       this.unhandledRejections.delete(promise);
     });
-    process.on("unhandledRejection", (reason: string, promise: Promise<unknown>) => {
-      this.log(`WARNING  !!! PROMISE CHAIN BREAKING : ${reason}`, "WARNING", "unhandledRejection");
-      console.trace(promise);
-      this.unhandledRejections.set(promise, reason);
-    });
+    process.on(
+      "unhandledRejection",
+      (reason: string, promise: Promise<unknown>) => {
+        this.log(
+          `WARNING  !!! PROMISE CHAIN BREAKING : ${reason}`,
+          "WARNING",
+          "unhandledRejection"
+        );
+        console.trace(promise);
+        this.unhandledRejections.set(promise, reason);
+      }
+    );
   }
 
-  setPid () : number {
-    return this.pid = process.pid;
+  setPid(): number {
+    return (this.pid = process.pid);
   }
 
-  setProcessTitle (name?: string) {
+  setProcessTitle(name?: string) {
     if (name) {
       process.title = name.replace(new RegExp("\\s", "gi"), "").toLowerCase();
     } else {
-      process.title = this.name.replace(new RegExp("\\s", "gi"), "").toLowerCase();
+      process.title = this.name
+        .replace(new RegExp("\\s", "gi"), "")
+        .toLowerCase();
     }
     return process.title;
   }
 
-  logEnv () {
-    return `${blue(`      \x1b ${this.name}`)} Nodefony Environment : ${magenta(this.environment)}`;
+  logEnv() {
+    return `${blue(`      \x1b ${this.name}`)} Nodefony Environment : ${magenta(
+      this.environment
+    )}`;
   }
 
-  initCommander () {
+  initCommander() {
     if (this.options.commander) {
       this.commander = program;
-      this.commander.option('-i, --interactive', 'Interaction mode')
-      this.commander.option('-d, --debug', 'Debug mode')
+      this.commander.option("-i, --interactive", "Interaction mode");
+      this.commander.option("-d, --debug", "Debug mode");
       if (this.options.version) {
         this.setCommandVersion(this.options.version);
       }
@@ -342,92 +374,124 @@ class Cli extends Service {
     return null;
   }
 
-  initUi () : void{
-    this.blankLine  = function (this: Cli): () => void  {
-      if( this.clui){
-         const myLine = new this.clui.Line().fill();
-         return () => {
+  initUi(): void {
+    this.blankLine = function (this: Cli): () => void {
+      if (this.clui) {
+        const myLine = new this.clui.Line().fill();
+        return () => {
           myLine.output();
         };
       }
       return () => {
-        console.log()
-      } 
+        console.log();
+      };
     }.call(this);
     if (this.options.resize) {
       this.resize();
     }
   }
 
-  getFonts () : void {
+  getFonts(): void {
     asciify.getFonts((err, fonts) => {
-      fonts.forEach((ele)=>{
-        this.log(ele)
+      fonts.forEach((ele) => {
+        this.log(ele);
       });
     });
   }
 
-  async asciify (txt: string, options?: object  , callback?: (error:Error, data:string) => void ):  Promise<string> {
+  async asciify(
+    txt: string,
+    options?: object,
+    callback?: (error: Error, data: string) => void
+  ): Promise<string> {
     return new Promise((resolve, reject) => {
-      asciify(txt, extend({
-        font: "standard"
-      }, options), (error, data) => {
-        if (callback && typeof callback === "function") {
-          return callback(error, data);
+      asciify(
+        txt,
+        extend(
+          {
+            font: "standard",
+          },
+          options
+        ),
+        (error, data) => {
+          if (callback && typeof callback === "function") {
+            return callback(error, data);
+          }
+          if (error) {
+            return reject(error);
+          }
+          return resolve(data);
         }
-        if (error) {
-          return reject(error);
-        }
-        return resolve(data);
-      });
+      );
     });
   }
 
-  async parseCommand (argv:  readonly string[] | undefined)  : Promise<commander.Command>{
-    if (! this.commander){
-      throw new Error(`commander not found`)
+  public parse(
+    argv?: string[],
+    options?: commander.ParseOptions
+  ): commander.Command {
+    if (this.commander) {
+      return this.commander?.parse(argv, options);
     }
-    const parser = await this.commander.parse(argv || process.argv);
-    const {debug} = this.commander.opts();
-    if (debug) {
-      this.debug = debug;
-    } else {
-      this.debug = false;
-    }
-    const {interactive} = this.commander.opts();
-    if (interactive) {
-      this.interactive = interactive;
-    } else {
-      this.interactive = false;
-    }
-    return Promise.resolve(parser);
+    throw new Error(`Commander not found`);
   }
 
-  setOption (flags: string, description?: string , defaultValue?: string | boolean | string[] | undefined) : commander.Command  {
-    if (this.commander){
+  public clearCommand(): void {
+    this.commander?.setOptionValue("interactive", false);
+    this.commander?.setOptionValue("debug", false);
+    while (process.argv.length > 2) {
+      process.argv.pop();
+    }
+  }
+
+  runCommand(cmd: string, args: any[] = []) {
+    // this.log(`Commnand : ${cmd} Arguments : ${args}`, "DEBUG", "COMMAND");
+    this.clearCommand();
+    if (cmd) {
+      process.argv.push(cmd);
+    }
+    this.parse(process.argv.concat(args));
+  }
+
+  setCommandOption(
+    flags: string,
+    description?: string,
+    defaultValue?: string | boolean | string[] | undefined
+  ): commander.Command {
+    if (this.commander) {
       return this.commander.option(flags, description, defaultValue);
     }
-    throw new Error(`Commender not found`)
+    throw new Error(`Commender not found`);
   }
-    
 
-  setCommandVersion (version: string) : commander.Command {
+  setCommandVersion(version: string): commander.Command {
     if (this.commander && typeof this.commander.version === "function") {
-      return this.commander.version(version, "-v, --version", "Nodefony Current Version");
+      return this.commander.version(
+        version,
+        "-v, --version",
+        "Nodefony Current Version"
+      );
     }
-    throw new Error(`Commender not found`) 
+    throw new Error(`Commender not found`);
   }
 
-  setCommand (nameAndArgs: string, description:string , options?: commander.ExecutableCommandOptions | undefined): commander.Command {
+  setCommand(
+    nameAndArgs: string,
+    description: string,
+    options?: commander.ExecutableCommandOptions | undefined
+  ): commander.Command {
     if (this.commander) {
       return this.commander.command(nameAndArgs, description, options);
     }
-    throw new Error(`Commender not found`) 
+    throw new Error(`Commender not found`);
   }
 
-  showHelp (quit: boolean , context: commander.HelpContext | undefined ) : void | never{
-    if( ! this.commander ){
-       throw new Error(`Commender not found`) 
+  showHelp(
+    quit: boolean,
+    context: commander.HelpContext | undefined
+  ): void | never {
+    if (!this.commander) {
+      throw new Error(`Commender not found`);
     }
     if (quit) {
       return this.commander.help(context);
@@ -435,11 +499,11 @@ class Cli extends Service {
     return this.commander.outputHelp(context);
   }
 
-  createProgress (size: number) {
+  createProgress(size: number) {
     return new this.clui.Progress(size);
   }
 
-  createSparkline (values:  number[] , suffix: string) : string{
+  createSparkline(values: number[], suffix: string): string {
     if (values) {
       try {
         return this.clui.Sparkline(values, suffix || "");
@@ -448,14 +512,14 @@ class Cli extends Service {
         throw e;
       }
     }
-    throw new Error(`Bad vlue : ${values}`)
+    throw new Error(`Bad vlue : ${values}`);
   }
 
-  getSpinner (message: string, design?: string[]) {
-    return new this.clui.Spinner(message, design );
+  getSpinner(message: string, design?: string[]) {
+    return new this.clui.Spinner(message, design);
   }
 
-  startSpinner (message: string, design?: string[]) : clui.Spinner | null {
+  startSpinner(message: string, design?: string[]): clui.Spinner | null {
     try {
       this.spinner = this.getSpinner(message, design);
       this.wrapperLog = this.spinner.message;
@@ -467,7 +531,7 @@ class Cli extends Service {
     }
   }
 
-  stopSpinner (/* message, options*/) {
+  stopSpinner(/* message, options*/) {
     if (this.spinner) {
       this.spinner.stop();
       this.wrapperLog = console.log;
@@ -478,7 +542,11 @@ class Cli extends Service {
     return false;
   }
 
-  displayTable (datas : any[], options = defaultTableCli, syslog : Syslog | null = null) {
+  displayTable(
+    datas: any[],
+    options = defaultTableCli,
+    syslog: Syslog | null = null
+  ) {
     if (!datas || !datas.length) {
       return new Table(extend({}, defaultTableCli, options));
     }
@@ -496,8 +564,18 @@ class Cli extends Service {
     return table;
   }
 
-  static niceBytes (x: string | number) {
-    const units :string[] = ["bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"]
+  static niceBytes(x: string | number) {
+    const units: string[] = [
+      "bytes",
+      "KB",
+      "MB",
+      "GB",
+      "TB",
+      "PB",
+      "EB",
+      "ZB",
+      "YB",
+    ];
     let n = parseInt(<string>x, 10) || 0,
       l = 0;
     while (n >= 1024) {
@@ -507,29 +585,29 @@ class Cli extends Service {
     return `${n.toFixed(n >= 10 || l < 1 ? 0 : 1)} ${units[l]}`;
   }
 
-  static niceUptime (date: moment.MomentInput, suffix: boolean | undefined) {
+  static niceUptime(date: moment.MomentInput, suffix: boolean | undefined) {
     return moment(date).fromNow(suffix || false);
   }
-  static niceDate (date: moment.MomentInput, format: string | undefined) {
+  static niceDate(date: moment.MomentInput, format: string | undefined) {
     return moment(date).format(format);
   }
 
-  getEmoji (name: string) {
+  getEmoji(name: string) {
     if (name) {
       return get(name);
     }
     return random().emoji;
   }
 
-  clear () {
-    console.clear()
+  clear() {
+    console.clear();
   }
 
-  reset () {
+  reset() {
     process.stdout.write(reset);
   }
 
-  resize () {
+  resize() {
     process.stdout.on("resize", () => {
       this.columns = process.stdout.columns;
       this.rows = process.stdout.rows;
@@ -537,31 +615,39 @@ class Cli extends Service {
     });
   }
 
-  rm (...files: string[] ) : shelljs.ShellString {
-    return shelljs.rm(...files );
+  rm(...files: string[]): shelljs.ShellString {
+    return shelljs.rm(...files);
   }
 
-  cp (options: string, source: string | string[], dest: string) :  shelljs.ShellString {
-    return shelljs.cp(options, source, dest ); 
+  cp(
+    options: string,
+    source: string | string[],
+    dest: string
+  ): shelljs.ShellString {
+    return shelljs.cp(options, source, dest);
   }
 
-  cd (dir?: string | undefined) :  shelljs.ShellString {
-    return shelljs.cd( dir);
+  cd(dir?: string | undefined): shelljs.ShellString {
+    return shelljs.cd(dir);
   }
 
-  ln (options: string, source: string, dest: string):  shelljs.ShellString {
-    return shelljs.ln(options, source, dest );
+  ln(options: string, source: string, dest: string): shelljs.ShellString {
+    return shelljs.ln(options, source, dest);
   }
 
-  mkdir (...dir: string[]):  shelljs.ShellString {
-    return shelljs.mkdir(...dir );
+  mkdir(...dir: string[]): shelljs.ShellString {
+    return shelljs.mkdir(...dir);
   }
 
   // chmod(options: string, mode: string | number, file: string): shelljs.ShellString {
   //    return shelljs.chmod(options, mode, file);
   // }
 
-  chmod(options: string, mode: string | number, file: string): shelljs.ShellString;
+  chmod(
+    options: string,
+    mode: string | number,
+    file: string
+  ): shelljs.ShellString;
   chmod(mode: string | number, file: string): shelljs.ShellString;
   chmod(...args: any[]): shelljs.ShellString {
     if (args.length === 3) {
@@ -570,45 +656,18 @@ class Cli extends Service {
       return shelljs.chmod(args[0], args[1]);
     } else {
       // Gérer l'erreur ou lancer une exception si nécessaire
-      throw new Error('Nombre d\'arguments invalide pour la méthode chmod.');
+      throw new Error("Nombre d'arguments invalide pour la méthode chmod.");
     }
   }
 
-  ls (...paths: string[]):  shelljs.ShellArray{
+  ls(...paths: string[]): shelljs.ShellArray {
     return shelljs.ls(...paths);
   }
 
-  // async createDirectory (
-  //   myPath: fs.PathLike , 
-  //   mode ?: fs.MakeDirectoryOptions | fs.Mode | null , 
-  //   force: boolean = false
-  // ) : Promise<FileClass>  {
-  //   return new Promise<FileClass>((resolve, reject) => {
-  //     try {
-  //       console.log("pass", myPath)
-  //       const file = fs.mkdirSync(<fs.PathLike>myPath, mode)
-  //       console.log(file)
-  //       return resolve( new FileClass( myPath ) );
-  //     } catch (e: any) {
-  //       switch (e.code) {
-  //       case "EEXIST":
-  //         if (force) {
-  //           return resolve(new FileClass(myPath));
-  //         }
-  //         break;
-  //       }
-  //       return reject(e);
-  //     }
-  //   })
-  //   .catch((e) => {
-  //     throw e;
-  //   });
-  // }
-
   async createDirectory(
-  myPath: fs.PathLike,
-  mode?: fs.MakeDirectoryOptions | fs.Mode | null,
-  force: boolean = false
+    myPath: fs.PathLike,
+    mode?: fs.MakeDirectoryOptions | fs.Mode | null,
+    force: boolean = false
   ): Promise<FileClass> {
     try {
       await fs.promises.mkdir(myPath, mode);
@@ -621,18 +680,22 @@ class Cli extends Service {
           }
           break;
       }
-      throw e
+      throw e;
     }
   }
 
-  existsSync (myPath: fs.PathLike) {
+  existsSync(myPath: fs.PathLike) {
     if (!myPath) {
       throw new Error("existsSync no path found");
     }
     return fs.existsSync(myPath);
   }
 
-  exists (myPath: fs.PathLike, mode?: number | undefined, callback?: fs.NoParamCallback) {
+  exists(
+    myPath: fs.PathLike,
+    mode?: number | undefined,
+    callback?: fs.NoParamCallback
+  ) {
     if (!myPath) {
       throw new Error("exists no path found");
     }
@@ -645,7 +708,7 @@ class Cli extends Service {
     return fs.existsSync(myPath);
   }
 
-  terminate (code: number= 0, quiet?: boolean) {
+  terminate(code: number = 0, quiet?: boolean) {
     if (quiet) {
       return code;
     }
@@ -655,14 +718,14 @@ class Cli extends Service {
     process.exit(code);
   }
 
-  static quit (code:  number) {
+  static quit(code: number) {
     if (code === 0) {
       process.exitCode = code;
     }
     process.exit(code);
   }
 
-  startTimer (name: string) {
+  startTimer(name: string) {
     if (name in this.timers) {
       throw new Error(`Timer : ${name} already exist !! stopTimer to clear`);
     }
@@ -678,7 +741,7 @@ class Cli extends Service {
     }
   }
 
-  stopTimer (name: string) {
+  stopTimer(name: string) {
     if (!name) {
       for (const timer in this.timers) {
         this.stopTimer(this.timers[timer]);
@@ -699,79 +762,97 @@ class Cli extends Service {
     }
   }
 
-  getCommandManager (manager: string) {
+  getCommandManager(manager: string) {
     if (process.platform === "win32") {
       switch (manager) {
-      case "npm":
-        return "npm.cmd";
-      case "yarn":
-        return "yarn.cmd";
-      case "pnpm":
-        return "pnpm.cmd";
-      default:
-        throw new Error(`bad manager : ${manager}`);
+        case "npm":
+          return "npm.cmd";
+        case "yarn":
+          return "yarn.cmd";
+        case "pnpm":
+          return "pnpm.cmd";
+        default:
+          throw new Error(`bad manager : ${manager}`);
       }
     } else {
       switch (manager) {
-      case "npm":
-        return "npm";
-      case "yarn":
-        return "yarn";
-      case "pnpm":
-        return "pnpm";
-      default:
-        throw new Error(`bad manager : ${manager}`);
+        case "npm":
+          return "npm";
+        case "yarn":
+          return "yarn";
+        case "pnpm":
+          return "pnpm";
+        default:
+          throw new Error(`bad manager : ${manager}`);
       }
     }
   }
 
-  runPackageManager (argv : string[]= [], cwd :string= path.resolve("."), env: EnvironmentType , manager: string) {
+  runPackageManager(
+    argv: string[] = [],
+    cwd: string = path.resolve("."),
+    env: EnvironmentType,
+    manager: string
+  ) {
     const currentenv = process.env.NODE_ENV;
     switch (env) {
-    case "dev":
-    case "development":
-      switch (manager) {
-      case "npm":
-      case "yarn":
-      case "pnpm":
+      case "dev":
+      case "development":
+        switch (manager) {
+          case "npm":
+          case "yarn":
+          case "pnpm":
+            break;
+        }
+        process.env.NODE_ENV = "development";
         break;
-      }
-      process.env.NODE_ENV = "development";
-      break;
-    case "prod":
-    case "production":
-      switch (manager) {
-      case "npm":
-        argv.push("--omit=dev");
+      case "prod":
+      case "production":
+        switch (manager) {
+          case "npm":
+            argv.push("--omit=dev");
+            break;
+          case "yarn":
+            argv.push("--production");
+            break;
+          case "pnpm":
+            argv.push("--prod");
+            break;
+        }
+        process.env.NODE_ENV = "production";
         break;
-      case "yarn":
-        argv.push("--production");
-        break;
-      case "pnpm":
-        argv.push("--prod");
-        break;
-      }
-      process.env.NODE_ENV = "production";
-      break;
-    default:
-      process.env.NODE_ENV = this.environment;
+      default:
+        process.env.NODE_ENV = this.environment;
     }
     return new Promise((resolve, reject) => {
       try {
-        this.debug = this.commander ? this.commander.opts().debug || false : false;
+        this.debug = this.commander
+          ? this.commander.opts().debug || false
+          : false;
         this.log(`Command : ${manager} ${argv.join(" ")} in cwd : ${cwd}`);
         const exe = this.getCommandManager(manager);
-        this.spawn(exe, argv, {
-          cwd,
-          env: process.env,
-          stdio:  "inherit"
-        }, (code: number) => {
-          process.env.NODE_ENV = currentenv;
-          if (code === 0) {
-            return resolve(code);
+        this.spawn(
+          exe,
+          argv,
+          {
+            cwd,
+            env: process.env,
+            stdio: "inherit",
+          },
+          (code: number) => {
+            process.env.NODE_ENV = currentenv;
+            if (code === 0) {
+              return resolve(code);
+            }
+            return resolve(
+              new Error(
+                `Command : ${manager} ${argv.join(
+                  " "
+                )}  cwd : ${cwd} Error Code : ${code}`
+              )
+            );
           }
-          return resolve(new Error(`Command : ${manager} ${argv.join(" ")}  cwd : ${cwd} Error Code : ${code}`));
-        });
+        );
       } catch (e) {
         process.env.NODE_ENV = currentenv;
         this.log(e, "ERROR");
@@ -780,24 +861,29 @@ class Cli extends Service {
     });
   }
 
-  async npm (argv = [], cwd = path.resolve("."), env : EnvironmentType= "dev") {
+  async npm(argv = [], cwd = path.resolve("."), env: EnvironmentType = "dev") {
     return this.runPackageManager(argv, cwd, env, "npm");
   }
 
-  async yarn (argv = [], cwd = path.resolve("."), env : EnvironmentType= "dev") {
+  async yarn(argv = [], cwd = path.resolve("."), env: EnvironmentType = "dev") {
     return this.runPackageManager(argv, cwd, env, "yarn");
   }
 
-  async pnpm (argv = [], cwd = path.resolve("."), env : EnvironmentType= "dev") {
+  async pnpm(argv = [], cwd = path.resolve("."), env: EnvironmentType = "dev") {
     return this.runPackageManager(argv, cwd, env, "pnpm");
   }
 
-  spawn (command: string, args: readonly string[] | undefined, options : SpawnOptions | undefined , close : ((code:number) =>void) | null= null) {
+  spawn(
+    command: string,
+    args: readonly string[] | undefined,
+    options: SpawnOptions | undefined,
+    close: ((code: number) => void) | null = null
+  ) {
     return new Promise((resolve, reject) => {
       let cmd = null;
       try {
-        if (!args ){
-          args=[]
+        if (!args) {
+          args = [];
         }
         this.log(`Spawn : ${command} ${args.join(" ")}`, "INFO");
         cmd = spawn(command, args, options || {});
@@ -831,10 +917,13 @@ class Cli extends Service {
             close(code);
           }
           if (code !== 0) {
-            if (!args){
-              args =[]
+            if (!args) {
+              args = [];
             }
-            this.log(`Spawn : ${command} ${args.join(" ")} Error Code : ${code}`, "ERROR");
+            this.log(
+              `Spawn : ${command} ${args.join(" ")} Error Code : ${code}`,
+              "ERROR"
+            );
           }
           return resolve(code);
         });
@@ -852,7 +941,11 @@ class Cli extends Service {
     });
   }
 
-  spawnSync (command: string, args: readonly string[], options: SpawnSyncOptionsWithStringEncoding) : SpawnSyncReturns<string> {
+  spawnSync(
+    command: string,
+    args: readonly string[],
+    options: SpawnSyncOptionsWithStringEncoding
+  ): SpawnSyncReturns<string> {
     let cmd = null;
     try {
       cmd = spawnSync(command, args, options);
@@ -874,6 +967,4 @@ class Cli extends Service {
 }
 
 export default Cli;
-export{
-  CliDefaultOptions
-}
+export { CliDefaultOptions };

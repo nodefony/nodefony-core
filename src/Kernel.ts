@@ -1,38 +1,35 @@
 //import Syslog from "./syslog/Syslog"
 //import nodefony from "./Nodefony"
-import Service from './Service'
+import Service from "./Service";
 
-enum  environment {
+enum environment {
   "dev",
   "development",
   "prod",
   "production",
-  "stage"
+  "stage",
 }
 
-enum type{
+enum type {
   "cli",
-  "server"
+  "server",
 }
-type DebugType = boolean | string | string[]
-type environmentType = keyof typeof environment
-type typeType = keyof typeof type
+type DebugType = boolean | string | string[];
+type environmentType = keyof typeof environment;
+type typeType = keyof typeof type;
 
-class Kernel extends Service{
-  type: typeType = "server"
-  console: boolean = this.isCli()
-  environment: environmentType = "production"
-  debug : DebugType = false
+class Kernel extends Service {
+  type: typeType = "server";
+  console: boolean = this.isCli();
+  environment: environmentType = "production";
+  debug: DebugType = false;
 
-  constructor(){
-    super("KERNEL")
+  constructor() {
+    super("KERNEL");
   }
   isCli() {
     return this.type === "cli";
   }
-
 }
 
-
-
-export default Kernel
+export default Kernel;

@@ -1,8 +1,7 @@
-import 'mocha';
-import assert from 'node:assert'
-import Service  from '../Service'
+import "mocha";
+import assert from "node:assert";
+import Service from "../Service";
 //import mochaJsdom from 'mocha-jsdom';
-
 
 declare global {
   interface NodeJSGlobal {
@@ -11,12 +10,9 @@ declare global {
 }
 declare let global: NodeJS.Global & { service?: Service };
 
-
 describe("NODEFONY Service", () => {
-
   describe("namespace", () => {
-
-     before(() => {
+    before(() => {
       global.service = new Service("test");
       // mochaJsdom({
       //   // Options jsdom
@@ -28,11 +24,5 @@ describe("NODEFONY Service", () => {
       assert(global.service instanceof Service);
       done();
     });
-
-  })
-
-
-
-
-
-})
+  });
+});

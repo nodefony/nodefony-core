@@ -1,17 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-type-constraint */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import Result from './Result'
-import File from './File'
-
+import Result from "./Result";
+import File from "./File";
 
 class FileResult extends Result {
-
-  constructor (res?:  File[] | undefined) {
+  constructor(res?: File[] | undefined) {
     super(res);
     //Array.prototype.find
   }
 
-  override toString () : string {
+  override toString(): string {
     let txt = "";
     for (let index = 0; index < this.length; index++) {
       const info = this[index];
@@ -20,35 +18,38 @@ class FileResult extends Result {
     return txt;
   }
 
-  override toJson (json :any[]= []) : string{
+  override toJson(json: any[] = []): string {
     for (let index = 0; index < this.length; index++) {
-      const info :File = this[index];
+      const info: File = this[index];
       switch (info.type) {
-      case "File":
-        json.push(info.toJson());
-        break;
-      case "symbolicLink":
-      case "Directory":{
-        const dir = info.toJson();
-        if (info.childrens) {
-          dir.childrens = info.childrens.toJson();
+        case "File":
+          json.push(info.toJson());
+          break;
+        case "symbolicLink":
+        case "Directory": {
+          const dir = info.toJson();
+          if (info.childrens) {
+            dir.childrens = info.childrens.toJson();
+          }
+          json.push(dir);
+          break;
         }
-        json.push(dir);
-        break;
-      }
       }
     }
     return JSON.stringify(json);
   }
 
-  uniq () {
+  uniq() {
     return this;
   }
 
-  override find <S>(predicate: (value: any, index: number, obj: any[]) => value is S, result : FileResult = new FileResult()) : FileResult {
+  override find<S>(
+    predicate: (value: any, index: number, obj: any[]) => value is S,
+    result: FileResult = new FileResult()
+  ): FileResult {
     for (let index = 0; index < this.length; index++) {
       const info: File = this[index];
-      const unknownType : unknown= predicate
+      const unknownType: unknown = predicate;
       const match = info.matchName(<string>unknownType);
       if (match) {
         result.push(info);
@@ -58,39 +59,39 @@ class FileResult extends Result {
     return result.uniq();
   }
 
-  getDirectories (result :FileResult  = new FileResult()) :FileResult {
+  getDirectories(result: FileResult = new FileResult()): FileResult {
     for (let index = 0; index < this.length; index++) {
       const info: File = this[index];
       switch (info.type) {
-      case "Directory":
-        result.push(info);
-        info.childrens.getDirectories(result);
-        break;
-      case "symbolicLink":
-        info.childrens.getDirectories(result);
-        break;
+        case "Directory":
+          result.push(info);
+          info.childrens.getDirectories(result);
+          break;
+        case "symbolicLink":
+          info.childrens.getDirectories(result);
+          break;
       }
     }
     return result;
   }
 
-  getFiles (result  :FileResult  = new FileResult()) : FileResult{
+  getFiles(result: FileResult = new FileResult()): FileResult {
     for (let index = 0; index < this.length; index++) {
-      const info :File= this[index];
+      const info: File = this[index];
       switch (info.type) {
-      case "File":
-        result.push(info);
-        break;
-      case "symbolicLink":
-      case "Directory":
-        info.childrens.getFiles(result);
-        break;
+        case "File":
+          result.push(info);
+          break;
+        case "symbolicLink":
+        case "Directory":
+          info.childrens.getFiles(result);
+          break;
       }
     }
     return result;
   }
 
-  sortByName (result : FileResult = new FileResult()) : FileResult{
+  sortByName(result: FileResult = new FileResult()): FileResult {
     const res = this.sort((a, b) => {
       if (a.name.toString() > b.name.toString()) {
         return 1;
@@ -102,12 +103,12 @@ class FileResult extends Result {
     });
     if (res) {
       const unknownResult: unknown = result.concat(res);
-      return  <FileResult>unknownResult;
+      return <FileResult>unknownResult;
     }
     return this;
   }
 
-  sortByType (result = new FileResult()) : FileResult{
+  sortByType(result = new FileResult()): FileResult {
     const res = this.sort((a, b) => {
       if (a.type.toString() > b.type.toString()) {
         return 1;
@@ -125,4 +126,4 @@ class FileResult extends Result {
   }
 }
 
-export default FileResult
+export default FileResult;

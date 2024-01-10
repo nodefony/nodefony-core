@@ -11,12 +11,11 @@
  *  kernel :   instance of kernel who launch the test
  *
  */
-//import { expect, assert as assertChai} from 'chai' 
-import Syslog ,{ conditionsInterface}from "../syslog/Syslog";
+//import { expect, assert as assertChai} from 'chai'
+import Syslog, { conditionsInterface } from "../syslog/Syslog";
 //import nodefony  from "../Nodefony"
-import Pdu from '../syslog/Pdu'
-import assert from 'node:assert';
-
+import Pdu from "../syslog/Pdu";
+import assert from "node:assert";
 
 class TestSyslog extends Syslog {
   _eventsCount?: number;
@@ -26,22 +25,26 @@ class TestPdu extends Pdu {
   before?: string;
 }
 
-declare let global: NodeJS.Global & { syslog: TestSyslog , logger: Function, Pdu:  TestPdu };
+declare let global: NodeJS.Global & {
+  syslog: TestSyslog;
+  logger: Function;
+  Pdu: TestPdu;
+};
 
-const defaultOptions : conditionsInterface = {
+const defaultOptions: conditionsInterface = {
   severity: {
     operator: "<=",
-    data: "7"
-  }
+    data: "7",
+  },
 };
 
 describe("NODEFONY SYSLOG", () => {
   before(() => {
     global.syslog = new Syslog();
-    
+
     global.syslog.listenWithConditions(
       defaultOptions,
-      (pdu : Pdu) =>
+      (pdu: Pdu) =>
         // nodefony.Syslog.normalizeLog(pdu);
         true
     );
@@ -65,39 +68,33 @@ describe("NODEFONY SYSLOG", () => {
     });
     it("Check options moduleName ", (done) => {
       const inst = new Syslog({
-        moduleName: "MYMODULE"
+        moduleName: "MYMODULE",
       });
-      inst.listenWithConditions(
-        defaultOptions,
-        (pdu: Pdu) => {
-          assert.strict.equal(pdu.moduleName, "MYMODULE");
-          assert.strict.equal(pdu.severity, 7);
-          assert.strict.equal(pdu.payload, "test");
-        }
-      );
+      inst.listenWithConditions(defaultOptions, (pdu: Pdu) => {
+        assert.strict.equal(pdu.moduleName, "MYMODULE");
+        assert.strict.equal(pdu.severity, 7);
+        assert.strict.equal(pdu.payload, "test");
+      });
       inst.log("test");
       done();
     });
     it("Check options sevirity ", (done) => {
       const inst = new Syslog({
         moduleName: "MYMODULE2",
-        defaultSeverity: "ALERT"
+        defaultSeverity: "ALERT",
       });
-      inst.listenWithConditions(
-        defaultOptions,
-        (pdu: Pdu) => {
-          assert.strict.equal(pdu.moduleName, "MYMODULE2");
-          assert.strict.equal(pdu.severity, 1);
-          assert.strict.equal(pdu.payload, "test");
-        }
-      );
+      inst.listenWithConditions(defaultOptions, (pdu: Pdu) => {
+        assert.strict.equal(pdu.moduleName, "MYMODULE2");
+        assert.strict.equal(pdu.severity, 1);
+        assert.strict.equal(pdu.payload, "test");
+      });
       inst.log("test");
       done();
     });
 
     it("Change stack size ", (done) => {
       const inst = new Syslog({
-        maxStack: 500
+        maxStack: 500,
       });
       for (let i = 0; i < 1000; i++) {
         inst.log(i);
@@ -137,12 +134,9 @@ describe("NODEFONY SYSLOG", () => {
 
     it("1000  entries ", (done) => {
       let i = 0;
-       global.syslog.on(
-        "onLog",
-        (pdu) => i++
-      );
+      global.syslog.on("onLog", (pdu) => i++);
       for (let i = 0; i < 1000; i++) {
-         global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
       }
       assert.strict.equal(global.syslog.ringStack.length, 100);
       assert.strict.equal(global.syslog.ringStack[0].payload, 900);
@@ -180,8 +174,8 @@ describe("NODEFONY SYSLOG", () => {
     it("getLogs 1000  entries ", (done) => {
       const res: conditionsInterface = global.syslog.getLogs({
         severity: {
-          data: "INFO"
-        }
+          data: "INFO",
+        },
       });
       assert.strict.equal(res.length, 50);
       done();
@@ -189,10 +183,9 @@ describe("NODEFONY SYSLOG", () => {
   });
 
   describe("loadStack ", () => {
-
     it("loadStack 1000  entries ", (done) => {
       const inst = new Syslog({
-        maxStack: 100
+        maxStack: 100,
       });
       inst.loadStack(global.syslog.ringStack);
       assert.strict.equal(inst.ringStack.length, 100);
@@ -201,17 +194,20 @@ describe("NODEFONY SYSLOG", () => {
 
     it("loadStack 1000 events  ", (done) => {
       const inst = new Syslog({
-        maxStack: 100
+        maxStack: 100,
       });
       let i = 0;
-      inst.listenWithConditions({
-        severity: {
-          data: "INFO"
+      inst.listenWithConditions(
+        {
+          severity: {
+            data: "INFO",
+          },
+        },
+        (pdu: Pdu) => {
+          i++;
+          // nodefony.Syslog.normalizeLog(pdu);
         }
-      }, (pdu: Pdu) => {
-        i++;
-        // nodefony.Syslog.normalizeLog(pdu);
-      });
+      );
       inst.loadStack(global.syslog.ringStack, true);
       assert.strict.equal(inst.ringStack.length, 100);
       assert.strict.equal(i, 50);
@@ -220,23 +216,26 @@ describe("NODEFONY SYSLOG", () => {
 
     it("loadStack 1000 events  ", (done) => {
       const inst = new Syslog({
-        maxStack: 100
+        maxStack: 100,
       });
       let i = 0;
-      inst.listenWithConditions({
-        severity: {
-          data: "INFO"
+      inst.listenWithConditions(
+        {
+          severity: {
+            data: "INFO",
+          },
+        },
+        (pdu: Pdu) => {
+          i++;
+          // nodefony.Syslog.normalizeLog(pdu);
         }
-      }, (pdu: Pdu) => {
-        i++;
-        // nodefony.Syslog.normalizeLog(pdu);
-      });
+      );
       inst.loadStack(global.syslog.ringStack, true, (pdu: TestPdu) => {
-        (pdu as TestPdu ).before = "add";
+        (pdu as TestPdu).before = "add";
       });
       assert.strict.equal(inst.ringStack.length, 100);
       assert.strict.equal(i, 50);
-      assert.strict.equal((inst.getLogStack() as TestPdu ).before, "add");
+      assert.strict.equal((inst.getLogStack() as TestPdu).before, "add");
       done();
     });
   });
@@ -247,69 +246,58 @@ describe("NODEFONY SYSLOG", () => {
     });
     it("LOG sevirity ", (done) => {
       let i = 0;
-      global.syslog.listenWithConditions(
-        defaultOptions,
-        (pdu: Pdu) => {
-          switch (pdu.severityName) {
-          case "EMERGENCY":
-          {
+      global.syslog.listenWithConditions(defaultOptions, (pdu: Pdu) => {
+        switch (pdu.severityName) {
+          case "EMERGENCY": {
             assert.strict.equal(pdu.severity, 0);
             assert.strict.equal(pdu.msgid, "MYMODULE0");
             i++;
             break;
           }
-          case "ALERT":
-          {
+          case "ALERT": {
             i++;
             assert.strict.equal(pdu.severity, 1);
             assert.strict.equal(pdu.msgid, "MYMODULE1");
             break;
           }
-          case "CRITIC":
-          {
+          case "CRITIC": {
             assert.strict.equal(pdu.severity, 2);
             assert.strict.equal(pdu.msgid, "MYMODULE2");
             i++;
             break;
           }
-          case "ERROR":
-          {
+          case "ERROR": {
             assert.strict.equal(pdu.severity, 3);
             assert.strict.equal(pdu.msgid, "MYMODULE3");
             i++;
             break;
           }
-          case "WARNING":
-          {
+          case "WARNING": {
             assert.strict.equal(pdu.severity, 4);
             assert.strict.equal(pdu.msgid, "MYMODULE4");
             i++;
             break;
           }
-          case "NOTICE":
-          {
+          case "NOTICE": {
             assert.strict.equal(pdu.severity, 5);
             assert.strict.equal(pdu.msgid, "MYMODULE5");
             i++;
             break;
           }
-          case "INFO":
-          {
+          case "INFO": {
             assert.strict.equal(pdu.severity, 6);
             assert.strict.equal(pdu.msgid, "MYMODULE6");
             i++;
             break;
           }
-          case "DEBUG":
-          {
+          case "DEBUG": {
             assert.strict.equal(pdu.severity, 7);
             assert.strict.equal(pdu.msgid, "MYMODULE7");
             i++;
             break;
           }
-          }
         }
-      );
+      });
       global.syslog.log("test", "EMERGENCY", "MYMODULE0");
       global.syslog.log("test", "ALERT", "MYMODULE1");
       global.syslog.log("test", "CRITIC", "MYMODULE2");
@@ -331,13 +319,10 @@ describe("NODEFONY SYSLOG", () => {
 
     it("listener ", (done) => {
       let i = 0;
-      global.syslog.listenWithConditions(
-        defaultOptions,
-        (pdu: Pdu) => i++
-      );
+      global.syslog.listenWithConditions(defaultOptions, (pdu: Pdu) => i++);
       assert.strict.equal(global.syslog._eventsCount, 1);
       for (let i = 0; i < 10; i++) {
-         global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
       }
       assert.strict.equal(i, 10);
       done();
@@ -349,8 +334,8 @@ describe("NODEFONY SYSLOG", () => {
         {
           severity: {
             operator: "<=",
-            data: "INFO"
-          }
+            data: "INFO",
+          },
         },
         (pdu: Pdu) => i++
       );
@@ -368,10 +353,10 @@ describe("NODEFONY SYSLOG", () => {
         {
           severity: {
             operator: "<=",
-            data: "INFO"
-          }
+            data: "INFO",
+          },
         },
-        (pdu : Pdu) => {
+        (pdu: Pdu) => {
           assert.strict.equal(pdu.severity, 6);
           assert.strict.equal(pdu.severityName, "INFO");
           return i++;
@@ -390,11 +375,11 @@ describe("NODEFONY SYSLOG", () => {
       global.syslog.listenWithConditions(
         {
           severity: {
-            data: 6
-          }
+            data: 6,
+          },
         },
         (pdu: Pdu) => {
-        // nodefony.Syslog.normalizeLog(pdu);
+          // nodefony.Syslog.normalizeLog(pdu);
           assert.strict.equal(pdu.severity, 6);
           assert.strict.equal(pdu.severityName, "INFO");
           return i++;
@@ -413,11 +398,11 @@ describe("NODEFONY SYSLOG", () => {
         {
           severity: {
             operator: "==",
-            data: "7"
-          }
+            data: "7",
+          },
         },
         (pdu: Pdu) => {
-        // nodefony.Syslog.normalizeLog(pdu);
+          // nodefony.Syslog.normalizeLog(pdu);
           assert.strict.equal(pdu.severity, 7);
           assert.strict.equal(pdu.severityName, "DEBUG");
           return i++;
@@ -425,7 +410,7 @@ describe("NODEFONY SYSLOG", () => {
       );
       assert.strict.equal(global.syslog._eventsCount, 1);
       for (let i = 0; i < 10; i++) {
-         global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
       }
       assert.strict.equal(i, 5);
       done();
@@ -436,8 +421,8 @@ describe("NODEFONY SYSLOG", () => {
       global.syslog.listenWithConditions(
         {
           severity: {
-            data: "INFO,DEBUG,WARNING"
-          }
+            data: "INFO,DEBUG,WARNING",
+          },
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
@@ -452,8 +437,8 @@ describe("NODEFONY SYSLOG", () => {
       global.syslog.listenWithConditions(
         {
           severity: {
-            data: ["INFO", "WARNING", "DEBUG"]
-          }
+            data: ["INFO", "WARNING", "DEBUG"],
+          },
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
@@ -468,8 +453,8 @@ describe("NODEFONY SYSLOG", () => {
       global.syslog.listenWithConditions(
         {
           severity: {
-            data: ["6", "4", "7"]
-          }
+            data: ["6", "4", "7"],
+          },
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
@@ -484,8 +469,8 @@ describe("NODEFONY SYSLOG", () => {
       global.syslog.listenWithConditions(
         {
           severity: {
-            data: [6, 4, 7]
-          }
+            data: [6, 4, 7],
+          },
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
@@ -502,8 +487,8 @@ describe("NODEFONY SYSLOG", () => {
         {
           severity: {
             operator: ">=",
-            data: 4
-          }
+            data: 4,
+          },
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
@@ -519,8 +504,8 @@ describe("NODEFONY SYSLOG", () => {
         {
           severity: {
             operator: ">",
-            data: 4
-          }
+            data: 4,
+          },
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
@@ -536,8 +521,8 @@ describe("NODEFONY SYSLOG", () => {
         {
           severity: {
             operator: "<",
-            data: 4
-          }
+            data: 4,
+          },
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
@@ -553,8 +538,8 @@ describe("NODEFONY SYSLOG", () => {
         {
           severity: {
             operator: "<",
-            data: "WARNING"
-          }
+            data: "WARNING",
+          },
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
@@ -570,32 +555,33 @@ describe("NODEFONY SYSLOG", () => {
     beforeEach(() => {
       global.syslog.reset();
     });
-    it("listener condition MSGID ", () => new Promise((resolve, reject) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          msgid: {
-            data: "NODEFONY"
+    it("listener condition MSGID ", () =>
+      new Promise((resolve, reject) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            msgid: {
+              data: "NODEFONY",
+            },
+            severity: {
+              data: ["INFO", "ERROR"],
+            },
           },
-          severity:{
-            data:["INFO","ERROR"]
+          (pdu: Pdu) => {
+            i++;
+            // nodefony.Syslog.normalizeLog(pdu);
+            assert.strict.equal(pdu.msgid, "NODEFONY");
+            assert.strict.equal(pdu.payload, "pass");
+            if (i === 3) {
+              resolve(true);
+            }
           }
-        },
-        (pdu : Pdu) => {
-          i++;
-          // nodefony.Syslog.normalizeLog(pdu);
-          assert.strict.equal(pdu.msgid, "NODEFONY");
-          assert.strict.equal(pdu.payload, "pass");
-          if (i === 3) {
-            resolve(true);
-          }
-        }
-      );
-      global.syslog.log("pass", "INFO", "NODEFONY");
-      global.syslog.log("nopass", "INFO");
-      global.syslog.log("pass", "INFO", "NODEFONY");
-      global.syslog.log("nopass", "DEBUG", "NODEFONY");
-      global.syslog.log("pass", "ERROR", "NODEFONY");
-    }));
+        );
+        global.syslog.log("pass", "INFO", "NODEFONY");
+        global.syslog.log("nopass", "INFO");
+        global.syslog.log("pass", "INFO", "NODEFONY");
+        global.syslog.log("nopass", "DEBUG", "NODEFONY");
+        global.syslog.log("pass", "ERROR", "NODEFONY");
+      }));
   });
 });
