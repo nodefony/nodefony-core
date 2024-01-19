@@ -1,0 +1,23 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "app nodefony entry point",
+  "author": "admin <admin@nodefony.com>",
+  "main": "index.js",
+  "type": "module",
+  "types": "types.d.ts",
+  "scripts": {},
+  "private": true,
+  "keywords": [
+    "nodefony",
+    "javascript"
+  ],
+  "repository": {},
+  "dependencies": {},
+  "devDependencies": {
+    
+  },
+  "license": "",
+  "readmeFilename": "README.md",
+  "contributors": []
+}

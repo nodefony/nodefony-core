@@ -1,5 +1,5 @@
 {
-  "name": "@nodefony/core",
+  "name": "@nodefony/packages",
   "version": "10.0.0",
   "description": "Core Nodefony Framework",
   "type": "module",
@@ -13,18 +13,11 @@
     "javascript"
   ],
   "scripts": {
-    "install": "npm  --prefix ./src/core install ; npm --prefix ./src/packages install",
-    "prebuild": "mkdirp tmp",
-    "build": "npm run --prefix ./src/core build; npm run --prefix ./src/packages build",
-    "test": "npm run --prefix ./src/core test; npm --prefix ./src/packages test",
-    "dev": "npm run --prefix ./src/core dev; npm --prefix ./src/packages dev",
-    "certificates": "bash bin/generateCertificates.sh"
+    "install":"npm --prefix ./@nodefony/http install",
+    "build":"npm run --prefix ./@nodefony/http build",
+    "test":"npm run --prefix ./@nodefony/http test"
   },
-  "workspaces": [
-    "app",
-    "src/core",
-    "src/packages/@nodefony/*"
-  ],
+  "dependencies": {},
   "devDependencies": {
     "@types/node": "20.11.5",
     "@typescript-eslint/eslint-plugin": "6.19.0",
@@ -32,7 +25,6 @@
     "eslint": "8.56.0",
     "eslint-config-prettier": "9.1.0",
     "eslint-plugin-prettier": "5.1.3",
-    "mkdirp": "3.0.1",
     "prettier": "3.2.4",
     "typescript": "5.3.3"
   },

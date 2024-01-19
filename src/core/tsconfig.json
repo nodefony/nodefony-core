@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "./rollup.config.ts",
+    "./src"
+  ],
+  "exclude": [
+    "src/tests/**/*",
+    "src/bin/**/*",
+    "node_modules",
+    "dist"
+  ],
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "declaration": false,
+    "resolveJsonModule": true,
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
+    "types": [
+      "nodefony"
+    ],
+    "stripInternal": true
+  }
+}

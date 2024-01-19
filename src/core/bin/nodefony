@@ -1,0 +1,3072 @@
+#!/usr/bin/env node
+import path from 'node:path';
+import * as fs from 'fs/promises';
+import clc from 'cli-color';
+import _ from 'lodash';
+import { EventEmitter } from 'node:events';
+import fs$1 from 'node:fs';
+import { program, Command as Command$1, Option, Argument } from 'commander';
+import { spawn, spawnSync } from 'node:child_process';
+import moment from 'moment';
+import semver from 'semver';
+import asciify from 'asciify';
+import Table from 'cli-table3';
+import { get as get$1, random } from 'node-emoji';
+import { v4 } from 'uuid';
+import mime from 'mime-types';
+import crypto from 'node:crypto';
+import clui from 'clui';
+import shelljs from 'shelljs';
+import * as prompts from '@inquirer/prompts';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const generateId = function () {
+    return v4();
+};
+const ISDefined = function (ele) {
+    if (ele !== null && ele !== undefined) {
+        return true;
+    }
+    return false;
+};
+const parseParameterString = function (str, value) {
+    if (!this) {
+        throw new Error(`Bad call`);
+    }
+    const parts = str.split(".");
+    const currentPart = parts.shift();
+    if (currentPart !== undefined) {
+        if (!this[currentPart] && parts.length > 0) {
+            if (value !== undefined) {
+                this[currentPart] = {};
+            }
+        }
+        if (parts.length === 0) {
+            // Dernière partie de la chaîne
+            if (value !== undefined) {
+                //console.log(`parseParameterString`, value, currentPart, this)
+                this[currentPart] = value;
+            }
+            return this[currentPart];
+        }
+        else {
+            if (this[currentPart]) {
+                return parseParameterString.call(this[currentPart], parts.join("."), value);
+            }
+            return null;
+        }
+    }
+    return this;
+};
+/*
+ *
+ *  CONTAINER CLASS
+ *
+ */
+class Container {
+    protoService = function () { };
+    services;
+    protoParameters = function () { };
+    parameters;
+    id;
+    scopes = {};
+    constructor(services = {}, parameters = {}) {
+        this.id = generateId();
+        this.services = Object.create(this.protoService.prototype);
+        this.parameters = Object.create(this.protoParameters.prototype);
+        if (services && typeof services === "object") {
+            for (const service in services) {
+                this.set(service, services[service]);
+            }
+        }
+        if (parameters && typeof parameters === "object") {
+            for (const parameter in parameters) {
+                this.setParameters(parameter, parameters[parameter]);
+            }
+        }
+    }
+    log(pci, severity, msgid, msg) {
+        const syslog = this.get("syslog");
+        if (!syslog) {
+            console.log(pci);
+            return;
+        }
+        if (!msgid) {
+            msgid = "SERVICES CONTAINER ";
+        }
+        return syslog.log(pci, severity, msgid, msg);
+    }
+    set(name, object) {
+        if (this.services && name) {
+            // Ajouter la propriété au prototype de protoService spécifique à cette instance
+            this.protoService.prototype[name] = object;
+            // Ajouter la propriété au service de l'instance actuelle ?
+            this.services[name] = object;
+        }
+        else {
+            throw new Error("Container bad argument name");
+        }
+    }
+    get(name) {
+        if (this.services && name in this.services) {
+            return this.services[name];
+        }
+        return null;
+    }
+    remove(name) {
+        if (!this.services) {
+            throw new Error(`Bad call`);
+        }
+        if (this.get(name)) {
+            delete this.services[name];
+            if (this.protoService.prototype[name]) {
+                delete this.protoService.prototype[name];
+            }
+            for (const scope in this.scopes) {
+                const subScopes = this.scopes[scope];
+                for (const subScope in subScopes) {
+                    subScopes[subScope].remove(name);
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+    has(name) {
+        if (this.services) {
+            return this.services[name];
+        }
+        return false;
+    }
+    addScope(name) {
+        if (!this.scopes[name]) {
+            return (this.scopes[name] = {});
+        }
+        return this.scopes[name];
+    }
+    enterScope(name) {
+        const sc = new Scope(name, this);
+        this.scopes[name][sc.id] = sc;
+        return sc;
+    }
+    leaveScope(scope) {
+        if (this.scopes[scope.name]) {
+            const sc = this.scopes[scope.name][scope.id];
+            if (sc) {
+                sc.clean();
+                delete this.scopes[scope.name][scope.id];
+            }
+        }
+    }
+    removeScope(name) {
+        const scopesForName = this.scopes[name];
+        if (scopesForName) {
+            const scopesArray = Object.values(scopesForName);
+            for (const scope of scopesArray) {
+                this.leaveScope(scope); // Cast explicite à Scope
+            }
+            delete this.scopes[name];
+        }
+    }
+    setParameters(name, ele) {
+        if (typeof name !== "string") {
+            throw new Error("setParameters : container parameter name must be a string");
+        }
+        if (ele === undefined) {
+            throw new Error(`setParameters : ${name} container parameter value must be define`);
+        }
+        //parseParameterString.call(this.protoParameters.prototype, name, ele)
+        return parseParameterString.call(this.parameters, name, ele);
+    }
+    getParameters(name) {
+        //console.log(`main getParameters : ${name}`)
+        if (name) {
+            const res = parseParameterString.call(this.parameters, name);
+            //console.log(`main After getParameters :  `, res)
+            return res;
+        }
+        throw new Error(`Bad name : ${name}`);
+    }
+    clean() {
+        this.services = null;
+        this.parameters = null;
+    }
+}
+/*
+ *
+ *  SCOPE CLASS
+ *
+ */
+class Scope extends Container {
+    name;
+    parent;
+    constructor(name, parent) {
+        super();
+        this.name = name;
+        this.parent = parent;
+        this.services = Object.create(this.parent.protoService.prototype);
+        this.parameters = Object.create(this.parent.protoParameters.prototype);
+    }
+    getParameters(name, merge = true, deep = true) {
+        const res = parseParameterString.call(this.parameters, name);
+        const obj = this.parent.getParameters(name);
+        if (ISDefined(res)) {
+            if (merge && isPlainObject(obj) && isPlainObject(res)) {
+                return extend(deep, obj, res);
+            }
+            return res;
+        }
+        return obj;
+    }
+    clean() {
+        this.parent = null;
+        return super.clean();
+    }
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const { isArray, isFunction: isFunction$1, isRegExp } = _;
+const myobj = {};
+const hasOwn = myobj.hasOwnProperty;
+const fnToString = hasOwn.toString;
+const ObjectFunctionString = fnToString.call(Object);
+const getProto = Object.getPrototypeOf;
+const isPlainObject = (obj) => {
+    if (!obj || toString.call(obj) !== "[object Object]") {
+        return false;
+    }
+    const proto = getProto(obj);
+    if (!proto) {
+        return true;
+    }
+    const Ctor = hasOwn.call(proto, "constructor") && proto.constructor;
+    return (typeof Ctor === "function" && fnToString.call(Ctor) === ObjectFunctionString);
+};
+const extend = (...args) => {
+    let options, name, src, copy, copyIsArray, clone, target = args[0] || {}, i = 1, deep = false;
+    const { length } = args;
+    // Handle a deep copy situation
+    if (typeof target === "boolean") {
+        deep = target;
+        // Skip the boolean and the target
+        target = args[i] || {};
+        i++;
+    }
+    // Handle case when target is a string or something (possible in deep copy)
+    if (typeof target !== "object" && typeof target !== "function") {
+        target = {};
+    }
+    // Extend Nodefony itself if only one argument is passed
+    if (i === length) {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        target = {};
+        i--;
+    }
+    for (; i < length; i++) {
+        // Only deal with non-null/undefined values
+        if ((options = args[i]) != null) {
+            // Extend the base object
+            for (name in options) {
+                copy = options[name];
+                // Prevent Object.prototype pollution
+                // Prevent never-ending loop
+                if (name === "__proto__" || target === copy) {
+                    continue;
+                }
+                // Recurse if we're merging plain objects or arrays
+                if (deep &&
+                    copy &&
+                    (isPlainObject(copy) || (copyIsArray = Array.isArray(copy)))) {
+                    src = target[name];
+                    // Ensure proper type for the source value
+                    if (copyIsArray && !Array.isArray(src)) {
+                        clone = [];
+                    }
+                    else if (!copyIsArray && !isPlainObject(src)) {
+                        clone = {};
+                    }
+                    else {
+                        clone = src;
+                    }
+                    copyIsArray = false;
+                    // Never move original objects, clone them
+                    target[name] = extend(deep, clone, copy);
+                    // Don't bring in undefined values
+                }
+                else if (copy !== undefined) {
+                    target[name] = copy;
+                }
+            }
+        }
+    }
+    // Return the modified object
+    return target;
+};
+/**
+ *  @method typeOf
+ *  @param  value
+ *  @return {String} type of value
+ */
+const typeOf = (value) => {
+    const t = typeof value;
+    if (t === "object") {
+        if (value === null) {
+            return null;
+        }
+        if (Buffer.isBuffer(value)) {
+            return "buffer";
+        }
+        if (isArray(value)) {
+            return "array";
+        }
+        if (isFunction$1(value)) {
+            return "function";
+        }
+        if (value instanceof Date) {
+            return "date";
+        }
+        if (isRegExp(value)) {
+            return "RegExp";
+        }
+        if (value.callee) {
+            return "arguments";
+        }
+        if (value instanceof SyntaxError) {
+            return "SyntaxError";
+        }
+        if (isError(value)) {
+            return "Error";
+        }
+    }
+    else if (t === "function" && typeof value.call === "undefined") {
+        return "object";
+    }
+    return t;
+};
+const isError = (it) => {
+    return it instanceof Error;
+};
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/*
+ * Severity syslog
+ * <pre>
+ *    EMERGENCY   = 0
+ *    ALERT       = 1
+ *    CRITIC      = 2
+ *    ERROR       = 3
+ *    WARNING     = 4
+ *    NOTICE      = 5
+ *    INFO        = 6
+ *    DEBUG       = 7
+ * </pre>
+ */
+var SysLogSeverity;
+(function (SysLogSeverity) {
+    SysLogSeverity[SysLogSeverity["EMERGENCY"] = 0] = "EMERGENCY";
+    SysLogSeverity[SysLogSeverity["ALERT"] = 1] = "ALERT";
+    SysLogSeverity[SysLogSeverity["CRITIC"] = 2] = "CRITIC";
+    SysLogSeverity[SysLogSeverity["ERROR"] = 3] = "ERROR";
+    SysLogSeverity[SysLogSeverity["WARNING"] = 4] = "WARNING";
+    SysLogSeverity[SysLogSeverity["NOTICE"] = 5] = "NOTICE";
+    SysLogSeverity[SysLogSeverity["INFO"] = 6] = "INFO";
+    SysLogSeverity[SysLogSeverity["DEBUG"] = 7] = "DEBUG";
+    SysLogSeverity[SysLogSeverity["SPINNER"] = -1] = "SPINNER";
+})(SysLogSeverity || (SysLogSeverity = {}));
+const sysLogSeverity$1 = [
+    SysLogSeverity.EMERGENCY,
+    SysLogSeverity.ALERT,
+    SysLogSeverity.CRITIC,
+    SysLogSeverity.ERROR,
+    SysLogSeverity.WARNING,
+    SysLogSeverity.NOTICE,
+    SysLogSeverity.INFO,
+    SysLogSeverity.DEBUG,
+    SysLogSeverity.SPINNER,
+];
+const translateSeverity = function (severity = "INFO") {
+    if (typeof severity === "number") {
+        if (sysLogSeverity$1[severity] !== undefined) {
+            return sysLogSeverity$1[severity];
+        }
+        else {
+            throw new Error(`Not a valid nodefony syslog severity: ${severity}`);
+        }
+    }
+    else {
+        if (SysLogSeverity[severity] !== undefined) {
+            return SysLogSeverity[severity];
+        }
+        else {
+            throw new Error(`Not a valid nodefony syslog severity: ${severity}`);
+        }
+    }
+};
+const sysLogSeverityObj = Object.entries(SysLogSeverity).reduce((acc, [key, value]) => {
+    acc[key] = value;
+    return acc;
+}, {});
+/**
+ *  Protocol Data Unit
+ * @class  PDU
+ * @constructor
+ * @module library
+ * @return {PDU}
+ */
+let guid = 0;
+class Pdu {
+    payload;
+    uid;
+    severity;
+    timeStamp;
+    severityName;
+    typePayload;
+    moduleName;
+    msgid;
+    msg;
+    status;
+    constructor(pci, severity, moduleName = "nodefony", msgid = "", msg = "", date = new Date()) {
+        /* timeStamp @type Date*/
+        this.timeStamp = this.convertToDate(date).getTime();
+        /* uid */
+        this.uid = ++guid;
+        /* severity */
+        this.severity = translateSeverity(severity);
+        /* severityName */
+        this.severityName = this.getSeverityName(this.severity);
+        /* typePayload */
+        this.typePayload = typeOf(pci);
+        /* protocole controle information */
+        this.payload = pci;
+        /* moduleName */
+        this.moduleName = moduleName;
+        /* msgid */
+        this.msgid = msgid;
+        /* msg */
+        this.msg = msg;
+        /* staus */
+        this.status = "NOTDEFINED";
+    }
+    getSeverityName(severity) {
+        // Obtenez la clé pour la valeur enum
+        const keys = Object.keys(SysLogSeverity).filter((key) => SysLogSeverity[key] === severity);
+        if (keys.length === 1) {
+            return keys[0];
+        }
+        throw new Error(`Impossible de trouver la clé pour la valeur ${severity}`);
+    }
+    convertToDate(value) {
+        if (typeof value === "string" || typeof value === "number") {
+            return new Date(value);
+        }
+        else if (value instanceof Date) {
+            return value;
+        }
+        else {
+            throw new Error(`Invalid PduDate format: ${value}`);
+        }
+    }
+    static sysLogSeverity() {
+        return sysLogSeverityObj;
+    }
+    static severityToString(severity) {
+        const numericSeverity = typeof severity === "string" ? parseInt(severity, 10) : severity;
+        if (!isNaN(numericSeverity) &&
+            SysLogSeverity[numericSeverity] !== undefined) {
+            return SysLogSeverity[numericSeverity];
+        }
+        const severityKey = Pdu.severityToString(SysLogSeverity[severity]);
+        return severityKey !== undefined ? severityKey : undefined;
+    }
+    /**
+     * Get Date in string format
+     * @method getDate
+     * @return {String} a date in string format .
+     */
+    getDate() {
+        return new Date(this.timeStamp).toTimeString();
+    }
+    /**
+     * get a string representating the PDU protocole
+     * @method toString
+     * @return {String}  .
+     */
+    toString() {
+        return `TimeStamp:${this.getDate()}  Log:${this.payload}  ModuleName:${this.moduleName}  SeverityName:${this.severityName}  MessageID:${this.msgid}  UID:${this.uid}  Message:${this.msg}`;
+    }
+    parseJson(str) {
+        const json = JSON.parse(str);
+        Object.entries(json).forEach(([key, value]) => {
+            if (key in this) {
+                this[key] = value;
+            }
+        });
+        return json;
+    }
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const { isEmpty, get, isFunction } = _;
+const regListenOn = /^on(.*)$/;
+const defaultNbListeners = 20;
+class Event extends EventEmitter {
+    constructor(settings, context, options) {
+        super();
+        if (options && options.nbListeners) {
+            this.setMaxListeners(options.nbListeners || defaultNbListeners);
+        }
+        if (settings) {
+            this.settingsToListen(settings, context);
+        }
+    }
+    settingsToListen(localSettings, context) {
+        for (const i in localSettings) {
+            const res = regListenOn.exec(i);
+            if (!res) {
+                continue;
+            }
+            if (context) {
+                this.listen(context || this, res[0], localSettings[i]);
+                continue;
+            }
+            this.on(res[0], localSettings[i]);
+        }
+    }
+    listen(context, eventName, listener) {
+        const event = eventName;
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const contextClosure = this;
+        if (typeof listener === "function") {
+            this.addListener(eventName, listener.bind(context));
+        }
+        return function (...args) {
+            args.unshift(event);
+            return contextClosure.emit(eventName, ...args);
+        };
+    }
+    fire(eventName, ...args) {
+        return super.emit(eventName, ...args);
+    }
+    async emitAsync(eventName, ...args) {
+        const handler = get(this._events, eventName);
+        if (isEmpty(handler) && !isFunction(handler)) {
+            return false;
+        }
+        const tab = [];
+        if (typeof handler === "function") {
+            tab.push(await Reflect.apply(handler, this, args));
+        }
+        else {
+            let size = handler.length;
+            let i = 0;
+            while (size !== i) {
+                tab.push(await Reflect.apply(handler[i], this, args));
+                if (handler.length === size) {
+                    i++;
+                }
+                else {
+                    size--;
+                }
+            }
+            /* for await (const func of handler) {
+              tab.push(await Reflect.apply(func, this, args));
+            }*/
+        }
+        return tab;
+    }
+    async fireAsync(eventName, ...args) {
+        return this.emitAsync(eventName, ...args);
+    }
+}
+
+/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+//import NodefonyError from "../Error";
+//import { kernel } from "../Nodefony";
+//console.log(kernel);
+const yellow = clc.yellow.bold;
+const red = clc.red.bold;
+const cyan = clc.cyan.bold;
+const blue$1 = clc.blueBright.bold;
+const green$1 = clc.green;
+const formatDebug = function (debug) {
+    switch (typeOf(debug)) {
+        case "boolean":
+            return debug;
+        case "string": {
+            if (["false", "undefined", "null"].includes(debug)) {
+                return false;
+            }
+            if (debug === "true" || debug === "*") {
+                return true;
+            }
+            const mytab = debug.split(/,| /);
+            if (mytab[0] === "*") {
+                return true;
+            }
+            return mytab;
+        }
+        case "array":
+            debug = debug;
+            if (debug[0] === "*") {
+                return true;
+            }
+            return debug;
+        case "undefined":
+        case "object":
+        default:
+            return false;
+    }
+};
+const conditionOptions = function (environment, debug = false) {
+    debug = formatDebug(debug);
+    let obj = null;
+    if (environment === "development") {
+        obj = {
+            severity: {
+                operator: "<=",
+                data: debug === false ? 6 : 7,
+            },
+        };
+    }
+    else {
+        obj = {
+            severity: {
+                operator: "<=",
+                data: debug ? 7 : 6,
+            },
+        };
+    }
+    if (typeof debug === "object") {
+        obj.msgid = {
+            operator: "==",
+            data: debug,
+        };
+    }
+    return obj;
+};
+/*
+ * default settings
+ * <pre>
+ *   moduleName:      "nodefony"
+ *   maxStack:        100
+ *   rateLimit:       false
+ *   burstLimit:      3
+ *   defaultSeverity: "DEBUG"
+ *   checkConditions: "&&"
+ *   async:         false
+ *
+ * </pre>
+ */
+const defaultSettings = {
+    moduleName: "SYSLOG",
+    msgid: "",
+    maxStack: 100,
+    rateLimit: false,
+    burstLimit: 3,
+    defaultSeverity: "DEBUG",
+    checkConditions: "&&",
+    async: false,
+};
+const sysLogSeverity = Pdu.sysLogSeverity();
+const operators = {
+    "<": (ele1, ele2) => ele1 < ele2,
+    ">": (ele1, ele2) => ele1 > ele2,
+    "<=": (ele1, ele2) => ele1 <= ele2,
+    ">=": (ele1, ele2) => ele1 >= ele2,
+    "==": (ele1, ele2) => ele1 == ele2,
+    "===": (ele1, ele2) => ele1 === ele2,
+    "!=": (ele1, ele2) => ele1 !== ele2,
+    RegExp: (ele1, ele2) => ele2.test(ele1),
+};
+const conditionsObj = {
+    severity: (pdu, condition) => {
+        for (const sev in condition.data) {
+            //console.log("Ope : ", condition.operator,  " sev: ",pdu.severity , "contiton : ",condition.data[sev])
+            if (condition.operator &&
+                operators[condition.operator](pdu.severity, condition.data[sev])) {
+                //console.log("passs op" , condition.operator,  " sev: ",pdu.severity , "contiton : ",condition.data[sev])
+                return true;
+            }
+        }
+        return false;
+    },
+    msgid: (pdu, condition) => {
+        for (const sev in condition.data) {
+            if (condition.operator && operators[condition.operator](pdu.msgid, sev)) {
+                return true;
+            }
+        }
+        return false;
+    },
+    date: (pdu, condition) => condition.operator
+        ? operators[condition.operator](pdu.timeStamp, condition.data)
+        : false,
+};
+const logicCondition = {
+    "&&": (myConditions, pdu) => {
+        let res = false;
+        for (const ele in myConditions) {
+            res = conditionsObj[ele](pdu, myConditions[ele]);
+            if (!res) {
+                break;
+            }
+        }
+        return res;
+    },
+    "||": (myConditions, pdu) => {
+        let res = false;
+        for (const ele in myConditions) {
+            res = conditionsObj[ele](pdu, myConditions[ele]);
+            if (res) {
+                break;
+            }
+        }
+        return res;
+    },
+};
+const checkFormatSeverity = (ele) => {
+    let res;
+    switch (typeof ele) {
+        case "object":
+            if (Array.isArray(ele)) {
+                res = ele;
+            }
+            else {
+                throw new Error(`checkFormatSeverity bad format type: object`);
+            }
+            break;
+        case "string":
+            res = ele.split(/,| /);
+            break;
+        case "number":
+            res = [ele];
+            break;
+        default: {
+            console.trace(ele);
+            const error = `checkFormatSeverity bad format type : ${typeof ele}`;
+            throw new Error(error);
+        }
+    }
+    return res;
+};
+const checkFormatDate = function (ele) {
+    let res;
+    switch (typeOf(ele)) {
+        case "date":
+            res = ele.getTime();
+            break;
+        case "string":
+            res = new Date(ele).getTime();
+            break;
+        default:
+            throw new Error(`checkFormatDate bad format ${typeOf(ele)} : ${ele}`);
+    }
+    return res;
+};
+const checkFormatMsgId = function (ele) {
+    let res;
+    switch (typeOf(ele)) {
+        case "string":
+            res = ele.split(/,| /);
+            break;
+        case "number":
+            res = [ele];
+            break;
+        case "RegExp":
+            res = ele;
+            break;
+        case "array":
+            res = ele;
+            break;
+        default:
+            throw new Error(`checkFormatMsgId bad format ${typeOf(ele)} : ${ele}`);
+    }
+    return res;
+};
+const wrapperCondition = function (conditions, callback) {
+    let myFuncCondition = () => { };
+    if (conditions.checkConditions &&
+        conditions.checkConditions in logicCondition) {
+        myFuncCondition = logicCondition[conditions.checkConditions];
+        delete conditions.checkConditions;
+    }
+    else {
+        if (this.settings.checkConditions) {
+            myFuncCondition = logicCondition[this.settings.checkConditions];
+        }
+    }
+    const Conditions = sanitizeConditions(conditions);
+    const tab = [];
+    switch (typeOf(callback)) {
+        case "function":
+            return (pdu) => {
+                const res = myFuncCondition(Conditions, pdu);
+                if (res && callback) {
+                    const result = callback(pdu);
+                    tab.push(result);
+                }
+            };
+        case "array":
+            for (let i = 0; i < callback.length; i++) {
+                const res = myFuncCondition(Conditions, callback[i]);
+                if (res) {
+                    tab.push(res);
+                }
+            }
+            return tab;
+        default:
+            throw new Error("Bad wrapper");
+    }
+};
+const sanitizeConditions = function (settingsCondition) {
+    let res = true;
+    if (typeOf(settingsCondition) !== "object") {
+        return false;
+    }
+    for (const ele in settingsCondition) {
+        if (!(ele in conditionsObj)) {
+            return false;
+        }
+        const condi = settingsCondition[ele];
+        if (condi.operator && !(condi.operator in operators)) {
+            throw new Error(`Contitions bad operator : ${condi.operator}`);
+        }
+        if (condi.data) {
+            switch (ele) {
+                case "severity":
+                    if (!condi.operator) {
+                        condi.operator = "==";
+                    }
+                    res = checkFormatSeverity(condi.data);
+                    if (res !== false) {
+                        condi.data = {};
+                        for (let i = 0; i < res.length; i++) {
+                            const mySeverity = Pdu.severityToString(res[i]);
+                            if (mySeverity) {
+                                condi.data[mySeverity] =
+                                    sysLogSeverity[mySeverity];
+                            }
+                            else {
+                                return false;
+                            }
+                        }
+                    }
+                    else {
+                        return false;
+                    }
+                    break;
+                case "msgid":
+                    if (!condi.operator) {
+                        condi.operator = "==";
+                    }
+                    res = checkFormatMsgId(condi.data);
+                    if (res !== false) {
+                        const format = typeOf(res);
+                        if (format === "array") {
+                            condi.data = {};
+                            for (let i = 0; i < res.length; i++) {
+                                condi.data[res[i]] = "||";
+                            }
+                        }
+                        else {
+                            condi.data = res;
+                        }
+                    }
+                    else {
+                        return false;
+                    }
+                    break;
+                case "date":
+                    res = checkFormatDate(condi.data);
+                    if (res) {
+                        condi.data = res;
+                    }
+                    else {
+                        return false;
+                    }
+                    break;
+                default:
+                    return false;
+            }
+        }
+        else {
+            return false;
+        }
+    }
+    return settingsCondition;
+    // console.log(settingsCondition);
+};
+const createPDU = function (payload, severity, moduleName, msgid, msg) {
+    return new Pdu(payload, severity || this.settings.defaultSeverity, moduleName, msgid, msg);
+};
+/**
+ * A class for product log in nodefony.
+ *
+ *    @class syslog
+ *    @module library
+ *    @constructor
+ *    @param {Object} settings The settings to extend.
+ *    @return syslog
+ */
+class Syslog extends Event {
+    settings;
+    ringStack;
+    burstPrinted;
+    missed;
+    invalid;
+    valid;
+    start;
+    _async = false;
+    //fire(eventName: string | symbol, ...args: any[]): boolean;
+    //fireAsync(eventName: string | symbol, ...args: any[]): Promise<any> ;
+    constructor(settings) {
+        super(settings);
+        /**
+         * extended settings
+         * @property settings
+         * @type Object
+         * @see defaultSettings
+         */
+        this.settings = extend({}, defaultSettings, settings || {});
+        /**
+         * ring buffer structure container instances of PDU
+         * @property ringStack
+         * @type Array
+         */
+        this.ringStack = [];
+        /**
+         * Ratelimit  Management log printed
+         * @property burstPrinted
+         * @type Number
+         */
+        this.burstPrinted = 0;
+        /**
+         * Ratelimit  Management log dropped
+         * @property missed
+         * @type Number
+         */
+        this.missed = 0;
+        /**
+         * Management log invalid
+         * @property invalid
+         * @type Number
+         */
+        this.invalid = 0;
+        /**
+         * Counter log valid
+         * @property valid
+         * @type Number
+         */
+        this.valid = 0;
+        /**
+         * Ratelimit  Management begin of burst
+         * @property start
+         * @private
+         * @type Number
+         */
+        this.start = 0;
+        this._async = this.settings.async || false;
+    }
+    static formatDebug(debug) {
+        return formatDebug(debug);
+    }
+    init(environment, debug, options) {
+        return this.listenWithConditions(options || conditionOptions(environment, debug), (pdu) => Syslog.normalizeLog(pdu));
+    }
+    get async() {
+        return this._async;
+    }
+    set async(value) {
+        this._async = value;
+    }
+    // fire(eventName: string | symbol, ...args: any[]): Promise<any> | boolean {
+    //   if (this.settings.async) {
+    //     return super.fireAsync(eventName, ...args) as Promise<any>;
+    //   } else {
+    //     return super.fire(eventName, ...args) as boolean;
+    //   }
+    // }
+    clean() {
+        return this.reset();
+    }
+    reset() {
+        this.ringStack.length = 0;
+        this.removeAllListeners();
+    }
+    /**
+     * Clear stack of logs
+     *
+     * @method clearLogStack
+     *
+     */
+    clearLogStack() {
+        this.ringStack.length = 0;
+    }
+    pushStack(pdu) {
+        if (this.ringStack.length === this.settings.maxStack) {
+            this.ringStack.shift();
+        }
+        const index = this.ringStack.push(pdu);
+        this.valid++;
+        return index;
+    }
+    /**
+     * logger message
+     * @method log
+     */
+    log(payload, severity, msgid, msg) {
+        let pdu;
+        if (this.settings.rateLimit !== false) {
+            const rate = this.settings.rateLimit;
+            const now = new Date().getTime();
+            this.start = this.start || now;
+            if (now > this.start + rate) {
+                this.burstPrinted = 0;
+                this.missed = 0;
+                this.start = 0;
+            }
+            if (this.settings.burstLimit &&
+                this.settings.burstLimit > this.burstPrinted) {
+                try {
+                    if (payload instanceof Pdu) {
+                        pdu = payload;
+                    }
+                    else {
+                        pdu = createPDU.call(this, payload, severity, this.settings.moduleName, msgid || this.settings.msgid, msg);
+                    }
+                }
+                catch (e) {
+                    console.error(e);
+                    this.invalid++;
+                    if (!pdu) {
+                        pdu = createPDU.call(this, e, "ERROR");
+                    }
+                    pdu.status = "INVALID";
+                    return pdu;
+                }
+                this.pushStack(pdu);
+                this.fire("onLog", pdu);
+                this.burstPrinted++;
+                pdu.status = "ACCEPTED";
+                return pdu;
+            }
+            this.missed++;
+            if (!pdu) {
+                pdu = createPDU.call(this, "DROPPED", "WARNING");
+            }
+            pdu.status = "DROPPED";
+            return pdu;
+        }
+        try {
+            if (payload instanceof Pdu) {
+                pdu = payload;
+            }
+            else {
+                pdu = createPDU.call(this, payload, severity, this.settings.moduleName, msgid || this.settings.msgid, msg);
+            }
+        }
+        catch (e) {
+            console.error(e);
+            this.invalid++;
+            if (!pdu) {
+                pdu = createPDU.call(this, e, "ERROR");
+            }
+            pdu.status = "INVALID";
+            return pdu;
+        }
+        this.pushStack(pdu);
+        pdu.status = "ACCEPTED";
+        this.fire("onLog", pdu);
+        return pdu;
+    }
+    /**
+     * get hitory of stack
+     * @method getLogStack
+     * @param {number} start .
+     * @param {number} end .
+     * @return {array} new array between start end
+     * @return {Pdu} pdu
+     */
+    getLogStack(start, end, contition) {
+        let stack = null;
+        if (contition) {
+            stack = this.getLogs(contition);
+        }
+        else {
+            stack = this.ringStack;
+        }
+        if (arguments.length === 0) {
+            return stack[stack.length - 1];
+        }
+        if (!end) {
+            return stack.slice(start);
+        }
+        if (start === end) {
+            return stack[stack.length - start - 1];
+        }
+        return stack.slice(start, end);
+    }
+    /**
+     * get logs with conditions
+     * @method getLogs
+     * @param {Object} conditions .
+     * @return {array} new array with matches conditions
+     */
+    getLogs(conditions, stack = null) {
+        if (conditions) {
+            return wrapperCondition.call(this, conditions, stack || this.ringStack);
+        }
+        return this.ringStack;
+    }
+    /**
+     * take the stack and build a JSON string
+     * @method logToJson
+     * @return {String} string in JSON format
+     */
+    logToJson(conditions, stack = null) {
+        let res = null;
+        if (conditions) {
+            res = this.getLogs(conditions, stack);
+        }
+        else {
+            res = this.ringStack;
+        }
+        return JSON.stringify(res);
+    }
+    /**
+     * load the stack as JSON string
+     * @method loadStack
+     */
+    loadStack(stack, doEvent = false, beforeConditions = null) {
+        if (!stack) {
+            throw new Error("syslog loadStack : not stack in arguments ");
+        }
+        switch (typeOf(stack)) {
+            case "string":
+                return this.loadStack(JSON.parse(stack), doEvent, beforeConditions);
+            case "array":
+            case "object":
+                for (const stackItem of stack) {
+                    const pdu = new Pdu(stackItem.payload, stackItem.severity, stackItem.moduleName || this.settings.moduleName, stackItem.msgid, stackItem.msg, stackItem.timeStamp);
+                    this.pushStack(pdu);
+                    if (doEvent) {
+                        if (beforeConditions && typeof beforeConditions === "function") {
+                            beforeConditions.call(this, pdu, stackItem);
+                        }
+                        this.fire("onLog", pdu);
+                    }
+                }
+                break;
+            default:
+                throw new Error("syslog loadStack : bad stack in arguments type");
+        }
+        return stack;
+    }
+    /**
+     *
+     *    @method  filter
+     *
+     */
+    filter(conditions, callback) {
+        if (!conditions) {
+            throw new Error("filter conditions not found ");
+        }
+        conditions = extend(true, {}, conditions);
+        const wrapper = wrapperCondition.call(this, conditions, callback);
+        if (wrapper) {
+            super.on("onLog", wrapper);
+        }
+    }
+    /**
+     *
+     *    @method  listenWithConditions
+     *
+     */
+    listenWithConditions(conditions, callback) {
+        return this.filter(conditions, callback);
+    }
+    error(data) {
+        return this.log(data, "ERROR");
+    }
+    warn(data) {
+        return this.log(data, "WARNING");
+    }
+    warnning(data) {
+        return this.log(data, "WARNING");
+    }
+    info(data) {
+        return this.log(data, "INFO");
+    }
+    debug(data) {
+        return this.log(data, "DEBUG");
+    }
+    trace(data, ...args) {
+        return this.log(data, "NOTICE", ...args);
+    }
+    static wrapper(pdu) {
+        if (!pdu) {
+            throw new Error("Syslog pdu not defined");
+        }
+        const date = new Date(pdu.timeStamp);
+        switch (pdu.severity) {
+            case 0:
+            case 1:
+            case 2:
+            case 3:
+                return {
+                    logger: console.error,
+                    text: `${date.toDateString()} ${date.toLocaleTimeString()} ${red(pdu.severityName)} ${green$1(pdu.msgid)} : `,
+                };
+            case 4:
+                return {
+                    logger: console.warn,
+                    text: `${date.toDateString()} ${date.toLocaleTimeString()} ${yellow(pdu.severityName)} ${green$1(pdu.msgid)} : `,
+                };
+            case 5:
+                return {
+                    logger: console.log,
+                    text: `${date.toDateString()} ${date.toLocaleTimeString()} ${red(pdu.severityName)} ${green$1(pdu.msgid)} : `,
+                };
+            case 6:
+                return {
+                    logger: console.info,
+                    text: `${date.toDateString()} ${date.toLocaleTimeString()} ${blue$1(pdu.severityName)} ${green$1(pdu.msgid)} : `,
+                };
+            case 7:
+                return {
+                    logger: console.debug,
+                    text: `${date.toDateString()} ${date.toLocaleTimeString()} ${cyan(pdu.severityName)} ${green$1(pdu.msgid)} : `,
+                };
+            default:
+                return {
+                    logger: console.log,
+                    text: `${date.toDateString()} ${date.toLocaleTimeString()} ${cyan(pdu.severityName)} ${green$1(pdu.msgid)} : `,
+                };
+        }
+    }
+    static normalizeLog(pdu, pid = "") {
+        if (pdu.payload === "" || pdu.payload === undefined) {
+            console.warn(`${pdu.severityName} ${pdu.msgid} : logger message empty !!!!`);
+            console.trace(pdu);
+            return pdu;
+        }
+        const message = pdu.payload;
+        // switch (typeof message) {
+        //   case "object":
+        //     switch (true) {
+        //       case message instanceof NodefonyError: {
+        //         if (kernel && kernel.console) {
+        //           message = message.message;
+        //         }
+        //         break;
+        //       }
+        //       case message instanceof Error:
+        //         if (kernel && kernel.console) {
+        //           message = message.message;
+        //         } else {
+        //           message = new NodefonyError(message);
+        //         }
+        //         break;
+        //     }
+        //     break;
+        //   default:
+        // }
+        if (pdu.severity === -1) {
+            process.stdout.write("\u001b[0G");
+            process.stdout.write(`${green$1(pdu.msgid)} : ${message}`);
+            process.stdout.write("\u001b[90m\u001b[0m");
+            return pdu;
+        }
+        const wrap = Syslog.wrapper(pdu);
+        wrap.logger(`${pid} ${wrap.text}`, message);
+        return pdu;
+    }
+}
+
+const defaultOptions$1 = {
+    events: {
+        nbListeners: 20,
+    },
+};
+const settingsSyslog = {
+    moduleName: "SERVICE ",
+    defaultSeverity: "INFO",
+};
+class Service {
+    name;
+    options;
+    container;
+    kernel;
+    syslog;
+    settingsSyslog;
+    notificationsCenter;
+    constructor(name, container, notificationsCenter, options = {}) {
+        this.name = name;
+        this.container =
+            container instanceof Container ? container : new Container();
+        this.options =
+            notificationsCenter === false
+                ? { ...options }
+                : { ...defaultOptions$1, ...options };
+        this.kernel = this.container.get("kernel");
+        this.syslog = this.container.get("syslog") || null;
+        if (!this.syslog) {
+            this.settingsSyslog = {
+                ...settingsSyslog,
+                moduleName: this.name,
+                ...(this.options.syslog || {}),
+            };
+            this.syslog = new Syslog(this.settingsSyslog);
+            this.container.set("syslog", this.syslog);
+        }
+        else {
+            this.settingsSyslog = this.syslog.settings;
+        }
+        if (notificationsCenter instanceof Event) {
+            this.notificationsCenter = notificationsCenter;
+            if (options) {
+                this.notificationsCenter.settingsToListen(options, this);
+                if (options.events && options.events.nbListeners) {
+                    this.notificationsCenter.setMaxListeners(options.events.nbListeners);
+                }
+            }
+        }
+        else {
+            if (notificationsCenter) {
+                throw new Error("Service nodefony notificationsCenter not valid, must be an instance of nodefony.Events");
+            }
+            if (notificationsCenter !== false) {
+                this.notificationsCenter = new Event(this.options, this, this.options);
+                this.notificationsCenter.on("error", (err) => {
+                    this.log(err, "ERROR", "Error events");
+                });
+                if (!this.kernel) {
+                    this.container.set("notificationsCenter", this.notificationsCenter);
+                }
+                else if (this.kernel.container !== this.container) {
+                    this.container.set("notificationsCenter", this.notificationsCenter);
+                }
+            }
+        }
+        delete this.options.events;
+    }
+    initSyslog(environment = "production", debug = false, options) {
+        return this.syslog ? this.syslog.init(environment, debug, options) : null;
+    }
+    getName() {
+        return this.name;
+    }
+    clean(syslog = false) {
+        this.settingsSyslog = null;
+        this.syslog && syslog && this.syslog.reset();
+        this.syslog = null;
+        this.notificationsCenter = undefined;
+        this.container = null;
+        this.kernel = null;
+    }
+    log(pci, severity, msgid, msg) {
+        try {
+            if (!msgid) {
+                msgid = this.name;
+            }
+            if (this.syslog) {
+                return this.syslog.log(pci, severity, msgid, msg);
+            }
+            return new Pdu(pci, severity, msg);
+        }
+        catch (e) {
+            console.log(severity, msgid, msg, " : ", pci);
+            console.warn(e);
+            return new Pdu(e, "ERROR", msgid, msg);
+        }
+    }
+    logger(pci, ...args) {
+        return console.debug(Syslog.wrapper(this.log(pci, "DEBUG")).text, pci, ...args);
+    }
+    trace(pci, ...args) {
+        return console.trace(Syslog.wrapper(this.log(pci, "DEBUG")).text, pci, ...args);
+    }
+    spinlog(message) {
+        return this.log(message, "SPINNER");
+    }
+    eventNames() {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.eventNames();
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    fire(eventName, ...args) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.emit(eventName, ...args);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    fireAsync(eventName, ...args) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.emitAsync(eventName, ...args);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    emit(eventName, ...args) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.emit(eventName, ...args);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    emitAsync(eventName, ...args) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.emitAsync(eventName, ...args);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    addListener(eventName, listener) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.addListener(eventName, listener);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    listen(eventName, listener) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.listen(this, eventName, listener);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    on(eventName, listener) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.on(eventName, listener);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    once(eventName, listener) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.once(eventName, listener);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    off(eventName, listener) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.off(eventName, listener);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    settingsToListen(localSettings, context) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.settingsToListen(localSettings, context);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    setMaxListeners(n) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.setMaxListeners(n);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    removeListener(eventName, listener) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.removeListener(eventName, listener);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    removeAllListeners(eventName) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.removeAllListeners(eventName);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    prependOnceListener(eventName, listener) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.prependOnceListener(eventName, listener);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    prependListener(eventName, listener) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.prependListener(eventName, listener);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    getMaxListeners() {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.getMaxListeners();
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    listenerCount(eventName, listener) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.listenerCount(eventName, listener);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    listeners(eventName) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.listeners(eventName);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    rawListeners(eventName) {
+        if (this.notificationsCenter) {
+            return this.notificationsCenter.rawListeners(eventName);
+        }
+        throw new Error(`notificationsCenter not initialized`);
+    }
+    get(name) {
+        return this.container?.get(name);
+    }
+    set(name, obj) {
+        return this.container?.set(name, obj);
+    }
+    remove(name) {
+        if (this.container) {
+            const ele = this.get(name);
+            if (ele) {
+                if (ele instanceof Service) {
+                    ele.clean();
+                }
+                this.container.remove(name);
+            }
+        }
+        return false;
+    }
+    getParameters(name) {
+        return this.container.getParameters(name);
+    }
+    setParameters(name, ele) {
+        if (this.container) {
+            return this.container.setParameters(name, ele);
+        }
+        throw new Error(`container not initialized`);
+    }
+    has(name) {
+        if (this.container) {
+            return this.container.has(name);
+        }
+        return false;
+    }
+}
+
+const checkPath = function (myPath) {
+    if (!myPath) {
+        throw new Error(`Bad path`);
+    }
+    const abs = path.isAbsolute(myPath);
+    if (abs) {
+        return myPath;
+    }
+    return path.resolve(process.cwd(), myPath);
+};
+const regHidden = /^\./;
+const defautWriteOption = {
+    flags: "w",
+    defaultEncoding: "utf8",
+    // mode: 0o666
+};
+const defaultEncoding = {
+    encoding: "utf8",
+    flag: "w",
+};
+/*
+ *
+ *  CLASS FileClass
+ *
+ *
+ */
+class FileClass {
+    stats;
+    type;
+    path;
+    parse;
+    name;
+    shortName;
+    ext;
+    mimeType = false;
+    encoding = "UTF-8";
+    extention = false;
+    dirName;
+    match = null;
+    constructor(Path) {
+        if (Path) {
+            Path = checkPath(Path);
+            this.stats = fs$1.lstatSync(Path);
+            this.type = this.checkType();
+            if (this.stats.isSymbolicLink()) {
+                fs$1.readlinkSync(Path);
+                this.path = Path;
+            }
+            else {
+                this.path = this.getRealpath(Path);
+            }
+            this.parse = path.parse(this.path);
+            this.name = this.parse.name + this.parse.ext;
+            this.ext = this.parse.ext;
+            this.shortName = this.parse.name;
+            if (this.type === "File") {
+                this.mimeType = this.getMimeType(this.name);
+                this.encoding = "UTF-8"; // this.getCharset();
+                this.extention = this.getExtension(this.mimeType);
+            }
+            this.dirName = this.parse.dir;
+            this.match = null;
+        }
+        else {
+            throw new Error(`error fileClass Path : ${Path}`);
+        }
+    }
+    toString() {
+        return JSON.stringify(this.toJson(), null, "\n");
+    }
+    toJson() {
+        const obj = {
+            path: this.path,
+            name: this.name,
+            ext: this.ext,
+            shortName: this.shortName,
+            type: this.type,
+            stats: this.stats,
+            dirName: this.dirName,
+            parse: this.parse,
+        };
+        if (this.type === "File") {
+            obj.encoding = this.encoding;
+            obj.mimeType = this.mimeType;
+            obj.extention = this.extention;
+        }
+        return obj;
+    }
+    checkType() {
+        if (this.stats.isDirectory()) {
+            return "Directory";
+        }
+        if (this.stats.isFile()) {
+            return "File";
+        }
+        if (this.stats.isBlockDevice()) {
+            return "BlockDevice";
+        }
+        if (this.stats.isCharacterDevice()) {
+            return "CharacterDevice";
+        }
+        if (this.stats.isSymbolicLink()) {
+            return "symbolicLink";
+        }
+        if (this.stats.isFIFO()) {
+            return "Fifo";
+        }
+        if (this.stats.isSocket()) {
+            return "Socket";
+        }
+    }
+    getType() {
+        return this.checkType();
+    }
+    checkSum(type, hasOption) {
+        if (!type) {
+            type = "md5";
+        }
+        return crypto
+            .createHash(type, hasOption)
+            .update(this.content())
+            .digest("hex");
+    }
+    getMimeType(name) {
+        return mime.lookup(name || this.name);
+    }
+    getExtension(mimeType) {
+        if (mimeType) {
+            return mime.extension(mimeType);
+        }
+        return mime.extension(this.mimeType);
+    }
+    getRealpath(Path, options = {}) {
+        return fs$1.realpathSync(Path, options);
+    }
+    matchName(ele) {
+        if (ele instanceof RegExp) {
+            this.match = ele.exec(this.name);
+            return this.match;
+        }
+        if (ele === this.name) {
+            return true;
+        }
+        return false;
+    }
+    matchType(type) {
+        return type === this.type;
+    }
+    isFile() {
+        return this.type === "File";
+    }
+    isDirectory() {
+        return this.type === "Directory";
+    }
+    isSymbolicLink() {
+        return this.type === "symbolicLink";
+    }
+    dirname() {
+        return path.dirname(this.path);
+    }
+    isHidden() {
+        return regHidden.test(this.name);
+    }
+    content(encoding) {
+        const encode = extend({}, defaultEncoding, {
+            encoding,
+        });
+        return fs$1.readFileSync(this.path, encode);
+    }
+    read(encoding) {
+        const encode = extend({}, defaultEncoding, {
+            encoding,
+        });
+        if (this.type === "symbolicLink") {
+            const Path = fs$1.readlinkSync(this.path, encode);
+            return fs$1.readFileSync(Path, encode);
+        }
+        return fs$1.readFileSync(this.path, encode);
+    }
+    readAsync(encoding) {
+        const encode = extend({}, defaultEncoding, {
+            encoding,
+        });
+        if (this.type === "symbolicLink") {
+            return new Promise((resolve, reject) => {
+                const Path = fs$1.readlinkSync(this.path, encode);
+                try {
+                    return resolve(fs$1.readFileSync(Path, encode));
+                }
+                catch (e) {
+                    return reject(e);
+                }
+            });
+        }
+        return new Promise((resolve, reject) => {
+            fs$1.readFile(this.path, (err, data) => {
+                if (err) {
+                    return reject(err);
+                }
+                return resolve(data);
+            });
+        });
+    }
+    readByLine(callback, encoding) {
+        return new Promise((resolve, reject) => {
+            let res = null;
+            try {
+                res = this.content(encoding);
+                let nb = 0;
+                res
+                    .toString()
+                    .split("\n")
+                    .forEach((line) => {
+                    callback(line, ++nb);
+                });
+            }
+            catch (e) {
+                return reject(e);
+            }
+            return resolve(res);
+        });
+    }
+    write(data, options) {
+        fs$1.writeFileSync(this.path, data, extend({}, defautWriteOption, options));
+    }
+    move(target) {
+        fs$1.renameSync(this.path, target);
+        return new FileClass(target);
+    }
+    unlink() {
+        fs$1.unlinkSync(this.path);
+    }
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const defaultCommandOptions = {
+    progress: false,
+    sizeProgress: 100,
+    showBanner: true,
+};
+/**
+ * Classe Command représente une commande dans l'application.
+ *
+ * @class
+ * @extends Service
+ * @implements {CommandEvents}
+ */
+class Command extends Service {
+    on(event, listener) {
+        return super.on(event, listener);
+    }
+    once(event, listener) {
+        return super.once(event, listener);
+    }
+    fire(event, ...args) {
+        return super.fire(event, ...args);
+    }
+    emit(event, ...args) {
+        return super.emit(event, ...args);
+    }
+    //end Events
+    cli = null;
+    command = null;
+    program = program;
+    json = false;
+    debug = false;
+    interactive = false;
+    builder = null;
+    prompts = prompts;
+    progress = 0;
+    response = {};
+    /**
+     * Crée une instance de Command.
+     *
+     * @constructor
+     * @param {string} name - Nom de la commande.
+     * @param {string} [description] - Description de la commande.
+     * @param {Cli} [cli] - Instance de la classe Cli.
+     * @param {OptionsCommandInterface} [options] - Options spécifiques à la commande.
+     */
+    constructor(name, description, cli, options) {
+        const container = cli?.container;
+        const notificationsCenter = cli?.notificationsCenter;
+        const myoptions = extend({}, defaultCommandOptions, options);
+        super(name, container, notificationsCenter, myoptions);
+        if (cli) {
+            this.cli = cli;
+        }
+        this.addCommand(name, description);
+        this.command?.action(this.action.bind(this));
+    }
+    /**
+     * Méthode d'action de la commande.
+     *
+     * @private
+     * @param {...any} args - Arguments passés à la commande.
+     * @returns {Promise<any>} Promise résolue avec le résultat de l'action.
+     */
+    async action(...args) {
+        this.getCliOptions();
+        if (this.options.showBanner) {
+            await this.showBanner();
+        }
+        if (this.cli) {
+            if (this.options.progress) {
+                this.progress = 0;
+                this.setProgress();
+            }
+            if (this.builder) {
+                await this.builder.run(...args);
+            }
+            await this.run(...args);
+        }
+        else {
+            this.program.parse();
+        }
+        if (this.options.progress) {
+            this.fire("onProgress", this.options.sizeProgress);
+        }
+    }
+    /**
+     * Méthode principale pour exécuter la commande.
+     *
+     * @public
+     * @param {...any} args - Arguments passés à la commande.
+     * @returns {Promise<any>} Promise résolue avec le résultat de l'exécution.
+     */
+    async run(...args) {
+        if (this.interactive) {
+            return this.interaction(...args)
+                .then((...response) => this.generate(...response))
+                .catch((e) => {
+                throw e;
+            });
+        }
+        return this.generate(...args).catch((e) => {
+            throw e;
+        });
+    }
+    /**
+     * Méthode pour l'interaction avec l'utilisateur.
+     *
+     * @public
+     * @param {...any} args - Arguments passés à la commande.
+     * @returns {Promise<any>} Promise résolue avec le résultat de l'interaction.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async interaction(...args) {
+        this.log(args, "DEBUG");
+        return Promise.resolve(this);
+    }
+    /**
+     * Méthode pour générer le résultat de la commande.
+     *
+     * @public
+     * @param {...any} args - Arguments passés à la commande.
+     * @returns {Promise<any>} Promise résolue avec le résultat généré.
+     */
+    async generate(...args) {
+        this.log(args, "DEBUG");
+        return Promise.resolve(this);
+    }
+    getCliOptions() {
+        this.debug = this.cli?.commander?.opts().debug || false;
+        this.interactive = this.cli?.commander?.opts().interactive || false;
+    }
+    addCommand(name, description) {
+        this.command = new Command$1(name);
+        if (description) {
+            this.command.description(description);
+        }
+        return this.program.addCommand(this.command);
+    }
+    alias(name) {
+        return this.command?.alias(name);
+    }
+    addBuilder(builder) {
+        return (this.builder = new builder(this));
+    }
+    /**
+     * Méthode pour analyser les arguments de la commande.
+     *
+     * @public
+     * @param {string[]} [argv] - Tableau d'arguments à analyser.
+     * @param {commander.ParseOptions|undefined} [options] - Options de l'analyseur.
+     * @returns {Cmd} Instance de la classe Commander.
+     * @throws {Error} Lance une erreur si Commander n'est pas prêt.
+     */
+    parse(argv, options) {
+        if (this.program) {
+            return this.program?.parse(argv, options);
+        }
+        throw new Error(`program not found`);
+    }
+    /**
+     * Méthode pour effacer la commande actuelle.
+     *
+     * @private
+     */
+    clearCommand() {
+        if (this.cli) {
+            this.cli.clearCommand();
+        }
+        else {
+            while (process.argv.length > 2) {
+                process.argv.pop();
+            }
+        }
+    }
+    /**
+     * Méthode pour exécuter une commande avec des arguments spécifiques.
+     *
+     * @public
+     * @param {string} cmd - Commande à exécuter.
+     * @param {any[]} [args=[]] - Arguments de la commande.
+     * @returns {Cmd} Instance de la classe Commander.
+     */
+    runCommand(cmd, args = []) {
+        this.clearCommand();
+        if (cmd) {
+            process.argv.push(cmd);
+        }
+        return this.parse(process.argv.concat(args));
+    }
+    /**
+     * Méthode pour mettre en place une barre de progression.
+     *
+     * @public
+     * @param {number} [size=this.options.sizeProgress] - Taille de la barre de progression.
+     * @returns {Promise<clui.Progress|null|undefined>} Promise résolue avec la barre de progression.
+     */
+    setProgress(size = this.options.sizeProgress) {
+        if (!this.cli || this.json) {
+            return Promise.resolve(null);
+        }
+        return new Promise((resolve, reject) => {
+            try {
+                this.log(`START PROGRESS : ${this.cli?.getEmoji("clapper")}`);
+                const pg = this.cli?.createProgress(size);
+                this.on("onProgress", (step) => {
+                    let res = null;
+                    if (step) {
+                        this.progress += step;
+                        res = pg?.update(this.progress, this.options.sizeProgress);
+                    }
+                    else {
+                        res = pg?.update(++this.progress, this.options.sizeProgress);
+                    }
+                    this.log(res, "SPINNER");
+                    if (this.progress === this.options.sizeProgress ||
+                        this.progress > this.options.sizeProgress) {
+                        this.progress = this.options.sizeProgress;
+                        this.fire("onProgressEnd", pg);
+                    }
+                });
+                this.on("onProgressEnd", () => {
+                    this.cli?.blankLine();
+                    this.log(`\u001b[13pEND PROGRESS : ${this.cli?.getEmoji("checkered_flag")}`);
+                    this.removeAllListeners("onProgress");
+                    this.removeAllListeners("onProgressEnd");
+                });
+                return resolve(pg);
+            }
+            catch (e) {
+                return reject(e);
+            }
+        });
+    }
+    /**
+     * Méthode pour ajouter une option à la commande.
+     *
+     * @public
+     * @param {string} flags - Drapeaux de l'option.
+     * @param {string|undefined} [description] - Description de l'option.
+     * @returns {Option} Instance de la classe Option.
+     * @throws {Error} Lance une erreur si Commander n'est pas prêt.
+     */
+    addOption(flags, description) {
+        if (this.command) {
+            const opt = new Option(flags, description);
+            this.command.addOption(opt);
+            return opt;
+        }
+        throw new Error(`Commander not ready`);
+    }
+    /**
+     * Méthode pour ajouter un argument à la commande.
+     *
+     * @public
+     * @param {string} arg - Argument de la commande.
+     * @param {string|undefined} [description] - Description de l'argument.
+     * @returns {Argument} Instance de la classe Argument.
+     * @throws {Error} Lance une erreur si Commander n'est pas prêt.
+     */
+    addArgument(arg, description) {
+        if (this.command) {
+            const Arg = new Argument(arg, description);
+            this.command.addArgument(Arg);
+            return Arg;
+        }
+        throw new Error(`Command not ready`);
+    }
+    /**
+     * Méthode pour afficher une bannière liée à la commande.
+     *
+     * @public
+     * @returns {Promise<string>} Promise résolue avec la bannière générée.
+     */
+    async showBanner() {
+        if (this.cli) {
+            return this.cli
+                .asciify(`      ${this.name}`)
+                .then((data) => {
+                if (this.json) {
+                    return data;
+                }
+                if (this.cli) {
+                    if (this.cli.options.clear) {
+                        this.cli.clear();
+                    }
+                    const color = this.cli.clc.blueBright.bold;
+                    console.log(color(data));
+                    this.cli.blankLine();
+                }
+                return data;
+            })
+                .catch((e) => e);
+        }
+        return Promise.resolve("");
+    }
+    /**
+     * Méthode pour gérer la journalisation de la commande.
+     *
+     * @public
+     * @param {any} pci - Informations du client.
+     * @param {Severity} severity - Sévérité du message.
+     * @param {Msgid} msgid - Identifiant du message.
+     * @param {Message} msg - Contenu du message.
+     */
+    logger(pci, severity, msgid, msg) {
+        try {
+            if (!msgid) {
+                msgid = `COMMAND ${this.name}`;
+            }
+            return super.logger(pci, severity, msgid, msg);
+        }
+        catch (e) {
+            console.log(e, "\n", pci);
+        }
+    }
+    terminate(code) {
+        return this.cli?.terminate(code);
+    }
+}
+
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable no-async-promise-executor */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable max-lines-per-function */
+// const red = clc.red.bold;
+// const cyan   = clc.cyan.bold;
+const blue = clc.blueBright.bold;
+const { green } = clc;
+// const yellow = clc.yellow.bold;
+const magenta = clc.magenta.bold;
+const { reset } = clc; // '\x1b[0m';
+let processName = null;
+if (process.argv && process.argv[1]) {
+    processName = path.basename(process.argv[1]);
+}
+else {
+    processName = process.title || "nodefony";
+}
+const defaultTableCli = {
+    style: {
+        head: ["cyan"],
+        border: ["grey"],
+    },
+};
+const defaultOptions = {
+    processName,
+    autostart: true,
+    asciify: true,
+    clear: true,
+    color: blue,
+    prompt: "default", // "default" || "rxjs"
+    commander: true,
+    signals: true,
+    autoLogger: true,
+    resize: false,
+    version: "1.0.0",
+    warning: false,
+    pid: false,
+    promiseRejection: true,
+};
+class Cli extends Service {
+    options = extend({}, defaultOptions);
+    debug = false;
+    environment = "production";
+    commander = null;
+    commands = {};
+    pid = null;
+    interactive = false;
+    prompt = null;
+    unhandledRejections = new Map();
+    response = {};
+    timers = {};
+    wrapperLog = console.log;
+    version = "";
+    clui = clui;
+    clc = clc;
+    spinner = null;
+    blankLine = () => { };
+    columns = 0;
+    rows = 0;
+    constructor(name, ...args) {
+        const container = args[0] instanceof Container ? args[0] : undefined;
+        const notificationsCenter = args[1] instanceof Event
+            ? args[1]
+            : args[1] === false
+                ? false
+                : undefined;
+        const last = args[args.length - 1];
+        let options = null;
+        if (last instanceof Container || last instanceof Event || last === false) {
+            options = extend({}, defaultOptions);
+        }
+        else {
+            options = extend({}, defaultOptions, last || {});
+        }
+        super(name || options.processName, container, notificationsCenter, options);
+        this.options = options;
+        if (process.env.NODE_ENV) {
+            this.environment = process.env.NODE_ENV;
+        }
+        else {
+            this.environment = "production";
+        }
+        this.setProcessTitle();
+        this.pid = this.options.pid ? this.setPid() : null;
+        if (this.options.autoLogger) {
+            this.initSyslog();
+        }
+        this.initUi();
+        // Optimisation : Utilisation de fireAsync pour les opérations asynchrones
+        this.prependOnceListener("onStart", async () => {
+            try {
+                await this.fireAsync("onStart", this);
+            }
+            catch (e) {
+                this.log(e, "ERROR");
+            }
+        });
+        this.initCommander();
+        // Gestion des avertissements
+        if (this.options.warning) {
+            this.handleWarnings();
+        }
+        else {
+            process.env.NODE_NO_WARNINGS = "1"; // Utilisation d'une chaîne pour la clarté
+        }
+        // Gestion des signaux
+        if (this.options.signals) {
+            this.handleSignals();
+        }
+        // Gestion des rejets de promesses
+        if (this.options.promiseRejection) {
+            this.listenRejection();
+        }
+        // Affichage ASCII (asciify)
+        if (name && this.options.asciify) {
+            this.showAsciify(name)
+                .then(async () => {
+                if (this.options.autostart) {
+                    await this.fireAsync("onStart", this);
+                }
+            })
+                .catch((e) => this.log(e, "ERROR"));
+        }
+        else if (this.options.autostart) {
+            try {
+                const func = async function () {
+                    await this.fireAsync("onStart", this);
+                };
+                func.call(this);
+            }
+            catch (e) {
+                this.log(e, "ERROR");
+            }
+        }
+    }
+    //Méthode privée pour gérer les signaux
+    handleSignals() {
+        const signalHandler = (signal) => {
+            if (this.blankLine) {
+                this.blankLine();
+            }
+            this.wrapperLog = console.log;
+            this.log(signal, "CRITIC");
+            this.fire("onSignal", signal, this);
+            process.nextTick(() => {
+                this.terminate();
+            });
+        };
+        process.on("SIGINT", () => signalHandler("SIGINT"));
+        process.on("SIGTERM", () => signalHandler("SIGTERM"));
+        process.on("SIGHUP", () => signalHandler("SIGHUP"));
+        process.on("SIGQUIT", () => signalHandler("SIGQUIT"));
+    }
+    // Méthode privée pour gérer les avertissements
+    handleWarnings() {
+        process.on("warning", (warning) => {
+            this.log(warning, "WARNING");
+            this.fire("onNodeWarning", warning, this);
+        });
+    }
+    start() {
+        return new Promise(async (resolve, reject) => {
+            try {
+                if (this.options.autostart) {
+                    if (this.options.asciify) {
+                        this.once("onStart", () => resolve(this));
+                    }
+                    else {
+                        await this.fireAsync("onStart", this);
+                        return resolve(this);
+                    }
+                }
+                else if (this.options.asciify) {
+                    this.once("onAsciify", async () => {
+                        await this.fireAsync("onStart", this);
+                        return resolve(this);
+                    });
+                }
+                else {
+                    await this.fireAsync("onStart", this);
+                    return resolve(this);
+                }
+            }
+            catch (e) {
+                return reject(e);
+            }
+        });
+    }
+    idle() {
+        let resolve = null;
+        let reject = null;
+        const promise = new Promise((res, rej) => {
+            resolve = res;
+            reject = rej;
+        });
+        return (function () {
+            return {
+                resolve,
+                promise,
+                reject,
+            };
+        })();
+        // return this.idleId = setInterval(() => {}, 0);
+    }
+    checkVersion(version = null) {
+        if (!version) {
+            version = this.version;
+        }
+        const res = semver.valid(version);
+        if (res) {
+            return res;
+        }
+        throw new Error(`Not valid version : ${version} check  http://semver.org `);
+    }
+    async showAsciify(name = null) {
+        if (!name) {
+            name = this.name;
+        }
+        return await this.asciify(`      ${name}`, {
+            font: this.options.font || "standard",
+        })
+            .then((data) => {
+            this.fire("onAsciify", data);
+            if (this.options.clear) {
+                this.clear();
+            }
+            const color = this.options.color || blue;
+            console.log(color(data));
+            return data;
+        })
+            .catch((err) => {
+            this.log(err, "ERROR");
+            throw err;
+        });
+    }
+    showBanner() {
+        const version = this.commander
+            ? this.commander.version()
+            : this.options.version || "1.0.0";
+        let banner = null;
+        if (this.options.version) {
+            banner = `          Version : ${blue(version)}   Platform : ${green(process.platform)}   Process : ${green(process.title)}   Pid : ${process.pid}`;
+            if (this.blankLine) {
+                this.blankLine();
+            }
+            console.log(banner);
+        }
+        return banner;
+    }
+    listenRejection() {
+        process.on("rejectionHandled", (promise) => {
+            this.log("PROMISE REJECTION EVENT ", "CRITIC", "rejectionHandled");
+            this.unhandledRejections.delete(promise);
+        });
+        process.on("unhandledRejection", (reason, promise) => {
+            this.log(`WARNING  !!! PROMISE CHAIN BREAKING : ${reason}`, "WARNING", "unhandledRejection");
+            console.trace(promise);
+            this.unhandledRejections.set(promise, reason);
+        });
+    }
+    setPid() {
+        return (this.pid = process.pid);
+    }
+    setProcessTitle(name) {
+        if (name) {
+            process.title = name.replace(new RegExp("\\s", "gi"), "").toLowerCase();
+        }
+        else {
+            process.title = this.name
+                .replace(new RegExp("\\s", "gi"), "")
+                .toLowerCase();
+        }
+        return process.title;
+    }
+    logEnv() {
+        return `${blue(`      \x1b ${this.name}`)} Nodefony Environment : ${magenta(this.environment)}`;
+    }
+    initCommander() {
+        if (this.options.commander) {
+            this.commander = program;
+            this.commander.option("-i, --interactive", "Interaction mode");
+            this.commander.option("-d, --debug", "Debug mode");
+            if (this.options.version) {
+                this.setCommandVersion(this.options.version);
+            }
+            return program;
+        }
+        return null;
+    }
+    initUi() {
+        this.blankLine = function () {
+            if (this.clui) {
+                const myLine = new this.clui.Line().fill();
+                return () => {
+                    myLine.output();
+                };
+            }
+            return () => {
+                console.log();
+            };
+        }.call(this);
+        if (this.options.resize) {
+            this.resize();
+        }
+    }
+    getFonts() {
+        asciify.getFonts((err, fonts) => {
+            fonts.forEach((ele) => {
+                this.log(ele);
+            });
+        });
+    }
+    async asciify(txt, options, callback) {
+        return new Promise((resolve, reject) => {
+            asciify(txt, extend({
+                font: "standard",
+            }, options), (error, data) => {
+                if (callback && typeof callback === "function") {
+                    return callback(error, data);
+                }
+                if (error) {
+                    return reject(error);
+                }
+                return resolve(data);
+            });
+        });
+    }
+    parse(argv, options) {
+        if (this.commander) {
+            return this.commander?.parse(argv, options);
+        }
+        throw new Error(`Commander not found`);
+    }
+    clearCommand() {
+        this.commander?.setOptionValue("interactive", false);
+        this.commander?.setOptionValue("debug", false);
+        while (process.argv.length > 2) {
+            process.argv.pop();
+        }
+    }
+    runCommand(cmd, args = []) {
+        // this.log(`Commnand : ${cmd} Arguments : ${args}`, "DEBUG", "COMMAND");
+        this.clearCommand();
+        if (cmd) {
+            process.argv.push(cmd);
+        }
+        this.parse(process.argv.concat(args));
+    }
+    setCommandOption(flags, description, defaultValue) {
+        if (this.commander) {
+            return this.commander.option(flags, description, defaultValue);
+        }
+        throw new Error(`Commender not found`);
+    }
+    setCommandVersion(version) {
+        if (this.commander && typeof this.commander.version === "function") {
+            return this.commander.version(version, "-v, --version", "Nodefony Current Version");
+        }
+        throw new Error(`Commender not found`);
+    }
+    setCommand(nameAndArgs, description, options) {
+        if (this.commander) {
+            return this.commander.command(nameAndArgs, description, options);
+        }
+        throw new Error(`Commender not found`);
+    }
+    addCommand(cliCommand) {
+        const command = new cliCommand(this);
+        this.commands[command.name] = command;
+        return command;
+    }
+    hasCommand(name) {
+        if (this.commands[name]) {
+            return true;
+        }
+        return false;
+    }
+    getCommand(name) {
+        if (this.commands[name]) {
+            return this.commands[name];
+        }
+        return null;
+    }
+    showHelp(quit, context) {
+        if (!this.commander) {
+            throw new Error(`Commender not found`);
+        }
+        if (quit) {
+            return this.commander.help(context);
+        }
+        return this.commander.outputHelp(context);
+    }
+    createProgress(size) {
+        return new this.clui.Progress(size);
+    }
+    createSparkline(values, suffix) {
+        if (values) {
+            try {
+                return this.clui.Sparkline(values, suffix || "");
+            }
+            catch (e) {
+                this.log(e, "ERROR");
+                throw e;
+            }
+        }
+        throw new Error(`Bad vlue : ${values}`);
+    }
+    getSpinner(message, design) {
+        return new this.clui.Spinner(message, design);
+    }
+    startSpinner(message, design) {
+        try {
+            this.spinner = this.getSpinner(message, design);
+            this.wrapperLog = this.spinner.message;
+            this.spinner.start();
+            return this.spinner;
+        }
+        catch (e) {
+            this.log(e, "ERROR");
+            throw e;
+        }
+    }
+    stopSpinner( /* message, options*/) {
+        if (this.spinner) {
+            this.spinner.stop();
+            this.wrapperLog = console.log;
+            this.spinner = null;
+            return true;
+        }
+        this.log(new Error("Spinner is not started "), "ERROR");
+        return false;
+    }
+    displayTable(datas, options = defaultTableCli, syslog = null) {
+        if (!datas || !datas.length) {
+            return new Table(extend({}, defaultTableCli, options));
+        }
+        const table = new Table(extend({}, defaultTableCli, options));
+        if (datas) {
+            for (let i = 0; i < datas.length; i++) {
+                table.push(datas[i]);
+            }
+            if (syslog) {
+                syslog.log(`\n${table.toString()}`);
+            }
+            else {
+                console.log(table.toString());
+            }
+        }
+        return table;
+    }
+    static niceBytes(x) {
+        const units = [
+            "bytes",
+            "KB",
+            "MB",
+            "GB",
+            "TB",
+            "PB",
+            "EB",
+            "ZB",
+            "YB",
+        ];
+        let n = parseInt(x, 10) || 0, l = 0;
+        while (n >= 1024) {
+            n /= 1024;
+            l++;
+        }
+        return `${n.toFixed(n >= 10 || l < 1 ? 0 : 1)} ${units[l]}`;
+    }
+    static niceUptime(date, suffix) {
+        return moment(date).fromNow(suffix || false);
+    }
+    static niceDate(date, format) {
+        return moment(date).format(format);
+    }
+    getEmoji(name) {
+        if (name) {
+            return get$1(name);
+        }
+        return random().emoji;
+    }
+    clear() {
+        if (this.clui) {
+            //@ts-ignore
+            this.clui.Clear();
+        }
+        else {
+            console.clear();
+        }
+    }
+    reset() {
+        process.stdout.write(reset);
+    }
+    resize() {
+        process.stdout.on("resize", () => {
+            this.columns = process.stdout.columns;
+            this.rows = process.stdout.rows;
+            this.fire("onResize", this.columns, this.rows, this);
+        });
+    }
+    rm(...files) {
+        return shelljs.rm(...files);
+    }
+    cp(options, source, dest) {
+        return shelljs.cp(options, source, dest);
+    }
+    cd(dir) {
+        return shelljs.cd(dir);
+    }
+    ln(options, source, dest) {
+        return shelljs.ln(options, source, dest);
+    }
+    mkdir(...dir) {
+        return shelljs.mkdir(...dir);
+    }
+    chmod(...args) {
+        if (args.length === 3) {
+            return shelljs.chmod(args[0], args[1], args[2]);
+        }
+        else if (args.length === 2) {
+            return shelljs.chmod(args[0], args[1]);
+        }
+        else {
+            // Gérer l'erreur ou lancer une exception si nécessaire
+            throw new Error("Nombre d'arguments invalide pour la méthode chmod.");
+        }
+    }
+    ls(...paths) {
+        return shelljs.ls(...paths);
+    }
+    async createDirectory(myPath, mode, force = false) {
+        try {
+            await fs$1.promises.mkdir(myPath, mode);
+            return new FileClass(myPath);
+        }
+        catch (e) {
+            switch (e.code) {
+                case "EEXIST":
+                    if (force) {
+                        return new FileClass(myPath);
+                    }
+                    break;
+            }
+            throw e;
+        }
+    }
+    existsSync(myPath) {
+        if (!myPath) {
+            throw new Error("existsSync no path found");
+        }
+        return fs$1.existsSync(myPath);
+    }
+    exists(myPath, mode, callback) {
+        if (!myPath) {
+            throw new Error("exists no path found");
+        }
+        if (!mode) {
+            mode = fs$1.constants.R_OK | fs$1.constants.W_OK;
+        }
+        if (callback) {
+            return fs$1.access(myPath, mode, callback);
+        }
+        return fs$1.existsSync(myPath);
+    }
+    terminate(code = 0, quiet) {
+        if (quiet) {
+            return code;
+        }
+        if (code === 0) {
+            process.exitCode = code;
+        }
+        process.exit(code);
+    }
+    static quit(code) {
+        if (code === 0) {
+            process.exitCode = code;
+        }
+        process.exit(code);
+    }
+    startTimer(name) {
+        if (name in this.timers) {
+            throw new Error(`Timer : ${name} already exist !! stopTimer to clear`);
+        }
+        try {
+            this.log(`BEGIN TIMER : ${name}`, "INFO");
+            this.timers[name] = name;
+            return console.time(name);
+        }
+        catch (e) {
+            if (name in this.timers) {
+                delete this.timers[name];
+            }
+            throw e;
+        }
+    }
+    stopTimer(name) {
+        if (!name) {
+            for (const timer in this.timers) {
+                this.stopTimer(this.timers[timer]);
+            }
+        }
+        try {
+            if (name in this.timers) {
+                this.log(`END TIMER : ${name}`, "INFO");
+                delete this.timers[name];
+                return console.timeEnd(name);
+            }
+            throw new Error(`Timer : ${name} not exist !! startTimer before`);
+        }
+        catch (e) {
+            if (name in this.timers) {
+                delete this.timers[name];
+            }
+            throw e;
+        }
+    }
+    getCommandManager(manager) {
+        if (process.platform === "win32") {
+            switch (manager) {
+                case "npm":
+                    return "npm.cmd";
+                case "yarn":
+                    return "yarn.cmd";
+                case "pnpm":
+                    return "pnpm.cmd";
+                default:
+                    throw new Error(`bad manager : ${manager}`);
+            }
+        }
+        else {
+            switch (manager) {
+                case "npm":
+                    return "npm";
+                case "yarn":
+                    return "yarn";
+                case "pnpm":
+                    return "pnpm";
+                default:
+                    throw new Error(`bad manager : ${manager}`);
+            }
+        }
+    }
+    runPackageManager(argv = [], cwd = path.resolve("."), env, manager) {
+        const currentenv = process.env.NODE_ENV;
+        switch (env) {
+            case "dev":
+            case "development":
+                process.env.NODE_ENV = "development";
+                break;
+            case "prod":
+            case "production":
+                switch (manager) {
+                    case "npm":
+                        argv.push("--omit=dev");
+                        break;
+                    case "yarn":
+                        argv.push("--production");
+                        break;
+                    case "pnpm":
+                        argv.push("--prod");
+                        break;
+                }
+                process.env.NODE_ENV = "production";
+                break;
+            default:
+                process.env.NODE_ENV = this.environment;
+        }
+        return new Promise((resolve, reject) => {
+            try {
+                this.debug = this.commander
+                    ? this.commander.opts().debug || false
+                    : false;
+                this.log(`Command : ${manager} ${argv.join(" ")} in cwd : ${cwd}`);
+                const exe = this.getCommandManager(manager);
+                this.spawn(exe, argv, {
+                    cwd,
+                    env: process.env,
+                    stdio: "inherit",
+                }, (code) => {
+                    process.env.NODE_ENV = currentenv;
+                    if (code === 0) {
+                        return resolve(code);
+                    }
+                    return resolve(new Error(`Command : ${manager} ${argv.join(" ")}  cwd : ${cwd} Error Code : ${code}`));
+                });
+            }
+            catch (e) {
+                process.env.NODE_ENV = currentenv;
+                this.log(e, "ERROR");
+                return reject(e);
+            }
+        });
+    }
+    async npm(argv = [], cwd = path.resolve("."), env = "dev") {
+        return this.runPackageManager(argv, cwd, env, "npm");
+    }
+    async yarn(argv = [], cwd = path.resolve("."), env = "dev") {
+        return this.runPackageManager(argv, cwd, env, "yarn");
+    }
+    async pnpm(argv = [], cwd = path.resolve("."), env = "dev") {
+        return this.runPackageManager(argv, cwd, env, "pnpm");
+    }
+    spawn(command, args, options, close = null) {
+        return new Promise((resolve, reject) => {
+            let cmd = null;
+            try {
+                if (!args) {
+                    args = [];
+                }
+                this.log(`Spawn : ${command} ${args.join(" ")}`, "INFO");
+                cmd = spawn(command, args, options || {});
+                if (cmd.stdout) {
+                    cmd.stdout.on("data", (data) => {
+                        const str = data.toString();
+                        if (str) {
+                            if (this.debug) {
+                                this.log(`${command} :\n`, "INFO", "STDOUT");
+                            }
+                            process.stdout.write(str);
+                        }
+                    });
+                }
+                if (cmd.stderr) {
+                    cmd.stderr.on("data", (data) => {
+                        const str = data.toString();
+                        if (str) {
+                            if (this.debug) {
+                                this.log(`${command} :\n`, "INFO", "STDERR");
+                            }
+                            process.stdout.write(str);
+                        }
+                    });
+                }
+                cmd.on("close", (code) => {
+                    if (this.debug) {
+                        this.log(`Child Process exited with code ${code}`, "DEBUG");
+                    }
+                    if (close) {
+                        close(code);
+                    }
+                    if (code !== 0) {
+                        if (!args) {
+                            args = [];
+                        }
+                        this.log(`Spawn : ${command} ${args.join(" ")} Error Code : ${code}`, "ERROR");
+                    }
+                    return resolve(code);
+                });
+                cmd.on("error", (err) => {
+                    this.log(err, "ERROR");
+                    return reject(err);
+                });
+                if (cmd.stdin) {
+                    process.stdin.pipe(cmd.stdin);
+                }
+            }
+            catch (e) {
+                this.log(e, "ERROR");
+                return reject(e);
+            }
+        });
+    }
+    spawnSync(command, args, options) {
+        let cmd = null;
+        try {
+            cmd = spawnSync(command, args, options);
+            if (cmd.error) {
+                throw cmd.error;
+            }
+            if (cmd.stderr) {
+                this.log(cmd.stderr.toString(), "ERROR");
+            }
+            if (cmd.stdout) {
+                this.log(cmd.stdout.toString(), "INFO");
+            }
+        }
+        catch (e) {
+            this.log(e, "ERROR");
+            throw e;
+        }
+        return cmd;
+    }
+}
+
+class Start extends Command {
+    constructor(cli) {
+        super("start", "Start Interactive Mode", cli, {
+            showBanner: false,
+        });
+        //force interractive
+        process.argv.push("-i");
+    }
+    async interaction(...args) {
+        return await this.prompts.select({
+            message: "Select Command",
+            choices: [
+                {
+                    name: "development",
+                    value: "development",
+                    description: "Start Server in Development Mode",
+                },
+                {
+                    name: "production",
+                    value: "production",
+                    description: "Start Server in Production Mode",
+                },
+                new this.prompts.Separator(),
+            ],
+        });
+    }
+    async generate(response) {
+        console.log(response);
+        if (!this.cli) {
+            throw new Error(`cli not found`);
+        }
+        switch (response) {
+            default:
+                if (this.cli?.getCommand(response)) {
+                    await this.cli?.getCommand(response)?.run();
+                }
+        }
+        return Promise.resolve(this);
+    }
+}
+
+class Dev extends Command {
+    constructor(cli) {
+        super("development", "Start Server in development Mode", cli, {
+            showBanner: false,
+        });
+        this.alias("dev");
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+    async generate(options) {
+        const App = await this.cli?.loadAppKernel();
+        this.cli.setType("SERVER");
+        if (App) {
+            try {
+                const kernel = new App("development", this.cli);
+                return await kernel.start();
+            }
+            catch (e) {
+                this.log(e, "ERROR");
+                throw e;
+            }
+        }
+        throw new Error(`App not found`);
+    }
+}
+
+class Prod extends Command {
+    constructor(cli) {
+        super("production", "Start Server in Production Mode", cli, {
+            showBanner: false,
+        });
+        this.alias("prod");
+    }
+    async generate(options) {
+        const App = await this.cli?.loadAppKernel();
+        if (App) {
+            return new App("production", this.cli);
+        }
+        throw new Error(`App not found`);
+    }
+}
+
+class Install extends Command {
+    constructor(cli) {
+        super("install", "Install Nodefony Framework", cli, {
+            showBanner: false,
+        });
+    }
+    generate(options) {
+        return Promise.resolve(this);
+    }
+}
+
+class CliKernel extends Cli {
+    //public override kernel: Kernel | null = null;
+    type = "CONSOLE";
+    kernel = null;
+    constructor() {
+        super("NODEFONY", { autoLogger: false });
+        this.addCommand(Start);
+        this.addCommand(Dev);
+        this.addCommand(Prod);
+        this.addCommand(Install);
+    }
+    setType(type) {
+        const ele = type.toLocaleUpperCase();
+        return (this.type = ele);
+    }
+    async loadAppKernel(appName = "app") {
+        const module = await import(appName);
+        return module.default;
+    }
+    async loadModule(moduleName, cwd = process.cwd()) {
+        try {
+            const detectpath = path.isAbsolute(moduleName)
+                ? moduleName
+                : path.resolve(cwd, moduleName);
+            const module = await import(detectpath);
+            return module.default;
+        }
+        catch (error) {
+            this.log(error, "ERROR");
+            throw error;
+        }
+    }
+    async loadJson(url, cwd = process.cwd()) {
+        try {
+            const detectpath = path.isAbsolute(url) ? url : path.resolve(cwd, url);
+            const fileContent = await fs.readFile(detectpath, "utf-8");
+            const parsedJson = JSON.parse(fileContent);
+            return parsedJson;
+        }
+        catch (error) {
+            this.log(error, "ERROR");
+            throw error;
+        }
+    }
+    async getProjectName() {
+        const res = await this.loadJson("package.json");
+        return res.name;
+    }
+    async getProjectVersion() {
+        const res = await this.loadJson("package.json");
+        return res.version;
+    }
+    setKernel(kernel) {
+        this.kernel = kernel;
+    }
+    initSyslog(environment, debug, options) {
+        if (!this.kernel) {
+            return super.initSyslog(environment, debug, options);
+        }
+        if (this.commander && this.commander.opts().json) {
+            return;
+        }
+        const { syslog } = this;
+        const data = [0, 1, 2, 3, 6];
+        if (debug || this.debug) {
+            // INFO , DEBUG , WARNING
+            data.push(7);
+        }
+        if (this.kernel.type === "SERVER" && this.kernel.environment === "dev") {
+            // EMERGENCY ALERT CRITIC ERROR INFO WARNING
+            data.push(4);
+            data.push(5);
+        }
+        const conditions = {
+            severity: {
+                data,
+            },
+        };
+        const format = Syslog.formatDebug(debug || this.debug);
+        if (typeof format === "object") {
+            conditions.msgid = {
+                data: debug,
+            };
+        }
+        //console.log(conditions);
+        syslog?.listenWithConditions(conditions, (pdu) => Syslog.normalizeLog(pdu, this.pid?.toString()));
+    }
+}
+
+new CliKernel().start().then((cli) => {
+    cli.parse();
+});

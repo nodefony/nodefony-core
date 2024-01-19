@@ -1,0 +1,139 @@
+{
+  "name": "nodefony",
+  "version": "10.0.0",
+  "description": "Nodefony Framework",
+  "main": "dist/node-cjs/index.cjs",
+  "module": "dist/node/index.js",
+  "browser": "dist/client/index.js",
+  "types": "src/types/nodefony.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./src/types/nodefony.d.ts",
+        "default": "./dist/node/index.js"
+      },
+      "require": {
+        "types": "./src/types/nodefony.d.ts",
+        "default": "./dist/node-cjs/index.cjs"
+      }
+    },
+    "./client": {
+      "types": "./client.d.ts"
+    },
+    "./dist/client/*": "./dist/client/*",
+    "./types/*": {
+      "types": "./types/*"
+    },
+    "./package.json": "./package.json"
+  },
+  "private": false,
+  "engines": {
+    "node": ">=16"
+  },
+  "bin": {
+    "nodefony": "bin/nodefony"
+  },
+  "keywords": [
+    "nodefony",
+    "node-js",
+    "javascript"
+  ],
+  "scripts": {
+    "nodefony": "node ./bin/nodefony",
+    "dev": "rimraf dist && npm run rollup -- --watch",
+    "prebuild": "rimraf dist tmp bin && mkdirp dist/types && mkdirp tmp bin",
+    "postbuild": "node -e \"require('shelljs').chmod('+x', './bin/nodefony');\"",
+    "typecheck": "tsc --noEmit",
+    "build": " npm run rollup",
+    "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
+    "start": "node ./bin/nodefony",
+    "test": "run-s test:ts  test:transpiled",
+    "test:ts": "ts-mocha -p src/tests/mocha-ts/tsconfig.test.json  src/tests/**/*.test.ts src/tests/*.test.ts",
+    "test:transpiled": "npm run build && mocha dist/tests/tests/*.js dist/tests/tests/**/*.js",
+    "lint": "npm run eslint-src && npm run eslint-test",
+    "eslint-src": "eslint --ignore-pattern 'node_modules' --ignore-pattern 'src/tests' 'src/**/*.ts'",
+    "eslint-types": "eslint --ignore-pattern 'node_modules' '**/*.d.ts'",
+    "eslint-test": "eslint --ignore-pattern 'node_modules' 'src/tests/**/*.ts'",
+    "lint:fix": "npm run eslint-src:fix && npm run eslint-test:fix",
+    "eslint-src:fix": "npm run eslint-src -- --fix",
+    "eslint-types:fix": "npm run eslint-types -- --fix",
+    "eslint-test:fix": "npm run eslint-test -- --fix",
+    "doc": "typedoc"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "3.3.0",
+    "asciify": "1.3.5",
+    "cli-color": "2.0.3",
+    "cli-table3": "0.6.3",
+    "clui": "0.3.6",
+    "commander": "11.1.0",
+    "ejs": "3.1.9",
+    "lodash": "4.17.21",
+    "mime-types": "2.1.35",
+    "moment": "2.30.1",
+    "node-emoji": "2.1.3",
+    "pug": "3.0.2",
+    "rxjs": "7.8.1",
+    "semver": "7.5.4",
+    "shelljs": "0.8.5",
+    "twig": "1.17.1",
+    "uuid": "9.0.1"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "25.0.7",
+    "@rollup/plugin-json": "6.1.0",
+    "@rollup/plugin-node-resolve": "15.2.3",
+    "@rollup/plugin-replace": "5.0.5",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "11.1.6",
+    "@types/asciify": "1.3.33",
+    "@types/chai": "4.3.11",
+    "@types/cli-color": "2.0.6",
+    "@types/clui": "0.3.4",
+    "@types/lodash": "4.14.202",
+    "@types/mime-types": "2.1.4",
+    "@types/mocha": "10.0.6",
+    "@types/node": "20.11.5",
+    "@types/shelljs": "0.8.15",
+    "@types/twig": "1.12.16",
+    "@types/uuid": "9.0.7",
+    "@typescript-eslint/eslint-plugin": "6.19.0",
+    "@typescript-eslint/parser": "6.19.0",
+    "chai": "=4.3.10",
+    "eslint": "8.56.0",
+    "eslint-config-prettier": "9.1.0",
+    "eslint-plugin-prettier": "5.1.3",
+    "glob": "10.3.10",
+    "jsdom": "23.2.0",
+    "mkdirp": "3.0.1",
+    "mocha": "10.2.0",
+    "mocha-jsdom": "2.0.0",
+    "npm-run-all2": "6.1.1",
+    "prettier": "3.2.4",
+    "rimraf": "5.0.5",
+    "rollup": "4.9.5",
+    "rollup-plugin-copy": "3.5.0",
+    "rollup-plugin-visualizer": "5.12.0",
+    "terser": "5.26.0",
+    "ts-mocha": "10.0.0",
+    "ts-node": "10.9.2",
+    "typedoc": "0.25.7",
+    "typedoc-plugin-markdown": "3.17.1",
+    "typescript": "5.3.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/nodefony/nodefony.git"
+  },
+  "resolutions": {},
+  "license": "CECILL-B",
+  "licenses": [
+    {
+      "type": "CECILL-B",
+      "url": "http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html"
+    }
+  ],
+  "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
+  "readmeFilename": "README.md"
+}

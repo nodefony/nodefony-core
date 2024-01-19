@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./",
+    "outDir": "./dist",
+    //"allowJs": true
+  },
+  "include": [
+    "index.ts",
+    "rollup.config.ts",
+    "src/**/*.ts",
+    "nodefony/**/*.ts",
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

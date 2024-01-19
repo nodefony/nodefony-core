@@ -1,0 +1,20 @@
+{
+  "entryPoints": [
+    "./src/*.ts",
+    "./src/**/*.ts"
+  ],
+  "out": "./dist/doc",
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/tests",
+    "node_modules/@types/node",
+    "src/index.ts"
+  ],
+  "plugin": [
+    "typedoc-plugin-markdown"
+  ],
+  "compilerOptions": {
+    "skipLibCheck": true
+  }
+}
