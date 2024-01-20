@@ -8,6 +8,7 @@
 dist/
 node_modules/
 tmp/
+bin/
 
 # Ignore les fichiers générés par TypeScript
 *.tsbuildinfo
