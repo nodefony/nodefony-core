@@ -67,25 +67,27 @@ switch (kernel.appEnvironment) {
 }
 
 export default {
-  domain: "0.0.0.0",
+  domain: "0.0.0.0", // "0.0.0.0" "selectAuto"
   domainAlias: ["^127.0.0.1$", "^localhost$"],
-  httpPort: 5151,
-  httpsPort: 5152,
   domainCheck,
-  locale: "en_en",
+  servers: {
+    statics,
+    http: {
+      port: 5151,
+      protocol: "2.0", //  2.0 || 1.1
+    },
+    https: {
+      port: 5152,
+      protocol: "2.0", //  2.0 || 1.1
+    },
+    ws: {},
+    wss: {},
+  },
+  certificats,
+  // httpPort: 5151,
+  // httpsPort: 5152,
 
-  /**
-   * BUNDLES CORE
-   */
-  security: true,
-  realtime: true,
-  monitoring,
-  mail: true,
-  documentation,
-  unitTest,
-  redis: false,
-  mongo: false,
-  elastic: false,
+  locale: "en_en",
 
   /**
    * SERVERS
@@ -110,31 +112,6 @@ export default {
     progress: false,
     protocol: "https",
     websocket: true,
-  },
-
-  /**
-   *  BUNDLES LOCAL REGISTRATION
-   *
-   *       bundles:{
-   *         "hello-bundle" : "file:src/bundles/hello-bundle"
-   *         "test-bundle"  : path.resolve("src", "bundles", "test-bundle")
-   *       }
-   */
-  bundles: {
-    "test-bundle": path.resolve("src", "bundles", "test-bundle"),
-    "users-bundle": path.resolve(
-      "src",
-      "nodefony",
-      "cli",
-      "builder",
-      "bundles",
-      "users-bundle"
-    ),
-    // "demo-bundle": "file:src/bundles/demo-bundle",
-    // "webAssembly-bundle": "file:src/bundles/webAssembly-bundle",
-    "ia-bundle": "file:src/bundles/ia-bundle",
-    // "vault-bundle": "file:src/bundles/vault-bundle"
-    // "keycloak-bundle": "file:src/bundles/keycloak-bundle"
   },
 
   /**

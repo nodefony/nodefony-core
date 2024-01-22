@@ -13,16 +13,16 @@
     "javascript"
   ],
   "scripts": {
-    "install": "npm  --prefix ./src/core install && npm --prefix ./src/packages install",
+    "install": "npm  --prefix ./src/nodefony install && npm --prefix ./src/packages install",
     "prebuild": "mkdirp tmp",
-    "build": "npm run --prefix ./src/core build && npm run --prefix ./src/packages build",
-    "test": "npm run --prefix ./src/core test && npm --prefix ./src/packages test",
-    "dev": "npm run --prefix ./src/core dev && npm --prefix ./src/packages dev",
+    "build": "npm run --prefix ./src/nodefony build && npm run --prefix ./src/packages build",
+    "test": "npm run --prefix ./src/nodefony test && npm --prefix ./src/packages test",
+    "dev": "npm run --prefix ./src/nodefony dev && npm --prefix ./src/packages dev",
     "certificates": "bash bin/generateCertificates.sh"
   },
   "workspaces": [
     "app",
-    "src/core",
+    "src/nodefony",
     "src/packages/@nodefony/*"
   ],
   "devDependencies": {

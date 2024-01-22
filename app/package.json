@@ -3,10 +3,15 @@
   "version": "1.0.0",
   "description": "app nodefony entry point",
   "author": "admin <admin@nodefony.com>",
-  "main": "index.js",
+  "main": "dist/index.js",
   "type": "module",
-  "types": "types.d.ts",
-  "scripts": {},
+  "types": "dist/types/index.d.ts",
+  "scripts": {
+    "build": "rimraf dist && npm run rollup",
+    "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
+    "dev": "rimraf dist && npm run rollup -- --watch",
+    "test": "node -e \"console.log('test')\""
+  },
   "private": true,
   "keywords": [
     "nodefony",

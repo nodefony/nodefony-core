@@ -48,6 +48,7 @@ const tmpDir = kernel?.tmpDir.path || "/tmp";
 
 export default {
   watch: false,
+  headerServer: "nodefony",
   // For more options parser formidable @see : https://github.com/felixge/node-formidable
   request: {
     uploadDir: tmpDir,
