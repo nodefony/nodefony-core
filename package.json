@@ -1,8 +1,9 @@
 {
-  "name": "@nodefony/core",
+  "name": "nodefony-core",
   "version": "10.0.0",
   "description": "Core Nodefony Framework",
   "type": "module",
+  "types": "dist/types/index.d.ts",
   "private": true,
   "engines": {
     "node": ">=16"
@@ -13,19 +14,26 @@
     "javascript"
   ],
   "scripts": {
-    "install": "npm  --prefix ./src/nodefony install && npm --prefix ./src/packages install",
-    "prebuild": "mkdirp tmp",
-    "build": "npm run --prefix ./src/nodefony build && npm run --prefix ./src/packages build",
+    "start": "nodefony",
+    "preinstall": "npm  --prefix ./src/nodefony install && npm --prefix ./src/packages install",
+    "prebuild": "rimraf dist tmp && mkdirp tmp dist && npm run --prefix ./src/nodefony build && npm run --prefix ./src/packages build",
+    "build": "npm run rollup",
+    "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "test": "npm run --prefix ./src/nodefony test && npm --prefix ./src/packages test",
     "dev": "npm run --prefix ./src/nodefony dev && npm --prefix ./src/packages dev",
     "certificates": "bash bin/generateCertificates.sh"
   },
   "workspaces": [
-    "app",
     "src/nodefony",
     "src/packages/@nodefony/*"
   ],
   "devDependencies": {
+    "@rollup/plugin-commonjs": "25.0.7",
+    "@rollup/plugin-json": "6.1.0",
+    "@rollup/plugin-node-resolve": "15.2.3",
+    "@rollup/plugin-replace": "5.0.5",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "11.1.6",
     "@types/node": "20.11.5",
     "@typescript-eslint/eslint-plugin": "6.19.0",
     "@typescript-eslint/parser": "6.19.0",
@@ -34,6 +42,9 @@
     "eslint-plugin-prettier": "5.1.3",
     "mkdirp": "3.0.1",
     "prettier": "3.2.4",
+    "rimraf": "5.0.5",
+    "rollup": "4.9.6",
+    "rollup-plugin-copy": "3.5.0",
     "typescript": "5.3.3"
   },
   "repository": {
@@ -49,5 +60,6 @@
     }
   ],
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
-  "readmeFilename": "README.md"
+  "readmeFilename": "README.md",
+  "dependencies": {}
 }

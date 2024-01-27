@@ -64,7 +64,7 @@ function createNodePlugins(
 function createNodeConfig(isProduction: boolean): RollupOptions {
   return defineConfig({
     //input,
-    input: "index.ts",
+    input: "./index.ts",
     ...sharedNodeOptions,
     output: {
       ...sharedNodeOptions.output,

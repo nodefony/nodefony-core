@@ -1,46 +1,129 @@
 import path from "node:path";
-import * as fs from "fs/promises";
+
 import Syslog, { conditionsInterface } from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
-import Cli from "../Cli";
+import Cli, { CliDefaultOptions } from "../Cli";
 import Kernel, { KernelType, TypeKernelOptions } from "./Kernel";
+import Command from "../command/Command";
 import Start from "./commands/StartCommand";
 import Dev from "./commands/DevCommand";
 import Prod from "./commands/ProdCommand";
 import Install from "./commands/InstallCommand";
-import { DebugType, JSONObject, EnvironmentType } from "../types/globals";
+import { DebugType, EnvironmentType } from "../types/globals";
+import Module from "./Module";
+import commander from "commander";
+import { version } from "../../package.json";
 
 type ModuleWithDefault<T> = {
   default?: T;
 };
 
+const cliOptions: CliDefaultOptions = {
+  autoLogger: false,
+  asciify: false,
+  version,
+  warning: true,
+  pid: true,
+};
+
 class CliKernel extends Cli {
-  //public override kernel: Kernel | null = null;
   public type: KernelType = "CONSOLE";
-  public override kernel: Kernel;
-  public override environment: EnvironmentType;
-  constructor(
-    environment: EnvironmentType = "production",
-    options?: TypeKernelOptions
-  ) {
-    super("NODEFONY", { autoLogger: false });
-    this.environment = environment;
-    this.kernel = new Kernel(this.environment, this, options);
+  public app: Module | null = null;
+  constructor(environment?: EnvironmentType) {
+    super("NODEFONY", cliOptions);
+    if (environment) {
+      this.environment = environment;
+    }
     this.initSyslog();
-    this.addCommand(Start);
-    this.addCommand(Dev);
-    this.addCommand(Prod);
-    this.addCommand(Install);
   }
 
-  override async start(): Promise<CliKernel> {
-    super.start();
-    return this;
+  override showHelp(
+    quit: boolean,
+    context: commander.HelpContext | undefined
+  ): void | never {
+    super.showHelp(quit, context);
+  }
+
+  parseCommand(argv?: string[]): commander.Command {
+    return this.parse(argv || process.argv);
+  }
+  parseCommandAsync(argv?: string[]): Promise<commander.Command> {
+    return this.parseAsync(argv || process.argv);
+  }
+
+  override async start(options?: TypeKernelOptions): Promise<Kernel> {
+    this.kernel = new Kernel(this.environment, this, options);
+    if (this.commander) {
+      this.addCommand(Start);
+      this.addCommand(Dev);
+      this.addCommand(Prod);
+      this.addCommand(Install);
+      this.commander.exitOverride();
+      this.commander.name(this.name);
+
+      this.commander.showHelpAfterError(false);
+      //this.commander.showSuggestionAfterError(false);
+      this.commander.configureHelp({
+        sortSubcommands: true,
+        sortOptions: true,
+        showGlobalOptions: true,
+        //subcommandTerm: (cmd) => cmd.name(), // Just show the name, instead of short usage.
+        // formatHelp: (cmd, help) => {
+        //   return cmd.helpInformation();
+        //   //return this.cli?.commander?.help();
+        // },
+      });
+
+      // // @ts-expect-error: overloaded  _outputConfiguration
+      // this.commander._outputConfiguration = {
+      //   writeOut: (str: string) => this.log(str), //process.stdout.write(str),
+      //   writeErr: (str: string) => this.log(str, "ERROR"), // process.stderr.write(str),
+      //   getOutHelpWidth: () =>
+      //     process.stdout.isTTY ? process.stdout.columns : undefined,
+      //   getErrHelpWidth: () =>
+      //     process.stderr.isTTY ? process.stderr.columns : undefined,
+      //   outputError: (str: string, write: (str: string) => void) => write(str),
+      // };
+      // // @ts-expect-error: overloaded  _hasHelpOption
+      //this.commander._hasHelpOption = false;
+
+      return this.commander
+        ?.parseAsync()
+        .then(async () => {
+          if (this.kernel) {
+            return this.kernel.start().catch(async (e) => {
+              //this.commander?.outputHelp({ error: false });
+              await this.kernel?.terminate();
+              throw e;
+            });
+          }
+          throw new Error(`Kernel not found`);
+        })
+        .catch(async () => {
+          if (this.kernel) {
+            return this.kernel?.start().catch(async (e) => {
+              //this.commander?.outputHelp({ error: false });
+              await this.kernel?.terminate();
+              throw e;
+            });
+          }
+          throw new Error(`Kernel not found`);
+        });
+    }
+    throw new Error(`Commander not found`);
   }
 
   setType(type: KernelType): string {
     const ele = type.toLocaleUpperCase() as KernelType;
     return (this.type = ele);
+  }
+
+  public override addCommand(
+    cliCommand: new (cli: CliKernel) => Command
+  ): Command {
+    const command = new cliCommand(this);
+    this.commands[command.name] = command;
+    return command;
   }
 
   async loadLocalModule<T>(
@@ -59,37 +142,11 @@ class CliKernel extends Cli {
     }
   }
 
-  async loadJson(
-    url: string,
-    cwd: string = process.cwd()
-  ): Promise<JSONObject> {
-    try {
-      const detectpath = path.isAbsolute(url) ? url : path.resolve(cwd, url);
-      const fileContent = await fs.readFile(detectpath, "utf-8");
-      const parsedJson = JSON.parse(fileContent);
-      return parsedJson;
-    } catch (error) {
-      this.log(error, "ERROR");
-      throw error;
-    }
-  }
-
-  async getProjectName(): Promise<string> {
-    const res = await this.loadJson("package.json");
-    return res.name as string;
-  }
-
-  async getProjectVersion(): Promise<string> {
-    const res = await this.loadJson("package.json");
-    return res.version as string;
-  }
-
   override initSyslog(
     environment?: EnvironmentType,
     debug?: DebugType,
     options?: conditionsInterface
   ): void | null {
-    //console.log(debug, this.debug);
     if (!this.kernel) {
       return super.initSyslog(environment, debug, options);
     }
@@ -122,6 +179,13 @@ class CliKernel extends Cli {
     return syslog?.listenWithConditions(conditions, (pdu: Pdu) => {
       Syslog.normalizeLog(pdu, this.pid?.toString());
     });
+  }
+
+  override async terminate(code: number = 0, quiet?: boolean): Promise<void> {
+    if (this.kernel) {
+      return await this.kernel.terminate(code);
+    }
+    return Promise.resolve(super.terminate(code, quiet));
   }
 }
 

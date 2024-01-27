@@ -64,7 +64,7 @@ const sharedBinaryOptions = defineConfig({
   },
   output: {
     file: "./bin/nodefony",
-    exports: "none",
+    exports: "default",
     format: "esm",
     externalLiveBindings: false,
     //freeze: false,

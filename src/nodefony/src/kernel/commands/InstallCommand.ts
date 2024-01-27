@@ -1,14 +1,29 @@
-import Command from "../../command/Command";
+import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
+import Module from "../Module";
+
+const optionsCommand: OptionsCommandInterface = {
+  showBanner: false,
+};
 
 class Install extends Command {
   constructor(cli: CliKernel) {
-    super("install", "Install Nodefony Framework", cli as CliKernel, {
-      showBanner: false,
-    });
+    super(
+      "install",
+      "Install Nodefony Framework",
+      cli as CliKernel,
+      optionsCommand
+    );
   }
-  override generate(options: any): Promise<this> {
-    return Promise.resolve(this);
+  override async generate(): Promise<this> {
+    const modules = this.kernel?.getModules();
+    if (modules) {
+      for (const moduleName in modules) {
+        const module: Module = modules[moduleName];
+        await module.install();
+      }
+    }
+    return this;
   }
 }
 

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Service, { DefaultOptionsService } from "../Service";
 import Container from "../Container";
-import Event from "../Event";
+//import Event from "../Event";
 import { Severity, Msgid, Message } from "../syslog/Pdu";
 import Cli from "../Cli";
 import CliKernel from "../kernel/CliKernel";
@@ -15,6 +15,7 @@ import Builder from "./Builder";
 import * as prompts from "@inquirer/prompts";
 import { extend } from "../Tools";
 import clui from "clui";
+import { Events } from "../kernel/Kernel";
 
 interface CommandEvents {
   on(
@@ -40,12 +41,14 @@ interface OptionsCommandInterface extends DefaultOptionsService {
   progress?: boolean;
   sizeProgress?: number;
   showBanner?: boolean;
+  kernelEvent?: keyof typeof Events;
 }
 
 const defaultCommandOptions: OptionsCommandInterface = {
   progress: false,
   sizeProgress: 100,
   showBanner: true,
+  kernelEvent: "onRegister",
 };
 
 /**
@@ -97,34 +100,39 @@ class Command extends Service {
     return super.emit(event, ...args);
   }
   //end Events
-  public cli: Cli | CliKernel | null = null;
+  public cli: Cli | CliKernel;
   private command: Cmd | null = null;
   private program: typeof program = program;
   public json: boolean = false;
   public debug: boolean = false;
   public interactive: boolean = false;
+  private forceInteractive: boolean = false;
   public builder: Builder | null = null;
   public prompts = prompts;
   public progress: number = 0;
   public response: Record<string, any> = {};
-
+  public kernelEvent: keyof typeof Events = "onRegister";
+  public onStart?(): Promise<void>;
+  public onRegister?(): Promise<void>;
+  public onBoot?(): Promise<void>;
+  public onReady?(): Promise<void>;
   /**
    * Crée une instance de Command.
    *
    * @constructor
    * @param {string} name - Nom de la commande.
    * @param {string} [description] - Description de la commande.
-   * @param {Cli} [cli] - Instance de la classe Cli.
+   * @param {Cli} cli - Instance de la classe Cli.
    * @param {OptionsCommandInterface} [options] - Options spécifiques à la commande.
    */
   constructor(
     name: string,
-    description?: string,
-    cli?: Cli,
+    description: string = "",
+    cli: Cli | CliKernel,
     options?: OptionsCommandInterface
   ) {
-    const container: undefined | Container | null = cli?.container;
-    const notificationsCenter = cli?.notificationsCenter;
+    const container: undefined | Container | null = cli.container;
+    //const notificationsCenter = cli?.notificationsCenter;
     const myoptions: OptionsCommandInterface = extend(
       {},
       defaultCommandOptions,
@@ -133,16 +141,56 @@ class Command extends Service {
     super(
       name,
       <Container>container,
-      <Event>notificationsCenter,
+      null, //<Event>notificationsCenter,
       <OptionsCommandInterface>myoptions
     );
-    if (cli) {
-      this.cli = cli;
-    }
-    this.addCommand(name, description);
-    this.command?.action(this.action.bind(this));
+    this.cli = cli;
+    this.kernelEvent = this.options.kernelEvent;
+    this.createCommand(name, description);
+    this.command?.action((...args: any[]) => {
+      if (this.kernel) {
+        this.kernel.command = this;
+        this.setEvents(...args);
+      } else {
+        this.action(...args);
+      }
+    });
   }
-
+  setEvents(...args: any[]): void {
+    //console.log(this.name, "pass setEvents");
+    if (this.onStart) {
+      this.kernel?.once("onStart", this.onStart.bind(this, ...args));
+    }
+    if (this.onRegister) {
+      this.kernel?.once("onRegister", this.onRegister.bind(this, ...args));
+    }
+    if (this.onBoot) {
+      this.kernel?.once("onBoot", this.onBoot.bind(this, ...args));
+    }
+    if (this.onReady) {
+      this.kernel?.once("onReady", this.onReady.bind(this, ...args));
+    }
+    this.kernel?.once(
+      this.kernelEvent as string,
+      this.action.bind(this, ...args)
+    );
+    // console.log(
+    //   this.kernel?.notificationsCenter._events,
+    //   this.onStart,
+    //   this.onReady,
+    //   this.notificationsCenter._events
+    // );
+  }
+  // set kernelEvent(value: keyof typeof Events) {
+  //   if (Events[value] !== undefined) {
+  //     this._kernelEvent = value;
+  //   } else {
+  //     throw new Error(`Event ${value} does not exist.`);
+  //   }
+  // }
+  // get kernelEvent(): keyof typeof Events {
+  //   return this._kernelEvent;
+  // }
   /**
    * Méthode d'action de la commande.
    *
@@ -150,28 +198,24 @@ class Command extends Service {
    * @param {...any} args - Arguments passés à la commande.
    * @returns {Promise<any>} Promise résolue avec le résultat de l'action.
    */
-  private async action(...args: any[]): Promise<any> {
+  public async action(...args: any[]): Promise<any> {
     this.getCliOptions();
     if (this.options.showBanner) {
       await this.showBanner();
     }
-    if (this.cli) {
-      if (this.options.progress) {
-        this.progress = 0;
-        this.setProgress();
-      }
-      if (this.builder) {
-        await this.builder.run(...args);
-      }
-      await this.run(...args);
-    } else {
-      this.program.parse();
+    if (this.options.progress) {
+      this.progress = 0;
+      this.setProgress();
     }
+    if (this.builder) {
+      await this.builder.run(...args);
+    }
+    const res = await this.run(...args);
     if (this.options.progress) {
       this.fire("onProgress", this.options.sizeProgress);
     }
+    return res;
   }
-
   /**
    * Méthode principale pour exécuter la commande.
    *
@@ -180,7 +224,8 @@ class Command extends Service {
    * @returns {Promise<any>} Promise résolue avec le résultat de l'exécution.
    */
   public async run(...args: any[]): Promise<this> {
-    if (this.interactive) {
+    if (this.kernel) this.kernel.command = this;
+    if (this.interactive || this.forceInteractive) {
       return this.interaction(...args)
         .then((...response) => this.generate(...response))
         .catch((e) => {
@@ -191,7 +236,9 @@ class Command extends Service {
       throw e;
     });
   }
-
+  public forceInteractiveMode(): void {
+    this.forceInteractive = true;
+  }
   /**
    * Méthode pour l'interaction avec l'utilisateur.
    *
@@ -201,10 +248,8 @@ class Command extends Service {
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public async interaction(...args: any[]): Promise<any> {
-    //this.log(args, "DEBUG");
     return Promise.resolve(args);
   }
-
   /**
    * Méthode pour générer le résultat de la commande.
    *
@@ -213,16 +258,13 @@ class Command extends Service {
    * @returns {Promise<any>} Promise résolue avec le résultat généré.
    */
   async generate(...args: any[]): Promise<any> {
-    //this.log(args, "DEBUG");
     return Promise.resolve(args);
   }
-
   private getCliOptions(): void {
     this.debug = this.cli?.commander?.opts().debug || false;
     this.interactive = this.cli?.commander?.opts().interactive || false;
   }
-
-  private addCommand(name: string, description?: string): Cmd {
+  private createCommand(name: string, description?: string): Cmd {
     this.command = new Cmd(name);
     if (description) {
       this.command.description(description);
@@ -232,11 +274,9 @@ class Command extends Service {
   public alias(name: string): Cmd | undefined {
     return this.command?.alias(name);
   }
-
   public addBuilder(builder: typeof Builder): Builder {
     return (this.builder = new builder(this));
   }
-
   /**
    * Méthode pour analyser les arguments de la commande.
    *
@@ -252,7 +292,6 @@ class Command extends Service {
     }
     throw new Error(`program not found`);
   }
-
   /**
    * Méthode pour effacer la commande actuelle.
    *
@@ -267,7 +306,6 @@ class Command extends Service {
       }
     }
   }
-
   /**
    * Méthode pour exécuter une commande avec des arguments spécifiques.
    *
@@ -283,7 +321,6 @@ class Command extends Service {
     }
     return this.parse(process.argv.concat(args));
   }
-
   /**
    * Méthode pour mettre en place une barre de progression.
    *
@@ -332,7 +369,6 @@ class Command extends Service {
       }
     });
   }
-
   /**
    * Méthode pour ajouter une option à la commande.
    *
@@ -350,7 +386,6 @@ class Command extends Service {
     }
     throw new Error(`Commander not ready`);
   }
-
   /**
    * Méthode pour ajouter un argument à la commande.
    *
@@ -368,7 +403,6 @@ class Command extends Service {
     }
     throw new Error(`Command not ready`);
   }
-
   /**
    * Méthode pour afficher une bannière liée à la commande.
    *
@@ -397,7 +431,6 @@ class Command extends Service {
     }
     return Promise.resolve("");
   }
-
   /**
    * Méthode pour gérer la journalisation de la commande.
    *
@@ -417,8 +450,7 @@ class Command extends Service {
       console.log(e, "\n", pci);
     }
   }
-
-  terminate(code: number): number | undefined {
+  async terminate(code: number): Promise<void> {
     return this.cli?.terminate(code);
   }
 }

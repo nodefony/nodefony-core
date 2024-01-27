@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # inspired by https://jamielinux.com/docs/openssl-certificate-authority/index.html
 
-ROOT_DIR="./config/certificates"
-CONF_DIR="./config/openssl"
+ROOT_DIR="./nodefony/config/certificates"
+CONF_DIR="./nodefony/config/openssl"
 mkdir -p $ROOT_DIR
 mkdir -p $ROOT_DIR/{client,server,ca}
 

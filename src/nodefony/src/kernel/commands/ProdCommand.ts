@@ -1,18 +1,37 @@
-import Command from "../../command/Command";
+import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
 
+const options: OptionsCommandInterface = {
+  showBanner: false,
+  kernelEvent: "onPostReady",
+};
+
 class Prod extends Command {
   constructor(cli: CliKernel) {
-    super("production", "Start Server in Production Mode", cli as CliKernel, {
-      showBanner: false,
-    });
+    super(
+      "production",
+      "Start Server in Production Mode",
+      cli as CliKernel,
+      options
+    );
     this.alias("prod");
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  override async onStart(): Promise<void> {
+    (this.cli as CliKernel).setType("SERVER");
+    this.cli.environment = "production";
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   override async generate(options: any): Promise<Kernel> {
-    return new Kernel("production", this.cli as CliKernel);
+    (this.cli as CliKernel).setType("SERVER");
+    try {
+      return this.kernel as Kernel;
+    } catch (e) {
+      this.log(e, "ERROR");
+      throw e;
+    }
   }
 }
 

@@ -28,6 +28,9 @@ const certificats = {
   options: {
     rejectUnauthorized: true,
   },
+  key: "",
+  cert: "",
+  ca: "",
 };
 let CDN = null;
 let statics = true;
@@ -36,23 +39,26 @@ let documentation = true;
 let unitTest = true;
 let domainCheck = false;
 
-switch (kernel.appEnvironment) {
+switch (kernel?.environment) {
   case "production":
   case "development":
   default:
     certificats.key = path.resolve(
+      "nodefony",
       "config",
       "certificates",
       "server",
       "privkey.pem"
     );
     certificats.cert = path.resolve(
+      "nodefony",
       "config",
       "certificates",
       "server",
       "fullchain.pem"
     );
     certificats.ca = path.resolve(
+      "nodefony",
       "config",
       "certificates",
       "ca",
@@ -67,7 +73,7 @@ switch (kernel.appEnvironment) {
 }
 
 export default {
-  domain: "0.0.0.0", // "0.0.0.0" "selectAuto"
+  domain: "localhost", // "0.0.0.0" "selectAuto"
   domainAlias: ["^127.0.0.1$", "^localhost$"],
   domainCheck,
   servers: {
@@ -92,15 +98,15 @@ export default {
   /**
    * SERVERS
    */
-  servers: {
-    statics,
-    protocol: "2.0", //  2.0 || 1.1
-    http: true,
-    https: true,
-    ws: true,
-    wss: true,
-    certificats,
-  },
+  // servers: {
+  //   statics,
+  //   protocol: "2.0", //  2.0 || 1.1
+  //   http: true,
+  //   https: true,
+  //   ws: true,
+  //   wss: true,
+  //   certificats,
+  // },
 
   /**
    * DEV SERVER

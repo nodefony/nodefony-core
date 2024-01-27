@@ -1,6 +1,8 @@
 import { Service, Module, Container, Event, Scope } from "nodefony";
 import http from "node:http";
-import { SemicolonPreference } from "typescript";
+
+import httpServer from "../service/server-http";
+import clc from "cli-color";
 
 export type ProtocolType = "1.1" | "2.0";
 
@@ -31,6 +33,16 @@ class HttpKernel extends Service {
     return this.handle(request, response, type);
   }
 
+  async initServers(): Promise<any[]> {
+    let servers = [];
+    const serverHttp: httpServer = this.get("server-http");
+    if (serverHttp) {
+      servers.push(serverHttp);
+      await serverHttp.createServer();
+    }
+    return servers;
+  }
+
   handle(
     request: http.IncomingMessage,
     response: http.ServerResponse,
@@ -43,7 +55,7 @@ class HttpKernel extends Service {
       case "http":
       case "https":
       case "http2":
-        log = this.kernel?.cli.clc.cyan.bgBlue(`${request.url}`);
+        log = clc.cyan.bgBlue(`${request.url}`);
         this.log(`REQUEST HANDLE ${type} : ${log}`, "DEBUG");
         return this.handleHttp(scope as Scope, request, response, type);
       case "websocket":

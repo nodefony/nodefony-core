@@ -7,10 +7,12 @@
   "include": [
     "index.ts",
     "rollup.config.ts",
-    "src/**/*.ts"
+    "config/**/*.ts",
+    "nodefony/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "src"
   ]
 }

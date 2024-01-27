@@ -172,6 +172,10 @@ const isPromise = (obj: any): boolean => {
   }
 };
 
+const isSubclassOf = function (subclass: any, superclass: any): boolean {
+  return subclass.prototype instanceof superclass;
+};
+
 export {
   extend,
   isEmptyObject,
@@ -183,4 +187,5 @@ export {
   isFunction,
   isArray,
   isPromise,
+  isSubclassOf,
 };

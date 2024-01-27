@@ -36,12 +36,12 @@ class Service {
   public kernel: Kernel | null;
   public syslog: Syslog | null;
   private settingsSyslog: SyslogDefaultSettings | null;
-  public notificationsCenter: Event | undefined | boolean;
+  public notificationsCenter: Event | undefined | boolean | null;
 
   constructor(
     name: string,
     container?: Container,
-    notificationsCenter?: Event | false,
+    notificationsCenter?: Event | false | null,
     options: DefaultOptionsService = {}
   ) {
     this.name = name;
@@ -82,9 +82,9 @@ class Service {
       }
       if (notificationsCenter !== false) {
         this.notificationsCenter = new Event(this.options, this, this.options);
-        this.notificationsCenter.on("error", (err: any) => {
-          this.log(err, "ERROR", "Error events");
-        });
+        // this.notificationsCenter.on("onError", (err: any) => {
+        //   this.log(err, "ERROR", "Error events");
+        // });
         if (!this.kernel) {
           this.container.set("notificationsCenter", this.notificationsCenter);
         } else if (this.kernel.container !== this.container) {

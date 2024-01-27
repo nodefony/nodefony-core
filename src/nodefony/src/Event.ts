@@ -96,25 +96,22 @@ class Event extends EventEmitter {
     if (isEmpty(handler) && !isFunction(handler)) {
       return false;
     }
-    const tab = [];
+    const result = [];
     if (typeof handler === "function") {
-      tab.push(await Reflect.apply(handler, this, args));
+      result.push(await Reflect.apply(handler, this, args));
     } else {
       let size = handler.length;
       let i = 0;
       while (size !== i) {
-        tab.push(await Reflect.apply(handler[i], this, args));
+        result.push(await Reflect.apply(handler[i], this, args));
         if (handler.length === size) {
           i++;
         } else {
           size--;
         }
       }
-      /* for await (const func of handler) {
-        tab.push(await Reflect.apply(func, this, args));
-      }*/
     }
-    return tab;
+    return result;
   }
 
   override async fireAsync(eventName: string | symbol, ...args: any[]) {

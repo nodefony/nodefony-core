@@ -17,6 +17,7 @@ const readFile = function (Path: fs.PathOrFileDescriptor): string {
 const createSecret = function (cwd: string = process.cwd()): string {
   const sercretPath = path.resolve(
     cwd,
+    "nodefony",
     "config",
     "certificates",
     "ca",
@@ -32,6 +33,7 @@ const secret = createSecret();
 
 const createIv = function () {
   const sercretPath = path.resolve(
+    "nodefony",
     "config",
     "certificates",
     "ca",

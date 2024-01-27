@@ -24,7 +24,6 @@ import { extend } from "./Tools";
 import Container from "./Container";
 import FileClass from "./FileClass";
 import Event from "./Event";
-//import { FSWatcher } from "node:fs";
 import Command from "./command/Command";
 import { DebugType, EnvironmentType } from "./types/globals";
 import bare from "cli-color/bare";
@@ -34,6 +33,7 @@ import Syslog from "./syslog/Syslog";
 import Rx from "rxjs";
 //import   {rm, ls, cd ,mkdir, ln, cp ,chmod, ShellString, ShellArray } from 'shelljs'
 import shelljs from "shelljs";
+import Kernel from "./kernel/Kernel";
 
 interface CliDefaultOptions extends DefaultOptionsService {
   processName?: string;
@@ -51,6 +51,7 @@ interface CliDefaultOptions extends DefaultOptionsService {
   pid?: boolean;
   promiseRejection?: boolean;
   font?: string;
+  environment?: EnvironmentType;
 }
 
 // const red = clc.red.bold;
@@ -75,9 +76,9 @@ const defaultTableCli = {
   },
 };
 
-declare class CliCommand extends Command {
-  constructor(cli: Cli);
-}
+// export declare class CliCommand extends Command {
+//   constructor(cli: Cli);
+// }
 
 const defaultOptions = {
   processName,
@@ -94,14 +95,15 @@ const defaultOptions = {
   warning: false,
   pid: false,
   promiseRejection: true,
+  environment: "production",
 };
 
 class Cli extends Service {
   public override options: CliDefaultOptions = extend({}, defaultOptions);
   public debug: DebugType = false;
-  public environment: EnvironmentType | string = "production";
+  public environment: EnvironmentType = "production";
   public commander: typeof program | null = null;
-  private commands: Record<string, CliCommand> = {};
+  protected commands: Record<string, Command> = {};
   public pid: number | null = null;
   public interactive: boolean = false;
   public prompt: Rx.Subject<unknown> | any | null = null;
@@ -154,9 +156,9 @@ class Cli extends Service {
     );
     this.options = <CliDefaultOptions>options;
     if (process.env.NODE_ENV) {
-      this.environment = process.env.NODE_ENV;
+      this.environment = process.env.NODE_ENV as EnvironmentType;
     } else {
-      this.environment = "production";
+      this.environment = this.options.environment || "production";
     }
     this.setProcessTitle();
     this.pid = this.options.pid ? this.setPid() : null;
@@ -209,7 +211,7 @@ class Cli extends Service {
   }
 
   //Méthode privée pour gérer les signaux
-  private handleSignals(): void {
+  protected handleSignals(): void {
     const signalHandler = (signal: string) => {
       if (this.blankLine) {
         this.blankLine();
@@ -235,7 +237,7 @@ class Cli extends Service {
     });
   }
 
-  start(): Promise<Cli> {
+  start(): Promise<Cli | Kernel> {
     return new Promise(async (resolve, reject) => {
       try {
         if (this.options.autostart) {
@@ -288,7 +290,7 @@ class Cli extends Service {
     throw new Error(`Not valid version : ${version} check  http://semver.org `);
   }
 
-  async showAsciify(name: string | null = null) {
+  async showAsciify(name: string | null = null): Promise<this> {
     if (!name) {
       name = this.name;
     }
@@ -302,7 +304,7 @@ class Cli extends Service {
         }
         const color = this.options.color || blue;
         console.log(color(data));
-        return data;
+        return this;
       })
       .catch((err: Error) => {
         this.log(err, "ERROR");
@@ -367,7 +369,7 @@ class Cli extends Service {
     )}`;
   }
 
-  initCommander() {
+  initCommander(): typeof program | null {
     if (this.options.commander) {
       this.commander = program;
       this.commander.option("-i, --interactive", "Interaction mode");
@@ -442,6 +444,16 @@ class Cli extends Service {
     throw new Error(`Commander not found`);
   }
 
+  public parseAsync(
+    argv?: string[],
+    options?: commander.ParseOptions
+  ): Promise<commander.Command> {
+    if (this.commander) {
+      return this.commander?.parseAsync(argv, options);
+    }
+    throw new Error(`Commander not found`);
+  }
+
   public clearCommand(): void {
     this.commander?.setOptionValue("interactive", false);
     this.commander?.setOptionValue("debug", false);
@@ -450,13 +462,22 @@ class Cli extends Service {
     }
   }
 
-  runCommand(cmd: string, args: any[] = []) {
+  runCommand(cmd: string, args: any[] = []): commander.Command {
     // this.log(`Commnand : ${cmd} Arguments : ${args}`, "DEBUG", "COMMAND");
     this.clearCommand();
     if (cmd) {
       process.argv.push(cmd);
     }
-    this.parse(process.argv.concat(args));
+    return this.parse(process.argv.concat(args));
+  }
+
+  runCommandAsync(cmd: string, args: any[] = []): Promise<commander.Command> {
+    // this.log(`Commnand : ${cmd} Arguments : ${args}`, "DEBUG", "COMMAND");
+    this.clearCommand();
+    if (cmd) {
+      process.argv.push(cmd);
+    }
+    return this.parseAsync(process.argv.concat(args));
   }
 
   setCommandOption(
@@ -489,10 +510,10 @@ class Cli extends Service {
     if (this.commander) {
       return this.commander.command(nameAndArgs, description, options);
     }
-    throw new Error(`Commender not found`);
+    throw new Error(`Commander not found`);
   }
 
-  public addCommand(cliCommand: typeof CliCommand): Command {
+  public addCommand(cliCommand: new (cli: this) => Command): Command {
     const command = new cliCommand(this);
     this.commands[command.name] = command;
     return command;
@@ -739,9 +760,9 @@ class Cli extends Service {
     return fs.existsSync(myPath);
   }
 
-  terminate(code: number = 0, quiet?: boolean) {
+  async terminate(code: number = 0, quiet?: boolean): Promise<void | never> {
     if (quiet) {
-      return code;
+      return;
     }
     if (code === 0) {
       process.exitCode = code;
@@ -749,11 +770,11 @@ class Cli extends Service {
     process.exit(code);
   }
 
-  static quit(code: number) {
+  static quit(code: number): void {
     if (code === 0) {
       process.exitCode = code;
     }
-    process.exit(code);
+    return process.exit(code);
   }
 
   startTimer(name: string) {

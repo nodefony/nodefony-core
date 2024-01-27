@@ -9,8 +9,11 @@ import os from "node:os";
 import cluster from "node:cluster";
 import FileClass from "../FileClass";
 import nodefony, { Nodefony } from "../Nodefony";
+import Command from "../command/Command";
+import { isSubclassOf } from "../Tools";
 import { Severity } from "../syslog/Pdu";
 import Module from "./Module";
+import Fetch from "../service/fetchService";
 
 const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
 
@@ -39,6 +42,28 @@ const kernelDefaultOptions: TypeKernelOptions = {
 
 type ClusterType = "master" | "worker";
 type NodefonyStartType = "PM2" | "CONSOLE" | "NODEFONY" | "NODEFONY_CONSOLE";
+
+// type EventsType = {
+//   [key: string]: number;
+// };
+
+type EventsType = Record<string, number>;
+
+const Events: Readonly<EventsType> = Object.freeze({
+  onInit: 1 << 0,
+  onPreStart: 1 << 1,
+  onStart: 1 << 2,
+  onPreRegister: 1 << 3,
+  onRegister: 1 << 4,
+  onPreBoot: 1 << 5,
+  onBoot: 1 << 6,
+  onReady: 1 << 7,
+  onServersReady: 1 << 8,
+  onPostReady: 1 << 9,
+  onTerminate: 1 << 10,
+});
+
+export type KernelEventsType = keyof typeof Events;
 
 declare enum type {
   "console",
@@ -74,6 +99,8 @@ export declare class ModuleType extends Module {
   constructor(kernel: Kernel, ...args: any[]);
 }
 
+type trunkType = "javascript" | "typescript" | null;
+
 class Kernel extends Service {
   type: KernelType;
   version: string = "1.0.0";
@@ -81,8 +108,13 @@ class Kernel extends Service {
   booted: boolean = false;
   ready: boolean = false;
   postReady: boolean = false;
+  trunk: trunkType = null;
+  core: boolean = false;
+  command: Command | null = null;
   preRegistered: boolean = false;
-  cli: CliKernel;
+  registered: boolean = false;
+  app: Module | null = null;
+  cli: CliKernel | null | undefined;
   environment: EnvironmentType = "production";
   debug: DebugType = false;
   appEnvironment: AppEnvironmentType = {
@@ -90,8 +122,8 @@ class Kernel extends Service {
   };
   path: string = process.cwd();
   typeCluster: ClusterType = this.clusterIsMaster() ? "master" : "worker";
-  processId: number = process.pid;
-  process: NodeJS.Process = process;
+  pid: number = process.pid;
+  //process: NodeJS.Process = process;
   workerId: number | undefined = cluster.worker?.id;
   worker = cluster.worker;
   console: boolean = this.isConsole();
@@ -105,12 +137,13 @@ class Kernel extends Service {
   tmpDir: FileClass = new FileClass(`${process.cwd()}/tmp`);
   interfaces: NetworkInterface;
   domain: string = "localhost";
+  progress: number = Events.onInit;
   constructor(
     environment: EnvironmentType,
-    cli: CliKernel,
+    cli?: CliKernel | null,
     options?: TypeKernelOptions
   ) {
-    const container: Container | null | undefined = cli.container;
+    const container: Container | null | undefined = cli?.container;
     super(
       "KERNEL",
       container as Container,
@@ -121,27 +154,193 @@ class Kernel extends Service {
     this.kernel = this;
     this.set("kernel", this);
     this.cli = this.setCli(cli);
-    this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
-    this.type = this.cli.type;
-    this.setEnv(environment);
-    // Manage Kernel Container
-    this.once("onPostReady", () => {
-      if (process.getuid && process.getuid() === 0) {
-        // this.drop_root();
-      }
-      this.postReady = true;
-      switch (this.environment) {
-        case "production":
-        case "prod":
-        case "stage":
-          this.clean();
-          break;
-        default:
-          this.clean();
-      }
-    });
+    this.type = "CONSOLE";
     this.interfaces = this.getNetworkInterfaces();
-    //console.log(this.getFirstExternalInterface());
+    this.fire("onInit", this);
+  }
+
+  async start(): Promise<this> {
+    this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
+    this.trunk = await this.isTrunk();
+    if (!this.trunk && this.cli) {
+      this.cli.runCommand("start", ["-i"]);
+      return this;
+    }
+    if (!this.started) {
+      await this.fireAsync("onPreStart", this).catch((e) => {
+        this.log(e, "CRITIC");
+        throw e;
+      });
+      if (this.isCommandComplete(Events.onPreStart)) {
+        return this;
+      }
+
+      // load application
+      await this.loadApp().catch((e) => {
+        this.log(e, "CRITIC");
+        throw e;
+      });
+
+      this.domain = this.setDomain();
+      // parse command
+      if (this.cli && !this.command) {
+        await this.cli.parseCommandAsync().catch((e) => {
+          throw e;
+        });
+      }
+      return this.fireAsync("onStart", this)
+        .then(async () => {
+          if (this.app) {
+            this.projectName = this.app.getModuleName();
+          }
+          this.started = true;
+          if (this.isCommandComplete(Events.onStart)) {
+            return this;
+          }
+          return this.preRegister();
+        })
+        .catch((e) => {
+          this.log(e, "CRITIC");
+          throw e;
+        });
+    }
+    return this;
+  }
+
+  async preRegister(): Promise<this> {
+    await this.fireAsync("onPreRegister", this).catch((e) => {
+      //this.log(e, "CRITIC");
+      throw e;
+    });
+    if (this.isCommandComplete(Events.onPreRegister)) {
+      return this;
+    }
+    if (this.cli) {
+      await this.cli
+        .showAsciify(this.projectName)
+        .then(async () => {
+          if (this.cli) {
+            this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
+            this.setEnv(this.cli.environment);
+            this.cli.setProcessTitle(this.projectName.toLowerCase());
+            if (this.app) {
+              this.version = this.app?.getModuleVersion();
+            }
+            this.cli.setCommandVersion(this.version);
+            this.cli.showBanner();
+            this.cli.blankLine();
+          }
+        })
+        .catch((e) => {
+          throw e;
+        });
+    }
+    this.setNodeEnv(this.environment);
+    // Clusters
+    this.initCluster();
+    // Manage Template engine
+    //this.initTemplate();
+    return this.fireAsync("onRegister", this)
+      .then(() => {
+        this.registered = true;
+        if (this.isCommandComplete(Events.onRegister)) {
+          return this;
+        }
+        return this.boot();
+      })
+      .catch((e) => {
+        //this.log(e, "CRITIC");
+        throw e;
+      });
+  }
+
+  async boot(): Promise<this> {
+    await this.fireAsync("onPreBoot", this).catch((e) => {
+      throw e;
+    });
+    if (this.isCommandComplete(Events.onPreBoot)) {
+      return this;
+    }
+
+    return this.fireAsync("onBoot", this)
+      .then(() => {
+        this.booted = true;
+        if (this.isCommandComplete(Events.onBoot)) {
+          return this;
+        }
+        return this.onReady();
+      })
+      .catch((e) => {
+        //this.log(e, "CRITIC");
+        throw e;
+      });
+  }
+
+  async onReady(): Promise<this> {
+    return this.fireAsync("onReady", this)
+      .then(async () => {
+        this.ready = true;
+        if (this.isCommandComplete(Events.onReady)) {
+          return this;
+        }
+        return this.initServers().then(async (servers) => {
+          if (global && global.gc) {
+            this.memoryUsage("MEMORY POST READY ");
+            setTimeout(() => {
+              if (global && global.gc) global.gc();
+              this.memoryUsage("EXPOSE GARBADGE COLLECTOR ON START");
+            }, 20000);
+          } else {
+            this.memoryUsage("MEMORY POST READY ");
+          }
+          return this.fireAsync("onPostReady", this)
+            .then(() => {
+              servers.map((server) => {
+                server.showBanner();
+              });
+              if (this.isCommandComplete(Events.onPostReady)) {
+                this.log(`Live cycle terminate`, "DEBUG");
+                return this;
+              } else {
+                return this;
+              }
+            })
+            .catch((e) => {
+              //this.log(e, "CRITIC");
+              throw e;
+            });
+        });
+      })
+      .catch((e) => {
+        //this.log(e, "CRITIC");
+        throw e;
+      });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async initServers(): Promise<any[]> {
+    const httpKernel = this.get("httpKernel");
+    if (httpKernel)
+      return await httpKernel
+        .initServers()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .then((servers: any[]) => {
+          this.fireAsync("onServersReady");
+          return servers;
+        })
+        .catch((e: Error) => {
+          //this.log(e, "CRITIC");
+          throw e;
+        });
+    return [];
+  }
+
+  override clean() {
+    console.trace("pass clean");
+  }
+
+  setCommand(command: Command): void {
+    this.command = command;
   }
 
   setDomain(): string {
@@ -152,9 +351,11 @@ class Kernel extends Service {
     }
   }
 
-  async readConfig(): Promise<TypeKernelOptions> {
-    const res = await this.cli?.loadLocalModule("./config/config.js");
-    return extend(this.options, res);
+  async readConfig(config?: TypeKernelOptions): Promise<TypeKernelOptions> {
+    if (!config) {
+      return this.options;
+    }
+    return extend(this.options, config);
   }
 
   addService(
@@ -164,9 +365,15 @@ class Kernel extends Service {
     ...args: any[]
   ): Service {
     return module.addService(service, ...args);
-    // const inst = new service(module, ...args);
-    // this.set(inst.name, inst);
-    // return this.get(inst.name);
+  }
+  loadService(
+    service: typeof InjectionType,
+    module: Module | null = this.app
+  ): Service {
+    if (!module) {
+      throw new Error(`Applcation not ready`);
+    }
+    return this.addService(service, module);
   }
 
   async loadNodefonyModule(moduleName: string): Promise<Module> {
@@ -183,68 +390,88 @@ class Kernel extends Service {
   getModule(name: string): Module {
     return this.modules[name];
   }
+  getModules(): Record<string, Module> {
+    return this.modules;
+  }
 
-  async start(): Promise<this> {
-    this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
-    if (!this.started) {
-      await this.fireAsync("onKernelStart", this);
-      this.projectName = await this.cli?.getProjectName();
-      return this.cli
-        .showAsciify(this.projectName)
-        .then(async () => {
-          this.cli?.setProcessTitle(this.projectName.toLowerCase());
-          this.version = await this.cli?.getProjectVersion();
-          this.cli?.setCommandVersion(this.version);
-          this.cli?.showBanner();
-          this.cli?.blankLine();
-          // config
-          await this.readConfig();
-          this.domain = this.setDomain();
-          this.initializeLog();
-          this.setNodeEnv(this.environment);
-          // Clusters
-          this.initCluster();
-          // Manage Template engine
-          //this.initTemplate();
-          this.started = true;
-          await this.fireAsync("onStart", this);
-          return await this.preRegister();
-        })
-        .catch(async (e) => {
-          throw e;
-        });
+  private async loadApp(config?: TypeKernelOptions): Promise<Module> {
+    this.app = await this.loadNodefonyModule(`${this.path}/dist/index.js`);
+    this.readConfig(extend(this.app.options, config));
+    this.initializeLog();
+    this.core = await this.isCore();
+    this.loadService(Fetch);
+    return this.app;
+  }
+
+  isTypeScript(): boolean {
+    try {
+      new FileClass(`${this.path}/index.ts`);
+      return true;
+    } catch (e) {
+      return false;
     }
-    return this;
   }
 
-  async preRegister(): Promise<this> {
-    await this.loadNodefonyModule("app");
-    await this.fireAsync("onPreRegister", this);
-    return this.boot();
+  async isTrunk(): Promise<trunkType> {
+    if (this.isTypeScript()) {
+      try {
+        const module = await import(`${this.path}/dist/index.js`);
+        if (this.isModule(module.default)) {
+          return "typescript";
+        }
+        return null;
+      } catch (e) {
+        return null;
+      }
+    } else {
+      try {
+        const module = await import(`${this.path}/index.js`);
+        if (this.isModule(module.default)) {
+          return "javascript";
+        }
+        return null;
+      } catch (e) {
+        return null;
+      }
+    }
   }
 
-  async boot(): Promise<this> {
-    this.booted = true;
-    await this.fireAsync("onBoot", this);
-    return this.onReady();
+  async isCore(): Promise<boolean> {
+    return false;
   }
 
-  async onReady(): Promise<this> {
-    this.ready = true;
-    await this.fireAsync("onReady", this);
-    return new Promise((resolve) => {
-      return resolve(this);
-    }).then(async () => {
-      await this.fireAsync("onFinish", this);
-      return this;
-    });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  isModule(subclass: any): boolean {
+    return isSubclassOf(subclass, Module);
+  }
+
+  getEventName(event: number): string {
+    return Object.keys(Events).find((key) => Events[key] === event) as string;
+  }
+
+  isCommandComplete(progress: number) {
+    const index = this.getEventName(progress);
+    this.progress |= Events[index];
+    //console.log("passs isCommandComplete");
+    if (this.command) {
+      const int: number = Events[this.command.kernelEvent];
+      //console.log(index, int);
+      this.log(
+        `Ckeck Command event : ${this.getEventName(int)}   Progress:  ${index}  :  Complete : ${!!(this.progress & int)}`,
+        "DEBUG",
+        `COMMAND ${this.command.name}`
+      );
+      //this.log("eeee", "CRITIC");
+      return !!(this.progress & int);
+    }
+    return false;
   }
 
   initializeLog(): void | null {
     this.syslog?.removeAllListeners();
-    if (this.type === "CONSOLE") {
-      return this.cli.initSyslog(this.environment, this.debug);
-    }
+    // if (this.type === "CONSOLE") {
+    //   return this.cli.initSyslog(this.environment, this.debug);
+    // }
     if (this.options.log && !this.options.log.active) {
       return;
     }
@@ -253,16 +480,24 @@ class Kernel extends Service {
         this.debug = Boolean(this.options.log.debug) || true;
       }
     }
-    return this.cli.initSyslog(this.environment, this.debug);
+    if (this.cli) {
+      return this.cli.initSyslog(this.environment, this.debug);
+    } else {
+      return this.initSyslog(this.environment, this.debug);
+    }
   }
 
-  setCli(cli: CliKernel): CliKernel {
-    this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
-    if (this.typeCluster === "worker") {
-      cli.setPid();
+  setCli(cli?: CliKernel | null): CliKernel | null {
+    if (cli) {
+      this.type = cli.type;
+      this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
+      if (this.typeCluster === "worker") {
+        cli.setPid();
+      }
+      this.set("cli", cli);
+      return cli;
     }
-    this.set("cli", cli);
-    return cli;
+    return null;
   }
 
   isConsole(): boolean {
@@ -290,32 +525,29 @@ class Kernel extends Service {
       switch (environment) {
         case "dev":
         case "development":
-          this.environment = "dev";
-          if (!this.appEnvironment.environment) {
-            this.appEnvironment.environment = "development";
-          }
+          this.environment = "development";
+          this.appEnvironment.environment = "development";
           break;
         default:
-          this.environment = "prod";
-          if (!this.appEnvironment.environment) {
-            this.appEnvironment.environment = "production";
-          }
+          this.environment = "production";
+          this.appEnvironment.environment = "production";
       }
     }
   }
 
   logEnv(): string {
-    let txt = `      \x1b ${this.cli.clc.blue(this.type)} `;
-    txt += ` ${this.cli.clc.magenta("Cluster")} : ${this.typeCluster} `;
-    txt += ` ${this.cli.clc.magenta("Nodefony Environment")} : ${
-      this.environment
-    }  `;
+    if (this.cli) {
+      this.type = this.cli.type;
+    }
+    let txt = `      \x1b ${clc.blue(this.type)} `;
+    txt += ` ${clc.magenta("Cluster")} : ${this.typeCluster} `;
+    txt += ` ${clc.magenta("Nodefony Environment")} : ${this.environment}  `;
     if (this.appEnvironment) {
-      txt += ` ${this.cli.clc.magenta("App Environment")} : ${
+      txt += ` ${clc.magenta("App Environment")} : ${
         this.appEnvironment.environment
       }  `;
     }
-    txt += ` ${this.cli.clc.magenta("Debug")} : ${this.debug}\n`;
+    txt += ` ${clc.magenta("Debug")} : ${this.debug}\n`;
     return txt;
   }
 
@@ -324,8 +556,8 @@ class Kernel extends Service {
   }
 
   initCluster(): void {
-    this.processId = process.pid;
-    this.process = process;
+    this.pid = process.pid;
+    //this.process = process;
     if (
       this.console &&
       this.cli &&
@@ -365,25 +597,25 @@ class Kernel extends Service {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override fire(event: string | symbol, ...args: any[]): boolean {
+  override fire(event: KernelEventsType, ...args: any[]): boolean {
     this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
     return super.fire(event, ...args);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override emit(event: string | symbol, ...args: any[]): boolean {
+  override emit(event: KernelEventsType, ...args: any[]): boolean {
     this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
     return super.emit(event, ...args);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override emitAsync(event: string | symbol, ...args: any[]): Promise<any> {
+  override emitAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
     this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override fireAsync(event: string | symbol, ...args: any[]): Promise<any> {
+  override fireAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
     this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
@@ -429,7 +661,7 @@ class Kernel extends Service {
         case "rss":
           this.log(
             `${message || ele} ( Resident Set Size ) PID ( ${
-              this.processId
+              this.pid
             } ) : ${CliKernel.niceBytes(memory[ele])}`,
             severity,
             `MEMORY ${ele}`
@@ -438,7 +670,7 @@ class Kernel extends Service {
         case "heapTotal":
           this.log(
             `${message || ele} ( Total Size of the Heap ) PID ( ${
-              this.processId
+              this.pid
             } ) : ${CliKernel.niceBytes(memory[ele])}`,
             severity,
             `MEMORY ${ele}`
@@ -447,7 +679,7 @@ class Kernel extends Service {
         case "heapUsed":
           this.log(
             `${message || ele} ( Heap actually Used ) PID ( ${
-              this.processId
+              this.pid
             } ) : ${CliKernel.niceBytes(memory[ele])}`,
             severity,
             `MEMORY ${ele}`
@@ -456,7 +688,7 @@ class Kernel extends Service {
         case "external":
           this.log(
             `${message || ele} PID ( ${
-              this.processId
+              this.pid
             } ) : ${CliKernel.niceBytes(memory[ele])}`,
             severity,
             `MEMORY ${ele}`
@@ -557,7 +789,17 @@ class Kernel extends Service {
     return ele[0] || undefined;
   }
 
-  async terminate(code: number): Promise<number> {
+  // async getProjectName(): Promise<string> {
+  //   const res = await this.loadJson("package.json");
+  //   return res.name as string;
+  // }
+
+  // async getProjectVersion(): Promise<string> {
+  //   const res = await this.loadJson("package.json");
+  //   return res.version as string;
+  // }
+
+  async terminate(code?: number): Promise<void> {
     if (code === undefined) {
       code = 0;
     }
@@ -565,21 +807,29 @@ class Kernel extends Service {
       console.trace(`terminate : ${code}`);
     }
     try {
+      //console.log(this.notificationsCenter?._events);
       await this.fireAsync("onTerminate", this, code);
     } catch (e) {
       this.log(e, "ERROR");
       code = 1;
     }
-    process.nextTick(() => {
-      this.log(`NODEFONY Kernel Life Cycle Terminate CODE : ${code}`, "INFO");
-      try {
-        CliKernel.quit(code);
-      } catch (e) {
-        this.log(e, "ERROR");
-      }
+    return new Promise((resolve, reject) => {
+      process.nextTick(() => {
+        this.log(
+          `NODEFONY Kernel Life Cycle Terminate CODE : ${code}`,
+          "DEBUG"
+        );
+        try {
+          return resolve(CliKernel.quit(code as number));
+        } catch (e) {
+          this.log(e, "ERROR");
+          return reject(CliKernel.quit(code as number));
+        }
+      });
     });
-    return code;
   }
 }
 
 export default Kernel;
+
+export { Events };
