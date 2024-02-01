@@ -9,6 +9,7 @@ import Container from "../Container";
 import * as fs from "fs/promises";
 import { dirname, resolve, basename } from "node:path";
 import CliKernel from "./CliKernel";
+import { extend } from "../Tools";
 
 //import { rollup } from "rollup";
 //console.log("pass", rollup);
@@ -38,10 +39,10 @@ class Module extends Service {
     this.setParameters(`modules.${this.name}`, this.options);
     this.path = this.setPath(path);
     this.setEvents();
-    // this.kernel?.once("onStart", this.onStart.bind(this));
-    // this.kernel?.once("onRegister", this.onRegister.bind(this));
-    // this.kernel?.once("onBoot", this.onBoot.bind(this));
-    // this.kernel?.once("onReady", this.onReady.bind(this));
+    this.kernel?.prependOnceListener(
+      "onStart",
+      this.readOverrideConfig.bind(this)
+    );
   }
 
   setPath(myPath: string): string {
@@ -70,6 +71,21 @@ class Module extends Service {
     this.kernel?.once("onStart", async () => {
       this.package = await this.getPackageJson();
     });
+  }
+
+  readOverrideConfig(deep: boolean = true): DefaultOptionsService {
+    const index = `module-${this.name}`;
+    if (this.kernel?.options[index]) {
+      this.log(`Overrride Config module : ${index} by application`);
+      if (deep)
+        return (this.options = extend(
+          deep,
+          this.options,
+          this.kernel?.options[index]
+        ));
+      return (this.options = extend({}, this.kernel?.options[index]));
+    }
+    return this.options;
   }
 
   // watch(config: rollup.RollupWatchOptions): rollup.RollupWatcher {
@@ -113,15 +129,6 @@ class Module extends Service {
     return this.package.version;
   }
 
-  // public addCommand(cliCommand: typeof CliCommand): Command {
-  //   if (this.kernel && this.kernel.cli) {
-  //     const command = this.kernel.cli.addCommand(cliCommand);
-  //     this.commands[command.name] = command;
-  //     return command;
-  //   }
-  //   throw new Error(`Kernel not ready`);
-  // }
-
   public addCommand(cliCommand: new (cli: CliKernel) => Command): Command {
     if (this.kernel && this.kernel.cli) {
       const command = new cliCommand(this.kernel.cli);
@@ -130,39 +137,6 @@ class Module extends Service {
     }
     throw new Error(`Kernel not ready`);
   }
-
-  // async onStart(): Promise<this> {
-  //   console.log("passs onStart", this.name);
-  //   this.package = await this.getPackageJson();
-  //   return this.fireAsync("onStart", this).then(() => {
-  //     this.log(`MODULE ${this.name} START`, "DEBUG");
-  //     return this;
-  //   });
-  // }
-
-  // async onRegister(): Promise<this> {
-  //   console.log("passs onRegister", this.name);
-  //   return this.fireAsync("onRegister", this).then(() => {
-  //     this.log(`MODULE ${this.name} REGISTER`, "DEBUG");
-  //     return this;
-  //   });
-  // }
-
-  // async onBoot(): Promise<this> {
-  //   console.log("passs onBoot", this.name);
-  //   return this.fireAsync("onBoot", this).then(() => {
-  //     this.log(`MODULE ${this.name} BOOT`, "DEBUG");
-  //     return this;
-  //   });
-  // }
-
-  // async onReady(): Promise<this> {
-  //   console.log("passs onReady", this.name);
-  //   return this.fireAsync("onReady", this).then(() => {
-  //     this.log(`MODULE ${this.name} READY`, "DEBUG");
-  //     return this;
-  //   });
-  // }
 
   async install(): Promise<this> {
     return this;

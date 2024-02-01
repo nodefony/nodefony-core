@@ -20,24 +20,21 @@ const createSecret = function (cwd: string = process.cwd()): string {
     "nodefony",
     "config",
     "certificates",
-    "ca",
-    "private",
-    "ca.key.pem"
+    "server",
+    "private.key.pem"
   );
   return createHash("sha512")
     .update(readFile(sercretPath))
     .digest("base64")
     .substr(0, 32);
 };
-const secret = createSecret();
 
 const createIv = function () {
   const sercretPath = path.resolve(
     "nodefony",
     "config",
     "certificates",
-    "ca",
-    "public",
+    "server",
     "public.key.pem"
   );
   return createHash("sha512")
@@ -45,7 +42,7 @@ const createIv = function () {
     .digest("base64")
     .substr(0, 16);
 };
-const iv = createIv();
+
 const tmpDir = kernel?.tmpDir.path || "/tmp";
 
 export default {
@@ -72,24 +69,46 @@ export default {
    *       @see :            https://nodejs.org/dist/latest-v8.x/docs/api/http.html#http_class_http_server
    */
   http: {
-    maxHeadersCount: null,
-    timeout: null, // For Keep alive spec
-    responseTimeout: 30000, // In ms | 30 seconds by default
+    maxHeadersCount: 2000,
+    keepAliveTimeout: 5000, // For keep alive spec (5 secondes)
+    timeout: 120000, //   (2 minutes)
+    requestTimeout: 30000, // In MS  | 30 seconds by default
     headers: null,
   },
   https: {
-    maxHeadersCount: null,
-    timeout: null, // For keep alive spec
-    responseTimeout: 30000, // In MS  | 30 seconds by default
+    rejectUnauthorized: false,
+    maxHeadersCount: 2000,
+    keepAliveTimeout: 5000, // For keep alive spec (5 secondes)
+    timeout: 120000, //   (2 minutes)
+    requestTimeout: 30000, // In MS  | 30 seconds by default
     headers: null,
-    certificats: {
-      options: {
-        rejectUnauthorized: false,
-      },
-    },
   },
   http2: {
     enablePush: true,
+  },
+  http3: {},
+
+  certificates: {
+    ca: "",
+    key: "",
+    cert: "",
+    openssl: {
+      size: 2048,
+      attrs: [
+        {
+          name: "commonName",
+          value: kernel?.domain || "nodefony.com",
+        },
+        {
+          name: "organizationName",
+          value: kernel?.projectName || "",
+        },
+        {
+          name: "organizationalUnitName",
+          value: "Development",
+        },
+      ],
+    },
   },
 
   /**
@@ -136,7 +155,7 @@ export default {
       maxAge: 96 * 60 * 60,
     },
     web: {
-      path: "web",
+      path: "public",
       options: {
         maxAge: 30 * 24 * 60 * 60 * 1000,
       },
@@ -171,11 +190,11 @@ export default {
       secure: false, // https only
       signed: false,
     },
-    encrypt: {
-      algorithm: "aes-256-ctr",
-      password: secret,
-      iv,
-    },
+    // encrypt: {
+    //   algorithm: "aes-256-ctr",
+    //   password: createSecret(),
+    //   iv: createIv(),
+    // },
 
     /**
      * SERVICE memcached

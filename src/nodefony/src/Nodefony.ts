@@ -12,6 +12,7 @@ import {
   isArray,
   isPromise,
 } from "./Tools";
+import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
 
 import Kernel from "./kernel/Kernel";
 import Module from "./kernel/Module";
@@ -31,6 +32,7 @@ import Result from "./finder/Result";
 import FileClass from "./FileClass";
 import FileResult from "./finder/FileResult";
 import { version } from "../package.json";
+
 //import { createRequire } from "module";
 //const require = createRequire(import.meta.url);
 //const  {version} = require("../package.json");
@@ -98,6 +100,13 @@ class Nodefony {
   public static setKernel(kernel: Kernel): Kernel {
     return (Nodefony.kernel = kernel);
   }
+
+  generateV5Id(name: string, namespace?: string): string {
+    return uuidv5(name, namespace || uuidv4());
+  }
+  generateId(): string {
+    return uuidv4();
+  }
 }
 
 const nodefony = Nodefony.getInstance();
@@ -105,6 +114,7 @@ const kernel = Nodefony.getKernel();
 
 export default nodefony;
 export {
+  extend,
   Nodefony,
   kernel,
   Kernel,

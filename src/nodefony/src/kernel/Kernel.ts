@@ -400,6 +400,7 @@ class Kernel extends Service {
     this.initializeLog();
     this.core = await this.isCore();
     this.loadService(Fetch);
+
     return this.app;
   }
 

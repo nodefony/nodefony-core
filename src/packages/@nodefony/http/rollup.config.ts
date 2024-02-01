@@ -7,7 +7,24 @@ import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
 import copy from "rollup-plugin-copy";
 
-const external: string[] = ["nodefony"];
+const external: string[] = [
+  "nodefony",
+  "cli-color",
+  "cookie",
+  "formidable",
+  "memcached",
+  "mime",
+  "mkdirp",
+  "ms",
+  "node-fetch",
+  "qs",
+  "serve-static",
+  "sockjs",
+  "websocket",
+  "node-forge",
+  "http-terminator",
+  "mime-types",
+];
 
 const sharedNodeOptions = defineConfig({
   treeshake: {

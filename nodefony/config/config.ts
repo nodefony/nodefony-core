@@ -23,15 +23,8 @@
 import path from "node:path";
 import { Nodefony } from "nodefony";
 const kernel = Nodefony.kernel;
+import http from "./module-http-config";
 
-const certificats = {
-  options: {
-    rejectUnauthorized: true,
-  },
-  key: "",
-  cert: "",
-  ca: "",
-};
 let CDN = null;
 let statics = true;
 let monitoring = true;
@@ -43,27 +36,6 @@ switch (kernel?.environment) {
   case "production":
   case "development":
   default:
-    certificats.key = path.resolve(
-      "nodefony",
-      "config",
-      "certificates",
-      "server",
-      "privkey.pem"
-    );
-    certificats.cert = path.resolve(
-      "nodefony",
-      "config",
-      "certificates",
-      "server",
-      "fullchain.pem"
-    );
-    certificats.ca = path.resolve(
-      "nodefony",
-      "config",
-      "certificates",
-      "ca",
-      "nodefony-root-ca.crt.pem"
-    );
     CDN = null;
     statics = true;
     documentation = true;
@@ -76,11 +48,17 @@ export default {
   domain: "localhost", // "0.0.0.0" "selectAuto"
   domainAlias: ["^127.0.0.1$", "^localhost$"],
   domainCheck,
+  locale: "en_en",
+  App: {
+    projectYear: "2024",
+    locale: "en_en",
+    authorName: "Camensuli Christophe",
+    authorMail: "ccamensuli@gmail.com",
+  },
   servers: {
     statics,
     http: {
       port: 5151,
-      protocol: "2.0", //  2.0 || 1.1
     },
     https: {
       port: 5152,
@@ -89,18 +67,13 @@ export default {
     ws: {},
     wss: {},
   },
-  certificats,
-  // httpPort: 5151,
-  // httpsPort: 5152,
-
-  locale: "en_en",
 
   /**
    * SERVERS
    */
   // servers: {
   //   statics,
-  //   protocol: "2.0", //  2.0 || 1.1
+  //   protocol: "2.0",
   //   http: true,
   //   https: true,
   //   ws: true,
@@ -179,4 +152,9 @@ export default {
    *       pnpm
    */
   packageManager: "yarn",
+
+  /*
+   *   OVERRIDE modules config
+   */
+  "module-http": http,
 };
