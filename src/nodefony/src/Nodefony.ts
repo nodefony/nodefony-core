@@ -115,6 +115,7 @@ const kernel = Nodefony.getKernel();
 export default nodefony;
 export {
   extend,
+  typeOf,
   Nodefony,
   kernel,
   Kernel,

@@ -49,7 +49,7 @@ export default {
   watch: false,
   headerServer: "nodefony",
   // For more options parser formidable @see : https://github.com/felixge/node-formidable
-  request: {
+  formidable: {
     uploadDir: tmpDir,
     maxFileSize: 524288000, // 500 MB  //10MB 10485760
     multiples: true,

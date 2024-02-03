@@ -1,6 +1,6 @@
 {
   "name": "nodefony-core",
-  "version": "10.0.0",
+  "version": "1.0.0",
   "description": "Core Nodefony Framework",
   "type": "module",
   "types": "dist/types/index.d.ts",

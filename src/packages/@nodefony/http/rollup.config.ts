@@ -24,6 +24,8 @@ const external: string[] = [
   "node-forge",
   "http-terminator",
   "mime-types",
+  "uuid",
+  "xml2js",
 ];
 
 const sharedNodeOptions = defineConfig({

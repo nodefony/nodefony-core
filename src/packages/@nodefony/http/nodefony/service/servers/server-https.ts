@@ -43,9 +43,9 @@ class ServerHttps extends Service {
     );
     this.module = module;
     this.httpKernel = httpKernel;
-    this.active = !!module.kernel?.options.servers.https;
+    this.active = !!this.kernel?.options.servers.https;
     this.port = this.setPort();
-    this.domain = this.module.kernel?.domain as string;
+    this.domain = this.kernel?.domain as string;
   }
 
   terminator(): HttpTerminator {
@@ -58,8 +58,8 @@ class ServerHttps extends Service {
   }
 
   setPort(): number {
-    if (this.module.kernel?.options.servers?.https) {
-      return this.module.kernel?.options.servers?.https?.port || 0;
+    if (this.kernel?.options.servers?.https) {
+      return this.kernel?.options.servers?.https?.port || 0;
     }
     return 0;
   }

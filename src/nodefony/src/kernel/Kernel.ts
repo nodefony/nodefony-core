@@ -182,6 +182,7 @@ class Kernel extends Service {
       });
 
       this.domain = this.setDomain();
+
       // parse command
       if (this.cli && !this.command) {
         await this.cli.parseCommandAsync().catch((e) => {
@@ -225,6 +226,20 @@ class Kernel extends Service {
             this.cli.setProcessTitle(this.projectName.toLowerCase());
             if (this.app) {
               this.version = this.app?.getModuleVersion();
+            }
+            // fix workaround commander twice call options
+            if (this.cli.commander && this.cli.commander?.options.length) {
+              const index = this.cli.commander.options.findIndex(
+                (value, index) => {
+                  if (value.flags === "-v, --version") {
+                    return value;
+                  }
+                }
+              );
+              if (index >= 0) {
+                // @ts-ignore
+                this.cli.commander?.options.splice(index, 1);
+              }
             }
             this.cli.setCommandVersion(this.version);
             this.cli.showBanner();
@@ -420,8 +435,10 @@ class Kernel extends Service {
         if (this.isModule(module.default)) {
           return "typescript";
         }
+        this.log(new Error(`No Nodeofny Trunk Detected`), "ERROR");
         return null;
       } catch (e) {
+        this.log(e, "ERROR");
         return null;
       }
     } else {
@@ -432,6 +449,7 @@ class Kernel extends Service {
         }
         return null;
       } catch (e) {
+        this.log(e, "ERROR");
         return null;
       }
     }

@@ -39,10 +39,14 @@ class Module extends Service {
     this.setParameters(`modules.${this.name}`, this.options);
     this.path = this.setPath(path);
     this.setEvents();
-    this.kernel?.prependOnceListener(
-      "onStart",
-      this.readOverrideConfig.bind(this)
-    );
+    this.kernel?.prependOnceListener("onStart", () => {
+      this.log(
+        `Start module Path : ${this.path}`,
+        "INFO",
+        `MODULE ${this.name}`
+      );
+      this.readOverrideConfig();
+    });
   }
 
   setPath(myPath: string): string {

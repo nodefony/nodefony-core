@@ -34,7 +34,8 @@
     "serve-static": "1.15.0",
     "sockjs": "^0.3.24",
     "uuid": "9.0.1",
-    "websocket": "^1.0.34"
+    "websocket": "^1.0.34",
+    "xml2js": "0.6.2"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "25.0.7",
@@ -44,11 +45,14 @@
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "11.1.6",
     "@types/cli-color": "2.0.6",
+    "@types/formidable": "3.4.5",
     "@types/mime-types": "2.1.4",
     "@types/node": "20.11.16",
+    "@types/qs": "6.9.11",
     "@types/serve-static": "1.15.5",
     "@types/uuid": "9.0.8",
     "@types/websocket": "1.0.10",
+    "@types/xml2js": "0.4.14",
     "@typescript-eslint/eslint-plugin": "6.20.0",
     "@typescript-eslint/parser": "6.20.0",
     "rimraf": "5.0.5",

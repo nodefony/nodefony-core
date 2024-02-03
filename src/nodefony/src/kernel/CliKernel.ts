@@ -53,6 +53,7 @@ class CliKernel extends Cli {
 
   override async start(options?: TypeKernelOptions): Promise<Kernel> {
     this.kernel = new Kernel(this.environment, this, options);
+
     if (this.commander) {
       this.addCommand(Start);
       this.addCommand(Dev);
@@ -60,7 +61,6 @@ class CliKernel extends Cli {
       this.addCommand(Install);
       this.commander.exitOverride();
       this.commander.name(this.name);
-
       this.commander.showHelpAfterError(false);
       //this.commander.showSuggestionAfterError(false);
       this.commander.configureHelp({
