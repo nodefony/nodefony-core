@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import Service, { DefaultOptionsService } from "../Service";
 import Container from "../Container";
 import CliKernel from "./CliKernel";
@@ -229,13 +230,11 @@ class Kernel extends Service {
             }
             // fix workaround commander twice call options
             if (this.cli.commander && this.cli.commander?.options.length) {
-              const index = this.cli.commander.options.findIndex(
-                (value, index) => {
-                  if (value.flags === "-v, --version") {
-                    return value;
-                  }
+              const index = this.cli.commander.options.findIndex((value) => {
+                if (value.flags === "-v, --version") {
+                  return value;
                 }
-              );
+              });
               if (index >= 0) {
                 // @ts-ignore
                 this.cli.commander?.options.splice(index, 1);

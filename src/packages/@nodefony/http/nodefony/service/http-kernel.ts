@@ -6,6 +6,7 @@ import nodefony, {
   Scope,
   typeOf,
 } from "nodefony";
+import HttpError from "../src/errors/httpError";
 import http from "node:http";
 import https from "node:http";
 import http2 from "node:http2";
@@ -14,14 +15,16 @@ import httpsServer from "../service/servers/server-https";
 import Statics from "./servers/server-static";
 import WebsocketContext from "../src/context/websocket/WebsocketContext";
 import HttpContext from "../src/context/http/HttpContext";
+import Context from "../src/context/Context";
 import clc from "cli-color";
+
 import Certicates from "./certificates";
 import websocket from "websocket";
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
 export type httpResponse = http.ServerResponse | http2.Http2ServerResponse;
-export type ContextType = WebsocketContext | HttpContext;
+export type ContextType = WebsocketContext | HttpContext | Context;
 export type ServerType =
   | "http"
   | "https"
@@ -50,6 +53,8 @@ class HttpKernel extends Service {
   domainCheck: boolean = false;
   regAlias: RegExp[] = [];
   module: Module;
+  httpsPort?: number;
+  httpPort?: number;
   constructor(module: Module) {
     const container: Container = module.container as Container;
     const event: Event = module.notificationsCenter as Event;
@@ -99,10 +104,17 @@ class HttpKernel extends Service {
 
   async handleFrontController(context: ContextType): Promise<any> {}
 
-  async onError(
-    container: Container = this.container as Container,
-    error: any
-  ): Promise<nodefony.Error> {
+  async onError(context: ContextType, error: any): Promise<any> {
+    this.log(error, "ERROR");
+    if (!(error instanceof HttpError)) {
+      error = new HttpError(error, context);
+    }
+    switch (true) {
+      case context instanceof HttpContext: {
+      }
+      case context instanceof WebsocketContext: {
+      }
+    }
     return error as nodefony.Error;
   }
 
@@ -234,18 +246,95 @@ class HttpKernel extends Service {
     request: httpRequest,
     response: httpResponse,
     type: ServerType
-  ): Promise<httpResponse> {
-    let context: HttpContext | null = null;
-    let error;
-    try {
-      context = this.createHttpContext(scope, request, response, type);
-    } catch (e) {
-      error = e;
-    }
-    response.statusCode = 200;
-    response.setHeader("Content-Type", "text/plain");
-    response.end("Hello, World!\n");
-    return response;
+  ): Promise<HttpContext> {
+    return new Promise(async (resolve, reject) => {
+      let context: HttpContext | null = null;
+      try {
+        context = this.createHttpContext(scope, request, response, type);
+        const ctx = await this.onRequestEnd(context).catch((e) => {
+          throw e;
+        });
+        if (ctx instanceof Context) {
+          if (ctx.secure || ctx.isControlledAccess) {
+            return resolve(context);
+          }
+          const result = await ctx.handle().catch((e) => {
+            throw e;
+          });
+          return resolve(result);
+        }
+        return resolve(context);
+      } catch (e) {
+        return this.onError(context as Context, e).catch((e) => {
+          this.log(e, "CRITIC");
+          return reject(e);
+        });
+      }
+    });
+
+    // response.statusCode = 200;
+    // response.setHeader("Content-Type", "text/plain");
+    // response.end("Hello, World!\n");
+    // return response;
+  }
+
+  async onRequestEnd(
+    context: HttpContext,
+    error?: Error | null | undefined
+  ): Promise<HttpContext> {
+    return new Promise((resolve, reject) => {
+      // EVENT
+      if (!context) {
+        return reject(new nodefony.Error("Bad context", 500));
+      }
+      context.once("onRequestEnd", async () => {
+        if (error) {
+          throw error;
+        }
+        // ADD HEADERS CONFIG
+        if (this.options[context.scheme].headers) {
+          context.response.setHeaders(this.options[context.scheme].headers);
+        }
+        // DOMAIN VALID
+        if (this.kernel?.options.domainCheck) {
+          this.checkValidDomain(context);
+        }
+        return resolve(context);
+        // // FRONT CONTROLLER
+        // const ret = await this.handleFrontController(context).catch((e) => {
+        //   throw e;
+        // });
+        // if (ret === 204) {
+        //   return resolve(ret);
+        // }
+        // // FIREWALL
+        // if (context.secure || context.isControlledAccess) {
+        //   const res = await this.firewall.handleSecurity(context);
+        //   // CSRF TOKEN
+        //   if (context.csrf) {
+        //     const token = await this.csrfService.handle(context);
+        //     if (token) {
+        //       this.log("CSRF TOKEN OK", "DEBUG");
+        //     }
+        //   }
+        //   return resolve(res);
+        // }
+        // SESSIONS
+        // try {
+        //   await this.startSession(context);
+        //   // CSRF TOKEN
+        //   if (context.csrf) {
+        //     const token = await this.csrfService.handle(context);
+        //     if (token) {
+        //       this.log("CSRF TOKEN OK", "DEBUG");
+        //     }
+        //   }
+        //   return resolve(context);
+        // } catch (e) {
+        //   return reject(e);
+        // }
+      });
+    });
   }
 
   // WEBSOCKET
@@ -290,7 +379,7 @@ class HttpKernel extends Service {
         // }
         return resolve(await context?.handle());
       } catch (e) {
-        return this.onError(container as Container, e)
+        return this.onError(context as WebsocketContext, e)
           .then((res) => resolve(res))
           .catch((e) => reject(e));
       }

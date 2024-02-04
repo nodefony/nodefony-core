@@ -8,7 +8,7 @@ import nodefony, {
   KernelEventsType,
 } from "nodefony";
 import websocket from "websocket";
-import HttpKernel, { ServerType } from "../../service/http-kernel";
+import HttpKernel, { ContextType, ServerType } from "../../service/http-kernel";
 import HttpResponse from "./http/Response";
 import Http2Response from "./http2/Response";
 import WebsocketResponse from "./websocket/Response";
@@ -19,6 +19,8 @@ const colorLogEvent = clc.cyan.bgBlue("EVENT CONTEXT");
 import http from "node:http";
 import http2 from "node:http2";
 import { URL } from "node:url";
+import Session from "../session/session";
+import Cookie from "../cookies/cookie";
 
 export type contextRequest =
   | HttpResquest
@@ -49,7 +51,10 @@ class Context extends Service {
   validDomain: boolean = false;
   finished: boolean = false;
   errorLog: boolean = false;
+  contentLength: boolean = false;
+  pushAllowed: boolean = false;
   requestEnded: boolean = false;
+  requested: boolean = false;
   domain: string = "";
   type: ServerType;
   httpKernel: HttpKernel | null;
@@ -59,12 +64,16 @@ class Context extends Service {
   method: HTTPMethod | null = null;
   remoteAddress: string | undefined | null = null;
   originUrl: URL | undefined | null = null;
+  cookies: Record<string, Cookie> = {};
   constructor(container: Container, type: ServerType) {
     super(`${type} CONTEXT`, container);
     this.type = type;
     this.set("context", this);
     this.httpKernel = this.get("httpKernel");
     this.container?.addScope("subRequest");
+    this.once("onRequest", () => {
+      this.requested = true;
+    });
   }
 
   log(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
@@ -127,12 +136,32 @@ class Context extends Service {
     } catch (e) {}
   }
 
+  addCookie(cookie: Cookie) {
+    if (cookie instanceof Cookie) {
+      this.cookies[cookie.name] = cookie;
+    } else {
+      const error = new Error("addCookie cookie not valid !!");
+      this.log(cookie, "ERROR");
+      throw error;
+    }
+  }
+
   getRequest(): contextRequest {
     return this.request;
   }
 
   getResponse(): contextResponse {
     return this.response;
+  }
+  isValidDomain(): boolean {
+    if (!this.httpKernel) {
+      throw new Error(`Http Kernel not ready`);
+    }
+    return this.httpKernel.isValidDomain(this);
+  }
+
+  async saveSession(): Promise<Session> {
+    return new Session();
   }
 }
 

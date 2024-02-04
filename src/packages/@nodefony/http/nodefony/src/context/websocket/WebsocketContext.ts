@@ -15,8 +15,12 @@ import {
 } from "nodefony";
 import websocket from "websocket";
 import websocketResponse from "./Response";
+import Cookie from "../../cookies/cookie";
 
 class WebsocketContext extends Context {
+  request: websocket.request;
+  response: websocketResponse;
+  cookies: Record<string, Cookie> = {};
   constructor(
     container: Container,
     request: websocket.request,

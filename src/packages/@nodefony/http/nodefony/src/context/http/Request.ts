@@ -24,6 +24,18 @@ declare module "url" {
   }
 }
 
+declare module "http" {
+  interface IncomingMessage {
+    body: any;
+  }
+}
+
+declare module "http2" {
+  interface Http2ServerRequest {
+    body: any;
+  }
+}
+
 type ParserType =
   | ParserXml
   | ParserQs
@@ -46,6 +58,7 @@ class HttpResquest {
   sUrl: string;
   parser: ParserType | null = null;
   queryPost: Record<string, any> = {};
+  queryGet: Record<string, any> = {};
   queryFile: any[] = [];
   query: Record<string, any> = {};
   queryStringOptions:
@@ -58,7 +71,7 @@ class HttpResquest {
   data: Buffer = Buffer.alloc(0);
   dataSize: number = 0;
   accept: any[] = [];
-  acceptHtml: any;
+  acceptHtml: boolean = false;
   origin: string | undefined;
   constructor(
     request: http.IncomingMessage | http2.Http2ServerRequest,
@@ -67,7 +80,7 @@ class HttpResquest {
     this.context = context;
     this.request = request;
     this.origin = this.headers.origin;
-    //this.request.body = null;
+    this.request.body = null;
     this.headers = request.headers;
     this.method = this.getMethod();
     this.host = this.getHost();
@@ -93,6 +106,14 @@ class HttpResquest {
     } catch (e) {
       this.log(e, "WARNING");
     }
+
+    this.request.on("data", (data) => {
+      this.dataSize += data.length;
+    });
+    this.context.once("onRequestEnd", () => {
+      this.request.body = this.query;
+    });
+    this.initialize();
   }
 
   async initialize(): Promise<ParserType | null> {
@@ -110,10 +131,7 @@ class HttpResquest {
                 parser.parse();
                 return this.context.fireAsync("onRequestEnd", this);
               } catch (error) {
-                return this.context?.httpKernel?.onError(
-                  this.context.container as Container,
-                  error
-                );
+                return this.context?.httpKernel?.onError(this.context, error);
               }
             });
             break;
@@ -128,10 +146,7 @@ class HttpResquest {
                   this.context.requestEnded = true;
                   return this.context.fireAsync("onRequestEnd", this);
                 } catch (error) {
-                  return this.context.httpKernel?.onError(
-                    this.context.container as Container,
-                    error
-                  );
+                  return this.context.httpKernel?.onError(this.context, error);
                 }
               });
             }
@@ -364,27 +379,6 @@ class HttpResquest {
   getHost(): string | undefined {
     return this.request.headers.host;
   }
-
-  // getRemoteAddress() {
-  //   // proxy mode
-  //   if (this.headers && this.headers["x-forwarded-for"]) {
-  //     return this.headers["x-forwarded-for"];
-  //   }
-  //   if (this.request.connection && this.request.connection.remoteAddress) {
-  //     return this.request.connection.remoteAddress;
-  //   }
-  //   if (this.request.socket && this.request.socket.remoteAddress) {
-  //     return this.request.socket.remoteAddress;
-  //   }
-  //   if (
-  //     this.request.connection &&
-  //     this.request.connection.socket &&
-  //     this.request.connection.socket.remoteAddress
-  //   ) {
-  //     return this.request.connection.socket.remoteAddress;
-  //   }
-  //   return null;
-  // }
 
   getRemoteAddress(): string | null {
     // proxy mode
