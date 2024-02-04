@@ -4,7 +4,7 @@
 /* eslint-disable max-lines-per-function */
 import path from "node:path";
 import fs from "node:fs";
-import commander, { program } from "commander";
+import commander, { program, Command as CommanderCommand } from "commander";
 //import commander, { program } from '@commander-js/extra-typings';
 import {
   spawn,
@@ -371,13 +371,26 @@ class Cli extends Service {
 
   initCommander(): typeof program | null {
     if (this.options.commander) {
-      this.commander = program;
-      this.commander.option("-i, --interactive", "Interaction mode");
-      this.commander.option("-d, --debug", "Debug mode");
-      if (this.options.version) {
+      this.commander = new CommanderCommand();
+      const optionInteractiveExists = this.commander.options.some(
+        (opt) => opt.short === "-i" || opt.long === "--interactive"
+      );
+      if (!optionInteractiveExists) {
+        this.commander.option("-i, --interactive", "Interaction mode");
+      }
+      const optionDebugExists = this.commander.options.some(
+        (opt) => opt.short === "-d" || opt.long === "--debug"
+      );
+      if (!optionDebugExists) {
+        this.commander.option("-d, --debug", "Debug mode");
+      }
+      const optionOptExists = this.commander.options.some(
+        (opt) => opt.short === "-v" || opt.long === "--version"
+      );
+      if (!optionOptExists && this.options.version) {
         this.setCommandVersion(this.options.version);
       }
-      return program;
+      return this.commander;
     }
     return null;
   }

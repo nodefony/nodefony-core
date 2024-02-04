@@ -229,7 +229,14 @@ class Kernel extends Service {
               this.version = this.app?.getModuleVersion();
             }
             // fix workaround commander twice call options
-            if (this.cli.commander && this.cli.commander?.options.length) {
+            const optionDebugExists = this.cli?.commander?.options.some(
+              (opt) => opt.short === "-d" || opt.long === "--debug"
+            );
+            if (
+              optionDebugExists &&
+              this.cli.commander &&
+              this.cli.commander?.options.length
+            ) {
               const index = this.cli.commander.options.findIndex((value) => {
                 if (value.flags === "-v, --version") {
                   return value;

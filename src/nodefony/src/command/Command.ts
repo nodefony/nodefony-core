@@ -102,7 +102,7 @@ class Command extends Service {
   //end Events
   public cli: Cli | CliKernel;
   private command: Cmd | null = null;
-  private program: typeof program = program;
+  private program: typeof program;
   public json: boolean = false;
   public debug: boolean = false;
   public interactive: boolean = false;
@@ -145,6 +145,7 @@ class Command extends Service {
       <OptionsCommandInterface>myoptions
     );
     this.cli = cli;
+    this.program = this.cli.commander as Cmd;
     this.kernelEvent = this.options.kernelEvent;
     this.createCommand(name, description);
     this.command?.action((...args: any[]) => {

@@ -43,12 +43,23 @@ describe("NODEFONY CLI", () => {
         promiseRejection: true,
       };
       assert.deepStrictEqual(<CliDefaultOptions>options, project.options);
+
+      done();
+    });
+
+    it("CREATE2", (done) => {
+      let res = null;
+      const project = new Cli("project", {
+        version: "2.0.0",
+        pid: true,
+        color: clc.red.bold,
+        clear: false,
+      });
       const banner = `          Version : ${clc.blueBright.bold(
         "2.0.0"
       )}   Platform : ${clc.green(process.platform)}   Process : ${clc.green(
         "project"
       )}   Pid : ${project.pid}`;
-      let res = null;
       project
         .start()
         .then((cli) => {

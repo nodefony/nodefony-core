@@ -11,6 +11,8 @@ import { dirname, resolve, basename } from "node:path";
 import CliKernel from "./CliKernel";
 import { extend } from "../Tools";
 
+import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
+
 //import { rollup } from "rollup";
 //console.log("pass", rollup);
 //const config = require("./rollup.config.js");
@@ -40,11 +42,7 @@ class Module extends Service {
     this.path = this.setPath(path);
     this.setEvents();
     this.kernel?.prependOnceListener("onStart", () => {
-      this.log(
-        `Start module Path : ${this.path}`,
-        "INFO",
-        `MODULE ${this.name}`
-      );
+      this.log(`Start module Path : ${this.path}`, "INFO");
       this.readOverrideConfig();
     });
   }
@@ -159,6 +157,19 @@ class Module extends Service {
       this.log(error, "ERROR");
       throw error;
     }
+  }
+
+  override log(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pci: any,
+    severity?: Severity,
+    msgid?: Msgid,
+    msg?: Message
+  ): Pdu {
+    if (!msgid) {
+      msgid = `MODULE ${this.name}`;
+    }
+    return super.log(pci, severity, msgid, msg);
   }
 }
 
