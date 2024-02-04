@@ -15,12 +15,12 @@ import WebsocketResponse from "./websocket/Response";
 import HttpResquest from "./http/Request";
 import Http2Resquest from "./http2/Request";
 import clc from "cli-color";
-const colorLogEvent = clc.cyan.bgBlue("EVENT CONTEXT");
 import http from "node:http";
 import http2 from "node:http2";
 import { URL } from "node:url";
 import Session from "../session/session";
 import Cookie from "../cookies/cookie";
+const colorLogEvent = clc.cyan.bgBlue("EVENT CONTEXT");
 
 export type contextRequest =
   | HttpResquest

@@ -56,7 +56,7 @@ export * from "../command/Command";
 export * from "../command/Builder";
 export * from "../Cli";
 export * from "../Nodefony";
-export * from "../Kernel/Kernel";
-export * from "../Kernel/Module";
+export * from "../kernel/Kernel";
+export * from "../kernel/Module";
 
 //export * from "../index";

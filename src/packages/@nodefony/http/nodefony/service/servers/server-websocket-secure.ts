@@ -13,8 +13,8 @@ import nodefony, {
 } from "nodefony";
 import HttpKernel, { ProtocolType, ServerType } from "../http-kernel";
 import { AddressInfo } from "node:net";
-import http from "node:http";
-import httpServer from "./server-http";
+import https from "node:https";
+import httpsServers from "./server-https";
 
 class Websocket extends Service {
   module: Module;
@@ -25,13 +25,13 @@ class Websocket extends Service {
   domain: string;
   protocol: ProtocolType = "1.1";
   family: FamilyType | null = null;
-  scheme: string = "ws";
+  scheme: string = "wss";
   address: string | null = null;
-  type: ServerType = "websocket";
+  type: ServerType = "websocket-secure";
   infos: AddressInfo | null = null;
   constructor(module: Module, httpKernel: HttpKernel) {
     super(
-      "server-websocket",
+      "server-websocket-secure",
       module.container as Container,
       module.notificationsCenter as Event,
       module.options.websocket
@@ -44,27 +44,26 @@ class Websocket extends Service {
   }
 
   setPort(): number {
-    if (this.kernel?.options.servers?.http) {
-      return this.kernel?.options.servers?.http?.port || 0;
+    if (this.kernel?.options.servers?.https) {
+      return this.kernel?.options.servers?.https?.port || 0;
     }
     return 0;
   }
 
-  async createServer(serverHttp: httpServer): Promise<websocket.server> {
+  async createServer(serverHttps: httpsServers): Promise<websocket.server> {
     return new Promise((resolve, reject) => {
       try {
         this.infos = (
-          serverHttp.server as http.Server
+          serverHttps.server as https.Server
         ).address() as AddressInfo;
         if (this.infos) {
           this.port = this.infos.port;
           this.address = this.infos.address;
           this.family = this.infos.family as FamilyType;
-          this.protocol = serverHttp.protocol;
+          this.protocol = serverHttps.protocol;
         }
-        //this.settings = this.getParameters("bundles.http").websocket || {};
         const conf: websocket.IServerConfig = extend(true, {}, this.options);
-        conf.httpServer = serverHttp.server as http.Server;
+        conf.httpServer = serverHttps.server as https.Server;
         this.server = new websocket.server(conf);
         this.server.on("request", (request) =>
           this.httpKernel.onWebsocketRequest(request, this.type)

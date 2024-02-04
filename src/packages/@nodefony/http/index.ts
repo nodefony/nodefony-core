@@ -4,6 +4,7 @@ import HttpKernel from "./nodefony/service/http-kernel";
 import HttpServer from "./nodefony/service/servers/server-http";
 import HttpsServer from "./nodefony/service/servers/server-https";
 import WebsocketServer from "./nodefony/service/servers/server-websocket";
+import WebsocketSecureServer from "./nodefony/service/servers/server-websocket-secure";
 import StaticServer from "./nodefony/service/servers/server-static";
 import networkCommand from "./nodefony/command/networkCommand";
 import { fileURLToPath } from "url";
@@ -26,6 +27,7 @@ class Http extends Module {
     this.addService(HttpsServer, this.httpKernel);
     this.addService(StaticServer, this.httpKernel);
     this.addService(WebsocketServer, this.httpKernel);
+    this.addService(WebsocketSecureServer, this.httpKernel);
     return this;
   }
 

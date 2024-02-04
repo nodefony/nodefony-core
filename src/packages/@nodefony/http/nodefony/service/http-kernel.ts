@@ -12,6 +12,8 @@ import https from "node:http";
 import http2 from "node:http2";
 import httpServer from "../service/servers/server-http";
 import httpsServer from "../service/servers/server-https";
+import websocketServer from "../service/servers/server-websocket";
+import websocketSecureServer from "../service/servers/server-websocket-secure";
 import Statics from "./servers/server-static";
 import WebsocketContext from "../src/context/websocket/WebsocketContext";
 import HttpContext from "../src/context/http/HttpContext";
@@ -205,6 +207,18 @@ class HttpKernel extends Service {
     if (serverHttps) {
       await serverHttps.createServer();
       servers.push(serverHttps);
+    }
+    const serverWebsocket: websocketServer = this.get("server-websocket");
+    if (serverWebsocket && serverHttp) {
+      await serverWebsocket.createServer(serverHttp);
+      servers.push(serverWebsocket);
+    }
+    const serverWebsocketSecure: websocketSecureServer = this.get(
+      "server-websocket-secure"
+    );
+    if (serverWebsocketSecure && serverHttps) {
+      await serverWebsocketSecure.createServer(serverHttps);
+      servers.push(serverWebsocketSecure);
     }
     return servers;
   }
