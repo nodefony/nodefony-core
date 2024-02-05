@@ -131,7 +131,10 @@ class HttpResquest {
                 parser.parse();
                 return this.context.fireAsync("onRequestEnd", this);
               } catch (error) {
-                return this.context?.httpKernel?.onError(this.context, error);
+                return this.context?.httpKernel?.onError(
+                  error as Error,
+                  this.context
+                );
               }
             });
             break;
@@ -146,7 +149,10 @@ class HttpResquest {
                   this.context.requestEnded = true;
                   return this.context.fireAsync("onRequestEnd", this);
                 } catch (error) {
-                  return this.context.httpKernel?.onError(this.context, error);
+                  return this.context.httpKernel?.onError(
+                    error as Error,
+                    this.context
+                  );
                 }
               });
             }

@@ -38,6 +38,7 @@ export type ServerType =
 type AliasObject = Record<string, string | RegExp>;
 type AliasArray = (string | RegExp)[];
 type DomainAliasType = AliasObject | AliasArray | string;
+export type responseTimeoutType = "http" | "https" | "http2" | "http3";
 
 export type SchemeType = "http" | "https" | "ws" | "wss";
 
@@ -57,6 +58,16 @@ class HttpKernel extends Service {
   module: Module;
   httpsPort?: number;
   httpPort?: number;
+  responseTimeout: {
+    http: number;
+    https: number;
+    http2: number;
+    http3: number;
+  };
+  closeTimeOutWs: {
+    ws: number;
+    wss: number;
+  };
   constructor(module: Module) {
     const container: Container = module.container as Container;
     const event: Event = module.notificationsCenter as Event;
@@ -70,6 +81,16 @@ class HttpKernel extends Service {
       this.domainAlias = this.kernel?.options?.domainAlias;
       this.regAlias = this.compileAlias();
     });
+    this.responseTimeout = {
+      http: this.options.http.responseTimeout,
+      https: this.options.https.responseTimeout,
+      http2: this.options.https.responseTimeout,
+      http3: this.options.https.responseTimeout,
+    };
+    this.closeTimeOutWs = {
+      ws: this.options.websocket.closeTimeout,
+      wss: this.options.websocketSecure.closeTimeout,
+    };
   }
 
   async handle(
@@ -85,7 +106,8 @@ class HttpKernel extends Service {
       case "https":
       case "http2":
         log = clc.cyan.bgBlue(`${(request as httpRequest).url}`);
-        this.log(`    ${log}`, "INFO", type);
+        this.log(`${log}`, "DEBUG", `${type}`);
+
         return this.handleHttp(
           scope as Scope,
           request as httpRequest,
@@ -106,18 +128,34 @@ class HttpKernel extends Service {
 
   async handleFrontController(context: ContextType): Promise<any> {}
 
-  async onError(context: ContextType, error: any): Promise<any> {
-    this.log(error, "ERROR");
+  async onError(error: Error | HttpError, context: ContextType): Promise<any> {
+    const code = error.code === 200 ? 500 : !error.code ? 500 : error.code;
     if (!(error instanceof HttpError)) {
-      error = new HttpError(error, context);
+      error = new HttpError(error as Error, error.code, context);
     }
+    error.code = code;
+    let log = "";
     switch (true) {
       case context instanceof HttpContext: {
+        context.response.setStatusCode(code, error.message);
+        if (this.kernel?.debug) {
+          this.log(error.toString(), "ERROR");
+        } else {
+          this.log(error.message, "ERROR");
+        }
+        return await context.send(error.message);
       }
       case context instanceof WebsocketContext: {
+        if (this.kernel?.debug) {
+          this.log(error.toString(), "ERROR");
+        } else {
+          this.log(error.message, "ERROR");
+        }
+        return;
       }
+      default:
+        throw error;
     }
-    return error as nodefony.Error;
   }
 
   compileAlias(): RegExp[] {
@@ -279,7 +317,7 @@ class HttpKernel extends Service {
         }
         return resolve(context);
       } catch (e) {
-        return this.onError(context as Context, e).catch((e) => {
+        return this.onError(e as Error, context as Context).catch((e) => {
           this.log(e, "CRITIC");
           return reject(e);
         });
@@ -393,7 +431,7 @@ class HttpKernel extends Service {
         // }
         return resolve(await context?.handle());
       } catch (e) {
-        return this.onError(context as WebsocketContext, e)
+        return this.onError(e as Error, context as WebsocketContext)
           .then((res) => resolve(res))
           .catch((e) => reject(e));
       }

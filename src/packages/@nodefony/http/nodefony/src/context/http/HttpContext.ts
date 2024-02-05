@@ -4,6 +4,7 @@ import {
   httpResponse,
   SchemeType,
 } from "../../../service/http-kernel";
+import HttpError from "../../errors/httpError";
 import Context, {
   contextRequest,
   contextResponse,
@@ -23,7 +24,7 @@ import HttpRequest from "./Request";
 import HttpResponse from "./Response";
 import Http2Request from "../http2/Request";
 import Http2Response from "../http2/Response";
-import http2 from "node:http2";
+import http2, { Http2ServerResponse } from "node:http2";
 import http from "node:http";
 import url, { URL } from "node:url";
 import Session from "../../../src/session/session";
@@ -107,6 +108,17 @@ class HttpContext extends Context {
     this.isHtml = this.request.acceptHtml;
     this.domain = this.getHostName();
     this.validDomain = this.isValidDomain();
+
+    this.once("onTimeout", () => {
+      let error = null;
+      if ((this.response as Http2Response).stream) {
+        // traff 408 reload page htpp2 loop
+        error = new HttpError("Gateway Timeout", 504, this);
+      } else {
+        error = new HttpError("Request Timeout", 408, this);
+      }
+      return this.httpKernel?.onError(error, this);
+    });
   }
 
   handle(/*data*/): Promise<this> {
@@ -131,37 +143,13 @@ class HttpContext extends Context {
         // WARNING EVENT KERNEL
         this.fire("onRequest", this);
         this.kernel?.fire("onRequest", this);
-
+        this.setTimeout();
         //this.response.setHeader("Content-Type", "text/plain");
         //this.response.setStatusCode(404);
         //await this.send(`${this.response.statusMessage}`);
         throw new Error(`sksksksk`);
         // if (this.resolver.resolve) {
         //   const ret = this.resolver.callController(data);
-        //   // timeout response after  callController (to change timeout in action )
-        //   if (this.timeoutid !== null) {
-        //     this.timeoutExpired = false;
-        //     clearTimeout(this.timeoutid);
-        //   }
-        //   if (this.response.response) {
-        //     if (this.response.stream) {
-        //       this.timeoutid = this.response.response.setTimeout(
-        //         this.response.timeout,
-        //         () => {
-        //           this.timeoutExpired = true;
-        //           this.fire("onTimeout", this);
-        //         }
-        //       );
-        //     } else {
-        //       this.timeoutid = this.response.response.setTimeout(
-        //         this.response.timeout,
-        //         () => {
-        //           this.timeoutExpired = true;
-        //           this.fire("onTimeout", this);
-        //         }
-        //       );
-        //     }
-        //   }
         //   return resolve(ret);
         // }
         // const error = new Error("");
@@ -172,6 +160,15 @@ class HttpContext extends Context {
         return reject(e);
       }
     });
+  }
+
+  setTimeout(): void {
+    if (this.response.response) {
+      this.response.response.setTimeout(this.response.timeout as number, () => {
+        this.timeoutExpired = true;
+        this.fire("onTimeout", this);
+      });
+    }
   }
 
   async send(

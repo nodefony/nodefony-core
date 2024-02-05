@@ -102,7 +102,6 @@ class nodefonyError extends Error {
     } else {
       super(message);
     }
-
     this.name = this.constructor.name;
     this.code = null;
     this.errorType = this.name;
@@ -144,7 +143,7 @@ class nodefonyError extends Error {
     return false;
   }
 
-  getType(error: Error) {
+  getType(error: Error): string {
     const errorType = nodefonyError.isError(error);
     if (errorType) {
       switch (errorType) {
@@ -212,7 +211,7 @@ class nodefonyError extends Error {
     return "Error";
   }
 
-  override toString() {
+  override toString(): string {
     let err = "";
     switch (this.errorType) {
       case "Error":

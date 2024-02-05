@@ -73,6 +73,7 @@ export default {
     keepAliveTimeout: 5000, // For keep alive spec (5 secondes)
     timeout: 120000, //   (2 minutes)
     requestTimeout: 30000, // In MS  | 30 seconds by default
+    responseTimeout: 30000, // In ms | 30 seconds by default
     headers: null,
   },
   https: {
@@ -81,6 +82,7 @@ export default {
     keepAliveTimeout: 5000, // For keep alive spec (5 secondes)
     timeout: 120000, //   (2 minutes)
     requestTimeout: 30000, // In MS  | 30 seconds by default
+    responseTimeout: 30000, // In ms | 30 seconds by default
     headers: null,
   },
   http2: {

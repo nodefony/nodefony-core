@@ -155,7 +155,7 @@ class CliKernel extends Cli {
     }
 
     const { syslog } = this;
-    const data = [0, 1, 2, 3, 6];
+    const data = [0, 1, 2, 3, 4, 5, 6];
     if (debug || this.debug) {
       // INFO , DEBUG , WARNING
       data.push(7);

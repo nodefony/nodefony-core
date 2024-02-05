@@ -3,8 +3,7 @@ import http2 from "node:http2";
 import HttpContext from "../http/HttpContext";
 import nodefony, { extend, Pdu, Message, Severity, Msgid } from "nodefony";
 import mime from "mime-types";
-import { resolve } from "node:path";
-import { rejects } from "node:assert";
+import { responseTimeoutType } from "../../../service/http-kernel";
 
 const ansiRegex = function ({ onlyFirst = false } = {}) {
   const pattern = [
@@ -37,6 +36,10 @@ class HttpResponse {
   ) {
     this.context = context;
     this.response = response;
+    this.timeout =
+      this.context?.httpKernel?.responseTimeout[
+        this.context.type as responseTimeoutType
+      ];
   }
 
   clean() {

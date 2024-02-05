@@ -1,17 +1,48 @@
-import nodeofny, { Error } from "nodefony";
+import nodeofny, { Error as NodefonyError } from "nodefony";
 import clc from "cli-color";
 import { ContextType } from "../../service/http-kernel";
 import { HttpRequestType, HttpRsponseType } from "../context/http/HttpContext";
 
-class HttpError extends Error {
+class HttpError extends NodefonyError {
   context: ContextType;
   response: HttpRsponseType;
   request: HttpRequestType;
-  constructor(message: string | Error, context: ContextType) {
-    super(message, context.response?.statusCode);
+  url: string;
+  constructor(
+    message: string | NodefonyError | Error,
+    code: number,
+    context: ContextType
+  ) {
+    super(message, code || context.response?.statusCode);
+
     this.context = context;
     this.response = context.response as HttpRsponseType;
     this.request = context.request as HttpRequestType;
+    this.url = this.context.url;
+  }
+
+  override toString(): string {
+    if (this.context) {
+      return `${clc.red(this.message)}
+    ${clc.blue("Name :")} ${this.name}
+    ${clc.blue("Type :")} ${this.errorType}
+    ${clc.blue("Url :")} ${this.url}
+    ${clc.green("Controller :")} ${this.controller}
+    ${clc.green("Action :")} ${this.action}
+    ${clc.blue("clientRequest :")} ${this.requestUrl}
+      ${clc.red("Code :")} ${this.code}
+      ${clc.red("Message :")} ${this.message}
+      ${clc.red("Response :")} ${this.jsonResponse}
+    ${clc.green("Stack :")} ${this.stack}`;
+    }
+    return `${clc.red(this.message)}
+    ${clc.blue("Name :")} ${this.name}
+    ${clc.blue("Type :")} ${this.errorType}
+    ${clc.blue("clientRequest :")} ${this.requestUrl}
+      ${clc.red("Code :")} ${this.code}
+      ${clc.red("Message :")} ${this.message}
+      ${clc.red("Response :")} ${this.jsonResponse}
+    ${clc.green("Stack :")} ${this.stack}`;
   }
 }
 
@@ -55,54 +86,29 @@ export default HttpError;
 //       return super.log(data);
 //     }
 
-//     toString() {
-//       let err = "";
-//       switch (this.errorType) {
-//         case "httpError":
-//           if (kernel && kernel.environment === "prod") {
-//             return ` ${clc.blue("Url :")} ${this.url} ${err}`;
-//           }
-//           err += `${clc.blue("Name :")} ${this.name}
-//         ${clc.blue("Type :")} ${this.errorType}
-//         ${clc.red("Code :")} ${this.code}
-//         ${clc.blue("Url :")} ${this.url}
-//         ${clc.red("Message :")} ${this.message}
-//         ${clc.green("Bundle :")} ${this.bundle}
-//         ${clc.green("Controller :")} ${this.controller}
-//         ${clc.green("Action :")} ${this.action}`;
-//           if (kernel.debug) {
-//             err += `
-//             ${clc.green("Stack :")} ${this.stack}`;
-//           }
-//           return err;
-//         default:
-//           return super.toString();
-//       }
-//     }
-
 // toString() {
-//   if (this.container) {
-//     return `${clc.red(this.message)}
-//     ${clc.blue("Name :")} ${this.name}
+//   let err = "";
+//   switch (this.errorType) {
+//     case "httpError":
+//       if (kernel && kernel.environment === "prod") {
+//         return ` ${clc.blue("Url :")} ${this.url} ${err}`;
+//       }
+//       err += `${clc.blue("Name :")} ${this.name}
 //     ${clc.blue("Type :")} ${this.errorType}
+//     ${clc.red("Code :")} ${this.code}
 //     ${clc.blue("Url :")} ${this.url}
-//     ${clc.green("Module :")} ${this.module.name}
+//     ${clc.red("Message :")} ${this.message}
+//     ${clc.green("Bundle :")} ${this.bundle}
 //     ${clc.green("Controller :")} ${this.controller}
-//     ${clc.green("Action :")} ${this.action}
-//     ${clc.blue("clientRequest :")} ${this.requestUrl}
-//       ${clc.red("Code :")} ${this.code}
-//       ${clc.red("Message :")} ${this.message}
-//       ${clc.red("Response :")} ${this.jsonResponse}
-//     ${clc.green("Stack :")} ${this.stack}`;
+//     ${clc.green("Action :")} ${this.action}`;
+//       if (kernel.debug) {
+//         err += `
+//         ${clc.green("Stack :")} ${this.stack}`;
+//       }
+//       return err;
+//     default:
+//       return super.toString();
 //   }
-//   return `${clc.red(this.message)}
-//     ${clc.blue("Name :")} ${this.name}
-//     ${clc.blue("Type :")} ${this.errorType}
-//     ${clc.blue("clientRequest :")} ${this.requestUrl}
-//       ${clc.red("Code :")} ${this.code}
-//       ${clc.red("Message :")} ${this.message}
-//       ${clc.red("Response :")} ${this.jsonResponse}
-//     ${clc.green("Stack :")} ${this.stack}`;
 // }
 
 //     parserContainer() {
