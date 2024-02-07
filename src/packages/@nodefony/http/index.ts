@@ -16,39 +16,33 @@ class Http extends Module {
   httpKernel: HttpKernel | null = null;
   constructor(kernel: Kernel) {
     super("http", kernel, fileURLToPath(import.meta.url), config);
-    this.httpKernel = null;
     this.addCommand(networkCommand);
-    this.httpKernel = this.addService(HttpKernel, this.kernel) as HttpKernel;
-    this.addService(Certificate, this.httpKernel);
-    this.addService(sessionService, this.httpKernel);
   }
 
-  async onStart(): Promise<this> {
-    this.log(`MODULE ${this.name} START`, "DEBUG");
-    this.addService(HttpServer, this.httpKernel);
-    this.addService(HttpsServer, this.httpKernel);
-    this.addService(StaticServer, this.httpKernel);
-    this.addService(WebsocketServer, this.httpKernel);
-    this.addService(WebsocketSecureServer, this.httpKernel);
+  async initialize(): Promise<this> {
+    this.httpKernel = (await this.addService(
+      HttpKernel,
+      this.kernel
+    )) as HttpKernel;
+    await this.addService(Certificate, this.httpKernel);
     return this;
   }
 
-  async onRegister(): Promise<this> {
+  async onKernelReady(): Promise<this> {
     try {
+      //this.log(`MODULE ${this.name} READY`, "DEBUG");
+      await this.addService(sessionService, this.httpKernel);
+      await this.addService(HttpServer, this.httpKernel);
+      await this.addService(HttpsServer, this.httpKernel);
+      await this.addService(StaticServer, this.httpKernel);
+      await this.addService(WebsocketServer, this.httpKernel);
+      await this.addService(WebsocketSecureServer, this.httpKernel);
     } catch (e) {
       this.log(e, "ERROR");
+      throw e;
     }
-    this.log(`MODULE ${this.name} REGISTER`, "DEBUG");
     return this;
   }
-  // async onBoot(): Promise<this> {
-  //   this.log(`MODULE ${this.name} BOOT`, "DEBUG");
-  //   return this;
-  // }
-  // async onReady(): Promise<this> {
-  //   this.log(`MODULE ${this.name} READY`, "DEBUG");
-  //   return this;
-  // }
 }
 
 export default Http;

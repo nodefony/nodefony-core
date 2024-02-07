@@ -2,7 +2,7 @@ import path from "node:path";
 
 import Syslog, { conditionsInterface } from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
-import Cli, { CliDefaultOptions } from "../Cli";
+import Cli, { CliDefaultOptions, PackageManagerName } from "../Cli";
 import Kernel, { KernelType, TypeKernelOptions } from "./Kernel";
 import Command from "../command/Command";
 import Start from "./commands/StartCommand";
@@ -26,15 +26,38 @@ const cliOptions: CliDefaultOptions = {
   pid: true,
 };
 
+export type PackageManager = (
+  argv: string[],
+  cwd?: string,
+  env?: EnvironmentType
+) => Promise<number | Error>;
+
 class CliKernel extends Cli {
   public type: KernelType = "CONSOLE";
   public app: Module | null = null;
+  public packageManager: PackageManager = this.pnpm;
   constructor(environment?: EnvironmentType) {
     super("NODEFONY", cliOptions);
     if (environment) {
       this.environment = environment;
     }
     this.initSyslog();
+  }
+
+  setPackageManager(
+    manager: PackageManagerName = this.options?.packageManager
+  ): PackageManager {
+    switch (manager) {
+      case "yarn":
+        this.packageManager = this.yarn as PackageManager;
+        break;
+      case "pnpm":
+        this.packageManager = this.pnpm as PackageManager;
+        break;
+      default:
+        this.packageManager = this.npm as PackageManager;
+    }
+    return this.packageManager;
   }
 
   override showHelp(

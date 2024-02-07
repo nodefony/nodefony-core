@@ -107,7 +107,7 @@ class Builder extends Service {
         message: `Do You Want Remove : ${file}?`,
         default: false,
       })
-      .then((response) => {
+      .then((response: boolean) => {
         if (response) {
           if (!fs.existsSync(file)) {
             throw `${file} not exist`;
@@ -117,7 +117,7 @@ class Builder extends Service {
         }
         return response;
       })
-      .catch((e) => {
+      .catch((e: Error) => {
         throw e;
       });
   }

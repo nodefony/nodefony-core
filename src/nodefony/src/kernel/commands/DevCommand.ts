@@ -18,7 +18,7 @@ class Dev extends Command {
     this.alias("dev");
   }
 
-  override async onStart(): Promise<void> {
+  override async onKernelStart(): Promise<void> {
     (this.cli as CliKernel).setType("SERVER");
     this.cli.environment = "development";
   }

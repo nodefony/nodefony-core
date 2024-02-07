@@ -45,8 +45,9 @@ switch (kernel?.environment) {
 }
 
 export default {
-  domain: "localhost", // "0.0.0.0" "selectAuto"
-  domainAlias: ["^127.0.0.1$", "^localhost$"],
+  domain: "127.0.0.1", // "0.0.0.0" "selectAuto"
+  //domain: "selectAuto",
+  domainAlias: ["^localhost$"],
   domainCheck,
   locale: "en_en",
   App: {
@@ -151,7 +152,7 @@ export default {
    *       yarn
    *       pnpm
    */
-  packageManager: "yarn",
+  packageManager: "npm",
 
   /*
    *   OVERRIDE modules config

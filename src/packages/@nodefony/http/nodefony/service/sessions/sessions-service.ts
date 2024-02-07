@@ -81,17 +81,18 @@ class SessionsService extends Service {
     this.gc_divisor = this.options.gc_divisor;
     this.defaultSessionName = this.options.name;
     this.sessionAutoStart = this.setAutoStart(this.options.start);
-
     this.once("onTerminate", () => {
       if (this.storage) {
         this.storage.close();
       }
     });
-    this.once("onStart", () => {
-      this.secret = this.createSecret();
-      this.iv = this.createIv();
-      this.initializeStorage();
-    });
+  }
+
+  async initialize(): Promise<this> {
+    this.secret = this.createSecret();
+    this.iv = this.createIv();
+    this.initializeStorage();
+    return this;
   }
 
   initializeStorage(): sessionStorageInterface {

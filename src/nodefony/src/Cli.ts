@@ -80,6 +80,8 @@ const defaultTableCli = {
 //   constructor(cli: Cli);
 // }
 
+export type PackageManagerName = "npm" | "yarn" | "pnpm" | "bun";
+
 const defaultOptions = {
   processName,
   autostart: true,
@@ -858,7 +860,7 @@ class Cli extends Service {
     cwd: string = path.resolve("."),
     env: EnvironmentType,
     manager: string
-  ) {
+  ): Promise<number | Error> {
     const currentenv = process.env.NODE_ENV;
     switch (env) {
       case "dev":
@@ -927,15 +929,27 @@ class Cli extends Service {
     });
   }
 
-  async npm(argv = [], cwd = path.resolve("."), env: EnvironmentType = "dev") {
+  async npm(
+    argv: string[] = [],
+    cwd = path.resolve("."),
+    env: EnvironmentType = "dev"
+  ) {
     return this.runPackageManager(argv, cwd, env, "npm");
   }
 
-  async yarn(argv = [], cwd = path.resolve("."), env: EnvironmentType = "dev") {
+  async yarn(
+    argv: string[] = [],
+    cwd = path.resolve("."),
+    env: EnvironmentType = "dev"
+  ) {
     return this.runPackageManager(argv, cwd, env, "yarn");
   }
 
-  async pnpm(argv = [], cwd = path.resolve("."), env: EnvironmentType = "dev") {
+  async pnpm(
+    argv: string[] = [],
+    cwd = path.resolve("."),
+    env: EnvironmentType = "dev"
+  ) {
     return this.runPackageManager(argv, cwd, env, "pnpm");
   }
 

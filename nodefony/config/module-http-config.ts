@@ -39,11 +39,7 @@ switch (kernel?.environment) {
       "server",
       "cert.pem"
     );
-    certificates.caPath = path.resolve(
-      certificates.path,
-      "ca",
-      "nodefony-root-ca.crt.pem"
-    );
+    certificates.caPath = "";
 }
 
 export default {

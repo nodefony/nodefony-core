@@ -112,10 +112,10 @@ class Command extends Service {
   public progress: number = 0;
   public response: Record<string, any> = {};
   public kernelEvent: keyof typeof Events = "onRegister";
-  public onStart?(): Promise<void>;
-  public onRegister?(): Promise<void>;
-  public onBoot?(): Promise<void>;
-  public onReady?(): Promise<void>;
+  public onKernelStart?(): Promise<void>;
+  public onKernelRegister?(): Promise<void>;
+  public onKernelBoot?(): Promise<void>;
+  public onKernelReady?(): Promise<void>;
   /**
    * Crée une instance de Command.
    *
@@ -159,39 +159,27 @@ class Command extends Service {
   }
   setEvents(...args: any[]): void {
     //console.log(this.name, "pass setEvents");
-    if (this.onStart) {
-      this.kernel?.once("onStart", this.onStart.bind(this, ...args));
+    if (this.onKernelStart) {
+      this.kernel?.once("onStart", this.onKernelStart.bind(this, ...args));
     }
-    if (this.onRegister) {
-      this.kernel?.once("onRegister", this.onRegister.bind(this, ...args));
+    if (this.onKernelRegister) {
+      this.kernel?.once(
+        "onRegister",
+        this.onKernelRegister.bind(this, ...args)
+      );
     }
-    if (this.onBoot) {
-      this.kernel?.once("onBoot", this.onBoot.bind(this, ...args));
+    if (this.onKernelBoot) {
+      this.kernel?.once("onBoot", this.onKernelBoot.bind(this, ...args));
     }
-    if (this.onReady) {
-      this.kernel?.once("onReady", this.onReady.bind(this, ...args));
+    if (this.onKernelReady) {
+      this.kernel?.once("onReady", this.onKernelReady.bind(this, ...args));
     }
     this.kernel?.once(
       this.kernelEvent as string,
       this.action.bind(this, ...args)
     );
-    // console.log(
-    //   this.kernel?.notificationsCenter._events,
-    //   this.onStart,
-    //   this.onReady,
-    //   this.notificationsCenter._events
-    // );
   }
-  // set kernelEvent(value: keyof typeof Events) {
-  //   if (Events[value] !== undefined) {
-  //     this._kernelEvent = value;
-  //   } else {
-  //     throw new Error(`Event ${value} does not exist.`);
-  //   }
-  // }
-  // get kernelEvent(): keyof typeof Events {
-  //   return this._kernelEvent;
-  // }
+
   /**
    * Méthode d'action de la commande.
    *

@@ -6,7 +6,6 @@ import HttpKernel from "./http-kernel";
 import fs from "fs/promises";
 import path, { resolve } from "path";
 import { v4 as uuidv4 } from "uuid";
-import crypto from "node:crypto";
 
 export interface OpensslOptions {
   size: number;
@@ -73,18 +72,20 @@ class Certificate extends Service {
       ) as CertificateOptions
     );
     this.module = module;
-    this.setFiles();
+  }
 
+  async initialize(): Promise<this> {
+    this.options.openssl.serialNumber = Certificate.generateSerial();
     this.kernel?.once("onStart", async () => {
-      nodefony.extend(
+      this.options = nodefony.extend(
         true,
         this.options,
-        module.options.certificates || {}
+        this.module.options.certificates || {}
       ) as CertificateOptions;
-      await this.ensureDirectoriesExist();
-      this.options.openssl.serialNumber = Certificate.generateSerial();
+      this.setFiles();
       await this.generateServerCertificates();
     });
+    return this;
   }
 
   static generateSerial(): number {
@@ -100,21 +101,19 @@ class Certificate extends Service {
     this.files = [
       { path: this.privateKeyPath, variable: this.key },
       { path: this.publicKeyPath, variable: this.publicKeyPem },
-      { path: this.caPath, variable: this.ca },
+      //{ path: this.caPath, variable: this.ca },
       { path: this.certPath, variable: this.cert },
       { path: this.fullchainPath, variable: this.fullchainPem },
     ];
   }
 
   private async checkCertificates(): Promise<boolean> {
-    return await Promise.any(
-      this.files.map((file) =>
-        fs
-          .access(file.path)
-          .then(() => true)
-          .catch(() => false)
-      )
-    );
+    try {
+      await Promise.all(this.files.map((file) => fs.access(file.path)));
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async ensureDirectoriesExist(): Promise<void> {
@@ -136,7 +135,7 @@ class Certificate extends Service {
       } catch (err) {
         // Directory does not exist, create it
         await fs.mkdir(directory, { recursive: true });
-        this.log(`Directory created: ${directory}`);
+        this.log(`Directory created: ${directory}`, "DEBUG");
       }
     }
   }
@@ -196,7 +195,7 @@ class Certificate extends Service {
               await fs.readFile(file.path, "utf8")
             );
           }
-          this.log(`Read Certificat file ${file.path}`);
+          this.log(`Read Certificat file ${file.path}`, "DEBUG");
         } catch (err) {
           //this.log(`Create file ${file.path}`);
           this.log(err, "WARNING");
@@ -216,15 +215,18 @@ class Certificate extends Service {
             .then(() => true)
             .catch(() => false);
           if (!force && fileExists) {
-            this.log(`File ${file.path} already exists, skipping.`);
+            this.log(`File ${file.path} already exists, skipping.`, "DEBUG");
             continue; // Skip writing if force is false and file exists
           }
           if (force && fileExists) {
             await fs.unlink(file.path); // Delete existing file if force is true and file exists
-            this.log(`Existing file ${file.path} deleted.`);
+            this.log(`Existing file ${file.path} deleted.`, "DEBUG");
           }
           await fs.writeFile(file.path, file.variable.toString(), "utf8");
-          this.log(`Certificate file ${file.path} written successfully.`);
+          this.log(
+            `Certificate file ${file.path} written successfully.`,
+            "INFO"
+          );
         }
       } catch (err) {
         this.log(`Error writing to file ${file.path}`, "ERROR");

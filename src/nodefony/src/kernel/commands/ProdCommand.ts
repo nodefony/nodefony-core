@@ -18,7 +18,7 @@ class Prod extends Command {
     this.alias("prod");
   }
 
-  override async onStart(): Promise<void> {
+  override async onKernelStart(): Promise<void> {
     (this.cli as CliKernel).setType("SERVER");
     this.cli.environment = "production";
   }

@@ -92,7 +92,8 @@ export interface FilterInterface {
 
 export declare class InjectionType extends Service {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(modulr: Module, ...args: any[]);
+  constructor(module: Module, ...args: any[]);
+  initialize?(module: Module): Promise<Service>;
 }
 
 export declare class ModuleType extends Module {
@@ -373,25 +374,26 @@ class Kernel extends Service {
     }
   }
 
-  async readConfig(config?: TypeKernelOptions): Promise<TypeKernelOptions> {
+  readConfig(config?: TypeKernelOptions): TypeKernelOptions {
     if (!config) {
       return this.options;
     }
     return extend(this.options, config);
   }
 
-  addService(
+  async addService(
     service: typeof InjectionType,
     module: Module,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...args: any[]
-  ): Service {
+  ): Promise<Service> {
     return module.addService(service, ...args);
   }
-  loadService(
+
+  async loadService(
     service: typeof InjectionType,
     module: Module | null = this.app
-  ): Service {
+  ): Promise<Service> {
     if (!module) {
       throw new Error(`Applcation not ready`);
     }
@@ -403,9 +405,16 @@ class Kernel extends Service {
     return this.use(module.default);
   }
 
-  use(Mod: typeof ModuleType): Module {
-    const mod = new Mod(this);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async use(Mod: typeof ModuleType, ...args: any[]): Promise<Module> {
+    const mod = new Mod(this, ...args);
+    this.log(`MODULE ADD : ${mod.name}`, "DEBUG");
     this.modules[mod.name] = mod;
+    if (mod.initialize) {
+      this.log(`MODULE INITIALIZE : ${mod.name}`, "DEBUG");
+      await mod.initialize(this);
+      await this.fireAsync("onInitialize", mod);
+    }
     return mod as Module;
   }
 
@@ -418,11 +427,12 @@ class Kernel extends Service {
 
   private async loadApp(config?: TypeKernelOptions): Promise<Module> {
     this.app = await this.loadNodefonyModule(`${this.path}/dist/index.js`);
-    this.readConfig(extend(this.app.options, config));
+    this.app.isApp = true;
+    this.options = this.readConfig(extend(this.app.options, config));
     this.initializeLog();
+    this.cli?.setPackageManager(this.options.packageManager);
     this.core = await this.isCore();
     this.loadService(Fetch);
-
     return this.app;
   }
 
@@ -487,7 +497,6 @@ class Kernel extends Service {
         "DEBUG",
         `COMMAND ${this.command.name}`
       );
-      //this.log("eeee", "CRITIC");
       return !!(this.progress & int);
     }
     return false;

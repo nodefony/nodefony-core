@@ -13,8 +13,10 @@ import { extend } from "../Tools";
 
 import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
 
-//import { rollup } from "rollup";
-//console.log("pass", rollup);
+const regModuleName: RegExp = /^[Mm]odule-([\w-]+)/u;
+
+// import { rollup } from "rollup";
+// console.log("pass", rollup);
 //const config = require("./rollup.config.js");
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,27 +26,23 @@ class Module extends Service {
   commands: Record<string, Command> = {};
   package: PackageJson = {};
   path: string = "";
-  public onStart?(): Promise<this>;
-  public onRegister?(): Promise<this>;
-  public onBoot?(): Promise<this>;
-  public onReady?(): Promise<this>;
+  isApp: boolean = false;
+  public onKernelStart?(): Promise<this>;
+  public onKernelRegister?(): Promise<this>;
+  public onKernelBoot?(): Promise<this>;
+  public onKernelReady?(): Promise<this>;
+  public initialize?(kernel?: Kernel): Promise<this>;
   constructor(
     name: string,
     kernel: Kernel,
     path: string,
     options: DefaultOptionsService
   ) {
-    const container: Container = kernel.container as Container;
-    //const event: Event = kernel.notificationsCenter as Event;
-    super(name, container, undefined, options);
-    this.log(`Registre Modefony Module : ${this.name}`, "DEBUG");
+    super(name, kernel.container as Container, undefined, options);
+    //this.log(`Registre Modefony Module : ${this.name}`, "DEBUG");
     this.setParameters(`modules.${this.name}`, this.options);
     this.path = this.setPath(path);
     this.setEvents();
-    this.kernel?.prependOnceListener("onStart", () => {
-      this.log(`Start module Path : ${this.path}`, "INFO");
-      this.readOverrideConfig();
-    });
   }
 
   setPath(myPath: string): string {
@@ -58,34 +56,42 @@ class Module extends Service {
     return dirname(dir);
   }
   setEvents(): void {
-    if (this.onStart) {
-      this.kernel?.once("onStart", this.onStart.bind(this));
+    if (this.onKernelStart) {
+      this.kernel?.once("onStart", this.onKernelStart.bind(this));
     }
-    if (this.onRegister) {
-      this.kernel?.once("onRegister", this.onRegister.bind(this));
+    if (this.onKernelRegister) {
+      this.kernel?.once("onRegister", this.onKernelRegister.bind(this));
     }
-    if (this.onBoot) {
-      this.kernel?.once("onBoot", this.onBoot.bind(this));
+    if (this.onKernelBoot) {
+      this.kernel?.once("onBoot", this.onKernelBoot.bind(this));
     }
-    if (this.onReady) {
-      this.kernel?.once("onReady", this.onReady.bind(this));
+    if (this.onKernelReady) {
+      this.kernel?.once("onReady", this.onKernelReady.bind(this));
     }
-    this.kernel?.once("onStart", async () => {
+    this.kernel?.prependOnceListener("onStart", async () => {
       this.package = await this.getPackageJson();
+      this.readOverrideModuleConfig();
     });
   }
 
-  readOverrideConfig(deep: boolean = true): DefaultOptionsService {
-    const index = `module-${this.name}`;
-    if (this.kernel?.options[index]) {
-      this.log(`Overrride Config module : ${index} by application`);
-      if (deep)
-        return (this.options = extend(
-          deep,
-          this.options,
-          this.kernel?.options[index]
-        ));
-      return (this.options = extend({}, this.kernel?.options[index]));
+  readOverrideModuleConfig(deep: boolean = true): DefaultOptionsService {
+    for (const ele in this.options) {
+      let index: RegExpExecArray | null = null;
+      const override: DefaultOptionsService = this.options[ele];
+      index = regModuleName.exec(ele);
+      if (index && index[1]) {
+        const mod = this.kernel?.getModule(index[1] as string);
+        if (!mod) {
+          this.log(`Module : ${index} register module before `, "WARNING");
+          continue;
+        }
+        this.log(`MODULE CONFIG Override Module: ${mod.name}`, "WARNING");
+        if (deep) {
+          mod.options = extend(true, {}, mod.options, override);
+        } else {
+          mod.options = extend({}, mod.options, override);
+        }
+      }
     }
     return this.options;
   }
@@ -109,12 +115,17 @@ class Module extends Service {
   //   return watcher;
   // }
 
-  addService(
+  async addService(
     service: typeof InjectionType,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...args: any[]
-  ): Service {
+  ): Promise<Service> {
     const inst = new service(this, ...args);
+    this.log(`SERVICE ADD : ${inst.name}`, "DEBUG");
+    if (inst.initialize) {
+      this.log(`SERVICE INITIALIZE : ${inst.name}`, "DEBUG");
+      await inst.initialize(this);
+    }
     this.set(inst.name, inst);
     return this.get(inst.name);
   }
@@ -140,8 +151,11 @@ class Module extends Service {
     throw new Error(`Kernel not ready`);
   }
 
-  async install(): Promise<this> {
-    return this;
+  async install(): Promise<number | Error> {
+    if (this.kernel?.cli?.packageManager) {
+      return await this.kernel?.cli?.packageManager(["install"], this.path);
+    }
+    throw new Error(`Package Manager not found`);
   }
 
   async loadJson(

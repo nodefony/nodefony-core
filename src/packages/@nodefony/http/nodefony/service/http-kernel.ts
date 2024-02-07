@@ -80,15 +80,6 @@ class HttpKernel extends Service {
     super(serviceName, container, event, module.options);
     this.module = module;
     this.container?.addScope("request");
-    this.kernel?.on("onStart", () => {
-      this.serviceCerticats = this.get("certificates");
-      this.serverStatic = this.get("server-static");
-      this.domain = this.kernel?.domain as string;
-      this.domainAlias = this.kernel?.options?.domainAlias;
-      this.regAlias = this.compileAlias();
-      this.sessionService = this.get("sessions");
-      this.sessionAutoStart = this.sessionService?.sessionAutoStart as boolean;
-    });
     this.responseTimeout = {
       http: this.options.http.responseTimeout,
       https: this.options.https.responseTimeout,
@@ -99,6 +90,19 @@ class HttpKernel extends Service {
       ws: this.options.websocket.closeTimeout,
       wss: this.options.websocketSecure.closeTimeout,
     };
+  }
+
+  async initialize(): Promise<this> {
+    this.kernel?.on("onReady", () => {
+      this.serviceCerticats = this.get("certificates");
+      this.serverStatic = this.get("server-static");
+      this.domain = this.kernel?.domain as string;
+      this.domainAlias = this.kernel?.options?.domainAlias;
+      this.regAlias = this.compileAlias();
+      this.sessionService = this.get("sessions");
+      this.sessionAutoStart = this.sessionService?.sessionAutoStart as boolean;
+    });
+    return this;
   }
 
   async handle(
@@ -120,7 +124,9 @@ class HttpKernel extends Service {
           request as httpRequest,
           response as httpResponse,
           type
-        );
+        ).catch(async (e) => {
+          throw e;
+        });
       case "websocket":
       case "websocket-secure":
         //log = clc.cyan.bgBlue(`${request.resource}`);
@@ -129,13 +135,15 @@ class HttpKernel extends Service {
           scope as Scope,
           request as websocket.request,
           type
-        );
+        ).catch(async (e) => {
+          throw e;
+        });
     }
   }
 
   async handleFrontController(context: ContextType): Promise<any> {}
 
-  async onError(error: Error | HttpError, context: ContextType): Promise<any> {
+  async onError(error: Error | HttpError, context?: ContextType): Promise<any> {
     try {
       const code = error.code === 200 ? 500 : !error.code ? 500 : error.code;
       if (!(error instanceof HttpError)) {
@@ -151,7 +159,7 @@ class HttpKernel extends Service {
           if (this.kernel?.debug) {
             this.log(error.toString(), "ERROR");
           } else {
-            if (error.message) this.log(error.message, "ERROR");
+            //if (error.message) this.log(error.message, "ERROR");
           }
           context.response.setContentType("text");
           return context.send(error.message).catch((e) => {
@@ -176,10 +184,7 @@ class HttpKernel extends Service {
 
   compileAlias(): RegExp[] {
     const alias: RegExp[] = [];
-    if (!this.domainAlias || this.domainAlias.length === 0) {
-      alias.push(new RegExp(`^${this.domain}$`, "u"));
-      return alias;
-    }
+    alias.push(new RegExp(`^${this.domain}$`, "u"));
     switch (typeOf(this.domainAlias)) {
       case "string": {
         if (this.domainAlias) {
@@ -235,19 +240,23 @@ class HttpKernel extends Service {
         .then((res) => {
           if (res) {
             this.fire("onServerRequest", request, response, type);
-            return this.handle(request, response, type);
+            return this.handle(request, response, type).catch((e) => {
+              throw e;
+            });
           }
           throw new Error("Bad request");
         })
         .catch((e) => {
-          if (e) {
-            this.log(e, "ERROR", "STATICS SERVER");
-          }
+          // if (e) {
+          //   this.log(e, "ERROR", "STATICS SERVER");
+          // }
           return e;
         });
     }
     this.fire("onServerRequest", request, response, type);
-    return this.handle(request, response, type);
+    return this.handle(request, response, type).catch((e) => {
+      throw e;
+    });
   }
 
   async initServers(): Promise<any[]> {
@@ -361,11 +370,6 @@ class HttpKernel extends Service {
         });
       }
     });
-
-    // response.statusCode = 200;
-    // response.setHeader("Content-Type", "text/plain");
-    // response.end("Hello, World!\n");
-    // return response;
   }
 
   async onRequestEnd(
@@ -381,16 +385,16 @@ class HttpKernel extends Service {
         if (error) {
           throw error;
         }
-        // ADD HEADERS CONFIG
-        if (this.options[context.scheme].headers) {
-          context.response.setHeaders(this.options[context.scheme].headers);
-        }
-        // DOMAIN VALID
-        if (this.kernel?.options.domainCheck) {
-          this.checkValidDomain(context);
-        }
-        // SESSIONS
         try {
+          // ADD HEADERS CONFIG
+          if (this.options[context.scheme].headers) {
+            context.response.setHeaders(this.options[context.scheme].headers);
+          }
+          // DOMAIN VALID
+          if (this.kernel?.options.domainCheck) {
+            this.checkValidDomain(context);
+          }
+          // SESSIONS
           await this.startSession(context);
           // CSRF TOKEN
           // if (context.csrf) {
@@ -403,7 +407,6 @@ class HttpKernel extends Service {
         } catch (e) {
           return reject(e);
         }
-        return resolve(context);
         // // FRONT CONTROLLER
         // const ret = await this.handleFrontController(context).catch((e) => {
         //   throw e;
@@ -422,20 +425,6 @@ class HttpKernel extends Service {
         //     }
         //   }
         //   return resolve(res);
-        // }
-        // SESSIONS
-        // try {
-        //   await this.startSession(context);
-        //   // CSRF TOKEN
-        //   if (context.csrf) {
-        //     const token = await this.csrfService.handle(context);
-        //     if (token) {
-        //       this.log("CSRF TOKEN OK", "DEBUG");
-        //     }
-        //   }
-        //   return resolve(context);
-        // } catch (e) {
-        //   return reject(e);
         // }
       });
     });
@@ -559,7 +548,7 @@ class HttpKernel extends Service {
       return 200;
     }
     const error = `DOMAIN Unauthorized : ${context.domain}`;
-    throw new nodefony.Error(error, 401);
+    throw new HttpError(error, 401);
   }
 
   isValidDomain(context: ContextType): boolean {

@@ -20,7 +20,7 @@
     "build": "npm run rollup",
     "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "test": "npm run --prefix ./src/nodefony test && npm --prefix ./src/packages test",
-    "dev": "npm run --prefix ./src/nodefony dev && npm --prefix ./src/packages dev",
+    "dev": "npm run rollup -- --watch",
     "certificates": "bash bin/generateCertificates.sh"
   },
   "workspaces": [
