@@ -10,7 +10,7 @@ import websocket from "websocket";
 
 import { ContextType } from "../../service/http-kernel";
 
-type SameSiteType = boolean | "none" | "lax" | "strict";
+type SameSiteType = boolean | "none" | "Lax" | "Strict";
 type PriorityType = "High" | "Medium" | "Low" | undefined;
 
 declare module "websocket" {
@@ -48,8 +48,8 @@ const cookieDefaultSettings: CookieOptionsType = {
   maxAge: 0, // 24*60*60,
   path: "/",
   domain: undefined,
-  secure: false,
-  sameSite: "none",
+  secure: true,
+  sameSite: "Lax",
   httpOnly: true,
   signed: false,
   secret: "!nodefony.secret!",
@@ -390,4 +390,4 @@ class Cookie {
 }
 
 export default Cookie;
-export { cookiesParser, parser, getRequestcookies };
+export { cookiesParser, parser, parserWs, getRequestcookies };

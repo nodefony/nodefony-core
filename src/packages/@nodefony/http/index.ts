@@ -7,6 +7,7 @@ import WebsocketServer from "./nodefony/service/servers/server-websocket";
 import WebsocketSecureServer from "./nodefony/service/servers/server-websocket-secure";
 import StaticServer from "./nodefony/service/servers/server-static";
 import networkCommand from "./nodefony/command/networkCommand";
+import sessionService from "./nodefony/service/sessions/sessions-service";
 import { fileURLToPath } from "url";
 import Certificate from "./nodefony/service/certificates";
 
@@ -17,8 +18,9 @@ class Http extends Module {
     super("http", kernel, fileURLToPath(import.meta.url), config);
     this.httpKernel = null;
     this.addCommand(networkCommand);
-    this.httpKernel = this.addService(HttpKernel) as HttpKernel;
+    this.httpKernel = this.addService(HttpKernel, this.kernel) as HttpKernel;
     this.addService(Certificate, this.httpKernel);
+    this.addService(sessionService, this.httpKernel);
   }
 
   async onStart(): Promise<this> {

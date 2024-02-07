@@ -9,6 +9,7 @@ import formidable, { IncomingForm } from "formidable";
 import { Container } from "nodefony";
 import { ParserXml, ParserQs, Parser, acceptParser } from "./parser";
 import nodefony, { extend, Pdu, Message, Severity, Msgid } from "nodefony";
+import Session from "../../session/session";
 
 const reg = /(.*)[\[][\]]$/u;
 
@@ -27,12 +28,14 @@ declare module "url" {
 declare module "http" {
   interface IncomingMessage {
     body: any;
+    session: Session;
   }
 }
 
 declare module "http2" {
   interface Http2ServerRequest {
     body: any;
+    session: Session;
   }
 }
 

@@ -96,7 +96,7 @@ class nodefonyError extends Error {
   //public actual : string
   [key: string]: any;
 
-  constructor(message: string | Error, code?: number) {
+  constructor(message?: string | Error, code?: number) {
     if (message instanceof Error) {
       super(message.message);
     } else {

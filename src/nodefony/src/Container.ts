@@ -51,22 +51,22 @@ const parseParameterString = function (
 };
 
 // Déclaration d'un objet hétérogène
-interface DynamicService {
+export interface DynamicService {
   [cleDynamic: string]: any; // Propriétés dynamiques de tout type
 }
 
-interface DynamicParam {
+export interface DynamicParam {
   [cleDynamic: string]: any; // Propriétés dynamiques de tout type
 }
 
-interface Scopes {
+export interface Scopes {
   [nameScope: string]: {
     [idContainer: string]: Container;
   };
 }
 
-type ProtoService = { (): void; [key: string]: any };
-type ProtoParameters = { (): void; [key: string]: any };
+export type ProtoService = { (): void; [key: string]: any };
+export type ProtoParameters = { (): void; [key: string]: any };
 type ProtoParametersPrototype = ReturnType<
   typeof Container.prototype.protoParameters.prototype
 >;
@@ -79,11 +79,9 @@ type ProtoParametersPrototype = ReturnType<
 class Container {
   public protoService: ProtoService = function () {};
   protected services: ProtoService | null;
-
   public protoParameters: ProtoParameters = function () {};
   protected parameters: ProtoService | null;
-
-  private id: string;
+  protected id: string;
   private scopes: Scopes = {};
 
   constructor(services: DynamicService = {}, parameters: DynamicParam = {}) {
@@ -226,6 +224,13 @@ class Container {
     this.services = null;
     this.parameters = null;
   }
+  public reset(): void {
+    this.clean();
+    this.protoService = function () {};
+    this.protoParameters = function () {};
+    this.services = Object.create(this.protoService.prototype);
+    this.parameters = Object.create(this.protoParameters.prototype);
+  }
 }
 
 /*
@@ -268,4 +273,4 @@ class Scope extends Container {
 }
 
 export default Container;
-export { DynamicParam, Scope };
+export { Scope };

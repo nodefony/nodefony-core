@@ -4,6 +4,7 @@ import nodefony, {
   Container,
   Event,
   Scope,
+  Kernel,
   typeOf,
 } from "nodefony";
 import HttpError from "../src/errors/httpError";
@@ -22,6 +23,8 @@ import clc from "cli-color";
 
 import Certicates from "./certificates";
 import websocket from "websocket";
+import SessionsService from "./sessions/sessions-service";
+import Session from "../src/session/session";
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -58,6 +61,7 @@ class HttpKernel extends Service {
   module: Module;
   httpsPort?: number;
   httpPort?: number;
+
   responseTimeout: {
     http: number;
     https: number;
@@ -68,9 +72,11 @@ class HttpKernel extends Service {
     ws: number;
     wss: number;
   };
-  constructor(module: Module) {
-    const container: Container = module.container as Container;
-    const event: Event = module.notificationsCenter as Event;
+  sessionService?: SessionsService;
+  sessionAutoStart: boolean | string = false;
+  constructor(module: Module, kernel: Kernel) {
+    const container: Container = kernel.container as Container;
+    const event: Event = kernel.notificationsCenter as Event;
     super(serviceName, container, event, module.options);
     this.module = module;
     this.container?.addScope("request");
@@ -80,6 +86,8 @@ class HttpKernel extends Service {
       this.domain = this.kernel?.domain as string;
       this.domainAlias = this.kernel?.options?.domainAlias;
       this.regAlias = this.compileAlias();
+      this.sessionService = this.get("sessions");
+      this.sessionAutoStart = this.sessionService?.sessionAutoStart as boolean;
     });
     this.responseTimeout = {
       http: this.options.http.responseTimeout,
@@ -107,7 +115,6 @@ class HttpKernel extends Service {
       case "http2":
         log = clc.cyan.bgBlue(`${(request as httpRequest).url}`);
         this.log(`${log}`, "DEBUG", `${type}`);
-
         return this.handleHttp(
           scope as Scope,
           request as httpRequest,
@@ -129,32 +136,41 @@ class HttpKernel extends Service {
   async handleFrontController(context: ContextType): Promise<any> {}
 
   async onError(error: Error | HttpError, context: ContextType): Promise<any> {
-    const code = error.code === 200 ? 500 : !error.code ? 500 : error.code;
-    if (!(error instanceof HttpError)) {
-      error = new HttpError(error as Error, error.code, context);
-    }
-    error.code = code;
-    let log = "";
-    switch (true) {
-      case context instanceof HttpContext: {
-        context.response.setStatusCode(code, error.message);
-        if (this.kernel?.debug) {
-          this.log(error.toString(), "ERROR");
-        } else {
-          this.log(error.message, "ERROR");
-        }
-        return await context.send(error.message);
+    try {
+      const code = error.code === 200 ? 500 : !error.code ? 500 : error.code;
+      if (!(error instanceof HttpError)) {
+        error = new HttpError(error as Error, error.code, context);
       }
-      case context instanceof WebsocketContext: {
-        if (this.kernel?.debug) {
-          this.log(error.toString(), "ERROR");
-        } else {
-          this.log(error.message, "ERROR");
-        }
-        return;
+      error.code = code;
+      if (context) {
+        context.error = error;
       }
-      default:
-        throw error;
+      switch (true) {
+        case context instanceof HttpContext: {
+          context.response.setStatusCode(code, error.message);
+          if (this.kernel?.debug) {
+            this.log(error.toString(), "ERROR");
+          } else {
+            if (error.message) this.log(error.message, "ERROR");
+          }
+          context.response.setContentType("text");
+          return context.send(error.message).catch((e) => {
+            throw e;
+          });
+        }
+        case context instanceof WebsocketContext: {
+          if (this.kernel?.debug) {
+            this.log(error.toString(), "ERROR");
+          } else {
+            this.log(error.message, "ERROR");
+          }
+          return;
+        }
+        default:
+          throw error;
+      }
+    } catch (e) {
+      throw e;
     }
   }
 
@@ -261,6 +277,28 @@ class HttpKernel extends Service {
     return servers;
   }
 
+  async startSession(
+    context: WebsocketContext | HttpContext
+  ): Promise<Session | null> {
+    if (
+      this.sessionService &&
+      (this.sessionAutoStart || context.hasSession())
+    ) {
+      return this.sessionService
+        .start(context, this.sessionAutoStart as string)
+        .then((session: Session | null) => {
+          // if (this.firewall) {
+          //   this.firewall.getSessionToken(context, session);
+          // }
+          return session;
+        })
+        .catch((e) => {
+          throw e;
+        });
+    }
+    return Promise.resolve(null);
+  }
+
   createHttpContext(
     scope: Scope,
     request: httpRequest,
@@ -285,9 +323,9 @@ class HttpKernel extends Service {
           context.clean();
         });
       }
-
       return context;
     } catch (e) {
+      console.trace(e);
       this.log(e, "ERROR");
       throw e;
     }
@@ -350,6 +388,20 @@ class HttpKernel extends Service {
         // DOMAIN VALID
         if (this.kernel?.options.domainCheck) {
           this.checkValidDomain(context);
+        }
+        // SESSIONS
+        try {
+          await this.startSession(context);
+          // CSRF TOKEN
+          // if (context.csrf) {
+          //   const token = await this.csrfService.handle(context);
+          //   if (token) {
+          //     this.log("CSRF TOKEN OK", "DEBUG");
+          //   }
+          // }
+          return resolve(context);
+        } catch (e) {
+          return reject(e);
         }
         return resolve(context);
         // // FRONT CONTROLLER

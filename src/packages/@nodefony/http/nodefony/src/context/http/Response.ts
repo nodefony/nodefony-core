@@ -4,6 +4,7 @@ import HttpContext from "../http/HttpContext";
 import nodefony, { extend, Pdu, Message, Severity, Msgid } from "nodefony";
 import mime from "mime-types";
 import { responseTimeoutType } from "../../../service/http-kernel";
+import Cookie from "../../cookies/cookie";
 
 const ansiRegex = function ({ onlyFirst = false } = {}) {
   const pattern = [
@@ -29,7 +30,7 @@ class HttpResponse {
   contentType: string = "application/octet-stream";
   headers: http.OutgoingHttpHeaders = {};
   timeout?: number; // miiliseconde
-  cookies?: any;
+  cookies: Record<string, Cookie> = {};
   constructor(
     response: http.ServerResponse | http2.Http2ServerResponse,
     context: HttpContext
@@ -40,14 +41,13 @@ class HttpResponse {
       this.context?.httpKernel?.responseTimeout[
         this.context.type as responseTimeoutType
       ];
+    this.setContentTypeByExtension("bin");
   }
 
   clean() {
     this.response = null;
-    this.cookies = null;
-    delete this.cookies;
     this.body = null;
-
+    this.cookies = {};
     // this.streamFile = null;
     // delete this.streamFile;
   }
@@ -61,15 +61,43 @@ class HttpResponse {
     this.timeout = ms;
   }
 
-  addCookie() {}
+  addCookie(cookie: Cookie) {
+    if (cookie instanceof Cookie) {
+      return (this.cookies[cookie.name] = cookie);
+    }
+    throw new Error("Response addCookies not valid cookies");
+  }
 
-  deleteCookie() {}
+  deleteCookie(cookie: Cookie) {
+    if (cookie instanceof Cookie) {
+      if (this.cookies[cookie.name]) {
+        delete this.cookies[cookie.name];
+        return true;
+      }
+      return false;
+    }
+    throw new Error("Response delCookie not valid cookies");
+  }
 
-  deleteCookieByName() {}
+  deleteCookieByName(name: string) {
+    if (this.cookies[name]) {
+      delete this.cookies[name];
+      return true;
+    }
+    return false;
+  }
 
-  setCookies() {}
+  setCookies() {
+    for (const cook in this.cookies) {
+      this.setCookie(this.cookies[cook]);
+    }
+  }
 
-  setCookie() {}
+  setCookie(cookie: Cookie) {
+    const serialize = cookie.serialize();
+    this.log(`ADD COOKIE ==> ${serialize}`, "DEBUG");
+    return this.setHeader("Set-Cookie", serialize);
+  }
 
   // ADD INPLICIT HEADER
   setHeader(name: string, value: string | number) {
@@ -100,7 +128,32 @@ class HttpResponse {
     return (this.headers = this.response.getHeaders());
   }
 
-  setContentType(type: string, encoding: BufferEncoding) {
+  setContentType(type?: string, encoding?: BufferEncoding) {
+    if (type && encoding) {
+      const mytype = mime.contentType(type);
+      if (!mytype) {
+        this.log(`setContentType: ${type}  not found`, "WARNING");
+      }
+      return this.setHeader("Content-Type", `${type}; charset=${encoding}`);
+    }
+    if (type && !encoding) {
+      const mytype = mime.contentType(type);
+      if (mytype) {
+        this.contentType = mytype;
+        let charset = mime.charset(this.contentType);
+        if (charset) {
+          this.encoding = charset as BufferEncoding;
+        }
+        return this.setHeader("Content-Type", mytype);
+      }
+    }
+    return this.setHeader(
+      "Content-Type",
+      `${this.contentType}; charset=${this.encoding}`
+    );
+  }
+
+  setFileMimeType(type: string, encoding?: BufferEncoding) {
     let myType = this.getMimeType(type);
     if (!myType) {
       this.log(`Content-Type not valid !!! : ${type}`, "WARNING");
@@ -111,6 +164,19 @@ class HttpResponse {
       "Content-Type",
       `${myType} ; charset=${encoding || this.encoding}`
     );
+  }
+
+  setContentTypeByExtension(extention: string) {
+    const ismime = mime.contentType(extention);
+    if (ismime) {
+      this.contentType = ismime;
+      let charset = mime.charset(this.contentType);
+      if (charset) {
+        this.encoding = charset as BufferEncoding;
+      }
+      return this.setHeader("Content-Type", ismime);
+    }
+    this.log(`setContentTypeByExtension: ${extention}  not found`, "WARNING");
   }
 
   getMimeType(filenameOrExt: string): string | false {

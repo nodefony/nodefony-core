@@ -272,9 +272,9 @@ class Finder extends Event {
   public settings: DefaultSettingsInterface;
   public totals: TotalInterface;
 
-  constructor(settings: DefaultSettingsInterface) {
+  constructor(settings: DefaultSettingsInterface = {}) {
     super(settings);
-    this.settings = extend({}, defaultSettings, settings || {});
+    this.settings = extend({}, defaultSettings, settings);
     this.totals = {
       Directory: 0,
       File: 0,

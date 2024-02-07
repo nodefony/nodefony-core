@@ -25,6 +25,7 @@ const external: string[] = [
   "mime-types",
   "moment",
   "node-emoji",
+  "node-fetch",
   "rxjs",
   "semver",
   "shelljs",
@@ -66,7 +67,7 @@ const sharedBinaryOptions = defineConfig({
     file: "./bin/nodefony",
     exports: "default",
     format: "esm",
-    externalLiveBindings: false,
+    //externalLiveBindings: false,
     //freeze: false,
   },
   onwarn(warning, warn) {
@@ -247,8 +248,8 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
     output: {
       ...sharedNodeOptions.output,
       sourcemap: !isProduction,
-      //preserveModules: true,
-      //preserveModulesRoot: "src",
+      preserveModules: !isProduction,
+      preserveModulesRoot: "src",
     },
     external,
     plugins: [

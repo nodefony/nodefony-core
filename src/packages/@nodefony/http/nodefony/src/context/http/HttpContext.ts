@@ -55,7 +55,9 @@ class HttpContext extends Context {
   isHtml: boolean = false;
   request: HttpRequestType;
   response: HttpRsponseType;
-  session: Session | null = null;
+  resolver: any | null = null;
+  router: any | null = null;
+  isJson: boolean = false;
   constructor(
     container: Container,
     request: http.IncomingMessage | http2.Http2ServerRequest,
@@ -106,8 +108,13 @@ class HttpContext extends Context {
       );
     }
     this.isHtml = this.request.acceptHtml;
+    this.setDefaultContentType();
     this.domain = this.getHostName();
     this.validDomain = this.isValidDomain();
+    this.parseCookies();
+    this.cookieSession = this.getCookieSession(
+      this.sessionService?.defaultSessionName as string
+    );
 
     this.once("onTimeout", () => {
       let error = null;
@@ -124,6 +131,7 @@ class HttpContext extends Context {
   handle(/*data*/): Promise<this> {
     return new Promise(async (resolve, reject) => {
       try {
+        this.setTimeout();
         if (this.isRedirect) {
           await this.send();
           return resolve(this);
@@ -137,25 +145,16 @@ class HttpContext extends Context {
         }
         this.setParameters("query.request", this.request.query);
         //this.locale = this.translation.handle();
-        // if (!this.resolver) {
-        //   this.resolver = this.router.resolve(this);
-        // }
         // WARNING EVENT KERNEL
         this.fire("onRequest", this);
         this.kernel?.fire("onRequest", this);
-        this.setTimeout();
-        //this.response.setHeader("Content-Type", "text/plain");
-        //this.response.setStatusCode(404);
-        //await this.send(`${this.response.statusMessage}`);
-        throw new Error(`sksksksk`);
-        // if (this.resolver.resolve) {
-        //   const ret = this.resolver.callController(data);
-        //   return resolve(ret);
-        // }
-        // const error = new Error("");
-        // error.code = 404;
-        // return reject(error);
-        return resolve(this);
+        if (!this.resolver && this.router) {
+          this.resolver = this.router.resolve(this);
+        }
+        if (this.resolver && this.resolver.resolve) {
+          return resolve(this.resolver.callController());
+        }
+        return reject(new HttpError("", 404, this));
       } catch (e) {
         return reject(e);
       }
@@ -177,27 +176,38 @@ class HttpContext extends Context {
   ): Promise<
     http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
   > {
-    if (this.sended || this.finished) {
-      return new Promise((resolve, reject) => {
-        reject(new Error("Already sended"));
-      });
-    }
+    // if (this.sended || this.finished) {
+    //   return new Promise((resolve, reject) => {
+    //     reject(new Error("Already sended"));
+    //   });
+    // }
     return this.saveSession()
-      .then(async (session) => {
+      .then(async (session: Session | null) => {
         if (session) {
           //this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
         }
         await this.fireAsync("onSend", this.response, this);
-        this.writeHead();
+        try {
+          this.writeHead();
+        } catch {}
         if (!this.isRedirect) {
-          return this.write(chunk, encoding);
+          return this.write(chunk, encoding).catch((e) => {
+            throw e;
+          });
         }
-        return this.response.end();
+        return this.response.end().catch((e) => {
+          return this.write(e.message);
+        });
       })
       .catch(async (error) => {
         this.log(error, "ERROR");
-        this.writeHead(error.code || 500);
-        this.write(chunk, encoding);
+        try {
+          this.writeHead(error.code || 500);
+        } catch {}
+
+        await this.write(error.message, encoding).catch((e) => {
+          throw e;
+        });
         return error;
       });
   }
@@ -208,7 +218,7 @@ class HttpContext extends Context {
   ) {
     // cookies
     if (this.response) {
-      //this.response.setCookies();
+      this.response.setCookies();
       this.response.writeHead(statusCode, headers);
     }
   }
@@ -220,16 +230,24 @@ class HttpContext extends Context {
   ): Promise<
     http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
   > {
-    if (this.finished || this.sended) {
-      throw new Error(`Already sended `);
-    }
+    // if (this.finished || this.sended) {
+    //   throw new Error(`Already sended `);
+    // }
     /*
      * WRITE RESPONSE
      */
-    this.sended = true;
-    this.response.send(chunk, encoding);
+    await this.response
+      .send(chunk, encoding)
+      .then(() => {
+        this.sended = true;
+      })
+      .catch((e) => {
+        throw e;
+      });
     // END REQUEST
-    return this.close();
+    return this.close().catch((e) => {
+      throw e;
+    });
   }
 
   flush(chunk: any, encoding: BufferEncoding) {
@@ -241,7 +259,9 @@ class HttpContext extends Context {
   > {
     await this.fireAsync("onClose", this);
     // END REQUEST
-    return this.response.end();
+    return this.response.end().catch((e) => {
+      throw e;
+    });
   }
 
   redirect(
@@ -327,6 +347,15 @@ class HttpContext extends Context {
 
   getMethod(): HTTPMethod {
     return this.request?.getMethod();
+  }
+
+  setDefaultContentType() {
+    if (this.isHtml) {
+      this.response.setContentType("html", "utf-8");
+    } else if (this.request.accepts("json")) {
+      this.isJson = true;
+      this.response.setContentType("json", "utf-8");
+    }
   }
 }
 

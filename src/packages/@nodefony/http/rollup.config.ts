@@ -40,8 +40,6 @@ const sharedNodeOptions = defineConfig({
     //chunkFileNames: "node/chunks/dep-[hash].js",
     exports: "auto",
     format: "esm",
-    externalLiveBindings: false,
-    freeze: false,
   },
   onwarn(warning, warn) {
     if (warning.message.includes("Circular dependency")) {
@@ -88,8 +86,8 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
     output: {
       ...sharedNodeOptions.output,
       sourcemap: !isProduction,
-      //preserveModules: true,
-      //preserveModulesRoot: "src",
+      preserveModules: !isProduction,
+      preserveModulesRoot: "nodefony",
     },
     external,
     plugins: [...createNodePlugins(isProduction, true, "dist/types")],

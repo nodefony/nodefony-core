@@ -151,6 +151,7 @@ class Kernel extends Service {
       undefined, //cli.notificationsCenter as Event,
       extend({}, kernelDefaultOptions, options)
     );
+    this.setMaxListeners(30);
     Nodefony.setKernel(this);
     this.kernel = this;
     this.set("kernel", this);

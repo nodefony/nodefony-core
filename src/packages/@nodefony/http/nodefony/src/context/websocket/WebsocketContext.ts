@@ -34,6 +34,18 @@ class WebsocketContext extends Context {
   async connect(): Promise<any> {}
 
   async handle(): Promise<any> {}
+
+  getRemoteAddress(): string | null {
+    return this.request?.remoteAddress;
+  }
+
+  getHost(): string | undefined {
+    return this.request.httpRequest.headers.host;
+  }
+
+  getUserAgent(): string {
+    return "";
+  }
 }
 
 export default WebsocketContext;

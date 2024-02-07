@@ -4,21 +4,29 @@ import { ContextType } from "../../service/http-kernel";
 import { HttpRequestType, HttpRsponseType } from "../context/http/HttpContext";
 
 class HttpError extends NodefonyError {
-  context: ContextType;
-  response: HttpRsponseType;
-  request: HttpRequestType;
-  url: string;
+  context?: ContextType;
+  response?: HttpRsponseType;
+  request?: HttpRequestType;
+  url?: string;
   constructor(
-    message: string | NodefonyError | Error,
-    code: number,
-    context: ContextType
+    message?: string | NodefonyError | Error,
+    code?: number,
+    context?: ContextType
   ) {
-    super(message, code || context.response?.statusCode);
-
+    super(message, code);
     this.context = context;
-    this.response = context.response as HttpRsponseType;
-    this.request = context.request as HttpRequestType;
-    this.url = this.context.url;
+    this.response = context?.response as HttpRsponseType;
+    this.request = context?.request as HttpRequestType;
+    this.url = this.context?.url;
+    if (this.response && code) {
+      this.response.statusCode = code;
+    }
+    if (!this.message) {
+      this.message =
+        (context?.response as HttpRsponseType)?.body?.toString() ||
+        (context?.response as HttpRsponseType)?.statusMessage ||
+        (context?.response as HttpRsponseType)?.getStatusMessage();
+    }
   }
 
   override toString(): string {
@@ -26,10 +34,9 @@ class HttpError extends NodefonyError {
       return `${clc.red(this.message)}
     ${clc.blue("Name :")} ${this.name}
     ${clc.blue("Type :")} ${this.errorType}
-    ${clc.blue("Url :")} ${this.url}
     ${clc.green("Controller :")} ${this.controller}
     ${clc.green("Action :")} ${this.action}
-    ${clc.blue("clientRequest :")} ${this.requestUrl}
+    ${clc.blue("Url :")} ${this.url}
       ${clc.red("Code :")} ${this.code}
       ${clc.red("Message :")} ${this.message}
       ${clc.red("Response :")} ${this.jsonResponse}
@@ -38,7 +45,7 @@ class HttpError extends NodefonyError {
     return `${clc.red(this.message)}
     ${clc.blue("Name :")} ${this.name}
     ${clc.blue("Type :")} ${this.errorType}
-    ${clc.blue("clientRequest :")} ${this.requestUrl}
+    
       ${clc.red("Code :")} ${this.code}
       ${clc.red("Message :")} ${this.message}
       ${clc.red("Response :")} ${this.jsonResponse}
@@ -173,6 +180,16 @@ export default HttpError;
 //         }*/
 //       }
 //     }
+
+// parserResponse() {
+//   const json = this.response?.toJSON();
+//   if (json) {
+//     this.requestUrl = json.request.uri.href;
+//     this.code = json.statusCode;
+//     this.jsonResponse = JSON.stringify(json, null, " ");
+//   }
+//   this.parseMessage(json.body);
+// }
 
 // parserResponse() {
 //   const json = this.response.toJSON();

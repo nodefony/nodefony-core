@@ -37,7 +37,11 @@ class Http2Response extends HttpResponse {
           if (this.context.method === "HEAD" || this.context.contentLength) {
             this.setHeader("Content-Length", this.getLength());
           }
-          this.headers = extend(this.getHeaders(), headers);
+          this.headers = extend(
+            { "X-Status-Message": this.statusMessage },
+            this.getHeaders(),
+            headers
+          );
           if (this.statusCode) {
             if (typeof this.statusCode === "string") {
               this.statusCode = parseInt(this.statusCode, 10);
@@ -90,9 +94,9 @@ class Http2Response extends HttpResponse {
             encoding || this.encoding,
             (error) => {
               if (error) {
-                reject(false);
+                return reject(error);
               }
-              resolve(true);
+              return resolve(true);
             }
           );
         }
@@ -121,9 +125,18 @@ class Http2Response extends HttpResponse {
     });
   }
 
-  override getStatusMessage(code?: string | number | undefined): string {
-    // return this.statusMessage || http.STATUS_CODES[this.statusCode];
-    return "";
+  getStatusMessage(code?: number | string): string {
+    if (code) {
+      if (this.response) {
+        return (http.STATUS_CODES[code] as string) || this.statusMessage;
+      }
+    }
+    if (this.response) {
+      return (
+        this.statusMessage || (http.STATUS_CODES[this.statusCode] as string)
+      );
+    }
+    return this.statusMessage || (http.STATUS_CODES[this.statusCode] as string);
   }
 
   override getStatus(): { code: number; message: string } {

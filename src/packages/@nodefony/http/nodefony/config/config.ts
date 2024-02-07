@@ -1,47 +1,6 @@
 import { kernel } from "nodefony";
 import path from "node:path";
 import fs from "node:fs";
-import { Hash, createHash } from "node:crypto";
-
-const readFile = function (Path: fs.PathOrFileDescriptor): string {
-  try {
-    return fs.readFileSync(Path, {
-      encoding: "utf8",
-    });
-  } catch (e) {
-    console.error(e);
-    throw e;
-  }
-};
-
-const createSecret = function (cwd: string = process.cwd()): string {
-  const sercretPath = path.resolve(
-    cwd,
-    "nodefony",
-    "config",
-    "certificates",
-    "server",
-    "private.key.pem"
-  );
-  return createHash("sha512")
-    .update(readFile(sercretPath))
-    .digest("base64")
-    .substr(0, 32);
-};
-
-const createIv = function () {
-  const sercretPath = path.resolve(
-    "nodefony",
-    "config",
-    "certificates",
-    "server",
-    "public.key.pem"
-  );
-  return createHash("sha512")
-    .update(readFile(sercretPath))
-    .digest("base64")
-    .substr(0, 16);
-};
 
 const tmpDir = kernel?.tmpDir.path || "/tmp";
 
@@ -174,12 +133,12 @@ export default {
    */
   session: {
     applyTransaction: true, // sequelize transaction session entity
-    start: false, // false || true || Name Session Context
+    start: true, // false || true || Name Session Context
     use_strict_mode: true,
     name: "nodefony",
     handler: "files", // files | orm | memcached  "nodefony.session.storage"
     save_path: "/tmp/sessions",
-    gc_probability: 1,
+    gc_probability: 5,
     gc_divisor: 100,
     gc_maxlifetime: 1440,
     hash_function: "md5", // sha1
@@ -189,14 +148,9 @@ export default {
     cookie: {
       maxAge: 0, // like cookie_lifetime   =>seconde
       httpOnly: true, // don't see by script (javascript)
-      secure: false, // https only
+      secure: true, // https only
       signed: false,
     },
-    // encrypt: {
-    //   algorithm: "aes-256-ctr",
-    //   password: createSecret(),
-    //   iv: createIv(),
-    // },
 
     /**
      * SERVICE memcached
