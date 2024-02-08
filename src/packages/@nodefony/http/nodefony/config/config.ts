@@ -1,8 +1,6 @@
 import { kernel } from "nodefony";
-import path from "node:path";
-import fs from "node:fs";
 
-const tmpDir = kernel?.tmpDir.path || "/tmp";
+const tmpDir = kernel?.tmpDir?.path || "/tmp";
 
 export default {
   watch: false,

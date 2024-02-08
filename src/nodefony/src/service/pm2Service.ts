@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
+import { extend } from "../Tools";
 import Module from "../kernel/Module";
 import Cli from "../Cli";
 import Event from "../Event";
@@ -8,9 +9,19 @@ import clc from "cli-color";
 
 import pm2, { StartOptions, ProcessDescription } from "pm2";
 
+const defaulOptions: StartOptions = {
+  script: process.argv[1] || "nodefony",
+  args: "production",
+  env: {
+    NODE_ENV: "production",
+    MODE_START: "PM2",
+  },
+};
+
 class Pm2 extends Service {
   pm2: typeof pm2 = pm2;
   constructor(module: Module, options?: StartOptions) {
+    options = extend({}, defaulOptions, options || {});
     super(
       "pm2",
       module.container as Container,
