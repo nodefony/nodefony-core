@@ -9,7 +9,7 @@ import Start from "./commands/StartCommand";
 import Dev from "./commands/DevCommand";
 import Prod from "./commands/ProdCommand";
 import Install from "./commands/InstallCommand";
-import Pm2 from "./commands/pm2/pm2Command";
+import Pm2 from "./commands/pm2/Pm2Command";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import commander from "commander";
