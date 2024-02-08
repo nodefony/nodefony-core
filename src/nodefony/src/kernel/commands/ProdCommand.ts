@@ -78,7 +78,7 @@ class Prod extends Command {
     return new Promise((resolve, reject) => {
       process.nextTick(async () => {
         try {
-          await pm2Service.tablePm2Process(this.cli);
+          await pm2Service.tablePm2Process(null, this.cli);
           this.log(`
 
 PM2 Process Manager 2 :

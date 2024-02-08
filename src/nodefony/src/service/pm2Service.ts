@@ -1,3 +1,4 @@
+/* eslint-disable no-async-promise-executor */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { extend } from "../Tools";
 import Module from "../kernel/Module";
@@ -28,6 +29,10 @@ class Pm2 extends Service {
       module.notificationsCenter as Event,
       options as StartOptions
     );
+  }
+
+  disconnect(): void {
+    return pm2.disconnect();
   }
 
   async pm2Start(): Promise<void> {
@@ -75,12 +80,40 @@ class Pm2 extends Service {
     });
   }
 
-  static async tablePm2Process(cli: Cli): Promise<string> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async flush(name: string | number = "all"): Promise<ProcessDescription[]> {
+    return new Promise((resolve, reject) => {
+      return pm2.flush(name, (error, result: ProcessDescription[]) => {
+        if (error) {
+          this.log(error, "ERROR");
+          return reject(error);
+        }
+        return resolve(result);
+      });
+    });
+  }
+
+  static async list(): Promise<ProcessDescription[]> {
     return new Promise((resolve, reject) => {
       pm2.list((err: Error, processDescriptionList: ProcessDescription[]) => {
         if (err) {
           return reject(err);
         }
+        return resolve(processDescriptionList);
+      });
+    });
+  }
+
+  static async tablePm2Process(
+    processDescriptionList: ProcessDescription[] | null | undefined,
+    cli: Cli,
+    disconnect: boolean = false
+  ): Promise<string> {
+    return new Promise(async (resolve, reject) => {
+      if (!processDescriptionList) {
+        processDescriptionList = await Pm2.list();
+      }
+      try {
         const table = cli.displayTable([], {
           head: [
             clc.blue("App name"),
@@ -159,8 +192,13 @@ class Pm2 extends Service {
         const str = table.toString();
         cli.log(`
 ${str}`);
+        if (disconnect) {
+          pm2.disconnect();
+        }
         return resolve(str);
-      });
+      } catch (e) {
+        return reject(e);
+      }
     });
   }
 }

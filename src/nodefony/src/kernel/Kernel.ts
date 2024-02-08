@@ -206,6 +206,9 @@ class Kernel extends Service {
 
       // parse command
       if (this.cli && !this.command) {
+        this.cli.clear();
+        await this.cli.showAsciify(this.projectName);
+        this.cli.showBanner();
         await this.cli.parseCommandAsync().catch((e) => {
           throw e;
         });

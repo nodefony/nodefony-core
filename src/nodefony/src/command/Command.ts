@@ -103,7 +103,7 @@ class Command extends Service {
   }
   //end Events
   public cli: Cli | CliKernel;
-  private command: Cmd | null = null;
+  public command: Cmd;
   public program: typeof program;
   public json: boolean = false;
   public debug: boolean = false;
@@ -149,7 +149,7 @@ class Command extends Service {
     this.cli = cli;
     this.program = this.cli.commander as Cmd;
     this.kernelEvent = this.options.kernelEvent;
-    this.createCommand(name, description);
+    this.command = this.createCommand(name, description);
     this.command?.action((...args: any[]) => {
       if (this.kernel) {
         this.kernel.command = this;
@@ -257,11 +257,12 @@ class Command extends Service {
     this.interactive = this.cli?.commander?.opts().interactive || false;
   }
   private createCommand(name: string, description?: string): Cmd {
-    this.command = new Cmd(name);
+    const cmd = new Cmd(name);
     if (description) {
-      this.command.description(description);
+      cmd.description(description);
     }
-    return this.program.addCommand(this.command);
+    this.program.addCommand(cmd);
+    return cmd;
   }
   public alias(name: string): Cmd | undefined {
     return this.command?.alias(name);

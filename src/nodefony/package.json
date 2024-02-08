@@ -93,6 +93,7 @@
     "@types/chai": "4.3.11",
     "@types/cli-color": "2.0.6",
     "@types/clui": "0.3.4",
+    "@types/inquirer": "9.0.7",
     "@types/lodash": "4.14.202",
     "@types/mime-types": "2.1.4",
     "@types/mocha": "10.0.6",
