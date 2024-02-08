@@ -1,18 +1,17 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import Cli from "../../Cli";
 import Kernel from "../Kernel";
-import pm2, { StartOptions, ProcessDescription } from "pm2";
-import path from "path";
-import clc from "cli-color";
+import pm2 from "pm2";
+import pm2Service from "../../service/pm2Service";
 
 const options: OptionsCommandInterface = {
-  showBanner: false,
+  showBanner: true,
   kernelEvent: "onPostReady",
 };
 
 class Prod extends Command {
+  service?: pm2Service;
   constructor(cli: CliKernel) {
     super(
       "production",
@@ -21,7 +20,6 @@ class Prod extends Command {
       options
     );
     this.alias("prod");
-    this.alias("pm2");
     this.addOption(
       "--no-daemon",
       "Nodefony Deamon off for production mode (usefull for docker)"
@@ -35,6 +33,7 @@ class Prod extends Command {
   override async onKernelStart(): Promise<void> {
     (this.cli as CliKernel).setType("SERVER");
     this.cli.environment = "production";
+    this.service = this.get("pm2");
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
@@ -44,18 +43,22 @@ class Prod extends Command {
         // is pm2
         return this.kernel as Kernel;
       } else {
-        return await this.pm2Start()
+        if (!this.service) {
+          throw new Error(`Service PM2 nor found `);
+        }
+        await this.service
+          .pm2Start()
           .then(async () => {
             if (options.daemon) {
               this.cli.log(`DAEMONIZE Process
                       --no-daemon  if don't want DAEMONIZE  (Usefull for docker)
               `);
-              await this.showBannerPM2();
+              await this.showStatus();
               pm2.disconnect();
               return await this.cli.terminate(0);
             }
             this.log("NO DAEMONIZE");
-            await this.showBannerPM2();
+            await this.showStatus();
             return this.kernel as Kernel;
           })
           .catch(async (e) => {
@@ -71,78 +74,12 @@ class Prod extends Command {
     }
   }
 
-  pm2Start(): Promise<void> {
-    // eslint-disable-next-line no-async-promise-executor
-    return new Promise(async (resolve, reject) => {
-      try {
-        const config = await this.getPm2Config();
-        //console.log(config);
-        if (!config.name) {
-          config.name = this.kernel?.projectName;
-        }
-
-        return pm2.connect((err: Error) => {
-          if (err) {
-            this.log(err, "ERROR");
-            return reject(err);
-          }
-          return pm2.start(config, (err: Error) => {
-            if (err) {
-              this.log(err, "ERROR");
-              return reject(err);
-            }
-            this.cli.log("PM2 started");
-            resolve();
-          });
-        });
-      } catch (e) {
-        return reject(e);
-      }
-    });
-  }
-
-  async getPm2Config(): Promise<StartOptions> {
-    if (this.kernel?.pm2Config) {
-      return this.kernel?.pm2Config;
-    }
-    const cli = this.cli as CliKernel;
-    try {
-      const result = await cli.loadLocalModule(
-        path.resolve("nodedony", "config", "pm2", "pm2.config.js")
-      );
-      return result?.default as StartOptions;
-    } catch (e) {
-      this.log(`No PM2 config found `, "WARNING");
-      return {
-        script: process.argv[1] || "nodefony",
-        args: "pm2",
-        env: {
-          NODE_ENV: "production",
-          MODE_START: "PM2",
-        },
-      };
-    }
-  }
-
-  showBannerPM2(): Promise<void> {
+  showStatus(): Promise<void> {
     return new Promise((resolve, reject) => {
       process.nextTick(async () => {
         try {
-          pm2.list((err, processDescriptionList) => {
-            this.log("LIST PROCESS PM2");
-            if (err) {
-              this.log(err, "WARNING");
-            }
-            Prod.tablePm2Process(processDescriptionList, this.cli);
-            pm2.dump((err, result) => {
-              if (err) {
-                this.log(err, "WARNING");
-              }
-              this.log("PM2 SAVING process");
-              if (result.success) {
-                this.log(`${process.platform} PM2 process saved `);
-              }
-              this.log(`
+          await pm2Service.tablePm2Process(this.cli);
+          this.log(`
 
 PM2 Process Manager 2 :
    stop [name]                                             Stop Production Project
@@ -170,96 +107,12 @@ Examples with pm2 native tools :
 $ npx pm2 monit
 $ npx pm2 --lines 1000 logs
                     `);
-              return resolve();
-            });
-          });
+          return resolve();
         } catch (e) {
           return reject(e);
         }
       });
     });
   }
-
-  static tablePm2Process(apps: ProcessDescription[], cli: Cli) {
-    // console.log(apps)
-    let table = null;
-    table = cli.displayTable([], {
-      head: [
-        clc.blue("App name"),
-        clc.blue("id"),
-        clc.blue("mode"),
-        clc.blue("pid"),
-        clc.blue("status"),
-        clc.blue("restart"),
-        clc.blue("uptime"),
-        clc.blue("cpu"),
-        clc.blue("memory"),
-        clc.blue("username"),
-        clc.blue("watching"),
-      ],
-      // colWidths: [30, 15, 20, 15]
-    });
-    apps.forEach((ele) => {
-      // console.log(ele.pm2_env)
-      let cpu = "-";
-      let memory = "-";
-      if (ele.monit) {
-        cpu = `${ele.monit.cpu}%`;
-        memory = Cli.niceBytes(ele.monit.memory as number);
-      }
-      let exec_mode = "-";
-      //@ts-ignore
-      if (ele.pm2_env?.exec_mode) {
-        //@ts-ignore
-        exec_mode = ele.pm2_env.exec_mode;
-      }
-      let status = "-";
-      if (ele.pm2_env?.status) {
-        status = ele.pm2_env?.status;
-      }
-      if (ele.pm2_env?.status) {
-        status = ele.pm2_env.status;
-      }
-      let uptime = "-";
-      if (ele.pm2_env?.pm_uptime) {
-        uptime = Cli.niceUptime(ele.pm2_env?.pm_uptime);
-      }
-      let restart: string | number = "-";
-      if (ele.pm2_env?.restart_time || ele.pm2_env?.restart_time === 0) {
-        restart = ele.pm2_env.restart_time;
-      }
-      let username = "-";
-      //@ts-ignore
-      if (ele.pm2_env?.username) {
-        //@ts-ignore
-        username = ele.pm2_env.username;
-      }
-      let watch = "-";
-      //@ts-ignore
-      if (ele.pm2_env?.watch || ele.pm2_env?.watch === false) {
-        //@ts-ignore
-        watch = ele.pm2_env?.watch;
-      }
-      let pid: string | number = "-";
-      if (ele.pid) {
-        pid = ele.pid;
-      }
-      table.push([
-        ele.name,
-        ele.pm_id,
-        exec_mode,
-        pid,
-        status,
-        restart,
-        uptime,
-        cpu,
-        memory,
-        username,
-        watch,
-      ]);
-    });
-    console.log(table.toString());
-  }
 }
-
 export default Prod;

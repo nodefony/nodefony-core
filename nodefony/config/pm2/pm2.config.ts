@@ -36,7 +36,7 @@ const script: string = process.argv[1] || "nodefony";
 const conf: StartOptions = {
   name,
   script,
-  args: "pm2",
+  args: "production",
   //node_args: "--expose-gc",
   watch: false,
   exec_mode: "cluster",

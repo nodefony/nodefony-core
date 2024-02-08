@@ -9,6 +9,7 @@ import Start from "./commands/StartCommand";
 import Dev from "./commands/DevCommand";
 import Prod from "./commands/ProdCommand";
 import Install from "./commands/InstallCommand";
+import Pm2 from "./commands/pm2/pm2Command";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import commander from "commander";
@@ -76,64 +77,70 @@ class CliKernel extends Cli {
 
   override async start(options?: TypeKernelOptions): Promise<Kernel> {
     this.kernel = new Kernel(this.environment, this, options);
-
-    if (this.commander) {
-      this.addCommand(Start);
-      this.addCommand(Dev);
-      this.addCommand(Prod);
-      this.addCommand(Install);
-      this.commander.exitOverride();
-      this.commander.name(this.name);
-      this.commander.showHelpAfterError(false);
-      //this.commander.showSuggestionAfterError(false);
-      this.commander.configureHelp({
-        sortSubcommands: true,
-        sortOptions: true,
-        showGlobalOptions: true,
-        //subcommandTerm: (cmd) => cmd.name(), // Just show the name, instead of short usage.
-        // formatHelp: (cmd, help) => {
-        //   return cmd.helpInformation();
-        //   //return this.cli?.commander?.help();
-        // },
-      });
-
-      // // @ts-expect-error: overloaded  _outputConfiguration
-      // this.commander._outputConfiguration = {
-      //   writeOut: (str: string) => this.log(str), //process.stdout.write(str),
-      //   writeErr: (str: string) => this.log(str, "ERROR"), // process.stderr.write(str),
-      //   getOutHelpWidth: () =>
-      //     process.stdout.isTTY ? process.stdout.columns : undefined,
-      //   getErrHelpWidth: () =>
-      //     process.stderr.isTTY ? process.stderr.columns : undefined,
-      //   outputError: (str: string, write: (str: string) => void) => write(str),
-      // };
-      // // @ts-expect-error: overloaded  _hasHelpOption
-      //this.commander._hasHelpOption = false;
-
-      return this.commander
-        ?.parseAsync()
-        .then(async () => {
-          if (this.kernel) {
-            return this.kernel.start().catch(async (e) => {
-              //this.commander?.outputHelp({ error: false });
-              await this.kernel?.terminate();
-              throw e;
-            });
-          }
-          throw new Error(`Kernel not found`);
-        })
-        .catch(async () => {
-          if (this.kernel) {
-            return this.kernel?.start().catch(async (e) => {
-              //this.commander?.outputHelp({ error: false });
-              await this.kernel?.terminate();
-              throw e;
-            });
-          }
-          throw new Error(`Kernel not found`);
+    try {
+      if (this.commander) {
+        this.addCommand(Start);
+        this.addCommand(Dev);
+        this.addCommand(Prod);
+        this.addCommand(Install);
+        this.addCommand(Pm2);
+        this.commander.exitOverride();
+        this.commander.name(this.name);
+        this.commander.showHelpAfterError(false);
+        //this.commander.showSuggestionAfterError(false);
+        this.commander.configureHelp({
+          sortSubcommands: true,
+          sortOptions: true,
+          showGlobalOptions: true,
+          //subcommandTerm: (cmd) => cmd.name(), // Just show the name, instead of short usage.
+          // formatHelp: (cmd, help) => {
+          //   return cmd.helpInformation();
+          //   //return this.cli?.commander?.help();
+          // },
         });
+
+        // // @ts-expect-error: overloaded  _outputConfiguration
+        // this.commander._outputConfiguration = {
+        //   writeOut: (str: string) => this.log(str), //process.stdout.write(str),
+        //   writeErr: (str: string) => this.log(str, "ERROR"), // process.stderr.write(str),
+        //   getOutHelpWidth: () =>
+        //     process.stdout.isTTY ? process.stdout.columns : undefined,
+        //   getErrHelpWidth: () =>
+        //     process.stderr.isTTY ? process.stderr.columns : undefined,
+        //   outputError: (str: string, write: (str: string) => void) => write(str),
+        // };
+        // // @ts-expect-error: overloaded  _hasHelpOption
+        //this.commander._hasHelpOption = false;
+
+        return this.commander
+          ?.parseAsync()
+          .then(async () => {
+            if (this.kernel) {
+              return this.kernel.start().catch(async (e) => {
+                //this.commander?.outputHelp({ error: false });
+                await this.kernel?.terminate();
+                throw e;
+              });
+            }
+            throw new Error(`Kernel not found`);
+          })
+          .catch(async () => {
+            if (this.kernel) {
+              return this.kernel?.start().catch(async (e) => {
+                //this.commander?.outputHelp({ error: false });
+                await this.kernel?.terminate();
+                throw e;
+              });
+            }
+            throw new Error(`Kernel not found`);
+          });
+      }
+
+      throw new Error(`Commander not found`);
+    } catch (e) {
+      this.log(e, "ERROR");
+      throw e;
     }
-    throw new Error(`Commander not found`);
   }
 
   setType(type: KernelType): string {

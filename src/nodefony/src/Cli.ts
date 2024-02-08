@@ -487,7 +487,7 @@ class Cli extends Service {
   }
 
   runCommandAsync(cmd: string, args: any[] = []): Promise<commander.Command> {
-    // this.log(`Commnand : ${cmd} Arguments : ${args}`, "DEBUG", "COMMAND");
+    //this.log(`Commnand : ${cmd} Arguments : ${args}`, "DEBUG", "COMMAND");
     this.clearCommand();
     if (cmd) {
       process.argv.push(cmd);

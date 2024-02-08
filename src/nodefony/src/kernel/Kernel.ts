@@ -15,6 +15,7 @@ import { isSubclassOf } from "../Tools";
 import { Severity } from "../syslog/Pdu";
 import Module from "./Module";
 import Fetch from "../service/fetchService";
+import Pm2 from "../service/pm2Service";
 import { StartOptions } from "pm2";
 
 const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
@@ -139,7 +140,7 @@ class Kernel extends Service {
   uptime: number = new Date().getTime();
   numberCpu: number = os.cpus().length;
   modules: Record<string, ModuleType> = {};
-  tmpDir: FileClass = new FileClass(`${process.cwd()}/tmp`);
+  tmpDir?: FileClass;
   interfaces: NetworkInterface;
   domain: string = "localhost";
   progress: number = Events.onInit;
@@ -170,9 +171,22 @@ class Kernel extends Service {
     this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
     this.trunk = await this.isTrunk();
     if (!this.trunk && this.cli) {
-      this.cli.runCommand("start", ["-i"]);
-      return this;
+      return await this.cli
+        .runCommandAsync("start", ["-i"])
+        .then(() => {
+          if (this.command) {
+            return this.command?.action(...this.commandArgs).then(() => {
+              return this;
+            });
+          }
+          return this;
+        })
+        .catch((e) => {
+          this.log(e, "ERROR");
+          throw e;
+        });
     }
+    this.tmpDir = new FileClass(`${process.cwd()}/tmp`);
     if (!this.started) {
       await this.fireAsync("onPreStart", this).catch((e) => {
         this.log(e, "CRITIC");
@@ -405,12 +419,14 @@ class Kernel extends Service {
 
   async loadService(
     service: typeof InjectionType,
-    module: Module | null = this.app
+    module: Module | null = this.app,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...args: any[]
   ): Promise<Service> {
     if (!module) {
       throw new Error(`Applcation not ready`);
     }
-    return this.addService(service, module);
+    return this.addService(service, module, ...args);
   }
 
   async loadNodefonyModule(moduleName: string): Promise<Module> {
@@ -446,6 +462,7 @@ class Kernel extends Service {
     this.cli?.setPackageManager(this.options.packageManager);
     this.core = await this.isCore();
     this.loadService(Fetch);
+    this.loadService(Pm2, this.app, this.options.pm2);
     if (this.options.pm2) {
       this.pm2Config = this.options.pm2;
     }
@@ -482,7 +499,7 @@ class Kernel extends Service {
         }
         return null;
       } catch (e) {
-        this.log(e, "ERROR");
+        //this.log(e, "ERROR");
         return null;
       }
     }

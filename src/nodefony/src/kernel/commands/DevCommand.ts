@@ -21,6 +21,7 @@ class Dev extends Command {
   override async onKernelStart(): Promise<void> {
     (this.cli as CliKernel).setType("SERVER");
     this.cli.environment = "development";
+    process.env.MODE_START = "development";
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
