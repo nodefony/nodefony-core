@@ -32,6 +32,7 @@ const external: string[] = [
   "uuid",
   "twig",
   "ejs",
+  "pm2",
 ];
 
 const sharedNodeOptions = defineConfig({

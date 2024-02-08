@@ -44,6 +44,8 @@ interface OptionsCommandInterface extends DefaultOptionsService {
   kernelEvent?: keyof typeof Events;
 }
 
+export type CommandArgs = any[];
+
 const defaultCommandOptions: OptionsCommandInterface = {
   progress: false,
   sizeProgress: 100,
@@ -102,7 +104,7 @@ class Command extends Service {
   //end Events
   public cli: Cli | CliKernel;
   private command: Cmd | null = null;
-  private program: typeof program;
+  public program: typeof program;
   public json: boolean = false;
   public debug: boolean = false;
   public interactive: boolean = false;
@@ -151,6 +153,7 @@ class Command extends Service {
     this.command?.action((...args: any[]) => {
       if (this.kernel) {
         this.kernel.command = this;
+        this.kernel.commandArgs = args;
         this.setEvents(...args);
       } else {
         this.action(...args);
@@ -429,7 +432,7 @@ class Command extends Service {
    * @param {Msgid} msgid - Identifiant du message.
    * @param {Message} msg - Contenu du message.
    */
-  override logger(pci: any, severity: Severity, msgid: Msgid, msg: Message) {
+  override logger(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message) {
     try {
       if (!msgid) {
         msgid = `COMMAND ${this.name}`;
@@ -439,8 +442,8 @@ class Command extends Service {
       console.log(e, "\n", pci);
     }
   }
-  async terminate(code: number): Promise<void> {
-    return this.cli?.terminate(code);
+  async terminate(code?: number): Promise<void> {
+    return this.cli?.terminate(code || 0);
   }
 }
 

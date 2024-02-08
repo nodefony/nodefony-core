@@ -24,6 +24,7 @@ import path from "node:path";
 import { Nodefony } from "nodefony";
 const kernel = Nodefony.kernel;
 import http from "./module-http-config";
+import pm2 from "./pm2/pm2.config";
 
 let CDN = null;
 let statics = true;
@@ -50,6 +51,7 @@ export default {
   domainAlias: ["^localhost$"],
   domainCheck,
   locale: "en_en",
+  pm2,
   App: {
     projectYear: "2024",
     locale: "en_en",

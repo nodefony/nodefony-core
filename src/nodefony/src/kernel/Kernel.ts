@@ -10,11 +10,12 @@ import os from "node:os";
 import cluster from "node:cluster";
 import FileClass from "../FileClass";
 import nodefony, { Nodefony } from "../Nodefony";
-import Command from "../command/Command";
+import Command, { CommandArgs } from "../command/Command";
 import { isSubclassOf } from "../Tools";
 import { Severity } from "../syslog/Pdu";
 import Module from "./Module";
 import Fetch from "../service/fetchService";
+import { StartOptions } from "pm2";
 
 const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
 
@@ -113,6 +114,8 @@ class Kernel extends Service {
   trunk: trunkType = null;
   core: boolean = false;
   command: Command | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  commandArgs: CommandArgs = [];
   preRegistered: boolean = false;
   registered: boolean = false;
   app: Module | null = null;
@@ -140,6 +143,7 @@ class Kernel extends Service {
   interfaces: NetworkInterface;
   domain: string = "localhost";
   progress: number = Events.onInit;
+  pm2Config?: StartOptions = this.options.pm2;
   constructor(
     environment: EnvironmentType,
     cli?: CliKernel | null,
@@ -306,6 +310,15 @@ class Kernel extends Service {
         if (this.isCommandComplete(Events.onReady)) {
           return this;
         }
+        //PM2
+        if (
+          this.command?.name === "production" &&
+          process.env.MODE_START !== "PM2"
+        ) {
+          return this.command.action(...this.commandArgs).then(() => {
+            return this;
+          });
+        }
         return this.initServers().then(async (servers) => {
           if (global && global.gc) {
             this.memoryUsage("MEMORY POST READY ");
@@ -433,6 +446,9 @@ class Kernel extends Service {
     this.cli?.setPackageManager(this.options.packageManager);
     this.core = await this.isCore();
     this.loadService(Fetch);
+    if (this.options.pm2) {
+      this.pm2Config = this.options.pm2;
+    }
     return this.app;
   }
 

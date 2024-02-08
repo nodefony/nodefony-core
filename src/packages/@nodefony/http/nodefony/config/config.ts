@@ -133,7 +133,7 @@ export default {
    */
   session: {
     applyTransaction: true, // sequelize transaction session entity
-    start: true, // false || true || Name Session Context
+    start: false, // false || true || Name Session Context
     use_strict_mode: true,
     name: "nodefony",
     handler: "files", // files | orm | memcached  "nodefony.session.storage"

@@ -16,7 +16,7 @@ import {
 import moment from "moment";
 import semver from "semver";
 import asciify from "asciify";
-import Table from "cli-table3";
+import Table, { TableConstructorOptions } from "cli-table3";
 import { get, random } from "node-emoji";
 import clc from "cli-color";
 import Service, { DefaultOptionsService } from "./Service";
@@ -606,7 +606,7 @@ class Cli extends Service {
 
   displayTable(
     datas: any[],
-    options = defaultTableCli,
+    options: TableConstructorOptions,
     syslog: Syslog | null = null
   ) {
     if (!datas || !datas.length) {
@@ -647,7 +647,7 @@ class Cli extends Service {
     return `${n.toFixed(n >= 10 || l < 1 ? 0 : 1)} ${units[l]}`;
   }
 
-  static niceUptime(date: moment.MomentInput, suffix: boolean | undefined) {
+  static niceUptime(date: moment.MomentInput, suffix?: boolean | undefined) {
     return moment(date).fromNow(suffix || false);
   }
   static niceDate(date: moment.MomentInput, format: string | undefined) {
