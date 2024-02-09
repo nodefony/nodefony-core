@@ -169,6 +169,13 @@ class Module extends Service {
     throw new Error(`Package Manager not found`);
   }
 
+  async outdated(): Promise<number | Error> {
+    if (this.kernel?.cli?.packageManager) {
+      return await this.kernel?.cli?.packageManager(["outdated"], this.path);
+    }
+    throw new Error(`Package Manager not found`);
+  }
+
   async loadJson(
     url: string,
     cwd: string = process.cwd()

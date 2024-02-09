@@ -21,8 +21,7 @@ class Outdated extends Command {
     if (modules) {
       for (const moduleName in modules) {
         const module: Module = modules[moduleName];
-        //await module.install();
-        console.log(module);
+        await module.outdated();
       }
     }
     return this;
