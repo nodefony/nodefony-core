@@ -9,22 +9,52 @@ const prompt = async function (command: Command): Promise<ConfigType> {
   let choices;
   let message = "Select Command";
   if (command.cli?.kernel && (await command.cli?.kernel.isTrunk())) {
+    console.log();
     choices = [
+      new command.prompts.Separator(),
       {
         name: "development",
         value: "development",
-        description: "Start Server in Development Mode",
+        description:
+          command.cli?.getCommand("development")?.description() ||
+          "Start Server in Development Mode",
       },
       {
         name: "production",
         value: "production",
-        description: "Start Server in Production Mode",
+        description:
+          command.cli?.getCommand("production")?.description() ||
+          "Start Server in Production Mode (PM2 process manager)",
+      },
+      {
+        name: "staging",
+        value: "staging",
+        description:
+          command.cli?.getCommand("staging")?.description() ||
+          "Start Server Staging  Mode ( Usefull to check Clusters Node use os.cpus().length )",
       },
       new command.prompts.Separator(),
       {
         name: "install",
         value: "install",
-        description: "Install Project",
+        description:
+          command.cli?.getCommand("install")?.description() ||
+          "Install Nodefony Project transpile, sync or migrate Orm (default orm migrate)",
+      },
+      {
+        name: "outdated",
+        value: "outdated",
+        description:
+          command.cli?.getCommand("outdated")?.description() ||
+          "List Project dependencies outdated",
+      },
+      new command.prompts.Separator(),
+      {
+        name: "pm2",
+        value: "pm2",
+        description:
+          command.cli?.getCommand("pm2")?.description() ||
+          "PM2 Process Manager",
       },
     ];
   } else {
@@ -44,8 +74,9 @@ const prompt = async function (command: Command): Promise<ConfigType> {
       {
         name: "Show PM2 tools",
         value: "pm2",
-        description: "Manage pm2 ",
+        description: "PM2 Process Manager",
       },
+      new command.prompts.Separator(),
     ];
   }
   return {
@@ -80,6 +111,29 @@ class Start extends Command {
     }
     switch (response) {
       default: {
+        const command = this.cli.getCommand(response);
+        if (command && response) {
+          if (this.kernel) {
+            this.kernel.command = command;
+            this.cli.clearCommand();
+            if (response) {
+              process.argv.push(response);
+            }
+            if (command.kernelEvent === this.kernelEvent) {
+              if (command.onKernelStart) {
+                await command.onKernelStart(...this.kernel.commandArgs);
+              }
+              return command.action(...this.kernel.commandArgs);
+            }
+            command.setEvents(...this.kernel.commandArgs);
+            if (command.onKernelStart) {
+              await command.onKernelStart(...this.kernel.commandArgs);
+            }
+            if (command.isComplete()) {
+              return command.action(...this.kernel.commandArgs);
+            }
+          }
+        }
         return await this.cli.runCommandAsync(response).then(() => {
           return this;
         });

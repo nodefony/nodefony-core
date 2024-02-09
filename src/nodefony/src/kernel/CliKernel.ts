@@ -12,6 +12,7 @@ import Staging from "./commands/StagingCommand";
 import Install from "./commands/InstallCommand";
 import Outated from "./commands/OutdatedCommand";
 import Pm2 from "./commands/pm2/Pm2Command";
+import Kill from "./commands/KillCommnand";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import commander from "commander";
@@ -88,6 +89,7 @@ class CliKernel extends Cli {
         this.addCommand(Install);
         this.addCommand(Outated);
         this.addCommand(Pm2);
+        this.addCommand(Kill);
         this.commander.exitOverride();
         this.commander.name(this.name);
         this.commander.showHelpAfterError(false);
@@ -96,7 +98,7 @@ class CliKernel extends Cli {
           //sortSubcommands: true,
           sortOptions: true,
           showGlobalOptions: true,
-          //subcommandTerm: (cmd) => cmd.name(), // Just show the name, instead of short usage.
+          subcommandTerm: (cmd) => cmd.name(), // Just show the name, instead of short usage.
           // formatHelp: (cmd, help) => {
           //   return cmd.helpInformation();
           //   //return this.cli?.commander?.help();

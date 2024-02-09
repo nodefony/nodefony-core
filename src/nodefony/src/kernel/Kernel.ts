@@ -106,6 +106,7 @@ export declare class ModuleType extends Module {
 type trunkType = "javascript" | "typescript" | null;
 
 class Kernel extends Service {
+  Events: Readonly<EventsType> = Events;
   type: KernelType;
   version: string = "1.0.0";
   started: boolean = false;
@@ -191,7 +192,7 @@ class Kernel extends Service {
         this.log(e, "CRITIC");
         throw e;
       });
-      if (this.isCommandComplete(Events.onPreStart)) {
+      if (this.setCommandComplete(Events.onPreStart)) {
         return this;
       }
 
@@ -220,7 +221,7 @@ class Kernel extends Service {
           //   this.projectName = this.app.getModuleName();
           // }
           this.started = true;
-          if (this.isCommandComplete(Events.onStart)) {
+          if (this.setCommandComplete(Events.onStart)) {
             return this;
           }
           return this.preRegister();
@@ -238,7 +239,7 @@ class Kernel extends Service {
       //this.log(e, "CRITIC");
       throw e;
     });
-    if (this.isCommandComplete(Events.onPreRegister)) {
+    if (this.setCommandComplete(Events.onPreRegister)) {
       return this;
     }
     if (this.cli) {
@@ -249,29 +250,8 @@ class Kernel extends Service {
             this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
             this.setEnv(this.cli.environment);
             this.cli.setProcessTitle(this.projectName.toLowerCase());
-            // if (this.app) {
-            //   this.version = this.app?.getModuleVersion();
-            // }
-            // fix workaround commander twice call options
-            const optionDebugExists = this.cli?.commander?.options.some(
-              (opt) => opt.short === "-d" || opt.long === "--debug"
-            );
-            if (
-              optionDebugExists &&
-              this.cli.commander &&
-              this.cli.commander?.options.length
-            ) {
-              const index = this.cli.commander.options.findIndex((value) => {
-                if (value.flags === "-v, --version") {
-                  return value;
-                }
-              });
-              if (index >= 0) {
-                // @ts-ignore
-                this.cli.commander?.options.splice(index, 1);
-              }
-            }
-            this.cli.setCommandVersion(this.version);
+            //this.fixCommanderCli();
+            //this.cli.setCommandVersion(this.version);
             this.cli.showBanner();
             this.cli.blankLine();
           }
@@ -288,7 +268,7 @@ class Kernel extends Service {
     return this.fireAsync("onRegister", this)
       .then(() => {
         this.registered = true;
-        if (this.isCommandComplete(Events.onRegister)) {
+        if (this.setCommandComplete(Events.onRegister)) {
           return this;
         }
         return this.boot();
@@ -299,18 +279,57 @@ class Kernel extends Service {
       });
   }
 
+  // fix workaround commander twice call options
+  private fixCommanderCli(version = true, debug = false): void {
+    if (this.cli && this.cli.commander && this.cli.commander?.options.length) {
+      // fix workaround commander twice call options
+      if (version) {
+        const optionVersionExists = this.cli?.commander?.options.some(
+          (opt) => opt.short === "-v" || opt.long === "--version"
+        );
+        if (optionVersionExists) {
+          const index = this.cli.commander.options.findIndex((value) => {
+            if (value.flags === "-v, --version") {
+              return value;
+            }
+          });
+          if (index >= 0) {
+            // @ts-ignore
+            this.cli.commander?.options.splice(index, 1);
+          }
+        }
+      }
+      if (debug) {
+        const optionDebugExists = this.cli?.commander?.options.some(
+          (opt) => opt.short === "-d" || opt.long === "--debug"
+        );
+        if (optionDebugExists) {
+          const index = this.cli.commander.options.findIndex((value) => {
+            if (value.flags === "-d, --debug") {
+              return value;
+            }
+          });
+          if (index >= 0) {
+            // @ts-ignore
+            this.cli.commander?.options.splice(index, 1);
+          }
+        }
+      }
+    }
+  }
+
   async boot(): Promise<this> {
     await this.fireAsync("onPreBoot", this).catch((e) => {
       throw e;
     });
-    if (this.isCommandComplete(Events.onPreBoot)) {
+    if (this.setCommandComplete(Events.onPreBoot)) {
       return this;
     }
 
     return this.fireAsync("onBoot", this)
       .then(() => {
         this.booted = true;
-        if (this.isCommandComplete(Events.onBoot)) {
+        if (this.setCommandComplete(Events.onBoot)) {
           return this;
         }
         return this.onReady();
@@ -325,7 +344,7 @@ class Kernel extends Service {
     return this.fireAsync("onReady", this)
       .then(async () => {
         this.ready = true;
-        if (this.isCommandComplete(Events.onReady)) {
+        if (this.setCommandComplete(Events.onReady)) {
           return this;
         }
         //PM2
@@ -337,6 +356,7 @@ class Kernel extends Service {
             return this;
           });
         }
+
         return this.initServers().then(async (servers) => {
           if (global && global.gc) {
             this.memoryUsage("MEMORY POST READY ");
@@ -352,7 +372,7 @@ class Kernel extends Service {
               servers.map((server) => {
                 server.showBanner();
               });
-              if (this.isCommandComplete(Events.onPostReady)) {
+              if (this.setCommandComplete(Events.onPostReady)) {
                 this.log(`Live cycle terminate`, "DEBUG");
                 return this;
               } else {
@@ -469,6 +489,8 @@ class Kernel extends Service {
     this.pm2 = (await this.loadService(Pm2, this.app, this.options.pm2)) as Pm2;
     this.app.package = await this.app.getPackageJson();
     this.version = this.app?.getModuleVersion();
+    this.fixCommanderCli();
+    this.cli?.setCommandVersion(this.version);
     await this.fireAsync("onAppLoad", this.app);
     return this.app;
   }
@@ -522,28 +544,30 @@ class Kernel extends Service {
     return Object.keys(Events).find((key) => Events[key] === event) as string;
   }
 
-  isCommandComplete(progress: number) {
+  setCommandComplete(progress: number): boolean {
     const index = this.getEventName(progress);
     this.progress |= Events[index];
-    //console.log("passs isCommandComplete");
+    return this.isCommandComplete(progress);
+  }
+
+  isCommandComplete(progress: number): boolean {
+    const index = this.getEventName(progress);
     if (this.command) {
       const int: number = Events[this.command.kernelEvent];
-      //console.log(index, int);
+      const res = !!(this.progress & int);
       this.log(
-        `Ckeck Command event : ${this.getEventName(int)}   Progress:  ${index}  :  Complete : ${!!(this.progress & int)}`,
+        `Ckeck Command event : ${this.getEventName(int)}   Progress:  ${index}  :  Complete : ${res}`,
         "DEBUG",
         `COMMAND ${this.command.name}`
       );
-      return !!(this.progress & int);
+      return res;
     }
     return false;
   }
 
   initializeLog(): void | null {
     this.syslog?.removeAllListeners();
-    // if (this.type === "CONSOLE") {
-    //   return this.cli.initSyslog(this.environment, this.debug);
-    // }
+
     if (this.options.log && !this.options.log.active) {
       return;
     }

@@ -15,7 +15,7 @@ class Prod extends Command {
   constructor(cli: CliKernel) {
     super(
       "production",
-      "Start Server in Production Mode",
+      "Start Server in Production Mode (PM2 process manager)",
       cli as CliKernel,
       options
     );

@@ -14,7 +14,12 @@ const options: OptionsCommandInterface = {
 class Staging extends Command {
   cpu: number = cpus().length;
   constructor(cli: CliKernel) {
-    super("staging", "Start Server in staging Mode", cli as CliKernel, options);
+    super(
+      "staging",
+      "Start Server Staging  Mode ( Usefull to check Clusters Node use os.cpus().length )",
+      cli as CliKernel,
+      options
+    );
     this.alias("preprod");
   }
 

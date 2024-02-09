@@ -78,7 +78,8 @@ $ npx pm2 --lines 1000 logs
     options: OptionValues
   ): Promise<this | void> {
     try {
-      return await this.findCommand(cmd, options).catch((e) => {
+      //console.log("passs generate pm2", cmd, options);
+      return this.findCommand(cmd, options).catch((e) => {
         this.log(e, "ERROR");
         return this.terminate(1);
       });
@@ -95,7 +96,7 @@ $ npx pm2 --lines 1000 logs
     });
   }
 
-  findCommand(cmd: string, options: OptionValues): Promise<this> {
+  async findCommand(cmd: string, options: OptionValues): Promise<this> {
     switch (cmd) {
       case "status":
         return this.status();
@@ -122,24 +123,11 @@ $ npx pm2 --lines 1000 logs
       case "unstartup":
         return Promise.resolve(this);
       default: {
-        if (options) {
-          return this.findOptions(cmd, options);
-        }
-        throw new Error(`PM2 command ${cmd} not found`);
+        return this.interaction().then((ele) => {
+          return this.findCommand(ele, options);
+        });
       }
     }
-  }
-
-  async findOptions(cmd: string, options: OptionValues): Promise<any> {
-    if ("list" in options) {
-      return Promise.resolve(this);
-    }
-    if (!cmd) {
-      return await this.interaction().then((ele) => {
-        return this.findCommand(ele, options);
-      });
-    }
-    throw new Error(`PM2 command ${cmd} not found`);
   }
 
   async status(): Promise<this> {

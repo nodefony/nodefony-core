@@ -7,6 +7,9 @@ import Event from "../Event";
 import Container from "../Container";
 import Service from "../Service";
 import clc from "cli-color";
+import { exec as execCb } from "child_process";
+import { promisify } from "util";
+const exec = promisify(execCb);
 
 import pm2, { StartOptions, ProcessDescription } from "pm2";
 
@@ -61,6 +64,20 @@ class Pm2 extends Service {
         return reject(e);
       }
     });
+  }
+
+  kill(): Promise<this> {
+    return Promise.resolve(this);
+  }
+
+  async killExec(): Promise<{ stdout: string; stderr: string }> {
+    const { stdout, stderr } = await exec("npx pm2 kill");
+    if (stderr) {
+      this.log(`Kill PM2 MANAGER ${stderr}`, "WARNING");
+    } else {
+      this.log(`Kill PM2 MANAGER success ${stdout}`);
+    }
+    return { stdout, stderr };
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

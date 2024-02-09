@@ -48,7 +48,7 @@
     "@types/cookie": "0.6.0",
     "@types/formidable": "3.4.5",
     "@types/mime-types": "2.1.4",
-    "@types/node": "20.11.16",
+    "@types/node": "20.11.17",
     "@types/qs": "6.9.11",
     "@types/serve-static": "1.15.5",
     "@types/uuid": "9.0.8",

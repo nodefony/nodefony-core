@@ -114,10 +114,11 @@ class Command extends Service {
   public progress: number = 0;
   public response: Record<string, any> = {};
   public kernelEvent: keyof typeof Events = "onRegister";
-  public onKernelStart?(): Promise<void>;
-  public onKernelRegister?(): Promise<void>;
-  public onKernelBoot?(): Promise<void>;
-  public onKernelReady?(): Promise<void>;
+  public onKernelStart?(...args: any[]): Promise<void>;
+  public onKernelRegister?(...args: any[]): Promise<void>;
+  public onKernelBoot?(...args: any[]): Promise<void>;
+  public onKernelReady?(...args: any[]): Promise<void>;
+  public currentCommand?: Cmd;
   /**
    * Crée une instance de Command.
    *
@@ -161,28 +162,41 @@ class Command extends Service {
     });
   }
   setEvents(...args: any[]): void {
-    //console.log(this.name, "pass setEvents");
-    if (this.onKernelStart) {
-      this.kernel?.once("onStart", this.onKernelStart.bind(this, ...args));
-    }
-    if (this.onKernelRegister) {
-      this.kernel?.once(
-        "onRegister",
-        this.onKernelRegister.bind(this, ...args)
+    if (this.kernel) {
+      if (this.onKernelStart) {
+        this.kernel.once("onStart", this.onKernelStart.bind(this, ...args));
+      }
+      if (this.onKernelRegister) {
+        this.kernel.once(
+          "onRegister",
+          this.onKernelRegister.bind(this, ...args)
+        );
+      }
+      if (this.onKernelBoot) {
+        this.kernel.once("onBoot", this.onKernelBoot.bind(this, ...args));
+      }
+      if (this.onKernelReady) {
+        this.kernel.once("onReady", this.onKernelReady.bind(this, ...args));
+      }
+      this.kernel.once(
+        this.kernelEvent as string,
+        this.action.bind(this, ...args)
       );
     }
-    if (this.onKernelBoot) {
-      this.kernel?.once("onBoot", this.onKernelBoot.bind(this, ...args));
-    }
-    if (this.onKernelReady) {
-      this.kernel?.once("onReady", this.onKernelReady.bind(this, ...args));
-    }
-    this.kernel?.once(
-      this.kernelEvent as string,
-      this.action.bind(this, ...args)
-    );
   }
 
+  isComplete(): boolean {
+    if (this.kernel) {
+      return this.kernel.isCommandComplete(
+        this.kernel.Events[this.kernelEvent]
+      );
+    }
+    throw new Error(`Kernel not founf`);
+  }
+
+  description(): string {
+    return this.command.description();
+  }
   /**
    * Méthode d'action de la commande.
    *
@@ -191,6 +205,7 @@ class Command extends Service {
    * @returns {Promise<any>} Promise résolue avec le résultat de l'action.
    */
   public async action(...args: any[]): Promise<any> {
+    const current = args[args.length - 1];
     this.getCliOptions();
     if (this.options.showBanner) {
       await this.showBanner();
@@ -202,10 +217,16 @@ class Command extends Service {
     if (this.builder) {
       await this.builder.run(...args);
     }
-    const res = await this.run(...args);
+    const res = await this.run(...args).catch((e) => {
+      if (this.options.progress) {
+        this.fire("onProgress", this.options.sizeProgress);
+      }
+      throw e;
+    });
     if (this.options.progress) {
       this.fire("onProgress", this.options.sizeProgress);
     }
+    this.currentCommand = current;
     return res;
   }
   /**
