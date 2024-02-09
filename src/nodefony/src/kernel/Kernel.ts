@@ -9,14 +9,14 @@ import path from "node:path";
 import os from "node:os";
 import cluster from "node:cluster";
 import FileClass from "../FileClass";
-import nodefony, { Nodefony } from "../Nodefony";
+import { Nodefony } from "../Nodefony";
 import Command, { CommandArgs } from "../command/Command";
 import { isSubclassOf } from "../Tools";
 import { Severity } from "../syslog/Pdu";
 import Module from "./Module";
 import Fetch from "../service/fetchService";
 import Pm2 from "../service/pm2Service";
-import { StartOptions } from "pm2";
+//import { StartOptions } from "pm2";
 
 const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
 
@@ -115,7 +115,6 @@ class Kernel extends Service {
   trunk: trunkType = null;
   core: boolean = false;
   command: Command | null = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   commandArgs: CommandArgs = [];
   preRegistered: boolean = false;
   registered: boolean = false;
@@ -144,7 +143,7 @@ class Kernel extends Service {
   interfaces: NetworkInterface;
   domain: string = "localhost";
   progress: number = Events.onInit;
-  pm2Config?: StartOptions = this.options.pm2;
+  pm2?: Pm2;
   constructor(
     environment: EnvironmentType,
     cli?: CliKernel | null,
@@ -201,9 +200,10 @@ class Kernel extends Service {
         this.log(e, "CRITIC");
         throw e;
       });
-
       this.domain = this.setDomain();
-
+      if (this.app) {
+        this.projectName = this.app.getModuleName();
+      }
       // parse command
       if (this.cli && !this.command) {
         this.cli.clear();
@@ -212,12 +212,13 @@ class Kernel extends Service {
         await this.cli.parseCommandAsync().catch((e) => {
           throw e;
         });
+        //await this.fireAsync("onBeforeStart", this);
       }
       return this.fireAsync("onStart", this)
         .then(async () => {
-          if (this.app) {
-            this.projectName = this.app.getModuleName();
-          }
+          // if (this.app) {
+          //   this.projectName = this.app.getModuleName();
+          // }
           this.started = true;
           if (this.isCommandComplete(Events.onStart)) {
             return this;
@@ -248,9 +249,9 @@ class Kernel extends Service {
             this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
             this.setEnv(this.cli.environment);
             this.cli.setProcessTitle(this.projectName.toLowerCase());
-            if (this.app) {
-              this.version = this.app?.getModuleVersion();
-            }
+            // if (this.app) {
+            //   this.version = this.app?.getModuleVersion();
+            // }
             // fix workaround commander twice call options
             const optionDebugExists = this.cli?.commander?.options.some(
               (opt) => opt.short === "-d" || opt.long === "--debug"
@@ -464,11 +465,11 @@ class Kernel extends Service {
     this.initializeLog();
     this.cli?.setPackageManager(this.options.packageManager);
     this.core = await this.isCore();
-    this.loadService(Fetch);
-    this.loadService(Pm2, this.app, this.options.pm2);
-    if (this.options.pm2) {
-      this.pm2Config = this.options.pm2;
-    }
+    await this.loadService(Fetch);
+    this.pm2 = (await this.loadService(Pm2, this.app, this.options.pm2)) as Pm2;
+    this.app.package = await this.app.getPackageJson();
+    this.version = this.app?.getModuleVersion();
+    await this.fireAsync("onAppLoad", this.app);
     return this.app;
   }
 
@@ -645,14 +646,14 @@ class Kernel extends Service {
       this.workerId = cluster.worker?.id;
       this.worker = cluster.worker;
       this.fire("onCluster", "WORKER", this, process);
-      // process.on("message", this.listen(this, "onMessage"));
       process.on("message", (msg) => {
+        this.log(msg, "INFO", "IPC MESSAGE");
         this.fire("onMessage", msg);
       });
     }
-    if (nodefony.warning) {
-      this.log(nodefony.warning, "WARNING");
-    }
+    // if (nodefony.warning) {
+    //   this.log(nodefony.warning, "WARNING");
+    // }
   }
 
   getOrm(): string {

@@ -8,7 +8,9 @@ import Command from "../command/Command";
 import Start from "./commands/StartCommand";
 import Dev from "./commands/DevCommand";
 import Prod from "./commands/ProdCommand";
+import Staging from "./commands/StagingCommand";
 import Install from "./commands/InstallCommand";
+import Outated from "./commands/OutdatedCommand";
 import Pm2 from "./commands/pm2/Pm2Command";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
@@ -82,14 +84,16 @@ class CliKernel extends Cli {
         this.addCommand(Start);
         this.addCommand(Dev);
         this.addCommand(Prod);
+        this.addCommand(Staging);
         this.addCommand(Install);
+        this.addCommand(Outated);
         this.addCommand(Pm2);
         this.commander.exitOverride();
         this.commander.name(this.name);
         this.commander.showHelpAfterError(false);
         //this.commander.showSuggestionAfterError(false);
         this.commander.configureHelp({
-          sortSubcommands: true,
+          //sortSubcommands: true,
           sortOptions: true,
           showGlobalOptions: true,
           //subcommandTerm: (cmd) => cmd.name(), // Just show the name, instead of short usage.

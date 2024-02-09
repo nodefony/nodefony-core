@@ -10,6 +10,7 @@ import * as fs from "fs/promises";
 import { dirname, resolve, basename } from "node:path";
 import CliKernel from "./CliKernel";
 import { extend } from "../Tools";
+import cluster from "node:cluster";
 
 import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
 
@@ -142,11 +143,21 @@ class Module extends Service {
     return this.package.version;
   }
 
-  public addCommand(cliCommand: new (cli: CliKernel) => Command): Command {
+  public addCommand(
+    cliCommand: new (cli: CliKernel) => Command
+  ): Command | void {
     if (this.kernel && this.kernel.cli) {
-      const command = new cliCommand(this.kernel.cli);
-      this.commands[command.name] = command;
-      return command;
+      try {
+        const command = new cliCommand(this.kernel.cli);
+        this.commands[command.name] = command;
+        return command;
+      } catch (e) {
+        if (cluster.isPrimary) {
+          throw e;
+        } else if (cluster.isWorker) {
+          return;
+        }
+      }
     }
     throw new Error(`Kernel not ready`);
   }
