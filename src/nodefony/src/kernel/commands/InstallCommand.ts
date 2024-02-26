@@ -4,7 +4,7 @@ import Module from "../Module";
 
 const optionsCommand: OptionsCommandInterface = {
   showBanner: false,
-  kernelEvent: "onStart",
+  kernelEvent: "onRegister",
 };
 
 class Install extends Command {

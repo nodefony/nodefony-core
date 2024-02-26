@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
     "target": "ESNext",
     "module": "NodeNext",
     "strict": true,
@@ -12,5 +14,5 @@
     "declaration": true,
     "declarationDir": "./dist/types",
     "outDir": "./dist"
-  },
+  }
 }

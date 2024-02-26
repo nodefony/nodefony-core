@@ -15,6 +15,7 @@ import {
 import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
 
 import Kernel from "./kernel/Kernel";
+
 import Module from "./kernel/Module";
 import CliKernel from "./kernel/CliKernel";
 import Container from "./Container";
@@ -31,7 +32,15 @@ import File from "./finder/File";
 import Result from "./finder/Result";
 import FileClass from "./FileClass";
 import FileResult from "./finder/FileResult";
+import Fetch from "./service/fetchService";
+import Injector from "./kernel/injector/injector";
 import { version } from "../package.json";
+import {
+  modules,
+  injectable,
+  inject,
+  services,
+} from "./kernel/decorators/kernelDecorator";
 
 //import { createRequire } from "module";
 //const require = createRequire(import.meta.url);
@@ -116,6 +125,7 @@ export default nodefony;
 export {
   extend,
   typeOf,
+  isPromise,
   Nodefony,
   kernel,
   Kernel,
@@ -133,6 +143,12 @@ export {
   File,
   FileClass,
   FileResult,
+  Fetch,
   Result,
   Error,
+  Injector,
+  modules,
+  injectable,
+  inject,
+  services,
 };

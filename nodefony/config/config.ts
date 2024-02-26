@@ -46,6 +46,7 @@ switch (kernel?.environment) {
 }
 
 export default {
+  watch: true,
   domain: "127.0.0.1", // "0.0.0.0" "selectAuto"
   //domain: "selectAuto",
   domainAlias: ["^localhost$"],

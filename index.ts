@@ -1,12 +1,20 @@
-import { Kernel, Module } from "nodefony";
+import { Kernel, Module, modules } from "nodefony";
+
 import config from "./nodefony/config/config";
 import http from "@nodefony/http";
 import security from "@nodefony/security";
-import { fileURLToPath } from "url";
+import framework from "@nodefony/framework";
+import sequelize from "@nodefony/sequelize";
 
 /**
  * The App class extends the Module class and represents an application  entry point.
  */
+@modules([
+  "@nodefony/http",
+  "@nodefony/security",
+  "@nodefony/framework",
+  "@nodefony/sequelize",
+])
 class App extends Module {
   /**
    * Constructs an instance of the App class.
@@ -14,7 +22,7 @@ class App extends Module {
    * @param kernel - An instance of the Kernel class.
    */
   constructor(kernel: Kernel) {
-    super("app", kernel, fileURLToPath(import.meta.url), config);
+    super("app", kernel, import.meta.url, config);
   }
 
   /**
@@ -23,11 +31,23 @@ class App extends Module {
    * @param kernel - An instance of the Kernel class.
    * @returns A promise that resolves to the instance of the App class.
    */
-  async initialize(kernel: Kernel): Promise<this> {
-    await this.kernel?.use(http);
-    await this.kernel?.use(security);
-    return this;
-  }
+  // async initialize(kernel: Kernel): Promise<this> {
+  //   if (
+  //     this.kernel?.environment === "production" ||
+  //     this.kernel?.environment === "staging"
+  //   ) {
+  //     //await this.kernel?.use(http);
+  //     //await this.kernel?.use(security);
+  //     //await this.kernel?.use(framework);
+  //     //await this.kernel?.use(sequelize);
+  //   } else {
+  //     //await this.kernel?.loadModule("@nodefony/http", false);
+  //     //await this.kernel?.loadModule("@nodefony/security", false);
+  //     //await this.kernel?.loadModule("@nodefony/framework", false);
+  //     //await this.kernel?.loadModule("@nodefony/sequelize", false);
+  //   }
+  //   return this;
+  // }
 
   /**
    * Action of modulewhen kernel emit event onStart.
@@ -48,6 +68,7 @@ class App extends Module {
     this.log(`MODULE ${this.name} REGISTER`, "DEBUG");
     return this;
   }
+
   /**
    * Action of module when kernel emit event onBoot .
    *  Usefull for adding modules or services

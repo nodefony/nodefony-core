@@ -2,7 +2,7 @@ import http from "node:http";
 import http2 from "node:http2";
 import HttpContext from "../http/HttpContext";
 import url, { URL } from "node:url";
-import { HTTPMethod } from "../Context";
+import { HTTPMethod, Cookies } from "../Context";
 import QS from "qs";
 import Http2Resquest from "../http2/Request";
 import formidable, { IncomingForm } from "formidable";
@@ -29,6 +29,7 @@ declare module "http" {
   interface IncomingMessage {
     body: any;
     session: Session;
+    cookie: Cookies;
   }
 }
 
@@ -80,8 +81,14 @@ class HttpResquest {
     request: http.IncomingMessage | http2.Http2ServerRequest,
     context: HttpContext
   ) {
-    this.context = context;
     this.request = request;
+    this.request.on("end", () => {
+      this.initialize();
+    });
+    this.request.on("data", (data) => {
+      this.dataSize += data.length;
+    });
+    this.context = context;
     this.origin = this.headers.origin;
     this.request.body = null;
     this.headers = request.headers;
@@ -110,13 +117,9 @@ class HttpResquest {
       this.log(e, "WARNING");
     }
 
-    this.request.on("data", (data) => {
-      this.dataSize += data.length;
-    });
     this.context.once("onRequestEnd", () => {
       this.request.body = this.query;
     });
-    this.initialize();
   }
 
   async initialize(): Promise<ParserType | null> {
@@ -126,38 +129,38 @@ class HttpResquest {
           case parser instanceof ParserXml:
           case parser instanceof ParserQs:
           case parser instanceof Parser: {
-            this.request.once("end", () => {
-              try {
-                if (this.context.finished) {
-                  return;
-                }
-                parser.parse();
-                return this.context.fireAsync("onRequestEnd", this);
-              } catch (error) {
-                return this.context?.httpKernel?.onError(
-                  error as Error,
-                  this.context
-                );
+            //this.request.once("end", () => {
+            try {
+              if (this.context.finished) {
+                return;
               }
-            });
+              parser.parse();
+              return this.context.fireAsync("onRequestEnd", this);
+            } catch (error) {
+              return this.context?.httpKernel?.onError(
+                error as Error,
+                this.context
+              );
+            }
+            //});
             break;
           }
           default: {
             if (!parser) {
-              this.request.once("end", () => {
-                try {
-                  if (this.context.finished) {
-                    return;
-                  }
-                  this.context.requestEnded = true;
-                  return this.context.fireAsync("onRequestEnd", this);
-                } catch (error) {
-                  return this.context.httpKernel?.onError(
-                    error as Error,
-                    this.context
-                  );
+              //this.request.once("end", () => {
+              try {
+                if (this.context.finished) {
+                  return;
                 }
-              });
+                this.context.requestEnded = true;
+                return this.context.fireAsync("onRequestEnd", this);
+              } catch (error) {
+                return this.context.httpKernel?.onError(
+                  error as Error,
+                  this.context
+                );
+              }
+              // });
             }
           }
         }

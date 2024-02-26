@@ -1,4 +1,4 @@
-import nodefony, {
+import {
   Container,
   Service,
   Severity,
@@ -17,8 +17,8 @@ import HttpResquest from "./http/Request";
 import Http2Resquest from "./http2/Request";
 import SessionsService from "../../service/sessions/sessions-service";
 import clc from "cli-color";
-import http from "node:http";
-import http2 from "node:http2";
+//import http from "node:http";
+//import http2 from "node:http2";
 import { URL } from "node:url";
 import Session from "../session/session";
 import Cookie, { cookiesParser } from "../cookies/cookie";
@@ -48,6 +48,8 @@ export type HTTPMethod =
   | "PATCH"
   | "WEBSOCKET";
 
+export type Cookies = Record<string, Cookie>;
+
 class Context extends Service {
   secure: boolean = false;
   cleaned: boolean = false;
@@ -68,7 +70,7 @@ class Context extends Service {
   method: HTTPMethod | null = null;
   remoteAddress: string | undefined | null = null;
   originUrl: URL | undefined | null = null;
-  cookies: Record<string, Cookie> = {};
+  cookies: Cookies = {};
   error: Error | HttpError | nodefonyError | null | undefined = null;
   sessionService?: SessionsService;
   session: Session | null | undefined = null;
@@ -78,7 +80,7 @@ class Context extends Service {
     super(`${type} CONTEXT`, container);
     this.type = type;
     this.set("context", this);
-    this.httpKernel = this.get("httpKernel");
+    this.httpKernel = this.get("HttpKernel");
     this.sessionService = this.get("sessions");
     // this.container?.addScope("subRequest");
     // this.once("onRequest", () => {
@@ -150,9 +152,9 @@ class Context extends Service {
     } catch (e) {}
   }
 
-  addCookie(cookie: Cookie) {
+  addCookie(cookie: Cookie): Cookie {
     if (cookie instanceof Cookie) {
-      this.cookies[cookie.name] = cookie;
+      return (this.cookies[cookie.name] = cookie);
     } else {
       const error = new Error("addCookie cookie not valid !!");
       this.log(cookie, "ERROR");

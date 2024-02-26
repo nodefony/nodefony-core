@@ -1,34 +1,64 @@
-import path from "node:path";
-import Kernel, { InjectionType } from "./Kernel";
-//import Event from "../Event";
+import { dirname, resolve, basename, isAbsolute } from "node:path";
+import { readFile } from "fs/promises";
+import { fileURLToPath } from "url";
+import Kernel, { ServiceConstructor, ServiceWithInitialize } from "./Kernel";
 import { JSONObject } from "../types/globals";
 import Service, { DefaultOptionsService } from "../Service";
 import Command from "../command/Command";
+import Injector from "./injector/injector";
 import Container from "../Container";
-//import CLi from "../Cli";
 import * as fs from "fs/promises";
-import { dirname, resolve, basename } from "node:path";
 import CliKernel from "./CliKernel";
 import { extend } from "../Tools";
 import cluster from "node:cluster";
-
 import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
-
+import RollupService from "../service/rollup/rollupService";
+import watcherService from "../service/watcherService";
+//import vm from "node:vm";
 const regModuleName: RegExp = /^[Mm]odule-([\w-]+)/u;
+import {
+  RollupWatchOptions,
+  RollupOptions,
+  //RollupWatcher,
+  rollup,
+  RollupOutput,
+  OutputOptions,
+  LogLevel,
+  RollupLog,
+} from "rollup";
+import { FSWatcher } from "chokidar";
+import { createRequire } from "node:module";
 
-// import { rollup } from "rollup";
-// console.log("pass", rollup);
-//const config = require("./rollup.config.js");
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type PackageJson = Record<string, any>;
+export interface PackageJson {
+  name: string;
+  version: string;
+  description?: string;
+  main?: string;
+  module?: string;
+  types?: string;
+  scripts?: Record<string, string>;
+  repository?: {
+    type: string;
+    url: string;
+  };
+  keywords?: string[];
+  author?: string;
+  license?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
+}
 
 class Module extends Service {
   commands: Record<string, Command> = {};
-  package: PackageJson = {};
+  package?: PackageJson;
   path: string = "";
   isApp: boolean = false;
-  public onKernelStart?(): Promise<this>;
+  rollup?: RollupService;
+  watcherService?: watcherService;
+  watcher?: FSWatcher;
   public onKernelRegister?(): Promise<this>;
   public onKernelBoot?(): Promise<this>;
   public onKernelReady?(): Promise<this>;
@@ -44,9 +74,57 @@ class Module extends Service {
     this.setParameters(`modules.${this.name}`, this.options);
     this.path = this.setPath(path);
     this.setEvents();
+    this.kernel?.once("onBoot", async () => {
+      this.rollup = this.get("rollup");
+      this.watcherService = this.get("watcher");
+    });
+    this.kernel?.once("onPostReady", async () => {
+      if (this.options.watch && this.kernel?.environment === "development") {
+        //await this.watch();
+      }
+    });
+  }
+
+  async watch(options?: RollupWatchOptions): Promise<FSWatcher> {
+    if (this.watcherService) {
+      const mylog = function (this: Module, level: LogLevel, log: RollupLog) {
+        this.rollup?.loggerRollup(this, level, log);
+      }.bind(this);
+      options = RollupService.setDefaultConfig(
+        this,
+        this.kernel?.environment,
+        mylog
+      );
+      return this.watcherService?.createRollupWatcher(this, options);
+    }
+    throw new Error(`Watcher Service service not found`);
+  }
+
+  static async build(name: string): Promise<RollupOutput> {
+    const path = Module.getModulePath(name);
+    if (path) {
+      const pck = await readFile(resolve(path, "package.json"), "utf8");
+      const jsonPck = JSON.parse(pck) as PackageJson;
+      const ele = {
+        path,
+        package: jsonPck,
+        getDependencies: () => {
+          return Module.getPackageDependencies(jsonPck);
+        },
+      } as Module;
+      const options = RollupService.setDefaultConfig(ele);
+      const bundle = await rollup(options);
+      const res = await bundle.write(options.output as OutputOptions);
+      await bundle.close();
+      return res;
+    }
+    throw new Error("bad module path");
   }
 
   setPath(myPath: string): string {
+    if (/^file:\/\//.test(myPath)) {
+      myPath = fileURLToPath(myPath);
+    }
     const base = basename(dirname(myPath));
     let dir = null;
     if (base === "dist") {
@@ -56,10 +134,21 @@ class Module extends Service {
     }
     return dirname(dir);
   }
-  setEvents(): void {
-    if (this.onKernelStart) {
-      this.kernel?.once("onStart", this.onKernelStart.bind(this));
+
+  gePath(name: string = this.name): string {
+    return Module.getModulePath(name);
+  }
+
+  static getModulePath(name: string): string {
+    const require = createRequire(import.meta.url);
+    const pth = require.resolve(name);
+    if (basename(dirname(pth)) === "dist") {
+      return dirname(dirname(pth));
     }
+    return dirname(pth);
+  }
+
+  setEvents(): void {
     if (this.onKernelRegister) {
       this.kernel?.once("onRegister", this.onKernelRegister.bind(this));
     }
@@ -69,7 +158,7 @@ class Module extends Service {
     if (this.onKernelReady) {
       this.kernel?.once("onReady", this.onKernelReady.bind(this));
     }
-    this.kernel?.prependOnceListener("onStart", async () => {
+    this.kernel?.prependOnceListener("onPreBoot", async () => {
       this.package = await this.getPackageJson();
       this.readOverrideModuleConfig();
     });
@@ -97,50 +186,65 @@ class Module extends Service {
     return this.options;
   }
 
-  // watch(config: rollup.RollupWatchOptions): rollup.RollupWatcher {
-  //   const watcher = rollup.watch(config);
-  //   watcher.on("event", (event) => {
-  //     // `event.code` peut être 'START', 'BUNDLE_START', 'BUNDLE_END', 'END', ou 'ERROR'
-  //     if (event.code === "END") {
-  //       console.log("Le bundle a été généré avec succès!");
-  //     } else if (event.code === "ERROR") {
-  //       console.error(
-  //         "Une erreur s'est produite lors de la création du bundle:",
-  //         event.error
-  //       );
-  //     }
-  //   });
-  //   this.kernel?.on("onTerminate", () => {
-  //     watcher.close();
-  //   });
-  //   return watcher;
-  // }
+  async getRollupConfig(): Promise<RollupOptions> {
+    return (await this.rollup?.getRollupConfigTs(this)) as RollupOptions;
+  }
+
+  registerService(
+    service: ServiceConstructor,
+    name: string
+  ): ServiceConstructor {
+    return Injector.register(name || service.constructor.name, service);
+  }
 
   async addService(
-    service: typeof InjectionType,
+    service: ServiceConstructor,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...args: any[]
   ): Promise<Service> {
-    const inst = new service(this, ...args);
+    const inst = Injector.instantiate(service, this, ...args);
+    if (this.get(inst.name)) {
+      this.log(
+        `SERVICE ALREADY EXIST  override old service  : ${inst.name}`,
+        "WARNING"
+      );
+    }
     this.log(`SERVICE ADD : ${inst.name}`, "DEBUG");
-    if (inst.initialize) {
+    const serviceInit: ServiceWithInitialize = inst;
+    if (serviceInit.initialize) {
       this.log(`SERVICE INITIALIZE : ${inst.name}`, "DEBUG");
-      await inst.initialize(this);
+      await serviceInit.initialize(this);
     }
     this.set(inst.name, inst);
     return this.get(inst.name);
   }
 
-  async getPackageJson(): Promise<PackageJson> {
-    return await this.loadJson(resolve(this.path, "package.json"));
+  async getPackageJson(cwd?: string): Promise<PackageJson> {
+    return (await this.loadJson(
+      resolve(this.path, "package.json"),
+      cwd
+    )) as PackageJson;
   }
 
-  public getModuleName(): string {
-    return this.package.name;
+  getDependencies(): string[] {
+    return Module.getPackageDependencies(this.package as PackageJson);
   }
 
-  public getModuleVersion(): string {
-    return this.package.version;
+  static getPackageDependencies(mypackage: PackageJson): string[] {
+    if (mypackage) {
+      const dependencies = Object.keys(mypackage.dependencies || {});
+      const peerDependencies = Object.keys(mypackage.peerDependencies || {});
+      return [...dependencies, ...peerDependencies];
+    }
+    return [];
+  }
+
+  public getModuleName(): string | undefined {
+    return this.package?.name;
+  }
+
+  public getModuleVersion(): string | undefined {
+    return this.package?.version;
   }
 
   public addCommand(
@@ -181,7 +285,7 @@ class Module extends Service {
     cwd: string = process.cwd()
   ): Promise<JSONObject> {
     try {
-      const detectpath = path.isAbsolute(url) ? url : path.resolve(cwd, url);
+      const detectpath = isAbsolute(url) ? url : resolve(cwd, url);
       const fileContent = await fs.readFile(detectpath, "utf-8");
       const parsedJson = JSON.parse(fileContent);
       return parsedJson;

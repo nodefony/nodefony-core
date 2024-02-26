@@ -6,6 +6,7 @@ import nodefony, {
   Scope,
   Kernel,
   typeOf,
+  injectable,
 } from "nodefony";
 import HttpError from "../src/errors/httpError";
 import http from "node:http";
@@ -25,6 +26,7 @@ import Certicates from "./certificates";
 import websocket from "websocket";
 import SessionsService from "./sessions/sessions-service";
 import Session from "../src/session/session";
+import { cp } from "node:fs";
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -45,8 +47,9 @@ export type responseTimeoutType = "http" | "https" | "http2" | "http3";
 
 export type SchemeType = "http" | "https" | "ws" | "wss";
 
-const serviceName: string = "httpKernel";
+const serviceName: string = "HttpKernel";
 
+@injectable()
 class HttpKernel extends Service {
   certificates: any;
   serviceCerticats: Certicates | null = null;
@@ -74,10 +77,13 @@ class HttpKernel extends Service {
   };
   sessionService?: SessionsService;
   sessionAutoStart: boolean | string = false;
-  constructor(module: Module, kernel: Kernel) {
-    const container: Container = kernel.container as Container;
-    const event: Event = kernel.notificationsCenter as Event;
-    super(serviceName, container, event, module.options);
+  constructor(module: Module) {
+    super(
+      serviceName,
+      module.container as Container,
+      module.notificationsCenter as Event,
+      module.options
+    );
     this.module = module;
     this.container?.addScope("request");
     this.responseTimeout = {
@@ -93,7 +99,7 @@ class HttpKernel extends Service {
   }
 
   async initialize(): Promise<this> {
-    this.kernel?.on("onReady", () => {
+    this.kernel?.prependOnceListener("onReady", () => {
       this.serviceCerticats = this.get("certificates");
       this.serverStatic = this.get("server-static");
       this.domain = this.kernel?.domain as string;
@@ -237,7 +243,7 @@ class HttpKernel extends Service {
     ) {
       return this.serverStatic
         .handle(request, response)
-        .then((res) => {
+        .then(async (res) => {
           if (res) {
             this.fire("onServerRequest", request, response, type);
             return this.handle(request, response, type).catch((e) => {
@@ -291,7 +297,7 @@ class HttpKernel extends Service {
   ): Promise<Session | null> {
     if (
       this.sessionService &&
-      (this.sessionAutoStart || context.hasSession())
+      this.sessionAutoStart /*|| context.hasSession()*/
     ) {
       return this.sessionService
         .start(context, this.sessionAutoStart as string)
@@ -299,6 +305,7 @@ class HttpKernel extends Service {
           // if (this.firewall) {
           //   this.firewall.getSessionToken(context, session);
           // }
+          //console.log(session);
           return session;
         })
         .catch((e) => {
@@ -350,6 +357,7 @@ class HttpKernel extends Service {
       let context: HttpContext | null = null;
       try {
         context = this.createHttpContext(scope, request, response, type);
+        await this.fireAsync("onCreateContext", context);
         const ctx = await this.onRequestEnd(context).catch((e) => {
           throw e;
         });

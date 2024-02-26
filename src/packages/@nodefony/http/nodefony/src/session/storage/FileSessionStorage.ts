@@ -75,7 +75,8 @@ class FileSessionStorage implements sessionStorageInterface {
     try {
       fileSession = new FileClass(Path);
     } catch (e) {
-      return {} as SerializeSessionType;
+      console.trace("start storage", e);
+      return Promise.resolve({} as SerializeSessionType);
     }
     try {
       return this.read(fileSession.path as string);

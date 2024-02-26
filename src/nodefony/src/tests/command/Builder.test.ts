@@ -67,7 +67,6 @@ describe("FileManager", () => {
   });
 
   it("devrait construire un répertoire avec des enfants de manière récursive", async () => {
-    //await fs.promises.mkdir(path.resolve(process.cwd(), "tmp",'sboob'), { mode: 0o755 });
     const objetParent: BuilderObject = {
       name: "parentDirectory",
       type: "directory",

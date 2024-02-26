@@ -1,0 +1,44 @@
+{
+  "name": "@nodefony/framework",
+  "version": "10.0.0",
+  "description": "nodefony framework",
+  "author": "admin <admin@nodefony.com>",
+  "main": "dist/index.js",
+  "type": "module",
+  "types": "nodefony/types/types.d.ts",
+  "scripts": {
+    "build": "rimraf dist && npm run rollup",
+    "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
+    "dev": "rimraf dist && npm run rollup -- --watch",
+    "test": "node -e \"console.log('test')\""
+  },
+  "private": true,
+  "keywords": [
+    "nodefony",
+    "javascript",
+    "typescript"
+  ],
+  "repository": {},
+  "dependencies": {
+    "bluebird": "3.7.2"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "25.0.7",
+    "@rollup/plugin-json": "6.1.0",
+    "@rollup/plugin-node-resolve": "15.2.3",
+    "@rollup/plugin-replace": "5.0.5",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "11.1.6",
+    "@types/bluebird": "3.5.42",
+    "@types/node": "20.11.20",
+    "@typescript-eslint/eslint-plugin": "7.0.2",
+    "@typescript-eslint/parser": "7.0.2",
+    "rimraf": "5.0.5",
+    "rollup": "4.12.0",
+    "rollup-plugin-copy": "3.5.0",
+    "typescript": "5.3.3"
+  },
+  "license": "",
+  "readmeFilename": "README.md",
+  "contributors": []
+}

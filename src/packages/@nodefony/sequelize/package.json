@@ -3,8 +3,16 @@
   "version": "10.0.0",
   "description": "Nodefony Framework Module Sequelize",
   "contributors": [],
-  "scripts": {},
-  "main": "index.js",
+  "main": "dist/index.js",
+  "type": "module",
+  "types": "./nodefony/types/index.d.ts",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "rimraf dist && npm run rollup",
+    "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
+    "dev": "rimraf dist && npm run rollup -- --watch",
+    "test": "node -e \"console.log('test')\""
+  },
   "private": false,
   "keywords": [
     "nodefony",
@@ -18,10 +26,10 @@
     "pg": "8.11.3",
     "pg-hstore": "^2.3.4",
     "pgtools": "1.0.1",
-    "sequelize": "6.36.0",
+    "sequelize": "6.37.1",
     "sqlite3": "5.1.7",
-    "tedious": "16.7.0",
-    "umzug": "3.6.1"
+    "tedious": " 17.0.0",
+    "umzug": "3.7.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "25.0.7",
@@ -30,14 +38,15 @@
     "@rollup/plugin-replace": "5.0.5",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "11.1.6",
-    "@types/node": "20.11.17",
-    "@typescript-eslint/eslint-plugin": "6.21.0",
-    "@typescript-eslint/parser": "6.21.0",
+    "@types/node": "20.11.20",
+    "@typescript-eslint/eslint-plugin": "7.0.2",
+    "@typescript-eslint/parser": "7.0.2",
     "rimraf": "5.0.5",
-    "rollup": "4.9.6",
+    "rollup": "4.12.0",
     "sequelize-cli": "6.6.2",
     "typescript": "5.3.3"
   },
+  "peerDependencies": {},
   "repository": {
     "type": "git",
     "url": "git://github.com/nodefony/nodefony.git",

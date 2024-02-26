@@ -9,7 +9,7 @@ class Firewall extends Service {
     const container: Container = module.container as Container;
     const event: Event = module.notificationsCenter as Event;
     super(serviceName, container, event, module.options);
-    this.httpKernel = this.get("httpKernel") as HttpKernel;
+    this.httpKernel = this.get("HttpKernel") as HttpKernel;
   }
 }
 

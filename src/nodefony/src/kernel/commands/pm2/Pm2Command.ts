@@ -78,7 +78,6 @@ $ npx pm2 --lines 1000 logs
     options: OptionValues
   ): Promise<this | void> {
     try {
-      //console.log("passs generate pm2", cmd, options);
       return this.findCommand(cmd, options).catch((e) => {
         this.log(e, "ERROR");
         return this.terminate(1);

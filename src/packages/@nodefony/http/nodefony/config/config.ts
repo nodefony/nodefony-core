@@ -3,7 +3,7 @@ import { kernel } from "nodefony";
 const tmpDir = kernel?.tmpDir?.path || "/tmp";
 
 export default {
-  watch: false,
+  watch: true,
   headerServer: "nodefony",
   // For more options parser formidable @see : https://github.com/felixge/node-formidable
   formidable: {

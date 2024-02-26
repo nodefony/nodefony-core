@@ -8,7 +8,7 @@ declare enum environment {
   "development",
   "prod",
   "production",
-  "stage",
+  "staging",
 }
 
 export type EnvironmentType = keyof typeof environment;

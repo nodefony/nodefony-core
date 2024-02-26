@@ -1,7 +1,12 @@
 declare module "@nodefony/http";
+import Http from "../../index";
+import Context from "../src/context/Context";
+import HttpKernel from "../service/http-kernel";
+import HttpError from "../src/errors/httpError";
+import WebsocketContext from "../src/context/websocket/WebsocketContext";
+import HttpContext from "../src/context/http/HttpContext";
 
-// export * from "../../dist/types/index";
-// export { default as httpKernel } from "../../dist/types/nodefony/service/http-kernel";
-// export * from "../../dist/types/nodefony/service/http-kernel";
-// export * from "../../dist/types/nodefony/service/server-http";
-// export { default as OptionsHttp } from "../../dist/types/nodefony/config/config";
+export default Http;
+export { Context, HttpKernel, HttpError, WebsocketContext, HttpContext };
+export * from "../service/http-kernel";
+export * from "../src/context/Context";

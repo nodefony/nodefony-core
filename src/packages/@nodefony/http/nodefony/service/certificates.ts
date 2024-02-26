@@ -60,7 +60,7 @@ class Certificate extends Service {
   certPath: string = resolve(this.path, "server", "cert.pem");
   fullchainPath: string = resolve(this.path, "server", "fullchain.pem");
   intermediatePath: string = resolve(this.path, "ca_intermediate");
-  constructor(module: Module, httpKernel: HttpKernel) {
+  constructor(module: Module) {
     super(
       "certificates",
       module.container as Container,
@@ -76,7 +76,7 @@ class Certificate extends Service {
 
   async initialize(): Promise<this> {
     this.options.openssl.serialNumber = Certificate.generateSerial();
-    this.kernel?.once("onStart", async () => {
+    this.kernel?.once("onBoot", async () => {
       this.options = nodefony.extend(
         true,
         this.options,

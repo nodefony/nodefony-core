@@ -3,9 +3,9 @@ import path from "node:path";
 import { defineConfig, Plugin, RollupOptions } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
-import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
-import copy from "rollup-plugin-copy";
+//import commonjs from "@rollup/plugin-commonjs";
+//import copy from "rollup-plugin-copy";
 
 const external: string[] = [
   "nodefony",
@@ -39,7 +39,7 @@ const sharedNodeOptions = defineConfig({
     entryFileNames: `[name].js`,
     //chunkFileNames: "node/chunks/dep-[hash].js",
     exports: "auto",
-    format: "esm",
+    format: "es",
   },
   onwarn(warning, warn) {
     if (warning.message.includes("Circular dependency")) {
@@ -62,15 +62,15 @@ function createNodePlugins(
       declaration: declarationDir !== false,
       declarationDir: declarationDir !== false ? declarationDir : undefined,
     }),
-    commonjs({
-      extensions: [".js"],
-      //ignoreDynamicRequires: true
-      dynamicRequireTargets: [],
-    }),
     json(),
-    copy({
-      targets: [],
-    }),
+    // commonjs({
+    //   extensions: [".js"],
+    //   //ignoreDynamicRequires: true
+    //   dynamicRequireTargets: [],
+    // }),
+    //copy({
+    //  targets: [],
+    //}),
   ];
   if (isProduction) {
     //tab.push(terser());
@@ -86,7 +86,7 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
     output: {
       ...sharedNodeOptions.output,
       sourcemap: !isProduction,
-      preserveModules: !isProduction,
+      //preserveModules: !isProduction,
       preserveModulesRoot: "nodefony",
     },
     external,
@@ -94,11 +94,8 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
   });
 }
 
-export default (commandLineArgs: any): RollupOptions[] => {
+export default (commandLineArgs: any): RollupOptions => {
   const isDev = commandLineArgs.watch;
   const isProduction = !isDev;
-  return defineConfig([
-    //envConfig,
-    createNodeConfig(isProduction),
-  ]);
+  return createNodeConfig(isProduction);
 };

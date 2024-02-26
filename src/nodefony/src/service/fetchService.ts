@@ -3,13 +3,13 @@ import Service from "../Service";
 import Container from "../Container";
 import fetch from "node-fetch";
 import * as library from "node-fetch";
+//import { injectable } from "../kernel/decorators/kernelDecorator";
 
 class Fetch extends Service {
   public fetch: typeof fetch;
   public library: typeof library;
   constructor(module: Module) {
-    const container = module.container as Container;
-    super("fetch", container);
+    super("Fetch", module.container as Container);
     this.library = library;
     this.fetch = fetch;
   }

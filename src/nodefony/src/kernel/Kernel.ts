@@ -9,13 +9,16 @@ import path from "node:path";
 import os from "node:os";
 import cluster from "node:cluster";
 import FileClass from "../FileClass";
-import { Nodefony } from "../Nodefony";
+import nodefony, { Nodefony } from "../Nodefony";
 import Command, { CommandArgs } from "../command/Command";
 import { isSubclassOf } from "../Tools";
 import { Severity } from "../syslog/Pdu";
 import Module from "./Module";
-import Fetch from "../service/fetchService";
+//import Fetch from "../service/fetchService";
 import Pm2 from "../service/pm2Service";
+import Watcher from "../service/watcherService";
+import Rollup from "../service/rollup/rollupService";
+import Injector from "./injector/injector";
 //import { StartOptions } from "pm2";
 
 const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
@@ -92,15 +95,19 @@ export interface FilterInterface {
   condition?: "&&" | "||" | "==";
 }
 
-export declare class InjectionType extends Service {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(module: Module, ...args: any[]);
+export interface ServiceWithInitialize extends Service {
   initialize?(module: Module): Promise<Service>;
 }
 
-export declare class ModuleType extends Module {
+export interface ServiceConstructor {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(kernel: Kernel, ...args: any[]);
+  new (...args: any[]): ServiceWithInitialize;
+  _inject?: { [key: number]: string };
+}
+
+export interface ModuleConstructor {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  new (kernel: Kernel, ...args: any[]): Module;
 }
 
 type trunkType = "javascript" | "typescript" | null;
@@ -139,12 +146,13 @@ class Kernel extends Service {
   projectName: string = "NODEFONY";
   uptime: number = new Date().getTime();
   numberCpu: number = os.cpus().length;
-  modules: Record<string, ModuleType> = {};
+  modules: Record<string, Module> = {};
   tmpDir?: FileClass;
   interfaces: NetworkInterface;
   domain: string = "localhost";
   progress: number = Events.onInit;
   pm2?: Pm2;
+  injector: Injector;
   constructor(
     environment: EnvironmentType,
     cli?: CliKernel | null,
@@ -159,17 +167,21 @@ class Kernel extends Service {
     );
     this.setMaxListeners(30);
     Nodefony.setKernel(this);
+    nodefony.kernel = this;
     this.kernel = this;
     this.set("kernel", this);
     this.cli = this.setCli(cli);
     this.type = "CONSOLE";
     this.interfaces = this.getNetworkInterfaces();
+    this.injector = new Injector(this);
+    this.set("injector", this.injector);
     this.fire("onInit", this);
   }
 
   async start(): Promise<this> {
     this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
     this.trunk = await this.isTrunk();
+    this.initializeLog();
     if (!this.trunk && this.cli) {
       return await this.cli
         .runCommandAsync("start", ["-i"])
@@ -203,18 +215,18 @@ class Kernel extends Service {
       });
       this.domain = this.setDomain();
       if (this.app) {
-        this.projectName = this.app.getModuleName();
+        this.projectName = this.app.getModuleName() as string;
       }
-      // parse command
-      if (this.cli && !this.command) {
-        this.cli.clear();
-        await this.cli.showAsciify(this.projectName);
-        this.cli.showBanner();
-        await this.cli.parseCommandAsync().catch((e) => {
-          throw e;
-        });
-        //await this.fireAsync("onBeforeStart", this);
-      }
+      //parse command
+      // if (this.cli && !this.command) {
+      //   this.cli.clear();
+      //   await this.cli.showAsciify(this.projectName);
+      //   this.cli.showBanner();
+      //   await this.cli.parseCommandAsync().catch((e) => {
+      //     this.log(e, "ERROR");
+      //     throw e;
+      //   });
+      // }
       return this.fireAsync("onStart", this)
         .then(async () => {
           // if (this.app) {
@@ -227,7 +239,7 @@ class Kernel extends Service {
           return this.preRegister();
         })
         .catch((e) => {
-          this.log(e, "CRITIC");
+          //this.log(e, "CRITIC");
           throw e;
         });
     }
@@ -236,9 +248,10 @@ class Kernel extends Service {
 
   async preRegister(): Promise<this> {
     await this.fireAsync("onPreRegister", this).catch((e) => {
-      //this.log(e, "CRITIC");
+      this.log(e, "CRITIC");
       throw e;
     });
+
     if (this.setCommandComplete(Events.onPreRegister)) {
       return this;
     }
@@ -265,6 +278,15 @@ class Kernel extends Service {
     this.initCluster();
     // Manage Template engine
     //this.initTemplate();
+    if (this.cli && !this.command) {
+      this.cli.clear();
+      await this.cli.showAsciify(this.projectName);
+      this.cli.showBanner();
+      await this.cli.parseCommandAsync().catch((e) => {
+        //this.log(e, "ERROR");
+        throw e;
+      });
+    }
     return this.fireAsync("onRegister", this)
       .then(() => {
         this.registered = true;
@@ -325,7 +347,7 @@ class Kernel extends Service {
     if (this.setCommandComplete(Events.onPreBoot)) {
       return this;
     }
-
+    //return;
     return this.fireAsync("onBoot", this)
       .then(() => {
         this.booted = true;
@@ -356,7 +378,6 @@ class Kernel extends Service {
             return this;
           });
         }
-
         return this.initServers().then(async (servers) => {
           if (global && global.gc) {
             this.memoryUsage("MEMORY POST READY ");
@@ -393,7 +414,7 @@ class Kernel extends Service {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async initServers(): Promise<any[]> {
-    const httpKernel = this.get("httpKernel");
+    const httpKernel = this.get("HttpKernel");
     if (httpKernel)
       return await httpKernel
         .initServers()
@@ -433,7 +454,7 @@ class Kernel extends Service {
   }
 
   async addService(
-    service: typeof InjectionType,
+    service: ServiceConstructor,
     module: Module,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...args: any[]
@@ -442,7 +463,7 @@ class Kernel extends Service {
   }
 
   async loadService(
-    service: typeof InjectionType,
+    service: string,
     module: Module | null = this.app,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...args: any[]
@@ -450,24 +471,32 @@ class Kernel extends Service {
     if (!module) {
       throw new Error(`Applcation not ready`);
     }
-    return this.addService(service, module, ...args);
+    const res = await import(service);
+    return this.addService(res.default, module, ...args);
   }
 
-  async loadNodefonyModule(moduleName: string): Promise<Module> {
+  async loadModule(
+    moduleName: string,
+    build: boolean = false
+  ): Promise<Module> {
+    if (build) {
+      await Module.build(moduleName);
+    }
     const module = await import(moduleName);
     return this.use(module.default);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async use(Mod: typeof ModuleType, ...args: any[]): Promise<Module> {
+  async use(Mod: ModuleConstructor, ...args: any[]): Promise<Module> {
     const mod = new Mod(this, ...args);
-    this.log(`MODULE ADD : ${mod.name}`, "DEBUG");
     this.modules[mod.name] = mod;
+    this.log(`MODULE ADD : ${mod.name}`, "INFO");
     if (mod.initialize) {
       this.log(`MODULE INITIALIZE : ${mod.name}`, "DEBUG");
       await mod.initialize(this);
-      await this.fireAsync("onInitialize", mod);
+      //await this.fireAsync("onInitialize", mod);
     }
+
     return mod as Module;
   }
 
@@ -479,16 +508,17 @@ class Kernel extends Service {
   }
 
   private async loadApp(config?: TypeKernelOptions): Promise<Module> {
-    this.app = await this.loadNodefonyModule(`${this.path}/dist/index.js`);
+    this.app = await this.loadModule(`${this.path}/dist/index.js`);
     this.app.isApp = true;
     this.options = this.readConfig(extend(this.app.options, config));
     this.initializeLog();
     this.cli?.setPackageManager(this.options.packageManager);
     this.core = await this.isCore();
-    await this.loadService(Fetch);
-    this.pm2 = (await this.loadService(Pm2, this.app, this.options.pm2)) as Pm2;
+    await this.addService(Rollup, this.app);
+    await this.addService(Watcher, this.app);
+    this.pm2 = (await this.addService(Pm2, this.app, this.options.pm2)) as Pm2;
     this.app.package = await this.app.getPackageJson();
-    this.version = this.app?.getModuleVersion();
+    this.version = this.app?.getModuleVersion() as string;
     this.fixCommanderCli();
     this.cli?.setCommandVersion(this.version);
     await this.fireAsync("onAppLoad", this.app);

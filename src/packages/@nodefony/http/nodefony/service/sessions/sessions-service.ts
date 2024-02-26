@@ -1,20 +1,21 @@
 import nodefony, {
   extend,
   Service,
-  Kernel,
+  //Kernel,
   Container,
   Event,
   Module,
-  FamilyType,
-  DynamicService,
+  // FamilyType,
+  //DynamicService,
   ProtoService,
   ProtoParameters,
+  inject,
 } from "nodefony";
 import HttpKernel, {
-  ProtocolType,
-  ServerType,
+  //ProtocolType,
+  //ServerType,
   ContextType,
-  httpRequest,
+  //httpRequest,
 } from "../http-kernel";
 import Context, { HTTPMethod } from "../../src/context/Context";
 import Session, { OptionsSessionType } from "../../src/session/session";
@@ -27,7 +28,7 @@ import { createHash } from "node:crypto";
 import FileSessionStorage from "../../src/session/storage/FileSessionStorage";
 
 export type sessionStrategyType = "none" | "migrate" | "invalidate";
-export type sessionStorageType = any; //  "orm" | "memcached" | "redis" | "fileSystem";
+export type sessionStorageType = any; //  "orm" | "memcached" | "redis" | "fileSystem" | "memory";
 
 export type FlashBagSessionType = Record<string, any>;
 export type MetaBagSessionType = Record<string, any>;
@@ -53,7 +54,6 @@ export interface sessionStorageInterface {
 }
 
 class SessionsService extends Service {
-  httpKernel: HttpKernel | null = null;
   sessionStrategy: sessionStrategyType = "migrate";
   storage: any = null;
   gc_probability: number = 1;
@@ -64,16 +64,18 @@ class SessionsService extends Service {
   secret?: Buffer;
   iv?: Buffer;
   certificates: Certificate;
-  constructor(module: Module, httpKernel: HttpKernel) {
+  constructor(
+    module: Module,
+    @inject("HttpKernel") public httpKernel: HttpKernel
+  ) {
     super(
       "sessions",
-      httpKernel.container as Container,
-      httpKernel.notificationsCenter as Event,
+      module.container as Container,
+      module.notificationsCenter as Event,
       module.options.session
     );
     this.module = module;
     this.certificates = this.get("certificates");
-    this.httpKernel = httpKernel;
     this.gc_probability =
       this.options.gc_probability === "string"
         ? parseInt(this.options.gc_probability, 10)

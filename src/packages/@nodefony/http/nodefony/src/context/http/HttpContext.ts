@@ -29,10 +29,12 @@ import http from "node:http";
 import url, { URL } from "node:url";
 import Session from "../../../src/session/session";
 
+import { Resolver, Router } from "@nodefony/framework";
+
 interface ProxyType {
   proxyServer: string;
   proxyProto: string;
-  proxyScheme: string;
+  proxyScheme: SchemeType;
   proxyPort: string;
   proxyFor: string;
   proxyHost: string;
@@ -55,8 +57,8 @@ class HttpContext extends Context {
   isHtml: boolean = false;
   request: HttpRequestType;
   response: HttpRsponseType;
-  resolver: any | null = null;
-  router: any | null = null;
+  resolver: Resolver | null = null;
+  router: Router | null = this.get("router");
   isJson: boolean = false;
   constructor(
     container: Container,
@@ -78,6 +80,7 @@ class HttpContext extends Context {
       this.request = new HttpRequest(request as http.IncomingMessage, this);
       this.response = new HttpResponse(response as http.ServerResponse, this);
     }
+    //this.router = this.get("router");
     this.url = url.format(this.request.url);
     this.scheme = this.request.url.protocol.replace(":", "") as SchemeType;
     this.method = this.request.getMethod();
@@ -94,7 +97,7 @@ class HttpContext extends Context {
       this.proxy = {
         proxyServer: <string>request.headers["x-forwarded-server"] || "unknown",
         proxyProto: <string>request.headers["x-forwarded-proto"],
-        proxyScheme: <string>request.headers["x-forwarded-scheme"],
+        proxyScheme: <SchemeType>request.headers["x-forwarded-scheme"],
         proxyPort: <string>request.headers["x-forwarded-port"],
         proxyFor: <string>request.headers["x-forwarded-for"],
         proxyHost: <string>request.headers["x-forwarded-host"],

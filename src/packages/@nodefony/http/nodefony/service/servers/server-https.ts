@@ -1,13 +1,18 @@
 import nodefony, {
   Service,
-  Kernel,
+  //Kernel,
   Container,
   Event,
   Module,
   FamilyType,
-  DefaultOptionsService,
+  //DefaultOptionsService,
+  inject,
 } from "nodefony";
-import HttpKernel, { ProtocolType, ServerType } from "../http-kernel";
+import HttpKernel, {
+  ProtocolType,
+  ServerType,
+  SchemeType,
+} from "../http-kernel";
 
 import http from "node:http";
 import https from "node:https";
@@ -18,7 +23,7 @@ import { AddressInfo } from "node:net";
 import { TLSSocket } from "node:tls";
 
 class ServerHttps extends Service {
-  httpKernel: HttpKernel | null = null;
+  //httpKernel: HttpKernel | null = null;
   httpTerminator: HttpTerminator | null = null;
   module: Module;
   server: https.Server | http2.Http2SecureServer | null = null;
@@ -27,13 +32,16 @@ class ServerHttps extends Service {
   ready: boolean = false;
   type: ServerType = "https";
   domain: string;
-  scheme: string = "https";
+  scheme: SchemeType = "https";
   address: string | null = null;
   family: FamilyType | null = null;
   active: boolean = false;
   infos: AddressInfo | null = null;
 
-  constructor(module: Module, httpKernel: HttpKernel) {
+  constructor(
+    module: Module,
+    @inject("HttpKernel") private httpKernel: HttpKernel
+  ) {
     module: Module;
     super(
       "server-https",
@@ -42,7 +50,6 @@ class ServerHttps extends Service {
       module.options.https
     );
     this.module = module;
-    this.httpKernel = httpKernel;
     this.active = !!this.kernel?.options.servers.https;
     this.port = this.setPort();
     this.domain = this.kernel?.domain as string;

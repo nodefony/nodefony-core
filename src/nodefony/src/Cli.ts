@@ -464,7 +464,9 @@ class Cli extends Service {
     options?: commander.ParseOptions
   ): Promise<commander.Command> {
     if (this.commander) {
-      return this.commander?.parseAsync(argv, options);
+      return this.commander?.parseAsync(argv, options).catch((e) => {
+        throw e;
+      });
     }
     throw new Error(`Commander not found`);
   }

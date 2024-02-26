@@ -33,6 +33,17 @@ const external: string[] = [
   "twig",
   "ejs",
   "pm2",
+  "rollup",
+  "chokidar",
+  "@rollup/plugin-typescript",
+  "@rollup/plugin-node-resolve",
+  "@rollup/plugin-commonjs",
+  "@rollup/plugin-json",
+  "@rollup/plugin-replace",
+  "@rollup/plugin-terser",
+  "rollup-plugin-visualizer",
+  "rollup/loadConfigFile",
+  "tslib",
 ];
 
 const sharedNodeOptions = defineConfig({
@@ -46,7 +57,7 @@ const sharedNodeOptions = defineConfig({
     entryFileNames: `node/[name].js`,
     //chunkFileNames: "node/chunks/dep-[hash].js",
     exports: "auto",
-    format: "esm",
+    format: "es",
     externalLiveBindings: false,
     freeze: false,
   },

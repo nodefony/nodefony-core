@@ -4,32 +4,39 @@ import websocket from "websocket";
 import nodefony, {
   extend,
   Service,
-  Kernel,
+  //Kernel,
   Container,
   Event,
   Module,
   FamilyType,
-  DefaultOptionsService,
+  //DefaultOptionsService,
+  inject,
 } from "nodefony";
-import HttpKernel, { ProtocolType, ServerType } from "../http-kernel";
+import HttpKernel, {
+  ProtocolType,
+  ServerType,
+  SchemeType,
+} from "../http-kernel";
 import { AddressInfo } from "node:net";
 import https from "node:https";
 import httpsServers from "./server-https";
 
 class Websocket extends Service {
   module: Module;
-  httpKernel: HttpKernel;
   ready: boolean = false;
   server: websocket.server | null = null;
   port: number;
   domain: string;
   protocol: ProtocolType = "1.1";
   family: FamilyType | null = null;
-  scheme: string = "wss";
+  scheme: SchemeType = "wss";
   address: string | null = null;
   type: ServerType = "websocket-secure";
   infos: AddressInfo | null = null;
-  constructor(module: Module, httpKernel: HttpKernel) {
+  constructor(
+    module: Module,
+    @inject("HttpKernel") private httpKernel: HttpKernel
+  ) {
     super(
       "server-websocket-secure",
       module.container as Container,
@@ -37,7 +44,6 @@ class Websocket extends Service {
       module.options.websocket
     );
     this.module = module;
-    this.httpKernel = httpKernel;
     this.port = this.setPort();
     this.domain = this.kernel?.domain as string;
     this.ready = false;

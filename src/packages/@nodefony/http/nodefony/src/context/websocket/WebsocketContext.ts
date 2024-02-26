@@ -1,4 +1,4 @@
-import Context, { contextRequest, contextResponse } from "../Context";
+import Context, { contextRequest, contextResponse, Cookies } from "../Context";
 import {
   ServerType,
   httpRequest,
@@ -16,11 +16,20 @@ import {
 import websocket from "websocket";
 import websocketResponse from "./Response";
 import Cookie from "../../cookies/cookie";
+import { URL } from "node:url";
+
+declare module "websocket" {
+  interface request {
+    //cookies: Cookies;
+    url: URL;
+  }
+}
 
 class WebsocketContext extends Context {
   request: websocket.request;
   response: websocketResponse;
-  cookies: Record<string, Cookie> = {};
+  cookies: Cookies = {};
+  acceptedProtocol?: string;
   constructor(
     container: Container,
     request: websocket.request,
@@ -29,6 +38,8 @@ class WebsocketContext extends Context {
     super(container, type);
     this.request = request;
     this.response = new websocketResponse();
+    this.acceptedProtocol =
+      request.httpRequest.headers["sec-websocket-protocol"];
   }
 
   async connect(): Promise<any> {}

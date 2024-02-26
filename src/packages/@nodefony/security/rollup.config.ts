@@ -3,9 +3,9 @@ import path from "node:path";
 import { defineConfig, Plugin, RollupOptions } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
-import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
-import copy from "rollup-plugin-copy";
+//import commonjs from "@rollup/plugin-commonjs";
+//import copy from "rollup-plugin-copy";
 
 const external: string[] = ["nodefony"];
 
@@ -45,15 +45,7 @@ function createNodePlugins(
       declaration: declarationDir !== false,
       declarationDir: declarationDir !== false ? declarationDir : undefined,
     }),
-    commonjs({
-      extensions: [".js"],
-      //ignoreDynamicRequires: true
-      dynamicRequireTargets: [],
-    }),
     json(),
-    copy({
-      targets: [],
-    }),
   ];
   if (isProduction) {
     //tab.push(terser());

@@ -5,15 +5,19 @@ import nodefony, {
   Event,
   Module,
   FamilyType,
+  inject,
 } from "nodefony";
-import HttpKernel, { ProtocolType, ServerType } from "../http-kernel";
+import HttpKernel, {
+  ProtocolType,
+  ServerType,
+  SchemeType,
+} from "../http-kernel";
 
 import http from "node:http";
 import http2 from "node:http2";
 import { AddressInfo } from "node:net";
 
 class ServerHttp extends Service {
-  httpKernel: HttpKernel | null = null;
   module: Module;
   server: http.Server | http2.Http2Server | null = null;
   port: number;
@@ -21,13 +25,16 @@ class ServerHttp extends Service {
   ready: boolean = false;
   type: ServerType = "http";
   domain: string;
-  scheme: string = "http";
+  scheme: SchemeType = "http";
   address: string | null = null;
   family: FamilyType | null = null;
   active: boolean = false;
   infos: AddressInfo | null = null;
 
-  constructor(module: Module, httpKernel: HttpKernel) {
+  constructor(
+    module: Module,
+    @inject("HttpKernel") private httpKernel: HttpKernel
+  ) {
     module: Module;
     super(
       "server-http",
@@ -36,7 +43,6 @@ class ServerHttp extends Service {
       module.options.http
     );
     this.module = module;
-    this.httpKernel = httpKernel;
     this.active = !!module.kernel?.options.servers.http;
     this.port = this.setPort();
     this.domain = this.module.kernel?.domain as string;

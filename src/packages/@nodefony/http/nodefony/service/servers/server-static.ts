@@ -1,19 +1,24 @@
 import serveStatic from "serve-static";
 import mime from "mime-types";
 import { URL } from "node:url";
-import HttpKernel, { ProtocolType, ServerType } from "../http-kernel";
+import HttpKernel, {
+  //ProtocolType,
+  //ServerType,
+  SchemeType,
+} from "../http-kernel";
 import http from "node:http";
 import http2 from "node:http2";
 import tls from "tls";
 import nodefony, {
   Service,
   Kernel,
-  Container,
-  Event,
+  //Container,
+  //Event,
   extend,
   Module,
-  FamilyType,
-  DefaultOptionsService,
+  //FamilyType,
+  //DefaultOptionsService,
+  inject,
 } from "nodefony";
 
 type serveStaticType = serveStatic.RequestHandler<http.ServerResponse>;
@@ -27,10 +32,12 @@ const defaultOptions: serveStatic.ServeStaticOptions = {
 
 class Statics extends Service {
   module: Module;
-  httpKernel: HttpKernel | null = null;
   servers: ServersStatic;
   defaultOptions: serveStatic.ServeStaticOptions = defaultOptions;
-  constructor(module: Module, httpKernel: HttpKernel) {
+  constructor(
+    module: Module,
+    @inject("HttpKernel") private httpKernel: HttpKernel
+  ) {
     const container = module.container || undefined;
     const options: serveStatic.ServeStaticOptions =
       module.options.statics || {};
@@ -112,7 +119,7 @@ class Statics extends Service {
   }
 
   getUrl(request: http.IncomingMessage | http2.Http2ServerRequest): string {
-    let scheme, host;
+    let scheme: SchemeType, host;
     if (request instanceof http.IncomingMessage) {
       // Pour http.IncomingMessage
       scheme =
@@ -121,6 +128,7 @@ class Statics extends Service {
           ? "https"
           : "http";
       host = request.headers.host;
+      return scheme + "://" + host;
     } else if (request instanceof http2.Http2ServerRequest) {
       // Pour http2.Http2ServerRequest
       scheme =
@@ -128,8 +136,9 @@ class Statics extends Service {
           ? "https"
           : "http";
       host = request.headers[":authority"];
+      return scheme + "://" + host;
     }
-    return scheme + "://" + host;
+    throw new Error(`Bad request type`);
   }
 
   async handle(

@@ -7,7 +7,14 @@ import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
 import copy from "rollup-plugin-copy";
 
-const external: string[] = ["nodefony", "@nodefony/http", "@nodefony/security"];
+const external: string[] = [
+  "nodefony",
+  "@nodefony/http",
+  "@nodefony/security",
+  "@nodefony/framework",
+  "@nodefony/sequelize",
+  "cli-table3",
+];
 
 const sharedNodeOptions = defineConfig({
   treeshake: {
@@ -18,9 +25,8 @@ const sharedNodeOptions = defineConfig({
   output: {
     dir: "./dist",
     entryFileNames: `[name].js`,
-    //chunkFileNames: "node/chunks/dep-[hash].js",
     exports: "auto",
-    format: "esm",
+    format: "es",
     externalLiveBindings: false,
     freeze: false,
   },
@@ -77,11 +83,8 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
   });
 }
 
-export default (commandLineArgs: any): RollupOptions[] => {
+export default (commandLineArgs: any): RollupOptions => {
   const isDev = commandLineArgs.watch;
   const isProduction = !isDev;
-  return defineConfig([
-    //envConfig,
-    createNodeConfig(isProduction),
-  ]);
+  return createNodeConfig(isProduction);
 };

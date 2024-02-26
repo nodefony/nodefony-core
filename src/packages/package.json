@@ -13,9 +13,9 @@
     "javascript"
   ],
   "scripts": {
-    "install":"npm --prefix ./@nodefony/http install",
-    "build":"npm run --prefix ./@nodefony/http build",
-    "test":"npm run --prefix ./@nodefony/http test"
+    "install": "npm --prefix ./@nodefony/http install ;npm --prefix ./@nodefony/framework install ; npm --prefix ./@nodefony/sequelize install",
+    "build": "npm run --prefix ./@nodefony/http build; npm run --prefix ./@nodefony/framework build; npm run --prefix ./@nodefony/sequelize build",
+    "test": "npm run --prefix ./@nodefony/http test"
   },
   "dependencies": {},
   "devDependencies": {},

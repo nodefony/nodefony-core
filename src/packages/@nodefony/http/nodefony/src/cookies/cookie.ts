@@ -7,7 +7,6 @@ import crypto from "node:crypto";
 import HttpContext from "../context/http/HttpContext";
 import WebsocketContext from "../context/websocket/WebsocketContext";
 import websocket from "websocket";
-
 import { ContextType } from "../../service/http-kernel";
 
 type SameSiteType = boolean | "none" | "Lax" | "Strict";

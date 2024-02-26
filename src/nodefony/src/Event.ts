@@ -93,22 +93,16 @@ class Event extends EventEmitter {
     ...args: any[]
   ): Promise<any> {
     const handler = get(this._events, eventName);
-    if (isEmpty(handler) && !isFunction(handler)) {
+    if (!handler || (isEmpty(handler) && !isFunction(handler))) {
       return false;
     }
     const result = [];
     if (typeof handler === "function") {
       result.push(await Reflect.apply(handler, this, args));
     } else {
-      let size = handler.length;
-      let i = 0;
-      while (size !== i) {
-        result.push(await Reflect.apply(handler[i], this, args));
-        if (handler.length === size) {
-          i++;
-        } else {
-          size--;
-        }
+      const handlers = [...handler];
+      for await (const handler of handlers) {
+        result.push(await Reflect.apply(handler, this, args));
       }
     }
     return result;
