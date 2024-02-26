@@ -13,8 +13,8 @@ import HttpKernel, { ContextType, ServerType } from "../../service/http-kernel";
 import HttpResponse from "./http/Response";
 import Http2Response from "./http2/Response";
 import WebsocketResponse from "./websocket/Response";
-import HttpResquest from "./http/Request";
-import Http2Resquest from "./http2/Request";
+import HttpRequest from "./http/Request";
+import Http2Request from "./http2/Request";
 import SessionsService from "../../service/sessions/sessions-service";
 import clc from "cli-color";
 //import http from "node:http";
@@ -26,8 +26,8 @@ import HttpError from "../errors/httpError";
 const colorLogEvent = clc.cyan.bgBlue("EVENT CONTEXT");
 
 export type contextRequest =
-  | HttpResquest
-  | Http2Resquest
+  | HttpRequest
+  | Http2Request
   | websocket.request
   | null;
 export type contextResponse =
@@ -52,6 +52,7 @@ export type Cookies = Record<string, Cookie>;
 
 class Context extends Service {
   secure: boolean = false;
+  security: any = null;
   cleaned: boolean = false;
   isControlledAccess: boolean = false;
   validDomain: boolean = false;
@@ -76,6 +77,7 @@ class Context extends Service {
   session: Session | null | undefined = null;
   cookieSession: Cookie | null | undefined = null;
   user: any = null;
+  waitAsync: boolean = false;
   constructor(container: Container, type: ServerType) {
     super(`${type} CONTEXT`, container);
     this.type = type;
@@ -203,6 +205,7 @@ class Context extends Service {
   parseCookies(): void {
     return cookiesParser(this);
   }
+  setContextJson(encoding: BufferEncoding = "utf-8"): void {}
 }
 
 export default Context;

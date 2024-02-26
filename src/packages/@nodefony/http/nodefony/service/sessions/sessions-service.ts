@@ -19,8 +19,8 @@ import HttpKernel, {
 } from "../http-kernel";
 import Context, { HTTPMethod } from "../../src/context/Context";
 import Session, { OptionsSessionType } from "../../src/session/session";
-import Http2Resquest from "../../src/context/http2/Request";
-import HttpResquest from "../../src/context/http/Request";
+import Http2Request from "../../src/context/http2/Request";
+import HttpRequest from "../../src/context/http/Request";
 import url from "node:url";
 import Certificate from "../../service/certificates";
 import { createHash } from "node:crypto";
@@ -207,7 +207,7 @@ class SessionsService extends Service {
           try {
             context.session = session;
             const method = context.method as HTTPMethod;
-            const request = context.request as HttpResquest | Http2Resquest;
+            const request = context.request as HttpRequest | Http2Request;
             if (method !== "WEBSOCKET" && request && request.request) {
               request.request.session = session;
             }

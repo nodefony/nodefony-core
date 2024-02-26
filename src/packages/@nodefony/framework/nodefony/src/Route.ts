@@ -4,6 +4,7 @@ import {
   SchemeType,
   HttpError,
   WebsocketContext,
+  ContextType,
 } from "@nodefony/http";
 import { createHash } from "node:crypto";
 import { typeOf } from "nodefony";
@@ -133,12 +134,13 @@ class Route {
       this.method = obj.method as HTTPMethod;
       this.setHostname(obj.host);
       this.setDefaults(obj.defaults);
+      this.requirements = obj.requirements || {};
       this.compile();
     }
     this.generateId();
   }
 
-  match(context: Context) {
+  match(context: ContextType) {
     let res;
     if (context.request && context.request.url && this.pattern) {
       res = context.request.url.pathname.match(this.pattern as RegExp);
@@ -213,14 +215,11 @@ class Route {
       return;
     }
     let pattern = this.path.replace(REG_ROUTE, replaceCallback.bind(this));
-    //console.log("PASASAS", pattern);
     if (pattern[pattern.length - 1] === "*") {
       pattern = pattern.replace(REG_REPLACE, "\\$1").replace(/\*/g, "(.*)/?");
     } else {
       pattern = pattern.replace(REG_REPLACE, "\\$1");
     }
-    //console.log("PASASAS => ", pattern);
-    //this.pattern = new RegExp(`^${pattern}[/]?$`, "i");
     this.pattern = new RegExp(`^${pattern}$`, "i");
     return this.pattern;
   }
@@ -297,7 +296,7 @@ class Route {
     this.host = hostname;
   }
 
-  matchHostname(context: Context) {
+  matchHostname(context: ContextType) {
     if (this.host) {
       if (this.host === context.domain) {
         return true;
@@ -336,7 +335,7 @@ class Route {
   hasRequirements(): number {
     return Object.keys(this.requirements).length;
   }
-  matchRequirements(context: Context) {
+  matchRequirements(context: ContextType) {
     if (this.hasRequirements()) {
       for (const i in this.requirements) {
         switch (i) {

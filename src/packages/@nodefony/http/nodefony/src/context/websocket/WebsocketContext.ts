@@ -30,6 +30,7 @@ class WebsocketContext extends Context {
   response: websocketResponse;
   cookies: Cookies = {};
   acceptedProtocol?: string;
+  isJson: boolean = true;
   constructor(
     container: Container,
     request: websocket.request,
@@ -46,6 +47,8 @@ class WebsocketContext extends Context {
 
   async handle(): Promise<any> {}
 
+  //override async send(chunk?: any, encoding?: BufferEncoding) {}
+
   getRemoteAddress(): string | null {
     return this.request?.remoteAddress;
   }
@@ -56,6 +59,10 @@ class WebsocketContext extends Context {
 
   getUserAgent(): string {
     return "";
+  }
+
+  override setContextJson(encoding: BufferEncoding = "utf-8"): void {
+    this.isJson = true;
   }
 }
 

@@ -7,7 +7,7 @@ import { ControllerConstructor } from "../src/Route";
 
 type Constructor<T = {}> = new (...args: any[]) => T;
 
-function controller(name: string, options: Record<string, any>) {
+function DefineController(name: string, options: Record<string, any>) {
   return function (controller: any) {
     const constructor = controller.constructor;
     const className = controller.name;
@@ -58,7 +58,7 @@ function controllers(
  *   console.log("call method");
  * }
  */
-function route(name: string, options: RouteOptions) {
+function DefineRoute(name: string, options: RouteOptions) {
   return function (
     target: any,
     propertyKey: string,
@@ -96,4 +96,4 @@ function route(name: string, options: RouteOptions) {
   };
 }
 
-export { route, controller, controllers };
+export { DefineRoute, DefineController, controllers };

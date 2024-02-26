@@ -1,9 +1,9 @@
 import http2 from "node:http2";
 import HttpContext from "../http/HttpContext";
-import HttpResquest from "../http/Request";
+import HttpRequest from "../http/Request";
 import { HTTPMethod } from "../Context";
 
-class Http2Resquest extends HttpResquest {
+class Http2Request extends HttpRequest {
   context: HttpContext;
   override request: http2.Http2ServerRequest;
   constructor(request: http2.Http2ServerRequest, context: HttpContext) {
@@ -37,4 +37,4 @@ class Http2Resquest extends HttpResquest {
   }
 }
 
-export default Http2Resquest;
+export default Http2Request;

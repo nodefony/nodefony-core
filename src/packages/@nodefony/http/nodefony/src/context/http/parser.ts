@@ -1,13 +1,13 @@
-import HttpResquest from "./Request";
-import Http2Resquest from "../http2/Request";
+import HttpRequest from "./Request";
+import Http2Request from "../http2/Request";
 import QS from "qs";
 import { extend } from "nodefony";
 import xml2js from "xml2js";
 
 class Parser {
-  request: HttpResquest | Http2Resquest;
+  request: HttpRequest | Http2Request;
   chunks: Buffer[];
-  constructor(request: HttpResquest | Http2Resquest) {
+  constructor(request: HttpRequest | Http2Request) {
     this.request = request;
     this.chunks = [];
     this.request.request.on("data", (data) => {
@@ -33,7 +33,7 @@ class Parser {
 class ParserQs extends Parser {
   parserOptions: QS.IParseOptions;
   charset: BufferEncoding = "utf8";
-  constructor(request: HttpResquest | Http2Resquest) {
+  constructor(request: HttpRequest | Http2Request) {
     super(request);
     this.parserOptions = this.request.queryStringOptions || {};
   }
@@ -62,7 +62,7 @@ class ParserXml extends Parser {
   xmlParser: xml2js.Parser;
   charset: BufferEncoding = "utf8";
   constructor(
-    request: HttpResquest | Http2Resquest,
+    request: HttpRequest | Http2Request,
     settingsXml?: xml2js.ParserOptions
   ) {
     super(request);

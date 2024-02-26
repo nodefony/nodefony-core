@@ -4,9 +4,9 @@ import HttpContext from "../http/HttpContext";
 import url, { URL } from "node:url";
 import { HTTPMethod, Cookies } from "../Context";
 import QS from "qs";
-import Http2Resquest from "../http2/Request";
+import Http2Request from "../http2/Request";
 import formidable, { IncomingForm } from "formidable";
-import { Container } from "nodefony";
+//import { Container } from "nodefony";
 import { ParserXml, ParserQs, Parser, acceptParser } from "./parser";
 import nodefony, { extend, Pdu, Message, Severity, Msgid } from "nodefony";
 import Session from "../../session/session";
@@ -46,7 +46,7 @@ type ParserType =
   | Parser
   | InstanceType<typeof IncomingForm>;
 
-class HttpResquest {
+class HttpRequest {
   context: HttpContext;
   request: http.IncomingMessage | http2.Http2ServerRequest;
   url: URL;
@@ -438,4 +438,4 @@ class HttpResquest {
   }
 }
 
-export default HttpResquest;
+export default HttpRequest;

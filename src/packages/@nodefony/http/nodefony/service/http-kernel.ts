@@ -372,7 +372,7 @@ class HttpKernel extends Service {
         }
         return resolve(context);
       } catch (e) {
-        return this.onError(e as Error, context as Context).catch((e) => {
+        return this.onError(e as Error, context as ContextType).catch((e) => {
           this.log(e, "CRITIC");
           return reject(e);
         });

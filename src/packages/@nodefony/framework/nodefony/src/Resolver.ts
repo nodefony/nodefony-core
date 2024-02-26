@@ -8,21 +8,28 @@ import {
   inject,
 } from "nodefony";
 //import Router from "../service/router";
-import { Context, HttpError } from "@nodefony/http";
+import { Context, HttpError, ContextType } from "@nodefony/http";
 import Route, { ControllerConstructor } from "./Route";
 import BlueBird from "bluebird";
+import Controller from "./Controller";
+import { ServiceWithInitialize } from "nodefony";
 //import { ServiceConstructor } from "nodefony";
+
+export interface ControllerWithInitialize {
+  initialize(controler: Controller): Promise<Controller>;
+}
 
 class Resolver extends Service {
   injector: Injector;
   controller: ControllerConstructor | null = null;
   actionName?: string;
   action?: Function;
-  context: Context;
+  context: ContextType;
   route: Route | null = null;
   resolve: boolean = false;
+  variables: any[] = [];
   exception?: HttpError | Error | null;
-  constructor(context: Context) {
+  constructor(context: ContextType) {
     super(
       "RESOLVER",
       context.container as Container,
@@ -32,10 +39,11 @@ class Resolver extends Service {
     this.injector = this.get("injector");
   }
 
-  match(route: Route, context: Context) {
+  match(route: Route, context: ContextType) {
     try {
       const match = route.match(context);
       if (match) {
+        this.variables = match;
         this.route = route;
         this.controller = route.controller as ControllerConstructor;
         this.actionName = route.classMethod;
@@ -47,33 +55,43 @@ class Resolver extends Service {
     }
   }
 
-  newController(context?: Context) {
+  async newController(context?: ContextType): Promise<Controller> {
     if (this.controller) {
-      //const controller = new this.controller(context || this.context);
       const controller = this.injector.instantiate(
         this.controller,
         context || this.context
       );
-      this.set("controller", controller);
-      return controller;
+      if (controller) {
+        this.set("controller", controller);
+        if (
+          "initialize" in controller &&
+          typeof controller.initialize === "function"
+        ) {
+          await controller.initialize();
+          return controller as Controller;
+        }
+        return controller as Controller;
+      }
     }
     throw new Error(`Route Controller not found`);
   }
 
-  callController(data: any[] = [], reload: boolean = false) {
+  async callController(data: any[] = [], reload: boolean = false) {
     try {
       let controller = this.get("controller");
       if (!controller || reload) {
-        controller = this.newController();
+        controller = await this.newController();
       }
       this.set("action", this.action);
+      this.set("route", this.route);
+      controller.setRoute(this.route);
       const methodKey = this.actionName as keyof typeof controller;
+      const ele = [...this.variables, ...data];
       if (typeof controller[methodKey] === "function") {
-        this.action = controller[methodKey] as Function;
-        return (controller[methodKey] as Function)();
+        return (controller[methodKey] as Function)(...ele);
       }
       if (this.action) {
-        return this.returnController(this.action(...data));
+        return this.returnController(this.action(...ele));
       }
       throw new Error(`Route Action not found`);
     } catch (e) {
@@ -88,6 +106,7 @@ class Resolver extends Service {
       case result instanceof BlueBird:
       case isPromise(result):
       default:
+        this.context.waitAsync = true;
     }
   }
 }

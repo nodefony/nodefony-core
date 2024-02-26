@@ -96,7 +96,7 @@ export interface FilterInterface {
 }
 
 export interface ServiceWithInitialize extends Service {
-  initialize?(module: Module): Promise<Service>;
+  initialize?(module?: Module): Promise<Service>;
 }
 
 export interface ServiceConstructor {

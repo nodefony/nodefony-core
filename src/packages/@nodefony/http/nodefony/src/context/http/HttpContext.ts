@@ -1,24 +1,24 @@
 import {
   ServerType,
-  httpRequest,
-  httpResponse,
+  //httpRequest,
+  //httpResponse,
   SchemeType,
 } from "../../../service/http-kernel";
 import HttpError from "../../errors/httpError";
 import Context, {
-  contextRequest,
-  contextResponse,
+  //contextRequest,
+  //contextResponse,
   HTTPMethod,
 } from "../Context";
 import {
   extend,
   Container,
-  Service,
-  Severity,
-  Msgid,
-  Message,
-  Pdu,
-  KernelEventsType,
+  //Service,
+  //Severity,
+  //Msgid,
+  //Message,
+  //Pdu,
+  //KernelEventsType,
 } from "nodefony";
 import HttpRequest from "./Request";
 import HttpResponse from "./Response";
@@ -359,6 +359,10 @@ class HttpContext extends Context {
       this.isJson = true;
       this.response.setContentType("json", "utf-8");
     }
+  }
+  override setContextJson(encoding: BufferEncoding = "utf-8"): void {
+    this.isJson = true;
+    this.response.setContentType("json", encoding);
   }
 }
 

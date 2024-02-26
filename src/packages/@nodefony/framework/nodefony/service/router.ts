@@ -7,7 +7,7 @@ import {
   injectable,
 } from "nodefony";
 import Route, { RouteOptions } from "../src/Route";
-import { HttpKernel, Context } from "@nodefony/http";
+import { HttpKernel, Context, ContextType } from "@nodefony/http";
 import Resolver from "../src/Resolver";
 import Controller from "../src/Controller";
 export type TypeController<T> = new (...args: any[]) => T;
@@ -30,32 +30,9 @@ class Router extends Service {
       module.notificationsCenter as Event,
       module.options.router
     );
-
-    // this.kernel?.once("onReady", () => {
-    //   console.log(routes);
-    //   const myRoute: Route = routes[0];
-    //   if (myRoute) {
-    //     if (myRoute.controller && myRoute.classMethod) {
-    //       const inst = new myRoute.controller(module);
-    //       const methodKey = myRoute.classMethod as keyof typeof inst;
-    //       if (typeof inst[methodKey] === "function") {
-    //         (inst[methodKey] as Function)();
-    //       }
-    //       console.log("################################");
-    //       this.matchRoutes("/base/add/ddddd");
-    //       console.log("################################");
-    //       this.matchRoutes("/base/ele/sboob/kdskdkd/add");
-    //       console.log("################################");
-    //       this.matchRoutes("/base/add/");
-    //       console.log("################################");
-    //       this.matchRoutes("/base/ele/sboob/kdskdkd/mymethos/add");
-    //       console.log("################################");
-    //     }
-    //   }
-    // });
   }
 
-  resolve(context: Context): Resolver {
+  resolve(context: ContextType): Resolver {
     const resolver = new Resolver(context);
     for (let i = 0; i < routes.length; i++) {
       try {

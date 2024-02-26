@@ -25,7 +25,7 @@ import {
 import Cookie, { CookieOptionsType } from "../cookies/cookie";
 import HttpContext from "../context/http/HttpContext";
 import WebsocketContext from "../context/websocket/WebsocketContext";
-import HttpResquest from "../context/http/Request";
+import HttpRequest from "../context/http/Request";
 
 type algorithmSessionType = {
   algorithm: string;
@@ -331,7 +331,7 @@ class Session extends Container {
       this.applyTranId = false;
     }
     if (!this.options.use_only_cookies && !this.id) {
-      const request = this.context?.request as HttpResquest;
+      const request = this.context?.request as HttpRequest;
       if (request && this.name in request.query) {
         this.id = this.getId(request.query[this.name]);
       }

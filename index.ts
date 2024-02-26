@@ -1,5 +1,6 @@
 import { Kernel, Module, modules } from "nodefony";
-
+import { controllers } from "@nodefony/framework";
+import AppController from "./nodefony/controllers/AppController";
 import config from "./nodefony/config/config";
 import http from "@nodefony/http";
 import security from "@nodefony/security";
@@ -15,6 +16,7 @@ import sequelize from "@nodefony/sequelize";
   "@nodefony/framework",
   "@nodefony/sequelize",
 ])
+@controllers([AppController])
 class App extends Module {
   /**
    * Constructs an instance of the App class.
