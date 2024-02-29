@@ -30,10 +30,10 @@ function controllers(
       async initDecoratorControllers() {
         if (Array.isArray(controller)) {
           for (const contr of controller) {
-            Router.setController(contr);
+            Router.setController(contr, this);
           }
         } else {
-          Router.setController(controller);
+          Router.setController(controller, this);
         }
       }
     }
@@ -69,17 +69,20 @@ function DefineRoute(name: string, options: RouteOptions) {
     const prefix = target.constructor.basepath;
     const path = options.path || "";
     let filePath;
-    const stackTrace = new Error().stack;
-    if (stackTrace && stackTrace.split) {
-      const sp = stackTrace?.split("\n");
-      if (sp[2]) {
-        let ele = sp[2].match(/\(([^)]+)\)/);
-        if (ele) {
-          filePath = ele[1];
-          filePath = fileURLToPath(filePath);
+    try {
+      const stackTrace = new Error().stack;
+      if (stackTrace && stackTrace.split) {
+        const sp = stackTrace?.split("\n");
+        if (sp[2]) {
+          let ele = sp[2].match(/\(([^)]+)\)/);
+          if (ele) {
+            filePath = ele[1];
+            filePath = fileURLToPath(filePath);
+          }
         }
       }
-    }
+    } catch (e) {}
+
     Router.createRoute(name, {
       path,
       filePath,

@@ -153,6 +153,8 @@ class Kernel extends Service {
   progress: number = Events.onInit;
   pm2?: Pm2;
   injector: Injector;
+  isDev: boolean = false;
+  isProd: boolean = true;
   constructor(
     environment: EnvironmentType,
     cli?: CliKernel | null,
@@ -239,7 +241,7 @@ class Kernel extends Service {
           return this.preRegister();
         })
         .catch((e) => {
-          //this.log(e, "CRITIC");
+          this.log(e, "CRITIC");
           throw e;
         });
     }
@@ -296,7 +298,6 @@ class Kernel extends Service {
         return this.boot();
       })
       .catch((e) => {
-        //this.log(e, "CRITIC");
         throw e;
       });
   }
@@ -342,6 +343,7 @@ class Kernel extends Service {
 
   async boot(): Promise<this> {
     await this.fireAsync("onPreBoot", this).catch((e) => {
+      this.log(e, "CRITIC");
       throw e;
     });
     if (this.setCommandComplete(Events.onPreBoot)) {
@@ -357,7 +359,6 @@ class Kernel extends Service {
         return this.onReady();
       })
       .catch((e) => {
-        //this.log(e, "CRITIC");
         throw e;
       });
   }
@@ -401,13 +402,11 @@ class Kernel extends Service {
               }
             })
             .catch((e) => {
-              //this.log(e, "CRITIC");
               throw e;
             });
         });
       })
       .catch((e) => {
-        //this.log(e, "CRITIC");
         throw e;
       });
   }
@@ -637,10 +636,12 @@ class Kernel extends Service {
         case "development":
           process.env.NODE_ENV = "development";
           process.env.BABEL_ENV = "development";
+          this.isDev = true;
           break;
         default:
           process.env.NODE_ENV = "production";
           process.env.BABEL_ENV = "production";
+          this.isProd = true;
       }
     }
     process.env.NODE_DEBUG = this.debug ? "true" : "false";

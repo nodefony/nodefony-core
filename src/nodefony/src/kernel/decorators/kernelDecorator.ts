@@ -6,12 +6,14 @@ import Injector from "../injector/injector";
 //import nodefony from "../../Nodefony";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-type Constructor<T = {}> = new (...args: any[]) => T;
+type Constructor = new (...args: any[]) => Module;
+
+type Injectable<T = { service: Service }> = new (...args: any[]) => T;
 
 function modules(
   nameOrPath: string | (string | ModuleConstructor)[] | ModuleConstructor
-): <T extends Constructor<Module>>(constructor: T) => T {
-  return function <T extends Constructor<Module>>(constructor: T): T {
+): <T extends Constructor>(constructor: T) => T {
+  return function <T extends Constructor>(constructor: T): T {
     class NewModuleConstructor extends constructor {
       constructor(...args: any[]) {
         super(...args);
@@ -44,8 +46,8 @@ function modules(
 
 function services(
   nameOrPath: string | (string | ServiceConstructor)[] | ServiceConstructor
-): <T extends Constructor<Service>>(constructor: T) => T {
-  return function <T extends Constructor<Service>>(constructor: T): T {
+): <T extends Constructor>(constructor: T) => T {
+  return function <T extends Constructor>(constructor: T): T {
     class NewConstructorService extends constructor {
       constructor(...args: any[]) {
         super(...args);
@@ -54,41 +56,31 @@ function services(
         });
       }
       async initDecoratorServices() {
-        const targetModule = this.kernel?.getModule(this.name);
-        if (!targetModule) {
-          throw new Error(
-            `Decorateur services  bad target Module : ${this.name} `
-          );
-        }
         if (Array.isArray(nameOrPath)) {
           for (const path of nameOrPath) {
             if (typeof path !== "string") {
-              await this.kernel
-                ?.addService(path as ServiceConstructor, targetModule)
-                .catch((e: Error) => {
+              await this.addService(path as ServiceConstructor).catch(
+                (e: Error) => {
                   this.log(e, "ERROR");
-                });
+                }
+              );
             } else {
-              await this.kernel
-                ?.loadService(path as string, targetModule)
-                .catch((e: Error) => {
-                  this.log(e, "ERROR");
-                });
+              await this.loadService(path as string).catch((e: Error) => {
+                this.log(e, "ERROR");
+              });
             }
           }
         } else {
           if (typeof nameOrPath === "string") {
-            return await this.kernel
-              ?.loadService(nameOrPath as string, targetModule)
-              .catch((e: Error) => {
+            return await this.loadService(nameOrPath as string).catch(
+              (e: Error) => {
                 this.log(e, "ERROR");
-              });
+              }
+            );
           }
-          return await this.kernel
-            ?.addService(nameOrPath, targetModule)
-            .catch((e: Error) => {
-              this.log(e, "ERROR");
-            });
+          return await this.addService(nameOrPath).catch((e: Error) => {
+            this.log(e, "ERROR");
+          });
         }
       }
     }
@@ -96,10 +88,23 @@ function services(
   };
 }
 
+// function injectable(
+//   name?: string
+// ): <T extends Constructor>(constructor: T) => T {
+//   return function <T extends Constructor>(constructor: T): T {
+//     //console.log("injectable", name || constructor.name);
+//     Injector.register(
+//       name || constructor.name,
+//       constructor as ServiceConstructor
+//     );
+//     return constructor;
+//   };
+// }
+
 function injectable(
   name?: string
-): <T extends Constructor<Service>>(constructor: T) => T {
-  return function <T extends Constructor<Service>>(constructor: T): T {
+): <T extends Injectable<Service>>(constructor: T) => T {
+  return function <T extends Injectable<Service>>(constructor: T): T {
     //console.log("injectable", name || constructor.name);
     Injector.register(name || constructor.name, constructor);
     return constructor;
@@ -116,12 +121,16 @@ function inject(serviceName: string): Function {
     if (!serviceName) {
       throw new Error(`Inject decorator bad serviceName`);
     }
-    Injector.get(serviceName);
+    const index = Number(parameterIndex);
+    // if (typeof target === "function" && propertyKey) {
+    //   console.log(`Je suis une methode de class`);
+    // } else {
+    //   console.log(`Je suis un constructeur`);
+    // }
+    //Injector.get(serviceName);
     if (!target._inject) {
       target._inject = {};
     }
-    // Assurez-vous que parameterIndex est un nombre
-    const index = Number(parameterIndex);
     target._inject[index] = serviceName;
   };
 }

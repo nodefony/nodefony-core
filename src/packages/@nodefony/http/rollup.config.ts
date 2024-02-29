@@ -1,11 +1,24 @@
 // rollup.config.ts
-import path from "node:path";
+import path, { resolve } from "node:path";
 import { defineConfig, Plugin, RollupOptions } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import json from "@rollup/plugin-json";
+//@ts-ignore
+import { createPathTransform } from "rollup-sourcemap-path-transform";
 //import commonjs from "@rollup/plugin-commonjs";
 //import copy from "rollup-plugin-copy";
+
+const sourcemapPathTransform = createPathTransform({
+  prefixes: {
+    "*src/": `${resolve(".", "nodefony", "src")}/`,
+    "*service/": `${resolve(".", "nodefony", "service")}/`,
+    "*controller/": `${resolve(".", "nodefony", "controller")}/`,
+    "*entity/": `${resolve(".", "nodefony", "entity")}/`,
+    "*command/": `${resolve(".", "nodefony", "command")}/`,
+    //"*nodefony/": `${resolve(".", "src")}/`,
+  },
+});
 
 const external: string[] = [
   "nodefony",
@@ -26,6 +39,7 @@ const external: string[] = [
   "mime-types",
   "uuid",
   "xml2js",
+  "tslib",
 ];
 
 const sharedNodeOptions = defineConfig({
@@ -35,8 +49,8 @@ const sharedNodeOptions = defineConfig({
     tryCatchDeoptimization: false,
   },
   output: {
-    dir: "./dist",
-    entryFileNames: `[name].js`,
+    dir: resolve(".", "dist"),
+    entryFileNames: `[name].js`, //`[name].js`,
     //chunkFileNames: "node/chunks/dep-[hash].js",
     exports: "auto",
     format: "es",
@@ -81,13 +95,14 @@ function createNodePlugins(
 function createNodeConfig(isProduction: boolean): RollupOptions {
   return defineConfig({
     //input,
-    input: "./index.ts",
+    input: resolve(".", "index.ts"),
     ...sharedNodeOptions,
     output: {
       ...sharedNodeOptions.output,
       sourcemap: !isProduction,
-      //preserveModules: !isProduction,
+      preserveModules: !isProduction,
       preserveModulesRoot: "nodefony",
+      sourcemapPathTransform,
     },
     external,
     plugins: [...createNodePlugins(isProduction, true, "dist/types")],

@@ -23,7 +23,7 @@ import { URL } from "node:url";
 import Session from "../session/session";
 import Cookie, { cookiesParser } from "../cookies/cookie";
 import HttpError from "../errors/httpError";
-const colorLogEvent = clc.cyan.bgBlue("EVENT CONTEXT");
+const colorLogEvent = clc.cyan.bgBlack("EVENT CONTEXT");
 
 export type contextRequest =
   | HttpRequest
@@ -78,6 +78,8 @@ class Context extends Service {
   cookieSession: Cookie | null | undefined = null;
   user: any = null;
   waitAsync: boolean = false;
+  isJson: boolean = true;
+  isHtml: boolean = false;
   constructor(container: Container, type: ServerType) {
     super(`${type} CONTEXT`, container);
     this.type = type;
@@ -206,6 +208,7 @@ class Context extends Service {
     return cookiesParser(this);
   }
   setContextJson(encoding: BufferEncoding = "utf-8"): void {}
+  setContextHtml(encoding: BufferEncoding = "utf-8"): void {}
 }
 
 export default Context;

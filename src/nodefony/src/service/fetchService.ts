@@ -1,7 +1,7 @@
 import Module from "../kernel/Module";
 import Service from "../Service";
 import Container from "../Container";
-import fetch from "node-fetch";
+import fetch, { Response } from "node-fetch";
 import * as library from "node-fetch";
 //import { injectable } from "../kernel/decorators/kernelDecorator";
 
@@ -16,3 +16,4 @@ class Fetch extends Service {
 }
 
 export default Fetch;
+export { Response };

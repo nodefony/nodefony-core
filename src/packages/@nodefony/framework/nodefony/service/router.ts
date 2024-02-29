@@ -94,9 +94,14 @@ class Router extends Service {
   }
   static setController(
     myconstructor: TypeController<Controller>,
-    name?: string
+    module: Module
   ): TypeController<Controller> {
-    return (controllers[name || myconstructor.name] = myconstructor);
+    //myconstructor.prototype.module = module;
+    Object.defineProperty(myconstructor.prototype, "module", {
+      value: module,
+      writable: false,
+    });
+    return (controllers[myconstructor.name] = myconstructor);
   }
 }
 

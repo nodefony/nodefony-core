@@ -223,11 +223,9 @@ describe("NODEFONY Notifications Center", () => {
       res = await global.notificationsCenter
         .fireAsync("myEvent", i, obj)
         .then((...args: any[]) => {
-          console.log("passss", args);
           throw new Error("then don't be call");
         })
         .catch((e) => {
-          console.log("passss catch");
           assert.strictEqual(e.message, "myError");
         });
       assert.strictEqual(res, undefined);
@@ -239,7 +237,6 @@ describe("NODEFONY Notifications Center", () => {
           throw new Error("then don't be call");
         })
         .catch((e) => {
-          console.log("passss catch");
           assert.strictEqual(e.message, "myError");
         });
       assert(isPromise(res));

@@ -25,10 +25,14 @@ const certificates = {
   },
 };
 
+let rejectUnauthorized = true;
 switch (kernel?.environment) {
   case "production":
   case "development":
   default:
+    if (kernel?.isDev) {
+      rejectUnauthorized = false;
+    }
     certificates.privateKeyPath = path.resolve(
       certificates.path,
       "server",
@@ -43,6 +47,6 @@ switch (kernel?.environment) {
 }
 
 export default {
-  rejectUnauthorized: true,
+  rejectUnauthorized,
   certificates,
 };

@@ -78,13 +78,16 @@ class Resolver extends Service {
 
   async callController(data: any[] = [], reload: boolean = false) {
     try {
-      let controller = this.get("controller");
+      let controller = this.get("controller") as Controller;
       if (!controller || reload) {
         controller = await this.newController();
       }
+      if (this.controller?.prototype.module) {
+        controller.module = this.controller?.prototype.module;
+      }
       this.set("action", this.action);
       this.set("route", this.route);
-      controller.setRoute(this.route);
+      controller.setRoute(this.route as Route);
       const methodKey = this.actionName as keyof typeof controller;
       const ele = [...this.variables, ...data];
       if (typeof controller[methodKey] === "function") {

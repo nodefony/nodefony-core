@@ -70,7 +70,6 @@ class Module extends Service {
     options: DefaultOptionsService
   ) {
     super(name, kernel.container as Container, undefined, options);
-    //this.log(`Registre Modefony Module : ${this.name}`, "DEBUG");
     this.setParameters(`modules.${this.name}`, this.options);
     this.path = this.setPath(path);
     this.setEvents();
@@ -217,6 +216,18 @@ class Module extends Service {
     }
     this.set(inst.name, inst);
     return this.get(inst.name);
+  }
+
+  async loadService(
+    service: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...args: any[]
+  ): Promise<Service> {
+    if (!module) {
+      throw new Error(`Applcation not ready`);
+    }
+    const res = await import(service);
+    return this.addService(res.default, ...args);
   }
 
   async getPackageJson(cwd?: string): Promise<PackageJson> {

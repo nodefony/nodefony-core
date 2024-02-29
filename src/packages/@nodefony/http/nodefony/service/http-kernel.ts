@@ -44,11 +44,9 @@ type AliasObject = Record<string, string | RegExp>;
 type AliasArray = (string | RegExp)[];
 type DomainAliasType = AliasObject | AliasArray | string;
 export type responseTimeoutType = "http" | "https" | "http2" | "http3";
-
 export type SchemeType = "http" | "https" | "ws" | "wss";
 
 const serviceName: string = "HttpKernel";
-
 @injectable()
 class HttpKernel extends Service {
   certificates: any;

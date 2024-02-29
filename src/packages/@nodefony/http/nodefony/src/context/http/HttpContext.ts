@@ -59,7 +59,6 @@ class HttpContext extends Context {
   response: HttpRsponseType;
   resolver: Resolver | null = null;
   router: Router | null = this.get("router");
-  isJson: boolean = false;
   constructor(
     container: Container,
     request: http.IncomingMessage | http2.Http2ServerRequest,
@@ -155,7 +154,10 @@ class HttpContext extends Context {
           this.resolver = this.router.resolve(this);
         }
         if (this.resolver && this.resolver.resolve) {
-          return resolve(this.resolver.callController());
+          const ret = await this.resolver.callController().catch((e) => {
+            return reject(e);
+          });
+          return resolve(ret);
         }
         return reject(new HttpError("", 404, this));
       } catch (e) {
@@ -363,6 +365,10 @@ class HttpContext extends Context {
   override setContextJson(encoding: BufferEncoding = "utf-8"): void {
     this.isJson = true;
     this.response.setContentType("json", encoding);
+  }
+  override setContextHtml(encoding: BufferEncoding = "utf-8"): void {
+    this.isHtml = true;
+    this.response.setContentType("html", encoding);
   }
 }
 

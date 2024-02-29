@@ -184,7 +184,6 @@ const conditionsObj: Conditions = {
         operators[condition.operator](pdu.severity, condition.data[sev])
       ) {
         // console.log(
-        //   "passs op",
         //   condition.operator,
         //   " sev: ",
         //   pdu.severity,

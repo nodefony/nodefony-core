@@ -1,11 +1,26 @@
 // rollup.config.ts
-import path from "node:path";
+import path, { resolve } from "node:path";
 import { defineConfig, Plugin, RollupOptions } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
 import copy from "rollup-plugin-copy";
+
+//@ts-ignore
+import { createPathTransform } from "rollup-sourcemap-path-transform";
+
+const sourcemapPathTransform = createPathTransform({
+  prefixes: {
+    "*src/": `${resolve(".", "nodefony", "src")}/`,
+    "*config/": `${resolve(".", "nodefony", "config")}/`,
+    "*decorators/": `${resolve(".", "nodefony", "decorators")}/`,
+    "*service/": `${resolve(".", "nodefony", "service")}/`,
+    "*controller/": `${resolve(".", "nodefony", "controller")}/`,
+    "*entity/": `${resolve(".", "nodefony", "entity")}/`,
+    "*command/": `${resolve(".", "nodefony", "command")}/`,
+  },
+});
 
 const external: string[] = [
   "nodefony",
@@ -14,6 +29,7 @@ const external: string[] = [
   "@nodefony/framework",
   "@nodefony/sequelize",
   "cli-table3",
+  "tslib",
 ];
 
 const sharedNodeOptions = defineConfig({
@@ -75,8 +91,8 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
     output: {
       ...sharedNodeOptions.output,
       sourcemap: !isProduction,
-      //preserveModules: true,
-      //preserveModulesRoot: "src",
+      preserveModules: true,
+      preserveModulesRoot: "nodefony",
     },
     external,
     plugins: [...createNodePlugins(isProduction, true, "dist/types")],

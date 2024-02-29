@@ -20,6 +20,7 @@ const external: string[] = [
   "sqlite3",
   "tedious",
   "umzug",
+  "tslib",
 ];
 
 const sharedNodeOptions = defineConfig({

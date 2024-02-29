@@ -1,4 +1,14 @@
-import { Service, Module, Container, Event, typeOf } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  typeOf,
+  EnvironmentType,
+  DebugType,
+  inject,
+  FileClass,
+} from "nodefony";
 import Route from "./Route";
 import {
   contextRequest,
@@ -9,8 +19,26 @@ import {
   Http2Request,
   Session,
   ContextType,
+  HttpKernel,
 } from "@nodefony/http";
 import { HttpContext } from "@nodefony/http";
+import { runInThisContext } from "node:vm";
+import ejs from "../service/Ejs";
+import twig from "../service/Twig";
+import { IncomingMessage, ServerResponse } from "node:http";
+import { ServerHttp2Stream } from "node:http2";
+
+export interface MetaData {
+  name?: string;
+  version?: string;
+  url?: URL;
+  environment?: EnvironmentType;
+  debug?: DebugType;
+}
+
+export interface Data {
+  nodefony: MetaData;
+}
 
 class Controller extends Service {
   static basepath: string = "/";
@@ -25,21 +53,50 @@ class Controller extends Service {
   query: Record<string, any> = {};
   queryFile: any[] = [];
   queryPost: Record<string, any> = {};
-  constructor(name: string, context: ContextType) {
+  metaData: Data;
+  module?: Module;
+  twig: twig;
+  ejs: ejs;
+  constructor(
+    name: string,
+    context: ContextType
+    //@inject("HttpKernel") private httpKernel?: HttpKernel
+  ) {
     super(
       name,
       context.container as Container,
       context.notificationsCenter as Event
     );
+    this.twig = this.get("twig");
+    this.ejs = this.get("ejs");
     this.setContext(context);
+    this.metaData = {
+      nodefony: {
+        name: this.kernel?.projectName,
+        version: this.kernel?.version,
+        url: this.context?.request?.url,
+        environment: this.kernel?.environment,
+        debug: this.kernel?.debug,
+        //projectVersion: this.kernel?.projectVersion,
+        //local: context.translation.defaultLocale.substr(0, 2),
+        //core: this.kernel?.isCore,
+        //route: context?.resolver.getRoute(),
+        //getContext: () => this.context,
+      },
+    };
   }
   setContextJson(encoding: BufferEncoding = "utf-8") {
     return this.context?.setContextJson(encoding);
   }
+  setContextHtml(encoding: BufferEncoding = "utf-8") {
+    return this.context?.setContextHtml(encoding);
+  }
 
   async render(
     view: string | Object,
-    param: Record<string, any> | BufferEncoding = {}
+    param: Record<string, any> | BufferEncoding = {},
+    status?: string | number,
+    headers?: Record<string, string | number>
   ) {
     if (!this.response) {
       throw new Error(
@@ -49,9 +106,11 @@ class Controller extends Service {
     try {
       switch (typeOf(view)) {
         case "string":
-          return await this.renderView(
+          return await this.renderTwigView(
             view as string,
-            param as Record<string, any>
+            param as Record<string, any>,
+            status,
+            headers
           );
         default:
           return this.renderJson(view as Object, param as BufferEncoding);
@@ -61,12 +120,72 @@ class Controller extends Service {
     }
   }
 
-  async renderView(view: string, param: Record<string, any> = {}) {
-    return view;
+  async renderEjsView(
+    view: string,
+    param: Record<string, any> = {},
+    status?: string | number,
+    headers?: Record<string, string | number>
+  ): Promise<ServerResponse<IncomingMessage> | ServerHttp2Stream> {
+    let data: string;
+
+    try {
+      const file = new FileClass(view);
+      data = await this.ejs.render((await file.readAsync()).toString(), param);
+      if (!this.response) {
+        throw new Error(
+          "WARNING ASYNC !!  RESPONSE ALREADY SENT BY EXPCEPTION FRAMEWORK"
+        );
+      }
+      this.response.setBody(data as string);
+      this.setContextHtml();
+      if (headers) {
+        this.response.setHeaders(headers);
+      }
+      if (status) {
+        this.response.setStatusCode(status);
+      }
+      return (this.context as HttpContext)?.send(data);
+    } catch (e) {
+      this.log(e, "ERROR");
+      throw e;
+    }
+  }
+
+  async renderTwigView(
+    view: string,
+    param: Record<string, any> = {},
+    status?: string | number,
+    headers?: Record<string, string | number>
+  ): Promise<ServerResponse<IncomingMessage> | ServerHttp2Stream> {
+    // "app:ejs:index"
+    let data: string;
+    try {
+      const file = new FileClass(view);
+      data = await this.twig?.render(file, param).catch((e) => {
+        throw e;
+      });
+      if (!this.response) {
+        throw new Error(
+          "WARNING ASYNC !!  RESPONSE ALREADY SENT BY EXPCEPTION FRAMEWORK"
+        );
+      }
+      this.response.setBody(data as string);
+      this.setContextHtml();
+      if (headers) {
+        this.response.setHeaders(headers);
+      }
+      if (status) {
+        this.response.setStatusCode(status);
+      }
+      return (this.context as HttpContext)?.send(data);
+    } catch (e) {
+      this.log(e, "ERROR");
+      throw e;
+    }
   }
 
   async renderJson(
-    obj: Record<string, any>,
+    obj: any,
     status?: string | number,
     headers?: Record<string, string | number>
   ) {

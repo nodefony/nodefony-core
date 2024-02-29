@@ -1,39 +1,46 @@
-//import { Service, Container, Module } from "nodefony";
-import { inject, Fetch } from "nodefony";
+import { resolve } from "node:path";
+
+import { inject, Fetch, FileClass } from "nodefony";
 import { DefineRoute, DefineController, Controller } from "@nodefony/framework";
 import { ContextType } from "@nodefony/http";
+import https from "node:https";
+//import { twig } from "@nodefony/framework";
 
 class AppController extends Controller {
   static override basepath: string = "/app";
   constructor(
     context: ContextType,
-    @inject("Fetch") private fetch: Fetch
+    @inject("Fetch") private fetchService: Fetch
   ) {
     super("app", context);
   }
 
   async initialize() {
-    //console.log("passs initialize");
     //await this.startSession();
+    //let response = await this.fetchService.fetch("https://google.fr");
+    //TODO add certificat client in serfice for unit test
+    // const agent = new https.Agent({
+    //   rejectUnauthorized: false,
+    // });
+    // const response = await this.fetchService.fetch("https://localhost:5152", {
+    //   agent,
+    // });
+    // console.log(response.headers, response.status, response.statusText);
     return this;
   }
 
-  @DefineRoute("route1", { path: "/", method: "GET" })
+  @DefineRoute("route1", { path: "", method: "GET" })
   async method1() {
-    console.log("call method", this.fetch.library);
     //await this.startSession();
-    return this.renderJson({ foo: "bar" });
-  }
-
-  @DefineRoute("route3", { method: "DELETE" })
-  method3() {
-    console.log("call method3", this.route);
-  }
-
-  @DefineRoute("route2", { path: "/add", requirements: { methods: "POST" } })
-  method2() {
-    console.log("call method2");
-    return this.renderJson({ foo: "bar" });
+    const view = resolve(
+      this.module?.path as string,
+      "nodefony",
+      "views",
+      "index.twig"
+    );
+    return this.renderTwigView(view, this.metaData).catch((e) => {
+      throw e;
+    });
   }
 
   @DefineRoute("route4", {
@@ -41,16 +48,34 @@ class AppController extends Controller {
     requirements: { methods: ["GET", "POST"] },
     defaults: { name: "cci" },
   })
-  method4(name: string) {
-    console.log("call method4", name, this.route);
-    return this.renderJson({ name });
+  async method4(name: string) {
+    const view = resolve(
+      this.module?.path as string,
+      "nodefony",
+      "views",
+      "index.ejs"
+    );
+    return this.renderEjsView(view, { name, ...this.metaData }).catch((e) => {
+      throw e;
+    });
+  }
+
+  @DefineRoute("route3", { method: "DELETE" })
+  async method3() {
+    return this.renderJson(this.metaData);
+  }
+
+  @DefineRoute("route2", { path: "/add", requirements: { methods: "POST" } })
+  async method2() {
+    console.log("call method2");
+    return this.renderJson({ foo: "bar" });
   }
 
   @DefineRoute("route6", {
     path: "/ele/{metier}/{format}/add",
     defaults: { format: "cci" },
   })
-  method6() {
+  async method6() {
     console.log("other route for app");
     return this.renderJson({ foo: "bar" });
   }
@@ -58,14 +83,21 @@ class AppController extends Controller {
     path: "/ele/{metier}/{format}/{method}/add",
   })
   method7(metier: string, format: string, method: string) {
-    return this.renderJson({ metier, format, method });
+    const view = resolve(
+      this.module?.path as string,
+      "nodefony",
+      "views",
+      "index.twig"
+    );
+    return this.renderTwigView(view, { metier, format, method });
   }
 
   @DefineRoute("route5", {
     path: "*",
   })
-  method5() {
+  async method5() {
     console.log("other route for app");
+    return this.renderJson(this.route);
   }
 }
 

@@ -143,7 +143,11 @@ class Route {
   match(context: ContextType) {
     let res;
     if (context.request && context.request.url && this.pattern) {
-      res = context.request.url.pathname.match(this.pattern as RegExp);
+      const url = context.request.url.pathname.replace(
+        REG_REPLACE_END_SLASH,
+        ""
+      );
+      res = url.match(this.pattern as RegExp);
     }
     if (!res) {
       return res;
