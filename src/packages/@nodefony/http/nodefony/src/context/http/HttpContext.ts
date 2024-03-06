@@ -13,6 +13,7 @@ import Context, {
 import {
   extend,
   Container,
+  typeOf,
   //Service,
   //Severity,
   //Msgid,
@@ -48,7 +49,6 @@ export type HttpRsponseType = Http2Response | HttpResponse;
 
 class HttpContext extends Context {
   url: string;
-  scheme: SchemeType;
   proxy: ProxyType | null = null;
   isRedirect: boolean = false;
   sended: boolean = false;
@@ -81,7 +81,7 @@ class HttpContext extends Context {
     }
     //this.router = this.get("router");
     this.url = url.format(this.request.url);
-    this.scheme = this.request.url.protocol.replace(":", "") as SchemeType;
+    this.scheme = this.setScheme();
     this.method = this.request.getMethod();
     this.remoteAddress = this.request.remoteAddress;
     this.originUrl = new URL(this.request.origin || this.url);
@@ -114,6 +114,7 @@ class HttpContext extends Context {
     this.domain = this.getHostName();
     this.validDomain = this.isValidDomain();
     this.parseCookies();
+    this.metaData = this.setMetaData();
     this.cookieSession = this.getCookieSession(
       this.sessionService?.defaultSessionName as string
     );
@@ -128,6 +129,10 @@ class HttpContext extends Context {
       }
       return this.httpKernel?.onError(error, this);
     });
+  }
+
+  override setScheme(): SchemeType {
+    return this.request.url.protocol.replace(":", "") as SchemeType;
   }
 
   handle(/*data*/): Promise<this> {
@@ -175,17 +180,58 @@ class HttpContext extends Context {
     }
   }
 
+  async render(
+    chunk: any,
+    encoding?: BufferEncoding,
+    status?: string | number,
+    headers?: Record<string, string | number>
+  ): Promise<
+    http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
+  > {
+    let data = chunk;
+    switch (true) {
+      case this.isJson:
+        data = JSON.stringify(chunk);
+        break;
+      case this.isHtml:
+      default:
+        const type = typeOf(chunk);
+        switch (type) {
+          case "object":
+            this.setContextJson();
+            data = JSON.stringify(chunk);
+            break;
+          case "string":
+            if (this.response.contentType === "application/octet-stream") {
+              this.setContextHtml();
+            }
+            break;
+          default:
+            if (this.response.contentType === "application/octet-stream") {
+              this.response.setContentType("text");
+            }
+        }
+    }
+    if (headers) {
+      this.response.setHeaders(headers);
+    }
+    if (status) {
+      this.response.setStatusCode(status);
+    }
+    return this.send(data, encoding);
+  }
+
   async send(
     chunk?: any,
     encoding?: BufferEncoding
   ): Promise<
     http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
   > {
-    // if (this.sended || this.finished) {
-    //   return new Promise((resolve, reject) => {
-    //     reject(new Error("Already sended"));
-    //   });
-    // }
+    if (this.sended || this.finished || this.response.isHeaderSent()) {
+      return new Promise((resolve, reject) => {
+        return reject(new Error("Already sended"));
+      });
+    }
     return this.saveSession()
       .then(async (session: Session | null) => {
         if (session) {
@@ -195,25 +241,30 @@ class HttpContext extends Context {
         try {
           this.writeHead();
         } catch {}
-        if (!this.isRedirect) {
-          return this.write(chunk, encoding).catch((e) => {
+        if (this.isRedirect) {
+          return this.close().catch((e) => {
             throw e;
           });
         }
-        return this.response.end().catch((e) => {
-          return this.write(e.message);
+        return this.write(chunk, encoding).catch((e) => {
+          throw e;
         });
       })
       .catch(async (error) => {
         this.log(error, "ERROR");
-        try {
-          this.writeHead(error.code || 500);
-        } catch {}
-
-        await this.write(error.message, encoding).catch((e) => {
-          throw e;
-        });
-        return error;
+        // try {
+        //   if (!this.response.isHeaderSent()) {
+        //     this.writeHead(error.code || 500);
+        //     await this.write(error.message, encoding).catch((e) => {
+        //       throw e;
+        //     });
+        //   } else {
+        //     return this.close().catch((e) => {
+        //       throw e;
+        //     });
+        //   }
+        // } catch {}
+        throw error;
       });
   }
 
@@ -235,14 +286,8 @@ class HttpContext extends Context {
   ): Promise<
     http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
   > {
-    // if (this.finished || this.sended) {
-    //   throw new Error(`Already sended `);
-    // }
-    /*
-     * WRITE RESPONSE
-     */
     await this.response
-      .send(chunk, encoding)
+      .send(chunk, encoding || this.response.encoding)
       .then(() => {
         this.sended = true;
       })
@@ -354,6 +399,10 @@ class HttpContext extends Context {
     return this.request?.getMethod();
   }
 
+  setContentType(type?: string, encoding?: BufferEncoding) {
+    return this.response.setContentType(type, encoding);
+  }
+
   setDefaultContentType() {
     if (this.isHtml) {
       this.response.setContentType("html", "utf-8");
@@ -364,10 +413,12 @@ class HttpContext extends Context {
   }
   override setContextJson(encoding: BufferEncoding = "utf-8"): void {
     this.isJson = true;
+    this.isHtml = false;
     this.response.setContentType("json", encoding);
   }
   override setContextHtml(encoding: BufferEncoding = "utf-8"): void {
     this.isHtml = true;
+    this.isJson = false;
     this.response.setContentType("html", encoding);
   }
 }

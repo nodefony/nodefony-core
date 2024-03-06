@@ -1,8 +1,10 @@
 import { Service, Module, Container, Event } from "nodefony";
+import sequelize from "sequelize";
 
 const serviceName: string = "sequelize";
 
 class Sequelize extends Service {
+  static engine: typeof sequelize = sequelize;
   constructor(module: Module) {
     super(
       serviceName,
@@ -14,3 +16,4 @@ class Sequelize extends Service {
 }
 
 export default Sequelize;
+export { sequelize };

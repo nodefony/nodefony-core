@@ -6,6 +6,9 @@ import Controller from "./nodefony/src/Controller";
 import Resolver from "./nodefony/src/Resolver";
 import Twig from "./nodefony/service/Twig";
 import Ejs from "./nodefony/service/Ejs";
+import mygraphql from "graphql";
+import { mergeResolvers, mergeTypeDefs } from "@graphql-tools/merge";
+import { mergeSchemas, makeExecutableSchema } from "@graphql-tools/schema";
 
 import {
   controllers,
@@ -20,6 +23,14 @@ class Framework extends Module {
   }
 }
 
+const graphql = {
+  graphql: mygraphql,
+  mergeSchemas,
+  makeExecutableSchema,
+  mergeResolvers,
+  mergeTypeDefs,
+};
+
 export default Framework;
 export {
   Controller,
@@ -31,4 +42,5 @@ export {
   DefineRoute,
   DefineController,
   controllers,
+  graphql,
 };

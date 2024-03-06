@@ -4,9 +4,9 @@ import {
   Container,
   Event,
   typeOf,
-  EnvironmentType,
-  DebugType,
-  inject,
+  //EnvironmentType,
+  //DebugType,
+  //inject,
   FileClass,
 } from "nodefony";
 import Route from "./Route";
@@ -19,26 +19,14 @@ import {
   Http2Request,
   Session,
   ContextType,
-  HttpKernel,
+  //HttpKernel,
 } from "@nodefony/http";
 import { HttpContext } from "@nodefony/http";
-import { runInThisContext } from "node:vm";
+//import { runInThisContext } from "node:vm";
 import ejs from "../service/Ejs";
 import twig from "../service/Twig";
 import { IncomingMessage, ServerResponse } from "node:http";
 import { ServerHttp2Stream } from "node:http2";
-
-export interface MetaData {
-  name?: string;
-  version?: string;
-  url?: URL;
-  environment?: EnvironmentType;
-  debug?: DebugType;
-}
-
-export interface Data {
-  nodefony: MetaData;
-}
 
 class Controller extends Service {
   static basepath: string = "/";
@@ -53,7 +41,7 @@ class Controller extends Service {
   query: Record<string, any> = {};
   queryFile: any[] = [];
   queryPost: Record<string, any> = {};
-  metaData: Data;
+  //metaData: Data;
   module?: Module;
   twig: twig;
   ejs: ejs;
@@ -70,21 +58,29 @@ class Controller extends Service {
     this.twig = this.get("twig");
     this.ejs = this.get("ejs");
     this.setContext(context);
-    this.metaData = {
-      nodefony: {
-        name: this.kernel?.projectName,
-        version: this.kernel?.version,
-        url: this.context?.request?.url,
-        environment: this.kernel?.environment,
-        debug: this.kernel?.debug,
-        //projectVersion: this.kernel?.projectVersion,
-        //local: context.translation.defaultLocale.substr(0, 2),
-        //core: this.kernel?.isCore,
-        //route: context?.resolver.getRoute(),
-        //getContext: () => this.context,
-      },
-    };
   }
+
+  setContext(context: ContextType) {
+    const request = context.request as HttpRequest | Http2Request;
+    this.context = context;
+    this.method = this.context.method as HTTPMethod;
+    this.response = this.context.response;
+    this.request = this.context.request;
+    this.queryGet = request?.queryGet;
+    this.query = request?.query;
+    this.queryFile = request?.queryFile;
+    this.queryPost = request?.queryPost;
+    this.session = this.getSession();
+    this.once("onRequestEnd", () => {
+      this.query = request?.query;
+      this.queryFile = request?.queryFile;
+      this.queryPost = request?.queryPost;
+    });
+    this.once("onSessionStart", (session) => {
+      this.session = session;
+    });
+  }
+
   setContextJson(encoding: BufferEncoding = "utf-8") {
     return this.context?.setContextJson(encoding);
   }
@@ -93,31 +89,45 @@ class Controller extends Service {
   }
 
   async render(
-    view: string | Object,
-    param: Record<string, any> | BufferEncoding = {},
+    data: any,
+    encoding?: BufferEncoding,
     status?: string | number,
     headers?: Record<string, string | number>
   ) {
-    if (!this.response) {
-      throw new Error(
-        "WARNING ASYNC !!  RESPONSE ALREADY SENT BY EXPCEPTION FRAMEWORK"
-      );
-    }
     try {
-      switch (typeOf(view)) {
-        case "string":
-          return await this.renderTwigView(
-            view as string,
-            param as Record<string, any>,
-            status,
-            headers
-          );
-        default:
-          return this.renderJson(view as Object, param as BufferEncoding);
-      }
+      return (this.context as HttpContext)
+        ?.render(data, encoding, status, headers)
+        .catch((e) => {
+          throw e;
+        });
     } catch (e) {
       throw e;
     }
+  }
+
+  async renderResponse(
+    data: any,
+    encoding?: BufferEncoding,
+    status?: string | number,
+    headers?: Record<string, string | number>
+  ): Promise<ServerResponse<IncomingMessage> | ServerHttp2Stream> {
+    this.response?.setBody(data);
+    if (headers) {
+      this.response?.setHeaders(headers);
+    }
+    if (status) {
+      this.response?.setStatusCode(status);
+    }
+    return (this.context as HttpContext)?.send(data, encoding);
+  }
+
+  async renderView(
+    view: string,
+    param: Record<string, any> = {},
+    status?: string | number,
+    headers?: Record<string, string | number>
+  ): Promise<ServerResponse<IncomingMessage> | ServerHttp2Stream> {
+    return this.renderTwigView(view, param, status, headers);
   }
 
   async renderEjsView(
@@ -127,24 +137,11 @@ class Controller extends Service {
     headers?: Record<string, string | number>
   ): Promise<ServerResponse<IncomingMessage> | ServerHttp2Stream> {
     let data: string;
-
     try {
       const file = new FileClass(view);
       data = await this.ejs.render((await file.readAsync()).toString(), param);
-      if (!this.response) {
-        throw new Error(
-          "WARNING ASYNC !!  RESPONSE ALREADY SENT BY EXPCEPTION FRAMEWORK"
-        );
-      }
-      this.response.setBody(data as string);
       this.setContextHtml();
-      if (headers) {
-        this.response.setHeaders(headers);
-      }
-      if (status) {
-        this.response.setStatusCode(status);
-      }
-      return (this.context as HttpContext)?.send(data);
+      return this.renderResponse(data, "utf8", status, headers);
     } catch (e) {
       this.log(e, "ERROR");
       throw e;
@@ -164,20 +161,8 @@ class Controller extends Service {
       data = await this.twig?.render(file, param).catch((e) => {
         throw e;
       });
-      if (!this.response) {
-        throw new Error(
-          "WARNING ASYNC !!  RESPONSE ALREADY SENT BY EXPCEPTION FRAMEWORK"
-        );
-      }
-      this.response.setBody(data as string);
       this.setContextHtml();
-      if (headers) {
-        this.response.setHeaders(headers);
-      }
-      if (status) {
-        this.response.setStatusCode(status);
-      }
-      return (this.context as HttpContext)?.send(data);
+      return this.renderResponse(data, "utf8", status, headers);
     } catch (e) {
       this.log(e, "ERROR");
       throw e;
@@ -192,20 +177,7 @@ class Controller extends Service {
     let data = null;
     try {
       data = JSON.stringify(obj);
-      if (!this.response) {
-        throw new Error(
-          "WARNING ASYNC !!  RESPONSE ALREADY SENT BY EXPCEPTION FRAMEWORK"
-        );
-      }
-      this.response.setBody(data);
-      this.setContextJson();
-      if (headers) {
-        this.response.setHeaders(headers);
-      }
-      if (status) {
-        this.response.setStatusCode(status);
-      }
-      return (this.context as HttpContext)?.send(data);
+      return this.renderResponse(data, "utf8", status, headers);
     } catch (e) {
       this.log(e, "ERROR");
       throw e;
@@ -214,24 +186,6 @@ class Controller extends Service {
 
   setRoute(route: Route): Route {
     return (this.route = route);
-  }
-
-  setContext(context: ContextType) {
-    const request = context.request as HttpRequest | Http2Request;
-    this.context = context;
-    this.method = this.context.method as HTTPMethod;
-    this.response = this.context.response;
-    this.request = this.context.request;
-    this.queryGet = request?.queryGet;
-    this.query = request?.query;
-    this.queryFile = request?.queryFile;
-    this.queryPost = request?.queryPost;
-    this.once("onRequestEnd", () => {
-      this.query = request?.query;
-      this.queryFile = request?.queryFile;
-      this.queryPost = request?.queryPost;
-    });
-    this.session = this.getSession();
   }
 
   startSession(sessionContext?: string) {
@@ -248,8 +202,27 @@ class Controller extends Service {
   }
 
   getSession(): Session | undefined | null {
-    return this.context?.session;
+    if (this.context?.session) return this.context?.session;
   }
+
+  redirect(
+    url: string,
+    status?: string | number,
+    headers?: Record<string, string | number>
+  ) {
+    // if (!(this.context as HttpContext).redirect) {
+    //   throw new Error("subRequest can't redirect request");
+    // }
+    if (!url) {
+      throw new Error("Redirect error no url !!!");
+    }
+    try {
+      (this.context as HttpContext).redirect(url, status, headers);
+    } catch (e) {
+      throw e;
+    }
+  }
+
   getFlashBag(key: string) {
     const session = this.getSession();
     if (session) {

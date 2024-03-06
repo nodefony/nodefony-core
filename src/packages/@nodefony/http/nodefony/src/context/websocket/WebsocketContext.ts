@@ -3,6 +3,7 @@ import {
   ServerType,
   httpRequest,
   httpResponse,
+  SchemeType,
 } from "../../../service/http-kernel";
 import {
   Container,
@@ -39,6 +40,7 @@ class WebsocketContext extends Context {
     super(container, type);
     this.request = request;
     this.response = new websocketResponse();
+    this.scheme = this.setScheme();
     this.acceptedProtocol =
       request.httpRequest.headers["sec-websocket-protocol"];
   }
@@ -47,7 +49,12 @@ class WebsocketContext extends Context {
 
   async handle(): Promise<any> {}
 
-  //override async send(chunk?: any, encoding?: BufferEncoding) {}
+  async send(chunk?: any, encoding?: BufferEncoding) {}
+  async render() {}
+
+  override setScheme(): SchemeType {
+    return this.request.url.protocol.replace(":", "") as SchemeType;
+  }
 
   getRemoteAddress(): string | null {
     return this.request?.remoteAddress;

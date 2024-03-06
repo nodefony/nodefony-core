@@ -16,9 +16,6 @@ class Injector extends Service {
       kernel.notificationsCenter as Event
     );
     Injector.register("Fetch", Fetch);
-    // this.kernel?.once("onReady", () => {
-    //   console.log("INjector object", Injector.injectables);
-    // });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

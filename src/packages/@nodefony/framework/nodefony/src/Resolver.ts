@@ -8,10 +8,18 @@ import {
   inject,
 } from "nodefony";
 //import Router from "../service/router";
-import { Context, HttpError, ContextType } from "@nodefony/http";
+import {
+  Context,
+  HttpError,
+  ContextType,
+  HttpContext,
+  Response,
+  wsResponse,
+} from "@nodefony/http";
 import Route, { ControllerConstructor } from "./Route";
 import BlueBird from "bluebird";
 import Controller from "./Controller";
+
 import { ServiceWithInitialize } from "nodefony";
 //import { ServiceConstructor } from "nodefony";
 
@@ -91,10 +99,19 @@ class Resolver extends Service {
       const methodKey = this.actionName as keyof typeof controller;
       const ele = [...this.variables, ...data];
       if (typeof controller[methodKey] === "function") {
-        return (controller[methodKey] as Function)(...ele);
+        try {
+          const action = (controller[methodKey] as Function)(...ele);
+          return this.returnController(action);
+        } catch (e) {
+          throw e;
+        }
       }
       if (this.action) {
-        return this.returnController(this.action(...ele));
+        try {
+          return this.returnController(this.action(...ele));
+        } catch (e) {
+          throw e;
+        }
       }
       throw new Error(`Route Action not found`);
     } catch (e) {
@@ -108,7 +125,25 @@ class Resolver extends Service {
       case result instanceof Promise:
       case result instanceof BlueBird:
       case isPromise(result):
+        return result.catch((e: Error) => {
+          throw e;
+        });
+      case type === "string":
+      case result instanceof String:
+        return (this.context as HttpContext).send(result);
+      case result instanceof Response:
+      case result instanceof wsResponse:
+        return (this.context as HttpContext).send().catch((e: Error) => {
+          throw e;
+        });
+      case type === "object":
+        break;
       default:
+        if ((this.context as HttpContext).isRedirect) {
+          return (this.context as HttpContext).send().catch((e: Error) => {
+            throw e;
+          });
+        }
         this.context.waitAsync = true;
     }
   }

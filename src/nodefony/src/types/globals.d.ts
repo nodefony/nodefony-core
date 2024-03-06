@@ -3,6 +3,12 @@ export interface nodefonyOptions {
   [key: string]: any;
 }
 
+declare global {
+  interface Error {
+    toJSON(): Record<string, any>;
+  }
+}
+
 declare enum environment {
   "dev",
   "development",

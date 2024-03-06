@@ -7,6 +7,9 @@ import nodefony, {
   Kernel,
   typeOf,
   injectable,
+  EnvironmentType,
+  DebugType,
+  Error as nodefonyError,
 } from "nodefony";
 import HttpError from "../src/errors/httpError";
 import http from "node:http";
@@ -19,9 +22,8 @@ import websocketSecureServer from "../service/servers/server-websocket-secure";
 import Statics from "./servers/server-static";
 import WebsocketContext from "../src/context/websocket/WebsocketContext";
 import HttpContext from "../src/context/http/HttpContext";
-import Context from "../src/context/Context";
+import Context, { HTTPMethod } from "../src/context/Context";
 import clc from "cli-color";
-
 import Certicates from "./certificates";
 import websocket from "websocket";
 import SessionsService from "./sessions/sessions-service";
@@ -45,6 +47,26 @@ type AliasArray = (string | RegExp)[];
 type DomainAliasType = AliasObject | AliasArray | string;
 export type responseTimeoutType = "http" | "https" | "http2" | "http3";
 export type SchemeType = "http" | "https" | "ws" | "wss";
+
+export interface MetaData {
+  name?: string;
+  version?: string;
+  url?: URL;
+  environment?: EnvironmentType;
+  debug?: DebugType;
+  token?: string;
+  method?: HTTPMethod;
+  scheme?: SchemeType;
+}
+
+export interface Data {
+  error?: Error;
+  nodefony: MetaData;
+  message?: any;
+  code?: number;
+  result: any;
+  //stack?: string;
+}
 
 const serviceName: string = "HttpKernel";
 @injectable()
@@ -147,11 +169,14 @@ class HttpKernel extends Service {
 
   async handleFrontController(context: ContextType): Promise<any> {}
 
-  async onError(error: Error | HttpError, context?: ContextType): Promise<any> {
+  async onError(
+    error: Error | HttpError | nodefonyError,
+    context?: ContextType
+  ): Promise<any> {
     try {
       const code = error.code === 200 ? 500 : !error.code ? 500 : error.code;
       if (!(error instanceof HttpError)) {
-        error = new HttpError(error as Error, error.code, context);
+        error = new HttpError(error as Error, error.code as number, context);
       }
       error.code = code;
       if (context) {
@@ -162,13 +187,22 @@ class HttpKernel extends Service {
           context.response.setStatusCode(code, error.message);
           if (this.kernel?.debug) {
             this.log(error.toString(), "ERROR");
-          } else {
-            //if (error.message) this.log(error.message, "ERROR");
           }
-          context.response.setContentType("text");
-          return context.send(error.message).catch((e) => {
-            throw e;
-          });
+          let message: string = error.message;
+          const obj = context.metaData;
+          obj.error = error.toJSON() as Error;
+          obj.code = error.code;
+          obj.message = error.message;
+          if (!context.response.isHeaderSent()) {
+            return context.render(obj).catch((e) => {
+              this.log(e, "CRITIC");
+              throw e;
+            });
+          }
+          if (!context.sended) {
+            return context.close();
+          }
+          throw error;
         }
         case context instanceof WebsocketContext: {
           if (this.kernel?.debug) {
@@ -371,7 +405,7 @@ class HttpKernel extends Service {
         return resolve(context);
       } catch (e) {
         return this.onError(e as Error, context as ContextType).catch((e) => {
-          this.log(e, "CRITIC");
+          //this.log(e, "CRITIC");
           return reject(e);
         });
       }

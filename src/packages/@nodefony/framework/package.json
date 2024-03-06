@@ -20,8 +20,11 @@
   ],
   "repository": {},
   "dependencies": {
+    "@graphql-tools/merge": "9.0.3",
+    "@graphql-tools/schema": "10.0.3",
     "bluebird": "3.7.2",
     "ejs": "3.1.9",
+    "graphql": "16.8.1",
     "twig": "1.17.1"
   },
   "devDependencies": {
@@ -35,10 +38,10 @@
     "@types/ejs": "3.1.5",
     "@types/node": "20.11.24",
     "@types/twig": "1.12.16",
-    "@typescript-eslint/eslint-plugin": "7.1.0",
-    "@typescript-eslint/parser": "7.1.0",
+    "@typescript-eslint/eslint-plugin": "7.1.1",
+    "@typescript-eslint/parser": "7.1.1",
     "rimraf": "5.0.5",
-    "rollup": "4.12.0",
+    "rollup": "4.12.1",
     "rollup-plugin-copy": "3.5.0",
     "rollup-sourcemap-path-transform": "1.0.4",
     "typescript": "5.3.3"

@@ -135,7 +135,7 @@ export default {
     use_strict_mode: true,
     name: "nodefony",
     handler: "files", // files | orm | memcached  "nodefony.session.storage"
-    save_path: "/tmp/sessions",
+    save_path: "./tmp/sessions",
     gc_probability: 5,
     gc_divisor: 100,
     gc_maxlifetime: 1440,

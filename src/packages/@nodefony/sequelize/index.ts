@@ -1,6 +1,7 @@
 import { Service, Kernel, Module, services } from "nodefony";
 import config from "./nodefony/config/config";
 import orm from "./nodefony/service/orm";
+import { sequelize } from "./nodefony/service/orm";
 
 @services([orm])
 class Sequelize extends Module {
@@ -10,3 +11,4 @@ class Sequelize extends Module {
 }
 
 export default Sequelize;
+export { sequelize };

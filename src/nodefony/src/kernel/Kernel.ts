@@ -482,11 +482,11 @@ class Kernel extends Service {
       await Module.build(moduleName);
     }
     const module = await import(moduleName);
-    return this.use(module.default);
+    return this.addModule(module.default);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async use(Mod: ModuleConstructor, ...args: any[]): Promise<Module> {
+  async addModule(Mod: ModuleConstructor, ...args: any[]): Promise<Module> {
     const mod = new Mod(this, ...args);
     this.modules[mod.name] = mod;
     this.log(`MODULE ADD : ${mod.name}`, "INFO");

@@ -83,7 +83,7 @@ class HttpRequest {
   ) {
     this.request = request;
     this.request.on("end", () => {
-      this.initialize();
+      return this.initialize();
     });
     this.request.on("data", (data) => {
       this.dataSize += data.length;

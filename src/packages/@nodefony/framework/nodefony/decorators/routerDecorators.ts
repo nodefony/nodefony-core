@@ -31,9 +31,11 @@ function controllers(
         if (Array.isArray(controller)) {
           for (const contr of controller) {
             Router.setController(contr, this);
+            this.log(`ADD CONTROLLER : ${contr.name}`, "DEBUG");
           }
         } else {
           Router.setController(controller, this);
+          this.log(`ADD CONTROLLER : ${controller.name}`, "DEBUG");
         }
       }
     }

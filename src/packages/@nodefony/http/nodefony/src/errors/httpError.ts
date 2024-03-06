@@ -3,13 +3,44 @@ import clc from "cli-color";
 import { ContextType } from "../../service/http-kernel";
 import { HttpRequestType, HttpRsponseType } from "../context/http/HttpContext";
 
+type JsonDescriptor = {
+  configurable?: boolean;
+  enumerable?: boolean;
+  value?: () => any;
+  writable?: boolean;
+};
+
+const exclude = {
+  context: true,
+  resolver: true,
+  container: true,
+  secure: true,
+  request: true,
+  response: true,
+};
+const jsonHttpError: JsonDescriptor = {
+  configurable: true,
+  writable: true,
+  value() {
+    const alt: Record<string, any> = {};
+    const storeKey = function (this: Record<string, any>, key: string) {
+      if (key in exclude) {
+        return;
+      }
+      alt[key] = this[key];
+    };
+    Object.getOwnPropertyNames(this).forEach(storeKey, this);
+    return alt;
+  },
+};
+
 class HttpError extends NodefonyError {
   context?: ContextType;
   response?: HttpRsponseType;
   request?: HttpRequestType;
   url?: string;
   constructor(
-    message?: string | NodefonyError | Error,
+    message?: string | NodefonyError | Error | any,
     code?: number,
     context?: ContextType
   ) {
@@ -45,13 +76,14 @@ class HttpError extends NodefonyError {
     return `${clc.red(this.message)}
     ${clc.blue("Name :")} ${this.name}
     ${clc.blue("Type :")} ${this.errorType}
-    
+
       ${clc.red("Code :")} ${this.code}
       ${clc.red("Message :")} ${this.message}
       ${clc.red("Response :")} ${this.jsonResponse}
     ${clc.green("Stack :")} ${this.stack}`;
   }
 }
+Object.defineProperty(HttpError.prototype, "toJSON", jsonHttpError);
 
 export default HttpError;
 

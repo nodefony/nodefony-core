@@ -113,7 +113,7 @@ class SessionsService extends Service {
     try {
       if (storage) {
         this.storage = new storage(this);
-        this.on("onReady", async () => {
+        this.kernel?.on("onReady", async () => {
           await this.storage.open("default");
         });
       } else {

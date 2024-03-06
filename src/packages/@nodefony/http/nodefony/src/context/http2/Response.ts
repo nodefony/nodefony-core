@@ -24,6 +24,13 @@ class Http2Response extends HttpResponse {
     }
   }
 
+  override isHeaderSent(): boolean {
+    if (this.stream) {
+      return this.stream.headersSent;
+    }
+    return super.isHeaderSent();
+  }
+
   writeHead(
     statusCode?: number,
     headers?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[]
@@ -37,11 +44,6 @@ class Http2Response extends HttpResponse {
           if (this.context.method === "HEAD" || this.context.contentLength) {
             this.setHeader("Content-Length", this.getLength());
           }
-          this.headers = extend(
-            { "X-Status-Message": this.statusMessage },
-            this.getHeaders(),
-            headers
-          );
           if (this.statusCode) {
             if (typeof this.statusCode === "string") {
               this.statusCode = parseInt(this.statusCode, 10);
@@ -50,6 +52,12 @@ class Http2Response extends HttpResponse {
               this.statusCode = 500;
             }
           }
+          this.statusMessage = this.getStatusMessage();
+          this.headers = extend(
+            { "X-Status-Message": this.statusMessage },
+            this.getHeaders(),
+            headers
+          );
           this.headers[HTTP2_HEADER_STATUS] = this.statusCode;
           this.stream.respond(this.headers, {
             endStream: false,
@@ -59,6 +67,7 @@ class Http2Response extends HttpResponse {
         }
       } else {
         // throw new Error("Headers already sent !!");
+        console.trace("already  ");
         this.log("Headers already sent !!", "WARNING");
       }
     } else {

@@ -52,6 +52,13 @@ class HttpResponse {
     // delete this.streamFile;
   }
 
+  isHeaderSent(): boolean {
+    if (this.response) {
+      return this.response.headersSent;
+    }
+    return false;
+  }
+
   isHtml(): boolean {
     let ct = this.getHeader("Content-Type") as string;
     return mime.extension(ct) === "html";
@@ -255,6 +262,12 @@ class HttpResponse {
       this.body = Buffer.from(ele);
     } else if ("buffer" in ele && ele.buffer instanceof ArrayBuffer) {
       this.body = Buffer.from(ele.buffer);
+    } else {
+      try {
+        this.body = Buffer.from(JSON.stringify(ele));
+      } catch (e) {
+        this.body = Buffer.from(ele.toString());
+      }
     }
     return this.body;
   }
@@ -279,8 +292,7 @@ class HttpResponse {
     if (statusCode) {
       this.setStatusCode(statusCode);
     }
-    if (!this.response?.headersSent) {
-      // this.response.statusMessage = this.statusMessage;
+    if (this.response && !this.response.headersSent) {
       try {
         if (this.context.method === "HEAD" || this.context.contentLength) {
           this.setHeader("Content-Length", this.getLength());
@@ -293,6 +305,7 @@ class HttpResponse {
             this.statusCode = 500;
           }
         }
+        this.statusMessage = this.getStatusMessage();
         if (this.response) {
           this.response?.writeHead(
             this.statusCode,
@@ -340,11 +353,11 @@ class HttpResponse {
     return new Promise(async (resolve, reject) => {
       try {
         if (this.context.isRedirect) {
-          // if (!this.stream.headersSent) {
-          //   this.writeHead();
-          //   await this.end();
-          //   return true;
-          // }
+          if (!this.response?.headersSent) {
+            this.writeHead();
+            await this.end();
+            return resolve(true);
+          }
           await this.end();
           return resolve(true);
         }

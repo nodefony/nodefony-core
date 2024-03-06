@@ -1,44 +1,28 @@
 import { resolve } from "node:path";
-
 import { inject, Fetch, FileClass } from "nodefony";
 import { DefineRoute, DefineController, Controller } from "@nodefony/framework";
 import { ContextType } from "@nodefony/http";
-import https from "node:https";
-//import { twig } from "@nodefony/framework";
 
 class AppController extends Controller {
   static override basepath: string = "/app";
-  constructor(
-    context: ContextType,
-    @inject("Fetch") private fetchService: Fetch
-  ) {
+  constructor(context: ContextType) {
     super("app", context);
   }
 
   async initialize() {
-    //await this.startSession();
-    //let response = await this.fetchService.fetch("https://google.fr");
-    //TODO add certificat client in serfice for unit test
-    // const agent = new https.Agent({
-    //   rejectUnauthorized: false,
-    // });
-    // const response = await this.fetchService.fetch("https://localhost:5152", {
-    //   agent,
-    // });
-    // console.log(response.headers, response.status, response.statusText);
+    await this.startSession("app");
     return this;
   }
 
   @DefineRoute("route1", { path: "", method: "GET" })
   async method1() {
-    //await this.startSession();
     const view = resolve(
       this.module?.path as string,
       "nodefony",
       "views",
       "index.twig"
     );
-    return this.renderTwigView(view, this.metaData).catch((e) => {
+    return this.renderTwigView(view, this.context?.metaData).catch((e) => {
       throw e;
     });
   }
@@ -55,14 +39,16 @@ class AppController extends Controller {
       "views",
       "index.ejs"
     );
-    return this.renderEjsView(view, { name, ...this.metaData }).catch((e) => {
-      throw e;
-    });
+    return this.renderEjsView(view, { name, ...this.context?.metaData }).catch(
+      (e) => {
+        throw e;
+      }
+    );
   }
 
   @DefineRoute("route3", { method: "DELETE" })
   async method3() {
-    return this.renderJson(this.metaData);
+    return this.renderJson(this.context?.metaData);
   }
 
   @DefineRoute("route2", { path: "/add", requirements: { methods: "POST" } })

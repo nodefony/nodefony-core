@@ -25,7 +25,7 @@ function modules(
         if (Array.isArray(nameOrPath)) {
           for (const path of nameOrPath) {
             if (this.kernel?.isModule(path)) {
-              await this.kernel?.use(path as ModuleConstructor);
+              await this.kernel?.addModule(path as ModuleConstructor);
             } else {
               await this.kernel?.loadModule(path as string, false);
             }
@@ -35,7 +35,7 @@ function modules(
             return await this.kernel?.loadModule(nameOrPath, false);
           }
           if (this.kernel?.isModule(nameOrPath)) {
-            return await this.kernel?.use(nameOrPath);
+            return await this.kernel?.addModule(nameOrPath);
           }
         }
       }

@@ -1,11 +1,12 @@
+import { resolve } from "node:path";
 import { Kernel, Module, modules } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import AppController from "./nodefony/controllers/AppController";
 import config from "./nodefony/config/config";
-import http from "@nodefony/http";
-import security from "@nodefony/security";
-import framework from "@nodefony/framework";
-import sequelize from "@nodefony/sequelize";
+//import http from "@nodefony/http";
+//import security from "@nodefony/security";
+//import framework from "@nodefony/framework";
+//import sequelize from "@nodefony/sequelize";
 
 /**
  * The App class extends the Module class and represents an application  entry point.
@@ -15,6 +16,7 @@ import sequelize from "@nodefony/sequelize";
   "@nodefony/security",
   "@nodefony/framework",
   "@nodefony/sequelize",
+  "@nodefony/test",
 ])
 @controllers([AppController])
 class App extends Module {
@@ -38,10 +40,10 @@ class App extends Module {
   //     this.kernel?.environment === "production" ||
   //     this.kernel?.environment === "staging"
   //   ) {
-  //     //await this.kernel?.use(http);
-  //     //await this.kernel?.use(security);
-  //     //await this.kernel?.use(framework);
-  //     //await this.kernel?.use(sequelize);
+  //     //await this.kernel?.addModule(http);
+  //     //await this.kernel?.addModule(security);
+  //     //await this.kernel?.addModule(framework);
+  //     //await this.kernel?.addModule(sequelize);
   //   } else {
   //     //await this.kernel?.loadModule("@nodefony/http", false);
   //     //await this.kernel?.loadModule("@nodefony/security", false);

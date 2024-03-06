@@ -64,31 +64,31 @@ function parserWs(tab: websocket.ICookie[]): Record<string, string> {
   return ele;
 }
 
-function getRequestcookies(context: ContextType) {
-  let cookies = null;
-  switch (context.type) {
-    case "http":
-    case "https":
-    case "http2":
-      if (
-        (context as HttpContext).request.request &&
-        (context as HttpContext).request.request.headers.cookie
-      ) {
-        cookies = (context as HttpContext).request.request.headers.cookie;
-      }
-      if (cookies) return parser(cookies);
-      break;
-    case "websocket":
-    case "websocket-secure":
-      if ((context as WebsocketContext).request?.cookies) {
-        cookies = (context as WebsocketContext).request?.cookies;
-      }
-      if (cookies) return parserWs(cookies);
-      break;
-    default:
-      throw new Error("getRequestcookies Bad Type");
-  }
-}
+// function getRequestcookies(context: ContextType) {
+//   let cookies = null;
+//   switch (context.type) {
+//     case "http":
+//     case "https":
+//     case "http2":
+//       if (
+//         (context as HttpContext).request.request &&
+//         (context as HttpContext).request.request.headers.cookie
+//       ) {
+//         cookies = (context as HttpContext).request.request.headers.cookie;
+//       }
+//       if (cookies) return parser(cookies);
+//       break;
+//     case "websocket":
+//     case "websocket-secure":
+//       if ((context as WebsocketContext).request?.cookies) {
+//         cookies = (context as WebsocketContext).request?.cookies;
+//       }
+//       if (cookies) return parserWs(cookies);
+//       break;
+//     default:
+//       throw new Error("getRequestcookies Bad Type");
+//   }
+// }
 
 function cookiesParser(context: ContextType) {
   let cookies = null;
@@ -389,4 +389,4 @@ class Cookie {
 }
 
 export default Cookie;
-export { cookiesParser, parser, parserWs, getRequestcookies };
+export { cookiesParser, parser, parserWs /*getRequestcookies*/ };

@@ -9,6 +9,8 @@ import Http2Request from "../src/context/http2/Request";
 import HttpRequest from "../src/context/http/Request";
 import Session from "../src/session/session";
 import SessionsService from "../service/sessions/sessions-service";
+import Response from "../src/context/http/Response";
+import wsResponse from "../src/context/websocket/Response";
 
 export default Http;
 export {
@@ -21,6 +23,8 @@ export {
   HttpRequest,
   Session,
   SessionsService,
+  Response,
+  wsResponse,
 };
 export * from "../service/http-kernel";
 export * from "../src/context/Context";

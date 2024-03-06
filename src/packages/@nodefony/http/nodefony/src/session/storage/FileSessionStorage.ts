@@ -52,7 +52,6 @@ class FileSessionStorage implements sessionStorageInterface {
   manager: sessionService;
   path: string;
   gc_maxlifetime: number;
-
   contextSessions: string[];
   constructor(manager: sessionService) {
     this.manager = manager;
@@ -68,6 +67,17 @@ class FileSessionStorage implements sessionStorageInterface {
     let fileSession: FileClass;
     let Path: string = "";
     if (contextSession) {
+      const dir = `${this.path}/${contextSession}`;
+      try {
+        new FileClass(dir);
+      } catch (error) {
+        try {
+          mkdirp.sync(dir);
+        } catch (e) {
+          console.warn(e);
+          return Promise.reject(e);
+        }
+      }
       Path = `${this.path}/${contextSession}/${id}`;
     } else {
       Path = `${this.path}/default/${id}`;

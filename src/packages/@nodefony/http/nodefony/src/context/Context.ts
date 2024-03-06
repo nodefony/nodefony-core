@@ -7,9 +7,17 @@ import {
   Pdu,
   KernelEventsType,
   Error as nodefonyError,
+  //EnvironmentType,
+  //DebugType,
+  extend,
 } from "nodefony";
 import websocket from "websocket";
-import HttpKernel, { ContextType, ServerType } from "../../service/http-kernel";
+import HttpKernel, {
+  //ContextType,
+  ServerType,
+  Data,
+  SchemeType,
+} from "../../service/http-kernel";
 import HttpResponse from "./http/Response";
 import Http2Response from "./http2/Response";
 import WebsocketResponse from "./websocket/Response";
@@ -78,18 +86,45 @@ class Context extends Service {
   cookieSession: Cookie | null | undefined = null;
   user: any = null;
   waitAsync: boolean = false;
-  isJson: boolean = true;
+  isJson: boolean = false;
   isHtml: boolean = false;
+  metaData: Data;
+  scheme: SchemeType;
   constructor(container: Container, type: ServerType) {
     super(`${type} CONTEXT`, container);
     this.type = type;
     this.set("context", this);
     this.httpKernel = this.get("HttpKernel");
     this.sessionService = this.get("sessions");
+    this.metaData = this.setMetaData();
+    this.scheme = "http";
     // this.container?.addScope("subRequest");
     // this.once("onRequest", () => {
     //   this.requested = true;
     // });
+  }
+
+  setMetaData(obj: Record<string, any> = {}): Data {
+    let ele = {
+      nodefony: {
+        name: this.kernel?.projectName,
+        version: this.kernel?.version,
+        url: this.request?.url,
+        environment: this.kernel?.environment,
+        debug: this.kernel?.debug,
+        scheme: this.scheme,
+        //projectVersion: this.kernel?.projectVersion,
+        //local: context.translation.defaultLocale.substr(0, 2),
+        //core: this.kernel?.isCore,
+        //route: context?.resolver.getRoute(),
+        //getContext: () => this.context,
+      },
+    };
+    return extend(true, {}, ele, obj);
+  }
+
+  setScheme(): SchemeType {
+    return "https";
   }
 
   log(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
@@ -140,11 +175,11 @@ class Context extends Service {
         this.error = httpError;
         mgid = `${this.type} ${clc.magenta(this.response?.statusCode)} ${clc.red(this.method)}`;
         if (this.kernel && this.kernel.environment === "prod") {
-          return this.log(`${txt} ${httpError.toString()}`, "ERROR", mgid);
+          return this.log(`${txt} ${httpError}`, "ERROR", mgid);
         }
         return this.log(
           `${txt}
-          ${httpError.toString()}`,
+          ${httpError}`,
           "ERROR",
           mgid
         );

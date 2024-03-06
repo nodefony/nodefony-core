@@ -26,12 +26,7 @@ const external: string[] = [
   "@nodefony/http",
   "@nodefony/sequelize",
   "@nodefony/security",
-  "bluebird",
-  "twig",
-  "ejs",
-  "graphql",
-  "@graphql-tools/merge",
-  "@graphql-tools/schema",
+  "@nodefony/framework",
   "tslib",
 ];
 
