@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "rootDir": "./",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "target": "ES2022",
@@ -14,5 +15,12 @@
     "declaration": true,
     "declarationDir": "./dist/types",
     "outDir": "./dist"
-  }
+  },
+  "include": [
+    "index.ts",
+    "rollup.config.ts",
+    "src/**/*.ts",
+    "nodefony/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
 }

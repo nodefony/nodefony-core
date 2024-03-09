@@ -8,8 +8,6 @@
 dist/
 node_modules/
 tmp/
-nodefony/config/certificates
-nodefony/databases/*
 
 # Ignore les fichiers générés par TypeScript
 *.tsbuildinfo

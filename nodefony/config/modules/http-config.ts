@@ -49,4 +49,7 @@ switch (kernel?.environment) {
 export default {
   rejectUnauthorized,
   certificates,
+  session: {
+    handler: "sequelize",
+  },
 };

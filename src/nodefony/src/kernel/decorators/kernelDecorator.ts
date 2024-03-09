@@ -3,11 +3,10 @@ import Module from "../Module";
 import { ModuleConstructor, ServiceConstructor } from "../Kernel";
 import Service from "../../Service";
 import Injector from "../injector/injector";
-//import nodefony from "../../Nodefony";
+import Entity, { TypeEntity } from "../orm/Entity";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 type Constructor = new (...args: any[]) => Module;
-
 type Injectable<T = { service: Service }> = new (...args: any[]) => T;
 
 function modules(
@@ -88,18 +87,38 @@ function services(
   };
 }
 
-// function injectable(
-//   name?: string
-// ): <T extends Constructor>(constructor: T) => T {
-//   return function <T extends Constructor>(constructor: T): T {
-//     //console.log("injectable", name || constructor.name);
-//     Injector.register(
-//       name || constructor.name,
-//       constructor as ServiceConstructor
-//     );
-//     return constructor;
-//   };
-// }
+function entities(
+  entity: string | (string | TypeEntity<Entity>)[] | TypeEntity<Entity>
+): <T extends Constructor>(constructor: T) => T {
+  return function <T extends Constructor>(constructor: T): T {
+    class NewConstructorEntity extends constructor {
+      constructor(...args: any[]) {
+        super(...args);
+        this.kernel?.once("onBoot", async () => {
+          return this.initDecoratorEntity();
+        });
+      }
+      async initDecoratorEntity() {
+        if (Array.isArray(entity)) {
+          for (const ent of entity) {
+            if (typeof ent === "string") {
+              await this.loadEntity(ent);
+            } else {
+              this.addEntity(ent);
+            }
+          }
+        } else {
+          if (typeof entity === "string") {
+            await this.loadEntity(entity);
+          } else {
+            this.addEntity(entity);
+          }
+        }
+      }
+    }
+    return NewConstructorEntity;
+  };
+}
 
 function injectable(
   name?: string
@@ -135,4 +154,4 @@ function inject(serviceName: string): Function {
   };
 }
 
-export { modules, injectable, inject, services };
+export { modules, injectable, inject, services, entities };

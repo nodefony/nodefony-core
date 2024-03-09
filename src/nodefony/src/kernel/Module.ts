@@ -1,7 +1,11 @@
 import { dirname, resolve, basename, isAbsolute } from "node:path";
 import { readFile } from "fs/promises";
 import { fileURLToPath } from "url";
-import Kernel, { ServiceConstructor, ServiceWithInitialize } from "./Kernel";
+import Kernel, {
+  ServiceConstructor,
+  ServiceWithInitialize,
+  EntityConstructor,
+} from "./Kernel";
 import { JSONObject } from "../types/globals";
 import Service, { DefaultOptionsService } from "../Service";
 import Command from "../command/Command";
@@ -28,6 +32,7 @@ import {
 } from "rollup";
 import { FSWatcher } from "chokidar";
 import { createRequire } from "node:module";
+import Entity from "./orm/Entity";
 
 export interface PackageJson {
   name: string;
@@ -223,9 +228,9 @@ class Module extends Service {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...args: any[]
   ): Promise<Service> {
-    if (!module) {
-      throw new Error(`Applcation not ready`);
-    }
+    // if (!module) {
+    //   throw new Error(`Applcation not ready`);
+    // }
     const res = await import(service);
     return this.addService(res.default, ...args);
   }
@@ -235,6 +240,16 @@ class Module extends Service {
       resolve(this.path, "package.json"),
       cwd
     )) as PackageJson;
+  }
+
+  async loadEntity(entity: string) {
+    const res = await import(entity);
+    return this.addEntity(res.default);
+  }
+
+  addEntity(entity: EntityConstructor): Entity {
+    const inst = new entity(this);
+    return inst;
   }
 
   getDependencies(): string[] {

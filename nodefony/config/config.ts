@@ -23,7 +23,9 @@
 import path from "node:path";
 import { Nodefony } from "nodefony";
 const kernel = Nodefony.kernel;
-import http from "./module-http-config";
+import http from "./modules/http-config";
+import sequelize from "./modules/sequelize-config";
+import mongoose from "./modules/mongoose-config";
 import pm2 from "./pm2/pm2.config";
 
 let CDN = null;
@@ -44,8 +46,9 @@ switch (kernel?.environment) {
     unitTest = true;
     domainCheck = true;
 }
+//console.log(sequelize.connectors.nodefony.options);
 
-export default {
+const config = {
   watch: true,
   domain: "127.0.0.1", // "0.0.0.0" "selectAuto"
   //domain: "selectAuto",
@@ -161,4 +164,8 @@ export default {
    *   OVERRIDE modules config
    */
   "module-http": http,
+  "module-sequelize": sequelize,
+  "module-mongoose": mongoose,
 };
+
+export default config;

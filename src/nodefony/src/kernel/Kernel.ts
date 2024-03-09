@@ -19,6 +19,7 @@ import Pm2 from "../service/pm2Service";
 import Watcher from "../service/watcherService";
 import Rollup from "../service/rollup/rollupService";
 import Injector from "./injector/injector";
+import Entity from "./orm/Entity";
 //import { StartOptions } from "pm2";
 
 const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
@@ -105,6 +106,11 @@ export interface ServiceConstructor {
   _inject?: { [key: number]: string };
 }
 
+export interface EntityConstructor {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  new (...args: any[]): Entity;
+}
+
 export interface ModuleConstructor {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   new (kernel: Kernel, ...args: any[]): Module;
@@ -172,8 +178,8 @@ class Kernel extends Service {
     nodefony.kernel = this;
     this.kernel = this;
     this.set("kernel", this);
-    this.cli = this.setCli(cli);
     this.type = "CONSOLE";
+    this.cli = this.setCli(cli);
     this.interfaces = this.getNetworkInterfaces();
     this.injector = new Injector(this);
     this.set("injector", this.injector);
@@ -207,7 +213,7 @@ class Kernel extends Service {
         throw e;
       });
       if (this.setCommandComplete(Events.onPreStart)) {
-        return this;
+        return this.terminate(0);
       }
 
       // load application
@@ -235,8 +241,9 @@ class Kernel extends Service {
           //   this.projectName = this.app.getModuleName();
           // }
           this.started = true;
+          if (this.cli) this.type = this.cli?.type;
           if (this.setCommandComplete(Events.onStart)) {
-            return this;
+            return this.terminate(0);
           }
           return this.preRegister();
         })
@@ -255,7 +262,7 @@ class Kernel extends Service {
     });
 
     if (this.setCommandComplete(Events.onPreRegister)) {
-      return this;
+      return this.terminate(0);
     }
     if (this.cli) {
       await this.cli
@@ -293,9 +300,17 @@ class Kernel extends Service {
       .then(() => {
         this.registered = true;
         if (this.setCommandComplete(Events.onRegister)) {
-          return this;
+          return this.terminate(0);
         }
-        return this.boot();
+        return (
+          this.boot()
+            // .then(() => {
+            //   return this;
+            // })
+            .catch((e) => {
+              throw e;
+            })
+        );
       })
       .catch((e) => {
         throw e;
@@ -347,16 +362,24 @@ class Kernel extends Service {
       throw e;
     });
     if (this.setCommandComplete(Events.onPreBoot)) {
-      return this;
+      return this.terminate(0);
     }
     //return;
     return this.fireAsync("onBoot", this)
       .then(() => {
         this.booted = true;
         if (this.setCommandComplete(Events.onBoot)) {
-          return this;
+          return this.terminate(0);
         }
-        return this.onReady();
+        return (
+          this.onReady()
+            // .then(() => {
+            //   return this;
+            // })
+            .catch((e) => {
+              throw e;
+            })
+        );
       })
       .catch((e) => {
         throw e;
@@ -368,7 +391,7 @@ class Kernel extends Service {
       .then(async () => {
         this.ready = true;
         if (this.setCommandComplete(Events.onReady)) {
-          return this;
+          return this.terminate(0);
         }
         //PM2
         if (
@@ -926,7 +949,7 @@ class Kernel extends Service {
   //   return res.version as string;
   // }
 
-  async terminate(code?: number): Promise<void> {
+  async terminate(code?: number): Promise<this> {
     if (code === undefined) {
       code = 0;
     }
@@ -947,7 +970,8 @@ class Kernel extends Service {
           "DEBUG"
         );
         try {
-          return resolve(CliKernel.quit(code as number));
+          CliKernel.quit(code as number);
+          return resolve(this);
         } catch (e) {
           this.log(e, "ERROR");
           return reject(CliKernel.quit(code as number));

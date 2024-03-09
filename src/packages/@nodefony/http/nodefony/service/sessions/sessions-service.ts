@@ -24,6 +24,8 @@ import HttpRequest from "../../src/context/http/Request";
 import url from "node:url";
 import Certificate from "../../service/certificates";
 import { createHash } from "node:crypto";
+import { sequelizeStorage } from "@nodefony/sequelize";
+import { mongooseStorage } from "@nodefony/mongoose";
 
 import FileSessionStorage from "../../src/session/storage/FileSessionStorage";
 
@@ -103,6 +105,12 @@ class SessionsService extends Service {
       case "orm":
       case "ORM":
         //storage = nodefony.session.storage[this.kernel?.getOrm()];
+        break;
+      case "sequelize":
+        storage = sequelizeStorage;
+        break;
+      case "mongoose":
+        storage = mongooseStorage;
         break;
       case "files":
         storage = FileSessionStorage;

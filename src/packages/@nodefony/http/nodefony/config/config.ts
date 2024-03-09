@@ -134,7 +134,7 @@ export default {
     start: false, // false || true || Name Session Context
     use_strict_mode: true,
     name: "nodefony",
-    handler: "files", // files | orm | memcached  "nodefony.session.storage"
+    handler: "files", // files | sequelize| moogoose | memcached  "nodefony.session.storage"
     save_path: "./tmp/sessions",
     gc_probability: 5,
     gc_divisor: 100,

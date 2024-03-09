@@ -93,7 +93,7 @@ class CliKernel extends Cli {
         this.commander.exitOverride();
         this.commander.name(this.name);
         this.commander.showHelpAfterError(false);
-        //this.commander.showSuggestionAfterError(false);
+        this.commander.showSuggestionAfterError(true);
         this.commander.configureHelp({
           //sortSubcommands: true,
           sortOptions: true,

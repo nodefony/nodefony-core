@@ -12,10 +12,11 @@ import config from "./nodefony/config/config";
  * The App class extends the Module class and represents an application  entry point.
  */
 @modules([
-  "@nodefony/http",
-  "@nodefony/security",
-  "@nodefony/framework",
   "@nodefony/sequelize",
+  "@nodefony/mongoose",
+  "@nodefony/http",
+  "@nodefony/framework",
+  "@nodefony/security",
   "@nodefony/test",
 ])
 @controllers([AppController])

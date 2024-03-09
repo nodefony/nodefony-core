@@ -40,7 +40,12 @@ import {
   injectable,
   inject,
   services,
+  entities,
 } from "./kernel/decorators/kernelDecorator";
+
+import Orm from "./kernel/orm/Orm";
+import Entity from "./kernel/orm/Entity";
+import Connector from "./kernel/orm/Connector";
 
 //import { createRequire } from "module";
 //const require = createRequire(import.meta.url);
@@ -147,8 +152,12 @@ export {
   Result,
   Error,
   Injector,
+  Orm,
+  Entity,
+  Connector,
   modules,
   injectable,
   inject,
   services,
+  entities,
 };

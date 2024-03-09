@@ -1,48 +1,13 @@
 // rollup.config.ts
-import path, { resolve } from "node:path";
+import path from "node:path";
 import { defineConfig, Plugin, RollupOptions } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
-import json from "@rollup/plugin-json";
-//@ts-ignore
-import { createPathTransform } from "rollup-sourcemap-path-transform";
 //import commonjs from "@rollup/plugin-commonjs";
+//import json from "@rollup/plugin-json";
 //import copy from "rollup-plugin-copy";
 
-const sourcemapPathTransform = createPathTransform({
-  prefixes: {
-    "*src/": `${resolve(".", "nodefony", "src")}/`,
-    "*service/": `${resolve(".", "nodefony", "service")}/`,
-    "*controller/": `${resolve(".", "nodefony", "controller")}/`,
-    "*entity/": `${resolve(".", "nodefony", "entity")}/`,
-    "*command/": `${resolve(".", "nodefony", "command")}/`,
-    //"*nodefony/": `${resolve(".", "src")}/`,
-  },
-});
-
-const external: string[] = [
-  "nodefony",
-  "@nodefony/sequelize",
-  "@nodefony/mongoose",
-  "cli-color",
-  "cookie",
-  "formidable",
-  "memcached",
-  "mime",
-  "mkdirp",
-  "ms",
-  "node-fetch",
-  "qs",
-  "serve-static",
-  "sockjs",
-  "websocket",
-  "node-forge",
-  "http-terminator",
-  "mime-types",
-  "uuid",
-  "xml2js",
-  "tslib",
-];
+const external: string[] = ["nodefony", "mongodb", "mongoose", "tslib"];
 
 const sharedNodeOptions = defineConfig({
   treeshake: {
@@ -51,8 +16,8 @@ const sharedNodeOptions = defineConfig({
     tryCatchDeoptimization: false,
   },
   output: {
-    dir: resolve(".", "dist"),
-    entryFileNames: `[name].js`, //`[name].js`,
+    dir: "./dist",
+    entryFileNames: `[name].js`,
     //chunkFileNames: "node/chunks/dep-[hash].js",
     exports: "auto",
     format: "es",
@@ -78,12 +43,12 @@ function createNodePlugins(
       declaration: declarationDir !== false,
       declarationDir: declarationDir !== false ? declarationDir : undefined,
     }),
-    json(),
     // commonjs({
     //   extensions: [".js"],
     //   //ignoreDynamicRequires: true
     //   dynamicRequireTargets: [],
     // }),
+    //json(),
     //copy({
     //  targets: [],
     //}),
@@ -97,14 +62,13 @@ function createNodePlugins(
 function createNodeConfig(isProduction: boolean): RollupOptions {
   return defineConfig({
     //input,
-    input: resolve(".", "index.ts"),
+    input: "./index.ts",
     ...sharedNodeOptions,
     output: {
       ...sharedNodeOptions.output,
       sourcemap: !isProduction,
       preserveModules: !isProduction,
       preserveModulesRoot: "nodefony",
-      sourcemapPathTransform,
     },
     external,
     plugins: [...createNodePlugins(isProduction, true, "dist/types")],
