@@ -214,11 +214,7 @@ class Kernel extends Service {
     //this.babel = (await this.addKernelService(Babylon)) as Babylon;
     await this.addKernelService(Rollup);
     await this.addKernelService(Watcher);
-    this.pm2 = (await this.addKernelService(
-      Pm2,
-      this,
-      this.options.pm2
-    )) as Pm2;
+
     if (!this.started) {
       await this.fireAsync("onPreStart", this).catch((e) => {
         this.log(e, "CRITIC");
@@ -237,6 +233,7 @@ class Kernel extends Service {
       if (this.app) {
         this.projectName = this.app.getModuleName() as string;
       }
+      this.pm2 = (await this.addKernelService(Pm2, this.options.pm2)) as Pm2;
       //parse command
       // if (this.cli && !this.command) {
       //   this.cli.clear();
