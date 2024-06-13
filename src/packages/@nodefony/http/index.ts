@@ -14,6 +14,7 @@ import Session from "./nodefony/src/session/session";
 import HttpError from "./nodefony/src/errors/httpError";
 import Response from "./nodefony/src/context/http/Response";
 import wsResponse from "./nodefony/src/context/websocket/Response";
+import Cookie from "./nodefony/src/cookies/cookie";
 
 @services([
   HttpKernel,
@@ -60,4 +61,12 @@ class Http extends Module {
 
 export default Http;
 
-export { Context, Session, HttpError, HttpKernel, Response, wsResponse };
+export {
+  Context,
+  Session,
+  HttpError,
+  HttpKernel,
+  Response,
+  wsResponse,
+  Cookie,
+};

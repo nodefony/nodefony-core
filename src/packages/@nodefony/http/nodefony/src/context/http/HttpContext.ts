@@ -32,16 +32,16 @@ import Session from "../../../src/session/session";
 
 import { Resolver, Router } from "@nodefony/framework";
 
-interface ProxyType {
-  proxyServer: string;
-  proxyProto: string;
-  proxyScheme: SchemeType;
-  proxyPort: string;
-  proxyFor: string;
-  proxyHost: string;
-  proxyUri: string;
-  proxyRealIp: string;
-  proxyVia: string;
+export interface ProxyType {
+  proxyServer?: string;
+  proxyProto?: string;
+  proxyScheme?: SchemeType;
+  proxyPort?: string;
+  proxyFor?: string;
+  proxyHost?: string;
+  proxyUri?: string;
+  proxyRealIp?: string;
+  proxyVia?: string;
 }
 
 export type HttpRequestType = Http2Request | HttpRequest;
@@ -58,7 +58,6 @@ class HttpContext extends Context {
   request: HttpRequestType;
   response: HttpRsponseType;
   resolver: Resolver | null = null;
-  router: Router | null = this.get("router");
   constructor(
     container: Container,
     request: http.IncomingMessage | http2.Http2ServerRequest,
@@ -114,7 +113,6 @@ class HttpContext extends Context {
     this.domain = this.getHostName();
     this.validDomain = this.isValidDomain();
     this.parseCookies();
-    this.metaData = this.setMetaData();
     this.cookieSession = this.getCookieSession(
       this.sessionService?.defaultSessionName as string
     );
@@ -143,14 +141,10 @@ class HttpContext extends Context {
           await this.send();
           return resolve(this);
         }
-        this.setParameters("query.get", this.request.queryGet);
-        if (this.request.queryPost) {
-          this.setParameters("query.post", this.request.queryPost);
-        }
-        if (this.request.queryFile) {
-          this.setParameters("query.files", this.request.queryFile);
-        }
-        this.setParameters("query.request", this.request.query);
+        this.setParameters("query.get", this.request.queryGet || {});
+        this.setParameters("query.post", this.request.queryPost || {});
+        this.setParameters("query.files", this.request.queryFile || []);
+        this.setParameters("query.request", this.request.query || {});
         //this.locale = this.translation.handle();
         // WARNING EVENT KERNEL
         this.fire("onRequest", this);
@@ -159,6 +153,7 @@ class HttpContext extends Context {
           this.resolver = this.router.resolve(this);
         }
         if (this.resolver && this.resolver.resolve) {
+          this.setMetaData();
           const ret = await this.resolver.callController().catch((e) => {
             return reject(e);
           });

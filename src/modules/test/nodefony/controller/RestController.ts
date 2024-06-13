@@ -1,10 +1,9 @@
-import { Controller, DefineRoute, DefineController } from "@nodefony/framework";
+import { Controller, route, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
-import { inject, Error } from "nodefony";
+//import { inject, Error } from "nodefony";
 
-@DefineController("rest", {})
+@controller("/nodefony/test/rest", {})
 class RestController extends Controller {
-  static override basepath = "/nodefony/test";
   constructor(context: Context) {
     super("RestController", context);
   }
@@ -14,7 +13,7 @@ class RestController extends Controller {
     return this;
   }
 
-  @DefineRoute("index-rest", { path: "/rest" })
+  @route("index-rest", { path: "" })
   index() {
     this.renderJson({});
   }

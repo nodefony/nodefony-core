@@ -1,23 +1,26 @@
 import { resolve } from "node:path";
 import { Kernel, Module, modules } from "nodefony";
 import { controllers } from "@nodefony/framework";
-import AppController from "./nodefony/controllers/AppController";
 import config from "./nodefony/config/config";
 //import http from "@nodefony/http";
 //import security from "@nodefony/security";
 //import framework from "@nodefony/framework";
 //import sequelize from "@nodefony/sequelize";
+//import Test from "@nodefony/test";
+import AppController from "./nodefony/controllers/AppController";
 
 /**
  * The App class extends the Module class and represents an application  entry point.
  */
 @modules([
   "@nodefony/sequelize",
-  "@nodefony/mongoose",
+  //"@nodefony/mongoose",
   "@nodefony/http",
   "@nodefony/framework",
   "@nodefony/security",
   "@nodefony/test",
+  //Test,
+  //"@nodefony/redis",
 ])
 @controllers([AppController])
 class App extends Module {
@@ -36,23 +39,23 @@ class App extends Module {
    * @param kernel - An instance of the Kernel class.
    * @returns A promise that resolves to the instance of the App class.
    */
-  // async initialize(kernel: Kernel): Promise<this> {
-  //   if (
-  //     this.kernel?.environment === "production" ||
-  //     this.kernel?.environment === "staging"
-  //   ) {
-  //     //await this.kernel?.addModule(http);
-  //     //await this.kernel?.addModule(security);
-  //     //await this.kernel?.addModule(framework);
-  //     //await this.kernel?.addModule(sequelize);
-  //   } else {
-  //     //await this.kernel?.loadModule("@nodefony/http", false);
-  //     //await this.kernel?.loadModule("@nodefony/security", false);
-  //     //await this.kernel?.loadModule("@nodefony/framework", false);
-  //     //await this.kernel?.loadModule("@nodefony/sequelize", false);
-  //   }
-  //   return this;
-  // }
+  async initialize(kernel: Kernel): Promise<this> {
+    //   if (
+    //     this.kernel?.environment === "production" ||
+    //     this.kernel?.environment === "staging"
+    //   ) {
+    //     //await this.kernel?.addModule(http);
+    //     //await this.kernel?.addModule(security);
+    //     //await this.kernel?.addModule(framework);
+    //     //await this.kernel?.addModule(sequelize);
+    //   } else {
+    //     //await this.kernel?.loadModule("@nodefony/http", false);
+    //     //await this.kernel?.loadModule("@nodefony/security", false);
+    //     //await this.kernel?.loadModule("@nodefony/framework", false);
+    //     //await this.kernel?.loadModule("@nodefony/sequelize", false);
+    //   }
+    return this;
+  }
 
   /**
    * Action of modulewhen kernel emit event onStart.

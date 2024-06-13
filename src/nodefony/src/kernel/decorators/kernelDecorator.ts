@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import "reflect-metadata";
 import Module from "../Module";
 import { ModuleConstructor, ServiceConstructor } from "../Kernel";
 import Service from "../../Service";
 import Injector from "../injector/injector";
 import Entity, { TypeEntity } from "../orm/Entity";
+// import nodefony from "nodefony";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 type Constructor = new (...args: any[]) => Module;
@@ -20,7 +22,7 @@ function modules(
           return await this.initDecoratorModules();
         });
       }
-      async initDecoratorModules() {
+      private async initDecoratorModules() {
         if (Array.isArray(nameOrPath)) {
           for (const path of nameOrPath) {
             if (this.kernel?.isModule(path)) {
@@ -54,7 +56,7 @@ function services(
           return await this.initDecoratorServices();
         });
       }
-      async initDecoratorServices() {
+      private async initDecoratorServices() {
         if (Array.isArray(nameOrPath)) {
           for (const path of nameOrPath) {
             if (typeof path !== "string") {
@@ -98,7 +100,7 @@ function entities(
           return this.initDecoratorEntity();
         });
       }
-      async initDecoratorEntity() {
+      private async initDecoratorEntity() {
         if (Array.isArray(entity)) {
           for (const ent of entity) {
             if (typeof ent === "string") {
@@ -130,6 +132,20 @@ function injectable(
   };
 }
 
+/**
+ * Injecter une Service avec son nom
+ *
+ * @param serviceName - Le nom du service a injecter
+ *
+ *
+ * @example
+ *  class myClass{
+ *    httpKernel: HttpKernel
+ *    constructor(@inject("HttpKernel") private httpKernel: HttpKernel) {
+ *      this.HttpKernel = httpKernel
+ *    }
+ *  }
+ */
 // eslint-disable-next-line @typescript-eslint/ban-types
 function inject(serviceName: string): Function {
   return function (
@@ -138,19 +154,17 @@ function inject(serviceName: string): Function {
     parameterIndex: number
   ): void {
     if (!serviceName) {
-      throw new Error(`Inject decorator bad serviceName`);
+      throw new Error(`Inject decorator requires a valid service name`);
     }
-    const index = Number(parameterIndex);
-    // if (typeof target === "function" && propertyKey) {
-    //   console.log(`Je suis une methode de class`);
-    // } else {
-    //   console.log(`Je suis un constructeur`);
-    // }
-    //Injector.get(serviceName);
-    if (!target._inject) {
-      target._inject = {};
-    }
-    target._inject[index] = serviceName;
+    const existingInjectedServices =
+      Reflect.getMetadata("inject:services", target, propertyKey) || [];
+    existingInjectedServices[parameterIndex] = serviceName;
+    Reflect.defineMetadata(
+      "inject:services",
+      existingInjectedServices,
+      target,
+      propertyKey
+    );
   };
 }
 

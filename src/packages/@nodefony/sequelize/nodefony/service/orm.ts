@@ -136,7 +136,6 @@ class ConnectorSequelise extends Connector {
           throw err;
         });
     } catch (e) {
-      console.log("pasasasa");
       this.onError(e as Error);
       this.orm.fire("onErrorConnection", this, e);
       throw e;

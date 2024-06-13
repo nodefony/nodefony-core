@@ -1,7 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Container from "./Container";
-import _ from "lodash";
-const { isArray, isFunction, isRegExp } = _;
+
+import isArray from "lodash-es/isArray";
+import isFunction from "lodash-es/isFunction";
+import isRegExp from "lodash-es/isRegExp";
+
 const myobj = {};
 const hasOwn = myobj.hasOwnProperty;
 const fnToString = hasOwn.toString;

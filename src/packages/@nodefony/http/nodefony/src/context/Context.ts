@@ -6,12 +6,16 @@ import {
   Message,
   Pdu,
   KernelEventsType,
-  Error as nodefonyError,
+  nodefonyError,
   //EnvironmentType,
   //DebugType,
   extend,
 } from "nodefony";
+import { Resolver, Router } from "@nodefony/framework";
 import websocket from "websocket";
+import http2 from "node:http2";
+import http from "node:http";
+import https from "node:https";
 import HttpKernel, {
   //ContextType,
   ServerType,
@@ -32,6 +36,14 @@ import Session from "../session/session";
 import Cookie, { cookiesParser } from "../cookies/cookie";
 import HttpError from "../errors/httpError";
 const colorLogEvent = clc.cyan.bgBlack("EVENT CONTEXT");
+
+export type WebSocketState =
+  | "handshake"
+  | "connected"
+  | "closed"
+  | "error"
+  | "message"
+  | null;
 
 export type contextRequest =
   | HttpRequest
@@ -72,6 +84,11 @@ class Context extends Service {
   sessionStarting: boolean = false;
   domain: string = "";
   type: ServerType;
+  server:
+    | websocket.server
+    | http.Server
+    | https.Server
+    | http2.Http2SecureServer;
   httpKernel: HttpKernel | null;
   request: contextRequest | null = null;
   response: contextResponse | null = null;
@@ -88,16 +105,48 @@ class Context extends Service {
   waitAsync: boolean = false;
   isJson: boolean = false;
   isHtml: boolean = false;
-  metaData: Data;
+  crossDomain: boolean = false;
+  router: Router | null = this.get("router");
+  resolver: Resolver | null = null;
+  sessionAutoStart: string | null = null;
+  metaData: Data = {
+    nodefony: {},
+    result: null,
+  };
   scheme: SchemeType;
+  webSocketState: WebSocketState = null;
   constructor(container: Container, type: ServerType) {
-    super(`${type} CONTEXT`, container);
+    super(`${type}`, container);
     this.type = type;
     this.set("context", this);
     this.httpKernel = this.get("HttpKernel");
     this.sessionService = this.get("sessions");
-    this.metaData = this.setMetaData();
-    this.scheme = "http";
+    this.setMetaData();
+    this.scheme = "https";
+    switch (this.type) {
+      case "http":
+        this.scheme = "http";
+        this.server = this.get("server-http").server as http.Server;
+        break;
+      case "http2":
+      case "https":
+        this.scheme = "https";
+        this.server = this.get("server-https").server as https.Server;
+        break;
+      case "http3":
+        this.scheme = "https";
+        this.server = this.get("server-http3").server;
+        break;
+      case "websocket":
+        this.scheme = "ws";
+        this.server = this.get("server-websocket").server as websocket.server;
+        break;
+      case "websocket-secure":
+        this.scheme = "wss";
+        this.server = this.get("server-websocket-secure")
+          .server as websocket.server;
+        break;
+    }
     // this.container?.addScope("subRequest");
     // this.once("onRequest", () => {
     //   this.requested = true;
@@ -113,14 +162,16 @@ class Context extends Service {
         environment: this.kernel?.environment,
         debug: this.kernel?.debug,
         scheme: this.scheme,
+        //route: this.resolver?.route?.toObject(),
+        route: this.resolver?.route,
         //projectVersion: this.kernel?.projectVersion,
         //local: context.translation.defaultLocale.substr(0, 2),
         //core: this.kernel?.isCore,
-        //route: context?.resolver.getRoute(),
+
         //getContext: () => this.context,
       },
     };
-    return extend(true, {}, ele, obj);
+    return (this.metaData = extend(true, this.metaData, ele, obj));
   }
 
   setScheme(): SchemeType {
@@ -164,7 +215,7 @@ class Context extends Service {
     return super.emitAsync(event, ...args);
   }
 
-  logRequest(httpError?: Error | HttpError | nodefonyError) {
+  logRequest(httpError?: Error | HttpError | nodefonyError | null) {
     try {
       const txt = `${clc.cyan("URL")} : ${this.url} ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host}`;
       let mgid = "";
@@ -173,7 +224,7 @@ class Context extends Service {
       }
       if (httpError) {
         this.error = httpError;
-        mgid = `${this.type} ${clc.magenta(this.response?.statusCode)} ${clc.red(this.method)}`;
+        mgid = `${this.type} ${clc.magenta(httpError.code || this.response?.statusCode)} ${clc.red(this.method)}`;
         if (this.kernel && this.kernel.environment === "prod") {
           return this.log(`${txt} ${httpError}`, "ERROR", mgid);
         }
@@ -191,7 +242,7 @@ class Context extends Service {
     } catch (e) {}
   }
 
-  addCookie(cookie: Cookie): Cookie {
+  addRequestCookie(cookie: Cookie): Cookie {
     if (cookie instanceof Cookie) {
       return (this.cookies[cookie.name] = cookie);
     } else {
@@ -199,6 +250,13 @@ class Context extends Service {
       this.log(cookie, "ERROR");
       throw error;
     }
+  }
+
+  getRequestCookies(name?: string): Cookies | Cookie | null {
+    if (name) {
+      return this.cookies[name] || null;
+    }
+    return this.cookies;
   }
 
   setCookie(cookie: Cookie) {

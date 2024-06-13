@@ -24,7 +24,7 @@ describe("NODEFONY CLI", () => {
         clear: false,
       });
       assert.strictEqual(project.name, "project");
-      assert.strictEqual(project.commander.version(), "2.0.0");
+      assert.strictEqual(project.commander?.version(), "2.0.0");
       const options = {
         processName,
         autostart: true,

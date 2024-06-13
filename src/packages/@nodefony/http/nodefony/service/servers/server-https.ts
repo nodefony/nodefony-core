@@ -130,7 +130,11 @@ class ServerHttps extends Service {
         this.server.on(
           "request",
           (request: http.IncomingMessage, response: http.ServerResponse) => {
-            this.httpKernel?.onHttpRequest(request, response, this.type);
+            this.httpKernel
+              ?.onHttpRequest(request, response, this.type)
+              .catch((e) => {
+                return;
+              });
           }
         );
 

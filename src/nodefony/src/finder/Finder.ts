@@ -223,7 +223,6 @@ const parser = function (
             this.totals.hidden++;
             this.fire("onHidden", info, this);
           }
-          // console.log("PASSSS ", info.name, info.type)
           if (info.type === "File") {
             continue;
           }

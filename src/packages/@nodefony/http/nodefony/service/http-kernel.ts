@@ -10,7 +10,10 @@ import nodefony, {
   EnvironmentType,
   DebugType,
   Error as nodefonyError,
+  inject,
 } from "nodefony";
+import { Resolver, Router } from "@nodefony/framework";
+import { Controller } from "@nodefony/framework";
 import HttpError from "../src/errors/httpError";
 import http from "node:http";
 import https from "node:http";
@@ -28,7 +31,7 @@ import Certicates from "./certificates";
 import websocket from "websocket";
 import SessionsService from "./sessions/sessions-service";
 import Session from "../src/session/session";
-import { cp } from "node:fs";
+import { Route } from "@nodefony/framework";
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -48,6 +51,13 @@ type DomainAliasType = AliasObject | AliasArray | string;
 export type responseTimeoutType = "http" | "https" | "http2" | "http3";
 export type SchemeType = "http" | "https" | "ws" | "wss";
 
+export interface WsMetaData {
+  type: "message" | "handshake";
+  messageType?: websocket.IUtf8Message | websocket.IBinaryMessage;
+  protocol?: string;
+  id?: string;
+}
+
 export interface MetaData {
   name?: string;
   version?: string;
@@ -57,6 +67,8 @@ export interface MetaData {
   token?: string;
   method?: HTTPMethod;
   scheme?: SchemeType;
+  websocket?: WsMetaData;
+  route?: Route;
 }
 
 export interface Data {
@@ -84,7 +96,6 @@ class HttpKernel extends Service {
   module: Module;
   httpsPort?: number;
   httpPort?: number;
-
   responseTimeout: {
     http: number;
     https: number;
@@ -97,6 +108,7 @@ class HttpKernel extends Service {
   };
   sessionService?: SessionsService;
   sessionAutoStart: boolean | string = false;
+  router?: Router;
   constructor(module: Module) {
     super(
       serviceName,
@@ -127,6 +139,9 @@ class HttpKernel extends Service {
       this.regAlias = this.compileAlias();
       this.sessionService = this.get("sessions");
       this.sessionAutoStart = this.sessionService?.sessionAutoStart as boolean;
+    });
+    this.kernel?.prependOnceListener("onBoot", () => {
+      this.router = this.get("router");
     });
     return this;
   }
@@ -161,18 +176,100 @@ class HttpKernel extends Service {
           scope as Scope,
           request as websocket.request,
           type
-        ).catch(async (e) => {
+        ).catch((e) => {
           throw e;
         });
     }
   }
 
-  async handleFrontController(context: ContextType): Promise<any> {}
+  async handleFrontController(
+    context: ContextType,
+    checkFirewall: boolean = true
+  ): Promise<Controller | number> {
+    return new Promise(async (resolve, reject) => {
+      // if (this.firewall && checkFirewall) {
+      //   context.secure = this.firewall.isSecure(context);
+      // }
+      if (!this.router) {
+        return reject(new Error("kernel HTTP not ready"));
+      }
+      if (context.security) {
+        //const res = this.firewall.handleCrossDomain(context);
+        const res = null;
+        if (context.crossDomain && context.method === "OPTIONS") {
+          if (res === 204) {
+            return resolve(res);
+          }
+        }
+      }
+      // FRONT ROUTER
+      let controller: Controller;
+      let resolver: Resolver | undefined = undefined;
+      try {
+        resolver = this.router.resolve(context);
+        if (resolver.resolve && !resolver.exception) {
+          context.resolver = resolver;
+          controller = await resolver.newController(context);
+          if (controller.sessionAutoStart) {
+            context.sessionAutoStart = controller.sessionAutoStart;
+          }
+          context.once("onSessionStart", (session) => {
+            controller.session = session;
+          });
+          return resolve(controller);
+        }
+        if (resolver.exception) {
+          return reject(resolver.exception);
+        }
+        const error = new HttpError("Not Found", 404, context);
+        return reject(error);
+      } catch (e) {
+        // if (e instanceof Resolver && e.exception) {
+        //   return reject(e.exception);
+        // }
+        return reject(e);
+      }
+    });
 
+    return 0;
+  }
+
+  /**
+   * Handles errors by setting appropriate response codes and messages.
+   *
+   * @param error - The error object, which can be of type Error, HttpError, or nodefonyError.
+   * @param context - Optional context parameter, which can be of type ContextType.
+   * @param extraHeaders - Optional additional headers to be included in the response.
+   * @returns A promise that resolves to either HttpContext or WebsocketContext.
+   *
+   * WebSocket error codes and their meanings:
+   *  - code >= 1000 && code <= 2999:
+   *    - 1000: Normal connection closure
+   *    - 1001: Remote peer is going away
+   *    - 1002: Protocol error
+   *    - 1003: Unprocessable input
+   *    - 1004: Reserved
+   *    - 1005: Reason not provided
+   *    - 1006: Abnormal closure, no further detail available
+   *    - 1007: Invalid data received
+   *    - 1008: Policy violation
+   *    - 1009: Message too big
+   *    - 1010: Extension requested by client is required
+   *    - 1011: Internal Server Error
+   *    - 1015: TLS Handshake Failed
+   *  - code >= 3000 && code <= 3999:
+   *    Reserved for use by libraries, frameworks, and applications.
+   *    Should be registered with IANA. Interpretation of these codes is
+   *    undefined by the WebSocket protocol.
+   *  - code >= 4000 && code <= 4999:
+   *    Reserved for private use. Interpretation of these codes is
+   *    undefined by the WebSocket protocol.
+   */
   async onError(
     error: Error | HttpError | nodefonyError,
-    context?: ContextType
-  ): Promise<any> {
+    context?: ContextType,
+    extraHeaders?: Record<string, any> | object
+  ): Promise<HttpContext | WebsocketContext> {
     try {
       const code = error.code === 200 ? 500 : !error.code ? 500 : error.code;
       if (!(error instanceof HttpError)) {
@@ -194,23 +291,44 @@ class HttpKernel extends Service {
           obj.code = error.code;
           obj.message = error.message;
           if (!context.response.isHeaderSent()) {
-            return context.render(obj).catch((e) => {
-              this.log(e, "CRITIC");
-              throw e;
-            });
+            return context
+              .render(obj)
+              .then(() => {
+                return context;
+              })
+              .catch((e) => {
+                this.log(e, "CRITIC");
+                throw e;
+              });
           }
           if (!context.sended) {
-            return context.close();
+            return context.close().then(() => {
+              return context;
+            });
           }
           throw error;
         }
         case context instanceof WebsocketContext: {
-          if (this.kernel?.debug) {
-            this.log(error.toString(), "ERROR");
-          } else {
-            this.log(error.message, "ERROR");
+          try {
+            if (context.response && context.response.connection) {
+              // reject only websocket code
+              if (error.code && error.code < 1000) {
+                error.code = 1011;
+              }
+              context.close(error.code, error.message);
+              return context;
+            }
+            if (context.request && !context.rejected) {
+              // reject only http code
+              if (error.code && error.code > 500) {
+                error.code = 500;
+              }
+              context.request?.reject(error.code, error.message, extraHeaders);
+              return context;
+            }
+          } catch (e) {
+            throw error;
           }
-          return;
         }
         default:
           throw error;
@@ -277,8 +395,8 @@ class HttpKernel extends Service {
         .handle(request, response)
         .then(async (res) => {
           if (res) {
-            this.fire("onServerRequest", request, response, type);
-            return this.handle(request, response, type).catch((e) => {
+            await this.fireAsync("onServerRequest", request, response, type);
+            return await this.handle(request, response, type).catch((e) => {
               throw e;
             });
           }
@@ -291,8 +409,8 @@ class HttpKernel extends Service {
           return e;
         });
     }
-    this.fire("onServerRequest", request, response, type);
-    return this.handle(request, response, type).catch((e) => {
+    await this.fireAsync("onServerRequest", request, response, type);
+    return await this.handle(request, response, type).catch((e) => {
       throw e;
     });
   }
@@ -373,7 +491,6 @@ class HttpKernel extends Service {
       }
       return context;
     } catch (e) {
-      console.trace(e);
       this.log(e, "ERROR");
       throw e;
     }
@@ -405,7 +522,6 @@ class HttpKernel extends Service {
         return resolve(context);
       } catch (e) {
         return this.onError(e as Error, context as ContextType).catch((e) => {
-          //this.log(e, "CRITIC");
           return reject(e);
         });
       }
@@ -415,7 +531,7 @@ class HttpKernel extends Service {
   async onRequestEnd(
     context: HttpContext,
     error?: Error | null | undefined
-  ): Promise<HttpContext> {
+  ): Promise<HttpContext | number> {
     return new Promise((resolve, reject) => {
       // EVENT
       if (!context) {
@@ -434,8 +550,30 @@ class HttpKernel extends Service {
           if (this.kernel?.options.domainCheck) {
             this.checkValidDomain(context);
           }
+          // FRONT CONTROLLER
+          const ret = await this.handleFrontController(context).catch((e) => {
+            throw e;
+          });
+          if (ret === 204) {
+            return resolve(ret);
+          }
+          // // FIREWALL
+          // if (context.secure || context.isControlledAccess) {
+          //   const res = await this.firewall.handleSecurity(context);
+          //   // CSRF TOKEN
+          //   if (context.csrf) {
+          //     const token = await this.csrfService.handle(context);
+          //     if (token) {
+          //       this.log("CSRF TOKEN OK", "DEBUG");
+          //     }
+          //   }
+          //   return resolve(res);
+          // }
+
           // SESSIONS
-          await this.startSession(context);
+          await this.startSession(context).catch((e) => {
+            throw e;
+          });
           // CSRF TOKEN
           // if (context.csrf) {
           //   const token = await this.csrfService.handle(context);
@@ -447,142 +585,134 @@ class HttpKernel extends Service {
         } catch (e) {
           return reject(e);
         }
-        // // FRONT CONTROLLER
-        // const ret = await this.handleFrontController(context).catch((e) => {
-        //   throw e;
-        // });
-        // if (ret === 204) {
-        //   return resolve(ret);
-        // }
-        // // FIREWALL
-        // if (context.secure || context.isControlledAccess) {
-        //   const res = await this.firewall.handleSecurity(context);
-        //   // CSRF TOKEN
-        //   if (context.csrf) {
-        //     const token = await this.csrfService.handle(context);
-        //     if (token) {
-        //       this.log("CSRF TOKEN OK", "DEBUG");
-        //     }
-        //   }
-        //   return resolve(res);
-        // }
       });
     });
   }
 
   // WEBSOCKET
-
   createWebsocketContext(
-    container: Container,
+    scope: Scope,
     request: websocket.request,
     type: ServerType
   ): WebsocketContext {
-    return new WebsocketContext(container, request, type);
-  }
-
-  onWebsocketRequest(request: websocket.request, type: ServerType) {
-    this.fire("onServerRequest", request, null, type);
-    return this.handle(request, null, type);
+    const context = new WebsocketContext(scope, request, type);
+    context.once("onFinish", (wscontext) => {
+      if (!context) {
+        return;
+      }
+      if (context.finished) {
+        return;
+      }
+      if (context.session) {
+        context.once("onSaveSession", () => {
+          this.container?.leaveScope(wscontext.container);
+          context.clean();
+          context.finished = true;
+        });
+      } else {
+        this.container?.leaveScope(wscontext.container);
+        context.clean();
+        context.finished = true;
+      }
+    });
+    return context;
   }
 
   // WEBSOCKET ENTRY POINT
-  handleWebsocket(
-    container: Container,
+  async onWebsocketRequest(request: websocket.request, type: ServerType) {
+    await this.fireAsync("onServerRequest", request, null, type);
+    return await this.handle(request, null, type);
+  }
+  async handleWebsocket(
+    scope: Scope,
     request: websocket.request,
     type: ServerType
   ): Promise<any> {
-    return new Promise(async (resolve, reject) => {
-      let context: WebsocketContext | null = null;
-      let error: Error | null | unknown = null;
+    let context: WebsocketContext | null = null;
+    let error: Error | null | unknown = null;
+    try {
+      context = this.createWebsocketContext(scope, request, type);
+    } catch (e) {
+      error = e;
+    }
+    try {
+      const connection = await this.onConnect(
+        context as WebsocketContext,
+        error
+      );
+      // FIREWALL
+      // if (context?.secure || context?.isControlledAccess) {
+      //   return await this.firewall.handleSecurity(context, connection);
+      // }
+      return await context?.handle();
+    } catch (e) {
       try {
-        context = this.createWebsocketContext(container, request, type);
-      } catch (e) {
-        error = e;
+        await this.onError(e as Error, context as WebsocketContext);
+      } catch (errorHandlingError) {
+        throw errorHandlingError;
       }
-      try {
-        const connection = await this.onConnect(
-          context as WebsocketContext,
-          error
-        );
-        // FIREWALL
-        // if (context?.secure || context?.isControlledAccess) {
-        //   return resolve(
-        //     await this.firewall.handleSecurity(context, connection)
-        //   );
-        // }
-        return resolve(await context?.handle());
-      } catch (e) {
-        return this.onError(e as Error, context as WebsocketContext)
-          .then((res) => resolve(res))
-          .catch((e) => reject(e));
-      }
-    });
+      throw e;
+    }
   }
 
-  onConnect(
+  async onConnect(
     context: WebsocketContext,
     error: null | undefined | unknown = null
-  ) {
-    // EVENT
-    return new Promise(async (resolve, reject) => {
+  ): Promise<websocket.connection | number> {
+    try {
+      if (error) {
+        throw error;
+      }
       if (!context) {
-        return reject(new nodefony.Error("Bad context", 500));
+        throw new nodefony.Error("Bad context", 500);
       }
+      // DOMAIN VALID
+      if (this.domainCheck) {
+        this.checkValidDomain(context);
+      }
+      // FRONT CONTROLLER
       try {
-        if (error) {
-          return reject(error);
+        const ret = await this.handleFrontController(context);
+        if (ret === 204) {
+          return ret;
         }
-        // DOMAIN VALID
-        if (this.domainCheck) {
-          this.checkValidDomain(context);
-        }
-        // FRONT CONTROLLER
-        try {
-          const ret = await this.handleFrontController(context).catch((e) => {
-            throw e;
-          });
-          if (ret === 204) {
-            return resolve(ret);
-          }
-        } catch (e) {
-          // if ((e.code && e.code === 404) || context.resolver) {
-          //   return reject(e);
-          // }
-          this.log(e, "ERROR");
-          // continue
-        }
-
-        if (context.secure || context.isControlledAccess) {
-          return resolve(await context.connect());
-        }
-        // SESSIONS
-        // if (
-        //   !context.sessionStarting &&
-        //   (context.sessionAutoStart || context.hasSession())
-        // ) {
-        //   try {
-        //     const session = await this.sessionService
-        //       .start(context, context.sessionAutoStart)
-        //       .catch((error) => reject(error));
-        //     if (!(session instanceof nodefony.Session)) {
-        //       this.log(
-        //         new Error("SESSION START session storage ERROR"),
-        //         "WARNING"
-        //       );
-        //     }
-        //     if (this.firewall) {
-        //       this.firewall.getSessionToken(context, session);
-        //     }
-        //   } catch (e) {
-        //     throw e;
-        //   }
-        // }
-        return resolve(await context.connect());
-      } catch (e) {
-        return reject(e);
+      } catch (e: any) {
+        context.logRequest(e);
+        throw e;
       }
-    });
+      if (context.secure || context.isControlledAccess) {
+        return await context.connect();
+      }
+      // SESSIONS
+      if (
+        this.sessionService &&
+        !context.sessionStarting &&
+        (context.sessionAutoStart || context.hasSession())
+      ) {
+        try {
+          const session = await this.sessionService.start(
+            context,
+            context.sessionAutoStart as string
+          );
+          if (!(session instanceof Session)) {
+            this.log(
+              new Error("SESSION START session storage ERROR"),
+              "WARNING"
+            );
+          }
+          // if (this.firewall) {
+          //   this.firewall.getSessionToken(context, session);
+          // }
+        } catch (e) {
+          throw e;
+        }
+      }
+      return await context.connect();
+    } catch (e) {
+      throw e;
+    }
   }
+
   checkValidDomain(context: ContextType): number {
     if (context.validDomain) {
       return 200;

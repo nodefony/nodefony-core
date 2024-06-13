@@ -1,18 +1,21 @@
 {
-  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "./",
     "outDir": "./dist",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "stripInternal": true,
+    "declaration": true,
+    "declarationDir": "./dist/types"
   },
-  "include": [
-    "index.ts",
-    "rollup.config.ts",
-    "config/**/*.ts",
-    "nodefony/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src"
-  ]
+  "include": ["index.ts", "rollup.config.ts", "nodefony/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src"]
 }

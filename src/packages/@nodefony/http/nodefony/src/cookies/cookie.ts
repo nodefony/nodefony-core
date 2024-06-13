@@ -6,7 +6,7 @@ const decode = decodeURIComponent;
 import crypto from "node:crypto";
 import HttpContext from "../context/http/HttpContext";
 import WebsocketContext from "../context/websocket/WebsocketContext";
-import websocket from "websocket";
+import websocket, { ICookie } from "websocket";
 import { ContextType } from "../../service/http-kernel";
 
 type SameSiteType = boolean | "none" | "Lax" | "Strict";
@@ -107,9 +107,12 @@ function cookiesParser(context: ContextType) {
         const obj = parser(cookies);
         for (const cookie in obj) {
           co = new Cookie(cookie, obj[cookie]);
-          (context as HttpContext).addCookie(co);
+          (context as HttpContext).addRequestCookie(co);
         }
-        (context as HttpContext).request.request.cookies = context.cookies;
+        if (context.response) {
+          (context as HttpContext).request.request.cookies =
+            context.response.cookies;
+        }
       }
       break;
     case "websocket":
@@ -120,7 +123,7 @@ function cookiesParser(context: ContextType) {
       if (cookies) {
         for (let i = 0; i < cookies.length; i++) {
           co = new Cookie(cookies[i].name, cookies[i].value);
-          (context as WebsocketContext).addCookie(co);
+          (context as WebsocketContext).addRequestCookie(co);
         }
       }
       break;
@@ -356,10 +359,11 @@ class Cookie {
     return tab.join("; ");
   }
 
-  serializeWebSocket() {
-    const obj: Record<string, any> = {};
-    obj.name = this.name;
-    obj.value = this.value;
+  serializeWebSocket(): ICookie {
+    const obj: ICookie = {
+      name: this.name,
+      value: this.value,
+    };
     if (this.maxAge) {
       obj.maxage = this.maxAge;
     }
@@ -370,6 +374,7 @@ class Cookie {
       obj.path = this.path;
     }
     if (this.sameSite) {
+      //@ts-ignore
       obj.samesite = this.sameSite;
     }
     if (this.expires) {
@@ -382,6 +387,7 @@ class Cookie {
       obj.secure = true;
     }
     if (this.priority) {
+      //@ts-ignore
       obj.priority = this.priority;
     }
     return obj;

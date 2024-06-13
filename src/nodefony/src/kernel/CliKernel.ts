@@ -7,6 +7,7 @@ import Kernel, { KernelType, TypeKernelOptions } from "./Kernel";
 import Command from "../command/Command";
 import Start from "./commands/StartCommand";
 import Dev from "./commands/DevCommand";
+import Build from "./commands/BuildCommand";
 import Prod from "./commands/ProdCommand";
 import Staging from "./commands/StagingCommand";
 import Install from "./commands/InstallCommand";
@@ -84,6 +85,7 @@ class CliKernel extends Cli {
       if (this.commander) {
         this.addCommand(Start);
         this.addCommand(Dev);
+        this.addCommand(Build);
         this.addCommand(Prod);
         this.addCommand(Staging);
         this.addCommand(Install);
@@ -219,7 +221,8 @@ class CliKernel extends Cli {
 
   override async terminate(code: number = 0, quiet?: boolean): Promise<void> {
     if (this.kernel) {
-      return await this.kernel.terminate(code);
+      await this.kernel.terminate(code);
+      return;
     }
     return Promise.resolve(super.terminate(code, quiet));
   }

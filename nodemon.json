@@ -1,6 +1,0 @@
-{
-  "watch": ["src/**/*.ts"],
-  "ext": "ts",
-  "ignore": ["**/test/**", "**/docs/**", "**/dist/**"],
-  "exec": "npm run build && node ./src/nodefony/bin/nodefony dev "
-}

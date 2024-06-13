@@ -122,7 +122,7 @@ class Route {
   host?: string;
   bypassFirewall: boolean = false;
   filePath?: string;
-
+  variablesMap: Record<string, any> = {};
   constructor(name: string, obj?: RouteOptions) {
     this.name = name;
     if (obj) {
@@ -152,6 +152,7 @@ class Route {
     if (!res) {
       return res;
     }
+
     try {
       this.hydrateDefaultParameters(res);
     } catch (e) {
@@ -169,7 +170,8 @@ class Route {
     } catch (e) {
       throw e;
     }
-    let map: any[] = [];
+    //const map: any[] = [];
+    const map: any[] & { [key: string]: any } = [] as any;
     try {
       res.slice(1).forEach((param, i: number) => {
         const k = this.variables[i] || "wildcard";
@@ -197,6 +199,7 @@ class Route {
         }
         const index = map.push(param);
         map[k] = map[index - 1];
+        this.variablesMap[k] = param;
       });
     } catch (e: any) {
       if (e.BreakException) {
@@ -206,6 +209,7 @@ class Route {
     }
     if (map && map.wildcard) {
       map["*"] = map.wildcard;
+      this.variablesMap["*"] = map.wildcard;
     }
     return map;
   }
@@ -250,20 +254,21 @@ class Route {
   }
 
   toString() {
-    return JSON.stringify(
-      {
-        name: this.name,
-        path: this.path,
-        prefix: this.prefix,
-        host: this.host,
-        controller: this.defaults.controller,
-        filePath: this.filePath,
-        schemes: this.schemes,
-        bypassFirewall: this.bypassFirewall,
-      },
-      null,
-      " "
-    );
+    return JSON.stringify(this.toObject(), null, " ");
+  }
+
+  toObject(): Object {
+    return {
+      name: this.name,
+      path: this.path,
+      prefix: this.prefix,
+      host: this.host,
+      controller: this.defaults.controller,
+      filePath: this.filePath,
+      schemes: this.schemes,
+      variables: this.variables,
+      bypassFirewall: this.bypassFirewall,
+    };
   }
   setDefaults(arg: any) {
     if (arg) {
@@ -393,9 +398,23 @@ class Route {
           case "protocol":
             switch (context.method) {
               case "WEBSOCKET":
-                // console.log("this.requirements[i]" +this.requirements[i]);
-                let ele = this.requirements[i];
-                if ((context as WebsocketContext).acceptedProtocol !== ele) {
+                let requirement = this.requirements[i];
+                if (!requirement) {
+                  return;
+                }
+                if (typeof requirement === "string") {
+                  if (
+                    (context as WebsocketContext).acceptedProtocol !==
+                    requirement
+                  ) {
+                    const error = new HttpError(
+                      `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`
+                    );
+                    error.code = 1002;
+                    error.type = "protocol";
+                    throw error;
+                  }
+                } else {
                   const error = new HttpError(
                     `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`
                   );

@@ -11,6 +11,7 @@ import {
   WhereOptions,
   FindOptions,
 } from "sequelize";
+import { Session } from "@nodefony/http";
 import sessionEntity from "../entity/sessionEntity";
 import { SessionsService } from "@nodefony/http";
 import orm, { sequelize } from "../service/orm";
@@ -94,6 +95,7 @@ class SessionStorage {
         return results;
       })
       .catch(async (error) => {
+        //@ts-ignore
         if (transaction && !transaction.finished) {
           await transaction.rollback();
         }
@@ -135,6 +137,7 @@ class SessionStorage {
           this.manager.log(log, "INFO");
         })
         .catch(async (e) => {
+          //@ts-ignore
           if (transaction && !transaction.finished) {
             await transaction.rollback();
           }
@@ -180,10 +183,12 @@ class SessionStorage {
                 await transaction.commit();
               }
               this.manager.log(
-                `DB DESTROY SESSION context : ${session.context} ID : ${session.session_id} DELETED`
+                `DB DESTROY SESSION context : ${session.context} ID : ${session.session_id} DELETED`,
+                "DEBUG"
               );
             })
             .catch(async (error: Error) => {
+              //@ts-ignore
               if (transaction && !transaction.finished) {
                 await transaction.rollback();
               }
@@ -196,6 +201,7 @@ class SessionStorage {
         }
       })
       .catch(async (error) => {
+        //@ts-ignore
         if (transaction && !transaction.finished) {
           await transaction.rollback();
         }
@@ -269,6 +275,7 @@ class SessionStorage {
         return {};
       })
       .catch(async (error) => {
+        //@ts-ignore
         if (transaction && !transaction.finished) {
           await transaction.rollback();
         }
@@ -312,13 +319,14 @@ class SessionStorage {
               },
               transaction,
             })
-            .then(async (session) => {
+            .then(async (session: Session) => {
               if (transaction) {
                 await transaction.commit();
               }
               return session;
             })
             .catch(async (error: Error) => {
+              //@ts-ignore
               if (transaction && !transaction.finished) {
                 await transaction.rollback();
               }
@@ -341,6 +349,7 @@ class SessionStorage {
             return session;
           })
           .catch(async (error) => {
+            //@ts-ignore
             if (transaction && !transaction.finished) {
               await transaction.rollback();
             }
@@ -348,6 +357,7 @@ class SessionStorage {
           });
       })
       .catch(async (error) => {
+        //@ts-ignore
         if (transaction && !transaction.finished) {
           await transaction.rollback();
         }

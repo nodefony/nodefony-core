@@ -46,6 +46,7 @@ import {
 import Orm from "./kernel/orm/Orm";
 import Entity from "./kernel/orm/Entity";
 import Connector from "./kernel/orm/Connector";
+import nodefonyError from "./Error";
 
 //import { createRequire } from "module";
 //const require = createRequire(import.meta.url);
@@ -53,6 +54,7 @@ import Connector from "./kernel/orm/Connector";
 
 class Nodefony {
   private static instance: Nodefony;
+  instance: Nodefony = Nodefony.instance;
   version: string;
 
   static Container = Container;
@@ -123,15 +125,16 @@ class Nodefony {
   }
 }
 
-const nodefony = Nodefony.getInstance();
-const kernel = Nodefony.getKernel();
+const nodefony: Nodefony = Nodefony.getInstance() as Nodefony;
+const kernel: Kernel = Nodefony.getKernel() as Kernel;
 
-export default nodefony;
+export default nodefony as Nodefony;
 export {
   extend,
   typeOf,
   isPromise,
   Nodefony,
+  nodefonyError,
   kernel,
   Kernel,
   Module,

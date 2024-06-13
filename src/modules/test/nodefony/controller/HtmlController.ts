@@ -1,10 +1,9 @@
-import { Controller, DefineRoute, DefineController } from "@nodefony/framework";
+import { Controller, route, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
-import { inject, Error } from "nodefony";
+//import { inject, Error } from "nodefony";
 
-@DefineController("html", {})
+@controller("/nodefony/test/html")
 class HtmlController extends Controller {
-  static override basepath = "/nodefony/test";
   constructor(context: Context) {
     super("HtmlController", context);
   }
@@ -15,7 +14,7 @@ class HtmlController extends Controller {
     return this;
   }
 
-  @DefineRoute("index-html", { path: "/html" })
+  @route("index-html", { path: "" })
   index() {
     const html = `<html lang="fr">
   <head>
@@ -41,7 +40,7 @@ class HtmlController extends Controller {
     return this.render(html);
   }
 
-  @DefineRoute("index-html-redirect", { path: "/html/redirect" })
+  @route("index-html-redirect", { path: "/redirect" })
   index2() {
     return this.redirect("https://google.fr");
   }

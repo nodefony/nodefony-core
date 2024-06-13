@@ -6,6 +6,8 @@ import OpenapiController from "./nodefony/controller/OpenapiController";
 import RestController from "./nodefony/controller/RestController";
 import GraphqlController from "./nodefony/controller/GraphqlController";
 import HtmlController from "./nodefony/controller/HtmlController";
+import RouterController from "./nodefony/controller/RouteController";
+import WebsocketController from "./nodefony/controller/WebSocketController";
 import { controllers } from "@nodefony/framework";
 import BoatEntity from "./nodefony/entity/BoatEntity";
 
@@ -16,6 +18,8 @@ import BoatEntity from "./nodefony/entity/BoatEntity";
   GraphqlController,
   RestController,
   OpenapiController,
+  RouterController,
+  WebsocketController,
 ])
 @entities([BoatEntity])
 class Test extends Module {

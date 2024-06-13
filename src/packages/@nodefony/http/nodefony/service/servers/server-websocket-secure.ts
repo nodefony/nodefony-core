@@ -35,7 +35,8 @@ class Websocket extends Service {
   infos: AddressInfo | null = null;
   constructor(
     module: Module,
-    @inject("HttpKernel") private httpKernel: HttpKernel
+    @inject("HttpKernel") private httpKernel: HttpKernel,
+    @inject("server-https") private https: httpsServers
   ) {
     super(
       "server-websocket-secure",
@@ -71,40 +72,49 @@ class Websocket extends Service {
         const conf: websocket.IServerConfig = extend(true, {}, this.options);
         conf.httpServer = serverHttps.server as https.Server;
         this.server = new websocket.server(conf);
-        this.server.on("request", (request) =>
-          this.httpKernel.onWebsocketRequest(request, this.type)
-        );
+        this.server.on("request", this.onRequest.bind(this));
         this.kernel?.prependOnceListener(
           "onTerminate",
-          () =>
-            new Promise((resolve, reject) => {
-              if (this.server && this.ready) {
-                this.server.broadcast(
-                  JSON.stringify({
-                    nodefony: {
-                      state: "shutDown",
-                    },
-                  })
-                );
-                setTimeout(() => {
-                  try {
-                    if (this.server?.config?.httpServer) {
-                      this.server.shutDown();
-                    }
-                    this.log(
-                      ` SHUTDOWN WEBSOCKET Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
-                      "INFO"
-                    );
-                    return resolve(true);
-                  } catch (e) {
-                    return reject(e);
-                  }
-                }, 500);
-                return;
-              }
-              return resolve(true);
-            })
+          this.terminate.bind(this)
         );
+        // this.server.on("request", (request) => {
+        //   this.httpKernel.onWebsocketRequest(request, this.type).catch((e) => {
+        //     process.nextTick(() => {
+        //       return;
+        //     });
+        //   });
+        // });
+        // this.kernel?.prependOnceListener(
+        //   "onTerminate",
+        //   () =>
+        //     new Promise((resolve, reject) => {
+        //       if (this.server && this.ready) {
+        //         this.server.broadcast(
+        //           JSON.stringify({
+        //             nodefony: {
+        //               state: "shutDown",
+        //             },
+        //           })
+        //         );
+        //         setTimeout(() => {
+        //           try {
+        //             if (this.server?.config?.httpServer) {
+        //               this.server.shutDown();
+        //             }
+        //             this.log(
+        //               ` SHUTDOWN WEBSOCKET Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
+        //               "INFO"
+        //             );
+        //             return resolve(true);
+        //           } catch (e) {
+        //             return reject(e);
+        //           }
+        //         }, 500);
+        //         return;
+        //       }
+        //       return resolve(true);
+        //     })
+        // );
         if (this.server) {
           this.ready = true;
         }
@@ -114,6 +124,43 @@ class Websocket extends Service {
         this.log(e, "ERROR");
         return reject(e);
       }
+    });
+  }
+
+  async onRequest(request: websocket.request): Promise<void> {
+    return this.httpKernel.onWebsocketRequest(request, this.type).catch((e) => {
+      process.nextTick(() => {
+        return;
+      });
+    });
+  }
+
+  terminate(): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      if (this.server && this.ready) {
+        this.server.broadcast(
+          JSON.stringify({
+            nodefony: {
+              state: "shutDown",
+            },
+          })
+        );
+        setTimeout(() => {
+          try {
+            if (this.server?.config?.httpServer) {
+              this.server.shutDown();
+            }
+            this.log(
+              ` SHUTDOWN WEBSOCKET Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
+              "INFO"
+            );
+            return resolve(true);
+          } catch (e) {
+            return reject(e);
+          }
+        }, 300);
+      }
+      return resolve(true);
     });
   }
 

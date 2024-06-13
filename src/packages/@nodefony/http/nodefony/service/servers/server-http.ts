@@ -85,7 +85,11 @@ class ServerHttp extends Service {
           }
         }
         this.server.on("request", (request, response) =>
-          this.httpKernel?.onHttpRequest(request, response, this.type)
+          this.httpKernel
+            ?.onHttpRequest(request, response, this.type)
+            .catch((e) => {
+              return;
+            })
         );
         // LISTEN ON PORT
         this.server.listen(this.port, this.domain, () => {

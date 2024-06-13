@@ -15,13 +15,15 @@ class Install extends Command {
       cli as CliKernel,
       optionsCommand
     );
+    this.addOption("-f, --force", "Force Install");
   }
-  override async generate(): Promise<this> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  override async generate(options: any): Promise<this> {
     const modules = this.kernel?.getModules();
     if (modules) {
       for (const moduleName in modules) {
         const module: Module = modules[moduleName];
-        await module.install();
+        await module.install(options?.force);
       }
     }
     return this;

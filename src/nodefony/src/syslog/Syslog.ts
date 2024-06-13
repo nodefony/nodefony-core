@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import clc from "cli-color";
+
 import { typeOf, extend } from "../Tools";
 import Pdu, { Severity, ModuleName, Msgid, Message } from "./Pdu";
 import { DebugType, EnvironmentType } from "../types/globals";
@@ -8,11 +9,31 @@ import Event from "../Event";
 //import NodefonyError from "../Error";
 //import { kernel } from "../Nodefony";
 
-const yellow = clc.yellow.bold;
-const red = clc.red.bold;
-const cyan = clc.cyan.bold;
-const blue = clc.blueBright.bold;
-const green = clc.green;
+const yellow = clc
+  ? clc.yellow.bold
+  : (ele: string) => {
+      return ele;
+    };
+const red = clc
+  ? clc.red.bold
+  : (ele: string) => {
+      return ele;
+    };
+const cyan = clc
+  ? clc.cyan.bold
+  : (ele: string) => {
+      return ele;
+    };
+const blue = clc
+  ? clc.blueBright.bold
+  : (ele: string) => {
+      return ele;
+    };
+const green = clc
+  ? clc.green
+  : (ele: string) => {
+      return ele;
+    };
 
 type Operator = "<" | ">" | "<=" | ">=" | "==" | "===" | "!=" | "RegExp";
 type Condition = "&&" | "||";

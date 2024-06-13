@@ -34,7 +34,6 @@ class SequelizeCommand extends Command {
       switch (arg) {
         case "sync":
           await this.syncConnectors(name, options);
-          console.log("psasa");
           return this;
       }
       return this;

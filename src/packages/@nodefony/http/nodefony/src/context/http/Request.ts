@@ -97,6 +97,9 @@ class HttpRequest {
     this.hostname = this.getHostName(this.host);
     this.sUrl = this.getFullUrl(request);
     this.url = this.getUrl(this.sUrl);
+    this.queryGet = this.url.query;
+    // this.context.setParameters("query.get", this.queryGet);
+    this.query = this.url.query;
     this.queryStringOptions =
       this.context?.httpKernel?.module.options.queryString || {};
     this.formidableOption =

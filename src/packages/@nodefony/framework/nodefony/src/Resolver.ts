@@ -5,6 +5,7 @@ import {
   typeOf,
   isPromise,
   Injector,
+  Module,
   inject,
 } from "nodefony";
 //import Router from "../service/router";
@@ -37,6 +38,7 @@ class Resolver extends Service {
   resolve: boolean = false;
   variables: any[] = [];
   exception?: HttpError | Error | null;
+  acceptedProtocol: string | null = null;
   constructor(context: ContextType) {
     super(
       "RESOLVER",
@@ -56,10 +58,26 @@ class Resolver extends Service {
         this.controller = route.controller as ControllerConstructor;
         this.actionName = route.classMethod;
         this.resolve = true;
+        if (route.requirements.protocol) {
+          this.acceptedProtocol = route.requirements.protocol.toLowerCase();
+        }
       }
       return match;
-    } catch (e) {
-      throw e;
+    } catch (e) {}
+  }
+
+  parsePathernController(name: string) {
+    let module: Module | undefined;
+    let tab: string[] = [];
+    if (name && typeof name === "string") {
+      tab = name.split(":");
+      module = this.kernel?.getModule(tab[0]);
+    }
+    if (module) {
+      if (module.name !== "framework") {
+        this.set("module", module);
+      }
+      //this.controller = module.getController(tab[1]);
     }
   }
 
@@ -84,7 +102,7 @@ class Resolver extends Service {
     throw new Error(`Route Controller not found`);
   }
 
-  async callController(data: any[] = [], reload: boolean = false) {
+  async callController(data?: any[], reload: boolean = false) {
     try {
       let controller = this.get("controller") as Controller;
       if (!controller || reload) {
@@ -97,10 +115,15 @@ class Resolver extends Service {
       this.set("route", this.route);
       controller.setRoute(this.route as Route);
       const methodKey = this.actionName as keyof typeof controller;
-      const ele = [...this.variables, ...data];
+      let args: any[];
+      if (data) {
+        args = [...this.variables, ...data];
+      } else {
+        args = [...this.variables];
+      }
       if (typeof controller[methodKey] === "function") {
         try {
-          const action = (controller[methodKey] as Function)(...ele);
+          const action = (controller[methodKey] as Function)(...args);
           return this.returnController(action);
         } catch (e) {
           throw e;
@@ -108,7 +131,7 @@ class Resolver extends Service {
       }
       if (this.action) {
         try {
-          return this.returnController(this.action(...ele));
+          return this.returnController(this.action(...args));
         } catch (e) {
           throw e;
         }

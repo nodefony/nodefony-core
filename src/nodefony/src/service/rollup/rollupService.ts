@@ -1,4 +1,5 @@
 import path from "node:path";
+import Kernel from "../../kernel/Kernel";
 import Module from "../../kernel/Module";
 import Service from "../../Service";
 import Container from "../../Container";
@@ -6,6 +7,7 @@ import { writeFile } from "node:fs/promises";
 import { /*fileURLToPath,*/ pathToFileURL } from "url";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
+import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
 import terser from "@rollup/plugin-terser";
 import { Severity } from "../../syslog/Pdu";
@@ -30,8 +32,8 @@ import {
 class Rollup extends Service {
   //public rollup: typeof rollup;
   private watchers: RollupWatcher[] = [];
-  constructor(module: Module) {
-    super("rollup", module.container as Container);
+  constructor(kernel: Kernel) {
+    super("rollup", kernel.container as Container);
   }
 
   static setDefaultConfig(
@@ -47,12 +49,17 @@ class Rollup extends Service {
       declarationDir: path.resolve(module.path, "dist", "types"),
     });
     const resolvePlugin = nodeResolve({ preferBuiltins: true });
+    const commonjsPlugin = commonjs({
+      //extensions: [".js"],
+      exclude: /node_modules/,
+    });
     if (environment === "production") {
       plugins.push(terser());
     }
     plugins.push(json());
     plugins.push(tsPlugin);
     plugins.push(resolvePlugin);
+    plugins.push(commonjsPlugin);
     plugins.push({
       name: "transpile-import-meta",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,7 +73,17 @@ class Rollup extends Service {
       },
     });
     const external = module.getDependencies();
-    external.push("nodefony", "@nodefony/http", "@nodefony/security");
+    external.push(
+      "nodefony",
+      "@nodefony/http",
+      "@nodefony/security",
+      "@nodefony/framework",
+      "@nodefony/sequelize",
+      "@nodefony/mongoose",
+      "@nodefony/test",
+      "@nodefony/user",
+      "tslib"
+    );
     return defineConfig({
       treeshake: {
         moduleSideEffects: "no-external",
@@ -213,13 +230,8 @@ class Rollup extends Service {
       exclude: [/node_modules/, /dist/],
       //include: []
     };
-    this.log(
-      `${options.input}`,
-      "INFO",
-      `Rollup Module ${module.name.toUpperCase()}`
-    );
+    this.log(`${options.input}`, "INFO", `Rollup Module ${module.name}`);
     const watcher = watch(options);
-
     watcher.on("event", async (event: RollupWatcherEvent) => {
       if (event.code === "BUNDLE_END") {
         // (event as { code: string; result: RollupBuild }).result.close();
@@ -231,23 +243,19 @@ class Rollup extends Service {
           this.log(
             `write rollup bundle in : ${(options?.output as OutputOptions)?.dir}`,
             "INFO",
-            `Rollup Module ${module.name.toUpperCase()}`
+            `Rollup Module ${module.name}`
           );
         }
       }
       if (event.code === "ERROR") {
-        this.log(
-          event.error,
-          "ERROR",
-          `Rollup Module ${module.name.toUpperCase()}`
-        );
+        this.log(event.error, "ERROR", `Rollup Module ${module.name}`);
       }
     });
     // watcher.on("change", (id: string, change) => {
     //   console.log("change", id, change);
     // });
     watcher.on("close", () => {
-      this.log("close", "INFO", `Rollup Module ${module.name.toUpperCase()}`);
+      this.log("close", "INFO", `Rollup Module ${module.name}`);
     });
     this.kernel?.once("onTerminate", () => {
       watcher.close();

@@ -20,6 +20,7 @@ import Watcher from "../service/watcherService";
 import Rollup from "../service/rollup/rollupService";
 import Injector from "./injector/injector";
 import Entity from "./orm/Entity";
+//import Babylon from "../service/babel/babylon";
 //import { StartOptions } from "pm2";
 
 const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
@@ -97,7 +98,7 @@ export interface FilterInterface {
 }
 
 export interface ServiceWithInitialize extends Service {
-  initialize?(module?: Module): Promise<Service>;
+  initialize?(module?: Module | Kernel): Promise<Service>;
 }
 
 export interface ServiceConstructor {
@@ -161,6 +162,7 @@ class Kernel extends Service {
   injector: Injector;
   isDev: boolean = false;
   isProd: boolean = true;
+  //babel?: Babylon;
   constructor(
     environment: EnvironmentType,
     cli?: CliKernel | null,
@@ -206,7 +208,17 @@ class Kernel extends Service {
           throw e;
         });
     }
+
     this.tmpDir = new FileClass(`${process.cwd()}/tmp`);
+    //TODO don't instancce on prod
+    //this.babel = (await this.addKernelService(Babylon)) as Babylon;
+    await this.addKernelService(Rollup);
+    await this.addKernelService(Watcher);
+    this.pm2 = (await this.addKernelService(
+      Pm2,
+      this,
+      this.options.pm2
+    )) as Pm2;
     if (!this.started) {
       await this.fireAsync("onPreStart", this).catch((e) => {
         this.log(e, "CRITIC");
@@ -481,7 +493,29 @@ class Kernel extends Service {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...args: any[]
   ): Promise<Service> {
-    return module.addService(service, ...args);
+    return module.addService(service, module, ...args);
+  }
+
+  async addKernelService(
+    service: ServiceConstructor,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...args: any[]
+  ): Promise<Service> {
+    const inst = Injector.instantiate(service, this, ...args);
+    if (this.get(inst.name)) {
+      this.log(
+        `SERVICE ALREADY EXIST  override old service  : ${inst.name}`,
+        "WARNING"
+      );
+    }
+    this.log(`SERVICE ADD : ${inst.name}`, "DEBUG");
+    const serviceInit: ServiceWithInitialize = inst;
+    if (serviceInit.initialize) {
+      this.log(`SERVICE INITIALIZE : ${inst.name}`, "DEBUG");
+      await serviceInit.initialize(this);
+    }
+    this.set(inst.name, inst);
+    return this.get(inst.name);
   }
 
   async loadService(
@@ -501,11 +535,12 @@ class Kernel extends Service {
     moduleName: string,
     build: boolean = false
   ): Promise<Module> {
+    const moduleClass = await import(moduleName);
+    const module = await this.addModule(moduleClass.default);
     if (build) {
-      await Module.build(moduleName);
+      await module.build();
     }
-    const module = await import(moduleName);
-    return this.addModule(module.default);
+    return module;
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -536,9 +571,7 @@ class Kernel extends Service {
     this.initializeLog();
     this.cli?.setPackageManager(this.options.packageManager);
     this.core = await this.isCore();
-    await this.addService(Rollup, this.app);
-    await this.addService(Watcher, this.app);
-    this.pm2 = (await this.addService(Pm2, this.app, this.options.pm2)) as Pm2;
+
     this.app.package = await this.app.getPackageJson();
     this.version = this.app?.getModuleVersion() as string;
     this.fixCommanderCli();
@@ -787,7 +820,7 @@ class Kernel extends Service {
     message: any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handle?: any,
-    options?: { swallowErrors?: boolean | undefined },
+    options?: { swallowErrors?: boolean; keepOpen?: boolean | undefined },
     callback?: ((error: Error | null) => void) | undefined
   ): boolean {
     if (process.send) {

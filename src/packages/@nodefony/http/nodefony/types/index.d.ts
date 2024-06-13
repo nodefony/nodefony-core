@@ -11,6 +11,7 @@ import Session from "../src/session/session";
 import SessionsService from "../service/sessions/sessions-service";
 import Response from "../src/context/http/Response";
 import wsResponse from "../src/context/websocket/Response";
+import Cookie from "../src/cookies/cookie";
 
 export default Http;
 export {
@@ -25,6 +26,7 @@ export {
   SessionsService,
   Response,
   wsResponse,
+  Cookie,
 };
 export * from "../service/http-kernel";
 export * from "../src/context/Context";

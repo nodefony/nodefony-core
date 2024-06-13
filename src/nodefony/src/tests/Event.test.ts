@@ -4,11 +4,6 @@
  *
  *   MOCHA STYLE
  *
- *   In the global context you can find :
- *
- *  nodefony : namespace to get library
- *  kernel :   instance of kernel who launch the test
- *
  */
 
 import { assert } from "chai";

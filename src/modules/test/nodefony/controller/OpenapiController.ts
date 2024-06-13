@@ -1,10 +1,9 @@
-import { Controller, DefineRoute, DefineController } from "@nodefony/framework";
+import { Controller, route, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
-import { inject, Error } from "nodefony";
+//import { inject, Error } from "nodefony";
 
-@DefineController("openapi", {})
+@controller("/nodefony/test/openapi")
 class OpenApiController extends Controller {
-  static override basepath = "/nodefony/test";
   constructor(context: Context) {
     super("OpenApiController", context);
   }
@@ -14,7 +13,7 @@ class OpenApiController extends Controller {
     return this;
   }
 
-  @DefineRoute("index-openapi", { path: "/openapi" })
+  @route("index-openapi", { path: "" })
   index() {
     this.render({});
   }

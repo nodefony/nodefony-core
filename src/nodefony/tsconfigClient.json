@@ -1,0 +1,31 @@
+{
+  "include": ["./rollup.config.ts", "./src/client"],
+  "exclude": [
+    "src/tests/**/*",
+    "src/bin/**/*",
+    "src/config/**/*",
+    "node_modules",
+    "dist",
+    "src/kernel/**/*",
+    "src/finder/**/*",
+    "src/command/**/*",
+    "src/service/**/*"
+  ],
+  "compilerOptions": {
+    "resolveJsonModule": true,
+    "lib": ["ESNext", "DOM"],
+    "stripInternal": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "declaration": true,
+    "declarationDir": "dist/client/types",
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "esModuleInterop": true,
+    "useUnknownInCatchVariables": false
+  }
+}

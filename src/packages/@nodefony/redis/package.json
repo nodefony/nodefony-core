@@ -1,0 +1,54 @@
+{
+  "name": "@nodefony/redis",
+  "version": "10.0.0",
+  "description": "Nodefony Framework Module redis",
+  "contributors": [],
+  "main": "dist/index.js",
+  "type": "module",
+  "types": "./nodefony/types/index.d.ts",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "rimraf dist && npm run rollup",
+    "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
+    "dev": "rimraf dist && npm run rollup -- --watch",
+    "test": "node -e \"console.log('test')\""
+  },
+  "private": false,
+  "keywords": [
+    "nodefony",
+    "javascript"
+  ],
+  "dependencies": {
+    "redis": "4.6.14"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "26.0.1",
+    "@rollup/plugin-json": "6.1.0",
+    "@rollup/plugin-node-resolve": "15.2.3",
+    "@rollup/plugin-replace": "5.0.7",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "11.1.6",
+    "@types/node": "20.14.2",
+    "@types/redis": "4.0.11",
+    "@typescript-eslint/eslint-plugin": "7.13.0",
+    "@typescript-eslint/parser": "7.13.0",
+    "rimraf": "5.0.7",
+    "rollup": "4.18.0",
+    "typescript": "5.4.5"
+  },
+  "peerDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/nodefony/nodefony.git",
+    "directory": "src/packages/@nodefony/redis"
+  },
+  "license": "CECILL-B",
+  "licenses": [
+    {
+      "type": "CECILL-B",
+      "url": "http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html"
+    }
+  ],
+  "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
+  "readmeFilename": "readme.md"
+}

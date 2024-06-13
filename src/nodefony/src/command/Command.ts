@@ -306,6 +306,16 @@ class Command extends Service {
     }
     throw new Error(`program not found`);
   }
+  public parseAsync(
+    argv?: string[],
+    options?: commander.ParseOptions
+  ): Promise<Cmd> {
+    if (this.program) {
+      return this.program?.parseAsync(argv, options);
+    }
+    throw new Error(`program not found`);
+  }
+
   /**
    * Méthode pour effacer la commande actuelle.
    *
@@ -334,6 +344,13 @@ class Command extends Service {
       process.argv.push(cmd);
     }
     return this.parse(process.argv.concat(args));
+  }
+  async runCommandAsync(cmd: string, args: any[] = []) {
+    this.clearCommand();
+    if (cmd) {
+      process.argv.push(cmd);
+    }
+    return this.parseAsync(process.argv.concat(args));
   }
   /**
    * Méthode pour mettre en place une barre de progression.

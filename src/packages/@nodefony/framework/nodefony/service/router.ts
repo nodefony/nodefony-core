@@ -20,6 +20,7 @@ const serviceName: string = "router";
 class Router extends Service {
   static controllers = controllers;
   static routes = routes;
+  routes: Route[] = Router.routes;
   constructor(
     module: Module,
     @inject("HttpKernel") private httpKernel: HttpKernel
@@ -48,9 +49,19 @@ class Router extends Service {
       }
     }
     if (resolver.exception) {
-      throw resolver;
+      throw resolver.exception;
     }
     return resolver;
+  }
+
+  resolveController(contex: ContextType, name: string): Resolver {
+    try {
+      const resolver = new Resolver(contex);
+      resolver.parsePathernController(name);
+      return resolver;
+    } catch (e) {
+      throw e;
+    }
   }
 
   matchRoutes(path: string): RegExpExecArray[] {
@@ -97,6 +108,7 @@ class Router extends Service {
     module: Module
   ): TypeController<Controller> {
     //myconstructor.prototype.module = module;
+    //console.log(module);
     Object.defineProperty(myconstructor.prototype, "module", {
       value: module,
       writable: false,

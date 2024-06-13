@@ -10,6 +10,7 @@ import {
   FileClass,
 } from "nodefony";
 import Route from "./Route";
+import Router from "../service/router";
 import {
   contextRequest,
   contextResponse,
@@ -19,6 +20,7 @@ import {
   Http2Request,
   Session,
   ContextType,
+  WebsocketContext,
   //HttpKernel,
 } from "@nodefony/http";
 import { HttpContext } from "@nodefony/http";
@@ -29,7 +31,7 @@ import { IncomingMessage, ServerResponse } from "node:http";
 import { ServerHttp2Stream } from "node:http2";
 
 class Controller extends Service {
-  static basepath: string = "/";
+  static prefix: string = "/";
   route?: Route | null = null;
   request: contextRequest = null;
   response: contextResponse = null;
@@ -118,7 +120,7 @@ class Controller extends Service {
     if (status) {
       this.response?.setStatusCode(status);
     }
-    return (this.context as HttpContext)?.send(data, encoding);
+    return (<HttpContext | WebsocketContext>this.context)?.send(data, encoding);
   }
 
   async renderView(
@@ -241,6 +243,14 @@ class Controller extends Service {
 
   addFlash(key: string, value: any) {
     return this.setFlashBag(key, value);
+  }
+
+  forward(name: string, param: any) {
+    const resolver = (this.get("router") as Router).resolveController(
+      this.context as ContextType,
+      name
+    );
+    return resolver.callController(param, true);
   }
 }
 

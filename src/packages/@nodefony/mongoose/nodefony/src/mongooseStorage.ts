@@ -104,7 +104,8 @@ class SessionStorage {
               })
               .then((session) => {
                 this.manager.log(
-                  `DB DESTROY SESSION context : ${result.context} ID : ${result.session_id} DELETED`
+                  `DB DESTROY SESSION context : ${result.context} ID : ${result.session_id} DELETED`,
+                  "DEBUG"
                 );
                 return session;
               })

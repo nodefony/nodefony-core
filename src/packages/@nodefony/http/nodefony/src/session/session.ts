@@ -186,7 +186,10 @@ class Session extends Container {
               );
               this.migrated = true;
               this.contextSession = contextSession;
-              return this.create(this.lifetime as number);
+              //console.log("before create : ", this.id);
+              let session = this.create(this.lifetime as number);
+              //console.log("after create : ", this.id);
+              return session;
             })
             .catch((error: Error) => {
               throw error;
@@ -216,8 +219,13 @@ class Session extends Container {
         return this;
       }
     }
+    // console.log(
+    //   "passsss no context change",
+    //   contextSession,
+    //   this.contextSession
+    // );
     return this.storage
-      .start(this.id, this.contextSession)
+      .start(this.id, contextSession || this.contextSession)
       .then(async (result: SerializeSessionType) => {
         try {
           if (result && Object.keys(result).length) {
@@ -312,17 +320,22 @@ class Session extends Container {
         hash = createHash("md5");
     }
     const res = hash.update(concat).digest("hex");
+    //console.log(`setId : ${res}:${this.contextSession}`);
     return this.encrypt(`${res}:${this.contextSession}`);
   }
 
   getId(value: string) {
     const res = this.decrypt(value);
+    //console.log(res);
     // eslint-disable-next-line prefer-destructuring
     this.contextSession = res.split(":")[1];
     return value;
   }
 
   async getSession(contextSession: string): Promise<this> {
+    // console.log(
+    //   `getSession : ${contextSession} current : ${this.contextSession}`
+    // );
     if (this.options.use_cookies) {
       if (this.context?.cookieSession) {
         this.id = this.getId(this.context.cookieSession.value);
@@ -336,6 +349,9 @@ class Session extends Container {
         this.id = this.getId(request.query[this.name]);
       }
     }
+    // console.log(
+    //   `getSession after getId : ${contextSession} current : ${this.contextSession}`
+    // );
     if (this.id) {
       return this.checkChangeContext(contextSession).catch((e) => {
         throw e;
@@ -343,6 +359,7 @@ class Session extends Container {
     }
     try {
       this.clear();
+      if (contextSession) this.contextSession = contextSession;
       return this.create(this.lifetime as number);
     } catch (e) {
       throw e;
@@ -409,21 +426,23 @@ class Session extends Container {
   }
 
   async removeSession(cookieDelete: boolean = false): Promise<boolean> {
-    if (this.saved === true) {
-      return this.storage
-        .destroy(this.id, this.contextSession)
-        .then(() => {
-          if (cookieDelete) {
-            this.deleteCookieSession();
-          }
-          this.saved = true;
-          return true;
-        })
-        .catch((e: Error) => {
-          this.log(e, "ERROR");
-          throw e;
-        });
-    }
+    //console.log(`removeSession ${this.saved}`);
+    //if (this.saved === true) {
+    return this.storage
+      .destroy(this.id, this.contextSession)
+      .then(() => {
+        //console.log(`DELETE session from storage`);
+        if (cookieDelete) {
+          this.deleteCookieSession();
+        }
+        //this.saved = true;
+        return true;
+      })
+      .catch((e: Error) => {
+        this.log(e, "ERROR");
+        throw e;
+      });
+    //}
     if (cookieDelete) {
       this.deleteCookieSession();
     }
@@ -533,10 +552,11 @@ class Session extends Container {
     this.name = name || (this.options.name as string);
   }
 
-  async save(user: string, contextSession: string) {
+  async save(user?: string, contextSession: string = this.contextSession) {
     return this.storage
       .write(this.id, this.serialize(user), contextSession)
-      .then((session: any) => {
+      .then(async (session: any) => {
+        //console.log("SAVE SESSION :", this.id);
         this.created = session.createdAt;
         this.updated = session.updatedAt;
         if (!this.context) {
@@ -544,7 +564,7 @@ class Session extends Container {
         } else {
           this.saved = true;
           if (this.context) {
-            this.context.fire("onSaveSession", this);
+            await this.context.fireAsync("onSaveSession", this);
           }
           return this;
         }
@@ -657,14 +677,13 @@ class Session extends Container {
     }
   }
 
-  serialize(user: string): SerializeSessionType {
-    const obj = {
+  serialize(user?: string): SerializeSessionType {
+    return {
       Attributes: this.services as ProtoService,
       metaBag: this.parameters as ProtoParameters,
       flashBag: this.flashBag,
-      user,
+      user: user || "",
     };
-    return obj;
   }
 
   deSerialize(obj: Record<string, any>): void {

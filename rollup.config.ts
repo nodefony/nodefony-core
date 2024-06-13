@@ -28,7 +28,8 @@ const external: string[] = [
   "@nodefony/security",
   "@nodefony/framework",
   "@nodefony/sequelize",
-  "cli-table3",
+  "@nodefony/test",
+  "@nodefony/user",
   "tslib",
 ];
 

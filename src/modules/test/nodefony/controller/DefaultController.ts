@@ -1,10 +1,10 @@
-import { Controller, DefineRoute, DefineController } from "@nodefony/framework";
+import { Controller, route, controller } from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
 import { inject, Fetch, Error } from "nodefony";
 import https from "node:https";
 
+@controller("/nodefony/test")
 class DefaultController extends Controller {
-  static override basepath = "/nodefony/test";
   constructor(
     context: Context,
     @inject("Fetch") private fetchService: Fetch
@@ -27,23 +27,22 @@ class DefaultController extends Controller {
     return this;
   }
 
-  @DefineRoute("index", { path: "/index" })
+  @route("index", { path: "/index" })
   index() {
-    this.log("passsss");
     this.renderJson({});
   }
 
-  @DefineRoute("index2", { path: "/index2" })
+  @route("index2", { path: "/index2" })
   index2() {
     throw new Error("myError", 502);
   }
 
-  @DefineRoute("index3", { path: "/index3" })
+  @route("index3", { path: "/index3" })
   index3() {
     throw new HttpError({ foo: "bar" }, 503, this.context);
   }
 
-  @DefineRoute("index4", { path: "/index4" })
+  @route("index4", { path: "/index4" })
   index4() {
     this.render({});
   }

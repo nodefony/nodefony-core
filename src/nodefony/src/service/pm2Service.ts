@@ -1,7 +1,7 @@
 /* eslint-disable no-async-promise-executor */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { extend } from "../Tools";
-import Module from "../kernel/Module";
+import Kernel from "../kernel/Kernel";
 import Cli from "../Cli";
 import Event from "../Event";
 import Container from "../Container";
@@ -24,12 +24,12 @@ const defaulOptions: StartOptions = {
 
 class Pm2 extends Service {
   pm2: typeof pm2 = pm2;
-  constructor(module: Module, options?: StartOptions) {
+  constructor(kernel: Kernel, options?: StartOptions) {
     options = extend({}, defaulOptions, options || {});
     super(
       "pm2",
-      module.container as Container,
-      module.notificationsCenter as Event,
+      kernel.container as Container,
+      kernel.notificationsCenter as Event,
       options as StartOptions
     );
   }

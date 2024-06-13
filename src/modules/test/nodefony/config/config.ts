@@ -2,7 +2,7 @@ import path from "node:path";
 import nodefony, { Kernel } from "nodefony";
 
 export default {
-  watch: false,
+  watch: true,
 
   "module-sequelize": {
     connectors: {

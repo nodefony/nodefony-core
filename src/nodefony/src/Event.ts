@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { EventEmitter } from "node:events";
-import _ from "lodash";
-const { isEmpty, get, isFunction } = _;
+import { EventEmitter } from "events";
+import isEmpty from "lodash-es/isEmpty";
+import get from "lodash-es/get";
+import isFunction from "lodash-es/isFunction";
 
 declare module "events" {
   interface EventEmitter {

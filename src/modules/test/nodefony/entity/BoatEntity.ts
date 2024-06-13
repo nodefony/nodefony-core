@@ -38,7 +38,7 @@ class Boat extends Entity {
     };
   }
 
-  override registerModel(db: Sequelize): typeof Model {
+  override registerModel(db: sequelize.Sequelize): typeof Model {
     class SessionModel extends Model {
       declare is: number;
       declare name: string;

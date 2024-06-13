@@ -23,7 +23,7 @@ const regModuleName: RegExp = /^[Mm]odule-([\w-]+)/u;
 import {
   RollupWatchOptions,
   RollupOptions,
-  //RollupWatcher,
+  RollupWatcher,
   rollup,
   RollupOutput,
   OutputOptions,
@@ -84,12 +84,12 @@ class Module extends Service {
     });
     this.kernel?.once("onPostReady", async () => {
       if (this.options.watch && this.kernel?.environment === "development") {
-        //await this.watch();
+        await this.watch();
       }
     });
   }
 
-  async watch(options?: RollupWatchOptions): Promise<FSWatcher> {
+  async watch(options?: RollupWatchOptions): Promise<RollupWatcher> {
     if (this.watcherService) {
       const mylog = function (this: Module, level: LogLevel, log: RollupLog) {
         this.rollup?.loggerRollup(this, level, log);
@@ -104,25 +104,22 @@ class Module extends Service {
     throw new Error(`Watcher Service service not found`);
   }
 
-  static async build(name: string): Promise<RollupOutput> {
-    const path = Module.getModulePath(name);
-    if (path) {
-      const pck = await readFile(resolve(path, "package.json"), "utf8");
-      const jsonPck = JSON.parse(pck) as PackageJson;
-      const ele = {
-        path,
-        package: jsonPck,
-        getDependencies: () => {
-          return Module.getPackageDependencies(jsonPck);
-        },
-      } as Module;
-      const options = RollupService.setDefaultConfig(ele);
-      const bundle = await rollup(options);
-      const res = await bundle.write(options.output as OutputOptions);
-      await bundle.close();
-      return res;
-    }
-    throw new Error("bad module path");
+  async build(): Promise<RollupOutput> {
+    const pck = await readFile(resolve(this.path, "package.json"), "utf8");
+    const jsonPck = JSON.parse(pck) as PackageJson;
+    const ele = {
+      path: this.path,
+      package: jsonPck,
+      getDependencies: () => {
+        return Module.getPackageDependencies(jsonPck);
+      },
+    } as Module;
+    const options = RollupService.setDefaultConfig(ele);
+    //console.log(options);
+    const bundle = await rollup(options);
+    const res = await bundle.write(options.output as OutputOptions);
+    await bundle.close();
+    return res;
   }
 
   setPath(myPath: string): string {
@@ -176,10 +173,13 @@ class Module extends Service {
       if (index && index[1]) {
         const mod = this.kernel?.getModule(index[1] as string);
         if (!mod) {
-          this.log(`Module : ${index} register module before `, "WARNING");
+          this.log(
+            `Can't Override Configuration Module : ${index[1]} is not ready, Register module before`,
+            "ERROR"
+          );
           continue;
         }
-        this.log(`MODULE CONFIG Override Module: ${mod.name}`, "WARNING");
+        this.log(`Override Configuration Module: ${mod.name}`, "WARNING");
         if (deep) {
           mod.options = extend(true, {}, mod.options, override);
         } else {
@@ -292,8 +292,14 @@ class Module extends Service {
     throw new Error(`Kernel not ready`);
   }
 
-  async install(): Promise<number | Error> {
+  async install(force: boolean = false): Promise<number | Error> {
     if (this.kernel?.cli?.packageManager) {
+      if (force) {
+        return await this.kernel?.cli?.packageManager(
+          ["install", "--force"],
+          this.path
+        );
+      }
       return await this.kernel?.cli?.packageManager(["install"], this.path);
     }
     throw new Error(`Package Manager not found`);

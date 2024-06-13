@@ -6,6 +6,7 @@ import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
 import copy from "rollup-plugin-copy";
 import replace from "@rollup/plugin-replace";
+import nodePolyfills from "rollup-plugin-polyfill-node";
 import { sync as globSync } from "glob";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,6 +44,9 @@ const external: string[] = [
   "@rollup/plugin-terser",
   "rollup-plugin-visualizer",
   "rollup/loadConfigFile",
+  "@babel/parser",
+  "@babel/traverse",
+  "@babel/generator",
   "tslib",
 ];
 
@@ -307,12 +311,47 @@ function createTestConfig(isProduction: boolean): RollupOptions {
   });
 }
 
+function clientConfig(isProduction: boolean): RollupOptions {
+  return defineConfig({
+    input: "src/client/index.ts",
+    output: {
+      //sourcemap: !isProduction,
+      name: "nodefony",
+      dir: "./dist",
+      entryFileNames: `client/[name].js`,
+      chunkFileNames: "client/chunks/dep-[hash].js",
+      exports: "named",
+      format: "iife",
+      externalLiveBindings: false,
+      freeze: false,
+      //preserveModules: true,
+      //preserveModulesRoot: "src",
+    },
+    plugins: [
+      nodePolyfills(),
+      nodeResolve({
+        modulesOnly: true,
+        preferBuiltins: false,
+        browser: true,
+        modulePaths: [path.resolve("..", "..", "node_modules"), "node_modules"],
+      }),
+      typescript({
+        tsconfig: path.resolve("tsconfigClient.json"),
+        //sourcemap: !isProduction,
+        //declaration: true,
+        //declarationDir: "dist/client",
+      }),
+    ],
+    external: ["cli-color"],
+  });
+}
+
 export default (commandLineArgs: any): RollupOptions[] => {
   const isDev = commandLineArgs.watch;
   const isProduction = !isDev;
   return defineConfig([
     //envConfig,
-    //clientConfig,
+    clientConfig(isProduction),
     createNodeConfig(isProduction),
     createBinaryConfig(isProduction),
     createCjsConfig(isProduction),
