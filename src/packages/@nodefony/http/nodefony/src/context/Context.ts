@@ -84,7 +84,7 @@ class Context extends Service {
   sessionStarting: boolean = false;
   domain: string = "";
   type: ServerType;
-  server:
+  server?:
     | websocket.server
     | http.Server
     | https.Server
@@ -178,14 +178,19 @@ class Context extends Service {
     return "https";
   }
 
-  log(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
+  override log(
+    pci: any,
+    severity?: Severity,
+    msgid?: Msgid,
+    msg?: Message
+  ): Pdu {
     if (!msgid) {
       msgid = this.type;
     }
     return super.log(pci, severity, msgid, msg);
   }
 
-  clean(): void {
+  override clean(): void {
     this.cleaned = true;
     this.httpKernel = null;
     return super.clean();
@@ -300,8 +305,8 @@ class Context extends Service {
   parseCookies(): void {
     return cookiesParser(this);
   }
-  setContextJson(encoding: BufferEncoding = "utf-8"): void {}
-  setContextHtml(encoding: BufferEncoding = "utf-8"): void {}
+  setContextJson(_encoding: BufferEncoding = "utf-8"): void {}
+  setContextHtml(_encoding: BufferEncoding = "utf-8"): void {}
 }
 
 export default Context;

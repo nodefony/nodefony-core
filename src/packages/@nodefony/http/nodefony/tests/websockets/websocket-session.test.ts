@@ -1,4 +1,4 @@
-import { expect, assert } from "chai";
+import { assert } from "chai";
 import https from "node:https";
 import "mocha";
 import pkg from "websocket";
@@ -69,7 +69,7 @@ describe("WEBSOCKETS SESSION ", () => {
     doneCallback = done;
     socket?.connect("wss://localhost:5152/nodefony/test/ws/cookie");
     socket?.on("connect", (connection) => {
-      connection.on("message", (message: pkg.Message) => {
+      connection.on("message", (/*message: pkg.Message*/) => {
         connection.close();
       });
     });

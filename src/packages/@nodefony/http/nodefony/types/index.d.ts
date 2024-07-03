@@ -9,8 +9,9 @@ import Http2Request from "../src/context/http2/Request";
 import HttpRequest from "../src/context/http/Request";
 import Session from "../src/session/session";
 import SessionsService from "../service/sessions/sessions-service";
-import Response from "../src/context/http/Response";
-import wsResponse from "../src/context/websocket/Response";
+import HttpResponse from "../src/context/http/Response";
+import Http2Response from "../src/context/http2/Response";
+import WebsocketResponse from "../src/context/websocket/Response";
 import Cookie from "../src/cookies/cookie";
 
 export default Http;
@@ -24,8 +25,9 @@ export {
   HttpRequest,
   Session,
   SessionsService,
-  Response,
-  wsResponse,
+  HttpResponse,
+  Http2Response,
+  WebsocketResponse,
   Cookie,
 };
 export * from "../service/http-kernel";

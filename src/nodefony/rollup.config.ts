@@ -107,17 +107,17 @@ function createBinaryConfig(isProduction: boolean): RollupOptions {
       sourcemap: false,
     },
     external,
-    plugins: [...createBinaryPlugins(isProduction, false, false)],
+    plugins: [...createBinaryPlugins(isProduction)],
   });
 }
 
 function createBinaryPlugins(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  isProduction?: boolean,
+  isProduction?: boolean
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  sourceMap?: boolean,
+  //sourceMap?: boolean,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  declarationDir?: string | false
+  //declarationDir?: string | false
 ): Plugin[] {
   const tab = [
     nodeResolve({ preferBuiltins: true }),
@@ -201,7 +201,7 @@ function createNodePlugins(
 }
 
 function createTestPlugins(
-  isProduction: boolean,
+  _isProduction: boolean,
   sourceMap: boolean,
   declarationDir: string | false
 ): Plugin[] {
@@ -311,7 +311,7 @@ function createTestConfig(isProduction: boolean): RollupOptions {
   });
 }
 
-function clientConfig(isProduction: boolean): RollupOptions {
+function clientConfig(_isProduction: boolean): RollupOptions {
   return defineConfig({
     input: "src/client/index.ts",
     output: {

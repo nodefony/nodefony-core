@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { inject, Fetch, FileClass } from "nodefony";
+//import { inject, Fetch, FileClass } from "nodefony";
 import { route, controller, Controller } from "@nodefony/framework";
 import { ContextType } from "@nodefony/http";
 
@@ -22,7 +22,25 @@ class AppController extends Controller {
       "views",
       "index.twig"
     );
-    return this.renderTwigView(view, this.context?.metaData).catch((e) => {
+    return this.renderTwig(view, this.context?.metaData).catch((e) => {
+      throw e;
+    });
+  }
+  @route("route-app-render-viex", { path: "/view", method: "GET" })
+  async method2() {
+    // const view = resolve(
+    //   this.module?.path as string,
+    //   "nodefony",
+    //   "views",
+    //   "index.twig"
+    // );
+    const view = resolve(
+      this.module?.path as string,
+      "nodefony",
+      "views",
+      "index.ejs"
+    );
+    return this.renderView(view, this.context?.metaData).catch((e) => {
       throw e;
     });
   }
@@ -31,18 +49,16 @@ class AppController extends Controller {
     path: "/ejs",
     requirements: { methods: ["GET"] },
   })
-  async method4(name: string) {
+  async method4() {
     const view = resolve(
       this.module?.path as string,
       "nodefony",
       "views",
       "index.ejs"
     );
-    return this.renderEjsView(view, { name, ...this.context?.metaData }).catch(
-      (e) => {
-        throw e;
-      }
-    );
+    return this.renderEjs(view, { ...this.context?.metaData }).catch((e) => {
+      throw e;
+    });
   }
 }
 

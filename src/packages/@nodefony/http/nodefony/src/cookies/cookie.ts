@@ -6,7 +6,7 @@ const decode = decodeURIComponent;
 import crypto from "node:crypto";
 import HttpContext from "../context/http/HttpContext";
 import WebsocketContext from "../context/websocket/WebsocketContext";
-import websocket, { ICookie } from "websocket";
+import { ICookie } from "websocket";
 import { ContextType } from "../../service/http-kernel";
 
 type SameSiteType = boolean | "none" | "Lax" | "Strict";
@@ -57,12 +57,13 @@ const cookieDefaultSettings: CookieOptionsType = {
 function parser(strToParse: string, options?: any) {
   return cookieLib.parse(strToParse, options);
 }
-function parserWs(tab: websocket.ICookie[]): Record<string, string> {
-  const ele = {};
-  for (const ele of tab) {
-  }
-  return ele;
-}
+// function parserWs(tab: websocket.ICookie[]): Record<string, string> {
+//   const ele = {};
+//   for (const ele of tab) {
+//     ele;
+//   }
+//   return ele;
+// }
 
 // function getRequestcookies(context: ContextType) {
 //   let cookies = null;
@@ -395,4 +396,4 @@ class Cookie {
 }
 
 export default Cookie;
-export { cookiesParser, parser, parserWs /*getRequestcookies*/ };
+export { cookiesParser, parser /*parserWs */ /*getRequestcookies*/ };

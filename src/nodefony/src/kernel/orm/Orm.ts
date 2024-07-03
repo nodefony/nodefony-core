@@ -27,7 +27,7 @@ class Orm extends Service {
     );
   }
 
-  ormReady(connection: Connector, error?: Error) {
+  ormReady(_connection: Connector, error?: Error) {
     return new Promise((resolve, reject) => {
       const nbConnectors = Object.keys(this.options.connectors).length;
       this.connectionNotification++;

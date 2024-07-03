@@ -1,4 +1,4 @@
-import nodefony, {
+import {
   extend,
   Service,
   //Kernel,
@@ -17,7 +17,7 @@ import HttpKernel, {
   ContextType,
   //httpRequest,
 } from "../http-kernel";
-import Context, { HTTPMethod } from "../../src/context/Context";
+import { HTTPMethod } from "../../src/context/Context";
 import Session, { OptionsSessionType } from "../../src/session/session";
 import Http2Request from "../../src/context/http2/Request";
 import HttpRequest from "../../src/context/http/Request";
@@ -170,7 +170,7 @@ class SessionsService extends Service {
 
   async start(
     context: ContextType,
-    sessionContext: string
+    sessionContext?: string
   ): Promise<Session | null> {
     return new Promise((resolve, reject) => {
       if (context.sessionStarting) {
@@ -192,8 +192,7 @@ class SessionsService extends Service {
             `SESSION ALLREADY STARTED ==> ${context.session.name} : ${context.session.id}`,
             "DEBUG"
           );
-          resolve(context.session);
-          return;
+          return resolve(context.session);
         }
       }
       let inst = null;

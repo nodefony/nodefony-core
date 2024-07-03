@@ -2,7 +2,7 @@
 import pkg from "node-forge";
 const { pki } = pkg;
 import nodefony, { Service, Module, Container, Event } from "nodefony";
-import HttpKernel from "./http-kernel";
+//import HttpKernel from "./http-kernel";
 import fs from "fs/promises";
 import path, { resolve } from "path";
 import { v4 as uuidv4 } from "uuid";
@@ -172,7 +172,7 @@ class Certificate extends Service {
   }
 
   async readCerticates(): Promise<this> {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
       for await (const file of this.files) {
         try {
           await fs.access(file.path);

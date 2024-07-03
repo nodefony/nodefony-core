@@ -61,10 +61,10 @@ function controllers(
  *    }
  *  }
  */
-function controller(prefix: string, options: Record<string, any> = {}) {
+function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
   return function (mycontroller: any) {
-    const constructor = mycontroller.constructor;
-    const className = mycontroller.name;
+    //const constructor = mycontroller.constructor;
+    //const className = mycontroller.name;
     mycontroller.prefix = prefix;
     const metadata = Reflect.getMetadata(metadataKey, mycontroller) || {};
     if (metadata && Object.keys(metadata).length !== 0) {

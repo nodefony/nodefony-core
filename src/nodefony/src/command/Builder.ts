@@ -77,7 +77,7 @@ class Builder extends Service {
     return Promise.resolve(args);
   }
 
-  generate(response: Record<string, any>, force: boolean = false) {
+  generate(/*response: Record<string, any>, force: boolean = false*/) {
     return new Promise((resolve, reject) => {
       try {
         // if (this.createBuilder) {

@@ -187,10 +187,9 @@ class Babylon extends Service {
         }
       },
       CallExpression(path: NodePath<CallExpression>) {
-        //console.log("passss ", path);
         const { callee, arguments: args } = path.node;
         // Identification optimisée de l'expression d'appel
-        //console.log("passss ", callee, callee.object);
+
         if (
           callee.type === "MemberExpression" &&
           callee.object.type === "MemberExpression" &&

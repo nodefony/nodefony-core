@@ -38,7 +38,7 @@ class WebsocketController extends Controller {
       "views",
       "websocket.json.ejs"
     );
-    return this.renderEjsView(view, {
+    return this.renderEjs(view, {
       name: this.kernel?.name,
       query: this.query,
       ...this.context?.metaData,

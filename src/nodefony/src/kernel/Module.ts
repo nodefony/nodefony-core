@@ -55,9 +55,13 @@ export interface PackageJson {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
+import { Controller } from "@nodefony/framework";
+export type TypeController<T> = new (...args: any[]) => T;
+const controllers: Record<string, TypeController<Controller>> = {};
 
 class Module extends Service {
   commands: Record<string, Command> = {};
+  static controllers = controllers;
   package?: PackageJson;
   path: string = "";
   isApp: boolean = false;
@@ -115,7 +119,6 @@ class Module extends Service {
       },
     } as Module;
     const options = RollupService.setDefaultConfig(ele);
-    //console.log(options);
     const bundle = await rollup(options);
     const res = await bundle.write(options.output as OutputOptions);
     await bundle.close();
@@ -240,6 +243,19 @@ class Module extends Service {
       resolve(this.path, "package.json"),
       cwd
     )) as PackageJson;
+  }
+
+  getController(name: string) {
+    if (name && Module.controllers[name]) {
+      return Module.controllers[name];
+    }
+    if (!name) {
+      throw new Error(`Module getController argument name is mandatory`);
+    }
+    throw new Error(`Controller ${name} not exist`);
+  }
+  getControllers() {
+    return Module.controllers;
   }
 
   async loadEntity(entity: string) {

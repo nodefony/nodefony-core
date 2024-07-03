@@ -38,7 +38,7 @@ class ParserQs extends Parser {
     this.parserOptions = this.request.queryStringOptions || {};
   }
 
-  async parse() {
+  override async parse() {
     try {
       await super.parse();
       this.request.queryPost = QS.parse(
@@ -69,7 +69,7 @@ class ParserXml extends Parser {
     this.xmlParser = new xml2js.Parser(settingsXml);
   }
 
-  async parse(): Promise<any> {
+  override async parse(): Promise<any> {
     await super.parse();
     return new Promise((resolve, reject) => {
       this.xmlParser.parseString(

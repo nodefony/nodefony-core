@@ -415,7 +415,7 @@ class Cli extends Service {
   }
 
   getFonts(): void {
-    asciify.getFonts((err, fonts) => {
+    asciify.getFonts((_err, fonts) => {
       fonts.forEach((ele) => {
         this.log(ele);
       });

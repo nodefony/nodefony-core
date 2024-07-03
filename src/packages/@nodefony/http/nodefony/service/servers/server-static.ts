@@ -1,7 +1,7 @@
 import serveStatic from "serve-static";
 import mime from "mime-types";
 import { URL } from "node:url";
-import HttpKernel, {
+import {
   //ProtocolType,
   //ServerType,
   SchemeType,
@@ -11,14 +11,14 @@ import http2 from "node:http2";
 import tls from "tls";
 import nodefony, {
   Service,
-  Kernel,
+  //Kernel,
   //Container,
   //Event,
   extend,
   Module,
   //FamilyType,
   //DefaultOptionsService,
-  inject,
+  //inject,
 } from "nodefony";
 
 type serveStaticType = serveStatic.RequestHandler<http.ServerResponse>;
@@ -35,8 +35,8 @@ class Statics extends Service {
   servers: ServersStatic;
   defaultOptions: serveStatic.ServeStaticOptions = defaultOptions;
   constructor(
-    module: Module,
-    @inject("HttpKernel") private httpKernel: HttpKernel
+    module: Module
+    //@inject("HttpKernel") private httpKernel: HttpKernel
   ) {
     const container = module.container || undefined;
     const options: serveStatic.ServeStaticOptions =

@@ -3,7 +3,7 @@ import { Context } from "@nodefony/http";
 import { graphql } from "@nodefony/framework";
 import { inject, Error } from "nodefony";
 
-@controller("/nodefony/test/graphql", {})
+@controller("/nodefony/test/graphql")
 class GraphQlController extends Controller {
   constructor(context: Context) {
     super("GraphQlController", context);

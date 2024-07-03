@@ -1,6 +1,6 @@
-import { Service, Kernel, Module, services } from "nodefony";
+import { Kernel, Module, services } from "nodefony";
 import config from "./nodefony/config/config";
-import Router, { TypeController } from "./nodefony/service/router";
+import Router from "./nodefony/service/router";
 import Route from "./nodefony/src/Route";
 import Controller from "./nodefony/src/Controller";
 import Resolver from "./nodefony/src/Resolver";

@@ -30,7 +30,7 @@ class Staging extends Command {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  override async generate(options: any): Promise<void> {
+  override async generate(/*options: any*/): Promise<void> {
     try {
       return this.preProd();
     } catch (e) {

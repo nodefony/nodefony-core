@@ -29,7 +29,12 @@ class DefaultController extends Controller {
 
   @route("index", { path: "/index" })
   index() {
-    this.renderJson({});
+    return this.renderJson({});
+  }
+
+  @route("forward", { path: "/forward" })
+  testForward() {
+    return this.forward("app:AppController:method1");
   }
 
   @route("index2", { path: "/index2" })
@@ -44,7 +49,7 @@ class DefaultController extends Controller {
 
   @route("index4", { path: "/index4" })
   index4() {
-    this.render({});
+    return this.render({});
   }
 }
 

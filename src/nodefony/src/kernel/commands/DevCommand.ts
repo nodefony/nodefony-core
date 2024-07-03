@@ -25,7 +25,7 @@ class Dev extends Command {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  override async generate(options: any): Promise<Kernel> {
+  override async generate(/*options: any*/): Promise<Kernel> {
     try {
       return this.cli?.kernel as Kernel;
     } catch (e) {

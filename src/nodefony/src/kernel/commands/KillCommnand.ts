@@ -22,7 +22,7 @@ class Kill extends Command {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
-  override async generate(options: any): Promise<Kernel> {
+  override async generate(/*options: any*/): Promise<Kernel> {
     try {
       await this.service?.killExec();
       //await this.pkill();

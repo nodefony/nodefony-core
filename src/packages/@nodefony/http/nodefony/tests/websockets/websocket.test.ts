@@ -217,7 +217,7 @@ describe("WEBSOCKETS ROUTER ", () => {
     doneCallback = done;
     socket?.connect("wss://localhost:5152/nodefony/test/ws/routes/foo");
     socket?.on("connect", (connection) => {
-      connection.on("message", (message: pkg.Message) => {
+      connection.on("message", (/*message: pkg.Message*/) => {
         expect(msg.nodefony?.route.variablesMap["ele"]).to.equal(
           "foo",
           "Message should be 'foo'"
@@ -234,7 +234,7 @@ describe("WEBSOCKETS ROUTER ", () => {
       "wss://localhost:5152/nodefony/test/ws/routes/bar/route2/foo"
     );
     socket?.on("connect", (connection) => {
-      connection.on("message", (message: pkg.Message) => {
+      connection.on("message", (/*message: pkg.Message*/) => {
         if (msg.variables) {
           expect(msg.nodefony?.route.variablesMap["var1"]).to.equal(
             "bar",

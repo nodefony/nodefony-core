@@ -1,13 +1,13 @@
 import { mkdirp } from "mkdirp";
 import fs from "node:fs";
-import nodefony, {
-  extend,
-  Service,
-  Kernel,
-  Container,
-  Event,
-  Module,
-  FamilyType,
+import {
+  //extend,
+  //Service,
+  //Kernel,
+  //Container,
+  //Event,
+  //Module,
+  //FamilyType,
   FileClass,
   Finder,
   Result,
@@ -16,11 +16,6 @@ import sessionService, {
   sessionStorageInterface,
   SerializeSessionType,
 } from "../../../service/sessions/sessions-service";
-import HttpKernel, {
-  ProtocolType,
-  ServerType,
-  ContextType,
-} from "../../../service/http-kernel";
 
 const finderGC = function (
   this: FileSessionStorage,
@@ -105,7 +100,7 @@ class FileSessionStorage implements sessionStorageInterface {
         Path = this.path;
       }
       const res = fs.existsSync(Path);
-      let result: Result;
+      //let result: Result;
       if (!res) {
         this.manager.log(`create directory context sessions ${Path}`);
         try {

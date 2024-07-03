@@ -13,6 +13,7 @@ import Context from "./nodefony/src/context/Context";
 import Session from "./nodefony/src/session/session";
 import HttpError from "./nodefony/src/errors/httpError";
 import Response from "./nodefony/src/context/http/Response";
+import Http2Response from "./nodefony/src/context/http2/Response";
 import wsResponse from "./nodefony/src/context/websocket/Response";
 import Cookie from "./nodefony/src/cookies/cookie";
 
@@ -42,7 +43,7 @@ class Http extends Module {
   //   return this;
   // }
 
-  async onKernelReady(): Promise<this> {
+  override async onKernelReady(): Promise<this> {
     try {
       //this.log(`MODULE ${this.name} READY`, "DEBUG");
       //await this.addService(sessionService, this.httpKernel);
@@ -67,6 +68,9 @@ export {
   HttpError,
   HttpKernel,
   Response,
+  Http2Response,
+  Response as HttpResponse,
   wsResponse,
+  wsResponse as WebsocketResponse,
   Cookie,
 };

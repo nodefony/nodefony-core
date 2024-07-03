@@ -2,15 +2,16 @@ import http2 from "node:http2";
 import http from "node:http";
 import HttpContext from "../http/HttpContext";
 import HttpResponse from "../http/Response";
-import nodefony, { extend } from "nodefony";
+import { extend } from "nodefony";
+//import { httpResponse } from "../../../service/http-kernel";
 
-const HTTP2_HEADER_PATH = http2.constants.HTTP2_HEADER_PATH;
-const HTTP2_HEADER_LINK = http2.constants.HTTP2_HEADER_LINK;
+//const HTTP2_HEADER_PATH = http2.constants.HTTP2_HEADER_PATH;
+//const HTTP2_HEADER_LINK = http2.constants.HTTP2_HEADER_LINK;
 const HTTP2_HEADER_STATUS = http2.constants.HTTP2_HEADER_STATUS;
-const HTTP2_HEADER_CONTENT_TYPE = http2.constants.HTTP2_HEADER_CONTENT_TYPE;
+//const HTTP2_HEADER_CONTENT_TYPE = http2.constants.HTTP2_HEADER_CONTENT_TYPE;
 
 class Http2Response extends HttpResponse {
-  statusCode: number = 200;
+  override statusCode: number = 200;
   stream: http2.ServerHttp2Stream | null = null;
   streamId?: number | undefined;
   constructor(response: http2.Http2ServerResponse, context: HttpContext) {
@@ -31,7 +32,7 @@ class Http2Response extends HttpResponse {
     return super.isHeaderSent();
   }
 
-  writeHead(
+  override writeHead(
     statusCode?: number,
     headers?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[]
   ): void {
@@ -53,12 +54,14 @@ class Http2Response extends HttpResponse {
             }
           }
           this.statusMessage = this.getStatusMessage();
+          //console.log("get nativre header", this.getHeaders());
           this.headers = extend(
             { "X-Status-Message": this.statusMessage },
             this.getHeaders(),
             headers
           );
           this.headers[HTTP2_HEADER_STATUS] = this.statusCode;
+          //console.log("myheadre ", this.headers);
           this.stream.respond(this.headers, {
             endStream: false,
           });
@@ -67,7 +70,6 @@ class Http2Response extends HttpResponse {
         }
       } else {
         // throw new Error("Headers already sent !!");
-        console.trace("already  ");
         this.log("Headers already sent !!", "WARNING");
       }
     } else {
@@ -75,21 +77,21 @@ class Http2Response extends HttpResponse {
     }
   }
 
-  async send(
+  override async send(
     chunk: any,
     encoding?: BufferEncoding,
     flush: boolean = false
-  ): Promise<boolean> {
+  ): Promise<Http2Response> {
     return new Promise(async (resolve, reject) => {
       try {
         if (this.context.isRedirect) {
           if (this.stream && !this.stream.headersSent) {
             this.writeHead();
             await this.end();
-            return resolve(true);
+            return resolve(this);
           }
           await this.end();
-          return resolve(true);
+          return resolve(this);
         }
         if (this.stream) {
           if (chunk) {
@@ -105,7 +107,7 @@ class Http2Response extends HttpResponse {
               if (error) {
                 return reject(error);
               }
-              return resolve(true);
+              return resolve(this);
             }
           );
         }
@@ -121,20 +123,24 @@ class Http2Response extends HttpResponse {
     encoding?: BufferEncoding
   ): Promise<http.ServerResponse | http2.ServerHttp2Stream> {
     return new Promise((resolve, reject) => {
-      if (this.stream) {
-        this.ended = true;
-        return resolve(
-          this.stream.end(
-            chunk,
-            encoding || this.encoding
-          ) as http2.ServerHttp2Stream
-        );
+      try {
+        if (this.stream) {
+          this.ended = true;
+          return resolve(
+            this.stream.end(
+              chunk,
+              encoding || this.encoding
+            ) as http2.ServerHttp2Stream
+          );
+        }
+        return resolve(super.end(chunk, encoding));
+      } catch (e) {
+        return reject(e);
       }
-      return resolve(super.end(chunk, encoding));
     });
   }
 
-  getStatusMessage(code?: number | string): string {
+  override getStatusMessage(code?: number | string): string {
     if (code) {
       if (this.response) {
         return (http.STATUS_CODES[code] as string) || this.statusMessage;

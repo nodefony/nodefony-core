@@ -4,19 +4,19 @@ import nodefony, {
   Container,
   Event,
   Scope,
-  Kernel,
+  //Kernel,
   typeOf,
   injectable,
   EnvironmentType,
   DebugType,
   Error as nodefonyError,
-  inject,
+  //inject,
 } from "nodefony";
 import { Resolver, Router } from "@nodefony/framework";
 import { Controller } from "@nodefony/framework";
 import HttpError from "../src/errors/httpError";
 import http from "node:http";
-import https from "node:http";
+//import https from "node:https";
 import http2 from "node:http2";
 import httpServer from "../service/servers/server-http";
 import httpsServer from "../service/servers/server-https";
@@ -183,8 +183,8 @@ class HttpKernel extends Service {
   }
 
   async handleFrontController(
-    context: ContextType,
-    checkFirewall: boolean = true
+    context: ContextType
+    //checkFirewall: boolean = true
   ): Promise<Controller | number> {
     return new Promise(async (resolve, reject) => {
       // if (this.firewall && checkFirewall) {
@@ -285,7 +285,7 @@ class HttpKernel extends Service {
           if (this.kernel?.debug) {
             this.log(error.toString(), "ERROR");
           }
-          let message: string = error.message;
+          //let message: string = error.message;
           const obj = context.metaData;
           obj.error = error.toJSON() as Error;
           obj.code = error.code;
@@ -395,7 +395,14 @@ class HttpKernel extends Service {
         .handle(request, response)
         .then(async (res) => {
           if (res) {
-            await this.fireAsync("onServerRequest", request, response, type);
+            await this.fireAsync(
+              "onServerRequest",
+              request,
+              response,
+              type
+            ).catch((e) => {
+              throw e;
+            });
             return await this.handle(request, response, type).catch((e) => {
               throw e;
             });
@@ -409,7 +416,11 @@ class HttpKernel extends Service {
           return e;
         });
     }
-    await this.fireAsync("onServerRequest", request, response, type);
+    await this.fireAsync("onServerRequest", request, response, type).catch(
+      (e) => {
+        throw e;
+      }
+    );
     return await this.handle(request, response, type).catch((e) => {
       throw e;
     });
@@ -475,7 +486,7 @@ class HttpKernel extends Service {
       const context = new HttpContext(scope, request, response, type);
       // response events
       if (context.response) {
-        response.once("finish", () => {
+        response.once("finish", async () => {
           if (!context) {
             return;
           }
@@ -483,7 +494,9 @@ class HttpKernel extends Service {
             return;
           }
           context.logRequest();
-          context.fire("onFinish", context);
+          await context.fireAsync("onFinish", context).catch((e) => {
+            throw e;
+          });
           context.finished = true;
           this.container?.leaveScope(scope);
           context.clean();
@@ -506,7 +519,9 @@ class HttpKernel extends Service {
       let context: HttpContext | null = null;
       try {
         context = this.createHttpContext(scope, request, response, type);
-        await this.fireAsync("onCreateContext", context);
+        await this.fireAsync("onCreateContext", context).catch((e) => {
+          throw e;
+        });
         const ctx = await this.onRequestEnd(context).catch((e) => {
           throw e;
         });
@@ -604,11 +619,17 @@ class HttpKernel extends Service {
         return;
       }
       if (context.session) {
-        context.once("onSaveSession", () => {
+        if (context.session.saved) {
           this.container?.leaveScope(wscontext.container);
           context.clean();
           context.finished = true;
-        });
+        } else {
+          context.once("onSaveSession", () => {
+            this.container?.leaveScope(wscontext.container);
+            context.clean();
+            context.finished = true;
+          });
+        }
       } else {
         this.container?.leaveScope(wscontext.container);
         context.clean();
@@ -620,7 +641,9 @@ class HttpKernel extends Service {
 
   // WEBSOCKET ENTRY POINT
   async onWebsocketRequest(request: websocket.request, type: ServerType) {
-    await this.fireAsync("onServerRequest", request, null, type);
+    await this.fireAsync("onServerRequest", request, null, type).catch((e) => {
+      throw e;
+    });
     return await this.handle(request, null, type);
   }
   async handleWebsocket(
@@ -636,7 +659,7 @@ class HttpKernel extends Service {
       error = e;
     }
     try {
-      const connection = await this.onConnect(
+      /*const connection =*/ await this.onConnect(
         context as WebsocketContext,
         error
       );

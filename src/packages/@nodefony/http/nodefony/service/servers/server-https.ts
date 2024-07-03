@@ -132,7 +132,7 @@ class ServerHttps extends Service {
           (request: http.IncomingMessage, response: http.ServerResponse) => {
             this.httpKernel
               ?.onHttpRequest(request, response, this.type)
-              .catch((e) => {
+              .catch(() => {
                 return;
               });
           }
@@ -165,7 +165,7 @@ class ServerHttps extends Service {
         });
 
         this.kernel?.once("onTerminate", () => {
-          return new Promise((resolve, reject) => {
+          return new Promise((resolve) => {
             if (this.server) {
               (this.server as https.Server).closeAllConnections();
               return this.server.close(() => {
@@ -222,9 +222,13 @@ class ServerHttps extends Service {
             }
           }
           if (alpnProtocol === "h2") {
-            return this.httpKernel?.onHttpRequest(request, response, "http2");
+            return this.httpKernel
+              ?.onHttpRequest(request, response, "http2")
+              .catch(() => {});
           } else {
-            return this.httpKernel?.onHttpRequest(request, response, "https");
+            return this.httpKernel
+              ?.onHttpRequest(request, response, "https")
+              .catch(() => {});
           }
         });
         // LISTEN ON PORT
@@ -266,7 +270,7 @@ class ServerHttps extends Service {
           }
         });
         this.kernel?.once("onTerminate", () => {
-          return new Promise(async (resolve, reject) => {
+          return new Promise(async (resolve) => {
             if (this.server) {
               await this.httpTerminator?.terminate();
               return this.server.close(() => {

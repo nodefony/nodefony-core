@@ -1,5 +1,5 @@
 // rollup.config.ts
-import path, { resolve } from "node:path";
+import path from "node:path";
 import { defineConfig, Plugin, RollupOptions } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
@@ -10,17 +10,17 @@ import copy from "rollup-plugin-copy";
 //@ts-ignore
 import { createPathTransform } from "rollup-sourcemap-path-transform";
 
-const sourcemapPathTransform = createPathTransform({
-  prefixes: {
-    "*src/": `${resolve(".", "nodefony", "src")}/`,
-    "*config/": `${resolve(".", "nodefony", "config")}/`,
-    "*decorators/": `${resolve(".", "nodefony", "decorators")}/`,
-    "*service/": `${resolve(".", "nodefony", "service")}/`,
-    "*controller/": `${resolve(".", "nodefony", "controller")}/`,
-    "*entity/": `${resolve(".", "nodefony", "entity")}/`,
-    "*command/": `${resolve(".", "nodefony", "command")}/`,
-  },
-});
+// const sourcemapPathTransform = createPathTransform({
+//   prefixes: {
+//     "*src/": `${resolve(".", "nodefony", "src")}/`,
+//     "*config/": `${resolve(".", "nodefony", "config")}/`,
+//     "*decorators/": `${resolve(".", "nodefony", "decorators")}/`,
+//     "*service/": `${resolve(".", "nodefony", "service")}/`,
+//     "*controller/": `${resolve(".", "nodefony", "controller")}/`,
+//     "*entity/": `${resolve(".", "nodefony", "entity")}/`,
+//     "*command/": `${resolve(".", "nodefony", "command")}/`,
+//   },
+// });
 
 const external: string[] = [
   "nodefony",

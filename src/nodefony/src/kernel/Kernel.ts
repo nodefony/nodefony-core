@@ -175,6 +175,7 @@ class Kernel extends Service {
       undefined, //cli.notificationsCenter as Event,
       extend({}, kernelDefaultOptions, options)
     );
+    this.environment = environment;
     this.setMaxListeners(30);
     Nodefony.setKernel(this);
     nodefony.kernel = this;
@@ -257,7 +258,9 @@ class Kernel extends Service {
           return this.preRegister();
         })
         .catch((e) => {
-          this.log(e, "CRITIC");
+          if (e.message !== "(outputHelp)") {
+            this.log(e, "CRITIC");
+          }
           throw e;
         });
     }
@@ -292,8 +295,6 @@ class Kernel extends Service {
         });
     }
     this.setNodeEnv(this.environment);
-    // Clusters
-    this.initCluster();
     // Manage Template engine
     //this.initTemplate();
     if (this.cli && !this.command) {
@@ -305,21 +306,17 @@ class Kernel extends Service {
         throw e;
       });
     }
+    // Clusters
+    this.initCluster();
     return this.fireAsync("onRegister", this)
       .then(() => {
         this.registered = true;
         if (this.setCommandComplete(Events.onRegister)) {
           return this.terminate(0);
         }
-        return (
-          this.boot()
-            // .then(() => {
-            //   return this;
-            // })
-            .catch((e) => {
-              throw e;
-            })
-        );
+        return this.boot().catch((e) => {
+          throw e;
+        });
       })
       .catch((e) => {
         throw e;
@@ -380,15 +377,9 @@ class Kernel extends Service {
         if (this.setCommandComplete(Events.onBoot)) {
           return this.terminate(0);
         }
-        return (
-          this.onReady()
-            // .then(() => {
-            //   return this;
-            // })
-            .catch((e) => {
-              throw e;
-            })
-        );
+        return this.onReady().catch((e) => {
+          throw e;
+        });
       })
       .catch((e) => {
         throw e;
@@ -451,7 +442,9 @@ class Kernel extends Service {
         .initServers()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .then((servers: any[]) => {
-          this.fireAsync("onServersReady");
+          this.fireAsync("onServersReady").catch((e) => {
+            throw e;
+          });
           return servers;
         })
         .catch((e: Error) => {
@@ -573,7 +566,9 @@ class Kernel extends Service {
     this.version = this.app?.getModuleVersion() as string;
     this.fixCommanderCli();
     this.cli?.setCommandVersion(this.version);
-    await this.fireAsync("onAppLoad", this.app);
+    await this.fireAsync("onAppLoad", this.app).catch((e) => {
+      throw e;
+    });
     return this.app;
   }
 
@@ -983,9 +978,7 @@ class Kernel extends Service {
     if (code === undefined) {
       code = 0;
     }
-    if (this.debug) {
-      console.trace(`terminate : ${code}`);
-    }
+    this.log(`terminate : ${code}`);
     try {
       //console.log(this.notificationsCenter?._events);
       await this.fireAsync("onTerminate", this, code);

@@ -1,7 +1,7 @@
 // https://github.com/Worlize/WebSocket-Node/wiki/Documentation
 
 import websocket from "websocket";
-import nodefony, {
+import {
   extend,
   Service,
   //Kernel,
@@ -35,8 +35,8 @@ class Websocket extends Service {
   infos: AddressInfo | null = null;
   constructor(
     module: Module,
-    @inject("HttpKernel") private httpKernel: HttpKernel,
-    @inject("server-http") private http: httpServer
+    @inject("HttpKernel") private httpKernel: HttpKernel
+    //@inject("server-http") private http: httpServer
   ) {
     super(
       "server-websocket",
@@ -90,7 +90,7 @@ class Websocket extends Service {
   }
 
   async onRequest(request: websocket.request): Promise<void> {
-    return this.httpKernel.onWebsocketRequest(request, this.type).catch((e) => {
+    return this.httpKernel.onWebsocketRequest(request, this.type).catch(() => {
       process.nextTick(() => {
         return;
       });

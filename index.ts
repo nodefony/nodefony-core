@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+//import { resolve } from "node:path";
 import { Kernel, Module, modules } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import config from "./nodefony/config/config";
@@ -8,6 +8,7 @@ import config from "./nodefony/config/config";
 //import sequelize from "@nodefony/sequelize";
 //import Test from "@nodefony/test";
 import AppController from "./nodefony/controllers/AppController";
+import indexController from "./nodefony/controllers/indexController";
 
 /**
  * The App class extends the Module class and represents an application  entry point.
@@ -22,7 +23,7 @@ import AppController from "./nodefony/controllers/AppController";
   //Test,
   //"@nodefony/redis",
 ])
-@controllers([AppController])
+@controllers([AppController, indexController])
 class App extends Module {
   /**
    * Constructs an instance of the App class.
@@ -39,7 +40,7 @@ class App extends Module {
    * @param kernel - An instance of the Kernel class.
    * @returns A promise that resolves to the instance of the App class.
    */
-  async initialize(kernel: Kernel): Promise<this> {
+  async initialize(_kernel: Kernel): Promise<this> {
     //   if (
     //     this.kernel?.environment === "production" ||
     //     this.kernel?.environment === "staging"

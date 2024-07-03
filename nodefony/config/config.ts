@@ -20,7 +20,7 @@
  *        "^.*\\.nodefony\\.eu$"
  *      ]
  */
-import path from "node:path";
+//import path from "node:path";
 import { Nodefony } from "nodefony";
 const kernel = Nodefony.kernel;
 import http from "./modules/http-config";
@@ -30,9 +30,9 @@ import pm2 from "./pm2/pm2.config";
 
 let CDN = null;
 let statics = true;
-let monitoring = true;
-let documentation = true;
-let unitTest = true;
+//let monitoring = true;
+//let documentation = true;
+//let unitTest = true;
 let domainCheck = false;
 
 switch (kernel?.environment) {
@@ -41,9 +41,9 @@ switch (kernel?.environment) {
   default:
     CDN = null;
     statics = true;
-    documentation = true;
-    monitoring = true;
-    unitTest = true;
+    //documentation = true;
+    //monitoring = true;
+    //unitTest = true;
     domainCheck = true;
 }
 //console.log(sequelize.connectors.nodefony.options);

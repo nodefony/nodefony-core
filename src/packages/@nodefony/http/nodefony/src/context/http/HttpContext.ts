@@ -25,12 +25,12 @@ import HttpRequest from "./Request";
 import HttpResponse from "./Response";
 import Http2Request from "../http2/Request";
 import Http2Response from "../http2/Response";
-import http2, { Http2ServerResponse } from "node:http2";
+import http2 from "node:http2";
 import http from "node:http";
 import url, { URL } from "node:url";
 import Session from "../../../src/session/session";
 
-import { Resolver, Router } from "@nodefony/framework";
+//import { Resolver } from "@nodefony/framework";
 
 export interface ProxyType {
   proxyServer?: string;
@@ -48,16 +48,16 @@ export type HttpRequestType = Http2Request | HttpRequest;
 export type HttpRsponseType = Http2Response | HttpResponse;
 
 class HttpContext extends Context {
-  url: string;
+  //url: string;
   proxy: ProxyType | null = null;
   isRedirect: boolean = false;
   sended: boolean = false;
   timeoutid: number | null = null;
   timeoutExpired: boolean = false;
-  isHtml: boolean = false;
-  request: HttpRequestType;
-  response: HttpRsponseType;
-  resolver: Resolver | null = null;
+  //isHtml: boolean = false;
+  override request: HttpRequestType;
+  override response: HttpRsponseType;
+  //resolver: Resolver | null = null;
   constructor(
     container: Container,
     request: http.IncomingMessage | http2.Http2ServerRequest,
@@ -181,7 +181,8 @@ class HttpContext extends Context {
     status?: string | number,
     headers?: Record<string, string | number>
   ): Promise<
-    http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
+    //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
+    Http2Response | HttpResponse
   > {
     let data = chunk;
     switch (true) {
@@ -216,26 +217,40 @@ class HttpContext extends Context {
     return this.send(data, encoding);
   }
 
+  async end(): Promise<
+    //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
+    Http2Response | HttpResponse
+  > {
+    return this.saveSession().then(async (_session: Session | null) => {
+      return this.close().catch((e) => {
+        throw e;
+      });
+    });
+  }
+
   async send(
     chunk?: any,
     encoding?: BufferEncoding
   ): Promise<
-    http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
+    //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
+    Http2Response | HttpResponse
   > {
     if (this.sended || this.finished || this.response.isHeaderSent()) {
-      return new Promise((resolve, reject) => {
-        return reject(new Error("Already sended"));
+      return new Promise((_resolve, reject) => {
+        return reject(new Error("Response Already sended"));
       });
     }
     return this.saveSession()
-      .then(async (session: Session | null) => {
-        if (session) {
-          //this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
-        }
+      .then(async (_session: Session | null) => {
+        // if (session) {
+        //   //this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
+        // }
         await this.fireAsync("onSend", this.response, this);
         try {
           this.writeHead();
-        } catch {}
+        } catch (e) {
+          this.log(e, "WARNING");
+        }
         if (this.isRedirect) {
           return this.close().catch((e) => {
             throw e;
@@ -277,16 +292,17 @@ class HttpContext extends Context {
   async write(
     chunk: any,
     encoding?: BufferEncoding,
-    flush: boolean = false
+    _flush: boolean = false
   ): Promise<
-    http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
+    //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
+    Http2Response | HttpResponse
   > {
     await this.response
       .send(chunk, encoding || this.response.encoding)
       .then(() => {
         this.sended = true;
       })
-      .catch((e) => {
+      .catch((e: Error) => {
         throw e;
       });
     // END REQUEST
@@ -300,13 +316,17 @@ class HttpContext extends Context {
   }
 
   async close(): Promise<
-    http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
+    //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
+    Http2Response | HttpResponse
   > {
     await this.fireAsync("onClose", this);
     // END REQUEST
-    return this.response.end().catch((e) => {
-      throw e;
-    });
+    return this.response
+      .end()
+      .then(() => this.response)
+      .catch((e) => {
+        throw e;
+      });
   }
 
   redirect(

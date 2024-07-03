@@ -1,7 +1,7 @@
-import http from "node:http";
+import http, { OutgoingHttpHeaders } from "node:http";
 import http2 from "node:http2";
 import HttpContext from "../http/HttpContext";
-import nodefony, { extend, Pdu, Message, Severity, Msgid } from "nodefony";
+import nodefony, { Pdu, Message, Severity, Msgid } from "nodefony";
 import mime from "mime-types";
 import { responseTimeoutType } from "../../../service/http-kernel";
 import Cookie from "../../cookies/cookie";
@@ -107,29 +107,29 @@ class HttpResponse {
   }
 
   // ADD INPLICIT HEADER
-  setHeader(name: string, value: string | number) {
+  setHeader(name: string, value: number | string | readonly string[]) {
     if (this.response) {
       if (this.flushing) {
-        const obj: http.OutgoingHttpHeaders = {};
-        obj[name] = value;
+        const obj: OutgoingHttpHeaders = {};
+        obj[name] = value as any;
         return this.addTrailers(obj);
       }
       if (!this.response.headersSent) {
-        return this.response.setHeader(name, value);
+        return this.response.setHeader(name.toLocaleLowerCase(), value);
       }
     }
   }
 
-  setHeaders(obj: Record<string, string | number>) {
+  setHeaders(obj: OutgoingHttpHeaders) {
     if (!this.response?.headersSent) {
       if (obj instanceof Object) {
         for (const head in obj) {
           let value = obj[head];
-          this.setHeader(head, value);
+          this.setHeader(head, value as any);
         }
       }
       return (this.headers =
-        this.response?.getHeaders() as http.OutgoingHttpHeaders);
+        this.response?.getHeaders() as OutgoingHttpHeaders);
     }
     this.log("headers already sended ", "WARNING");
     return (this.headers = this.response.getHeaders());
@@ -137,11 +137,14 @@ class HttpResponse {
 
   setContentType(type?: string, encoding?: BufferEncoding) {
     if (type && encoding) {
-      const mytype = mime.contentType(type);
-      if (!mytype) {
-        this.log(`setContentType: ${type}  not found`, "WARNING");
+      let mytype = mime.contentType(type);
+      // Get the MIME type without charset
+      if (mytype) {
+        mytype = mytype.split(";")[0];
+        this.contentType = mytype;
+        this.encoding = encoding;
+        return this.setHeader("Content-Type", `${mytype}; charset=${encoding}`);
       }
-      return this.setHeader("Content-Type", `${type}; charset=${encoding}`);
     }
     if (type && !encoding) {
       const mytype = mime.contentType(type);
@@ -273,8 +276,8 @@ class HttpResponse {
   }
 
   getLength(
-    ele?: string | NodeJS.ArrayBufferView | ArrayBuffer | SharedArrayBuffer,
-    encoding?: BufferEncoding | undefined
+    ele?: string | NodeJS.ArrayBufferView | ArrayBuffer | SharedArrayBuffer
+    //encoding?: BufferEncoding | undefined
   ): number {
     if (ele) {
       return Buffer.byteLength(ele);
@@ -349,17 +352,17 @@ class HttpResponse {
     chunk: any,
     encoding?: BufferEncoding,
     flush: boolean = false
-  ): Promise<boolean> {
+  ): Promise<HttpResponse> {
     return new Promise(async (resolve, reject) => {
       try {
         if (this.context.isRedirect) {
           if (!this.response?.headersSent) {
             this.writeHead();
             await this.end();
-            return resolve(true);
+            return resolve(this);
           }
           await this.end();
-          return resolve(true);
+          return resolve(this);
         }
         if (chunk) {
           this.setBody(chunk);
@@ -374,9 +377,9 @@ class HttpResponse {
             (error: Error | null | undefined) => {
               if (error) {
                 this.log(error, "ERROR");
-                resolve(false);
+                resolve(this);
               }
-              resolve(true);
+              resolve(this);
             }
           );
         }
@@ -387,7 +390,7 @@ class HttpResponse {
     });
   }
 
-  async write(chunk?: any, encoding?: BufferEncoding): Promise<boolean> {
+  async write(chunk?: any, encoding?: BufferEncoding): Promise<HttpResponse> {
     return await this.send(chunk, encoding || this.encoding);
   }
 

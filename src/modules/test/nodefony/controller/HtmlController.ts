@@ -1,5 +1,6 @@
 import { Controller, route, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
+import { resolve } from "node:path";
 //import { inject, Error } from "nodefony";
 
 @controller("/nodefony/test/html")
@@ -10,12 +11,12 @@ class HtmlController extends Controller {
 
   async initialize(): Promise<this> {
     await this.startSession();
-    this.setContextHtml();
     return this;
   }
 
   @route("index-html", { path: "" })
   index() {
+    this.setContextHtml();
     const html = `<html lang="fr">
   <head>
     <meta charset="utf-8" />
@@ -43,6 +44,36 @@ class HtmlController extends Controller {
   @route("index-html-redirect", { path: "/redirect" })
   index2() {
     return this.redirect("https://google.fr");
+  }
+
+  @route("index-file-stream", { path: "/stream" })
+  stream1() {
+    const file = resolve(this.module?.path as string, "tsconfig.json");
+    return this.streamFile(file);
+  }
+
+  @route("index-file-donwload", { path: "/download" })
+  stream2() {
+    const file = resolve(this.module?.path as string, "tsconfig.json");
+    return this.renderFileDownload(file);
+  }
+
+  @route("index-file-media", { path: "/media" })
+  stream3() {
+    // const file = resolve(
+    //   this.module?.path as string,
+    //   "public",
+    //   "test",
+    //   "chico_buarque.mp3"
+    // );
+    //console.log(this.session?.id);
+    const file = resolve(
+      this.module?.path as string,
+      "public",
+      "test",
+      "oceans-clip.webm"
+    );
+    return this.renderMediaStream(file);
   }
 }
 

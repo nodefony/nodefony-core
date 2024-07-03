@@ -1,31 +1,31 @@
-import Context, { contextRequest, contextResponse, Cookies } from "../Context";
+import Context from "../Context";
 import url from "node:url";
 import clc from "cli-color";
-import QueryString from "qs";
+//import QueryString from "qs";
 import {
   ServerType,
-  httpRequest,
-  httpResponse,
+  //httpRequest,
+  //httpResponse,
   SchemeType,
 } from "../../../service/http-kernel";
 import {
-  Syslog,
-  Container,
-  Service,
+  //Syslog,
+  //Container,
+  //Service,
   Severity,
   Msgid,
   Message,
-  Pdu,
-  KernelEventsType,
+  //Pdu,
+  //KernelEventsType,
   nodefonyError,
   Scope,
-  Kernel,
+  //Kernel,
 } from "nodefony";
 import websocket from "websocket";
 //import { IncomingHttpHeaders } from "node:http";
 import websocketResponse from "./Response";
-import { Resolver, Route, Router } from "@nodefony/framework";
-import Cookie from "../../cookies/cookie";
+import { Resolver, Route } from "@nodefony/framework";
+//import Cookie from "../../cookies/cookie";
 import { URL } from "node:url";
 import { HTTPMethod } from "../Context";
 import HttpError from "../../errors/httpError";
@@ -42,16 +42,13 @@ declare module "websocket" {
 }
 
 export default class WebsocketContext extends Context {
-  request: websocket.request | null;
-  response: websocketResponse | null = null;
-  cookies: Cookies = {};
+  override request: websocket.request | null;
+  override response: websocketResponse | null = null;
   acceptedProtocol?: string;
-  isJson: boolean = true;
   port: number | string;
   rejected: boolean = false;
   connection: websocket.connection | null = null;
   origin: string;
-  method: HTTPMethod;
   proxy: ProxyType | null = null;
   constructor(scope: Scope, request: websocket.request, type: ServerType) {
     super(scope, type);
@@ -286,6 +283,7 @@ export default class WebsocketContext extends Context {
       this.fire("onSend", data, this);
       return this.response.send(data, encoding);
     }
+    throw new Error(`No response found`);
   }
 
   broadcast(data: any, encoding?: BufferEncoding) {
@@ -327,7 +325,9 @@ export default class WebsocketContext extends Context {
             },
           },
         });
-        return this.resolver.callController([message]);
+        return this.resolver.callController([message]).catch((e) => {
+          throw e;
+        });
       } else if (!this.rejected) {
         this.request?.reject();
         this.rejected = true;
@@ -386,11 +386,11 @@ export default class WebsocketContext extends Context {
     return "WEBSOCKET";
   }
 
-  override setContextJson(encoding: BufferEncoding = "utf-8"): void {
+  override setContextJson(/*encoding: BufferEncoding = "utf-8"*/): void {
     this.isJson = true;
   }
 
-  clean() {
+  override clean() {
     this.request = null;
     if (this.response) {
       this.response.clean();

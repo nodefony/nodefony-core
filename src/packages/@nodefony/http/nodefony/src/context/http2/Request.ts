@@ -4,7 +4,7 @@ import HttpRequest from "../http/Request";
 import { HTTPMethod } from "../Context";
 
 class Http2Request extends HttpRequest {
-  context: HttpContext;
+  //context: HttpContext;
   override request: http2.Http2ServerRequest;
   constructor(request: http2.Http2ServerRequest, context: HttpContext) {
     super(request, context);

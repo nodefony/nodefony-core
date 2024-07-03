@@ -6,22 +6,24 @@ import {
   isPromise,
   Injector,
   Module,
-  inject,
+  //inject,
 } from "nodefony";
 //import Router from "../service/router";
 import {
-  Context,
+  //Context,
   HttpError,
   ContextType,
   HttpContext,
-  Response,
-  wsResponse,
+  Http2Response,
+  HttpResponse,
+  WebsocketResponse,
+  WebsocketContext,
 } from "@nodefony/http";
 import Route, { ControllerConstructor } from "./Route";
 import BlueBird from "bluebird";
 import Controller from "./Controller";
 
-import { ServiceWithInitialize } from "nodefony";
+//import { ServiceWithInitialize } from "nodefony";
 //import { ServiceConstructor } from "nodefony";
 
 export interface ControllerWithInitialize {
@@ -69,16 +71,48 @@ class Resolver extends Service {
   parsePathernController(name: string) {
     let module: Module | undefined;
     let tab: string[] = [];
-    if (name && typeof name === "string") {
-      tab = name.split(":");
-      module = this.kernel?.getModule(tab[0]);
+    if (typeof name !== "string") {
+      throw new Error(`Invalid name parameter: expected a string`);
     }
-    if (module) {
-      if (module.name !== "framework") {
-        this.set("module", module);
+    tab = name.split(":");
+    if (tab.length !== 3) {
+      throw new Error(
+        `Invalid name format: expected "module:controller:action"`
+      );
+    }
+    module = this.kernel?.getModule(tab[0]);
+    if (!module) {
+      throw new Error(`Module not found: ${tab[0]}`);
+    }
+    if (module.name !== "framework") {
+      this.set("module", module);
+    }
+    this.controller = module.getController(tab[1]);
+    if (!this.controller) {
+      throw new Error(`Controller not found in module: ${tab[1]}`);
+    }
+    this.action = this.getAction(tab[2]) as Function;
+    if (!this.action) {
+      throw new Error(`Action not found in controller ${tab[1]}: ${tab[2]}`);
+    }
+    this.actionName = tab[2];
+    this.resolve = true;
+  }
+
+  getAction(name: string): Function | null {
+    if (!this.controller) {
+      throw new Error(`Controller not set`);
+    }
+    const methodNames = Object.getOwnPropertyNames(this.controller.prototype);
+    for (const methodName of methodNames) {
+      if (
+        typeof this.controller.prototype[methodName] === "function" &&
+        methodName === name
+      ) {
+        return this.controller.prototype[methodName];
       }
-      //this.controller = module.getController(tab[1]);
     }
+    return null;
   }
 
   async newController(context?: ContextType): Promise<Controller> {
@@ -124,14 +158,16 @@ class Resolver extends Service {
       if (typeof controller[methodKey] === "function") {
         try {
           const action = (controller[methodKey] as Function)(...args);
-          return this.returnController(action);
+          return await this.returnController(action).catch((e) => {
+            throw e;
+          });
         } catch (e) {
           throw e;
         }
       }
       if (this.action) {
         try {
-          return this.returnController(this.action(...args));
+          return await this.returnController(this.action(...args));
         } catch (e) {
           throw e;
         }
@@ -142,32 +178,54 @@ class Resolver extends Service {
     }
   }
 
-  returnController(result: any) {
+  async returnController(result: any) {
     const type = typeOf(result);
     switch (true) {
       case result instanceof Promise:
       case result instanceof BlueBird:
       case isPromise(result):
-        return result.catch((e: Error) => {
-          throw e;
-        });
+        return result
+          .then(async (myresult: any) => {
+            return this.returnController(myresult).catch((e) => {
+              throw e;
+            });
+          })
+          .catch((e: Error) => {
+            throw e;
+          });
       case type === "string":
       case result instanceof String:
-        return (this.context as HttpContext).send(result);
-      case result instanceof Response:
-      case result instanceof wsResponse:
-        return (this.context as HttpContext).send().catch((e: Error) => {
-          throw e;
-        });
+        return (this.context as HttpContext | WebsocketContext)
+          .send(result)
+          .catch((e: Error) => {
+            throw e;
+          });
+      case result instanceof Http2Response:
+      case result instanceof HttpResponse:
+      case result instanceof WebsocketResponse:
+        return result;
+      //return (this.context as HttpContext).send().catch((e: Error) => {
+      //  throw e;
+      //});
       case type === "object":
         break;
       default:
-        if ((this.context as HttpContext).isRedirect) {
-          return (this.context as HttpContext).send().catch((e: Error) => {
-            throw e;
-          });
+        switch (this.context.type) {
+          case "http":
+          case "http2":
+          case "http3":
+          case "https":
+            if ((this.context as HttpContext).sended) {
+              return;
+            }
+            if ((this.context as HttpContext).isRedirect) {
+              return (this.context as HttpContext).send().catch((e: Error) => {
+                throw e;
+              });
+            }
+            this.context.waitAsync = true;
+            break;
         }
-        this.context.waitAsync = true;
     }
   }
 }

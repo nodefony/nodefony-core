@@ -26,7 +26,7 @@ class RouteController extends Controller {
       "views",
       "index.ejs"
     );
-    return this.renderEjsView(view, { name, ...this.context?.metaData }).catch(
+    return this.renderEjs(view, { name, ...this.context?.metaData }).catch(
       (e) => {
         throw e;
       }
@@ -62,7 +62,7 @@ class RouteController extends Controller {
       "views",
       "index.twig"
     );
-    return this.renderTwigView(view, { metier, format, method });
+    return this.renderTwig(view, { metier, format, method });
   }
 
   @route("route5", {

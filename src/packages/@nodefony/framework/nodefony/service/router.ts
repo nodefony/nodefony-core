@@ -3,27 +3,27 @@ import {
   Module,
   Container,
   Event,
-  inject,
+  //inject,
   injectable,
 } from "nodefony";
 import Route, { RouteOptions } from "../src/Route";
-import { HttpKernel, Context, ContextType } from "@nodefony/http";
+import { ContextType } from "@nodefony/http";
 import Resolver from "../src/Resolver";
 import Controller from "../src/Controller";
 export type TypeController<T> = new (...args: any[]) => T;
 
 const routes: Route[] = [];
-const controllers: Record<string, TypeController<Controller>> = {};
+//const controllers: Record<string, TypeController<Controller>> = {};
 const serviceName: string = "router";
 
 @injectable()
 class Router extends Service {
-  static controllers = controllers;
+  //static controllers = controllers;
   static routes = routes;
   routes: Route[] = Router.routes;
   constructor(
-    module: Module,
-    @inject("HttpKernel") private httpKernel: HttpKernel
+    module: Module
+    //@inject("HttpKernel") private httpKernel: HttpKernel
   ) {
     super(
       serviceName,
@@ -107,13 +107,17 @@ class Router extends Service {
     myconstructor: TypeController<Controller>,
     module: Module
   ): TypeController<Controller> {
-    //myconstructor.prototype.module = module;
-    //console.log(module);
     Object.defineProperty(myconstructor.prototype, "module", {
       value: module,
       writable: false,
     });
-    return (controllers[myconstructor.name] = myconstructor);
+    if (Module.controllers[myconstructor.name]) {
+      module.log(
+        new Error(`Controller already exist ${myconstructor.name}`),
+        "WARNING"
+      );
+    }
+    return (Module.controllers[myconstructor.name] = myconstructor);
   }
 }
 

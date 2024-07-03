@@ -15,7 +15,7 @@ import sessionService, {
   SerializeSessionType,
   sessionStorageInterface,
 } from "../../service/sessions/sessions-service";
-import HttpKernel, { ContextType } from "../../service/http-kernel";
+import { ContextType } from "../../service/http-kernel";
 import {
   createHash,
   createCipheriv,
@@ -57,7 +57,7 @@ const defaultSessionOptions: OptionsSessionType = {
 };
 
 class Session extends Container {
-  id: string = "";
+  override id: string = "";
   name: string = "";
   status: StatusSessionType = "none";
   storage: sessionStorageInterface;
@@ -92,7 +92,12 @@ class Session extends Container {
     this.strategy = this.manager.sessionStrategy;
   }
 
-  log(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
+  override log(
+    pci: any,
+    severity?: Severity,
+    msgid?: Msgid,
+    msg?: Message
+  ): Pdu {
     if (!msgid) {
       msgid = `SESSION ${this.name}`;
     }
@@ -219,11 +224,6 @@ class Session extends Container {
         return this;
       }
     }
-    // console.log(
-    //   "passsss no context change",
-    //   contextSession,
-    //   this.contextSession
-    // );
     return this.storage
       .start(this.id, contextSession || this.contextSession)
       .then(async (result: SerializeSessionType) => {
@@ -334,7 +334,8 @@ class Session extends Container {
 
   async getSession(contextSession: string): Promise<this> {
     // console.log(
-    //   `getSession : ${contextSession} current : ${this.contextSession}`
+    //   `getSession : ${contextSession} current : ${this.contextSession}`,
+    //   this.options
     // );
     if (this.options.use_cookies) {
       if (this.context?.cookieSession) {
@@ -366,7 +367,7 @@ class Session extends Container {
     }
   }
 
-  isValidSession(data: SerializeSessionType, context: ContextType): boolean {
+  isValidSession(_data: SerializeSessionType, context: ContextType): boolean {
     if (this.options.referer_check) {
       try {
         return this.checkSecureReferer(context);
@@ -579,7 +580,7 @@ class Session extends Container {
 
   setMetasSession(cookieSetting: CookieOptionsType = {}): void {
     // let time = new Date();
-    let ua = null;
+    //let ua = null;
     this.setMetaBag(
       "lifetime",
       cookieSetting.maxAge || this.options?.cookie?.maxAge

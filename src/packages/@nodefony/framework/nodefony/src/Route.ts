@@ -1,5 +1,5 @@
 import {
-  Context,
+  //Context,
   HTTPMethod,
   SchemeType,
   HttpError,
@@ -43,24 +43,24 @@ function checkDefaultParameters(this: Route, variable: string) {
 
 /**
  * Callback function for the replace method in the compile function.
- * @param match - The matched substring.
+ * @param _match - The matched substring.
  * @param slash - The matched slash, if any.
  * @param dot - The matched dot, if any.
  * @param key - The matched key.
  * @param capture - The matched capture group, if any.
  * @param opt - The matched optional character, if any.
- * @param offset - The offset of the matched substring within the whole string being examined.
+ * @param _offset - The offset of the matched substring within the whole string being examined.
  * @returns The replacement string.
  */
 function replaceCallback(
   this: Route,
-  match: string,
+  _match: string,
   slash: string,
   dot: string,
   key: string,
   capture: string,
   opt: string,
-  offset: number
+  _offset: number
 ) {
   if (this.path) {
     this.variables.push(key);
@@ -220,7 +220,7 @@ class Route {
    */
   compile() {
     if (!this.path) {
-      return;
+      this.path = "";
     }
     let pattern = this.path.replace(REG_ROUTE, replaceCallback.bind(this));
     if (pattern[pattern.length - 1] === "*") {

@@ -1,6 +1,6 @@
 import path from "path";
 import nodefony, { Kernel } from "nodefony";
-import { sequelize } from "@nodefony/sequelize";
+//import { sequelize } from "@nodefony/sequelize";
 
 const config = {
   connectors: {

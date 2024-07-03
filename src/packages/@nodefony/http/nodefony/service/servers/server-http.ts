@@ -1,6 +1,6 @@
 import nodefony, {
   Service,
-  Kernel,
+  //Kernel,
   Container,
   Event,
   Module,
@@ -87,7 +87,7 @@ class ServerHttp extends Service {
         this.server.on("request", (request, response) =>
           this.httpKernel
             ?.onHttpRequest(request, response, this.type)
-            .catch((e) => {
+            .catch(() => {
               return;
             })
         );
@@ -130,7 +130,7 @@ class ServerHttp extends Service {
           }
         });
         this.kernel?.once("onTerminate", () => {
-          return new Promise((resolve, reject) => {
+          return new Promise((resolve) => {
             if (this.server) {
               (this.server as http.Server).closeAllConnections();
               return this.server.close(() => {

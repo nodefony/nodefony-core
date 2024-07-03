@@ -38,12 +38,15 @@ class WebsocketResponse {
     return connection;
   }
 
-  async send(data?: any, encoding?: BufferEncoding): Promise<any> {
+  async send(
+    data?: any,
+    encoding?: BufferEncoding
+  ): Promise<WebsocketResponse> {
     if (data) {
       try {
         switch (encoding) {
           case "utf8":
-            return new Promise<WebsocketResponse>((resolve, reject) => {
+            return new Promise((resolve, reject) => {
               return this.connection?.sendUTF(
                 data.utf8Data || data,
                 (error) => {
@@ -57,7 +60,7 @@ class WebsocketResponse {
               );
             });
           case "binary":
-            return new Promise<WebsocketResponse>((resolve, reject) => {
+            return new Promise((resolve, reject) => {
               return this.connection?.sendBytes(
                 data.binaryData || data,
                 (error) => {
@@ -71,8 +74,8 @@ class WebsocketResponse {
               );
             });
           default:
-            return new Promise<WebsocketResponse>((resolve, reject) => {
-              return this.connection?.send(data, (error) => {
+            return new Promise((resolve, reject) => {
+              this.connection?.send(data, (error) => {
                 if (error) {
                   this.log(error, "ERROR");
                   throw reject(error);
@@ -89,6 +92,7 @@ class WebsocketResponse {
     } else if (this.body) {
       return this.send(this.body);
     }
+    throw new Error("no data");
   }
 
   broadcast(data: any, type?: BufferEncoding): void {

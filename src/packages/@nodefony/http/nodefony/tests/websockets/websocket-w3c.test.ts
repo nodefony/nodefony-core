@@ -1,4 +1,4 @@
-import { expect, assert } from "chai";
+import { expect } from "chai";
 import https from "node:https";
 import "mocha";
 import pkg from "websocket";
@@ -8,9 +8,9 @@ describe("WEBSOCKETS W3C ", () => {
   let socket: pkg.w3cwebsocket;
   let agent: https.Agent | null = null;
   let config: pkg.IClientConfig | null;
-  let doneCallback: ((err?: any) => void) | null = null;
-  let msg: any;
-  let isDone = false;
+  //let doneCallback: ((err?: any) => void) | null = null;
+  //let msg: any;
+  //let isDone = false;
 
   beforeEach(async () => {
     agent = new https.Agent({ rejectUnauthorized: false });
@@ -32,7 +32,7 @@ describe("WEBSOCKETS W3C ", () => {
       config as pkg.IClientConfig
     );
 
-    socket.onclose = function (event) {
+    socket.onclose = function () {
       //console.log(event.code, event.reason);
       done();
     };
