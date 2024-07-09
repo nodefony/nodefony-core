@@ -13,8 +13,8 @@
     "javascript"
   ],
   "scripts": {
-    "install": "npm --prefix ./@nodefony/http install ;npm --prefix ./@nodefony/framework install ; npm --prefix ./@nodefony/sequelize install ;npm  --prefix ./@nodefony/security install;;npm  --prefix ./@nodefony/mongoose install",
-    "build": "npm run --prefix ./@nodefony/http build; npm run --prefix ./@nodefony/framework build; npm run --prefix ./@nodefony/sequelize build ;npm run --prefix ./@nodefony/security build;npm run --prefix ./@nodefony/mongoose build",
+    "install": "npm --prefix ./@nodefony/http install ;npm --prefix ./@nodefony/framework install ; npm --prefix ./@nodefony/sequelize install ;npm  --prefix ./@nodefony/security install; npm  --prefix ./@nodefony/mongoose install",
+    "build": "npm run --prefix ./@nodefony/http build; npm run --prefix ./@nodefony/framework build; npm run --prefix ./@nodefony/sequelize build ;npm run --prefix ./@nodefony/security build; npm run --prefix ./@nodefony/mongoose build",
     "test": "npm run --prefix ./@nodefony/http test"
   },
   "dependencies": {},
