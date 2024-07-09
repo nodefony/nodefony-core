@@ -59,8 +59,8 @@ class Session extends Entity {
     });
 
     mySchema.statics.fetchAll = function fetchAll(callback) {
-      return this.findAll()
-        .then((result) => callback(null, result))
+      return this.find()
+        .then((result: ISession[]) => callback(null, result))
         .catch((error: Error) => {
           if (error) {
             return callback(error, null);

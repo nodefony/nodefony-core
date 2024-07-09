@@ -14,6 +14,7 @@
     "javascript"
   ],
   "scripts": {
+    "nodefony": "node src/nodefony/bin/nodefony",
     "start": "nodefony",
     "preinstall": "npm  --prefix ./src/nodefony install && npm --prefix ./src/packages install && npm --prefix ./src/modules/test install",
     "prebuild": "rimraf dist tmp && mkdirp tmp dist && npm run --prefix ./src/nodefony build && npm run --prefix ./src/packages build && npm run --prefix ./src/modules/test build",
