@@ -15,8 +15,8 @@
   ],
   "scripts": {
     "start": "nodefony",
-    "preinstall": "npm  --prefix ./src/nodefony install && npm --prefix ./src/packages install",
-    "prebuild": "rimraf dist tmp && mkdirp tmp dist && npm run --prefix ./src/nodefony build && npm run --prefix ./src/packages build",
+    "preinstall": "npm  --prefix ./src/nodefony install && npm --prefix ./src/packages install && npm --prefix ./src/modules/test install",
+    "prebuild": "rimraf dist tmp && mkdirp tmp dist && npm run --prefix ./src/nodefony build && npm run --prefix ./src/packages build && npm run --prefix ./src/modules/test build",
     "build": "npm run rollup",
     "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "test": "npm run --prefix ./src/nodefony test && npm --prefix ./src/packages test",
