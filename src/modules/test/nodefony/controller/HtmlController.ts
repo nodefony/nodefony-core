@@ -1,5 +1,5 @@
 import { Controller, route, controller } from "@nodefony/framework";
-import { Context } from "@nodefony/http";
+import { Context, HttpError } from "@nodefony/http";
 import { resolve } from "node:path";
 //import { inject, Error } from "nodefony";
 
@@ -32,10 +32,10 @@ class HtmlController extends Controller {
       name="description"
       content="Node.js full-stack web framework Symfony Like"
     />
-    <title>Nodefony</title>
+    <title>Nodefony sinple text</title>
   </head>
   <body>
-    <h1>Nodefony</h1>
+    <h1>Nodefony sinple text</h1>
   </body>
 </html>`;
     return this.render(html);
@@ -49,7 +49,7 @@ class HtmlController extends Controller {
   @route("index-file-stream", { path: "/stream" })
   stream1() {
     const file = resolve(this.module?.path as string, "tsconfig.json");
-    return this.streamFile(file);
+    return this.streamFile(file, { "content-type": "application/json" });
   }
 
   @route("index-file-donwload", { path: "/download" })
@@ -66,7 +66,6 @@ class HtmlController extends Controller {
     //   "test",
     //   "chico_buarque.mp3"
     // );
-    //console.log(this.session?.id);
     const file = resolve(
       this.module?.path as string,
       "public",
@@ -74,6 +73,27 @@ class HtmlController extends Controller {
       "oceans-clip.webm"
     );
     return this.renderMediaStream(file);
+  }
+
+  @route("index-upload1", {
+    path: "/upload",
+    requirements: { methods: ["POST", "PUT"] },
+  })
+  upload() {
+    return this.renderJson(this.queryFile);
+  }
+
+  @route("index-upload-error", {
+    path: "/uploaderror",
+    requirements: { methods: ["POST", "PUT"] },
+  })
+  upload2() {
+    // console.log(this.queryFile);
+    // console.log({
+    //   result: this.queryFile,
+    //   ...this.context?.metaData,
+    // });
+    throw new HttpError(undefined, 400, this.context);
   }
 }
 

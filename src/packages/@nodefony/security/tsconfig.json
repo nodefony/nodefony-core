@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "rootDir": "./",
+    "outDir": "./dist",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "target": "ES2022",
@@ -14,7 +15,8 @@
     "stripInternal": true,
     "declaration": true,
     "declarationDir": "./dist/types",
-    "outDir": "./dist"
+    //"noUnusedLocals": true,
+    "noUnusedParameters": true
   },
   "include": [
     "index.ts",

@@ -52,4 +52,7 @@ export default {
   session: {
     handler: "sequelize",
   },
+  formidable: {
+    uploadDir: "./tmp/upload",
+  },
 };

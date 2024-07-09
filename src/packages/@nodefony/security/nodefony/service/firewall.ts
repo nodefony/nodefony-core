@@ -1,15 +1,18 @@
-import { Service, Module, Container, Event } from "nodefony";
-import HttpKernel from "@nodefony/http/nodefony/service/http-kernel";
+import { Service, Module, Container, Event, inject } from "nodefony";
+import { HttpKernel } from "@nodefony/http";
 
 const serviceName: string = "firewall";
 
 class Firewall extends Service {
-  httpKernel: HttpKernel | null = null;
-  constructor(module: Module) {
+  module: Module;
+  constructor(
+    module: Module,
+    @inject("HttpKernel") public httpKernel: HttpKernel
+  ) {
     const container: Container = module.container as Container;
     const event: Event = module.notificationsCenter as Event;
     super(serviceName, container, event, module.options);
-    this.httpKernel = this.get("HttpKernel") as HttpKernel;
+    this.module = module;
   }
 }
 

@@ -485,23 +485,22 @@ class HttpKernel extends Service {
     try {
       const context = new HttpContext(scope, request, response, type);
       // response events
-      if (context.response) {
-        response.once("finish", async () => {
-          if (!context) {
-            return;
-          }
-          if (context.finished) {
-            return;
-          }
-          context.logRequest();
-          await context.fireAsync("onFinish", context).catch((e) => {
-            throw e;
-          });
-          context.finished = true;
-          this.container?.leaveScope(scope);
-          context.clean();
+      response.once("finish", async () => {
+        if (!context) {
+          return;
+        }
+        if (context.finished) {
+          return;
+        }
+        context.logRequest();
+        await context.fireAsync("onFinish", context).catch((e) => {
+          throw e;
         });
-      }
+        context.finished = true;
+        this.container?.leaveScope(scope);
+        context.clean();
+      });
+
       return context;
     } catch (e) {
       this.log(e, "ERROR");
@@ -522,9 +521,11 @@ class HttpKernel extends Service {
         await this.fireAsync("onCreateContext", context).catch((e) => {
           throw e;
         });
+        await context.request.initialize();
         const ctx = await this.onRequestEnd(context).catch((e) => {
           throw e;
         });
+
         if (ctx instanceof Context) {
           if (ctx.secure || ctx.isControlledAccess) {
             return resolve(context);
@@ -547,60 +548,58 @@ class HttpKernel extends Service {
     context: HttpContext,
     error?: Error | null | undefined
   ): Promise<HttpContext | number> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       // EVENT
       if (!context) {
         return reject(new nodefony.Error("Bad context", 500));
       }
-      context.once("onRequestEnd", async () => {
-        if (error) {
-          throw error;
+      if (error) {
+        throw error;
+      }
+      try {
+        // ADD HEADERS CONFIG
+        if (this.options[context.scheme].headers) {
+          context.response.setHeaders(this.options[context.scheme].headers);
         }
-        try {
-          // ADD HEADERS CONFIG
-          if (this.options[context.scheme].headers) {
-            context.response.setHeaders(this.options[context.scheme].headers);
-          }
-          // DOMAIN VALID
-          if (this.kernel?.options.domainCheck) {
-            this.checkValidDomain(context);
-          }
-          // FRONT CONTROLLER
-          const ret = await this.handleFrontController(context).catch((e) => {
-            throw e;
-          });
-          if (ret === 204) {
-            return resolve(ret);
-          }
-          // // FIREWALL
-          // if (context.secure || context.isControlledAccess) {
-          //   const res = await this.firewall.handleSecurity(context);
-          //   // CSRF TOKEN
-          //   if (context.csrf) {
-          //     const token = await this.csrfService.handle(context);
-          //     if (token) {
-          //       this.log("CSRF TOKEN OK", "DEBUG");
-          //     }
-          //   }
-          //   return resolve(res);
-          // }
+        // DOMAIN VALID
+        if (this.kernel?.options.domainCheck) {
+          this.checkValidDomain(context);
+        }
+        // FRONT CONTROLLER
+        const ret = await this.handleFrontController(context).catch((e) => {
+          throw e;
+        });
+        if (ret === 204) {
+          return resolve(ret);
+        }
+        // // FIREWALL
+        // if (context.secure || context.isControlledAccess) {
+        //   const res = await this.firewall.handleSecurity(context);
+        //   // CSRF TOKEN
+        //   if (context.csrf) {
+        //     const token = await this.csrfService.handle(context);
+        //     if (token) {
+        //       this.log("CSRF TOKEN OK", "DEBUG");
+        //     }
+        //   }
+        //   return resolve(res);
+        // }
 
-          // SESSIONS
-          await this.startSession(context).catch((e) => {
-            throw e;
-          });
-          // CSRF TOKEN
-          // if (context.csrf) {
-          //   const token = await this.csrfService.handle(context);
-          //   if (token) {
-          //     this.log("CSRF TOKEN OK", "DEBUG");
-          //   }
-          // }
-          return resolve(context);
-        } catch (e) {
-          return reject(e);
-        }
-      });
+        // SESSIONS
+        await this.startSession(context).catch((e) => {
+          throw e;
+        });
+        // CSRF TOKEN
+        // if (context.csrf) {
+        //   const token = await this.csrfService.handle(context);
+        //   if (token) {
+        //     this.log("CSRF TOKEN OK", "DEBUG");
+        //   }
+        // }
+        return resolve(context);
+      } catch (e) {
+        return reject(e);
+      }
     });
   }
 

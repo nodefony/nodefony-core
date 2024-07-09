@@ -13,8 +13,8 @@
     "javascript"
   ],
   "scripts": {
-    "install": "npm --prefix ./@nodefony/http install ;npm --prefix ./@nodefony/framework install ; npm --prefix ./@nodefony/sequelize install",
-    "build": "npm run --prefix ./@nodefony/http build; npm run --prefix ./@nodefony/framework build; npm run --prefix ./@nodefony/sequelize build",
+    "install": "npm --prefix ./@nodefony/http install ;npm --prefix ./@nodefony/framework install ; npm --prefix ./@nodefony/sequelize install ;npm  --prefix ./@nodefony/security install",
+    "build": "npm run --prefix ./@nodefony/http build; npm run --prefix ./@nodefony/framework build; npm run --prefix ./@nodefony/sequelize build ;npm run --prefix ./@nodefony/security build",
     "test": "npm run --prefix ./@nodefony/http test"
   },
   "dependencies": {},

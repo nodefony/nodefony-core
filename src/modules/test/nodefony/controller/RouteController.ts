@@ -14,12 +14,25 @@ class RouteController extends Controller {
     return this;
   }
 
-  @route("route-app-ejs", {
+  @route("route-test-1", {
+    path: "",
+  })
+  async method1() {
+    return this.renderJson(this.route);
+  }
+  @route("route-test-2", {
+    path: "*",
+  })
+  async method2() {
+    return this.renderJson(this.route);
+  }
+
+  @route("route-test-3", {
     path: "/ejs/{name}",
-    requirements: { methods: ["GET", "POST"] },
+    requirements: { methods: ["GET", "POST", "DELETE"] },
     defaults: { name: "cci" },
   })
-  async method4(name: string) {
+  async method3(name: string) {
     const view = resolve(
       this.module?.path as string,
       "nodefony",
@@ -33,26 +46,27 @@ class RouteController extends Controller {
     );
   }
 
-  @route("route3", { method: "DELETE" })
-  async method3() {
-    return this.renderJson(this.context?.metaData);
+  @route("route-test-4", {
+    path: "/{name}/move",
+    requirements: { methods: ["PUT", "DELETE"] },
+  })
+  async method4(name: string) {
+    return this.renderJson({ name, ...this.context?.metaData });
   }
 
-  @route("route2", { path: "/add", requirements: { methods: "POST" } })
-  async method2() {
-    console.log("call method2");
+  @route("route-test-5", { path: "/add", requirements: { methods: "POST" } })
+  async method5() {
     return this.renderJson({ foo: "bar" });
   }
 
-  @route("route6", {
+  @route("route-test-6", {
     path: "/ele/{metier}/{format}/add",
     defaults: { format: "cci" },
   })
-  async method6() {
-    console.log("other route for app");
-    return this.renderJson({ foo: "bar" });
+  async method6(metier: string, format: string) {
+    return this.renderJson({ metier, format });
   }
-  @route("route7", {
+  @route("route-test-7", {
     path: "/ele/{metier}/{format}/{method}/add",
   })
   method7(metier: string, format: string, method: string) {
@@ -62,14 +76,14 @@ class RouteController extends Controller {
       "views",
       "index.twig"
     );
-    return this.renderTwig(view, { metier, format, method });
-  }
-
-  @route("route5", {
-    path: "*",
-  })
-  async method5() {
-    return this.renderJson(this.route);
+    return this.renderTwig(view, {
+      routing: {
+        metier,
+        format,
+        method,
+      },
+      ...this.context?.metaData,
+    });
   }
 }
 

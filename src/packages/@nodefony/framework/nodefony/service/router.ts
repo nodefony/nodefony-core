@@ -49,6 +49,13 @@ class Router extends Service {
       }
     }
     if (resolver.exception) {
+      switch (resolver.exception.code) {
+        case 405:
+          context.response?.setHeaders({
+            Allow: (resolver.exception as any).allow,
+          });
+          break;
+      }
       throw resolver.exception;
     }
     return resolver;

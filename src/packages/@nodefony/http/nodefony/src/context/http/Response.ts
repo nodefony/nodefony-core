@@ -136,6 +136,8 @@ class HttpResponse {
   }
 
   setContentType(type?: string, encoding?: BufferEncoding) {
+    this.response?.removeHeader("content-type");
+    this.response?.removeHeader("Content-Type");
     if (type && encoding) {
       let mytype = mime.contentType(type);
       // Get the MIME type without charset
@@ -170,10 +172,7 @@ class HttpResponse {
       myType = "application/octet-stream";
     }
     this.contentType = myType;
-    return this.setHeader(
-      "Content-Type",
-      `${myType} ; charset=${encoding || this.encoding}`
-    );
+    return this.setContentType(myType, encoding || this.encoding);
   }
 
   setContentTypeByExtension(extention: string) {
@@ -275,15 +274,49 @@ class HttpResponse {
     return this.body;
   }
 
-  getLength(
-    ele?: string | NodeJS.ArrayBufferView | ArrayBuffer | SharedArrayBuffer
-    //encoding?: BufferEncoding | undefined
+  setLength(
+    body?: string | NodeJS.ArrayBufferView | ArrayBuffer | SharedArrayBuffer
   ): number {
-    if (ele) {
-      return Buffer.byteLength(ele);
+    if (this.response?.headersSent) {
+      throw new Error("Headers already sended");
     }
-    if (this.body) {
-      return Buffer.byteLength(this.body);
+    const actualBody = body || this.body;
+    const noContentLengthMethods = ["HEAD", "OPTIONS", "TRACE"];
+    const noContentLengthStatusCodes = [204, 304];
+    // Ne pas définir Content-Length si Transfer-Encoding est chunked
+    const isChunked = this.getHeader("Transfer-Encoding") === "chunked";
+    // Vérifier si Content-Length doit être défini
+    let actualContentLength = null;
+    if (this.hasHeader("Content-Length")) {
+      actualContentLength = this.getHeader("Content-Length");
+    }
+    if (
+      //actualBody &&
+      !noContentLengthMethods.includes(this.context?.method as string) &&
+      !noContentLengthStatusCodes.includes(this.statusCode) &&
+      !isChunked
+    ) {
+      // Calculer la longueur du corps
+
+      // Vérifier si Content-Length est déjà défini
+      if (!actualContentLength) {
+        this.response?.removeHeader("Content-Length");
+      }
+      let length = 0;
+      if (actualBody) {
+        length = Buffer.byteLength(actualBody);
+        this.setHeader("Content-Length", length.toString());
+      }
+      return length;
+    } else {
+      // Ne pas définir Content-Length pour les réponses sans corps
+      if (!noContentLengthStatusCodes.includes(this.statusCode)) {
+        if (actualContentLength) {
+          this.response?.removeHeader("Content-Length");
+        }
+        this.setHeader("Content-Length", "0");
+        return 0;
+      }
     }
     return 0;
   }
@@ -297,9 +330,6 @@ class HttpResponse {
     }
     if (this.response && !this.response.headersSent) {
       try {
-        if (this.context.method === "HEAD" || this.context.contentLength) {
-          this.setHeader("Content-Length", this.getLength());
-        }
         if (this.statusCode) {
           if (typeof this.statusCode === "string") {
             this.statusCode = parseInt(this.statusCode as string, 10);
@@ -309,12 +339,14 @@ class HttpResponse {
           }
         }
         this.statusMessage = this.getStatusMessage();
+        this.setLength();
         if (this.response) {
           this.response?.writeHead(
             this.statusCode,
             this.statusMessage,
             headers as http.OutgoingHttpHeaders
           );
+          return;
         }
         throw new Error(`response not found`);
       } catch (e) {
@@ -418,6 +450,17 @@ class HttpResponse {
 
   getHeader(name: string): string | number | string[] | undefined {
     return this.response?.getHeader(name);
+  }
+
+  hasHeader(name: string): Boolean {
+    if (this.response) {
+      const headers = this.response.getHeaders();
+      if (name.toLocaleLowerCase() in headers) {
+        return true;
+      }
+      return false;
+    }
+    throw new Error(`Respose not foud`);
   }
 
   getHeaders(): http.OutgoingHttpHeaders {

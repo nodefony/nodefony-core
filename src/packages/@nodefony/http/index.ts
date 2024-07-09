@@ -16,6 +16,7 @@ import Response from "./nodefony/src/context/http/Response";
 import Http2Response from "./nodefony/src/context/http2/Response";
 import wsResponse from "./nodefony/src/context/websocket/Response";
 import Cookie from "./nodefony/src/cookies/cookie";
+import UploadService from "./nodefony/service/upload/upload-service";
 
 @services([
   HttpKernel,
@@ -26,9 +27,10 @@ import Cookie from "./nodefony/src/cookies/cookie";
   HttpsServer,
   WebsocketServer,
   WebsocketSecureServer,
+  UploadService,
 ])
 class Http extends Module {
-  httpKernel: HttpKernel | null = null;
+  //httpKernel: HttpKernel | null = null;
   constructor(kernel: Kernel) {
     super("http", kernel, import.meta.url, config);
     this.addCommand(networkCommand);

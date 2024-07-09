@@ -355,6 +355,7 @@ class Route {
                   .replace(/\s/g, "")
                   .toUpperCase();
                 if (
+                  req &&
                   req.split(",").lastIndexOf(context.method as HTTPMethod) < 0
                 ) {
                   const error = new HttpError(
@@ -362,21 +363,25 @@ class Route {
                   );
                   error.code = 405;
                   error.type = "method";
+                  error.allow = req;
                   throw error;
                 }
                 break;
               case "object":
-                let method = context.method as HTTPMethod;
-                let ele = this.requirements[i] as HTTPMethod;
-                if (ele.indexOf(method) < 0) {
-                  if (ele.indexOf(method.toLowerCase()) < 0) {
-                    const error = new HttpError(
-                      `Method ${context.method} Unauthorized`
-                    );
-                    error.code = 405;
-                    error.type = "method";
-                    throw error;
-                  }
+                const method = context.method as HTTPMethod;
+                const methodLower = method.toLowerCase() as HTTPMethod;
+                const allowedMethods = this.requirements[i] as HTTPMethod[];
+                if (
+                  !allowedMethods.includes(method) &&
+                  !allowedMethods.includes(methodLower)
+                ) {
+                  const error = new HttpError(
+                    `Method ${context.method} Unauthorized`
+                  );
+                  error.code = 405;
+                  error.type = "method";
+                  error.allow = allowedMethods.join(",").toUpperCase();
+                  throw error;
                 }
                 break;
               default:

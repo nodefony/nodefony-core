@@ -8,8 +8,17 @@ import QS from "qs";
 import formidable, { IncomingForm } from "formidable";
 //import { Container } from "nodefony";
 import { ParserXml, ParserQs, Parser, acceptParser } from "./parser";
-import nodefony, { extend, Pdu, Message, Severity, Msgid } from "nodefony";
+import { UploadedFile } from "../../../service/upload/upload-service";
+import nodefony, {
+  extend,
+  Pdu,
+  Message,
+  Severity,
+  Msgid,
+  Error,
+} from "nodefony";
 import Session from "../../session/session";
+import { HttpError } from "@nodefony/http";
 
 const reg = /(.*)[\[][\]]$/u;
 
@@ -63,7 +72,7 @@ class HttpRequest {
   parser: ParserType | null = null;
   queryPost: Record<string, any> = {};
   queryGet: Record<string, any> = {};
-  queryFile: any[] = [];
+  queryFile: UploadedFile[] = [];
   query: Record<string, any> = {};
   queryStringOptions:
     | (QS.IParseOptions & {
@@ -82,9 +91,6 @@ class HttpRequest {
     context: HttpContext
   ) {
     this.request = request;
-    this.request.on("end", () => {
-      return this.initialize();
-    });
     this.request.on("data", (data) => {
       this.dataSize += data.length;
     });
@@ -119,7 +125,6 @@ class HttpRequest {
     } catch (e) {
       this.log(e, "WARNING");
     }
-
     this.context.once("onRequestEnd", () => {
       this.request.body = this.query;
     });
@@ -175,7 +180,7 @@ class HttpRequest {
   }
 
   async parseRequest(): Promise<ParserType | null> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       if (this.method in parse) {
         switch (this.contentType) {
           case "application/xml":
@@ -194,87 +199,87 @@ class HttpRequest {
             const opt: formidable.Options = extend(this.formidableOption, {
               encoding: this.charset === "utf8" ? "utf-8" : this.charset,
             });
-            this.parser = new IncomingForm(opt);
-            this.parser?.parse(
-              this.request as http.IncomingMessage,
-              async (err, fields, files) => {
-                if (err) {
-                  this.log(
-                    `${err.message || err} use Simple parser`,
-                    "WARNING"
-                  );
-                  switch (err.code) {
-                    case 1003:
-                    case 1011:
-                      try {
-                        this.parser = parserInst as Parser;
-                      } catch (e) {
-                        return reject(e);
-                      }
-                      return resolve((await this.parser.parse()) as Parser);
-                      break;
-                    default:
-                      console.error(err);
-                      err.code = err.httpCode;
-                      return reject(err);
-                  }
-                }
-                try {
-                  await parserInst.parse();
-                  this.queryPost = fields;
-                  this.query = nodefony.extend({}, this.query, this.queryPost);
-                  if (files && Object.keys(files).length) {
-                    for (const file in files) {
-                      if (!files[file]) {
-                        continue;
-                      }
-                      const ele:
-                        | formidable.File[]
-                        | undefined
-                        | formidable.Files = files[file];
-                      try {
-                        if (reg.exec(file)) {
-                          if (nodefony.isArray(ele)) {
-                            let tab: formidable.File[] =
-                              ele as formidable.File[];
-                            for (const multifiles in tab) {
-                              let ele = tab[multifiles];
-                              this.createFileUpload(
-                                multifiles,
-                                ele,
-                                opt.maxFileSize
-                              );
-                            }
-                          }
-                          //else if (ele && ele.filepath) {
-                          //   this.createFileUpload(file, ele, opt.maxFileSize);
-                          // }
-                        } else if (nodefony.isArray(ele)) {
-                          for (const multifiles in ele) {
+            try {
+              this.parser = formidable(opt);
+              let fields;
+              let files;
+              [fields, files] = await this.parser.parse(
+                this.request as http.IncomingMessage
+              );
+              try {
+                await parserInst.parse();
+                this.queryPost = fields;
+                this.query = nodefony.extend({}, this.query, this.queryPost);
+                if (files && Object.keys(files).length) {
+                  for (const file in files) {
+                    if (!files[file]) {
+                      continue;
+                    }
+                    const ele:
+                      | formidable.File[]
+                      | undefined
+                      | formidable.Files = files[file];
+                    try {
+                      if (reg.exec(file)) {
+                        if (nodefony.isArray(ele)) {
+                          let tab: formidable.File[] = ele as formidable.File[];
+                          for (const multifiles in tab) {
+                            let ele = tab[multifiles];
                             this.createFileUpload(
                               multifiles,
-                              ele[multifiles],
+                              ele,
                               opt.maxFileSize
                             );
                           }
-                        } else {
-                          this.createFileUpload(file, ele, opt.maxFileSize);
                         }
-                      } catch (err) {
-                        return reject(err);
+                        //else if (ele && ele.filepath) {
+                        //   this.createFileUpload(file, ele, opt.maxFileSize);
+                        // }
+                      } else if (nodefony.isArray(ele)) {
+                        for (const multifiles in ele) {
+                          this.createFileUpload(
+                            multifiles,
+                            ele[multifiles],
+                            opt.maxFileSize
+                          );
+                        }
+                      } else {
+                        this.createFileUpload(
+                          file,
+                          ele as any,
+                          opt.maxFileSize
+                        );
                       }
+                    } catch (err) {
+                      return reject(err);
                     }
                   }
-                } catch (err) {
-                  return reject(err);
                 }
-                this.context.requestEnded = true;
-                await this.context.fireAsync("onRequestEnd", this);
-                return resolve(
-                  this.parser as InstanceType<typeof IncomingForm>
-                );
+              } catch (err) {
+                return reject(err);
               }
-            );
+              this.context.requestEnded = true;
+              await this.context.fireAsync("onRequestEnd", this);
+              return resolve(this.parser as InstanceType<typeof IncomingForm>);
+            } catch (err) {
+              let error = err as HttpError;
+              this.log(`${error.message} use Simple parser`, "WARNING");
+              switch (error.code) {
+                case 1003:
+                case 1011:
+                  try {
+                    this.parser = parserInst as Parser;
+                  } catch (e) {
+                    return reject(e);
+                  }
+                  return resolve((await this.parser.parse()) as Parser);
+                  break;
+                default:
+                  console.error(err);
+                  error.code = error.httpCode;
+                  return reject(err);
+              }
+            }
         }
       } else {
         return resolve(this.parser);
@@ -331,10 +336,14 @@ class HttpRequest {
           file.newFilename
       );
     }
-    // const fileUpload = this.context.uploadService.createUploadFile(file, name);
-    // const index = this.queryFile.push(fileUpload);
-    // this.queryFile[fileUpload.filename] = this.queryFile[index - 1];
-    // return fileUpload;
+    const fileUpload = this.context.uploadService.createUploadFile(
+      file as formidable.File,
+      name
+    );
+    /*const index =*/
+    this.queryFile.push(fileUpload);
+    //this.queryFile[fileUpload.filename] = this.queryFile[index - 1];
+    return fileUpload;
   }
 
   getMethod(): HTTPMethod {

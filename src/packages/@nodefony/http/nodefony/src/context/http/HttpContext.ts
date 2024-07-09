@@ -31,6 +31,7 @@ import url, { URL } from "node:url";
 import Session from "../../../src/session/session";
 
 //import { Resolver } from "@nodefony/framework";
+import uploadService from "../../../service/upload/upload-service";
 
 export interface ProxyType {
   proxyServer?: string;
@@ -57,6 +58,7 @@ class HttpContext extends Context {
   //isHtml: boolean = false;
   override request: HttpRequestType;
   override response: HttpRsponseType;
+  uploadService: uploadService;
   //resolver: Resolver | null = null;
   constructor(
     container: Container,
@@ -65,6 +67,7 @@ class HttpContext extends Context {
     type: ServerType
   ) {
     super(container, type);
+    this.uploadService = this.get("upload");
     if (this.type === "http2") {
       this.request = new Http2Request(
         request as http2.Http2ServerRequest,
@@ -109,7 +112,7 @@ class HttpContext extends Context {
       );
     }
     this.isHtml = this.request.acceptHtml;
-    this.setDefaultContentType();
+    //this.setDefaultContentType();
     this.domain = this.getHostName();
     this.validDomain = this.isValidDomain();
     this.parseCookies();
@@ -245,6 +248,9 @@ class HttpContext extends Context {
         // if (session) {
         //   //this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
         // }
+        if (chunk) {
+          this.response?.setBody(chunk);
+        }
         await this.fireAsync("onSend", this.response, this);
         try {
           this.writeHead();

@@ -65,7 +65,9 @@ class Resolver extends Service {
         }
       }
       return match;
-    } catch (e) {}
+    } catch (e) {
+      throw e;
+    }
   }
 
   parsePathernController(name: string) {

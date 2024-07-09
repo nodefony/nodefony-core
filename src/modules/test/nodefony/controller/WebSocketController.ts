@@ -110,7 +110,6 @@ class WebsocketController extends Controller {
   async cookie(message: any) {
     switch (this.context?.webSocketState) {
       case "connected":
-        console.log(this.context.cookies);
         return this.renderJson({
           ...this.context?.metaData,
         });

@@ -42,9 +42,6 @@ class Http2Response extends HttpResponse {
       }
       if (!this.stream.headersSent) {
         try {
-          if (this.context.method === "HEAD" || this.context.contentLength) {
-            this.setHeader("Content-Length", this.getLength());
-          }
           if (this.statusCode) {
             if (typeof this.statusCode === "string") {
               this.statusCode = parseInt(this.statusCode, 10);
@@ -54,14 +51,15 @@ class Http2Response extends HttpResponse {
             }
           }
           this.statusMessage = this.getStatusMessage();
-          //console.log("get nativre header", this.getHeaders());
+          this.setLength();
           this.headers = extend(
+            true,
             { "X-Status-Message": this.statusMessage },
             this.getHeaders(),
             headers
           );
           this.headers[HTTP2_HEADER_STATUS] = this.statusCode;
-          //console.log("myheadre ", this.headers);
+          //console.log("HTTH2 respond", this.headers);
           this.stream.respond(this.headers, {
             endStream: false,
           });

@@ -49,7 +49,9 @@ class DefaultController extends Controller {
 
   @route("index4", { path: "/index4" })
   index4() {
-    return this.render({});
+    return this.render({
+      route: this.route,
+    });
   }
 }
 

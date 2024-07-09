@@ -142,7 +142,6 @@ class Controller extends Service {
     status?: string | number,
     headers?: OutgoingHttpHeaders
   ): Promise<Http2Response | HttpResponse> | Promise<WebsocketResponse> {
-    this.response?.setBody(data);
     if (headers) {
       this.response?.setHeaders(headers);
     }
@@ -228,6 +227,7 @@ class Controller extends Service {
     let data = null;
     try {
       data = JSON.stringify(obj);
+      this.setContextJson();
       return this.renderResponse(data, "utf8", status, headers);
     } catch (e) {
       //this.log(e, "ERROR");
@@ -363,6 +363,34 @@ class Controller extends Service {
     (options as ReadStreamOptions).autoClose = false;
     try {
       const fileDetails = this.getFile(file);
+
+      (this.response as HttpResponse | Http2Response).response?.removeHeader(
+        "Content-Type"
+      );
+      (this.response as HttpResponse | Http2Response).response?.removeHeader(
+        "content-type"
+      );
+      const contentTypeHeader =
+        headers && (headers["Content-Type"] || headers["content-type"]);
+      if (!contentTypeHeader) {
+        (this.response as HttpResponse | Http2Response).setFileMimeType(
+          fileDetails.name
+        );
+      }
+      const contentLength =
+        headers && (headers["Content-Length"] || headers["content-length"]);
+      if (!contentLength) {
+        if (!headers) {
+          headers = {};
+        }
+        (this.response as HttpResponse | Http2Response).response?.removeHeader(
+          "Content-Length"
+        );
+        (this.response as HttpResponse | Http2Response).response?.removeHeader(
+          "content-length"
+        );
+        headers["Content-Length"] = fileDetails.stats.size;
+      }
       const streamFile = createReadStream(
         fileDetails.path as fs.PathLike,
         options
@@ -372,7 +400,6 @@ class Controller extends Service {
         let handled = false;
         streamFile.on("open", () => {
           try {
-            //console.log(headers);
             (this.context as HttpContext)?.writeHead(
               contextResponse?.statusCode as number,
               headers
@@ -404,7 +431,6 @@ class Controller extends Service {
             return reject(e);
           }
         };
-
         streamFile.on("end", handleStreamEnd);
         streamFile.on("close", handleStreamEnd);
         streamFile.on("error", (error) => {
@@ -452,7 +478,7 @@ class Controller extends Service {
         ...{
           "Content-Range": `bytes ${start}-${end}/${length}`,
           "Accept-Ranges": "bytes",
-          "Content-Length": chunksize,
+          "Content-Length": chunksize.toString(),
           "Content-Type": File.mimeType || "application/octet-stream",
         },
         ...headers,
@@ -466,13 +492,12 @@ class Controller extends Service {
       head = {
         ...{
           "Content-Type": File.mimeType || "application/octet-stream",
-          "Content-Length": length,
+          "Content-Length": length.toString(),
           "Content-Disposition": ` inline; filename="${File.name}"`,
         },
         ...headers,
       };
       response?.removeHeader("content-type");
-      //console.log(head);
     }
     // streamFile
     try {

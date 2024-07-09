@@ -68,10 +68,21 @@ function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
     mycontroller.prefix = prefix;
     const metadata = Reflect.getMetadata(metadataKey, mycontroller) || {};
     if (metadata && Object.keys(metadata).length !== 0) {
+      let hasMagic: Boolean | any = false;
       for (const name in metadata) {
         const options = metadata[name];
         options.prefix = prefix;
+        if (options.path == "*") {
+          hasMagic = { options, name };
+          continue;
+        }
         const route = Router.createRoute(name, options);
+        if (nodefony.kernel && nodefony.kernel.debug) {
+          nodefony.kernel.log(`Add routes : ${route.toString()}`, "DEBUG");
+        }
+      }
+      if (hasMagic) {
+        const route = Router.createRoute(hasMagic.name, hasMagic.options);
         if (nodefony.kernel && nodefony.kernel.debug) {
           nodefony.kernel.log(`Add routes : ${route.toString()}`, "DEBUG");
         }

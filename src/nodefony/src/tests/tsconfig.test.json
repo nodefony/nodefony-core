@@ -7,7 +7,7 @@
     "rootDir": "../",
     "outDir": "../../dist",
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "Bundler",
     "forceConsistentCasingInFileNames": true,
     //"allowSyntheticDefaultImports": true,
     "noEmitOnError": false,

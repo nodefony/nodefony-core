@@ -149,7 +149,7 @@ class FileClass {
       .digest("hex");
   }
 
-  getMimeType(name: string): string | false {
+  getMimeType(name?: string): string | false {
     return mime.lookup(name || this.name);
   }
 
