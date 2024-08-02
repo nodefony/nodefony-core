@@ -1,7 +1,11 @@
-import { kernel } from "nodefony";
+//import nodefony from "nodefony";
+//import { HelmetOptions } from "helmet";
+//import { optionsSecuredArea } from "@nodefony/security";
 
 export default {
-  watch: true,
+  watch: false,
+
+  firewalls: {},
 
   headers: {
     http: {},
@@ -18,6 +22,14 @@ export default {
       "Access-Control-Expose-Headers": "WWW-Authenticate ,X-Json",
       "Access-Control-Max-Age": 10,
     },
+  },
+
+  csrf: {
+    name: "csrf-token",
+    ignoreMethods: ["GET", "HEAD", "OPTIONS"],
+    cookie: false,
+    session: true,
+    secret: "",
   },
 
   "passport-jwt": {

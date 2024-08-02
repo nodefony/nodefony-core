@@ -32,6 +32,7 @@ import websocket from "websocket";
 import SessionsService from "./sessions/sessions-service";
 import Session from "../src/session/session";
 import { Route } from "@nodefony/framework";
+import { Firewall } from "@nodefony/security";
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -109,6 +110,7 @@ class HttpKernel extends Service {
   sessionService?: SessionsService;
   sessionAutoStart: boolean | string = false;
   router?: Router;
+  firewall?: Firewall;
   constructor(module: Module) {
     super(
       serviceName,
@@ -142,6 +144,7 @@ class HttpKernel extends Service {
     });
     this.kernel?.prependOnceListener("onBoot", () => {
       this.router = this.get("router");
+      this.firewall = this.get("firewall");
     });
     return this;
   }
@@ -183,15 +186,15 @@ class HttpKernel extends Service {
   }
 
   async handleFrontController(
-    context: ContextType
-    //checkFirewall: boolean = true
+    context: ContextType,
+    checkFirewall: boolean = true
   ): Promise<Controller | number> {
     return new Promise(async (resolve, reject) => {
-      // if (this.firewall && checkFirewall) {
-      //   context.secure = this.firewall.isSecure(context);
-      // }
       if (!this.router) {
         return reject(new Error("kernel HTTP not ready"));
+      }
+      if (this.firewall && checkFirewall) {
+        context.secure = this.firewall.isSecure(context);
       }
       if (context.security) {
         //const res = this.firewall.handleCrossDomain(context);
@@ -525,11 +528,7 @@ class HttpKernel extends Service {
         const ctx = await this.onRequestEnd(context).catch((e) => {
           throw e;
         });
-
         if (ctx instanceof Context) {
-          if (ctx.secure || ctx.isControlledAccess) {
-            return resolve(context);
-          }
           const result = await ctx.handle().catch((e) => {
             throw e;
           });
@@ -572,18 +571,20 @@ class HttpKernel extends Service {
         if (ret === 204) {
           return resolve(ret);
         }
-        // // FIREWALL
-        // if (context.secure || context.isControlledAccess) {
-        //   const res = await this.firewall.handleSecurity(context);
-        //   // CSRF TOKEN
-        //   if (context.csrf) {
-        //     const token = await this.csrfService.handle(context);
-        //     if (token) {
-        //       this.log("CSRF TOKEN OK", "DEBUG");
-        //     }
-        //   }
-        //   return resolve(res);
-        // }
+        // FIREWALL
+        if (context.secure || context.isControlledAccess) {
+          await this.firewall?.handleSecurity(context).catch((e) => {
+            throw e;
+          });
+          // CSRF TOKEN
+          // if (context.csrf) {
+          //   const token = await this.csrfService.handle(context);
+          //   if (token) {
+          //     this.log("CSRF TOKEN OK", "DEBUG");
+          //   }
+          // }
+          return resolve(context);
+        }
 
         // SESSIONS
         await this.startSession(context).catch((e) => {
@@ -658,14 +659,11 @@ class HttpKernel extends Service {
       error = e;
     }
     try {
-      /*const connection =*/ await this.onConnect(
-        context as WebsocketContext,
-        error
-      );
+      await this.onConnect(context as WebsocketContext, error);
       // FIREWALL
-      // if (context?.secure || context?.isControlledAccess) {
-      //   return await this.firewall.handleSecurity(context, connection);
-      // }
+      if (this.firewall && (context?.secure || context?.isControlledAccess)) {
+        await this.firewall.handleSecurity(context);
+      }
       return await context?.handle();
     } catch (e) {
       try {

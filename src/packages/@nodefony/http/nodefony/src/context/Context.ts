@@ -35,6 +35,7 @@ import { URL } from "node:url";
 import Session from "../session/session";
 import Cookie, { cookiesParser } from "../cookies/cookie";
 import HttpError from "../errors/httpError";
+import { SecuredArea } from "@nodefony/security";
 const colorLogEvent = clc.cyan.bgBlack("EVENT CONTEXT");
 
 export type WebSocketState =
@@ -72,7 +73,7 @@ export type Cookies = Record<string, Cookie>;
 
 class Context extends Service {
   secure: boolean = false;
-  security: any = null;
+  security?: SecuredArea | null = null;
   cleaned: boolean = false;
   isControlledAccess: boolean = false;
   validDomain: boolean = false;

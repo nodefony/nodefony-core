@@ -7,7 +7,7 @@ import sessionEntity, {
   ISession,
   SessionModel,
 } from "./nodefony/entity/sessionEntity";
-import mongooseStorage from "./nodefony/src/mongooseStorage";
+import SessionStorage from "./nodefony/src/SessionStorage";
 
 @services([orm])
 @entities([sessionEntity])
@@ -18,4 +18,4 @@ class Mongoose extends Module {
 }
 
 export default Mongoose;
-export { mongoose, mongooseStorage, ISession, SessionModel };
+export { mongoose, SessionStorage, ISession, SessionModel };

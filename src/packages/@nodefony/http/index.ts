@@ -7,7 +7,7 @@ import WebsocketServer from "./nodefony/service/servers/server-websocket";
 import WebsocketSecureServer from "./nodefony/service/servers/server-websocket-secure";
 import StaticServer from "./nodefony/service/servers/server-static";
 import networkCommand from "./nodefony/command/networkCommand";
-import sessionService from "./nodefony/service/sessions/sessions-service";
+import SessionsService from "./nodefony/service/sessions/sessions-service";
 import Certificate from "./nodefony/service/certificates";
 import Context from "./nodefony/src/context/Context";
 import Session from "./nodefony/src/session/session";
@@ -17,11 +17,12 @@ import Http2Response from "./nodefony/src/context/http2/Response";
 import wsResponse from "./nodefony/src/context/websocket/Response";
 import Cookie from "./nodefony/src/cookies/cookie";
 import UploadService from "./nodefony/service/upload/upload-service";
+import HttpContext from "./nodefony/src/context/http/HttpContext";
 
 @services([
   HttpKernel,
   Certificate,
-  sessionService,
+  SessionsService,
   StaticServer,
   HttpServer,
   HttpsServer,
@@ -67,6 +68,7 @@ export default Http;
 export {
   Context,
   Session,
+  SessionsService,
   HttpError,
   HttpKernel,
   Response,
@@ -75,4 +77,5 @@ export {
   wsResponse,
   wsResponse as WebsocketResponse,
   Cookie,
+  HttpContext,
 };

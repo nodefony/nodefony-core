@@ -28,6 +28,8 @@ const external: string[] = [
   "@nodefony/security",
   "@nodefony/framework",
   "@nodefony/sequelize",
+  "@nodefony/mongoose",
+  "@nodefony/redis",
   "@nodefony/test",
   "@nodefony/user",
   "tslib",

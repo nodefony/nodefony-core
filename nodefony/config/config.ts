@@ -27,6 +27,7 @@ import http from "./modules/http-config";
 import sequelize from "./modules/sequelize-config";
 import mongoose from "./modules/mongoose-config";
 import pm2 from "./pm2/pm2.config";
+import security from "./modules/security-config";
 
 let CDN = null;
 let statics = true;
@@ -166,6 +167,7 @@ const config = {
   "module-http": http,
   "module-sequelize": sequelize,
   "module-mongoose": mongoose,
+  "module-security": security,
 };
 
 export default config;

@@ -47,31 +47,39 @@ class WebsocketResponse {
         switch (encoding) {
           case "utf8":
             return new Promise((resolve, reject) => {
-              return this.connection?.sendUTF(
-                data.utf8Data || data,
-                (error) => {
-                  if (error) {
-                    this.log(error, "ERROR");
-                    throw reject(error);
-                  } else {
-                    return resolve(this);
+              try {
+                return this.connection?.sendUTF(
+                  data.utf8Data || data,
+                  (error) => {
+                    if (error) {
+                      this.log(error, "ERROR");
+                      throw reject(error);
+                    } else {
+                      return resolve(this);
+                    }
                   }
-                }
-              );
+                );
+              } catch (e) {
+                throw reject(e);
+              }
             });
           case "binary":
             return new Promise((resolve, reject) => {
-              return this.connection?.sendBytes(
-                data.binaryData || data,
-                (error) => {
-                  if (error) {
-                    this.log(error, "ERROR");
-                    throw reject(error);
-                  } else {
-                    return resolve(this);
+              try {
+                return this.connection?.sendBytes(
+                  data.binaryData || data,
+                  (error) => {
+                    if (error) {
+                      this.log(error, "ERROR");
+                      throw reject(error);
+                    } else {
+                      return resolve(this);
+                    }
                   }
-                }
-              );
+                );
+              } catch (e) {
+                throw reject(e);
+              }
             });
           default:
             return new Promise((resolve, reject) => {

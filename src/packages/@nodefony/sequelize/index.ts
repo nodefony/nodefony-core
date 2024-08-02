@@ -15,7 +15,7 @@ import { Models } from "./nodefony/service/orm";
 // } from "sequelize";
 
 import * as sequelize from "sequelize";
-import sequelizeStorage from "./nodefony/src/sequelizeStorage";
+import SessionStorage from "./nodefony/src/SessionStorage";
 
 @services([orm])
 @entities([Session])
@@ -27,4 +27,4 @@ class Sequelize extends Module {
 }
 
 export default Sequelize;
-export { sequelize, entities, Models, sequelizeStorage };
+export { sequelize, entities, Models, SessionStorage };

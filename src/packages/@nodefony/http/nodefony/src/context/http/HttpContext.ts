@@ -21,6 +21,7 @@ import {
   //Pdu,
   //KernelEventsType,
 } from "nodefony";
+import { Csrf } from "@nodefony/security";
 import HttpRequest from "./Request";
 import HttpResponse from "./Response";
 import Http2Request from "../http2/Request";
@@ -60,6 +61,7 @@ class HttpContext extends Context {
   override response: HttpRsponseType;
   uploadService: uploadService;
   //resolver: Resolver | null = null;
+  csrf?: Csrf;
   constructor(
     container: Container,
     request: http.IncomingMessage | http2.Http2ServerRequest,

@@ -20,7 +20,7 @@ class Redis extends Service {
   engine: typeof redis = redis;
   module: Module;
   connections: Record<string, Connection> = {};
-  debug: Boolean = false;
+  debug: boolean = false;
   constructor(module: Module) {
     super(
       serviceName,

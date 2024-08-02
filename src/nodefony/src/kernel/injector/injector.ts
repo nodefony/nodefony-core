@@ -51,7 +51,7 @@ class Injector extends Service {
     constructor: ServiceConstructor,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...argsClass: any[]
-  ): Service | ServiceWithInitialize {
+  ): Service | ServiceWithInitialize | any {
     const injectInfo = Reflect.getMetadata("inject:services", constructor);
     if (injectInfo) {
       const args = [...argsClass];

@@ -10,6 +10,7 @@ import {
   ProtoService,
   ProtoParameters,
   inject,
+  injectable,
 } from "nodefony";
 import HttpKernel, {
   //ProtocolType,
@@ -24,8 +25,8 @@ import HttpRequest from "../../src/context/http/Request";
 import url from "node:url";
 import Certificate from "../../service/certificates";
 import { createHash } from "node:crypto";
-import { sequelizeStorage } from "@nodefony/sequelize";
-import { mongooseStorage } from "@nodefony/mongoose";
+import { SessionStorage as SequelizeStorage } from "@nodefony/sequelize";
+import { SessionStorage as MongooseStorage } from "@nodefony/mongoose";
 
 import FileSessionStorage from "../../src/session/storage/FileSessionStorage";
 
@@ -55,6 +56,7 @@ export interface sessionStorageInterface {
   gc: (maxlifetime: number, contextSession: string) => Promise<void>;
 }
 
+@injectable()
 class SessionsService extends Service {
   sessionStrategy: sessionStrategyType = "migrate";
   storage: any = null;
@@ -107,10 +109,10 @@ class SessionsService extends Service {
         //storage = nodefony.session.storage[this.kernel?.getOrm()];
         break;
       case "sequelize":
-        storage = sequelizeStorage;
+        storage = SequelizeStorage;
         break;
       case "mongoose":
-        storage = mongooseStorage;
+        storage = MongooseStorage;
         break;
       case "files":
         storage = FileSessionStorage;

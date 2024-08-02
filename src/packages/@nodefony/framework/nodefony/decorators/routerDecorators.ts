@@ -68,7 +68,7 @@ function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
     mycontroller.prefix = prefix;
     const metadata = Reflect.getMetadata(metadataKey, mycontroller) || {};
     if (metadata && Object.keys(metadata).length !== 0) {
-      let hasMagic: Boolean | any = false;
+      let hasMagic: boolean | any = false;
       for (const name in metadata) {
         const options = metadata[name];
         options.prefix = prefix;

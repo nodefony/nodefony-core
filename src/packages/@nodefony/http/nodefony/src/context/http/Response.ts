@@ -452,7 +452,7 @@ class HttpResponse {
     return this.response?.getHeader(name);
   }
 
-  hasHeader(name: string): Boolean {
+  hasHeader(name: string): boolean {
     if (this.response) {
       const headers = this.response.getHeaders();
       if (name.toLocaleLowerCase() in headers) {

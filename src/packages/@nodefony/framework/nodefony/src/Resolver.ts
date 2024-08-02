@@ -41,6 +41,7 @@ class Resolver extends Service {
   variables: any[] = [];
   exception?: HttpError | Error | null;
   acceptedProtocol: string | null = null;
+  bypassFirewall: boolean = false;
   constructor(context: ContextType) {
     super(
       "RESOLVER",
@@ -60,6 +61,7 @@ class Resolver extends Service {
         this.controller = route.controller as ControllerConstructor;
         this.actionName = route.classMethod;
         this.resolve = true;
+        this.bypassFirewall = this.route.bypassFirewall;
         if (route.requirements.protocol) {
           this.acceptedProtocol = route.requirements.protocol.toLowerCase();
         }
