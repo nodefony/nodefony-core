@@ -22,13 +22,13 @@
     "@alt3/sequelize-to-json-schemas": "^0.3.56",
     "cls-hooked": "^4.2.2",
     "mariadb": "3.3.1",
-    "mysql2": "3.11.0",
+    "mysql2": "3.11.2",
     "pg": "8.12.0",
     "pg-hstore": "^2.3.4",
     "pgtools": "1.0.1",
     "sequelize": "6.37.3",
     "sqlite3": "5.1.7",
-    "tedious": "18.3.0",
+    "tedious": "18.6.1",
     "umzug": "3.8.1"
   },
   "devDependencies": {
@@ -38,13 +38,13 @@
     "@rollup/plugin-replace": "5.0.7",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "11.1.6",
-    "@types/node": "22.1.0",
-    "@typescript-eslint/eslint-plugin": "8.0.0",
-    "@typescript-eslint/parser": "8.0.0",
+    "@types/node": "22.5.4",
+    "@typescript-eslint/eslint-plugin": "8.5.0",
+    "@typescript-eslint/parser": "8.5.0",
     "rimraf": "6.0.1",
-    "rollup": "4.19.2",
+    "rollup": "4.21.3",
     "sequelize-cli": "6.6.2",
-    "typescript": "5.5.4"
+    "typescript": "5.6.2"
   },
   "peerDependencies": {},
   "repository": {
