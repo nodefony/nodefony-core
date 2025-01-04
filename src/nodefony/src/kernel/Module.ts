@@ -65,9 +65,9 @@ class Module extends Service {
   package?: PackageJson;
   path: string = "";
   isApp: boolean = false;
-  rollup?: RollupService;
-  watcherService?: watcherService;
-  watcher?: FSWatcher;
+  rollup?: RollupService | null;
+  watcherService?: watcherService | null;
+  watcher?: FSWatcher | null;
   public onKernelRegister?(): Promise<this>;
   public onKernelBoot?(): Promise<this>;
   public onKernelReady?(): Promise<this>;
@@ -83,8 +83,8 @@ class Module extends Service {
     this.path = this.setPath(path);
     this.setEvents();
     this.kernel?.once("onBoot", async () => {
-      this.rollup = this.get("rollup");
-      this.watcherService = this.get("watcher");
+      this.rollup = this.get<RollupService>("rollup");
+      this.watcherService = this.get<watcherService>("watcher");
     });
     this.kernel?.once("onPostReady", async () => {
       if (this.options.watch && this.kernel?.environment === "development") {
@@ -223,7 +223,7 @@ class Module extends Service {
       await serviceInit.initialize(this);
     }
     this.set(inst.name, inst);
-    return this.get(inst.name);
+    return this.get<Service>(inst.name) as Service;
   }
 
   async loadService(

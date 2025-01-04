@@ -67,7 +67,7 @@ class SessionsService extends Service {
   sessionAutoStart: string | boolean = false;
   secret?: Buffer;
   iv?: Buffer;
-  certificates: Certificate;
+  certificates: Certificate | null;
   constructor(
     module: Module,
     @inject("HttpKernel") public httpKernel: HttpKernel
@@ -79,7 +79,7 @@ class SessionsService extends Service {
       module.options.session
     );
     this.module = module;
-    this.certificates = this.get("certificates");
+    this.certificates = this.get<Certificate>("certificates");
     this.gc_probability =
       this.options.gc_probability === "string"
         ? parseInt(this.options.gc_probability, 10)

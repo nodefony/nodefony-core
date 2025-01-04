@@ -1,23 +1,23 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import Service, { DefaultOptionsService } from "../Service";
-import Container from "../Container";
-import CliKernel from "./CliKernel";
-import { DebugType, EnvironmentType } from "../types/globals";
-import { extend } from "../Tools";
 import clc from "cli-color";
-import path from "node:path";
-import os from "node:os";
 import cluster from "node:cluster";
+import os from "node:os";
+import path from "node:path";
+import Container, { Scope } from "../Container";
 import FileClass from "../FileClass";
-import nodefony, { Nodefony } from "../Nodefony";
+import nodefony, { Nodefony, Orm } from "../Nodefony";
+import Service, { DefaultOptionsService } from "../Service";
+import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
-import { isSubclassOf } from "../Tools";
 import { Severity } from "../syslog/Pdu";
+import { DebugType, EnvironmentType } from "../types/globals";
+import CliKernel from "./CliKernel";
 import Module from "./Module";
 //import Fetch from "../service/fetchService";
+import { HttpKernel } from "@nodefony/http";
 import Pm2 from "../service/pm2Service";
-import Watcher from "../service/watcherService";
 import Rollup from "../service/rollup/rollupService";
+import Watcher from "../service/watcherService";
 import Injector from "./injector/injector";
 import Entity from "./orm/Entity";
 //import Babylon from "../service/babel/babylon";
@@ -168,7 +168,7 @@ class Kernel extends Service {
     cli?: CliKernel | null,
     options?: TypeKernelOptions
   ) {
-    const container: Container | null | undefined = cli?.container;
+    const container: Container | Scope | null | undefined = cli?.container;
     super(
       "KERNEL",
       container as Container,
@@ -436,7 +436,7 @@ class Kernel extends Service {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async initServers(): Promise<any[]> {
-    const httpKernel = this.get("HttpKernel");
+    const httpKernel = this.get<HttpKernel>("HttpKernel");
     if (httpKernel)
       return await httpKernel
         .initServers()
@@ -488,10 +488,9 @@ class Kernel extends Service {
 
   async addKernelService(
     service: ServiceConstructor,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...args: any[]
-  ): Promise<Service> {
-    const inst = Injector.instantiate(service, this, ...args);
+  ): Promise<Service | null> {
+    const inst: Service = Injector.instantiate(service, this, ...args);
     if (this.get(inst.name)) {
       this.log(
         `SERVICE ALREADY EXIST  override old service  : ${inst.name}`,
@@ -504,8 +503,8 @@ class Kernel extends Service {
       this.log(`SERVICE INITIALIZE : ${inst.name}`, "DEBUG");
       await serviceInit.initialize(this);
     }
-    this.set(inst.name, inst);
-    return this.get(inst.name);
+    this.set<Service>(inst.name, inst);
+    return this.get<Service>(inst.name);
   }
 
   async loadService(
@@ -764,11 +763,11 @@ class Kernel extends Service {
   }
 
   getOrmStrategy() {
-    return this.getORM().options.strategy;
+    return this.getORM()?.options.strategy;
   }
 
   getORM() {
-    return this.get(this.getOrm());
+    return this.get<Orm>(this.getOrm());
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -1,30 +1,24 @@
 import { Service, Module, Container, Event, inject } from "nodefony";
 import { HttpContext, HttpKernel } from "@nodefony/http";
-import Firewall from "./firewall";
 import helmet, { HelmetOptions } from "helmet";
-
+import { HelmetMiddleware } from "../types/helmet.types";
 import { IncomingMessage, ServerResponse } from "node:http";
+import { Firewall } from "../types/firewall.types";
 
 const serviceName: string = "helmet";
 
-// Définition du type HelmetEngine
-export type HelmetMiddleware = (
-  req: IncomingMessage,
-  res: ServerResponse,
-  next: (err?: unknown) => void
-) => void;
-
 class Helmet extends Service {
-  module: Module;
   constructor(
-    module: Module,
+    public module: Module,
     @inject("HttpKernel") public httpKernel: HttpKernel,
     @inject("firewall") public firewall: Firewall
   ) {
-    const container: Container = module.container as Container;
-    const event: Event = module.notificationsCenter as Event;
-    super(serviceName, container, event, module.options.helmet);
-    this.module = module;
+    super(
+      serviceName,
+      module.container as Container,
+      module.notificationsCenter as Event,
+      module.options.helmet
+    );
   }
 
   setHelmet(options: HelmetOptions): HelmetMiddleware {

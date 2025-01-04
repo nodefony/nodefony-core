@@ -1,6 +1,6 @@
 import { Service, Module, Container, Event, inject } from "nodefony";
 import { HttpKernel } from "@nodefony/http";
-import Firewall from "./firewall";
+import { Firewall } from "../types";
 
 const serviceName: string = "authorization";
 

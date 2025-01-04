@@ -12,13 +12,13 @@ const options: OptionsCommandInterface = {
 };
 
 class Kill extends Command {
-  service?: pm2Service;
+  service?: pm2Service | null;
   constructor(cli: CliKernel) {
     super("kill", "Kill PM2 daemon", cli as CliKernel, options);
   }
 
   override async onKernelStart(): Promise<void> {
-    this.service = this.get("pm2");
+    this.service = this.get<pm2Service>("pm2");
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars

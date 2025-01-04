@@ -1,3 +1,9 @@
+import Cors from "./cors";
+import Authorization from "./authorization";
+import Csrf from "./csrf";
+import SecuredArea from "../src/securedArea";
+import Factory from "../src/Factory";
+import Provider from "../src/Provider";
 import {
   Service,
   Module,
@@ -11,50 +17,48 @@ import {
   Msgid,
 } from "nodefony";
 import {
-  //HttpKernel,
   ContextType,
   HttpContext,
   Session,
   SessionsService,
 } from "@nodefony/http";
-import Cors from "./cors";
-import Authorization from "./authorization";
-import Csrf from "./csrf";
-import SecuredArea, { optionsSecuredArea } from "../src/securedArea";
-import Factory, { optionsFactory } from "../src/Factory";
-import Provider, { optionsProvider } from "../src/Provider";
-import Helmet from "./helmet";
+import {
+  Areas,
+  Factories,
+  optionsFactory,
+  optionsSecuredArea,
+  Providers,
+  Helmet,
+} from "../types";
+import { optionsProvider } from "../types/provider.types";
 
 const serviceName: string = "firewall";
 
-type Areas = Record<string, SecuredArea>;
-type Factories = Record<string, Factory>;
-type Providers = Record<string, Provider>;
-
 class Firewall extends Service {
-  module: Module;
-  cors?: Cors;
-  helmet?: Helmet;
-  authorization?: Authorization;
-  csrf?: Csrf;
+  cors?: Cors | null;
+  helmet?: Helmet | null;
+  authorization?: Authorization | null;
+  csrf?: Csrf | null;
   securedAreas: Areas = {};
   factories: Factories = {};
   providers: Providers = {};
   constructor(
-    module: Module,
+    public module: Module,
     //@inject("HttpKernel") private httpKernel: HttpKernel,
     @inject("injector") private injector: Injector,
     @inject("sessions") private sessionService: SessionsService
   ) {
-    const container: Container = module.container as Container;
-    const event: Event = module.notificationsCenter as Event;
-    super(serviceName, container, event, module.options);
-    this.module = module;
+    super(
+      serviceName,
+      module.container as Container,
+      module.notificationsCenter as Event,
+      module.options
+    );
     this.kernel?.once("onBoot", () => {
-      this.cors = this.get("cors");
-      this.helmet = this.get("helmet");
-      this.authorization = this.get("authorization");
-      this.csrf = this.get("csrf");
+      this.cors = this.get<Cors>("cors");
+      this.helmet = this.get<Helmet>("helmet");
+      this.authorization = this.get<Authorization>("authorization");
+      this.csrf = this.get<Csrf>("csrf");
       if (this.options.firewalls) {
         for (const firewall in this.options.firewalls) {
           try {

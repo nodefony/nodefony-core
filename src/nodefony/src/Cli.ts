@@ -4,7 +4,13 @@
 /* eslint-disable max-lines-per-function */
 import path from "node:path";
 import fs from "node:fs";
-import commander, { program, Command as CommanderCommand } from "commander";
+import {
+  program,
+  Command as CommanderCommand,
+  ParseOptions,
+  HelpContext,
+  ExecutableCommandOptions,
+} from "commander";
 //import commander, { program } from '@commander-js/extra-typings';
 import {
   spawn,
@@ -449,10 +455,7 @@ class Cli extends Service {
     });
   }
 
-  public parse(
-    argv?: string[],
-    options?: commander.ParseOptions
-  ): commander.Command {
+  public parse(argv?: string[], options?: ParseOptions): CommanderCommand {
     if (this.commander) {
       return this.commander?.parse(argv, options);
     }
@@ -461,8 +464,8 @@ class Cli extends Service {
 
   public parseAsync(
     argv?: string[],
-    options?: commander.ParseOptions
-  ): Promise<commander.Command> {
+    options?: ParseOptions
+  ): Promise<CommanderCommand> {
     if (this.commander) {
       return this.commander?.parseAsync(argv, options).catch((e) => {
         throw e;
@@ -479,7 +482,7 @@ class Cli extends Service {
     }
   }
 
-  runCommand(cmd: string, args: any[] = []): commander.Command {
+  runCommand(cmd: string, args: any[] = []): CommanderCommand {
     // this.log(`Commnand : ${cmd} Arguments : ${args}`, "DEBUG", "COMMAND");
     this.clearCommand();
     if (cmd) {
@@ -488,7 +491,7 @@ class Cli extends Service {
     return this.parse(process.argv.concat(args));
   }
 
-  runCommandAsync(cmd: string, args: any[] = []): Promise<commander.Command> {
+  runCommandAsync(cmd: string, args: any[] = []): Promise<CommanderCommand> {
     //this.log(`Commnand : ${cmd} Arguments : ${args}`, "DEBUG", "COMMAND");
     this.clearCommand();
     if (cmd) {
@@ -501,14 +504,14 @@ class Cli extends Service {
     flags: string,
     description?: string,
     defaultValue?: string | boolean | string[] | undefined
-  ): commander.Command {
+  ): CommanderCommand {
     if (this.commander) {
       return this.commander.option(flags, description, defaultValue);
     }
     throw new Error(`Commender not found`);
   }
 
-  setCommandVersion(version: string): commander.Command {
+  setCommandVersion(version: string): CommanderCommand {
     if (this.commander && typeof this.commander.version === "function") {
       return this.commander.version(
         version,
@@ -522,8 +525,8 @@ class Cli extends Service {
   setCommand(
     nameAndArgs: string,
     description: string,
-    options?: commander.ExecutableCommandOptions | undefined
-  ): commander.Command {
+    options?: ExecutableCommandOptions | undefined
+  ): CommanderCommand {
     if (this.commander) {
       return this.commander.command(nameAndArgs, description, options);
     }
@@ -550,10 +553,7 @@ class Cli extends Service {
     return null;
   }
 
-  showHelp(
-    quit: boolean,
-    context: commander.HelpContext | undefined
-  ): void | never {
+  showHelp(quit: boolean, context: HelpContext | undefined): void | never {
     if (!this.commander) {
       throw new Error(`Commender not found`);
     }

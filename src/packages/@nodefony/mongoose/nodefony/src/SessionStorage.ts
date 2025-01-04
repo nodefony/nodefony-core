@@ -3,6 +3,7 @@ import { SessionsService } from "@nodefony/http";
 import mongoose, { Model } from "mongoose";
 import SessionEntity, { SessionModel, ISession } from "../entity/sessionEntity";
 import orm from "../service/orm";
+import Mongoose from "../service/orm";
 
 const finderGC = function finderGC(
   this: SessionStorage,
@@ -44,16 +45,16 @@ class SessionStorage {
   contextSessions: string[];
   entity?: Model<ISession, SessionModel>;
   userEntity?: Model<any>;
-  orm: orm;
+  orm: Mongoose | null;
   constructor(manager: SessionsService) {
     this.manager = manager;
-    this.orm = this.manager.get("mongoose");
-    this.orm.on("onOrmReady", () => {
-      this.entity = this.orm.getEntity("session") as Model<
+    this.orm = this.manager.get<Mongoose>("mongoose");
+    this.orm?.on("onOrmReady", () => {
+      this.entity = this.orm?.getEntity("session") as Model<
         ISession,
         SessionModel
       >;
-      this.userEntity = this.orm.getEntity("user") as Model<any>;
+      this.userEntity = this.orm?.getEntity("user") as Model<any>;
     });
     this.gc_maxlifetime = this.manager.options.gc_maxlifetime;
     this.contextSessions = [];

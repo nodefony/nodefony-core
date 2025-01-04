@@ -1,5 +1,5 @@
 import Cookie from "../../cookies/cookie";
-import { Message, Msgid, Severity, Syslog } from "nodefony";
+import { Message, Msgid, Pci, Severity, Syslog } from "nodefony";
 import WebsocketContext from "./WebsocketContext";
 import websocket, { ICookie } from "websocket";
 import http from "node:http";
@@ -22,12 +22,13 @@ class WebsocketResponse {
     this.connection = connection;
   }
 
-  log(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message) {
-    const syslog: Syslog = this.context?.container?.get("syslog");
+  log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message) {
+    const syslog: Syslog | null | undefined =
+      this.context?.container?.get<Syslog>("syslog");
     if (!msgid) {
       msgid = "WEBSOCKET RESPONSE";
     }
-    return syslog.log(pci, severity, msgid, msg);
+    return syslog?.log(pci, severity, msgid, msg);
   }
 
   setConnection(connection: websocket.connection) {

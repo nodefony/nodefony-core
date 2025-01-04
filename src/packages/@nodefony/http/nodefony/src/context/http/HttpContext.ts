@@ -14,6 +14,7 @@ import {
   extend,
   Container,
   typeOf,
+  Scope,
   //Service,
   //Severity,
   //Msgid,
@@ -59,17 +60,17 @@ class HttpContext extends Context {
   //isHtml: boolean = false;
   override request: HttpRequestType;
   override response: HttpRsponseType;
-  uploadService: uploadService;
+  uploadService: uploadService | null;
   //resolver: Resolver | null = null;
   csrf?: Csrf;
   constructor(
-    container: Container,
+    container: Container | Scope,
     request: http.IncomingMessage | http2.Http2ServerRequest,
     response: http.ServerResponse | http2.Http2ServerResponse,
     type: ServerType
   ) {
     super(container, type);
-    this.uploadService = this.get("upload");
+    this.uploadService = this.get<uploadService>("upload");
     if (this.type === "http2") {
       this.request = new Http2Request(
         request as http2.Http2ServerRequest,

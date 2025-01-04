@@ -11,7 +11,7 @@ const options: OptionsCommandInterface = {
 };
 
 class Prod extends Command {
-  service?: pm2Service;
+  service?: pm2Service | null;
   constructor(cli: CliKernel) {
     super(
       "production",
@@ -33,7 +33,7 @@ class Prod extends Command {
   override async onKernelStart(): Promise<void> {
     (this.cli as CliKernel).setType("SERVER");
     this.cli.environment = "production";
-    this.service = this.get("pm2");
+    this.service = this.get<pm2Service>("pm2");
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars

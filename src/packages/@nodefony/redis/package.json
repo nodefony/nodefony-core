@@ -22,19 +22,19 @@
     "redis": "4.7.0"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "26.0.1",
+    "@rollup/plugin-commonjs": "28.0.2",
     "@rollup/plugin-json": "6.1.0",
-    "@rollup/plugin-node-resolve": "15.2.3",
-    "@rollup/plugin-replace": "5.0.7",
+    "@rollup/plugin-node-resolve": "16.0.0",
+    "@rollup/plugin-replace": "6.0.2",
     "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "11.1.6",
-    "@types/node": "22.5.4",
+    "@rollup/plugin-typescript": "12.1.2",
+    "@types/node": "22.10.5",
     "@types/redis": "4.0.10",
-    "@typescript-eslint/eslint-plugin": "8.5.0",
-    "@typescript-eslint/parser": "8.5.0",
+    "@typescript-eslint/eslint-plugin": "8.19.0",
+    "@typescript-eslint/parser": "8.19.0",
     "rimraf": "6.0.1",
-    "rollup": "4.21.3",
-    "typescript": "5.6.2"
+    "rollup": "4.29.1",
+    "typescript": "5.7.2"
   },
   "peerDependencies": {},
   "repository": {

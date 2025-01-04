@@ -12,22 +12,20 @@ import {
   Pdu,
 } from "nodefony";
 
-import Firewall from "../service/firewall";
 import Cors from "../service/cors";
 import { Router } from "@nodefony/framework";
 import Factory from "../src/Factory";
 import Provider from "../src/Provider";
 import { ContextType, WebsocketContext } from "@nodefony/http";
 import { HelmetOptions } from "helmet";
-import Helmet, { HelmetMiddleware } from "../service/helmet";
 
-export type optionsSecuredArea = {
-  path: string | RegExp;
-  enabled: boolean;
-  helmet?: Record<string, any>;
-  cors?: Record<string, any>;
-  [key: string]: any;
-};
+import {
+  Firewall,
+  HelmetMiddleware,
+  Helmet,
+  optionsSecuredArea,
+} from "../types";
+
 const defaultHelmetOptions: HelmetOptions = {
   contentSecurityPolicy: {
     directives: {
@@ -65,7 +63,6 @@ const defaultoptions: optionsSecuredArea = {
 };
 
 class SecuredArea extends Service {
-  module: Module;
   factories: Factory[] = [];
   providers: Provider[] = [];
   pattern: RegExp = new RegExp(".*", "u");
@@ -73,7 +70,7 @@ class SecuredArea extends Service {
   sessionContext: string = "default";
   helmetMiddleware?: HelmetMiddleware | null;
   constructor(
-    module: Module,
+    public module: Module,
     name: string,
     options: optionsSecuredArea,
     @inject("firewall") public firewall?: Firewall,
@@ -82,11 +79,13 @@ class SecuredArea extends Service {
     @inject("router") public router?: Router,
     @inject("injector") public injector?: Injector
   ) {
-    const container: Container = module.container as Container;
-    const event: Event = module.notificationsCenter as Event;
     const opt: optionsSecuredArea = extend(true, {}, defaultoptions, options);
-    super(name, container, event, opt);
-    this.module = module;
+    super(
+      name,
+      module.container as Container,
+      module.notificationsCenter as Event,
+      opt
+    );
     this.setPattern(this.options.path);
     this.helmetMiddleware = this.setHelmet();
   }

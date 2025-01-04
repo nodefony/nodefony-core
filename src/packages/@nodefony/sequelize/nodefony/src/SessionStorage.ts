@@ -1,25 +1,18 @@
-import {
-  Sequelize,
-  DataTypes,
-  Model,
-  Transaction,
-  Op,
-  DestroyOptions,
-  ModelStatic,
-  QueryOptions,
-  QueryInterfaceIndexOptions,
-  WhereOptions,
-  FindOptions,
-} from "sequelize";
-import { Session } from "@nodefony/http";
-import sessionEntity from "../entity/sessionEntity";
-import { SessionsService } from "@nodefony/http";
-import orm, { sequelize } from "../service/orm";
+import { Session, SessionsService } from "@nodefony/http";
 import { Severity, extend } from "nodefony";
+import {
+  DestroyOptions,
+  FindOptions,
+  ModelStatic,
+  Op,
+  Transaction,
+  WhereOptions,
+} from "sequelize";
+import orm from "../service/orm";
 
 class SessionStorage {
   manager: SessionsService;
-  orm: orm;
+  orm: orm | null;
   entity: ModelStatic<any>;
   userEntity?: ModelStatic<any>;
   dialect: any;
@@ -29,10 +22,10 @@ class SessionStorage {
 
   constructor(manager: SessionsService) {
     this.manager = manager;
-    this.orm = this.manager.get("sequelize");
+    this.orm = this.manager.get<orm>("sequelize");
     this.entity = {} as ModelStatic<any>;
-    this.orm.once("onOrmReady", () => {
-      this.entity = this.orm.getEntity(
+    this.orm?.once("onOrmReady", () => {
+      this.entity = this.orm?.getEntity(
         "session"
       ) as unknown as ModelStatic<any>;
       if (!this.entity) {
@@ -44,7 +37,7 @@ class SessionStorage {
       if (this.applyTransaction === true) {
         this.applyTransaction = this.dialect !== "sqlite";
       }
-      this.userEntity = this.orm.getEntity(
+      this.userEntity = this.orm?.getEntity(
         "user"
       ) as unknown as ModelStatic<any>;
     });

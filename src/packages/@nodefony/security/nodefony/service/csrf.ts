@@ -1,7 +1,7 @@
 import { Service, Module, Container, Event, inject } from "nodefony";
 import { HttpKernel, HttpContext } from "@nodefony/http";
-import Firewall from "./firewall";
 import Tokens from "csrf";
+import { Firewall } from "../types";
 
 class Csrf {
   engine: Tokens;

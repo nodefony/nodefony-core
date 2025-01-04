@@ -10,6 +10,7 @@ import {
   //EnvironmentType,
   //DebugType,
   extend,
+  Scope,
 } from "nodefony";
 import { Resolver, Router } from "@nodefony/framework";
 import websocket from "websocket";
@@ -36,6 +37,11 @@ import Session from "../session/session";
 import Cookie, { cookiesParser } from "../cookies/cookie";
 import HttpError from "../errors/httpError";
 import { SecuredArea } from "@nodefony/security";
+import ServerHttp from "../../service/servers/server-http";
+import ServerHttps from "../../service/servers/server-https";
+import Websocket from "../../service/servers/server-websocket";
+import WebsocketSecure from "../../service/servers/server-websocket-secure";
+
 const colorLogEvent = clc.cyan.bgBlack("EVENT CONTEXT");
 
 export type WebSocketState =
@@ -89,7 +95,8 @@ class Context extends Service {
     | websocket.server
     | http.Server
     | https.Server
-    | http2.Http2SecureServer;
+    | http2.Http2SecureServer
+    | null;
   httpKernel: HttpKernel | null;
   request: contextRequest | null = null;
   response: contextResponse | null = null;
@@ -99,7 +106,7 @@ class Context extends Service {
   originUrl: URL | undefined | null = null;
   cookies: Cookies = {};
   error: Error | HttpError | nodefonyError | null | undefined = null;
-  sessionService?: SessionsService;
+  sessionService?: SessionsService | null;
   session: Session | null | undefined = null;
   cookieSession: Cookie | null | undefined = null;
   user: any = null;
@@ -116,37 +123,45 @@ class Context extends Service {
   };
   scheme: SchemeType;
   webSocketState: WebSocketState = null;
-  constructor(container: Container, type: ServerType) {
+  constructor(container: Container | Scope, type: ServerType) {
     super(`${type}`, container);
     this.type = type;
     this.set("context", this);
     this.httpKernel = this.get("HttpKernel");
-    this.sessionService = this.get("sessions");
+    this.sessionService = this.get<SessionsService>("sessions");
     this.setMetaData();
     this.scheme = "https";
     switch (this.type) {
-      case "http":
+      case "http": {
         this.scheme = "http";
-        this.server = this.get("server-http").server as http.Server;
+        const server = this.get<ServerHttp>("server-http");
+        this.server = server?.server as http.Server;
         break;
+      }
       case "http2":
-      case "https":
+      case "https": {
         this.scheme = "https";
-        this.server = this.get("server-https").server as https.Server;
+        const server = this.get<ServerHttps>("server-https");
+        this.server = server?.server as https.Server;
         break;
-      case "http3":
+      }
+      case "http3": {
         this.scheme = "https";
-        this.server = this.get("server-http3").server;
+        this.server = this.get<any>("server-http3").server;
         break;
-      case "websocket":
+      }
+      case "websocket": {
         this.scheme = "ws";
-        this.server = this.get("server-websocket").server as websocket.server;
+        const server = this.get<Websocket>("server-websocket");
+        this.server = server?.server as websocket.server;
         break;
-      case "websocket-secure":
+      }
+      case "websocket-secure": {
         this.scheme = "wss";
-        this.server = this.get("server-websocket-secure")
-          .server as websocket.server;
+        const server = this.get<WebsocketSecure>("server-websocket-secure");
+        this.server = server?.server as websocket.server;
         break;
+      }
     }
     // this.container?.addScope("subRequest");
     // this.once("onRequest", () => {

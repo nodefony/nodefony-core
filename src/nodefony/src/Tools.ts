@@ -29,12 +29,8 @@ const isUndefined = (value: any): boolean => {
   return value === undefined;
 };
 
-const isEmptyObject = (obj: any): boolean => {
-  let name;
-  for (name in obj) {
-    return false;
-  }
-  return true;
+const isEmptyObject = (obj: object | null | undefined): boolean => {
+  return !!obj && Object.keys(obj).length === 0;
 };
 
 const extend = (...args: any[]) => {

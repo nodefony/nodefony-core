@@ -1,20 +1,20 @@
 import { Service, Module, Container, Event, inject } from "nodefony";
 import { HttpContext, HttpKernel } from "@nodefony/http";
-import Firewall from "./firewall";
+import { Firewall } from "../types";
 
 const serviceName: string = "cors";
-
 class Cors extends Service {
-  module: Module;
   constructor(
-    module: Module,
+    public module: Module,
     @inject("HttpKernel") public httpKernel: HttpKernel,
     @inject("firewall") public firewall: Firewall
   ) {
-    const container: Container = module.container as Container;
-    const event: Event = module.notificationsCenter as Event;
-    super(serviceName, container, event, module.options.cors);
-    this.module = module;
+    super(
+      serviceName,
+      module.container as Container,
+      module.notificationsCenter as Event,
+      module.options.cors
+    );
   }
 
   async handle(context: HttpContext): Promise<HttpContext> {

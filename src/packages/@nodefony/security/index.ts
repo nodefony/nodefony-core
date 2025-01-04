@@ -1,7 +1,7 @@
 import { Kernel, Module, services } from "nodefony";
 import config from "./nodefony/config/config";
 import Firewall from "./nodefony/service/firewall";
-import SecuredArea, { optionsSecuredArea } from "./nodefony/src/securedArea";
+import SecuredArea from "./nodefony/src/securedArea";
 import Authorization from "./nodefony/service/authorization";
 import Cors from "./nodefony/service/cors";
 import CsrfService, { Csrf } from "./nodefony/service/csrf";
@@ -44,6 +44,7 @@ export {
   Csrf,
   Helmet,
   SecuredArea,
-  optionsSecuredArea,
   HelmetOptions,
 };
+
+export type * from "./nodefony/types";

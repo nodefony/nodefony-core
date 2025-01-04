@@ -30,8 +30,6 @@ import {
 } from "@nodefony/http";
 
 //import { runInThisContext } from "node:vm";
-import ejs from "../service/Ejs";
-import twig from "../service/Twig";
 import {
   //IncomingMessage,
   //ServerResponse,
@@ -40,6 +38,8 @@ import {
 //import { ServerHttp2Stream } from "node:http2";
 import fs, { createReadStream, ReadStream } from "node:fs";
 import { promisify } from "util";
+import Twig from "../service/Twig";
+import Ejs from "../service/Ejs";
 const fsClose = promisify(fs.close);
 
 interface ReadStreamWithFD extends ReadStream {
@@ -74,8 +74,8 @@ class Controller extends Service {
   queryPost: Record<string, any> = {};
   //metaData: Data;
   module?: Module;
-  twig: twig;
-  ejs: ejs;
+  twig?: Twig | null;
+  ejs?: Ejs | null;
   constructor(
     name: string,
     context: ContextType
@@ -86,8 +86,8 @@ class Controller extends Service {
       context.container as Container,
       context.notificationsCenter as Event
     );
-    this.twig = this.get("twig");
-    this.ejs = this.get("ejs");
+    this.twig = this.get<Twig>("twig");
+    this.ejs = this.get<Ejs>("ejs");
     this.setContext(context);
   }
 
@@ -176,7 +176,7 @@ class Controller extends Service {
     status?: string | number,
     headers?: Record<string, string | number>
   ): Promise<Http2Response | HttpResponse | WebsocketResponse> {
-    let data: string;
+    let data: string | undefined;
     try {
       let file = null;
       if (path instanceof FileClass) {
@@ -184,7 +184,7 @@ class Controller extends Service {
       } else {
         file = new FileClass(path);
       }
-      data = await this.ejs.render((await file.readAsync()).toString(), param);
+      data = await this.ejs?.render((await file.readAsync()).toString(), param);
       this.setContextHtml();
       return this.renderResponse(data, "utf8", status, headers);
     } catch (e) {
@@ -200,7 +200,7 @@ class Controller extends Service {
     headers?: Record<string, string | number>
   ): Promise<Http2Response | HttpResponse | WebsocketResponse> {
     // "app:ejs:index"
-    let data: string;
+    let data: string | undefined;
     try {
       let file = null;
       if (path instanceof FileClass) {
@@ -240,7 +240,10 @@ class Controller extends Service {
   }
 
   startSession(sessionContext?: string) {
-    const sessionService: SessionsService = this.get("sessions");
+    const sessionService = this.get<SessionsService>("sessions");
+    if (!sessionService) {
+      throw new Error(`Servcei session not defined`);
+    }
     // is subRequest
     // if (this.context.parent) {
     //   return this.getSession();

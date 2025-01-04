@@ -31,7 +31,7 @@ export interface ControllerWithInitialize {
 }
 
 class Resolver extends Service {
-  injector: Injector;
+  injector?: Injector | null;
   controller: ControllerConstructor | null = null;
   actionName?: string;
   action?: Function;
@@ -49,7 +49,7 @@ class Resolver extends Service {
       context.notificationsCenter as Event
     );
     this.context = context;
-    this.injector = this.get("injector");
+    this.injector = this.get<Injector>("injector");
   }
 
   match(route: Route, context: ContextType) {
@@ -121,7 +121,7 @@ class Resolver extends Service {
 
   async newController(context?: ContextType): Promise<Controller> {
     if (this.controller) {
-      const controller = this.injector.instantiate(
+      const controller = this.injector?.instantiate(
         this.controller,
         context || this.context
       );

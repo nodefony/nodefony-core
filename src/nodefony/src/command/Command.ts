@@ -1,15 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Service, { DefaultOptionsService } from "../Service";
-import Container from "../Container";
+import Container, { Scope } from "../Container";
 //import Event from "../Event";
 import { Severity, Msgid, Message } from "../syslog/Pdu";
 import Cli from "../Cli";
 import CliKernel from "../kernel/CliKernel";
-import commander, {
+import {
   Command as Cmd,
   program,
   Option,
   Argument,
+  ParseOptions,
 } from "commander";
 import Builder from "./Builder";
 import * as prompts from "@inquirer/prompts";
@@ -134,7 +135,7 @@ class Command extends Service {
     cli: Cli | CliKernel,
     options?: OptionsCommandInterface
   ) {
-    const container: undefined | Container | null = cli.container;
+    const container: Scope | Container | null | undefined = cli.container;
     //const notificationsCenter = cli?.notificationsCenter;
     const myoptions: OptionsCommandInterface = extend(
       {},
@@ -300,16 +301,13 @@ class Command extends Service {
    * @returns {Cmd} Instance de la classe Commander.
    * @throws {Error} Lance une erreur si Commander n'est pas prêt.
    */
-  public parse(argv?: string[], options?: commander.ParseOptions): Cmd {
+  public parse(argv?: string[], options?: ParseOptions): Cmd {
     if (this.program) {
       return this.program?.parse(argv, options);
     }
     throw new Error(`program not found`);
   }
-  public parseAsync(
-    argv?: string[],
-    options?: commander.ParseOptions
-  ): Promise<Cmd> {
+  public parseAsync(argv?: string[], options?: ParseOptions): Promise<Cmd> {
     if (this.program) {
       return this.program?.parseAsync(argv, options);
     }

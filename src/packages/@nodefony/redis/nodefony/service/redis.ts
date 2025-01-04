@@ -1,14 +1,12 @@
-import { resolve } from "node:path";
 import nodefony, {
-  Nodefony,
-  Service,
-  Module,
   Container,
-  Error as nodefonyError,
-  Severity,
-  Msgid,
-  Message,
   extend,
+  Message,
+  Module,
+  Msgid,
+  Pci,
+  Service,
+  Severity,
 } from "nodefony";
 import redis from "redis";
 import Connection from "../src/Connection";
@@ -35,7 +33,7 @@ class Redis extends Service {
     );
   }
 
-  log(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message) {
+  log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message) {
     if (!msgid) {
       // eslint-disable-next-line no-param-reassign
       msgid = `\x1b[36mREDIS SERVICE ${this.name} \x1b[0m`;

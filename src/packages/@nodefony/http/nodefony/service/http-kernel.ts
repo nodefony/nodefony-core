@@ -107,10 +107,10 @@ class HttpKernel extends Service {
     ws: number;
     wss: number;
   };
-  sessionService?: SessionsService;
+  sessionService?: SessionsService | null;
   sessionAutoStart: boolean | string = false;
-  router?: Router;
-  firewall?: Firewall;
+  router?: Router | null;
+  firewall?: Firewall | null;
   constructor(module: Module) {
     super(
       serviceName,
@@ -139,12 +139,12 @@ class HttpKernel extends Service {
       this.domain = this.kernel?.domain as string;
       this.domainAlias = this.kernel?.options?.domainAlias;
       this.regAlias = this.compileAlias();
-      this.sessionService = this.get("sessions");
+      this.sessionService = this.get<SessionsService>("sessions");
       this.sessionAutoStart = this.sessionService?.sessionAutoStart as boolean;
     });
     this.kernel?.prependOnceListener("onBoot", () => {
-      this.router = this.get("router");
-      this.firewall = this.get("firewall");
+      this.router = this.get<Router>("router");
+      this.firewall = this.get<Firewall>("firewall");
     });
     return this;
   }
@@ -431,22 +431,22 @@ class HttpKernel extends Service {
 
   async initServers(): Promise<any[]> {
     let servers = [];
-    const serverHttp: httpServer = this.get("server-http");
+    const serverHttp = this.get<httpServer>("server-http");
     if (serverHttp) {
       await serverHttp.createServer();
       servers.push(serverHttp);
     }
-    const serverHttps: httpsServer = this.get("server-https");
+    const serverHttps = this.get<httpsServer>("server-https");
     if (serverHttps) {
       await serverHttps.createServer();
       servers.push(serverHttps);
     }
-    const serverWebsocket: websocketServer = this.get("server-websocket");
+    const serverWebsocket = this.get<websocketServer>("server-websocket");
     if (serverWebsocket && serverHttp) {
       await serverWebsocket.createServer(serverHttp);
       servers.push(serverWebsocket);
     }
-    const serverWebsocketSecure: websocketSecureServer = this.get(
+    const serverWebsocketSecure = this.get<websocketSecureServer>(
       "server-websocket-secure"
     );
     if (serverWebsocketSecure && serverHttps) {

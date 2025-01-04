@@ -37,7 +37,7 @@ const prompt = (cmd: Command): PromptObject => {
 };
 
 class Pm2 extends Command {
-  service?: pm2Service;
+  service?: pm2Service | null;
   constructor(cli: CliKernel) {
     super(
       "pm2",
@@ -69,7 +69,7 @@ $ npx pm2 --lines 1000 logs
   }
 
   override async onKernelStart(): Promise<void> {
-    this.service = this.get("pm2");
+    this.service = this.get<pm2Service>("pm2");
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars

@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { DebugType, EnvironmentType } from "./types/globals";
-import Container, { DynamicParam } from "./Container";
+import Container, { DynamicParam, Scope } from "./Container";
 import Kernel from "./kernel/Kernel";
 import Event, { EventDefaultInterface } from "./Event";
-import Pdu, { Severity, Msgid, Message } from "./syslog/Pdu";
+import Pdu, { Severity, Msgid, Message, Pci } from "./syslog/Pdu";
 
 import Syslog, {
   SyslogDefaultSettings,
@@ -32,15 +32,15 @@ const settingsSyslog: SyslogDefaultSettings = {
 class Service {
   public name: string;
   public options: DefaultOptionsService;
-  public container: Container | null | undefined;
-  public kernel: Kernel | null;
-  public syslog: Syslog | null;
+  public container?: Container | Scope | null;
+  public kernel?: Kernel | null;
+  public syslog?: Syslog | null;
   private settingsSyslog: SyslogDefaultSettings | null;
   public notificationsCenter: Event | undefined | boolean | null;
 
   constructor(
     name: string,
-    container?: Container,
+    container?: Container | Scope,
     notificationsCenter?: Event | false | null,
     options: DefaultOptionsService = {}
   ) {
@@ -51,8 +51,8 @@ class Service {
       notificationsCenter === false
         ? { ...options }
         : { ...defaultOptions, ...options };
-    this.kernel = this.container.get("kernel");
-    this.syslog = this.container.get("syslog") || null;
+    this.kernel = this.container?.get<Kernel | null>("kernel");
+    this.syslog = this.container?.get<Syslog | null>("syslog") || null;
 
     if (!this.syslog) {
       this.settingsSyslog = {
@@ -116,7 +116,7 @@ class Service {
     this.kernel = null;
   }
 
-  log(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
+  log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
     try {
       if (!msgid) {
         msgid = this.name;
@@ -335,11 +335,14 @@ class Service {
     throw new Error(`notificationsCenter not initialized`);
   }
 
-  get(name: string) {
-    return this.container?.get(name);
+  get<T>(name: string): T | null {
+    if (this.container) {
+      return this.container?.get(name);
+    }
+    return null;
   }
 
-  set(name: string, obj: any) {
+  set<T>(name: string, obj: T): void {
     return this.container?.set(name, obj);
   }
 

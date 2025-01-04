@@ -21,7 +21,7 @@ import { AddressInfo } from "node:net";
 import https from "node:https";
 import httpsServers from "./server-https";
 
-class Websocket extends Service {
+class WebsocketSecure extends Service {
   module: Module;
   ready: boolean = false;
   server: websocket.server | null = null;
@@ -187,4 +187,4 @@ class Websocket extends Service {
   }
 }
 
-export default Websocket;
+export default WebsocketSecure;

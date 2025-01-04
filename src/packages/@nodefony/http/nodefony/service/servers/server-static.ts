@@ -13,7 +13,7 @@ import nodefony, {
   Service,
   //Kernel,
   //Container,
-  //Event,
+  Event,
   extend,
   Module,
   //FamilyType,
@@ -41,9 +41,9 @@ class Statics extends Service {
     const container = module.container || undefined;
     const options: serveStatic.ServeStaticOptions =
       module.options.statics || {};
-    let event;
+    let event: Event | null | false | undefined;
     if (container) {
-      event = container.get("notificationsCenter");
+      event = container.get<Event>("notificationsCenter");
     }
     super("server-static", container, event, options);
     this.module = module;

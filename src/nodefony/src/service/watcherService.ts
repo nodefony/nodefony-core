@@ -4,7 +4,7 @@ import Service from "../Service";
 import Kernel from "../kernel/Kernel";
 import Module from "../kernel/Module";
 import { extend } from "../Tools";
-import chokidar, { WatchOptions /*FSWatcher*/ } from "chokidar";
+import chokidar, { ChokidarOptions } from "chokidar";
 import serviceRollup from "./rollup/rollupService";
 import {
   //rollup,
@@ -15,7 +15,7 @@ import {
   RollupWatcher,
 } from "rollup";
 
-const defaultWatcherSettings: WatchOptions = {
+const defaultWatcherSettings: ChokidarOptions = {
   persistent: true,
   followSymlinks: true,
   alwaysStat: false,
@@ -31,9 +31,9 @@ const defaultWatcherSettings: WatchOptions = {
 
 class Watcher extends Service {
   chokidar: typeof chokidar = chokidar;
-  override options: WatchOptions;
+  override options: ChokidarOptions;
   cache?: [OutputChunk, ...(OutputChunk | OutputAsset)[]];
-  constructor(kernel: Kernel, options?: WatchOptions) {
+  constructor(kernel: Kernel, options?: ChokidarOptions) {
     super("watcher", kernel.container as Container);
     this.options = extend(true, {}, defaultWatcherSettings, options);
   }
@@ -42,12 +42,15 @@ class Watcher extends Service {
     module: Module,
     options: RollupOptions
   ): Promise<RollupWatcher> {
-    // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve, reject) => {
       try {
-        const service: serviceRollup = this.get("rollup");
-        const rlwatcher: RollupWatcher = await service.watch(module, options);
-        return resolve(rlwatcher);
+        const service = this.get<serviceRollup>("rollup");
+        if (service) {
+          const rlwatcher: RollupWatcher = await service.watch(module, options);
+          return resolve(rlwatcher);
+        }
+        throw new Error("service Rollup not defined");
+
         //const { ts, output } = await service.prepareWatch(options);
         //console.log(output);
         // const watcher = this.chokidar.watch(ts, this.options);

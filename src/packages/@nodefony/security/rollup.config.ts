@@ -38,6 +38,7 @@ const external: string[] = [
   "passport-local",
   "passport-oauth2",
   "tslib",
+  "helmet",
 ];
 
 const sharedNodeOptions = defineConfig({

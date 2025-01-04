@@ -1,16 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { v4 as uuidv4 } from "uuid";
 import { extend, isPlainObject } from "./Tools";
+import { Message, Msgid, Pci, Severity, Syslog } from "nodefony";
 
-const generateId = function (): string {
-  return uuidv4();
-};
-
-const ISDefined = function (ele: any): boolean {
-  if (ele !== null && ele !== undefined) {
-    return true;
-  }
-  return false;
+const ISDefined = function (ele: unknown): boolean {
+  return ele !== null && ele !== undefined;
 };
 
 const parseParameterString = function (
@@ -84,24 +78,37 @@ class Container {
   protected id: string;
   private scopes: Scopes = {};
 
-  constructor(services: DynamicService = {}, parameters: DynamicParam = {}) {
-    this.id = generateId();
-    this.services = Object.create(this.protoService.prototype);
-    this.parameters = Object.create(this.protoParameters.prototype);
-    if (services && typeof services === "object") {
+  constructor(input?: Container) {
+    this.id = uuidv4();
+    if (input && input instanceof Container) {
+      this.services = Object.create(input.protoService.prototype);
+      this.parameters = Object.create(input.protoParameters.prototype);
+      this.setServices(input.services || {});
+      this.setParametersBulk(input.parameters || {});
+    } else {
+      this.services = Object.create(this.protoService.prototype);
+      this.parameters = Object.create(this.protoParameters.prototype);
+    }
+  }
+
+  private setServices(services: Record<string, any>): void {
+    if (typeof services === "object") {
       for (const service in services) {
         this.set(service, services[service]);
       }
     }
-    if (parameters && typeof parameters === "object") {
+  }
+
+  private setParametersBulk(parameters: Record<string, any>): void {
+    if (typeof parameters === "object") {
       for (const parameter in parameters) {
         this.setParameters(parameter, parameters[parameter]);
       }
     }
   }
 
-  public log(pci: any, severity?: any, msgid?: any, msg?: any) {
-    const syslog = this.get("syslog");
+  public log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message) {
+    const syslog: Syslog | null = this.get("syslog");
     if (!syslog) {
       console.log(pci);
       return;
@@ -112,7 +119,7 @@ class Container {
     return syslog.log(pci, severity, msgid, msg);
   }
 
-  public set(name: string, object: any) {
+  public set<T>(name: string, object: T): void {
     if (this.services && name) {
       // Ajouter la propriété au prototype de protoService spécifique à cette instance
       this.protoService.prototype[name] = object;
@@ -123,7 +130,7 @@ class Container {
     }
   }
 
-  public get(name: string): any {
+  public get<T = unknown>(name: string): T | null {
     if (this.services && name in this.services) {
       return this.services[name];
     }
@@ -240,7 +247,7 @@ class Container {
  */
 class Scope extends Container {
   public name: string;
-  private parent: any;
+  private parent: Container | null;
 
   constructor(name: string, parent: Container) {
     super();
@@ -256,14 +263,14 @@ class Scope extends Container {
     deep: boolean = true
   ): DynamicParam | null {
     const res = parseParameterString.call(this.parameters, name);
-    const obj = this.parent.getParameters(name);
+    const obj = this.parent?.getParameters(name);
     if (ISDefined(res)) {
       if (merge && isPlainObject(obj) && isPlainObject(res)) {
         return extend(deep, obj, res);
       }
       return res;
     }
-    return obj;
+    return obj || null;
   }
 
   public override clean(): void {

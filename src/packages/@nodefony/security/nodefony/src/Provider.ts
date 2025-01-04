@@ -1,7 +1,6 @@
 import { Service, Container, Event, inject } from "nodefony";
-import Firewall from "../service/firewall";
-
-export type optionsProvider = Record<string, any>;
+import { Firewall } from "../types";
+import { optionsProvider } from "../types/provider.types";
 
 class Provider extends Service {
   constructor(

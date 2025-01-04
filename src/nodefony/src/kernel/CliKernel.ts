@@ -16,7 +16,7 @@ import Pm2 from "./commands/pm2/Pm2Command";
 import Kill from "./commands/KillCommnand";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
-import commander from "commander";
+import { HelpContext, Command as commanderCommand } from "commander";
 import { version } from "../../package.json";
 
 type ModuleWithDefault<T> = {
@@ -67,15 +67,15 @@ class CliKernel extends Cli {
 
   override showHelp(
     quit: boolean,
-    context: commander.HelpContext | undefined
+    context: HelpContext | undefined
   ): void | never {
     super.showHelp(quit, context);
   }
 
-  parseCommand(argv?: string[]): commander.Command {
+  parseCommand(argv?: string[]): commanderCommand {
     return this.parse(argv || process.argv);
   }
-  parseCommandAsync(argv?: string[]): Promise<commander.Command> {
+  parseCommandAsync(argv?: string[]): Promise<commanderCommand> {
     return this.parseAsync(argv || process.argv);
   }
 

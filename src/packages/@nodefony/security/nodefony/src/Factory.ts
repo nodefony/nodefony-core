@@ -1,7 +1,6 @@
 import { Service, Container, Event, inject } from "nodefony";
-import Firewall from "../service/firewall";
-
-export type optionsFactory = Record<string, any>;
+import { optionsFactory } from "../types/factory.types";
+import { Firewall } from "../types/firewall.types";
 
 class Factory extends Service {
   constructor(

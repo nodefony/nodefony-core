@@ -336,12 +336,15 @@ class HttpRequest {
           file.newFilename
       );
     }
-    const fileUpload = this.context.uploadService.createUploadFile(
+    const fileUpload = this.context.uploadService?.createUploadFile(
       file as formidable.File,
       name
     );
     /*const index =*/
-    this.queryFile.push(fileUpload);
+    if (fileUpload) {
+      this.queryFile.push(fileUpload);
+    }
+
     //this.queryFile[fileUpload.filename] = this.queryFile[index - 1];
     return fileUpload;
   }
