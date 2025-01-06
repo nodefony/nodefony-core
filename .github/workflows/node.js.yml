@@ -27,8 +27,18 @@ jobs:
           cache: "npm"
       - run: npm ci --force
       - run: npm run build --if-present
-      - run: npm run  nodefony -- sequelize sync
-      - run: ./src/nodefony/bin/nodefony prod
+      - name: List installed packages
+        run: npm ls
+      - name: List available binaries
+        run: ls -l node_modules/.bin
+      - name: Link nodefony package
+        run: |
+          cd src/nodefony
+          npm link
+          cd ../../
+          npm link nodefony
+      - run: npx nodefony sequelize sync
+      - run: npx nodefony prod
       - run: sleep 10
       - run: npm test
 
@@ -49,8 +59,14 @@ jobs:
           cache: "npm"
       - run: npm ci --force
       - run: npm run build --if-present
-      - run: npm run  nodefony -- sequelize sync
-      - run: ./src/nodefony/bin/nodefony prod
+      - name: Link nodefony package
+        run: |
+          cd src/nodefony
+          npm link
+          cd ../../
+          npm link nodefony
+      - run: npx nodefony sequelize sync
+      - run: npx nodefony prod
       - run: sleep 10
       - run: npm test
 
@@ -72,7 +88,13 @@ jobs:
       - run: npm cache clean --force
       - run: npm ci --force
       - run: npm run build --if-present
-      - run: npm run  nodefony -- sequelize sync
-      - run: ./src/nodefony/bin/nodefony prod
+      - name: Link nodefony package
+        run: |
+          cd src/nodefony
+          npm link
+          cd ../../
+          npm link nodefony
+      - run: npx nodefony sequelize sync
+      - run: npx nodefony prod
       - run: sleep 10
       - run: npm test
