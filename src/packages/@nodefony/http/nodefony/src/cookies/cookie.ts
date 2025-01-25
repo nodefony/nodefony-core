@@ -1,5 +1,5 @@
 import cookieLib from "cookie";
-import MS from "ms";
+import MS, { StringValue } from "ms";
 import { extend } from "nodefony";
 const encode = encodeURIComponent;
 const decode = decodeURIComponent;
@@ -259,21 +259,12 @@ class Cookie {
     return this.expires;
   }
 
-  setOriginalMaxAge(ms: number | string): number {
-    let res = null;
-    switch (typeof ms) {
-      case "number":
-        return ms;
-      case "string":
-        try {
-          res = MS(ms) / 1000;
-        } catch (e) {
-          res = ms;
-        }
-        return parseInt(res as string, 10);
-      default:
-        throw new Error(`cookie class error maxage bad type ${typeof ms}`);
+  setOriginalMaxAge(ms: number | StringValue): number {
+    if (typeof ms === "number") {
+      return ms;
     }
+    const converted = ms as StringValue;
+    return MS(converted) / 1000;
   }
 
   setPriority(val: PriorityType): PriorityType {
