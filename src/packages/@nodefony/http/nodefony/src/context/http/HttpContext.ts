@@ -175,8 +175,10 @@ class HttpContext extends Context {
   setTimeout(): void {
     if (this.response.response) {
       this.response.response.setTimeout(this.response.timeout as number, () => {
-        this.timeoutExpired = true;
-        this.fire("onTimeout", this);
+        if (!this.response?.response?.writableEnded) {
+          this.timeoutExpired = true;
+          this.fire("onTimeout", this);
+        }
       });
     }
   }

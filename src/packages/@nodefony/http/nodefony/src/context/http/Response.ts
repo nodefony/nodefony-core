@@ -403,6 +403,7 @@ class HttpResponse {
           //this.context.displayDebugBar();
         }
         if (this.response) {
+          console.log("sends");
           return (this.response as http.ServerResponse).write(
             this.body,
             encoding || this.encoding,
@@ -437,6 +438,7 @@ class HttpResponse {
     return new Promise((resolve, reject) => {
       if (this.response) {
         this.ended = true;
+        console.log("paasasa");
         return resolve(
           (this.response as http.ServerResponse).end(
             chunk,

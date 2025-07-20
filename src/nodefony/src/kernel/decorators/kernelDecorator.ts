@@ -146,7 +146,6 @@ function injectable(
  *    }
  *  }
  */
-// eslint-disable-next-line @typescript-eslint/ban-types
 function inject(serviceName: string): Function {
   return function (
     target: any,
