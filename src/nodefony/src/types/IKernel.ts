@@ -1,4 +1,5 @@
 import type { IService } from "./IService";
+import type { IModule } from "./IModule";
 import type { EnvironmentType, DebugType } from "./globals";
 import type os from "node:os";
 
@@ -67,18 +68,18 @@ export interface IKernel extends IService {
   // Typé object | null pour éviter l'import circulaire vers CliKernel.ts
   cli: object | null;
 
-  // ─── Modules (typés loosely jusqu'à la création de IModule) ───────────────
-  readonly modules: Record<string, object>;
+  // ─── Modules ───────────────────────────────────────────────────────────────
+  readonly modules: Record<string, IModule>;
 
   // ─── Méthodes publiques ────────────────────────────────────────────────────
   start(): Promise<this>;
   terminate(code?: number): Promise<this>;
   isTrunk(): Promise<TrunkType>;
   isModule(subclass: unknown): boolean;
-  addModule(Mod: unknown, ...args: unknown[]): Promise<object>;
-  loadModule(nameOrPath: string, build?: boolean): Promise<object>;
-  getModule(name: string): object;
-  getModules(): Record<string, object>;
+  addModule(Mod: unknown, ...args: unknown[]): Promise<IModule>;
+  loadModule(nameOrPath: string, build?: boolean): Promise<IModule>;
+  getModule(name: string): IModule;
+  getModules(): Record<string, IModule>;
   getNetwork(): KernelNetworkResult;
   checkPath(myPath: string): string | null;
   isCommandComplete(progress: number): boolean;

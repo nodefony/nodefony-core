@@ -222,14 +222,15 @@ _Dépend de : Kernel, HTTP_
 | 2026-05-11 | ISyslog + Syslog | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts` | ~2h | 85 tests ✅ — `Pci=unknown`, `Function` → types propres, `implements ISyslog` |
 | 2026-05-11 | Syslog perf | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts` | ~1h | 85 tests ✅ — `CircularBuffer` O(1), `Date.now()`, `severityNameMap`, `fastTypeOf`, no lodash |
 | 2026-05-11 | IKernel complet | `IKernel.ts`, `IService.ts`, `Service.ts`, `Kernel.ts`, `CliKernel.ts`, commands | ~2h | 111 tests ✅ — `Kernel implements IKernel`, `IService.kernel: IKernel\|null`, `KernelNetworkResult`, casts Module/CliKernel |
+| 2026-05-11 | IModule complet | `IModule.ts`, `IKernel.ts`, `Module.ts`, commands | ~1h | 85 core ✅ — `Module implements IModule`, `PackageJson` migré vers types, casts `as Module` éliminés dans commands |
 
 ---
 
 ## Prochaine session
 
-**Module cible** : IModule — `Module.ts implements IModule`
-**Pré-requis** : `IService` ✅ — `IKernel` ✅
+**Module cible** : IController — `Controller.ts implements IController` (framework package)
+**Pré-requis** : `IService` ✅ — `IKernel` ✅ — `IModule` ✅
 **Blockers connus** :
-- `getModule()` retourne `object` → doit retourner `IModule` après création de l'interface
-- `cli: object | null` dans IKernel → `ICliKernel | null` nécessite ICliKernel
-**Fichiers à lire** : `src/nodefony/src/kernel/Module.ts`, `src/nodefony/src/types/IKernel.ts`
+- `cli: object | null` dans IKernel → `ICliKernel | null` (session dédiée)
+- `getController()` retourne `unknown` dans IModule → sera `IController` après cette session
+**Fichiers à lire** : `src/packages/@nodefony/framework/nodefony/src/Controller.ts`, `src/nodefony/src/types/`

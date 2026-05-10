@@ -6,6 +6,9 @@ import Kernel, {
   ServiceWithInitialize,
   EntityConstructor,
 } from "./Kernel";
+import type { IModule, PackageJson } from "../types/IModule";
+export type { PackageJson } from "../types/IModule";
+import type { IKernel } from "../types/IKernel";
 import { JSONObject } from "../types/globals";
 import Service, { DefaultOptionsService } from "../Service";
 import Command from "../command/Command";
@@ -33,33 +36,11 @@ import {
 import { FSWatcher } from "chokidar";
 import { createRequire } from "node:module";
 import Entity from "./orm/Entity";
-
-export interface PackageJson {
-  name: string;
-  version: string;
-  description?: string;
-  main?: string;
-  module?: string;
-  types?: string;
-  scripts?: Record<string, string>;
-  repository?: {
-    type: string;
-    url: string;
-  };
-  keywords?: string[];
-  author?: string;
-  license?: string;
-  dependencies?: Record<string, string>;
-  devDependencies?: Record<string, string>;
-  peerDependencies?: Record<string, string>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
-}
 import { Controller } from "@nodefony/framework";
 export type TypeController<T> = new (...args: any[]) => T;
 const controllers: Record<string, TypeController<Controller>> = {};
 
-class Module extends Service {
+class Module extends Service implements IModule {
   commands: Record<string, Command> = {};
   static controllers = controllers;
   package?: PackageJson;
@@ -71,7 +52,7 @@ class Module extends Service {
   public onKernelRegister?(): Promise<this>;
   public onKernelBoot?(): Promise<this>;
   public onKernelReady?(): Promise<this>;
-  public initialize?(kernel?: Kernel): Promise<this>;
+  public initialize?(kernel?: IKernel): Promise<this>;
   constructor(
     name: string,
     kernel: Kernel,

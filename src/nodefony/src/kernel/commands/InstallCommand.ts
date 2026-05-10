@@ -1,6 +1,5 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-import Module from "../Module";
 
 const optionsCommand: OptionsCommandInterface = {
   showBanner: false,
@@ -22,7 +21,7 @@ class Install extends Command {
     const modules = this.kernel?.getModules();
     if (modules) {
       for (const moduleName in modules) {
-        const module = modules[moduleName] as Module;
+        const module = modules[moduleName];
         await module.install(options?.force);
       }
     }
