@@ -1,24 +1,13 @@
-/* eslint-disable @typescript-eslint/ban-types */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { DebugType, EnvironmentType } from "./types/globals";
-import Container, { DynamicParam, Scope } from "./Container";
+import { IService, DefaultOptionsService, EventListener } from "./types/IService";
+import type { IKernel } from "./types/IKernel";
+import Container, { DynamicParam } from "./Container";
 import Kernel from "./kernel/Kernel";
 import Event, { EventDefaultInterface } from "./Event";
 import Pdu, { Severity, Msgid, Message, Pci } from "./syslog/Pdu";
+import Syslog, { SyslogDefaultSettings, conditionsInterface } from "./syslog/Syslog";
 
-import Syslog, {
-  SyslogDefaultSettings,
-  conditionsInterface,
-} from "./syslog/Syslog";
-
-interface DefaultOptionsService extends EventDefaultInterface {
-  events?: {
-    nbListeners: number;
-  };
-  syslog?: SyslogDefaultSettings;
-}
-
-const defaultOptions = {
+const defaultOptions: DefaultOptionsService = {
   events: {
     nbListeners: 20,
   },
@@ -29,36 +18,42 @@ const settingsSyslog: SyslogDefaultSettings = {
   defaultSeverity: "INFO",
 };
 
-class Service {
+class Service implements IService {
   public name: string;
   public options: DefaultOptionsService;
-  public container?: Container | Scope | null;
-  public kernel?: Kernel | null;
-  public syslog?: Syslog | null;
+  public container: Container | null;
+  public kernel: Kernel | null;
+  public syslog: Syslog | null;
   private settingsSyslog: SyslogDefaultSettings | null;
-  public notificationsCenter: Event | undefined | boolean | null;
+
+  // Backing field privé — seules les méthodes de Service peuvent l'écrire.
+  // La lecture externe passe par le getter (readonly pour les consommateurs IService).
+  #nc: Event | undefined;
+
+  get notificationsCenter(): Event | undefined {
+    return this.#nc;
+  }
 
   constructor(
     name: string,
-    container?: Container | Scope,
+    container?: Container,
     notificationsCenter?: Event | false | null,
     options: DefaultOptionsService = {}
   ) {
     this.name = name;
-    this.container =
-      container instanceof Container ? container : new Container();
+    this.container = container instanceof Container ? container : new Container();
     this.options =
       notificationsCenter === false
         ? { ...options }
         : { ...defaultOptions, ...options };
-    this.kernel = this.container?.get<Kernel | null>("kernel");
-    this.syslog = this.container?.get<Syslog | null>("syslog") || null;
+    this.kernel = this.container.get<Kernel>("kernel");
+    this.syslog = this.container.get<Syslog>("syslog");
 
     if (!this.syslog) {
       this.settingsSyslog = {
         ...settingsSyslog,
         moduleName: this.name,
-        ...(this.options.syslog || {}),
+        ...(this.options.syslog ?? {}),
       };
       this.syslog = new Syslog(this.settingsSyslog);
       this.container.set("syslog", this.syslog);
@@ -67,31 +62,18 @@ class Service {
     }
 
     if (notificationsCenter instanceof Event) {
-      this.notificationsCenter = notificationsCenter;
-      if (options) {
-        this.notificationsCenter.settingsToListen(options, this);
-        if (options.events && options.events.nbListeners) {
-          this.notificationsCenter.setMaxListeners(options.events.nbListeners);
-        }
+      this.#nc = notificationsCenter;
+      this.#nc.settingsToListen(options, this);
+      if (options.events?.nbListeners) {
+        this.#nc.setMaxListeners(options.events.nbListeners);
       }
-    } else {
-      if (notificationsCenter) {
-        throw new Error(
-          "Service nodefony notificationsCenter not valid, must be an instance of nodefony.Events"
-        );
-      }
-      if (notificationsCenter !== false) {
-        this.notificationsCenter = new Event(this.options, this, this.options);
-        // this.notificationsCenter.on("onError", (err: any) => {
-        //   this.log(err, "ERROR", "Error events");
-        // });
-        if (!this.kernel) {
-          this.container.set("notificationsCenter", this.notificationsCenter);
-        } else if (this.kernel.container !== this.container) {
-          this.container.set("notificationsCenter", this.notificationsCenter);
-        }
+    } else if (notificationsCenter !== false) {
+      this.#nc = new Event(this.options, this, this.options);
+      if (!this.kernel || this.kernel.container !== this.container) {
+        this.container.set("notificationsCenter", this.#nc);
       }
     }
+
     delete this.options.events;
   }
 
@@ -99,19 +81,21 @@ class Service {
     environment: EnvironmentType = "production",
     debug: DebugType = false,
     options?: conditionsInterface
-  ) {
+  ): ReturnType<Syslog["init"]> | null {
     return this.syslog ? this.syslog.init(environment, debug, options) : null;
   }
 
-  getName() {
+  getName(): string {
     return this.name;
   }
 
-  clean(syslog = false) {
+  clean(syslog = false): void {
     this.settingsSyslog = null;
-    this.syslog && syslog && this.syslog.reset();
+    if (this.syslog && syslog) {
+      this.syslog.reset();
+    }
     this.syslog = null;
-    this.notificationsCenter = undefined;
+    this.#nc = undefined;
     this.container = null;
     this.kernel = null;
   }
@@ -132,221 +116,191 @@ class Service {
     }
   }
 
-  logger(pci: any, ...args: any[]) {
-    return console.debug(
-      Syslog.wrapper(this.log(pci, "DEBUG")).text,
-      pci,
-      ...args
-    );
+  logger(pci: Pci, ...args: unknown[]): void {
+    console.debug(Syslog.wrapper(this.log(pci, "DEBUG")).text, pci, ...args);
   }
 
-  trace(pci: any, ...args: any[]) {
-    return console.trace(
-      Syslog.wrapper(this.log(pci, "DEBUG")).text,
-      pci,
-      ...args
-    );
+  trace(pci: Pci, ...args: unknown[]): void {
+    console.trace(Syslog.wrapper(this.log(pci, "DEBUG")).text, pci, ...args);
   }
 
-  spinlog(message: string) {
+  spinlog(message: string): Pdu {
     return this.log(message, "SPINNER");
   }
 
+  // ─── Events — délégation vers #nc ──────────────────────────────────────────
+
   eventNames(): (string | symbol)[] {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).eventNames();
+    if (this.#nc) {
+      return this.#nc.eventNames();
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  fire(eventName: string | symbol, ...args: any[]): boolean {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).emit(eventName, ...args);
+  fire(eventName: string | symbol, ...args: unknown[]): boolean {
+    if (this.#nc) {
+      return this.#nc.emit(eventName, ...args);
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  fireAsync(eventName: string | symbol, ...args: any[]): Promise<any> {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).emitAsync(eventName, ...args);
+  fireAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown> {
+    if (this.#nc) {
+      return this.#nc.emitAsync(eventName, ...args);
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  emit(eventName: string | symbol, ...args: any[]): boolean {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).emit(eventName, ...args);
+  emit(eventName: string | symbol, ...args: unknown[]): boolean {
+    if (this.#nc) {
+      return this.#nc.emit(eventName, ...args);
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  emitAsync(eventName: string | symbol, ...args: any[]): Promise<any> {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).emitAsync(eventName, ...args);
+  emitAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown> {
+    if (this.#nc) {
+      return this.#nc.emitAsync(eventName, ...args);
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  addListener(
+  addListener(eventName: string | symbol, listener: EventListener): this {
+    if (this.#nc) {
+      this.#nc.addListener(eventName, listener);
+      return this;
+    }
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
+  }
+
+  listen(
     eventName: string | symbol,
-    listener: (...args: any[]) => void
-  ): NodeJS.EventEmitter {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).addListener(eventName, listener);
-    }
-    throw new Error(`notificationsCenter not initialized`);
-  }
-
-  listen(eventName: string | symbol, listener: (...args: any[]) => void) {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).listen(
+    listener: EventListener
+  ): (...args: unknown[]) => boolean {
+    if (this.#nc) {
+      return this.#nc.listen(
         this,
         eventName,
         listener
-      );
+      ) as (...args: unknown[]) => boolean;
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  on(
-    eventName: string | symbol,
-    listener: (...args: any[]) => void
-  ): NodeJS.EventEmitter {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).on(eventName, listener);
+  on(eventName: string | symbol, listener: EventListener): this {
+    if (this.#nc) {
+      this.#nc.on(eventName, listener);
+      return this;
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  once(
-    eventName: string | symbol,
-    listener: (...args: any[]) => void
-  ): NodeJS.EventEmitter {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).once(eventName, listener);
+  once(eventName: string | symbol, listener: EventListener): this {
+    if (this.#nc) {
+      this.#nc.once(eventName, listener);
+      return this;
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  off(
-    eventName: string | symbol,
-    listener: (...args: any[]) => void
-  ): NodeJS.EventEmitter {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).off(eventName, listener);
+  off(eventName: string | symbol, listener: EventListener): this {
+    if (this.#nc) {
+      this.#nc.off(eventName, listener);
+      return this;
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  settingsToListen(localSettings: EventDefaultInterface, context: any) {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).settingsToListen(
-        localSettings,
-        context
-      );
+  settingsToListen(localSettings: EventDefaultInterface, context: object): void {
+    if (this.#nc) {
+      this.#nc.settingsToListen(localSettings, context);
+      return;
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  setMaxListeners(n: number) {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).setMaxListeners(n);
+  setMaxListeners(n: number): this {
+    if (this.#nc) {
+      this.#nc.setMaxListeners(n);
+      return this;
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  removeListener(
-    eventName: string | symbol,
-    listener: (...args: any[]) => void
-  ): NodeJS.EventEmitter {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).removeListener(
-        eventName,
-        listener
-      );
+  removeListener(eventName: string | symbol, listener: EventListener): this {
+    if (this.#nc) {
+      this.#nc.removeListener(eventName, listener);
+      return this;
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  removeAllListeners(eventName?: string | symbol) {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).removeAllListeners(eventName);
+  removeAllListeners(eventName?: string | symbol): this {
+    if (this.#nc) {
+      this.#nc.removeAllListeners(eventName);
+      return this;
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  prependOnceListener(
-    eventName: string | symbol,
-    listener: (...args: any[]) => void
-  ): NodeJS.EventEmitter {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).prependOnceListener(
-        eventName,
-        listener
-      );
+  prependOnceListener(eventName: string | symbol, listener: EventListener): this {
+    if (this.#nc) {
+      this.#nc.prependOnceListener(eventName, listener);
+      return this;
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  prependListener(
-    eventName: string | symbol,
-    listener: (...args: any[]) => void
-  ): NodeJS.EventEmitter {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).prependListener(
-        eventName,
-        listener
-      );
+  prependListener(eventName: string | symbol, listener: EventListener): this {
+    if (this.#nc) {
+      this.#nc.prependListener(eventName, listener);
+      return this;
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
   getMaxListeners(): number {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).getMaxListeners();
+    if (this.#nc) {
+      return this.#nc.getMaxListeners();
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  listenerCount(
-    eventName: string | symbol,
-    listener?: Function | undefined
-  ): number {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).listenerCount(
-        eventName,
-        listener
-      );
+  listenerCount(eventName: string | symbol, listener?: EventListener): number {
+    if (this.#nc) {
+      return this.#nc.listenerCount(eventName, listener);
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  listeners(eventName: string | symbol): Function[] {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).listeners(eventName);
+  listeners(eventName: string | symbol): EventListener[] {
+    if (this.#nc) {
+      return this.#nc.listeners(eventName) as EventListener[];
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
 
-  rawListeners(eventName: string | symbol): Function[] {
-    if (this.notificationsCenter) {
-      return (<Event>this.notificationsCenter).rawListeners(eventName);
+  rawListeners(eventName: string | symbol): EventListener[] {
+    if (this.#nc) {
+      return this.#nc.rawListeners(eventName) as EventListener[];
     }
-    throw new Error(`notificationsCenter not initialized`);
+    throw new Error(`${this.name}: notificationsCenter not initialized`);
   }
+
+  // ─── Container — délégation ─────────────────────────────────────────────────
 
   get<T>(name: string): T | null {
-    if (this.container) {
-      return this.container?.get(name);
-    }
-    return null;
+    return this.container?.get<T>(name) ?? null;
   }
 
   set<T>(name: string, obj: T): void {
-    return this.container?.set(name, obj);
+    if (!this.container) {
+      throw new Error(`${this.name}: container not initialized`);
+    }
+    this.container.set(name, obj);
   }
 
-  remove(name: string) {
+  remove(name: string): boolean {
     if (this.container) {
       const ele = this.get(name);
       if (ele) {
@@ -360,23 +314,21 @@ class Service {
   }
 
   getParameters(name: string): DynamicParam | null {
-    return (<Container>this.container).getParameters(name);
+    return this.container?.getParameters(name) ?? null;
   }
 
   setParameters<T>(name: string, ele: T): DynamicParam | null {
-    if (this.container) {
-      return (<Container>this.container).setParameters(name, ele);
+    if (!this.container) {
+      throw new Error(`${this.name}: container not initialized`);
     }
-    throw new Error(`container not initialized`);
+    return this.container.setParameters(name, ele);
   }
 
   has(name: string): boolean {
-    if (this.container) {
-      return this.container.has(name);
-    }
-    return false;
+    return this.container?.has(name) ?? false;
   }
 }
 
 export default Service;
-export { DefaultOptionsService };
+// Ré-exports pour compatibilité avec les imports existants (Kernel, Module, Cli, etc.)
+export { IService, IKernel, DefaultOptionsService, EventListener };

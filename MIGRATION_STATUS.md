@@ -218,4 +218,12 @@ _Dépend de : Kernel, HTTP_
 
 | Date | Session | Module migré | Durée | Notes |
 |------|---------|--------------|-------|-------|
-| _(à remplir)_ | | | | |
+| 2026-05-11 | Service + Interfaces | `Service.ts`, `IService`, `IKernel` | ~3h | 85 tests ✅ — `#nc` privé, `implements IService`, `Command.ts` fixé |
+
+---
+
+## Prochaine session
+
+**Module cible** : `ISyslog` + amélioration `Syslog.ts`
+**Pré-requis** : `IService` ✅ — `IKernel` ✅
+**Fichiers à lire** : `src/nodefony/src/syslog/Syslog.ts`, `src/nodefony/src/syslog/Pdu.ts`

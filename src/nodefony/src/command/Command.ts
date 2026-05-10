@@ -64,32 +64,20 @@ const defaultCommandOptions: OptionsCommandInterface = {
 
 class Command extends Service {
   // EVENTS
-  override on(
-    event: "onProgress",
-    listener: (step?: number) => void
-  ): NodeJS.EventEmitter;
+  override on(event: "onProgress", listener: (step?: number) => void): this;
   override on(
     event: "onProgressEnd",
     listener: (pg?: clui.Progress) => void
-  ): NodeJS.EventEmitter;
-  override on(
-    event: string,
-    listener: (...args: any[]) => void
-  ): NodeJS.EventEmitter {
+  ): this;
+  override on(event: string, listener: (...args: any[]) => void): this {
     return super.on(event, listener);
   }
-  override once(
-    event: "onProgress",
-    listener: (step?: number) => void
-  ): NodeJS.EventEmitter;
+  override once(event: "onProgress", listener: (step?: number) => void): this;
   override once(
     event: "onProgressEnd",
     listener: (pg?: clui.Progress) => void
-  ): NodeJS.EventEmitter;
-  override once(
-    event: string,
-    listener: (...args: any[]) => void
-  ): NodeJS.EventEmitter {
+  ): this;
+  override once(event: string, listener: (...args: any[]) => void): this {
     return super.once(event, listener);
   }
   override fire(event: "onProgress", step?: number): boolean;
