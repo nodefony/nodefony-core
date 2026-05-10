@@ -1,6 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { typeOf } from "../Tools";
-export type Pci = any;
+
+// Pci est unknown : le payload d'un log peut être n'importe quoi (Error, string, object…).
+// Les lecteurs de pdu.payload doivent narrower le type explicitement.
+export type Pci = unknown;
 export type ModuleName = string;
 export type Message = string;
 export type Msgid = string;
@@ -102,45 +104,24 @@ class Pdu {
     msg: Message = "",
     date: PduDate = new Date()
   ) {
-    /* timeStamp @type Date*/
     this.timeStamp = this.convertToDate(date).getTime();
-
-    /* uid */
     this.uid = ++guid;
-
-    /* severity */
     this.severity = translateSeverity(severity);
-
-    /* severityName */
     this.severityName = this.getSeverityName(this.severity);
-
-    /* typePayload */
     this.typePayload = typeOf(pci);
-
-    /* protocole controle information */
     this.payload = pci;
-
-    /* moduleName */
     this.moduleName = moduleName;
-
-    /* msgid */
     this.msgid = msgid;
-
-    /* msg */
     this.msg = msg;
-
-    /* staus */
     this.status = "NOTDEFINED";
   }
 
   private getSeverityName(
     severity: SysLogSeverity
   ): keyof typeof SysLogSeverity {
-    // Obtenez la clé pour la valeur enum
     const keys = Object.keys(SysLogSeverity).filter(
       (key) => SysLogSeverity[key as keyof typeof SysLogSeverity] === severity
     );
-
     if (keys.length === 1) {
       return keys[0] as keyof typeof SysLogSeverity;
     }
@@ -176,20 +157,10 @@ class Pdu {
     return severityKey !== undefined ? severityKey : undefined;
   }
 
-  /**
-   * Get Date in string format
-   * @method getDate
-   * @return {String} a date in string format .
-   */
   getDate(): string {
     return new Date(this.timeStamp).toTimeString();
   }
 
-  /**
-   * get a string representating the PDU protocole
-   * @method toString
-   * @return {String}  .
-   */
   toString(): string {
     return `TimeStamp:${this.getDate()}  Log:${this.payload}  ModuleName:${
       this.moduleName
@@ -199,7 +170,7 @@ class Pdu {
   }
 
   parseJson(str: string): Record<string, unknown> | null {
-    const json = JSON.parse(str);
+    const json = JSON.parse(str) as Record<string, unknown>;
     Object.entries(json).forEach(([key, value]) => {
       if (key in this) {
         (this as Record<string, unknown>)[key] = value;

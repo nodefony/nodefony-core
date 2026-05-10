@@ -22,6 +22,7 @@ class Service implements IService {
   public name: string;
   public options: DefaultOptionsService;
   public container: Container | null;
+  // Sera IKernel | null quand Kernel.ts implémentera explicitement IKernel (session dédiée)
   public kernel: Kernel | null;
   public syslog: Syslog | null;
   private settingsSyslog: SyslogDefaultSettings | null;

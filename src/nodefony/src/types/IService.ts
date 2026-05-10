@@ -7,7 +7,6 @@ import type { Severity, Msgid, Message, Pci } from "../syslog/Pdu";
 import type Syslog from "../syslog/Syslog";
 import type { SyslogDefaultSettings, conditionsInterface } from "../syslog/Syslog";
 import type { DebugType, EnvironmentType } from "./globals";
-import type { IKernel } from "./IKernel";
 
 // any[] est intentionnel : les event systems acceptent des callbacks de n'importe quel type
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,8 +30,8 @@ export interface IService {
 
   // ─── Infrastructure ────────────────────────────────────────────────────────
   readonly container: Container | null;
-  /** null avant l'enregistrement dans un Kernel, ou après clean() */
-  readonly kernel: IKernel | null;
+  // Sera IKernel | null quand Kernel implémentera explicitement IKernel (session dédiée)
+  readonly kernel: object | null;
   readonly syslog: Syslog | null;
   /** undefined si notificationsCenter=false passé au constructeur, ou après clean() */
   readonly notificationsCenter: Event | undefined;

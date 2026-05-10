@@ -1,67 +1,62 @@
-/* eslint-disable @typescript-eslint/ban-types */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import clc from "cli-color";
 
 import { typeOf, extend } from "../Tools";
-import Pdu, { Severity, ModuleName, Msgid, Message } from "./Pdu";
+import Pdu, { Severity, ModuleName, Msgid, Message, Pci } from "./Pdu";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Event from "../Event";
-//import NodefonyError from "../Error";
-//import { kernel } from "../Nodefony";
+import { ISyslog } from "../types/ISyslog";
 
 const yellow = clc
   ? clc.yellow.bold
-  : (ele: string) => {
-      return ele;
-    };
+  : (ele: string) => ele;
 const red = clc
   ? clc.red.bold
-  : (ele: string) => {
-      return ele;
-    };
+  : (ele: string) => ele;
 const cyan = clc
   ? clc.cyan.bold
-  : (ele: string) => {
-      return ele;
-    };
+  : (ele: string) => ele;
 const blue = clc
   ? clc.blueBright.bold
-  : (ele: string) => {
-      return ele;
-    };
+  : (ele: string) => ele;
 const green = clc
   ? clc.green
-  : (ele: string) => {
-      return ele;
-    };
+  : (ele: string) => ele;
 
 type Operator = "<" | ">" | "<=" | ">=" | "==" | "===" | "!=" | "RegExp";
 type Condition = "&&" | "||";
+
+// Data est intentionnellement hétérogène : severity (number|string|array),
+// msgid (string|RegExp|array), date (Date|string|number).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Data = any;
 
 interface LogicCondition {
   "&&": (myConditions: ConditionSetting, pdu: Pdu) => boolean;
   "||": (myConditions: ConditionSetting, pdu: Pdu) => boolean;
 }
+
 interface Conditions {
   severity: (pdu: Pdu, condition: ConditionSetting) => boolean;
   msgid: (pdu: Pdu, condition: ConditionSetting) => boolean;
   date: (pdu: Pdu, condition: ConditionSetting) => boolean;
   [key: string]: (pdu: Pdu, condition: ConditionSetting) => boolean;
 }
-interface ConditionSetting {
+
+export interface ConditionSetting {
   operator?: Operator;
   data: Data;
-  [key: string]: any;
+  [key: string]: Data;
 }
-interface conditionsInterface {
+
+export interface conditionsInterface {
   severity?: ConditionSetting;
   msgid?: ConditionSetting;
   data?: Data;
   checkConditions?: Condition;
-  [key: string]: any;
+  [key: string]: Data;
 }
-interface SyslogDefaultSettings {
+
+export interface SyslogDefaultSettings {
   moduleName?: ModuleName;
   msgid?: Msgid;
   maxStack?: number;
@@ -69,14 +64,19 @@ interface SyslogDefaultSettings {
   burstLimit?: number;
   defaultSeverity?: Severity;
   checkConditions?: Condition;
-  async?: boolean | undefined;
+  async?: boolean;
 }
-//type ComparisonOperatorNumber = (ele1: number , ele2: number ) => boolean;
+
+export interface WrapperResult {
+  logger: (...args: unknown[]) => void;
+  text: string;
+}
+
 type ComparisonOperator = (
   ele1: number | string,
   ele2: number | string | RegExp
 ) => boolean;
-//type RegExpOperator = (ele1: string, ele2: RegExp) => boolean;
+
 interface Operators {
   "<": ComparisonOperator;
   ">": ComparisonOperator;
@@ -88,29 +88,29 @@ interface Operators {
   RegExp: ComparisonOperator;
 }
 
-type CallbackFunction = (pdu: Pdu) => any;
+export type CallbackFunction = (pdu: Pdu) => void;
 type CallbackArray = Pdu[];
-type Callback = CallbackFunction | CallbackArray | [] | null;
+type Callback = CallbackFunction | CallbackArray | null;
 
 const formatDebug = function (debug: DebugType): DebugType {
   switch (typeOf(debug)) {
     case "boolean":
-      return <boolean>debug;
+      return debug as boolean;
     case "string": {
-      if (["false", "undefined", "null"].includes(<string>debug)) {
+      if (["false", "undefined", "null"].includes(debug as string)) {
         return false;
       }
       if (debug === "true" || debug === "*") {
         return true;
       }
-      const mytab: string[] = (<string>debug).split(/,| /);
+      const mytab: string[] = (debug as string).split(/,| /);
       if (mytab[0] === "*") {
         return true;
       }
       return mytab;
     }
     case "array":
-      debug = <[]>debug;
+      debug = debug as [];
       if (debug[0] === "*") {
         return true;
       }
@@ -125,9 +125,9 @@ const formatDebug = function (debug: DebugType): DebugType {
 const conditionOptions = function (
   environment: string,
   debug: DebugType = false
-) {
+): conditionsInterface {
   debug = formatDebug(debug);
-  let obj: conditionsInterface | null = null;
+  let obj: conditionsInterface;
   if (environment === "development") {
     obj = {
       severity: {
@@ -152,19 +152,6 @@ const conditionOptions = function (
   return obj;
 };
 
-/*
- * default settings
- * <pre>
- *   moduleName:      "nodefony"
- *   maxStack:        100
- *   rateLimit:       false
- *   burstLimit:      3
- *   defaultSeverity: "DEBUG"
- *   checkConditions: "&&"
- *   async:         false
- *
- * </pre>
- */
 const defaultSettings: SyslogDefaultSettings = {
   moduleName: "SYSLOG",
   msgid: "",
@@ -186,31 +173,16 @@ const operators: Operators = {
   "==": (ele1, ele2) => ele1 == ele2,
   "===": (ele1, ele2) => ele1 === ele2,
   "!=": (ele1, ele2) => ele1 !== ele2,
-  RegExp: (ele1, ele2) => (<RegExp>ele2).test(<string>ele1),
+  RegExp: (ele1, ele2) => (ele2 as RegExp).test(ele1 as string),
 };
 
 const conditionsObj: Conditions = {
   severity: (pdu: Pdu, condition: ConditionSetting) => {
     for (const sev in condition.data) {
-      // console.log(
-      //   "Ope : ",
-      //   condition.operator,
-      //   " sev: ",
-      //   pdu.severity,
-      //   "contiton : ",
-      //   condition.data[sev]
-      // );
       if (
         condition.operator &&
         operators[condition.operator](pdu.severity, condition.data[sev])
       ) {
-        // console.log(
-        //   condition.operator,
-        //   " sev: ",
-        //   pdu.severity,
-        //   "contiton : ",
-        //   condition.data[sev]
-        // );
         return true;
       }
     }
@@ -232,133 +204,119 @@ const conditionsObj: Conditions = {
 
 const logicCondition: LogicCondition = {
   "&&": (myConditions: ConditionSetting, pdu: Pdu): boolean => {
-    let res: boolean = false;
+    let res = false;
     for (const ele in myConditions) {
       res = conditionsObj[ele](pdu, myConditions[ele]);
-      if (!res) {
-        break;
-      }
+      if (!res) break;
     }
     return res;
   },
   "||": (myConditions: ConditionSetting, pdu: Pdu): boolean => {
-    let res: boolean = false;
+    let res = false;
     for (const ele in myConditions) {
       res = conditionsObj[ele](pdu, myConditions[ele]);
-      if (res) {
-        break;
-      }
+      if (res) break;
     }
     return res;
   },
 };
 
-const checkFormatSeverity = (ele: any): string | number[] => {
-  let res: any[];
+const checkFormatSeverity = (ele: unknown): string[] | number[] => {
+  let res: Array<string | number>;
   switch (typeof ele) {
     case "object":
       if (Array.isArray(ele)) {
-        res = ele;
+        res = ele as Array<string | number>;
       } else {
         throw new Error(`checkFormatSeverity bad format type: object`);
       }
       break;
     case "string":
-      res = ele.split(/,| /);
-      break;
-    case "number":
-      res = [ele];
-      break;
-    default: {
-      console.trace(ele);
-      const error = `checkFormatSeverity bad format type : ${typeof ele}`;
-      throw new Error(error);
-    }
-  }
-  return res;
-};
-
-const checkFormatDate = function (ele: Date | string): number {
-  let res: number;
-  switch (typeOf(ele)) {
-    case "date":
-      res = (ele as Date).getTime();
-      break;
-    case "string":
-      res = new Date(ele).getTime();
-      break;
-    default:
-      throw new Error(`checkFormatDate bad format ${typeOf(ele)} : ${ele}`);
-  }
-  return res;
-};
-
-const checkFormatMsgId = function (ele: any): RegExp | any[] {
-  let res: any;
-  switch (typeOf(ele)) {
-    case "string":
       res = (ele as string).split(/,| /);
       break;
     case "number":
-      res = [ele];
-      break;
-    case "RegExp":
-      res = ele;
-      break;
-    case "array":
-      res = ele;
+      res = [ele as number];
       break;
     default:
-      throw new Error(`checkFormatMsgId bad format ${typeOf(ele)} : ${ele}`);
+      throw new Error(`checkFormatSeverity bad format type : ${typeof ele}`);
   }
-  return res;
+  return res as string[] | number[];
 };
+
+const checkFormatDate = function (ele: Date | string): number {
+  switch (typeOf(ele)) {
+    case "date":
+      return (ele as Date).getTime();
+    case "string":
+      return new Date(ele as string).getTime();
+    default:
+      throw new Error(`checkFormatDate bad format ${typeOf(ele)} : ${String(ele)}`);
+  }
+};
+
+const checkFormatMsgId = function (ele: unknown): RegExp | Array<unknown> {
+  switch (typeOf(ele)) {
+    case "string":
+      return (ele as string).split(/,| /);
+    case "number":
+      return [ele];
+    case "RegExp":
+      return ele as RegExp;
+    case "array":
+      return ele as Array<unknown>;
+    default:
+      throw new Error(`checkFormatMsgId bad format ${typeOf(ele)} : ${String(ele)}`);
+  }
+};
+
+type ConditionFilter = ((pdu: Pdu) => void) | Pdu[];
 
 const wrapperCondition = function (
   this: Syslog,
   conditions: conditionsInterface,
   callback: Callback | CallbackArray
-): any {
-  let myFuncCondition: Function = () => {};
+): ConditionFilter {
+  let myFuncCondition: (conditions: ConditionSetting, pdu: Pdu) => boolean =
+    () => false;
+
   if (
     conditions.checkConditions &&
     conditions.checkConditions in logicCondition
   ) {
     myFuncCondition = logicCondition[conditions.checkConditions];
     delete conditions.checkConditions;
-  } else {
-    if (this.settings.checkConditions) {
-      myFuncCondition = logicCondition[this.settings.checkConditions];
-    }
+  } else if (this.settings.checkConditions) {
+    myFuncCondition = logicCondition[this.settings.checkConditions];
   }
-  const Conditions: ConditionSetting | boolean = sanitizeConditions(conditions);
-  const tab: Function[] = [];
-  switch (typeOf(callback)) {
-    case "function":
-      return (pdu: Pdu) => {
-        const res = myFuncCondition(Conditions, pdu);
-        if (res) {
-          const result = (callback as CallbackFunction)(pdu);
-          tab.push(result);
-        }
-      };
-    case "array":
-      for (let i = 0; i < (callback as CallbackArray).length; i++) {
-        const res = myFuncCondition(Conditions, (callback as CallbackArray)[i]);
-        if (res) {
-          tab.push(res);
-        }
+
+  const Conditions = sanitizeConditions(conditions);
+
+  if (typeOf(callback) === "function") {
+    return (pdu: Pdu) => {
+      const res = myFuncCondition(Conditions as ConditionSetting, pdu);
+      if (res) {
+        (callback as CallbackFunction)(pdu);
       }
-      return tab;
-    default:
-      throw new Error("Bad wrapper");
+    };
   }
+
+  if (typeOf(callback) === "array") {
+    const tab: Pdu[] = [];
+    for (const pdu of callback as CallbackArray) {
+      const res = myFuncCondition(Conditions as ConditionSetting, pdu);
+      if (res) {
+        tab.push(pdu);
+      }
+    }
+    return tab;
+  }
+
+  throw new Error("Bad wrapper");
 };
 
 const sanitizeConditions = function (
   settingsCondition: conditionsInterface
 ): boolean | ConditionSetting {
-  let res: any = true;
   if (typeOf(settingsCondition) !== "object") {
     return false;
   }
@@ -373,55 +331,47 @@ const sanitizeConditions = function (
     }
     if (condi.data) {
       switch (ele) {
-        case "severity":
+        case "severity": {
           if (!condi.operator) {
             condi.operator = "==";
           }
-          res = checkFormatSeverity(condi.data);
-          if (res !== false) {
+          const res = checkFormatSeverity(condi.data);
+          condi.data = {};
+          for (let i = 0; i < res.length; i++) {
+            const mySeverity = Pdu.severityToString(res[i] as number);
+            if (mySeverity) {
+              condi.data[mySeverity as Severity] =
+                sysLogSeverity[mySeverity as Severity];
+            } else {
+              return false;
+            }
+          }
+          break;
+        }
+        case "msgid": {
+          if (!condi.operator) {
+            condi.operator = "==";
+          }
+          const res = checkFormatMsgId(condi.data);
+          if (Array.isArray(res)) {
             condi.data = {};
             for (let i = 0; i < res.length; i++) {
-              const mySeverity: string | undefined = Pdu.severityToString(
-                res[i]
-              );
-              if (mySeverity) {
-                condi.data[mySeverity as Severity] =
-                  sysLogSeverity[mySeverity as Severity];
-              } else {
-                return false;
-              }
+              condi.data[String(res[i])] = "||";
             }
           } else {
-            return false;
+            condi.data = res;
           }
           break;
-        case "msgid":
-          if (!condi.operator) {
-            condi.operator = "==";
-          }
-          res = checkFormatMsgId(condi.data);
-          if (res !== false) {
-            const format = typeOf(res);
-            if (format === "array") {
-              condi.data = {};
-              for (let i = 0; i < res.length; i++) {
-                condi.data[res[i]] = "||";
-              }
-            } else {
-              condi.data = res;
-            }
-          } else {
-            return false;
-          }
-          break;
-        case "date":
-          res = checkFormatDate(condi.data);
+        }
+        case "date": {
+          const res = checkFormatDate(condi.data as Date | string);
           if (res) {
             condi.data = res;
           } else {
             return false;
           }
           break;
+        }
         default:
           return false;
       }
@@ -429,13 +379,12 @@ const sanitizeConditions = function (
       return false;
     }
   }
-  return <ConditionSetting>settingsCondition;
-  // console.log(settingsCondition);
+  return settingsCondition as unknown as ConditionSetting;
 };
 
 const createPDU = function (
   this: Syslog,
-  payload: any,
+  payload: Pci,
   severity?: Severity,
   moduleName?: ModuleName,
   msgid?: Message,
@@ -450,16 +399,7 @@ const createPDU = function (
   );
 };
 
-/**
- * A class for product log in nodefony.
- *
- *    @class syslog
- *    @module library
- *    @constructor
- *    @param {Object} settings The settings to extend.
- *    @return syslog
- */
-class Syslog extends Event {
+class Syslog extends Event implements ISyslog {
   public settings: SyslogDefaultSettings;
   public ringStack: Pdu[];
   public burstPrinted: number;
@@ -469,66 +409,19 @@ class Syslog extends Event {
   public start: number;
   private _async: boolean = false;
 
-  //fire(eventName: string | symbol, ...args: any[]): boolean;
-  //fireAsync(eventName: string | symbol, ...args: any[]): Promise<any> ;
-
   constructor(settings?: SyslogDefaultSettings) {
     super(settings);
-    /**
-     * extended settings
-     * @property settings
-     * @type Object
-     * @see defaultSettings
-     */
     this.settings = extend({}, defaultSettings, settings || {});
-
-    /**
-     * ring buffer structure container instances of PDU
-     * @property ringStack
-     * @type Array
-     */
     this.ringStack = [];
-
-    /**
-     * Ratelimit  Management log printed
-     * @property burstPrinted
-     * @type Number
-     */
     this.burstPrinted = 0;
-
-    /**
-     * Ratelimit  Management log dropped
-     * @property missed
-     * @type Number
-     */
     this.missed = 0;
-
-    /**
-     * Management log invalid
-     * @property invalid
-     * @type Number
-     */
     this.invalid = 0;
-
-    /**
-     * Counter log valid
-     * @property valid
-     * @type Number
-     */
     this.valid = 0;
-
-    /**
-     * Ratelimit  Management begin of burst
-     * @property start
-     * @private
-     * @type Number
-     */
     this.start = 0;
-
-    this._async = <boolean>this.settings.async || false;
+    this._async = (this.settings.async as boolean) || false;
   }
 
-  static formatDebug(debug: DebugType) {
+  static formatDebug(debug: DebugType): DebugType {
     return formatDebug(debug);
   }
 
@@ -536,8 +429,8 @@ class Syslog extends Event {
     environment: EnvironmentType,
     debug?: DebugType,
     options?: conditionsInterface
-  ) {
-    return this.listenWithConditions(
+  ): void {
+    this.listenWithConditions(
       options || conditionOptions(environment, debug),
       (pdu: Pdu) => Syslog.normalizeLog(pdu)
     );
@@ -551,14 +444,6 @@ class Syslog extends Event {
     this._async = value;
   }
 
-  // override fire(eventName: string | symbol, ...args: any[]): Promise<any>  | boolean{
-  //   if (this.settings.async) {
-  //     return super.fireAsync(eventName, ...args) as Promise<any>;
-  //   } else {
-  //     return super.fire(eventName, ...args) as boolean;
-  //   }
-  // }
-
   clean(): this {
     return this.reset();
   }
@@ -569,13 +454,7 @@ class Syslog extends Event {
     return this;
   }
 
-  /**
-   * Clear stack of logs
-   *
-   * @method clearLogStack
-   *
-   */
-  clearLogStack() {
+  clearLogStack(): void {
     this.ringStack.length = 0;
   }
 
@@ -588,19 +467,15 @@ class Syslog extends Event {
     return index;
   }
 
-  /**
-   * logger message
-   * @method log
-   */
   log(
-    payload: any,
+    payload: Pci,
     severity?: Severity,
     msgid?: ModuleName,
     msg?: Message
   ): Pdu {
-    let pdu;
+    let pdu: Pdu | undefined;
     if (this.settings.rateLimit !== false) {
-      const rate: number = <number>this.settings.rateLimit;
+      const rate = this.settings.rateLimit as number;
       const now = new Date().getTime();
       this.start = this.start || now;
       if (now > this.start + rate) {
@@ -613,24 +488,21 @@ class Syslog extends Event {
         this.settings.burstLimit > this.burstPrinted
       ) {
         try {
-          if (payload instanceof Pdu) {
-            pdu = payload;
-          } else {
-            pdu = createPDU.call(
-              this,
-              payload,
-              severity,
-              this.settings.moduleName,
-              msgid || this.settings.msgid,
-              msg
-            );
-          }
+          pdu =
+            payload instanceof Pdu
+              ? payload
+              : createPDU.call(
+                  this,
+                  payload,
+                  severity,
+                  this.settings.moduleName,
+                  msgid || this.settings.msgid,
+                  msg
+                );
         } catch (e) {
           console.error(e);
           this.invalid++;
-          if (!pdu) {
-            pdu = createPDU.call(this, e, "ERROR");
-          }
+          pdu = pdu ?? createPDU.call(this, e, "ERROR");
           pdu.status = "INVALID";
           return pdu;
         }
@@ -641,31 +513,27 @@ class Syslog extends Event {
         return pdu;
       }
       this.missed++;
-      if (!pdu) {
-        pdu = createPDU.call(this, "DROPPED", "WARNING");
-      }
+      pdu = pdu ?? createPDU.call(this, "DROPPED", "WARNING");
       pdu.status = "DROPPED";
       return pdu;
     }
+
     try {
-      if (payload instanceof Pdu) {
-        pdu = payload;
-      } else {
-        pdu = createPDU.call(
-          this,
-          payload,
-          severity,
-          this.settings.moduleName,
-          msgid || this.settings.msgid,
-          msg
-        );
-      }
+      pdu =
+        payload instanceof Pdu
+          ? payload
+          : createPDU.call(
+              this,
+              payload,
+              severity,
+              this.settings.moduleName,
+              msgid || this.settings.msgid,
+              msg
+            );
     } catch (e) {
       console.error(e);
       this.invalid++;
-      if (!pdu) {
-        pdu = createPDU.call(this, e, "ERROR");
-      }
+      pdu = pdu ?? createPDU.call(this, e, "ERROR");
       pdu.status = "INVALID";
       return pdu;
     }
@@ -675,20 +543,12 @@ class Syslog extends Event {
     return pdu;
   }
 
-  /**
-   * get hitory of stack
-   * @method getLogStack
-   * @param {number} start .
-   * @param {number} end .
-   * @return {array} new array between start end
-   * @return {Pdu} pdu
-   */
   getLogStack(
     start?: number,
     end?: number,
     contition?: conditionsInterface
   ): Pdu[] | Pdu {
-    let stack: Pdu[] | null = null;
+    let stack: Pdu[];
     if (contition) {
       stack = this.getLogs(contition);
     } else {
@@ -701,47 +561,31 @@ class Syslog extends Event {
       return stack.slice(start);
     }
     if (start === end) {
-      return stack[stack.length - start - 1];
+      return stack[stack.length - (start as number) - 1];
     }
     return stack.slice(start, end);
   }
 
-  /**
-   * get logs with conditions
-   * @method getLogs
-   * @param {Object} conditions .
-   * @return {array} new array with matches conditions
-   */
   getLogs(conditions: conditionsInterface, stack: Pdu[] | null = null): Pdu[] {
     if (conditions) {
-      return wrapperCondition.call(this, conditions, stack || this.ringStack);
+      return wrapperCondition.call(
+        this,
+        conditions,
+        stack || this.ringStack
+      ) as Pdu[];
     }
     return this.ringStack;
   }
 
-  /**
-   * take the stack and build a JSON string
-   * @method logToJson
-   * @return {String} string in JSON format
-   */
-  logToJson(conditions: conditionsInterface, stack = null): string {
-    let res = null;
-    if (conditions) {
-      res = this.getLogs(conditions, stack);
-    } else {
-      res = this.ringStack;
-    }
+  logToJson(conditions: conditionsInterface, stack: Pdu[] | null = null): string {
+    const res = conditions ? this.getLogs(conditions, stack) : this.ringStack;
     return JSON.stringify(res);
   }
 
-  /**
-   * load the stack as JSON string
-   * @method loadStack
-   */
   loadStack(
     stack: Pdu[] | string,
     doEvent = false,
-    beforeConditions: Function | null = null
+    beforeConditions: ((pdu: Pdu, stackItem: Pdu) => void) | null = null
   ): Pdu[] {
     if (!stack) {
       throw new Error("syslog loadStack : not stack in arguments ");
@@ -749,13 +593,13 @@ class Syslog extends Event {
     switch (typeOf(stack)) {
       case "string":
         return this.loadStack(
-          JSON.parse(<string>stack),
+          JSON.parse(stack as string) as Pdu[],
           doEvent,
           beforeConditions
         );
       case "array":
       case "object":
-        for (const stackItem of <Pdu[]>stack) {
+        for (const stackItem of stack as Pdu[]) {
           const pdu = new Pdu(
             stackItem.payload,
             stackItem.severity as Severity | undefined,
@@ -766,7 +610,7 @@ class Syslog extends Event {
           );
           this.pushStack(pdu);
           if (doEvent) {
-            if (beforeConditions && typeof beforeConditions === "function") {
+            if (beforeConditions) {
               beforeConditions.call(this, pdu, stackItem);
             }
             this.fire("onLog", pdu);
@@ -776,30 +620,20 @@ class Syslog extends Event {
       default:
         throw new Error("syslog loadStack : bad stack in arguments type");
     }
-    return <Pdu[]>stack;
+    return stack as Pdu[];
   }
 
-  /**
-   *
-   *    @method  filter
-   *
-   */
-  filter(conditions: conditionsInterface, callback: Callback): void {
+  filter(conditions: conditionsInterface, callback: CallbackFunction): void {
     if (!conditions) {
       throw new Error("filter conditions not found ");
     }
-    conditions = extend(true, {}, conditions);
+    conditions = extend(true, {}, conditions) as conditionsInterface;
     const wrapper = wrapperCondition.call(this, conditions, callback);
     if (wrapper) {
-      super.on("onLog", wrapper);
+      super.on("onLog", wrapper as CallbackFunction);
     }
   }
 
-  /**
-   *
-   *    @method  listenWithConditions
-   *
-   */
   listenWithConditions(
     conditions: conditionsInterface,
     callback: CallbackFunction
@@ -807,35 +641,38 @@ class Syslog extends Event {
     return this.filter(conditions, callback);
   }
 
-  error(data: any): Pdu {
+  error(data: Pci): Pdu {
     return this.log(data, "ERROR");
   }
 
-  warn(data: any): Pdu {
+  warn(data: Pci): Pdu {
     return this.log(data, "WARNING");
   }
 
-  warnning(data: any): Pdu {
+  warnning(data: Pci): Pdu {
     return this.log(data, "WARNING");
   }
 
-  info(data: any): Pdu {
+  info(data: Pci): Pdu {
     return this.log(data, "INFO");
   }
 
-  debug(data: any): Pdu {
+  debug(data: Pci): Pdu {
     return this.log(data, "DEBUG");
   }
 
-  trace(data: any, ...args: any[]): Pdu {
-    return this.log(data, "NOTICE", ...args);
+  trace(data: Pci, ...args: unknown[]): Pdu {
+    return this.log(data, "NOTICE", ...(args as [ModuleName?, Message?]));
   }
 
-  static wrapper(pdu: Pdu) {
+  static wrapper(pdu: Pdu): WrapperResult {
     if (!pdu) {
       throw new Error("Syslog pdu not defined");
     }
     const date = new Date(pdu.timeStamp);
+    const dateStr = `${date.toDateString()} ${date.toLocaleTimeString()}`;
+    const msgid = green(pdu.msgid);
+
     switch (pdu.severity) {
       case 0:
       case 1:
@@ -843,49 +680,37 @@ class Syslog extends Event {
       case 3:
         return {
           logger: console.error,
-          text: `${date.toDateString()} ${date.toLocaleTimeString()} ${red(
-            pdu.severityName
-          )} ${green(pdu.msgid)} : `,
+          text: `${dateStr} ${red(pdu.severityName)} ${msgid} : `,
         };
       case 4:
         return {
           logger: console.warn,
-          text: `${date.toDateString()} ${date.toLocaleTimeString()} ${yellow(
-            pdu.severityName
-          )} ${green(pdu.msgid)} : `,
+          text: `${dateStr} ${yellow(pdu.severityName)} ${msgid} : `,
         };
       case 5:
         return {
           logger: console.log,
-          text: `${date.toDateString()} ${date.toLocaleTimeString()} ${red(
-            pdu.severityName
-          )} ${green(pdu.msgid)} : `,
+          text: `${dateStr} ${red(pdu.severityName)} ${msgid} : `,
         };
       case 6:
         return {
           logger: console.info,
-          text: `${date.toDateString()} ${date.toLocaleTimeString()} ${blue(
-            pdu.severityName
-          )} ${green(pdu.msgid)} : `,
+          text: `${dateStr} ${blue(pdu.severityName)} ${msgid} : `,
         };
       case 7:
         return {
           logger: console.debug,
-          text: `${date.toDateString()} ${date.toLocaleTimeString()} ${cyan(
-            pdu.severityName
-          )} ${green(pdu.msgid)} : `,
+          text: `${dateStr} ${cyan(pdu.severityName)} ${msgid} : `,
         };
       default:
         return {
           logger: console.log,
-          text: `${date.toDateString()} ${date.toLocaleTimeString()} ${cyan(
-            pdu.severityName
-          )} ${green(pdu.msgid)} : `,
+          text: `${dateStr} ${cyan(pdu.severityName)} ${msgid} : `,
         };
     }
   }
 
-  static normalizeLog(pdu: Pdu, pid: string = "") {
+  static normalizeLog(pdu: Pdu, pid: string = ""): Pdu {
     if (pdu.payload === "" || pdu.payload === undefined) {
       console.warn(
         `${pdu.severityName} ${pdu.msgid} : logger message empty !!!!`
@@ -894,30 +719,10 @@ class Syslog extends Event {
       return pdu;
     }
     const message = pdu.payload;
-    // switch (typeof message) {
-    //   case "object":
-    //     switch (true) {
-    //       case message instanceof NodefonyError: {
-    //         if (kernel && kernel.console) {
-    //           message = message.message;
-    //         }
-    //         break;
-    //       }
-    //       case message instanceof Error:
-    //         if (kernel && kernel.console) {
-    //           message = message.message;
-    //         } else {
-    //           message = new NodefonyError(message);
-    //         }
-    //         break;
-    //     }
-    //     break;
-    //   default:
-    // }
     if (pdu.severity === -1) {
-      process.stdout.write("\u001b[0G");
-      process.stdout.write(`${green(pdu.msgid)} : ${message}`);
-      process.stdout.write("\u001b[90m\u001b[0m");
+      process.stdout.write("[0G");
+      process.stdout.write(`${green(pdu.msgid)} : ${String(message)}`);
+      process.stdout.write("[90m[0m");
       return pdu;
     }
     const wrap = Syslog.wrapper(pdu);
@@ -927,4 +732,3 @@ class Syslog extends Event {
 }
 
 export default Syslog;
-export { ConditionSetting, conditionsInterface, SyslogDefaultSettings };

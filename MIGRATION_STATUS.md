@@ -219,11 +219,16 @@ _Dépend de : Kernel, HTTP_
 | Date | Session | Module migré | Durée | Notes |
 |------|---------|--------------|-------|-------|
 | 2026-05-11 | Service + Interfaces | `Service.ts`, `IService`, `IKernel` | ~3h | 85 tests ✅ — `#nc` privé, `implements IService`, `Command.ts` fixé |
+| 2026-05-11 | ISyslog + Syslog | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts` | ~2h | 85 tests ✅ — `Pci=unknown`, `Function` → types propres, `implements ISyslog` |
 
 ---
 
 ## Prochaine session
 
-**Module cible** : `ISyslog` + amélioration `Syslog.ts`
-**Pré-requis** : `IService` ✅ — `IKernel` ✅
-**Fichiers à lire** : `src/nodefony/src/syslog/Syslog.ts`, `src/nodefony/src/syslog/Pdu.ts`
+**Module cible** : IKernel complet — `Kernel.ts implements IKernel`
+**Pré-requis** : `IService` ✅ — `ISyslog` ✅
+**Blockers connus** :
+- `IService.kernel: object | null` → doit devenir `IKernel | null` quand `Kernel implements IKernel`
+- `IKernel` est minimal (manque `command`, `commandArgs`, `terminate`, `isTrunk`…)
+- `getModule()` retourne `object` → doit retourner `IModule` (nécessite IModule d'abord)
+**Fichiers à lire** : `src/nodefony/src/kernel/Kernel.ts`, `src/nodefony/src/kernel/CliKernel.ts`, `src/nodefony/src/types/IKernel.ts`
