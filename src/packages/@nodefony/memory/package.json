@@ -1,0 +1,12 @@
+{
+  "name": "@nodefony/memory",
+  "version": "10.0.0-alpha.1",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "dependencies": {
+    "@nodefony/llm": "workspace:*",
+    "@nodefony/vector": "workspace:*"
+  },
+  "license": "CECILL-B"
+}

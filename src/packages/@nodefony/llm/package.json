@@ -1,0 +1,20 @@
+{
+  "name": "@nodefony/llm",
+  "version": "10.0.0-alpha.1",
+  "description": "Generic multi-model LLM provider interface for Nodefony",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rollup -c ../../../rollup.config.ts --configPlugin typescript",
+    "test":  "bun test",
+    "lint":  "tsc --noEmit"
+  },
+  "license": "CECILL-B"
+}
