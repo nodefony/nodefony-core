@@ -4,7 +4,6 @@ import Syslog, { conditionsInterface } from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
 import Cli, { CliDefaultOptions, PackageManagerName } from "../Cli";
 import Kernel, { KernelType, TypeKernelOptions } from "./Kernel";
-import type { IKernel } from "../types/IKernel";
 import Command from "../command/Command";
 import Start from "./commands/StartCommand";
 import Dev from "./commands/DevCommand";
@@ -125,7 +124,7 @@ class CliKernel extends Cli {
           ?.parseAsync()
           .then(async () => {
             if (this.kernel) {
-              return this.kernel.start().catch(async (e) => {
+              return (this.kernel as Kernel).start().catch(async (e) => {
                 //this.commander?.outputHelp({ error: false });
                 await this.kernel?.terminate();
                 throw e;
@@ -135,7 +134,7 @@ class CliKernel extends Cli {
           })
           .catch(async () => {
             if (this.kernel) {
-              return this.kernel?.start().catch(async (e) => {
+              return (this.kernel as Kernel).start().catch(async (e) => {
                 //this.commander?.outputHelp({ error: false });
                 await this.kernel?.terminate();
                 throw e;
