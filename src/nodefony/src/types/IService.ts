@@ -6,6 +6,7 @@ import type Pdu from "../syslog/Pdu";
 import type { Severity, Msgid, Message, Pci } from "../syslog/Pdu";
 import type Syslog from "../syslog/Syslog";
 import type { SyslogDefaultSettings, conditionsInterface } from "../syslog/Syslog";
+import type { IKernel } from "./IKernel";
 import type { DebugType, EnvironmentType } from "./globals";
 
 // any[] est intentionnel : les event systems acceptent des callbacks de n'importe quel type
@@ -30,8 +31,7 @@ export interface IService {
 
   // ─── Infrastructure ────────────────────────────────────────────────────────
   readonly container: Container | null;
-  // Sera IKernel | null quand Kernel implémentera explicitement IKernel (session dédiée)
-  readonly kernel: object | null;
+  readonly kernel: IKernel | null;
   readonly syslog: Syslog | null;
   /** undefined si notificationsCenter=false passé au constructeur, ou après clean() */
   readonly notificationsCenter: Event | undefined;

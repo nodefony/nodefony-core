@@ -221,15 +221,15 @@ _Dépend de : Kernel, HTTP_
 | 2026-05-11 | Service + Interfaces | `Service.ts`, `IService`, `IKernel` | ~3h | 85 tests ✅ — `#nc` privé, `implements IService`, `Command.ts` fixé |
 | 2026-05-11 | ISyslog + Syslog | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts` | ~2h | 85 tests ✅ — `Pci=unknown`, `Function` → types propres, `implements ISyslog` |
 | 2026-05-11 | Syslog perf | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts` | ~1h | 85 tests ✅ — `CircularBuffer` O(1), `Date.now()`, `severityNameMap`, `fastTypeOf`, no lodash |
+| 2026-05-11 | IKernel complet | `IKernel.ts`, `IService.ts`, `Service.ts`, `Kernel.ts`, `CliKernel.ts`, commands | ~2h | 111 tests ✅ — `Kernel implements IKernel`, `IService.kernel: IKernel\|null`, `KernelNetworkResult`, casts Module/CliKernel |
 
 ---
 
 ## Prochaine session
 
-**Module cible** : IKernel complet — `Kernel.ts implements IKernel`
-**Pré-requis** : `IService` ✅ — `ISyslog` ✅ — Syslog perf ✅
+**Module cible** : IModule — `Module.ts implements IModule`
+**Pré-requis** : `IService` ✅ — `IKernel` ✅
 **Blockers connus** :
-- `IService.kernel: object | null` → doit devenir `IKernel | null` quand `Kernel implements IKernel`
-- `IKernel` est minimal (manque `command`, `commandArgs`, `terminate`, `isTrunk`…)
-- `getModule()` retourne `object` → doit retourner `IModule` (nécessite IModule d'abord)
-**Fichiers à lire** : `src/nodefony/src/kernel/Kernel.ts`, `src/nodefony/src/kernel/CliKernel.ts`, `src/nodefony/src/types/IKernel.ts`
+- `getModule()` retourne `object` → doit retourner `IModule` après création de l'interface
+- `cli: object | null` dans IKernel → `ICliKernel | null` nécessite ICliKernel
+**Fichiers à lire** : `src/nodefony/src/kernel/Module.ts`, `src/nodefony/src/types/IKernel.ts`

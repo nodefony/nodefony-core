@@ -1,7 +1,6 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
-//import Module from "../Module";
-//import Kernel from "../Kernel";
+import Module from "../Module";
 
 const options: OptionsCommandInterface = {
   showBanner: false,
@@ -23,7 +22,7 @@ class Dev extends Command {
       if (this.kernel?.modules && Object.keys(this.kernel.modules).length) {
         for (const moduleName in this.kernel?.modules) {
           try {
-            const module = this.kernel.modules[moduleName];
+            const module = this.kernel.modules[moduleName] as Module;
             this.log(`BUild ${moduleName} path : ${module.path}`);
             await module.build();
             this.log(`${moduleName} build ok`);

@@ -84,7 +84,7 @@ class Resolver extends Service {
         `Invalid name format: expected "module:controller:action"`
       );
     }
-    module = this.kernel?.getModule(tab[0]);
+    module = this.kernel?.getModule(tab[0]) as Module | undefined;
     if (!module) {
       throw new Error(`Module not found: ${tab[0]}`);
     }

@@ -22,7 +22,7 @@ class Install extends Command {
     const modules = this.kernel?.getModules();
     if (modules) {
       for (const moduleName in modules) {
-        const module: Module = modules[moduleName];
+        const module = modules[moduleName] as Module;
         await module.install(options?.force);
       }
     }

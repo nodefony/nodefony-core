@@ -20,6 +20,7 @@ import Rollup from "../service/rollup/rollupService";
 import Watcher from "../service/watcherService";
 import Injector from "./injector/injector";
 import Entity from "./orm/Entity";
+import type { IKernel } from "../types/IKernel";
 //import Babylon from "../service/babel/babylon";
 //import { StartOptions } from "pm2";
 
@@ -119,7 +120,7 @@ export interface ModuleConstructor {
 
 type trunkType = "javascript" | "typescript" | null;
 
-class Kernel extends Service {
+class Kernel extends Service implements IKernel {
   Events: Readonly<EventsType> = Events;
   type: KernelType;
   version: string = "1.0.0";
@@ -134,7 +135,7 @@ class Kernel extends Service {
   preRegistered: boolean = false;
   registered: boolean = false;
   app: Module | null = null;
-  cli: CliKernel | null | undefined;
+  cli: CliKernel | null = null;
   environment: EnvironmentType = "production";
   debug: DebugType = false;
   appEnvironment: AppEnvironmentType = {

@@ -2,7 +2,6 @@ import { DebugType, EnvironmentType } from "./types/globals";
 import { IService, DefaultOptionsService, EventListener } from "./types/IService";
 import type { IKernel } from "./types/IKernel";
 import Container, { DynamicParam } from "./Container";
-import Kernel from "./kernel/Kernel";
 import Event, { EventDefaultInterface } from "./Event";
 import Pdu, { Severity, Msgid, Message, Pci } from "./syslog/Pdu";
 import Syslog, { SyslogDefaultSettings, conditionsInterface } from "./syslog/Syslog";
@@ -22,8 +21,7 @@ class Service implements IService {
   public name: string;
   public options: DefaultOptionsService;
   public container: Container | null;
-  // Sera IKernel | null quand Kernel.ts implémentera explicitement IKernel (session dédiée)
-  public kernel: Kernel | null;
+  public kernel: IKernel | null;
   public syslog: Syslog | null;
   private settingsSyslog: SyslogDefaultSettings | null;
 
@@ -47,7 +45,7 @@ class Service implements IService {
       notificationsCenter === false
         ? { ...options }
         : { ...defaultOptions, ...options };
-    this.kernel = this.container.get<Kernel>("kernel");
+    this.kernel = this.container.get<IKernel>("kernel");
     this.syslog = this.container.get<Syslog>("syslog");
 
     if (!this.syslog) {

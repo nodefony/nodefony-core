@@ -174,7 +174,7 @@ class Module extends Service {
       const override: DefaultOptionsService = this.options[ele];
       index = regModuleName.exec(ele);
       if (index && index[1]) {
-        const mod = this.kernel?.getModule(index[1] as string);
+        const mod = this.kernel?.getModule(index[1] as string) as Module | undefined;
         if (!mod) {
           this.log(
             `Can't Override Configuration Module : ${index[1]} is not ready, Register module before`,
@@ -294,7 +294,7 @@ class Module extends Service {
   ): Command | void {
     if (this.kernel && this.kernel.cli) {
       try {
-        const command = new cliCommand(this.kernel.cli);
+        const command = new cliCommand(this.kernel.cli as CliKernel);
         this.commands[command.name] = command;
         return command;
       } catch (e) {
@@ -309,21 +309,21 @@ class Module extends Service {
   }
 
   async install(force: boolean = false): Promise<number | Error> {
-    if (this.kernel?.cli?.packageManager) {
+    if ((this.kernel?.cli as CliKernel)?.packageManager) {
       if (force) {
-        return await this.kernel?.cli?.packageManager(
+        return await (this.kernel?.cli as CliKernel)?.packageManager(
           ["install", "--force"],
           this.path
         );
       }
-      return await this.kernel?.cli?.packageManager(["install"], this.path);
+      return await (this.kernel?.cli as CliKernel)?.packageManager(["install"], this.path);
     }
     throw new Error(`Package Manager not found`);
   }
 
   async outdated(): Promise<number | Error> {
-    if (this.kernel?.cli?.packageManager) {
-      return await this.kernel?.cli?.packageManager(["outdated"], this.path);
+    if ((this.kernel?.cli as CliKernel)?.packageManager) {
+      return await (this.kernel?.cli as CliKernel)?.packageManager(["outdated"], this.path);
     }
     throw new Error(`Package Manager not found`);
   }

@@ -4,6 +4,7 @@ import Syslog, { conditionsInterface } from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
 import Cli, { CliDefaultOptions, PackageManagerName } from "../Cli";
 import Kernel, { KernelType, TypeKernelOptions } from "./Kernel";
+import type { IKernel } from "../types/IKernel";
 import Command from "../command/Command";
 import Start from "./commands/StartCommand";
 import Dev from "./commands/DevCommand";

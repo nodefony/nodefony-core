@@ -1,20 +1,33 @@
 import type { IService } from "./IService";
 import type { EnvironmentType, DebugType } from "./globals";
+import type os from "node:os";
 
-// Redéfinis localement pour éviter l'import circulaire vers Kernel.ts
-type KernelType = "CONSOLE" | "HTTP" | "HTTPS" | "HTTP2";
+// Redéfinis localement — import circulaire impossible (Kernel.ts → Service.ts → IService.ts → IKernel.ts)
+type KernelType = "console" | "server" | "CONSOLE" | "SERVER";
 type EventsType = Record<string, number>;
+// Redéfini depuis Kernel.ts (trunkType)
+type TrunkType = "javascript" | "typescript" | null;
+
+// Résultat de Kernel.getNetwork() — redéfini ici pour éviter l'import circulaire
+export interface KernelNetworkResult {
+  external: Record<string, os.NetworkInterfaceInfo[]>;
+  local: Record<string, os.NetworkInterfaceInfo[]>;
+  ipv4: Record<string, os.NetworkInterfaceInfo[]>;
+  ipv6: Record<string, os.NetworkInterfaceInfo[]>;
+  interfaces: Record<string, os.NetworkInterfaceInfo[]>;
+}
 
 /**
  * Contrat public du Kernel nodefony.
- * Utilisé comme type de `IService.kernel` pour éviter l'import circulaire
+ * Utilisé comme type de IService.kernel pour éviter l'import circulaire
  * Kernel.ts → Service.ts → IService.ts → IKernel.ts → Kernel.ts.
  *
- * IModule sera ajouté quand IModule sera défini.
+ * IModule sera ajouté quand IModule sera défini (getModule/modules typés object pour l'instant).
+ * command/commandArgs typés object/unknown[] — ICommand session dédiée.
  */
 export interface IKernel extends IService {
   // ─── Identité & environnement ───────────────────────────────────────────────
-  readonly type: KernelType;
+  type: KernelType;
   readonly version: string;
   readonly environment: EnvironmentType;
   readonly debug: DebugType;
@@ -37,12 +50,36 @@ export interface IKernel extends IService {
   readonly Events: Readonly<EventsType>;
   readonly progress: number;
 
+  // ─── Trunk ─────────────────────────────────────────────────────────────────
+  readonly trunk: TrunkType;
+
+  // ─── Commande CLI ──────────────────────────────────────────────────────────
+  // Typé object | null pour éviter l'import circulaire vers Command.ts
+  // Sera ICommand | null quand ICommand sera défini
+  command: object | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  commandArgs: any[];
+
+  // ─── Réseau ────────────────────────────────────────────────────────────────
+  domain: string;
+
+  // ─── CLI ───────────────────────────────────────────────────────────────────
+  // Typé object | null pour éviter l'import circulaire vers CliKernel.ts
+  cli: object | null;
+
   // ─── Modules (typés loosely jusqu'à la création de IModule) ───────────────
   readonly modules: Record<string, object>;
 
   // ─── Méthodes publiques ────────────────────────────────────────────────────
   start(): Promise<this>;
+  terminate(code?: number): Promise<this>;
+  isTrunk(): Promise<TrunkType>;
+  isModule(subclass: unknown): boolean;
+  addModule(Mod: unknown, ...args: unknown[]): Promise<object>;
+  loadModule(nameOrPath: string, build?: boolean): Promise<object>;
   getModule(name: string): object;
   getModules(): Record<string, object>;
+  getNetwork(): KernelNetworkResult;
+  checkPath(myPath: string): string | null;
   isCommandComplete(progress: number): boolean;
 }
