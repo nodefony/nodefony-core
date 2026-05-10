@@ -1,6 +1,6 @@
 import clc from "cli-color";
 
-import { typeOf, extend } from "../Tools";
+import { extend } from "../Tools";
 import Pdu, { Severity, ModuleName, Msgid, Message, Pci } from "./Pdu";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Event from "../Event";
@@ -92,34 +92,66 @@ export type CallbackFunction = (pdu: Pdu) => void;
 type CallbackArray = Pdu[];
 type Callback = CallbackFunction | CallbackArray | null;
 
-const formatDebug = function (debug: DebugType): DebugType {
-  switch (typeOf(debug)) {
-    case "boolean":
-      return debug as boolean;
-    case "string": {
-      if (["false", "undefined", "null"].includes(debug as string)) {
-        return false;
-      }
-      if (debug === "true" || debug === "*") {
-        return true;
-      }
-      const mytab: string[] = (debug as string).split(/,| /);
-      if (mytab[0] === "*") {
-        return true;
-      }
-      return mytab;
-    }
-    case "array":
-      debug = debug as [];
-      if (debug[0] === "*") {
-        return true;
-      }
-      return debug;
-    case "undefined":
-    case "object":
-    default:
-      return false;
+// O(1) circular ring buffer — replaces Array.shift() which is O(n)
+class CircularBuffer<T> {
+  private buf: Array<T | undefined>;
+  private head = 0;
+  private _size = 0;
+  readonly capacity: number;
+
+  constructor(capacity: number) {
+    this.capacity = capacity;
+    this.buf = new Array<T | undefined>(capacity);
   }
+
+  push(item: T): void {
+    if (this._size === this.capacity) {
+      // Overwrite oldest slot, advance head past it
+      this.buf[this.head] = item;
+      this.head = (this.head + 1) % this.capacity;
+    } else {
+      const tail = (this.head + this._size) % this.capacity;
+      this.buf[tail] = item;
+      this._size++;
+    }
+  }
+
+  get length(): number {
+    return this._size;
+  }
+
+  last(): T | undefined {
+    if (this._size === 0) return undefined;
+    return this.buf[(this.head + this._size - 1) % this.capacity] as T;
+  }
+
+  clear(): void {
+    this.head = 0;
+    this._size = 0;
+  }
+
+  // Returns elements in FIFO order (oldest first, newest last)
+  toArray(): T[] {
+    const result = new Array<T>(this._size);
+    for (let i = 0; i < this._size; i++) {
+      result[i] = this.buf[(this.head + i) % this.capacity] as T;
+    }
+    return result;
+  }
+}
+
+const formatDebug = function (debug: DebugType): DebugType {
+  if (typeof debug === "boolean") return debug;
+  if (typeof debug === "string") {
+    if (["false", "undefined", "null"].includes(debug)) return false;
+    if (debug === "true" || debug === "*") return true;
+    const mytab = debug.split(/,| /);
+    return mytab[0] === "*" ? true : mytab;
+  }
+  if (Array.isArray(debug)) {
+    return (debug as string[])[0] === "*" ? true : debug;
+  }
+  return false;
 };
 
 const conditionOptions = function (
@@ -244,29 +276,17 @@ const checkFormatSeverity = (ele: unknown): string[] | number[] => {
 };
 
 const checkFormatDate = function (ele: Date | string): number {
-  switch (typeOf(ele)) {
-    case "date":
-      return (ele as Date).getTime();
-    case "string":
-      return new Date(ele as string).getTime();
-    default:
-      throw new Error(`checkFormatDate bad format ${typeOf(ele)} : ${String(ele)}`);
-  }
+  if (ele instanceof Date) return ele.getTime();
+  if (typeof ele === "string") return new Date(ele).getTime();
+  throw new Error(`checkFormatDate bad format : ${String(ele)}`);
 };
 
 const checkFormatMsgId = function (ele: unknown): RegExp | Array<unknown> {
-  switch (typeOf(ele)) {
-    case "string":
-      return (ele as string).split(/,| /);
-    case "number":
-      return [ele];
-    case "RegExp":
-      return ele as RegExp;
-    case "array":
-      return ele as Array<unknown>;
-    default:
-      throw new Error(`checkFormatMsgId bad format ${typeOf(ele)} : ${String(ele)}`);
-  }
+  if (typeof ele === "string") return ele.split(/,| /);
+  if (typeof ele === "number") return [ele];
+  if (ele instanceof RegExp) return ele;
+  if (Array.isArray(ele)) return ele;
+  throw new Error(`checkFormatMsgId bad format ${typeof ele} : ${String(ele)}`);
 };
 
 type ConditionFilter = ((pdu: Pdu) => void) | Pdu[];
@@ -291,7 +311,7 @@ const wrapperCondition = function (
 
   const Conditions = sanitizeConditions(conditions);
 
-  if (typeOf(callback) === "function") {
+  if (typeof callback === "function") {
     return (pdu: Pdu) => {
       const res = myFuncCondition(Conditions as ConditionSetting, pdu);
       if (res) {
@@ -300,7 +320,7 @@ const wrapperCondition = function (
     };
   }
 
-  if (typeOf(callback) === "array") {
+  if (Array.isArray(callback)) {
     const tab: Pdu[] = [];
     for (const pdu of callback as CallbackArray) {
       const res = myFuncCondition(Conditions as ConditionSetting, pdu);
@@ -317,7 +337,7 @@ const wrapperCondition = function (
 const sanitizeConditions = function (
   settingsCondition: conditionsInterface
 ): boolean | ConditionSetting {
-  if (typeOf(settingsCondition) !== "object") {
+  if (typeof settingsCondition !== "object" || settingsCondition === null) {
     return false;
   }
   for (const ele in settingsCondition) {
@@ -401,7 +421,7 @@ const createPDU = function (
 
 class Syslog extends Event implements ISyslog {
   public settings: SyslogDefaultSettings;
-  public ringStack: Pdu[];
+  private _ring: CircularBuffer<Pdu>;
   public burstPrinted: number;
   public missed: number;
   public invalid: number;
@@ -412,13 +432,18 @@ class Syslog extends Event implements ISyslog {
   constructor(settings?: SyslogDefaultSettings) {
     super(settings);
     this.settings = extend({}, defaultSettings, settings || {});
-    this.ringStack = [];
+    this._ring = new CircularBuffer<Pdu>(this.settings.maxStack ?? 100);
     this.burstPrinted = 0;
     this.missed = 0;
     this.invalid = 0;
     this.valid = 0;
     this.start = 0;
     this._async = (this.settings.async as boolean) || false;
+  }
+
+  // ringStack returns elements in FIFO order (oldest first, newest last)
+  get ringStack(): Pdu[] {
+    return this._ring.toArray();
   }
 
   static formatDebug(debug: DebugType): DebugType {
@@ -449,22 +474,19 @@ class Syslog extends Event implements ISyslog {
   }
 
   reset(): this {
-    this.ringStack.length = 0;
+    this._ring.clear();
     this.removeAllListeners();
     return this;
   }
 
   clearLogStack(): void {
-    this.ringStack.length = 0;
+    this._ring.clear();
   }
 
   pushStack(pdu: Pdu): number {
-    if (this.ringStack.length === this.settings.maxStack) {
-      this.ringStack.shift();
-    }
-    const index = this.ringStack.push(pdu);
+    this._ring.push(pdu);
     this.valid++;
-    return index;
+    return this._ring.length;
   }
 
   log(
@@ -476,7 +498,7 @@ class Syslog extends Event implements ISyslog {
     let pdu: Pdu | undefined;
     if (this.settings.rateLimit !== false) {
       const rate = this.settings.rateLimit as number;
-      const now = new Date().getTime();
+      const now = Date.now();
       this.start = this.start || now;
       if (now > this.start + rate) {
         this.burstPrinted = 0;
@@ -507,7 +529,9 @@ class Syslog extends Event implements ISyslog {
           return pdu;
         }
         this.pushStack(pdu);
-        this.fire("onLog", pdu);
+        if (this.listenerCount("onLog") > 0) {
+          this.fire("onLog", pdu);
+        }
         this.burstPrinted++;
         pdu.status = "ACCEPTED";
         return pdu;
@@ -539,7 +563,9 @@ class Syslog extends Event implements ISyslog {
     }
     this.pushStack(pdu);
     pdu.status = "ACCEPTED";
-    this.fire("onLog", pdu);
+    if (this.listenerCount("onLog") > 0) {
+      this.fire("onLog", pdu);
+    }
     return pdu;
   }
 
@@ -548,14 +574,15 @@ class Syslog extends Event implements ISyslog {
     end?: number,
     contition?: conditionsInterface
   ): Pdu[] | Pdu {
+    // Fast path: no arguments → last entry without building full array
+    if (arguments.length === 0) {
+      return this._ring.last() as Pdu;
+    }
     let stack: Pdu[];
     if (contition) {
       stack = this.getLogs(contition);
     } else {
       stack = this.ringStack;
-    }
-    if (arguments.length === 0) {
-      return stack[stack.length - 1];
     }
     if (!end) {
       return stack.slice(start);
@@ -590,37 +617,34 @@ class Syslog extends Event implements ISyslog {
     if (!stack) {
       throw new Error("syslog loadStack : not stack in arguments ");
     }
-    switch (typeOf(stack)) {
-      case "string":
-        return this.loadStack(
-          JSON.parse(stack as string) as Pdu[],
-          doEvent,
-          beforeConditions
-        );
-      case "array":
-      case "object":
-        for (const stackItem of stack as Pdu[]) {
-          const pdu = new Pdu(
-            stackItem.payload,
-            stackItem.severity as Severity | undefined,
-            stackItem.moduleName || this.settings.moduleName,
-            stackItem.msgid,
-            stackItem.msg,
-            stackItem.timeStamp
-          );
-          this.pushStack(pdu);
-          if (doEvent) {
-            if (beforeConditions) {
-              beforeConditions.call(this, pdu, stackItem);
-            }
-            this.fire("onLog", pdu);
-          }
-        }
-        break;
-      default:
-        throw new Error("syslog loadStack : bad stack in arguments type");
+    if (typeof stack === "string") {
+      return this.loadStack(
+        JSON.parse(stack) as Pdu[],
+        doEvent,
+        beforeConditions
+      );
     }
-    return stack as Pdu[];
+    if (Array.isArray(stack) || typeof stack === "object") {
+      for (const stackItem of stack as Pdu[]) {
+        const pdu = new Pdu(
+          stackItem.payload,
+          stackItem.severity as Severity | undefined,
+          stackItem.moduleName || this.settings.moduleName,
+          stackItem.msgid,
+          stackItem.msg,
+          stackItem.timeStamp
+        );
+        this.pushStack(pdu);
+        if (doEvent) {
+          if (beforeConditions) {
+            beforeConditions.call(this, pdu, stackItem);
+          }
+          this.fire("onLog", pdu);
+        }
+      }
+      return stack as Pdu[];
+    }
+    throw new Error("syslog loadStack : bad stack in arguments type");
   }
 
   filter(conditions: conditionsInterface, callback: CallbackFunction): void {
@@ -720,9 +744,9 @@ class Syslog extends Event implements ISyslog {
     }
     const message = pdu.payload;
     if (pdu.severity === -1) {
-      process.stdout.write("[0G");
+      process.stdout.write("[0G");
       process.stdout.write(`${green(pdu.msgid)} : ${String(message)}`);
-      process.stdout.write("[90m[0m");
+      process.stdout.write("[90m[0m");
       return pdu;
     }
     const wrap = Syslog.wrapper(pdu);

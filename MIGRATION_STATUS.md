@@ -220,13 +220,14 @@ _Dépend de : Kernel, HTTP_
 |------|---------|--------------|-------|-------|
 | 2026-05-11 | Service + Interfaces | `Service.ts`, `IService`, `IKernel` | ~3h | 85 tests ✅ — `#nc` privé, `implements IService`, `Command.ts` fixé |
 | 2026-05-11 | ISyslog + Syslog | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts` | ~2h | 85 tests ✅ — `Pci=unknown`, `Function` → types propres, `implements ISyslog` |
+| 2026-05-11 | Syslog perf | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts` | ~1h | 85 tests ✅ — `CircularBuffer` O(1), `Date.now()`, `severityNameMap`, `fastTypeOf`, no lodash |
 
 ---
 
 ## Prochaine session
 
 **Module cible** : IKernel complet — `Kernel.ts implements IKernel`
-**Pré-requis** : `IService` ✅ — `ISyslog` ✅
+**Pré-requis** : `IService` ✅ — `ISyslog` ✅ — Syslog perf ✅
 **Blockers connus** :
 - `IService.kernel: object | null` → doit devenir `IKernel | null` quand `Kernel implements IKernel`
 - `IKernel` est minimal (manque `command`, `commandArgs`, `terminate`, `isTrunk`…)

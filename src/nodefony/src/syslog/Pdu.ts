@@ -1,5 +1,3 @@
-import { typeOf } from "../Tools";
-
 // Pci est unknown : le payload d'un log peut être n'importe quoi (Error, string, object…).
 // Les lecteurs de pdu.payload doivent narrower le type explicitement.
 export type Pci = unknown;
@@ -76,6 +74,28 @@ const sysLogSeverityObj: Record<Severity, Severity> = Object.entries(
   {} as Record<Severity, Severity>
 );
 
+// Pre-built reverse map: numeric severity → name key (O(1) lookup vs O(n) filter per PDU)
+const severityNameMap = new Map<number, keyof typeof SysLogSeverity>(
+  (
+    Object.entries(SysLogSeverity).filter(
+      ([, v]) => typeof v === "number"
+    ) as [string, number][]
+  ).map(([k, v]) => [v, k as keyof typeof SysLogSeverity])
+);
+
+// Fast inline typeof for PDU payload — avoids lodash overhead on hot log path
+const fastTypeOf = (value: unknown): string | null => {
+  if (value === null) return null;
+  const t = typeof value;
+  if (t !== "object") return t;
+  if (Array.isArray(value)) return "array";
+  if (value instanceof Date) return "date";
+  if (value instanceof RegExp) return "RegExp";
+  if (value instanceof Error) return "Error";
+  if (Buffer.isBuffer(value)) return "buffer";
+  return "object";
+};
+
 /**
  *  Protocol Data Unit
  * @class  PDU
@@ -90,7 +110,7 @@ class Pdu {
   public severity: number;
   public timeStamp: number;
   public severityName: keyof typeof SysLogSeverity;
-  public typePayload: unknown;
+  public typePayload: string | null;
   public moduleName: ModuleName;
   public msgid: Msgid;
   public msg: Message;
@@ -102,40 +122,31 @@ class Pdu {
     moduleName: ModuleName = "nodefony",
     msgid: Msgid = "",
     msg: Message = "",
-    date: PduDate = new Date()
+    date?: PduDate
   ) {
-    this.timeStamp = this.convertToDate(date).getTime();
+    // Fast timestamp — avoid Date object creation when date is not provided
+    if (date === undefined) {
+      this.timeStamp = Date.now();
+    } else if (typeof date === "number") {
+      this.timeStamp = date;
+    } else if (date instanceof Date) {
+      this.timeStamp = date.getTime();
+    } else {
+      this.timeStamp = new Date(date).getTime();
+    }
     this.uid = ++guid;
     this.severity = translateSeverity(severity);
-    this.severityName = this.getSeverityName(this.severity);
-    this.typePayload = typeOf(pci);
+    const sName = severityNameMap.get(this.severity);
+    if (sName === undefined) {
+      throw new Error(`Invalid severity value: ${this.severity}`);
+    }
+    this.severityName = sName;
+    this.typePayload = fastTypeOf(pci);
     this.payload = pci;
     this.moduleName = moduleName;
     this.msgid = msgid;
     this.msg = msg;
     this.status = "NOTDEFINED";
-  }
-
-  private getSeverityName(
-    severity: SysLogSeverity
-  ): keyof typeof SysLogSeverity {
-    const keys = Object.keys(SysLogSeverity).filter(
-      (key) => SysLogSeverity[key as keyof typeof SysLogSeverity] === severity
-    );
-    if (keys.length === 1) {
-      return keys[0] as keyof typeof SysLogSeverity;
-    }
-    throw new Error(`Impossible de trouver la clé pour la valeur ${severity}`);
-  }
-
-  private convertToDate(value: PduDate): Date {
-    if (typeof value === "string" || typeof value === "number") {
-      return new Date(value);
-    } else if (value instanceof Date) {
-      return value;
-    } else {
-      throw new Error(`Invalid PduDate format: ${value}`);
-    }
   }
 
   static sysLogSeverity() {

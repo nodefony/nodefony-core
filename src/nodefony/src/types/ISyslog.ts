@@ -11,7 +11,7 @@ import type {
 export interface ISyslog {
   // ─── État ──────────────────────────────────────────────────────────────────
   settings: SyslogDefaultSettings;
-  ringStack: Pdu[];
+  readonly ringStack: Pdu[];
   burstPrinted: number;
   missed: number;
   invalid: number;
