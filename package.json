@@ -5,6 +5,7 @@
   "type": "module",
   "types": "dist/types/index.d.ts",
   "private": true,
+  "packageManager": "npm@11.12.1",
   "engines": {
     "node": ">=18"
   },
