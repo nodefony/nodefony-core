@@ -43,16 +43,23 @@
 
 | # | Tâche | Fichier(s) | Statut | Complexité |
 |---|-------|------------|--------|------------|
-| 1 | Shim `vendor.d.ts` — fin des `@ts-ignore` | `src/nodefony/src/types/vendor.d.ts` | ⬜ | 1 |
-| 2 | Supprimer les `@ts-ignore` dans les 2 rollup configs | core + root `rollup.config.ts` | ⬜ | 1 |
-| 3 | Refactorer core rollup (3 outputs, no CJS, no tests, no `any`) | `src/nodefony/rollup.config.ts` | ⬜ | 3 |
-| 4 | Core `package.json` : ESM only + exports `browser`/`node` | `src/nodefony/package.json` | ⬜ | 2 |
-| 5 | Tests : passer à `mocha --import tsx` | `src/nodefony/package.json` | ⬜ | 1 |
-| 6 | Créer `turbo.json` à la racine | `turbo.json` | ⬜ | 2 |
-| 7 | Root `package.json` : `prepare → turbo run build`, ajouter `turbo` devDep | `package.json` | ⬜ | 1 |
-| 8 | Supprimer `src/packages/package.json` (orchestrateur fantôme) | `src/packages/package.json` | ⬜ | 1 |
-| 9 | `@nodefony/llm` — créer son propre `rollup.config.ts` | `src/packages/@nodefony/llm/` | ⬜ | 2 |
-| 10 | Ajouter `peerDependencies: { nodefony: "*" }` dans chaque package | 14 × `package.json` | ⬜ | 1 |
+| 1 | Shim `vendor.d.ts` — fin des `@ts-ignore` | `src/nodefony/src/types/vendor.d.ts` + 4 packages | ✅ | 1 |
+| 2 | Supprimer les `@ts-ignore` | http, security, framework, redis, root rollup | ✅ | 1 |
+| 3 | Refactorer core rollup (3 outputs, no CJS, no tests, no `any`) | `src/nodefony/rollup.config.ts` | ✅ | 3 |
+| 4 | Core `package.json` : ESM only + exports `browser`/`node` | `src/nodefony/package.json` | ✅ | 2 |
+| 5 | Tests : `tsx node_modules/.bin/mocha` (110 tests, ~3s) | `src/nodefony/package.json` | ✅ | 1 |
+| 6 | Créer `turbo.json` à la racine | `turbo.json` | ✅ | 2 |
+| 7 | Root `package.json` : `prepare → turbo run build` + turbo devDep | `package.json` | ✅ | 1 |
+| 8 | Supprimer `src/packages/package.json` | supprimé | ✅ | 1 |
+| 9 | `@nodefony/llm` — son propre `rollup.config.ts` + `tsconfig.json` | `src/packages/@nodefony/llm/` | ✅ | 2 |
+| 10 | `peerDependencies: { nodefony: "*" }` dans http/security/framework/llm | 4 × `package.json` | ✅ | 1 |
+
+**Notes de session :**
+- `workspace:*` → `*` dans rag/agent/memory (syntaxe pnpm non supportée par npm)
+- `Event.ts` : `"events"` → `"node:events"` (bug caché par l'ancien build)
+- `Service.ts` : `export type { IService, ... }` — types masqués par Rollup avant
+- `.gitignore` : `bin/` → `/bin/` pour ne pas ignorer `src/bin/`
+- `nodePolyfills` conservé dans client config (Syslog importe cli-color)
 
 ---
 
@@ -241,15 +248,8 @@
 
 ## Prochaine session
 
-**Priorité absolue** : Phase 0 — Refactorisation Build  
-**Pourquoi avant IController** : Le build actuel (`preinstall` séquentiel, `@ts-ignore`, pas de CLI intégrée) est une dette technique bloquante pour la suite.
+**Phase 0 terminée** ✅ — commit `build-refactor` branch
 
-**Tâches Phase 0 (ordre strict) :**
-1. Créer shim `.d.ts` pour `rollup-sourcemap-path-transform` → supprime le `@ts-ignore`
-2. Supprimer `preinstall` manuel → `npm install` au root suffit (workspaces)
-3. Remplacer `prebuild` par hook `prepare` → `node scripts/build.mjs`
-4. Écrire `scripts/build.mjs` (ESM, pas CJS) — orchestre le build séquentiel
-5. Intégrer `src/nodefony/src/bin/nodefony.ts` → rollup banner shebang → `bin/nodefony`
-
-**Après Phase 0** : reprendre Phase 5.1 — `IController` + `Controller.ts implements IController`  
-**Pré-requis Phase 5.1** : `IService` ✅ — `IKernel` ✅ — `IModule` ✅
+**Prochaine session** : Phase 5.1 — `IController` + `Controller.ts implements IController` (package `@nodefony/framework`)  
+**Pré-requis** : `IService` ✅ — `IKernel` ✅ — `IModule` ✅  
+**Fichiers à lire** : `src/packages/@nodefony/framework/nodefony/src/Controller.ts`, `src/nodefony/src/types/`
