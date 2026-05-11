@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Message, Msgid, Orm, Pci, Severity } from "nodefony";
+import type { Message, Msgid, Pci, Severity } from "../../syslog/Pdu";
+import Orm from "./Orm";
 class Connector {
   db: any = null;
   name: string;

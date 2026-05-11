@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { v4 as uuidv4 } from "uuid";
 import { extend, isPlainObject } from "./Tools";
-import { Message, Msgid, Pci, Severity, Syslog } from "nodefony";
+import type { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
+import Syslog from "./syslog/Syslog";
 
 const ISDefined = function (ele: unknown): boolean {
   return ele !== null && ele !== undefined;

@@ -27,6 +27,20 @@ if (typeof module !== "undefined" && module.exports) {
 
 export default nodefony;
 export * from "./Nodefony";
+export { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
+export { Scope, ProtoService, ProtoParameters } from "./Container";
+export { EnvironmentType, DebugType } from "./types/globals";
+export {
+  FamilyType,
+  KernelEventsType,
+  NetworkInterface,
+  FilterInterface,
+  ServiceWithInitialize,
+  ServiceConstructor,
+  EntityConstructor,
+  TypeKernelOptions,
+} from "./kernel/Kernel";
+export { OptionsCommandInterface, CommandEvents } from "./command/Command";
 
 // export {
 //   Nodefony,
