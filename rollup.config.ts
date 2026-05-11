@@ -5,22 +5,6 @@ import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
-import copy from "rollup-plugin-copy";
-
-//@ts-ignore
-import { createPathTransform } from "rollup-sourcemap-path-transform";
-
-// const sourcemapPathTransform = createPathTransform({
-//   prefixes: {
-//     "*src/": `${resolve(".", "nodefony", "src")}/`,
-//     "*config/": `${resolve(".", "nodefony", "config")}/`,
-//     "*decorators/": `${resolve(".", "nodefony", "decorators")}/`,
-//     "*service/": `${resolve(".", "nodefony", "service")}/`,
-//     "*controller/": `${resolve(".", "nodefony", "controller")}/`,
-//     "*entity/": `${resolve(".", "nodefony", "entity")}/`,
-//     "*command/": `${resolve(".", "nodefony", "command")}/`,
-//   },
-// });
 
 const external: string[] = [
   "nodefony",
@@ -62,7 +46,7 @@ function createNodePlugins(
   sourceMap: boolean,
   declarationDir: string | false
 ): Plugin[] {
-  const tab = [
+  const plugins: Plugin[] = [
     nodeResolve({ preferBuiltins: true }),
     typescript({
       tsconfig: path.resolve("tsconfig.json"),
@@ -70,25 +54,17 @@ function createNodePlugins(
       declaration: declarationDir !== false,
       declarationDir: declarationDir !== false ? declarationDir : undefined,
     }),
-    commonjs({
-      extensions: [".js"],
-      //ignoreDynamicRequires: true
-      dynamicRequireTargets: [],
-    }),
+    commonjs({ extensions: [".js"] }),
     json(),
-    copy({
-      targets: [],
-    }),
   ];
   if (isProduction) {
-    //tab.push(terser());
+    // tab.push(terser());
   }
-  return tab;
+  return plugins;
 }
 
 function createNodeConfig(isProduction: boolean): RollupOptions {
   return defineConfig({
-    //input,
     input: "index.ts",
     ...sharedNodeOptions,
     output: {
@@ -102,8 +78,7 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
   });
 }
 
-export default (commandLineArgs: any): RollupOptions => {
-  const isDev = commandLineArgs.watch;
-  const isProduction = !isDev;
+export default (commandLineArgs: Record<string, unknown>): RollupOptions => {
+  const isProduction = !commandLineArgs["watch"];
   return createNodeConfig(isProduction);
 };

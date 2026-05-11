@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { EventEmitter } from "events";
+import { EventEmitter } from "node:events";
 import isEmpty from "lodash-es/isEmpty";
 import get from "lodash-es/get";
 import isFunction from "lodash-es/isFunction";

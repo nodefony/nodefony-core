@@ -16,12 +16,16 @@
   "scripts": {
     "nodefony": "nodefony",
     "start": "nodefony",
-    "preinstall": "npm  --prefix ./src/nodefony install && npm --prefix ./src/packages install && npm --prefix ./src/modules/test install",
-    "prebuild": "rimraf dist tmp && mkdirp tmp dist && npm run --prefix ./src/nodefony build && npm run --prefix ./src/packages build && npm run --prefix ./src/modules/test build",
-    "build": "npm run rollup",
-    "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
-    "test": "npm run --prefix ./src/nodefony test && npm --prefix ./src/packages test",
-    "dev": "npm run rollup -- --watch",
+    "prepare": "turbo run build",
+    "build": "turbo run build",
+    "build:core": "npm run build --workspace=src/nodefony",
+    "build:packages": "turbo run build --filter=./src/packages/**",
+    "clean": "turbo run clean",
+    "test": "turbo run test",
+    "dev": "npm run dev --workspace=src/nodefony",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "analyze": "npm run analyze --workspace=src/nodefony",
     "certificates": "bash bin/generateCertificates.sh"
   },
   "workspaces": [
@@ -45,14 +49,13 @@
     "eslint": "9.31.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.3",
-    "mkdirp": "3.0.1",
     "nodemon": "3.1.10",
     "prettier": "3.6.2",
     "rimraf": "6.0.1",
     "rollup": "4.45.1",
-    "rollup-plugin-copy": "3.5.0",
     "rollup-sourcemap-path-transform": "1.1.0",
     "tslib": "2.8.1",
+    "turbo": "^2.0.0",
     "typescript": "5.8.3"
   },
   "repository": {

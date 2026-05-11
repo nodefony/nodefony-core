@@ -4,7 +4,6 @@ import { defineConfig, Plugin, RollupOptions } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import json from "@rollup/plugin-json";
-//@ts-ignore
 import { createPathTransform } from "rollup-sourcemap-path-transform";
 //import commonjs from "@rollup/plugin-commonjs";
 //import copy from "rollup-plugin-copy";

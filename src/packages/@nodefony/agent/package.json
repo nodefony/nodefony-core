@@ -5,9 +5,9 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@nodefony/llm": "workspace:*",
-    "@nodefony/rag": "workspace:*",
-    "@nodefony/memory": "workspace:*"
+    "@nodefony/llm": "*",
+    "@nodefony/rag": "*",
+    "@nodefony/memory": "*"
   },
   "license": "CECILL-B"
 }

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { CliKernel } from "nodefony";
 import { exit } from "process";
 

@@ -2,20 +2,18 @@
   "name": "nodefony",
   "version": "10.0.0",
   "description": "Nodefony Framework",
-  "main": "dist/node-cjs/index.cjs",
-  "module": "dist/node/index.js",
-  "browser": "dist/client/index.js",
-  "types": "src/types/nodefony.d.ts",
   "type": "module",
   "exports": {
     ".": {
-      "import": {
-        "types": "./src/types/nodefony.d.ts",
-        "default": "./dist/node/index.js"
+      "browser": {
+        "import": {
+          "types": "./dist/client/types/src/client/index.d.ts",
+          "default": "./dist/client/index.js"
+        }
       },
-      "require": {
-        "types": "./src/types/nodefony.d.ts",
-        "default": "./dist/node-cjs/index.cjs"
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/node/index.js"
       }
     },
     "./client": {
@@ -38,16 +36,13 @@
   ],
   "scripts": {
     "nodefony": "node ./bin/nodefony",
-    "dev": "rimraf dist && npm run rollup -- --watch",
-    "prebuild": "rimraf dist tmp bin && mkdirp dist/types && mkdirp tmp bin",
-    "postbuild": "node -e \"require('shelljs').chmod('+x', './bin/nodefony');\"",
+    "build": "rollup --config rollup.config.ts --configPlugin typescript",
+    "dev": "rollup --config rollup.config.ts --configPlugin typescript --watch",
+    "clean": "rimraf dist bin/nodefony",
     "typecheck": "tsc --noEmit",
-    "build": "npm run rollup",
-    "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "start": "node ./bin/nodefony",
-    "test": "run-s   test:transpiled",
-    "test:ts": "ts-mocha -p src/tests/mocha-ts/tsconfig.test.json  src/tests/**/*.test.ts src/tests/*.test.ts",
-    "test:transpiled": "npm run build && mocha dist/tests/tests/*.js dist/tests/tests/**/*.js",
+    "test": "tsx node_modules/.bin/mocha 'src/tests/**/*.test.ts' 'src/tests/*.test.ts'",
+    "analyze": "ROLLUP_ANALYZE=true npm run build",
     "lint": "npm run eslint-src && npm run eslint-test",
     "eslint-src": "eslint --ignore-pattern 'node_modules' --ignore-pattern 'src/tests' 'src/**/*.ts'",
     "eslint-types": "eslint --ignore-pattern 'node_modules' '**/*.d.ts'",
@@ -127,15 +122,11 @@
     "mkdirp": "3.0.1",
     "mocha": "11.7.1",
     "mocha-jsdom": "2.0.0",
-    "npm-run-all2": "7.0.2",
     "prettier": "3.6.2",
     "rimraf": "6.0.1",
-    "rollup-plugin-copy": "3.5.0",
-    "rollup-plugin-polyfill-node": "0.13.0",
     "rollup-plugin-visualizer": "5.14.0",
-    "ts-mocha": "11.1.0",
-    "ts-node": "10.9.2",
     "tslib": "2.8.1",
+    "tsx": "4.20.3",
     "typedoc": "0.28.2",
     "typedoc-plugin-markdown": "4.6.1",
     "typescript": "5.8.3"

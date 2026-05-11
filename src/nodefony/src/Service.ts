@@ -1,5 +1,5 @@
 import { DebugType, EnvironmentType } from "./types/globals";
-import { IService, DefaultOptionsService, EventListener } from "./types/IService";
+import type { IService, DefaultOptionsService, EventListener } from "./types/IService";
 import type { IKernel } from "./types/IKernel";
 import Container, { DynamicParam } from "./Container";
 import Event, { EventDefaultInterface } from "./Event";
@@ -330,4 +330,4 @@ class Service implements IService {
 
 export default Service;
 // Ré-exports pour compatibilité avec les imports existants (Kernel, Module, Cli, etc.)
-export { IService, IKernel, DefaultOptionsService, EventListener };
+export type { IService, IKernel, DefaultOptionsService, EventListener };

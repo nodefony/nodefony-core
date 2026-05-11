@@ -6,7 +6,6 @@ import typescript from "@rollup/plugin-typescript";
 import json from "@rollup/plugin-json";
 //import commonjs from "@rollup/plugin-commonjs";
 //import copy from "rollup-plugin-copy";
-//@ts-ignore
 import { createPathTransform } from "rollup-sourcemap-path-transform";
 
 const sourcemapPathTransform = createPathTransform({

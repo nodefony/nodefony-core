@@ -12,9 +12,14 @@
     }
   },
   "scripts": {
-    "build": "rollup -c ../../../rollup.config.ts --configPlugin typescript",
+    "build": "rimraf dist && rollup --config rollup.config.ts --configPlugin typescript",
+    "clean": "rimraf dist",
+    "dev":   "rollup --config rollup.config.ts --configPlugin typescript --watch",
     "test":  "bun test",
     "lint":  "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "nodefony": "*"
   },
   "license": "CECILL-B"
 }

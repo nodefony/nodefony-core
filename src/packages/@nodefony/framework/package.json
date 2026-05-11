@@ -49,5 +49,8 @@
   },
   "license": "",
   "readmeFilename": "README.md",
-  "contributors": []
+  "contributors": [],
+  "peerDependencies": {
+    "nodefony": "*"
+  }
 }

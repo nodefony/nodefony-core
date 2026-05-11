@@ -5,8 +5,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "dependencies": {
-    "@nodefony/llm": "workspace:*",
-    "@nodefony/vector": "workspace:*"
+    "@nodefony/llm": "*",
+    "@nodefony/vector": "*"
   },
   "license": "CECILL-B"
 }
