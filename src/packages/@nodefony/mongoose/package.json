@@ -20,26 +20,21 @@
     "mongoose"
   ],
   "dependencies": {
-    "@types/node": "22.14.0",
-    "@typescript-eslint/eslint-plugin": "8.29.1",
-    "@typescript-eslint/parser": "8.29.1",
     "mongodb": "6.17.0",
-    "mongoose": "8.16.4",
-    "rollup": "4.45.1",
-    "typescript": "5.8.3"
+    "mongoose": "8.23.1"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "28.0.6",
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.1",
     "@rollup/plugin-replace": "6.0.2",
-    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-terser": "1.0.0",
     "@rollup/plugin-typescript": "12.1.4",
     "@types/node": "24.0.15",
     "@typescript-eslint/eslint-plugin": "8.37.0",
     "@typescript-eslint/parser": "8.37.0",
     "rimraf": "6.0.1",
-    "rollup": "4.39.0",
+    "rollup": "4.60.3",
     "typescript": "5.8.3"
   },
   "peerDependencies": {},

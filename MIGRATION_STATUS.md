@@ -246,10 +246,104 @@
 
 ---
 
+## Warnings TypeScript restants (build 2026-05-12)
+
+> 61 occurrences totales — 7 codes d'erreur — résolution par session dédiée
+> Règle : corriger dans la session du module concerné, pas avant.
+
+### TS2339 — Property does not exist on type (~14 occurrences uniques)
+
+| Fichier source | Ligne | Propriété manquante | Type actuel | Fix |
+|----------------|-------|---------------------|-------------|-----|
+| `@nodefony/http` `nodefony/service/http-kernel.ts` | 293 | `toJSON` | `Error \| HttpError \| nodefonyError` | Ajouter `toJSON?(): object` à `HttpError` et `nodefonyError`, ou narrowing |
+| `@nodefony/mongoose` `nodefony/service/orm.ts` | 212 | `displayTable` | `object` | Typer le retour de la méthode en `{ displayTable(): void }` ou interface ORM |
+| `@nodefony/sequelize` `nodefony/service/orm.ts` | 324 | `displayTable` | `object` | Idem — même pattern dans `Orm` base class |
+| `@nodefony/redis` `nodefony/src/Connection.ts` | 198 | `displayTable` | `object` | Idem |
+| `@nodefony/redis` `nodefony/src/Connection.ts` | 202 | `host` | `RedisSocketOptions` | `RedisSocketOptions` n'a pas `host` — utiliser `path` ou le bon type ioredis |
+| `@nodefony/test` `nodefony/entity/BoatEntity.ts` | 48 | `init` | `typeof SessionModel` | `SessionModel` n'expose pas `init` statique — vérifier l'API Sequelize v6 |
+
+**Packages affectés** : http, framework, security, mongoose, sequelize, redis, test (propagation de `http-kernel.ts`)
+
+---
+
+### TS2305 — Module has no exported member (~10 occurrences uniques)
+
+| Fichier source | Ligne | Membre manquant | Package source | Fix |
+|----------------|-------|-----------------|----------------|-----|
+| `@nodefony/http` `sessions/sessions-service.ts` | 28 | `SessionStorage` | `@nodefony/sequelize` | Exporter `SessionStorage` depuis l'index de `@nodefony/sequelize` |
+| `@nodefony/http` `sessions/sessions-service.ts` | 29 | `SessionStorage` | `@nodefony/mongoose` | Exporter `SessionStorage` depuis l'index de `@nodefony/mongoose` |
+| `@nodefony/test` `nodefony/entity/BoatEntity.ts` | 2 | `sequelize` | `@nodefony/sequelize` | Exporter l'instance `sequelize` depuis l'index |
+| `@nodefony/test` `nodefony/entity/BoatEntity.ts` | 2 | `Models` | `@nodefony/sequelize` | Exporter le type `Models` depuis l'index |
+| `@nodefony/test` `index.ts` | 2 | `entities` | `@nodefony/sequelize` | Exporter `entities` depuis l'index |
+
+**Packages affectés** : http, sequelize, mongoose, redis, test (même `sessions-service.ts` compilé dans plusieurs packages)
+
+---
+
+### TS4114 — Missing `override` modifier (4 occurrences)
+
+| Fichier source | Lignes | Base class | Fix |
+|----------------|--------|------------|-----|
+| `nodefony-core/index.ts` (app exemple racine) | 43, 76, 86, 96 | `Module` | Ajouter `override` aux méthodes qui surchargent `Module` |
+
+> **Note** : fichier hors packages — c'est l'app de test racine `nodefony-core/index.ts`, pas un package distribué. Priorité basse.
+
+---
+
+### TS6196 — Declared but never used (2 occurrences)
+
+| Fichier source | Ligne | Symbole | Fix |
+|----------------|-------|---------|-----|
+| `@nodefony/llm` `src/services/LLMService.ts` | 5 | `ILLMConfig` | Supprimer l'import ou utiliser l'interface |
+
+---
+
+### TS6133 — Declared but value never read (2 occurrences)
+
+| Fichier source | Ligne | Symbole | Fix |
+|----------------|-------|---------|-----|
+| `@nodefony/security` `nodefony/src/decorators/firewallDecorator.ts` | 5 | `descriptor` | Supprimer le paramètre ou le préfixer `_descriptor` |
+
+---
+
+### TS2742 — Inferred type cannot be named (2 occurrences)
+
+| Fichier source | Ligne | Symbole | Fix |
+|----------------|-------|---------|-----|
+| `@nodefony/http` `nodefony/src/session/session.ts` | 632 | `setMetaBag` | Ajouter une annotation de type explicite qui importe `Container` directement |
+
+> **Cause** : TypeScript infère un type qui référence `nodefony/dist/types/Container` par chemin absolu — non portable.
+> **Fix** : `setMetaBag(bag: Record<string, ReturnType<Container['get']>>): void` ou type inline.
+
+---
+
+### TS2322 — Type incompatible (2 occurrences)
+
+| Fichier source | Ligne | Problème | Fix |
+|----------------|-------|----------|-----|
+| `@nodefony/mongoose` `rollup.config.ts` | 59 | `Plugin[]` du rollup racine ≠ `Plugin[]` du rollup local `@nodefony/mongoose` | Aligner la version de `rollup` dans le `package.json` de `@nodefony/mongoose` avec la racine |
+
+> **Cause** : `@nodefony/mongoose` a sa propre installation de `rollup` dans `node_modules/` locale — les types `Plugin<any>[]` sont incompatibles entre les deux instances.
+
+---
+
+### Plugin warning — sourcemap (7 packages)
+
+| Packages affectés |
+|-------------------|
+| http, framework, security, mongoose, sequelize, redis, test |
+
+> Avertissement non-bloquant : `Rollup 'sourcemap' option must be set to generate source maps.`
+> **Cause** : `tsconfig.json` des packages activent `sourceMap: true` mais le `rollup.config.ts` ne passe pas `sourcemap` dans l'output.
+> **Fix** : Ajouter `sourcemap: true` dans les outputs rollup de chaque package, ou supprimer `sourceMap` des tsconfigs.
+
+---
+
 ## Prochaine session
 
 **Phase 0 terminée** ✅ — commit `build-refactor` branch
 
 **Prochaine session** : Phase 5.1 — `IController` + `Controller.ts implements IController` (package `@nodefony/framework`)  
 **Pré-requis** : `IService` ✅ — `IKernel` ✅ — `IModule` ✅  
-**Fichiers à lire** : `src/packages/@nodefony/framework/nodefony/src/Controller.ts`, `src/nodefony/src/types/`
+**Fichiers à lire** : `src/packages/@nodefony/framework/nodefony/src/Controller.ts`, `src/nodefony/src/types/`  
+**Type warnings à corriger en priorité** : TS2305 (`@nodefony/sequelize` + `@nodefony/mongoose` exports manquants), TS2339 (`http-kernel.ts:293`)
