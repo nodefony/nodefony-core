@@ -9,7 +9,7 @@
 
 | Catégorie           | Total | ✅ | 🔶 | ⬜ |
 |---------------------|-------|----|----|-----|
-| **Build System**    | 6     | 0  | 0  | 6   |
+| **Build System**    | 10    | 10 | 0  | 0   |
 | Core / Kernel       | 6     | 4  | 0  | 2   |
 | DI Container        | 4     | 0  | 0  | 4   |
 | Module System       | 5     | 2  | 0  | 3   |
@@ -23,11 +23,11 @@
 | CLI                 | 4     | 0  | 0  | 4   |
 | Monitoring          | 3     | 0  | 0  | 3   |
 | Types / Interfaces  | 5     | 4  | 0  | 1   |
-| **TOTAL**           | **62**| **14** | **0** | **48** |
+| **TOTAL**           | **66**| **24** | **0** | **42** |
 
 ---
 
-## Phase 0 — Refactorisation Build (PRIORITÉ SUIVANTE)
+## Phase 0 — Refactorisation Build ✅ TERMINÉE
 
 > Spec de référence : `BUILDER.md` (brainstorming — pas une spec exhaustive).
 > Objectif : `npm install` installe + build + génère l'exécutable `nodefony`.
@@ -243,6 +243,7 @@
 | 2026-05-11 | Syslog perf | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts` | ~1h | 85 tests ✅ — `CircularBuffer` O(1), `Date.now()`, `severityNameMap`, `fastTypeOf`, no lodash |
 | 2026-05-11 | IKernel complet | `IKernel.ts`, `IService.ts`, `Service.ts`, `Kernel.ts`, `CliKernel.ts`, commands | ~2h | 111 tests ✅ — `Kernel implements IKernel`, `IService.kernel: IKernel\|null`, `KernelNetworkResult`, casts Module/CliKernel |
 | 2026-05-11 | IModule complet | `IModule.ts`, `IKernel.ts`, `Module.ts`, commands | ~1h | 85 core ✅ — `Module implements IModule`, `PackageJson` migré vers types, casts `as Module` éliminés dans commands |
+| 2026-05-12 | Phase 0 finalisée + sécurité | Build system, deps, vulnérabilités | ~2h | Turbo OK — 1900 warnings TS2614 éliminés — 61→15 vulns — `mocha-jsdom` supprimé — mongoose `dependencies` nettoyé — merge sur `claude-ts` |
 
 ---
 
@@ -341,9 +342,18 @@
 
 ## Prochaine session
 
-**Phase 0 terminée** ✅ — commit `build-refactor` branch
+**Phase 0 terminée** ✅ — mergée sur `claude-ts` (2026-05-12)
 
-**Prochaine session** : Phase 5.1 — `IController` + `Controller.ts implements IController` (package `@nodefony/framework`)  
+**Prochaine session** : Phase 1.3 — `Container.ts` (DI Container) ou Phase 5.1 — `IController` + `Controller.ts`  
 **Pré-requis** : `IService` ✅ — `IKernel` ✅ — `IModule` ✅  
-**Fichiers à lire** : `src/packages/@nodefony/framework/nodefony/src/Controller.ts`, `src/nodefony/src/types/`  
-**Type warnings à corriger en priorité** : TS2305 (`@nodefony/sequelize` + `@nodefony/mongoose` exports manquants), TS2339 (`http-kernel.ts:293`)
+**Fichiers à lire en début de session** :
+- `src/nodefony/src/Container.ts` (DI Container — 🔶 partiellement typé)
+- `src/packages/@nodefony/framework/nodefony/src/Controller.ts` (Phase 5.1)
+- Ce fichier `MIGRATION_STATUS.md`
+
+**Type warnings à traiter en priorité** :
+- TS2305 : `SessionStorage`, `entities`, `sequelize`, `Models` manquants dans `@nodefony/sequelize` + `@nodefony/mongoose`
+- TS2339 : `toJSON` sur `Error | HttpError | nodefonyError` dans `http-kernel.ts:293`
+- TS4114 : `override` manquant dans `nodefony-core/index.ts` (app exemple racine)
+
+**Vulnérabilités restantes (15)** : voir section "Warnings TypeScript restants" — twig@3.0.0 + asciify à traiter dans session dédiée
