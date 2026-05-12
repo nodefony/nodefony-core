@@ -391,9 +391,18 @@ describe("Container › Scopes", () => {
 // ─── log() ────────────────────────────────────────────────────────────────────
 
 describe("Container › log()", () => {
-  it("sans syslog enregistré : ne lève pas d'erreur", () => {
+  it("sans syslog enregistré : appelle console.warn, ne lève pas d'erreur", () => {
     const c = new Container();
-    assert.doesNotThrow(() => c.log(new Error("test")));
+    const warnings: unknown[][] = [];
+    const original = console.warn;
+    console.warn = (...args: unknown[]) => { warnings.push(args); };
+    try {
+      assert.doesNotThrow(() => c.log("test pci"));
+      expect(warnings).to.have.length(1);
+      expect(warnings[0][0]).to.include("[Container]");
+    } finally {
+      console.warn = original;
+    }
   });
 
   it("avec syslog enregistré : délègue au syslog", () => {
