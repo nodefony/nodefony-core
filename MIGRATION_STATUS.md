@@ -11,7 +11,7 @@
 |---------------------|-------|----|----|-----|
 | **Build System**    | 10    | 10 | 0  | 0   |
 | Core / Kernel       | 6     | 4  | 0  | 2   |
-| DI Container        | 4     | 0  | 0  | 4   |
+| DI Container        | 4     | 1  | 0  | 3   |
 | Module System       | 5     | 2  | 0  | 3   |
 | Syslog / Pdu        | 4     | 4  | 0  | 0   |
 | Router              | 4     | 0  | 0  | 4   |
@@ -23,7 +23,7 @@
 | CLI                 | 4     | 0  | 0  | 4   |
 | Monitoring          | 3     | 0  | 0  | 3   |
 | Types / Interfaces  | 5     | 4  | 0  | 1   |
-| **TOTAL**           | **66**| **24** | **0** | **42** |
+| **TOTAL**           | **66**| **25** | **0** | **41** |
 
 ---
 
@@ -90,7 +90,7 @@
 
 | Fichier TS (chemin réel)                     | Source JS référence                          | Statut | Complexité | Notes |
 |----------------------------------------------|----------------------------------------------|--------|------------|-------|
-| `src/nodefony/src/Container.ts`              | `nodefony/core/container/container.js`       | ⬜     | 3          | Core DI |
+| `src/nodefony/src/Container.ts`              | `nodefony/core/container/container.js`       | ✅     | 3          | DynamicParam/Service unknown, null-guards, eslint-disable retiré |
 | `src/container/ServiceDefinition.ts`         | `nodefony/core/container/`                   | ⬜     | 2          | Définition de service |
 | `src/container/decorators.ts`                | N/A (nouveau)                                | ⬜     | 2          | @Service, @Injectable |
 | `src/container/index.ts`                     | N/A                                          | ⬜     | 1          | Barrel export |
