@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect, assert } from "chai";
 
 import "mocha";
@@ -34,7 +33,7 @@ class myClass3 {
 describe("Container", () => {
   beforeEach(() => {
     if ("container" in global) {
-      delete (global as any).container;
+      delete (global as NodeJS.Global & { container?: Container }).container;
     }
     global.container = new Container();
     // Ajout d'un service

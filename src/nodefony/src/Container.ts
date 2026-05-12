@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { v4 as uuidv4 } from "uuid";
 import { extend, isPlainObject } from "./Tools";
 import type { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
@@ -9,9 +8,9 @@ const ISDefined = function (ele: unknown): boolean {
 };
 
 const parseParameterString = function (
-  this: Container["parameters"] | ProtoParametersPrototype,
+  this: DynamicParam,
   str: string,
-  value?: any
+  value?: unknown
 ): DynamicParam | null {
   if (!this) {
     throw new Error(`Bad call`);
@@ -20,30 +19,25 @@ const parseParameterString = function (
   const currentPart = parts.shift();
   if (currentPart !== undefined) {
     if (parts.length === 0) {
-      // Dernière partie de la chaîne
       if (value !== undefined) {
         this[currentPart] = value;
       }
-      return this[currentPart] ?? null;
+      return (this[currentPart] ?? null) as DynamicParam | null;
     }
-    // On doit descendre d'un niveau — vérifier que c'est possible
     if (this[currentPart] === undefined || this[currentPart] === null) {
       if (value !== undefined) {
-        // Créer le niveau intermédiaire uniquement en écriture
         this[currentPart] = {};
       } else {
-        // Pas de valeur à écrire et chemin inexistant : retourner null
         return null;
       }
     }
-    // Guard : si la valeur intermédiaire n'est pas un objet, on ne peut pas descendre
     if (typeof this[currentPart] !== "object") {
       throw new Error(
         `Cannot create property '${parts[0]}' on ${typeof this[currentPart]} '${this[currentPart]}'`
       );
     }
     return parseParameterString.call(
-      this[currentPart],
+      this[currentPart] as DynamicParam,
       parts.join("."),
       value
     );
@@ -51,13 +45,12 @@ const parseParameterString = function (
   return this;
 };
 
-// Déclaration d'un objet hétérogène
 export interface DynamicService {
-  [cleDynamic: string]: any;
+  [key: string]: unknown;
 }
 
 export interface DynamicParam {
-  [cleDynamic: string]: any;
+  [key: string]: unknown;
 }
 
 export interface Scopes {
@@ -66,12 +59,10 @@ export interface Scopes {
   };
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ProtoService = { (): void; [key: string]: any };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ProtoParameters = { (): void; [key: string]: any };
-
-// Le type alias utilise un objet générique — plus besoin d'accéder à un
-// membre protected via Container.prototype (ce qui déclenchait TS2445)
-type ProtoParametersPrototype = { [key: string]: any };
 
 /*
  *
@@ -79,12 +70,10 @@ type ProtoParametersPrototype = { [key: string]: any };
  *
  */
 class Container {
-  // public : session.ts (sous-classe externe) accède à protoService et
-  // protoParameters directement. On conserve la visibilité d'origine.
   public protoService: ProtoService = function () {};
-  protected services: ProtoService | null;
+  protected services: DynamicService | null;
   public protoParameters: ProtoParameters = function () {};
-  protected parameters: ProtoService | null;
+  protected parameters: DynamicParam | null;
   protected id: string;
   private scopes: Scopes = {};
 
@@ -93,19 +82,17 @@ class Container {
     if (input && input instanceof Container) {
       this.services = Object.create(input.protoService.prototype);
       this.parameters = Object.create(input.protoParameters.prototype);
-      this.setServices(input.services || {});
-      // deep = true : les paramètres JSON-safe sont clonés (structuredClone)
-      // deep = false (défaut) : shallow copy — les services restent partagés
-      // (impossible de cloner des instances arbitraires)
+      this.setServices(input.services ?? {});
       if (deep) {
         try {
-          this.setParametersBulk(structuredClone(input.parameters ?? {}));
+          this.setParametersBulk(
+            structuredClone(input.parameters ?? {}) as DynamicParam
+          );
         } catch {
-          // Fallback si les paramètres contiennent des valeurs non-clonables
-          this.setParametersBulk(input.parameters || {});
+          this.setParametersBulk(input.parameters ?? {});
         }
       } else {
-        this.setParametersBulk(input.parameters || {});
+        this.setParametersBulk(input.parameters ?? {});
       }
     } else {
       this.services = Object.create(this.protoService.prototype);
@@ -113,19 +100,15 @@ class Container {
     }
   }
 
-  private setServices(services: Record<string, any>): void {
-    if (typeof services === "object") {
-      for (const service in services) {
-        this.set(service, services[service]);
-      }
+  private setServices(services: DynamicService): void {
+    for (const service in services) {
+      this.set(service, services[service]);
     }
   }
 
-  private setParametersBulk(parameters: Record<string, any>): void {
-    if (typeof parameters === "object") {
-      for (const parameter in parameters) {
-        this.setParameters(parameter, parameters[parameter]);
-      }
+  private setParametersBulk(parameters: DynamicParam): void {
+    for (const parameter in parameters) {
+      this.setParameters(parameter, parameters[parameter]);
     }
   }
 
@@ -163,7 +146,6 @@ class Container {
   }
 
   public remove(name: string): boolean {
-    // Guard cohérent avec get() : pas d'exception si services est null
     if (!this.services) {
       return false;
     }
@@ -183,24 +165,19 @@ class Container {
     return false;
   }
 
-  // Retourne un boolean strict — plus de "boolean | any"
   public has(name: string): boolean {
     return !!this.services?.[name];
   }
 
-  // --- Itération sur les services ---
-
-  /** Retourne les noms de tous les services enregistrés. */
   public keys(): string[] {
     return Object.keys(this.services ?? {});
   }
 
-  /** Retourne les paires [nom, valeur] de tous les services enregistrés. */
   public entries(): [string, unknown][] {
     return Object.entries(this.services ?? {});
   }
 
-  // --- Gestion des scopes ---
+  // --- Scopes ---
 
   public addScope(name: string): Scope | object {
     if (!this.scopes[name]) {
@@ -215,9 +192,6 @@ class Container {
         `Scope "${name}" not declared. Call addScope("${name}") first.`
       );
     }
-    // On extrait les prototypes ici, dans Container, où l'accès à
-    // this.protoService / this.protoParameters est parfaitement légal.
-    // Scope les reçoit par paramètre : aucun accès cross-instance.
     const sc = new Scope(name, this, this.protoService, this.protoParameters);
     this.scopes[name][sc.id] = sc;
     return sc;
@@ -236,15 +210,13 @@ class Container {
   public removeScope(name: string): void {
     const scopesForName = this.scopes[name];
     if (scopesForName) {
-      const scopesArray = Object.values(scopesForName);
-      for (const scope of scopesArray) {
+      for (const scope of Object.values(scopesForName)) {
         this.leaveScope(scope as Scope);
       }
       delete this.scopes[name];
     }
   }
 
-  /** Supprime tous les scopes déclarés sur ce container. */
   private removeAllScopes(): void {
     for (const name of Object.keys(this.scopes)) {
       this.removeScope(name);
@@ -265,21 +237,21 @@ class Container {
         `setParameters : ${name} container parameter value must be defined`
       );
     }
+    if (!this.parameters) return null;
     return parseParameterString.call(this.parameters, name, ele);
   }
 
   public getParameters(name: string): DynamicParam | null {
-    if (name) {
-      return parseParameterString.call(this.parameters, name);
+    if (!name) {
+      throw new Error(`getParameters : invalid name "${name}"`);
     }
-    throw new Error(`getParameters : invalid name "${name}"`);
+    if (!this.parameters) return null;
+    return parseParameterString.call(this.parameters, name);
   }
 
   // --- Cycle de vie ---
 
   public clean(): void {
-    // Purger les scopes avant de nullifier services/parameters
-    // pour éviter les fuites mémoire sur les références circulaires
     this.removeAllScopes();
     this.services = null;
     this.parameters = null;
@@ -306,17 +278,12 @@ class Scope extends Container {
   constructor(
     name: string,
     parent: Container,
-    // Les prototypes sont passés par enterScope() — qui vit dans Container
-    // et accède donc légalement à ses propres membres.
-    // Scope ne touche jamais à parent.protoService / parent.protoParameters.
     parentProtoService: ProtoService,
     parentProtoParameters: ProtoParameters
   ) {
     super();
     this.name = name;
     this.parent = parent;
-    // Mécanisme prototype intact : le scope hérite des services/paramètres
-    // du parent par délégation prototypale, sans copie explicite.
     this.services = Object.create(parentProtoService.prototype);
     this.parameters = Object.create(parentProtoParameters.prototype);
   }
@@ -326,15 +293,15 @@ class Scope extends Container {
     merge: boolean = true,
     deep: boolean = true
   ): DynamicParam | null {
-    const res = parseParameterString.call(this.parameters, name);
+    const res = parseParameterString.call(this.parameters ?? {}, name);
     const obj = this.parent?.getParameters(name);
     if (ISDefined(res)) {
       if (merge && isPlainObject(obj) && isPlainObject(res)) {
-        return extend(deep, obj, res);
+        return extend(deep, obj, res) as DynamicParam;
       }
       return res;
     }
-    return obj || null;
+    return obj ?? null;
   }
 
   public override clean(): void {
