@@ -256,6 +256,11 @@ syslog.addTransport(new FileTransport({ path: "./app.log", format: "text" }));
 // HTTP POST JSON
 syslog.addTransport(new HttpTransport({ url: "http://logs.example.com/ingest" }));
 
+// Agrégation parent/enfant — tous les logs du child remontent vers parent
+const parent = new Syslog({ moduleName: "KERNEL" });
+const child = new Syslog({ moduleName: "HTTP" });
+child.addTransport(new SyslogTransport(parent));
+
 // Retrait
 const file = new FileTransport({ path: "./app.log" });
 syslog.addTransport(file);
@@ -300,7 +305,7 @@ syslog.on("onTransportError", (err: Error, pdu: Pdu) => {
 
 ## Surcharge de `console`
 
-Redirige `console.log/info/warn/error/debug` vers l'instance Syslog. Les logs restent affichés via les méthodes console natives originales (capturées au démarrage du module — pas de récursion infinie).
+Redirige `console.log/info/warn/error/debug/table/dir` vers l'instance Syslog. Les logs restent affichés via les méthodes console natives originales (capturées au démarrage du module — pas de récursion infinie).
 
 ```typescript
 // Option 1 : via settings
@@ -310,9 +315,11 @@ const syslog = new Syslog({ overrideConsole: true });
 Syslog.overrideConsole(syslog);
 
 // Utilisation normale de console
-console.log("user connected", user);   // → syslog.print(...)    → 1 Pdu
-console.error("DB failed", err);       // → syslog.logMultiple("ERROR", ...) → 1 Pdu
-console.warn("slow query", 3200);      // → syslog.logMultiple("WARNING", ...)
+console.log("user connected", user);   // → syslog.print(...)           → 1 Pdu, payload=[...]
+console.error("DB failed", err);       // → syslog.logMultiple("ERROR") → 1 Pdu
+console.warn("slow query", 3200);      // → syslog.logMultiple("WARNING")
+console.table([{ id: 1, name: "A" }]); // → syslog.logMultiple("INFO")  → payload = tableau brut
+console.dir({ config: true });         // → syslog.logMultiple("DEBUG") → payload = objet brut
 
 // Restaurer le console original
 Syslog.restoreConsole();

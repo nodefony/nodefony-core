@@ -19,6 +19,7 @@ import assert from "node:assert";
 import { ConsoleTransport } from "../syslog/transports/ConsoleTransport";
 import { FileTransport } from "../syslog/transports/FileTransport";
 import { HttpTransport } from "../syslog/transports/HttpTransport";
+import { SyslogTransport } from "../syslog/transports/SyslogTransport";
 import type { ITransport } from "../types/ITransport";
 import * as http from "node:http";
 import * as fs from "node:fs";
@@ -1050,6 +1051,88 @@ describe("NODEFONY SYSLOG", () => {
         assert.ok(err instanceof Error);
         done();
       });
+    });
+  });
+
+  describe("SyslogTransport", () => {
+    it("implements ITransport with name=syslog", (done) => {
+      const target = new Syslog();
+      const t = new SyslogTransport(target);
+      assert.strict.equal(t.name, "syslog");
+      done();
+    });
+
+    it("send() forwards Pdu to target syslog", async () => {
+      const child = new Syslog({ moduleName: "CHILD" });
+      const parent = new Syslog({ moduleName: "PARENT" });
+      child.addTransport(new SyslogTransport(parent));
+      child.log("forwarded", "WARNING");
+      // wait for fire-and-forget
+      await new Promise((r) => setImmediate(r));
+      const stack = parent.ringStack;
+      assert.strict.equal(stack.length, 1);
+      assert.strict.equal(stack[0].payload, "forwarded");
+      assert.strict.equal(stack[0].severityName, "WARNING");
+    });
+
+    it("forwarded Pdu is the same object (no copy)", async () => {
+      const child = new Syslog();
+      const parent = new Syslog();
+      child.addTransport(new SyslogTransport(parent));
+      const pdu = child.log("same obj", "INFO");
+      await new Promise((r) => setImmediate(r));
+      assert.strict.equal(parent.ringStack[0], pdu);
+    });
+
+    it("parent receives from multiple children", async () => {
+      const parent = new Syslog({ maxStack: 50 });
+      const c1 = new Syslog();
+      const c2 = new Syslog();
+      c1.addTransport(new SyslogTransport(parent));
+      c2.addTransport(new SyslogTransport(parent));
+      c1.log("from c1", "INFO");
+      c2.log("from c2", "ERROR");
+      await new Promise((r) => setImmediate(r));
+      assert.strict.equal(parent.ringStack.length, 2);
+    });
+  });
+
+  describe("console.table / console.dir override", () => {
+    afterEach(() => {
+      Syslog.restoreConsole();
+    });
+
+    it("console.table(data) → INFO pdu with data as payload", (done) => {
+      const inst = new Syslog({ maxStack: 10 });
+      Syslog.overrideConsole(inst);
+      const data = [{ id: 1, name: "Alice" }, { id: 2, name: "Bob" }];
+      console.table(data);
+      assert.strict.equal(inst.ringStack.length, 1);
+      assert.strict.equal(inst.ringStack[0].severityName, "INFO");
+      assert.deepStrictEqual(inst.ringStack[0].payload, data);
+      done();
+    });
+
+    it("console.dir(obj) → DEBUG pdu with obj as payload", (done) => {
+      const inst = new Syslog({ maxStack: 10 });
+      Syslog.overrideConsole(inst);
+      const obj = { x: 42, nested: { y: true } };
+      console.dir(obj);
+      assert.strict.equal(inst.ringStack.length, 1);
+      assert.strict.equal(inst.ringStack[0].severityName, "DEBUG");
+      assert.deepStrictEqual(inst.ringStack[0].payload, obj);
+      done();
+    });
+
+    it("console.table and console.dir restored by restoreConsole", (done) => {
+      const inst = new Syslog({ maxStack: 10 });
+      Syslog.overrideConsole(inst);
+      Syslog.restoreConsole();
+      // After restore, console.table/dir should be native (no pdu added)
+      console.table([1, 2, 3]);
+      console.dir({ a: 1 });
+      assert.strict.equal(inst.ringStack.length, 0);
+      done();
     });
   });
 });

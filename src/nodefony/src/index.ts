@@ -16,7 +16,7 @@ export { default as Builder } from "./command/Builder";
 // ─── Logging ──────────────────────────────────────────────────────────────────
 export { default as Syslog } from "./syslog/Syslog";
 export { default as Pdu } from "./syslog/Pdu";
-export { ConsoleTransport, FileTransport, HttpTransport } from "./syslog/transports/index";
+export { ConsoleTransport, FileTransport, HttpTransport, SyslogTransport } from "./syslog/transports/index";
 export type { FileTransportOptions, HttpTransportOptions } from "./syslog/transports/index";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────

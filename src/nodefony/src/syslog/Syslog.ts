@@ -734,6 +734,8 @@ class Syslog extends Event implements ISyslog {
     error: console.error.bind(console),
     debug: console.debug.bind(console),
     trace: console.trace.bind(console),
+    table: console.table.bind(console),
+    dir: console.dir.bind(console),
   };
 
   private static _savedConsole: typeof Syslog._nativeConsole | null = null;
@@ -832,6 +834,8 @@ class Syslog extends Event implements ISyslog {
       error: console.error.bind(console),
       debug: console.debug.bind(console),
       trace: console.trace.bind(console),
+      table: console.table.bind(console),
+      dir: console.dir.bind(console),
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Console interface requires dynamic assignment
     const con = console as any;
@@ -840,6 +844,8 @@ class Syslog extends Event implements ISyslog {
     con.warn = (...data: unknown[]) => instance.logMultiple("WARNING", ...(data as Pci[]));
     con.error = (...data: unknown[]) => instance.logMultiple("ERROR", ...(data as Pci[]));
     con.debug = (...data: unknown[]) => instance.logMultiple("DEBUG", ...(data as Pci[]));
+    con.table = (data: unknown) => instance.logMultiple("INFO", data as Pci);
+    con.dir = (obj: unknown) => instance.logMultiple("DEBUG", obj as Pci);
   }
 
   static restoreConsole(): void {

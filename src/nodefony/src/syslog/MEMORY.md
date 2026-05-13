@@ -104,11 +104,13 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 
 **Console Override**
 - `overrideConsole: true` dans settings → active au constructeur
-- `Syslog.overrideConsole(instance)` → `console.log/info/warn/error/debug` redirigés vers syslog
-- `Syslog.restoreConsole()` → restore l'original (idempotent)
+- `Syslog.overrideConsole(instance)` → redirige `console.log/info/warn/error/debug/table/dir` vers syslog
+- `Syslog.restoreConsole()` → restore l'original (idempotent, restaure aussi `table`/`dir`)
 - Double appel → WARNING pdu, pas de crash
 - `_nativeConsole` : méthodes console capturées au chargement de module — utilisées par `wrapper()` et `normalizeLog()` pour éviter la récursion infinie
 - `console.log(a, b)` → `print(a, b)` → 1 Pdu, `payload=[a,b]`
+- `console.table(data)` → `logMultiple("INFO", data)` — payload = l'objet brut
+- `console.dir(obj)` → `logMultiple("DEBUG", obj)` — payload = l'objet brut
 
 **Transport Layer**
 - `ITransport { name: string; send(pdu): Promise<void> }` — interface dans `types/ITransport.ts`
@@ -118,6 +120,7 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 - `ConsoleTransport` : wraps `Syslog.normalizeLog` — `new ConsoleTransport(pid?)`
 - `FileTransport` : `appendFile` JSON ou text — `new FileTransport({ path, format? })`
 - `HttpTransport` : POST JSON natif `node:http`/`node:https` — `new HttpTransport({ url, headers?, timeout? })`
+- `SyslogTransport` : forward PDU vers un autre Syslog — `new SyslogTransport(targetSyslog)` — même objet Pdu, pas de copie
 - Exports : `transports/index.ts` + re-exportés depuis `index.ts` principal
 
 **Deps** : `Event`, `Pdu`, `cli-color`, `extend` (Tools), `ISyslog`, `ITransport`
