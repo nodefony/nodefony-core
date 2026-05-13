@@ -81,7 +81,49 @@ Service(name, container?, notificationsCenter?, options?)
 
 ## Container (`src/Container.ts`)
 
-→ Voir tests `Container.test.ts`. Clé : `get<T>(name)` retourne `null` si absent/null/undefined.
+**Purpose** : DI Container — registry de services + paramètres dot-notation + scopes hiérarchiques.
+
+**Core**
+- `id: string` — uuid unique (public)
+- `services: DynamicService | null` — map des services (hérite de `protoService.prototype`)
+- `parameters: DynamicParam | null` — map dot-notation
+- `scopes: Scopes` — scopes nommés, chacun indexé par id
+
+**Services API**
+- `set(name, obj)` — stocke dans `services[name]` ET `protoService.prototype[name]` (héritage scopes)
+- `get<T>(name)` → `T | null` — utilise `name in this.services` (inclut prototype chain)
+- `has(name)` → `boolean` — utilise `name in this.services` (pas `!!value` — supporte valeurs falsy)
+- `remove(name)` → `true` si trouvé/supprimé — utilise `name in this.services` (pas `!!get()`)
+  → propage récursivement aux scopes ouverts
+- `keys()` / `entries()` — liste les services propres
+
+**Paramètres**
+- `setParameters(name, val)` — dot-notation, crée les nœuds intermédiaires automatiquement
+- `getParameters(name)` → `DynamicParam | null`
+- Erreur si name non-string, value undefined, ou descente dans un nœud non-objet
+
+**Scopes**
+- `addScope(name)` — déclare un scope (idempotent), retourne le dict existant si déjà créé
+- `enterScope(name)` → `Scope` — crée une instance Scope héritant du proto du parent
+- `leaveScope(scope)` — nettoie le scope, le retire du dict
+- `removeScope(name)` — nettoie tous les sous-scopes d'un nom
+- `Scope extends Container` — hérite des services via `Object.create(parentProtoService.prototype)`
+- `Scope.getParameters(name, merge=true, deep=true)` — merge local + parent si les deux sont des objets
+
+**Cycle de vie**
+- `clean()` — `services=null`, `parameters=null`, nettoie tous les scopes
+- `reset()` — `clean()` + recrée protoService/protoParameters → utilisable à nouveau
+
+**Constructeur clone**
+- `new Container(parent)` — shallow clone (services et params partagés via proto)
+- `new Container(parent, true)` — deep clone des paramètres (`structuredClone` avec fallback)
+
+**Gotchas**
+- `has()` et `remove()` utilisent `name in services` (pas `!!value`) — valeurs falsy (0, false, "") correctement gérées
+- `set()` après `clean()` → throw "Container bad argument name" (message trompeur — vraie cause : services=null)
+- `get(name)` retourne `null` si value est `null` (null stocké → `services[name] = null` → retourne null comme "absent")
+- Service ajouté au parent APRÈS `enterScope()` → visible dans le scope (late binding via proto)
+- `remove()` dans parent → propagé aux scopes ouverts
 
 ---
 

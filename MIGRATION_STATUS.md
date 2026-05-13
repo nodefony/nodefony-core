@@ -245,6 +245,7 @@
 | 2026-05-11 | IModule complet | `IModule.ts`, `IKernel.ts`, `Module.ts`, commands | ~1h | 85 core ✅ — `Module implements IModule`, `PackageJson` migré vers types, casts `as Module` éliminés dans commands |
 | 2026-05-12 | Phase 0 finalisée + sécurité | Build system, deps, vulnérabilités | ~2h | Turbo OK — 1900 warnings TS2614 éliminés — 61→15 vulns — `mocha-jsdom` supprimé — mongoose `dependencies` nettoyé — merge sur `claude-ts` |
 | 2026-05-13 | Service.ts — audit qualité + bugs | `Service.ts`, `Service.test.ts` | ~2h | 234 tests ✅ — 5 bugs corrigés — `MEMORY.md` créé — `README.md` Service complet |
+| 2026-05-13 | Container.ts — audit qualité + bugs | `Container.ts`, `Container.test.ts` | ~1h | 257 tests ✅ — 2 bugs corrigés (`has`/`remove` valeurs falsy) — `id` public — MEMORY.md mis à jour |
 
 ---
 

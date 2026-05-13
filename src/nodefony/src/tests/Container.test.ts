@@ -417,4 +417,188 @@ describe("Container › log()", () => {
     c.log("pci value", undefined, "MSGID", "msg");
     expect(called).to.be.true;
   });
+
+  it("sans msgid : utilise 'SERVICES CONTAINER' comme msgid", () => {
+    const c = new Container();
+    let capturedMsgid: unknown;
+    c.set("syslog", { log: (_pci: unknown, _sev: unknown, msgid: unknown) => { capturedMsgid = msgid; } });
+    c.log("payload", "INFO");
+    expect(capturedMsgid).to.equal("SERVICES CONTAINER");
+  });
+
+  it("avec msgid explicite : le transmet au syslog", () => {
+    const c = new Container();
+    let capturedMsgid: unknown;
+    c.set("syslog", { log: (_pci: unknown, _sev: unknown, msgid: unknown) => { capturedMsgid = msgid; } });
+    c.log("payload", "INFO", "MY_ID");
+    expect(capturedMsgid).to.equal("MY_ID");
+  });
+});
+
+// ─── Valeurs falsy (bugs has/remove) ─────────────────────────────────────────
+
+describe("Container › valeurs falsy", () => {
+  let c: Container;
+  beforeEach(() => { c = new Container(); });
+
+  it("has() → true pour valeur false", () => {
+    c.set("flag", false);
+    expect(c.has("flag")).to.be.true;
+  });
+
+  it("has() → true pour valeur 0", () => {
+    c.set("count", 0);
+    expect(c.has("count")).to.be.true;
+  });
+
+  it("has() → true pour chaîne vide", () => {
+    c.set("str", "");
+    expect(c.has("str")).to.be.true;
+  });
+
+  it("get() retourne la valeur falsy enregistrée", () => {
+    c.set("flag", false);
+    expect(c.get("flag")).to.equal(false);
+    c.set("count", 0);
+    expect(c.get("count")).to.equal(0);
+  });
+
+  it("remove() supprime une valeur false → true, plus accessible", () => {
+    c.set("flag", false);
+    expect(c.remove("flag")).to.be.true;
+    expect(c.has("flag")).to.be.false;
+    expect(c.get("flag")).to.be.null;
+  });
+
+  it("remove() supprime une valeur 0 → true, plus accessible", () => {
+    c.set("count", 0);
+    expect(c.remove("count")).to.be.true;
+    expect(c.has("count")).to.be.false;
+  });
+
+  it("remove() supprime une chaîne vide → true", () => {
+    c.set("str", "");
+    expect(c.remove("str")).to.be.true;
+    expect(c.has("str")).to.be.false;
+  });
+});
+
+// ─── Comportements avancés ────────────────────────────────────────────────────
+
+describe("Container › comportements avancés", () => {
+  it("set() après clean() lève une erreur (services=null)", () => {
+    const c = new Container();
+    c.clean();
+    assert.throws(() => c.set("x", {}), Error);
+  });
+
+  it("has() après clean() → false (pas d'erreur)", () => {
+    const c = new Container();
+    c.clean();
+    expect(c.has("x")).to.be.false;
+  });
+
+  it("keys() après clean() → []", () => {
+    const c = new Container();
+    c.set("a", 1);
+    c.clean();
+    expect(c.keys()).to.deep.equal([]);
+  });
+
+  it("entries() après clean() → []", () => {
+    const c = new Container();
+    c.set("a", 1);
+    c.clean();
+    expect(c.entries()).to.deep.equal([]);
+  });
+
+  it("addScope() appelé deux fois pour le même nom → idempotent", () => {
+    const c = new Container();
+    const s1 = c.addScope("req");
+    const s2 = c.addScope("req");
+    expect(s1).to.equal(s2);
+  });
+
+  it("leaveScope() avec scope inexistant → ne lève pas d'erreur", () => {
+    const c = new Container();
+    c.addScope("req");
+    const scope = c.enterScope("req");
+    c.leaveScope(scope);
+    assert.doesNotThrow(() => c.leaveScope(scope));
+  });
+
+  it("constructeur avec argument non-Container → container vide", () => {
+    const c = new Container("not a container" as unknown as Container);
+    expect(c.keys()).to.deep.equal([]);
+  });
+
+  it("clone shallow : clean() du child n'affecte pas le parent", () => {
+    const parent = new Container();
+    parent.set("svc", { v: 1 });
+    const child = new Container(parent);
+    child.clean();
+    expect(parent.has("svc")).to.be.true;
+    expect(parent.get("svc")).to.deep.equal({ v: 1 });
+  });
+
+  it("reset() recrée protoService et protoParameters", () => {
+    const c = new Container();
+    const origProto = c.protoService;
+    c.reset();
+    expect(c.protoService).to.not.equal(origProto);
+    c.set("x", 1);
+    expect(c.get("x")).to.equal(1);
+  });
+
+  it("remove() propage aux scopes ouverts (vérification has)", () => {
+    const c = new Container();
+    c.set("svc", { v: 1 });
+    c.addScope("req");
+    const scope = c.enterScope("req");
+    expect(scope.has("svc")).to.be.true;
+    c.remove("svc");
+    expect(scope.has("svc")).to.be.false;
+  });
+});
+
+// ─── Scope avancé ─────────────────────────────────────────────────────────────
+
+describe("Container › Scope avancé", () => {
+  it("Scope.getParameters() merge=false → valeur locale seule", () => {
+    const c = new Container();
+    c.setParameters("db", { host: "localhost", port: 5432 });
+    c.addScope("req");
+    const scope = c.enterScope("req");
+    scope.setParameters("db", { port: 3306 });
+    const result = scope.getParameters("db", false) as Record<string, unknown>;
+    expect(result["port"]).to.equal(3306);
+    expect(result["host"]).to.be.undefined;
+  });
+
+  it("Scope.getParameters() deep=false → merge shallow", () => {
+    const c = new Container();
+    c.setParameters("cfg", { a: { x: 1 }, b: 2 });
+    c.addScope("req");
+    const scope = c.enterScope("req");
+    scope.setParameters("cfg", { a: { y: 9 } });
+    const result = scope.getParameters("cfg", true, false) as Record<string, unknown>;
+    expect((result["a"] as Record<string, unknown>)["y"]).to.equal(9);
+  });
+
+  it("Scope.clean() → parent mis à null, getParameters retourne null", () => {
+    const c = new Container();
+    c.setParameters("key", "value");
+    c.addScope("req");
+    const scope = c.enterScope("req");
+    c.leaveScope(scope);
+    expect(scope.getParameters("key")).to.be.null;
+  });
+
+  it("scope a son propre id unique", () => {
+    const c = new Container();
+    c.addScope("req");
+    const s1 = c.enterScope("req");
+    const s2 = c.enterScope("req");
+    expect(s1.id).to.not.equal(s2.id);
+  });
 });

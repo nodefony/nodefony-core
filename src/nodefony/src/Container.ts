@@ -74,7 +74,7 @@ class Container {
   protected services: DynamicService | null;
   public protoParameters: ProtoParameters = function () {};
   protected parameters: DynamicParam | null;
-  protected id: string;
+  public id: string;
   private scopes: Scopes = {};
 
   constructor(input?: Container, deep: boolean = false) {
@@ -149,9 +149,9 @@ class Container {
     if (!this.services) {
       return false;
     }
-    if (this.get(name)) {
+    if (name in this.services) {
       delete this.services[name];
-      if (this.protoService.prototype[name]) {
+      if (name in this.protoService.prototype) {
         delete this.protoService.prototype[name];
       }
       for (const scope in this.scopes) {
@@ -166,7 +166,7 @@ class Container {
   }
 
   public has(name: string): boolean {
-    return !!this.services?.[name];
+    return this.services != null && name in this.services;
   }
 
   public keys(): string[] {
