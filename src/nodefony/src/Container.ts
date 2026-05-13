@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import { extend, isPlainObject } from "./Tools";
 import type { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
 import Syslog from "./syslog/Syslog";
+import type { IContainer, IScope } from "./types/IContainer";
 
 const ISDefined = function (ele: unknown): boolean {
   return ele !== null && ele !== undefined;
@@ -69,7 +70,7 @@ export type ProtoParameters = { (): void; [key: string]: any };
  *  CONTAINER CLASS
  *
  */
-class Container {
+class Container implements IContainer {
   public protoService: ProtoService = function () {};
   protected services: DynamicService | null;
   public protoParameters: ProtoParameters = function () {};
@@ -197,7 +198,7 @@ class Container {
     return sc;
   }
 
-  public leaveScope(scope: Scope): void {
+  public leaveScope(scope: IScope): void {
     if (this.scopes[scope.name]) {
       const sc = this.scopes[scope.name][scope.id];
       if (sc) {
@@ -271,7 +272,7 @@ class Container {
  *  SCOPE CLASS
  *
  */
-class Scope extends Container {
+class Scope extends Container implements IScope {
   public name: string;
   private parent: Container | null;
 

@@ -11,7 +11,7 @@
 |---------------------|-------|----|----|-----|
 | **Build System**    | 10    | 10 | 0  | 0   |
 | Core / Kernel       | 6     | 4  | 0  | 2   |
-| DI Container        | 4     | 1  | 0  | 3   |
+| DI Container        | 3     | 1  | 0  | 2   |
 | Module System       | 5     | 2  | 0  | 3   |
 | Syslog / Pdu        | 4     | 4  | 0  | 0   |
 | Router              | 4     | 0  | 0  | 4   |
@@ -22,8 +22,8 @@
 | ORM Adapters        | 4     | 0  | 0  | 4   |
 | CLI                 | 4     | 0  | 0  | 4   |
 | Monitoring          | 3     | 0  | 0  | 3   |
-| Types / Interfaces  | 5     | 4  | 0  | 1   |
-| **TOTAL**           | **66**| **25** | **0** | **41** |
+| Types / Interfaces  | 6     | 5  | 0  | 1   |
+| **TOTAL**           | **66**| **26** | **0** | **40** |
 
 ---
 
@@ -75,6 +75,7 @@
 | `src/nodefony/src/types/IKernel.ts`          | `nodefony/core/kernel.js` (interfaces)       | ✅     | 2          | Interface IKernel complète |
 | `src/nodefony/src/types/IModule.ts`          | `nodefony/core/bundles/nodefonyBundle.js`    | ✅     | 1          | Interface IModule |
 | `src/nodefony/src/types/IService.ts`         | `nodefony/core/container/`                   | ✅     | 1          | Interface IService |
+| `src/nodefony/src/types/IContainer.ts`       | `nodefony/core/container/`                   | ✅     | 1          | Interface IContainer + IScope |
 | `src/nodefony/src/types/IContext.ts`         | `nodefony/core/controller/`                  | ⬜     | 3          | Contexte unifié HTTP+WS — à faire |
 
 ### 1.2 Syslog & Pdu
@@ -91,7 +92,6 @@
 | Fichier TS (chemin réel)                     | Source JS référence                          | Statut | Complexité | Notes |
 |----------------------------------------------|----------------------------------------------|--------|------------|-------|
 | `src/nodefony/src/Container.ts`              | `nodefony/core/container/container.js`       | ✅     | 3          | DynamicParam/Service unknown, null-guards, eslint-disable retiré |
-| `src/container/ServiceDefinition.ts`         | `nodefony/core/container/`                   | ⬜     | 2          | Définition de service |
 | `src/container/decorators.ts`                | N/A (nouveau)                                | ⬜     | 2          | @Service, @Injectable |
 | `src/container/index.ts`                     | N/A                                          | ⬜     | 1          | Barrel export |
 

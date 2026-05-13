@@ -1,4 +1,4 @@
-import type Container from "../Container";
+import type { IContainer } from "./IContainer";
 import type { DynamicParam } from "../Container";
 import type Event from "../Event";
 import type { EventDefaultInterface } from "../Event";
@@ -30,7 +30,7 @@ export interface IService {
   readonly options: DefaultOptionsService;
 
   // ─── Infrastructure ────────────────────────────────────────────────────────
-  readonly container: Container | null;
+  readonly container: IContainer | null;
   readonly kernel: IKernel | null;
   readonly syslog: Syslog | null;
   /** undefined si notificationsCenter=false passé au constructeur, ou après clean() */
