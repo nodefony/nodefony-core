@@ -195,6 +195,35 @@ syslog.loadStack(jsonString, true);
 
 ---
 
+## Output haute performance — `rawLog`
+
+Écrit directement dans `process.stdout` / `process.stderr` via un seul `stream.write()`. Évite l'overhead de `console.*` (formatage interne, buffering TTY). Utile en production haute fréquence ou comme fondation pour un transport fichier/HTTP.
+
+```typescript
+// Remplacer normalizeLog par rawLog dans l'init
+syslog.listenWithConditions(
+  { severity: { operator: "<=", data: "DEBUG" } },
+  (pdu) => Syslog.rawLog(pdu)
+);
+
+// Ou directement sur un Pdu
+const pdu = syslog.log("user connected", "INFO", "HTTP");
+Syslog.rawLog(pdu);
+Syslog.rawLog(pdu, "[PID 1234]");  // préfixe optionnel
+```
+
+| Payload | Sortie |
+|---------|--------|
+| `string` / `number` | `String(payload)` |
+| `object` / `Error` / `array` | `util.inspect(payload, depth:3, colors:true)` |
+| severity ≤ 3 (ERROR+) | `process.stderr` |
+| severity > 3 | `process.stdout` |
+| SPINNER (-1) | `process.stdout.write("\r...")` |
+
+> `rawLog` est la base du futur **Transport Layer** (session planifiée — voir `MIGRATION_STATUS.md`).
+
+---
+
 ## Surcharge de `console`
 
 Redirige `console.log/info/warn/error/debug` vers l'instance Syslog. Les logs restent affichés via les méthodes console natives originales (capturées au démarrage du module — pas de récursion infinie).

@@ -647,6 +647,64 @@ describe("NODEFONY SYSLOG", () => {
     });
   });
 
+  describe("rawLog (process.stdout/stderr)", () => {
+    it("string payload → stdout", (done) => {
+      const chunks: string[] = [];
+      const orig = process.stdout.write.bind(process.stdout);
+      process.stdout.write = (chunk: unknown) => {
+        chunks.push(String(chunk));
+        return true;
+      };
+      const pdu = global.syslog.log("raw test", "INFO", "TEST");
+      Syslog.rawLog(pdu);
+      process.stdout.write = orig;
+      assert.ok(chunks.some(c => c.includes("raw test")));
+      done();
+    });
+
+    it("ERROR payload → stderr", (done) => {
+      const chunks: string[] = [];
+      const orig = process.stderr.write.bind(process.stderr);
+      process.stderr.write = (chunk: unknown) => {
+        chunks.push(String(chunk));
+        return true;
+      };
+      const pdu = global.syslog.log("error msg", "ERROR", "TEST");
+      Syslog.rawLog(pdu);
+      process.stderr.write = orig;
+      assert.ok(chunks.some(c => c.includes("error msg")));
+      done();
+    });
+
+    it("object payload → inspect output", (done) => {
+      const chunks: string[] = [];
+      const orig = process.stdout.write.bind(process.stdout);
+      process.stdout.write = (chunk: unknown) => {
+        chunks.push(String(chunk));
+        return true;
+      };
+      const pdu = global.syslog.log({ user: "alice" }, "DEBUG", "TEST");
+      Syslog.rawLog(pdu);
+      process.stdout.write = orig;
+      assert.ok(chunks.some(c => c.includes("alice")));
+      done();
+    });
+
+    it("empty payload → no write", (done) => {
+      let written = false;
+      const origOut = process.stdout.write.bind(process.stdout);
+      const origErr = process.stderr.write.bind(process.stderr);
+      process.stdout.write = () => { written = true; return true; };
+      process.stderr.write = () => { written = true; return true; };
+      const pdu = new Pdu("", "INFO");
+      Syslog.rawLog(pdu);
+      process.stdout.write = origOut;
+      process.stderr.write = origErr;
+      assert.strict.equal(written, false);
+      done();
+    });
+  });
+
   describe("Console override", () => {
     afterEach(() => {
       Syslog.restoreConsole();

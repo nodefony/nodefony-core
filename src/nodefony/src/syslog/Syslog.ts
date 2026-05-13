@@ -1,4 +1,5 @@
 import clc from "cli-color";
+import { inspect } from "node:util";
 
 import { extend } from "../Tools";
 import Pdu, { Severity, ModuleName, Msgid, Message, Pci } from "./Pdu";
@@ -776,6 +777,23 @@ class Syslog extends Event implements ISyslog {
     }
     const wrap = Syslog.wrapper(pdu);
     wrap.logger(`${pid} ${wrap.text}`, message);
+    return pdu;
+  }
+
+  // process.stdout/stderr direct — single write(), no console overhead
+  static rawLog(pdu: Pdu, pid: string = ""): Pdu {
+    if (pdu.payload === "" || pdu.payload === undefined) return pdu;
+    if (pdu.severity === -1) {
+      process.stdout.write(`\r${green(pdu.msgid)} : ${String(pdu.payload)}\x1b[90m\x1b[0m`);
+      return pdu;
+    }
+    const stream = pdu.severity <= 3 ? process.stderr : process.stdout;
+    const { text } = Syslog.wrapper(pdu);
+    const msg =
+      typeof pdu.payload === "string" || typeof pdu.payload === "number"
+        ? String(pdu.payload)
+        : inspect(pdu.payload, { depth: 3, colors: true, breakLength: Infinity });
+    stream.write(`${pid}${text}${msg}\n`);
     return pdu;
   }
 
