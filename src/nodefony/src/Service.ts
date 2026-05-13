@@ -107,11 +107,11 @@ class Service implements IService {
       if (this.syslog) {
         return this.syslog.log(pci, severity, msgid, msg);
       }
-      return new Pdu(pci, severity, msg);
+      return new Pdu(pci, severity, this.name, msgid, msg);
     } catch (e) {
       console.log(severity, msgid, msg, " : ", pci);
       console.warn(e);
-      return new Pdu(e, "ERROR", msgid, msg);
+      return new Pdu(e, "ERROR", this.name, msgid, msg);
     }
   }
 
@@ -236,7 +236,11 @@ class Service implements IService {
 
   removeAllListeners(eventName?: string | symbol): this {
     if (this.#nc) {
-      this.#nc.removeAllListeners(eventName);
+      if (eventName !== undefined) {
+        this.#nc.removeAllListeners(eventName);
+      } else {
+        this.#nc.removeAllListeners();
+      }
       return this;
     }
     throw new Error(`${this.name}: notificationsCenter not initialized`);

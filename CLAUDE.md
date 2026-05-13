@@ -14,6 +14,7 @@ Auteur : Christophe CAMENSULI — projet libre CeCILL-B.
 ## Vision du framework
 
 Nodefony est une **plateforme générique** pour construire :
+
 1. Des applications web temps réel (HTTP + WS co-citoyens natifs)
 2. Des agents IA métier (RAG, orchestration, sous-agents)
 
@@ -67,10 +68,10 @@ nodefony-core/
 
 **Terminologie** :
 
-| Ancien (JS) | Nouveau (TS) |
-|-------------|--------------|
-| Bundle | Module |
-| @Bundle() | @Module() |
+| Ancien (JS)    | Nouveau (TS)   |
+| -------------- | -------------- |
+| Bundle         | Module         |
+| @Bundle()      | @Module()      |
 | nodefonyBundle | NodefonyModule |
 
 ---
@@ -93,24 +94,51 @@ import * as http from "node:http";
 
 ## Workflow de session Claude Code
 
-**DÉBUT :** Lire `MIGRATION_STATUS.md`
+**DÉBUT :** - Lire `MIGRATION_STATUS.md` - Lire les `memory.md` listés ci-dessous - Ajoute ou met a jour `claude.md` du projet avec tous les liens vers `memory.md`.
+les fichiers `memory.md` sont des fichiers md special uniquement pour les IA pour avoir une utilisation et une précision du module optimum sans lire tous les fichiers du module donc economisé des token avec le `README.md` ils sont complementaires
 
-**PENDANT :**
-- Un seul module par session
-- Écrire les tests **dans la même session** que le code
-- Valider : `npm run build` (0 erreur TS) + `npm run test` (tous verts)
+### MEMORY.md — index des fichiers IA
+
+| Module                | Fichier memory                                                           | Contenu                     |
+| --------------------- | ------------------------------------------------------------------------ | --------------------------- |
+| Core (@nodefony/core) | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                       | Service, Container, Event   |
+| Syslog / Pdu          | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md) | Syslog, Pdu, CircularBuffer |
+
+**PENDANT :** - Un seul module par session - Écrire les tests **dans la même session** que le code - Valider : `npm run build` (0 erreur TS) + `npm run test` (tous verts)
 
 **FIN :**
+
 - Mettre à jour `MIGRATION_STATUS.md`
+- Mettre à jour `README.md`(pour humains)
+- Mettre à jour `memory.md` (pour IA)
+
 - Committer avant de fermer
+
+---
+
+## 📚 Documentation Modules Workflow de session Claude Code
+
+**Règle** : Après toute **modif/refactor/mettre à jour/fin de session** sur un module :
+
+1. **Règle** :
+   - `memory.md` : **IA** (pour IA : **ultra-concis**, mots-clés, 0 redondance) (ex: `Syslog: log class. Pdu: log entry. RingBuffer: FIFO stack.`).
+   - `README.md` : **Humains** (pour humains : exemples, détails, tableaux) (ex: `## Usage\nnew Syslog().info("test")`).
+2. **Structure** :
+   - `memory.md` : **Purpose** **Core Components** | **Config** | **Behaviors** | **Usage (minimal)** | **Deps** | **Gotchas**.
+   - `README.md` : **Features** | **Install** | **Config** | **Usage** | **API** | **Examples** | **Troubleshooting**.
+3. **Vérification** :
+   - `grep -r "TODO\|FIXME" src/` avant commit.
+   - Warning sur les console.log et autre avant commit.
 
 ---
 
 ## Point d'attention restant
 
 ### rollup.config.ts — `@ts-ignore` à corriger
+
 ```typescript
 //@ts-ignore  ← à remplacer
 import { createPathTransform } from "rollup-sourcemap-path-transform";
 ```
+
 Corriger en créant un fichier `.d.ts` minimal pour ce module.
