@@ -79,9 +79,14 @@ Service(name, container?, notificationsCenter?, options?)
 
 ---
 
-## Container (`src/Container.ts`)
+## Container (`src/Container.ts`) — `implements IContainer`
 
 **Purpose** : DI Container — registry de services + paramètres dot-notation + scopes hiérarchiques.
+
+**Interfaces** : `src/types/IContainer.ts` — `IContainer` + `IScope`
+- `Container implements IContainer`
+- `Scope extends Container implements IScope`
+- `IService.container` typé `IContainer | null` (pas la classe concrète)
 
 **Core**
 - `id: string` — uuid unique (public)
@@ -104,10 +109,10 @@ Service(name, container?, notificationsCenter?, options?)
 
 **Scopes**
 - `addScope(name)` — déclare un scope (idempotent), retourne le dict existant si déjà créé
-- `enterScope(name)` → `Scope` — crée une instance Scope héritant du proto du parent
-- `leaveScope(scope)` — nettoie le scope, le retire du dict
+- `enterScope(name)` → `IScope` — crée une instance Scope héritant du proto du parent
+- `leaveScope(scope: IScope)` — nettoie le scope, le retire du dict
 - `removeScope(name)` — nettoie tous les sous-scopes d'un nom
-- `Scope extends Container` — hérite des services via `Object.create(parentProtoService.prototype)`
+- `Scope extends Container implements IScope` — `name: string` + `getParameters(name, merge=true, deep=true)`
 - `Scope.getParameters(name, merge=true, deep=true)` — merge local + parent si les deux sont des objets
 
 **Cycle de vie**
