@@ -290,7 +290,7 @@ class HttpKernel extends Service {
           }
           //let message: string = error.message;
           const obj = context.metaData;
-          obj.error = error.toJSON() as Error;
+          obj.error = (error as nodefonyError).toJSON() as Error;
           obj.code = error.code;
           obj.message = error.message;
           if (!context.response.isHeaderSent()) {

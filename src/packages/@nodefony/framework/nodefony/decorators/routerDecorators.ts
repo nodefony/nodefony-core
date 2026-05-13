@@ -77,14 +77,16 @@ function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
           continue;
         }
         const route = Router.createRoute(name, options);
-        if (Nodefony.getKernel() && Nodefony.getKernel().debug) {
-          Nodefony.getKernel().log(`Add routes : ${route.toString()}`, "DEBUG");
+        const k = Nodefony.getKernel();
+        if (k?.debug) {
+          k.log(`Add routes : ${route.toString()}`, "DEBUG");
         }
       }
       if (hasMagic) {
         const route = Router.createRoute(hasMagic.name, hasMagic.options);
-        if (Nodefony.getKernel() && Nodefony.getKernel().debug) {
-          Nodefony.getKernel().log(`Add routes : ${route.toString()}`, "DEBUG");
+        const k = Nodefony.getKernel();
+        if (k?.debug) {
+          k.log(`Add routes : ${route.toString()}`, "DEBUG");
         }
       }
     }

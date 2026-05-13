@@ -132,6 +132,53 @@ les fichiers `memory.md` sont des fichiers md special uniquement pour les IA pou
 
 ---
 
+## Lancer le framework (tests runtime)
+
+### Commande de test non-interactive (10 secondes)
+
+```bash
+npx nodefony development 2>&1 &
+PID=$!
+sleep 10
+kill $PID 2>/dev/null
+wait $PID 2>/dev/null
+true
+```
+
+> Utiliser `development` (pas `dev` ni `start`) — lance le serveur sans prompt interactif.
+> Le `&` + `kill` permet un test borné dans Claude Code (pas de `timeout` sur macOS).
+
+### Signes que le démarrage est OK
+
+```
+INFO  KERNEL  :  MODULE ADD : app
+INFO  KERNEL  :  MODULE ADD : sequelize
+INFO  KERNEL  :  MODULE ADD : http
+...
+INFO  server-http  :  Server Listen on http://127.0.0.1:5151
+INFO  server-https :  Server Listen on https://127.0.0.1:5152
+INFO  server-websocket : Server Listen on ws://127.0.0.1:5151
+```
+
+### Erreurs critiques à connaître
+
+| Erreur | Cause | Fix |
+|--------|-------|-----|
+| `does not provide an export named 'default'` | `import nodefony from "nodefony"` — plus de default export | Remplacer par `import { Nodefony } from "nodefony"` |
+| `does not provide an export named 'Error'` | `import { Error } from "nodefony"` — renommé | Remplacer par `import { nodefonyError } from "nodefony"` |
+| `does not provide an export named 'kernel'` | `import { kernel } from "nodefony"` — singleton supprimé | Remplacer par `Nodefony.getKernel()` |
+
+### Rebuild complet avant test
+
+```bash
+# packages (turbo)
+npx turbo run build --force
+# projet (rollup racine)
+npx rollup -c rollup.config.ts --configPlugin typescript
+```
+
+---
+
 ## Point d'attention restant
 
 ### rollup.config.ts — `@ts-ignore` à corriger

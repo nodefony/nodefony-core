@@ -1,7 +1,7 @@
 import { Controller, route, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import { graphql } from "@nodefony/framework";
-import { inject, Error } from "nodefony";
+import { inject, nodefonyError as Error } from "nodefony";
 
 @controller("/nodefony/test/graphql")
 class GraphQlController extends Controller {

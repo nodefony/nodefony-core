@@ -7,6 +7,7 @@ import {
   Pdu,
   ProtoService,
   ProtoParameters,
+  DynamicParam,
 } from "nodefony";
 import sessionService, {
   sessionStrategyType,
@@ -629,7 +630,7 @@ class Session extends Container {
     return this.metaBag();
   }
 
-  setMetaBag(key: string, value: any) {
+  setMetaBag(key: string, value: any): DynamicParam | null {
     return this.setParameters(key, value);
   }
 

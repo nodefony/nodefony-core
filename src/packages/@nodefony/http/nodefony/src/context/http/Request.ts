@@ -10,7 +10,6 @@ import formidable, { IncomingForm } from "formidable";
 import { ParserXml, ParserQs, Parser, acceptParser } from "./parser";
 import { UploadedFile } from "../../../service/upload/upload-service";
 import {
-  isArray,
   extend,
   Pdu,
   Message,
@@ -221,7 +220,7 @@ class HttpRequest {
                       | formidable.Files = files[file];
                     try {
                       if (reg.exec(file)) {
-                        if (isArray(ele)) {
+                        if (Array.isArray(ele)) {
                           let tab: formidable.File[] = ele as formidable.File[];
                           for (const multifiles in tab) {
                             let ele = tab[multifiles];
@@ -235,7 +234,7 @@ class HttpRequest {
                         //else if (ele && ele.filepath) {
                         //   this.createFileUpload(file, ele, opt.maxFileSize);
                         // }
-                      } else if (isArray(ele)) {
+                      } else if (Array.isArray(ele)) {
                         for (const multifiles in ele) {
                           this.createFileUpload(
                             multifiles,
