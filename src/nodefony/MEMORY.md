@@ -132,6 +132,62 @@ Service(name, container?, notificationsCenter?, options?)
 
 ---
 
+## Nodefony (`src/Nodefony.ts`) — classe statique singleton
+
+**Purpose** : Point d'entrée unique au kernel. Remplace l'ancien objet `nodefony` global.
+
+```typescript
+import { Nodefony } from "nodefony";
+Nodefony.version           // string — depuis package.json
+Nodefony.getKernel()       // Kernel | null — avant boot = null
+Nodefony.setKernel(k)      // appelé dans Kernel constructor
+Nodefony.generateId()      // uuidv4 string
+Nodefony.generateV5Id(name, ns?) // uuidv5 string
+```
+
+**Règle** : `private constructor()` — jamais instancier. `#kernel` est un champ privé statique.
+
+**Gotchas**
+- `getKernel()` retourne `null` avant `Kernel.start()` — toujours utiliser `?.`
+- Ancienne API supprimée : `nodefony.kernel`, `nodefony.generateId()`, default export
+
+---
+
+## index.ts — barrel ESM (`src/index.ts`)
+
+**Règle** : zéro default export — tout est nommé. `import { X } from "nodefony"` uniquement.
+
+**Exports clés** :
+```typescript
+// Classes
+Nodefony, Kernel, Module, CliKernel, Service, Container, Event, Syslog, Pdu
+// Erreurs
+nodefonyError        // ← anciennement exporté comme "Error" (cassant)
+// ORM
+Orm, Entity, Connector
+// DI
+inject, injectable, services, entities, modules
+// Utils
+extend, typeOf, isArray, isPromise, isPlainObject, isFunction, isContainer
+// Types (import type)
+IKernel, IService, IContainer, IScope, IModule, ISyslog
+DynamicParam, DynamicService, ProtoService, ProtoParameters
+```
+
+**Migration `nodefony` default → named** :
+```typescript
+// Avant (cassé)
+import nodefony, { Kernel } from "nodefony";
+nodefony.kernel  //  ← undefined
+// Après
+import { Nodefony, Kernel } from "nodefony";
+Nodefony.getKernel()
+```
+
+**Types path** : `dist/types/src/index.d.ts` (après `npm run clean && npm run build` dans `src/nodefony`)
+
+---
+
 ## Event (`src/Event.ts`)
 
 → Étend `node:events` EventEmitter. Ajoute : `fire()`, `fireAsync()`, `emitAsync()`, `listen()`, `settingsToListen()`.

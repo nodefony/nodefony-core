@@ -4,6 +4,44 @@
 
 ---
 
+## Exports ESM
+
+Le package `nodefony` est **ESM-only** — zéro `require()`, zéro default export.
+
+```typescript
+// Imports nommés uniquement
+import {
+  Nodefony,
+  Kernel, Module, Service, Container, Event,
+  Syslog, Pdu,
+  nodefonyError,
+  inject, injectable, services, entities,
+  extend, typeOf, isArray,
+} from "nodefony";
+
+// Types (tree-shaken à la compilation)
+import type { IKernel, IService, IContainer, IScope, DynamicParam } from "nodefony";
+```
+
+> `Error` n'est plus exporté — utiliser `nodefonyError`.
+
+---
+
+## Nodefony — Classe statique
+
+Point d'accès au kernel depuis n'importe où dans l'application.
+
+```typescript
+import { Nodefony } from "nodefony";
+
+Nodefony.version;              // "10.0.0"
+Nodefony.getKernel();          // Kernel | null (null avant boot)
+Nodefony.generateId();         // UUID v4
+Nodefony.generateV5Id(name);   // UUID v5
+```
+
+---
+
 ## Service — Classe de base du framework
 
 `Service` est la brique fondamentale de Nodefony. Toutes les classes du framework (Kernel, Module, Controller, adapters ORM, services applicatifs) en héritent.

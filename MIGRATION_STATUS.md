@@ -246,118 +246,92 @@
 | 2026-05-12 | Phase 0 finalisée + sécurité | Build system, deps, vulnérabilités | ~2h | Turbo OK — 1900 warnings TS2614 éliminés — 61→15 vulns — `mocha-jsdom` supprimé — mongoose `dependencies` nettoyé — merge sur `claude-ts` |
 | 2026-05-13 | Service.ts — audit qualité + bugs | `Service.ts`, `Service.test.ts` | ~2h | 234 tests ✅ — 5 bugs corrigés — `MEMORY.md` créé — `README.md` Service complet |
 | 2026-05-13 | Container.ts — audit qualité + bugs | `Container.ts`, `Container.test.ts` | ~1h | 257 tests ✅ — 2 bugs corrigés (`has`/`remove` valeurs falsy) — `id` public — MEMORY.md mis à jour |
+| 2026-05-13 | IContainer + IScope | `IContainer.ts`, `Container.ts`, `IService.ts` | ~30min | `claude-ts` — `Container implements IContainer`, `Scope implements IScope`, `IService.container: IContainer\|null` |
+| 2026-05-13 | ESM refactor — Nodefony.ts + index.ts | `Nodefony.ts`, `index.ts`, `Error.ts`, 20+ fichiers packages | ~3h | branche `refactor/nodefony-esm` — suppression default export — `Nodefony` classe statique — `nodefonyError` renommé — tous packages + modules fixés — runtime ✅ |
+| 2026-05-13 | Fix 4 warnings TS ciblés | packages http, framework | ~1h | TS2531 routerDecorators ✅ — TS2339 toJSON ✅ — TS2614 isArray ✅ — TS2742 setMetaBag ✅ — CLAUDE.md section lancement ajoutée |
 
 ---
 
-## Warnings TypeScript restants (build 2026-05-12)
+## Warnings TypeScript restants (build 2026-05-13)
 
-> 61 occurrences totales — 7 codes d'erreur — résolution par session dédiée
 > Règle : corriger dans la session du module concerné, pas avant.
 
-### TS2339 — Property does not exist on type (~14 occurrences uniques)
+### TS2339 — Property does not exist on type
 
-| Fichier source | Ligne | Propriété manquante | Type actuel | Fix |
-|----------------|-------|---------------------|-------------|-----|
-| `@nodefony/http` `nodefony/service/http-kernel.ts` | 293 | `toJSON` | `Error \| HttpError \| nodefonyError` | Ajouter `toJSON?(): object` à `HttpError` et `nodefonyError`, ou narrowing |
-| `@nodefony/mongoose` `nodefony/service/orm.ts` | 212 | `displayTable` | `object` | Typer le retour de la méthode en `{ displayTable(): void }` ou interface ORM |
-| `@nodefony/sequelize` `nodefony/service/orm.ts` | 324 | `displayTable` | `object` | Idem — même pattern dans `Orm` base class |
-| `@nodefony/redis` `nodefony/src/Connection.ts` | 198 | `displayTable` | `object` | Idem |
-| `@nodefony/redis` `nodefony/src/Connection.ts` | 202 | `host` | `RedisSocketOptions` | `RedisSocketOptions` n'a pas `host` — utiliser `path` ou le bon type ioredis |
-| `@nodefony/test` `nodefony/entity/BoatEntity.ts` | 48 | `init` | `typeof SessionModel` | `SessionModel` n'expose pas `init` statique — vérifier l'API Sequelize v6 |
-
-**Packages affectés** : http, framework, security, mongoose, sequelize, redis, test (propagation de `http-kernel.ts`)
+| Fichier source | Ligne | Propriété manquante | Fix |
+|----------------|-------|---------------------|-----|
+| `@nodefony/mongoose` `nodefony/service/orm.ts` | 212 | `displayTable` sur `object` | Typer le retour ou interface ORM |
+| `@nodefony/sequelize` `nodefony/service/orm.ts` | 324 | `displayTable` sur `object` | Idem |
+| `@nodefony/redis` `nodefony/src/Connection.ts` | 198 | `displayTable` sur `object` | Idem |
+| `@nodefony/redis` `nodefony/src/Connection.ts` | 202 | `host` sur `RedisSocketOptions` | Utiliser le bon type ioredis |
+| `@nodefony/test` `nodefony/entity/BoatEntity.ts` | 48 | `init` sur `typeof SessionModel` | Vérifier l'API Sequelize v6 |
 
 ---
 
-### TS2305 — Module has no exported member (~10 occurrences uniques)
+### TS2305 — Module has no exported member
 
-| Fichier source | Ligne | Membre manquant | Package source | Fix |
-|----------------|-------|-----------------|----------------|-----|
-| `@nodefony/http` `sessions/sessions-service.ts` | 28 | `SessionStorage` | `@nodefony/sequelize` | Exporter `SessionStorage` depuis l'index de `@nodefony/sequelize` |
-| `@nodefony/http` `sessions/sessions-service.ts` | 29 | `SessionStorage` | `@nodefony/mongoose` | Exporter `SessionStorage` depuis l'index de `@nodefony/mongoose` |
-| `@nodefony/test` `nodefony/entity/BoatEntity.ts` | 2 | `sequelize` | `@nodefony/sequelize` | Exporter l'instance `sequelize` depuis l'index |
-| `@nodefony/test` `nodefony/entity/BoatEntity.ts` | 2 | `Models` | `@nodefony/sequelize` | Exporter le type `Models` depuis l'index |
-| `@nodefony/test` `index.ts` | 2 | `entities` | `@nodefony/sequelize` | Exporter `entities` depuis l'index |
+| Fichier source | Membre manquant | Package source | Cause |
+|----------------|-----------------|----------------|-------|
+| `@nodefony/http` `sessions/sessions-service.ts` | `SessionStorage` | `@nodefony/sequelize` / `@nodefony/mongoose` | `nodefony/types/index.d.ts` a `declare module` vide — re-exports non visibles |
+| `@nodefony/test` `nodefony/entity/BoatEntity.ts` | `sequelize`, `Models` | `@nodefony/sequelize` | Même cause |
+| `@nodefony/test` `index.ts` | `entities` | `@nodefony/sequelize` | Même cause |
 
-**Packages affectés** : http, sequelize, mongoose, redis, test (même `sessions-service.ts` compilé dans plusieurs packages)
+> **Cause racine** : `nodefony/types/index.d.ts` commence par `declare module "@nodefony/sequelize";` (corps vide) puis `export *` à l'extérieur. TypeScript voit le module déclaré sans exports. **Fix** : mettre le `export *` à l'intérieur des accolades du `declare module`.
 
 ---
 
-### TS4114 — Missing `override` modifier (4 occurrences)
+### TS5055 — Cannot write file (overwrite input)
 
-| Fichier source | Lignes | Base class | Fix |
-|----------------|--------|------------|-----|
-| `nodefony-core/index.ts` (app exemple racine) | 43, 76, 86, 96 | `Module` | Ajouter `override` aux méthodes qui surchargent `Module` |
-
-> **Note** : fichier hors packages — c'est l'app de test racine `nodefony-core/index.ts`, pas un package distribué. Priorité basse.
-
----
-
-### TS6196 — Declared but never used (2 occurrences)
-
-| Fichier source | Ligne | Symbole | Fix |
-|----------------|-------|---------|-----|
-| `@nodefony/llm` `src/services/LLMService.ts` | 5 | `ILLMConfig` | Supprimer l'import ou utiliser l'interface |
+> **Packages** : `nodefony:build` (run turbo suivant le clean build)
+> **Cause** : `declarationDir: "dist/types"` + `preserveModulesRoot: "src"` génère `dist/types/src/*.d.ts`. TypeScript les charge comme "input" (via la résolution du package `nodefony`), puis tente de les réécrire.
+> **Impact** : build réussit quand même (9/9) — types non perdus. Warning cosmétique.
+> **Fix propre** : changer `declarationDir` dans `rollup.config.ts` (session dédiée build system).
 
 ---
 
-### TS6133 — Declared but value never read (2 occurrences)
+### TS4114 — Missing `override` modifier
 
-| Fichier source | Ligne | Symbole | Fix |
-|----------------|-------|---------|-----|
-| `@nodefony/security` `nodefony/src/decorators/firewallDecorator.ts` | 5 | `descriptor` | Supprimer le paramètre ou le préfixer `_descriptor` |
-
----
-
-### TS2742 — Inferred type cannot be named (2 occurrences)
-
-| Fichier source | Ligne | Symbole | Fix |
-|----------------|-------|---------|-----|
-| `@nodefony/http` `nodefony/src/session/session.ts` | 632 | `setMetaBag` | Ajouter une annotation de type explicite qui importe `Container` directement |
-
-> **Cause** : TypeScript infère un type qui référence `nodefony/dist/types/Container` par chemin absolu — non portable.
-> **Fix** : `setMetaBag(bag: Record<string, ReturnType<Container['get']>>): void` ou type inline.
+| Fichier source | Lignes | Fix |
+|----------------|--------|-----|
+| `nodefony-core/index.ts` (app exemple racine) | 43, 76, 86, 96 | Ajouter `override` — priorité basse (hors packages distribués) |
 
 ---
 
-### TS2322 — Type incompatible (2 occurrences)
+### TS6196 / TS6133 — Unused imports
 
-| Fichier source | Ligne | Problème | Fix |
-|----------------|-------|----------|-----|
-| `@nodefony/mongoose` `rollup.config.ts` | 59 | `Plugin[]` du rollup racine ≠ `Plugin[]` du rollup local `@nodefony/mongoose` | Aligner la version de `rollup` dans le `package.json` de `@nodefony/mongoose` avec la racine |
-
-> **Cause** : `@nodefony/mongoose` a sa propre installation de `rollup` dans `node_modules/` locale — les types `Plugin<any>[]` sont incompatibles entre les deux instances.
+| Fichier source | Symbole | Fix |
+|----------------|---------|-----|
+| `@nodefony/llm` `LLMService.ts:5` | `ILLMConfig` | Supprimer l'import |
+| `@nodefony/security` `firewallDecorator.ts:5` | `descriptor` | Préfixer `_descriptor` |
 
 ---
 
 ### Plugin warning — sourcemap (7 packages)
 
-| Packages affectés |
-|-------------------|
-| http, framework, security, mongoose, sequelize, redis, test |
-
-> Avertissement non-bloquant : `Rollup 'sourcemap' option must be set to generate source maps.`
-> **Cause** : `tsconfig.json` des packages activent `sourceMap: true` mais le `rollup.config.ts` ne passe pas `sourcemap` dans l'output.
-> **Fix** : Ajouter `sourcemap: true` dans les outputs rollup de chaque package, ou supprimer `sourceMap` des tsconfigs.
+> `Rollup 'sourcemap' option must be set to generate source maps.` — non bloquant.
+> Fix : ajouter `sourcemap: true` dans les outputs rollup de chaque package.
 
 ---
 
 ## Prochaine session
 
-**Phase 0 terminée** ✅ — mergée sur `claude-ts` (2026-05-12)
-**Service.ts audité** ✅ — 5 bugs corrigés, 234 tests, docs IA + humains (2026-05-13)
+**Branches actives** :
+- `claude-ts` — branche principale migration TS (build OK, 257 tests ✅)
+- `refactor/nodefony-esm` — ESM refactor complet (runtime OK, merge sur `claude-ts` quand prêt)
 
-**Prochaine session** : Phase 1.3 — `Container.ts` (DI Container) ou Phase 5.1 — `IController` + `Controller.ts`  
-**Pré-requis** : `IService` ✅ — `IKernel` ✅ — `IModule` ✅ — `Service.ts` ✅  
+**Prochaine session recommandée** :
+1. **Merger `refactor/nodefony-esm` → `claude-ts`** (0 régression attendue)
+2. **TS2305 fix** — corriger `nodefony/types/index.d.ts` dans `@nodefony/sequelize` et `@nodefony/mongoose` (mettre `export *` dans les accolades du `declare module`)
+3. **Phase 5.1** — `IController` + `Controller.ts`
+
 **Fichiers à lire en début de session** :
-- `src/nodefony/MEMORY.md` (Service, Container, Event — référence IA)
-- `src/nodefony/src/Container.ts` (DI Container — 🔶 partiellement typé)
-- `src/packages/@nodefony/framework/nodefony/src/Controller.ts` (Phase 5.1)
-- Ce fichier `MIGRATION_STATUS.md`
+- `MIGRATION_STATUS.md` (ce fichier)
+- `src/nodefony/MEMORY.md` (Service, Container, Nodefony, index)
+- `CLAUDE.md` section "Lancer le framework"
 
-**Type warnings à traiter en priorité** :
-- TS2305 : `SessionStorage`, `entities`, `sequelize`, `Models` manquants dans `@nodefony/sequelize` + `@nodefony/mongoose`
-- TS2339 : `toJSON` sur `Error | HttpError | nodefonyError` dans `http-kernel.ts:293`
-- TS4114 : `override` manquant dans `nodefony-core/index.ts` (app exemple racine)
+**Warnings prioritaires restants** :
+- TS2305 : `declare module` vide dans `@nodefony/sequelize/nodefony/types/index.d.ts`
+- TS4114 : `override` manquant dans `nodefony-core/index.ts`
+- TS5055 : `declarationDir` conflit (session build system dédiée)
 
-**Vulnérabilités restantes (15)** : voir section "Warnings TypeScript restants" — twig@3.0.0 + asciify à traiter dans session dédiée
+**Vulnérabilités restantes (15)** : twig@3.0.0 + asciify — session dédiée
