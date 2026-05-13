@@ -221,6 +221,9 @@ const conditionsObj: Conditions = {
     return false;
   },
   msgid: (pdu: Pdu, condition: ConditionSetting) => {
+    if (condition.data instanceof RegExp) {
+      return condition.data.test(pdu.msgid);
+    }
     for (const sev in condition.data) {
       if (condition.operator && operators[condition.operator](pdu.msgid, sev)) {
         return true;
@@ -572,15 +575,15 @@ class Syslog extends Event implements ISyslog {
   getLogStack(
     start?: number,
     end?: number,
-    contition?: conditionsInterface
+    condition?: conditionsInterface
   ): Pdu[] | Pdu {
     // Fast path: no arguments → last entry without building full array
     if (arguments.length === 0) {
       return this._ring.last() as Pdu;
     }
     let stack: Pdu[];
-    if (contition) {
-      stack = this.getLogs(contition);
+    if (condition) {
+      stack = this.getLogs(condition);
     } else {
       stack = this.ringStack;
     }
@@ -670,10 +673,6 @@ class Syslog extends Event implements ISyslog {
   }
 
   warn(data: Pci): Pdu {
-    return this.log(data, "WARNING");
-  }
-
-  warnning(data: Pci): Pdu {
     return this.log(data, "WARNING");
   }
 

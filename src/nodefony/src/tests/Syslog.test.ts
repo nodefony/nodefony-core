@@ -569,7 +569,6 @@ describe("NODEFONY SYSLOG", () => {
           },
           (pdu: Pdu) => {
             i++;
-            // nodefony.Syslog.normalizeLog(pdu);
             assert.strict.equal(pdu.msgid, "NODEFONY");
             assert.strict.equal(pdu.payload, "pass");
             if (i === 3) {
@@ -583,5 +582,48 @@ describe("NODEFONY SYSLOG", () => {
         global.syslog.log("nopass", "DEBUG", "NODEFONY");
         global.syslog.log("pass", "ERROR", "NODEFONY");
       }));
+
+    it("listener condition MSGID RegExp", (done) => {
+      let i = 0;
+      global.syslog.listenWithConditions(
+        {
+          msgid: {
+            data: /^NODEFONY/,
+          },
+        },
+        (pdu: Pdu) => {
+          i++;
+          assert.ok(pdu.msgid.startsWith("NODEFONY"));
+        }
+      );
+      global.syslog.log("pass", "INFO", "NODEFONY_SERVICE");
+      global.syslog.log("nopass", "INFO", "OTHER_MODULE");
+      global.syslog.log("pass", "INFO", "NODEFONY_KERNEL");
+      assert.strict.equal(i, 2);
+      done();
+    });
+  });
+
+  describe("PDU SEVERITY NUMERIC", () => {
+    it("Pdu severity -1 numeric (SPINNER)", (done) => {
+      const pdu = new Pdu("spin", -1);
+      assert.strict.equal(pdu.severity, -1);
+      assert.strict.equal(pdu.severityName, "SPINNER");
+      assert.strict.equal(pdu.status, "NOTDEFINED");
+      done();
+    });
+
+    it("Pdu severity 0-7 numeric", (done) => {
+      for (let n = 0; n <= 7; n++) {
+        const pdu = new Pdu("test", n as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7);
+        assert.strict.equal(pdu.severity, n);
+      }
+      done();
+    });
+
+    it("Pdu severity invalid numeric throws", (done) => {
+      assert.throws(() => new Pdu("test", 99 as never), /Not a valid/);
+      done();
+    });
   });
 });

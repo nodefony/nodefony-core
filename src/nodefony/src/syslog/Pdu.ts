@@ -50,6 +50,7 @@ const sysLogSeverity: SysLogSeverity[] = [
 
 const translateSeverity = function (severity: Severity = "INFO"): number {
   if (typeof severity === "number") {
+    if (severity === SysLogSeverity.SPINNER) return SysLogSeverity.SPINNER;
     if (sysLogSeverity[severity] !== undefined) {
       return sysLogSeverity[severity];
     } else {
