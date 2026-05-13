@@ -1,6 +1,6 @@
 import { Controller, route, controller } from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
-import { inject, Fetch, Error } from "nodefony";
+import { inject, Fetch, nodefonyError as Error } from "nodefony";
 import https from "node:https";
 
 @controller("/nodefony/test")

@@ -1,4 +1,4 @@
-import nodefony, { Entity, Module } from "nodefony";
+import { Entity, Module, Nodefony } from "nodefony";
 
 import sequelize, {
   Model,
@@ -91,7 +91,7 @@ class Session extends Entity {
             onUpdate: "CASCADE",
           });
         } else {
-          nodefony.kernel?.log(
+          Nodefony.getKernel()?.log(
             "ENTITY ASSOCIATION user NOT AVAILABLE",
             "WARNING",
             `ENTITY ${this.name}`

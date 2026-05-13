@@ -4,7 +4,7 @@ import Router, { TypeController } from "../service/router";
 import { RouteOptions } from "../src/Route";
 import Controller from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
-import nodefony, { Module } from "nodefony";
+import { Module, Nodefony } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
 
 type Constructor<T = {}> = new (...args: any[]) => T;
@@ -77,14 +77,14 @@ function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
           continue;
         }
         const route = Router.createRoute(name, options);
-        if (nodefony.kernel && nodefony.kernel.debug) {
-          nodefony.kernel.log(`Add routes : ${route.toString()}`, "DEBUG");
+        if (Nodefony.getKernel() && Nodefony.getKernel().debug) {
+          Nodefony.getKernel().log(`Add routes : ${route.toString()}`, "DEBUG");
         }
       }
       if (hasMagic) {
         const route = Router.createRoute(hasMagic.name, hasMagic.options);
-        if (nodefony.kernel && nodefony.kernel.debug) {
-          nodefony.kernel.log(`Add routes : ${route.toString()}`, "DEBUG");
+        if (Nodefony.getKernel() && Nodefony.getKernel().debug) {
+          Nodefony.getKernel().log(`Add routes : ${route.toString()}`, "DEBUG");
         }
       }
     }

@@ -1,4 +1,4 @@
-import nodefony, {
+import {
   Service,
   Module,
   Container,
@@ -9,8 +9,8 @@ import nodefony, {
   injectable,
   EnvironmentType,
   DebugType,
-  Error as nodefonyError,
   //inject,
+  nodefonyError,
 } from "nodefony";
 import { Resolver, Router } from "@nodefony/framework";
 import { Controller } from "@nodefony/framework";
@@ -550,7 +550,7 @@ class HttpKernel extends Service {
     return new Promise(async (resolve, reject) => {
       // EVENT
       if (!context) {
-        return reject(new nodefony.Error("Bad context", 500));
+        return reject(new nodefonyError("Bad context", 500));
       }
       if (error) {
         throw error;
@@ -684,7 +684,7 @@ class HttpKernel extends Service {
         throw error;
       }
       if (!context) {
-        throw new nodefony.Error("Bad context", 500);
+        throw new nodefonyError("Bad context", 500);
       }
       // DOMAIN VALID
       if (this.domainCheck) {

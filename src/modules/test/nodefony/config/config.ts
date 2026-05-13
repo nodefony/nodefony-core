@@ -1,5 +1,5 @@
 import path from "node:path";
-import nodefony, { Kernel } from "nodefony";
+import { Nodefony, Kernel } from "nodefony";
 
 export default {
   watch: true,
@@ -20,7 +20,7 @@ export default {
       myconnector: {
         driver: "sqlite",
         dbname: path.resolve(
-          (nodefony.kernel as Kernel).path,
+          (Nodefony.getKernel() as Kernel).path,
           "nodefony",
           "databases",
           "myconnector.db"

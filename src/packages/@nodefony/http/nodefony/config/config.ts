@@ -1,6 +1,6 @@
-import { kernel } from "nodefony";
+import { Nodefony } from "nodefony";
 
-const tmpDir = kernel?.tmpDir?.path || "/tmp";
+const tmpDir = Nodefony.getKernel()?.tmpDir?.path || "/tmp";
 
 export default {
   watch: true,
@@ -56,11 +56,11 @@ export default {
       attrs: [
         {
           name: "commonName",
-          value: kernel?.domain || "nodefony.com",
+          value: Nodefony.getKernel()?.domain || "nodefony.com",
         },
         {
           name: "organizationName",
-          value: kernel?.projectName || "",
+          value: Nodefony.getKernel()?.projectName || "",
         },
         {
           name: "organizationalUnitName",

@@ -1,5 +1,5 @@
 import path from "path";
-import nodefony, { Kernel } from "nodefony";
+import { Nodefony, Kernel } from "nodefony";
 //import { sequelize } from "@nodefony/sequelize";
 
 const config = {
@@ -7,7 +7,7 @@ const config = {
     nodefony: {
       driver: "sqlite",
       dbname: path.resolve(
-        (nodefony.kernel as Kernel).path,
+        (Nodefony.getKernel() as Kernel).path,
         "nodefony",
         "databases",
         "nodefony.db"

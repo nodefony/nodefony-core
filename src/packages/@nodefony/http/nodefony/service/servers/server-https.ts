@@ -1,4 +1,6 @@
-import nodefony, {
+import {
+  extend,
+  nodefonyError,
   Service,
   //Kernel,
   Container,
@@ -82,7 +84,7 @@ class ServerHttps extends Service {
         if (this.protocol === "2.0") {
           return resolve(this.createServerH2());
         }
-        const opt: https.ServerOptions = nodefony.extend({
+        const opt: https.ServerOptions = extend({
           requestTimeout: this.options.requestTimeout,
           rejectUnauthorized: this.options.rejectUnauthorized,
           key: this.httpKernel?.serviceCerticats?.key,
@@ -139,7 +141,7 @@ class ServerHttps extends Service {
         );
 
         this.server.on("error", (error) => {
-          const myError = new nodefony.Error(error);
+          const myError = new nodefonyError(error);
           const txtError =
             typeof error.code === "string" ? error.code : error.errno;
           switch (txtError) {
@@ -192,7 +194,7 @@ class ServerHttps extends Service {
   createServerH2(): Promise<http2.Http2SecureServer> {
     return new Promise((resolve, reject) => {
       try {
-        const opt: http2.SecureServerOptions = nodefony.extend({
+        const opt: http2.SecureServerOptions = extend({
           allowHTTP1: true,
           rejectUnauthorized: this.options.rejectUnauthorized,
           key: this.httpKernel?.serviceCerticats?.key,
@@ -204,7 +206,7 @@ class ServerHttps extends Service {
         this.server = http2.createSecureServer(opt);
         this.httpTerminator = this.terminator();
         // const buf = http2.getPackedSettings(this.options);
-        // const defaultSetting2 = nodefony.extend(
+        // const defaultSetting2 = extend(
         //   {},
         //   http2.getDefaultSettings(),
         //   http2.getUnpackedSettings(buf) || {}
@@ -244,7 +246,7 @@ class ServerHttps extends Service {
           return resolve(this.server as http2.Http2SecureServer);
         });
         this.server.on("error", (error) => {
-          const myError = new nodefony.Error(error);
+          const myError = new nodefonyError(error);
           const txtError =
             typeof error.code === "string" ? error.code : error.errno;
           switch (txtError) {

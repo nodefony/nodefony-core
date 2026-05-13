@@ -1,7 +1,7 @@
 import http, { OutgoingHttpHeaders } from "node:http";
 import http2 from "node:http2";
 import HttpContext from "../http/HttpContext";
-import nodefony, { Pdu, Message, Severity, Msgid } from "nodefony";
+import { typeOf, Pdu, Message, Severity, Msgid } from "nodefony";
 import mime from "mime-types";
 import { responseTimeoutType } from "../../../service/http-kernel";
 import Cookie from "../../cookies/cookie";
@@ -483,7 +483,7 @@ class HttpResponse {
       this.setStatusCode(301);
     }
     if (headers) {
-      switch (nodefony.typeOf(headers)) {
+      switch (typeOf(headers)) {
         case "object":
           this.setHeaders(headers);
           break;

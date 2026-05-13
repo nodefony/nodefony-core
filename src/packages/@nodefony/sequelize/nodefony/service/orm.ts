@@ -9,7 +9,7 @@ import {
   Connector,
   typeOf,
   Severity,
-  Error as nodefonyError,
+  nodefonyError,
 } from "nodefony";
 import sequelize, {
   Model,

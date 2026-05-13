@@ -1,4 +1,4 @@
-import nodefony, {
+import {
   extend,
   Container,
   Severity,
@@ -142,7 +142,7 @@ class Session extends Container {
   ): this {
     this.id = id || this.setId();
     const defaultSetting = extend({}, this.options.cookie);
-    settingsCookie = nodefony.extend(defaultSetting, settingsCookie);
+    settingsCookie = extend(defaultSetting, settingsCookie);
     this.log(`NEW SESSION CREATE : ${this.id}`, "DEBUG");
     try {
       this.cookieSession = this.setCookieSession(lifetime, settingsCookie);
@@ -453,8 +453,8 @@ class Session extends Container {
   setCookieSession(leftTime: number, options: CookieOptionsType = {}) {
     if (this.context && this.context.response) {
       // let settings = null;
-      const defaultsettings = nodefony.extend({}, this.options.cookie);
-      options = nodefony.extend(defaultsettings, options);
+      const defaultsettings = extend({}, this.options.cookie);
+      options = extend(defaultsettings, options);
       if (leftTime) {
         options.maxAge = leftTime;
       }

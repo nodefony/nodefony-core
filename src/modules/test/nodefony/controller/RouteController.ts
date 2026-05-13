@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { Controller, route, controller } from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
-import { inject, Fetch, Error } from "nodefony";
+import { inject, Fetch, nodefonyError as Error } from "nodefony";
 
 @controller("/nodefony/test/route")
 class RouteController extends Controller {

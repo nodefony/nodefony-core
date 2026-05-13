@@ -9,7 +9,7 @@ import {
 import http from "node:http";
 import http2 from "node:http2";
 import tls from "tls";
-import nodefony, {
+import {
   Service,
   //Kernel,
   //Container,
@@ -89,7 +89,7 @@ class Statics extends Service {
     if (!Path) {
       throw new Error("Static file path not Defined ");
     }
-    const opt = nodefony.extend({}, this.defaultOptions, options);
+    const opt = extend({}, this.defaultOptions, options);
     /* if (typeof opt.maxAge === "string") {
       //opt.maxAge = parseInt(eval(opt.maxAge), 10);
     }*/

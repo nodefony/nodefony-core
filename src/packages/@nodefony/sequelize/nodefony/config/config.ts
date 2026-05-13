@@ -1,5 +1,5 @@
 import path from "node:path";
-import nodefony, { Kernel } from "nodefony";
+import { Kernel, Nodefony } from "nodefony";
 
 export default {
   debug: true,
@@ -9,7 +9,7 @@ export default {
     nodefony: {
       driver: "sqlite",
       dbname: path.resolve(
-        (nodefony.kernel as Kernel).path,
+        (Nodefony.getKernel() as Kernel).path,
         "nodefony",
         "databases",
         "nodefony.db"
@@ -38,13 +38,13 @@ export default {
   migrations: {
     storage: "sequelize", // sequelize || memory || json
     path: path.resolve(
-      (nodefony.kernel as Kernel).path,
+      (Nodefony.getKernel() as Kernel).path,
       "nodefony",
       "migrations",
       "sequelize"
     ),
     seedeersPath: path.resolve(
-      (nodefony.kernel as Kernel).path,
+      (Nodefony.getKernel() as Kernel).path,
       "nodefony",
       "migrations",
       "seedeers"

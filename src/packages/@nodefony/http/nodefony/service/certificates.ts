@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import pkg from "node-forge";
 const { pki } = pkg;
-import nodefony, { Service, Module, Container, Event } from "nodefony";
+import { Service, Module, Container, Event, extend } from "nodefony";
 //import HttpKernel from "./http-kernel";
 import fs from "fs/promises";
 import path, { resolve } from "path";
@@ -65,7 +65,7 @@ class Certificate extends Service {
       "certificates",
       module.container as Container,
       module.notificationsCenter as Event,
-      nodefony.extend(
+      extend(
         true,
         defaultOptions,
         module.options.certificates || {}
@@ -77,7 +77,7 @@ class Certificate extends Service {
   async initialize(): Promise<this> {
     this.options.openssl.serialNumber = Certificate.generateSerial();
     this.kernel?.once("onBoot", async () => {
-      this.options = nodefony.extend(
+      this.options = extend(
         true,
         this.options,
         this.module.options.certificates || {}

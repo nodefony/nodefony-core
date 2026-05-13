@@ -1,4 +1,5 @@
-import nodefony, {
+import {
+  Nodefony,
   Container,
   extend,
   Message,
@@ -64,7 +65,7 @@ class Redis extends Service {
   }
 
   generateId(): string {
-    return nodefony.generateId();
+    return Nodefony.generateId();
   }
   async createConnection(name: string, options = {}): Promise<Connection> {
     return new Promise((resolve, reject) => {

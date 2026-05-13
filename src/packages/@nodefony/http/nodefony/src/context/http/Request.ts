@@ -9,13 +9,13 @@ import formidable, { IncomingForm } from "formidable";
 //import { Container } from "nodefony";
 import { ParserXml, ParserQs, Parser, acceptParser } from "./parser";
 import { UploadedFile } from "../../../service/upload/upload-service";
-import nodefony, {
+import {
+  isArray,
   extend,
   Pdu,
   Message,
   Severity,
   Msgid,
-  Error,
 } from "nodefony";
 import Session from "../../session/session";
 import { HttpError } from "@nodefony/http";
@@ -209,7 +209,7 @@ class HttpRequest {
               try {
                 await parserInst.parse();
                 this.queryPost = fields;
-                this.query = nodefony.extend({}, this.query, this.queryPost);
+                this.query = extend({}, this.query, this.queryPost);
                 if (files && Object.keys(files).length) {
                   for (const file in files) {
                     if (!files[file]) {
@@ -221,7 +221,7 @@ class HttpRequest {
                       | formidable.Files = files[file];
                     try {
                       if (reg.exec(file)) {
-                        if (nodefony.isArray(ele)) {
+                        if (isArray(ele)) {
                           let tab: formidable.File[] = ele as formidable.File[];
                           for (const multifiles in tab) {
                             let ele = tab[multifiles];
@@ -235,7 +235,7 @@ class HttpRequest {
                         //else if (ele && ele.filepath) {
                         //   this.createFileUpload(file, ele, opt.maxFileSize);
                         // }
-                      } else if (nodefony.isArray(ele)) {
+                      } else if (isArray(ele)) {
                         for (const multifiles in ele) {
                           this.createFileUpload(
                             multifiles,

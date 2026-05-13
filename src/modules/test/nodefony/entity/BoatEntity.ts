@@ -1,4 +1,4 @@
-import nodefony, { Entity, Module } from "nodefony";
+import { Entity, Module } from "nodefony";
 import { sequelize, Models } from "@nodefony/sequelize";
 
 const {

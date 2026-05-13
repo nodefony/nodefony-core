@@ -1,4 +1,4 @@
-import nodefony from "nodefony";
+import { Nodefony } from "nodefony";
 
 /**
  *   OVERRIDE ORM BUNDLE MONGOOSE
@@ -15,7 +15,7 @@ const connectors = {
   nodefony: {},
 };
 
-switch (nodefony.kernel?.appEnvironment.environment) {
+switch (Nodefony.getKernel()?.appEnvironment.environment) {
   case "production":
   case "development":
   default:

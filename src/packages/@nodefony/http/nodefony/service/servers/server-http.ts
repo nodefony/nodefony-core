@@ -1,4 +1,6 @@
-import nodefony, {
+import {
+  extend,
+  nodefonyError,
   Service,
   //Kernel,
   Container,
@@ -62,7 +64,7 @@ class ServerHttp extends Service {
           const e = new Error(`Server http is not allowed in config file `);
           return reject(e);
         }
-        const opt: http.ServerOptions = nodefony.extend({
+        const opt: http.ServerOptions = extend({
           requestTimeout: this.options.requestTimeout,
         });
         this.server = http.createServer(opt);
@@ -105,7 +107,7 @@ class ServerHttp extends Service {
         });
         this.module.fire("onCreateServer", this.type, this);
         this.server.on("error", (error) => {
-          const myError = new nodefony.Error(error);
+          const myError = new nodefonyError(error);
           const txtError =
             typeof error.code === "string" ? error.code : error.errno;
           switch (txtError) {
