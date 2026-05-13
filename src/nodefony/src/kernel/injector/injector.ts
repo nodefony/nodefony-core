@@ -61,8 +61,9 @@ class Injector extends Service {
           continue;
         }
         let instance;
-        if (Nodefony.kernel && Nodefony.kernel.get(serviceName)) {
-          instance = Nodefony.kernel.get(serviceName);
+        const kernel = Nodefony.getKernel();
+        if (kernel && kernel.get(serviceName)) {
+          instance = kernel.get(serviceName);
         } else {
           instance = Injector.instantiate(
             Injector.get(serviceName),

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import assert from "node:assert";
-import nodefony, { kernel } from "./Nodefony";
+import { Nodefony } from "./Nodefony";
+import { typeOf } from "./Tools";
 
 import { STATUS_CODES } from "node:http";
 import { inspect } from "node:util";
@@ -73,9 +74,21 @@ const jsonNodefony: JsonDescriptor = {
   },
 };
 
+// TODO(orm-session): remplacer par un registre IErrorAdapter — @nodefony/sequelize et @nodefony/mongoose
+// s'enregistrent eux-mêmes, le core ne doit pas connaître les ORMs
+let _sequelizeAdapter: { isError(e: Error): boolean; errorToString(e: unknown): string } | null = null;
+let _mongooseAdapter: { isError(e: Error): boolean; errorToString(e: unknown): string } | null = null;
+
+export function registerSequelizeAdapter(adapter: typeof _sequelizeAdapter): void {
+  _sequelizeAdapter = adapter;
+}
+export function registerMongooseAdapter(adapter: typeof _mongooseAdapter): void {
+  _mongooseAdapter = adapter;
+}
+
 const isSequelizeError = function (error: Error) {
   try {
-    return nodefony.sequelize.isError(error);
+    return _sequelizeAdapter?.isError(error) ?? false;
   } catch (e) {
     return false;
   }
@@ -83,7 +96,7 @@ const isSequelizeError = function (error: Error) {
 
 const isMongooseError = function (error: Error) {
   try {
-    return nodefony.mongoose.isError(error);
+    return _mongooseAdapter?.isError(error) ?? false;
   } catch (e) {
     return false;
   }
@@ -215,7 +228,7 @@ class nodefonyError extends Error {
     let err = "";
     switch (this.errorType) {
       case "Error":
-        if (kernel && kernel.environment === "prod") {
+        if (Nodefony.getKernel()?.environment === "prod") {
           return err;
         }
         err = `${clc.blue("Name :")} ${this.name}
@@ -224,7 +237,7 @@ class nodefonyError extends Error {
         ${clc.red("Message :")} ${this.message}`;
         break;
       case "SystemError":
-        if (kernel && kernel.environment === "prod") {
+        if (Nodefony.getKernel()?.environment === "prod") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
             this.message
           )}`;
@@ -238,7 +251,7 @@ class nodefonyError extends Error {
       ${clc.blue("Port :")} ${this.port}`;
         break;
       case "AssertionError":
-        if (kernel && kernel.environment === "prod") {
+        if (Nodefony.getKernel()?.environment === "prod") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
             this.message
           )}`;
@@ -252,7 +265,7 @@ class nodefonyError extends Error {
       ${clc.white("Operator :")} ${this.operator}`;
         break;
       case "ClientError":
-        if (kernel && kernel.environment === "prod") {
+        if (Nodefony.getKernel()?.environment === "prod") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
             this.message
           )}`;
@@ -265,11 +278,11 @@ class nodefonyError extends Error {
       ${clc.white("RawPacket :")} ${this.rawPacket}`;
         break;
       case "SequelizeError":
-        return nodefony.sequelize.errorToString(this);
+        return _sequelizeAdapter?.errorToString(this) ?? this.message;
       case "MongooseError":
-        return nodefony.mongoose.errorToString(this);
+        return _mongooseAdapter?.errorToString(this) ?? this.message;
       default:
-        if (kernel && kernel.environment === "prod") {
+        if (Nodefony.getKernel()?.environment === "prod") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
             this.message
           )}`;
@@ -279,7 +292,7 @@ class nodefonyError extends Error {
         ${clc.red("Message :")} ${this.message}`;
         break;
     }
-    if (kernel?.debug) {
+    if (Nodefony.getKernel()?.debug) {
       err += `
         ${clc.green("Stack :")} ${this.stack}`;
     }
@@ -288,7 +301,7 @@ class nodefonyError extends Error {
 
   parseMessage(message: any) {
     this.errorType = this.getType(message);
-    switch (nodefony.typeOf(message)) {
+    switch (typeOf(message)) {
       case "Error":
         if (this.errorType === "SequelizeError") {
           break;

@@ -5,7 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import Container, { Scope } from "../Container";
 import FileClass from "../FileClass";
-import nodefony, { Nodefony, Orm } from "../Nodefony";
+import { Nodefony } from "../Nodefony";
+import Orm from "./orm/Orm";
 import Service, { DefaultOptionsService } from "../Service";
 import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
@@ -179,7 +180,6 @@ class Kernel extends Service implements IKernel {
     this.environment = environment;
     this.setMaxListeners(30);
     Nodefony.setKernel(this);
-    nodefony.kernel = this;
     this.kernel = this;
     this.set("kernel", this);
     this.type = "CONSOLE";

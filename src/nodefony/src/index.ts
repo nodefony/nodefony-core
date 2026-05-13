@@ -1,36 +1,78 @@
-// index.ts
-import nodefony from "./Nodefony";
-//import nodefony, { Nodefony, kernel } from "./Nodefony";
-// import Kernel from "./kernel/Kernel";
-// import Module from "./kernel/Module";
-// import CliKernel from "./kernel/CliKernel";
-// import Container from "./Container";
-// import Syslog from "./syslog/Syslog";
-// import Pdu from "./syslog/Pdu";
-// import Error from "./Error";
-// import Service from "./Service";
-// import Command from "./command/Command";
-// import Cli from "./Cli";
-// import Event from "./Event";
-// import Builder from "./command/Builder";
-// import Finder from "./finder/Finder";
-// import File from "./finder/File";
-// import Result from "./finder/Result";
-// import FileClass from "./FileClass";
-// import FileResult from "./finder/FileResult";
+// @nodefony/core — barrel ESM
+// import { Kernel, Service, Container, Syslog, ... } from "@nodefony/core"
 
-// Vérifie si module.exports est défini (module CommonJS)
-if (typeof module !== "undefined" && module.exports) {
-  // Exporte directement l'objet nodefony
-  module.exports = nodefony;
-}
+// ─── Framework ────────────────────────────────────────────────────────────────
+export { Nodefony } from "./Nodefony";
+export { default as Kernel } from "./kernel/Kernel";
+export { default as Module } from "./kernel/Module";
+export { default as CliKernel } from "./kernel/CliKernel";
+export { default as Service } from "./Service";
+export { default as Container } from "./Container";
+export { default as Event } from "./Event";
+export { default as Cli } from "./Cli";
+export { default as Command } from "./command/Command";
+export { default as Builder } from "./command/Builder";
 
-export default nodefony;
-export * from "./Nodefony";
-export { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
-export { Scope, ProtoService, ProtoParameters } from "./Container";
-export { EnvironmentType, DebugType } from "./types/globals";
+// ─── Logging ──────────────────────────────────────────────────────────────────
+export { default as Syslog } from "./syslog/Syslog";
+export { default as Pdu } from "./syslog/Pdu";
+
+// ─── Errors ───────────────────────────────────────────────────────────────────
+export { default as nodefonyError } from "./Error";
+
+// ─── Finder / Files ───────────────────────────────────────────────────────────
+export { default as Finder } from "./finder/Finder";
+export { default as File } from "./finder/File";
+export { default as Result } from "./finder/Result";
+export { default as FileClass } from "./FileClass";
+export { default as FileResult } from "./finder/FileResult";
+
+// ─── Services ─────────────────────────────────────────────────────────────────
+export { default as Fetch } from "./service/fetchService";
+export { default as Injector } from "./kernel/injector/injector";
+
+// ─── ORM ──────────────────────────────────────────────────────────────────────
+export { default as Orm } from "./kernel/orm/Orm";
+export { default as Entity } from "./kernel/orm/Entity";
+export { default as Connector } from "./kernel/orm/Connector";
+
+// ─── Decorators ───────────────────────────────────────────────────────────────
+export { modules, injectable, inject, services, entities } from "./kernel/decorators/kernelDecorator";
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
 export {
+  extend,
+  typeOf,
+  isPromise,
+  isEmptyObject,
+  isPlainObject,
+  isUndefined,
+  isRegExp,
+  isContainer,
+  isFunction,
+  isArray,
+} from "./Tools";
+
+// ─── Types & Interfaces ───────────────────────────────────────────────────────
+export type { IKernel, KernelNetworkResult } from "./types/IKernel";
+export type { IService, DefaultOptionsService, EventListener } from "./types/IService";
+export type { IContainer, IScope } from "./types/IContainer";
+export type { IModule } from "./types/IModule";
+export type { ISyslog } from "./types/ISyslog";
+export type { EnvironmentType, DebugType } from "./types/globals";
+
+export type {
+  DynamicParam,
+  DynamicService,
+  Scopes,
+  ProtoService,
+  ProtoParameters,
+} from "./Container";
+export { Scope } from "./Container";
+
+export type { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
+
+export type {
   FamilyType,
   KernelEventsType,
   NetworkInterface,
@@ -40,26 +82,5 @@ export {
   EntityConstructor,
   TypeKernelOptions,
 } from "./kernel/Kernel";
-export { OptionsCommandInterface, CommandEvents } from "./command/Command";
 
-// export {
-//   Nodefony,
-//   kernel,
-//   Kernel,
-//   Module,
-//   CliKernel,
-//   Syslog,
-//   Service,
-//   Container,
-//   Cli,
-//   Event,
-//   Command,
-//   Pdu,
-//   Builder,
-//   Finder,
-//   File,
-//   FileClass,
-//   FileResult,
-//   Result,
-//   Error,
-// };
+export type { OptionsCommandInterface, CommandEvents } from "./command/Command";
