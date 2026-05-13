@@ -65,6 +65,7 @@ export interface SyslogDefaultSettings {
   defaultSeverity?: Severity;
   checkConditions?: Condition;
   async?: boolean;
+  overrideConsole?: boolean;
 }
 
 export interface WrapperResult {
@@ -442,6 +443,9 @@ class Syslog extends Event implements ISyslog {
     this.valid = 0;
     this.start = 0;
     this._async = (this.settings.async as boolean) || false;
+    if (this.settings.overrideConsole) {
+      Syslog.overrideConsole(this);
+    }
   }
 
   // ringStack returns elements in FIFO order (oldest first, newest last)
@@ -688,6 +692,28 @@ class Syslog extends Event implements ISyslog {
     return this.log(data, "NOTICE", ...(args as [ModuleName?, Message?]));
   }
 
+  print(...args: Pci[]): Pdu {
+    const payload: Pci = args.length === 1 ? args[0] : args;
+    return this.log(payload, this.settings.defaultSeverity);
+  }
+
+  logMultiple(severity: Severity, ...args: Pci[]): Pdu {
+    const payload: Pci = args.length === 1 ? args[0] : args;
+    return this.log(payload, severity);
+  }
+
+  // Native console methods captured before any possible override — prevents recursion
+  private static readonly _nativeConsole = {
+    log: console.log.bind(console),
+    info: console.info.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+    debug: console.debug.bind(console),
+    trace: console.trace.bind(console),
+  };
+
+  private static _savedConsole: typeof Syslog._nativeConsole | null = null;
+
   static wrapper(pdu: Pdu): WrapperResult {
     if (!pdu) {
       throw new Error("Syslog pdu not defined");
@@ -702,32 +728,32 @@ class Syslog extends Event implements ISyslog {
       case 2:
       case 3:
         return {
-          logger: console.error,
+          logger: Syslog._nativeConsole.error,
           text: `${dateStr} ${red(pdu.severityName)} ${msgid} : `,
         };
       case 4:
         return {
-          logger: console.warn,
+          logger: Syslog._nativeConsole.warn,
           text: `${dateStr} ${yellow(pdu.severityName)} ${msgid} : `,
         };
       case 5:
         return {
-          logger: console.log,
+          logger: Syslog._nativeConsole.log,
           text: `${dateStr} ${red(pdu.severityName)} ${msgid} : `,
         };
       case 6:
         return {
-          logger: console.info,
+          logger: Syslog._nativeConsole.info,
           text: `${dateStr} ${blue(pdu.severityName)} ${msgid} : `,
         };
       case 7:
         return {
-          logger: console.debug,
+          logger: Syslog._nativeConsole.debug,
           text: `${dateStr} ${cyan(pdu.severityName)} ${msgid} : `,
         };
       default:
         return {
-          logger: console.log,
+          logger: Syslog._nativeConsole.log,
           text: `${dateStr} ${cyan(pdu.severityName)} ${msgid} : `,
         };
     }
@@ -735,10 +761,10 @@ class Syslog extends Event implements ISyslog {
 
   static normalizeLog(pdu: Pdu, pid: string = ""): Pdu {
     if (pdu.payload === "" || pdu.payload === undefined) {
-      console.warn(
+      Syslog._nativeConsole.warn(
         `${pdu.severityName} ${pdu.msgid} : logger message empty !!!!`
       );
-      console.trace(pdu);
+      Syslog._nativeConsole.trace(pdu);
       return pdu;
     }
     const message = pdu.payload;
@@ -751,6 +777,34 @@ class Syslog extends Event implements ISyslog {
     const wrap = Syslog.wrapper(pdu);
     wrap.logger(`${pid} ${wrap.text}`, message);
     return pdu;
+  }
+
+  static overrideConsole(instance: Syslog): void {
+    if (Syslog._savedConsole !== null) {
+      instance.log("Syslog.overrideConsole: already active", "WARNING");
+      return;
+    }
+    Syslog._savedConsole = {
+      log: console.log.bind(console),
+      info: console.info.bind(console),
+      warn: console.warn.bind(console),
+      error: console.error.bind(console),
+      debug: console.debug.bind(console),
+      trace: console.trace.bind(console),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Console interface requires dynamic assignment
+    const con = console as any;
+    con.log = (...data: unknown[]) => instance.print(...(data as Pci[]));
+    con.info = (...data: unknown[]) => instance.logMultiple("INFO", ...(data as Pci[]));
+    con.warn = (...data: unknown[]) => instance.logMultiple("WARNING", ...(data as Pci[]));
+    con.error = (...data: unknown[]) => instance.logMultiple("ERROR", ...(data as Pci[]));
+    con.debug = (...data: unknown[]) => instance.logMultiple("DEBUG", ...(data as Pci[]));
+  }
+
+  static restoreConsole(): void {
+    if (Syslog._savedConsole === null) return;
+    Object.assign(console, Syslog._savedConsole);
+    Syslog._savedConsole = null;
   }
 }
 

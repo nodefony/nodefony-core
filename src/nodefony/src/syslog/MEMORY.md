@@ -61,11 +61,13 @@ EMERGENCY=0  ALERT=1  CRITIC=2  ERROR=3  WARNING=4  NOTICE=5  INFO=6  DEBUG=7  S
 **Logging API**
 ```typescript
 syslog.log(payload, severity?, moduleName?, msg?)  // entrée principale → Pdu
-syslog.error(data)   // = log(data, "ERROR")
-syslog.warn(data)    // = log(data, "WARNING")
-syslog.info(data)    // = log(data, "INFO")
-syslog.debug(data)   // = log(data, "DEBUG")
-syslog.trace(data)   // = log(data, "NOTICE")
+syslog.error(data)                 // = log(data, "ERROR")
+syslog.warn(data)                  // = log(data, "WARNING")
+syslog.info(data)                  // = log(data, "INFO")
+syslog.debug(data)                 // = log(data, "DEBUG")
+syslog.trace(data)                 // = log(data, "NOTICE")
+syslog.print(a, b, c)             // → Pdu, payload=[a,b,c] si >1 arg, defaultSeverity
+syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérité explicite
 ```
 
 **Rate limiting** : `rateLimit: number (ms)` + `burstLimit: number`
@@ -99,6 +101,14 @@ syslog.trace(data)   // = log(data, "NOTICE")
 **Cycle de vie**
 - `reset()` / `clean()` → vide le ring + retire tous les listeners
 - `clearLogStack()` → vide uniquement le ring
+
+**Console Override**
+- `overrideConsole: true` dans settings → active au constructeur
+- `Syslog.overrideConsole(instance)` → `console.log/info/warn/error/debug` redirigés vers syslog
+- `Syslog.restoreConsole()` → restore l'original (idempotent)
+- Double appel → WARNING pdu, pas de crash
+- `_nativeConsole` : méthodes console capturées au chargement de module — utilisées par `wrapper()` et `normalizeLog()` pour éviter la récursion infinie
+- `console.log(a, b)` → `print(a, b)` → 1 Pdu, `payload=[a,b]`
 
 **Deps** : `Event`, `Pdu`, `cli-color`, `extend` (Tools), `ISyslog`
 

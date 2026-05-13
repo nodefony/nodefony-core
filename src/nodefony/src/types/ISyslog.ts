@@ -36,6 +36,8 @@ export interface ISyslog {
   info(data: Pci): Pdu;
   debug(data: Pci): Pdu;
   trace(data: Pci, ...args: unknown[]): Pdu;
+  print(...args: Pci[]): Pdu;
+  logMultiple(severity: Severity, ...args: Pci[]): Pdu;
 
   // ─── Stack ─────────────────────────────────────────────────────────────────
   pushStack(pdu: Pdu): number;

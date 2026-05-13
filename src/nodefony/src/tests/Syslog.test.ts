@@ -12,7 +12,7 @@
  *
  */
 //import { expect, assert as assertChai} from 'chai'
-import Syslog, { conditionsInterface } from "../syslog/Syslog";
+import Syslog, { conditionsInterface, SyslogDefaultSettings } from "../syslog/Syslog";
 //import nodefony  from "../Nodefony"
 import Pdu from "../syslog/Pdu";
 import assert from "node:assert";
@@ -600,6 +600,119 @@ describe("NODEFONY SYSLOG", () => {
       global.syslog.log("nopass", "INFO", "OTHER_MODULE");
       global.syslog.log("pass", "INFO", "NODEFONY_KERNEL");
       assert.strict.equal(i, 2);
+      done();
+    });
+  });
+
+  describe("print / logMultiple", () => {
+    beforeEach(() => {
+      global.syslog.reset();
+    });
+
+    it("print single arg", (done) => {
+      const pdu = global.syslog.print("hello");
+      assert.strict.equal(pdu.payload, "hello");
+      assert.strict.equal(pdu.status, "ACCEPTED");
+      done();
+    });
+
+    it("print multiple args → array payload", (done) => {
+      const pdu = global.syslog.print("a", { n: 1 }, 42);
+      assert.deepStrictEqual(pdu.payload, ["a", { n: 1 }, 42]);
+      assert.strict.equal(pdu.typePayload, "array");
+      assert.strict.equal(global.syslog.ringStack.length, 1);
+      done();
+    });
+
+    it("print uses defaultSeverity", (done) => {
+      const inst = new Syslog({ defaultSeverity: "ERROR" });
+      const pdu = inst.print("fail");
+      assert.strict.equal(pdu.severity, 3);
+      done();
+    });
+
+    it("logMultiple single arg", (done) => {
+      const pdu = global.syslog.logMultiple("WARNING", "oops");
+      assert.strict.equal(pdu.payload, "oops");
+      assert.strict.equal(pdu.severity, 4);
+      done();
+    });
+
+    it("logMultiple multiple args → array payload with given severity", (done) => {
+      const err = new Error("boom");
+      const pdu = global.syslog.logMultiple("ERROR", "fail", err);
+      assert.deepStrictEqual(pdu.payload, ["fail", err]);
+      assert.strict.equal(pdu.severity, 3);
+      done();
+    });
+  });
+
+  describe("Console override", () => {
+    afterEach(() => {
+      Syslog.restoreConsole();
+    });
+
+    it("overrideConsole + console.log → ring buffer", (done) => {
+      const inst = new Syslog({ maxStack: 10 });
+      Syslog.overrideConsole(inst);
+      console.log("test override");
+      assert.strict.equal(inst.ringStack.length, 1);
+      assert.strict.equal(inst.ringStack[0].payload, "test override");
+      done();
+    });
+
+    it("console.error uses ERROR severity", (done) => {
+      const inst = new Syslog({ maxStack: 10 });
+      Syslog.overrideConsole(inst);
+      console.error("critical");
+      assert.strict.equal(inst.ringStack[0].severity, 3);
+      done();
+    });
+
+    it("console.warn uses WARNING severity", (done) => {
+      const inst = new Syslog({ maxStack: 10 });
+      Syslog.overrideConsole(inst);
+      console.warn("careful");
+      assert.strict.equal(inst.ringStack[0].severity, 4);
+      done();
+    });
+
+    it("console.info uses INFO severity", (done) => {
+      const inst = new Syslog({ maxStack: 10 });
+      Syslog.overrideConsole(inst);
+      console.info("fyi");
+      assert.strict.equal(inst.ringStack[0].severity, 6);
+      done();
+    });
+
+    it("double override emits WARNING pdu", (done) => {
+      const inst = new Syslog({ maxStack: 10 });
+      Syslog.overrideConsole(inst);
+      Syslog.overrideConsole(inst);
+      assert.strict.equal(inst.ringStack.length, 1);
+      assert.strict.equal(inst.ringStack[0].severity, 4); // WARNING
+      done();
+    });
+
+    it("restoreConsole is idempotent", (done) => {
+      Syslog.restoreConsole();
+      Syslog.restoreConsole();
+      done();
+    });
+
+    it("overrideConsole option in settings", (done) => {
+      const inst = new Syslog({ maxStack: 10, overrideConsole: true });
+      console.log("via settings");
+      assert.strict.equal(inst.ringStack.length, 1);
+      assert.strict.equal(inst.ringStack[0].payload, "via settings");
+      done();
+    });
+
+    it("console.log multiple args → array payload", (done) => {
+      const inst = new Syslog({ maxStack: 10 });
+      Syslog.overrideConsole(inst);
+      console.log("a", "b", 3);
+      assert.deepStrictEqual(inst.ringStack[0].payload, ["a", "b", 3]);
       done();
     });
   });
