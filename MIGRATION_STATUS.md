@@ -244,6 +244,7 @@
 | 2026-05-11 | IKernel complet | `IKernel.ts`, `IService.ts`, `Service.ts`, `Kernel.ts`, `CliKernel.ts`, commands | ~2h | 111 tests ✅ — `Kernel implements IKernel`, `IService.kernel: IKernel\|null`, `KernelNetworkResult`, casts Module/CliKernel |
 | 2026-05-11 | IModule complet | `IModule.ts`, `IKernel.ts`, `Module.ts`, commands | ~1h | 85 core ✅ — `Module implements IModule`, `PackageJson` migré vers types, casts `as Module` éliminés dans commands |
 | 2026-05-12 | Phase 0 finalisée + sécurité | Build system, deps, vulnérabilités | ~2h | Turbo OK — 1900 warnings TS2614 éliminés — 61→15 vulns — `mocha-jsdom` supprimé — mongoose `dependencies` nettoyé — merge sur `claude-ts` |
+| 2026-05-13 | Service.ts — audit qualité + bugs | `Service.ts`, `Service.test.ts` | ~2h | 234 tests ✅ — 5 bugs corrigés — `MEMORY.md` créé — `README.md` Service complet |
 
 ---
 
@@ -343,10 +344,12 @@
 ## Prochaine session
 
 **Phase 0 terminée** ✅ — mergée sur `claude-ts` (2026-05-12)
+**Service.ts audité** ✅ — 5 bugs corrigés, 234 tests, docs IA + humains (2026-05-13)
 
 **Prochaine session** : Phase 1.3 — `Container.ts` (DI Container) ou Phase 5.1 — `IController` + `Controller.ts`  
-**Pré-requis** : `IService` ✅ — `IKernel` ✅ — `IModule` ✅  
+**Pré-requis** : `IService` ✅ — `IKernel` ✅ — `IModule` ✅ — `Service.ts` ✅  
 **Fichiers à lire en début de session** :
+- `src/nodefony/MEMORY.md` (Service, Container, Event — référence IA)
 - `src/nodefony/src/Container.ts` (DI Container — 🔶 partiellement typé)
 - `src/packages/@nodefony/framework/nodefony/src/Controller.ts` (Phase 5.1)
 - Ce fichier `MIGRATION_STATUS.md`
