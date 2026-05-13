@@ -22,19 +22,21 @@ Service(name, container?, notificationsCenter?, options?)
 - `container` absent → `new Container()` créé automatiquement
 - `notificationsCenter=false` → pas d'Event (mode silencieux)
 - `notificationsCenter=null` → traité comme absent → nouveau Event créé
-- `notificationsCenter=Event` → Event partagé (cross-services)
-- Syslog réutilisé depuis container si présent, sinon auto-créé
-- `options.events.nbListeners` → propagé SEULEMENT si Event partagé (bug: pas sur Event auto-créé)
+- `notificationsCenter=Event` → Event partagé (cross-services) → `#sharedNc=true`
+- Syslog réutilisé depuis container si présent, sinon auto-créé (variable locale, pas champ)
+- `options.events.nbListeners` → propagé dans les DEUX branches (partagé et auto-créé)
 - `options.events` supprimé de `this.options` après construction
-- `notificationsCenter` mis dans container seulement si PAS de kernel
+- `notificationsCenter` mis dans container seulement si PAS de kernel (intentionnel)
 
-**Events — délégation vers `#nc`**
+**Events — délégation vers `#nc` via getter privé `nc`**
+- Getter privé `nc` : lance `Error: notificationsCenter not initialized` si `#nc undefined` — élimine le if/throw ×18
 - Tous les EventEmitter standard : `on/off/once/emit/addListener/removeListener/removeAllListeners/prependListener/prependOnceListener/listeners/rawListeners/listenerCount/eventNames/setMaxListeners/getMaxListeners`
 - `fire()` = alias `emit()` | `fireAsync()`/`emitAsync()` = async
-- `listen(eventName, fn)` → retourne une fonction fire (bind context)
-- `settingsToListen(opts, ctx)` → auto-wire clés `onFoo` comme listeners
-- Toutes les méthodes events **throw** si `#nc === undefined`
-- **Bug corrigé** : `removeAllListeners()` sans arg passait `undefined` → `arguments.length=1` → ne vidait pas tout
+- `listen(eventName, fn)` → bind le listener → pas traçable → non retiré à `clean()`
+- `settingsToListen(opts, ctx)` → auto-wire clés `onFoo` comme listeners (non traçable)
+- **Tracking** : `#trackedListeners: Map<event, listeners[]>` — tout ce qui passe par `on/once/addListener/prependListener/prependOnceListener` est tracé
+- `off/removeListener` → détrace | `removeAllListeners` → vide la map
+- **clean() avec Event partagé** : retire uniquement les listeners traçés de ce service → pas de fuite mémoire inter-services
 
 **Logging**
 - `log(pci, severity?, msgid?, msg?)` → `Pdu`
@@ -67,11 +69,13 @@ Service(name, container?, notificationsCenter?, options?)
 **Deps** : `Container`, `Event` (node:events), `Syslog`, `Pdu`, `IService`, `IKernel`
 
 **Gotchas**
-- `Service.remove()` retourne TOUJOURS `false` — ne pas utiliser comme guard
-- `options.events.nbListeners` ignoré pour le Event auto-créé (défaut Node.js = 10)
+- `Service.remove()` retourne `true` si trouvé/supprimé, `false` sinon (propagé depuis Container)
+- `options.events.nbListeners` propagé dans les deux branches (partagé et auto-créé)
+- `settingsToListen()` et `listen()` → listeners non traçés → PAS retirés à `clean()`
 - `settingsToListen()` matche regex `^on(.*)$` — event name = la clé complète (`onFoo`)
 - `pdu.severity` = number, `pdu.severityName` = string — ne pas confondre
 - "CRITICAL" n'existe pas — c'est "CRITIC" dans SysLogSeverity
+- NC dans container seulement si pas de kernel → intentionnel (kernel expose son propre NC)
 
 ---
 

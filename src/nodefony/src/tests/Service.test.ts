@@ -79,12 +79,11 @@ describe("Service — construction", () => {
     assert.strictEqual(s.notificationsCenter?.getMaxListeners(), 50);
   });
 
-  it("Event auto-créé : maxListeners = défaut Node.js (10)", () => {
+  it("Event auto-créé : options.events.nbListeners propagé", () => {
     const s = new Service("nbDefault", undefined, undefined, {
       events: { nbListeners: 50 },
     });
-    // events.nbListeners n'est pas propagé au Event auto-créé — comportement documenté
-    assert.strictEqual(s.notificationsCenter?.getMaxListeners(), 10);
+    assert.strictEqual(s.notificationsCenter?.getMaxListeners(), 50);
   });
 
   it("options.events supprimé après construction", () => {
@@ -159,15 +158,13 @@ describe("Service — container delegation", () => {
     assert.strictEqual(service.has("toRemove"), false);
   });
 
-  it("remove() retourne toujours false (comportement actuel)", () => {
+  it("remove() retourne true si élément trouvé et supprimé", () => {
     service.set("key", { v: 1 });
-    const result = service.remove("key");
-    // Note: Service.remove() retourne toujours false, même si suppression réussie
-    assert.strictEqual(result, false);
+    assert.strictEqual(service.remove("key"), true);
   });
 
-  it("remove() avec clé absente → ne throw pas", () => {
-    assert.doesNotThrow(() => service.remove("absent"));
+  it("remove() retourne false si clé absente", () => {
+    assert.strictEqual(service.remove("absent"), false);
   });
 
   it("remove() appelle clean() sur un Service enfant", () => {
@@ -628,6 +625,36 @@ describe("Service — clean", () => {
   it("clean() idempotent — double appel sans throw", () => {
     const s = new Service("clean-idempotent");
     assert.doesNotThrow(() => { s.clean(); s.clean(); });
+  });
+
+  it("clean() retire les listeners d'un Event partagé (pas de fuite mémoire)", () => {
+    const shared = new Event();
+    const s = new Service("leak-test", undefined, shared);
+    s.on("event", () => {});
+    s.on("event", () => {});
+    assert.strictEqual(shared.listenerCount("event"), 2);
+    s.clean();
+    assert.strictEqual(shared.listenerCount("event"), 0);
+  });
+
+  it("clean() ne retire PAS les listeners des autres services sur Event partagé", () => {
+    const shared = new Event();
+    const sA = new Service("sA", undefined, shared);
+    const sB = new Service("sB", undefined, shared);
+    sA.on("evt", () => {});
+    sB.on("evt", () => {});
+    assert.strictEqual(shared.listenerCount("evt"), 2);
+    sA.clean();
+    assert.strictEqual(shared.listenerCount("evt"), 1);
+  });
+
+  it("clean() ne retire PAS les listeners d'un Event auto-créé (déjà perdu)", () => {
+    const s = new Service("auto-nc");
+    s.on("evt", () => {});
+    const nc = s.notificationsCenter!;
+    s.clean();
+    // NC auto-créé : les listeners restent dans l'objet NC (qui sera GC'd)
+    assert.strictEqual(nc.listenerCount("evt"), 1);
   });
 });
 

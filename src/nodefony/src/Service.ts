@@ -12,7 +12,7 @@ const defaultOptions: DefaultOptionsService = {
   },
 };
 
-const settingsSyslog: SyslogDefaultSettings = {
+const defaultSyslogSettings: SyslogDefaultSettings = {
   moduleName: "SERVICE ",
   defaultSeverity: "INFO",
 };
@@ -23,13 +23,23 @@ class Service implements IService {
   public container: Container | null;
   public kernel: IKernel | null;
   public syslog: Syslog | null;
-  private settingsSyslog: SyslogDefaultSettings | null;
 
-  // Backing field privé — seules les méthodes de Service peuvent l'écrire.
-  // La lecture externe passe par le getter (readonly pour les consommateurs IService).
+  // Backing field privé — lecture externe via getter notificationsCenter.
   #nc: Event | undefined;
+  // Listeners enregistrés via l'API de ce service — retirés de l'Event partagé à clean().
+  #trackedListeners: Map<string | symbol, EventListener[]> = new Map();
+  // true si #nc est un Event externe partagé (pas auto-créé).
+  #sharedNc = false;
 
   get notificationsCenter(): Event | undefined {
+    return this.#nc;
+  }
+
+  // Getter privé avec guard — élimine le if/throw dupliqué sur les 18 méthodes events.
+  private get nc(): Event {
+    if (!this.#nc) {
+      throw new Error(`${this.name}: notificationsCenter not initialized`);
+    }
     return this.#nc;
   }
 
@@ -49,18 +59,18 @@ class Service implements IService {
     this.syslog = this.container.get<Syslog>("syslog");
 
     if (!this.syslog) {
-      this.settingsSyslog = {
-        ...settingsSyslog,
+      // Variable locale — pas besoin d'un champ d'instance.
+      const syslogSettings: SyslogDefaultSettings = {
+        ...defaultSyslogSettings,
         moduleName: this.name,
         ...(this.options.syslog ?? {}),
       };
-      this.syslog = new Syslog(this.settingsSyslog);
+      this.syslog = new Syslog(syslogSettings);
       this.container.set("syslog", this.syslog);
-    } else {
-      this.settingsSyslog = this.syslog.settings;
     }
 
     if (notificationsCenter instanceof Event) {
+      this.#sharedNc = true;
       this.#nc = notificationsCenter;
       this.#nc.settingsToListen(options, this);
       if (options.events?.nbListeners) {
@@ -68,6 +78,9 @@ class Service implements IService {
       }
     } else if (notificationsCenter !== false) {
       this.#nc = new Event(this.options, this, this.options);
+      if (options.events?.nbListeners) {
+        this.#nc.setMaxListeners(options.events.nbListeners);
+      }
       if (!this.kernel || this.kernel.container !== this.container) {
         this.container.set("notificationsCenter", this.#nc);
       }
@@ -89,7 +102,16 @@ class Service implements IService {
   }
 
   clean(syslog = false): void {
-    this.settingsSyslog = null;
+    // Retire les listeners de l'Event partagé pour éviter les fuites mémoire.
+    if (this.#nc && this.#sharedNc) {
+      for (const [event, listeners] of this.#trackedListeners) {
+        for (const listener of listeners) {
+          this.#nc.removeListener(event, listener);
+        }
+      }
+    }
+    this.#trackedListeners.clear();
+    this.#sharedNc = false;
     if (this.syslog && syslog) {
       this.syslog.reset();
     }
@@ -127,167 +149,129 @@ class Service implements IService {
     return this.log(message, "SPINNER");
   }
 
+  // ─── Tracking interne des listeners ────────────────────────────────────────
+
+  private trackListener(eventName: string | symbol, listener: EventListener): void {
+    const list = this.#trackedListeners.get(eventName) ?? [];
+    list.push(listener);
+    this.#trackedListeners.set(eventName, list);
+  }
+
+  private untrackListener(eventName: string | symbol, listener: EventListener): void {
+    const list = this.#trackedListeners.get(eventName);
+    if (!list) return;
+    const idx = list.indexOf(listener);
+    if (idx !== -1) list.splice(idx, 1);
+    if (list.length === 0) this.#trackedListeners.delete(eventName);
+  }
+
   // ─── Events — délégation vers #nc ──────────────────────────────────────────
 
   eventNames(): (string | symbol)[] {
-    if (this.#nc) {
-      return this.#nc.eventNames();
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    return this.nc.eventNames();
   }
 
   fire(eventName: string | symbol, ...args: unknown[]): boolean {
-    if (this.#nc) {
-      return this.#nc.emit(eventName, ...args);
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    return this.nc.emit(eventName, ...args);
   }
 
   fireAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown> {
-    if (this.#nc) {
-      return this.#nc.emitAsync(eventName, ...args);
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    return this.nc.emitAsync(eventName, ...args);
   }
 
   emit(eventName: string | symbol, ...args: unknown[]): boolean {
-    if (this.#nc) {
-      return this.#nc.emit(eventName, ...args);
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    return this.nc.emit(eventName, ...args);
   }
 
   emitAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown> {
-    if (this.#nc) {
-      return this.#nc.emitAsync(eventName, ...args);
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    return this.nc.emitAsync(eventName, ...args);
   }
 
   addListener(eventName: string | symbol, listener: EventListener): this {
-    if (this.#nc) {
-      this.#nc.addListener(eventName, listener);
-      return this;
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    this.nc.addListener(eventName, listener);
+    this.trackListener(eventName, listener);
+    return this;
   }
 
   listen(
     eventName: string | symbol,
     listener: EventListener
   ): (...args: unknown[]) => boolean {
-    if (this.#nc) {
-      return this.#nc.listen(
-        this,
-        eventName,
-        listener
-      ) as (...args: unknown[]) => boolean;
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    // listen() bind le listener avant de l'enregistrer — on ne peut pas tracker l'original.
+    return this.nc.listen(this, eventName, listener) as (...args: unknown[]) => boolean;
   }
 
   on(eventName: string | symbol, listener: EventListener): this {
-    if (this.#nc) {
-      this.#nc.on(eventName, listener);
-      return this;
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    this.nc.on(eventName, listener);
+    this.trackListener(eventName, listener);
+    return this;
   }
 
   once(eventName: string | symbol, listener: EventListener): this {
-    if (this.#nc) {
-      this.#nc.once(eventName, listener);
-      return this;
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    // Node.js stocke listener.listener = original → removeListener(original) fonctionne.
+    this.nc.once(eventName, listener);
+    this.trackListener(eventName, listener);
+    return this;
   }
 
   off(eventName: string | symbol, listener: EventListener): this {
-    if (this.#nc) {
-      this.#nc.off(eventName, listener);
-      return this;
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    this.nc.off(eventName, listener);
+    this.untrackListener(eventName, listener);
+    return this;
   }
 
   settingsToListen(localSettings: EventDefaultInterface, context: object): void {
-    if (this.#nc) {
-      this.#nc.settingsToListen(localSettings, context);
-      return;
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    this.nc.settingsToListen(localSettings, context);
   }
 
   setMaxListeners(n: number): this {
-    if (this.#nc) {
-      this.#nc.setMaxListeners(n);
-      return this;
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    this.nc.setMaxListeners(n);
+    return this;
   }
 
   removeListener(eventName: string | symbol, listener: EventListener): this {
-    if (this.#nc) {
-      this.#nc.removeListener(eventName, listener);
-      return this;
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    this.nc.removeListener(eventName, listener);
+    this.untrackListener(eventName, listener);
+    return this;
   }
 
   removeAllListeners(eventName?: string | symbol): this {
-    if (this.#nc) {
-      if (eventName !== undefined) {
-        this.#nc.removeAllListeners(eventName);
-      } else {
-        this.#nc.removeAllListeners();
-      }
-      return this;
+    if (eventName !== undefined) {
+      this.#trackedListeners.delete(eventName);
+      this.nc.removeAllListeners(eventName);
+    } else {
+      this.#trackedListeners.clear();
+      this.nc.removeAllListeners();
     }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    return this;
   }
 
   prependOnceListener(eventName: string | symbol, listener: EventListener): this {
-    if (this.#nc) {
-      this.#nc.prependOnceListener(eventName, listener);
-      return this;
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    this.nc.prependOnceListener(eventName, listener);
+    this.trackListener(eventName, listener);
+    return this;
   }
 
   prependListener(eventName: string | symbol, listener: EventListener): this {
-    if (this.#nc) {
-      this.#nc.prependListener(eventName, listener);
-      return this;
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    this.nc.prependListener(eventName, listener);
+    this.trackListener(eventName, listener);
+    return this;
   }
 
   getMaxListeners(): number {
-    if (this.#nc) {
-      return this.#nc.getMaxListeners();
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    return this.nc.getMaxListeners();
   }
 
   listenerCount(eventName: string | symbol, listener?: EventListener): number {
-    if (this.#nc) {
-      return this.#nc.listenerCount(eventName, listener);
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    return this.nc.listenerCount(eventName, listener);
   }
 
   listeners(eventName: string | symbol): EventListener[] {
-    if (this.#nc) {
-      return this.#nc.listeners(eventName) as EventListener[];
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    return this.nc.listeners(eventName) as EventListener[];
   }
 
   rawListeners(eventName: string | symbol): EventListener[] {
-    if (this.#nc) {
-      return this.#nc.rawListeners(eventName) as EventListener[];
-    }
-    throw new Error(`${this.name}: notificationsCenter not initialized`);
+    return this.nc.rawListeners(eventName) as EventListener[];
   }
 
   // ─── Container — délégation ─────────────────────────────────────────────────
@@ -310,7 +294,7 @@ class Service implements IService {
         if (ele instanceof Service) {
           ele.clean();
         }
-        this.container.remove(name);
+        return this.container.remove(name);
       }
     }
     return false;
