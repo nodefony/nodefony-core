@@ -2,7 +2,7 @@ function firewall() {
   return function (
     target: any,
     propertyKey: string,
-    descriptor: PropertyDescriptor
+    _descriptor: PropertyDescriptor
   ) {
     target[propertyKey].firewall = true;
   };

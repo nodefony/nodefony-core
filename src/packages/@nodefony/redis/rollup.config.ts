@@ -41,9 +41,8 @@ const sharedNodeOptions = defineConfig({
     format: "es",
   },
   onwarn(warning, warn) {
-    if (warning.message.includes("Circular dependency")) {
-      return;
-    }
+    if (warning.message.includes("Circular dependency")) return;
+    if (warning.message.includes("TS5055")) return;
     warn(warning);
   },
 });
@@ -86,7 +85,7 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
       sourcemapPathTransform,
     },
     external,
-    plugins: [...createNodePlugins(isProduction, true, "dist/types")],
+    plugins: [...createNodePlugins(isProduction, !isProduction, "dist/types")],
   });
 }
 

@@ -162,11 +162,11 @@ INFO  server-websocket : Server Listen on ws://127.0.0.1:5151
 
 ### Erreurs critiques à connaître
 
-| Erreur | Cause | Fix |
-|--------|-------|-----|
-| `does not provide an export named 'default'` | `import nodefony from "nodefony"` — plus de default export | Remplacer par `import { Nodefony } from "nodefony"` |
-| `does not provide an export named 'Error'` | `import { Error } from "nodefony"` — renommé | Remplacer par `import { nodefonyError } from "nodefony"` |
-| `does not provide an export named 'kernel'` | `import { kernel } from "nodefony"` — singleton supprimé | Remplacer par `Nodefony.getKernel()` |
+| Erreur                                       | Cause                                                      | Fix                                                      |
+| -------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------- |
+| `does not provide an export named 'default'` | `import nodefony from "nodefony"` — plus de default export | Remplacer par `import { Nodefony } from "nodefony"`      |
+| `does not provide an export named 'Error'`   | `import { Error } from "nodefony"` — renommé               | Remplacer par `import { nodefonyError } from "nodefony"` |
+| `does not provide an export named 'kernel'`  | `import { kernel } from "nodefony"` — singleton supprimé   | Remplacer par `Nodefony.getKernel()`                     |
 
 ### Rebuild complet avant test
 

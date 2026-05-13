@@ -2,7 +2,7 @@
 // Service principal injectable — facade au-dessus des providers
 
 import type {
-  ILLMProvider, ILLMConfig, IMessage, ILLMResponse,
+  ILLMProvider, IMessage, ILLMResponse,
   IStreamChunk, IChatOptions
 } from "../interfaces/ILLMProvider.js";
 import { LLMError } from "../errors/LLMErrors.js";

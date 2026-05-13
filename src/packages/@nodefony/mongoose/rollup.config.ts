@@ -71,7 +71,7 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
       preserveModulesRoot: "nodefony",
     },
     external,
-    plugins: [...createNodePlugins(isProduction, true, "dist/types")],
+    plugins: [...createNodePlugins(isProduction, !isProduction, "dist/types")],
   });
 }
 

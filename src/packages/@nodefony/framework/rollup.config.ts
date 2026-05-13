@@ -92,7 +92,7 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
       sourcemapPathTransform,
     },
     external,
-    plugins: [...createNodePlugins(isProduction, true, "dist/types")],
+    plugins: [...createNodePlugins(isProduction, !isProduction, "dist/types")],
   });
 }
 

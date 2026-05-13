@@ -209,7 +209,9 @@ class Mongoose extends Orm {
         "status",
       ],
     };
-    const table = this.kernel?.cli?.displayTable([], options);
+    type CLITable = unknown[] & { toString(): string };
+    type CLIKernel = { displayTable(rows: unknown[], opts: { head: string[] }): CLITable };
+    const table = (this.kernel?.cli as CLIKernel | null)?.displayTable([], options);
     if (table) {
       for (const dbname in this.options.connectors) {
         const conn = ["", "", "mongodb", "", ""];

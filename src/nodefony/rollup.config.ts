@@ -63,6 +63,8 @@ function onwarn(
 ): void {
   if (warning.message.includes("Circular dependency")) return;
   if (warning.code === "EVAL") return;
+  // TS5055: declarationDir conflict when bin bundle loads the types just generated
+  if (warning.message.includes("TS5055")) return;
   warn(warning);
 }
 
@@ -76,6 +78,8 @@ function createNodePlugins(
     typescript({
       tsconfig: path.resolve(__dirname, "tsconfig.json"),
       sourceMap,
+      rootDir: "./src",
+      outDir: "./dist",
       declaration: declarationDir !== false,
       declarationDir: declarationDir !== false ? declarationDir : undefined,
     }),

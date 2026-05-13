@@ -195,11 +195,13 @@ export default class Connection extends Service {
       ],
     };
     try {
-      const table = this.kernel?.cli?.displayTable([], options);
+      type CLITable = unknown[] & { push(row: unknown[]): void; toString(): string };
+      type CLIKernel = { displayTable(rows: unknown[], opts: { head: string[] }): CLITable };
+      const table = (this.kernel?.cli as CLIKernel | null)?.displayTable([], options);
       if (table && this.client) {
         const data = [];
         data.push(this.name || "");
-        let ele: string = this.client.options?.socket?.host || "";
+        let ele: string = (this.client.options?.socket as { host?: string } | undefined)?.host || "";
         data.push(ele);
         data.push(this.connected || "");
         table.push(data);
