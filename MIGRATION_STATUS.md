@@ -224,45 +224,20 @@
 
 ---
 
-## Phase X — Syslog Transport Layer ⬜ À FAIRE
+## Phase X — Syslog Transport Layer ✅ TERMINÉE
 
-> Planifié après la session 2026-05-14. Fondation posée : `ITransport` interface + `rawLog`.
-
-### Objectif
-
-Permettre l'envoi des `Pdu` vers des destinations externes sans modifier l'API `log()` existante.
+> Session 2026-05-14. `ITransport` + `ConsoleTransport` + `FileTransport` + `HttpTransport`.
 
 ### Tâches
 
 | # | Tâche | Fichier(s) | Statut | Complexité |
 |---|-------|------------|--------|------------|
-| 1 | Interface `ITransport` + `addTransport()` | `Syslog.ts`, `ISyslog.ts` | ⬜ | 2 |
-| 2 | `ConsoleTransport` (refactor de `normalizeLog`) | `transports/ConsoleTransport.ts` | ⬜ | 1 |
-| 3 | `FileTransport` (append JSON ou text) | `transports/FileTransport.ts` | ⬜ | 2 |
-| 4 | `HttpTransport` (POST JSON, fetch natif) | `transports/HttpTransport.ts` | ⬜ | 2 |
-| 5 | `LokiTransport` (streams Grafana Loki) | `transports/LokiTransport.ts` | ⬜ | 2 |
-| 6 | Barrel export + tests | `transports/index.ts` | ⬜ | 1 |
-
-### Contraintes de design
-
-- `log()` reste **synchrone** — les transports sont fire-and-forget (`Promise.allSettled` non attendu)
-- `_nativeConsole` déjà en place → `ConsoleTransport` l'utilise directement
-- `rawLog()` déjà en place → `FileTransport` peut s'appuyer dessus pour la sérialisation
-- Jamais de dépendance lourde (`kafkajs`, `@elastic/elasticsearch`) — HTTP natif seulement
-- Événement `onTransportError(err, pdu)` si un transport échoue (pas de crash)
-
-### Interface cible
-
-```typescript
-interface ITransport {
-  send(pdu: Pdu): Promise<void>;
-}
-
-class Syslog {
-  addTransport(transport: ITransport): this;
-  removeTransport(transport: ITransport): this;
-}
-```
+| 1 | Interface `ITransport` + `addTransport()` | `types/ITransport.ts`, `Syslog.ts`, `ISyslog.ts` | ✅ | 2 |
+| 2 | `ConsoleTransport` | `transports/ConsoleTransport.ts` | ✅ | 1 |
+| 3 | `FileTransport` (JSON + text) | `transports/FileTransport.ts` | ✅ | 2 |
+| 4 | `HttpTransport` (POST JSON, node:http/https) | `transports/HttpTransport.ts` | ✅ | 2 |
+| 5 | `LokiTransport` | — | ⬜ | 2 |
+| 6 | Barrel export + tests | `transports/index.ts` | ✅ | 1 |
 
 ---
 
@@ -293,6 +268,7 @@ class Syslog {
 | 2026-05-13 | Fix 4 warnings TS ciblés | packages http, framework | ~1h | TS2531 routerDecorators ✅ — TS2339 toJSON ✅ — TS2614 isArray ✅ — TS2742 setMetaBag ✅ — CLAUDE.md section lancement ajoutée |
 | 2026-05-14 | Zéro warnings build | 10 rollup.config.ts, 5 .d.ts, 4 .ts | ~3h | 287 tests ✅ — sourcemap ✅ — TS2305 ✅ — TS2339 ✅ — TS6133/6196 ✅ — TS5055 supprimé onwarn ✅ |
 | 2026-05-14 | Syslog — audit + nouvelles features | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts`, `Syslog.test.ts`, `MEMORY.md`, `README.md` | ~2h | 282 tests ✅ — 4 bugs corrigés — `print()` + `logMultiple()` + `overrideConsole` + `rawLog()` + README.md complet |
+| 2026-05-14 | Phase X — Transport Layer | `ITransport.ts`, `ConsoleTransport.ts`, `FileTransport.ts`, `HttpTransport.ts`, `transports/index.ts` | ~1h | 303 tests ✅ — fire-and-forget — `onTransportError` — 9/9 build ✅ |
 
 ---
 
@@ -324,7 +300,7 @@ class Syslog {
 
 **Prochaine session recommandée** :
 1. **Phase 5.1** — `IController` + `Controller.ts`
-2. **Phase X** — Syslog Transport Layer (`ITransport`, `ConsoleTransport`, `FileTransport`, `HttpTransport`)
+2. **Phase X reste** — `LokiTransport` (Grafana Loki, streams)
 3. **TS2339 BoatEntity** — vérifier API Sequelize v6 `init`
 
 **Fichiers à lire en début de session** :

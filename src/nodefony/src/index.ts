@@ -16,6 +16,8 @@ export { default as Builder } from "./command/Builder";
 // ─── Logging ──────────────────────────────────────────────────────────────────
 export { default as Syslog } from "./syslog/Syslog";
 export { default as Pdu } from "./syslog/Pdu";
+export { ConsoleTransport, FileTransport, HttpTransport } from "./syslog/transports/index";
+export type { FileTransportOptions, HttpTransportOptions } from "./syslog/transports/index";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 export { default as nodefonyError } from "./Error";
@@ -59,6 +61,7 @@ export type { IService, DefaultOptionsService, EventListener } from "./types/ISe
 export type { IContainer, IScope } from "./types/IContainer";
 export type { IModule } from "./types/IModule";
 export type { ISyslog } from "./types/ISyslog";
+export type { ITransport } from "./types/ITransport";
 export type { EnvironmentType, DebugType } from "./types/globals";
 
 export type {

@@ -110,10 +110,21 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 - `_nativeConsole` : méthodes console capturées au chargement de module — utilisées par `wrapper()` et `normalizeLog()` pour éviter la récursion infinie
 - `console.log(a, b)` → `print(a, b)` → 1 Pdu, `payload=[a,b]`
 
-**Deps** : `Event`, `Pdu`, `cli-color`, `extend` (Tools), `ISyslog`
+**Transport Layer**
+- `ITransport { name: string; send(pdu): Promise<void> }` — interface dans `types/ITransport.ts`
+- `addTransport(t): this` / `removeTransport(t): this` — ajoute/retire un transport (deduplication par référence)
+- Firing : fire-and-forget après `fire("onLog")`, uniquement si `pdu.status === "ACCEPTED"`
+- Erreur transport → `fire("onTransportError", err, pdu)` (pas de crash)
+- `ConsoleTransport` : wraps `Syslog.normalizeLog` — `new ConsoleTransport(pid?)`
+- `FileTransport` : `appendFile` JSON ou text — `new FileTransport({ path, format? })`
+- `HttpTransport` : POST JSON natif `node:http`/`node:https` — `new HttpTransport({ url, headers?, timeout? })`
+- Exports : `transports/index.ts` + re-exportés depuis `index.ts` principal
+
+**Deps** : `Event`, `Pdu`, `cli-color`, `extend` (Tools), `ISyslog`, `ITransport`
 
 **Gotchas**
 - `warnning` (avec double n) supprimé — utiliser `warn`
 - `filter()` modifie `conditions` par référence via `extend(true, {}, conditions)` — deep clone
 - `loadStack(stack, doEvent, beforeConditions)` : `beforeConditions` appelé AVANT `fire("onLog")`
 - `logicCondition["&&"]` retourne `false` si l'objet de conditions est vide
+- DROPPED pdu → transports **non** appelés (seuls les ACCEPTED passent)

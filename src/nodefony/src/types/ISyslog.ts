@@ -1,6 +1,7 @@
 import type Pdu from "../syslog/Pdu";
 import type { Severity, Msgid, Message, Pci } from "../syslog/Pdu";
 import type { DebugType, EnvironmentType } from "./globals";
+import type { ITransport } from "./ITransport";
 import type {
   SyslogDefaultSettings,
   conditionsInterface,
@@ -60,6 +61,10 @@ export interface ISyslog {
     conditions: conditionsInterface,
     callback: CallbackFunction
   ): void;
+
+  // ─── Transports ────────────────────────────────────────────────────────────
+  addTransport(transport: ITransport): this;
+  removeTransport(transport: ITransport): this;
 }
 
 export type { WrapperResult };

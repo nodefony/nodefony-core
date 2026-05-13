@@ -16,6 +16,14 @@ import Syslog, { conditionsInterface, SyslogDefaultSettings } from "../syslog/Sy
 //import nodefony  from "../Nodefony"
 import Pdu from "../syslog/Pdu";
 import assert from "node:assert";
+import { ConsoleTransport } from "../syslog/transports/ConsoleTransport";
+import { FileTransport } from "../syslog/transports/FileTransport";
+import { HttpTransport } from "../syslog/transports/HttpTransport";
+import type { ITransport } from "../types/ITransport";
+import * as http from "node:http";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 
 class TestSyslog extends Syslog {
   _eventsCount?: number;
@@ -795,6 +803,253 @@ describe("NODEFONY SYSLOG", () => {
     it("Pdu severity invalid numeric throws", (done) => {
       assert.throws(() => new Pdu("test", 99 as never), /Not a valid/);
       done();
+    });
+  });
+
+  // ─── Transport Layer ────────────────────────────────────────────────────────
+
+  describe("addTransport / removeTransport", () => {
+    let syslog: Syslog;
+    beforeEach(() => { syslog = new Syslog(); });
+
+    it("addTransport returns this (chaining)", (done) => {
+      const t: ITransport = { name: "mock", send: async () => {} };
+      assert.strict.equal(syslog.addTransport(t), syslog);
+      done();
+    });
+
+    it("removeTransport returns this (chaining)", (done) => {
+      const t: ITransport = { name: "mock", send: async () => {} };
+      syslog.addTransport(t);
+      assert.strict.equal(syslog.removeTransport(t), syslog);
+      done();
+    });
+
+    it("transport.send is called on log()", (done) => {
+      let called = 0;
+      const t: ITransport = { name: "spy", send: async () => { called++; } };
+      syslog.addTransport(t);
+      syslog.log("hello", "INFO");
+      // fire-and-forget — wait one microtask
+      setImmediate(() => {
+        assert.strict.equal(called, 1);
+        done();
+      });
+    });
+
+    it("addTransport deduplication — same instance added twice calls send once", (done) => {
+      let called = 0;
+      const t: ITransport = { name: "spy", send: async () => { called++; } };
+      syslog.addTransport(t);
+      syslog.addTransport(t); // duplicate — ignored
+      syslog.log("test", "INFO");
+      setImmediate(() => {
+        assert.strict.equal(called, 1);
+        done();
+      });
+    });
+
+    it("removeTransport stops further calls", (done) => {
+      let called = 0;
+      const t: ITransport = { name: "spy", send: async () => { called++; } };
+      syslog.addTransport(t);
+      syslog.removeTransport(t);
+      syslog.log("test", "INFO");
+      setImmediate(() => {
+        assert.strict.equal(called, 0);
+        done();
+      });
+    });
+
+    it("removeTransport on unknown transport does nothing", (done) => {
+      const t: ITransport = { name: "unknown", send: async () => {} };
+      assert.doesNotThrow(() => syslog.removeTransport(t));
+      done();
+    });
+
+    it("multiple transports all receive each Pdu", (done) => {
+      const calls: string[] = [];
+      const t1: ITransport = { name: "t1", send: async () => { calls.push("t1"); } };
+      const t2: ITransport = { name: "t2", send: async () => { calls.push("t2"); } };
+      syslog.addTransport(t1).addTransport(t2);
+      syslog.log("multi", "INFO");
+      setImmediate(() => {
+        assert.deepStrictEqual(calls, ["t1", "t2"]);
+        done();
+      });
+    });
+
+    it("onTransportError fires when send() rejects", (done) => {
+      const boom = new Error("send failed");
+      const t: ITransport = { name: "bad", send: () => Promise.reject(boom) };
+      syslog.addTransport(t);
+      syslog.on("onTransportError", (err: unknown) => {
+        assert.strict.equal(err, boom);
+        done();
+      });
+      syslog.log("trigger", "INFO");
+    });
+
+    it("DROPPED pdu — transport not called", (done) => {
+      const rl = new Syslog({ rateLimit: 10000, burstLimit: 1 });
+      let called = 0;
+      const t: ITransport = { name: "spy", send: async () => { called++; } };
+      rl.addTransport(t);
+      rl.log("first", "INFO");  // ACCEPTED
+      rl.log("second", "INFO"); // DROPPED
+      setImmediate(() => {
+        assert.strict.equal(called, 1);
+        done();
+      });
+    });
+  });
+
+  describe("ConsoleTransport", () => {
+    it("implements ITransport with name=console", (done) => {
+      const t = new ConsoleTransport();
+      assert.strict.equal(t.name, "console");
+      done();
+    });
+
+    it("send() calls Syslog.normalizeLog", (done) => {
+      const pdu = new Pdu("hello", "INFO", "TEST");
+      pdu.status = "ACCEPTED";
+      let called = false;
+      const orig = Syslog.normalizeLog;
+      Syslog.normalizeLog = (p: Pdu) => { called = true; return p; };
+      const t = new ConsoleTransport();
+      t.send(pdu).then(() => {
+        Syslog.normalizeLog = orig;
+        assert.strict.equal(called, true);
+        done();
+      });
+    });
+  });
+
+  describe("FileTransport", () => {
+    let tmpFile: string;
+    beforeEach(() => {
+      tmpFile = path.join(os.tmpdir(), `syslog-test-${Date.now()}.log`);
+    });
+    afterEach(() => {
+      try { fs.unlinkSync(tmpFile); } catch {}
+    });
+
+    it("implements ITransport with name=file", (done) => {
+      const t = new FileTransport({ path: tmpFile });
+      assert.strict.equal(t.name, "file");
+      done();
+    });
+
+    it("json format writes valid JSON per line", async () => {
+      const t = new FileTransport({ path: tmpFile, format: "json" });
+      const pdu = new Pdu("hello json", "INFO", "TEST");
+      pdu.status = "ACCEPTED";
+      await t.send(pdu);
+      const content = fs.readFileSync(tmpFile, "utf8");
+      const parsed = JSON.parse(content.trim());
+      assert.strict.equal(parsed.payload, "hello json");
+      assert.strict.equal(parsed.severityName, "INFO");
+    });
+
+    it("text format writes human-readable line", async () => {
+      const t = new FileTransport({ path: tmpFile, format: "text" });
+      const pdu = new Pdu("hello text", "WARNING", "MOD");
+      pdu.status = "ACCEPTED";
+      await t.send(pdu);
+      const content = fs.readFileSync(tmpFile, "utf8");
+      assert.ok(content.includes("WARNING"));
+      assert.ok(content.includes("hello text"));
+    });
+
+    it("default format is json", async () => {
+      const t = new FileTransport({ path: tmpFile });
+      const pdu = new Pdu("default", "DEBUG", "X");
+      pdu.status = "ACCEPTED";
+      await t.send(pdu);
+      const content = fs.readFileSync(tmpFile, "utf8");
+      const parsed = JSON.parse(content.trim());
+      assert.strict.equal(parsed.payload, "default");
+    });
+
+    it("appends multiple pdus as separate lines", async () => {
+      const t = new FileTransport({ path: tmpFile, format: "json" });
+      const pdu1 = new Pdu("first", "INFO", "T");
+      const pdu2 = new Pdu("second", "ERROR", "T");
+      pdu1.status = "ACCEPTED";
+      pdu2.status = "ACCEPTED";
+      await t.send(pdu1);
+      await t.send(pdu2);
+      const lines = fs.readFileSync(tmpFile, "utf8").trim().split("\n");
+      assert.strict.equal(lines.length, 2);
+      assert.strict.equal(JSON.parse(lines[0]).payload, "first");
+      assert.strict.equal(JSON.parse(lines[1]).payload, "second");
+    });
+
+    it("send() rejects on bad path (fire → onTransportError)", (done) => {
+      const syslog = new Syslog();
+      const t = new FileTransport({ path: "/no/such/dir/nope.log" });
+      syslog.addTransport(t);
+      syslog.on("onTransportError", (err: unknown) => {
+        assert.ok(err instanceof Error);
+        done();
+      });
+      syslog.log("trigger", "INFO");
+    });
+  });
+
+  describe("HttpTransport", () => {
+    it("implements ITransport with name=http", (done) => {
+      const t = new HttpTransport({ url: "http://localhost:9999" });
+      assert.strict.equal(t.name, "http");
+      done();
+    });
+
+    it("send() POSTs JSON to a local server", (done) => {
+      let body = "";
+      const server = http.createServer((req, res) => {
+        req.on("data", (chunk) => { body += chunk; });
+        req.on("end", () => { res.writeHead(200); res.end(); });
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const addr = server.address() as { port: number };
+        const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
+        const pdu = new Pdu("http test", "INFO", "HTTP");
+        pdu.status = "ACCEPTED";
+        t.send(pdu).then(() => {
+          server.close();
+          const parsed = JSON.parse(body);
+          assert.strict.equal(parsed.payload, "http test");
+          done();
+        }).catch(done);
+      });
+    });
+
+    it("send() rejects on HTTP 4xx", (done) => {
+      const server = http.createServer((_req, res) => {
+        res.writeHead(400); res.end();
+      });
+      server.listen(0, "127.0.0.1", () => {
+        const addr = server.address() as { port: number };
+        const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
+        const pdu = new Pdu("fail", "ERROR", "X");
+        pdu.status = "ACCEPTED";
+        t.send(pdu).catch((err: Error) => {
+          server.close();
+          assert.ok(/HTTP 400/.test(err.message));
+          done();
+        });
+      });
+    });
+
+    it("send() rejects on connection refused (no server)", (done) => {
+      const t = new HttpTransport({ url: "http://127.0.0.1:1" });
+      const pdu = new Pdu("refused", "ERROR", "X");
+      pdu.status = "ACCEPTED";
+      t.send(pdu).catch((err: Error) => {
+        assert.ok(err instanceof Error);
+        done();
+      });
     });
   });
 });

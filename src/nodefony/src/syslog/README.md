@@ -224,6 +224,80 @@ Syslog.rawLog(pdu, "[PID 1234]");  // préfixe optionnel
 
 ---
 
+## Transport Layer
+
+Envoie chaque `Pdu` vers des destinations externes (fichier, HTTP, console) de façon **asynchrone et fire-and-forget**. `log()` reste synchrone.
+
+### Interface
+
+```typescript
+interface ITransport {
+  readonly name: string;
+  send(pdu: Pdu): Promise<void>;
+}
+```
+
+### Ajouter / retirer un transport
+
+```typescript
+import { ConsoleTransport, FileTransport, HttpTransport } from "@nodefony/core";
+
+const syslog = new Syslog({ moduleName: "APP" });
+
+// Console (avec préfixe PID optionnel)
+syslog.addTransport(new ConsoleTransport("[APP]"));
+
+// Fichier JSON
+syslog.addTransport(new FileTransport({ path: "./app.log" }));
+
+// Fichier texte lisible
+syslog.addTransport(new FileTransport({ path: "./app.log", format: "text" }));
+
+// HTTP POST JSON
+syslog.addTransport(new HttpTransport({ url: "http://logs.example.com/ingest" }));
+
+// Retrait
+const file = new FileTransport({ path: "./app.log" });
+syslog.addTransport(file);
+// ...
+syslog.removeTransport(file);
+```
+
+### Transport personnalisé
+
+```typescript
+import type { ITransport } from "@nodefony/core";
+import type Pdu from "@nodefony/core";
+
+class MyTransport implements ITransport {
+  readonly name = "my-transport";
+  async send(pdu: Pdu): Promise<void> {
+    await myExternalSystem.push({ level: pdu.severityName, msg: pdu.payload });
+  }
+}
+
+syslog.addTransport(new MyTransport());
+```
+
+### Erreurs de transport
+
+```typescript
+syslog.on("onTransportError", (err: Error, pdu: Pdu) => {
+  console.error("Transport failed:", err.message);
+});
+```
+
+### Règles de comportement
+
+| Règle | Détail |
+|-------|--------|
+| `log()` reste synchrone | Les transports sont fire-and-forget |
+| DROPPED → non envoyé | Seuls les PDU `ACCEPTED` passent aux transports |
+| Même instance ajoutée 2× | Dédupliquée — `send()` appelé une seule fois |
+| Erreur transport | `onTransportError(err, pdu)` — pas de crash |
+
+---
+
 ## Surcharge de `console`
 
 Redirige `console.log/info/warn/error/debug` vers l'instance Syslog. Les logs restent affichés via les méthodes console natives originales (capturées au démarrage du module — pas de récursion infinie).

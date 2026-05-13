@@ -6,6 +6,7 @@ import Pdu, { Severity, ModuleName, Msgid, Message, Pci } from "./Pdu";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Event from "../Event";
 import { ISyslog } from "../types/ISyslog";
+import type { ITransport } from "../types/ITransport";
 
 const yellow = clc
   ? clc.yellow.bold
@@ -433,6 +434,7 @@ class Syslog extends Event implements ISyslog {
   public valid: number;
   public start: number;
   private _async: boolean = false;
+  private _transports: ITransport[] = [];
 
   constructor(settings?: SyslogDefaultSettings) {
     super(settings);
@@ -537,11 +539,12 @@ class Syslog extends Event implements ISyslog {
           return pdu;
         }
         this.pushStack(pdu);
+        pdu.status = "ACCEPTED";
         if (this.listenerCount("onLog") > 0) {
           this.fire("onLog", pdu);
         }
+        if (this._transports.length > 0) this._fireTransports(pdu);
         this.burstPrinted++;
-        pdu.status = "ACCEPTED";
         return pdu;
       }
       this.missed++;
@@ -574,6 +577,7 @@ class Syslog extends Event implements ISyslog {
     if (this.listenerCount("onLog") > 0) {
       this.fire("onLog", pdu);
     }
+    if (this._transports.length > 0) this._fireTransports(pdu);
     return pdu;
   }
 
@@ -701,6 +705,25 @@ class Syslog extends Event implements ISyslog {
   logMultiple(severity: Severity, ...args: Pci[]): Pdu {
     const payload: Pci = args.length === 1 ? args[0] : args;
     return this.log(payload, severity);
+  }
+
+  addTransport(transport: ITransport): this {
+    if (!this._transports.includes(transport)) {
+      this._transports.push(transport);
+    }
+    return this;
+  }
+
+  removeTransport(transport: ITransport): this {
+    const idx = this._transports.indexOf(transport);
+    if (idx !== -1) this._transports.splice(idx, 1);
+    return this;
+  }
+
+  private _fireTransports(pdu: Pdu): void {
+    for (const t of this._transports) {
+      t.send(pdu).catch((err: unknown) => this.fire("onTransportError", err, pdu));
+    }
   }
 
   // Native console methods captured before any possible override — prevents recursion
