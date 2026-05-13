@@ -5,6 +5,7 @@
 # Ignore les fichiers de sauvegarde automatique et les fichiers de build
 *.bak
 *.log
+*.turbo
 dist/
 node_modules/
 tmp/
