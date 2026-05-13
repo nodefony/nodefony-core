@@ -1,5 +1,5 @@
 import { Nodefony } from "nodefony";
-const kernel = Nodefony.kernel;
+const kernel = Nodefony.getKernel();
 import path from "node:path";
 
 const certificates = {

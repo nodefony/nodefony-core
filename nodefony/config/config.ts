@@ -22,7 +22,7 @@
  */
 //import path from "node:path";
 import { Nodefony } from "nodefony";
-const kernel = Nodefony.kernel;
+const kernel = Nodefony.getKernel();
 import http from "./modules/http-config";
 import sequelize from "./modules/sequelize-config";
 import mongoose from "./modules/mongoose-config";
@@ -106,7 +106,8 @@ const config = {
    */
   log: {
     active: true,
-    debug: "*", // ["WEBPACK","ROUTER","bundle-sequelize"]
+    //debug: "*", // ["WEBPACK","ROUTER","bundle-sequelize"]
+    debug: ["ROUTER"],
   },
 
   /**
