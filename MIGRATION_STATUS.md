@@ -283,6 +283,8 @@
 | 2026-05-14 | Kernel lifecycle — tests cycle de vie              | `KernelLifecycle.test.ts` (48 tests)                                                                  | ~1h    | 1001 tests ✅ — boot/preRegister/onReady ordre events — flags registered/booted/ready — hooks module (register/boot/ready/initialize) — terminate + mockQuit — arrêt chaîne par command — propagation erreurs — addKernelService                                                                                                                                                                                                      |
 | 2026-05-14 | Kernel.ts — corrections bugs P1/P2 + plan refactor | `Kernel.ts`, `kernel/MEMORY.md`, `KERNEL_REFACTOR_PLAN.md`                                            | ~30min | 1001 tests ✅ — `preRegistered` set après onPreRegister — `postReady` set après onPostReady — `clean()` implémenté — `terminate()` reject(e) — `isModule(unknown)` — plan P3/P4 créé (isCore sync, initCluster syslog, loadApp configurable, GC removal, ModuleConstructor fix)                                                                                                                                                       |
 | 2026-05-14 | Bugfix debug CLI — 3 bugs Kernel/CliKernel         | `Kernel.ts`, `CliKernel.ts`                                                                           | ~1h    | 1001 tests ✅ — `initializeLog()` : CLI prioritaire sur config (`!this.cli` guard) — `CliKernel.initSyslog()` : `"dev"` → `"development"` (condition était morte) — `setCli()` : param `cli` au lieu de `this.cli` (null). Cause : `options.log.debug=true` dans config app forçait DEBUG même sans `-d`. |
+| 2026-05-14 | Fix archi CLI/Syslog — catch Commander + init idempotent | `CliKernel.ts`, `Syslog.ts`, `CliKernel.test.ts`                                                 | ~30min | 1004 tests ✅ — `.catch()` distingue helpDisplayed/version (terminate) vs autres erreurs (fallback) — `Syslog.init()` idempotent via `removeAllListeners("onLog")` avant add — test mis à jour |
+| 2026-05-14 | Mise à jour dépendances patch/minor                | tous les `package.json` workspaces                                                                    | ~15min | 1004 tests ✅ — 15→9 vulnérabilités — skip majeurs : typescript 6, eslint 10, chai 6, mongoose 9, uuid 14, twig 3, etc. |
 
 ---
 
@@ -327,4 +329,4 @@
 - `src/nodefony/src/syslog/MEMORY.md` (Syslog, Pdu, transport plan)
 - `src/nodefony/src/cli/MEMORY.md` (Cli, Command)
 
-**Vulnérabilités restantes (15)** : twig@3.0.0 + asciify — session dédiée
+**Vulnérabilités restantes (9)** : twig (locutus/minimatch/minimist) + mocha→diff — fix = majeurs skippés intentionnellement
