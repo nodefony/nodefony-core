@@ -247,7 +247,7 @@
 | Module                          | Problème                                                  | Solution envisagée             | Résolu |
 | ------------------------------- | --------------------------------------------------------- | ------------------------------ | ------ |
 | `src/nodefony/rollup.config.ts` | `@ts-ignore` sur `rollup-sourcemap-path-transform`        | Créer `.d.ts` shim minimal     | ⬜     |
-| `IKernel.ts`                    | `cli: object \| null` → devrait être `ICliKernel \| null` | Session dédiée ICliKernel      | ⬜     |
+| `IKernel.ts`                    | `cli: object \| null` → devrait être `ICliKernel \| null` | Session dédiée ICliKernel      | ✅     |
 | `IModule.ts`                    | `getController()` retourne `unknown` → `IController`      | Session dédiée après Phase 5.1 | ⬜     |
 
 ---
@@ -288,6 +288,7 @@
 | 2026-05-14 | TypeScript 5→6 + uuid 11→14 + @types/node 24→25   | `Error.ts`, `Event.ts`, `globals.d.ts`, `nodefony.d.ts`, `tsconfig.json`, tous `package.json`         | ~2h    | 1004 tests ✅ — `override isError` + `detectType` — EventEmitter augmentation globale supprimée — interface Error all optional — `paths:{nodefony}` monorepo fix — `/// <reference types="node" />` rollup fix — build 0 erreur 0 warning |
 | 2026-05-14 | ESLint 9→10 — flat config                          | `eslint.config.mjs` (nouveau), `.eslintrc.cjs` (supprimé), `package.json`, `globals.d.ts`, `Kernel.ts`, `Connector.ts`, `Syslog.test.ts` | ~1h | 1004 tests ✅ — 0 erreur lint — 96 warnings `no-explicit-any` (intentionnels, à adresser session dédiée) — GitHub Actions CI mis à jour (matrix 3 OS × 3 Node, `nodefony production` avant tests) |
 | 2026-05-14 | Event.ts + Command + Builder + FileClass + Finder  | `Event.ts`, `Command.ts`, `KillCommand.ts`, `Builder.ts`, `FileClass.ts`, `Finder.ts`, `FileResult.ts`, `Result.ts`, `Event.test.ts`, `Command.test.ts`, `Builder.test.ts`, `KernelCommands.test.ts`, `FileClass.test.ts`, `finder/MEMORY.md`, `finder/README.md` | ~3h | 1181 tests ✅ — shelljs supprimé (Builder→fsp.*) — lodash supprimé (Finder) — `new Promise(async...)` corrigé (Finder) — `for...in` → `for...of Object.keys()` (Event/Finder) — `ckeckPath` → `checkPath` — `find()` → `findByName()` — `uniq()` implémenté — `flag:"w"` bug corrigé (FileClass.content) — tests: 120+ tests Event/Command/Builder/KernelCommands/FileClass |
+| 2026-05-14 | CLI Interfaces — ICommand + ICliKernel + refactor  | `types/ICommand.ts`, `types/ICliKernel.ts`, `types/IKernel.ts`, `command/Command.ts`, `kernel/CliKernel.ts`, `kernel/Kernel.ts`, `kernel/MEMORY.md` | ~1h | 1181 tests ✅ — `ICommand`: `name`, `kernelEvent: KernelEventKey`, `action()` — `ICliKernel`: interface minimale (commander, setProcessTitle, showAsciify, parseCommandAsync...) — `IKernel.cli: ICliKernel\|null` + `IKernel.command: ICommand\|null` (fin du `object\|null`) — `CommandConstructor` type exporté — `Command.kernelEvent: KernelEventKey` (fin du `string`) — `setEvents()` guard `eventsRegistered` — double-parsing `preRegister()` supprimé — build 0 erreur — runtime ✅ |
 
 ---
 

@@ -142,6 +142,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 **setType(type)**: `toLocaleUpperCase()` → KernelType.
 
 **addCommand(Ctor)**: instancie, stocke `commands[name]`, enregistre dans commander.
+- Type exporté: `CommandConstructor = new (cli: CliKernel) => Command` (2026-05-14).
 
 **parseCommand(argv?)** / **parseCommandAsync(argv?)**: délèguent à `commander.parse/parseAsync`.
 
@@ -154,6 +155,8 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 **terminate(code?)**: avec kernel → `kernel.terminate(code)`. Sans → `super.terminate(code, quiet)`.
 
 **start(options?)**: crée `Kernel`, ajoute 9 commandes (Start/Dev/Build/Prod/Staging/Install/Outdated/Pm2/Kill), configure Commander, `parseAsync()` + `kernel.start()`.
+
+**ICliKernel** (`src/types/ICliKernel.ts`): interface minimale pour `Kernel.ts` — évite import circulaire. Propriétés: `commander`, `environment`, `type`, `debug`, `pid`. Méthodes: `setProcessTitle`, `showBanner`, `blankLine`, `clear`, `showAsciify`, `parseCommandAsync`, `runCommandAsync`, `setPackageManager`, `setCommandVersion`, `initSyslog`.
 
 **niceBytes(n)** (static hérité Cli): `1024` → `"1.0 KB"`, `10240` → `"10 KB"`. Règle: `n >= 10 || l < 1 ? 0 décimales : 1`.
 
@@ -231,6 +234,21 @@ await stub.fireEvent("onPreBoot");
 - CliKernel → Cli, Kernel, Command, Syslog/Pdu
 - Injector → Service, Container, Event, Kernel, Nodefony, Fetch, reflect-metadata
 
+## Types CLI (2026-05-14)
+
+**ICommand** (`src/types/ICommand.ts`):
+```typescript
+export type KernelEventKey = "onInit"|"onPreStart"|"onStart"|"onPreRegister"|"onRegister"|"onPreBoot"|"onBoot"|"onReady"|"onServersReady"|"onPostReady"|"onTerminate";
+export interface ICommand { name: string; kernelEvent: KernelEventKey; action(...args: unknown[]): Promise<unknown>; }
+```
+Redéfini localement — import circulaire `IKernel→Kernel→Command→IKernel` impossible.
+
+**Command.kernelEvent**: était `keyof typeof Events` (= `string`). Remplacé par `KernelEventKey` (union littérale).
+
+**Command.setEvents()**: guard `eventsRegistered` — empêche double-registration si appelé plusieurs fois.
+
+**preRegister() double-parsing**: bloc `if (this.cli && !this.command) { parseCommandAsync() }` supprimé — redondant (Commander a déjà parsé dans `CliKernel.start()`).
+
 ## Gotchas
 
 - `new Kernel()` → toujours `Nodefony.setKernel(this)` → pollue singleton → isole les tests avec mock minimal
@@ -240,3 +258,4 @@ await stub.fireEvent("onPreBoot");
 - Module constructor ajoute toujours 2 listeners (onBoot + onPostReady) indépendamment des hooks
 - `interfacesFilter({})` → tous vides (ni type ni family spécifiés → matchs false, condition && → false)
 - `getDependencies()` : devDependencies exclus, doublons possibles si dep dans deux sections
+- `Command.setEvents()` : `eventsRegistered` guard ajouté (2026-05-14) — idempotent

@@ -1,6 +1,8 @@
 import type { IService } from "./IService";
 import type { IModule } from "./IModule";
 import type { EnvironmentType, DebugType } from "./globals";
+import type { ICliKernel } from "./ICliKernel";
+import type { ICommand } from "./ICommand";
 import type os from "node:os";
 
 // Redéfinis localement — import circulaire impossible (Kernel.ts → Service.ts → IService.ts → IKernel.ts)
@@ -55,18 +57,14 @@ export interface IKernel extends IService {
   readonly trunk: TrunkType;
 
   // ─── Commande CLI ──────────────────────────────────────────────────────────
-  // Typé object | null pour éviter l'import circulaire vers Command.ts
-  // Sera ICommand | null quand ICommand sera défini
-  command: object | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  commandArgs: any[];
+  command: ICommand | null;
+  commandArgs: unknown[];
 
   // ─── Réseau ────────────────────────────────────────────────────────────────
   domain: string;
 
   // ─── CLI ───────────────────────────────────────────────────────────────────
-  // Typé object | null pour éviter l'import circulaire vers CliKernel.ts
-  cli: object | null;
+  cli: ICliKernel | null;
 
   // ─── Modules ───────────────────────────────────────────────────────────────
   readonly modules: Record<string, IModule>;

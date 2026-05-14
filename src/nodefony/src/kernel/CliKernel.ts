@@ -239,4 +239,6 @@ class CliKernel extends Cli {
   }
 }
 
+export type CommandConstructor = new (cli: CliKernel) => Command;
+
 export default CliKernel;

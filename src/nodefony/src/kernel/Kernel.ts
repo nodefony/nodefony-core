@@ -294,17 +294,6 @@ class Kernel extends Service implements IKernel {
         });
     }
     this.setNodeEnv(this.environment);
-    // Manage Template engine
-    //this.initTemplate();
-    if (this.cli && !this.command) {
-      this.cli.clear();
-      await this.cli.showAsciify(this.projectName);
-      this.cli.showBanner();
-      await this.cli.parseCommandAsync().catch((e) => {
-        //this.log(e, "ERROR");
-        throw e;
-      });
-    }
     // Clusters
     this.initCluster();
     return this.fireAsync("onRegister", this)

@@ -16,7 +16,7 @@ import Builder from "./Builder";
 import * as prompts from "@inquirer/prompts";
 import { extend } from "../Tools";
 import clui from "clui";
-import { Events } from "../kernel/Kernel";
+import type { KernelEventKey } from "../types/ICommand";
 
 interface CommandEvents {
   on(
@@ -42,7 +42,7 @@ interface OptionsCommandInterface extends DefaultOptionsService {
   progress?: boolean;
   sizeProgress?: number;
   showBanner?: boolean;
-  kernelEvent?: keyof typeof Events;
+  kernelEvent?: KernelEventKey;
 }
 
 export type CommandArgs = any[];
@@ -102,12 +102,13 @@ class Command extends Service {
   public prompts = prompts;
   public progress: number = 0;
   public response: Record<string, any> = {};
-  public kernelEvent: keyof typeof Events = "onRegister";
+  public kernelEvent: KernelEventKey = "onRegister";
   public onKernelStart?(...args: any[]): Promise<void>;
   public onKernelRegister?(...args: any[]): Promise<void>;
   public onKernelBoot?(...args: any[]): Promise<void>;
   public onKernelReady?(...args: any[]): Promise<void>;
   public currentCommand?: Cmd;
+  private eventsRegistered: boolean = false;
   /**
    * Crée une instance de Command.
    *
@@ -151,7 +152,8 @@ class Command extends Service {
     });
   }
   setEvents(...args: any[]): void {
-    if (this.kernel) {
+    if (this.kernel && !this.eventsRegistered) {
+      this.eventsRegistered = true;
       if (this.onKernelStart) {
         this.kernel.once("onStart", this.onKernelStart.bind(this, ...args));
       }
