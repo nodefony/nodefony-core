@@ -1,4 +1,3 @@
-import { mkdirp } from "mkdirp";
 import fs from "node:fs";
 import {
   //extend,
@@ -67,7 +66,7 @@ class FileSessionStorage implements sessionStorageInterface {
         new FileClass(dir);
       } catch (error) {
         try {
-          mkdirp.sync(dir);
+          fs.mkdirSync(dir, { recursive: true });
         } catch (e) {
           console.warn(e);
           return Promise.reject(e);
@@ -104,7 +103,7 @@ class FileSessionStorage implements sessionStorageInterface {
       if (!res) {
         this.manager.log(`create directory context sessions ${Path}`);
         try {
-          mkdirp.sync(Path);
+          fs.mkdirSync(Path, { recursive: true });
         } catch (e) {
           return reject(e);
         }

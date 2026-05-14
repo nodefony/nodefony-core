@@ -1,22 +1,16 @@
 import cookieLib from "cookie";
+import type { IWsCookie } from "../context/websocket/Response.js";
 import MS, { StringValue } from "ms";
 import { extend } from "nodefony";
 const encode = encodeURIComponent;
 const decode = decodeURIComponent;
 import crypto from "node:crypto";
 import HttpContext from "../context/http/HttpContext";
-import WebsocketContext from "../context/websocket/WebsocketContext";
-import { ICookie } from "websocket";
-import { ContextType } from "../../service/http-kernel";
+import WebsocketContext from "../context/websocket/WebsocketContext.js";
+import { ContextType } from "../../service/http-kernel.js";
 
 type SameSiteType = boolean | "none" | "Lax" | "Strict";
 type PriorityType = "High" | "Medium" | "Low" | undefined;
-
-declare module "websocket" {
-  interface request {
-    //cookies: Record<string, Cookie>;
-  }
-}
 
 declare module "http" {
   interface IncomingMessage {
@@ -117,17 +111,18 @@ function cookiesParser(context: ContextType) {
       }
       break;
     case "websocket":
-    case "websocket-secure":
-      if ((context as WebsocketContext).request?.cookies) {
-        cookies = (context as WebsocketContext).request?.cookies;
-      }
-      if (cookies) {
-        for (let i = 0; i < cookies.length; i++) {
-          co = new Cookie(cookies[i].name, cookies[i].value);
+    case "websocket-secure": {
+      const wsReq = (context as WebsocketContext).request;
+      const cookieHeader = wsReq?.headers?.cookie;
+      if (cookieHeader) {
+        const parsed = parser(cookieHeader);
+        for (const name in parsed) {
+          co = new Cookie(name, parsed[name]);
           (context as WebsocketContext).addRequestCookie(co);
         }
       }
       break;
+    }
     default:
       throw new Error("cookiesParser Bad Type");
   }
@@ -351,37 +346,17 @@ class Cookie {
     return tab.join("; ");
   }
 
-  serializeWebSocket(): ICookie {
-    const obj: ICookie = {
+  serializeWebSocket(): IWsCookie {
+    const obj: IWsCookie = {
       name: this.name,
       value: this.value,
     };
-    if (this.maxAge) {
-      obj.maxage = this.maxAge;
-    }
-    if (this.domain) {
-      obj.domain = this.domain;
-    }
-    if (this.path) {
-      obj.path = this.path;
-    }
-    if (this.sameSite) {
-      //@ts-ignore
-      obj.samesite = this.sameSite;
-    }
-    if (this.expires) {
-      obj.expires = this.expires; // .toUTCString();
-    }
-    if (this.httpOnly) {
-      obj.httponly = true;
-    }
-    if (this.secure) {
-      obj.secure = true;
-    }
-    if (this.priority) {
-      //@ts-ignore
-      obj.priority = this.priority;
-    }
+    if (this.maxAge) obj.maxage = this.maxAge;
+    if (this.domain) obj.domain = this.domain;
+    if (this.path) obj.path = this.path;
+    if (this.expires) obj.expires = this.expires;
+    if (this.httpOnly) obj.httponly = true;
+    if (this.secure) obj.secure = true;
     return obj;
   }
 }

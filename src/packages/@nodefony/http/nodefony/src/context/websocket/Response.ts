@@ -1,22 +1,48 @@
-import Cookie from "../../cookies/cookie";
+import Cookie from "../../cookies/cookie.js";
 import { Message, Msgid, Pci, Severity, Syslog } from "nodefony";
-import WebsocketContext from "./WebsocketContext";
-import websocket, { ICookie } from "websocket";
+import WebsocketContext from "./WebsocketContext.js";
+import { WebSocket, WebSocketServer } from "ws";
 import http from "node:http";
-const { CLOSE_DESCRIPTIONS } = websocket.connection;
+
+export interface IWsCookie {
+  name: string;
+  value: string;
+  maxage?: number;
+  domain?: string;
+  path?: string;
+  expires?: Date;
+  httponly?: boolean;
+  secure?: boolean;
+}
+
+const WS_CLOSE_DESCRIPTIONS: Record<number, string> = {
+  1000: "Normal Closure",
+  1001: "Going Away",
+  1002: "Protocol Error",
+  1003: "Unsupported Data",
+  1005: "No Status Received",
+  1006: "Abnormal Closure",
+  1007: "Invalid frame payload data",
+  1008: "Policy Violation",
+  1009: "Message too big",
+  1010: "Missing Extension",
+  1011: "Internal Error",
+  1012: "Service Restart",
+  1013: "Try Again Later",
+  1015: "TLS Handshake",
+};
 
 class WebsocketResponse {
   statusCode: number = 1000;
   body: Buffer | null = null;
   encoding: BufferEncoding = "utf-8";
-  connection: websocket.connection | null = null;
+  connection: WebSocket | null = null;
   statusMessage: string = "";
   webSocketVersion?: number;
-  config?: websocket.IConfig | {};
   cookies: Record<string, Cookie> = {};
-  cookiesWs: ICookie[] = [];
+
   constructor(
-    connection: websocket.connection | null,
+    connection: WebSocket | null,
     private context: WebsocketContext
   ) {
     this.connection = connection;
@@ -31,135 +57,81 @@ class WebsocketResponse {
     return syslog?.log(pci, severity, msgid, msg);
   }
 
-  setConnection(connection: websocket.connection) {
+  setConnection(connection: WebSocket) {
     this.connection = connection;
-    this.statusMessage = this.connection.state;
-    this.config = this.connection.config;
-    this.webSocketVersion = this.connection.webSocketVersion;
     return connection;
   }
 
   async send(
-    data?: any,
+    data?: Buffer | string | null,
     encoding?: BufferEncoding
   ): Promise<WebsocketResponse> {
-    if (data) {
-      try {
-        switch (encoding) {
-          case "utf8":
-            return new Promise((resolve, reject) => {
-              try {
-                return this.connection?.sendUTF(
-                  data.utf8Data || data,
-                  (error) => {
-                    if (error) {
-                      this.log(error, "ERROR");
-                      throw reject(error);
-                    } else {
-                      return resolve(this);
-                    }
-                  }
-                );
-              } catch (e) {
-                throw reject(e);
-              }
-            });
-          case "binary":
-            return new Promise((resolve, reject) => {
-              try {
-                return this.connection?.sendBytes(
-                  data.binaryData || data,
-                  (error) => {
-                    if (error) {
-                      this.log(error, "ERROR");
-                      throw reject(error);
-                    } else {
-                      return resolve(this);
-                    }
-                  }
-                );
-              } catch (e) {
-                throw reject(e);
-              }
-            });
-          default:
-            return new Promise((resolve, reject) => {
-              this.connection?.send(data, (error) => {
-                if (error) {
-                  this.log(error, "ERROR");
-                  throw reject(error);
-                } else {
-                  return resolve(this);
-                }
-              });
-            });
-        }
-      } catch (error) {
-        console.error("Error sending data:", error);
-        throw error;
+    const payload = data ?? this.body;
+    if (!payload) throw new Error("no data");
+
+    return new Promise((resolve, reject) => {
+      if (!this.connection || this.connection.readyState !== WebSocket.OPEN) {
+        return reject(new Error("WebSocket not open"));
       }
-    } else if (this.body) {
-      return this.send(this.body);
-    }
-    throw new Error("no data");
+      // ws.send handles both text and binary transparently
+      const sendData =
+        encoding === "binary" && Buffer.isBuffer(payload)
+          ? payload
+          : payload instanceof Buffer
+            ? payload.toString(encoding ?? this.encoding)
+            : payload;
+
+      this.connection.send(sendData, (error) => {
+        if (error) {
+          this.log(error, "ERROR");
+          return reject(error);
+        }
+        return resolve(this);
+      });
+    });
   }
 
-  broadcast(data: any, type?: BufferEncoding): void {
-    if (data) {
-      switch (type) {
-        case "utf8":
-          (<websocket.server>this.context?.server).broadcastUTF(data.utf8Data);
-          break;
-        case "binary":
-          (<websocket.server>this.context?.server).broadcastBytes(
-            data.binaryData
-          );
-          break;
-        default:
-          (<websocket.server>this.context?.server).broadcast(data);
+  broadcast(data?: Buffer | string | null, _type?: BufferEncoding): void {
+    const payload = data ?? this.body;
+    if (!payload) return;
+
+    const wss = this.context?.server as WebSocketServer | null;
+    if (!wss) return;
+
+    const sendData =
+      payload instanceof Buffer ? payload.toString(this.encoding) : payload;
+
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(sendData);
       }
-    } else if (this.body) {
-      return this.broadcast(this.body);
-    }
+    });
   }
 
   setBody(
     ele: string | NodeJS.ArrayBufferView | ArrayBuffer | SharedArrayBuffer,
-    encoding?: BufferEncoding | undefined
+    encoding?: BufferEncoding
   ) {
     if (typeof ele === "string") {
-      this.body = Buffer.from(ele, encoding || this.encoding);
+      this.body = Buffer.from(ele, encoding ?? this.encoding);
     } else if (ele instanceof ArrayBuffer || ele instanceof SharedArrayBuffer) {
       this.body = Buffer.from(ele);
-    } else if (ele && "buffer" in ele && ele.buffer instanceof ArrayBuffer) {
+    } else if ("buffer" in ele && ele.buffer instanceof ArrayBuffer) {
       this.body = Buffer.from(ele.buffer);
     }
     return this.body;
   }
 
   drop(reasonCode: number, description: string) {
-    if (this.connection && this.connection.state === "open") {
-      try {
-        return this.connection.close(
-          reasonCode || this.statusCode,
-          description || this.statusMessage
-        );
-      } catch (e) {
-        throw e;
-      }
+    if (this.connection && this.connection.readyState === WebSocket.OPEN) {
+      return this.connection.close(reasonCode ?? this.statusCode, description);
     }
     throw new Error("Connection already closed");
   }
+
   close(reasonCode: number, description: string) {
-    if (this.connection && this.connection.state === "open") {
-      try {
-        return this.connection.close(
-          reasonCode || this.statusCode,
-          description || "closed"
-        );
-      } catch (e) {
-        throw e;
-      }
+    if (this.connection && this.connection.readyState === WebSocket.OPEN) {
+      return this.connection.close(reasonCode ?? this.statusCode, description ?? "closed");
     }
     throw new Error("Connection already closed");
   }
@@ -180,28 +152,19 @@ class WebsocketResponse {
   }
 
   setStatusCode(status: number | string, message?: string) {
-    if (status && typeof status !== "number") {
-      status = parseInt(status, 10);
-      if (isNaN(status)) {
-        status = 500;
-      }
+    if (typeof status !== "number") {
+      status = parseInt(status as string, 10);
+      if (isNaN(status)) status = 500;
     }
-    if (!status) {
-      status = 500;
-    }
-    this.statusCode = status as number;
+    if (!status) status = 500;
+    this.statusCode = status;
     if (!message) {
-      if (CLOSE_DESCRIPTIONS[this.statusCode]) {
-        message = CLOSE_DESCRIPTIONS[this.statusCode];
-      } else {
-        message = http.STATUS_CODES[this.statusCode];
-      }
+      message =
+        WS_CLOSE_DESCRIPTIONS[this.statusCode] ??
+        http.STATUS_CODES[this.statusCode];
     }
-    this.statusMessage = message || "";
-    return {
-      code: this.statusCode,
-      message: this.statusMessage,
-    };
+    this.statusMessage = message ?? "";
+    return { code: this.statusCode, message: this.statusMessage };
   }
 
   clean() {
@@ -213,16 +176,14 @@ class WebsocketResponse {
     return (this.encoding = encoding);
   }
 
-  // ADD INPLICIT HEADER
   setHeader(/* name, value*/) {
-    // this.response.setHeader(name, value);
     return true;
   }
 
   setHeaders(/* obj*/) {
-    // nodefony.extend(this.headers, obj);
     return true;
   }
+
   addCookie(cookie: Cookie) {
     if (cookie instanceof Cookie) {
       this.cookies[cookie.name] = cookie;
@@ -231,16 +192,14 @@ class WebsocketResponse {
     }
   }
 
+  // WS handshake response cookies are not supported by ws library —
+  // session cookies are set during the HTTP phase before upgrade.
   setCookies() {
-    for (const cook in this.cookies) {
-      this.setCookie(this.cookies[cook]);
-    }
+    // no-op for ws: cookies cannot be set in WebSocket handshake response
   }
 
-  setCookie(cookie: Cookie) {
-    const serialize = cookie.serializeWebSocket();
-    this.log(`ADD COOKIE ==> ${serialize.name}:  ${serialize.value}`, "DEBUG");
-    this.cookiesWs.push(serialize);
+  setCookie(_cookie: Cookie) {
+    // no-op for ws
   }
 }
 
