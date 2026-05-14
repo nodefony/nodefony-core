@@ -285,6 +285,19 @@
 | 2026-05-14 | Bugfix debug CLI — 3 bugs Kernel/CliKernel         | `Kernel.ts`, `CliKernel.ts`                                                                           | ~1h    | 1001 tests ✅ — `initializeLog()` : CLI prioritaire sur config (`!this.cli` guard) — `CliKernel.initSyslog()` : `"dev"` → `"development"` (condition était morte) — `setCli()` : param `cli` au lieu de `this.cli` (null). Cause : `options.log.debug=true` dans config app forçait DEBUG même sans `-d`. |
 | 2026-05-14 | Fix archi CLI/Syslog — catch Commander + init idempotent | `CliKernel.ts`, `Syslog.ts`, `CliKernel.test.ts`                                                 | ~30min | 1004 tests ✅ — `.catch()` distingue helpDisplayed/version (terminate) vs autres erreurs (fallback) — `Syslog.init()` idempotent via `removeAllListeners("onLog")` avant add — test mis à jour |
 | 2026-05-14 | Mise à jour dépendances patch/minor                | tous les `package.json` workspaces                                                                    | ~15min | 1004 tests ✅ — 15→9 vulnérabilités — skip majeurs : typescript 6, eslint 10, chai 6, mongoose 9, uuid 14, twig 3, etc. |
+| 2026-05-14 | TypeScript 5→6 + uuid 11→14 + @types/node 24→25   | `Error.ts`, `Event.ts`, `globals.d.ts`, `nodefony.d.ts`, `tsconfig.json`, tous `package.json`         | ~2h    | 1004 tests ✅ — `override isError` + `detectType` — EventEmitter augmentation globale supprimée — interface Error all optional — `paths:{nodefony}` monorepo fix — `/// <reference types="node" />` rollup fix — build 0 erreur 0 warning |
+
+---
+
+## État des dépendances (2026-05-14)
+
+| Package      | Avant  | Après  | Workspaces mis à jour                                              |
+| ------------ | ------ | ------ | ------------------------------------------------------------------ |
+| typescript   | 5.8.3  | 6.0.3  | nodefony + tous packages                                           |
+| uuid         | 11.1.1 | 14.0.0 | nodefony + http                                                    |
+| @types/node  | 24.x   | 25.7.0 | nodefony + tous packages                                           |
+| @rollup/...  | 28.x   | 29.x   | nodefony + tous packages                                           |
+| ESLint 9→10  | —      | ⬜     | Non fait (migration flat config — nouvelle session)                |
 
 ---
 
@@ -317,10 +330,11 @@
 
 **Prochaine session recommandée** :
 
-1. **Phase 5.1** — `IController` + `Controller.ts`
-2. **Phase X reste** — `LokiTransport` (Grafana Loki, streams)
-3. **TS2339 BoatEntity** — vérifier API Sequelize v6 `init`
-4. **@entities** — tester `@entities` (même pattern que `Decorators.test.ts`, event `onBoot`)
+1. **ESLint 9→10** — migration flat config (`eslint.config.mjs`) — nouvelle branche
+2. **Refacto CLI architecture** — branche `refactor/cli-kernel-order` — `ICliKernel`, `ICommand`, `ModuleConstructor`, `fixCommanderCli`
+3. **Phase 5.1** — `IController` + `Controller.ts`
+4. **Phase X reste** — `LokiTransport` (Grafana Loki, streams)
+5. **@entities** — tester `@entities` (même pattern que `Decorators.test.ts`, event `onBoot`)
 
 **Fichiers à lire en début de session** :
 
@@ -328,5 +342,12 @@
 - `src/nodefony/MEMORY.md` (Service, Container, Nodefony, index)
 - `src/nodefony/src/syslog/MEMORY.md` (Syslog, Pdu, transport plan)
 - `src/nodefony/src/cli/MEMORY.md` (Cli, Command)
+- `src/nodefony/src/kernel/MEMORY.md` (Kernel lifecycle, Module hooks, CliKernel)
 
 **Vulnérabilités restantes (9)** : twig (locutus/minimatch/minimist) + mocha→diff — fix = majeurs skippés intentionnellement
+
+**TS6 — Gotchas importants pour les prochaines sessions** :
+- `Error.isError()` : c'est un built-in TS6 — utiliser `nodefonyError.detectType()` pour la détection de type d'erreur
+- `EventEmitter` : NE PAS augmenter globalement (casse `net.Server.listen`) — méthodes custom sur la classe Event uniquement
+- `tsconfig.json` : `paths: {nodefony: ["./src/index.ts"]}` obligatoire dans le workspace pour éviter la résolution vers `dist/types/` stale
+- `globals.d.ts` : `/// <reference types="node" />` nécessaire pour le rollup plugin
