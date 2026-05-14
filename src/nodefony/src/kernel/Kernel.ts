@@ -281,6 +281,7 @@ class Kernel extends Service implements IKernel {
     if (this.setCommandComplete(Events.onPreRegister)) {
       return this.terminate(0);
     }
+    this.preRegistered = true;
     if (this.cli) {
       await this.cli
         .showAsciify(this.projectName)
@@ -419,6 +420,7 @@ class Kernel extends Service implements IKernel {
           }
           return this.fireAsync("onPostReady", this)
             .then(() => {
+              this.postReady = true;
               servers.map((server) => {
                 server.showBanner();
               });
@@ -460,7 +462,8 @@ class Kernel extends Service implements IKernel {
   }
 
   override clean() {
-    console.trace("pass clean");
+    this.removeAllListeners();
+    this.modules = {};
   }
 
   setCommand(command: Command): void {
@@ -616,8 +619,7 @@ class Kernel extends Service implements IKernel {
     return false;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  isModule(subclass: any): boolean {
+  isModule(subclass: unknown): boolean {
     return isSubclassOf(subclass, Module);
   }
 
@@ -1000,7 +1002,7 @@ class Kernel extends Service implements IKernel {
           return resolve(this);
         } catch (e) {
           this.log(e, "ERROR");
-          return reject(CliKernel.quit(code as number));
+          return reject(e as Error);
         }
       });
     });

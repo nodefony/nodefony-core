@@ -10,8 +10,13 @@
 
 **Lifecycle flags** (ordre strict, jamais régressifs):
 ```
-started → booted → ready → postReady
+started → preRegistered → registered → booted → ready → postReady
 ```
+- `preRegistered` : set après `onPreRegister` (avant `onRegister`)
+- `registered` : set après `onRegister` (dans `preRegister()`)
+- `booted` : set après `onBoot` (dans `boot()`)
+- `ready` : set après `onReady` (dans `onReady()`)
+- `postReady` : set après `onPostReady` (dans `onReady()`)
 
 **Events bitmask** (`Events`, frozen, exporté):
 ```
@@ -54,7 +59,11 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 **memoryUsage(msg?, sev?)**: log RSS/heapTotal/heapUsed/external via `CliKernel.niceBytes()`.
 **setDomain()**: `options.domain === "selectAuto"` → 1ère IP externe IPv4 ou `"localhost"`.
 **sendMessage(msg)**: `process.send(...)`. Throws si pas worker IPC.
-**terminate(code?)**: fire `"onTerminate"` → `process.nextTick(() => CliKernel.quit(code))`.
+**terminate(code?)**: fire `"onTerminate"` → `process.nextTick(() => CliKernel.quit(code))`. Si `quit()` throw → `reject(e as Error)` (pas `reject(quit())`).
+
+**clean()**: `removeAllListeners() + this.modules = {}`. Ne jamais appeler directement en prod.
+
+**isModule(subclass)**: signature `unknown` (pas `any`). Throws TypeError si `subclass === null`.
 
 **Registre modules**:
 - `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.initialize(this)` si présente.

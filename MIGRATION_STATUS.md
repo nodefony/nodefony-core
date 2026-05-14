@@ -280,6 +280,7 @@
 | 2026-05-14 | @modules + @services — tests complets | `Decorators.test.ts` (45 tests) | ~1h | 938 tests ✅ — stub kernel minimal avec fireEvent — mock getPackageJson/addService/loadService — 17 sections : construction×2, string/ctor/array×2, mixed×2, edge cases×2, erreurs, combinés, perf |
 | 2026-05-14 | Scope singleton/transient DI | `injector.ts`, `kernelDecorator.ts`, `index.ts`, `Injector.test.ts` (+15 tests), `INJECTION_PLAN.md` | ~1h | 953 tests ✅ — `DIScope`, `InjectableOptions`, `@injectable({ scope })`, `Injector.getScope()`, `_resolve` scope-aware — plan 5 phases (property/circular/scoped/registry/lazy) |
 | 2026-05-14 | Kernel lifecycle — tests cycle de vie | `KernelLifecycle.test.ts` (48 tests) | ~1h | 1001 tests ✅ — boot/preRegister/onReady ordre events — flags registered/booted/ready — hooks module (register/boot/ready/initialize) — terminate + mockQuit — arrêt chaîne par command — propagation erreurs — addKernelService |
+| 2026-05-14 | Kernel.ts — corrections bugs P1/P2 + plan refactor | `Kernel.ts`, `kernel/MEMORY.md`, `KERNEL_REFACTOR_PLAN.md` | ~30min | 1001 tests ✅ — `preRegistered` set après onPreRegister — `postReady` set après onPostReady — `clean()` implémenté — `terminate()` reject(e) — `isModule(unknown)` — plan P3/P4 créé (isCore sync, initCluster syslog, loadApp configurable, GC removal, ModuleConstructor fix) |
 
 ---
 
