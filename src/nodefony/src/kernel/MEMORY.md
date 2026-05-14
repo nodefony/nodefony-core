@@ -180,8 +180,13 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 **`design:paramtypes` limitation tests**: tsx/esbuild ne supporte pas `emitDecoratorMetadata`.
 Émettre manuellement dans les tests : `Reflect.defineMetadata("design:paramtypes", [TypeA], MyClass)`.
 
+**DIScope** : `"singleton"` (défaut) | `"transient"` (toujours new, ignore kernel container). Stocké via `Reflect.defineMetadata("di:scope", scope, Ctor)`.
+
+**`Injector.getScope(name)`** → `DIScope` — lit la metadata `di:scope` du constructeur enregistré. Retourne `"singleton"` si absent ou inconnu.
+
 **Decorators** (tous dans `kernelDecorator.ts`):
-- `@injectable(name?)` → `Injector.register(name || ctor.name, ctor)`. Active aussi `design:paramtypes` (TS le génère dès qu'un decorator est présent).
+- `@injectable(name?)` — rétro-compat string.
+- `@injectable({ name?, scope? })` — API objet. scope absent → `"singleton"`.
 - `@inject("name")` → stocke `inject:services[paramIndex] = name` sur le constructeur (class-level, sans propertyKey). Appel direct possible : `(inject("X") as Function)(MyClass, undefined, 0)`.
 - `@modules(path)` → sur Module, `kernel.once("onPreRegister", ...)` → `loadModule(path, false)` ou `addModule(Ctor)` (si `kernel.isModule(Ctor)`). Array : idem pour chaque élément.
 - `@services(path)` → sur Module, `kernel.once("onPreBoot", ...)` → `addService(Ctor)` ou `loadService(path)`. Erreurs catchées + loguées.

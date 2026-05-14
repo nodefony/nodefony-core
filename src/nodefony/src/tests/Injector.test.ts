@@ -7,6 +7,7 @@ import Service from "../Service";
 import Container from "../Container";
 import { injectable, inject } from "../kernel/decorators/kernelDecorator";
 import { Nodefony } from "../Nodefony";
+import type { DIScope } from "../kernel/injector/injector";
 
 // ─── Services de test ─────────────────────────────────────────────────────────
 //
@@ -567,5 +568,183 @@ describe("Injector — performance", () => {
     }
     const elapsed = performance.now() - t0;
     assert.ok(elapsed < 100, `100k isRegistered took ${elapsed.toFixed(1)}ms`);
+  });
+});
+
+// ─── 14. Scope singleton / transient ─────────────────────────────────────────
+
+// Services déclarés au niveau module (avant describe) pour que @injectable
+// soit évalué une seule fois — évite les re-enregistrements entre tests.
+
+@injectable({ scope: "transient" })
+class TransientSvc extends Service {
+  public uid: number;
+  constructor() {
+    super("TransientSvc", new Container());
+    this.uid = Math.random();
+  }
+}
+
+@injectable({ scope: "singleton" })
+class ExplicitSingleton extends Service {
+  constructor() { super("ExplicitSingleton", new Container()); }
+}
+
+@injectable({ name: "NamedTransient", scope: "transient" })
+class NTSvc extends Service {
+  constructor() { super("NTSvc", new Container()); }
+}
+
+// Consumer qui reçoit TransientSvc en dépendance (auto-injection via paramtypes)
+@injectable()
+class ConsumerOfTransient extends Service {
+  public dep: TransientSvc;
+  constructor(d: TransientSvc) {
+    super("ConsumerOfTransient", d.container as Container);
+    this.dep = d;
+  }
+}
+// Pas de design:paramtypes natif (tsx) — on l'émet manuellement
+Reflect.defineMetadata("design:paramtypes", [TransientSvc], ConsumerOfTransient);
+
+@injectable()
+class ConsumerOfTransient2 extends Service {
+  public dep: TransientSvc;
+  constructor(d: TransientSvc) {
+    super("ConsumerOfTransient2", d.container as Container);
+    this.dep = d;
+  }
+}
+Reflect.defineMetadata("design:paramtypes", [TransientSvc], ConsumerOfTransient2);
+
+describe("Injector — scope singleton/transient", () => {
+  // ── getScope ──────────────────────────────────────────────────────────────
+
+  it("getScope('TransientSvc') → 'transient'", () => {
+    const s: DIScope = Injector.getScope("TransientSvc");
+    assert.strictEqual(s, "transient");
+  });
+
+  it("getScope('ExplicitSingleton') → 'singleton'", () => {
+    assert.strictEqual(Injector.getScope("ExplicitSingleton"), "singleton");
+  });
+
+  it("getScope('NamedTransient') → 'transient' (nom custom)", () => {
+    assert.strictEqual(Injector.getScope("NamedTransient"), "transient");
+  });
+
+  it("getScope sur service @injectable() sans scope → 'singleton' (défaut)", () => {
+    assert.strictEqual(Injector.getScope("AutoA"), "singleton");
+    assert.strictEqual(Injector.getScope("AutoB"), "singleton");
+  });
+
+  it("getScope sur @injectable(string) → 'singleton' (rétro-compat)", () => {
+    assert.strictEqual(Injector.getScope("CustomName"), "singleton");
+  });
+
+  it("getScope sur nom inconnu → 'singleton' (défaut sûr)", () => {
+    assert.strictEqual(Injector.getScope("DoesNotExist"), "singleton");
+  });
+
+  // ── transient — comportement ──────────────────────────────────────────────
+
+  it("transient — deux consumers reçoivent des instances distinctes", () => {
+    const c1 = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
+    const c2 = Injector.instantiate(ConsumerOfTransient2 as any) as ConsumerOfTransient2;
+    assert.notStrictEqual(c1.dep, c2.dep, "transient → instances différentes");
+  });
+
+  it("transient — même consumer instancié deux fois → deps différentes", () => {
+    const a = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
+    const b = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
+    assert.notStrictEqual(a.dep, b.dep);
+  });
+
+  it("transient — uid différent entre deux résolutions", () => {
+    const a = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
+    const b = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
+    // uid = Math.random() → différent avec très haute probabilité
+    assert.notStrictEqual(a.dep.uid, b.dep.uid);
+  });
+
+  it("transient — kernel.get() ignoré, toujours new", () => {
+    const shared = new TransientSvc();
+    shared.uid = -1; // marqueur
+
+    const origGetKernel = Nodefony.getKernel;
+    (Nodefony as any).getKernel = () => ({
+      get: (n: string) => (n === "TransientSvc" ? shared : null),
+    });
+
+    try {
+      const c = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
+      assert.notStrictEqual(c.dep, shared, "transient ignore le container kernel");
+      assert.notStrictEqual(c.dep.uid, -1, "uid doit être nouveau, pas -1");
+    } finally {
+      (Nodefony as any).getKernel = origGetKernel;
+    }
+  });
+
+  // ── singleton — comportement ──────────────────────────────────────────────
+
+  it("singleton — kernel.get() retourne l'instance partagée", () => {
+    const shared = new ExplicitSingleton();
+    const origGetKernel = Nodefony.getKernel;
+    (Nodefony as any).getKernel = () => ({
+      get: (n: string) => (n === "ExplicitSingleton" ? shared : null),
+    });
+
+    // Consumer qui injecte ExplicitSingleton
+    @injectable()
+    class ConsumerSingleton extends Service {
+      public dep: ExplicitSingleton;
+      constructor(d: ExplicitSingleton) {
+        super("ConsumerSingleton", d.container as Container);
+        this.dep = d;
+      }
+    }
+    Reflect.defineMetadata("design:paramtypes", [ExplicitSingleton], ConsumerSingleton);
+
+    try {
+      const c = Injector.instantiate(ConsumerSingleton as any) as ConsumerSingleton;
+      assert.strictEqual(c.dep, shared, "singleton → instance partagée du kernel");
+    } finally {
+      (Nodefony as any).getKernel = origGetKernel;
+    }
+  });
+
+  it("singleton — sans kernel, crée une nouvelle instance", () => {
+    assert.strictEqual(Nodefony.getKernel(), null);
+    const inst = Injector.instantiate(ExplicitSingleton as any);
+    assert.ok(inst instanceof ExplicitSingleton);
+  });
+
+  // ── InjectableOptions API ─────────────────────────────────────────────────
+
+  it("@injectable({ name }) seul → scope 'singleton' par défaut", () => {
+    @injectable({ name: "OnlyName" })
+    class OnlyNameSvc extends Service {
+      constructor() { super("OnlyNameSvc", new Container()); }
+    }
+    assert.ok(Injector.isRegistered("OnlyName"));
+    assert.strictEqual(Injector.getScope("OnlyName"), "singleton");
+  });
+
+  it("@injectable({ scope: 'transient' }) seul → name = class name", () => {
+    @injectable({ scope: "transient" })
+    class JustTransient extends Service {
+      constructor() { super("JustTransient", new Container()); }
+    }
+    assert.ok(Injector.isRegistered("JustTransient"));
+    assert.strictEqual(Injector.getScope("JustTransient"), "transient");
+  });
+
+  it("@injectable({}) → singleton + nom de classe", () => {
+    @injectable({})
+    class EmptyOpts extends Service {
+      constructor() { super("EmptyOpts", new Container()); }
+    }
+    assert.ok(Injector.isRegistered("EmptyOpts"));
+    assert.strictEqual(Injector.getScope("EmptyOpts"), "singleton");
   });
 });

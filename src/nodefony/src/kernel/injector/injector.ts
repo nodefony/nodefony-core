@@ -7,6 +7,13 @@ import Kernel, { ServiceConstructor, ServiceWithInitialize } from "../Kernel";
 import { Nodefony } from "../../Nodefony";
 import Fetch from "../../service/fetchService";
 
+export type DIScope = "singleton" | "transient";
+
+export interface InjectableOptions {
+  name?: string;
+  scope?: DIScope;
+}
+
 const injectables: Record<string, ServiceConstructor> = {};
 
 class Injector extends Service {
@@ -32,6 +39,12 @@ class Injector extends Service {
     return serviceName in injectables;
   }
 
+  static getScope(serviceName: string): DIScope {
+    const Ctor = injectables[serviceName];
+    if (!Ctor) return "singleton";
+    return (Reflect.getMetadata("di:scope", Ctor) as DIScope) ?? "singleton";
+  }
+
   static get(serviceName: string): ServiceConstructor {
     const service = injectables[serviceName];
     if (!service) {
@@ -49,13 +62,22 @@ class Injector extends Service {
   }
 
   // ─── Résolution d'un service par nom ─────────────────────────────────────────
-  // Cherche d'abord dans le container kernel, sinon instancie depuis le registre.
+  // singleton (défaut) : container kernel en premier, sinon nouvelle instance.
+  // transient : toujours une nouvelle instance, container kernel ignoré.
   private static _resolve(serviceName: string, argsClass: any[]): any {
+    const Ctor = Injector.get(serviceName);
+    const scope: DIScope =
+      (Reflect.getMetadata("di:scope", Ctor) as DIScope) ?? "singleton";
+
+    if (scope === "transient") {
+      return Injector.instantiate(Ctor, ...argsClass);
+    }
+
     const kernel = Nodefony.getKernel();
     if (kernel && kernel.get(serviceName)) {
       return kernel.get(serviceName);
     }
-    return Injector.instantiate(Injector.get(serviceName), ...argsClass);
+    return Injector.instantiate(Ctor, ...argsClass);
   }
 
   // ─── Instantiation avec injection ────────────────────────────────────────────

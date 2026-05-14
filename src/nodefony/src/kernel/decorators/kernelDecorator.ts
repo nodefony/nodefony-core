@@ -3,7 +3,7 @@ import "reflect-metadata";
 import Module from "../Module";
 import { ModuleConstructor, ServiceConstructor } from "../Kernel";
 import Service from "../../Service";
-import Injector from "../injector/injector";
+import Injector, { DIScope, InjectableOptions } from "../injector/injector";
 import Entity, { TypeEntity } from "../orm/Entity";
 // import nodefony from "nodefony";
 
@@ -123,11 +123,23 @@ function entities(
 }
 
 function injectable(
-  name?: string
+  nameOrOptions?: string | InjectableOptions
 ): <T extends Injectable<Service>>(constructor: T) => T {
   return function <T extends Injectable<Service>>(constructor: T): T {
-    //console.log("injectable", name || constructor.name);
-    Injector.register(name || constructor.name, constructor);
+    let regName: string;
+    let scope: DIScope = "singleton";
+
+    if (typeof nameOrOptions === "string") {
+      regName = nameOrOptions || constructor.name;
+    } else if (nameOrOptions && typeof nameOrOptions === "object") {
+      regName = nameOrOptions.name || constructor.name;
+      scope = nameOrOptions.scope ?? "singleton";
+    } else {
+      regName = constructor.name;
+    }
+
+    Injector.register(regName, constructor);
+    Reflect.defineMetadata("di:scope", scope, constructor);
     return constructor;
   };
 }

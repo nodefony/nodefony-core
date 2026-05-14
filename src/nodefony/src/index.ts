@@ -40,6 +40,7 @@ export { default as Connector } from "./kernel/orm/Connector";
 
 // ─── Decorators ───────────────────────────────────────────────────────────────
 export { modules, injectable, inject, services, entities } from "./kernel/decorators/kernelDecorator";
+export type { DIScope, InjectableOptions } from "./kernel/injector/injector";
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
 export {
