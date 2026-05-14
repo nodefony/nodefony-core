@@ -269,6 +269,7 @@
 | 2026-05-14 | Zéro warnings build | 10 rollup.config.ts, 5 .d.ts, 4 .ts | ~3h | 287 tests ✅ — sourcemap ✅ — TS2305 ✅ — TS2339 ✅ — TS6133/6196 ✅ — TS5055 supprimé onwarn ✅ |
 | 2026-05-14 | Syslog — audit + nouvelles features | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts`, `Syslog.test.ts`, `MEMORY.md`, `README.md` | ~2h | 282 tests ✅ — 4 bugs corrigés — `print()` + `logMultiple()` + `overrideConsole` + `rawLog()` + README.md complet |
 | 2026-05-14 | Phase X — Transport Layer | `ITransport.ts`, `ConsoleTransport.ts`, `FileTransport.ts`, `HttpTransport.ts`, `transports/index.ts` | ~1h | 303 tests ✅ — fire-and-forget — `onTransportError` — 9/9 build ✅ |
+| 2026-05-14 | Kernel.test.ts — tests complets | `Kernel.test.ts` (111 tests Kernel) | ~1h | 443 tests ✅ — constructor, Events bitmask, setEnv/setNodeEnv, checkPath, readConfig, stats, network, modules, setDomain, logEnv, initializeLog (11), fire/emit, perf, edge cases |
 
 ---
 
@@ -302,6 +303,7 @@
 1. **Phase 5.1** — `IController` + `Controller.ts`
 2. **Phase X reste** — `LokiTransport` (Grafana Loki, streams)
 3. **TS2339 BoatEntity** — vérifier API Sequelize v6 `init`
+4. **CliKernel.test.ts** — tests CliKernel (optionnel, moins prioritaire que Controller)
 
 **Fichiers à lire en début de session** :
 - `MIGRATION_STATUS.md` (ce fichier)
