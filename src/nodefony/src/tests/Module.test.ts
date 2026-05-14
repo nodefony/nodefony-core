@@ -775,6 +775,294 @@ describe("Module — performance", () => {
   });
 });
 
+// ─── 19. readOverrideModuleConfig() — override complet + WARNING log ─────────
+//
+// Pattern réel : app module déclare "Module-http": { ... } dans ses options.
+// readOverrideModuleConfig() fusionne ces options dans le module "http" déjà
+// enregistré dans le kernel et logue un WARNING.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type Pdu from "../syslog/Pdu";
+
+// Helper : capture tous les PDUs émis par le syslog d'un module pendant un bloc sync
+function captureLogs(mod: Module, fn: () => void): Pdu[] {
+  const pdus: Pdu[] = [];
+  const listener = (p: Pdu) => pdus.push(p);
+  mod.syslog?.on("onLog", listener);
+  try { fn(); } finally { mod.syslog?.removeListener("onLog", listener); }
+  return pdus;
+}
+
+describe("Module — readOverrideModuleConfig() — override complet + WARNING log", () => {
+  it("WARNING 'Override Configuration Module: http' émis lors de l'override", () => {
+    const kernel = makeKernelReal();
+    kernel.modules["http"] = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+
+    const appMod = new Module("test", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-http": { port: 8080 },
+    });
+
+    const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
+
+    const warnPdu = pdus.find(
+      p =>
+        p.severityName === "WARNING" &&
+        String(p.payload).includes("Override Configuration Module") &&
+        String(p.payload).includes("http")
+    );
+    assert.ok(warnPdu, "le log WARNING 'Override Configuration Module: http' doit être émis");
+  });
+
+  it("deep=true (défaut) — clés imbriquées NON overridées préservées", () => {
+    const kernel = makeKernelReal();
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+      ssl: { enabled: false, cert: "default.pem", key: "default.key" },
+    });
+    kernel.modules["http"] = httpMod;
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-http": { ssl: { enabled: true } }, // override partiel de ssl
+    });
+    appMod.readOverrideModuleConfig(); // deep=true par défaut
+
+    assert.strictEqual((httpMod.options as any).port, 80);               // préservé
+    assert.strictEqual((httpMod.options as any).ssl.enabled, true);      // overridé
+    assert.strictEqual((httpMod.options as any).ssl.cert, "default.pem"); // préservé deep
+    assert.strictEqual((httpMod.options as any).ssl.key, "default.key");  // préservé deep
+  });
+
+  it("deep=false — objet imbriqué entièrement remplacé (shallow)", () => {
+    const kernel = makeKernelReal();
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+      ssl: { enabled: false, cert: "default.pem", key: "default.key" },
+    });
+    kernel.modules["http"] = httpMod;
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-http": { ssl: { enabled: true } },
+    });
+    appMod.readOverrideModuleConfig(false); // shallow
+
+    assert.strictEqual((httpMod.options as any).ssl.enabled, true); // overridé
+    // cert et key PERDUS — shallow écrase l'objet ssl entier
+    assert.strictEqual((httpMod.options as any).ssl.cert, undefined);
+    assert.strictEqual((httpMod.options as any).ssl.key, undefined);
+  });
+
+  it("deep=true — propriétés à la racine non overridées préservées", () => {
+    const kernel = makeKernelReal();
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+      host: "localhost",
+      timeout: 30,
+    });
+    kernel.modules["http"] = httpMod;
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-http": { port: 8080 },
+    });
+    appMod.readOverrideModuleConfig();
+
+    assert.strictEqual((httpMod.options as any).port, 8080);        // overridé
+    assert.strictEqual((httpMod.options as any).host, "localhost");  // préservé
+    assert.strictEqual((httpMod.options as any).timeout, 30);       // préservé
+  });
+
+  it("extend(true, {}, ...) — la référence d'options du module cible change", () => {
+    const kernel = makeKernelReal();
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    kernel.modules["http"] = httpMod;
+    const originalRef = httpMod.options;
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-http": { port: 8080 },
+    });
+    appMod.readOverrideModuleConfig();
+
+    // extend(true, {}, ...) crée un NOUVEL objet — la référence change
+    assert.notStrictEqual(
+      httpMod.options,
+      originalRef,
+      "options du module cible doit être un nouvel objet après override"
+    );
+  });
+
+  it("multiple Module-* — override plusieurs modules en une seule passe", () => {
+    const kernel = makeKernelReal();
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    const dbMod = new Module("sequelize", kernel, PATH_FOR_NODEFONY_DIR, {
+      dialect: "sqlite",
+      pool: { min: 1, max: 5 },
+    });
+    kernel.modules["http"] = httpMod;
+    kernel.modules["sequelize"] = dbMod;
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-http": { port: 8443, ssl: true },
+      "Module-sequelize": { dialect: "postgres", pool: { max: 20 } },
+    });
+
+    const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
+
+    // http overridé
+    assert.strictEqual((httpMod.options as any).port, 8443);
+    assert.strictEqual((httpMod.options as any).ssl, true);
+
+    // sequelize overridé en deep
+    assert.strictEqual((dbMod.options as any).dialect, "postgres");
+    assert.strictEqual((dbMod.options as any).pool.max, 20);
+    assert.strictEqual((dbMod.options as any).pool.min, 1); // préservé deep
+
+    // deux WARNINGs émis
+    const warns = pdus.filter(
+      p =>
+        p.severityName === "WARNING" &&
+        String(p.payload).includes("Override Configuration Module")
+    );
+    assert.strictEqual(warns.length, 2, "un WARNING par module overridé");
+  });
+
+  it("ERROR log 'Can't Override' quand le module n'est pas enregistré", () => {
+    const kernel = makeKernelReal();
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-ghost": { x: 1 },
+    });
+
+    const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
+
+    const errPdu = pdus.find(
+      p =>
+        p.severityName === "ERROR" &&
+        String(p.payload).includes("Can't Override Configuration Module") &&
+        String(p.payload).includes("ghost")
+    );
+    assert.ok(errPdu, "log ERROR doit être émis si le module cible n'est pas enregistré");
+  });
+
+  it("ERROR log — continue sans throw (autres clés traitées)", () => {
+    const kernel = makeKernelReal();
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    kernel.modules["http"] = httpMod;
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-ghost": { x: 1 },    // module inexistant → ERROR + continue
+      "Module-http": { port: 9090 }, // module existant → doit quand même être traité
+    });
+
+    assert.doesNotThrow(() => appMod.readOverrideModuleConfig());
+    assert.strictEqual((httpMod.options as any).port, 9090, "http doit être overridé même après un ERROR précédent");
+  });
+
+  it("retourne this.options (les options du module appelant, pas celles du module cible)", () => {
+    const kernel = makeKernelReal();
+    kernel.modules["http"] = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {});
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-http": { port: 9090 },
+    });
+    const result = appMod.readOverrideModuleConfig();
+
+    assert.strictEqual(result, appMod.options);
+  });
+
+  it("les options propres du module appelant ne sont pas modifiées", () => {
+    const kernel = makeKernelReal();
+    kernel.modules["http"] = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {});
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-http": { port: 9090 },
+      ownSetting: "preserved",
+      nested: { value: 42 },
+    });
+    appMod.readOverrideModuleConfig();
+
+    assert.strictEqual((appMod.options as any).ownSetting, "preserved");
+    assert.strictEqual((appMod.options as any).nested.value, 42);
+  });
+
+  it("regex — 'module-http' (m minuscule) reconnu et override appliqué", () => {
+    const kernel = makeKernelReal();
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    kernel.modules["http"] = httpMod;
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "module-http": { port: 7070 }, // m minuscule
+    });
+    appMod.readOverrideModuleConfig();
+
+    assert.strictEqual((httpMod.options as any).port, 7070, "m minuscule doit fonctionner");
+  });
+
+  it("regex — 'Modulehttp' (sans tiret) NON reconnu", () => {
+    const kernel = makeKernelReal();
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    kernel.modules["http"] = httpMod;
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Modulehttp": { port: 9999 }, // pas de tiret après Module
+    });
+    appMod.readOverrideModuleConfig();
+
+    assert.strictEqual((httpMod.options as any).port, 80, "sans tiret → non reconnu → port inchangé");
+  });
+
+  it("regex — 'Bundle-http' NON reconnu (préfixe inconnu)", () => {
+    const kernel = makeKernelReal();
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    kernel.modules["http"] = httpMod;
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Bundle-http": { port: 9999 },
+    });
+    appMod.readOverrideModuleConfig();
+
+    assert.strictEqual((httpMod.options as any).port, 80);
+  });
+
+  it("deep=true 3 niveaux — structure complète préservée", () => {
+    const kernel = makeKernelReal();
+    const targetMod = new Module("framework", kernel, PATH_FOR_NODEFONY_DIR, {
+      router: {
+        prefix: "/api",
+        security: { enabled: true, strategy: "jwt", jwtSecret: "original" },
+      },
+    });
+    kernel.modules["framework"] = targetMod;
+
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-framework": {
+        router: { security: { strategy: "oauth" } }, // seulement strategy
+      },
+    });
+    appMod.readOverrideModuleConfig();
+
+    const r = (targetMod.options as any).router;
+    assert.strictEqual(r.prefix, "/api");              // préservé
+    assert.strictEqual(r.security.enabled, true);      // préservé deep
+    assert.strictEqual(r.security.strategy, "oauth");  // overridé
+    assert.strictEqual(r.security.jwtSecret, "original"); // préservé deep
+  });
+
+  it("sans clé Module-* → aucun log WARNING émis", () => {
+    const kernel = makeKernelReal();
+    const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 3000,
+      host: "localhost",
+    });
+
+    const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
+
+    const warns = pdus.filter(
+      p =>
+        p.severityName === "WARNING" &&
+        String(p.payload).includes("Override Configuration Module")
+    );
+    assert.strictEqual(warns.length, 0, "aucun WARNING si aucune clé Module-*");
+  });
+});
+
 // ─── 18. Edge cases ──────────────────────────────────────────────────────────
 
 describe("Module — edge cases", () => {
