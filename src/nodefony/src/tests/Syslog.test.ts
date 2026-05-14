@@ -1135,4 +1135,276 @@ describe("NODEFONY SYSLOG", () => {
       done();
     });
   });
+
+  // ─── Limites CircularBuffer ─────────────────────────────────────────────────
+
+  describe("CircularBuffer — limites", () => {
+    it("getLogStack() sur buffer vide → undefined", (done) => {
+      const s = new Syslog();
+      const res = s.getLogStack() as Pdu | undefined;
+      assert.strict.equal(res, undefined);
+      done();
+    });
+
+    it("FIFO order après overflow — le plus ancien écrasé", (done) => {
+      const s = new Syslog({ maxStack: 3 });
+      s.log("a", "INFO");
+      s.log("b", "INFO");
+      s.log("c", "INFO");
+      s.log("d", "INFO"); // écrase "a"
+      const stack = s.ringStack;
+      assert.strict.equal(stack.length, 3);
+      assert.strict.equal(stack[0].payload, "b");
+      assert.strict.equal(stack[2].payload, "d");
+      done();
+    });
+
+    it("clearLogStack() vide le ring mais garde les listeners", (done) => {
+      const s = new Syslog();
+      let count = 0;
+      s.listenWithConditions({ severity: { operator: "<=", data: 7 } }, () => count++);
+      s.log("x", "INFO");
+      s.clearLogStack();
+      assert.strict.equal(s.ringStack.length, 0);
+      s.log("y", "INFO"); // listener toujours actif
+      assert.strict.equal(count, 2);
+      done();
+    });
+
+    it("reset() vide le ring ET retire tous les listeners", (done) => {
+      const s = new Syslog();
+      let count = 0;
+      s.listenWithConditions({ severity: { operator: "<=", data: 7 } }, () => count++);
+      s.log("before reset", "INFO");
+      s.reset();
+      s.log("after reset", "INFO");
+      assert.strict.equal(s.ringStack.length, 1);
+      assert.strict.equal(count, 1); // le 2e log n'a pas déclenché le listener
+      done();
+    });
+  });
+
+  // ─── Rate limiting — edge cases ─────────────────────────────────────────────
+
+  describe("Rate limiting — edge cases", () => {
+    it("exactement burstLimit accepted, le suivant DROPPED → missed++", (done) => {
+      const s = new Syslog({ rateLimit: 10000, burstLimit: 2 });
+      const p1 = s.log("a", "INFO");
+      const p2 = s.log("b", "INFO");
+      const p3 = s.log("c", "INFO"); // DROPPED
+      assert.strict.equal(p1.status, "ACCEPTED");
+      assert.strict.equal(p2.status, "ACCEPTED");
+      assert.strict.equal(p3.status, "DROPPED");
+      assert.strict.equal(s.missed, 1);
+      done();
+    });
+
+    it("burstLimit=0 → tous DROPPED", (done) => {
+      const s = new Syslog({ rateLimit: 10000, burstLimit: 0 });
+      const p = s.log("x", "INFO");
+      assert.strict.equal(p.status, "DROPPED");
+      assert.strict.equal(s.missed, 1);
+      done();
+    });
+
+    it("reset de fenêtre après rateLimit ms — accepte à nouveau", async () => {
+      const s = new Syslog({ rateLimit: 30, burstLimit: 1 });
+      const p1 = s.log("first", "INFO");  // ACCEPTED
+      const p2 = s.log("second", "INFO"); // DROPPED
+      assert.strict.equal(p1.status, "ACCEPTED");
+      assert.strict.equal(p2.status, "DROPPED");
+      await new Promise((r) => setTimeout(r, 50)); // fenêtre expirée
+      const p3 = s.log("third", "INFO");  // ACCEPTED après reset
+      assert.strict.equal(p3.status, "ACCEPTED");
+      assert.strict.equal(s.missed, 0); // reset aussi missed
+    });
+  });
+
+  // ─── Pdu — payloads limites ──────────────────────────────────────────────────
+
+  describe("Pdu — payloads limites", () => {
+    it("payload=0 (falsy number) → ACCEPTED", (done) => {
+      const s = new Syslog();
+      const p = s.log(0, "INFO");
+      assert.strict.equal(p.status, "ACCEPTED");
+      assert.strict.equal(p.payload, 0);
+      assert.strict.equal(p.typePayload, "number");
+      done();
+    });
+
+    it("payload=false (falsy boolean) → ACCEPTED", (done) => {
+      const s = new Syslog();
+      const p = s.log(false as unknown as string, "INFO");
+      assert.strict.equal(p.status, "ACCEPTED");
+      assert.strict.equal(p.payload, false);
+      done();
+    });
+
+    it("payload=null → ACCEPTED", (done) => {
+      const s = new Syslog();
+      const p = s.log(null as unknown as string, "INFO");
+      assert.strict.equal(p.status, "ACCEPTED");
+      assert.strict.equal(p.payload, null);
+      done();
+    });
+
+    it("log(existingPdu) → passthrough sans recréation", (done) => {
+      const s = new Syslog();
+      const pdu = new Pdu("original", "ERROR", "MOD");
+      const returned = s.log(pdu);
+      assert.strict.equal(returned, pdu); // même objet
+      assert.strict.equal(s.ringStack[0], pdu);
+      done();
+    });
+
+    it("typePayload: Error", (done) => {
+      const s = new Syslog();
+      const p = s.log(new Error("boom"), "ERROR");
+      assert.strict.equal(p.typePayload, "Error");
+      done();
+    });
+
+    it("typePayload: Date → 'date' (fastTypeOf lowercase)", (done) => {
+      const s = new Syslog();
+      const p = s.log(new Date(), "INFO");
+      assert.strict.equal(p.typePayload, "date");
+      done();
+    });
+
+    it("typePayload: array", (done) => {
+      const s = new Syslog();
+      const p = s.log([1, 2, 3] as unknown as string, "INFO");
+      assert.strict.equal(p.typePayload, "array");
+      done();
+    });
+  });
+
+  // ─── logToJson ───────────────────────────────────────────────────────────────
+
+  describe("logToJson", () => {
+    it("retourne un JSON valide de tous les PDU", (done) => {
+      const s = new Syslog({ maxStack: 5 });
+      s.log("a", "INFO");
+      s.log("b", "ERROR");
+      const json = s.logToJson({ severity: { operator: "<=", data: 7 } });
+      const parsed = JSON.parse(json);
+      assert.ok(Array.isArray(parsed));
+      assert.strict.equal(parsed.length, 2);
+      assert.strict.equal(parsed[0].payload, "a");
+      assert.strict.equal(parsed[1].payload, "b");
+      done();
+    });
+
+    it("filtre par sévérité", (done) => {
+      const s = new Syslog({ maxStack: 10 });
+      s.log("err", "ERROR");
+      s.log("inf", "INFO");
+      s.log("dbg", "DEBUG");
+      const json = s.logToJson({ severity: { operator: "<=", data: "ERROR" } });
+      const parsed = JSON.parse(json);
+      assert.strict.equal(parsed.length, 1);
+      assert.strict.equal(parsed[0].payload, "err");
+      done();
+    });
+  });
+
+  // ─── Conditions OR (checkConditions: "||") ───────────────────────────────────
+
+  describe("checkConditions: || (logique OU)", () => {
+    it("|| — severity OU msgid — l'un ou l'autre suffit", (done) => {
+      const s = new Syslog();
+      let count = 0;
+      s.listenWithConditions(
+        {
+          severity: { operator: "==", data: "ERROR" },
+          msgid: { data: "SPECIAL" },
+          checkConditions: "||",
+        },
+        () => count++
+      );
+      s.log("match severity", "ERROR", "OTHER");   // ERROR → match
+      s.log("match msgid", "INFO", "SPECIAL");     // SPECIAL → match
+      s.log("no match", "INFO", "OTHER");           // ni ERROR ni SPECIAL → no match
+      assert.strict.equal(count, 2);
+      done();
+    });
+
+    it("&& (défaut) — les deux conditions requises", (done) => {
+      const s = new Syslog();
+      let count = 0;
+      s.listenWithConditions(
+        {
+          severity: { operator: "==", data: "ERROR" },
+          msgid: { data: "SPECIAL" },
+        },
+        () => count++
+      );
+      s.log("both", "ERROR", "SPECIAL");   // match
+      s.log("only sev", "ERROR", "OTHER"); // pas match
+      s.log("only msg", "INFO", "SPECIAL");// pas match
+      assert.strict.equal(count, 1);
+      done();
+    });
+  });
+
+  // ─── loadStack avec JSON string ──────────────────────────────────────────────
+
+  describe("loadStack — JSON string", () => {
+    it("accepte une string JSON et charge les PDU", (done) => {
+      const source = new Syslog({ maxStack: 5 });
+      source.log("first", "INFO");
+      source.log("second", "ERROR");
+      const json = source.logToJson({ severity: { operator: "<=", data: 7 } });
+      const dest = new Syslog({ maxStack: 10 });
+      dest.loadStack(json);
+      assert.strict.equal(dest.ringStack.length, 2);
+      assert.strict.equal(dest.ringStack[0].payload, "first");
+      assert.strict.equal(dest.ringStack[1].payload, "second");
+      done();
+    });
+  });
+
+  // ─── rawLog SPINNER ──────────────────────────────────────────────────────────
+
+  describe("rawLog — SPINNER (-1)", () => {
+    it("SPINNER → \\r prefix + stdout (pas stderr)", (done) => {
+      const chunks: string[] = [];
+      const origOut = process.stdout.write.bind(process.stdout);
+      process.stdout.write = (chunk: unknown) => {
+        chunks.push(String(chunk));
+        return true;
+      };
+      let errWritten = false;
+      const origErr = process.stderr.write.bind(process.stderr);
+      process.stderr.write = () => { errWritten = true; return true; };
+      const pdu = new Pdu("loading…", -1);
+      Syslog.rawLog(pdu);
+      process.stdout.write = origOut;
+      process.stderr.write = origErr;
+      assert.ok(!errWritten, "SPINNER ne doit pas écrire sur stderr");
+      assert.ok(chunks.some(c => c.startsWith("\r")), "doit commencer par \\r");
+      assert.ok(chunks.some(c => c.includes("loading…")));
+      done();
+    });
+  });
+
+  // ─── HttpTransport — timeout ─────────────────────────────────────────────────
+
+  describe("HttpTransport — timeout", () => {
+    it("send() rejette si le serveur ne répond pas dans le délai", (done) => {
+      // Serveur qui ne répond jamais
+      const server = http.createServer((_req, _res) => { /* silence */ });
+      server.listen(0, "127.0.0.1", () => {
+        const addr = server.address() as { port: number };
+        const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}`, timeout: 50 });
+        const pdu = new Pdu("timeout test", "INFO", "X");
+        pdu.status = "ACCEPTED";
+        t.send(pdu).catch((err: Error) => {
+          server.close();
+          assert.ok(/timeout/.test(err.message));
+          done();
+        });
+      });
+    });
+  });
 });

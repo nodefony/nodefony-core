@@ -125,6 +125,11 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 
 **Deps** : `Event`, `Pdu`, `cli-color`, `extend` (Tools), `ISyslog`, `ITransport`
 
+**`fastTypeOf` — valeurs retournées**
+- `null` → `null` (pas `"null"`)
+- `string/number/boolean/function` → même nom lowercase
+- `Array` → `"array"` | `Date` → `"date"` (lowercase) | `RegExp` → `"RegExp"` | `Error` → `"Error"` | `Buffer` → `"buffer"` | `object` → `"object"`
+
 **Gotchas**
 - `warnning` (avec double n) supprimé — utiliser `warn`
 - `filter()` modifie `conditions` par référence via `extend(true, {}, conditions)` — deep clone
