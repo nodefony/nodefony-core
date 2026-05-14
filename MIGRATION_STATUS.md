@@ -270,6 +270,7 @@
 | 2026-05-14 | Syslog — audit + nouvelles features | `Pdu.ts`, `Syslog.ts`, `ISyslog.ts`, `Syslog.test.ts`, `MEMORY.md`, `README.md` | ~2h | 282 tests ✅ — 4 bugs corrigés — `print()` + `logMultiple()` + `overrideConsole` + `rawLog()` + README.md complet |
 | 2026-05-14 | Phase X — Transport Layer | `ITransport.ts`, `ConsoleTransport.ts`, `FileTransport.ts`, `HttpTransport.ts`, `transports/index.ts` | ~1h | 303 tests ✅ — fire-and-forget — `onTransportError` — 9/9 build ✅ |
 | 2026-05-14 | Kernel.test.ts — tests complets | `Kernel.test.ts` (111 tests Kernel) | ~1h | 443 tests ✅ — constructor, Events bitmask, setEnv/setNodeEnv, checkPath, readConfig, stats, network, modules, setDomain, logEnv, initializeLog (11), fire/emit, perf, edge cases |
+| 2026-05-14 | Module.test.ts — tests complets | `Module.test.ts` (74 tests Module) | ~1h | 500 tests ✅ — construction, setPath, setEvents (lifecycle hooks), readOverrideModuleConfig (Module-*), addService, getPackageJson, loadJson, install/outdated, addCommand, log, controllers statiques, perf, edge cases |
 
 ---
 
