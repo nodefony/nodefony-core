@@ -12,7 +12,7 @@ class Outdated extends Command {
       "outdated",
       "List Project dependencies outdated",
       cli as CliKernel,
-      optionsCommand
+      optionsCommand,
     );
   }
   override async generate(): Promise<this> {

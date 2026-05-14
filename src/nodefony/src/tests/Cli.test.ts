@@ -6,7 +6,10 @@ import Command from "../command/Command";
 
 // ─── Helper makeCli ───────────────────────────────────────────────────────────
 
-function makeCli(name = "test-cli", extra: Partial<CliDefaultOptions> = {}): Cli {
+function makeCli(
+  name = "test-cli",
+  extra: Partial<CliDefaultOptions> = {},
+): Cli {
   const cli = new Cli(name, {
     autostart: false,
     asciify: false,
@@ -31,9 +34,14 @@ class EchoCommand extends Command {
   private _resolve!: () => void;
 
   constructor(cli: Cli) {
-    super("echo", "Echo a message", cli, { showBanner: false, progress: false });
+    super("echo", "Echo a message", cli, {
+      showBanner: false,
+      progress: false,
+    });
     this.addArgument("<message>", "Message to echo");
-    this.done = new Promise((r) => { this._resolve = r; });
+    this.done = new Promise((r) => {
+      this._resolve = r;
+    });
   }
 
   override async generate(message: string): Promise<this> {
@@ -51,7 +59,9 @@ class GreetCommand extends Command {
   constructor(cli: Cli) {
     super("greet", "Greet a user", cli, { showBanner: false, progress: false });
     this.addArgument("<name>", "Name to greet");
-    this.done = new Promise((r) => { this._resolve = r; });
+    this.done = new Promise((r) => {
+      this._resolve = r;
+    });
   }
 
   override async generate(name: string): Promise<this> {
@@ -67,8 +77,13 @@ class NoArgCommand extends Command {
   private _resolve!: () => void;
 
   constructor(cli: Cli) {
-    super("no-arg", "Command without args", cli, { showBanner: false, progress: false });
-    this.done = new Promise((r) => { this._resolve = r; });
+    super("no-arg", "Command without args", cli, {
+      showBanner: false,
+      progress: false,
+    });
+    this.done = new Promise((r) => {
+      this._resolve = r;
+    });
   }
 
   override async generate(..._args: any[]): Promise<this> {
@@ -84,9 +99,14 @@ class RunOverrideCommand extends Command {
   private _resolve!: () => void;
 
   constructor(cli: Cli) {
-    super("run-override", "Test run override", cli, { showBanner: false, progress: false });
+    super("run-override", "Test run override", cli, {
+      showBanner: false,
+      progress: false,
+    });
     this.addArgument("<val>", "value");
-    this.done = new Promise((r) => { this._resolve = r; });
+    this.done = new Promise((r) => {
+      this._resolve = r;
+    });
   }
 
   override async run(...args: any[]): Promise<this> {
@@ -102,8 +122,13 @@ class ErrorCommand extends Command {
   public thrownError: Error | null = null;
 
   constructor(cli: Cli) {
-    super("err-cmd", "Command that throws", cli, { showBanner: false, progress: false });
-    this.done = new Promise((r) => { this._resolve = r; });
+    super("err-cmd", "Command that throws", cli, {
+      showBanner: false,
+      progress: false,
+    });
+    this.done = new Promise((r) => {
+      this._resolve = r;
+    });
   }
 
   override async generate(..._args: any[]): Promise<this> {
@@ -119,9 +144,14 @@ class WithOptionCommand extends Command {
   private _resolve!: () => void;
 
   constructor(cli: Cli) {
-    super("with-opt", "Command with option", cli, { showBanner: false, progress: false });
+    super("with-opt", "Command with option", cli, {
+      showBanner: false,
+      progress: false,
+    });
     this.addOption("-n, --count <n>", "Count option");
-    this.done = new Promise((r) => { this._resolve = r; });
+    this.done = new Promise((r) => {
+      this._resolve = r;
+    });
   }
 
   override async generate(...args: any[]): Promise<this> {
@@ -139,9 +169,14 @@ class AliasCommand extends Command {
   private _resolve!: () => void;
 
   constructor(cli: Cli) {
-    super("alias-cmd", "Command with alias", cli, { showBanner: false, progress: false });
+    super("alias-cmd", "Command with alias", cli, {
+      showBanner: false,
+      progress: false,
+    });
     this.alias("al");
-    this.done = new Promise((r) => { this._resolve = r; });
+    this.done = new Promise((r) => {
+      this._resolve = r;
+    });
   }
 
   override async generate(..._args: any[]): Promise<this> {
@@ -273,7 +308,10 @@ describe("Cli — commander options & version", () => {
       commander: false,
       pid: false,
     });
-    assert.throws(() => cli.setCommandOption("-f, --force"), /Commender not found/);
+    assert.throws(
+      () => cli.setCommandOption("-f, --force"),
+      /Commender not found/,
+    );
   });
 
   it("setCommand crée une sous-commande dans commander", () => {
@@ -453,7 +491,10 @@ describe("Cli — parse / parseAsync", () => {
       commander: false,
       pid: false,
     });
-    assert.throws(() => cli.parseAsync(["node", "test"]), /Commander not found/);
+    assert.throws(
+      () => cli.parseAsync(["node", "test"]),
+      /Commander not found/,
+    );
   });
 
   it("parseAsync commande valide → résout avec commander", async () => {
@@ -476,9 +517,11 @@ describe("Cli — parse / parseAsync", () => {
 
   it("parseAsync(['node','test']) → résout sans erreur", async () => {
     const cli = makeCli("paa-ok");
-    await assert.isFulfilled !== undefined
+    (await assert.isFulfilled) !== undefined
       ? cli.parseAsync(["node", "test"])
-      : cli.parseAsync(["node", "test"]).then((r) => { assert.ok(r); });
+      : cli.parseAsync(["node", "test"]).then((r) => {
+          assert.ok(r);
+        });
   });
 });
 
@@ -587,7 +630,11 @@ describe("Cli — timers", () => {
     cli.startTimer("build");
     assert.ok("build" in cli.timers);
     // nettoyage
-    try { cli.stopTimer("build"); } catch { /* ignore */ }
+    try {
+      cli.stopTimer("build");
+    } catch {
+      /* ignore */
+    }
   });
 
   it("stopTimer('build') → supprimé de this.timers", () => {
@@ -601,7 +648,11 @@ describe("Cli — timers", () => {
     const cli = makeCli("timer3");
     cli.startTimer("dup");
     assert.throws(() => cli.startTimer("dup"), /already exist/);
-    try { cli.stopTimer("dup"); } catch { /* ignore */ }
+    try {
+      cli.stopTimer("dup");
+    } catch {
+      /* ignore */
+    }
   });
 
   it("stopTimer inconnu → throw 'not exist'", () => {
@@ -622,7 +673,10 @@ describe("Cli — timers", () => {
     cli.startTimer("t2");
     cli.stopTimer("t1");
     cli.stopTimer("t2");
-    assert.deepEqual(Object.keys(cli.timers).filter((k) => k === "t1" || k === "t2"), []);
+    assert.deepEqual(
+      Object.keys(cli.timers).filter((k) => k === "t1" || k === "t2"),
+      [],
+    );
   });
 
   it("stopTimer(null) → boucle sur les timers actifs PUIS throw (bug connu: pas de return après la boucle)", () => {
@@ -773,7 +827,13 @@ describe("Cli — UI (Progress / Spinner / Sparkline / Table)", () => {
   });
 
   it("displayTable([['x','y'],['a','b']], {}) → table de 2 lignes", () => {
-    const table = cli.displayTable([["x", "y"], ["a", "b"]], {});
+    const table = cli.displayTable(
+      [
+        ["x", "y"],
+        ["a", "b"],
+      ],
+      {},
+    );
     assert.ok((table as any).length === 2);
   });
 });

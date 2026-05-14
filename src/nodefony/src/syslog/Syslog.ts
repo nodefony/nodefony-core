@@ -8,21 +8,11 @@ import Event from "../Event";
 import { ISyslog } from "../types/ISyslog";
 import type { ITransport } from "../types/ITransport";
 
-const yellow = clc
-  ? clc.yellow.bold
-  : (ele: string) => ele;
-const red = clc
-  ? clc.red.bold
-  : (ele: string) => ele;
-const cyan = clc
-  ? clc.cyan.bold
-  : (ele: string) => ele;
-const blue = clc
-  ? clc.blueBright.bold
-  : (ele: string) => ele;
-const green = clc
-  ? clc.green
-  : (ele: string) => ele;
+const yellow = clc ? clc.yellow.bold : (ele: string) => ele;
+const red = clc ? clc.red.bold : (ele: string) => ele;
+const cyan = clc ? clc.cyan.bold : (ele: string) => ele;
+const blue = clc ? clc.blueBright.bold : (ele: string) => ele;
+const green = clc ? clc.green : (ele: string) => ele;
 
 type Operator = "<" | ">" | "<=" | ">=" | "==" | "===" | "!=" | "RegExp";
 type Condition = "&&" | "||";
@@ -77,7 +67,7 @@ export interface WrapperResult {
 
 type ComparisonOperator = (
   ele1: number | string,
-  ele2: number | string | RegExp
+  ele2: number | string | RegExp,
 ) => boolean;
 
 interface Operators {
@@ -159,7 +149,7 @@ const formatDebug = function (debug: DebugType): DebugType {
 
 const conditionOptions = function (
   environment: string,
-  debug: DebugType = false
+  debug: DebugType = false,
 ): conditionsInterface {
   debug = formatDebug(debug);
   let obj: conditionsInterface;
@@ -300,10 +290,12 @@ type ConditionFilter = ((pdu: Pdu) => void) | Pdu[];
 const wrapperCondition = function (
   this: Syslog,
   conditions: conditionsInterface,
-  callback: Callback | CallbackArray
+  callback: Callback | CallbackArray,
 ): ConditionFilter {
-  let myFuncCondition: (conditions: ConditionSetting, pdu: Pdu) => boolean =
-    () => false;
+  let myFuncCondition: (
+    conditions: ConditionSetting,
+    pdu: Pdu,
+  ) => boolean = () => false;
 
   if (
     conditions.checkConditions &&
@@ -341,7 +333,7 @@ const wrapperCondition = function (
 };
 
 const sanitizeConditions = function (
-  settingsCondition: conditionsInterface
+  settingsCondition: conditionsInterface,
 ): boolean | ConditionSetting {
   if (typeof settingsCondition !== "object" || settingsCondition === null) {
     return false;
@@ -414,14 +406,14 @@ const createPDU = function (
   severity?: Severity,
   moduleName?: ModuleName,
   msgid?: Message,
-  msg?: Message
+  msg?: Message,
 ): Pdu {
   return new Pdu(
     payload,
     severity || this.settings.defaultSeverity,
     moduleName,
     msgid,
-    msg
+    msg,
   );
 };
 
@@ -463,14 +455,14 @@ class Syslog extends Event implements ISyslog {
   init(
     environment: EnvironmentType,
     debug?: DebugType,
-    options?: conditionsInterface
+    options?: conditionsInterface,
   ): void {
     // Idempotent : on réinitialise les listeners "onLog" avant d'en ajouter un.
     // Évite l'accumulation quand init() est appelé plusieurs fois (Cli + CliKernel ctors).
     this.removeAllListeners("onLog");
     this.listenWithConditions(
       options || conditionOptions(environment, debug),
-      (pdu: Pdu) => Syslog.normalizeLog(pdu)
+      (pdu: Pdu) => Syslog.normalizeLog(pdu),
     );
   }
 
@@ -506,7 +498,7 @@ class Syslog extends Event implements ISyslog {
     payload: Pci,
     severity?: Severity,
     msgid?: ModuleName,
-    msg?: Message
+    msg?: Message,
   ): Pdu {
     let pdu: Pdu | undefined;
     if (this.settings.rateLimit !== false) {
@@ -532,7 +524,7 @@ class Syslog extends Event implements ISyslog {
                   severity,
                   this.settings.moduleName,
                   msgid || this.settings.msgid,
-                  msg
+                  msg,
                 );
         } catch (e) {
           console.error(e);
@@ -566,7 +558,7 @@ class Syslog extends Event implements ISyslog {
               severity,
               this.settings.moduleName,
               msgid || this.settings.msgid,
-              msg
+              msg,
             );
     } catch (e) {
       console.error(e);
@@ -587,7 +579,7 @@ class Syslog extends Event implements ISyslog {
   getLogStack(
     start?: number,
     end?: number,
-    condition?: conditionsInterface
+    condition?: conditionsInterface,
   ): Pdu[] | Pdu {
     // Fast path: no arguments → last entry without building full array
     if (arguments.length === 0) {
@@ -613,13 +605,16 @@ class Syslog extends Event implements ISyslog {
       return wrapperCondition.call(
         this,
         conditions,
-        stack || this.ringStack
+        stack || this.ringStack,
       ) as Pdu[];
     }
     return this.ringStack;
   }
 
-  logToJson(conditions: conditionsInterface, stack: Pdu[] | null = null): string {
+  logToJson(
+    conditions: conditionsInterface,
+    stack: Pdu[] | null = null,
+  ): string {
     const res = conditions ? this.getLogs(conditions, stack) : this.ringStack;
     return JSON.stringify(res);
   }
@@ -627,7 +622,7 @@ class Syslog extends Event implements ISyslog {
   loadStack(
     stack: Pdu[] | string,
     doEvent = false,
-    beforeConditions: ((pdu: Pdu, stackItem: Pdu) => void) | null = null
+    beforeConditions: ((pdu: Pdu, stackItem: Pdu) => void) | null = null,
   ): Pdu[] {
     if (!stack) {
       throw new Error("syslog loadStack : not stack in arguments ");
@@ -636,7 +631,7 @@ class Syslog extends Event implements ISyslog {
       return this.loadStack(
         JSON.parse(stack) as Pdu[],
         doEvent,
-        beforeConditions
+        beforeConditions,
       );
     }
     if (Array.isArray(stack) || typeof stack === "object") {
@@ -647,7 +642,7 @@ class Syslog extends Event implements ISyslog {
           stackItem.moduleName || this.settings.moduleName,
           stackItem.msgid,
           stackItem.msg,
-          stackItem.timeStamp
+          stackItem.timeStamp,
         );
         this.pushStack(pdu);
         if (doEvent) {
@@ -675,7 +670,7 @@ class Syslog extends Event implements ISyslog {
 
   listenWithConditions(
     conditions: conditionsInterface,
-    callback: CallbackFunction
+    callback: CallbackFunction,
   ): void {
     return this.filter(conditions, callback);
   }
@@ -725,7 +720,9 @@ class Syslog extends Event implements ISyslog {
 
   private _fireTransports(pdu: Pdu): void {
     for (const t of this._transports) {
-      t.send(pdu).catch((err: unknown) => this.fire("onTransportError", err, pdu));
+      t.send(pdu).catch((err: unknown) =>
+        this.fire("onTransportError", err, pdu),
+      );
     }
   }
 
@@ -791,7 +788,7 @@ class Syslog extends Event implements ISyslog {
   static normalizeLog(pdu: Pdu, pid: string = ""): Pdu {
     if (pdu.payload === "" || pdu.payload === undefined) {
       Syslog._nativeConsole.warn(
-        `${pdu.severityName} ${pdu.msgid} : logger message empty !!!!`
+        `${pdu.severityName} ${pdu.msgid} : logger message empty !!!!`,
       );
       Syslog._nativeConsole.trace(pdu);
       return pdu;
@@ -812,7 +809,9 @@ class Syslog extends Event implements ISyslog {
   static rawLog(pdu: Pdu, pid: string = ""): Pdu {
     if (pdu.payload === "" || pdu.payload === undefined) return pdu;
     if (pdu.severity === -1) {
-      process.stdout.write(`\r${green(pdu.msgid)} : ${String(pdu.payload)}\x1b[90m\x1b[0m`);
+      process.stdout.write(
+        `\r${green(pdu.msgid)} : ${String(pdu.payload)}\x1b[90m\x1b[0m`,
+      );
       return pdu;
     }
     const stream = pdu.severity <= 3 ? process.stderr : process.stdout;
@@ -820,7 +819,11 @@ class Syslog extends Event implements ISyslog {
     const msg =
       typeof pdu.payload === "string" || typeof pdu.payload === "number"
         ? String(pdu.payload)
-        : inspect(pdu.payload, { depth: 3, colors: true, breakLength: Infinity });
+        : inspect(pdu.payload, {
+            depth: 3,
+            colors: true,
+            breakLength: Infinity,
+          });
     stream.write(`${pid}${text}${msg}\n`);
     return pdu;
   }
@@ -843,10 +846,14 @@ class Syslog extends Event implements ISyslog {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Console interface requires dynamic assignment
     const con = console as any;
     con.log = (...data: unknown[]) => instance.print(...(data as Pci[]));
-    con.info = (...data: unknown[]) => instance.logMultiple("INFO", ...(data as Pci[]));
-    con.warn = (...data: unknown[]) => instance.logMultiple("WARNING", ...(data as Pci[]));
-    con.error = (...data: unknown[]) => instance.logMultiple("ERROR", ...(data as Pci[]));
-    con.debug = (...data: unknown[]) => instance.logMultiple("DEBUG", ...(data as Pci[]));
+    con.info = (...data: unknown[]) =>
+      instance.logMultiple("INFO", ...(data as Pci[]));
+    con.warn = (...data: unknown[]) =>
+      instance.logMultiple("WARNING", ...(data as Pci[]));
+    con.error = (...data: unknown[]) =>
+      instance.logMultiple("ERROR", ...(data as Pci[]));
+    con.debug = (...data: unknown[]) =>
+      instance.logMultiple("DEBUG", ...(data as Pci[]));
     con.table = (data: unknown) => instance.logMultiple("INFO", data as Pci);
     con.dir = (obj: unknown) => instance.logMultiple("DEBUG", obj as Pci);
   }

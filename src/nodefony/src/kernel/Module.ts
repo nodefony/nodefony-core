@@ -57,7 +57,7 @@ class Module extends Service implements IModule {
     name: string,
     kernel: Kernel,
     path: string,
-    options: DefaultOptionsService
+    options: DefaultOptionsService,
   ) {
     super(name, kernel.container as Container, undefined, options);
     this.setParameters(`modules.${this.name}`, this.options);
@@ -82,7 +82,7 @@ class Module extends Service implements IModule {
       options = RollupService.setDefaultConfig(
         this,
         this.kernel?.environment,
-        mylog
+        mylog,
       );
       return this.watcherService?.createRollupWatcher(this, options);
     }
@@ -155,11 +155,13 @@ class Module extends Service implements IModule {
       const override: DefaultOptionsService = this.options[ele];
       index = regModuleName.exec(ele);
       if (index && index[1]) {
-        const mod = this.kernel?.getModule(index[1] as string) as Module | undefined;
+        const mod = this.kernel?.getModule(index[1] as string) as
+          | Module
+          | undefined;
         if (!mod) {
           this.log(
             `Can't Override Configuration Module : ${index[1]} is not ready, Register module before`,
-            "ERROR"
+            "ERROR",
           );
           continue;
         }
@@ -180,7 +182,7 @@ class Module extends Service implements IModule {
 
   registerService(
     service: ServiceConstructor,
-    name: string
+    name: string,
   ): ServiceConstructor {
     return Injector.register(name || service.constructor.name, service);
   }
@@ -194,7 +196,7 @@ class Module extends Service implements IModule {
     if (this.get(inst.name)) {
       this.log(
         `SERVICE ALREADY EXIST  override old service  : ${inst.name}`,
-        "WARNING"
+        "WARNING",
       );
     }
     this.log(`SERVICE ADD : ${inst.name}`, "DEBUG");
@@ -222,7 +224,7 @@ class Module extends Service implements IModule {
   async getPackageJson(cwd?: string): Promise<PackageJson> {
     return (await this.loadJson(
       resolve(this.path, "package.json"),
-      cwd
+      cwd,
     )) as PackageJson;
   }
 
@@ -271,7 +273,7 @@ class Module extends Service implements IModule {
   }
 
   public addCommand(
-    cliCommand: new (cli: CliKernel) => Command
+    cliCommand: new (cli: CliKernel) => Command,
   ): Command | void {
     if (this.kernel && this.kernel.cli) {
       try {
@@ -294,24 +296,30 @@ class Module extends Service implements IModule {
       if (force) {
         return await (this.kernel?.cli as CliKernel)?.packageManager(
           ["install", "--force"],
-          this.path
+          this.path,
         );
       }
-      return await (this.kernel?.cli as CliKernel)?.packageManager(["install"], this.path);
+      return await (this.kernel?.cli as CliKernel)?.packageManager(
+        ["install"],
+        this.path,
+      );
     }
     throw new Error(`Package Manager not found`);
   }
 
   async outdated(): Promise<number | Error> {
     if ((this.kernel?.cli as CliKernel)?.packageManager) {
-      return await (this.kernel?.cli as CliKernel)?.packageManager(["outdated"], this.path);
+      return await (this.kernel?.cli as CliKernel)?.packageManager(
+        ["outdated"],
+        this.path,
+      );
     }
     throw new Error(`Package Manager not found`);
   }
 
   async loadJson(
     url: string,
-    cwd: string = process.cwd()
+    cwd: string = process.cwd(),
   ): Promise<JSONObject> {
     try {
       const detectpath = isAbsolute(url) ? url : resolve(cwd, url);
@@ -329,7 +337,7 @@ class Module extends Service implements IModule {
     pci: any,
     severity?: Severity,
     msgid?: Msgid,
-    msg?: Message
+    msg?: Message,
   ): Pdu {
     if (!msgid) {
       msgid = `MODULE ${this.name}`;

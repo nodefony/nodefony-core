@@ -50,7 +50,7 @@ class Result extends Array {
     logger: boolean = false,
     options = {},
     sevrity: Severity = "INFO",
-    clean: boolean = false
+    clean: boolean = false,
   ): Result {
     const res = new Result(
       this.filter((data: Result) => {
@@ -59,7 +59,7 @@ class Result extends Array {
           return data;
         }
         return null;
-      })
+      }),
     );
     if (clean) {
       this.clean();
@@ -75,7 +75,7 @@ class Result extends Array {
           return data;
         }
         return null;
-      })
+      }),
     );
     if (clean) {
       this.clean();

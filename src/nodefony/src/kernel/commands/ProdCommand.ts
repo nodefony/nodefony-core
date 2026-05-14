@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
@@ -17,12 +16,12 @@ class Prod extends Command {
       "production",
       "Start Server in Production Mode (PM2 process manager)",
       cli as CliKernel,
-      options
+      options,
     );
     this.alias("prod");
     this.addOption(
       "--no-daemon",
-      "Nodefony Deamon off for production mode (usefull for docker)"
+      "Nodefony Deamon off for production mode (usefull for docker)",
     );
     // this.addOption(
     //   "--no-dump",
@@ -36,7 +35,7 @@ class Prod extends Command {
     this.service = this.get<pm2Service>("pm2");
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override async generate(options: any): Promise<void | Kernel> {
     try {
       if (process.env.MODE_START && process.env.MODE_START === "PM2") {

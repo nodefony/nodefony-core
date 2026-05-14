@@ -11,7 +11,7 @@ const ISDefined = function (ele: unknown): boolean {
 const parseParameterString = function (
   this: DynamicParam,
   str: string,
-  value?: unknown
+  value?: unknown,
 ): DynamicParam | null {
   if (!this) {
     throw new Error(`Bad call`);
@@ -34,13 +34,13 @@ const parseParameterString = function (
     }
     if (typeof this[currentPart] !== "object") {
       throw new Error(
-        `Cannot create property '${parts[0]}' on ${typeof this[currentPart]} '${this[currentPart]}'`
+        `Cannot create property '${parts[0]}' on ${typeof this[currentPart]} '${this[currentPart]}'`,
       );
     }
     return parseParameterString.call(
       this[currentPart] as DynamicParam,
       parts.join("."),
-      value
+      value,
     );
   }
   return this;
@@ -87,7 +87,7 @@ class Container implements IContainer {
       if (deep) {
         try {
           this.setParametersBulk(
-            structuredClone(input.parameters ?? {}) as DynamicParam
+            structuredClone(input.parameters ?? {}) as DynamicParam,
           );
         } catch {
           this.setParametersBulk(input.parameters ?? {});
@@ -117,7 +117,7 @@ class Container implements IContainer {
     pci: Pci,
     severity?: Severity,
     msgid?: Msgid,
-    msg?: Message
+    msg?: Message,
   ): ReturnType<Syslog["log"]> | void {
     const syslog = this.get<Syslog>("syslog");
     if (!syslog) {
@@ -190,7 +190,7 @@ class Container implements IContainer {
   public enterScope(name: string): Scope {
     if (!this.scopes[name]) {
       throw new Error(
-        `Scope "${name}" not declared. Call addScope("${name}") first.`
+        `Scope "${name}" not declared. Call addScope("${name}") first.`,
       );
     }
     const sc = new Scope(name, this, this.protoService, this.protoParameters);
@@ -230,12 +230,12 @@ class Container implements IContainer {
   public setParameters<T>(name: string, ele: T): DynamicParam | null {
     if (typeof name !== "string") {
       throw new Error(
-        "setParameters : container parameter name must be a string"
+        "setParameters : container parameter name must be a string",
       );
     }
     if (ele === undefined) {
       throw new Error(
-        `setParameters : ${name} container parameter value must be defined`
+        `setParameters : ${name} container parameter value must be defined`,
       );
     }
     if (!this.parameters) return null;
@@ -280,7 +280,7 @@ class Scope extends Container implements IScope {
     name: string,
     parent: Container,
     parentProtoService: ProtoService,
-    parentProtoParameters: ProtoParameters
+    parentProtoParameters: ProtoParameters,
   ) {
     super();
     this.name = name;
@@ -292,7 +292,7 @@ class Scope extends Container implements IScope {
   public override getParameters(
     name: string,
     merge: boolean = true,
-    deep: boolean = true
+    deep: boolean = true,
   ): DynamicParam | null {
     const res = parseParameterString.call(this.parameters ?? {}, name);
     const obj = this.parent?.getParameters(name);

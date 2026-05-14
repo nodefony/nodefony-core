@@ -24,7 +24,7 @@ export interface ISyslog {
   init(
     environment: EnvironmentType,
     debug?: DebugType,
-    options?: conditionsInterface
+    options?: conditionsInterface,
   ): void;
   clean(): this;
   reset(): this;
@@ -45,21 +45,21 @@ export interface ISyslog {
   getLogStack(
     start?: number,
     end?: number,
-    condition?: conditionsInterface
+    condition?: conditionsInterface,
   ): Pdu[] | Pdu;
   getLogs(conditions: conditionsInterface, stack?: Pdu[] | null): Pdu[];
   logToJson(conditions: conditionsInterface, stack?: Pdu[] | null): string;
   loadStack(
     stack: Pdu[] | string,
     doEvent?: boolean,
-    beforeConditions?: ((pdu: Pdu, stackItem: Pdu) => void) | null
+    beforeConditions?: ((pdu: Pdu, stackItem: Pdu) => void) | null,
   ): Pdu[];
 
   // ─── Filtrage conditionnel ──────────────────────────────────────────────────
   filter(conditions: conditionsInterface, callback: CallbackFunction): void;
   listenWithConditions(
     conditions: conditionsInterface,
-    callback: CallbackFunction
+    callback: CallbackFunction,
   ): void;
 
   // ─── Transports ────────────────────────────────────────────────────────────

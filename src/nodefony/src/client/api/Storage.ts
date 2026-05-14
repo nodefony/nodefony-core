@@ -26,7 +26,7 @@ class Storage extends Service {
         name,
         (service.container as Container) || null,
         false,
-        extend(true, {}, defaultStorage, options)
+        extend(true, {}, defaultStorage, options),
       );
     } else {
       super(name, undefined, false, extend(true, {}, defaultStorage, options));

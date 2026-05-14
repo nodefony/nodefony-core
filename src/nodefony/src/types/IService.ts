@@ -5,7 +5,10 @@ import type { EventDefaultInterface } from "../Event";
 import type Pdu from "../syslog/Pdu";
 import type { Severity, Msgid, Message, Pci } from "../syslog/Pdu";
 import type Syslog from "../syslog/Syslog";
-import type { SyslogDefaultSettings, conditionsInterface } from "../syslog/Syslog";
+import type {
+  SyslogDefaultSettings,
+  conditionsInterface,
+} from "../syslog/Syslog";
 import type { IKernel } from "./IKernel";
 import type { DebugType, EnvironmentType } from "./globals";
 
@@ -41,7 +44,7 @@ export interface IService {
   initSyslog(
     environment?: EnvironmentType,
     debug?: DebugType,
-    options?: conditionsInterface
+    options?: conditionsInterface,
   ): ReturnType<Syslog["init"]> | null;
   clean(syslog?: boolean): void;
 
@@ -71,10 +74,13 @@ export interface IService {
   removeListener(eventName: string | symbol, listener: EventListener): this;
   removeAllListeners(eventName?: string | symbol): this;
   prependListener(eventName: string | symbol, listener: EventListener): this;
-  prependOnceListener(eventName: string | symbol, listener: EventListener): this;
+  prependOnceListener(
+    eventName: string | symbol,
+    listener: EventListener,
+  ): this;
   listen(
     eventName: string | symbol,
-    listener: EventListener
+    listener: EventListener,
   ): (...args: unknown[]) => boolean;
   settingsToListen(localSettings: EventDefaultInterface, context: object): void;
   eventNames(): (string | symbol)[];

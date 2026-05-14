@@ -21,16 +21,16 @@ import { Events } from "../kernel/Kernel";
 interface CommandEvents {
   on(
     event: "onProgress",
-    listener: (step: number) => void
+    listener: (step: number) => void,
   ): NodeJS.EventEmitter;
   on(event: "onProgressEnd", listener: (pg: Cmd) => void): NodeJS.EventEmitter;
   once(
     event: "onProgress",
-    listener: (step: number) => void
+    listener: (step: number) => void,
   ): NodeJS.EventEmitter;
   once(
     event: "onProgressEnd",
-    listener: (pg: Cmd) => void
+    listener: (pg: Cmd) => void,
   ): NodeJS.EventEmitter;
   fire(event: "onProgress", step: number): boolean;
   fire(event: "onProgressEnd", pg?: clui.Progress): boolean;
@@ -67,7 +67,7 @@ class Command extends Service {
   override on(event: "onProgress", listener: (step?: number) => void): this;
   override on(
     event: "onProgressEnd",
-    listener: (pg?: clui.Progress) => void
+    listener: (pg?: clui.Progress) => void,
   ): this;
   override on(event: string, listener: (...args: any[]) => void): this {
     return super.on(event, listener);
@@ -75,7 +75,7 @@ class Command extends Service {
   override once(event: "onProgress", listener: (step?: number) => void): this;
   override once(
     event: "onProgressEnd",
-    listener: (pg?: clui.Progress) => void
+    listener: (pg?: clui.Progress) => void,
   ): this;
   override once(event: string, listener: (...args: any[]) => void): this {
     return super.once(event, listener);
@@ -121,20 +121,20 @@ class Command extends Service {
     name: string,
     description: string = "",
     cli: Cli | CliKernel,
-    options?: OptionsCommandInterface
+    options?: OptionsCommandInterface,
   ) {
     const container: Scope | Container | null | undefined = cli.container;
     //const notificationsCenter = cli?.notificationsCenter;
     const myoptions: OptionsCommandInterface = extend(
       {},
       defaultCommandOptions,
-      options
+      options,
     );
     super(
       name,
       <Container>container,
       null, //<Event>notificationsCenter,
-      <OptionsCommandInterface>myoptions
+      <OptionsCommandInterface>myoptions,
     );
     this.cli = cli;
     this.program = this.cli.commander as Cmd;
@@ -158,7 +158,7 @@ class Command extends Service {
       if (this.onKernelRegister) {
         this.kernel.once(
           "onRegister",
-          this.onKernelRegister.bind(this, ...args)
+          this.onKernelRegister.bind(this, ...args),
         );
       }
       if (this.onKernelBoot) {
@@ -169,7 +169,7 @@ class Command extends Service {
       }
       this.kernel.once(
         this.kernelEvent as string,
-        this.action.bind(this, ...args)
+        this.action.bind(this, ...args),
       );
     }
   }
@@ -177,7 +177,7 @@ class Command extends Service {
   isComplete(): boolean {
     if (this.kernel) {
       return this.kernel.isCommandComplete(
-        this.kernel.Events[this.kernelEvent]
+        this.kernel.Events[this.kernelEvent],
       );
     }
     throw new Error(`Kernel not founf`);
@@ -248,7 +248,7 @@ class Command extends Service {
    * @param {...any} args - Arguments passés à la commande.
    * @returns {Promise<any>} Promise résolue avec le résultat de l'interaction.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   public async interaction(...args: any[]): Promise<any> {
     return Promise.resolve(args);
   }
@@ -346,7 +346,7 @@ class Command extends Service {
    * @returns {Promise<clui.Progress|null|undefined>} Promise résolue avec la barre de progression.
    */
   public setProgress(
-    size: number = this.options.sizeProgress
+    size: number = this.options.sizeProgress,
   ): Promise<clui.Progress | null | undefined> {
     if (!this.cli || this.json) {
       return Promise.resolve(null);
@@ -375,7 +375,7 @@ class Command extends Service {
         this.on("onProgressEnd", () => {
           this.cli?.blankLine();
           this.log(
-            `\u001b[13pEND PROGRESS : ${this.cli?.getEmoji("checkered_flag")}`
+            `\u001b[13pEND PROGRESS : ${this.cli?.getEmoji("checkered_flag")}`,
           );
           this.removeAllListeners("onProgress");
           this.removeAllListeners("onProgressEnd");

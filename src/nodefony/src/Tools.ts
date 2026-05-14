@@ -4,7 +4,7 @@ import Container from "./Container";
 // ─── Cached references (évite les lookups prototypiques répétés) ─────────────
 
 const ObjProto = Object.prototype;
-const _toString = ObjProto.toString;     // explicite — ne dépend plus du global toString
+const _toString = ObjProto.toString; // explicite — ne dépend plus du global toString
 const hasOwn = ObjProto.hasOwnProperty;
 const fnToString = hasOwn.toString;
 const ObjectFunctionString = fnToString.call(Object);
@@ -25,8 +25,7 @@ const isPlainObject = (obj: unknown): boolean => {
   if (!obj || _toString.call(obj) !== "[object Object]") return false;
   const proto = getProto(obj);
   if (!proto) return true; // Object.create(null)
-  const Ctor =
-    hasOwn.call(proto, "constructor") && (proto as any).constructor;
+  const Ctor = hasOwn.call(proto, "constructor") && (proto as any).constructor;
   return (
     typeof Ctor === "function" && fnToString.call(Ctor) === ObjectFunctionString
   );

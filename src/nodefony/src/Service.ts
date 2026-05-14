@@ -1,10 +1,17 @@
 import { DebugType, EnvironmentType } from "./types/globals";
-import type { IService, DefaultOptionsService, EventListener } from "./types/IService";
+import type {
+  IService,
+  DefaultOptionsService,
+  EventListener,
+} from "./types/IService";
 import type { IKernel } from "./types/IKernel";
 import Container, { DynamicParam } from "./Container";
 import Event, { EventDefaultInterface } from "./Event";
 import Pdu, { Severity, Msgid, Message, Pci } from "./syslog/Pdu";
-import Syslog, { SyslogDefaultSettings, conditionsInterface } from "./syslog/Syslog";
+import Syslog, {
+  SyslogDefaultSettings,
+  conditionsInterface,
+} from "./syslog/Syslog";
 
 const defaultOptions: DefaultOptionsService = {
   events: {
@@ -47,10 +54,11 @@ class Service implements IService {
     name: string,
     container?: Container,
     notificationsCenter?: Event | false | null,
-    options: DefaultOptionsService = {}
+    options: DefaultOptionsService = {},
   ) {
     this.name = name;
-    this.container = container instanceof Container ? container : new Container();
+    this.container =
+      container instanceof Container ? container : new Container();
     this.options =
       notificationsCenter === false
         ? { ...options }
@@ -92,7 +100,7 @@ class Service implements IService {
   initSyslog(
     environment: EnvironmentType = "production",
     debug: DebugType = false,
-    options?: conditionsInterface
+    options?: conditionsInterface,
   ): ReturnType<Syslog["init"]> | null {
     return this.syslog ? this.syslog.init(environment, debug, options) : null;
   }
@@ -151,13 +159,19 @@ class Service implements IService {
 
   // ─── Tracking interne des listeners ────────────────────────────────────────
 
-  private trackListener(eventName: string | symbol, listener: EventListener): void {
+  private trackListener(
+    eventName: string | symbol,
+    listener: EventListener,
+  ): void {
     const list = this.#trackedListeners.get(eventName) ?? [];
     list.push(listener);
     this.#trackedListeners.set(eventName, list);
   }
 
-  private untrackListener(eventName: string | symbol, listener: EventListener): void {
+  private untrackListener(
+    eventName: string | symbol,
+    listener: EventListener,
+  ): void {
     const list = this.#trackedListeners.get(eventName);
     if (!list) return;
     const idx = list.indexOf(listener);
@@ -195,10 +209,12 @@ class Service implements IService {
 
   listen(
     eventName: string | symbol,
-    listener: EventListener
+    listener: EventListener,
   ): (...args: unknown[]) => boolean {
     // listen() bind le listener avant de l'enregistrer — on ne peut pas tracker l'original.
-    return this.nc.listen(this, eventName, listener) as (...args: unknown[]) => boolean;
+    return this.nc.listen(this, eventName, listener) as (
+      ...args: unknown[]
+    ) => boolean;
   }
 
   on(eventName: string | symbol, listener: EventListener): this {
@@ -220,7 +236,10 @@ class Service implements IService {
     return this;
   }
 
-  settingsToListen(localSettings: EventDefaultInterface, context: object): void {
+  settingsToListen(
+    localSettings: EventDefaultInterface,
+    context: object,
+  ): void {
     this.nc.settingsToListen(localSettings, context);
   }
 
@@ -246,7 +265,10 @@ class Service implements IService {
     return this;
   }
 
-  prependOnceListener(eventName: string | symbol, listener: EventListener): this {
+  prependOnceListener(
+    eventName: string | symbol,
+    listener: EventListener,
+  ): this {
     this.nc.prependOnceListener(eventName, listener);
     this.trackListener(eventName, listener);
     return this;

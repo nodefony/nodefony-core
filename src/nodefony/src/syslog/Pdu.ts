@@ -66,22 +66,23 @@ const translateSeverity = function (severity: Severity = "INFO"): number {
 };
 
 const sysLogSeverityObj: Record<Severity, Severity> = Object.entries(
-  SysLogSeverity
+  SysLogSeverity,
 ).reduce(
   (acc, [key, value]) => {
     acc[key as Severity] = value as Severity;
     return acc;
   },
-  {} as Record<Severity, Severity>
+  {} as Record<Severity, Severity>,
 );
 
 // Pre-built reverse map: numeric severity → name key (O(1) lookup vs O(n) filter per PDU)
 const severityNameMap = new Map<number, keyof typeof SysLogSeverity>(
   (
-    Object.entries(SysLogSeverity).filter(
-      ([, v]) => typeof v === "number"
-    ) as [string, number][]
-  ).map(([k, v]) => [v, k as keyof typeof SysLogSeverity])
+    Object.entries(SysLogSeverity).filter(([, v]) => typeof v === "number") as [
+      string,
+      number,
+    ][]
+  ).map(([k, v]) => [v, k as keyof typeof SysLogSeverity]),
 );
 
 // Fast inline typeof for PDU payload — avoids lodash overhead on hot log path
@@ -123,7 +124,7 @@ class Pdu {
     moduleName: ModuleName = "nodefony",
     msgid: Msgid = "",
     msg: Message = "",
-    date?: PduDate
+    date?: PduDate,
   ) {
     // Fast timestamp — avoid Date object creation when date is not provided
     if (date === undefined) {
@@ -164,7 +165,7 @@ class Pdu {
       return SysLogSeverity[numericSeverity];
     }
     const severityKey = Pdu.severityToString(
-      SysLogSeverity[severity as number]
+      SysLogSeverity[severity as number],
     );
     return severityKey !== undefined ? severityKey : undefined;
   }

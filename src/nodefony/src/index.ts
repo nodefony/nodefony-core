@@ -16,8 +16,16 @@ export { default as Builder } from "./command/Builder";
 // ─── Logging ──────────────────────────────────────────────────────────────────
 export { default as Syslog } from "./syslog/Syslog";
 export { default as Pdu } from "./syslog/Pdu";
-export { ConsoleTransport, FileTransport, HttpTransport, SyslogTransport } from "./syslog/transports/index";
-export type { FileTransportOptions, HttpTransportOptions } from "./syslog/transports/index";
+export {
+  ConsoleTransport,
+  FileTransport,
+  HttpTransport,
+  SyslogTransport,
+} from "./syslog/transports/index";
+export type {
+  FileTransportOptions,
+  HttpTransportOptions,
+} from "./syslog/transports/index";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 export { default as nodefonyError } from "./Error";
@@ -39,7 +47,13 @@ export { default as Entity } from "./kernel/orm/Entity";
 export { default as Connector } from "./kernel/orm/Connector";
 
 // ─── Decorators ───────────────────────────────────────────────────────────────
-export { modules, injectable, inject, services, entities } from "./kernel/decorators/kernelDecorator";
+export {
+  modules,
+  injectable,
+  inject,
+  services,
+  entities,
+} from "./kernel/decorators/kernelDecorator";
 export type { DIScope, InjectableOptions } from "./kernel/injector/injector";
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -58,7 +72,11 @@ export {
 
 // ─── Types & Interfaces ───────────────────────────────────────────────────────
 export type { IKernel, KernelNetworkResult } from "./types/IKernel";
-export type { IService, DefaultOptionsService, EventListener } from "./types/IService";
+export type {
+  IService,
+  DefaultOptionsService,
+  EventListener,
+} from "./types/IService";
 export type { IContainer, IScope } from "./types/IContainer";
 export type { IModule } from "./types/IModule";
 export type { ISyslog } from "./types/ISyslog";

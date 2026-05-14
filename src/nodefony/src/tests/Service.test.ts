@@ -90,11 +90,17 @@ describe("Service — construction", () => {
     const s = new Service("noEventsOpt", undefined, undefined, {
       events: { nbListeners: 10 },
     });
-    assert.strictEqual((s.options as Record<string, unknown>).events, undefined);
+    assert.strictEqual(
+      (s.options as Record<string, unknown>).events,
+      undefined,
+    );
   });
 
   it("notificationsCenter=false → options non fusionnées avec defaultOptions", () => {
-    const s = new Service("falseNC", undefined, false, { foo: "bar" } as Record<string, unknown>);
+    const s = new Service("falseNC", undefined, false, { foo: "bar" } as Record<
+      string,
+      unknown
+    >);
     assert.strictEqual(s.notificationsCenter, undefined);
     assert.strictEqual((s.options as Record<string, unknown>).foo, "bar");
   });
@@ -193,7 +199,10 @@ describe("Service — container delegation", () => {
 
   it("set() throw si container null", () => {
     service.clean();
-    assert.throws(() => service.set("key", "value"), /container not initialized/);
+    assert.throws(
+      () => service.set("key", "value"),
+      /container not initialized/,
+    );
   });
 
   it("has() retourne false si container null", () => {
@@ -223,7 +232,10 @@ describe("Service — container delegation", () => {
 
   it("setParameters() throw si container null", () => {
     service.clean();
-    assert.throws(() => service.setParameters("key", "val"), /container not initialized/);
+    assert.throws(
+      () => service.setParameters("key", "val"),
+      /container not initialized/,
+    );
   });
 });
 
@@ -251,21 +263,27 @@ describe("Service — events", () => {
 
   it("emitAsync() retourne une Promise (alias fireAsync)", async () => {
     let resolved: string | undefined;
-    service.on("async2", async (v: string) => { resolved = v; });
+    service.on("async2", async (v: string) => {
+      resolved = v;
+    });
     await service.emitAsync("async2", "done");
     assert.strictEqual(resolved, "done");
   });
 
   it("fireAsync() retourne une Promise", async () => {
     let resolved: string | undefined;
-    service.on("async", async (v: string) => { resolved = v; });
+    service.on("async", async (v: string) => {
+      resolved = v;
+    });
     await service.fireAsync("async", "done");
     assert.strictEqual(resolved, "done");
   });
 
   it("once() ne reçoit qu'une fois", () => {
     let count = 0;
-    service.once("single", () => { count++; });
+    service.once("single", () => {
+      count++;
+    });
     service.emit("single");
     service.emit("single");
     assert.strictEqual(count, 1);
@@ -273,7 +291,9 @@ describe("Service — events", () => {
 
   it("off() supprime un listener", () => {
     let count = 0;
-    const listener: EventListener = () => { count++; };
+    const listener: EventListener = () => {
+      count++;
+    };
     service.on("toggled", listener);
     service.emit("toggled");
     service.off("toggled", listener);
@@ -283,14 +303,18 @@ describe("Service — events", () => {
 
   it("addListener() enregistre un listener", () => {
     let called = false;
-    service.addListener("addTest", () => { called = true; });
+    service.addListener("addTest", () => {
+      called = true;
+    });
     service.emit("addTest");
     assert.strictEqual(called, true);
   });
 
   it("removeListener() supprime un listener", () => {
     let count = 0;
-    const fn: EventListener = () => { count++; };
+    const fn: EventListener = () => {
+      count++;
+    };
     service.addListener("rmTest", fn);
     service.emit("rmTest");
     service.removeListener("rmTest", fn);
@@ -316,16 +340,24 @@ describe("Service — events", () => {
 
   it("prependListener() exécuté avant on()", () => {
     const order: string[] = [];
-    service.on("order", () => { order.push("second"); });
-    service.prependListener("order", () => { order.push("first"); });
+    service.on("order", () => {
+      order.push("second");
+    });
+    service.prependListener("order", () => {
+      order.push("first");
+    });
     service.emit("order");
     assert.deepStrictEqual(order, ["first", "second"]);
   });
 
   it("prependOnceListener() exécuté en premier et une seule fois", () => {
     const order: string[] = [];
-    service.on("orderOnce", () => { order.push("regular"); });
-    service.prependOnceListener("orderOnce", () => { order.push("prepend-once"); });
+    service.on("orderOnce", () => {
+      order.push("regular");
+    });
+    service.prependOnceListener("orderOnce", () => {
+      order.push("prepend-once");
+    });
     service.emit("orderOnce");
     service.emit("orderOnce");
     assert.deepStrictEqual(order, ["prepend-once", "regular", "regular"]);
@@ -368,7 +400,9 @@ describe("Service — events", () => {
   it("symbol event names", () => {
     const sym = Symbol("myEvent");
     let received = false;
-    service.on(sym, () => { received = true; });
+    service.on(sym, () => {
+      received = true;
+    });
     service.emit(sym);
     assert.strictEqual(received, true);
     assert(service.eventNames().includes(sym));
@@ -376,7 +410,9 @@ describe("Service — events", () => {
 
   it("listen() retourne une fonction qui fire l'event", () => {
     let received = false;
-    const fire = service.listen("listenTest", () => { received = true; });
+    const fire = service.listen("listenTest", () => {
+      received = true;
+    });
     assert.strictEqual(typeof fire, "function");
     fire();
     assert.strictEqual(received, true);
@@ -384,7 +420,14 @@ describe("Service — events", () => {
 
   it("settingsToListen() auto-wire les clés onFoo", () => {
     let called = false;
-    service.settingsToListen({ onMyEvent: () => { called = true; } }, service);
+    service.settingsToListen(
+      {
+        onMyEvent: () => {
+          called = true;
+        },
+      },
+      service,
+    );
     service.emit("onMyEvent");
     assert.strictEqual(called, true);
   });
@@ -406,17 +449,26 @@ describe("Service — events", () => {
 
   it("throw si notificationsCenter absent — on()", () => {
     const s = new Service("noEvents", undefined, false);
-    assert.throws(() => s.on("x", () => {}), /notificationsCenter not initialized/);
+    assert.throws(
+      () => s.on("x", () => {}),
+      /notificationsCenter not initialized/,
+    );
   });
 
   it("throw si notificationsCenter absent — once()", () => {
     const s = new Service("noEvents", undefined, false);
-    assert.throws(() => s.once("x", () => {}), /notificationsCenter not initialized/);
+    assert.throws(
+      () => s.once("x", () => {}),
+      /notificationsCenter not initialized/,
+    );
   });
 
   it("throw si notificationsCenter absent — off()", () => {
     const s = new Service("noEvents", undefined, false);
-    assert.throws(() => s.off("x", () => {}), /notificationsCenter not initialized/);
+    assert.throws(
+      () => s.off("x", () => {}),
+      /notificationsCenter not initialized/,
+    );
   });
 
   it("throw si notificationsCenter absent — eventNames()", () => {
@@ -426,37 +478,58 @@ describe("Service — events", () => {
 
   it("throw si notificationsCenter absent — listenerCount()", () => {
     const s = new Service("noEvents", undefined, false);
-    assert.throws(() => s.listenerCount("x"), /notificationsCenter not initialized/);
+    assert.throws(
+      () => s.listenerCount("x"),
+      /notificationsCenter not initialized/,
+    );
   });
 
   it("throw si notificationsCenter absent — listen()", () => {
     const s = new Service("noEvents", undefined, false);
-    assert.throws(() => s.listen("x", () => {}), /notificationsCenter not initialized/);
+    assert.throws(
+      () => s.listen("x", () => {}),
+      /notificationsCenter not initialized/,
+    );
   });
 
   it("throw si notificationsCenter absent — setMaxListeners()", () => {
     const s = new Service("noEvents", undefined, false);
-    assert.throws(() => s.setMaxListeners(10), /notificationsCenter not initialized/);
+    assert.throws(
+      () => s.setMaxListeners(10),
+      /notificationsCenter not initialized/,
+    );
   });
 
   it("throw si notificationsCenter absent — getMaxListeners()", () => {
     const s = new Service("noEvents", undefined, false);
-    assert.throws(() => s.getMaxListeners(), /notificationsCenter not initialized/);
+    assert.throws(
+      () => s.getMaxListeners(),
+      /notificationsCenter not initialized/,
+    );
   });
 
   it("throw après clean() — fire()", () => {
     service.clean();
-    assert.throws(() => service.fire("x"), /notificationsCenter not initialized/);
+    assert.throws(
+      () => service.fire("x"),
+      /notificationsCenter not initialized/,
+    );
   });
 
   it("throw après clean() — emit()", () => {
     service.clean();
-    assert.throws(() => service.emit("x"), /notificationsCenter not initialized/);
+    assert.throws(
+      () => service.emit("x"),
+      /notificationsCenter not initialized/,
+    );
   });
 
   it("throw après clean() — on()", () => {
     service.clean();
-    assert.throws(() => service.on("x", () => {}), /notificationsCenter not initialized/);
+    assert.throws(
+      () => service.on("x", () => {}),
+      /notificationsCenter not initialized/,
+    );
   });
 });
 
@@ -538,7 +611,9 @@ describe("Service — log", () => {
   it("logger() appelle console.debug", () => {
     let called = false;
     const orig = console.debug;
-    console.debug = () => { called = true; };
+    console.debug = () => {
+      called = true;
+    };
     service.logger("debug payload");
     console.debug = orig;
     assert.strictEqual(called, true);
@@ -547,7 +622,9 @@ describe("Service — log", () => {
   it("trace() appelle console.trace", () => {
     let called = false;
     const orig = console.trace;
-    console.trace = () => { called = true; };
+    console.trace = () => {
+      called = true;
+    };
     service.trace("trace payload");
     console.trace = orig;
     assert.strictEqual(called, true);
@@ -597,7 +674,10 @@ describe("Service — clean", () => {
   it("clean(true) appelle syslog.reset()", () => {
     const s = new Service("clean-reset");
     let resetCalled = false;
-    s.syslog!.reset = function () { resetCalled = true; return this; };
+    s.syslog!.reset = function () {
+      resetCalled = true;
+      return this;
+    };
     s.clean(true);
     assert.strictEqual(resetCalled, true);
   });
@@ -605,7 +685,10 @@ describe("Service — clean", () => {
   it("clean(false) ne reset pas le syslog", () => {
     const s = new Service("clean-no-reset");
     let resetCalled = false;
-    s.syslog!.reset = function () { resetCalled = true; return this; };
+    s.syslog!.reset = function () {
+      resetCalled = true;
+      return this;
+    };
     s.clean(false);
     assert.strictEqual(resetCalled, false);
   });
@@ -624,7 +707,10 @@ describe("Service — clean", () => {
 
   it("clean() idempotent — double appel sans throw", () => {
     const s = new Service("clean-idempotent");
-    assert.doesNotThrow(() => { s.clean(); s.clean(); });
+    assert.doesNotThrow(() => {
+      s.clean();
+      s.clean();
+    });
   });
 
   it("clean() retire les listeners d'un Event partagé (pas de fuite mémoire)", () => {
@@ -722,8 +808,12 @@ describe("Service — scénarios framework (partage container)", () => {
     const sA = new Service("sA", undefined, sharedNC);
     const sB = new Service("sB", undefined, sharedNC);
     let count = 0;
-    sA.on("shared", () => { count++; });
-    sB.on("shared", () => { count++; });
+    sA.on("shared", () => {
+      count++;
+    });
+    sB.on("shared", () => {
+      count++;
+    });
     sharedNC.emit("shared");
     assert.strictEqual(count, 2);
   });

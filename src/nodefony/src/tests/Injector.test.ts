@@ -134,7 +134,10 @@ describe("Injector — register", () => {
   });
 
   it("register('', Ctor) → throw 'bad argument'", () => {
-    assert.throws(() => Injector.register("", BarService as any), /bad argument/);
+    assert.throws(
+      () => Injector.register("", BarService as any),
+      /bad argument/,
+    );
   });
 
   it("register(name, null) → throw 'bad argument'", () => {
@@ -202,17 +205,22 @@ describe("Injector — get", () => {
 
 describe("Injector.instantiate — backward compat (sans métadonnée DI)", () => {
   it("PlainService sans decorator → instancié avec argsClass tels quels", () => {
-    const inst = Injector.instantiate(PlainService as any, "hello") as PlainService;
+    const inst = Injector.instantiate(
+      PlainService as any,
+      "hello",
+    ) as PlainService;
     assert.ok(inst instanceof PlainService);
     assert.strictEqual(inst.val, "hello");
   });
 
   it("PlainService avec deux args → les deux transmis dans l'ordre", () => {
     class TwoArg extends Service {
-      a: string; b: number;
+      a: string;
+      b: number;
       constructor(a: string, b: number) {
         super("TwoArg", new Container());
-        this.a = a; this.b = b;
+        this.a = a;
+        this.b = b;
       }
     }
     const inst = Injector.instantiate(TwoArg as any, "x", 42) as TwoArg;
@@ -237,10 +245,13 @@ describe("Injector.instantiate — backward compat (sans métadonnée DI)", () =
 describe("@inject — métadonnées Reflect", () => {
   it("inject('AutoA') appelé sur classe position 0 → meta[0] = 'AutoA'", () => {
     class TestTarget extends Service {
-      constructor(a: AutoA) { super("test", a.container as Container); }
+      constructor(a: AutoA) {
+        super("test", a.container as Container);
+      }
     }
     (inject("AutoA") as Function)(TestTarget, undefined, 0);
-    const meta: string[] = Reflect.getMetadata("inject:services", TestTarget) || [];
+    const meta: string[] =
+      Reflect.getMetadata("inject:services", TestTarget) || [];
     assert.strictEqual(meta[0], "AutoA");
   });
 
@@ -252,7 +263,8 @@ describe("@inject — métadonnées Reflect", () => {
     }
     (inject("AutoA") as Function)(TwoPosTarget, undefined, 0);
     (inject("AutoB") as Function)(TwoPosTarget, undefined, 2);
-    const meta: string[] = Reflect.getMetadata("inject:services", TwoPosTarget) || [];
+    const meta: string[] =
+      Reflect.getMetadata("inject:services", TwoPosTarget) || [];
     assert.strictEqual(meta[0], "AutoA");
     assert.strictEqual(meta[1], undefined);
     assert.strictEqual(meta[2], "AutoB");
@@ -260,25 +272,38 @@ describe("@inject — métadonnées Reflect", () => {
 
   it("inject('') → throw 'requires a valid service name'", () => {
     assert.throws(
-      () => (inject("") as Function)(class T extends Service { constructor() { super("t", new Container()); } }, undefined, 0),
-      /requires a valid service name/
+      () =>
+        (inject("") as Function)(
+          class T extends Service {
+            constructor() {
+              super("t", new Container());
+            }
+          },
+          undefined,
+          0,
+        ),
+      /requires a valid service name/,
     );
   });
 
   it("ExplicitConsumer — inject:services[0] = 'AutoA' (émis via inject() direct)", () => {
-    const meta: string[] = Reflect.getMetadata("inject:services", ExplicitConsumer) || [];
+    const meta: string[] =
+      Reflect.getMetadata("inject:services", ExplicitConsumer) || [];
     assert.strictEqual(meta[0], "AutoA");
   });
 
   it("Injector.instantiate(ExplicitConsumer) → injected est instance AutoA", () => {
-    const inst = Injector.instantiate(ExplicitConsumer as any) as ExplicitConsumer;
+    const inst = Injector.instantiate(
+      ExplicitConsumer as any,
+    ) as ExplicitConsumer;
     assert.ok(inst instanceof ExplicitConsumer);
     assert.ok(inst.injected instanceof AutoA);
   });
 
   it("@inject priorité sur design:paramtypes à la même position", () => {
     // PriorityConsumer.inject:services[0] = 'AutoA' (défini en haut du fichier)
-    const meta: string[] = Reflect.getMetadata("inject:services", PriorityConsumer) || [];
+    const meta: string[] =
+      Reflect.getMetadata("inject:services", PriorityConsumer) || [];
     assert.strictEqual(meta[0], "AutoA");
   });
 });
@@ -295,7 +320,11 @@ describe("Injector.instantiate — auto-injection via design:paramtypes", () => 
     Reflect.defineMetadata("design:paramtypes", [AutoA, AutoB], AutoConsumer);
     Reflect.defineMetadata("design:paramtypes", [String, AutoA], MixedConsumer);
     // PriorityConsumer: pos 0 = @inject("AutoA") (déjà défini), pos 1 = AutoB (auto)
-    Reflect.defineMetadata("design:paramtypes", [AutoA, AutoB], PriorityConsumer);
+    Reflect.defineMetadata(
+      "design:paramtypes",
+      [AutoA, AutoB],
+      PriorityConsumer,
+    );
   });
 
   it("AutoConsumer(a: AutoA, b: AutoB) → auto-injectés tous les deux", () => {
@@ -312,7 +341,10 @@ describe("Injector.instantiate — auto-injection via design:paramtypes", () => 
   });
 
   it("MixedConsumer(label: string, a: AutoA) — String non injectable → arg explicite", () => {
-    const inst = Injector.instantiate(MixedConsumer as any, "my-label") as MixedConsumer;
+    const inst = Injector.instantiate(
+      MixedConsumer as any,
+      "my-label",
+    ) as MixedConsumer;
     assert.ok(inst instanceof MixedConsumer);
     assert.strictEqual(inst.label, "my-label");
     assert.ok(inst.autoA instanceof AutoA);
@@ -325,11 +357,15 @@ describe("Injector.instantiate — auto-injection via design:paramtypes", () => 
   });
 
   it("PlainService sans decorator → pas de design:paramtypes", () => {
-    assert.strictEqual(Reflect.getMetadata("design:paramtypes", PlainService), undefined);
+    assert.strictEqual(
+      Reflect.getMetadata("design:paramtypes", PlainService),
+      undefined,
+    );
   });
 
   it("design:paramtypes de AutoConsumer lisible après émission manuelle", () => {
-    const types: unknown[] = Reflect.getMetadata("design:paramtypes", AutoConsumer) || [];
+    const types: unknown[] =
+      Reflect.getMetadata("design:paramtypes", AutoConsumer) || [];
     assert.strictEqual(types[0], AutoA);
     assert.strictEqual(types[1], AutoB);
   });
@@ -340,16 +376,26 @@ describe("Injector.instantiate — auto-injection via design:paramtypes", () => 
 describe("Injector.instantiate — @inject prioritaire sur auto", () => {
   it("PriorityConsumer: pos 0 = @inject('AutoA'), pos 1 = auto AutoB", () => {
     // inject:services[0] = 'AutoA' + design:paramtypes[0]=AutoA, [1]=AutoB (section 6 before)
-    const inst = Injector.instantiate(PriorityConsumer as any) as PriorityConsumer;
+    const inst = Injector.instantiate(
+      PriorityConsumer as any,
+    ) as PriorityConsumer;
     assert.ok(inst instanceof PriorityConsumer);
-    assert.ok(inst.injected instanceof AutoA, "position 0 doit être AutoA via @inject");
-    assert.ok(inst.auto instanceof AutoB, "position 1 doit être AutoB via auto");
+    assert.ok(
+      inst.injected instanceof AutoA,
+      "position 0 doit être AutoA via @inject",
+    );
+    assert.ok(
+      inst.auto instanceof AutoB,
+      "position 1 doit être AutoB via auto",
+    );
   });
 
   it("inject:services[0]='AutoA' prioritaire même si design:paramtypes[0]=AutoA aussi", () => {
     // Dans ce cas les deux donnent le même résultat — on vérifie la cohérence
-    const meta: string[] = Reflect.getMetadata("inject:services", PriorityConsumer) || [];
-    const types: unknown[] = Reflect.getMetadata("design:paramtypes", PriorityConsumer) || [];
+    const meta: string[] =
+      Reflect.getMetadata("inject:services", PriorityConsumer) || [];
+    const types: unknown[] =
+      Reflect.getMetadata("design:paramtypes", PriorityConsumer) || [];
     assert.strictEqual(meta[0], "AutoA");
     assert.strictEqual(types[1], AutoB);
   });
@@ -394,13 +440,21 @@ describe("Injector.instantiate — résolution depuis kernel container", () => {
   it("si kernel.get(name) retourne une instance → réutilisée (pas de re-instantiation)", () => {
     const sharedAutoA = new AutoA();
     const origGetKernel = Nodefony.getKernel;
-    const stubKernel = { get: (name: string) => name === "AutoA" ? sharedAutoA : null };
+    const stubKernel = {
+      get: (name: string) => (name === "AutoA" ? sharedAutoA : null),
+    };
     (Nodefony as any).getKernel = () => stubKernel;
 
     try {
-      const inst = Injector.instantiate(ExplicitConsumer as any) as ExplicitConsumer;
+      const inst = Injector.instantiate(
+        ExplicitConsumer as any,
+      ) as ExplicitConsumer;
       assert.ok(inst instanceof ExplicitConsumer);
-      assert.strictEqual(inst.injected, sharedAutoA, "doit être la même référence");
+      assert.strictEqual(
+        inst.injected,
+        sharedAutoA,
+        "doit être la même référence",
+      );
     } finally {
       (Nodefony as any).getKernel = origGetKernel;
     }
@@ -412,7 +466,9 @@ describe("Injector.instantiate — résolution depuis kernel container", () => {
     (Nodefony as any).getKernel = () => stubKernel;
 
     try {
-      const inst = Injector.instantiate(ExplicitConsumer as any) as ExplicitConsumer;
+      const inst = Injector.instantiate(
+        ExplicitConsumer as any,
+      ) as ExplicitConsumer;
       assert.ok(inst.injected instanceof AutoA);
     } finally {
       (Nodefony as any).getKernel = origGetKernel;
@@ -430,7 +486,9 @@ describe("Injector.instantiate — résolution depuis kernel container", () => {
   it("kernel.get() prioritaire sur le registre — instance partagée retournée", () => {
     const shared = new AutoB();
     const origGetKernel = Nodefony.getKernel;
-    (Nodefony as any).getKernel = () => ({ get: (n: string) => n === "AutoB" ? shared : null });
+    (Nodefony as any).getKernel = () => ({
+      get: (n: string) => (n === "AutoB" ? shared : null),
+    });
 
     try {
       const inst = Injector.instantiate(AutoConsumer as any) as AutoConsumer;
@@ -446,7 +504,10 @@ describe("Injector.instantiate — résolution depuis kernel container", () => {
 describe("Injector.inject et Reflect.construct direct", () => {
   it("inject = instantiate pour classes sans metadata", () => {
     const a = Injector.inject(PlainService as any, "val-a") as PlainService;
-    const b = Injector.instantiate(PlainService as any, "val-a") as PlainService;
+    const b = Injector.instantiate(
+      PlainService as any,
+      "val-a",
+    ) as PlainService;
     assert.ok(a instanceof PlainService);
     assert.ok(b instanceof PlainService);
     assert.strictEqual(a.val, b.val);
@@ -454,7 +515,9 @@ describe("Injector.inject et Reflect.construct direct", () => {
   });
 
   it("Reflect.construct instancie sans DI", () => {
-    const inst = Reflect.construct(PlainService, ["reflect-test"]) as PlainService;
+    const inst = Reflect.construct(PlainService, [
+      "reflect-test",
+    ]) as PlainService;
     assert.ok(inst instanceof PlainService);
     assert.strictEqual(inst.val, "reflect-test");
   });
@@ -476,7 +539,10 @@ describe("Injector instance — délégation vers static", () => {
     (inj as any).syslog = null;
 
     // La méthode instance délègue à Injector.instantiate
-    const result = Injector.instantiate(PlainService as any, "instance-test") as PlainService;
+    const result = Injector.instantiate(
+      PlainService as any,
+      "instance-test",
+    ) as PlainService;
     assert.ok(result instanceof PlainService);
     assert.strictEqual(result.val, "instance-test");
   });
@@ -487,24 +553,34 @@ describe("Injector instance — délégation vers static", () => {
 describe("Injector — cas limites", () => {
   it("instantiate → service @inject vers nom inconnu → throw 'not found'", () => {
     class UnknownRef extends Service {
-      constructor(a: any) { super("unknownref", new Container()); }
+      constructor(a: any) {
+        super("unknownref", new Container());
+      }
     }
     (inject("NoSuchService") as Function)(UnknownRef, undefined, 0);
     assert.throws(
       () => Injector.instantiate(UnknownRef as any),
-      /not found or not injectable/
+      /not found or not injectable/,
     );
   });
 
   it("auto-injection: type non-injectable (String) → consommé comme arg explicite", () => {
     // MixedConsumer: String → non injectable → argsClass[0]
-    const inst = Injector.instantiate(MixedConsumer as any, "explicit-label") as MixedConsumer;
+    const inst = Injector.instantiate(
+      MixedConsumer as any,
+      "explicit-label",
+    ) as MixedConsumer;
     assert.ok(inst instanceof MixedConsumer);
     assert.strictEqual(inst.label, "explicit-label");
   });
 
   it("argsClass en excès par rapport à totalParams → appendés silencieusement", () => {
-    const inst = Injector.instantiate(PlainService as any, "first", "extra1", "extra2") as PlainService;
+    const inst = Injector.instantiate(
+      PlainService as any,
+      "first",
+      "extra1",
+      "extra2",
+    ) as PlainService;
     assert.ok(inst instanceof PlainService);
     assert.strictEqual(inst.val, "first");
   });
@@ -587,12 +663,16 @@ class TransientSvc extends Service {
 
 @injectable({ scope: "singleton" })
 class ExplicitSingleton extends Service {
-  constructor() { super("ExplicitSingleton", new Container()); }
+  constructor() {
+    super("ExplicitSingleton", new Container());
+  }
 }
 
 @injectable({ name: "NamedTransient", scope: "transient" })
 class NTSvc extends Service {
-  constructor() { super("NTSvc", new Container()); }
+  constructor() {
+    super("NTSvc", new Container());
+  }
 }
 
 // Consumer qui reçoit TransientSvc en dépendance (auto-injection via paramtypes)
@@ -605,7 +685,11 @@ class ConsumerOfTransient extends Service {
   }
 }
 // Pas de design:paramtypes natif (tsx) — on l'émet manuellement
-Reflect.defineMetadata("design:paramtypes", [TransientSvc], ConsumerOfTransient);
+Reflect.defineMetadata(
+  "design:paramtypes",
+  [TransientSvc],
+  ConsumerOfTransient,
+);
 
 @injectable()
 class ConsumerOfTransient2 extends Service {
@@ -615,7 +699,11 @@ class ConsumerOfTransient2 extends Service {
     this.dep = d;
   }
 }
-Reflect.defineMetadata("design:paramtypes", [TransientSvc], ConsumerOfTransient2);
+Reflect.defineMetadata(
+  "design:paramtypes",
+  [TransientSvc],
+  ConsumerOfTransient2,
+);
 
 describe("Injector — scope singleton/transient", () => {
   // ── getScope ──────────────────────────────────────────────────────────────
@@ -649,20 +737,32 @@ describe("Injector — scope singleton/transient", () => {
   // ── transient — comportement ──────────────────────────────────────────────
 
   it("transient — deux consumers reçoivent des instances distinctes", () => {
-    const c1 = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
-    const c2 = Injector.instantiate(ConsumerOfTransient2 as any) as ConsumerOfTransient2;
+    const c1 = Injector.instantiate(
+      ConsumerOfTransient as any,
+    ) as ConsumerOfTransient;
+    const c2 = Injector.instantiate(
+      ConsumerOfTransient2 as any,
+    ) as ConsumerOfTransient2;
     assert.notStrictEqual(c1.dep, c2.dep, "transient → instances différentes");
   });
 
   it("transient — même consumer instancié deux fois → deps différentes", () => {
-    const a = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
-    const b = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
+    const a = Injector.instantiate(
+      ConsumerOfTransient as any,
+    ) as ConsumerOfTransient;
+    const b = Injector.instantiate(
+      ConsumerOfTransient as any,
+    ) as ConsumerOfTransient;
     assert.notStrictEqual(a.dep, b.dep);
   });
 
   it("transient — uid différent entre deux résolutions", () => {
-    const a = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
-    const b = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
+    const a = Injector.instantiate(
+      ConsumerOfTransient as any,
+    ) as ConsumerOfTransient;
+    const b = Injector.instantiate(
+      ConsumerOfTransient as any,
+    ) as ConsumerOfTransient;
     // uid = Math.random() → différent avec très haute probabilité
     assert.notStrictEqual(a.dep.uid, b.dep.uid);
   });
@@ -677,8 +777,14 @@ describe("Injector — scope singleton/transient", () => {
     });
 
     try {
-      const c = Injector.instantiate(ConsumerOfTransient as any) as ConsumerOfTransient;
-      assert.notStrictEqual(c.dep, shared, "transient ignore le container kernel");
+      const c = Injector.instantiate(
+        ConsumerOfTransient as any,
+      ) as ConsumerOfTransient;
+      assert.notStrictEqual(
+        c.dep,
+        shared,
+        "transient ignore le container kernel",
+      );
       assert.notStrictEqual(c.dep.uid, -1, "uid doit être nouveau, pas -1");
     } finally {
       (Nodefony as any).getKernel = origGetKernel;
@@ -703,11 +809,21 @@ describe("Injector — scope singleton/transient", () => {
         this.dep = d;
       }
     }
-    Reflect.defineMetadata("design:paramtypes", [ExplicitSingleton], ConsumerSingleton);
+    Reflect.defineMetadata(
+      "design:paramtypes",
+      [ExplicitSingleton],
+      ConsumerSingleton,
+    );
 
     try {
-      const c = Injector.instantiate(ConsumerSingleton as any) as ConsumerSingleton;
-      assert.strictEqual(c.dep, shared, "singleton → instance partagée du kernel");
+      const c = Injector.instantiate(
+        ConsumerSingleton as any,
+      ) as ConsumerSingleton;
+      assert.strictEqual(
+        c.dep,
+        shared,
+        "singleton → instance partagée du kernel",
+      );
     } finally {
       (Nodefony as any).getKernel = origGetKernel;
     }
@@ -724,7 +840,9 @@ describe("Injector — scope singleton/transient", () => {
   it("@injectable({ name }) seul → scope 'singleton' par défaut", () => {
     @injectable({ name: "OnlyName" })
     class OnlyNameSvc extends Service {
-      constructor() { super("OnlyNameSvc", new Container()); }
+      constructor() {
+        super("OnlyNameSvc", new Container());
+      }
     }
     assert.ok(Injector.isRegistered("OnlyName"));
     assert.strictEqual(Injector.getScope("OnlyName"), "singleton");
@@ -733,7 +851,9 @@ describe("Injector — scope singleton/transient", () => {
   it("@injectable({ scope: 'transient' }) seul → name = class name", () => {
     @injectable({ scope: "transient" })
     class JustTransient extends Service {
-      constructor() { super("JustTransient", new Container()); }
+      constructor() {
+        super("JustTransient", new Container());
+      }
     }
     assert.ok(Injector.isRegistered("JustTransient"));
     assert.strictEqual(Injector.getScope("JustTransient"), "transient");
@@ -742,7 +862,9 @@ describe("Injector — scope singleton/transient", () => {
   it("@injectable({}) → singleton + nom de classe", () => {
     @injectable({})
     class EmptyOpts extends Service {
-      constructor() { super("EmptyOpts", new Container()); }
+      constructor() {
+        super("EmptyOpts", new Container());
+      }
     }
     assert.ok(Injector.isRegistered("EmptyOpts"));
     assert.strictEqual(Injector.getScope("EmptyOpts"), "singleton");
@@ -758,7 +880,9 @@ describe("Injector — fallback kernel container (non @injectable)", () => {
     const container = new Container();
     const fake = {
       container,
-      get(n: string) { return container.get(n); },
+      get(n: string) {
+        return container.get(n);
+      },
     };
     container.set(name, instance);
     return fake;
@@ -791,11 +915,17 @@ describe("Injector — fallback kernel container (non @injectable)", () => {
     (Nodefony as any).getKernel = () => ({ get: () => null });
     try {
       class Consumer2 extends Service {
-        constructor(dep: unknown) { super("Consumer2", new Container()); void dep; }
+        constructor(dep: unknown) {
+          super("Consumer2", new Container());
+          void dep;
+        }
       }
       (inject("nonexistent") as Function)(Consumer2, undefined, 0);
       Reflect.defineMetadata("design:paramtypes", [Object], Consumer2);
-      assert.throws(() => Injector.instantiate(Consumer2), /not found or not injectable/);
+      assert.throws(
+        () => Injector.instantiate(Consumer2),
+        /not found or not injectable/,
+      );
     } finally {
       (Nodefony as any).getKernel = orig;
     }
@@ -810,7 +940,11 @@ describe("Injector — fallback kernel container (non @injectable)", () => {
     (Nodefony as any).getKernel = () => fakeKernel;
     try {
       const inst = Injector.instantiate(TransientSvc);
-      assert.notStrictEqual(inst, shared, "transient ne doit pas retourner l'instance du container");
+      assert.notStrictEqual(
+        inst,
+        shared,
+        "transient ne doit pas retourner l'instance du container",
+      );
     } finally {
       (Nodefony as any).getKernel = orig;
     }

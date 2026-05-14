@@ -68,13 +68,13 @@ type KernelStub = ReturnType<typeof makeKernelStub>;
 function createMod<T extends typeof Module>(
   Ctor: T,
   stub: KernelStub,
-  path = NODEFONY_PKG
+  path = NODEFONY_PKG,
 ): InstanceType<T> {
   const mod = new Ctor(
     "testmod",
     stub as unknown as Kernel,
     path,
-    {}
+    {},
   ) as InstanceType<T>;
   (mod as any).getPackageJson = async () =>
     ({
@@ -484,7 +484,10 @@ describe("@services — array of ServiceConstructors", () => {
     const stub = makeKernelStub();
     const mod = createMod(SvcMod7 as typeof Module, stub);
     const calls: unknown[] = [];
-    (mod as any).addService = async (Ctor: unknown) => { calls.push(Ctor); return {} as Service; };
+    (mod as any).addService = async (Ctor: unknown) => {
+      calls.push(Ctor);
+      return {} as Service;
+    };
     await stub.fireEvent("onPreBoot");
     assert.strictEqual(calls[0], BetaService);
     assert.strictEqual(calls[1], AlphaService);
@@ -496,7 +499,10 @@ describe("@services — array of ServiceConstructors", () => {
     const stub = makeKernelStub();
     const mod = createMod(SvcMod8 as typeof Module, stub);
     const addServiceCalls: unknown[] = [];
-    (mod as any).addService = async (Ctor: unknown) => { addServiceCalls.push(Ctor); return {} as Service; };
+    (mod as any).addService = async (Ctor: unknown) => {
+      addServiceCalls.push(Ctor);
+      return {} as Service;
+    };
     await stub.fireEvent("onPreBoot");
     assert.strictEqual(addServiceCalls.length, 0);
   });
@@ -511,7 +517,10 @@ describe("@services — array of strings", () => {
     const stub = makeKernelStub();
     const mod = createMod(SvcMod9 as typeof Module, stub);
     const calls: string[] = [];
-    (mod as any).loadService = async (p: string) => { calls.push(p); return {} as Service; };
+    (mod as any).loadService = async (p: string) => {
+      calls.push(p);
+      return {} as Service;
+    };
     await stub.fireEvent("onPreBoot");
     assert.deepStrictEqual(calls, ["./svc-a", "./svc-b"]);
   });
@@ -521,34 +530,40 @@ describe("@services — array of strings", () => {
 
 describe("@services — mixed array (string + ServiceConstructor)", () => {
   it("string → loadService, ctor → addService", async () => {
-    @services([
-      "./svc-path",
-      AlphaService as unknown as ServiceConstructor,
-    ])
+    @services(["./svc-path", AlphaService as unknown as ServiceConstructor])
     class SvcMod10 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcMod10 as typeof Module, stub);
     const addCalls: unknown[] = [];
     const loadCalls: string[] = [];
-    (mod as any).addService = async (Ctor: unknown) => { addCalls.push(Ctor); return {} as Service; };
-    (mod as any).loadService = async (p: string) => { loadCalls.push(p); return {} as Service; };
+    (mod as any).addService = async (Ctor: unknown) => {
+      addCalls.push(Ctor);
+      return {} as Service;
+    };
+    (mod as any).loadService = async (p: string) => {
+      loadCalls.push(p);
+      return {} as Service;
+    };
     await stub.fireEvent("onPreBoot");
     assert.deepStrictEqual(loadCalls, ["./svc-path"]);
     assert.deepStrictEqual(addCalls, [AlphaService]);
   });
 
   it("ctor en premier, string en second", async () => {
-    @services([
-      BetaService as unknown as ServiceConstructor,
-      "./last-path",
-    ])
+    @services([BetaService as unknown as ServiceConstructor, "./last-path"])
     class SvcMod11 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcMod11 as typeof Module, stub);
     const addCalls: unknown[] = [];
     const loadCalls: string[] = [];
-    (mod as any).addService = async (Ctor: unknown) => { addCalls.push(Ctor); return {} as Service; };
-    (mod as any).loadService = async (p: string) => { loadCalls.push(p); return {} as Service; };
+    (mod as any).addService = async (Ctor: unknown) => {
+      addCalls.push(Ctor);
+      return {} as Service;
+    };
+    (mod as any).loadService = async (p: string) => {
+      loadCalls.push(p);
+      return {} as Service;
+    };
     await stub.fireEvent("onPreBoot");
     assert.deepStrictEqual(addCalls, [BetaService]);
     assert.deepStrictEqual(loadCalls, ["./last-path"]);
@@ -599,7 +614,11 @@ describe("@services — gestion des erreurs", () => {
       return {} as Service;
     };
     await stub.fireEvent("onPreBoot");
-    assert.strictEqual(callCount, 2, "BetaService doit aussi être tenté malgré l'erreur AlphaService");
+    assert.strictEqual(
+      callCount,
+      2,
+      "BetaService doit aussi être tenté malgré l'erreur AlphaService",
+    );
   });
 });
 
@@ -615,7 +634,7 @@ describe("@services — edge cases", () => {
     // setEvents ne peut pas ajouter ses listeners non plus (kernel=null)
     // donc events["onPreBoot"] est undefined ou vide
     assert.ok(
-      !stub.events["onPreBoot"] || stub.events["onPreBoot"].length === 0
+      !stub.events["onPreBoot"] || stub.events["onPreBoot"].length === 0,
     );
   });
 
@@ -628,8 +647,14 @@ describe("@services — edge cases", () => {
     const mod2 = createMod(SvcEdge2 as typeof Module, stub2);
     const calls1: unknown[] = [];
     const calls2: unknown[] = [];
-    (mod1 as any).addService = async (Ctor: unknown) => { calls1.push(Ctor); return {} as Service; };
-    (mod2 as any).addService = async (Ctor: unknown) => { calls2.push(Ctor); return {} as Service; };
+    (mod1 as any).addService = async (Ctor: unknown) => {
+      calls1.push(Ctor);
+      return {} as Service;
+    };
+    (mod2 as any).addService = async (Ctor: unknown) => {
+      calls2.push(Ctor);
+      return {} as Service;
+    };
     await stub1.fireEvent("onPreBoot");
     assert.strictEqual(calls1.length, 1);
     assert.strictEqual(calls2.length, 0);
@@ -658,7 +683,10 @@ describe("@modules + @services combinés sur la même classe", () => {
     const stub = makeKernelStub();
     const mod = createMod(Combo2 as typeof Module, stub);
     const addCalls: unknown[] = [];
-    (mod as any).addService = async (Ctor: unknown) => { addCalls.push(Ctor); return {} as Service; };
+    (mod as any).addService = async (Ctor: unknown) => {
+      addCalls.push(Ctor);
+      return {} as Service;
+    };
 
     // Déclencher onPreRegister → loadModule seulement
     await stub.fireEvent("onPreRegister");
@@ -694,7 +722,10 @@ describe("@modules / @services — performance", () => {
       createMod(PerfMod as typeof Module, stub);
     }
     const elapsed = performance.now() - t0;
-    assert.ok(elapsed < 500, `100 modules decorated took ${elapsed.toFixed(1)}ms`);
+    assert.ok(
+      elapsed < 500,
+      `100 modules decorated took ${elapsed.toFixed(1)}ms`,
+    );
   });
 
   it("100 fireEvent onPreRegister < 200ms", async () => {

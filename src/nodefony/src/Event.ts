@@ -19,7 +19,7 @@ class Event extends EventEmitter {
   constructor(
     settings?: EventDefaultInterface,
     context?: ContextType,
-    options?: EventOptionInterface
+    options?: EventOptionInterface,
   ) {
     super();
     if (options && options.nbListeners) {
@@ -32,7 +32,7 @@ class Event extends EventEmitter {
 
   settingsToListen(
     localSettings: EventDefaultInterface,
-    context?: ContextType
+    context?: ContextType,
   ) {
     for (const i in localSettings) {
       const res = regListenOn.exec(i);
@@ -50,7 +50,7 @@ class Event extends EventEmitter {
   listen(
     context: ContextType,
     eventName: string | symbol,
-    listener: (...args: any[]) => void
+    listener: (...args: any[]) => void,
   ): (...args: any[]) => boolean {
     const event = eventName;
     // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -78,12 +78,17 @@ class Event extends EventEmitter {
     }
     const result: any[] = [];
     for (const handler of handlers) {
-      result.push(await Reflect.apply(handler as (...a: any[]) => any, this, args));
+      result.push(
+        await Reflect.apply(handler as (...a: any[]) => any, this, args),
+      );
     }
     return result;
   }
 
-  async fireAsync(eventName: string | symbol, ...args: any[]): Promise<false | any[]> {
+  async fireAsync(
+    eventName: string | symbol,
+    ...args: any[]
+  ): Promise<false | any[]> {
     return this.emitAsync(eventName, ...args);
   }
 }
@@ -91,7 +96,7 @@ class Event extends EventEmitter {
 const create = (
   settings?: EventDefaultInterface,
   context?: ContextType,
-  options?: EventOptionInterface
+  options?: EventOptionInterface,
 ): Event => {
   return new Event(settings, context, options);
 };

@@ -43,7 +43,7 @@ class Pm2 extends Command {
       "pm2",
       "PM2 tools for manage nodefony process",
       cli as CliKernel,
-      options
+      options,
     );
     this.addArgument("[command]", "command pm2 ");
     this.addOption("-n, --name <name>", "Name of pm2 process");
@@ -64,7 +64,7 @@ Examples with pm2 native tools :
 
 $ npx pm2 monit
 $ npx pm2 --lines 1000 logs
-    `
+    `,
     );
   }
 
@@ -72,10 +72,9 @@ $ npx pm2 --lines 1000 logs
     this.service = this.get<pm2Service>("pm2");
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   override async generate(
     cmd: string,
-    options: OptionValues
+    options: OptionValues,
   ): Promise<this | void> {
     try {
       return this.findCommand(cmd, options).catch((e) => {

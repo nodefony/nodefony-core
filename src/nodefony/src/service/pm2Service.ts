@@ -1,4 +1,3 @@
-/* eslint-disable no-async-promise-executor */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import { extend } from "../Tools";
 import Kernel from "../kernel/Kernel";
@@ -30,7 +29,7 @@ class Pm2 extends Service {
       "pm2",
       kernel.container as Container,
       kernel.notificationsCenter as Event,
-      options as StartOptions
+      options as StartOptions,
     );
   }
 
@@ -39,7 +38,6 @@ class Pm2 extends Service {
   }
 
   async pm2Start(): Promise<void> {
-    // eslint-disable-next-line no-async-promise-executor
     return new Promise(async (resolve, reject) => {
       try {
         if (!this.options.name) {
@@ -97,7 +95,6 @@ class Pm2 extends Service {
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async flush(name: string | number = "all"): Promise<ProcessDescription[]> {
     return new Promise((resolve, reject) => {
       return pm2.flush(name, (error, result: ProcessDescription[]) => {
@@ -124,7 +121,7 @@ class Pm2 extends Service {
   static async tablePm2Process(
     processDescriptionList: ProcessDescription[] | null | undefined,
     cli: Cli,
-    disconnect: boolean = false
+    disconnect: boolean = false,
   ): Promise<string> {
     return new Promise(async (resolve, reject) => {
       if (!processDescriptionList) {

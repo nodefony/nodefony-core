@@ -34,7 +34,7 @@ const cliOptions: CliDefaultOptions = {
 export type PackageManager = (
   argv: string[],
   cwd?: string,
-  env?: EnvironmentType
+  env?: EnvironmentType,
 ) => Promise<number | Error>;
 
 class CliKernel extends Cli {
@@ -50,7 +50,7 @@ class CliKernel extends Cli {
   }
 
   setPackageManager(
-    manager: PackageManagerName = this.options?.packageManager
+    manager: PackageManagerName = this.options?.packageManager,
   ): PackageManager {
     switch (manager) {
       case "yarn":
@@ -67,7 +67,7 @@ class CliKernel extends Cli {
 
   override showHelp(
     quit: boolean,
-    context: HelpContext | undefined
+    context: HelpContext | undefined,
   ): void | never {
     super.showHelp(quit, context);
   }
@@ -165,7 +165,7 @@ class CliKernel extends Cli {
   }
 
   public override addCommand(
-    cliCommand: new (cli: CliKernel) => Command
+    cliCommand: new (cli: CliKernel) => Command,
   ): Command {
     const command = new cliCommand(this);
     this.commands[command.name] = command;
@@ -174,7 +174,7 @@ class CliKernel extends Cli {
 
   async loadLocalModule<T>(
     moduleName: string,
-    cwd: string = process.cwd()
+    cwd: string = process.cwd(),
   ): Promise<ModuleWithDefault<T> | null> {
     try {
       const detectpath = path.isAbsolute(moduleName)
@@ -191,7 +191,7 @@ class CliKernel extends Cli {
   override initSyslog(
     environment?: EnvironmentType,
     debug?: DebugType,
-    options?: conditionsInterface
+    options?: conditionsInterface,
   ): void | null {
     if (!this.kernel) {
       return super.initSyslog(environment, debug, options);
@@ -206,7 +206,10 @@ class CliKernel extends Cli {
       // INFO , DEBUG , WARNING
       data.push(7);
     }
-    if (this.kernel.type === "SERVER" && this.kernel.environment === "development") {
+    if (
+      this.kernel.type === "SERVER" &&
+      this.kernel.environment === "development"
+    ) {
       // EMERGENCY ALERT CRITIC ERROR INFO WARNING
       data.push(4);
       data.push(5);

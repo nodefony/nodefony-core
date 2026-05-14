@@ -12,7 +12,7 @@ class Install extends Command {
       "install",
       "Install Nodefony Framework",
       cli as CliKernel,
-      optionsCommand
+      optionsCommand,
     );
     this.addOption("-f, --force", "Force Install");
   }

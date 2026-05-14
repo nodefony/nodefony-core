@@ -78,13 +78,23 @@ const jsonNodefony: JsonDescriptor = {
 
 // TODO(orm-session): remplacer par un registre IErrorAdapter — @nodefony/sequelize et @nodefony/mongoose
 // s'enregistrent eux-mêmes, le core ne doit pas connaître les ORMs
-let _sequelizeAdapter: { isError(e: Error): boolean; errorToString(e: unknown): string } | null = null;
-let _mongooseAdapter: { isError(e: Error): boolean; errorToString(e: unknown): string } | null = null;
+let _sequelizeAdapter: {
+  isError(e: Error): boolean;
+  errorToString(e: unknown): string;
+} | null = null;
+let _mongooseAdapter: {
+  isError(e: Error): boolean;
+  errorToString(e: unknown): string;
+} | null = null;
 
-export function registerSequelizeAdapter(adapter: typeof _sequelizeAdapter): void {
+export function registerSequelizeAdapter(
+  adapter: typeof _sequelizeAdapter,
+): void {
   _sequelizeAdapter = adapter;
 }
-export function registerMongooseAdapter(adapter: typeof _mongooseAdapter): void {
+export function registerMongooseAdapter(
+  adapter: typeof _mongooseAdapter,
+): void {
   _mongooseAdapter = adapter;
 }
 
@@ -247,7 +257,7 @@ class nodefonyError extends Error {
       case "SystemError":
         if (Nodefony.getKernel()?.environment === "prod") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
-            this.message
+            this.message,
           )}`;
         }
         err = `${clc.blue("Name :")} ${this.name}
@@ -261,7 +271,7 @@ class nodefonyError extends Error {
       case "AssertionError":
         if (Nodefony.getKernel()?.environment === "prod") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
-            this.message
+            this.message,
           )}`;
         }
         err = `${clc.blue("Name :")} ${this.name}
@@ -275,7 +285,7 @@ class nodefonyError extends Error {
       case "ClientError":
         if (Nodefony.getKernel()?.environment === "prod") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
-            this.message
+            this.message,
           )}`;
         }
         err = `${clc.blue("Name :")} ${this.name}
@@ -292,7 +302,7 @@ class nodefonyError extends Error {
       default:
         if (Nodefony.getKernel()?.environment === "prod") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
-            this.message
+            this.message,
           )}`;
         }
         err = `${clc.blue("Name :")} ${this.name}

@@ -13,7 +13,7 @@ class Connector {
     name: string,
     type: string,
     options: Record<string, any>,
-    orm: Orm
+    orm: Orm,
   ) {
     this.name = name;
     this.type = type;
@@ -36,7 +36,7 @@ class Connector {
   }
 
   async connect(type: string, config: any): Promise<any> {
-    console.log(`connect must be override `, type), config;
+    console.log(`connect must be override `, type, config);
     return Promise.resolve();
   }
 
@@ -52,7 +52,7 @@ class Connector {
       `Connection been established successfully 
       Type : ${this.type}
       Database : ${config.database}`,
-      severity
+      severity,
     );
     return db;
   }
@@ -69,7 +69,7 @@ class Connector {
     pci: Pci,
     severity?: Severity,
     msgid: Msgid = `CONNECTOR ${this.type} ${this.name}`,
-    msg: Message = ""
+    msg: Message = "",
   ) {
     return this.orm.log(pci, severity, msgid, msg);
   }

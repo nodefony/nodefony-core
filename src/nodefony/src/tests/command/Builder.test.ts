@@ -28,7 +28,7 @@ describe("FileManager", () => {
     const resultat = await builder.build(
       objetRepertoire,
       path.resolve(process.cwd(), "tmp"),
-      true
+      true,
     );
     expect(resultat).not.to.be.null;
     expect(resultat?.name).to.equal("testRepertoire");
@@ -42,7 +42,7 @@ describe("FileManager", () => {
     };
     const resultat = await builder.build(
       objetFichier,
-      path.resolve(process.cwd(), "tmp")
+      path.resolve(process.cwd(), "tmp"),
     );
     //console.log(resultat)
     expect(resultat).not.be.null;
@@ -60,7 +60,7 @@ describe("FileManager", () => {
     const resultat = await builder.build(
       objetSymlink,
       path.resolve(process.cwd(), "tmp"),
-      true
+      true,
     );
     expect(resultat).not.be.null;
     //console.log(resultat)
@@ -90,7 +90,7 @@ describe("FileManager", () => {
     const parentDirectory = await builder.build(
       objetParent,
       path.resolve(process.cwd(), "tmp"),
-      true
+      true,
     );
     expect(parentDirectory).to.not.be.null;
     expect(parentDirectory?.name).to.equal("parentDirectory");

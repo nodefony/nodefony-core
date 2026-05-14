@@ -4,7 +4,6 @@ import CliKernel from "../CliKernel";
 import { Prompt } from "@inquirer/type";
 type ConfigType = Parameters<Prompt<any, any>>[0];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const prompt = async function (command: Command): Promise<ConfigType> {
   let choices;
   let message = "Select Command";

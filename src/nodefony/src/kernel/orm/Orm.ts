@@ -17,13 +17,13 @@ class Orm extends Service {
       name,
       module.container as Container,
       module.notificationsCenter as Event,
-      options
+      options,
     );
   }
   boot() {
     this.on("onConnect", async (connection) => this.ormReady(connection));
     this.on("onErrorConnection", async (connection, error) =>
-      this.ormReady(connection, error)
+      this.ormReady(connection, error),
     );
   }
 
@@ -49,7 +49,7 @@ class Orm extends Service {
               .catch((e) => {
                 this.log(e, "ERROR");
                 return reject(e);
-              })
+              }),
         );
       }
       return resolve(this);
@@ -61,17 +61,17 @@ class Orm extends Service {
     }
     if (!(entity instanceof Entity)) {
       throw new Error(
-        `${this.name} setEntity  : not instance of nodefony.Entity`
+        `${this.name} setEntity  : not instance of nodefony.Entity`,
       );
     }
     if (this.entities[entity.name]) {
       throw new Error(
-        `${this.name} setEntity  : Entity Already exist ${entity.name}`
+        `${this.name} setEntity  : Entity Already exist ${entity.name}`,
       );
     }
     if (!entity.model) {
       throw new Error(
-        `${this.name} setEntity  : Module : ${entity.module.name} Model is undefined in Entity : ${entity.name}`
+        `${this.name} setEntity  : Module : ${entity.module.name} Model is undefined in Entity : ${entity.name}`,
       );
     }
     this.entities[entity.name] = entity;

@@ -234,7 +234,7 @@ describe("extend › prototype pollution guard", () => {
   });
 
   it("clé normale avec le mot 'proto' (pas __proto__) → copiée", () => {
-    const r = extend({}, { "x-proto": 1, "_proto_": 2 });
+    const r = extend({}, { "x-proto": 1, _proto_: 2 });
     expect(r["x-proto"]).to.equal(1);
     expect(r["_proto_"]).to.equal(2);
   });
@@ -335,7 +335,7 @@ describe("extend › deep — fusion récursive", () => {
       true,
       {},
       { db: { host: "localhost", port: 5432 }, log: { level: "INFO" } },
-      { db: { port: 5433 }, extra: true }
+      { db: { port: 5433 }, extra: true },
     );
     expect(r.db.host).to.equal("localhost");
     expect(r.db.port).to.equal(5433);
@@ -344,12 +344,7 @@ describe("extend › deep — fusion récursive", () => {
   });
 
   it("profondeur 3 niveaux", () => {
-    const r = extend(
-      true,
-      {},
-      { a: { b: { c: 1 } } },
-      { a: { b: { d: 2 } } }
-    );
+    const r = extend(true, {}, { a: { b: { c: 1 } } }, { a: { b: { d: 2 } } });
     expect(r.a.b.c).to.equal(1);
     expect(r.a.b.d).to.equal(2);
   });
@@ -422,9 +417,9 @@ describe("extend › patterns Nodefony", () => {
     const r = extend(true, {}, modOpts, override);
     expect(r.db.host).to.equal("localhost");
     expect(r.db.port).to.equal(5433);
-    expect(r.db.pool.min).to.equal(2);   // préservé
-    expect(r.db.pool.max).to.equal(20);  // overridé
-    expect(r.cache.ttl).to.equal(3600);  // inchangé
+    expect(r.db.pool.min).to.equal(2); // préservé
+    expect(r.db.pool.max).to.equal(20); // overridé
+    expect(r.cache.ttl).to.equal(3600); // inchangé
   });
 
   it("readOverrideModuleConfig — merge module options (clé Module-http)", () => {
@@ -437,7 +432,12 @@ describe("extend › patterns Nodefony", () => {
     const overrideKey = "Module-http";
     const match = /^[Mm]odule-([\w-]+)/u.exec(overrideKey);
     expect(match?.[1]).to.equal("http");
-    const merged = extend(true, {}, httpModOpts, moduleOptions[overrideKey] as object);
+    const merged = extend(
+      true,
+      {},
+      httpModOpts,
+      moduleOptions[overrideKey] as object,
+    );
     expect(merged.port).to.equal(8443);
     expect(merged.ssl).to.equal(true);
     expect(merged.timeout).to.equal(30);
@@ -561,25 +561,34 @@ describe("isPlainObject", () => {
 
 describe("typeOf", () => {
   it("null → null", () => expect(typeOf(null)).to.equal(null));
-  it("undefined → 'undefined'", () => expect(typeOf(undefined)).to.equal("undefined"));
+  it("undefined → 'undefined'", () =>
+    expect(typeOf(undefined)).to.equal("undefined"));
   it("string → 'string'", () => expect(typeOf("hello")).to.equal("string"));
   it("number → 'number'", () => expect(typeOf(42)).to.equal("number"));
   it("boolean → 'boolean'", () => expect(typeOf(true)).to.equal("boolean"));
-  it("function → 'function'", () => expect(typeOf(() => {})).to.equal("function"));
-  it("async function → 'function'", () => expect(typeOf(async () => {})).to.equal("function"));
+  it("function → 'function'", () =>
+    expect(typeOf(() => {})).to.equal("function"));
+  it("async function → 'function'", () =>
+    expect(typeOf(async () => {})).to.equal("function"));
   it("class → 'function'", () => expect(typeOf(Dog)).to.equal("function"));
   it("array → 'array'", () => expect(typeOf([1, 2, 3])).to.equal("array"));
   it("empty array → 'array'", () => expect(typeOf([])).to.equal("array"));
   it("plain object → 'object'", () => expect(typeOf({})).to.equal("object"));
-  it("Buffer → 'buffer'", () => expect(typeOf(Buffer.from("x"))).to.equal("buffer"));
+  it("Buffer → 'buffer'", () =>
+    expect(typeOf(Buffer.from("x"))).to.equal("buffer"));
   it("Date → 'date'", () => expect(typeOf(new Date())).to.equal("date"));
   it("RegExp → 'RegExp'", () => expect(typeOf(/abc/)).to.equal("RegExp"));
   it("Error → 'Error'", () => expect(typeOf(new Error("e"))).to.equal("Error"));
-  it("TypeError → 'Error'", () => expect(typeOf(new TypeError("t"))).to.equal("Error"));
-  it("SyntaxError → 'SyntaxError'", () => expect(typeOf(new SyntaxError("s"))).to.equal("SyntaxError"));
-  it("instance de classe → 'object'", () => expect(typeOf(new Dog())).to.equal("object"));
+  it("TypeError → 'Error'", () =>
+    expect(typeOf(new TypeError("t"))).to.equal("Error"));
+  it("SyntaxError → 'SyntaxError'", () =>
+    expect(typeOf(new SyntaxError("s"))).to.equal("SyntaxError"));
+  it("instance de classe → 'object'", () =>
+    expect(typeOf(new Dog())).to.equal("object"));
   it("arguments-like (callee) → 'arguments'", () => {
-    const args = (function () { return arguments; })();
+    const args = (function () {
+      return arguments;
+    })();
     expect(typeOf(args)).to.equal("arguments");
   });
 });
@@ -638,7 +647,8 @@ describe("isEmptyObject", () => {
   it("{a:1} → false", () => expect(isEmptyObject({ a: 1 })).to.be.false);
   it("null → false", () => expect(isEmptyObject(null)).to.be.false);
   it("undefined → false", () => expect(isEmptyObject(undefined)).to.be.false);
-  it("Object.create(null) → true", () => expect(isEmptyObject(Object.create(null))).to.be.true);
+  it("Object.create(null) → true", () =>
+    expect(isEmptyObject(Object.create(null))).to.be.true);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -650,13 +660,16 @@ describe("isArray", () => {
   it("[] → true", () => expect(isArray([])).to.be.true);
   it("'string' → false", () => expect(isArray("string")).to.be.false);
   it("{} → false", () => expect(isArray({})).to.be.false);
-  it("Array.isArray === isArray", () => expect(isArray).to.equal(Array.isArray));
+  it("Array.isArray === isArray", () =>
+    expect(isArray).to.equal(Array.isArray));
 });
 
 describe("isFunction", () => {
   it("function → true", () => expect(isFunction(() => {})).to.be.true);
-  it("async function → true", () => expect(isFunction(async () => {})).to.be.true);
-  it("class → true (typeof class === 'function')", () => expect(isFunction(Dog)).to.be.true);
+  it("async function → true", () =>
+    expect(isFunction(async () => {})).to.be.true);
+  it("class → true (typeof class === 'function')", () =>
+    expect(isFunction(Dog)).to.be.true);
   it("null → false", () => expect(isFunction(null)).to.be.false);
   it("{} → false", () => expect(isFunction({})).to.be.false);
   it("42 → false", () => expect(isFunction(42)).to.be.false);
@@ -674,7 +687,8 @@ describe("isRegExp", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("isPromise", () => {
-  it("Promise natif → true", () => expect(isPromise(Promise.resolve())).to.be.true);
+  it("Promise natif → true", () =>
+    expect(isPromise(Promise.resolve())).to.be.true);
   it("Promise rejeté → true", () => {
     const p = Promise.reject(new Error("x"));
     p.catch(() => {}); // évite unhandledRejection
@@ -683,7 +697,8 @@ describe("isPromise", () => {
   it("thenable (duck typing) → true", () => {
     expect(isPromise({ then: () => {} })).to.be.true;
   });
-  it("objet sans .then → false", () => expect(isPromise({ foo: 1 })).to.be.false);
+  it("objet sans .then → false", () =>
+    expect(isPromise({ foo: 1 })).to.be.false);
   it("null → false", () => expect(isPromise(null)).to.be.false);
   it("undefined → false", () => expect(isPromise(undefined)).to.be.false);
   it("string → false", () => expect(isPromise("hello")).to.be.false);
@@ -762,14 +777,7 @@ describe("extend › cas limites", () => {
   });
 
   it("deep — sources multiples accumulées correctement", () => {
-    const r = extend(
-      true,
-      {},
-      { a: 1 },
-      { b: 2 },
-      { c: 3 },
-      { a: 10, d: 4 }
-    );
+    const r = extend(true, {}, { a: 1 }, { b: 2 }, { c: 3 }, { a: 10, d: 4 });
     expect(r).to.deep.equal({ a: 10, b: 2, c: 3, d: 4 });
   });
 });
@@ -788,7 +796,10 @@ describe("extend › performance", () => {
       extend({}, defaults, overrides);
     }
     const elapsed = performance.now() - t0;
-    expect(elapsed).to.be.lessThan(300, `100k shallow took ${elapsed.toFixed(1)}ms`);
+    expect(elapsed).to.be.lessThan(
+      300,
+      `100k shallow took ${elapsed.toFixed(1)}ms`,
+    );
   });
 
   it("50 000 deep merges (3 niveaux) < 500ms", () => {
@@ -803,7 +814,10 @@ describe("extend › performance", () => {
       extend(true, {}, base, override);
     }
     const elapsed = performance.now() - t0;
-    expect(elapsed).to.be.lessThan(500, `50k deep took ${elapsed.toFixed(1)}ms`);
+    expect(elapsed).to.be.lessThan(
+      500,
+      `50k deep took ${elapsed.toFixed(1)}ms`,
+    );
   });
 
   it("10 000 merges avec objet 100 clés < 300ms", () => {
@@ -815,13 +829,18 @@ describe("extend › performance", () => {
       extend({}, big);
     }
     const elapsed = performance.now() - t0;
-    expect(elapsed).to.be.lessThan(600, `10k big-object took ${elapsed.toFixed(1)}ms`);
+    expect(elapsed).to.be.lessThan(
+      600,
+      `10k big-object took ${elapsed.toFixed(1)}ms`,
+    );
   });
 
   it("10 000 deep merges (10 niveaux) < 500ms", () => {
     // Construit un objet profond à 10 niveaux
     const deep10 = (depth: number, val: unknown): Record<string, unknown> =>
-      depth === 0 ? ({ value: val } as Record<string, unknown>) : { nested: deep10(depth - 1, val) };
+      depth === 0
+        ? ({ value: val } as Record<string, unknown>)
+        : { nested: deep10(depth - 1, val) };
     const base = deep10(10, 1);
     const over = deep10(10, 2);
     const N = 10_000;
@@ -830,7 +849,10 @@ describe("extend › performance", () => {
       extend(true, {}, base, over);
     }
     const elapsed = performance.now() - t0;
-    expect(elapsed).to.be.lessThan(500, `10k deep-10 took ${elapsed.toFixed(1)}ms`);
+    expect(elapsed).to.be.lessThan(
+      500,
+      `10k deep-10 took ${elapsed.toFixed(1)}ms`,
+    );
   });
 
   it("throughput comparatif extend vs Object.assign (shallow)", () => {
@@ -849,7 +871,7 @@ describe("extend › performance", () => {
     // extend est acceptable si < 5× Object.assign (checks supplémentaires: hasOwn, guard, isPlainObject)
     expect(extendMs).to.be.lessThan(
       assignMs * 5,
-      `extend: ${extendMs.toFixed(1)}ms vs Object.assign: ${assignMs.toFixed(1)}ms`
+      `extend: ${extendMs.toFixed(1)}ms vs Object.assign: ${assignMs.toFixed(1)}ms`,
     );
   });
 
@@ -863,6 +885,9 @@ describe("extend › performance", () => {
     const after = process.memoryUsage().heapUsed;
     const deltaMB = (after - before) / 1024 / 1024;
     // Moins de 50 MB de delta (les objets temporaires sont GCés)
-    expect(deltaMB).to.be.lessThan(50, `Delta mémoire: ${deltaMB.toFixed(1)} MB`);
+    expect(deltaMB).to.be.lessThan(
+      50,
+      `Delta mémoire: ${deltaMB.toFixed(1)} MB`,
+    );
   });
 });

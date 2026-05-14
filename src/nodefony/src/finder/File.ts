@@ -13,7 +13,7 @@ class File extends FileClass {
 
   constructor(
     path: string | fs.PathOrFileDescriptor,
-    parent: File | null = null
+    parent: File | null = null,
   ) {
     super(path);
     this.parent = parent;

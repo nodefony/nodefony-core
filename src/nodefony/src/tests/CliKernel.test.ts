@@ -14,8 +14,16 @@ import Pdu from "../syslog/Pdu";
 function interceptNormalizeLog(): { received: Pdu[]; restore: () => void } {
   const received: Pdu[] = [];
   const orig = Syslog.normalizeLog;
-  Syslog.normalizeLog = (p: Pdu) => { received.push(p); return p; };
-  return { received, restore: () => { Syslog.normalizeLog = orig; } };
+  Syslog.normalizeLog = (p: Pdu) => {
+    received.push(p);
+    return p;
+  };
+  return {
+    received,
+    restore: () => {
+      Syslog.normalizeLog = orig;
+    },
+  };
 }
 
 // CliKernel minimal — signals et promiseRejection désactivés pour les tests
@@ -45,7 +53,9 @@ class OtherCommand extends Command {
 describe("CliKernel — constructor", () => {
   let cli: CliKernel;
 
-  before(() => { cli = makeCliKernel("development"); });
+  before(() => {
+    cli = makeCliKernel("development");
+  });
 
   it("type = 'CONSOLE' par défaut", () => {
     assert.strictEqual(cli.type, "CONSOLE");
@@ -78,12 +88,12 @@ describe("CliKernel — constructor", () => {
   });
 
   it("commander a l'option -i (--interactive)", () => {
-    const hasI = cli.commander?.options.some(o => o.short === "-i");
+    const hasI = cli.commander?.options.some((o) => o.short === "-i");
     assert.ok(hasI, "option -i doit être présente");
   });
 
   it("commander a l'option -d (--debug)", () => {
-    const hasD = cli.commander?.options.some(o => o.short === "-d");
+    const hasD = cli.commander?.options.some((o) => o.short === "-d");
     assert.ok(hasD, "option -d doit être présente");
   });
 
@@ -106,7 +116,9 @@ describe("CliKernel — constructor", () => {
 
 describe("CliKernel — setType()", () => {
   let cli: CliKernel;
-  before(() => { cli = makeCliKernel(); });
+  before(() => {
+    cli = makeCliKernel();
+  });
 
   it("'server' → type = 'SERVER' (toLocaleUpperCase)", () => {
     cli.setType("SERVER");
@@ -135,7 +147,9 @@ describe("CliKernel — setType()", () => {
 
 describe("CliKernel — setPackageManager()", () => {
   let cli: CliKernel;
-  before(() => { cli = makeCliKernel(); });
+  before(() => {
+    cli = makeCliKernel();
+  });
 
   it("'yarn' → packageManager = this.yarn", () => {
     cli.setPackageManager("yarn");
@@ -235,7 +249,9 @@ describe("CliKernel — addCommand()", () => {
 
 describe("CliKernel — parseCommand() & parseCommandAsync()", () => {
   let cli: CliKernel;
-  before(() => { cli = makeCliKernel(); });
+  before(() => {
+    cli = makeCliKernel();
+  });
 
   it("parseCommand(argv) retourne un CommanderCommand", () => {
     const result = cli.parseCommand(["node", "script"]);
@@ -285,8 +301,14 @@ describe("CliKernel — initSyslog()", () => {
     cli.syslog?.log("info msg", "INFO");
     restore();
 
-    assert.ok(!received.some(p => p.severityName === "DEBUG"), "DEBUG bloqué sans debug");
-    assert.ok(received.some(p => p.severityName === "INFO"), "INFO doit passer");
+    assert.ok(
+      !received.some((p) => p.severityName === "DEBUG"),
+      "DEBUG bloqué sans debug",
+    );
+    assert.ok(
+      received.some((p) => p.severityName === "INFO"),
+      "INFO doit passer",
+    );
   });
 
   it("avec kernel + debug=true → severity [0..7], DEBUG passe", () => {
@@ -301,8 +323,11 @@ describe("CliKernel — initSyslog()", () => {
     cli.syslog?.log("info msg", "INFO");
     restore();
 
-    assert.ok(received.some(p => p.severityName === "DEBUG"), "DEBUG doit passer avec debug=true");
-    assert.ok(received.some(p => p.severityName === "INFO"));
+    assert.ok(
+      received.some((p) => p.severityName === "DEBUG"),
+      "DEBUG doit passer avec debug=true",
+    );
+    assert.ok(received.some((p) => p.severityName === "INFO"));
   });
 
   it("avec kernel + this.debug=true → même effet que debug=true", () => {
@@ -317,7 +342,10 @@ describe("CliKernel — initSyslog()", () => {
     cli.syslog?.log("debug msg", "DEBUG");
     restore();
 
-    assert.ok(received.some(p => p.severityName === "DEBUG"), "this.debug=true → DEBUG passe");
+    assert.ok(
+      received.some((p) => p.severityName === "DEBUG"),
+      "this.debug=true → DEBUG passe",
+    );
   });
 
   it("avec kernel + debug=['ROUTER'] → msgid condition, seul ROUTER passe", () => {
@@ -332,8 +360,14 @@ describe("CliKernel — initSyslog()", () => {
     cli.syslog?.log("service debug", "DEBUG", "SERVICE");
     restore();
 
-    assert.ok(received.some(p => p.msgid === "ROUTER"), "ROUTER doit passer");
-    assert.ok(!received.some(p => p.msgid === "SERVICE"), "SERVICE bloqué par filtre msgid");
+    assert.ok(
+      received.some((p) => p.msgid === "ROUTER"),
+      "ROUTER doit passer",
+    );
+    assert.ok(
+      !received.some((p) => p.msgid === "SERVICE"),
+      "SERVICE bloqué par filtre msgid",
+    );
   });
 
   it("avec kernel + debug='*' → pas de filtre msgid, tout passe", () => {
@@ -347,7 +381,10 @@ describe("CliKernel — initSyslog()", () => {
     cli.syslog?.log("any debug", "DEBUG", "ANYTHING");
     restore();
 
-    assert.ok(received.some(p => p.msgid === "ANYTHING"), "debug='*' → aucun filtre msgid");
+    assert.ok(
+      received.some((p) => p.msgid === "ANYTHING"),
+      "debug='*' → aucun filtre msgid",
+    );
   });
 
   it("avec kernel + json commander opt → retour immédiat, aucun listener ajouté", () => {
@@ -377,7 +414,10 @@ describe("CliKernel — initSyslog()", () => {
     cli.initSyslog("development", false);
     const after2 = cli.syslog?.listenerCount("onLog") ?? 0;
 
-    assert.ok(after2 > after1, "deuxième appel ajoute un listener supplémentaire");
+    assert.ok(
+      after2 > after1,
+      "deuxième appel ajoute un listener supplémentaire",
+    );
   });
 });
 
@@ -385,7 +425,9 @@ describe("CliKernel — initSyslog()", () => {
 
 describe("CliKernel — loadLocalModule()", () => {
   let cli: CliKernel;
-  before(() => { cli = makeCliKernel(); });
+  before(() => {
+    cli = makeCliKernel();
+  });
 
   it("chemin invalide → throw Error", async () => {
     await assert.rejects(
@@ -393,7 +435,7 @@ describe("CliKernel — loadLocalModule()", () => {
       (err: Error) => {
         assert.ok(err instanceof Error);
         return true;
-      }
+      },
     );
   });
 
@@ -403,14 +445,18 @@ describe("CliKernel — loadLocalModule()", () => {
       (err: Error) => {
         assert.ok(err instanceof Error);
         return true;
-      }
+      },
     );
   });
 
   it("chemin absolu valide → retourne le module", async () => {
     // Crée un module ESM temporaire valide
     const tmpFile = path.resolve(os.tmpdir(), `cli-test-mod-${Date.now()}.mjs`);
-    await fs.writeFile(tmpFile, 'export default { testKey: "hello" };\n', "utf-8");
+    await fs.writeFile(
+      tmpFile,
+      'export default { testKey: "hello" };\n',
+      "utf-8",
+    );
     try {
       const result = await cli.loadLocalModule(tmpFile);
       assert.ok(result !== null);
@@ -424,7 +470,7 @@ describe("CliKernel — loadLocalModule()", () => {
     const tmpDir = os.tmpdir();
     const filename = `cli-rel-${Date.now()}.mjs`;
     const tmpFile = path.resolve(tmpDir, filename);
-    await fs.writeFile(tmpFile, 'export default { rel: true };\n', "utf-8");
+    await fs.writeFile(tmpFile, "export default { rel: true };\n", "utf-8");
     try {
       const result = await cli.loadLocalModule(`./${filename}`, tmpDir);
       assert.ok((result as any)?.rel === true);
@@ -462,7 +508,10 @@ describe("CliKernel — terminate()", () => {
     let terminatedCode: number | undefined;
 
     cli.kernel = {
-      terminate: async (code: number) => { terminatedCode = code; return cli.kernel; },
+      terminate: async (code: number) => {
+        terminatedCode = code;
+        return cli.kernel;
+      },
     } as any;
 
     await cli.terminate(); // sans arg → code=0
@@ -474,7 +523,10 @@ describe("CliKernel — terminate()", () => {
     let terminatedCode: number | undefined;
 
     cli.kernel = {
-      terminate: async (code: number) => { terminatedCode = code; return cli.kernel; },
+      terminate: async (code: number) => {
+        terminatedCode = code;
+        return cli.kernel;
+      },
     } as any;
 
     await cli.terminate(1);
@@ -526,7 +578,9 @@ describe("CliKernel — Cli.niceBytes() (statique hérité)", () => {
 
 describe("CliKernel — showHelp()", () => {
   let cli: CliKernel;
-  before(() => { cli = makeCliKernel(); });
+  before(() => {
+    cli = makeCliKernel();
+  });
 
   it("showHelp(false, undefined) → ne throw pas (outputHelp)", () => {
     // outputHelp écrit sur stdout mais ne throw pas
@@ -538,12 +592,17 @@ describe("CliKernel — showHelp()", () => {
 
 describe("CliKernel — setCommandVersion() & setCommandOption()", () => {
   let cli: CliKernel;
-  before(() => { cli = makeCliKernel(); });
+  before(() => {
+    cli = makeCliKernel();
+  });
 
   it("version déjà définie dans le commander (via cliOptions.version)", () => {
     // initCommander() appelle setCommandVersion(cliOptions.version) — vérifier qu'elle est définie
     const v = cli.commander?.version();
-    assert.ok(typeof v === "string" && v.length > 0, `version doit être définie, got: ${v}`);
+    assert.ok(
+      typeof v === "string" && v.length > 0,
+      `version doit être définie, got: ${v}`,
+    );
   });
 
   it("setCommandOption ajoute une option au commander", () => {
@@ -595,8 +654,10 @@ describe("CliKernel — edge cases", () => {
     // Sans arg, CliKernel utilise process.env.NODE_ENV ou le défaut
     const cli = makeCliKernel();
     assert.ok(
-      cli.environment === "production" || cli.environment === "development" || cli.environment === "test",
-      `environment doit être une string valide, got: ${cli.environment}`
+      cli.environment === "production" ||
+        cli.environment === "development" ||
+        cli.environment === "test",
+      `environment doit être une string valide, got: ${cli.environment}`,
     );
   });
 

@@ -87,13 +87,13 @@ describe("NODEFONY Notifications Center", () => {
                 resolve(args);
               }, 500);
             }
-          })
+          }),
       );
       let i = 0;
       let res: any[] = await global.notificationsCenter.fireAsync(
         "myEvent",
         i,
-        obj
+        obj,
       );
       assert.strictEqual(res.length, 1);
       assert.strictEqual(res[0], obj);
@@ -114,7 +114,7 @@ describe("NODEFONY Notifications Center", () => {
             setTimeout(() => {
               resolve(args);
             }, 400);
-          })
+          }),
       );
       global.notificationsCenter.on(
         "myEvent",
@@ -123,14 +123,14 @@ describe("NODEFONY Notifications Center", () => {
             setTimeout(() => {
               resolve(count + 1);
             }, 200);
-          })
+          }),
       );
       let i = 0;
       const res = await global.notificationsCenter.fireAsync("myEvent", i, obj);
       const res1 = await global.notificationsCenter.emitAsync(
         "myEvent",
         ++i,
-        obj
+        obj,
       );
       assert.strictEqual(res.length, 2);
       assert.strictEqual(res[0], obj);
@@ -142,7 +142,7 @@ describe("NODEFONY Notifications Center", () => {
       const res2 = await global.notificationsCenter.emitAsync(
         "myEvent",
         --i,
-        res1
+        res1,
       );
       assert.strictEqual(res2.length, 2);
       assert.strictEqual(res2[0], res1);
@@ -163,11 +163,11 @@ describe("NODEFONY Notifications Center", () => {
       const i = 0;
       global.notificationsCenter.on(
         "myEvent",
-        async (count, args) => await myFunc(count, args)
+        async (count, args) => await myFunc(count, args),
       );
       global.notificationsCenter.on(
         "myEvent",
-        async (count, args) => await myFunc(count, args)
+        async (count, args) => await myFunc(count, args),
       );
       const res = await global.notificationsCenter
         .fireAsync("myEvent", i, obj)
@@ -206,12 +206,12 @@ describe("NODEFONY Notifications Center", () => {
       };
       global.notificationsCenter.on(
         "myEvent",
-        async (count, args) => await myFunc(count, args)
+        async (count, args) => await myFunc(count, args),
       );
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
       global.notificationsCenter.on(
         "myEvent",
-        async (count, args) => await myFunc2()
+        async (count, args) => await myFunc2(),
       );
       let res = null;
 

@@ -14,7 +14,6 @@ class Dev extends Command {
 
   override async onKernelStart(): Promise<void> {}
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   override async generate(/*options: any*/): Promise<this> {
     try {
       //return this.runCommandAsync("install");

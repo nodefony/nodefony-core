@@ -239,7 +239,7 @@ class FileClass {
             return reject(err);
           }
           return resolve(data);
-        }
+        },
       );
     });
   }
@@ -265,7 +265,7 @@ class FileClass {
 
   write(
     data: string | NodeJS.ArrayBufferView,
-    options: fs.WriteFileOptions
+    options: fs.WriteFileOptions,
   ): void {
     fs.writeFileSync(this.path, data, extend({}, defautWriteOption, options));
   }

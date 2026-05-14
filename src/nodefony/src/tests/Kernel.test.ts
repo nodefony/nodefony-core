@@ -22,10 +22,18 @@ function interceptNormalizeLog(): { received: Pdu[]; restore: () => void } {
     received.push(p);
     return p;
   };
-  return { received, restore: () => { Syslog.normalizeLog = orig; } };
+  return {
+    received,
+    restore: () => {
+      Syslog.normalizeLog = orig;
+    },
+  };
 }
 
-function mkKernel(env: "development" | "production" = "development", opts: TypeKernelOptions = {}): Kernel {
+function mkKernel(
+  env: "development" | "production" = "development",
+  opts: TypeKernelOptions = {},
+): Kernel {
   return new Kernel(env, null, opts);
 }
 
@@ -416,7 +424,9 @@ describe("Kernel — readConfig", () => {
     const k = mkKernel("development", { log: { active: true } });
     k.readConfig({ log: { debug: "*" } });
     // active toujours là, debug ajouté
-    assert.ok(k.options.log?.active !== undefined || k.options.log?.debug === "*");
+    assert.ok(
+      k.options.log?.active !== undefined || k.options.log?.debug === "*",
+    );
   });
 
   it("retourne les options après fusion", () => {
@@ -452,7 +462,7 @@ describe("Kernel — stats & memoryUsage", () => {
     k.syslog?.on("onLog", (pdu: Pdu) => pdus.push(pdu));
     k.memoryUsage();
     // 4 champs: rss, heapTotal, heapUsed, external
-    const memLogs = pdus.filter(p => p.msgid?.startsWith("MEMORY"));
+    const memLogs = pdus.filter((p) => p.msgid?.startsWith("MEMORY"));
     assert.strictEqual(memLogs.length, 4);
   });
 
@@ -462,7 +472,7 @@ describe("Kernel — stats & memoryUsage", () => {
     const pdus: Pdu[] = [];
     k.syslog?.on("onLog", (pdu: Pdu) => pdus.push(pdu));
     k.memoryUsage("CUSTOM");
-    const found = pdus.some(p => String(p.payload).includes("CUSTOM"));
+    const found = pdus.some((p) => String(p.payload).includes("CUSTOM"));
     assert.ok(found, "message 'CUSTOM' doit apparaître dans les logs");
   });
 });
@@ -537,7 +547,11 @@ describe("Kernel — getNetworkInterfaces & interfacesFilter", () => {
 
   it("interfacesFilter avec condition '||' — combine type et family", () => {
     const k = mkKernel();
-    const result = k.interfacesFilter({ type: "local", family: "IPv4", condition: "||" });
+    const result = k.interfacesFilter({
+      type: "local",
+      family: "IPv4",
+      condition: "||",
+    });
     // Chaque entrée doit vérifier (internal || family=IPv4)
     for (const name of Object.keys(result)) {
       for (const info of result[name]) {
@@ -548,7 +562,11 @@ describe("Kernel — getNetworkInterfaces & interfacesFilter", () => {
 
   it("interfacesFilter({ type: 'external', family: 'IPv4', condition: '&&' }) → IPv4 externe seulement", () => {
     const k = mkKernel();
-    const result = k.interfacesFilter({ type: "external", family: "IPv4", condition: "&&" });
+    const result = k.interfacesFilter({
+      type: "external",
+      family: "IPv4",
+      condition: "&&",
+    });
     for (const name of Object.keys(result)) {
       for (const info of result[name]) {
         assert.strictEqual(info.internal, false);
@@ -687,7 +705,10 @@ describe("Kernel — logEnv", () => {
   it("contient l'environnement courant", () => {
     const k = mkKernel("development");
     const txt = k.logEnv();
-    assert.ok(txt.includes("development"), `logEnv doit contenir 'development', got: ${txt}`);
+    assert.ok(
+      txt.includes("development"),
+      `logEnv doit contenir 'development', got: ${txt}`,
+    );
   });
 
   it("contient l'info cluster (master/worker)", () => {
@@ -718,12 +739,20 @@ describe("Kernel — initializeLog", () => {
     k.syslog?.log("info msg", "INFO");
     restore();
 
-    assert.ok(!received.some(p => p.severityName === "DEBUG"), "DEBUG ne doit pas passer sans debug");
-    assert.ok(received.some(p => p.severityName === "INFO"), "INFO doit passer");
+    assert.ok(
+      !received.some((p) => p.severityName === "DEBUG"),
+      "DEBUG ne doit pas passer sans debug",
+    );
+    assert.ok(
+      received.some((p) => p.severityName === "INFO"),
+      "INFO doit passer",
+    );
   });
 
   it("log.debug = '*' → kernel.debug = '*', tous les niveaux passent", () => {
-    const k = new Kernel("development", null, { log: { active: true, debug: "*" } });
+    const k = new Kernel("development", null, {
+      log: { active: true, debug: "*" },
+    });
     k.initializeLog();
     assert.strictEqual(k.debug, "*");
     assert.ok(k.syslog && k.syslog.listenerCount("onLog") > 0);
@@ -734,13 +763,18 @@ describe("Kernel — initializeLog", () => {
     k.syslog?.log("error msg", "ERROR");
     restore();
 
-    assert.ok(received.some(p => p.severityName === "DEBUG"), "DEBUG doit passer avec '*'");
-    assert.ok(received.some(p => p.severityName === "INFO"));
-    assert.ok(received.some(p => p.severityName === "ERROR"));
+    assert.ok(
+      received.some((p) => p.severityName === "DEBUG"),
+      "DEBUG doit passer avec '*'",
+    );
+    assert.ok(received.some((p) => p.severityName === "INFO"));
+    assert.ok(received.some((p) => p.severityName === "ERROR"));
   });
 
   it("log.debug = true → kernel.debug = true, même effet que '*'", () => {
-    const k = new Kernel("development", null, { log: { active: true, debug: true } });
+    const k = new Kernel("development", null, {
+      log: { active: true, debug: true },
+    });
     k.initializeLog();
     assert.strictEqual(k.debug, true);
 
@@ -748,7 +782,10 @@ describe("Kernel — initializeLog", () => {
     k.syslog?.log("debug msg", "DEBUG");
     restore();
 
-    assert.ok(received.some(p => p.severityName === "DEBUG"), "DEBUG doit passer");
+    assert.ok(
+      received.some((p) => p.severityName === "DEBUG"),
+      "DEBUG doit passer",
+    );
   });
 
   it("log.debug = ['ROUTER'] → kernel.debug = ['ROUTER'], filtre par msgid", () => {
@@ -765,16 +802,16 @@ describe("Kernel — initializeLog", () => {
     restore();
 
     assert.ok(
-      received.some(p => p.msgid === "ROUTER"),
-      "msgid ROUTER doit passer"
+      received.some((p) => p.msgid === "ROUTER"),
+      "msgid ROUTER doit passer",
     );
     assert.ok(
-      !received.some(p => p.msgid === "SERVICE"),
-      "msgid SERVICE ne doit pas passer"
+      !received.some((p) => p.msgid === "SERVICE"),
+      "msgid SERVICE ne doit pas passer",
     );
     assert.ok(
-      !received.some(p => p.severityName === "INFO" && p.msgid === ""),
-      "INFO sans msgid ne doit pas passer avec filtre msgid actif"
+      !received.some((p) => p.severityName === "INFO" && p.msgid === ""),
+      "INFO sans msgid ne doit pas passer avec filtre msgid actif",
     );
   });
 
@@ -791,9 +828,18 @@ describe("Kernel — initializeLog", () => {
     k.syslog?.log("other debug", "DEBUG", "OTHER");
     restore();
 
-    assert.ok(received.some(p => p.msgid === "ROUTER"), "ROUTER doit passer");
-    assert.ok(received.some(p => p.msgid === "SEQUELIZE"), "SEQUELIZE doit passer");
-    assert.ok(!received.some(p => p.msgid === "OTHER"), "OTHER ne doit pas passer");
+    assert.ok(
+      received.some((p) => p.msgid === "ROUTER"),
+      "ROUTER doit passer",
+    );
+    assert.ok(
+      received.some((p) => p.msgid === "SEQUELIZE"),
+      "SEQUELIZE doit passer",
+    );
+    assert.ok(
+      !received.some((p) => p.msgid === "OTHER"),
+      "OTHER ne doit pas passer",
+    );
   });
 
   it("CLI debug pré-activé (true) → config log.debug ignorée, pas de filtre msgid", () => {
@@ -802,15 +848,19 @@ describe("Kernel — initializeLog", () => {
     });
     k.debug = true;
     k.initializeLog();
-    assert.strictEqual(k.debug, true, "CLI true ne doit pas être écrasé par config");
+    assert.strictEqual(
+      k.debug,
+      true,
+      "CLI true ne doit pas être écrasé par config",
+    );
 
     const { received, restore } = interceptNormalizeLog();
     k.syslog?.log("service debug", "DEBUG", "SERVICE");
     restore();
 
     assert.ok(
-      received.some(p => p.msgid === "SERVICE"),
-      "avec CLI debug=true, pas de filtre msgid"
+      received.some((p) => p.msgid === "SERVICE"),
+      "avec CLI debug=true, pas de filtre msgid",
     );
   });
 
@@ -824,7 +874,9 @@ describe("Kernel — initializeLog", () => {
   });
 
   it("environment production — log.debug = '*' → DEBUG activé", () => {
-    const k = new Kernel("production", null, { log: { active: true, debug: "*" } });
+    const k = new Kernel("production", null, {
+      log: { active: true, debug: "*" },
+    });
     k.initializeLog();
     assert.strictEqual(k.debug, "*");
 
@@ -832,20 +884,31 @@ describe("Kernel — initializeLog", () => {
     k.syslog?.log("prod debug", "DEBUG");
     restore();
 
-    assert.ok(received.some(p => p.severityName === "DEBUG"), "DEBUG en production avec debug='*'");
+    assert.ok(
+      received.some((p) => p.severityName === "DEBUG"),
+      "DEBUG en production avec debug='*'",
+    );
   });
 
   it("log.debug = false → debug reste false", () => {
-    const k = new Kernel("development", null, { log: { active: true, debug: false } });
+    const k = new Kernel("development", null, {
+      log: { active: true, debug: false },
+    });
     k.initializeLog();
     assert.strictEqual(k.debug, false);
   });
 
   it("log.debug ignoré si this.debug déjà truthy (string)", () => {
-    const k = new Kernel("development", null, { log: { active: true, debug: ["ROUTER"] } });
+    const k = new Kernel("development", null, {
+      log: { active: true, debug: ["ROUTER"] },
+    });
     k.debug = "*";
     k.initializeLog();
-    assert.strictEqual(k.debug, "*", "'*' ne doit pas être écrasé par ['ROUTER']");
+    assert.strictEqual(
+      k.debug,
+      "*",
+      "'*' ne doit pas être écrasé par ['ROUTER']",
+    );
   });
 });
 
@@ -855,7 +918,9 @@ describe("Kernel — fire & emit", () => {
   it("fire() retourne boolean et déclenche les listeners", () => {
     const k = mkKernel();
     let called = false;
-    k.on("onReady", () => { called = true; });
+    k.on("onReady", () => {
+      called = true;
+    });
     const result = k.fire("onReady", k);
     assert.ok(typeof result === "boolean");
     assert.ok(called);
@@ -864,7 +929,9 @@ describe("Kernel — fire & emit", () => {
   it("fireAsync() retourne une Promise résolue", async () => {
     const k = mkKernel();
     let called = false;
-    k.on("onReady", async () => { called = true; });
+    k.on("onReady", async () => {
+      called = true;
+    });
     await k.fireAsync("onReady", k);
     assert.ok(called);
   });
@@ -872,7 +939,9 @@ describe("Kernel — fire & emit", () => {
   it("emit() déclenche les listeners", () => {
     const k = mkKernel();
     let called = false;
-    k.on("onBoot", () => { called = true; });
+    k.on("onBoot", () => {
+      called = true;
+    });
     k.emit("onBoot", k);
     assert.ok(called);
   });
@@ -930,7 +999,11 @@ describe("Kernel — performance", () => {
     const first = JSON.stringify(k.getNetworkInterfaces());
     for (let i = 0; i < 50; i++) {
       const result = JSON.stringify(k.getNetworkInterfaces());
-      assert.strictEqual(result, first, `Résultat incohérent à l'itération ${i}`);
+      assert.strictEqual(
+        result,
+        first,
+        `Résultat incohérent à l'itération ${i}`,
+      );
     }
   });
 });

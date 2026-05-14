@@ -79,14 +79,7 @@ const Events: Readonly<EventsType> = Object.freeze({
 
 export type KernelEventsType = keyof typeof Events;
 
-declare enum type {
-  "console",
-  "server",
-  "CONSOLE",
-  "SERVER",
-}
-
-export type KernelType = keyof typeof type;
+export type KernelType = "console" | "server" | "CONSOLE" | "SERVER";
 
 interface AppEnvironmentType {
   environment: EnvironmentType | string;
@@ -172,14 +165,14 @@ class Kernel extends Service implements IKernel {
   constructor(
     environment: EnvironmentType,
     cli?: CliKernel | null,
-    options?: TypeKernelOptions
+    options?: TypeKernelOptions,
   ) {
     const container: Container | Scope | null | undefined = cli?.container;
     super(
       "KERNEL",
       container as Container,
       undefined, //cli.notificationsCenter as Event,
-      extend({}, kernelDefaultOptions, options)
+      extend({}, kernelDefaultOptions, options),
     );
     this.environment = environment;
     this.setMaxListeners(30);
@@ -335,7 +328,7 @@ class Kernel extends Service implements IKernel {
       // fix workaround commander twice call options
       if (version) {
         const optionVersionExists = this.cli?.commander?.options.some(
-          (opt) => opt.short === "-v" || opt.long === "--version"
+          (opt) => opt.short === "-v" || opt.long === "--version",
         );
         if (optionVersionExists) {
           const index = this.cli.commander.options.findIndex((value) => {
@@ -351,7 +344,7 @@ class Kernel extends Service implements IKernel {
       }
       if (debug) {
         const optionDebugExists = this.cli?.commander?.options.some(
-          (opt) => opt.short === "-d" || opt.long === "--debug"
+          (opt) => opt.short === "-d" || opt.long === "--debug",
         );
         if (optionDebugExists) {
           const index = this.cli.commander.options.findIndex((value) => {
@@ -502,7 +495,7 @@ class Kernel extends Service implements IKernel {
     if (this.get(inst.name)) {
       this.log(
         `SERVICE ALREADY EXIST  override old service  : ${inst.name}`,
-        "WARNING"
+        "WARNING",
       );
     }
     this.log(`SERVICE ADD : ${inst.name}`, "DEBUG");
@@ -530,7 +523,7 @@ class Kernel extends Service implements IKernel {
 
   async loadModule(
     moduleName: string,
-    build: boolean = false
+    build: boolean = false,
   ): Promise<Module> {
     const moduleClass = await import(moduleName);
     const module = await this.addModule(moduleClass.default);
@@ -641,7 +634,7 @@ class Kernel extends Service implements IKernel {
       this.log(
         `Ckeck Command event : ${this.getEventName(int)}   Progress:  ${index}  :  Complete : ${res}`,
         "DEBUG",
-        `COMMAND ${this.command.name}`
+        `COMMAND ${this.command.name}`,
       );
       return res;
     }
@@ -812,14 +805,13 @@ class Kernel extends Service implements IKernel {
     return path.resolve(this.path, myPath);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sendMessage(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     message: any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handle?: any,
     options?: { swallowErrors?: boolean; keepOpen?: boolean | undefined },
-    callback?: ((error: Error | null) => void) | undefined
+    callback?: ((error: Error | null) => void) | undefined,
   ): boolean {
     if (process.send) {
       return process.send(
@@ -829,7 +821,7 @@ class Kernel extends Service implements IKernel {
         },
         handle,
         options,
-        callback
+        callback,
       );
     }
     throw new Error(`process.send not found `);
@@ -845,7 +837,7 @@ class Kernel extends Service implements IKernel {
               this.pid
             } ) : ${CliKernel.niceBytes(memory[ele])}`,
             severity,
-            `MEMORY ${ele}`
+            `MEMORY ${ele}`,
           );
           break;
         case "heapTotal":
@@ -854,7 +846,7 @@ class Kernel extends Service implements IKernel {
               this.pid
             } ) : ${CliKernel.niceBytes(memory[ele])}`,
             severity,
-            `MEMORY ${ele}`
+            `MEMORY ${ele}`,
           );
           break;
         case "heapUsed":
@@ -863,7 +855,7 @@ class Kernel extends Service implements IKernel {
               this.pid
             } ) : ${CliKernel.niceBytes(memory[ele])}`,
             severity,
-            `MEMORY ${ele}`
+            `MEMORY ${ele}`,
           );
           break;
         case "external":
@@ -872,7 +864,7 @@ class Kernel extends Service implements IKernel {
               this.pid
             } ) : ${CliKernel.niceBytes(memory[ele])}`,
             severity,
-            `MEMORY ${ele}`
+            `MEMORY ${ele}`,
           );
           break;
       }
@@ -953,7 +945,7 @@ class Kernel extends Service implements IKernel {
   }
 
   getFirstExternalInterface(
-    family?: FamilyType
+    family?: FamilyType,
   ): os.NetworkInterfaceInfo | undefined {
     const filter: FilterInterface = {
       type: "external",
@@ -996,7 +988,7 @@ class Kernel extends Service implements IKernel {
       process.nextTick(() => {
         this.log(
           `NODEFONY Kernel Life Cycle Terminate CODE : ${code}`,
-          "DEBUG"
+          "DEBUG",
         );
         try {
           CliKernel.quit(code as number);

@@ -21,7 +21,7 @@ declare enum environment {
 export type EnvironmentType = keyof typeof environment;
 export type DebugType = boolean | string | string[];
 
-interface JSONArray extends Array<JSONValue> {}
+type JSONArray = Array<JSONValue>;
 type JSONValue = string | number | boolean | JSONObject | JSONArray;
 export interface JSONObject {
   [x: string]: JSONValue;

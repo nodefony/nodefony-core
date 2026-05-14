@@ -60,7 +60,7 @@ class Builder extends Service {
     super(
       "Builder",
       <Container>command?.container,
-      <Event>command?.notificationsCenter
+      <Event>command?.notificationsCenter,
     );
     this.command = command;
     this.getCliOptions();
@@ -125,7 +125,7 @@ class Builder extends Service {
   buildSkeleton(
     skeleton: string | FileClass,
     parse: boolean,
-    data: Record<string, any>
+    data: Record<string, any>,
   ): Promise<string | NodeJS.ArrayBufferView> {
     let skelete = null;
     return new Promise((resolve, reject) => {
@@ -146,7 +146,7 @@ class Builder extends Service {
                   return reject(error);
                 }
                 return resolve(result);
-              }
+              },
             );
           } else {
             fs.readFile(
@@ -159,12 +159,12 @@ class Builder extends Service {
                   return reject(error);
                 }
                 return resolve(result);
-              }
+              },
             );
           }
         } else {
           const error = new Error(
-            ` skeleton must be file !!! : ${skelete.path}`
+            ` skeleton must be file !!! : ${skelete.path}`,
           );
           return reject(error);
         }
@@ -177,7 +177,7 @@ class Builder extends Service {
   async build(
     obj: BuilderObject | BuilderObject[],
     parent: FileClass | string | File = new File(process.cwd()),
-    force: boolean = false
+    force: boolean = false,
   ): Promise<FileClass | null | File> {
     let child: FileClass | File | null = null;
     try {
@@ -214,14 +214,14 @@ class Builder extends Service {
                   case "directory": {
                     const directoryPath = path.resolve(
                       (parent as File)?.path as string,
-                      name
+                      name,
                     );
                     child = <FileClass>await this.createDirectory(
                       directoryPath,
                       (myobj.params as fs.MakeDirectoryOptions) || {
                         mode: 0o755,
                       },
-                      force
+                      force,
                     ).catch((e) => {
                       throw e;
                     });
@@ -238,13 +238,13 @@ class Builder extends Service {
                   case "file": {
                     const filePath = path.resolve(
                       (parent as FileClass)?.path as string,
-                      name
+                      name,
                     );
                     await this.createFile(
                       filePath,
                       myobj.skeleton as string,
                       myobj.parse,
-                      myobj.params as SymlinkParams
+                      myobj.params as SymlinkParams,
                     );
                     this.log(`Create File: ${filePath}`);
                     if (myobj.chmod) {
@@ -261,11 +261,11 @@ class Builder extends Service {
                     const parentPath = (parent as FileClass).path as string;
                     const sourcePath = path.resolve(
                       parentPath,
-                      symlinkParams.source
+                      symlinkParams.source,
                     );
                     const destPath = path.resolve(
                       parentPath,
-                      symlinkParams.dest
+                      symlinkParams.dest,
                     );
                     const symlinkArgs = force
                       ? ["-sf", sourcePath, destPath]
@@ -282,7 +282,7 @@ class Builder extends Service {
                     const copyParams = myobj.params as CopyParams;
                     const copyFilePath = path.resolve(
                       (parent as FileClass).path as string,
-                      name
+                      name,
                     );
                     const copyArgs = copyParams.recurse
                       ? ["-R", myobj.path as string, copyFilePath]
@@ -292,7 +292,7 @@ class Builder extends Service {
                     if (myobj.chmod) {
                       shelljs.chmod(
                         (myobj.chmod as string) || 0o644,
-                        copyFilePath
+                        copyFilePath,
                       );
                     }
                     child = new File(copyFilePath, <File>parent);
@@ -308,7 +308,7 @@ class Builder extends Service {
                 await this.build(
                   value as BuilderObject[],
                   child as FileClass,
-                  force
+                  force,
                 );
                 break;
             }
@@ -329,7 +329,7 @@ class Builder extends Service {
     myPath: string,
     skeleton: string,
     parse: boolean = true,
-    params: Record<string, any> = {}
+    params: Record<string, any> = {},
   ): File | Promise<File> {
     return new Promise((resolve, reject) => {
       if (skeleton) {
@@ -346,7 +346,7 @@ class Builder extends Service {
                   return reject(err);
                 }
                 return resolve(new File(myPath));
-              }
+              },
             );
           })
           .catch((e: Error) => reject(e));
@@ -363,7 +363,7 @@ class Builder extends Service {
             return reject(err);
           }
           return resolve(new File(myPath));
-        }
+        },
       );
     });
   }
@@ -371,7 +371,7 @@ class Builder extends Service {
   async createDirectory(
     myPath: fs.PathLike,
     mode?: fs.MakeDirectoryOptions | fs.Mode | null,
-    force: boolean = false
+    force: boolean = false,
   ): Promise<File> {
     try {
       await fs.promises.mkdir(myPath, mode);

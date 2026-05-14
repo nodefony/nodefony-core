@@ -46,7 +46,9 @@ export class HttpTransport implements ITransport {
         }
       });
       req.setTimeout(this.timeout, () => {
-        req.destroy(new Error(`HttpTransport: timeout after ${this.timeout}ms`));
+        req.destroy(
+          new Error(`HttpTransport: timeout after ${this.timeout}ms`),
+        );
       });
       req.on("error", reject);
       req.write(body);

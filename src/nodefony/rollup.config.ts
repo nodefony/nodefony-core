@@ -59,7 +59,7 @@ const treeshakeOptions = defineConfig({
 
 function onwarn(
   warning: { message: string; code?: string },
-  warn: (w: typeof warning) => void
+  warn: (w: typeof warning) => void,
 ): void {
   if (warning.message.includes("Circular dependency")) return;
   if (warning.code === "EVAL") return;
@@ -71,7 +71,7 @@ function onwarn(
 // ─── 1. Node ESM (dist/node/) ─────────────────────────────────────────────────
 function createNodePlugins(
   sourceMap: boolean,
-  declarationDir: string | false
+  declarationDir: string | false,
 ): Plugin[] {
   return [
     nodeResolve({ preferBuiltins: true }),

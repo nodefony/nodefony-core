@@ -11,7 +11,7 @@ export interface IScope extends IContainer {
   getParameters(
     name: string,
     merge?: boolean,
-    deep?: boolean
+    deep?: boolean,
   ): DynamicParam | null;
 }
 
@@ -45,7 +45,7 @@ export interface IContainer {
     pci: Pci,
     severity?: Severity,
     msgid?: Msgid,
-    msg?: Message
+    msg?: Message,
   ): ReturnType<Syslog["log"]> | void;
 
   // ─── Cycle de vie ──────────────────────────────────────────────────────────

@@ -17,14 +17,14 @@ class Entity extends Service {
     module: Module,
     name: string,
     ormName: string,
-    connectorName: string
+    connectorName: string,
   ) {
     super(name, module.container as Container);
     this.module = module;
     this.orm = this.get(ormName);
     if (!this.orm) {
       throw new Error(
-        `${this.name} entity can't be registered  ORM not found : ${ormName}`
+        `${this.name} entity can't be registered  ORM not found : ${ormName}`,
       );
     }
 

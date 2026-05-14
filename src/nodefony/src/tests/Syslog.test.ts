@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/ban-types */
 /*
  *   MODEFONY FRAMEWORK UNIT TEST
  *
@@ -12,7 +10,10 @@
  *
  */
 //import { expect, assert as assertChai} from 'chai'
-import Syslog, { conditionsInterface, SyslogDefaultSettings } from "../syslog/Syslog";
+import Syslog, {
+  conditionsInterface,
+  SyslogDefaultSettings,
+} from "../syslog/Syslog";
 //import nodefony  from "../Nodefony"
 import Pdu from "../syslog/Pdu";
 import assert from "node:assert";
@@ -55,7 +56,7 @@ describe("NODEFONY SYSLOG", () => {
       defaultOptions,
       (pdu: Pdu) =>
         // nodefony.Syslog.normalizeLog(pdu);
-        true
+        true,
     );
     global.logger = () => {
       global.syslog.log("info", "INFO");
@@ -215,7 +216,7 @@ describe("NODEFONY SYSLOG", () => {
         (pdu: Pdu) => {
           i++;
           // nodefony.Syslog.normalizeLog(pdu);
-        }
+        },
       );
       inst.loadStack(global.syslog.ringStack, true);
       assert.strict.equal(inst.ringStack.length, 100);
@@ -237,7 +238,7 @@ describe("NODEFONY SYSLOG", () => {
         (pdu: Pdu) => {
           i++;
           // nodefony.Syslog.normalizeLog(pdu);
-        }
+        },
       );
       inst.loadStack(global.syslog.ringStack, true, (pdu: TestPdu) => {
         (pdu as TestPdu).before = "add";
@@ -346,7 +347,7 @@ describe("NODEFONY SYSLOG", () => {
             data: "INFO",
           },
         },
-        (pdu: Pdu) => i++
+        (pdu: Pdu) => i++,
       );
       assert.strict.equal(global.syslog._eventsCount, 1);
       for (let i = 0; i < 10; i++) {
@@ -369,7 +370,7 @@ describe("NODEFONY SYSLOG", () => {
           assert.strict.equal(pdu.severity, 6);
           assert.strict.equal(pdu.severityName, "INFO");
           return i++;
-        }
+        },
       );
       assert.strict.equal(global.syslog._eventsCount, 1);
       for (let i = 0; i < 10; i++) {
@@ -392,7 +393,7 @@ describe("NODEFONY SYSLOG", () => {
           assert.strict.equal(pdu.severity, 6);
           assert.strict.equal(pdu.severityName, "INFO");
           return i++;
-        }
+        },
       );
       for (let i = 0; i < 10; i++) {
         global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
@@ -415,7 +416,7 @@ describe("NODEFONY SYSLOG", () => {
           assert.strict.equal(pdu.severity, 7);
           assert.strict.equal(pdu.severityName, "DEBUG");
           return i++;
-        }
+        },
       );
       assert.strict.equal(global.syslog._eventsCount, 1);
       for (let i = 0; i < 10; i++) {
@@ -435,7 +436,7 @@ describe("NODEFONY SYSLOG", () => {
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
-          i++
+          i++,
       );
       global.logger();
       assert.strict.equal(i, 3);
@@ -451,7 +452,7 @@ describe("NODEFONY SYSLOG", () => {
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
-          i++
+          i++,
       );
       global.logger();
       assert.strict.equal(i, 3);
@@ -467,7 +468,7 @@ describe("NODEFONY SYSLOG", () => {
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
-          i++
+          i++,
       );
       global.logger();
       assert.strict.equal(i, 3);
@@ -483,7 +484,7 @@ describe("NODEFONY SYSLOG", () => {
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
-          i++
+          i++,
       );
       global.logger();
       assert.strict.equal(i, 3);
@@ -501,7 +502,7 @@ describe("NODEFONY SYSLOG", () => {
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
-          i++
+          i++,
       );
       global.logger();
       assert.strict.equal(i, 4);
@@ -518,7 +519,7 @@ describe("NODEFONY SYSLOG", () => {
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
-          i++
+          i++,
       );
       global.logger();
       assert.strict.equal(i, 3);
@@ -535,7 +536,7 @@ describe("NODEFONY SYSLOG", () => {
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
-          i++
+          i++,
       );
       global.logger();
       assert.strict.equal(i, 4);
@@ -552,7 +553,7 @@ describe("NODEFONY SYSLOG", () => {
         },
         (pdu: Pdu) =>
           // nodefony.Syslog.normalizeLog(pdu);
-          i++
+          i++,
       );
       global.logger();
       assert.strict.equal(i, 4);
@@ -583,7 +584,7 @@ describe("NODEFONY SYSLOG", () => {
             if (i === 3) {
               resolve(true);
             }
-          }
+          },
         );
         global.syslog.log("pass", "INFO", "NODEFONY");
         global.syslog.log("nopass", "INFO");
@@ -603,7 +604,7 @@ describe("NODEFONY SYSLOG", () => {
         (pdu: Pdu) => {
           i++;
           assert.ok(pdu.msgid.startsWith("NODEFONY"));
-        }
+        },
       );
       global.syslog.log("pass", "INFO", "NODEFONY_SERVICE");
       global.syslog.log("nopass", "INFO", "OTHER_MODULE");
@@ -667,7 +668,7 @@ describe("NODEFONY SYSLOG", () => {
       const pdu = global.syslog.log("raw test", "INFO", "TEST");
       Syslog.rawLog(pdu);
       process.stdout.write = orig;
-      assert.ok(chunks.some(c => c.includes("raw test")));
+      assert.ok(chunks.some((c) => c.includes("raw test")));
       done();
     });
 
@@ -681,7 +682,7 @@ describe("NODEFONY SYSLOG", () => {
       const pdu = global.syslog.log("error msg", "ERROR", "TEST");
       Syslog.rawLog(pdu);
       process.stderr.write = orig;
-      assert.ok(chunks.some(c => c.includes("error msg")));
+      assert.ok(chunks.some((c) => c.includes("error msg")));
       done();
     });
 
@@ -695,7 +696,7 @@ describe("NODEFONY SYSLOG", () => {
       const pdu = global.syslog.log({ user: "alice" }, "DEBUG", "TEST");
       Syslog.rawLog(pdu);
       process.stdout.write = orig;
-      assert.ok(chunks.some(c => c.includes("alice")));
+      assert.ok(chunks.some((c) => c.includes("alice")));
       done();
     });
 
@@ -703,8 +704,14 @@ describe("NODEFONY SYSLOG", () => {
       let written = false;
       const origOut = process.stdout.write.bind(process.stdout);
       const origErr = process.stderr.write.bind(process.stderr);
-      process.stdout.write = () => { written = true; return true; };
-      process.stderr.write = () => { written = true; return true; };
+      process.stdout.write = () => {
+        written = true;
+        return true;
+      };
+      process.stderr.write = () => {
+        written = true;
+        return true;
+      };
       const pdu = new Pdu("", "INFO");
       Syslog.rawLog(pdu);
       process.stdout.write = origOut;
@@ -811,7 +818,9 @@ describe("NODEFONY SYSLOG", () => {
 
   describe("addTransport / removeTransport", () => {
     let syslog: Syslog;
-    beforeEach(() => { syslog = new Syslog(); });
+    beforeEach(() => {
+      syslog = new Syslog();
+    });
 
     it("addTransport returns this (chaining)", (done) => {
       const t: ITransport = { name: "mock", send: async () => {} };
@@ -828,7 +837,12 @@ describe("NODEFONY SYSLOG", () => {
 
     it("transport.send is called on log()", (done) => {
       let called = 0;
-      const t: ITransport = { name: "spy", send: async () => { called++; } };
+      const t: ITransport = {
+        name: "spy",
+        send: async () => {
+          called++;
+        },
+      };
       syslog.addTransport(t);
       syslog.log("hello", "INFO");
       // fire-and-forget — wait one microtask
@@ -840,7 +854,12 @@ describe("NODEFONY SYSLOG", () => {
 
     it("addTransport deduplication — same instance added twice calls send once", (done) => {
       let called = 0;
-      const t: ITransport = { name: "spy", send: async () => { called++; } };
+      const t: ITransport = {
+        name: "spy",
+        send: async () => {
+          called++;
+        },
+      };
       syslog.addTransport(t);
       syslog.addTransport(t); // duplicate — ignored
       syslog.log("test", "INFO");
@@ -852,7 +871,12 @@ describe("NODEFONY SYSLOG", () => {
 
     it("removeTransport stops further calls", (done) => {
       let called = 0;
-      const t: ITransport = { name: "spy", send: async () => { called++; } };
+      const t: ITransport = {
+        name: "spy",
+        send: async () => {
+          called++;
+        },
+      };
       syslog.addTransport(t);
       syslog.removeTransport(t);
       syslog.log("test", "INFO");
@@ -870,8 +894,18 @@ describe("NODEFONY SYSLOG", () => {
 
     it("multiple transports all receive each Pdu", (done) => {
       const calls: string[] = [];
-      const t1: ITransport = { name: "t1", send: async () => { calls.push("t1"); } };
-      const t2: ITransport = { name: "t2", send: async () => { calls.push("t2"); } };
+      const t1: ITransport = {
+        name: "t1",
+        send: async () => {
+          calls.push("t1");
+        },
+      };
+      const t2: ITransport = {
+        name: "t2",
+        send: async () => {
+          calls.push("t2");
+        },
+      };
       syslog.addTransport(t1).addTransport(t2);
       syslog.log("multi", "INFO");
       setImmediate(() => {
@@ -894,9 +928,14 @@ describe("NODEFONY SYSLOG", () => {
     it("DROPPED pdu — transport not called", (done) => {
       const rl = new Syslog({ rateLimit: 10000, burstLimit: 1 });
       let called = 0;
-      const t: ITransport = { name: "spy", send: async () => { called++; } };
+      const t: ITransport = {
+        name: "spy",
+        send: async () => {
+          called++;
+        },
+      };
       rl.addTransport(t);
-      rl.log("first", "INFO");  // ACCEPTED
+      rl.log("first", "INFO"); // ACCEPTED
       rl.log("second", "INFO"); // DROPPED
       setImmediate(() => {
         assert.strict.equal(called, 1);
@@ -917,7 +956,10 @@ describe("NODEFONY SYSLOG", () => {
       pdu.status = "ACCEPTED";
       let called = false;
       const orig = Syslog.normalizeLog;
-      Syslog.normalizeLog = (p: Pdu) => { called = true; return p; };
+      Syslog.normalizeLog = (p: Pdu) => {
+        called = true;
+        return p;
+      };
       const t = new ConsoleTransport();
       t.send(pdu).then(() => {
         Syslog.normalizeLog = orig;
@@ -933,7 +975,9 @@ describe("NODEFONY SYSLOG", () => {
       tmpFile = path.join(os.tmpdir(), `syslog-test-${Date.now()}.log`);
     });
     afterEach(() => {
-      try { fs.unlinkSync(tmpFile); } catch {}
+      try {
+        fs.unlinkSync(tmpFile);
+      } catch {}
     });
 
     it("implements ITransport with name=file", (done) => {
@@ -1009,26 +1053,34 @@ describe("NODEFONY SYSLOG", () => {
     it("send() POSTs JSON to a local server", (done) => {
       let body = "";
       const server = http.createServer((req, res) => {
-        req.on("data", (chunk) => { body += chunk; });
-        req.on("end", () => { res.writeHead(200); res.end(); });
+        req.on("data", (chunk) => {
+          body += chunk;
+        });
+        req.on("end", () => {
+          res.writeHead(200);
+          res.end();
+        });
       });
       server.listen(0, "127.0.0.1", () => {
         const addr = server.address() as { port: number };
         const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
         const pdu = new Pdu("http test", "INFO", "HTTP");
         pdu.status = "ACCEPTED";
-        t.send(pdu).then(() => {
-          server.close();
-          const parsed = JSON.parse(body);
-          assert.strict.equal(parsed.payload, "http test");
-          done();
-        }).catch(done);
+        t.send(pdu)
+          .then(() => {
+            server.close();
+            const parsed = JSON.parse(body);
+            assert.strict.equal(parsed.payload, "http test");
+            done();
+          })
+          .catch(done);
       });
     });
 
     it("send() rejects on HTTP 4xx", (done) => {
       const server = http.createServer((_req, res) => {
-        res.writeHead(400); res.end();
+        res.writeHead(400);
+        res.end();
       });
       server.listen(0, "127.0.0.1", () => {
         const addr = server.address() as { port: number };
@@ -1105,7 +1157,10 @@ describe("NODEFONY SYSLOG", () => {
     it("console.table(data) → INFO pdu with data as payload", (done) => {
       const inst = new Syslog({ maxStack: 10 });
       Syslog.overrideConsole(inst);
-      const data = [{ id: 1, name: "Alice" }, { id: 2, name: "Bob" }];
+      const data = [
+        { id: 1, name: "Alice" },
+        { id: 2, name: "Bob" },
+      ];
       console.table(data);
       assert.strict.equal(inst.ringStack.length, 1);
       assert.strict.equal(inst.ringStack[0].severityName, "INFO");
@@ -1162,7 +1217,10 @@ describe("NODEFONY SYSLOG", () => {
     it("clearLogStack() vide le ring mais garde les listeners", (done) => {
       const s = new Syslog();
       let count = 0;
-      s.listenWithConditions({ severity: { operator: "<=", data: 7 } }, () => count++);
+      s.listenWithConditions(
+        { severity: { operator: "<=", data: 7 } },
+        () => count++,
+      );
       s.log("x", "INFO");
       s.clearLogStack();
       assert.strict.equal(s.ringStack.length, 0);
@@ -1174,7 +1232,10 @@ describe("NODEFONY SYSLOG", () => {
     it("reset() vide le ring ET retire tous les listeners", (done) => {
       const s = new Syslog();
       let count = 0;
-      s.listenWithConditions({ severity: { operator: "<=", data: 7 } }, () => count++);
+      s.listenWithConditions(
+        { severity: { operator: "<=", data: 7 } },
+        () => count++,
+      );
       s.log("before reset", "INFO");
       s.reset();
       s.log("after reset", "INFO");
@@ -1209,12 +1270,12 @@ describe("NODEFONY SYSLOG", () => {
 
     it("reset de fenêtre après rateLimit ms — accepte à nouveau", async () => {
       const s = new Syslog({ rateLimit: 30, burstLimit: 1 });
-      const p1 = s.log("first", "INFO");  // ACCEPTED
+      const p1 = s.log("first", "INFO"); // ACCEPTED
       const p2 = s.log("second", "INFO"); // DROPPED
       assert.strict.equal(p1.status, "ACCEPTED");
       assert.strict.equal(p2.status, "DROPPED");
       await new Promise((r) => setTimeout(r, 50)); // fenêtre expirée
-      const p3 = s.log("third", "INFO");  // ACCEPTED après reset
+      const p3 = s.log("third", "INFO"); // ACCEPTED après reset
       assert.strict.equal(p3.status, "ACCEPTED");
       assert.strict.equal(s.missed, 0); // reset aussi missed
     });
@@ -1320,11 +1381,11 @@ describe("NODEFONY SYSLOG", () => {
           msgid: { data: "SPECIAL" },
           checkConditions: "||",
         },
-        () => count++
+        () => count++,
       );
-      s.log("match severity", "ERROR", "OTHER");   // ERROR → match
-      s.log("match msgid", "INFO", "SPECIAL");     // SPECIAL → match
-      s.log("no match", "INFO", "OTHER");           // ni ERROR ni SPECIAL → no match
+      s.log("match severity", "ERROR", "OTHER"); // ERROR → match
+      s.log("match msgid", "INFO", "SPECIAL"); // SPECIAL → match
+      s.log("no match", "INFO", "OTHER"); // ni ERROR ni SPECIAL → no match
       assert.strict.equal(count, 2);
       done();
     });
@@ -1337,11 +1398,11 @@ describe("NODEFONY SYSLOG", () => {
           severity: { operator: "==", data: "ERROR" },
           msgid: { data: "SPECIAL" },
         },
-        () => count++
+        () => count++,
       );
-      s.log("both", "ERROR", "SPECIAL");   // match
+      s.log("both", "ERROR", "SPECIAL"); // match
       s.log("only sev", "ERROR", "OTHER"); // pas match
-      s.log("only msg", "INFO", "SPECIAL");// pas match
+      s.log("only msg", "INFO", "SPECIAL"); // pas match
       assert.strict.equal(count, 1);
       done();
     });
@@ -1376,14 +1437,20 @@ describe("NODEFONY SYSLOG", () => {
       };
       let errWritten = false;
       const origErr = process.stderr.write.bind(process.stderr);
-      process.stderr.write = () => { errWritten = true; return true; };
+      process.stderr.write = () => {
+        errWritten = true;
+        return true;
+      };
       const pdu = new Pdu("loading…", -1);
       Syslog.rawLog(pdu);
       process.stdout.write = origOut;
       process.stderr.write = origErr;
       assert.ok(!errWritten, "SPINNER ne doit pas écrire sur stderr");
-      assert.ok(chunks.some(c => c.startsWith("\r")), "doit commencer par \\r");
-      assert.ok(chunks.some(c => c.includes("loading…")));
+      assert.ok(
+        chunks.some((c) => c.startsWith("\r")),
+        "doit commencer par \\r",
+      );
+      assert.ok(chunks.some((c) => c.includes("loading…")));
       done();
     });
   });
@@ -1393,10 +1460,15 @@ describe("NODEFONY SYSLOG", () => {
   describe("HttpTransport — timeout", () => {
     it("send() rejette si le serveur ne répond pas dans le délai", (done) => {
       // Serveur qui ne répond jamais
-      const server = http.createServer((_req, _res) => { /* silence */ });
+      const server = http.createServer((_req, _res) => {
+        /* silence */
+      });
       server.listen(0, "127.0.0.1", () => {
         const addr = server.address() as { port: number };
-        const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}`, timeout: 50 });
+        const t = new HttpTransport({
+          url: `http://127.0.0.1:${addr.port}`,
+          timeout: 50,
+        });
         const pdu = new Pdu("timeout test", "INFO", "X");
         pdu.status = "ACCEPTED";
         t.send(pdu).catch((err: Error) => {

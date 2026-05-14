@@ -12,27 +12,40 @@ import type { PackageJson } from "../types/IModule";
 
 function mkKernel(
   env: "development" | "production" = "development",
-  opts: TypeKernelOptions = {}
+  opts: TypeKernelOptions = {},
 ): Kernel {
   return new Kernel(env, null, { log: { active: false }, ...opts });
 }
 
 // Silence console.log (initCluster l'appelle) pendant toute la suite
 let origConsoleLog: typeof console.log;
-before(() => { origConsoleLog = console.log; console.log = () => {}; });
-after(() => { console.log = origConsoleLog; });
+before(() => {
+  origConsoleLog = console.log;
+  console.log = () => {};
+});
+after(() => {
+  console.log = origConsoleLog;
+});
 
 // Mock CliKernel.quit pour éviter process.exit dans les tests
 function mockQuit(): () => void {
   const orig = CliKernel.quit;
   (CliKernel as any).quit = () => {};
-  return () => { (CliKernel as any).quit = orig; };
+  return () => {
+    (CliKernel as any).quit = orig;
+  };
 }
 
 // Mock getPackageJson sur un module (évite la lecture du filesystem)
 function patchGetPackageJson(mod: Module): void {
   (mod as any).getPackageJson = async () =>
-    ({ name: "mock", version: "0.0.0", dependencies: {}, devDependencies: {}, peerDependencies: {} }) as PackageJson;
+    ({
+      name: "mock",
+      version: "0.0.0",
+      dependencies: {},
+      devDependencies: {},
+      peerDependencies: {},
+    }) as PackageJson;
 }
 
 // ─── Modules de test ──────────────────────────────────────────────────────────
@@ -120,8 +133,12 @@ describe("Kernel lifecycle — boot()", () => {
   it("fireAsync('onPreBoot') puis fireAsync('onBoot') — ordre respecté", async () => {
     const k = mkKernel();
     const order: string[] = [];
-    k.on("onPreBoot", () => { order.push("onPreBoot"); });
-    k.on("onBoot", () => { order.push("onBoot"); });
+    k.on("onPreBoot", () => {
+      order.push("onPreBoot");
+    });
+    k.on("onBoot", () => {
+      order.push("onBoot");
+    });
     await k.boot();
     assert.deepStrictEqual(order.slice(0, 2), ["onPreBoot", "onBoot"]);
   });
@@ -129,7 +146,9 @@ describe("Kernel lifecycle — boot()", () => {
   it("listener onPreBoot reçoit le kernel", async () => {
     const k = mkKernel();
     let received: unknown = null;
-    k.on("onPreBoot", (arg: unknown) => { received = arg; });
+    k.on("onPreBoot", (arg: unknown) => {
+      received = arg;
+    });
     await k.boot();
     assert.strictEqual(received, k);
   });
@@ -137,7 +156,9 @@ describe("Kernel lifecycle — boot()", () => {
   it("listener onBoot reçoit le kernel", async () => {
     const k = mkKernel();
     let received: unknown = null;
-    k.on("onBoot", (arg: unknown) => { received = arg; });
+    k.on("onBoot", (arg: unknown) => {
+      received = arg;
+    });
     await k.boot();
     assert.strictEqual(received, k);
   });
@@ -145,8 +166,12 @@ describe("Kernel lifecycle — boot()", () => {
   it("deux listeners onBoot → tous deux appelés", async () => {
     const k = mkKernel();
     let count = 0;
-    k.on("onBoot", () => { count++; });
-    k.on("onBoot", () => { count++; });
+    k.on("onBoot", () => {
+      count++;
+    });
+    k.on("onBoot", () => {
+      count++;
+    });
     await k.boot();
     assert.strictEqual(count, 2);
   });
@@ -154,7 +179,9 @@ describe("Kernel lifecycle — boot()", () => {
   it("once listener onBoot — appelé exactement une fois même après deux boot()", async () => {
     const k = mkKernel();
     let count = 0;
-    k.once("onBoot", () => { count++; });
+    k.once("onBoot", () => {
+      count++;
+    });
     await k.boot();
     // Deuxième boot : booted=true, mais le pipeline continue quand même
     await k.boot();
@@ -186,9 +213,18 @@ describe("Kernel lifecycle — preRegister()", () => {
   it("ordre des events : onPreRegister→onRegister→onPreBoot→onBoot→onReady→onPostReady", async () => {
     const k = mkKernel();
     const order: string[] = [];
-    const events = ["onPreRegister", "onRegister", "onPreBoot", "onBoot", "onReady", "onPostReady"];
+    const events = [
+      "onPreRegister",
+      "onRegister",
+      "onPreBoot",
+      "onBoot",
+      "onReady",
+      "onPostReady",
+    ];
     for (const ev of events) {
-      k.on(ev as any, () => { order.push(ev); });
+      k.on(ev as any, () => {
+        order.push(ev);
+      });
     }
     await k.preRegister();
     assert.deepStrictEqual(order, events);
@@ -197,7 +233,9 @@ describe("Kernel lifecycle — preRegister()", () => {
   it("listener onPreRegister reçoit le kernel", async () => {
     const k = mkKernel();
     let received: unknown = null;
-    k.on("onPreRegister", (arg: unknown) => { received = arg; });
+    k.on("onPreRegister", (arg: unknown) => {
+      received = arg;
+    });
     await k.preRegister();
     assert.strictEqual(received, k);
   });
@@ -205,7 +243,9 @@ describe("Kernel lifecycle — preRegister()", () => {
   it("listener onRegister reçoit le kernel", async () => {
     const k = mkKernel();
     let received: unknown = null;
-    k.on("onRegister", (arg: unknown) => { received = arg; });
+    k.on("onRegister", (arg: unknown) => {
+      received = arg;
+    });
     await k.preRegister();
     assert.strictEqual(received, k);
   });
@@ -222,11 +262,13 @@ describe("Kernel lifecycle — preRegister()", () => {
       await new Promise((r) => setImmediate(r));
       log.push("register-done");
     });
-    k.on("onBoot", () => { log.push("boot"); });
+    k.on("onBoot", () => {
+      log.push("boot");
+    });
     await k.preRegister();
     assert.ok(
       log.indexOf("register-done") < log.indexOf("boot"),
-      "register doit se terminer avant boot"
+      "register doit se terminer avant boot",
     );
   });
 });
@@ -260,15 +302,19 @@ describe("Kernel lifecycle — module hooks", () => {
 
   it("hooks async — setImmediate attendu avant event suivant", async () => {
     const k = mkKernel();
-    const mod = (await k.addModule(SlowHookedModule as any)) as SlowHookedModule;
+    const mod = (await k.addModule(
+      SlowHookedModule as any,
+    )) as SlowHookedModule;
     patchGetPackageJson(mod);
     const kernelOrder: string[] = [];
-    k.on("onBoot", () => { kernelOrder.push("kernelOnBoot"); });
+    k.on("onBoot", () => {
+      kernelOrder.push("kernelOnBoot");
+    });
     await k.preRegister();
     // onKernelRegister (async) doit finir avant que le kernel fire onBoot
     assert.ok(
       mod.order.includes("register"),
-      "register hook doit avoir été appelé"
+      "register hook doit avoir été appelé",
     );
   });
 
@@ -286,8 +332,13 @@ describe("Kernel lifecycle — module hooks", () => {
 
     class HookedModule2 extends Module {
       registerCalled = false;
-      constructor(kernel: Kernel) { super("HookedModule2", kernel, "/tmp/hooked2", {}); }
-      async onKernelRegister(): Promise<this> { this.registerCalled = true; return this; }
+      constructor(kernel: Kernel) {
+        super("HookedModule2", kernel, "/tmp/hooked2", {});
+      }
+      async onKernelRegister(): Promise<this> {
+        this.registerCalled = true;
+        return this;
+      }
     }
     const m2 = (await k.addModule(HookedModule2 as any)) as HookedModule2;
     patchGetPackageJson(m2);
@@ -310,7 +361,10 @@ describe("Kernel lifecycle — module hooks", () => {
     const mod = (await k.addModule(BasicModule as any)) as BasicModule;
     patchGetPackageJson(mod);
     await k.preRegister();
-    assert.ok(mod.package !== undefined, "package doit être défini après onPreBoot");
+    assert.ok(
+      mod.package !== undefined,
+      "package doit être défini après onPreBoot",
+    );
   });
 });
 
@@ -322,10 +376,14 @@ describe("Kernel lifecycle — terminate()", () => {
     try {
       const k = mkKernel();
       let called = false;
-      k.on("onTerminate", () => { called = true; });
+      k.on("onTerminate", () => {
+        called = true;
+      });
       await k.terminate(0);
       assert.strictEqual(called, true);
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   it("listener onTerminate reçoit le kernel et le code", async () => {
@@ -341,7 +399,9 @@ describe("Kernel lifecycle — terminate()", () => {
       await k.terminate(42);
       assert.strictEqual(receivedKernel, k);
       assert.strictEqual(receivedCode, 42);
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   it("code=0 par défaut", async () => {
@@ -349,10 +409,14 @@ describe("Kernel lifecycle — terminate()", () => {
     try {
       const k = mkKernel();
       const codes: number[] = [];
-      (CliKernel as any).quit = (c: number) => { codes.push(c); };
+      (CliKernel as any).quit = (c: number) => {
+        codes.push(c);
+      };
       await k.terminate();
       assert.deepStrictEqual(codes, [0]);
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   it("code=1 explicite", async () => {
@@ -360,22 +424,32 @@ describe("Kernel lifecycle — terminate()", () => {
     try {
       const k = mkKernel();
       const codes: number[] = [];
-      (CliKernel as any).quit = (c: number) => { codes.push(c); };
+      (CliKernel as any).quit = (c: number) => {
+        codes.push(c);
+      };
       await k.terminate(1);
       assert.deepStrictEqual(codes, [1]);
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   it("erreur dans listener onTerminate → code=1, pas de throw", async () => {
     const restore = mockQuit();
     try {
       const k = mkKernel();
-      k.on("onTerminate", () => { throw new Error("boom"); });
+      k.on("onTerminate", () => {
+        throw new Error("boom");
+      });
       const codes: number[] = [];
-      (CliKernel as any).quit = (c: number) => { codes.push(c); };
+      (CliKernel as any).quit = (c: number) => {
+        codes.push(c);
+      };
       await assert.doesNotReject(() => k.terminate(0));
       assert.deepStrictEqual(codes, [1], "erreur → code forcé à 1");
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   it("terminate retourne le kernel (promise résolue)", async () => {
@@ -384,7 +458,9 @@ describe("Kernel lifecycle — terminate()", () => {
       const k = mkKernel();
       const result = await k.terminate(0);
       assert.strictEqual(result, k);
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 });
 
@@ -393,12 +469,16 @@ describe("Kernel lifecycle — terminate()", () => {
 describe("Kernel lifecycle — addKernelService", () => {
   class KSvc extends Service {
     public readonly _marker = "ksvc";
-    constructor(kernel: Kernel) { super("KSvc", kernel.container as Container); }
+    constructor(kernel: Kernel) {
+      super("KSvc", kernel.container as Container);
+    }
   }
 
   class KSvcWithInit extends Service {
     public initCalled = false;
-    constructor(kernel: Kernel) { super("KSvcWithInit", kernel.container as Container); }
+    constructor(kernel: Kernel) {
+      super("KSvcWithInit", kernel.container as Container);
+    }
     async initialize(_kernel: unknown): Promise<this> {
       this.initCalled = true;
       return this;
@@ -415,7 +495,9 @@ describe("Kernel lifecycle — addKernelService", () => {
 
   it("addKernelService avec initialize → initialize(kernel) appelé", async () => {
     const k = mkKernel();
-    const inst = (await k.addKernelService(KSvcWithInit as any)) as KSvcWithInit;
+    const inst = (await k.addKernelService(
+      KSvcWithInit as any,
+    )) as KSvcWithInit;
     assert.strictEqual(inst?.initCalled, true);
   });
 
@@ -459,7 +541,9 @@ describe("Kernel lifecycle — arrêt par command", () => {
       await k.preRegister();
       assert.strictEqual(k.booted, false, "boot ne doit pas être appelé");
       assert.strictEqual(k.registered, true, "registered doit être true");
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   it("command.kernelEvent='onBoot' → onReady() pas appelé", async () => {
@@ -470,7 +554,9 @@ describe("Kernel lifecycle — arrêt par command", () => {
       await k.boot();
       assert.strictEqual(k.booted, true, "booted doit être true");
       assert.strictEqual(k.ready, false, "ready ne doit pas être true");
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 
   it("command.kernelEvent='onPreStart' — bits accumulés dans progress", () => {
@@ -488,10 +574,14 @@ describe("Kernel lifecycle — arrêt par command", () => {
       const k = mkKernel();
       setCommand(k, "onRegister");
       let terminateCalled = false;
-      k.on("onTerminate", () => { terminateCalled = true; });
+      k.on("onTerminate", () => {
+        terminateCalled = true;
+      });
       await k.preRegister();
       assert.strictEqual(terminateCalled, true, "terminate doit être appelé");
-    } finally { restore(); }
+    } finally {
+      restore();
+    }
   });
 });
 
@@ -500,25 +590,34 @@ describe("Kernel lifecycle — arrêt par command", () => {
 describe("Kernel lifecycle — propagation d'erreurs", () => {
   it("listener onBoot qui throw → boot() rejette", async () => {
     const k = mkKernel();
-    k.on("onBoot", () => { throw new Error("boom in onBoot"); });
-    await assert.rejects(
-      () => k.boot(),
-      /boom in onBoot/
-    );
+    k.on("onBoot", () => {
+      throw new Error("boom in onBoot");
+    });
+    await assert.rejects(() => k.boot(), /boom in onBoot/);
   });
 
   it("listener onPreBoot qui throw → boot() rejette avant onBoot", async () => {
     const k = mkKernel();
     let bootFired = false;
-    k.on("onPreBoot", () => { throw new Error("boom in onPreBoot"); });
-    k.on("onBoot", () => { bootFired = true; });
+    k.on("onPreBoot", () => {
+      throw new Error("boom in onPreBoot");
+    });
+    k.on("onBoot", () => {
+      bootFired = true;
+    });
     await assert.rejects(() => k.boot(), /boom in onPreBoot/);
-    assert.strictEqual(bootFired, false, "onBoot ne doit pas avoir été déclenché");
+    assert.strictEqual(
+      bootFired,
+      false,
+      "onBoot ne doit pas avoir été déclenché",
+    );
   });
 
   it("listener onPreRegister qui throw → preRegister() rejette", async () => {
     const k = mkKernel();
-    k.on("onPreRegister", () => { throw new Error("boom in onPreRegister"); });
+    k.on("onPreRegister", () => {
+      throw new Error("boom in onPreRegister");
+    });
     await assert.rejects(() => k.preRegister(), /boom in onPreRegister/);
     assert.strictEqual(k.registered, false, "registered ne doit pas être true");
   });
@@ -526,8 +625,12 @@ describe("Kernel lifecycle — propagation d'erreurs", () => {
   it("listener onRegister qui throw → boot() pas atteint", async () => {
     const k = mkKernel();
     let bootFired = false;
-    k.on("onRegister", () => { throw new Error("boom in onRegister"); });
-    k.on("onBoot", () => { bootFired = true; });
+    k.on("onRegister", () => {
+      throw new Error("boom in onRegister");
+    });
+    k.on("onBoot", () => {
+      bootFired = true;
+    });
     await assert.rejects(() => k.preRegister(), /boom in onRegister/);
     assert.strictEqual(bootFired, false);
   });
@@ -550,7 +653,9 @@ describe("Kernel lifecycle — onReady()", () => {
   it("onPostReady déclenché après onReady", async () => {
     const k = mkKernel();
     let postReadyCalled = false;
-    k.on("onPostReady", () => { postReadyCalled = true; });
+    k.on("onPostReady", () => {
+      postReadyCalled = true;
+    });
     await k.onReady();
     assert.strictEqual(postReadyCalled, true);
   });
@@ -558,7 +663,9 @@ describe("Kernel lifecycle — onReady()", () => {
   it("listener onReady reçoit le kernel", async () => {
     const k = mkKernel();
     let received: unknown = null;
-    k.on("onReady", (arg: unknown) => { received = arg; });
+    k.on("onReady", (arg: unknown) => {
+      received = arg;
+    });
     await k.onReady();
     assert.strictEqual(received, k);
   });

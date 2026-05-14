@@ -35,7 +35,7 @@ function makeKernelReal(opts = {}): Kernel {
 function makeModuleWithKernel(
   name = "test",
   path = PATH_FOR_NODEFONY_DIR,
-  options: DefaultOptionsService = {}
+  options: DefaultOptionsService = {},
 ): { kernel: Kernel; mod: Module } {
   const kernel = makeKernelReal();
   const mod = new Module(name, kernel, path, options);
@@ -77,7 +77,11 @@ describe("Module — construction", () => {
 
   it("options propagées au Service", () => {
     const opts: DefaultOptionsService = { syslog: { maxStack: 50 } };
-    const { mod } = makeModuleWithKernel("opts-check", PATH_FOR_NODEFONY_DIR, opts);
+    const { mod } = makeModuleWithKernel(
+      "opts-check",
+      PATH_FOR_NODEFONY_DIR,
+      opts,
+    );
     assert.strictEqual(mod.options.syslog?.maxStack, 50);
   });
 
@@ -148,14 +152,18 @@ describe("Module — setEvents()", () => {
     const before = kernel.listenerCount("onRegister");
 
     class ModWithRegister extends Module {
-      constructor(k: Kernel) { super("reg-hook", k, PATH_FOR_NODEFONY_DIR, {}); }
-      async onKernelRegister(): Promise<this> { return this; }
+      constructor(k: Kernel) {
+        super("reg-hook", k, PATH_FOR_NODEFONY_DIR, {});
+      }
+      async onKernelRegister(): Promise<this> {
+        return this;
+      }
     }
     new ModWithRegister(kernel);
 
     assert.ok(
       kernel.listenerCount("onRegister") > before,
-      "listener 'onRegister' ajouté par onKernelRegister"
+      "listener 'onRegister' ajouté par onKernelRegister",
     );
   });
 
@@ -164,12 +172,19 @@ describe("Module — setEvents()", () => {
     const before = kernel.listenerCount("onBoot");
 
     class ModWithBoot extends Module {
-      constructor(k: Kernel) { super("boot-hook", k, PATH_FOR_NODEFONY_DIR, {}); }
-      async onKernelBoot(): Promise<this> { return this; }
+      constructor(k: Kernel) {
+        super("boot-hook", k, PATH_FOR_NODEFONY_DIR, {});
+      }
+      async onKernelBoot(): Promise<this> {
+        return this;
+      }
     }
     new ModWithBoot(kernel);
 
-    assert.ok(kernel.listenerCount("onBoot") > before, "listener 'onBoot' ajouté");
+    assert.ok(
+      kernel.listenerCount("onBoot") > before,
+      "listener 'onBoot' ajouté",
+    );
   });
 
   it("onKernelReady (méthode prototype) → listener sur 'onReady'", () => {
@@ -177,12 +192,19 @@ describe("Module — setEvents()", () => {
     const before = kernel.listenerCount("onReady");
 
     class ModWithReady extends Module {
-      constructor(k: Kernel) { super("ready-hook", k, PATH_FOR_NODEFONY_DIR, {}); }
-      async onKernelReady(): Promise<this> { return this; }
+      constructor(k: Kernel) {
+        super("ready-hook", k, PATH_FOR_NODEFONY_DIR, {});
+      }
+      async onKernelReady(): Promise<this> {
+        return this;
+      }
     }
     new ModWithReady(kernel);
 
-    assert.ok(kernel.listenerCount("onReady") > before, "listener 'onReady' ajouté");
+    assert.ok(
+      kernel.listenerCount("onReady") > before,
+      "listener 'onReady' ajouté",
+    );
   });
 
   it("hooks non définis → pas de listener onRegister/onReady supplémentaire", () => {
@@ -199,8 +221,8 @@ describe("Module — setEvents()", () => {
   });
 
   it("kernel null (stub sans kernel) → setEvents() ne throw pas", () => {
-    assert.doesNotThrow(() =>
-      new Module("stub-events", makeKernelStub(), process.cwd(), {})
+    assert.doesNotThrow(
+      () => new Module("stub-events", makeKernelStub(), process.cwd(), {}),
     );
   });
 });
@@ -235,9 +257,14 @@ describe("Module — readOverrideModuleConfig()", () => {
 
   it("Module-target trouvé + deep=false → fusion shallow", () => {
     const kernel = makeKernelReal();
-    const targetMod = new Module("shallow-target", kernel, PATH_FOR_NODEFONY_DIR, {
-      keep: "yes",
-    });
+    const targetMod = new Module(
+      "shallow-target",
+      kernel,
+      PATH_FOR_NODEFONY_DIR,
+      {
+        keep: "yes",
+      },
+    );
     kernel.modules["shallow-target"] = targetMod;
 
     const hostMod = new Module("shallow-host", kernel, PATH_FOR_NODEFONY_DIR, {
@@ -258,7 +285,12 @@ describe("Module — readOverrideModuleConfig()", () => {
 
   it("regex case : 'module-target' (m minuscule) est aussi reconnu", () => {
     const kernel = makeKernelReal();
-    const targetMod = new Module("lc-target", kernel, PATH_FOR_NODEFONY_DIR, {});
+    const targetMod = new Module(
+      "lc-target",
+      kernel,
+      PATH_FOR_NODEFONY_DIR,
+      {},
+    );
     kernel.modules["lc-target"] = targetMod;
 
     const hostMod = new Module("lc-host", kernel, PATH_FOR_NODEFONY_DIR, {
@@ -315,11 +347,17 @@ describe("Module — addService()", () => {
     await mod.addService(SimpleService as any);
 
     const pdus: import("../syslog/Pdu").default[] = [];
-    mod.syslog?.on("onLog", (p: import("../syslog/Pdu").default) => pdus.push(p));
+    mod.syslog?.on("onLog", (p: import("../syslog/Pdu").default) =>
+      pdus.push(p),
+    );
     await mod.addService(SimpleService as any); // second ajout
     mod.syslog?.removeAllListeners();
 
-    const warn = pdus.some(p => p.severityName === "WARNING" && String(p.payload).includes("ALREADY EXIST"));
+    const warn = pdus.some(
+      (p) =>
+        p.severityName === "WARNING" &&
+        String(p.payload).includes("ALREADY EXIST"),
+    );
     assert.ok(warn, "un WARNING doit être logué lors du double ajout");
   });
 });
@@ -338,7 +376,12 @@ describe("Module — getPackageJson()", () => {
 
   it("rejette si package.json absent du path", async () => {
     const tmpDir = os.tmpdir();
-    const mod = new Module("no-pkg", makeKernelStub(), tmpDir + "/fake-file.js", {});
+    const mod = new Module(
+      "no-pkg",
+      makeKernelStub(),
+      tmpDir + "/fake-file.js",
+      {},
+    );
     // mod.path = tmpDir → pas de package.json
     await assert.rejects(() => mod.getPackageJson(), { code: "ENOENT" });
   });
@@ -362,7 +405,7 @@ describe("Module — loadJson()", () => {
   it("rejette si le fichier n'existe pas", async () => {
     await assert.rejects(
       () => mod.loadJson("/tmp/__non_existent_file__.json"),
-      { code: "ENOENT" }
+      { code: "ENOENT" },
     );
   });
 
@@ -392,12 +435,22 @@ describe("Module — install() & outdated()", () => {
   });
 
   it("install(force=true) sans cli → throw 'Package Manager not found'", async () => {
-    const mod = new Module("install-force", makeKernelStub(), process.cwd(), {});
+    const mod = new Module(
+      "install-force",
+      makeKernelStub(),
+      process.cwd(),
+      {},
+    );
     await assert.rejects(() => mod.install(true), /Package Manager not found/);
   });
 
   it("outdated() sans cli → throw 'Package Manager not found'", async () => {
-    const mod = new Module("outdated-test", makeKernelStub(), process.cwd(), {});
+    const mod = new Module(
+      "outdated-test",
+      makeKernelStub(),
+      process.cwd(),
+      {},
+    );
     await assert.rejects(() => mod.outdated(), /Package Manager not found/);
   });
 
@@ -412,19 +465,13 @@ describe("Module — install() & outdated()", () => {
 describe("Module — addCommand()", () => {
   it("kernel non défini (stub) → throw 'Kernel not ready'", () => {
     const mod = new Module("cmd-test", makeKernelStub(), process.cwd(), {});
-    assert.throws(
-      () => mod.addCommand(class {} as any),
-      /Kernel not ready/
-    );
+    assert.throws(() => mod.addCommand(class {} as any), /Kernel not ready/);
   });
 
   it("kernel réel sans cli → throw 'Kernel not ready'", () => {
     const { mod } = makeModuleWithKernel("cmd-real-kernel");
     // kernel.cli = null → mod.kernel.cli = null → throw
-    assert.throws(
-      () => mod.addCommand(class {} as any),
-      /Kernel not ready/
-    );
+    assert.throws(() => mod.addCommand(class {} as any), /Kernel not ready/);
   });
 });
 
@@ -483,7 +530,10 @@ describe("Module — métadonnées package", () => {
       dependencies: { axios: "1.0.0" },
     };
     const deps = mod3.getDependencies();
-    assert.ok(!deps.includes("jest"), "devDependencies ne doit pas être inclus");
+    assert.ok(
+      !deps.includes("jest"),
+      "devDependencies ne doit pas être inclus",
+    );
     assert.ok(deps.includes("axios"));
   });
 
@@ -496,8 +546,12 @@ describe("Module — métadonnées package", () => {
       peerDependencies: { react: "18.0.0" },
     };
     const deps = mod4.getDependencies();
-    const reactCount = deps.filter(d => d === "react").length;
-    assert.strictEqual(reactCount, 2, "react apparaît 2x — dédupliqué si besoin par l'appelant");
+    const reactCount = deps.filter((d) => d === "react").length;
+    assert.strictEqual(
+      reactCount,
+      2,
+      "react apparaît 2x — dédupliqué si besoin par l'appelant",
+    );
   });
 });
 
@@ -523,7 +577,7 @@ describe("Module — getPackageDependencies() (statique)", () => {
   it("retourne [] si package undefined", () => {
     assert.deepStrictEqual(
       Module.getPackageDependencies(undefined as unknown as PackageJson),
-      []
+      [],
     );
   });
 
@@ -552,7 +606,7 @@ describe("Module — getController()", () => {
   it("lève une erreur pour un controller inexistant", () => {
     assert.throws(
       () => mod.getController("NonExistentController"),
-      /Controller.*not exist/
+      /Controller.*not exist/,
     );
   });
 
@@ -568,8 +622,11 @@ describe("Module — getController()", () => {
 
   it("getControllers() retourne la même référence (static partagé)", () => {
     const mod2 = new Module("ctrl-test-2", makeKernelStub(), process.cwd(), {});
-    assert.strictEqual(mod.getControllers(), mod2.getControllers(),
-      "Module.controllers est une référence statique partagée entre instances");
+    assert.strictEqual(
+      mod.getControllers(),
+      mod2.getControllers(),
+      "Module.controllers est une référence statique partagée entre instances",
+    );
   });
 
   it("controller injecté dans Module.controllers → getController() le trouve", () => {
@@ -682,7 +739,9 @@ describe("Module — sous-classe avec lifecycle hooks", () => {
     let called = false;
 
     class AppModule extends Module {
-      constructor(k: Kernel) { super("app", k, PATH_FOR_NODEFONY_DIR, {}); }
+      constructor(k: Kernel) {
+        super("app", k, PATH_FOR_NODEFONY_DIR, {});
+      }
       async onKernelRegister(): Promise<this> {
         called = true;
         return this;
@@ -698,7 +757,9 @@ describe("Module — sous-classe avec lifecycle hooks", () => {
     let called = false;
 
     class BootModule extends Module {
-      constructor(k: Kernel) { super("boot-mod", k, PATH_FOR_NODEFONY_DIR, {}); }
+      constructor(k: Kernel) {
+        super("boot-mod", k, PATH_FOR_NODEFONY_DIR, {});
+      }
       async onKernelBoot(): Promise<this> {
         called = true;
         return this;
@@ -714,7 +775,9 @@ describe("Module — sous-classe avec lifecycle hooks", () => {
     let called = false;
 
     class ReadyModule extends Module {
-      constructor(k: Kernel) { super("ready-mod", k, PATH_FOR_NODEFONY_DIR, {}); }
+      constructor(k: Kernel) {
+        super("ready-mod", k, PATH_FOR_NODEFONY_DIR, {});
+      }
       async onKernelReady(): Promise<this> {
         called = true;
         return this;
@@ -730,7 +793,9 @@ describe("Module — sous-classe avec lifecycle hooks", () => {
     let count = 0;
 
     class CountModule extends Module {
-      constructor(k: Kernel) { super("count-mod", k, PATH_FOR_NODEFONY_DIR, {}); }
+      constructor(k: Kernel) {
+        super("count-mod", k, PATH_FOR_NODEFONY_DIR, {});
+      }
       async onKernelRegister(): Promise<this> {
         count++;
         return this;
@@ -789,14 +854,20 @@ function captureLogs(mod: Module, fn: () => void): Pdu[] {
   const pdus: Pdu[] = [];
   const listener = (p: Pdu) => pdus.push(p);
   mod.syslog?.on("onLog", listener);
-  try { fn(); } finally { mod.syslog?.removeListener("onLog", listener); }
+  try {
+    fn();
+  } finally {
+    mod.syslog?.removeListener("onLog", listener);
+  }
   return pdus;
 }
 
 describe("Module — readOverrideModuleConfig() — override complet + WARNING log", () => {
   it("WARNING 'Override Configuration Module: http' émis lors de l'override", () => {
     const kernel = makeKernelReal();
-    kernel.modules["http"] = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    kernel.modules["http"] = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+    });
 
     const appMod = new Module("test", kernel, PATH_FOR_NODEFONY_DIR, {
       "Module-http": { port: 8080 },
@@ -805,12 +876,15 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
 
     const warnPdu = pdus.find(
-      p =>
+      (p) =>
         p.severityName === "WARNING" &&
         String(p.payload).includes("Override Configuration Module") &&
-        String(p.payload).includes("http")
+        String(p.payload).includes("http"),
     );
-    assert.ok(warnPdu, "le log WARNING 'Override Configuration Module: http' doit être émis");
+    assert.ok(
+      warnPdu,
+      "le log WARNING 'Override Configuration Module: http' doit être émis",
+    );
   });
 
   it("deep=true (défaut) — clés imbriquées NON overridées préservées", () => {
@@ -826,10 +900,10 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     });
     appMod.readOverrideModuleConfig(); // deep=true par défaut
 
-    assert.strictEqual((httpMod.options as any).port, 80);               // préservé
-    assert.strictEqual((httpMod.options as any).ssl.enabled, true);      // overridé
+    assert.strictEqual((httpMod.options as any).port, 80); // préservé
+    assert.strictEqual((httpMod.options as any).ssl.enabled, true); // overridé
     assert.strictEqual((httpMod.options as any).ssl.cert, "default.pem"); // préservé deep
-    assert.strictEqual((httpMod.options as any).ssl.key, "default.key");  // préservé deep
+    assert.strictEqual((httpMod.options as any).ssl.key, "default.key"); // préservé deep
   });
 
   it("deep=false — objet imbriqué entièrement remplacé (shallow)", () => {
@@ -865,14 +939,16 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     });
     appMod.readOverrideModuleConfig();
 
-    assert.strictEqual((httpMod.options as any).port, 8080);        // overridé
-    assert.strictEqual((httpMod.options as any).host, "localhost");  // préservé
-    assert.strictEqual((httpMod.options as any).timeout, 30);       // préservé
+    assert.strictEqual((httpMod.options as any).port, 8080); // overridé
+    assert.strictEqual((httpMod.options as any).host, "localhost"); // préservé
+    assert.strictEqual((httpMod.options as any).timeout, 30); // préservé
   });
 
   it("extend(true, {}, ...) — la référence d'options du module cible change", () => {
     const kernel = makeKernelReal();
-    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+    });
     kernel.modules["http"] = httpMod;
     const originalRef = httpMod.options;
 
@@ -885,13 +961,15 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     assert.notStrictEqual(
       httpMod.options,
       originalRef,
-      "options du module cible doit être un nouvel objet après override"
+      "options du module cible doit être un nouvel objet après override",
     );
   });
 
   it("multiple Module-* — override plusieurs modules en une seule passe", () => {
     const kernel = makeKernelReal();
-    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+    });
     const dbMod = new Module("sequelize", kernel, PATH_FOR_NODEFONY_DIR, {
       dialect: "sqlite",
       pool: { min: 1, max: 5 },
@@ -917,9 +995,9 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
 
     // deux WARNINGs émis
     const warns = pdus.filter(
-      p =>
+      (p) =>
         p.severityName === "WARNING" &&
-        String(p.payload).includes("Override Configuration Module")
+        String(p.payload).includes("Override Configuration Module"),
     );
     assert.strictEqual(warns.length, 2, "un WARNING par module overridé");
   });
@@ -933,31 +1011,45 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
 
     const errPdu = pdus.find(
-      p =>
+      (p) =>
         p.severityName === "ERROR" &&
         String(p.payload).includes("Can't Override Configuration Module") &&
-        String(p.payload).includes("ghost")
+        String(p.payload).includes("ghost"),
     );
-    assert.ok(errPdu, "log ERROR doit être émis si le module cible n'est pas enregistré");
+    assert.ok(
+      errPdu,
+      "log ERROR doit être émis si le module cible n'est pas enregistré",
+    );
   });
 
   it("ERROR log — continue sans throw (autres clés traitées)", () => {
     const kernel = makeKernelReal();
-    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+    });
     kernel.modules["http"] = httpMod;
 
     const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
-      "Module-ghost": { x: 1 },    // module inexistant → ERROR + continue
+      "Module-ghost": { x: 1 }, // module inexistant → ERROR + continue
       "Module-http": { port: 9090 }, // module existant → doit quand même être traité
     });
 
     assert.doesNotThrow(() => appMod.readOverrideModuleConfig());
-    assert.strictEqual((httpMod.options as any).port, 9090, "http doit être overridé même après un ERROR précédent");
+    assert.strictEqual(
+      (httpMod.options as any).port,
+      9090,
+      "http doit être overridé même après un ERROR précédent",
+    );
   });
 
   it("retourne this.options (les options du module appelant, pas celles du module cible)", () => {
     const kernel = makeKernelReal();
-    kernel.modules["http"] = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {});
+    kernel.modules["http"] = new Module(
+      "http",
+      kernel,
+      PATH_FOR_NODEFONY_DIR,
+      {},
+    );
 
     const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
       "Module-http": { port: 9090 },
@@ -969,7 +1061,12 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
 
   it("les options propres du module appelant ne sont pas modifiées", () => {
     const kernel = makeKernelReal();
-    kernel.modules["http"] = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {});
+    kernel.modules["http"] = new Module(
+      "http",
+      kernel,
+      PATH_FOR_NODEFONY_DIR,
+      {},
+    );
 
     const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
       "Module-http": { port: 9090 },
@@ -984,7 +1081,9 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
 
   it("regex — 'module-http' (m minuscule) reconnu et override appliqué", () => {
     const kernel = makeKernelReal();
-    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+    });
     kernel.modules["http"] = httpMod;
 
     const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
@@ -992,25 +1091,37 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     });
     appMod.readOverrideModuleConfig();
 
-    assert.strictEqual((httpMod.options as any).port, 7070, "m minuscule doit fonctionner");
+    assert.strictEqual(
+      (httpMod.options as any).port,
+      7070,
+      "m minuscule doit fonctionner",
+    );
   });
 
   it("regex — 'Modulehttp' (sans tiret) NON reconnu", () => {
     const kernel = makeKernelReal();
-    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+    });
     kernel.modules["http"] = httpMod;
 
     const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
-      "Modulehttp": { port: 9999 }, // pas de tiret après Module
+      Modulehttp: { port: 9999 }, // pas de tiret après Module
     });
     appMod.readOverrideModuleConfig();
 
-    assert.strictEqual((httpMod.options as any).port, 80, "sans tiret → non reconnu → port inchangé");
+    assert.strictEqual(
+      (httpMod.options as any).port,
+      80,
+      "sans tiret → non reconnu → port inchangé",
+    );
   });
 
   it("regex — 'Bundle-http' NON reconnu (préfixe inconnu)", () => {
     const kernel = makeKernelReal();
-    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, { port: 80 });
+    const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
+      port: 80,
+    });
     kernel.modules["http"] = httpMod;
 
     const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
@@ -1039,9 +1150,9 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     appMod.readOverrideModuleConfig();
 
     const r = (targetMod.options as any).router;
-    assert.strictEqual(r.prefix, "/api");              // préservé
-    assert.strictEqual(r.security.enabled, true);      // préservé deep
-    assert.strictEqual(r.security.strategy, "oauth");  // overridé
+    assert.strictEqual(r.prefix, "/api"); // préservé
+    assert.strictEqual(r.security.enabled, true); // préservé deep
+    assert.strictEqual(r.security.strategy, "oauth"); // overridé
     assert.strictEqual(r.security.jwtSecret, "original"); // préservé deep
   });
 
@@ -1055,9 +1166,9 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
 
     const warns = pdus.filter(
-      p =>
+      (p) =>
         p.severityName === "WARNING" &&
-        String(p.payload).includes("Override Configuration Module")
+        String(p.payload).includes("Override Configuration Module"),
     );
     assert.strictEqual(warns.length, 0, "aucun WARNING si aucune clé Module-*");
   });
@@ -1070,26 +1181,35 @@ describe("Module — edge cases", () => {
     const kernel = makeKernelReal();
     const mod1 = await kernel.addModule(
       class extends Module {
-        constructor(k: Kernel) { super("dup-name", k, PATH_FOR_NODEFONY_DIR, {}); }
-      } as any
+        constructor(k: Kernel) {
+          super("dup-name", k, PATH_FOR_NODEFONY_DIR, {});
+        }
+      } as any,
     );
     const mod2 = await kernel.addModule(
       class extends Module {
-        constructor(k: Kernel) { super("dup-name", k, PATH_FOR_NODEFONY_DIR, {}); }
-      } as any
+        constructor(k: Kernel) {
+          super("dup-name", k, PATH_FOR_NODEFONY_DIR, {});
+        }
+      } as any,
     );
     assert.strictEqual(kernel.getModule("dup-name"), mod2);
     assert.notStrictEqual(kernel.getModule("dup-name"), mod1);
   });
 
   it("options {} vides → ne throw pas", () => {
-    assert.doesNotThrow(() =>
-      new Module("empty-opts", makeKernelStub(), process.cwd(), {})
+    assert.doesNotThrow(
+      () => new Module("empty-opts", makeKernelStub(), process.cwd(), {}),
     );
   });
 
   it("nom avec tirets → valide", () => {
-    const mod = new Module("my-cool-module", makeKernelStub(), process.cwd(), {});
+    const mod = new Module(
+      "my-cool-module",
+      makeKernelStub(),
+      process.cwd(),
+      {},
+    );
     assert.strictEqual(mod.name, "my-cool-module");
   });
 
@@ -1100,7 +1220,12 @@ describe("Module — edge cases", () => {
   });
 
   it("log() payload=0 (falsy) → ACCEPTED", () => {
-    const mod = new Module("falsy-payload", makeKernelStub(), process.cwd(), {});
+    const mod = new Module(
+      "falsy-payload",
+      makeKernelStub(),
+      process.cwd(),
+      {},
+    );
     const pdu = mod.log(0, "INFO");
     assert.strictEqual(pdu.status, "ACCEPTED");
   });

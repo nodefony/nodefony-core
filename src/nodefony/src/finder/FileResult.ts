@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-type-constraint */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Result from "./Result";
 import File from "./File";
@@ -45,7 +44,7 @@ class FileResult extends Result {
 
   override find<S>(
     predicate: (value: any, index: number, obj: any[]) => value is S,
-    result: FileResult = new FileResult()
+    result: FileResult = new FileResult(),
   ): FileResult {
     for (let index = 0; index < this.length; index++) {
       const info: File = this[index];

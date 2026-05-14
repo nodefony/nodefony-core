@@ -40,7 +40,7 @@ class Watcher extends Service {
 
   async createRollupWatcher(
     module: Module,
-    options: RollupOptions
+    options: RollupOptions,
   ): Promise<RollupWatcher> {
     return new Promise(async (resolve, reject) => {
       try {
@@ -109,7 +109,7 @@ class Watcher extends Service {
     const linker: vm.ModuleLinker = function linker(
       this: Watcher,
       specifier: string,
-      referencingModule: Context
+      referencingModule: Context,
     ) {
       const mod = this.search(specifier, options) as OutputChunk;
       if (mod) {

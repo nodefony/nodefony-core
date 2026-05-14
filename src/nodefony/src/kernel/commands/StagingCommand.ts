@@ -18,7 +18,7 @@ class Staging extends Command {
       "staging",
       "Start Server Staging  Mode ( Usefull to check Clusters Node use os.cpus().length )",
       cli as CliKernel,
-      options
+      options,
     );
     this.alias("preprod");
   }
@@ -29,7 +29,6 @@ class Staging extends Command {
     process.env.MODE_START = "staging";
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   override async generate(/*options: any*/): Promise<void> {
     try {
       return this.preProd();
@@ -62,7 +61,7 @@ class Staging extends Command {
       const kernel = new Kernel(
         this.cli.environment,
         this.cli as CliKernel,
-        options
+        options,
       );
       kernel.start().catch((e) => {
         this.cli.log(e, "ERROR");

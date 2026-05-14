@@ -21,7 +21,6 @@ class Kill extends Command {
     this.service = this.get<pm2Service>("pm2");
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
   override async generate(/*options: any*/): Promise<Kernel> {
     try {
       await this.service?.killExec();

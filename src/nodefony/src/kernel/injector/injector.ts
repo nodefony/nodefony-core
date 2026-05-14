@@ -23,12 +23,15 @@ class Injector extends Service {
     super(
       "injector",
       kernel.container as Container,
-      kernel.notificationsCenter as Event
+      kernel.notificationsCenter as Event,
     );
     Injector.register("Fetch", Fetch);
   }
 
-  static register(serviceName: string, service: ServiceConstructor): ServiceConstructor {
+  static register(
+    serviceName: string,
+    service: ServiceConstructor,
+  ): ServiceConstructor {
     if (!serviceName || !service) {
       throw new Error(`Injector register  bad argument`);
     }
@@ -53,11 +56,17 @@ class Injector extends Service {
     return service;
   }
 
-  static inject(service: ServiceConstructor, ...args: any[]): Service | ServiceWithInitialize | any {
+  static inject(
+    service: ServiceConstructor,
+    ...args: any[]
+  ): Service | ServiceWithInitialize | any {
     return Injector.instantiate(service, ...args);
   }
 
-  instantiate(constructor: ServiceConstructor, ...args: any[]): Service | ServiceWithInitialize | any {
+  instantiate(
+    constructor: ServiceConstructor,
+    ...args: any[]
+  ): Service | ServiceWithInitialize | any {
     return Injector.instantiate(constructor, ...args);
   }
 
@@ -163,7 +172,10 @@ class Injector extends Service {
     return Reflect.construct(constructor, resolvedArgs);
   }
 
-  reflect(constructor: ServiceConstructor, ...args: any[]): Service | ServiceWithInitialize | any {
+  reflect(
+    constructor: ServiceConstructor,
+    ...args: any[]
+  ): Service | ServiceWithInitialize | any {
     try {
       return Reflect.construct(constructor, args);
     } catch (e: any) {

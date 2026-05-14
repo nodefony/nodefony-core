@@ -1,6 +1,3 @@
-/* eslint-disable no-async-promise-executor */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { promises as fsPromises } from "fs";
 import Event from "../Event";
 import { extend, typeOf } from "../Tools";
@@ -90,7 +87,7 @@ const checkMatch = function (
   this: Finder,
   info: File,
   options: DefaultSettingsInterface = {},
-  result: Result
+  result: Result,
 ) {
   let match = false;
   let rec: string | undefined = undefined;
@@ -159,7 +156,7 @@ const parser = function (
   result = new FileResult(),
   options: DefaultSettingsInterface,
   depth: number | null = null,
-  parent: File | null = null
+  parent: File | null = null,
 ) {
   return new Promise(async (resolve, reject) => {
     if (depth === 0) {
@@ -205,7 +202,7 @@ const parser = function (
             try {
               const read = path.resolve(
                 info.dirName,
-                await fsPromises.readlink(<fs.PathLike>info.path)
+                await fsPromises.readlink(<fs.PathLike>info.path),
               );
               symLink = new File(read, info);
             } catch (e) {
@@ -250,7 +247,7 @@ const parser = function (
                     undefined,
                     options,
                     myDeph,
-                    info
+                    info,
                   );
                 }
               }
@@ -312,14 +309,14 @@ class Finder extends Event {
         return result;
       default:
         throw new Error(
-          `Bad Path type: ${type} Accept only String, Array or fileClass`
+          `Bad Path type: ${type} Accept only String, Array or fileClass`,
         );
     }
   }
 
   async in(
     Path: string | FileClass | string[],
-    settings = {}
+    settings = {},
   ): Promise<Result> {
     let result = null;
     try {

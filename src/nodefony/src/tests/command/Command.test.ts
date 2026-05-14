@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import assert from "node:assert";
 import "mocha";
 import Command, { OptionsCommandInterface } from "../../command/Command";
@@ -29,13 +28,13 @@ describe("Command", () => {
             "start2",
             "start2 framawork",
             cli as Cli,
-            options
+            options,
           );
           const inst3 = new Command(
             "start3",
             "start3 framawork",
             cli as Cli,
-            options
+            options,
           );
           assert(inst2);
           assert(inst3);

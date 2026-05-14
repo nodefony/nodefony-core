@@ -60,11 +60,15 @@ describe("Container › Services", () => {
   it("set() deux fois écrase la valeur", () => {
     c.set("svcA", new ServiceA("v1"));
     c.set("svcA", new ServiceA("v2"));
-    expect((c.get<ServiceA>("svcA"))?.name).to.equal("v2");
+    expect(c.get<ServiceA>("svcA")?.name).to.equal("v2");
   });
 
   it("set() name vide lève une erreur", () => {
-    assert.throws(() => c.set("", new ServiceA()), Error, "Container bad argument name");
+    assert.throws(
+      () => c.set("", new ServiceA()),
+      Error,
+      "Container bad argument name",
+    );
   });
 
   it("remove() service existant → true, plus accessible", () => {
@@ -164,7 +168,7 @@ describe("Container › Parameters", () => {
     assert.throws(
       () => c.setParameters(42 as unknown as string, "val"),
       Error,
-      "container parameter name must be a string"
+      "container parameter name must be a string",
     );
   });
 
@@ -172,7 +176,7 @@ describe("Container › Parameters", () => {
     assert.throws(
       () => c.setParameters("key", undefined as unknown as string),
       Error,
-      "container parameter value must be defined"
+      "container parameter value must be defined",
     );
   });
 
@@ -181,7 +185,7 @@ describe("Container › Parameters", () => {
     assert.throws(
       () => c.setParameters("foo.bar.nested", "oops"),
       Error,
-      "Cannot create property"
+      "Cannot create property",
     );
   });
 
@@ -279,7 +283,7 @@ describe("Container › Scopes", () => {
   });
 
   it("enterScope() sans addScope() préalable lève une erreur", () => {
-    assert.throws(() => c.enterScope("unknown"), Error, 'not declared');
+    assert.throws(() => c.enterScope("unknown"), Error, "not declared");
   });
 
   it("scope hérite des services du parent via chaîne prototype", () => {
@@ -395,7 +399,9 @@ describe("Container › log()", () => {
     const c = new Container();
     const warnings: unknown[][] = [];
     const original = console.warn;
-    console.warn = (...args: unknown[]) => { warnings.push(args); };
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args);
+    };
     try {
       assert.doesNotThrow(() => c.log("test pci"));
       expect(warnings).to.have.length(1);
@@ -421,7 +427,11 @@ describe("Container › log()", () => {
   it("sans msgid : utilise 'SERVICES CONTAINER' comme msgid", () => {
     const c = new Container();
     let capturedMsgid: unknown;
-    c.set("syslog", { log: (_pci: unknown, _sev: unknown, msgid: unknown) => { capturedMsgid = msgid; } });
+    c.set("syslog", {
+      log: (_pci: unknown, _sev: unknown, msgid: unknown) => {
+        capturedMsgid = msgid;
+      },
+    });
     c.log("payload", "INFO");
     expect(capturedMsgid).to.equal("SERVICES CONTAINER");
   });
@@ -429,7 +439,11 @@ describe("Container › log()", () => {
   it("avec msgid explicite : le transmet au syslog", () => {
     const c = new Container();
     let capturedMsgid: unknown;
-    c.set("syslog", { log: (_pci: unknown, _sev: unknown, msgid: unknown) => { capturedMsgid = msgid; } });
+    c.set("syslog", {
+      log: (_pci: unknown, _sev: unknown, msgid: unknown) => {
+        capturedMsgid = msgid;
+      },
+    });
     c.log("payload", "INFO", "MY_ID");
     expect(capturedMsgid).to.equal("MY_ID");
   });
@@ -439,7 +453,9 @@ describe("Container › log()", () => {
 
 describe("Container › valeurs falsy", () => {
   let c: Container;
-  beforeEach(() => { c = new Container(); });
+  beforeEach(() => {
+    c = new Container();
+  });
 
   it("has() → true pour valeur false", () => {
     c.set("flag", false);
@@ -581,7 +597,10 @@ describe("Container › Scope avancé", () => {
     c.addScope("req");
     const scope = c.enterScope("req");
     scope.setParameters("cfg", { a: { y: 9 } });
-    const result = scope.getParameters("cfg", true, false) as Record<string, unknown>;
+    const result = scope.getParameters("cfg", true, false) as Record<
+      string,
+      unknown
+    >;
     expect((result["a"] as Record<string, unknown>)["y"]).to.equal(9);
   });
 

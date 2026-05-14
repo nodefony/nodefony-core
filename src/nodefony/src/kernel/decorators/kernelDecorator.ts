@@ -7,12 +7,11 @@ import Injector, { DIScope, InjectableOptions } from "../injector/injector";
 import Entity, { TypeEntity } from "../orm/Entity";
 // import nodefony from "nodefony";
 
-// eslint-disable-next-line @typescript-eslint/ban-types
 type Constructor = new (...args: any[]) => Module;
 type Injectable<T = { service: Service }> = new (...args: any[]) => T;
 
 function modules(
-  nameOrPath: string | (string | ModuleConstructor)[] | ModuleConstructor
+  nameOrPath: string | (string | ModuleConstructor)[] | ModuleConstructor,
 ): <T extends Constructor>(constructor: T) => T {
   return function <T extends Constructor>(constructor: T): T {
     class NewModuleConstructor extends constructor {
@@ -46,7 +45,7 @@ function modules(
 }
 
 function services(
-  nameOrPath: string | (string | ServiceConstructor)[] | ServiceConstructor
+  nameOrPath: string | (string | ServiceConstructor)[] | ServiceConstructor,
 ): <T extends Constructor>(constructor: T) => T {
   return function <T extends Constructor>(constructor: T): T {
     class NewConstructorService extends constructor {
@@ -63,7 +62,7 @@ function services(
               await this.addService(path as ServiceConstructor).catch(
                 (e: Error) => {
                   this.log(e, "ERROR");
-                }
+                },
               );
             } else {
               await this.loadService(path as string).catch((e: Error) => {
@@ -76,7 +75,7 @@ function services(
             return await this.loadService(nameOrPath as string).catch(
               (e: Error) => {
                 this.log(e, "ERROR");
-              }
+              },
             );
           }
           return await this.addService(nameOrPath).catch((e: Error) => {
@@ -90,7 +89,7 @@ function services(
 }
 
 function entities(
-  entity: string | (string | TypeEntity<Entity>)[] | TypeEntity<Entity>
+  entity: string | (string | TypeEntity<Entity>)[] | TypeEntity<Entity>,
 ): <T extends Constructor>(constructor: T) => T {
   return function <T extends Constructor>(constructor: T): T {
     class NewConstructorEntity extends constructor {
@@ -123,7 +122,7 @@ function entities(
 }
 
 function injectable(
-  nameOrOptions?: string | InjectableOptions
+  nameOrOptions?: string | InjectableOptions,
 ): <T extends Injectable<Service>>(constructor: T) => T {
   return function <T extends Injectable<Service>>(constructor: T): T {
     let regName: string;
@@ -158,7 +157,7 @@ function inject(serviceName: string): ParameterDecorator {
   return function (
     target: object,
     _propertyKey: string | symbol | undefined,
-    parameterIndex: number
+    parameterIndex: number,
   ): void {
     if (!serviceName) {
       throw new Error(`Inject decorator requires a valid service name`);

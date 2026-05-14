@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-/* eslint-disable no-async-promise-executor */
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable max-lines-per-function */
+
 import path from "node:path";
 import fs from "node:fs";
 import {
@@ -132,13 +132,13 @@ class Cli extends Service {
   constructor(
     name: string,
     container: Container | null | undefined,
-    options: CliDefaultOptions
+    options: CliDefaultOptions,
   );
   constructor(
     name: string,
     container: Container | null | undefined,
     notificationsCenter: Event | false | undefined,
-    options: CliDefaultOptions
+    options: CliDefaultOptions,
   );
   constructor(name?: string, ...args: any[]) {
     const container: Container | undefined | null =
@@ -160,7 +160,7 @@ class Cli extends Service {
       name || <string>options.processName,
       container,
       notificationsCenter,
-      options
+      options,
     );
     this.options = <CliDefaultOptions>options;
     if (process.env.NODE_ENV) {
@@ -327,7 +327,7 @@ class Cli extends Service {
     let banner = null;
     if (this.options.version) {
       banner = `          Version : ${blue(version)}   Platform : ${green(
-        process.platform
+        process.platform,
       )}   Process : ${green(process.title)}   Pid : ${process.pid}`;
       if (this.blankLine) {
         this.blankLine();
@@ -348,11 +348,11 @@ class Cli extends Service {
         this.log(
           `WARNING  !!! PROMISE CHAIN BREAKING : ${reason}`,
           "WARNING",
-          "unhandledRejection"
+          "unhandledRejection",
         );
         console.trace(promise);
         this.unhandledRejections.set(promise, reason);
-      }
+      },
     );
   }
 
@@ -373,7 +373,7 @@ class Cli extends Service {
 
   logEnv() {
     return `${blue(`      \x1b ${this.name}`)} Nodefony Environment : ${magenta(
-      this.environment
+      this.environment,
     )}`;
   }
 
@@ -381,19 +381,19 @@ class Cli extends Service {
     if (this.options.commander) {
       this.commander = new CommanderCommand();
       const optionInteractiveExists = this.commander.options.some(
-        (opt) => opt.short === "-i" || opt.long === "--interactive"
+        (opt) => opt.short === "-i" || opt.long === "--interactive",
       );
       if (!optionInteractiveExists) {
         this.commander.option("-i, --interactive", "Interaction mode");
       }
       const optionDebugExists = this.commander.options.some(
-        (opt) => opt.short === "-d" || opt.long === "--debug"
+        (opt) => opt.short === "-d" || opt.long === "--debug",
       );
       if (!optionDebugExists) {
         this.commander.option("-d, --debug", "Debug mode");
       }
       const optionOptExists = this.commander.options.some(
-        (opt) => opt.short === "-v" || opt.long === "--version"
+        (opt) => opt.short === "-v" || opt.long === "--version",
       );
       if (!optionOptExists && this.options.version) {
         this.setCommandVersion(this.options.version);
@@ -431,7 +431,7 @@ class Cli extends Service {
   async asciify(
     txt: string,
     options?: object,
-    callback?: (error: Error, data: string) => void
+    callback?: (error: Error, data: string) => void,
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       asciify(
@@ -440,7 +440,7 @@ class Cli extends Service {
           {
             font: "standard",
           },
-          options
+          options,
         ),
         (error, data) => {
           if (callback && typeof callback === "function") {
@@ -450,7 +450,7 @@ class Cli extends Service {
             return reject(error);
           }
           return resolve(data);
-        }
+        },
       );
     });
   }
@@ -464,7 +464,7 @@ class Cli extends Service {
 
   public parseAsync(
     argv?: string[],
-    options?: ParseOptions
+    options?: ParseOptions,
   ): Promise<CommanderCommand> {
     if (this.commander) {
       return this.commander?.parseAsync(argv, options).catch((e) => {
@@ -503,7 +503,7 @@ class Cli extends Service {
   setCommandOption(
     flags: string,
     description?: string,
-    defaultValue?: string | boolean | string[] | undefined
+    defaultValue?: string | boolean | string[] | undefined,
   ): CommanderCommand {
     if (this.commander) {
       return this.commander.option(flags, description, defaultValue);
@@ -516,7 +516,7 @@ class Cli extends Service {
       return this.commander.version(
         version,
         "-v, --version",
-        "Nodefony Current Version"
+        "Nodefony Current Version",
       );
     }
     throw new Error(`Commender not found`);
@@ -525,7 +525,7 @@ class Cli extends Service {
   setCommand(
     nameAndArgs: string,
     description: string,
-    options?: ExecutableCommandOptions | undefined
+    options?: ExecutableCommandOptions | undefined,
   ): CommanderCommand {
     if (this.commander) {
       return this.commander.command(nameAndArgs, description, options);
@@ -609,7 +609,7 @@ class Cli extends Service {
   displayTable(
     datas: any[],
     options: TableConstructorOptions,
-    syslog: Syslog | null = null
+    syslog: Syslog | null = null,
   ) {
     if (!datas || !datas.length) {
       return new Table(extend({}, defaultTableCli, options));
@@ -691,7 +691,7 @@ class Cli extends Service {
   cp(
     options: string,
     source: string | string[],
-    dest: string
+    dest: string,
   ): shelljs.ShellString {
     return shelljs.cp(options, source, dest);
   }
@@ -715,7 +715,7 @@ class Cli extends Service {
   chmod(
     options: string,
     mode: string | number,
-    file: string
+    file: string,
   ): shelljs.ShellString;
   chmod(mode: string | number, file: string): shelljs.ShellString;
   chmod(...args: any[]): shelljs.ShellString {
@@ -736,7 +736,7 @@ class Cli extends Service {
   async createDirectory(
     myPath: fs.PathLike,
     mode?: fs.MakeDirectoryOptions | fs.Mode | null,
-    force: boolean = false
+    force: boolean = false,
   ): Promise<FileClass> {
     try {
       await fs.promises.mkdir(myPath, mode);
@@ -763,7 +763,7 @@ class Cli extends Service {
   exists(
     myPath: fs.PathLike,
     mode?: number | undefined,
-    callback?: fs.NoParamCallback
+    callback?: fs.NoParamCallback,
   ) {
     if (!myPath) {
       throw new Error("exists no path found");
@@ -861,7 +861,7 @@ class Cli extends Service {
     argv: string[] = [],
     cwd: string = path.resolve("."),
     env: EnvironmentType,
-    manager: string
+    manager: string,
   ): Promise<number | Error> {
     const currentenv = process.env.NODE_ENV;
     switch (env) {
@@ -917,11 +917,11 @@ class Cli extends Service {
             return resolve(
               new Error(
                 `Command : ${manager} ${argv.join(
-                  " "
-                )}  cwd : ${cwd} Error Code : ${code}`
-              )
+                  " ",
+                )}  cwd : ${cwd} Error Code : ${code}`,
+              ),
             );
-          }
+          },
         );
       } catch (e) {
         process.env.NODE_ENV = currentenv;
@@ -934,7 +934,7 @@ class Cli extends Service {
   async npm(
     argv: string[] = [],
     cwd = path.resolve("."),
-    env: EnvironmentType = "dev"
+    env: EnvironmentType = "dev",
   ) {
     return this.runPackageManager(argv, cwd, env, "npm");
   }
@@ -942,7 +942,7 @@ class Cli extends Service {
   async yarn(
     argv: string[] = [],
     cwd = path.resolve("."),
-    env: EnvironmentType = "dev"
+    env: EnvironmentType = "dev",
   ) {
     return this.runPackageManager(argv, cwd, env, "yarn");
   }
@@ -950,7 +950,7 @@ class Cli extends Service {
   async pnpm(
     argv: string[] = [],
     cwd = path.resolve("."),
-    env: EnvironmentType = "dev"
+    env: EnvironmentType = "dev",
   ) {
     return this.runPackageManager(argv, cwd, env, "pnpm");
   }
@@ -959,7 +959,7 @@ class Cli extends Service {
     command: string,
     args: readonly string[] | undefined,
     options: SpawnOptions | undefined,
-    close: ((code: number) => void) | null = null
+    close: ((code: number) => void) | null = null,
   ) {
     return new Promise((resolve, reject) => {
       let cmd = null;
@@ -1004,7 +1004,7 @@ class Cli extends Service {
             }
             this.log(
               `Spawn : ${command} ${args.join(" ")} Error Code : ${code}`,
-              "ERROR"
+              "ERROR",
             );
           }
           return resolve(code);
@@ -1026,7 +1026,7 @@ class Cli extends Service {
   spawnSync(
     command: string,
     args: readonly string[],
-    options: SpawnSyncOptionsWithStringEncoding
+    options: SpawnSyncOptionsWithStringEncoding,
   ): SpawnSyncReturns<string> {
     let cmd = null;
     try {

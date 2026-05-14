@@ -39,7 +39,7 @@ class Rollup extends Service {
   static setDefaultConfig(
     module: Module,
     environment: EnvironmentType = "development",
-    handlerLog?: (level: LogLevel, log: RollupLog) => void
+    handlerLog?: (level: LogLevel, log: RollupLog) => void,
   ): RollupOptions {
     const plugins = [];
     const tsPlugin = typescript({
@@ -82,7 +82,7 @@ class Rollup extends Service {
       "@nodefony/mongoose",
       "@nodefony/test",
       "@nodefony/user",
-      "tslib"
+      "tslib",
     );
     return defineConfig({
       treeshake: {
@@ -212,7 +212,7 @@ class Rollup extends Service {
 
   async watch(
     module: Module,
-    options?: RollupWatchOptions
+    options?: RollupWatchOptions,
   ): Promise<RollupWatcher> {
     if (!options) {
       const mylog = function (this: Rollup, level: LogLevel, log: RollupLog) {
@@ -222,7 +222,7 @@ class Rollup extends Service {
       options = Rollup.setDefaultConfig(
         module,
         this.kernel?.environment,
-        mylog
+        mylog,
       );
     }
     options.watch = {
@@ -243,7 +243,7 @@ class Rollup extends Service {
           this.log(
             `write rollup bundle in : ${(options?.output as OutputOptions)?.dir}`,
             "INFO",
-            `Rollup Module ${module.name}`
+            `Rollup Module ${module.name}`,
           );
         }
       }
