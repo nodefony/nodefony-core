@@ -63,9 +63,9 @@ describe("NODEFONY CORE FINDER", () => {
 
     it("PATH", async () => {
       assert.throws(() => {
-        global.finder.ckeckPath(path.resolve("src", "bundle"));
+        global.finder.checkPath(path.resolve("src", "bundle"));
       });
-      let result = global.finder.ckeckPath(global.bundlePath);
+      let result = global.finder.checkPath(global.bundlePath);
       assert(result instanceof FileResult);
       assert.strictEqual(result.length, 1);
       let file = result[0];
@@ -76,10 +76,10 @@ describe("NODEFONY CORE FINDER", () => {
       assert.equal(file.name, "bundles");
       assert.equal(file.path, global.bundlePath);
       assert.throws(() => {
-        global.finder.ckeckPath("bad path");
+        global.finder.checkPath("bad path");
       });
       // array
-      result = global.finder.ckeckPath(global.arrayPath);
+      result = global.finder.checkPath(global.arrayPath);
       assert.strictEqual(result.length, 2);
       file = result[0];
       assert(file instanceof FileClass);

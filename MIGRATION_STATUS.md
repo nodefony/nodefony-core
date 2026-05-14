@@ -23,7 +23,7 @@
 | CLI                | 4      | 0      | 0     | 4      |
 | Monitoring         | 3      | 0      | 0     | 3      |
 | Types / Interfaces | 6      | 5      | 0     | 1      |
-| **TOTAL**          | **66** | **28** | **0** | **38** |
+| **TOTAL**          | **65** | **28** | **0** | **37** |
 
 ---
 
@@ -237,7 +237,7 @@
 | 2   | `ConsoleTransport`                           | `transports/ConsoleTransport.ts`                 | ✅     | 1          |
 | 3   | `FileTransport` (JSON + text)                | `transports/FileTransport.ts`                    | ✅     | 2          |
 | 4   | `HttpTransport` (POST JSON, node:http/https) | `transports/HttpTransport.ts`                    | ✅     | 2          |
-| 5   | `LokiTransport`                              | —                                                | ⬜     | 2          |
+| 5   | `LokiTransport`                              | —                                                | ⏭️     | —          |
 | 6   | Barrel export + tests                        | `transports/index.ts`                            | ✅     | 1          |
 
 ---
@@ -287,6 +287,7 @@
 | 2026-05-14 | Mise à jour dépendances patch/minor                | tous les `package.json` workspaces                                                                    | ~15min | 1004 tests ✅ — 15→9 vulnérabilités — skip majeurs : typescript 6, eslint 10, chai 6, mongoose 9, uuid 14, twig 3, etc. |
 | 2026-05-14 | TypeScript 5→6 + uuid 11→14 + @types/node 24→25   | `Error.ts`, `Event.ts`, `globals.d.ts`, `nodefony.d.ts`, `tsconfig.json`, tous `package.json`         | ~2h    | 1004 tests ✅ — `override isError` + `detectType` — EventEmitter augmentation globale supprimée — interface Error all optional — `paths:{nodefony}` monorepo fix — `/// <reference types="node" />` rollup fix — build 0 erreur 0 warning |
 | 2026-05-14 | ESLint 9→10 — flat config                          | `eslint.config.mjs` (nouveau), `.eslintrc.cjs` (supprimé), `package.json`, `globals.d.ts`, `Kernel.ts`, `Connector.ts`, `Syslog.test.ts` | ~1h | 1004 tests ✅ — 0 erreur lint — 96 warnings `no-explicit-any` (intentionnels, à adresser session dédiée) — GitHub Actions CI mis à jour (matrix 3 OS × 3 Node, `nodefony production` avant tests) |
+| 2026-05-14 | Event.ts + Command + Builder + FileClass + Finder  | `Event.ts`, `Command.ts`, `KillCommand.ts`, `Builder.ts`, `FileClass.ts`, `Finder.ts`, `FileResult.ts`, `Result.ts`, `Event.test.ts`, `Command.test.ts`, `Builder.test.ts`, `KernelCommands.test.ts`, `FileClass.test.ts`, `finder/MEMORY.md`, `finder/README.md` | ~3h | 1181 tests ✅ — shelljs supprimé (Builder→fsp.*) — lodash supprimé (Finder) — `new Promise(async...)` corrigé (Finder) — `for...in` → `for...of Object.keys()` (Event/Finder) — `ckeckPath` → `checkPath` — `find()` → `findByName()` — `uniq()` implémenté — `flag:"w"` bug corrigé (FileClass.content) — tests: 120+ tests Event/Command/Builder/KernelCommands/FileClass |
 
 ---
 

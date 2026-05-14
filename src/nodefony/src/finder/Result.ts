@@ -6,8 +6,8 @@ class Result extends Array {
     if (res) {
       if (res instanceof Array) {
         super();
-        for (let i = 0; i < res.length; i++) {
-          this.push(res[i]);
+        for (const item of res) {
+          this.push(item);
         }
         if (res instanceof Result) {
           res.clean();
@@ -21,16 +21,15 @@ class Result extends Array {
   }
 
   toJson(json: any[] = []): string {
-    for (let index = 0; index < this.length; index++) {
-      const ele = this[index];
+    for (const ele of this) {
       json.push(ele);
     }
     return JSON.stringify(json);
   }
 
-  override toString(json: any[] = []): string {
-    for (let index = 0; index < this.length; index++) {
-      const ele: any = this[index];
+  override toString(): string {
+    const json: any[] = [];
+    for (const ele of this) {
       json.push(ele);
     }
     return JSON.stringify(json, null, "\n");

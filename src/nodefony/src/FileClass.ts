@@ -2,6 +2,7 @@ import mime from "mime-types";
 import crypto from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import { extend } from "./Tools";
 
 interface FileClassInterface {
@@ -33,20 +34,13 @@ const regHidden: RegExp = /^\./;
 const defautWriteOption = {
   flags: "w",
   defaultEncoding: "utf8",
-  // mode: 0o666
 };
 
 const defaultEncoding = {
   encoding: "utf8",
-  flag: "w",
+  flag: "r",
 };
 
-/*
- *
- *  CLASS FileClass
- *
- *
- */
 class FileClass {
   public stats: fs.Stats;
   public type: string | undefined;
@@ -72,17 +66,16 @@ class FileClass {
       } else {
         this.path = this.getRealpath(Path);
       }
-      this.parse = path.parse(this.path);
+      this.parse = path.parse(this.path as string);
       this.name = this.parse.name + this.parse.ext;
       this.ext = this.parse.ext;
       this.shortName = this.parse.name;
       if (this.type === "File") {
         this.mimeType = this.getMimeType(this.name);
-        this.encoding = "UTF-8"; // this.getCharset();
+        this.encoding = "UTF-8";
         this.extention = this.getExtension(this.mimeType);
       }
       this.dirName = this.parse.dir;
-      this.match = null;
     } else {
       throw new Error(`error fileClass Path : ${Path}`);
     }
@@ -112,37 +105,16 @@ class FileClass {
   }
 
   checkType(): string | undefined {
-    if (this.stats.isDirectory()) {
-      return "Directory";
-    }
-    if (this.stats.isFile()) {
-      return "File";
-    }
-    if (this.stats.isBlockDevice()) {
-      return "BlockDevice";
-    }
-    if (this.stats.isCharacterDevice()) {
-      return "CharacterDevice";
-    }
-    if (this.stats.isSymbolicLink()) {
-      return "symbolicLink";
-    }
-    if (this.stats.isFIFO()) {
-      return "Fifo";
-    }
-    if (this.stats.isSocket()) {
-      return "Socket";
-    }
+    if (this.stats.isDirectory()) return "Directory";
+    if (this.stats.isFile()) return "File";
+    if (this.stats.isBlockDevice()) return "BlockDevice";
+    if (this.stats.isCharacterDevice()) return "CharacterDevice";
+    if (this.stats.isSymbolicLink()) return "symbolicLink";
+    if (this.stats.isFIFO()) return "Fifo";
+    if (this.stats.isSocket()) return "Socket";
   }
 
-  getType(): string | undefined {
-    return this.checkType();
-  }
-
-  checkSum(type: string, hasOption?: crypto.HashOptions): string {
-    if (!type) {
-      type = "md5";
-    }
+  checkSum(type: string = "md5", hasOption?: crypto.HashOptions): string {
     return crypto
       .createHash(type, hasOption)
       .update(this.content())
@@ -169,10 +141,7 @@ class FileClass {
       this.match = ele.exec(this.name);
       return this.match;
     }
-    if (ele === this.name) {
-      return true;
-    }
-    return false;
+    return ele === this.name;
   }
 
   matchType(type: string): boolean {
@@ -211,56 +180,34 @@ class FileClass {
       encoding,
     });
     if (this.type === "symbolicLink") {
-      const Path = fs.readlinkSync(<fs.PathLike>this.path, encode);
-      return fs.readFileSync(Path, encode);
+      const linked = fs.readlinkSync(<fs.PathLike>this.path, encode);
+      return fs.readFileSync(linked, encode);
     }
     return fs.readFileSync(this.path, encode);
   }
 
-  readAsync(encoding?: string): Promise<string | Buffer> {
-    const encode: fs.ObjectEncodingOptions = extend({}, defaultEncoding, {
-      encoding,
-    });
+  async readAsync(encoding?: string): Promise<string | Buffer> {
     if (this.type === "symbolicLink") {
-      return new Promise((resolve, reject) => {
-        const Path = fs.readlinkSync(<fs.PathLike>this.path, encode);
-        try {
-          return resolve(fs.readFileSync(Path, encode));
-        } catch (e) {
-          return reject(e);
-        }
-      });
+      const linked = await fsp.readlink(<fs.PathLike>this.path);
+      return fsp.readFile(linked, encoding as BufferEncoding);
     }
-    return new Promise((resolve, reject) => {
-      fs.readFile(
-        this.path,
-        (err: NodeJS.ErrnoException | null, data: Buffer): void => {
-          if (err) {
-            return reject(err);
-          }
-          return resolve(data);
-        },
-      );
-    });
+    return fsp.readFile(<fs.PathLike>this.path, encoding as BufferEncoding);
   }
 
-  readByLine(callback: (line: string, n: number) => void, encoding: string) {
-    return new Promise((resolve, reject) => {
-      let res = null;
-      try {
-        res = this.content(encoding);
-        let nb = 0;
-        res
-          .toString()
-          .split("\n")
-          .forEach((line: string) => {
-            callback(line, ++nb);
-          });
-      } catch (e) {
-        return reject(e);
-      }
-      return resolve(res);
-    });
+  readByLine(callback: (line: string, n: number) => void, encoding?: string) {
+    try {
+      const res = this.content(encoding);
+      let nb = 0;
+      res
+        .toString()
+        .split("\n")
+        .forEach((line: string) => {
+          callback(line, ++nb);
+        });
+      return res;
+    } catch (e) {
+      throw e;
+    }
   }
 
   write(

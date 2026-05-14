@@ -1,14 +1,12 @@
-import { promises as fsPromises } from "fs";
+import fsp from "node:fs/promises";
+import fs from "node:fs";
+import path from "node:path";
 import Event from "../Event";
 import { extend, typeOf } from "../Tools";
 import FileResult from "./FileResult";
 import File from "./File";
 import FileClass from "../FileClass";
 import Result from "./Result";
-import path from "node:path";
-import fs from "node:fs";
-import _ from "lodash";
-const { isNull } = _;
 
 interface FinderEvents {
   onError: (error: Error) => void;
@@ -53,32 +51,18 @@ const defaultSettings: DefaultSettingsInterface = {
 };
 
 const checkExclude = function (info: File, options: DefaultSettingsInterface) {
-  let match = null;
   const test = options.exclude || options.excludeDir || options.excludeFile;
   if (!test) {
     return false;
   }
-  if (options.exclude) {
-    match = info.matchName(options.exclude);
-    if (match) {
-      return true;
-    }
+  if (options.exclude && info.matchName(options.exclude)) {
+    return true;
   }
-  if (options.excludeDir) {
-    if (info.isDirectory()) {
-      match = info.matchName(options.excludeDir);
-      if (match) {
-        return true;
-      }
-    }
+  if (options.excludeDir && info.isDirectory() && info.matchName(options.excludeDir)) {
+    return true;
   }
-  if (options.excludeFile) {
-    if (info.isFile()) {
-      match = info.matchName(options.excludeFile);
-      if (match) {
-        return true;
-      }
-    }
+  if (options.excludeFile && info.isFile() && info.matchName(options.excludeFile)) {
+    return true;
   }
   return false;
 };
@@ -111,16 +95,11 @@ const checkMatch = function (
   }
   if (options.matchFile) {
     if (info.isFile()) {
-      if (info.matchName(options.matchFile)) {
-        match = true;
-      } else {
-        match = false;
-      }
+      match = info.matchName(options.matchFile) ? true : false;
     }
   }
   if (options.match) {
     const res = info.matchName(options.match);
-    // console.log("match ", info.name, res)
     if (res) {
       match = true;
     } else {
@@ -128,141 +107,107 @@ const checkMatch = function (
       rec = info.type;
     }
   }
-  // state match
   if (match) {
     result.push(info);
-    this.totals[<string>info.type]++;
+    this.totals[info.type as string]++;
     this.fire(`on${info.type}`, info, this);
     return true;
   }
   switch (rec) {
-    // false match
     case "Directory":
     case "symbolicLink":
       result.push(info);
-      this.totals[<string>info.type]++;
+      this.totals[info.type as string]++;
       this.fire(`on${info.type}`, info, this);
       return true;
     default:
-      // false file
-      // console.log("bypass ", info.name)
       return false;
   }
 };
 
-const parser = function (
+async function parser(
   this: Finder,
   file: FileClass,
   result = new FileResult(),
   options: DefaultSettingsInterface,
   depth: number | null = null,
   parent: File | null = null,
-) {
-  return new Promise(async (resolve, reject) => {
-    if (depth === 0) {
-      return resolve(result);
+): Promise<FileResult> {
+  if (depth === 0) {
+    return result;
+  }
+  if (parent) {
+    parent.childrens = result;
+  }
+  try {
+    let res: string[] | string | null = null;
+    if (file.type !== "symbolicLink") {
+      res = await fsp.readdir(file.path as fs.PathLike, {
+        encoding: "utf8",
+        withFileTypes: false,
+      });
+    } else if (options.followSymLink) {
+      res = await fsp.readlink(file.path as fs.PathLike);
     }
-    let res = null;
-    if (parent) {
-      parent.childrens = result;
-    }
-
-    try {
-      if (file.type !== "symbolicLink") {
-        res = await fsPromises
-          .readdir(<fs.PathLike>file.path, {
-            encoding: "utf8",
-            withFileTypes: false,
-          })
-          .catch((e) => reject(e));
-      } else if (options.followSymLink) {
-        // console.log("symbolicLink First", file.name)
-        res = await fsPromises
-          .readlink(<fs.PathLike>file.path)
-          .catch((e) => reject(e));
-      }
-      // console.log(res)
-      if (res && res.length) {
-        for (let i = 0; i < res.length; i++) {
-          const ret = path.resolve(<string>file.path, res[i]);
-          const info = new File(ret, parent);
-          // hidden file
-          const hidden = info.isHidden();
-          if (hidden) {
-            if (!options.seeHidden) {
-              continue;
-            }
-          }
-          if (checkExclude(info, options)) {
-            // console.log("EXCLUDEEEEE", info.name)
+    if (res && res.length) {
+      for (let i = 0; i < res.length; i++) {
+        const ret = path.resolve(file.path as string, res[i]);
+        const info = new File(ret, parent);
+        const hidden = info.isHidden();
+        if (hidden && !options.seeHidden) {
+          continue;
+        }
+        if (checkExclude(info, options)) {
+          continue;
+        }
+        let symLink: File | null = null;
+        if (info.type === "symbolicLink" && options.followSymLink) {
+          try {
+            const read = path.resolve(
+              info.dirName,
+              await fsp.readlink(info.path as fs.PathLike),
+            );
+            symLink = new File(read, info);
+          } catch (e) {
+            this.fire("onError", e, this);
             continue;
-          }
-          let symLink = null;
-          if (info.type === "symbolicLink" && options.followSymLink) {
-            try {
-              const read = path.resolve(
-                info.dirName,
-                await fsPromises.readlink(<fs.PathLike>info.path),
-              );
-              symLink = new File(read, info);
-            } catch (e) {
-              this.fire("onError", e, this);
-              continue;
-            }
-          }
-          const match = checkMatch.call(this, info, options, result);
-          // console.log("match state", !match, info.name, info.type)
-          if (!match) {
-            continue;
-          }
-
-          if (hidden) {
-            this.totals.hidden++;
-            this.fire("onHidden", info, this);
-          }
-          if (info.type === "File") {
-            continue;
-          }
-          // recurse
-          if (!options.recurse) {
-            continue;
-          }
-          // console.log("RECCCCCC", info.type, info.name)
-          switch (info.type) {
-            case "Directory": {
-              const myDeph: null | number = isNull(depth) ? null : depth - 1;
-              await parser.call(this, info, undefined, options, myDeph, info);
-              break;
-            }
-            case "symbolicLink":
-              if (symLink) {
-                if (symLink.isDirectory()) {
-                  // info.children = await parser.call(this, symLink, undefined, options, depth - 1, info);
-                  const myDeph: null | number = isNull(depth)
-                    ? null
-                    : depth - 1;
-                  await parser.call(
-                    this,
-                    symLink,
-                    undefined,
-                    options,
-                    myDeph,
-                    info,
-                  );
-                }
-              }
-              break;
           }
         }
+        const match = checkMatch.call(this, info, options, result);
+        if (!match) {
+          continue;
+        }
+        if (hidden) {
+          this.totals.hidden++;
+          this.fire("onHidden", info, this);
+        }
+        if (info.type === "File") {
+          continue;
+        }
+        if (!options.recurse) {
+          continue;
+        }
+        switch (info.type) {
+          case "Directory": {
+            const myDepth: number | null = depth === null ? null : depth - 1;
+            await parser.call(this, info, undefined, options, myDepth, info);
+            break;
+          }
+          case "symbolicLink":
+            if (symLink?.isDirectory()) {
+              const myDepth: number | null = depth === null ? null : depth - 1;
+              await parser.call(this, symLink, undefined, options, myDepth, info);
+            }
+            break;
+        }
       }
-      // console.log("resolve ", file.name, result.length)
-      return resolve(result);
-    } catch (e) {
-      this.fire("onError", e);
-      return reject(e);
     }
-  });
-};
+    return result;
+  } catch (e) {
+    this.fire("onError", e);
+    throw e;
+  }
+}
 
 class Finder extends Event {
   public settings: DefaultSettingsInterface;
@@ -285,27 +230,26 @@ class Finder extends Event {
 
   clean() {
     this.removeAllListeners();
-    for (const total in this.totals) {
+    for (const total of Object.keys(this.totals)) {
       this.totals[total] = 0;
     }
   }
 
-  ckeckPath(Path: string | FileClass | string[]): Result {
+  checkPath(Path: string | FileClass | string[]): Result {
     const type = typeOf(Path);
     const result = new FileResult();
     switch (true) {
       case type === "string":
-        result.push(new File(<string>Path));
+        result.push(new File(Path as string));
         return result;
       case type === "array": {
-        const length: number = (<string[]>Path).length;
-        for (let i = 0; i < length; i++) {
-          result.push(new File((<string>Path)[i]));
+        for (const p of Path as string[]) {
+          result.push(new File(p));
         }
         return result;
       }
       case Path instanceof FileClass:
-        result.push(new File((<FileClass>Path).path));
+        result.push(new File((Path as FileClass).path));
         return result;
       default:
         throw new Error(
@@ -320,7 +264,7 @@ class Finder extends Event {
   ): Promise<Result> {
     let result = null;
     try {
-      result = this.ckeckPath(Path);
+      result = this.checkPath(Path);
       this.settingsToListen(settings);
       const options = extend({}, this.settings, settings);
       for await (const res of result) {

@@ -1,32 +1,28 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import Result from "./Result";
 import File from "./File";
 
 class FileResult extends Result {
   constructor(res?: File[] | undefined) {
     super(res);
-    //Array.prototype.find
   }
 
   override toString(): string {
     let txt = "";
-    for (let index = 0; index < this.length; index++) {
-      const info = this[index];
+    for (const info of this) {
       txt += `${info.name}\n`;
     }
     return txt;
   }
 
-  override toJson(json: any[] = []): string {
-    for (let index = 0; index < this.length; index++) {
-      const info: File = this[index];
+  override toJson(json: unknown[] = []): string {
+    for (const info of this as unknown as File[]) {
       switch (info.type) {
         case "File":
           json.push(info.toJson());
           break;
         case "symbolicLink":
         case "Directory": {
-          const dir = info.toJson();
+          const dir = info.toJson() as unknown as Record<string, unknown>;
           if (info.childrens) {
             dir.childrens = info.childrens.toJson();
           }
@@ -38,29 +34,34 @@ class FileResult extends Result {
     return JSON.stringify(json);
   }
 
-  uniq() {
-    return this;
-  }
-
-  override find<S>(
-    predicate: (value: any, index: number, obj: any[]) => value is S,
-    result: FileResult = new FileResult(),
-  ): FileResult {
-    for (let index = 0; index < this.length; index++) {
-      const info: File = this[index];
-      const unknownType: unknown = predicate;
-      const match = info.matchName(<string>unknownType);
-      if (match) {
+  uniq(): FileResult {
+    const seen = new Set<string>();
+    const result = new FileResult();
+    for (const info of this as unknown as File[]) {
+      const key = info.path as string;
+      if (!seen.has(key)) {
+        seen.add(key);
         result.push(info);
       }
-      info.childrens.find(predicate, result);
+    }
+    return result;
+  }
+
+  findByName(
+    name: string | RegExp,
+    result: FileResult = new FileResult(),
+  ): FileResult {
+    for (const info of this as unknown as File[]) {
+      if (info.matchName(name)) {
+        result.push(info);
+      }
+      info.childrens.findByName(name, result);
     }
     return result.uniq();
   }
 
   getDirectories(result: FileResult = new FileResult()): FileResult {
-    for (let index = 0; index < this.length; index++) {
-      const info: File = this[index];
+    for (const info of this as unknown as File[]) {
       switch (info.type) {
         case "Directory":
           result.push(info);
@@ -75,8 +76,7 @@ class FileResult extends Result {
   }
 
   getFiles(result: FileResult = new FileResult()): FileResult {
-    for (let index = 0; index < this.length; index++) {
-      const info: File = this[index];
+    for (const info of this as unknown as File[]) {
       switch (info.type) {
         case "File":
           result.push(info);
@@ -92,34 +92,24 @@ class FileResult extends Result {
 
   sortByName(result: FileResult = new FileResult()): FileResult {
     const res = this.sort((a, b) => {
-      if (a.name.toString() > b.name.toString()) {
-        return 1;
-      }
-      if (a.name.toString() < b.name.toString()) {
-        return -1;
-      }
+      if (a.name.toString() > b.name.toString()) return 1;
+      if (a.name.toString() < b.name.toString()) return -1;
       return 0;
     });
     if (res) {
-      const unknownResult: unknown = result.concat(res);
-      return <FileResult>unknownResult;
+      return result.concat(res) as unknown as FileResult;
     }
     return this;
   }
 
   sortByType(result = new FileResult()): FileResult {
     const res = this.sort((a, b) => {
-      if (a.type.toString() > b.type.toString()) {
-        return 1;
-      }
-      if (a.type.toString() < b.type.toString()) {
-        return -1;
-      }
+      if (a.type.toString() > b.type.toString()) return 1;
+      if (a.type.toString() < b.type.toString()) return -1;
       return 0;
     });
     if (res) {
-      const unknownResult: unknown = result.concat(res);
-      return <FileResult>unknownResult;
+      return result.concat(res) as unknown as FileResult;
     }
     return this;
   }
