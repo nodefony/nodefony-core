@@ -111,6 +111,29 @@ class WebsocketController extends Controller {
     }
   }
 
+  @route("route-websocket-binary", {
+    path: "/binary",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async binary(message: string | Buffer | null) {
+    if (!message) {
+      return this.renderJson({ handshake: true, binary: true });
+    }
+    const buf = Buffer.isBuffer(message) ? message : Buffer.from(message as string);
+    return this.context?.send(buf, "binary");
+  }
+
+  @route("route-websocket-broadcast", {
+    path: "/broadcast",
+    requirements: { methods: ["WEBSOCKET"] },
+  })
+  async broadcastMsg(message: string | Buffer | null) {
+    if (!message) {
+      return this.renderJson({ handshake: true });
+    }
+    this.context?.broadcast(message.toString());
+  }
+
   @route("route-websocket-cookie", {
     path: "/cookie",
     requirements: { methods: ["WEBSOCKET"] },
