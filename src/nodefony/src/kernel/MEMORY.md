@@ -176,18 +176,30 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 - `Injector.injectables` → Record statique partagé. Accès direct possible (test + debug).
 
 **`Injector.instantiate(Ctor, ...argsClass)`** — algorithme:
-1. Lit `inject:services` (tableau sparse indexé par position, via `@inject`)
-2. Lit `design:paramtypes` (émis par TypeScript si `emitDecoratorMetadata + 1 decorator`)
-3. Si aucune metadata → `Reflect.construct(Ctor, argsClass)` (backward compat)
-4. Sinon, pour chaque position i :
-   - `inject:services[i]` présent → `_resolve(name)` (priorité absolue)
-   - `paramTypes[i]` enregistré dans injectables → `_resolve(typeName)` (auto-injection)
-   - Sinon → `argsClass[explicitIdx++]` (arg explicite)
-5. Append `argsClass` restants.
+1. Délègue à `_instantiateWithStack(Ctor, [], argsClass)`
+2. Détection circulaire : si `Ctor.name` dans `stack` → throw `"Circular dependency detected: A → B → A"`
+3. Lit `inject:services` (tableau sparse par position, via `@inject`)
+4. Lit `design:paramtypes` (TypeScript si `emitDecoratorMetadata + 1 decorator`)
+5. Si aucune metadata → `Reflect.construct` direct (backward compat)
+6. Sinon, pour chaque position i :
+   - `inject:services[i]` présent → `_resolveWithStack(name, stack)` (priorité absolue)
+   - `paramTypes[i]` enregistré → auto-injection
+   - Sinon → `argsClass[explicitIdx++]`
+7. Append args restants.
+8. **Property injection** : applique `inject:properties` du prototype post-construction.
 
-**`_resolve(name, argsClass)`**:
-- Kernel dispo + `kernel.get(name)` non-null → **réutilise** l'instance du container
-- Sinon → `Injector.instantiate(Injector.get(name), ...argsClass)` (récursif)
+**`_resolveWithStack(name, argsClass, stack)`**:
+- Kernel dispo + `kernel.get(name)` non-null → réutilise instance container
+- Sinon → `_instantiateWithStack(Ctor, stack, argsClass)` (récursif, stack propagée)
+
+**`_instantiateWithStack(Ctor, stack, argsClass)`**: stack = copie par valeur (`[...stack, name]`) — async-safe, jamais de tableau global.
+
+**Property injection** (`@Inject`, Phase A 2026-05-14):
+- Decorator `@Inject(name?)` (majuscule) sur propriété — distinct de `@inject` (paramètre)
+- Metadata `inject:properties: PropertyInjectMeta[]` sur le **prototype** (pas le constructeur)
+- Appliquée après `Reflect.construct` dans `_applyPropertyInjection`
+- Nom obligatoire si `emitDecoratorMetadata` inactif (tests tsx) — sinon throw
+- Cast `(instance as Record<string,unknown>)[key]` obligatoire (TS strict)
 
 **`design:paramtypes` limitation tests**: tsx/esbuild ne supporte pas `emitDecoratorMetadata`.
 Émettre manuellement dans les tests : `Reflect.defineMetadata("design:paramtypes", [TypeA], MyClass)`.
@@ -223,8 +235,11 @@ await stub.fireEvent("onPreBoot");
 **Gotchas injection**:
 - `@inject` parameter decorator : tsx/esbuild nécessite `--tsconfig` avec `experimentalDecorators: true`. En prod (rollup), ça marche.
 - `@inject` sans nom → throw immédiat dans le decorator (pas à l'instantiation).
-- `Injector.get(name)` throw si absent → uncaught dans `_resolve` → propagé à `instantiate`.
+- `@Inject` sans nom ET sans `design:type` → throw immédiat dans le decorator.
+- `Injector.get(name)` throw si absent → propagé à `instantiate`.
 - `Fetch` auto-enregistré dans `new Injector(kernel)` — pas avant.
+- Circulaires : détectées avant la construction — message contient le chemin complet.
+- Stack par valeur (`[...stack]`) — deux `instantiate` en parallèle ne se polluent pas.
 - Design intent: args explicites couvrent les params non-injectables, dans l'ordre.
 
 ## Deps

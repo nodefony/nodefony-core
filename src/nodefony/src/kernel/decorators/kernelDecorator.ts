@@ -3,7 +3,11 @@ import "reflect-metadata";
 import Module from "../Module";
 import { ModuleConstructor, ServiceConstructor } from "../Kernel";
 import Service from "../../Service";
-import Injector, { DIScope, InjectableOptions } from "../injector/injector";
+import Injector, {
+  DIScope,
+  InjectableOptions,
+  PropertyInjectMeta,
+} from "../injector/injector";
 import Entity, { TypeEntity } from "../orm/Entity";
 // import nodefony from "nodefony";
 
@@ -171,4 +175,36 @@ function inject(serviceName: string): ParameterDecorator {
   };
 }
 
-export { modules, injectable, inject, services, entities };
+/**
+ * Injecter une Service sur une propriété de classe (property injection).
+ * Distinct de @inject (minuscule) qui cible les paramètres de constructeur.
+ *
+ * Le nom est obligatoire si emitDecoratorMetadata n'est pas actif (tests tsx).
+ *
+ * @example
+ *  class MyService extends Service {
+ *    @Inject("Fetch") private fetch!: Fetch;
+ *  }
+ */
+function Inject(name?: string): PropertyDecorator {
+  return function (target: object, propertyKey: string | symbol): void {
+    const resolvedName =
+      name ||
+      (
+        Reflect.getMetadata("design:type", target, propertyKey) as
+          | { name?: string }
+          | undefined
+      )?.name;
+    if (!resolvedName) {
+      throw new Error(
+        `@Inject requires an explicit name on property "${String(propertyKey)}" (emitDecoratorMetadata not active)`,
+      );
+    }
+    const existing: PropertyInjectMeta[] =
+      Reflect.getMetadata("inject:properties", target) || [];
+    existing.push({ key: propertyKey, name: resolvedName });
+    Reflect.defineMetadata("inject:properties", existing, target);
+  };
+}
+
+export { modules, injectable, inject, Inject, services, entities };
