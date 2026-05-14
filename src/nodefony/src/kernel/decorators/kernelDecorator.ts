@@ -133,37 +133,30 @@ function injectable(
 }
 
 /**
- * Injecter une Service avec son nom
+ * Injecter une Service avec son nom dans le constructeur.
  *
- * @param serviceName - Le nom du service a injecter
- *
+ * @param serviceName - Le nom du service à injecter (doit correspondre à un @injectable)
  *
  * @example
- *  class myClass{
- *    httpKernel: HttpKernel
- *    constructor(@inject("HttpKernel") private httpKernel: HttpKernel) {
- *      this.HttpKernel = httpKernel
- *    }
+ *  class MyService extends Service {
+ *    constructor(@inject("Fetch") private fetch: Fetch) { super("my", ...) }
  *  }
  */
-function inject(serviceName: string): Function {
+function inject(serviceName: string): ParameterDecorator {
   return function (
-    target: any,
-    propertyKey: string,
+    target: object,
+    _propertyKey: string | symbol | undefined,
     parameterIndex: number
   ): void {
     if (!serviceName) {
       throw new Error(`Inject decorator requires a valid service name`);
     }
-    const existingInjectedServices =
-      Reflect.getMetadata("inject:services", target, propertyKey) || [];
-    existingInjectedServices[parameterIndex] = serviceName;
-    Reflect.defineMetadata(
-      "inject:services",
-      existingInjectedServices,
-      target,
-      propertyKey
-    );
+    // Stockage au niveau de la classe (pas de propertyKey) — cohérent avec
+    // Injector.instantiate qui lit Reflect.getMetadata("inject:services", constructor).
+    const existing: (string | undefined)[] =
+      Reflect.getMetadata("inject:services", target) || [];
+    existing[parameterIndex] = serviceName;
+    Reflect.defineMetadata("inject:services", existing, target);
   };
 }
 

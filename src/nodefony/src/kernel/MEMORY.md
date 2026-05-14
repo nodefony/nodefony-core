@@ -150,11 +150,56 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 
 ---
 
+---
+
+## Injector (`injector/injector.ts`) + Decorators (`decorators/kernelDecorator.ts`)
+
+**Purpose**: Registre statique de services injectables + résolution DI.
+
+**Static API**:
+- `Injector.register(name, Ctor)` → throw si name vide ou Ctor null. Retourne Ctor.
+- `Injector.isRegistered(name)` → `name in injectables` (O(1)).
+- `Injector.get(name)` → throw `"not found or not injectable"` si absent.
+- `Injector.inject(Ctor, ...args)` = alias `instantiate`.
+- `Injector.injectables` → Record statique partagé. Accès direct possible (test + debug).
+
+**`Injector.instantiate(Ctor, ...argsClass)`** — algorithme:
+1. Lit `inject:services` (tableau sparse indexé par position, via `@inject`)
+2. Lit `design:paramtypes` (émis par TypeScript si `emitDecoratorMetadata + 1 decorator`)
+3. Si aucune metadata → `Reflect.construct(Ctor, argsClass)` (backward compat)
+4. Sinon, pour chaque position i :
+   - `inject:services[i]` présent → `_resolve(name)` (priorité absolue)
+   - `paramTypes[i]` enregistré dans injectables → `_resolve(typeName)` (auto-injection)
+   - Sinon → `argsClass[explicitIdx++]` (arg explicite)
+5. Append `argsClass` restants.
+
+**`_resolve(name, argsClass)`**:
+- Kernel dispo + `kernel.get(name)` non-null → **réutilise** l'instance du container
+- Sinon → `Injector.instantiate(Injector.get(name), ...argsClass)` (récursif)
+
+**`design:paramtypes` limitation tests**: tsx/esbuild ne supporte pas `emitDecoratorMetadata`.
+Émettre manuellement dans les tests : `Reflect.defineMetadata("design:paramtypes", [TypeA], MyClass)`.
+
+**Decorators** (tous dans `kernelDecorator.ts`):
+- `@injectable(name?)` → `Injector.register(name || ctor.name, ctor)`. Active aussi `design:paramtypes` (TS le génère dès qu'un decorator est présent).
+- `@inject("name")` → stocke `inject:services[paramIndex] = name` sur le constructeur (class-level, sans propertyKey). Appel direct possible : `(inject("X") as Function)(MyClass, undefined, 0)`.
+- `@modules(path)` → sur Module, `kernel.once("onPreRegister", ...)` → `loadModule/addModule`.
+- `@services(path)` → sur Module, `kernel.once("onPreBoot", ...)` → `addService/loadService`.
+- `@entities(path)` → sur Module, `kernel.once("onBoot", ...)` → `addEntity/loadEntity`.
+
+**Gotchas injection**:
+- `@inject` parameter decorator : tsx/esbuild nécessite `--tsconfig` avec `experimentalDecorators: true`. En prod (rollup), ça marche.
+- `@inject` sans nom → throw immédiat dans le decorator (pas à l'instantiation).
+- `Injector.get(name)` throw si absent → uncaught dans `_resolve` → propagé à `instantiate`.
+- `Fetch` auto-enregistré dans `new Injector(kernel)` — pas avant.
+- Design intent: args explicites couvrent les params non-injectables, dans l'ordre.
+
 ## Deps
 
 - Kernel → Container, Service, Injector, FileClass, Nodefony, CliKernel, Module, @nodefony/http
 - Module → Service, Kernel, Injector, Container, CliKernel, RollupService, watcherService
 - CliKernel → Cli, Kernel, Command, Syslog/Pdu
+- Injector → Service, Container, Event, Kernel, Nodefony, Fetch, reflect-metadata
 
 ## Gotchas
 
