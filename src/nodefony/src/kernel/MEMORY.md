@@ -183,9 +183,25 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 **Decorators** (tous dans `kernelDecorator.ts`):
 - `@injectable(name?)` → `Injector.register(name || ctor.name, ctor)`. Active aussi `design:paramtypes` (TS le génère dès qu'un decorator est présent).
 - `@inject("name")` → stocke `inject:services[paramIndex] = name` sur le constructeur (class-level, sans propertyKey). Appel direct possible : `(inject("X") as Function)(MyClass, undefined, 0)`.
-- `@modules(path)` → sur Module, `kernel.once("onPreRegister", ...)` → `loadModule/addModule`.
-- `@services(path)` → sur Module, `kernel.once("onPreBoot", ...)` → `addService/loadService`.
-- `@entities(path)` → sur Module, `kernel.once("onBoot", ...)` → `addEntity/loadEntity`.
+- `@modules(path)` → sur Module, `kernel.once("onPreRegister", ...)` → `loadModule(path, false)` ou `addModule(Ctor)` (si `kernel.isModule(Ctor)`). Array : idem pour chaque élément.
+- `@services(path)` → sur Module, `kernel.once("onPreBoot", ...)` → `addService(Ctor)` ou `loadService(path)`. Erreurs catchées + loguées.
+- `@entities(path)` → sur Module, `kernel.once("onBoot", ...)` → `addEntity(Ctor)` ou `loadEntity(path)`.
+
+**Routage dans @modules array** : `isModule(elt)` → `addModule`, sinon → `loadModule` (strings ET ctors non-Module traités comme path).
+
+**Test pattern pour les décorateurs** (`Decorators.test.ts`):
+```typescript
+// Stub kernel avec fireEvent
+const stub = makeKernelStub(); // container.set("kernel", stub) + once/prependOnceListener
+// Mock getPackageJson pour éviter I/O (setEvents prependOnceListener l'appelle sur onPreBoot)
+mod.getPackageJson = async () => ({...} as PackageJson);
+// Spy addService/loadService pour @services
+mod.addService = async (Ctor) => { calls.push(Ctor); return {} as Service; };
+// Déclencher
+await stub.fireEvent("onPreBoot");
+```
+
+**onPreBoot listener order** : `prependOnceListener` (setEvents) → index 0. `once` (@services) → dernier.
 
 **Gotchas injection**:
 - `@inject` parameter decorator : tsx/esbuild nécessite `--tsconfig` avec `experimentalDecorators: true`. En prod (rollup), ça marche.
