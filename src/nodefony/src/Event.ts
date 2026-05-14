@@ -1,26 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { EventEmitter } from "node:events";
-import isEmpty from "lodash-es/isEmpty";
-import get from "lodash-es/get";
-import isFunction from "lodash-es/isFunction";
-
-declare module "events" {
-  interface EventEmitter {
-    _events: Record<string | symbol, any>;
-    settingsToListen(
-      localSettings: EventDefaultInterface,
-      context: ContextType
-    ): void;
-    listen(
-      context: ContextType,
-      eventName: string | symbol,
-      listener: (...args: any[]) => void
-    ): (...args: any[]) => boolean;
-    fire(eventName: string | symbol, ...args: any[]): boolean;
-    emitAsync(type: string | symbol, ...args: any[]): Promise<false | any[]>;
-    fireAsync(type: string | symbol, ...args: any[]): Promise<false | any[]>;
-  }
-}
 
 interface EventDefaultInterface {
   [key: string]: any;
@@ -51,7 +30,7 @@ class Event extends EventEmitter {
     }
   }
 
-  override settingsToListen(
+  settingsToListen(
     localSettings: EventDefaultInterface,
     context?: ContextType
   ) {
@@ -68,7 +47,7 @@ class Event extends EventEmitter {
     }
   }
 
-  override listen(
+  listen(
     context: ContextType,
     eventName: string | symbol,
     listener: (...args: any[]) => void
@@ -85,31 +64,26 @@ class Event extends EventEmitter {
     };
   }
 
-  override fire(eventName: string | symbol, ...args: any[]): boolean {
+  fire(eventName: string | symbol, ...args: any[]): boolean {
     return super.emit(eventName, ...args);
   }
 
-  override async emitAsync(
+  async emitAsync(
     eventName: string | symbol,
     ...args: any[]
-  ): Promise<any> {
-    const handler = get(this._events, eventName);
-    if (!handler || (isEmpty(handler) && !isFunction(handler))) {
+  ): Promise<false | any[]> {
+    const handlers = this.rawListeners(eventName);
+    if (!handlers.length) {
       return false;
     }
-    const result = [];
-    if (typeof handler === "function") {
-      result.push(await Reflect.apply(handler, this, args));
-    } else {
-      const handlers = [...handler];
-      for await (const handler of handlers) {
-        result.push(await Reflect.apply(handler, this, args));
-      }
+    const result: any[] = [];
+    for (const handler of handlers) {
+      result.push(await Reflect.apply(handler as (...a: any[]) => any, this, args));
     }
     return result;
   }
 
-  override async fireAsync(eventName: string | symbol, ...args: any[]) {
+  async fireAsync(eventName: string | symbol, ...args: any[]): Promise<false | any[]> {
     return this.emitAsync(eventName, ...args);
   }
 }

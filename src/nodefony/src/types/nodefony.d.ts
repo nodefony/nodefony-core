@@ -21,7 +21,6 @@
 // import Builder from "../command/Builder";
 // import Cli from "../Cli";
 
-import { Nodefony } from "..";
 import {
   nodefonyOptions,
   EnvironmentType,
@@ -40,8 +39,6 @@ declare module "nodefony" {
     generateId(): string;
   }
 }
-
-declare namespace Nodefony {}
 
 // rapide
 export * from "./globals";

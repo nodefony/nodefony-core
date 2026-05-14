@@ -9,24 +9,26 @@ import clc from "cli-color";
 
 declare global {
   interface Error {
-    errno?: string;
+    // errno is number in ErrnoException — keep compatible
+    errno?: string | number;
     bytesParsed?: number;
-    errors: any[];
-    parent: Error;
-    sql: any;
-    actual: any;
-    expected: any;
-    operator: any;
-    syscall: any;
-    address: any;
-    port: any;
-    rawPacket: any;
-    fields: any;
-    code: any;
-    index: any;
-    value: any;
-    table: any;
-    constraint: any;
+    // any to avoid conflict with Sequelize BulkRecordError.errors: Error
+    errors?: any;
+    parent?: Error;
+    // sql removed — conflicts with Sequelize DatabaseErrorParent TS2320
+    actual?: any;
+    expected?: any;
+    operator?: any;
+    syscall?: any;
+    address?: any;
+    port?: any;
+    rawPacket?: any;
+    fields?: any;
+    code?: any;
+    index?: any;
+    value?: any;
+    table?: any;
+    constraint?: any;
   }
 }
 
@@ -126,7 +128,13 @@ class nodefonyError extends Error {
     }
   }
 
-  static isError(error: Error) {
+  // TS6 added Error.isError(value: unknown): value is Error as a built-in.
+  static override isError(error: unknown): error is Error {
+    return error instanceof Error;
+  }
+
+  // Returns the specific error category string for known error types.
+  static detectType(error: Error): string | false {
     switch (true) {
       case error instanceof ReferenceError:
         return "ReferenceError";
@@ -157,7 +165,7 @@ class nodefonyError extends Error {
   }
 
   getType(error: Error): string {
-    const errorType = nodefonyError.isError(error);
+    const errorType = nodefonyError.detectType(error);
     if (errorType) {
       switch (errorType) {
         case "TypeError":
@@ -198,8 +206,8 @@ class nodefonyError extends Error {
               this.code = this.parent.code;
             }
           }
-          if (error.sql) {
-            this.sql = error.sql;
+          if ((error as unknown as Record<string, unknown>).sql) {
+            this.sql = (error as unknown as Record<string, unknown>).sql;
           }
           if (error.index) {
             this.index = error.index;
