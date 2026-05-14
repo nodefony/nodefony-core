@@ -5,7 +5,9 @@ import supertest from "supertest";
 import fs from "node:fs";
 import path from "node:path";
 
-const request = supertest("https://localhost:5152", { http2: true });
+const request = (await import("supertest")).default;
+
+const appRequest = request("https://localhost:5152", { http2: true });
 
 describe("HTTP STREAM", () => {
   it("GET /stream", (done) => {
@@ -57,7 +59,7 @@ describe("HTTP STREAM", () => {
         try {
           expect(res.statusCode).to.equal(200);
           expect(res.headers["content-disposition"]).to.include(
-            `attachment; filename="tsconfig.json"`
+            `attachment; filename="tsconfig.json"`,
           );
           expect(res.headers["content-length"]).to.be.a("string");
           expect(res.headers["content-type"]).to.equal("application/json");
@@ -113,7 +115,7 @@ describe("HTTP STREAM  with Range", () => {
     const end = 999;
     const range = `bytes=${start}-${end}`;
     const expectedChunkSize = end - start + 1;
-    request
+    appRequest
       .get("/nodefony/test/html/media")
       .disableTLSCerts()
       .set("Range", range)
@@ -126,11 +128,11 @@ describe("HTTP STREAM  with Range", () => {
         try {
           expect(res.status).to.equal(206);
           expect(res.headers["content-range"]).to.equal(
-            `bytes ${start}-${end}/${size}`
+            `bytes ${start}-${end}/${size}`,
           );
           expect(res.headers["accept-ranges"]).to.equal("bytes");
           expect(res.headers["content-length"]).to.equal(
-            expectedChunkSize.toString()
+            expectedChunkSize.toString(),
           );
           done();
         } catch (e) {

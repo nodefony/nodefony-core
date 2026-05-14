@@ -58,6 +58,28 @@ nodefony-core/
 
 ---
 
+## Structure d'un module
+
+```
+src/packages/@nodefony/[module]/
+├── index.ts              ← export public uniquement
+├── package.json          ← workspace npm
+├── README.md             ← doc du module
+├── rollup.config.ts
+├── tsconfig.json
+├── nodefony
+│   ├── interfaces        ← I*.ts
+│   ├── errors            ← classes typées
+│   ├── config
+│   ├── decorators
+│   ├── services          ← @Service implementations
+│   ├── src
+│   ├── types
+│   └── [domain]/         ← sous-dossiers spécifiques
+└── tests/
+    └── *.test.ts         ← couverture > 80%
+```
+
 ## Décisions techniques (finales)
 
 **Bundler** : Rollup — `preserveModules: true`, génération `.d.ts` par module. Ne pas remplacer.
@@ -70,13 +92,13 @@ nodefony-core/
 
 **Terminologie** (renommage JS → TS) :
 
-| Ancien (JS)    | Nouveau (TS)   | Note                          |
-| -------------- | -------------- | ----------------------------- |
-| Bundle         | Module         | concept — classe `Module`     |
-| nodefonyBundle | Module         | classe de base                |
-| `import { kernel }` | `Nodefony.getKernel()` | singleton supprimé |
-| `import { Error }` | `import { nodefonyError }` | renommé |
-| `import nodefony from "nodefony"` | `import { Nodefony } from "nodefony"` | no default |
+| Ancien (JS)                       | Nouveau (TS)                          | Note                      |
+| --------------------------------- | ------------------------------------- | ------------------------- |
+| Bundle                            | Module                                | concept — classe `Module` |
+| nodefonyBundle                    | Module                                | classe de base            |
+| `import { kernel }`               | `Nodefony.getKernel()`                | singleton supprimé        |
+| `import { Error }`                | `import { nodefonyError }`            | renommé                   |
+| `import nodefony from "nodefony"` | `import { Nodefony } from "nodefony"` | no default                |
 
 ---
 
@@ -100,16 +122,19 @@ import fs from "node:fs";
 ## Workflow de session Claude Code
 
 **DÉBUT :**
+
 1. Lire `MIGRATION_STATUS.md`
 2. Lire le `MEMORY.md` du module concerné (table ci-dessous)
 3. Mettre à jour `CLAUDE.md` si un nouveau `MEMORY.md` a été créé
 
 **PENDANT :**
+
 - Un seul module par session
 - Écrire les tests dans la même session que le code
 - Valider : `npm run build` (0 erreur TS) + `npm run test` (tous verts)
 
 **FIN :**
+
 1. Mettre à jour `MIGRATION_STATUS.md`
 2. Mettre à jour `README.md` (humains) + `MEMORY.md` (IA) du module
 3. Committer avant de fermer
@@ -121,13 +146,13 @@ import fs from "node:fs";
 Les `MEMORY.md` sont des fichiers **IA uniquement** — ultra-concis, mots-clés, 0 redondance.
 Complémentaires aux `README.md` (humains). Lire le `MEMORY.md` du module avant de toucher au code.
 
-| Module                | Fichier memory                                                                                         | Contenu                                      |
-| --------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
-| Core (@nodefony/core) | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                                                     | Service, Container, Event                    |
-| Syslog / Pdu          | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md)                               | Syslog, Pdu, CircularBuffer                  |
-| Kernel / Module / CLI | [`src/nodefony/src/kernel/MEMORY.md`](src/nodefony/src/kernel/MEMORY.md)                               | Kernel lifecycle, Module hooks, CliKernel    |
-| Injector / DI         | [`src/nodefony/src/kernel/injector/MEMORY.md`](src/nodefony/src/kernel/injector/MEMORY.md)             | @injectable, @inject, @Inject, scopes, algo  |
-| FileClass / Finder    | [`src/nodefony/src/finder/MEMORY.md`](src/nodefony/src/finder/MEMORY.md)                               | FileClass, File, FileResult, Result, Finder  |
+| Module                | Fichier memory                                                                             | Contenu                                     |
+| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| Core (@nodefony/core) | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                                         | Service, Container, Event                   |
+| Syslog / Pdu          | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md)                   | Syslog, Pdu, CircularBuffer                 |
+| Kernel / Module / CLI | [`src/nodefony/src/kernel/MEMORY.md`](src/nodefony/src/kernel/MEMORY.md)                   | Kernel lifecycle, Module hooks, CliKernel   |
+| Injector / DI         | [`src/nodefony/src/kernel/injector/MEMORY.md`](src/nodefony/src/kernel/injector/MEMORY.md) | @injectable, @inject, @Inject, scopes, algo |
+| FileClass / Finder    | [`src/nodefony/src/finder/MEMORY.md`](src/nodefony/src/finder/MEMORY.md)                   | FileClass, File, FileResult, Result, Finder |
 
 **Structure attendue d'un MEMORY.md** : Purpose | Core Components | Config | Behaviors | Gotchas
 
@@ -137,12 +162,13 @@ Complémentaires aux `README.md` (humains). Lire le `MEMORY.md` du module avant 
 
 Après toute modification ou fin de session sur un module :
 
-| Fichier | Audience | Style |
-|---|---|---|
-| `MEMORY.md` | IA | Ultra-concis, mots-clés, 0 prose. Ex : `Pdu: log entry. Buffer: FIFO O(1).` |
-| `README.md` | Humains | Exemples complets, tableaux API, troubleshooting |
+| Fichier     | Audience | Style                                                                       |
+| ----------- | -------- | --------------------------------------------------------------------------- |
+| `MEMORY.md` | IA       | Ultra-concis, mots-clés, 0 prose. Ex : `Pdu: log entry. Buffer: FIFO O(1).` |
+| `README.md` | Humains  | Exemples complets, tableaux API, troubleshooting                            |
 
 Vérification avant commit :
+
 ```bash
 grep -r "TODO\|FIXME\|console\.log" src/nodefony/src/
 ```
@@ -174,11 +200,11 @@ INFO  server-websocket : Server Listen on ws://127.0.0.1:5151
 
 ### Erreurs critiques à connaître
 
-| Erreur | Cause | Fix |
-| --- | --- | --- |
-| `does not provide an export named 'default'` | `import nodefony from "nodefony"` | `import { Nodefony } from "nodefony"` |
-| `does not provide an export named 'Error'` | `import { Error } from "nodefony"` | `import { nodefonyError } from "nodefony"` |
-| `does not provide an export named 'kernel'` | singleton supprimé | `Nodefony.getKernel()` |
+| Erreur                                       | Cause                              | Fix                                        |
+| -------------------------------------------- | ---------------------------------- | ------------------------------------------ |
+| `does not provide an export named 'default'` | `import nodefony from "nodefony"`  | `import { Nodefony } from "nodefony"`      |
+| `does not provide an export named 'Error'`   | `import { Error } from "nodefony"` | `import { nodefonyError } from "nodefony"` |
+| `does not provide an export named 'kernel'`  | singleton supprimé                 | `Nodefony.getKernel()`                     |
 
 ### Build
 

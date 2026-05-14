@@ -1,10 +1,10 @@
-// rollup.config.ts
-import path from "node:path";
-import { defineConfig, Plugin, RollupOptions } from "rollup";
+import { defineConfig } from "rollup";
+import type { Plugin, RollupOptions } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
-import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
+import path from "node:path";
+import { globSync } from "glob";
 
 const external: string[] = [
   "nodefony",
@@ -18,6 +18,22 @@ const external: string[] = [
   "@nodefony/user",
   "tslib",
 ];
+
+// Génère dynamiquement les entrées avec glob
+const nodefonyFiles = globSync("nodefony/**/*.ts", {
+  ignore: ["**/*.d.ts", "**/*.spec.ts"], // Exclut les fichiers de déclaration et de test
+});
+
+const input = {
+  index: "index.ts",
+  ...Object.fromEntries(
+    nodefonyFiles.map((file) => [
+      // Génère un nom de chunk basé sur le chemin relatif
+      path.relative("nodefony", file).replace(/\.ts$/, ""),
+      file,
+    ]),
+  ),
+};
 
 const sharedNodeOptions = defineConfig({
   treeshake: {
@@ -44,7 +60,7 @@ const sharedNodeOptions = defineConfig({
 function createNodePlugins(
   isProduction: boolean,
   sourceMap: boolean,
-  declarationDir: string | false
+  declarationDir: string | false,
 ): Plugin[] {
   const plugins: Plugin[] = [
     nodeResolve({ preferBuiltins: true }),
@@ -54,7 +70,6 @@ function createNodePlugins(
       declaration: declarationDir !== false,
       declarationDir: declarationDir !== false ? declarationDir : undefined,
     }),
-    commonjs({ extensions: [".js"] }),
     json(),
   ];
   if (isProduction) {
@@ -65,13 +80,13 @@ function createNodePlugins(
 
 function createNodeConfig(isProduction: boolean): RollupOptions {
   return defineConfig({
-    input: "index.ts",
+    input,
     ...sharedNodeOptions,
     output: {
       ...sharedNodeOptions.output,
       sourcemap: !isProduction,
       preserveModules: true,
-      preserveModulesRoot: "nodefony",
+      preserveModulesRoot: ".",
     },
     external,
     plugins: [...createNodePlugins(isProduction, true, "dist/types")],

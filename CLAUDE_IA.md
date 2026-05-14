@@ -29,10 +29,16 @@ src/packages/@nodefony/[module]/
 ├── index.ts              ← export public uniquement
 ├── package.json          ← workspace npm
 ├── README.md             ← doc du module
-├── src/
-│   ├── interfaces/       ← I*.ts
-│   ├── services/         ← @Service implementations
-│   ├── errors/           ← classes typées
+├── rollup.config.ts
+├── tsconfig.json
+├── nodefony
+│   ├── interfaces        ← I*.ts
+│   ├── errors            ← classes typées
+│   ├── config
+│   ├── decorators
+│   ├── services          ← @Service implementations
+│   ├── src
+│   ├── types
 │   └── [domain]/         ← sous-dossiers spécifiques
 └── tests/
     └── *.test.ts         ← couverture > 80%
@@ -43,11 +49,13 @@ src/packages/@nodefony/[module]/
 ## Sécurité — checklist obligatoire
 
 ### Validation des entrées
+
 - Tout input externe passe par Zod
 - Limites strictes : maxLength, max() sur les nombres
 - Whitelist des valeurs énumérées (pas de string libre)
 
 ### Gestion des secrets
+
 - API keys jamais hardcodées
 - Lecture via `process.env` uniquement
 - Validation de présence avant usage
@@ -91,6 +99,7 @@ try { /* ... */ } finally { clearTimeout(handle); }
 ```
 
 ### Limites par défaut
+
 - maxTokens : 4096
 - maxQueueSize : 500
 - taskTimeout : 30s
@@ -106,16 +115,16 @@ import { describe, it, expect, beforeAll, afterAll, mock, spyOn } from "bun:test
 
 describe("ServiceName", () => {
   let service: ServiceName;
-  
+
   beforeAll(async () => {
     service = new ServiceName(mockKernel);
     await service.boot();
   });
-  
+
   afterAll(async () => {
     await service.shutdown(); // ← OBLIGATOIRE — vérifie pas de fuite
   });
-  
+
   describe("happy path", () => { ... });
   describe("error cases", () => { ... });
   describe("edge cases", () => {

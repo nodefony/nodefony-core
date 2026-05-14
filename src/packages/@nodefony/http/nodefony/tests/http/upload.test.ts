@@ -1,15 +1,17 @@
 import { expect } from "chai";
-import supertest from "supertest";
 import path from "path";
 import "mocha";
 
-const request = supertest("https://localhost:5152");
+//import request from "supertest";
+const request = (await import("supertest")).default;
+
+const appRequest = request("https://localhost:5152");
 
 describe("File Upload Tests", () => {
   it("should upload a file successfully", (done) => {
     const filePath = path.resolve("nodefony", "config", "config.ts");
 
-    request
+    appRequest
       .post("/nodefony/test/html/upload")
       .disableTLSCerts()
       .attach("file", filePath)
@@ -20,7 +22,10 @@ describe("File Upload Tests", () => {
           expect(res.body).to.be.an("array").that.is.not.empty;
           const uploadedFile = res.body[0];
           expect(uploadedFile).to.have.property("filename", "config.ts");
-          expect(uploadedFile).to.have.property("size").that.is.a("number").and.greaterThan(0);
+          expect(uploadedFile)
+            .to.have.property("size")
+            .that.is.a("number")
+            .and.greaterThan(0);
           expect(uploadedFile).to.have.property("mimeType", "video/mp2t");
           done();
         } catch (e) {
@@ -30,7 +35,7 @@ describe("File Upload Tests", () => {
   });
 
   it("should return an error if no file is uploaded", (done) => {
-    request
+    appRequest
       .post("/nodefony/test/html/uploaderror")
       .disableTLSCerts()
       .expect(400)

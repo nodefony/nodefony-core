@@ -10,6 +10,7 @@
     "build": "rimraf dist && npm run rollup",
     "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
+    "clean": "rimraf dist",
     "test": "mocha"
   },
   "private": true,
