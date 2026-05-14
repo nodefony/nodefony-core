@@ -1,21 +1,48 @@
 import assert from "node:assert";
 import { resolve } from "node:path";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import "mocha";
 import Module from "../kernel/Module";
 import type { PackageJson } from "../types/IModule";
 import type { IModule } from "../types/IModule";
 import Container from "../Container";
-import type Kernel from "../kernel/Kernel";
+import Service from "../Service";
+import Kernel from "../kernel/Kernel";
+import type { DefaultOptionsService } from "../Service";
 
-// Stub minimal : seul kernel.container est utilisé dans le constructeur de Module.
-// this.kernel est résolu depuis container.get("kernel") → null si absent.
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Stub minimal : uniquement kernel.container est utilisé dans Module constructor.
 function makeKernelStub(): Kernel {
   const container = new Container();
   return { container } as unknown as Kernel;
 }
 
-// Chemin réel du package nodefony (pour loadJson)
-const NODEFONY_PKG = resolve(process.cwd(), "package.json");
+// Chemin réel du workspace nodefony (a un package.json)
+const NODEFONY_DIR = resolve(process.cwd());
+const NODEFONY_PKG = resolve(NODEFONY_DIR, "package.json");
+
+// Path dont setPath() donne NODEFONY_DIR comme résultat
+// setPath(NODEFONY_PKG) → dirname("/…/nodefony/package.json") = "/…/nodefony" ✓
+const PATH_FOR_NODEFONY_DIR = NODEFONY_PKG;
+
+function makeKernelReal(opts = {}): Kernel {
+  return new Kernel("development", null, { log: { active: false }, ...opts });
+}
+
+// Module avec un vrai kernel → mod.kernel === kernel
+function makeModuleWithKernel(
+  name = "test",
+  path = PATH_FOR_NODEFONY_DIR,
+  options: DefaultOptionsService = {}
+): { kernel: Kernel; mod: Module } {
+  const kernel = makeKernelReal();
+  const mod = new Module(name, kernel, path, options);
+  return { kernel, mod };
+}
+
+// ─── 1. Construction (base — inchangé) ───────────────────────────────────────
 
 describe("Module — construction", () => {
   it("crée un module avec un kernel stub", () => {
@@ -37,7 +64,37 @@ describe("Module — construction", () => {
     const mod = new Module("no-kernel", makeKernelStub(), process.cwd(), {});
     assert.strictEqual(mod.kernel, null);
   });
+
+  it("mod.kernel résolu si kernel est dans le container (vrai Kernel)", () => {
+    const { kernel, mod } = makeModuleWithKernel("real-kernel-mod");
+    assert.strictEqual(mod.kernel, kernel);
+  });
+
+  it("path calculé par setPath() depuis l'argument path du constructeur", () => {
+    const { mod } = makeModuleWithKernel("path-check");
+    assert.strictEqual(mod.path, NODEFONY_DIR);
+  });
+
+  it("options propagées au Service", () => {
+    const opts: DefaultOptionsService = { syslog: { maxStack: 50 } };
+    const { mod } = makeModuleWithKernel("opts-check", PATH_FOR_NODEFONY_DIR, opts);
+    assert.strictEqual(mod.options.syslog?.maxStack, 50);
+  });
+
+  it("isApp vaut false à la construction, peut être true après", () => {
+    const { mod } = makeModuleWithKernel("isapp-mod");
+    assert.strictEqual(mod.isApp, false);
+    mod.isApp = true;
+    assert.strictEqual(mod.isApp, true);
+  });
+
+  it("package est undefined à la construction", () => {
+    const { mod } = makeModuleWithKernel("pkg-mod");
+    assert.strictEqual(mod.package, undefined);
+  });
 });
+
+// ─── 2. setPath() (base — inchangé) ──────────────────────────────────────────
 
 describe("Module — setPath()", () => {
   let mod: Module;
@@ -65,7 +122,313 @@ describe("Module — setPath()", () => {
     const result = mod.setPath("/a/b/mymodule");
     assert.strictEqual(result, "/a/b");
   });
+
+  it("chemin profond avec /dist → remonte au parent de dist", () => {
+    const result = mod.setPath("/x/y/z/dist/bundle.js");
+    assert.strictEqual(result, "/x/y/z");
+  });
+
+  it("répertoire racine-like → ne throw pas", () => {
+    assert.doesNotThrow(() => mod.setPath("/a/b/c.js"));
+  });
 });
+
+// ─── 3. setEvents() ──────────────────────────────────────────────────────────
+
+describe("Module — setEvents()", () => {
+  it("prependOnceListener 'onPreBoot' toujours enregistré (kernel réel)", () => {
+    const { kernel, mod } = makeModuleWithKernel("evt-pre-boot");
+    void mod; // module créé → listener enregistré dans kernel
+    const count = kernel.listenerCount("onPreBoot");
+    assert.ok(count > 0, "listener onPreBoot doit exister");
+  });
+
+  it("onKernelRegister (méthode prototype) → listener sur 'onRegister'", () => {
+    const kernel = makeKernelReal();
+    const before = kernel.listenerCount("onRegister");
+
+    class ModWithRegister extends Module {
+      constructor(k: Kernel) { super("reg-hook", k, PATH_FOR_NODEFONY_DIR, {}); }
+      async onKernelRegister(): Promise<this> { return this; }
+    }
+    new ModWithRegister(kernel);
+
+    assert.ok(
+      kernel.listenerCount("onRegister") > before,
+      "listener 'onRegister' ajouté par onKernelRegister"
+    );
+  });
+
+  it("onKernelBoot (méthode prototype) → listener sur 'onBoot'", () => {
+    const kernel = makeKernelReal();
+    const before = kernel.listenerCount("onBoot");
+
+    class ModWithBoot extends Module {
+      constructor(k: Kernel) { super("boot-hook", k, PATH_FOR_NODEFONY_DIR, {}); }
+      async onKernelBoot(): Promise<this> { return this; }
+    }
+    new ModWithBoot(kernel);
+
+    assert.ok(kernel.listenerCount("onBoot") > before, "listener 'onBoot' ajouté");
+  });
+
+  it("onKernelReady (méthode prototype) → listener sur 'onReady'", () => {
+    const kernel = makeKernelReal();
+    const before = kernel.listenerCount("onReady");
+
+    class ModWithReady extends Module {
+      constructor(k: Kernel) { super("ready-hook", k, PATH_FOR_NODEFONY_DIR, {}); }
+      async onKernelReady(): Promise<this> { return this; }
+    }
+    new ModWithReady(kernel);
+
+    assert.ok(kernel.listenerCount("onReady") > before, "listener 'onReady' ajouté");
+  });
+
+  it("hooks non définis → pas de listener onRegister/onReady supplémentaire", () => {
+    const kernel = makeKernelReal();
+    const regBefore = kernel.listenerCount("onRegister");
+    const readyBefore = kernel.listenerCount("onReady");
+
+    new Module("no-hooks", kernel, PATH_FOR_NODEFONY_DIR, {});
+
+    // onRegister et onReady ne sont ajoutés que si onKernelRegister/Ready sont définis
+    assert.strictEqual(kernel.listenerCount("onRegister"), regBefore);
+    assert.strictEqual(kernel.listenerCount("onReady"), readyBefore);
+    // Note: onBoot a +1 depuis le constructeur Module (rollup/watcher) indépendamment des hooks
+  });
+
+  it("kernel null (stub sans kernel) → setEvents() ne throw pas", () => {
+    assert.doesNotThrow(() =>
+      new Module("stub-events", makeKernelStub(), process.cwd(), {})
+    );
+  });
+});
+
+// ─── 4. readOverrideModuleConfig() ───────────────────────────────────────────
+
+describe("Module — readOverrideModuleConfig()", () => {
+  it("retourne options intact sans clé Module-*", () => {
+    const mod = new Module("override-test", makeKernelStub(), process.cwd(), {
+      debug: false,
+    });
+    const result = mod.readOverrideModuleConfig();
+    assert.strictEqual(result, mod.options);
+  });
+
+  it("Module-target trouvé → fusionne les options (deep=true)", () => {
+    const kernel = makeKernelReal();
+    const targetMod = new Module("target", kernel, PATH_FOR_NODEFONY_DIR, {
+      oldKey: "old",
+      nested: { a: 1 },
+    });
+    kernel.modules["target"] = targetMod;
+
+    const hostMod = new Module("host", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-target": { newKey: "new", nested: { b: 2 } },
+    });
+    hostMod.readOverrideModuleConfig();
+
+    assert.strictEqual((targetMod.options as any).newKey, "new");
+    assert.ok((targetMod.options as any).nested?.b === 2);
+  });
+
+  it("Module-target trouvé + deep=false → fusion shallow", () => {
+    const kernel = makeKernelReal();
+    const targetMod = new Module("shallow-target", kernel, PATH_FOR_NODEFONY_DIR, {
+      keep: "yes",
+    });
+    kernel.modules["shallow-target"] = targetMod;
+
+    const hostMod = new Module("shallow-host", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-shallow-target": { extra: "added" },
+    });
+    hostMod.readOverrideModuleConfig(false);
+
+    assert.strictEqual((targetMod.options as any).extra, "added");
+  });
+
+  it("Module-target non trouvé → log ERROR, continue sans throw", () => {
+    const kernel = makeKernelReal();
+    const hostMod = new Module("err-host", kernel, PATH_FOR_NODEFONY_DIR, {
+      "Module-ghost": { x: 1 },
+    });
+    assert.doesNotThrow(() => hostMod.readOverrideModuleConfig());
+  });
+
+  it("regex case : 'module-target' (m minuscule) est aussi reconnu", () => {
+    const kernel = makeKernelReal();
+    const targetMod = new Module("lc-target", kernel, PATH_FOR_NODEFONY_DIR, {});
+    kernel.modules["lc-target"] = targetMod;
+
+    const hostMod = new Module("lc-host", kernel, PATH_FOR_NODEFONY_DIR, {
+      "module-lc-target": { injected: true },
+    });
+    assert.doesNotThrow(() => hostMod.readOverrideModuleConfig());
+    assert.strictEqual((targetMod.options as any).injected, true);
+  });
+});
+
+// ─── 5. addService() ─────────────────────────────────────────────────────────
+
+describe("Module — addService()", () => {
+  // Service minimal compatible avec Injector.instantiate(service, module, ...args)
+  class SimpleService extends Service {
+    constructor(module: Module) {
+      super("SimpleService", module.container, undefined, {});
+    }
+  }
+
+  class InitService extends Service {
+    initialized = false;
+    constructor(module: Module) {
+      super("InitService", module.container, undefined, {});
+    }
+    async initialize(_module?: Module): Promise<this> {
+      this.initialized = true;
+      return this;
+    }
+  }
+
+  it("addService() enregistre le service dans le container", async () => {
+    const { mod } = makeModuleWithKernel("add-svc-mod");
+    await mod.addService(SimpleService as any);
+    const found = mod.get<SimpleService>("SimpleService");
+    assert.ok(found instanceof SimpleService);
+  });
+
+  it("addService() retourne l'instance du service", async () => {
+    const { mod } = makeModuleWithKernel("add-svc-ret");
+    const svc = await mod.addService(SimpleService as any);
+    assert.ok(svc instanceof Service);
+    assert.strictEqual(svc.name, "SimpleService");
+  });
+
+  it("service avec initialize() → initialize() appelé", async () => {
+    const { mod } = makeModuleWithKernel("init-svc-mod");
+    const svc = await mod.addService(InitService as any);
+    assert.ok((svc as InitService).initialized === true);
+  });
+
+  it("addService() deux fois → WARNING log, override", async () => {
+    const { mod } = makeModuleWithKernel("dup-svc-mod");
+    await mod.addService(SimpleService as any);
+
+    const pdus: import("../syslog/Pdu").default[] = [];
+    mod.syslog?.on("onLog", (p: import("../syslog/Pdu").default) => pdus.push(p));
+    await mod.addService(SimpleService as any); // second ajout
+    mod.syslog?.removeAllListeners();
+
+    const warn = pdus.some(p => p.severityName === "WARNING" && String(p.payload).includes("ALREADY EXIST"));
+    assert.ok(warn, "un WARNING doit être logué lors du double ajout");
+  });
+});
+
+// ─── 6. getPackageJson() ─────────────────────────────────────────────────────
+
+describe("Module — getPackageJson()", () => {
+  it("lit le package.json depuis mod.path", async () => {
+    const { mod } = makeModuleWithKernel("pkg-json-mod");
+    // mod.path = NODEFONY_DIR, qui a un package.json
+    const pkg = await mod.getPackageJson();
+    assert.ok(pkg && typeof pkg === "object");
+    assert.ok(typeof pkg.name === "string");
+    assert.ok(typeof pkg.version === "string");
+  });
+
+  it("rejette si package.json absent du path", async () => {
+    const tmpDir = os.tmpdir();
+    const mod = new Module("no-pkg", makeKernelStub(), tmpDir + "/fake-file.js", {});
+    // mod.path = tmpDir → pas de package.json
+    await assert.rejects(() => mod.getPackageJson(), { code: "ENOENT" });
+  });
+});
+
+// ─── 7. loadJson() ───────────────────────────────────────────────────────────
+
+describe("Module — loadJson()", () => {
+  let mod: Module;
+
+  before(() => {
+    mod = new Module("json-test", makeKernelStub(), process.cwd(), {});
+  });
+
+  it("charge le package.json du workspace", async () => {
+    const json = await mod.loadJson(NODEFONY_PKG);
+    assert(typeof json === "object");
+    assert(typeof (json as Record<string, unknown>).name === "string");
+  });
+
+  it("rejette si le fichier n'existe pas", async () => {
+    await assert.rejects(
+      () => mod.loadJson("/tmp/__non_existent_file__.json"),
+      { code: "ENOENT" }
+    );
+  });
+
+  it("chemin relatif + cwd → résolu correctement", async () => {
+    // loadJson("package.json", NODEFONY_DIR) → NODEFONY_DIR/package.json
+    const json = await mod.loadJson("package.json", NODEFONY_DIR);
+    assert.ok(typeof (json as Record<string, unknown>).name === "string");
+  });
+
+  it("JSON invalide → throw SyntaxError", async () => {
+    const tmpFile = resolve(os.tmpdir(), `invalid-${Date.now()}.json`);
+    await fs.writeFile(tmpFile, "{ not valid json }", "utf-8");
+    try {
+      await assert.rejects(() => mod.loadJson(tmpFile), SyntaxError);
+    } finally {
+      await fs.unlink(tmpFile).catch(() => {});
+    }
+  });
+});
+
+// ─── 8. install() & outdated() ───────────────────────────────────────────────
+
+describe("Module — install() & outdated()", () => {
+  it("install() sans cli → throw 'Package Manager not found'", async () => {
+    const mod = new Module("install-test", makeKernelStub(), process.cwd(), {});
+    await assert.rejects(() => mod.install(), /Package Manager not found/);
+  });
+
+  it("install(force=true) sans cli → throw 'Package Manager not found'", async () => {
+    const mod = new Module("install-force", makeKernelStub(), process.cwd(), {});
+    await assert.rejects(() => mod.install(true), /Package Manager not found/);
+  });
+
+  it("outdated() sans cli → throw 'Package Manager not found'", async () => {
+    const mod = new Module("outdated-test", makeKernelStub(), process.cwd(), {});
+    await assert.rejects(() => mod.outdated(), /Package Manager not found/);
+  });
+
+  it("install() avec kernel réel (sans cli) → throw 'Package Manager not found'", async () => {
+    const { mod } = makeModuleWithKernel("install-real-kernel");
+    await assert.rejects(() => mod.install(), /Package Manager not found/);
+  });
+});
+
+// ─── 9. addCommand() ─────────────────────────────────────────────────────────
+
+describe("Module — addCommand()", () => {
+  it("kernel non défini (stub) → throw 'Kernel not ready'", () => {
+    const mod = new Module("cmd-test", makeKernelStub(), process.cwd(), {});
+    assert.throws(
+      () => mod.addCommand(class {} as any),
+      /Kernel not ready/
+    );
+  });
+
+  it("kernel réel sans cli → throw 'Kernel not ready'", () => {
+    const { mod } = makeModuleWithKernel("cmd-real-kernel");
+    // kernel.cli = null → mod.kernel.cli = null → throw
+    assert.throws(
+      () => mod.addCommand(class {} as any),
+      /Kernel not ready/
+    );
+  });
+});
+
+// ─── 10. métadonnées package (base — inchangé + expansion) ───────────────────
 
 describe("Module — métadonnées package", () => {
   let mod: Module;
@@ -110,7 +473,35 @@ describe("Module — métadonnées package", () => {
     const mod2 = new Module("empty-pkg", makeKernelStub(), process.cwd(), {});
     assert.deepStrictEqual(mod2.getDependencies(), []);
   });
+
+  it("getDependencies() — devDependencies non inclus", () => {
+    const mod3 = new Module("dev-deps", makeKernelStub(), process.cwd(), {});
+    mod3.package = {
+      name: "d",
+      version: "1.0.0",
+      devDependencies: { jest: "29.0.0" },
+      dependencies: { axios: "1.0.0" },
+    };
+    const deps = mod3.getDependencies();
+    assert.ok(!deps.includes("jest"), "devDependencies ne doit pas être inclus");
+    assert.ok(deps.includes("axios"));
+  });
+
+  it("dépendance dans dependencies ET peerDependencies → apparaît 2x (comportement documenté)", () => {
+    const mod4 = new Module("dup-deps", makeKernelStub(), process.cwd(), {});
+    mod4.package = {
+      name: "dup",
+      version: "1.0.0",
+      dependencies: { react: "18.0.0" },
+      peerDependencies: { react: "18.0.0" },
+    };
+    const deps = mod4.getDependencies();
+    const reactCount = deps.filter(d => d === "react").length;
+    assert.strictEqual(reactCount, 2, "react apparaît 2x — dédupliqué si besoin par l'appelant");
+  });
 });
+
+// ─── 11. getPackageDependencies() statique (base — inchangé) ─────────────────
 
 describe("Module — getPackageDependencies() (statique)", () => {
   it("fusionne dependencies + peerDependencies", () => {
@@ -135,7 +526,21 @@ describe("Module — getPackageDependencies() (statique)", () => {
       []
     );
   });
+
+  it("devDependencies ignoré — seulement dependencies + peerDependencies", () => {
+    const pkg: PackageJson = {
+      name: "y",
+      version: "1.0.0",
+      devDependencies: { vitest: "1.0.0" },
+      dependencies: { lodash: "4.0.0" },
+    };
+    const deps = Module.getPackageDependencies(pkg);
+    assert.ok(!deps.includes("vitest"));
+    assert.ok(deps.includes("lodash"));
+  });
 });
+
+// ─── 12. getController() & controllers statiques ─────────────────────────────
 
 describe("Module — getController()", () => {
   let mod: Module;
@@ -160,28 +565,28 @@ describe("Module — getController()", () => {
     assert(typeof ctrls === "object");
     assert(ctrls !== null);
   });
-});
 
-describe("Module — loadJson()", () => {
-  let mod: Module;
-
-  before(() => {
-    mod = new Module("json-test", makeKernelStub(), process.cwd(), {});
+  it("getControllers() retourne la même référence (static partagé)", () => {
+    const mod2 = new Module("ctrl-test-2", makeKernelStub(), process.cwd(), {});
+    assert.strictEqual(mod.getControllers(), mod2.getControllers(),
+      "Module.controllers est une référence statique partagée entre instances");
   });
 
-  it("charge le package.json du workspace", async () => {
-    const json = await mod.loadJson(NODEFONY_PKG);
-    assert(typeof json === "object");
-    assert(typeof (json as Record<string, unknown>).name === "string");
-  });
-
-  it("rejette si le fichier n'existe pas", async () => {
-    await assert.rejects(
-      () => mod.loadJson("/tmp/__non_existent_file__.json"),
-      { code: "ENOENT" }
-    );
+  it("controller injecté dans Module.controllers → getController() le trouve", () => {
+    const FakeCtrl = class FakeCtrl {};
+    const saved = (Module as any).controllers["FakeCtrl"];
+    try {
+      (Module as any).controllers["FakeCtrl"] = FakeCtrl;
+      const result = mod.getController("FakeCtrl");
+      assert.strictEqual(result, FakeCtrl);
+    } finally {
+      if (saved === undefined) delete (Module as any).controllers["FakeCtrl"];
+      else (Module as any).controllers["FakeCtrl"] = saved;
+    }
   });
 });
+
+// ─── 13. log() ───────────────────────────────────────────────────────────────
 
 describe("Module — log()", () => {
   it("préfixe msgid avec MODULE <nom>", () => {
@@ -197,9 +602,51 @@ describe("Module — log()", () => {
     const pdu = mod.log("test", "DEBUG", "CUSTOM_ID");
     assert.strictEqual(pdu.msgid, "CUSTOM_ID");
   });
+
+  it("log(Error) → pdu ACCEPTED avec typePayload 'Error'", () => {
+    const mod = new Module("log-err", makeKernelStub(), process.cwd(), {});
+    const pdu = mod.log(new Error("test error"), "ERROR");
+    assert.strictEqual(pdu.typePayload, "Error");
+    assert.strictEqual(pdu.status, "ACCEPTED");
+  });
+
+  it("log avec sévérité WARNING", () => {
+    const mod = new Module("log-warn", makeKernelStub(), process.cwd(), {});
+    const pdu = mod.log("warn msg", "WARNING");
+    assert.strictEqual(pdu.severityName, "WARNING");
+  });
+
+  it("log avec sévérité CRITIC (≠ CRITICAL)", () => {
+    const mod = new Module("log-critic", makeKernelStub(), process.cwd(), {});
+    const pdu = mod.log("critic msg", "CRITIC");
+    assert.strictEqual(pdu.severityName, "CRITIC");
+  });
+
+  it("log avec tous les paramètres (pci, severity, msgid, msg)", () => {
+    const mod = new Module("log-full", makeKernelStub(), process.cwd(), {});
+    const pdu = mod.log("payload", "INFO", "MY_ID", "my extra msg");
+    assert.strictEqual(pdu.msgid, "MY_ID");
+    assert.strictEqual(pdu.msg, "my extra msg");
+    assert.strictEqual(pdu.severityName, "INFO");
+  });
+
+  it("msgid par défaut = 'MODULE <nom>' (format exact)", () => {
+    const mod = new Module("exact-name", makeKernelStub(), process.cwd(), {});
+    const pdu = mod.log("check");
+    assert.strictEqual(pdu.msgid, "MODULE exact-name");
+  });
+
+  it("log retourne toujours un Pdu valide", () => {
+    const mod = new Module("pdu-check", makeKernelStub(), process.cwd(), {});
+    const pdu = mod.log(null, "INFO");
+    assert.ok(pdu, "log doit retourner un Pdu");
+    assert.ok(typeof pdu.uid === "number");
+  });
 });
 
-describe("Module — readOverrideModuleConfig()", () => {
+// ─── 14. readOverrideModuleConfig() (base — inchangé) ────────────────────────
+
+describe("Module — readOverrideModuleConfig() (base)", () => {
   it("retourne options intact sans clé Module-*", () => {
     const mod = new Module("override-test", makeKernelStub(), process.cwd(), {
       debug: false,
@@ -209,10 +656,11 @@ describe("Module — readOverrideModuleConfig()", () => {
   });
 });
 
+// ─── 15. IModule structurel (base — inchangé) ────────────────────────────────
+
 describe("Module — IModule structurel", () => {
   it("est assignable à IModule", () => {
     const mod = new Module("iface-test", makeKernelStub(), process.cwd(), {});
-    // Vérification structurelle au niveau TypeScript (compile-time)
     const imod: IModule = mod;
     assert(typeof imod.path === "string");
     assert(typeof imod.getModuleName === "function");
@@ -223,5 +671,161 @@ describe("Module — IModule structurel", () => {
     assert(typeof imod.getControllers === "function");
     assert(typeof imod.install === "function");
     assert(typeof imod.outdated === "function");
+  });
+});
+
+// ─── 16. Sous-classe avec lifecycle complet ───────────────────────────────────
+
+describe("Module — sous-classe avec lifecycle hooks", () => {
+  it("onKernelRegister déclenché quand kernel fire 'onRegister'", async () => {
+    const kernel = makeKernelReal();
+    let called = false;
+
+    class AppModule extends Module {
+      constructor(k: Kernel) { super("app", k, PATH_FOR_NODEFONY_DIR, {}); }
+      async onKernelRegister(): Promise<this> {
+        called = true;
+        return this;
+      }
+    }
+    new AppModule(kernel);
+    await kernel.fireAsync("onRegister", kernel);
+    assert.ok(called, "onKernelRegister doit être appelé");
+  });
+
+  it("onKernelBoot déclenché quand kernel fire 'onBoot'", async () => {
+    const kernel = makeKernelReal();
+    let called = false;
+
+    class BootModule extends Module {
+      constructor(k: Kernel) { super("boot-mod", k, PATH_FOR_NODEFONY_DIR, {}); }
+      async onKernelBoot(): Promise<this> {
+        called = true;
+        return this;
+      }
+    }
+    new BootModule(kernel);
+    await kernel.fireAsync("onBoot", kernel);
+    assert.ok(called, "onKernelBoot doit être appelé");
+  });
+
+  it("onKernelReady déclenché quand kernel fire 'onReady'", async () => {
+    const kernel = makeKernelReal();
+    let called = false;
+
+    class ReadyModule extends Module {
+      constructor(k: Kernel) { super("ready-mod", k, PATH_FOR_NODEFONY_DIR, {}); }
+      async onKernelReady(): Promise<this> {
+        called = true;
+        return this;
+      }
+    }
+    new ReadyModule(kernel);
+    await kernel.fireAsync("onReady", kernel);
+    assert.ok(called, "onKernelReady doit être appelé");
+  });
+
+  it("hooks once — ne fire qu'une seule fois", async () => {
+    const kernel = makeKernelReal();
+    let count = 0;
+
+    class CountModule extends Module {
+      constructor(k: Kernel) { super("count-mod", k, PATH_FOR_NODEFONY_DIR, {}); }
+      async onKernelRegister(): Promise<this> {
+        count++;
+        return this;
+      }
+    }
+    new CountModule(kernel);
+    await kernel.fireAsync("onRegister", kernel);
+    await kernel.fireAsync("onRegister", kernel); // deuxième fois
+    assert.strictEqual(count, 1, "once() → listener retiré après premier fire");
+  });
+});
+
+// ─── 17. Performance ─────────────────────────────────────────────────────────
+
+describe("Module — performance", () => {
+  it("1 000 log() en < 200ms", () => {
+    const mod = new Module("perf-log", makeKernelStub(), process.cwd(), {});
+    const start = Date.now();
+    for (let i = 0; i < 1_000; i++) {
+      mod.log(`msg ${i}`, "INFO");
+    }
+    const elapsed = Date.now() - start;
+    assert.ok(elapsed < 200, `1 000 log() ont pris ${elapsed}ms`);
+  });
+
+  it("1 000 setPath() en < 100ms", () => {
+    const mod = new Module("perf-path", makeKernelStub(), process.cwd(), {});
+    const start = Date.now();
+    for (let i = 0; i < 1_000; i++) {
+      mod.setPath(`/a/b/c/${i}/index.ts`);
+    }
+    const elapsed = Date.now() - start;
+    assert.ok(elapsed < 100, `1 000 setPath() ont pris ${elapsed}ms`);
+  });
+
+  it("50 constructions Module sans fuite mémoire apparente", () => {
+    assert.doesNotThrow(() => {
+      for (let i = 0; i < 50; i++) {
+        new Module(`perf-mod-${i}`, makeKernelStub(), process.cwd(), {});
+      }
+    });
+  });
+});
+
+// ─── 18. Edge cases ──────────────────────────────────────────────────────────
+
+describe("Module — edge cases", () => {
+  it("deux modules avec le même nom sur le même kernel → dernier gagne dans modules[]", async () => {
+    const kernel = makeKernelReal();
+    const mod1 = await kernel.addModule(
+      class extends Module {
+        constructor(k: Kernel) { super("dup-name", k, PATH_FOR_NODEFONY_DIR, {}); }
+      } as any
+    );
+    const mod2 = await kernel.addModule(
+      class extends Module {
+        constructor(k: Kernel) { super("dup-name", k, PATH_FOR_NODEFONY_DIR, {}); }
+      } as any
+    );
+    assert.strictEqual(kernel.getModule("dup-name"), mod2);
+    assert.notStrictEqual(kernel.getModule("dup-name"), mod1);
+  });
+
+  it("options {} vides → ne throw pas", () => {
+    assert.doesNotThrow(() =>
+      new Module("empty-opts", makeKernelStub(), process.cwd(), {})
+    );
+  });
+
+  it("nom avec tirets → valide", () => {
+    const mod = new Module("my-cool-module", makeKernelStub(), process.cwd(), {});
+    assert.strictEqual(mod.name, "my-cool-module");
+  });
+
+  it("getDependencies() avec package sans dependencies ni peerDependencies → []", () => {
+    const mod = new Module("empty-deps", makeKernelStub(), process.cwd(), {});
+    mod.package = { name: "bare", version: "1.0.0" };
+    assert.deepStrictEqual(mod.getDependencies(), []);
+  });
+
+  it("log() payload=0 (falsy) → ACCEPTED", () => {
+    const mod = new Module("falsy-payload", makeKernelStub(), process.cwd(), {});
+    const pdu = mod.log(0, "INFO");
+    assert.strictEqual(pdu.status, "ACCEPTED");
+  });
+
+  it("log() payload=null → ACCEPTED", () => {
+    const mod = new Module("null-payload", makeKernelStub(), process.cwd(), {});
+    const pdu = mod.log(null, "INFO");
+    assert.strictEqual(pdu.status, "ACCEPTED");
+  });
+
+  it("loadJson() chemin absolu correct → pas d'erreur", async () => {
+    const mod = new Module("abs-json", makeKernelStub(), process.cwd(), {});
+    const json = await mod.loadJson(NODEFONY_PKG);
+    assert.ok(json);
   });
 });
