@@ -37,7 +37,7 @@
   "scripts": {
     "nodefony": "node ./bin/nodefony",
     "build": "rollup --config rollup.config.ts --configPlugin typescript",
-    "postbuild": "chmod +x bin/nodefony",
+    "postbuild": "node -e \"try{require('fs').chmodSync('bin/nodefony',0o755)}catch(e){}\"",
     "dev": "rollup --config rollup.config.ts --configPlugin typescript --watch",
     "clean": "rimraf dist bin/nodefony tsconfig.tsbuildinfo",
     "typecheck": "tsc --noEmit",

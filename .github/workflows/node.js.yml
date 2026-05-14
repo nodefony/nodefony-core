@@ -34,10 +34,15 @@ jobs:
       - run: npm run build
 
       - name: Start framework
-        run: npx nodefony production &
+        run: node node_modules/nodefony/bin/nodefony development &
         shell: bash
 
       - run: sleep 10
         shell: bash
 
       - run: npm test
+
+      - name: Stop framework
+        if: always()
+        run: kill $(pgrep -f "nodefony development" || echo 0) 2>/dev/null || true
+        shell: bash
