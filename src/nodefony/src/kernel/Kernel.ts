@@ -654,8 +654,9 @@ class Kernel extends Service implements IKernel {
     if (this.options.log && !this.options.log.active) {
       return;
     }
-    // CLI --debug prend le dessus ; sinon on lit la config log.debug
-    if (!this.debug && this.options.log?.debug) {
+    // CLI prend la priorité absolue sur la config.
+    // La config log.debug n'est utilisée qu'en mode programmatique (sans CLI).
+    if (!this.cli && !this.debug && this.options.log?.debug) {
       this.debug = this.options.log.debug;
     }
     if (this.cli) {
@@ -668,7 +669,7 @@ class Kernel extends Service implements IKernel {
   setCli(cli?: CliKernel | null): CliKernel | null {
     if (cli) {
       this.type = cli.type;
-      this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
+      this.debug = Boolean(cli?.commander?.opts().debug) || false;
       if (this.typeCluster === "worker") {
         cli.setPid();
       }

@@ -198,7 +198,7 @@ class CliKernel extends Cli {
       // INFO , DEBUG , WARNING
       data.push(7);
     }
-    if (this.kernel.type === "SERVER" && this.kernel.environment === "dev") {
+    if (this.kernel.type === "SERVER" && this.kernel.environment === "development") {
       // EMERGENCY ALERT CRITIC ERROR INFO WARNING
       data.push(4);
       data.push(5);
