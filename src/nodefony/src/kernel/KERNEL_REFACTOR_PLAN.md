@@ -7,13 +7,13 @@
 
 ## Corrections déjà appliquées ✅
 
-| # | Problème | Fix |
-|---|---|---|
-| 1 | `preRegistered` jamais mis à `true` | Set après `onPreRegister` + check `setCommandComplete` |
-| 2 | `postReady` jamais mis à `true` | Set dans le `.then()` après `onPostReady` |
-| 3 | `clean()` → `console.trace("pass clean")` | Remplacé par `removeAllListeners() + modules = {}` |
-| 4 | `terminate()` → `reject(CliKernel.quit(...))` | Corrigé en `reject(e as Error)` |
-| 5 | `isModule(subclass: any)` | Changé en `isModule(subclass: unknown)` |
+| #   | Problème                                      | Fix                                                    |
+| --- | --------------------------------------------- | ------------------------------------------------------ |
+| 1   | `preRegistered` jamais mis à `true`           | Set après `onPreRegister` + check `setCommandComplete` |
+| 2   | `postReady` jamais mis à `true`               | Set dans le `.then()` après `onPostReady`              |
+| 3   | `clean()` → `console.trace("pass clean")`     | Remplacé par `removeAllListeners() + modules = {}`     |
+| 4   | `terminate()` → `reject(CliKernel.quit(...))` | Corrigé en `reject(e as Error)`                        |
+| 5   | `isModule(subclass: any)`                     | Changé en `isModule(subclass: unknown)`                |
 
 ---
 
@@ -37,6 +37,7 @@ isCore(): boolean {
 ```
 
 **Alternative** : si `isCore` doit détecter le dépôt `nodefony-core`, implémenter la détection réelle :
+
 ```typescript
 isCore(): boolean {
   try {
@@ -49,6 +50,7 @@ isCore(): boolean {
   }
 }
 ```
+
 Cela permettrait de supprimer `await this.isCore()` dans `loadApp()`.
 
 ---
@@ -111,6 +113,7 @@ if (global && global.gc) {
 ```
 
 **Remplacement** : fire un événement `onMemoryReady` avec stats, laisser l'app décider du GC.
+
 ```typescript
 // Dans onReady() après initServers()
 this.memoryUsage("MEMORY POST READY");
@@ -152,6 +155,7 @@ constructor(name: string, kernel: Kernel, path: string, options?: object)
 ```
 
 **Options** :
+
 1. Corriger `ModuleConstructor` pour refléter la vraie signature.
 2. Ou — rendre `addModule` générique avec une factory function.
 

@@ -1,4 +1,5 @@
 # IA_STATUS.md — État des modules IA
+
 > Lu par Claude Code en début de chaque session.
 > Légende : ✅ Fait | 🔶 Partiel | ⬜ À faire
 
@@ -6,16 +7,16 @@
 
 ## Vue globale
 
-| # | Module | Interfaces | Services | Tests | index.ts | Statut |
-|---|--------|-----------|----------|-------|---------|--------|
-| 1 | @nodefony/llm | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 2 | @nodefony/vector | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 3 | @nodefony/rag | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 4 | @nodefony/memory | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 5 | @nodefony/agent | ✅ | 🔶 ToolRegistry only | 🔶 | ✅ | 🔶 |
-| 6 | @nodefony/mcp | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| 7 | @nodefony/agent-guard | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
-| 8 | @nodefony/studio | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| #   | Module                | Interfaces | Services             | Tests | index.ts | Statut |
+| --- | --------------------- | ---------- | -------------------- | ----- | -------- | ------ |
+| 1   | @nodefony/llm         | ✅         | ✅                   | ✅    | ✅       | ✅     |
+| 2   | @nodefony/vector      | ✅         | ✅                   | ✅    | ✅       | ✅     |
+| 3   | @nodefony/rag         | ✅         | ✅                   | ✅    | ✅       | ✅     |
+| 4   | @nodefony/memory      | ✅         | ✅                   | ✅    | ✅       | ✅     |
+| 5   | @nodefony/agent       | ✅         | 🔶 ToolRegistry only | 🔶    | ✅       | 🔶     |
+| 6   | @nodefony/mcp         | ⬜         | ⬜                   | ⬜    | ⬜       | ⬜     |
+| 7   | @nodefony/agent-guard | ⬜         | ⬜                   | ⬜    | ⬜       | ⬜     |
+| 8   | @nodefony/studio      | ⬜         | ⬜                   | ⬜    | ⬜       | ⬜     |
 
 ---
 
@@ -24,12 +25,14 @@
 ### @nodefony/agent — compléter
 
 **Manque :**
+
 - `src/orchestrator/AgentOrchestrator.ts` — orchestrateur principal
 - `src/decorators/Agent.ts` — decorator `@Agent({...})`
 - `src/decorators/Tool.ts` — decorator `@Tool({...})`
 - `tests/AgentOrchestrator.test.ts`
 
 **À implémenter dans AgentOrchestrator.ts :**
+
 - Constructor : injecte `ILLMProvider`, `ToolRegistry`, optionnel `IRagService`, `IMemoryService`
 - `run()` : boucle agentic — LLM → tool calls → re-LLM jusqu'à `end_turn` ou `maxIterations`
 - `stream()` : AsyncGenerator avec events `started/thinking/tool_call/tool_result/token/completed`
@@ -40,6 +43,7 @@
 ### @nodefony/mcp — créer entièrement
 
 **Structure :**
+
 ```
 mcp/
 ├── index.ts
@@ -56,6 +60,7 @@ mcp/
 ```
 
 **Points critiques :**
+
 - JSON-RPC 2.0 strict — valider `jsonrpc: "2.0"`, `id`, `method`
 - Méthodes MCP : `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`
 - Codes erreur : -32700 parse, -32600 invalid req, -32601 method not found, -32602 invalid params
@@ -67,6 +72,7 @@ mcp/
 ### @nodefony/agent-guard — créer entièrement
 
 **Structure :**
+
 ```
 agent-guard/
 ├── index.ts
@@ -102,6 +108,7 @@ agent-guard/
 ```
 
 **Points critiques :**
+
 - 4 zones : `public` / `sensitive` / `restricted` / `forbidden`
 - Default deny si aucune zone ne match
 - PII Masking : patterns FR (NIR, IBAN, CB, tel, email, SIRET) + custom
@@ -115,6 +122,7 @@ agent-guard/
 ### @nodefony/studio — créer entièrement
 
 **Structure :**
+
 ```
 studio/
 ├── index.ts
