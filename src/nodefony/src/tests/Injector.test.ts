@@ -5,7 +5,7 @@ import "mocha";
 import Injector from "../kernel/injector/injector";
 import Service from "../Service";
 import Container from "../Container";
-import { injectable, inject } from "../kernel/decorators/kernelDecorator";
+import { injectable, inject, Inject } from "../kernel/decorators/kernelDecorator";
 import { Nodefony } from "../Nodefony";
 import type { DIScope } from "../kernel/injector/injector";
 
@@ -948,5 +948,224 @@ describe("Injector — fallback kernel container (non @injectable)", () => {
     } finally {
       (Nodefony as any).getKernel = orig;
     }
+  });
+});
+
+// ─── 14. @Inject — property injection (Phase A) ───────────────────────────────
+
+@injectable()
+class PropDepA extends Service {
+  public tag: string = "depA";
+  constructor(container?: Container) {
+    super("PropDepA", container ?? new Container());
+  }
+}
+
+@injectable()
+class PropDepB extends Service {
+  public tag: string = "depB";
+  constructor(container?: Container) {
+    super("PropDepB", container ?? new Container());
+  }
+}
+
+describe("@Inject — property injection", () => {
+  it("Inject('name') stocke la metadata inject:properties sur le prototype", () => {
+    class TargetProto extends Service {
+      public dep!: PropDepA;
+      constructor() {
+        super("TargetProto", new Container());
+      }
+    }
+    (Inject("PropDepA") as Function)(TargetProto.prototype, "dep");
+    const metas = Reflect.getMetadata("inject:properties", TargetProto.prototype) || [];
+    assert.ok(metas.some((m: { key: string | symbol; name: string }) => m.key === "dep" && m.name === "PropDepA"));
+  });
+
+  it("Inject() sans nom ET sans design:type → throw", () => {
+    class TargetNoName extends Service {
+      public dep!: PropDepA;
+      constructor() {
+        super("TargetNoName", new Container());
+      }
+    }
+    assert.throws(
+      () => (Inject() as Function)(TargetNoName.prototype, "dep"),
+      /@Inject requires an explicit name/,
+    );
+  });
+
+  it("instantiate applique la property injection après construction", () => {
+    class WithProp extends Service {
+      public injected!: PropDepA;
+      constructor() {
+        super("WithProp", new Container());
+      }
+    }
+    (Inject("PropDepA") as Function)(WithProp.prototype, "injected");
+    const inst = Injector.instantiate(WithProp as any) as WithProp;
+    assert.ok(inst instanceof WithProp);
+    assert.ok(inst.injected instanceof PropDepA, "propriété injectée");
+    assert.strictEqual(inst.injected.tag, "depA");
+  });
+
+  it("plusieurs @Inject sur la même classe → toutes injectées", () => {
+    class MultiProp extends Service {
+      public a!: PropDepA;
+      public b!: PropDepB;
+      constructor() {
+        super("MultiProp", new Container());
+      }
+    }
+    (Inject("PropDepA") as Function)(MultiProp.prototype, "a");
+    (Inject("PropDepB") as Function)(MultiProp.prototype, "b");
+    const inst = Injector.instantiate(MultiProp as any) as MultiProp;
+    assert.ok(inst.a instanceof PropDepA);
+    assert.ok(inst.b instanceof PropDepB);
+  });
+
+  it("property injection singleton → même instance que le container kernel", () => {
+    const shared = Injector.instantiate(PropDepA as any) as PropDepA;
+    const container = new Container();
+    container.set("PropDepA", shared);
+    const fakeKernel = { get: (n: string) => container.get(n) };
+    const orig = Nodefony.getKernel;
+    (Nodefony as any).getKernel = () => fakeKernel;
+    try {
+      class WithSingleton extends Service {
+        public dep!: PropDepA;
+        constructor() {
+          super("WithSingleton", new Container());
+        }
+      }
+      (Inject("PropDepA") as Function)(WithSingleton.prototype, "dep");
+      const inst = Injector.instantiate(WithSingleton as any) as WithSingleton;
+      assert.strictEqual(inst.dep, shared, "singleton réutilise l'instance du container");
+    } finally {
+      (Nodefony as any).getKernel = orig;
+    }
+  });
+
+  it("property injection avec backward-compat (sans métadonnée DI sur constructeur)", () => {
+    class PlainWithProp extends Service {
+      public injected!: PropDepB;
+      constructor(label: string) {
+        super("PlainWithProp", new Container());
+        void label;
+      }
+    }
+    (Inject("PropDepB") as Function)(PlainWithProp.prototype, "injected");
+    const inst = Injector.instantiate(PlainWithProp as any, "hello") as PlainWithProp;
+    assert.ok(inst instanceof PlainWithProp);
+    assert.ok(inst.injected instanceof PropDepB);
+  });
+});
+
+// ─── 15. Circular dependency detection (Phase C) ──────────────────────────────
+
+describe("Circular dependency detection", () => {
+  it("dépendance directe A → A → throw 'Circular dependency detected'", () => {
+    @injectable()
+    class CircSelf extends Service {
+      constructor(dep: CircSelf) {
+        super("CircSelf", new Container());
+        void dep;
+      }
+    }
+    (inject("CircSelf") as Function)(CircSelf, undefined, 0);
+    assert.throws(
+      () => Injector.instantiate(CircSelf as any),
+      /Circular dependency detected/,
+    );
+  });
+
+  it("dépendance indirecte A → B → A → throw", () => {
+    @injectable()
+    class CircA extends Service {
+      constructor(dep: unknown) {
+        super("CircA", new Container());
+        void dep;
+      }
+    }
+    @injectable()
+    class CircB extends Service {
+      constructor(dep: unknown) {
+        super("CircB", new Container());
+        void dep;
+      }
+    }
+    (inject("CircB") as Function)(CircA, undefined, 0);
+    (inject("CircA") as Function)(CircB, undefined, 0);
+    assert.throws(
+      () => Injector.instantiate(CircA as any),
+      /Circular dependency detected/,
+    );
+  });
+
+  it("message d'erreur contient le chemin avec →", () => {
+    @injectable()
+    class ChainA extends Service {
+      constructor(dep: unknown) {
+        super("ChainA", new Container());
+        void dep;
+      }
+    }
+    @injectable()
+    class ChainB extends Service {
+      constructor(dep: unknown) {
+        super("ChainB", new Container());
+        void dep;
+      }
+    }
+    (inject("ChainB") as Function)(ChainA, undefined, 0);
+    (inject("ChainA") as Function)(ChainB, undefined, 0);
+    let msg = "";
+    try {
+      Injector.instantiate(ChainA as any);
+    } catch (e) {
+      msg = (e as Error).message;
+    }
+    assert.ok(msg.includes("ChainA"), `doit contenir ChainA: ${msg}`);
+    assert.ok(msg.includes("ChainB"), `doit contenir ChainB: ${msg}`);
+    assert.ok(msg.includes("→"), `doit contenir →: ${msg}`);
+  });
+
+  it("chaîne A → B → C sans circulaire → OK", () => {
+    @injectable()
+    class DeepC extends Service {
+      constructor() {
+        super("DeepC", new Container());
+      }
+    }
+    @injectable()
+    class DeepB extends Service {
+      constructor(c: unknown) {
+        super("DeepB", new Container());
+        void c;
+      }
+    }
+    @injectable()
+    class DeepA extends Service {
+      constructor(b: unknown) {
+        super("DeepA", new Container());
+        void b;
+      }
+    }
+    (inject("DeepC") as Function)(DeepB, undefined, 0);
+    (inject("DeepB") as Function)(DeepA, undefined, 0);
+    assert.doesNotThrow(() => Injector.instantiate(DeepA as any));
+    const inst = Injector.instantiate(DeepA as any);
+    assert.ok(inst instanceof DeepA);
+  });
+
+  it("deux instantiations indépendantes en séquence → pas de faux positif", () => {
+    @injectable()
+    class IndepX extends Service {
+      constructor() {
+        super("IndepX", new Container());
+      }
+    }
+    assert.doesNotThrow(() => Injector.instantiate(IndepX as any));
+    assert.doesNotThrow(() => Injector.instantiate(IndepX as any));
   });
 });

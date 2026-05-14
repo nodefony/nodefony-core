@@ -14,6 +14,11 @@ export interface InjectableOptions {
   scope?: DIScope;
 }
 
+export interface PropertyInjectMeta {
+  key: string | symbol;
+  name: string;
+}
+
 const injectables: Record<string, ServiceConstructor> = {};
 
 class Injector extends Service {
@@ -70,28 +75,41 @@ class Injector extends Service {
     return Injector.instantiate(constructor, ...args);
   }
 
-  // ─── Résolution d'un service par nom ─────────────────────────────────────────
+  // ─── API publique ─────────────────────────────────────────────────────────────
+  static instantiate(
+    constructor: ServiceConstructor,
+    ...argsClass: any[]
+  ): Service | ServiceWithInitialize | any {
+    return Injector._instantiateWithStack(constructor, [], argsClass);
+  }
+
+  // ─── Résolution par nom avec stack circulaire ─────────────────────────────────
+  //
   // Ordre de résolution :
-  //   1. Si @injectable → scope détermine le comportement :
-  //        transient : toujours une nouvelle instance (container ignoré)
+  //   1. @injectable → scope détermine le comportement :
+  //        transient : toujours nouvelle instance (container ignoré)
   //        singleton : container kernel en premier, sinon nouvelle instance
-  //   2. Si non @injectable → container kernel (services ajoutés via kernel.set())
+  //   2. Non @injectable → container kernel (services ajoutés via kernel.set())
   //   3. Sinon → throw
-  private static _resolve(serviceName: string, argsClass: any[]): any {
+  private static _resolveWithStack(
+    serviceName: string,
+    argsClass: any[],
+    stack: string[],
+  ): any {
     if (Injector.isRegistered(serviceName)) {
       const Ctor = Injector.get(serviceName);
       const scope: DIScope =
         (Reflect.getMetadata("di:scope", Ctor) as DIScope) ?? "singleton";
 
       if (scope === "transient") {
-        return Injector.instantiate(Ctor, ...argsClass);
+        return Injector._instantiateWithStack(Ctor, stack, argsClass);
       }
 
       const kernel = Nodefony.getKernel();
       if (kernel && kernel.get(serviceName)) {
         return kernel.get(serviceName);
       }
-      return Injector.instantiate(Ctor, ...argsClass);
+      return Injector._instantiateWithStack(Ctor, stack, argsClass);
     }
 
     // Non @injectable → fallback sur le container kernel
@@ -104,40 +122,64 @@ class Injector extends Service {
     throw new Error(`Service ${serviceName} not found or not injectable`);
   }
 
-  // ─── Instantiation avec injection ────────────────────────────────────────────
+  // ─── Property injection post-construction ─────────────────────────────────────
+  private static _applyPropertyInjection(
+    constructor: ServiceConstructor,
+    instance: unknown,
+    stack: string[],
+  ): unknown {
+    const propMetas: PropertyInjectMeta[] =
+      Reflect.getMetadata("inject:properties", constructor.prototype) || [];
+    for (const { key, name } of propMetas) {
+      (instance as Record<string, unknown>)[key as string] =
+        Injector._resolveWithStack(name, [], stack);
+    }
+    return instance;
+  }
+
+  // ─── Instantiation avec injection + détection circulaire ─────────────────────
   //
-  // Deux sources de métadonnées (toutes deux sous "inject:services" / "design:paramtypes") :
+  // `stack` : chemin de résolution courant — propre à chaque arbre d'appel (async-safe).
+  // Chaque niveau crée une copie [...stack, name] — jamais de mutation du tableau parent.
   //
-  //   1. design:paramtypes  — émis par TypeScript (emitDecoratorMetadata) dès qu'un decorator
-  //      est présent sur la classe. Permet l'auto-injection par type sans @inject explicite.
-  //
-  //   2. inject:services    — stocké par @inject("name"). Tableau sparse indexé par numéro
-  //      de paramètre. Prend la priorité sur design:paramtypes.
+  // Deux sources de métadonnées :
+  //   1. inject:services    — stocké par @inject("name"). Tableau sparse par position.
+  //                           Prend la priorité sur design:paramtypes.
+  //   2. design:paramtypes  — émis par TypeScript (emitDecoratorMetadata).
+  //                           Permet l'auto-injection par type sans @inject explicite.
   //
   // Algorithme :
-  //   Pour chaque position i de 0 à totalParams-1 :
-  //     - Si @inject[i] est défini → résoudre par nom (priorité absolue)
-  //     - Sinon si paramTypes[i] est enregistré dans injectables → auto-injection par type
-  //     - Sinon → consommer le prochain arg explicite (argsClass[explicitIdx++])
-  //   Appendre les args explicites restants.
-  //
-  // Compatibilité ascendante : si aucune métadonnée → Reflect.construct(ctor, argsClass).
-  static instantiate(
+  //   Pour chaque position i :
+  //     - @inject[i] défini → résoudre par nom (priorité absolue)
+  //     - paramTypes[i] enregistré → auto-injection par type
+  //     - sinon → arg explicite (argsClass[explicitIdx++])
+  //   Appliquer la property injection post-construction.
+  private static _instantiateWithStack(
     constructor: ServiceConstructor,
-    ...argsClass: any[]
-  ): Service | ServiceWithInitialize | any {
-    // @inject explicite — tableau sparse : [paramIndex] = serviceName
+    stack: string[],
+    argsClass: any[],
+  ): any {
+    const ctorName = constructor.name;
+
+    // ── Détection circulaire ────────────────────────────────────────────────────
+    if (stack.includes(ctorName)) {
+      throw new Error(
+        `Circular dependency detected: ${[...stack, ctorName].join(" → ")}`,
+      );
+    }
+    const nextStack = [...stack, ctorName];
+
+    // ── Métadonnées DI ──────────────────────────────────────────────────────────
     const injectExplicit: (string | undefined)[] =
       Reflect.getMetadata("inject:services", constructor) || [];
-
-    // design:paramtypes — émis par TypeScript si emitDecoratorMetadata + au moins 1 decorator
     const paramTypes: unknown[] =
       Reflect.getMetadata("design:paramtypes", constructor) || [];
 
     const hasInjectInfo = injectExplicit.some(Boolean) || paramTypes.length > 0;
 
     if (!hasInjectInfo) {
-      return Reflect.construct(constructor, argsClass);
+      const instance = Reflect.construct(constructor, argsClass);
+      return Injector._applyPropertyInjection(constructor, instance, nextStack);
     }
 
     const totalParams = Math.max(paramTypes.length, injectExplicit.length);
@@ -148,28 +190,29 @@ class Injector extends Service {
       const explicitName = injectExplicit[i];
 
       if (explicitName) {
-        // @inject("name") — priorité absolue
-        resolvedArgs.push(Injector._resolve(explicitName, argsClass));
+        resolvedArgs.push(
+          Injector._resolveWithStack(explicitName, argsClass, nextStack),
+        );
         continue;
       }
 
       const type = paramTypes[i] as { name?: string } | undefined;
       if (type?.name && Injector.isRegistered(type.name)) {
-        // Auto-injection via design:paramtypes
-        resolvedArgs.push(Injector._resolve(type.name, argsClass));
+        resolvedArgs.push(
+          Injector._resolveWithStack(type.name, argsClass, nextStack),
+        );
         continue;
       }
 
-      // Pas injectable → arg explicite
       resolvedArgs.push(argsClass[explicitIdx++]);
     }
 
-    // Args explicites en excès (argsClass plus long que totalParams)
     while (explicitIdx < argsClass.length) {
       resolvedArgs.push(argsClass[explicitIdx++]);
     }
 
-    return Reflect.construct(constructor, resolvedArgs);
+    const instance = Reflect.construct(constructor, resolvedArgs);
+    return Injector._applyPropertyInjection(constructor, instance, nextStack);
   }
 
   reflect(

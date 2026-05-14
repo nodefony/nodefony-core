@@ -1,4 +1,4 @@
-# CLAUDE.md — nodefony-core / branche claude-ts
+# CLAUDE.md — nodefony-core
 
 ## Contexte du projet
 
@@ -6,8 +6,8 @@ Framework Node.js fullstack open source — migration vers TypeScript.
 Auteur : Christophe CAMENSULI — projet libre CeCILL-B.
 
 **Repo** : https://github.com/nodefony/nodefony-core
-**Branche de travail** : claude-ts
-**Repo JS référence** : ../nodefony (cloné localement)
+**Branche principale** : `claude-ts` (branches de travail : `refactor/*` mergées dans `claude-ts`)
+**Repo JS référence** : `../nodefony` (cloné localement)
 
 ---
 
@@ -66,13 +66,17 @@ nodefony-core/
 
 **Modules** : `module: ESNext` + `moduleResolution: Bundler` sur tous les tsconfigs. Zéro CommonJS.
 
-**Terminologie** :
+**Exports** : named exports uniquement — `import { Nodefony } from "nodefony"`. Pas de default export.
 
-| Ancien (JS)    | Nouveau (TS)   |
-| -------------- | -------------- |
-| Bundle         | Module         |
-| @Bundle()      | @Module()      |
-| nodefonyBundle | NodefonyModule |
+**Terminologie** (renommage JS → TS) :
+
+| Ancien (JS)    | Nouveau (TS)   | Note                          |
+| -------------- | -------------- | ----------------------------- |
+| Bundle         | Module         | concept — classe `Module`     |
+| nodefonyBundle | Module         | classe de base                |
+| `import { kernel }` | `Nodefony.getKernel()` | singleton supprimé |
+| `import { Error }` | `import { nodefonyError }` | renommé |
+| `import nodefony from "nodefony"` | `import { Nodefony } from "nodefony"` | no default |
 
 ---
 
@@ -83,60 +87,69 @@ nodefony-core/
 export interface IKernel { ... }
 
 // Imports Node.js — toujours préfixe node:
-import * as http from "node:http";
+import fs from "node:fs";
 
 // Jamais any — unknown + narrowing
 // Jamais @ts-ignore
 // Jamais require()
+// ESM uniquement — import, jamais require
 ```
 
 ---
 
 ## Workflow de session Claude Code
 
-**DÉBUT :** - Lire `MIGRATION_STATUS.md` - Lire les `memory.md` listés ci-dessous - Ajoute ou met a jour `claude.md` du projet avec tous les liens vers `memory.md`.
-les fichiers `memory.md` sont des fichiers md special uniquement pour les IA pour avoir une utilisation et une précision du module optimum sans lire tous les fichiers du module donc economisé des token avec le `README.md` ils sont complementaires
+**DÉBUT :**
+1. Lire `MIGRATION_STATUS.md`
+2. Lire le `MEMORY.md` du module concerné (table ci-dessous)
+3. Mettre à jour `CLAUDE.md` si un nouveau `MEMORY.md` a été créé
 
-### MEMORY.md — index des fichiers IA
-
-| Module                | Fichier memory                                                                       | Contenu                                      |
-| --------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------- |
-| Core (@nodefony/core) | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                                   | Service, Container, Event                    |
-| Syslog / Pdu          | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md)             | Syslog, Pdu, CircularBuffer                  |
-| Kernel / Module / CLI | [`src/nodefony/src/kernel/MEMORY.md`](src/nodefony/src/kernel/MEMORY.md)             | Kernel lifecycle, Module hooks, CliKernel    |
-| FileClass / Finder    | [`src/nodefony/src/finder/MEMORY.md`](src/nodefony/src/finder/MEMORY.md)             | FileClass, File, FileResult, Result, Finder  |
-
-**PENDANT :** - Un seul module par session - Écrire les tests **dans la même session** que le code - Valider : `npm run build` (0 erreur TS) + `npm run test` (tous verts)
+**PENDANT :**
+- Un seul module par session
+- Écrire les tests dans la même session que le code
+- Valider : `npm run build` (0 erreur TS) + `npm run test` (tous verts)
 
 **FIN :**
-
-- Mettre à jour `MIGRATION_STATUS.md`
-- Mettre à jour `README.md`(pour humains)
-- Mettre à jour `memory.md` (pour IA)
-
-- Committer avant de fermer
+1. Mettre à jour `MIGRATION_STATUS.md`
+2. Mettre à jour `README.md` (humains) + `MEMORY.md` (IA) du module
+3. Committer avant de fermer
 
 ---
 
-## 📚 Documentation Modules Workflow de session Claude Code
+## MEMORY.md — index des fichiers IA
 
-**Règle** : Après toute **modif/refactor/mettre à jour/fin de session** sur un module :
+Les `MEMORY.md` sont des fichiers **IA uniquement** — ultra-concis, mots-clés, 0 redondance.
+Complémentaires aux `README.md` (humains). Lire le `MEMORY.md` du module avant de toucher au code.
 
-1. **Règle** :
-   - `memory.md` : **IA** (pour IA : **ultra-concis**, mots-clés, 0 redondance) (ex: `Syslog: log class. Pdu: log entry. RingBuffer: FIFO stack.`).
-   - `README.md` : **Humains** (pour humains : exemples, détails, tableaux) (ex: `## Usage\nnew Syslog().info("test")`).
-2. **Structure** :
-   - `memory.md` : **Purpose** **Core Components** | **Config** | **Behaviors** | **Usage (minimal)** | **Deps** | **Gotchas**.
-   - `README.md` : **Features** | **Install** | **Config** | **Usage** | **API** | **Examples** | **Troubleshooting**.
-3. **Vérification** :
-   - `grep -r "TODO\|FIXME" src/` avant commit.
-   - Warning sur les console.log et autre avant commit.
+| Module                | Fichier memory                                                                                         | Contenu                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Core (@nodefony/core) | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                                                     | Service, Container, Event                    |
+| Syslog / Pdu          | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md)                               | Syslog, Pdu, CircularBuffer                  |
+| Kernel / Module / CLI | [`src/nodefony/src/kernel/MEMORY.md`](src/nodefony/src/kernel/MEMORY.md)                               | Kernel lifecycle, Module hooks, CliKernel    |
+| Injector / DI         | [`src/nodefony/src/kernel/injector/MEMORY.md`](src/nodefony/src/kernel/injector/MEMORY.md)             | @injectable, @inject, @Inject, scopes, algo  |
+| FileClass / Finder    | [`src/nodefony/src/finder/MEMORY.md`](src/nodefony/src/finder/MEMORY.md)                               | FileClass, File, FileResult, Result, Finder  |
+
+**Structure attendue d'un MEMORY.md** : Purpose | Core Components | Config | Behaviors | Gotchas
+
+---
+
+## Documentation modules — règle
+
+Après toute modification ou fin de session sur un module :
+
+| Fichier | Audience | Style |
+|---|---|---|
+| `MEMORY.md` | IA | Ultra-concis, mots-clés, 0 prose. Ex : `Pdu: log entry. Buffer: FIFO O(1).` |
+| `README.md` | Humains | Exemples complets, tableaux API, troubleshooting |
+
+Vérification avant commit :
+```bash
+grep -r "TODO\|FIXME\|console\.log" src/nodefony/src/
+```
 
 ---
 
 ## Lancer le framework (tests runtime)
-
-### Commande de test non-interactive (10 secondes)
 
 ```bash
 npx nodefony development 2>&1 &
@@ -147,16 +160,13 @@ wait $PID 2>/dev/null
 true
 ```
 
-> Utiliser `development` (pas `dev` ni `start`) — lance le serveur sans prompt interactif.
-> Le `&` + `kill` permet un test borné dans Claude Code (pas de `timeout` sur macOS).
+> Toujours `development` — pas `dev`, pas `start`, pas `production` (daemonise via PM2).
 
 ### Signes que le démarrage est OK
 
 ```
 INFO  KERNEL  :  MODULE ADD : app
-INFO  KERNEL  :  MODULE ADD : sequelize
 INFO  KERNEL  :  MODULE ADD : http
-...
 INFO  server-http  :  Server Listen on http://127.0.0.1:5151
 INFO  server-https :  Server Listen on https://127.0.0.1:5152
 INFO  server-websocket : Server Listen on ws://127.0.0.1:5151
@@ -164,30 +174,18 @@ INFO  server-websocket : Server Listen on ws://127.0.0.1:5151
 
 ### Erreurs critiques à connaître
 
-| Erreur                                       | Cause                                                      | Fix                                                      |
-| -------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------- |
-| `does not provide an export named 'default'` | `import nodefony from "nodefony"` — plus de default export | Remplacer par `import { Nodefony } from "nodefony"`      |
-| `does not provide an export named 'Error'`   | `import { Error } from "nodefony"` — renommé               | Remplacer par `import { nodefonyError } from "nodefony"` |
-| `does not provide an export named 'kernel'`  | `import { kernel } from "nodefony"` — singleton supprimé   | Remplacer par `Nodefony.getKernel()`                     |
+| Erreur | Cause | Fix |
+| --- | --- | --- |
+| `does not provide an export named 'default'` | `import nodefony from "nodefony"` | `import { Nodefony } from "nodefony"` |
+| `does not provide an export named 'Error'` | `import { Error } from "nodefony"` | `import { nodefonyError } from "nodefony"` |
+| `does not provide an export named 'kernel'` | singleton supprimé | `Nodefony.getKernel()` |
 
-### Rebuild complet avant test
+### Build
 
 ```bash
-# packages (turbo)
-npx turbo run build --force
-# projet (rollup racine)
-npx rollup -c rollup.config.ts --configPlugin typescript
+# Core uniquement
+cd src/nodefony && npm run build
+
+# Tous les packages (turbo)
+npm run build
 ```
-
----
-
-## Point d'attention restant
-
-### rollup.config.ts — `@ts-ignore` à corriger
-
-```typescript
-//@ts-ignore  ← à remplacer
-import { createPathTransform } from "rollup-sourcemap-path-transform";
-```
-
-Corriger en créant un fichier `.d.ts` minimal pour ce module.

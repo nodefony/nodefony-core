@@ -164,68 +164,25 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 
 ---
 
-## Injector (`injector/injector.ts`) + Decorators (`decorators/kernelDecorator.ts`)
+## Injector + Decorators DI
 
-**Purpose**: Registre statique de services injectables + résolution DI.
+> Détail complet dans [`injector/MEMORY.md`](injector/MEMORY.md).
 
-**Static API**:
-- `Injector.register(name, Ctor)` → throw si name vide ou Ctor null. Retourne Ctor.
-- `Injector.isRegistered(name)` → `name in injectables` (O(1)).
-- `Injector.get(name)` → throw `"not found or not injectable"` si absent.
-- `Injector.inject(Ctor, ...args)` = alias `instantiate`.
-- `Injector.injectables` → Record statique partagé. Accès direct possible (test + debug).
+**Résumé clés** :
+- Registre statique `injectables: Record<string, Ctor>` — global, partagé
+- `@injectable` → register + scope. `@inject` → param ctor. `@Inject` → propriété post-ctor.
+- `instantiate` → `_instantiateWithStack(Ctor, [], args)` — circular detection + property injection
+- Stack par valeur `[...stack, name]` — async-safe. Singleton dans kernel.get() → court-circuit.
+- `inject:services` sur **constructeur**. `inject:properties` sur **prototype**. Confusion = bug silencieux.
+- tsx : pas de `design:paramtypes` → appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)`.
 
-**`Injector.instantiate(Ctor, ...argsClass)`** — algorithme:
-1. Lit `inject:services` (tableau sparse indexé par position, via `@inject`)
-2. Lit `design:paramtypes` (émis par TypeScript si `emitDecoratorMetadata + 1 decorator`)
-3. Si aucune metadata → `Reflect.construct(Ctor, argsClass)` (backward compat)
-4. Sinon, pour chaque position i :
-   - `inject:services[i]` présent → `_resolve(name)` (priorité absolue)
-   - `paramTypes[i]` enregistré dans injectables → `_resolve(typeName)` (auto-injection)
-   - Sinon → `argsClass[explicitIdx++]` (arg explicite)
-5. Append `argsClass` restants.
+**Decorators module** (`@modules`/`@services`/`@entities`) :
+- `@modules` → `onPreRegister` → loadModule|addModule
+- `@services` → `onPreBoot` → addService|loadService (erreurs catchées)
+- `@entities` → `onBoot` → addEntity|loadEntity
+- `prependOnceListener` (setEvents) toujours index 0 avant `once` (@services/@entities)
 
-**`_resolve(name, argsClass)`**:
-- Kernel dispo + `kernel.get(name)` non-null → **réutilise** l'instance du container
-- Sinon → `Injector.instantiate(Injector.get(name), ...argsClass)` (récursif)
-
-**`design:paramtypes` limitation tests**: tsx/esbuild ne supporte pas `emitDecoratorMetadata`.
-Émettre manuellement dans les tests : `Reflect.defineMetadata("design:paramtypes", [TypeA], MyClass)`.
-
-**DIScope** : `"singleton"` (défaut) | `"transient"` (toujours new, ignore kernel container). Stocké via `Reflect.defineMetadata("di:scope", scope, Ctor)`.
-
-**`Injector.getScope(name)`** → `DIScope` — lit la metadata `di:scope` du constructeur enregistré. Retourne `"singleton"` si absent ou inconnu.
-
-**Decorators** (tous dans `kernelDecorator.ts`):
-- `@injectable(name?)` — rétro-compat string.
-- `@injectable({ name?, scope? })` — API objet. scope absent → `"singleton"`.
-- `@inject("name")` → stocke `inject:services[paramIndex] = name` sur le constructeur (class-level, sans propertyKey). Appel direct possible : `(inject("X") as Function)(MyClass, undefined, 0)`.
-- `@modules(path)` → sur Module, `kernel.once("onPreRegister", ...)` → `loadModule(path, false)` ou `addModule(Ctor)` (si `kernel.isModule(Ctor)`). Array : idem pour chaque élément.
-- `@services(path)` → sur Module, `kernel.once("onPreBoot", ...)` → `addService(Ctor)` ou `loadService(path)`. Erreurs catchées + loguées.
-- `@entities(path)` → sur Module, `kernel.once("onBoot", ...)` → `addEntity(Ctor)` ou `loadEntity(path)`.
-
-**Routage dans @modules array** : `isModule(elt)` → `addModule`, sinon → `loadModule` (strings ET ctors non-Module traités comme path).
-
-**Test pattern pour les décorateurs** (`Decorators.test.ts`):
-```typescript
-// Stub kernel avec fireEvent
-const stub = makeKernelStub(); // container.set("kernel", stub) + once/prependOnceListener
-// Mock getPackageJson pour éviter I/O (setEvents prependOnceListener l'appelle sur onPreBoot)
-mod.getPackageJson = async () => ({...} as PackageJson);
-// Spy addService/loadService pour @services
-mod.addService = async (Ctor) => { calls.push(Ctor); return {} as Service; };
-// Déclencher
-await stub.fireEvent("onPreBoot");
-```
-
-**onPreBoot listener order** : `prependOnceListener` (setEvents) → index 0. `once` (@services) → dernier.
-
-**Gotchas injection**:
-- `@inject` parameter decorator : tsx/esbuild nécessite `--tsconfig` avec `experimentalDecorators: true`. En prod (rollup), ça marche.
-- `@inject` sans nom → throw immédiat dans le decorator (pas à l'instantiation).
-- `Injector.get(name)` throw si absent → uncaught dans `_resolve` → propagé à `instantiate`.
-- `Fetch` auto-enregistré dans `new Injector(kernel)` — pas avant.
-- Design intent: args explicites couvrent les params non-injectables, dans l'ordre.
+**Roadmap** : ✅ A (property) ✅ C (circular) ⬜ B (scoped/ALS) ⬜ D (namespace) ⬜ E (lazy)
 
 ## Deps
 
