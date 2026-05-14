@@ -271,6 +271,7 @@
 | 2026-05-14 | Phase X — Transport Layer | `ITransport.ts`, `ConsoleTransport.ts`, `FileTransport.ts`, `HttpTransport.ts`, `transports/index.ts` | ~1h | 303 tests ✅ — fire-and-forget — `onTransportError` — 9/9 build ✅ |
 | 2026-05-14 | Kernel.test.ts — tests complets | `Kernel.test.ts` (111 tests Kernel) | ~1h | 443 tests ✅ — constructor, Events bitmask, setEnv/setNodeEnv, checkPath, readConfig, stats, network, modules, setDomain, logEnv, initializeLog (11), fire/emit, perf, edge cases |
 | 2026-05-14 | Module.test.ts — tests complets | `Module.test.ts` (74 tests Module) | ~1h | 500 tests ✅ — construction, setPath, setEvents (lifecycle hooks), readOverrideModuleConfig (Module-*), addService, getPackageJson, loadJson, install/outdated, addCommand, log, controllers statiques, perf, edge cases |
+| 2026-05-14 | CliKernel.test.ts — tests complets | `CliKernel.test.ts` (71 tests CliKernel) | ~1h | 571 tests ✅ — constructor, setType, setPackageManager, addCommand, parseCommand, initSyslog (8 cas: mock kernel, debug/msgid/json), loadLocalModule, terminate (mock), niceBytes statique (9 cas), showHelp, edge cases |
 
 ---
 
