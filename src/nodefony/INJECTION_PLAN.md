@@ -62,13 +62,14 @@ function Inject(name?: string): PropertyDecorator {
 const propMetas: Array<{ key: string; name: string }> =
   Reflect.getMetadata("inject:properties", constructor.prototype) || [];
 for (const { key, name } of propMetas) {
-  instance[key] = Injector._resolve(name, []);
+  (instance as Record<string, unknown>)[key] = Injector._resolve(name, []);
 }
 ```
 
 ### Gotchas
 - `design:type` nécessite `emitDecoratorMetadata: true` (OK en prod rollup, pas en tests tsx).
 - Les champs `!` (definite assignment) ne posent pas problème — on assigne post-construction.
+- Cast `Record<string, unknown>` obligatoire sur `instance` — TS strict refuse l'assignation dynamique sans.
 - Circular : A injecte B via property, B injecte A → stack overflow. Besoin d'un cycle guard (Phase C).
 
 ---
@@ -116,7 +117,8 @@ if (scope === "scoped") {
 ### Gotchas
 - `AsyncLocalStorage` disponible depuis Node.js 16.4 — OK pour notre target.
 - Pas de scope storage → comportement transient (safe fallback).
-- Nécessite `kernel.container.enterScope("request")` dans le handler HTTP.
+- **`Container` n'a pas de méthode `enterScope()`** — à ajouter en début de session B. Peut utiliser `new Scope(container)` directement (Scope étend Container).
+- Nécessite `kernel.container.enterScope("request")` dans le handler HTTP → **dépend de Phase 4 HTTP**.
 
 ---
 
@@ -132,31 +134,36 @@ Error: Circular dependency detected: A → B → A
 
 ### Implémentation
 
-Stack de résolution dans `instantiate` :
+Stack passée en paramètre (pas de variable globale — async-safe) :
 
 ```typescript
-const resolutionStack: string[] = [];
+// API publique inchangée
+static instantiate(Ctor: ServiceConstructor, ...argsClass: unknown[]): unknown {
+  return Injector._instantiateWithStack(Ctor, [], argsClass);
+}
 
-static instantiate(Ctor, ...args) {
+// Interne — stack est propre à chaque arbre d'appel
+private static _instantiateWithStack(
+  Ctor: ServiceConstructor,
+  stack: string[],
+  argsClass: unknown[],
+): unknown {
   const name = Ctor.name;
-  if (resolutionStack.includes(name)) {
+  if (stack.includes(name)) {
     throw new Error(
-      `Circular dependency: ${[...resolutionStack, name].join(" → ")}`
+      `Circular dependency detected: ${[...stack, name].join(" → ")}`,
     );
   }
-  resolutionStack.push(name);
-  try {
-    // ... logique actuelle ...
-    return instance;
-  } finally {
-    resolutionStack.pop();
-  }
+  const nextStack = [...stack, name];
+  // ... logique actuelle, passer nextStack aux _resolve récursifs ...
+  return instance;
 }
 ```
 
 ### Gotchas
-- Stack must be per-call-tree, not global (async safe via closure ou AsyncLocalStorage).
-- Les singletons déjà résolus ne déclenchent pas de circular (kernel.get() retourne l'instance).
+- **Ne jamais utiliser un tableau module-level** — partagé entre tous les appels async concurrents → faux positifs.
+- La stack est un tableau passé par valeur (`[...stack, name]`) — chaque branche a sa propre copie.
+- Les singletons déjà résolus ne déclenchent pas de circular (`kernel.get()` retourne l'instance directement, avant `_instantiateWithStack`).
 
 ---
 
