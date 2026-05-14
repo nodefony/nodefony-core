@@ -279,6 +279,7 @@
 | 2026-05-14 | Injector.ts — auto-injection + Injector.test.ts | `injector.ts`, `kernelDecorator.ts`, `Injector.test.ts` (57 tests) | ~2h | 893 tests ✅ — `design:paramtypes` auto-injection — `isRegistered()` — position-aware instantiate — `@inject` fix (class-level metadata) — typo "ERRROR" corrigé — 13 sections : register/isRegistered/get/backward-compat/@inject/auto-DI/priorité/@injectable/kernel-lookup/inject-reflect/instance/cas-limites/perf |
 | 2026-05-14 | @modules + @services — tests complets | `Decorators.test.ts` (45 tests) | ~1h | 938 tests ✅ — stub kernel minimal avec fireEvent — mock getPackageJson/addService/loadService — 17 sections : construction×2, string/ctor/array×2, mixed×2, edge cases×2, erreurs, combinés, perf |
 | 2026-05-14 | Scope singleton/transient DI | `injector.ts`, `kernelDecorator.ts`, `index.ts`, `Injector.test.ts` (+15 tests), `INJECTION_PLAN.md` | ~1h | 953 tests ✅ — `DIScope`, `InjectableOptions`, `@injectable({ scope })`, `Injector.getScope()`, `_resolve` scope-aware — plan 5 phases (property/circular/scoped/registry/lazy) |
+| 2026-05-14 | Kernel lifecycle — tests cycle de vie | `KernelLifecycle.test.ts` (48 tests) | ~1h | 1001 tests ✅ — boot/preRegister/onReady ordre events — flags registered/booted/ready — hooks module (register/boot/ready/initialize) — terminate + mockQuit — arrêt chaîne par command — propagation erreurs — addKernelService |
 
 ---
 
