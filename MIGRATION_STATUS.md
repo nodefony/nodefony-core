@@ -286,6 +286,7 @@
 | 2026-05-14 | Fix archi CLI/Syslog — catch Commander + init idempotent | `CliKernel.ts`, `Syslog.ts`, `CliKernel.test.ts`                                                 | ~30min | 1004 tests ✅ — `.catch()` distingue helpDisplayed/version (terminate) vs autres erreurs (fallback) — `Syslog.init()` idempotent via `removeAllListeners("onLog")` avant add — test mis à jour |
 | 2026-05-14 | Mise à jour dépendances patch/minor                | tous les `package.json` workspaces                                                                    | ~15min | 1004 tests ✅ — 15→9 vulnérabilités — skip majeurs : typescript 6, eslint 10, chai 6, mongoose 9, uuid 14, twig 3, etc. |
 | 2026-05-14 | TypeScript 5→6 + uuid 11→14 + @types/node 24→25   | `Error.ts`, `Event.ts`, `globals.d.ts`, `nodefony.d.ts`, `tsconfig.json`, tous `package.json`         | ~2h    | 1004 tests ✅ — `override isError` + `detectType` — EventEmitter augmentation globale supprimée — interface Error all optional — `paths:{nodefony}` monorepo fix — `/// <reference types="node" />` rollup fix — build 0 erreur 0 warning |
+| 2026-05-14 | ESLint 9→10 — flat config                          | `eslint.config.mjs` (nouveau), `.eslintrc.cjs` (supprimé), `package.json`, `globals.d.ts`, `Kernel.ts`, `Connector.ts`, `Syslog.test.ts` | ~1h | 1004 tests ✅ — 0 erreur lint — 96 warnings `no-explicit-any` (intentionnels, à adresser session dédiée) — GitHub Actions CI mis à jour (matrix 3 OS × 3 Node, `nodefony production` avant tests) |
 
 ---
 
@@ -297,7 +298,7 @@
 | uuid         | 11.1.1 | 14.0.0 | nodefony + http                                                    |
 | @types/node  | 24.x   | 25.7.0 | nodefony + tous packages                                           |
 | @rollup/...  | 28.x   | 29.x   | nodefony + tous packages                                           |
-| ESLint 9→10  | —      | ⬜     | Non fait (migration flat config — nouvelle session)                |
+| ESLint 9→10  | 9.31.0 | 10.3.0 | nodefony + root — flat config `eslint.config.mjs` — 0 erreur, 96 warnings `no-explicit-any` (intentionnels) |
 
 ---
 
