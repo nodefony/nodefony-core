@@ -1,100 +1,29 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
-
 name: nodefony-core
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "claude-ts"]
   pull_request:
     branches: ["main"]
 
 jobs:
-  build-linux:
+  build:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        node-version: [18.x, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-    steps:
-      - uses: actions/checkout@v3
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "npm"
-      - run: npm ci --force
-      - run: npm run build --if-present
-      - name: List installed packages
-        run: npm ls
-      - name: List available binaries
-        run: ls -l node_modules/.bin
-      - name: Link nodefony package
-        run: |
-          cd src/nodefony
-          npm link
-          cd ../../
-          npm link nodefony
-      - run: npx nodefony sequelize sync
-      - run: npx nodefony prod
-      - run: sleep 10
-      - run: npm test
+        os: [ubuntu-latest, macOS-latest]
+        node-version: [20.x, 22.x, 24.x]
 
-  build-osx:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macOS-latest]
-        node-version: [18.x, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
     steps:
-      - uses: actions/checkout@v3
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "npm"
-      - run: npm ci --force
-      - run: npm run build --if-present
-      - name: Link nodefony package
-        run: |
-          cd src/nodefony
-          npm link
-          cd ../../
-          npm link nodefony
-      - run: npx nodefony sequelize sync
-      - run: npx nodefony prod
-      - run: sleep 10
-      - run: npm test
+      - uses: actions/checkout@v4
 
-  build-windows:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest]
-        node-version: [18.x, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-    steps:
-      - uses: actions/checkout@v3
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
-      - run: npm cache clean --force
-      - run: npm ci --force
-      - run: npm run build --if-present
-      - name: Link nodefony package
-        run: |
-          cd src/nodefony
-          npm link
-          cd ../../
-          npm link nodefony
-      - run: npx nodefony sequelize sync
-      - run: npx nodefony prod
-      - run: sleep 10
+
+      - run: npm ci
+      - run: npm run build
       - run: npm test
