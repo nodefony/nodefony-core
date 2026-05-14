@@ -748,3 +748,71 @@ describe("Injector — scope singleton/transient", () => {
     assert.strictEqual(Injector.getScope("EmptyOpts"), "singleton");
   });
 });
+
+// ─── 15. Résolution via kernel container (non @injectable) ────────────────────
+//
+// Services enregistrés via kernel.set() (ex: firewall, injector) mais sans
+// @injectable doivent être résolus depuis le container, pas via injectables.
+describe("Injector — fallback kernel container (non @injectable)", () => {
+  const makeKernelWithService = (name: string, instance: unknown) => {
+    const container = new Container();
+    const fake = {
+      container,
+      get(n: string) { return container.get(n); },
+    };
+    container.set(name, instance);
+    return fake;
+  };
+
+  it("_resolve via @inject : service non @injectable mais dans kernel.get() → retourné", () => {
+    const fakeService = { name: "firewall", isFirewall: true };
+    const fakeKernel = makeKernelWithService("firewall", fakeService);
+    const orig = Nodefony.getKernel;
+    (Nodefony as any).getKernel = () => fakeKernel;
+    try {
+      class Consumer extends Service {
+        dep: unknown;
+        constructor(dep: unknown) {
+          super("Consumer", new Container());
+          this.dep = dep;
+        }
+      }
+      (inject("firewall") as Function)(Consumer, undefined, 0);
+      Reflect.defineMetadata("design:paramtypes", [Object], Consumer);
+      const inst = Injector.instantiate(Consumer);
+      assert.strictEqual((inst as any).dep, fakeService);
+    } finally {
+      (Nodefony as any).getKernel = orig;
+    }
+  });
+
+  it("_resolve : service non @injectable ET absent du container → throw", () => {
+    const orig = Nodefony.getKernel;
+    (Nodefony as any).getKernel = () => ({ get: () => null });
+    try {
+      class Consumer2 extends Service {
+        constructor(dep: unknown) { super("Consumer2", new Container()); void dep; }
+      }
+      (inject("nonexistent") as Function)(Consumer2, undefined, 0);
+      Reflect.defineMetadata("design:paramtypes", [Object], Consumer2);
+      assert.throws(() => Injector.instantiate(Consumer2), /not found or not injectable/);
+    } finally {
+      (Nodefony as any).getKernel = orig;
+    }
+  });
+
+  it("_resolve : service @injectable transient ET dans container → nouvelle instance (container ignoré)", () => {
+    const shared = Injector.instantiate(TransientSvc);
+    const container = new Container();
+    container.set("TransientSvc", shared);
+    const fakeKernel = { get: (n: string) => container.get(n) };
+    const orig = Nodefony.getKernel;
+    (Nodefony as any).getKernel = () => fakeKernel;
+    try {
+      const inst = Injector.instantiate(TransientSvc);
+      assert.notStrictEqual(inst, shared, "transient ne doit pas retourner l'instance du container");
+    } finally {
+      (Nodefony as any).getKernel = orig;
+    }
+  });
+});

@@ -62,22 +62,37 @@ class Injector extends Service {
   }
 
   // ─── Résolution d'un service par nom ─────────────────────────────────────────
-  // singleton (défaut) : container kernel en premier, sinon nouvelle instance.
-  // transient : toujours une nouvelle instance, container kernel ignoré.
+  // Ordre de résolution :
+  //   1. Si @injectable → scope détermine le comportement :
+  //        transient : toujours une nouvelle instance (container ignoré)
+  //        singleton : container kernel en premier, sinon nouvelle instance
+  //   2. Si non @injectable → container kernel (services ajoutés via kernel.set())
+  //   3. Sinon → throw
   private static _resolve(serviceName: string, argsClass: any[]): any {
-    const Ctor = Injector.get(serviceName);
-    const scope: DIScope =
-      (Reflect.getMetadata("di:scope", Ctor) as DIScope) ?? "singleton";
+    if (Injector.isRegistered(serviceName)) {
+      const Ctor = Injector.get(serviceName);
+      const scope: DIScope =
+        (Reflect.getMetadata("di:scope", Ctor) as DIScope) ?? "singleton";
 
-    if (scope === "transient") {
+      if (scope === "transient") {
+        return Injector.instantiate(Ctor, ...argsClass);
+      }
+
+      const kernel = Nodefony.getKernel();
+      if (kernel && kernel.get(serviceName)) {
+        return kernel.get(serviceName);
+      }
       return Injector.instantiate(Ctor, ...argsClass);
     }
 
+    // Non @injectable → fallback sur le container kernel
     const kernel = Nodefony.getKernel();
-    if (kernel && kernel.get(serviceName)) {
-      return kernel.get(serviceName);
+    if (kernel) {
+      const existing = kernel.get(serviceName);
+      if (existing) return existing;
     }
-    return Injector.instantiate(Ctor, ...argsClass);
+
+    throw new Error(`Service ${serviceName} not found or not injectable`);
   }
 
   // ─── Instantiation avec injection ────────────────────────────────────────────
