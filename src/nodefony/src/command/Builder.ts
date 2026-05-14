@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import path from "node:path";
+import fs from "node:fs";
+import fsp from "node:fs/promises";
+import { PathLike } from "node:fs";
 import Service from "../Service";
 import Container from "../Container";
 import Event from "../Event";
@@ -8,10 +11,7 @@ import { extend, typeOf } from "../Tools";
 import FileClass from "../FileClass";
 import File from "../finder/File";
 import Cli from "../Cli";
-import { PathLike } from "node:fs";
-import fs from "node:fs";
 import twig from "twig";
-import shelljs from "shelljs";
 
 interface SymlinkParams {
   source: string;
@@ -56,6 +56,7 @@ class Builder extends Service {
   public interactive: boolean = false;
   public location: string = process.cwd();
   private twig: typeof twig = twig;
+
   constructor(command: Command) {
     super(
       "Builder",
@@ -77,18 +78,8 @@ class Builder extends Service {
     return Promise.resolve(args);
   }
 
-  generate(/*response: Record<string, any>, force: boolean = false*/) {
-    return new Promise((resolve, reject) => {
-      try {
-        // if (this.createBuilder) {
-        //   this.build(this.createBuilder(response), this.location, force);
-        //   return resolve(this.cli?.response);
-        // }
-        return resolve(this.cli?.response);
-      } catch (e) {
-        return reject(e);
-      }
-    });
+  async generate(): Promise<any> {
+    return this.cli?.response;
   }
 
   setLocation(location: string | FileClass) {
@@ -102,76 +93,70 @@ class Builder extends Service {
     if (!this.command) {
       throw new Error(`Command not found`);
     }
-    return this.command.prompts
-      .confirm({
-        message: `Do You Want Remove : ${file}?`,
-        default: false,
-      })
-      .then((response: boolean) => {
-        if (response) {
-          if (!fs.existsSync(file)) {
-            throw `${file} not exist`;
-          }
-          shelljs.rm("-rf", file);
-          return response;
-        }
-        return response;
-      })
-      .catch((e: Error) => {
-        throw e;
-      });
+    const response = await this.command.prompts.confirm({
+      message: `Do You Want Remove : ${file}?`,
+      default: false,
+    });
+    if (response) {
+      if (!fs.existsSync(file)) {
+        throw new Error(`${file} not exist`);
+      }
+      await fsp.rm(file, { recursive: true, force: true });
+    }
+    return response;
   }
 
-  buildSkeleton(
+  async buildSkeleton(
     skeleton: string | FileClass,
     parse: boolean,
     data: Record<string, any>,
   ): Promise<string | NodeJS.ArrayBufferView> {
-    let skelete = null;
-    return new Promise((resolve, reject) => {
-      try {
-        if (skeleton instanceof FileClass) {
-          skelete = skeleton;
-        } else {
-          skelete = new FileClass(skeleton);
-        }
-        if (skelete.type === "File") {
-          if (parse === true) {
-            data.settings = twigOptions;
-            this.twig.renderFile(
-              (<FileClass>skelete).path as string,
-              data,
-              (error, result) => {
-                if (error) {
-                  return reject(error);
-                }
-                return resolve(result);
-              },
-            );
-          } else {
-            fs.readFile(
-              skelete.path,
-              {
-                encoding: "utf8",
-              },
-              (error, result) => {
-                if (error) {
-                  return reject(error);
-                }
-                return resolve(result);
-              },
-            );
-          }
-        } else {
-          const error = new Error(
-            ` skeleton must be file !!! : ${skelete.path}`,
-          );
-          return reject(error);
-        }
-      } catch (e) {
-        return reject(e);
+    const skelete =
+      skeleton instanceof FileClass ? skeleton : new FileClass(skeleton);
+    if (skelete.type !== "File") {
+      throw new Error(` skeleton must be file !!! : ${skelete.path}`);
+    }
+    const skelPath = skelete.path as string;
+    if (parse) {
+      data.settings = twigOptions;
+      return new Promise<string>((resolve, reject) => {
+        this.twig.renderFile(skelPath, data, (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        });
+      });
+    }
+    return fsp.readFile(skelPath, { encoding: "utf8" });
+  }
+
+  async createFile(
+    myPath: string,
+    skeleton: string,
+    parse: boolean = true,
+    params: Record<string, any> = {},
+  ): Promise<File> {
+    const mode = params.mode || "644";
+    const data = skeleton
+      ? await this.buildSkeleton(skeleton, parse, params)
+      : "";
+    await fsp.writeFile(myPath, data, { mode });
+    return new File(myPath);
+  }
+
+  async createDirectory(
+    myPath: fs.PathLike,
+    mode?: fs.MakeDirectoryOptions | fs.Mode | null,
+    force: boolean = false,
+  ): Promise<File> {
+    try {
+      await fsp.mkdir(myPath, mode);
+      return new File(myPath);
+    } catch (e: any) {
+      if (e.code === "EEXIST" && force) {
+        return new File(myPath);
       }
-    });
+      throw e;
+    }
   }
 
   async build(
@@ -181,211 +166,96 @@ class Builder extends Service {
   ): Promise<FileClass | null | File> {
     let child: FileClass | File | null = null;
     try {
-      if (parent) {
-        if (!(parent instanceof File)) {
-          if (parent instanceof FileClass) {
-            parent = new File(parent.path);
-          } else {
-            parent = new File(parent);
+      if (!(parent instanceof File)) {
+        parent = new File(
+          parent instanceof FileClass ? parent.path : parent,
+        );
+      }
+
+      if (typeOf(obj) === "array") {
+        for (const element of obj as BuilderObject[]) {
+          await this.build(element, parent as File, force);
+        }
+        return child;
+      }
+
+      if (typeOf(obj) !== "object") {
+        this.log("generate build error arguments: ", "ERROR");
+        return child;
+      }
+
+      const myobj = obj as BuilderObject;
+      const name = myobj.name;
+      const parentPath = (parent as File).path as string;
+
+      switch (myobj.type) {
+        case "directory": {
+          const dirPath = path.resolve(parentPath, name);
+          child = await this.createDirectory(
+            dirPath,
+            (myobj.params as fs.MakeDirectoryOptions) || { mode: 0o755 },
+            force,
+          );
+          (parent as File).childrens.push(child as File);
+          this.log(
+            `${force ? "Force Create" : "Create"} Directory: ${child?.name}`,
+          );
+          break;
+        }
+        case "file": {
+          const filePath = path.resolve(parentPath, name);
+          await this.createFile(
+            filePath,
+            myobj.skeleton as string,
+            myobj.parse,
+            myobj.params as Record<string, any>,
+          );
+          this.log(`Create File: ${filePath}`);
+          if (myobj.chmod) {
+            await fsp.chmod(filePath, myobj.chmod as fs.Mode);
           }
+          child = new File(filePath, parent as File);
+          (parent as File).childrens.push(child);
+          break;
+        }
+        case "symlink": {
+          const { source, dest } = myobj.params as SymlinkParams;
+          const sourcePath = path.resolve(parentPath, source);
+          const destPath = path.resolve(parentPath, dest);
+          if (force && fs.existsSync(destPath)) {
+            await fsp.unlink(destPath);
+          }
+          await fsp.symlink(sourcePath, destPath);
+          this.log(`Create symbolic link: ${name}`);
+          child = new File(destPath, parent as File);
+          (parent as File).childrens.push(child);
+          break;
+        }
+        case "copy": {
+          const copyParams = myobj.params as CopyParams;
+          const destPath = path.resolve(parentPath, name);
+          await fsp.cp(myobj.path as string, destPath, {
+            recursive: copyParams?.recurse ?? false,
+            force: true,
+          });
+          this.log(`Copy: ${name}`);
+          if (myobj.chmod) {
+            await fsp.chmod(destPath, myobj.chmod as fs.Mode);
+          }
+          child = new File(destPath, parent as File);
+          (parent as File).childrens.push(child);
+          break;
         }
       }
-      switch (typeOf(obj)) {
-        case "array": {
-          const elements = obj as BuilderObject[];
-          for (const element of elements) {
-            const res = await this.build(element, <File>parent, force);
-            if (parent && res) {
-              //(parent as File).childrens.push(res)
-            }
-          }
-          break;
-        }
-        case "object": {
-          const myobj = obj as BuilderObject;
-          let name = "";
-          for (const [key, value] of Object.entries(myobj)) {
-            switch (key) {
-              case "name":
-                name = value as string;
-                break;
-              case "type": {
-                switch (value as FileType) {
-                  case "directory": {
-                    const directoryPath = path.resolve(
-                      (parent as File)?.path as string,
-                      name,
-                    );
-                    child = <FileClass>await this.createDirectory(
-                      directoryPath,
-                      (myobj.params as fs.MakeDirectoryOptions) || {
-                        mode: 0o755,
-                      },
-                      force,
-                    ).catch((e) => {
-                      throw e;
-                    });
-                    if (parent) {
-                      (parent as File).childrens.push(<File>child);
-                    }
-                    if (force) {
-                      this.log(`Force Create Directory: ${child?.name}`);
-                    } else {
-                      this.log(`Create Directory: ${child?.name}`);
-                    }
-                    break;
-                  }
-                  case "file": {
-                    const filePath = path.resolve(
-                      (parent as FileClass)?.path as string,
-                      name,
-                    );
-                    await this.createFile(
-                      filePath,
-                      myobj.skeleton as string,
-                      myobj.parse,
-                      myobj.params as SymlinkParams,
-                    );
-                    this.log(`Create File: ${filePath}`);
-                    if (myobj.chmod) {
-                      shelljs.chmod((myobj.chmod as string) || 644, filePath);
-                    }
-                    child = new File(filePath, <File>parent);
-                    if (parent) {
-                      (parent as File).childrens.push(child);
-                    }
-                    break;
-                  }
-                  case "symlink": {
-                    const symlinkParams = myobj.params as SymlinkParams;
-                    const parentPath = (parent as FileClass).path as string;
-                    const sourcePath = path.resolve(
-                      parentPath,
-                      symlinkParams.source,
-                    );
-                    const destPath = path.resolve(
-                      parentPath,
-                      symlinkParams.dest,
-                    );
-                    const symlinkArgs = force
-                      ? ["-sf", sourcePath, destPath]
-                      : ["-s", sourcePath, destPath];
-                    shelljs.ln(...(symlinkArgs as [string, string, string]));
-                    this.log(`Create symbolic link: ${myobj.name}`);
-                    child = new File(destPath, <File>parent);
-                    if (parent) {
-                      (parent as File).childrens.push(child);
-                    }
-                    break;
-                  }
-                  case "copy": {
-                    const copyParams = myobj.params as CopyParams;
-                    const copyFilePath = path.resolve(
-                      (parent as FileClass).path as string,
-                      name,
-                    );
-                    const copyArgs = copyParams.recurse
-                      ? ["-R", myobj.path as string, copyFilePath]
-                      : ["-f", myobj.path as string, copyFilePath];
-                    shelljs.cp(...(copyArgs as [string, string, string]));
-                    this.log(`Copy: ${myobj.name}`);
-                    if (myobj.chmod) {
-                      shelljs.chmod(
-                        (myobj.chmod as string) || 0o644,
-                        copyFilePath,
-                      );
-                    }
-                    child = new File(copyFilePath, <File>parent);
-                    if (parent) {
-                      (parent as File).childrens.push(child);
-                    }
-                    break;
-                  }
-                }
-                break;
-              }
-              case "childs":
-                await this.build(
-                  value as BuilderObject[],
-                  child as FileClass,
-                  force,
-                );
-                break;
-            }
-          }
-          break;
-        }
-        default:
-          this.log("generate build error arguments: ", "ERROR");
+
+      if (myobj.childs?.length) {
+        await this.build(myobj.childs, child as FileClass, force);
       }
     } catch (e) {
       this.log(e, "ERROR");
       throw e;
     }
-    return Promise.resolve(child as File);
-  }
-
-  createFile(
-    myPath: string,
-    skeleton: string,
-    parse: boolean = true,
-    params: Record<string, any> = {},
-  ): File | Promise<File> {
-    return new Promise((resolve, reject) => {
-      if (skeleton) {
-        return this.buildSkeleton(skeleton, parse, params)
-          .then((file) => {
-            fs.writeFile(
-              myPath,
-              file,
-              {
-                mode: params.mode || "644",
-              },
-              (err) => {
-                if (err) {
-                  return reject(err);
-                }
-                return resolve(new File(myPath));
-              },
-            );
-          })
-          .catch((e: Error) => reject(e));
-      }
-      const data = "";
-      fs.writeFile(
-        myPath,
-        data,
-        {
-          mode: params.mode || "644",
-        },
-        (err) => {
-          if (err) {
-            return reject(err);
-          }
-          return resolve(new File(myPath));
-        },
-      );
-    });
-  }
-
-  async createDirectory(
-    myPath: fs.PathLike,
-    mode?: fs.MakeDirectoryOptions | fs.Mode | null,
-    force: boolean = false,
-  ): Promise<File> {
-    try {
-      await fs.promises.mkdir(myPath, mode);
-      return new File(myPath);
-    } catch (e: any) {
-      switch (e.code) {
-        case "EEXIST":
-          if (force) {
-            return new File(myPath);
-          }
-          break;
-      }
-      throw e;
-    }
+    return child;
   }
 }
 
