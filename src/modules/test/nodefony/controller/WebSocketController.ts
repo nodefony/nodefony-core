@@ -23,15 +23,11 @@ class WebsocketController extends Controller {
     path: "",
     requirements: { methods: ["WEBSOCKET"], protocol: "" },
   })
-  async index(message: any) {
+  async index(message: string | Buffer | null) {
     if (message) {
-      return this.render(message.utf8Data);
+      return this.render(message.toString());
     }
 
-    // handshake
-
-    //const app = this.kernel?.getModule("app");
-    //const view = resolve(app?.path as string, "nodefony", "views", "index.ejs");
     const view = resolve(
       this.module?.path as string,
       "nodefony",
@@ -54,20 +50,28 @@ class WebsocketController extends Controller {
     path: "/echo",
     requirements: { methods: ["WEBSOCKET"] },
   })
-  async echo(message: any) {
+  async echo(message: string | Buffer | null) {
     if (!message) {
       return this.renderJson({ handshake: true });
     }
-    return this.renderJson(message.utf8);
+    try {
+      return this.renderJson(JSON.parse(message.toString()));
+    } catch {
+      return this.render(message.toString());
+    }
   }
 
   @route("route-websocket-echo-proto", {
     path: "/echo/proto",
     requirements: { methods: ["WEBSOCKET"], protocol: "echo-protocol" },
   })
-  async proto(message: any) {
+  async proto(message: string | Buffer | null) {
     if (message) {
-      return this.renderJson(message.utf8);
+      try {
+        return this.renderJson(JSON.parse(message.toString()));
+      } catch {
+        return this.render(message.toString());
+      }
     } else {
       return this.renderJson({ handshake: true, ...this.context?.metaData });
     }
@@ -77,9 +81,13 @@ class WebsocketController extends Controller {
     path: "/routes/{ele}",
     requirements: { methods: ["WEBSOCKET"] },
   })
-  async routage(ele: string, message: any) {
+  async routage(ele: string, message: string | Buffer | null) {
     if (message) {
-      return this.renderJson(message.utf8);
+      try {
+        return this.renderJson(JSON.parse(message.toString()));
+      } catch {
+        return this.render(message.toString());
+      }
     } else {
       return this.renderJson({ variables: ele, ...this.context?.metaData });
     }
@@ -89,11 +97,11 @@ class WebsocketController extends Controller {
     path: "/routes/{var1}/route2/{var2}",
     requirements: { methods: ["WEBSOCKET"] },
   })
-  async routage2(var1: string, var2: string, message: any) {
+  async routage2(var1: string, var2: string, message: string | Buffer | null) {
     if (message) {
       return this.renderJson({
         ...this.context?.metaData,
-        result: message.utf8Data,
+        result: message.toString(),
       });
     } else {
       return this.renderJson({
@@ -107,7 +115,7 @@ class WebsocketController extends Controller {
     path: "/cookie",
     requirements: { methods: ["WEBSOCKET"] },
   })
-  async cookie(message: any) {
+  async cookie(message: string | Buffer | null) {
     switch (this.context?.webSocketState) {
       case "connected":
         return this.renderJson({
@@ -116,7 +124,7 @@ class WebsocketController extends Controller {
       default:
         return this.renderJson({
           ...this.context?.metaData,
-          result: message.utf8Data,
+          result: message?.toString(),
         });
     }
   }

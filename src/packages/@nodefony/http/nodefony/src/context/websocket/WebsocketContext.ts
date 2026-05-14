@@ -12,7 +12,7 @@ import {
   nodefonyError,
   Scope,
 } from "nodefony";
-import { WebSocket } from "ws";
+import Ws from "ws";
 import type { IncomingMessage } from "node:http";
 import WebsocketResponse from "./Response.js";
 import { Resolver, Route } from "@nodefony/framework";
@@ -28,13 +28,15 @@ export interface IWsRequestExtension {
   path: string;
 }
 
+export type WsIncomingMessage = IncomingMessage & IWsRequestExtension;
+
 export default class WebsocketContext extends Context {
-  override request: IncomingMessage | null;
+  override request: WsIncomingMessage | null;
   override response: WebsocketResponse | null = null;
   acceptedProtocol?: string;
   port: number | string;
   rejected: boolean = false;
-  connection: WebSocket | null = null;
+  connection: Ws | null = null;
   origin: string;
   proxy: ProxyType | null = null;
   wsUrl: URL | null = null;
@@ -42,12 +44,12 @@ export default class WebsocketContext extends Context {
   queryRequest: Record<string, string> = {};
   wsPath: string = "";
 
-  constructor(scope: Scope, req: IncomingMessage, ws: WebSocket, type: ServerType) {
+  constructor(scope: Scope, req: IncomingMessage, ws: Ws, type: ServerType) {
     super(scope, type);
     this.webSocketState = "handshake";
-    this.request = req;
+    this.request = req as WsIncomingMessage;
     this.connection = ws;
-    this.response = new WebsocketResponse(ws, this);
+    this.response = new WebsocketResponse(ws as Ws, this);
     this.method = this.getMethod();
     this.origin = (req.headers.origin as string) ?? "";
     this.remoteAddress = req.socket?.remoteAddress ?? req.headers["x-forwarded-for"] as string;
@@ -63,6 +65,12 @@ export default class WebsocketContext extends Context {
     this.wsPath = this.wsUrl.pathname + this.wsUrl.search;
     this.url = url.format(this.wsUrl);
     this.port = parseInt(this.wsUrl.port, 10) || (type === "websocket-secure" ? 443 : 80);
+
+    // Extend request with URL object so the router can use request.url.pathname
+    (this.request as WsIncomingMessage).url = this.wsUrl;
+    (this.request as WsIncomingMessage).queryGet = this.queryGet;
+    (this.request as WsIncomingMessage).query = this.queryRequest;
+    (this.request as WsIncomingMessage).path = this.wsPath;
 
     try {
       this.originUrl = new URL(this.origin);
@@ -185,13 +193,13 @@ export default class WebsocketContext extends Context {
               if (this.requestEnded) {
                 if ((error as HttpError).code) {
                   throw this.close(
-                    parseInt((error as HttpError).code as string, 10) + 3000,
+                    ((error as HttpError).code ?? 500) + 3000,
                     (error as HttpError).message
                   );
                 }
                 throw this.close(500, (error as HttpError).message);
               }
-              this.reject((error as HttpError).code, (error as HttpError).message);
+              this.reject((error as HttpError).code ?? undefined, (error as HttpError).message);
               this.rejected = true;
               this.webSocketState = "error";
               throw error;
@@ -284,7 +292,7 @@ export default class WebsocketContext extends Context {
       "INFO",
       `${this.type} ${clc.magenta(code)} CLOSE ${this.method}`
     );
-    if (this.connection?.readyState !== WebSocket.CLOSED) {
+    if (this.connection?.readyState !== Ws.CLOSED) {
       try {
         this.response?.drop(code, description);
       } catch (e) {
@@ -354,7 +362,7 @@ export default class WebsocketContext extends Context {
   }
 
   reject(code: number | string | undefined, message?: string) {
-    if (this.connection && this.connection.readyState === WebSocket.OPEN) {
+    if (this.connection && (this.connection as Ws).readyState === Ws.OPEN) {
       const numCode = typeof code === "string" ? parseInt(code, 10) : (code ?? 4000);
       this.connection.close(numCode, message ?? "Rejected");
     }

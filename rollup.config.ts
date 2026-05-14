@@ -21,7 +21,7 @@ const external: string[] = [
 
 // Génère dynamiquement les entrées avec glob
 const nodefonyFiles = globSync("nodefony/**/*.ts", {
-  ignore: ["**/*.d.ts", "**/*.spec.ts"], // Exclut les fichiers de déclaration et de test
+  ignore: ["**/*.d.ts", "**/*.spec.ts", "**/*.test.ts", "**/tests/**"],
 });
 
 const input = {

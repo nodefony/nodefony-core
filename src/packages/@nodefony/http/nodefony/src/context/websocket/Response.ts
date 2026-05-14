@@ -1,7 +1,7 @@
 import Cookie from "../../cookies/cookie.js";
 import { Message, Msgid, Pci, Severity, Syslog } from "nodefony";
 import WebsocketContext from "./WebsocketContext.js";
-import { WebSocket, WebSocketServer } from "ws";
+import Ws, { WebSocketServer } from "ws";
 import http from "node:http";
 
 export interface IWsCookie {
@@ -36,13 +36,13 @@ class WebsocketResponse {
   statusCode: number = 1000;
   body: Buffer | null = null;
   encoding: BufferEncoding = "utf-8";
-  connection: WebSocket | null = null;
+  connection: Ws | null = null;
   statusMessage: string = "";
   webSocketVersion?: number;
   cookies: Record<string, Cookie> = {};
 
   constructor(
-    connection: WebSocket | null,
+    connection: Ws | null,
     private context: WebsocketContext
   ) {
     this.connection = connection;
@@ -57,7 +57,7 @@ class WebsocketResponse {
     return syslog?.log(pci, severity, msgid, msg);
   }
 
-  setConnection(connection: WebSocket) {
+  setConnection(connection: Ws) {
     this.connection = connection;
     return connection;
   }
@@ -70,7 +70,7 @@ class WebsocketResponse {
     if (!payload) throw new Error("no data");
 
     return new Promise((resolve, reject) => {
-      if (!this.connection || this.connection.readyState !== WebSocket.OPEN) {
+      if (!this.connection || this.connection.readyState !== Ws.OPEN) {
         return reject(new Error("WebSocket not open"));
       }
       // ws.send handles both text and binary transparently
@@ -102,7 +102,7 @@ class WebsocketResponse {
       payload instanceof Buffer ? payload.toString(this.encoding) : payload;
 
     wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
+      if (client.readyState === Ws.OPEN) {
         client.send(sendData);
       }
     });
@@ -123,14 +123,14 @@ class WebsocketResponse {
   }
 
   drop(reasonCode: number, description: string) {
-    if (this.connection && this.connection.readyState === WebSocket.OPEN) {
+    if (this.connection && this.connection.readyState === Ws.OPEN) {
       return this.connection.close(reasonCode ?? this.statusCode, description);
     }
     throw new Error("Connection already closed");
   }
 
   close(reasonCode: number, description: string) {
-    if (this.connection && this.connection.readyState === WebSocket.OPEN) {
+    if (this.connection && this.connection.readyState === Ws.OPEN) {
       return this.connection.close(reasonCode ?? this.statusCode, description ?? "closed");
     }
     throw new Error("Connection already closed");

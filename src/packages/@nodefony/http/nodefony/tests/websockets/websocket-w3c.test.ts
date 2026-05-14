@@ -1,81 +1,57 @@
 import { expect } from "chai";
-import https from "node:https";
 import "mocha";
-import pkg from "websocket";
-const { w3cwebsocket } = pkg;
+import WebSocket from "ws";
+
+const wsOpts = { rejectUnauthorized: false };
 
 describe("WEBSOCKETS W3C ", () => {
-  let socket: pkg.w3cwebsocket;
-  let agent: https.Agent | null = null;
-  let config: pkg.IClientConfig | null;
-  //let doneCallback: ((err?: any) => void) | null = null;
-  //let msg: any;
-  //let isDone = false;
+  let ws: WebSocket | null = null;
 
-  beforeEach(async () => {
-    agent = new https.Agent({ rejectUnauthorized: false });
-    config = {
-      webSocketVersion: 13,
-      tlsOptions: { agent },
-    };
+  afterEach(async () => {
+    if (ws && ws.readyState !== WebSocket.CLOSED) {
+      ws.terminate();
+    }
+    ws = null;
   });
 
-  afterEach(async () => {});
-
   it("W3C websocket 404", (done) => {
-    socket = new w3cwebsocket(
+    ws = new WebSocket(
       "wss://localhost:5152/nodefony/test/wsu?foo=bar&bar=foo",
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      config as pkg.IClientConfig
+      wsOpts
     );
-
-    socket.onclose = function () {
-      //console.log(event.code, event.reason);
+    ws.on("unexpected-response", () => {
+      done();
+    });
+    ws.on("error", () => {});
+    ws.onclose = function () {
       done();
     };
   });
 
   it("W3C websocket", (done) => {
-    socket = new w3cwebsocket(
+    ws = new WebSocket(
       "wss://localhost:5152/nodefony/test/ws?foo=bar&bar=foo",
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      config as pkg.IClientConfig
+      wsOpts
     );
-    socket.onerror = function () {
-      console.log("Connection Error");
+    ws.onerror = function () {};
+    ws.onopen = function () {
+      const number = Math.round(Math.random() * 0xffffff);
+      ws?.send(number.toString());
     };
-    socket.onopen = function () {
-      function sendNumber() {
-        if (socket.readyState === socket.OPEN) {
-          var number = Math.round(Math.random() * 0xffffff);
-          socket.send(number.toString());
-        }
-      }
-      sendNumber();
-    };
-    socket.onclose = function () {
+    ws.onclose = function () {
       done();
     };
-    socket.onmessage = function (e) {
+    ws.onmessage = function (e) {
       if (typeof e.data === "string") {
-        let msg = JSON.parse(e.data);
+        const msg = JSON.parse(e.data);
         if (msg.nodefony) {
-          expect(msg.nodefony).to.equal(
-            `nodefony-core`,
-            "Message should be nodefony-core"
-          );
-          expect(msg.name).to.equal(`KERNEL`, "Message should be KERNEL");
-          expect(msg.foo).to.equal(`bar`, "Message should be bar");
-          expect(msg.bar).to.equal(`foo`, "Message should be foo");
+          expect(msg.nodefony).to.equal("nodefony-core", "Message should be nodefony-core");
+          expect(msg.name).to.equal("KERNEL", "Message should be KERNEL");
+          expect(msg.foo).to.equal("bar", "Message should be bar");
+          expect(msg.bar).to.equal("foo", "Message should be foo");
         } else {
           expect(parseInt(msg, 10)).to.be.a("number");
-          socket.close();
+          ws?.close();
         }
       }
     };

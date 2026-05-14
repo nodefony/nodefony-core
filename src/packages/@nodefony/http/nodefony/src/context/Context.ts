@@ -13,7 +13,7 @@ import {
   Scope,
 } from "nodefony";
 import { Resolver, Router } from "@nodefony/framework";
-import websocket from "websocket";
+import Ws, { WebSocketServer } from "ws";
 import http2 from "node:http2";
 import http from "node:http";
 import https from "node:https";
@@ -55,7 +55,7 @@ export type WebSocketState =
 export type contextRequest =
   | HttpRequest
   | Http2Request
-  | websocket.request
+  | http.IncomingMessage
   | null;
 export type contextResponse =
   | HttpResponse
@@ -92,7 +92,7 @@ class Context extends Service {
   domain: string = "";
   type: ServerType;
   server?:
-    | websocket.server
+    | WebSocketServer
     | http.Server
     | https.Server
     | http2.Http2SecureServer
@@ -153,13 +153,13 @@ class Context extends Service {
       case "websocket": {
         this.scheme = "ws";
         const server = this.get<Websocket>("server-websocket");
-        this.server = server?.server as websocket.server;
+        this.server = server?.server as WebSocketServer;
         break;
       }
       case "websocket-secure": {
         this.scheme = "wss";
         const server = this.get<WebsocketSecure>("server-websocket-secure");
-        this.server = server?.server as websocket.server;
+        this.server = server?.server as WebSocketServer;
         break;
       }
     }

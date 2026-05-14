@@ -1,13 +1,10 @@
-// rollup.config.ts
 import path, { resolve } from "node:path";
 import { defineConfig, Plugin, RollupOptions } from "rollup";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import json from "@rollup/plugin-json";
-//import commonjs from "@rollup/plugin-commonjs";
-//import copy from "rollup-plugin-copy";
-//@ts-ignore
 import { createPathTransform } from "rollup-sourcemap-path-transform";
+import { globSync } from "glob";
 
 const sourcemapPathTransform = createPathTransform({
   prefixes: {
@@ -29,6 +26,20 @@ const external: string[] = [
   "@nodefony/framework",
   "tslib",
 ];
+
+const nodefonyFiles = globSync("nodefony/**/*.ts", {
+  ignore: ["**/*.d.ts", "**/*.spec.ts", "**/*.test.ts", "**/tests/**"],
+});
+
+const input = {
+  index: "index.ts",
+  ...Object.fromEntries(
+    nodefonyFiles.map((file) => [
+      path.relative(".", file).replace(/\.ts$/, ""),
+      file,
+    ]),
+  ),
+};
 
 const sharedNodeOptions = defineConfig({
   treeshake: {
@@ -53,7 +64,7 @@ const sharedNodeOptions = defineConfig({
 function createNodePlugins(
   isProduction: boolean,
   sourceMap: boolean,
-  declarationDir: string | false
+  declarationDir: string | false,
 ): Plugin[] {
   const tab = [
     nodeResolve({
@@ -77,14 +88,13 @@ function createNodePlugins(
 
 function createNodeConfig(isProduction: boolean): RollupOptions {
   return defineConfig({
-    //input,
-    input: path.resolve(".", "index.ts"),
+    input,
     ...sharedNodeOptions,
     output: {
       ...sharedNodeOptions.output,
       sourcemap: !isProduction,
-      preserveModules: !isProduction,
-      preserveModulesRoot: "nodefony",
+      preserveModules: true,
+      preserveModulesRoot: ".",
       sourcemapPathTransform,
     },
     external,

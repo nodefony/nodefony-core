@@ -33,13 +33,10 @@ const external: string[] = [
   "ejs",
   "memcached",
   "mime",
-  "mkdirp",
   "ms",
-  "node-fetch",
   "qs",
   "serve-static",
-  "sockjs",
-  "websocket",
+  "ws",
   "node-forge",
   "http-terminator",
   "mime-types",
@@ -50,7 +47,7 @@ const external: string[] = [
 
 // Génère dynamiquement les entrées avec glob
 const nodefonyFiles = globSync("nodefony/**/*.ts", {
-  ignore: ["**/*.d.ts", "**/*.spec.ts"], // Exclut les fichiers de déclaration et de test
+  ignore: ["**/*.d.ts", "**/*.spec.ts", "**/*.test.ts", "**/tests/**"],
 });
 
 const input = {

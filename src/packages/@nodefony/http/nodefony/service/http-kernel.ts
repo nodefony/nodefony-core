@@ -18,6 +18,8 @@ import HttpError from "../src/errors/httpError";
 import http from "node:http";
 //import https from "node:https";
 import http2 from "node:http2";
+import type { IncomingMessage } from "node:http";
+import Ws from "ws";
 import httpServer from "../service/servers/server-http";
 import httpsServer from "../service/servers/server-https";
 import websocketServer from "../service/servers/server-websocket";
@@ -28,7 +30,6 @@ import HttpContext from "../src/context/http/HttpContext";
 import Context, { HTTPMethod } from "../src/context/Context";
 import clc from "cli-color";
 import Certicates from "./certificates";
-import websocket from "websocket";
 import SessionsService from "./sessions/sessions-service";
 import Session from "../src/session/session";
 import { Route } from "@nodefony/framework";
@@ -54,7 +55,7 @@ export type SchemeType = "http" | "https" | "ws" | "wss";
 
 export interface WsMetaData {
   type: "message" | "handshake";
-  messageType?: websocket.IUtf8Message | websocket.IBinaryMessage;
+  messageType?: "utf8" | "binary";
   protocol?: string;
   id?: string;
 }
@@ -150,39 +151,21 @@ class HttpKernel extends Service {
   }
 
   async handle(
-    request: httpRequest | websocket.request,
+    request: httpRequest,
     response: httpResponse | null,
     type: ServerType
   ): Promise<any> {
-    // SCOPE REQUEST ;
-    let log = null;
     const scope = this.container?.enterScope("request");
-    switch (type) {
-      case "http":
-      case "https":
-      case "http2":
-        log = clc.cyan.bgBlue(`${(request as httpRequest).url}`);
-        this.log(`${log}`, "DEBUG", `${type}`);
-        return this.handleHttp(
-          scope as Scope,
-          request as httpRequest,
-          response as httpResponse,
-          type
-        ).catch(async (e) => {
-          throw e;
-        });
-      case "websocket":
-      case "websocket-secure":
-        //log = clc.cyan.bgBlue(`${request.resource}`);
-        //this.log(`REQUEST HANDLE ${type} : ${log}`, "DEBUG");
-        return this.handleWebsocket(
-          scope as Scope,
-          request as websocket.request,
-          type
-        ).catch((e) => {
-          throw e;
-        });
-    }
+    const log = clc.cyan.bgBlue(`${request.url}`);
+    this.log(`${log}`, "DEBUG", `${type}`);
+    return this.handleHttp(
+      scope as Scope,
+      request,
+      response as httpResponse,
+      type
+    ).catch(async (e) => {
+      throw e;
+    });
   }
 
   async handleFrontController(
@@ -326,7 +309,7 @@ class HttpKernel extends Service {
               if (error.code && error.code > 500) {
                 error.code = 500;
               }
-              context.request?.reject(error.code, error.message, extraHeaders);
+              context.reject(error.code ?? undefined, error.message);
               return context;
             }
           } catch (e) {
@@ -607,10 +590,11 @@ class HttpKernel extends Service {
   // WEBSOCKET
   createWebsocketContext(
     scope: Scope,
-    request: websocket.request,
+    req: IncomingMessage,
+    ws: Ws,
     type: ServerType
   ): WebsocketContext {
-    const context = new WebsocketContext(scope, request, type);
+    const context = new WebsocketContext(scope, req, ws, type);
     context.once("onFinish", (wscontext) => {
       if (!context) {
         return;
@@ -640,21 +624,26 @@ class HttpKernel extends Service {
   }
 
   // WEBSOCKET ENTRY POINT
-  async onWebsocketRequest(request: websocket.request, type: ServerType) {
-    await this.fireAsync("onServerRequest", request, null, type).catch((e) => {
+  async onWebsocketRequest(ws: Ws, req: IncomingMessage, type: ServerType): Promise<any> {
+    await this.fireAsync("onServerRequest", req, null, type).catch((e) => {
       throw e;
     });
-    return await this.handle(request, null, type);
+    const scope = this.container?.enterScope("request");
+    return this.handleWebsocket(scope as Scope, ws, req, type).catch((e) => {
+      throw e;
+    });
   }
+
   async handleWebsocket(
     scope: Scope,
-    request: websocket.request,
+    ws: Ws,
+    req: IncomingMessage,
     type: ServerType
   ): Promise<any> {
     let context: WebsocketContext | null = null;
     let error: Error | null | unknown = null;
     try {
-      context = this.createWebsocketContext(scope, request, type);
+      context = this.createWebsocketContext(scope, req, ws, type);
     } catch (e) {
       error = e;
     }
@@ -678,7 +667,7 @@ class HttpKernel extends Service {
   async onConnect(
     context: WebsocketContext,
     error: null | undefined | unknown = null
-  ): Promise<websocket.connection | number> {
+  ): Promise<Ws | number> {
     try {
       if (error) {
         throw error;
