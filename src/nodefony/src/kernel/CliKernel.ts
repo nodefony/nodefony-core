@@ -211,7 +211,7 @@ class CliKernel extends Cli {
     const format = Syslog.formatDebug(debug || this.debug);
     if (typeof format === "object") {
       conditions.msgid = {
-        data: debug,
+        data: format,
       };
     }
     return syslog?.listenWithConditions(conditions, (pdu: Pdu) => {

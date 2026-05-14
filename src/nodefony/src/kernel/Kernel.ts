@@ -29,6 +29,10 @@ const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
 
 export interface TypeKernelOptions extends DefaultOptionsService {
   node_start?: NodefonyStartType;
+  log?: {
+    active?: boolean;
+    debug?: DebugType;
+  };
 }
 
 interface MemoryStats {
@@ -648,10 +652,9 @@ class Kernel extends Service implements IKernel {
     if (this.options.log && !this.options.log.active) {
       return;
     }
-    if (this.debug) {
-      if (this.options.log) {
-        this.debug = Boolean(this.options.log.debug) || true;
-      }
+    // CLI --debug prend le dessus ; sinon on lit la config log.debug
+    if (!this.debug && this.options.log?.debug) {
+      this.debug = this.options.log.debug;
     }
     if (this.cli) {
       return this.cli.initSyslog(this.environment, this.debug);
