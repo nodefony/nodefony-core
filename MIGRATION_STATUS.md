@@ -274,6 +274,8 @@
 | 2026-05-14 | CliKernel.test.ts — tests complets | `CliKernel.test.ts` (71 tests CliKernel) | ~1h | 571 tests ✅ — constructor, setType, setPackageManager, addCommand, parseCommand, initSyslog (8 cas: mock kernel, debug/msgid/json), loadLocalModule, terminate (mock), niceBytes statique (9 cas), showHelp, edge cases |
 | 2026-05-14 | Kernel/Module/CliKernel — doc IA + humaine | `kernel/MEMORY.md`, `kernel/README.md`, `CLAUDE.md` | ~30min | MEMORY.md: lifecycle flags, Events bitmask, setEnv/setNodeEnv, interfacesFilter gotchas, Module hooks prototype, setPath rules, CliKernel initSyslog, niceBytes — README.md: API tables, exemples, gotchas |
 | 2026-05-14 | Tools.ts — optimisation extend + 152 tests | `Tools.ts`, `Tools.test.ts` | ~1h | 723 tests ✅ — suppression lodash-es (isArray/isFunction/isRegExp → natifs) — hasOwn guard — pollution guard étendu (__proto__+constructor+prototype) — isPlainObject Object.prototype.toString explicite — perf: 100k shallow=38ms, 50k deep=135ms |
+| 2026-05-14 | Module.test.ts — readOverrideModuleConfig | `Module.test.ts` (+15 tests) | ~30min | 738 tests ✅ — captureLogs helper — WARNING log capture — deep=true/false — reference change — multiple Module-* — ERROR missing — regex edge cases |
+| 2026-05-14 | Cli.test.ts + cli/MEMORY.md + cli/README.md | `Cli.test.ts` (106 tests), `cli/MEMORY.md`, `cli/README.md` | ~1h | 836 tests ✅ — makeCli helper — EchoCommand pattern (done:Promise) — standalone sans kernel — construction (9) — commander (8) — registre (6) — exécution (8) — options/alias (4) — parse/parseAsync (6) — showBanner/logEnv (8) — checkVersion/semver (6) — timers (8) — setProcessTitle (4) — niceBytes/niceUptime/niceDate (9) — UI Progress/Spinner/Sparkline/Table (9) — existsSync/getCommandManager (10) — setPid/getEmoji (4) |
 
 ---
 
@@ -307,11 +309,11 @@
 1. **Phase 5.1** — `IController` + `Controller.ts`
 2. **Phase X reste** — `LokiTransport` (Grafana Loki, streams)
 3. **TS2339 BoatEntity** — vérifier API Sequelize v6 `init`
-4. **CliKernel.test.ts** — tests CliKernel (optionnel, moins prioritaire que Controller)
 
 **Fichiers à lire en début de session** :
 - `MIGRATION_STATUS.md` (ce fichier)
 - `src/nodefony/MEMORY.md` (Service, Container, Nodefony, index)
 - `src/nodefony/src/syslog/MEMORY.md` (Syslog, Pdu, transport plan)
+- `src/nodefony/src/cli/MEMORY.md` (Cli, Command)
 
 **Vulnérabilités restantes (15)** : twig@3.0.0 + asciify — session dédiée
