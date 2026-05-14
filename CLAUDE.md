@@ -99,10 +99,11 @@ les fichiers `memory.md` sont des fichiers md special uniquement pour les IA pou
 
 ### MEMORY.md — index des fichiers IA
 
-| Module                | Fichier memory                                                           | Contenu                     |
-| --------------------- | ------------------------------------------------------------------------ | --------------------------- |
-| Core (@nodefony/core) | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                       | Service, Container, Event   |
-| Syslog / Pdu          | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md) | Syslog, Pdu, CircularBuffer |
+| Module                | Fichier memory                                                                       | Contenu                                      |
+| --------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Core (@nodefony/core) | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                                   | Service, Container, Event                    |
+| Syslog / Pdu          | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md)             | Syslog, Pdu, CircularBuffer                  |
+| Kernel / Module / CLI | [`src/nodefony/src/kernel/MEMORY.md`](src/nodefony/src/kernel/MEMORY.md)             | Kernel lifecycle, Module hooks, CliKernel    |
 
 **PENDANT :** - Un seul module par session - Écrire les tests **dans la même session** que le code - Valider : `npm run build` (0 erreur TS) + `npm run test` (tous verts)
 
