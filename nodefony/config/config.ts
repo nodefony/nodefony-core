@@ -106,8 +106,7 @@ const config = {
    */
   log: {
     active: true,
-    //debug: "*", // ["WEBPACK","ROUTER","bundle-sequelize"]
-    debug: ["ROUTER"],
+    debug: "*", // ["router","sequelize", "sessions"]
   },
 
   /**
