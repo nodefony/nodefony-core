@@ -341,7 +341,7 @@ class HttpResponse {
         this.statusMessage = this.getStatusMessage();
         this.setLength();
         if (this.response) {
-          this.response?.writeHead(
+          (this.response as http.ServerResponse).writeHead(
             this.statusCode,
             this.statusMessage,
             headers as http.OutgoingHttpHeaders
