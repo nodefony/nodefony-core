@@ -15,6 +15,7 @@ Pas un framework web de plus.
 Pas un concurrent de NestJS.
 
 Un framework où :
+
 - HTTP et WebSocket sont co-citoyens natifs (même contexte, même routing)
 - Des modules génériques réutilisables permettent de construire des agents métier
 - Un développeur peut créer en quelques commandes un agent avocat,
@@ -26,14 +27,18 @@ Un framework où :
 ## Les deux niveaux du framework
 
 ### Niveau 1 — Framework web temps réel (migration en cours)
+
 Ce que Nodefony fait déjà, migré en TypeScript strict :
+
 - Kernel, DI Container, Module system
 - Serveurs HTTP/HTTPS/HTTP2/WS/WSS natifs Node.js
 - Router unifié HTTP+WS via NodefonyContext
 - Sécurité, Sessions, ORM adapters
 
 ### Niveau 2 — Plateforme agentic (après migration)
+
 Ce que Nodefony devient grâce à la migration TS :
+
 - `@nodefony/llm` → interface générique multi-modèles (Claude, Gemini, Ollama)
 - `@nodefony/rag` → pipeline RAG générique (indexation PDF, recherche vectorielle)
 - `@nodefony/agent` → orchestrateur + sous-agents via DI Container
@@ -69,7 +74,7 @@ class LegalAgent implements IAgent {
   constructor(
     @Inject("rag") private rag: IRagService,
     @Inject("llm") private llm: ILLMProvider,
-    @Inject("memory") private memory: IMemoryService
+    @Inject("memory") private memory: IMemoryService,
   ) {}
 }
 
@@ -99,6 +104,7 @@ async agentStream(ctx: NodefonyContext): Promise<void> {
 @nodefony/rag     → publishable sur npm indépendamment
 @nodefony/agent   → publishable sur npm indépendamment
 ```
+
 Un dev peut installer uniquement ce dont il a besoin.
 La migration vers `preserveModules: true` avec Rollup rend ça possible.
 
@@ -184,14 +190,14 @@ Chaque module IA sera publié indépendamment sur npm.
 
 ## Les standards agentic à implémenter
 
-| Standard | Quoi | Priorité |
-|----------|------|----------|
-| **MCP** (Anthropic) | Expose Nodefony comme MCP server | 🔴 Critique |
-| **Tool Use** | Controllers comme tools typés Zod | 🔴 Critique |
-| **Streaming** | SSE + WS natif pour tokens LLM | 🔴 Critique |
-| **A2A** (Google) | Agent-to-Agent protocol | 🟡 Important |
-| **RAG** | Pipeline indexation + recherche vectorielle | 🔴 Critique |
-| **Memory** | Court terme (WS session) + long terme (vector DB) | 🟡 Important |
+| Standard            | Quoi                                              | Priorité     |
+| ------------------- | ------------------------------------------------- | ------------ |
+| **MCP** (Anthropic) | Expose Nodefony comme MCP server                  | 🔴 Critique  |
+| **Tool Use**        | Controllers comme tools typés Zod                 | 🔴 Critique  |
+| **Streaming**       | SSE + WS natif pour tokens LLM                    | 🔴 Critique  |
+| **A2A** (Google)    | Agent-to-Agent protocol                           | 🟡 Important |
+| **RAG**             | Pipeline indexation + recherche vectorielle       | 🔴 Critique  |
+| **Memory**          | Court terme (WS session) + long terme (vector DB) | 🟡 Important |
 
 ---
 
