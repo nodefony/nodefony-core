@@ -273,6 +273,7 @@
 | 2026-05-14 | Module.test.ts — tests complets | `Module.test.ts` (74 tests Module) | ~1h | 500 tests ✅ — construction, setPath, setEvents (lifecycle hooks), readOverrideModuleConfig (Module-*), addService, getPackageJson, loadJson, install/outdated, addCommand, log, controllers statiques, perf, edge cases |
 | 2026-05-14 | CliKernel.test.ts — tests complets | `CliKernel.test.ts` (71 tests CliKernel) | ~1h | 571 tests ✅ — constructor, setType, setPackageManager, addCommand, parseCommand, initSyslog (8 cas: mock kernel, debug/msgid/json), loadLocalModule, terminate (mock), niceBytes statique (9 cas), showHelp, edge cases |
 | 2026-05-14 | Kernel/Module/CliKernel — doc IA + humaine | `kernel/MEMORY.md`, `kernel/README.md`, `CLAUDE.md` | ~30min | MEMORY.md: lifecycle flags, Events bitmask, setEnv/setNodeEnv, interfacesFilter gotchas, Module hooks prototype, setPath rules, CliKernel initSyslog, niceBytes — README.md: API tables, exemples, gotchas |
+| 2026-05-14 | Tools.ts — optimisation extend + 152 tests | `Tools.ts`, `Tools.test.ts` | ~1h | 723 tests ✅ — suppression lodash-es (isArray/isFunction/isRegExp → natifs) — hasOwn guard — pollution guard étendu (__proto__+constructor+prototype) — isPlainObject Object.prototype.toString explicite — perf: 100k shallow=38ms, 50k deep=135ms |
 
 ---
 
