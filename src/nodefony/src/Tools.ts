@@ -1,87 +1,107 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import Container from "./Container";
 
-import isArray from "lodash-es/isArray";
-import isFunction from "lodash-es/isFunction";
-import isRegExp from "lodash-es/isRegExp";
+// ─── Cached references (évite les lookups prototypiques répétés) ─────────────
 
-const myobj = {};
-const hasOwn = myobj.hasOwnProperty;
+const ObjProto = Object.prototype;
+const _toString = ObjProto.toString;     // explicite — ne dépend plus du global toString
+const hasOwn = ObjProto.hasOwnProperty;
 const fnToString = hasOwn.toString;
 const ObjectFunctionString = fnToString.call(Object);
 const getProto = Object.getPrototypeOf;
 
-const isPlainObject = (obj: any): boolean => {
-  if (!obj || toString.call(obj) !== "[object Object]") {
-    return false;
-  }
-  const proto: any = getProto(obj);
-  if (!proto) {
-    return true;
-  }
-  const Ctor: any = hasOwn.call(proto, "constructor") && proto.constructor;
+// ─── Natif — suppression des dépendances lodash-es ───────────────────────────
+
+const isArray = Array.isArray;
+
+const isFunction = (value: unknown): value is (...args: unknown[]) => unknown =>
+  typeof value === "function";
+
+const isRegExp = (value: unknown): value is RegExp => value instanceof RegExp;
+
+// ─── isPlainObject ────────────────────────────────────────────────────────────
+
+const isPlainObject = (obj: unknown): boolean => {
+  if (!obj || _toString.call(obj) !== "[object Object]") return false;
+  const proto = getProto(obj);
+  if (!proto) return true; // Object.create(null)
+  const Ctor =
+    hasOwn.call(proto, "constructor") && (proto as any).constructor;
   return (
     typeof Ctor === "function" && fnToString.call(Ctor) === ObjectFunctionString
   );
 };
 
-const isUndefined = (value: any): boolean => {
-  return value === undefined;
-};
+// ─── isUndefined / isEmptyObject ─────────────────────────────────────────────
 
-const isEmptyObject = (obj: object | null | undefined): boolean => {
-  return !!obj && Object.keys(obj).length === 0;
-};
+const isUndefined = (value: unknown): value is undefined => value === undefined;
 
-const extend = (...args: any[]) => {
-  let options,
-    name,
-    src,
-    copy,
-    copyIsArray,
-    clone,
-    target = args[0] || {},
+const isEmptyObject = (obj: object | null | undefined): boolean =>
+  !!obj && Object.keys(obj).length === 0;
+
+// ─── extend ───────────────────────────────────────────────────────────────────
+//
+// API jQuery-compatible : extend(target, ...sources) ou extend(true, target, ...sources)
+//
+// Améliorations vs version précédente :
+//   • hasOwn.call() — only own enumerable props, évite la pollution héritée
+//   • Guard étendu : __proto__ + constructor + prototype
+//   • isPlainObject/isArray inline sans lodash
+//   • _toString explicitement référencé (plus de dépendance au global toString)
+
+const extend = (...args: any[]): any => {
+  let options: any,
+    name: string,
+    src: any,
+    copy: any,
+    copyIsArray = false,
+    clone: any,
+    target: any = args[0] || {},
     i = 1,
     deep = false;
   const { length } = args;
 
-  // Handle a deep copy situation
   if (typeof target === "boolean") {
     deep = target;
-    // Skip the boolean and the target
     target = args[i] || {};
     i++;
   }
-  // Handle case when target is a string or something (possible in deep copy)
+
   if (typeof target !== "object" && typeof target !== "function") {
     target = {};
   }
-  // Extend Nodefony itself if only one argument is passed
+
+  // Argument unique : renvoie une copie de la source dans un objet vierge
   if (i === length) {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
     target = {};
     i--;
   }
+
   for (; i < length; i++) {
-    // Only deal with non-null/undefined values
     if ((options = args[i]) != null) {
-      // Extend the base object
       for (name in options) {
+        // Propriétés propres uniquement — évite l'héritage énumérable parasite
+        if (!hasOwn.call(options, name)) continue;
+
         copy = options[name];
-        // Prevent Object.prototype pollution
-        // Prevent never-ending loop
-        if (name === "__proto__" || target === copy) {
+
+        // Prototype pollution guard + référence circulaire
+        if (
+          name === "__proto__" ||
+          name === "constructor" ||
+          name === "prototype" ||
+          target === copy
+        )
           continue;
-        }
-        // Recurse if we're merging plain objects or arrays
+
         if (
           deep &&
           copy &&
-          (isPlainObject(copy) || (copyIsArray = Array.isArray(copy)))
+          (isPlainObject(copy) || (copyIsArray = isArray(copy)))
         ) {
           src = target[name];
-          // Ensure proper type for the source value
-          if (copyIsArray && !Array.isArray(src)) {
+
+          if (copyIsArray && !isArray(src)) {
             clone = [];
           } else if (!copyIsArray && !isPlainObject(src)) {
             clone = {};
@@ -89,91 +109,57 @@ const extend = (...args: any[]) => {
             clone = src;
           }
           copyIsArray = false;
-          // Never move original objects, clone them
+
           target[name] = extend(deep, clone, copy);
-          // Don't bring in undefined values
         } else if (copy !== undefined) {
           target[name] = copy;
         }
       }
     }
   }
-  // Return the modified object
+
   return target;
 };
 
-/**
- *  @method typeOf
- *  @param  value
- *  @return {String} type of value
- */
+// ─── typeOf ───────────────────────────────────────────────────────────────────
+
 const typeOf = (value: any): string | null => {
   const t = typeof value;
   if (t === "object") {
-    if (value === null) {
-      return null;
-    }
-    if (Buffer.isBuffer(value)) {
-      return "buffer";
-    }
-    if (isArray(value)) {
-      return "array";
-    }
-    if (isFunction(value)) {
-      return "function";
-    }
-    if (value instanceof Date) {
-      return "date";
-    }
-    if (isRegExp(value)) {
-      return "RegExp";
-    }
-    if (value.callee) {
-      return "arguments";
-    }
-    if (value instanceof SyntaxError) {
-      return "SyntaxError";
-    }
-    if (isError(value)) {
-      return "Error";
-    }
+    if (value === null) return null;
+    if (Buffer.isBuffer(value)) return "buffer";
+    if (isArray(value)) return "array";
+    if (value instanceof Date) return "date";
+    if (isRegExp(value)) return "RegExp";
+    if (value.callee) return "arguments";
+    if (value instanceof SyntaxError) return "SyntaxError";
+    if (isError(value)) return "Error";
   } else if (t === "function" && typeof value.call === "undefined") {
     return "object";
   }
   return t;
 };
 
-const isContainer = (container: Container): boolean => {
-  if (container) {
-    if (container instanceof Container) {
-      return true;
-    }
-    return false;
-  }
-  return false;
-};
+// ─── Utilitaires conteneur / promesse / erreur ────────────────────────────────
 
-const isError = (it: Error): boolean => {
-  return it instanceof Error;
-};
+const isContainer = (container: unknown): container is Container =>
+  container instanceof Container;
+
+const isError = (it: unknown): it is Error => it instanceof Error;
 
 const isPromise = (obj: any): boolean => {
-  switch (true) {
-    case obj instanceof Promise:
-      //case obj instanceof BlueBird:
-      return true;
-    default:
-      return (
-        Boolean(obj) &&
-        (typeof obj === "object" || typeof obj === "function") &&
-        typeof obj.then === "function"
-      );
-  }
+  if (obj instanceof Promise) return true;
+  return (
+    Boolean(obj) &&
+    (typeof obj === "object" || typeof obj === "function") &&
+    typeof obj.then === "function"
+  );
 };
 
-const isSubclassOf = function (subclass: any, superclass: any): boolean {
-  return subclass.prototype instanceof superclass;
-};
+const isSubclassOf = (subclass: any, superclass: any): boolean =>
+  subclass.prototype instanceof superclass;
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
 
 export {
   extend,
