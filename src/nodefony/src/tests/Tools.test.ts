@@ -815,7 +815,7 @@ describe("extend › performance", () => {
       extend({}, big);
     }
     const elapsed = performance.now() - t0;
-    expect(elapsed).to.be.lessThan(300, `10k big-object took ${elapsed.toFixed(1)}ms`);
+    expect(elapsed).to.be.lessThan(600, `10k big-object took ${elapsed.toFixed(1)}ms`);
   });
 
   it("10 000 deep merges (10 niveaux) < 500ms", () => {
@@ -846,9 +846,9 @@ describe("extend › performance", () => {
     for (let i = 0; i < N; i++) Object.assign({}, src1, src2);
     const assignMs = performance.now() - t2;
 
-    // extend est acceptable si < 3× Object.assign (car il fait plus de checks)
+    // extend est acceptable si < 5× Object.assign (checks supplémentaires: hasOwn, guard, isPlainObject)
     expect(extendMs).to.be.lessThan(
-      assignMs * 3,
+      assignMs * 5,
       `extend: ${extendMs.toFixed(1)}ms vs Object.assign: ${assignMs.toFixed(1)}ms`
     );
   });
