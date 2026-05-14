@@ -34,13 +34,13 @@ class Event extends EventEmitter {
     localSettings: EventDefaultInterface,
     context?: ContextType,
   ) {
-    for (const i in localSettings) {
+    for (const i of Object.keys(localSettings)) {
       const res = regListenOn.exec(i);
       if (!res) {
         continue;
       }
       if (context) {
-        this.listen(context || this, res[0], localSettings[i]);
+        this.listen(context, res[0], localSettings[i]);
         continue;
       }
       this.on(res[0], localSettings[i]);
@@ -52,15 +52,12 @@ class Event extends EventEmitter {
     eventName: string | symbol,
     listener: (...args: any[]) => void,
   ): (...args: any[]) => boolean {
-    const event = eventName;
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const contextClosure = this;
     if (typeof listener === "function") {
       this.addListener(eventName, listener.bind(context));
     }
-    return function (this: EventEmitter, ...args: any[]): boolean {
-      args.unshift(event);
-      return contextClosure.emit(eventName, ...args);
+    return (...args: any[]): boolean => {
+      args.unshift(eventName);
+      return this.emit(eventName, ...args);
     };
   }
 

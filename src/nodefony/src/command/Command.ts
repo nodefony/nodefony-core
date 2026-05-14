@@ -228,15 +228,11 @@ class Command extends Service {
   public async run(...args: any[]): Promise<this> {
     if (this.kernel) this.kernel.command = this;
     if (this.interactive || this.forceInteractive) {
-      return this.interaction(...args)
-        .then((...response) => this.generate(...response))
-        .catch((e) => {
-          throw e;
-        });
+      return this.interaction(...args).then((...response) =>
+        this.generate(...response),
+      );
     }
-    return this.generate(...args).catch((e) => {
-      throw e;
-    });
+    return this.generate(...args);
   }
   public forceInteractiveMode(): void {
     this.forceInteractive = true;
