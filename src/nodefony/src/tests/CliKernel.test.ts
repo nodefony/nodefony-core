@@ -264,12 +264,12 @@ describe("CliKernel — parseCommand() & parseCommandAsync()", () => {
 // ─── 6. initSyslog() ─────────────────────────────────────────────────────────
 
 describe("CliKernel — initSyslog()", () => {
-  it("sans kernel → super.initSyslog() — listener onLog ajouté", () => {
+  it("sans kernel → super.initSyslog() — listener onLog présent (idempotent)", () => {
     const cli = makeCliKernel();
-    const before = cli.syslog?.listenerCount("onLog") ?? 0;
     cli.initSyslog("development", false);
     const after = cli.syslog?.listenerCount("onLog") ?? 0;
-    assert.ok(after > before, `listeners: ${before} → ${after}`);
+    // init() est idempotent : remove + add → toujours exactement 1 listener
+    assert.strictEqual(after, 1, `exactly 1 listener after init, got ${after}`);
   });
 
   it("avec kernel + debug=false → severity [0..6], DEBUG bloqué", () => {

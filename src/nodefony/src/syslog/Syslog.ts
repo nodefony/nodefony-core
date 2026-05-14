@@ -465,6 +465,9 @@ class Syslog extends Event implements ISyslog {
     debug?: DebugType,
     options?: conditionsInterface
   ): void {
+    // Idempotent : on réinitialise les listeners "onLog" avant d'en ajouter un.
+    // Évite l'accumulation quand init() est appelé plusieurs fois (Cli + CliKernel ctors).
+    this.removeAllListeners("onLog");
     this.listenWithConditions(
       options || conditionOptions(environment, debug),
       (pdu: Pdu) => Syslog.normalizeLog(pdu)
