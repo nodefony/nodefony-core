@@ -14,16 +14,16 @@
 | DI Container       | 3      | 2      | 0     | 1      |
 | Module System      | 5      | 3      | 0     | 2      |
 | Syslog / Pdu       | 4      | 4      | 0     | 0      |
-| Router             | 4      | 0      | 0     | 4      |
+| Router             | 4      | 4      | 0     | 0      |
 | HTTP / WS          | 6      | 0      | 0     | 6      |
-| Controller         | 3      | 0      | 0     | 3      |
+| Controller         | 3      | 3      | 0     | 0      |
 | Session            | 3      | 0      | 0     | 3      |
 | Security / Auth    | 5      | 0      | 0     | 5      |
 | ORM Adapters       | 4      | 0      | 0     | 4      |
 | CLI                | 4      | 0      | 0     | 4      |
 | Monitoring         | 3      | 0      | 0     | 3      |
 | Types / Interfaces | 6      | 5      | 0     | 1      |
-| **TOTAL**          | **65** | **28** | **0** | **37** |
+| **TOTAL**          | **65** | **35** | **0** | **30** |
 
 ---
 
@@ -133,14 +133,14 @@
 | `src/packages/@nodefony/http/HttpContext.ts`      | `nodefony/core/`            | ⬜     | 3          | Contexte HTTP   |
 | `src/packages/@nodefony/http/WebSocketContext.ts` | `nodefony/core/`            | ⬜     | 3          | Contexte WS     |
 
-### 3.2 Router
+### 3.2 Router ✅ (2026-05-15/16)
 
-| Fichier TS cible                                 | Source JS référence              | Statut | Complexité | Notes                   |
-| ------------------------------------------------ | -------------------------------- | ------ | ---------- | ----------------------- |
-| `src/packages/@nodefony/framework/Router.ts`     | `nodefony/core/router/router.js` | ⬜     | 3          | Router principal        |
-| `src/packages/@nodefony/framework/Route.ts`      | `nodefony/core/router/`          | ⬜     | 2          | Définition route        |
-| `src/packages/@nodefony/framework/decorators.ts` | N/A (nouveau)                    | ⬜     | 2          | @Route, @WebSocketRoute |
-| `src/packages/@nodefony/framework/index.ts`      | N/A                              | ⬜     | 1          | Barrel export           |
+| Fichier TS cible                                                  | Source JS référence              | Statut | Complexité | Notes                                                          |
+| ----------------------------------------------------------------- | -------------------------------- | ------ | ---------- | -------------------------------------------------------------- |
+| `src/packages/@nodefony/framework/nodefony/service/router.ts`    | `nodefony/core/router/router.js` | ✅     | 3          | Router + IRoute + 11 tests unit                                |
+| `src/packages/@nodefony/framework/nodefony/src/Route.ts`         | `nodefony/core/router/`          | ✅     | 2          | Route + IRoute + 28 tests unit — fix WEBSOCKET return true     |
+| `src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts` | N/A                   | ✅     | 2          | @route/@controller/@controllers + @Get/@Post/@Put/@Delete/@Patch + @HttpCode/@Header/@Redirect |
+| `src/packages/@nodefony/framework/index.ts`                      | N/A                              | ✅     | 1          | Barrel export complet                                          |
 
 ---
 
@@ -194,13 +194,13 @@
 
 ## Phase 5 — Controller & Session
 
-### 5.1 Controller
+### 5.1 Controller ✅ (2026-05-16)
 
-| Fichier TS cible                                 | Source JS référence                      | Statut | Complexité | Notes                               |
-| ------------------------------------------------ | ---------------------------------------- | ------ | ---------- | ----------------------------------- |
-| `src/packages/@nodefony/framework/Controller.ts` | `nodefony/core/controller/controller.js` | ⬜     | 3          | `Controller implements IController` |
-| `src/packages/@nodefony/framework/decorators.ts` | N/A (nouveau)                            | ⬜     | 2          | @Controller                         |
-| `src/packages/@nodefony/framework/index.ts`      | N/A                                      | ⬜     | 1          | Barrel export                       |
+| Fichier TS cible                                                   | Source JS référence                      | Statut | Complexité | Notes                                                             |
+| ------------------------------------------------------------------ | ---------------------------------------- | ------ | ---------- | ----------------------------------------------------------------- |
+| `src/packages/@nodefony/framework/nodefony/src/Controller.ts`      | `nodefony/core/controller/controller.js` | ✅     | 3          | `Controller implements IController` — 23 tests intégration        |
+| `src/packages/@nodefony/framework/nodefony/src/Resolver.ts`        | N/A                                      | ✅     | 3          | `Resolver implements IResolver` — `_applyResponseDecorators` + `_handleRedirect` |
+| `src/packages/@nodefony/framework/nodefony/interfaces/`            | N/A (nouveau)                            | ✅     | 2          | `IController`, `IRoute`, `IResolver`                              |
 
 ### 5.2 Session
 
@@ -323,6 +323,8 @@
 | 2026-05-15 | WebSocket migration — tests complets (limites, perf, binary, broadcast, protocol) | `WebSocketController.ts`, `websocket-limits.test.ts`, `websocket-perf.test.ts`, `websocket-binary-broadcast.test.ts`, `websocket-protocol.test.ts`                                                                                                                | ~3h    | 72 passing, 2 failing (sequential binary timeout) — 4 fichiers test créés — 5 routes ajoutées (binary, broadcast, proto/reflect, proto/json, echo/proto) — branche `refactor/http-deps`                                                                                                                                                                                                                                                                                                       |
 | 2026-05-15 | @nodefony/http — bugs fixes + tests unitaires + 319 passing                       | `cookie.ts`, `Response.ts`, `Cookie.test.ts`, `Response.test.ts` (nouveau), `memory.test.ts`, `MIGRATION_STATUS.md`, `MEMORY.md`, `src/modules/test/package.json`                                                                                                 | ~2h    | ERR_INVALID_CHAR corrigé (ASCII sanitize) — Cookie Expires overflow corrigé (×1000) — maxAge=0 session cookie fix — turbo build order fix (peerDependencies) — 319 passing 0 failing — branche refactor/http-deps mergée dans claude-ts                                                                                                                                                      |
 | 2026-05-15 | @nodefony/framework — Infrastructure types exports                                | `package.json`                                                                                                                                                                                                                                                    | ~15min | `exports` field ajouté — `types` → `dist/types/index.d.ts` — build 0 erreur — CLAUDE.md tableau mis à jour ✅                                                                                                                                                                                                                                                                                                                                                                                |
+| 2026-05-15 | @nodefony/framework — IController/IRoute/IResolver + implements + 47 tests        | `nodefony/interfaces/IController.ts`, `IRoute.ts`, `IResolver.ts`, `index.ts`, `Controller.ts`, `Resolver.ts`, `Route.ts`, `tests/unit/Route.test.ts`, `Router.test.ts`, `routerDecorators.test.ts`                                                               | ~3h    | Interfaces créées (readonly covariant fix, `(...args: unknown[]) => unknown` vs Function) — `implements IController/IRoute/IResolver` sur les 3 classes — bug Route.matchRequirements `return;`→`return true` (WEBSOCKET) — 47 tests (28 Route + 11 Router + 5 routerDecorators) 0 failing — mock-sequelize.mjs ESM hook pour éviter crash `getKernel().path` |
+| 2026-05-16 | @nodefony/framework — NestJS decorators + integration tests Controller             | `routerDecorators.ts`, `Resolver.ts`, `index.ts`, `tests/unit/httpMethodDecorators.test.ts`, `tests/integration/controller.test.ts`, `src/modules/test/nodefony/controller/FrameworkController.ts`                                                                | ~4h    | `@Get/@Post/@Put/@Delete/@Patch` (requirements.methods, auto-name ClassName::method) — `@HttpCode/@Header/@Redirect` (Reflect metadata, appliqué par Resolver) — fix `@Post` constraint (méthode → requirements.methods) — fix `@Redirect` → `returnController(undefined)` — FrameworkController 14 routes — 90 tests (67 unit + 23 intégration), 0 failing — bug documenté: method-name conflict avec props Controller |
 
 ---
 
