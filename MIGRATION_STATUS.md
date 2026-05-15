@@ -289,6 +289,7 @@
 | 2026-05-14 | ESLint 9→10 — flat config                          | `eslint.config.mjs` (nouveau), `.eslintrc.cjs` (supprimé), `package.json`, `globals.d.ts`, `Kernel.ts`, `Connector.ts`, `Syslog.test.ts` | ~1h | 1004 tests ✅ — 0 erreur lint — 96 warnings `no-explicit-any` (intentionnels, à adresser session dédiée) — GitHub Actions CI mis à jour (matrix 3 OS × 3 Node, `nodefony production` avant tests) |
 | 2026-05-14 | Event.ts + Command + Builder + FileClass + Finder  | `Event.ts`, `Command.ts`, `KillCommand.ts`, `Builder.ts`, `FileClass.ts`, `Finder.ts`, `FileResult.ts`, `Result.ts`, `Event.test.ts`, `Command.test.ts`, `Builder.test.ts`, `KernelCommands.test.ts`, `FileClass.test.ts`, `finder/MEMORY.md`, `finder/README.md` | ~3h | 1181 tests ✅ — shelljs supprimé (Builder→fsp.*) — lodash supprimé (Finder) — `new Promise(async...)` corrigé (Finder) — `for...in` → `for...of Object.keys()` (Event/Finder) — `ckeckPath` → `checkPath` — `find()` → `findByName()` — `uniq()` implémenté — `flag:"w"` bug corrigé (FileClass.content) — tests: 120+ tests Event/Command/Builder/KernelCommands/FileClass |
 | 2026-05-14 | CLI Interfaces — ICommand + ICliKernel + refactor  | `types/ICommand.ts`, `types/ICliKernel.ts`, `types/IKernel.ts`, `command/Command.ts`, `kernel/CliKernel.ts`, `kernel/Kernel.ts`, `kernel/MEMORY.md` | ~1h | 1181 tests ✅ — `ICommand`: `name`, `kernelEvent: KernelEventKey`, `action()` — `ICliKernel`: interface minimale (commander, setProcessTitle, showAsciify, parseCommandAsync...) — `IKernel.cli: ICliKernel\|null` + `IKernel.command: ICommand\|null` (fin du `object\|null`) — `CommandConstructor` type exporté — `Command.kernelEvent: KernelEventKey` (fin du `string`) — `setEvents()` guard `eventsRegistered` — double-parsing `preRegister()` supprimé — build 0 erreur — runtime ✅ |
+| 2026-05-15 | WebSocket migration — tests complets (limites, perf, binary, broadcast, protocol) | `WebSocketController.ts`, `websocket-limits.test.ts`, `websocket-perf.test.ts`, `websocket-binary-broadcast.test.ts`, `websocket-protocol.test.ts` | ~3h | 72 passing, 2 failing (sequential binary timeout) — 4 fichiers test créés — 5 routes ajoutées (binary, broadcast, proto/reflect, proto/json, echo/proto) — branche `refactor/http-deps` |
 
 ---
 
@@ -333,10 +334,10 @@
 
 **Prochaine session recommandée** :
 
-1. **ESLint 9→10** — migration flat config (`eslint.config.mjs`) — nouvelle branche
-2. **Refacto CLI architecture** — branche `refactor/cli-kernel-order` — `ICliKernel`, `ICommand`, `ModuleConstructor`, `fixCommanderCli`
+1. **Fix 2 tests binary séquentiels** — `websocket-binary-broadcast.test.ts` — timeout sur envoi multiples buffers séquentiels (server ne renvoie pas les frames après la 1ère) — investiguer `context.send(buf, "binary")` dans la boucle
+2. **Protocol tests** — relancer `npm test` avec serveur démarré pour valider `websocket-protocol.test.ts`
 3. **Phase 5.1** — `IController` + `Controller.ts`
-4. **Phase X reste** — `LokiTransport` (Grafana Loki, streams)
+4. **ESLint 9→10** — migration flat config (`eslint.config.mjs`) — nouvelle branche
 5. **@entities** — tester `@entities` (même pattern que `Decorators.test.ts`, event `onBoot`)
 
 **Fichiers à lire en début de session** :
