@@ -111,6 +111,33 @@ class WebsocketController extends Controller {
     }
   }
 
+  @route("route-websocket-proto-reflect", {
+    path: "/proto/reflect",
+    requirements: { methods: ["WEBSOCKET"], protocol: "" },
+  })
+  async protoReflect(message: string | Buffer | null) {
+    const protocol = this.context?.acceptedProtocol ?? null;
+    if (!message) {
+      return this.renderJson({ handshake: true, acceptedProtocol: protocol });
+    }
+    return this.renderJson({ echo: message.toString(), acceptedProtocol: protocol });
+  }
+
+  @route("route-websocket-proto-json", {
+    path: "/proto/json",
+    requirements: { methods: ["WEBSOCKET"], protocol: "json-protocol" },
+  })
+  async protoJson(message: string | Buffer | null) {
+    if (!message) {
+      return this.renderJson({ handshake: true, protocol: "json-protocol" });
+    }
+    try {
+      return this.renderJson(JSON.parse(message.toString()));
+    } catch {
+      return this.renderJson({ error: "invalid json", raw: message.toString() });
+    }
+  }
+
   @route("route-websocket-binary", {
     path: "/binary",
     requirements: { methods: ["WEBSOCKET"] },
