@@ -13,7 +13,7 @@ import {
   Scope,
 } from "nodefony";
 import { Resolver, Router } from "@nodefony/framework";
-import Ws, { WebSocketServer } from "ws";
+import { WebSocketServer } from "ws";
 import http2 from "node:http2";
 import http from "node:http";
 import https from "node:https";

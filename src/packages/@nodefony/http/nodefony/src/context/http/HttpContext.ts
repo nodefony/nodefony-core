@@ -162,10 +162,10 @@ class HttpContext extends Context implements IHttpContextInterface {
         }
         if (this.resolver && this.resolver.resolve) {
           this.setMetaData();
-          const ret = await this.resolver.callController().catch((e) => {
+          const ret = await this.resolver.callController().catch((e: unknown) => {
             return reject(e);
           });
-          return resolve(ret);
+          return resolve(ret as this);
         }
         return reject(new HttpError("", 404, this));
       } catch (e) {

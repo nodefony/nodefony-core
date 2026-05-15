@@ -22,7 +22,6 @@ import { HTTPMethod } from "../../src/context/Context";
 import Session, { OptionsSessionType } from "../../src/session/session";
 import Http2Request from "../../src/context/http2/Request";
 import HttpRequest from "../../src/context/http/Request";
-import url from "node:url";
 import Certificate from "../../service/certificates";
 import { createHash } from "node:crypto";
 import { SessionStorage as SequelizeStorage } from "@nodefony/sequelize";
@@ -221,7 +220,7 @@ class SessionsService extends Service {
               request.request.session = session;
             }
             context.sessionStarting = false;
-            session.setMetaBag("url", url.parse(context.url));
+            session.setMetaBag("url", new URL(context.url, "http://localhost"));
             if (context.cleaned) {
               return reject(new Error("context already cleaned"));
             }

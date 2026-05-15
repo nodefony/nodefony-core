@@ -1,8 +1,7 @@
 import type { URL } from "node:url";
 import type { ICookie } from "./ICookie";
 import type { ISession } from "./ISession";
-import type { IHttpRequest, IHttp2Request, IWsRequest, HTTPMethodType } from "./IRequest";
-import type { IHttpResponse, IWebsocketResponse } from "./IResponse";
+import type { HTTPMethodType } from "./IRequest";
 
 export type ServerType =
   | "http"

@@ -191,7 +191,7 @@ export default class WebsocketContext extends Context implements IWebsocketConte
               .catch((e) => { throw e; });
             return this;
           })
-          .catch((error) => {
+          .catch((error: unknown) => {
             if (!this.rejected) {
               if (this.requestEnded) {
                 if ((error as HttpError).code) {
@@ -275,7 +275,7 @@ export default class WebsocketContext extends Context implements IWebsocketConte
             },
           },
         });
-        return this.resolver.callController([message]).catch((e) => {
+        return this.resolver.callController([message]).catch((e: unknown) => {
           throw e;
         });
       } else if (!this.rejected) {

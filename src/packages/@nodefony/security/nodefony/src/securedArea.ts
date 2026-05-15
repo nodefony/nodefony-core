@@ -16,7 +16,7 @@ import Cors from "../service/cors";
 import { Router } from "@nodefony/framework";
 import Factory from "../src/Factory";
 import Provider from "../src/Provider";
-import { ContextType, WebsocketContext } from "@nodefony/http";
+import { ContextType } from "@nodefony/http";
 import { HelmetOptions } from "helmet";
 
 import {

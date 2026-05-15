@@ -1,4 +1,4 @@
-import type { IContext, IHttpContext, IWebsocketContext, ServerType } from "./IContext";
+import type { ServerType } from "./IContext";
 
 export interface IHttpKernel {
   domain: string;
