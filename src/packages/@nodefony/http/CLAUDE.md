@@ -99,19 +99,24 @@ Fix : `WebsocketContext` étend `request` avec `IWsRequestExtension { url: URL; 
 Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
 **Prérequis** : serveur Nodefony actif (`npx nodefony development`) sur ports 5151/5152.
 
-| Fichier                                         | Sujet                   | État      |
-| ----------------------------------------------- | ----------------------- | --------- |
-| `http/http.test.ts`                             | HTTP basique            | ✅        |
-| `http/fileStream.test.ts`                       | Streaming               | ✅        |
-| `http/upload.test.ts`                           | Upload formidable       | ✅        |
-| `routing/Router.test.ts`                        | Routing HTTP            | ✅        |
-| `websockets/websocket.test.ts`                  | WS basique              | ✅        |
-| `websockets/websocket-limits.test.ts`           | Limites taille/séquence | ✅        |
-| `websockets/websocket-perf.test.ts`             | Perf concurrence        | ✅        |
-| `websockets/websocket-binary-broadcast.test.ts` | Binary + broadcast      | 20/22 ✅  |
-| `websockets/websocket-protocol.test.ts`         | Protocol negotiation    | à valider |
-| `websockets/websocket-session.test.ts`          | Sessions WS             | ✅        |
-| `websockets/websocket-w3c.test.ts`              | W3C compat              | ✅        |
+| Fichier                                         | Sujet                       | État      |
+| ----------------------------------------------- | --------------------------- | --------- |
+| `http/http.test.ts`                             | HTTP basique                | ✅        |
+| `http/http1.test.ts`                            | HTTP port 5151 GET/POST/PUT/DELETE + headers | ✅ |
+| `http/https.test.ts`                            | TLS handshake + cipher + HSTS | ✅      |
+| `http/errors.test.ts`                           | JSON error format (code, message, stack, route) | ✅ |
+| `http/fileStream.test.ts`                       | Streaming                   | ✅        |
+| `http/upload.test.ts`                           | Upload formidable           | ✅        |
+| `http/memory.test.ts`                           | Memory leaks HTTP + WS      | ✅        |
+| `http/resilience.test.ts`                       | Disconnect, burst, malformed | ✅       |
+| `routing/Router.test.ts`                        | Routing HTTP                | ✅        |
+| `websockets/websocket.test.ts`                  | WS basique                  | ✅        |
+| `websockets/websocket-limits.test.ts`           | Limites taille/séquence     | ✅        |
+| `websockets/websocket-perf.test.ts`             | Perf concurrence            | ✅        |
+| `websockets/websocket-binary-broadcast.test.ts` | Binary + broadcast          | 20/22 ✅  |
+| `websockets/websocket-protocol.test.ts`         | Protocol negotiation        | ✅        |
+| `websockets/websocket-session.test.ts`          | Sessions WS                 | ✅        |
+| `websockets/websocket-w3c.test.ts`              | W3C compat                  | ✅        |
 
 ### 2 tests en échec connus
 
