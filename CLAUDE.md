@@ -179,7 +179,7 @@ Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 | `@nodefony/memory`    | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports`                   |
 | `@nodefony/rag`       | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports`                   |
 | `@nodefony/vector`    | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports`                   |
-| `@nodefony/framework` | ❌ pointe vers fichier inexistant    | `dist/types/index.d.ts` + `exports` |
+| `@nodefony/framework` | ✅ `dist/types` + `exports`          | Fait (2026-05-15)                   |
 | `@nodefony/security`  | ❌ pointe vers fichier inexistant    | `dist/types/index.d.ts` + `exports` |
 | `@nodefony/mongoose`  | ❌ `.d.ts` manuel legacy             | `dist/types/index.d.ts` + `exports` |
 | `@nodefony/redis`     | ❌ `.d.ts` manuel legacy             | `dist/types/index.d.ts` + `exports` |

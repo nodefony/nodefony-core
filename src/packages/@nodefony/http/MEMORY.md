@@ -84,7 +84,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 ## Tests
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
-**État** : 80+ passing, 2 failing (sequential binary timeout) — branche `refactor/http-deps`.
+**État** : 319 passing, 0 failing (2026-05-15) — mergé dans `claude-ts`.
 
 Config ts-node: `tsconfig.tests.json` + `types: ["node","mocha","chai"]` + `TS_NODE_PROJECT` pour `test:integration`.
 Hook `fix-reflect.mjs` : corrige `_virtual/Reflect.js` CJS/ESM (Rollup `__require` absent en preserveModules).
