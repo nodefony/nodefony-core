@@ -79,3 +79,41 @@ export {
   Cookie,
   HttpContext,
 };
+
+// Public interfaces — consommables par les autres modules
+export type {
+  IContext,
+  IHttpContext,
+  IWebsocketContext,
+  ServerType,
+  SchemeType,
+  WebSocketStateType,
+  CookiesMap,
+} from "./nodefony/interfaces/IContext";
+export type {
+  ICookie,
+  ICookieOptions,
+  IWsCookie,
+  SameSiteType,
+  PriorityType,
+} from "./nodefony/interfaces/ICookie";
+export type {
+  ISession,
+  ISessionStorage,
+  SessionStatusType,
+  SessionStrategyType,
+  FlashBagType,
+  MetaBagType,
+} from "./nodefony/interfaces/ISession";
+export type {
+  IHttpRequest,
+  IHttp2Request,
+  IWsRequest,
+  HTTPMethodType,
+} from "./nodefony/interfaces/IRequest";
+export type {
+  IHttpResponse,
+  IWebsocketResponse,
+} from "./nodefony/interfaces/IResponse";
+export type { IHttpKernel } from "./nodefony/interfaces/IHttpKernel";
+export type { IUploadedFile, IUploadService } from "./nodefony/interfaces/IUpload";

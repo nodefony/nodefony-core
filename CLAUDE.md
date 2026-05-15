@@ -80,6 +80,72 @@ src/packages/@nodefony/[module]/
     └── *.test.ts         ← couverture > 80%
 ```
 
+## Standard gestion des types — règle universelle (TOUS les modules)
+
+### La règle
+
+Chaque module doit exposer ses types via les fichiers **générés automatiquement** par Rollup+TypeScript.
+**Jamais** de fichier `.d.ts` écrit à la main — ils divergent silencieusement du code réel.
+
+### `package.json` — template obligatoire
+
+```json
+{
+  "main": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  }
+}
+```
+
+- `types` : fallback pour les outils TS < 4.7
+- `exports["."].types` : pris en priorité par TS 4.7+ avec `moduleResolution: Bundler`
+- Les deux pointent vers `dist/types/` généré par Rollup — jamais vers `nodefony/types/`
+
+### `index.ts` — re-exporter tous les types publics
+
+```typescript
+// Classes concrètes
+export { MyClass } from "./nodefony/src/...";
+
+// Interfaces publiques — export type (effacé à la compilation)
+export type { IMyInterface, MyType } from "./nodefony/interfaces/IMyInterface";
+```
+
+### `nodefony/interfaces/` — dossier standard
+
+Chaque module doit avoir un dossier `nodefony/interfaces/` avec ses interfaces `I*.ts`.
+Un barrel `index.ts` re-exporte tout.
+
+### Fichiers legacy `nodefony/types/*.d.ts`
+
+Ces fichiers `.d.ts` manuels sont un **héritage de l'ère JS**. Ne plus en créer.
+Ne pas les supprimer sans vérifier qu'aucun outil externe ne les référence encore.
+Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
+
+### État par module (à corriger au fil des sessions)
+
+| Module | État types | Action requise |
+|---|---|---|
+| `nodefony` (core) | ✅ `dist/types` + `exports` | — |
+| `@nodefony/llm` | ✅ `dist/types` + `exports` | — |
+| `@nodefony/http` | ✅ `dist/types` + `exports` | Fait (2026-05-15) |
+| `@nodefony/agent` | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports` |
+| `@nodefony/memory` | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports` |
+| `@nodefony/rag` | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports` |
+| `@nodefony/vector` | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports` |
+| `@nodefony/framework` | ❌ pointe vers fichier inexistant | `dist/types/index.d.ts` + `exports` |
+| `@nodefony/security` | ❌ pointe vers fichier inexistant | `dist/types/index.d.ts` + `exports` |
+| `@nodefony/mongoose` | ❌ `.d.ts` manuel legacy | `dist/types/index.d.ts` + `exports` |
+| `@nodefony/redis` | ❌ `.d.ts` manuel legacy | `dist/types/index.d.ts` + `exports` |
+| `@nodefony/sequelize` | ❌ `.d.ts` manuel legacy | `dist/types/index.d.ts` + `exports` |
+
+---
+
 ## Décisions techniques (finales)
 
 **Bundler** : Rollup — `preserveModules: true`, génération `.d.ts` par module. Ne pas remplacer.
