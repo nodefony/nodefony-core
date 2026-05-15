@@ -65,6 +65,10 @@ Module Nodefony gérant tous les serveurs + contextes HTTP et WebSocket. Différ
 Prérequis: serveur `npx nodefony development` sur 5151/5152. Runner: mocha + ts-node ESM.
 72 passing, 2 failing (sequential binary timeout) — branche `refactor/http-deps`.
 
+### Config ts-node tests
+`tsconfig.tests.json` — étend tsconfig.json + `types: ["node", "mocha", "chai"]` + `noUnusedParameters: false`.
+`test:integration` script utilise `TS_NODE_PROJECT=tsconfig.tests.json` pour corriger TS2591 (ts-node 10.x + moduleResolution:Bundler ne résout pas node: sans types explicites).
+
 ## Deps clés
 - `ws@8.20.1` — ESM interop: `import Ws, { WebSocketServer } from 'ws'` (jamais `Ws.Server`)
 - `formidable@3.5.4` — upload
@@ -143,6 +147,16 @@ Appui sur `src/modules/test` — routes ajoutées : RestController session set/g
 - Oversized body : formidable lance une erreur → http-kernel retourne 500, pas 413. Comportement à améliorer.
 - Node.js v26 rejette les headers avec CR/LF (`ERR_INVALID_HTTP_TOKEN`) → protection automatique contre response splitting.
 - `x-powered-by` header expose ou non la version selon le mode dev/prod — à vérifier.
+
+### Phase 5b — Serve-static tests ✅ (2026-05-15)
+`nodefony/tests/http/static.test.ts` — tests d'intégration serve-static.
+- Content-Type: MP3 → audio/mpeg, WebM → video/webm, favicon → image/x-icon
+- Cache-Control header présent, ETag/Last-Modified → 304 conditionals
+- Content-Length = body.length
+- Path traversal: `/../`, `%2F..%2F` bloqués
+- 404 pour fichier inexistant, directory listing désactivé
+
+Fichiers statiques testés: `/test/chico_buarque.mp3`, `/test/oceans-clip.webm`, `/favicon.ico` (dans `src/modules/test/public/`).
 
 ### Phase 6 — Performance (en attente)
 - Compression gzip/brotli (`Accept-Encoding: gzip, br`)
