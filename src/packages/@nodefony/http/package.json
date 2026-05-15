@@ -18,7 +18,7 @@
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
     "test": "mocha",
-    "test:unit": "mocha --config .mocharc.unit.json"
+    "test:integration": "mocha --config .mocharc.integration.json"
   },
   "private": true,
   "keywords": [
