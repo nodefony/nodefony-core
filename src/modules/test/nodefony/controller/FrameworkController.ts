@@ -9,6 +9,9 @@ import {
   HttpCode,
   Header,
   Redirect,
+  Param,
+  Body,
+  Query,
 } from "@nodefony/framework";
 import { Context, HttpContext, HttpError } from "@nodefony/http";
 
@@ -135,6 +138,60 @@ class FrameworkController extends Controller {
       method: this.method,
       scheme: ctx.scheme,
     });
+  }
+
+  // ── @Param ────────────────────────────────────────────────────────────────
+  @Get("/item/{id}")
+  getItem(@Param("id") id: string) {
+    return this.renderJson({ id });
+  }
+
+  @Get("/items/{cat}/{page}")
+  getItems(@Param("cat") cat: string, @Param("page") page: string) {
+    return this.renderJson({ cat, page });
+  }
+
+  @Get("/params-all/{x}/{y}")
+  getAllParams(@Param() params: Record<string, unknown>) {
+    return this.renderJson(params);
+  }
+
+  // ── @Query ────────────────────────────────────────────────────────────────
+  @Get("/search")
+  search(@Query("q") q: string, @Query("page") page: string) {
+    return this.renderJson({ q: q ?? null, page: page ?? null });
+  }
+
+  // ── @Body ─────────────────────────────────────────────────────────────────
+  @Post("/submit")
+  submit(@Body() payload: Record<string, unknown>) {
+    return this.renderJson(payload ?? {});
+  }
+
+  @Post("/submit/{type}")
+  submitTyped(@Param("type") type: string, @Body("value") value: unknown) {
+    return this.renderJson({ type, value: value ?? null });
+  }
+
+  // ── queryGet (first param, bug fixé slice(1)) ─────────────────────────────
+  @Get("/qs")
+  queryStringTest() {
+    return this.renderJson({
+      first: this.queryGet?.["first"] ?? null,
+      second: this.queryGet?.["second"] ?? null,
+    });
+  }
+
+  // ── route variable positionnelle (ancien style sans @Param) ──────────────
+  @Get("/pos/{name}")
+  positional(name: string) {
+    return this.renderJson({ name });
+  }
+
+  // ── body form-urlencoded ──────────────────────────────────────────────────
+  @Post("/form")
+  form(@Body() body: Record<string, unknown>) {
+    return this.renderJson(body ?? {});
   }
 }
 

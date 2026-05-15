@@ -201,14 +201,12 @@ describe("Controller — error handling (HTTP)", function () {
 describe("Controller — queryGet params (HTTP)", function () {
   this.timeout(TIMEOUT);
 
-  // Note: qs.parse(url.search) doesn't strip leading '?' from first key.
-  // First param comes back as '?name' not 'name' — pre-existing @nodefony/http bug.
-  // Only second+ params are correctly parsed.
-
-  it("GET /fw/echo?a=1&page=2 → second param 'page' correctly parsed", async () => {
-    const { status, body } = await httpReq("GET", `${BASE}/echo?a=1&page=2`);
+  it("GET /fw/echo?name=foo&page=2 → les deux params correctement parsés (fix Request.ts slice(1))", async () => {
+    const { status, body } = await httpReq("GET", `${BASE}/echo?name=foo&page=2`);
     expect(status).to.equal(200);
-    expect((body as Record<string, unknown>).page).to.equal("2");
+    const b = body as Record<string, unknown>;
+    expect(b.name).to.equal("foo");
+    expect(b.page).to.equal("2");
   });
 
   it("GET /fw/echo (no params) → null values", async () => {
