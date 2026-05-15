@@ -9,6 +9,7 @@ import {
   //inject,
   FileClass,
 } from "nodefony";
+import type { IController } from "../interfaces/index.js";
 import Route from "./Route";
 import Router from "../service/router";
 import {
@@ -59,9 +60,9 @@ type ReadStreamOptions = {
   highWaterMark?: number;
 };
 
-class Controller extends Service {
+class Controller extends Service implements IController {
   static prefix: string = "/";
-  route?: Route | null = null;
+  route?: IRoute | null = null;
   request: contextRequest = null;
   response: HttpResponse | Http2Response | WebsocketResponse | null = null;
   context?: ContextType;
@@ -235,7 +236,7 @@ class Controller extends Service {
     }
   }
 
-  setRoute(route: Route): Route {
+  setRoute(route: IRoute): IRoute {
     return (this.route = route);
   }
 

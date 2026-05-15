@@ -6,6 +6,7 @@ import {
   WebsocketContext,
   ContextType,
 } from "@nodefony/http";
+import type { IRoute } from "../interfaces/index.js";
 import { createHash } from "node:crypto";
 import { typeOf } from "nodefony";
 import Controller from "./Controller";
@@ -106,7 +107,7 @@ export interface RouteRequirements {
   protocol?: string;
 }
 
-class Route {
+class Route implements IRoute {
   name: string;
   path?: string;
   controller?: ControllerConstructor;
@@ -344,7 +345,7 @@ class Route {
   hasRequirements(): number {
     return Object.keys(this.requirements).length;
   }
-  matchRequirements(context: ContextType) {
+  matchRequirements(context: ContextType): boolean {
     if (this.hasRequirements()) {
       for (const i in this.requirements) {
         switch (i) {

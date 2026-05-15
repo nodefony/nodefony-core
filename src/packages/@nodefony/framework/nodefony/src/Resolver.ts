@@ -8,6 +8,7 @@ import {
   Module,
   //inject,
 } from "nodefony";
+import type { IResolver } from "../interfaces/index.js";
 //import Router from "../service/router";
 import {
   //Context,
@@ -19,7 +20,8 @@ import {
   WebsocketResponse,
   WebsocketContext,
 } from "@nodefony/http";
-import Route, { ControllerConstructor } from "./Route";
+import type { ControllerConstructor } from "./Route.js";
+import type { IRoute } from "../interfaces/index.js";
 import BlueBird from "bluebird";
 import Controller from "./Controller";
 
@@ -30,13 +32,13 @@ export interface ControllerWithInitialize {
   initialize(controler: Controller): Promise<Controller>;
 }
 
-class Resolver extends Service {
+class Resolver extends Service implements IResolver {
   injector?: Injector | null;
   controller: ControllerConstructor | null = null;
   actionName?: string;
-  action?: Function;
+  action?: (...args: unknown[]) => unknown;
   context: ContextType;
-  route: Route | null = null;
+  route: IRoute | null = null;
   resolve: boolean = false;
   variables: any[] = [];
   exception?: HttpError | Error | null;
@@ -52,7 +54,7 @@ class Resolver extends Service {
     this.injector = this.get<Injector>("injector");
   }
 
-  match(route: Route, context: ContextType) {
+  match(route: IRoute, context: ContextType) {
     try {
       const match = route.match(context);
       if (match) {
@@ -103,7 +105,7 @@ class Resolver extends Service {
     this.resolve = true;
   }
 
-  getAction(name: string): Function | null {
+  getAction(name: string): ((...args: unknown[]) => unknown) | null {
     if (!this.controller) {
       throw new Error(`Controller not set`);
     }
@@ -119,7 +121,7 @@ class Resolver extends Service {
     return null;
   }
 
-  async newController(context?: ContextType): Promise<Controller> {
+  async newController(context?: ContextType): Promise<IController> {
     if (this.controller) {
       const controller = this.injector?.instantiate(
         this.controller,
@@ -151,7 +153,7 @@ class Resolver extends Service {
       }
       this.set("action", this.action);
       this.set("route", this.route);
-      controller.setRoute(this.route as Route);
+      controller.setRoute(this.route!);
       const methodKey = this.actionName as keyof typeof controller;
       let args: any[];
       if (data) {
