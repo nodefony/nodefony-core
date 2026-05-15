@@ -343,9 +343,12 @@ class HttpResponse {
         this.statusMessage = this.getStatusMessage();
         this.setLength();
         if (this.response) {
+          // RFC 7230 §3.1.2 — status-message must be printable US-ASCII
+          const safeMsg = this.statusMessage.replace(/[^\x20-\x7E]/g, "").trim()
+            || (http.STATUS_CODES[this.statusCode] ?? "Unknown Error");
           (this.response as http.ServerResponse).writeHead(
             this.statusCode,
-            this.statusMessage,
+            safeMsg,
             headers as http.OutgoingHttpHeaders,
           );
           return;
