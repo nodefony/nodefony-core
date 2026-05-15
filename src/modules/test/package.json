@@ -21,6 +21,12 @@
   ],
   "repository": {},
   "dependencies": {},
+  "peerDependencies": {
+    "nodefony": "*",
+    "@nodefony/http": "*",
+    "@nodefony/framework": "*",
+    "@nodefony/sequelize": "*"
+  },
   "devDependencies": {
     "@rollup/plugin-commonjs": "29.0.2",
     "@rollup/plugin-json": "6.1.0",

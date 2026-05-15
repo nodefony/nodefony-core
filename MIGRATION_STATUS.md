@@ -180,6 +180,11 @@
 | 9 | Commandes CLI HTTP | certificates, routes, sessions:clear, server:stats | ⬜ |
 | 10 | Certificate tests | `certificate.test.ts` (unit) | ⬜ pas urgent |
 
+**Bugs corrigés @nodefony/http (2026-05-15)** :
+- `ERR_INVALID_CHAR` statusMessage — dist périmé sans sanitization ASCII → rebuild ✅
+- Cookie `Expires` an 58339 — `(getTime() + maxage) * 1000` → `getTime() + maxage * 1000` ✅
+- Cookie session (maxAge=0) → `maxage === 0` ne catchait pas `undefined` → `!maxage` ✅
+
 **Bugs connus @nodefony/http** :
 - 2 tests binary séquentiels WS → timeout (investigation `context.send()` en boucle)
 - `Certificate.createFullChain()` : opérateur `+` sur `||` → concaténation incorrecte
@@ -365,6 +370,37 @@
 3. **Phase 3b** — créer `errors.test.ts` (format JSON error : code, message, stack en dev)
 4. **Phase 4** — HttpKernel : pipeline complet, Content-Type negotiation, parallel requests sans context leak
 5. **Phase 5c** — valider `memory.test.ts` avec serveur actif
+
+**@nodefony/http — Plan : Request Tracing (`requestId`)** (à faire — module http) :
+
+Objectif : chaque requête a un ID court visible dans tous ses logs → debugging multi-requêtes possible.
+
+| # | Tâche | Fichier | Complexité |
+|---|-------|---------|-----------|
+| 1 | Générer `requestId` (UUID 8 chars) dans `Context.ts` constructor | `nodefony/src/context/Context.ts` | 1 |
+| 2 | Override `Context.log()` pour préfixer `[requestId]` si `kernel.debug` | `nodefony/src/context/Context.ts` | 1 |
+| 3 | Injecter `requestId` dans le log final `INFO http2 200 GET` | `nodefony/service/http-kernel.ts` | 1 |
+| 4 | Option config `requestId: boolean` (default `true` en debug, `false` en prod) | `nodefony/config/config.ts` | 1 |
+| 5 | Tests : vérifier que les logs de la même requête partagent le même ID | `nodefony/tests/http/context.test.ts` | 2 |
+
+Note future : `AsyncLocalStorage` pour propager le requestId dans les services appelés (phase avancée).
+
+---
+
+**@nodefony/framework — Plan : HttpError champs undefined** (à faire — module framework) :
+
+Objectif : `Controller`, `Action`, `Response` peuplés dans `HttpError` pour faciliter le debugging.
+
+Constat : dans `onError()`, ces champs sont `undefined` car le `Resolver.callController()` a planté avant que le contexte soit enrichi.
+
+| # | Tâche | Fichier | Complexité |
+|---|-------|---------|-----------|
+| 1 | Dans `Resolver.resolve()` : stocker `controllerName` + `actionName` sur le contexte **avant** l'appel | `nodefony/src/Resolver.ts` | 2 |
+| 2 | Dans `HttpError` constructor : si `context.response` existe, assigner `this.response` | `@nodefony/http/nodefony/src/errors/httpError.ts` | 1 |
+| 3 | Dans `HttpError.toJSON()` : inclure `controller`, `action`, `response.statusCode` | `@nodefony/http/nodefony/src/errors/httpError.ts` | 1 |
+| 4 | Tests : vérifier les 3 champs peuplés pour erreurs 404, 500 (native throw), 500 (HttpError) | `nodefony/tests/http/errors.test.ts` | 2 |
+
+---
 
 **@nodefony/core — prochaines étapes** :
 

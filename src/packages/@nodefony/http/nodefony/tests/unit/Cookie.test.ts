@@ -167,6 +167,43 @@ describe("Cookie — unit tests", () => {
       expect(obj).to.have.property("value", "token");
     });
 
+  describe("setExpires() — regression maxAge overflow", () => {
+    it("maxAge=0 (session cookie) → expires is undefined", () => {
+      const c = new Cookie("sid", "abc", { maxAge: 0 });
+      c.setExpires(undefined);
+      expect(c.expires).to.equal(undefined);
+    });
+
+    it("maxAge=3600 → expires ~1h in the future (not year 58339)", () => {
+      const before = Date.now();
+      const c = new Cookie("sid", "abc", { maxAge: 3600 });
+      c.setExpires(undefined);
+      const after = Date.now();
+      expect(c.expires).to.be.instanceof(Date);
+      const ms = c.expires!.getTime();
+      expect(ms).to.be.above(before + 3599 * 1000);
+      expect(ms).to.be.below(after + 3601 * 1000);
+      // ne doit pas être dans un futur pathologique (> +1 an)
+      expect(ms).to.be.below(Date.now() + 366 * 24 * 3600 * 1000);
+    });
+
+    it("maxAge=86400 → expires ~24h in the future", () => {
+      const before = Date.now();
+      const c = new Cookie("sid", "abc", { maxAge: 86400 });
+      c.setExpires(undefined);
+      expect(c.expires).to.be.instanceof(Date);
+      const ms = c.expires!.getTime();
+      expect(ms).to.be.above(before + 86399 * 1000);
+      expect(ms).to.be.below(Date.now() + 86401 * 1000);
+    });
+
+    it("maxAge=undefined → no expires (session cookie)", () => {
+      const c = new Cookie("sid", "abc");
+      c.setExpires(undefined);
+      expect(c.expires).to.equal(undefined);
+    });
+  });
+
     it("includes optional fields when set", () => {
       const c = new Cookie("ws", "token", { path: "/", httpOnly: true });
       const obj = c.serializeWebSocket();

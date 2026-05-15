@@ -244,10 +244,10 @@ class Cookie implements ICookieInterface {
       }
     } else {
       const maxage = this.getMaxAge();
-      if (maxage === 0) {
+      if (!maxage) {
         this.expires = undefined;
       } else {
-        const res = (new Date().getTime() + (maxage || 0)) * 1000;
+        const res = new Date().getTime() + maxage * 1000;
         this.expires = new Date(res);
       }
       return this.expires;

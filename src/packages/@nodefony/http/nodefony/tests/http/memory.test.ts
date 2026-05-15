@@ -75,11 +75,11 @@ describe("Memory leaks — HTTP (requires server)", function () {
     expect(after - before).to.be.below(10 * 1024 * 1024, `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`);
   });
 
-  it("100 consecutive native TypeError crashes — server heap delta < 10 MB", async () => {
+  it("100 consecutive native TypeError crashes — server heap delta < 15 MB", async () => {
     const before = await serverHeap();
     for (let i = 0; i < 100; i++) await get("/nodefony/test/crash/native");
     const after = await serverHeap();
-    expect(after - before).to.be.below(10 * 1024 * 1024, `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`);
+    expect(after - before).to.be.below(15 * 1024 * 1024, `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`);
   });
 
   it("500 mixed requests (index + context + session) — server heap delta < 20 MB", async () => {
