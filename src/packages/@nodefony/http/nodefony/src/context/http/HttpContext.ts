@@ -50,7 +50,9 @@ export interface ProxyType {
 export type HttpRequestType = Http2Request | HttpRequest;
 export type HttpRsponseType = Http2Response | HttpResponse;
 
-class HttpContext extends Context {
+import type { IHttpContext as IHttpContextInterface } from "../../../interfaces/IContext";
+
+class HttpContext extends Context implements IHttpContextInterface {
   //url: string;
   proxy: ProxyType | null = null;
   isRedirect: boolean = false;

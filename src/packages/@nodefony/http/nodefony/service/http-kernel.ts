@@ -83,8 +83,10 @@ export interface Data {
 }
 
 const serviceName: string = "HttpKernel";
+import type { IHttpKernel as IHttpKernelInterface } from "../interfaces/IHttpKernel";
+
 @injectable()
-class HttpKernel extends Service {
+class HttpKernel extends Service implements IHttpKernelInterface {
   certificates: any;
   serviceCerticats: Certicates | null = null;
   key: string = "";

@@ -50,6 +50,7 @@ src/packages/@nodefony/http/
 ## Architecture clé
 
 ### Pipeline HTTP
+
 ```
 server-http.ts (IncomingMessage) → http-kernel.ts.handle()
   → createHttpContext()
@@ -60,6 +61,7 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
 ```
 
 ### Pipeline WebSocket
+
 ```
 server-websocket.ts (ws "connection" event) → http-kernel.ts.handleWebsocket()
   → createWebsocketContext()
@@ -73,6 +75,7 @@ server-websocket.ts (ws "connection" event) → http-kernel.ts.handleWebsocket()
 Protocol incorrect → `HttpError(1002)` → `context.close(1002)` → client reçoit code 1002.
 
 ### WebsocketContext — IWsRequestExtension
+
 `IncomingMessage.url` est une `string` en Node.js natif.
 `Route.match()` fait `context.request.url.pathname` — nécessite un objet `URL`.
 Fix : `WebsocketContext` étend `request` avec `IWsRequestExtension { url: URL; ... }`.
@@ -81,13 +84,13 @@ Fix : `WebsocketContext` étend `request` avec `IWsRequestExtension { url: URL; 
 
 ## Décisions techniques figées
 
-| Sujet | Décision |
-|---|---|
-| WS lib | `ws@8` — `import Ws, { WebSocketServer } from 'ws'` — jamais `Ws.Server` (undefined en ESM) |
-| Serveurs | `node:http`, `node:http2`, `ws` uniquement — jamais Bun.serve |
-| Protocol WS | Exact string match — array `['a','b']` → header `"a, b"` → ne match pas `"a"` → 1002 |
-| Binary frames | `context.send(buf, "binary")` côté serveur, `ws.send(Buffer)` côté client |
-| Broadcast | `Response.broadcast()` → `wss.clients.forEach(send)` — inclut l'émetteur |
+| Sujet         | Décision                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------- |
+| WS lib        | `ws@8` — `import Ws, { WebSocketServer } from 'ws'` — jamais `Ws.Server` (undefined en ESM) |
+| Serveurs      | `node:http`, `node:http2`, `ws` uniquement — jamais Bun.serve                               |
+| Protocol WS   | Exact string match — array `['a','b']` → header `"a, b"` → ne match pas `"a"` → 1002        |
+| Binary frames | `context.send(buf, "binary")` côté serveur, `ws.send(Buffer)` côté client                   |
+| Broadcast     | `Response.broadcast()` → `wss.clients.forEach(send)` — inclut l'émetteur                    |
 
 ---
 
@@ -96,21 +99,22 @@ Fix : `WebsocketContext` étend `request` avec `IWsRequestExtension { url: URL; 
 Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
 **Prérequis** : serveur Nodefony actif (`npx nodefony development`) sur ports 5151/5152.
 
-| Fichier | Sujet | État |
-|---|---|---|
-| `http/http.test.ts` | HTTP basique | ✅ |
-| `http/fileStream.test.ts` | Streaming | ✅ |
-| `http/upload.test.ts` | Upload formidable | ✅ |
-| `routing/Router.test.ts` | Routing HTTP | ✅ |
-| `websockets/websocket.test.ts` | WS basique | ✅ |
-| `websockets/websocket-limits.test.ts` | Limites taille/séquence | ✅ |
-| `websockets/websocket-perf.test.ts` | Perf concurrence | ✅ |
-| `websockets/websocket-binary-broadcast.test.ts` | Binary + broadcast | 20/22 ✅ |
-| `websockets/websocket-protocol.test.ts` | Protocol negotiation | à valider |
-| `websockets/websocket-session.test.ts` | Sessions WS | ✅ |
-| `websockets/websocket-w3c.test.ts` | W3C compat | ✅ |
+| Fichier                                         | Sujet                   | État      |
+| ----------------------------------------------- | ----------------------- | --------- |
+| `http/http.test.ts`                             | HTTP basique            | ✅        |
+| `http/fileStream.test.ts`                       | Streaming               | ✅        |
+| `http/upload.test.ts`                           | Upload formidable       | ✅        |
+| `routing/Router.test.ts`                        | Routing HTTP            | ✅        |
+| `websockets/websocket.test.ts`                  | WS basique              | ✅        |
+| `websockets/websocket-limits.test.ts`           | Limites taille/séquence | ✅        |
+| `websockets/websocket-perf.test.ts`             | Perf concurrence        | ✅        |
+| `websockets/websocket-binary-broadcast.test.ts` | Binary + broadcast      | 20/22 ✅  |
+| `websockets/websocket-protocol.test.ts`         | Protocol negotiation    | à valider |
+| `websockets/websocket-session.test.ts`          | Sessions WS             | ✅        |
+| `websockets/websocket-w3c.test.ts`              | W3C compat              | ✅        |
 
 ### 2 tests en échec connus
+
 `5 sequential binary` et `10 sequential binary` — timeout — cause : `context.send(buf, "binary")` en boucle ne renvoie pas toutes les frames. À investiguer dans `http-kernel.ts` ou `WebsocketContext`.
 
 ---

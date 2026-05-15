@@ -33,7 +33,7 @@ class HttpResponse {
   cookies: Record<string, Cookie> = {};
   constructor(
     response: http.ServerResponse | http2.Http2ServerResponse,
-    context: HttpContext
+    context: HttpContext,
   ) {
     this.context = context;
     this.response = response;
@@ -161,7 +161,7 @@ class HttpResponse {
     }
     return this.setHeader(
       "Content-Type",
-      `${this.contentType}; charset=${this.encoding}`
+      `${this.contentType}; charset=${this.encoding}`,
     );
   }
 
@@ -198,7 +198,7 @@ class HttpResponse {
 
   setStatusCode(
     status: number | string,
-    message?: string
+    message?: string,
   ): { code: number; message: string } {
     if (status && typeof status !== "number") {
       status = parseInt(status, 10);
@@ -256,7 +256,7 @@ class HttpResponse {
 
   setBody(
     ele: string | NodeJS.ArrayBufferView | ArrayBuffer | SharedArrayBuffer,
-    encoding?: BufferEncoding | undefined
+    encoding?: BufferEncoding | undefined,
   ) {
     if (typeof ele === "string") {
       this.body = Buffer.from(ele, encoding || this.encoding);
@@ -275,7 +275,7 @@ class HttpResponse {
   }
 
   setLength(
-    body?: string | NodeJS.ArrayBufferView | ArrayBuffer | SharedArrayBuffer
+    body?: string | NodeJS.ArrayBufferView | ArrayBuffer | SharedArrayBuffer,
   ): number {
     if (this.response?.headersSent) {
       throw new Error("Headers already sended");
@@ -323,7 +323,7 @@ class HttpResponse {
 
   writeHead(
     statusCode?: number,
-    headers?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[]
+    headers?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[],
   ): void {
     if (statusCode) {
       this.setStatusCode(statusCode);
@@ -344,7 +344,7 @@ class HttpResponse {
           (this.response as http.ServerResponse).writeHead(
             this.statusCode,
             this.statusMessage,
-            headers as http.OutgoingHttpHeaders
+            headers as http.OutgoingHttpHeaders,
           );
           return;
         }
@@ -383,7 +383,7 @@ class HttpResponse {
   async send(
     chunk: any,
     encoding?: BufferEncoding,
-    flush: boolean = false
+    flush: boolean = false,
   ): Promise<HttpResponse> {
     return new Promise(async (resolve, reject) => {
       try {
@@ -403,7 +403,6 @@ class HttpResponse {
           //this.context.displayDebugBar();
         }
         if (this.response) {
-          console.log("sends");
           return (this.response as http.ServerResponse).write(
             this.body,
             encoding || this.encoding,
@@ -413,7 +412,7 @@ class HttpResponse {
                 resolve(this);
               }
               resolve(this);
-            }
+            },
           );
         }
         return reject(new Error(`Http Response not found`));
@@ -433,17 +432,16 @@ class HttpResponse {
 
   async end(
     chunk?: any,
-    encoding?: BufferEncoding
+    encoding?: BufferEncoding,
   ): Promise<http.ServerResponse | http2.ServerHttp2Stream> {
     return new Promise((resolve, reject) => {
       if (this.response) {
         this.ended = true;
-        console.log("paasasa");
         return resolve(
           (this.response as http.ServerResponse).end(
             chunk,
-            encoding || this.encoding
-          )
+            encoding || this.encoding,
+          ),
         );
       }
       return reject(new Error(`response not found`));
@@ -472,7 +470,7 @@ class HttpResponse {
   redirect(
     url: string,
     status?: number | string,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ) {
     this.context.isRedirect = true;
     if (typeof status === "string") status = parseInt(status, 10);

@@ -77,7 +77,9 @@ export type HTTPMethod =
 
 export type Cookies = Record<string, Cookie>;
 
-class Context extends Service {
+import type { IContext as IContextInterface } from "../../interfaces/IContext";
+
+class Context extends Service implements IContextInterface {
   secure: boolean = false;
   security?: SecuredArea | null = null;
   cleaned: boolean = false;

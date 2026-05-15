@@ -128,7 +128,9 @@ function cookiesParser(context: ContextType) {
   }
 }
 
-class Cookie {
+import type { ICookie as ICookieInterface } from "../../interfaces/ICookie";
+
+class Cookie implements ICookieInterface {
   options: CookieOptionsType = {};
   name: string;
   signed?: boolean;

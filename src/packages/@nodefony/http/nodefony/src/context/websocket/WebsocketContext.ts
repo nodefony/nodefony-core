@@ -30,7 +30,9 @@ export interface IWsRequestExtension {
 
 export type WsIncomingMessage = IncomingMessage & IWsRequestExtension;
 
-export default class WebsocketContext extends Context {
+import type { IWebsocketContext as IWebsocketContextInterface } from "../../../interfaces/IContext";
+
+export default class WebsocketContext extends Context implements IWebsocketContextInterface {
   override request: WsIncomingMessage | null;
   override response: WebsocketResponse | null = null;
   acceptedProtocol?: string;
