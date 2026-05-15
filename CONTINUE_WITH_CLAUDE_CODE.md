@@ -1,4 +1,5 @@
 # CONTINUE_WITH_CLAUDE_CODE.md
+
 > Guide pour terminer les modules IA avec Claude Code en local.
 
 ---
@@ -6,6 +7,7 @@
 ## Ce qui est fait dans ce zip
 
 5 modules complets et testés :
+
 - `@nodefony/llm` — providers Claude/Ollama, streaming, abort, fuites mémoire gérées
 - `@nodefony/vector` — adapters Memory + PgVector (SQL injection-safe)
 - `@nodefony/rag` — RagService + chunkers Fixed/Sentence
@@ -110,6 +112,7 @@ Coût estimé : ~40k tokens, ~0.30€
 C'est le plus gros module. Le faire en 2 sessions :
 
 **Session 4a — services + decorators (sans MikroORM)**
+
 ```
 Lis VISION_IA.md, CLAUDE_IA.md, IA_STATUS.md.
 
@@ -134,6 +137,7 @@ Commit : "feat(ia): implement @nodefony/agent-guard (services + decorators)"
 Coût estimé : ~60k tokens, ~0.45€
 
 **Session 4b — entités MikroORM + AuditService + ApprovalService + Middleware**
+
 ```
 Lis VISION_IA.md, CLAUDE_IA.md, IA_STATUS.md.
 Tu as déjà fait la partie 1 de @nodefony/agent-guard.
@@ -188,14 +192,14 @@ Coût estimé : ~50k tokens, ~0.40€
 
 ## Coût total estimé
 
-| Étape | Coût |
-|-------|------|
-| Étape 2 (agent) | 0.20€ |
-| Étape 3 (mcp) | 0.30€ |
-| Étape 4a (guard part 1) | 0.45€ |
-| Étape 4b (guard part 2) | 0.55€ |
-| Étape 5 (studio) | 0.40€ |
-| **Total** | **~2€** |
+| Étape                   | Coût    |
+| ----------------------- | ------- |
+| Étape 2 (agent)         | 0.20€   |
+| Étape 3 (mcp)           | 0.30€   |
+| Étape 4a (guard part 1) | 0.45€   |
+| Étape 4b (guard part 2) | 0.55€   |
+| Étape 5 (studio)        | 0.40€   |
+| **Total**               | **~2€** |
 
 Ton forfait Pro à 20€/mois absorbe largement ça.
 
@@ -203,17 +207,11 @@ Ton forfait Pro à 20€/mois absorbe largement ça.
 
 ## Règles d'or pour économiser
 
-1. **Toujours commencer par "Lis VISION_IA.md, CLAUDE_IA.md, IA_STATUS.md"**
-   → Claude Code charge le contexte une fois, pas besoin de réexpliquer
-
 2. **Une session = un module (ou une partie d'un module)**
    → Évite la pollution du contexte
 
-3. **Toujours dire de mettre à jour IA_STATUS.md à la fin**
-   → Mémoire entre sessions
-
-4. **Toujours dire de committer**
+3. **Toujours dire de committer**
    → Permet de redémarrer propre la session suivante
 
-5. **Si Claude Code commence à divaguer → /clear et nouvelle session**
+4. **Si Claude Code commence à divaguer → /clear et nouvelle session**
    → Mieux que de gaspiller le contexte

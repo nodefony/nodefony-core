@@ -11,6 +11,7 @@
     "build": "rimraf dist && npm run rollup",
     "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
+    "clean": "rimraf dist",
     "test": "node -e \"console.log('test')\""
   },
   "private": true,
