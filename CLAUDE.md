@@ -26,6 +26,13 @@ Tu es un développeur minimaliste "Caveman".
 - **OBLIGATOIRE** : Si tu dois parler, utilise des phrases de moins de 5 mots.
   _Exemple : "Fichier lu. Erreur trouvée. Correction en cours."_
 
+## 📚 OPTIMIZED DOCUMENTATION ACCESS
+
+- **Node.js Docs (Priority)** : Ne jamais naviguer sur nodejs.org directement.
+- **Method** : Utiliser systématiquement un proxy Markdown (ex: `https://r.jina.ai/`) pour lire la doc technique.
+- **Token Saving** : Une fois une API Node.js comprise (ex: `node:http2`), stocke les signatures de fonctions critiques dans le `MEMORY.md` du module pour ne plus avoir à relire la doc officielle.
+- **No Hallucination** : Si un doute subsiste sur une version de Node.js (migration vers v20+), vérifie via le proxy Markdown avant de coder.
+
 ## Contexte du projet
 
 Framework Node.js fullstack open source — migration vers TypeScript.
@@ -301,6 +308,7 @@ Une fois installé, l'invoquer ainsi :
 ou en langage naturel : "lance le serveur", "démarre nodefony", "relance le serveur".
 
 **Ce que fait le skill :**
+
 1. Libère les ports 5151/5152 (tue les process existants)
 2. Rebuild `src/modules/test` (évite les 404 causés par le dist périmé — voir ci-dessous)
 3. Démarre le serveur avec la technique `spawn` Node.js `detached: true` (le simple `npx ... &` meurt par SIGHUP)
@@ -311,9 +319,9 @@ ou en langage naturel : "lance le serveur", "démarre nodefony", "relance le ser
 
 Deux pièges :
 
-| Problème | Symptôme | Cause |
-| -------- | --------- | ----- |
-| SIGHUP | `terminate: 0` immédiat, serveur mort | Le subshell se ferme et envoie SIGHUP au process `npx` |
+| Problème    | Symptôme                                       | Cause                                                                                                                                                                                            |
+| ----------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SIGHUP      | `terminate: 0` immédiat, serveur mort          | Le subshell se ferme et envoie SIGHUP au process `npx`                                                                                                                                           |
 | Dist périmé | Routes `/context`, `/crash/*`, `/memory` → 404 | En mode `development`, Nodefony charge le `dist/` au boot, puis Rollup recompile ~12 s plus tard et écrase le dist. Les routes ajoutées depuis le dernier build manuel ne sont pas enregistrées. |
 
 **Commande manuelle de secours (si le skill n'est pas disponible) :**
@@ -372,12 +380,12 @@ lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null
 
 ### Corrélation bug ↔ log serveur
 
-| Symptôme test | Log serveur | Cause | Fix |
-| ------------- | ----------- | ----- | --- |
-| `expected 404 to equal 500` | `404 GET /nodefony/test/crash/sync` | Route absente du routeur | Rebuild `src/modules/test` + restart |
-| `expected undefined to be a string` | `200 GET /nodefony/test/context` mais body `{}` | Controller `contextInfo()` retourne des champs `undefined` | Lire `HttpContext.ts` |
-| `ERR ECONNREFUSED` | absent | Serveur mort (SIGHUP ou port conflict) | Utiliser le skill ou la commande manuelle ci-dessus |
-| Heap delta trop élevé | `200 GET /nodefony/test/memory` répété | Sessions SQLite accumulées sans GC | Ajuster le seuil dans `memory.test.ts` |
+| Symptôme test                       | Log serveur                                     | Cause                                                      | Fix                                                 |
+| ----------------------------------- | ----------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------- |
+| `expected 404 to equal 500`         | `404 GET /nodefony/test/crash/sync`             | Route absente du routeur                                   | Rebuild `src/modules/test` + restart                |
+| `expected undefined to be a string` | `200 GET /nodefony/test/context` mais body `{}` | Controller `contextInfo()` retourne des champs `undefined` | Lire `HttpContext.ts`                               |
+| `ERR ECONNREFUSED`                  | absent                                          | Serveur mort (SIGHUP ou port conflict)                     | Utiliser le skill ou la commande manuelle ci-dessus |
+| Heap delta trop élevé               | `200 GET /nodefony/test/memory` répété          | Sessions SQLite accumulées sans GC                         | Ajuster le seuil dans `memory.test.ts`              |
 
 ### Erreurs critiques à connaître
 
