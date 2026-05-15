@@ -80,22 +80,25 @@ Prérequis: serveur `npx nodefony development` sur 5151/5152. Runner: mocha + ts
 Créé `nodefony/interfaces/` : `ICookie`, `ISession`, `IUpload`, `IRequest`, `IResponse`, `IContext`, `IHttpKernel`, `index.ts`.
 `implements` ajouté sur : `Cookie`, `Context`, `HttpContext`, `WebsocketContext`, `HttpKernel`.
 
-### Phase 2 — Tests unitaires (en attente)
-Fichiers à créer dans `nodefony/tests/unit/` :
-- `Cookie.test.ts` — serialize, sign/unsign, clearCookie (zéro dépendance serveur)
-- `HttpError.test.ts` — codes HTTP, héritage, message
-- `HttpContext.test.ts` — render, redirect, setContextJson (mock request/response)
-- `WebsocketContext.test.ts` — connect, send, reject, close (mock Ws)
-- `Session.test.ts` — start, save, flashBag, stratégie migrate/invalidate
+### Phase 2 — Tests unitaires ✅ partiel (commit 3ddf8ca — 2026-05-15)
+Runner: `npm run test:unit` → `.mocharc.unit.json` + hook `fix-reflect.mjs` (patch Rollup _virtual/Reflect.js ESM issue).
+- `Cookie.test.ts` ✅ 43 passing
+- `HttpError.test.ts` ✅ 13 passing
+- `Session.test.ts` — start, save, flashBag, migrate/invalidate (mock FileSessionStorage)
+- `Context.test.ts` — base class: type, scheme, cookies map, metaData (mock IncomingMessage)
 
-### Phase 3 — Tests d'intégration par protocole (en attente)
-Prérequis : serveur actif.
-- `http1.test.ts` — HTTP/1.1 complet : GET/POST/PUT/DELETE, headers, status codes
-- `http2.test.ts` — HTTP/2 : multiplexing, push, stream
+**Note technique loader** : `_virtual/Reflect.js` dans nodefony dist utilise `__require` (helper Rollup CJS absent en preserveModules ESM). Hook `nodefony/tests/hooks/fix-reflect.mjs` intercept et remplace par `createRequire`.
+
+### Phase 3 — Tests d'intégration runtime (en attente)
+Prérequis : `npx nodefony development` sur 5151/5152.
+Appui sur le module `src/modules/test` (HtmlController, RestController, WebSocketController…).
+- `http1.test.ts` — GET/POST/PUT/DELETE, headers, status codes
+- `http2.test.ts` — HTTP/2 multiplexing, stream
 - `https.test.ts` — TLS handshake, redirect HTTP→HTTPS
-- `session.test.ts` — session cookie, flashBag, invalidation
-- `upload.test.ts` — upload limits, multipart, file types
+- `session.test.ts` — session cookie, flashBag, invalidation (RestController)
+- `upload.test.ts` ✅ (déjà présent — HtmlController /upload)
 - `errors.test.ts` — 400/401/403/404/408/500/504, format JSON/HTML
+- `context.test.ts` — context properties via route /nodefony/test/* (HttpKernel + Context validés côté serveur)
 
 ### Phase 4 — HTTP/3 stub (en attente)
 `server-http3.ts` reste commenté — `node:http3` n'existe pas dans Node.js v26.
@@ -109,6 +112,15 @@ QUIC disponible via `node:net` mais pas de couche HTTP/3. À réactiver quand No
 
 ### Phase 6 — README.md (en attente)
 Documentation publique complète du module avec exemples API, tableaux, troubleshooting.
+
+### Phase 7 — Commandes CLI HTTP (en attente)
+Nouvelles commandes dans `nodefony/command/` :
+- `certificates` — afficher/générer/renouveler certificats TLS (info expiry, CN, SAN)
+- `routes` — lister toutes les routes enregistrées (méthode, path, controller, protocole)
+- `sessions:clear` — vider les sessions fichiers (storage FileSessionStorage)
+- `sessions:list` — lister sessions actives (id, expires, user)
+- `server:stats` — connexions actives, mémoire, uptime par serveur
+- `compress:test` — tester gzip/brotli sur une URL interne (debug Phase 5)
 
 ---
 

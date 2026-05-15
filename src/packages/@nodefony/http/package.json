@@ -17,7 +17,8 @@
     "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
-    "test": "mocha"
+    "test": "mocha",
+    "test:unit": "mocha --config .mocharc.unit.json"
   },
   "private": true,
   "keywords": [

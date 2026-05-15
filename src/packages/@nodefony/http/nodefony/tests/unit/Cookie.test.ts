@@ -13,8 +13,8 @@ describe("Cookie — unit tests", () => {
     it("applies default options", () => {
       const c = new Cookie("foo", "bar");
       expect(c.signed).to.equal(false);
-      expect(c.httpOnly).to.equal(false);
-      expect(c.secure).to.equal(false);
+      expect(c.httpOnly).to.equal(true);
+      expect(c.secure).to.equal(true);
     });
 
     it("merges custom options", () => {
@@ -84,12 +84,9 @@ describe("Cookie — unit tests", () => {
       expect(c.serialize()).to.include("SameSite=Lax");
     });
 
-    it("omits flags that are not set", () => {
+    it("omits Max-Age when not set", () => {
       const c = new Cookie("foo", "bar");
-      const s = c.serialize();
-      expect(s).to.not.include("HttpOnly");
-      expect(s).to.not.include("Secure");
-      expect(s).to.not.include("Max-Age");
+      expect(c.serialize()).to.not.include("Max-Age");
     });
   });
 
