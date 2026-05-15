@@ -39,6 +39,9 @@ class HttpError extends NodefonyError {
   response?: HttpRsponseType;
   request?: HttpRequestType;
   url?: string;
+  controller?: string;
+  action?: string;
+  jsonResponse?: string;
   constructor(
     message?: string | NodefonyError | Error | any,
     code?: number,
@@ -57,6 +60,13 @@ class HttpError extends NodefonyError {
         (context?.response as HttpRsponseType)?.body?.toString() ||
         (context?.response as HttpRsponseType)?.statusMessage ||
         (context?.response as HttpRsponseType)?.getStatusMessage();
+    }
+    const resolver = (context as any)?.resolver;
+    this.controller = resolver?.controller?.name ?? undefined;
+    this.action = resolver?.actionName ?? undefined;
+    const res = context?.response as HttpRsponseType | undefined;
+    if (res) {
+      this.jsonResponse = `${res.statusCode} ${res.statusMessage ?? ""}`.trim();
     }
   }
 
