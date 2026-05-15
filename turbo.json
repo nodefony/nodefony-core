@@ -16,6 +16,11 @@
       "outputs": [],
       "inputs": ["src/**/*.ts"]
     },
+    "test:integration": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "outputs": []
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,
