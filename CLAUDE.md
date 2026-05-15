@@ -282,7 +282,17 @@ grep -r "TODO\|FIXME\|console\.log" src/nodefony/src/
 
 ### Skill disponible : `start-nodefony-server`
 
-Un skill Claude Code est installé pour automatiser le démarrage du serveur avec toutes les précautions nécessaires. L'invoquer ainsi :
+Le skill est versionné dans le repo : **`.claude/skills/start-nodefony-server/SKILL.md`**
+
+**Installation sur un nouvel ordi** (une seule fois après `git clone`) :
+
+```bash
+mkdir -p ~/.claude/plugins/cache/claude-plugins-official/skill-creator/unknown/skills/start-nodefony-server
+cp .claude/skills/start-nodefony-server/SKILL.md \
+   ~/.claude/plugins/cache/claude-plugins-official/skill-creator/unknown/skills/start-nodefony-server/SKILL.md
+```
+
+Une fois installé, l'invoquer ainsi :
 
 ```
 /start-nodefony-server
