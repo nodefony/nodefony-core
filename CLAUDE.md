@@ -121,6 +121,49 @@ Source d'inspiration directe pour migrer `@nodefony/security` (Firewall) :
 - **Rôle de l'IA** : Quand je dis "Inspire-toi de NestJS pour le décorateur X", tu vas lire le `.md` brut correspondant, tu analyses la syntaxe TypeScript (Metadata, Reflect), et tu l'adaptes au Kernel de Nodefony.
 - **Zéro Blabla** : N'écris pas "NestJS fait comme ceci...". Écris directement le code du décorateur TypeScript adapté à Nodefony.
 
+## 🦅 NESTJS ARCHITECTURAL INSPIRATION (LOW-TOKEN)
+
+- **⚠️ TRIGGER CONDITION** : Ne lis ces ressources NestJS ET n'applique cette inspiration QUE si je te le demande explicitement par le mot-clé "NestJS". Sinon, ignore totalement cette section.
+
+---
+
+## 🌐 RFC & W3C STANDARDS (LOW-TOKEN CORES)
+
+Pour valider la conformité HTTP, HTTP2, et WebSockets du framework face aux normes officielles, utilise exclusivement ces sources au format texte brut (TXT) via `fetch` ou `curl` :
+
+### 1. HTTP/1.1 & Sémantique (RFC 9110 - Remplace la 7231)
+
+Source absolue pour les status codes (200, 404, 500), les headers, et les méthodes (GET, POST) :
+
+- **URL Raw TXT** : `https://www.ietf.org/rfc/rfc9110.txt`
+  _Instruction : Utilise un `grep` ou cherche le mot-clé exact (ex: "401 Unauthorized") pour ne pas lire les 200 pages._
+
+### 2. HTTP/2 (RFC 9113 - Remplace la 7540)
+
+Indispensable pour le multiplexage, la gestion des streams, et les pseudo-headers (`:status`, `:method`) dans `@nodefony/http` :
+
+- **URL Raw TXT** : `https://www.ietf.org/rfc/rfc9113.txt`
+
+### 3. WebSockets (RFC 6455)
+
+La bible pour le handshake HTTP, le masquage des frames et la fermeture des connexions WS :
+
+- **URL Raw TXT** : `https://www.ietf.org/rfc/rfc6455.txt`
+
+### 4. Spécifications WAF / CORS / Cookies (W3C & IETF)
+
+Pour le Firewall Applicatif (`@nodefony/security`) :
+
+- **CORS (Fetch Standard W3C)** : `https://r.jina.ai/https://fetch.spec.whatwg.org/`
+- **Cookies & SameSite (RFC 6265bis)** : `https://www.ietf.org/rfc/rfc6265.txt`
+
+---
+
+## ⚡ RÈGLE CAVEMAN POUR LES RFC
+
+- **Interdiction** d'utiliser les versions HTML complexes de `tools.ietf.org` ou `w3c.org`. Les fichiers `.txt` officiels de l'IETF sont parfaits : 0 token gaspillé en structure de page.
+- **Zéro Prose** : Si je te dis "Rends le Header conforme à la RFC 9110", trouve la section de la RFC, applique la syntaxe exacte dans le code (ex: casse des headers, séparateurs `\r\n`), et valide sans faire de rapport historique.
+
 ## Vision du framework
 
 Nodefony est une **plateforme générique** pour construire :
