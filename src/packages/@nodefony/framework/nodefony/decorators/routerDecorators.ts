@@ -6,6 +6,7 @@ import Controller from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
 import { Module, Nodefony } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
+import type { HTTPMethod } from "@nodefony/http";
 
 type Constructor<T = {}> = new (...args: any[]) => T;
 
@@ -170,4 +171,79 @@ function extractControllerFilePath(stackTrace: string[]): string | undefined {
   return undefined;
 }
 
-export { route, controller, controllers };
+// ── Metadata keys (exported for Resolver) ──────────────────────────────────
+export const HTTP_CODE_METADATA = "route:httpCode";
+export const HEADERS_METADATA = "route:responseHeaders";
+export const REDIRECT_METADATA = "route:redirect";
+
+export interface RedirectMeta {
+  url: string;
+  statusCode: number;
+}
+
+// ── HTTP method decorator factory ───────────────────────────────────────────
+type MethodDecoratorOptions = Omit<RouteOptions, "path" | "method">;
+
+function httpMethodDecorator(methods: HTTPMethod[]) {
+  return function (path: string = "", options: MethodDecoratorOptions = {}) {
+    return function (
+      target: object,
+      propertyKey: string,
+      descriptor: PropertyDescriptor
+    ): PropertyDescriptor {
+      const proto = target as Record<string, unknown>;
+      const name = `${(proto.constructor as { name: string }).name}::${propertyKey}`;
+      return route(name, { ...options, path, method: methods })(
+        target,
+        propertyKey,
+        descriptor
+      );
+    };
+  };
+}
+
+const Get = httpMethodDecorator(["GET"]);
+const Post = httpMethodDecorator(["POST"]);
+const Put = httpMethodDecorator(["PUT"]);
+const Delete = httpMethodDecorator(["DELETE"]);
+const Patch = httpMethodDecorator(["PATCH"]);
+
+// ── Response decorators ─────────────────────────────────────────────────────
+function HttpCode(statusCode: number) {
+  return function (
+    target: object,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ): PropertyDescriptor {
+    Reflect.defineMetadata(HTTP_CODE_METADATA, statusCode, target, propertyKey);
+    return descriptor;
+  };
+}
+
+function Header(key: string, value: string) {
+  return function (
+    target: object,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ): PropertyDescriptor {
+    const existing: Record<string, string> =
+      Reflect.getMetadata(HEADERS_METADATA, target, propertyKey) || {};
+    existing[key] = value;
+    Reflect.defineMetadata(HEADERS_METADATA, existing, target, propertyKey);
+    return descriptor;
+  };
+}
+
+function Redirect(url: string, statusCode: number = 302) {
+  return function (
+    target: object,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ): PropertyDescriptor {
+    const meta: RedirectMeta = { url, statusCode };
+    Reflect.defineMetadata(REDIRECT_METADATA, meta, target, propertyKey);
+    return descriptor;
+  };
+}
+
+export { route, controller, controllers, Get, Post, Put, Delete, Patch, HttpCode, Header, Redirect };

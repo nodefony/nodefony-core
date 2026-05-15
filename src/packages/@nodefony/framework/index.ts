@@ -15,6 +15,14 @@ import {
   controllers,
   route,
   controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Patch,
+  HttpCode,
+  Header,
+  Redirect,
 } from "./nodefony/decorators/routerDecorators";
 
 @services([Router, Twig, Ejs])
@@ -43,6 +51,14 @@ export {
   route,
   controller,
   controllers,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Patch,
+  HttpCode,
+  Header,
+  Redirect,
   graphql,
 };
 export type { IController, IRoute, IResolver } from "./nodefony/interfaces/index.js";

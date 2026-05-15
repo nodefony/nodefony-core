@@ -8,7 +8,7 @@ import {
   Module,
   //inject,
 } from "nodefony";
-import type { IResolver, IController } from "../interfaces/index.js";
+import type { IResolver } from "../interfaces/index.js";
 //import Router from "../service/router";
 import {
   //Context,
@@ -23,6 +23,12 @@ import {
 import Route, { ControllerConstructor } from "./Route.js";
 import BlueBird from "bluebird";
 import Controller from "./Controller";
+import {
+  HTTP_CODE_METADATA,
+  HEADERS_METADATA,
+  REDIRECT_METADATA,
+  type RedirectMeta,
+} from "../decorators/routerDecorators.js";
 
 //import { ServiceWithInitialize } from "nodefony";
 //import { ServiceConstructor } from "nodefony";
@@ -160,19 +166,25 @@ class Resolver extends Service implements IResolver {
       } else {
         args = [...this.variables];
       }
+      const proto = Object.getPrototypeOf(controller);
+      this._applyResponseDecorators(controller, proto);
+      const redirectMeta: RedirectMeta | undefined = Reflect.getMetadata(
+        REDIRECT_METADATA,
+        proto,
+        this.actionName!
+      );
       if (typeof controller[methodKey] === "function") {
         try {
-          const action = (controller[methodKey] as Function)(...args);
-          return await this.returnController(action).catch((e) => {
-            throw e;
-          });
+          const actionResult = (controller[methodKey] as (...a: unknown[]) => unknown)(...args);
+          return await this._handleRedirect(actionResult, redirectMeta);
         } catch (e) {
           throw e;
         }
       }
       if (this.action) {
         try {
-          return await this.returnController(this.action(...args));
+          const actionResult = this.action(...args);
+          return await this._handleRedirect(actionResult, redirectMeta);
         } catch (e) {
           throw e;
         }
@@ -181,6 +193,47 @@ class Resolver extends Service implements IResolver {
     } catch (e) {
       throw e;
     }
+  }
+
+  private _applyResponseDecorators(controller: Controller, proto: object): void {
+    const httpCode: number | undefined = Reflect.getMetadata(
+      HTTP_CODE_METADATA,
+      proto,
+      this.actionName!
+    );
+    if (httpCode !== undefined) {
+      controller.response?.setStatusCode(httpCode);
+    }
+    const headers: Record<string, string> | undefined = Reflect.getMetadata(
+      HEADERS_METADATA,
+      proto,
+      this.actionName!
+    );
+    if (headers) {
+      for (const [key, value] of Object.entries(headers)) {
+        (controller.response as HttpResponse | Http2Response | null)?.setHeader(key, value);
+      }
+    }
+  }
+
+  private async _handleRedirect(
+    actionResult: unknown,
+    redirectMeta: RedirectMeta | undefined
+  ): Promise<unknown> {
+    if (!redirectMeta) {
+      return this.returnController(actionResult).catch((e: unknown) => { throw e; });
+    }
+    const resolved = await Promise.resolve(actionResult);
+    if (resolved !== null && resolved !== undefined && typeof resolved === "object" && "url" in resolved) {
+      const override = resolved as { url: string; statusCode?: number };
+      (this.context as HttpContext).redirect(override.url, override.statusCode ?? redirectMeta.statusCode);
+      return;
+    }
+    if (resolved === undefined || resolved === null) {
+      (this.context as HttpContext).redirect(redirectMeta.url, redirectMeta.statusCode);
+      return;
+    }
+    return this.returnController(resolved).catch((e: unknown) => { throw e; });
   }
 
   async returnController(result: any) {
