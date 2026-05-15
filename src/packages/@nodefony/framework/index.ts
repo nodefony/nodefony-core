@@ -45,3 +45,4 @@ export {
   controllers,
   graphql,
 };
+export type { IController, IRoute, IResolver } from "./nodefony/interfaces/index.js";
