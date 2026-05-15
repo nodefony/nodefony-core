@@ -182,6 +182,8 @@
 
 **Bugs corrigés @nodefony/http (2026-05-15/16)** :
 - `ERR_INVALID_CHAR` statusMessage — dist périmé sans sanitization ASCII → rebuild ✅
+- `ERR_INVALID_CHAR` writeHead — Node.js set `statusMessage` natif AVANT de valider → char invalide persiste → tous les writes suivants échouent (timeout inclus). Fix : `safeMsg = statusMessage.replace(/[^\x20-\x7E]/g, "")` dans `Response.writeHead()` avant appel `ServerResponse.writeHead()` ✅ (2026-05-16)
+- `HttpError.Controller/Action/Response: undefined` — champs jamais renseignés. Fix : extraire `context.resolver.controller.name` + `resolver.actionName` dans `HttpError` constructor ✅ (2026-05-16)
 - Cookie `Expires` an 58339 — `(getTime() + maxage) * 1000` → `getTime() + maxage * 1000` ✅
 - Cookie session (maxAge=0) → `maxage === 0` ne catchait pas `undefined` → `!maxage` ✅
 - **queryGet `?`-prefix** — `QS.parse(url.search)` → `QS.parse(url.search.slice(1))` : premier param retournait `"?name"` au lieu de `"name"` ✅ (2026-05-16)
@@ -327,6 +329,7 @@
 | 2026-05-15 | @nodefony/framework — IController/IRoute/IResolver + implements + 47 tests        | `nodefony/interfaces/IController.ts`, `IRoute.ts`, `IResolver.ts`, `index.ts`, `Controller.ts`, `Resolver.ts`, `Route.ts`, `tests/unit/Route.test.ts`, `Router.test.ts`, `routerDecorators.test.ts`                                                               | ~3h    | Interfaces créées (readonly covariant fix, `(...args: unknown[]) => unknown` vs Function) — `implements IController/IRoute/IResolver` sur les 3 classes — bug Route.matchRequirements `return;`→`return true` (WEBSOCKET) — 47 tests (28 Route + 11 Router + 5 routerDecorators) 0 failing — mock-sequelize.mjs ESM hook pour éviter crash `getKernel().path` |
 | 2026-05-16 | @nodefony/framework — NestJS decorators + integration tests Controller             | `routerDecorators.ts`, `Resolver.ts`, `index.ts`, `tests/unit/httpMethodDecorators.test.ts`, `tests/integration/controller.test.ts`, `src/modules/test/nodefony/controller/FrameworkController.ts`                                                                | ~4h    | `@Get/@Post/@Put/@Delete/@Patch` (requirements.methods, auto-name ClassName::method) — `@HttpCode/@Header/@Redirect` (Reflect metadata, appliqué par Resolver) — fix `@Post` constraint (méthode → requirements.methods) — fix `@Redirect` → `returnController(undefined)` — FrameworkController 14 routes — 90 tests (67 unit + 23 intégration), 0 failing — bug documenté: method-name conflict avec props Controller |
 | 2026-05-16 | @nodefony/framework — @Param/@Body/@Query + tests d'intégration complets           | `routerDecorators.ts`, `Resolver.ts`, `index.ts`, `tests/unit/routerDecorators.test.ts`, `tests/integration/decorators.integration.test.ts`, `controller.test.ts`, `FrameworkController.ts`, `DecoratorController.ts`, `@nodefony/http/tests/http/decorators.test.ts` | ~3h    | `@Param/@Body/@Query` (PARAM_ARGS_METADATA, ParamMeta, _buildParamArgs) — fix `Route.match()` retourne slice(1) → `variables[i]` pas `i+1` — fix queryGet `url.search.slice(1)` — DecoratorController 7 routes, FrameworkController +8 routes — 112 tests framework (72 unit + 40 intégration), 10 tests http/decorators.test.ts, 0 failing |
+| 2026-05-16 | @nodefony/http — fix ERR_INVALID_CHAR writeHead + HttpError Controller/Action/Response | `Response.ts`, `httpError.ts`, `CLAUDE.md` | ~1h    | **ERR_INVALID_CHAR** : Node.js set `statusMessage` natif avant validation → char invalide persiste → tous writes suivants échouent. Fix : `safeMsg.replace(/[^\x20-\x7E]/g,"")` dans `Response.writeHead()`. **HttpError champs** : `controller`/`action`/`jsonResponse` extraits de `context.resolver` dans constructor. 329 HTTP tests + 112 framework tests, 0 failing. CLAUDE.md : ajout RFC IETF references. |
 
 ---
 
@@ -393,18 +396,12 @@ Note future : `AsyncLocalStorage` pour propager le requestId dans les services a
 
 ---
 
-**@nodefony/framework — Plan : HttpError champs undefined** (à faire — module framework) :
+**@nodefony/framework — Plan : HttpError champs undefined** ✅ (2026-05-16) :
 
-Objectif : `Controller`, `Action`, `Response` peuplés dans `HttpError` pour faciliter le debugging.
-
-Constat : dans `onError()`, ces champs sont `undefined` car le `Resolver.callController()` a planté avant que le contexte soit enrichi.
-
-| # | Tâche | Fichier | Complexité |
-|---|-------|---------|-----------|
-| 1 | Dans `Resolver.resolve()` : stocker `controllerName` + `actionName` sur le contexte **avant** l'appel | `nodefony/src/Resolver.ts` | 2 |
-| 2 | Dans `HttpError` constructor : si `context.response` existe, assigner `this.response` | `@nodefony/http/nodefony/src/errors/httpError.ts` | 1 |
-| 3 | Dans `HttpError.toJSON()` : inclure `controller`, `action`, `response.statusCode` | `@nodefony/http/nodefony/src/errors/httpError.ts` | 1 |
-| 4 | Tests : vérifier les 3 champs peuplés pour erreurs 404, 500 (native throw), 500 (HttpError) | `nodefony/tests/http/errors.test.ts` | 2 |
+`Controller`, `Action`, `Response` maintenant peuplés dans `HttpError` constructor via `context.resolver`.
+- `this.controller = resolver?.controller?.name`
+- `this.action = resolver?.actionName`
+- `this.jsonResponse = \`${res.statusCode} ${res.statusMessage}\`.trim()`
 
 **@nodefony/framework — Plan : Request Tracing + Log structuré** (prochaine session) :
 
