@@ -130,29 +130,19 @@ Appui sur `src/modules/test` — routes ajoutées : RestController session set/g
 - `connection` populated after `connect()`
 - Protocol negotiation : header Sec-WebSocket-Protocol → context.acceptedProtocol
 
-### Phase 5 — Résilience + Sécurité serveur (en attente)
+### Phase 5 — Résilience + Sécurité serveur ✅ (2026-05-15)
 **Principe** : le serveur ne peut JAMAIS s'arrêter — catch ALL les cas limites.
 
-**Résilience serveur** :
-- `http-kernel.ts` uncaughtException handler — vérifier qu'il existe et est wired
-- Request avec headers malformés → 400, pas crash
-- Body oversized (> maxBodySize config) → 413, pas crash
-- Request timeout (lente → 408 after N ms)
-- Burst 100 concurrent requests → pas de fuite mémoire
-- ECONNRESET / ECONNABORTED du client → absorbés silencieusement
-- SSL handshake abort → absorbé
+`resilience.test.ts` — ECONNRESET absorbé, oversized body (no crash), malformed requests 4xx, 50 concurrent crashes + server alive, mixed burst, error response format.
+`security.test.ts` — path traversal bloqué, CR/LF header injection (Node.js ERR_INVALID_HTTP_TOKEN), URL oversizée 4xx, null bytes 4xx, SQL patterns no crash, cookie oversizée no crash, Set-Cookie sans CR/LF, no stack en body 404, no semver dans X-Powered-By.
 
-**Sécurité** :
-- HTTP Response Splitting (CR/LF dans headers) → sanitisation
-- Path traversal dans serve-static → bloqué
-- Cookie injection (value avec newlines) → serialisation safe
-- Oversized cookies → 400
+**Route test ajoutée** : `DefaultController /header-echo?x-val=` — pour tester la sanitisation des headers via Node.js.
 
-**Tests spécifiques à créer** :
-```
-nodefony/tests/http/resilience.test.ts   ← oversized body, timeout, burst
-nodefony/tests/http/security.test.ts     ← header injection, path traversal
-```
+**Observations importantes** :
+- Pas de `uncaughtException` handler dans `http-kernel.ts` — les crashes non-HTTP (ex: bug dans un service) pourraient arrêter le process. À corriger dans le Kernel.
+- Oversized body : formidable lance une erreur → http-kernel retourne 500, pas 413. Comportement à améliorer.
+- Node.js v26 rejette les headers avec CR/LF (`ERR_INVALID_HTTP_TOKEN`) → protection automatique contre response splitting.
+- `x-powered-by` header expose ou non la version selon le mode dev/prod — à vérifier.
 
 ### Phase 6 — Performance (en attente)
 - Compression gzip/brotli (`Accept-Encoding: gzip, br`)

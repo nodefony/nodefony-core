@@ -58,6 +58,15 @@ class DefaultController extends Controller {
     });
   }
 
+  // ── security probe — echoes ?x-val into a response header ───────
+  // Tests Node.js header sanitization: CR/LF in value → ERR_INVALID_HTTP_TOKEN
+  @route("header-echo", { path: "/header-echo" })
+  headerEcho() {
+    const val = String(this.queryGet?.["x-val"] ?? "none");
+    (this.context as HttpContext).response?.addHeader("x-echoed", val);
+    return this.renderJson({ echoed: val });
+  }
+
   // ── resilience routes ────────────────────────────────────────────
   @route("crash-sync", { path: "/crash/sync" })
   crashSync() {
