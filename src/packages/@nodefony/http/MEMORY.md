@@ -190,6 +190,46 @@ Appui sur `src/modules/test` — routes ajoutées : RestController session set/g
 
 Fichiers statiques testés: `/test/chico_buarque.mp3`, `/test/oceans-clip.webm`, `/favicon.ico` (dans `src/modules/test/public/`).
 
+### Phase 3 résiduel — Tests intégration manquants (en attente)
+Ces fichiers sont dans le plan mais pas encore créés :
+- `http1.test.ts` — GET/POST/PUT/DELETE complets, headers custom, chunked transfer (port 5151 HTTP)
+- `https.test.ts` — TLS cipher, redirect HTTP→HTTPS (port 5152)
+- `errors.test.ts` — format erreur JSON (code, message, stack en dev vs prod)
+
+### Phase 5c — Fuites mémoire (PRIORITÉ HAUTE — en attente)
+**Principe** : chaque requête crée un scope/context → doit être GC'd après la réponse.
+
+**Indicateurs à mesurer** (via `process.memoryUsage().heapUsed`) :
+- Baseline RSS avant charge
+- RSS après 1000 requêtes séquentielles → delta < 5 MB
+- RSS après 100 WS connexions ouvertes/fermées → retour baseline
+- Absence de listeners orphelins (`EventEmitter.listenerCount`)
+
+**Cas à tester** :
+1. **Scope request** : `container.enterScope("request")` → scope doit être détruit après `response.end()`
+2. **Context GC** : `HttpContext` instance → plus de référence circulaire après close
+3. **Session leak** : session démarrée mais non sauvegardée (crash controller) → pas de fuite FileStorage
+4. **WS listener leak** : connexion WS → `ws.on("message", ...)` → fermeture → listener retiré
+5. **EventEmitter leak** : `context.on("onClose", ...)` → handlers supprimés après réponse
+6. **Timer leak** : `setTimeout()` dans HttpContext → cleared on close
+7. **Requêtes en erreur** : 50 crashes consécutifs → heapUsed stable (± 2 MB)
+8. **Circular refs** : context ↔ request ↔ response → pas de cycle retenant en mémoire
+
+**Outil** : `--expose-gc` + `global.gc()` entre mesures pour forcer le GC.
+**Fichier** : `nodefony/tests/http/memory.test.ts`
+
+```typescript
+// Pattern de base
+const before = process.memoryUsage().heapUsed;
+for (let i = 0; i < 1000; i++) { await get("/nodefony/test/index"); }
+global.gc?.();
+const after = process.memoryUsage().heapUsed;
+expect(after - before).to.be.below(5 * 1024 * 1024); // < 5 MB
+```
+
+**Observation critique** : si le scope "request" n'est pas sorti après chaque requête, chaque
+`context` serait retenu → fuite linéaire. Vérifier `container.leaveScope()` dans le pipeline.
+
 ### Phase 6 — Performance (en attente)
 - Compression gzip/brotli (`Accept-Encoding: gzip, br`)
 - ETag / `If-None-Match` → 304 Not Modified (économie bande passante)
