@@ -82,6 +82,17 @@ class DefaultController extends Controller {
   crashNative() {
     throw new TypeError("native error — no HttpError");
   }
+
+  @route("memory-stats", { path: "/memory" })
+  memoryStats() {
+    const mem = process.memoryUsage();
+    return this.renderJson({
+      rss: mem.rss,
+      heapTotal: mem.heapTotal,
+      heapUsed: mem.heapUsed,
+      external: mem.external,
+    });
+  }
 }
 
 export default DefaultController;

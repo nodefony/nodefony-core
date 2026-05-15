@@ -42,6 +42,7 @@ src/modules/test/
 | `/crash/sync` | GET | `throw new Error(...)` → 500 |
 | `/crash/async` | GET | `await Promise.reject(...)` → 500 |
 | `/crash/native` | GET | `throw new TypeError(...)` → 500 |
+| `/memory` | GET | `process.memoryUsage()` du serveur (rss, heapTotal, heapUsed, external) |
 | `/forward` | GET | Forward vers `app:AppController:method1` |
 
 ### RestController (`/nodefony/test/rest`)
