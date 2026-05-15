@@ -50,6 +50,77 @@ Auteur : Christophe CAMENSULI — projet libre CeCILL-B.
 
 ---
 
+## 📘 TS OFFICIAL DOCS & TYPES (CDN PROXIES)
+
+Si tu as un doute sur une fonctionnalité de typage avancée (Utility Types, Mapped Types, Generics), utilise exclusivement ces sources épurées via `fetch` ou `curl` :
+
+### 1. Les Types Utilitaires Officiels (Utility Types)
+
+Pour voir comment TypeScript type nativement `Pick`, `Omit`, `ReturnType`, ou `Parameters` :
+
+- **URL Raw** : `https://r.jina.ai/https://raw.githubusercontent.com/microsoft/TypeScript/main/src/lib/es5.d.ts`
+  _Instruction : Ne lis pas tout le fichier, fais un grep ou cherche la définition précise._
+
+### 2. Guide des Bonnes Pratiques de Typage (TS Handbook)
+
+Pour les règles de design de typage (Overloads, Callbacks, Unsound Types) :
+
+- **Design Guidelines** : `https://r.jina.ai/https://raw.githubusercontent.com/microsoft/TypeScript-Website/v2/packages/documentation/copy/en/declaration-files/Do-s-and-Don-ts.md`
+- **Midi-Cheat-Sheet (Interfaces vs Types)** : `https://r.jina.ai/https://raw.githubusercontent.com/microsoft/TypeScript-Website/v2/packages/documentation/copy/en/handbook/2/Everyday-Types.md`
+
+### 3. Typages TS pour Node.js (@types/node officiel)
+
+Pour vérifier un type natif de Node.js v20+ ou une interface globale (ex: `NodeJS.Timeout`) :
+
+- **Core HTTP Types** : `https://r.jina.ai/https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/node/http.d.ts`
+- **Global / Process Types** : `https://r.jina.ai/https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/node/globals.d.ts`
+
+---
+
+## ⚡ RÈGLE CAVEMAN POUR LA DOC TS
+
+- **Interdiction** de charger les pages du site `typescriptlang.org` (trop lourdes, perte de tokens).
+- **Raccourci** : Si je te demande "Comment typer X en TS ?", utilise le proxy `https://r.jina.ai/` devant l'URL GitHub Raw appropriée.
+- **Zéro Bla-bla** : Tu extrais la structure du type officiel, tu l'adaptes à Nodefony, et tu l'intègres sans faire de rapport de lecture.
+
+## 🦅 NESTJS ARCHITECTURAL INSPIRATION (LOW-TOKEN)
+
+- **⚠️ TRIGGER CONDITION** : Ne lis ces ressources NestJS ET n'applique cette inspiration QUE si je te le demande explicitement par le mot-clé "NestJS". Sinon, ignore totalement cette section.
+
+Pour calquer l'architecture de Nodefony sur les concepts de NestJS (Decorators, Controllers, Modules, DI) sans gaspiller de tokens, utilise exclusivement le repository officiel de la documentation NestJS au format Raw Markdown :
+
+### 1. Les Contrôleurs & Gestion HTTP/WS (Controllers)
+
+Pour comprendre comment NestJS lie les décorateurs aux routes et gère le cycle de vie des requêtes :
+
+- **URL Raw** : `https://r.jina.ai/https://raw.githubusercontent.com/nestjs/docs.nestjs.com/master/content/controllers.md`
+
+### 2. L'Injection de Dépendances (Providers & Components)
+
+Pour calquer le système `@Service` / `@Inject` de Nodefony sur les Providers de NestJS :
+
+- **URL Raw** : `https://r.jina.ai/https://raw.githubusercontent.com/nestjs/docs.nestjs.com/master/content/providers.md`
+
+### 3. L'Encapsulation par Module (Modules)
+
+Pour structurer les sous-dossiers de `src/packages/@nodefony/` comme les modules NestJS :
+
+- **URL Raw** : `https://r.jina.ai/https://raw.githubusercontent.com/nestjs/docs.nestjs.com/master/content/modules.md`
+
+### 4. Les Gardes & Sécurité (Guards / WAF)
+
+Source d'inspiration directe pour migrer `@nodefony/security` (Firewall) :
+
+- **URL Raw** : `https://r.jina.ai/https://raw.githubusercontent.com/nestjs/docs.nestjs.com/master/content/guards.md`
+
+---
+
+## ⚡ RÈGLE CAVEMAN POUR L'INSPIRATION NESTJS
+
+- **Interdiction** d'aller sur `docs.nestjs.com` (le site plante Claude Code avec le JS lourd et consomme trop).
+- **Rôle de l'IA** : Quand je dis "Inspire-toi de NestJS pour le décorateur X", tu vas lire le `.md` brut correspondant, tu analyses la syntaxe TypeScript (Metadata, Reflect), et tu l'adaptes au Kernel de Nodefony.
+- **Zéro Blabla** : N'écris pas "NestJS fait comme ceci...". Écris directement le code du décorateur TypeScript adapté à Nodefony.
+
 ## Vision du framework
 
 Nodefony est une **plateforme générique** pour construire :
