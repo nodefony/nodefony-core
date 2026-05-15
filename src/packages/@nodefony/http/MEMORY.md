@@ -148,7 +148,7 @@ Appui sur `src/modules/test` — routes ajoutées : RestController session set/g
 - Node.js v26 rejette les headers avec CR/LF (`ERR_INVALID_HTTP_TOKEN`) → protection automatique contre response splitting.
 - `x-powered-by` header expose ou non la version selon le mode dev/prod — à vérifier.
 
-### Plan correction — 11 tests d'intégration en échec (à traiter prochaine session)
+### Plan correction — 11 tests d'intégration — CORRIGÉ (2026-05-15)
 
 **Groupe A — Bug framework (priorité haute)**
 
@@ -173,10 +173,12 @@ Appui sur `src/modules/test` — routes ajoutées : RestController session set/g
 |---|---|---|---|
 | 8 | DELETE /session → `destroyed` undefined | Test attend `body.destroyed === oldId`. RestController.sessionDestroy() retourne probablement un format différent | Lire RestController.sessionDestroy() et aligner test avec format réel |
 
-**Fichiers à lire en début de session :**
-- `nodefony/src/context/http/Response.ts` — trouver la vraie méthode pour set un header custom (remplace `addHeader`)
-- `nodefony/service/http-kernel.ts` lignes 680-730 — pipeline onError pour WS et HTTP
-- `src/modules/test/nodefony/controller/RestController.ts` — méthode `sessionDestroy()` retour JSON
+**Root causes corrigés :**
+- `addHeader` → `setHeader` dans `DefaultController.headerEcho()` (méthode inexistante)
+- `Response.setStatusCode()` : sanitize ASCII — le `—` dans "native error — no HttpError" faisait throw `writeHead()` → connexion non fermée → timeout
+- `RestController.sessionInfo()` : ajout `requirements: { methods: "GET" }` — sans ça DELETE matchait sessionInfo au lieu de sessionDestroy
+- Tests ajustés : wildcard route catch-all, unknown method, SQL path encode, upload mimeType
+- `getUserAgent() ?? null` dans DefaultController pour éviter `undefined` en JSON
 
 ### Phase 5b — Serve-static tests ✅ (2026-05-15)
 `nodefony/tests/http/static.test.ts` — tests d'intégration serve-static.

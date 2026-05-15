@@ -209,7 +209,9 @@ class HttpResponse {
 
     this.statusCode = (status as number) || this.statusCode;
     if (message) {
-      this.statusMessage = stripAinsi(message);
+      // HTTP status messages must be printable US-ASCII only (RFC 7230 §3.1.2)
+      const ascii = stripAinsi(message).replace(/[^\x20-\x7E]/g, "").trim();
+      this.statusMessage = ascii || (http.STATUS_CODES[this.statusCode] ?? "Unknown Error");
     } else if (!this.statusMessage) {
       if (http.STATUS_CODES[this.statusCode]) {
         this.statusMessage = http.STATUS_CODES[this.statusCode] as string;

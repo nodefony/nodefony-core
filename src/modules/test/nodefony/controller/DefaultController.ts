@@ -53,7 +53,7 @@ class DefaultController extends Controller {
       method: this.method,
       host: ctx.getHost(),
       remoteAddress: ctx.getRemoteAddress(),
-      userAgent: ctx.getUserAgent(),
+      userAgent: ctx.getUserAgent() ?? null,
       sessionId: ctx.session?.id ?? null,
     });
   }
@@ -63,7 +63,7 @@ class DefaultController extends Controller {
   @route("header-echo", { path: "/header-echo" })
   headerEcho() {
     const val = String(this.queryGet?.["x-val"] ?? "none");
-    (this.context as HttpContext).response?.addHeader("x-echoed", val);
+    (this.context as HttpContext).response?.setHeader("x-echoed", val);
     return this.renderJson({ echoed: val });
   }
 

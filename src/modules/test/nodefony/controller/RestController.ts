@@ -17,7 +17,7 @@ class RestController extends Controller {
     return this.renderJson({});
   }
 
-  @route("rest-session-info", { path: "/session" })
+  @route("rest-session-info", { path: "/session", requirements: { methods: "GET" } })
   sessionInfo() {
     const session = this.getSession();
     if (!session) throw new HttpError("Session not started", 500, this.context);

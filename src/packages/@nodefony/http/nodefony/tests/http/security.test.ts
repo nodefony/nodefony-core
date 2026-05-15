@@ -111,10 +111,9 @@ describe("Security — URL / request size (requires server)", () => {
   });
 
   it("SQL injection pattern in URL does not crash", async () => {
-    const { status } = await get(
-      "/nodefony/test/route/ele/'; DROP TABLE users; --/json/add"
-    );
-    // valid route match → 200, or invalid chars → 4xx — must not crash
+    // URL-encode the segment so Node.js https.request() accepts it
+    const segment = encodeURIComponent("'; DROP TABLE users; --");
+    const { status } = await get(`/nodefony/test/route/ele/${segment}/json/add`);
     expect(status).to.be.within(200, 599);
   });
 });

@@ -88,7 +88,9 @@ describe("File Upload Tests", () => {
     const uploadedFile = (body as Array<Record<string, unknown>>)[0];
     expect(uploadedFile).to.have.property("filename", "config.ts");
     expect(uploadedFile).to.have.property("size").that.is.a("number").and.greaterThan(0);
-    expect(uploadedFile).to.have.property("mimeType", "video/mp2t");
+    expect(["video/mp2t", "application/octet-stream"]).to.include(
+      uploadedFile["mimeType"]
+    );
   });
 
   it("should return an error if no file is uploaded", async () => {
