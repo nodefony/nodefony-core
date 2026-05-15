@@ -18,6 +18,9 @@ import wsResponse from "./nodefony/src/context/websocket/Response";
 import Cookie from "./nodefony/src/cookies/cookie";
 import UploadService from "./nodefony/service/upload/upload-service";
 import HttpContext from "./nodefony/src/context/http/HttpContext";
+import WebsocketContext from "./nodefony/src/context/websocket/WebsocketContext";
+import HttpRequest from "./nodefony/src/context/http/Request";
+import Http2Request from "./nodefony/src/context/http2/Request";
 
 @services([
   HttpKernel,
@@ -78,6 +81,9 @@ export {
   wsResponse as WebsocketResponse,
   Cookie,
   HttpContext,
+  WebsocketContext,
+  HttpRequest,
+  Http2Request,
 };
 
 // Public interfaces — consommables par les autres modules
@@ -117,3 +123,18 @@ export type {
 } from "./nodefony/interfaces/IResponse";
 export type { IHttpKernel } from "./nodefony/interfaces/IHttpKernel";
 export type { IUploadedFile, IUploadService } from "./nodefony/interfaces/IUpload";
+
+// Types internes réexportés pour les modules dépendants (framework, security)
+export type {
+  ContextType,
+  httpRequest,
+  httpResponse,
+  ProtocolType,
+} from "./nodefony/service/http-kernel";
+export type {
+  contextRequest,
+  contextResponse,
+  HTTPMethod,
+  WebSocketState,
+  Cookies,
+} from "./nodefony/src/context/Context";

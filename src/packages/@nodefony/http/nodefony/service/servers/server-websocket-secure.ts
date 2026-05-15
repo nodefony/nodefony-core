@@ -52,7 +52,7 @@ class WebsocketSecure extends Service {
     return 0;
   }
 
-  async createServer(serverHttps: httpsServers): Promise<Ws.Server> {
+  async createServer(serverHttps: httpsServers): Promise<WebSocketServer> {
     return new Promise((resolve, reject) => {
       try {
         this.infos = (serverHttps.server as https.Server).address() as AddressInfo;

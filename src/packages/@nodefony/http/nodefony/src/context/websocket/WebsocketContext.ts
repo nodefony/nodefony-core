@@ -69,7 +69,8 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     this.port = parseInt(this.wsUrl.port, 10) || (type === "websocket-secure" ? 443 : 80);
 
     // Extend request with URL object so the router can use request.url.pathname
-    (this.request as WsIncomingMessage).url = this.wsUrl;
+    // Cast needed: IncomingMessage.url is string, IWsRequestExtension.url is URL → intersection string & URL
+    (this.request as WsIncomingMessage).url = this.wsUrl as unknown as string & URL;
     (this.request as WsIncomingMessage).queryGet = this.queryGet;
     (this.request as WsIncomingMessage).query = this.queryRequest;
     (this.request as WsIncomingMessage).path = this.wsPath;
@@ -129,7 +130,7 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     );
   }
 
-  async connect(): Promise<WebSocket> {
+  async connect(): Promise<Ws> {
     if (!this.response || !this.request || !this.connection) {
       throw new Error("Nodefony Websocket Bad request/response/connection");
     }
@@ -160,7 +161,7 @@ export default class WebsocketContext extends Context implements IWebsocketConte
           this.resolver.match(this.resolver.route as Route, this);
         } catch (e) {
           if (!this.rejected) {
-            this.reject((e as HttpError).code, (e as HttpError).message);
+            this.reject((e as HttpError).code ?? undefined, (e as HttpError).message);
           }
           throw e;
         }

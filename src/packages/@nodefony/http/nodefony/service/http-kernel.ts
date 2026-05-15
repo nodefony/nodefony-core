@@ -256,7 +256,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   async onError(
     error: Error | HttpError | nodefonyError,
     context?: ContextType,
-    extraHeaders?: Record<string, any> | object
+    _extraHeaders?: Record<string, unknown> | object
   ): Promise<HttpContext | WebsocketContext> {
     try {
       const code = error.code === 200 ? 500 : !error.code ? 500 : error.code;

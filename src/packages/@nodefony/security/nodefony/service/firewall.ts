@@ -216,7 +216,7 @@ class Firewall extends Service {
     }
     return this.sessionService
       .start(context, context.sessionAutoStart as string)
-      .catch(async (error) => {
+      .catch(async (error: unknown) => {
         throw error;
       });
   }
@@ -231,7 +231,7 @@ class Firewall extends Service {
           // }
           return ctx;
         })
-        .catch((e) => {
+        .catch((e: unknown) => {
           throw e;
         });
     }

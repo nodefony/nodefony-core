@@ -143,7 +143,7 @@ class Route {
   match(context: ContextType) {
     let res;
     if (context.request && context.request.url && this.pattern) {
-      const url = context.request.url.pathname.replace(
+      const url = (context.request.url as URL).pathname.replace(
         REG_REPLACE_END_SLASH,
         ""
       );
@@ -173,7 +173,7 @@ class Route {
     //const map: any[] = [];
     const map: any[] & { [key: string]: any } = [] as any;
     try {
-      res.slice(1).forEach((param, i: number) => {
+      res.slice(1).forEach((param: string | null, i: number) => {
         const k = this.variables[i] || "wildcard";
         param &&= decode(param);
         const req = this.getRequirement(k);
@@ -181,10 +181,10 @@ class Route {
         if (req) {
           switch (typeOf(req)) {
             case "RegExp":
-              result = req.test(param);
+              result = req.test(param ?? "");
               break;
             case "string":
-              result = new RegExp(req).test(param);
+              result = new RegExp(req).test(param ?? "");
               break;
             default:
               throw {

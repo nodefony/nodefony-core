@@ -94,10 +94,7 @@ class SecuredArea extends Service {
     if (context.request) {
       let url: string | null | undefined = null;
       if (context.request?.url) {
-        url = context.request.url.pathname;
-      }
-      if ((context as WebsocketContext).request?.resourceURL) {
-        url = (context as WebsocketContext).request?.resourceURL.pathname;
+        url = (context.request.url as URL).pathname;
       }
       if (url) {
         return this.pattern.exec(url);

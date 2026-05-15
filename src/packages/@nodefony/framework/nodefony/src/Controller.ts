@@ -128,7 +128,7 @@ class Controller extends Service {
     try {
       return (this.context as HttpContext)
         ?.render(data, encoding, status, headers)
-        .catch((e) => {
+        .catch((e: unknown) => {
           throw e;
         });
     } catch (e) {
