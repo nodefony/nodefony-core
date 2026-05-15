@@ -80,14 +80,16 @@ Prérequis: serveur `npx nodefony development` sur 5151/5152. Runner: mocha + ts
 Créé `nodefony/interfaces/` : `ICookie`, `ISession`, `IUpload`, `IRequest`, `IResponse`, `IContext`, `IHttpKernel`, `index.ts`.
 `implements` ajouté sur : `Cookie`, `Context`, `HttpContext`, `WebsocketContext`, `HttpKernel`.
 
-### Phase 2 — Tests unitaires ✅ partiel (commit 3ddf8ca — 2026-05-15)
-Runner: `npm run test:unit` → `.mocharc.unit.json` + hook `fix-reflect.mjs` (patch Rollup _virtual/Reflect.js ESM issue).
+### Phase 2 — Tests unitaires ✅ (commits 3ddf8ca, d187d62 — 2026-05-15)
+Runner: `npm run test:unit` → `.mocharc.unit.json` + hook `fix-reflect.mjs`. **67 passing.**
 - `Cookie.test.ts` ✅ 43 passing
 - `HttpError.test.ts` ✅ 13 passing
-- `Session.test.ts` — start, save, flashBag, migrate/invalidate (mock FileSessionStorage)
-- `Context.test.ts` — base class: type, scheme, cookies map, metaData (mock IncomingMessage)
+- `Session.test.ts` ✅ 24 passing (constructor, encrypt/decrypt, flashBag, metaBag, serialize/deSerialize, clear, checkStatus)
+- `Context.test.ts` — base class: type, scheme, cookies map (à faire si besoin)
 
-**Note technique loader** : `_virtual/Reflect.js` dans nodefony dist utilise `__require` (helper Rollup CJS absent en preserveModules ESM). Hook `nodefony/tests/hooks/fix-reflect.mjs` intercept et remplace par `createRequire`.
+**Pattern mock Session** : `makeManager({ log, storage, sessionStrategy, secret: Buffer(32), iv: Buffer(16) })` — `ProtoService`/`ProtoParameters` dans `SerializeSessionType` → caster avec `as unknown as SerializeSessionType`.
+
+**Note technique loader** : `_virtual/Reflect.js` dans nodefony dist utilise `__require` (helper Rollup CJS absent en preserveModules ESM). Hook `nodefony/tests/hooks/fix-reflect.mjs` intercepte et remplace par `createRequire`.
 
 ### Phase 3 — Tests d'intégration runtime (en attente)
 Prérequis : `npx nodefony development` sur 5151/5152.
