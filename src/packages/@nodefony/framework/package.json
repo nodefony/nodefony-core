@@ -17,7 +17,7 @@
     "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
-    "test": "node -e \"console.log('test')\""
+    "test": "TS_NODE_PROJECT=./tsconfig.tests.json mocha"
   },
   "private": true,
   "keywords": [
@@ -48,10 +48,15 @@
     "@types/twig": "1.12.17",
     "@typescript-eslint/eslint-plugin": "8.59.3",
     "@typescript-eslint/parser": "8.59.3",
+    "@types/chai": "5.2.3",
+    "@types/mocha": "10.0.10",
+    "chai": "6.2.2",
+    "mocha": "11.7.5",
     "rimraf": "6.1.3",
     "rollup": "4.60.3",
     "rollup-plugin-copy": "3.5.0",
     "rollup-sourcemap-path-transform": "1.2.0",
+    "ts-node": "10.9.2",
     "typescript": "6.0.3"
   },
   "license": "",

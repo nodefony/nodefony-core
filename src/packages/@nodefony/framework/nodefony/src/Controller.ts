@@ -62,7 +62,7 @@ type ReadStreamOptions = {
 
 class Controller extends Service implements IController {
   static prefix: string = "/";
-  route?: IRoute | null = null;
+  route?: Route | null = null;
   request: contextRequest = null;
   response: HttpResponse | Http2Response | WebsocketResponse | null = null;
   context?: ContextType;
@@ -236,7 +236,7 @@ class Controller extends Service implements IController {
     }
   }
 
-  setRoute(route: IRoute): IRoute {
+  setRoute(route: Route): Route {
     return (this.route = route);
   }
 

@@ -13,7 +13,7 @@ import type { ReadStream } from "node:fs";
 import type { IRoute } from "./IRoute.js";
 
 export interface IController {
-  route?: IRoute | null;
+  readonly route?: IRoute | null;
   request: contextRequest;
   response: HttpResponse | Http2Response | WebsocketResponse | null;
   context?: ContextType;

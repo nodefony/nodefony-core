@@ -406,7 +406,7 @@ class Route implements IRoute {
               case "WEBSOCKET":
                 let requirement = this.requirements[i];
                 if (!requirement) {
-                  return;
+                  return true;
                 }
                 if (typeof requirement === "string") {
                   if (

@@ -8,7 +8,7 @@ import {
   Module,
   //inject,
 } from "nodefony";
-import type { IResolver } from "../interfaces/index.js";
+import type { IResolver, IController } from "../interfaces/index.js";
 //import Router from "../service/router";
 import {
   //Context,
@@ -20,8 +20,7 @@ import {
   WebsocketResponse,
   WebsocketContext,
 } from "@nodefony/http";
-import type { ControllerConstructor } from "./Route.js";
-import type { IRoute } from "../interfaces/index.js";
+import Route, { ControllerConstructor } from "./Route.js";
 import BlueBird from "bluebird";
 import Controller from "./Controller";
 
@@ -38,7 +37,7 @@ class Resolver extends Service implements IResolver {
   actionName?: string;
   action?: (...args: unknown[]) => unknown;
   context: ContextType;
-  route: IRoute | null = null;
+  route: Route | null = null;
   resolve: boolean = false;
   variables: any[] = [];
   exception?: HttpError | Error | null;
@@ -54,7 +53,7 @@ class Resolver extends Service implements IResolver {
     this.injector = this.get<Injector>("injector");
   }
 
-  match(route: IRoute, context: ContextType) {
+  match(route: Route, context: ContextType) {
     try {
       const match = route.match(context);
       if (match) {
@@ -97,7 +96,7 @@ class Resolver extends Service implements IResolver {
     if (!this.controller) {
       throw new Error(`Controller not found in module: ${tab[1]}`);
     }
-    this.action = this.getAction(tab[2]) as Function;
+    this.action = this.getAction(tab[2]) as (...args: unknown[]) => unknown;
     if (!this.action) {
       throw new Error(`Action not found in controller ${tab[1]}: ${tab[2]}`);
     }
@@ -121,7 +120,7 @@ class Resolver extends Service implements IResolver {
     return null;
   }
 
-  async newController(context?: ContextType): Promise<IController> {
+  async newController(context?: ContextType): Promise<Controller> {
     if (this.controller) {
       const controller = this.injector?.instantiate(
         this.controller,

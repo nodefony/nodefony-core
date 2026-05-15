@@ -10,7 +10,7 @@ export interface IResolver {
   actionName?: string;
   action?: (...args: unknown[]) => unknown;
   context: ContextType;
-  route: IRoute | null;
+  readonly route: IRoute | null;
   resolve: boolean;
   variables: unknown[];
   exception?: HttpError | Error | null;
@@ -20,7 +20,7 @@ export interface IResolver {
   match(route: IRoute, context: ContextType): unknown;
   parsePathernController(name: string): void;
   getAction(name: string): ((...args: unknown[]) => unknown) | null;
-  newController(context?: ContextType): Promise<IController>;
+  newController(context?: ContextType): Promise<IController | object>;
   callController(data?: unknown[], reload?: boolean): Promise<unknown>;
   returnController(result: unknown): Promise<unknown>;
 }
