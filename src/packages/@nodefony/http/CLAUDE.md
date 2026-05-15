@@ -129,6 +129,56 @@ Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
 
 ---
 
+## Lancer le serveur pour les tests d'intégration (procédure IA)
+
+### Prérequis : rebuilder le module test avant le serveur
+
+En mode `development`, Nodefony charge d'abord le `dist/` existant (routes enregistrées à ce moment), puis recompile avec Rollup ~12 s plus tard et écrase le dist. Toute route ajoutée au source APRÈS le dernier build manual sera absente du routeur jusqu'au prochain redémarrage avec dist à jour.
+
+**Règle** : toujours rebuilder `src/modules/test` avant de démarrer le serveur si le source a changé :
+
+```bash
+cd /Users/cci/repository/nodefony-core/src/modules/test && npm run build
+```
+
+### Démarrage du serveur (technique fiable)
+
+Le simple `npx nodefony development > log 2>&1 &` meurt immédiatement (SIGHUP du subshell). Utiliser `spawn` Node.js avec `detached: true` :
+
+```bash
+node -e "
+const { spawn } = require('child_process');
+const child = spawn('npx', ['nodefony', 'development'], {
+  cwd: '/Users/cci/repository/nodefony-core',
+  stdio: ['ignore', 'pipe', 'pipe'],
+  detached: true
+});
+child.stdout.pipe(process.stdout);
+child.stderr.pipe(process.stderr);
+child.unref();
+require('fs').writeFileSync('/tmp/srv.pid', String(child.pid));
+" > /tmp/nodefony-server.log 2>&1 &
+```
+
+Attendre 20 s, puis vérifier :
+
+```bash
+grep "Server Listen" /tmp/nodefony-server.log
+```
+
+Signes OK : 4 lignes `Server Listen on http://... / https://... / ws://... / wss://...`
+
+### Lecture des logs serveur et corrélation avec les bugs
+
+- **Logs de requêtes** : `grep -E "http|https|ws" /tmp/nodefony-server.log | grep -E "404|500|ERROR"`
+- **Routes non trouvées (404)** → cause probable : dist périmé (voir prérequis ci-dessus)
+- **Routes trouvées mais 500** → erreur dans le controller, lire le stack trace dans le log
+- **Routes 200 mais données manquantes** → propriétés undefined dans le controller, croiser avec `grep "context\|session\|scheme" /tmp/nodefony-server.log`
+- **Tuer le serveur** : `lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null`
+- **PID du serveur** : `cat /tmp/srv.pid` (si sauvegardé) ou `lsof -ti:5151`
+
+---
+
 ## Ce qu'il ne faut JAMAIS faire sans accord
 
 - Modifier `rollup.config.ts` ou `tsconfig.json`

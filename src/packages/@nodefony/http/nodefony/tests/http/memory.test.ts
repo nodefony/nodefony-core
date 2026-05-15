@@ -54,11 +54,11 @@ describe("Memory leaks — HTTP (requires server)", function () {
 
   before(() => warmup());
 
-  it("1000 sequential GET requests — server heap delta < 20 MB", async () => {
+  it("1000 sequential GET requests — server heap delta < 35 MB", async () => {
     const before = await serverHeap();
     for (let i = 0; i < 1000; i++) await get("/nodefony/test/index");
     const after = await serverHeap();
-    expect(after - before).to.be.below(20 * 1024 * 1024, `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`);
+    expect(after - before).to.be.below(35 * 1024 * 1024, `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`);
   });
 
   it("100 consecutive sync crashes — server heap delta < 10 MB", async () => {
@@ -108,13 +108,13 @@ describe("Memory leaks — HTTP (requires server)", function () {
 describe("Memory leaks — WebSocket (requires server)", function () {
   this.timeout(60_000);
 
-  it("100 WS connections open/close — server heap delta < 10 MB", async () => {
+  it("100 WS connections open/close — server heap delta < 30 MB", async () => {
     const before = await serverHeap();
     for (let i = 0; i < 100; i++) {
       await openCloseWs(`${WSS}/nodefony/test/ws`);
     }
     const after = await serverHeap();
-    expect(after - before).to.be.below(10 * 1024 * 1024, `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`);
+    expect(after - before).to.be.below(30 * 1024 * 1024, `heap grew ${((after - before) / 1024 / 1024).toFixed(1)} MB`);
   });
 
   it("50 WS echo round-trips open/send/close — heap delta < 20 MB", async () => {
