@@ -75,3 +75,64 @@ describe("routerDecorators — @route + @controller", () => {
     expect(r?.variables).to.deep.equal(["id"]);
   });
 });
+
+// ─── @Param / @Body / @Query ──────────────────────────────────────────────────
+import {
+  Param,
+  Body,
+  Query,
+  PARAM_ARGS_METADATA,
+  type ParamMeta,
+} from "../../decorators/routerDecorators.js";
+
+describe("routerDecorators — @Param / @Body / @Query", () => {
+  it("@Param stores source=param with key on method metadata", () => {
+    class C extends StubController {
+      getItem(@Param("id") _id: string) { return _id; }
+    }
+    const metas: ParamMeta[] = Reflect.getMetadata(PARAM_ARGS_METADATA, C.prototype, "getItem");
+    expect(metas).to.have.lengthOf(1);
+    expect(metas[0]).to.deep.equal({ source: "param", key: "id", index: 0 });
+  });
+
+  it("@Param without key stores undefined key", () => {
+    class C extends StubController {
+      listAll(@Param() _all: Record<string, unknown>) { return _all; }
+    }
+    const metas: ParamMeta[] = Reflect.getMetadata(PARAM_ARGS_METADATA, C.prototype, "listAll");
+    expect(metas[0].source).to.equal("param");
+    expect(metas[0].key).to.be.undefined;
+  });
+
+  it("@Body stores source=body with key", () => {
+    class C extends StubController {
+      create(@Body("name") _name: string) { return _name; }
+    }
+    const metas: ParamMeta[] = Reflect.getMetadata(PARAM_ARGS_METADATA, C.prototype, "create");
+    expect(metas[0]).to.deep.equal({ source: "body", key: "name", index: 0 });
+  });
+
+  it("@Query stores source=query with key and correct index", () => {
+    class C extends StubController {
+      search(_x: string, @Query("page") _page: string) { return _x + _page; }
+    }
+    const metas: ParamMeta[] = Reflect.getMetadata(PARAM_ARGS_METADATA, C.prototype, "search");
+    expect(metas[0]).to.deep.equal({ source: "query", key: "page", index: 1 });
+  });
+
+  it("multiple param decorators on same method", () => {
+    class C extends StubController {
+      update(
+        @Param("id") _id: string,
+        @Body("payload") _payload: unknown,
+        @Query("sort") _sort: string
+      ) { return [_id, _payload, _sort]; }
+    }
+    const metas: ParamMeta[] = Reflect.getMetadata(PARAM_ARGS_METADATA, C.prototype, "update");
+    expect(metas).to.have.lengthOf(3);
+    const byIndex = metas.sort((a, b) => a.index - b.index);
+    expect(byIndex[0]).to.deep.equal({ source: "param", key: "id", index: 0 });
+    expect(byIndex[1]).to.deep.equal({ source: "body", key: "payload", index: 1 });
+    expect(byIndex[2]).to.deep.equal({ source: "query", key: "sort", index: 2 });
+  });
+});

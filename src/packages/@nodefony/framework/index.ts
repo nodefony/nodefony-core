@@ -23,6 +23,9 @@ import {
   HttpCode,
   Header,
   Redirect,
+  Param,
+  Body,
+  Query,
 } from "./nodefony/decorators/routerDecorators";
 
 @services([Router, Twig, Ejs])
@@ -59,6 +62,9 @@ export {
   HttpCode,
   Header,
   Redirect,
+  Param,
+  Body,
+  Query,
   graphql,
 };
 export type { IController, IRoute, IResolver } from "./nodefony/interfaces/index.js";

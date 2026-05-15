@@ -107,7 +107,7 @@ class HttpRequest {
     this.formidableOption =
       this.context?.httpKernel?.module.options.formidable || {};
     if (this.url.search) {
-      this.url.query = QS.parse(this.url.search, this.queryStringOptions || {});
+      this.url.query = QS.parse(this.url.search.slice(1), this.queryStringOptions || {});
     } else {
       this.url.query = {};
     }

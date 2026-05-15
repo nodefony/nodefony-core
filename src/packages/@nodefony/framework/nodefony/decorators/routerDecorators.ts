@@ -175,6 +175,14 @@ function extractControllerFilePath(stackTrace: string[]): string | undefined {
 export const HTTP_CODE_METADATA = "route:httpCode";
 export const HEADERS_METADATA = "route:responseHeaders";
 export const REDIRECT_METADATA = "route:redirect";
+export const PARAM_ARGS_METADATA = "route:paramArgs";
+
+export type ParamSource = "param" | "body" | "query";
+export interface ParamMeta {
+  source: ParamSource;
+  key?: string;
+  index: number;
+}
 
 export interface RedirectMeta {
   url: string;
@@ -249,4 +257,44 @@ function Redirect(url: string, statusCode: number = 302) {
   };
 }
 
-export { route, controller, controllers, Get, Post, Put, Delete, Patch, HttpCode, Header, Redirect };
+// ── Parameter decorators ────────────────────────────────────────────────────
+function paramDecoratorFactory(source: ParamSource) {
+  return function (key?: string) {
+    return function (
+      target: object,
+      propertyKey: string,
+      parameterIndex: number
+    ): void {
+      const existing: ParamMeta[] =
+        Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) || [];
+      existing.push({ source, key, index: parameterIndex });
+      Reflect.defineMetadata(
+        PARAM_ARGS_METADATA,
+        existing,
+        target,
+        propertyKey
+      );
+    };
+  };
+}
+
+const Param = paramDecoratorFactory("param");
+const Body = paramDecoratorFactory("body");
+const Query = paramDecoratorFactory("query");
+
+export {
+  route,
+  controller,
+  controllers,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Patch,
+  HttpCode,
+  Header,
+  Redirect,
+  Param,
+  Body,
+  Query,
+};

@@ -27,7 +27,9 @@ import {
   HTTP_CODE_METADATA,
   HEADERS_METADATA,
   REDIRECT_METADATA,
+  PARAM_ARGS_METADATA,
   type RedirectMeta,
+  type ParamMeta,
 } from "../decorators/routerDecorators.js";
 
 //import { ServiceWithInitialize } from "nodefony";
@@ -167,6 +169,14 @@ class Resolver extends Service implements IResolver {
         args = [...this.variables];
       }
       const proto = Object.getPrototypeOf(controller);
+      const paramsMeta: ParamMeta[] | undefined = Reflect.getMetadata(
+        PARAM_ARGS_METADATA,
+        proto,
+        this.actionName!
+      );
+      if (paramsMeta && paramsMeta.length > 0) {
+        args = this._buildParamArgs(paramsMeta);
+      }
       this._applyResponseDecorators(controller, proto);
       const redirectMeta: RedirectMeta | undefined = Reflect.getMetadata(
         REDIRECT_METADATA,
@@ -193,6 +203,30 @@ class Resolver extends Service implements IResolver {
     } catch (e) {
       throw e;
     }
+  }
+
+  private _buildParamArgs(metas: ParamMeta[]): unknown[] {
+    const result: unknown[] = [];
+    const httpCtx = this.context as HttpContext;
+    const varNames: string[] = this.route?.variables ?? [];
+    const paramsMap: Record<string, unknown> = {};
+    for (let i = 0; i < varNames.length; i++) {
+      paramsMap[varNames[i]] = this.variables[i];
+    }
+    for (const meta of metas) {
+      let val: unknown;
+      if (meta.source === "param") {
+        val = meta.key !== undefined ? paramsMap[meta.key] : paramsMap;
+      } else if (meta.source === "query") {
+        const qg = httpCtx?.request?.queryGet;
+        val = meta.key !== undefined ? qg?.[meta.key] : qg;
+      } else {
+        const qp = httpCtx?.request?.queryPost;
+        val = meta.key !== undefined ? qp?.[meta.key] : qp;
+      }
+      result[meta.index] = val;
+    }
+    return result;
   }
 
   private _applyResponseDecorators(controller: Controller, proto: object): void {

@@ -12,7 +12,7 @@ Module Nodefony : routeur HTTP+WS, Controller, Resolver, décorateurs `@route`/`
 | `Resolver`              | 290    | Extends Service. `match(route, ctx)` → `_applyResponseDecorators()` → `callController()` → `_handleRedirect()` → `returnController()`. `newController()` via Injector. |
 | `Route`                 | 440    | `name`, `path`, `pattern` (RegExp compilé), `variables[]`, `defaults`, `requirements`. `match(ctx)` → vérifie url+requirements. `matchRequirements` vérifie `requirements.methods` (pas `route.method`). |
 | `Router` (service)      | 131    | Tableau statique `routes: Route[]` partagé process-wide. `resolve(ctx)` → Resolver. `createRoute(name, opts)` static. |
-| `routerDecorators`      | 250    | `@controllers`, `@controller(prefix)`, `@route(name, opts)` + **`@Get/@Post/@Put/@Delete/@Patch`** (requirements.methods) + **`@HttpCode/@Header/@Redirect`** (Reflect metadata). |
+| `routerDecorators`      | 290    | `@controllers`, `@controller(prefix)`, `@route(name, opts)` + **`@Get/@Post/@Put/@Delete/@Patch`** (requirements.methods) + **`@HttpCode/@Header/@Redirect`** + **`@Param/@Body/@Query`** (Reflect metadata). |
 | `Twig` / `Ejs`          | 118/43 | Services template. `render(file, params)` → Promise\<string\>. |
 
 ## Interfaces
@@ -48,6 +48,21 @@ Auto-name : `ClassName::methodName` — déterministe, unique par (classe, méth
 
 **Clé** : stocke `requirements: { methods }` pas `method: [...]` — sinon `matchRequirements()` ne filtre pas.
 
+### Parameter decorators
+
+```typescript
+@Param("id")   // route path variable — this.variables[i] (captures sans full-match)
+@Param()       // tous les params nommés comme Record<string, unknown>
+@Body("field") // champ du body parsé (queryPost)
+@Body()        // body complet
+@Query("q")    // paramètre query string (queryGet)
+@Query()       // query string complet
+```
+
+**Activation** : dès qu'au moins 1 décorateur est présent sur la méthode → `Resolver._buildParamArgs()` remplace les args positionnels.
+
+**Gotcha `@Param`** : `route.match()` retourne `map = res.slice(1)` (captures SANS le full-match). Donc `this.variables[0]` = 1ère capture. Index `i`, pas `i+1`.
+
 ### Response decorators
 
 ```typescript
@@ -60,7 +75,7 @@ Ordre lecture dans Resolver : `_applyResponseDecorators(controller, proto)` → 
 
 **`@Redirect` flow** : action retourne void → `context.redirect(url, code)` → `returnController(undefined)` → `isRedirect=true` → `context.send()`.
 
-**Metadata keys exportées** : `HTTP_CODE_METADATA`, `HEADERS_METADATA`, `REDIRECT_METADATA`, `RedirectMeta`.
+**Metadata keys exportées** : `HTTP_CODE_METADATA`, `HEADERS_METADATA`, `REDIRECT_METADATA`, `PARAM_ARGS_METADATA`, `RedirectMeta`, `ParamMeta`, `ParamSource`.
 
 ## Resolver Pipeline (détail)
 
@@ -106,7 +121,7 @@ callController()
 export default Framework;
 export { Controller, Route, Router, Resolver, Twig, Ejs };
 // decorators
-export { route, controller, controllers, Get, Post, Put, Delete, Patch, HttpCode, Header, Redirect };
+export { route, controller, controllers, Get, Post, Put, Delete, Patch, HttpCode, Header, Redirect, Param, Body, Query };
 // types only
 export type { IController, IRoute, IResolver };
 export { graphql };
@@ -118,10 +133,11 @@ export { graphql };
 |-------|---------|-----|-------|
 | Route | `unit/Route.test.ts` | 28 | constructor, compile, match, variables, defaults, matchRequirements, setPrefix, toObject, requirements API |
 | Router | `unit/Router.test.ts` | 11 | createRoute, getRoutes, removeRoutes, matchRoutes |
-| @route/@controller | `unit/routerDecorators.test.ts` | 5 | route registered, prefix, multi-route, metadata cleanup, pattern |
+| @route/@controller | `unit/routerDecorators.test.ts` | 10 | route registered, prefix, multi-route, metadata cleanup, pattern + @Param/@Body/@Query metadata storage |
 | @Get/Post/etc + @HttpCode/@Header/@Redirect | `unit/httpMethodDecorators.test.ts` | 23 | auto-naming, requirements.methods, metadata storage, combined |
 | Controller intégration | `integration/controller.test.ts` | 23 | renderJson, @HttpCode, @Header, redirect(), @Redirect, errors, queryGet, method constraints, context, session |
-| **TOTAL** | | **90** | **67 unit + 23 intégration** |
+| @Param/@Body/@Query intégration | `http/decorators.test.ts` | 10 | @Param clé unique/multiple/sans clé, @Query avec/sans, @Body complet/champ/absent, combinés |
+| **TOTAL** | | **100** | **72 unit + 28 intégration** |
 
 Lancer : `npm test` (unit) — `npm run test:integration` (unit + intégration, serveur requis 5151/5152).
 
@@ -131,7 +147,9 @@ Lancer : `npm test` (unit) — `npm run test:integration` (unit + intégration, 
 - `package.json` : `exports` + `types` ✅ (2026-05-15)
 - `IController`/`IRoute`/`IResolver` créées + `implements` sur les 3 classes ✅ (2026-05-15)
 - NestJS decorators `@Get/@Post/etc` + `@HttpCode/@Header/@Redirect` ✅ (2026-05-16)
-- 90 tests (67 unit + 23 intégration), 0 failing ✅ (2026-05-16)
+- Parameter decorators `@Param/@Body/@Query` ✅ (2026-05-16)
+- Fix `queryGet ?-prefix` dans `@nodefony/http` Request.ts ✅ (2026-05-16)
+- 100 tests (72 unit + 28 intégration), 0 failing ✅ (2026-05-16)
 
 ## `any` restants (à typer progressivement)
 
