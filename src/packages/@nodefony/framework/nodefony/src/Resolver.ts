@@ -227,11 +227,11 @@ class Resolver extends Service implements IResolver {
     if (resolved !== null && resolved !== undefined && typeof resolved === "object" && "url" in resolved) {
       const override = resolved as { url: string; statusCode?: number };
       (this.context as HttpContext).redirect(override.url, override.statusCode ?? redirectMeta.statusCode);
-      return;
+      return this.returnController(undefined);
     }
     if (resolved === undefined || resolved === null) {
       (this.context as HttpContext).redirect(redirectMeta.url, redirectMeta.statusCode);
-      return;
+      return this.returnController(undefined);
     }
     return this.returnController(resolved).catch((e: unknown) => { throw e; });
   }

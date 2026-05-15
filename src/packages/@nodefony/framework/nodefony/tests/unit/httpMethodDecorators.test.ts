@@ -59,7 +59,7 @@ describe("HTTP method decorators — route auto-naming", () => {
     }
     void GetMethodCtrl;
     const r = Router.routes.find((r) => r.name === "GetMethodCtrl::x");
-    expect(r?.method).to.deep.equal(["GET"]);
+    expect(r?.requirements?.methods).to.deep.equal(["GET"]);
   });
 
   it("@Post restricts to POST method", () => {
@@ -70,7 +70,7 @@ describe("HTTP method decorators — route auto-naming", () => {
     }
     void PostMethodCtrl;
     const r = Router.routes.find((r) => r.name === "PostMethodCtrl::create");
-    expect(r?.method).to.deep.equal(["POST"]);
+    expect(r?.requirements?.methods).to.deep.equal(["POST"]);
   });
 
   it("@Put restricts to PUT method", () => {
@@ -81,7 +81,7 @@ describe("HTTP method decorators — route auto-naming", () => {
     }
     void PutMethodCtrl;
     const r = Router.routes.find((r) => r.name === "PutMethodCtrl::update");
-    expect(r?.method).to.deep.equal(["PUT"]);
+    expect(r?.requirements?.methods).to.deep.equal(["PUT"]);
   });
 
   it("@Delete restricts to DELETE method", () => {
@@ -92,7 +92,7 @@ describe("HTTP method decorators — route auto-naming", () => {
     }
     void DeleteMethodCtrl;
     const r = Router.routes.find((r) => r.name === "DeleteMethodCtrl::del");
-    expect(r?.method).to.deep.equal(["DELETE"]);
+    expect(r?.requirements?.methods).to.deep.equal(["DELETE"]);
   });
 
   it("@Patch restricts to PATCH method", () => {
@@ -103,7 +103,7 @@ describe("HTTP method decorators — route auto-naming", () => {
     }
     void PatchMethodCtrl;
     const r = Router.routes.find((r) => r.name === "PatchMethodCtrl::patch");
-    expect(r?.method).to.deep.equal(["PATCH"]);
+    expect(r?.requirements?.methods).to.deep.equal(["PATCH"]);
   });
 
   it("multiple HTTP decorators on same class — all registered", () => {
@@ -251,7 +251,7 @@ describe("Combined decorators — @Post + @HttpCode + @Header", () => {
     void ComboCtrl;
     const r = Router.routes.find((r) => r.name === "ComboCtrl::create");
     expect(r).to.exist;
-    expect(r?.method).to.deep.equal(["POST"]);
+    expect(r?.requirements?.methods).to.deep.equal(["POST"]);
     const code = Reflect.getMetadata(HTTP_CODE_METADATA, ComboCtrl.prototype, "create");
     expect(code).to.equal(201);
   });

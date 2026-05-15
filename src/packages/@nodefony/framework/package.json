@@ -17,7 +17,8 @@
     "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
-    "test": "TS_NODE_PROJECT=./tsconfig.tests.json mocha"
+    "test": "TS_NODE_PROJECT=./tsconfig.tests.json mocha",
+    "test:integration": "TS_NODE_PROJECT=./tsconfig.tests.json mocha --config .mocharc.integration.json"
   },
   "private": true,
   "keywords": [

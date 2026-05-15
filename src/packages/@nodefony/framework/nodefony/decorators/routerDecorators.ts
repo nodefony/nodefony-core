@@ -193,11 +193,14 @@ function httpMethodDecorator(methods: HTTPMethod[]) {
     ): PropertyDescriptor {
       const proto = target as Record<string, unknown>;
       const name = `${(proto.constructor as { name: string }).name}::${propertyKey}`;
-      return route(name, { ...options, path, method: methods })(
-        target,
-        propertyKey,
-        descriptor
-      );
+      return route(name, {
+        ...options,
+        path,
+        requirements: {
+          ...options.requirements,
+          methods,
+        },
+      })(target, propertyKey, descriptor);
     };
   };
 }

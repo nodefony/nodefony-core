@@ -1,0 +1,12 @@
+{
+  "extension": ["ts"],
+  "spec": "nodefony/tests/**/*.test.ts",
+  "require": "ts-node/register",
+  "recursive": true,
+  "node-option": [
+    "experimental-specifier-resolution=node",
+    "loader=ts-node/esm",
+    "loader=./nodefony/tests/hooks/fix-reflect.mjs",
+    "loader=./nodefony/tests/hooks/mock-sequelize.mjs"
+  ]
+}
