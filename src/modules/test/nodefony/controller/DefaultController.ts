@@ -1,7 +1,6 @@
 import { Controller, route, controller } from "@nodefony/framework";
-import { Context, HttpError } from "@nodefony/http";
+import { Context, HttpContext, HttpError } from "@nodefony/http";
 import { inject, Fetch, nodefonyError as Error } from "nodefony";
-import https from "node:https";
 
 @controller("/nodefony/test")
 class DefaultController extends Controller {
@@ -14,16 +13,6 @@ class DefaultController extends Controller {
 
   async initialize(): Promise<this> {
     await this.startSession("test");
-    //let response = await this.fetchService.fetch("https://google.fr");
-    //TODO add certificat client in service for unit test
-    // console.log(response.headers, response.status, response.statusText);
-    // const agent = new https.Agent({
-    //   rejectUnauthorized: false,
-    // });
-    // response = await this.fetchService.fetch("https://localhost:5152/app", {
-    //   agent,
-    // });
-    // console.log(response.headers, response.status, response.statusText);
     return this;
   }
 
@@ -52,6 +41,37 @@ class DefaultController extends Controller {
     return this.render({
       route: this.route,
     });
+  }
+
+  // ── context inspection ──────────────────────────────────────────
+  @route("context-info", { path: "/context" })
+  contextInfo() {
+    const ctx = this.context as HttpContext;
+    return this.renderJson({
+      type: ctx.type,
+      scheme: ctx.scheme,
+      method: this.method,
+      host: ctx.getHost(),
+      remoteAddress: ctx.getRemoteAddress(),
+      userAgent: ctx.getUserAgent(),
+      sessionId: ctx.session?.id ?? null,
+    });
+  }
+
+  // ── resilience routes ────────────────────────────────────────────
+  @route("crash-sync", { path: "/crash/sync" })
+  crashSync() {
+    throw new Error("simulated sync crash");
+  }
+
+  @route("crash-async", { path: "/crash/async" })
+  async crashAsync() {
+    await Promise.reject(new Error("simulated async crash"));
+  }
+
+  @route("crash-native", { path: "/crash/native" })
+  crashNative() {
+    throw new TypeError("native error — no HttpError");
   }
 }
 

@@ -91,38 +91,91 @@ Runner: `npm run test:unit` → `.mocharc.unit.json` + hook `fix-reflect.mjs`. *
 
 **Note technique loader** : `_virtual/Reflect.js` dans nodefony dist utilise `__require` (helper Rollup CJS absent en preserveModules ESM). Hook `nodefony/tests/hooks/fix-reflect.mjs` intercepte et remplace par `createRequire`.
 
-### Phase 3 — Tests d'intégration runtime (en attente)
+### Phase 3 — Tests d'intégration runtime ✅ partiel (2026-05-15)
 Prérequis : `npx nodefony development` sur 5151/5152.
-Appui sur le module `src/modules/test` (HtmlController, RestController, WebSocketController…).
-- `http1.test.ts` — GET/POST/PUT/DELETE, headers, status codes
-- `http2.test.ts` — HTTP/2 multiplexing, stream
-- `https.test.ts` — TLS handshake, redirect HTTP→HTTPS
-- `session.test.ts` — session cookie, flashBag, invalidation (RestController)
-- `upload.test.ts` ✅ (déjà présent — HtmlController /upload)
-- `errors.test.ts` — 400/401/403/404/408/500/504, format JSON/HTML
-- `context.test.ts` — context properties via route /nodefony/test/* (HttpKernel + Context validés côté serveur)
+Appui sur `src/modules/test` — routes ajoutées : RestController session set/get/flash/destroy, DefaultController context+crash.
 
-### Phase 4 — HTTP/3 stub (en attente)
-`server-http3.ts` reste commenté — `node:http3` n'existe pas dans Node.js v26.
-QUIC disponible via `node:net` mais pas de couche HTTP/3. À réactiver quand Node.js supportera.
+- `session.test.ts` ✅ — lifecycle, set/get attr, flashBag (consumed-once), destroy, session sans cookie
+- `context.test.ts` ✅ — type, scheme, method, host, remoteAddress, sessionId (dans session.test.ts)
+- `resilience.test.ts` ✅ — sync crash 500, async crash 500, TypeError 500, serveur vivant après crash, 404, méthode invalide (dans session.test.ts)
+- `http1.test.ts` — GET/POST/PUT/DELETE complets, headers custom, chunked transfer
+- `https.test.ts` — TLS cipher, redirect HTTP→HTTPS
+- `upload.test.ts` ✅ (pré-existant — HtmlController /upload)
+- `errors.test.ts` — validation format erreur JSON (code, message, stack en dev)
 
-### Phase 5 — Performance (en attente)
-- Compression gzip/brotli (`node:zlib` + `Accept-Encoding`)
-- ETag / `If-None-Match` → 304 Not Modified
-- `Connection: keep-alive` + timeout configuration
-- Benchmarks : `autocannon` ou `wrk`
+**Routes test module** :
+- `RestController` : `/rest/session` GET/DELETE, `/rest/session/set/{key}/{value}`, `/rest/session/get/{key}`, `/rest/session/flash/{key}/{value}`, `/rest/session/flash/{key}`
+- `DefaultController` : `/context`, `/crash/sync`, `/crash/async`, `/crash/native`
 
-### Phase 6 — README.md (en attente)
-Documentation publique complète du module avec exemples API, tableaux, troubleshooting.
+### Phase 4 — HttpKernel + Context (priorité haute) (en attente)
+**Ce sont les tests les plus importants** — valident le pipeline central du framework.
 
-### Phase 7 — Commandes CLI HTTP (en attente)
+**HttpKernel** (via routes existantes) :
+- Pipeline complet : request → context → routing → controller → response
+- Gestion erreurs : HttpError → code HTTP correct, nodefonyError → 5xx
+- Forward inter-controller (route `forward` → `app:AppController:method1`)
+- Content-Type negotiation (JSON vs HTML selon Accept header)
+- Parallel requests : plusieurs requêtes simultanées → pas d'entrelacement de contextes
+
+**Context HTTP** (via `/nodefony/test/context`) :
+- `type` = "http" | "https" | "http2"
+- `scheme` = "http" | "https"
+- `method` = "GET" | "POST" etc.
+- `cookieSession` présent après démarrage session
+- Cookie parsing : `Cookie: foo=bar` → `context.cookies.foo === "bar"`
+
+**Context WebSocket** (via routes WS) :
+- `type` = "websocket" | "websocket-secure"
+- `scheme` = "ws" | "wss"
+- `connection` populated after `connect()`
+- Protocol negotiation : header Sec-WebSocket-Protocol → context.acceptedProtocol
+
+### Phase 5 — Résilience + Sécurité serveur (en attente)
+**Principe** : le serveur ne peut JAMAIS s'arrêter — catch ALL les cas limites.
+
+**Résilience serveur** :
+- `http-kernel.ts` uncaughtException handler — vérifier qu'il existe et est wired
+- Request avec headers malformés → 400, pas crash
+- Body oversized (> maxBodySize config) → 413, pas crash
+- Request timeout (lente → 408 after N ms)
+- Burst 100 concurrent requests → pas de fuite mémoire
+- ECONNRESET / ECONNABORTED du client → absorbés silencieusement
+- SSL handshake abort → absorbé
+
+**Sécurité** :
+- HTTP Response Splitting (CR/LF dans headers) → sanitisation
+- Path traversal dans serve-static → bloqué
+- Cookie injection (value avec newlines) → serialisation safe
+- Oversized cookies → 400
+
+**Tests spécifiques à créer** :
+```
+nodefony/tests/http/resilience.test.ts   ← oversized body, timeout, burst
+nodefony/tests/http/security.test.ts     ← header injection, path traversal
+```
+
+### Phase 6 — Performance (en attente)
+- Compression gzip/brotli (`Accept-Encoding: gzip, br`)
+- ETag / `If-None-Match` → 304 Not Modified (économie bande passante)
+- Keep-alive + timeout config
+- Benchmarks avec `autocannon` (intégré comme devDep) : RPS, latence p99, mémoire RSS
+- Cibles : > 5000 rps sur GET simple, p99 < 20ms
+
+### Phase 7 — HTTP/3 stub (en attente)
+`server-http3.ts` reste commenté — `node:http3` absent dans Node.js v26.
+QUIC disponible via `node:net` mais pas d'API HTTP/3. Réactiver quand Node.js >= 28 supportera nativement.
+
+### Phase 8 — README.md (en attente)
+Documentation publique complète : exemples API, tableaux serveurs/ports, troubleshooting, patterns controller.
+
+### Phase 9 — Commandes CLI HTTP (en attente)
 Nouvelles commandes dans `nodefony/command/` :
-- `certificates` — afficher/générer/renouveler certificats TLS (info expiry, CN, SAN)
+- `certificates` — afficher/générer/renouveler certificats TLS (expiry, CN, SAN)
 - `routes` — lister toutes les routes enregistrées (méthode, path, controller, protocole)
-- `sessions:clear` — vider les sessions fichiers (storage FileSessionStorage)
+- `sessions:clear` — vider les sessions fichiers (FileSessionStorage)
 - `sessions:list` — lister sessions actives (id, expires, user)
 - `server:stats` — connexions actives, mémoire, uptime par serveur
-- `compress:test` — tester gzip/brotli sur une URL interne (debug Phase 5)
+- `compress:test` — tester gzip/brotli sur URL interne (debug Phase 6)
 
 ---
 
