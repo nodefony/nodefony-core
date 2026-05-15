@@ -1,13 +1,8 @@
 import { expect } from "chai";
 import https from "node:https";
 import "mocha";
-import supertest from "supertest";
 import fs from "node:fs";
 import path from "node:path";
-
-const request = (await import("supertest")).default;
-
-const appRequest = request("https://localhost:5152", { http2: true });
 
 describe("HTTP STREAM", () => {
   it("GET /stream", (done) => {
@@ -109,24 +104,26 @@ describe("HTTP STREAM", () => {
 
 describe("HTTP STREAM  with Range", () => {
   it("GET /media with Range header", (done) => {
-    // oceans-clip.webm size
     const size = 14625011;
     const start = 0;
     const end = 999;
     const range = `bytes=${start}-${end}`;
     const expectedChunkSize = end - start + 1;
-    appRequest
-      .get("/nodefony/test/html/media")
-      .disableTLSCerts()
-      .set("Range", range)
-      .expect("Content-Range", `bytes ${start}-${end}/${size}`)
-      .expect("Accept-Ranges", "bytes")
-      .expect("Content-Length", expectedChunkSize.toString())
-      .expect(206) // Status code for partial content
-      .end((err: Error, res: any) => {
-        if (err) return done(err);
+
+    const options: https.RequestOptions = {
+      hostname: "localhost",
+      port: 5152,
+      path: "/nodefony/test/html/media",
+      method: "GET",
+      rejectUnauthorized: false,
+      headers: { Range: range },
+    };
+
+    const req = https.request(options, (res) => {
+      res.resume();
+      res.on("end", () => {
         try {
-          expect(res.status).to.equal(206);
+          expect(res.statusCode).to.equal(206);
           expect(res.headers["content-range"]).to.equal(
             `bytes ${start}-${end}/${size}`,
           );
@@ -139,5 +136,9 @@ describe("HTTP STREAM  with Range", () => {
           done(e);
         }
       });
+    });
+
+    req.on("error", (e) => done(e));
+    req.end();
   });
 });
