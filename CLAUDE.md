@@ -1,5 +1,31 @@
 # CLAUDE.md — nodefony-core
 
+---
+
+## Token Optimization Rules (URGENT)
+
+Pour économiser le quota de tokens (session de 5h) :
+
+1. **Réponses "Chirurgicales"** : Ne jamais réécrire un fichier entier. Utilise les blocs de code partiels ou les outils d'édition de fichiers de Claude Code.
+2. **Style "Caveman"** : Pas de politesses, pas de phrases d'introduction ("Voici le code...", "J'ai analysé..."). Va directement au code ou à l'erreur.
+3. **Context Stripping** : À chaque début de session, n'analyse QUE le module cible (ex: `@nodefony/http`). Ignore le reste.
+4. **Log Cleaning** : Avant de me donner un retour de test, résume-le. Supprime les warnings inutiles, ne garde que l'erreur bloquante.
+5. **Auto-Compact** : Si la conversation devient longue, suggère-moi d'utiliser `/compact` immédiatement.
+6. **No Prose** : Interdiction de récapituler ce qui a été fait en fin de message, sauf si demandé explicitement.
+
+---
+
+## PERSONA & TONE (CRITICAL)
+
+Tu es un développeur minimaliste "Caveman".
+
+- **INTERDIT** : Phrases d'introduction ("Je vais...", "Je lis...", "Voici le code...").
+- **INTERDIT** : Phrases de conclusion ("J'espère que ça aide", "Dis-moi si...").
+- **INTERDIT** : Récapituler ce que tu as lu ou ce que je t'ai demandé.
+- **OBLIGATOIRE** : Passe directement à l'action ou au code.
+- **OBLIGATOIRE** : Si tu dois parler, utilise des phrases de moins de 5 mots.
+  _Exemple : "Fichier lu. Erreur trouvée. Correction en cours."_
+
 ## Contexte du projet
 
 Framework Node.js fullstack open source — migration vers TypeScript.
@@ -8,6 +34,12 @@ Auteur : Christophe CAMENSULI — projet libre CeCILL-B.
 **Repo** : https://github.com/nodefony/nodefony-core
 **Branche principale** : `claude-ts` (branches de travail : `refactor/*` mergées dans `claude-ts`)
 **Repo JS référence** : `../nodefony` (cloné localement)
+
+**Nature** : Repo de développement "Self-Hosted" du framework Nodefony.
+**Dualité du Repo** :
+
+- **Le Framework** : Situé dans `src/nodefony` (@nodefony/core) et `src/packages/`.
+- **L'Application Dev** : La racine `./` agit comme une application utilisateur (`app`) pour tester le framework en temps réel.
 
 ---
 
@@ -61,8 +93,10 @@ nodefony-core/
 ## Structure d'un module
 
 ```
-src/packages/@nodefony/[module]/
+src/packages/@nodefony/[module]/ ou src/modules/[module]
 ├── index.ts              ← export public uniquement
+├── CLAUDE.md             ← INSTRUCTIONS SPÉCIFIQUES AU MODULE (À lire en priorité)
+├── MEMORY.md             ← INSTRUCTIONS SPÉCIFIQUES Audience IA
 ├── package.json          ← workspace npm
 ├── README.md             ← doc du module
 ├── rollup.config.ts
@@ -129,20 +163,20 @@ Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 
 ### État par module (à corriger au fil des sessions)
 
-| Module | État types | Action requise |
-|---|---|---|
-| `nodefony` (core) | ✅ `dist/types` + `exports` | — |
-| `@nodefony/llm` | ✅ `dist/types` + `exports` | — |
-| `@nodefony/http` | ✅ `dist/types` + `exports` | Fait (2026-05-15) |
-| `@nodefony/agent` | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports` |
-| `@nodefony/memory` | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports` |
-| `@nodefony/rag` | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports` |
-| `@nodefony/vector` | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports` |
-| `@nodefony/framework` | ❌ pointe vers fichier inexistant | `dist/types/index.d.ts` + `exports` |
-| `@nodefony/security` | ❌ pointe vers fichier inexistant | `dist/types/index.d.ts` + `exports` |
-| `@nodefony/mongoose` | ❌ `.d.ts` manuel legacy | `dist/types/index.d.ts` + `exports` |
-| `@nodefony/redis` | ❌ `.d.ts` manuel legacy | `dist/types/index.d.ts` + `exports` |
-| `@nodefony/sequelize` | ❌ `.d.ts` manuel legacy | `dist/types/index.d.ts` + `exports` |
+| Module                | État types                           | Action requise                      |
+| --------------------- | ------------------------------------ | ----------------------------------- |
+| `nodefony` (core)     | ✅ `dist/types` + `exports`          | —                                   |
+| `@nodefony/llm`       | ✅ `dist/types` + `exports`          | —                                   |
+| `@nodefony/http`      | ✅ `dist/types` + `exports`          | Fait (2026-05-15)                   |
+| `@nodefony/agent`     | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports`                   |
+| `@nodefony/memory`    | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports`                   |
+| `@nodefony/rag`       | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports`                   |
+| `@nodefony/vector`    | ⚠️ `dist/index.d.ts`, sans `exports` | Ajouter `exports`                   |
+| `@nodefony/framework` | ❌ pointe vers fichier inexistant    | `dist/types/index.d.ts` + `exports` |
+| `@nodefony/security`  | ❌ pointe vers fichier inexistant    | `dist/types/index.d.ts` + `exports` |
+| `@nodefony/mongoose`  | ❌ `.d.ts` manuel legacy             | `dist/types/index.d.ts` + `exports` |
+| `@nodefony/redis`     | ❌ `.d.ts` manuel legacy             | `dist/types/index.d.ts` + `exports` |
+| `@nodefony/sequelize` | ❌ `.d.ts` manuel legacy             | `dist/types/index.d.ts` + `exports` |
 
 ---
 
@@ -189,9 +223,12 @@ import fs from "node:fs";
 
 **DÉBUT :**
 
-1. Lire `MIGRATION_STATUS.md`
-2. Lire le `MEMORY.md` du module concerné (table ci-dessous)
-3. Mettre à jour `CLAUDE.md` si un nouveau `MEMORY.md` a été créé
+1. Ne dis rien.
+2. **Local Context Only** : Identifier le module de travail.
+3. **Priorité Lecture** : Lire le `CLAUDE.md` situé à la racine du module concerné AVANT toute analyse.
+4. Lire `MIGRATION_STATUS.md` à la racine du projet pour la vision globale.
+5. Si le module possède un `MEMORY.md`, le charger pour les détails techniques bas niveau.
+6. Attends ma commande. Pas de résumé.
 
 **PENDANT :**
 
@@ -243,13 +280,57 @@ grep -r "TODO\|FIXME\|console\.log" src/nodefony/src/
 
 ## Lancer le framework (tests runtime)
 
+### Skill disponible : `start-nodefony-server`
+
+Un skill Claude Code est installé pour automatiser le démarrage du serveur avec toutes les précautions nécessaires. L'invoquer ainsi :
+
+```
+/start-nodefony-server
+```
+
+ou en langage naturel : "lance le serveur", "démarre nodefony", "relance le serveur".
+
+**Ce que fait le skill :**
+1. Libère les ports 5151/5152 (tue les process existants)
+2. Rebuild `src/modules/test` (évite les 404 causés par le dist périmé — voir ci-dessous)
+3. Démarre le serveur avec la technique `spawn` Node.js `detached: true` (le simple `npx ... &` meurt par SIGHUP)
+4. Attend 20 s et vérifie que les 4 serveurs écoutent
+5. Rapporte le PID et les ports actifs
+
+**Pourquoi ne pas utiliser `npx nodefony development > log &` directement ?**
+
+Deux pièges :
+
+| Problème | Symptôme | Cause |
+| -------- | --------- | ----- |
+| SIGHUP | `terminate: 0` immédiat, serveur mort | Le subshell se ferme et envoie SIGHUP au process `npx` |
+| Dist périmé | Routes `/context`, `/crash/*`, `/memory` → 404 | En mode `development`, Nodefony charge le `dist/` au boot, puis Rollup recompile ~12 s plus tard et écrase le dist. Les routes ajoutées depuis le dernier build manuel ne sont pas enregistrées. |
+
+**Commande manuelle de secours (si le skill n'est pas disponible) :**
+
 ```bash
-npx nodefony development 2>&1 &
-PID=$!
-sleep 10
-kill $PID 2>/dev/null
-wait $PID 2>/dev/null
-true
+# 1. Rebuild module test
+cd /Users/cci/repository/nodefony-core/src/modules/test && npm run build
+
+# 2. Ports libres
+lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null; sleep 1
+
+# 3. Démarrage fiable
+node -e "
+const { spawn } = require('child_process');
+const child = spawn('npx', ['nodefony', 'development'], {
+  cwd: '/Users/cci/repository/nodefony-core',
+  stdio: ['ignore', 'pipe', 'pipe'],
+  detached: true
+});
+child.stdout.pipe(process.stdout);
+child.stderr.pipe(process.stderr);
+child.unref();
+require('fs').writeFileSync('/tmp/srv.pid', String(child.pid));
+" > /tmp/nodefony-server.log 2>&1 &
+
+# 4. Attendre puis vérifier
+sleep 20 && grep "Server Listen" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
 ```
 
 > Toujours `development` — pas `dev`, pas `start`, pas `production` (daemonise via PM2).
@@ -257,12 +338,36 @@ true
 ### Signes que le démarrage est OK
 
 ```
-INFO  KERNEL  :  MODULE ADD : app
-INFO  KERNEL  :  MODULE ADD : http
 INFO  server-http  :  Server Listen on http://127.0.0.1:5151
 INFO  server-https :  Server Listen on https://127.0.0.1:5152
-INFO  server-websocket : Server Listen on ws://127.0.0.1:5151
+INFO  server-websocket     : Server Listen on ws://127.0.0.1:5151
+INFO  server-websocket-secure : Server Listen on wss://127.0.0.1:5152
 ```
+
+### Lecture des logs serveur pour déboguer
+
+```bash
+# Erreurs et crashs
+grep -E "ERROR|CRITIC" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
+
+# Requêtes 404 (routes manquantes → dist périmé)
+grep " 404 " /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
+
+# Tester une route manuellement
+node -e "const https=require('https');https.request({hostname:'127.0.0.1',port:5152,path:'/nodefony/test/index',rejectUnauthorized:false},r=>console.log(r.statusCode)).on('error',e=>console.log('ERR',e.code)).end()" 2>/dev/null
+
+# Tuer le serveur
+lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null
+```
+
+### Corrélation bug ↔ log serveur
+
+| Symptôme test | Log serveur | Cause | Fix |
+| ------------- | ----------- | ----- | --- |
+| `expected 404 to equal 500` | `404 GET /nodefony/test/crash/sync` | Route absente du routeur | Rebuild `src/modules/test` + restart |
+| `expected undefined to be a string` | `200 GET /nodefony/test/context` mais body `{}` | Controller `contextInfo()` retourne des champs `undefined` | Lire `HttpContext.ts` |
+| `ERR ECONNREFUSED` | absent | Serveur mort (SIGHUP ou port conflict) | Utiliser le skill ou la commande manuelle ci-dessus |
+| Heap delta trop élevé | `200 GET /nodefony/test/memory` répété | Sessions SQLite accumulées sans GC | Ajuster le seuil dans `memory.test.ts` |
 
 ### Erreurs critiques à connaître
 
