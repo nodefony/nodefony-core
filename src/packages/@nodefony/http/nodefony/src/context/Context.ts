@@ -129,7 +129,8 @@ class Context extends Service implements IContextInterface {
   requestId: string = randomUUID();
   readonly phases: PhaseTiming[] = [];
   private _phaseIndex: Map<string, number> = new Map();
-  private _afterResponseFns: AfterResponseHandler[] = [];
+  // Lazy alloc — most requests never register an after-response hook.
+  private _afterResponseFns: AfterResponseHandler[] | null = null;
   private _afterResponseFired: boolean = false;
   metaData: Data = {
     nodefony: {},
@@ -226,6 +227,9 @@ class Context extends Service implements IContextInterface {
         .catch((e) => this.log(e, "ERROR", "onAfterResponse(late)"));
       return;
     }
+    if (this._afterResponseFns === null) {
+      this._afterResponseFns = [];
+    }
     this._afterResponseFns.push(fn);
   }
 
@@ -233,7 +237,8 @@ class Context extends Service implements IContextInterface {
     if (this._afterResponseFired) return;
     this._afterResponseFired = true;
     const fns = this._afterResponseFns;
-    this._afterResponseFns = [];
+    if (fns === null || fns.length === 0) return;
+    this._afterResponseFns = null;
     for (const fn of fns) {
       try {
         await fn(this);

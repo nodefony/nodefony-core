@@ -479,7 +479,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       const context = new HttpContext(scope, request, response, type);
       // Deduplicated post-response handler — fires once, whichever event wins
       // (finish = full body sent; close = socket closed, possibly early).
+      // Explicitly remove both listeners on first fire to release refs sooner.
       const onAfter = async () => {
+        response.removeListener("finish", onAfter);
+        response.removeListener("close", onAfter);
         if (!context || context.finished) return;
         context.logRequest();
         await context._runAfterResponse();
