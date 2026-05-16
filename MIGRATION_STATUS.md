@@ -71,6 +71,7 @@
 | P1.5  | `errorRenderer` module unifié HTTP+WS (sortie JSON cohérente)                           | 9.5 #6    | 1 ses. | P0.1        | Préalable à AuthFailureHandler (9.6) et tests symbiose 9.1.6                                   |
 | P1.6  | `HttpKernel.logRequest()` extrait + `IRequestLogger` pluggable                          | 9.5 #2    | 0.5 ses. | P1.2       | Préalable à audit log (9.2.19) + pretty formatter (9.3.22) + requestLogger transport (9.3.30) |
 | P1.7  | Hooks `Context` pour security : `beforeResolve`, `afterAuth`, `onAuthFailure`           | 9.5 #7    | 1 ses. | P1.2, P1.5  | **Préalable Phase 6** — éviter coupler `@nodefony/http` au security                            |
+| P1.8  | ✅ Graphe symbolique TS (`scripts/generate-symbols.ts` + skill)                          | NEW       | done   | —           | `.ai/symbols.json` (stable, 152 KB) + `dist/symbols.json` (verbose, 560 KB) — `npm run generate-symbols` |
 
 ### P2 — Cycle de vie Context (axes 9.2 consommant les hooks P1)
 

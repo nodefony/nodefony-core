@@ -518,6 +518,22 @@ import fs from "node:fs";
 
 ---
 
+## 🗂 Graphe symbolique TS — `.ai/symbols.json`
+
+> Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `generate-symbols`).
+
+**Quand l'utiliser AVANT de grep le repo** :
+- « Qui étend `Service` ? » → `jq '.symbols[] | select(.extends == "Service") | {name, module, file}' .ai/symbols.json`
+- « Quels symboles `@nodefony/http` exporte ? » → `jq '.symbols[] | select(.module == "@nodefony/http" and .exported)' .ai/symbols.json`
+- « Qui importe `Container` ? » → `jq '.usedBy.Container' .ai/symbols.json`
+- « Liste les classes décorées `@injectable` » → `jq '.symbols[] | select(.kind == "class" and (.decorators | index("injectable")))' .ai/symbols.json`
+
+**Régénérer en fin de session** quand l'API publique a changé (nouvelles classes/interfaces/decorators exportés).
+
+Voir `.claude/skills/generate-symbols/SKILL.md` pour patterns détaillés.
+
+---
+
 ## CLAUDE.md + MEMORY.md — index global des fichiers IA
 
 Deux niveaux de docs IA — **lire AVANT de toucher au code du module** :

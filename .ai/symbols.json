@@ -1,0 +1,4672 @@
+{
+  "generated": "2026-05-16T13:19:56.977Z",
+  "version": "1.0.0",
+  "repoRoot": ".",
+  "stats": {
+    "files": 180,
+    "symbols": 428,
+    "classes": 148,
+    "interfaces": 139,
+    "types": 112,
+    "enums": 1,
+    "functions": 24,
+    "constants": 4
+  },
+  "symbols": [
+    {
+      "name": "Cli",
+      "kind": "class",
+      "file": "src/nodefony/src/Cli.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "CliDefaultOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/Cli.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "DefaultOptionsService"
+    },
+    {
+      "name": "PackageManagerName",
+      "kind": "type",
+      "file": "src/nodefony/src/Cli.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Container",
+      "kind": "class",
+      "file": "src/nodefony/src/Container.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "IContainer"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "Scope",
+      "kind": "class",
+      "file": "src/nodefony/src/Container.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Container",
+      "implements": [
+        "IScope"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "DynamicService",
+      "kind": "interface",
+      "file": "src/nodefony/src/Container.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "DynamicParam",
+      "kind": "interface",
+      "file": "src/nodefony/src/Container.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "Scopes",
+      "kind": "interface",
+      "file": "src/nodefony/src/Container.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "ProtoService",
+      "kind": "type",
+      "file": "src/nodefony/src/Container.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "ProtoParameters",
+      "kind": "type",
+      "file": "src/nodefony/src/Container.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "nodefonyError",
+      "kind": "class",
+      "file": "src/nodefony/src/Error.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "registerSequelizeAdapter",
+      "kind": "function",
+      "file": "src/nodefony/src/Error.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "registerMongooseAdapter",
+      "kind": "function",
+      "file": "src/nodefony/src/Error.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Event",
+      "kind": "class",
+      "file": "src/nodefony/src/Event.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "EventEmitter",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "EventDefaultInterface",
+      "kind": "interface",
+      "file": "src/nodefony/src/Event.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "FileClass",
+      "kind": "class",
+      "file": "src/nodefony/src/FileClass.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "FileClassInterface",
+      "kind": "interface",
+      "file": "src/nodefony/src/FileClass.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "Nodefony",
+      "kind": "class",
+      "file": "src/nodefony/src/Nodefony.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Service",
+      "kind": "class",
+      "file": "src/nodefony/src/Service.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "IService"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "Test",
+      "kind": "class",
+      "file": "src/modules/test/index.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "services",
+        "controllers",
+        "entities"
+      ]
+    },
+    {
+      "name": "Framework",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/index.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "services"
+      ]
+    },
+    {
+      "name": "Http",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/index.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "services"
+      ]
+    },
+    {
+      "name": "Mongoose",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/index.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "services",
+        "entities"
+      ]
+    },
+    {
+      "name": "Redis",
+      "kind": "class",
+      "file": "src/packages/@nodefony/redis/index.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "services"
+      ]
+    },
+    {
+      "name": "Security",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/index.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "services"
+      ]
+    },
+    {
+      "name": "Sequelize",
+      "kind": "class",
+      "file": "src/packages/@nodefony/sequelize/index.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "services",
+        "entities"
+      ]
+    },
+    {
+      "name": "Builder",
+      "kind": "class",
+      "file": "src/nodefony/src/command/Builder.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "SymlinkParams",
+      "kind": "interface",
+      "file": "src/nodefony/src/command/Builder.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "CopyParams",
+      "kind": "interface",
+      "file": "src/nodefony/src/command/Builder.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "BuilderObject",
+      "kind": "interface",
+      "file": "src/nodefony/src/command/Builder.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "FileType",
+      "kind": "type",
+      "file": "src/nodefony/src/command/Builder.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Command",
+      "kind": "class",
+      "file": "src/nodefony/src/command/Command.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "CommandEvents",
+      "kind": "interface",
+      "file": "src/nodefony/src/command/Command.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "OptionsCommandInterface",
+      "kind": "interface",
+      "file": "src/nodefony/src/command/Command.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "DefaultOptionsService"
+    },
+    {
+      "name": "CommandArgs",
+      "kind": "type",
+      "file": "src/nodefony/src/command/Command.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "File",
+      "kind": "class",
+      "file": "src/nodefony/src/finder/File.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "FileClass",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "FileResult",
+      "kind": "class",
+      "file": "src/nodefony/src/finder/FileResult.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Result",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Finder",
+      "kind": "class",
+      "file": "src/nodefony/src/finder/Finder.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Event",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "FinderEvents",
+      "kind": "interface",
+      "file": "src/nodefony/src/finder/Finder.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "TotalInterface",
+      "kind": "interface",
+      "file": "src/nodefony/src/finder/Finder.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "Result",
+      "kind": "class",
+      "file": "src/nodefony/src/finder/Result.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Array",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "CliKernel",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/CliKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Cli",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "PackageManager",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/CliKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "CommandConstructor",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/CliKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Kernel",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [
+        "IKernel"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "TypeKernelOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "DefaultOptionsService"
+    },
+    {
+      "name": "NetworkInterface",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "FilterInterface",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "ServiceWithInitialize",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service"
+    },
+    {
+      "name": "ServiceConstructor",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "EntityConstructor",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "ModuleConstructor",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "KernelEventsType",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "KernelType",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "FamilyType",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Module",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/Module.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [
+        "IModule"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "TypeController",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/Module.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Fetch",
+      "kind": "class",
+      "file": "src/nodefony/src/service/fetchService.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Pm2",
+      "kind": "class",
+      "file": "src/nodefony/src/service/pm2Service.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Watcher",
+      "kind": "class",
+      "file": "src/nodefony/src/service/watcherService.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Pdu",
+      "kind": "class",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Pci",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "ModuleName",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Message",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Msgid",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "PduDate",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Status",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Severity",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/Pdu.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Syslog",
+      "kind": "class",
+      "file": "src/nodefony/src/syslog/Syslog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Event",
+      "implements": [
+        "ISyslog"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "ConditionSetting",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/Syslog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "conditionsInterface",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/Syslog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "SyslogDefaultSettings",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/Syslog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "WrapperResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/Syslog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "CallbackFunction",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/Syslog.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "ICliKernel",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/ICliKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "ICommand",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/ICommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "KernelEventKey",
+      "kind": "type",
+      "file": "src/nodefony/src/types/ICommand.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "IScope",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IContainer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "IContainer"
+    },
+    {
+      "name": "IContainer",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IContainer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "KernelNetworkResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "IKernel",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "IService"
+    },
+    {
+      "name": "PackageJson",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IModule.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "IModule",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IModule.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "IService"
+    },
+    {
+      "name": "DefaultOptionsService",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IService.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "EventDefaultInterface"
+    },
+    {
+      "name": "IService",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IService.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "EventListener",
+      "kind": "type",
+      "file": "src/nodefony/src/types/IService.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "ISyslog",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/ISyslog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "ITransport",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/ITransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "Storage",
+      "kind": "class",
+      "file": "src/nodefony/src/client/api/Storage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Websocket",
+      "kind": "class",
+      "file": "src/nodefony/src/client/transport/websocket.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Dev",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/BuildCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Dev",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/DevCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Install",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/InstallCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Kill",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/KillCommnand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Outdated",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Prod",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/ProdCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Staging",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/StagingCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Start",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/StartCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "modules",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "services",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "entities",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "injectable",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "inject",
+      "kind": "decorator-fn",
+      "file": "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Inject",
+      "kind": "decorator-fn",
+      "file": "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Injector",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/injector/injector.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "InjectableOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/injector/injector.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "PropertyInjectMeta",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/injector/injector.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "DIScope",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/injector/injector.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Connector",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/orm/Connector.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Entity",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/orm/Entity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "TypeEntity",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/orm/Entity.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    {
+      "name": "Orm",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/orm/Orm.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Babylon",
+      "kind": "class",
+      "file": "src/nodefony/src/service/babel/babylon.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Rollup",
+      "kind": "class",
+      "file": "src/nodefony/src/service/rollup/rollupService.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ConsoleTransport",
+      "kind": "class",
+      "file": "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "ITransport"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "FileTransport",
+      "kind": "class",
+      "file": "src/nodefony/src/syslog/transports/FileTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "ITransport"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "FileTransportOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/transports/FileTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "HttpTransport",
+      "kind": "class",
+      "file": "src/nodefony/src/syslog/transports/HttpTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "ITransport"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "HttpTransportOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/transports/HttpTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    {
+      "name": "SyslogTransport",
+      "kind": "class",
+      "file": "src/nodefony/src/syslog/transports/SyslogTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "ITransport"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "DecoratorController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/DecoratorController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
+    },
+    {
+      "name": "DefaultController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/DefaultController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
+    },
+    {
+      "name": "FrameworkController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/FrameworkController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
+    },
+    {
+      "name": "GraphQlController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/GraphqlController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
+    },
+    {
+      "name": "HtmlController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/HtmlController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
+    },
+    {
+      "name": "OpenApiController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/OpenapiController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
+    },
+    {
+      "name": "RestController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/RestController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
+    },
+    {
+      "name": "RouteController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/RouteController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
+    },
+    {
+      "name": "WebsocketController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/WebSocketController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
+    },
+    {
+      "name": "Boat",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/entity/BoatEntity.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Entity",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "AgentError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/agent/src/errors/AgentErrors.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": "Error",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "AgentShutdownError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/agent/src/errors/AgentErrors.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": "AgentError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "AgentAbortedError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/agent/src/errors/AgentErrors.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": "AgentError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ToolNotFoundError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/agent/src/errors/AgentErrors.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": "AgentError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ToolExecutionError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/agent/src/errors/AgentErrors.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": "AgentError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ToolValidationError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/agent/src/errors/AgentErrors.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": "AgentError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "AgentMaxIterationsError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/agent/src/errors/AgentErrors.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": "AgentError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "IAgentContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/agent/src/interfaces/IAgent.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": null
+    },
+    {
+      "name": "IAgentResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/agent/src/interfaces/IAgent.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": null
+    },
+    {
+      "name": "IAgentEvent",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/agent/src/interfaces/IAgent.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": null
+    },
+    {
+      "name": "IAgent",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/agent/src/interfaces/IAgent.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": null
+    },
+    {
+      "name": "ITool",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/agent/src/interfaces/IAgent.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": null
+    },
+    {
+      "name": "AgentEventType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/agent/src/interfaces/IAgent.ts",
+      "exported": true,
+      "module": "@nodefony/agent"
+    },
+    {
+      "name": "ToolRegistry",
+      "kind": "class",
+      "file": "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/agent",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ParamMeta",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null
+    },
+    {
+      "name": "RedirectMeta",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null
+    },
+    {
+      "name": "ParamSource",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "controllers",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "controller",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "route",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "HttpCode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "Header",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "Redirect",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "HTTP_CODE_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "HEADERS_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "REDIRECT_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "PARAM_ARGS_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "IController",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null
+    },
+    {
+      "name": "IResolver",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null
+    },
+    {
+      "name": "IRoute",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null
+    },
+    {
+      "name": "Ejs",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Template",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Router",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [
+        "injectable"
+      ]
+    },
+    {
+      "name": "TypeController",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    {
+      "name": "Twig",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Template",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Controller",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Service",
+      "implements": [
+        "IController"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "Resolver",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Service",
+      "implements": [
+        "IResolver"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "ControllerWithInitialize",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null
+    },
+    {
+      "name": "Route",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "implements": [
+        "IRoute"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "ControllerConstructor",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null
+    },
+    {
+      "name": "RouteOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null
+    },
+    {
+      "name": "RouteRequirements",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null
+    },
+    {
+      "name": "Template",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/Template.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Network",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "IContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "IHttpContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "IContext"
+    },
+    {
+      "name": "IWebsocketContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "IContext"
+    },
+    {
+      "name": "ServerType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "SchemeType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "WebSocketStateType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "CookiesMap",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "ICookieOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ICookie.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "IWsCookie",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ICookie.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "ICookie",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ICookie.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "SameSiteType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ICookie.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "PriorityType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ICookie.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "IHttpKernel",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IHttpKernel.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "IRequest",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IRequest.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "IHttpRequest",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IRequest.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "IRequest"
+    },
+    {
+      "name": "IHttp2Request",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IRequest.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "IHttpRequest"
+    },
+    {
+      "name": "IWsRequest",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IRequest.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "IRequest"
+    },
+    {
+      "name": "HTTPMethodType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IRequest.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "IResponse",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IResponse.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "IHttpResponse",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IResponse.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "IResponse"
+    },
+    {
+      "name": "IWebsocketResponse",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IResponse.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "IResponse"
+    },
+    {
+      "name": "ISessionStorage",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "ISession",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "SessionStatusType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "SessionStrategyType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "FlashBagType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "MetaBagType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "IUploadedFile",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IUpload.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "IUploadService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IUpload.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "Certificate",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "OpensslOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "CertificateOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "HttpKernel",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [
+        "IHttpKernelInterface"
+      ],
+      "decorators": [
+        "injectable"
+      ]
+    },
+    {
+      "name": "WsMetaData",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "MetaData",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "Data",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "ProtocolType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "httpRequest",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "httpResponse",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "ContextType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "ServerType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "responseTimeoutType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "SchemeType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "LLMError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/llm/src/errors/LLMErrors.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": "Error",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "LLMRateLimitError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/llm/src/errors/LLMErrors.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": "LLMError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "LLMTimeoutError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/llm/src/errors/LLMErrors.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": "LLMError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "LLMProviderError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/llm/src/errors/LLMErrors.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": "LLMError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "LLMAbortError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/llm/src/errors/LLMErrors.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": "LLMError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "LLMEmbedNotSupportedError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/llm/src/errors/LLMErrors.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": "LLMError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "IMessage",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null
+    },
+    {
+      "name": "ITokenUsage",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null
+    },
+    {
+      "name": "IToolCall",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null
+    },
+    {
+      "name": "ILLMResponse",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null
+    },
+    {
+      "name": "IStreamChunk",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null
+    },
+    {
+      "name": "IToolDefinition",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null
+    },
+    {
+      "name": "IChatOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null
+    },
+    {
+      "name": "ILLMConfig",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null
+    },
+    {
+      "name": "ILLMProvider",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null
+    },
+    {
+      "name": "LLMRole",
+      "kind": "type",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm"
+    },
+    {
+      "name": "StopReason",
+      "kind": "type",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm"
+    },
+    {
+      "name": "LLMProviderName",
+      "kind": "type",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm"
+    },
+    {
+      "name": "LLMMode",
+      "kind": "type",
+      "file": "src/packages/@nodefony/llm/src/interfaces/ILLMProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm"
+    },
+    {
+      "name": "ClaudeProvider",
+      "kind": "class",
+      "file": "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null,
+      "implements": [
+        "ILLMProvider"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "OllamaProvider",
+      "kind": "class",
+      "file": "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null,
+      "implements": [
+        "ILLMProvider"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "LLMService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/llm/src/services/LLMService.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": null,
+      "implements": [
+        "ILLMService"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "ILLMService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/llm/src/services/LLMService.ts",
+      "exported": true,
+      "module": "@nodefony/llm",
+      "extends": "ILLMProvider"
+    },
+    {
+      "name": "MemoryError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/memory/src/errors/MemoryErrors.ts",
+      "exported": true,
+      "module": "@nodefony/memory",
+      "extends": "Error",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "MemoryShutdownError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/memory/src/errors/MemoryErrors.ts",
+      "exported": true,
+      "module": "@nodefony/memory",
+      "extends": "MemoryError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "MemoryInvalidInputError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/memory/src/errors/MemoryErrors.ts",
+      "exported": true,
+      "module": "@nodefony/memory",
+      "extends": "MemoryError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "IMemoryEntry",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/memory/src/interfaces/IMemoryService.ts",
+      "exported": true,
+      "module": "@nodefony/memory",
+      "extends": null
+    },
+    {
+      "name": "IMemoryStats",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/memory/src/interfaces/IMemoryService.ts",
+      "exported": true,
+      "module": "@nodefony/memory",
+      "extends": null
+    },
+    {
+      "name": "IMemoryService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/memory/src/interfaces/IMemoryService.ts",
+      "exported": true,
+      "module": "@nodefony/memory",
+      "extends": null
+    },
+    {
+      "name": "MemoryService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/memory/src/services/MemoryService.ts",
+      "exported": true,
+      "module": "@nodefony/memory",
+      "extends": null,
+      "implements": [
+        "IMemoryService"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "IMemoryServiceConfig",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/memory/src/services/MemoryService.ts",
+      "exported": true,
+      "module": "@nodefony/memory",
+      "extends": null
+    },
+    {
+      "name": "InMemoryStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/memory/src/stores/InMemoryStore.ts",
+      "exported": true,
+      "module": "@nodefony/memory",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "IInMemoryStoreConfig",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/memory/src/stores/InMemoryStore.ts",
+      "exported": true,
+      "module": "@nodefony/memory",
+      "extends": null
+    },
+    {
+      "name": "Session",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": "Entity",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ISession",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": "Document"
+    },
+    {
+      "name": "SessionModel",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": "Model"
+    },
+    {
+      "name": "Mongoose",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": "Orm",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "SessionStorage",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "FixedChunker",
+      "kind": "class",
+      "file": "src/packages/@nodefony/rag/src/chunking/FixedChunker.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": null,
+      "implements": [
+        "IChunker"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "SentenceChunker",
+      "kind": "class",
+      "file": "src/packages/@nodefony/rag/src/chunking/SentenceChunker.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": null,
+      "implements": [
+        "IChunker"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "RagError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/rag/src/errors/RagErrors.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": "Error",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "RagInvalidInputError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/rag/src/errors/RagErrors.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": "RagError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "RagShutdownError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/rag/src/errors/RagErrors.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": "RagError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "IChunk",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/rag/src/interfaces/IRagService.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": null
+    },
+    {
+      "name": "ISearchResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/rag/src/interfaces/IRagService.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": null
+    },
+    {
+      "name": "IIndexOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/rag/src/interfaces/IRagService.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": null
+    },
+    {
+      "name": "ISearchOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/rag/src/interfaces/IRagService.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": null
+    },
+    {
+      "name": "IRagStats",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/rag/src/interfaces/IRagService.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": null
+    },
+    {
+      "name": "IRagService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/rag/src/interfaces/IRagService.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": null
+    },
+    {
+      "name": "IChunker",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/rag/src/interfaces/IRagService.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": null
+    },
+    {
+      "name": "ChunkingStrategy",
+      "kind": "type",
+      "file": "src/packages/@nodefony/rag/src/interfaces/IRagService.ts",
+      "exported": true,
+      "module": "@nodefony/rag"
+    },
+    {
+      "name": "RagService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/rag/src/services/RagService.ts",
+      "exported": true,
+      "module": "@nodefony/rag",
+      "extends": null,
+      "implements": [
+        "IRagService"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "Redis",
+      "kind": "class",
+      "file": "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Connection",
+      "kind": "class",
+      "file": "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Authorization",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Cors",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Csrf",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "CsrfService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Firewall",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Helmet",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Factory",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/Factory.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Provider",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/Provider.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "SecuredArea",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Factory",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/types/factory.types.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service"
+    },
+    {
+      "name": "optionsFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/types/factory.types.ts",
+      "exported": true,
+      "module": "@nodefony/security"
+    },
+    {
+      "name": "Firewall",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service"
+    },
+    {
+      "name": "Areas",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "exported": true,
+      "module": "@nodefony/security"
+    },
+    {
+      "name": "Factories",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "exported": true,
+      "module": "@nodefony/security"
+    },
+    {
+      "name": "Providers",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "exported": true,
+      "module": "@nodefony/security"
+    },
+    {
+      "name": "Helmet",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service"
+    },
+    {
+      "name": "HelmetMiddleware",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
+      "exported": true,
+      "module": "@nodefony/security"
+    },
+    {
+      "name": "Provider",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/types/provider.types.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service"
+    },
+    {
+      "name": "optionsProvider",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/types/provider.types.ts",
+      "exported": true,
+      "module": "@nodefony/security"
+    },
+    {
+      "name": "SecuredArea",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Service"
+    },
+    {
+      "name": "optionsSecuredArea",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+      "exported": true,
+      "module": "@nodefony/security"
+    },
+    {
+      "name": "SequelizeCommand",
+      "kind": "class",
+      "file": "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Session",
+      "kind": "class",
+      "file": "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize",
+      "extends": "Entity",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ConnectorSequelise",
+      "kind": "class",
+      "file": "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize",
+      "extends": "Connector",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Sequelize",
+      "kind": "class",
+      "file": "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize",
+      "extends": "Orm",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Strategy",
+      "kind": "type",
+      "file": "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize"
+    },
+    {
+      "name": "Models",
+      "kind": "type",
+      "file": "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize"
+    },
+    {
+      "name": "SessionStorage",
+      "kind": "class",
+      "file": "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "MemoryVectorStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": null,
+      "implements": [
+        "IVectorStore"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "PgVectorAdapter",
+      "kind": "class",
+      "file": "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": null,
+      "implements": [
+        "IVectorStore"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "IPgVectorConfig",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": "IVectorStoreConfig"
+    },
+    {
+      "name": "IPgPool",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": null
+    },
+    {
+      "name": "VectorError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/vector/src/errors/VectorErrors.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": "Error",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "VectorDimensionError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/vector/src/errors/VectorErrors.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": "VectorError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "VectorConnectionError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/vector/src/errors/VectorErrors.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": "VectorError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "VectorNotInitializedError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/vector/src/errors/VectorErrors.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": "VectorError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "IVectorMetadata",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/vector/src/interfaces/IVectorStore.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": null
+    },
+    {
+      "name": "IVectorEntry",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/vector/src/interfaces/IVectorStore.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": null
+    },
+    {
+      "name": "IVectorSearchResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/vector/src/interfaces/IVectorStore.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": null
+    },
+    {
+      "name": "IVectorSearchOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/vector/src/interfaces/IVectorStore.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": null
+    },
+    {
+      "name": "IVectorStoreConfig",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/vector/src/interfaces/IVectorStore.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": null
+    },
+    {
+      "name": "IVectorStore",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/vector/src/interfaces/IVectorStore.ts",
+      "exported": true,
+      "module": "@nodefony/vector",
+      "extends": null
+    },
+    {
+      "name": "Pm2",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ServerHttp",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ServerHttps",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Statics",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "WebsocketSecure",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Websocket",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "SessionsService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [
+        "injectable"
+      ]
+    },
+    {
+      "name": "SerializeSessionType",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "sessionStorageInterface",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "sessionStrategyType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "sessionStorageType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "FlashBagSessionType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "MetaBagSessionType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "upload",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "UploadedFile",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "FileClass",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Context",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Service",
+      "implements": [
+        "IContextInterface"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "WebSocketState",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "contextRequest",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "contextResponse",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "HTTPMethod",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "Cookies",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "Cookie",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [
+        "ICookieInterface"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "CookieOptionsType",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "parser",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "cookiesParser",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "HttpError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "NodefonyError",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Session",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Container",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "OptionsSessionType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "firewall",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/decorators/firewallDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/security"
+    },
+    {
+      "name": "HttpContext",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Context",
+      "implements": [
+        "IHttpContextInterface"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "ProxyType",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "HttpRequestType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "HttpRsponseType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "Parser",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ParserQs",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Parser",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "ParserXml",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Parser",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "HttpRequest",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "HttpResponse",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Http2Request",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "HttpRequest",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "Http2Response",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "HttpResponse",
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "WebsocketResponse",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "IWsCookie",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "WebsocketContext",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Context",
+      "implements": [
+        "IWebsocketContextInterface"
+      ],
+      "decorators": []
+    },
+    {
+      "name": "IWsRequestExtension",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "WsIncomingMessage",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "FileSessionStorage",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [
+        "sessionStorageInterface"
+      ],
+      "decorators": []
+    }
+  ],
+  "usedBy": {
+    "Command": [
+      "src/nodefony/src/Cli.ts",
+      "src/nodefony/src/Cli.ts",
+      "src/packages/@nodefony/sequelize/index.ts",
+      "src/nodefony/src/command/Builder.ts",
+      "src/nodefony/src/command/Command.ts",
+      "src/nodefony/src/kernel/CliKernel.ts",
+      "src/nodefony/src/kernel/CliKernel.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/types/ICliKernel.ts",
+      "src/nodefony/src/kernel/commands/BuildCommand.ts",
+      "src/nodefony/src/kernel/commands/DevCommand.ts",
+      "src/nodefony/src/kernel/commands/InstallCommand.ts",
+      "src/nodefony/src/kernel/commands/KillCommnand.ts",
+      "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
+      "src/nodefony/src/kernel/commands/ProdCommand.ts",
+      "src/nodefony/src/kernel/commands/StagingCommand.ts",
+      "src/nodefony/src/kernel/commands/StartCommand.ts",
+      "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+      "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
+      "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
+    ],
+    "Service": [
+      "src/nodefony/src/Cli.ts",
+      "src/nodefony/src/client/index.ts",
+      "src/nodefony/src/command/Builder.ts",
+      "src/nodefony/src/command/Command.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/service/fetchService.ts",
+      "src/nodefony/src/service/pm2Service.ts",
+      "src/nodefony/src/service/watcherService.ts",
+      "src/nodefony/src/client/api/Storage.ts",
+      "src/nodefony/src/client/transport/websocket.ts",
+      "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "src/nodefony/src/kernel/injector/injector.ts",
+      "src/nodefony/src/kernel/orm/Entity.ts",
+      "src/nodefony/src/kernel/orm/Orm.ts",
+      "src/nodefony/src/service/babel/babylon.ts",
+      "src/nodefony/src/service/rollup/rollupService.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Template.ts",
+      "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+      "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+      "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+      "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+      "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "src/packages/@nodefony/security/nodefony/src/Factory.ts",
+      "src/packages/@nodefony/security/nodefony/src/Provider.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/factory.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/provider.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+      "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "DefaultOptionsService": [
+      "src/nodefony/src/Cli.ts",
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/command/Command.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/kernel/orm/Orm.ts"
+    ],
+    "Container": [
+      "src/nodefony/src/Cli.ts",
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/Tools.ts",
+      "src/nodefony/src/client/index.ts",
+      "src/nodefony/src/command/Builder.ts",
+      "src/nodefony/src/command/Command.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/service/fetchService.ts",
+      "src/nodefony/src/service/pm2Service.ts",
+      "src/nodefony/src/service/watcherService.ts",
+      "src/nodefony/src/client/api/Storage.ts",
+      "src/nodefony/src/kernel/injector/injector.ts",
+      "src/nodefony/src/kernel/orm/Entity.ts",
+      "src/nodefony/src/kernel/orm/Orm.ts",
+      "src/nodefony/src/service/babel/babylon.ts",
+      "src/nodefony/src/service/rollup/rollupService.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Template.ts",
+      "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+      "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+      "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+      "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+      "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "src/packages/@nodefony/security/nodefony/src/Factory.ts",
+      "src/packages/@nodefony/security/nodefony/src/Provider.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
+    ],
+    "FileClass": [
+      "src/nodefony/src/Cli.ts",
+      "src/nodefony/src/command/Builder.ts",
+      "src/nodefony/src/finder/File.ts",
+      "src/nodefony/src/finder/Finder.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/service/babel/babylon.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+    ],
+    "Event": [
+      "src/nodefony/src/Cli.ts",
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/command/Builder.ts",
+      "src/nodefony/src/finder/Finder.ts",
+      "src/nodefony/src/service/pm2Service.ts",
+      "src/nodefony/src/syslog/Syslog.ts",
+      "src/nodefony/src/types/IService.ts",
+      "src/nodefony/src/kernel/injector/injector.ts",
+      "src/nodefony/src/kernel/orm/Orm.ts",
+      "src/nodefony/src/service/babel/babylon.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Template.ts",
+      "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+      "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+      "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+      "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "src/packages/@nodefony/security/nodefony/src/Factory.ts",
+      "src/packages/@nodefony/security/nodefony/src/Provider.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+    ],
+    "Syslog": [
+      "src/nodefony/src/Cli.ts",
+      "src/nodefony/src/Container.ts",
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/client/index.ts",
+      "src/nodefony/src/kernel/CliKernel.ts",
+      "src/nodefony/src/types/IContainer.ts",
+      "src/nodefony/src/types/IService.ts",
+      "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
+      "src/nodefony/src/syslog/transports/SyslogTransport.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+    ],
+    "Kernel": [
+      "src/nodefony/src/Cli.ts",
+      "src/nodefony/src/Nodefony.ts",
+      "src/modules/test/index.ts",
+      "src/packages/@nodefony/framework/index.ts",
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/mongoose/index.ts",
+      "src/packages/@nodefony/redis/index.ts",
+      "src/packages/@nodefony/security/index.ts",
+      "src/packages/@nodefony/sequelize/index.ts",
+      "src/nodefony/src/kernel/CliKernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/service/pm2Service.ts",
+      "src/nodefony/src/service/watcherService.ts",
+      "src/nodefony/src/kernel/commands/DevCommand.ts",
+      "src/nodefony/src/kernel/commands/KillCommnand.ts",
+      "src/nodefony/src/kernel/commands/ProdCommand.ts",
+      "src/nodefony/src/kernel/commands/StagingCommand.ts",
+      "src/nodefony/src/kernel/injector/injector.ts",
+      "src/nodefony/src/service/babel/babylon.ts",
+      "src/nodefony/src/service/rollup/rollupService.ts",
+      "src/modules/test/nodefony/config/config.ts",
+      "src/packages/@nodefony/redis/nodefony/config/config.ts",
+      "src/packages/@nodefony/sequelize/nodefony/config/config.ts"
+    ],
+    "Message": [
+      "src/nodefony/src/Container.ts",
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/command/Command.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/syslog/Syslog.ts",
+      "src/nodefony/src/types/IContainer.ts",
+      "src/nodefony/src/types/IService.ts",
+      "src/nodefony/src/types/ISyslog.ts",
+      "src/nodefony/src/kernel/orm/Connector.ts",
+      "src/nodefony/src/kernel/orm/Entity.ts",
+      "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+      "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "Msgid": [
+      "src/nodefony/src/Container.ts",
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/command/Command.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/syslog/Syslog.ts",
+      "src/nodefony/src/types/IContainer.ts",
+      "src/nodefony/src/types/IService.ts",
+      "src/nodefony/src/types/ISyslog.ts",
+      "src/nodefony/src/kernel/orm/Connector.ts",
+      "src/nodefony/src/kernel/orm/Entity.ts",
+      "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+      "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "Pci": [
+      "src/nodefony/src/Container.ts",
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/syslog/Syslog.ts",
+      "src/nodefony/src/types/IContainer.ts",
+      "src/nodefony/src/types/IService.ts",
+      "src/nodefony/src/types/ISyslog.ts",
+      "src/nodefony/src/kernel/orm/Connector.ts",
+      "src/nodefony/src/kernel/orm/Entity.ts",
+      "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+    ],
+    "Severity": [
+      "src/nodefony/src/Container.ts",
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/command/Command.ts",
+      "src/nodefony/src/finder/Result.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/syslog/Syslog.ts",
+      "src/nodefony/src/types/IContainer.ts",
+      "src/nodefony/src/types/IService.ts",
+      "src/nodefony/src/types/ISyslog.ts",
+      "src/nodefony/src/kernel/orm/Connector.ts",
+      "src/nodefony/src/kernel/orm/Entity.ts",
+      "src/nodefony/src/service/rollup/rollupService.ts",
+      "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+      "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+      "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+      "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+      "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+      "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "IContainer": [
+      "src/nodefony/src/Container.ts",
+      "src/nodefony/src/types/IService.ts"
+    ],
+    "IScope": [
+      "src/nodefony/src/Container.ts"
+    ],
+    "Nodefony": [
+      "src/nodefony/src/Error.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/injector/injector.ts",
+      "src/modules/test/nodefony/config/config.ts",
+      "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "src/packages/@nodefony/http/nodefony/config/config.ts",
+      "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
+      "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+      "src/packages/@nodefony/sequelize/nodefony/config/config.ts",
+      "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts"
+    ],
+    "IService": [
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/types/IKernel.ts",
+      "src/nodefony/src/types/IModule.ts"
+    ],
+    "EventListener": [
+      "src/nodefony/src/Service.ts"
+    ],
+    "IKernel": [
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/types/IModule.ts",
+      "src/nodefony/src/types/IService.ts"
+    ],
+    "DynamicParam": [
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/types/IContainer.ts",
+      "src/nodefony/src/types/IService.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+    ],
+    "EventDefaultInterface": [
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/types/IService.ts"
+    ],
+    "Pdu": [
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/client/index.ts",
+      "src/nodefony/src/kernel/CliKernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/syslog/Syslog.ts",
+      "src/nodefony/src/types/IService.ts",
+      "src/nodefony/src/types/ISyslog.ts",
+      "src/nodefony/src/types/ITransport.ts",
+      "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
+      "src/nodefony/src/syslog/transports/FileTransport.ts",
+      "src/nodefony/src/syslog/transports/HttpTransport.ts",
+      "src/nodefony/src/syslog/transports/SyslogTransport.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
+    ],
+    "SyslogDefaultSettings": [
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/types/IService.ts",
+      "src/nodefony/src/types/ISyslog.ts"
+    ],
+    "conditionsInterface": [
+      "src/nodefony/src/Service.ts",
+      "src/nodefony/src/kernel/CliKernel.ts",
+      "src/nodefony/src/types/IService.ts",
+      "src/nodefony/src/types/ISyslog.ts"
+    ],
+    "Module": [
+      "src/modules/test/index.ts",
+      "src/packages/@nodefony/framework/index.ts",
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/mongoose/index.ts",
+      "src/packages/@nodefony/redis/index.ts",
+      "src/packages/@nodefony/security/index.ts",
+      "src/packages/@nodefony/sequelize/index.ts",
+      "src/nodefony/src/kernel/CliKernel.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/service/fetchService.ts",
+      "src/nodefony/src/service/watcherService.ts",
+      "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "src/nodefony/src/kernel/orm/Entity.ts",
+      "src/nodefony/src/kernel/orm/Orm.ts",
+      "src/nodefony/src/service/rollup/rollupService.ts",
+      "src/modules/test/nodefony/entity/BoatEntity.ts",
+      "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Template.ts",
+      "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
+      "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+      "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+      "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+      "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+      "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
+      "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+    ],
+    "services": [
+      "src/modules/test/index.ts",
+      "src/packages/@nodefony/framework/index.ts",
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/mongoose/index.ts",
+      "src/packages/@nodefony/redis/index.ts",
+      "src/packages/@nodefony/security/index.ts",
+      "src/packages/@nodefony/sequelize/index.ts"
+    ],
+    "entities": [
+      "src/modules/test/index.ts",
+      "src/packages/@nodefony/mongoose/index.ts",
+      "src/packages/@nodefony/sequelize/index.ts"
+    ],
+    "DefaultController": [
+      "src/modules/test/index.ts"
+    ],
+    "RestController": [
+      "src/modules/test/index.ts"
+    ],
+    "HtmlController": [
+      "src/modules/test/index.ts"
+    ],
+    "WebsocketController": [
+      "src/modules/test/index.ts"
+    ],
+    "FrameworkController": [
+      "src/modules/test/index.ts"
+    ],
+    "DecoratorController": [
+      "src/modules/test/index.ts"
+    ],
+    "controllers": [
+      "src/modules/test/index.ts",
+      "src/packages/@nodefony/framework/index.ts"
+    ],
+    "Router": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "Route": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "Controller": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/modules/test/nodefony/controller/DecoratorController.ts",
+      "src/modules/test/nodefony/controller/DefaultController.ts",
+      "src/modules/test/nodefony/controller/FrameworkController.ts",
+      "src/modules/test/nodefony/controller/GraphqlController.ts",
+      "src/modules/test/nodefony/controller/HtmlController.ts",
+      "src/modules/test/nodefony/controller/OpenapiController.ts",
+      "src/modules/test/nodefony/controller/RestController.ts",
+      "src/modules/test/nodefony/controller/RouteController.ts",
+      "src/modules/test/nodefony/controller/WebSocketController.ts",
+      "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+    ],
+    "Resolver": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "Twig": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
+    ],
+    "Ejs": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
+    ],
+    "route": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/modules/test/nodefony/controller/DefaultController.ts",
+      "src/modules/test/nodefony/controller/GraphqlController.ts",
+      "src/modules/test/nodefony/controller/HtmlController.ts",
+      "src/modules/test/nodefony/controller/OpenapiController.ts",
+      "src/modules/test/nodefony/controller/RestController.ts",
+      "src/modules/test/nodefony/controller/RouteController.ts",
+      "src/modules/test/nodefony/controller/WebSocketController.ts"
+    ],
+    "controller": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/modules/test/nodefony/controller/DecoratorController.ts",
+      "src/modules/test/nodefony/controller/DefaultController.ts",
+      "src/modules/test/nodefony/controller/FrameworkController.ts",
+      "src/modules/test/nodefony/controller/GraphqlController.ts",
+      "src/modules/test/nodefony/controller/HtmlController.ts",
+      "src/modules/test/nodefony/controller/OpenapiController.ts",
+      "src/modules/test/nodefony/controller/RestController.ts",
+      "src/modules/test/nodefony/controller/RouteController.ts",
+      "src/modules/test/nodefony/controller/WebSocketController.ts"
+    ],
+    "HttpCode": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/modules/test/nodefony/controller/FrameworkController.ts"
+    ],
+    "Header": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/modules/test/nodefony/controller/FrameworkController.ts"
+    ],
+    "Redirect": [
+      "src/packages/@nodefony/framework/index.ts",
+      "src/modules/test/nodefony/controller/FrameworkController.ts"
+    ],
+    "HttpKernel": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+      "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "SessionsService": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "Certificate": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+    ],
+    "Context": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/nodefony/src/service/watcherService.ts",
+      "src/modules/test/nodefony/controller/DefaultController.ts",
+      "src/modules/test/nodefony/controller/FrameworkController.ts",
+      "src/modules/test/nodefony/controller/GraphqlController.ts",
+      "src/modules/test/nodefony/controller/HtmlController.ts",
+      "src/modules/test/nodefony/controller/OpenapiController.ts",
+      "src/modules/test/nodefony/controller/RestController.ts",
+      "src/modules/test/nodefony/controller/RouteController.ts",
+      "src/modules/test/nodefony/controller/WebSocketController.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "Session": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/sequelize/index.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+    ],
+    "HttpError": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/modules/test/nodefony/controller/DefaultController.ts",
+      "src/modules/test/nodefony/controller/FrameworkController.ts",
+      "src/modules/test/nodefony/controller/HtmlController.ts",
+      "src/modules/test/nodefony/controller/RestController.ts",
+      "src/modules/test/nodefony/controller/RouteController.ts",
+      "src/modules/test/nodefony/controller/WebSocketController.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "Http2Response": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
+    ],
+    "Cookie": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/modules/test/nodefony/controller/WebSocketController.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+    ],
+    "HttpContext": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/modules/test/nodefony/controller/DefaultController.ts",
+      "src/modules/test/nodefony/controller/FrameworkController.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
+      "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts"
+    ],
+    "WebsocketContext": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+    ],
+    "HttpRequest": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts"
+    ],
+    "Http2Request": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts"
+    ],
+    "ISession": [
+      "src/packages/@nodefony/mongoose/index.ts",
+      "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+    ],
+    "SessionModel": [
+      "src/packages/@nodefony/mongoose/index.ts",
+      "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+    ],
+    "SessionStorage": [
+      "src/packages/@nodefony/mongoose/index.ts",
+      "src/packages/@nodefony/sequelize/index.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+    ],
+    "Firewall": [
+      "src/packages/@nodefony/security/index.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+      "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "src/packages/@nodefony/security/nodefony/src/Factory.ts",
+      "src/packages/@nodefony/security/nodefony/src/Provider.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/factory.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/provider.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+    ],
+    "SecuredArea": [
+      "src/packages/@nodefony/security/index.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "Authorization": [
+      "src/packages/@nodefony/security/index.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts"
+    ],
+    "Cors": [
+      "src/packages/@nodefony/security/index.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+    ],
+    "CsrfService": [
+      "src/packages/@nodefony/security/index.ts"
+    ],
+    "Csrf": [
+      "src/packages/@nodefony/security/index.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
+    ],
+    "Helmet": [
+      "src/packages/@nodefony/security/index.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+    ],
+    "Entity": [
+      "src/packages/@nodefony/sequelize/index.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "src/nodefony/src/kernel/orm/Orm.ts",
+      "src/modules/test/nodefony/entity/BoatEntity.ts",
+      "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
+      "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+      "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
+      "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+    ],
+    "Models": [
+      "src/packages/@nodefony/sequelize/index.ts",
+      "src/modules/test/nodefony/entity/BoatEntity.ts"
+    ],
+    "CliKernel": [
+      "src/nodefony/src/bin/nodefony.ts",
+      "src/nodefony/src/command/Command.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/kernel/commands/BuildCommand.ts",
+      "src/nodefony/src/kernel/commands/DevCommand.ts",
+      "src/nodefony/src/kernel/commands/InstallCommand.ts",
+      "src/nodefony/src/kernel/commands/KillCommnand.ts",
+      "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
+      "src/nodefony/src/kernel/commands/ProdCommand.ts",
+      "src/nodefony/src/kernel/commands/StagingCommand.ts",
+      "src/nodefony/src/kernel/commands/StartCommand.ts",
+      "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+      "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
+      "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
+    ],
+    "Websocket": [
+      "src/nodefony/src/client/index.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "Storage": [
+      "src/nodefony/src/client/index.ts"
+    ],
+    "File": [
+      "src/nodefony/src/command/Builder.ts",
+      "src/nodefony/src/finder/FileResult.ts",
+      "src/nodefony/src/finder/Finder.ts",
+      "src/nodefony/src/service/babel/babylon.ts"
+    ],
+    "Cli": [
+      "src/nodefony/src/command/Builder.ts",
+      "src/nodefony/src/command/Command.ts",
+      "src/nodefony/src/kernel/CliKernel.ts",
+      "src/nodefony/src/service/pm2Service.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+    ],
+    "Scope": [
+      "src/nodefony/src/command/Command.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "Builder": [
+      "src/nodefony/src/command/Command.ts"
+    ],
+    "KernelEventKey": [
+      "src/nodefony/src/command/Command.ts"
+    ],
+    "FileClassInterface": [
+      "src/nodefony/src/finder/File.ts"
+    ],
+    "FileResult": [
+      "src/nodefony/src/finder/File.ts",
+      "src/nodefony/src/finder/Finder.ts"
+    ],
+    "Result": [
+      "src/nodefony/src/finder/FileResult.ts",
+      "src/nodefony/src/finder/Finder.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+    ],
+    "CliDefaultOptions": [
+      "src/nodefony/src/kernel/CliKernel.ts"
+    ],
+    "PackageManagerName": [
+      "src/nodefony/src/kernel/CliKernel.ts"
+    ],
+    "KernelType": [
+      "src/nodefony/src/kernel/CliKernel.ts"
+    ],
+    "TypeKernelOptions": [
+      "src/nodefony/src/kernel/CliKernel.ts"
+    ],
+    "Start": [
+      "src/nodefony/src/kernel/CliKernel.ts"
+    ],
+    "Dev": [
+      "src/nodefony/src/kernel/CliKernel.ts"
+    ],
+    "Prod": [
+      "src/nodefony/src/kernel/CliKernel.ts"
+    ],
+    "Staging": [
+      "src/nodefony/src/kernel/CliKernel.ts"
+    ],
+    "Install": [
+      "src/nodefony/src/kernel/CliKernel.ts"
+    ],
+    "Pm2": [
+      "src/nodefony/src/kernel/CliKernel.ts",
+      "src/nodefony/src/kernel/Kernel.ts"
+    ],
+    "Kill": [
+      "src/nodefony/src/kernel/CliKernel.ts"
+    ],
+    "Orm": [
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/orm/Connector.ts",
+      "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+      "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+    ],
+    "CommandArgs": [
+      "src/nodefony/src/kernel/Kernel.ts"
+    ],
+    "Rollup": [
+      "src/nodefony/src/kernel/Kernel.ts"
+    ],
+    "Watcher": [
+      "src/nodefony/src/kernel/Kernel.ts"
+    ],
+    "Injector": [
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+    ],
+    "ServiceConstructor": [
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+      "src/nodefony/src/kernel/injector/injector.ts"
+    ],
+    "ServiceWithInitialize": [
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/kernel/injector/injector.ts"
+    ],
+    "EntityConstructor": [
+      "src/nodefony/src/kernel/Module.ts"
+    ],
+    "IModule": [
+      "src/nodefony/src/kernel/Module.ts",
+      "src/nodefony/src/types/IKernel.ts"
+    ],
+    "PackageJson": [
+      "src/nodefony/src/kernel/Module.ts"
+    ],
+    "ModuleName": [
+      "src/nodefony/src/syslog/Syslog.ts"
+    ],
+    "ISyslog": [
+      "src/nodefony/src/syslog/Syslog.ts"
+    ],
+    "ITransport": [
+      "src/nodefony/src/syslog/Syslog.ts",
+      "src/nodefony/src/types/ISyslog.ts",
+      "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
+      "src/nodefony/src/syslog/transports/FileTransport.ts",
+      "src/nodefony/src/syslog/transports/HttpTransport.ts",
+      "src/nodefony/src/syslog/transports/SyslogTransport.ts"
+    ],
+    "ICliKernel": [
+      "src/nodefony/src/types/IKernel.ts"
+    ],
+    "ICommand": [
+      "src/nodefony/src/types/IKernel.ts"
+    ],
+    "CallbackFunction": [
+      "src/nodefony/src/types/ISyslog.ts"
+    ],
+    "WrapperResult": [
+      "src/nodefony/src/types/ISyslog.ts"
+    ],
+    "OptionsCommandInterface": [
+      "src/nodefony/src/kernel/commands/BuildCommand.ts",
+      "src/nodefony/src/kernel/commands/DevCommand.ts",
+      "src/nodefony/src/kernel/commands/InstallCommand.ts",
+      "src/nodefony/src/kernel/commands/KillCommnand.ts",
+      "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
+      "src/nodefony/src/kernel/commands/ProdCommand.ts",
+      "src/nodefony/src/kernel/commands/StagingCommand.ts",
+      "src/nodefony/src/kernel/commands/StartCommand.ts",
+      "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+      "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
+      "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
+    ],
+    "ModuleConstructor": [
+      "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
+    ],
+    "DIScope": [
+      "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
+    ],
+    "InjectableOptions": [
+      "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
+    ],
+    "PropertyInjectMeta": [
+      "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
+    ],
+    "TypeEntity": [
+      "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
+    ],
+    "Fetch": [
+      "src/nodefony/src/kernel/injector/injector.ts",
+      "src/modules/test/nodefony/controller/DefaultController.ts",
+      "src/modules/test/nodefony/controller/RouteController.ts"
+    ],
+    "Connector": [
+      "src/nodefony/src/kernel/orm/Orm.ts",
+      "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
+      "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+    ],
+    "ContextType": [
+      "src/modules/test/nodefony/controller/DecoratorController.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
+      "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+    ],
+    "inject": [
+      "src/modules/test/nodefony/controller/DefaultController.ts",
+      "src/modules/test/nodefony/controller/GraphqlController.ts",
+      "src/modules/test/nodefony/controller/RouteController.ts",
+      "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+      "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "src/packages/@nodefony/security/nodefony/src/Factory.ts",
+      "src/packages/@nodefony/security/nodefony/src/Provider.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+    ],
+    "nodefonyError": [
+      "src/modules/test/nodefony/controller/DefaultController.ts",
+      "src/modules/test/nodefony/controller/GraphqlController.ts",
+      "src/modules/test/nodefony/controller/RouteController.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "ITool": [
+      "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
+    ],
+    "IAgentContext": [
+      "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
+    ],
+    "ToolNotFoundError": [
+      "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
+    ],
+    "ToolExecutionError": [
+      "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
+    ],
+    "TypeController": [
+      "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"
+    ],
+    "RouteOptions": [
+      "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts"
+    ],
+    "ControllerConstructor": [
+      "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+    ],
+    "HTTPMethod": [
+      "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "contextRequest": [
+      "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
+    ],
+    "HttpResponse": [
+      "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts"
+    ],
+    "WebsocketResponse": [
+      "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "IRoute": [
+      "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+      "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Route.ts"
+    ],
+    "IController": [
+      "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
+    ],
+    "SchemeType": [
+      "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
+      "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "RouteRequirements": [
+      "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts"
+    ],
+    "injectable": [
+      "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
+      "src/packages/@nodefony/framework/nodefony/service/router.ts",
+      "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+    ],
+    "Template": [
+      "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
+      "src/packages/@nodefony/framework/nodefony/service/Twig.ts"
+    ],
+    "IResolver": [
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+    ],
+    "HTTP_CODE_METADATA": [
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+    ],
+    "HEADERS_METADATA": [
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+    ],
+    "REDIRECT_METADATA": [
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+    ],
+    "PARAM_ARGS_METADATA": [
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+    ],
+    "RedirectMeta": [
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+    ],
+    "ParamMeta": [
+      "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+    ],
+    "NetworkInterface": [
+      "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
+    ],
+    "ICookie": [
+      "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "src/packages/@nodefony/http/nodefony/interfaces/IRequest.ts",
+      "src/packages/@nodefony/http/nodefony/interfaces/IResponse.ts",
+      "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
+    ],
+    "HTTPMethodType": [
+      "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts"
+    ],
+    "ServerType": [
+      "src/packages/@nodefony/http/nodefony/interfaces/IHttpKernel.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "ICookieOptions": [
+      "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts"
+    ],
+    "Statics": [
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+    ],
+    "IHttpKernel": [
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+    ],
+    "ILLMProvider": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts",
+      "src/packages/@nodefony/llm/src/services/LLMService.ts",
+      "src/packages/@nodefony/memory/src/services/MemoryService.ts",
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "ILLMConfig": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts"
+    ],
+    "IMessage": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts",
+      "src/packages/@nodefony/llm/src/services/LLMService.ts"
+    ],
+    "ILLMResponse": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts",
+      "src/packages/@nodefony/llm/src/services/LLMService.ts"
+    ],
+    "IStreamChunk": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts",
+      "src/packages/@nodefony/llm/src/services/LLMService.ts"
+    ],
+    "IChatOptions": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts",
+      "src/packages/@nodefony/llm/src/services/LLMService.ts"
+    ],
+    "LLMMode": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts"
+    ],
+    "LLMError": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts",
+      "src/packages/@nodefony/llm/src/services/LLMService.ts"
+    ],
+    "LLMRateLimitError": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts"
+    ],
+    "LLMTimeoutError": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts"
+    ],
+    "LLMAbortError": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
+      "src/packages/@nodefony/llm/src/providers/OllamaProvider.ts"
+    ],
+    "LLMEmbedNotSupportedError": [
+      "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts"
+    ],
+    "IVectorStore": [
+      "src/packages/@nodefony/memory/src/services/MemoryService.ts",
+      "src/packages/@nodefony/rag/src/services/RagService.ts",
+      "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
+      "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+    ],
+    "IMemoryService": [
+      "src/packages/@nodefony/memory/src/services/MemoryService.ts"
+    ],
+    "IMemoryEntry": [
+      "src/packages/@nodefony/memory/src/services/MemoryService.ts",
+      "src/packages/@nodefony/memory/src/stores/InMemoryStore.ts"
+    ],
+    "IMemoryStats": [
+      "src/packages/@nodefony/memory/src/services/MemoryService.ts"
+    ],
+    "MemoryShutdownError": [
+      "src/packages/@nodefony/memory/src/services/MemoryService.ts"
+    ],
+    "MemoryInvalidInputError": [
+      "src/packages/@nodefony/memory/src/services/MemoryService.ts"
+    ],
+    "InMemoryStore": [
+      "src/packages/@nodefony/memory/src/services/MemoryService.ts"
+    ],
+    "IInMemoryStoreConfig": [
+      "src/packages/@nodefony/memory/src/services/MemoryService.ts"
+    ],
+    "Mongoose": [
+      "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+    ],
+    "IChunker": [
+      "src/packages/@nodefony/rag/src/chunking/FixedChunker.ts",
+      "src/packages/@nodefony/rag/src/chunking/SentenceChunker.ts",
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "IIndexOptions": [
+      "src/packages/@nodefony/rag/src/chunking/FixedChunker.ts",
+      "src/packages/@nodefony/rag/src/chunking/SentenceChunker.ts",
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "IVectorEntry": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts",
+      "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
+      "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+    ],
+    "IRagService": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "IChunk": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "ISearchResult": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "ISearchOptions": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "IRagStats": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "ChunkingStrategy": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "RagError": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "RagInvalidInputError": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "RagShutdownError": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "FixedChunker": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "SentenceChunker": [
+      "src/packages/@nodefony/rag/src/services/RagService.ts"
+    ],
+    "Connection": [
+      "src/packages/@nodefony/redis/nodefony/service/redis.ts"
+    ],
+    "Factory": [
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+    ],
+    "Provider": [
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+    ],
+    "Areas": [
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+    ],
+    "Factories": [
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+    ],
+    "optionsFactory": [
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/Factory.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts"
+    ],
+    "optionsSecuredArea": [
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts"
+    ],
+    "Providers": [
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+    ],
+    "optionsProvider": [
+      "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+      "src/packages/@nodefony/security/nodefony/src/Provider.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts"
+    ],
+    "HelmetMiddleware": [
+      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+    ],
+    "ConnectorSequelise": [
+      "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
+    ],
+    "Sequelize": [
+      "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
+      "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+    ],
+    "IVectorSearchOptions": [
+      "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
+      "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+    ],
+    "IVectorSearchResult": [
+      "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
+      "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+    ],
+    "IVectorStoreConfig": [
+      "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
+      "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+    ],
+    "VectorDimensionError": [
+      "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
+      "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+    ],
+    "VectorNotInitializedError": [
+      "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
+      "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+    ],
+    "VectorError": [
+      "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+    ],
+    "VectorConnectionError": [
+      "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+    ],
+    "FamilyType": [
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
+    ],
+    "ProtocolType": [
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
+    ],
+    "ProtoService": [
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+    ],
+    "ProtoParameters": [
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+    ],
+    "OptionsSessionType": [
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+    ],
+    "FileSessionStorage": [
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+    ],
+    "KernelEventsType": [
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "Data": [
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "cookiesParser": [
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "ServerHttp": [
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "ServerHttps": [
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "WebsocketSecure": [
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "IContext": [
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "IWsCookie": [
+      "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
+    ],
+    "HttpRequestType": [
+      "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts"
+    ],
+    "HttpRsponseType": [
+      "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts"
+    ],
+    "sessionStrategyType": [
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+    ],
+    "FlashBagSessionType": [
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+    ],
+    "MetaBagSessionType": [
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+    ],
+    "SerializeSessionType": [
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+    ],
+    "sessionStorageInterface": [
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+      "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+    ],
+    "CookieOptionsType": [
+      "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+    ],
+    "IHttpContext": [
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
+    ],
+    "Cookies": [
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+    ],
+    "ParserXml": [
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+    ],
+    "ParserQs": [
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+    ],
+    "Parser": [
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+    ],
+    "UploadedFile": [
+      "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+    ],
+    "responseTimeoutType": [
+      "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
+    ],
+    "ProxyType": [
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "IWebsocketContext": [
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "Finder": [
+      "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+    ]
+  }
+}
