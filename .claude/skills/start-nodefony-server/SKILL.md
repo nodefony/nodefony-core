@@ -58,13 +58,35 @@ console.log('SERVER PID=' + child.pid);
 echo "launcher PID=$!"
 ```
 
-### 4. Attendre le démarrage complet (20 secondes)
+### 4. Attendre le démarrage AVEC fail-fast sur erreur fatale
 
 Le serveur prend ~12 s pour charger les modules + ~8 s pour Rollup.
+**IMPORTANT** : ne JAMAIS `sleep 20` en aveugle. Surveiller le log et abandonner immédiatement si le kernel crash (SyntaxError, CRITIC, terminate, EADDRINUSE).
+
+Lancer cette boucle qui termine soit en succès, soit en échec rapide :
 
 ```bash
-sleep 20
+for i in $(seq 1 40); do
+  if grep -q -E "SyntaxError|CRITIC|EADDRINUSE|ALREADY USE|terminate :" /tmp/nodefony-server.log 2>/dev/null; then
+    echo "FATAL — le serveur a crashé au démarrage"
+    grep -E "SyntaxError|CRITIC|terminate|EADDRINUSE" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g' | tail -15
+    exit 1
+  fi
+  if [ "$(grep -c 'Server Listen on' /tmp/nodefony-server.log 2>/dev/null)" -ge 4 ]; then
+    echo "READY"
+    break
+  fi
+  sleep 0.5
+done
 ```
+
+**Heuristique de détection fatale** :
+- `SyntaxError` → import manquant (dist d'un module périmé → `npm run build` sur ce workspace)
+- `CRITIC` → erreur niveau kernel
+- `terminate :` → le kernel s'est éteint
+- `EADDRINUSE` / `ALREADY USE` → port déjà occupé (autre process à tuer)
+
+**Quand fatal** : NE PAS sleep ni continuer. Diagnostiquer et corriger AVANT toute autre action.
 
 ### 5. Vérifier que les 4 serveurs écoutent
 
@@ -97,7 +119,7 @@ Attendu : `HEALTH 200`. Si `ERR ECONNREFUSED`, le serveur n'a pas démarré — 
 
 ```bash
 # Toutes les erreurs
-grep -E "ERROR|CRITIC" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
+grep -E "ERROR|CRITIC|SyntaxError|terminate" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
 
 # Routes 404 (dist périmé → rebuild + restart)
 grep "404" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g' | tail -10
@@ -105,6 +127,16 @@ grep "404" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g' | tail -10
 # Erreur port déjà utilisé
 grep "ALREADY USE\|EADDRINUSE" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
 ```
+
+### Symptômes courants
+
+| Symptôme dans le log                                                                  | Cause                                              | Fix                                                                    |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
+| `SyntaxError: does not provide an export named 'X'`                                   | dist d'un module périmé qui n'a pas le symbole X    | `cd src/packages/@nodefony/<module> && npm run build` puis relancer    |
+| `CRITIC KERNEL ... terminate : 0` juste après boot                                    | crash au chargement, voir lignes précédentes        | Lire le stack trace dans le log                                        |
+| Pas de "Server Listen on" après 20s + aucune erreur                                   | Rollup est lent, ou le kernel est bloqué            | Vérifier `ps aux \| grep rollup` ; relancer si bloqué                  |
+| `EADDRINUSE 5151/5152`                                                                | Autre process sur les ports                         | `lsof -ti:5151 -ti:5152 \| xargs kill -9`                              |
+| 4 serveurs OK mais routes 404 pour `/nodefony/test/...`                               | dist du module test périmé                          | `cd src/modules/test && npm run build` puis relancer                   |
 
 ## Rapport final à donner à l'utilisateur
 
