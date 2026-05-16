@@ -4,45 +4,198 @@ on:
   push:
     branches: ["main", "claude-ts"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "claude-ts"]
+  workflow_dispatch:
+
+# Annule les runs précédents sur la même branche / PR si un nouveau push arrive
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Désactive la télémétrie Turbo / Next
+  TURBO_TELEMETRY_DISABLED: 1
+  DO_NOT_TRACK: 1
+  # Sortie non interactive
+  CI: true
+  FORCE_COLOR: 1
 
 jobs:
+  # ─── Build + Typecheck — cross-platform, rapide ─────────────────────────────
   build:
+    name: Build (${{ matrix.os }} / Node ${{ matrix.node-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macOS-latest, windows-latest]
-        node-version: [20.x, 22.x, 24.x]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: ["22.x", "24.x"]
+    timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Install Bun
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Use Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
 
-      - run: npm ci
-      - run: npm run build
-
-      - name: Start framework
-        run: node node_modules/nodefony/bin/nodefony development &
+      - name: Show environment
         shell: bash
+        run: |
+          node --version
+          npm --version
+          npm config get registry
 
-      - run: sleep 15
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces (turbo)
+        run: npm run build
+
+      - name: Typecheck
+        run: npm run typecheck
+        continue-on-error: false
+
+  # ─── Tests unit — toutes les plateformes, pas besoin du serveur ─────────────
+  test-unit:
+    name: Tests unit (${{ matrix.os }} / Node ${{ matrix.node-version }})
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: ["22.x", "24.x"]
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces
+        run: npm run build
+
+      - name: Run unit tests (turbo)
+        run: npm test
+
+  # ─── Tests d'intégration — ubuntu only, démarre le serveur Nodefony ─────────
+  test-integration:
+    name: Tests intégration (Node ${{ matrix.node-version }})
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22.x", "24.x"]
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces
+        run: npm run build
+
+      # Le module test contient les routes consommées par les tests d'intégration.
+      # Doit être buildé APRÈS le build global (turbo cache) car le mode `development`
+      # de Nodefony charge le dist existant au boot.
+      - name: Rebuild test module
+        run: npm run build --workspace=src/modules/test
+
+      - name: Start Nodefony server (background, detached, fail-fast)
         shell: bash
+        run: |
+          node -e "
+          const { spawn } = require('child_process');
+          const child = spawn('npx', ['nodefony', 'development'], {
+            cwd: process.cwd(),
+            stdio: ['ignore', 'pipe', 'pipe'],
+            detached: true,
+          });
+          child.stdout.pipe(process.stdout);
+          child.stderr.pipe(process.stderr);
+          child.unref();
+          require('fs').writeFileSync('srv.pid', String(child.pid));
+          console.log('SERVER PID=' + child.pid);
+          " > nodefony-server.log 2>&1 &
 
-      - run: npm test
+          # Poll avec fail-fast sur erreur fatale, succès sur 4× "Server Listen on"
+          for i in $(seq 1 60); do
+            if grep -q -E "SyntaxError|CRITIC|EADDRINUSE|ALREADY USE|terminate :" nodefony-server.log 2>/dev/null; then
+              echo "::error::Serveur Nodefony a crashé au démarrage"
+              grep -E "SyntaxError|CRITIC|terminate|EADDRINUSE" nodefony-server.log | tail -20
+              exit 1
+            fi
+            if [ "$(grep -c 'Server Listen on' nodefony-server.log 2>/dev/null)" -ge 4 ]; then
+              echo "✅ Serveur Nodefony READY"
+              grep "Server Listen" nodefony-server.log | head -10
+              exit 0
+            fi
+            sleep 1
+          done
 
-      - name: Stop framework
+          echo "::error::Timeout — serveur n'a pas démarré en 60s"
+          tail -40 nodefony-server.log
+          exit 1
+
+      - name: Health check
+        shell: bash
+        run: |
+          for i in $(seq 1 10); do
+            if curl -sk -o /dev/null -w "%{http_code}" https://127.0.0.1:5152/nodefony/test/index | grep -q "200"; then
+              echo "✅ Health OK"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Health check failed"
+          exit 1
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Show server log on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "─── nodefony-server.log (last 200 lines) ───"
+          tail -200 nodefony-server.log || true
+
+      - name: Stop Nodefony server
         if: always()
-        run: kill $(pgrep -f "nodefony development" || echo 0) 2>/dev/null || true
         shell: bash
+        run: |
+          if [ -f srv.pid ]; then
+            kill -9 $(cat srv.pid) 2>/dev/null || true
+          fi
+          # Best-effort cleanup des ports
+          lsof -ti:5151 -ti:5152 2>/dev/null | xargs -r kill -9 2>/dev/null || true
+
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodefony-server-log-node${{ matrix.node-version }}
+          path: nodefony-server.log
+          retention-days: 7
