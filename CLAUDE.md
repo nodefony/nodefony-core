@@ -205,6 +205,116 @@ Nodefony est une **plateforme générique** pour construire :
 
 ---
 
+## 🎨 Phase 14 — `@nodefony/frontend` (builder Vue/React/Svelte intégré)
+
+> **Mécanique legacy à reproduire en moderne** : chaque bundle pouvait déclarer `type: "react" | "vue"` et le framework transpilait son frontend automatiquement (`webpackService.js` 631 L + `cli/builder/{react,vue}/` 634 L).
+> **Refonte 2026** : Vite par défaut (ESM natif, HMR ultra-rapide), Webpack uniquement sur demande legacy.
+
+**Conventions module avec frontend** (dès qu'un module a un `frontend/`) :
+
+```typescript
+// nodefony/config/config.ts
+export default {
+  frontend: {
+    type: "vue3",              // ou "react19", "svelte5", "solid"
+    entry: "./frontend/src/main.ts",
+    outDir: "./public/dist",
+    integrate: true            // true = middleware HMR dans @nodefony/http | false = proxy Vite externe
+  }
+}
+```
+
+**Lifecycle** :
+- **Dev** : kernel boot → `@nodefony/frontend` lit `module.options.frontend` → ViteBuilder middleware injecté dans `@nodefony/http` → HMR live via WS natif.
+- **Prod** : `npx nodefony build` → assets hashed dans `dist/public/<module-name>/` → `@nodefony/http` static.
+
+**Règle dure** : `@nodefony/frontend` ≠ `@nodefony/client` — ne pas confondre.
+
+| Module                | Rôle                                                                              |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `@nodefony/frontend`  | **Builder** : transpile/bundle les frontends des modules (Vue/React/Svelte)       |
+| `@nodefony/client`    | **Lib JS bas niveau** : HTTP/WS/auth/streaming clients, importée DANS le code UI  |
+
+Vision = consommateur des deux : `@nodefony/frontend` (Vite + Vue 3) pour bundler son frontend Vue, qui importe `@nodefony/client` pour les appels backend.
+
+Voir Phase 14 dans `MIGRATION_STATUS.md`. Bloque P10.7 (Vision frontend).
+
+---
+
+## 🛰 Phase 13 — Realtime + Redis cluster + Client navigateur
+
+> 3 modules à garder en tête pendant la migration framework — interconnectés avec d'autres phases.
+
+| Module                  | Rôle                                                            | Bloque             | Réf JS legacy                                  |
+| ----------------------- | --------------------------------------------------------------- | ------------------ | ---------------------------------------------- |
+| `@nodefony/redis`       | Cluster + pub/sub + storage (cache, session, lock distribué)    | P5.12 + apps prod  | `bundles/redis-bundle/` (166 L)                |
+| `@nodefony/client`      | Lib navigateur — HTTP/WS/auth/streaming LLM côté browser        | **P10.7 Vision**   | N/A — à créer                                  |
+| `@nodefony/realtime`    | Serveurs TCP/UDP/Unix sockets (IoT, IPC, protos binaires)       | indépendant        | `bundles/realtime-bundle/` (689 L + sockets)   |
+
+**Règles transverses à appliquer pendant les migrations** :
+
+- **WS reste dans `@nodefony/http`** — `realtime` complète avec TCP/UDP/Unix, pas WS.
+- **Sessions prod** : `RedisSessionStorage` (P5.12) dépend de `@nodefony/redis` refactor (P13.2). Si on cible un cluster Nodefony multi-instance, P13.2 est non-négociable.
+- **Vision frontend** consomme `@nodefony/client` — donc `client` doit exposer : WS reconnect auto, fetch auth/CSRF, AsyncIterable streaming LLM, AuthClient (login/refresh).
+- **`@nodefony/client` est bas niveau** — pas de Vue/React inclus, utilisable depuis n'importe quel framework UI.
+- **TypeScript shared types** : créer `@nodefony/contracts` (micro-package types-only) si nécessaire pour éviter cycles client ↔ server.
+- **Pub/Sub Redis** : critique pour cluster — WS broadcast scalable nécessite pub/sub (1 instance reçoit → broadcast à toutes les instances → chacune forward à ses WS clients).
+
+Voir Phase 13 dans `MIGRATION_STATUS.md` pour le détail.
+
+---
+
+## 🧠 Vision finale : couche IA agentic (Phase 12 — DERNIÈRE)
+
+> **À garder en mémoire pendant TOUTE la migration framework.**
+> La destination finale de Nodefony n'est pas un framework web généraliste de plus — c'est une **plateforme Node.js pour construire des agents IA métier**, avec gouvernance, conformité AI Act, et mode souverain (LLM local).
+
+**Différenciateur** : aucun équivalent ne fait les deux à la fois.
+- NestJS fait le serveur, pas l'IA native.
+- LangChain fait l'IA, pas le serveur.
+- **Nodefony fait les deux nativement, avec gouvernance intégrée**.
+
+**Pilier technique** : WebSocket natif `@nodefony/http` = transport idéal du streaming LLM token-par-token. DI Container = orchestration des sous-agents. Multi-ORM = persistence pluggable de l'audit et des coûts.
+
+**8 modules IA** (état :  4 existent partiellement, 3 vides, 1 à fusionner avec Vision) :
+
+| Module                | Rôle                                                                     | État actuel | Phase |
+| --------------------- | ------------------------------------------------------------------------ | ----------- | ----- |
+| `@nodefony/llm`       | Interface multi-LLM (Claude, Gemini, OpenAI, Ollama, Mistral, Groq)      | 🔶          | P12.1 |
+| `@nodefony/vector`    | Adapters vector stores (pgvector via orm-core+Drizzle, Qdrant, Chroma)   | 🔶          | P12.1 |
+| `@nodefony/rag`       | Pipeline RAG — ingestion / chunking / embedding / recherche              | 🔶          | P12.1 |
+| `@nodefony/memory`    | Mémoire agents — court / long / épisodique                                | 🔶          | P12.1 |
+| `@nodefony/agent`     | Orchestrateur + sous-agents via DI + decorators `@Agent`/`@Tool`         | 🔶 partiel  | P12.2 |
+| `@nodefony/mcp`       | MCP server + client (Model Context Protocol — standard Anthropic)        | ⬜          | P12.3 |
+| `@nodefony/agent-guard` | **Différenciateur** — zones, PII, audit, circuit breaker, approval, coûts | ⬜       | P12.4 |
+| `@nodefony/studio`    | Panels IA intégrés dans `@nodefony/vision` (pas un module séparé)        | ⬜          | P12.5 |
+
+**Principes invariants** (NE PAS dévier) :
+
+1. **Générique** — aucun module IA ne connaît le métier (droit, finance, médical…).
+2. **Injectables** — tous les services IA passent par `@injectable` / `@inject` du DI.
+3. **Streaming natif** — `AsyncGenerator<string>` côté serveur, WS Nodefony côté client.
+4. **Validation humaine** — approval obligatoire dans zones `restricted` (via `@nodefony/agent-guard`).
+5. **Mode souverain** — tout doit pouvoir tourner local (Ollama + pgvector) — air gap OK.
+6. **Conformité AI Act** — audit signé, traçabilité sources RAG, contrôle humain dès la conception.
+7. **WebSocket = transport LLM** — `@nodefony/http` WS pipeline est la couche transport.
+
+**Règle dure pendant la migration framework** :
+
+- Si je migre un module qui sera consommé par la couche IA (security, user, orm-core, http WS, session, syslog) → **prévoir l'usage IA dans le design** : interfaces extensibles, async iterators support, pas de couplage rigide.
+- Les modules IA existants (`llm`, `vector`, `rag`, `memory`, `agent`) sont **partiellement codés en TS** dans `src/packages/@nodefony/*` — pas les casser pendant la migration, mais ne pas non plus considérer leur design comme figé. Audit + refonte en Phase 12.1.
+- `@nodefony/studio` du plan IA initial **fusionne avec `@nodefony/vision`** comme panels dédiés (agents, costs, audit, approvals) — pas un module séparé.
+
+**Fichiers IA à lire pour contexte** (en début de session IA, pas pendant la migration framework) :
+- `VISION_IA.md` — Mission + principes
+- `IA_STATUS.md` — État actuel des 8 modules
+- `CLAUDE_IA.md` — Règles techniques IA
+- `PLAN_AGENTIC.md` — Roadmap détaillée
+
+> Pendant la migration framework (P0-P11) : **ne pas démarrer de session sur les modules IA** sauf si demande explicite. Garder la vision en tête pour les choix de design — c'est tout.
+
+---
+
 ## 🛠 Commandes CLI par module
 
 > Chaque module Nodefony peut enregistrer des commandes CLI via `module.addCommand(Ctor)`.
