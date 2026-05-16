@@ -5,6 +5,51 @@
 
 ---
 
+## 🎯 Décisions stratégiques 2026-05-16 (LIRE EN PREMIER)
+
+Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13/P14 + ajout d'une Phase 15. **Toutes les décisions sont conservées dans la mémoire IA pour persistance cross-session** :
+- `~/.claude/projects/.../memory/project_decisions_p5_p6_orm.md` — Sécurité + ORM + IUser
+- `~/.claude/projects/.../memory/project_decisions_realtime_isomorphic.md` — Realtime + Core isomorphe + Mediasoup
+
+### Sécurité (P6)
+- ❌ **Passport.js ABANDONNÉ** totalement (incompatible TS strict + ALS, ère Express callbacks)
+- ✅ Cœur firewall 100% Nodefony pur ; vendors interchangeables au bout :
+  - Local/password → `BcryptEncoder` maison
+  - JWT → `jose` (TS-first moderne)
+  - OAuth/social → **`arctic`** (créateur de Lucia, type-safe, léger)
+- 🔁 **P6.5 renommée** : `PassportBridge` → **`AuthBridge`** générique
+- ➕ **Décorateurs sécurité panoplie** (nouvelle ligne P6.x) : `@IsGranted`, `@HasAnyRole`, `@HasAllRoles`, `@HasCurrentRole`, `@IsGranted({voter:...})` via `Reflect.metadata` + hook `beforeResolve` (P1.7)
+- ➕ **3 niveaux d'autorisation P6.8** : (A) RoleHierarchy config, (B) RBAC modèle ORM, (C) Voters (`IAccessVoter`) contextuels
+
+### User/IUser (P5.5)
+- ✅ 3 couches étanches : `IUser` (contrat strict) + `BaseUser` POJO + classes par ORM (`MikroOrmUser`, `MongooseUser`, schéma Drizzle isolé)
+- ✅ Champs anti-migration : `socialProviders[]` JSON (pas `googleId/githubId` en colonnes), `metadata: Record`, `currentRole` (session)
+- ✅ `IUserProvider` étendu : `loadUserByOAuth(provider, providerId)` + `refreshUser(user)`
+- ✅ Pattern **Shadow User** (ligne locale créée même pour login OAuth)
+
+### ORM (P7)
+- ⭐ **Drizzle** = choix #1 SQL moderne
+- 🆕 **MikroORM AJOUTÉ** comme 4ème driver (Data Mapper + Unit of Work pour apps complexes) — nouvelle ligne P7.x
+- ✅ Mongoose = standard NoSQL
+- 🪦 Sequelize = legacy maintenance descendante uniquement, plus de nouveaux dev
+- ➕ **`IOrmManager.getNativeConnection()`** obligatoire dans P5.1 (trappe SQL brut anti-blocage)
+
+### Realtime + Core isomorphe (P13/P14)
+- 🔥 **P13.3 SUPPRIMÉE** — `@nodefony/client` n'est PAS un module séparé. Le **Core Nodefony devient isomorphe** : Container DI, Syslog, Service exportables côté navigateur (intégré dans P14)
+- ➕ **Pattern `IRealtimeHub`** : `LocalRealtimeHub` (dev) + `RedisRealtimeHub` (P13.2) + **`KafkaRealtimeHub`** 🆕 (cluster massif, persistence, agents IA)
+- ➕ **`RealtimeService` central** : façade unifiée, normalise TCP/UDP/Unix/WS en `{event, payload, meta}`, filtre échos cluster, crée `RequestContext` pour cohérence ALS
+- ✅ **Protocole JSON-RPC 2.0 maison léger** (pas de wrap Socket.IO) — RPC bidirectionnel + HTTP long-polling fallback + end-to-end type safety (interfaces `ServerToClientEvents` / `ClientToServerEvents` partagées)
+- ➕ Décorateurs `@RealtimeController`, `@RealtimeEvent`
+
+### Phase 15 NOUVELLE — Mediasoup + SIP/Asterisk
+- 🆕 `@nodefony/mediasoup-bundle` + connecteur Asterisk ARI/AMI — test ultime archi
+- Cas d'usage cible : agent IA vocal téléphone (PSTN → Asterisk → mediasoup PlainTransport → STT → LLM → TTS → retour)
+- **PAS** du WebRTC navigateur — `PlainTransport` RTP brut uniquement
+- Priorité : APRÈS P12 (agents IA) + P13 (realtime) solides
+- Cluster : `PipeTransports` mediasoup pour pod-to-pod (bypass Redis/Kafka pour flux media binaires)
+
+---
+
 ## Progression globale
 
 | Catégorie                            | Total   | ✅     | 🔶    | ⬜     |
@@ -20,8 +65,8 @@
 | Session (refactor)                   | 8       | 1      | 2     | 5      |
 | **User module (NEW)**                | 12      | 0      | 0     | 12     |
 | **ORM Core (NEW)**                   | 11      | 0      | 0     | 11     |
-| ORM Drivers (Sequelize/Mongoose/**Drizzle**) | 7 | 0      | 0     | 7      |
-| Security / Auth                      | 11      | 0      | 0     | 11     |
+| ORM Drivers (Sequelize/Mongoose/**Drizzle**/**MikroORM**🆕) | 9 | 0      | 0     | 9      |
+| Security / Auth (+ décorateurs panoplie + Voters 3 niveaux) | 12 | 0      | 0     | 12     |
 | CLI                                  | 4       | 0      | 0     | 4      |
 | Monitoring                           | 3       | 0      | 0     | 3      |
 | Types / Interfaces                   | 6       | 5      | 0     | 1      |
@@ -38,9 +83,11 @@
 | **IA — Tests E2E + AI Act (P12.6)**  | 6       | 0      | 0     | 6      |
 | **Realtime TCP/UDP/Unix (P13.1)**    | 13      | 0      | 0     | 13     |
 | **Redis cluster + pub/sub (P13.2)**  | 13      | 1      | 1     | 11     |
-| **Client navigateur (P13.3)**        | 10      | 0      | 0     | 10     |
-| **Frontend Vite builder (P14)**      | 10      | 0      | 0     | 10     |
-| **TOTAL**                            | **250** | **37** | **13**| **200**|
+| 🆕 **RealtimeHub + Service + RPC (P13.4-9)** | 6 | 0      | 0     | 6      |
+| 🆕 **Kafka driver (P13.6)**          | 1       | 0      | 0     | 1      |
+| **Frontend Vite + 🆕 Core isomorphe (P14)** | 13 | 0      | 0     | 13     |
+| 🆕 **Mediasoup + SIP/Asterisk (P15)** | 8     | 0      | 0     | 8      |
+| **TOTAL**                            | **269** | **37** | **13**| **219**|
 
 ---
 
@@ -120,11 +167,11 @@
 
 | #      | Tâche                                                                          | Phase     | Effort  | Dépendances | Notes                                                                       |
 | ------ | ------------------------------------------------------------------------------ | --------- | ------- | ----------- | --------------------------------------------------------------------------- |
-| P5.1   | `@nodefony/orm-core` — interfaces IOrm/IEntity/IRepository/ITransaction        | 7.3       | 1 ses.  | —           | Fondation abstraite, 0 driver implémenté                                    |
+| P5.1   | `@nodefony/orm-core` — interfaces IOrm/IEntity/IRepository/ITransaction + **`IOrmManager.getNativeConnection()`** (trappe SQL brut obligatoire) | 7.3       | 1 ses.  | —           | Fondation abstraite, 0 driver implémenté. ⚠️ Voir mémoire `project_decisions_p5_p6_orm.md` |
 | P5.2   | `OrmRegistry` + `EntityRegistry` + `Orm` base class                            | 7.3       | 1 ses.  | P5.1        | Singleton process-wide, multi-ORM support natif                             |
 | P5.3   | `@entity` + `@repository` decorators                                            | 7.3       | 1 ses.  | P5.2        | Métadonnées Reflect, auto-register au boot                                  |
 | P5.4   | Tests unit orm-core (registry, entity, decorators) + multi-orm integration test | 7.5       | 1 ses.  | P5.3        | **CRITIQUE** : prouve qu'on peut tourner 2 ORM en parallèle                 |
-| P5.5   | `@nodefony/user` — `IUser`, `IUserRepository`, `IUserProvider`, `User`, `AnonymousUser` | 5.3 | 2 ses.  | P5.4        | Champs canoniques figés, méthodes hasRole/isGranted/verifyPassword          |
+| P5.5   | `@nodefony/user` — `IUser` (contrat strict) + `BaseUser` POJO + `IUserRepository` + `IUserProvider` (+ `loadUserByOAuth`, `refreshUser`) + `AnonymousUser` | 5.3 | 2 ses.  | P5.4        | **Champs anti-migration** : `socialProviders[]` JSON, `metadata: Record`, `currentRole` (session). Pattern Shadow User (ligne locale créée pour OAuth). ⚠️ Voir mémoire `project_decisions_p5_p6_orm.md` |
 | P5.6   | `@nodefony/user/service/user-service.ts` + events lifecycle                    | 5.3       | 1 ses.  | P5.5        | register/authenticate/disable/lock + events pour audit                      |
 | P5.7   | Adapter Sequelize (User entity + repository)                                   | 5.3       | 1 ses.  | P5.5, P7.1  | Migration legacy `users-bundle/Entity/sequelize/`                           |
 | P5.8   | Adapter Mongoose (User entity + repository)                                    | 5.3       | 1 ses.  | P5.5, P7.2  | Migration legacy `users-bundle/Entity/mongoose/`                            |
@@ -146,11 +193,12 @@
 | P6.2   | `cors.ts` service                                                 | `corsService.js` (182 L)                        | 1 ses.  | P1.7        | Plus simple, débloque API browser                              |
 | P6.3   | `firewall.ts` service + SecuredArea match                         | `firewallService.js` (694 L)                    | 3 ses.  | P1.7, P1.4, P1.5, **P5.5** | Gros morceau — découper (a) SecuredArea (b) factory selection (c) auth pipeline ; consomme `IUserProvider` |
 | P6.4   | `AnonymousProvider` + `AnonymousFactory` + `AnonymousToken`       | `anonymousProvider.js` + factories              | 1 ses.  | P6.3, **P5.5** | Utilise `AnonymousUser`                                        |
-| P6.5   | `PassportBridge` + factory `passport-local` + token userpassword  | `passportFramework.js` + `passport-localFactory.js` | 2 ses. | P6.3, P6.4, **P5.6** | 1ère stratégie réelle, utilise `user-service.authenticate()`   |
-| P6.6   | Factory `passport-jwt` + token JWT                                | `passport-jwtFactory.js`                        | 1 ses.  | P6.5        | API moderne                                                    |
+| P6.5   | **`AuthBridge`** (générique, ex-PassportBridge) + factory `local` + token userpassword + `BcryptEncoder` | `passportFramework.js` (référence design uniquement, code à réécrire) | 2 ses. | P6.3, P6.4, **P5.6** | ⚠️ **Passport ABANDONNÉ** — code maison TS-first. 1ère stratégie réelle, utilise `user-service.authenticate()`. Voir mémoire `project_decisions_p5_p6_orm.md` |
+| P6.6   | Factory `jwt` (via `jose` lib moderne) + token JWT                | —                                               | 1 ses.  | P6.5        | `jose` plutôt que `jsonwebtoken` (TS-first)                    |
 | P6.7   | `csrf.ts` service                                                 | `csrfService.es6` (193 L)                       | 1 ses.  | P6.3        | Dépend firewall                                                |
-| P6.8   | `authorization.ts` service                                        | `authorizationService.js`                       | 1 ses.  | P6.3, P6.1  | ACL/rôles — consomme `user.hasRole()` de IUser                 |
-| P6.9   | Factories OAuth/OpenID/LDAP/Google/GitHub (5 stratégies)          | `passport-*Factory.js`                          | 3 ses.  | P6.6        | Étalées — extensions optionnelles                              |
+| P6.8   | `authorization.ts` — **3 niveaux** : (A) `roleHierarchy` config + `RoleHierarchyWalker` (B) modèle ORM `IRole`+`IPermission` (RBAC) (C) `IAccessVoter` interface (Voters contextuels) | `authorizationService.js`                       | 3 ses.  | P6.3, P6.1, P5.5 | ACL/rôles — consomme `user.hasRole()` de IUser. Voters = killer feature pour métier complexe |
+| P6.8b  | **Décorateurs sécurité panoplie** : `@IsGranted(role)`, `@HasAnyRole(...roles)`, `@HasAllRoles(...roles)`, `@HasCurrentRole(role)`, `@IsGranted(action, {subjectFromParam, voter})` | NOUVEAU (analyse 2026-05-16) | 1 ses. | P6.8, P1.7, P1.4 | `Reflect.metadata('security:requirements')` lue dans hook `beforeResolve`. ALS pour `user` type-safe |
+| P6.9   | Factories OAuth/OpenID/LDAP/Google/GitHub via **`arctic`** (5 stratégies) | NOUVEAU (référence : `arctic` lib) | 3 ses.  | P6.6        | Arctic (créateur de Lucia), TS-first, type-safe. Pas de `passport-google-strategy` |
 | P6.10  | Logs auth (audit S1-S5) + CSP/security headers (S6)               | —                                               | 1 ses.  | P3.1, P6.3  | Extension de 9.3 / 9.6                                         |
 | P6.11  | Tests intégration security complets (firewall-http/ws, cors, csrf, stack) | —                                       | 2 ses.  | P6.10       | `symbiose-stack.test.ts` couvre CORS→Firewall→ACL→CSRF→Ctrl   |
 
@@ -160,13 +208,15 @@
 
 | #     | Tâche                                                                        | Effort  | Dépendances | Notes                                                  |
 | ----- | ---------------------------------------------------------------------------- | ------- | ----------- | ------------------------------------------------------ |
-| P7.1  | `@nodefony/sequelize` — `Orm` extends + connector + bridge legacy v6         | 2 ses.  | P5.4        | Compat ascendante max — pas extension                  |
-| P7.2  | `@nodefony/mongoose` — `Orm` extends + connector                             | 1 ses.  | P5.4        | Module existe partiellement                            |
-| P7.3  | Tests intégration Sequelize (SQLite memory)                                  | 1 ses.  | P7.1        |                                                        |
-| P7.4  | **`@nodefony/drizzle` (NEW)** — `Orm` + connector + schema TS-first          | 3 ses.  | P5.4        | Stratégie SQL moderne 2026 — type-safe natif           |
+| P7.1  | 🪦 `@nodefony/sequelize` — legacy maintenance uniquement (v6 figé, **pas nouveaux dev**) | 2 ses.  | P5.4        | Compat ascendante max. NE PLUS communiquer dessus. ⚠️ Voir mémoire `project_decisions_p5_p6_orm.md` |
+| P7.2  | `@nodefony/mongoose` — `Orm` extends + connector                             | 1 ses.  | P5.4        | Module existe partiellement. Standard NoSQL acté       |
+| P7.3  | Tests intégration Sequelize (SQLite memory)                                  | 1 ses.  | P7.1        | Filet de sécurité legacy                               |
+| P7.4  | ⭐ **`@nodefony/drizzle` (NEW)** — `Orm` + connector + schema TS-first       | 3 ses.  | P5.4        | **Choix #1 SQL moderne 2026** — type-safe natif, SQL brut via tag `sql`` `` |
 | P7.5  | Tests intégration Mongoose (mongodb-memory-server)                           | 1 ses.  | P7.2        |                                                        |
 | P7.6  | Tests intégration Drizzle (SQLite/Postgres)                                  | 1 ses.  | P7.4        |                                                        |
 | P7.7  | `@nodefony/redis` refactor (cache + session storage)                         | 1 ses.  | P5.12       | Existant — adapter à orm-core lifecycle si pertinent   |
+| P7.8  | 🆕 **`@nodefony/mikroorm` (NEW)** — Data Mapper + Unit of Work + Identity Map | 3 ses. | P5.4        | 4ème ORM ajouté 2026-05-16 — apps complexes (Doctrine-like). Trappe SQL brut via `em.getConnection().execute()` |
+| P7.9  | Tests intégration MikroORM (SQLite/Postgres)                                 | 1 ses.  | P7.8        |                                                        |
 
 ### P8 — CLI + Monitoring (Phase 8)
 
@@ -189,32 +239,42 @@
 | P11.4  | Commandes `orm:migrate/rollback/status/seed`                                   | 2 ses.  | P7.3, P7.5         | Délègue aux CLI ORM natifs                     |
 | P11.5  | Commandes `logs:tail/filter` + bridge CLI ↔ Vision (`/cli/exec`)               | 1 ses.  | P3.10, P10.4       |                                                |
 
-### P14 — `@nodefony/frontend` (builder Vue/React/Svelte — voir [Phase 14](#phase-14--nodefonyfrontend-builder-vuereactsvelte-intégré))
+### P14 — `@nodefony/frontend` (builder Vite) + 🆕 **Core isomorphe** (voir [Phase 14](#phase-14--nodefonyfrontend-builder-vuereactsvelte-intégré))
 
 > Bloquant pour P10.7 Vision frontend bootstrap. Vite par défaut, ESM natif.
+> **REFONTE 2026-05-16** : P13.3 supprimée, le Core (Container/Syslog/Service) devient isomorphe et s'exporte côté navigateur.
 
 | #     | Tâche                                                            | Effort  | Dépendances        | Notes                                                  |
 | ----- | ---------------------------------------------------------------- | ------- | ------------------ | ------------------------------------------------------ |
 | P14.1 | Interfaces `IFrontBuilder`/`IFrontPreset` + décision Vite        | 1 ses.  | —                  | Vite par défaut                                        |
 | P14.2 | `ViteBuilder` + preset `vue3-vite`                                | 2 ses.  | P14.1              | Couvre Vision immédiatement                            |
 | P14.3 | Preset `react19-vite`                                              | 1 ses.  | P14.2              |                                                        |
-| P14.4 | `DevServerMiddleware` dans `@nodefony/http` (HMR via WS natif)    | 2 ses.  | P14.2, P1          |                                                        |
+| P14.4 | `DevServerMiddleware` dans `@nodefony/http` (`integrate:true` = HMR via WS natif, 1 seul port, 0 CORS) | 2 ses.  | P14.2, P1          | Vite middleware injecté directement (pas proxy) |
 | P14.5 | `StaticMiddleware` build prod via http                            | 1 ses.  | P14.2              |                                                        |
 | P14.6 | Multi-module frontend (N modules cohabitent)                      | 1 ses.  | P14.4              | Routes prefix par module                               |
-| P14.7 | Commands CLI `frontend:create/build/dev`                          | 1 ses.  | P14.2, P11.1       |                                                        |
+| P14.7 | Commands CLI `frontend:create/build/dev` + `tsc --noEmit` pre-build (catch types incohérents back/front) | 1 ses.  | P14.2, P11.1       | E2E type safety via shared types                       |
 | P14.8 | Tests intégration build Vue 3 + React 19                          | 1 ses.  | P14.3              |                                                        |
 | P14.9 | Presets optionnels Svelte 5 + Solid                                | 1 ses.  | P14.3              | Différable                                              |
 | P14.10| Migration Vision sur `@nodefony/frontend`                          | 1 ses.  | P14.4              | Vision = 1er consommateur prod                         |
+| P14.11| 🆕 **Core isomorphe** : adapter `Container`, `Syslog`, `Service`, `EventEmitter` pour fonctionner sans Node natifs (export browser-compat via `package.json.exports.browser`) | 4 ses. | P14.4 | EX-P13.3. ⚠️ Surveiller bundle size < 50 KB minified gzippé (règle perf CLAUDE.md). Tree-shaking obligatoire |
+| P14.12| 🆕 Plugin Vite Nodefony : alias auto (`@nodefony/core` etc.) + injection env vars (`__NODEFONY_CONFIG__` : wsUrl, env, instanceId) | 1 ses. | P14.11 | Zéro config dev — transparent             |
+| P14.13| 🆕 Syslog isomorphe : transport WS qui pipe logs front → syslog back centralisé | 2 ses. | P14.11, P13.7 | Traçabilité totale front prod              |
 
-### P13 — Realtime + Redis cluster + Client navigateur (voir [Phase 13](#phase-13--realtime--redis-cluster--client-navigateur))
+### P13 — Realtime distribué (refonte 2026-05-16 — voir mémoire `project_decisions_realtime_isomorphic.md`)
 
-> 3 sous-phases qui peuvent s'exécuter en parallèle d'autres phases. **P13.2 prioritaire** (bloque P5.12 RedisSessionStorage). **P13.3 prioritaire avant P10.7** (Vision frontend en dépend).
+> **P13.3 SUPPRIMÉE** — Core devient isomorphe, intégré dans P14.
+> Architecture **Pattern Hub** : `IRealtimeHub` interchangeable + `RealtimeService` central. Permet cluster K8s transparent.
 
 | #     | Tâche                                                            | Effort  | Dépendances        | Notes                                                  |
 | ----- | ---------------------------------------------------------------- | ------- | ------------------ | ------------------------------------------------------ |
-| P13.2 | `@nodefony/redis` refactor (cluster + pub/sub + storage)         | 8 ses.  | —                  | **Prioritaire** — débloque P5.12, apps prod cluster    |
-| P13.3 | `@nodefony/client` (lib navigateur — HTTP/WS/auth/streaming)     | 9 ses.  | P0, P1.4 (ALS)     | **Bloquant pour P10.7** Vision frontend                |
-| P13.1 | `@nodefony/realtime` (TCP/UDP/Unix sockets — IoT/IPC/protocoles) | 7 ses.  | P1 (Context hooks) | Indépendant, peut venir tardivement                    |
+| P13.1 | `@nodefony/realtime` (TCP/UDP/Unix sockets — IoT/IPC/protocoles) | 7 ses.  | P1 (Context hooks) | Indépendant. Chaque protocole crée un `RequestContext` Nodefony (ALS, logs, security) |
+| P13.2 | `@nodefony/redis` refactor (cluster + pub/sub + storage)         | 8 ses.  | —                  | **Prioritaire** — débloque P5.12, apps prod cluster + driver `RedisRealtimeHub` |
+| P13.4 | 🆕 `IRealtimeHub` interface + `LocalRealtimeHub` (dev) + `RealtimeService` central (façade, normalisation, dédup échos cluster) | 3 ses. | P1.4 (ALS) | NOUVEAU — fondation temps réel distribué              |
+| P13.5 | 🆕 `RedisRealtimeHub` driver (cluster low-latency, Pub/Sub)      | 2 ses.  | P13.2, P13.4       | Sessions UI, chat, broadcast standard                  |
+| P13.6 | 🆕 **`KafkaRealtimeHub`** driver (cluster massif, persistence, at-least-once) | 3 ses. | P13.4 | Apps massives + bus events agents IA (P12)            |
+| P13.7 | 🆕 Protocole **JSON-RPC 2.0 maison** + RPC bidirectionnel (Promise) + HTTP long-polling fallback + types partagés `ServerToClientEvents`/`ClientToServerEvents` | 4 ses. | P13.4, P1.7 | Symbiose Socket.IO-like sans wrap. Type-safe E2E       |
+| P13.8 | 🆕 Décorateurs `@RealtimeController(path)` + `@RealtimeEvent(name)` (lecture `Reflect.metadata`) | 2 ses. | P13.7 | Pattern @route mais pour events temps réel             |
+| P13.9 | 🆕 Tests intégration cluster simulé (2+ instances + Hub + filtre écho) | 2 ses. | P13.5 ou P13.6 | Valide pas de duplication de messages cluster         |
 
 ### P12 — Couche IA agentic (DERNIÈRE phase — voir [Phase 12](#phase-12--couche-ia-agentic-dernière-phase-de-migration))
 
@@ -229,6 +289,22 @@
 | P12.5   | Panels IA dans Vision (ex-`@nodefony/studio`)                     | 6 ses.  | P12.4, P10               | Fusion studio ↔ vision                            |
 | P12.6   | Tests E2E IA + conformité AI Act                                  | 7 ses.  | P12.5                    | RAG sources, agent loop, MCP, gouvernance, souverain |
 
+### 🆕 P15 — Mediasoup + SIP/Asterisk (test ultime archi 2026-05-16)
+
+> NOUVEAU — voir mémoire `project_decisions_realtime_isomorphic.md`. NE PAS démarrer avant P12 (agents IA) + P13 (realtime base) solides.
+> Cas d'usage cible : **agent IA vocal téléphone PSTN**. PAS du WebRTC navigateur — `PlainTransport` RTP brut uniquement.
+
+| #     | Tâche                                                            | Effort  | Dépendances        | Notes                                                  |
+| ----- | ---------------------------------------------------------------- | ------- | ------------------ | ------------------------------------------------------ |
+| P15.1 | `@nodefony/mediasoup-bundle` — interfaces `IMediasoupConfig`, `IRoomManager`, `MediasoupService` (init Workers C++ selon CPU) | 3 ses. | P13 ✅, P12.2 ✅ | Codecs (Opus/VP8/H264), plages ports UDP/TCP |
+| P15.2 | `RoomManager` — cartographie Routers mediasoup ↔ Rooms du `RealtimeService` (P13.4) | 2 ses. | P15.1 | Cycle de vie salons média                       |
+| P15.3 | `SignalController` — décorateurs `@RealtimeController('/media')` + `@RealtimeEvent('media:joinRoom')` + RPC pour SDP/RTP capabilities | 2 ses. | P15.2, P13.8 | Pattern Symbiose JSON-RPC                  |
+| P15.4 | `PlainTransport` Asterisk — gateway SIP via codec G.711/Opus     | 3 ses. | P15.3              | Cœur du pont télécom                                   |
+| P15.5 | Connecteur `asterisk-ari` (ARI) + `asterisk-ami` (AMI) — intercepte appels SIP, pilote Bridges Asterisk | 3 ses. | P15.4 | Lib externe (`ari-client`, `asterisk-ami-client`)     |
+| P15.6 | Pipeline agent IA vocal : Asterisk → mediasoup PlainTransport → STT → LLM (P12) → TTS → réinjection PlainTransport → retour client | 4 ses. | P15.5, P12.2 | Killer feature 2026 — agents IA vocaux PSTN          |
+| P15.7 | Cluster K8s : `PipeTransports` mediasoup pour interconnexion pod-to-pod (bypass Redis/Kafka pour flux media binaires) | 3 ses. | P15.4, P13.5/6 | Routage media inter-pod direct UDP haut débit  |
+| P15.8 | Tests E2E pont SIP + agent IA vocal (Asterisk + mediasoup + LLM) | 3 ses. | P15.6              | Validation crash-test absolu de l'archi               |
+
 ### P10 — `@nodefony/vision` (admin web — successeur monitoring-bundle)
 
 > Voir [Phase 10](#phase-10--nodefonyvision-successeur-monitoring-bundle). NE PAS démarrer avant P0-P7 + P11.2-P11.3 ✅.
@@ -242,7 +318,7 @@
 | P10.4  | `IAdminApi` dans user, orm-core, security                                      | 2 ses.  | P5.6, P6.8         |                                                |
 | P10.5  | Backend Vision — `DashboardController` + `api/*Controller`                     | 2 ses.  | P10.3, P10.4       | Route prefix `/nodefony`                       |
 | P10.6  | Auth admin (factory `vision-admin`, `ROLE_NODEFONY_ADMIN`)                     | 1 ses.  | P6.5               |                                                |
-| P10.7  | Frontend bootstrap + router + auth + layouts                                   | 2 ses.  | P10.5, **P13.3**, **P14.4** | Login + Dashboard de base — utilise `@nodefony/client` + `@nodefony/frontend` |
+| P10.7  | Frontend bootstrap + router + auth + layouts                                   | 2 ses.  | P10.5, **P14.11**, **P14.4** | Login + Dashboard de base — utilise Core isomorphe (P14.11, ex-P13.3) + `@nodefony/frontend` |
 | P10.8  | Vues prio : dashboard, routes, sessions, users                                 | 3 ses.  | P10.7              | MVP utile                                      |
 | P10.9  | Vues : firewall, logs streaming, databases, migrate                            | 3 ses.  | P10.8              | SSE/WS pour logs                               |
 | P10.10 | Vues : npm, pm2, profiling, services                                           | 2 ses.  | P10.9              | Incrémental                                    |
@@ -261,22 +337,25 @@
 
 | Bloc                                                     | Sessions estimées |
 | -------------------------------------------------------- | ----------------- |
-| P0 — Bugs bloquants                                       | ~2.5              |
-| P1 — Fondations symbiose http↔framework                  | ~7.5              |
+| ✅ P0 — Bugs bloquants                                    | ~2.5 ✅           |
+| P1 — Fondations symbiose http↔framework                  | ~7.5 (P1.1 + P1.2 ✅) |
 | P2 — Cycle de vie Context                                 | ~6                |
 | P3 — Logs structurés                                      | ~6.5              |
 | P4 — Tests symbiose                                       | ~6                |
 | **P5 — Session + User + ORM Core (préalable Security)**  | **~14**           |
-| P6 — Security                                             | ~16               |
-| P7 — Drivers ORM (Sequelize + Mongoose + **Drizzle NEW**) | ~10               |
+| P6 — Security (+ décorateurs panoplie + 3 niveaux Voters) | ~17               |
+| P7 — Drivers ORM (Sequelize + Mongoose + Drizzle + 🆕 MikroORM) | ~14         |
 | P8 — CLI + Monitoring local                               | ~5                |
 | P9 — Polish                                               | ~2.5              |
 | **P11 — Tests CLI + commandes par module**               | **~6**            |
 | **P10 — Vision (admin web)**                              | **~19.5**         |
-| **P13 — Realtime + Redis cluster + Client navigateur**   | **~24**           |
-| **P14 — `@nodefony/frontend` (Vite builder)**             | **~12**           |
+| **P13 — Realtime distribué (RealtimeHub + Service + RPC + Kafka)** | **~32**  |
+| **P14 — `@nodefony/frontend` Vite + 🆕 Core isomorphe**  | **~19**           |
 | **P12 — Couche IA agentic (vision finale)**              | **~49**           |
-| **TOTAL**                                                 | **~186.5 sessions** |
+| 🆕 **P15 — Mediasoup + SIP/Asterisk (test ultime)**      | **~23**           |
+| **TOTAL**                                                 | **~229 sessions** |
+
+> Δ vs avant 2026-05-16 : +42.5 sessions (intégration analyse + realtime + mediasoup + Core isomorphe + MikroORM + décorateurs sécurité + Voters)
 
 ### Chemin critique (MVP framework prod-ready avec security)
 
@@ -294,19 +373,21 @@ P0 (2.5) → P1.1-P1.7 (7.5) → P3.1+P3.4+P3.5 (2)            ← logs minimal
 ### Chemin Vision (admin web — étape suivante MVP)
 
 ```
-MVP prod ✅ → P14.1-P14.5 (7)        ← @nodefony/frontend (Vite + Vue3/React19 + middleware HTTP)
-            → P13.3 (9)              ← @nodefony/client navigateur (lib HTTP/WS/auth)
+MVP prod ✅ → P14.1-P14.5 (7)        ← @nodefony/frontend (Vite + middleware HTTP integrate:true)
+            → P14.11 (4)             ← 🆕 Core isomorphe (Container/Syslog/Service browser-compat) — ex P13.3
+            → P13.4 (3)              ← 🆕 IRealtimeHub + LocalRealtimeHub + RealtimeService
+            → P13.7 (4)              ← 🆕 Protocole JSON-RPC 2.0 + RPC + types partagés E2E
             → P11.1-P11.3 (3)        ← Tests CLI existant + commandes core modules
             → P10.1-P10.7 (10.5)     ← IAdminApi dans http/framework/security/user/orm + backend + frontend bootstrap
             → P10.8 (3)              ← 4 vues prio (dashboard/routes/sessions/users)
-                                     = ~32.5 sessions supplémentaires vers Vision MVP
+                                     = ~34.5 sessions supplémentaires vers Vision MVP
 ```
 
 **Notes** :
 - `@nodefony/frontend` (P14) **bloque P10.7** Vision frontend — Vision en est le 1er consommateur prod.
-- `@nodefony/client` (P13.3) consommé DANS le code Vue/React de Vision (bundlé via `@nodefony/frontend`).
+- **P13.3 SUPPRIMÉE** (refonte 2026-05-16) — Core isomorphe (P14.11) la remplace, intégré DANS le code Vue/React de Vision via Vite alias automatique.
 - `@nodefony/redis` (P13.2 — 8 ses.) peut être inséré dès P5.12 si cluster prod ciblé.
-- `@nodefony/realtime` (P13.1) indépendant — peut être différé.
+- `@nodefony/realtime` (P13.1) indépendant — peut être différé. Mais `RealtimeService` (P13.4) prioritaire pour Vision (logs streaming, métriques live).
 
 ### Chemin IA agentic (vision finale — phase FINALE)
 
@@ -1069,16 +1150,17 @@ export default {
 4. **Vision = 1er consommateur prod** — son frontend (P10.7) utilisera Vite + Vue 3 (ou React 19, décision P10.1) via `@nodefony/frontend`.
 5. **HMR via WS** : profite du WebSocket natif `@nodefony/http` — Vite HMR injecté directement, pas de port séparé en mode `integrate: true`.
 
-### 14.5 Distinction `@nodefony/frontend` vs `@nodefony/client`
+### 14.5 ⚠️ MAJ 2026-05-16 — `@nodefony/frontend` + Core isomorphe (ex-`@nodefony/client`)
 
-> Deux modules complémentaires — ne pas confondre.
+> **Refonte** : `@nodefony/client` SUPPRIMÉ comme module séparé. Voir mémoire `project_decisions_realtime_isomorphic.md`.
 
-| Module             | Rôle                                                                                          | Quand l'utiliser                                       |
-| ------------------ | --------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `@nodefony/frontend` (Phase 14) | **Builder + dev server** — transpile/bundle les frontends des modules (Vue/React/Svelte) | Quand un module a un frontend à compiler              |
-| `@nodefony/client` (Phase 13.3) | **Lib JS bas niveau** — fournit HTTP/WS/auth/streaming clients aux apps browser            | Importée DANS le code frontend (Vue/React) du module  |
+| Module                       | Rôle                                                                                          | Quand l'utiliser                                       |
+| ---------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `@nodefony/frontend` (P14)   | **Builder + dev server Vite** — transpile/bundle les frontends des modules (Vue/React/Svelte) | Quand un module a un frontend à compiler              |
+| Core isomorphe (P14.11)      | **Container DI + Syslog + Service + EventEmitter** exportés côté browser via `package.json.exports.browser` | Importé DANS le code Vue/React/Svelte des modules via alias automatique du plugin Vite Nodefony |
+| Protocole RT (P13.7)         | **JSON-RPC 2.0 maison** — RPC bidirectionnel + types partagés `ServerToClientEvents`/`ClientToServerEvents` + HTTP long-polling fallback | Pour temps réel symbiose Socket.IO-like |
 
-**Exemple Vision** : utilise `@nodefony/frontend` (Vite + Vue 3) pour bundler, et son code Vue importe `@nodefony/client` pour les appels HTTP/WS vers le backend.
+**Exemple Vision** : utilise `@nodefony/frontend` pour bundler son Vue 3, importe le Core isomorphe (Container + Syslog) pour structurer le code front exactement comme le back, consomme P13.7 pour les events temps réel typés vers backend.
 
 ---
 
@@ -1142,15 +1224,16 @@ export default {
 - Notifications cross-process : un worker Nodefony notifie les autres
 - WS broadcast scalable : pub à Redis → toutes instances Nodefony forward aux WS clients
 
-### 13.3 `@nodefony/client` (nouveau — lib navigateur compatible framework)
+### 13.3 ⚠️ OBSOLÈTE 2026-05-16 — `@nodefony/client` ABANDONNÉ → Core isomorphe P14.11
 
-> **Pourquoi** : Vision (frontend Vue/React), apps utilisateur, applis tierces doivent consommer Nodefony avec :
-> - WS client typed (avec reconnect, protocol, requestId)
-> - HTTP fetch wrapper (auth, CSRF, X-Request-Id propagation)
-> - Auth flow (login, token refresh, logout)
-> - Streaming LLM token-par-token (consomme `@nodefony/agent` côté serveur)
+> **REFONTE** : `@nodefony/client` n'est PLUS un module séparé. Le **Core Nodefony (Container/Syslog/Service)** devient isomorphe (back + front) — voir tâche **P14.11** dans la roadmap priorisée.
 >
-> Bloquant pour P10 (Vision frontend) — doit être ✅ avant P10.7.
+> La table ci-dessous est conservée comme **référence historique du périmètre fonctionnel** (HTTP/WS/auth/streaming clients), à redistribuer entre :
+> - `@nodefony/http` (déjà migré) — HTTP/WS côté serveur, types partageables côté client via build conditionnel
+> - **P14.11** Core isomorphe — Container, Syslog, Service, EventEmitter exportés côté browser
+> - **P13.7** — Protocole JSON-RPC 2.0 maison (RPC bidirectionnel, types `ServerToClientEvents`/`ClientToServerEvents` partagés)
+>
+> Voir mémoire IA `project_decisions_realtime_isomorphic.md` pour la décision et les raisons.
 
 | Fichier TS cible                                            | Rôle                                                                 | Statut | Complexité | Notes                                                  |
 | ----------------------------------------------------------- | -------------------------------------------------------------------- | ------ | ---------- | ------------------------------------------------------ |
