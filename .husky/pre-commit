@@ -1,15 +1,11 @@
 #!/usr/bin/env sh
 
-# Régénère .ai/symbols.json si des .ts ont été modifiés dans la zone parsée
-# (src/nodefony/, src/packages/@nodefony/*, src/modules/*).
-# Skip les fichiers de tests et déclarations.
+# Régénère .ai/symbols.json si des .ts dans la zone parsée sont staged.
+# La zone parsée est définie UNIQUEMENT dans scripts/generate-symbols.config.ts
+# (include/exclude globs). Ce hook délègue au mode --check-staged du script.
 
-staged_ts=$(git diff --cached --name-only --diff-filter=ACMR | \
-  grep -E '^(src/nodefony/|src/packages/@nodefony/|src/modules/).*\.ts$' | \
-  grep -vE '\.(test|spec)\.ts$' | \
-  grep -vE '\.d\.ts$' || true)
-
-if [ -z "$staged_ts" ]; then
+if npm run generate-symbols --silent -- --check-staged; then
+  # exit 0 → rien dans la zone parsée → skip
   exit 0
 fi
 

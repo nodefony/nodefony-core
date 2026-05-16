@@ -22,8 +22,10 @@ import {
 } from "ts-morph";
 import fs from "node:fs";
 import path from "node:path";
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import fg from "fast-glob";
+import picomatch from "picomatch";
 import config from "./generate-symbols.config.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -398,6 +400,52 @@ function generate(): void {
   console.log(`     classes: ${stats.classes}, interfaces: ${stats.interfaces}, types: ${stats.types}, enums: ${stats.enums}, functions: ${stats.functions}, constants: ${stats.constants}`);
   console.log(`  → stable  : ${config.output.stable} (${(fs.statSync(stablePath).size / 1024).toFixed(1)} KB, ${stableExported.length} exported symbols)`);
   console.log(`  → verbose : ${config.output.verbose} (${(fs.statSync(verbosePath).size / 1024).toFixed(1)} KB, ${stats.symbols} symbols)`);
+}
+
+// ─── --check-staged mode (for pre-commit hook) ──────────────────────────────
+//
+// Reads `git diff --cached --name-only` and tests staged files against the
+// same include/exclude globs the script uses for parsing.
+//   exit 0 → no staged file matches → no regeneration needed
+//   exit 1 → at least one match → caller should run generate-symbols
+//
+// This is the unique source of truth: change include/exclude in
+// `generate-symbols.config.ts` and both the parsing scope and the hook
+// trigger update together.
+
+function checkStaged(): never {
+  let stagedFiles: string[] = [];
+  try {
+    const out = execSync("git diff --cached --name-only --diff-filter=ACMR", {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
+    stagedFiles = out.split("\n").filter(Boolean);
+  } catch {
+    // git unavailable or no commit in progress — treat as nothing staged
+    process.exit(0);
+  }
+
+  if (stagedFiles.length === 0) process.exit(0);
+
+  const includeMatchers = config.include.map((p) => picomatch(p));
+  const excludeMatchers = config.exclude.map((p) => picomatch(p));
+
+  for (const file of stagedFiles) {
+    const matchesInclude = includeMatchers.some((m) => m(file));
+    if (!matchesInclude) continue;
+    const matchesExclude = excludeMatchers.some((m) => m(file));
+    if (matchesExclude) continue;
+    // At least one staged file is within the parsed scope.
+    process.exit(1);
+  }
+
+  process.exit(0);
+}
+
+// Entrypoint
+if (process.argv.includes("--check-staged")) {
+  checkStaged();
 }
 
 generate();
