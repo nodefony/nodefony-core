@@ -177,6 +177,49 @@ Nodefony est une **plateforme générique** pour construire :
 
 ---
 
+## 🎯 Module `@nodefony/vision` (futur — successeur de `monitoring-bundle`)
+
+> Application web d'administration du framework et des apps qui tournent dessus.
+> Remplace le `monitoring-bundle` Vue 2 legacy (`/Users/cci/repository/nodefony/src/nodefony/bundles/monitoring-bundle/`).
+
+**Périmètre** : dashboard (bundles, databases, firewall, logs, migrate, npm, pm2, profiling, router, service, sessions, users) — voir vues legacy comme inspiration de scope, pas de tech.
+
+**🔒 Convention de route RÉSERVÉE — applicable dès maintenant** :
+
+- Le préfixe `/nodefony` est **réservé à Vision** dans toutes les apps Nodefony en production.
+- Les modules **internes** (`@nodefony/http`, `@nodefony/framework`, `@nodefony/security`, ORM, etc.) qui exposent des routes d'admin doivent les exposer sous `/nodefony/<module>/...`.
+- Les apps utilisateur (consommateurs du framework) doivent éviter `/nodefony/*` pour leurs propres routes.
+- Le module `test` actuel utilise `/nodefony/test/*` — c'est cohérent (route de test interne).
+
+**Conséquence pour chaque module migré** :
+- Si le module expose une API d'introspection/admin (ex : `@nodefony/http` → stats serveurs, `@nodefony/framework` → liste routes, `@nodefony/security` → users connectés, `@nodefony/orm-*` → état connexions DB), **prévoir un controller `/nodefony/<module>/api/*` documenté qui sera consommé par Vision**.
+- Concevoir les API comme **GraphQL ou REST JSON** — pas de couplage à la vue.
+- Documenter chaque endpoint admin dans le `MEMORY.md` du module — Vision les consommera.
+
+**Stack cible Vision** (à figer en début de Phase 10) :
+- Frontend : Vue 3 + Vite + TS (cohérence avec passé) ou React 19 — décision en début de Phase 10
+- Backend : `@nodefony/framework` controllers + GraphQL pour requêtes complexes + REST pour mutations simples
+- Auth : `@nodefony/security` factory dédiée admin (rôle `ROLE_NODEFONY_ADMIN`)
+
+**Tracking** : voir Phase 10 dans `MIGRATION_STATUS.md`.
+
+---
+
+## 🛠 Commandes CLI par module
+
+> Chaque module Nodefony peut enregistrer des commandes CLI via `module.addCommand(Ctor)`.
+> Pattern legacy : `nodefony <command> [args]` (ex : `nodefony pm2:start`, `nodefony users:add`).
+
+**État actuel** : commandes implémentées (`Start/Dev/Build/Prod/Staging/Install/Outdated/Pm2/Kill`) mais **pas testées en intégration** — voir Phase 11 dans `MIGRATION_STATUS.md`.
+
+**Règle** : tout module migré qui expose une commande CLI doit :
+- Suivre le namespace `<module>:<action>` (ex : `security:user:add`, `orm:migrate`, `http:routes:list`)
+- Documenter ses commandes dans son `MEMORY.md` (section "Commandes CLI")
+- Avoir au moins un test d'intégration `npx nodefony <command>` (Phase 11)
+- Exposer un endpoint API équivalent pour Vision (cohérence CLI ↔ Web admin)
+
+---
+
 ## Architecture
 
 ```

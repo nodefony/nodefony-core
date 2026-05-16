@@ -7,26 +7,30 @@
 
 ## Progression globale
 
-| Catégorie                           | Total  | ✅     | 🔶    | ⬜     |
-| ----------------------------------- | ------ | ------ | ----- | ------ |
-| **Build System**                    | 10     | 10     | 0     | 0      |
-| Core / Kernel                       | 6      | 4      | 0     | 2      |
-| DI Container                        | 3      | 2      | 0     | 1      |
-| Module System                       | 5      | 3      | 0     | 2      |
-| Syslog / Pdu                        | 4      | 4      | 0     | 0      |
-| Router                              | 4      | 4      | 0     | 0      |
-| HTTP / WS                           | 6      | 0      | 0     | 6      |
-| Controller                          | 3      | 3      | 0     | 0      |
-| Session                             | 3      | 0      | 0     | 3      |
-| Security / Auth                     | 5      | 0      | 0     | 5      |
-| ORM Adapters                        | 4      | 0      | 0     | 4      |
-| CLI                                 | 4      | 0      | 0     | 4      |
-| Monitoring                          | 3      | 0      | 0     | 3      |
-| Types / Interfaces                  | 6      | 5      | 0     | 1      |
-| **Symbiose http↔fw (Phase 9.1)**    | 8      | 0      | 5     | 3      |
-| **Cycle de vie Context (Phase 9.2)**| 12     | 0      | 0     | 12     |
-| **Logs structurés (Phase 9.3)**     | 10     | 0      | 0     | 10     |
-| **TOTAL**                           | **95** | **35** | **5** | **55** |
+| Catégorie                            | Total   | ✅     | 🔶    | ⬜     |
+| ------------------------------------ | ------- | ------ | ----- | ------ |
+| **Build System**                     | 10      | 10     | 0     | 0      |
+| Core / Kernel                        | 6       | 4      | 0     | 2      |
+| DI Container                         | 3       | 2      | 0     | 1      |
+| Module System                        | 5       | 3      | 0     | 2      |
+| Syslog / Pdu                         | 4       | 4      | 0     | 0      |
+| Router                               | 4       | 4      | 0     | 0      |
+| HTTP / WS                            | 6       | 0      | 0     | 6      |
+| Controller                           | 3       | 3      | 0     | 0      |
+| Session (refactor)                   | 8       | 1      | 2     | 5      |
+| **User module (NEW)**                | 12      | 0      | 0     | 12     |
+| **ORM Core (NEW)**                   | 11      | 0      | 0     | 11     |
+| ORM Drivers (Sequelize/Mongoose/**Drizzle**) | 7 | 0      | 0     | 7      |
+| Security / Auth                      | 11      | 0      | 0     | 11     |
+| CLI                                  | 4       | 0      | 0     | 4      |
+| Monitoring                           | 3       | 0      | 0     | 3      |
+| Types / Interfaces                   | 6       | 5      | 0     | 1      |
+| **Symbiose http↔fw (Phase 9.1)**     | 8       | 0      | 5     | 3      |
+| **Cycle de vie Context (Phase 9.2)** | 12      | 0      | 0     | 12     |
+| **Logs structurés (Phase 9.3)**      | 10      | 0      | 0     | 10     |
+| **Vision admin web (Phase 10)**      | 11      | 0      | 0     | 11     |
+| **CLI commandes par module (P11)**   | 14      | 0      | 0     | 14     |
+| **TOTAL**                            | **158** | **36** | **7** | **115**|
 
 ---
 
@@ -98,39 +102,60 @@
 | P4.5  | Tests DI scope × requête (singleton vs transient, isolation)                 | 9.1 #8 | 1 ses.  | P1.4        | Préalable à Injector Phase B (scoped/ALS officiel)                          |
 | P4.6  | Tests lifecycle session × controller (load → modify → persist → reload)     | 9.1 #5 | 1 ses.  | —           | Étendre `http/session.test.ts`                                              |
 
-### P5 — Session (Phase 5.2)
+### P5 — Session + User + ORM Core (préalables Security)
 
-| #     | Tâche                                                                | Effort  | Dépendances | Notes                                                          |
-| ----- | -------------------------------------------------------------------- | ------- | ----------- | -------------------------------------------------------------- |
-| P5.1  | `SessionManager` + `SessionStorage` interface complète + drivers     | 2 ses.  | P4.6        | Memory/Redis/ORM ; déjà partiellement codé dans `@nodefony/http` |
-| P5.2  | Tests intégration sessions cross-request + expiry + flash            | 1 ses.  | P5.1        |                                                                |
+> **Ordre critique** : `ORM core` (interfaces) → `User` (entité + adapters) → `Session refactor` (`session.user: IUser`) → Security peut alors démarrer (P6).
+> Sans ce socle, Security va re-créer son propre User et on aura divergence.
 
-### P6 — Security (Phase 6 / 9.6 — gros chantier)
+| #      | Tâche                                                                          | Phase     | Effort  | Dépendances | Notes                                                                       |
+| ------ | ------------------------------------------------------------------------------ | --------- | ------- | ----------- | --------------------------------------------------------------------------- |
+| P5.1   | `@nodefony/orm-core` — interfaces IOrm/IEntity/IRepository/ITransaction        | 7.3       | 1 ses.  | —           | Fondation abstraite, 0 driver implémenté                                    |
+| P5.2   | `OrmRegistry` + `EntityRegistry` + `Orm` base class                            | 7.3       | 1 ses.  | P5.1        | Singleton process-wide, multi-ORM support natif                             |
+| P5.3   | `@entity` + `@repository` decorators                                            | 7.3       | 1 ses.  | P5.2        | Métadonnées Reflect, auto-register au boot                                  |
+| P5.4   | Tests unit orm-core (registry, entity, decorators) + multi-orm integration test | 7.5       | 1 ses.  | P5.3        | **CRITIQUE** : prouve qu'on peut tourner 2 ORM en parallèle                 |
+| P5.5   | `@nodefony/user` — `IUser`, `IUserRepository`, `IUserProvider`, `User`, `AnonymousUser` | 5.3 | 2 ses.  | P5.4        | Champs canoniques figés, méthodes hasRole/isGranted/verifyPassword          |
+| P5.6   | `@nodefony/user/service/user-service.ts` + events lifecycle                    | 5.3       | 1 ses.  | P5.5        | register/authenticate/disable/lock + events pour audit                      |
+| P5.7   | Adapter Sequelize (User entity + repository)                                   | 5.3       | 1 ses.  | P5.5, P7.1  | Migration legacy `users-bundle/Entity/sequelize/`                           |
+| P5.8   | Adapter Mongoose (User entity + repository)                                    | 5.3       | 1 ses.  | P5.5, P7.2  | Migration legacy `users-bundle/Entity/mongoose/`                            |
+| P5.9   | Adapter Drizzle (User entity + repository) — **nouveau**                       | 5.3       | 1 ses.  | P5.5, P7.4  | Pas de référence JS, design from scratch                                    |
+| P5.10  | Tests intégration User cross-ORM (même IUser, 3 adapters CRUD)                 | 5.3       | 1 ses.  | P5.7-9      | Garantit que IUser tient face aux 3 drivers                                 |
+| P5.11  | **Session refactor** : `session.user: IUser` + `regenerateId()` + hooks invalidation | 5.2 | 1 ses.  | P5.5        | Étendre `session.ts` actuel, pas réécrire                                   |
+| P5.12  | `MemorySessionStorage` (tests) + `RedisSessionStorage` (prod)                  | 5.2       | 1 ses.  | P5.11       | Drivers manquants — file storage déjà ✅                                    |
+| P5.13  | `OrmSessionStorage` générique (via orm-core)                                   | 5.2       | 1 ses.  | P5.11, P5.4 | Storage backed par n'importe quel ORM enregistré                            |
+| P5.14  | Tests intégration sessions cross-request + expiry + flash + invalidation       | 5.2       | 1 ses.  | P5.13       |                                                                              |
 
-> **Bloc complet** : ne pas démarrer avant que P1.7 (hooks `Context`) + P1.4 (ALS) + P1.5 (errorRenderer) soient ✅.
+### P6 — Security (Phase 6 / 9.6)
+
+> **Bloc complet** : ne pas démarrer avant que P1.7 (hooks `Context`) + P1.4 (ALS) + P1.5 (errorRenderer) soient ✅ **ET** P5.5 (`IUser`/`IUserProvider`) soit ✅.
+> Sans User canonique, le Firewall recrée son propre type User → divergence garantie.
 
 | #      | Tâche                                                            | Source JS                                       | Effort  | Dépendances | Notes                                                          |
 | ------ | ---------------------------------------------------------------- | ----------------------------------------------- | ------- | ----------- | -------------------------------------------------------------- |
-| P6.1   | `AccessControl` + `BcryptEncoder` (sans dep http)                | `accessControl.js`, `bcryptEncoder.js`          | 1 ses.  | —           | Fondations sans dépendance                                     |
+| P6.1   | `AccessControl` + `BcryptEncoder`                                | `accessControl.js`, `bcryptEncoder.js`          | 1 ses.  | —           | Fondations sans dépendance                                     |
 | P6.2   | `cors.ts` service                                                 | `corsService.js` (182 L)                        | 1 ses.  | P1.7        | Plus simple, débloque API browser                              |
-| P6.3   | `firewall.ts` service + SecuredArea match                         | `firewallService.js` (694 L)                    | 3 ses.  | P1.7, P1.4, P1.5 | Gros morceau — découper en (a) SecuredArea (b) factory selection (c) auth pipeline |
-| P6.4   | `AnonymousProvider` + `AnonymousFactory` + `AnonymousToken`       | `anonymousProvider.js` + factories              | 1 ses.  | P6.3        | Valide le pipeline complet                                     |
-| P6.5   | `PassportBridge` + factory `passport-local` + token userpassword  | `passportFramework.js` + `passport-localFactory.js` | 2 ses. | P6.3, P6.4 | 1ère stratégie réelle                                          |
+| P6.3   | `firewall.ts` service + SecuredArea match                         | `firewallService.js` (694 L)                    | 3 ses.  | P1.7, P1.4, P1.5, **P5.5** | Gros morceau — découper (a) SecuredArea (b) factory selection (c) auth pipeline ; consomme `IUserProvider` |
+| P6.4   | `AnonymousProvider` + `AnonymousFactory` + `AnonymousToken`       | `anonymousProvider.js` + factories              | 1 ses.  | P6.3, **P5.5** | Utilise `AnonymousUser`                                        |
+| P6.5   | `PassportBridge` + factory `passport-local` + token userpassword  | `passportFramework.js` + `passport-localFactory.js` | 2 ses. | P6.3, P6.4, **P5.6** | 1ère stratégie réelle, utilise `user-service.authenticate()`   |
 | P6.6   | Factory `passport-jwt` + token JWT                                | `passport-jwtFactory.js`                        | 1 ses.  | P6.5        | API moderne                                                    |
 | P6.7   | `csrf.ts` service                                                 | `csrfService.es6` (193 L)                       | 1 ses.  | P6.3        | Dépend firewall                                                |
-| P6.8   | `authorization.ts` service                                        | `authorizationService.js`                       | 1 ses.  | P6.3, P6.1  | ACL/rôles                                                      |
+| P6.8   | `authorization.ts` service                                        | `authorizationService.js`                       | 1 ses.  | P6.3, P6.1  | ACL/rôles — consomme `user.hasRole()` de IUser                 |
 | P6.9   | Factories OAuth/OpenID/LDAP/Google/GitHub (5 stratégies)          | `passport-*Factory.js`                          | 3 ses.  | P6.6        | Étalées — extensions optionnelles                              |
 | P6.10  | Logs auth (audit S1-S5) + CSP/security headers (S6)               | —                                               | 1 ses.  | P3.1, P6.3  | Extension de 9.3 / 9.6                                         |
 | P6.11  | Tests intégration security complets (firewall-http/ws, cors, csrf, stack) | —                                       | 2 ses.  | P6.10       | `symbiose-stack.test.ts` couvre CORS→Firewall→ACL→CSRF→Ctrl   |
 
-### P7 — ORM Adapters (Phase 7)
+### P7 — ORM Drivers (consomment orm-core de P5.1-P5.4)
 
-| #     | Tâche                                                       | Effort  | Dépendances | Notes                                          |
-| ----- | ----------------------------------------------------------- | ------- | ----------- | ---------------------------------------------- |
-| P7.1  | `SequelizeAdapter` (compat legacy)                          | 2 ses.  | —           | Module existe partiellement                    |
-| P7.2  | `MongooseAdapter`                                           | 1 ses.  | —           | Module existe partiellement                    |
-| P7.3  | `MikroOrmAdapter` (nouveau, ORM principal TS)               | 3 ses.  | —           | Découper schema + repository + transactions    |
-| P7.4  | Tests adapters + intégration session ORM-backed             | 1 ses.  | P5.1, P7.*  |                                                |
+> Architecture refondue — voir [Phase 7](#phase-7--orm-multi-driver-architecture-refondée).
+
+| #     | Tâche                                                                        | Effort  | Dépendances | Notes                                                  |
+| ----- | ---------------------------------------------------------------------------- | ------- | ----------- | ------------------------------------------------------ |
+| P7.1  | `@nodefony/sequelize` — `Orm` extends + connector + bridge legacy v6         | 2 ses.  | P5.4        | Compat ascendante max — pas extension                  |
+| P7.2  | `@nodefony/mongoose` — `Orm` extends + connector                             | 1 ses.  | P5.4        | Module existe partiellement                            |
+| P7.3  | Tests intégration Sequelize (SQLite memory)                                  | 1 ses.  | P7.1        |                                                        |
+| P7.4  | **`@nodefony/drizzle` (NEW)** — `Orm` + connector + schema TS-first          | 3 ses.  | P5.4        | Stratégie SQL moderne 2026 — type-safe natif           |
+| P7.5  | Tests intégration Mongoose (mongodb-memory-server)                           | 1 ses.  | P7.2        |                                                        |
+| P7.6  | Tests intégration Drizzle (SQLite/Postgres)                                  | 1 ses.  | P7.4        |                                                        |
+| P7.7  | `@nodefony/redis` refactor (cache + session storage)                         | 1 ses.  | P5.12       | Existant — adapter à orm-core lifecycle si pertinent   |
 
 ### P8 — CLI + Monitoring (Phase 8)
 
@@ -140,6 +165,37 @@
 | P8.2  | Generators (`Module.ts`, `Controller.ts`, `Service.ts`)        | 1 ses.  | P8.1        |                                                |
 | P8.3  | `DebugBar` (monitoring middleware HTML + JSON)                 | 2 ses.  | P3.1        | Consomme audit log                             |
 | P8.4  | `Metrics` runtime (memory, requests, errors)                   | 1 ses.  | P3.1        |                                                |
+
+### P11 — Tests commandes CLI + commandes par module (Phase 11)
+
+> Voir [Phase 11](#phase-11--commandes-cli-par-module-non-testées-actuellement). 9 commandes existantes pas testées + commandes manquantes par module.
+
+| #      | Tâche                                                                          | Effort  | Dépendances        | Notes                                          |
+| ------ | ------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------- |
+| P11.1  | Tests intégration des 9 commandes CLI existantes                               | 1 ses.  | —                  | spawn sub-process + assertion stdout           |
+| P11.2  | Commandes `http:*` (routes, sessions, cert, stats)                             | 1 ses.  | P10.3              | Couplée à API admin Vision                     |
+| P11.3  | Commandes `framework:*` + `security:*` + `user:*`                              | 1 ses.  | P6.8, P5.6         |                                                |
+| P11.4  | Commandes `orm:migrate/rollback/status/seed`                                   | 2 ses.  | P7.3, P7.5         | Délègue aux CLI ORM natifs                     |
+| P11.5  | Commandes `logs:tail/filter` + bridge CLI ↔ Vision (`/cli/exec`)               | 1 ses.  | P3.10, P10.4       |                                                |
+
+### P10 — `@nodefony/vision` (admin web — successeur monitoring-bundle)
+
+> Voir [Phase 10](#phase-10--nodefonyvision-successeur-monitoring-bundle). NE PAS démarrer avant P0-P7 + P11.2-P11.3 ✅.
+> Préfixe route `/nodefony` réservé dans toutes les apps. Chaque module migré doit exposer son `IAdminApi` au préalable.
+
+| #      | Tâche                                                                          | Effort  | Dépendances        | Notes                                          |
+| ------ | ------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------- |
+| P10.1  | Décision stack frontend (Vue 3 vs React 19) + bootstrap Vite                   | 0.5 ses.| —                  |                                                |
+| P10.2  | `IAdminApi` + `ApiBroker` service                                              | 1 ses.  | P5.4               | Contract module → vision                       |
+| P10.3  | `IAdminApi` dans http, framework, syslog                                       | 2 ses.  | P10.2              |                                                |
+| P10.4  | `IAdminApi` dans user, orm-core, security                                      | 2 ses.  | P5.6, P6.8         |                                                |
+| P10.5  | Backend Vision — `DashboardController` + `api/*Controller`                     | 2 ses.  | P10.3, P10.4       | Route prefix `/nodefony`                       |
+| P10.6  | Auth admin (factory `vision-admin`, `ROLE_NODEFONY_ADMIN`)                     | 1 ses.  | P6.5               |                                                |
+| P10.7  | Frontend bootstrap + router + auth + layouts                                   | 2 ses.  | P10.5              | Login + Dashboard de base                      |
+| P10.8  | Vues prio : dashboard, routes, sessions, users                                 | 3 ses.  | P10.7              | MVP utile                                      |
+| P10.9  | Vues : firewall, logs streaming, databases, migrate                            | 3 ses.  | P10.8              | SSE/WS pour logs                               |
+| P10.10 | Vues : npm, pm2, profiling, services                                           | 2 ses.  | P10.9              | Incrémental                                    |
+| P10.11 | Tests intégration vision                                                       | 1 ses.  | P10.8              |                                                |
 
 ### P9 — Polish + clôture
 
@@ -152,31 +208,50 @@
 
 ### Synthèse effort total
 
-| Bloc                                  | Sessions estimées |
-| ------------------------------------- | ----------------- |
-| P0 — Bugs bloquants                   | ~2.5              |
-| P1 — Fondations symbiose              | ~7.5              |
-| P2 — Cycle de vie Context             | ~6                |
-| P3 — Logs structurés                  | ~6.5              |
-| P4 — Tests symbiose                   | ~6                |
-| P5 — Session                          | ~3                |
-| P6 — Security (gros)                  | ~16               |
-| P7 — ORM                              | ~7                |
-| P8 — CLI + Monitoring                 | ~5                |
-| P9 — Polish                           | ~2.5              |
-| **TOTAL**                             | **~62 sessions**  |
+| Bloc                                                     | Sessions estimées |
+| -------------------------------------------------------- | ----------------- |
+| P0 — Bugs bloquants                                       | ~2.5              |
+| P1 — Fondations symbiose http↔framework                  | ~7.5              |
+| P2 — Cycle de vie Context                                 | ~6                |
+| P3 — Logs structurés                                      | ~6.5              |
+| P4 — Tests symbiose                                       | ~6                |
+| **P5 — Session + User + ORM Core (préalable Security)**  | **~14**           |
+| P6 — Security                                             | ~16               |
+| P7 — Drivers ORM (Sequelize + Mongoose + **Drizzle NEW**) | ~10               |
+| P8 — CLI + Monitoring local                               | ~5                |
+| P9 — Polish                                               | ~2.5              |
+| **P11 — Tests CLI + commandes par module**               | **~6**            |
+| **P10 — Vision (admin web)**                              | **~19.5**         |
+| **TOTAL**                                                 | **~101.5 sessions** |
 
-### Chemin critique (le plus rapide vers un framework prod-ready avec security)
+### Chemin critique (MVP framework prod-ready avec security)
 
 ```
-P0 (2.5) → P1.1-P1.7 (7.5) → P3.1+P3.4+P3.5 (2)  ← logs minimal
-                            → P2.2-P2.5 (2.5)    ← context tear-down + abort
-                            → P5 (3)             ← sessions
-                            → P6.1-P6.8 (11)     ← security minimal sans OAuth
-                                                 = ~28 sessions vers MVP prod
+P0 (2.5) → P1.1-P1.7 (7.5) → P3.1+P3.4+P3.5 (2)            ← logs minimal
+                            → P2.2-P2.5 (2.5)              ← context tear-down + abort
+                            → P5.1-P5.6 (7)                ← ORM core + IUser + User service
+                            → P5.7 ou P5.8 (1)             ← UN adapter ORM
+                            → P5.11-P5.12 (2)              ← session refactor + storage
+                            → P7.1 ou P7.2 (2)             ← UN driver ORM complet
+                            → P6.1-P6.8 (11)               ← security minimal sans OAuth
+                                                           = ~37.5 sessions vers MVP prod
 ```
 
-Le reste (OAuth, ORM, monitoring, polish, axes secondaires) peut être livré incrémentalement sans bloquer un déploiement.
+### Chemin Vision (admin web — étape suivante MVP)
+
+```
+MVP prod ✅ → P11.1-P11.3 (3)        ← Tests CLI existant + commandes core modules
+            → P10.1-P10.7 (10.5)     ← IAdminApi dans http/framework/security/user/orm + backend + frontend bootstrap
+            → P10.8 (3)              ← 4 vues prio (dashboard/routes/sessions/users)
+                                     = ~16.5 sessions supplémentaires vers Vision MVP
+```
+
+Le reste (Drizzle, OAuth/LDAP/OIDC, monitoring local DebugBar, polish, multi-ORM tests, vues Vision avancées) peut être livré incrémentalement sans bloquer un déploiement.
+
+**Décisions stratégiques** :
+- **ORM Core AVANT Security** : sinon Security recrée un type User couplé à un seul ORM → impossible de switcher. 4 sessions de prérequis.
+- **Un seul ORM suffit pour MVP** : choisir Sequelize (legacy compat) OU Drizzle (TS moderne) selon priorité business. Mongoose pour MongoDB en complément si besoin doc store.
+- **Drizzle peut attendre P7.4** : c'est l'investissement long terme TS-first ; MVP peut sortir avec Sequelize.
 
 ---
 
@@ -358,13 +433,60 @@ Le reste (OAuth, ORM, monitoring, polish, axes secondaires) peut être livré in
 | `src/packages/@nodefony/framework/nodefony/src/Resolver.ts`        | N/A                                      | ✅     | 3          | `Resolver implements IResolver` — `_applyResponseDecorators` + `_handleRedirect` + `_buildParamArgs` |
 | `src/packages/@nodefony/framework/nodefony/interfaces/`            | N/A (nouveau)                            | ✅     | 2          | `IController`, `IRoute`, `IResolver`                              |
 
-### 5.2 Session
+### 5.2 Session (refactor — actuel partiel)
 
-| Fichier TS cible                                | Source JS référence                          | Statut | Complexité | Notes                        |
-| ----------------------------------------------- | -------------------------------------------- | ------ | ---------- | ---------------------------- |
-| `src/packages/@nodefony/http/SessionManager.ts` | `nodefony/bundles/framework-bundle/session/` | ⬜     | 3          | Gestionnaire sessions        |
-| `src/packages/@nodefony/http/SessionStorage.ts` | `nodefony/bundles/framework-bundle/session/` | ⬜     | 2          | Drivers (memory, redis, ORM) |
-| `src/packages/@nodefony/http/session/index.ts`  | N/A                                          | ⬜     | 1          | Barrel export                |
+> **État actuel** : `@nodefony/http/nodefony/src/session/session.ts` (715 L) — fonctionne avec `FileSessionStorage` mais champ `user?: string` (juste username, non typé), storage filesystem only.
+> **Améliorations à apporter** :
+> - `session.user` → typé `IUser` (référence vers module User), pas juste string
+> - Storage drivers additionnels (Redis pour prod, ORM-backed pour persistence forte)
+> - Hook `onUserInvalidated` quand `user.enabled=false` ou `user.accountNonLocked=false` → force `session.destroy()`
+> - Sérialisation : préserver `roles` + `metaData` pour éviter refetch DB à chaque requête (read-through cache)
+> - Migration session entre stores (logout / fixation prevention via `regenerateId()`)
+
+| Fichier TS cible                                                      | Source JS référence                          | Statut | Complexité | Notes                                                  |
+| --------------------------------------------------------------------- | -------------------------------------------- | ------ | ---------- | ------------------------------------------------------ |
+| `@nodefony/http/nodefony/src/session/session.ts`                      | actuel + `framework-bundle/session/`         | 🔶     | 3          | Refactor : `user: IUser`, hooks invalidation, regenerateId |
+| `@nodefony/http/nodefony/service/sessions/sessions-service.ts`        | actuel                                       | 🔶     | 2          | Sélection storage par config, lifecycle GC global      |
+| `@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts`   | actuel                                       | ✅     | —          | OK pour dev                                            |
+| `@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts` | nouveau                                      | ⬜     | 1          | Map en mémoire, pour tests                             |
+| `@nodefony/http/nodefony/src/session/storage/RedisSessionStorage.ts`  | `bundles/redis-bundle/` (ref)                | ⬜     | 2          | TTL natif, prod-ready                                  |
+| `@nodefony/http/nodefony/src/session/storage/OrmSessionStorage.ts`    | `bundles/framework-bundle/session/`          | ⬜     | 3          | Adapter générique via `@nodefony/orm-core`             |
+| `@nodefony/http/nodefony/interfaces/ISessionStorage.ts`               | N/A                                          | ⬜     | 1          | Interface publique storage                             |
+| `@nodefony/http/nodefony/interfaces/ISession.ts`                      | actuel                                       | 🔶     | 1          | Étendre avec `user: IUser`, `regenerate()`             |
+
+### 5.3 User module (NEW — préalable à security)
+
+> **Constat** : Le vieux framework avait `cli/builder/bundles/users-bundle/` (411 L service + entities Sequelize/Mongoose dupliquées) — bundle scaffold.
+> **Problème** : entités User dupliquées par ORM → divergence garantie.
+> **Solution** : `@nodefony/user` central avec **interface canonique IUser** + adapters ORM (via `@nodefony/orm-core`) + service provider.
+
+> **Champs IUser canoniques** (extraits du legacy + standards 2026) :
+> `id`, `username`, `email`, `password` (hashed), `roles: string[]`, `enabled`, `accountNonLocked`, `userNonExpired`, `credentialsNonExpired`, `twoFactorEnabled`, `twoFactorSecret`, `name`, `surname`, `lang`, `gender?`, `avatar?`, `url?`, `createdAt`, `updatedAt`, `lastLoginAt?`.
+> **Méthodes IUser** : `hasRole(role)`, `isGranted(role)`, `verifyPassword(plain)`, `toSafeJson()` (sans password/secrets).
+
+| Fichier TS cible                                       | Rôle                                                                 | Statut | Complexité | Notes                                                |
+| ------------------------------------------------------ | -------------------------------------------------------------------- | ------ | ---------- | ---------------------------------------------------- |
+| `@nodefony/user/interfaces/IUser.ts`                   | Interface canonique IUser (champs + méthodes)                         | ⬜     | 2          | Lue par security, session, controllers                |
+| `@nodefony/user/interfaces/IUserRepository.ts`         | Repository contract : `findByUsername/Email/Id`, `create`, `update`   | ⬜     | 2          | Implémenté par chaque driver ORM                      |
+| `@nodefony/user/interfaces/IUserProvider.ts`           | Provider security (alimente le Firewall)                              | ⬜     | 2          | `loadByUsername(name): Promise<IUser>` etc.           |
+| `@nodefony/user/src/User.ts`                           | Classe base (champs + `hasRole`, `isGranted`, `toSafeJson`)           | ⬜     | 2          | Code commun, indépendant de l'ORM                     |
+| `@nodefony/user/src/AnonymousUser.ts`                  | User par défaut non authentifié — roles `["IS_AUTHENTICATED_ANONYMOUSLY"]` | ⬜ | 1          | Évite null partout                                    |
+| `@nodefony/user/service/user-service.ts`               | Service `register/authenticate/disable/lock/unlock` + events          | ⬜     | 2          | Délègue au IUserRepository                            |
+| `@nodefony/user/adapters/sequelize/UserEntity.ts`      | `@entity({ orm: "sequelize" })` — schema Sequelize                    | ⬜     | 2          | Ref : `users-bundle/Entity/sequelize/userEntity.js`   |
+| `@nodefony/user/adapters/sequelize/UserRepository.ts`  | `implements IUserRepository`                                          | ⬜     | 2          |                                                      |
+| `@nodefony/user/adapters/mongoose/UserEntity.ts`       | Schema Mongoose                                                       | ⬜     | 2          | Ref : `users-bundle/Entity/mongoose/userEntity.js`    |
+| `@nodefony/user/adapters/mongoose/UserRepository.ts`   | `implements IUserRepository`                                          | ⬜     | 2          |                                                      |
+| `@nodefony/user/adapters/drizzle/UserEntity.ts`        | Schema Drizzle (nouveau, type-safe)                                   | ⬜     | 2          | Sans précédent JS                                     |
+| `@nodefony/user/adapters/drizzle/UserRepository.ts`    | `implements IUserRepository`                                          | ⬜     | 2          |                                                      |
+| `@nodefony/user/index.ts`                              | Barrel exports                                                        | ⬜     | 1          |                                                      |
+
+**Décisions IUser à figer avant code** :
+- `id` : `string` (UUID) — pas `username` PK (legacy), permet rename username sans casser relations
+- `roles` : `string[]` JSON — pas table jointure (lourd pour use case basique, peut évoluer)
+- `password` : toujours hashed bcrypt — colonne séparée (jamais retournée par `toSafeJson()`)
+- `twoFactorSecret` : chiffré au repos (clé app), jamais en clair en DB
+- Validations : email RFC 5321, username regex alphanumeric + `._-`, password min 8 chars (configurable)
+- Events : `onUserCreated`, `onUserAuthenticated`, `onUserDisabled`, `onPasswordChanged` (consommés par audit logs Phase 9.3)
 
 ---
 
@@ -388,14 +510,79 @@ Le reste (OAuth, ORM, monitoring, polish, axes secondaires) peut être livré in
 
 ---
 
-## Phase 7 — ORM Adapters
+## Phase 7 — ORM multi-driver (architecture refondée)
 
-| Fichier TS cible                                       | Source JS référence                  | Statut | Complexité | Notes            |
-| ------------------------------------------------------ | ------------------------------------ | ------ | ---------- | ---------------- |
-| `src/packages/@nodefony/sequelize/SequelizeAdapter.ts` | `nodefony/bundles/sequelize-bundle/` | ⬜     | 3          | Compat legacy    |
-| `src/packages/@nodefony/mongoose/MongooseAdapter.ts`   | `nodefony/bundles/mongoose-bundle/`  | ⬜     | 2          | MongoDB          |
-| `src/orm/MikroOrmAdapter.ts`                           | N/A (nouveau)                        | ⬜     | 3          | ORM principal TS |
-| `src/orm/index.ts`                                     | N/A                                  | ⬜     | 1          | Barrel export    |
+> **Constat** : Sequelize est en perte de vitesse, mais encore maintenu (v6/v7). Mongoose reste leader pour MongoDB.
+> Le framework doit **charger plusieurs ORM simultanément** dans le même process (ex : Drizzle pour SQL + Mongoose pour Mongo + Redis pour cache).
+> Pattern legacy nodefony JS : `Orm` (interface) → `Connector` (lib) → `Entity` (modèle) → `OrmRegistry` (multi-instance).
+
+### 7.1 Architecture cible
+
+```
+@nodefony/orm-core         ← interfaces abstraites : IOrm, IEntity, IConnector, IRepository, ITransaction
+                            registre multi-ORM : OrmRegistry.get(name) → IOrm
+   ↑                       ↑
+@nodefony/sequelize        @nodefony/mongoose        @nodefony/drizzle        @nodefony/prisma (optionnel)
+   ↑                       ↑                         ↑
+   └───────────────────────┴─────────────────────────┘
+                  consommés par : User module, Session storage, security, application
+```
+
+### 7.2 Choix ORM 2026 (ordre de priorité)
+
+| ORM            | Type            | Statut prévu       | Raison                                                                            |
+| -------------- | --------------- | ------------------ | --------------------------------------------------------------------------------- |
+| **Mongoose**   | MongoDB ODM     | ✅ migration legacy | Leader incontesté MongoDB, pas de challenger                                      |
+| **Drizzle**    | SQL builder TS  | ✅ nouveau          | Type-safe SQL, perf, ascendant 2024-2026, schemas TS natifs, migrations CLI       |
+| **Sequelize**  | SQL ORM legacy  | 🔶 maintenance     | Compat existant — figer en v6, pas étendre — bridge minimal                       |
+| **Prisma**     | Schema-first    | ⏭️ optionnel       | Très populaire mais code gen externe + Prisma engine binaire — complique le pkg  |
+| **MikroORM**   | DataMapper      | ⏭️ optionnel       | Doctrine-like, supporte SQL + Mongo, à évaluer si Drizzle insuffisant             |
+| **TypeORM**    | DataMapper      | ⏭️ skip            | En perte de vitesse, décorateurs lourds                                           |
+| **Kysely**     | SQL builder     | ⏭️ skip            | Pas un ORM, déjà couvert par Drizzle                                              |
+
+### 7.3 Module `@nodefony/orm-core` (nouveau — fondation)
+
+| Fichier TS cible                                                | Rôle                                                                                | Statut | Complexité |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------ | ---------- |
+| `@nodefony/orm-core/interfaces/IOrm.ts`                         | Interface ORM : `connect()`, `disconnect()`, `getRepository(name)`, `transaction()` | ⬜     | 2          |
+| `@nodefony/orm-core/interfaces/IEntity.ts`                      | Interface Entity : `name`, `schema`, `model`, `relations`                            | ⬜     | 2          |
+| `@nodefony/orm-core/interfaces/IRepository.ts`                  | Interface Repository : `find/findOne/create/update/delete/count`                     | ⬜     | 2          |
+| `@nodefony/orm-core/interfaces/ITransaction.ts`                 | UoW/transaction abstraite (commit/rollback/savepoint)                                | ⬜     | 2          |
+| `@nodefony/orm-core/src/OrmRegistry.ts`                         | Singleton — `register(name, IOrm)`, `get(name): IOrm`, `list(): string[]`            | ⬜     | 2          |
+| `@nodefony/orm-core/src/Orm.ts`                                 | Classe abstraite base extends Service, lifecycle `onOrmReady` event                  | ⬜     | 2          |
+| `@nodefony/orm-core/src/Entity.ts`                              | Classe abstraite — registre dans OrmRegistry au boot                                 | ⬜     | 2          |
+| `@nodefony/orm-core/src/EntityRegistry.ts`                      | Cross-ORM entity lookup `entities[name][ormName]`                                    | ⬜     | 2          |
+| `@nodefony/orm-core/src/decorators/entityDecorator.ts`          | `@entity({ orm, name, schema })` — métadonnées + auto-register                       | ⬜     | 2          |
+| `@nodefony/orm-core/src/decorators/repositoryDecorator.ts`      | `@repository("UserRepository", { entity: "User" })`                                  | ⬜     | 2          |
+| `@nodefony/orm-core/index.ts`                                   | Barrel exports                                                                       | ⬜     | 1          |
+
+### 7.4 Drivers ORM (consomment orm-core)
+
+| Module                       | Fichier TS                                            | Source réf JS                          | Statut | Complexité |
+| ---------------------------- | ----------------------------------------------------- | -------------------------------------- | ------ | ---------- |
+| `@nodefony/sequelize`        | `service/sequelize.ts` + `connector/SequelizeConnector.ts` | `bundles/sequelize-bundle/`          | 🔶     | 3          |
+| `@nodefony/mongoose`         | `service/mongoose.ts` + `connector/MongooseConnector.ts`   | `bundles/mongoose-bundle/`           | 🔶     | 2          |
+| `@nodefony/drizzle` (NEW)    | `service/drizzle.ts` + `connector/DrizzleConnector.ts`     | N/A                                    | ⬜     | 3          |
+| `@nodefony/redis` (cache+session) | `service/redis.ts`                               | `bundles/redis-bundle/`                | 🔶     | 2          |
+
+### 7.5 Tests ORM (critique — non couvert dans le core actuel)
+
+| Fichier                                                  | Sujet                                                                                  | Statut |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------ |
+| `@nodefony/orm-core/tests/unit/OrmRegistry.test.ts`      | register/get/list, doublon, cleanup                                                    | ⬜     |
+| `@nodefony/orm-core/tests/unit/EntityRegistry.test.ts`   | Cross-ORM lookup, conflits noms                                                        | ⬜     |
+| `@nodefony/orm-core/tests/unit/decorators.test.ts`       | `@entity` + `@repository` metadata                                                     | ⬜     |
+| `@nodefony/sequelize/tests/integration/sequelize.test.ts` | Connect SQLite mem, CRUD, transactions, hooks                                          | ⬜     |
+| `@nodefony/mongoose/tests/integration/mongoose.test.ts`  | Connect mongo-memory-server, CRUD, schemas                                             | ⬜     |
+| `@nodefony/drizzle/tests/integration/drizzle.test.ts`    | Connect SQLite mem, CRUD, type-safe queries                                            | ⬜     |
+| `@nodefony/orm-core/tests/integration/multi-orm.test.ts` | **CRITIQUE** : charger 2 ORM en parallèle, User défini une fois, persisté dans 2 stores | ⬜     |
+
+### 7.6 Préoccupations transverses
+
+- **Connection pooling** : déléguer à chaque connector (Sequelize a son pool, Mongoose `mongoose.connection`, Drizzle via `postgres.js`/`better-sqlite3`).
+- **Transactions cross-ORM** : 2PC non géré (limite documentée — pas de transaction MySQL + Mongo cohérente).
+- **Migration scripts** : déléguer au CLI de chaque ORM (drizzle-kit, sequelize-cli, mongoose pas de migration). CLI Nodefony agrège.
+- **Lifecycle `onOrmReady`** : tous les ORM doivent emit cet event avant que Phase Kernel onReady ne se déclenche.
 
 ---
 
@@ -581,6 +768,142 @@ Le reste (OAuth, ORM, monitoring, polish, axes secondaires) peut être livré in
 8. **Factories OAuth/OpenID/LDAP/Google/GitHub** (extensions optionnelles)
 
 > Ce travail n'est pas dans la Phase 9 (qui pose les fondations http↔framework) mais consomme directement les hooks de 9.5.7 — d'où l'importance de les concevoir d'abord avec security en tête.
+
+---
+
+## Phase 10 — `@nodefony/vision` (successeur monitoring-bundle)
+
+> Application web d'administration du framework. Remplace `/Users/cci/repository/nodefony/src/nodefony/bundles/monitoring-bundle/` (Vue 2 legacy).
+> Démarrera **après** un niveau satisfaisant de migration (P0→P6 + P5+P7+P8 minimum) — sinon consomme des API qui n'existent pas encore.
+> **Convention** : préfixe route `/nodefony` réservé à ce module + sous-routes `/nodefony/<module>/*` pour les API d'admin que chaque module migré doit exposer.
+
+### 10.1 Périmètre fonctionnel (inspiration legacy)
+
+> Voir vues legacy `/monitoring-bundle/src/views/` : bundles, databases, documentation, firewall, logs, migrate, monitoring, npm, pm2, profiling, router, service, sessions, users.
+
+| Vue                | Consomme module             | API requise                                                                |
+| ------------------ | --------------------------- | -------------------------------------------------------------------------- |
+| Dashboard          | core/http                   | `/nodefony/system/stats` (mem, uptime, requests/s, servers status)         |
+| Routes             | framework                   | `/nodefony/framework/routes` — liste + détails route                       |
+| Sessions           | http/session                | `/nodefony/http/sessions` — liste, destroy, regenerate                     |
+| Users              | user + security             | `/nodefony/user/list`, `add/disable/lock/unlock/roles`                     |
+| Firewall           | security                    | `/nodefony/security/areas`, `/nodefony/security/tokens` (actifs)           |
+| Logs               | syslog (transports)         | `/nodefony/syslog/stream` (SSE/WS), `/nodefony/syslog/filter`              |
+| Databases          | orm-core                    | `/nodefony/orm/connections`, status par ORM, liste entités                 |
+| Migrations         | orm-* + CLI                 | `/nodefony/orm/migrations` — run/rollback/status                           |
+| NPM                | core CLI                    | `/nodefony/npm/outdated`, `/nodefony/npm/audit`                            |
+| PM2                | core CLI                    | `/nodefony/pm2/processes` — list/restart/stop                              |
+| Profiling          | http + monitoring           | `/nodefony/profiling/request/{id}` — utilise axe 9.2.9 (`context.timing`) |
+| Service / DI       | core                        | `/nodefony/services/list` — registre Injector                              |
+
+### 10.2 Structure module
+
+```
+src/packages/@nodefony/vision/
+├── package.json                       ← @nodefony/vision
+├── nodefony/
+│   ├── config/config.ts               ← prefix /nodefony, auth ROLE_NODEFONY_ADMIN
+│   ├── controller/
+│   │   ├── DashboardController.ts     ← /nodefony — page principale
+│   │   ├── api/
+│   │   │   ├── SystemApiController.ts ← /nodefony/api/system
+│   │   │   ├── FrameworkApiController.ts
+│   │   │   ├── SecurityApiController.ts
+│   │   │   ├── OrmApiController.ts
+│   │   │   └── ...
+│   │   └── graphql/                   ← Apollo handlers (read-heavy)
+│   ├── service/
+│   │   ├── vision-service.ts          ← Aggrégateur d'API cross-module
+│   │   └── ApiBroker.ts               ← Dispatch vers les API des modules
+│   └── interfaces/
+│       └── IAdminApi.ts               ← Contract que chaque module doit implémenter pour exposer son admin
+├── frontend/                          ← Vue 3 + Vite + TS (ou React — décision début Phase 10)
+│   ├── vite.config.ts
+│   ├── src/
+│   │   ├── App.vue
+│   │   ├── router/
+│   │   ├── stores/                    ← Pinia
+│   │   ├── views/                     ← (1 vue par périmètre 10.1)
+│   │   └── i18n/
+│   └── package.json
+└── tests/
+    └── integration/
+        └── vision.test.ts             ← Smoke test routes + GraphQL schema
+```
+
+### 10.3 Prérequis (durs)
+
+Avant de démarrer Phase 10, ces modules DOIVENT exposer leur API admin sous `/nodefony/<module>/*` :
+
+| Module                | API admin minimale                                                     | Phase prérequis  |
+| --------------------- | ---------------------------------------------------------------------- | ---------------- |
+| `@nodefony/http`      | servers status + sessions list + request stats                         | P4 ✅ (post)     |
+| `@nodefony/framework` | routes list + controllers list                                         | P4 ✅ (post)     |
+| `@nodefony/security`  | users connectés + areas + access logs                                  | P6 ✅            |
+| `@nodefony/user`      | CRUD users + roles                                                     | P5.6 ✅          |
+| `@nodefony/orm-core`  | connections status + entities list                                     | P5.4 ✅          |
+| Core (syslog)         | stream logs (SSE/WS) + filter                                          | P3.10 ✅         |
+
+### 10.4 Tâches Phase 10
+
+| #     | Tâche                                                                                | Effort  | Dépendances        | Notes                                                                  |
+| ----- | ------------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------------------------------- |
+| P10.1 | Décision stack frontend (Vue 3 vs React 19) + bootstrap Vite                         | 0.5 ses.| —                  | Cohérence ou rupture — décision business                               |
+| P10.2 | `IAdminApi` interface + `ApiBroker` service — contract module → vision               | 1 ses.  | P5.4               | Permet à chaque module de plug son API admin                           |
+| P10.3 | Implémentation `IAdminApi` dans http, framework, syslog (core)                       | 2 ses.  | P10.2              | Endpoints REST + GraphQL schemas                                       |
+| P10.4 | Implémentation `IAdminApi` dans user, orm-core, security                             | 2 ses.  | P10.2, P5.6, P6.8  | Dépend que ces modules existent                                        |
+| P10.5 | Backend `@nodefony/vision` — `DashboardController` + `api/*Controller`               | 2 ses.  | P10.3, P10.4       | Routes prefix `/nodefony`                                              |
+| P10.6 | Auth admin : factory `vision-admin` + role `ROLE_NODEFONY_ADMIN`                      | 1 ses.  | P6.5               | Login dédié, isolé de l'app                                            |
+| P10.7 | Frontend bootstrap + router + auth + layouts                                          | 2 ses.  | P10.5              | Page Login + Dashboard de base                                         |
+| P10.8 | Vues 10.1 (dashboard, routes, sessions, users) — 4 vues prio                          | 3 ses.  | P10.7              | MVP utile                                                              |
+| P10.9 | Vues 10.1 (firewall, logs streaming, databases, migrate)                              | 3 ses.  | P10.8              | Logs streaming via SSE — nécessite Phase 3 ✅                          |
+| P10.10| Vues 10.1 (npm, pm2, profiling, services)                                             | 2 ses.  | P10.9              | Niche, peut être livré incrémental                                     |
+| P10.11| Tests intégration vision (smoke + auth + 4 vues prio)                                 | 1 ses.  | P10.8              |                                                                        |
+
+**Effort total Phase 10 : ~19.5 sessions** (frontend inclus, vues complètes).
+
+---
+
+## Phase 11 — Commandes CLI par module (non testées actuellement)
+
+> Constat : 9 commandes CLI implémentées (`Start/Dev/Build/Prod/Staging/Install/Outdated/Pm2/Kill`) — **non testées en intégration**. Aucun module métier (http, framework, user, security, orm) n'a encore enregistré ses commandes.
+
+### 11.1 Commandes existantes — tests à créer
+
+| Commande      | Module         | Test à créer                                              | Statut |
+| ------------- | -------------- | --------------------------------------------------------- | ------ |
+| `start`       | core/CliKernel | spawn child, vérifier 4 serveurs listen                    | ⬜     |
+| `development` | core/CliKernel | idem `start` + watch mode actif                            | ⬜     |
+| `build`       | core/CliKernel | exit code 0 + dist/ peuplé                                 | ⬜     |
+| `production`  | core/CliKernel | PM2 daemon up, ports actifs                                | ⬜     |
+| `staging`     | core/CliKernel | env staging chargé                                         | ⬜     |
+| `install`     | core/CliKernel | npm install dans tous workspaces                           | ⬜     |
+| `outdated`    | core/CliKernel | rapport JSON valide                                        | ⬜     |
+| `pm2`         | core/CliKernel | list/start/stop                                            | ⬜     |
+| `kill`        | core/CliKernel | tue process actif sur ports 5151/5152                      | ⬜     |
+
+### 11.2 Commandes à ajouter par module (vues comme indispensables)
+
+| Module                | Commandes prévues                                                                | Statut | Effort  |
+| --------------------- | -------------------------------------------------------------------------------- | ------ | ------- |
+| `@nodefony/http`      | `http:routes:list`, `http:sessions:clear`, `http:cert:generate`, `http:server:stats` | ⬜  | 1 ses.  |
+| `@nodefony/framework` | `framework:route:list`, `framework:controller:list`                              | ⬜     | 0.5 ses.|
+| `@nodefony/security`  | `security:user:list`, `security:area:list`, `security:token:revoke`              | ⬜     | 1 ses.  |
+| `@nodefony/user`      | `user:add`, `user:disable`, `user:roles:set`, `user:password:reset`              | ⬜     | 1 ses.  |
+| `@nodefony/orm-*`     | `orm:migrate`, `orm:rollback`, `orm:status`, `orm:seed`                          | ⬜     | 2 ses.  |
+| Core / Syslog         | `logs:tail`, `logs:filter --requestId=...`                                       | ⬜     | 0.5 ses.|
+
+### 11.3 Convention CLI
+
+- Format : `nodefony <module>:<action> [args] [--options]` (ex : `nodefony security:user:add alice --role=ROLE_USER`).
+- Chaque commande doit **avoir un endpoint API équivalent** consommable par Vision (axe 11.4).
+- Tests : `npx nodefony <cmd>` lancé en sub-process avec `child_process.spawn`, assertion stdout + exit code.
+
+### 11.4 Bridge CLI ↔ Vision
+
+Un endpoint `/nodefony/<module>/cli/exec` (POST, role-protected) doit permettre à Vision d'invoquer la commande CLI équivalente — ainsi l'admin web ne dépend pas de SSH.
+
+**Effort total Phase 11 : ~6 sessions** (tests existants + nouvelles commandes par module).
 
 ---
 
