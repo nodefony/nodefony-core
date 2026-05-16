@@ -201,10 +201,120 @@ Chaque module IA sera publié indépendamment sur npm.
 
 ---
 
+## 🔁 Auto-développement — Nodefony se code lui-même
+
+> **Nodefony est son premier utilisateur.**
+> Le jour où la plateforme agentic est complète (Phase 12), elle peut
+> être branchée sur son propre repo et devenir un agent mainteneur du
+> framework. Cette section décrit ce point de bascule — elle guide les
+> choix de design **dès aujourd'hui**, pas dans deux ans.
+
+### Pourquoi c'est possible
+
+La migration TypeScript + les outils d'introspection qui se construisent
+en parallèle (`.ai/symbols.json` v2.0, suite mémoire/CPU, skills
+zero-token) **forment exactement le terrain de jeu d'un agent IA** :
+
+1. **Graphe symbolique stable** — l'agent ne grep pas le repo, il
+   interroge un index O(1) avec relations inverses (`extendedBy`,
+   `implementedBy`, `decoratedBy`, `usedBy`).
+2. **Tests de charge déterministes** — la suite `memory.test.ts` + le
+   skill `check-memory-health` donnent un signal binaire (8/8 vert vs
+   régression) que l'agent sait interpréter.
+3. **Boot fiable + logs filtrables** — le skill `start-nodefony-server`
+   (spawn detached + fail-fast) + `tail-error-logs` permettent une
+   boucle exécutable sans intervention humaine.
+4. **TSDoc + docs/ structurés** — le RAG embarqué retrouve la
+   philosophie du framework et évite les hallucinations.
+
+### Architecture cible — `@nodefony/agent-core`
+
+Module à créer en Phase 12. Expose le Kernel Nodefony et ses outils
+d'analyse via un **serveur MCP** (Model Context Protocol — standard
+Anthropic). L'IA n'est plus externe au framework, elle s'y connecte par
+une API standardisée.
+
+```
+┌────────────────────────────────────────────────────────┐
+│                   Agent App / LLM                      │
+└───────────────────────────┬────────────────────────────┘
+                            │ MCP (stdio / SSE)
+┌───────────────────────────▼────────────────────────────┐
+│               @nodefony/agent-core                     │
+│  ┌──────────────────┐ ┌─────────────────────────────┐  │
+│  │  MCP Tools Server │ │     Vector Memory (RAG)     │  │
+│  └────────┬─────────┘ └──────────────┬──────────────┘  │
+└───────────┼──────────────────────────┼─────────────────┘
+            │                          │
+┌───────────▼──────────────────────────▼─────────────────┐
+│                    Nodefony Kernel                     │
+│  ┌──────────────────┐ ┌─────────────────────────────┐  │
+│  │ generate-symbols │ │ check-memory-health         │  │
+│  └──────────────────┘ └─────────────────────────────┘  │
+└────────────────────────────────────────────────────────┘
+```
+
+### Tools MCP exposés (par `@nodefony/agent-core`)
+
+| Tool                       | Source actuelle                                      | Rôle                                            |
+| -------------------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| `get_framework_symbols`    | `.ai/symbols.json` (généré par skill)                | Lookup O(1) d'une classe/interface/méthode      |
+| `view_method_signature`    | `dist/symbols.json` + skill éponyme                  | Signature + TSDoc d'une méthode                 |
+| `run_resource_benchmark`   | skill `check-memory-health`                          | Lance la suite mémoire, retourne 8/8 ou diff    |
+| `start_dev_server`         | skill `start-nodefony-server`                        | Lance le runtime de test                        |
+| `tail_error_logs`          | skill `tail-error-logs`                              | Lit les erreurs récentes du runtime             |
+| `patch_source_code`        | (à créer) — wrapper Edit + validation syntaxique TS  | Modifie un fichier de manière atomique          |
+| `search_framework_knowledge` | RAG sur `docs/` + TSDoc extraite                   | Pourquoi le framework fait X plutôt que Y       |
+
+> **Insight clé** : 6 des 7 tools existent **déjà** sous forme de
+> skills. La Phase 12 consiste à les wrapper en MCP, pas à les inventer.
+
+### La boucle Red-Green-Refactor
+
+```
+1. User → "Optimise le pipeline auth, réduis la charge CPU."
+2. Agent → get_framework_symbols("Firewall")        ← carte d'identité
+         → search_framework_knowledge("auth perf")  ← contraintes/historique
+3. Agent → patch_source_code(file, diff)            ← édit ciblé
+4. Agent → run_resource_benchmark()
+         ├─ Échec : Heap +12 MB / CPU +300 ms       → revert, retry, fix
+         └─ Succès : 8/8 vert, latence -200 ms      → commit + PR
+5. Agent → présente la PR avec rapport avant/après
+```
+
+L'agent **rejette son propre code** si les seuils mémoire/CPU régressent
+(règle dure CLAUDE.md "🚨 PERF & MÉMOIRE"). Il n'a pas besoin d'humain
+pour valider — les tests sont l'arbitre.
+
+### Conséquences sur les choix de design **aujourd'hui**
+
+Chaque décision prise pendant la migration doit passer ce filtre :
+
+- **Est-ce que l'agent IA pourra le découvrir en O(1) ?** → si non, il
+  faut indexer (TSDoc, frontmatter docs/, graphe symbolique).
+- **Est-ce que le comportement est testable de manière déterministe ?**
+  → si non, ajouter un test d'intégration avant de merger.
+- **Est-ce que les seuils sont chiffrés ?** → "rapide" ne suffit pas,
+  il faut `< 35 MB / 1000 GET`.
+- **Est-ce qu'on peut le piloter via une commande CLI ou un endpoint
+  HTTP ?** → si oui, ça pourra devenir un Tool MCP plus tard.
+
+### Ce que ça n'est PAS
+
+- ❌ Un remplaçant du développeur humain — le framework reste libre,
+  open source, conçu et architecturé par un humain (CeCILL-B).
+- ❌ Un agent qui commit sans relecture — la PR est **toujours**
+  présentée à l'humain, l'agent n'a pas de droit de merge.
+- ❌ Une fonctionnalité optionnelle — c'est la finalité même de la
+  plateforme, ce qui justifie l'ensemble de l'effort de migration.
+
+---
+
 ## Résumé en une phrase
 
 > Chaque ligne de TypeScript migré aujourd'hui est une brique
 > de la plateforme qui permettra demain à un avocat, un gestionnaire
 > de patrimoine ou n'importe quel métier de avoir son agent IA
-> en quelques commandes — construit sur un framework open source
+> en quelques commandes — **et de laisser cet agent maintenir le
+> framework qui le porte**, construit sur un projet open source
 > libre et souverain.

@@ -364,6 +364,7 @@ Voir Phase 13 dans `MIGRATION_STATUS.md` pour le détail.
 - `@nodefony/studio` du plan IA initial **fusionne avec `@nodefony/vision`** comme panels dédiés (agents, costs, audit, approvals) — pas un module séparé.
 
 **Fichiers IA à lire pour contexte** (en début de session IA, pas pendant la migration framework) :
+- `VISION.md` — finalité globale + section "🔁 Auto-développement" (Nodefony se code lui-même via `@nodefony/agent-core` MCP)
 - `VISION_IA.md` — Mission + principes
 - `IA_STATUS.md` — État actuel des 8 modules
 - `CLAUDE_IA.md` — Règles techniques IA
