@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-16T13:19:56.977Z",
+  "generated": "2026-05-16T14:08:55.467Z",
   "version": "1.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 180,
-    "symbols": 428,
+    "symbols": 429,
     "classes": 148,
     "interfaces": 139,
-    "types": 112,
+    "types": 113,
     "enums": 1,
     "functions": 24,
     "constants": 4
@@ -742,6 +742,13 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": "IService"
+    },
+    {
+      "name": "IControllerConstructor",
+      "kind": "type",
+      "file": "src/nodefony/src/types/IModule.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     {
       "name": "DefaultOptionsService",

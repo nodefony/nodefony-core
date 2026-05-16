@@ -2,6 +2,14 @@ import type { IService } from "./IService";
 import type { IKernel } from "./IKernel";
 import type { JSONObject } from "./globals";
 
+/**
+ * Constructeur générique de controller — équivalent au type historique
+ * `TypeController<T>` mais exposé via le contract public IModule.
+ * Permet aux consommateurs (framework, http, security) de typer leurs
+ * controllers sans que le core dépende de @nodefony/framework.
+ */
+export type IControllerConstructor<T = unknown> = new (...args: any[]) => T;
+
 // Déplacé depuis Module.ts — défini ici pour éviter l'import circulaire IModule → Module
 export interface PackageJson {
   name: string;
@@ -55,9 +63,13 @@ export interface IModule extends IService {
   build(): Promise<unknown>;
   getDependencies(): string[];
 
-  // ─── Controllers (typés unknown — dépendance @nodefony/framework) ─────────
-  getController(name: string): unknown;
-  getControllers(): Record<string, unknown>;
+  // ─── Controllers ───────────────────────────────────────────────────────────
+  // Generic <T> : l'appelant type avec `Controller` (de @nodefony/framework) ou
+  // toute classe utilisateur. Le core n'a pas de dépendance sur framework.
+  //   const Ctor = module.getController<Controller>("MyController");
+  //   const ctrl = new Ctor(context);
+  getController<T = unknown>(name: string): IControllerConstructor<T>;
+  getControllers<T = unknown>(): Record<string, IControllerConstructor<T>>;
 
   // ─── Metadata ──────────────────────────────────────────────────────────────
   getPackageJson(cwd?: string): Promise<PackageJson>;

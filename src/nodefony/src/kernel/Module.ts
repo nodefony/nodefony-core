@@ -228,17 +228,17 @@ class Module extends Service implements IModule {
     )) as PackageJson;
   }
 
-  getController(name: string) {
-    if (name && Module.controllers[name]) {
-      return Module.controllers[name];
-    }
+  getController<T = Controller>(name: string): TypeController<T> {
     if (!name) {
       throw new Error(`Module getController argument name is mandatory`);
     }
+    if (Module.controllers[name]) {
+      return Module.controllers[name] as TypeController<T>;
+    }
     throw new Error(`Controller ${name} not exist`);
   }
-  getControllers() {
-    return Module.controllers;
+  getControllers<T = Controller>(): Record<string, TypeController<T>> {
+    return Module.controllers as Record<string, TypeController<T>>;
   }
 
   async loadEntity(entity: string) {
