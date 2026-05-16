@@ -51,6 +51,20 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 
+## JsonAuditLogger — P3.1 + P3.3 + P3.4 (2026-05-16)
+
+- `JsonAuditLogger implements IRequestLogger` (`service/audit-logger.ts`)
+- Activation : `httpKernel.setRequestLogger(new JsonAuditLogger())` (singleton stateless)
+- 1 PDU JSON canonique/req — msgid = `"audit"`
+- Format `AuditLogEntry` : `{ts, requestId, userId, type:"http"|"ws", scheme, method, url, status, durationMs, remoteAddress, host, userAgent, hasAuthorization, hasCookie, phases?[], error?{name,message,code}, protocol?}`
+- **P3.3** : `severityFromStatus(s)` exporté — 200/301→INFO, 404/405→WARNING, 500/502→ERROR
+- **P3.4** : flags `hasAuthorization`/`hasCookie` (boolean) — **valeurs JAMAIS loggées**
+- `userId` pull depuis `RequestContext.getUserId()` (P1.4 ALS) — sera rempli par security après login (P6)
+- `durationMs` = `performance.now() - phases[0].startMs` (utilise P1.1)
+- WS : ajoute `protocol`
+- Tests unit : `nodefony/tests/unit/AuditLogger.test.ts` (18 tests : shape JSON, redaction, severity, phases, error)
+- **Débloque** : P3.2 pretty formatter, P3.5 erreur enrichie, P10.9 Vision logs streaming SSE/WS
+
 ## RequestContext (ALS) — P1.4 (2026-05-16)
 
 - `RequestContext` exporté depuis `nodefony` core (`src/runtime/RequestContext.ts`)
@@ -184,7 +198,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 418 intégration + 94 unit = 512 (2026-05-16)
+## Tests — 436 intégration + 112 unit = 548 (2026-05-16)
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
 
