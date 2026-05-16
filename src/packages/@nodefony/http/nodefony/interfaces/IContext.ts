@@ -25,6 +25,7 @@ export type CookiesMap = Record<string, ICookie>;
 
 export interface IContext {
   // Identity
+  requestId: string;
   type: ServerType;
   scheme: SchemeType;
   method: HTTPMethodType | null;

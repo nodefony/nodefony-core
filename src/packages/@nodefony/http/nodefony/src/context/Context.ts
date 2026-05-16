@@ -17,6 +17,7 @@ import { WebSocketServer } from "ws";
 import http2 from "node:http2";
 import http from "node:http";
 import https from "node:https";
+import { randomUUID } from "node:crypto";
 import HttpKernel, {
   //ContextType,
   ServerType,
@@ -119,6 +120,7 @@ class Context extends Service implements IContextInterface {
   router: Router | null = this.get("router");
   resolver: Resolver | null = null;
   sessionAutoStart: string | null = null;
+  requestId: string = randomUUID();
   metaData: Data = {
     nodefony: {},
     result: null,
@@ -180,13 +182,8 @@ class Context extends Service implements IContextInterface {
         environment: this.kernel?.environment,
         debug: this.kernel?.debug,
         scheme: this.scheme,
-        //route: this.resolver?.route?.toObject(),
+        requestId: this.requestId,
         route: this.resolver?.route,
-        //projectVersion: this.kernel?.projectVersion,
-        //local: context.translation.defaultLocale.substr(0, 2),
-        //core: this.kernel?.isCore,
-
-        //getContext: () => this.context,
       },
     };
     return (this.metaData = extend(true, this.metaData, ele, obj));
@@ -240,7 +237,7 @@ class Context extends Service implements IContextInterface {
 
   logRequest(httpError?: Error | HttpError | nodefonyError | null) {
     try {
-      const txt = `${clc.cyan("URL")} : ${this.url} ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host}`;
+      const txt = `${clc.cyan("URL")} : ${this.url} ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host} ${clc.cyan("ID")} : ${this.requestId}`;
       let mgid = "";
       if (!httpError && this.error) {
         httpError = this.error;

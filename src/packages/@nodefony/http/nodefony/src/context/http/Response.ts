@@ -341,6 +341,9 @@ class HttpResponse {
           }
         }
         this.statusMessage = this.getStatusMessage();
+        if ((this.context as any).requestId && !this.response.headersSent) {
+          this.response.setHeader("x-request-id", (this.context as any).requestId);
+        }
         this.setLength();
         if (this.response) {
           // RFC 7230 §3.1.2 — status-message must be printable US-ASCII

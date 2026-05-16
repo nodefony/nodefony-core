@@ -58,6 +58,10 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     this.acceptedProtocol = req.headers["sec-websocket-protocol"] as string | undefined;
     this.scheme = type === "websocket-secure" ? "wss" : "ws";
 
+    const incomingId = req.headers["x-request-id"] as string | undefined;
+    if (incomingId) {
+      this.requestId = incomingId;
+    }
     // Parse URL from IncomingMessage
     const host = req.headers.host ?? "localhost";
     const rawUrl = req.url ?? "/";

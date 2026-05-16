@@ -117,6 +117,10 @@ class HttpContext extends Context implements IHttpContextInterface {
       );
     }
     this.isHtml = this.request.acceptHtml;
+    const incomingId = request.headers["x-request-id"] as string | undefined;
+    if (incomingId) {
+      this.requestId = incomingId;
+    }
     //this.setDefaultContentType();
     this.domain = this.getHostName();
     this.validDomain = this.isValidDomain();
