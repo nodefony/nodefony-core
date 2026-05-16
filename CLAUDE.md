@@ -2,6 +2,44 @@
 
 ---
 
+## 🚨 RÈGLE ABSOLUE — PERF & MÉMOIRE (PRIORITÉ MAX)
+
+**Nodefony est un framework runtime — chaque allocation, chaque listener, chaque appel système compte.**
+
+Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, even logs) :
+
+### Avant de coder
+- **Penser au coût par requête** : combien d'allocations, combien d'appels système (`performance.now()`, `Date.now()`, `randomUUID()`), combien de listeners attachés ?
+- **Pas de structure allouée "au cas où"** : préférer `null` + lazy init au premier usage (`if (this._x === null) this._x = []`) plutôt que `[]` ou `new Map()` par défaut.
+- **Pas de listener silencieux** : si tu attaches `response.on(...)` ou `ws.on(...)`, prévoir explicitement le `removeListener` (ou `once` + cleanup manuel quand le pair event est attendu).
+- **Pas de Promise/async pour rien** : `async`/`await` coûte des microtasks ; pour un code purement synchrone, garder synchrone.
+- **Pas de `JSON.stringify` ni de string concat dans le hot path** sans nécessité — différer au moment du `send()`.
+
+### Après avoir codé
+- **OBLIGATOIRE** lancer `memory.test.ts` (tests `Memory leaks — HTTP` + `Memory leaks — WebSocket`) AVANT de commit toute modif de `@nodefony/http`, `@nodefony/framework`, ou tout code dans le pipeline request.
+  ```bash
+  cd src/packages/@nodefony/http && TS_NODE_PROJECT=tsconfig.tests.json \
+    npx mocha --config .mocharc.integration.json --grep "Memory"
+  ```
+- **OBLIGATOIRE** quantifier l'impact : "1000 req: Xms avant / Yms après, heap delta Z MB" dans le commit message si l'écart est > 5 %.
+- **Si un seuil mémoire saute** (35 MB / 1000 req, 10 MB / 100 crashes, 30 MB / 100 WS) → c'est un blocker. NE PAS commit. Investiguer + lazy + cleanup avant de continuer.
+
+### Patterns à appliquer systématiquement
+- **Hooks utilisateurs** : `null` par défaut, alloc array seulement au premier `register`, `null` à nouveau après fire.
+- **Maps de petite taille (< 16 entries) avec accès ponctuel** : préférer un object literal `Object.create(null)` (souvent + cheap que `Map`).
+- **Phases / timing** : `performance.now()` est OK (~50 ns) mais éviter dans une boucle interne. Préférer 1 mesure début/fin que N mesures intermédiaires.
+- **Listeners EventEmitter** : `.once(...)` n'auto-detach pas l'autre listener jumeau (finish vs close) → toujours faire `removeListener` explicite quand un wrapper handle plusieurs events.
+- **Lazy alloc** pour toute structure qui n'est utilisée que dans < 20 % des requests.
+
+### Ce qui est INTERDIT sans accord explicite
+- Allouer un objet/array/Map dans le constructeur de `Context` (HTTP ou WS) sans démontrer que c'est utilisé sur **chaque** request.
+- Attacher un nouveau listener sur `request`, `response`, ou `ws` sans démontrer son cleanup.
+- Ajouter une dependency npm runtime sans peser son impact (bundle size + mémoire).
+
+> **Rappel** : un overhead de 100 B / request × 10 000 req/s = 1 MB/s alloué pour rien. Multiplié par 60 = 60 MB/min → pression GC énorme → latence p99 dégradée.
+
+---
+
 ## 🚦 Checklist début de session (LIRE EN PREMIER)
 
 Avant de commencer une nouvelle phase / tâche :
