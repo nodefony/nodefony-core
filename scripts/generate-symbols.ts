@@ -54,8 +54,9 @@ interface SymbolDetail extends SymbolBase {
   extends?: string | null;
   implements?: string[];
   decorators?: string[];
+  description?: string; // first sentence of the TSDoc, trimmed to ~200 chars
   // Verbose-only
-  methods?: { name: string; static: boolean; visibility: "public" | "protected" | "private"; decorators?: string[] }[];
+  methods?: { name: string; static: boolean; visibility: "public" | "protected" | "private"; decorators?: string[]; description?: string }[];
   properties?: { name: string; static: boolean; visibility: "public" | "protected" | "private" }[];
   members?: string[]; // for enums / interfaces
   signature?: string; // for functions / decorator-fn
@@ -64,6 +65,17 @@ interface SymbolDetail extends SymbolBase {
 interface FileImports {
   file: string;
   imports: { module: string; names: string[]; isTypeOnly: boolean }[];
+}
+
+interface Relations {
+  // class A extends X → relations.extendedBy.X = ["A", ...]
+  extendedBy: Record<string, string[]>;
+  // class A implements X → relations.implementedBy.X = ["A", ...]
+  implementedBy: Record<string, string[]>;
+  // @injectable class A → relations.decoratedBy.injectable = ["A", ...]
+  decoratedBy: Record<string, string[]>;
+  // file imports symbol X → relations.usedBy.X = ["src/foo.ts", ...]
+  usedBy: Record<string, string[]>;
 }
 
 interface SymbolsOutput {
@@ -80,9 +92,11 @@ interface SymbolsOutput {
     functions: number;
     constants: number;
   };
-  symbols: SymbolDetail[];
+  // v2.0 — symbols as a name-indexed map (O(1) lookup).
+  // Homonyms across modules are keyed as "Module:Name".
+  symbols: Record<string, SymbolDetail>;
+  relations: Relations;
   imports?: FileImports[]; // verbose only
-  usedBy?: Record<string, string[]>; // symbol name → list of files that import it
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -114,11 +128,29 @@ function visibilityOf(node: Node): "public" | "protected" | "private" {
   return "public";
 }
 
+// Extract the leading description from a JSDoc/TSDoc block. Strips @tags and
+// collapses whitespace; truncates to ~200 chars so the stable index stays
+// lightweight. Returns undefined when no usable description exists.
+function tsDocOf(
+  node: { getJsDocs?: () => { getDescription: () => string }[] }
+): string | undefined {
+  if (typeof node.getJsDocs !== "function") return undefined;
+  const docs = node.getJsDocs();
+  if (!docs.length) return undefined;
+  const raw = docs[0].getDescription().trim();
+  if (!raw) return undefined;
+  // Collapse internal whitespace and strip residual leading "* " runs.
+  const collapsed = raw.replace(/\s+/g, " ").replace(/^\* /, "").trim();
+  if (!collapsed) return undefined;
+  return collapsed.length > 200 ? collapsed.slice(0, 197) + "…" : collapsed;
+}
+
 // ─── Extractors ─────────────────────────────────────────────────────────────
 
 function extractClass(cls: ClassDeclaration, file: string, module: string, verbose: boolean): SymbolDetail | null {
   const name = cls.getName();
   if (!name) return null;
+  const description = tsDocOf(cls);
   const sym: SymbolDetail = {
     name,
     kind: "class",
@@ -129,13 +161,19 @@ function extractClass(cls: ClassDeclaration, file: string, module: string, verbo
     implements: cls.getImplements().map((i) => i.getExpression().getText()),
     decorators: cls.getDecorators().map((d) => d.getName()),
   };
+  if (description) sym.description = description;
   if (verbose) {
-    sym.methods = cls.getInstanceMethods().concat(cls.getStaticMethods()).map((m) => ({
-      name: m.getName(),
-      static: m.isStatic(),
-      visibility: m.hasModifier(SyntaxKind.PrivateKeyword) ? "private" : m.hasModifier(SyntaxKind.ProtectedKeyword) ? "protected" : "public",
-      decorators: m.getDecorators().map((d) => d.getName()),
-    }));
+    sym.methods = cls.getInstanceMethods().concat(cls.getStaticMethods()).map((m) => {
+      const methodDoc = tsDocOf(m);
+      const entry: { name: string; static: boolean; visibility: "public" | "protected" | "private"; decorators?: string[]; description?: string } = {
+        name: m.getName(),
+        static: m.isStatic(),
+        visibility: m.hasModifier(SyntaxKind.PrivateKeyword) ? "private" : m.hasModifier(SyntaxKind.ProtectedKeyword) ? "protected" : "public",
+        decorators: m.getDecorators().map((d) => d.getName()),
+      };
+      if (methodDoc) entry.description = methodDoc;
+      return entry;
+    });
     sym.properties = cls.getInstanceProperties().concat(cls.getStaticProperties()).map((p) => ({
       name: p.getName(),
       static: "isStatic" in p && typeof p.isStatic === "function" ? p.isStatic() : false,
@@ -146,6 +184,7 @@ function extractClass(cls: ClassDeclaration, file: string, module: string, verbo
 }
 
 function extractInterface(iface: InterfaceDeclaration, file: string, module: string, verbose: boolean): SymbolDetail {
+  const description = tsDocOf(iface);
   const sym: SymbolDetail = {
     name: iface.getName(),
     kind: "interface",
@@ -154,6 +193,7 @@ function extractInterface(iface: InterfaceDeclaration, file: string, module: str
     module,
     extends: iface.getExtends().map((e) => e.getExpression().getText()).join(", ") || null,
   };
+  if (description) sym.description = description;
   if (verbose) {
     sym.members = iface.getProperties().map((p) => p.getName()).concat(iface.getMethods().map((m) => m.getName()));
   }
@@ -161,16 +201,20 @@ function extractInterface(iface: InterfaceDeclaration, file: string, module: str
 }
 
 function extractTypeAlias(t: TypeAliasDeclaration, file: string, module: string): SymbolDetail {
-  return {
+  const description = tsDocOf(t);
+  const sym: SymbolDetail = {
     name: t.getName(),
     kind: "type",
     file,
     exported: t.isExported(),
     module,
   };
+  if (description) sym.description = description;
+  return sym;
 }
 
 function extractEnum(e: EnumDeclaration, file: string, module: string, verbose: boolean): SymbolDetail {
+  const description = tsDocOf(e);
   const sym: SymbolDetail = {
     name: e.getName(),
     kind: "enum",
@@ -178,6 +222,7 @@ function extractEnum(e: EnumDeclaration, file: string, module: string, verbose: 
     exported: e.isExported(),
     module,
   };
+  if (description) sym.description = description;
   if (verbose) sym.members = e.getMembers().map((m) => m.getName());
   return sym;
 }
@@ -188,6 +233,7 @@ function extractFunction(f: FunctionDeclaration, file: string, module: string, v
   // Heuristic: decorator factory if returns ClassDecorator / MethodDecorator / PropertyDecorator / ParameterDecorator
   const returnTypeText = f.getReturnTypeNode()?.getText() ?? "";
   const isDecorator = /Decorator$/.test(returnTypeText) || /Decorator\s*\|/.test(returnTypeText);
+  const description = tsDocOf(f);
   const sym: SymbolDetail = {
     name,
     kind: isDecorator ? "decorator-fn" : "function",
@@ -195,6 +241,7 @@ function extractFunction(f: FunctionDeclaration, file: string, module: string, v
     exported: f.isExported() || f.isDefaultExport(),
     module,
   };
+  if (description) sym.description = description;
   if (verbose) {
     sym.signature = f.getText().split("\n")[0].slice(0, 200);
   }
@@ -203,6 +250,7 @@ function extractFunction(f: FunctionDeclaration, file: string, module: string, v
 
 function extractConsts(stmt: VariableStatement, file: string, module: string, verbose: boolean): SymbolDetail[] {
   if (!stmt.isExported() && !stmt.hasModifier?.(SyntaxKind.ExportKeyword)) return [];
+  const description = tsDocOf(stmt);
   return stmt.getDeclarations().map((d) => {
     const sym: SymbolDetail = {
       name: d.getName(),
@@ -211,6 +259,7 @@ function extractConsts(stmt: VariableStatement, file: string, module: string, ve
       exported: true,
       module,
     };
+    if (description) sym.description = description;
     if (verbose) {
       sym.signature = d.getText().slice(0, 200);
     }
@@ -348,41 +397,91 @@ function generate(): void {
     }
   }
 
-  // Build usedBy index: symbol name → files that import it
-  const usedBy: Record<string, string[]> = {};
+  const generated = new Date().toISOString();
+
+  // Build a name-indexed map for O(1) lookup.
+  // Homonym policy: first wins by simple name; later collisions are stored
+  // under "Module:Name" so both remain reachable. Console-warn so the user
+  // can rename or namespace if a clash is unintentional.
+  function buildSymbolMap(list: SymbolDetail[]): Record<string, SymbolDetail> {
+    const map: Record<string, SymbolDetail> = {};
+    for (const sym of list) {
+      if (map[sym.name] === undefined) {
+        map[sym.name] = sym;
+        continue;
+      }
+      const existing = map[sym.name];
+      if (existing.module === sym.module && existing.file === sym.file) continue; // exact dup, ignore
+      const namespaced = `${sym.module}:${sym.name}`;
+      map[namespaced] = sym;
+      console.warn(`  ⚠ homonym: ${sym.name} exists in ${existing.module} and ${sym.module} → stored as "${namespaced}"`);
+    }
+    return map;
+  }
+
+  // Build inverse relation indexes. extendedBy / implementedBy / decoratedBy
+  // are built from the stable list (exported only). usedBy comes from the
+  // imports scan and is keyed by simple symbol name.
+  function buildRelations(list: SymbolDetail[]): Relations {
+    const extendedBy: Record<string, string[]> = {};
+    const implementedBy: Record<string, string[]> = {};
+    const decoratedBy: Record<string, string[]> = {};
+    for (const sym of list) {
+      if (sym.extends) {
+        // Strip generics: `BaseService<T>` → `BaseService`
+        const parent = sym.extends.split("<")[0].split(",")[0].trim();
+        if (parent) (extendedBy[parent] ??= []).push(sym.name);
+      }
+      if (sym.implements) {
+        for (const iface of sym.implements) {
+          const base = iface.split("<")[0].trim();
+          if (base) (implementedBy[base] ??= []).push(sym.name);
+        }
+      }
+      if (sym.decorators) {
+        for (const dec of sym.decorators) {
+          (decoratedBy[dec] ??= []).push(sym.name);
+        }
+      }
+    }
+    return { extendedBy, implementedBy, decoratedBy, usedBy: {} };
+  }
+
+  const stableExported = stableSymbols.filter((s) => s.exported);
+  const stableMap = buildSymbolMap(stableExported);
+  const verboseMap = buildSymbolMap(verboseSymbols);
+  const relations = buildRelations(stableExported);
+
+  // usedBy index: symbol name → files that import it (works on simple names;
+  // homonyms collapse in the same bucket — acceptable for analysis).
   const allSymbolNames = new Set(stableSymbols.map((s) => s.name));
   for (const fi of filesImports) {
     for (const imp of fi.imports) {
       for (const name of imp.names) {
         if (allSymbolNames.has(name)) {
-          (usedBy[name] ??= []).push(fi.file);
+          (relations.usedBy[name] ??= []).push(fi.file);
         }
       }
     }
   }
 
-  const generated = new Date().toISOString();
-
-  // Filter stable: only exported symbols (lighter)
-  const stableExported = stableSymbols.filter((s) => s.exported);
-
   const stableOutput: SymbolsOutput = {
     generated,
-    version: "1.0.0",
+    version: "2.0.0",
     repoRoot: ".",
     stats: { ...stats },
-    symbols: stableExported,
-    usedBy,
+    symbols: stableMap,
+    relations,
   };
 
   const verboseOutput: SymbolsOutput = {
     generated,
-    version: "1.0.0",
+    version: "2.0.0",
     repoRoot: ".",
     stats,
-    symbols: verboseSymbols,
+    symbols: verboseMap,
+    relations,
     imports: filesImports,
-    usedBy,
   };
 
   // Write stable
@@ -398,8 +497,8 @@ function generate(): void {
   console.log("✅ generate-symbols done");
   console.log(`  → ${stats.files} files, ${stats.symbols} symbols`);
   console.log(`     classes: ${stats.classes}, interfaces: ${stats.interfaces}, types: ${stats.types}, enums: ${stats.enums}, functions: ${stats.functions}, constants: ${stats.constants}`);
-  console.log(`  → stable  : ${config.output.stable} (${(fs.statSync(stablePath).size / 1024).toFixed(1)} KB, ${stableExported.length} exported symbols)`);
-  console.log(`  → verbose : ${config.output.verbose} (${(fs.statSync(verbosePath).size / 1024).toFixed(1)} KB, ${stats.symbols} symbols)`);
+  console.log(`  → stable  : ${config.output.stable} (${(fs.statSync(stablePath).size / 1024).toFixed(1)} KB, ${Object.keys(stableMap).length} exported symbols)`);
+  console.log(`  → verbose : ${config.output.verbose} (${(fs.statSync(verbosePath).size / 1024).toFixed(1)} KB, ${Object.keys(verboseMap).length} symbols)`);
 }
 
 // ─── --check-staged mode (for pre-commit hook) ──────────────────────────────

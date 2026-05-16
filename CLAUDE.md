@@ -597,19 +597,24 @@ grep -E "export\s*\{" src/packages/@nodefony/<module>/dist/index.js | head -1
 
 ---
 
-## 🗂 Graphe symbolique TS — `.ai/symbols.json`
+## 🗂 Graphe symbolique TS — `.ai/symbols.json` (v2.0 — map indexée + relations)
 
-> Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `generate-symbols`).
+> Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `generate-symbols`). Régénéré automatiquement par le hook pre-commit.
 
-**Quand l'utiliser AVANT de grep le repo** :
-- « Qui étend `Service` ? » → `jq '.symbols[] | select(.extends == "Service") | {name, module, file}' .ai/symbols.json`
-- « Quels symboles `@nodefony/http` exporte ? » → `jq '.symbols[] | select(.module == "@nodefony/http" and .exported)' .ai/symbols.json`
-- « Qui importe `Container` ? » → `jq '.usedBy.Container' .ai/symbols.json`
-- « Liste les classes décorées `@injectable` » → `jq '.symbols[] | select(.kind == "class" and (.decorators | index("injectable")))' .ai/symbols.json`
+Format v2.0 : `symbols` est une **map indexée par nom** (accès O(1)), `relations` contient les index inversés pré-calculés. Les agents IA doivent l'utiliser AVANT de grep le repo.
 
-**Régénérer en fin de session** quand l'API publique a changé (nouvelles classes/interfaces/decorators exportés).
+**Patterns Zero-Token Lookup** :
+- Définition d'un symbole → `jq '.symbols.Container' .ai/symbols.json`
+- « Qui étend `Service` ? » → `jq '.relations.extendedBy.Service' .ai/symbols.json`
+- « Qui implémente `IContainer` ? » → `jq '.relations.implementedBy.IContainer' .ai/symbols.json`
+- « Qui importe `Container` ? » → `jq '.relations.usedBy.Container' .ai/symbols.json`
+- « Classes décorées `@injectable` » → `jq '.relations.decoratedBy.injectable' .ai/symbols.json`
+- « Symboles exportés par `@nodefony/http` » → `jq '.symbols | to_entries | map(select(.value.module == "@nodefony/http")) | from_entries' .ai/symbols.json`
+- Description TSDoc → `jq '.symbols.Container.description' .ai/symbols.json` (si présente)
 
-Voir `.claude/skills/generate-symbols/SKILL.md` pour patterns détaillés.
+**Homonymes** : un second symbole d'un même nom est stocké sous `"Module:Name"`. Lever l'ambiguïté via `.module`.
+
+Voir `.claude/skills/generate-symbols/SKILL.md` pour le cheat-sheet complet.
 
 ---
 
