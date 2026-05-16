@@ -1,5 +1,15 @@
 # CLAUDE.md — @nodefony/http
 
+## Docs liées
+
+- [`MEMORY.md`](./MEMORY.md) — internals IA (Context, requestId, gotchas, transports)
+- [`../framework/CLAUDE.md`](../framework/CLAUDE.md) — Router/Controller qui consomme ce module (utilisé via `handleFrontController`)
+- [`../../../modules/test/CLAUDE.md`](../../../modules/test/CLAUDE.md) — routes d'intégration HTTP/WS
+- [`../../../../CLAUDE.md`](../../../../CLAUDE.md) — règles globales projet
+- Core : [`../../../nodefony/MEMORY.md`](../../../nodefony/MEMORY.md) — Service, Container | [`../../../nodefony/src/kernel/MEMORY.md`](../../../nodefony/src/kernel/MEMORY.md) — Kernel/Module lifecycle
+
+> **Règle dure** : `@nodefony/http` ne peut PAS importer `@nodefony/framework` (cycle). Accès au resolver via `(context as any)?.resolver`.
+
 ## Rôle du module
 
 Module central de Nodefony : gère **tous les serveurs** (HTTP/HTTPS/HTTP2/WS/WSS) et leurs contextes.

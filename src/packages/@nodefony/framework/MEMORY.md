@@ -1,5 +1,12 @@
 # @nodefony/framework MEMORY
 
+## Docs liées
+
+- [`CLAUDE.md`](./CLAUDE.md) — instructions module
+- [`../http/MEMORY.md`](../http/MEMORY.md) — Context/Request/Response (dépendance bas-niveau)
+- [`../../../modules/test/MEMORY.md`](../../../modules/test/MEMORY.md) — controllers d'intégration
+- Core : [`../../../nodefony/MEMORY.md`](../../../nodefony/MEMORY.md) (Service) | [`../../../nodefony/src/kernel/injector/MEMORY.md`](../../../nodefony/src/kernel/injector/MEMORY.md) (DI/Injector — `Injector.instantiate` utilisé par `Resolver.newController()`)
+
 ## Purpose
 
 Module Nodefony : routeur HTTP+WS, Controller, Resolver, décorateurs `@route`/`@controller`/`@controllers` + NestJS-inspired HTTP method + response decorators, templates Twig/EJS.

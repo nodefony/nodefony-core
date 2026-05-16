@@ -1,5 +1,13 @@
 # CLAUDE.md — @nodefony/framework
 
+## Docs liées
+
+- [`MEMORY.md`](./MEMORY.md) — internals IA (Resolver pipeline, decorators NestJS, gotchas)
+- [`../http/CLAUDE.md`](../http/CLAUDE.md) — module fournissant Context / Request / Response (dépendance bas-niveau)
+- [`../../../modules/test/CLAUDE.md`](../../../modules/test/CLAUDE.md) — controllers d'intégration consommant les décorateurs
+- [`../../../../CLAUDE.md`](../../../../CLAUDE.md) — règles globales projet
+- Core : [`../../../nodefony/MEMORY.md`](../../../nodefony/MEMORY.md) (Service) | [`../../../nodefony/src/kernel/injector/MEMORY.md`](../../../nodefony/src/kernel/injector/MEMORY.md) — DI (Injector + decorators)
+
 ## Rôle
 
 Routeur HTTP+WS + Controller de base + décorateurs `@route`/`@controller`/`@controllers` + templates Twig/EJS.

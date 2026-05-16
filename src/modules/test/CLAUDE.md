@@ -1,5 +1,12 @@
 # CLAUDE.md — module test
 
+## Docs liées
+
+- [`MEMORY.md`](./MEMORY.md) — internals IA (routes, statics, session)
+- [`../../packages/@nodefony/framework/CLAUDE.md`](../../packages/@nodefony/framework/CLAUDE.md) — décorateurs `@controller/@route/@Get/@Post/@Param/@Body/@Query`
+- [`../../packages/@nodefony/http/CLAUDE.md`](../../packages/@nodefony/http/CLAUDE.md) — Context, HttpError, sanitisation headers
+- [`../../../CLAUDE.md`](../../../CLAUDE.md) — règles globales + section "Lancer le serveur"
+
 ## Rôle du module
 
 Module exemple de Nodefony — sert de **terrain de jeu pour les tests d'intégration** du framework.

@@ -2,6 +2,12 @@
 
 > IA uniquement — ultra-concis. Voir README.md pour la doc humaine.
 
+## Docs liées
+
+- [`../../MEMORY.md`](../../MEMORY.md) — workspace core (Service, Container)
+- [`../kernel/MEMORY.md`](../kernel/MEMORY.md) — Kernel/Module (consommateurs de FileClass — `setPath`, `loadJson`)
+- [`../../../../CLAUDE.md`](../../../../CLAUDE.md) — règles projet
+
 ---
 
 ## FileClass (`FileClass.ts`)

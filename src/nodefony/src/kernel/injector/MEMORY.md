@@ -2,6 +2,13 @@
 
 > IA uniquement — ultra-concis. Voir README.md pour exemples humains.
 
+## Docs liées
+
+- [`../MEMORY.md`](../MEMORY.md) — Kernel/Module (utilise Injector pour `addService`/`addModule`)
+- [`../../../MEMORY.md`](../../../MEMORY.md) — workspace core (Container/Service)
+- Consommateur : [`../../../../packages/@nodefony/framework/MEMORY.md`](../../../../packages/@nodefony/framework/MEMORY.md) — `Resolver.newController()` utilise `Injector.instantiate()`
+- [`../../../../../CLAUDE.md`](../../../../../CLAUDE.md) — règles projet
+
 ---
 
 ## Fichiers

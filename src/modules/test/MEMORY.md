@@ -7,6 +7,12 @@ metadata:
 
 # module test MEMORY
 
+## Docs liées
+
+- [`CLAUDE.md`](./CLAUDE.md) — instructions module + liste des routes
+- [`../../packages/@nodefony/framework/MEMORY.md`](../../packages/@nodefony/framework/MEMORY.md) — Resolver pipeline, décorateurs
+- [`../../packages/@nodefony/http/MEMORY.md`](../../packages/@nodefony/http/MEMORY.md) — Context, requestId, gotchas
+
 ## Purpose
 Module Nodefony d'intégration. Expose routes de test pour valider le pipeline HTTP/WS du framework. Pas de logique métier.
 

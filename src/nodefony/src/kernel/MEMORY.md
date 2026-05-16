@@ -2,6 +2,15 @@
 
 > IA uniquement — ultra-concis. Voir README.md pour la doc humaine.
 
+## Docs liées
+
+- [`../../MEMORY.md`](../../MEMORY.md) — workspace core (Service base de Kernel/Module)
+- [`injector/MEMORY.md`](injector/MEMORY.md) — DI utilisée dans `addService`/`addModule`
+- [`../cli/MEMORY.md`](../cli/MEMORY.md) — Cli/Command (CliKernel `extends Cli`)
+- [`../syslog/MEMORY.md`](../syslog/MEMORY.md) — logger via `initializeLog()`
+- Consommateurs : [`../../../packages/@nodefony/http/MEMORY.md`](../../../packages/@nodefony/http/MEMORY.md) | [`../../../packages/@nodefony/framework/MEMORY.md`](../../../packages/@nodefony/framework/MEMORY.md)
+- [`../../../../CLAUDE.md`](../../../../CLAUDE.md) — règles projet
+
 ---
 
 ## Kernel (`Kernel.ts`)

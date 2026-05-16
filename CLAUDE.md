@@ -365,20 +365,44 @@ import fs from "node:fs";
 
 ---
 
-## MEMORY.md — index des fichiers IA
+## CLAUDE.md + MEMORY.md — index global des fichiers IA
 
-Les `MEMORY.md` sont des fichiers **IA uniquement** — ultra-concis, mots-clés, 0 redondance.
-Complémentaires aux `README.md` (humains). Lire le `MEMORY.md` du module avant de toucher au code.
+Deux niveaux de docs IA — **lire AVANT de toucher au code du module** :
 
-| Module                | Fichier memory                                                                             | Contenu                                     |
-| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| Core (@nodefony/core) | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                                         | Service, Container, Event                   |
-| Syslog / Pdu          | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md)                   | Syslog, Pdu, CircularBuffer                 |
-| Kernel / Module / CLI | [`src/nodefony/src/kernel/MEMORY.md`](src/nodefony/src/kernel/MEMORY.md)                   | Kernel lifecycle, Module hooks, CliKernel   |
-| Injector / DI         | [`src/nodefony/src/kernel/injector/MEMORY.md`](src/nodefony/src/kernel/injector/MEMORY.md) | @injectable, @inject, @Inject, scopes, algo |
-| FileClass / Finder    | [`src/nodefony/src/finder/MEMORY.md`](src/nodefony/src/finder/MEMORY.md)                   | FileClass, File, FileResult, Result, Finder |
-| HTTP                  | [`src/packages/@nodefony/http/MEMORY.md`](src/packages/@nodefony/http/MEMORY.md)           | Serveurs, Contextes, WS, pipeline, gotchas  |
-| Framework             | [`src/packages/@nodefony/framework/MEMORY.md`](src/packages/@nodefony/framework/MEMORY.md) | Router, Controller, Resolver, décorateurs   |
+- **CLAUDE.md** par module : instructions, rôle, décisions figées, interdits. Lecture obligatoire en début de session.
+- **MEMORY.md** par module : ultra-concis, mots-clés, gotchas, internals. Lecture pendant le travail.
+- Complémentaires aux `README.md` (humains).
+
+### Modules applicatifs (packages + modules)
+
+| Module                | CLAUDE.md                                                                                  | MEMORY.md                                                                                  | Contenu                                          |
+| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `@nodefony/http`      | [`src/packages/@nodefony/http/CLAUDE.md`](src/packages/@nodefony/http/CLAUDE.md)           | [`src/packages/@nodefony/http/MEMORY.md`](src/packages/@nodefony/http/MEMORY.md)           | Serveurs, Contextes, WS, pipeline, requestId     |
+| `@nodefony/framework` | [`src/packages/@nodefony/framework/CLAUDE.md`](src/packages/@nodefony/framework/CLAUDE.md) | [`src/packages/@nodefony/framework/MEMORY.md`](src/packages/@nodefony/framework/MEMORY.md) | Router, Controller, Resolver, décorateurs        |
+| Module `test`         | [`src/modules/test/CLAUDE.md`](src/modules/test/CLAUDE.md)                                 | [`src/modules/test/MEMORY.md`](src/modules/test/MEMORY.md)                                 | Routes d'intégration HTTP+WS, controllers, statics |
+
+### Core (`@nodefony/core` workspace `src/nodefony`)
+
+| Sous-module          | MEMORY.md                                                                                  | Contenu                                          |
+| -------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| Workspace `nodefony` | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                                         | Service, Container, Event, Nodefony singleton    |
+| Syslog / Pdu         | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md)                   | Syslog, Pdu, CircularBuffer, transports          |
+| Kernel / Module      | [`src/nodefony/src/kernel/MEMORY.md`](src/nodefony/src/kernel/MEMORY.md)                   | Kernel lifecycle, Module hooks, CliKernel        |
+| Injector / DI        | [`src/nodefony/src/kernel/injector/MEMORY.md`](src/nodefony/src/kernel/injector/MEMORY.md) | @injectable, @inject, @Inject, scopes, algo      |
+| Cli / Command        | [`src/nodefony/src/cli/MEMORY.md`](src/nodefony/src/cli/MEMORY.md)                         | Cli, Command, Commander, niceBytes, timers       |
+| FileClass / Finder   | [`src/nodefony/src/finder/MEMORY.md`](src/nodefony/src/finder/MEMORY.md)                   | FileClass, File, FileResult, Result, Finder      |
+
+### Graphe de dépendances (lecture utile)
+
+```
+@nodefony/http        ← serveurs + contextes (base technique)
+   ↑
+@nodefony/framework   ← Router + Controller + décorateurs (utilise http)
+   ↑
+src/modules/test      ← routes de test (utilise framework + http)
+```
+
+`@nodefony/http` ne peut **JAMAIS** importer `@nodefony/framework` (dépendance circulaire). Accès au resolver via `(context as any)?.resolver`.
 
 **Structure attendue d'un MEMORY.md** : Purpose | Core Components | Config | Behaviors | Gotchas
 

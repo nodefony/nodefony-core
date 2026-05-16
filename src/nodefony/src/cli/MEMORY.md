@@ -2,6 +2,13 @@
 
 > IA uniquement — ultra-concis. Voir README.md pour la doc humaine.
 
+## Docs liées
+
+- [`../../MEMORY.md`](../../MEMORY.md) — workspace core (Cli/Command extends Service)
+- [`../kernel/MEMORY.md`](../kernel/MEMORY.md) — CliKernel `extends Cli` ; Module.addCommand utilise Command
+- [`../syslog/MEMORY.md`](../syslog/MEMORY.md) — `Cli.initSyslog()` initialise Syslog
+- [`../../../../CLAUDE.md`](../../../../CLAUDE.md) — règles projet
+
 ---
 
 ## Cli (`Cli.ts`)

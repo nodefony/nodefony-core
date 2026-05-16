@@ -2,6 +2,12 @@
 
 > Pour IA uniquement. Ultra-concis. Complémentaire au README.md.
 
+## Docs liées
+
+- [`../../MEMORY.md`](../../MEMORY.md) — workspace core (Service consomme Syslog)
+- [`../kernel/MEMORY.md`](../kernel/MEMORY.md) — Kernel.initializeLog() + CliKernel.initSyslog()
+- [`../../../../CLAUDE.md`](../../../../CLAUDE.md) — règles projet
+
 ---
 
 ## Pdu (`src/syslog/Pdu.ts`)
