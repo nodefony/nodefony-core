@@ -40,6 +40,8 @@ export interface PhaseTiming {
   durationMs?: number;
 }
 
+export type AfterResponseHandler = (ctx: IContext) => void | Promise<void>;
+
 export interface IContext {
   // Identity
   requestId: string;
@@ -83,6 +85,11 @@ export interface IContext {
   readonly phases: PhaseTiming[];
   phaseStart(name: PhaseName): void;
   phaseEnd(name: PhaseName): void;
+
+  // Lifecycle hook — after response is sent (HTTP finish/close, WS close).
+  // Fires exactly once per context, deduplicated across finish/close.
+  // Handlers called after the response is on the wire but before scope teardown.
+  onAfterResponse(fn: AfterResponseHandler): void;
 
   // Methods — Cookies
   addRequestCookie(cookie: ICookie): ICookie;

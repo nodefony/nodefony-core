@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-16T14:34:14.512Z",
+  "generated": "2026-05-16T14:44:58.257Z",
   "version": "1.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 180,
-    "symbols": 431,
+    "symbols": 432,
     "classes": 148,
     "interfaces": 140,
-    "types": 114,
+    "types": 115,
     "enums": 1,
     "functions": 24,
     "constants": 4
@@ -1636,6 +1636,13 @@
     },
     {
       "name": "PhaseName",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "AfterResponseHandler",
       "kind": "type",
       "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
       "exported": true,
@@ -4635,6 +4642,9 @@
       "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
     ],
     "PhaseName": [
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "AfterResponseHandler": [
       "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
     ],
     "IWsCookie": [

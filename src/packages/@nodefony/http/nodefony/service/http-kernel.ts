@@ -477,22 +477,21 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ): HttpContext {
     try {
       const context = new HttpContext(scope, request, response, type);
-      // response events
-      response.once("finish", async () => {
-        if (!context) {
-          return;
-        }
-        if (context.finished) {
-          return;
-        }
+      // Deduplicated post-response handler — fires once, whichever event wins
+      // (finish = full body sent; close = socket closed, possibly early).
+      const onAfter = async () => {
+        if (!context || context.finished) return;
         context.logRequest();
+        await context._runAfterResponse();
         await context.fireAsync("onFinish", context).catch((e) => {
           throw e;
         });
         context.finished = true;
         this.container?.leaveScope(scope);
         context.clean();
-      });
+      };
+      response.once("finish", onAfter);
+      response.once("close", onAfter);
 
       return context;
     } catch (e) {
@@ -617,13 +616,14 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     type: ServerType
   ): WebsocketContext {
     const context = new WebsocketContext(scope, req, ws, type);
-    context.once("onFinish", (wscontext) => {
+    context.once("onFinish", async (wscontext) => {
       if (!context) {
         return;
       }
       if (context.finished) {
         return;
       }
+      await context._runAfterResponse();
       if (context.session) {
         if (context.session.saved) {
           this.container?.leaveScope(wscontext.container);

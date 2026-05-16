@@ -2,6 +2,14 @@ import { Controller, route, controller } from "@nodefony/framework";
 import { Context, HttpContext, HttpError } from "@nodefony/http";
 import { inject, Fetch, nodefonyError as Error } from "nodefony";
 
+// Module-level counter used by P1.2 onAfterResponse integration tests.
+// Lives outside the controller class because controllers are scoped per request.
+const afterResponseState = {
+  count: 0,
+  multiCount: 0,
+  lastFiredAtMs: 0,
+};
+
 @controller("/nodefony/test")
 class DefaultController extends Controller {
   constructor(
@@ -107,6 +115,55 @@ class DefaultController extends Controller {
         durationMs: p.durationMs ?? null,
       })),
     });
+  }
+
+  // ── P1.2 onAfterResponse probes ─────────────────────────────────
+  @route("after-incr", { path: "/after/incr" })
+  afterIncr() {
+    this.context.onAfterResponse(() => {
+      afterResponseState.count++;
+      afterResponseState.lastFiredAtMs = Date.now();
+    });
+    return this.renderJson({ ok: true });
+  }
+
+  @route("after-multi", { path: "/after/multi" })
+  afterMulti() {
+    this.context.onAfterResponse(() => {
+      afterResponseState.multiCount += 1;
+    });
+    this.context.onAfterResponse(() => {
+      afterResponseState.multiCount += 10;
+    });
+    this.context.onAfterResponse(() => {
+      afterResponseState.multiCount += 100;
+    });
+    return this.renderJson({ ok: true });
+  }
+
+  @route("after-throw", { path: "/after/throw" })
+  afterThrow() {
+    this.context.onAfterResponse(() => {
+      afterResponseState.count++;
+    });
+    throw new Error("after-throw — hook must still fire", 500);
+  }
+
+  @route("after-state", { path: "/after/state" })
+  afterState() {
+    return this.renderJson({
+      count: afterResponseState.count,
+      multiCount: afterResponseState.multiCount,
+      lastFiredAtMs: afterResponseState.lastFiredAtMs,
+    });
+  }
+
+  @route("after-reset", { path: "/after/reset" })
+  afterReset() {
+    afterResponseState.count = 0;
+    afterResponseState.multiCount = 0;
+    afterResponseState.lastFiredAtMs = 0;
+    return this.renderJson({ ok: true });
   }
 }
 

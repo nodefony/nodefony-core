@@ -51,6 +51,18 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 
+## Post-response hook — Context.onAfterResponse (P1.2, 2026-05-16)
+
+- `Context.onAfterResponse(fn: (ctx) => void | Promise<void>): void`
+- Fire-once per context, dédup HTTP `response.on("finish")` vs `response.on("close")` via `_afterResponseFired` flag
+- Handlers await en série dans `_runAfterResponse()` — exceptions swallow + log (un handler qui throw ne bloque pas les autres)
+- Late subscribe (après fire) → fn exécutée sur microtask
+- WS : trigger via event `onFinish` déjà fire dans `WebsocketContext.onClose()`
+- Insertion : entre `logRequest()` et `fireAsync("onFinish")` (avant `clean()` / `leaveScope()`)
+- Routes test : `/nodefony/test/after/{incr,multi,throw,state,reset}` — counters singleton
+- Tests : `nodefony/tests/integration/after-response.test.ts` (6 tests)
+- Préalable : P3.1 audit log canonique, P2.2 tear-down déterministe, P2.3 aborted requests (signal)
+
 ## Lifecycle Timing — Context.phases (P1.1, 2026-05-16)
 
 - `Context.phases: PhaseTiming[]` — instrumentation pipeline, rempli par HttpKernel
@@ -100,7 +112,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 377/377 (2026-05-16)
+## Tests — 383/383 (2026-05-16)
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
 

@@ -83,6 +83,7 @@ import type {
   IContext as IContextInterface,
   PhaseTiming,
   PhaseName,
+  AfterResponseHandler,
 } from "../../interfaces/IContext";
 
 class Context extends Service implements IContextInterface {
@@ -128,6 +129,8 @@ class Context extends Service implements IContextInterface {
   requestId: string = randomUUID();
   readonly phases: PhaseTiming[] = [];
   private _phaseIndex: Map<string, number> = new Map();
+  private _afterResponseFns: AfterResponseHandler[] = [];
+  private _afterResponseFired: boolean = false;
   metaData: Data = {
     nodefony: {},
     result: null,
@@ -213,6 +216,31 @@ class Context extends Service implements IContextInterface {
     if (p.endMs !== undefined) return;
     p.endMs = performance.now();
     p.durationMs = p.endMs - p.startMs;
+  }
+
+  onAfterResponse(fn: AfterResponseHandler): void {
+    if (this._afterResponseFired) {
+      // Late subscribe — best-effort, run on next microtask
+      Promise.resolve()
+        .then(() => fn(this))
+        .catch((e) => this.log(e, "ERROR", "onAfterResponse(late)"));
+      return;
+    }
+    this._afterResponseFns.push(fn);
+  }
+
+  async _runAfterResponse(): Promise<void> {
+    if (this._afterResponseFired) return;
+    this._afterResponseFired = true;
+    const fns = this._afterResponseFns;
+    this._afterResponseFns = [];
+    for (const fn of fns) {
+      try {
+        await fn(this);
+      } catch (e) {
+        this.log(e, "ERROR", "onAfterResponse");
+      }
+    }
   }
 
   override log(
