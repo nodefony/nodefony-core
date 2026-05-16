@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
 import "mocha";

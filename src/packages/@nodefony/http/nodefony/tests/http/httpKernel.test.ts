@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
 import "mocha";
@@ -207,6 +208,57 @@ describe("HttpContext — properties (requires server)", () => {
     expect((results[0].body as Record<string, unknown>).method).to.equal("GET");
     expect((results[1].body as Record<string, unknown>).method).to.equal("POST");
     expect((results[2].body as Record<string, unknown>).method).to.equal("GET");
+  });
+});
+
+// ── Request Tracing (requestId) ──────────────────────────────────
+
+describe("Request Tracing — X-Request-Id (requires server)", () => {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  it("200 response includes X-Request-Id header", async () => {
+    const { headers } = await get("/nodefony/test/index");
+    expect(headers["x-request-id"]).to.be.a("string").with.length.greaterThan(0);
+  });
+
+  it("X-Request-Id is a valid UUID v4", async () => {
+    const { headers } = await get("/nodefony/test/index");
+    expect(headers["x-request-id"]).to.match(UUID_RE);
+  });
+
+  it("each request gets a unique X-Request-Id", async () => {
+    const [r1, r2] = await Promise.all([
+      get("/nodefony/test/index"),
+      get("/nodefony/test/index"),
+    ]);
+    expect(r1.headers["x-request-id"]).to.not.equal(r2.headers["x-request-id"]);
+  });
+
+  it("incoming X-Request-Id is honored (correlation propagation)", async () => {
+    const custom = "my-trace-abc-123";
+    const { headers } = await get("/nodefony/test/index", { "x-request-id": custom });
+    expect(headers["x-request-id"]).to.equal(custom);
+  });
+
+  it("error response (500) also includes X-Request-Id", async () => {
+    const { headers, status } = await get("/nodefony/test/crash/sync");
+    expect(status).to.equal(500);
+    expect(headers["x-request-id"]).to.be.a("string").with.length.greaterThan(0);
+  });
+
+  it("404 response includes X-Request-Id", async () => {
+    const { headers, status } = await get("/nodefony/test/this-does-not-exist");
+    expect(status).to.equal(404);
+    expect(headers["x-request-id"]).to.be.a("string").with.length.greaterThan(0);
+  });
+
+  it("concurrent requests each get distinct X-Request-Id", async () => {
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => get("/nodefony/test/index"))
+    );
+    const ids = results.map((r) => r.headers["x-request-id"] as string);
+    const unique = new Set(ids);
+    expect(unique.size).to.equal(5);
   });
 });
 
