@@ -51,6 +51,20 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 
+## Abort signal — Context.signal (P1.3, 2026-05-16)
+
+- `Context.signal: AbortSignal` (getter lazy) — alloue `AbortController` + branche listener AU PREMIER ACCÈS
+- **Zéro overhead par défaut** : si jamais lu, aucune allocation
+- HTTP : `request.once("close")` → si `request.complete === false` → `abort()` (client a fermé avant fin)
+- HTTP : si déjà aborted quand `signal` accédé (post-mortem) → signal directement aborted (sécurité late-subscribe)
+- WS : `WebsocketContext.onClose()` → fire `onFinish` → handler kernel appelle `context._abortIfPending("WebSocket closed")`
+- `_abortIfPending(reason?)` méthode interne idempotente — used by HttpKernel pour aborter sans lire signal
+- Distinction `finish` vs `close` côté HttpKernel : seul `close` sans finish prior abort le signal
+- Reason propagée via `signal.reason` (Error message lisible)
+- Routes test : `/nodefony/test/abort/{wait,state,reset}` — counters singleton
+- Tests : `nodefony/tests/integration/abort-signal.test.ts` (5 tests)
+- Préalable : P2.3 (aborted cleanup + 499), P2.5 (request timeout 408)
+
 ## Post-response hook — Context.onAfterResponse (P1.2, 2026-05-16)
 
 - `Context.onAfterResponse(fn: (ctx) => void | Promise<void>): void`
@@ -115,7 +129,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 383/383 (2026-05-16)
+## Tests — 388/388 (2026-05-16)
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
 

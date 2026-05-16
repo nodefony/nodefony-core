@@ -480,9 +480,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // Deduplicated post-response handler — fires once, whichever event wins
       // (finish = full body sent; close = socket closed, possibly early).
       // Explicitly remove both listeners on first fire to release refs sooner.
-      const onAfter = async () => {
-        response.removeListener("finish", onAfter);
-        response.removeListener("close", onAfter);
+      let didFinish = false;
+      const teardown = async () => {
+        response.removeListener("finish", onFinish);
+        response.removeListener("close", onClose);
         if (!context || context.finished) return;
         context.logRequest();
         await context._runAfterResponse();
@@ -493,8 +494,19 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         this.container?.leaveScope(scope);
         context.clean();
       };
-      response.once("finish", onAfter);
-      response.once("close", onAfter);
+      const onFinish = () => {
+        didFinish = true;
+        void teardown();
+      };
+      const onClose = () => {
+        // Close without prior finish = client disconnected before full response.
+        if (!didFinish) {
+          context._abortIfPending("Connection closed before response finished");
+        }
+        void teardown();
+      };
+      response.once("finish", onFinish);
+      response.once("close", onClose);
 
       return context;
     } catch (e) {
@@ -626,6 +638,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (context.finished) {
         return;
       }
+      // WS closed — abort signal (no-op if nobody read context.signal).
+      context._abortIfPending("WebSocket closed");
       await context._runAfterResponse();
       if (context.session) {
         if (context.session.saved) {

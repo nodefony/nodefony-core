@@ -139,6 +139,9 @@ class Context extends Service implements IContextInterface {
   // Lazy alloc — most requests never register an after-response hook.
   private _afterResponseFns: AfterResponseHandler[] | null = null;
   private _afterResponseFired: boolean = false;
+  // Lazy abort signal — created on first access (see `get signal`).
+  // Zero per-request overhead if no consumer reads `context.signal`.
+  private _abortController: AbortController | null = null;
   metaData: Data = {
     nodefony: {},
     result: null,
@@ -267,6 +270,46 @@ class Context extends Service implements IContextInterface {
       } catch (e) {
         this.log(e, "ERROR", "onAfterResponse");
       }
+    }
+  }
+
+  get signal(): AbortSignal {
+    if (this._abortController === null) {
+      this._abortController = new AbortController();
+      const req = this.request as unknown as {
+        once?: (event: string, handler: () => void) => void;
+        complete?: boolean;
+        destroyed?: boolean;
+      } | null;
+      if (req && typeof req.once === "function") {
+        // Fire abort if the request was closed by the client before completing.
+        // For HTTP IncomingMessage: req.complete === false means client aborted.
+        // Late-subscribe safety: if already closed when signal is read, abort now.
+        const onAborted = () => {
+          if (
+            this._abortController &&
+            !this._abortController.signal.aborted &&
+            req.complete === false
+          ) {
+            this._abortController.abort(new Error("Request aborted by client"));
+          }
+        };
+        if (req.destroyed && req.complete === false) {
+          onAborted();
+        } else {
+          req.once("close", onAborted);
+        }
+      }
+    }
+    return this._abortController.signal;
+  }
+
+  // Forces signal abort — used by HttpKernel when the underlying socket
+  // dies before the response is sent, even if no consumer ever read `signal`.
+  // No-op if no AbortController was lazily created (nobody cares).
+  _abortIfPending(reason?: string): void {
+    if (this._abortController && !this._abortController.signal.aborted) {
+      this._abortController.abort(new Error(reason ?? "Context aborted"));
     }
   }
 

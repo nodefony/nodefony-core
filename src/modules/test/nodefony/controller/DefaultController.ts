@@ -10,6 +10,13 @@ const afterResponseState = {
   lastFiredAtMs: 0,
 };
 
+// P1.3 — abort signal observation state. Same singleton pattern.
+const abortState = {
+  abortedCount: 0,
+  completedCount: 0,
+  lastAbortReason: "",
+};
+
 @controller("/nodefony/test")
 class DefaultController extends Controller {
   constructor(
@@ -163,6 +170,54 @@ class DefaultController extends Controller {
     afterResponseState.count = 0;
     afterResponseState.multiCount = 0;
     afterResponseState.lastFiredAtMs = 0;
+    return this.renderJson({ ok: true });
+  }
+
+  // ── P1.3 abort signal probes ────────────────────────────────────
+  // Waits up to 2s; resolves early if context.signal aborts (client disconnect).
+  @route("abort-wait", { path: "/abort/wait" })
+  async abortWait() {
+    const signal = this.context.signal;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          abortState.completedCount++;
+          resolve();
+        }, 2000);
+        const onAbort = () => {
+          clearTimeout(timer);
+          abortState.abortedCount++;
+          abortState.lastAbortReason =
+            (signal.reason as Error)?.message ?? String(signal.reason ?? "aborted");
+          reject(new Error("aborted"));
+        };
+        if (signal.aborted) {
+          onAbort();
+          return;
+        }
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    } catch {
+      // Aborted — client already gone, but action returns so server stays clean.
+      return this.renderJson({ aborted: true });
+    }
+    return this.renderJson({ aborted: false });
+  }
+
+  @route("abort-state", { path: "/abort/state" })
+  abortStateRoute() {
+    return this.renderJson({
+      abortedCount: abortState.abortedCount,
+      completedCount: abortState.completedCount,
+      lastAbortReason: abortState.lastAbortReason,
+    });
+  }
+
+  @route("abort-reset", { path: "/abort/reset" })
+  abortReset() {
+    abortState.abortedCount = 0;
+    abortState.completedCount = 0;
+    abortState.lastAbortReason = "";
     return this.renderJson({ ok: true });
   }
 }

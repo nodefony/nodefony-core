@@ -91,6 +91,12 @@ export interface IContext {
   // Handlers called after the response is on the wire but before scope teardown.
   onAfterResponse(fn: AfterResponseHandler): void;
 
+  // Aborted when the client disconnects before completion (HTTP request "close"
+  // with request.complete === false, or WS "close"). Lazily allocated:
+  // accessing this getter creates the AbortController + attaches the listener.
+  // If never accessed: zero per-request overhead.
+  readonly signal: AbortSignal;
+
   // Methods — Cookies
   addRequestCookie(cookie: ICookie): ICookie;
   getRequestCookies(name?: string): CookiesMap | ICookie | null;
