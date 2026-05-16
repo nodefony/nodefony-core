@@ -330,6 +330,7 @@
 | 2026-05-16 | @nodefony/framework — NestJS decorators + integration tests Controller             | `routerDecorators.ts`, `Resolver.ts`, `index.ts`, `tests/unit/httpMethodDecorators.test.ts`, `tests/integration/controller.test.ts`, `src/modules/test/nodefony/controller/FrameworkController.ts`                                                                | ~4h    | `@Get/@Post/@Put/@Delete/@Patch` (requirements.methods, auto-name ClassName::method) — `@HttpCode/@Header/@Redirect` (Reflect metadata, appliqué par Resolver) — fix `@Post` constraint (méthode → requirements.methods) — fix `@Redirect` → `returnController(undefined)` — FrameworkController 14 routes — 90 tests (67 unit + 23 intégration), 0 failing — bug documenté: method-name conflict avec props Controller |
 | 2026-05-16 | @nodefony/framework — @Param/@Body/@Query + tests d'intégration complets           | `routerDecorators.ts`, `Resolver.ts`, `index.ts`, `tests/unit/routerDecorators.test.ts`, `tests/integration/decorators.integration.test.ts`, `controller.test.ts`, `FrameworkController.ts`, `DecoratorController.ts`, `@nodefony/http/tests/http/decorators.test.ts` | ~3h    | `@Param/@Body/@Query` (PARAM_ARGS_METADATA, ParamMeta, _buildParamArgs) — fix `Route.match()` retourne slice(1) → `variables[i]` pas `i+1` — fix queryGet `url.search.slice(1)` — DecoratorController 7 routes, FrameworkController +8 routes — 112 tests framework (72 unit + 40 intégration), 10 tests http/decorators.test.ts, 0 failing |
 | 2026-05-16 | @nodefony/http — fix ERR_INVALID_CHAR writeHead + HttpError Controller/Action/Response | `Response.ts`, `httpError.ts`, `CLAUDE.md` | ~1h    | **ERR_INVALID_CHAR** : Node.js set `statusMessage` natif avant validation → char invalide persiste → tous writes suivants échouent. Fix : `safeMsg.replace(/[^\x20-\x7E]/g,"")` dans `Response.writeHead()`. **HttpError champs** : `controller`/`action`/`jsonResponse` extraits de `context.resolver` dans constructor. 329 HTTP tests + 112 framework tests, 0 failing. CLAUDE.md : ajout RFC IETF references. |
+| 2026-05-16 | @nodefony/http — suppression warnings TS build + request tracing requestId | `Context.ts`, `HttpContext.ts`, `Response.ts`, `WebsocketContext.ts`, `IContext.ts`, `IHttpKernel.ts`, `sessions-service.ts`, `securedArea.ts` | ~2h    | **Warnings supprimés** : TS6133 Ws, TS6196 interfaces non utilisées, TS7006 catch params, TS2345 resolve(ret), deprecation url.parse→new URL. **requestId** : `randomUUID()` dans Context constructor — honor `X-Request-Id` header entrant (HTTP+WS) — injecté dans `X-Request-Id` response header via `Response.writeHead()` — inclus dans `logRequest()` (ID : uuid) — dans `metaData.nodefony.requestId` — `IContext.requestId: string`. 94 HTTP tests, 0 failing. |
 
 ---
 
@@ -380,17 +381,14 @@
 4. **Phase 4** — HttpKernel : pipeline complet, Content-Type negotiation, parallel requests sans context leak
 5. **Phase 5c** — valider `memory.test.ts` avec serveur actif
 
-**@nodefony/http — Plan : Request Tracing (`requestId`)** (à faire — module http) :
+**@nodefony/http — Request Tracing (`requestId`)** ✅ (2026-05-16) :
 
-Objectif : chaque requête a un ID court visible dans tous ses logs → debugging multi-requêtes possible.
-
-| # | Tâche | Fichier | Complexité |
-|---|-------|---------|-----------|
-| 1 | Générer `requestId` (UUID 8 chars) dans `Context.ts` constructor | `nodefony/src/context/Context.ts` | 1 |
-| 2 | Override `Context.log()` pour préfixer `[requestId]` si `kernel.debug` | `nodefony/src/context/Context.ts` | 1 |
-| 3 | Injecter `requestId` dans le log final `INFO http2 200 GET` | `nodefony/service/http-kernel.ts` | 1 |
-| 4 | Option config `requestId: boolean` (default `true` en debug, `false` en prod) | `nodefony/config/config.ts` | 1 |
-| 5 | Tests : vérifier que les logs de la même requête partagent le même ID | `nodefony/tests/http/context.test.ts` | 2 |
+- `Context.requestId = randomUUID()` — UUID v4 à chaque requête
+- Honor `X-Request-Id` entrant (HTTP + WebSocket) pour corrélation upstream
+- `Response.writeHead()` injecte `X-Request-Id` dans toutes les réponses HTTP
+- `logRequest()` affiche `ID : <uuid>` dans chaque log de fin de requête
+- `metaData.nodefony.requestId` disponible dans les controllers
+- `IContext.requestId: string` exporté
 
 Note future : `AsyncLocalStorage` pour propager le requestId dans les services appelés (phase avancée).
 
@@ -399,20 +397,6 @@ Note future : `AsyncLocalStorage` pour propager le requestId dans les services a
 **@nodefony/framework — Plan : HttpError champs undefined** ✅ (2026-05-16) :
 
 `Controller`, `Action`, `Response` maintenant peuplés dans `HttpError` constructor via `context.resolver`.
-- `this.controller = resolver?.controller?.name`
-- `this.action = resolver?.actionName`
-- `this.jsonResponse = \`${res.statusCode} ${res.statusMessage}\`.trim()`
-
-**@nodefony/framework — Plan : Request Tracing + Log structuré** (prochaine session) :
-
-Inspiré du constat `bug.md` : le flux de logs par requête n'est pas lisible en mode multi-requêtes concurrentes.
-
-| # | Tâche | Fichier | Complexité |
-|---|-------|---------|-----------|
-| 1 | `requestId` court (UUID 8 chars) dans `Context.ts` constructor | `@nodefony/http/nodefony/src/context/Context.ts` | 1 |
-| 2 | Préfixer tous les logs contexte avec `[requestId]` | `Context.ts`, `http-kernel.ts` | 2 |
-| 3 | Log structuré JSON en prod (`kernel.debug=false`) | `http-kernel.ts` | 2 |
-| 4 | Tests | `tests/http/context.test.ts` | 2 |
 
 ---
 
