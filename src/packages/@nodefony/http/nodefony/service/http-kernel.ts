@@ -34,6 +34,8 @@ import SessionsService from "./sessions/sessions-service";
 import Session from "../src/session/session";
 import { Route } from "@nodefony/framework";
 import { Firewall } from "@nodefony/security";
+import DefaultErrorRenderer from "./error-renderer";
+import type { IErrorRenderer } from "../interfaces/IErrorRenderer";
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -114,6 +116,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   sessionAutoStart: boolean | string = false;
   router?: Router | null;
   firewall?: Firewall | null;
+  // Singleton — zero per-request alloc. Swap via setErrorRenderer().
+  private errorRenderer: IErrorRenderer = new DefaultErrorRenderer();
   constructor(module: Module) {
     super(
       serviceName,
@@ -258,65 +262,64 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    *    Reserved for private use. Interpretation of these codes is
    *    undefined by the WebSocket protocol.
    */
+  /**
+   * Override the default error renderer — e.g. to hide stack traces in prod
+   * or emit RFC 7807 problem+json. Stateless singleton expected.
+   */
+  setErrorRenderer(renderer: IErrorRenderer): void {
+    this.errorRenderer = renderer;
+  }
+
+  getErrorRenderer(): IErrorRenderer {
+    return this.errorRenderer;
+  }
+
   async onError(
     error: Error | HttpError | nodefonyError,
     context?: ContextType,
     _extraHeaders?: Record<string, unknown> | object
   ): Promise<HttpContext | WebsocketContext> {
     try {
-      const code = error.code === 200 ? 500 : !error.code ? 500 : error.code;
-      if (!(error instanceof HttpError)) {
-        error = new HttpError(error as Error, error.code as number, context);
-      }
-      error.code = code;
       if (context) {
         context.error = error;
       }
       switch (true) {
         case context instanceof HttpContext: {
-          context.response.setStatusCode(code, error.message);
+          const result = this.errorRenderer.renderHttp(error, context);
+          // Mirror result back onto error so callers / logs see normalised code.
+          if (error instanceof HttpError || error instanceof nodefonyError) {
+            error.code = result.status;
+          }
+          context.response.setStatusCode(result.status, result.message);
+          if (result.headers) {
+            context.response.setHeaders(result.headers);
+          }
           if (this.kernel?.debug) {
             this.log(error.toString(), "ERROR");
           }
-          //let message: string = error.message;
-          const obj = context.metaData;
-          obj.error = (error as nodefonyError).toJSON() as Error;
-          obj.code = error.code;
-          obj.message = error.message;
           if (!context.response.isHeaderSent()) {
             return context
-              .render(obj)
-              .then(() => {
-                return context;
-              })
+              .render(result.body)
+              .then(() => context)
               .catch((e) => {
                 this.log(e, "CRITIC");
                 throw e;
               });
           }
           if (!context.sended) {
-            return context.close().then(() => {
-              return context;
-            });
+            return context.close().then(() => context);
           }
           throw error;
         }
         case context instanceof WebsocketContext: {
           try {
+            const wsResult = this.errorRenderer.renderWebsocket(error, context);
             if (context.response && context.response.connection) {
-              // reject only websocket code
-              if (error.code && error.code < 1000) {
-                error.code = 1011;
-              }
-              context.close(error.code, error.message);
+              context.close(wsResult.code, wsResult.reason);
               return context;
             }
             if (context.request && !context.rejected) {
-              // reject only http code
-              if (error.code && error.code > 500) {
-                error.code = 500;
-              }
-              context.reject(error.code ?? undefined, error.message);
+              context.reject(wsResult.code, wsResult.reason);
               return context;
             }
           } catch (e) {

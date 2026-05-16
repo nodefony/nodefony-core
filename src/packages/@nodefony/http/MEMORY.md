@@ -51,6 +51,18 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 
+## ErrorRenderer unifié HTTP+WS (P1.5, 2026-05-16)
+
+- `IErrorRenderer` interface : `renderHttp(err, ctx) → {status, message, body, headers?}` + `renderWebsocket(err, ctx) → {code, reason}`
+- `DefaultErrorRenderer` (`service/error-renderer.ts`) — singleton, stateless, **zéro alloc per-request**
+- Préserve la shape JSON erreur legacy : `{code, message, error: HttpError.toJSON(), nodefony: {requestId, scheme, ...}, result: null}` — aucune régression
+- WS : code clamp 1000-4999 (1011 si HTTP-style code en phase connected), reason = `error.message`
+- `HttpKernel.errorRenderer: IErrorRenderer = new DefaultErrorRenderer()` (instance unique)
+- `HttpKernel.setErrorRenderer(custom)` pour override (hide stack en prod, RFC 7807, auth challenge headers...)
+- `HttpKernel.getErrorRenderer()` pour lecture
+- Exporté dans `index.ts` : `DefaultErrorRenderer`, types `IErrorRenderer`, `IErrorHttpResult`, `IErrorWebsocketResult`
+- Préalable : P1.7 hooks security (AuthFailureHandler), P3.5 erreur enrichie audit
+
 ## Abort signal — Context.signal (P1.3, 2026-05-16)
 
 - `Context.signal: AbortSignal` (getter lazy) — alloue `AbortController` + branche listener AU PREMIER ACCÈS
@@ -129,7 +141,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 388/388 (2026-05-16)
+## Tests — 388 intégration + 85 unit (+9 P1.5) = 473 (2026-05-16)
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
 

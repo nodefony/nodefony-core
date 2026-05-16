@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-16T18:59:50.375Z",
+  "generated": "2026-05-16T19:08:23.438Z",
   "version": "1.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 180,
-    "symbols": 432,
-    "classes": 148,
-    "interfaces": 140,
+    "files": 182,
+    "symbols": 436,
+    "classes": 149,
+    "interfaces": 143,
     "types": 115,
     "enums": 1,
     "functions": 24,
@@ -1687,6 +1687,30 @@
       "module": "@nodefony/http"
     },
     {
+      "name": "IErrorHttpResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IErrorRenderer.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "IErrorWebsocketResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IErrorRenderer.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "IErrorRenderer",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IErrorRenderer.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
       "name": "IHttpKernel",
       "kind": "interface",
       "file": "src/packages/@nodefony/http/nodefony/interfaces/IHttpKernel.ts",
@@ -1842,6 +1866,18 @@
       "exported": true,
       "module": "@nodefony/http",
       "extends": null
+    },
+    {
+      "name": "DefaultErrorRenderer",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [
+        "IErrorRenderer"
+      ],
+      "decorators": []
     },
     {
       "name": "HttpKernel",
@@ -3832,6 +3868,7 @@
       "src/packages/@nodefony/framework/nodefony/service/router.ts",
       "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
       "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+      "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
       "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
       "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
       "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
@@ -3853,6 +3890,10 @@
       "src/packages/@nodefony/http/nodefony/src/session/session.ts",
       "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
       "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+    ],
+    "DefaultErrorRenderer": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
     ],
     "HttpContext": [
       "src/packages/@nodefony/http/index.ts",
@@ -4228,6 +4269,7 @@
       "src/modules/test/nodefony/controller/DefaultController.ts",
       "src/modules/test/nodefony/controller/GraphqlController.ts",
       "src/modules/test/nodefony/controller/RouteController.ts",
+      "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
       "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
       "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
       "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -4362,6 +4404,16 @@
     "HTTPMethodType": [
       "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts"
     ],
+    "IHttpContext": [
+      "src/packages/@nodefony/http/nodefony/interfaces/IErrorRenderer.ts",
+      "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
+    ],
+    "IWebsocketContext": [
+      "src/packages/@nodefony/http/nodefony/interfaces/IErrorRenderer.ts",
+      "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
     "ServerType": [
       "src/packages/@nodefony/http/nodefony/interfaces/IHttpKernel.ts",
       "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -4374,6 +4426,16 @@
     ],
     "ICookieOptions": [
       "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts"
+    ],
+    "IErrorRenderer": [
+      "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+    ],
+    "IErrorHttpResult": [
+      "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
+    ],
+    "IErrorWebsocketResult": [
+      "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
     ],
     "Statics": [
       "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
@@ -4676,9 +4738,6 @@
     "CookieOptionsType": [
       "src/packages/@nodefony/http/nodefony/src/session/session.ts"
     ],
-    "IHttpContext": [
-      "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
-    ],
     "Cookies": [
       "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
     ],
@@ -4698,9 +4757,6 @@
       "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
     ],
     "ProxyType": [
-      "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-    ],
-    "IWebsocketContext": [
       "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
     ],
     "Finder": [
