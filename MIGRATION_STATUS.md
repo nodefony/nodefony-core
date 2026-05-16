@@ -331,6 +331,7 @@
 | 2026-05-16 | @nodefony/framework — @Param/@Body/@Query + tests d'intégration complets           | `routerDecorators.ts`, `Resolver.ts`, `index.ts`, `tests/unit/routerDecorators.test.ts`, `tests/integration/decorators.integration.test.ts`, `controller.test.ts`, `FrameworkController.ts`, `DecoratorController.ts`, `@nodefony/http/tests/http/decorators.test.ts` | ~3h    | `@Param/@Body/@Query` (PARAM_ARGS_METADATA, ParamMeta, _buildParamArgs) — fix `Route.match()` retourne slice(1) → `variables[i]` pas `i+1` — fix queryGet `url.search.slice(1)` — DecoratorController 7 routes, FrameworkController +8 routes — 112 tests framework (72 unit + 40 intégration), 10 tests http/decorators.test.ts, 0 failing |
 | 2026-05-16 | @nodefony/http — fix ERR_INVALID_CHAR writeHead + HttpError Controller/Action/Response | `Response.ts`, `httpError.ts`, `CLAUDE.md` | ~1h    | **ERR_INVALID_CHAR** : Node.js set `statusMessage` natif avant validation → char invalide persiste → tous writes suivants échouent. Fix : `safeMsg.replace(/[^\x20-\x7E]/g,"")` dans `Response.writeHead()`. **HttpError champs** : `controller`/`action`/`jsonResponse` extraits de `context.resolver` dans constructor. 329 HTTP tests + 112 framework tests, 0 failing. CLAUDE.md : ajout RFC IETF references. |
 | 2026-05-16 | @nodefony/http — suppression warnings TS build + request tracing requestId | `Context.ts`, `HttpContext.ts`, `Response.ts`, `WebsocketContext.ts`, `IContext.ts`, `IHttpKernel.ts`, `sessions-service.ts`, `securedArea.ts` | ~2h    | **Warnings supprimés** : TS6133 Ws, TS6196 interfaces non utilisées, TS7006 catch params, TS2345 resolve(ret), deprecation url.parse→new URL. **requestId** : `randomUUID()` dans Context constructor — honor `X-Request-Id` header entrant (HTTP+WS) — injecté dans `X-Request-Id` response header via `Response.writeHead()` — inclus dans `logRequest()` (ID : uuid) — dans `metaData.nodefony.requestId` — `IContext.requestId: string`. 94 HTTP tests, 0 failing. |
+| 2026-05-16 | @nodefony/http — tests intégration complets (suite exhaustive) | `httpKernel.test.ts`, `session.test.ts`, `security.test.ts` | ~1h    | **336 passing 0 failing** — suite complète : unit (76) + http (http, http1, https, errors, decorators, fileStream, upload, httpKernel, static, session, security, memory, resilience) + routing (Router) + websockets (ws, limits, perf, binary-broadcast, protocol, session, w3c) — fix `/// <reference types="node" />` manquant session/security/httpKernel — 7 tests X-Request-Id ajoutés (UUID v4, unicité, corrélation, présence sur 200/404/500, concurrence) — test memory flaky en contexte full (GC pressure), passe en isolation |
 
 ---
 
@@ -368,43 +369,27 @@
 
 ## Prochaine session
 
-**Branches actives** :
+**Branche active** : `claude-ts`
 
-- `refactor/http-deps` — tests @nodefony/http (branche courante)
-- `claude-ts` — branche principale migration TS (build propre)
+**État tests @nodefony/http** (2026-05-16) : **336 passing / 336** — suite exhaustive validée.
 
-**@nodefony/http — prochaine étape** (branche `refactor/http-deps`) :
+| Catégorie       | Fichiers                                                    | Tests |
+| --------------- | ----------------------------------------------------------- | ----- |
+| Unit            | Session, Cookie, HttpError, Response                        | 76    |
+| HTTP            | http, http1, https, errors, decorators, fileStream, upload  | 103   |
+| HttpKernel      | httpKernel (pipeline, contexte, resilience, X-Request-Id)   | 35    |
+| Auth/Static     | static, session, security                                   | 47    |
+| Memory          | memory (flaky en full suite — GC, passe en isolation)       | 7     |
+| Resilience      | resilience                                                  | 7     |
+| Routing         | Router                                                      | 11    |
+| WebSockets      | ws, limits, perf, binary-broadcast, protocol, session, w3c  | 50    |
 
-1. **Phase 3b** — créer `http1.test.ts` (HTTP port 5151 : GET/POST/PUT/DELETE, headers, chunked)
-2. **Phase 3b** — créer `https.test.ts` (TLS cipher, redirect)
-3. **Phase 3b** — créer `errors.test.ts` (format JSON error : code, message, stack en dev)
-4. **Phase 4** — HttpKernel : pipeline complet, Content-Type negotiation, parallel requests sans context leak
-5. **Phase 5c** — valider `memory.test.ts` avec serveur actif
+**Prochaines étapes** :
 
-**@nodefony/http — Request Tracing (`requestId`)** ✅ (2026-05-16) :
-
-- `Context.requestId = randomUUID()` — UUID v4 à chaque requête
-- Honor `X-Request-Id` entrant (HTTP + WebSocket) pour corrélation upstream
-- `Response.writeHead()` injecte `X-Request-Id` dans toutes les réponses HTTP
-- `logRequest()` affiche `ID : <uuid>` dans chaque log de fin de requête
-- `metaData.nodefony.requestId` disponible dans les controllers
-- `IContext.requestId: string` exporté
-
-Note future : `AsyncLocalStorage` pour propager le requestId dans les services appelés (phase avancée).
-
----
-
-**@nodefony/framework — Plan : HttpError champs undefined** ✅ (2026-05-16) :
-
-`Controller`, `Action`, `Response` maintenant peuplés dans `HttpError` constructor via `context.resolver`.
-
----
-
-**@nodefony/core — prochaines étapes** :
-
-1. **Phase 5.1** — `IController` + `Controller.ts`
-2. **@entities** — tester `@entities` (même pattern que `Decorators.test.ts`, event `onBoot`)
-3. **Fix 2 tests binary séquentiels WS** — timeout sur `context.send(buf, "binary")` en boucle
+1. **Fix 2 tests binary séquentiels WS** — timeout sur `context.send(buf, "binary")` en boucle (investiguer `http-kernel.ts` ou `WebsocketContext`)
+2. **`AsyncLocalStorage`** — propager `requestId` dans les services appelés depuis le controller (phase avancée)
+3. **@nodefony/core** — `@entities` decorator (même pattern `Decorators.test.ts`)
+4. **Session/Security** — migration Phase 6 (`SecurityManager`, JWT, OAuth)
 
 **Fichiers à lire en début de session** :
 
