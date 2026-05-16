@@ -46,6 +46,9 @@ import WebsocketSecure from "../../service/servers/server-websocket-secure";
 
 const colorLogEvent = clc.cyan.bgBlack("EVENT CONTEXT");
 
+// Shared frozen array used when timing is disabled — zero per-request alloc.
+const EMPTY_PHASES: PhaseTiming[] = Object.freeze([]) as PhaseTiming[];
+
 export type WebSocketState =
   | "handshake"
   | "connected"
@@ -127,8 +130,12 @@ class Context extends Service implements IContextInterface {
   resolver: Resolver | null = null;
   sessionAutoStart: string | null = null;
   requestId: string = randomUUID();
-  readonly phases: PhaseTiming[] = [];
-  private _phaseIndex: Map<string, number> = new Map();
+  // Timing: opt-out in prod (default), opt-in elsewhere. Overridable via
+  // kernel.options.timing.enabled. When disabled: `phases` is a shared frozen
+  // empty array, `phaseStart`/`phaseEnd` are noops, no Map is allocated.
+  private _timingEnabled: boolean = false;
+  readonly phases: PhaseTiming[] = EMPTY_PHASES;
+  private _phaseIndex: Map<string, number> | null = null;
   // Lazy alloc — most requests never register an after-response hook.
   private _afterResponseFns: AfterResponseHandler[] | null = null;
   private _afterResponseFired: boolean = false;
@@ -145,6 +152,18 @@ class Context extends Service implements IContextInterface {
     this.httpKernel = this.get("HttpKernel");
     this.sessionService = this.get<SessionsService>("sessions");
     this.setMetaData();
+    // Resolve timing flag once per request. Explicit kernel option wins;
+    // otherwise default = enabled in dev / development, disabled in prod.
+    const explicit = (this.kernel as any)?.options?.timing?.enabled;
+    if (typeof explicit === "boolean") {
+      this._timingEnabled = explicit;
+    } else {
+      this._timingEnabled = this.kernel?.environment !== "prod";
+    }
+    if (this._timingEnabled) {
+      // Replace shared frozen empty array with a per-context one only when needed.
+      (this as { phases: PhaseTiming[] }).phases = [];
+    }
     this.scheme = "https";
     switch (this.type) {
       case "http": {
@@ -205,12 +224,15 @@ class Context extends Service implements IContextInterface {
   }
 
   phaseStart(name: PhaseName): void {
+    if (!this._timingEnabled) return;
+    if (this._phaseIndex === null) this._phaseIndex = new Map();
     const idx = this.phases.length;
     this.phases.push({ name, startMs: performance.now() });
     this._phaseIndex.set(name, idx);
   }
 
   phaseEnd(name: PhaseName): void {
+    if (!this._timingEnabled || this._phaseIndex === null) return;
     const idx = this._phaseIndex.get(name);
     if (idx === undefined) return;
     const p = this.phases[idx];

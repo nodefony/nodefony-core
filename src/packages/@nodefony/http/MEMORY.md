@@ -67,7 +67,10 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 - `Context.phases: PhaseTiming[]` — instrumentation pipeline, rempli par HttpKernel
 - API : `context.phaseStart(name)` / `context.phaseEnd(name)` — `performance.now()` (perf_hooks)
-- `_phaseIndex: Map<string,name>` → `O(1)` lookup ; `phaseEnd` idempotent (re-call = noop)
+- **Désactivé par défaut en `environment === "prod"`** — opt-in via `kernel.options.timing.enabled: true`
+- Quand désactivé : `phases` = shared `EMPTY_PHASES` frozen singleton, `phaseStart/End` noop, aucune `Map` allouée
+- `_phaseIndex: Map<string,number>` lazy alloc au premier `phaseStart` (pas dans le constructor)
+- `phaseEnd` idempotent (re-call = noop)
 - Phases canoniques instrumentées dans `http-kernel.ts` :
   - `parse` : `context.request.initialize()` (handleHttp)
   - `resolve` : `router.resolve(context)` (handleFrontController)
