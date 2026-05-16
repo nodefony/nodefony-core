@@ -518,6 +518,27 @@ import fs from "node:fs";
 
 ---
 
+## 🔧 Quand faire `npm run clean && npm run build`
+
+Le mode `npm run build` (sans clean) compile **uniquement les workspaces modifiés** (cache turbo). Insuffisant si :
+
+- Tu viens de `git pull` / merge → des `dist/` peuvent contenir des exports qui n'existent plus dans le source (et inversement, exports manquants du dist comme `Body/Param/Query`)
+- Un `SyntaxError: does not provide an export named 'X'` apparaît au démarrage
+- Les tests échouent avec des 404 sur des routes pourtant définies (dist du module test périmé)
+- Le runtime charge une vieille version après un refactor
+
+**Règle** :
+- Après modification ciblée d'un seul module → `npm run build` (turbo cache)
+- Après pull / merge / changement d'index.ts public d'un module / refactor croisé → `npm run clean && npm run build` (38s)
+
+Vérification rapide qu'un dist est à jour :
+
+```bash
+grep -E "export\s*\{" src/packages/@nodefony/<module>/dist/index.js | head -1
+```
+
+---
+
 ## 🗂 Graphe symbolique TS — `.ai/symbols.json`
 
 > Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `generate-symbols`).
