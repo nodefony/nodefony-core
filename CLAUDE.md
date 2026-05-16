@@ -597,6 +597,43 @@ grep -E "export\s*\{" src/packages/@nodefony/<module>/dist/index.js | head -1
 
 ---
 
+## 📘 Documentation — TSDoc + `docs/`
+
+> Voir `docs/README.md` pour les conventions complètes (frontmatter, structure, workflow).
+
+**Règle** : tout fichier migré en TypeScript doit porter un bloc TSDoc sur :
+- chaque **classe** et **interface** exportée
+- chaque **méthode publique** non triviale (skip les getters d'une ligne)
+- chaque **fonction exportée**
+
+Format minimum :
+
+```typescript
+/**
+ * Première phrase qui décrit l'intention (extraite dans `.ai/symbols.json` → `symbols.X.description`).
+ *
+ * @param name - rôle de l'argument
+ * @returns ce que renvoie la méthode
+ * @throws Quand et pourquoi
+ */
+```
+
+La **première phrase** doit être auto-suffisante — elle apparaîtra seule dans le graphe symbolique et dans les hover-popups IDE.
+
+**Trois niveaux de doc à maintenir** :
+
+| Niveau           | Emplacement                                | Cible                | Quand l'écrire                          |
+| ---------------- | ------------------------------------------ | -------------------- | --------------------------------------- |
+| TSDoc inline     | sources `.ts`                              | IDE + AST + IA       | en migrant le fichier                   |
+| `docs/`          | `docs/architecture/` / `packages/` / `guides/` | humain + RAG futur | quand un concept ou une API change      |
+| `CLAUDE.md` + `MEMORY.md` par module | racine du module               | IA en session        | gotchas, mots-clés, décisions figées    |
+
+**Page de référence** : `docs/architecture/container.md` montre le format attendu (frontmatter + sections + liens).
+
+**Pas de hook bloquant** pour l'instant — règle documentaire. Le module Vision (Phase 10) consommera `docs/` + le champ `description` extrait par `generate-symbols`.
+
+---
+
 ## 🗂 Graphe symbolique TS — `.ai/symbols.json` (v2.0 — map indexée + relations)
 
 > Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `generate-symbols`). Régénéré automatiquement par le hook pre-commit.

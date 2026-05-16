@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-16T23:42:45.378Z",
+  "generated": "2026-05-16T23:53:20.655Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -48,7 +48,8 @@
       "implements": [
         "IContainer"
       ],
-      "decorators": []
+      "decorators": [],
+      "description": "Dependency Injection container — registers services by name and exposes them to the rest of the framework. Services are stored on a prototype-backed object (`protoService`) so they are inherited by…"
     },
     "Scope": {
       "name": "Scope",
@@ -60,7 +61,8 @@
       "implements": [
         "IScope"
       ],
-      "decorators": []
+      "decorators": [],
+      "description": "Short-lived child container tied to a parent {@link Container}. Used by the HTTP/WS kernel to isolate per-request services (e.g. request-bound sessions, scoped resolvers) without polluting the glob…"
     },
     "DynamicService": {
       "name": "DynamicService",

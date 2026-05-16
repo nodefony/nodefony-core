@@ -65,10 +65,24 @@ export type ProtoService = { (): void; [key: string]: any };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ProtoParameters = { (): void; [key: string]: any };
 
-/*
+/**
+ * Dependency Injection container — registers services by name and exposes
+ * them to the rest of the framework.
  *
- *  CONTAINER CLASS
+ * Services are stored on a prototype-backed object (`protoService`) so they
+ * are inherited by child scopes (see {@link Scope}). The container also
+ * carries an arbitrary parameter tree (`parameters`) used for configuration.
  *
+ * Conventional usage:
+ * ```ts
+ * const c = new Container();
+ * c.set("logger", new LoggerService());
+ * c.setParameters("kernel.environment", "development");
+ * const logger = c.get<LoggerService>("logger");
+ * ```
+ *
+ * See `docs/architecture/container.md` for the high-level rationale and the
+ * scope model used by the HTTP/WS request pipeline.
  */
 class Container implements IContainer {
   public protoService: ProtoService = function () {};
@@ -78,6 +92,16 @@ class Container implements IContainer {
   public id: string;
   private scopes: Scopes = {};
 
+  /**
+   * Create a new container. When an existing container is passed in, the
+   * new instance inherits its services (via prototype chaining) and clones
+   * its parameters — used by {@link Scope} to build short-lived containers
+   * that share base services but isolate per-request state.
+   *
+   * @param input - parent container to inherit services from
+   * @param deep - if `true`, parameters are deep-cloned via `structuredClone`
+   * (falls back to shallow copy if `structuredClone` throws on unsupported types)
+   */
   constructor(input?: Container, deep: boolean = false) {
     this.id = uuidv4();
     if (input && input instanceof Container) {
@@ -113,6 +137,15 @@ class Container implements IContainer {
     }
   }
 
+  /**
+   * Emit a log entry through the registered `syslog` service. Falls back to
+   * `console.warn` when no syslog is set (early boot, isolated test).
+   *
+   * @param pci - log payload (string or structured PDU body)
+   * @param severity - syslog severity level
+   * @param msgid - message id; defaults to `"SERVICES CONTAINER"`
+   * @param msg - optional message detail
+   */
   public log(
     pci: Pci,
     severity?: Severity,
@@ -130,6 +163,16 @@ class Container implements IContainer {
     return syslog.log(pci, severity, msgid, msg);
   }
 
+  /**
+   * Register a service under `name`. The service is stored both directly on
+   * the container and on its prototype, so child scopes can read it without
+   * an extra hop.
+   *
+   * @param name - service identifier (any non-empty string)
+   * @param object - the instance to register (no type constraint — services
+   * are not required to extend any base class)
+   * @throws Error if `name` is empty or the container has been cleaned
+   */
   public set<T>(name: string, object: T): void {
     if (this.services && name) {
       this.protoService.prototype[name] = object;
@@ -139,6 +182,14 @@ class Container implements IContainer {
     }
   }
 
+  /**
+   * Resolve a service by name. Returns `null` if the service is unknown or
+   * the container has been cleaned — callers should narrow the result
+   * before use.
+   *
+   * @param name - service identifier
+   * @returns the service instance typed as `T`, or `null`
+   */
   public get<T = unknown>(name: string): T | null {
     if (this.services && name in this.services) {
       return this.services[name] as T;
@@ -146,6 +197,12 @@ class Container implements IContainer {
     return null;
   }
 
+  /**
+   * Unregister a service and cascade the removal into every child scope.
+   *
+   * @param name - service identifier
+   * @returns `true` when a service was actually removed, `false` otherwise
+   */
   public remove(name: string): boolean {
     if (!this.services) {
       return false;
@@ -166,20 +223,32 @@ class Container implements IContainer {
     return false;
   }
 
+  /** Whether a service is registered under `name`. */
   public has(name: string): boolean {
     return this.services != null && name in this.services;
   }
 
+  /** All service names currently registered on this container. */
   public keys(): string[] {
     return Object.keys(this.services ?? {});
   }
 
+  /** All `[name, service]` pairs currently registered on this container. */
   public entries(): [string, unknown][] {
     return Object.entries(this.services ?? {});
   }
 
   // --- Scopes ---
 
+  /**
+   * Declare a scope. Scopes are short-lived containers (typically created
+   * per HTTP/WS request) that inherit services from this container but
+   * store their own per-request services and parameters. Must be called
+   * once before {@link enterScope} can produce instances.
+   *
+   * @param name - scope identifier (e.g. `"request"`)
+   * @returns the underlying scope bucket (rarely used by callers)
+   */
   public addScope(name: string): Scope | object {
     if (!this.scopes[name]) {
       return (this.scopes[name] = {});
@@ -187,6 +256,15 @@ class Container implements IContainer {
     return this.scopes[name];
   }
 
+  /**
+   * Open a new instance of the named scope. The returned {@link Scope}
+   * inherits services from this container but tracks its own services and
+   * parameters in isolation.
+   *
+   * @param name - scope name previously declared via {@link addScope}
+   * @returns a fresh `Scope` instance with a unique `id`
+   * @throws Error when the scope has not been declared
+   */
   public enterScope(name: string): Scope {
     if (!this.scopes[name]) {
       throw new Error(
@@ -198,6 +276,13 @@ class Container implements IContainer {
     return sc;
   }
 
+  /**
+   * Close a scope instance and release its services/parameters. Always
+   * called when the unit of work that opened the scope finishes (request
+   * end, WS close).
+   *
+   * @param scope - the scope instance returned by {@link enterScope}
+   */
   public leaveScope(scope: IScope): void {
     if (this.scopes[scope.name]) {
       const sc = this.scopes[scope.name][scope.id];
@@ -208,6 +293,13 @@ class Container implements IContainer {
     }
   }
 
+  /**
+   * Close every open instance of the named scope and forget it. After this
+   * call, {@link enterScope}(`name`) will throw until {@link addScope} is
+   * called again.
+   *
+   * @param name - scope identifier
+   */
   public removeScope(name: string): void {
     const scopesForName = this.scopes[name];
     if (scopesForName) {
@@ -227,6 +319,17 @@ class Container implements IContainer {
 
   // --- Paramètres ---
 
+  /**
+   * Set a value in the parameter tree using a dotted path. Intermediate
+   * objects are created on demand (`a.b.c = 1` creates `a` and `b` if they
+   * are missing).
+   *
+   * @param name - dotted path (e.g. `"kernel.environment"`)
+   * @param ele - value to assign (must not be `undefined`)
+   * @returns the parameter subtree containing the assigned value, or `null`
+   * if the container has been cleaned
+   * @throws Error when `name` is not a string or `ele` is `undefined`
+   */
   public setParameters<T>(name: string, ele: T): DynamicParam | null {
     if (typeof name !== "string") {
       throw new Error(
@@ -242,6 +345,13 @@ class Container implements IContainer {
     return parseParameterString.call(this.parameters, name, ele);
   }
 
+  /**
+   * Read a value (or subtree) from the parameter tree.
+   *
+   * @param name - dotted path (e.g. `"kernel.environment"`)
+   * @returns the value, the subtree, or `null` if absent
+   * @throws Error when `name` is empty
+   */
   public getParameters(name: string): DynamicParam | null {
     if (!name) {
       throw new Error(`getParameters : invalid name "${name}"`);
@@ -252,12 +362,23 @@ class Container implements IContainer {
 
   // --- Cycle de vie ---
 
+  /**
+   * Tear the container down: close every scope, drop services and
+   * parameters. After `clean()`, any `get`/`set`/`enterScope` call on this
+   * instance throws or returns `null`. Called by the kernel during
+   * graceful shutdown.
+   */
   public clean(): void {
     this.removeAllScopes();
     this.services = null;
     this.parameters = null;
   }
 
+  /**
+   * Clean the container and rebuild fresh prototype chains, leaving it
+   * ready to register services again. Used by hot-reload paths in tests
+   * and dev mode; production code rarely calls this directly.
+   */
   public reset(): void {
     this.clean();
     this.protoService = function () {};
@@ -267,10 +388,13 @@ class Container implements IContainer {
   }
 }
 
-/*
+/**
+ * Short-lived child container tied to a parent {@link Container}. Used by
+ * the HTTP/WS kernel to isolate per-request services (e.g. request-bound
+ * sessions, scoped resolvers) without polluting the global container.
  *
- *  SCOPE CLASS
- *
+ * Services and parameters defined on a `Scope` shadow the parent's — reads
+ * fall back to the parent transparently when nothing is found locally.
  */
 class Scope extends Container implements IScope {
   public name: string;
@@ -289,6 +413,16 @@ class Scope extends Container implements IScope {
     this.parameters = Object.create(parentProtoParameters.prototype);
   }
 
+  /**
+   * Read a parameter from the scope, falling back to the parent container.
+   * When both sides hold plain objects, the result is a merged view (deep
+   * by default) so a scope can override a few keys without losing the rest.
+   *
+   * @param name - dotted path
+   * @param merge - when `true` (default), merge scope and parent objects;
+   * when `false`, scope value wins outright if present
+   * @param deep - deep vs. shallow merge (only when `merge` is `true`)
+   */
   public override getParameters(
     name: string,
     merge: boolean = true,
@@ -305,6 +439,11 @@ class Scope extends Container implements IScope {
     return obj ?? null;
   }
 
+  /**
+   * Break the parent link and clean the scope. Called by
+   * {@link Container.leaveScope} when the unit of work that owns the scope
+   * finishes.
+   */
   public override clean(): void {
     this.parent = null;
     return super.clean();

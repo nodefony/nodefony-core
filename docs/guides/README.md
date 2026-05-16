@@ -1,0 +1,24 @@
+---
+module: global
+topic: guides-index
+audience: [human]
+tags: [guides, index, howto]
+status: stable
+last-updated: 2026-05-17
+---
+
+# Guides — how-to
+
+Tutoriels pas-à-pas orientés utilisateur du framework (vs les pages `architecture/` qui décrivent *comment ça marche dedans*, et `packages/` qui décrivent l'API).
+
+## Pages (à venir)
+
+| Page                                | Sujet                                                  |
+| ----------------------------------- | ------------------------------------------------------ |
+| `writing-a-module.md`               | Créer un nouveau module Nodefony (structure, config, lifecycle) |
+| `routing.md`                        | Définir des routes avec `@controller` / `@route` / `@Get` / `@Post` |
+| `sessions.md`                       | Configurer et utiliser les sessions (File/Redis/SQL)   |
+| `decorators.md`                     | `@inject`, `@injectable`, `@Service`, `@Param`, `@Body`, `@Query` |
+| `websockets.md`                     | Endpoints WS, broadcast, protocoles, sessions WS       |
+| `error-handling.md`                 | `nodefonyError`, `HttpError`, error renderers, error logging |
+| `testing.md`                        | Tests unitaires + intégration, mocha + bun, mocks      |
