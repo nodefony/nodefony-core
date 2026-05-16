@@ -1324,7 +1324,7 @@ Le reste (circuit breaker, approval, conformité AI Act docs) peut être livré 
 | ------------------------------- | --------------------------------------------------------- | ------------------------------ | ------ |
 | `src/nodefony/rollup.config.ts` | `@ts-ignore` sur `rollup-sourcemap-path-transform`        | Créer `.d.ts` shim minimal     | ⬜     |
 | `IKernel.ts`                    | `cli: object \| null` → devrait être `ICliKernel \| null` | Session dédiée ICliKernel      | ✅     |
-| `IModule.ts`                    | `getController()` retourne `unknown` → `IController`      | Session dédiée après Phase 5.1 | ⬜     |
+| `IModule.ts`                    | `getController()` retourne `unknown` → `IController`      | P0.3 — `IControllerConstructor<T>` générique | ✅ (2026-05-16) |
 
 ---
 
