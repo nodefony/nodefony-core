@@ -51,6 +51,29 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 
+## PrettyRequestLogger — P3.2 (2026-05-16)
+
+- `PrettyRequestLogger implements IRequestLogger` (`service/pretty-request-logger.ts`)
+- Format 1 ligne human-friendly (dev) : `GET 200 /api/test 12.3ms 127.0.0.1 [a1b2c3d4]` (ANSI couleurs)
+- Status colorisé : 2xx vert, 3xx jaune, 4xx jaune-bold, 5xx rouge
+- requestId tronqué à 8 chars (premier bloc UUID, suffisant visuellement)
+- Duration formatée : `12.5ms` < 1s, `1.23s` >= 1s, `0.42ms` < 1ms
+- Activation : `httpKernel.setRequestLogger(new PrettyRequestLogger())`
+- WS : prefix `WS  ` + `[protocol]` si présent
+- Severity status-based (consomme `severityFromStatus` de P3.3)
+- Tests unit : `PrettyRequestLogger.test.ts` (11 tests)
+
+## JsonAuditLogger error enrichi — P3.5 (2026-05-16)
+
+Extension de l'`AuditErrorEntry` :
+- `{ name, message, code?, errorType?, stack?, cause? }` — récursif
+- **stack** conditionnel : par défaut activé si `NODE_ENV !== "production"`, override via `new JsonAuditLogger({ includeStack: true|false })`
+- **cause chain** : sérialise `error.cause` récursivement (Error{cause:Error{cause:...}}})
+- **`maxCauseDepth`** : default 5 — protège contre cycles + log oversize
+- **`errorType`** : pull depuis `nodefonyError.errorType` (Phase 1 domain classifier)
+- Cycles safe : `cause` cyclique = stop net à depth max, pas de crash
+- Tests : 6 nouveaux dans `AuditLogger.test.ts` (stack/no-stack, cause chain, depth cap, errorType, circular safe)
+
 ## JsonAuditLogger — P3.1 + P3.3 + P3.4 (2026-05-16)
 
 - `JsonAuditLogger implements IRequestLogger` (`service/audit-logger.ts`)
@@ -198,7 +221,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 436 intégration + 112 unit = 548 (2026-05-16)
+## Tests — 452 intégration + 128 unit = 580 (2026-05-16)
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
 

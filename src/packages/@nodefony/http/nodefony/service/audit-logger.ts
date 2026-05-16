@@ -42,9 +42,25 @@ export interface AuditLogEntry {
   hasAuthorization: boolean;
   hasCookie: boolean;
   phases?: { name: string; durationMs: number | null }[];
-  error?: { name: string; message: string; code?: number };
+  error?: AuditErrorEntry;
   // WS-specific
   protocol?: string | null;
+}
+
+/**
+ * Enriched error description for audit logs (P3.5).
+ * Includes optional cause chain (Error.cause) and stack (dev only).
+ */
+export interface AuditErrorEntry {
+  name: string;
+  message: string;
+  code?: number;
+  /** nodefonyError's domain classifier when available (P1.5 / Phase 1). */
+  errorType?: string;
+  /** Multi-line stack — dev/development only, omitted in prod for safety. */
+  stack?: string;
+  /** Recursive — capped to depth 5 to avoid pathological cycles. */
+  cause?: AuditErrorEntry;
 }
 
 /**
@@ -59,6 +75,20 @@ function severityFromStatus(status: number | null | undefined): Severity {
   return "INFO" as Severity;
 }
 
+export interface JsonAuditLoggerOptions {
+  /**
+   * Whether to include `error.stack` and recursive `error.cause.stack`.
+   * Default `process.env.NODE_ENV !== "production"` — auto-hidden in prod.
+   * Override explicitly for stricter security or to enable in staging.
+   */
+  includeStack?: boolean;
+  /**
+   * Max depth for `Error.cause` chain serialisation.
+   * Default `5`. Prevents pathological cycles and oversized log entries.
+   */
+  maxCauseDepth?: number;
+}
+
 /**
  * JSON audit logger — implements IRequestLogger so it slots into
  * `httpKernel.setRequestLogger(new JsonAuditLogger())`.
@@ -67,6 +97,15 @@ function severityFromStatus(status: number | null | undefined): Severity {
  * request — acceptable since this is the terminal log path (1 per req).
  */
 class JsonAuditLogger implements IRequestLogger {
+  private readonly includeStack: boolean;
+  private readonly maxCauseDepth: number;
+
+  constructor(opts: JsonAuditLoggerOptions = {}) {
+    this.includeStack =
+      opts.includeStack ?? process.env.NODE_ENV !== "production";
+    this.maxCauseDepth = opts.maxCauseDepth ?? 5;
+  }
+
   renderHttp(context: IHttpContext, error?: Error | null): IRequestLogEntry {
     const ctx = context as unknown as {
       url: string;
@@ -106,13 +145,7 @@ class JsonAuditLogger implements IRequestLogger {
             durationMs: p.durationMs ?? null,
           }))
         : undefined,
-      error: err
-        ? {
-            name: err.name,
-            message: err.message,
-            code: (err as { code?: number }).code,
-          }
-        : undefined,
+      error: err ? this.serializeError(err, 0) : undefined,
     };
     return {
       text: JSON.stringify(entry),
@@ -162,13 +195,7 @@ class JsonAuditLogger implements IRequestLogger {
           }))
         : undefined,
       protocol: acceptedProtocol ?? null,
-      error: error
-        ? {
-            name: error.name,
-            message: error.message,
-            code: (error as { code?: number }).code,
-          }
-        : undefined,
+      error: error ? this.serializeError(error, 0) : undefined,
     };
     return {
       text: JSON.stringify(entry),
@@ -186,6 +213,33 @@ class JsonAuditLogger implements IRequestLogger {
     const first = phases[0];
     if (typeof first.startMs !== "number") return null;
     return performance.now() - first.startMs;
+  }
+
+  /**
+   * Serialise an Error (recursively for `cause` chain) into an AuditErrorEntry.
+   * Stack is included only when `includeStack === true` (dev default).
+   * Cause chain is capped at `maxCauseDepth`.
+   */
+  private serializeError(err: unknown, depth: number): AuditErrorEntry {
+    const e = err as {
+      name?: string;
+      message?: string;
+      code?: number;
+      errorType?: string;
+      stack?: string;
+      cause?: unknown;
+    };
+    const entry: AuditErrorEntry = {
+      name: e.name ?? "Error",
+      message: e.message ?? String(err),
+    };
+    if (typeof e.code === "number") entry.code = e.code;
+    if (typeof e.errorType === "string") entry.errorType = e.errorType;
+    if (this.includeStack && typeof e.stack === "string") entry.stack = e.stack;
+    if (e.cause && depth + 1 < this.maxCauseDepth) {
+      entry.cause = this.serializeError(e.cause, depth + 1);
+    }
+    return entry;
   }
 }
 

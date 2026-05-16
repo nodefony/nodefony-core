@@ -20,6 +20,7 @@ import UploadService from "./nodefony/service/upload/upload-service";
 import DefaultErrorRenderer from "./nodefony/service/error-renderer";
 import DefaultRequestLogger from "./nodefony/service/request-logger";
 import JsonAuditLogger from "./nodefony/service/audit-logger";
+import PrettyRequestLogger from "./nodefony/service/pretty-request-logger";
 import HttpContext from "./nodefony/src/context/http/HttpContext";
 import WebsocketContext from "./nodefony/src/context/websocket/WebsocketContext";
 import HttpRequest from "./nodefony/src/context/http/Request";
@@ -90,6 +91,7 @@ export {
   DefaultErrorRenderer,
   DefaultRequestLogger,
   JsonAuditLogger,
+  PrettyRequestLogger,
 };
 
 // Public interfaces — consommables par les autres modules
@@ -138,7 +140,11 @@ export type {
   IRequestLogger,
   IRequestLogEntry,
 } from "./nodefony/interfaces/IRequestLogger";
-export type { AuditLogEntry } from "./nodefony/service/audit-logger";
+export type {
+  AuditLogEntry,
+  AuditErrorEntry,
+  JsonAuditLoggerOptions,
+} from "./nodefony/service/audit-logger";
 
 // Types internes réexportés pour les modules dépendants (framework, security)
 export type {

@@ -134,4 +134,61 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
       expect(e.severity).to.equal("ERROR");
     });
   });
+
+  describe("P3.5 — enriched error (cause chain + stack)", () => {
+    it("includes stack by default in non-prod", () => {
+      const devLogger = new JsonAuditLogger({ includeStack: true });
+      const err = new Error("with-stack");
+      const e = devLogger.renderHttp(fakeHttpContext({ status: 500 }) as never, err);
+      const j = JSON.parse(e.text);
+      expect(j.error.stack).to.be.a("string").with.length.greaterThan(0);
+    });
+
+    it("omits stack when includeStack: false", () => {
+      const prodLogger = new JsonAuditLogger({ includeStack: false });
+      const err = new Error("no-stack");
+      const e = prodLogger.renderHttp(fakeHttpContext({ status: 500 }) as never, err);
+      const j = JSON.parse(e.text);
+      expect(j.error.stack).to.equal(undefined);
+    });
+
+    it("serialises cause chain recursively", () => {
+      const root = new Error("root cause");
+      const middle = new Error("middle", { cause: root });
+      const top = new Error("top", { cause: middle });
+      const e = logger.renderHttp(fakeHttpContext({ status: 500 }) as never, top);
+      const j = JSON.parse(e.text);
+      expect(j.error.message).to.equal("top");
+      expect(j.error.cause.message).to.equal("middle");
+      expect(j.error.cause.cause.message).to.equal("root cause");
+    });
+
+    it("caps cause chain at maxCauseDepth", () => {
+      const l = new JsonAuditLogger({ maxCauseDepth: 2, includeStack: false });
+      const a = new Error("a");
+      const b = new Error("b", { cause: a });
+      const c = new Error("c", { cause: b });
+      const e = l.renderHttp(fakeHttpContext({ status: 500 }) as never, c);
+      const j = JSON.parse(e.text);
+      expect(j.error.message).to.equal("c");
+      expect(j.error.cause.message).to.equal("b");
+      // depth 2 reached — `a` must be omitted
+      expect(j.error.cause.cause).to.equal(undefined);
+    });
+
+    it("includes errorType when nodefonyError-like field is present", () => {
+      const err = Object.assign(new Error("typed"), { errorType: "SecurityError" });
+      const e = logger.renderHttp(fakeHttpContext({ status: 403 }) as never, err);
+      const j = JSON.parse(e.text);
+      expect(j.error.errorType).to.equal("SecurityError");
+    });
+
+    it("does not crash on circular cause (depth cap protects)", () => {
+      const a = new Error("circ-a");
+      const b = new Error("circ-b");
+      (a as { cause?: unknown }).cause = b;
+      (b as { cause?: unknown }).cause = a;
+      expect(() => logger.renderHttp(fakeHttpContext({ status: 500 }) as never, a)).to.not.throw();
+    });
+  });
 });

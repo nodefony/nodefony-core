@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-16T19:49:24.138Z",
+  "generated": "2026-05-16T19:59:58.124Z",
   "version": "1.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 186,
-    "symbols": 445,
-    "classes": 152,
-    "interfaces": 147,
+    "files": 187,
+    "symbols": 452,
+    "classes": 153,
+    "interfaces": 149,
     "types": 115,
     "enums": 1,
-    "functions": 25,
+    "functions": 29,
     "constants": 5
   },
   "symbols": [
@@ -1903,6 +1903,22 @@
       "extends": null
     },
     {
+      "name": "AuditErrorEntry",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "JsonAuditLoggerOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
       "name": "severityFromStatus",
       "kind": "function",
       "file": "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
@@ -2033,6 +2049,18 @@
       "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
       "exported": true,
       "module": "@nodefony/http"
+    },
+    {
+      "name": "PrettyRequestLogger",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [
+        "IRequestLogger"
+      ],
+      "decorators": []
     },
     {
       "name": "DefaultRequestLogger",
@@ -3613,6 +3641,7 @@
       "src/nodefony/src/service/rollup/rollupService.ts",
       "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
       "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
+      "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
       "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
       "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
       "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
@@ -3987,6 +4016,9 @@
       "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
     ],
     "JsonAuditLogger": [
+      "src/packages/@nodefony/http/index.ts"
+    ],
+    "PrettyRequestLogger": [
       "src/packages/@nodefony/http/index.ts"
     ],
     "HttpContext": [
@@ -4508,6 +4540,7 @@
       "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
       "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
       "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
       "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
       "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
     ],
@@ -4516,6 +4549,7 @@
       "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
       "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
       "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
       "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
       "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
     ],
@@ -4535,14 +4569,17 @@
     "IRequestLogger": [
       "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
       "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
       "src/packages/@nodefony/http/nodefony/service/request-logger.ts"
     ],
     "IRequestLogEntry": [
       "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
+      "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
       "src/packages/@nodefony/http/nodefony/service/request-logger.ts"
     ],
     "PhaseTiming": [
       "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
+      "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
       "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
     ],
     "IErrorRenderer": [
@@ -4560,6 +4597,9 @@
     ],
     "IHttpKernel": [
       "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+    ],
+    "severityFromStatus": [
+      "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts"
     ],
     "ILLMProvider": [
       "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",
