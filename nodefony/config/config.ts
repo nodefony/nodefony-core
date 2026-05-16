@@ -1,24 +1,32 @@
 /**
- *  NODEFONY FRAMEWORK
+ * NODEFONY FRAMEWORK — Configuration KERNEL de l'application.
  *
- *       KERNEL CONFIG
+ * Ce fichier est la source de vérité pour TOUTE l'application Nodefony :
+ *   - listen domain + alias (un seul domaine — pas de vhost)
+ *   - ports HTTP / HTTPS / WS / WSS
+ *   - config syslog (active, debug, format des logs par requête)
+ *   - templating engine, ORM par défaut, package manager
+ *   - surcharges des modules (`module-http`, `module-sequelize`, etc.)
  *
- *   Domain listen : Nodefony can listen only one domain ( no vhost )
- *     Example :
- *      domain :  0.0.0.0      // for all interfaces
- *      domain :  [::1]        // for IPV6 only
- *      domain :  192.168.1.1  // IPV4
- *      domain :  mydomain.com // DNS
+ * SURCHARGE PAR ENVIRONNEMENT :
+ *   Les valeurs ci-dessous sont des DEFAULTS. Pour différencier
+ *   `development` / `production` / autres, utiliser :
+ *     switch (kernel?.environment) { ... }
+ *   ou créer des fichiers `config.production.ts` / `config.development.ts`
+ *   à côté de celui-ci (chargés automatiquement par le Kernel).
  *
- *   Domain Alias : string only "<<regexp>>" use domainCheck : true
- *     Example :
- *      domainAlias:[
- *        "^127.0.0.1$",
- *        "^localhost$",
- *        ".*\\.nodefony\\.com",
- *        "^nodefony\\.eu$",
- *        "^.*\\.nodefony\\.eu$"
- *      ]
+ * EXEMPLE DOMAIN :
+ *   "0.0.0.0"      → toutes interfaces réseau (production cluster)
+ *   "[::1]"        → IPv6 only
+ *   "192.168.1.1"  → IP fixe spécifique
+ *   "mydomain.com" → résolution DNS
+ *
+ * EXEMPLE DOMAIN ALIAS (nécessite `domainCheck: true`) :
+ *   domainAlias: [
+ *     "^127.0.0.1$",
+ *     "^localhost$",
+ *     ".*\\.nodefony\\.com",
+ *   ]
  */
 //import path from "node:path";
 import { Nodefony } from "nodefony";
@@ -29,7 +37,6 @@ import mongoose from "./modules/mongoose-config";
 import pm2 from "./pm2/pm2.config";
 import security from "./modules/security-config";
 
-let CDN = null;
 let statics = true;
 //let monitoring = true;
 //let documentation = true;
@@ -40,7 +47,8 @@ switch (kernel?.environment) {
   case "production":
   case "development":
   default:
-    CDN = null;
+    // Note : `CDN = null;` retiré 2026-05-17 — variable globale jamais
+    // déclarée (ReferenceError au boot). Legacy mort du chantier `chore(dev): clean`.
     statics = true;
     //documentation = true;
     //monitoring = true;
@@ -50,19 +58,65 @@ switch (kernel?.environment) {
 //console.log(sequelize.connectors.nodefony.options);
 
 const config = {
+  /**
+   * Recharge automatique des fichiers sources en mode dev (watch Rollup).
+   * Recommandation prod : `false` pour éviter l'overhead Rollup en runtime.
+   */
   watch: true,
-  domain: "127.0.0.1", // "0.0.0.0" "selectAuto"
+
+  /**
+   * Domaine d'écoute du serveur. Nodefony écoute UN SEUL domaine (pas de vhost).
+   * Voir le header de ce fichier pour les valeurs possibles.
+   * Recommandation prod : "0.0.0.0" (toutes interfaces) ou IP fixe.
+   */
+  domain: "127.0.0.1",
   //domain: "selectAuto",
+
+  /**
+   * Liste des alias de domaines acceptés (regexps stringifiées).
+   * Activé uniquement si `domainCheck: true`.
+   * Recommandation prod : restreindre strictement aux domaines servis.
+   */
   domainAlias: ["^localhost$"],
+
+  /**
+   * Active la vérification du domaine entrant contre `domain` + `domainAlias`.
+   * Toute requête avec un Host inconnu → 404 / rejet.
+   * Recommandation prod : `true` (protection Host header injection).
+   */
   domainCheck,
+
+  /**
+   * Locale par défaut de l'application (fallback pour translation, dates, etc.).
+   * Override par requête via headers Accept-Language.
+   */
   locale: "en_en",
+
+  /**
+   * Configuration PM2 (production process manager).
+   * Voir `./pm2/pm2.config.ts` pour la liste des options.
+   */
   pm2,
+
+  /**
+   * Métadonnées de l'application — affichées dans les CLI et logs d'init.
+   * Modifier pour personnaliser ton fork du framework.
+   */
   App: {
     projectYear: "2024",
     locale: "en_en",
     authorName: "Camensuli Christophe",
     authorMail: "ccamensuli@gmail.com",
   },
+
+  /**
+   * SERVEURS HTTP/HTTPS/WS/WSS.
+   * - `statics` : active server-static (assets, files, etc.)
+   * - `http.port` : port HTTP plain
+   * - `https.port` + `protocol` : "2.0" (HTTP/2 + ALPN HTTP/1.1) ou "1.1"
+   * - `ws` / `wss` : héritent automatiquement du HTTP/HTTPS associé
+   * Recommandation prod : ports 80/443 derrière un reverse proxy (nginx, ingress).
+   */
   servers: {
     statics,
     http: {
@@ -70,99 +124,98 @@ const config = {
     },
     https: {
       port: 5152,
-      protocol: "2.0", //  2.0 || 1.1
+      protocol: "2.0", // "2.0" (HTTP/2 + fallback 1.1) ou "1.1" strict
     },
     ws: {},
     wss: {},
   },
 
   /**
-   * SERVERS
-   */
-  // servers: {
-  //   statics,
-  //   protocol: "2.0",
-  //   http: true,
-  //   https: true,
-  //   ws: true,
-  //   wss: true,
-  //   certificats,
-  // },
-
-  /**
-   * DEV SERVER
+   * SERVEUR DE DÉVELOPPEMENT (Webpack/Vite legacy — sera remplacé Phase 14).
+   * - `hot` : Hot Module Replacement (true | "only" | false)
+   * - `overlay` : afficher les erreurs build en overlay browser
+   * - `logging` : verbosité du dev server ("none" | "error" | "warning" | "info")
+   * Recommandation prod : ignoré (devServer non utilisé en prod).
    */
   devServer: {
-    hot: false, // true  || only || false
+    hot: false,
     overlay: true,
-    logging: "info", // none, error, warning or info
+    logging: "info",
     progress: false,
     protocol: "https",
     websocket: true,
   },
 
   /**
-   * SYSLOG NODEFONY
+   * SYSLOG NODEFONY — config du logger central.
+   *
+   * - `active` : master switch. `false` = aucun log (test silencieux).
+   * - `debug`  : filtre des sources DEBUG.
+   *     "*"  → tous les logs DEBUG
+   *     []   → aucun DEBUG (seulement INFO/WARNING/ERROR/CRITIC)
+   *     ["router", "sequelize"] → seulement ces sources en DEBUG
+   * - `requestFormat` : format de log émis par HttpKernel pour CHAQUE requête
+   *   HTTP/WS finie. Lu par HttpKernel.initialize() au boot, swap automatique :
+   *     "auto"    : sélection auto selon l'environnement (DEFAULT recommandé)
+   *                 → dev/development = "pretty", production = "json", autre = "default"
+   *     "default" : verbeux multi-info legacy (cli-color, plusieurs champs)
+   *     "pretty"  : 1 ligne courte colorée — recommandé DEV (P3.2)
+   *                 → "INFO req : GET 200 /url 12ms 127.0.0.1 [a1b2c3d4]"
+   *     "json"    : 1 PDU JSON canonique — recommandé PROD (P3.1 + P3.4 redaction)
+   *                 → '{"ts":...,"requestId":...,"userId":...,"status":...}'
+   *
+   * Pour forcer un format peu importe l'env, mettre la valeur explicite
+   * ("default" | "pretty" | "json"). Sinon laisser "auto".
+   *
+   * Override programmatique possible (custom logger, RFC 7807, NCSA, etc.) :
+   *   httpKernel.setRequestLogger(new MyLogger())
    */
   log: {
     active: true,
-    debug: "*", // ["router","sequelize", "sessions"]
+    debug: "*",
+    requestFormat: "auto" as "auto" | "default" | "pretty" | "json",
   },
 
   /**
-   *       ASSETS CDN
-   *
-   *       You set cdn with string
-   *       CDN :    "cdn.nodefony.com",
-   *       or
-   *       CDN:
-   *          global: "cdn.nodefony.com",
-   *       or
-   *       CDN:{
-   *         stylesheet:[
-   *           "cdn.nodefony.com"
-   *         ],
-   *         javascript:[
-   *           "cdn.nodefony.com"
-   *         ],
-   *         image:[
-   *           "cdn.nodefony.com",
-   *           "cdn.nodefony.fr"
-   *         ],
-   *         font:[
-   *           "cdn.nodefony.com"
-   *         ]
-   *      },
-   */
-  CDN,
-
-  /**
-   *  ENGINE TEMPLATE
-   *
-   *       TWIG
-   *       https://github.com/justjohn/twig.js
-   *
+   * MOTEUR DE TEMPLATES utilisé par les vues controllers (render()).
+   *   "twig" → https://github.com/justjohn/twig.js
+   *   futur  → "ejs", "handlebars", "vue3-sfc" (Phase 14 frontend)
+   * Recommandation : laisser "twig" tant que pas migré vers @nodefony/frontend.
    */
   templating: "twig",
 
   /**
-   * ENGINE ORM
-   *       sequelize || mongoose
-   *   orm : mongoose
+   * ORM PAR DÉFAUT — utilisé par les commandes CLI (orm:migrate, etc.)
+   * et par les modules qui n'en déclarent pas un explicitement.
+   *   "sequelize" → SQL legacy (maintenance-only, voir migration P7.1)
+   *   "mongoose"  → NoSQL standard (P7.2)
+   *   futur :
+   *     "drizzle"  → SQL moderne TS-first (choix #1 2026 — P7.4)
+   *     "mikroorm" → Data Mapper SQL (apps complexes — P7.8)
+   * Recommandation prod : "drizzle" dès que P7.4 stable.
    */
   orm: "sequelize",
 
   /**
-   * NODE.JS PACKAGE MANAGER
-   *
-   *       npm
-   *       yarn
-   *       pnpm
+   * GESTIONNAIRE DE PAQUETS Node.js — utilisé par les commandes CLI
+   * (install, outdated, build, etc.).
+   *   "npm"  → standard
+   *   "yarn" → workspaces
+   *   "pnpm" → store partagé, plus rapide en monorepo
+   *   "bun"  → ultra-rapide, supporté pour @nodefony/llm/test
+   * Recommandation : "npm" (le plus stable cross-platform).
    */
   packageManager: "npm",
 
   /*
-   *   OVERRIDE modules config
+   *   OVERRIDES MODULES — surcharge des configs DEFAULT de chaque module.
+   *   Les fichiers `./modules/<module>-config.ts` portent les valeurs
+   *   spécifiques à cette app. La fusion est récursive (deep merge).
+   *
+   *   Pour surcharger une option d'un module :
+   *     1. Modifier directement `./modules/<module>-config.ts`
+   *     2. OU étendre ici en spread :
+   *        "module-http": { ...http, formidable: { uploadDir: "/var/upload" } }
    */
   "module-http": http,
   "module-sequelize": sequelize,

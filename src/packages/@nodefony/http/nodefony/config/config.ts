@@ -487,3 +487,10 @@ export default {
    */
   requestClient: null,
 };
+
+/**
+ * NB : Le format de log par requête (`pretty`/`json`/`default`) se configure
+ * au niveau KERNEL (`nodefony/config/config.ts` → `log.requestFormat`), pas
+ * ici. La décision appartient à syslog (transport partagé), pas au module
+ * HTTP — voir `HttpKernel.applyRequestLoggerFromConfig()`.
+ */

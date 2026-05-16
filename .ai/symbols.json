@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-16T19:59:58.124Z",
+  "generated": "2026-05-16T23:25:39.957Z",
   "version": "1.0.0",
   "repoRoot": ".",
   "stats": {
@@ -4016,10 +4016,12 @@
       "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
     ],
     "JsonAuditLogger": [
-      "src/packages/@nodefony/http/index.ts"
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
     ],
     "PrettyRequestLogger": [
-      "src/packages/@nodefony/http/index.ts"
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
     ],
     "HttpContext": [
       "src/packages/@nodefony/http/index.ts",

@@ -39,6 +39,8 @@ import DefaultErrorRenderer from "./error-renderer";
 import type { IErrorRenderer } from "../interfaces/IErrorRenderer";
 import DefaultRequestLogger from "./request-logger";
 import type { IRequestLogger } from "../interfaces/IRequestLogger";
+import PrettyRequestLogger from "./pretty-request-logger";
+import JsonAuditLogger from "./audit-logger";
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -145,6 +147,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   async initialize(): Promise<this> {
+    // Apply config-driven request logger (P3.x). Done synchronously here so
+    // logger is set before the first request — env override stays simple.
+    this.applyRequestLoggerFromConfig();
     this.kernel?.prependOnceListener("onReady", () => {
       this.serviceCerticats = this.get("certificates");
       this.serverStatic = this.get("server-static");
@@ -159,6 +164,51 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.firewall = this.get<Firewall>("firewall");
     });
     return this;
+  }
+
+  /**
+   * Reads the **kernel-level** syslog config (`kernel.options.log`) and swaps
+   * the request logger accordingly. The decision belongs to syslog (not to
+   * the http module) because EVERY request log flows through syslog, and
+   * the format choice is an operator concern shared across all transports.
+   *
+   * Config lue : `kernel.options.log.requestFormat`
+   *   "auto"    → dev=pretty, production=json, autre=default (DEFAULT)
+   *   "default" → DefaultRequestLogger (legacy verbeux)
+   *   "pretty"  → PrettyRequestLogger (1 ligne colorée, P3.2)
+   *   "json"    → JsonAuditLogger (PDU canonique, P3.1)
+   *
+   * Programmatic override via `setRequestLogger(custom)` reste possible et
+   * gagne toujours sur la config (idempotent — last setter wins).
+   */
+  private applyRequestLoggerFromConfig(): void {
+    const kernelLog = (this.kernel?.options?.log ?? {}) as {
+      requestFormat?: "auto" | "default" | "pretty" | "json";
+      requestLogger?: {
+        includeStack?: boolean | null;
+        maxCauseDepth?: number;
+      };
+    };
+    let format = kernelLog.requestFormat ?? "auto";
+    // Resolve "auto" lazily at boot — by now kernel.environment is set.
+    if (format === "auto") {
+      const env = this.kernel?.environment;
+      format = env === "production" ? "json" : env === "development" ? "pretty" : "default";
+    }
+    if (format === "pretty") {
+      this.requestLogger = new PrettyRequestLogger();
+    } else if (format === "json") {
+      const advanced = kernelLog.requestLogger ?? {};
+      const opts: { includeStack?: boolean; maxCauseDepth?: number } = {};
+      if (advanced.includeStack !== null && advanced.includeStack !== undefined) {
+        opts.includeStack = advanced.includeStack;
+      }
+      if (typeof advanced.maxCauseDepth === "number") {
+        opts.maxCauseDepth = advanced.maxCauseDepth;
+      }
+      this.requestLogger = new JsonAuditLogger(opts);
+    }
+    // "default" → keep DefaultRequestLogger already set as field default.
   }
 
   async handle(
