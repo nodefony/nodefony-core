@@ -7,9 +7,22 @@ import {
   injectable,
 } from "nodefony";
 import Route, { RouteOptions } from "../src/Route";
-import { ContextType } from "@nodefony/http";
+import { ContextType, HttpError } from "@nodefony/http";
 import Resolver from "../src/Resolver";
 import Controller from "../src/Controller";
+
+type RouteRequirementMethods = string | string[] | undefined;
+
+function collectSupportedMethods(route: Route): Set<string> {
+  const set = new Set<string>();
+  const m = route.requirements?.methods as RouteRequirementMethods;
+  if (typeof m === "string") {
+    m.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).forEach((x) => set.add(x));
+  } else if (Array.isArray(m)) {
+    m.map((s) => String(s).toUpperCase()).forEach((x) => set.add(x));
+  }
+  return set;
+}
 export type TypeController<T> = new (...args: any[]) => T;
 
 const routes: Route[] = [];
@@ -35,6 +48,7 @@ class Router extends Service {
 
   resolve(context: ContextType): Resolver {
     const resolver = new Resolver(context);
+    // Pass 1 : match path + method
     for (let i = 0; i < routes.length; i++) {
       try {
         if (resolver.match(routes[i], context)) {
@@ -46,6 +60,31 @@ class Router extends Service {
         this.log(`Match route exception : ${routes[i].name} ${e}`, "DEBUG");
         resolver.exception = e as Error;
         continue;
+      }
+    }
+    // Pass 2 : if no method-match but path matches another route → RFC 9110 §15.5.6 (405 + Allow)
+    // RFC 9110 §15.5.6 is an HTTP rule — does NOT apply to WebSocket. For WS, preserve the
+    // original exception (typically 1002 Protocol Error from Route.matchRequirements).
+    if (
+      context.method !== "WEBSOCKET" &&
+      context.request?.url &&
+      (!resolver.exception || resolver.exception.code !== 405)
+    ) {
+      const path = ((context.request.url as URL).pathname || "").replace(/\/+$/, "") || "/";
+      const allowed = new Set<string>();
+      for (const route of routes) {
+        if (route.pattern && route.pattern.test(path)) {
+          const m = collectSupportedMethods(route);
+          m.forEach((x) => allowed.add(x));
+        }
+      }
+      if (allowed.size > 0) {
+        const allowHeader = Array.from(allowed).join(", ");
+        const err = new HttpError(`Method ${context.method} Not Allowed`, 405, context);
+        (err as any).allow = allowHeader;
+        (err as any).type = "method";
+        context.response?.setHeaders({ Allow: allowHeader });
+        throw err;
       }
     }
     if (resolver.exception) {
