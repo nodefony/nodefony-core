@@ -1,0 +1,27 @@
+#!/usr/bin/env sh
+
+# Régénère .ai/symbols.json si des .ts ont été modifiés dans la zone parsée
+# (src/nodefony/, src/packages/@nodefony/*, src/modules/*).
+# Skip les fichiers de tests et déclarations.
+
+staged_ts=$(git diff --cached --name-only --diff-filter=ACMR | \
+  grep -E '^(src/nodefony/|src/packages/@nodefony/|src/modules/).*\.ts$' | \
+  grep -vE '\.(test|spec)\.ts$' | \
+  grep -vE '\.d\.ts$' || true)
+
+if [ -z "$staged_ts" ]; then
+  exit 0
+fi
+
+echo "🔄 .ts modifiés dans la zone parsée → régénération .ai/symbols.json..."
+
+if ! npm run generate-symbols --silent; then
+  echo "❌ generate-symbols a échoué — commit annulé"
+  exit 1
+fi
+
+# Si le JSON a changé, le stager dans le commit en cours
+if ! git diff --quiet .ai/symbols.json 2>/dev/null; then
+  git add .ai/symbols.json
+  echo "✅ .ai/symbols.json mis à jour et stagé"
+fi
