@@ -194,7 +194,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       let controller: Controller;
       let resolver: Resolver | undefined = undefined;
       try {
-        resolver = this.router.resolve(context);
+        context.phaseStart("resolve");
+        try {
+          resolver = this.router.resolve(context);
+        } finally {
+          context.phaseEnd("resolve");
+        }
         if (resolver.resolve && !resolver.exception) {
           context.resolver = resolver;
           controller = await resolver.newController(context);
@@ -509,15 +514,25 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         await this.fireAsync("onCreateContext", context).catch((e) => {
           throw e;
         });
-        await context.request.initialize();
+        context.phaseStart("parse");
+        try {
+          await context.request.initialize();
+        } finally {
+          context.phaseEnd("parse");
+        }
         const ctx = await this.onRequestEnd(context).catch((e) => {
           throw e;
         });
         if (ctx instanceof Context) {
-          const result = await ctx.handle().catch((e) => {
-            throw e;
-          });
-          return resolve(result);
+          ctx.phaseStart("action");
+          try {
+            const result = await ctx.handle().catch((e) => {
+              throw e;
+            });
+            return resolve(result);
+          } finally {
+            ctx.phaseEnd("action");
+          }
         }
         return resolve(context);
       } catch (e) {
@@ -558,9 +573,14 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         }
         // FIREWALL
         if (context.secure || context.isControlledAccess) {
-          await this.firewall?.handleSecurity(context).catch((e) => {
-            throw e;
-          });
+          context.phaseStart("firewall");
+          try {
+            await this.firewall?.handleSecurity(context).catch((e) => {
+              throw e;
+            });
+          } finally {
+            context.phaseEnd("firewall");
+          }
           // CSRF TOKEN
           // if (context.csrf) {
           //   const token = await this.csrfService.handle(context);
@@ -653,7 +673,20 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       await this.onConnect(context as WebsocketContext, error);
       // FIREWALL
       if (this.firewall && (context?.secure || context?.isControlledAccess)) {
-        await this.firewall.handleSecurity(context);
+        context.phaseStart("firewall");
+        try {
+          await this.firewall.handleSecurity(context);
+        } finally {
+          context.phaseEnd("firewall");
+        }
+      }
+      if (context) {
+        context.phaseStart("action");
+        try {
+          return await context.handle();
+        } finally {
+          context.phaseEnd("action");
+        }
       }
       return await context?.handle();
     } catch (e) {

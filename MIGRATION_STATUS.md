@@ -54,9 +54,9 @@
 
 | #     | Tâche                                                                      | Phase    | Effort | Dépendances | Notes                                                                                       |
 | ----- | -------------------------------------------------------------------------- | -------- | ------ | ----------- | ------------------------------------------------------------------------------------------- |
-| P0.1  | Fix **11 fails** `http-rfc-errors.test.ts`                                  | 9.1 #6   | 1 ses. | —           | status-message vide, X-Request-Id non echoé sur erreur, 405 Allow, JSON shape — point d'entrée |
-| P0.2  | Fix **2 fails WS binary séquentiels**                                       | —        | 1 ses. | —           | Timeout `context.send(buf, "binary")` en boucle → investiguer `http-kernel.ts` / `WebsocketContext` |
-| P0.3  | `IModule.getController()` → `IController` (au lieu de `unknown`)            | Blocker  | 0.5 ses. | Phase 5.1 ✅ | Blocker listé — type correct maintenant que Controller est migré                            |
+| ✅ P0.1 | Fix **11 fails** `http-rfc-errors.test.ts`                                  | 9.1 #6   | 1 ses. | —           | Résolu (commit d0f8ecf) — RFC 9110 §15.5.6 ne s'applique pas WS. Tests 370/0 (2026-05-16)   |
+| ✅ P0.2 | Fix **2 fails WS binary séquentiels**                                       | —        | 1 ses. | —           | Résolu — tests WS binary verts. Vérifié 2026-05-16 (370 passing)                            |
+| ✅ P0.3 | `IModule.getController()` → `IController` (au lieu de `unknown`)            | Blocker  | 0.5 ses. | Phase 5.1 ✅ | Résolu (commits f2208d2 + 83049fc) — `IControllerConstructor<T>` générique                   |
 
 ### P1 — Fondations symbiose (refactors techniques 9.5)
 
@@ -64,7 +64,7 @@
 
 | #     | Tâche                                                                                 | Phase     | Effort | Dépendances | Notes                                                                                          |
 | ----- | ------------------------------------------------------------------------------------- | --------- | ------ | ----------- | ---------------------------------------------------------------------------------------------- |
-| P1.1  | `Context.lifecycle` — exposer `phases: PhaseTiming[]` rempli par HttpKernel             | 9.5 #1    | 1 ses. | P0.1        | Pose les bases de l'observabilité phase-par-phase (axes 9.2.9, 9.3.25)                         |
+| ✅ P1.1 | `Context.lifecycle` — exposer `phases: PhaseTiming[]` rempli par HttpKernel             | 9.5 #1    | 1 ses. | P0.1        | ✅ 2026-05-16 — `Context.phases` + `phaseStart/phaseEnd` ; HttpKernel instrumente parse/resolve/firewall/action ; 7 tests verts (377/0) |
 | P1.2  | `Context.onAfterResponse(fn)` + listener `response.on("finish"\|"close")`               | 9.5 #3    | 1 ses. | P0.1        | Débloque audit log (9.2.19), tear-down (9.2.11), metrics post-réponse                          |
 | P1.3  | `context.signal: AbortSignal` (`request.on("aborted")`)                                 | 9.5 #4    | 1 ses. | —           | Aborted requests (9.2.12), request timeout (9.2.18)                                            |
 | P1.4  | `RequestContext` — `AsyncLocalStorage` `requestId` (+ userId futur)                     | 9.5 #5    | 2 ses. | P1.2        | **Bloc gros** : propagation downstream → débloque logs lisibles + injection scoped security    |
@@ -1428,13 +1428,13 @@ Le reste (circuit breaker, approval, conformité AI Act docs) peut être livré 
 
 **Prochaines étapes** : voir la [Roadmap priorisée](#-roadmap-priorisée-dette-technique-dabord) en début de fichier.
 
-**Démarrer ici (P0 — bugs bloquants, ~2.5 sessions)** :
+**P0 — terminé (2026-05-16)** :
 
-1. **P0.1** — Fix les **11 fails** dans `@nodefony/http/tests/integration/http-rfc-errors.test.ts` (status-message ASCII, X-Request-Id sur 4xx/5xx, 405 Allow header, JSON shape erreur). 1 session.
-2. **P0.2** — Fix les 2 tests binary séquentiels WS — timeout `context.send(buf, "binary")` en boucle (`http-kernel.ts` ou `WebsocketContext`). 1 session.
-3. **P0.3** — `IModule.getController()` retour `IController` (blocker listé). 0.5 session.
+1. ✅ **P0.1** — RFC 9110 §15.5.6 ne s'applique pas aux WebSockets (commit d0f8ecf). Tests 370/0.
+2. ✅ **P0.2** — WS binary séquentiels verts (vérifié 2026-05-16, 370 passing).
+3. ✅ **P0.3** — `IControllerConstructor<T>` générique (commits f2208d2 + 83049fc).
 
-**Ensuite (P1 — fondations symbiose, ~7.5 sessions)** : refactors techniques 9.5 dans cet ordre : `Context.lifecycle` (P1.1) → `onAfterResponse` (P1.2) → `AbortSignal` (P1.3) → `AsyncLocalStorage requestId` (P1.4) → `errorRenderer` (P1.5) → `logRequest` pluggable (P1.6) → hooks security (P1.7).
+**Démarrer ici (P1 — fondations symbiose, ~7.5 sessions)** : refactors techniques 9.5 dans cet ordre : `Context.lifecycle` (P1.1) → `onAfterResponse` (P1.2) → `AbortSignal` (P1.3) → `AsyncLocalStorage requestId` (P1.4) → `errorRenderer` (P1.5) → `logRequest` pluggable (P1.6) → hooks security (P1.7).
 
 **NE PAS** démarrer Phase 6 (Security) avant que P1.7 soit ✅ — référence JS `/Users/cci/repository/nodefony/src/nodefony/bundles/security-bundle/` à consulter alors.
 

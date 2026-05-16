@@ -23,6 +23,23 @@ export type WebSocketStateType =
 
 export type CookiesMap = Record<string, ICookie>;
 
+export type PhaseName =
+  | "parse"
+  | "resolve"
+  | "firewall"
+  | "initialize"
+  | "action"
+  | "render"
+  | "send"
+  | (string & {});
+
+export interface PhaseTiming {
+  name: PhaseName;
+  startMs: number;
+  endMs?: number;
+  durationMs?: number;
+}
+
 export interface IContext {
   // Identity
   requestId: string;
@@ -61,6 +78,11 @@ export interface IContext {
 
   // Metadata — typed as object (implementation uses Data from http-kernel)
   metaData: object;
+
+  // Lifecycle timing — pipeline phases (filled by HttpKernel)
+  readonly phases: PhaseTiming[];
+  phaseStart(name: PhaseName): void;
+  phaseEnd(name: PhaseName): void;
 
   // Methods — Cookies
   addRequestCookie(cookie: ICookie): ICookie;

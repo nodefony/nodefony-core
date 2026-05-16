@@ -16,7 +16,7 @@ class DefaultController extends Controller {
     return this;
   }
 
-  @route("index", { path: "/index" })
+  @route("index", { path: "/index", requirements: { methods: ["GET", "HEAD"] } })
   index() {
     return this.renderJson({});
   }
@@ -91,6 +91,21 @@ class DefaultController extends Controller {
       heapTotal: mem.heapTotal,
       heapUsed: mem.heapUsed,
       external: mem.external,
+    });
+  }
+
+  // "action" phase is still open here (controller runs inside it),
+  // so its endMs/durationMs may be null. Other phases are closed.
+  @route("timing", { path: "/timing" })
+  timing() {
+    const ctx = this.context as HttpContext;
+    return this.renderJson({
+      phases: ctx.phases.map((p) => ({
+        name: p.name,
+        startMs: p.startMs,
+        endMs: p.endMs ?? null,
+        durationMs: p.durationMs ?? null,
+      })),
     });
   }
 }

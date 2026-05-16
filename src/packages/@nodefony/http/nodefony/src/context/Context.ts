@@ -18,6 +18,7 @@ import http2 from "node:http2";
 import http from "node:http";
 import https from "node:https";
 import { randomUUID } from "node:crypto";
+import { performance } from "node:perf_hooks";
 import HttpKernel, {
   //ContextType,
   ServerType,
@@ -78,7 +79,11 @@ export type HTTPMethod =
 
 export type Cookies = Record<string, Cookie>;
 
-import type { IContext as IContextInterface } from "../../interfaces/IContext";
+import type {
+  IContext as IContextInterface,
+  PhaseTiming,
+  PhaseName,
+} from "../../interfaces/IContext";
 
 class Context extends Service implements IContextInterface {
   secure: boolean = false;
@@ -121,6 +126,8 @@ class Context extends Service implements IContextInterface {
   resolver: Resolver | null = null;
   sessionAutoStart: string | null = null;
   requestId: string = randomUUID();
+  readonly phases: PhaseTiming[] = [];
+  private _phaseIndex: Map<string, number> = new Map();
   metaData: Data = {
     nodefony: {},
     result: null,
@@ -191,6 +198,21 @@ class Context extends Service implements IContextInterface {
 
   setScheme(): SchemeType {
     return "https";
+  }
+
+  phaseStart(name: PhaseName): void {
+    const idx = this.phases.length;
+    this.phases.push({ name, startMs: performance.now() });
+    this._phaseIndex.set(name, idx);
+  }
+
+  phaseEnd(name: PhaseName): void {
+    const idx = this._phaseIndex.get(name);
+    if (idx === undefined) return;
+    const p = this.phases[idx];
+    if (p.endMs !== undefined) return;
+    p.endMs = performance.now();
+    p.durationMs = p.endMs - p.startMs;
   }
 
   override log(

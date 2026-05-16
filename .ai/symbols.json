@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-16T14:08:55.467Z",
+  "generated": "2026-05-16T14:34:14.512Z",
   "version": "1.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 180,
-    "symbols": 429,
+    "symbols": 431,
     "classes": 148,
-    "interfaces": 139,
-    "types": 113,
+    "interfaces": 140,
+    "types": 114,
     "enums": 1,
     "functions": 24,
     "constants": 4
@@ -1575,6 +1575,14 @@
       "decorators": []
     },
     {
+      "name": "PhaseTiming",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
       "name": "IContext",
       "kind": "interface",
       "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
@@ -1621,6 +1629,13 @@
     },
     {
       "name": "CookiesMap",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    {
+      "name": "PhaseName",
       "kind": "type",
       "file": "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
       "exported": true,
@@ -4614,6 +4629,12 @@
       "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
     ],
     "IContext": [
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "PhaseTiming": [
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
+    "PhaseName": [
       "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
     ],
     "IWsCookie": [

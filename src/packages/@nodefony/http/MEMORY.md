@@ -51,6 +51,22 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 
+## Lifecycle Timing — Context.phases (P1.1, 2026-05-16)
+
+- `Context.phases: PhaseTiming[]` — instrumentation pipeline, rempli par HttpKernel
+- API : `context.phaseStart(name)` / `context.phaseEnd(name)` — `performance.now()` (perf_hooks)
+- `_phaseIndex: Map<string,name>` → `O(1)` lookup ; `phaseEnd` idempotent (re-call = noop)
+- Phases canoniques instrumentées dans `http-kernel.ts` :
+  - `parse` : `context.request.initialize()` (handleHttp)
+  - `resolve` : `router.resolve(context)` (handleFrontController)
+  - `firewall` : `firewall.handleSecurity(context)` (onRequestEnd + handleWebsocket)
+  - `action` : `context.handle()` (handleHttp + handleWebsocket) — **reste ouverte pendant le controller** (endMs/durationMs null si lecture depuis l'action)
+- `PhaseTiming { name; startMs; endMs?; durationMs? }` — type dans `interfaces/IContext.ts`
+- Route exemple : `/nodefony/test/timing` (DefaultController) — retourne phases JSON
+- Tests : `nodefony/tests/integration/timing.test.ts` (7 tests)
+- Préalable : P2.1 (audit log timing), P3.7 (mode trace verbose)
+- WS hérite via classe de base — phases dispos sur `WebsocketContext`
+
 ## WS Flow (critique)
 
 1. `server-websocket` reçoit `connection` event (ws@8)
@@ -84,7 +100,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 336/336 (2026-05-16)
+## Tests — 377/377 (2026-05-16)
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
 
