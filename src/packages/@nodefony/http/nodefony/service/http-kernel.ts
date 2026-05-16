@@ -364,6 +364,14 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           if (this.kernel?.debug) {
             this.log(error.toString(), "ERROR");
           }
+          // Race: client closed the socket before the controller produced a
+          // response → teardown ran (`finished=true`) or write already
+          // happened. Don't try to render — that path explodes into a CRITIC
+          // "Response Already sended" for a case the framework expects.
+          if (context.finished || context.sended) {
+            this.log(error.toString(), "DEBUG", "onError on closed context");
+            return context;
+          }
           if (!context.response.isHeaderSent()) {
             return context
               .render(result.body)
@@ -373,10 +381,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
                 throw e;
               });
           }
-          if (!context.sended) {
-            return context.close().then(() => context);
-          }
-          throw error;
+          return context.close().then(() => context);
         }
         case context instanceof WebsocketContext: {
           try {

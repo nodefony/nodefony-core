@@ -249,6 +249,14 @@ class HttpContext extends Context implements IHttpContextInterface {
     //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
     Http2Response | HttpResponse
   > {
+    // Client closed the socket while the controller was still running.
+    // `teardown()` (http-kernel.createHttpContext) flipped `finished` before
+    // the controller's catch block could call `renderJson(...)`. Nothing can
+    // be written anymore — silent DEBUG no-op instead of CRITIC noise.
+    if (this.finished && !this.sended) {
+      this.log("send() on finished context — client disconnected", "DEBUG");
+      return this.response;
+    }
     if (this.sended || this.finished || this.response.isHeaderSent()) {
       return new Promise((_resolve, reject) => {
         return reject(new Error("Response Already sended"));
