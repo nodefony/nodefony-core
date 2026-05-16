@@ -18,6 +18,7 @@ src/packages/@nodefony/http/
 └── nodefony/
     ├── config/config.ts            ← config défaut (ports, TLS, sessions…)
     ├── command/networkCommand.ts   ← commande CLI `network`
+    ├── interfaces/                 ← IContext, IHttpKernel, IRequest, IResponse, ICookie, ISession, IUpload
     ├── service/
     │   ├── http-kernel.ts          ← orchestrateur central — routing, firewall, erreurs
     │   ├── certificates.ts         ← génération/chargement TLS (node-forge)
@@ -31,7 +32,7 @@ src/packages/@nodefony/http/
     │       └── server-static.ts   ← serve-static
     └── src/
         ├── context/
-        │   ├── Context.ts          ← classe de base (extends Service)
+        │   ├── Context.ts          ← classe de base (extends Service) — requestId ici
         │   ├── http/HttpContext.ts ← pipeline HTTP/HTTPS/HTTP2
         │   ├── http/Request.ts + Response.ts
         │   ├── http2/Request.ts + Response.ts
@@ -57,6 +58,7 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
   → handleFrontController() (Router.match → Resolver.resolve)
   → Firewall.check()
   → Controller.execute()
+  → Response.writeHead() ← injecte X-Request-Id ici
   → Response.send()
 ```
 
@@ -80,47 +82,81 @@ Protocol incorrect → `HttpError(1002)` → `context.close(1002)` → client re
 `Route.match()` fait `context.request.url.pathname` — nécessite un objet `URL`.
 Fix : `WebsocketContext` étend `request` avec `IWsRequestExtension { url: URL; ... }`.
 
+### Request Tracing — requestId
+
+Chaque contexte (HTTP + WS) reçoit un `requestId` UUID v4 à la construction (`randomUUID()`).
+
+| Comportement | Détail |
+| --- | --- |
+| Génération | `Context.requestId = randomUUID()` — dans le constructeur de base |
+| Corrélation | Si le client envoie `X-Request-Id`, il remplace le UUID généré (HTTP + WS) |
+| Réponse HTTP | `Response.writeHead()` injecte `X-Request-Id: <uuid>` dans chaque réponse |
+| Logs | `logRequest()` affiche `ID : <uuid>` dans chaque log de fin de requête |
+| MetaData | Disponible dans `context.metaData.nodefony.requestId` |
+| Interface | `IContext.requestId: string` |
+
 ---
 
 ## Décisions techniques figées
 
 | Sujet         | Décision                                                                                    |
 | ------------- | ------------------------------------------------------------------------------------------- |
-| WS lib        | `ws@8` — `import Ws, { WebSocketServer } from 'ws'` — jamais `Ws.Server` (undefined en ESM) |
+| WS lib        | `ws@8` — `import { WebSocketServer } from 'ws'` — jamais `Ws.Server` (undefined en ESM)    |
 | Serveurs      | `node:http`, `node:http2`, `ws` uniquement — jamais Bun.serve                               |
 | Protocol WS   | Exact string match — array `['a','b']` → header `"a, b"` → ne match pas `"a"` → 1002        |
 | Binary frames | `context.send(buf, "binary")` côté serveur, `ws.send(Buffer)` côté client                   |
 | Broadcast     | `Response.broadcast()` → `wss.clients.forEach(send)` — inclut l'émetteur                    |
+| statusMessage | Sanitiser avec `replace(/[^\x20-\x7E]/g, "")` juste avant `ServerResponse.writeHead()` — Node.js set le natif AVANT validation → ERR_INVALID_CHAR en cascade sinon |
+| url.parse     | Interdit — utiliser `new URL(str, "http://localhost")` partout                               |
 
 ---
 
-## Tests
+## Tests — état complet (336/336 — 2026-05-16)
 
 Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
 **Prérequis** : serveur Nodefony actif (`npx nodefony development`) sur ports 5151/5152.
 
-| Fichier                                         | Sujet                       | État      |
-| ----------------------------------------------- | --------------------------- | --------- |
-| `http/http.test.ts`                             | HTTP basique                | ✅        |
-| `http/http1.test.ts`                            | HTTP port 5151 GET/POST/PUT/DELETE + headers | ✅ |
-| `http/https.test.ts`                            | TLS handshake + cipher + HSTS | ✅      |
-| `http/errors.test.ts`                           | JSON error format (code, message, stack, route) | ✅ |
-| `http/fileStream.test.ts`                       | Streaming                   | ✅        |
-| `http/upload.test.ts`                           | Upload formidable           | ✅        |
-| `http/memory.test.ts`                           | Memory leaks HTTP + WS      | ✅        |
-| `http/resilience.test.ts`                       | Disconnect, burst, malformed | ✅       |
-| `routing/Router.test.ts`                        | Routing HTTP                | ✅        |
-| `websockets/websocket.test.ts`                  | WS basique                  | ✅        |
-| `websockets/websocket-limits.test.ts`           | Limites taille/séquence     | ✅        |
-| `websockets/websocket-perf.test.ts`             | Perf concurrence            | ✅        |
-| `websockets/websocket-binary-broadcast.test.ts` | Binary + broadcast          | 20/22 ✅  |
-| `websockets/websocket-protocol.test.ts`         | Protocol negotiation        | ✅        |
-| `websockets/websocket-session.test.ts`          | Sessions WS                 | ✅        |
-| `websockets/websocket-w3c.test.ts`              | W3C compat                  | ✅        |
+| Fichier                                         | Sujet                                           | Tests | État |
+| ----------------------------------------------- | ----------------------------------------------- | ----- | ---- |
+| `unit/Cookie.test.ts`                           | Cookie serialize/parse/options                  | 18    | ✅   |
+| `unit/Session.test.ts`                          | Session CRUD, flash, meta, serialize            | 38    | ✅   |
+| `unit/HttpError.test.ts`                        | HttpError wrapping, code, stack                 | 12    | ✅   |
+| `unit/Response.test.ts`                         | HttpResponse setBody/setStatus/setLength        | 8     | ✅   |
+| `http/http.test.ts`                             | HTTP basique                                    | 12    | ✅   |
+| `http/http1.test.ts`                            | HTTP port 5151 GET/POST/PUT/DELETE + headers    | 12    | ✅   |
+| `http/https.test.ts`                            | TLS handshake + cipher + HSTS                   | 8     | ✅   |
+| `http/errors.test.ts`                           | JSON error format (code, message, stack, route) | 18    | ✅   |
+| `http/decorators.test.ts`                       | @Param/@Body/@Query via HTTP                    | 10    | ✅   |
+| `http/fileStream.test.ts`                       | Streaming                                       | 8     | ✅   |
+| `http/upload.test.ts`                           | Upload formidable                               | 7     | ✅   |
+| `http/httpKernel.test.ts`                       | Pipeline, Content-Type, erreurs, X-Request-Id   | 35    | ✅   |
+| `http/static.test.ts`                           | Fichiers statiques                              | 12    | ✅   |
+| `http/session.test.ts`                          | Sessions HTTP                                   | 15    | ✅   |
+| `http/security.test.ts`                         | CORS, firewall                                  | 20    | ✅   |
+| `http/memory.test.ts`                           | Memory leaks HTTP + WS                          | 7     | ✅ ¹ |
+| `http/resilience.test.ts`                       | Disconnect, burst, malformed                    | 7     | ✅   |
+| `routing/Router.test.ts`                        | Routing HTTP                                    | 11    | ✅   |
+| `websockets/websocket.test.ts`                  | WS basique                                      | 8     | ✅   |
+| `websockets/websocket-limits.test.ts`           | Limites taille/séquence                         | 8     | ✅   |
+| `websockets/websocket-perf.test.ts`             | Perf concurrence                                | 5     | ✅   |
+| `websockets/websocket-binary-broadcast.test.ts` | Binary + broadcast                              | 22    | ✅   |
+| `websockets/websocket-protocol.test.ts`         | Protocol negotiation                            | 15    | ✅   |
+| `websockets/websocket-session.test.ts`          | Sessions WS                                     | 1     | ✅   |
+| `websockets/websocket-w3c.test.ts`              | W3C compat                                      | 2     | ✅   |
 
-### 2 tests en échec connus
+> ¹ `memory.test.ts` — test "1000 sequential GET < 35 MB" flaky en full suite (GC pressure après 249 tests). Passe toujours en isolation. Pas de fuite réelle.
 
-`5 sequential binary` et `10 sequential binary` — timeout — cause : `context.send(buf, "binary")` en boucle ne renvoie pas toutes les frames. À investiguer dans `http-kernel.ts` ou `WebsocketContext`.
+---
+
+## Bugs corrigés (historique)
+
+| Bug | Fichier | Fix |
+| --- | ------- | --- |
+| `ERR_INVALID_CHAR` sur statusMessage | `Response.ts:writeHead()` | `safeMsg.replace(/[^\x20-\x7E]/g,"")` avant `ServerResponse.writeHead()` — Node.js poison le natif avant de throw |
+| `url.parse()` deprecation | `sessions-service.ts` | Remplacé par `new URL(context.url, "http://localhost")` |
+| `HttpError.controller/action/jsonResponse` undefined | `httpError.ts` | Extraits de `(context as any)?.resolver` dans le constructeur |
+| Cookie `Expires` overflow | `cookie.ts` | `maxAge * 1000` → `maxAge` déjà en ms |
+| `maxAge=0` session cookie | `cookie.ts` | Cas 0 traité séparément |
 
 ---
 
@@ -131,6 +167,8 @@ Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
 - `context.acceptedProtocol` = header `Sec-WebSocket-Protocol` brut (string)
 - `SecuredArea.match()` nécessite `request.url` comme `URL` object — toujours passer par `WsIncomingMessage`
 - Les sessions WS nécessitent `startSession()` dans `initialize()` du controller
+- `httpError.ts` ne peut pas importer `@nodefony/framework` (dépendance circulaire) → accès au resolver via `(context as any)?.resolver`
+- Tout nouveau fichier test `.ts` doit avoir `/// <reference types="node" />` en première ligne
 
 ---
 
@@ -138,7 +176,7 @@ Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
 
 ### Prérequis : rebuilder le module test avant le serveur
 
-En mode `development`, Nodefony charge d'abord le `dist/` existant (routes enregistrées à ce moment), puis recompile avec Rollup ~12 s plus tard et écrase le dist. Toute route ajoutée au source APRÈS le dernier build manual sera absente du routeur jusqu'au prochain redémarrage avec dist à jour.
+En mode `development`, Nodefony charge d'abord le `dist/` existant (routes enregistrées à ce moment), puis recompile avec Rollup ~12 s plus tard et écrase le dist. Toute route ajoutée au source APRÈS le dernier build manuel sera absente du routeur jusqu'au prochain redémarrage avec dist à jour.
 
 **Règle** : toujours rebuilder `src/modules/test` avant de démarrer le serveur si le source a changé :
 
@@ -168,17 +206,17 @@ require('fs').writeFileSync('/tmp/srv.pid', String(child.pid));
 Attendre 20 s, puis vérifier :
 
 ```bash
-grep "Server Listen" /tmp/nodefony-server.log
+grep "Server Listen" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
 ```
 
-Signes OK : 4 lignes `Server Listen on http://... / https://... / ws://... / wss://...`
+Signes OK : 5 lignes `Server Listen on http://... / https://... / ws://... / wss://...`
 
 ### Lecture des logs serveur et corrélation avec les bugs
 
 - **Logs de requêtes** : `grep -E "http|https|ws" /tmp/nodefony-server.log | grep -E "404|500|ERROR"`
+- **ID requête** : `grep "ID :" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'`
 - **Routes non trouvées (404)** → cause probable : dist périmé (voir prérequis ci-dessus)
 - **Routes trouvées mais 500** → erreur dans le controller, lire le stack trace dans le log
-- **Routes 200 mais données manquantes** → propriétés undefined dans le controller, croiser avec `grep "context\|session\|scheme" /tmp/nodefony-server.log`
 - **Tuer le serveur** : `lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null`
 - **PID du serveur** : `cat /tmp/srv.pid` (si sauvegardé) ou `lsof -ti:5151`
 
@@ -190,3 +228,4 @@ Signes OK : 4 lignes `Server Listen on http://... / https://... / ws://... / wss
 - Changer les ports par défaut dans `config.ts`
 - Remplacer `ws` par une autre lib WS
 - Ajouter un default export (module utilise named exports)
+- Importer `@nodefony/framework` depuis `@nodefony/http` (dépendance circulaire)
