@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-16T19:08:23.438Z",
+  "generated": "2026-05-16T19:19:38.966Z",
   "version": "1.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 182,
-    "symbols": 436,
+    "symbols": 437,
     "classes": 149,
     "interfaces": 143,
     "types": 115,
     "enums": 1,
     "functions": 24,
-    "constants": 4
+    "constants": 5
   },
   "symbols": [
     {
@@ -1108,6 +1108,13 @@
       "decorators": [
         "controller"
       ]
+    },
+    {
+      "name": "securityHooksState",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/controller/DefaultController.ts",
+      "exported": true,
+      "module": "modules/test"
     },
     {
       "name": "FrameworkController",
@@ -3690,7 +3697,28 @@
       "src/packages/@nodefony/mongoose/index.ts",
       "src/packages/@nodefony/sequelize/index.ts"
     ],
+    "HttpKernel": [
+      "src/modules/test/index.ts",
+      "src/packages/@nodefony/http/index.ts",
+      "src/nodefony/src/kernel/Kernel.ts",
+      "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+      "src/packages/@nodefony/security/nodefony/service/cors.ts",
+      "src/packages/@nodefony/security/nodefony/service/csrf.ts",
+      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
+      "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+    ],
     "DefaultController": [
+      "src/modules/test/index.ts"
+    ],
+    "securityHooksState": [
       "src/modules/test/index.ts"
     ],
     "RestController": [
@@ -3795,23 +3823,6 @@
     "Redirect": [
       "src/packages/@nodefony/framework/index.ts",
       "src/modules/test/nodefony/controller/FrameworkController.ts"
-    ],
-    "HttpKernel": [
-      "src/packages/@nodefony/http/index.ts",
-      "src/nodefony/src/kernel/Kernel.ts",
-      "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-      "src/packages/@nodefony/security/nodefony/service/cors.ts",
-      "src/packages/@nodefony/security/nodefony/service/csrf.ts",
-      "src/packages/@nodefony/security/nodefony/service/helmet.ts",
-      "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-      "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
-      "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
-      "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
-      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
-      "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
-      "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-      "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
-      "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
     ],
     "SessionsService": [
       "src/packages/@nodefony/http/index.ts",

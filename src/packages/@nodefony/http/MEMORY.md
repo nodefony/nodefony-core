@@ -51,6 +51,24 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 
+## Security hooks (P1.7, 2026-05-16) — préalable Phase 6
+
+3 hooks `fireAsync` au niveau `HttpKernel` (cohérent avec `onServerRequest`/`onCreateContext`) :
+
+| Hook            | Quand fire                                                 | Payload                       |
+| --------------- | ---------------------------------------------------------- | ----------------------------- |
+| `beforeResolve` | AVANT `handleFrontController` (HTTP + WS)                  | `(context)`                   |
+| `afterAuth`     | APRÈS `firewall.handleSecurity()` SUCCESS (HTTP + WS)      | `(context)`                   |
+| `onAuthFailure` | APRÈS `firewall.handleSecurity()` THROW (HTTP + WS) — log-only erreurs, n'arrête pas le throw du firewall | `(context, authError)` |
+
+- Listeners s'enregistrent via `httpKernel.on("beforeResolve", fn)` au `onKernelReady` du module security
+- `onAuthFailure` est `.catch()` log-only — si un listener throw, l'erreur du firewall est tjs propagée (priorité)
+- Invariant testé : `afterAuthCount <= beforeResolveCount` (auth est subset de toutes les requests)
+- Pas de listener au niveau Context (fire-and-forget par request mal adapté pour services security globaux)
+- Routes test : `/nodefony/test/hooks/{state,reset}` — counters singleton, listeners enregistrés dans `Test.onKernelReady()`
+- Tests : `nodefony/tests/integration/security-hooks.test.ts` (6 tests)
+- **Débloque Phase 6 Security** — firewall.ts peut se brancher proprement sans coupler `@nodefony/http`
+
 ## ErrorRenderer unifié HTTP+WS (P1.5, 2026-05-16)
 
 - `IErrorRenderer` interface : `renderHttp(err, ctx) → {status, message, body, headers?}` + `renderWebsocket(err, ctx) → {code, reason}`
@@ -141,7 +159,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 388 intégration + 85 unit (+9 P1.5) = 473 (2026-05-16)
+## Tests — 403 intégration + 85 unit = 488 (2026-05-16)
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
 

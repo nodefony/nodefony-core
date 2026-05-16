@@ -17,6 +17,16 @@ const abortState = {
   lastAbortReason: "",
 };
 
+// P1.7 — security hooks observation state (populated by Test module
+// listeners registered in src/modules/test/index.ts).
+export const securityHooksState = {
+  beforeResolveCount: 0,
+  afterAuthCount: 0,
+  onAuthFailureCount: 0,
+  lastAuthFailureReason: "",
+  lastHook: "" as "beforeResolve" | "afterAuth" | "onAuthFailure" | "",
+};
+
 @controller("/nodefony/test")
 class DefaultController extends Controller {
   constructor(
@@ -218,6 +228,28 @@ class DefaultController extends Controller {
     abortState.abortedCount = 0;
     abortState.completedCount = 0;
     abortState.lastAbortReason = "";
+    return this.renderJson({ ok: true });
+  }
+
+  // ── P1.7 security hooks probes ──────────────────────────────────
+  @route("hooks-state", { path: "/hooks/state" })
+  hooksState() {
+    return this.renderJson({
+      beforeResolveCount: securityHooksState.beforeResolveCount,
+      afterAuthCount: securityHooksState.afterAuthCount,
+      onAuthFailureCount: securityHooksState.onAuthFailureCount,
+      lastAuthFailureReason: securityHooksState.lastAuthFailureReason,
+      lastHook: securityHooksState.lastHook,
+    });
+  }
+
+  @route("hooks-reset", { path: "/hooks/reset" })
+  hooksReset() {
+    securityHooksState.beforeResolveCount = 0;
+    securityHooksState.afterAuthCount = 0;
+    securityHooksState.onAuthFailureCount = 0;
+    securityHooksState.lastAuthFailureReason = "";
+    securityHooksState.lastHook = "";
     return this.renderJson({ ok: true });
   }
 }

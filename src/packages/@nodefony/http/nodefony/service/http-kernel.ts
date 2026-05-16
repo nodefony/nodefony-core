@@ -581,6 +581,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         if (this.kernel?.options.domainCheck) {
           this.checkValidDomain(context);
         }
+        // SECURITY HOOK — beforeResolve (P1.7)
+        // Fires before route is resolved. Security can pre-load session/token here.
+        await this.fireAsync("beforeResolve", context).catch((e) => {
+          throw e;
+        });
         // FRONT CONTROLLER
         const ret = await this.handleFrontController(context).catch((e) => {
           throw e;
@@ -592,9 +597,17 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         if (context.secure || context.isControlledAccess) {
           context.phaseStart("firewall");
           try {
-            await this.firewall?.handleSecurity(context).catch((e) => {
-              throw e;
-            });
+            try {
+              await this.firewall?.handleSecurity(context);
+              // SECURITY HOOK — afterAuth (P1.7) — only on success
+              await this.fireAsync("afterAuth", context);
+            } catch (authError) {
+              // SECURITY HOOK — onAuthFailure (P1.7)
+              await this.fireAsync("onAuthFailure", context, authError).catch(
+                (e) => this.log(e, "ERROR", "onAuthFailure")
+              );
+              throw authError;
+            }
           } finally {
             context.phaseEnd("firewall");
           }
@@ -695,7 +708,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (this.firewall && (context?.secure || context?.isControlledAccess)) {
         context.phaseStart("firewall");
         try {
-          await this.firewall.handleSecurity(context);
+          try {
+            await this.firewall.handleSecurity(context);
+            await this.fireAsync("afterAuth", context);
+          } catch (authError) {
+            await this.fireAsync("onAuthFailure", context, authError).catch(
+              (e) => this.log(e, "ERROR", "onAuthFailure")
+            );
+            throw authError;
+          }
         } finally {
           context.phaseEnd("firewall");
         }
@@ -734,6 +755,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (this.domainCheck) {
         this.checkValidDomain(context);
       }
+      // SECURITY HOOK — beforeResolve (P1.7) — WS
+      await this.fireAsync("beforeResolve", context);
       // FRONT CONTROLLER
       try {
         const ret = await this.handleFrontController(context);
