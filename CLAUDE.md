@@ -2,6 +2,26 @@
 
 ---
 
+## 🚦 Checklist début de session (LIRE EN PREMIER)
+
+Avant de commencer une nouvelle phase / tâche :
+
+1. **Lire `MIGRATION_STATUS.md`** — Roadmap priorisée P0→P14 + chemin critique. Vérifier dépendances de la tâche.
+2. **Lancer les tests pour voir l'état RÉEL** (pas faire confiance au journal seul) :
+   ```bash
+   cd src/packages/@nodefony/http && npm run test:integration 2>&1 | grep -E "passing|failing"
+   ```
+   Le journal peut être périmé même de quelques jours.
+3. **Vérifier les pièges connus** (mémoire IA `feedback_session_pitfalls.md`) :
+   - Dist périmé après pull/merge → `npm run clean && npm run build`
+   - `npx nodefony development &` meurt SIGHUP → utiliser le skill `start-nodefony-server`
+   - Bun requis pour `@nodefony/llm/test`
+4. **Lire le `CLAUDE.md` + `MEMORY.md`** du module ciblé (table d'index plus bas).
+5. **Si fiche kit existante** (ex: `project_p1_1_kit.md` pour P1.1) → la lire AVANT toute exploration.
+6. **`.ai/symbols.json`** est régénéré par hook pre-commit. Utiliser pour résoudre les relations cross-module sans grep tout le repo.
+
+---
+
 ## Token Optimization Rules (URGENT)
 
 Pour économiser le quota de tokens (session de 5h) :
