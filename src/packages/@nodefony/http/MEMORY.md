@@ -51,6 +51,18 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 
+## RequestLogger pluggable (P1.6, 2026-05-16)
+
+- `IRequestLogger` interface : `renderHttp(ctx, error?)` + `renderWebsocket(ctx, error?, protocol?)` → `{text, severity, msgid}`
+- `DefaultRequestLogger` (`service/request-logger.ts`) — singleton, stateless, **zéro alloc per-request**
+- Format inchangé : `URL : ... FROM : ... ORIGIN : ... ID : <uuid>` + `Accept-Protocol` WS + couleurs cli-color
+- Prod env : erreur single-line. Dev env : multi-line avec stack
+- `HttpKernel.requestLogger: IRequestLogger = new DefaultRequestLogger()` (instance unique)
+- `HttpKernel.setRequestLogger(custom)` / `.getRequestLogger()`
+- `Context.logRequest` et `WebsocketContext.logRequest` délèguent : `this.httpKernel?.getRequestLogger().renderHttp(...)`
+- Exporté dans `index.ts` : `DefaultRequestLogger`, `IRequestLogger`, `IRequestLogEntry`
+- Préalable : P3.1 audit log canonique JSON, P3.2 pretty formatter, P3.10 NCSA/Combined transport
+
 ## Security hooks (P1.7, 2026-05-16) — préalable Phase 6
 
 3 hooks `fireAsync` au niveau `HttpKernel` (cohérent avec `onServerRequest`/`onCreateContext`) :
@@ -159,7 +171,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 403 intégration + 85 unit = 488 (2026-05-16)
+## Tests — 403 intégration + 94 unit = 497 (2026-05-16)
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
 

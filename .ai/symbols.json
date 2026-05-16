@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-16T19:19:38.966Z",
+  "generated": "2026-05-16T19:27:16.074Z",
   "version": "1.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 182,
-    "symbols": 437,
-    "classes": 149,
-    "interfaces": 143,
+    "files": 184,
+    "symbols": 440,
+    "classes": 150,
+    "interfaces": 145,
     "types": 115,
     "enums": 1,
     "functions": 24,
@@ -1765,6 +1765,22 @@
       "module": "@nodefony/http"
     },
     {
+      "name": "IRequestLogEntry",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
+      "name": "IRequestLogger",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null
+    },
+    {
       "name": "IResponse",
       "kind": "interface",
       "file": "src/packages/@nodefony/http/nodefony/interfaces/IResponse.ts",
@@ -1972,6 +1988,18 @@
       "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
       "exported": true,
       "module": "@nodefony/http"
+    },
+    {
+      "name": "DefaultRequestLogger",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [
+        "IRequestLogger"
+      ],
+      "decorators": []
     },
     {
       "name": "LLMError",
@@ -3538,6 +3566,8 @@
       "src/nodefony/src/kernel/orm/Connector.ts",
       "src/nodefony/src/kernel/orm/Entity.ts",
       "src/nodefony/src/service/rollup/rollupService.ts",
+      "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
+      "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
       "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
       "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
       "src/packages/@nodefony/redis/nodefony/service/redis.ts",
@@ -3903,6 +3933,10 @@
       "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
     ],
     "DefaultErrorRenderer": [
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+    ],
+    "DefaultRequestLogger": [
       "src/packages/@nodefony/http/index.ts",
       "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
     ],
@@ -4417,12 +4451,16 @@
     ],
     "IHttpContext": [
       "src/packages/@nodefony/http/nodefony/interfaces/IErrorRenderer.ts",
+      "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
       "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
       "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
     ],
     "IWebsocketContext": [
       "src/packages/@nodefony/http/nodefony/interfaces/IErrorRenderer.ts",
+      "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
       "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
       "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
     ],
     "ServerType": [
@@ -4451,8 +4489,15 @@
     "Statics": [
       "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
     ],
+    "IRequestLogger": [
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/nodefony/service/request-logger.ts"
+    ],
     "IHttpKernel": [
       "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+    ],
+    "IRequestLogEntry": [
+      "src/packages/@nodefony/http/nodefony/service/request-logger.ts"
     ],
     "ILLMProvider": [
       "src/packages/@nodefony/llm/src/providers/ClaudeProvider.ts",

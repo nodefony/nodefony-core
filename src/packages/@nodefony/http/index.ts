@@ -18,6 +18,7 @@ import wsResponse from "./nodefony/src/context/websocket/Response";
 import Cookie from "./nodefony/src/cookies/cookie";
 import UploadService from "./nodefony/service/upload/upload-service";
 import DefaultErrorRenderer from "./nodefony/service/error-renderer";
+import DefaultRequestLogger from "./nodefony/service/request-logger";
 import HttpContext from "./nodefony/src/context/http/HttpContext";
 import WebsocketContext from "./nodefony/src/context/websocket/WebsocketContext";
 import HttpRequest from "./nodefony/src/context/http/Request";
@@ -86,6 +87,7 @@ export {
   HttpRequest,
   Http2Request,
   DefaultErrorRenderer,
+  DefaultRequestLogger,
 };
 
 // Public interfaces — consommables par les autres modules
@@ -130,6 +132,10 @@ export type {
   IErrorHttpResult,
   IErrorWebsocketResult,
 } from "./nodefony/interfaces/IErrorRenderer";
+export type {
+  IRequestLogger,
+  IRequestLogEntry,
+} from "./nodefony/interfaces/IRequestLogger";
 
 // Types internes réexportés pour les modules dépendants (framework, security)
 export type {

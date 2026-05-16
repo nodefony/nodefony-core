@@ -357,29 +357,13 @@ class Context extends Service implements IContextInterface {
 
   logRequest(httpError?: Error | HttpError | nodefonyError | null) {
     try {
-      const txt = `${clc.cyan("URL")} : ${this.url} ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host} ${clc.cyan("ID")} : ${this.requestId}`;
-      let mgid = "";
-      if (!httpError && this.error) {
-        httpError = this.error;
-      }
-      if (httpError) {
-        this.error = httpError;
-        mgid = `${this.type} ${clc.magenta(httpError.code || this.response?.statusCode)} ${clc.red(this.method)}`;
-        if (this.kernel && this.kernel.environment === "prod") {
-          return this.log(`${txt} ${httpError}`, "ERROR", mgid);
-        }
-        return this.log(
-          `${txt}
-          ${httpError}`,
-          "ERROR",
-          mgid
-        );
-      }
-      if (!this.error) {
-        mgid = `${this.type} ${clc.magenta(this.response?.statusCode)} ${this.method}`;
-        return this.log(txt, "INFO", mgid);
-      }
-    } catch (e) {}
+      const err = httpError ?? this.error ?? undefined;
+      if (err) this.error = err;
+      const logger = this.httpKernel?.getRequestLogger();
+      if (!logger) return;
+      const entry = logger.renderHttp(this as never, err as Error | null);
+      return this.log(entry.text, entry.severity, entry.msgid);
+    } catch {}
   }
 
   addRequestCookie(cookie: Cookie): Cookie {

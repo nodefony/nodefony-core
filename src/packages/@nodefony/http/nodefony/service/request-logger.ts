@@ -1,0 +1,87 @@
+/// <reference types="node" />
+import type { Severity } from "nodefony";
+import clc from "cli-color";
+import type {
+  IRequestLogger,
+  IRequestLogEntry,
+} from "../interfaces/IRequestLogger";
+import type { IHttpContext, IWebsocketContext } from "../interfaces/IContext";
+
+/**
+ * Default Nodefony per-request logger — preserves the legacy colored format.
+ *
+ * HTTP success: `URL : <url> FROM : <remote> ORIGIN : <host> ID : <uuid>`
+ * HTTP error:   adds the error toString (in dev), single-line in prod
+ * WebSocket:    adds `Accept-Protocol : <proto>` on success
+ *
+ * Stateless singleton — zero per-request allocation. Override via
+ * `httpKernel.setRequestLogger(custom)` for JSON access logs (P3.1),
+ * pretty formatter (P3.2), or NCSA combined format (P3.10).
+ */
+class DefaultRequestLogger implements IRequestLogger {
+  renderHttp(context: IHttpContext, error?: Error | null): IRequestLogEntry {
+    const ctx = context as unknown as {
+      url: string;
+      remoteAddress: string | null;
+      originUrl: { host?: string } | null | undefined;
+      requestId: string;
+      method: string | null;
+      type: string;
+      response: { statusCode?: number } | null;
+      kernel?: { environment?: string };
+      error?: unknown;
+    };
+    const txt =
+      `${clc.cyan("URL")} : ${ctx.url} ` +
+      `${clc.cyan("FROM")} : ${ctx.remoteAddress} ` +
+      `${clc.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
+      `${clc.cyan("ID")} : ${ctx.requestId}`;
+
+    const err = error ?? (ctx.error as Error | null | undefined);
+    if (err) {
+      const errCode =
+        (err as { code?: number }).code ?? ctx.response?.statusCode ?? 500;
+      const msgid = `${ctx.type} ${clc.magenta(errCode)} ${clc.red(ctx.method ?? "")}`;
+      const isProd = ctx.kernel?.environment === "prod";
+      const text = isProd ? `${txt} ${err}` : `${txt}\n          ${err}`;
+      return { text, severity: "ERROR" as Severity, msgid };
+    }
+    const msgid = `${ctx.type} ${clc.magenta(ctx.response?.statusCode)} ${ctx.method}`;
+    return { text: txt, severity: "INFO" as Severity, msgid };
+  }
+
+  renderWebsocket(
+    context: IWebsocketContext,
+    error?: Error | null,
+    acceptedProtocol?: string | null,
+  ): IRequestLogEntry {
+    const ctx = context as unknown as {
+      url: string;
+      remoteAddress: string | null;
+      originUrl: { host?: string } | null | undefined;
+      method: string | null;
+      type: string;
+      response: { statusCode?: number } | null;
+    };
+    if (error) {
+      const errCode =
+        (error as { code?: number }).code ?? ctx.response?.statusCode ?? 500;
+      const msgid = `${ctx.type} ${clc.magenta(errCode)} ${clc.red(ctx.method ?? "")}`;
+      const text =
+        `${clc.cyan("URL")} : ${ctx.url}  ` +
+        `${clc.cyan("FROM")} : ${ctx.remoteAddress} ` +
+        `${clc.cyan("ORIGIN")} : ${ctx.originUrl?.host}\n        ` +
+        error.toString();
+      return { text, severity: "ERROR" as Severity, msgid };
+    }
+    const msgid = `${ctx.type} ${clc.magenta(ctx.response?.statusCode)} ${ctx.method}`;
+    const text =
+      `${clc.cyan("URL")} : ${ctx.url} ` +
+      `${clc.cyan("Accept-Protocol")} : ${acceptedProtocol || "*"} ` +
+      `${clc.cyan("FROM")} : ${ctx.remoteAddress} ` +
+      `${clc.cyan("ORIGIN")} : ${ctx.originUrl?.host}`;
+    return { text, severity: "INFO" as Severity, msgid };
+  }
+}
+
+export default DefaultRequestLogger;

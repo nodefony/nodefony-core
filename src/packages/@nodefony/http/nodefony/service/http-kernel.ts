@@ -36,6 +36,8 @@ import { Route } from "@nodefony/framework";
 import { Firewall } from "@nodefony/security";
 import DefaultErrorRenderer from "./error-renderer";
 import type { IErrorRenderer } from "../interfaces/IErrorRenderer";
+import DefaultRequestLogger from "./request-logger";
+import type { IRequestLogger } from "../interfaces/IRequestLogger";
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -118,6 +120,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   firewall?: Firewall | null;
   // Singleton — zero per-request alloc. Swap via setErrorRenderer().
   private errorRenderer: IErrorRenderer = new DefaultErrorRenderer();
+  // Singleton — zero per-request alloc. Swap via setRequestLogger().
+  private requestLogger: IRequestLogger = new DefaultRequestLogger();
   constructor(module: Module) {
     super(
       serviceName,
@@ -272,6 +276,18 @@ class HttpKernel extends Service implements IHttpKernelInterface {
 
   getErrorRenderer(): IErrorRenderer {
     return this.errorRenderer;
+  }
+
+  /**
+   * Override the default per-request logger — JSON access log, NCSA combined,
+   * pretty single-line formatter, etc. Stateless singleton expected.
+   */
+  setRequestLogger(logger: IRequestLogger): void {
+    this.requestLogger = logger;
+  }
+
+  getRequestLogger(): IRequestLogger {
+    return this.requestLogger;
   }
 
   async onError(

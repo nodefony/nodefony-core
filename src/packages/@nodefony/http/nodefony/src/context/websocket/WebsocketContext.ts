@@ -119,19 +119,16 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     httpError?: Error | HttpError | nodefonyError | null,
     acceptedProtocol?: string | null
   ) {
-    if (httpError) {
-      return this.log(
-        `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host}
-        ${httpError.toString()}`,
-        "ERROR",
-        `${this.type} ${clc.magenta((httpError as HttpError).code || this.response?.statusCode)} ${clc.red(this.method)}`
+    try {
+      const logger = this.httpKernel?.getRequestLogger();
+      if (!logger) return;
+      const entry = logger.renderWebsocket(
+        this as never,
+        (httpError ?? null) as Error | null,
+        acceptedProtocol ?? null,
       );
-    }
-    return this.log(
-      `${clc.cyan("URL")} : ${this.url} ${clc.cyan("Accept-Protocol")} : ${acceptedProtocol || "*"} ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host}`,
-      "INFO",
-      `${this.type} ${clc.magenta(this.response?.statusCode)} ${this.method}`
-    );
+      return this.log(entry.text, entry.severity, entry.msgid);
+    } catch {}
   }
 
   async connect(): Promise<Ws> {
