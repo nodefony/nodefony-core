@@ -1,6 +1,6 @@
 ---
 name: http-module-memory
-description: "@nodefony/http — serveurs, contextes, WS, pipeline request — notes techniques IA"
+description: "@nodefony/http — serveurs, contextes, WS, pipeline, requestId, bugs corrigés — notes IA"
 metadata:
   type: project
 ---
@@ -11,32 +11,18 @@ metadata:
 
 Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Différenciateur : HTTP et WS dans le même pipeline Controller.
 
-# NODE.JS CORE API CACHE (HTTP/WS)
-
-## http & http2 (Node v20+)
-
-- **Server**: `http.createServer((req, res) => ...)` | `http2.createSecureServer(options, (req, res) => ...)`
-- **Request**: `req.method`, `req.url`, `req.headers`.
-- **Response**: `res.writeHead(code, headers)`, `res.end(data)`.
-- **HTTP2 Stream**: `stream.respond({ ':status': 200 })`, `stream.on('data')`, `stream.on('end')`.
-- **Doc Link**: https://r.jina.ai/https://nodejs.org/api/http2.html
-
-## WebSocket (ws integration)
-
-- **Server**: `new WebSocketServer({ noServer: true })`.
-- **Upgrade**: `server.on('upgrade', (req, socket, head) => ws.handleUpgrade(...))`.
-- **Doc Link**: https://r.jina.ai/https://github.com/websockets/ws/blob/master/doc/ws.md
-
 ## Core Components
 
 | Classe              | Fichier                                     | Rôle                                                                                                                                                                 |
 | ------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Http`              | `index.ts`                                  | Module racine. `@services([HttpKernel, Certificate, SessionsService, StaticServer, HttpServer, HttpsServer, WebsocketServer, WebsocketSecureServer, UploadService])` |
 | `HttpKernel`        | `service/http-kernel.ts`                    | Orchestrateur. `handle()` → pipeline HTTP. `handleWebsocket()` → pipeline WS. `handleFrontController()` → router+firewall+controller. `onError()` → 1002/1011 WS     |
-| `Context`           | `src/context/Context.ts`                    | Base extends `Service`. Props: `type`, `scheme`, `request`, `response`, `method`, `webSocketState`, `metaData`, `session`, `cookies`, `resolver`                     |
-| `HttpContext`       | `src/context/http/HttpContext.ts`           | Extends Context. Pipeline HTTP/HTTPS/HTTP2                                                                                                                           |
-| `WebsocketContext`  | `src/context/websocket/WebsocketContext.ts` | Extends Context. Props extra: `acceptedProtocol`, `connection` (Ws), `wsUrl`, `rejected`. Override `request` → `WsIncomingMessage`                                   |
+| `Context`           | `src/context/Context.ts`                    | Base extends `Service`. Props: `type`, `scheme`, `request`, `response`, `method`, `webSocketState`, `metaData`, `session`, `cookies`, `resolver`, **`requestId`**    |
+| `HttpContext`       | `src/context/http/HttpContext.ts`           | Extends Context. Honor `X-Request-Id` header entrant. Pipeline HTTP/HTTPS/HTTP2.                                                                                    |
+| `WebsocketContext`  | `src/context/websocket/WebsocketContext.ts` | Extends Context. Honor `X-Request-Id` header entrant. Props extra: `acceptedProtocol`, `connection` (Ws), `wsUrl`, `rejected`. Override `request` → `WsIncomingMessage` |
+| `HttpResponse`      | `src/context/http/Response.ts`              | `writeHead()` : sanitize statusMessage ASCII + injecte `X-Request-Id`. `setBody()`, `setLength()`, `redirect()`.                                                    |
 | `WebsocketResponse` | `src/context/websocket/Response.ts`         | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)`                                                       |
+| `HttpError`         | `src/errors/httpError.ts`                   | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `(context as any)?.resolver` (évite import circulaire avec `@nodefony/framework`) |
 
 ## Servers
 
@@ -47,6 +33,16 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 | server-websocket        | 5151 | ws sur http                 |
 | server-websocket-secure | 5152 | wss sur https               |
 | server-static           | —    | serve-static                |
+
+## Request Tracing — requestId
+
+- `Context.requestId = randomUUID()` — UUID v4 généré à construction (base class)
+- `HttpContext` constructor : if `request.headers["x-request-id"]` → override requestId
+- `WebsocketContext` constructor : if `req.headers["x-request-id"]` → override requestId
+- `Response.writeHead()` : `response.setHeader("x-request-id", context.requestId)` avant write
+- `Context.logRequest()` : affiche `ID : <uuid>` dans chaque log de fin de requête
+- `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
+- `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 
 ## WS Flow (critique)
 
@@ -63,53 +59,62 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 **IWsRequestExtension** : `IncomingMessage.url` = string. `Route.match()` fait `.pathname`. Fix : `WsIncomingMessage = IncomingMessage & { url: URL; query; queryGet; path }` — assigné dans `WebsocketContext` constructor.
 
-**Protocol WS** :
+**ERR_INVALID_CHAR** : Node.js set `ServerResponse.statusMessage` natif AVANT validation → char invalide persiste même si `writeHead()` throw. Tous les writes suivants échouent en cascade (y compris timeout 30s). Fix : `safeMsg = statusMessage.replace(/[^\x20-\x7E]/g, "")` juste avant `ServerResponse.writeHead()` dans `Response.ts`.
 
-- `requirements.protocol: "echo-protocol"` → exact string match sur `context.acceptedProtocol`
-- Array `['a','b']` → header `"a, b"` → ne matche pas `"a"` → 1002
-- `requirements.protocol: ""` → accepte tout (reflect)
+**HttpError champs undefined** : `httpError.ts` est dans `@nodefony/http` qui est une dépendance de `@nodefony/framework` — import circulaire impossible. Accès au resolver via `(context as any)?.resolver`. Props : `this.controller = resolver?.controller?.name`, `this.action = resolver?.actionName`, `this.jsonResponse = \`${res.statusCode} ${res.statusMessage}\`.trim()`.
 
-**Binary** : `context?.send(buf, "binary")` server-side ; `ws.send(Buffer)` client-side. Envois séquentiels multiples → timeout (bug en investigation).
+**Protocol WS** : `requirements.protocol: "echo-protocol"` → exact string match. Array `['a','b']` → header `"a, b"` → ne matche pas `"a"` → 1002. `requirements.protocol: ""` → accepte tout.
+
+**Binary WS** : `context?.send(buf, "binary")` server-side ; `ws.send(Buffer)` client-side. Envois séquentiels : utiliser `wsCollectBinary(ws, n)` côté test (collect all then assert) — pattern `await` frame par frame timeout.
 
 **Broadcast** : `context.broadcast(str)` → `wss.clients.forEach(send)` — inclut l'émetteur.
 
-**Request.queryGet** : assigné APRÈS `QS.parse(url.search)` — sinon pointe vers ancien objet vide.
-
-**Response.setStatusCode()** : sanitize ASCII (`replace(/[^\x20-\x7E]/g, "")`) — sinon `writeHead()` throw `ERR_INVALID_CHAR` sur em dash etc.
+**url.parse interdit** : remplacé par `new URL(str, "http://localhost")` — `url.parse()` deprecated Node.js v22+.
 
 **onConnection** dans http-kernel : `catch` silencieux — erreurs WS avalées, vérifier logs DEBUG.
 
 **Sessions WS** : nécessitent `startSession()` dans `initialize()` du controller.
 
-## Tests
+**Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
+
+## Tests — 336/336 (2026-05-16)
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
-**État** : 319 passing, 0 failing (2026-05-15) — mergé dans `claude-ts`.
 
-Config ts-node: `tsconfig.tests.json` + `types: ["node","mocha","chai"]` + `TS_NODE_PROJECT` pour `test:integration`.
-Hook `fix-reflect.mjs` : corrige `_virtual/Reflect.js` CJS/ESM (Rollup `__require` absent en preserveModules).
+```
+unit/    : Cookie, Session, HttpError, Response          — 76 tests
+http/    : http, http1, https, errors, decorators,
+           fileStream, upload, httpKernel, static,
+           session, security, memory, resilience         — 182 tests
+routing/ : Router                                        — 11 tests
+ws/      : websocket, limits, perf, binary-broadcast,
+           protocol, session, w3c                        — 50 tests (+ broadcast=22)
+           ─────────────────────────────────────────────────────────
+TOTAL    :                                               336 passing
+```
 
-Routes test module (`src/modules/test`) : voir `src/modules/test/CLAUDE.md`.
+`memory.test.ts` — "1000 sequential GET < 35 MB" : flaky en full suite (GC pressure). Passe en isolation. Pas de fuite.
+
+Config ts-node: `tsconfig.tests.json` + hook `fix-reflect.mjs` (corrige `_virtual/Reflect.js` CJS/ESM).
 
 ## Deps clés
 
-- `ws@8.20.1` — ESM : `import Ws, { WebSocketServer } from 'ws'` (jamais `Ws.Server`)
-- `formidable@3.5.4` — upload
-- `serve-static@2.2.1` — static files
-- `uuid@14.0.0`
-- `node-forge@1.4.0` — TLS/certificates
+- `ws@8` — ESM : `import { WebSocketServer } from 'ws'` (jamais `Ws` default, jamais `Ws.Server`)
+- `formidable@3` — upload
+- `serve-static@2` — static files
+- `node-forge@1` — TLS/certificates
 
-## TS Warnings pré-existants (NE PAS CORRIGER sans investigation)
+## Interfaces exportées
 
-| Fichier                      | Code   | Symbole                     | Note                    |
-| ---------------------------- | ------ | --------------------------- | ----------------------- |
-| `framework/Route.ts`         | TS2339 | propriété inconnue          | pré-existant            |
-| `framework/Route.ts`         | TS7006 | paramètre implicite `any`   | pré-existant            |
-| `security/securedArea.ts`    | TS2339 | `resourceURL`               | pré-existant            |
-| `server-websocket.ts`        | TS2694 | `Ws.Server` (undefined ESM) | fix = `WebSocketServer` |
-| `server-websocket-secure.ts` | TS2694 | `Ws.Server`                 | pré-existant            |
-| `WebsocketContext.ts`        | TS2322 | `URL` assignation           | pré-existant            |
-| `WebsocketContext.ts`        | TS2741 | `dispatchEvent` manquant    | pré-existant            |
-| `WebsocketContext.ts`        | TS2345 | `number\|null`              | pré-existant            |
-| `http-kernel.ts`             | TS2322 | lignes 695, 721             | pré-existant            |
-| `http-kernel.ts`             | TS6133 | `extraHeaders` inutilisé    | pré-existant            |
+`nodefony/interfaces/` — tous dans `index.ts` barrel :
+
+| Interface        | Fichier           | Contenu clé                                    |
+| ---------------- | ----------------- | ---------------------------------------------- |
+| `IContext`       | `IContext.ts`     | `requestId`, `type`, `scheme`, `method`, `url` |
+| `IHttpContext`   | `IContext.ts`     | `handle()`, `render()`, `redirect()`           |
+| `IWebsocketContext` | `IContext.ts`  | `connect()`, `send()`, `broadcast()`           |
+| `IHttpKernel`    | `IHttpKernel.ts`  | `handle()`, `onError()`, `isValidDomain()`     |
+| `IRequest`       | `IRequest.ts`     | HTTP + WS request shapes                       |
+| `IResponse`      | `IResponse.ts`    | HTTP + WS response shapes                      |
+| `ICookie`        | `ICookie.ts`      | Cookie options + serialize                     |
+| `ISession`       | `ISession.ts`     | Session CRUD + flash + meta                    |
