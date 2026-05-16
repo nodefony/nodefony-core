@@ -11,6 +11,7 @@ import {
   DebugType,
   //inject,
   nodefonyError,
+  RequestContext,
 } from "nodefony";
 import { Resolver, Router } from "@nodefony/framework";
 import { Controller } from "@nodefony/framework";
@@ -547,27 +548,34 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         await this.fireAsync("onCreateContext", context).catch((e) => {
           throw e;
         });
-        context.phaseStart("parse");
-        try {
-          await context.request.initialize();
-        } finally {
-          context.phaseEnd("parse");
-        }
-        const ctx = await this.onRequestEnd(context).catch((e) => {
-          throw e;
-        });
-        if (ctx instanceof Context) {
-          ctx.phaseStart("action");
-          try {
-            const result = await ctx.handle().catch((e) => {
+        // P1.4 — enter ALS scope so requestId is propagated to every
+        // downstream async hop (logs, ORM, security decorators, etc.).
+        return await RequestContext.run(
+          { requestId: context.requestId, scheme: context.scheme },
+          async () => {
+            context!.phaseStart("parse");
+            try {
+              await context!.request.initialize();
+            } finally {
+              context!.phaseEnd("parse");
+            }
+            const ctx = await this.onRequestEnd(context!).catch((e) => {
               throw e;
             });
-            return resolve(result);
-          } finally {
-            ctx.phaseEnd("action");
-          }
-        }
-        return resolve(context);
+            if (ctx instanceof Context) {
+              ctx.phaseStart("action");
+              try {
+                const result = await ctx.handle().catch((e) => {
+                  throw e;
+                });
+                return resolve(result);
+              } finally {
+                ctx.phaseEnd("action");
+              }
+            }
+            return resolve(context!);
+          },
+        );
       } catch (e) {
         return this.onError(e as Error, context as ContextType).catch((e) => {
           return reject(e);
@@ -719,33 +727,42 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       error = e;
     }
     try {
-      await this.onConnect(context as WebsocketContext, error);
-      // FIREWALL
-      if (this.firewall && (context?.secure || context?.isControlledAccess)) {
-        context.phaseStart("firewall");
-        try {
-          try {
-            await this.firewall.handleSecurity(context);
-            await this.fireAsync("afterAuth", context);
-          } catch (authError) {
-            await this.fireAsync("onAuthFailure", context, authError).catch(
-              (e) => this.log(e, "ERROR", "onAuthFailure")
-            );
-            throw authError;
+      // P1.4 — enter ALS scope for WS pipeline (handshake + messages).
+      // context.requestId is always defined (set in WebsocketContext ctor).
+      const wsRunId = context?.requestId ?? "ws-no-ctx";
+      const wsScheme = context?.scheme ?? "ws";
+      return await RequestContext.run(
+        { requestId: wsRunId, scheme: wsScheme },
+        async () => {
+          await this.onConnect(context as WebsocketContext, error);
+          // FIREWALL
+          if (this.firewall && (context?.secure || context?.isControlledAccess)) {
+            context.phaseStart("firewall");
+            try {
+              try {
+                await this.firewall.handleSecurity(context);
+                await this.fireAsync("afterAuth", context);
+              } catch (authError) {
+                await this.fireAsync("onAuthFailure", context, authError).catch(
+                  (e) => this.log(e, "ERROR", "onAuthFailure")
+                );
+                throw authError;
+              }
+            } finally {
+              context.phaseEnd("firewall");
+            }
           }
-        } finally {
-          context.phaseEnd("firewall");
-        }
-      }
-      if (context) {
-        context.phaseStart("action");
-        try {
-          return await context.handle();
-        } finally {
-          context.phaseEnd("action");
-        }
-      }
-      return await context?.handle();
+          if (context) {
+            context.phaseStart("action");
+            try {
+              return await context.handle();
+            } finally {
+              context.phaseEnd("action");
+            }
+          }
+          return await context?.handle();
+        },
+      );
     } catch (e) {
       try {
         await this.onError(e as Error, context as WebsocketContext);

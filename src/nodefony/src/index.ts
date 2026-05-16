@@ -41,6 +41,10 @@ export { default as FileResult } from "./finder/FileResult";
 export { default as Fetch } from "./service/fetchService";
 export { default as Injector } from "./kernel/injector/injector";
 
+// ─── Runtime (P1.4 — AsyncLocalStorage) ───────────────────────────────────────
+export { default as RequestContext } from "./runtime/RequestContext";
+export type { RequestContextPayload } from "./runtime/RequestContext";
+
 // ─── ORM ──────────────────────────────────────────────────────────────────────
 export { default as Orm } from "./kernel/orm/Orm";
 export { default as Entity } from "./kernel/orm/Entity";

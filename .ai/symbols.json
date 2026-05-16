@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-16T19:27:16.074Z",
+  "generated": "2026-05-16T19:40:50.857Z",
   "version": "1.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 184,
-    "symbols": 440,
-    "classes": 150,
-    "interfaces": 145,
+    "files": 185,
+    "symbols": 442,
+    "classes": 151,
+    "interfaces": 146,
     "types": 115,
     "enums": 1,
     "functions": 24,
@@ -531,6 +531,24 @@
       "file": "src/nodefony/src/kernel/Module.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    {
+      "name": "RequestContext",
+      "kind": "class",
+      "file": "src/nodefony/src/runtime/RequestContext.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    {
+      "name": "RequestContextPayload",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/RequestContext.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
     },
     {
       "name": "Fetch",
@@ -4322,6 +4340,10 @@
       "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
       "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
       "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+    ],
+    "RequestContext": [
+      "src/modules/test/nodefony/controller/DefaultController.ts",
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
     ],
     "ITool": [
       "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"

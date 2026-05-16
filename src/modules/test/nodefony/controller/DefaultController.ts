@@ -1,6 +1,6 @@
 import { Controller, route, controller } from "@nodefony/framework";
 import { Context, HttpContext, HttpError } from "@nodefony/http";
-import { inject, Fetch, nodefonyError as Error } from "nodefony";
+import { inject, Fetch, nodefonyError as Error, RequestContext } from "nodefony";
 
 // Module-level counter used by P1.2 onAfterResponse integration tests.
 // Lives outside the controller class because controllers are scoped per request.
@@ -251,6 +251,32 @@ class DefaultController extends Controller {
     securityHooksState.lastAuthFailureReason = "";
     securityHooksState.lastHook = "";
     return this.renderJson({ ok: true });
+  }
+
+  // ── P1.4 RequestContext (ALS) probes ────────────────────────────
+  // Sync read of ALS state at controller execution time.
+  @route("als-now", { path: "/als/now" })
+  alsNow() {
+    return this.renderJson({
+      requestId: RequestContext.getRequestId() ?? null,
+      scheme: RequestContext.get()?.scheme ?? null,
+      contextRequestId: this.context.requestId,
+    });
+  }
+
+  // Read ALS state AFTER an async hop (setTimeout + await).
+  // Validates propagation across the event loop boundary.
+  @route("als-async", { path: "/als/async" })
+  async alsAsync() {
+    const beforeAwait = RequestContext.getRequestId();
+    await new Promise<void>((r) => setTimeout(r, 20));
+    const afterAwait = RequestContext.getRequestId();
+    return this.renderJson({
+      beforeAwait: beforeAwait ?? null,
+      afterAwait: afterAwait ?? null,
+      sameAcrossAwait: beforeAwait === afterAwait,
+      contextRequestId: this.context.requestId,
+    });
   }
 }
 

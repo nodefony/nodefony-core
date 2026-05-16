@@ -51,6 +51,19 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
 
+## RequestContext (ALS) — P1.4 (2026-05-16)
+
+- `RequestContext` exporté depuis `nodefony` core (`src/runtime/RequestContext.ts`)
+- API : `RequestContext.run(payload, fn)`, `.get()`, `.getRequestId()`, `.getUser()`, `.getUserId()`, `.set(key, value)`
+- AsyncLocalStorage lazy : 1 instance partagée, créée au premier `.run()`. Aucun coût si jamais utilisé.
+- Payload type : `RequestContextPayload { requestId, scheme?, userId?, user?, traceparent?, [key]: unknown }` (open shape)
+- Wrap dans `HttpKernel.handleHttp` (après `createHttpContext`+`onCreateContext`, AVANT `parse` phase) avec `{requestId, scheme}`
+- Wrap dans `HttpKernel.handleWebsocket` (avant `onConnect`) idem
+- Perf : Node 22+ ALS = ~50-100 ns/request, 0 régression mesurable
+- Routes test : `/nodefony/test/als/{now,async}`
+- Tests intégration : `nodefony/tests/integration/request-context.test.ts` (6 tests : match contextId, X-Request-Id override, scheme, propagation cross-await, isolation 10 concurrent)
+- **Débloque** : P3.1 audit log (requestId dans chaque log même hors context), P6.8b décorateurs `@IsGranted` (récup `user` global type-safe), P13.4 RealtimeService (RequestContext pour TCP/UDP/Unix sockets)
+
 ## RequestLogger pluggable (P1.6, 2026-05-16)
 
 - `IRequestLogger` interface : `renderHttp(ctx, error?)` + `renderWebsocket(ctx, error?, protocol?)` → `{text, severity, msgid}`
@@ -171,7 +184,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 403 intégration + 94 unit = 497 (2026-05-16)
+## Tests — 418 intégration + 94 unit = 512 (2026-05-16)
 
 Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
 
