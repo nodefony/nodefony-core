@@ -34,3 +34,8 @@ temp/
 
 yarn.lock
 bun.lockb
+
+# Discussions de travail (décisions captées dans MIGRATION_STATUS + mémoire IA)
+analyse.txt
+realtime.txt
+*.discussion.txt
