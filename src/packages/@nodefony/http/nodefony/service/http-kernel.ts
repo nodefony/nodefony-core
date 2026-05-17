@@ -842,7 +842,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
               context.phaseEnd("action");
             }
           }
-          return await context?.handle();
+          return;
         },
       );
     } catch (e) {

@@ -47,7 +47,7 @@ import WebsocketSecure from "../../service/servers/server-websocket-secure";
 const colorLogEvent = clc.cyan.bgBlack("EVENT CONTEXT");
 
 // Shared frozen array used when timing is disabled — zero per-request alloc.
-const EMPTY_PHASES: PhaseTiming[] = Object.freeze([]) as PhaseTiming[];
+const EMPTY_PHASES: PhaseTiming[] = Object.freeze([] as PhaseTiming[]) as unknown as PhaseTiming[];
 
 export type WebSocketState =
   | "handshake"
