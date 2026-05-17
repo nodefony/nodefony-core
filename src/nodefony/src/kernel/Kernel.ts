@@ -208,6 +208,19 @@ class Kernel extends Service implements IKernel {
         });
     }
 
+    // Splash en TÊTE du boot — affiché AVANT `SERVICE ADD`, `MODULE ADD` et les
+    // events kernel. Le nom utilisé est `projectName` (="NODEFONY" jusqu'à ce
+    // que loadApp() le remplace par le nom de l'app). Précédemment l'ASCII art
+    // arrivait dans `preRegister()`, donc après plusieurs lignes de logs —
+    // l'UX boot était confuse, le banner servait de séparateur en plein milieu.
+    if (this.cli) {
+      await this.cli.showAsciify(this.projectName).catch((e) => {
+        this.log(e, "WARNING");
+      });
+      this.cli.showBanner();
+      this.cli.blankLine();
+    }
+
     this.tmpDir = new FileClass(`${process.cwd()}/tmp`);
     //TODO don't instancce on prod
     //this.babel = (await this.addKernelService(Babylon)) as Babylon;
@@ -276,22 +289,12 @@ class Kernel extends Service implements IKernel {
     }
     this.preRegistered = true;
     if (this.cli) {
-      await this.cli
-        .showAsciify(this.projectName)
-        .then(async () => {
-          if (this.cli) {
-            this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
-            this.setEnv(this.cli.environment);
-            this.cli.setProcessTitle(this.projectName.toLowerCase());
-            //this.fixCommanderCli();
-            //this.cli.setCommandVersion(this.version);
-            this.cli.showBanner();
-            this.cli.blankLine();
-          }
-        })
-        .catch((e) => {
-          throw e;
-        });
+      // showAsciify + showBanner sont désormais émis en TÊTE de `start()`.
+      // On garde ici seulement la résolution debug/env/processTitle qui
+      // dépend de l'instance CLI rattachée au kernel.
+      this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
+      this.setEnv(this.cli.environment);
+      this.cli.setProcessTitle(this.projectName.toLowerCase());
     }
     this.setNodeEnv(this.environment);
     // Clusters

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-17T12:19:17.382Z",
+  "generated": "2026-05-17T13:19:08.616Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 188,
-    "symbols": 456,
+    "symbols": 457,
     "classes": 153,
     "interfaces": 150,
     "types": 116,
     "enums": 1,
-    "functions": 31,
+    "functions": 32,
     "constants": 5
   },
   "symbols": {
@@ -4078,7 +4078,6 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/config/config.ts",
-        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/http/nodefony/config/config.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",

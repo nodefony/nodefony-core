@@ -4,7 +4,7 @@ import Router, { TypeController } from "../service/router";
 import { RouteOptions } from "../src/Route";
 import Controller from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
-import { Module, Nodefony } from "nodefony";
+import { Module } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
 import type { HTTPMethod } from "@nodefony/http";
 
@@ -24,14 +24,24 @@ function controllers(
         });
       }
       async initDecoratorControllers() {
+        const log = (contr: TypeController<Controller>) => {
+          Router.setController(contr, this);
+          this.log(`ADD CONTROLLER : ${contr.name}`, "DEBUG");
+          // Le log des routes DOIT être émis depuis `this` (le module) — pas
+          // depuis Router.setController qui est static et perd la chaîne
+          // d'override Module.log. Ici `this.log()` produit msgid `MODULE <name>`.
+          if (this.kernel?.debug) {
+            for (const r of Router.getRoutesForController(contr)) {
+              this.log(`route + ${r.toLogLine()}`, "DEBUG");
+            }
+          }
+        };
         if (Array.isArray(controller)) {
           for (const contr of controller) {
-            Router.setController(contr, this);
-            this.log(`ADD CONTROLLER : ${contr.name}`, "DEBUG");
+            log(contr);
           }
         } else {
-          Router.setController(controller, this);
-          this.log(`ADD CONTROLLER : ${controller.name}`, "DEBUG");
+          log(controller);
         }
       }
     }
@@ -77,18 +87,13 @@ function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
           hasMagic = { options, name };
           continue;
         }
-        const route = Router.createRoute(name, options);
-        const k = Nodefony.getKernel();
-        if (k?.debug) {
-          k.log(`Add routes : ${route.toString()}`, "DEBUG");
-        }
+        // Création seule — le log est différé à `Router.setController()` (hook
+        // `onBoot` du décorateur `@controllers`) qui a accès au `module` et
+        // peut donc émettre une ligne complète `@module/Controller.action`.
+        Router.createRoute(name, options);
       }
       if (hasMagic) {
-        const route = Router.createRoute(hasMagic.name, hasMagic.options);
-        const k = Nodefony.getKernel();
-        if (k?.debug) {
-          k.log(`Add routes : ${route.toString()}`, "DEBUG");
-        }
+        Router.createRoute(hasMagic.name, hasMagic.options);
       }
     }
     Reflect.deleteMetadata(metadataKey, mycontroller); // Supprimer les métadonnées
