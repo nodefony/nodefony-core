@@ -95,14 +95,22 @@ Par défaut → SANS `-d` pour les workflows automatisés. AVEC `-d` seulement q
 ### 1. Tuer les processus existants sur 5151/5152
 
 ```bash
-echo ">>> KILL ports 5151/5152" && lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null; sleep 1; echo ">>> ports libres"
+echo ">>> KILL ports 5151/5152"
+PIDS=$(lsof -ti:5151 -ti:5152 2>/dev/null)
+[ -n "$PIDS" ] && kill -9 $PIDS 2>/dev/null
+sleep 1
+echo ">>> ports libres"
 ```
+
+> **Pourquoi ce pattern et pas `lsof ... | xargs kill -9`** : sur macOS, `xargs` (BSD) n'a pas l'option `-r`/`--no-run-if-empty`. Si aucun port n'est pris, `xargs` exécute `kill -9` sans argument → l'erreur `kill: usage: kill ...` est imprimée. Le pattern `PIDS=$(...); [ -n "$PIDS" ] && kill ...` évite ce bruit et reste portable.
 
 ### 2. Rebuilder le module test
 
+> **Pré-requis** : être dans la racine du repo (`pwd` doit contenir `package.json` avec `"workspaces"`). Le chemin n'est plus codé en dur — on dérive de `$(pwd)` pour rester portable (autre dev, CI, container).
+
 ```bash
-echo ">>> BUILD src/modules/test"
-cd /Users/cci/repository/nodefony-core/src/modules/test && npm run build 2>&1 | tail -3
+echo ">>> BUILD src/modules/test (cwd=$(pwd))"
+(cd "$(pwd)/src/modules/test" && npm run build 2>&1 | tail -3)
 echo ">>> build OK"
 ```
 
@@ -110,22 +118,28 @@ Vérifier que le build se termine par `created dist in X.Xs`.
 
 ### 3. Démarrer le serveur (technique fiable)
 
+> **Trois durcissements vs version précédente** :
+>
+> 1. **`rm -f` du log AVANT spawn** — sinon le waiter (étape 4) compte les `Server Listen on` du boot précédent et déclare `>>> READY` immédiatement (faux positif).
+> 2. **`stdio: ['ignore', out, out]` avec un descripteur de fichier ouvert** — au lieu de `'pipe'` + `child.stdout.pipe(process.stdout)` + `> log 2>&1 &`. Plus robuste : quand le launcher Node parent s'arrête (après `unref()`), les pipes JS se cassent, alors que le descripteur de fichier reste valide tant que le child vit. **Pas de coût** : Node passe juste l'fd au child via `dup2()`.
+> 3. **`process.cwd()`** au lieu d'un chemin en dur — portable.
+
 ```bash
 echo ">>> SPAWN nodefony development (detached)"
+rm -f /tmp/nodefony-server.log
 node -e "
 const { spawn } = require('child_process');
+const fs = require('fs');
+const out = fs.openSync('/tmp/nodefony-server.log', 'w');
 const child = spawn('npx', ['nodefony', 'development'], {
-  cwd: '/Users/cci/repository/nodefony-core',
-  stdio: ['ignore', 'pipe', 'pipe'],
+  cwd: process.cwd(),
+  stdio: ['ignore', out, out],
   detached: true
 });
-child.stdout.pipe(process.stdout);
-child.stderr.pipe(process.stderr);
 child.unref();
-require('fs').writeFileSync('/tmp/srv.pid', String(child.pid));
+fs.writeFileSync('/tmp/srv.pid', String(child.pid));
 console.log('SERVER PID=' + child.pid);
-" > /tmp/nodefony-server.log 2>&1 &
-echo ">>> launcher PID=$!"
+"
 ```
 
 > **Avec debug** : remplacer `['nodefony', 'development']` par `['nodefony', '-d', 'development']`.
@@ -183,16 +197,25 @@ INFO server-websocket-secure : Server Listen on wss://127.0.0.1:5152
 
 ### 6. Test de santé rapide
 
+> **Pourquoi le `timeout: 2000`** : sans ça, si le serveur accepte la connexion TCP mais freeze AVANT d'envoyer les headers HTTP (boucle synchrone Rollup, lock GC, etc.), `https.request` attend indéfiniment et bloque la session Claude. Le `req.destroy()` sur timeout force `error` et déverrouille.
+
 ```bash
 echo ">>> HEALTH check /nodefony/test/index"
 node -e "
 const https = require('https');
-https.request({hostname:'127.0.0.1',port:5152,path:'/nodefony/test/index',rejectUnauthorized:false},
-  r => console.log('HEALTH ' + r.statusCode)).on('error', e => console.log('ERR ' + e.code)).end();
+const req = https.request({
+  hostname:'127.0.0.1', port:5152, path:'/nodefony/test/index',
+  rejectUnauthorized:false, timeout: 2000
+}, r => { console.log('HEALTH ' + r.statusCode); r.resume(); req.destroy(); });
+req.on('error', e => { if (e.code !== 'ECONNRESET') console.log('ERR ' + e.code); });
+req.on('timeout', () => { console.log('ERR TIMEOUT'); req.destroy(); });
+req.end();
 " 2>/dev/null
 ```
 
-Attendu : `HEALTH 200`. Si `ERR ECONNREFUSED`, le serveur n'a pas démarré — vérifier les logs.
+Attendu : `HEALTH 200`. Si `ERR ECONNREFUSED`, le serveur n'a pas démarré. Si `ERR TIMEOUT`, le serveur écoute mais freeze sur la requête — vérifier les logs serveur pour un blocage event-loop.
+
+> **Pourquoi `r.resume()` + `req.destroy()` dans le callback** : Node.js garde le socket TCP en keep-alive après la réception du status. Sans destroy explicite, l'event `timeout` fire 2s plus tard et imprime un faux `ERR TIMEOUT` après le `HEALTH 200`. Le `r.resume()` draine le body (sinon le socket reste half-open). Le filtre `e.code !== 'ECONNRESET'` masque l'erreur attendue qui suit `req.destroy()`.
 
 ## Parsing des logs de démarrage — debug rapide
 
@@ -299,9 +322,10 @@ sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep "Rollup Module" | grep
 
 ```bash
 echo ">>> KILL nodefony server"
-lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null
+PIDS=$(lsof -ti:5151 -ti:5152 2>/dev/null)
+[ -n "$PIDS" ] && kill -9 $PIDS 2>/dev/null
 sleep 1
 echo ">>> ports libres ($(lsof -ti:5151 -ti:5152 2>/dev/null | wc -l) processes restants)"
 ```
 
-L'echo final confirme l'arrêt (`0 processes restants`) — évite l'ambiguïté "il reste un orphelin".
+Pattern `PIDS=...; [ -n "$PIDS" ] && kill ...` (cf. étape 1) : portable macOS, pas d'erreur si aucun port n'est pris. L'echo final confirme l'arrêt (`0 processes restants`) — évite l'ambiguïté "il reste un orphelin".
