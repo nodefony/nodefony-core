@@ -35,10 +35,9 @@ export class TemplateHelper {
       return `<!-- @nodefony/frontend: unknown entry "${entryName}" -->`;
     }
     const baseUrl = `http://${status.host}:${status.port}`;
-    // Chemin relatif au `root` Vite — Vite résout via son resolver interne.
-    // L'entryFile est typiquement "./frontend/src/main.tsx" → on retire le root
-    // pour obtenir "/src/main.tsx" servi par Vite.
-    const entryUrl = `${baseUrl}/${this.stripRoot(entry.entryFile, entry.root)}`;
+    // `entryFile` est déjà relatif au `root` Vite (ex: "src/main.tsx") —
+    // résolu côté FrontendService.registerEntry via `path.relative(root, absEntry)`.
+    const entryUrl = `${baseUrl}/${entry.entryFile.replace(/^\/+/, "")}`;
     return [
       `<script type="module" src="${baseUrl}/@vite/client"></script>`,
       `<script type="module" src="${entryUrl}"></script>`,
@@ -48,16 +47,6 @@ export class TemplateHelper {
   private renderProdTags(_entryName: string): string {
     // TODO Phase ultérieure : lire manifest.json + injecter assets fingerprintés.
     return `<!-- @nodefony/frontend: prod manifest not yet implemented -->`;
-  }
-
-  private stripRoot(entryFile: string, root: string): string {
-    // "./frontend/src/main.tsx" - root "./frontend" → "src/main.tsx"
-    const normEntry = entryFile.replace(/^\.\//, "");
-    const normRoot = root.replace(/^\.\//, "").replace(/\/$/, "");
-    if (normEntry.startsWith(normRoot + "/")) {
-      return normEntry.slice(normRoot.length + 1);
-    }
-    return normEntry;
   }
 }
 
