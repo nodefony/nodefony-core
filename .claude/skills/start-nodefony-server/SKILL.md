@@ -23,18 +23,44 @@ puis recompile avec Rollup ~12 s plus tard et écrase le dist.
 De plus, `npx nodefony development > log 2>&1 &` meurt immédiatement (SIGHUP du subshell).
 Il faut utiliser `spawn` Node.js avec `detached: true`.
 
+## Visibilité dans le terminal Claude — règle d'or
+
+Le boot Nodefony prend **~12 secondes**. Pendant ces secondes, le terminal paraît bloqué.
+Pour que l'utilisateur (humain ou Claude) ne pense PAS que c'est gelé :
+
+- **AVANT chaque étape**, émettre un marqueur clair en stdout : `>>> STEP X — ...`
+- **PENDANT l'attente**, afficher la progression (compteur servers up / 4) à intervalle court
+- **APRÈS**, statut final explicite : `>>> READY` ou `>>> FATAL`
+- **AU KILL**, marqueur : `>>> KILL ports 5151/5152`
+
+Format adopté ci-dessous. Ne pas le simplifier — la verbosité est volontaire.
+
+## Quand lancer en debug (`-d`) ou pas
+
+| Cas d'usage                                            | Flag             | Pourquoi                                          |
+| ------------------------------------------------------ | ---------------- | ------------------------------------------------- |
+| Tests d'intégration `npm run test:integration`         | **SANS `-d`**    | INFO seul, ~30 lignes au boot, suffisant          |
+| Diagnostiquer un crash au démarrage                    | **AVEC `-d`**    | DEBUG révèle SERVICE ADD, MODULE ADD, EVENT KERNEL — voir où ça plante |
+| Routes 404 inattendues                                 | **AVEC `-d`**    | Le log `route + [METHODS] path → @module/Ctrl.action` liste tout ce qui est enregistré |
+| Bench / mesure de perf du boot                         | **AVEC `-d`**    | Les timestamps ms (`HH:MM:SS.mmm`) permettent de mesurer chaque phase |
+| Mode "tourne en arrière-plan, je teste mes requêtes"   | **SANS `-d`**    | Moins de bruit dans le log, plus rapide à parser  |
+
+Par défaut → SANS `-d` pour les workflows automatisés. AVEC `-d` seulement quand on diagnostique.
+
 ## Étapes à exécuter dans l'ordre
 
 ### 1. Tuer les processus existants sur 5151/5152
 
 ```bash
-lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null; sleep 1; echo "ports libérés"
+echo ">>> KILL ports 5151/5152" && lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null; sleep 1; echo ">>> ports libres"
 ```
 
 ### 2. Rebuilder le module test
 
 ```bash
+echo ">>> BUILD src/modules/test"
 cd /Users/cci/repository/nodefony-core/src/modules/test && npm run build 2>&1 | tail -3
+echo ">>> build OK"
 ```
 
 Vérifier que le build se termine par `created dist in X.Xs`.
@@ -42,6 +68,7 @@ Vérifier que le build se termine par `created dist in X.Xs`.
 ### 3. Démarrer le serveur (technique fiable)
 
 ```bash
+echo ">>> SPAWN nodefony development (detached)"
 node -e "
 const { spawn } = require('child_process');
 const child = spawn('npx', ['nodefony', 'development'], {
@@ -55,32 +82,39 @@ child.unref();
 require('fs').writeFileSync('/tmp/srv.pid', String(child.pid));
 console.log('SERVER PID=' + child.pid);
 " > /tmp/nodefony-server.log 2>&1 &
-echo "launcher PID=$!"
+echo ">>> launcher PID=$!"
 ```
 
-### 4. Attendre le démarrage AVEC fail-fast sur erreur fatale
+> **Avec debug** : remplacer `['nodefony', 'development']` par `['nodefony', '-d', 'development']`.
+
+### 4. Attendre le démarrage AVEC progression visible + fail-fast
 
 Le serveur prend ~12 s pour charger les modules + ~8 s pour Rollup.
-**IMPORTANT** : ne JAMAIS `sleep 20` en aveugle. Surveiller le log et abandonner immédiatement si le kernel crash (SyntaxError, CRITIC, terminate, EADDRINUSE).
-
-Lancer cette boucle qui termine soit en succès, soit en échec rapide :
+**IMPORTANT** : ne JAMAIS `sleep 20` en aveugle. Surveiller le log, afficher la progression, abandonner immédiatement si crash.
 
 ```bash
+echo ">>> WAIT boot (max 20s, check every 0.5s)"
 for i in $(seq 1 40); do
   if grep -q -E "SyntaxError|CRITIC|EADDRINUSE|ALREADY USE|terminate :" /tmp/nodefony-server.log 2>/dev/null; then
-    echo "FATAL — le serveur a crashé au démarrage"
+    echo ">>> FATAL — le serveur a crashé au démarrage"
     grep -E "SyntaxError|CRITIC|terminate|EADDRINUSE" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g' | tail -15
     exit 1
   fi
-  if [ "$(grep -c 'Server Listen on' /tmp/nodefony-server.log 2>/dev/null)" -ge 4 ]; then
-    echo "READY"
+  COUNT=$(grep -c "Server Listen on" /tmp/nodefony-server.log 2>/dev/null || echo 0)
+  if [ "$COUNT" -ge 4 ]; then
+    echo ">>> READY — $COUNT servers listening (took ${i} × 0.5s)"
     break
+  fi
+  # Progression visible toutes les 2s pour rassurer
+  if [ $((i % 4)) -eq 0 ]; then
+    echo ">>> ... booting ($COUNT/4 servers up, ${i}×0.5s elapsed)"
   fi
   sleep 0.5
 done
 ```
 
 **Heuristique de détection fatale** :
+
 - `SyntaxError` → import manquant (dist d'un module périmé → `npm run build` sur ce workspace)
 - `CRITIC` → erreur niveau kernel
 - `terminate :` → le kernel s'est éteint
@@ -91,12 +125,13 @@ done
 ### 5. Vérifier que les 4 serveurs écoutent
 
 ```bash
+echo ">>> VERIFY servers listening"
 grep "Server Listen" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
 ```
 
 Résultat attendu (4 lignes) :
+
 ```
-INFO server-static  : Server Listen on .../public
 INFO server-http    : Server Listen on http://127.0.0.1:5151
 INFO server-https   : Server Listen on https://127.0.0.1:5152
 INFO server-websocket : Server Listen on ws://127.0.0.1:5151
@@ -106,6 +141,7 @@ INFO server-websocket-secure : Server Listen on wss://127.0.0.1:5152
 ### 6. Test de santé rapide
 
 ```bash
+echo ">>> HEALTH check /nodefony/test/index"
 node -e "
 const https = require('https');
 https.request({hostname:'127.0.0.1',port:5152,path:'/nodefony/test/index',rejectUnauthorized:false},
@@ -115,20 +151,91 @@ https.request({hostname:'127.0.0.1',port:5152,path:'/nodefony/test/index',reject
 
 Attendu : `HEALTH 200`. Si `ERR ECONNREFUSED`, le serveur n'a pas démarré — vérifier les logs.
 
-## Lecture des logs pour diagnostiquer les bugs
+## Parsing des logs de démarrage — debug rapide
+
+Le format Pdu (depuis 2026-05-17) est `HH:MM:SS.mmm SEVERITY MSGID : payload`. Tous les filtres ci-dessous fonctionnent quel que soit le mode (avec ou sans `-d`).
+
+### Tout en un — état de santé global
 
 ```bash
-# Toutes les erreurs
-grep -E "ERROR|CRITIC|SyntaxError|terminate" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
-
-# Routes 404 (dist périmé → rebuild + restart)
-grep "404" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g' | tail -10
-
-# Erreur port déjà utilisé
-grep "ALREADY USE\|EADDRINUSE" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
+sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep -oE " (DEBUG|INFO|NOTICE|WARNING|ERROR|CRITIC|ALERT|EMERGENCY) " | sort | uniq -c | sort -rn
 ```
 
-### Symptômes courants
+Résultat normal : 0 ERROR, 0 CRITIC. Si > 0 → investiguer.
+
+### Erreurs et crashs uniquement
+
+```bash
+sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep -E " (ERROR|CRITIC|EMERGENCY) "
+```
+
+### Warnings (overrides config, ORM, TS compile)
+
+```bash
+sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep " WARNING "
+```
+
+### Timeline du boot (perf par phase, résolution ms)
+
+```bash
+sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep -E "EVENT KERNEL|MODULE ADD|SERVICE ADD|Server Listen"
+```
+
+Ordre attendu :
+
+```
+SERVICE ADD : rollup / watcher
+EVENT KERNEL onPreStart
+MODULE ADD : app / sequelize / http / framework / security / test
+EVENT KERNEL onCluster / onRegister / onPreBoot
+SERVICE ADD : HttpKernel / certificates / sessions / server-http / ...
+EVENT KERNEL onBoot / onReady / onServersReady / onPostReady
+Server Listen on http://127.0.0.1:5151 ...
+```
+
+Pour mesurer une phase : prendre les 2 timestamps qui l'encadrent et soustraire.
+
+### Routes enregistrées (debug `-d` requis)
+
+```bash
+sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep "route +"
+```
+
+Chaque ligne :
+
+```
+DEBUG MODULE test : route + [GET|HEAD]  /nodefony/test/index → @test/DefaultController.index
+DEBUG MODULE test : route + [ANY]       /nodefony/test/crash/sync → @test/DefaultController.crashSync
+DEBUG MODULE app  : route + [ANY]       /                          → @app/AppController.index  (no auth)
+```
+
+Utile pour :
+
+- Lister toutes les routes connues du routeur
+- Trouver d'où vient une route 404 (chercher le path : si absent → route pas enregistrée)
+- Vérifier qu'un nouveau controller a bien été pris en compte après rebuild
+
+### Routes 404 réellement servies
+
+```bash
+sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep " 404 "
+```
+
+→ Si la route existe en `route +` mais sert 404 : problème de matching path/method.
+→ Si absente des `route +` : dist du module périmé, rebuild requis.
+
+### Détection rapide "watch Rollup runtime a écrasé le dist"
+
+Le watch Rollup runtime du serveur en mode dev re-compile les workspaces ~12s après le boot et écrase les `dist/`. Si tu modifies un source et relances le serveur SANS rebuild manuel, le nouveau dist sera celui que Rollup runtime produira — pas celui que tu as compilé entre temps.
+
+```bash
+sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep "Rollup Module" | grep "write rollup"
+```
+
+→ Liste les modules re-buildés par le watch runtime, avec timestamp.
+→ Si timestamp > moment du boot : le dist a été écrasé après le démarrage. Pour un test reproductible, tuer le serveur AVANT de modifier les sources, rebuilder manuellement, et seulement APRÈS relancer.
+
+## Symptômes courants
 
 | Symptôme dans le log                                                                  | Cause                                              | Fix                                                                    |
 | ------------------------------------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
@@ -137,15 +244,21 @@ grep "ALREADY USE\|EADDRINUSE" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m/
 | Pas de "Server Listen on" après 20s + aucune erreur                                   | Rollup est lent, ou le kernel est bloqué            | Vérifier `ps aux \| grep rollup` ; relancer si bloqué                  |
 | `EADDRINUSE 5151/5152`                                                                | Autre process sur les ports                         | `lsof -ti:5151 -ti:5152 \| xargs kill -9`                              |
 | 4 serveurs OK mais routes 404 pour `/nodefony/test/...`                               | dist du module test périmé                          | `cd src/modules/test && npm run build` puis relancer                   |
+| Mes modifs ne sont pas prises en compte malgré rebuild                                | Watch Rollup runtime du serveur a écrasé le dist    | Kill serveur AVANT modif, rebuild, PUIS relance                        |
 
 ## Rapport final à donner à l'utilisateur
 
 - PID du serveur : `cat /tmp/srv.pid`
 - Ports actifs : `lsof -ti:5151 -ti:5152`
-- Résumé : "Serveur UP — http://127.0.0.1:5151 | https://127.0.0.1:5152"
+- Résumé : `>>> Serveur UP — http://127.0.0.1:5151 | https://127.0.0.1:5152`
 
 ## Arrêter le serveur
 
 ```bash
+echo ">>> KILL nodefony server"
 lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null
+sleep 1
+echo ">>> ports libres ($(lsof -ti:5151 -ti:5152 2>/dev/null | wc -l) processes restants)"
 ```
+
+L'echo final confirme l'arrêt (`0 processes restants`) — évite l'ambiguïté "il reste un orphelin".
