@@ -161,6 +161,10 @@ class Kernel extends Service implements IKernel {
   injector: Injector;
   isDev: boolean = false;
   isProd: boolean = true;
+  // Buffer FIFO des `MODULE ADD` émis avant l'en-tête `SERVER` (logEnv) —
+  // flushé par `initCluster()` après le banner. Tant qu'il n'est pas null
+  // les logs sont différés ; passé à `null`, addModule() log immédiatement.
+  private pendingModuleAddLogs: string[] | null = [];
   //babel?: Babylon;
   constructor(
     environment: EnvironmentType,
@@ -529,7 +533,11 @@ class Kernel extends Service implements IKernel {
   async addModule(Mod: ModuleConstructor, ...args: any[]): Promise<Module> {
     const mod = new Mod(this, ...args);
     this.modules[mod.name] = mod;
-    this.log(`MODULE ADD : ${mod.name}`, "INFO");
+    if (this.pendingModuleAddLogs) {
+      this.pendingModuleAddLogs.push(mod.name);
+    } else {
+      this.log(`MODULE ADD : ${mod.name}`, "INFO");
+    }
     if (mod.initialize) {
       this.log(`MODULE INITIALIZE : ${mod.name}`, "DEBUG");
       await mod.initialize(this);
@@ -721,6 +729,20 @@ class Kernel extends Service implements IKernel {
     return cluster.isPrimary;
   }
 
+  /**
+   * Vide le buffer des `MODULE ADD` accumulés pendant `loadApp()` et bascule
+   * `addModule()` en mode log immédiat. Appelé par `initCluster()` juste
+   * après l'en-tête SERVER, pour que les modules apparaissent SOUS le banner.
+   */
+  private flushPendingModuleAddLogs(): void {
+    if (!this.pendingModuleAddLogs) return;
+    const pending = this.pendingModuleAddLogs;
+    this.pendingModuleAddLogs = null;
+    for (const name of pending) {
+      this.log(`MODULE ADD : ${name}`, "INFO");
+    }
+  }
+
   initCluster(): void {
     this.pid = process.pid;
     //this.process = process;
@@ -734,9 +756,11 @@ class Kernel extends Service implements IKernel {
     }
     if (cluster.isPrimary) {
       console.log(this.logEnv());
+      this.flushPendingModuleAddLogs();
       this.fire("onCluster", "MASTER", this, process);
     } else if (cluster.isWorker) {
       console.log(this.logEnv());
+      this.flushPendingModuleAddLogs();
       this.workerId = cluster.worker?.id;
       this.worker = cluster.worker;
       this.fire("onCluster", "WORKER", this, process);
