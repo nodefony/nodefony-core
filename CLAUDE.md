@@ -84,12 +84,22 @@ Tu es un développeur minimaliste "Caveman".
 - **OBLIGATOIRE** : Si tu dois parler, utilise des phrases de moins de 5 mots.
   _Exemple : "Fichier lu. Erreur trouvée. Correction en cours."_
 
-## 📚 OPTIMIZED DOCUMENTATION ACCESS
+## 📚 Docs externes & roadmap — Skills load-on-demand
 
-- **Node.js Docs (Priority)** : Ne jamais naviguer sur nodejs.org directement.
-- **Method** : Utiliser systématiquement un proxy Markdown (ex: `https://r.jina.ai/`) pour lire la doc technique.
-- **Token Saving** : Une fois une API Node.js comprise (ex: `node:http2`), stocke les signatures de fonctions critiques dans le `MEMORY.md` du module pour ne plus avoir à relire la doc officielle.
-- **No Hallucination** : Si un doute subsiste sur une version de Node.js (migration vers v20+), vérifie via le proxy Markdown avant de coder.
+La doc externe (RFC, TS handbook, NestJS) et les phases futures (10/12/13/14) sont **déchargées dans des skills** déclenchés par mots-clés — gratuit en tokens tant qu'ils ne se déclenchent pas :
+
+| Skill              | Quand l'utiliser                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| `nodefony-rfc`     | RFC HTTP/HTTP2/WS/CORS/Cookies (IETF + W3C raw uniquement)                                  |
+| `nodefony-ts-docs` | TS handbook, utility types, `@types/node` DefinitelyTyped                                   |
+| `nodefony-nestjs`  | Inspiration architecture NestJS — déclencheur EXCLUSIF mot-clé "NestJS"                     |
+| `nodefony-roadmap` | Phase 10 (Vision admin), 12 (IA agentic), 13 (Realtime/Redis/client), 14 (frontend builder) |
+
+**Règle universelle** : interdiction de charger les sites HTML lourds (`nodejs.org`, `typescriptlang.org`, `docs.nestjs.com`, `tools.ietf.org`). Toujours via raw GitHub + proxy `https://r.jina.ai/`. Les skills contiennent les URLs canoniques + le pattern d'usage.
+
+**Convention de route `/nodefony/*` réservée à Vision** : tout module exposant une API d'admin (stats, introspection) doit exposer `/nodefony/<module>/api/*` documenté dans son `MEMORY.md`. Concevoir en GraphQL/REST JSON — pas de couplage à la vue. (Détails complets : skill `nodefony-roadmap`.)
+
+**Cache MEMORY** : une fois une API Node.js comprise (ex : `node:http2`), stocker les signatures critiques dans le `MEMORY.md` du module concerné — évite de relire la doc.
 
 ## Contexte du projet
 
@@ -108,120 +118,6 @@ Auteur : Christophe CAMENSULI — projet libre CeCILL-B.
 
 ---
 
-## 📘 TS OFFICIAL DOCS & TYPES (CDN PROXIES)
-
-Si tu as un doute sur une fonctionnalité de typage avancée (Utility Types, Mapped Types, Generics), utilise exclusivement ces sources épurées via `fetch` ou `curl` :
-
-### 1. Les Types Utilitaires Officiels (Utility Types)
-
-Pour voir comment TypeScript type nativement `Pick`, `Omit`, `ReturnType`, ou `Parameters` :
-
-- **URL Raw** : `https://r.jina.ai/https://raw.githubusercontent.com/microsoft/TypeScript/main/src/lib/es5.d.ts`
-  _Instruction : Ne lis pas tout le fichier, fais un grep ou cherche la définition précise._
-
-### 2. Guide des Bonnes Pratiques de Typage (TS Handbook)
-
-Pour les règles de design de typage (Overloads, Callbacks, Unsound Types) :
-
-- **Design Guidelines** : `https://r.jina.ai/https://raw.githubusercontent.com/microsoft/TypeScript-Website/v2/packages/documentation/copy/en/declaration-files/Do-s-and-Don-ts.md`
-- **Midi-Cheat-Sheet (Interfaces vs Types)** : `https://r.jina.ai/https://raw.githubusercontent.com/microsoft/TypeScript-Website/v2/packages/documentation/copy/en/handbook/2/Everyday-Types.md`
-
-### 3. Typages TS pour Node.js (@types/node officiel)
-
-Pour vérifier un type natif de Node.js v20+ ou une interface globale (ex: `NodeJS.Timeout`) :
-
-- **Core HTTP Types** : `https://r.jina.ai/https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/node/http.d.ts`
-- **Global / Process Types** : `https://r.jina.ai/https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/types/node/globals.d.ts`
-
----
-
-## ⚡ RÈGLE CAVEMAN POUR LA DOC TS
-
-- **Interdiction** de charger les pages du site `typescriptlang.org` (trop lourdes, perte de tokens).
-- **Raccourci** : Si je te demande "Comment typer X en TS ?", utilise le proxy `https://r.jina.ai/` devant l'URL GitHub Raw appropriée.
-- **Zéro Bla-bla** : Tu extrais la structure du type officiel, tu l'adaptes à Nodefony, et tu l'intègres sans faire de rapport de lecture.
-
-## 🦅 NESTJS ARCHITECTURAL INSPIRATION (LOW-TOKEN)
-
-- **⚠️ TRIGGER CONDITION** : Ne lis ces ressources NestJS ET n'applique cette inspiration QUE si je te le demande explicitement par le mot-clé "NestJS". Sinon, ignore totalement cette section.
-
-Pour calquer l'architecture de Nodefony sur les concepts de NestJS (Decorators, Controllers, Modules, DI) sans gaspiller de tokens, utilise exclusivement le repository officiel de la documentation NestJS au format Raw Markdown :
-
-### 1. Les Contrôleurs & Gestion HTTP/WS (Controllers)
-
-Pour comprendre comment NestJS lie les décorateurs aux routes et gère le cycle de vie des requêtes :
-
-- **URL Raw** : `https://r.jina.ai/https://raw.githubusercontent.com/nestjs/docs.nestjs.com/master/content/controllers.md`
-
-### 2. L'Injection de Dépendances (Providers & Components)
-
-Pour calquer le système `@Service` / `@Inject` de Nodefony sur les Providers de NestJS :
-
-- **URL Raw** : `https://r.jina.ai/https://raw.githubusercontent.com/nestjs/docs.nestjs.com/master/content/providers.md`
-
-### 3. L'Encapsulation par Module (Modules)
-
-Pour structurer les sous-dossiers de `src/packages/@nodefony/` comme les modules NestJS :
-
-- **URL Raw** : `https://r.jina.ai/https://raw.githubusercontent.com/nestjs/docs.nestjs.com/master/content/modules.md`
-
-### 4. Les Gardes & Sécurité (Guards / WAF)
-
-Source d'inspiration directe pour migrer `@nodefony/security` (Firewall) :
-
-- **URL Raw** : `https://r.jina.ai/https://raw.githubusercontent.com/nestjs/docs.nestjs.com/master/content/guards.md`
-
----
-
-## ⚡ RÈGLE CAVEMAN POUR L'INSPIRATION NESTJS
-
-- **Interdiction** d'aller sur `docs.nestjs.com` (le site plante Claude Code avec le JS lourd et consomme trop).
-- **Rôle de l'IA** : Quand je dis "Inspire-toi de NestJS pour le décorateur X", tu vas lire le `.md` brut correspondant, tu analyses la syntaxe TypeScript (Metadata, Reflect), et tu l'adaptes au Kernel de Nodefony.
-- **Zéro Blabla** : N'écris pas "NestJS fait comme ceci...". Écris directement le code du décorateur TypeScript adapté à Nodefony.
-
-## 🦅 NESTJS ARCHITECTURAL INSPIRATION (LOW-TOKEN)
-
-- **⚠️ TRIGGER CONDITION** : Ne lis ces ressources NestJS ET n'applique cette inspiration QUE si je te le demande explicitement par le mot-clé "NestJS". Sinon, ignore totalement cette section.
-
----
-
-## 🌐 RFC & W3C STANDARDS (LOW-TOKEN CORES)
-
-Pour valider la conformité HTTP, HTTP2, et WebSockets du framework face aux normes officielles, utilise exclusivement ces sources au format texte brut (TXT) via `fetch` ou `curl` :
-
-### 1. HTTP/1.1 & Sémantique (RFC 9110 - Remplace la 7231)
-
-Source absolue pour les status codes (200, 404, 500), les headers, et les méthodes (GET, POST) :
-
-- **URL Raw TXT** : `https://www.ietf.org/rfc/rfc9110.txt`
-  _Instruction : Utilise un `grep` ou cherche le mot-clé exact (ex: "401 Unauthorized") pour ne pas lire les 200 pages._
-
-### 2. HTTP/2 (RFC 9113 - Remplace la 7540)
-
-Indispensable pour le multiplexage, la gestion des streams, et les pseudo-headers (`:status`, `:method`) dans `@nodefony/http` :
-
-- **URL Raw TXT** : `https://www.ietf.org/rfc/rfc9113.txt`
-
-### 3. WebSockets (RFC 6455)
-
-La bible pour le handshake HTTP, le masquage des frames et la fermeture des connexions WS :
-
-- **URL Raw TXT** : `https://www.ietf.org/rfc/rfc6455.txt`
-
-### 4. Spécifications WAF / CORS / Cookies (W3C & IETF)
-
-Pour le Firewall Applicatif (`@nodefony/security`) :
-
-- **CORS (Fetch Standard W3C)** : `https://r.jina.ai/https://fetch.spec.whatwg.org/`
-- **Cookies & SameSite (RFC 6265bis)** : `https://www.ietf.org/rfc/rfc6265.txt`
-
----
-
-## ⚡ RÈGLE CAVEMAN POUR LES RFC
-
-- **Interdiction** d'utiliser les versions HTML complexes de `tools.ietf.org` ou `w3c.org`. Les fichiers `.txt` officiels de l'IETF sont parfaits : 0 token gaspillé en structure de page.
-- **Zéro Prose** : Si je te dis "Rends le Header conforme à la RFC 9110", trouve la section de la RFC, applique la syntaxe exacte dans le code (ex: casse des headers, séparateurs `\r\n`), et valide sans faire de rapport historique.
-
 ## Vision du framework
 
 Nodefony est une **plateforme générique** pour construire :
@@ -232,145 +128,6 @@ Nodefony est une **plateforme générique** pour construire :
 **Positionnement** : framework générique réutilisable — jamais de logique métier dans le core.
 **Inspiration** : Symfony (DI, modules, kernel, Firewall Applicatif) + NestJS (decorators TS)
 **Différenciateur** : HTTP et WebSocket dans le même contexte controller, nativement.
-
----
-
-## 🎯 Module `@nodefony/vision` (futur — successeur de `monitoring-bundle`)
-
-> Application web d'administration du framework et des apps qui tournent dessus.
-> Remplace le `monitoring-bundle` Vue 2 legacy (`/Users/cci/repository/nodefony/src/nodefony/bundles/monitoring-bundle/`).
-
-**Périmètre** : dashboard (bundles, databases, firewall, logs, migrate, npm, pm2, profiling, router, service, sessions, users) — voir vues legacy comme inspiration de scope, pas de tech.
-
-**🔒 Convention de route RÉSERVÉE — applicable dès maintenant** :
-
-- Le préfixe `/nodefony` est **réservé à Vision** dans toutes les apps Nodefony en production.
-- Les modules **internes** (`@nodefony/http`, `@nodefony/framework`, `@nodefony/security`, ORM, etc.) qui exposent des routes d'admin doivent les exposer sous `/nodefony/<module>/...`.
-- Les apps utilisateur (consommateurs du framework) doivent éviter `/nodefony/*` pour leurs propres routes.
-- Le module `test` actuel utilise `/nodefony/test/*` — c'est cohérent (route de test interne).
-
-**Conséquence pour chaque module migré** :
-- Si le module expose une API d'introspection/admin (ex : `@nodefony/http` → stats serveurs, `@nodefony/framework` → liste routes, `@nodefony/security` → users connectés, `@nodefony/orm-*` → état connexions DB), **prévoir un controller `/nodefony/<module>/api/*` documenté qui sera consommé par Vision**.
-- Concevoir les API comme **GraphQL ou REST JSON** — pas de couplage à la vue.
-- Documenter chaque endpoint admin dans le `MEMORY.md` du module — Vision les consommera.
-
-**Stack cible Vision** (à figer en début de Phase 10) :
-- Frontend : Vue 3 + Vite + TS (cohérence avec passé) ou React 19 — décision en début de Phase 10
-- Backend : `@nodefony/framework` controllers + GraphQL pour requêtes complexes + REST pour mutations simples
-- Auth : `@nodefony/security` factory dédiée admin (rôle `ROLE_NODEFONY_ADMIN`)
-
-**Tracking** : voir Phase 10 dans `MIGRATION_STATUS.md`.
-
----
-
-## 🎨 Phase 14 — `@nodefony/frontend` (builder Vue/React/Svelte intégré)
-
-> **Mécanique legacy à reproduire en moderne** : chaque bundle pouvait déclarer `type: "react" | "vue"` et le framework transpilait son frontend automatiquement (`webpackService.js` 631 L + `cli/builder/{react,vue}/` 634 L).
-> **Refonte 2026** : Vite par défaut (ESM natif, HMR ultra-rapide), Webpack uniquement sur demande legacy.
-
-**Conventions module avec frontend** (dès qu'un module a un `frontend/`) :
-
-```typescript
-// nodefony/config/config.ts
-export default {
-  frontend: {
-    type: "vue3",              // ou "react19", "svelte5", "solid"
-    entry: "./frontend/src/main.ts",
-    outDir: "./public/dist",
-    integrate: true            // true = middleware HMR dans @nodefony/http | false = proxy Vite externe
-  }
-}
-```
-
-**Lifecycle** :
-- **Dev** : kernel boot → `@nodefony/frontend` lit `module.options.frontend` → ViteBuilder middleware injecté dans `@nodefony/http` → HMR live via WS natif.
-- **Prod** : `npx nodefony build` → assets hashed dans `dist/public/<module-name>/` → `@nodefony/http` static.
-
-**Règle dure** : `@nodefony/frontend` ≠ `@nodefony/client` — ne pas confondre.
-
-| Module                | Rôle                                                                              |
-| --------------------- | --------------------------------------------------------------------------------- |
-| `@nodefony/frontend`  | **Builder** : transpile/bundle les frontends des modules (Vue/React/Svelte)       |
-| `@nodefony/client`    | **Lib JS bas niveau** : HTTP/WS/auth/streaming clients, importée DANS le code UI  |
-
-Vision = consommateur des deux : `@nodefony/frontend` (Vite + Vue 3) pour bundler son frontend Vue, qui importe `@nodefony/client` pour les appels backend.
-
-Voir Phase 14 dans `MIGRATION_STATUS.md`. Bloque P10.7 (Vision frontend).
-
----
-
-## 🛰 Phase 13 — Realtime + Redis cluster + Client navigateur
-
-> 3 modules à garder en tête pendant la migration framework — interconnectés avec d'autres phases.
-
-| Module                  | Rôle                                                            | Bloque             | Réf JS legacy                                  |
-| ----------------------- | --------------------------------------------------------------- | ------------------ | ---------------------------------------------- |
-| `@nodefony/redis`       | Cluster + pub/sub + storage (cache, session, lock distribué)    | P5.12 + apps prod  | `bundles/redis-bundle/` (166 L)                |
-| `@nodefony/client`      | Lib navigateur — HTTP/WS/auth/streaming LLM côté browser        | **P10.7 Vision**   | N/A — à créer                                  |
-| `@nodefony/realtime`    | Serveurs TCP/UDP/Unix sockets (IoT, IPC, protos binaires)       | indépendant        | `bundles/realtime-bundle/` (689 L + sockets)   |
-
-**Règles transverses à appliquer pendant les migrations** :
-
-- **WS reste dans `@nodefony/http`** — `realtime` complète avec TCP/UDP/Unix, pas WS.
-- **Sessions prod** : `RedisSessionStorage` (P5.12) dépend de `@nodefony/redis` refactor (P13.2). Si on cible un cluster Nodefony multi-instance, P13.2 est non-négociable.
-- **Vision frontend** consomme `@nodefony/client` — donc `client` doit exposer : WS reconnect auto, fetch auth/CSRF, AsyncIterable streaming LLM, AuthClient (login/refresh).
-- **`@nodefony/client` est bas niveau** — pas de Vue/React inclus, utilisable depuis n'importe quel framework UI.
-- **TypeScript shared types** : créer `@nodefony/contracts` (micro-package types-only) si nécessaire pour éviter cycles client ↔ server.
-- **Pub/Sub Redis** : critique pour cluster — WS broadcast scalable nécessite pub/sub (1 instance reçoit → broadcast à toutes les instances → chacune forward à ses WS clients).
-
-Voir Phase 13 dans `MIGRATION_STATUS.md` pour le détail.
-
----
-
-## 🧠 Vision finale : couche IA agentic (Phase 12 — DERNIÈRE)
-
-> **À garder en mémoire pendant TOUTE la migration framework.**
-> La destination finale de Nodefony n'est pas un framework web généraliste de plus — c'est une **plateforme Node.js pour construire des agents IA métier**, avec gouvernance, conformité AI Act, et mode souverain (LLM local).
-
-**Différenciateur** : aucun équivalent ne fait les deux à la fois.
-- NestJS fait le serveur, pas l'IA native.
-- LangChain fait l'IA, pas le serveur.
-- **Nodefony fait les deux nativement, avec gouvernance intégrée**.
-
-**Pilier technique** : WebSocket natif `@nodefony/http` = transport idéal du streaming LLM token-par-token. DI Container = orchestration des sous-agents. Multi-ORM = persistence pluggable de l'audit et des coûts.
-
-**8 modules IA** (état :  4 existent partiellement, 3 vides, 1 à fusionner avec Vision) :
-
-| Module                | Rôle                                                                     | État actuel | Phase |
-| --------------------- | ------------------------------------------------------------------------ | ----------- | ----- |
-| `@nodefony/llm`       | Interface multi-LLM (Claude, Gemini, OpenAI, Ollama, Mistral, Groq)      | 🔶          | P12.1 |
-| `@nodefony/vector`    | Adapters vector stores (pgvector via orm-core+Drizzle, Qdrant, Chroma)   | 🔶          | P12.1 |
-| `@nodefony/rag`       | Pipeline RAG — ingestion / chunking / embedding / recherche              | 🔶          | P12.1 |
-| `@nodefony/memory`    | Mémoire agents — court / long / épisodique                                | 🔶          | P12.1 |
-| `@nodefony/agent`     | Orchestrateur + sous-agents via DI + decorators `@Agent`/`@Tool`         | 🔶 partiel  | P12.2 |
-| `@nodefony/mcp`       | MCP server + client (Model Context Protocol — standard Anthropic)        | ⬜          | P12.3 |
-| `@nodefony/agent-guard` | **Différenciateur** — zones, PII, audit, circuit breaker, approval, coûts | ⬜       | P12.4 |
-| `@nodefony/studio`    | Panels IA intégrés dans `@nodefony/vision` (pas un module séparé)        | ⬜          | P12.5 |
-
-**Principes invariants** (NE PAS dévier) :
-
-1. **Générique** — aucun module IA ne connaît le métier (droit, finance, médical…).
-2. **Injectables** — tous les services IA passent par `@injectable` / `@inject` du DI.
-3. **Streaming natif** — `AsyncGenerator<string>` côté serveur, WS Nodefony côté client.
-4. **Validation humaine** — approval obligatoire dans zones `restricted` (via `@nodefony/agent-guard`).
-5. **Mode souverain** — tout doit pouvoir tourner local (Ollama + pgvector) — air gap OK.
-6. **Conformité AI Act** — audit signé, traçabilité sources RAG, contrôle humain dès la conception.
-7. **WebSocket = transport LLM** — `@nodefony/http` WS pipeline est la couche transport.
-
-**Règle dure pendant la migration framework** :
-
-- Si je migre un module qui sera consommé par la couche IA (security, user, orm-core, http WS, session, syslog) → **prévoir l'usage IA dans le design** : interfaces extensibles, async iterators support, pas de couplage rigide.
-- Les modules IA existants (`llm`, `vector`, `rag`, `memory`, `agent`) sont **partiellement codés en TS** dans `src/packages/@nodefony/*` — pas les casser pendant la migration, mais ne pas non plus considérer leur design comme figé. Audit + refonte en Phase 12.1.
-- `@nodefony/studio` du plan IA initial **fusionne avec `@nodefony/vision`** comme panels dédiés (agents, costs, audit, approvals) — pas un module séparé.
-
-**Fichiers IA à lire pour contexte** (en début de session IA, pas pendant la migration framework) :
-- `VISION.md` — finalité globale + section "🔁 Auto-développement" (Nodefony se code lui-même via `@nodefony/agent-core` MCP)
-- `VISION_IA.md` — Mission + principes
-- `IA_STATUS.md` — État actuel des 8 modules
-- `CLAUDE_IA.md` — Règles techniques IA
-- `PLAN_AGENTIC.md` — Roadmap détaillée
-
-> Pendant la migration framework (P0-P11) : **ne pas démarrer de session sur les modules IA** sauf si demande explicite. Garder la vision en tête pour les choix de design — c'est tout.
 
 ---
 
