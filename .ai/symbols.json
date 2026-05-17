@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-17T17:39:53.260Z",
+  "generated": "2026-05-17T17:48:44.629Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 209,
+    "files": 208,
     "symbols": 484,
-    "classes": 168,
+    "classes": 167,
     "interfaces": 159,
     "types": 119,
     "enums": 1,
-    "functions": 32,
+    "functions": 33,
     "constants": 5
   },
   "symbols": {
@@ -1791,21 +1791,10 @@
       ],
       "description": "Service injectable du module `@nodefony/frontend`. Cycle de vie : 1. construction : merge options par défaut + surcharge app (`module-frontend`). 2. `onKernelReady` : si dev + `autoStartInDevelopme…"
     },
-    "ViteConfigGenerator": {
-      "name": "ViteConfigGenerator",
+    "ViteInProcSupervisor": {
+      "name": "ViteInProcSupervisor",
       "kind": "class",
-      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
-      "exported": true,
-      "module": "@nodefony/frontend",
-      "extends": null,
-      "implements": [],
-      "decorators": [],
-      "description": "Génère le contenu d'un `vite.config.generated.mjs` pour le superviseur child_process. Le fichier généré est autosuffisant : il importe Vite + les plugins de chaque preset hardcodés selon les types …"
-    },
-    "ViteProcessSupervisor": {
-      "name": "ViteProcessSupervisor",
-      "kind": "class",
-      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteInProcSupervisor.ts",
       "exported": true,
       "module": "@nodefony/frontend",
       "extends": null,
@@ -1813,21 +1802,21 @@
         "IViteSupervisor"
       ],
       "decorators": [],
-      "description": "Superviseur Vite — branche POC `poc/frontend-child`. Lance Vite via `child_process.spawn(\"npx\", [\"vite\", ...])` dans un process système isolé. Le backend Nodefony n'est jamais bloqué par la compila…"
+      "description": "Superviseur Vite — branche POC `poc/frontend-single`. Lance Vite via `vite.createServer()` dans le process Node principal. Vite partage l'event-loop avec le backend Nodefony — le coût des transform…"
     },
     "IViteSupervisorLogger": {
       "name": "IViteSupervisorLogger",
       "kind": "interface",
-      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteInProcSupervisor.ts",
       "exported": true,
       "module": "@nodefony/frontend",
       "extends": null,
-      "description": "Logger minimal — injecté par FrontendService pour piper les logs Vite dans le syslog Nodefony sans dépendance dure sur Service."
+      "description": "Logger minimal — injecté par FrontendService pour piper les logs Vite dans le syslog Nodefony."
     },
     "ViteSupervisorOptions": {
       "name": "ViteSupervisorOptions",
       "kind": "interface",
-      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteInProcSupervisor.ts",
       "exported": true,
       "module": "@nodefony/frontend",
       "extends": null
@@ -3967,7 +3956,7 @@
         "FrontendService"
       ],
       "IViteSupervisor": [
-        "ViteProcessSupervisor"
+        "ViteInProcSupervisor"
       ],
       "IRequestLogger": [
         "JsonAuditLogger",
@@ -5286,14 +5275,13 @@
         "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontendService.ts",
         "src/packages/@nodefony/frontend/nodefony/interfaces/IViteSupervisor.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteInProcSupervisor.ts",
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
       ],
       "IViteSupervisorStatus": [
         "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontendService.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+        "src/packages/@nodefony/frontend/nodefony/service/ViteInProcSupervisor.ts"
       ],
       "IFrontendService": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
@@ -5303,13 +5291,13 @@
       ],
       "IViteSupervisor": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteInProcSupervisor.ts",
         "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts"
       ],
       "ViteBuilder": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
-      "ViteProcessSupervisor": [
+      "ViteInProcSupervisor": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "TemplateHelper": [
@@ -5321,18 +5309,11 @@
       "FrontendConfig": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
-      "FrontendPresetUnknownError": [
-        "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
-      ],
       "ViteSupervisorState": [
-        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+        "src/packages/@nodefony/frontend/nodefony/service/ViteInProcSupervisor.ts"
       ],
       "FrontendSupervisorStartError": [
-        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
-      ],
-      "ViteConfigGenerator": [
-        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+        "src/packages/@nodefony/frontend/nodefony/service/ViteInProcSupervisor.ts"
       ],
       "NetworkInterface": [
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
@@ -5627,6 +5608,9 @@
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
       ],
       "IFrontBuilder": [
+        "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
+      ],
+      "FrontendPresetUnknownError": [
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
       ],
       "FamilyType": [

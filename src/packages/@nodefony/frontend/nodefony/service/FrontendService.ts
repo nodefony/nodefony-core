@@ -11,7 +11,7 @@ import type {
   IViteSupervisorStatus,
 } from "../interfaces/IViteSupervisor";
 import ViteBuilder from "../src/builders/ViteBuilder";
-import ViteProcessSupervisor from "./ViteProcessSupervisor";
+import ViteInProcSupervisor from "./ViteInProcSupervisor";
 import TemplateHelper from "../src/template/TemplateHelper";
 import {
   FrontendNoEntriesError,
@@ -28,8 +28,10 @@ import path from "node:path";
  *  3. modules consommateurs appellent `registerEntry(...)` dans leur init.
  *  4. terminate kernel : `stop()` superviseur.
  *
- * Branche POC `poc/frontend-child` : utilise `ViteProcessSupervisor` (spawn).
- * Branche POC `poc/frontend-single` : remplacera par `ViteInProcSupervisor`.
+ * Branche POC `poc/frontend-single` : utilise `ViteInProcSupervisor`
+ * (Vite lancé via `vite.createServer()` dans le process Node principal — partage
+ * de l'event-loop avec le backend).
+ * Pour comparaison voir branche `poc/frontend-child`.
  */
 @injectable()
 class FrontendService extends Service implements IFrontendService {
@@ -158,7 +160,7 @@ class FrontendService extends Service implements IFrontendService {
     if (this.supervisor && this.supervisor.status().state === "ready") {
       return;
     }
-    const supervisor = new ViteProcessSupervisor({
+    const supervisor = new ViteInProcSupervisor({
       devHost: this.cfg.devHost,
       devPort: this.cfg.devPort,
       startupTimeoutMs: this.cfg.startupTimeoutMs,
@@ -173,8 +175,8 @@ class FrontendService extends Service implements IFrontendService {
     this.supervisor = supervisor;
     this.templateHelper = new TemplateHelper(supervisor, "development");
 
-    // Le builder n'est pas utilisé en dev (config générée par le generator),
-    // mais on passe la config (vide) pour respecter le contrat.
+    // En mode in-proc, le builder construit DIRECTEMENT la config Vite avec
+    // les plugins instanciés — pas besoin de passer par un fichier .mjs.
     const cfg = await this.builder.buildViteConfig(this.entries, "development");
     await supervisor.start(this.entries, cfg);
     this.log(

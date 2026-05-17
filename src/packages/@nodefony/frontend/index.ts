@@ -1,11 +1,11 @@
 /**
  * @nodefony/frontend — module builder Vite multi-framework.
  *
- * Approche hybride découplée (POC `poc/frontend-child`) :
- *   - Vite tourne en process système isolé (`child_process.spawn`).
- *   - Nodefony rend l'index.html (templating natif), injecte les `<script>`
- *     Vite via le helper `FrontendService.renderTags(entryName)`.
- *   - Le navigateur tape DIRECT le port Vite pour les assets / HMR.
+ * Approche in-process (POC `poc/frontend-single`) :
+ *   - Vite tourne via `vite.createServer()` DANS le process Node backend.
+ *   - Pas d'isolation event-loop : esbuild, plugin-react, optimizeDeps
+ *     partagent le tas V8 et l'event-loop avec Nodefony.
+ *   - Le navigateur tape direct le port Vite (5173) pour assets/HMR.
  *
  * Voir `nodefony/CLAUDE.md` du module pour les décisions d'archi figées.
  */
@@ -38,8 +38,7 @@ export { FrontendService };
 
 // Builders / Supervisors / Presets — exposés pour extension par d'autres modules.
 export { default as ViteBuilder } from "./nodefony/src/builders/ViteBuilder";
-export { default as ViteProcessSupervisor } from "./nodefony/service/ViteProcessSupervisor";
-export { default as ViteConfigGenerator } from "./nodefony/service/ViteConfigGenerator";
+export { default as ViteInProcSupervisor } from "./nodefony/service/ViteInProcSupervisor";
 export { default as TemplateHelper } from "./nodefony/src/template/TemplateHelper";
 export { default as react19Preset } from "./nodefony/src/presets/react19-vite";
 export { default as vanillaPreset } from "./nodefony/src/presets/vanilla-vite";

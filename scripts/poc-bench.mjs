@@ -15,7 +15,7 @@
  *   { label, url, durationMs, total, ok, errors, p50, p95, p99, rps, ... }
  */
 import { performance } from "node:perf_hooks";
-import { utimes } from "node:fs/promises";
+import { utimes, readFile, writeFile } from "node:fs/promises";
 
 const args = parseArgs(process.argv.slice(2));
 const url = args.url ?? "http://127.0.0.1:5151/poc/api/data";
@@ -73,15 +73,37 @@ function percentile(sorted, p) {
 
 async function maybeTouch() {
   if (!touchPath) return;
+  const original = await readFile(touchPath, "utf8");
+  const interval = parseInt(args["touch-interval"] ?? "0", 10);
   const fireAt = performance.now() + touchDelay;
   while (performance.now() < fireAt) await new Promise((r) => setTimeout(r, 50));
-  try {
-    const now = new Date();
-    await utimes(touchPath, now, now);
-    process.stderr.write(`[bench] touched ${touchPath} at +${touchDelay}ms\n`);
-  } catch (e) {
-    process.stderr.write(`[bench] touch failed: ${e.message}\n`);
+
+  const doRewrite = async (label) => {
+    try {
+      const marker = `\n// poc-bench-${label}-${Date.now()}\n`;
+      await writeFile(touchPath, original + marker, "utf8");
+      const now = new Date();
+      await utimes(touchPath, now, now);
+      process.stderr.write(`[bench] rewrote ${touchPath} (${label})\n`);
+    } catch (e) {
+      process.stderr.write(`[bench] rewrite failed: ${e.message}\n`);
+    }
+  };
+
+  if (interval > 0) {
+    // Mode "rebuild storm" — N rewrites espacés de `touch-interval` ms.
+    let i = 0;
+    while (performance.now() < fireAt + (durationMs - touchDelay) - 500) {
+      await doRewrite(String(i++));
+      await new Promise((r) => setTimeout(r, interval));
+    }
+  } else {
+    await doRewrite("once");
   }
+
+  // Revert systématique pour ne pas polluer la source.
+  await new Promise((r) => setTimeout(r, 300));
+  await writeFile(touchPath, original, "utf8");
 }
 
 async function main() {
