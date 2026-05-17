@@ -93,7 +93,8 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         cwd: this.opts.cwd,
         stdio: ["ignore", "pipe", "pipe"],
         detached: false,
-        env: { ...process.env, FORCE_COLOR: "0" },
+        // FORCE_COLOR=0 + NO_COLOR=1 — Vite/picocolors honore NO_COLOR (standard).
+        env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
       });
     } catch (e) {
       this.state = "errored";
@@ -127,16 +128,24 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       }, this.opts.startupTimeoutMs);
 
       // Pattern attendu : "Local:   http://127.0.0.1:5173/"
-      const localRe = /Local:\s+https?:\/\/([^:]+):(\d+)/;
+      // Le buffer accumulé garantit qu'on matche même si Vite split la ligne
+      // sur plusieurs chunks. On strip aussi les codes ANSI : malgré
+      // FORCE_COLOR=0+NO_COLOR=1, Vite 8 peut émettre des codes selon le TTY.
+      const localRe = /Local:\s+https?:\/\/([^:\s]+):(\d+)/;
+      const ansiRe = /\[[0-9;]*m/g;
+      let buffer = "";
 
       const onData = (chunk: Buffer | string) => {
         const txt = chunk.toString();
         if (this.opts.pipeLogs) this.opts.logger.info(`[vite] ${txt.trimEnd()}`);
-        const m = txt.match(localRe);
-        if (m && !resolved) {
+        if (resolved) return;
+        buffer += txt.replace(ansiRe, "");
+        const m = buffer.match(localRe);
+        if (m) {
           this.resolvedPort = parseInt(m[2]!, 10);
           this.state = "ready";
           resolved = true;
+          buffer = ""; // libère la mémoire
           clearTimeout(timeout);
           resolve();
         }
