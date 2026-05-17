@@ -41,12 +41,14 @@ const nodefonyFiles = globSync("nodefony/**/*.ts", {
 });
 
 const input = {
-  index: "index.ts",
+  index: "./index.ts",
   ...Object.fromEntries(
     nodefonyFiles.map((file) => [
       // ⬇️ Utilise la racine du projet (.) au lieu de "nodefony"
       path.relative(".", file).replace(/\.ts$/, ""),
-      file,
+      // Préfixe `./` : sans ça, node-resolve interprète "nodefony/foo.ts"
+      // comme un specifier de package (lookup exports) → warning.
+      "./" + file,
     ]),
   ),
 };
@@ -107,7 +109,11 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
       preserveModulesRoot: ".",
       sourcemapPathTransform,
     },
-    external,
+    external: (id) =>
+      id !== "." &&
+      external.some(
+        (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
+      ),
     plugins: [...createNodePlugins(isProduction, !isProduction, "dist/types")],
   });
 }

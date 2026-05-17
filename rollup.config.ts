@@ -25,12 +25,14 @@ const nodefonyFiles = globSync("nodefony/**/*.ts", {
 });
 
 const input = {
-  index: "index.ts",
+  index: "./index.ts",
   ...Object.fromEntries(
     nodefonyFiles.map((file) => [
       // Génère un nom de chunk basé sur le chemin relatif
       path.relative("nodefony", file).replace(/\.ts$/, ""),
-      file,
+      // Préfixe `./` : sans ça, node-resolve interprète "nodefony/foo.ts"
+      // comme un specifier de package (lookup exports `nodefony`) → warning.
+      "./" + file,
     ]),
   ),
 };
@@ -88,8 +90,16 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
       preserveModules: true,
       preserveModulesRoot: ".",
     },
-    external,
-    plugins: [...createNodePlugins(isProduction, true, "dist/types")],
+    // Externals : exact-match uniquement.
+    // L'array brut (["nodefony", ...]) matche par préfixe → "nodefony/config/config"
+    // est faussement externalisé et déclenche "Could not resolve" sur les chunks
+    // internes (preserveModules nomme les chunks par leur chemin relatif).
+    external: (id) =>
+      id !== "." &&
+      external.some(
+        (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
+      ),
+    plugins: [...createNodePlugins(isProduction, !isProduction, "dist/types")],
   });
 }
 

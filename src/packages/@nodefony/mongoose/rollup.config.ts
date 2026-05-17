@@ -11,11 +11,12 @@ const nodefonyFiles = globSync("nodefony/**/*.ts", {
 });
 
 const input = {
-  index: "index.ts",
+  index: "./index.ts",
   ...Object.fromEntries(
     nodefonyFiles.map((file) => [
       path.relative(".", file).replace(/\.ts$/, ""),
-      file,
+      // Préfixe `./` : évite node-resolve warning sur specifier "nodefony/...".
+      "./" + file,
     ]),
   ),
 };
@@ -80,7 +81,11 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
       preserveModules: true,
       preserveModulesRoot: ".",
     },
-    external,
+    external: (id) =>
+      id !== "." &&
+      external.some(
+        (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
+      ),
     plugins: [...createNodePlugins(isProduction, !isProduction, "dist/types")],
   });
 }

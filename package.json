@@ -18,7 +18,7 @@
     "nodefony": "nodefony",
     "start": "nodefony",
     "prepare": "husky",
-    "build": "rollup -c && turbo run build",
+    "build": "turbo run build && rollup -c",
     "build:core": "npm run build --workspace=src/nodefony",
     "build:packages": "turbo run build --filter=./src/packages/**",
     "clean": "turbo run clean",

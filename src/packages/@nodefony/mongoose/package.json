@@ -38,7 +38,10 @@
     "rollup": "4.60.3",
     "typescript": "6.0.3"
   },
-  "peerDependencies": {},
+  "peerDependencies": {
+    "nodefony": "*",
+    "@nodefony/http": "*"
+  },
   "repository": {
     "type": "git",
     "url": "git://github.com/nodefony/nodefony.git",

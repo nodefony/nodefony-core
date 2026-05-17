@@ -30,7 +30,11 @@ export default (commandLineArgs: Record<string, unknown>): RollupOptions => {
       preserveModulesRoot: ".",
       entryFileNames: "[name].js",
     },
-    external,
+    external: (id) =>
+      id !== "." &&
+      external.some(
+        (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
+      ),
     plugins: [
       nodeResolve({ preferBuiltins: true }),
       typescript({

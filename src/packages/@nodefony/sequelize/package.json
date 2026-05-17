@@ -47,7 +47,10 @@
     "sequelize-cli": "6.6.5",
     "typescript": "6.0.3"
   },
-  "peerDependencies": {},
+  "peerDependencies": {
+    "nodefony": "*",
+    "@nodefony/http": "*"
+  },
   "repository": {
     "type": "git",
     "url": "git://github.com/nodefony/nodefony.git",

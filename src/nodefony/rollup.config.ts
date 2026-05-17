@@ -103,7 +103,11 @@ function createNodeConfig(isProduction: boolean): RollupOptions {
       externalLiveBindings: false,
       freeze: false,
     },
-    external,
+    external: (id) =>
+      id !== "." &&
+      external.some(
+        (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
+      ),
     plugins: createNodePlugins(!isProduction, "dist/types"),
   });
 }
@@ -121,7 +125,11 @@ function createBinaryConfig(_isProduction: boolean): RollupOptions {
       sourcemap: false,
       exports: "default",
     },
-    external,
+    external: (id) =>
+      id !== "." &&
+      external.some(
+        (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
+      ),
     plugins: [
       nodeResolve({ preferBuiltins: true }),
       typescript({
