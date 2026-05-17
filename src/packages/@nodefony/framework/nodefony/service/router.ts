@@ -163,6 +163,18 @@ class Router extends Service {
         "WARNING"
       );
     }
+    // Propage le module sur les routes déjà créées par les décorateurs
+    // `@route` + `@controller` (qui s'exécutent à l'import — donc avant ce
+    // setController appelé à `onBoot`). Les routes loguent ensuite leur
+    // origine via `route.module.name` rendu dans `toLogLine()`.
+    for (const r of routes) {
+      if (r.controller === myconstructor) {
+        r.module = { name: module.name };
+        if (module.kernel?.debug) {
+          module.log(`route + ${r.toLogLine()}`, "DEBUG");
+        }
+      }
+    }
     return (Module.controllers[myconstructor.name] = myconstructor);
   }
 }

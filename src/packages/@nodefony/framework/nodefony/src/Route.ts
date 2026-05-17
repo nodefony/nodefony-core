@@ -124,6 +124,12 @@ class Route implements IRoute {
   bypassFirewall: boolean = false;
   filePath?: string;
   variablesMap: Record<string, any> = {};
+  /**
+   * Module propriétaire de la route — set par `Router.setController()` à
+   * `onBoot`, donc PAS disponible à la création de la route (via `@controller`)
+   * qui s'évalue à l'import. Utilisé pour `toLogLine()`.
+   */
+  module?: { name: string };
   constructor(name: string, obj?: RouteOptions) {
     this.name = name;
     if (obj) {
@@ -262,17 +268,27 @@ class Route implements IRoute {
    * Formatte la route en une seule ligne lisible pour le log debug — évite le
    * JSON multi-ligne du `toString()` qui polluait ~7 lignes par route au boot.
    *
-   * Exemple : `[GET]  /nodefony/test/index → DefaultController.indexAction  (no auth)`
+   * Format : `[METHODS] path → @module/Controller.action  (no auth?)`
+   *
+   * Exemple :
+   * ```
+   * [GET|HEAD] /nodefony/test/index → @test/DefaultController.index
+   * [ANY]      /admin/users         → @app/AdminController.users  (no auth)
+   * ```
+   *
+   * Le `@module` ne s'affiche qu'après que `Router.setController()` ait set
+   * `this.module` à `onBoot` — appel via le décorateur `@controllers` du module.
    */
   toLogLine(): string {
     const m = Array.isArray(this.requirements?.methods)
       ? this.requirements.methods.join("|")
       : this.requirements?.methods || this.method || "ANY";
-    const method = `[${String(m)}]`.padEnd(8);
+    const method = `[${String(m)}]`.padEnd(10);
     const ctrl = this.controller?.name || "?";
     const action = this.classMethod || this.name;
+    const mod = this.module?.name ? `@${this.module.name}/` : "";
     const auth = this.bypassFirewall ? "  (no auth)" : "";
-    return `${method} ${this.path} → ${ctrl}.${action}${auth}`;
+    return `${method} ${this.path} → ${mod}${ctrl}.${action}${auth}`;
   }
 
   toObject(): Object {

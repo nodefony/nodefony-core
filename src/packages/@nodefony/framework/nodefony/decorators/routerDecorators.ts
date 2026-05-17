@@ -4,7 +4,7 @@ import Router, { TypeController } from "../service/router";
 import { RouteOptions } from "../src/Route";
 import Controller from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
-import { Module, Nodefony } from "nodefony";
+import { Module } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
 import type { HTTPMethod } from "@nodefony/http";
 
@@ -77,18 +77,13 @@ function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
           hasMagic = { options, name };
           continue;
         }
-        const route = Router.createRoute(name, options);
-        const k = Nodefony.getKernel();
-        if (k?.debug) {
-          k.log(`route + ${route.toLogLine()}`, "DEBUG");
-        }
+        // Création seule — le log est différé à `Router.setController()` (hook
+        // `onBoot` du décorateur `@controllers`) qui a accès au `module` et
+        // peut donc émettre une ligne complète `@module/Controller.action`.
+        Router.createRoute(name, options);
       }
       if (hasMagic) {
-        const route = Router.createRoute(hasMagic.name, hasMagic.options);
-        const k = Nodefony.getKernel();
-        if (k?.debug) {
-          k.log(`route + ${route.toLogLine()}`, "DEBUG");
-        }
+        Router.createRoute(hasMagic.name, hasMagic.options);
       }
     }
     Reflect.deleteMetadata(metadataKey, mycontroller); // Supprimer les métadonnées

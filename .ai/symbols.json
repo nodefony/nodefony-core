@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-17T12:37:59.208Z",
+  "generated": "2026-05-17T13:04:53.990Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -4078,7 +4078,6 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/config/config.ts",
-        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/http/nodefony/config/config.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
