@@ -130,6 +130,11 @@ class Context extends Service implements IContextInterface {
   resolver: Resolver | null = null;
   sessionAutoStart: string | null = null;
   requestId: string = randomUUID();
+  // P2.7 — W3C Trace Context. Set by HttpKernel at request entry to the
+  // resolved traceparent (honored incoming header or freshly generated).
+  // Null until resolution runs — should never be read before the kernel
+  // has populated it in the standard pipeline.
+  traceparent: string | null = null;
   // Timing: opt-out in prod (default), opt-in elsewhere. Overridable via
   // kernel.options.timing.enabled. When disabled: `phases` is a shared frozen
   // empty array, `phaseStart`/`phaseEnd` are noops, no Map is allocated.

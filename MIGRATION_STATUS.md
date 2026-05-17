@@ -130,7 +130,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P2.4  | `initialize()` error boundary — réponse cohérente avec action crash | 9.2.16  | 0.5 ses.| P1.5        | Réutilise errorRenderer                                |
 | P2.5  | Request timeout global (config + 408)                              | 9.2.18  | 0.5 ses.| P1.3        | Utilise AbortSignal                                    |
 | P2.6  | Idempotency keys (`X-Idempotency-Key`)                             | 9.2.17  | 1 ses.  | P1.4        | Dédup via ALS scope court terme                        |
-| P2.7  | W3C `traceparent` honor + génère                                   | 9.2.20  | 0.5 ses.| P1.4        | Compat OpenTelemetry                                   |
+| ✅ P2.7 | W3C `traceparent` honor + génère                                   | 9.2.20  | 0.5 ses.| P1.4 ✅    | ✅ 2026-05-17 — helper `service/trace.ts` (parse+resolve), `Context.traceparent` (HTTP+WS), HttpKernel set au boot du scope ALS, Response inject `traceparent` header. Honor traceId+flags si incoming valide / new spanId. 8 tests intégration verts. Memory 8/8 inchangé |
 | P2.8  | Backpressure documentation + tests streaming                       | 9.2.13  | 1 ses.  | —           | Indépendant — focus media + download                   |
 | P2.9  | Body streaming vs buffered (`@Body({ stream })`)                   | 9.2.14  | 1 ses.  | P0.1        | Lien upload formidable                                 |
 

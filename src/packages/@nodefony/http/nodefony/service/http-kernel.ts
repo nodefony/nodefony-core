@@ -41,6 +41,7 @@ import DefaultRequestLogger from "./request-logger";
 import type { IRequestLogger } from "../interfaces/IRequestLogger";
 import PrettyRequestLogger from "./pretty-request-logger";
 import JsonAuditLogger from "./audit-logger";
+import { resolveTraceparent } from "./trace";
 
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
@@ -603,10 +604,21 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         await this.fireAsync("onCreateContext", context).catch((e) => {
           throw e;
         });
+        // P2.7 — W3C traceparent: honor incoming valid header, generate a
+        // fresh one otherwise. Resolved BEFORE entering the ALS scope so
+        // it propagates with `requestId` to every downstream hop.
+        context.traceparent = resolveTraceparent(
+          (request.headers as Record<string, string | string[] | undefined>)
+            ?.traceparent as string | undefined,
+        );
         // P1.4 — enter ALS scope so requestId is propagated to every
         // downstream async hop (logs, ORM, security decorators, etc.).
         return await RequestContext.run(
-          { requestId: context.requestId, scheme: context.scheme },
+          {
+            requestId: context.requestId,
+            scheme: context.scheme,
+            traceparent: context.traceparent,
+          },
           async () => {
             context!.phaseStart("parse");
             try {
@@ -782,12 +794,27 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       error = e;
     }
     try {
+      // P2.7 — W3C traceparent on the WS upgrade request. The header is not
+      // echoed back in the handshake response (the `ws` library doesn't
+      // expose that path cleanly), but it is propagated through
+      // RequestContext so server-side logs and downstream tools see it.
+      if (context) {
+        context.traceparent = resolveTraceparent(
+          (req.headers as Record<string, string | string[] | undefined>)
+            ?.traceparent as string | undefined,
+        );
+      }
       // P1.4 — enter ALS scope for WS pipeline (handshake + messages).
       // context.requestId is always defined (set in WebsocketContext ctor).
       const wsRunId = context?.requestId ?? "ws-no-ctx";
       const wsScheme = context?.scheme ?? "ws";
+      const wsTrace = context?.traceparent ?? null;
       return await RequestContext.run(
-        { requestId: wsRunId, scheme: wsScheme },
+        {
+          requestId: wsRunId,
+          scheme: wsScheme,
+          ...(wsTrace ? { traceparent: wsTrace } : {}),
+        },
         async () => {
           await this.onConnect(context as WebsocketContext, error);
           // FIREWALL

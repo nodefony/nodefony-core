@@ -344,6 +344,14 @@ class HttpResponse {
         if ((this.context as any).requestId && !this.response.headersSent) {
           this.response.setHeader("x-request-id", (this.context as any).requestId);
         }
+        // P2.7 — echo W3C traceparent so downstream services and clients can
+        // continue the trace. Header name is lower-case per the spec.
+        if ((this.context as any).traceparent && !this.response.headersSent) {
+          this.response.setHeader(
+            "traceparent",
+            (this.context as any).traceparent,
+          );
+        }
         this.setLength();
         if (this.response) {
           // RFC 7230 §3.1.2 — status-message must be printable US-ASCII
