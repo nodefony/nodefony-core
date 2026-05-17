@@ -111,12 +111,18 @@ class FrontendService extends Service implements IFrontendService {
       moduleRoot,
       declaration.outDir ?? this.cfg.defaultOutDir,
     );
+    // `declaration.entry` est relatif au moduleRoot (ex: "./frontend/src/main.tsx").
+    // On le stocke relatif au `root` (ex: "src/main.tsx") pour que le generator
+    // produise `path.resolve(root, entryFile)` correctement et que le TemplateHelper
+    // construise l'URL Vite (`${baseUrl}/src/main.tsx`) sans manipulation.
+    const absEntry = path.resolve(moduleRoot, declaration.entry);
+    const relEntry = path.relative(root, absEntry);
     const entry: IResolvedFrontendEntry = {
       moduleName: consumerModule.name,
       entryName: declaration.name ?? consumerModule.name,
       type: declaration.type,
       root,
-      entryFile: declaration.entry,
+      entryFile: relEntry,
       outDir,
     };
     this.entries.push(entry);
