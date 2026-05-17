@@ -2,6 +2,8 @@
 
 ---
 
+Agis en tant que Lead Architect du framework agentique Nodefony.
+
 ## 🚨 RÈGLE ABSOLUE — PERF & MÉMOIRE (PRIORITÉ MAX)
 
 **Nodefony est un framework runtime — chaque allocation, chaque listener, chaque appel système compte.**
@@ -9,6 +11,7 @@
 Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, even logs) :
 
 ### Avant de coder
+
 - **Penser au coût par requête** : combien d'allocations, combien d'appels système (`performance.now()`, `Date.now()`, `randomUUID()`), combien de listeners attachés ?
 - **Pas de structure allouée "au cas où"** : préférer `null` + lazy init au premier usage (`if (this._x === null) this._x = []`) plutôt que `[]` ou `new Map()` par défaut.
 - **Pas de listener silencieux** : si tu attaches `response.on(...)` ou `ws.on(...)`, prévoir explicitement le `removeListener` (ou `once` + cleanup manuel quand le pair event est attendu).
@@ -16,6 +19,7 @@ Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, 
 - **Pas de `JSON.stringify` ni de string concat dans le hot path** sans nécessité — différer au moment du `send()`.
 
 ### Après avoir codé
+
 - **OBLIGATOIRE** lancer `memory.test.ts` (tests `Memory leaks — HTTP` + `Memory leaks — WebSocket`) AVANT de commit toute modif de `@nodefony/http`, `@nodefony/framework`, ou tout code dans le pipeline request.
   ```bash
   cd src/packages/@nodefony/http && TS_NODE_PROJECT=tsconfig.tests.json \
@@ -25,6 +29,7 @@ Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, 
 - **Si un seuil mémoire saute** (35 MB / 1000 req, 10 MB / 100 crashes, 30 MB / 100 WS) → c'est un blocker. NE PAS commit. Investiguer + lazy + cleanup avant de continuer.
 
 ### Patterns à appliquer systématiquement
+
 - **Hooks utilisateurs** : `null` par défaut, alloc array seulement au premier `register`, `null` à nouveau après fire.
 - **Maps de petite taille (< 16 entries) avec accès ponctuel** : préférer un object literal `Object.create(null)` (souvent + cheap que `Map`).
 - **Phases / timing** : `performance.now()` est OK (~50 ns) mais éviter dans une boucle interne. Préférer 1 mesure début/fin que N mesures intermédiaires.
@@ -32,6 +37,7 @@ Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, 
 - **Lazy alloc** pour toute structure qui n'est utilisée que dans < 20 % des requests.
 
 ### Ce qui est INTERDIT sans accord explicite
+
 - Allouer un objet/array/Map dans le constructeur de `Context` (HTTP ou WS) sans démontrer que c'est utilisé sur **chaque** request.
 - Attacher un nouveau listener sur `request`, `response`, ou `ws` sans démontrer son cleanup.
 - Ajouter une dependency npm runtime sans peser son impact (bundle size + mémoire).
@@ -149,6 +155,7 @@ Nodefony est une **plateforme générique** pour construire :
 **État actuel** : commandes implémentées (`Start/Dev/Build/Prod/Staging/Install/Outdated/Pm2/Kill`) mais **pas testées en intégration** — voir Phase 11 dans `MIGRATION_STATUS.md`.
 
 **Règle** : tout module migré qui expose une commande CLI doit :
+
 - Suivre le namespace `<module>:<action>` (ex : `security:user:add`, `orm:migrate`, `http:routes:list`)
 - Documenter ses commandes dans son `MEMORY.md` (section "Commandes CLI")
 - Avoir au moins un test d'intégration `npx nodefony <command>` (Phase 11)
@@ -354,6 +361,7 @@ Le mode `npm run build` (sans clean) compile **uniquement les workspaces modifi�
 - Le runtime charge une vieille version après un refactor
 
 **Règle** :
+
 - Après modification ciblée d'un seul module → `npm run build` (turbo cache)
 - Après pull / merge / changement d'index.ts public d'un module / refactor croisé → `npm run clean && npm run build` (38s)
 
@@ -370,6 +378,7 @@ grep -E "export\s*\{" src/packages/@nodefony/<module>/dist/index.js | head -1
 > Voir `docs/README.md` pour les conventions complètes (frontmatter, structure, workflow).
 
 **Règle** : tout fichier migré en TypeScript doit porter un bloc TSDoc sur :
+
 - chaque **classe** et **interface** exportée
 - chaque **méthode publique** non triviale (skip les getters d'une ligne)
 - chaque **fonction exportée**
@@ -390,11 +399,11 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 
 **Trois niveaux de doc à maintenir** :
 
-| Niveau           | Emplacement                                | Cible                | Quand l'écrire                          |
-| ---------------- | ------------------------------------------ | -------------------- | --------------------------------------- |
-| TSDoc inline     | sources `.ts`                              | IDE + AST + IA       | en migrant le fichier                   |
-| `docs/`          | `docs/architecture/` / `packages/` / `guides/` | humain + RAG futur | quand un concept ou une API change      |
-| `CLAUDE.md` + `MEMORY.md` par module | racine du module               | IA en session        | gotchas, mots-clés, décisions figées    |
+| Niveau                               | Emplacement                                    | Cible              | Quand l'écrire                       |
+| ------------------------------------ | ---------------------------------------------- | ------------------ | ------------------------------------ |
+| TSDoc inline                         | sources `.ts`                                  | IDE + AST + IA     | en migrant le fichier                |
+| `docs/`                              | `docs/architecture/` / `packages/` / `guides/` | humain + RAG futur | quand un concept ou une API change   |
+| `CLAUDE.md` + `MEMORY.md` par module | racine du module                               | IA en session      | gotchas, mots-clés, décisions figées |
 
 **Page de référence** : `docs/architecture/container.md` montre le format attendu (frontmatter + sections + liens).
 
@@ -409,6 +418,7 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 Format v2.0 : `symbols` est une **map indexée par nom** (accès O(1)), `relations` contient les index inversés pré-calculés. Les agents IA doivent l'utiliser AVANT de grep le repo.
 
 **Patterns Zero-Token Lookup** :
+
 - Définition d'un symbole → `jq '.symbols.Container' .ai/symbols.json`
 - « Qui étend `Service` ? » → `jq '.relations.extendedBy.Service' .ai/symbols.json`
 - « Qui implémente `IContainer` ? » → `jq '.relations.implementedBy.IContainer' .ai/symbols.json`
@@ -433,22 +443,22 @@ Deux niveaux de docs IA — **lire AVANT de toucher au code du module** :
 
 ### Modules applicatifs (packages + modules)
 
-| Module                | CLAUDE.md                                                                                  | MEMORY.md                                                                                  | Contenu                                          |
-| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| `@nodefony/http`      | [`src/packages/@nodefony/http/CLAUDE.md`](src/packages/@nodefony/http/CLAUDE.md)           | [`src/packages/@nodefony/http/MEMORY.md`](src/packages/@nodefony/http/MEMORY.md)           | Serveurs, Contextes, WS, pipeline, requestId     |
-| `@nodefony/framework` | [`src/packages/@nodefony/framework/CLAUDE.md`](src/packages/@nodefony/framework/CLAUDE.md) | [`src/packages/@nodefony/framework/MEMORY.md`](src/packages/@nodefony/framework/MEMORY.md) | Router, Controller, Resolver, décorateurs        |
+| Module                | CLAUDE.md                                                                                  | MEMORY.md                                                                                  | Contenu                                            |
+| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | -------------------------------------------------- |
+| `@nodefony/http`      | [`src/packages/@nodefony/http/CLAUDE.md`](src/packages/@nodefony/http/CLAUDE.md)           | [`src/packages/@nodefony/http/MEMORY.md`](src/packages/@nodefony/http/MEMORY.md)           | Serveurs, Contextes, WS, pipeline, requestId       |
+| `@nodefony/framework` | [`src/packages/@nodefony/framework/CLAUDE.md`](src/packages/@nodefony/framework/CLAUDE.md) | [`src/packages/@nodefony/framework/MEMORY.md`](src/packages/@nodefony/framework/MEMORY.md) | Router, Controller, Resolver, décorateurs          |
 | Module `test`         | [`src/modules/test/CLAUDE.md`](src/modules/test/CLAUDE.md)                                 | [`src/modules/test/MEMORY.md`](src/modules/test/MEMORY.md)                                 | Routes d'intégration HTTP+WS, controllers, statics |
 
 ### Core (`@nodefony/core` workspace `src/nodefony`)
 
-| Sous-module          | MEMORY.md                                                                                  | Contenu                                          |
-| -------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| Workspace `nodefony` | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                                         | Service, Container, Event, Nodefony singleton    |
-| Syslog / Pdu         | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md)                   | Syslog, Pdu, CircularBuffer, transports          |
-| Kernel / Module      | [`src/nodefony/src/kernel/MEMORY.md`](src/nodefony/src/kernel/MEMORY.md)                   | Kernel lifecycle, Module hooks, CliKernel        |
-| Injector / DI        | [`src/nodefony/src/kernel/injector/MEMORY.md`](src/nodefony/src/kernel/injector/MEMORY.md) | @injectable, @inject, @Inject, scopes, algo      |
-| Cli / Command        | [`src/nodefony/src/cli/MEMORY.md`](src/nodefony/src/cli/MEMORY.md)                         | Cli, Command, Commander, niceBytes, timers       |
-| FileClass / Finder   | [`src/nodefony/src/finder/MEMORY.md`](src/nodefony/src/finder/MEMORY.md)                   | FileClass, File, FileResult, Result, Finder      |
+| Sous-module          | MEMORY.md                                                                                  | Contenu                                       |
+| -------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| Workspace `nodefony` | [`src/nodefony/MEMORY.md`](src/nodefony/MEMORY.md)                                         | Service, Container, Event, Nodefony singleton |
+| Syslog / Pdu         | [`src/nodefony/src/syslog/MEMORY.md`](src/nodefony/src/syslog/MEMORY.md)                   | Syslog, Pdu, CircularBuffer, transports       |
+| Kernel / Module      | [`src/nodefony/src/kernel/MEMORY.md`](src/nodefony/src/kernel/MEMORY.md)                   | Kernel lifecycle, Module hooks, CliKernel     |
+| Injector / DI        | [`src/nodefony/src/kernel/injector/MEMORY.md`](src/nodefony/src/kernel/injector/MEMORY.md) | @injectable, @inject, @Inject, scopes, algo   |
+| Cli / Command        | [`src/nodefony/src/cli/MEMORY.md`](src/nodefony/src/cli/MEMORY.md)                         | Cli, Command, Commander, niceBytes, timers    |
+| FileClass / Finder   | [`src/nodefony/src/finder/MEMORY.md`](src/nodefony/src/finder/MEMORY.md)                   | FileClass, File, FileResult, Result, Finder   |
 
 ### Graphe de dépendances (lecture utile)
 
