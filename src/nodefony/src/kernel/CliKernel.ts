@@ -226,7 +226,14 @@ class CliKernel extends Cli {
       };
     }
     return syslog?.listenWithConditions(conditions, (pdu: Pdu) => {
-      Syslog.normalizeLog(pdu, this.pid?.toString());
+      // En dev mono-process le pid pollue chaque ligne sans valeur ajoutée
+      // (process unique, déjà connu via `ps`). En prod cluster/PM2 il distingue
+      // les workers — toujours préfixé.
+      // `environment` est résolu dynamiquement : la sous-commande CLI le set
+      // après `new CliKernel()`, donc figer au constructor ne marcherait pas.
+      const pid =
+        this.environment === "development" ? "" : this.pid?.toString();
+      Syslog.normalizeLog(pdu, pid);
     });
   }
 

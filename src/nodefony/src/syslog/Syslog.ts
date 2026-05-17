@@ -740,13 +740,29 @@ class Syslog extends Event implements ISyslog {
 
   private static _savedConsole: typeof Syslog._nativeConsole | null = null;
 
+  /** Largeur fixe du champ `severityName` — couvre `WARNING` (7). */
+  private static readonly SEVERITY_WIDTH = 7;
+  /** Largeur fixe du champ `msgid` — couvre 95% des cas, déborde proprement pour les longs. */
+  private static readonly MSGID_WIDTH = 18;
+
   static wrapper(pdu: Pdu): WrapperResult {
     if (!pdu) {
       throw new Error("Syslog pdu not defined");
     }
-    const date = new Date(pdu.timeStamp);
-    const dateStr = `${date.toDateString()} ${date.toLocaleTimeString()}`;
-    const msgid = green(pdu.msgid);
+    const d = new Date(pdu.timeStamp);
+    // Format `HH:MM:SS.mmm` local — résolution ms pour mesurer les phases du
+    // boot (les `toDateString()` + locale renvoyaient une seconde de granularité
+    // et 30 chars de prefix redondants à chaque ligne).
+    const h = String(d.getHours()).padStart(2, "0");
+    const m = String(d.getMinutes()).padStart(2, "0");
+    const s = String(d.getSeconds()).padStart(2, "0");
+    const ms = String(d.getMilliseconds()).padStart(3, "0");
+    const dateStr = `${h}:${m}:${s}.${ms}`;
+    // padEnd AVANT la couleur — les codes ANSI ne sont pas comptés comme chars
+    // par les TTY, padder après coloriage casserait l'alignement visuel.
+    const sev = pdu.severityName.padEnd(Syslog.SEVERITY_WIDTH);
+    const id = pdu.msgid.padEnd(Syslog.MSGID_WIDTH);
+    const msgid = green(id);
 
     switch (pdu.severity) {
       case 0:
@@ -755,32 +771,32 @@ class Syslog extends Event implements ISyslog {
       case 3:
         return {
           logger: Syslog._nativeConsole.error,
-          text: `${dateStr} ${red(pdu.severityName)} ${msgid} : `,
+          text: `${dateStr} ${red(sev)} ${msgid} : `,
         };
       case 4:
         return {
           logger: Syslog._nativeConsole.warn,
-          text: `${dateStr} ${yellow(pdu.severityName)} ${msgid} : `,
+          text: `${dateStr} ${yellow(sev)} ${msgid} : `,
         };
       case 5:
         return {
           logger: Syslog._nativeConsole.log,
-          text: `${dateStr} ${red(pdu.severityName)} ${msgid} : `,
+          text: `${dateStr} ${red(sev)} ${msgid} : `,
         };
       case 6:
         return {
           logger: Syslog._nativeConsole.info,
-          text: `${dateStr} ${blue(pdu.severityName)} ${msgid} : `,
+          text: `${dateStr} ${blue(sev)} ${msgid} : `,
         };
       case 7:
         return {
           logger: Syslog._nativeConsole.debug,
-          text: `${dateStr} ${cyan(pdu.severityName)} ${msgid} : `,
+          text: `${dateStr} ${cyan(sev)} ${msgid} : `,
         };
       default:
         return {
           logger: Syslog._nativeConsole.log,
-          text: `${dateStr} ${cyan(pdu.severityName)} ${msgid} : `,
+          text: `${dateStr} ${cyan(sev)} ${msgid} : `,
         };
     }
   }
@@ -801,7 +817,10 @@ class Syslog extends Event implements ISyslog {
       return pdu;
     }
     const wrap = Syslog.wrapper(pdu);
-    wrap.logger(`${pid} ${wrap.text}`, message);
+    // Préfixe pid seulement si fourni — en dev mono-process il est vide et un
+    // espace seul polluait le début de chaque ligne.
+    const prefix = pid ? `${pid} ` : "";
+    wrap.logger(`${prefix}${wrap.text}`, message);
     return pdu;
   }
 
@@ -824,7 +843,9 @@ class Syslog extends Event implements ISyslog {
             colors: true,
             breakLength: Infinity,
           });
-    stream.write(`${pid}${text}${msg}\n`);
+    // Préfixe pid seulement si fourni — voir commentaire normalizeLog.
+    const prefix = pid ? `${pid} ` : "";
+    stream.write(`${prefix}${text}${msg}\n`);
     return pdu;
   }
 
