@@ -35,6 +35,49 @@ Pour que l'utilisateur (humain ou Claude) ne pense PAS que c'est gelé :
 
 Format adopté ci-dessous. Ne pas le simplifier — la verbosité est volontaire.
 
+## 🚨 Piège ABSOLU — le watch Rollup runtime écrase le dist
+
+**Lu et appliqué AVANT toute modification de code pendant qu'un serveur dev tourne.**
+
+En mode `development`, le serveur Nodefony lance un **watch Rollup runtime** qui re-build chaque workspace ~12s après le boot et **écrase les `dist/`**. Toute édition de fichier `.ts` source déclenche un rebuild du watch. Le piège :
+
+1. Modif code source TS
+2. `npm run build` manuel → dist contient la modif
+3. Spawn nodefony → Node.js charge le dist en mémoire (avec la modif) ✅
+4. ~12s plus tard, le watch du serveur re-build et écrit un nouveau dist
+5. Si entre-temps tu as modifié à nouveau le source, ton dist final ne reflète plus ce que Node.js a chargé
+6. Tu `grep` le dist (avec la modif), tu `grep` le log (avec l'ancien format) → mismatch dist/log
+
+**Symptôme classique** : "mon code est dans le dist mais le runtime affiche l'ancien comportement" → 99% le piège, pas un bug.
+
+### Protocole "modif code + test via boot"
+
+À CHAQUE itération de fix où on doit vérifier le comportement runtime :
+
+1. **Vérifier serveur en cours** : `lsof -ti:5151 -ti:5152` — si PID retourné, **tuer**
+2. **Annoncer** au user : "serveur tué pour libérer le watch, je modifie X, je relance"
+3. **Modifier le code** (`Edit` / `Write` libres — pas de watch actif pour interférer)
+4. **`npm run clean && npm run build`** (pas juste `build`, turbo peut skip à tort)
+5. **Spawn nodefony** dans la foulée
+6. **Grep le log DANS LES 6 PREMIÈRES SECONDES** après `Server Listen` — avant que le nouveau watch n'écrase
+7. **Tuer le serveur** avant la prochaine modif si on re-itère
+
+### Signaux d'alarme
+
+- `stat -f "%Sm" dist/.../file.js` — si mtime APRÈS le moment du spawn → watch a réécrit, ta vue du dist ne reflète plus ce que Node.js a chargé
+- `grep ma_modif dist/...` retourne OK mais `grep ma_modif log` retourne 0 → c'est le piège, pas un bug
+- `npm run build` affiche "X cached" pour un workspace modifié → turbo skip à tort, faire `clean` d'abord
+
+### Trick de debug — marqueur unique
+
+Si tu doutes que ton code est exécuté, ajoute un marqueur unique dans le log que tu modifies :
+
+```ts
+this.log(`>>>NEW route + ${r.toLogLine()}`, "DEBUG");
+```
+
+Puis `grep ">>>NEW"` dans le log — si présent → ton code tourne, mismatch ailleurs. Si absent → le dist chargé en mémoire au boot n'avait PAS ta modif (problème de timing watch).
+
 ## Quand lancer en debug (`-d`) ou pas
 
 | Cas d'usage                                            | Flag             | Pourquoi                                          |
