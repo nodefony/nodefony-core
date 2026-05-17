@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-17T17:20:09.825Z",
+  "generated": "2026-05-17T17:25:35.005Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 206,
-    "symbols": 482,
-    "classes": 166,
+    "files": 209,
+    "symbols": 484,
+    "classes": 168,
     "interfaces": 159,
     "types": 119,
     "enums": 1,
@@ -202,6 +202,18 @@
         "services",
         "controllers",
         "entities"
+      ]
+    },
+    "TestFrontendReact": {
+      "name": "TestFrontendReact",
+      "kind": "class",
+      "file": "src/modules/test-frontend-react/index.ts",
+      "exported": true,
+      "module": "modules/test-frontend-react",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "controllers"
       ]
     },
     "Framework": {
@@ -1268,6 +1280,19 @@
       "extends": "Entity",
       "implements": [],
       "decorators": []
+    },
+    "PocController": {
+      "name": "PocController",
+      "kind": "class",
+      "file": "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+      "exported": true,
+      "module": "modules/test-frontend-react",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Controller POC : - GET /poc/react → page HTML qui charge le bundle React via Vite - GET /poc/api/data → endpoint léger pour bench p99 backend (autocannon/curl) - GET /poc/api/burn → endpoint qui si…"
     },
     "AgentError": {
       "name": "AgentError",
@@ -3746,6 +3771,7 @@
       ],
       "Module": [
         "Test",
+        "TestFrontendReact",
         "Framework",
         "Frontend",
         "Http",
@@ -3806,7 +3832,8 @@
         "OpenApiController",
         "RestController",
         "RouteController",
-        "WebsocketController"
+        "WebsocketController",
+        "PocController"
       ],
       "Entity": [
         "Boat",
@@ -4005,7 +4032,8 @@
         "Sequelize"
       ],
       "controllers": [
-        "Test"
+        "Test",
+        "TestFrontendReact"
       ],
       "entities": [
         "Test",
@@ -4021,7 +4049,8 @@
         "OpenApiController",
         "RestController",
         "RouteController",
-        "WebsocketController"
+        "WebsocketController",
+        "PocController"
       ],
       "injectable": [
         "Router",
@@ -4229,6 +4258,7 @@
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Nodefony.ts",
         "src/modules/test/index.ts",
+        "src/modules/test-frontend-react/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
@@ -4428,6 +4458,7 @@
       ],
       "Module": [
         "src/modules/test/index.ts",
+        "src/modules/test-frontend-react/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
@@ -4533,7 +4564,19 @@
       ],
       "controllers": [
         "src/modules/test/index.ts",
+        "src/modules/test-frontend-react/index.ts",
         "src/packages/@nodefony/framework/index.ts"
+      ],
+      "FrontendService": [
+        "src/modules/test-frontend-react/index.ts",
+        "src/packages/@nodefony/frontend/index.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts"
+      ],
+      "PocController": [
+        "src/modules/test-frontend-react/index.ts"
       ],
       "Router": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4564,6 +4607,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -4593,7 +4637,8 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
-        "src/modules/test/nodefony/controller/WebSocketController.ts"
+        "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts"
       ],
       "controller": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4605,7 +4650,8 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
-        "src/modules/test/nodefony/controller/WebSocketController.ts"
+        "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts"
       ],
       "HttpCode": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4618,12 +4664,6 @@
       "Redirect": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts"
-      ],
-      "FrontendService": [
-        "src/packages/@nodefony/frontend/index.ts",
-        "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
-        "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
-        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts"
       ],
       "FrontendBuild": [
         "src/packages/@nodefony/frontend/index.ts"
@@ -4658,6 +4698,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
