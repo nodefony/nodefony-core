@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-17T08:16:28.226Z",
+  "generated": "2026-05-17T08:23:06.988Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -110,21 +110,24 @@
       "module": "@nodefony/core",
       "extends": "Error",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Erreur Nodefony — wrapper riche autour de `Error` natif qui ajoute : - Un `code` numérique (HTTP status ou code custom — pas un string). - Un `errorType` détecté automatiquement (TypeError, SystemE…"
     },
     "registerSequelizeAdapter": {
       "name": "registerSequelizeAdapter",
       "kind": "function",
       "file": "src/nodefony/src/Error.ts",
       "exported": true,
-      "module": "@nodefony/core"
+      "module": "@nodefony/core",
+      "description": "Enregistre l'adapter Sequelize pour la détection et le formatage des erreurs ORM. Appelé par `@nodefony/sequelize` au boot — le core ne dépend pas de l'ORM."
     },
     "registerMongooseAdapter": {
       "name": "registerMongooseAdapter",
       "kind": "function",
       "file": "src/nodefony/src/Error.ts",
       "exported": true,
-      "module": "@nodefony/core"
+      "module": "@nodefony/core",
+      "description": "Enregistre l'adapter Mongoose pour la détection et le formatage des erreurs ORM. Appelé par `@nodefony/mongoose` au boot — le core ne dépend pas de l'ORM."
     },
     "Event": {
       "name": "Event",
@@ -134,7 +137,8 @@
       "module": "@nodefony/core",
       "extends": "EventEmitter",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Bus d'événements Nodefony — extension de Node.js {@link EventEmitter} avec deux ajouts maison : `emitAsync` (await tous les listeners en séquence) et `settingsToListen` (mapping config → listeners …"
     },
     "EventDefaultInterface": {
       "name": "EventDefaultInterface",
@@ -170,7 +174,8 @@
       "module": "@nodefony/core",
       "extends": null,
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Façade statique du framework — point d'entrée global remplaçant le singleton JS legacy. Expose le `Kernel` courant (registre des modules + services), la version du package, et des générateurs d'ide…"
     },
     "Service": {
       "name": "Service",

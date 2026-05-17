@@ -15,7 +15,35 @@ type ContextType = any;
 const regListenOn = /^on(.*)$/;
 const defaultNbListeners = 20;
 
+/**
+ * Bus d'événements Nodefony — extension de Node.js {@link EventEmitter} avec
+ * deux ajouts maison : `emitAsync` (await tous les listeners en séquence) et
+ * `settingsToListen` (mapping config → listeners via convention `onXxx`).
+ *
+ * Utilisé par {@link Service} comme `notificationsCenter`. Une seule instance
+ * peut être partagée entre plusieurs services — chaque service track ses
+ * propres listeners pour les retirer proprement à `clean()`.
+ *
+ * @example Bus dédié
+ * ```ts
+ * const bus = new Event({ onReady: () => console.log("ready!") }, this);
+ * bus.fire("onReady");
+ * ```
+ *
+ * @example Bus partagé entre services
+ * ```ts
+ * const sharedBus = new Event();
+ * new ServiceA(name, container, sharedBus);
+ * new ServiceB(name, container, sharedBus);
+ * ```
+ */
 class Event extends EventEmitter {
+  /**
+   * @param settings - objet de config dont les clés `onXxx` sont auto-bindées
+   *   comme listeners (via {@link settingsToListen}).
+   * @param context - `this` à bind sur les listeners auto-enregistrés.
+   * @param options - `nbListeners` surcharge la limite Node.js (défaut 20).
+   */
   constructor(
     settings?: EventDefaultInterface,
     context?: ContextType,
@@ -30,6 +58,15 @@ class Event extends EventEmitter {
     }
   }
 
+  /**
+   * Parcourt `localSettings` et enregistre chaque clé matchant `/^on(.*)$/`
+   * comme listener — convention héritée des composants WebComponent / config
+   * Nodefony historique. Utile pour wirer des hooks via config plate.
+   *
+   * @param localSettings - objet plat ; les clés `onReady`, `onClose`, etc.
+   *   sont prises comme noms d'événements ET comme listeners.
+   * @param context - si fourni, le listener est bindé sur ce contexte.
+   */
   settingsToListen(
     localSettings: EventDefaultInterface,
     context?: ContextType,
@@ -47,6 +84,13 @@ class Event extends EventEmitter {
     }
   }
 
+  /**
+   * Bind `listener` sur `context` puis l'enregistre. Renvoie une fonction
+   * dispatcher qui ré-émet l'événement avec ses propres args (façon trigger).
+   *
+   * @returns dispatcher `(...args) => this.emit(eventName, ...args)` — pratique
+   *   pour exposer un trigger sans donner accès au bus complet.
+   */
   listen(
     context: ContextType,
     eventName: string | symbol,
@@ -61,10 +105,21 @@ class Event extends EventEmitter {
     };
   }
 
+  /** Alias `emit` — émission synchrone (API EventEmitter standard). */
   fire(eventName: string | symbol, ...args: any[]): boolean {
     return super.emit(eventName, ...args);
   }
 
+  /**
+   * Émet et attend chaque listener en séquence (`await Reflect.apply` un par
+   * un). Différent de `emit` qui appelle synchroniquement sans attendre les
+   * Promises retournées.
+   *
+   * @returns tableau des valeurs résolues par chaque listener (ordre d'append),
+   *   ou `false` si aucun listener n'est attaché.
+   * @remarks Séquentiel par design — si tu veux Promise.all, fais un wrapper
+   *   au-dessus. La séquence garantit l'ordre prévisible des side-effects.
+   */
   async emitAsync(
     eventName: string | symbol,
     ...args: any[]
@@ -82,6 +137,7 @@ class Event extends EventEmitter {
     return result;
   }
 
+  /** Alias `emitAsync`. */
   async fireAsync(
     eventName: string | symbol,
     ...args: any[]

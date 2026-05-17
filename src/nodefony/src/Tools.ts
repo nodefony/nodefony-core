@@ -12,15 +12,35 @@ const getProto = Object.getPrototypeOf;
 
 // ─── Natif — suppression des dépendances lodash-es ───────────────────────────
 
+/** Alias direct de `Array.isArray` — exporté pour usage cohérent dans les modules. */
 const isArray = Array.isArray;
 
+/**
+ * Type guard — `true` si `value` est une fonction (incluant arrow et classes).
+ *
+ * @param value - valeur inconnue à tester.
+ */
 const isFunction = (value: unknown): value is (...args: unknown[]) => unknown =>
   typeof value === "function";
 
+/**
+ * Type guard — `true` si `value` est une instance `RegExp`.
+ *
+ * @param value - valeur inconnue à tester.
+ */
 const isRegExp = (value: unknown): value is RegExp => value instanceof RegExp;
 
 // ─── isPlainObject ────────────────────────────────────────────────────────────
 
+/**
+ * Vérifie qu'un objet est un "plain object" — `{}` ou `Object.create(null)`.
+ *
+ * Rejette les instances de classes, les `Array`, `Date`, `RegExp`, etc.
+ * Implémentation alignée sur jQuery.isPlainObject (compatible cross-realm).
+ *
+ * @param obj - valeur à tester.
+ * @returns `true` si l'objet vient directement de `Object` ou n'a pas de prototype.
+ */
 const isPlainObject = (obj: unknown): boolean => {
   if (!obj || _toString.call(obj) !== "[object Object]") return false;
   const proto = getProto(obj);
@@ -33,8 +53,19 @@ const isPlainObject = (obj: unknown): boolean => {
 
 // ─── isUndefined / isEmptyObject ─────────────────────────────────────────────
 
+/**
+ * Type guard — `true` si `value === undefined` (strict, jamais `null`).
+ *
+ * @param value - valeur à tester.
+ */
 const isUndefined = (value: unknown): value is undefined => value === undefined;
 
+/**
+ * Vérifie qu'un objet existe et ne contient aucune clé propre énumérable.
+ *
+ * @param obj - objet à inspecter (peut être `null`/`undefined`).
+ * @returns `true` si `obj` est défini ET `Object.keys(obj).length === 0`.
+ */
 const isEmptyObject = (obj: object | null | undefined): boolean =>
   !!obj && Object.keys(obj).length === 0;
 
@@ -48,6 +79,22 @@ const isEmptyObject = (obj: object | null | undefined): boolean =>
 //   • isPlainObject/isArray inline sans lodash
 //   • _toString explicitement référencé (plus de dépendance au global toString)
 
+/**
+ * Fusionne plusieurs objets dans une cible — API compatible `jQuery.extend`.
+ *
+ * Mode `shallow` (défaut) : copie les clés du dernier au premier source.
+ * Mode `deep` (1er arg `true`) : récurse dans les plain objects et arrays.
+ * Sécurité : ignore `__proto__`, `constructor`, `prototype` (anti prototype pollution).
+ *
+ * @param args - `[target, ...sources]` ou `[true, target, ...sources]` pour deep.
+ * @returns la cible mutée (ou objet vide si appel à un seul argument).
+ *
+ * @example
+ * ```ts
+ * extend({ a: 1 }, { b: 2 });               // { a: 1, b: 2 }
+ * extend(true, { a: { x: 1 } }, { a: { y: 2 } }); // { a: { x: 1, y: 2 } }
+ * ```
+ */
 const extend = (...args: any[]): any => {
   let options: any,
     name: string,
@@ -122,6 +169,23 @@ const extend = (...args: any[]): any => {
 
 // ─── typeOf ───────────────────────────────────────────────────────────────────
 
+/**
+ * Détecte le type runtime d'une valeur — extension typée de `typeof`.
+ *
+ * Retourne `"buffer" | "array" | "date" | "RegExp" | "arguments" | "SyntaxError" | "Error"`
+ * pour les objets connus, sinon le `typeof` natif. `null` pour `null`.
+ *
+ * @param value - valeur quelconque à classifier.
+ * @returns string descriptive du type, ou `null` si valeur `null`.
+ *
+ * @example
+ * ```ts
+ * typeOf([]);              // "array"
+ * typeOf(new Date());      // "date"
+ * typeOf(Buffer.alloc(0)); // "buffer"
+ * typeOf(null);            // null
+ * ```
+ */
 const typeOf = (value: any): string | null => {
   const t = typeof value;
   if (t === "object") {
@@ -141,11 +205,30 @@ const typeOf = (value: any): string | null => {
 
 // ─── Utilitaires conteneur / promesse / erreur ────────────────────────────────
 
+/**
+ * Type guard — `true` si la valeur est une instance de `Container` (DI).
+ *
+ * @param container - valeur à tester.
+ */
 const isContainer = (container: unknown): container is Container =>
   container instanceof Container;
 
+/**
+ * Type guard — `true` si la valeur est une instance d'`Error` natif.
+ *
+ * @param it - valeur à tester.
+ */
 const isError = (it: unknown): it is Error => it instanceof Error;
 
+/**
+ * Vérifie qu'une valeur est une `Promise` ou un thenable (duck-typing `.then`).
+ *
+ * Accepte les promesses natives ET les bibliothèques tierces (Bluebird, etc.)
+ * qui implémentent le protocole Promises/A+.
+ *
+ * @param obj - valeur à tester.
+ * @returns `true` si `obj instanceof Promise` ou `typeof obj.then === "function"`.
+ */
 const isPromise = (obj: any): boolean => {
   if (obj instanceof Promise) return true;
   return (
@@ -155,6 +238,13 @@ const isPromise = (obj: any): boolean => {
   );
 };
 
+/**
+ * Vérifie qu'une classe hérite (directement ou non) d'une autre.
+ *
+ * @param subclass - classe enfant supposée.
+ * @param superclass - classe parent attendue.
+ * @returns `true` si `subclass.prototype instanceof superclass`.
+ */
 const isSubclassOf = (subclass: any, superclass: any): boolean =>
   subclass.prototype instanceof superclass;
 

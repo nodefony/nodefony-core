@@ -87,11 +87,26 @@ let _mongooseAdapter: {
   errorToString(e: unknown): string;
 } | null = null;
 
+/**
+ * Enregistre l'adapter Sequelize pour la détection et le formatage des erreurs ORM.
+ *
+ * Appelé par `@nodefony/sequelize` au boot — le core ne dépend pas de l'ORM.
+ *
+ * @param adapter - implémentation `{ isError, errorToString }` ou `null` pour désactiver.
+ */
 export function registerSequelizeAdapter(
   adapter: typeof _sequelizeAdapter,
 ): void {
   _sequelizeAdapter = adapter;
 }
+
+/**
+ * Enregistre l'adapter Mongoose pour la détection et le formatage des erreurs ORM.
+ *
+ * Appelé par `@nodefony/mongoose` au boot — le core ne dépend pas de l'ORM.
+ *
+ * @param adapter - implémentation `{ isError, errorToString }` ou `null` pour désactiver.
+ */
 export function registerMongooseAdapter(
   adapter: typeof _mongooseAdapter,
 ): void {
@@ -114,6 +129,30 @@ const isMongooseError = function (error: Error) {
   }
 };
 
+/**
+ * Erreur Nodefony — wrapper riche autour de `Error` natif qui ajoute :
+ * - Un `code` numérique (HTTP status ou code custom — pas un string).
+ * - Un `errorType` détecté automatiquement (TypeError, SystemError,
+ *   AssertionError, SequelizeError, MongooseError, ClientError, etc.).
+ * - Une sérialisation `toJSON()` filtrée qui exclut `context`, `resolver`,
+ *   `container`, `secure` (références circulaires).
+ * - Un `toString()` coloré (cli-color) qui adapte le format selon
+ *   l'environnement (production = message court ; dev = champs détaillés).
+ *
+ * @example Wrap d'une erreur existante
+ * ```ts
+ * try { ... } catch (e) { throw new nodefonyError(e, 500); }
+ * ```
+ *
+ * @example Erreur custom
+ * ```ts
+ * throw new nodefonyError("user not found", 404);
+ * ```
+ *
+ * @remarks Les adapters ORM (Sequelize, Mongoose) sont injectés via
+ *   `registerSequelizeAdapter` / `registerMongooseAdapter` pour découpler
+ *   le core des modules ORM. Sans adapter, ces types ne sont pas détectés.
+ */
 class nodefonyError extends Error {
   public override code: number | null;
   public error?: Error;
@@ -121,6 +160,12 @@ class nodefonyError extends Error {
   //public actual : string
   [key: string]: any;
 
+  /**
+   * @param message - string ou `Error` natif à wrapper. Si Error, ses champs
+   *   (message, code, stack) sont copiés ; le type est détecté.
+   * @param code - statut HTTP ou code custom (utilisé par HttpError pour le
+   *   status code de la réponse).
+   */
   constructor(message?: string | Error, code?: number) {
     if (message instanceof Error) {
       super(message.message);
@@ -138,12 +183,28 @@ class nodefonyError extends Error {
     }
   }
 
-  // TS6 added Error.isError(value: unknown): value is Error as a built-in.
+  /**
+   * Type guard — vérifie qu'une valeur est une instance d'`Error`.
+   *
+   * Override de la méthode native ajoutée par TS 6 ; conserve la signature
+   * pour rester compatible avec les consommateurs qui utilisent `Error.isError`.
+   *
+   * @param error - valeur inconnue à tester.
+   * @returns `true` si `error instanceof Error`.
+   */
   static override isError(error: unknown): error is Error {
     return error instanceof Error;
   }
 
-  // Returns the specific error category string for known error types.
+  /**
+   * Détecte la catégorie d'une erreur (TypeError, SystemError, SequelizeError, etc.).
+   *
+   * Utilisée par `getType()` pour peupler `errorType` et copier les champs
+   * spécifiques au type (errno, syscall, bytesParsed, etc.).
+   *
+   * @param error - instance d'`Error` à classifier.
+   * @returns nom de la catégorie ou `false` si pas une `Error`.
+   */
   static detectType(error: Error): string | false {
     switch (true) {
       case error instanceof ReferenceError:
@@ -174,6 +235,15 @@ class nodefonyError extends Error {
     return false;
   }
 
+  /**
+   * Détecte le type d'erreur et copie ses champs spécifiques sur `this`.
+   *
+   * Côté SystemError → `errno/syscall/address/port` ; AssertionError →
+   * `actual/expected/operator` ; SequelizeError → `errors/fields/parent/sql`, etc.
+   *
+   * @param error - erreur source à analyser.
+   * @returns nom de la catégorie (jamais `false` — fallback `error.constructor.name` ou `"Error"`).
+   */
   getType(error: Error): string {
     const errorType = nodefonyError.detectType(error);
     if (errorType) {
@@ -242,6 +312,14 @@ class nodefonyError extends Error {
     return "Error";
   }
 
+  /**
+   * Sérialise l'erreur en string coloré (cli-color) selon `errorType` et l'environnement.
+   *
+   * En `prod`, retourne un message court (type + message) ; sinon, formatage
+   * détaillé multi-lignes. Ajoute la stack si `kernel.debug` est actif.
+   *
+   * @returns string formatée prête pour `console.log` ou syslog.
+   */
   override toString(): string {
     let err = "";
     switch (this.errorType) {
@@ -317,6 +395,14 @@ class nodefonyError extends Error {
     return err;
   }
 
+  /**
+   * Parse l'argument du constructeur et hydrate les champs (`message`, `code`, `stack`).
+   *
+   * Trois cas : `Error` natif (copie message/code/stack), `object` (extrait
+   * `status/code/message` + capture stack), autre (fallback `getDefaultMessage`).
+   *
+   * @param message - string, `Error`, ou objet quelconque à interpréter.
+   */
   parseMessage(message: any) {
     this.errorType = this.getType(message);
     switch (typeOf(message)) {
@@ -355,6 +441,12 @@ class nodefonyError extends Error {
     }
   }
 
+  /**
+   * Renseigne `this.message` à partir du `code` HTTP via `STATUS_CODES`.
+   *
+   * Fallback quand aucun message n'est fourni mais qu'un code est connu —
+   * ex : `new nodefonyError(undefined, 404)` → message `"Not Found"`.
+   */
   getDefaultMessage() {
     if (!this.message && this.code) {
       const str = this.code.toString();
@@ -364,6 +456,11 @@ class nodefonyError extends Error {
     }
   }
 
+  /**
+   * Affiche l'erreur formatée sur `console.log` (raccourci de `toString()`).
+   *
+   * @returns `undefined` — `console.log` ne retourne rien.
+   */
   logger() {
     return console.log(this.toString());
   }
