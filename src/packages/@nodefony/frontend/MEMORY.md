@@ -19,12 +19,12 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 
 ## Pipeline
 
-1. consumer module → `frontendService.registerEntry(this, { type, entry })` dans initialize()
-2. kernel.onReady + env=development + autoStart → service.startDev()
-3. startDev → generator.toMjs → writeFileSync → supervisor.start (spawn vite)
-4. browser → controller rend HTML → TemplateHelper.renderTags injecte `<script>`
-5. browser ↔ Vite direct (cors=true) sur port 5173 (ou suivant)
-6. kernel.onTerminate → supervisor.stop → SIGINT + SIGKILL 3s
+1. consumer module → `frontendService.registerEntry(this, { type, entry, apiProxyPaths })` dans onKernelBoot()
+2. kernel.**onServersReady** + env=development + autoStart → service.startDev() (PAS onReady — Vite après que les servers Nodefony écoutent)
+3. startDev → generator.toMjs (base, https, proxy, viteOrigin) → writeFileSync → supervisor.start (spawn vite)
+4. browser → controller rend HTML → TemplateHelper.renderTags injecte `<script>` (+ React preamble pour react19)
+5. browser ↔ Vite direct (cors=true) sur port 5173. fetch("/api/...") → Vite proxifie vers Nodefony.
+6. kernel.onTerminate → supervisor.stop (idempotent) → SIGINT + SIGKILL 3s
 
 ## Config DEFAULTS
 
@@ -38,17 +38,36 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
   defaultRoot: "./frontend",
   startupTimeoutMs: 30_000,
   pipeViteLogs: true,
+  backendHost: "127.0.0.1",
+  backendPort: 5151,
+  backendProtocol: "http",  // http | https
+  https: false,             // partage certs Nodefony (server-https 5152)
+  viteEnv: {},              // VITE_* exposé browser via import.meta.env
+  resilience: {             // toutes optionnelles, defaults supervisor
+    autoRestart: true,
+    maxRestarts: 5,
+    restartBackoffBaseMs: 500,
+    restartBackoffMaxMs: 8_000,
+    healthCheckIntervalMs: 30_000,
+    healthCheckFailureThreshold: 3,
+    portRetryAttempts: 3,
+  },
 }
 ```
 
 ## Behaviors
 
 - `vite.config.generated.mjs` overwrite à chaque startDev — ne jamais éditer.
-- Port réel ≠ devPort si occupé — Vite incrémente, supervisor lit dans stdout.
-- `@vitejs/plugin-react` chargé via `await import()` dans le preset — pas d'erreur si pas installé.
+- Port retry : EADDRINUSE → devPort+1, devPort+2 (max portRetryAttempts). Stocké dans `status.port`.
+- Auto-restart : child.exit avec state=ready (= crash inattendu) → scheduleRestart() avec backoff exponentiel. `willingShutdown` flag distingue shutdown volontaire.
+- Health check : setInterval (default 30s) GET `viteOrigin/`. 3 échecs consécutifs → kill child → trigger restart.
+- Idempotence : 2e `start()` retourne `startPromise` en cours. `stop()` mémorise `stopPromise`.
+- Listener tracking : `trackListener(target, event, fn)` + `cleanupChildListeners()` au exit. Évite MaxListenersExceededWarning entre restarts.
+- HTTPS Vite : si `cfg.https=true`, supervisor récupère `certificates.privateKeyPath` + `certificates.certPath` via DI et les passe au generator (server.https inject fs.readFileSync).
+- React preamble : TemplateHelper inline `<script type="module">` avec `RefreshRuntime.injectIntoGlobalHook` pour entries `type: "react19"`. Sans ça : `@vitejs/plugin-react can't detect preamble`.
+- Logs pipeline : split lignes + strip ANSI (`\x1b\[…m`) + dédup préfixe `[vite]` (Vite préfixe parfois lui-même).
 - Mode prod: `service.build()` → `vite.build(cfg)` in-proc (one-shot, OK).
-- Logs Vite: `child.stdout.pipe → syslog` (pipeViteLogs=true) — natif flux OS.
-- Cleanup: SIGINT puis SIGKILL après 3s. Évite zombies bloquant 5173.
+- Cleanup stop: SIGINT puis SIGKILL après 3s. Évite zombies bloquant 5173.
 
 ## Errors
 
@@ -69,6 +88,23 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - `module.path` (Module class) requis pour résoudre les chemins absolus du consumer.
 - Si `state !== "ready"` quand renderTags est appelé → commentaire HTML `<!-- vite supervisor state=... -->`.
 - Container.get("frontend") = name passé au constructor Service (pas le className).
+- CSP : `script-src 'self'` par défaut bloque les scripts Vite cross-origin. Hack POC : `controller.context.response.setHeader("Content-Security-Policy", svc.getCspDirectives())`. TODO → migrer dans @nodefony/security.
+- `process.kill(child.pid)` tue `npx` (parent), pas Vite. Pour tuer Vite réel dans tests : `lsof -ti:port -sTCP:LISTEN`.
+- Test crash auto-restart : `pidListeningOn(port)` puis SIGKILL ; attendre `state==="ready"` + `pid !== nodefonyPidBefore` + `restartCount === 1`.
+
+## Events (Service EventEmitter)
+
+- `frontend:starting` (payload `{ backendOrigin, entries }`) — avant spawn
+- `frontend:ready` (payload `IViteSupervisorStatus`) — Vite ready
+- `frontend:error` (payload `Error`) — spawn/timeout fail
+- `frontend:stopped` (no payload) — après stop() propre
+
+## Tests
+
+- Unit : `nodefony/tests/unit/ViteConfigGenerator.test.ts` — 14 cases. Pure function, ts-node, ~10ms.
+- Intégration : `nodefony/tests/integration/ViteProcessSupervisor.test.ts` — 3 cases (start+stop, idempotence, crash auto-restart). Real spawn ~6s.
+- Fixture : `nodefony/tests/fixtures/minimal-frontend/` (index.html + src/main.ts vanilla).
+- Lancer : `npm test` (unit) + `npm run test:integration`.
 
 ## API Vision (route /nodefony/frontend/* — Phase 10)
 
