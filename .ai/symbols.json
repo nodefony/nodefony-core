@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-17T11:12:03.384Z",
+  "generated": "2026-05-17T11:42:54.358Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 188,
-    "symbols": 455,
+    "symbols": 456,
     "classes": 153,
     "interfaces": 150,
-    "types": 115,
+    "types": 116,
     "enums": 1,
     "functions": 31,
     "constants": 5
@@ -589,7 +589,16 @@
       "module": "@nodefony/core",
       "extends": "Service",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Watcher — façade légère au-dessus du service Rollup pour le mode dev. Deux rôles : 1. **Lance un watcher Rollup par module** via {@link createRollupWatcher}. Délègue à `rollupService.watch`, qui éc…"
+    },
+    "HotReloadHook": {
+      "name": "HotReloadHook",
+      "kind": "type",
+      "file": "src/nodefony/src/service/watcherService.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Hook appelé par le Watcher après chaque rebuild Rollup d'un module en mode dev. Reçoit le module rebuildé et l'`OutputOptions` Rollup (`output.dir` = chemin du dist fraîchement écrit). Le hook DOIT…"
     },
     "Pdu": {
       "name": "Pdu",
@@ -4341,7 +4350,6 @@
       ],
       "Context": [
         "src/packages/@nodefony/http/index.ts",
-        "src/nodefony/src/service/watcherService.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",

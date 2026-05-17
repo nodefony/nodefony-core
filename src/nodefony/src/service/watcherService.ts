@@ -1,133 +1,141 @@
-import vm, { Context } from "node:vm";
 import Container from "../Container";
 import Service from "../Service";
 import Kernel from "../kernel/Kernel";
 import Module from "../kernel/Module";
-import { extend } from "../Tools";
-import chokidar, { ChokidarOptions } from "chokidar";
-import serviceRollup from "./rollup/rollupService";
-import {
-  //rollup,
-  RollupOptions,
-  OutputChunk,
-  OutputAsset,
-  OutputOptions,
-  RollupWatcher,
-} from "rollup";
+import RollupService from "./rollup/rollupService";
+import type { RollupOptions, RollupWatcher, OutputOptions } from "rollup";
 
-const defaultWatcherSettings: ChokidarOptions = {
-  persistent: true,
-  followSymlinks: true,
-  alwaysStat: false,
-  depth: 50,
-  ignoreInitial: true,
-  ignored: "**/node_modules/**",
-  // usePolling: true,
-  // interval: 500,
-  // binaryInterval: 300,
-  awaitWriteFinish: true,
-  atomic: true, // or a custom 'atomicity delay', in milliseconds (default 100)
-};
+/**
+ * Hook appelé par le Watcher après chaque rebuild Rollup d'un module en mode dev.
+ * Reçoit le module rebuildé et l'`OutputOptions` Rollup (`output.dir` = chemin
+ * du dist fraîchement écrit).
+ *
+ * Le hook DOIT être idempotent : il peut être appelé plusieurs fois pour le
+ * même module pendant une session (chaque modif fichier déclenche un rebuild).
+ */
+export type HotReloadHook = (
+  module: Module,
+  output: OutputOptions,
+) => Promise<void> | void;
 
+/**
+ * Watcher — façade légère au-dessus du service Rollup pour le mode dev.
+ *
+ * Deux rôles :
+ *
+ * 1. **Lance un watcher Rollup par module** via {@link createRollupWatcher}.
+ *    Délègue à `rollupService.watch`, qui écrit le bundle sur disque et émet
+ *    `rollup:bundle:end` à chaque rebuild.
+ * 2. **Dispatche les rebuilds vers des hot-reload hooks** via {@link register}.
+ *    Chaque consommateur (Router, Sequelize, etc.) enregistre une fonction
+ *    `hotReload(module, output)` appelée après chaque rebuild de SON module.
+ *
+ * Pas de `chokidar` : Rollup watch surveille déjà les fichiers source via son
+ * resolver — éviter la double surveillance.
+ *
+ * Lazy alloc : la map de hooks et le listener sur `rollupService` ne sont
+ * alloués qu'au premier `register()`. Sans HMR consommateur, coût = 0.
+ */
 class Watcher extends Service {
-  chokidar: typeof chokidar = chokidar;
-  override options: ChokidarOptions;
-  cache?: [OutputChunk, ...(OutputChunk | OutputAsset)[]];
-  constructor(kernel: Kernel, options?: ChokidarOptions) {
+  /** Map moduleName → hook. `null` tant qu'aucun module n'est enregistré. */
+  private hooks: Record<string, HotReloadHook> | null = null;
+  /** Référence du listener attaché à `rollupService` — null si détaché. */
+  private bundleEndListener:
+    | ((module: Module, output: OutputOptions) => Promise<void>)
+    | null = null;
+
+  constructor(kernel: Kernel) {
     super("watcher", kernel.container as Container);
-    this.options = extend(true, {}, defaultWatcherSettings, options);
+    this.kernel?.once("onTerminate", () => {
+      this.detachListener();
+      this.hooks = null;
+    });
   }
 
+  /**
+   * Crée un watcher Rollup pour un module — façade vers `rollupService.watch`.
+   *
+   * @throws Si le service `rollup` n'est pas enregistré dans le container.
+   */
   async createRollupWatcher(
     module: Module,
     options: RollupOptions,
   ): Promise<RollupWatcher> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const service = this.get<serviceRollup>("rollup");
-        if (service) {
-          const rlwatcher: RollupWatcher = await service.watch(module, options);
-          return resolve(rlwatcher);
-        }
-        throw new Error("service Rollup not defined");
-
-        //const { ts, output } = await service.prepareWatch(options);
-        //console.log(output);
-        // const watcher = this.chokidar.watch(ts, this.options);
-        // this.cache = output;
-        // //console.log(this.cache);
-        // watcher.on("ready", () => {
-        //   this.log(watcher.getWatched(), "INFO", `WATCHER ${module.name}`);
-        //   return resolve(watcher);
-        // });
-
-        // watcher.on("change", async (filePath) => {
-        //   const changeOption = extend({}, options);
-        //   changeOption.input = filePath;
-        //   const bundle = await rollup(changeOption);
-        //   const { output } = await bundle.generate(changeOption.output);
-        //   const { code } = output[0];
-        //   return await this.run(code, options);
-        // });
-        // watcher.on("error", (error) => {
-        //   this.log(error, "ERROR", `WATCHER ${module.name}`);
-        //   return reject(error);
-        // });
-        // this.kernel?.on("onTerminate", async () => {
-        //   await watcher.close();
-        //   this.log(`Watcher close`, "INFO", `WATCHER ${module.name}`);
-        // });
-      } catch (e) {
-        return reject(e);
-      }
-    });
-  }
-
-  search(specifier: string, options: RollupOptions): OutputChunk | OutputAsset {
-    const out = options.output as OutputOptions;
-    const pre: string = out.preserveModules
-      ? out.preserveModulesRoot || ""
-      : "";
-
-    if (this.cache) {
-      for (const mod of this.cache) {
-        const ele = mod as OutputChunk;
-        //console.log(specifier.replace(/^(\.\/)/, ""), ele.fileName);
-        if (ele.fileName === specifier.replace(/^(\.\/)/, "")) {
-          return mod;
-        }
-        const elePre = `${pre}/${ele.fileName}`;
-        if (elePre === specifier) {
-          return mod;
-        }
-      }
+    const service = this.get<RollupService>("rollup");
+    if (!service) {
+      throw new Error("service Rollup not defined");
     }
-    throw new Error(`No Cache Found`);
+    return service.watch(module, options);
   }
 
-  async run(code: string, options: RollupOptions): Promise<void> {
-    const linker: vm.ModuleLinker = function linker(
-      this: Watcher,
-      specifier: string,
-      referencingModule: Context,
-    ) {
-      const mod = this.search(specifier, options) as OutputChunk;
-      if (mod) {
-        return new vm.SourceTextModule(mod.code as string, {
-          context: referencingModule.context,
-        });
+  /**
+   * Enregistre un hot-reload hook pour un module.
+   *
+   * Le hook sera appelé après chaque event `rollup:bundle:end` émis par
+   * `rollupService` concernant ce module (match strict par `module.name`).
+   *
+   * Au premier `register`, alloue la map et attache UN SEUL listener sur
+   * `rollupService` — les `register` suivants ré-utilisent ce listener.
+   * Économise N×listeners pour N modules abonnés.
+   *
+   * @param moduleName - `module.name` du module dont on veut être notifié
+   * @param hotReload  - callback appelé après chaque rebuild (peut throw : les
+   *                     erreurs sont catchées et loguées en `ERROR`)
+   * @throws Si le service `rollup` n'est pas enregistré.
+   */
+  register(moduleName: string, hotReload: HotReloadHook): void {
+    if (this.hooks === null) {
+      this.hooks = Object.create(null) as Record<string, HotReloadHook>;
+      this.attachListener();
+    }
+    this.hooks[moduleName] = hotReload;
+  }
 
-        // Using `contextifiedObject` instead of `referencingModule.context`
-        // here would work as well.
+  /**
+   * Retire le hot-reload hook d'un module. Si plus aucun hook n'est enregistré
+   * après la suppression, détache le listener du `rollupService` et libère la
+   * map (`null` à nouveau, prêt pour un nouveau cycle de `register`).
+   */
+  unregister(moduleName: string): void {
+    if (!this.hooks) return;
+    delete this.hooks[moduleName];
+    if (Object.keys(this.hooks).length === 0) {
+      this.detachListener();
+      this.hooks = null;
+    }
+  }
+
+  /** Liste les modules ayant un hook enregistré (debug, tests). */
+  getRegisteredModules(): string[] {
+    return this.hooks ? Object.keys(this.hooks) : [];
+  }
+
+  // ─── internals ────────────────────────────────────────────────────────────
+
+  private attachListener(): void {
+    const rollupService = this.get<RollupService>("rollup");
+    if (!rollupService) {
+      throw new Error("service Rollup not defined");
+    }
+    this.bundleEndListener = async (module: Module, output: OutputOptions) => {
+      const hook = this.hooks?.[module.name];
+      if (!hook) return;
+      try {
+        await hook(module, output);
+      } catch (e) {
+        this.log(e, "ERROR", `Watcher hotReload ${module.name}`);
       }
-      throw new Error(`Unable to resolve dependency: ${specifier}`);
-    }.bind(this);
-    const newmodule = new vm.SourceTextModule(code, {
-      //context: mymodule?.vmcontext,
-    });
-    //console.log(newmodule);
-    await newmodule.link(linker);
-    await newmodule.evaluate();
+    };
+    rollupService.on("rollup:bundle:end", this.bundleEndListener);
+  }
+
+  private detachListener(): void {
+    if (!this.bundleEndListener) return;
+    const rollupService = this.get<RollupService>("rollup");
+    if (rollupService) {
+      rollupService.off("rollup:bundle:end", this.bundleEndListener);
+    }
+    this.bundleEndListener = null;
   }
 }
 
