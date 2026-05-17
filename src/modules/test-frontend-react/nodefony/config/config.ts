@@ -6,7 +6,9 @@
  */
 const config = {
   "module-frontend": {
-    // surcharge possible : devHost, devPort, startupTimeoutMs, pipeViteLogs…
+    // Active HTTPS Vite avec les certs Nodefony (service `certificates`).
+    // Évite le mixed-content quand la page est servie par server-https (5152).
+    https: true,
   },
 };
 

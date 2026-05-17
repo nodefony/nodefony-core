@@ -29,6 +29,14 @@ class PocController extends Controller {
     const svc = this.context?.container?.get("frontend") as
       | FrontendService
       | undefined;
+    // Override la CSP par défaut helmet (`script-src 'self'`) sinon les
+    // scripts Vite (5173) sont bloqués cross-origin → page blanche.
+    if (svc) {
+      this.context?.response?.setHeader(
+        "Content-Security-Policy",
+        svc.getCspDirectives(),
+      );
+    }
     const viteTags = svc?.renderTags("test-frontend-react")
       ?? "<!-- @nodefony/frontend: service unavailable -->";
     const html = `<!DOCTYPE html>

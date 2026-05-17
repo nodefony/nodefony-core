@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-17T17:39:53.260Z",
+  "generated": "2026-05-17T22:50:18.352Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 209,
-    "symbols": 484,
+    "symbols": 486,
     "classes": 168,
-    "interfaces": 159,
+    "interfaces": 161,
     "types": 119,
     "enums": 1,
     "functions": 32,
@@ -1799,7 +1799,15 @@
       "module": "@nodefony/frontend",
       "extends": null,
       "implements": [],
-      "decorators": [],
+      "decorators": []
+    },
+    "ViteConfigGeneratorOptions": {
+      "name": "ViteConfigGeneratorOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
       "description": "Génère le contenu d'un `vite.config.generated.mjs` pour le superviseur child_process. Le fichier généré est autosuffisant : il importe Vite + les plugins de chaque preset hardcodés selon les types …"
     },
     "ViteProcessSupervisor": {
@@ -1813,7 +1821,7 @@
         "IViteSupervisor"
       ],
       "decorators": [],
-      "description": "Superviseur Vite — branche POC `poc/frontend-child`. Lance Vite via `child_process.spawn(\"npx\", [\"vite\", ...])` dans un process système isolé. Le backend Nodefony n'est jamais bloqué par la compila…"
+      "description": "Superviseur Vite résilient — branche POC `poc/frontend-child`. Garanties : - Idempotent : appels concurrents à `start()` partagent la même promesse. - Auto-restart : crash inattendu → restart avec …"
     },
     "IViteSupervisorLogger": {
       "name": "IViteSupervisorLogger",

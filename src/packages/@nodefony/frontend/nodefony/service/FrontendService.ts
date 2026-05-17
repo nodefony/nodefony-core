@@ -61,7 +61,10 @@ class FrontendService extends Service implements IFrontendService {
   async initialize(): Promise<this> {
     this.log(`MODULE frontend service init`, "DEBUG");
 
-    this.kernel?.once("onReady", async () => {
+    // Hook `onServersReady` (pas `onReady`) — Vite ne doit spawner qu'APRÈS que
+    // les 4 serveurs Nodefony (HTTP/HTTPS/WS/WSS) écoutent, sinon le proxy Vite
+    // tape un backend qui n'est pas encore prêt et les premiers fetch échouent.
+    this.kernel?.once("onServersReady", async () => {
       const env = this.kernel?.environment;
       if (env === "development" && this.cfg.autoStartInDevelopment) {
         if (this.entries.length === 0) {
@@ -124,6 +127,7 @@ class FrontendService extends Service implements IFrontendService {
       root,
       entryFile: relEntry,
       outDir,
+      apiProxyPaths: declaration.apiProxyPaths ?? [],
     };
     this.entries.push(entry);
     this.log(
@@ -144,6 +148,9 @@ class FrontendService extends Service implements IFrontendService {
         host: this.cfg.devHost,
         port: null,
         pid: null,
+        https: !!this.cfg.https,
+        restartCount: 0,
+        healthFailures: 0,
         lastError: null,
         entries: this.entries,
       };
@@ -158,12 +165,49 @@ class FrontendService extends Service implements IFrontendService {
     if (this.supervisor && this.supervisor.status().state === "ready") {
       return;
     }
+    const backendOrigin =
+      `${this.cfg.backendProtocol}://${this.cfg.backendHost}:${this.cfg.backendPort}`;
+    // Si HTTPS demandé, récupère les certs Nodefony via DI (service `certificates`
+    // exposé par @nodefony/http). Pas de duplication — on partage les mêmes PEM
+    // que `server-https` (5152).
+    let https: { keyPath: string; certPath: string } | undefined;
+    if (this.cfg.https) {
+      const certs = this.container?.get?.("certificates") as
+        | { privateKeyPath?: string; certPath?: string }
+        | undefined;
+      if (!certs?.privateKeyPath || !certs?.certPath) {
+        this.log(
+          "https: true requested but `certificates` service unavailable — falling back to HTTP",
+          "WARNING",
+        );
+      } else {
+        https = { keyPath: certs.privateKeyPath, certPath: certs.certPath };
+      }
+    }
+    // Propage l'environnement Nodefony à Vite :
+    //  - NODE_ENV = kernel.environment (lu par les plugins Vite via process.env)
+    //  - extraEnv = config.viteEnv → variables VITE_* exposées au browser
+    const nodeEnv = this.kernel?.environment;
+    const extraEnv = (this.cfg.viteEnv ?? {}) as Record<string, string>;
+    const r = this.cfg.resilience ?? {};
     const supervisor = new ViteProcessSupervisor({
       devHost: this.cfg.devHost,
       devPort: this.cfg.devPort,
       startupTimeoutMs: this.cfg.startupTimeoutMs,
       pipeLogs: this.cfg.pipeViteLogs,
       cwd: this.entries[0]!.root,
+      backendOrigin,
+      https,
+      nodeEnv,
+      extraEnv,
+      autoRestart: r.autoRestart,
+      maxRestarts: r.maxRestarts,
+      restartBackoffBaseMs: r.restartBackoffBaseMs,
+      restartBackoffMaxMs: r.restartBackoffMaxMs,
+      healthCheckIntervalMs: r.healthCheckIntervalMs,
+      healthCheckFailureThreshold: r.healthCheckFailureThreshold,
+      healthCheckTimeoutMs: r.healthCheckTimeoutMs,
+      portRetryAttempts: r.portRetryAttempts,
       logger: {
         info: (m) => this.log(m, "INFO"),
         error: (m) => this.log(m, "ERROR"),
@@ -173,14 +217,22 @@ class FrontendService extends Service implements IFrontendService {
     this.supervisor = supervisor;
     this.templateHelper = new TemplateHelper(supervisor, "development");
 
+    this.fire("frontend:starting", { backendOrigin, entries: this.entries });
+
     // Le builder n'est pas utilisé en dev (config générée par le generator),
     // mais on passe la config (vide) pour respecter le contrat.
     const cfg = await this.builder.buildViteConfig(this.entries, "development");
-    await supervisor.start(this.entries, cfg);
+    try {
+      await supervisor.start(this.entries, cfg);
+    } catch (e) {
+      this.fire("frontend:error", e);
+      throw e;
+    }
     this.log(
       `vite dev server ready on ${supervisor.status().host}:${supervisor.status().port}`,
       "INFO",
     );
+    this.fire("frontend:ready", supervisor.status());
   }
 
   async stopDev(): Promise<void> {
@@ -188,6 +240,7 @@ class FrontendService extends Service implements IFrontendService {
     await this.supervisor.stop();
     this.supervisor = null;
     this.templateHelper = null;
+    this.fire("frontend:stopped");
   }
 
   async build(): Promise<void> {
@@ -206,6 +259,35 @@ class FrontendService extends Service implements IFrontendService {
       return `<!-- @nodefony/frontend: helper not initialized (supervisor not started) -->`;
     }
     return this.templateHelper.renderTags(entryName);
+  }
+
+  /**
+   * Retourne la valeur du header `Content-Security-Policy` à poser sur les
+   * pages qui chargent du JS depuis le dev server Vite (cross-origin).
+   * Sans ça, helmet pose `script-src 'self'` par défaut et le browser bloque
+   * `http://127.0.0.1:5173/@vite/client` → page blanche.
+   *
+   * À appeler dans le controller AVANT `render()` :
+   *   this.context.response.setHeader("Content-Security-Policy", svc.getCspDirectives())
+   *
+   * Inclut `ws://host:port` dans `connect-src` pour le canal HMR.
+   */
+  getCspDirectives(): string {
+    const scheme = this.cfg.https ? "https" : "http";
+    const wsScheme = this.cfg.https ? "wss" : "ws";
+    const origin = `${this.cfg.devHost}:${this.cfg.devPort}`;
+    return [
+      "default-src 'self'",
+      // 'unsafe-inline' requis pour le preamble React Fast Refresh inliné par
+      // TemplateHelper (HMR @vitejs/plugin-react). À retirer en prod — le bundle
+      // production n'a pas besoin de scripts inline.
+      `script-src 'self' 'unsafe-inline' ${scheme}://${origin}`,
+      `style-src 'self' 'unsafe-inline' ${scheme}://${origin}`,
+      `img-src 'self' data: ${scheme}://${origin}`,
+      `font-src 'self' data: ${scheme}://${origin}`,
+      `connect-src 'self' ${scheme}://${origin} ${wsScheme}://${origin}`,
+      "object-src 'none'",
+    ].join("; ");
   }
 }
 

@@ -34,14 +34,30 @@ export class TemplateHelper {
     if (!entry) {
       return `<!-- @nodefony/frontend: unknown entry "${entryName}" -->`;
     }
-    const baseUrl = `http://${status.host}:${status.port}`;
+    const baseUrl = `${status.https ? "https" : "http"}://${status.host}:${status.port}`;
     // `entryFile` est déjà relatif au `root` Vite (ex: "src/main.tsx") —
     // résolu côté FrontendService.registerEntry via `path.relative(root, absEntry)`.
     const entryUrl = `${baseUrl}/${entry.entryFile.replace(/^\/+/, "")}`;
-    return [
-      `<script type="module" src="${baseUrl}/@vite/client"></script>`,
-      `<script type="module" src="${entryUrl}"></script>`,
-    ].join("\n");
+    const tags: string[] = [];
+    // Preamble React Fast Refresh — requis par @vitejs/plugin-react. Sans ça,
+    // l'app crash au boot avec : "@vitejs/plugin-react can't detect preamble".
+    // Normalement injecté par Vite via `transformIndexHtml` — mais ici c'est
+    // Nodefony qui rend le HTML, donc on doit l'inliner nous-mêmes AVANT
+    // le `@vite/client` et l'entry.
+    if (entry.type === "react19") {
+      tags.push(
+        `<script type="module">
+import RefreshRuntime from "${baseUrl}/@react-refresh";
+RefreshRuntime.injectIntoGlobalHook(window);
+window.$RefreshReg$ = () => {};
+window.$RefreshSig$ = () => (type) => type;
+window.__vite_plugin_react_preamble_installed__ = true;
+</script>`,
+      );
+    }
+    tags.push(`<script type="module" src="${baseUrl}/@vite/client"></script>`);
+    tags.push(`<script type="module" src="${entryUrl}"></script>`);
+    return tags.join("\n");
   }
 
   private renderProdTags(_entryName: string): string {

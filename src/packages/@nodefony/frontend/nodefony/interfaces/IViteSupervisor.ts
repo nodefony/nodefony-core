@@ -8,6 +8,9 @@ export type ViteSupervisorState =
   | "starting"
   | "ready"
   | "compiling"
+  | "restarting"
+  | "crashed"
+  | "stopping"
   | "stopped"
   | "errored";
 
@@ -22,6 +25,12 @@ export interface IViteSupervisorStatus {
   readonly pid: number | null;
   readonly lastError: string | null;
   readonly entries: ReadonlyArray<IResolvedFrontendEntry>;
+  /** Vite sert-il en HTTPS ? Utilisé par TemplateHelper pour préfixer les `<script>`. */
+  readonly https: boolean;
+  /** Nombre de redémarrages auto effectués depuis le premier `start()`. */
+  readonly restartCount: number;
+  /** Nombre d'échecs consécutifs du health check (reset à chaque succès). */
+  readonly healthFailures: number;
 }
 
 /**

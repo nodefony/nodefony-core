@@ -47,8 +47,8 @@ export function App() {
         <h2>HMR check</h2>
         <button onClick={() => setCount((c) => c + 1)}>count is {count}</button>
         <p style={{ marginTop: 8, color: "#555" }}>
-          Édite <code>frontend/src/App.tsx</code> — Vite recompile, HMR
-          conserve l'état du compteur.
+          Édite <code>frontend/src/App.tsx</code> — Vite recompile, HMR conserve
+          l'état du compteur.
         </p>
       </section>
 

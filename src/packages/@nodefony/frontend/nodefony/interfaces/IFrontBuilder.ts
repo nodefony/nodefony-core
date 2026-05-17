@@ -18,6 +18,13 @@ export interface IFrontendModuleDeclaration {
   readonly root?: string;
   /** Nom logique de l'entrée multi-bundle (défaut = nom du module). */
   readonly name?: string;
+  /**
+   * Préfixes de paths à proxifier depuis Vite vers Nodefony (dev only).
+   * Sans ça, un `fetch("/poc/api/data")` depuis l'app React servie par Vite
+   * tape Vite (qui retourne son index.html SPA-fallback) au lieu du backend.
+   * Exemple : `["/poc/api", "/nodefony"]`.
+   */
+  readonly apiProxyPaths?: ReadonlyArray<string>;
 }
 
 /**
@@ -30,6 +37,8 @@ export interface IResolvedFrontendEntry {
   readonly root: string;
   readonly entryFile: string;
   readonly outDir: string;
+  /** Préfixes à proxifier vers Nodefony (résolus depuis la déclaration). */
+  readonly apiProxyPaths: ReadonlyArray<string>;
 }
 
 /**
