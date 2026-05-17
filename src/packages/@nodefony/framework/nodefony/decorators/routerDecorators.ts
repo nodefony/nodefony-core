@@ -80,14 +80,14 @@ function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
         const route = Router.createRoute(name, options);
         const k = Nodefony.getKernel();
         if (k?.debug) {
-          k.log(`Add routes : ${route.toString()}`, "DEBUG");
+          k.log(`route + ${route.toLogLine()}`, "DEBUG");
         }
       }
       if (hasMagic) {
         const route = Router.createRoute(hasMagic.name, hasMagic.options);
         const k = Nodefony.getKernel();
         if (k?.debug) {
-          k.log(`Add routes : ${route.toString()}`, "DEBUG");
+          k.log(`route + ${route.toLogLine()}`, "DEBUG");
         }
       }
     }

@@ -258,6 +258,23 @@ class Route implements IRoute {
     return JSON.stringify(this.toObject(), null, " ");
   }
 
+  /**
+   * Formatte la route en une seule ligne lisible pour le log debug — évite le
+   * JSON multi-ligne du `toString()` qui polluait ~7 lignes par route au boot.
+   *
+   * Exemple : `[GET]  /nodefony/test/index → DefaultController.indexAction  (no auth)`
+   */
+  toLogLine(): string {
+    const m = Array.isArray(this.requirements?.methods)
+      ? this.requirements.methods.join("|")
+      : this.requirements?.methods || this.method || "ANY";
+    const method = `[${String(m)}]`.padEnd(8);
+    const ctrl = this.controller?.name || "?";
+    const action = this.classMethod || this.name;
+    const auth = this.bypassFirewall ? "  (no auth)" : "";
+    return `${method} ${this.path} → ${ctrl}.${action}${auth}`;
+  }
+
   toObject(): Object {
     return {
       name: this.name,
