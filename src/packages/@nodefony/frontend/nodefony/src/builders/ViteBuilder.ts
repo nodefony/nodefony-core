@@ -1,0 +1,91 @@
+import path from "node:path";
+import type {
+  IFrontBuilder,
+  IResolvedFrontendEntry,
+} from "../../interfaces/IFrontBuilder";
+import type { IFrontPreset } from "../../interfaces/IFrontPreset";
+import { FrontendPresetUnknownError } from "../errors/FrontendError";
+import react19Preset from "../presets/react19-vite";
+import vanillaPreset from "../presets/vanilla-vite";
+
+/**
+ * Construit la config Vite finale à partir des entrées résolues et des presets.
+ *
+ * Le builder ne lance JAMAIS Vite — il fournit uniquement la config. Le
+ * démarrage est délégué au superviseur (child_process ou in-proc).
+ */
+export class ViteBuilder implements IFrontBuilder {
+  private readonly presets: Map<IFrontPreset["type"], IFrontPreset> = new Map();
+
+  constructor() {
+    this.registerPreset(react19Preset);
+    this.registerPreset(vanillaPreset);
+  }
+
+  listPresets(): ReadonlyArray<IFrontPreset> {
+    return Array.from(this.presets.values());
+  }
+
+  getPreset(type: IFrontPreset["type"]): IFrontPreset | undefined {
+    return this.presets.get(type);
+  }
+
+  registerPreset(preset: IFrontPreset): void {
+    this.presets.set(preset.type, preset);
+  }
+
+  async buildViteConfig(
+    entries: ReadonlyArray<IResolvedFrontendEntry>,
+    mode: "development" | "production",
+  ): Promise<Record<string, unknown>> {
+    if (entries.length === 0) {
+      return { mode };
+    }
+
+    const usedPresets = new Set<IFrontPreset["type"]>();
+    for (const e of entries) usedPresets.add(e.type);
+
+    const plugins: unknown[] = [];
+    const optimizeInclude: string[] = [];
+    for (const type of usedPresets) {
+      const preset = this.presets.get(type);
+      if (!preset) throw new FrontendPresetUnknownError(type);
+      plugins.push(...(await preset.buildPlugins()));
+      optimizeInclude.push(...preset.optimizeDepsInclude);
+    }
+
+    // Multi-entry — Rollup-style input map. Pour le POC initial avec
+    // 1 seule entrée, on garde le format objet (compatible Vite).
+    const input: Record<string, string> = {};
+    for (const e of entries) {
+      input[e.entryName] = path.resolve(e.root, e.entryFile);
+    }
+
+    // Premier root utilisé comme racine Vite (contient index.html).
+    // Si plusieurs roots → cas multi-bundle à traiter Phase ultérieure.
+    const root = entries[0]!.root;
+    const outDir = entries[0]!.outDir;
+
+    return {
+      mode,
+      root,
+      plugins,
+      optimizeDeps: { include: optimizeInclude },
+      build: {
+        outDir,
+        manifest: true,
+        rollupOptions: { input },
+        emptyOutDir: true,
+      },
+      server: {
+        // Le port réel est piloté par le superviseur (config DEFAULT).
+        strictPort: false,
+        // CORS ON — le navigateur charge `http://127.0.0.1:5173/src/main.tsx`
+        // depuis l'origine `http://127.0.0.1:5151` (Nodefony).
+        cors: true,
+      },
+    };
+  }
+}
+
+export default ViteBuilder;
