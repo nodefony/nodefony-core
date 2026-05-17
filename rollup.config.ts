@@ -28,10 +28,10 @@ const input = {
   index: "./index.ts",
   ...Object.fromEntries(
     nodefonyFiles.map((file) => [
-      // Génère un nom de chunk basé sur le chemin relatif
-      path.relative("nodefony", file).replace(/\.ts$/, ""),
+      // ⬇️ Utilise la racine du projet (.) au lieu de "nodefony"
+      path.relative(".", file).replace(/\.ts$/, ""),
       // Préfixe `./` : sans ça, node-resolve interprète "nodefony/foo.ts"
-      // comme un specifier de package (lookup exports `nodefony`) → warning.
+      // comme un specifier de package (lookup exports) → warning.
       "./" + file,
     ]),
   ),

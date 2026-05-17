@@ -21,7 +21,7 @@
     "build": "turbo run build && rollup -c",
     "build:core": "npm run build --workspace=src/nodefony",
     "build:packages": "turbo run build --filter=./src/packages/**",
-    "clean": "turbo run clean",
+    "clean": "turbo run clean && rimraf dist",
     "test": "turbo run test",
     "test:integration": "turbo run test:integration",
     "dev": "npm run dev --workspace=src/nodefony",
