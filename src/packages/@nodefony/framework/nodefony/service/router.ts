@@ -165,17 +165,27 @@ class Router extends Service {
     }
     // Propage le module sur les routes déjà créées par les décorateurs
     // `@route` + `@controller` (qui s'exécutent à l'import — donc avant ce
-    // setController appelé à `onBoot`). Les routes loguent ensuite leur
-    // origine via `route.module.name` rendu dans `toLogLine()`.
+    // setController appelé à `onBoot`). Le log est fait par l'appelant
+    // (décorateur `@controllers`) pour que le msgid soit `MODULE <name>` —
+    // appeler `module.log()` depuis ce contexte static perd parfois la chaîne
+    // d'override Module.log → Service.log.
     for (const r of routes) {
       if (r.controller === myconstructor) {
         r.module = { name: module.name };
-        if (module.kernel?.debug) {
-          module.log(`route + ${r.toLogLine()}`, "DEBUG");
-        }
       }
     }
     return (Module.controllers[myconstructor.name] = myconstructor);
+  }
+
+  /**
+   * Retourne les routes enregistrées pour un controller donné — utilisé par
+   * le décorateur `@controllers` pour logger chaque route depuis le module
+   * propriétaire (msgid `MODULE <name>` au lieu de `KERNEL`).
+   */
+  static getRoutesForController(
+    myconstructor: TypeController<Controller>
+  ): Route[] {
+    return routes.filter((r) => r.controller === myconstructor);
   }
 }
 

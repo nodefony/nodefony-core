@@ -24,14 +24,24 @@ function controllers(
         });
       }
       async initDecoratorControllers() {
+        const log = (contr: TypeController<Controller>) => {
+          Router.setController(contr, this);
+          this.log(`ADD CONTROLLER : ${contr.name}`, "DEBUG");
+          // Le log des routes DOIT être émis depuis `this` (le module) — pas
+          // depuis Router.setController qui est static et perd la chaîne
+          // d'override Module.log. Ici `this.log()` produit msgid `MODULE <name>`.
+          if (this.kernel?.debug) {
+            for (const r of Router.getRoutesForController(contr)) {
+              this.log(`route + ${r.toLogLine()}`, "DEBUG");
+            }
+          }
+        };
         if (Array.isArray(controller)) {
           for (const contr of controller) {
-            Router.setController(contr, this);
-            this.log(`ADD CONTROLLER : ${contr.name}`, "DEBUG");
+            log(contr);
           }
         } else {
-          Router.setController(controller, this);
-          this.log(`ADD CONTROLLER : ${controller.name}`, "DEBUG");
+          log(controller);
         }
       }
     }
