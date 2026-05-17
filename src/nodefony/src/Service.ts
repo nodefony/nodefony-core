@@ -24,6 +24,21 @@ const defaultSyslogSettings: SyslogDefaultSettings = {
   defaultSeverity: "INFO",
 };
 
+/**
+ * Brique de base de tout composant Nodefony — câble un nom, un {@link Container} DI,
+ * un {@link Syslog} et un bus d'événements {@link Event} (notificationsCenter).
+ *
+ * Tous les services, modules, kernels et controllers héritent de cette classe.
+ * Délègue son API EventEmitter à `notificationsCenter` et son API DI au `container`.
+ *
+ * Cycle de vie attendu :
+ * - `new Service(name, container?, nc?, options?)` — initialise les dépendances
+ * - `initSyslog(env, debug, options?)` — démarre la sortie console (optionnel)
+ * - `clean()` — retire les listeners trackés et libère les références
+ *
+ * @remarks Si `notificationsCenter === false`, le service est créé sans bus
+ *   d'événements — utile pour des services purement utilitaires.
+ */
 class Service implements IService {
   public name: string;
   public options: DefaultOptionsService;
@@ -50,6 +65,16 @@ class Service implements IService {
     return this.#nc;
   }
 
+  /**
+   * Initialise le service — réutilise les ressources du conteneur si possible,
+   * sinon les crée à la volée.
+   *
+   * @param name - identifiant logique du service (apparaît dans les logs comme `msgid`).
+   * @param container - {@link Container} DI partagé ; sinon un nouveau est instancié.
+   * @param notificationsCenter - {@link Event} bus existant à partager, ou `false`
+   *   pour désactiver les events, ou `null`/`undefined` pour créer un bus dédié.
+   * @param options - surcharge des défauts (`events.nbListeners`, `syslog.moduleName`…).
+   */
   constructor(
     name: string,
     container?: Container,
@@ -97,6 +122,14 @@ class Service implements IService {
     delete this.options.events;
   }
 
+  /**
+   * Démarre la sortie console du Syslog avec l'environnement et la verbosité voulus.
+   *
+   * @param environment - `"production"` (défaut) ou `"development"`.
+   * @param debug - flag de verbosité (true ou {@link DebugType}).
+   * @param options - {@link conditionsInterface} pour filtrer les Pdu (severity, msgid…).
+   * @returns le résultat de {@link Syslog.init} ou `null` si pas de Syslog.
+   */
   initSyslog(
     environment: EnvironmentType = "production",
     debug: DebugType = false,
@@ -105,10 +138,18 @@ class Service implements IService {
     return this.syslog ? this.syslog.init(environment, debug, options) : null;
   }
 
+  /** Renvoie le nom logique du service (utilisé comme `msgid` syslog par défaut). */
   getName(): string {
     return this.name;
   }
 
+  /**
+   * Libère les ressources — retire les listeners trackés du bus partagé pour
+   * éviter les fuites mémoire, puis détache container/kernel/syslog/nc.
+   *
+   * @param syslog - si `true`, appelle aussi {@link Syslog.reset} (transports fermés).
+   * @remarks Après `clean()`, toute API héritée (log, event, container) lèvera une erreur.
+   */
   clean(syslog = false): void {
     // Retire les listeners de l'Event partagé pour éviter les fuites mémoire.
     if (this.#nc && this.#sharedNc) {
@@ -129,6 +170,16 @@ class Service implements IService {
     this.kernel = null;
   }
 
+  /**
+   * Émet une entrée de log structurée — point d'entrée central pour TOUT log Nodefony.
+   *
+   * @param pci - charge utile (string, objet, Error…). Stockée dans {@link Pdu.payload}.
+   * @param severity - niveau syslog (`INFO`, `WARNING`, `ERROR`, `CRITIC`, `DEBUG`…).
+   * @param msgid - identifiant logique ; défaut = `this.name`.
+   * @param msg - message libre additionnel.
+   * @returns le {@link Pdu} émis (utile pour chaîner des transports).
+   * @remarks Si syslog est down, fabrique un Pdu directement et catch toute exception.
+   */
   log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
     try {
       if (!msgid) {
@@ -145,14 +196,17 @@ class Service implements IService {
     }
   }
 
+  /** Raccourci debug — log severity `DEBUG` + `console.debug` formaté. */
   logger(pci: Pci, ...args: unknown[]): void {
     console.debug(Syslog.wrapper(this.log(pci, "DEBUG")).text, pci, ...args);
   }
 
+  /** Comme {@link logger} mais `console.trace` (avec stack trace). */
   trace(pci: Pci, ...args: unknown[]): void {
     console.trace(Syslog.wrapper(this.log(pci, "DEBUG")).text, pci, ...args);
   }
 
+  /** Log severity `SPINNER` — utilisé par le CLI pour animer un spinner. */
   spinlog(message: string): Pdu {
     return this.log(message, "SPINNER");
   }
@@ -180,33 +234,47 @@ class Service implements IService {
   }
 
   // ─── Events — délégation vers #nc ──────────────────────────────────────────
+  // Chaque listener enregistré via cette API est tracké : `clean()` les retire
+  // automatiquement du bus partagé pour éviter les fuites entre services.
 
+  /** Liste les noms d'événements ayant au moins un listener. */
   eventNames(): (string | symbol)[] {
     return this.nc.eventNames();
   }
 
+  /** Alias `emit` — émet l'événement de manière synchrone. */
   fire(eventName: string | symbol, ...args: unknown[]): boolean {
     return this.nc.emit(eventName, ...args);
   }
 
+  /** Émet l'événement et attend que tous les listeners async résolvent. */
   fireAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown> {
     return this.nc.emitAsync(eventName, ...args);
   }
 
+  /** Émet l'événement (API EventEmitter standard). */
   emit(eventName: string | symbol, ...args: unknown[]): boolean {
     return this.nc.emit(eventName, ...args);
   }
 
+  /** Émet et attend les listeners async — équivalent de {@link fireAsync}. */
   emitAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown> {
     return this.nc.emitAsync(eventName, ...args);
   }
 
+  /** Enregistre un listener (tracké pour cleanup). Voir aussi {@link on}. */
   addListener(eventName: string | symbol, listener: EventListener): this {
     this.nc.addListener(eventName, listener);
     this.trackListener(eventName, listener);
     return this;
   }
 
+  /**
+   * Bind le listener sur `this` puis l'enregistre — utile quand le listener
+   * référence `this.foo` et ne peut pas être tracké à l'identique.
+   *
+   * @returns le listener wrappé (ne PAS passer le listener original à `off()`).
+   */
   listen(
     eventName: string | symbol,
     listener: EventListener,
@@ -217,12 +285,14 @@ class Service implements IService {
     ) => boolean;
   }
 
+  /** Enregistre un listener (tracké pour cleanup). Alias EventEmitter de {@link addListener}. */
   on(eventName: string | symbol, listener: EventListener): this {
     this.nc.on(eventName, listener);
     this.trackListener(eventName, listener);
     return this;
   }
 
+  /** Enregistre un listener one-shot — auto-retiré après le premier `emit`. */
   once(eventName: string | symbol, listener: EventListener): this {
     // Node.js stocke listener.listener = original → removeListener(original) fonctionne.
     this.nc.once(eventName, listener);
@@ -230,12 +300,17 @@ class Service implements IService {
     return this;
   }
 
+  /** Retire un listener (alias EventEmitter de {@link removeListener}). */
   off(eventName: string | symbol, listener: EventListener): this {
     this.nc.off(eventName, listener);
     this.untrackListener(eventName, listener);
     return this;
   }
 
+  /**
+   * Enregistre les événements déclarés dans `localSettings.events.listeners`
+   * — utilisé en config pour mapper des hooks sans code impératif.
+   */
   settingsToListen(
     localSettings: EventDefaultInterface,
     context: object,
@@ -243,17 +318,20 @@ class Service implements IService {
     this.nc.settingsToListen(localSettings, context);
   }
 
+  /** Augmente la limite Node.js (défaut 10) pour éviter le warning MaxListeners. */
   setMaxListeners(n: number): this {
     this.nc.setMaxListeners(n);
     return this;
   }
 
+  /** Retire un listener spécifique et nettoie le tracking interne. */
   removeListener(eventName: string | symbol, listener: EventListener): this {
     this.nc.removeListener(eventName, listener);
     this.untrackListener(eventName, listener);
     return this;
   }
 
+  /** Retire tous les listeners (ou ceux d'un événement précis si fourni). */
   removeAllListeners(eventName?: string | symbol): this {
     if (eventName !== undefined) {
       this.#trackedListeners.delete(eventName);
@@ -265,6 +343,7 @@ class Service implements IService {
     return this;
   }
 
+  /** Comme {@link once} mais inséré en tête de la liste des listeners. */
   prependOnceListener(
     eventName: string | symbol,
     listener: EventListener,
@@ -274,34 +353,46 @@ class Service implements IService {
     return this;
   }
 
+  /** Comme {@link on} mais inséré en tête de la liste des listeners. */
   prependListener(eventName: string | symbol, listener: EventListener): this {
     this.nc.prependListener(eventName, listener);
     this.trackListener(eventName, listener);
     return this;
   }
 
+  /** Limite courante de listeners avant warning Node.js. */
   getMaxListeners(): number {
     return this.nc.getMaxListeners();
   }
 
+  /** Nombre de listeners attachés à un événement (filtré sur `listener` si fourni). */
   listenerCount(eventName: string | symbol, listener?: EventListener): number {
     return this.nc.listenerCount(eventName, listener);
   }
 
+  /** Copie de la liste des listeners (résolus, sans le wrapper `once`). */
   listeners(eventName: string | symbol): EventListener[] {
     return this.nc.listeners(eventName) as EventListener[];
   }
 
+  /** Comme {@link listeners} mais retourne les wrappers Node.js bruts (avec once). */
   rawListeners(eventName: string | symbol): EventListener[] {
     return this.nc.rawListeners(eventName) as EventListener[];
   }
 
   // ─── Container — délégation ─────────────────────────────────────────────────
+  // Façade safe-null : les accesseurs retournent `null` plutôt que de jeter
+  // quand le container a déjà été détaché par `clean()`.
 
+  /** Récupère un service du DI container par nom. Retourne `null` si absent ou clean(). */
   get<T>(name: string): T | null {
     return this.container?.get<T>(name) ?? null;
   }
 
+  /**
+   * Enregistre un objet dans le DI container.
+   * @throws Error si `clean()` a déjà détaché le container.
+   */
   set<T>(name: string, obj: T): void {
     if (!this.container) {
       throw new Error(`${this.name}: container not initialized`);
@@ -309,6 +400,11 @@ class Service implements IService {
     this.container.set(name, obj);
   }
 
+  /**
+   * Retire un service du container — si c'est un `Service`, appelle d'abord
+   * son `clean()` pour libérer ses listeners.
+   * @returns `true` si retiré, `false` si introuvable ou container détaché.
+   */
   remove(name: string): boolean {
     if (this.container) {
       const ele = this.get(name);
@@ -322,10 +418,15 @@ class Service implements IService {
     return false;
   }
 
+  /** Récupère un paramètre dynamique (config résolue) — `null` si absent. */
   getParameters(name: string): DynamicParam | null {
     return this.container?.getParameters(name) ?? null;
   }
 
+  /**
+   * Définit un paramètre dynamique dans le container.
+   * @throws Error si `clean()` a déjà détaché le container.
+   */
   setParameters<T>(name: string, ele: T): DynamicParam | null {
     if (!this.container) {
       throw new Error(`${this.name}: container not initialized`);
@@ -333,6 +434,7 @@ class Service implements IService {
     return this.container.setParameters(name, ele);
   }
 
+  /** Vérifie l'existence d'un service ou paramètre dans le container. */
   has(name: string): boolean {
     return this.container?.has(name) ?? false;
   }

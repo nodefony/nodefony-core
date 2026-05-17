@@ -52,9 +52,8 @@ const sharedNodeOptions = defineConfig({
     freeze: false,
   },
   onwarn(warning, warn) {
-    if (warning.message.includes("Circular dependency")) {
-      return;
-    }
+    if (warning.message.includes("Circular dependency")) return;
+    if (warning.message.includes("TS5055")) return;
     warn(warning);
   },
 });

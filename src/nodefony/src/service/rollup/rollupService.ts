@@ -7,7 +7,6 @@ import { writeFile } from "node:fs/promises";
 import { /*fileURLToPath,*/ pathToFileURL } from "url";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
-import commonjs from "@rollup/plugin-commonjs";
 import json from "@rollup/plugin-json";
 import terser from "@rollup/plugin-terser";
 import { Severity } from "../../syslog/Pdu";
@@ -29,6 +28,26 @@ import {
 } from "rollup";
 //import { loadConfigFile } from "rollup/loadConfigFile";
 
+/**
+ * Service Rollup runtime — orchestre `rollup.watch()` pour chaque module en dev.
+ *
+ * État actuel : write-only watcher (rebuild → dist/ puis stop). PAS DE HMR.
+ *
+ * @todo HMR — pré-requis (à implémenter dans une phase ultérieure) :
+ *   1. **Bus d'événements** ✅ (en place) : `rollup:bundle:end` et
+ *      `rollup:bundle:error` émis depuis `watch()`. S'abonner via
+ *      `kernel.on("rollup:bundle:end", (module, output) => ...)`.
+ *   2. **Re-import dynamique** : `import(url + "?v=" + Date.now())` ou
+ *      `vm.SourceTextModule` (voir squelette commenté dans Watcher.run).
+ *   3. **API `hotReload(module)` par Module** : chaque consommateur décide
+ *      QUOI faire (Router.refreshRoutes, Sequelize.reloadModels…).
+ *   4. **Cleanup avant reload** : retirer listeners, fermer sockets, vider
+ *      le scope DI du module — sinon double-bind garanti.
+ *
+ * Événements émis :
+ * - `rollup:bundle:end` `(module: Module, output: OutputOptions)` — succès build
+ * - `rollup:bundle:error` `(module: Module, error: Error)` — échec build
+ */
 class Rollup extends Service {
   //public rollup: typeof rollup;
   private watchers: RollupWatcher[] = [];
@@ -41,25 +60,28 @@ class Rollup extends Service {
     environment: EnvironmentType = "development",
     handlerLog?: (level: LogLevel, log: RollupLog) => void,
   ): RollupOptions {
+    const isDev = environment === "development";
+
+    // Plugins dans l'ordre canonique Rollup : resolve → ts → json.
+    // commonjs retiré : exclude=/node_modules/ + sources ESM → traite rien.
     const plugins = [];
-    const tsPlugin = typescript({
-      tsconfig: path.resolve(module.path, "tsconfig.json"),
-      //sourceMap: true,
-      declaration: true,
-      declarationDir: path.resolve(module.path, "dist", "types"),
-    });
-    const resolvePlugin = nodeResolve({ preferBuiltins: true });
-    const commonjsPlugin = commonjs({
-      //extensions: [".js"],
-      exclude: /node_modules/,
-    });
-    if (environment === "production") {
+    if (!isDev) {
       plugins.push(terser());
     }
+    plugins.push(nodeResolve({ preferBuiltins: true }));
+    plugins.push(
+      typescript({
+        tsconfig: path.resolve(module.path, "tsconfig.json"),
+        sourceMap: isDev, // dev = stack traces lisibles ; prod = pas de leak source
+        // declaration uniquement en build pur — en dev le watch ré-écrirait des
+        // .d.ts vus aussi comme input via exports.types → cascade TS5055 + CPU.
+        declaration: !isDev,
+        declarationDir: !isDev
+          ? path.resolve(module.path, "dist", "types")
+          : undefined,
+      }),
+    );
     plugins.push(json());
-    plugins.push(tsPlugin);
-    plugins.push(resolvePlugin);
-    plugins.push(commonjsPlugin);
     plugins.push({
       name: "transpile-import-meta",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,6 +94,10 @@ class Rollup extends Service {
         }
       },
     });
+
+    // External : data array + matcher exact-match (id === e ou id.startsWith(e + '/')).
+    // "nodefony" exclu du prefix match — sinon "nodefony/foo" (chunk preserveModules)
+    // serait faussement externalisé.
     const external = module.getDependencies();
     external.push(
       "nodefony",
@@ -98,14 +124,18 @@ class Rollup extends Service {
         format: "es",
         preserveModules: true,
         preserveModulesRoot: "nodefony",
-        //sourcemap: true,
+        sourcemap: isDev,
       },
-      external,
+      external: (id) =>
+        id !== "." &&
+        external.some(
+          (e) => id === e || (e !== "nodefony" && id.startsWith(e + "/")),
+        ),
       plugins,
       onwarn(warning, warn) {
-        if (warning.message.includes("Circular dependency")) {
-          return;
-        }
+        if (warning.message.includes("Circular dependency")) return;
+        // Garde la guard TS5055 par sécurité (même si declaration:false en dev).
+        if (warning.message.includes("TS5055")) return;
         warn(warning);
       },
       onLog: handlerLog,
@@ -113,6 +143,13 @@ class Rollup extends Service {
   }
 
   loggerRollup(module: Module, level: LogLevel, log: RollupLog) {
+    // TS5055 — le runtime watch tente de réécrire un .d.ts vu aussi comme input
+    // (résolution via exports.types des workspaces voisins). Bruit pur ; pas
+    // d'impact runtime. À investiguer pour fix root cause (refacto HMR).
+    if (log.pluginCode === "TS5055" || log.message?.includes("TS5055")) return;
+    // Circular dep : passe par onLog (pas onwarn) → filtrer ici aussi.
+    if (log.message?.includes("Circular dependency")) return;
+
     let severity: Severity = "WARNING";
     switch (level) {
       case "warn":
@@ -123,6 +160,12 @@ class Rollup extends Service {
         break;
       case "debug":
         severity = "DEBUG";
+        break;
+      // Rollup peut envoyer level="error" via onLog — l'expose en ERROR au syslog
+      // (sinon le default WARNING masquerait des erreurs critiques de plugin).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      case "error" as any:
+        severity = "ERROR";
         break;
       default:
     }
@@ -234,21 +277,28 @@ class Rollup extends Service {
     const watcher = watch(options);
     watcher.on("event", async (event: RollupWatcherEvent) => {
       if (event.code === "BUNDLE_END") {
-        // (event as { code: string; result: RollupBuild }).result.close();
         if (event.result && event.result.write) {
-          //console.log(event.result);
-          //await event.result.generate(options?.output as OutputOptions);
-          await event.result.write(options?.output as OutputOptions);
-          //console.log(output);
+          const out = options?.output as OutputOptions;
+          await event.result.write(out);
           this.log(
-            `write rollup bundle in : ${(options?.output as OutputOptions)?.dir}`,
+            `write rollup bundle in : ${out?.dir}`,
             "INFO",
             `Rollup Module ${module.name}`,
+          );
+          // HMR hook : annonce qu'un nouveau bundle est disponible sur disk.
+          // Les consommateurs (ORM, Router, etc.) peuvent s'abonner pour reload.
+          // Pas await — fire-and-forget vers les listeners async via fireAsync.
+          this.fireAsync("rollup:bundle:end", module, out).catch((e) =>
+            this.log(e, "ERROR", `Rollup HMR hook ${module.name}`),
           );
         }
       }
       if (event.code === "ERROR") {
         this.log(event.error, "ERROR", `Rollup Module ${module.name}`);
+        // HMR hook : annonce l'échec aux consommateurs (peuvent invalider leur état).
+        this.fireAsync("rollup:bundle:error", module, event.error).catch((e) =>
+          this.log(e, "ERROR", `Rollup HMR hook ${module.name}`),
+        );
       }
     });
     // watcher.on("change", (id: string, change) => {

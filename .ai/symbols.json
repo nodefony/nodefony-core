@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-17T07:10:24.967Z",
+  "generated": "2026-05-17T08:16:28.226Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -182,7 +182,8 @@
       "implements": [
         "IService"
       ],
-      "decorators": []
+      "decorators": [],
+      "description": "Brique de base de tout composant Nodefony — câble un nom, un {@link Container} DI, un {@link Syslog} et un bus d'événements {@link Event} (notificationsCenter). Tous les services, modules, kernels …"
     },
     "Test": {
       "name": "Test",
@@ -1050,7 +1051,8 @@
       "module": "@nodefony/core",
       "extends": "Service",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Service Rollup runtime — orchestre `rollup.watch()` pour chaque module en dev. État actuel : write-only watcher (rebuild → dist/ puis stop). PAS DE HMR."
     },
     "ConsoleTransport": {
       "name": "ConsoleTransport",
