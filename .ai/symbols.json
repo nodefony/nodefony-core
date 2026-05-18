@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-18T14:28:07.630Z",
+  "generated": "2026-05-18T14:35:46.757Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 215,
-    "symbols": 491,
-    "classes": 171,
-    "interfaces": 161,
-    "types": 120,
+    "files": 216,
+    "symbols": 500,
+    "classes": 172,
+    "interfaces": 167,
+    "types": 122,
     "enums": 1,
     "functions": 32,
     "constants": 6
@@ -878,6 +878,32 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "RealtimeClient": {
+      "name": "RealtimeClient",
+      "kind": "class",
+      "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    "RealtimeOptions": {
+      "name": "RealtimeOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "RealtimeState": {
+      "name": "RealtimeState",
+      "kind": "type",
+      "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "RealtimeClient — Core isomorphe Nodefony côté navigateur (P14.11). Protocole : JSON-RPC 2.0 maison sur WebSocket (+ HTTP long-polling fallback TODO P13). State machine : disconnected → connecting →…"
     },
     "EventEmitter": {
       "name": "EventEmitter",
@@ -4994,6 +5020,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "Storage": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "RealtimeClient": [
         "src/nodefony/src/client/index.ts"
       ],
       "File": [

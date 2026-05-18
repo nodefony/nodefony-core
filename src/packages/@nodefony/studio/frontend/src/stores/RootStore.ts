@@ -1,6 +1,6 @@
 import { ApiClient } from "../services/ApiClient";
 import { AuthService } from "../services/AuthService";
-import { RealtimeClient } from "../services/RealtimeClient";
+import { RealtimeClient } from "nodefony";
 import { AuthStore } from "./AuthStore";
 import { ConnectionStore } from "./ConnectionStore";
 import { UiStore } from "./UiStore";

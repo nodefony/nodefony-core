@@ -18,6 +18,8 @@ import {
 import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
 import Websocket from "./transport/websocket";
 import Storage from "./api/Storage";
+import { RealtimeClient } from "./realtime/RealtimeClient";
+export type { RealtimeState, RealtimeOptions } from "./realtime/RealtimeClient";
 
 class Nodefony {
   private static instance: Nodefony;
@@ -27,6 +29,7 @@ class Nodefony {
   public Pdu: typeof Pdu = Pdu;
   public Websocket: typeof Websocket = Websocket;
   public Storage: typeof Storage = Storage;
+  public RealtimeClient: typeof RealtimeClient = RealtimeClient;
   private constructor() {}
   public static getInstance(): Nodefony {
     if (!Nodefony.instance) {
@@ -59,4 +62,5 @@ export {
   isArray,
   isPromise,
   isSubclassOf,
+  RealtimeClient,
 };

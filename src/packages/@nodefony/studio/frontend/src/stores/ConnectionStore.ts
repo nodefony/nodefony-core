@@ -1,5 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import type { RealtimeClient, RealtimeState } from "../services/RealtimeClient";
+import type { RealtimeClient, RealtimeState } from "nodefony";
 
 /**
  * ConnectionStore — état réactif du `RealtimeClient`.

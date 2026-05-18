@@ -1,22 +1,18 @@
 /**
- * RealtimeClient — préfigure l'API du futur `@nodefony/client` (P13.7).
+ * RealtimeClient — Core isomorphe Nodefony côté navigateur (P14.11).
  *
- * Pattern : Symbiose Socket.IO-like SANS Socket.IO.
- * Protocole : JSON-RPC 2.0 maison sur WebSocket + HTTP long-polling fallback (TODO).
+ * Protocole : JSON-RPC 2.0 maison sur WebSocket (+ HTTP long-polling fallback TODO P13).
  * State machine : disconnected → connecting → connected → reconnecting → error.
  *
- * Pour le POC Studio, ce client est un stub fonctionnel :
- *  - state machine OK
- *  - reconnect exponentiel OK
- *  - pub/sub (on/off/emit) OK
- *  - request/response JSON-RPC 2.0 OK
- *  - streaming (chat IA tokens) OK
- *  - le backend WS n'existera vraiment qu'en P13.4 RealtimeService
+ * Features :
+ *  - reconnect exponentiel avec back-off
+ *  - pub/sub (on/off/emit) — notifications JSON-RPC sans id
+ *  - request/response — RPC bidirectionnel typé
+ *  - streaming — chunks `{ id, stream: { chunk, done } }` pour LLM token-by-token
  *
- * Sera remplacé en P14.11 par l'import direct depuis `@nodefony/client`
- * (Core isomorphe Nodefony côté navigateur).
+ * Le backend WS de référence (RealtimeService) sera implémenté en P13.4.
+ * En attendant, ce client peut parler à n'importe quel serveur JSON-RPC 2.0.
  */
-
 export type RealtimeState =
   | "disconnected"
   | "connecting"
@@ -153,10 +149,9 @@ export class RealtimeClient {
   }
 
   /**
-   * Streaming response — pour chat IA token-by-token.
-   * Le serveur émet plusieurs `JsonRpcStreamChunk` avec le même `id`,
-   * puis un dernier `{ done: true }` qui resolve la Promise avec
-   * la liste de chunks (et appelle `onChunk` en live).
+   * Streaming response — chunks émis avec le même `id`, terminés par
+   * `{ done: true }`. Resolve avec la liste de chunks (et appelle
+   * `onChunk` en live).
    */
   async stream<TChunk = unknown>(
     method: string,
@@ -203,7 +198,11 @@ export class RealtimeClient {
     return new Promise((resolve, reject) => {
       this.setState(this.reconnectAttempt > 0 ? "reconnecting" : "connecting");
       try {
-        const url = new URL(this.opts.url ?? this.defaultUrl(), window.location.href);
+        const base =
+          typeof window !== "undefined"
+            ? window.location.href
+            : "http://localhost";
+        const url = new URL(this.opts.url ?? this.defaultUrl(), base);
         if (this.opts.token) url.searchParams.set("token", this.opts.token);
         this.ws = new WebSocket(url.toString());
       } catch (e) {
@@ -282,7 +281,12 @@ export class RealtimeClient {
     } catch {
       return;
     }
-    if (!msg || typeof msg !== "object" || (msg as { jsonrpc?: string }).jsonrpc !== "2.0") return;
+    if (
+      !msg ||
+      typeof msg !== "object" ||
+      (msg as { jsonrpc?: string }).jsonrpc !== "2.0"
+    )
+      return;
 
     // Response (with id)
     if ("id" in msg && typeof (msg as { id: unknown }).id === "number") {
@@ -332,3 +336,5 @@ export class RealtimeClient {
     this.handlers.get("__state__")?.forEach((h) => h(s));
   }
 }
+
+export default RealtimeClient;

@@ -1,5 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
-import type { RealtimeClient } from "../services/RealtimeClient";
+import type { RealtimeClient } from "nodefony";
 
 /**
  * ChatStore — prépare l'UI du chat IA temps réel.
