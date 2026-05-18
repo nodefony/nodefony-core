@@ -17,11 +17,11 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import { Login } from "./routes/Login";
 import { Dashboard } from "./routes/Dashboard";
 import { Chat } from "./routes/Chat";
+import { Logs } from "./routes/Logs";
 import {
   Sessions,
   Users,
   Routes,
-  Logs,
   Firewall,
   Databases,
   Services,

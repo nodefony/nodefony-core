@@ -27,15 +27,6 @@ export const Routes = () => (
   />
 );
 
-export const Logs = () => (
-  <StubPage
-    title="Logs"
-    description="Streaming logs syslog avec filtres (sévérité, module, requestId)."
-    phase="P10.9 + P3.6 + P3.10"
-    legacyRef="monitoring-bundle/views/logs/"
-  />
-);
-
 export const Firewall = () => (
   <StubPage
     title="Firewall"

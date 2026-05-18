@@ -27,8 +27,11 @@ export class ConnectionStore {
   latencyMs: number | null = null;
   activeSubscriptions: Map<string, SubscriptionStats> = new Map();
 
-  /** Disposers client.on pour pouvoir détacher au unsubscribe. */
-  private readonly clientHandlers = new Map<string, () => void>();
+  /** Disposers + wrapped handlers pour détacher + simuler des messages. */
+  private readonly clientHandlers = new Map<
+    string,
+    { dispose: () => void; wrapped: (...args: unknown[]) => void }
+  >();
 
   constructor(private readonly client: RealtimeClient) {
     makeAutoObservable(this, {}, { autoBind: true });
@@ -122,15 +125,25 @@ export class ConnectionStore {
     runInAction(() => {
       this.activeSubscriptions.set(channel, stats);
     });
-    this.clientHandlers.set(channel, dispose);
+    this.clientHandlers.set(channel, { dispose, wrapped });
     return () => this.unsubscribe(channel);
   }
 
   unsubscribe(channel: string): void {
-    this.clientHandlers.get(channel)?.();
+    this.clientHandlers.get(channel)?.dispose();
     this.clientHandlers.delete(channel);
     runInAction(() => {
       this.activeSubscriptions.delete(channel);
     });
+  }
+
+  /**
+   * Dev-only — simule la réception d'un message server-pushed sur ce canal.
+   * À utiliser pour démo/test des pages temps réel AVANT que P13.4
+   * RealtimeService soit en place. Met à jour les stats du hub comme
+   * un vrai message.
+   */
+  simulateMessage(channel: string, payload: unknown): void {
+    this.clientHandlers.get(channel)?.wrapped(payload);
   }
 }
