@@ -243,22 +243,24 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 > Bloquant pour P10.7 Vision frontend bootstrap. Vite par défaut, ESM natif.
 > **REFONTE 2026-05-16** : P13.3 supprimée, le Core (Container/Syslog/Service) devient isomorphe et s'exporte côté navigateur.
+> **REFONTE 2026-05-18** (POC `poc/frontend-child` mergé `f013b19`) : architecture finale = **`ViteProcessSupervisor` (child_process)** au lieu du `DevServerMiddleware integrate:true` initialement prévu. Décision documentée dans `docs/audits/poc-frontend-comparison.md` — isolation crash/OOM, multi-cluster PM2 compatible, observabilité supérieure. HMR p50=114ms identique aux 2 designs.
 
-| #     | Tâche                                                            | Effort  | Dépendances        | Notes                                                  |
-| ----- | ---------------------------------------------------------------- | ------- | ------------------ | ------------------------------------------------------ |
-| P14.1 | Interfaces `IFrontBuilder`/`IFrontPreset` + décision Vite        | 1 ses.  | —                  | Vite par défaut                                        |
-| P14.2 | `ViteBuilder` + preset `vue3-vite`                                | 2 ses.  | P14.1              | Couvre Vision immédiatement                            |
-| P14.3 | Preset `react19-vite`                                              | 1 ses.  | P14.2              |                                                        |
-| P14.4 | `DevServerMiddleware` dans `@nodefony/http` (`integrate:true` = HMR via WS natif, 1 seul port, 0 CORS) | 2 ses.  | P14.2, P1          | Vite middleware injecté directement (pas proxy) |
-| P14.5 | `StaticMiddleware` build prod via http                            | 1 ses.  | P14.2              |                                                        |
-| P14.6 | Multi-module frontend (N modules cohabitent)                      | 1 ses.  | P14.4              | Routes prefix par module                               |
-| P14.7 | Commands CLI `frontend:create/build/dev` + `tsc --noEmit` pre-build (catch types incohérents back/front) | 1 ses.  | P14.2, P11.1       | E2E type safety via shared types                       |
-| P14.8 | Tests intégration build Vue 3 + React 19                          | 1 ses.  | P14.3              |                                                        |
-| P14.9 | Presets optionnels Svelte 5 + Solid                                | 1 ses.  | P14.3              | Différable                                              |
-| P14.10| Migration Vision sur `@nodefony/frontend`                          | 1 ses.  | P14.4              | Vision = 1er consommateur prod                         |
-| P14.11| 🆕 **Core isomorphe** : adapter `Container`, `Syslog`, `Service`, `EventEmitter` pour fonctionner sans Node natifs (export browser-compat via `package.json.exports.browser`) | 4 ses. | P14.4 | EX-P13.3. ⚠️ Surveiller bundle size < 50 KB minified gzippé (règle perf CLAUDE.md). Tree-shaking obligatoire |
-| P14.12| 🆕 Plugin Vite Nodefony : alias auto (`@nodefony/core` etc.) + injection env vars (`__NODEFONY_CONFIG__` : wsUrl, env, instanceId) | 1 ses. | P14.11 | Zéro config dev — transparent             |
-| P14.13| 🆕 Syslog isomorphe : transport WS qui pipe logs front → syslog back centralisé | 2 ses. | P14.11, P13.7 | Traçabilité totale front prod              |
+| #     | Tâche                                                            | Effort  | Dépendances        | Statut          | Notes                                                  |
+| ----- | ---------------------------------------------------------------- | ------- | ------------------ | --------------- | ------------------------------------------------------ |
+| P14.1 | Interfaces `IFrontBuilder`/`IFrontPreset` + décision Vite        | 1 ses.  | —                  | ✅ FAIT          | Vite par défaut. Interfaces dans `interfaces/`         |
+| P14.2 | Preset `vue3-vite`                                                | 1 ses.  | P14.1              | ⏳ À FAIRE       | Pas encore implémenté (POC a fait react19 + vanilla)   |
+| P14.3 | Preset `react19-vite`                                              | 1 ses.  | P14.2              | ✅ FAIT          | + preamble React Fast Refresh inline via TemplateHelper |
+| P14.4 | ~~`DevServerMiddleware integrate:true`~~ → **`ViteProcessSupervisor`** | 3 ses.  | P14.1              | ✅ FAIT (refonte) | Child process isolé (poc/frontend-child mergé). Résilience built-in : auto-restart, port retry, health check, idempotence, cleanup listeners |
+| P14.5 | `StaticMiddleware` build prod + manifest.json injection           | 1 ses.  | P14.4              | ⏳ À FAIRE       | `TemplateHelper.renderProdTags()` actuellement stub    |
+| P14.6 | Multi-module frontend (N modules cohabitent)                      | 1 ses.  | P14.4              | 🟡 PARTIEL       | `apiProxyPaths` agrégés par module dans le generator, pas testé en charge (3+ consumers) |
+| P14.7 | Commands CLI `frontend:create/build/dev` + skill scaffold        | 1 ses.  | P14.2, P11.1       | 🟡 PARTIEL       | Commands existent mais bug CLI claude-ts (cf `project_cli_commands_broken_claude_ts`). **Skill `nodefony-create-frontend-react` ✅ disponible.** |
+| P14.8 | Tests intégration                                                 | 1 ses.  | P14.3              | ✅ FAIT          | 14 unit `ViteConfigGenerator` + 3 integration `ViteProcessSupervisor` real spawn (~6s) |
+| P14.9 | Presets optionnels Svelte 5 + Solid + **Angular** + Vue 3         | 2 ses.  | P14.3              | ⏳ À FAIRE       | Angular via `@analogjs/vite-plugin-angular`. Pattern preset = ajouter case dans `ViteConfigGenerator.toMjs()` |
+| P14.10| Migration Vision sur `@nodefony/frontend`                          | 1 ses.  | P14.4              | ⏳ À FAIRE       | Vision = 1er consommateur prod                         |
+| P14.11| 🆕 **Core isomorphe** : adapter `Container`, `Syslog`, `Service`, `EventEmitter` pour fonctionner sans Node natifs (export browser-compat via `package.json.exports.browser`) | 4 ses. | P14.4 | ⏳ À FAIRE       | EX-P13.3. ⚠️ Surveiller bundle size < 50 KB minified gzippé. Tree-shaking obligatoire |
+| P14.12| 🆕 Plugin Vite Nodefony : alias auto (`@nodefony/core` etc.) + injection env vars (`__NODEFONY_CONFIG__` : wsUrl, env, instanceId) | 1 ses. | P14.11 | ⏳ À FAIRE       | Zéro config dev — transparent                          |
+| P14.13| 🆕 Syslog isomorphe : transport WS qui pipe logs front → syslog back centralisé | 2 ses. | P14.11, P13.7 | ⏳ À FAIRE       | Traçabilité totale front prod                          |
+| P14.14| 🆕 **TODO security** : API CSP origines dynamiques (cf `project_csp_vite_security_todo`) | 1 ses. | P14.4, P5 | ⏳ À FAIRE       | Remplace le hack POC dans le controller (`setHeader Content-Security-Policy` à la main) |
 
 ### P13 — Realtime distribué (refonte 2026-05-16 — voir mémoire `project_decisions_realtime_isomorphic.md`)
 
