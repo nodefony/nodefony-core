@@ -284,6 +284,8 @@ Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 | `@nodefony/mongoose`  | ❌ `.d.ts` manuel legacy             | `dist/types/index.d.ts` + `exports` |
 | `@nodefony/redis`     | ❌ `.d.ts` manuel legacy             | `dist/types/index.d.ts` + `exports` |
 | `@nodefony/sequelize` | ❌ `.d.ts` manuel legacy             | `dist/types/index.d.ts` + `exports` |
+| `@nodefony/frontend`  | ✅ `dist/types` + `exports`          | Fait (2026-05-17)                   |
+| `@nodefony/studio`    | ❌ pas de `types` ni `exports`       | `dist/types/index.d.ts` + `exports` |
 
 ---
 
@@ -447,6 +449,8 @@ Deux niveaux de docs IA — **lire AVANT de toucher au code du module** :
 | --------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | -------------------------------------------------- |
 | `@nodefony/http`      | [`src/packages/@nodefony/http/CLAUDE.md`](src/packages/@nodefony/http/CLAUDE.md)           | [`src/packages/@nodefony/http/MEMORY.md`](src/packages/@nodefony/http/MEMORY.md)           | Serveurs, Contextes, WS, pipeline, requestId       |
 | `@nodefony/framework` | [`src/packages/@nodefony/framework/CLAUDE.md`](src/packages/@nodefony/framework/CLAUDE.md) | [`src/packages/@nodefony/framework/MEMORY.md`](src/packages/@nodefony/framework/MEMORY.md) | Router, Controller, Resolver, décorateurs          |
+| `@nodefony/frontend`  | [`src/packages/@nodefony/frontend/CLAUDE.md`](src/packages/@nodefony/frontend/CLAUDE.md)   | [`src/packages/@nodefony/frontend/MEMORY.md`](src/packages/@nodefony/frontend/MEMORY.md)   | Vite builder, ViteSupervisor, FrontendService, HMR, multi-bundle |
+| `@nodefony/studio`    | ⚠️ à créer                                                                                  | ⚠️ à créer                                                                                  | Admin web Studio (P10), routes `/nodefony`, controller + frontend React 19 |
 | Module `test`         | [`src/modules/test/CLAUDE.md`](src/modules/test/CLAUDE.md)                                 | [`src/modules/test/MEMORY.md`](src/modules/test/MEMORY.md)                                 | Routes d'intégration HTTP+WS, controllers, statics |
 
 ### Core (`@nodefony/core` workspace `src/nodefony`)
