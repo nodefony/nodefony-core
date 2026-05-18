@@ -146,4 +146,62 @@ export class ConnectionStore {
   simulateMessage(channel: string, payload: unknown): void {
     this.clientHandlers.get(channel)?.wrapped(payload);
   }
+
+  /**
+   * Subscribe via Server-Sent Events — utilisé en attendant le WS backend
+   * (P13.4). Le canal est traité comme une vraie subscription du hub :
+   * stats trackées, dispose() ferme l'EventSource.
+   *
+   * Les events SSE arrivent en `data: <json>` → parsés et passés au handler.
+   * Idéal pour streamer les Pdu du syslog kernel côté browser.
+   */
+  subscribeSSE(
+    channel: string,
+    url: string,
+    handler: (payload: unknown) => void,
+  ): () => void {
+    if (this.activeSubscriptions.has(channel)) {
+      // eslint-disable-next-line no-console
+      console.warn(`[Connection] already subscribed to ${channel}`);
+      return () => this.unsubscribe(channel);
+    }
+    const stats: SubscriptionStats = {
+      channel,
+      msgCount: 0,
+      lastMessage: null,
+      subscribedAt: Date.now(),
+    };
+    const wrapped = (...args: unknown[]) => {
+      runInAction(() => {
+        stats.msgCount++;
+        stats.lastMessage = Date.now();
+      });
+      handler(args[0]);
+    };
+
+    const es = new EventSource(url);
+    es.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        wrapped(data);
+      } catch {
+        /* malformed event */
+      }
+    };
+    es.onerror = () => {
+      // Le browser auto-reconnect par défaut. Log mais ne ferme pas.
+      runInAction(() => {
+        this.lastError = `SSE error on ${channel}`;
+      });
+    };
+
+    const dispose = (): void => {
+      es.close();
+    };
+    runInAction(() => {
+      this.activeSubscriptions.set(channel, stats);
+    });
+    this.clientHandlers.set(channel, { dispose, wrapped });
+    return () => this.unsubscribe(channel);
+  }
 }

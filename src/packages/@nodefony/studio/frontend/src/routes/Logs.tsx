@@ -23,89 +23,57 @@ import {
   IconFilter,
   IconInfoCircle,
 } from "@tabler/icons-react";
+import { Pdu } from "nodefony";
 import { useConnection } from "../stores";
 
-type Severity = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITIC";
+const SEVERITIES = [
+  "DEBUG",
+  "INFO",
+  "NOTICE",
+  "WARNING",
+  "ERROR",
+  "CRITIC",
+  "ALERT",
+  "EMERGENCY",
+] as const;
+type Severity = (typeof SEVERITIES)[number];
 
-interface LogEntry {
-  id: string;
-  ts: number;
-  severity: Severity;
-  moduleName: string;
-  message: string;
-  requestId: string | null;
-}
-
-const SEVERITIES: Severity[] = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITIC"];
-
-const SEVERITY_COLOR: Record<Severity, string> = {
+const SEVERITY_COLOR: Record<string, string> = {
   DEBUG: "gray",
   INFO: "blue",
+  NOTICE: "cyan",
   WARNING: "yellow",
   ERROR: "red",
   CRITIC: "red",
+  ALERT: "red",
+  EMERGENCY: "red",
 };
 
-const MAX_ENTRIES = 200;
+const MAX_ENTRIES = 500;
 
-// Pool de mocks utilisé tant que P13.4 RealtimeService n'est pas prêt.
-const MOCK_MODULES = [
-  "http",
-  "framework",
-  "security",
-  "kernel",
-  "studio",
-  "syslog",
-  "container",
-];
-const MOCK_TEMPLATES: { sev: Severity; tpl: string }[] = [
-  { sev: "INFO", tpl: "Request matched route {route}" },
-  { sev: "INFO", tpl: "Service {svc} initialized in {ms}ms" },
-  { sev: "DEBUG", tpl: "Cache hit for key '{key}'" },
-  { sev: "DEBUG", tpl: "DI Container resolved {svc}" },
-  { sev: "WARNING", tpl: "Slow query: {ms}ms on table {svc}" },
-  { sev: "WARNING", tpl: "Deprecated config key '{key}' — see migration guide" },
-  { sev: "ERROR", tpl: "Connection refused to {svc}: ECONNREFUSED" },
-  { sev: "ERROR", tpl: "Failed to parse JSON body: unexpected token at pos {ms}" },
-  { sev: "CRITIC", tpl: "Out of memory: heap > 1.5GB" },
-];
-const MOCK_ROUTES = ["/api/users", "/api/sessions", "/health", "/nodefony", "/api/auth/login"];
-const MOCK_KEYS = ["user:42", "session:abc123", "route:home", "config:env"];
-
-const rand = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
-
-function mockLog(): LogEntry {
-  const { sev, tpl } = rand(MOCK_TEMPLATES);
-  const message = tpl
-    .replace("{route}", rand(MOCK_ROUTES))
-    .replace("{svc}", rand(MOCK_MODULES))
-    .replace("{ms}", String(Math.floor(Math.random() * 500)))
-    .replace("{key}", rand(MOCK_KEYS));
-  return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    ts: Date.now(),
-    severity: sev,
-    moduleName: rand(MOCK_MODULES),
-    message,
-    requestId: Math.random() < 0.7 ? Math.random().toString(36).slice(2, 10) : null,
-  };
+interface PduView {
+  /** Pdu instance hydratée côté browser via le Core isomorphe. */
+  pdu: Pdu;
+  /** id local pour React key (uid Pdu peut collisionner sur reconnect). */
+  key: string;
 }
 
 /**
  * Logs streaming — page beta-testeur de l'archi realtime P14.11.
  *
- * Pattern :
- *  - Subscribe au canal `syslog:tick` via `conn.subscribe()` au mount
- *  - useEffect cleanup → unsubscribe automatique au unmount
- *  - Le chip topbar reflète la souscription (badge "1 sub")
+ * Vision isomorphe :
+ *  - Backend (StudioController) attache un listener sur `kernel.syslog.on("onLog", pdu)`
+ *    et stream chaque Pdu en JSON via SSE (`/nodefony/api/logs/stream`).
+ *  - Frontend rehydrate chaque event en `new Pdu()` via le Core isomorphe
+ *    (`import { Pdu } from "nodefony"` → exports.browser).
+ *  - La même classe Pdu est utilisée des deux côtés — 1 seule source de vérité.
  *
- * MOCK : tant que P13.4 RealtimeService + P3.10 NCSA transport ne sont pas
- * en place, on simule des logs via `conn.simulateMessage()` toutes les ~600ms.
- * Le backend remplacera cette stub par de vrais events syslog server-pushed.
+ * Le hub `ConnectionStore` track la subscription (chip topbar "1 sub").
+ * Sera migré vers WS pub/sub en P13.4.
  */
 export const Logs = observer(() => {
   const conn = useConnection();
-  const [entries, setEntries] = useState<LogEntry[]>([]);
+  const [entries, setEntries] = useState<PduView[]>([]);
   const [paused, setPaused] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<Severity[]>([]);
   const [moduleFilter, setModuleFilter] = useState("");
@@ -114,29 +82,31 @@ export const Logs = observer(() => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+  const keyCounter = useRef(0);
 
-  // ── Subscription au hub realtime ────────────────────────────────────
+  // ── Subscription SSE au syslog kernel via le hub realtime ───────────
   useEffect(() => {
-    const handler = (...args: unknown[]) => {
-      const payload = args[0] as LogEntry | undefined;
-      if (!payload) return;
+    const handler = (data: unknown) => {
       if (pausedRef.current) return;
+      if (!data || typeof data !== "object") return;
+      // Hydratation isomorphe : new Pdu() vide + Object.assign — la même
+      // classe Pdu est utilisée côté serveur pour sérialiser.
+      const pdu = Object.assign(new Pdu(""), data) as Pdu;
+      const view: PduView = {
+        pdu,
+        key: `${pdu.uid}-${keyCounter.current++}`,
+      };
       setEntries((prev) => {
-        const next = [...prev, payload];
+        const next = [...prev, view];
         return next.length > MAX_ENTRIES ? next.slice(-MAX_ENTRIES) : next;
       });
     };
-    const dispose = conn.subscribe("syslog:tick", handler);
+    const dispose = conn.subscribeSSE(
+      "syslog:stream",
+      "/nodefony/api/logs/stream",
+      handler,
+    );
     return () => dispose();
-  }, [conn]);
-
-  // ── Mock emitter (dev only — à supprimer en P13.4) ──────────────────
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (pausedRef.current) return;
-      conn.simulateMessage("syslog:tick", mockLog());
-    }, 600 + Math.random() * 400);
-    return () => clearInterval(id);
   }, [conn]);
 
   // ── Autoscroll ──────────────────────────────────────────────────────
@@ -148,15 +118,19 @@ export const Logs = observer(() => {
   // ── Filters ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     return entries.filter((e) => {
-      if (severityFilter.length > 0 && !severityFilter.includes(e.severity))
-        return false;
-      if (moduleFilter && !e.moduleName.toLowerCase().includes(moduleFilter.toLowerCase()))
+      const sev = e.pdu.severityName as Severity;
+      if (severityFilter.length > 0 && !severityFilter.includes(sev))
         return false;
       if (
-        requestIdFilter &&
-        (!e.requestId || !e.requestId.toLowerCase().includes(requestIdFilter.toLowerCase()))
+        moduleFilter &&
+        !e.pdu.moduleName.toLowerCase().includes(moduleFilter.toLowerCase())
       )
         return false;
+      if (requestIdFilter) {
+        const msgid = String(e.pdu.msgid ?? "");
+        if (!msgid.toLowerCase().includes(requestIdFilter.toLowerCase()))
+          return false;
+      }
       return true;
     });
   }, [entries, severityFilter, moduleFilter, requestIdFilter]);
@@ -199,14 +173,16 @@ export const Logs = observer(() => {
       </Group>
 
       <Alert
-        color="blue"
+        color="teal"
         icon={<IconInfoCircle size={16} />}
         variant="light"
-        title="Mock dev — backend WS arrivera en P13.4"
+        title="Streaming réel — Pdu du syslog kernel"
       >
-        Cette page démo le pattern realtime cible : subscribe au mount via{" "}
-        <Code>conn.subscribe(&quot;syslog:tick&quot;, handler)</Code>, dispose au unmount.
-        Le compteur de subscriptions sur le chip topbar reflète l&apos;abonnement actif.
+        Vrais logs du <Code>kernel.syslog</Code> serveur, sérialisés en JSON
+        via SSE (<Code>/nodefony/api/logs/stream</Code>) et rehydratés en{" "}
+        <Code>new Pdu()</Code> côté browser via le Core isomorphe
+        (<Code>import &#123; Pdu &#125; from &quot;nodefony&quot;</Code>).
+        Migration vers WS pub/sub en P13.4.
       </Alert>
 
       <Paper p="xs" withBorder>
@@ -263,37 +239,59 @@ export const Logs = observer(() => {
             </Text>
           ) : (
             <Stack gap={0} p="xs">
-              {filtered.map((e) => {
-                const time = new Date(e.ts);
+              {filtered.map(({ pdu, key }) => {
+                const time = new Date(pdu.timeStamp);
                 const hh = time.toTimeString().slice(0, 8);
                 const ms = String(time.getMilliseconds()).padStart(3, "0");
+                const sev = pdu.severityName;
+                const msg =
+                  typeof pdu.payload === "string"
+                    ? pdu.payload
+                    : pdu.msg ||
+                      (() => {
+                        try {
+                          return JSON.stringify(pdu.payload);
+                        } catch {
+                          return String(pdu.payload);
+                        }
+                      })();
                 return (
-                  <Group key={e.id} gap={6} wrap="nowrap" align="flex-start">
+                  <Group key={key} gap={6} wrap="nowrap" align="flex-start">
                     <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
                       {hh}.{ms}
                     </Text>
                     <Badge
                       size="xs"
-                      color={SEVERITY_COLOR[e.severity]}
-                      variant={e.severity === "CRITIC" ? "filled" : "light"}
-                      style={{ flexShrink: 0, minWidth: 70, textAlign: "center" }}
+                      color={SEVERITY_COLOR[sev] ?? "gray"}
+                      variant={
+                        sev === "CRITIC" ||
+                        sev === "ALERT" ||
+                        sev === "EMERGENCY"
+                          ? "filled"
+                          : "light"
+                      }
+                      style={{
+                        flexShrink: 0,
+                        minWidth: 70,
+                        textAlign: "center",
+                      }}
                     >
-                      {e.severity}
+                      {sev}
                     </Badge>
                     <Text
                       size="xs"
                       c="dimmed"
                       style={{ flexShrink: 0, minWidth: 80 }}
                     >
-                      {e.moduleName}
+                      {pdu.moduleName}
                     </Text>
-                    {e.requestId && (
+                    {pdu.msgid && (
                       <Code style={{ flexShrink: 0, fontSize: 10 }}>
-                        {e.requestId}
+                        {String(pdu.msgid)}
                       </Code>
                     )}
                     <Text size="xs" style={{ wordBreak: "break-word" }}>
-                      {e.message}
+                      {msg}
                     </Text>
                   </Group>
                 );

@@ -131,6 +131,70 @@ class StudioController extends Controller {
       available: false, // false tant que P13 pas implémenté
     });
   }
+
+  /**
+   * Streaming SSE des Pdu du Syslog kernel.
+   *
+   * Vision P14.11 isomorphe : chaque Pdu est sérialisé en JSON et envoyé
+   * au browser, qui le rehydrate via `new Pdu()` + `parseJson()` — la même
+   * classe Pdu importée depuis `nodefony` (Core isomorphe).
+   *
+   * Format SSE : `data: <pdu json>\n\n`. Heartbeat `: ping` toutes les 15s.
+   * Cleanup auto sur client close → removeListener du syslog.
+   *
+   * TODO P13.4 : déplacer dans un endpoint WS dédié + canal pub/sub.
+   */
+  @route("studio-api-logs-stream", { path: "/api/logs/stream" })
+  async apiLogsStream(): Promise<void> {
+    const httpResp = this.context?.response as
+      | { response?: { setHeader: (k: string, v: string) => void; write: (s: string) => boolean; flushHeaders?: () => void } }
+      | undefined;
+    const httpReq = this.context?.request as
+      | { request?: { once: (e: string, fn: () => void) => void } }
+      | undefined;
+    const rawRes = httpResp?.response;
+    const rawReq = httpReq?.request;
+    if (!rawRes || !rawReq || !this.syslog) return;
+
+    rawRes.setHeader("Content-Type", "text/event-stream");
+    rawRes.setHeader("Cache-Control", "no-cache, no-transform");
+    rawRes.setHeader("X-Accel-Buffering", "no");
+    rawRes.flushHeaders?.();
+    rawRes.write(": connected\n\n");
+
+    const onLog = (pdu: unknown) => {
+      try {
+        rawRes.write(`data: ${JSON.stringify(pdu)}\n\n`);
+      } catch {
+        /* socket closed during write */
+      }
+    };
+    this.syslog.on("onLog", onLog);
+    // Log de heartbeat émis côté serveur — notre listener doit le capturer.
+    // Sert aussi de smoke test côté browser : tu dois voir une entrée
+    // "SSE handler connected" dans la page Logs dès la connexion.
+    this.log("SSE handler connected", "INFO");
+
+    const heartbeat = setInterval(() => {
+      try {
+        rawRes.write(": ping\n\n");
+      } catch {
+        /* socket closed */
+      }
+    }, 15000);
+
+    // Tenir la connexion ouverte jusqu'à fermeture client.
+    await new Promise<void>((resolve) => {
+      const cleanup = () => {
+        clearInterval(heartbeat);
+        this.syslog?.off?.("onLog", onLog);
+        resolve();
+      };
+      rawReq.once("close", cleanup);
+      rawReq.once("error", cleanup);
+      rawReq.once("aborted", cleanup);
+    });
+  }
 }
 
 export default StudioController;
