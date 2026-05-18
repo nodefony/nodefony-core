@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-18T11:53:07.224Z",
+  "generated": "2026-05-18T14:28:07.630Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 212,
-    "symbols": 488,
-    "classes": 170,
+    "files": 215,
+    "symbols": 491,
+    "classes": 171,
     "interfaces": 161,
-    "types": 119,
+    "types": 120,
     "enums": 1,
     "functions": 32,
-    "constants": 5
+    "constants": 6
   },
   "symbols": {
     "Cli": {
@@ -878,6 +878,24 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "EventEmitter": {
+      "name": "EventEmitter",
+      "kind": "class",
+      "file": "src/nodefony/src/client/shim/events.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    "inspect": {
+      "name": "inspect",
+      "kind": "const",
+      "file": "src/nodefony/src/client/shim/util.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Shim browser de `node:util` — fournit `inspect` via JSON.stringify. Suffisant pour la sortie Syslog côté browser (debug/log uniquement)."
     },
     "Websocket": {
       "name": "Websocket",
@@ -4434,6 +4452,13 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/sequelize/nodefony/config/config.ts",
         "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts"
+      ],
+      "inspect": [
+        "src/nodefony/src/Error.ts",
+        "src/nodefony/src/syslog/Syslog.ts"
+      ],
+      "EventEmitter": [
+        "src/nodefony/src/Event.ts"
       ],
       "IService": [
         "src/nodefony/src/Service.ts",

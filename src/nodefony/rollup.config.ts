@@ -141,11 +141,24 @@ function createBinaryConfig(_isProduction: boolean): RollupOptions {
 }
 
 // ─── 3. Client ESM (dist/client/) — import conditionnel "browser" ────────────
+// Shim browser : `cli-color`, `node:util`, `node:events` → versions navigateur.
+const browserShim: Plugin = {
+  name: "nodefony-browser-shim",
+  resolveId(source: string) {
+    if (source === "cli-color")
+      return path.resolve(__dirname, "src/client/shim/cli-color.ts");
+    if (source === "node:util")
+      return path.resolve(__dirname, "src/client/shim/util.ts");
+    if (source === "node:events")
+      return path.resolve(__dirname, "src/client/shim/events.ts");
+    return null;
+  },
+};
+
 function createClientConfig(isProduction: boolean): RollupOptions {
   return defineConfig({
     input: "src/client/index.ts",
     onwarn,
-    external: ["cli-color"],
     output: {
       dir: "./dist/client",
       entryFileNames: "[name].js",
@@ -155,6 +168,7 @@ function createClientConfig(isProduction: boolean): RollupOptions {
       preserveModulesRoot: "src",
     },
     plugins: [
+      browserShim,
       nodePolyfills(),
       nodeResolve({ browser: true, preferBuiltins: false }),
       typescript({
