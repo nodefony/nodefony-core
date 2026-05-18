@@ -11,9 +11,11 @@ import {
   Menu,
   Badge,
   Tooltip,
+  UnstyledButton,
   useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { ConnectionDrawer } from "../components/ConnectionDrawer";
 import { NavLink as RouterNavLink, Outlet, useLocation } from "react-router-dom";
 import {
   IconDashboard,
@@ -72,6 +74,7 @@ const GROUPS = ["Overview", "Runtime", "Data", "System", "Account"] as const;
 
 export const AdminLayout = observer(() => {
   const [opened, { toggle }] = useDisclosure(true);
+  const [drawerOpen, drawerHandlers] = useDisclosure(false);
   const auth = useAuth();
   const conn = useConnection();
   const loc = useLocation();
@@ -96,14 +99,45 @@ export const AdminLayout = observer(() => {
             </Text>
           </Group>
           <Group gap="xs">
-            <Tooltip label={conn.isConnected ? "Realtime connecté" : `Realtime: ${conn.state}`}>
-              <Badge
-                leftSection={conn.isConnected ? <IconPlugConnected size={12} /> : <IconPlugX size={12} />}
-                color={conn.isConnected ? "teal" : conn.state === "connecting" || conn.state === "reconnecting" ? "yellow" : "gray"}
-                variant="light"
-              >
-                {conn.state}
-              </Badge>
+            <Tooltip
+              label={
+                conn.isConnected
+                  ? `Realtime connecté — ${conn.subscriptionCount} sub${conn.subscriptionCount > 1 ? "s" : ""}`
+                  : `Realtime: ${conn.state} — click pour le hub`
+              }
+            >
+              <UnstyledButton onClick={drawerHandlers.open}>
+                <Badge
+                  leftSection={
+                    conn.isConnected ? (
+                      <IconPlugConnected size={12} />
+                    ) : (
+                      <IconPlugX size={12} />
+                    )
+                  }
+                  color={
+                    conn.isConnected
+                      ? "teal"
+                      : conn.state === "connecting" ||
+                          conn.state === "reconnecting"
+                        ? "yellow"
+                        : conn.state === "error"
+                          ? "red"
+                          : "gray"
+                  }
+                  variant="light"
+                  rightSection={
+                    conn.subscriptionCount > 0 ? (
+                      <Badge size="xs" variant="filled" color="orange" circle>
+                        {conn.subscriptionCount}
+                      </Badge>
+                    ) : null
+                  }
+                  style={{ cursor: "pointer" }}
+                >
+                  {conn.state}
+                </Badge>
+              </UnstyledButton>
             </Tooltip>
             <ActionIcon variant="subtle" onClick={() => toggleColorScheme()} aria-label="Toggle theme">
               {colorScheme === "dark" ? <IconSun size={18} /> : <IconMoonStars size={18} />}
@@ -163,6 +197,8 @@ export const AdminLayout = observer(() => {
       <AppShell.Main>
         <Outlet />
       </AppShell.Main>
+
+      <ConnectionDrawer opened={drawerOpen} onClose={drawerHandlers.close} />
     </AppShell>
   );
 });
