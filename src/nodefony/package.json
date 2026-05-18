@@ -8,7 +8,7 @@
       "browser": {
         "import": {
           "types": "./dist/client/types/src/client/index.d.ts",
-          "default": "./dist/client/index.js"
+          "default": "./dist/client/client/index.js"
         }
       },
       "import": {
@@ -18,7 +18,7 @@
     },
     "./client": {
       "types": "./dist/client/types/src/client/index.d.ts",
-      "default": "./dist/client/index.js"
+      "default": "./dist/client/client/index.js"
     },
     "./package.json": "./package.json"
   },
