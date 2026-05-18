@@ -109,11 +109,11 @@ La doc externe (RFC, TS handbook, NestJS) et les phases futures (10/12/13/14) so
 | `nodefony-rfc`     | RFC HTTP/HTTP2/WS/CORS/Cookies (IETF + W3C raw uniquement)                                  |
 | `nodefony-ts-docs` | TS handbook, utility types, `@types/node` DefinitelyTyped                                   |
 | `nodefony-nestjs`  | Inspiration architecture NestJS — déclencheur EXCLUSIF mot-clé "NestJS"                     |
-| `nodefony-roadmap` | Phase 10 (Vision admin), 12 (IA agentic), 13 (Realtime/Redis/client), 14 (frontend builder) |
+| `nodefony-roadmap` | Phase 10 (Studio admin), 12 (IA agentic), 13 (Realtime/Redis/client), 14 (frontend builder) |
 
 **Règle universelle** : interdiction de charger les sites HTML lourds (`nodejs.org`, `typescriptlang.org`, `docs.nestjs.com`, `tools.ietf.org`). Toujours via raw GitHub + proxy `https://r.jina.ai/`. Les skills contiennent les URLs canoniques + le pattern d'usage.
 
-**Convention de route `/nodefony/*` réservée à Vision** : tout module exposant une API d'admin (stats, introspection) doit exposer `/nodefony/<module>/api/*` documenté dans son `MEMORY.md`. Concevoir en GraphQL/REST JSON — pas de couplage à la vue. (Détails complets : skill `nodefony-roadmap`.)
+**Convention de route `/nodefony/*` réservée à Studio** : tout module exposant une API d'admin (stats, introspection) doit exposer `/nodefony/<module>/api/*` documenté dans son `MEMORY.md`. Concevoir en GraphQL/REST JSON — pas de couplage à la vue. (Détails complets : skill `nodefony-roadmap`.)
 
 **Cache MEMORY** : une fois une API Node.js comprise (ex : `node:http2`), stocker les signatures critiques dans le `MEMORY.md` du module concerné — évite de relire la doc.
 
@@ -134,7 +134,7 @@ Auteur : Christophe CAMENSULI — projet libre CeCILL-B.
 
 ---
 
-## Vision du framework
+## Studio du framework
 
 Nodefony est une **plateforme générique** pour construire :
 
@@ -159,7 +159,7 @@ Nodefony est une **plateforme générique** pour construire :
 - Suivre le namespace `<module>:<action>` (ex : `security:user:add`, `orm:migrate`, `http:routes:list`)
 - Documenter ses commandes dans son `MEMORY.md` (section "Commandes CLI")
 - Avoir au moins un test d'intégration `npx nodefony <command>` (Phase 11)
-- Exposer un endpoint API équivalent pour Vision (cohérence CLI ↔ Web admin)
+- Exposer un endpoint API équivalent pour Studio (cohérence CLI ↔ Web admin)
 
 ---
 
@@ -333,7 +333,7 @@ import fs from "node:fs";
 1. Ne dis rien.
 2. **Local Context Only** : Identifier le module de travail.
 3. **Priorité Lecture** : Lire le `CLAUDE.md` situé à la racine du module concerné AVANT toute analyse.
-4. Lire `MIGRATION_STATUS.md` à la racine du projet pour la vision globale.
+4. Lire `MIGRATION_STATUS.md` à la racine du projet pour la studio globale.
 5. Si le module possède un `MEMORY.md`, le charger pour les détails techniques bas niveau.
 6. Attends ma commande. Pas de résumé.
 
@@ -407,7 +407,7 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 
 **Page de référence** : `docs/architecture/container.md` montre le format attendu (frontmatter + sections + liens).
 
-**Pas de hook bloquant** pour l'instant — règle documentaire. Le module Vision (Phase 10) consommera `docs/` + le champ `description` extrait par `generate-symbols`.
+**Pas de hook bloquant** pour l'instant — règle documentaire. Le module Studio (Phase 10) consommera `docs/` + le champ `description` extrait par `generate-symbols`.
 
 ---
 

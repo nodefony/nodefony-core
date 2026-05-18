@@ -80,7 +80,7 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 
 - `nodefony frontend:dev` — start manual (si autoStart=false)
 - `nodefony frontend:build` — vite.build() prod
-- `nodefony frontend:status [-j]` — état supervisor + entries (consommé par Vision)
+- `nodefony frontend:status [-j]` — état supervisor + entries (consommé par Studio)
 
 ## Gotchas
 
@@ -106,9 +106,9 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - Fixture : `nodefony/tests/fixtures/minimal-frontend/` (index.html + src/main.ts vanilla).
 - Lancer : `npm test` (unit) + `npm run test:integration`.
 
-## API Vision (route /nodefony/frontend/* — Phase 10)
+## API Studio (route /nodefony/frontend/* — Phase 10)
 
 - GET /nodefony/frontend/api/status → JSON status (idem `frontend:status -j`)
 - GET /nodefony/frontend/api/entries → list entries résolues
 - POST /nodefony/frontend/api/restart → stop + startDev
-- (TODO Phase 14.2 quand Vision MVP ✅)
+- (TODO Phase 14.2 quand Studio MVP ✅)

@@ -86,7 +86,7 @@ Extension de l'`AuditErrorEntry` :
 - `durationMs` = `performance.now() - phases[0].startMs` (utilise P1.1)
 - WS : ajoute `protocol`
 - Tests unit : `nodefony/tests/unit/AuditLogger.test.ts` (18 tests : shape JSON, redaction, severity, phases, error)
-- **Débloque** : P3.2 pretty formatter, P3.5 erreur enrichie, P10.9 Vision logs streaming SSE/WS
+- **Débloque** : P3.2 pretty formatter, P3.5 erreur enrichie, P10.9 Studio logs streaming SSE/WS
 
 ## RequestContext (ALS) — P1.4 (2026-05-16)
 

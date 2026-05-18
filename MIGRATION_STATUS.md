@@ -73,13 +73,13 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **Symbiose http↔fw (Phase 9.1)**     | 8       | 0      | 5     | 3      |
 | **Cycle de vie Context (Phase 9.2)** | 12      | 0      | 0     | 12     |
 | **Logs structurés (Phase 9.3)**      | 10      | 0      | 0     | 10     |
-| **Vision admin web (Phase 10)**      | 11      | 0      | 0     | 11     |
+| **Studio admin web (Phase 10)**      | 11      | 0      | 0     | 11     |
 | **CLI commandes par module (P11)**   | 14      | 0      | 0     | 14     |
 | **IA — llm/vector/rag/memory (P12.1)** | 5     | 0      | 4     | 1      |
 | **IA — agent orchestrateur (P12.2)** | 6       | 0      | 1     | 5      |
 | **IA — MCP (P12.3)**                 | 5       | 0      | 0     | 5      |
 | **IA — agent-guard (P12.4)**         | 10      | 0      | 0     | 10     |
-| **IA — Vision panels (P12.5)**       | 4       | 0      | 0     | 4      |
+| **IA — Studio panels (P12.5)**       | 4       | 0      | 0     | 4      |
 | **IA — Tests E2E + AI Act (P12.6)**  | 6       | 0      | 0     | 6      |
 | **Realtime TCP/UDP/Unix (P13.1)**    | 13      | 0      | 0     | 13     |
 | **Redis cluster + pub/sub (P13.2)**  | 13      | 1      | 1     | 11     |
@@ -234,14 +234,14 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | #      | Tâche                                                                          | Effort  | Dépendances        | Notes                                          |
 | ------ | ------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------- |
 | P11.1  | Tests intégration des 9 commandes CLI existantes                               | 1 ses.  | —                  | spawn sub-process + assertion stdout           |
-| P11.2  | Commandes `http:*` (routes, sessions, cert, stats)                             | 1 ses.  | P10.3              | Couplée à API admin Vision                     |
+| P11.2  | Commandes `http:*` (routes, sessions, cert, stats)                             | 1 ses.  | P10.3              | Couplée à API admin Studio                     |
 | P11.3  | Commandes `framework:*` + `security:*` + `user:*`                              | 1 ses.  | P6.8, P5.6         |                                                |
 | P11.4  | Commandes `orm:migrate/rollback/status/seed`                                   | 2 ses.  | P7.3, P7.5         | Délègue aux CLI ORM natifs                     |
-| P11.5  | Commandes `logs:tail/filter` + bridge CLI ↔ Vision (`/cli/exec`)               | 1 ses.  | P3.10, P10.4       |                                                |
+| P11.5  | Commandes `logs:tail/filter` + bridge CLI ↔ Studio (`/cli/exec`)               | 1 ses.  | P3.10, P10.4       |                                                |
 
 ### P14 — `@nodefony/frontend` (builder Vite) + 🆕 **Core isomorphe** (voir [Phase 14](#phase-14--nodefonyfrontend-builder-vuereactsvelte-intégré))
 
-> Bloquant pour P10.7 Vision frontend bootstrap. Vite par défaut, ESM natif.
+> Bloquant pour P10.7 Studio frontend bootstrap. Vite par défaut, ESM natif.
 > **REFONTE 2026-05-16** : P13.3 supprimée, le Core (Container/Syslog/Service) devient isomorphe et s'exporte côté navigateur.
 > **REFONTE 2026-05-18** (POC `poc/frontend-child` mergé `f013b19`) : architecture finale = **`ViteProcessSupervisor` (child_process)** au lieu du `DevServerMiddleware integrate:true` initialement prévu. Décision documentée dans `docs/audits/poc-frontend-comparison.md` — isolation crash/OOM, multi-cluster PM2 compatible, observabilité supérieure. HMR p50=114ms identique aux 2 designs.
 
@@ -256,7 +256,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P14.7 | Commands CLI `frontend:create/build/dev` + skill scaffold        | 1 ses.  | P14.2, P11.1       | 🟡 PARTIEL       | Commands existent mais bug CLI claude-ts (cf `project_cli_commands_broken_claude_ts`). **Skill `nodefony-create-frontend-react` ✅ disponible.** |
 | P14.8 | Tests intégration                                                 | 1 ses.  | P14.3              | ✅ FAIT          | 14 unit `ViteConfigGenerator` + 3 integration `ViteProcessSupervisor` real spawn (~6s) |
 | P14.9 | Presets optionnels Svelte 5 + Solid + **Angular** + Vue 3         | 2 ses.  | P14.3              | ⏳ À FAIRE       | Angular via `@analogjs/vite-plugin-angular`. Pattern preset = ajouter case dans `ViteConfigGenerator.toMjs()` |
-| P14.10| Migration Vision sur `@nodefony/frontend`                          | 1 ses.  | P14.4              | ⏳ À FAIRE       | Vision = 1er consommateur prod                         |
+| P14.10| Migration Studio sur `@nodefony/frontend`                          | 1 ses.  | P14.4              | ⏳ À FAIRE       | Studio = 1er consommateur prod                         |
 | P14.11| 🆕 **Core isomorphe** : adapter `Container`, `Syslog`, `Service`, `EventEmitter` pour fonctionner sans Node natifs (export browser-compat via `package.json.exports.browser`) | 4 ses. | P14.4 | ⏳ À FAIRE       | EX-P13.3. ⚠️ Surveiller bundle size < 50 KB minified gzippé. Tree-shaking obligatoire |
 | P14.12| 🆕 Plugin Vite Nodefony : alias auto (`@nodefony/core` etc.) + injection env vars (`__NODEFONY_CONFIG__` : wsUrl, env, instanceId) | 1 ses. | P14.11 | ⏳ À FAIRE       | Zéro config dev — transparent                          |
 | P14.13| 🆕 Syslog isomorphe : transport WS qui pipe logs front → syslog back centralisé | 2 ses. | P14.11, P13.7 | ⏳ À FAIRE       | Traçabilité totale front prod                          |
@@ -280,7 +280,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 ### P12 — Couche IA agentic (DERNIÈRE phase — voir [Phase 12](#phase-12--couche-ia-agentic-dernière-phase-de-migration))
 
-> NE PAS démarrer avant P10 (Vision MVP) ✅. C'est la **vision finale** de Nodefony.
+> NE PAS démarrer avant P10 (Studio MVP) ✅. C'est la **studio finale** de Nodefony.
 
 | #       | Tâche                                                            | Effort  | Dépendances              | Notes                                              |
 | ------- | ---------------------------------------------------------------- | ------- | ------------------------ | -------------------------------------------------- |
@@ -288,7 +288,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P12.2   | Finalisation `@nodefony/agent` (Orchestrator + decorators)        | 7 ses.  | P12.1                    | Boucle agentic + streaming + abort                |
 | P12.3   | `@nodefony/mcp` (server + client, JSON-RPC 2.0)                  | 6 ses.  | P12.2                    | Interop Claude Desktop / Cursor / VS Code         |
 | P12.4   | **`@nodefony/agent-guard`** (différenciateur AI Act)              | 14 ses. | P12.2, P6 ✅, P7 ✅      | Zones, PII, audit signé, circuit breaker, approval |
-| P12.5   | Panels IA dans Vision (ex-`@nodefony/studio`)                     | 6 ses.  | P12.4, P10               | Fusion studio ↔ vision                            |
+| P12.5   | Panels IA dans Studio (ex-`@nodefony/studio`)                     | 6 ses.  | P12.4, P10               | Fusion studio ↔ studio                            |
 | P12.6   | Tests E2E IA + conformité AI Act                                  | 7 ses.  | P12.5                    | RAG sources, agent loop, MCP, gouvernance, souverain |
 
 ### 🆕 P15 — Mediasoup + SIP/Asterisk (test ultime archi 2026-05-16)
@@ -307,24 +307,24 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P15.7 | Cluster K8s : `PipeTransports` mediasoup pour interconnexion pod-to-pod (bypass Redis/Kafka pour flux media binaires) | 3 ses. | P15.4, P13.5/6 | Routage media inter-pod direct UDP haut débit  |
 | P15.8 | Tests E2E pont SIP + agent IA vocal (Asterisk + mediasoup + LLM) | 3 ses. | P15.6              | Validation crash-test absolu de l'archi               |
 
-### P10 — `@nodefony/vision` (admin web — successeur monitoring-bundle)
+### P10 — `@nodefony/studio` (admin web — successeur monitoring-bundle)
 
-> Voir [Phase 10](#phase-10--nodefonyvision-successeur-monitoring-bundle). NE PAS démarrer avant P0-P7 + P11.2-P11.3 ✅.
+> Voir [Phase 10](#phase-10--nodefonystudio-successeur-monitoring-bundle). NE PAS démarrer avant P0-P7 + P11.2-P11.3 ✅.
 > Préfixe route `/nodefony` réservé dans toutes les apps. Chaque module migré doit exposer son `IAdminApi` au préalable.
 
 | #      | Tâche                                                                          | Effort  | Dépendances        | Notes                                          |
 | ------ | ------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------- |
-| P10.1  | Décision stack frontend (Vue 3 vs React 19) + bootstrap Vite                   | 0.5 ses.| —                  |                                                |
-| P10.2  | `IAdminApi` + `ApiBroker` service                                              | 1 ses.  | P5.4               | Contract module → vision                       |
+| ✅ P10.1  | Décision stack frontend (Vue 3 vs React 19) + bootstrap Vite                | 0.5 ses.| —                  | ✅ 2026-05-18 — React 19 acté pour Studio                                |
+| P10.2  | `IAdminApi` + `ApiBroker` service                                              | 1 ses.  | P5.4               | Contract module → studio                       |
 | P10.3  | `IAdminApi` dans http, framework, syslog                                       | 2 ses.  | P10.2              |                                                |
 | P10.4  | `IAdminApi` dans user, orm-core, security                                      | 2 ses.  | P5.6, P6.8         |                                                |
-| P10.5  | Backend Vision — `DashboardController` + `api/*Controller`                     | 2 ses.  | P10.3, P10.4       | Route prefix `/nodefony`                       |
-| P10.6  | Auth admin (factory `vision-admin`, `ROLE_NODEFONY_ADMIN`)                     | 1 ses.  | P6.5               |                                                |
-| P10.7  | Frontend bootstrap + router + auth + layouts                                   | 2 ses.  | P10.5, **P14.11**, **P14.4** | Login + Dashboard de base — utilise Core isomorphe (P14.11, ex-P13.3) + `@nodefony/frontend` |
-| P10.8  | Vues prio : dashboard, routes, sessions, users                                 | 3 ses.  | P10.7              | MVP utile                                      |
+| 🔶 P10.5  | Backend Studio — `DashboardController` + `api/*Controller`                  | 2 ses.  | P10.3, P10.4       | 🔶 2026-05-18 — `StudioController` `/nodefony` + 6 endpoints API mock (health, info, auth/{login,me,logout}, realtime/info). À étendre via IAdminApi quand P10.2 prêt |
+| P10.6  | Auth admin (factory `studio-admin`, `ROLE_NODEFONY_ADMIN`)                     | 1 ses.  | P6.5               |                                                |
+| 🔶 P10.7  | Frontend bootstrap + router + auth + layouts                                | 2 ses.  | P10.5, **P14.11**, **P14.4** | 🔶 2026-05-18 — `@nodefony/studio` scaffoldé (React 19 + Mantine v8 + MobX 6 + Router 7 + TanStack Table 8). 5 stores MobX (Auth/Connection/Ui/Chat/Root), AuthGuard, Login 4-step stepper, AdminLayout (sidebar groupée + theme toggle dark/light), Dashboard, Chat IA (streaming mock), 13 pages stub, RealtimeClient stub (préfigure @nodefony/client P13.7). ⚠️ Bug multi-bundle [[project_frontend_multibundle_bug]] : test-frontend-react commenté tant que P14.6 pas fixé |
+| P10.8  | Vues prio : dashboard, routes, sessions, users                                 | 3 ses.  | P10.7              | MVP utile — Dashboard ✅ stub, autres en attente |
 | P10.9  | Vues : firewall, logs streaming, databases, migrate                            | 3 ses.  | P10.8              | SSE/WS pour logs                               |
 | P10.10 | Vues : npm, pm2, profiling, services                                           | 2 ses.  | P10.9              | Incrémental                                    |
-| P10.11 | Tests intégration vision                                                       | 1 ses.  | P10.8              |                                                |
+| P10.11 | Tests intégration studio                                                       | 1 ses.  | P10.8              |                                                |
 
 ### P9 — Polish + clôture
 
@@ -350,10 +350,10 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P8 — CLI + Monitoring local                               | ~5                |
 | P9 — Polish                                               | ~2.5              |
 | **P11 — Tests CLI + commandes par module**               | **~6**            |
-| **P10 — Vision (admin web)**                              | **~19.5**         |
+| **P10 — Studio (admin web)**                              | **~19.5**         |
 | **P13 — Realtime distribué (RealtimeHub + Service + RPC + Kafka)** | **~32**  |
 | **P14 — `@nodefony/frontend` Vite + 🆕 Core isomorphe**  | **~19**           |
-| **P12 — Couche IA agentic (vision finale)**              | **~49**           |
+| **P12 — Couche IA agentic (studio finale)**              | **~49**           |
 | 🆕 **P15 — Mediasoup + SIP/Asterisk (test ultime)**      | **~23**           |
 | **TOTAL**                                                 | **~229 sessions** |
 
@@ -372,7 +372,7 @@ P0 (2.5) → P1.1-P1.7 (7.5) → P3.1+P3.4+P3.5 (2)            ← logs minimal
                                                            = ~37.5 sessions vers MVP prod
 ```
 
-### Chemin Vision (admin web — étape suivante MVP)
+### Chemin Studio (admin web — étape suivante MVP)
 
 ```
 MVP prod ✅ → P14.1-P14.5 (7)        ← @nodefony/frontend (Vite + middleware HTTP integrate:true)
@@ -382,30 +382,30 @@ MVP prod ✅ → P14.1-P14.5 (7)        ← @nodefony/frontend (Vite + middlewar
             → P11.1-P11.3 (3)        ← Tests CLI existant + commandes core modules
             → P10.1-P10.7 (10.5)     ← IAdminApi dans http/framework/security/user/orm + backend + frontend bootstrap
             → P10.8 (3)              ← 4 vues prio (dashboard/routes/sessions/users)
-                                     = ~34.5 sessions supplémentaires vers Vision MVP
+                                     = ~34.5 sessions supplémentaires vers Studio MVP
 ```
 
 **Notes** :
-- `@nodefony/frontend` (P14) **bloque P10.7** Vision frontend — Vision en est le 1er consommateur prod.
-- **P13.3 SUPPRIMÉE** (refonte 2026-05-16) — Core isomorphe (P14.11) la remplace, intégré DANS le code Vue/React de Vision via Vite alias automatique.
+- `@nodefony/frontend` (P14) **bloque P10.7** Studio frontend — Studio en est le 1er consommateur prod.
+- **P13.3 SUPPRIMÉE** (refonte 2026-05-16) — Core isomorphe (P14.11) la remplace, intégré DANS le code Vue/React de Studio via Vite alias automatique.
 - `@nodefony/redis` (P13.2 — 8 ses.) peut être inséré dès P5.12 si cluster prod ciblé.
-- `@nodefony/realtime` (P13.1) indépendant — peut être différé. Mais `RealtimeService` (P13.4) prioritaire pour Vision (logs streaming, métriques live).
+- `@nodefony/realtime` (P13.1) indépendant — peut être différé. Mais `RealtimeService` (P13.4) prioritaire pour Studio (logs streaming, métriques live).
 
-### Chemin IA agentic (vision finale — phase FINALE)
+### Chemin IA agentic (studio finale — phase FINALE)
 
 ```
-Vision MVP ✅ → P12.1.1-P12.1.5 (9)  ← Refonte llm/vector/rag/memory propre
+Studio MVP ✅ → P12.1.1-P12.1.5 (9)  ← Refonte llm/vector/rag/memory propre
               → P12.2.1-P12.2.6 (7)  ← @nodefony/agent finalisé (orchestrateur)
               → P12.3.1-P12.3.5 (6)  ← @nodefony/mcp (interop Claude/Cursor)
               → P12.4.1-P12.4.4 (6)  ← agent-guard zones/PII/audit minimal
-              → P12.5.1-P12.5.2 (3)  ← Vision panels Agents+Costs
+              → P12.5.1-P12.5.2 (3)  ← Studio panels Agents+Costs
                                      = ~31 sessions vers MVP IA agentic souverain
 ```
 
-**Total framework + Vision + IA complet** : ~150.5 sessions estimées.
-**Total MVP complet (prod + admin + IA agentic minimal)** : ~85 sessions estimées (~MVP prod 37.5 + Vision MVP 16.5 + IA MVP 31).
+**Total framework + Studio + IA complet** : ~150.5 sessions estimées.
+**Total MVP complet (prod + admin + IA agentic minimal)** : ~85 sessions estimées (~MVP prod 37.5 + Studio MVP 16.5 + IA MVP 31).
 
-Le reste (Drizzle, OAuth/LDAP/OIDC, monitoring local DebugBar, polish, multi-ORM tests, vues Vision avancées, agent-guard avancé/approval/circuit breaker, conformité AI Act docs) peut être livré incrémentalement sans bloquer un déploiement.
+Le reste (Drizzle, OAuth/LDAP/OIDC, monitoring local DebugBar, polish, multi-ORM tests, vues Studio avancées, agent-guard avancé/approval/circuit breaker, conformité AI Act docs) peut être livré incrémentalement sans bloquer un déploiement.
 
 **Décisions stratégiques** :
 - **ORM Core AVANT Security** : sinon Security recrée un type User couplé à un seul ORM → impossible de switcher. 4 sessions de prérequis.
@@ -930,7 +930,7 @@ Le reste (Drizzle, OAuth/LDAP/OIDC, monitoring local DebugBar, polish, multi-ORM
 
 ---
 
-## Phase 10 — `@nodefony/vision` (successeur monitoring-bundle)
+## Phase 10 — `@nodefony/studio` (successeur monitoring-bundle)
 
 > Application web d'administration du framework. Remplace `/Users/cci/repository/nodefony/src/nodefony/bundles/monitoring-bundle/` (Vue 2 legacy).
 > Démarrera **après** un niveau satisfaisant de migration (P0→P6 + P5+P7+P8 minimum) — sinon consomme des API qui n'existent pas encore.
@@ -958,8 +958,8 @@ Le reste (Drizzle, OAuth/LDAP/OIDC, monitoring local DebugBar, polish, multi-ORM
 ### 10.2 Structure module
 
 ```
-src/packages/@nodefony/vision/
-├── package.json                       ← @nodefony/vision
+src/packages/@nodefony/studio/
+├── package.json                       ← @nodefony/studio
 ├── nodefony/
 │   ├── config/config.ts               ← prefix /nodefony, auth ROLE_NODEFONY_ADMIN
 │   ├── controller/
@@ -972,7 +972,7 @@ src/packages/@nodefony/vision/
 │   │   │   └── ...
 │   │   └── graphql/                   ← Apollo handlers (read-heavy)
 │   ├── service/
-│   │   ├── vision-service.ts          ← Aggrégateur d'API cross-module
+│   │   ├── studio-service.ts          ← Aggrégateur d'API cross-module
 │   │   └── ApiBroker.ts               ← Dispatch vers les API des modules
 │   └── interfaces/
 │       └── IAdminApi.ts               ← Contract que chaque module doit implémenter pour exposer son admin
@@ -987,7 +987,7 @@ src/packages/@nodefony/vision/
 │   └── package.json
 └── tests/
     └── integration/
-        └── vision.test.ts             ← Smoke test routes + GraphQL schema
+        └── studio.test.ts             ← Smoke test routes + GraphQL schema
 ```
 
 ### 10.3 Prérequis (durs)
@@ -1008,16 +1008,16 @@ Avant de démarrer Phase 10, ces modules DOIVENT exposer leur API admin sous `/n
 | #     | Tâche                                                                                | Effort  | Dépendances        | Notes                                                                  |
 | ----- | ------------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------------------------------- |
 | P10.1 | Décision stack frontend (Vue 3 vs React 19) + bootstrap Vite                         | 0.5 ses.| —                  | Cohérence ou rupture — décision business                               |
-| P10.2 | `IAdminApi` interface + `ApiBroker` service — contract module → vision               | 1 ses.  | P5.4               | Permet à chaque module de plug son API admin                           |
+| P10.2 | `IAdminApi` interface + `ApiBroker` service — contract module → studio               | 1 ses.  | P5.4               | Permet à chaque module de plug son API admin                           |
 | P10.3 | Implémentation `IAdminApi` dans http, framework, syslog (core)                       | 2 ses.  | P10.2              | Endpoints REST + GraphQL schemas                                       |
 | P10.4 | Implémentation `IAdminApi` dans user, orm-core, security                             | 2 ses.  | P10.2, P5.6, P6.8  | Dépend que ces modules existent                                        |
-| P10.5 | Backend `@nodefony/vision` — `DashboardController` + `api/*Controller`               | 2 ses.  | P10.3, P10.4       | Routes prefix `/nodefony`                                              |
-| P10.6 | Auth admin : factory `vision-admin` + role `ROLE_NODEFONY_ADMIN`                      | 1 ses.  | P6.5               | Login dédié, isolé de l'app                                            |
+| P10.5 | Backend `@nodefony/studio` — `DashboardController` + `api/*Controller`               | 2 ses.  | P10.3, P10.4       | Routes prefix `/nodefony`                                              |
+| P10.6 | Auth admin : factory `studio-admin` + role `ROLE_NODEFONY_ADMIN`                      | 1 ses.  | P6.5               | Login dédié, isolé de l'app                                            |
 | P10.7 | Frontend bootstrap + router + auth + layouts                                          | 2 ses.  | P10.5              | Page Login + Dashboard de base                                         |
 | P10.8 | Vues 10.1 (dashboard, routes, sessions, users) — 4 vues prio                          | 3 ses.  | P10.7              | MVP utile                                                              |
 | P10.9 | Vues 10.1 (firewall, logs streaming, databases, migrate)                              | 3 ses.  | P10.8              | Logs streaming via SSE — nécessite Phase 3 ✅                          |
 | P10.10| Vues 10.1 (npm, pm2, profiling, services)                                             | 2 ses.  | P10.9              | Niche, peut être livré incrémental                                     |
-| P10.11| Tests intégration vision (smoke + auth + 4 vues prio)                                 | 1 ses.  | P10.8              |                                                                        |
+| P10.11| Tests intégration studio (smoke + auth + 4 vues prio)                                 | 1 ses.  | P10.8              |                                                                        |
 
 **Effort total Phase 10 : ~19.5 sessions** (frontend inclus, vues complètes).
 
@@ -1055,12 +1055,12 @@ Avant de démarrer Phase 10, ces modules DOIVENT exposer leur API admin sous `/n
 ### 11.3 Convention CLI
 
 - Format : `nodefony <module>:<action> [args] [--options]` (ex : `nodefony security:user:add alice --role=ROLE_USER`).
-- Chaque commande doit **avoir un endpoint API équivalent** consommable par Vision (axe 11.4).
+- Chaque commande doit **avoir un endpoint API équivalent** consommable par Studio (axe 11.4).
 - Tests : `npx nodefony <cmd>` lancé en sub-process avec `child_process.spawn`, assertion stdout + exit code.
 
-### 11.4 Bridge CLI ↔ Vision
+### 11.4 Bridge CLI ↔ Studio
 
-Un endpoint `/nodefony/<module>/cli/exec` (POST, role-protected) doit permettre à Vision d'invoquer la commande CLI équivalente — ainsi l'admin web ne dépend pas de SSH.
+Un endpoint `/nodefony/<module>/cli/exec` (POST, role-protected) doit permettre à Studio d'invoquer la commande CLI équivalente — ainsi l'admin web ne dépend pas de SSH.
 
 **Effort total Phase 11 : ~6 sessions** (tests existants + nouvelles commandes par module).
 
@@ -1109,7 +1109,7 @@ Un endpoint `/nodefony/<module>/cli/exec` (POST, role-protected) doit permettre 
 Un module Nodefony qui expose un frontend déclare dans sa config :
 
 ```typescript
-// src/packages/@nodefony/vision/nodefony/config/config.ts
+// src/packages/@nodefony/studio/nodefony/config/config.ts
 export default {
   frontend: {
     type: "vue3",                        // ou "react19", "svelte5", "solid"
@@ -1132,7 +1132,7 @@ export default {
 | #      | Tâche                                                                          | Effort  | Dépendances        | Notes                                                                  |
 | ------ | ------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------------------------------- |
 | P14.1  | Décision Vite vs Webpack pour 2026 + interfaces `IFrontBuilder`/`IFrontPreset` | 1 ses.  | —                  | Vite par défaut. Webpack uniquement si demande legacy explicite        |
-| P14.2  | `ViteBuilder` + preset `vue3-vite`                                              | 2 ses.  | P14.1              | Couvre 80% du cas d'usage immédiat (Vision)                            |
+| P14.2  | `ViteBuilder` + preset `vue3-vite`                                              | 2 ses.  | P14.1              | Couvre 80% du cas d'usage immédiat (Studio)                            |
 | P14.3  | Preset `react19-vite`                                                            | 1 ses.  | P14.2              | 2ème preset prioritaire                                                |
 | P14.4  | `DevServerMiddleware` — intégration Vite dans `@nodefony/http`                  | 2 ses.  | P14.2, P1 (Context) | Mode `integrate: true` — Vite middleware dans pipeline HTTP            |
 | P14.5  | `StaticMiddleware` — serve build prod via `@nodefony/http`                      | 1 ses.  | P14.2              | Mode prod, hash-cached assets                                          |
@@ -1140,7 +1140,7 @@ export default {
 | P14.7  | Commands CLI : `frontend:create/build/dev`                                       | 1 ses.  | P14.2, P11.1       | Skeletons Vue/React, génère config + dépendances                       |
 | P14.8  | Tests intégration build Vue 3 + React 19                                         | 1 ses.  | P14.3              | Vérifier output ESM hashed + sourcemaps                                |
 | P14.9  | Presets optionnels Svelte 5 + Solid                                              | 1 ses.  | P14.3              | Différable                                                              |
-| P14.10 | Migration Vision pour utiliser `@nodefony/frontend`                              | 1 ses.  | P14.4, P10.7       | Vision = 1er consommateur prod du module                                |
+| P14.10 | Migration Studio pour utiliser `@nodefony/frontend`                              | 1 ses.  | P14.4, P10.7       | Studio = 1er consommateur prod du module                                |
 
 **Effort total Phase 14 : ~12 sessions**.
 
@@ -1149,7 +1149,7 @@ export default {
 1. **Vite par défaut, Webpack uniquement sur demande** : standard 2026, perf imbattable, ESM natif.
 2. **Pas de bundler propriétaire** : ne pas réinventer Vite. Wrapper minimal.
 3. **Module frontend ≠ module backend** — un même `@nodefony/<module>` peut avoir les deux côtés cohabiter (`nodefony/` backend + `frontend/` UI).
-4. **Vision = 1er consommateur prod** — son frontend (P10.7) utilisera Vite + Vue 3 (ou React 19, décision P10.1) via `@nodefony/frontend`.
+4. **Studio = 1er consommateur prod** — son frontend (P10.7) utilisera Vite + Vue 3 (ou React 19, décision P10.1) via `@nodefony/frontend`.
 5. **HMR via WS** : profite du WebSocket natif `@nodefony/http` — Vite HMR injecté directement, pas de port séparé en mode `integrate: true`.
 
 ### 14.5 ⚠️ MAJ 2026-05-16 — `@nodefony/frontend` + Core isomorphe (ex-`@nodefony/client`)
@@ -1162,7 +1162,7 @@ export default {
 | Core isomorphe (P14.11)      | **Container DI + Syslog + Service + EventEmitter** exportés côté browser via `package.json.exports.browser` | Importé DANS le code Vue/React/Svelte des modules via alias automatique du plugin Vite Nodefony |
 | Protocole RT (P13.7)         | **JSON-RPC 2.0 maison** — RPC bidirectionnel + types partagés `ServerToClientEvents`/`ClientToServerEvents` + HTTP long-polling fallback | Pour temps réel symbiose Socket.IO-like |
 
-**Exemple Vision** : utilise `@nodefony/frontend` pour bundler son Vue 3, importe le Core isomorphe (Container + Syslog) pour structurer le code front exactement comme le back, consomme P13.7 pour les events temps réel typés vers backend.
+**Exemple Studio** : utilise `@nodefony/frontend` pour bundler son Vue 3, importe le Core isomorphe (Container + Syslog) pour structurer le code front exactement comme le back, consomme P13.7 pour les events temps réel typés vers backend.
 
 ---
 
@@ -1193,7 +1193,7 @@ export default {
 | `@nodefony/realtime/index.ts`                               | N/A                                              | ⬜     | 1          | Barrel                                                  |
 
 **Cas d'usage** :
-- IoT : devices envoient télémétrie via TCP/UDP → server pousse en Vision
+- IoT : devices envoient télémétrie via TCP/UDP → server pousse en Studio
 - Microservices internes : IPC via Unix socket (plus rapide que HTTP loopback)
 - Protocoles métier binaires (industrial, finance, gaming)
 
@@ -1209,7 +1209,7 @@ export default {
 | `@nodefony/redis/interfaces/IRedisPubSub.ts`                | N/A                                              | ⬜     | 2          | `publish/subscribe/unsubscribe/pSubscribe`                     |
 | `@nodefony/redis/interfaces/IRedisCluster.ts`               | N/A                                              | ⬜     | 2          | `nodes/slots/failover` — mode Cluster                          |
 | `@nodefony/redis/service/redis.ts`                          | `redisService.js` (166 L)                        | 🔶     | 2          | Refactor — `node-redis@4` ou `ioredis` (décider)               |
-| `@nodefony/redis/service/redis-pubsub.ts`                   | N/A (nouveau)                                    | ⬜     | 2          | **CRITIQUE** : publish/subscribe pour clusters + Vision WS     |
+| `@nodefony/redis/service/redis-pubsub.ts`                   | N/A (nouveau)                                    | ⬜     | 2          | **CRITIQUE** : publish/subscribe pour clusters + Studio WS     |
 | `@nodefony/redis/service/redis-cluster.ts`                  | N/A (nouveau)                                    | ⬜     | 3          | Mode Cluster (sharding) + Sentinel (HA)                        |
 | `@nodefony/redis/src/RedisCache.ts`                         | N/A                                              | ⬜     | 2          | Cache générique avec TTL — consommé par services Nodefony      |
 | `@nodefony/redis/src/RedisLock.ts`                          | N/A                                              | ⬜     | 2          | Distributed lock (Redlock pattern) — anti double-trigger jobs  |
@@ -1222,7 +1222,7 @@ export default {
 **Décision client Redis** : `node-redis@4` (officiel Redis Labs, TS natif) vs `ioredis` (legacy, cluster support mature). À figer début Phase 13.2.
 
 **Use cases pub/sub** :
-- Cluster Nodefony multi-instance : sync state (broadcast Vision update à toutes les instances)
+- Cluster Nodefony multi-instance : sync state (broadcast Studio update à toutes les instances)
 - Notifications cross-process : un worker Nodefony notifie les autres
 - WS broadcast scalable : pub à Redis → toutes instances Nodefony forward aux WS clients
 
@@ -1242,7 +1242,7 @@ export default {
 | `@nodefony/client/src/NodefonyClient.ts`                    | Entry point — initialize avec `baseUrl`, `token?`, `wsUrl?`           | ⬜     | 2          | Singleton optionnel, configurable                       |
 | `@nodefony/client/src/http/HttpClient.ts`                   | Fetch wrapper avec auth, CSRF, propagation X-Request-Id               | ⬜     | 2          | Typed via interfaces partagées                          |
 | `@nodefony/client/src/ws/WebSocketClient.ts`                | WS avec reconnect auto, protocol negotiation, requestId trace         | ⬜     | 3          | Backoff exponentiel, queue messages offline             |
-| `@nodefony/client/src/ws/StreamClient.ts`                   | Lecture AsyncIterable de tokens LLM streamés (consomme `@nodefony/agent`) | ⬜ | 2          | Pour Vision panels LLM + apps consommatrices           |
+| `@nodefony/client/src/ws/StreamClient.ts`                   | Lecture AsyncIterable de tokens LLM streamés (consomme `@nodefony/agent`) | ⬜ | 2          | Pour Studio panels LLM + apps consommatrices           |
 | `@nodefony/client/src/auth/AuthClient.ts`                   | login/logout/refresh, stockage token (cookie httpOnly via API)        | ⬜     | 2          | Pas de token en localStorage                            |
 | `@nodefony/client/src/auth/CsrfClient.ts`                   | Double-submit cookie pattern côté browser                              | ⬜     | 1          | Consomme `@nodefony/security/csrf`                      |
 | `@nodefony/client/src/typed/` (DTO partagés)                | Types TS partagés client↔server (via npm workspaces ou monorepo path) | ⬜     | 2          | Lien direct vers `@nodefony/{http,framework,user}` interfaces |
@@ -1257,7 +1257,7 @@ export default {
 - **Pas de polyfill** : ES2022 target, WebSocket/fetch natifs (no socket.io).
 
 **Use cases** :
-- Vision frontend (Vue/React) consomme `@nodefony/client` directement
+- Studio frontend (Vue/React) consomme `@nodefony/client` directement
 - Apps utilisateur Nodefony (SPA hébergées par le framework)
 - Apps tierces qui veulent intégrer Nodefony (script tag CDN)
 - Apps mobile via WebView (Vue Native / Capacitor)
@@ -1273,20 +1273,20 @@ export default {
 
 **Ordre recommandé** :
 1. **P13.2 prioritaire** (Redis) — bloque P5.12 (RedisSessionStorage) et apps prod cluster.
-2. **P13.3 en parallèle ou avant P10.7** (Vision frontend bootstrap) — Vision en dépend.
+2. **P13.3 en parallèle ou avant P10.7** (Studio frontend bootstrap) — Studio en dépend.
 3. **P13.1 en dernier** (Realtime) — indépendant, peut venir à n'importe quel moment après P1.
 
 ---
 
 ## Phase 12 — Couche IA agentic (DERNIÈRE phase de migration)
 
-> **Démarrage uniquement après P10 (Vision MVP) validée.**
-> Les modules existants (`llm`, `vector`, `rag`, `memory`, `agent`) ont été créés pendant la première phase exploratoire — ils sont **incomplets, non figés**, et doivent être audités/refondus pour s'intégrer proprement à la nouvelle architecture framework (multi-ORM, security, Vision, ALS requestId, logs structurés).
+> **Démarrage uniquement après P10 (Studio MVP) validée.**
+> Les modules existants (`llm`, `vector`, `rag`, `memory`, `agent`) ont été créés pendant la première phase exploratoire — ils sont **incomplets, non figés**, et doivent être audités/refondus pour s'intégrer proprement à la nouvelle architecture framework (multi-ORM, security, Studio, ALS requestId, logs structurés).
 > Voir `VISION_IA.md` pour la mission, `CLAUDE_IA.md` pour les conventions techniques, `IA_STATUS.md` pour l'état précédent (à reseter en début de P12).
 
 ### 12.1 Audit + refonte des 4 modules existants
 
-> Aucun de ces modules n'a été conçu en prenant en compte : multi-ORM (P5/P7), `@nodefony/security` (P6), `IUser` (P5.5), Vision admin (P10), `AsyncLocalStorage requestId` (P1.4), logs structurés (P3).
+> Aucun de ces modules n'a été conçu en prenant en compte : multi-ORM (P5/P7), `@nodefony/security` (P6), `IUser` (P5.5), Studio admin (P10), `AsyncLocalStorage requestId` (P1.4), logs structurés (P3).
 > Audit complet avant de continuer.
 
 | Module                | État actuel TS                | Refonte nécessaire                                                                                                          |
@@ -1339,23 +1339,23 @@ export default {
 | P12.4.2| `ZoneResolverService` + `PermissionCheckerService` + `AgentRegistryService` | 2 ses. | P12.4.1, P6 ✅ (security) | Default deny si aucune zone match                                           |
 | P12.4.3| `PIIMaskingService` — patterns FR (NIR, IBAN, CB, tel, email, SIRET) + custom | 1 ses. | —                | Conformité RGPD + AI Act                                                    |
 | P12.4.4| `AuditService` — entités MikroORM→orm-core + audit trail signé        | 2 ses.  | P12.4.3, P7 ✅            | Conformité AI Act : audit signé, immuable                                   |
-| P12.4.5| `CostTrackerService` — UPSERT par agent+date (1 ligne/jour)           | 1 ses.  | P12.4.4, P12.1.1         | Consommé par Vision panels (P12.5)                                          |
+| P12.4.5| `CostTrackerService` — UPSERT par agent+date (1 ligne/jour)           | 1 ses.  | P12.4.4, P12.1.1         | Consommé par Studio panels (P12.5)                                          |
 | P12.4.6| `CircuitBreakerService` — closed → open → half-open + cooldown        | 1 ses.  | P12.4.4                  |                                                                              |
 | P12.4.7| `ApprovalService` — Promise en attente débloquée via WS Nodefony      | 2 ses.  | P12.4.6                  | Humain dans la boucle pour zones `restricted`                               |
 | P12.4.8| `OutputValidatorService` — règles de sortie par tool                  | 1 ses.  | P12.4.7                  |                                                                              |
 | P12.4.9| `AgentGuardMiddleware` — wire Orchestrator → checks → audit           | 1 ses.  | P12.4.8                  | Intercept toutes les LLM/tool calls                                          |
 | P12.4.10| Tests intégration agent-guard (zones, PII, circuit breaker, approval) | 2 ses. | P12.4.9                  |                                                                              |
 
-### 12.5 Panels IA intégrés dans `@nodefony/vision` (ex-`@nodefony/studio`)
+### 12.5 Panels IA intégrés dans `@nodefony/studio` (ex-`@nodefony/studio`)
 
-> **Décision** : `studio` n'est PAS un module séparé. Ses panels (agents, costs, audit, approvals) sont intégrés à `@nodefony/vision` via le pattern `IAdminApi` (cohérence avec autres panels Vision).
+> **Décision** : `studio` n'est PAS un module séparé. Ses panels (agents, costs, audit, approvals) sont intégrés à `@nodefony/studio` via le pattern `IAdminApi` (cohérence avec autres panels Studio).
 
 | #      | Tâche                                                                | Effort  | Dépendances        | Notes                                                                       |
 | ------ | -------------------------------------------------------------------- | ------- | ------------------ | --------------------------------------------------------------------------- |
 | P12.5.1| `IAdminApi` pour `@nodefony/agent-guard` (audit, costs, approvals)   | 1 ses.  | P12.4.10, P10.4    | Endpoints `/nodefony/agent-guard/api/*`                                     |
-| P12.5.2| Vues Vision : Agents (registry + état), Costs (UPSERT par jour)       | 2 ses.  | P12.5.1            |                                                                              |
-| P12.5.3| Vues Vision : Audit trail (search + filter), PII patterns config      | 1.5 ses.| P12.5.2            |                                                                              |
-| P12.5.4| Vue Vision : Approvals (queue WS realtime → approve/reject)            | 1.5 ses.| P12.5.3            | Critique pour humain dans la boucle                                          |
+| P12.5.2| Vues Studio : Agents (registry + état), Costs (UPSERT par jour)       | 2 ses.  | P12.5.1            |                                                                              |
+| P12.5.3| Vues Studio : Audit trail (search + filter), PII patterns config      | 1.5 ses.| P12.5.2            |                                                                              |
+| P12.5.4| Vue Studio : Approvals (queue WS realtime → approve/reject)            | 1.5 ses.| P12.5.3            | Critique pour humain dans la boucle                                          |
 
 ### 12.6 Tests cross-module IA + conformité AI Act
 
@@ -1376,7 +1376,7 @@ export default {
 | P12.2      | ~7                | Finalisation `@nodefony/agent`                  |
 | P12.3      | ~6                | `@nodefony/mcp` (server + client)               |
 | P12.4      | ~14               | `@nodefony/agent-guard` (différenciateur)       |
-| P12.5      | ~6                | Panels IA dans Vision                           |
+| P12.5      | ~6                | Panels IA dans Studio                           |
 | P12.6      | ~7                | Tests E2E + conformité                          |
 | **TOTAL**  | **~49 sessions**  | Couche IA complète                              |
 
@@ -1386,7 +1386,7 @@ export default {
 P12.1.1-P12.1.5 (9)  → P12.2.1-P12.2.6 (7)  ← LLM stable + agent orchestrator
                      → P12.3.1-P12.3.5 (6)  ← MCP server (interop écosystème)
                      → P12.4.1-P12.4.4 (6)  ← agent-guard zones/PII/audit minimal
-                     → P12.5.1-P12.5.2 (3)  ← Vision panels agents/costs
+                     → P12.5.1-P12.5.2 (3)  ← Studio panels agents/costs
                                             = ~31 sessions vers MVP IA souverain agentic
 ```
 
@@ -1394,7 +1394,7 @@ Le reste (circuit breaker, approval, conformité AI Act docs) peut être livré 
 
 ### 12.8 Décisions stratégiques IA
 
-1. **`@nodefony/studio` ≡ panels Vision** — pas un module séparé. Cohérence avec autres panels admin.
+1. **`@nodefony/studio` ≡ panels Studio** — pas un module séparé. Cohérence avec autres panels admin.
 2. **Vector pgvector via orm-core + Drizzle** — pas de client SQL direct. Bénéfice multi-DB.
 3. **Mistral providers prioritaire** — conformité AI Act EU.
 4. **MCP avant agent-guard** — débloque l'écosystème Claude Desktop/Cursor immédiatement.
@@ -1459,6 +1459,8 @@ Le reste (circuit breaker, approval, conformité AI Act docs) peut être livré 
 | 2026-05-16 | @nodefony/http — fix ERR_INVALID_CHAR writeHead + HttpError Controller/Action/Response | `Response.ts`, `httpError.ts`, `CLAUDE.md` | ~1h    | **ERR_INVALID_CHAR** : Node.js set `statusMessage` natif avant validation → char invalide persiste → tous writes suivants échouent. Fix : `safeMsg.replace(/[^\x20-\x7E]/g,"")` dans `Response.writeHead()`. **HttpError champs** : `controller`/`action`/`jsonResponse` extraits de `context.resolver` dans constructor. 329 HTTP tests + 112 framework tests, 0 failing. CLAUDE.md : ajout RFC IETF references. |
 | 2026-05-16 | @nodefony/http — suppression warnings TS build + request tracing requestId | `Context.ts`, `HttpContext.ts`, `Response.ts`, `WebsocketContext.ts`, `IContext.ts`, `IHttpKernel.ts`, `sessions-service.ts`, `securedArea.ts` | ~2h    | **Warnings supprimés** : TS6133 Ws, TS6196 interfaces non utilisées, TS7006 catch params, TS2345 resolve(ret), deprecation url.parse→new URL. **requestId** : `randomUUID()` dans Context constructor — honor `X-Request-Id` header entrant (HTTP+WS) — injecté dans `X-Request-Id` response header via `Response.writeHead()` — inclus dans `logRequest()` (ID : uuid) — dans `metaData.nodefony.requestId` — `IContext.requestId: string`. 94 HTTP tests, 0 failing. |
 | 2026-05-16 | @nodefony/http — tests intégration complets (suite exhaustive) | `httpKernel.test.ts`, `session.test.ts`, `security.test.ts` | ~1h    | **336 passing 0 failing** — suite complète : unit (76) + http (http, http1, https, errors, decorators, fileStream, upload, httpKernel, static, session, security, memory, resilience) + routing (Router) + websockets (ws, limits, perf, binary-broadcast, protocol, session, w3c) — fix `/// <reference types="node" />` manquant session/security/httpKernel — 7 tests X-Request-Id ajoutés (UUID v4, unicité, corrélation, présence sur 200/404/500, concurrence) — test memory flaky en contexte full (GC pressure), passe en isolation |
+| 2026-05-18 | Vision realtime Studio beta testeur + fix types CSS Mantine + commit POC | `vite-env.d.ts` (nouveau), `App.tsx` (nettoyé), memory `project_realtime_vision_studio_beta.md` | ~1h | **Vision figée** : Studio devient le beta testeur de l'archi temps réel. Chip topbar `<IconPlugConnected>` = point d'entrée hub : click → liste services subscribed + stats ; navigation → sub/unsub auto. `ConnectionStepper` +5ème étape WS réelle. `@nodefony/client` (P14.11) doit être polymorphe back/front (Container/Service/Syslog isomorphes, attention couleurs ANSI server-only). **Vision SIP/asterisk** : RealtimeService = pont protocolaire universel (WS browser → TCP/UDP server side). Widget Migration Status dans Studio Dashboard à venir (alimenté manuellement par Claude). Fix typing CSS Mantine via `vite-env.d.ts` + `/// <reference types="vite/client" />`. |
+| 2026-05-18 | Rename Vision → Studio global + scaffold `@nodefony/studio` (frontend React 19 prêt à brancher) | `MIGRATION_STATUS.md`, `CLAUDE.md` racine, modules CLAUDE/MEMORY, 11 memory IA, `src/packages/@nodefony/studio/**` | ~3h | **Rename** : 63 occurrences MIGRATION_STATUS + memory files + renommage 2 fichiers (`project_vision_module.md`→`project_studio_module.md`, `project_ia_vision_final.md`→`project_ia_studio_final.md`). **Scaffold studio** : backend = `StudioController` `/nodefony` + 6 API mock (health, info, auth/{login,me,logout}, realtime/info). Frontend = React 19 + Mantine v8 + MobX 6 + Router 7 + TanStack Table 8 + Tabler Icons. 5 stores MobX (Auth/Connection/Ui/Chat/Root), AuthGuard, Login 4-step stepper, AdminLayout (sidebar groupée + theme toggle), Dashboard (heap V8 RingProgress + 5s polling), Chat IA (streaming mock), 13 pages stub. **`RealtimeClient`** stub préfigure `@nodefony/client` (JSON-RPC 2.0 + reconnect expo + streaming). **Bug détecté** : multi-bundle [[project_frontend_multibundle_bug]] — `@nodefony/test-frontend-react` commenté temporairement dans `@modules()`. Smoke test backend OK : 200 sur `/nodefony` + `/api/info` + `/api/health`. P10.1 ✅, P10.5/P10.7 🔶. |
 
 ---
 

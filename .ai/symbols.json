@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-17T22:50:18.352Z",
+  "generated": "2026-05-18T11:53:07.224Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 209,
-    "symbols": 486,
-    "classes": 168,
+    "files": 212,
+    "symbols": 488,
+    "classes": 170,
     "interfaces": 161,
     "types": 119,
     "enums": 1,
@@ -300,6 +300,18 @@
       "decorators": [
         "services",
         "entities"
+      ]
+    },
+    "Studio": {
+      "name": "Studio",
+      "kind": "class",
+      "file": "src/packages/@nodefony/studio/index.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "controllers"
       ]
     },
     "Builder": {
@@ -3096,6 +3108,19 @@
       "implements": [],
       "decorators": []
     },
+    "StudioController": {
+      "name": "StudioController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Controller Studio admin. Routes UI : - GET /nodefony → page HTML qui charge le bundle React via Vite Routes API (mock — sera relié à"
+    },
     "MemoryVectorStore": {
       "name": "MemoryVectorStore",
       "kind": "class",
@@ -3786,7 +3811,8 @@
         "Mongoose",
         "Redis",
         "Security",
-        "Sequelize"
+        "Sequelize",
+        "Studio"
       ],
       "FileClass": [
         "File",
@@ -3841,7 +3867,8 @@
         "RestController",
         "RouteController",
         "WebsocketController",
-        "PocController"
+        "PocController",
+        "StudioController"
       ],
       "Entity": [
         "Boat",
@@ -4041,7 +4068,8 @@
       ],
       "controllers": [
         "Test",
-        "TestFrontendReact"
+        "TestFrontendReact",
+        "Studio"
       ],
       "entities": [
         "Test",
@@ -4058,7 +4086,8 @@
         "RestController",
         "RouteController",
         "WebsocketController",
-        "PocController"
+        "PocController",
+        "StudioController"
       ],
       "injectable": [
         "Router",
@@ -4274,6 +4303,7 @@
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/sequelize/index.ts",
+        "src/packages/@nodefony/studio/index.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/pm2Service.ts",
@@ -4474,6 +4504,7 @@
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/sequelize/index.ts",
+        "src/packages/@nodefony/studio/index.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/service/fetchService.ts",
@@ -4573,15 +4604,18 @@
       "controllers": [
         "src/modules/test/index.ts",
         "src/modules/test-frontend-react/index.ts",
-        "src/packages/@nodefony/framework/index.ts"
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/studio/index.ts"
       ],
       "FrontendService": [
         "src/modules/test-frontend-react/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
+        "src/packages/@nodefony/studio/index.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
-        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts"
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
       ],
       "PocController": [
         "src/modules/test-frontend-react/index.ts"
@@ -4620,7 +4654,8 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
       ],
       "Resolver": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4646,7 +4681,8 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
-        "src/modules/test-frontend-react/nodefony/controller/PocController.ts"
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
       ],
       "controller": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4659,7 +4695,8 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
-        "src/modules/test-frontend-react/nodefony/controller/PocController.ts"
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
       ],
       "HttpCode": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4708,6 +4745,7 @@
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
@@ -4902,6 +4940,9 @@
       "Models": [
         "src/packages/@nodefony/sequelize/index.ts",
         "src/modules/test/nodefony/entity/BoatEntity.ts"
+      ],
+      "StudioController": [
+        "src/packages/@nodefony/studio/index.ts"
       ],
       "CliKernel": [
         "src/nodefony/src/bin/nodefony.ts",
