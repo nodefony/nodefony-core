@@ -24,5 +24,6 @@ Chaque page décrit **l'API publique** d'un workspace, ses cas d'usage, ses limi
 | `@nodefony/agent`     | `agent.md`              | draft  |
 | `@nodefony/memory`    | `memory.md`             | draft  |
 | `@nodefony/vector`    | `vector.md`             | draft  |
+| `@nodefony/frontend`  | [`frontend.md`](./frontend.md) | stable |
 
-> Pour les modules à venir (`@nodefony/vision`, `@nodefony/agent-core`, `@nodefony/redis`, `@nodefony/realtime`, `@nodefony/client`, `@nodefony/frontend`) : créer la page au moment de la première implémentation, pas avant.
+> Pour les modules à venir (`@nodefony/vision`, `@nodefony/agent-core`, `@nodefony/redis`, `@nodefony/realtime`, `@nodefony/client`) : créer la page au moment de la première implémentation, pas avant.

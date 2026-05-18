@@ -11,6 +11,12 @@ last-updated: 2026-05-17
 
 Tutoriels pas-à-pas orientés utilisateur du framework (vs les pages `architecture/` qui décrivent *comment ça marche dedans*, et `packages/` qui décrivent l'API).
 
+## Pages disponibles
+
+| Page                                                 | Sujet                                                              | Statut |
+| ---------------------------------------------------- | ------------------------------------------------------------------ | ------ |
+| [`frontend-react.md`](./frontend-react.md)           | Ajouter un frontend React 19 (Vite) à un module Nodefony           | stable |
+
 ## Pages (à venir)
 
 | Page                                | Sujet                                                  |
