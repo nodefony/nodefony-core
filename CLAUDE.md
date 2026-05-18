@@ -499,107 +499,16 @@ grep -r "TODO\|FIXME\|console\.log" src/nodefony/src/
 
 ## Lancer le framework (tests runtime)
 
-### Skill disponible : `start-nodefony-server`
+Utiliser le skill **`start-nodefony-server`** (versionné dans `.claude/skills/start-nodefony-server/`) :
 
-Le skill est versionné dans le repo : **`.claude/skills/start-nodefony-server/SKILL.md`**
+- CLI : `/start-nodefony-server`
+- Langage naturel : "lance le serveur", "démarre nodefony", "relance le serveur"
 
-**Installation sur un nouvel ordi** (une seule fois après `git clone`) :
-
-```bash
-mkdir -p ~/.claude/plugins/cache/claude-plugins-official/skill-creator/unknown/skills/start-nodefony-server
-cp .claude/skills/start-nodefony-server/SKILL.md \
-   ~/.claude/plugins/cache/claude-plugins-official/skill-creator/unknown/skills/start-nodefony-server/SKILL.md
-```
-
-Une fois installé, l'invoquer ainsi :
-
-```
-/start-nodefony-server
-```
-
-ou en langage naturel : "lance le serveur", "démarre nodefony", "relance le serveur".
-
-**Ce que fait le skill :**
-
-1. Libère les ports 5151/5152 (tue les process existants)
-2. Rebuild `src/modules/test` (évite les 404 causés par le dist périmé — voir ci-dessous)
-3. Démarre le serveur avec la technique `spawn` Node.js `detached: true` (le simple `npx ... &` meurt par SIGHUP)
-4. Attend 20 s et vérifie que les 4 serveurs écoutent
-5. Rapporte le PID et les ports actifs
-
-**Pourquoi ne pas utiliser `npx nodefony development > log &` directement ?**
-
-Deux pièges :
-
-| Problème    | Symptôme                                       | Cause                                                                                                                                                                                            |
-| ----------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| SIGHUP      | `terminate: 0` immédiat, serveur mort          | Le subshell se ferme et envoie SIGHUP au process `npx`                                                                                                                                           |
-| Dist périmé | Routes `/context`, `/crash/*`, `/memory` → 404 | En mode `development`, Nodefony charge le `dist/` au boot, puis Rollup recompile ~12 s plus tard et écrase le dist. Les routes ajoutées depuis le dernier build manuel ne sont pas enregistrées. |
-
-**Commande manuelle de secours (si le skill n'est pas disponible) :**
-
-```bash
-# 1. Rebuild module test
-cd /Users/cci/repository/nodefony-core/src/modules/test && npm run build
-
-# 2. Ports libres
-lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null; sleep 1
-
-# 3. Démarrage fiable
-node -e "
-const { spawn } = require('child_process');
-const child = spawn('npx', ['nodefony', 'development'], {
-  cwd: '/Users/cci/repository/nodefony-core',
-  stdio: ['ignore', 'pipe', 'pipe'],
-  detached: true
-});
-child.stdout.pipe(process.stdout);
-child.stderr.pipe(process.stderr);
-child.unref();
-require('fs').writeFileSync('/tmp/srv.pid', String(child.pid));
-" > /tmp/nodefony-server.log 2>&1 &
-
-# 4. Attendre puis vérifier
-sleep 20 && grep "Server Listen" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
-```
+Le skill gère : kill ports 5151/5152, rebuild `src/modules/test`, spawn `detached` (évite SIGHUP), attente boot avec progression, health check, diagnostic crash. Détails complets (signaux d'alarme, parsing logs, symptômes 404, watch Rollup runtime piège) dans le `SKILL.md`.
 
 > Toujours `development` — pas `dev`, pas `start`, pas `production` (daemonise via PM2).
 
-### Signes que le démarrage est OK
-
-```
-INFO  server-http  :  Server Listen on http://127.0.0.1:5151
-INFO  server-https :  Server Listen on https://127.0.0.1:5152
-INFO  server-websocket     : Server Listen on ws://127.0.0.1:5151
-INFO  server-websocket-secure : Server Listen on wss://127.0.0.1:5152
-```
-
-### Lecture des logs serveur pour déboguer
-
-```bash
-# Erreurs et crashs
-grep -E "ERROR|CRITIC" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
-
-# Requêtes 404 (routes manquantes → dist périmé)
-grep " 404 " /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
-
-# Tester une route manuellement
-node -e "const https=require('https');https.request({hostname:'127.0.0.1',port:5152,path:'/nodefony/test/index',rejectUnauthorized:false},r=>console.log(r.statusCode)).on('error',e=>console.log('ERR',e.code)).end()" 2>/dev/null
-
-# Tuer le serveur
-lsof -ti:5151 -ti:5152 | xargs kill -9 2>/dev/null
-```
-
-### Corrélation bug ↔ log serveur
-
-| Symptôme test                       | Log serveur                                     | Cause                                                      | Fix                                                 |
-| ----------------------------------- | ----------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------- |
-| `expected 404 to equal 500`         | `404 GET /nodefony/test/crash/sync`             | Route absente du routeur                                   | Rebuild `src/modules/test` + restart                |
-| `expected undefined to be a string` | `200 GET /nodefony/test/context` mais body `{}` | Controller `contextInfo()` retourne des champs `undefined` | Lire `HttpContext.ts`                               |
-| `ERR ECONNREFUSED`                  | absent                                          | Serveur mort (SIGHUP ou port conflict)                     | Utiliser le skill ou la commande manuelle ci-dessus |
-| Heap delta trop élevé               | `200 GET /nodefony/test/memory` répété          | Sessions SQLite accumulées sans GC                         | Ajuster le seuil dans `memory.test.ts`              |
-
-### Erreurs critiques à connaître
+### Erreurs critiques import nodefony
 
 | Erreur                                       | Cause                              | Fix                                        |
 | -------------------------------------------- | ---------------------------------- | ------------------------------------------ |
