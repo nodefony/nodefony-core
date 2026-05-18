@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-17T16:50:58.804Z",
+  "generated": "2026-05-17T22:50:18.352Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 188,
-    "symbols": 457,
-    "classes": 153,
-    "interfaces": 150,
-    "types": 116,
+    "files": 209,
+    "symbols": 486,
+    "classes": 168,
+    "interfaces": 161,
+    "types": 119,
     "enums": 1,
     "functions": 32,
     "constants": 5
@@ -204,12 +204,36 @@
         "entities"
       ]
     },
+    "TestFrontendReact": {
+      "name": "TestFrontendReact",
+      "kind": "class",
+      "file": "src/modules/test-frontend-react/index.ts",
+      "exported": true,
+      "module": "modules/test-frontend-react",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "controllers"
+      ]
+    },
     "Framework": {
       "name": "Framework",
       "kind": "class",
       "file": "src/packages/@nodefony/framework/index.ts",
       "exported": true,
       "module": "@nodefony/framework",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "services"
+      ]
+    },
+    "Frontend": {
+      "name": "Frontend",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/index.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
       "extends": "Module",
       "implements": [],
       "decorators": [
@@ -1257,6 +1281,19 @@
       "implements": [],
       "decorators": []
     },
+    "PocController": {
+      "name": "PocController",
+      "kind": "class",
+      "file": "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+      "exported": true,
+      "module": "modules/test-frontend-react",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Controller POC : - GET /poc/react → page HTML qui charge le bundle React via Vite - GET /poc/api/data → endpoint léger pour bench p99 backend (autocannon/curl) - GET /poc/api/burn → endpoint qui si…"
+    },
     "AgentError": {
       "name": "AgentError",
       "kind": "class",
@@ -1620,6 +1657,188 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "FrontendBuild": {
+      "name": "FrontendBuild",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony frontend:build` — build production de tous les frontends déclarés par les modules. Lit le manifest généré dans `outDir`, à exposer ensuite par `server-static`."
+    },
+    "FrontendDev": {
+      "name": "FrontendDev",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony frontend:dev` — démarre manuellement le superviseur Vite. Utile quand `autoStartInDevelopment: false` dans la config, ou pour relancer après un `frontend:stop`."
+    },
+    "FrontendStatus": {
+      "name": "FrontendStatus",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony frontend:status` — lit l'état du superviseur Vite. Utilisé par Vision (Phase 10) pour afficher l'état du builder dans son tableau de bord admin."
+    },
+    "FrontendConfig": {
+      "name": "FrontendConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/frontend/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/frontend"
+    },
+    "IFrontendModuleDeclaration": {
+      "name": "IFrontendModuleDeclaration",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontBuilder.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Déclaration frontend portée par un module consommateur dans son `config.ts` : ```ts { frontend: { type: \"react19\", entry: \"./frontend/src/main.tsx\" } } ```"
+    },
+    "IResolvedFrontendEntry": {
+      "name": "IResolvedFrontendEntry",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontBuilder.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Description résolue d'une entrée front, prête à être passée au superviseur Vite."
+    },
+    "IFrontBuilder": {
+      "name": "IFrontBuilder",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontBuilder.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Builder responsable de construire la config Vite finale à partir des déclarations modules + des presets."
+    },
+    "IFrontendService": {
+      "name": "IFrontendService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontendService.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "API publique du `FrontendService` injectable. Cycle de vie : 1. `onKernelReady` → scan modules → collecte entries 2. dev/start → délègue au superviseur Vite 3. prod/build → appelle le builder Vite …"
+    },
+    "IFrontPreset": {
+      "name": "IFrontPreset",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontPreset.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null
+    },
+    "FrontPresetType": {
+      "name": "FrontPresetType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontPreset.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Preset descriptor — applique une stack frontend (React, Vue, Svelte, Solid, vanilla). Un preset enrichit la config Vite avec les plugins, les extensions de fichiers et les dépendances pré-bundlées …"
+    },
+    "IViteSupervisorStatus": {
+      "name": "IViteSupervisorStatus",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IViteSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Snapshot lisible du superviseur, lu par TemplateHelper pour injecter les bons scripts (URL `host:port` Vite côté navigateur)."
+    },
+    "IViteSupervisor": {
+      "name": "IViteSupervisor",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IViteSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Contrat du superviseur Vite — implémenté différemment selon la branche POC : - `poc/frontend-child` : ViteProcessSupervisor (child_process.spawn) - `poc/frontend-single` : ViteInProcSupervisor (vit…"
+    },
+    "ViteSupervisorState": {
+      "name": "ViteSupervisorState",
+      "kind": "type",
+      "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IViteSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "État courant du superviseur Vite — exposé pour observabilité (Vision, CLI)."
+    },
+    "FrontendService": {
+      "name": "FrontendService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": "Service",
+      "implements": [
+        "IFrontendService"
+      ],
+      "decorators": [
+        "injectable"
+      ],
+      "description": "Service injectable du module `@nodefony/frontend`. Cycle de vie : 1. construction : merge options par défaut + surcharge app (`module-frontend`). 2. `onKernelReady` : si dev + `autoStartInDevelopme…"
+    },
+    "ViteConfigGenerator": {
+      "name": "ViteConfigGenerator",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    "ViteConfigGeneratorOptions": {
+      "name": "ViteConfigGeneratorOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Génère le contenu d'un `vite.config.generated.mjs` pour le superviseur child_process. Le fichier généré est autosuffisant : il importe Vite + les plugins de chaque preset hardcodés selon les types …"
+    },
+    "ViteProcessSupervisor": {
+      "name": "ViteProcessSupervisor",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "implements": [
+        "IViteSupervisor"
+      ],
+      "decorators": [],
+      "description": "Superviseur Vite résilient — branche POC `poc/frontend-child`. Garanties : - Idempotent : appels concurrents à `start()` partagent la même promesse. - Auto-restart : crash inattendu → restart avec …"
+    },
+    "IViteSupervisorLogger": {
+      "name": "IViteSupervisorLogger",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Logger minimal — injecté par FrontendService pour piper les logs Vite dans le syslog Nodefony sans dépendance dure sur Service."
+    },
+    "ViteSupervisorOptions": {
+      "name": "ViteSupervisorOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null
     },
     "Network": {
       "name": "Network",
@@ -3016,6 +3235,74 @@
       "implements": [],
       "decorators": []
     },
+    "ViteBuilder": {
+      "name": "ViteBuilder",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "implements": [
+        "IFrontBuilder"
+      ],
+      "decorators": [],
+      "description": "Construit la config Vite finale à partir des entrées résolues et des presets. Le builder ne lance JAMAIS Vite — il fournit uniquement la config. Le démarrage est délégué au superviseur (child_proce…"
+    },
+    "FrontendError": {
+      "name": "FrontendError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/errors/FrontendError.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur de base pour"
+    },
+    "FrontendPresetUnknownError": {
+      "name": "FrontendPresetUnknownError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/errors/FrontendError.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": "FrontendError",
+      "implements": [],
+      "decorators": [],
+      "description": "Preset inconnu — module a déclaré `type: \"foo\"` non enregistré."
+    },
+    "FrontendSupervisorStartError": {
+      "name": "FrontendSupervisorStartError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/errors/FrontendError.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": "FrontendError",
+      "implements": [],
+      "decorators": [],
+      "description": "Echec de démarrage de Vite (spawn raté, port occupé, config invalide)."
+    },
+    "FrontendNoEntriesError": {
+      "name": "FrontendNoEntriesError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/errors/FrontendError.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": "FrontendError",
+      "implements": [],
+      "decorators": [],
+      "description": "Aucune entrée front trouvée alors qu'on tente de démarrer le dev server."
+    },
+    "TemplateHelper": {
+      "name": "TemplateHelper",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Génère les balises HTML à injecter dans la page rendue côté serveur pour brancher le frontend Vite. Dev : `<script type=\"module\" src=\"http://host:port/@vite/client\">` + entry. Prod : lira `manifest…"
+    },
     "ServerHttp": {
       "name": "ServerHttp",
       "kind": "class",
@@ -3442,6 +3729,7 @@
         "Controller",
         "Resolver",
         "Template",
+        "FrontendService",
         "Certificate",
         "HttpKernel",
         "Redis",
@@ -3483,14 +3771,17 @@
         "LLMError",
         "MemoryError",
         "RagError",
-        "VectorError"
+        "VectorError",
+        "FrontendError"
       ],
       "EventEmitter": [
         "Event"
       ],
       "Module": [
         "Test",
+        "TestFrontendReact",
         "Framework",
+        "Frontend",
         "Http",
         "Mongoose",
         "Redis",
@@ -3533,6 +3824,9 @@
         "Prod",
         "Staging",
         "Start",
+        "FrontendBuild",
+        "FrontendDev",
+        "FrontendStatus",
         "Network",
         "SequelizeCommand",
         "Pm2"
@@ -3546,7 +3840,8 @@
         "OpenApiController",
         "RestController",
         "RouteController",
-        "WebsocketController"
+        "WebsocketController",
+        "PocController"
       ],
       "Entity": [
         "Boat",
@@ -3619,6 +3914,11 @@
         "VectorConnectionError",
         "VectorNotInitializedError"
       ],
+      "FrontendError": [
+        "FrontendPresetUnknownError",
+        "FrontendSupervisorStartError",
+        "FrontendNoEntriesError"
+      ],
       "NodefonyError": [
         "HttpError"
       ],
@@ -3671,6 +3971,12 @@
       "IRoute": [
         "Route"
       ],
+      "IFrontendService": [
+        "FrontendService"
+      ],
+      "IViteSupervisor": [
+        "ViteProcessSupervisor"
+      ],
       "IRequestLogger": [
         "JsonAuditLogger",
         "PrettyRequestLogger",
@@ -3703,6 +4009,9 @@
         "MemoryVectorStore",
         "PgVectorAdapter"
       ],
+      "IFrontBuilder": [
+        "ViteBuilder"
+      ],
       "IContextInterface": [
         "Context"
       ],
@@ -3723,6 +4032,7 @@
       "services": [
         "Test",
         "Framework",
+        "Frontend",
         "Http",
         "Mongoose",
         "Redis",
@@ -3730,7 +4040,8 @@
         "Sequelize"
       ],
       "controllers": [
-        "Test"
+        "Test",
+        "TestFrontendReact"
       ],
       "entities": [
         "Test",
@@ -3746,10 +4057,12 @@
         "OpenApiController",
         "RestController",
         "RouteController",
-        "WebsocketController"
+        "WebsocketController",
+        "PocController"
       ],
       "injectable": [
         "Router",
+        "FrontendService",
         "HttpKernel",
         "SessionsService"
       ]
@@ -3774,6 +4087,9 @@
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StagingCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
@@ -3800,6 +4116,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
@@ -3858,6 +4175,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
@@ -3910,6 +4228,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
@@ -3947,7 +4266,9 @@
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Nodefony.ts",
         "src/modules/test/index.ts",
+        "src/modules/test-frontend-react/index.ts",
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/redis/index.ts",
@@ -4145,7 +4466,9 @@
       ],
       "Module": [
         "src/modules/test/index.ts",
+        "src/modules/test-frontend-react/index.ts",
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/redis/index.ts",
@@ -4168,6 +4491,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
@@ -4195,6 +4519,7 @@
       "services": [
         "src/modules/test/index.ts",
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/redis/index.ts",
@@ -4247,7 +4572,19 @@
       ],
       "controllers": [
         "src/modules/test/index.ts",
+        "src/modules/test-frontend-react/index.ts",
         "src/packages/@nodefony/framework/index.ts"
+      ],
+      "FrontendService": [
+        "src/modules/test-frontend-react/index.ts",
+        "src/packages/@nodefony/frontend/index.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts"
+      ],
+      "PocController": [
+        "src/modules/test-frontend-react/index.ts"
       ],
       "Router": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4278,6 +4615,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -4307,7 +4645,8 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
-        "src/modules/test/nodefony/controller/WebSocketController.ts"
+        "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts"
       ],
       "controller": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4319,7 +4658,8 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
-        "src/modules/test/nodefony/controller/WebSocketController.ts"
+        "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts"
       ],
       "HttpCode": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4332,6 +4672,15 @@
       "Redirect": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts"
+      ],
+      "FrontendBuild": [
+        "src/packages/@nodefony/frontend/index.ts"
+      ],
+      "FrontendDev": [
+        "src/packages/@nodefony/frontend/index.ts"
+      ],
+      "FrontendStatus": [
+        "src/packages/@nodefony/frontend/index.ts"
       ],
       "SessionsService": [
         "src/packages/@nodefony/http/index.ts",
@@ -4357,6 +4706,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
@@ -4566,6 +4916,9 @@
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StagingCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
@@ -4730,6 +5083,9 @@
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StagingCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
@@ -4899,6 +5255,7 @@
         "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
@@ -4926,6 +5283,64 @@
       ],
       "ParamMeta": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "IFrontPreset": [
+        "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontBuilder.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/presets/react19-vite.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/presets/vanilla-vite.ts"
+      ],
+      "IResolvedFrontendEntry": [
+        "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontendService.ts",
+        "src/packages/@nodefony/frontend/nodefony/interfaces/IViteSupervisor.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
+      ],
+      "IViteSupervisorStatus": [
+        "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontendService.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
+      "IFrontendService": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "IFrontendModuleDeclaration": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "IViteSupervisor": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts"
+      ],
+      "ViteBuilder": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "ViteProcessSupervisor": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "TemplateHelper": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "FrontendNoEntriesError": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "FrontendConfig": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "FrontendPresetUnknownError": [
+        "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
+      ],
+      "ViteSupervisorState": [
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
+      "FrontendSupervisorStartError": [
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
+      "ViteConfigGenerator": [
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "NetworkInterface": [
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
@@ -5218,6 +5633,9 @@
       ],
       "VectorConnectionError": [
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+      ],
+      "IFrontBuilder": [
+        "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
       ],
       "FamilyType": [
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",

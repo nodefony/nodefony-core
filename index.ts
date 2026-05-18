@@ -20,6 +20,9 @@ import indexController from "./nodefony/controllers/indexController";
   "@nodefony/framework",
   "@nodefony/security",
   "@nodefony/test",
+  // POC `poc/frontend-child` — ordre important : frontend AVANT son consumer.
+  "@nodefony/frontend",
+  "@nodefony/test-frontend-react",
   //Test,
   //"@nodefony/redis",
 ])
