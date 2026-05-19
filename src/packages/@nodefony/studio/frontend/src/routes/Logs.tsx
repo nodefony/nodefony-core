@@ -25,6 +25,7 @@ import {
 } from "@tabler/icons-react";
 import { Pdu } from "nodefony";
 import { useConnection } from "../stores";
+import { ansiToReact } from "../utils/ansiToReact";
 
 const SEVERITIES = [
   "DEBUG",
@@ -291,7 +292,7 @@ export const Logs = observer(() => {
                       </Code>
                     )}
                     <Text size="xs" style={{ wordBreak: "break-word" }}>
-                      {msg}
+                      {ansiToReact(msg)}
                     </Text>
                   </Group>
                 );
