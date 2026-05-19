@@ -36,12 +36,18 @@ const prompt = (cmd: Command): PromptObject => {
   };
 };
 
+/**
+ * Commande CLI `nodefony pm2:*` — outils PM2 (status, logs, restart, etc.).
+ *
+ * @deprecated Phase 16 — la chaîne PM2 est retirée au profit du cloud-native.
+ * Pour gérer un process Node en prod : `kubectl`, `systemctl`, `docker ps`.
+ */
 class Pm2 extends Command {
   service?: pm2Service | null;
   constructor(cli: CliKernel) {
     super(
       "pm2",
-      "PM2 tools for manage nodefony process",
+      "[DEPRECATED] PM2 tools for manage nodefony process — removed in Phase 16",
       cli as CliKernel,
       options,
     );

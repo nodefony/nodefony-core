@@ -48,6 +48,14 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 - Priorité : APRÈS P12 (agents IA) + P13 (realtime) solides
 - Cluster : `PipeTransports` mediasoup pour pod-to-pod (bypass Redis/Kafka pour flux media binaires)
 
+### Phase 16 NOUVELLE — Cloud-native + retrait PM2 (décision 2026-05-20)
+- 🆕 Nodefony cible **1 process Node = 1 pod / container** (k8s, Docker, Nomad, Cloud Run, Fargate)
+- Scaling horizontal délégué à l'orchestrateur (HPA) — fini `exec_mode: "cluster"` PM2
+- Process supervision : k8s liveness/readiness probes, systemd, Docker restart-policy
+- `pm2Service` + commande `nodefony pm2:*` + `MODE_START === "PM2"` retirés
+- Mode `production` foreground par défaut + healthz endpoint + graceful SIGTERM
+- Voir mémoire `project_pm2_deprecation.md`
+
 ---
 
 ## Progression globale
@@ -87,7 +95,8 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | 🆕 **Kafka driver (P13.6)**          | 1       | 0      | 0     | 1      |
 | **Frontend Vite + 🆕 Core isomorphe (P14)** | 13 | 0      | 0     | 13     |
 | 🆕 **Mediasoup + SIP/Asterisk (P15)** | 8     | 0      | 0     | 8      |
-| **TOTAL**                            | **269** | **37** | **13**| **219**|
+| 🆕 **Cloud-native + retrait PM2 (P16)** | 5    | 0      | 0     | 5      |
+| **TOTAL**                            | **274** | **37** | **13**| **224**|
 
 ---
 
@@ -252,7 +261,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P14.3 | Preset `react19-vite`                                              | 1 ses.  | P14.2              | ✅ FAIT          | + preamble React Fast Refresh inline via TemplateHelper |
 | P14.4 | ~~`DevServerMiddleware integrate:true`~~ → **`ViteProcessSupervisor`** | 3 ses.  | P14.1              | ✅ FAIT (refonte) | Child process isolé (poc/frontend-child mergé). Résilience built-in : auto-restart, port retry, health check, idempotence, cleanup listeners |
 | P14.5 | `StaticMiddleware` build prod + manifest.json injection           | 1 ses.  | P14.4              | ⏳ À FAIRE       | `TemplateHelper.renderProdTags()` actuellement stub    |
-| P14.6 | Multi-module frontend (N modules cohabitent) + **détection master cluster PM2** | 1 ses.  | P14.4              | ✅ FAIT (multi-bundle) — 🟡 cluster TODO | **Multi-bundle FIX 2026-05-20** : `TemplateHelper` génère `/@fs/<absolute>` au lieu de `${baseUrl}/${entryFile}` + `ViteConfigGenerator.server.fs.allow` autorise chaque entry root + `process.cwd()`. Validé runtime avec 2 consumers (`test-frontend-react` + `studio`) : chacun charge son propre `main.tsx`. **TODO cluster** : `FrontendService.initialize()` doit skip le spawn Vite dans les worker non-master (sinon N workers × 1 Vite = N tentatives EADDRINUSE). Cf mémoire `project_frontend_cluster_pm2_todo`. |
+| P14.6 | Multi-module frontend (N modules cohabitent) | 1 ses.  | P14.4              | ✅ FAIT          | **Multi-bundle FIX 2026-05-20** : `TemplateHelper` génère `/@fs/<absolute>` au lieu de `${baseUrl}/${entryFile}` + `ViteConfigGenerator.server.fs.allow` autorise chaque entry root + `process.cwd()`. Validé runtime avec 2 consumers (`test-frontend-react` + `studio`) : chacun charge son propre `main.tsx`. **Sous-tâche cluster PM2 ABANDONNÉE** (décision 2026-05-20) : Nodefony cible cloud-native, PM2 deprecated → retrait Phase 16. Cf `project_pm2_deprecation`. |
 | P14.7 | Commands CLI `frontend:create/build/dev` + skill scaffold        | 1 ses.  | P14.2, P11.1       | 🟡 PARTIEL       | Commands existent mais bug CLI claude-ts (cf `project_cli_commands_broken_claude_ts`). **Skill `nodefony-create-frontend-react` ✅ disponible.** |
 | P14.8 | Tests intégration                                                 | 1 ses.  | P14.3              | ✅ FAIT          | 14 unit `ViteConfigGenerator` + 3 integration `ViteProcessSupervisor` real spawn (~6s) |
 | P14.9 | Presets optionnels Svelte 5 + Solid + **Angular** + Vue 3         | 2 ses.  | P14.3              | ⏳ À FAIRE       | Angular via `@analogjs/vite-plugin-angular`. Pattern preset = ajouter case dans `ViteConfigGenerator.toMjs()` |
@@ -306,6 +315,18 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P15.6 | Pipeline agent IA vocal : Asterisk → mediasoup PlainTransport → STT → LLM (P12) → TTS → réinjection PlainTransport → retour client | 4 ses. | P15.5, P12.2 | Killer feature 2026 — agents IA vocaux PSTN          |
 | P15.7 | Cluster K8s : `PipeTransports` mediasoup pour interconnexion pod-to-pod (bypass Redis/Kafka pour flux media binaires) | 3 ses. | P15.4, P13.5/6 | Routage media inter-pod direct UDP haut débit  |
 | P15.8 | Tests E2E pont SIP + agent IA vocal (Asterisk + mediasoup + LLM) | 3 ses. | P15.6              | Validation crash-test absolu de l'archi               |
+
+### 🆕 P16 — Cloud-native + retrait PM2 (décision 2026-05-20)
+
+> Voir mémoire `project_pm2_deprecation.md`. Nodefony cible 1-process-par-pod / container. PM2 (cluster mode + daemonisation) déprécié depuis Nodefony 10, retrait effectif en P16.
+
+| #     | Tâche                                                                                                  | Effort  | Dépendances        | Notes                                                                                                            |
+| ----- | ------------------------------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| P16.1 | Mode `production` foreground par défaut (`--no-daemon` devient l'implicite, `--daemon` opt-in legacy)  | 1 ses.  | —                  | Compat ascendante : `--daemon` conserve PM2 jusqu'à P16.4                                                        |
+| P16.2 | Healthz endpoint `/nodefony/healthz` (liveness) + `/nodefony/readyz` (readiness) sur `@nodefony/http`   | 1 ses.  | P16.1              | k8s probes natives                                                                                               |
+| P16.3 | Graceful shutdown SIGTERM (drain HTTP + WS + ORM) + déplacement éventuel hors PM2                      | 1 ses.  | P16.2              | k8s grace period default 30s                                                                                     |
+| P16.4 | Suppression `pm2Service`, `Pm2Command`, `nodefony/config/pm2/pm2.config.ts`, refs `MODE_START === PM2` | 1 ses.  | P16.1, P16.3       | Breaking : `nodefony pm2:*` retiré, `--daemon` retiré, `pm2` dep dropée                                          |
+| P16.5 | Dockerfile + manifests k8s exemples + doc `docs/deploy/`                                               | 2 ses.  | P16.4              | Templates pour utilisateurs                                                                                      |
 
 ### P10 — `@nodefony/studio` (admin web — successeur monitoring-bundle)
 

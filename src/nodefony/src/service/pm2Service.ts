@@ -21,6 +21,19 @@ const defaulOptions: StartOptions = {
   },
 };
 
+/**
+ * Service de daemonisation via PM2.
+ *
+ * @deprecated Phase 16 (Nodefony 11.x) — PM2 sera retiré au profit d'une
+ * approche cloud-native : le process Node tourne en foreground, le lifecycle
+ * (restart, health, logs) est délégué à l'orchestrateur (Kubernetes liveness/
+ * readiness, systemd, Docker restart-policy). Multi-core = N replicas, pas
+ * `exec_mode: "cluster"`. Voir mémoire `project_pm2_deprecation.md` et
+ * `CLAUDE.md` racine section "Décisions techniques".
+ *
+ * Le service reste fonctionnel pour les déploiements bare-metal/VPS existants
+ * jusqu'au retrait effectif.
+ */
 class Pm2 extends Service {
   pm2: typeof pm2 = pm2;
   constructor(kernel: Kernel, options?: StartOptions) {
@@ -37,7 +50,17 @@ class Pm2 extends Service {
     return pm2.disconnect();
   }
 
+  /**
+   * Démarre le projet courant en tant que daemon PM2.
+   *
+   * @deprecated Phase 16 — utiliser un orchestrateur (k8s, systemd, Docker)
+   * et lancer Nodefony en foreground (`nodefony production` sans daemon).
+   */
   async pm2Start(): Promise<void> {
+    this.log(
+      "PM2 daemonisation is deprecated since Nodefony 10 — use container orchestration (Kubernetes / systemd / Docker) and run nodefony in foreground. PM2 support will be removed in Phase 16. See CLAUDE.md.",
+      "WARNING",
+    );
     return new Promise(async (resolve, reject) => {
       try {
         if (!this.options.name) {

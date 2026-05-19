@@ -9,19 +9,28 @@ const options: OptionsCommandInterface = {
   kernelEvent: "onPostReady",
 };
 
+/**
+ * Commande `nodefony production` — démarre le serveur en environnement prod.
+ *
+ * **Mode actuel** : daemonise via PM2 par défaut, `--no-daemon` pour foreground.
+ *
+ * **Évolution Phase 16** : le default deviendra foreground (1 process Node = 1
+ * pod / container, géré par k8s / systemd / Docker). La branche PM2 sera
+ * supprimée. Voir `project_pm2_deprecation.md` + CLAUDE.md racine.
+ */
 class Prod extends Command {
   service?: pm2Service | null;
   constructor(cli: CliKernel) {
     super(
       "production",
-      "Start Server in Production Mode (PM2 process manager)",
+      "Start Server in Production Mode (foreground recommended ; PM2 daemonization deprecated, removed in Phase 16)",
       cli as CliKernel,
       options,
     );
     this.alias("prod");
     this.addOption(
       "--no-daemon",
-      "Nodefony Deamon off for production mode (usefull for docker)",
+      "Foreground mode — recommandé pour Docker / k8s / systemd. Deviendra le défaut en Phase 16.",
     );
     // this.addOption(
     //   "--no-dump",

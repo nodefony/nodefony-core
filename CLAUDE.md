@@ -4,6 +4,13 @@
 
 Agis en tant que Lead Architect du framework agentique Nodefony.
 
+# Instructions pour le mode Autonome
+
+- Ne travaille que sur un SEUL module à la fois.
+- Si une commande de test échoue plus de 3 fois d'affilée avec la même erreur, ARRÊTE-TOI et laisse une note dans `BUG_REPORT.md`.
+- Interdiction de modifier les fichiers en dehors du scope du module assigné.
+- Fais un commit Git local (`git commit -m "feat(auth): ..."`) dès qu'une sous-tâche est validée et passe les tests.
+
 ## 🚨 RÈGLE ABSOLUE — PERF & MÉMOIRE (PRIORITÉ MAX)
 
 **Nodefony est un framework runtime — chaque allocation, chaque listener, chaque appel système compte.**
@@ -299,6 +306,8 @@ Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 
 **Exports** : named exports uniquement — `import { Nodefony } from "nodefony"`. Pas de default export.
 
+**Process model en prod** : **cloud-native, pas PM2**. 1 process Node = 1 pod / container. Scaling horizontal géré par l'orchestrateur (k8s HPA, Docker Swarm, Nomad, Cloud Run, Fargate). Process supervision déléguée (k8s liveness/readiness, systemd, Docker restart-policy). Logs → stdout/stderr → collecteur centralisé. **PM2 est `@deprecated` depuis Nodefony 10**, retrait effectif en Phase 16. Voir mémoire `project_pm2_deprecation.md`. Le module `pm2Service` + commande `nodefony pm2:*` restent fonctionnels pour les déploiements bare-metal/VPS legacy.
+
 **Terminologie** (renommage JS → TS) :
 
 | Ancien (JS)                       | Nouveau (TS)                          | Note                      |
@@ -445,13 +454,13 @@ Deux niveaux de docs IA — **lire AVANT de toucher au code du module** :
 
 ### Modules applicatifs (packages + modules)
 
-| Module                | CLAUDE.md                                                                                  | MEMORY.md                                                                                  | Contenu                                            |
-| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| `@nodefony/http`      | [`src/packages/@nodefony/http/CLAUDE.md`](src/packages/@nodefony/http/CLAUDE.md)           | [`src/packages/@nodefony/http/MEMORY.md`](src/packages/@nodefony/http/MEMORY.md)           | Serveurs, Contextes, WS, pipeline, requestId       |
-| `@nodefony/framework` | [`src/packages/@nodefony/framework/CLAUDE.md`](src/packages/@nodefony/framework/CLAUDE.md) | [`src/packages/@nodefony/framework/MEMORY.md`](src/packages/@nodefony/framework/MEMORY.md) | Router, Controller, Resolver, décorateurs          |
-| `@nodefony/frontend`  | [`src/packages/@nodefony/frontend/CLAUDE.md`](src/packages/@nodefony/frontend/CLAUDE.md)   | [`src/packages/@nodefony/frontend/MEMORY.md`](src/packages/@nodefony/frontend/MEMORY.md)   | Vite builder, ViteSupervisor, FrontendService, HMR, multi-bundle |
-| `@nodefony/studio`    | ⚠️ à créer                                                                                  | ⚠️ à créer                                                                                  | Admin web Studio (P10), routes `/nodefony`, controller + frontend React 19 |
-| Module `test`         | [`src/modules/test/CLAUDE.md`](src/modules/test/CLAUDE.md)                                 | [`src/modules/test/MEMORY.md`](src/modules/test/MEMORY.md)                                 | Routes d'intégration HTTP+WS, controllers, statics |
+| Module                | CLAUDE.md                                                                                  | MEMORY.md                                                                                  | Contenu                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `@nodefony/http`      | [`src/packages/@nodefony/http/CLAUDE.md`](src/packages/@nodefony/http/CLAUDE.md)           | [`src/packages/@nodefony/http/MEMORY.md`](src/packages/@nodefony/http/MEMORY.md)           | Serveurs, Contextes, WS, pipeline, requestId                               |
+| `@nodefony/framework` | [`src/packages/@nodefony/framework/CLAUDE.md`](src/packages/@nodefony/framework/CLAUDE.md) | [`src/packages/@nodefony/framework/MEMORY.md`](src/packages/@nodefony/framework/MEMORY.md) | Router, Controller, Resolver, décorateurs                                  |
+| `@nodefony/frontend`  | [`src/packages/@nodefony/frontend/CLAUDE.md`](src/packages/@nodefony/frontend/CLAUDE.md)   | [`src/packages/@nodefony/frontend/MEMORY.md`](src/packages/@nodefony/frontend/MEMORY.md)   | Vite builder, ViteSupervisor, FrontendService, HMR, multi-bundle           |
+| `@nodefony/studio`    | ⚠️ à créer                                                                                 | ⚠️ à créer                                                                                 | Admin web Studio (P10), routes `/nodefony`, controller + frontend React 19 |
+| Module `test`         | [`src/modules/test/CLAUDE.md`](src/modules/test/CLAUDE.md)                                 | [`src/modules/test/MEMORY.md`](src/modules/test/MEMORY.md)                                 | Routes d'intégration HTTP+WS, controllers, statics                         |
 
 ### Core (`@nodefony/core` workspace `src/nodefony`)
 
@@ -506,7 +515,7 @@ Utiliser le skill **`start-nodefony-server`** (versionné dans `.claude/skills/s
 
 Le skill gère : kill ports 5151/5152, rebuild `src/modules/test`, spawn `detached` (évite SIGHUP), attente boot avec progression, health check, diagnostic crash. Détails complets (signaux d'alarme, parsing logs, symptômes 404, watch Rollup runtime piège) dans le `SKILL.md`.
 
-> Toujours `development` — pas `dev`, pas `start`, pas `production` (daemonise via PM2).
+> Toujours `development` — pas `dev`, pas `start`, pas `production` (mode prod daemonise via PM2 [DEPRECATED, retrait Phase 16] ou foreground avec `--no-daemon`).
 
 ### Erreurs critiques import nodefony
 

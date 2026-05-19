@@ -1,3 +1,15 @@
+/**
+ * Configuration PM2 historique de l'application.
+ *
+ * @deprecated Phase 16 (Nodefony 11.x) — PM2 sera retiré. Migration vers une
+ * approche cloud-native : 1 process Node = 1 pod / container, scaling
+ * horizontal via l'orchestrateur (k8s HPA, Docker Swarm, Nomad), pas via
+ * `exec_mode: "cluster"`. Voir CLAUDE.md racine + `project_pm2_deprecation`.
+ *
+ * Ce fichier reste fonctionnel pour les déploiements bare-metal/VPS existants
+ * jusqu'au retrait effectif. Pour un nouveau déploiement, préférer un
+ * `Dockerfile` + un manifest k8s + `nodefony production` lancé en foreground.
+ */
 import { cpus } from "os";
 import path from "path";
 import { StartOptions } from "pm2";
