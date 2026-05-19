@@ -147,14 +147,10 @@ class StudioController extends Controller {
   @route("studio-api-logs-stream", { path: "/api/logs/stream" })
   async apiLogsStream(): Promise<void> {
     const httpResp = this.context?.response as
-      | { response?: { setHeader: (k: string, v: string) => void; write: (s: string) => boolean; flushHeaders?: () => void } }
-      | undefined;
-    const httpReq = this.context?.request as
-      | { request?: { once: (e: string, fn: () => void) => void } }
+      | { response?: { setHeader: (k: string, v: string) => void; write: (s: string) => boolean; flushHeaders?: () => void; once: (e: string, fn: () => void) => void } }
       | undefined;
     const rawRes = httpResp?.response;
-    const rawReq = httpReq?.request;
-    if (!rawRes || !rawReq || !this.syslog) return;
+    if (!rawRes || !this.syslog) return;
 
     rawRes.setHeader("Content-Type", "text/event-stream");
     rawRes.setHeader("Cache-Control", "no-cache, no-transform");
@@ -170,9 +166,6 @@ class StudioController extends Controller {
       }
     };
     this.syslog.on("onLog", onLog);
-    // Log de heartbeat émis côté serveur — notre listener doit le capturer.
-    // Sert aussi de smoke test côté browser : tu dois voir une entrée
-    // "SSE handler connected" dans la page Logs dès la connexion.
     this.log("SSE handler connected", "INFO");
 
     const heartbeat = setInterval(() => {
@@ -183,16 +176,18 @@ class StudioController extends Controller {
       }
     }, 15000);
 
-    // Tenir la connexion ouverte jusqu'à fermeture client.
+    // En HTTP/2, `request.on("close")` fire dès la fin du stream REQUEST
+    // (client a fini d'envoyer ses headers, pas de body) — bien avant la
+    // fermeture du stream response. Écouter "close" sur la RESPONSE qui
+    // reste ouverte tant que SSE émet.
     await new Promise<void>((resolve) => {
       const cleanup = () => {
         clearInterval(heartbeat);
         this.syslog?.off?.("onLog", onLog);
         resolve();
       };
-      rawReq.once("close", cleanup);
-      rawReq.once("error", cleanup);
-      rawReq.once("aborted", cleanup);
+      rawRes.once("close", cleanup);
+      rawRes.once("error", cleanup);
     });
   }
 }
