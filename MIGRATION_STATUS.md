@@ -13,19 +13,27 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 ### Sécurité (P6)
 - ❌ **Passport.js ABANDONNÉ** totalement (incompatible TS strict + ALS, ère Express callbacks)
+- ❌ **Sessions HTTP RAM serveur ABANDONNÉES** (2026-05-20) — JWT cookie `HttpOnly;Secure;SameSite=Strict` only. Service `sessions` existant deprecated en P6, suppression P16
 - ✅ Cœur firewall 100% Nodefony pur ; vendors interchangeables au bout :
-  - Local/password → `BcryptEncoder` maison
-  - JWT → `jose` (TS-first moderne)
-  - OAuth/social → **`arctic`** (créateur de Lucia, type-safe, léger)
-- 🔁 **P6.5 renommée** : `PassportBridge` → **`AuthBridge`** générique
-- ➕ **Décorateurs sécurité panoplie** (nouvelle ligne P6.x) : `@IsGranted`, `@HasAnyRole`, `@HasAllRoles`, `@HasCurrentRole`, `@IsGranted({voter:...})` via `Reflect.metadata` + hook `beforeResolve` (P1.7)
+  - Local/password → `BcryptEncoder` maison (vit dans **@nodefony/user**, plus dans @nodefony/security)
+  - JWT → `jose` (TS-first moderne) + cookie `nodefony_at` (15min) + refresh `nodefony_rt` (7j, rotation OWASP)
+  - OAuth/social → **`arctic`** (créateur de Lucia, type-safe, léger) — 1 seul `OAuth2Authenticator` config-driven pour 50+ providers
+  - mTLS → 🆕 `MTlsAuthenticator` pour zones admin (Node `tls.createServer({requestCert:true})`)
+- 🔁 **P6.5 re-révisée 2026-05-20** : abandon complet du terme "Bridge" — pattern `IAuthenticator` + classes `*Authenticator` (Spring-like clean)
+- 🔁 **P6.9 re-révisée 2026-05-20** : 5 stratégies OAuth → 1 seul `OAuth2Authenticator` config-driven. LDAP retiré du core (→ plugin externe `@nodefony/auth-ldap` post-P6). -1.5 ses.
+- 🆕 **Config builder** : `defineSecurityConfig()` (style Vite) + validation **Zod** schema au boot (détection conflits patterns)
+- 🆕 **CSRF refacto** : SameSite + Origin check par défaut, décorateur `@CsrfProtect({ttl})` opt-in HMAC pour routes critiques
+- ➕ **Décorateurs sécurité panoplie étendue** : `@IsGranted`, `@HasAnyRole`, `@HasAllRoles`, `@HasCurrentRole`, `@CurrentUser()`, `@AuditLog()`, `@WafGuard()`, `@CsrfProtect()` via `Reflect.metadata` + hook `beforeResolve` (P1.7)
 - ➕ **3 niveaux d'autorisation P6.8** : (A) RoleHierarchy config, (B) RBAC modèle ORM, (C) Voters (`IAccessVoter`) contextuels
+- ➕ **Zero Trust par défaut** : route sans décorateur sécurité → 403 systématique
 
-### User/IUser (P5.5)
+### User/IUser (P5.5) — 🆕 module séparé @nodefony/user (2026-05-20)
+- 🆕 **`@nodefony/user` module workspace séparé** créé (révision 2026-05-20) — révise décision originale IUser-dans-security. Cf `project_nodefony_user_module.md`
 - ✅ 3 couches étanches : `IUser` (contrat strict) + `BaseUser` POJO + classes par ORM (`MikroOrmUser`, `MongooseUser`, schéma Drizzle isolé)
 - ✅ Champs anti-migration : `socialProviders[]` JSON (pas `googleId/githubId` en colonnes), `metadata: Record`, `currentRole` (session)
 - ✅ `IUserProvider` étendu : `loadUserByOAuth(provider, providerId)` + `refreshUser(user)`
 - ✅ Pattern **Shadow User** (ligne locale créée même pour login OAuth)
+- ➕ **BcryptEncoder + IPasswordEncoder + UserService** vivent désormais dans @nodefony/user (consommables par security, Studio, orm, agent, etc. sans tirer toute la security)
 
 ### ORM (P7)
 - ⭐ **Drizzle** = choix #1 SQL moderne
@@ -56,7 +64,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 - Process supervision : k8s liveness/readiness probes, systemd, Docker restart-policy
 - `pm2Service` + commande `nodefony pm2:*` + `MODE_START === "PM2"` retirés (P16.F)
 - Mode `production` foreground par défaut + healthz endpoint + graceful SIGTERM
-- **Démarrage du code attendu après P6 (couche security complète)** — fondation SecretProvider vit dans `@nodefony/security`
+- **Démarrage du code attendu après P6 (couche security complète)** — fondation SecretProvider vit dans `@nodefony/security`, IUser/UserService vivent dans **`@nodefony/user`** (révision 2026-05-20)
 - Voir mémoires `project_cloud_native_plan.md` + `project_pm2_deprecation.md` + sources `CLOUD-NATIVE.txt` / `SECURITY.txt`
 
 ---
@@ -74,10 +82,10 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | HTTP / WS                            | 6       | 0      | 0     | 6      |
 | Controller                           | 3       | 3      | 0     | 0      |
 | Session (refactor)                   | 8       | 1      | 2     | 5      |
-| **User module (NEW)**                | 12      | 0      | 0     | 12     |
+| **User module (NEW — séparé 2026-05-20)** | 13 | 0      | 0     | 13     |
 | **ORM Core (NEW)**                   | 11      | 0      | 0     | 11     |
 | ORM Drivers (Sequelize/Mongoose/**Drizzle**/**MikroORM**🆕) | 9 | 0      | 0     | 9      |
-| Security / Auth (+ décorateurs panoplie + Voters 3 niveaux) | 12 | 0      | 0     | 12     |
+| Security / Auth (+ décorateurs panoplie + Voters + Authenticators + defineSecurityConfig + Zod, refondé 2026-05-20) | 13 | 0 | 0 | 13 |
 | CLI                                  | 4       | 0      | 0     | 4      |
 | Monitoring                           | 3       | 0      | 0     | 3      |
 | Types / Interfaces                   | 6       | 5      | 0     | 1      |
@@ -99,7 +107,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **Frontend Vite + 🆕 Core isomorphe (P14)** | 13 | 0      | 0     | 13     |
 | 🆕 **Mediasoup + SIP/Asterisk (P15)** | 8     | 0      | 0     | 8      |
 | 🆕 **Cloud-native + retrait PM2 (P16 — 7 axes)** | 26 | 0   | 0     | 26     |
-| **TOTAL**                            | **295** | **37** | **13**| **245**|
+| **TOTAL**                            | **297** | **37** | **13**| **247**|
 
 ---
 
@@ -183,8 +191,9 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P5.2   | `OrmRegistry` + `EntityRegistry` + `Orm` base class                            | 7.3       | 1 ses.  | P5.1        | Singleton process-wide, multi-ORM support natif                             |
 | P5.3   | `@entity` + `@repository` decorators                                            | 7.3       | 1 ses.  | P5.2        | Métadonnées Reflect, auto-register au boot                                  |
 | P5.4   | Tests unit orm-core (registry, entity, decorators) + multi-orm integration test | 7.5       | 1 ses.  | P5.3        | **CRITIQUE** : prouve qu'on peut tourner 2 ORM en parallèle                 |
-| P5.5   | `@nodefony/user` — `IUser` (contrat strict) + `BaseUser` POJO + `IUserRepository` + `IUserProvider` (+ `loadUserByOAuth`, `refreshUser`) + `AnonymousUser` | 5.3 | 2 ses.  | P5.4        | **Champs anti-migration** : `socialProviders[]` JSON, `metadata: Record`, `currentRole` (session). Pattern Shadow User (ligne locale créée pour OAuth). ⚠️ Voir mémoire `project_decisions_p5_p6_orm.md` |
-| P5.6   | `@nodefony/user/service/user-service.ts` + events lifecycle                    | 5.3       | 1 ses.  | P5.5        | register/authenticate/disable/lock + events pour audit                      |
+| P5.5a  | 🆕 **Création workspace `@nodefony/user`** : `package.json`, `tsconfig.json`, `rollup.config.ts`, `README.md`, `CLAUDE.md`, `MEMORY.md`, `index.ts`, structure `nodefony/contracts/` + `nodefony/src/` + `nodefony/service/` | NEW 2026-05-20 | 1 ses. | P5.4 | Module séparé acté 2026-05-20 — révise décision originale. Cf `project_nodefony_user_module.md`. Setup workspace standard + types `dist/types/` + exports |
+| P5.5   | `@nodefony/user` contracts : `IUser` (contrat strict) + `BaseUser` POJO + `AnonymousUser` + `IUserRepository` + `IUserProvider` (+ `loadUserByOAuth`, `refreshUser`) + **`IPasswordEncoder`** | 5.3 | 2 ses.  | P5.5a       | **Champs anti-migration** : `socialProviders[]` JSON, `metadata: Record`, `currentRole` (session). Pattern Shadow User. ⚠️ Voir mémoires `project_decisions_p5_p6_orm.md` + `project_nodefony_user_module.md` |
+| P5.6   | `@nodefony/user/service/UserService.ts` (CRUD + `authenticate()`) + events lifecycle + **`BcryptEncoder`** (déplacé depuis P6.1) | 5.3 | 1 ses. | P5.5 | register/authenticate/disable/lock + events pour audit. BcryptEncoder vit dans @nodefony/user (révision 2026-05-20) — supplante l'ancienne place P6.1 |
 | P5.7   | Adapter Sequelize (User entity + repository)                                   | 5.3       | 1 ses.  | P5.5, P7.1  | Migration legacy `users-bundle/Entity/sequelize/`                           |
 | P5.8   | Adapter Mongoose (User entity + repository)                                    | 5.3       | 1 ses.  | P5.5, P7.2  | Migration legacy `users-bundle/Entity/mongoose/`                            |
 | P5.9   | Adapter Drizzle (User entity + repository) — **nouveau**                       | 5.3       | 1 ses.  | P5.5, P7.4  | Pas de référence JS, design from scratch                                    |
@@ -194,25 +203,32 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P5.13  | `OrmSessionStorage` générique (via orm-core)                                   | 5.2       | 1 ses.  | P5.11, P5.4 | Storage backed par n'importe quel ORM enregistré                            |
 | P5.14  | Tests intégration sessions cross-request + expiry + flash + invalidation       | 5.2       | 1 ses.  | P5.13       |                                                                              |
 
-### P6 — Security (Phase 6 / 9.6)
+### P6 — Security (Phase 6 / 9.6) — refondée 2026-05-20
 
-> **Bloc complet** : ne pas démarrer avant que P1.7 (hooks `Context`) + P1.4 (ALS) + P1.5 (errorRenderer) soient ✅ **ET** P5.5 (`IUser`/`IUserProvider`) soit ✅.
-> Sans User canonique, le Firewall recrée son propre type User → divergence garantie.
+> **Bloc complet** : ne pas démarrer avant que P1.7 (hooks `Context`) + P1.4 (ALS) + P1.5 (errorRenderer) soient ✅ **ET** **P5.5a + P5.5 + P5.6** (workspace `@nodefony/user` + IUser + UserService + BcryptEncoder) soient ✅. Sans User canonique, le Firewall recrée son propre type User → divergence garantie.
+>
+> **🆕 Décisions structurantes 2026-05-20** (cf mémoires `project_security_module_design.md`, `project_security_stateless_http_decision.md`) :
+> - HTTP **full stateless** — JWT cookie `HttpOnly; Secure; SameSite=Strict` + refresh token cookie séparé (rotation OWASP). Sessions HTTP RAM serveur **abandonnées** (`@deprecated` en P6, suppression effective P16)
+> - Pattern **`IAuthenticator` + classes `*Authenticator`** — abandon des termes "Bridge" et "Factory"
+> - **3 tokens core** (Anonymous, UserPassword, Jwt) + **2 étendus** (OAuth2 via arctic, MTls) — LDAP/OpenID/GitHub/Google séparés ABANDONNÉS du périmètre P6 (LDAP → plugin externe `@nodefony/auth-ldap` post-P6 ; Google/GitHub/etc. absorbés par `OAuth2Authenticator` config-driven via arctic)
+> - **CSRF** : SameSite + Origin check par défaut, décorateur `@CsrfProtect({ttl})` opt-in (HMAC double-submit) pour routes critiques
+> - Config : **`defineSecurityConfig()` builder** (style Vite) + validation **Zod** schema au boot
 
 | #      | Tâche                                                            | Source JS                                       | Effort  | Dépendances | Notes                                                          |
 | ------ | ---------------------------------------------------------------- | ----------------------------------------------- | ------- | ----------- | -------------------------------------------------------------- |
-| P6.1   | `AccessControl` + `BcryptEncoder`                                | `accessControl.js`, `bcryptEncoder.js`          | 1 ses.  | —           | Fondations sans dépendance                                     |
-| P6.2   | `cors.ts` service                                                 | `corsService.js` (182 L)                        | 1 ses.  | P1.7        | Plus simple, débloque API browser                              |
-| P6.3   | `firewall.ts` service + SecuredArea match                         | `firewallService.js` (694 L)                    | 3 ses.  | P1.7, P1.4, P1.5, **P5.5** | Gros morceau — découper (a) SecuredArea (b) factory selection (c) auth pipeline ; consomme `IUserProvider` |
-| P6.4   | `AnonymousProvider` + `AnonymousFactory` + `AnonymousToken`       | `anonymousProvider.js` + factories              | 1 ses.  | P6.3, **P5.5** | Utilise `AnonymousUser`                                        |
-| P6.5   | **`AuthBridge`** (générique, ex-PassportBridge) + factory `local` + token userpassword + `BcryptEncoder` | `passportFramework.js` (référence design uniquement, code à réécrire) | 2 ses. | P6.3, P6.4, **P5.6** | ⚠️ **Passport ABANDONNÉ** — code maison TS-first. 1ère stratégie réelle, utilise `user-service.authenticate()`. Voir mémoire `project_decisions_p5_p6_orm.md` |
-| P6.6   | Factory `jwt` (via `jose` lib moderne) + token JWT                | —                                               | 1 ses.  | P6.5        | `jose` plutôt que `jsonwebtoken` (TS-first)                    |
-| P6.7   | `csrf.ts` service                                                 | `csrfService.es6` (193 L)                       | 1 ses.  | P6.3        | Dépend firewall                                                |
-| P6.8   | `authorization.ts` — **3 niveaux** : (A) `roleHierarchy` config + `RoleHierarchyWalker` (B) modèle ORM `IRole`+`IPermission` (RBAC) (C) `IAccessVoter` interface (Voters contextuels) | `authorizationService.js`                       | 3 ses.  | P6.3, P6.1, P5.5 | ACL/rôles — consomme `user.hasRole()` de IUser. Voters = killer feature pour métier complexe |
-| P6.8b  | **Décorateurs sécurité panoplie** : `@IsGranted(role)`, `@HasAnyRole(...roles)`, `@HasAllRoles(...roles)`, `@HasCurrentRole(role)`, `@IsGranted(action, {subjectFromParam, voter})` | NOUVEAU (analyse 2026-05-16) | 1 ses. | P6.8, P1.7, P1.4 | `Reflect.metadata('security:requirements')` lue dans hook `beforeResolve`. ALS pour `user` type-safe |
-| P6.9   | Factories OAuth/OpenID/LDAP/Google/GitHub via **`arctic`** (5 stratégies) | NOUVEAU (référence : `arctic` lib) | 3 ses.  | P6.6        | Arctic (créateur de Lucia), TS-first, type-safe. Pas de `passport-google-strategy` |
-| P6.10  | Logs auth (audit S1-S5) + CSP/security headers (S6)               | —                                               | 1 ses.  | P3.1, P6.3  | Extension de 9.3 / 9.6                                         |
-| P6.11  | Tests intégration security complets (firewall-http/ws, cors, csrf, stack) | —                                       | 2 ses.  | P6.10       | `symbiose-stack.test.ts` couvre CORS→Firewall→ACL→CSRF→Ctrl   |
+| P6.1   | `AccessControl` (RBAC hierarchy walker)                          | `accessControl.js`                              | 0.5 ses.| —           | Fondation simple. ⚠️ `BcryptEncoder` déplacé en **P5.6** (@nodefony/user, révision 2026-05-20) |
+| P6.2   | `cors.ts` service                                                 | `corsService.js` (182 L)                        | 1 ses.  | P1.7        | Plus simple, débloque API browser. Whitelist stricte, jamais `*` avec Credentials |
+| P6.3   | `firewall.ts` service + `SecuredArea` match + **`defineSecurityConfig()` builder + Zod schema** | `firewallService.js` (694 L) | 3.5 ses. | P1.7, P1.4, P1.5, **P5.5** | Découper (a) `SecuredArea` (b) `defineSecurityConfig()` builder + validation Zod + détection conflits patterns au boot (c) auth pipeline. Consomme `IUserProvider` de @nodefony/user. **Origin/Referer check natif** pour CSRF defense |
+| P6.4   | **`AnonymousAuthenticator`** + `AnonymousToken`                  | `anonymousProvider.js` + factories              | 1 ses.  | P6.3, **P5.5** | Utilise `AnonymousUser` de @nodefony/user. Pattern `IAuthenticator` (pas Factory/Bridge) |
+| P6.5   | **`UserPasswordAuthenticator`** + `UserPasswordToken`             | `passportFramework.js` (référence design — code abandonné) | 1 ses. | P6.3, P6.4, **P5.6** | ⚠️ **Passport + Bridge ABANDONNÉS**. 1ère stratégie réelle, utilise `userService.authenticate()` (P5.6). Pattern `IAuthenticator`. **-1 ses. vs original** (plus de bridge à écrire) |
+| P6.6   | **`JwtAuthenticator`** + `JwtToken` (via `jose`) + **cookie JWT layer** (`nodefony_at` 15min + `nodefony_rt` 7j Path=/auth/refresh, rotation OWASP) | —                                               | 1.5 ses.| P6.5        | `jose` (RFC 7519 + RFC 7515, EdDSA/RS256). Endpoint `/auth/refresh` génère nouveau access token + rotation refresh token. Cf `project_security_stateless_http_decision.md` |
+| P6.7   | `csrf.ts` service — **defense par défaut SameSite + Origin check** (pas de token CSRF classique) + **décorateur `@CsrfProtect({ttl})` opt-in** (HMAC double-submit pour routes critiques) | `csrfService.es6` (193 L) | 1.5 ses. | P6.3        | Refacto majeur. Pattern OWASP CSRF Cheat Sheet 2024. Token CSRF classique abandonné par défaut. HMAC signé `requestId+userId+ttl` pour routes critiques opt-in |
+| P6.8   | `authorization.ts` — **3 niveaux** : (A) `roleHierarchy` config + `RoleHierarchyWalker` (B) modèle ORM `IRole`+`IPermission` (RBAC) (C) `IAccessVoter` interface (Voters contextuels) | `authorizationService.js` | 3 ses.  | P6.3, P6.1, P5.5 | ACL/rôles — consomme `user.hasRole()` de IUser (@nodefony/user). Voters = killer feature pour métier complexe |
+| P6.8b  | **Décorateurs sécurité panoplie** : `@IsGranted(role)`, `@HasAnyRole(...roles)`, `@HasAllRoles(...roles)`, `@HasCurrentRole(role)`, `@IsGranted(action, {subjectFromParam, voter})`, `@CurrentUser()`, `@AuditLog()`, `@WafGuard()`, `@CsrfProtect()` | NOUVEAU (analyse 2026-05-16, étendu 2026-05-20) | 1.5 ses. | P6.8, P1.7, P1.4 | `Reflect.metadata('security:requirements')` lue dans hook `beforeResolve`. ALS pour `user` type-safe. **Zero Trust par défaut** : route sans décorateur → 403 systématique |
+| P6.9   | **`OAuth2Authenticator`** + `OAuth2Token` config-driven via **`arctic`** (1 authenticator pour Google/GitHub/Microsoft/Apple/Discord/etc., 50+ providers) | NOUVEAU (arctic lib) | 1.5 ses. | P6.6        | Arctic (créateur de Lucia), TS-first. **-1.5 ses. vs original** (un seul Authenticator vs 5 stratégies). **LDAP/OpenID/GitHub/Google séparés ABANDONNÉS** (LDAP → plugin externe `@nodefony/auth-ldap` post-P6) |
+| P6.9b  | 🆕 **`MTlsAuthenticator`** + `MTlsToken` (mutual TLS cert client pour zone `admin`) | NEW 2026-05-20 | 1 ses. | P6.5 | Double-facteur infra+app. Configuration via Node `tls.createServer({ requestCert: true, ca: [...] })`. Pour zones `admin` critiques |
+| P6.10  | Logs auth (audit S1-S5) + **CSP stricte** `default-src 'self'` + nonces + security headers (HSTS, X-Content-Type-Options, X-Frame-Options) | — | 1 ses. | P3.1, P6.3 | Extension de 9.3 / 9.6 — OWASP A05:2021. Nonces CSP par requête. Aligné avec `project_csp_vite_security_todo.md` (API CSP origines dynamiques) |
+| P6.11  | Tests intégration security complets (firewall-http/ws, cors, csrf double-submit, oauth2, mtls, decorators, voters, stack symbiose) | — | 2.5 ses. | P6.10 | `symbiose-stack.test.ts` couvre CORS→Firewall→ACL→CSRF→Authenticator chain→Controller. Tests `@CsrfProtect` HMAC, JWT rotation, OAuth2 arctic, mTLS handshake |
 
 ### P7 — ORM Drivers (consomment orm-core de P5.1-P5.4)
 
@@ -442,18 +458,19 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **TOTAL**                                                 | **~229 sessions** |
 
 > Δ vs avant 2026-05-16 : +42.5 sessions (intégration analyse + realtime + mediasoup + Core isomorphe + MikroORM + décorateurs sécurité + Voters)
+> Δ révision 2026-05-20 : net ~0 (P6.5 -1 ses., P6.9 -1.5 ses., P5.5a +1 ses., P6.3 +0.5 ses., P6.7 +0.5 ses., P6.9b mTLS +1 ses., P6.11 tests +0.5 ses.) ; scope clarifié (LDAP→plugin, OAuth2 unifié arctic, sessions HTTP deprecated, defineSecurityConfig+Zod)
 
 ### Chemin critique (MVP framework prod-ready avec security)
 
 ```
 P0 (2.5) → P1.1-P1.7 (7.5) → P3.1+P3.4+P3.5 (2)            ← logs minimal
                             → P2.2-P2.5 (2.5)              ← context tear-down + abort
-                            → P5.1-P5.6 (7)                ← ORM core + IUser + User service
+                            → P5.1-P5.6 (8)                ← ORM core + workspace user (P5.5a) + IUser + UserService + BcryptEncoder
                             → P5.7 ou P5.8 (1)             ← UN adapter ORM
                             → P5.11-P5.12 (2)              ← session refactor + storage
                             → P7.1 ou P7.2 (2)             ← UN driver ORM complet
-                            → P6.1-P6.8 (11)               ← security minimal sans OAuth
-                                                           = ~37.5 sessions vers MVP prod
+                            → P6.1-P6.8b (10)              ← security minimal sans OAuth/mTLS (Authenticators + defineSecurityConfig + Voters)
+                                                           = ~37.5 sessions vers MVP prod (inchangé : -2 P6.5/9, +1 P5.5a, +0.5 P6.3, +0.5 P6.7)
 ```
 
 ### Chemin Studio (admin web — étape suivante MVP)
