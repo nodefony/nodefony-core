@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { IViteSupervisor } from "../../interfaces/IViteSupervisor";
 
 /**
@@ -35,9 +36,20 @@ export class TemplateHelper {
       return `<!-- @nodefony/frontend: unknown entry "${entryName}" -->`;
     }
     const baseUrl = `${status.https ? "https" : "http"}://${status.host}:${status.port}`;
-    // `entryFile` est déjà relatif au `root` Vite (ex: "src/main.tsx") —
-    // résolu côté FrontendService.registerEntry via `path.relative(root, absEntry)`.
-    const entryUrl = `${baseUrl}/${entry.entryFile.replace(/^\/+/, "")}`;
+    // Multi-bundle (P14.6) : URL via `/@fs/<absolute>` plutôt que relative au
+    // root Vite unique. Sans ça, deux consumers qui ont chacun `frontend/src/main.tsx`
+    // produisent la même URL `${baseUrl}/src/main.tsx` et Vite résout contre le
+    // root du PREMIER consumer pour les deux pages.
+    // Slash backslash → URL : normalise pour Windows (path.resolve renvoie OS-native).
+    const absEntryPath = path
+      .resolve(entry.root, entry.entryFile)
+      .replace(/\\/g, "/");
+    // absEntryPath commence par `/` sur Unix, par `C:/...` sur Windows.
+    // Vite accepte `/@fs/C:/...` sur Windows et `/@fs/abs/path` sur Unix.
+    const fsPath = absEntryPath.startsWith("/")
+      ? `/@fs${absEntryPath}`
+      : `/@fs/${absEntryPath}`;
+    const entryUrl = `${baseUrl}${fsPath}`;
     const tags: string[] = [];
     // Preamble React Fast Refresh — requis par @vitejs/plugin-react. Sans ça,
     // l'app crash au boot avec : "@vitejs/plugin-react can't detect preamble".

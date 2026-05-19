@@ -127,4 +127,40 @@ describe("ViteConfigGenerator — toMjs()", () => {
       gen.toMjs([{ ...baseEntry, type: "unknown" as any }], "development"),
     ).to.throw();
   });
+
+  // --- Multi-bundle fix (P14.6) -------------------------------------------
+
+  it("emits server.fs.allow with all entry roots + cwd", () => {
+    const out = gen.toMjs(
+      [
+        { ...baseEntry, root: "/abs/path/to/a/frontend" },
+        { ...baseEntry, entryName: "b", root: "/abs/path/to/b/frontend" },
+      ],
+      "development",
+    );
+    expect(out).to.include("fs: {");
+    expect(out).to.include("allow: [");
+    expect(out).to.include('"/abs/path/to/a/frontend"');
+    expect(out).to.include('"/abs/path/to/b/frontend"');
+    expect(out).to.include(JSON.stringify(process.cwd()));
+  });
+
+  it("déduplique les roots identiques dans fs.allow", () => {
+    const out = gen.toMjs(
+      [
+        baseEntry,
+        { ...baseEntry, entryName: "admin", entryFile: "src/admin.tsx" },
+      ],
+      "development",
+    );
+    const rootOccurrences = (out.match(/"\/abs\/path\/to\/frontend"/g) || []).length;
+    // 1× pour `root:`, 1× dans `fs.allow` → 2 max
+    expect(rootOccurrences).to.equal(2);
+  });
+
+  it("garde fs.allow présent même en production", () => {
+    const out = gen.toMjs([baseEntry], "production");
+    expect(out).to.include("fs: {");
+    expect(out).to.include("allow: [");
+  });
 });

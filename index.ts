@@ -22,10 +22,9 @@ import indexController from "./nodefony/controllers/indexController";
   "@nodefony/test",
   // POC `poc/frontend-child` — ordre important : frontend AVANT son consumer.
   "@nodefony/frontend",
-  // "@nodefony/test-frontend-react", // ⚠ bug multi-bundle @nodefony/frontend
-  //  : root Vite unique → 2 modules avec frontend/src/main.tsx collisionnent.
-  //  Ré-activer quand P14.6 sera fixé (path-per-entry dans TemplateHelper +
-  //  server.fs.allow Vite). Pour l'instant : 1 seul consumer à la fois.
+  // Multi-bundle fix P14.6 : URL via /@fs/<abs> + server.fs.allow → 2 consumers
+  // peuvent désormais cohabiter (chacun garde son main.tsx distinct).
+  "@nodefony/test-frontend-react",
   "@nodefony/studio",
   //Test,
   //"@nodefony/redis",

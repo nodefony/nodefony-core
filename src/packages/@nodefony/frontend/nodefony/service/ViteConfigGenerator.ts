@@ -92,6 +92,17 @@ export class ViteConfigGenerator {
     const root = entries[0]!.root;
     const outDir = entries[0]!.outDir;
 
+    // Multi-bundle fix (P14.6) : autorise `/@fs/<abs>` pour chaque entry root.
+    // Sans ça, deux consumers qui partagent la même structure (ex `frontend/src/main.tsx`)
+    // collisionnent sur le root Vite unique (= entries[0].root) et le browser
+    // charge le main.tsx du premier consumer pour TOUTES les pages.
+    // process.cwd() couvre le workspace root (node_modules hoistés inclus).
+    const fsAllowSet = new Set<string>([process.cwd()]);
+    for (const e of entries) fsAllowSet.add(e.root);
+    const fsAllowLines = Array.from(fsAllowSet)
+      .map((p) => `      ${JSON.stringify(p)},`)
+      .join("\n");
+
     const inputLines = Object.entries(input)
       .map(([name, file]) => `      ${JSON.stringify(name)}: ${JSON.stringify(file)},`)
       .join("\n");
@@ -130,18 +141,24 @@ export class ViteConfigGenerator {
       cert: fs.readFileSync(${JSON.stringify(opts.https!.certPath)}),
     },\n`
       : "";
+    const fsBlock = `    fs: {
+      allow: [
+${fsAllowLines}
+      ],
+    },
+`;
     const serverBlock = proxyPaths.size > 0
       ? `  server: {
     strictPort: ${strictPort},
     cors: true,
-${httpsLines}    proxy: {
+${httpsLines}${fsBlock}    proxy: {
 ${proxyLines}
     },
   },`
       : `  server: {
     strictPort: ${strictPort},
     cors: true,
-${httpsLines}  },`;
+${httpsLines}${fsBlock}  },`;
 
     // `base` est inclus seulement si l'origin Vite est fournie en dev. En prod,
     // Vite préfixe avec le `base` standard "/" (assets relatifs).
