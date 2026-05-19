@@ -48,13 +48,16 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 - Priorité : APRÈS P12 (agents IA) + P13 (realtime) solides
 - Cluster : `PipeTransports` mediasoup pour pod-to-pod (bypass Redis/Kafka pour flux media binaires)
 
-### Phase 16 NOUVELLE — Cloud-native + retrait PM2 (décision 2026-05-20)
+### Phase 16 NOUVELLE — Cloud-Native (plan figé 2026-05-20, code différé après P6)
 - 🆕 Nodefony cible **1 process Node = 1 pod / container** (k8s, Docker, Nomad, Cloud Run, Fargate)
+- Plan **7 axes / 26 sous-tâches** (16.A Kernel & Lifecycle, 16.B HTTP, 16.C Secrets, 16.D Docker, 16.E Skills, 16.F PM2 cleanup, 16.G Docs DevOps)
+- **Décisions figées** : healthz/readyz dans `@nodefony/http`, trusted proxies parser http + whitelist security, **SecretProvider dans `@nodefony/security`** (contrat figé `get/getRequired/getAs<T>`), docker-compose progressif minimal, tini PID 1
 - Scaling horizontal délégué à l'orchestrateur (HPA) — fini `exec_mode: "cluster"` PM2
 - Process supervision : k8s liveness/readiness probes, systemd, Docker restart-policy
-- `pm2Service` + commande `nodefony pm2:*` + `MODE_START === "PM2"` retirés
+- `pm2Service` + commande `nodefony pm2:*` + `MODE_START === "PM2"` retirés (P16.F)
 - Mode `production` foreground par défaut + healthz endpoint + graceful SIGTERM
-- Voir mémoire `project_pm2_deprecation.md`
+- **Démarrage du code attendu après P6 (couche security complète)** — fondation SecretProvider vit dans `@nodefony/security`
+- Voir mémoires `project_cloud_native_plan.md` + `project_pm2_deprecation.md` + sources `CLOUD-NATIVE.txt` / `SECURITY.txt`
 
 ---
 
@@ -95,8 +98,8 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | 🆕 **Kafka driver (P13.6)**          | 1       | 0      | 0     | 1      |
 | **Frontend Vite + 🆕 Core isomorphe (P14)** | 13 | 0      | 0     | 13     |
 | 🆕 **Mediasoup + SIP/Asterisk (P15)** | 8     | 0      | 0     | 8      |
-| 🆕 **Cloud-native + retrait PM2 (P16)** | 5    | 0      | 0     | 5      |
-| **TOTAL**                            | **274** | **37** | **13**| **224**|
+| 🆕 **Cloud-native + retrait PM2 (P16 — 7 axes)** | 26 | 0   | 0     | 26     |
+| **TOTAL**                            | **295** | **37** | **13**| **245**|
 
 ---
 
@@ -316,17 +319,77 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P15.7 | Cluster K8s : `PipeTransports` mediasoup pour interconnexion pod-to-pod (bypass Redis/Kafka pour flux media binaires) | 3 ses. | P15.4, P13.5/6 | Routage media inter-pod direct UDP haut débit  |
 | P15.8 | Tests E2E pont SIP + agent IA vocal (Asterisk + mediasoup + LLM) | 3 ses. | P15.6              | Validation crash-test absolu de l'archi               |
 
-### 🆕 P16 — Cloud-native + retrait PM2 (décision 2026-05-20)
+### 🆕 P16 — Cloud-Native (plan figé 2026-05-20, code différé après P6 security)
 
-> Voir mémoire `project_pm2_deprecation.md`. Nodefony cible 1-process-par-pod / container. PM2 (cluster mode + daemonisation) déprécié depuis Nodefony 10, retrait effectif en P16.
+> Voir mémoires `project_cloud_native_plan.md` (plan détaillé) + `project_pm2_deprecation.md`. Sources de réflexion : `CLOUD-NATIVE.txt` + `SECURITY.txt` (section SecretProvider). Nodefony cible 1-process-par-pod / container. Plan en **7 axes, 26 sous-tâches**. **Démarrage du code attendu après P6 (couche security complète)** — la fondation SecretProvider vit dans `@nodefony/security`, donc nécessite que P6 soit en cours.
 
-| #     | Tâche                                                                                                  | Effort  | Dépendances        | Notes                                                                                                            |
-| ----- | ------------------------------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| P16.1 | Mode `production` foreground par défaut (`--no-daemon` devient l'implicite, `--daemon` opt-in legacy)  | 1 ses.  | —                  | Compat ascendante : `--daemon` conserve PM2 jusqu'à P16.4                                                        |
-| P16.2 | Healthz endpoint `/nodefony/healthz` (liveness) + `/nodefony/readyz` (readiness) sur `@nodefony/http`   | 1 ses.  | P16.1              | k8s probes natives                                                                                               |
-| P16.3 | Graceful shutdown SIGTERM (drain HTTP + WS + ORM) + déplacement éventuel hors PM2                      | 1 ses.  | P16.2              | k8s grace period default 30s                                                                                     |
-| P16.4 | Suppression `pm2Service`, `Pm2Command`, `nodefony/config/pm2/pm2.config.ts`, refs `MODE_START === PM2` | 1 ses.  | P16.1, P16.3       | Breaking : `nodefony pm2:*` retiré, `--daemon` retiré, `pm2` dep dropée                                          |
-| P16.5 | Dockerfile + manifests k8s exemples + doc `docs/deploy/`                                               | 2 ses.  | P16.4              | Templates pour utilisateurs                                                                                      |
+#### Décisions clés figées
+- **healthz/readyz** → `@nodefony/http` (paths configurables, registre `IHealthCheck`)
+- **Trusted proxies** → parser http + whitelist côté `@nodefony/security` (Symfony-like)
+- **SecretProvider** → dans `@nodefony/security` (PAS core), absorbe la responsabilité config env-typed, contrat `ISecretProvider` (get / getRequired / getAs<T>) repris mot pour mot de SECURITY.txt
+- **docker-compose** → progressif minimal (`nodefony-core` + `postgres` au début, profils pour le reste)
+- **PID 1** → tini dans Dockerfile alpine
+
+#### 16.A — Kernel & Lifecycle (~4 ses.)
+| #       | Tâche                                                                                                | Effort | Dépendances | Notes                                                              |
+| ------- | ---------------------------------------------------------------------------------------------------- | ------ | ----------- | ------------------------------------------------------------------ |
+| P16.A.1 | Graceful shutdown SIGTERM (drain HTTP + WS + ORM, timeout configurable)                              | 1 ses. | —           | k8s grace period default 30s                                       |
+| P16.A.2 | Événements DevOps nommés : `onPreShutdown`, `onDrain`, `onReady` (étend events kernel existants)     | 1 ses. | P16.A.1     | Vérifier patterns `EVENT KERNEL` actuels avant de nommer           |
+| P16.A.3 | Bootstrap order : SecretProvider instancié AVANT DI complet (hook ultra-tôt dans `Kernel.boot()`)    | 1 ses. | P16.C.1     | Tous les autres services lisent leurs secrets via lui              |
+| P16.A.4 | PID 1 awareness : warning au boot si `process.pid === 1` sans tini détecté                           | 0.5 ses. | —         | Évite les signals mal transmis en Docker sans init system          |
+
+#### 16.B — HTTP cloud-native (~3 ses.)
+| #       | Tâche                                                                                                | Effort | Dépendances | Notes                                                              |
+| ------- | ---------------------------------------------------------------------------------------------------- | ------ | ----------- | ------------------------------------------------------------------ |
+| P16.B.1 | Routes `/nodefony/healthz` + `/nodefony/readyz` dans `@nodefony/http`, paths configurables, registre `IHealthCheck` | 1 ses. | — | Chaque module enregistre son health pour readyz                    |
+| P16.B.2 | Parser http lit `X-Forwarded-For`/`X-Forwarded-Proto`, expose `context.clientIp` + `context.scheme`  | 1 ses. | —           | Symfony-like : mécanique dans http                                 |
+| P16.B.3 | Whitelist IPs proxy configurée côté `@nodefony/security`, consommée par http via DI                  | 1 ses. | P16.B.2, P6 | Politique côté security ; http reste agnostique                    |
+
+#### 16.C — Secrets (~4 ses.) — fondation cloud-native
+| #       | Tâche                                                                                                | Effort | Dépendances | Notes                                                              |
+| ------- | ---------------------------------------------------------------------------------------------------- | ------ | ----------- | ------------------------------------------------------------------ |
+| P16.C.1 | `ISecretProvider` interface + `EnvSecretProvider` dans `@nodefony/security/{contracts,providers}/`   | 1 ses. | P6 démarré  | Contrat figé : `get / getRequired / getAs<T>` (cf SECURITY.txt)    |
+| P16.C.2 | `SecretManager` service injectable (résout le provider via config, `Container.get("secret-manager")`) | 1 ses. | P16.C.1     | Provider sélectionné via env `VAULT_ADDR` etc.                     |
+| P16.C.3 | Hook Kernel pour initialiser SecretManager AVANT DI complet                                          | 1 ses. | P16.C.2     | Modifie boot order — voir `Kernel.boot()`                          |
+| P16.C.4 | Migration progressive des secrets en dur → `secretManager.getRequired("KEY")` (pg/redis/mongo/JWT)   | 1 ses. | P16.C.3     | Au fur et à mesure, pas en bigbang                                 |
+
+#### 16.D — Infra Docker (~5 ses.)
+| #       | Tâche                                                                                                | Effort | Dépendances | Notes                                                              |
+| ------- | ---------------------------------------------------------------------------------------------------- | ------ | ----------- | ------------------------------------------------------------------ |
+| P16.D.1 | `Dockerfile.dev` (alpine + tini + bind mount HMR-friendly)                                           | 1 ses. | —           | Watcher Rollup + Vite dev doivent fonctionner                      |
+| P16.D.2 | `Dockerfile` multi-stage prod (build + run distroless OU alpine slim + tini)                         | 1 ses. | P16.A.1     | Foreground mode, `tini` PID 1                                      |
+| P16.D.3 | `docker-compose.yml` minimal (`nodefony-core` + `postgres` au début)                                 | 1 ses. | P16.D.1     | Pas tout d'un coup                                                 |
+| P16.D.4 | Profils Compose : `--profile mongo`, `--profile redis`, `--profile keycloak`, `--profile opensearch` | 1 ses. | P16.D.3     | Activation progressive selon tests modules                         |
+| P16.D.5 | Réseau bridge custom + alias DNS internes (`postgres`/`mongodb`/`redis`/`keycloak`/`opensearch`)     | 1 ses. | P16.D.3     | Jamais `localhost`/`127.0.0.1` dans les configs                    |
+
+#### 16.E — Skills & Tooling Claude (~3 ses.)
+| #       | Tâche                                                                                                | Effort | Dépendances | Notes                                                              |
+| ------- | ---------------------------------------------------------------------------------------------------- | ------ | ----------- | ------------------------------------------------------------------ |
+| P16.E.1 | Skill `docker-debug` (wrap MCP Docker Toolkit : logs, exec, restart, healthcheck)                    | 1 ses. | P16.D.3     | Permet à Claude de self-debug en environnement conteneurisé        |
+| P16.E.2 | Skill `infra-up` (`docker compose up -d` ciblé + wait-healthy patterns)                              | 1 ses. | P16.D.4     | Démarrage progressif des profils                                   |
+| P16.E.3 | Update skill `start-nodefony-server` : détection mode conteneurisé (override si `.docker` présent)   | 1 ses. | P16.E.1     | Aujourd'hui assume spawn local                                     |
+
+#### 16.F — Cleanup PM2 (~3 ses., absorbe l'ancien P16.4)
+| #       | Tâche                                                                                                | Effort | Dépendances | Notes                                                              |
+| ------- | ---------------------------------------------------------------------------------------------------- | ------ | ----------- | ------------------------------------------------------------------ |
+| P16.F.1 | Suppression `pm2Service`, `Pm2Command`, `pm2.config.ts`, refs `MODE_START === "PM2"` partout          | 1 ses. | P16.A.1, P16.D.2 | Breaking : `nodefony pm2:*` retiré, `--daemon` retiré         |
+| P16.F.2 | Dep `pm2` retirée du `package.json` (+ `@types/pm2`)                                                  | 0.5 ses. | P16.F.1   | Bundle size                                                        |
+| P16.F.3 | Doc migration utilisateurs (PM2 → systemd unit / docker compose simple / k8s deployment)              | 1 ses. | P16.F.1     | Évite de casser les users existants                                |
+
+#### 16.G — Docs DevOps (~4 ses.)
+| #       | Tâche                                                                                                | Effort | Dépendances | Notes                                                              |
+| ------- | ---------------------------------------------------------------------------------------------------- | ------ | ----------- | ------------------------------------------------------------------ |
+| P16.G.1 | `docs/devOps/env-vars.md` (catalogue env vars + type + obligatoire ?)                                | 1 ses. | P16.C.4     | Vérité unique pour les opérateurs                                  |
+| P16.G.2 | `docs/devOps/health-endpoints.md` (comportement `/healthz` vs `/readyz`, codes HTTP, IHealthCheck)   | 1 ses. | P16.B.1     |                                                                    |
+| P16.G.3 | `docs/devOps/quickstart-docker.md`                                                                   | 1 ses. | P16.D.4     | Démarrage local pas-à-pas                                          |
+| P16.G.4 | `docs/devOps/quickstart-k8s.md` (manifests deployment/service/ingress + probes exemples)             | 1 ses. | P16.D.2, P16.B.1 | Manifests prêts à copier-coller                               |
+
+#### Non-objectifs Phase 16 (Phase 17+ ou hors scope)
+- Vault / AWS SM / GCP SM adapters concrets (seule l'interface est en P16)
+- mTLS interne (Zero Trust local) — intégré à P6 ou Phase 17+
+- Service Mesh (Istio, Linkerd) — hors scope framework
+- Helm chart officiel — post-1.0
+- WAF integration côté framework (cf SECURITY.txt) — décision en session security
 
 ### P10 — `@nodefony/studio` (admin web — successeur monitoring-bundle)
 
