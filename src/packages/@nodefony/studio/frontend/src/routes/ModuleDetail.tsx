@@ -18,7 +18,9 @@ import {
   Loader,
   Modal,
   NavLink,
+  Progress,
   rem,
+  RingProgress,
   ScrollArea,
   Stack,
   Table,
@@ -44,6 +46,7 @@ import {
   IconCode,
   IconFileText,
   IconMaximize,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 
@@ -90,6 +93,19 @@ interface ModuleSymbol {
   implements: string[];
   decorators: string[];
 }
+interface CoverageFileRow {
+  file: string;
+  lines: number;
+  statements: number;
+  functions: number;
+  branches: number;
+}
+interface CoverageReport {
+  available: boolean;
+  generated?: string | null;
+  total?: { lines: number; statements: number; functions: number; branches: number };
+  files?: CoverageFileRow[];
+}
 
 const METHOD_COLORS: Record<string, string> = {
   GET: "teal",
@@ -128,6 +144,7 @@ export const ModuleDetail = observer(() => {
   const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [docs, setDocs] = useState<DocSummary[]>([]);
   const [symbols, setSymbols] = useState<ModuleSymbol[]>([]);
+  const [coverage, setCoverage] = useState<CoverageReport>({ available: false });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -154,13 +171,19 @@ export const ModuleDetail = observer(() => {
         )
         .then((r) => r.symbols ?? [])
         .catch(() => [] as ModuleSymbol[]),
+      store.api
+        .getAbsolute<CoverageReport>(
+          `/nodefony/kernel/api/module/${encodeURIComponent(name)}/coverage`,
+        )
+        .catch(() => ({ available: false }) as CoverageReport),
     ])
-      .then(([d, allRoutes, docList, symList]) => {
+      .then(([d, allRoutes, docList, symList, cov]) => {
         if (cancelled) return;
         setData(d);
         setRoutes(allRoutes.filter((r) => r.module === name));
         setDocs(docList);
         setSymbols(symList);
+        setCoverage(cov);
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -201,6 +224,7 @@ export const ModuleDetail = observer(() => {
 
   const hasDocs = docs.length > 0;
   const hasApi = symbols.length > 0;
+  const hasCoverage = coverage.available === true;
   const hasDeps = data.dependencies.length > 0;
   const hasRoutes = routes.length > 0;
   const hasServices = data.services.length > 0;
@@ -252,6 +276,19 @@ export const ModuleDetail = observer(() => {
             {hasApi && (
               <Tabs.Tab value="api" leftSection={<IconCode size={16} />} rightSection={<CountBadge n={symbols.length} />}>
                 API
+              </Tabs.Tab>
+            )}
+            {hasCoverage && (
+              <Tabs.Tab
+                value="coverage"
+                leftSection={<IconShieldCheck size={16} />}
+                rightSection={
+                  <Badge size="xs" variant="light" color={covColor(coverage.total?.lines ?? 0)}>
+                    {Math.round(coverage.total?.lines ?? 0)}%
+                  </Badge>
+                }
+              >
+                Coverage
               </Tabs.Tab>
             )}
             {hasDeps && (
@@ -308,6 +345,12 @@ export const ModuleDetail = observer(() => {
             {hasApi && (
               <Tabs.Panel value="api">
                 <ApiPanel symbols={symbols} />
+              </Tabs.Panel>
+            )}
+
+            {hasCoverage && (
+              <Tabs.Panel value="coverage">
+                <CoveragePanel report={coverage} />
               </Tabs.Panel>
             )}
 
@@ -676,6 +719,83 @@ function ApiPanel({ symbols }: { symbols: ModuleSymbol[] }) {
         </Table.Tbody>
       </Table>
     </Table.ScrollContainer>
+  );
+}
+
+/** Seuil couleur couverture : ≥80 teal, ≥50 jaune, sinon rouge. */
+function covColor(pct: number): string {
+  if (pct >= 80) return "teal";
+  if (pct >= 50) return "yellow";
+  return "red";
+}
+
+/**
+ * CoveragePanel — affiche le dernier rapport de couverture (vitest+v8,
+ * json-summary servi par `/nodefony/kernel/api/module/{key}/coverage`).
+ * Studio AFFICHE le rapport, il ne lance pas les tests.
+ */
+function CoveragePanel({ report }: { report: CoverageReport }) {
+  const t = report.total;
+  const files = report.files ?? [];
+  const ring = (pct: number, label: string) => (
+    <Stack gap={4} align="center">
+      <RingProgress
+        size={92}
+        thickness={8}
+        roundCaps
+        sections={[{ value: pct, color: covColor(pct) }]}
+        label={<Text ta="center" fw={700} size="sm">{Math.round(pct)}%</Text>}
+      />
+      <Text size="xs" c="dimmed">{label}</Text>
+    </Stack>
+  );
+  return (
+    <Stack gap="md">
+      <Group gap="xl" wrap="wrap" align="flex-start">
+        {ring(t?.lines ?? 0, "Lines")}
+        {ring(t?.statements ?? 0, "Statements")}
+        {ring(t?.functions ?? 0, "Functions")}
+        {ring(t?.branches ?? 0, "Branches")}
+        {report.generated && (
+          <Tooltip label="Date du dernier rapport (npm run coverage)">
+            <Text size="xs" c="dimmed" mt="md">
+              généré {dayjs(report.generated).format("YYYY-MM-DD HH:mm")}
+            </Text>
+          </Tooltip>
+        )}
+      </Group>
+      <Text size="xs" c="dimmed">
+        Couverture des tests <b>unit</b> (vitest + @vitest/coverage-v8). L'intégration
+        tape un serveur séparé → non mesurée ici.
+      </Text>
+      <Table.ScrollContainer minWidth={560}>
+        <Table striped highlightOnHover withRowBorders={false}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Fichier</Table.Th>
+              <Table.Th w={190}>Lines</Table.Th>
+              <Table.Th w={80}>Funcs</Table.Th>
+              <Table.Th w={90}>Branches</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {files.map((f) => (
+              <Table.Tr key={f.file}>
+                <Table.Td><Code>{f.file}</Code></Table.Td>
+                <Table.Td>
+                  <Group gap="xs" wrap="nowrap">
+                    <Progress value={f.lines} color={covColor(f.lines)} w={110} size="sm" />
+                    <Text size="xs" w={34} ta="right">{Math.round(f.lines)}%</Text>
+                  </Group>
+                </Table.Td>
+                <Table.Td><Text size="xs" c={covColor(f.functions)}>{Math.round(f.functions)}%</Text></Table.Td>
+                <Table.Td><Text size="xs" c={covColor(f.branches)}>{Math.round(f.branches)}%</Text></Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+    </Stack>
   );
 }
 

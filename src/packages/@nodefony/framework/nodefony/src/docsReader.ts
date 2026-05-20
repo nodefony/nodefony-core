@@ -308,6 +308,78 @@ export function resolveCorePath(): string {
   return devPath;
 }
 
+/** Couverture d'un fichier (pourcentages, format json-summary istanbul/v8). */
+export interface CoverageFile {
+  file: string;
+  lines: number;
+  statements: number;
+  functions: number;
+  branches: number;
+}
+
+/** Rapport de couverture d'un module pour Studio (onglet Coverage). */
+export interface CoverageReport {
+  available: boolean;
+  generated?: string | null;
+  total?: { lines: number; statements: number; functions: number; branches: number };
+  files?: CoverageFile[];
+}
+
+/**
+ * Lit le dernier rapport de couverture d'un module —
+ * `<modulePath>/.coverage/coverage-summary.json` (généré par
+ * `npm run coverage`, vitest + @vitest/coverage-v8, format json-summary).
+ *
+ * Studio AFFICHE ce rapport (il ne lance pas les tests). `available:false` si
+ * aucun rapport n'a été généré.
+ */
+export async function readCoverage(modulePath: string): Promise<CoverageReport> {
+  const file = join(modulePath, ".coverage", "coverage-summary.json");
+  let json: Record<string, unknown>;
+  try {
+    json = JSON.parse(await readFile(file, "utf8"));
+  } catch {
+    return { available: false };
+  }
+  const total = json.total as Record<string, { pct?: number }> | undefined;
+  if (!total) return { available: false };
+  const pct = (m: { pct?: number } | undefined) =>
+    typeof m?.pct === "number" ? m.pct : 0;
+  const files: CoverageFile[] = [];
+  for (const [abs, v] of Object.entries(json)) {
+    if (abs === "total") continue;
+    const m = v as Record<string, { pct?: number }>;
+    const rel = abs.startsWith(modulePath)
+      ? abs.slice(modulePath.length).replace(/^\/+/, "")
+      : abs;
+    files.push({
+      file: rel,
+      lines: pct(m.lines),
+      statements: pct(m.statements),
+      functions: pct(m.functions),
+      branches: pct(m.branches),
+    });
+  }
+  files.sort((a, b) => a.file.localeCompare(b.file));
+  let generated: string | null = null;
+  try {
+    generated = (await stat(file)).mtime.toISOString();
+  } catch {
+    /* mtime indispo */
+  }
+  return {
+    available: true,
+    generated,
+    total: {
+      lines: pct(total.lines),
+      statements: pct(total.statements),
+      functions: pct(total.functions),
+      branches: pct(total.branches),
+    },
+    files,
+  };
+}
+
 /** Descripteur du pseudo-module `core` pour la carte/détail Studio. */
 export interface CoreInfo {
   path: string;

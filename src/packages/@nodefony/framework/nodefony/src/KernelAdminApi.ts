@@ -3,6 +3,7 @@ import {
   listModuleDocs,
   readModuleDoc,
   listModuleSymbols,
+  readCoverage,
   resolveCorePath,
   readCoreInfo,
   CORE_PACKAGE,
@@ -229,6 +230,20 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           package: target.pkg,
           symbols: await listModuleSymbols(target.pkg),
         };
+      },
+    },
+    {
+      // Dernier rapport de couverture (vitest+v8, json-summary). Studio AFFICHE,
+      // ne lance pas les tests. `available:false` si pas encore généré.
+      path: "module/{name}/coverage",
+      summary: "Latest test coverage report (vitest json-summary)",
+      handler: async (request) => {
+        const key = request.params.name;
+        const target = resolveTarget(key);
+        if (!target) {
+          return { status: 404, body: { error: "Module not found", key } };
+        }
+        return { key, ...(await readCoverage(target.path)) };
       },
     },
   ];
