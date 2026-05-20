@@ -1,6 +1,6 @@
 ---
 name: migration-audit
-description: Audit interactif phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, et corrige les écarts. Le user valide chaque phase ("suivante") puis décide des corrections. Mots-clés déclencheurs : "audit migration", "état des lieux migration", "où en est la migration", "vérifier MIGRATION_STATUS", "revue phase par phase", "le fichier migration a des erreurs", "mets à jour le migration", "état de la migration".
+description: Audit interactif phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, et corrige les écarts. Inclut un mode "synthèse graphique" (barres de progression par phase) pour la compréhension globale à la demande. Le user valide chaque phase ("suivante") puis décide des corrections. Mots-clés déclencheurs : "audit migration", "état des lieux migration", "où en est la migration", "résumé migration", "avancement migration", "vérifier MIGRATION_STATUS", "revue phase par phase", "le fichier migration a des erreurs", "mets à jour le migration", "état de la migration".
 ---
 
 # migration-audit
@@ -47,6 +47,31 @@ Pour chaque phase, dans cet ordre :
 4. Noter l'écart dans la mémoire d'avancement.
 
 > Garder ≤ ~12 lignes de tableau par phase. Le but est la **compréhension**, pas l'exhaustivité brute.
+
+### Mode « synthèse graphique » (à la demande — « résumé migration », « avancement migration »)
+
+Sortie compacte pour **compréhension globale en 5 secondes**, sans revue phase-par-phase. Trié par % d'avancement décroissant, barres de progression ASCII.
+
+**Formule** : `% = (✅ + 0,5 × 🔶) / tâches`. Barre 10 segments : `n = round(% / 10)` blocs `█`, reste `░`.
+
+Gabarit :
+
+```
+ÉTAT MIGRATION NODEFONY — <N> tâches — vérifié code <date>
+
+  P0  bugs            ██████████ 100%   6/6     ✅ bouclé
+  …
+  P5  user/orm core   ░░░░░░░░░░   0%   0/16   ◀ CHEMIN CRITIQUE
+  …
+  GLOBAL  ███░░░░░░░  29%   (35 ✅ · 24 🔶 · 105 ⬜)
+```
+
+Règles :
+- 1 ligne/phase : `P<n>  <libellé court>  <barre>  <%>  <fait/total>  <annotation courte>`.
+- Annoter le **chemin critique** (`◀ CHEMIN CRITIQUE`) et la **phase en cours de session** (`◀ session courante`).
+- Annotations utiles : `legacy en place`, `cassé claude-ts`, `précurseur`, etc. (tirées de l'audit).
+- Toujours finir par la barre **GLOBAL** + le total `✅/🔶/⬜`.
+- Recompter les chiffres depuis la roadmap P0–P16 (pas les hardcoder — ils évoluent).
 
 ### Étape 2 — Synthèse + corrections (fin)
 
