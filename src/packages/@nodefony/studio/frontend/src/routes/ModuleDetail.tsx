@@ -47,6 +47,8 @@ import {
   IconFileText,
   IconMaximize,
   IconShieldCheck,
+  IconFlask,
+  IconPlayerPlay,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 
@@ -106,6 +108,19 @@ interface CoverageReport {
   total?: { lines: number; statements: number; functions: number; branches: number };
   files?: CoverageFileRow[];
 }
+interface TestsInfo {
+  files: string[];
+  devMode: boolean;
+}
+interface TestRunResult {
+  ok: boolean;
+  code: number | null;
+  passed: number;
+  failed: number;
+  durationMs: number;
+  output: string;
+  mode: string;
+}
 
 const METHOD_COLORS: Record<string, string> = {
   GET: "teal",
@@ -145,6 +160,7 @@ export const ModuleDetail = observer(() => {
   const [docs, setDocs] = useState<DocSummary[]>([]);
   const [symbols, setSymbols] = useState<ModuleSymbol[]>([]);
   const [coverage, setCoverage] = useState<CoverageReport>({ available: false });
+  const [tests, setTests] = useState<TestsInfo>({ files: [], devMode: false });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -176,14 +192,20 @@ export const ModuleDetail = observer(() => {
           `/nodefony/kernel/api/module/${encodeURIComponent(name)}/coverage`,
         )
         .catch(() => ({ available: false }) as CoverageReport),
+      store.api
+        .getAbsolute<TestsInfo>(
+          `/nodefony/kernel/api/module/${encodeURIComponent(name)}/tests`,
+        )
+        .catch(() => ({ files: [], devMode: false }) as TestsInfo),
     ])
-      .then(([d, allRoutes, docList, symList, cov]) => {
+      .then(([d, allRoutes, docList, symList, cov, testsInfo]) => {
         if (cancelled) return;
         setData(d);
         setRoutes(allRoutes.filter((r) => r.module === name));
         setDocs(docList);
         setSymbols(symList);
         setCoverage(cov);
+        setTests(testsInfo);
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -225,6 +247,7 @@ export const ModuleDetail = observer(() => {
   const hasDocs = docs.length > 0;
   const hasApi = symbols.length > 0;
   const hasCoverage = coverage.available === true;
+  const hasTests = tests.files.length > 0;
   const hasDeps = data.dependencies.length > 0;
   const hasRoutes = routes.length > 0;
   const hasServices = data.services.length > 0;
@@ -291,6 +314,11 @@ export const ModuleDetail = observer(() => {
                 Coverage
               </Tabs.Tab>
             )}
+            {hasTests && (
+              <Tabs.Tab value="tests" leftSection={<IconFlask size={16} />} rightSection={<CountBadge n={tests.files.length} />}>
+                Tests
+              </Tabs.Tab>
+            )}
             {hasDeps && (
               <Tabs.Tab value="deps" leftSection={<IconPackages size={16} />} rightSection={<CountBadge n={data.dependencies.length} />}>
                 Dépendances
@@ -351,6 +379,12 @@ export const ModuleDetail = observer(() => {
             {hasCoverage && (
               <Tabs.Panel value="coverage">
                 <CoveragePanel report={coverage} />
+              </Tabs.Panel>
+            )}
+
+            {hasTests && (
+              <Tabs.Panel value="tests">
+                <TestsPanel moduleKey={name} tests={tests} />
               </Tabs.Panel>
             )}
 
@@ -719,6 +753,119 @@ function ApiPanel({ symbols }: { symbols: ModuleSymbol[] }) {
         </Table.Tbody>
       </Table>
     </Table.ScrollContainer>
+  );
+}
+
+/** Badge résultat d'un run de tests. */
+function ResultBadge({ res }: { res: TestRunResult }) {
+  return (
+    <Group gap={6} wrap="nowrap">
+      <Badge color={res.ok ? "teal" : "red"} variant="light">
+        {res.ok ? "✓" : "✗"} {res.passed} passed{res.failed ? ` / ${res.failed} failed` : ""}
+      </Badge>
+      <Text size="xs" c="dimmed">{(res.durationMs / 1000).toFixed(1)}s</Text>
+    </Group>
+  );
+}
+
+/**
+ * TestsPanel — lance les tests du module (un fichier ou toute la suite) via
+ * `POST /nodefony/kernel/api/module/{key}/test/run` (gardé DEV-ONLY côté
+ * backend). « Lancer tous » = `npm run coverage` (rafraîchit aussi le coverage).
+ */
+function TestsPanel({ moduleKey, tests }: { moduleKey: string; tests: TestsInfo }) {
+  const store = useStore();
+  const ALL = "__all__";
+  const [results, setResults] = useState<Record<string, TestRunResult | "running">>({});
+
+  const run = async (file?: string) => {
+    const k = file ?? ALL;
+    setResults((r) => ({ ...r, [k]: "running" }));
+    try {
+      const res = await store.api.postAbsolute<TestRunResult>(
+        `/nodefony/kernel/api/module/${encodeURIComponent(moduleKey)}/test/run`,
+        file ? { file } : {},
+      );
+      setResults((r) => ({ ...r, [k]: res }));
+    } catch (e) {
+      setResults((r) => ({
+        ...r,
+        [k]: { ok: false, code: null, passed: 0, failed: 0, durationMs: 0, output: e instanceof Error ? e.message : String(e), mode: "" },
+      }));
+    }
+  };
+
+  if (!tests.devMode) {
+    return (
+      <Alert color="yellow" icon={<IconAlertTriangle size={16} />} title="Lancement désactivé">
+        Le lancement des tests depuis Studio n'est autorisé qu'en mode <Code>development</Code>.
+      </Alert>
+    );
+  }
+
+  const allRes = results[ALL];
+  const failures = Object.entries(results).filter(
+    ([, r]) => r !== "running" && !(r as TestRunResult).ok,
+  ) as [string, TestRunResult][];
+
+  return (
+    <Stack gap="md">
+      <Group>
+        <Button
+          leftSection={<IconPlayerPlay size={16} />}
+          loading={allRes === "running"}
+          onClick={() => run()}
+        >
+          Lancer tous (+ coverage)
+        </Button>
+        {allRes && allRes !== "running" && <ResultBadge res={allRes} />}
+        <Text size="xs" c="dimmed">
+          « Lancer tous » régénère aussi le coverage (recharge la page pour le voir à jour).
+        </Text>
+      </Group>
+
+      <Table.ScrollContainer minWidth={560}>
+        <Table striped highlightOnHover withRowBorders={false}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Fichier de test</Table.Th>
+              <Table.Th w={90}>Action</Table.Th>
+              <Table.Th>Résultat</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {tests.files.map((f) => {
+              const res = results[f];
+              return (
+                <Table.Tr key={f}>
+                  <Table.Td><Code>{f}</Code></Table.Td>
+                  <Table.Td>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      leftSection={<IconPlayerPlay size={14} />}
+                      loading={res === "running"}
+                      onClick={() => run(f)}
+                    >
+                      Run
+                    </Button>
+                  </Table.Td>
+                  <Table.Td>{res && res !== "running" ? <ResultBadge res={res} /> : null}</Table.Td>
+                </Table.Tr>
+              );
+            })}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+
+      {failures.map(([k, r]) => (
+        <Alert key={k} color="red" icon={<IconAlertTriangle size={16} />} title={`Échec : ${k === ALL ? "suite complète" : k}`}>
+          <ScrollArea.Autosize mah={240}>
+            <Code block>{r.output || "(pas de sortie)"}</Code>
+          </ScrollArea.Autosize>
+        </Alert>
+      ))}
+    </Stack>
   );
 }
 

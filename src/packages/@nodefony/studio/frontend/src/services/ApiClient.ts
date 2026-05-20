@@ -71,6 +71,15 @@ export class ApiClient {
     return this.send<T>("GET", absolutePath, undefined, init);
   }
 
+  /** POST sur un chemin ABSOLU (data plane), hors `baseUrl` (cf getAbsolute). */
+  async postAbsolute<T = unknown>(
+    absolutePath: string,
+    body?: unknown,
+    init?: RequestInit,
+  ): Promise<T> {
+    return this.send<T>("POST", absolutePath, body, init);
+  }
+
   private async request<T>(
     method: string,
     path: string,

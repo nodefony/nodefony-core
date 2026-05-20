@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, dirname, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -282,6 +282,113 @@ export async function listModuleSymbols(
  * son nom npm réel (`nodefony`, héritage JS).
  */
 export const CORE_PACKAGE = "@nodefony/core";
+
+/** Résultat d'un lancement de tests (un fichier ou toute la suite). */
+export interface TestRunResult {
+  ok: boolean;
+  code: number | null;
+  passed: number;
+  failed: number;
+  durationMs: number;
+  output: string;
+  mode: string;
+}
+
+/**
+ * Liste les fichiers de test d'un module (`*.test.ts`, hors node_modules/dist).
+ * Chemins relatifs au module — pour l'onglet Tests de Studio.
+ */
+export async function listTestFiles(modulePath: string): Promise<string[]> {
+  const out: string[] = [];
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    if (depth > 8) return;
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.name === "node_modules" || e.name === "dist" || e.name === ".coverage") continue;
+      const full = join(dir, e.name);
+      if (e.isDirectory()) await walk(full, depth + 1);
+      else if (e.isFile() && e.name.endsWith(".test.ts")) out.push(rel(full, modulePath));
+    }
+  };
+  await walk(modulePath, 0);
+  out.sort();
+  // Si une suite unit existe, ne lister QUE les tests unit (lançables par vitest
+  // run-one) ; l'intégration tape un serveur (runner ts-node mocha à part).
+  const unit = out.filter((f) => f.includes("/tests/unit/") || f.includes("/unit/"));
+  return unit.length ? unit : out;
+}
+
+/**
+ * Lance les tests d'un module et renvoie un résumé (pass/fail/durée + tail).
+ *
+ * - 1 fichier (module vitest) → `npx vitest run <file>` (rapide, pass/fail).
+ * - sinon → `npm run coverage` (suite complète + refresh coverage ; marche
+ *   pour vitest comme pour monocart/core).
+ *
+ * ⚠️ EXÉCUTE un process — appelé UNIQUEMENT derrière le garde dev-only de
+ * l'endpoint (cf KernelAdminApi). spawn sans shell + args en tableau (pas
+ * d'injection shell). `file` validé en amont (suffixe .test.ts, pas de `..`).
+ */
+export function runModuleTests(modulePath: string, file?: string): Promise<TestRunResult> {
+  const hasVitest = existsSync(join(modulePath, "vitest.config.ts"));
+  let cmd: string;
+  let args: string[];
+  let mode: string;
+  if (file && hasVitest) {
+    cmd = "npx";
+    args = ["vitest", "run", file];
+    mode = `vitest run ${file}`;
+  } else {
+    cmd = "npm";
+    args = ["run", "coverage"];
+    mode = "npm run coverage (suite complète)";
+  }
+  const start = Date.now();
+  return new Promise<TestRunResult>((resolve) => {
+    let out = "";
+    const cap = (d: Buffer) => {
+      out += d.toString();
+      if (out.length > 200_000) out = out.slice(-200_000);
+    };
+    let child;
+    try {
+      child = spawn(cmd, args, { cwd: modulePath, env: process.env });
+    } catch (e) {
+      return resolve({ ok: false, code: null, passed: 0, failed: 0, durationMs: 0, output: String(e), mode });
+    }
+    child.stdout?.on("data", cap);
+    child.stderr?.on("data", cap);
+    const timer = setTimeout(() => child.kill("SIGKILL"), 180_000);
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      resolve({ ok: false, code: null, passed: 0, failed: 0, durationMs: Date.now() - start, output: String(e), mode });
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      const clean = out.replace(/\x1b\[[0-9;]*m/g, "");
+      const passed = Number(
+        clean.match(/Tests\s+(\d+)\s+passed/)?.[1] ?? clean.match(/(\d+)\s+passing/)?.[1] ?? 0,
+      );
+      const failed = Number(
+        clean.match(/(\d+)\s+failed/)?.[1] ?? clean.match(/(\d+)\s+failing/)?.[1] ?? 0,
+      );
+      resolve({
+        ok: code === 0,
+        code,
+        passed,
+        failed,
+        durationMs: Date.now() - start,
+        output: clean.slice(-6000),
+        mode,
+      });
+    });
+  });
+}
 
 /**
  * Chemin disque racine du package core (`nodefony`).

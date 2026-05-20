@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-20T16:37:24.266Z",
+  "generated": "2026-05-20T16:43:13.138Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 228,
-    "symbols": 552,
+    "symbols": 555,
     "classes": 176,
-    "interfaces": 186,
+    "interfaces": 187,
     "types": 126,
     "enums": 1,
-    "functions": 53,
+    "functions": 55,
     "constants": 10
   },
   "symbols": {
@@ -1833,6 +1833,15 @@
       "extends": null,
       "description": "Symbole TS exporté d'un module, projeté depuis `.ai/symbols.json`."
     },
+    "TestRunResult": {
+      "name": "TestRunResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Résultat d'un lancement de tests (un fichier ou toute la suite)."
+    },
     "CoverageFile": {
       "name": "CoverageFile",
       "kind": "interface",
@@ -1891,6 +1900,22 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Symboles TS exportés d'un module + descriptions TSDoc, lus depuis `.ai/symbols.json` (à la racine du repo, `process.cwd()`). 100 % auto-généré (jamais de `.d.ts` manuel) → zéro divergence avec le c…"
+    },
+    "listTestFiles": {
+      "name": "listTestFiles",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Liste les fichiers de test d'un module (`*.test.ts`, hors node_modules/dist). Chemins relatifs au module — pour l'onglet Tests de Studio."
+    },
+    "runModuleTests": {
+      "name": "runModuleTests",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Lance les tests d'un module et renvoie un résumé (pass/fail/durée + tail). - 1 fichier (module vitest) → `npx vitest run <file>` (rapide, pass/fail). - sinon → `npm run coverage` (suite complète + …"
     },
     "resolveCorePath": {
       "name": "resolveCorePath",
@@ -5836,6 +5861,12 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "readCoverage": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "listTestFiles": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "runModuleTests": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "resolveCorePath": [

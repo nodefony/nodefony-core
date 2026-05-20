@@ -4,6 +4,8 @@ import {
   readModuleDoc,
   listModuleSymbols,
   readCoverage,
+  listTestFiles,
+  runModuleTests,
   resolveCorePath,
   readCoreInfo,
   CORE_PACKAGE,
@@ -244,6 +246,52 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           return { status: 404, body: { error: "Module not found", key } };
         }
         return { key, ...(await readCoverage(target.path)) };
+      },
+    },
+    {
+      // Liste des fichiers de test du module (onglet Tests Studio).
+      path: "module/{name}/tests",
+      summary: "List test files of one module",
+      handler: async (request) => {
+        const key = request.params.name;
+        const target = resolveTarget(key);
+        if (!target) {
+          return { status: 404, body: { error: "Module not found", key } };
+        }
+        return {
+          key,
+          devMode: kernel.environment === "development" || Boolean(kernel.debug),
+          files: await listTestFiles(target.path),
+        };
+      },
+    },
+    {
+      // LANCE les tests (1 fichier ou toute la suite + refresh coverage).
+      // ⚠️ EXÉCUTE un process → garde DEV-ONLY strict (refus 403 en prod).
+      path: "module/{name}/test/run",
+      method: "POST",
+      summary: "Run module tests (dev only) — 1 file or whole suite",
+      handler: async (request) => {
+        if (!(kernel.environment === "development" || kernel.debug)) {
+          return {
+            status: 403,
+            body: { error: "Test runner disabled outside development" },
+          };
+        }
+        const key = request.params.name;
+        const target = resolveTarget(key);
+        if (!target) {
+          return { status: 404, body: { error: "Module not found", key } };
+        }
+        const body = (request.body ?? {}) as { file?: unknown };
+        let file: string | undefined;
+        if (typeof body.file === "string" && body.file) {
+          if (body.file.includes("..") || !body.file.endsWith(".test.ts")) {
+            return { status: 400, body: { error: "Invalid test file", file: body.file } };
+          }
+          file = body.file;
+        }
+        return { key, ...(await runModuleTests(target.path, file)) };
       },
     },
   ];
