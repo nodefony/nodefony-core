@@ -39,6 +39,10 @@ export default class WebsocketContext extends Context implements IWebsocketConte
   acceptedProtocol?: string;
   port: number | string;
   rejected: boolean = false;
+  // BUG-003 — set once connect() has wired the close→onFinish→teardown path.
+  // While false, an error aborts the request before any listener can release
+  // the DI scope, so HttpKernel must clean up explicitly.
+  teardownWired: boolean = false;
   connection: Ws | null = null;
   origin: string;
   proxy: ProxyType | null = null;
@@ -146,6 +150,8 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     // store at bind time (in-bubble) and restores it on every callback, so
     // RequestContext.getRequestId()/getUser() stay valid across messages.
     this.connection.on("close", AsyncResource.bind(this.onClose.bind(this)));
+    // Teardown is now wired: onClose → fire("onFinish") → leaveScope + clean.
+    this.teardownWired = true;
     await this.fireAsync("onConnect", this, this.connection);
     this.requestEnded = true;
     this.connection.on("message", AsyncResource.bind(this.handleMessage.bind(this)));

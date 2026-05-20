@@ -1,6 +1,15 @@
 # BUG_REPORT — Nodefony Core
 
-Bugs structurels identifiés mais non encore corrigés. Triés par criticité.
+Bugs structurels. Triés par criticité.
+
+## État (2026-05-20)
+
+| Bug | Sujet | Statut |
+|-----|-------|--------|
+| BUG-001 | ALS WS messages hors bulle | ✅ RÉSOLU |
+| BUG-002 | ALS perdu dans `onAfterResponse` | ✅ RÉSOLU |
+| BUG-003 | Leak scope DI sur erreur WS avant `connect()` | ✅ RÉSOLU |
+| BUG-004 | Leak scope DI sur WS **avec session** fermé au handshake | 🚨 OUVERT |
 
 ## Audit exhaustif listeners EventEmitter @nodefony/http (2026-05-20)
 
@@ -14,7 +23,7 @@ Bugs structurels identifiés mais non encore corrigés. Triés par criticité.
 | DANS request scope, handlers triviaux | 7 | ⚠️ Surveillance (voir tableau dans mémoire `project_als_ws_bug`) |
 | Code commenté | 5 | — Skip |
 
-**Conclusion audit** : aucun nouveau bug majeur au-delà de BUG-001 + BUG-002. Les 7 listeners catégorie D (Request.ts:93, parser.ts:13, Request.ts:126, http-kernel.ts:269, http-kernel.ts:757, Context.ts:305, HttpContext.ts:132) ont des handlers qui ne lisent PAS l'ALS aujourd'hui — pas de fuite de contexte actuelle, mais si on les étend, appliquer `AsyncResource.bind` au moment du bind.
+**Conclusion audit (révisée 2026-05-20)** : l'audit listeners ne couvrait QUE la propagation ALS. Un audit du **cycle de vie des scopes DI** (déclenché par une question sur les chemins throw/erreur) a révélé 2 leaks de scope supplémentaires : BUG-003 (WS erreur avant `connect()`, ✅ corrigé) et BUG-004 (WS avec session fermé au handshake, 🚨 ouvert). Les 7 listeners catégorie D (Request.ts:93, parser.ts:13, Request.ts:126, http-kernel.ts:269, http-kernel.ts:757, Context.ts:305, HttpContext.ts:132) ont des handlers qui ne lisent PAS l'ALS aujourd'hui — pas de fuite de contexte actuelle, mais si on les étend, appliquer `AsyncResource.bind` au moment du bind.
 
 **Vérifications externes restantes** :
 - Pas de `stream.on()/session.on()` HTTP/2 dans le module → OK en l'état
@@ -300,3 +309,89 @@ Combiner avec BUG-001 (même session, même fix `AsyncResource.bind` mais à dif
 - Code WS : `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:741-768`
 - Code Context : `src/packages/@nodefony/http/nodefony/src/context/Context.ts:252-279`
 - Tests existants : `src/packages/@nodefony/http/nodefony/tests/integration/after-response.test.ts`
+
+---
+
+## ✅ BUG-003 — Leak scope DI sur erreur WS avant `connect()` (RÉSOLU 2026-05-20)
+
+**Découvert** : 2026-05-20 (audit cycle de vie déclenché par question throw/erreur)
+**Sévérité** : leak mémoire + vecteur DoS (scanner wss avec mauvaises routes/protocoles)
+**Statut** : ✅ **RÉSOLU 2026-05-20**
+
+### Description
+
+`onWebsocketRequest` fait `enterScope("request")`. Pour le WS, le seul `leaveScope`+`clean`
+est dans le handler `context.once("onFinish")`, déclenché par `onClose`, lui-même attaché dans
+`context.connect()`. Or `connect()` est la **dernière** étape de `onConnect` : toute erreur avant
+(404 route, 1002 protocole, 401 domaine, auth handshake, session) → `connect()` jamais atteint →
+`onFinish` jamais émis → scope **jamais libéré**, retenu à vie dans `container.scopes["request"]`.
+
+### Preuve
+
+Comptage direct `container.scopes["request"]` : 100 erreurs 404 → 101 scopes ; +100 erreurs 1002 → 201.
+Chemin valide → reste à 1. (HTTP est sûr : listeners `finish`/`close` attachés tôt, avant routing.)
+
+### Fix
+
+- `WebsocketContext.teardownWired` (bool) passe à `true` dans `connect()` quand le listener `close` est câblé.
+- `HttpKernel.releaseOrphanWsScope(scope, context)` appelé dans le `catch` de `handleWebsocket` :
+  si `!teardownWired && !finished` → `leaveScope`+`clean` (idempotent vs `onFinish` via guard `finished`) ;
+  si `context` null (construction échouée) → `leaveScope` du scope orphelin.
+
+### Tests
+
+- `tests/integration/lifecycle-als.test.ts` (rapide, delta scopes) + `tests/load/als-load.test.ts`
+  (500 erreurs → delta scopes < 5). Route diagnostic `/nodefony/test/als-test/scopes`.
+
+### Liens
+
+- Code : `http-kernel.ts` (`handleWebsocket` catch + `releaseOrphanWsScope`), `WebsocketContext.ts` (`teardownWired`)
+- Container : `src/nodefony/src/Container.ts:268-291` (`enterScope`/`leaveScope`)
+
+---
+
+## 🚨 BUG-004 — Leak scope DI sur WS avec session fermé au handshake (OUVERT)
+
+**Découvert** : 2026-05-20 (suite BUG-003)
+**Sévérité** : leak mémoire (chemin courant : tout WS qui `startSession()` et se ferme vite)
+**Statut** : 🚨 **OUVERT** — pré-existant, indépendant de BUG-001/002/003 (ne touche pas le code modifié)
+
+### Description
+
+Le handler `context.once("onFinish")` (`http-kernel.ts:741-768`) :
+
+```ts
+if (context.session) {
+  if (context.session.saved) { leaveScope; clean; }
+  else { context.once("onSaveSession", () => { leaveScope; clean; }); }  // ← peut rater l'event
+} else { leaveScope; clean; }
+```
+
+Pour un WS qui crée une session (`initialize()` → `startSession()`) et se ferme **autour du
+handshake sans message** : à l'émission de `onFinish`, `session.saved` est `false`, donc on
+s'abonne via `once("onSaveSession")`. Mais `session.save()` émet `onSaveSession`
+(`session.ts:569`) **pendant** le handshake — souvent AVANT que `onFinish` n'ait posé son `once`.
+L'event one-shot est déjà passé → le listener ne se déclenche jamais → `leaveScope`/`clean` jamais
+appelés → scope retenu.
+
+### Preuve
+
+100 connexions WS open/close **sans message** sur `/nodefony/test/ws` (qui `startSession`) → 100 scopes
+retenus (stable). Les routes WS **sans** session (`/als-test/*`) → 0 leak. La route `/echo` (avec
+message) → 0 leak (re-save côté message remet `saved=true` au bon moment).
+
+### Fix proposé (à valider en session dédiée)
+
+Ne pas dépendre d'un event one-shot potentiellement déjà émis. Options :
+- Dans le `else`, re-tester `session.saved` au prochain microtask et nettoyer inconditionnellement
+  après un `await context.saveSession()` dans `onFinish` ; OU
+- Garde idempotent + timeout de sécurité ; OU
+- Repenser l'ordre save↔teardown (le save handshake ne devrait pas court-circuiter le cleanup close).
+
+Sujet **cycle de vie session** (Phase P2.x) — mérite sa propre session, pas un patch à la volée.
+
+### Liens
+
+- Code : `http-kernel.ts:741-768` (onFinish WS), `session.ts:557-579` (`save` + `fireAsync("onSaveSession")`),
+  `sessions-service.ts:248-258` (`saveSession`)
+- Mémoire : `project_als_ws_bug.md` (section cycle de vie)

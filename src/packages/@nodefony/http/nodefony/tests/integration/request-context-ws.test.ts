@@ -16,7 +16,6 @@
  *   WS /nodefony/test/als-test/ws/user  — "login" sets user, persists to next msg
  */
 import { expect } from "chai";
-import https from "node:https";
 import WebSocket from "ws";
 import "mocha";
 
@@ -114,39 +113,6 @@ describe("BUG-001 — RequestContext (ALS) across WebSocket messages", function 
     expect(new Set(traceparents).size).to.equal(1, "one traceparent per connection");
   });
 
-  it("memory: 100 connections x 10 messages — server heap delta < 25 MB", async function () {
-    this.timeout(60_000);
-    const before = await serverHeap();
-    const batch = Array.from({ length: 10 }, (_, i) => `msg-${i}`);
-    for (let i = 0; i < 100; i++) {
-      await wsSession("/nodefony/test/als-test/ws", batch);
-    }
-    const after = await serverHeap();
-    const deltaMb = (after - before) / 1024 / 1024;
-    expect(after - before).to.be.below(
-      25 * 1024 * 1024,
-      `heap grew ${deltaMb.toFixed(1)} MB — AsyncResource.bind must not leak`,
-    );
-  });
+  // NOTE: the heavy memory/leak version (100 conns x 10 msgs) lives in
+  // tests/load/als-load.test.ts to keep the regression suite fast.
 });
-
-function serverHeap(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const r = https.request(
-      { hostname: "localhost", port: 5152, path: "/nodefony/test/memory", method: "GET", rejectUnauthorized: false },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (c: Buffer) => chunks.push(c));
-        res.on("end", () => {
-          try {
-            resolve((JSON.parse(Buffer.concat(chunks).toString()) as { heapUsed: number }).heapUsed);
-          } catch (e) {
-            reject(e);
-          }
-        });
-      },
-    );
-    r.on("error", reject);
-    r.end();
-  });
-}

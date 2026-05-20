@@ -92,6 +92,20 @@ class AlsController extends Controller {
     });
   }
 
+  // Lifecycle diagnostic — number of live "request" scopes still held by the
+  // DI container. Ground truth for scope leaks (immune to GC/Rollup heap noise).
+  // A clean server idles near 1 (the scope of this very request).
+  @route("als-test-scopes", { path: "/scopes", requirements: { methods: ["GET"] } })
+  scopeCount() {
+    const httpKernel = this.kernel?.get("HttpKernel") as
+      | { container?: { scopes?: Record<string, Record<string, unknown>> } }
+      | undefined;
+    const reqScopes = httpKernel?.container?.scopes?.request;
+    return this.renderJson({
+      requestScopes: reqScopes ? Object.keys(reqScopes).length : -1,
+    });
+  }
+
   @route("als-test-reset", { path: "/reset", requirements: { methods: ["GET"] } })
   reset() {
     alsTestState.byContext = {};

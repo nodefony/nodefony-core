@@ -849,10 +849,35 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       try {
         await this.onError(e as Error, context as WebsocketContext);
       } catch (errorHandlingError) {
+        this.releaseOrphanWsScope(scope, context);
         throw errorHandlingError;
       }
+      this.releaseOrphanWsScope(scope, context);
       throw e;
     }
+  }
+
+  // BUG-003 — release a WebSocket request scope when the pipeline aborts
+  // BEFORE context.connect() wired the close→onFinish→teardown path (404
+  // route, 1002 protocol, domain/auth/session errors at handshake). Without
+  // this, the scope stays in container.scopes["request"] forever and pins the
+  // context. No-op when teardown is wired (onFinish will clean) or already
+  // finished. Handles the orphan case where the context failed to construct.
+  private releaseOrphanWsScope(
+    scope: Scope,
+    context: WebsocketContext | null
+  ): void {
+    if (!context) {
+      // Context construction failed — the scope is orphaned, free it.
+      this.container?.leaveScope(scope);
+      return;
+    }
+    if (context.teardownWired || context.finished) {
+      return;
+    }
+    context.finished = true;
+    this.container?.leaveScope(scope);
+    context.clean();
   }
 
   async onConnect(

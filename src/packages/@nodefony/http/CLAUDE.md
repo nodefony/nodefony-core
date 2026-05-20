@@ -156,6 +156,13 @@ Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
 
 > ¹ `memory.test.ts` — test "1000 sequential GET < 35 MB" flaky en full suite (GC pressure après 249 tests). Passe toujours en isolation. Pas de fuite réelle.
 
+### Suites séparées — charge vs non-régression
+
+- **Non-régression rapide** : `npm run test:integration` (`.mocharc.integration.json`). Exclut `tests/load/**` + `tests/http/memory.test.ts`. C'est la suite à lancer systématiquement.
+- **Charge / mémoire / leak / scopes DI** : `npx mocha --config .mocharc.load.json` (= `tests/load/**` + `memory.test.ts`). À lancer AVANT tout commit touchant Kernel / pipeline request / cycle de vie / mémoire — pas à chaque non-régression (sinon trop lent).
+- Gate perf seul : `npx mocha --config .mocharc.load.json --grep "Memory"`.
+- Tests ALS/lifecycle : `tests/integration/{request-context-ws,after-response-als,lifecycle-als}.test.ts` (rapides, assertions delta) + `tests/load/als-load.test.ts` (lourds). Route diagnostic scopes : `/nodefony/test/als-test/scopes`.
+
 ---
 
 ## Bugs corrigés (historique)

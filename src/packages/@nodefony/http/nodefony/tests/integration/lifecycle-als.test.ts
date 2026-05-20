@@ -1,14 +1,15 @@
 /// <reference types="node" />
 /**
- * Context lifecycle guard for the ALS fix (BUG-001/BUG-002).
+ * Context lifecycle guard for the ALS fix (BUG-001/002/003) — FAST checks only.
  *
- * The AsyncResource.bind() wraps must NOT alter the deterministic tear-down:
+ * The AsyncResource.bind() wraps + the BUG-003 fix must NOT alter the
+ * deterministic tear-down:
  *   - the WS after-response hook fires exactly once per connection
  *     (onFinish dedup — guarded by `once` + `finished` + `_afterResponseFired`);
- *   - leaveScope()/clean() still run on every close (no scope/context leak);
- *   - no EventEmitter listener accumulation.
+ *   - leaveScope()/clean() run on every close, success OR error (no scope leak).
  *
- * Covers part of P2.2 (deterministic tear-down) and P4.3 (context-leak tests).
+ * Heavy load versions (100s of connections, heap deltas) live in
+ * tests/load/als-load.test.ts. Covers part of P2.2 + P4.3.
  *
  * Live server: wss://localhost:5152 + 127.0.0.1:5152 (HTTPS).
  * Routes: src/modules/test/.../AlsController.ts (prefix /nodefony/test/als-test)
@@ -59,9 +60,22 @@ function cycleWsAfter(): Promise<void> {
   });
 }
 
-async function serverHeap(): Promise<number> {
-  return (await get("/nodefony/test/memory")).heapUsed as number;
+/** Open a WS that errors before connect() (404 / 1002), then close. */
+function badWs(path: string): Promise<void> {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(`${WSS}${path}`, wsOpts);
+    let done = false;
+    const fin = () => { if (!done) { done = true; resolve(); } };
+    ws.on("open", () => setTimeout(() => { try { ws.close(); } catch { /* ignore */ } fin(); }, 3));
+    ws.on("close", fin);
+    ws.on("unexpected-response", fin);
+    ws.on("error", fin);
+    setTimeout(fin, 400);
+  });
 }
+
+const liveScopes = async () =>
+  (await get("/nodefony/test/als-test/scopes")).requestScopes as number;
 
 describe("Context lifecycle — ALS tear-down (BUG-001/002)", function () {
   this.timeout(60_000);
@@ -87,19 +101,20 @@ describe("Context lifecycle — ALS tear-down (BUG-001/002)", function () {
     expect(s.wsHookFireCount, "5 connections => 5 fires, never doubled").to.equal(5);
   });
 
-  it("150 WS connections open/msg/close — leaveScope+clean run, heap delta < 20 MB", async () => {
-    const before = await serverHeap();
-    for (let i = 0; i < 150; i++) await cycleWsAfter();
-    await wait(200);
-    const after = await serverHeap();
-    const deltaMb = (after - before) / 1024 / 1024;
-    // Leaked scopes/contexts would grow the heap unbounded.
-    expect(after - before).to.be.below(
-      20 * 1024 * 1024,
-      `heap grew ${deltaMb.toFixed(1)} MB — clean()/leaveScope must run on every close`,
-    );
-    // Server still healthy after the load.
-    const s = await get("/nodefony/test/als-test/state");
-    expect(s.wsHookFireCount).to.equal(150);
+  it("BUG-003 — WS errors before connect() (404 + 1002) leak no request scope", async () => {
+    // Delta around our own loop — robust to ambient scopes left by other suites.
+    // Without the fix this grew by 30 (1 leaked scope per error).
+    const before = await liveScopes();
+    for (let i = 0; i < 15; i++) await badWs("/nodefony/test/als-test/nope");
+    for (let i = 0; i < 15; i++) await badWs("/nodefony/test/ws/echo/proto");
+    await wait(150);
+    expect((await liveScopes()) - before, "error path must release every scope").to.be.below(3);
+  });
+
+  it("valid session-less WS connections leave no residual scope", async () => {
+    const before = await liveScopes();
+    for (let i = 0; i < 10; i++) await cycleWsAfter();
+    await wait(120);
+    expect((await liveScopes()) - before).to.be.below(3);
   });
 });

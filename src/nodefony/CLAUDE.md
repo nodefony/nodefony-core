@@ -62,7 +62,7 @@ Après modification :
 
 ```bash
 cd src/packages/@nodefony/http && TS_NODE_PROJECT=tsconfig.tests.json \
-  npx mocha --config .mocharc.integration.json --grep "Memory"
+  npx mocha --config .mocharc.load.json --grep "Memory"
 ```
 
 Si un seuil saute (35 MB / 1000 req HTTP, 30 MB / 100 WS) → c'est un **blocker**. NE PAS commit. Investiguer + lazy + cleanup avant de continuer.
