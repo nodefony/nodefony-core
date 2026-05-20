@@ -1,5 +1,7 @@
 import { Kernel, Module, services } from "nodefony";
+import type { IAdminRegistry } from "nodefony";
 import config from "./nodefony/config/config";
+import { createHttpAdminApi } from "./nodefony/service/HttpAdminApi";
 import HttpKernel from "./nodefony/service/http-kernel";
 import HttpServer from "./nodefony/service/servers/server-http";
 import HttpsServer from "./nodefony/service/servers/server-https";
@@ -42,6 +44,23 @@ class Http extends Module {
   constructor(kernel: Kernel) {
     super("http", kernel, import.meta.url, config);
     this.addCommand(networkCommand);
+  }
+
+  /**
+   * Phase `onBoot` : s'enregistre comme producteur admin (`/nodefony/http/api/*`)
+   * auprès du broker, AVANT que framework ne monte le data plane à `onReady`.
+   *
+   * Importe seulement `IAdminRegistry` (core) — jamais `@nodefony/framework`
+   * (dépendance circulaire). Le broker est résolu du container partagé.
+   */
+  override async onKernelBoot(): Promise<this> {
+    const registry = this.kernel?.container?.get("adminBroker") as
+      | IAdminRegistry
+      | undefined;
+    if (registry && !registry.has("http")) {
+      registry.register(createHttpAdminApi(this));
+    }
+    return this;
   }
 
   // async initialize(): Promise<this> {

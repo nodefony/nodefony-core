@@ -18,6 +18,14 @@ import Controller from "./Controller";
  * de classes, et chaque route reste une vraie `Route` (404/405 du Router OK).
  */
 class AdminApiController extends Controller {
+  /**
+   * Identité de l'instance qui répond — `NODEFONY_INSTANCE_ID` (k8s pod, worker)
+   * ou `pid` en fallback. Même convention que les providers realtime Studio.
+   * Calculée une fois (statique) : invariante sur la vie du process.
+   */
+  static readonly instanceId =
+    process.env.NODEFONY_INSTANCE_ID ?? String(process.pid);
+
   constructor(context: ContextType) {
     super("AdminApiController", context);
   }
@@ -63,7 +71,14 @@ class AdminApiController extends Controller {
     try {
       const result = await adminRoute.endpoint.handler(request);
       const { status, headers, body } = this.normalize(result);
-      return this.renderJson(body, status, headers);
+      // Le data plane admin est PER-INSTANCE : en multi-process (reusePort) ou
+      // multi-pod, le LB route la requête vers UN seul process. On estampille
+      // donc chaque réponse de l'identité d'instance (même convention que
+      // `dashboard:stats`) → Studio sait quel pod a répondu. Vue cluster = P13.
+      return this.renderJson(body, status, {
+        ...headers,
+        "x-nodefony-instance": AdminApiController.instanceId,
+      });
     } catch (e) {
       this.log(e as Error, "ERROR");
       return this.renderJson(

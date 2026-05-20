@@ -252,6 +252,17 @@ TOTAL    :                                               336 passing
 
 Config ts-node: `tsconfig.tests.json` + hook `fix-reflect.mjs` (corrige `_virtual/Reflect.js` CJS/ESM).
 
+## Admin data plane — `IAdminApi` (P10.3, 2026-05-20)
+
+http = **2ᵉ producteur** du data plane admin Studio (1er = kernel). `createHttpAdminApi(module)` (`nodefony/service/HttpAdminApi.ts`) → enregistré dans `onKernelBoot` via `IAdminRegistry` du container (`this.kernel.container.get("adminBroker")`).
+
+- **Import : SEULEMENT `IAdminApi`/`IAdminRegistry` depuis `"nodefony"`** — jamais `@nodefony/framework` (cycle). C'est tout l'intérêt du split `IAdminRegistry` (core) / `IAdminBroker` (framework).
+- Endpoints (validés runtime) : `GET /nodefony/http/api/servers` (liste les 5 services serveur : type/scheme/protocol/address/port/family/ready) · `GET /nodefony/http/api/info` (serveurs prêts, ports, schemes, protocols).
+- Lecture défensive des services `server-{http,https,websocket,websocket-secure,static}` via `module.get(name)`.
+- **Per-instance** : answers du process qui reçoit (LB route vers 1 pod). Header `x-nodefony-instance` posé par `AdminApiController` (convention `NODEFONY_INSTANCE_ID ?? pid`). Vue cluster = Redis P13. Cf [[project_multiprocess_scaling]].
+- Stateless : aucun `startSession()`, lit l'user via ALS (futur JWT). Cf [[project_security_stateless_http_decision]].
+- Détails contrat + broker : framework MEMORY.md « Admin data plane ».
+
 ## Deps clés
 
 - `ws@8` — ESM : `import { WebSocketServer } from 'ws'` (jamais `Ws` default, jamais `Ws.Server`)
