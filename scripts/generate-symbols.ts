@@ -405,6 +405,11 @@ function generate(): void {
   // can rename or namespace if a clash is unintentional.
   function buildSymbolMap(list: SymbolDetail[]): Record<string, SymbolDetail> {
     const map: Record<string, SymbolDetail> = {};
+    // Les homonymes (même nom dans 2 modules) sont attendus et namespacés.
+    // On NE log PLUS chaque ligne (bruit ~50 lignes/commit dans le hook pre-commit) :
+    // 1 résumé suffit. Détail ligne-par-ligne via `--verbose`.
+    const verbose = process.argv.includes("--verbose");
+    let homonyms = 0;
     for (const sym of list) {
       if (map[sym.name] === undefined) {
         map[sym.name] = sym;
@@ -414,7 +419,13 @@ function generate(): void {
       if (existing.module === sym.module && existing.file === sym.file) continue; // exact dup, ignore
       const namespaced = `${sym.module}:${sym.name}`;
       map[namespaced] = sym;
-      console.warn(`  ⚠ homonym: ${sym.name} exists in ${existing.module} and ${sym.module} → stored as "${namespaced}"`);
+      homonyms++;
+      if (verbose) {
+        console.warn(`  ⚠ homonym: ${sym.name} exists in ${existing.module} and ${sym.module} → stored as "${namespaced}"`);
+      }
+    }
+    if (homonyms > 0 && !verbose) {
+      console.warn(`  ⚠ ${homonyms} homonymes namespacés (lancer avec --verbose pour le détail)`);
     }
     return map;
   }
