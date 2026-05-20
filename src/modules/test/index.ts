@@ -1,6 +1,6 @@
 import { Kernel, Module, services } from "nodefony";
 import { entities } from "@nodefony/sequelize";
-import type HttpKernel from "@nodefony/http/nodefony/service/http-kernel";
+import type { HttpKernel } from "@nodefony/http";
 import config from "./nodefony/config/config";
 import DefaultController, {
   securityHooksState,

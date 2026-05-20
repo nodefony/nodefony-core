@@ -82,7 +82,7 @@ Router.resolve(ctx)
 
 | Aspect         | État                        |
 | -------------- | --------------------------- |
-| Types exports  | ✅ `dist/types/` + `exports` |
+| Types exports  | ✅ `exports.types` → `./index.ts` (source, comme http/frontend) — évite la race TS2307 quand http type-check framework avant son build. Top-level `types` reste `dist/types/`. |
 | Interfaces     | ✅ `IController`/`IRoute`/`IResolver`/`IAdminBroker` (`nodefony/interfaces/`) |
 | Tests          | ✅ 136 (92 unit + 44 intégration), 0 failing (2026-05-20) |
 | Admin data plane | ✅ `IAdminApi`/`AdminBroker`/`AdminApiController` + producteurs kernel/http/framework/syslog (P10.2/P10.3) — cf MEMORY.md |
