@@ -1,0 +1,10 @@
+# ADR — Architecture Decision Records
+
+Décisions d'architecture/design actées, une par fichier `NNNN-titre.md`.
+Un ADR est **immuable** : s'il est remis en cause, créer un nouvel ADR qui le
+*supersede* (ne pas réécrire l'ancien). Format léger (contexte / décision /
+alternatives écartées / conséquences).
+
+| # | Titre | Statut | Date |
+| - | ----- | ------ | ---- |
+| [0001](0001-docs-modules-emplacement-hybride.md) | Docs des modules — emplacement hybride + versionnement frontmatter/git | accepted | 2026-05-20 |
