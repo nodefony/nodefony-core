@@ -795,19 +795,21 @@ Le reste (Drizzle, OAuth/LDAP/OIDC, monitoring local DebugBar, polish, multi-ORM
 
 ### 7.3 Module `@nodefony/orm-core` (nouveau — fondation)
 
+> **✅ P5.1 (2026-05-21)** — package scaffoldé (config conforme `dist/types` + `exports`, lib pure hors `@modules()`) + 4 interfaces sous `nodefony/interfaces/` (chemin réel ; `IOrm.getNativeConnection<C>()` ajouté = trappe SQL brut). Build vert, typecheck strict 0 erreur. Schéma banc-test figé dans [ADR-0002](adr/0002-schema-conference-webrtc-mediasoup.md). Reste P5.2 (registry + base classes), P5.3 (décorateurs).
+
 | Fichier TS cible                                                | Rôle                                                                                | Statut | Complexité |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------ | ---------- |
-| `@nodefony/orm-core/interfaces/IOrm.ts`                         | Interface ORM : `connect()`, `disconnect()`, `getRepository(name)`, `transaction()` | ⬜     | 2          |
-| `@nodefony/orm-core/interfaces/IEntity.ts`                      | Interface Entity : `name`, `schema`, `model`, `relations`                            | ⬜     | 2          |
-| `@nodefony/orm-core/interfaces/IRepository.ts`                  | Interface Repository : `find/findOne/create/update/delete/count`                     | ⬜     | 2          |
-| `@nodefony/orm-core/interfaces/ITransaction.ts`                 | UoW/transaction abstraite (commit/rollback/savepoint)                                | ⬜     | 2          |
+| `@nodefony/orm-core/interfaces/IOrm.ts`                         | Interface ORM : `connect()`, `disconnect()`, `getRepository(name)`, `transaction()`, `getNativeConnection()` | ✅     | 2          |
+| `@nodefony/orm-core/interfaces/IEntity.ts`                      | Interface Entity : `name`, `orm`, `schema`, `model`, `relations` (+ `IEntityRelation`) | ✅     | 2          |
+| `@nodefony/orm-core/interfaces/IRepository.ts`                  | Interface Repository : `find/findOne/create/update/delete/count` (+ `OrmCriteria`)    | ✅     | 2          |
+| `@nodefony/orm-core/interfaces/ITransaction.ts`                 | UoW/transaction abstraite (commit/rollback/savepoint/rollbackTo/getNative)            | ✅     | 2          |
 | `@nodefony/orm-core/src/OrmRegistry.ts`                         | Singleton — `register(name, IOrm)`, `get(name): IOrm`, `list(): string[]`            | ⬜     | 2          |
 | `@nodefony/orm-core/src/Orm.ts`                                 | Classe abstraite base extends Service, lifecycle `onOrmReady` event                  | ⬜     | 2          |
 | `@nodefony/orm-core/src/Entity.ts`                              | Classe abstraite — registre dans OrmRegistry au boot                                 | ⬜     | 2          |
 | `@nodefony/orm-core/src/EntityRegistry.ts`                      | Cross-ORM entity lookup `entities[name][ormName]`                                    | ⬜     | 2          |
 | `@nodefony/orm-core/src/decorators/entityDecorator.ts`          | `@entity({ orm, name, schema })` — métadonnées + auto-register                       | ⬜     | 2          |
 | `@nodefony/orm-core/src/decorators/repositoryDecorator.ts`      | `@repository("UserRepository", { entity: "User" })`                                  | ⬜     | 2          |
-| `@nodefony/orm-core/index.ts`                                   | Barrel exports                                                                       | ⬜     | 1          |
+| `@nodefony/orm-core/index.ts`                                   | Barrel exports (+ `nodefony/interfaces/index.ts`)                                    | ✅     | 1          |
 
 ### 7.4 Drivers ORM (consomment orm-core)
 
