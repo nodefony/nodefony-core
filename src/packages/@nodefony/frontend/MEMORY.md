@@ -13,9 +13,10 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 
 ## Presets
 
-- react19 → `@vitejs/plugin-react` lazy import, optimizeDeps: react/react-dom/react-dom/client. Extensions: tsx,jsx,ts,js.
+- react19 → `@vitejs/plugin-react` lazy import, optimizeDeps: react/react-dom/react-dom/client. Extensions: tsx,jsx,ts,js. TemplateHelper inline preamble Fast Refresh.
+- vue3 → `@vitejs/plugin-vue` lazy import, optimizeDeps: vue. Extensions: vue,ts,js. PAS de preamble (Vue se monte via `createApp(App).mount()` dans l'entry) → TemplateHelper chemin générique. Consommateur réf: `src/modules/test-frontend-vue`.
 - vanilla → no plugin, no optimizeDeps. Extensions: ts,js.
-- TODO: vue3, svelte5, solid.
+- TODO: svelte5, solid.
 
 ## Pipeline
 

@@ -6,11 +6,11 @@ import { performance } from "node:perf_hooks";
 
 /**
  * Controller POC :
- *  - GET /poc/react       → page HTML qui charge le bundle React via Vite
- *  - GET /poc/api/data    → endpoint léger pour bench p99 backend (autocannon/curl)
- *  - GET /poc/api/burn    → endpoint qui simule un travail CPU sync (calibration)
+ *  - GET /react/app       → page HTML qui charge le bundle React via Vite
+ *  - GET /react/api/data  → endpoint léger pour bench p99 backend (autocannon/curl)
+ *  - GET /react/api/burn  → endpoint qui simule un travail CPU sync (calibration)
  */
-@controller("/poc")
+@controller("/react")
 class PocController extends Controller {
   constructor(context: Context) {
     super("PocController", context);
@@ -23,7 +23,7 @@ class PocController extends Controller {
    * En dev avec Vite spawné, le browser charge `http://127.0.0.1:5173/src/main.tsx`
    * directement → backend Node n'est PAS sur le chemin critique des assets.
    */
-  @Get("/react")
+  @Get("/app")
   renderReact(): unknown {
     this.setContextHtml();
     const svc = this.context?.container?.get("frontend") as

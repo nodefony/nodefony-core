@@ -42,6 +42,7 @@ export { default as ViteProcessSupervisor } from "./nodefony/service/ViteProcess
 export { default as ViteConfigGenerator } from "./nodefony/service/ViteConfigGenerator";
 export { default as TemplateHelper } from "./nodefony/src/template/TemplateHelper";
 export { default as react19Preset } from "./nodefony/src/presets/react19-vite";
+export { default as vue3Preset } from "./nodefony/src/presets/vue3-vite";
 export { default as vanillaPreset } from "./nodefony/src/presets/vanilla-vite";
 
 // Erreurs.

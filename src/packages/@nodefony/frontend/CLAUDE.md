@@ -49,6 +49,7 @@ src/packages/@nodefony/frontend/
         ├── builders/ViteBuilder.ts     ← config Vite programmatique (mode build)
         ├── presets/
         │   ├── react19-vite.ts
+        │   ├── vue3-vite.ts
         │   └── vanilla-vite.ts
         ├── template/TemplateHelper.ts  ← inject `<script type="module">`
         └── errors/FrontendError.ts
@@ -124,7 +125,7 @@ Kernel onTerminate
 | MVP   | ⏳     | POC child_process vs single — mesure perf p99       |
 | 14.2  | ⏳     | TemplateHelper prod (manifest.json injection)        |
 | 14.3  | ⏳     | Multi-bundles validation (admin + shop + dashboard)  |
-| 14.4  | ⏳     | Preset Vue3 + Svelte5                                |
+| 14.4  | 🟡     | Preset Vue3 ✅ (2026-05-20) — Svelte5/Solid restants |
 | 14.5  | ⏳     | `nodefony frontend:create <module> <preset>` scaffold |
 | 14.6  | ⏳     | HMR cross-module (lien avec `watcherService.register`) |
 

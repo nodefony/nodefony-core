@@ -76,6 +76,11 @@ export class ViteConfigGenerator {
           pluginsExprs.push(`react({ jsxRuntime: "automatic" })`);
           optimizeInclude.push("react", "react-dom", "react-dom/client");
           break;
+        case "vue3":
+          imports.push(`import vue from "@vitejs/plugin-vue";`);
+          pluginsExprs.push(`vue()`);
+          optimizeInclude.push("vue");
+          break;
         case "vanilla":
           // Pas de plugin.
           break;

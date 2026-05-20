@@ -35,6 +35,25 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.not.include("@vitejs/plugin-react");
   });
 
+  it("emits defineConfig + vue plugin for vue3 preset", () => {
+    const out = gen.toMjs(
+      [{ ...baseEntry, type: "vue3", entryFile: "src/main.ts" }],
+      "development",
+    );
+    expect(out).to.include('import { defineConfig } from "vite"');
+    expect(out).to.include('import vue from "@vitejs/plugin-vue"');
+    expect(out).to.include("vue()");
+    expect(out).to.include('"vue",');
+  });
+
+  it("does NOT emit react import for vue3 preset", () => {
+    const out = gen.toMjs(
+      [{ ...baseEntry, type: "vue3", entryFile: "src/main.ts" }],
+      "development",
+    );
+    expect(out).to.not.include("@vitejs/plugin-react");
+  });
+
   it("includes mode in defineConfig", () => {
     const out = gen.toMjs([baseEntry], "development");
     expect(out).to.include('mode: "development"');

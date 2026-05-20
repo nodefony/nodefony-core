@@ -25,6 +25,8 @@ import indexController from "./nodefony/controllers/indexController";
   // Multi-bundle fix P14.6 : URL via /@fs/<abs> + server.fs.allow → 2 consumers
   // peuvent désormais cohabiter (chacun garde son main.tsx distinct).
   "@nodefony/test-frontend-react",
+  // Multi-framework Vite : bundle Vue 3 à côté des bundles React, même supervisor.
+  "@nodefony/test-frontend-vue",
   "@nodefony/studio",
   //Test,
   //"@nodefony/redis",

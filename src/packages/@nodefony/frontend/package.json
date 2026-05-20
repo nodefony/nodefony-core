@@ -34,10 +34,12 @@
     "@nodefony/http": "*",
     "@nodefony/framework": "*",
     "vite": ">=5.0.0",
-    "@vitejs/plugin-react": ">=4.0.0"
+    "@vitejs/plugin-react": ">=4.0.0",
+    "@vitejs/plugin-vue": ">=5.0.0"
   },
   "peerDependenciesMeta": {
-    "@vitejs/plugin-react": { "optional": true }
+    "@vitejs/plugin-react": { "optional": true },
+    "@vitejs/plugin-vue": { "optional": true }
   },
   "devDependencies": {
     "@rollup/plugin-json": "6.1.0",
