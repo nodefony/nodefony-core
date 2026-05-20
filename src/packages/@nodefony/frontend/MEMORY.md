@@ -103,10 +103,15 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 
 ## Tests
 
-- Unit : `nodefony/tests/unit/ViteConfigGenerator.test.ts` — 14 cases. Pure function, ts-node, ~10ms.
-- Intégration : `nodefony/tests/integration/ViteProcessSupervisor.test.ts` — 3 cases (start+stop, idempotence, crash auto-restart). Real spawn ~6s.
+- Unit : `nodefony/tests/unit/ViteConfigGenerator.test.ts` — 21 cases. Pure function, ~10ms. Runner = **vitest** (`npm test` = `vitest run`).
+- Intégration : `nodefony/tests/integration/ViteProcessSupervisor.test.ts` — 3 cases (start+stop, idempotence, crash auto-restart). Real spawn ~6s. Runner = mocha+ts-node (`npm run test:integration`), **process Vite séparé**.
 - Fixture : `nodefony/tests/fixtures/minimal-frontend/` (index.html + src/main.ts vanilla).
-- Lancer : `npm test` (unit) + `npm run test:integration`.
+
+## Coverage
+
+- `npm run coverage` = `vitest run --coverage` (v8). Config `vitest.config.ts` (mirror framework, sans alias sequelize/mongoose — test importe la source pure). Setup `nodefony/tests/vitest.setup.ts` + shim `vitest-mocha-shim.mjs`. Sortie `.coverage/` (lcov + json-summary) → onglet Coverage Studio (`readCoverage`).
+- **ViteConfigGenerator.ts = 100% lines (53/53)** ; module-wide ~12% (autres fichiers non testés inclus dans `include`, idem framework/http — le % unit ne mesure pas le runtime).
+- **Split assumé (décision A, 2026-05-20)** : l'intégration (`ViteProcessSupervisor`, spawn Vite) tourne en process séparé → JAMAIS instrumentée. cf [[feedback_coverage_modules]].
 
 ## API Studio (route /nodefony/frontend/* — Phase 10)
 
