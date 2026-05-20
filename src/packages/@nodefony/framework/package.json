@@ -17,7 +17,7 @@
     "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
-    "test": "TSX_TSCONFIG_PATH=tsconfig.tests.json tsx $(node -e \"process.stdout.write(require.resolve('mocha/bin/mocha.js'))\")",
+    "test": "tsx --tsconfig tsconfig.tests.json $(node -e \"process.stdout.write(require.resolve('mocha/bin/mocha.js'))\") 'nodefony/tests/unit/**/*.test.ts'",
     "test:integration": "TS_NODE_PROJECT=./tsconfig.tests.json mocha --config .mocharc.integration.json",
     "coverage": "mcr -c mcr.config.js npm run test"
   },
