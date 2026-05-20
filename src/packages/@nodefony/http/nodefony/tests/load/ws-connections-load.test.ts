@@ -160,19 +160,34 @@ describe("LOAD — WS connections (axis 1: count)", function () {
   const rupture = process.env.RUN_WS_RUPTURE === "1" ? it : it.skip;
   rupture("RUPTURE — ramp connections until the first failure (reports ceiling)", async function () {
     this.timeout(600_000);
+    // Default cap stays under the loopback ephemeral-port limit so a stray run is
+    // bounded; raise WS_RUPTURE_CAP (e.g. 20000) to reach the *real* ceiling
+    // (~16k on loopback = 49152–65535 port range). Validated 2026-05-21: 16372.
     const CAP = Number(process.env.WS_RUPTURE_CAP ?? 8000);
-    const STEP = 250;
+    const STEP = Number(process.env.WS_RUPTURE_STEP ?? 1000);
+    // Sub-batch the ramp: a single Promise.allSettled of hundreds of concurrent
+    // loopback TLS connects fails on the CLIENT (dual-stack internalConnectMultiple)
+    // — that under-reports the server ceiling (measured 4741 vs the real 16372).
+    // Open in small chunks like a real client to read true server capacity.
+    const BATCH = 50;
     const live: WebSocket[] = [];
     let ceiling = 0;
     try {
       while (live.length < CAP) {
-        const batch = await Promise.allSettled(
-          Array.from({ length: STEP }, () => openHandshaked()),
-        );
-        const ok = batch.filter((r) => r.status === "fulfilled");
-        for (const r of ok) live.push((r as PromiseFulfilledResult<WebSocket>).value);
+        const want = Math.min(STEP, CAP - live.length);
+        let openedInStep = 0;
+        for (let i = 0; i < want; i += BATCH) {
+          const size = Math.min(BATCH, want - i);
+          const res = await Promise.allSettled(
+            Array.from({ length: size }, () => openHandshaked()),
+          );
+          for (const r of res) {
+            if (r.status === "fulfilled") { live.push(r.value); openedInStep++; }
+          }
+          await wait(10);
+        }
         ceiling = live.length;
-        if (ok.length < STEP) break; // first batch that couldn't fully open = ceiling
+        if (openedInStep < want) break; // a full step couldn't open = real ceiling
       }
     } finally {
       // eslint-disable-next-line no-console

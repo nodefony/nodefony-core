@@ -74,8 +74,13 @@ ENV : `URL` `N`(1000) `C`(50) `METHOD`(GET) `BODY`.
 
 ## Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
 
-- **Connexions** : rupture ~**16 364** simultanées (épuisement ports éphémères loopback
-  49152–65535, PAS les fd ni la RAM ; en réseau réel ça remonte). Cleanup propre, 0 leak.
+- **Connexions** : rupture **16 372** simultanées (re-validé 2026-05-21, plage 49152–65535
+  = 16384 ports − quelques occupés). Épuisement des ports éphémères loopback, PAS les fd ni
+  la RAM ; en réseau réel (IP clientes distinctes) ça remonte. Cleanup propre, 0 leak.
+  ⚠️ **Sous-batcher l'ouverture** (`BATCH=50`) pour lire ce plafond : ouvrir des centaines de
+  connects d'un coup échoue côté CLIENT (TLS loopback dual-stack) et **sous-estime** (mesuré
+  4741 sans sous-batch vs 16372 avec). Le script `ws-connections.mjs` ET la sonde mocha
+  `RUPTURE` le font ; lever `WS_RUPTURE_CAP=20000` pour que la sonde atteigne le vrai plafond.
 - **Messages** : echo 1 conn ~7 200 msg/s ; broadcast fan-out propre jusqu'à ~**40k msg/s**,
   sature vers ~**120k msg/s** (le serveur bufferise, ne crash pas).
 - Détails + historique : mémoire IA `project_ws_stress_studio_lag`.
