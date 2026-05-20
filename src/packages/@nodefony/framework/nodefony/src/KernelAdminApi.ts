@@ -18,14 +18,25 @@ import {
 /** Clé du pseudo-module core dans Studio (cf carte "Core" / `resolveCorePath`). */
 const CORE_KEY = "core";
 
+/** Racine projet — pour ne PAS exposer de chemin absolu (sécu). */
+const REPO_ROOT = process.cwd();
+/** Relativise tout chemin absolu présent dans une string de config. */
+function stripAbs(s: string): string {
+  if (!s.includes(REPO_ROOT)) return s;
+  return s.split(`${REPO_ROOT}/`).join("").split(REPO_ROOT).join(".");
+}
+
 /**
  * Sérialisation défensive de config : borne la profondeur, neutralise les
- * fonctions, casse les cycles. Les `options` d'un module peuvent contenir des
- * fonctions/refs circulaires (vers le kernel) → JSON.stringify direct planterait.
+ * fonctions, casse les cycles, et **relativise les chemins absolus** (sécu :
+ * ne jamais exposer l'arborescence serveur). Les `options` d'un module peuvent
+ * contenir des fonctions/refs circulaires (vers le kernel) → JSON.stringify
+ * direct planterait.
  */
 function safeConfig(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
   if (typeof value === "function") return "[Function]";
   if (typeof value === "bigint") return value.toString();
+  if (typeof value === "string") return stripAbs(value);
   if (value === null || typeof value !== "object") return value;
   if (depth > 5) return "[depth limit]";
   if (seen.has(value)) return "[Circular]";

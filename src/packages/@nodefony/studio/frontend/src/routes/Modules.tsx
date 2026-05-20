@@ -9,7 +9,6 @@ import {
   Grid,
   Group,
   Loader,
-  SimpleGrid,
   Skeleton,
   Stack,
   Text,
@@ -77,7 +76,7 @@ function covColor(pct: number): string {
   return "red";
 }
 
-/** Mini-stat d'une carte module : icône + valeur + label, centré. */
+/** Ligne clé-valeur d'une carte module : icône + label à gauche, valeur à droite. */
 function MiniStat({
   icon,
   value,
@@ -90,11 +89,13 @@ function MiniStat({
   color?: string;
 }) {
   return (
-    <Stack gap={2} align="center">
-      <span style={{ opacity: 0.5, display: "flex" }}>{icon}</span>
-      <Text size="lg" fw={700} lh={1} c={color}>{value ?? "…"}</Text>
-      <Text c="dimmed" tt="uppercase" style={{ fontSize: 10, letterSpacing: 0.3 }}>{label}</Text>
-    </Stack>
+    <Group justify="space-between" wrap="nowrap" gap="sm">
+      <Group gap={8} wrap="nowrap">
+        <span style={{ opacity: 0.65, display: "flex" }}>{icon}</span>
+        <Text size="sm" c="dimmed">{label}</Text>
+      </Group>
+      <Text size="sm" fw={700} c={color}>{value ?? "…"}</Text>
+    </Group>
   );
 }
 
@@ -370,19 +371,19 @@ function ModuleCard({
           </Tooltip>
         </Group>
 
-        <SimpleGrid cols={3} spacing="xs" verticalSpacing="md" mt="auto" pt="xs">
-          <MiniStat icon={<IconRoute size={16} />} value={routeCount} label="routes" />
-          <MiniStat icon={<IconAffiliate size={16} />} value={detail ? (detail.services?.length ?? 0) : undefined} label="services" />
-          <MiniStat icon={<IconPackages size={16} />} value={detail ? detail.dependencies.length : undefined} label="deps" />
-          <MiniStat icon={<IconBook size={16} />} value={detail ? (detail.docsCount ?? 0) : undefined} label="docs" />
-          <MiniStat icon={<IconCode size={16} />} value={detail ? (detail.symbolsCount ?? 0) : undefined} label="api" />
+        <Stack gap={7} mt="auto" pt="xs">
+          <MiniStat icon={<IconRoute size={15} />} value={routeCount} label="Routes" />
+          <MiniStat icon={<IconAffiliate size={15} />} value={detail ? (detail.services?.length ?? 0) : undefined} label="Services" />
+          <MiniStat icon={<IconPackages size={15} />} value={detail ? detail.dependencies.length : undefined} label="Dépendances" />
+          <MiniStat icon={<IconBook size={15} />} value={detail ? (detail.docsCount ?? 0) : undefined} label="Docs" />
+          <MiniStat icon={<IconCode size={15} />} value={detail ? (detail.symbolsCount ?? 0) : undefined} label="API" />
           <MiniStat
-            icon={<IconShieldCheck size={16} />}
+            icon={<IconShieldCheck size={15} />}
             value={detail ? (detail.coverageLines != null ? `${Math.round(detail.coverageLines)}%` : "—") : undefined}
-            label="cover"
+            label="Couverture"
             color={detail && detail.coverageLines != null ? covColor(detail.coverageLines) : undefined}
           />
-        </SimpleGrid>
+        </Stack>
       </Stack>
     </Card>
   );
