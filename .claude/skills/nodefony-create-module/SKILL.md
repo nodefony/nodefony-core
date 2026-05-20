@@ -215,11 +215,13 @@ Tout module embarque un coverage `monocart-coverage-reports` (= core ; **jamais 
 
 ```js
 // Couverture du module — `npm run coverage` (mcr wrappe la suite unit in-process).
+// Runner unit = tsx (comme le core), PAS ts-node : `test` =
+//   TSX_TSCONFIG_PATH=tsconfig.tests.json tsx <mocha>
+// Stub des deps qui crashent hors kernel via tsconfig `paths` (PAS de load-hook,
+// qui casse le mapping sourcemap). Cf mémoire feedback_coverage_modules.
 // ⚠️ Les tests d'INTÉGRATION (test:integration) tapent un serveur dans un process
 // SÉPARÉ → non couverts par le wrapping mocha. Seule la suite unit est mesurée.
-// ⚠️ ts-node mappe mal le V8 coverage (monocart ne résout qu'une partie des
-// sourcemaps) → pour un % FIABLE, faire tourner les unit tests sous `tsx`
-// (comme le core src/nodefony), pas ts-node. Voir mémoire feedback_coverage_modules.
+// ⚠️ Mapping monocart sous mcr encore à stabiliser (chantier ouvert).
 const inModule = (url) =>
   typeof url === "string" &&
   url.includes("/<module>/") &&

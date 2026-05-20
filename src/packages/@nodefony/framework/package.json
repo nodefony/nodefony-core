@@ -17,7 +17,7 @@
     "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
-    "test": "TS_NODE_PROJECT=./tsconfig.tests.json mocha",
+    "test": "TSX_TSCONFIG_PATH=tsconfig.tests.json tsx $(node -e \"process.stdout.write(require.resolve('mocha/bin/mocha.js'))\")",
     "test:integration": "TS_NODE_PROJECT=./tsconfig.tests.json mocha --config .mocharc.integration.json",
     "coverage": "mcr -c mcr.config.js npm run test"
   },
@@ -60,6 +60,7 @@
     "rollup-plugin-copy": "3.5.0",
     "rollup-sourcemap-path-transform": "1.2.0",
     "ts-node": "10.9.2",
+    "tsx": "4.22.0",
     "typescript": "6.0.3"
   },
   "license": "",

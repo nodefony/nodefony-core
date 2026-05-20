@@ -3,6 +3,11 @@
   "compilerOptions": {
     "types": ["node", "mocha", "chai"],
     "noUnusedParameters": false,
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    "baseUrl": ".",
+    "paths": {
+      "@nodefony/sequelize": ["./nodefony/tests/stubs/sequelize.ts"],
+      "@nodefony/mongoose": ["./nodefony/tests/stubs/mongoose.ts"]
+    }
   }
 }
