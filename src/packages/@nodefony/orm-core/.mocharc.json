@@ -1,0 +1,7 @@
+{
+  "extension": ["ts"],
+  "spec": "tests/unit/**/*.test.ts",
+  "recursive": true,
+  "exit": true,
+  "node-option": ["import=tsx"]
+}

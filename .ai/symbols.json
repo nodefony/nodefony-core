@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-20T22:56:46.132Z",
+  "generated": "2026-05-20T23:28:12.310Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 242,
-    "symbols": 573,
-    "classes": 180,
+    "files": 246,
+    "symbols": 579,
+    "classes": 184,
     "interfaces": 196,
     "types": 127,
     "enums": 1,
     "functions": 59,
-    "constants": 10
+    "constants": 12
   },
   "symbols": {
     "Cli": {
@@ -3240,6 +3240,70 @@
       "extends": null,
       "description": "Unité de travail transactionnelle abstraite (commit / rollback / savepoint). Obtenue dans le callback de `IOrm.transaction()`. Les transactions cross-ORM (2PC) ne sont PAS garanties : une transacti…"
     },
+    "@nodefony/orm-core:Entity": {
+      "name": "Entity",
+      "kind": "class",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "implements": [
+        "IEntity"
+      ],
+      "decorators": [],
+      "description": "Classe de base abstraite d'une entité, indépendante du driver ORM. Porte le contrat {@link IEntity} : nom logique, ORM cible, schéma natif (calculé via {@link Entity.getSchema}), modèle compilé (po…"
+    },
+    "EntityRegistry": {
+      "name": "EntityRegistry",
+      "kind": "class",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Registre cross-ORM des entités, indexé par nom logique puis par ORM. Une même entité logique (ex. `User`) peut exister pour plusieurs ORM : l'index interne est `entities[entityName][ormName] = IEnt…"
+    },
+    "entityRegistry": {
+      "name": "entityRegistry",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Singleton process-wide partagé. Les entités s'y enregistrent (via le décorateur `@entity` en P5.3 ou {@link Entity.register}). La classe {@link EntityRegistry} reste instanciable pour des registres…"
+    },
+    "@nodefony/orm-core:Orm": {
+      "name": "Orm",
+      "kind": "class",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": "Service",
+      "implements": [
+        "IOrm"
+      ],
+      "decorators": [],
+      "description": "Classe de base abstraite de tout ORM Nodefony — câble {@link Service} (DI, Syslog, bus d'événements) et le contrat {@link IOrm}, et s'auto-enregistre dans le {@link ormRegistry} process-wide à la c…"
+    },
+    "OrmRegistry": {
+      "name": "OrmRegistry",
+      "kind": "class",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Registre process-wide des instances ORM enregistrées sous un nom unique. Support multi-ORM natif : chaque driver (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefony/drizzle`...) s'enregistre à…"
+    },
+    "ormRegistry": {
+      "name": "ormRegistry",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Singleton process-wide partagé par tous les drivers et consommateurs ORM. Les modules ORM s'enregistrent ici ; la classe {@link OrmRegistry} reste instanciable séparément pour des registres isolés …"
+    },
     "FixedChunker": {
       "name": "FixedChunker",
       "kind": "class",
@@ -4344,6 +4408,7 @@
         "FrontendService",
         "Certificate",
         "HttpKernel",
+        "Orm",
         "Redis",
         "Connection",
         "Authorization",
@@ -4625,6 +4690,12 @@
       "IMemoryService": [
         "MemoryService"
       ],
+      "IEntity": [
+        "Entity"
+      ],
+      "IOrm": [
+        "Orm"
+      ],
       "IChunker": [
         "FixedChunker",
         "SentenceChunker"
@@ -4757,6 +4828,7 @@
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
@@ -4788,7 +4860,8 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
-        "src/nodefony/src/kernel/orm/Orm.ts"
+        "src/nodefony/src/kernel/orm/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts"
       ],
       "Container": [
         "src/nodefony/src/Cli.ts",
@@ -4817,6 +4890,7 @@
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
@@ -4871,6 +4945,7 @@
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/cors.ts",
@@ -6322,10 +6397,29 @@
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
       "IRepository": [
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts"
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts"
       ],
       "ITransaction": [
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts"
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts"
+      ],
+      "IEntity": [
+        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts"
+      ],
+      "IEntityRelation": [
+        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts"
+      ],
+      "entityRegistry": [
+        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts"
+      ],
+      "IOrm": [
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmRegistry.ts"
+      ],
+      "ormRegistry": [
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts"
       ],
       "IChunker": [
         "src/packages/@nodefony/rag/src/chunking/FixedChunker.ts",
