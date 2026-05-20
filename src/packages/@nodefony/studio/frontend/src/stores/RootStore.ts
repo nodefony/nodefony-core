@@ -5,6 +5,7 @@ import { AuthStore } from "./AuthStore";
 import { ConnectionStore } from "./ConnectionStore";
 import { UiStore } from "./UiStore";
 import { ChatStore } from "./ChatStore";
+import { AdminStore } from "./AdminStore";
 
 /**
  * URL de l'endpoint WS realtime de Studio (`StudioRealtimeController`, JSON-RPC 2.0).
@@ -30,6 +31,7 @@ export class RootStore {
   readonly auth: AuthStore;
   readonly connection: ConnectionStore;
   readonly chat: ChatStore;
+  readonly admin: AdminStore;
 
   readonly api: ApiClient;
   readonly realtime: RealtimeClient;
@@ -54,5 +56,6 @@ export class RootStore {
     this.auth = new AuthStore(authService);
     this.connection = new ConnectionStore(this.realtime);
     this.chat = new ChatStore(this.realtime);
+    this.admin = new AdminStore(this.api);
   }
 }

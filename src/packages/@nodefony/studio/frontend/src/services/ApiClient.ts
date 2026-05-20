@@ -59,6 +59,18 @@ export class ApiClient {
     return this.request<T>("DELETE", path, undefined, init);
   }
 
+  /**
+   * GET sur un chemin ABSOLU (data plane `/nodefony/<module>/api/*`), hors
+   * `baseUrl`. Le catalogue (`/nodefony/framework/api/admin`) renvoie des
+   * chemins absolus → on les appelle tels quels, avec le même JWT/erreurs.
+   */
+  async getAbsolute<T = unknown>(
+    absolutePath: string,
+    init?: RequestInit,
+  ): Promise<T> {
+    return this.send<T>("GET", absolutePath, undefined, init);
+  }
+
   private async request<T>(
     method: string,
     path: string,
@@ -66,6 +78,15 @@ export class ApiClient {
     init?: RequestInit,
   ): Promise<T> {
     const url = `${this.baseUrl}${path.startsWith("/") ? path : "/" + path}`;
+    return this.send<T>(method, url, body, init);
+  }
+
+  private async send<T>(
+    method: string,
+    url: string,
+    body: unknown,
+    init?: RequestInit,
+  ): Promise<T> {
     const headers = new Headers(init?.headers);
     headers.set("Accept", "application/json");
     if (body !== undefined) headers.set("Content-Type", "application/json");
@@ -90,7 +111,7 @@ export class ApiClient {
       throw new ApiError(
         res.status,
         payload,
-        `${method} ${path} → HTTP ${res.status}`,
+        `${method} ${url} → HTTP ${res.status}`,
       );
     }
     // Nodefony wraps JSON responses: `{ result: ... }` selon HttpKernel.

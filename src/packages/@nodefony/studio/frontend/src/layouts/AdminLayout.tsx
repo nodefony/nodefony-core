@@ -33,6 +33,7 @@ import {
   IconChartBar,
   IconArrowsExchange,
   IconMessageChatbot,
+  IconApi,
   IconSettings,
   IconSun,
   IconMoonStars,
@@ -62,6 +63,7 @@ const NAV: NavItem[] = [
   { to: "/nodefony/databases", label: "Databases", icon: IconDatabase, group: "Data" },
   { to: "/nodefony/migrate", label: "Migrations", icon: IconArrowsExchange, group: "Data" },
 
+  { to: "/nodefony/system", label: "Admin API", icon: IconApi, group: "System" },
   { to: "/nodefony/services", label: "Services", icon: IconAffiliate, group: "System" },
   { to: "/nodefony/modules", label: "Modules", icon: IconBox, group: "System" },
   { to: "/nodefony/npm", label: "NPM", icon: IconBrandNpm, group: "System" },

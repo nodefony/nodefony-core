@@ -18,6 +18,7 @@ import { Login } from "./routes/Login";
 import { Dashboard } from "./routes/Dashboard";
 import { Chat } from "./routes/Chat";
 import { Logs } from "./routes/Logs";
+import { System } from "./routes/System";
 import {
   Sessions,
   Users,
@@ -59,6 +60,7 @@ const router = createBrowserRouter([
           { path: "users", element: <Users /> },
           { path: "routes", element: <Routes /> },
           { path: "logs", element: <Logs /> },
+          { path: "system", element: <System /> },
           { path: "firewall", element: <Firewall /> },
           { path: "databases", element: <Databases /> },
           { path: "migrate", element: <Migrate /> },

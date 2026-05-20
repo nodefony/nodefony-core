@@ -46,11 +46,14 @@ class Studio extends Module {
       root: "./frontend",
       outDir: "./public/dist",
       name: "studio",
-      // Sans ça, fetch("/nodefony/studio/api/...") depuis l'app servie par Vite
+      // Sans ça, fetch("/nodefony/<module>/api/...") depuis l'app servie par Vite
       // tape Vite (qui retourne son SPA-fallback HTML) → erreur JSON. On proxifie
-      // UNIQUEMENT le préfixe API : les pages SPA `/nodefony/{page}` restent servies
-      // par Vite (prefix-match Vite proxy → ne capte pas la racine `/nodefony`).
-      apiProxyPaths: ["/nodefony/studio/api"],
+      // TOUT le data plane admin `/nodefony/<module>/api/*` (studio + kernel + http
+      // + framework + syslog + futurs producteurs) via une **clé RegExp Vite**
+      // (`^…` = traité comme RegExp par Vite). Couvre ≥3 segments avec `/api/`
+      // donc les pages SPA mono-segment `/nodefony/{page}` et la racine `/nodefony`
+      // restent servies par Vite. `ws:true` (déjà posé) garde le WS realtime proxifié.
+      apiProxyPaths: ["^/nodefony/[^/]+/api"],
     });
     return this;
   }
