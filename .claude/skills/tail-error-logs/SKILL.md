@@ -77,4 +77,4 @@ grep "abc12345" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
 
 - Pour analyser les **logs structurés JSON** d'un client → utiliser `jq`
 - Pour les **logs des tests** (mocha) → tail séparé sur l'output mocha
-- Pour les logs **prod / pm2** → variantes différentes du fichier, adapter le chemin
+- Pour les logs **prod** (foreground/Docker → stdout/stderr ; PM2 legacy déprécié, retrait Phase 16) → variantes différentes, adapter le chemin/source

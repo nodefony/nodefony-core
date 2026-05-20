@@ -87,7 +87,7 @@ Si le module expose une API d'introspection/admin :
 
 - Si module consommé par IA (security, user, orm-core, http WS, session, syslog) → **prévoir usage IA dans le design** : interfaces extensibles, async iterators, pas de couplage rigide.
 - Modules IA existants partiellement TS : ne pas casser, mais design pas figé. Audit + refonte en P12.1.
-- `@nodefony/studio` **fusionne avec `@nodefony/vision`** comme panels (agents, costs, audit, approvals).
+- `@nodefony/studio` **intègre les panels IA** (agents, costs, audit, approvals). NB : `@nodefony/vision` a été renommé `@nodefony/studio` (2026-05-18) — il n'y a plus qu'un seul module Studio.
 - **Ne pas démarrer de session sur les modules IA** pendant P0-P11 sauf demande explicite.
 
 ### Fichiers IA contexte (lire en session IA, pas en session framework)
