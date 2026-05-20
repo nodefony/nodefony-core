@@ -8,3 +8,4 @@ alternatives écartées / conséquences).
 | # | Titre | Statut | Date |
 | - | ----- | ------ | ---- |
 | [0001](0001-docs-modules-emplacement-hybride.md) | Docs des modules — emplacement hybride + versionnement frontmatter/git | accepted | 2026-05-20 |
+| [0002](0002-schema-conference-webrtc-mediasoup.md) | Schéma DB conférence WebRTC (mediasoup) — banc de test ORM + cible P15 | accepted | 2026-05-21 |
