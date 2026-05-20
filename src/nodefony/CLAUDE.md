@@ -206,7 +206,7 @@ Phases d'évolution prévues (cf [INJECTION_PLAN.md](./INJECTION_PLAN.md) worksp
 
 ```bash
 cd src/nodefony
-npm run test           # mocha + tsx — ~230 tests
+npm run test           # mocha + tsx — ~1233 tests (2026-05-20)
 npm run build          # rollup build
 npm run clean          # supprime dist/
 ```
