@@ -1,9 +1,12 @@
 import { observer } from "mobx-react-lite";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import {
   AppShell,
+  Box,
   Burger,
+  Center,
   Group,
+  Loader,
   NavLink,
   ScrollArea,
   Text,
@@ -11,28 +14,22 @@ import {
   Avatar,
   Menu,
   Badge,
+  Collapse,
+  Divider,
   Tooltip,
+  TextInput,
   UnstyledButton,
   useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { ConnectionDrawer } from "../components/ConnectionDrawer";
-import { NavLink as RouterNavLink, Outlet, useLocation } from "react-router-dom";
 import {
-  IconDashboard,
-  IconUsers,
-  IconRoute,
-  IconList,
-  IconShieldLock,
-  IconDatabase,
-  IconBox,
-  IconBrandReact,
-  IconActivityHeartbeat,
-  IconBrandNpm,
-  IconAffiliate,
-  IconChartBar,
-  IconArrowsExchange,
-  IconMessageChatbot,
+  NavLink as RouterNavLink,
+  Outlet,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
+import {
   IconApi,
   IconSettings,
   IconSun,
@@ -40,74 +37,155 @@ import {
   IconLogout,
   IconPlugConnected,
   IconPlugX,
+  IconSearch,
+  IconX,
+  IconPalette,
+  IconChevronRight,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+  type Icon,
 } from "@tabler/icons-react";
-import { useAuth, useConnection } from "../stores";
+import { useAdmin, useAuth, useConnection, useUi } from "../stores";
+import { NodefonyLogo } from "../components/NodefonyLogo";
+import { NAV_GROUPS, PRODUCER_ICONS } from "./navConfig";
 
-interface NavItem {
+const RAIL_WIDTH = 68;
+const FULL_WIDTH = 264;
+
+/** Un lien de nav — rendu plein (icône + libellé) ou rail (icône + tooltip). */
+function NavEntry({
+  to,
+  label,
+  icon: ItemIcon,
+  active,
+  rail,
+  rightSection,
+}: {
   to: string;
   label: string;
-  icon: typeof IconDashboard;
-  group?: string;
+  icon: Icon;
+  active: boolean;
+  rail: boolean;
+  rightSection?: React.ReactNode;
+}) {
+  if (rail) {
+    return (
+      <Tooltip label={label} position="right" withArrow openDelay={200}>
+        <NavLink
+          component={RouterNavLink}
+          to={to}
+          active={active}
+          variant={active ? "filled" : "subtle"}
+          leftSection={<ItemIcon size={20} stroke={1.6} />}
+          styles={{
+            root: { justifyContent: "center", borderRadius: 8 },
+            section: { marginInlineEnd: 0 },
+          }}
+          mb={2}
+        />
+      </Tooltip>
+    );
+  }
+  return (
+    <NavLink
+      component={RouterNavLink}
+      to={to}
+      label={label}
+      active={active}
+      variant={active ? "filled" : "subtle"}
+      leftSection={<ItemIcon size={18} stroke={1.6} />}
+      rightSection={rightSection}
+      styles={{ root: { borderRadius: 8 } }}
+      mb={2}
+    />
+  );
 }
 
-const NAV: NavItem[] = [
-  { to: "/nodefony", label: "Dashboard", icon: IconDashboard, group: "Overview" },
-  { to: "/nodefony/chat", label: "Chat IA", icon: IconMessageChatbot, group: "Overview" },
-
-  { to: "/nodefony/sessions", label: "Sessions", icon: IconList, group: "Runtime" },
-  { to: "/nodefony/users", label: "Users", icon: IconUsers, group: "Runtime" },
-  { to: "/nodefony/routes", label: "Routes", icon: IconRoute, group: "Runtime" },
-  { to: "/nodefony/logs", label: "Logs", icon: IconList, group: "Runtime" },
-  { to: "/nodefony/firewall", label: "Firewall", icon: IconShieldLock, group: "Runtime" },
-
-  { to: "/nodefony/databases", label: "Databases", icon: IconDatabase, group: "Data" },
-  { to: "/nodefony/migrate", label: "Migrations", icon: IconArrowsExchange, group: "Data" },
-
-  { to: "/nodefony/system", label: "Admin API", icon: IconApi, group: "System" },
-  { to: "/nodefony/services", label: "Services", icon: IconAffiliate, group: "System" },
-  { to: "/nodefony/modules", label: "Modules", icon: IconBox, group: "System" },
-  { to: "/nodefony/npm", label: "NPM", icon: IconBrandNpm, group: "System" },
-  { to: "/nodefony/pm2", label: "PM2", icon: IconBrandReact, group: "System" },
-  { to: "/nodefony/profiling", label: "Profiling", icon: IconChartBar, group: "System" },
-
-  { to: "/nodefony/settings", label: "Settings", icon: IconSettings, group: "Account" },
-];
-
-const GROUPS = ["Overview", "Runtime", "Data", "System", "Account"] as const;
-
 export const AdminLayout = observer(() => {
-  const [opened, { toggle }] = useDisclosure(true);
+  const [mobileOpened, { toggle: toggleMobile }] = useDisclosure(false);
   const [drawerOpen, drawerHandlers] = useDisclosure(false);
   const auth = useAuth();
   const conn = useConnection();
+  const ui = useUi();
+  const admin = useAdmin();
   const loc = useLocation();
+  const [params] = useSearchParams();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
 
-  // Connexion WS permanente : ouverte dès que le shell admin est monté (donc
-  // authentifié), pas seulement via le flow Login. Sinon un reload avec un token
-  // déjà en localStorage saute Login → le WS n'est jamais ouvert → widgets en
-  // loading + badge "disconnected". Idempotent (no-op si déjà connecté/connecting).
+  // WS permanent : ouvert dès le montage du shell (couvre reload avec token).
   useEffect(() => {
     void conn.connect(auth.getToken());
   }, [conn, auth]);
+
+  // Catalogue data plane → groupe « Data plane » auto-généré dans la nav.
+  useEffect(() => {
+    void admin.loadCatalog();
+  }, [admin]);
+
+  const rail = ui.rail;
+  const q = ui.navQuery.trim().toLowerCase();
+  const filtering = q.length > 0;
+  const focusNs = params.get("p");
+
+  const matchItem = (to: string, exact?: boolean): boolean =>
+    exact
+      ? loc.pathname === to
+      : loc.pathname === to || loc.pathname.startsWith(to + "/");
+
+  const producers = admin.producers;
 
   return (
     <AppShell
       header={{ height: 56 }}
       navbar={{
-        width: 260,
+        width: rail ? RAIL_WIDTH : FULL_WIDTH,
         breakpoint: "sm",
-        collapsed: { mobile: !opened, desktop: !opened },
+        collapsed: { mobile: !mobileOpened, desktop: false },
       }}
       padding="md"
     >
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between" gap="xs">
           <Group gap="xs">
-            <Burger opened={opened} onClick={toggle} size="sm" />
-            <Text fw={700} size="lg" component={RouterNavLink} to="/nodefony" style={{ textDecoration: "none", color: "inherit" }}>
-              Nodefony <Text span c="orange" inherit>Studio</Text>
-            </Text>
+            <Burger
+              opened={mobileOpened}
+              onClick={toggleMobile}
+              size="sm"
+              hiddenFrom="sm"
+            />
+            <Tooltip label={rail ? "Déplier la sidebar" : "Réduire la sidebar"}>
+              <ActionIcon
+                variant="subtle"
+                onClick={() => ui.toggleRail()}
+                visibleFrom="sm"
+                aria-label="Toggle sidebar"
+              >
+                {rail ? (
+                  <IconLayoutSidebarLeftExpand size={20} />
+                ) : (
+                  <IconLayoutSidebarLeftCollapse size={20} />
+                )}
+              </ActionIcon>
+            </Tooltip>
+            <Group
+              gap={6}
+              component={RouterNavLink}
+              to="/nodefony"
+              style={{ textDecoration: "none", color: "inherit" }}
+              wrap="nowrap"
+            >
+              <NodefonyLogo height={26} />
+              <Text fw={700} size="lg" c="brand">
+                Nodefony{" "}
+                <Text
+                  span
+                  c={ui.palette === "nodefony" ? "nodefonyCyan" : "orange"}
+                  inherit
+                >
+                  Studio
+                </Text>
+              </Text>
+            </Group>
           </Group>
           <Group gap="xs">
             <Tooltip
@@ -139,7 +217,7 @@ export const AdminLayout = observer(() => {
                   variant="light"
                   rightSection={
                     conn.subscriptionCount > 0 ? (
-                      <Badge size="xs" variant="filled" color="orange" circle>
+                      <Badge size="xs" variant="filled" color="brand" circle>
                         {conn.subscriptionCount}
                       </Badge>
                     ) : null
@@ -150,13 +228,33 @@ export const AdminLayout = observer(() => {
                 </Badge>
               </UnstyledButton>
             </Tooltip>
-            <ActionIcon variant="subtle" onClick={() => toggleColorScheme()} aria-label="Toggle theme">
-              {colorScheme === "dark" ? <IconSun size={18} /> : <IconMoonStars size={18} />}
+            <Tooltip
+              label={`Palette : ${ui.palette === "nodefony" ? "Nodefony (bleu)" : "Orange"} — cliquer pour basculer`}
+            >
+              <ActionIcon
+                variant="subtle"
+                color="brand"
+                onClick={() => ui.togglePalette()}
+                aria-label="Toggle palette"
+              >
+                <IconPalette size={18} />
+              </ActionIcon>
+            </Tooltip>
+            <ActionIcon
+              variant="subtle"
+              onClick={() => toggleColorScheme()}
+              aria-label="Toggle theme"
+            >
+              {colorScheme === "dark" ? (
+                <IconSun size={18} />
+              ) : (
+                <IconMoonStars size={18} />
+              )}
             </ActionIcon>
             <Menu position="bottom-end" withArrow shadow="md">
               <Menu.Target>
                 <ActionIcon variant="subtle" aria-label="User menu">
-                  <Avatar size={28} radius="xl" color="orange">
+                  <Avatar size={28} radius="xl" color="brand">
                     {auth.displayName.slice(0, 2).toUpperCase()}
                   </Avatar>
                 </ActionIcon>
@@ -164,10 +262,18 @@ export const AdminLayout = observer(() => {
               <Menu.Dropdown>
                 <Menu.Label>{auth.user?.email ?? auth.displayName}</Menu.Label>
                 <Menu.Divider />
-                <Menu.Item leftSection={<IconSettings size={14} />} component={RouterNavLink} to="/nodefony/settings">
+                <Menu.Item
+                  leftSection={<IconSettings size={14} />}
+                  component={RouterNavLink}
+                  to="/nodefony/settings"
+                >
                   Settings
                 </Menu.Item>
-                <Menu.Item leftSection={<IconLogout size={14} />} color="red" onClick={() => auth.logout()}>
+                <Menu.Item
+                  leftSection={<IconLogout size={14} />}
+                  color="red"
+                  onClick={() => auth.logout()}
+                >
                   Logout
                 </Menu.Item>
               </Menu.Dropdown>
@@ -176,37 +282,157 @@ export const AdminLayout = observer(() => {
         </Group>
       </AppShell.Header>
 
-      <AppShell.Navbar p="xs">
-        <ScrollArea>
-          {GROUPS.map((g) => (
-            <div key={g}>
-              <Text size="xs" tt="uppercase" c="dimmed" fw={600} pl="sm" mt="md" mb={4}>
-                {g}
-              </Text>
-              {NAV.filter((n) => n.group === g).map((item) => {
-                const Icon = item.icon;
-                const active =
-                  loc.pathname === item.to ||
-                  (item.to !== "/nodefony" && loc.pathname.startsWith(item.to));
-                return (
-                  <NavLink
-                    key={item.to}
-                    component={RouterNavLink}
-                    to={item.to}
-                    label={item.label}
-                    leftSection={<Icon size={18} stroke={1.6} />}
-                    active={active}
-                    variant={active ? "filled" : "subtle"}
-                  />
-                );
-              })}
-            </div>
-          ))}
+      <AppShell.Navbar
+        p={rail ? 6 : "xs"}
+        style={{ display: "flex", flexDirection: "column" }}
+      >
+        {!rail && (
+          <TextInput
+            size="xs"
+            placeholder="Filtrer la navigation…"
+            leftSection={<IconSearch size={14} />}
+            value={ui.navQuery}
+            onChange={(e) => ui.setNavQuery(e.currentTarget.value)}
+            rightSection={
+              ui.navQuery ? (
+                <ActionIcon
+                  size="xs"
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => ui.setNavQuery("")}
+                  aria-label="Clear filter"
+                >
+                  <IconX size={12} />
+                </ActionIcon>
+              ) : null
+            }
+            mb="xs"
+          />
+        )}
+
+        <ScrollArea style={{ flex: 1 }} type="scroll">
+          {NAV_GROUPS.map((g) => {
+            const items = filtering
+              ? g.items.filter((i) => i.label.toLowerCase().includes(q))
+              : g.items;
+            if (items.length === 0) return null;
+            const collapsed = !filtering && !rail && ui.isGroupCollapsed(g.id);
+
+            return (
+              <Box key={g.id}>
+                {rail ? (
+                  <Divider my={6} />
+                ) : (
+                  <UnstyledButton
+                    onClick={() => !filtering && ui.toggleGroup(g.id)}
+                    style={{ width: "100%" }}
+                  >
+                    <Group justify="space-between" px="sm" mt="sm" mb={4} gap={4}>
+                      <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
+                        {g.label}
+                      </Text>
+                      {!filtering && (
+                        <IconChevronRight
+                          size={13}
+                          style={{
+                            transform: collapsed ? "none" : "rotate(90deg)",
+                            transition: "transform .15s ease",
+                            opacity: 0.5,
+                          }}
+                        />
+                      )}
+                    </Group>
+                  </UnstyledButton>
+                )}
+                <Collapse in={!collapsed}>
+                  {items.map((item) => (
+                    <NavEntry
+                      key={item.to}
+                      to={item.to}
+                      label={item.label}
+                      icon={item.icon}
+                      rail={rail}
+                      active={matchItem(item.to, item.exact)}
+                    />
+                  ))}
+                </Collapse>
+              </Box>
+            );
+          })}
+
+          {/* Groupe dynamique : producteurs du data plane admin (catalogue). */}
+          {(() => {
+            const items = filtering
+              ? producers.filter((p) => p.label.toLowerCase().includes(q))
+              : producers;
+            if (items.length === 0) return null;
+            const collapsed =
+              !filtering && !rail && ui.isGroupCollapsed("dataplane");
+            return (
+              <Box>
+                {rail ? (
+                  <Divider my={6} />
+                ) : (
+                  <UnstyledButton
+                    onClick={() => !filtering && ui.toggleGroup("dataplane")}
+                    style={{ width: "100%" }}
+                  >
+                    <Group justify="space-between" px="sm" mt="sm" mb={4} gap={4}>
+                      <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
+                        Data plane
+                      </Text>
+                      {!filtering && (
+                        <IconChevronRight
+                          size={13}
+                          style={{
+                            transform: collapsed ? "none" : "rotate(90deg)",
+                            transition: "transform .15s ease",
+                            opacity: 0.5,
+                          }}
+                        />
+                      )}
+                    </Group>
+                  </UnstyledButton>
+                )}
+                <Collapse in={!collapsed}>
+                  {items.map((p) => {
+                    const ItemIcon =
+                      (p.icon && PRODUCER_ICONS[p.icon]) || IconApi;
+                    const active =
+                      loc.pathname === "/nodefony/system" && focusNs === p.namespace;
+                    return (
+                      <NavEntry
+                        key={p.namespace}
+                        to={`/nodefony/system?p=${p.namespace}`}
+                        label={p.label}
+                        icon={ItemIcon}
+                        rail={rail}
+                        active={active}
+                        rightSection={
+                          <Badge size="xs" variant="light" color="gray">
+                            {p.endpoints.length}
+                          </Badge>
+                        }
+                      />
+                    );
+                  })}
+                </Collapse>
+              </Box>
+            );
+          })()}
         </ScrollArea>
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Outlet />
+        <Suspense
+          fallback={
+            <Center h="60vh">
+              <Loader />
+            </Center>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </AppShell.Main>
 
       <ConnectionDrawer opened={drawerOpen} onClose={drawerHandlers.close} />

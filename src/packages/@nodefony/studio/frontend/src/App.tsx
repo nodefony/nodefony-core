@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, useEffect } from "react";
 import { observer } from "mobx-react-lite";
 import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
@@ -10,21 +10,40 @@ import {
 } from "react-router-dom";
 
 import { StoreProvider, RootStore, useAuth } from "./stores";
-import { studioTheme } from "./theme";
+import { buildStudioTheme } from "./theme";
 import { AuthGuard } from "./components/AuthGuard";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Login } from "./routes/Login";
-import { Dashboard } from "./routes/Dashboard";
-import { Chat } from "./routes/Chat";
-import { Logs } from "./routes/Logs";
-import { System } from "./routes/System";
-import { Modules } from "./routes/Modules";
-import { ModuleDetail } from "./routes/ModuleDetail";
+
+// Lazy-load des pages (code-splitting) : le bundle initial ne charge que le
+// shell + Login ; chaque page arrive à la demande. Exports nommés → on remappe
+// vers `default` (contrat React.lazy). Le fallback Suspense vit dans AdminLayout.
+const Dashboard = lazy(() =>
+  import("./routes/Dashboard").then((m) => ({ default: m.Dashboard })),
+);
+const Chat = lazy(() =>
+  import("./routes/Chat").then((m) => ({ default: m.Chat })),
+);
+const Logs = lazy(() =>
+  import("./routes/Logs").then((m) => ({ default: m.Logs })),
+);
+const System = lazy(() =>
+  import("./routes/System").then((m) => ({ default: m.System })),
+);
+const Modules = lazy(() =>
+  import("./routes/Modules").then((m) => ({ default: m.Modules })),
+);
+const ModuleDetail = lazy(() =>
+  import("./routes/ModuleDetail").then((m) => ({ default: m.ModuleDetail })),
+);
+const RoutesView = lazy(() =>
+  import("./routes/RoutesView").then((m) => ({ default: m.RoutesView })),
+);
+
 import {
   Sessions,
   Users,
-  Routes,
   Firewall,
   Databases,
   Services,
@@ -59,7 +78,7 @@ const router = createBrowserRouter([
           { path: "chat", element: <Chat /> },
           { path: "sessions", element: <Sessions /> },
           { path: "users", element: <Users /> },
-          { path: "routes", element: <Routes /> },
+          { path: "routes", element: <RoutesView /> },
           { path: "logs", element: <Logs /> },
           { path: "system", element: <System /> },
           { path: "firewall", element: <Firewall /> },
@@ -95,9 +114,15 @@ const SessionBootstrap = observer(
   },
 );
 
-export function App() {
+/**
+ * Le thème Mantine dépend de `ui.palette` (réversible à chaud). Le
+ * `MantineProvider` étant au-dessus du `StoreProvider`, on lit le `rootStore`
+ * singleton directement ; `observer` re-render le provider au toggle de palette.
+ */
+export const App = observer(() => {
+  const theme = buildStudioTheme(rootStore.ui.palette);
   return (
-    <MantineProvider theme={studioTheme} defaultColorScheme="dark">
+    <MantineProvider theme={theme} defaultColorScheme="dark">
       <Notifications position="top-right" />
       <ModalsProvider>
         <StoreProvider value={rootStore}>
@@ -108,6 +133,6 @@ export function App() {
       </ModalsProvider>
     </MantineProvider>
   );
-}
+});
 
 export default App;

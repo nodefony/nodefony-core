@@ -34,7 +34,7 @@ export function StubPage({
           )}
         </Stack>
         {phase && (
-          <Badge color="orange" variant="light" size="lg">
+          <Badge color="brand" variant="light" size="lg">
             {phase}
           </Badge>
         )}

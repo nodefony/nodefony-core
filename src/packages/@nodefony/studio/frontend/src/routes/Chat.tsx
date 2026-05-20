@@ -105,7 +105,7 @@ export const Chat = observer(() => {
           <ActionIcon
             size="lg"
             variant="filled"
-            color="orange"
+            color="brand"
             onClick={submit}
             disabled={!input.trim() || chat.isStreaming}
             aria-label="Send"

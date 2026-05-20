@@ -46,7 +46,7 @@ export const ConnectionDrawer = observer(({ opened, onClose }: Props) => {
       title={
         <Group gap="xs">
           <Text fw={600}>Realtime</Text>
-          <Badge size="xs" variant="light" color="orange">
+          <Badge size="xs" variant="light" color="brand">
             P14.11
           </Badge>
         </Group>

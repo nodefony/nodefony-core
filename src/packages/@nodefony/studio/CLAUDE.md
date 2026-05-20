@@ -33,10 +33,10 @@ src/packages/@nodefony/studio/
 └── frontend/                     ← SPA React 19 (Vite)
     ├── index.html · vite.config.generated.mjs (généré)
     └── src/
-        ├── main.tsx · App.tsx · theme.ts (orange Nodefony, dark défaut)
+        ├── main.tsx · App.tsx · theme.ts (palette `brand` togglable, nodefony défaut) · layouts/navConfig.ts (nav data-driven)
         ├── stores/   ← MobX : Auth, Connection, Ui, Chat, Root
         ├── services/ ← ApiClient (JWT), AuthService, RealtimeClient (importé du Core isomorphe `nodefony` — PAS de package @nodefony/client séparé, P13.3 supprimé)
-        ├── layouts/  ← AuthLayout, AdminLayout (sidebar + theme toggle)
+        ├── layouts/  ← AuthLayout, AdminLayout (sidebar v2 : rail + groupes repliables + filtre + groupe Data plane auto), navConfig
         ├── routes/   ← Login (stepper 4 étapes), Dashboard, Logs, Chat, stubs
         ├── components/ ← AuthGuard, ConnectionStepper/Drawer, StubPage
         └── utils/ansiToReact.tsx ← colore les logs ANSI → React
@@ -100,7 +100,7 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
 ## Décisions figées
 
 - Stack frontend : **React 19** (P10.1 acté) + **Mantine v8** + **MobX 6** (classes, `makeAutoObservable` — pas Zustand/Redux) + React Router 7 + TanStack Table 8 (headless).
-- Theme : dark par défaut + toggle persisté `localStorage` ; primary = orange Nodefony.
+- Theme : dark par défaut + toggle scheme persisté `localStorage`. **Palette de marque togglable** (couleur `brand` = alias dynamique `nodefonyBlue #0067ba` ↔ `nodefonyOrange`, `primaryColor:"brand"`, toggle 🎨 persisté `ui.palette`, **défaut nodefony**, dark-safe `primaryShade.dark=4`). Accents en dur écrits `color="brand"` ; warnings/DEBUG/palettes décoratives restent `color="orange"` (sémantique). Couleurs marque extraites du logo officiel (`theme.ts` `buildStudioTheme`).
 - Routing (✅ tranché 2026-05-20) : UI `/nodefony` + `/nodefony/{page}` ; data plane `/nodefony/<module>/api/*` (Studio = `/nodefony/studio/api/*`). `/studio` rejeté (collision app user).
 - Deps frontend dans le `package.json` du module (pas de `frontend/package.json` séparé).
 

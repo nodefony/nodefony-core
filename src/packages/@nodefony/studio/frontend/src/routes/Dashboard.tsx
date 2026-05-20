@@ -24,6 +24,7 @@ import {
   IconList,
   IconBug,
   IconInfoCircle,
+  IconBrandNodejs,
 } from "@tabler/icons-react";
 import { useStore, useAuth, useConnection } from "../stores";
 
@@ -48,7 +49,14 @@ interface StatsPayload {
   cpuCount: number;
   eventLoopMs: number;
   loadavg: number[];
-  memory: { rss: number; heapUsed: number; heapTotal: number; external: number };
+  memory: {
+    rss: number;
+    heapUsed: number;
+    heapTotal: number;
+    /** Plafond V8 (heap_size_limit). Absent des anciens payloads → fallback heapTotal. */
+    heapLimit?: number;
+    external: number;
+  };
 }
 
 interface Sample {
@@ -173,7 +181,21 @@ export const Dashboard = observer(() => {
     return () => dispose();
   }, [conn]);
 
+  // Jauge Heap V8 = heapUsed / plafond V8 (heap_size_limit), PAS / heapTotal.
+  // heapUsed/heapTotal vaut ~99% en permanence (V8 garde heapTotal collé au
+  // heapUsed → grow/GC), donc trompeur. Contre le plafond réel (~2-4 Go), le %
+  // est bas et devient actionnable (>80% = vraiment proche de l'OOM).
+  const heapCeiling =
+    stats?.memory.heapLimit && stats.memory.heapLimit > 0
+      ? stats.memory.heapLimit
+      : (stats?.memory.heapTotal ?? 0);
   const heapPct =
+    stats && heapCeiling > 0
+      ? Math.round((stats.memory.heapUsed / heapCeiling) * 100)
+      : 0;
+  // Taux de remplissage du tas actuellement réservé (heapUsed/heapTotal) —
+  // affiché à part, pour info : normal qu'il soit proche de 100%.
+  const heapFillPct =
     stats && stats.memory.heapTotal > 0
       ? Math.round((stats.memory.heapUsed / stats.memory.heapTotal) * 100)
       : 0;
@@ -319,16 +341,18 @@ export const Dashboard = observer(() => {
         <Grid.Col span={{ base: 12, md: 5 }}>
           <Card withBorder radius="md" p="lg">
             <Group justify="space-between" mb="md">
-              <Group gap={6}><Title order={4}>Heap V8</Title><Info text="Part du heap alloué actuellement utilisée. >80% = pression GC, le ramasse-miettes travaille beaucoup." /></Group>
+              <Group gap={6}><IconBrandNodejs size={20} stroke={1.6} color="var(--mantine-color-green-6)" /><Title order={4}>Heap V8</Title><Text size="xs" c="dimmed">% du plafond</Text><Info text="Heap utilisé / plafond V8 (heap_size_limit, ~2-4 Go ou --max-old-space-size). C'est le bon indicateur de saturation : >80% = vraiment proche de l'OOM. NE PAS confondre avec heapUsed/heapTotal (le « remplissage », ligne plus bas) qui reste ~99% en permanence car V8 garde heapTotal collé au heapUsed — c'est normal, pas un signe de fuite. La fuite se lit sur la COURBE heapUsed (au-dessus), pas ici." /></Group>
             </Group>
             {waiting ? <Skeleton h={120} /> : (
               <Group align="center" gap="xl" wrap="nowrap">
                 <RingProgress size={110} thickness={12}
                   sections={[{ value: heapPct, color: heapPct > 80 ? "red" : heapPct > 60 ? "yellow" : "teal" }]}
-                  label={<Text ta="center" size="xs" fw={700}>{heapPct}%</Text>} />
+                  label={<Text ta="center" size="lg" fw={700}>{heapPct}%</Text>} />
                 <Stack gap={4} style={{ flex: 1 }}>
                   <Row k="Heap utilisé" v={bytes(stats!.memory.heapUsed)} />
                   <Row k="Heap alloué" v={bytes(stats!.memory.heapTotal)} />
+                  <Row k="Plafond V8" v={bytes(heapCeiling)} />
+                  <Row k="Remplissage" v={`${heapFillPct}% (normal ~99%)`} />
                   <Row k="RSS" v={bytes(stats!.memory.rss)} />
                   <Row k="Externe" v={bytes(stats!.memory.external)} />
                 </Stack>

@@ -10,9 +10,20 @@
  * IDENTIQUES. C'est ça la « petite migration » : on ne réécrit pas la collecte de données.
  */
 import os from "node:os";
+import v8 from "node:v8";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 
 export type Publish = (channel: string, payload: unknown) => void;
+
+/**
+ * Plafond du tas V8 (`--max-old-space-size`, ~2-4 Go par défaut). **Constant**
+ * pour la durée de vie du process → lu UNE seule fois (jamais dans le tick).
+ *
+ * C'est le BON dénominateur pour « le heap est-il plein ? » : `heapUsed/heapTotal`
+ * vaut ~99% en permanence (V8 garde `heapTotal` collé au-dessus de `heapUsed`),
+ * donc trompeur. `heapUsed/heapLimit` est, lui, actionnable.
+ */
+const HEAP_LIMIT = v8.getHeapStatistics().heap_size_limit;
 
 /**
  * Identifiant stable de CETTE instance/process. Override possible via env
@@ -93,6 +104,7 @@ export function createStatsTicker(publish: Publish, intervalMs = 1000): () => vo
         rss: mem.rss,
         heapUsed: mem.heapUsed,
         heapTotal: mem.heapTotal,
+        heapLimit: HEAP_LIMIT,
         external: mem.external,
       },
     });

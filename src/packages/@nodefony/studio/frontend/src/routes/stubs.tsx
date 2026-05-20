@@ -18,15 +18,6 @@ export const Users = () => (
   />
 );
 
-export const Routes = () => (
-  <StubPage
-    title="Routes"
-    description="Table de routage HTTP+WS du Router, méthodes/contraintes/regex."
-    phase="P10.3 + P11.2"
-    legacyRef="monitoring-bundle/views/router/"
-  />
-);
-
 export const Firewall = () => (
   <StubPage
     title="Firewall"

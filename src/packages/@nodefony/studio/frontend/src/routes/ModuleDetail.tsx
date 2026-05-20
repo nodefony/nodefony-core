@@ -289,7 +289,7 @@ export const ModuleDetail = observer(() => {
       <Group gap="md" wrap="nowrap">
         <ThemeIcon
           variant="light"
-          color={name === "core" ? "grape" : data.isApp ? "orange" : "gray"}
+          color={name === "core" ? "grape" : data.isApp ? "brand" : "gray"}
           size={54}
           radius="md"
         >
@@ -299,7 +299,7 @@ export const ModuleDetail = observer(() => {
           <Group gap="sm">
             <Title order={2}>{name === "core" ? "Nodefony Core" : data.name}</Title>
             {data.version && <Badge variant="default">v{data.version}</Badge>}
-            <Badge variant="light" color={name === "core" ? "grape" : data.isApp ? "orange" : "gray"}>
+            <Badge variant="light" color={name === "core" ? "grape" : data.isApp ? "brand" : "gray"}>
               {name === "core" ? "socle du framework" : data.isApp ? "application" : "package"}
             </Badge>
           </Group>
@@ -811,7 +811,7 @@ function DepCard({ dep, out, onClick }: { dep: DepInfo; out?: OutdatedInfo; onCl
   return (
     <Card withBorder radius="md" p="sm" onClick={onClick} style={{ cursor: "pointer" }}>
       <Group gap="sm" wrap="nowrap">
-        <ThemeIcon variant="light" color={dep.kind === "nodefony" ? "orange" : "gray"} size={34} radius="md">
+        <ThemeIcon variant="light" color={dep.kind === "nodefony" ? "brand" : "gray"} size={34} radius="md">
           <IconPackage size={18} />
         </ThemeIcon>
         <Stack gap={3} style={{ minWidth: 0, flex: 1 }}>
@@ -911,7 +911,7 @@ function DepsPanel({ moduleKey, onNavigate }: { moduleKey: string; onNavigate: (
         <Stack gap="sm">
           <Group gap="xs">
             <Text size="sm" fw={700}>Nodefony</Text>
-            <Badge size="sm" variant="light" color="orange">{nf.length}</Badge>
+            <Badge size="sm" variant="light" color="brand">{nf.length}</Badge>
           </Group>
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
             {nf.map((d) => (

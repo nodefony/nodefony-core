@@ -164,7 +164,7 @@ export const Logs = observer(() => {
       <Group justify="space-between">
         <Group gap="xs">
           <Title order={2}>Logs streaming</Title>
-          <Badge size="md" variant="light" color="orange">
+          <Badge size="md" variant="light" color="brand">
             P14.11 beta
           </Badge>
           <Badge size="sm" variant="dot" color={paused ? "yellow" : "teal"}>

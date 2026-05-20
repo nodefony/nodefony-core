@@ -1,5 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Accordion,
   Alert,
@@ -54,10 +55,19 @@ const METHOD_COLORS: Record<string, string> = {
  */
 export const System = observer(() => {
   const admin = useAdmin();
+  const [params] = useSearchParams();
+  const focus = params.get("p");
+  // Accordéon contrôlé : la sidebar « Data plane » deep-link `?p=<ns>` → ouvre
+  // le producteur ciblé (en plus de ceux déjà ouverts).
+  const [open, setOpen] = useState<string[]>(focus ? [focus] : ["kernel"]);
 
   useEffect(() => {
     void admin.loadCatalog();
   }, [admin]);
+
+  useEffect(() => {
+    if (focus) setOpen((o) => (o.includes(focus) ? o : [...o, focus]));
+  }, [focus]);
 
   return (
     <Stack gap="md">
@@ -96,14 +106,14 @@ export const System = observer(() => {
         </Group>
       )}
 
-      <Accordion variant="separated" multiple defaultValue={["kernel"]}>
+      <Accordion variant="separated" multiple value={open} onChange={setOpen}>
         {admin.producers.map((p) => {
           const Icon = (p.icon && ICONS[p.icon]) || IconApi;
           return (
             <Accordion.Item key={p.namespace} value={p.namespace}>
               <Accordion.Control
                 icon={
-                  <ThemeIcon variant="light" color="orange" size="md">
+                  <ThemeIcon variant="light" color="brand" size="md">
                     <Icon size={18} />
                   </ThemeIcon>
                 }

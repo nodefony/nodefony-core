@@ -39,7 +39,7 @@ import { useStore } from "../stores";
 /** Catégorie d'un module — pour distinguer core / framework / app / module. */
 type CatId = "app" | "core" | "framework" | "module";
 const CATS: Record<CatId, { label: string; color: string; Icon: Icon; order: number }> = {
-  app: { label: "Application", color: "orange", Icon: IconAppWindow, order: 0 },
+  app: { label: "Application", color: "brand", Icon: IconAppWindow, order: 0 },
   core: { label: "Core", color: "grape", Icon: IconStack2, order: 1 },
   framework: { label: "Framework", color: "blue", Icon: IconBox, order: 2 },
   module: { label: "Module", color: "teal", Icon: IconPuzzle, order: 3 },
