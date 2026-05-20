@@ -35,7 +35,7 @@ src/packages/@nodefony/studio/
     └── src/
         ├── main.tsx · App.tsx · theme.ts (orange Nodefony, dark défaut)
         ├── stores/   ← MobX : Auth, Connection, Ui, Chat, Root
-        ├── services/ ← ApiClient (JWT), AuthService, RealtimeClient (préfigure @nodefony/client)
+        ├── services/ ← ApiClient (JWT), AuthService, RealtimeClient (importé du Core isomorphe `nodefony` — PAS de package @nodefony/client séparé, P13.3 supprimé)
         ├── layouts/  ← AuthLayout, AdminLayout (sidebar + theme toggle)
         ├── routes/   ← Login (stepper 4 étapes), Dashboard, Logs, Chat, stubs
         ├── components/ ← AuthGuard, ConnectionStepper/Drawer, StubPage

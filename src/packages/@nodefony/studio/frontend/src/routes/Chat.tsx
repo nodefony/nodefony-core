@@ -44,7 +44,7 @@ export const Chat = observer(() => {
         <Stack gap={4}>
           <Title order={2}>Chat IA</Title>
           <Text c="dimmed" size="sm">
-            Pipeline cible : @nodefony/agent + LLM provider + streaming via @nodefony/client (P12).
+            Pipeline cible : @nodefony/agent + LLM provider + streaming via le Core isomorphe `nodefony` (RealtimeClient, P12).
           </Text>
         </Stack>
         <Group gap="xs">
