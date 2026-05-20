@@ -207,11 +207,14 @@ Phases d'évolution prévues (cf [INJECTION_PLAN.md](./INJECTION_PLAN.md) worksp
 ```bash
 cd src/nodefony
 npm run test           # mocha + tsx — ~1233 tests (2026-05-20)
+npm run coverage       # monocart-coverage-reports — % couverture core (2026-05-20 : Stmts 85.8% / Branches 95.5% / Funcs 77.7% / Lines 75.5%)
 npm run build          # rollup build
 npm run clean          # supprime dist/
 ```
 
 > Test runtime intégration : se lance depuis la racine du repo via `npx nodefony development` (cf skill `start-nodefony-server`).
+
+> **Couverture** : outil = `monocart-coverage-reports` (config `mcr.config.js`, ESM-natif, basé V8). ⚠️ **`c8` ne marche PAS** ici (full-ESM + Node 26 → sa dépendance `yargs` casse). `npm run coverage` exclut les tests `performance` (faussés sous instrumentation). Rapport HTML : `.coverage/index.html` (gitignored).
 
 ## Workflow de session typique sur le core
 

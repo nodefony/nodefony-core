@@ -15,6 +15,9 @@ tmp/
 *.tsbuildinfo
 *.js.map
 
+# Ignore les rapports de couverture (monocart-coverage-reports)
+.coverage/
+
 # Ignore les fichiers d'environnement
 .env
 
