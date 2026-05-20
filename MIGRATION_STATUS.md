@@ -71,28 +71,28 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 ## Progression globale
 
-> **Comptage par PHASE = source de vérité** (audit vérifié dans le code 2026-05-20, refait par le skill `migration-audit`). Chaque ligne mappe 1:1 la roadmap priorisée P0–P16 ci-dessous (compte les **tâches**, pas des sous-items). L'ancien tableau « par composant » a été retiré : il dérivait sans cesse (granularité différente, jamais re-synchronisé). Légende : ✅ fait · 🔶 partiel/legacy en place · ⬜ à faire.
+> **Comptage par PHASE = source de vérité** (audit vérifié dans le code 2026-05-21, refait par le skill `migration-audit`). Chaque ligne mappe 1:1 la roadmap priorisée P0–P16 ci-dessous (compte les **tâches**, pas des sous-items). L'ancien tableau « par composant » a été retiré : il dérivait sans cesse (granularité différente, jamais re-synchronisé). Légende : ✅ fait · 🔶 partiel/legacy en place · ⬜ à faire.
 
 | Phase                                            | Tâches  | ✅     | 🔶    | ⬜     |
 | ------------------------------------------------ | ------- | ------ | ----- | ------ |
 | **P0** — Bugs bloquants                          | 6       | 6      | 0     | 0      |
 | **P1** — Fondations symbiose (Context/ALS/logs)  | 8       | 8      | 0     | 0      |
 | **P2** — Cycle de vie Context                    | 9       | 3      | 1     | 5      |
-| **P3** — Logs structurés                         | 10      | 5      | 1     | 4      |
+| **P3** — Logs structurés                         | 10      | 5      | 0     | 5      |
 | **P4** — Tests symbiose http↔fw                  | 6       | 2      | 3     | 1      |
 | **P5** — Session + User + ORM Core               | 16      | 0      | 0     | 16     |
 | **P6** — Security (refonte — legacy TS en place) | 13      | 0      | 0     | 13     |
 | **P7** — ORM Drivers                             | 9       | 0      | 3     | 6      |
 | **P8** — CLI + Monitoring                        | 4       | 1      | 1     | 2      |
-| **P9** — Polish + clôture                        | 4       | 0      | 1     | 3      |
+| **P9** — Polish + clôture                        | 4       | 0      | 0     | 4      |
 | **P10** — Studio (admin web)                     | 12      | 4      | 3     | 5      |
-| **P11** — Commandes CLI par module               | 5       | 0      | 3     | 2      |
+| **P11** — Commandes CLI par module               | 5       | 0      | 1     | 4      |
 | **P12** — Couche IA agentic                      | 6       | 0      | 2     | 4      |
 | **P13** — Realtime distribué                     | 8       | 0      | 3     | 5      |
 | **P14** — Frontend Vite + Core isomorphe         | 14      | 6      | 3     | 5      |
 | **P15** — Mediasoup + SIP/Asterisk               | 8       | 0      | 0     | 8      |
 | **P16** — Cloud-Native (7 axes)                  | 26      | 0      | 0     | 26     |
-| **TOTAL**                                        | **164** | **35** | **24**| **105**|
+| **TOTAL**                                        | **164** | **35** | **20**| **109**|
 
 > Build System (10/10 ✅), Core/Kernel, DI, Syslog, Router, Controller, Types — fondations **déjà migrées** en amont de la roadmap P0 (ère Phases 0–4, cf sections narratives « ## Phase X » plus bas). Le comptage ci-dessus couvre la **dette + features priorisées** (P0→P16).
 
@@ -252,7 +252,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 | #      | Tâche                                                                          | Effort  | Dépendances        | Notes                                          |
 | ------ | ------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------- |
-| P11.1  | Tests intégration des 9 commandes CLI existantes                               | 1 ses.  | —                  | spawn sub-process + assertion stdout           |
+| 🔶 P11.1  | Tests intégration des 9 commandes CLI existantes                            | 1 ses.  | —                  | 🔶 vérif audit 2026-05-21 : 9 commandes présentes (`Dev/Kill/Prod/Outdated/Install/Build/Start/Staging/Pm2` dans `src/nodefony/src/kernel/commands/`) mais **non testées**. spawn sub-process + assertion stdout |
 | P11.2  | Commandes `http:*` (routes, sessions, cert, stats)                             | 1 ses.  | P10.3              | Couplée à API admin Studio                     |
 | P11.3  | Commandes `framework:*` + `security:*` + `user:*`                              | 1 ses.  | P6.8, P5.6         |                                                |
 | P11.4  | Commandes `orm:migrate/rollback/status/seed`                                   | 2 ses.  | P7.3, P7.5         | Délègue aux CLI ORM natifs                     |
@@ -289,7 +289,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | #     | Tâche                                                            | Effort  | Dépendances        | Notes                                                  |
 | ----- | ---------------------------------------------------------------- | ------- | ------------------ | ------------------------------------------------------ |
 | P13.1 | `@nodefony/realtime` (TCP/UDP/Unix sockets — IoT/IPC/protocoles) | 7 ses.  | P1 (Context hooks) | Indépendant. Chaque protocole crée un `RequestContext` Nodefony (ALS, logs, security) |
-| P13.2 | `@nodefony/redis` refactor (cluster + pub/sub + storage)         | 8 ses.  | —                  | **Prioritaire** — débloque P5.12, apps prod cluster + driver `RedisRealtimeHub` |
+| 🔶 P13.2 | `@nodefony/redis` refactor (cluster + pub/sub + storage)         | 8 ses.  | —                  | 🔶 vérif audit 2026-05-21 : module présent (5 ts), legacy en place. **Prioritaire** — débloque P5.12, apps prod cluster + driver `RedisRealtimeHub` |
 | 🔶 P13.4 | 🆕 `IRealtimeHub` interface + `LocalRealtimeHub` (dev) + `RealtimeService` central (façade, normalisation, dédup échos cluster) | 3 ses. | P1.4 (ALS) | 🔶 **précurseur** (vérif audit 2026-05-20) — Studio `realtime/providers.ts` (pub/sub transport-agnostique) + `StudioRealtimeController` + `RealtimeClient` côté client. Reste à extraire en `RealtimeService` formel |
 | P13.5 | 🆕 `RedisRealtimeHub` driver (cluster low-latency, Pub/Sub)      | 2 ses.  | P13.2, P13.4       | Sessions UI, chat, broadcast standard                  |
 | P13.6 | 🆕 **`KafkaRealtimeHub`** driver (cluster massif, persistence, at-least-once) | 3 ses. | P13.4 | Apps massives + bus events agents IA (P12)            |
@@ -303,8 +303,8 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 | #       | Tâche                                                            | Effort  | Dépendances              | Notes                                              |
 | ------- | ---------------------------------------------------------------- | ------- | ------------------------ | -------------------------------------------------- |
-| P12.1   | Audit + refonte llm/vector/rag/memory (existants 🔶)              | 9 ses.  | P10 MVP ✅               | Standardiser interfaces, intégrer orm-core/ALS    |
-| P12.2   | Finalisation `@nodefony/agent` (Orchestrator + decorators)        | 7 ses.  | P12.1                    | Boucle agentic + streaming + abort                |
+| 🔶 P12.1   | Audit + refonte llm/vector/rag/memory (existants 🔶)            | 9 ses.  | P10 MVP ✅               | 🔶 vérif audit 2026-05-21 : modules présents (llm 10 / vector 7 / rag 7 / memory 6 ts). Standardiser interfaces, intégrer orm-core/ALS |
+| 🔶 P12.2   | Finalisation `@nodefony/agent` (Orchestrator + decorators)      | 7 ses.  | P12.1                    | 🔶 vérif audit 2026-05-21 : `@nodefony/agent` présent (5 ts), à finaliser. Boucle agentic + streaming + abort |
 | P12.3   | `@nodefony/mcp` (server + client, JSON-RPC 2.0)                  | 6 ses.  | P12.2                    | Interop Claude Desktop / Cursor / VS Code         |
 | P12.4   | **`@nodefony/agent-guard`** (différenciateur AI Act)              | 14 ses. | P12.2, P6 ✅, P7 ✅      | Zones, PII, audit signé, circuit breaker, approval |
 | P12.5   | Panels IA dans Studio (ex-`@nodefony/studio`)                     | 6 ses.  | P12.4, P10               | Fusion studio ↔ studio                            |
