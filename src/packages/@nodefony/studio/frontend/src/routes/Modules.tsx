@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -9,6 +9,7 @@ import {
   Grid,
   Group,
   Loader,
+  SimpleGrid,
   Skeleton,
   Stack,
   Text,
@@ -29,6 +30,9 @@ import {
   IconRoute,
   IconAffiliate,
   IconPackages,
+  IconBook,
+  IconCode,
+  IconShieldCheck,
 } from "@tabler/icons-react";
 import type { Icon } from "@tabler/icons-react";
 import { useStore } from "../stores";
@@ -61,9 +65,38 @@ interface ModuleRow {
 interface ModuleDetail extends ModuleRow {
   dependencies: string[];
   services?: { name: string; class: string | null }[];
+  docsCount?: number;
+  symbolsCount?: number;
+  coverageLines?: number | null;
 }
 
-const DEP_PREVIEW = 6;
+/** Seuil couleur couverture : ≥80 teal, ≥50 jaune, sinon rouge. */
+function covColor(pct: number): string {
+  if (pct >= 80) return "teal";
+  if (pct >= 50) return "yellow";
+  return "red";
+}
+
+/** Mini-stat d'une carte module : icône + valeur + label, centré. */
+function MiniStat({
+  icon,
+  value,
+  label,
+  color,
+}: {
+  icon: ReactNode;
+  value: number | string | undefined;
+  label: string;
+  color?: string;
+}) {
+  return (
+    <Stack gap={2} align="center">
+      <span style={{ opacity: 0.5, display: "flex" }}>{icon}</span>
+      <Text size="lg" fw={700} lh={1} c={color}>{value ?? "…"}</Text>
+      <Text c="dimmed" tt="uppercase" style={{ fontSize: 10, letterSpacing: 0.3 }}>{label}</Text>
+    </Stack>
+  );
+}
 
 /**
  * Modules — administration des modules Nodefony chargés (ex-bundles).
@@ -264,9 +297,6 @@ function ModuleCard({
   routeCount: number;
   onOpen: () => void;
 }) {
-  const deps = detail?.dependencies ?? [];
-  const shown = deps.slice(0, DEP_PREVIEW);
-  const rest = deps.length - shown.length;
   const color = CATS[cat].color;
   // Le core est le socle du framework, pas un module : nom + sous-titre dédiés.
   const displayName = cat === "core" ? "Nodefony Core" : m.name;
@@ -340,64 +370,19 @@ function ModuleCard({
           </Tooltip>
         </Group>
 
-        <Group gap="lg" wrap="nowrap">
-          <Group gap={5} wrap="nowrap">
-            <IconRoute size={13} style={{ opacity: 0.6 }} />
-            <Text size="sm" fw={700}>{routeCount}</Text>
-            <Text size="xs" c="dimmed">routes</Text>
-          </Group>
-          <Group gap={5} wrap="nowrap">
-            <IconAffiliate size={13} style={{ opacity: 0.6 }} />
-            <Text size="sm" fw={700}>{detail ? (detail.services?.length ?? 0) : "…"}</Text>
-            <Text size="xs" c="dimmed">services</Text>
-          </Group>
-          <Group gap={5} wrap="nowrap">
-            <IconPackages size={13} style={{ opacity: 0.6 }} />
-            <Text size="sm" fw={700}>{detail ? deps.length : "…"}</Text>
-            <Text size="xs" c="dimmed">deps</Text>
-          </Group>
-        </Group>
-
-        <div style={{ marginTop: "auto" }}>
-          <Group justify="space-between" mb={6}>
-            <Text size="xs" fw={600} c="dimmed" tt="uppercase">
-              Dépendances
-            </Text>
-            {detail && (
-              <Badge size="xs" variant="light" color="gray">
-                {deps.length}
-              </Badge>
-            )}
-          </Group>
-          {!detail ? (
-            <Group gap={6}>
-              <Loader size="xs" />
-              <Text size="xs" c="dimmed">chargement…</Text>
-            </Group>
-          ) : deps.length === 0 ? (
-            <Text size="xs" c="dimmed">aucune</Text>
-          ) : (
-            <Group gap={6}>
-              {shown.map((d) => (
-                <Badge
-                  key={d}
-                  variant="outline"
-                  size="sm"
-                  color={d === "nodefony" || d.startsWith("@nodefony/") ? "orange" : "gray"}
-                >
-                  {d}
-                </Badge>
-              ))}
-              {rest > 0 && (
-                <Tooltip label={deps.slice(DEP_PREVIEW).join(", ")} multiline w={300}>
-                  <Badge variant="light" size="sm" color="gray">
-                    +{rest}
-                  </Badge>
-                </Tooltip>
-              )}
-            </Group>
-          )}
-        </div>
+        <SimpleGrid cols={3} spacing="xs" verticalSpacing="md" mt="auto" pt="xs">
+          <MiniStat icon={<IconRoute size={16} />} value={routeCount} label="routes" />
+          <MiniStat icon={<IconAffiliate size={16} />} value={detail ? (detail.services?.length ?? 0) : undefined} label="services" />
+          <MiniStat icon={<IconPackages size={16} />} value={detail ? detail.dependencies.length : undefined} label="deps" />
+          <MiniStat icon={<IconBook size={16} />} value={detail ? (detail.docsCount ?? 0) : undefined} label="docs" />
+          <MiniStat icon={<IconCode size={16} />} value={detail ? (detail.symbolsCount ?? 0) : undefined} label="api" />
+          <MiniStat
+            icon={<IconShieldCheck size={16} />}
+            value={detail ? (detail.coverageLines != null ? `${Math.round(detail.coverageLines)}%` : "—") : undefined}
+            label="cover"
+            color={detail && detail.coverageLines != null ? covColor(detail.coverageLines) : undefined}
+          />
+        </SimpleGrid>
       </Stack>
     </Card>
   );

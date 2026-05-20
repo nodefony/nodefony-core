@@ -89,6 +89,12 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   const devGuard = () =>
     kernel.environment === "development" || Boolean(kernel.debug);
 
+  // SÉCU : ne JAMAIS exposer de chemin absolu (fuite de l'arborescence serveur).
+  // On renvoie les `path` relatifs à la racine projet (`process.cwd()`).
+  const repoRoot = process.cwd();
+  const relPath = (p: string | null | undefined): string | null =>
+    p && p.startsWith(repoRoot) ? p.slice(repoRoot.length).replace(/^[/\\]+/, "") || "." : (p ?? null);
+
   const endpoints: IAdminEndpoint[] = [
     {
       path: "health",
@@ -129,7 +135,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             name: core.name,
             version: core.version,
             isApp: false,
-            path: core.path,
+            path: relPath(core.path),
           },
         ];
         for (const name of Object.keys(modules)) {
@@ -139,7 +145,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             name: mod.getModuleName?.() ?? name,
             version: mod.getModuleVersion?.() ?? null,
             isApp: mod.isApp ?? false,
-            path: mod.path ?? null,
+            path: relPath(mod.path),
           });
         }
         return list;
@@ -161,10 +167,13 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             name: core.name,
             version: core.version,
             isApp: false,
-            path: core.path,
+            path: relPath(core.path),
             dependencies: core.dependencies,
             services: [],
             config: {},
+            docsCount: (await listModuleDocs(core.path)).length,
+            symbolsCount: (await listModuleSymbols(CORE_PACKAGE)).length,
+            coverageLines: (await readCoverage(core.path)).total?.lines ?? null,
           };
         }
         const mod = kernel.getModules()[key];
@@ -184,15 +193,19 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         // Succès = donnée brute (le broker assume 200). NE PAS wrapper dans
         // `{ body }` sans `status`/`headers` → normalize ne le reconnaît pas
         // comme enveloppe et double-wrappe.
+        const pkg = mod.getModuleName?.() ?? key;
         return {
           key,
-          name: mod.getModuleName?.() ?? key,
+          name: pkg,
           version: mod.getModuleVersion?.() ?? null,
           isApp: mod.isApp ?? false,
-          path: mod.path ?? null,
+          path: relPath(mod.path),
           dependencies: mod.getDependencies?.() ?? [],
           services,
           config: safeConfig(mod.options ?? {}),
+          docsCount: (await listModuleDocs(mod.path)).length,
+          symbolsCount: (await listModuleSymbols(pkg)).length,
+          coverageLines: (await readCoverage(mod.path)).total?.lines ?? null,
         };
       },
     },
