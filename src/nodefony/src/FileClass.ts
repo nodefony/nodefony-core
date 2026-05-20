@@ -41,6 +41,25 @@ const defaultEncoding = {
   flag: "r",
 };
 
+/**
+ * Wrapper fs Node.js avec métadonnées pré-parsées (path, name, ext, mime, stats).
+ *
+ * Utilisé par le Kernel/Module pour résoudre des chemins, par le `Finder` pour représenter
+ * un résultat de recherche, et par les Controllers HTTP pour servir des fichiers statiques.
+ *
+ * @example
+ * ```ts
+ * import { FileClass } from "nodefony";
+ * const file = new FileClass("/path/to/file.txt");
+ * file.isFile();       // true
+ * file.mimeType;       // "text/plain"
+ * const content = file.read();
+ * ```
+ *
+ * @remarks **Synchronous-first** — le constructeur appelle `fs.lstatSync()`. À utiliser dans
+ *   un contexte de boot/CLI, **pas dans le hot path d'une requête HTTP**. Pour de la lecture
+ *   async dans un controller, utiliser `fs/promises` directement.
+ */
 class FileClass {
   public stats: fs.Stats;
   public type: string | undefined;
@@ -55,6 +74,15 @@ class FileClass {
   public dirName: string;
   public match: RegExpExecArray | null = null;
 
+  /**
+   * Construit un FileClass à partir d'un chemin (absolu OR relatif à `process.cwd()`).
+   *
+   * Résout `lstatSync` (suit pas les symlinks), parse path, devine MIME type pour les
+   * fichiers. Throw si `Path` falsy ou inexistant.
+   *
+   * @param Path - chemin absolu OR relatif vers le fichier/dossier.
+   * @throws Si `Path` est falsy OR si `lstatSync` échoue (fichier inexistant).
+   */
   constructor(Path: string | fs.PathOrFileDescriptor) {
     if (Path) {
       Path = checkPath(Path);
@@ -81,10 +109,18 @@ class FileClass {
     }
   }
 
+  /**
+   * @returns le path absolu (utile pour les concat string).
+   */
   toString() {
     return JSON.stringify(this.toJson(), null, "\n");
   }
 
+  /**
+   * Sérialise les métadonnées du fichier en objet plain (compatible JSON.stringify).
+   *
+   * @returns objet contenant path, name, ext, stats, mime, etc.
+   */
   toJson(): FileClassInterface {
     const obj: FileClassInterface = {
       path: this.path,
@@ -104,6 +140,11 @@ class FileClass {
     return obj;
   }
 
+  /**
+   * Détermine le type — `"File"`, `"Directory"`, `"SymbolicLink"`, etc.
+   *
+   * @returns nom du type ou `undefined` si stats indéterminé.
+   */
   checkType(): string | undefined {
     if (this.stats.isDirectory()) return "Directory";
     if (this.stats.isFile()) return "File";
@@ -114,6 +155,13 @@ class FileClass {
     if (this.stats.isSocket()) return "Socket";
   }
 
+  /**
+   * Calcule le hash du contenu du fichier (synchronous).
+   *
+   * @param type - algorithme (`"md5"` défaut, `"sha1"`, `"sha256"`, etc.).
+   * @param hasOption - options crypto.HashOptions.
+   * @returns hash hexadécimal.
+   */
   checkSum(type: string = "md5", hasOption?: crypto.HashOptions): string {
     return crypto
       .createHash(type, hasOption)
@@ -148,14 +196,17 @@ class FileClass {
     return type === this.type;
   }
 
+  /** @returns `true` si le path pointe vers un fichier régulier. */
   isFile(): boolean {
     return this.type === "File";
   }
 
+  /** @returns `true` si le path pointe vers un dossier. */
   isDirectory(): boolean {
     return this.type === "Directory";
   }
 
+  /** @returns `true` si le path est un lien symbolique. */
   isSymbolicLink(): boolean {
     return this.type === "symbolicLink";
   }
@@ -164,6 +215,7 @@ class FileClass {
     return path.dirname(<string>this.path);
   }
 
+  /** @returns `true` si le nom commence par `.` (fichier caché Unix). */
   isHidden(): boolean {
     return regHidden.test(this.name);
   }
@@ -175,6 +227,12 @@ class FileClass {
     return fs.readFileSync(this.path, encode);
   }
 
+  /**
+   * Lit le contenu du fichier (synchronous).
+   *
+   * @param encoding - encoding (défaut `"utf8"`). Si non fourni → retourne Buffer.
+   * @returns contenu sous forme de string OR Buffer.
+   */
   read(encoding?: string): string | Buffer {
     const encode: fs.ObjectEncodingOptions = extend({}, defaultEncoding, {
       encoding,
@@ -210,6 +268,13 @@ class FileClass {
     }
   }
 
+  /**
+   * Écrit du contenu dans le fichier (synchronous).
+   *
+   * @param data - contenu à écrire (string OR Buffer).
+   * @param options - options fs.write (encoding, flags).
+   * @returns this (chaînable).
+   */
   write(
     data: string | NodeJS.ArrayBufferView,
     options: fs.WriteFileOptions,
@@ -217,11 +282,18 @@ class FileClass {
     fs.writeFileSync(this.path, data, extend({}, defautWriteOption, options));
   }
 
+  /**
+   * Déplace/renomme le fichier (synchronous).
+   *
+   * @param target - chemin de destination.
+   * @returns nouvelle instance FileClass pointant vers `target`.
+   */
   move(target: fs.PathLike): FileClass {
     fs.renameSync(<fs.PathLike>this.path, target);
     return new FileClass(<string>target);
   }
 
+  /** Supprime le fichier du filesystem (synchronous, irréversible). */
   unlink(): void {
     fs.unlinkSync(<fs.PathLike>this.path);
   }

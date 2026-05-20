@@ -417,6 +417,30 @@ const createPDU = function (
   );
 };
 
+/**
+ * Hub central de logs structurés de Nodefony — conforme RFC 5424.
+ *
+ * Reçoit des {@link Pdu} via {@link log}, les pousse dans un ring buffer (`CircularBuffer`,
+ * O(1)), applique les filtres ({@link listenWithConditions}), et fire `"onLog"` pour les
+ * transports branchés (console, file, JSON, SSE Studio).
+ *
+ * Hérite d'{@link Event} (EventEmitter étendu) → toute brique du framework peut s'abonner.
+ *
+ * Modes :
+ * - **rateLimit** + **burstLimit** : protection anti-flood (ex: boucle qui log 10k/s)
+ * - **async** : fire `"onLog"` sur next tick (libère le hot path) ou inline
+ * - **overrideConsole** : intercepte `console.log/warn/error/debug/info` → pipe vers Syslog
+ *
+ * @example
+ * ```ts
+ * const syslog = new Syslog({ moduleName: "MyApp", defaultSeverity: "INFO" });
+ * syslog.on("onLog", (pdu: Pdu) => console.log(pdu.toString()));
+ * syslog.log("hello world", "INFO");
+ * ```
+ *
+ * @remarks Utilisé par défaut par chaque {@link Service} via `this.syslog`. Pour les apps
+ *   complexes, partager un Syslog unique entre services évite de dupliquer les buffers.
+ */
 class Syslog extends Event implements ISyslog {
   public settings: SyslogDefaultSettings;
   private _ring: CircularBuffer<Pdu>;
@@ -428,6 +452,12 @@ class Syslog extends Event implements ISyslog {
   private _async: boolean = false;
   private _transports: ITransport[] = [];
 
+  /**
+   * Construit le Syslog avec settings (merge default + override user).
+   *
+   * @param settings - config (`moduleName`, `maxStack`, `rateLimit`, `burstLimit`,
+   *   `defaultSeverity`, `async`, `overrideConsole`).
+   */
   constructor(settings?: SyslogDefaultSettings) {
     super(settings);
     this.settings = extend({}, defaultSettings, settings || {});
@@ -452,6 +482,14 @@ class Syslog extends Event implements ISyslog {
     return formatDebug(debug);
   }
 
+  /**
+   * Initialise le pipeline Syslog selon environnement + debug. Idempotent — purge les
+   * listeners `"onLog"` existants avant d'en ajouter un.
+   *
+   * @param environment - `"development"` / `"production"` / `"test"`.
+   * @param debug - active sévérité DEBUG (`+7`).
+   * @param options - conditions de filtrage Syslog custom (override des conditions par env).
+   */
   init(
     environment: EnvironmentType,
     debug?: DebugType,
@@ -474,26 +512,58 @@ class Syslog extends Event implements ISyslog {
     this._async = value;
   }
 
+  /**
+   * Alias de {@link reset} — purge ring buffer + listeners.
+   */
   clean(): this {
     return this.reset();
   }
 
+  /**
+   * Reset complet — vide le ring buffer ET retire tous les listeners.
+   *
+   * @returns `this` pour chaînage.
+   */
   reset(): this {
     this._ring.clear();
     this.removeAllListeners();
     return this;
   }
 
+  /**
+   * Vide uniquement le ring buffer (conserve les listeners attachés).
+   */
   clearLogStack(): void {
     this._ring.clear();
   }
 
+  /**
+   * Push manuel d'un Pdu dans le ring buffer + incrémente compteur `valid`.
+   *
+   * @param pdu - Pdu à enregistrer.
+   * @returns nouvelle taille du ring buffer après push.
+   */
   pushStack(pdu: Pdu): number {
     this._ring.push(pdu);
     this.valid++;
     return this._ring.length;
   }
 
+  /**
+   * Crée un Pdu et le diffuse dans le pipeline (rate-limit → push → fire `"onLog"`).
+   *
+   * **Protection rate limit** : si `settings.rateLimit > 0`, ne fire `"onLog"` que pour les
+   * `burstLimit` premiers Pdu de la fenêtre. Les suivants incrémentent `missed`.
+   *
+   * **Mode async** : si `this.async === true`, fire `"onLog"` sur `setImmediate()` (libère
+   * le hot path du caller).
+   *
+   * @param payload - contenu (string, Error, objet — narrower côté lecteur).
+   * @param severity - sévérité RFC 5424 (`"INFO"`, `"ERROR"`, ...) ou numérique (6, 3, ...).
+   * @param msgid - catégorie de message (`"AUTH"`, `"ROUTER"`). Défaut = `settings.msgid`.
+   * @param msg - détail libre optionnel.
+   * @returns le `Pdu` créé (utile pour audit/tests).
+   */
   log(
     payload: Pci,
     severity?: Severity,
@@ -801,6 +871,16 @@ class Syslog extends Event implements ISyslog {
     }
   }
 
+  /**
+   * Transport console par défaut — formate un Pdu et l'écrit vers `process.stdout` ou
+   * `process.stderr` selon sévérité (ERROR+ vers stderr).
+   *
+   * Format : `HH:MM:SS.mmm SEVERITY MSGID : payload` avec coloration ANSI.
+   *
+   * @param pdu - Pdu à imprimer.
+   * @param pid - PID préfixé (vide en dev mono-process pour réduire le bruit).
+   * @returns le Pdu (chaînable).
+   */
   static normalizeLog(pdu: Pdu, pid: string = ""): Pdu {
     if (pdu.payload === "" || pdu.payload === undefined) {
       Syslog._nativeConsole.warn(
@@ -849,6 +929,14 @@ class Syslog extends Event implements ISyslog {
     return pdu;
   }
 
+  /**
+   * Intercepte `console.log/warn/error/debug/info` → pipe vers le Syslog passé.
+   *
+   * **Side effect global** : modifie l'objet `console` du process. À utiliser avec parcimonie
+   * (un seul appel par process). {@link restoreConsole} restaure les méthodes originales.
+   *
+   * @param instance - Syslog cible (recevra tous les console.* du process).
+   */
   static overrideConsole(instance: Syslog): void {
     if (Syslog._savedConsole !== null) {
       instance.log("Syslog.overrideConsole: already active", "WARNING");
@@ -879,6 +967,10 @@ class Syslog extends Event implements ISyslog {
     con.dir = (obj: unknown) => instance.logMultiple("DEBUG", obj as Pci);
   }
 
+  /**
+   * Restaure `console.log/warn/error/debug/info` à leurs valeurs originales.
+   * Annule un {@link overrideConsole} précédent.
+   */
   static restoreConsole(): void {
     if (Syslog._savedConsole === null) return;
     Object.assign(console, Syslog._savedConsole);

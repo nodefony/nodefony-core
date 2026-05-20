@@ -118,6 +118,34 @@ export interface ModuleConstructor {
 
 type trunkType = "javascript" | "typescript" | null;
 
+/**
+ * Orchestrateur central de Nodefony — gère le boot, les modules, le DI Container racine,
+ * et expose les events lifecycle auxquels services/modules se branchent.
+ *
+ * Hérite de {@link Service} → bénéficie DI, EventEmitter, Syslog. Pollue le singleton
+ * `Nodefony.#kernel` au constructor (`Nodefony.setKernel(this)`) — isoler les tests avec
+ * un mock minimal.
+ *
+ * **Lifecycle phases** (chronologiques, jamais régressives) :
+ * `started → preRegistered → registered → booted → ready → postReady`
+ *
+ * **Events bitmask** (`progress` = OR cumulatif) :
+ * - `onInit=1`, `onPreStart=2`, `onStart=4`
+ * - `onPreRegister=8`, `onRegister=16`
+ * - `onPreBoot=32`, `onBoot=64`
+ * - `onReady=128`, `onServersReady=256`, `onPostReady=512`
+ * - `onTerminate=1024`
+ *
+ * **Chaîne async** (chaque maillon appelle le suivant si `!setCommandComplete`) :
+ * `start() → preRegister() → boot() → onReady() → initServers()`
+ *
+ * @example
+ * ```ts
+ * import { CliKernel } from "nodefony";
+ * const cli = new CliKernel("development");
+ * await cli.start();   // → new Kernel(env, cli) → kernel.start() → boot complet
+ * ```
+ */
 class Kernel extends Service implements IKernel {
   Events: Readonly<EventsType> = Events;
   type: KernelType;
@@ -166,6 +194,18 @@ class Kernel extends Service implements IKernel {
   // les logs sont différés ; passé à `null`, addModule() log immédiatement.
   private pendingModuleAddLogs: string[] | null = [];
   //babel?: Babylon;
+  /**
+   * Construit le Kernel. **Side effect critique** : appelle `Nodefony.setKernel(this)` →
+   * écrase le singleton global. Isoler les tests avec un mock minimal pour éviter de
+   * polluer les autres tests qui dépendent de `Nodefony.getKernel()`.
+   *
+   * Récupère le container du CLI si présent, sinon en crée un nouveau. Initialise les
+   * interfaces réseau OS pour `setDomain()`. Fire `"onInit"` à la fin.
+   *
+   * @param environment - environnement (`"development"` / `"production"` / `"test"`).
+   * @param cli - kernel CLI parent (fournit container, packageManager, commander). Peut être null.
+   * @param options - options surchargées (events.nbListeners, log, etc.).
+   */
   constructor(
     environment: EnvironmentType,
     cli?: CliKernel | null,
@@ -191,6 +231,17 @@ class Kernel extends Service implements IKernel {
     this.fire("onInit", this);
   }
 
+  /**
+   * Point d'entrée du boot. Fire `"onPreStart"` puis `"onStart"`, charge l'application
+   * (`loadApp()`), instancie services kernel (Rollup, Watcher, Pm2), puis enchaîne sur
+   * `preRegister()` → `boot()` → `onReady()` → `initServers()`.
+   *
+   * Si `command.kernelEvent` matche une phase déjà atteinte → terminate(0) immédiat (la
+   * command a fini son boulot, pas besoin d'aller plus loin).
+   *
+   * @returns `this` après boot complet.
+   * @throws Toute exception du pipeline est loggée CRITIC puis re-throw.
+   */
   async start(): Promise<this> {
     this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
     this.trunk = await this.isTrunk();
@@ -282,6 +333,12 @@ class Kernel extends Service implements IKernel {
     return this;
   }
 
+  /**
+   * Phase pré-registration — fire `"onPreRegister"` puis `"onRegister"`. Les décorateurs
+   * `@modules([...])` sont consommés ici (handler attaché en `prependOnceListener`).
+   *
+   * @returns `this` ou chaîne sur `boot()`.
+   */
   async preRegister(): Promise<this> {
     await this.fireAsync("onPreRegister", this).catch((e) => {
       this.log(e, "CRITIC");
@@ -357,6 +414,12 @@ class Kernel extends Service implements IKernel {
     }
   }
 
+  /**
+   * Phase boot — fire `"onPreBoot"` puis `"onBoot"`. Les services kernel (router, certificats,
+   * sessions, http-kernel) sont créés ici via les décorateurs `@services`.
+   *
+   * @returns `this` ou chaîne sur `onReady()`.
+   */
   async boot(): Promise<this> {
     await this.fireAsync("onPreBoot", this).catch((e) => {
       this.log(e, "CRITIC");
@@ -381,6 +444,15 @@ class Kernel extends Service implements IKernel {
       });
   }
 
+  /**
+   * Phase ready — fire `"onReady"`, démarre les serveurs HTTP/WS via `initServers()`, log
+   * memoryUsage, puis fire `"onPostReady"`. C'est ici que les Server Listen apparaissent.
+   *
+   * Si `command.name === "production"` ET pas PM2 → exécute `command.action()` (mode legacy
+   * daemonisation).
+   *
+   * @returns `this` après tout le pipeline post-ready.
+   */
   async onReady(): Promise<this> {
     return this.fireAsync("onReady", this)
       .then(async () => {
@@ -430,6 +502,14 @@ class Kernel extends Service implements IKernel {
       });
   }
 
+  /**
+   * Démarre les serveurs HTTP/HTTPS/HTTP2/WS/WSS via le `HttpKernel` (@nodefony/http).
+   *
+   * Si le HttpKernel n'est pas dans le container (mode CONSOLE pur) → retourne tableau vide.
+   * Sinon → délègue à `httpKernel.initServers()`, fire `"onServersReady"` après succès.
+   *
+   * @returns array d'instances de serveurs démarrés (ou `[]`).
+   */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async initServers(): Promise<any[]> {
     const httpKernel = this.get<HttpKernel>("HttpKernel");
@@ -483,6 +563,16 @@ class Kernel extends Service implements IKernel {
     return module.addService(service, module, ...args);
   }
 
+  /**
+   * Instancie un service au niveau kernel (vs niveau module via `Module.addService`).
+   *
+   * Utilisé pour les services partagés essentiels au boot (Rollup, Watcher, Pm2, HttpKernel).
+   * Stocke directement dans le container kernel.
+   *
+   * @param ctor - constructeur du service (typiquement décoré `@injectable`).
+   * @param args - args additionnels après les `@inject` resolved.
+   * @returns instance du service prête à l'usage.
+   */
   async addKernelService(
     service: ServiceConstructor,
     ...args: any[]
@@ -530,6 +620,14 @@ class Kernel extends Service implements IKernel {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  /**
+   * Instancie un module et l'enregistre dans `kernel.modules[name]`. Appelle `initialize(this)`
+   * sur le module si défini (équivalent constructeur async).
+   *
+   * @param Mod - constructeur du module (extends `Module`).
+   * @param args - arguments additionnels (après `kernel, path, options` par défaut).
+   * @returns instance du module enregistrée.
+   */
   async addModule(Mod: ModuleConstructor, ...args: any[]): Promise<Module> {
     const mod = new Mod(this, ...args);
     this.modules[mod.name] = mod;
@@ -988,6 +1086,12 @@ class Kernel extends Service implements IKernel {
   //   return res.version as string;
   // }
 
+  /**
+   * Shutdown propre du kernel — fire `"onTerminate"` puis `CliKernel.quit(code)` sur next tick.
+   *
+   * @param code - exit code Unix (0 = succès, 1+ = erreur).
+   * @returns Promise résolue avec `this` (ou rejected si `quit()` throw).
+   */
   async terminate(code?: number): Promise<this> {
     if (code === undefined) {
       code = 0;

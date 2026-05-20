@@ -102,11 +102,51 @@ Réalisé en autonomie après ajout permissions `.claude/settings.local.json` :
 
 ### Ce qui n'a PAS été fait (volontairement laissé pour validation user)
 
-- TSDoc additionnel sur Container.ts, Kernel.ts (déjà partiel, suffit pour l'instant)
+- TSDoc additionnel sur Container.ts (déjà bien) et Cli.ts (66 méthodes — trop gros pour cette session)
 - MEMORY.md sous-modules — déjà très complets, pas modifiés
 - `docs/architecture/pipeline-http.md` — concerne `@nodefony/http`, hors scope core
 - `docs/architecture/pipeline-ws.md` — idem
 - Commit local — laissé à la décision user demain
+
+### Session 3 — TSDoc classes publiques core (après remontée user "oubli TSDoc")
+
+- ✅ `src/nodefony/src/syslog/Pdu.ts` — 5 TSDoc (classe + constructor + 3 méthodes)
+- ✅ `src/nodefony/src/kernel/Module.ts` — 15 TSDoc (classe + constructor + 13 méthodes publiques)
+- ✅ `src/nodefony/src/kernel/CliKernel.ts` — 9 TSDoc (classe + constructor + 7 méthodes)
+- ✅ `src/nodefony/src/kernel/Kernel.ts` — 8 TSDoc (classe + constructor + 6 méthodes principales : start, preRegister, boot, onReady, initServers, addModule, addKernelService, terminate)
+- ✅ `src/nodefony/src/syslog/Syslog.ts` — 10 TSDoc (classe + constructor + init/reset/clean/pushStack/log/normalizeLog/overrideConsole/restoreConsole)
+- ✅ `src/nodefony/src/FileClass.ts` — 13 TSDoc (classe + constructor + toString/toJson/checkType/checkSum/isFile/isDirectory/isSymbolicLink/isHidden/read/write/move/unlink)
+
+**Total session 3 : ~60 nouveaux blocs TSDoc sur les classes publiques principales du core.**
+
+### Reste TSDoc non fait (volontaire)
+
+- `Cli.ts` (66 méthodes — trop gros, prioriser quand le besoin émerge)
+- `Container.ts` (déjà 15 TSDoc sur 16 — quasi complet)
+- `Command.ts` (déjà 13 TSDoc sur 41 — partiel mais correct)
+- `Service.ts` (déjà 9 TSDoc sur 32 — partiel sur l'API principale)
+- `Event.ts` (4/6 — quasi complet)
+- `Error.ts` (8/14 — bien couvert)
+- Cli.ts est volontairement skip — trop large, à faire ciblé quand on touche cette zone
+
+### Total fichiers modifiés cette nuit
+
+| Catégorie | Nombre |
+|-----------|--------|
+| Doc humaine créée (CLAUDE.md, README, docs/architecture/) | 13 fichiers |
+| TSDoc ajoutée sur fichiers source | 6 fichiers |
+| Permissions Claude Code mises à jour | 1 fichier |
+| **TOTAL** | **~20 fichiers touchés** |
+
+### À faire demain (humain)
+
+1. Reviewer les 13 fichiers de doc créés
+2. Reviewer les ~60 blocs TSDoc ajoutés (sont-ils précis ? cohérents avec le code ?)
+3. Corriger les `TODO: vérifier` (surtout `docs/architecture/injection.md`)
+4. Décider :
+   - Commit local + push ?
+   - Modifications à apporter ?
+5. Si OK → continuer doc des packages restants (http, framework, etc.)
 
 ### À faire demain (humain)
 

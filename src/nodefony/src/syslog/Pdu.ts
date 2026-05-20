@@ -99,11 +99,22 @@ const fastTypeOf = (value: unknown): string | null => {
 };
 
 /**
- *  Protocol Data Unit
- * @class  PDU
- * @constructor
- * @module library
- * @return {PDU}
+ * Process Data Unit — entrée de log unitaire conforme RFC 5424.
+ *
+ * Une instance représente un événement de log dans le pipeline Syslog.
+ * Stockée dans le `CircularBuffer` (O(1)) et diffusée aux transports
+ * via l'event `onLog` du {@link Syslog}.
+ *
+ * @example
+ * ```ts
+ * const pdu = new Pdu("user logged in", "INFO", "AUTH", "USER_LOGIN", "user@example.com");
+ * pdu.severity;      // 6
+ * pdu.severityName;  // "INFO"
+ * pdu.payload;       // "user logged in"
+ * ```
+ *
+ * @remarks `pdu.severity` est numérique (RFC 5424) pour comparaisons rapides.
+ *   `pdu.severityName` est la string (`"INFO"`, `"CRITIC"` — pas `"CRITICAL"`).
  */
 let guid = 0;
 class Pdu {
@@ -118,6 +129,17 @@ class Pdu {
   public msg: Message;
   public status: Status;
 
+  /**
+   * Construit un Pdu prêt à être publié dans le pipeline Syslog.
+   *
+   * @param pci - payload (string, Error, objet — typé `unknown`, narrower côté lecteur).
+   * @param severity - niveau RFC 5424 (string `"INFO"` ou numérique `6`). Défaut `"INFO"`.
+   * @param moduleName - nom du module/service qui a produit le log. Défaut `"nodefony"`.
+   * @param msgid - catégorie de message (`"AUTH"`, `"ROUTER"`, etc.). Défaut `""`.
+   * @param msg - détail libre optionnel. Défaut `""`.
+   * @param date - timestamp (number, Date, ou string parsable). Défaut `Date.now()`.
+   * @throws Si `severity` n'est pas une valeur valide de {@link SysLogSeverity}.
+   */
   constructor(
     pci: Pci,
     severity?: Severity,
@@ -151,10 +173,21 @@ class Pdu {
     this.status = "NOTDEFINED";
   }
 
+  /**
+   * Map bidirectionnelle des sévérités RFC 5424 (`{ INFO: 6, 6: "INFO", ... }`).
+   *
+   * @returns dictionnaire `{ severityName: severityValue }` plus enum reverse.
+   */
   static sysLogSeverity() {
     return sysLogSeverityObj;
   }
 
+  /**
+   * Convertit une sévérité numérique ou string en son nom canonique.
+   *
+   * @param severity - valeur numérique (`6`) ou string (`"INFO"` ou `"6"`).
+   * @returns nom canonique (`"INFO"`) ou `undefined` si invalide.
+   */
   static severityToString(severity: number | string): string | undefined {
     const numericSeverity =
       typeof severity === "string" ? parseInt(severity, 10) : severity;
@@ -170,10 +203,20 @@ class Pdu {
     return severityKey !== undefined ? severityKey : undefined;
   }
 
+  /**
+   * Retourne le timestamp formaté `HH:MM:SS GMT±HHMM (TZ Name)`.
+   *
+   * @returns time string lisible par humain.
+   */
   getDate(): string {
     return new Date(this.timeStamp).toTimeString();
   }
 
+  /**
+   * Sérialise le Pdu en string mono-ligne pour transport console/file.
+   *
+   * @returns ligne formatée `TimeStamp:... Log:... ModuleName:... SeverityName:... MessageID:... UID:... Message:...`.
+   */
   toString(): string {
     return `TimeStamp:${this.getDate()}  Log:${this.payload}  ModuleName:${
       this.moduleName
@@ -182,6 +225,13 @@ class Pdu {
     }  Message:${this.msg}`;
   }
 
+  /**
+   * Réhydrate un Pdu existant à partir d'une string JSON — mute uniquement les
+   * clés déjà présentes sur l'instance (filtre `key in this`).
+   *
+   * @param str - JSON sérialisé d'un Pdu.
+   * @returns objet parsé (ou `null` si JSON vide). Mute l'instance courante au passage.
+   */
   parseJson(str: string): Record<string, unknown> | null {
     const json = JSON.parse(str) as Record<string, unknown>;
     Object.entries(json).forEach(([key, value]) => {

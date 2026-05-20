@@ -37,10 +37,34 @@ export type PackageManager = (
   env?: EnvironmentType,
 ) => Promise<number | Error>;
 
+/**
+ * Kernel spécialisé pour les invocations CLI (`npx nodefony <command>`).
+ *
+ * **N'étend PAS {@link Kernel}** mais {@link Cli} (Commander wrapper). Le `Kernel` applicatif
+ * est instancié séparément par {@link start} et linké à `this.kernel`. Sa raison d'être :
+ * parser argv via Commander, sélectionner une commande, configurer l'environnement
+ * (`SERVER` vs `CONSOLE`), puis déléguer au `Kernel` pour le boot.
+ *
+ * **Piège lifecycle connu** : `environment` peut être `undefined` au constructor — les
+ * sous-commandes le set dans leur hook `onKernelStart()`. Ne jamais conditionner du code
+ * sur `this.environment` dans le constructor.
+ *
+ * @example
+ * ```ts
+ * // bin/nodefony.ts
+ * import { CliKernel } from "nodefony";
+ * const cli = new CliKernel();
+ * await cli.start();   // boote le Kernel + parse argv + exécute la command
+ * ```
+ */
 class CliKernel extends Cli {
   public type: KernelType = "CONSOLE";
   public app: Module | null = null;
   public packageManager: PackageManager = this.pnpm;
+  /**
+   * @param environment - environnement initial (`"development"` / `"production"` / `"test"`).
+   *   Peut être `undefined` — sera set par la sous-commande dans `onKernelStart()`.
+   */
   constructor(environment?: EnvironmentType) {
     super("NODEFONY", cliOptions);
     if (environment) {
@@ -49,6 +73,12 @@ class CliKernel extends Cli {
     this.initSyslog();
   }
 
+  /**
+   * Sélectionne le package manager pour les commandes `install`/`outdated`.
+   *
+   * @param manager - `"npm"` / `"yarn"` / `"pnpm"`. Défaut = `this.options.packageManager` (pnpm).
+   * @returns la fonction package manager liée à `this`.
+   */
   setPackageManager(
     manager: PackageManagerName = this.options?.packageManager,
   ): PackageManager {
@@ -72,13 +102,39 @@ class CliKernel extends Cli {
     super.showHelp(quit, context);
   }
 
+  /**
+   * Parse argv synchroniquement via Commander (cf {@link parseCommandAsync} pour async).
+   *
+   * @param argv - args (défaut `process.argv`).
+   * @returns instance Commander après parse.
+   */
   parseCommand(argv?: string[]): commanderCommand {
     return this.parse(argv || process.argv);
   }
+
+  /**
+   * Parse argv et exécute la commande matched (peut être async — `.action(async () => ...)`).
+   *
+   * @param argv - args (défaut `process.argv`).
+   * @returns Promise résolue avec l'instance Commander après exécution.
+   */
   parseCommandAsync(argv?: string[]): Promise<commanderCommand> {
     return this.parseAsync(argv || process.argv);
   }
 
+  /**
+   * Boot complet : instancie le Kernel, enregistre les 9 commands built-in, parse argv,
+   * lance `kernel.start()`.
+   *
+   * Comportement Commander :
+   * - `--help` / `--version` → terminate(0) propre
+   * - Erreur Commander (option inconnue) → kernel start en fallback (legacy)
+   * - Exception kernel → terminate(1) puis re-throw
+   *
+   * @param options - options surchargées pour le `new Kernel(env, this, options)`.
+   * @returns le Kernel booté.
+   * @throws Si Commander absent OR si kernel.start() crash.
+   */
   override async start(options?: TypeKernelOptions): Promise<Kernel> {
     this.kernel = new Kernel(this.environment, this, options);
     try {
@@ -159,11 +215,23 @@ class CliKernel extends Cli {
     }
   }
 
+  /**
+   * Définit le type de kernel — `"CONSOLE"` (commands pures) vs `"SERVER"` (démarre HTTP/WS).
+   *
+   * @param type - `"CONSOLE"` | `"SERVER"`. Auto-uppercase.
+   * @returns le type définitif (uppercase).
+   */
   setType(type: KernelType): string {
     const ele = type.toLocaleUpperCase() as KernelType;
     return (this.type = ele);
   }
 
+  /**
+   * Enregistre une commande CLI dans le registre du CliKernel + Commander.
+   *
+   * @param cliCommand - constructeur de la commande (signature `new (cli: CliKernel) => Command`).
+   * @returns instance de la commande créée.
+   */
   public override addCommand(
     cliCommand: new (cli: CliKernel) => Command,
   ): Command {
@@ -172,6 +240,17 @@ class CliKernel extends Cli {
     return command;
   }
 
+  /**
+   * Charge dynamiquement un module ES depuis le filesystem local.
+   *
+   * Résout les chemins relatifs par rapport à `cwd`. Capture les erreurs d'import et les log
+   * en ERROR avant de les re-throw.
+   *
+   * @param moduleName - chemin absolu OR relatif vers le module à importer.
+   * @param cwd - racine pour résoudre `moduleName` (défaut `process.cwd()`).
+   * @returns export default du module ou `null`.
+   * @throws L'erreur d'import est re-throw après log.
+   */
   async loadLocalModule<T>(
     moduleName: string,
     cwd: string = process.cwd(),
@@ -188,6 +267,21 @@ class CliKernel extends Cli {
     }
   }
 
+  /**
+   * Configure le pipeline Syslog selon environnement et mode debug.
+   *
+   * Sans kernel attaché → délègue à {@link Cli.initSyslog} parent. Avec kernel :
+   * - Sévérités `[0..6]` (EMERGENCY..INFO) toujours
+   * - `+7` (DEBUG) si `debug === true` OR `this.debug`
+   * - `+4, +5` (WARNING, NOTICE) si type === SERVER et env === development
+   * - `commander.opts().json` truthy → mode silencieux (return immédiat)
+   *
+   * Le `pid` est ajouté en préfixe de chaque ligne SAUF en dev mono-process.
+   *
+   * @param environment - environnement (override de `this.environment`).
+   * @param debug - active sévérité DEBUG (override de `this.debug`).
+   * @param options - conditions de filtrage Syslog custom.
+   */
   override initSyslog(
     environment?: EnvironmentType,
     debug?: DebugType,
@@ -237,6 +331,12 @@ class CliKernel extends Cli {
     });
   }
 
+  /**
+   * Arrêt propre — délègue à `kernel.terminate()` si kernel présent, sinon `super.terminate()`.
+   *
+   * @param code - exit code Unix (0 = succès, 1+ = erreur). Défaut `0`.
+   * @param quiet - supprime les messages de terminaison si `true`.
+   */
   override async terminate(code: number = 0, quiet?: boolean): Promise<void> {
     if (this.kernel) {
       await this.kernel.terminate(code);

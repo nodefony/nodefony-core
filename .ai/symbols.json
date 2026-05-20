@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-19T22:47:01.745Z",
+  "generated": "2026-05-20T01:13:18.294Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -156,7 +156,8 @@
       "module": "@nodefony/core",
       "extends": null,
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Wrapper fs Node.js avec métadonnées pré-parsées (path, name, ext, mime, stats). Utilisé par le Kernel/Module pour résoudre des chemins, par le `Finder` pour représenter un résultat de recherche, et…"
     },
     "FileClassInterface": {
       "name": "FileClassInterface",
@@ -453,7 +454,8 @@
       "module": "@nodefony/core",
       "extends": "Cli",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Kernel spécialisé pour les invocations CLI (`npx nodefony <command>`). **N'étend PAS {@link Kernel}** mais {@link Cli} (Commander wrapper). Le `Kernel` applicatif est instancié séparément par {@lin…"
     },
     "PackageManager": {
       "name": "PackageManager",
@@ -479,7 +481,8 @@
       "implements": [
         "IKernel"
       ],
-      "decorators": []
+      "decorators": [],
+      "description": "Orchestrateur central de Nodefony — gère le boot, les modules, le DI Container racine, et expose les events lifecycle auxquels services/modules se branchent. Hérite de {@link Service} → bénéficie D…"
     },
     "TypeKernelOptions": {
       "name": "TypeKernelOptions",
@@ -568,7 +571,8 @@
       "implements": [
         "IModule"
       ],
-      "decorators": []
+      "decorators": [],
+      "description": "Unité fonctionnelle de Nodefony — successeur direct du concept \"Bundle\" (Symfony / Nodefony JS). Un Module encapsule un domaine : routes, controllers, services, entités ORM, config, commandes CLI. …"
     },
     "TypeController": {
       "name": "TypeController",
@@ -706,7 +710,8 @@
       "implements": [
         "ISyslog"
       ],
-      "decorators": []
+      "decorators": [],
+      "description": "Hub central de logs structurés de Nodefony — conforme RFC 5424. Reçoit des {@link Pdu} via {@link log}, les pousse dans un ring buffer (`CircularBuffer`, O(1)), applique les filtres ({@link listenW…"
     },
     "ConditionSetting": {
       "name": "ConditionSetting",
