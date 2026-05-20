@@ -20,7 +20,12 @@ for arg in "$@"; do
   esac
 done
 
-ROOT="$(pwd)"
+# Racine repo dérivée du chemin du script (BASH_SOURCE), PAS de $(pwd) : le cwd
+# Bash persiste entre appels → après un `cd <subdir>`, un `$(pwd)` cassait le
+# chemin (piège vu 3× malgré la mémoire `feedback_cd_startsh_relative_path`).
+# .claude/skills/start-nodefony-server/start.sh → racine = 3 niveaux au-dessus.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 LOG="/tmp/nodefony-server.log"
 PIDFILE="/tmp/srv.pid"
 TEST_MODULE="$ROOT/src/modules/test"

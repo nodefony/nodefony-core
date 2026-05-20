@@ -77,11 +77,13 @@ Avant de commencer une nouvelle phase / tâche :
 
 ## 🧭 Hygiène de session (adoptée 2026-05-20 — APPLIQUER)
 
-Trois règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_session_hygiene`) :
+Règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_session_hygiene` + consolidation retex 2026-05-21) :
 
 1. **1 feature = 1 session courte.** Proposer activement `/clear` entre features non liées et `/compact` quand ça s'allonge (ne pas attendre le quota). Tenir « une session = un module ».
 2. **Mini-cahier des charges en amont** d'un gros écran/feature : lister (ou valider en 1 question) ce qui doit apparaître/se comporter AVANT de coder → 1 passe au lieu de N petits Edits.
 3. **Avant de dire « fait » :** après une modif **frontend** → annoncer la vérif (curl transform Vite) + demander un **hard-reload** (cache React) ; **lancer la suite de tests impactée** + **suspecter son propre diff** avant de qualifier un échec de « pré-existant ».
+4. **Batcher les edits backend avant UN SEUL `rebuild + restart`** (coût #1 mesuré sur 8/8 retex : 10→23 restarts/session, souvent fusionnables). Regrouper TOUTES les modifs serveur d'une feature (controllers, services, config), PUIS un seul cycle `stop.sh → build → start.sh`. Ne PAS faire stop/build/start après chaque petit Edit. Les modifs **frontend** passent en **HMR Vite** → 0 restart. Réserver les restarts intermédiaires aux vrais points de mesure (diagnostic).
+5. **Décision design/archi = décider + expliquer le POURQUOI**, pas d'`AskUserQuestion`. Le user (expert, auteur du framework) préfère que je tranche et justifie le choix technique (préférence vue 2× : QCM design rejetés). Réserver `AskUserQuestion` aux cas où la réponse change réellement l'action : install lourd/irréversible, ambiguïté de specs, choix produit non-déductible du code. Jamais pour un arbitrage technique que je peux trancher.
 
 ---
 

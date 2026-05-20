@@ -120,7 +120,7 @@ sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep "Rollup Module" | grep
 - `start.sh` / `stop.sh` sont dans ce dossier (`.claude/skills/start-nodefony-server/`).
 - Ports en dur : 5151 (http/ws) + 5152 (https/wss). Module test : `src/modules/test`.
 - Si le port ou le chemin du module test change → éditer les variables en tête de `start.sh`.
-- Les scripts dérivent la racine de `$(pwd)` → lancer depuis la racine du repo.
+- `start.sh` dérive la racine repo de **`BASH_SOURCE`** (chemin absolu) → invocable depuis n'importe quel cwd, y compris après un `cd <subdir>` (piège `feedback_cd_startsh_relative_path` corrigé 2026-05-21).
 
 ## Liens
 
