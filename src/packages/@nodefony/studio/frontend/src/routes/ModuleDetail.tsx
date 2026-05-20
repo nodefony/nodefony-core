@@ -778,20 +778,35 @@ function TestsPanel({ moduleKey, tests }: { moduleKey: string; tests: TestsInfo 
   const ALL = "__all__";
   const [results, setResults] = useState<Record<string, TestRunResult | "running">>({});
 
+  const fail = (k: string, msg: string) =>
+    setResults((r) => ({
+      ...r,
+      [k]: { ok: false, code: null, passed: 0, failed: 0, durationMs: 0, output: msg, mode: "" },
+    }));
+
+  // Run ASYNCHRONE : POST démarre + rend jobId, puis on poll GET ?jobId (les
+  // requêtes restent courtes → robuste, pas de "Failed to fetch" sur un run long).
   const run = async (file?: string) => {
     const k = file ?? ALL;
+    const base = `/nodefony/kernel/api/module/${encodeURIComponent(moduleKey)}/test/run`;
     setResults((r) => ({ ...r, [k]: "running" }));
     try {
-      const res = await store.api.postAbsolute<TestRunResult>(
-        `/nodefony/kernel/api/module/${encodeURIComponent(moduleKey)}/test/run`,
-        file ? { file } : {},
-      );
-      setResults((r) => ({ ...r, [k]: res }));
+      const start = await store.api.postAbsolute<{ jobId?: string }>(base, file ? { file } : {});
+      const jobId = start.jobId;
+      if (!jobId) return fail(k, "pas de jobId renvoyé");
+      for (let i = 0; i < 120; i++) {
+        await new Promise((res) => setTimeout(res, 1500));
+        const st = await store.api.getAbsolute<{ done: boolean } & TestRunResult>(
+          `${base}?jobId=${encodeURIComponent(jobId)}`,
+        );
+        if (st.done) {
+          setResults((r) => ({ ...r, [k]: st }));
+          return;
+        }
+      }
+      fail(k, "timeout (run trop long)");
     } catch (e) {
-      setResults((r) => ({
-        ...r,
-        [k]: { ok: false, code: null, passed: 0, failed: 0, durationMs: 0, output: e instanceof Error ? e.message : String(e), mode: "" },
-      }));
+      fail(k, e instanceof Error ? e.message : String(e));
     }
   };
 

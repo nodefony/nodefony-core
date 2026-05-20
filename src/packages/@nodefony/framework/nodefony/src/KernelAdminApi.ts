@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import type { IKernel, IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
+import type { TestRunResult } from "./docsReader";
 import {
   listModuleDocs,
   readModuleDoc,
@@ -74,6 +76,16 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
     if (!mod) return null;
     return { path: mod.path, pkg: mod.getModuleName?.() ?? key };
   };
+
+  // Jobs de tests ASYNCHRONES : le run (6-30 s) ne tient PAS la connexion HTTP
+  // (sinon le navigateur "Failed to fetch" pendant l'écriture du coverage). POST
+  // démarre + rend un jobId ; le front poll GET ?jobId. Borné (16 derniers).
+  const testJobs = new Map<
+    string,
+    { status: "running" | "done"; startedAt: number; result?: TestRunResult }
+  >();
+  const devGuard = () =>
+    kernel.environment === "development" || Boolean(kernel.debug);
 
   const endpoints: IAdminEndpoint[] = [
     {
@@ -266,17 +278,14 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       },
     },
     {
-      // LANCE les tests (1 fichier ou toute la suite + refresh coverage).
-      // ⚠️ EXÉCUTE un process → garde DEV-ONLY strict (refus 403 en prod).
+      // DÉMARRE un run de tests en arrière-plan → rend un jobId immédiatement
+      // (run async, cf testJobs). ⚠️ EXÉCUTE un process → garde DEV-ONLY strict.
       path: "module/{name}/test/run",
       method: "POST",
-      summary: "Run module tests (dev only) — 1 file or whole suite",
-      handler: async (request) => {
-        if (!(kernel.environment === "development" || kernel.debug)) {
-          return {
-            status: 403,
-            body: { error: "Test runner disabled outside development" },
-          };
+      summary: "Start a test run (dev only) — 1 file or whole suite → jobId",
+      handler: (request) => {
+        if (!devGuard()) {
+          return { status: 403, body: { error: "Test runner disabled outside development" } };
         }
         const key = request.params.name;
         const target = resolveTarget(key);
@@ -291,7 +300,36 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           }
           file = body.file;
         }
-        return { key, ...(await runModuleTests(target.path, file)) };
+        const jobId = randomUUID();
+        testJobs.set(jobId, { status: "running", startedAt: Date.now() });
+        // borne la map (16 derniers jobs)
+        if (testJobs.size > 16) {
+          const oldest = [...testJobs.entries()].sort((a, b) => a[1].startedAt - b[1].startedAt)[0];
+          if (oldest) testJobs.delete(oldest[0]);
+        }
+        // fire-and-forget : ne PAS await (le client poll via GET ?jobId)
+        runModuleTests(target.path, file).then(
+          (result) => testJobs.set(jobId, { status: "done", startedAt: Date.now(), result }),
+          (e) =>
+            testJobs.set(jobId, {
+              status: "done",
+              startedAt: Date.now(),
+              result: { ok: false, code: null, passed: 0, failed: 0, durationMs: 0, output: String(e), mode: "" },
+            }),
+        );
+        return { key, jobId, running: true };
+      },
+    },
+    {
+      // Statut/résultat d'un run async (poll). `done:false` tant qu'il tourne.
+      path: "module/{name}/test/run",
+      method: "GET",
+      summary: "Poll a test run by ?jobId",
+      handler: (request) => {
+        const jobId = String(request.query.jobId ?? "");
+        const job = jobId ? testJobs.get(jobId) : undefined;
+        if (!job) return { status: 404, body: { error: "Unknown jobId", jobId } };
+        return { jobId, done: job.status === "done", ...(job.result ?? {}) };
       },
     },
   ];

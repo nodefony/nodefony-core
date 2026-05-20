@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-20T16:43:13.138Z",
+  "generated": "2026-05-20T16:48:28.257Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -5850,6 +5850,9 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+      ],
+      "TestRunResult": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "listModuleDocs": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
