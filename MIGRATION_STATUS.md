@@ -92,7 +92,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **Symbiose http↔fw (Phase 9.1)**     | 8       | 0      | 5     | 3      |
 | **Cycle de vie Context (Phase 9.2)** | 12      | 0      | 0     | 12     |
 | **Logs structurés (Phase 9.3)**      | 10      | 0      | 0     | 10     |
-| **Studio admin web (Phase 10)**      | 11      | 0      | 0     | 11     |
+| **Studio admin web (Phase 10)**      | 11      | 1      | 3     | 7      |
 | **CLI commandes par module (P11)**   | 14      | 0      | 0     | 14     |
 | **IA — llm/vector/rag/memory (P12.1)** | 5     | 0      | 4     | 1      |
 | **IA — agent orchestrateur (P12.2)** | 6       | 0      | 1     | 5      |
@@ -415,6 +415,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 > Voir [Phase 10](#phase-10--nodefonystudio-successeur-monitoring-bundle). NE PAS démarrer avant P0-P7 + P11.2-P11.3 ✅.
 > Préfixe route `/nodefony` réservé dans toutes les apps. Chaque module migré doit exposer son `IAdminApi` au préalable.
+> **Routing tranché 2026-05-20** : UI Studio sur `/nodefony` + `/nodefony/{page}` (SPA mono-segment) ; data plane admin sur `/nodefony/<module>/api/*` (≥3 segments). `/studio` rejeté (collision app user). Cf mémoire `project_studio_routing_decision`.
 
 | #      | Tâche                                                                          | Effort  | Dépendances        | Notes                                          |
 | ------ | ------------------------------------------------------------------------------ | ------- | ------------------ | ---------------------------------------------- |
@@ -422,11 +423,11 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P10.2  | `IAdminApi` + `ApiBroker` service                                              | 1 ses.  | P5.4               | Contract module → studio                       |
 | P10.3  | `IAdminApi` dans http, framework, syslog                                       | 2 ses.  | P10.2              |                                                |
 | P10.4  | `IAdminApi` dans user, orm-core, security                                      | 2 ses.  | P5.6, P6.8         |                                                |
-| 🔶 P10.5  | Backend Studio — `DashboardController` + `api/*Controller`                  | 2 ses.  | P10.3, P10.4       | 🔶 2026-05-18 — `StudioController` `/nodefony` + 6 endpoints API mock (health, info, auth/{login,me,logout}, realtime/info). À étendre via IAdminApi quand P10.2 prêt |
+| 🔶 P10.5  | Backend Studio — `DashboardController` + `api/*Controller`                  | 2 ses.  | P10.3, P10.4       | 🔶 2026-05-20 — `StudioController` : UI `/nodefony` + data plane `/nodefony/studio/api/*` (health/info/auth mock, `/info` expose `debug`). + `StudioRealtimeController` **WS `/nodefony/studio/api/realtime` JSON-RPC 2.0 pub/sub par canal** (`syslog:stream`, `dashboard:stats` 1/s) — providers transport-agnostiques, **précurseur RealtimeService P13.4**. Reste : remplacer mocks par IAdminApi (P10.2). Cf mémoire `project_studio_realtime_ws` |
 | P10.6  | Auth admin (factory `studio-admin`, `ROLE_NODEFONY_ADMIN`)                     | 1 ses.  | P6.5               |                                                |
-| 🔶 P10.7  | Frontend bootstrap + router + auth + layouts                                | 2 ses.  | P10.5, **P14.11**, **P14.4** | 🔶 2026-05-18 — `@nodefony/studio` scaffoldé (React 19 + Mantine v8 + MobX 6 + Router 7 + TanStack Table 8). 5 stores MobX (Auth/Connection/Ui/Chat/Root), AuthGuard, Login 4-step stepper, AdminLayout (sidebar groupée + theme toggle dark/light), Dashboard, Chat IA (streaming mock), 13 pages stub, RealtimeClient stub (préfigure @nodefony/client P13.7). ⚠️ Bug multi-bundle [[project_frontend_multibundle_bug]] : test-frontend-react commenté tant que P14.6 pas fixé |
-| P10.8  | Vues prio : dashboard, routes, sessions, users                                 | 3 ses.  | P10.7              | MVP utile — Dashboard ✅ stub, autres en attente |
-| P10.9  | Vues : firewall, logs streaming, databases, migrate                            | 3 ses.  | P10.8              | SSE/WS pour logs                               |
+| 🔶 P10.7  | Frontend bootstrap + router + auth + layouts                                | 2 ses.  | P10.5, **P14.11**, **P14.4** | 🔶 2026-05-20 — React 19 + Mantine v8 + MobX 6 + Router 7 + TanStack Table 8. 5 stores MobX, AuthGuard, Login 4-step, AdminLayout. **WS realtime permanent** (`RealtimeClient` du **Core isomorphe `nodefony`** — PAS @nodefony/client, P13.3 supprimée — ouvert au montage du shell, re-subscribe au reconnect). **Logs en WS** (canal `syslog:stream`). **Dashboard widgets live + graphes SVG interactifs maison** (recharts2 KO sous React19) + `instanceId` (vue per-instance). Multi-bundle **résolu** (test-frontend-react actif). Reste : pages stub, auth réelle (P6) |
+| 🔶 P10.8  | Vues prio : dashboard, routes, sessions, users                              | 3 ses.  | P10.7              | 🔶 Dashboard ✅ **live** (CPU %/mémoire/event-loop/logs-s, graphes interactifs, uptime, debug, instance) ; routes/sessions/users en attente (data-plane IAdminApi) |
+| P10.9  | Vues : firewall, logs streaming, databases, migrate                            | 3 ses.  | P10.8              | SSE/WS pour logs — **Logs ✅ live via canal WS `syslog:stream`** (2026-05-20) ; firewall/databases/migrate en attente |
 | P10.10 | Vues : npm, pm2, profiling, services                                           | 2 ses.  | P10.9              | Incrémental                                    |
 | P10.11 | Tests intégration studio                                                       | 1 ses.  | P10.8              |                                                |
 
