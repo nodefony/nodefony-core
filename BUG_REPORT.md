@@ -19,11 +19,11 @@ Bugs structurels. Triés par criticité.
 |-----------|---|--------|
 | Boot/teardown kernel | 10 | ✅ OK (hors request scope attendu) |
 | Server-level (request/connection/error) | 11 | ✅ OK (eux ouvrent la bulle ALS) |
-| **BUGS confirmés** (BUG-001 + BUG-002) | **5** | 🚨 Documentés ci-dessous |
+| **BUGS confirmés** (BUG-001 + BUG-002, ✅ corrigés) | **5** | ✅ Résolus — voir ci-dessous |
 | DANS request scope, handlers triviaux | 7 | ⚠️ Surveillance (voir tableau dans mémoire `project_als_ws_bug`) |
 | Code commenté | 5 | — Skip |
 
-**Conclusion audit (révisée 2026-05-20)** : l'audit listeners ne couvrait QUE la propagation ALS. Un audit du **cycle de vie des scopes DI** (déclenché par une question sur les chemins throw/erreur) a révélé 2 leaks de scope supplémentaires : BUG-003 (WS erreur avant `connect()`, ✅ corrigé) et BUG-004 (WS avec session fermé au handshake, 🚨 ouvert). Les 7 listeners catégorie D (Request.ts:93, parser.ts:13, Request.ts:126, http-kernel.ts:269, http-kernel.ts:757, Context.ts:305, HttpContext.ts:132) ont des handlers qui ne lisent PAS l'ALS aujourd'hui — pas de fuite de contexte actuelle, mais si on les étend, appliquer `AsyncResource.bind` au moment du bind.
+**Conclusion audit (révisée 2026-05-20)** : l'audit listeners ne couvrait QUE la propagation ALS. Un audit du **cycle de vie des scopes DI** (déclenché par une question sur les chemins throw/erreur) a révélé 2 leaks de scope supplémentaires : BUG-003 (WS erreur avant `connect()`, ✅ corrigé) et BUG-004 (WS avec session fermé au handshake, ✅ corrigé). **Au 2026-05-20 : les 4 bugs sont résolus, aucun bug ouvert.** Les 7 listeners catégorie D (Request.ts:93, parser.ts:13, Request.ts:126, http-kernel.ts:269, http-kernel.ts:757, Context.ts:305, HttpContext.ts:132) ont des handlers qui ne lisent PAS l'ALS aujourd'hui — pas de fuite de contexte actuelle, mais si on les étend, appliquer `AsyncResource.bind` au moment du bind.
 
 **Vérifications externes restantes** :
 - Pas de `stream.on()/session.on()` HTTP/2 dans le module → OK en l'état
