@@ -6,16 +6,26 @@ import type { FrontendService } from "@nodefony/frontend";
 /**
  * Controller Studio admin.
  *
+ * Partition du namespace réservé `/nodefony` (cf CLAUDE.md du module) :
+ *  - `/nodefony` + `/nodefony/{page}` (mono-segment) → pages SPA Studio (humain).
+ *    N'existent QUE si le module Studio est chargé ; le framework boote sans.
+ *  - `/nodefony/<module>/api/*` (≥3 segments, marqueur `/api/`) → data plane admin,
+ *    porté par chaque module indépendamment de Studio (consommable aussi en CLI/curl).
+ *  Le fallback SPA mono-segment ne masque jamais une route API (toujours ≥3 segments).
+ *
  * Routes UI :
  *  - GET  /nodefony            → page HTML qui charge le bundle React via Vite
+ *  - GET  /nodefony/{page}     → SPA fallback
  *
- * Routes API (mock — sera relié à @nodefony/security en P6) :
- *  - GET  /nodefony/api/health        → ping serveur
- *  - GET  /nodefony/api/info          → infos runtime
- *  - POST /nodefony/api/auth/login    → mock login (accepte tout)
- *  - GET  /nodefony/api/auth/me       → mock user courant
- *  - POST /nodefony/api/auth/logout   → mock logout
- *  - GET  /nodefony/api/realtime/info → URL WS pour @nodefony/client futur
+ * Routes API Studio — mocks "catégorie 3" hébergés ici faute de mieux. Sémantiquement
+ * ils appartiennent à d'autres modules et migreront vers leur `/nodefony/<module>/api/*` :
+ *  - GET  /nodefony/studio/api/health        → ping (cible : kernel)
+ *  - GET  /nodefony/studio/api/info          → infos runtime (cible : kernel)
+ *  - POST /nodefony/studio/api/auth/login    → mock login (cible : @nodefony/security P6)
+ *  - GET  /nodefony/studio/api/auth/me       → mock user (cible : @nodefony/security P6)
+ *  - POST /nodefony/studio/api/auth/logout   → mock logout (cible : @nodefony/security P6)
+ *  - GET  /nodefony/studio/api/realtime/info → URL WS @nodefony/client (cible : P13)
+ *  - GET  /nodefony/studio/api/logs/stream   → SSE Pdu syslog (cible : core syslog)
  */
 @controller("/nodefony")
 class StudioController extends Controller {
@@ -61,7 +71,7 @@ class StudioController extends Controller {
     return this.renderStudio();
   }
 
-  @route("studio-api-health", { path: "/api/health" })
+  @route("studio-api-health", { path: "/studio/api/health" })
   apiHealth() {
     return this.renderJson({
       status: "ok",
@@ -70,12 +80,13 @@ class StudioController extends Controller {
     });
   }
 
-  @route("studio-api-info", { path: "/api/info" })
+  @route("studio-api-info", { path: "/studio/api/info" })
   apiInfo() {
     return this.renderJson({
       name: "Nodefony Studio",
       version: "10.0.0-poc.1",
       env: this.kernel?.environment,
+      debug: Boolean(this.kernel?.debug),
       pid: process.pid,
       node: process.version,
       platform: process.platform,
@@ -87,7 +98,7 @@ class StudioController extends Controller {
    * Mock login — accepte n'importe quoi pour le POC.
    * Sera remplacé par P6 (@nodefony/security firewall + AuthBridge).
    */
-  @route("studio-api-login", { path: "/api/auth/login", method: "POST" })
+  @route("studio-api-login", { path: "/studio/api/auth/login", method: "POST" })
   apiLogin() {
     const body = (this.context as { body?: { username?: string } })?.body ?? {};
     const username = body.username ?? "admin";
@@ -102,7 +113,7 @@ class StudioController extends Controller {
     });
   }
 
-  @route("studio-api-me", { path: "/api/auth/me" })
+  @route("studio-api-me", { path: "/studio/api/auth/me" })
   apiMe() {
     return this.renderJson({
       id: 1,
@@ -112,7 +123,7 @@ class StudioController extends Controller {
     });
   }
 
-  @route("studio-api-logout", { path: "/api/auth/logout", method: "POST" })
+  @route("studio-api-logout", { path: "/studio/api/auth/logout", method: "POST" })
   apiLogout() {
     return this.renderJson({ ok: true });
   }
@@ -122,13 +133,13 @@ class StudioController extends Controller {
    * Le client front lit ça pour savoir où ouvrir le WebSocket.
    * Sera relié à P13.4 RealtimeService + P13.7 JSON-RPC.
    */
-  @route("studio-api-realtime-info", { path: "/api/realtime/info" })
+  @route("studio-api-realtime-info", { path: "/studio/api/realtime/info" })
   apiRealtimeInfo() {
     return this.renderJson({
-      wsUrl: "/nodefony/api/realtime", // TODO P13 : vrai endpoint WS
+      wsUrl: "/nodefony/studio/api/realtime", // StudioRealtimeController (WS JSON-RPC 2.0)
       protocol: "jsonrpc-2.0",
       heartbeatInterval: 30000,
-      available: false, // false tant que P13 pas implémenté
+      available: true, // endpoint WS live ; migrera vers RealtimeService en P13.4
     });
   }
 
@@ -144,7 +155,7 @@ class StudioController extends Controller {
    *
    * TODO P13.4 : déplacer dans un endpoint WS dédié + canal pub/sub.
    */
-  @route("studio-api-logs-stream", { path: "/api/logs/stream" })
+  @route("studio-api-logs-stream", { path: "/studio/api/logs/stream" })
   async apiLogsStream(): Promise<void> {
     const httpResp = this.context?.response as
       | { response?: { setHeader: (k: string, v: string) => void; write: (s: string) => boolean; flushHeaders?: () => void; once: (e: string, fn: () => void) => void } }

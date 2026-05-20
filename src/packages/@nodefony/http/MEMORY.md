@@ -41,6 +41,17 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 | server-websocket-secure | 5152 | wss sur https               |
 | server-static           | —    | serve-static                |
 
+## Multi-process / scaling (post-PM2)
+
+- Serveurs bind via `server.listen(this.port, this.domain, cb)` **positionnel** (`server-http.ts:97`, `server-https.ts:120/237`).
+- **Scaling horizontal** (PM2 déprécié, [[project_pm2_deprecation]]) :
+  - **Prod** : N pods + LB orchestrateur (k8s/Swarm/Cloud Run). 1 process = 1 pod.
+  - **Single host** : **`SO_REUSEPORT`** (Node 23.1+, repo Node 26) → passer `listen({ port, host, reusePort: true })` → N process Node sur le MÊME port, kernel OS répartit. Remplace PM2-cluster. Feature cible Phase 16 : `nodefony <env> --workers N` (fork Kernel + reusePort). Alt : `node:cluster`.
+  - **Test local** : N instances/N ports + round-robin client (zéro code).
+- **Viable** car HTTP full stateless JWT ([[project_security_stateless_http_decision]]) → pas de session RAM à partager, pas de sticky.
+- ⚠️ **Cross-process** : `broadcast()` (`wss.clients.forEach`) et le pub/sub realtime ne touchent que les clients du MÊME worker → fan-out cross-process = **Redis pub/sub (Phase 13** [[project_phase13_realtime_redis_client]]). Idem stats Studio (per-instance). Détails : [[project_multiprocess_scaling]].
+- Mesure stress 2026-05-20 : Node mono-thread sature ~1 cœur ≈ 400 req/s sur loopback, dégradation gracieuse (1600 conns concurrentes, 0,04 % err, 0 crash).
+
 ## Request Tracing — requestId
 
 - `Context.requestId = randomUUID()` — UUID v4 généré à construction (base class)

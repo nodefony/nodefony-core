@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-20T08:24:02.294Z",
+  "generated": "2026-05-20T10:55:17.663Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 217,
-    "symbols": 502,
-    "classes": 173,
-    "interfaces": 167,
-    "types": 122,
+    "files": 219,
+    "symbols": 510,
+    "classes": 174,
+    "interfaces": 169,
+    "types": 123,
     "enums": 1,
-    "functions": 32,
-    "constants": 7
+    "functions": 34,
+    "constants": 9
   },
   "symbols": {
     "Cli": {
@@ -3191,7 +3191,59 @@
       "decorators": [
         "controller"
       ],
-      "description": "Controller Studio admin. Routes UI : - GET /nodefony → page HTML qui charge le bundle React via Vite Routes API (mock — sera relié à"
+      "description": "Controller Studio admin. Partition du namespace réservé `/nodefony` (cf CLAUDE.md du module) : - `/nodefony` + `/nodefony/{page}` (mono-segment) → pages SPA Studio (humain). N'existent QUE si le mo…"
+    },
+    "StudioRealtimeController": {
+      "name": "StudioRealtimeController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio. Route : `WS /nodefony/studio/api/realtime`. Protocole : **JSON-RPC 2.0**. - notifications serveur→client : `{ jsonrpc:\"…"
+    },
+    "Publish": {
+      "name": "Publish",
+      "kind": "type",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio"
+    },
+    "createSyslogBridge": {
+      "name": "createSyslogBridge",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Pont syslog kernel → canal `syslog:stream`. Chaque `Pdu` est publié tel quel (la sérialisation est déléguée au transport)."
+    },
+    "createStatsTicker": {
+      "name": "createStatsTicker",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Ticker de stats runtime → canal `dashboard:stats` toutes les `intervalMs`. CPU% calculé en delta entre deux ticks (1 seul `process.cpuUsage()` par tick)."
+    },
+    "INSTANCE_ID": {
+      "name": "INSTANCE_ID",
+      "kind": "const",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Identifiant stable de CETTE instance/process. Override possible via env `NODEFONY_INSTANCE_ID` (utile en multi-process pour distinguer les workers). Forward-compat vue cluster (P13) : les stats son…"
+    },
+    "CHANNELS": {
+      "name": "CHANNELS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Canaux temps réel FIGÉS (deviendront des canaux RealtimeService en P13.4)."
     },
     "MemoryVectorStore": {
       "name": "MemoryVectorStore",
@@ -3942,7 +3994,8 @@
         "RouteController",
         "WebsocketController",
         "PocController",
-        "StudioController"
+        "StudioController",
+        "StudioRealtimeController"
       ],
       "Entity": [
         "Boat",
@@ -4162,7 +4215,8 @@
         "RouteController",
         "WebsocketController",
         "PocController",
-        "StudioController"
+        "StudioController",
+        "StudioRealtimeController"
       ],
       "injectable": [
         "Router",
@@ -4741,7 +4795,8 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "Resolver": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4769,7 +4824,8 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "controller": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4784,7 +4840,8 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "HttpCode": [
         "src/packages/@nodefony/framework/index.ts",
@@ -4835,6 +4892,7 @@
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
@@ -4928,6 +4986,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
@@ -5031,6 +5090,9 @@
         "src/modules/test/nodefony/entity/BoatEntity.ts"
       ],
       "StudioController": [
+        "src/packages/@nodefony/studio/index.ts"
+      ],
+      "StudioRealtimeController": [
         "src/packages/@nodefony/studio/index.ts"
       ],
       "CliKernel": [
@@ -5741,6 +5803,18 @@
       "Sequelize": [
         "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+      ],
+      "createSyslogBridge": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "createStatsTicker": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "CHANNELS": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "Publish": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "IVectorSearchOptions": [
         "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",

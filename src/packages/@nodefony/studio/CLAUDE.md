@@ -27,7 +27,9 @@ src/packages/@nodefony/studio/
 ├── rollup.config.ts / tsconfig.json  ← NE PAS MODIFIER sans accord
 ├── nodefony/
 │   ├── config/config.ts          ← surcharge module-frontend { https: true }
-│   └── controller/StudioController.ts  ← routes /nodefony (UI + /api/* + SSE logs)
+│   ├── controller/StudioController.ts  ← UI /nodefony + /nodefony/{page} ; API /nodefony/studio/api/*
+│   ├── controller/StudioRealtimeController.ts  ← WS /nodefony/studio/api/realtime (JSON-RPC 2.0)
+│   └── realtime/providers.ts           ← createSyslogBridge + createStatsTicker (transport-agnostiques, forward-compat P13.4)
 └── frontend/                     ← SPA React 19 (Vite)
     ├── index.html · vite.config.generated.mjs (généré)
     └── src/
@@ -43,28 +45,53 @@ src/packages/@nodefony/studio/
 ## Boot & intégration frontend
 
 - **Ordre critique** : dans `index.ts` racine, `@nodefony/studio` doit être chargé **APRÈS** `@nodefony/frontend` (le service Vite doit exister au `onKernelBoot`).
-- `index.ts` → `onKernelBoot()` → `frontendService.registerEntry(this, { type:"react19", entry:"./frontend/src/main.tsx", root:"./frontend", name:"studio", apiProxyPaths:["/nodefony/api"] })`.
-- `apiProxyPaths` est **obligatoire** : sans lui, `fetch("/nodefony/api/...")` depuis la page servie par Vite tombe sur le SPA-fallback HTML de Vite → erreur JSON.
+- `index.ts` → `onKernelBoot()` → `frontendService.registerEntry(this, { type:"react19", entry:"./frontend/src/main.tsx", root:"./frontend", name:"studio", apiProxyPaths:["/nodefony/studio/api"] })`.
+- `apiProxyPaths` est **obligatoire** : sans lui, `fetch("/nodefony/studio/api/...")` depuis la page servie par Vite tombe sur le SPA-fallback HTML de Vite → erreur JSON. Proxifie l'API uniquement (pas la racine `/nodefony` → les pages SPA restent servies par Vite).
 - Multi-bundle OK : Studio coexiste avec `@nodefony/test-frontend-react` (bug multi-bundle résolu, cf mémoire `project_frontend_multibundle_bug`).
 
-## Routes (StudioController)
+## Routes (StudioController) — partition du namespace `/nodefony` (TRANCHÉ 2026-05-20)
 
-`@controller("/nodefony")` :
+`@controller("/nodefony")`. Deux espaces séparés par profondeur :
+
+- **UI SPA (humain)** — mono-segment, portée par CE module (disparaît si Studio absent) :
 
 | Route | Méthode | Rôle |
 |---|---|---|
-| `/` | GET | Page HTML (charge le bundle React via `frontendService.renderTags("studio")`) |
-| `/{page}` | GET | SPA fallback → même page React |
-| `/api/health` · `/api/info` | GET | Ping / infos runtime (real) |
-| `/api/auth/login` (POST) · `/api/auth/me` · `/api/auth/logout` (POST) | — | **MOCK** (accepte tout, JWT bidon, `ROLE_NODEFONY_ADMIN`). → P6 |
-| `/api/realtime/info` | GET | Stub endpoint WS (available:false). → P13.4/P13.7 |
-| `/api/logs/stream` | GET | **SSE réel** — streame les `Pdu` du Syslog kernel |
+| `/nodefony` | GET | Page HTML (charge le bundle React via `frontendService.renderTags("studio")`) |
+| `/nodefony/{page}` | GET | SPA fallback → même page React |
 
+- **Data plane admin (machine)** — `/nodefony/studio/api/*`, ≥3 segments. Mocks "cat.3" hébergés ici faute de mieux, migreront vers leur module propriétaire (`/nodefony/<module>/api/*`) :
+
+| Route | Méthode | Rôle | Cible migration |
+|---|---|---|---|
+| `/nodefony/studio/api/health` · `/info` | GET | Ping / infos runtime (`/info` inclut `debug`) | kernel |
+| `/nodefony/studio/api/auth/login` (POST) · `/auth/me` · `/auth/logout` (POST) | — | **MOCK** (accepte tout, JWT bidon, `ROLE_NODEFONY_ADMIN`) | @nodefony/security P6 |
+| `/nodefony/studio/api/realtime/info` | GET | Infos endpoint WS (available:**true**) | P13.4/P13.7 |
+| `/nodefony/studio/api/realtime` | **WS** | **WebSocket permanent JSON-RPC 2.0** (`StudioRealtimeController`) — pub/sub par canal (`subscribe`/`unsubscribe`) : `syslog:stream`, `dashboard:stats` | RealtimeService P13.4 |
+| `/nodefony/studio/api/logs/stream` | GET | SSE Pdu — **dormant** (le front utilise désormais le canal WS `syslog:stream`) | core syslog |
+
+> **Pourquoi pas `/studio` pour l'UI** : `/nodefony` est réservé au framework, aucune app user n'y monte ses routes ; `/studio` entrerait en collision avec une route applicative. **Le framework boote sans Studio** — l'UI (cat.1) disparaît, le data plane par module (cat.2) reste porté par chaque module.
+> **Règle figée** : interdit aux modules une route admin mono-segment `/nodefony/<module>` — toujours `/nodefony/<module>/api/*` (sinon collision avec une page SPA). Le fallback SPA mono-segment ne masque jamais une route API (≥3 segments).
+> **`apiProxyPaths: ["/nodefony/studio/api"]`** — proxifie UNIQUEMENT l'API ; les pages SPA `/nodefony/{page}` restent servies par Vite.
 > **SSE** : écouter `rawRes.once("close")` (RESPONSE), jamais `request.on("close")` (fire trop tôt en HTTP/2). Cf mémoire `feedback_sse_http2_request_close`.
+
+## Realtime WS (✅ implémenté 2026-05-20 — forward-compat P13.4)
+
+WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeController`), protocole **JSON-RPC 2.0** — exactement ce que parle `RealtimeClient` (core) et que parlera `RealtimeService` (P13.4).
+
+- **Pub/sub PAR CANAL (on-demand)** : le handshake ne pousse RIEN (juste `realtime:welcome`). Le client envoie des notifications `subscribe`/`unsubscribe` `{channel}` ; le serveur démarre/arrête le provider correspondant. → un client ne reçoit que ce qu'il demande ; quitter une page = `unsubscribe` du canal, **le WS reste ouvert**. (`ping` = heartbeat no-op ; requête avec `id` inconnue → `-32601`.)
+- **Providers transport-agnostiques** : `nodefony/realtime/providers.ts` → `createSyslogBridge(syslog, publish)` + `createStatsTicker(publish, 1000)`. Poussent via `publish(channel, payload)` sans connaître le transport.
+- **Canaux figés** : `syslog:stream` (Pdu kernel), `dashboard:stats` (1/s : `uptime, pid, cpuPercent, cpuCount, eventLoopMs, loadavg, memory{rss,heapUsed,heapTotal,external}`). `/api/info` (statique) ajoute `debug` (mode `-d`).
+- **Front** : `RootStore` → `RealtimeClient({ url: wss://host/nodefony/studio/api/realtime })`. `AdminLayout` ouvre le WS au montage (couvre le reload, pas seulement Login). `ConnectionStore.subscribe/unsubscribe` émettent au serveur ; **re-`subscribe` de tous les canaux actifs sur `__state__ "connected"`** (reconnect + course au 1er connect). `Logs` = `subscribe("syslog:stream")` ; `Dashboard` = `subscribe("dashboard:stats")` + `subscribe("syslog:stream")` (débit logs/s) + graphes AreaChart CPU/mémoire.
+- **Migration P13.4 = locale** : supprimer `StudioRealtimeController`, brancher les mêmes providers + le routage subscribe/unsubscribe sur `RealtimeService.publish`. **Front inchangé**, canaux + enveloppe identiques.
+
+> ⚠️ **GOTCHA push WS** : après le handshake, `WebsocketContext.requestEnded = true` → `context.send()` **rejette** (response du pipeline fermée). Pour un push serveur→client hors action (timer, listener syslog), envoyer sur la **connexion ws brute** : `ctx.connection.send(str, cb)` avec garde `readyState === 1` (équivalent du raw response utilisé en SSE).
+> ⚠️ **Perf** : 1 provider = 1 listener/interval, démarré au `subscribe`, `dispose()` garanti au `unsubscribe` ET sur `ctx.once("onFinish")` (close WS, AsyncResource-bound). État pub/sub stocké sur le ctx (persiste entre messages). `setInterval` unref. Validé runtime : push 0 avant subscribe, stop net après unsubscribe, 0 fuite (connect→cleanup symétriques).
+> ⚠️ **Multi-process** : `dashboard:stats` lit `process.cpuUsage()/memoryUsage()` → **per-instance** (le process qui tient le WS), PAS cluster-aware. CPU% = % d'UN cœur (pas /cores, depuis 2026-05-20). En multi-process (reusePort, cf [`../http/MEMORY.md`](../http/MEMORY.md)), le WS tombe sur 1 worker → 1 instance affichée. Vue cluster future = `instanceId` dans le payload + Redis pub/sub fan-out (P13). Per-instance est le bon modèle cloud-native (chaque pod se rapporte ; agrégation = Prometheus/Grafana). Détails : mémoire IA `project_multiprocess_scaling`.
 
 ## ⚠️ Questions design ouvertes (à trancher — cf `project_studio_prep_kit`)
 
-1. **Routing `/nodefony` vs `/studio`** : le commentaire d'`index.ts` annonce `/studio` (UI) avec `/nodefony` réservé aux API admin par module (`/nodefony/<module>/api/*`), mais le controller fait TOUT sur `/nodefony`. Incohérence doc↔code à résoudre.
+1. ✅ **Routing `/nodefony` vs `/studio` — TRANCHÉ 2026-05-20** : UI Studio sur `/nodefony` + `/nodefony/{page}` (mono-segment), data plane admin sur `/nodefony/<module>/api/*`. `/studio` rejeté (collision app user). Voir section Routes ci-dessus. Validé runtime (curl + proxy Vite).
 2. **`IAdminApi` + `ApiBroker` (P10.2)** : à concevoir — chaque module exposera son admin via ce contrat au lieu des endpoints mock en dur. L'interface peut se figer dès maintenant (indépendant de P5).
 3. **CSP** : `StudioController.renderStudio()` override le header CSP via `frontendService.getCspDirectives()` (hack POC cross-origin Vite). TODO P14.14 → migrer dans `@nodefony/security` (cf mémoire `project_csp_vite_security_todo`).
 
@@ -72,7 +99,7 @@ src/packages/@nodefony/studio/
 
 - Stack frontend : **React 19** (P10.1 acté) + **Mantine v8** + **MobX 6** (classes, `makeAutoObservable` — pas Zustand/Redux) + React Router 7 + TanStack Table 8 (headless).
 - Theme : dark par défaut + toggle persisté `localStorage` ; primary = orange Nodefony.
-- Préfixe route UI : `/nodefony` (actuel) — voir question ouverte #1.
+- Routing (✅ tranché 2026-05-20) : UI `/nodefony` + `/nodefony/{page}` ; data plane `/nodefony/<module>/api/*` (Studio = `/nodefony/studio/api/*`). `/studio` rejeté (collision app user).
 - Deps frontend dans le `package.json` du module (pas de `frontend/package.json` séparé).
 
 ## Dépendances roadmap (ce qui débloque quoi)
@@ -85,6 +112,25 @@ src/packages/@nodefony/studio/
 - **Types/exports** : `package.json` a `main` mais **pas** `types` ni `exports` → ajouter `dist/types/index.d.ts` + `exports` (cf table standard types, CLAUDE.md racine).
 - Remplacer les mocks `/api/auth/*` par le firewall P6.
 - Implémenter les 13 pages stub au fil des phases (Sessions P10.8, Users P10.8, Firewall/Logs P10.9, etc.).
+
+### Backlog UX page Logs (`frontend/src/routes/Logs.tsx`) — idées 2026-05-20
+
+> État actuel : SSE Pdu réel, Pause/Live, Clear, filtres (sévérité MultiSelect + module + msgid), autoscroll switch, ansiToReact, MAX_ENTRIES=500, `ScrollArea h=500` fixe.
+
+Quick wins (faible effort, fort impact) :
+1. **Autoscroll intelligent** : scroll vers le haut → pause auto le suivi ; bouton flottant « ↓ N nouveaux » pour revenir en bas (réflexe tail moderne, remplace le switch manuel).
+2. **Lignes ERROR/CRITIC surlignées** : fond rouge subtil sur toute la ligne (pas juste le badge).
+3. **Compteurs par sévérité cliquables** : chips `ERROR 3` / `WARN 12` en topbar, clic = toggle filtre (santé en un coup d'œil).
+4. **Recherche plein-texte** sur le message/payload (aujourd'hui on filtre module/msgid mais pas le contenu) + surlignage des matchs.
+5. **Copier une ligne / copier le set filtré** (clipboard, pour coller un crash dans un rapport).
+
+Plus gros (mais payant) :
+6. **Clic ligne → détail** : drawer/collapse avec le Pdu complet (payload objet, stack trace, pid, tous champs). Aujourd'hui payload objet = `JSON.stringify` inline illisible.
+7. **État SSE réel** : afficher connected/reconnecting/error depuis l'EventSource (le `Live/Pause` actuel n'est que la pause locale — une coupure SSE est invisible). `ConnectionStore.lastError` déjà dispo.
+8. **Layout colonnes alignées + hauteur pleine** : `Group` minWidth → vraie grille ; `ScrollArea` remplit le viewport au lieu de `h={500}` fixe.
+9. **Virtualisation** si buffer augmenté : TanStack Virtual (déjà dans les deps) pour ne pas rendre 500+ lignes riches.
+
+Combo recommandé 1ʳᵉ passe : **1 + 2 + 3 + 6**.
 
 ## Lancer / tester
 

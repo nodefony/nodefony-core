@@ -37,7 +37,6 @@ import {
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import "@mantine/dates/styles.css";
-import "@mantine/charts/styles.css";
 
 // Singleton — partagé par tout le sous-arbre via le StoreProvider context.
 const rootStore = new RootStore();

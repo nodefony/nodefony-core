@@ -2,7 +2,7 @@
  * ApiClient — wrapper fetch avec gestion du token JWT.
  *
  * Centralise les appels REST vers le backend Nodefony.
- * Préfixe automatique `/nodefony/api`.
+ * Préfixe automatique `/nodefony/studio/api` (data plane admin du module Studio).
  *
  * Sera enrichi en P6 (Security) : refresh token, redirect sur 401, etc.
  */
@@ -30,7 +30,7 @@ export class ApiClient {
   private readonly onUnauthorized?: () => void;
 
   constructor(opts: ApiClientOptions = {}) {
-    this.baseUrl = opts.baseUrl ?? "/nodefony/api";
+    this.baseUrl = opts.baseUrl ?? "/nodefony/studio/api";
     this.getToken = opts.getToken ?? (() => null);
     this.onUnauthorized = opts.onUnauthorized;
   }

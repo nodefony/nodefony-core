@@ -1,4 +1,5 @@
 import { observer } from "mobx-react-lite";
+import { useEffect } from "react";
 import {
   AppShell,
   Burger,
@@ -79,6 +80,14 @@ export const AdminLayout = observer(() => {
   const conn = useConnection();
   const loc = useLocation();
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
+
+  // Connexion WS permanente : ouverte dès que le shell admin est monté (donc
+  // authentifié), pas seulement via le flow Login. Sinon un reload avec un token
+  // déjà en localStorage saute Login → le WS n'est jamais ouvert → widgets en
+  // loading + badge "disconnected". Idempotent (no-op si déjà connecté/connecting).
+  useEffect(() => {
+    void conn.connect(auth.getToken());
+  }, [conn, auth]);
 
   return (
     <AppShell

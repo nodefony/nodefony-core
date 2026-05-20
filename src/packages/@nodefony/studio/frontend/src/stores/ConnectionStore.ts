@@ -40,6 +40,14 @@ export class ConnectionStore {
         this.state = s as RealtimeState;
         if (s === "connected") this.lastError = null;
       });
+      // (Re)connexion : ré-émettre les `subscribe` de tous les canaux actifs.
+      // Couvre le reconnect (le serveur repart d'un état vide) ET la course au
+      // 1er connect (subscribe appelé avant l'ouverture du socket → emit droppé).
+      if (s === "connected") {
+        for (const channel of this.activeSubscriptions.keys()) {
+          this.client.emit("subscribe", { channel });
+        }
+      }
     });
   }
 
@@ -75,9 +83,10 @@ export class ConnectionStore {
         this.latencyMs = Math.round(performance.now() - start);
       });
     } catch (e) {
-      // Tolérance dev : le backend WS n'existe pas encore → on n'empêche pas
-      // le login. La chip topbar reflètera "disconnected".
-      this.client.disconnect();
+      // Le 1er connect a dépassé 3s : on N'APPELLE PAS disconnect() (qui poserait
+      // intentionalClose=true et tuerait l'autoReconnect). Le RealtimeClient
+      // continue d'essayer en arrière-plan ; le badge passera "connected" via le
+      // listener __state__ dès que le WS s'ouvre. On n'empêche pas le login.
       runInAction(() => {
         this.lastError = e instanceof Error ? e.message : String(e);
         this.latencyMs = null;
@@ -126,6 +135,9 @@ export class ConnectionStore {
       this.activeSubscriptions.set(channel, stats);
     });
     this.clientHandlers.set(channel, { dispose, wrapped });
+    // Demande au serveur de POUSSER ce canal (no-op si pas connecté → ré-émis
+    // au prochain "connected" via le listener __state__).
+    this.client.emit("subscribe", { channel });
     return () => this.unsubscribe(channel);
   }
 
@@ -135,6 +147,9 @@ export class ConnectionStore {
     runInAction(() => {
       this.activeSubscriptions.delete(channel);
     });
+    // Dit au serveur d'ARRÊTER de pousser ce canal — le WS reste ouvert (ex:
+    // on quitte le Dashboard mais on garde la connexion pour les autres pages).
+    this.client.emit("unsubscribe", { channel });
   }
 
   /**

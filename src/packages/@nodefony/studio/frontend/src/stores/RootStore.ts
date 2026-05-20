@@ -7,6 +7,19 @@ import { UiStore } from "./UiStore";
 import { ChatStore } from "./ChatStore";
 
 /**
+ * URL de l'endpoint WS realtime de Studio (`StudioRealtimeController`, JSON-RPC 2.0).
+ * Dérivée de l'origine courante → même host/port que la page (wss en https).
+ * En P13.4 cette URL pointera vers le RealtimeService partagé — le client ne change pas.
+ */
+function realtimeUrl(): string {
+  if (typeof window === "undefined") {
+    return "ws://127.0.0.1/nodefony/studio/api/realtime";
+  }
+  const proto = window.location.protocol === "https:" ? "wss" : "ws";
+  return `${proto}://${window.location.host}/nodefony/studio/api/realtime`;
+}
+
+/**
  * Composition root — injection manuelle des services + stores.
  *
  * Pas de DI lib côté front : MobX + un objet "RootStore" suffit, durable,
@@ -24,7 +37,10 @@ export class RootStore {
   constructor() {
     this.ui = new UiStore();
 
-    this.realtime = new RealtimeClient({ autoReconnect: true });
+    this.realtime = new RealtimeClient({
+      url: realtimeUrl(),
+      autoReconnect: true,
+    });
 
     this.api = new ApiClient({
       getToken: () => this.auth?.getToken() ?? null,

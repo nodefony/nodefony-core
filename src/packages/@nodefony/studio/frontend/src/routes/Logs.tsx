@@ -63,14 +63,15 @@ interface PduView {
  * Logs streaming — page beta-testeur de l'archi realtime P14.11.
  *
  * Vision isomorphe :
- *  - Backend (StudioController) attache un listener sur `kernel.syslog.on("onLog", pdu)`
- *    et stream chaque Pdu en JSON via SSE (`/nodefony/api/logs/stream`).
- *  - Frontend rehydrate chaque event en `new Pdu()` via le Core isomorphe
+ *  - Backend (StudioRealtimeController) attache un listener `kernel.syslog.on("onLog", pdu)`
+ *    et publie chaque Pdu sur le canal WS `syslog:stream` (JSON-RPC 2.0 notification).
+ *  - Frontend s'abonne via le hub `conn.subscribe("syslog:stream", handler)` (WebSocket
+ *    permanent `RealtimeClient`) et rehydrate chaque event en `new Pdu()` via le Core isomorphe
  *    (`import { Pdu } from "nodefony"` → exports.browser).
  *  - La même classe Pdu est utilisée des deux côtés — 1 seule source de vérité.
  *
  * Le hub `ConnectionStore` track la subscription (chip topbar "1 sub").
- * Sera migré vers WS pub/sub en P13.4.
+ * Canal figé `syslog:stream` → migrera vers RealtimeService pub/sub en P13.4 sans toucher au front.
  */
 export const Logs = observer(() => {
   const conn = useConnection();
@@ -102,11 +103,7 @@ export const Logs = observer(() => {
         return next.length > MAX_ENTRIES ? next.slice(-MAX_ENTRIES) : next;
       });
     };
-    const dispose = conn.subscribeSSE(
-      "syslog:stream",
-      "/nodefony/api/logs/stream",
-      handler,
-    );
+    const dispose = conn.subscribe("syslog:stream", handler);
     return () => dispose();
   }, [conn]);
 
@@ -177,13 +174,14 @@ export const Logs = observer(() => {
         color="teal"
         icon={<IconInfoCircle size={16} />}
         variant="light"
-        title="Streaming réel — Pdu du syslog kernel"
+        title="Streaming réel — Pdu du syslog kernel (WebSocket)"
       >
-        Vrais logs du <Code>kernel.syslog</Code> serveur, sérialisés en JSON
-        via SSE (<Code>/nodefony/api/logs/stream</Code>) et rehydratés en{" "}
-        <Code>new Pdu()</Code> côté browser via le Core isomorphe
+        Vrais logs du <Code>kernel.syslog</Code> serveur, publiés sur le canal WS{" "}
+        <Code>syslog:stream</Code> (JSON-RPC 2.0) via le WebSocket permanent{" "}
+        <Code>RealtimeClient</Code>, et rehydratés en <Code>new Pdu()</Code> côté
+        browser via le Core isomorphe
         (<Code>import &#123; Pdu &#125; from &quot;nodefony&quot;</Code>).
-        Migration vers WS pub/sub en P13.4.
+        Canal figé → migration RealtimeService P13.4 transparente.
       </Alert>
 
       <Paper p="xs" withBorder>
