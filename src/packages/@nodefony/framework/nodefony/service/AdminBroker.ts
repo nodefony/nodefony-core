@@ -125,9 +125,15 @@ class AdminBroker extends Service implements IAdminBroker {
         });
       }
     }
-    // Une seule fois : enregistre le controller pont + propage le module aux
-    // routes créées ci-dessus (Router.setController boucle les routes existantes).
-    if (this.byRouteName.size > 0) {
+    // Enregistre le controller pont + propage le module aux routes créées.
+    // `Router.setController` fait `Object.defineProperty(proto,"module",{writable:false})`
+    // → ne PEUT être appelé qu'UNE fois par classe sur la vie du process (sinon
+    // "Cannot redefine property"). En prod il n'y a qu'un broker, mais on garde
+    // l'appel idempotent (multi-broker en test, re-boot) via la garde hasOwnProperty.
+    if (
+      this.byRouteName.size > 0 &&
+      !Object.prototype.hasOwnProperty.call(AdminApiController.prototype, "module")
+    ) {
       Router.setController(
         AdminApiController as unknown as Parameters<
           typeof Router.setController

@@ -83,8 +83,9 @@ Router.resolve(ctx)
 | Aspect         | État                        |
 | -------------- | --------------------------- |
 | Types exports  | ✅ `dist/types/` + `exports` |
-| Interfaces     | ❌ aucune (`nodefony/interfaces/` absent) |
-| Tests          | ❌ zéro tests                |
+| Interfaces     | ✅ `IController`/`IRoute`/`IResolver`/`IAdminBroker` (`nodefony/interfaces/`) |
+| Tests          | ✅ 136 (92 unit + 44 intégration), 0 failing (2026-05-20) |
+| Admin data plane | ✅ `IAdminApi`/`AdminBroker`/`AdminApiController` + producteurs kernel/http/framework/syslog (P10.2/P10.3) — cf MEMORY.md |
 | `any` restants | 4 emplacements (voir MEMORY.md) |
 
 ---

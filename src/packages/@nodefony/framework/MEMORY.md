@@ -171,9 +171,11 @@ export { graphql };
 | @Get/Post/etc + @HttpCode/@Header/@Redirect | `unit/httpMethodDecorators.test.ts` | 23 | auto-naming, requirements.methods, metadata storage, combined |
 | Controller intégration | `integration/controller.test.ts` | 23 | renderJson, @HttpCode, @Header, redirect(), @Redirect, errors, queryGet, method constraints, context, session |
 | @Param/@Body/@Query intégration | `http/decorators.test.ts` | 10 | @Param clé unique/multiple/sans clé, @Query avec/sans, @Body complet/champ/absent, combinés |
-| **TOTAL** | | **100** | **72 unit + 28 intégration** |
+| **AdminBroker** | `unit/AdminBroker.test.ts` | 10 | register/dup throw/has/getApi/list/unregister, resolvePath, mountAll (routes+resolve O(1)+idempotent), register-after-mount throw |
+| **Admin data plane** | `integration/admin-dataplane.test.ts` | 14 | kernel/http/framework/syslog endpoints, **param `{name}` (regexp)**, **404 enveloppe**, **non double-wrap**, header x-nodefony-instance, 405 |
+| **TOTAL** | | **136** | **92 unit + 44 intégration** (server requis pour intégration) |
 
-Lancer : `npm test` (unit) — `npm run test:integration` (unit + intégration, serveur requis 5151/5152).
+Lancer : `npm test` (unit) — `npm run test:integration` (unit + intégration, serveur requis 5151/5152). Tests admin = régression des 2 bugs trouvés (params/enveloppe).
 
 ## État
 
