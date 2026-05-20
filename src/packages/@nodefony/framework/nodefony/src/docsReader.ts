@@ -325,51 +325,33 @@ export interface CoverageReport {
   files?: CoverageFile[];
 }
 
-/**
- * Lit le dernier rapport de couverture d'un module —
- * `<modulePath>/.coverage/coverage-summary.json` (généré par
- * `npm run coverage`, vitest + @vitest/coverage-v8, format json-summary).
- *
- * Studio AFFICHE ce rapport (il ne lance pas les tests). `available:false` si
- * aucun rapport n'a été généré.
- */
-export async function readCoverage(modulePath: string): Promise<CoverageReport> {
-  const file = join(modulePath, ".coverage", "coverage-summary.json");
-  let json: Record<string, unknown>;
-  try {
-    json = JSON.parse(await readFile(file, "utf8"));
-  } catch {
-    return { available: false };
-  }
+const rel = (abs: string, modulePath: string) =>
+  abs.startsWith(modulePath) ? abs.slice(modulePath.length).replace(/^\/+/, "") : abs;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Parse un `coverage-summary.json` (istanbul/vitest : total + par fichier). */
+function parseSummary(
+  json: Record<string, unknown>,
+  modulePath: string,
+): CoverageReport | null {
   const total = json.total as Record<string, { pct?: number }> | undefined;
-  if (!total) return { available: false };
+  if (!total) return null;
   const pct = (m: { pct?: number } | undefined) =>
     typeof m?.pct === "number" ? m.pct : 0;
   const files: CoverageFile[] = [];
   for (const [abs, v] of Object.entries(json)) {
     if (abs === "total") continue;
     const m = v as Record<string, { pct?: number }>;
-    const rel = abs.startsWith(modulePath)
-      ? abs.slice(modulePath.length).replace(/^\/+/, "")
-      : abs;
     files.push({
-      file: rel,
+      file: rel(abs, modulePath),
       lines: pct(m.lines),
       statements: pct(m.statements),
       functions: pct(m.functions),
       branches: pct(m.branches),
     });
   }
-  files.sort((a, b) => a.file.localeCompare(b.file));
-  let generated: string | null = null;
-  try {
-    generated = (await stat(file)).mtime.toISOString();
-  } catch {
-    /* mtime indispo */
-  }
   return {
     available: true,
-    generated,
     total: {
       lines: pct(total.lines),
       statements: pct(total.statements),
@@ -378,6 +360,74 @@ export async function readCoverage(modulePath: string): Promise<CoverageReport> 
     },
     files,
   };
+}
+
+/** Parse un `lcov.info` (produit par monocart ET vitest) en {total, files}. */
+function parseLcov(text: string, modulePath: string): CoverageReport | null {
+  const files: CoverageFile[] = [];
+  const tot = { lf: 0, lh: 0, fnf: 0, fnh: 0, brf: 0, brh: 0 };
+  let cur: { p: string; lf: number; lh: number; fnf: number; fnh: number; brf: number; brh: number } | null = null;
+  const num = (s: string, i: number) => Number(s.slice(i)) || 0;
+  const pctOf = (h: number, f: number) => (f > 0 ? round2((h / f) * 100) : 100);
+  for (const line of text.split("\n")) {
+    if (line.startsWith("SF:")) cur = { p: line.slice(3).trim(), lf: 0, lh: 0, fnf: 0, fnh: 0, brf: 0, brh: 0 };
+    else if (!cur) continue;
+    else if (line.startsWith("LF:")) cur.lf = num(line, 3);
+    else if (line.startsWith("LH:")) cur.lh = num(line, 3);
+    else if (line.startsWith("FNF:")) cur.fnf = num(line, 4);
+    else if (line.startsWith("FNH:")) cur.fnh = num(line, 4);
+    else if (line.startsWith("BRF:")) cur.brf = num(line, 4);
+    else if (line.startsWith("BRH:")) cur.brh = num(line, 4);
+    else if (line.startsWith("end_of_record")) {
+      const ln = pctOf(cur.lh, cur.lf);
+      files.push({ file: rel(cur.p, modulePath), lines: ln, statements: ln, functions: pctOf(cur.fnh, cur.fnf), branches: pctOf(cur.brh, cur.brf) });
+      tot.lf += cur.lf; tot.lh += cur.lh; tot.fnf += cur.fnf; tot.fnh += cur.fnh; tot.brf += cur.brf; tot.brh += cur.brh;
+      cur = null;
+    }
+  }
+  if (!files.length) return null;
+  const ln = pctOf(tot.lh, tot.lf);
+  return {
+    available: true,
+    total: { lines: ln, statements: ln, functions: pctOf(tot.fnh, tot.fnf), branches: pctOf(tot.brh, tot.brf) },
+    files,
+  };
+}
+
+/**
+ * Lit le dernier rapport de couverture d'un module dans `<module>/.coverage/`.
+ * Préfère `coverage-summary.json` (vitest, a les statements) ; sinon parse
+ * `lcov.info` (produit par monocart côté core ET par vitest). Studio AFFICHE ce
+ * rapport — il ne lance pas les tests. `available:false` si rien de généré.
+ */
+export async function readCoverage(modulePath: string): Promise<CoverageReport> {
+  const dir = join(modulePath, ".coverage");
+  let report: CoverageReport | null = null;
+  let usedFile: string | null = null;
+  const summaryPath = join(dir, "coverage-summary.json");
+  try {
+    report = parseSummary(JSON.parse(await readFile(summaryPath, "utf8")), modulePath);
+    if (report) usedFile = summaryPath;
+  } catch {
+    /* pas de summary → tenter lcov */
+  }
+  if (!report) {
+    const lcovPath = join(dir, "lcov.info");
+    try {
+      report = parseLcov(await readFile(lcovPath, "utf8"), modulePath);
+      if (report) usedFile = lcovPath;
+    } catch {
+      /* pas de lcov non plus */
+    }
+  }
+  if (!report) return { available: false };
+  report.files!.sort((a, b) => a.file.localeCompare(b.file));
+  try {
+    report.generated = usedFile ? (await stat(usedFile)).mtime.toISOString() : null;
+  } catch {
+    report.generated = null;
+  }
+  return report;
 }
 
 /** Descripteur du pseudo-module `core` pour la carte/détail Studio. */

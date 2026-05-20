@@ -209,38 +209,57 @@ Module @nodefony/{{name}} créé.
 }
 ```
 
-### `mcr.config.js` (coverage — convention universelle)
+### Tests + coverage = **vitest** (convention universelle)
 
-Tout module embarque un coverage `monocart-coverage-reports` (= core ; **jamais c8**, KO en ESM/Node récent). Lancé par `npm run coverage`. Remplacer `<module>` par le nom du package (`@nodefony/<x>` ou `modules/<x>`).
+Tout module utilise **`vitest` + `@vitest/coverage-v8`** (ESM-natif ; **jamais c8** KO ESM/Node, et **pas monocart+mocha+tsx** qui casse dès qu'un test importe un dist Rollup — `mcr --require` bascule en CJS, cf [[feedback_coverage_modules]]). Studio lit `.coverage/coverage-summary.json` (onglet Coverage).
 
-```js
-// Couverture du module — `npm run coverage` (mcr wrappe la suite unit in-process).
-// Runner unit = tsx (comme le core), PAS ts-node : `test` =
-//   TSX_TSCONFIG_PATH=tsconfig.tests.json tsx <mocha>
-// Stub des deps qui crashent hors kernel via tsconfig `paths` (PAS de load-hook,
-// qui casse le mapping sourcemap). Cf mémoire feedback_coverage_modules.
-// ⚠️ Les tests d'INTÉGRATION (test:integration) tapent un serveur dans un process
-// SÉPARÉ → non couverts par le wrapping mocha. Seule la suite unit est mesurée.
-// ⚠️ Mapping monocart sous mcr encore à stabiliser (chantier ouvert).
-const inModule = (url) =>
-  typeof url === "string" &&
-  url.includes("/<module>/") &&
-  !url.includes("/node_modules/") &&
-  !url.includes("/dist/");
-
-export default {
-  name: "<module>",
-  reports: ["console-summary", "v8", "lcov"],
-  outputDir: ".coverage",
-  entryFilter: (e) => inModule(e && e.url ? e.url : String(e)),
-  sourceFilter: (p) =>
-    typeof p === "string" && p.endsWith(".ts") &&
-    p.includes("/<module>/") &&
-    !p.includes("/node_modules/") && !p.includes("/tests/") && !p.includes("/dist/"),
-};
+Les tests **mocha+chai existants tournent sans réécriture** grâce à `globals` + un shim `import "mocha"` + le setup. devDeps : `vitest` + `@vitest/coverage-v8`. Scripts :
+```jsonc
+"test": "vitest run",
+"coverage": "vitest run --coverage",
+// intégration (si serveur requis) reste en ts-node mocha :
+"test:integration": "TS_NODE_PROJECT=tsconfig.tests.json mocha --config .mocharc.integration.json"
 ```
 
-> `.coverage/` doit être gitignored (rapport HTML/lcov généré).
+`vitest.config.ts` (remplacer `<module>` n'est pas nécessaire — chemins relatifs) :
+```ts
+import { defineConfig } from "vitest/config";
+import { fileURLToPath } from "node:url";
+const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+export default defineConfig({
+  test: {
+    globals: true,
+    include: ["nodefony/tests/unit/**/*.test.ts"],
+    setupFiles: [r("./nodefony/tests/vitest.setup.ts")],
+    coverage: {
+      provider: "v8",
+      include: ["nodefony/**/*.ts"],
+      exclude: ["nodefony/tests/**", "**/dist/**", "**/*.d.ts"],
+      reporter: ["text-summary", "json-summary", "lcov"],
+      reportsDirectory: ".coverage",
+    },
+  },
+  resolve: {
+    alias: {
+      mocha: r("./nodefony/tests/vitest-mocha-shim.mjs"),
+      // si le module (ou ses deps) importe l'ORM hors kernel :
+      "@nodefony/sequelize": r("./nodefony/tests/stubs/sequelize.ts"),
+      "@nodefony/mongoose": r("./nodefony/tests/stubs/mongoose.ts"),
+    },
+  },
+});
+```
+`nodefony/tests/vitest.setup.ts` :
+```ts
+import "reflect-metadata";
+import { beforeAll, afterAll } from "vitest";
+const g = globalThis as Record<string, unknown>;
+g.before ??= beforeAll;  // compat mocha (vitest n'a que beforeAll/afterAll)
+g.after ??= afterAll;
+```
+`nodefony/tests/vitest-mocha-shim.mjs` : `export {};` (neutralise `import "mocha"`).
+
+> `.coverage/` est gitignored. Le core garde monocart (source pur, marche) ; Studio lit son `lcov.info` (readCoverage gère summary OU lcov).
 
 ### `tsconfig.json`
 
