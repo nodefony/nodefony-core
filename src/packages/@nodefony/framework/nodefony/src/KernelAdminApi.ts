@@ -41,6 +41,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       handler: () => ({
         version: kernel.version,
         environment: kernel.environment,
+        debug: kernel.debug,
         domain: kernel.domain,
         pid: process.pid,
         node: process.version,

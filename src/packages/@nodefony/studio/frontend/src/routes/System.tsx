@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
   Alert,
@@ -12,6 +12,7 @@ import {
   ScrollArea,
   Stack,
   Text,
+  TextInput,
   ThemeIcon,
   Title,
   Tooltip,
@@ -132,11 +133,30 @@ export const System = observer(() => {
   );
 });
 
-/** Une ligne endpoint : métadonnées + bouton Invoke (GET) + réponse JSON. */
+/** Extrait les noms de variables `{x}` d'un chemin. */
+function paramNames(path: string): string[] {
+  return Array.from(path.matchAll(/\{([^}]+)\}/g)).map((m) => m[1]);
+}
+
+/**
+ * Une ligne endpoint : métadonnées + saisie des params `{x}` + Invoke (GET) +
+ * réponse JSON. Les endpoints paramétrés (ex `module/{name}`) exposent un champ
+ * par variable ; le chemin réel est résolu (et encodé) avant l'appel — sinon on
+ * invoquerait le littéral `{name}` (→ 404).
+ */
 const EndpointRow = observer(({ ep }: { ep: AdminEndpointMeta }) => {
   const admin = useAdmin();
-  const inv = admin.invocations.get(ep.path);
   const isGet = ep.method === "GET";
+  const params = useMemo(() => paramNames(ep.path), [ep.path]);
+  const [values, setValues] = useState<Record<string, string>>({});
+
+  // Chemin réel : substitue chaque {x} par sa valeur encodée.
+  const resolvedPath = params.reduce(
+    (p, name) => p.replace(`{${name}}`, encodeURIComponent(values[name] ?? "")),
+    ep.path,
+  );
+  const ready = params.every((name) => (values[name] ?? "").trim().length > 0);
+  const inv = admin.invocations.get(resolvedPath);
 
   return (
     <Box
@@ -159,16 +179,22 @@ const EndpointRow = observer(({ ep }: { ep: AdminEndpointMeta }) => {
           </Tooltip>
         </Group>
         <Tooltip
-          label={isGet ? "Invoquer" : "Invocation limitée aux GET ici"}
-          disabled={isGet}
+          label={
+            !isGet
+              ? "Invocation limitée aux GET ici"
+              : ready
+                ? "Invoquer"
+                : "Renseigne les paramètres"
+          }
+          disabled={isGet && ready}
         >
           <Button
             size="xs"
             variant="light"
             leftSection={<IconPlayerPlay size={14} />}
             loading={inv?.loading}
-            disabled={!isGet}
-            onClick={() => void admin.invoke(ep.path)}
+            disabled={!isGet || !ready}
+            onClick={() => void admin.invoke(resolvedPath)}
           >
             Invoke
           </Button>
@@ -179,6 +205,27 @@ const EndpointRow = observer(({ ep }: { ep: AdminEndpointMeta }) => {
         <Text c="dimmed" size="xs" mt={4}>
           {ep.summary}
         </Text>
+      )}
+
+      {params.length > 0 && (
+        <Group gap="xs" mt="xs">
+          {params.map((name) => (
+            <TextInput
+              key={name}
+              size="xs"
+              label={name}
+              placeholder={name}
+              value={values[name] ?? ""}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, [name]: e.currentTarget.value }))
+              }
+              styles={{ label: { fontSize: 10 } }}
+            />
+          ))}
+          <Text size="xs" c="dimmed" style={{ alignSelf: "flex-end" }}>
+            → <Code>{resolvedPath}</Code>
+          </Text>
+        </Group>
       )}
 
       {inv && !inv.loading && (

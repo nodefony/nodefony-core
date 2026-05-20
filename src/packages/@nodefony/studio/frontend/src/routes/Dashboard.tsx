@@ -84,6 +84,7 @@ export const Dashboard = observer(() => {
   const conn = useConnection();
   const store = useStore();
   const [info, setInfo] = useState<ServerInfo | null>(null);
+  const [routesTotal, setRoutesTotal] = useState<number | null>(null);
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [history, setHistory] = useState<Sample[]>([]);
   const [logRate, setLogRate] = useState(0);
@@ -93,10 +94,34 @@ export const Dashboard = observer(() => {
 
   useEffect(() => {
     let cancelled = false;
+    // Endpoints RÉELS du data plane (plus de mock /nodefony/studio/api/info) :
+    // identité runtime via le producteur kernel, total routes via framework.
     store.api
-      .get<ServerInfo>("/info")
-      .then((data) => {
-        if (!cancelled) setInfo(data);
+      .getAbsolute<{
+        version: string;
+        environment: string;
+        debug: boolean;
+        pid: number;
+        node: string;
+        platform: string;
+      }>("/nodefony/kernel/api/info")
+      .then((d) => {
+        if (cancelled) return;
+        setInfo({
+          name: "nodefony",
+          version: d.version,
+          env: d.environment,
+          debug: !!d.debug,
+          pid: d.pid,
+          node: d.node,
+          platform: d.platform,
+        });
+      })
+      .catch(() => {});
+    store.api
+      .getAbsolute<{ routesTotal: number }>("/nodefony/framework/api/info")
+      .then((d) => {
+        if (!cancelled) setRoutesTotal(d.routesTotal);
       })
       .catch(() => {});
     return () => {
@@ -337,9 +362,15 @@ export const Dashboard = observer(() => {
           <Text size="xs" c="dimmed">à venir (P10.3 IAdminApi)</Text>
         </Kpi>
         <Kpi label="Routes" icon={<IconRoute size={30} stroke={1.4} />} span={{ base: 12, sm: 6 }}
-          hint="Nombre de routes enregistrées — viendra de la commande http:routes:list.">
-          <Text fw={700} size="xl">—</Text>
-          <Text size="xs" c="dimmed">à venir (P11.2)</Text>
+          hint="Nombre de routes HTTP+WS enregistrées dans le Router — réel via /nodefony/framework/api/info.">
+          {routesTotal === null ? (
+            <Skeleton h={28} w={60} />
+          ) : (
+            <>
+              <Text fw={700} size="xl">{routesTotal}</Text>
+              <Text size="xs" c="dimmed">/nodefony/framework/api</Text>
+            </>
+          )}
         </Kpi>
       </Grid>
     </Stack>

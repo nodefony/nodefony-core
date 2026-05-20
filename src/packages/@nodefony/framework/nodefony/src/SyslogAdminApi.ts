@@ -24,11 +24,14 @@ type PduLike = ISyslog["ringStack"][number];
  * @param syslog - instance Syslog du kernel (`kernel.syslog`).
  */
 export function createSyslogAdminApi(syslog: ISyslog): IAdminApi {
+  // Mêmes noms de champs que la classe Pdu (pas `module` mais `moduleName`) :
+  // le front hydrate via `Object.assign(new Pdu(), data)` pour le snapshot REST
+  // ET le stream WS → un seul shape, une seule logique de rendu.
   const serialize = (pdu: PduLike) => ({
     uid: pdu.uid,
     severity: pdu.severity,
     severityName: pdu.severityName,
-    module: pdu.moduleName,
+    moduleName: pdu.moduleName,
     msgid: pdu.msgid,
     msg: pdu.msg,
     timeStamp: pdu.timeStamp,

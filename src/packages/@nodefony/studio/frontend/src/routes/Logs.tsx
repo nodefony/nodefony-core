@@ -24,7 +24,7 @@ import {
   IconInfoCircle,
 } from "@tabler/icons-react";
 import { Pdu } from "nodefony";
-import { useConnection } from "../stores";
+import { useConnection, useStore } from "../stores";
 import { ansiToReact } from "../utils/ansiToReact";
 
 const SEVERITIES = [
@@ -75,6 +75,7 @@ interface PduView {
  */
 export const Logs = observer(() => {
   const conn = useConnection();
+  const store = useStore();
   const [entries, setEntries] = useState<PduView[]>([]);
   const [paused, setPaused] = useState(false);
   const [severityFilter, setSeverityFilter] = useState<Severity[]>([]);
@@ -86,7 +87,32 @@ export const Logs = observer(() => {
   pausedRef.current = paused;
   const keyCounter = useRef(0);
 
-  // ── Subscription SSE au syslog kernel via le hub realtime ───────────
+  // ── Snapshot initial : ring buffer réel via /nodefony/syslog/api/logs ──
+  // Amorce la liste avec l'historique présent au chargement (le WS ne pousse
+  // QUE les nouveaux Pdu). Même shape que le stream → même hydratation Pdu.
+  useEffect(() => {
+    let cancelled = false;
+    store.api
+      .getAbsolute<Array<Record<string, unknown>>>(
+        "/nodefony/syslog/api/logs?limit=200",
+      )
+      .then((rows) => {
+        if (cancelled || !Array.isArray(rows)) return;
+        const views: PduView[] = rows.map((d) => ({
+          pdu: Object.assign(new Pdu(""), d) as Pdu,
+          key: `snap-${keyCounter.current++}`,
+        }));
+        // Seed uniquement si rien n'est encore arrivé par le WS (évite d'écraser
+        // des logs live déjà reçus pendant le fetch).
+        setEntries((prev) => (prev.length === 0 ? views : prev));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [store]);
+
+  // ── Stream live : nouveaux Pdu via le hub realtime (canal syslog:stream) ──
   useEffect(() => {
     const handler = (data: unknown) => {
       if (pausedRef.current) return;
@@ -174,9 +200,10 @@ export const Logs = observer(() => {
         color="teal"
         icon={<IconInfoCircle size={16} />}
         variant="light"
-        title="Streaming réel — Pdu du syslog kernel (WebSocket)"
+        title="Streaming réel — Pdu du syslog kernel (snapshot REST + WebSocket)"
       >
-        Vrais logs du <Code>kernel.syslog</Code> serveur, publiés sur le canal WS{" "}
+        Snapshot initial via <Code>/nodefony/syslog/api/logs</Code> (ring buffer),
+        puis vrais logs du <Code>kernel.syslog</Code> serveur, publiés sur le canal WS{" "}
         <Code>syslog:stream</Code> (JSON-RPC 2.0) via le WebSocket permanent{" "}
         <Code>RealtimeClient</Code>, et rehydratés en <Code>new Pdu()</Code> côté
         browser via le Core isomorphe
