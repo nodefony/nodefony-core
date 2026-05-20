@@ -54,7 +54,7 @@ export class RootStore {
 
     const authService = new AuthService(this.api);
     this.auth = new AuthStore(authService);
-    this.connection = new ConnectionStore(this.realtime);
+    this.connection = new ConnectionStore(this.realtime, realtimeUrl());
     this.chat = new ChatStore(this.realtime);
     this.admin = new AdminStore(this.api);
   }

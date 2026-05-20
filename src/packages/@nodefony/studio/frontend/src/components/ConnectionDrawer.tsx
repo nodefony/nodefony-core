@@ -1,19 +1,35 @@
 import { observer } from "mobx-react-lite";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Drawer,
   Stack,
+  Group,
   Text,
   Badge,
-  Group,
   Divider,
   Alert,
   Code,
   ScrollArea,
+  Paper,
+  ThemeIcon,
+  ActionIcon,
+  Tooltip,
+  CopyButton,
+  Box,
+  SimpleGrid,
+  Loader,
 } from "@mantine/core";
 import {
   IconPlugConnected,
   IconPlugX,
+  IconReload,
   IconAlertCircle,
+  IconActivity,
+  IconX,
+  IconCopy,
+  IconCheck,
+  IconBolt,
+  IconMessages,
 } from "@tabler/icons-react";
 import { useConnection } from "../stores";
 
@@ -22,22 +38,160 @@ interface Props {
   onClose: () => void;
 }
 
+const STATE_META: Record<string, { color: string; label: string }> = {
+  connected: { color: "teal", label: "connecté" },
+  connecting: { color: "yellow", label: "connexion…" },
+  reconnecting: { color: "yellow", label: "reconnexion…" },
+  error: { color: "red", label: "erreur" },
+  disconnected: { color: "gray", label: "déconnecté" },
+};
+
+/** Couleur du badge transport (ws/sse/webrtc/tcp…). Le hub affiche le PROTOCOLE
+ *  encapsulé (json-rpc, sip, mqtt…) à côté → un flux SIP/TCP vers Asterisk se lit
+ *  `tcp · sip · asterisk@pbx:5060`. */
+const TRANSPORT_COLOR: Record<string, string> = {
+  ws: "indigo",
+  sse: "grape",
+  webrtc: "teal",
+  tcp: "orange",
+};
+
+function fmtUptime(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `${hh}:${mm}:${ss}`;
+}
+
+function fmtAge(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.floor(ms / 60000)}min`;
+}
+
+const ELLIPSIS = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap" as const,
+};
+
+/** Nb de barres affichées dans le VU-mètre (les + récentes à droite). */
+const METER_BARS = 24;
+
+/** VU-mètre SVG style "son" — barres verticales du débit (recharts cassé sous
+ *  React 19 → maison, cf mémoire feedback_recharts_react19). Barres récentes à
+ *  droite, opacité croissante = effet égaliseur audio. */
+function BarMeter({ data, color }: { data: number[]; color: string }) {
+  const w = 80;
+  const h = 20;
+  const gap = 1;
+  const bars = data.slice(-METER_BARS);
+  const n = bars.length;
+  if (n === 0) return <Box w={w} h={h} />;
+  const max = Math.max(1, ...bars);
+  const bw = (w - gap * (n - 1)) / n;
+  return (
+    <svg width={w} height={h} style={{ display: "block" }} aria-hidden>
+      {bars.map((v, i) => {
+        const bh = v > 0 ? Math.max(1.5, (v / max) * h) : 1; // 1px = barre "muette"
+        const x = i * (bw + gap);
+        const op = 0.3 + 0.7 * (i / Math.max(1, n - 1));
+        return (
+          <rect
+            key={i}
+            x={x.toFixed(1)}
+            y={(h - bh).toFixed(1)}
+            width={bw.toFixed(1)}
+            height={bh.toFixed(1)}
+            rx={Math.min(1, bw / 2)}
+            fill={color}
+            opacity={v > 0 ? op : 0.18}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+/** Pastille d'activité : brille (glow teal) quand un message vient d'arriver. */
+function ActivityDot({ active }: { active: boolean }) {
+  return (
+    <Box
+      w={9}
+      h={9}
+      style={{
+        borderRadius: "50%",
+        flexShrink: 0,
+        background: active
+          ? "var(--mantine-color-teal-5)"
+          : "var(--mantine-color-gray-5)",
+        boxShadow: active ? "0 0 7px 1px var(--mantine-color-teal-5)" : "none",
+        transition: "background 0.3s ease, box-shadow 0.3s ease",
+      }}
+    />
+  );
+}
+
+function StatTile({
+  icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <Paper withBorder p="xs" radius="md">
+      <Group gap={6} wrap="nowrap">
+        <ThemeIcon size="sm" radius="md" variant="light" color={accent ? "teal" : "gray"}>
+          {icon}
+        </ThemeIcon>
+        <div style={{ minWidth: 0 }}>
+          <Text fw={700} size="md" lh={1}>
+            {value}
+          </Text>
+          <Text size="xs" c="dimmed">
+            {label}
+          </Text>
+        </div>
+      </Group>
+    </Paper>
+  );
+}
+
 /**
- * ConnectionDrawer — hub temps réel ouvert depuis le chip topbar.
+ * ConnectionDrawer — hub temps réel "béton" ouvert depuis le chip topbar.
  *
- * Affiche :
- *  - état du WebSocket (state + latencyMs + dernière erreur)
- *  - liste des subscriptions actives sur la page courante avec stats live
- *
- * Pattern attendu : chaque page subscribe via `conn.subscribe(channel, fn)`
- * et dispose au unmount → l'utilisateur voit en direct ce qui pompe la WS.
+ * Carte connexion (état animé + latence + uptime live + endpoint copiable +
+ * reconnect), stats agrégées (messages, débit/s, canaux), puis par canal :
+ * sparkline de débit + débit live msg/s + total + âge du dernier message +
+ * pastille d'activité + coupure. Le débit est échantillonné par un interval
+ * LOCAL actif uniquement quand le drawer est ouvert (perf : aucun timer sinon).
  */
 export const ConnectionDrawer = observer(({ opened, onClose }: Props) => {
   const conn = useConnection();
+  // Horloge locale (âges + uptime) — interval simple, uniquement drawer ouvert.
+  // Le DÉBIT et les séries viennent du store (sampler 1×/s, source unique fiable) :
+  // le drawer ne fait que LIRE `s.rate` / `s.series`.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!opened) return;
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [opened]);
+
   const subs = Array.from(conn.activeSubscriptions.values()).sort((a, b) =>
     a.channel.localeCompare(b.channel),
   );
-  const now = Date.now();
+  const meta = STATE_META[conn.state] ?? STATE_META.disconnected;
+  const uptime = conn.connectedAt ? fmtUptime(now - conn.connectedAt) : "—";
+  const aggRate = subs.reduce((acc, s) => acc + s.rate, 0);
+  const busy = conn.state === "connecting" || conn.state === "reconnecting";
 
   return (
     <Drawer
@@ -45,9 +199,12 @@ export const ConnectionDrawer = observer(({ opened, onClose }: Props) => {
       onClose={onClose}
       title={
         <Group gap="xs">
-          <Text fw={600}>Realtime</Text>
+          <Text fw={600}>Realtime hub</Text>
+          <Badge size="xs" variant="filled" color="grape">
+            v4
+          </Badge>
           <Badge size="xs" variant="light" color="brand">
-            P14.11
+            JSON-RPC 2.0
           </Badge>
         </Group>
       }
@@ -55,99 +212,196 @@ export const ConnectionDrawer = observer(({ opened, onClose }: Props) => {
       size="md"
     >
       <Stack gap="md">
-        <Group gap="xs">
-          <Badge
-            size="lg"
-            leftSection={
-              conn.isConnected ? (
-                <IconPlugConnected size={14} />
-              ) : (
-                <IconPlugX size={14} />
-              )
-            }
-            color={
-              conn.isConnected
-                ? "teal"
-                : conn.state === "connecting" || conn.state === "reconnecting"
-                  ? "yellow"
-                  : conn.state === "error"
-                    ? "red"
-                    : "gray"
-            }
-            variant="filled"
-          >
-            {conn.state}
-          </Badge>
-          {conn.latencyMs != null && (
-            <Text size="sm" c="dimmed">
-              {conn.latencyMs} ms
-            </Text>
-          )}
-        </Group>
+        {/* ── Carte connexion ───────────────────────────────────────────── */}
+        <Paper withBorder p="sm" radius="md">
+          <Stack gap={10}>
+            <Group justify="space-between" wrap="nowrap">
+              <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                <ThemeIcon size="lg" radius="md" variant="light" color={meta.color}>
+                  {conn.isConnected ? (
+                    <IconPlugConnected size={18} />
+                  ) : (
+                    <IconPlugX size={18} />
+                  )}
+                </ThemeIcon>
+                <div style={{ minWidth: 0 }}>
+                  <Group gap={6} wrap="nowrap">
+                    <Text fw={600} size="sm" c={`${meta.color}.6`}>
+                      {meta.label}
+                    </Text>
+                    {busy && <Loader size={12} color={meta.color} />}
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    {conn.latencyMs != null ? `${conn.latencyMs} ms` : "latence —"} ·
+                    uptime {uptime}
+                  </Text>
+                </div>
+              </Group>
+              <Tooltip label="Reconnecter">
+                <ActionIcon
+                  variant="subtle"
+                  color={meta.color}
+                  onClick={() => conn.reconnect()}
+                  aria-label="reconnect"
+                >
+                  <IconReload size={16} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
 
+            <Group gap={4} wrap="nowrap">
+              <Code style={{ flex: 1, minWidth: 0, ...ELLIPSIS }}>
+                {conn.endpointUrl || "—"}
+              </Code>
+              <CopyButton value={conn.endpointUrl}>
+                {({ copied, copy }) => (
+                  <Tooltip label={copied ? "Copié" : "Copier l'URL"}>
+                    <ActionIcon
+                      variant="subtle"
+                      color={copied ? "teal" : "gray"}
+                      onClick={copy}
+                      aria-label="copy url"
+                    >
+                      {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+              </CopyButton>
+            </Group>
+
+            <Text size="xs" c={conn.framesReceived > 0 ? "teal.6" : "dimmed"}>
+              {conn.framesReceived.toLocaleString()} frames reçues
+              {conn.lastFrameAt
+                ? ` · dernière il y a ${fmtAge(now - conn.lastFrameAt)}`
+                : " · aucune"}
+              {conn.lastFrameMethod ? ` · ${conn.lastFrameMethod}` : ""}
+            </Text>
+          </Stack>
+        </Paper>
+
+        {/* ── Erreur ────────────────────────────────────────────────────── */}
         {conn.lastError && (
           <Alert
             color="orange"
             icon={<IconAlertCircle size={16} />}
             title="Dernière erreur"
             variant="light"
+            p="xs"
           >
             <Text size="xs">{conn.lastError}</Text>
           </Alert>
         )}
 
-        <Divider
-          label={`Subscriptions actives (${subs.length})`}
-          labelPosition="left"
-        />
+        {/* ── Stats agrégées ────────────────────────────────────────────── */}
+        <SimpleGrid cols={3} spacing="xs">
+          <StatTile
+            icon={<IconMessages size={16} />}
+            label="messages"
+            value={conn.totalMessages.toLocaleString()}
+          />
+          <StatTile
+            icon={<IconBolt size={16} />}
+            label="débit/s"
+            value={String(aggRate)}
+            accent={aggRate > 0}
+          />
+          <StatTile
+            icon={<IconActivity size={16} />}
+            label="canaux"
+            value={String(conn.subscriptionCount)}
+          />
+        </SimpleGrid>
 
-        <ScrollArea h={300} type="auto">
-          {subs.length === 0 ? (
-            <Text size="sm" c="dimmed" ta="center" py="md">
-              Aucune subscription sur la page courante.
-              <br />
-              <Text size="xs" c="dimmed" component="span">
-                Utiliser <Code>conn.subscribe(channel, fn)</Code> dans un{" "}
-                <Code>useEffect</Code> pour s&apos;abonner.
-              </Text>
-            </Text>
-          ) : (
-            <Stack gap={6}>
-              {subs.map((s) => {
-                const ageMs = s.lastMessage ? now - s.lastMessage : null;
-                return (
-                  <Group
-                    key={s.channel}
-                    justify="space-between"
-                    gap="xs"
-                    wrap="nowrap"
-                  >
-                    <Code style={{ flex: 1, minWidth: 0 }}>{s.channel}</Code>
-                    <Group gap={4} wrap="nowrap">
-                      <Badge size="xs" variant="dot">
-                        {s.msgCount} msg
-                      </Badge>
-                      {ageMs != null && (
-                        <Text size="xs" c="dimmed">
-                          {ageMs < 1000
-                            ? `${ageMs}ms`
-                            : `${Math.round(ageMs / 1000)}s`}
-                        </Text>
-                      )}
-                    </Group>
-                  </Group>
-                );
-              })}
-            </Stack>
-          )}
-        </ScrollArea>
+        {/* ── Canaux abonnés ────────────────────────────────────────────── */}
+        <div>
+          <Divider
+            label={`Canaux abonnés (${subs.length})`}
+            labelPosition="left"
+            mb="xs"
+          />
+          <ScrollArea.Autosize mah={340} type="auto">
+            {subs.length === 0 ? (
+              <Paper withBorder p="md" radius="md">
+                <Text size="sm" c="dimmed" ta="center">
+                  Aucun canal abonné sur la page courante.
+                  <br />
+                  <Text size="xs" c="dimmed" component="span">
+                    Les pages s&apos;abonnent via <Code>conn.subscribe(channel, fn)</Code>.
+                  </Text>
+                </Text>
+              </Paper>
+            ) : (
+              <Stack gap="xs">
+                {subs.map((s) => {
+                  const data = s.series;
+                  const rate = s.rate;
+                  const ageMs = s.lastMessage ? Math.max(0, now - s.lastMessage) : null;
+                  const active = ageMs != null && ageMs < 1500;
+                  return (
+                    <Paper key={s.channel} withBorder p="xs" radius="md">
+                      <Group justify="space-between" wrap="nowrap" gap="xs">
+                        <Group gap={8} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                          <ActivityDot active={active} />
+                          <div style={{ minWidth: 0 }}>
+                            <Code style={{ ...ELLIPSIS, display: "block" }}>
+                              {s.channel}
+                            </Code>
+                            <Group gap={5} wrap="nowrap" mt={3} style={{ minWidth: 0 }}>
+                              <Badge
+                                size="xs"
+                                variant="light"
+                                color={TRANSPORT_COLOR[s.transport ?? "ws"] ?? "gray"}
+                                style={{ flexShrink: 0 }}
+                              >
+                                {s.transport ?? "ws"}
+                              </Badge>
+                              <Text size="xs" c="dimmed" style={ELLIPSIS}>
+                                {s.protocol ?? "—"}
+                                {s.peer ? ` → ${s.peer}` : ""}
+                              </Text>
+                            </Group>
+                            <Text size="xs" c="dimmed">
+                              {s.msgCount.toLocaleString()} msg ·{" "}
+                              {ageMs != null ? `il y a ${fmtAge(ageMs)}` : "—"}
+                            </Text>
+                          </div>
+                        </Group>
+                        <Group gap={8} wrap="nowrap">
+                          <BarMeter data={data} color="var(--mantine-color-teal-5)" />
+                          <Badge
+                            size="sm"
+                            variant={rate > 0 ? "filled" : "light"}
+                            color={rate > 0 ? "teal" : "gray"}
+                            miw={46}
+                          >
+                            {rate}/s
+                          </Badge>
+                          <Tooltip label="Couper ce canal">
+                            <ActionIcon
+                              variant="subtle"
+                              color="red"
+                              size="sm"
+                              onClick={() => conn.unsubscribe(s.channel)}
+                              aria-label={`couper ${s.channel}`}
+                            >
+                              <IconX size={14} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      </Group>
+                    </Paper>
+                  );
+                })}
+              </Stack>
+            )}
+          </ScrollArea.Autosize>
+        </div>
 
         <Divider />
         <Text size="xs" c="dimmed">
-          Vision P14.11 — le Core Nodefony est isomorphe. Le{" "}
-          <Code>RealtimeClient</Code> est importé depuis{" "}
-          <Code>nodefony</Code> via <Code>exports.browser</Code>. Backend WS
-          opérationnel en P13.4.
+          Core Nodefony isomorphe (P14.11) — <Code>RealtimeClient</Code> importé
+          depuis <Code>nodefony</Code>. Canaux figés → migration{" "}
+          <Code>RealtimeService</Code> (P13.4) transparente.
         </Text>
       </Stack>
     </Drawer>

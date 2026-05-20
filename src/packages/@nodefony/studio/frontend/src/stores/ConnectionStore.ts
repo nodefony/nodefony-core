@@ -1,14 +1,50 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import type { RealtimeClient, RealtimeState } from "nodefony";
 
+/** Nb de points conservés dans la série de débit (VU-mètre) — ~32 s. */
+const SAMPLE_POINTS = 32;
+
+/** Transport sous-jacent d'un flux temps réel. */
+export type RealtimeTransport = "ws" | "sse" | "webrtc" | "tcp";
+/** Nature du flux temps réel. */
+export type RealtimeKind = "channel" | "stream" | "rpc" | "binary";
+
+/**
+ * Métadonnées d'un abonnement — décrivent le PROTOCOLE transporté, pas seulement
+ * le canal pub/sub. Permet au hub d'afficher demain des WS à protocole encapsulé
+ * (SIP/WS, MQTT/WS, flux binaire, WebRTC signaling…) sans changer le modèle :
+ * un consommateur passe `{ protocol: "sip", kind: "stream", transport: "ws" }`.
+ */
+export interface SubscriptionMeta {
+  /** Protocole applicatif encapsulé/négocié (ex "json-rpc-2.0", "sip", "mqtt", "binary"). */
+  protocol?: string;
+  /** Transport sous-jacent. Défaut "ws" (subscribe) / "sse" (subscribeSSE). */
+  transport?: RealtimeTransport;
+  /** Nature du flux. Défaut "channel" (subscribe) / "stream" (subscribeSSE). */
+  kind?: RealtimeKind;
+  /**
+   * Destination/pair distant du flux supervisé (ex "asterisk@pbx:5060",
+   * "broker.local:1883"). Décrit la PILE complète avec `protocol`+`transport` :
+   * ex SIP sur TCP vers Asterisk → `{ protocol:"sip", transport:"tcp", peer:"asterisk@pbx:5060" }`.
+   * Ces flux sont ouverts côté serveur (@nodefony/realtime, P13.1) et leur état
+   * est poussé au hub via un canal de supervision — le navigateur ne fait pas le TCP.
+   */
+  peer?: string;
+}
+
 /**
  * Stats observées par souscription — affichées dans le Drawer du chip topbar.
+ * Étend `SubscriptionMeta` : chaque entrée porte son protocole/transport.
  */
-export interface SubscriptionStats {
+export interface SubscriptionStats extends SubscriptionMeta {
   channel: string;
   msgCount: number;
   lastMessage: number | null;
   subscribedAt: number;
+  /** Débit instantané (msg/s), échantillonné 1×/s par le store. */
+  rate: number;
+  /** Historique du débit (msg/s) pour le VU-mètre — fenêtre glissante. */
+  series: number[];
 }
 
 /**
@@ -26,6 +62,17 @@ export class ConnectionStore {
   lastError: string | null = null;
   latencyMs: number | null = null;
   activeSubscriptions: Map<string, SubscriptionStats> = new Map();
+  /** Timestamp du dernier passage à "connected" (uptime de la session WS). */
+  connectedAt: number | null = null;
+  /** URL de l'endpoint WS (affichée dans le hub). */
+  endpointUrl = "";
+  /** Total des frames JSON-RPC reçues, TOUS canaux + welcome confondus (capté
+   *  par un handler wildcard `*` indépendant des abonnements). Diagnostic brut :
+   *  si ça monte, le transport reçoit bien ; sinon le serveur ne pousse pas. */
+  framesReceived = 0;
+  lastFrameAt: number | null = null;
+  /** `method` de la dernière frame reçue (diagnostic du routing par canal). */
+  lastFrameMethod: string | null = null;
 
   /** Disposers + wrapped handlers pour détacher + simuler des messages. */
   private readonly clientHandlers = new Map<
@@ -33,12 +80,31 @@ export class ConnectionStore {
     { dispose: () => void; wrapped: (...args: unknown[]) => void }
   >();
 
-  constructor(private readonly client: RealtimeClient) {
-    makeAutoObservable(this, {}, { autoBind: true });
+  /** Sampler de débit (1×/s) — calcule rate + série par abonnement dans le store
+   *  (source unique, pilotée par msgCount qui marche). Le drawer ne fait que lire. */
+  private sampleTimer: ReturnType<typeof setInterval> | null = null;
+  /** Dernier msgCount échantillonné par canal (pour le delta du débit). */
+  private prevSampled: Record<string, number> = {};
+
+  constructor(
+    private readonly client: RealtimeClient,
+    endpointUrl = "",
+  ) {
+    this.endpointUrl = endpointUrl;
+    makeAutoObservable(
+      this,
+      { sampleTimer: false, prevSampled: false },
+      { autoBind: true },
+    );
     this.client.on("__state__", (s) => {
       runInAction(() => {
         this.state = s as RealtimeState;
-        if (s === "connected") this.lastError = null;
+        if (s === "connected") {
+          this.lastError = null;
+          this.connectedAt = Date.now();
+        } else if (s === "disconnected" || s === "error") {
+          this.connectedAt = null;
+        }
       });
       // (Re)connexion : ré-émettre les `subscribe` de tous les canaux actifs.
       // Couvre le reconnect (le serveur repart d'un état vide) ET la course au
@@ -49,6 +115,43 @@ export class ConnectionStore {
         }
       }
     });
+    // Compteur de frames + STATS PAR ABONNEMENT pilotés par le wildcard `*`.
+    // C'est la SOURCE UNIQUE de comptage : le wildcard fire de façon fiable pour
+    // toute notification (le handler par canal, lui, ne se déclenchait pas selon
+    // le cas — instance/timing). Le `method` reçu == le nom du canal abonné, donc
+    // on retrouve l'abonnement et on met à jour ses stats (msgCount + débit).
+    this.client.on("*", (method) => {
+      runInAction(() => {
+        this.framesReceived++;
+        this.lastFrameAt = Date.now();
+        if (typeof method === "string") {
+          this.lastFrameMethod = method;
+          const sub = this.activeSubscriptions.get(method);
+          if (sub) {
+            sub.msgCount++;
+            sub.lastMessage = Date.now();
+          }
+        }
+      });
+    });
+    this.startSampler();
+  }
+
+  /** Échantillonne le débit (msg/s) de chaque abonnement 1×/s dans le store —
+   *  source unique du VU-mètre. Timer toujours actif (UI admin, coût négligeable). */
+  private startSampler(): void {
+    if (this.sampleTimer) return;
+    this.sampleTimer = setInterval(() => {
+      runInAction(() => {
+        for (const sub of this.activeSubscriptions.values()) {
+          const cur = sub.msgCount;
+          const prev = this.prevSampled[sub.channel] ?? cur;
+          sub.rate = Math.max(0, cur - prev);
+          this.prevSampled[sub.channel] = cur;
+          sub.series = [...sub.series, sub.rate].slice(-SAMPLE_POINTS);
+        }
+      });
+    }, 1000);
   }
 
   get isConnected(): boolean {
@@ -57,6 +160,19 @@ export class ConnectionStore {
 
   get subscriptionCount(): number {
     return this.activeSubscriptions.size;
+  }
+
+  /** Total des messages reçus, tous canaux confondus. */
+  get totalMessages(): number {
+    let n = 0;
+    for (const s of this.activeSubscriptions.values()) n += s.msgCount;
+    return n;
+  }
+
+  /** Reconnexion manuelle (no-op si déjà connecté). Préserve les abonnements
+   *  (le listener __state__ les ré-émet au "connected"). */
+  reconnect(): void {
+    void this.client.connect();
   }
 
   /**
@@ -111,6 +227,7 @@ export class ConnectionStore {
   subscribe(
     channel: string,
     handler: (...args: unknown[]) => void,
+    meta: SubscriptionMeta = {},
   ): () => void {
     if (this.activeSubscriptions.has(channel)) {
       // eslint-disable-next-line no-console
@@ -122,12 +239,19 @@ export class ConnectionStore {
       msgCount: 0,
       lastMessage: null,
       subscribedAt: Date.now(),
+      rate: 0,
+      series: [],
+      // Défauts = transport WS / JSON-RPC. Un flux à protocole encapsulé
+      // (SIP/TCP vers Asterisk, MQTT, binaire…) override via `meta`.
+      protocol: meta.protocol ?? "json-rpc-2.0",
+      transport: meta.transport ?? "ws",
+      kind: meta.kind ?? "channel",
+      peer: meta.peer,
     };
+    // Le comptage des stats (msgCount/lastMessage) est fait par le wildcard `*`
+    // dans le constructeur (source unique fiable) — ici on ne fait QUE relayer la
+    // donnée au handler de la page. Pas de double comptage.
     const wrapped = (...args: unknown[]) => {
-      runInAction(() => {
-        stats.msgCount++;
-        stats.lastMessage = Date.now();
-      });
       handler(...args);
     };
     const dispose = this.client.on(channel, wrapped);
@@ -174,6 +298,7 @@ export class ConnectionStore {
     channel: string,
     url: string,
     handler: (payload: unknown) => void,
+    meta: SubscriptionMeta = {},
   ): () => void {
     if (this.activeSubscriptions.has(channel)) {
       // eslint-disable-next-line no-console
@@ -185,12 +310,23 @@ export class ConnectionStore {
       msgCount: 0,
       lastMessage: null,
       subscribedAt: Date.now(),
+      rate: 0,
+      series: [],
+      protocol: meta.protocol ?? "text/event-stream",
+      transport: meta.transport ?? "sse",
+      kind: meta.kind ?? "stream",
+      peer: meta.peer,
     };
     const wrapped = (...args: unknown[]) => {
-      runInAction(() => {
-        stats.msgCount++;
-        stats.lastMessage = Date.now();
-      });
+      // SSE ne passe PAS par le wildcard du RealtimeClient → on compte ici, en
+      // mutant l'entrée observable de la map (le proxy MobX), pas la ref locale.
+      const live = this.activeSubscriptions.get(channel);
+      if (live) {
+        runInAction(() => {
+          live.msgCount++;
+          live.lastMessage = Date.now();
+        });
+      }
       handler(args[0]);
     };
 
