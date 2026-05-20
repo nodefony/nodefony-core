@@ -1,0 +1,211 @@
+# CLAUDE.md — Injector (DI Decorators)
+
+> Sous-module `src/nodefony/src/kernel/injector/` du workspace `@nodefony/core`.
+> Pour audience IA en cours de session. Complète [`MEMORY.md`](./MEMORY.md) et [`README.md`](./README.md).
+
+## Rôle
+
+Système d'injection de dépendances décorateur-driven de Nodefony. Stocke les métadonnées via `Reflect.metadata`, résout au boot. Inspiré de NestJS (decorators TS) + Symfony (services.yaml mental model).
+
+## Décorateurs
+
+### Constructor parameter
+
+```typescript
+import { injectable, inject } from "nodefony";
+
+@injectable({ singleton: true, name: "user-service" })
+export class UserService {
+  constructor(
+    @inject("database") private db: Database,
+    @inject("syslog")   private log: Syslog,
+  ) {}
+}
+```
+
+### Property (Phase A — partielle)
+
+```typescript
+@injectable()
+export class ReportService {
+  @Inject("database") private db!: Database;   // ! definite assignment
+  @Inject("syslog")   private log!: Syslog;
+}
+```
+
+⚠️ Phase A en cours — confirmer comportement actuel avant usage en prod.
+
+### Module-level (auto-discovery)
+
+```typescript
+import { modules, services, entities } from "nodefony";
+
+@modules([HttpModule, SecurityModule, MyModule])      // → onPreRegister
+class App {}
+
+@services([UserService, DatabaseService])             // → onPreBoot
+class MyModule extends Module {}
+
+@entities([UserEntity, OrderEntity])                  // → onBoot
+class MyModule extends Module {}
+```
+
+## Métadonnées stockées (`Reflect.metadata`)
+
+| Clé | Cible | Posée par | Contenu |
+|-----|-------|-----------|---------|
+| `inject:services` | Constructeur classe | `@inject(name)` paramètre | `[{ index, name }]` |
+| `inject:properties` | Prototype classe | `@Inject(name)` propriété | `{ key: name }` |
+| `injectable:options` | Classe | `@injectable(opts)` | `{ singleton, name, scope }` |
+
+⚠️ **CRITIQUE** : `inject:services` sur le **constructeur**, `inject:properties` sur le **prototype**. Confondre = bug silencieux (résolution échoue, classe instanciée avec `undefined`).
+
+## Résolution au boot
+
+```
+1. Kernel boot → décorateurs lifecycle (@modules, @services, @entities) firent
+   les hooks correspondants (onPreRegister, onPreBoot, onBoot)
+
+2. Injector.instantiate(Ctor, parent, ...args)
+   ├── _instantiateWithStack(Ctor, [], args)
+   │   ├── Détecte circular dans `stack` (Phase C ✅)
+   │   ├── Si singleton + déjà dans Container → court-circuit
+   │   ├── Lire Reflect.metadata("inject:services", Ctor)
+   │   ├── Pour chaque param @inject : récupérer du container
+   │   ├── new Ctor(...resolvedArgs, ...args)
+   │   ├── Property injection (Phase A) : lire metadata sur prototype, set props
+   │   └── Si .initialize() existe : appeler
+   └── Container.set(name, instance)
+
+3. Phase D (futur) : registry par module — isolation namespace
+```
+
+## Stack par valeur — async-safe
+
+```typescript
+_instantiateWithStack(Ctor, stack, args) {
+  const name = Ctor.name;
+  if (stack.includes(name)) throw new Error(`Circular: ${[...stack, name].join(" → ")}`);
+  // ...
+  return _instantiateWithStack(NestedCtor, [...stack, name], args);  // ← spread, pas push
+}
+```
+
+Spread `[...stack, name]` (pas mutation) → safe pour async parallel resolution.
+
+## Singleton — fast path
+
+Si `@injectable({ singleton: true })` (défaut) ET déjà présent dans `kernel.container` → court-circuit immédiat, pas de réinstanciation. C'est `kernel.get(name)` qui sert de cache.
+
+## tsx — pas de `design:paramtypes`
+
+⚠️ Quand on tourne avec `tsx` (ts-node alternative), TypeScript émet PAS `design:paramtypes` (metadata auto sur types des params). Donc le pattern habituel `@inject()` sans nom (auto-discovery par type) NE MARCHE PAS sous tsx.
+
+**Workaround** : toujours passer le nom explicite :
+```typescript
+constructor(@inject("database") db: Database) {}    // ✅ marche partout
+constructor(@inject() db: Database) {}              // ❌ ne marche pas sous tsx
+```
+
+C'est un appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)` côté injector pour contourner.
+
+## Decorators module — pattern `prependOnceListener`
+
+```typescript
+// Module.setEvents() ordre des listeners :
+//   index 0 (prepend) : decorator @modules/@services/@entities handler
+//   index 1+          : hooks user (onKernelRegister, onKernelBoot, onKernelReady)
+```
+
+→ Les decorators tournent AVANT les hooks user (ordre déterministe).
+
+## Catches d'erreur par décorateur
+
+| Décorateur | Phase | Erreur catch ? | Note |
+|-----------|-------|----------------|------|
+| `@modules` | onPreRegister | ❌ Propagé | Si module manquant → throw au boot |
+| `@services` | onPreBoot | ✅ Catché + log ERROR | Service brisé → service skip mais boot continue |
+| `@entities` | onBoot | ✅ Catché + log ERROR | Idem |
+
+→ Conséquence : si un service crash dans `@services`, le boot continue mais le service est absent du container. Détection via `container.has("foo")` après boot, ou via les logs ERROR au démarrage.
+
+## Plan d'évolution — 5 phases
+
+Cf [`../../INJECTION_PLAN.md`](../../INJECTION_PLAN.md) workspace racine pour détail.
+
+| Phase | Sujet | État |
+|-------|-------|------|
+| **A** | `@Inject` property | ✅ partial (à confirmer) |
+| **C** | Circular detection (stack-based) | ✅ done |
+| **B** | Scoped via AsyncLocalStorage officiel | ⬜ Planned |
+| **D** | Registry par module (namespace) | ⬜ Planned |
+| **E** | Lazy injection (Promise-wrapped) | ⬜ Planned |
+
+## Options `@injectable`
+
+| Option | Type | Défaut | Effet |
+|--------|------|--------|-------|
+| `singleton` | `boolean` | `true` | 1 instance partagée OR new par injection |
+| `name` | `string` | nom de classe (lowercase ?) | Identifiant Container |
+| `scope` | `string` | `"global"` | `"global"` / `"request"` / `"transient"` |
+
+⚠️ **TODO: vérifier** le naming exact (camelCase ? kebab-case ?) et le default pour `scope` dans le code actuel.
+
+## ⚠️ Gotchas
+
+| Symptôme | Cause | Fix |
+|----------|-------|-----|
+| `Service not found in container` | `@injectable` oublié OR nom incorrect | Vérifier metadata + Container.has() |
+| `Cannot read 'X' of undefined` au boot | Cycle non détecté (avant Phase C) | Avec Phase C → erreur explicite avec stack |
+| `@inject()` sans nom ne marche pas | Sous tsx — pas de `design:paramtypes` | Toujours passer le nom explicite |
+| Property `@Inject` reste `undefined` | Phase A partielle, init post-construct pas appliqué | Utiliser constructor injection pour l'instant |
+| Service tiré dans le mauvais scope | Container hiérarchique remonte au parent | Vérifier que le scope est ouvert avant injection |
+| @services silencieux | Erreur catchée dans Module.setEvents | Lire les logs ERROR au boot |
+| Decorator handler appelé 2× | `setEvents()` appelé 2× | Guard `eventsRegistered` ajouté 2026-05-14 |
+
+## Pattern type — service avec dépendances
+
+```typescript
+import { injectable, inject } from "nodefony";
+
+@injectable({ singleton: true, name: "user-service" })
+export class UserService {
+  constructor(
+    @inject("database") private db: Database,
+    @inject("syslog")   private log: Syslog,
+  ) {}
+
+  async findById(id: string): Promise<User | null> {
+    this.log.log(`Lookup user ${id}`, "DEBUG");
+    return await this.db.query<User>("SELECT * FROM users WHERE id = ?", [id]);
+  }
+}
+
+// Module qui déclare :
+@services([UserService])
+export class MyModule extends Module {
+  static readonly path: string = import.meta.url;
+}
+
+// Usage runtime :
+const userService = kernel.get<UserService>("user-service");
+await userService.findById("123");
+```
+
+## Tests
+
+```bash
+cd src/nodefony && npm run test 2>&1 | grep -A 3 "injectable\|inject\|injector"
+```
+
+Tests existants couvrent : property injection, circular detection, singleton, scopes. Mais Phase B/D/E à venir → tests futurs aussi.
+
+## Liens
+
+- [`MEMORY.md`](./MEMORY.md) — internals IA détaillés
+- [`README.md`](./README.md) — doc humaine
+- [`../CLAUDE.md`](../CLAUDE.md) — Kernel/Module
+- [`../../INJECTION_PLAN.md`](../../INJECTION_PLAN.md) — plan 5 phases
+- [`../../../CLAUDE.md`](../../../CLAUDE.md) — workspace core
+- `docs/architecture/injection.md` — vision architecturale
+- `project_injection_plan` (mémoire IA) — plan détaillé
