@@ -13,6 +13,7 @@ Consommé par les drivers (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefo
 
 ## Décisions figées
 
+- **Archi = Repository multi-ORM (pas Active Record)** — risques connus documentés dans [`docs/adr/0003`](../../../../docs/adr/0003-orm-core-abstraction-repository-multi-orm.md) : (1) abstraction qui fuit (jointures/criteria riches → trappe native), (2) multi-ORM simultané = YAGNI (vraie valeur = swap d'ORM dans le temps), (3) `OrmCriteria` non typé en tension avec Drizzle. **À trancher sur cas concret en P5.4** (jointure User↔Room avant de multiplier les drivers).
 - Interfaces : `IOrm`, `IEntity` (+ `IEntityRelation`), `IRepository<T>` (+ `OrmCriteria`), `ITransaction`.
 - **`IOrm.getNativeConnection<C>()`** = trappe SQL/commandes brutes — **indispensable** (anti-blocage requêtes non couvertes par l'abstraction).
 - Multi-managers : chaque ORM enregistré sous un nom (`db_principale`, `db_logs`...). Controller via DI pur (`@Inject('repository.user.drizzle')`), JAMAIS l'ORM en dur.
