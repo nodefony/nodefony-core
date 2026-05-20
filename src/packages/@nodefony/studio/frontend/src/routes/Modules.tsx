@@ -47,9 +47,12 @@ const CATS: Record<CatId, { label: string; color: string; Icon: Icon; order: num
 function categoryOf(m: { key: string; isApp: boolean; name: string; path: string | null }): CatId {
   if (m.key === "core") return "core";
   if (m.isApp) return "app";
+  // Path RELATIF (sécu) → pas de slash initial. Tester `src/modules/` AVANT
+  // `src/packages/` : un module applicatif peut s'appeler @nodefony/test mais
+  // vivre dans src/modules/ (ne pas se fier au nom @nodefony/*).
   const p = m.path ?? "";
-  if (p.includes("/src/packages/@nodefony/")) return "framework";
-  if (p.includes("/src/modules/")) return "module";
+  if (p.includes("src/modules/")) return "module";
+  if (p.includes("src/packages/")) return "framework";
   return m.name.startsWith("@nodefony/") ? "framework" : "module";
 }
 
