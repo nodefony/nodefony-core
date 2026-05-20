@@ -9,6 +9,7 @@ import AdminBroker from "./nodefony/service/AdminBroker";
 import AdminApiController from "./nodefony/src/AdminApiController";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
+import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
 import Twig from "./nodefony/service/Twig";
 import Ejs from "./nodefony/service/Ejs";
 //import mygraphql from "graphql";
@@ -57,6 +58,9 @@ class Framework extends Module {
       if (!broker.has("framework")) {
         broker.register(createFrameworkAdminApi());
       }
+      if (this.kernel.syslog && !broker.has("syslog")) {
+        broker.register(createSyslogAdminApi(this.kernel.syslog));
+      }
       broker.mountAll();
     }
     return this;
@@ -81,6 +85,7 @@ export {
   AdminApiController,
   createKernelAdminApi,
   createFrameworkAdminApi,
+  createSyslogAdminApi,
   Twig,
   Ejs,
   route,

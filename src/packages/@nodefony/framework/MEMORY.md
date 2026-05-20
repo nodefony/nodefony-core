@@ -54,6 +54,8 @@ Contrat d'exposition admin pour Studio. **Inversion de dépendance** : contrat p
 - **kernel** : `GET /nodefony/kernel/api/{health,info,modules}` — `createKernelAdminApi(kernel)` (le kernel ne peut pas s'auto-enregistrer → framework le wrappe).
 - **framework** : `GET /nodefony/framework/api/{routes,info}` — `createFrameworkAdminApi()` dump `Router.routes` (équivalent web `router:dump`, source vue Routes Studio P10.8). Le framework héberge le broker → register direct dans `onKernelReady` avant `mountAll`.
 - **http** : `GET /nodefony/http/api/{servers,info}` (cf http MEMORY.md).
+- **syslog** : `GET /nodefony/syslog/api/{logs,info}` — `createSyslogAdminApi(kernel.syslog)` lit `ISyslog.ringStack` (FIFO). `logs` supporte `?severity=ERROR&limit=N`. Wrappé par framework (syslog est dans le core).
+- **+ endpoint paramétré témoin** : `GET /nodefony/kernel/api/module/{name}` (détail module — exerce la regexp `{x}`).
 
 ## Route Registration Flow
 

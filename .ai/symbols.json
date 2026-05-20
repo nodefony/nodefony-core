@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-20T11:56:23.611Z",
+  "generated": "2026-05-20T12:00:12.137Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 226,
-    "symbols": 525,
+    "files": 227,
+    "symbols": 527,
     "classes": 176,
     "interfaces": 177,
-    "types": 125,
+    "types": 126,
     "enums": 1,
-    "functions": 37,
+    "functions": 38,
     "constants": 9
   },
   "symbols": {
@@ -1861,6 +1861,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "extends": null
+    },
+    "createSyslogAdminApi": {
+      "name": "createSyslogAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Producteur `IAdminApi` du **syslog** (core) — exposé sous `/nodefony/syslog/api/*`. 4ᵉ et dernier producteur de P10.3. Le syslog vit dans `@nodefony/core` et ne peut pas importer framework → framew…"
     },
     "Template": {
       "name": "Template",
@@ -4981,6 +4989,9 @@
       "createFrameworkAdminApi": [
         "src/packages/@nodefony/framework/index.ts"
       ],
+      "createSyslogAdminApi": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
       "Twig": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
@@ -5430,7 +5441,8 @@
         "src/nodefony/src/syslog/Syslog.ts"
       ],
       "ISyslog": [
-        "src/nodefony/src/syslog/Syslog.ts"
+        "src/nodefony/src/syslog/Syslog.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "ITransport": [
         "src/nodefony/src/syslog/Syslog.ts",
@@ -5594,6 +5606,7 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
       ],
       "contextRequest": [
@@ -5652,6 +5665,7 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
       ],
       "IAdminRoute": [
@@ -5663,7 +5677,8 @@
         "src/packages/@nodefony/framework/nodefony/service/Twig.ts"
       ],
       "IAdminRequest": [
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "IAdminResponse": [
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
@@ -5671,6 +5686,7 @@
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
       ],
       "IResolver": [
