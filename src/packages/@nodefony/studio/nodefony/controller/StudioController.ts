@@ -71,6 +71,22 @@ class StudioController extends Controller {
     return this.renderStudio();
   }
 
+  /**
+   * SPA fallback profondeur 2 — deep-links / refresh sur une page React à deux
+   * segments (ex `/nodefony/modules/core`, route `modules/:name`). Sans lui, un
+   * F5 sur ces URLs tombait sur le 404 backend (le fallback mono-segment ne les
+   * couvrait pas).
+   *
+   * Sûr vis-à-vis du data plane : les routes admin font **≥ 3 segments**
+   * (`/nodefony/<module>/api/*`) → ce pattern à exactement 2 segments ne peut
+   * pas les masquer. La SPA n'a pas de route à 3+ segments (profondeur max =
+   * `modules/:name`), donc 2 niveaux suffisent.
+   */
+  @route("studio-spa-fallback-deep", { path: "/{section}/{page}" })
+  renderSpaFallbackDeep(): unknown {
+    return this.renderStudio();
+  }
+
   @route("studio-api-health", { path: "/studio/api/health" })
   apiHealth() {
     return this.renderJson({

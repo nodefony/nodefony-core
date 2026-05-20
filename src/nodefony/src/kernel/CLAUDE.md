@@ -226,4 +226,4 @@ cd src/nodefony && npm run test  # ~230 tests
 - [`injector/CLAUDE.md`](injector/CLAUDE.md) — DI decorators (à créer)
 - [`../cli/CLAUDE.md`](../cli/CLAUDE.md) — Cli / Command (à créer)
 - [`../../CLAUDE.md`](../../CLAUDE.md) — workspace core
-- `docs/architecture/kernel.md` — vision architecturale
+- [`../../docs/kernel.md`](../../docs/kernel.md) — vision architecturale (relocalisé `src/nodefony/docs/`, ADR-0001)

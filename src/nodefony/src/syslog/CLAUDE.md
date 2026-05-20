@@ -193,6 +193,6 @@ syslog.clean();     // libère transports + reset
 - [`MEMORY.md`](./MEMORY.md) — internals IA détaillés
 - [`README.md`](./README.md) — doc humaine
 - [`../../CLAUDE.md`](../../CLAUDE.md) — workspace core
-- `docs/architecture/syslog.md` — vision architecturale
+- [`../../docs/syslog.md`](../../docs/syslog.md) — vision architecturale (relocalisé `src/nodefony/docs/`, ADR-0001)
 - `feedback_sse_http2_request_close` (mémoire IA) — piège HTTP/2 cleanup SSE
 - Studio Logs panel (futur P10) — `@nodefony/studio/frontend/src/pages/Logs.tsx`

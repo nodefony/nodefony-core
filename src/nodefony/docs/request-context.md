@@ -19,22 +19,18 @@ last-updated: 2026-05-20
 
 ## Vue d'ensemble
 
-```
-[ Requête HTTP arrive ]
-       │
-       ▼
- ┌────────────────────────────────────────────────────────┐
- │ HttpKernel.handleHttp()                                │
- │                                                        │
- │  RequestContext.run({ requestId, scheme }, async () => │  ← Bulle ALS ouverte
- │    await context.handle()                              │
- │      → Resolver                                        │
- │        → Firewall                                      │
- │          → Controller.action()                         │
- │            → MyService.query()                         │
- │              → RequestContext.getRequestId() ✓         │
- │  )                                                     │  ← Bulle ALS fermée
- └────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+  req["Requête HTTP arrive"] --> hk["HttpKernel.handleHttp()"]
+  hk --> als
+  subgraph als["RequestContext.run( { requestId, scheme } ) — bulle ALS"]
+    direction TB
+    ctx["context.handle()"] --> res["Resolver"]
+    res --> fw["Firewall"]
+    fw --> ctrl["Controller.action()"]
+    ctrl --> svc["MyService.query()"]
+    svc --> get["RequestContext.getRequestId() ✓"]
+  end
 ```
 
 Chaque service du pipeline peut faire `RequestContext.getRequestId()` ou `RequestContext.getUser()` sans qu'on ait transporté ces valeurs en argument à travers les couches.

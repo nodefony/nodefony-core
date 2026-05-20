@@ -58,7 +58,8 @@ src/packages/@nodefony/studio/
 | Route | Méthode | Rôle |
 |---|---|---|
 | `/nodefony` | GET | Page HTML (charge le bundle React via `frontendService.renderTags("studio")`) |
-| `/nodefony/{page}` | GET | SPA fallback → même page React |
+| `/nodefony/{page}` | GET | SPA fallback 1 segment → même page React |
+| `/nodefony/{section}/{page}` | GET | SPA fallback 2 segments (deep-link/F5 sur `modules/:name`) → même page React |
 
 - **Data plane admin (machine)** — `/nodefony/studio/api/*`, ≥3 segments. Mocks "cat.3" hébergés ici faute de mieux, migreront vers leur module propriétaire (`/nodefony/<module>/api/*`) :
 
@@ -71,7 +72,7 @@ src/packages/@nodefony/studio/
 | `/nodefony/studio/api/logs/stream` | GET | SSE Pdu — **dormant** (le front utilise désormais le canal WS `syslog:stream`) | core syslog |
 
 > **Pourquoi pas `/studio` pour l'UI** : `/nodefony` est réservé au framework, aucune app user n'y monte ses routes ; `/studio` entrerait en collision avec une route applicative. **Le framework boote sans Studio** — l'UI (cat.1) disparaît, le data plane par module (cat.2) reste porté par chaque module.
-> **Règle figée** : interdit aux modules une route admin mono-segment `/nodefony/<module>` — toujours `/nodefony/<module>/api/*` (sinon collision avec une page SPA). Le fallback SPA mono-segment ne masque jamais une route API (≥3 segments).
+> **Règle figée** : interdit aux modules une route admin mono-segment `/nodefony/<module>` — toujours `/nodefony/<module>/api/*` (sinon collision avec une page SPA). Les fallbacks SPA (1 et 2 segments) ne masquent jamais une route API : celles-ci font **≥3 segments** (`<module>/api/<endpoint>`), et la SPA n'a aucune route à 3+ segments (profondeur max `modules/:name`). Si une page SPA future dépasse 2 segments → ajouter un fallback de la bonne profondeur (pas de catch-all `*`, qui masquerait le data plane car monté plus tard que le controller).
 > **`apiProxyPaths: ["/nodefony/studio/api"]`** — proxifie UNIQUEMENT l'API ; les pages SPA `/nodefony/{page}` restent servies par Vite.
 > **SSE** : écouter `rawRes.once("close")` (RESPONSE), jamais `request.on("close")` (fire trop tôt en HTTP/2). Cf mémoire `feedback_sse_http2_request_close`.
 

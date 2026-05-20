@@ -415,12 +415,15 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 | Niveau                               | Emplacement                                    | Cible              | Quand l'écrire                       |
 | ------------------------------------ | ---------------------------------------------- | ------------------ | ------------------------------------ |
 | TSDoc inline                         | sources `.ts`                                  | IDE + AST + IA     | en migrant le fichier                |
-| `docs/`                              | `docs/architecture/` / `packages/` / `guides/` | humain + RAG futur | quand un concept ou une API change   |
+| `<module>/docs/`                     | colocalisé au module (`src/nodefony/docs/`, `src/packages/@nodefony/<m>/docs/`) | humain + RAG + **Studio** | doc d'un concept/API d'un module précis |
+| `docs/` (racine)                     | `docs/guides/` / `audits/` / `adr/`            | humain + RAG futur | transverse multi-module                  |
 | `CLAUDE.md` + `MEMORY.md` par module | racine du module                               | IA en session      | gotchas, mots-clés, décisions figées |
 
-**Page de référence** : `docs/architecture/container.md` montre le format attendu (frontmatter + sections + liens).
+> **Emplacement HYBRIDE (ADR-0001)** : la doc d'un module vit DANS le module (`<module>/docs/*.md`, frontmatter `module:`) et est surfacée dans **Studio** (`/nodefony/modules/{key}` onglet Docs ; core = carte `/nodefony/modules/core` ← `src/nodefony/docs/`). Le transverse reste sous `docs/` racine. Cf [`docs/adr/0001-docs-modules-emplacement-hybride.md`](docs/adr/0001-docs-modules-emplacement-hybride.md).
 
-**Pas de hook bloquant** pour l'instant — règle documentaire. Le module Studio (Phase 10) consommera `docs/` + le champ `description` extrait par `generate-symbols`.
+**Page de référence** : [`src/nodefony/docs/container.md`](src/nodefony/docs/container.md) montre le format attendu (frontmatter + sections + liens).
+
+**Surfaçage Studio actif** (depuis 2026-05-20) : endpoints `/nodefony/kernel/api/module/{name}/{docs,docs/{slug},symbols}` (helper `framework/nodefony/src/docsReader.ts`) → onglets Docs (markdown + badges version/status/git) + API (`.ai/symbols.json`). Couvre core/http/framework/frontend/studio.
 
 ---
 

@@ -13,28 +13,18 @@ last-updated: 2026-05-20
 
 ## Vue d'ensemble
 
-```
-                    ┌────────────────────────────┐
-                    │   bin/nodefony (CLI)       │
-                    └─────────────┬──────────────┘
-                                  │ new CliKernel(env)
-                    ┌─────────────▼──────────────┐
-                    │       CliKernel            │  extends Kernel
-                    │  parseCommand(argv)        │  + Commander
-                    └─────────────┬──────────────┘
-                                  │ command.onKernelStart()
-                    ┌─────────────▼──────────────┐
-                    │       Kernel.boot()        │
-                    │                            │
-                    │  1. load config            │
-                    │  2. discover modules       │  ← @modules() decorator
-                    │  3. fire("onPreBoot")      │
-                    │  4. instantiate services   │  ← DI Container
-                    │  5. fire("onBoot")         │
-                    │  6. activate modules       │
-                    │  7. fire("onReady")        │
-                    │  8. fire("onPostReady")    │  ← serveurs HTTP/WS prêts
-                    └────────────────────────────┘
+```mermaid
+flowchart TD
+  cli["bin/nodefony (CLI)"] -->|"new CliKernel(env)"| ck["CliKernel<br/>extends Kernel · parseCommand(argv) + Commander"]
+  ck -->|"command.onKernelStart()"| boot["Kernel.boot()"]
+  boot --> s1["1. load config"]
+  s1 --> s2["2. discover modules<br/>@modules() decorator"]
+  s2 --> s3["3. fire('onPreBoot')"]
+  s3 --> s4["4. instantiate services<br/>DI Container"]
+  s4 --> s5["5. fire('onBoot')"]
+  s5 --> s6["6. activate modules"]
+  s6 --> s7["7. fire('onReady')"]
+  s7 --> s8["8. fire('onPostReady')<br/>serveurs HTTP/WS prêts"]
 ```
 
 ## Classes

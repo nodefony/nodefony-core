@@ -15,20 +15,18 @@ last-updated: 2026-05-17
 
 Le `Container` est la racine de l'injection de dépendances dans Nodefony. Le `Kernel` instancie un container global au boot, y enregistre les services partagés (`syslog`, `router`, `firewall`, …), et chaque requête HTTP/WS ouvre un **scope** (sous-container hérité) pour ses services courts (résolveur, session, contexte).
 
+```mermaid
+flowchart TD
+  root["Container (root)<br/>services partagés · params globaux<br/>syslog · router · firewall"]
+  root -->|"enterScope(request)"| A["Scope #A<br/>resolver · session · context"]
+  root -->|"enterScope(request)"| B["Scope #B<br/>resolver · session · context"]
+  root -->|"enterScope(request)"| C["Scope #C<br/>resolver · session · context"]
+  A -.->|"héritage prototype"| root
+  B -.->|"héritage prototype"| root
+  C -.->|"héritage prototype"| root
 ```
-                ┌──────────────────────────┐
-                │      Container (root)    │  services partagés
-                │  services:  {…}          │  paramètres globaux
-                │  params:    {…}          │
-                └─────────────┬────────────┘
-                              │ enterScope("request")
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-        ┌─────────┐     ┌─────────┐     ┌─────────┐
-        │ Scope#A │     │ Scope#B │     │ Scope#C │   1 par requête HTTP/WS
-        │ session │     │ session │     │ session │   resolver, session, etc.
-        └─────────┘     └─────────┘     └─────────┘
-```
+
+> 1 scope par requête HTTP/WS. Les scopes héritent du root par chaîne de prototype (résolution V8 native, sans hop logiciel).
 
 Chaque scope est un `Container` enfant : ses lookups remontent au parent quand la clé manque localement (chaîne de prototypes JS, donc résolution O(1) sans hop logiciel).
 
@@ -110,6 +108,6 @@ Ce design vient de l'ancien framework JS et fonctionne très bien : 0 méthode w
 - **Code source** : `src/nodefony/src/Container.ts`
 - **Interfaces** : `src/nodefony/src/types/IContainer.ts` (IContainer, IScope)
 - **MEMORY.md** : `src/nodefony/MEMORY.md` (notes IA bas niveau)
-- **Injection (decorators)** : `src/nodefony/src/kernel/injector/MEMORY.md` (à terme `docs/architecture/injection.md`)
+- **Injection (decorators)** : [`injection.md`](./injection.md) · `src/nodefony/src/kernel/injector/MEMORY.md`
 - **Cycle de vie scope HTTP** : `src/packages/@nodefony/http/CLAUDE.md` → section "Pipeline HTTP"
 - **Graphe symbolique** : `jq '.symbols.Container' .ai/symbols.json` (description extraite de la TSDoc)

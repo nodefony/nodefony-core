@@ -55,7 +55,14 @@ Contrat d'exposition admin pour Studio. **Inversion de dépendance** : contrat p
 - **framework** : `GET /nodefony/framework/api/{routes,info,admin}` — `createFrameworkAdminApi(broker)`. `routes` = dump `Router.routes` ; `admin` = **catalogue discovery P10.2** (tous les producteurs + descriptors + endpoints, ordonné par `descriptor.order`) → source de la nav admin Studio. Le framework héberge le broker → register direct dans `onKernelReady` avant `mountAll`.
 - **http** : `GET /nodefony/http/api/{servers,info}` (cf http MEMORY.md).
 - **syslog** : `GET /nodefony/syslog/api/{logs,info}` — `createSyslogAdminApi(kernel.syslog)` lit `ISyslog.ringStack` (FIFO). `logs` supporte `?severity=ERROR&limit=N`. Wrappé par framework (syslog est dans le core).
-- **+ endpoint paramétré** : `GET /nodefony/kernel/api/module/{name}` — détail module (regexp `{x}`) : key/name/version/isApp/path + `dependencies` + **`services`** (`[{name,class}]` via `Module.getServiceNames()`) + **`config`** (`module.options` sérialisé défensivement : profondeur bornée, fonctions/cycles neutralisés). Alimente les onglets Studio Services/Config.
+- **+ endpoints paramétrés** (introspection cross-module, producteur **kernel**) :
+  - `GET /nodefony/kernel/api/module/{name}` — détail module : key/name/version/isApp/path + `dependencies` + **`services`** (`[{name,class}]` via `Module.getServiceNames()`) + **`config`** (`module.options` sérialisé défensivement : profondeur bornée, fonctions/cycles neutralisés). Onglets Studio Services/Config.
+  - `GET /nodefony/kernel/api/module/{name}/docs` — sommaire docs : `[{slug,title,status,since,updated,gitUpdated,order}]` lu depuis `<modulePath>/docs/*.md` (frontmatter parsé). Onglet Studio Docs.
+  - `GET /nodefony/kernel/api/module/{name}/docs/{slug}` — `{slug,frontmatter,markdown,gitUpdated}` (2 variables ; slug borné `^[a-z0-9][\w.-]*$` anti path-traversal).
+  - `GET /nodefony/kernel/api/module/{name}/symbols` — `{key,package,symbols[]}` filtré depuis `.ai/symbols.json` (`module === getModuleName()` + `exported`). Onglet Studio API.
+  - Helper : `nodefony/src/docsReader.ts` (`parseFrontmatter`/`listModuleDocs`/`readModuleDoc`/`listModuleSymbols`/gitLastUpdated). **0 dep npm** (frontmatter parser maison). `gitLastUpdated` = `git log -1 --format=%cI -- <file>` (cwd `process.cwd()`), fallback `mtime` si non commité/hors git. Endpoints admin basse fréquence → coût `spawn` git acceptable.
+  - ⚠️ **Routing multi-var** : `{name}` = `([^/]+)` ancré → `module/{name}` (6 seg) ne masque PAS `module/{name}/docs` (7 seg) ni `module/{name}/docs/{slug}` (8 seg). Aucune ambiguïté.
+  - **Pseudo-module `core`** : le core (`@nodefony/core`) n'est pas dans `getModules()` → `resolveTarget(key)` mappe `key==="core"` vers `resolveCorePath()` (dev `<cwd>/src/nodefony`, fallback `import.meta.resolve("nodefony")`) + pkg `@nodefony/core`. `readCoreInfo()` lit `src/nodefony/package.json` (version/deps). L'endpoint `modules` injecte la carte core en tête. Front Studio inchangé.
 
 ## Route Registration Flow
 

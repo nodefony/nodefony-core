@@ -1,8 +1,13 @@
 import { observer } from "mobx-react-lite";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import dayjs from "dayjs";
 import {
+  ActionIcon,
   Alert,
+  Anchor,
   Badge,
   Box,
   Button,
@@ -11,6 +16,9 @@ import {
   Grid,
   Group,
   Loader,
+  Modal,
+  NavLink,
+  rem,
   ScrollArea,
   Stack,
   Table,
@@ -19,6 +27,8 @@ import {
   ThemeIcon,
   Title,
   Tooltip,
+  TypographyStylesProvider,
+  useMantineColorScheme,
 } from "@mantine/core";
 import {
   IconAppWindow,
@@ -30,6 +40,10 @@ import {
   IconSettings,
   IconAffiliate,
   IconAlertTriangle,
+  IconBook,
+  IconCode,
+  IconFileText,
+  IconMaximize,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 
@@ -52,6 +66,30 @@ interface RouteRow {
   module: string | null;
   bypassFirewall: boolean;
 }
+interface DocSummary {
+  slug: string;
+  title: string;
+  status: string | null;
+  since: string | null;
+  updated: string | null;
+  gitUpdated: string | null;
+  order: number;
+}
+interface DocContent {
+  slug: string;
+  frontmatter: Record<string, unknown>;
+  markdown: string;
+  gitUpdated: string | null;
+}
+interface ModuleSymbol {
+  name: string;
+  kind: string;
+  file: string;
+  description: string | null;
+  extends: string | null;
+  implements: string[];
+  decorators: string[];
+}
 
 const METHOD_COLORS: Record<string, string> = {
   GET: "teal",
@@ -63,11 +101,24 @@ const METHOD_COLORS: Record<string, string> = {
   ANY: "gray",
 };
 
+const STATUS_COLORS: Record<string, string> = {
+  stable: "teal",
+  draft: "gray",
+  deprecated: "red",
+};
+
+const KIND_COLORS: Record<string, string> = {
+  class: "orange",
+  interface: "blue",
+  function: "teal",
+  type: "grape",
+  enum: "yellow",
+};
+
 /**
  * ModuleDetail — page d'un module (route `/nodefony/modules/:name`).
- * Inspirée du détail legacy `Bundle.vue` (onglets infos / deps / routes /
- * config / services). Branchée sur le data plane réel : détail via
- * `/api/module/{key}`, routes via `/api/routes` filtré par module.
+ * Onglets affichés UNIQUEMENT s'ils ont du contenu (un pseudo-module comme
+ * `core` n'a ni Routes ni Config ni Services → ces onglets disparaissent).
  */
 export const ModuleDetail = observer(() => {
   const { name = "" } = useParams();
@@ -75,6 +126,8 @@ export const ModuleDetail = observer(() => {
   const store = useStore();
   const [data, setData] = useState<ModuleDetailData | null>(null);
   const [routes, setRoutes] = useState<RouteRow[]>([]);
+  const [docs, setDocs] = useState<DocSummary[]>([]);
+  const [symbols, setSymbols] = useState<ModuleSymbol[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -89,11 +142,25 @@ export const ModuleDetail = observer(() => {
       store.api
         .getAbsolute<RouteRow[]>("/nodefony/framework/api/routes")
         .catch(() => [] as RouteRow[]),
+      store.api
+        .getAbsolute<{ docs: DocSummary[] }>(
+          `/nodefony/kernel/api/module/${encodeURIComponent(name)}/docs`,
+        )
+        .then((r) => r.docs ?? [])
+        .catch(() => [] as DocSummary[]),
+      store.api
+        .getAbsolute<{ symbols: ModuleSymbol[] }>(
+          `/nodefony/kernel/api/module/${encodeURIComponent(name)}/symbols`,
+        )
+        .then((r) => r.symbols ?? [])
+        .catch(() => [] as ModuleSymbol[]),
     ])
-      .then(([d, allRoutes]) => {
+      .then(([d, allRoutes, docList, symList]) => {
         if (cancelled) return;
         setData(d);
         setRoutes(allRoutes.filter((r) => r.module === name));
+        setDocs(docList);
+        setSymbols(symList);
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -132,6 +199,13 @@ export const ModuleDetail = observer(() => {
     );
   }
 
+  const hasDocs = docs.length > 0;
+  const hasApi = symbols.length > 0;
+  const hasDeps = data.dependencies.length > 0;
+  const hasRoutes = routes.length > 0;
+  const hasServices = data.services.length > 0;
+  const hasConfig = !!data.config && Object.keys(data.config).length > 0;
+
   return (
     <Stack gap="md">
       <Button
@@ -163,37 +237,43 @@ export const ModuleDetail = observer(() => {
         </Stack>
       </Group>
 
-      {/* ── Card à onglets ── */}
+      {/* ── Card à onglets (seuls les onglets avec contenu sont affichés) ── */}
       <Card withBorder radius="md" p={0}>
-        <Tabs defaultValue="overview">
+        <Tabs defaultValue={hasDocs ? "docs" : "overview"}>
           <Tabs.List>
             <Tabs.Tab value="overview" leftSection={<IconInfoCircle size={16} />}>
               Vue d'ensemble
             </Tabs.Tab>
-            <Tabs.Tab
-              value="deps"
-              leftSection={<IconPackages size={16} />}
-              rightSection={<Badge size="xs" variant="light" color="gray">{data.dependencies.length}</Badge>}
-            >
-              Dépendances
-            </Tabs.Tab>
-            <Tabs.Tab
-              value="routes"
-              leftSection={<IconRoute size={16} />}
-              rightSection={<Badge size="xs" variant="light" color="gray">{routes.length}</Badge>}
-            >
-              Routes
-            </Tabs.Tab>
-            <Tabs.Tab
-              value="services"
-              leftSection={<IconAffiliate size={16} />}
-              rightSection={<Badge size="xs" variant="light" color="gray">{data.services.length}</Badge>}
-            >
-              Services
-            </Tabs.Tab>
-            <Tabs.Tab value="config" leftSection={<IconSettings size={16} />}>
-              Config
-            </Tabs.Tab>
+            {hasDocs && (
+              <Tabs.Tab value="docs" leftSection={<IconBook size={16} />} rightSection={<CountBadge n={docs.length} />}>
+                Docs
+              </Tabs.Tab>
+            )}
+            {hasApi && (
+              <Tabs.Tab value="api" leftSection={<IconCode size={16} />} rightSection={<CountBadge n={symbols.length} />}>
+                API
+              </Tabs.Tab>
+            )}
+            {hasDeps && (
+              <Tabs.Tab value="deps" leftSection={<IconPackages size={16} />} rightSection={<CountBadge n={data.dependencies.length} />}>
+                Dépendances
+              </Tabs.Tab>
+            )}
+            {hasRoutes && (
+              <Tabs.Tab value="routes" leftSection={<IconRoute size={16} />} rightSection={<CountBadge n={routes.length} />}>
+                Routes
+              </Tabs.Tab>
+            )}
+            {hasServices && (
+              <Tabs.Tab value="services" leftSection={<IconAffiliate size={16} />} rightSection={<CountBadge n={data.services.length} />}>
+                Services
+              </Tabs.Tab>
+            )}
+            {hasConfig && (
+              <Tabs.Tab value="config" leftSection={<IconSettings size={16} />}>
+                Config
+              </Tabs.Tab>
+            )}
           </Tabs.List>
 
           <Box p="lg">
@@ -209,19 +289,30 @@ export const ModuleDetail = observer(() => {
                 </Grid.Col>
                 <Grid.Col span={{ base: 12, sm: 6 }}>
                   <Stack gap={6}>
-                    <Field k="Dépendances" v={String(data.dependencies.length)} />
-                    <Field k="Routes" v={String(routes.length)} />
-                    <Field k="Services" v={String(data.services.length)} />
+                    {hasDeps && <Field k="Dépendances" v={String(data.dependencies.length)} />}
+                    {hasRoutes && <Field k="Routes" v={String(routes.length)} />}
+                    {hasServices && <Field k="Services" v={String(data.services.length)} />}
+                    {hasApi && <Field k="Symboles" v={String(symbols.length)} />}
                     <Field k="Chemin" v={data.path ?? "—"} mono />
                   </Stack>
                 </Grid.Col>
               </Grid>
             </Tabs.Panel>
 
-            <Tabs.Panel value="deps">
-              {data.dependencies.length === 0 ? (
-                <Text c="dimmed" size="sm">Aucune dépendance.</Text>
-              ) : (
+            {hasDocs && (
+              <Tabs.Panel value="docs">
+                <DocsPanel moduleKey={name} version={data.version} docs={docs} />
+              </Tabs.Panel>
+            )}
+
+            {hasApi && (
+              <Tabs.Panel value="api">
+                <ApiPanel symbols={symbols} />
+              </Tabs.Panel>
+            )}
+
+            {hasDeps && (
+              <Tabs.Panel value="deps">
                 <Group gap={8}>
                   {data.dependencies.map((d) => (
                     <Badge
@@ -234,13 +325,11 @@ export const ModuleDetail = observer(() => {
                     </Badge>
                   ))}
                 </Group>
-              )}
-            </Tabs.Panel>
+              </Tabs.Panel>
+            )}
 
-            <Tabs.Panel value="routes">
-              {routes.length === 0 ? (
-                <Text c="dimmed" size="sm">Ce module n'enregistre aucune route.</Text>
-              ) : (
+            {hasRoutes && (
+              <Tabs.Panel value="routes">
                 <Table.ScrollContainer minWidth={560}>
                   <Table striped highlightOnHover withRowBorders={false}>
                     <Table.Thead>
@@ -271,13 +360,11 @@ export const ModuleDetail = observer(() => {
                     </Table.Tbody>
                   </Table>
                 </Table.ScrollContainer>
-              )}
-            </Tabs.Panel>
+              </Tabs.Panel>
+            )}
 
-            <Tabs.Panel value="services">
-              {data.services.length === 0 ? (
-                <Text c="dimmed" size="sm">Ce module n'enregistre aucun service.</Text>
-              ) : (
+            {hasServices && (
+              <Tabs.Panel value="services">
                 <Table.ScrollContainer minWidth={420}>
                   <Table striped highlightOnHover withRowBorders={false}>
                     <Table.Thead>
@@ -289,35 +376,316 @@ export const ModuleDetail = observer(() => {
                     <Table.Tbody>
                       {data.services.map((s) => (
                         <Table.Tr key={s.name}>
-                          <Table.Td>
-                            <Code>{s.name}</Code>
-                          </Table.Td>
-                          <Table.Td>
-                            <Text size="xs" c="dimmed">{s.class ?? "—"}</Text>
-                          </Table.Td>
+                          <Table.Td><Code>{s.name}</Code></Table.Td>
+                          <Table.Td><Text size="xs" c="dimmed">{s.class ?? "—"}</Text></Table.Td>
                         </Table.Tr>
                       ))}
                     </Table.Tbody>
                   </Table>
                 </Table.ScrollContainer>
-              )}
-            </Tabs.Panel>
+              </Tabs.Panel>
+            )}
 
-            <Tabs.Panel value="config">
-              {!data.config || Object.keys(data.config).length === 0 ? (
-                <Text c="dimmed" size="sm">Aucune configuration.</Text>
-              ) : (
+            {hasConfig && (
+              <Tabs.Panel value="config">
                 <ScrollArea.Autosize mah={520}>
                   <Code block>{JSON.stringify(data.config, null, 2)}</Code>
                 </ScrollArea.Autosize>
-              )}
-            </Tabs.Panel>
+              </Tabs.Panel>
+            )}
           </Box>
         </Tabs>
       </Card>
     </Stack>
   );
 });
+
+/** Hauteur de lecture inline = viewport moins l'en-tête de page + onglets. */
+const READER_HEIGHT = "calc(100vh - 250px)";
+
+/**
+ * DocsPanel — lecture fluide de la doc colocalisée.
+ * Pleine hauteur (TOC + lecture occupent tout le viewport, scroll indépendant),
+ * largeur de lecture bornée (confort), typo soignée, liens internes `.md`
+ * cliquables, et **bouton plein écran** (schémas réseau/architecture en grand).
+ */
+function DocsPanel({
+  moduleKey,
+  version,
+  docs,
+}: {
+  moduleKey: string;
+  version: string | null;
+  docs: DocSummary[];
+}) {
+  const store = useStore();
+  const [active, setActive] = useState<string | null>(docs[0]?.slug ?? null);
+  const [content, setContent] = useState<DocContent | null>(null);
+  const [docLoading, setDocLoading] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    setDocLoading(true);
+    setDocError(null);
+    store.api
+      .getAbsolute<DocContent>(
+        `/nodefony/kernel/api/module/${encodeURIComponent(moduleKey)}/docs/${encodeURIComponent(active)}`,
+      )
+      .then((c) => {
+        if (!cancelled) setContent(c);
+      })
+      .catch((e) => {
+        if (!cancelled) setDocError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setDocLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store, moduleKey, active]);
+
+  const meta = docs.find((d) => d.slug === active);
+
+  // Composants markdown → primitives Mantine + liens internes `.md` cliquables
+  // + rendu Mermaid des blocks ```mermaid (vrais diagrammes vectoriels).
+  const mdComponents: Components = {
+    code({ className, children }) {
+      if (/\blanguage-mermaid\b/.test(className ?? "")) {
+        return <MermaidDiagram code={String(children ?? "").replace(/\n$/, "")} />;
+      }
+      return <code className={className}>{children}</code>;
+    },
+    a({ href, children }) {
+      const h = String(href ?? "");
+      const isExternal = /^https?:\/\//i.test(h);
+      const m = h.match(/^\.?\/?([a-z0-9._-]+)\.md(#.*)?$/i);
+      const slug = m?.[1];
+      if (slug && docs.some((d) => d.slug === slug)) {
+        return (
+          <Anchor
+            onClick={(e) => {
+              e.preventDefault();
+              setActive(slug);
+            }}
+            style={{ cursor: "pointer" }}
+          >
+            {children}
+          </Anchor>
+        );
+      }
+      return (
+        <Anchor href={h} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noreferrer" : undefined}>
+          {children}
+        </Anchor>
+      );
+    },
+  };
+
+  const toc = (
+    <>
+      <Text size="xs" c="dimmed" tt="uppercase" fw={700} mb={6} px="xs">
+        Sommaire
+      </Text>
+      <Stack gap={2}>
+        {docs.map((d) => (
+          <NavLink
+            key={d.slug}
+            active={d.slug === active}
+            label={d.title}
+            leftSection={<IconFileText size={16} />}
+            onClick={() => setActive(d.slug)}
+            styles={{ label: { fontSize: rem(13) } }}
+          />
+        ))}
+      </Stack>
+    </>
+  );
+
+  // Corps markdown — `full` élargit la colonne de lecture en plein écran.
+  const body = (full: boolean) =>
+    docLoading ? (
+      <Group justify="center" py="xl"><Loader size="sm" /></Group>
+    ) : docError ? (
+      <Alert color="red" icon={<IconAlertTriangle size={16} />}>{docError}</Alert>
+    ) : content ? (
+      <TypographyStylesProvider>
+        <Box style={{ maxWidth: rem(full ? 1100 : 820), fontSize: rem(15), lineHeight: 1.75 }}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+            {content.markdown}
+          </ReactMarkdown>
+        </Box>
+      </TypographyStylesProvider>
+    ) : null;
+
+  const header = (full: boolean) =>
+    meta && (
+      <Group gap="xs" mb="md" wrap="nowrap">
+        <Title order={3} style={{ flex: 1, minWidth: 0 }} lineClamp={1}>
+          {meta.title}
+        </Title>
+        {version && <Badge variant="default" size="sm">v{version}</Badge>}
+        {meta.status && (
+          <Badge size="sm" color={STATUS_COLORS[meta.status] ?? "gray"} variant="light">
+            {meta.status}
+          </Badge>
+        )}
+        {(content?.gitUpdated ?? meta.gitUpdated) && (
+          <Tooltip label="Dernier commit git de ce fichier (détecte la dérive doc↔code)">
+            <Text size="xs" c="dimmed">
+              maj {dayjs(content?.gitUpdated ?? meta.gitUpdated).format("YYYY-MM-DD")}
+            </Text>
+          </Tooltip>
+        )}
+        {!full && (
+          <Tooltip label="Plein écran (schémas)">
+            <ActionIcon variant="subtle" color="gray" onClick={() => setFullscreen(true)}>
+              <IconMaximize size={18} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+      </Group>
+    );
+
+  return (
+    <>
+      <Grid gutter="xl">
+        <Grid.Col span={{ base: 12, sm: 3 }}>
+          <ScrollArea h={READER_HEIGHT} type="hover">
+            {toc}
+          </ScrollArea>
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, sm: 9 }}>
+          {header(false)}
+          <ScrollArea h={READER_HEIGHT} type="auto" offsetScrollbars>
+            {body(false)}
+          </ScrollArea>
+        </Grid.Col>
+      </Grid>
+
+      <Modal
+        opened={fullscreen}
+        onClose={() => setFullscreen(false)}
+        fullScreen
+        radius={0}
+        title={meta?.title ?? "Documentation"}
+        styles={{ body: { height: "calc(100vh - 60px)" } }}
+      >
+        <Grid gutter="xl" h="100%">
+          <Grid.Col span={{ base: 12, sm: 3 }}>
+            <ScrollArea h="calc(100vh - 90px)" type="hover">
+              {toc}
+            </ScrollArea>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, sm: 9 }}>
+            <ScrollArea h="calc(100vh - 90px)" type="auto" offsetScrollbars>
+              {body(true)}
+            </ScrollArea>
+          </Grid.Col>
+        </Grid>
+      </Modal>
+    </>
+  );
+}
+
+/**
+ * MermaidDiagram — rend un block ```mermaid en SVG vectoriel.
+ * Mermaid est **chargé en lazy** (`import()` dynamique) → chunk séparé, tiré
+ * uniquement quand une doc contient un schéma. Thème suivi du colorScheme.
+ */
+function MermaidDiagram({ code }: { code: string }) {
+  const { colorScheme } = useMantineColorScheme();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const baseId = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const mermaid = (await import("mermaid")).default;
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: colorScheme === "light" ? "default" : "dark",
+          securityLevel: "strict",
+          fontFamily: "inherit",
+        });
+        const { svg } = await mermaid.render(`mermaid-${baseId}-${Date.now()}`, code);
+        if (!cancelled && containerRef.current) {
+          containerRef.current.innerHTML = svg;
+          setError(null);
+        }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, colorScheme, baseId]);
+
+  if (error) {
+    return (
+      <Alert color="orange" icon={<IconAlertTriangle size={16} />} title="Schéma Mermaid invalide" my="md">
+        <Code block>{code}</Code>
+        <Text size="xs" c="dimmed" mt="xs">{error}</Text>
+      </Alert>
+    );
+  }
+  return <Box ref={containerRef} my="md" style={{ overflowX: "auto", textAlign: "center" }} />;
+}
+
+/** ApiPanel — référence API auto (kind/nom/description) depuis `.ai/symbols.json`. */
+function ApiPanel({ symbols }: { symbols: ModuleSymbol[] }) {
+  return (
+    <Table.ScrollContainer minWidth={620}>
+      <Table striped highlightOnHover withRowBorders={false}>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th w={110}>Kind</Table.Th>
+            <Table.Th>Nom</Table.Th>
+            <Table.Th>Description</Table.Th>
+          </Table.Tr>
+        </Table.Thead>
+        <Table.Tbody>
+          {symbols.map((s) => (
+            <Table.Tr key={`${s.kind}:${s.name}`}>
+              <Table.Td>
+                <Badge size="xs" variant="light" color={KIND_COLORS[s.kind] ?? "gray"}>
+                  {s.kind}
+                </Badge>
+              </Table.Td>
+              <Table.Td>
+                <Code>{s.name}</Code>
+                {s.extends && (
+                  <Text span size="xs" c="dimmed" ml={6}>
+                    extends {s.extends}
+                  </Text>
+                )}
+              </Table.Td>
+              <Table.Td>
+                <Text size="xs" c={s.description ? undefined : "dimmed"}>
+                  {s.description ?? "—"}
+                </Text>
+              </Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Table.ScrollContainer>
+  );
+}
+
+function CountBadge({ n }: { n: number }) {
+  return (
+    <Badge size="xs" variant="light" color="gray">
+      {n}
+    </Badge>
+  );
+}
 
 function Field({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
   return (

@@ -13,23 +13,14 @@ last-updated: 2026-05-20
 
 ## Vue d'ensemble
 
-```
-   [Source TS avec décorateurs]
-        │
-        │ tsc + reflect-metadata
-        ▼
-   [Code compilé + métadonnées attachées]
-        │
-        │ Kernel.boot()
-        ▼
-   [Injector — résolution graphe]
-        │
-        ├─→ Détection cycles (Phase C — à venir)
-        ├─→ Tri topologique
-        └─→ Instanciation dans le Container
-              │
-              ▼
-        Application prête
+```mermaid
+flowchart TD
+  src["Source TS avec décorateurs"] -->|"tsc + reflect-metadata"| compiled["Code compilé + métadonnées attachées"]
+  compiled -->|"Kernel.boot()"| injector["Injector — résolution du graphe"]
+  injector --> cycles["Détection de cycles (Phase C — à venir)"]
+  injector --> topo["Tri topologique"]
+  injector --> inst["Instanciation dans le Container"]
+  inst --> app["Application prête"]
 ```
 
 ## Décorateurs disponibles

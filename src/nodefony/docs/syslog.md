@@ -13,33 +13,14 @@ last-updated: 2026-05-20
 
 ## Vue d'ensemble
 
-```
-   [Service.log(msg, "INFO")]
-            │
-            ▼
-   ┌─────────────────────┐
-   │  Pdu (creation)     │   ← Process Data Unit (1 log = 1 Pdu)
-   │  - severity: 6      │
-   │  - severityName     │
-   │  - payload          │
-   │  - timeStamp        │
-   │  - msgid            │
-   │  - moduleName       │
-   └──────────┬──────────┘
-              │
-              ▼
-   ┌─────────────────────┐
-   │  Syslog.log(pdu)    │
-   │                     │
-   │  1. push CircularBuf│   ← ring buffer O(1), taille fixe
-   │  2. test conditions │   ← filtres par severity/msgid/module
-   │  3. fire("onLog")   │   ← chaque transport branché ici
-   └─────────────────────┘
-              │
-   ┌──────────┴──────────────────────┐
-   ▼          ▼              ▼       ▼
-console    file        JSON       SSE Studio
-(stdout)   (logs/)    (Studio)   (Logs panel)
+```mermaid
+flowchart TD
+  call["Service.log(msg, 'INFO')"] --> pdu["Pdu (Process Data Unit · 1 log = 1 Pdu)<br/>severity · severityName · payload<br/>timeStamp · msgid · moduleName"]
+  pdu --> log["Syslog.log(pdu)<br/>1. push CircularBuffer (ring O(1))<br/>2. test conditions (severity/msgid/module)<br/>3. fire('onLog')"]
+  log --> console["console<br/>(stdout)"]
+  log --> file["file<br/>(logs/)"]
+  log --> json["JSON<br/>(Studio)"]
+  log --> sse["WS/SSE Studio<br/>(Logs panel)"]
 ```
 
 ## Composants

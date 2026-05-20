@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-20T13:03:31.529Z",
+  "generated": "2026-05-20T14:43:21.077Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 227,
-    "symbols": 530,
+    "files": 228,
+    "symbols": 546,
     "classes": 176,
-    "interfaces": 178,
+    "interfaces": 184,
     "types": 126,
     "enums": 1,
-    "functions": 40,
-    "constants": 9
+    "functions": 49,
+    "constants": 10
   },
   "symbols": {
     "Cli": {
@@ -1788,6 +1788,107 @@
         "IController"
       ],
       "decorators": []
+    },
+    "DocFrontmatter": {
+      "name": "DocFrontmatter",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Frontmatter d'un fichier de doc module. Tous les champs sont optionnels — un `.md` sans frontmatter reste lisible (titre dérivé du premier `# H1`). On accepte les alias historiques (`last-updated` …"
+    },
+    "DocSummary": {
+      "name": "DocSummary",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Entrée du sommaire docs d'un module (sans le corps markdown)."
+    },
+    "DocContent": {
+      "name": "DocContent",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Doc complète : frontmatter + corps markdown (frontmatter retiré)."
+    },
+    "ModuleSymbol": {
+      "name": "ModuleSymbol",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Symbole TS exporté d'un module, projeté depuis `.ai/symbols.json`."
+    },
+    "CoreInfo": {
+      "name": "CoreInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Descripteur du pseudo-module `core` pour la carte/détail Studio."
+    },
+    "parseFrontmatter": {
+      "name": "parseFrontmatter",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Parse un bloc frontmatter YAML minimaliste (clé: valeur scalaires). Volontairement sans dépendance (`gray-matter` etc.) : on ne gère que des scalaires `key: value` entre deux `---`. Les listes inli…"
+    },
+    "listModuleDocs": {
+      "name": "listModuleDocs",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Sommaire des docs d'un module : lit les `*.md` de `<modulePath>/docs/` (un niveau, non récursif), parse le frontmatter, trie par `order` puis slug."
+    },
+    "readModuleDoc": {
+      "name": "readModuleDoc",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Lit une doc module par slug : frontmatter + corps markdown brut. Le slug est borné (`SLUG_RE`) avant toute jointure de chemin → pas de path traversal vers l'extérieur de `<modulePath>/docs/`."
+    },
+    "listModuleSymbols": {
+      "name": "listModuleSymbols",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Symboles TS exportés d'un module + descriptions TSDoc, lus depuis `.ai/symbols.json` (à la racine du repo, `process.cwd()`). 100 % auto-généré (jamais de `.d.ts` manuel) → zéro divergence avec le c…"
+    },
+    "resolveCorePath": {
+      "name": "resolveCorePath",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Chemin disque racine du package core (`nodefony`). Le core n'est **pas** un module chargé (`kernel.getModules()` n'a pas de clé `core`) : c'est le socle de tous les autres. On résout donc son empla…"
+    },
+    "readCoreInfo": {
+      "name": "readCoreInfo",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Métadonnées du core pour Studio (carte + onglet Vue d'ensemble). `name` est forcé à `@nodefony/core` (cohérent avec `.ai/symbols.json` et le frontmatter `module:`), même si son `package.json` se no…"
+    },
+    "CORE_PACKAGE": {
+      "name": "CORE_PACKAGE",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Identité du package npm du core (`@nodefony/core`) tel qu'indexé dans `.ai/symbols.json` — le core est référencé sous ce nom logique, **pas** sous son nom npm réel (`nodefony`, héritage JS)."
     },
     "createFrameworkAdminApi": {
       "name": "createFrameworkAdminApi",
@@ -5689,6 +5790,24 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+      ],
+      "listModuleDocs": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "readModuleDoc": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "listModuleSymbols": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "resolveCorePath": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "readCoreInfo": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "CORE_PACKAGE": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"

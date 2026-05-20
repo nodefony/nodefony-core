@@ -424,7 +424,7 @@ npx nodefony certificates    # generate / renew SSL certificates
 - **[MIGRATION_STATUS.md](./MIGRATION_STATUS.md)** — live roadmap, per-task progress, dependency graph.
 - **[BUG_REPORT.md](./BUG_REPORT.md)** — known structural bugs awaiting fixes.
 - Per-module `CLAUDE.md` and `MEMORY.md` under each `src/packages/@nodefony/*/` — internals, gotchas, public API.
-- `docs/architecture/` — architectural deep-dives (when stabilised).
+- Per-module `docs/` (e.g. `src/nodefony/docs/`) — architectural deep-dives, colocated and surfaced in Studio (ADR-0001). Cross-module guides/audits live under root `docs/`.
 
 ---
 

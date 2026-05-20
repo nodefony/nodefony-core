@@ -81,7 +81,7 @@ export type ProtoParameters = { (): void; [key: string]: any };
  * const logger = c.get<LoggerService>("logger");
  * ```
  *
- * See `docs/architecture/container.md` for the high-level rationale and the
+ * See `src/nodefony/docs/container.md` for the high-level rationale and the
  * scope model used by the HTTP/WS request pipeline.
  */
 class Container implements IContainer {

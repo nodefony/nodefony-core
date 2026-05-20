@@ -118,8 +118,9 @@ Toute classe/interface/méthode publique migrée en TypeScript **doit** porter u
 | Quand                                | Action                                                                        |
 | ------------------------------------ | ----------------------------------------------------------------------------- |
 | Migration TS d'un fichier            | Ajouter TSDoc sur classe + méthodes publiques (au minimum première phrase)    |
-| Nouveau module ou refonte d'API      | Créer/mettre à jour `docs/packages/<name>.md`                                 |
-| Nouveau concept transverse           | Créer `docs/architecture/<concept>.md`                                        |
+| Nouveau module ou refonte d'API      | Créer/mettre à jour `<module>/docs/index.md` (colocalisé, ADR-0001 — surfacé dans Studio) |
+| Concept d'un module précis           | `<module>/docs/<concept>.md` (ex core → `src/nodefony/docs/`)                  |
+| Concept **transverse** multi-module  | `docs/guides/` / `docs/architecture/` (racine)                                |
 | Nouvelle façon d'utiliser le framework | Créer `docs/guides/<sujet>.md`                                              |
 | Renommage / changement d'API public  | Mettre à jour la doc dans la même PR — sinon `status: obsolete` dans le frontmatter |
 

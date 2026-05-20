@@ -13,25 +13,12 @@ last-updated: 2026-05-20
 
 ## Vue d'ensemble
 
-```
-┌────────────────────────────────────────────────────┐
-│                     Service                        │
-│  ┌──────────────────────────────────────────────┐  │
-│  │   container: Container | null                │  │  ← DI delegation
-│  │   .get<T>(name) / .set / .has / .remove     │  │
-│  │   .getParameters / .setParameters           │  │
-│  └──────────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────────┐  │
-│  │   #nc: Event | undefined  (notifications)    │  │  ← EventEmitter delegation
-│  │   .on / .once / .off / .emit / .fire        │  │
-│  │   .fireAsync / .listen / .settingsToListen  │  │
-│  └──────────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────────┐  │
-│  │   syslog: Syslog | null                      │  │  ← Logging structuré
-│  │   .log(msg, severity, msgid?, payload?)     │  │
-│  │   → Pdu instance                             │  │
-│  └──────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+  Service["Service<br/>(classe de base)"]
+  Service --> DI["DI delegation<br/>container: Container | null<br/>get / set / has / remove<br/>getParameters / setParameters"]
+  Service --> EV["Events delegation<br/>#nc: Event<br/>on / once / off / emit<br/>fire / fireAsync / listen"]
+  Service --> LOG["Logging<br/>syslog: Syslog | null<br/>log(msg, severity, msgid?, payload?)<br/>→ Pdu"]
 ```
 
 ## Constructeur

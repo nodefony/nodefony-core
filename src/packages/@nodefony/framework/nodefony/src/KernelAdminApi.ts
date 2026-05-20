@@ -1,4 +1,15 @@
 import type { IKernel, IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
+import {
+  listModuleDocs,
+  readModuleDoc,
+  listModuleSymbols,
+  resolveCorePath,
+  readCoreInfo,
+  CORE_PACKAGE,
+} from "./docsReader";
+
+/** Clé du pseudo-module core dans Studio (cf carte "Core" / `resolveCorePath`). */
+const CORE_KEY = "core";
 
 /**
  * Sérialisation défensive de config : borne la profondeur, neutralise les
@@ -52,6 +63,15 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
     order: 0,
   };
 
+  // Résout chemin disque + nom de package d'une cible : module chargé OU le
+  // pseudo-module `core` (socle, absent de `getModules()`). `null` = inconnue.
+  const resolveTarget = (key: string): { path: string; pkg: string } | null => {
+    if (key === CORE_KEY) return { path: resolveCorePath(), pkg: CORE_PACKAGE };
+    const mod = kernel.getModules()[key];
+    if (!mod) return null;
+    return { path: mod.path, pkg: mod.getModuleName?.() ?? key };
+  };
+
   const endpoints: IAdminEndpoint[] = [
     {
       path: "health",
@@ -80,19 +100,32 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
     },
     {
       path: "modules",
-      summary: "Loaded modules with their versions",
-      handler: () => {
+      summary: "Loaded modules with their versions (+ core pseudo-module)",
+      handler: async () => {
         const modules = kernel.getModules();
-        return Object.keys(modules).map((name) => {
+        // Le core (`@nodefony/core`) n'est pas un module chargé : on l'injecte
+        // en tête comme pseudo-module pour qu'il ait sa carte dans Studio.
+        const core = await readCoreInfo();
+        const list: Array<Record<string, unknown>> = [
+          {
+            key: CORE_KEY,
+            name: core.name,
+            version: core.version,
+            isApp: false,
+            path: core.path,
+          },
+        ];
+        for (const name of Object.keys(modules)) {
           const mod = modules[name];
-          return {
+          list.push({
             key: name,
             name: mod.getModuleName?.() ?? name,
             version: mod.getModuleVersion?.() ?? null,
             isApp: mod.isApp ?? false,
             path: mod.path ?? null,
-          };
-        });
+          });
+        }
+        return list;
       },
     },
     {
@@ -100,9 +133,23 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       // de params (`request.params.name`). `{name}` = mono-segment → utiliser la
       // clé courte du module (`http`, `framework`), pas `@nodefony/http` (slash).
       path: "module/{name}",
-      summary: "Detail of one loaded module by key (e.g. http, framework)",
-      handler: (request) => {
+      summary: "Detail of one module by key (http, framework, … or core)",
+      handler: async (request) => {
         const key = request.params.name;
+        // Pseudo-module core : socle sans services/config/routes propres.
+        if (key === CORE_KEY) {
+          const core = await readCoreInfo();
+          return {
+            key: CORE_KEY,
+            name: core.name,
+            version: core.version,
+            isApp: false,
+            path: core.path,
+            dependencies: core.dependencies,
+            services: [],
+            config: {},
+          };
+        }
         const mod = kernel.getModules()[key];
         if (!mod) {
           // Enveloppe IAdminResponse : `status` présent → reconnue par le broker.
@@ -129,6 +176,58 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           dependencies: mod.getDependencies?.() ?? [],
           services,
           config: safeConfig(mod.options ?? {}),
+        };
+      },
+    },
+    {
+      // Sommaire des docs colocalisées au module (`<modulePath>/docs/*.md`).
+      // Emplacement HYBRIDE (cf ADR-0001) : la prose vit dans le module ; ce
+      // producteur kernel l'expose de façon cross-module pour Studio.
+      path: "module/{name}/docs",
+      summary: "Documentation index of one module (markdown in <module>/docs)",
+      handler: async (request) => {
+        const key = request.params.name;
+        const target = resolveTarget(key);
+        if (!target) {
+          return { status: 404, body: { error: "Module not found", key } };
+        }
+        return { key, docs: await listModuleDocs(target.path) };
+      },
+    },
+    {
+      // Markdown brut d'une doc + frontmatter + fraîcheur git (dérive doc↔code).
+      path: "module/{name}/docs/{slug}",
+      summary: "Raw markdown of one module doc by slug",
+      handler: async (request) => {
+        const key = request.params.name;
+        const target = resolveTarget(key);
+        if (!target) {
+          return { status: 404, body: { error: "Module not found", key } };
+        }
+        const doc = await readModuleDoc(target.path, request.params.slug);
+        if (!doc) {
+          return {
+            status: 404,
+            body: { error: "Doc not found", key, slug: request.params.slug },
+          };
+        }
+        return doc;
+      },
+    },
+    {
+      // Référence API auto depuis `.ai/symbols.json` (jamais de .d.ts manuel).
+      path: "module/{name}/symbols",
+      summary: "Exported TS symbols + TSDoc descriptions (.ai/symbols.json)",
+      handler: async (request) => {
+        const key = request.params.name;
+        const target = resolveTarget(key);
+        if (!target) {
+          return { status: 404, body: { error: "Module not found", key } };
+        }
+        return {
+          key,
+          package: target.pkg,
+          symbols: await listModuleSymbols(target.pkg),
         };
       },
     },
