@@ -20,6 +20,7 @@ import { Chat } from "./routes/Chat";
 import { Logs } from "./routes/Logs";
 import { System } from "./routes/System";
 import { Modules } from "./routes/Modules";
+import { ModuleDetail } from "./routes/ModuleDetail";
 import {
   Sessions,
   Users,
@@ -66,6 +67,7 @@ const router = createBrowserRouter([
           { path: "migrate", element: <Migrate /> },
           { path: "services", element: <Services /> },
           { path: "modules", element: <Modules /> },
+          { path: "modules/:name", element: <ModuleDetail /> },
           { path: "npm", element: <Npm /> },
           { path: "pm2", element: <Pm2 /> },
           { path: "profiling", element: <Profiling /> },

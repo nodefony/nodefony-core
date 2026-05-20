@@ -1,5 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Badge,
@@ -48,6 +49,7 @@ const DEP_PREVIEW = 6;
  */
 export const Modules = observer(() => {
   const store = useStore();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<ModuleRow[]>([]);
   const [details, setDetails] = useState<Record<string, ModuleDetail>>({});
   const [loading, setLoading] = useState(false);
@@ -135,7 +137,11 @@ export const Modules = observer(() => {
             ))
           : filtered.map((m) => (
               <Grid.Col key={m.key} span={{ base: 12, sm: 6, lg: 4 }}>
-                <ModuleCard m={m} detail={details[m.key]} />
+                <ModuleCard
+                  m={m}
+                  detail={details[m.key]}
+                  onOpen={() => navigate(`/nodefony/modules/${encodeURIComponent(m.key)}`)}
+                />
               </Grid.Col>
             ))}
       </Grid>
@@ -149,7 +155,15 @@ export const Modules = observer(() => {
   );
 });
 
-function ModuleCard({ m, detail }: { m: ModuleRow; detail?: ModuleDetail }) {
+function ModuleCard({
+  m,
+  detail,
+  onOpen,
+}: {
+  m: ModuleRow;
+  detail?: ModuleDetail;
+  onOpen: () => void;
+}) {
   const deps = detail?.dependencies ?? [];
   const shown = deps.slice(0, DEP_PREVIEW);
   const rest = deps.length - shown.length;
@@ -160,7 +174,26 @@ function ModuleCard({ m, detail }: { m: ModuleRow; detail?: ModuleDetail }) {
       radius="md"
       padding="md"
       h="100%"
-      style={{ display: "flex", flexDirection: "column" }}
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen();
+      }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        cursor: "pointer",
+        transition: "border-color 120ms ease, transform 120ms ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "var(--mantine-color-orange-5)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "";
+        e.currentTarget.style.transform = "";
+      }}
     >
       <Card.Section
         withBorder
