@@ -104,4 +104,18 @@ describe("LOAD — ALS WebSocket lifecycle", function () {
     await wait(200);
     expect((await scopes()) - before, "error path must release every scope").to.be.below(5);
   });
+
+  it("BUG-004 — 300 session-bearing WS closed at handshake leak zero scope", async () => {
+    const before = await scopes();
+    for (let i = 0; i < 300; i++) {
+      await new Promise<void>((resolve, reject) => {
+        const ws = new WebSocket(`${WSS}/nodefony/test/ws`, wsOpts);
+        ws.once("open", () => ws.close());
+        ws.once("close", () => resolve());
+        ws.once("error", reject);
+      });
+    }
+    await wait(300);
+    expect((await scopes()) - before, "session WS teardown must release every scope").to.be.below(5);
+  });
 });

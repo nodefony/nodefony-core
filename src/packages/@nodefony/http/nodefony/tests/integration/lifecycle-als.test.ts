@@ -74,6 +74,16 @@ function badWs(path: string): Promise<void> {
   });
 }
 
+/** Open a session-bearing WS (/ws does startSession) and close at handshake. */
+function openCloseSessionWs(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(`${WSS}/nodefony/test/ws`, wsOpts);
+    ws.once("open", () => ws.close());
+    ws.once("close", () => resolve());
+    ws.once("error", reject);
+  });
+}
+
 const liveScopes = async () =>
   (await get("/nodefony/test/als-test/scopes")).requestScopes as number;
 
@@ -116,5 +126,14 @@ describe("Context lifecycle — ALS tear-down (BUG-001/002)", function () {
     for (let i = 0; i < 10; i++) await cycleWsAfter();
     await wait(120);
     expect((await liveScopes()) - before).to.be.below(3);
+  });
+
+  it("BUG-004 — session-bearing WS closed at handshake (no message) leaks no scope", async () => {
+    // /ws calls startSession() in initialize. Closing before any message used
+    // to strand the scope on a never-fired once("onSaveSession").
+    const before = await liveScopes();
+    for (let i = 0; i < 20; i++) await openCloseSessionWs();
+    await wait(200);
+    expect((await liveScopes()) - before, "session WS teardown must release scope").to.be.below(3);
   });
 });

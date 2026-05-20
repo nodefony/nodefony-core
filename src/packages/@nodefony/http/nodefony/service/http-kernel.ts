@@ -748,23 +748,22 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // WS closed — abort signal (no-op if nobody read context.signal).
       context._abortIfPending("WebSocket closed");
       await context._runAfterResponse();
-      if (context.session) {
-        if (context.session.saved) {
-          this.container?.leaveScope(wscontext.container);
-          context.clean();
-          context.finished = true;
-        } else {
-          context.once("onSaveSession", () => {
-            this.container?.leaveScope(wscontext.container);
-            context.clean();
-            context.finished = true;
-          });
+      // BUG-004 — persist the session if needed, then ALWAYS release the scope.
+      // The previous code waited on a one-shot `onSaveSession` event, but for a
+      // connection closing around the handshake that event is emitted (or lost)
+      // before this handler subscribes → the listener never fires → the scope
+      // leaks. Awaiting saveSession() is deterministic and preserves the
+      // "persist before teardown" intent without depending on event ordering.
+      if (context.session && !context.session.saved) {
+        try {
+          await context.saveSession();
+        } catch (e) {
+          this.log(e, "ERROR", "WS onFinish saveSession");
         }
-      } else {
-        this.container?.leaveScope(wscontext.container);
-        context.clean();
-        context.finished = true;
       }
+      this.container?.leaveScope(wscontext.container);
+      context.clean();
+      context.finished = true;
     });
     return context;
   }

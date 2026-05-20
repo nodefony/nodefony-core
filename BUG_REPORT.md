@@ -9,7 +9,7 @@ Bugs structurels. Triés par criticité.
 | BUG-001 | ALS WS messages hors bulle | ✅ RÉSOLU |
 | BUG-002 | ALS perdu dans `onAfterResponse` | ✅ RÉSOLU |
 | BUG-003 | Leak scope DI sur erreur WS avant `connect()` | ✅ RÉSOLU |
-| BUG-004 | Leak scope DI sur WS **avec session** fermé au handshake | 🚨 OUVERT |
+| BUG-004 | Leak scope DI sur WS **avec session** fermé au handshake | ✅ RÉSOLU |
 
 ## Audit exhaustif listeners EventEmitter @nodefony/http (2026-05-20)
 
@@ -350,11 +350,11 @@ Chemin valide → reste à 1. (HTTP est sûr : listeners `finish`/`close` attach
 
 ---
 
-## 🚨 BUG-004 — Leak scope DI sur WS avec session fermé au handshake (OUVERT)
+## ✅ BUG-004 — Leak scope DI sur WS avec session fermé au handshake (RÉSOLU 2026-05-20)
 
 **Découvert** : 2026-05-20 (suite BUG-003)
 **Sévérité** : leak mémoire (chemin courant : tout WS qui `startSession()` et se ferme vite)
-**Statut** : 🚨 **OUVERT** — pré-existant, indépendant de BUG-001/002/003 (ne touche pas le code modifié)
+**Statut** : ✅ **RÉSOLU 2026-05-20** — pré-existant, indépendant de BUG-001/002/003
 
 ### Description
 
@@ -380,15 +380,31 @@ appelés → scope retenu.
 retenus (stable). Les routes WS **sans** session (`/als-test/*`) → 0 leak. La route `/echo` (avec
 message) → 0 leak (re-save côté message remet `saved=true` au bon moment).
 
-### Fix proposé (à valider en session dédiée)
+Instrumentation `onFinish` (3 connexions) : `session=true saved=false` → `register once onSaveSession`
+→ le listener `LATE fired` **n'apparaît jamais** = event mort, scope retenu.
 
-Ne pas dépendre d'un event one-shot potentiellement déjà émis. Options :
-- Dans le `else`, re-tester `session.saved` au prochain microtask et nettoyer inconditionnellement
-  après un `await context.saveSession()` dans `onFinish` ; OU
-- Garde idempotent + timeout de sécurité ; OU
-- Repenser l'ordre save↔teardown (le save handshake ne devrait pas court-circuiter le cleanup close).
+### Fix appliqué
 
-Sujet **cycle de vie session** (Phase P2.x) — mérite sa propre session, pas un patch à la volée.
+`http-kernel.ts` (`createWebsocketContext` → handler `onFinish`) : suppression du
+`once("onSaveSession")`. À la place, persistance déterministe puis cleanup **inconditionnel** :
+
+```ts
+if (context.session && !context.session.saved) {
+  try { await context.saveSession(); }
+  catch (e) { this.log(e, "ERROR", "WS onFinish saveSession"); }
+}
+this.container?.leaveScope(wscontext.container);
+context.clean();
+context.finished = true;
+```
+
+Préserve l'intention "persister avant teardown" sans dépendre de l'ordre d'émission d'un event.
+
+### Tests
+
+- `tests/integration/lifecycle-als.test.ts` : 20 WS session open/close → delta scopes < 3.
+- `tests/load/als-load.test.ts` : 300 WS session → delta scopes < 5. Suite load 12/0, memory gate OK.
+- Preuve runtime : 100 WS session open/close → reste à 1 (avant : 100).
 
 ### Liens
 
