@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-20T12:04:30.383Z",
+  "generated": "2026-05-20T12:08:08.168Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -4923,7 +4923,8 @@
       "IAdminBroker": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts"
       ],
       "Router": [
         "src/packages/@nodefony/framework/index.ts",

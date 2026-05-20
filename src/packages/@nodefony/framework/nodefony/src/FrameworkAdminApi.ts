@@ -1,6 +1,7 @@
 import type { IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
 import Router from "../service/router";
 import type Route from "./Route";
+import type { IAdminBroker } from "../interfaces/IAdminBroker";
 
 /**
  * Producteur `IAdminApi` du module **framework** — exposé sous
@@ -16,10 +17,15 @@ import type Route from "./Route";
  * Endpoints :
  *  - `GET /nodefony/framework/api/routes` → toutes les routes enregistrées
  *  - `GET /nodefony/framework/api/info`   → résumé (nb routes, méthodes, modules)
+ *  - `GET /nodefony/framework/api/admin`  → **catalogue** du data plane admin
+ *    (tous les producteurs + descriptors + endpoints) — pièce « discovery »
+ *    de P10.2 que Studio lit pour générer sa navigation admin.
  *
+ * @param broker - le broker admin (pour le catalogue). Optionnel : sans lui,
+ *   `admin` renvoie une liste vide.
  * @returns le contrat admin de framework, prêt à `broker.register()`.
  */
-export function createFrameworkAdminApi(): IAdminApi {
+export function createFrameworkAdminApi(broker?: IAdminBroker): IAdminApi {
   /** Normalise `requirements.methods` (string | string[]) → tableau majuscule. */
   const methodsOf = (route: Route): string[] => {
     const m = route.requirements?.methods ?? route.method;
@@ -72,6 +78,50 @@ export function createFrameworkAdminApi(): IAdminApi {
           methods: [...methods].sort(),
           modules: [...modules].sort(),
         };
+      },
+    },
+    {
+      // Catalogue du data plane admin (discovery P10.2). Construit à la volée
+      // depuis broker.list() (descriptors) + broker.routes() (routes montées,
+      // chemins absolus + rôles). Source de la nav admin de Studio.
+      path: "admin",
+      summary: "Admin data plane catalog — producers, descriptors, endpoints",
+      handler: () => {
+        if (!broker) return { producers: [] };
+        const descByNs = new Map(
+          broker.list().map((p) => [p.adminNamespace, p.adminDescriptor()]),
+        );
+        const byNs = new Map<
+          string,
+          { method: string; path: string; role: string; summary: string | null }[]
+        >();
+        for (const r of broker.routes()) {
+          let arr = byNs.get(r.namespace);
+          if (!arr) {
+            arr = [];
+            byNs.set(r.namespace, arr);
+          }
+          arr.push({
+            method: r.method,
+            path: r.path,
+            role: r.role,
+            summary: r.endpoint.summary ?? null,
+          });
+        }
+        const producers = [...byNs.keys()]
+          .map((ns) => {
+            const d = descByNs.get(ns);
+            return {
+              namespace: ns,
+              label: d?.label ?? ns,
+              icon: d?.icon ?? null,
+              order: d?.order ?? 99,
+              role: d?.role ?? null,
+              endpoints: byNs.get(ns)!,
+            };
+          })
+          .sort((a, b) => a.order - b.order);
+        return { producers };
       },
     },
   ];

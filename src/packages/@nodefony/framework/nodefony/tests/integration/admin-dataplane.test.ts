@@ -140,6 +140,23 @@ describe("Admin data plane — framework", function () {
     expect(r.status).to.equal(200);
     expect((r.body as Record<string, unknown>).routesTotal).to.be.a("number");
   });
+
+  it("GET /nodefony/framework/api/admin → catalogue des 4 producteurs", async () => {
+    const r = await req("GET", "/nodefony/framework/api/admin");
+    expect(r.status).to.equal(200);
+    const producers = (r.body as { producers: Array<Record<string, unknown>> }).producers;
+    const namespaces = producers.map((p) => p.namespace);
+    expect(namespaces).to.include.members(["kernel", "http", "framework", "syslog"]);
+    // descriptors + endpoints exploitables par la nav Studio
+    const kernel = producers.find((p) => p.namespace === "kernel")!;
+    expect(kernel.label).to.equal("Kernel");
+    expect(kernel.endpoints).to.be.an("array");
+    const eps = kernel.endpoints as Array<Record<string, unknown>>;
+    expect(eps.some((e) => e.path === "/nodefony/kernel/api/health")).to.be.true;
+    // ordonné par descriptor.order croissant
+    const orders = producers.map((p) => p.order as number);
+    expect(orders).to.deep.equal([...orders].sort((a, b) => a - b));
+  });
 });
 
 // ── syslog ───────────────────────────────────────────────────────────────────

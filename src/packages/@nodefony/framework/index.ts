@@ -56,7 +56,7 @@ class Framework extends Module {
         broker.register(createKernelAdminApi(this.kernel));
       }
       if (!broker.has("framework")) {
-        broker.register(createFrameworkAdminApi());
+        broker.register(createFrameworkAdminApi(broker));
       }
       if (this.kernel.syslog && !broker.has("syslog")) {
         broker.register(createSyslogAdminApi(this.kernel.syslog));

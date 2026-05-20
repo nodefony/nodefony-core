@@ -52,7 +52,7 @@ Contrat d'exposition admin pour Studio. **Inversion de dépendance** : contrat p
 
 **Producteurs migrés ✅** (runtime 2026-05-20) :
 - **kernel** : `GET /nodefony/kernel/api/{health,info,modules}` — `createKernelAdminApi(kernel)` (le kernel ne peut pas s'auto-enregistrer → framework le wrappe).
-- **framework** : `GET /nodefony/framework/api/{routes,info}` — `createFrameworkAdminApi()` dump `Router.routes` (équivalent web `router:dump`, source vue Routes Studio P10.8). Le framework héberge le broker → register direct dans `onKernelReady` avant `mountAll`.
+- **framework** : `GET /nodefony/framework/api/{routes,info,admin}` — `createFrameworkAdminApi(broker)`. `routes` = dump `Router.routes` ; `admin` = **catalogue discovery P10.2** (tous les producteurs + descriptors + endpoints, ordonné par `descriptor.order`) → source de la nav admin Studio. Le framework héberge le broker → register direct dans `onKernelReady` avant `mountAll`.
 - **http** : `GET /nodefony/http/api/{servers,info}` (cf http MEMORY.md).
 - **syslog** : `GET /nodefony/syslog/api/{logs,info}` — `createSyslogAdminApi(kernel.syslog)` lit `ISyslog.ringStack` (FIFO). `logs` supporte `?severity=ERROR&limit=N`. Wrappé par framework (syslog est dans le core).
 - **+ endpoint paramétré témoin** : `GET /nodefony/kernel/api/module/{name}` (détail module — exerce la regexp `{x}`).
@@ -172,8 +172,8 @@ export { graphql };
 | Controller intégration | `integration/controller.test.ts` | 23 | renderJson, @HttpCode, @Header, redirect(), @Redirect, errors, queryGet, method constraints, context, session |
 | @Param/@Body/@Query intégration | `http/decorators.test.ts` | 10 | @Param clé unique/multiple/sans clé, @Query avec/sans, @Body complet/champ/absent, combinés |
 | **AdminBroker** | `unit/AdminBroker.test.ts` | 10 | register/dup throw/has/getApi/list/unregister, resolvePath, mountAll (routes+resolve O(1)+idempotent), register-after-mount throw |
-| **Admin data plane** | `integration/admin-dataplane.test.ts` | 14 | kernel/http/framework/syslog endpoints, **param `{name}` (regexp)**, **404 enveloppe**, **non double-wrap**, header x-nodefony-instance, 405 |
-| **TOTAL** | | **136** | **92 unit + 44 intégration** (server requis pour intégration) |
+| **Admin data plane** | `integration/admin-dataplane.test.ts` | 15 | kernel/http/framework/syslog endpoints, **catalogue `/framework/api/admin`**, **param `{name}` (regexp)**, **404 enveloppe**, **non double-wrap**, header x-nodefony-instance, 405 |
+| **TOTAL** | | **137** | **92 unit + 45 intégration** (server requis pour intégration) |
 
 Lancer : `npm test` (unit) — `npm run test:integration` (unit + intégration, serveur requis 5151/5152). Tests admin = régression des 2 bugs trouvés (params/enveloppe).
 
