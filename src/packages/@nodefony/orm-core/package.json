@@ -1,0 +1,62 @@
+{
+  "name": "@nodefony/orm-core",
+  "version": "10.0.0",
+  "description": "Nodefony ORM Core — interfaces, registry & base classes for multi-ORM support",
+  "contributors": [],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "rimraf dist && npm run rollup",
+    "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
+    "dev": "rimraf dist && npm run rollup -- --watch",
+    "clean": "rimraf dist",
+    "test": "node -e \"console.log('test')\""
+  },
+  "private": false,
+  "keywords": [
+    "nodefony",
+    "typescript",
+    "orm",
+    "multi-orm"
+  ],
+  "peerDependencies": {
+    "nodefony": "*"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "29.0.2",
+    "@rollup/plugin-json": "6.1.0",
+    "@rollup/plugin-node-resolve": "16.0.3",
+    "@rollup/plugin-replace": "6.0.3",
+    "@rollup/plugin-terser": "1.0.0",
+    "@rollup/plugin-typescript": "12.3.0",
+    "@types/node": "25.7.0",
+    "@typescript-eslint/eslint-plugin": "8.59.3",
+    "@typescript-eslint/parser": "8.59.3",
+    "glob": "11.0.3",
+    "rimraf": "6.1.3",
+    "rollup": "4.60.3",
+    "typescript": "6.0.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/nodefony/nodefony.git",
+    "directory": "src/packages/@nodefony/orm-core"
+  },
+  "license": "CECILL-B",
+  "licenses": [
+    {
+      "type": "CECILL-B",
+      "url": "http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html"
+    }
+  ],
+  "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
+  "readmeFilename": "README.md"
+}

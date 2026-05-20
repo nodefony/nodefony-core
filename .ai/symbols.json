@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-20T22:08:02.361Z",
+  "generated": "2026-05-20T22:56:46.132Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 236,
-    "symbols": 567,
+    "files": 242,
+    "symbols": 573,
     "classes": 180,
-    "interfaces": 191,
-    "types": 126,
+    "interfaces": 196,
+    "types": 127,
     "enums": 1,
     "functions": 59,
     "constants": 10
@@ -3187,6 +3187,59 @@
       "implements": [],
       "decorators": []
     },
+    "IEntityRelation": {
+      "name": "IEntityRelation",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IEntity.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Relation déclarative entre deux entités, indépendante du driver ORM."
+    },
+    "IEntity": {
+      "name": "IEntity",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IEntity.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Description d'une entité enregistrée dans le registre cross-ORM. Une même entité logique (ex. `User`) peut exister pour plusieurs ORM : `orm` désigne l'ORM cible et `schema`/`model` portent la défi…"
+    },
+    "IOrm": {
+      "name": "IOrm",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Contrat d'une instance ORM gérée par le framework (une par connexion logique). Implémenté par chaque adapter (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefony/drizzle`...) et enregistré dans…"
+    },
+    "IRepository": {
+      "name": "IRepository",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Contrat CRUD minimal exposé par un repository, indépendant de l'ORM sous-jacent. Un repository est obtenu via `IOrm.getRepository(name)` et manipule des entités de type `T`. Les sémantiques fines (…"
+    },
+    "OrmCriteria": {
+      "name": "OrmCriteria",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Critère de filtre passé aux opérations de lecture/écriture d'un repository. Volontairement abstrait (`Record<string, unknown>`) : chaque adapter ORM traduit ce critère dans sa syntaxe native (claus…"
+    },
+    "ITransaction": {
+      "name": "ITransaction",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/ITransaction.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Unité de travail transactionnelle abstraite (commit / rollback / savepoint). Obtenue dans le callback de `IOrm.transaction()`. Les transactions cross-ORM (2PC) ne sont PAS garanties : une transacti…"
+    },
     "FixedChunker": {
       "name": "FixedChunker",
       "kind": "class",
@@ -6267,6 +6320,12 @@
       ],
       "Mongoose": [
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+      ],
+      "IRepository": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts"
+      ],
+      "ITransaction": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts"
       ],
       "IChunker": [
         "src/packages/@nodefony/rag/src/chunking/FixedChunker.ts",
