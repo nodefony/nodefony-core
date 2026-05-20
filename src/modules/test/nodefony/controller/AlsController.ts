@@ -19,6 +19,9 @@ export const alsTestState = {
   // BUG-002 WS — requestId seen by a WS after-response hook on close.
   wsHookRequestId: null as string | null,
   wsHookHandshakeId: null as string | null,
+  // Lifecycle — how many times the WS after-hook fired (must be 1 per
+  // connection: proves the onFinish tear-down is deduplicated).
+  wsHookFireCount: 0,
   hookCount: 0,
 };
 
@@ -84,6 +87,7 @@ class AlsController extends Controller {
       lateHookRequestId: alsTestState.lateHookRequestId,
       wsHookRequestId: alsTestState.wsHookRequestId,
       wsHookHandshakeId: alsTestState.wsHookHandshakeId,
+      wsHookFireCount: alsTestState.wsHookFireCount,
       hookCount: alsTestState.hookCount,
     });
   }
@@ -96,6 +100,7 @@ class AlsController extends Controller {
     alsTestState.lateHookRequestId = null;
     alsTestState.wsHookRequestId = null;
     alsTestState.wsHookHandshakeId = null;
+    alsTestState.wsHookFireCount = 0;
     alsTestState.hookCount = 0;
     return this.renderJson({ ok: true });
   }
@@ -135,6 +140,7 @@ class AlsController extends Controller {
       this.context?.onAfterResponse(() => {
         alsTestState.wsHookRequestId = RequestContext.getRequestId() ?? null;
         alsTestState.wsHookHandshakeId = handshakeId;
+        alsTestState.wsHookFireCount++;
       });
       return this.renderJson({ handshake: true, requestId: handshakeId });
     }
