@@ -216,9 +216,12 @@ const EndpointRow = observer(({ ep }: { ep: AdminEndpointMeta }) => {
               label={name}
               placeholder={name}
               value={values[name] ?? ""}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, [name]: e.currentTarget.value }))
-              }
+              onChange={(e) => {
+                // Capturer la valeur AVANT l'updater fonctionnel : React nullifie
+                // `e.currentTarget` après le handler → l'accès différé planterait.
+                const val = e.currentTarget.value;
+                setValues((v) => ({ ...v, [name]: val }));
+              }}
               styles={{ label: { fontSize: 10 } }}
             />
           ))}
