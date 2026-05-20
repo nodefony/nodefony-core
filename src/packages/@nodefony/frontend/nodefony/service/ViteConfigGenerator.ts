@@ -61,6 +61,11 @@ export class ViteConfigGenerator {
     const usedTypes = new Set<string>();
     for (const e of entries) usedTypes.add(e.type);
 
+    // Angular : le plugin a besoin du tsconfig de l'app (scoping du compilateur).
+    // On résout un chemin ABSOLU depuis le root de l'entry angular — le cwd du
+    // process Vite est `entries[0].root` (≠ root angular en multi-bundle).
+    const angularEntry = entries.find((e) => e.type === "angular");
+
     const needFs = mode === "development" && !!opts.https;
     const imports: string[] = [
       `import { defineConfig } from "vite";`,
@@ -81,6 +86,24 @@ export class ViteConfigGenerator {
           pluginsExprs.push(`vue()`);
           optimizeInclude.push("vue");
           break;
+        case "angular": {
+          imports.push(
+            `import angular from "@analogjs/vite-plugin-angular";`,
+          );
+          const tsconfigPath = path.resolve(
+            angularEntry!.root,
+            "tsconfig.app.json",
+          );
+          pluginsExprs.push(
+            `angular({ tsconfig: ${JSON.stringify(tsconfigPath)} })`,
+          );
+          optimizeInclude.push(
+            "@angular/core",
+            "@angular/common",
+            "@angular/platform-browser",
+          );
+          break;
+        }
         case "vanilla":
           // Pas de plugin.
           break;

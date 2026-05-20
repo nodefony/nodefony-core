@@ -7,6 +7,7 @@
 export type FrontPresetType =
   | "react19"
   | "vue3"
+  | "angular"
   | "svelte5"
   | "solid"
   | "vanilla";

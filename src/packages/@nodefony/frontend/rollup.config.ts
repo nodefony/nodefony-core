@@ -22,7 +22,13 @@ const external: string[] = [
   "@nodefony/http",
   "@nodefony/framework",
   "vite",
+  // Plugins de preset : chargés en dynamic import (lazy), jamais bundlés.
+  // @analogjs/vite-plugin-angular tire @angular/compiler-cli (interop CJS de
+  // `typescript`) que rollup ne peut pas bundler → doit rester externe.
   "@vitejs/plugin-react",
+  "@vitejs/plugin-vue",
+  "@analogjs/vite-plugin-angular",
+  "@angular",
   "tslib",
 ];
 

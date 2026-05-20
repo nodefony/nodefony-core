@@ -7,6 +7,7 @@ import type { IFrontPreset } from "../../interfaces/IFrontPreset";
 import { FrontendPresetUnknownError } from "../errors/FrontendError";
 import react19Preset from "../presets/react19-vite";
 import vue3Preset from "../presets/vue3-vite";
+import angularPreset from "../presets/angular-vite";
 import vanillaPreset from "../presets/vanilla-vite";
 
 /**
@@ -21,6 +22,7 @@ export class ViteBuilder implements IFrontBuilder {
   constructor() {
     this.registerPreset(react19Preset);
     this.registerPreset(vue3Preset);
+    this.registerPreset(angularPreset);
     this.registerPreset(vanillaPreset);
   }
 

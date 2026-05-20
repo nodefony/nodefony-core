@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Vite standalone (POC fallback)</title>
+  </head>
+  <body>
+    <!--
+      Page utilisée UNIQUEMENT si Vite est lancé en standalone
+      (npm run frontend:vite-only). En mode Nodefony, c'est le backend qui
+      rend l'index.html via AngularController et injecte les <script>.
+    -->
+    <app-root></app-root>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -27,6 +27,8 @@ import indexController from "./nodefony/controllers/indexController";
   "@nodefony/test-frontend-react",
   // Multi-framework Vite : bundle Vue 3 à côté des bundles React, même supervisor.
   "@nodefony/test-frontend-vue",
+  // Multi-framework Vite : bundle Angular 21 (standalone, via @analogjs/vite-plugin-angular).
+  "@nodefony/test-frontend-angular",
   "@nodefony/studio",
   //Test,
   //"@nodefony/redis",

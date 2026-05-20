@@ -35,11 +35,13 @@
     "@nodefony/framework": "*",
     "vite": ">=5.0.0",
     "@vitejs/plugin-react": ">=4.0.0",
-    "@vitejs/plugin-vue": ">=5.0.0"
+    "@vitejs/plugin-vue": ">=5.0.0",
+    "@analogjs/vite-plugin-angular": ">=2.0.0"
   },
   "peerDependenciesMeta": {
     "@vitejs/plugin-react": { "optional": true },
-    "@vitejs/plugin-vue": { "optional": true }
+    "@vitejs/plugin-vue": { "optional": true },
+    "@analogjs/vite-plugin-angular": { "optional": true }
   },
   "devDependencies": {
     "@rollup/plugin-json": "6.1.0",

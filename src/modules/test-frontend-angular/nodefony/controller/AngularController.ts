@@ -1,0 +1,67 @@
+/// <reference types="node" />
+import { Controller, Get, controller } from "@nodefony/framework";
+import { Context } from "@nodefony/http";
+import type { FrontendService } from "@nodefony/frontend";
+import { performance } from "node:perf_hooks";
+
+/**
+ * Controller POC Angular :
+ *  - GET /angular/app       → page HTML qui charge le bundle Angular via Vite
+ *  - GET /angular/api/data  → endpoint léger (ping backend) consommé par l'app
+ */
+@controller("/angular")
+class AngularController extends Controller {
+  constructor(context: Context) {
+    super("AngularController", context);
+  }
+
+  /**
+   * Page HTML rendue par Nodefony. Le `<body>` contient `<app-root>` ;
+   * `main.ts` (injecté via `renderTags`) appelle `bootstrapApplication`.
+   * Pas de preamble (spécifique React).
+   */
+  @Get("/app")
+  renderAngular(): unknown {
+    this.setContextHtml();
+    const svc = this.context?.container?.get("frontend") as
+      | FrontendService
+      | undefined;
+    // Override la CSP par défaut (`script-src 'self'`) sinon les scripts Vite
+    // (5173) sont bloqués cross-origin → page blanche.
+    if (svc) {
+      this.context?.response?.setHeader(
+        "Content-Security-Policy",
+        svc.getCspDirectives(),
+      );
+    }
+    const viteTags = svc?.renderTags("test-frontend-angular")
+      ?? "<!-- @nodefony/frontend: service unavailable -->";
+    const html = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Nodefony POC — Angular via @nodefony/frontend</title>
+    ${viteTags}
+  </head>
+  <body>
+    <app-root></app-root>
+  </body>
+</html>`;
+    return this.render(html);
+  }
+
+  /**
+   * Endpoint léger consommé par l'app Angular (poll 1s). JSON minimal.
+   */
+  @Get("/api/data")
+  apiData() {
+    return this.renderJson({
+      ts: performance.now(),
+      pid: process.pid,
+      env: this.kernel?.environment,
+    });
+  }
+}
+
+export default AngularController;

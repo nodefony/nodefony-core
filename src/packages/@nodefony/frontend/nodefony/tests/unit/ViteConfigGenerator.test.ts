@@ -54,6 +54,28 @@ describe("ViteConfigGenerator — toMjs()", () => {
     expect(out).to.not.include("@vitejs/plugin-react");
   });
 
+  it("emits defineConfig + angular plugin (tsconfig absolu) for angular preset", () => {
+    const out = gen.toMjs(
+      [{ ...baseEntry, type: "angular", entryFile: "src/main.ts" }],
+      "development",
+    );
+    expect(out).to.include('import { defineConfig } from "vite"');
+    expect(out).to.include('import angular from "@analogjs/vite-plugin-angular"');
+    // tsconfig résolu en absolu depuis le root de l'entry (≠ relatif).
+    expect(out).to.include("angular({ tsconfig:");
+    expect(out).to.include('/abs/path/to/frontend/tsconfig.app.json');
+    expect(out).to.include('"@angular/core",');
+  });
+
+  it("does NOT emit react/vue imports for angular preset", () => {
+    const out = gen.toMjs(
+      [{ ...baseEntry, type: "angular", entryFile: "src/main.ts" }],
+      "development",
+    );
+    expect(out).to.not.include("@vitejs/plugin-react");
+    expect(out).to.not.include("@vitejs/plugin-vue");
+  });
+
   it("includes mode in defineConfig", () => {
     const out = gen.toMjs([baseEntry], "development");
     expect(out).to.include('mode: "development"');

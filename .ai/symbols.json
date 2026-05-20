@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-20T18:42:20.098Z",
+  "generated": "2026-05-20T18:58:43.945Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 232,
-    "symbols": 563,
-    "classes": 178,
+    "files": 236,
+    "symbols": 565,
+    "classes": 180,
     "interfaces": 189,
     "types": 126,
     "enums": 1,
@@ -203,6 +203,18 @@
         "services",
         "controllers",
         "entities"
+      ]
+    },
+    "TestFrontendAngular": {
+      "name": "TestFrontendAngular",
+      "kind": "class",
+      "file": "src/modules/test-frontend-angular/index.ts",
+      "exported": true,
+      "module": "modules/test-frontend-angular",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "controllers"
       ]
     },
     "TestFrontendReact": {
@@ -1446,6 +1458,19 @@
       "extends": "Entity",
       "implements": [],
       "decorators": []
+    },
+    "AngularController": {
+      "name": "AngularController",
+      "kind": "class",
+      "file": "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
+      "exported": true,
+      "module": "modules/test-frontend-angular",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Controller POC Angular : - GET /angular/app → page HTML qui charge le bundle Angular via Vite - GET /angular/api/data → endpoint léger (ping backend) consommé par l'app"
     },
     "PocController": {
       "name": "PocController",
@@ -4295,6 +4320,7 @@
       ],
       "Module": [
         "Test",
+        "TestFrontendAngular",
         "TestFrontendReact",
         "TestFrontendVue",
         "Framework",
@@ -4360,6 +4386,7 @@
         "RestController",
         "RouteController",
         "WebsocketController",
+        "AngularController",
         "PocController",
         "VueController",
         "AdminApiController",
@@ -4570,6 +4597,7 @@
       ],
       "controllers": [
         "Test",
+        "TestFrontendAngular",
         "TestFrontendReact",
         "TestFrontendVue",
         "Studio"
@@ -4590,6 +4618,7 @@
         "RestController",
         "RouteController",
         "WebsocketController",
+        "AngularController",
         "PocController",
         "VueController",
         "StudioController",
@@ -4805,6 +4834,7 @@
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Nodefony.ts",
         "src/modules/test/index.ts",
+        "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/framework/index.ts",
@@ -5015,6 +5045,7 @@
       ],
       "Module": [
         "src/modules/test/index.ts",
+        "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/framework/index.ts",
@@ -5128,22 +5159,28 @@
       ],
       "controllers": [
         "src/modules/test/index.ts",
+        "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/studio/index.ts"
       ],
       "FrontendService": [
+        "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/studio/index.ts",
+        "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+      ],
+      "AngularController": [
+        "src/modules/test-frontend-angular/index.ts"
       ],
       "PocController": [
         "src/modules/test-frontend-react/index.ts"
@@ -5190,6 +5227,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
@@ -5257,6 +5295,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
@@ -5318,6 +5357,7 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -5985,6 +6025,7 @@
       "IFrontPreset": [
         "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontBuilder.ts",
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/presets/angular-vite.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/react19-vite.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/vanilla-vite.ts",
         "src/packages/@nodefony/frontend/nodefony/src/presets/vue3-vite.ts"
