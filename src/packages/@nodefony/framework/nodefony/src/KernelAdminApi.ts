@@ -57,12 +57,39 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         return Object.keys(modules).map((name) => {
           const mod = modules[name];
           return {
+            key: name,
             name: mod.getModuleName?.() ?? name,
             version: mod.getModuleVersion?.() ?? null,
             isApp: mod.isApp ?? false,
             path: mod.path ?? null,
           };
         });
+      },
+    },
+    {
+      // Endpoint PARAMÉTRÉ — exerce la regexp de routage `{name}` + l'extraction
+      // de params (`request.params.name`). `{name}` = mono-segment → utiliser la
+      // clé courte du module (`http`, `framework`), pas `@nodefony/http` (slash).
+      path: "module/{name}",
+      summary: "Detail of one loaded module by key (e.g. http, framework)",
+      handler: (request) => {
+        const key = request.params.name;
+        const mod = kernel.getModules()[key];
+        if (!mod) {
+          // Enveloppe IAdminResponse : `status` présent → reconnue par le broker.
+          return { status: 404, body: { error: "Module not found", key } };
+        }
+        // Succès = donnée brute (le broker assume 200). NE PAS wrapper dans
+        // `{ body }` sans `status`/`headers` → normalize ne le reconnaît pas
+        // comme enveloppe et double-wrappe.
+        return {
+          key,
+          name: mod.getModuleName?.() ?? key,
+          version: mod.getModuleVersion?.() ?? null,
+          isApp: mod.isApp ?? false,
+          path: mod.path ?? null,
+          dependencies: mod.getDependencies?.() ?? [],
+        };
       },
     },
   ];

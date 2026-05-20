@@ -90,11 +90,15 @@ class AdminApiController extends Controller {
 
   /** Projette le Context courant en requête admin normalisée. */
   private buildRequest(args: unknown[]): IAdminRequest {
-    const variables = (this.route?.variables ?? []) as { name?: string }[];
+    // `route.variables` = NOMS des variables (string[]), `args` = valeurs
+    // matchées positionnelles (le Resolver appelle l'action avec
+    // `...resolver.variables`, alignées sur `route.variables`). Cf
+    // `Resolver._buildParamArgs`.
+    const names = (this.route?.variables ?? []) as string[];
     const params: Record<string, string> = {};
-    for (let i = 0; i < variables.length; i++) {
-      const key = variables[i]?.name;
-      if (key !== undefined && args[i] !== undefined) {
+    for (let i = 0; i < names.length; i++) {
+      const key = names[i];
+      if (typeof key === "string" && args[i] !== undefined) {
         params[key] = String(args[i]);
       }
     }

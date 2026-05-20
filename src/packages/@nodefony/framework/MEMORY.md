@@ -47,6 +47,8 @@ Contrat d'exposition admin pour Studio. **Inversion de dépendance** : contrat p
 - **RBAC différé** : `request.roles` vide tant que P6 absent → 403 inactif (mode mock). S'active dès que le firewall peuple les rôles, sans changer le code.
 - `mountAll()` à `onKernelReady` → producteurs s'enregistrent en `onKernelBoot`.
 - Routes admin **≥3 segments** `/nodefony/<ns>/api/*` (jamais mono-segment → collision SPA Studio).
+- **Params `{x}`** : `route.variables` = `string[]` de NOMS ; les valeurs arrivent en args positionnels à l'action (`dispatch(...args)`), alignées sur `route.variables` (cf `Resolver._buildParamArgs`). `buildRequest` zippe noms↔args → `request.params`. `{x}` = mono-segment (`[^/]+`) → pas de `/` dans la valeur (ex `module/{name}` : utiliser la clé `http`, pas `@nodefony/http`).
+- **Enveloppe `IAdminResponse`** reconnue par `normalize()` SEULEMENT si `status` OU `headers` présent. Un `{ body }` seul = traité comme donnée brute → **double-wrap** `{body:{body:...}}`. Règle producteur : succès défaut 200 = renvoyer la donnée BRUTE ; n'utiliser l'enveloppe que pour piloter status/headers (ex 404).
 
 **Producteurs migrés ✅** (runtime 2026-05-20) :
 - **kernel** : `GET /nodefony/kernel/api/{health,info,modules}` — `createKernelAdminApi(kernel)` (le kernel ne peut pas s'auto-enregistrer → framework le wrappe).
