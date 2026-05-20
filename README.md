@@ -114,7 +114,7 @@ The framework is split into composable workspaces. Each package is independently
 └─────────────────────────────────┬──────────────────────────────────┘
                                   │
 ┌─────────────────────────────────▼──────────────────────────────────┐
-│              ai platform (optional, generic modules)               │
+│         ai platform (Phase 12 — LAST, scaffolded, NOT ready)       │
 │                                                                    │
 │  @nodefony/llm        Unified provider — Claude · Gemini · Ollama  │
 │  @nodefony/rag        Indexing · chunking · vector search           │
@@ -208,9 +208,16 @@ export class ProjectController extends NodefonyController {
 
 ---
 
-## AI agent — build a domain agent in a few files
+## AI agent — long-term vision (Phase 12, NOT yet available)
 
-Nodefony provides **generic, reusable modules**. The domain logic stays yours.
+> ⚠️ **This is a target API, not a shipped feature.** The AI platform modules
+> (`@nodefony/llm`, `@nodefony/rag`, `@nodefony/vector`, `@nodefony/memory`,
+> `@nodefony/agent`, `@nodefony/mcp`, `@nodefony/agent-guard`) are scaffolded but **not
+> production-ready** — they are the **last migration phase (Phase 12)**, scheduled well after
+> the framework core, security, ORM, and Studio are complete. The code below illustrates the
+> intended developer experience; the interfaces and behaviour will change.
+
+Nodefony's goal is to provide **generic, reusable AI modules** so the domain logic stays yours:
 
 ```typescript
 // 1. Index your corpus (legal, financial, medical...)
@@ -251,7 +258,7 @@ export class LegalController extends NodefonyController {
 }
 ```
 
-The same pattern fits wealth management, medical records, support agents, HR tools — only the corpus and the system prompt change.
+The same pattern is intended to fit wealth management, medical records, support agents, HR tools — only the corpus and the system prompt would change. **Again: this is the Phase 12 vision, not current functionality.**
 
 ---
 
@@ -278,8 +285,8 @@ Planned (Phase 16, after the security layer ships):
 | Modules | **ESM only** | `import { ... } from "node:fs"`, no CommonJS. |
 | Servers | **`node:http` · `node:http2` · `ws`** | Native, no Express/Fastify/Bun.serve. |
 | Bundler | **Rollup** (`preserveModules: true`) | Per-module `.d.ts`, tree-shakeable. |
-| Toolchain | **`npm`** (workspaces + turbo) + **`bun`** optional for `@nodefony/llm/test` | Native by default. |
-| Test runner | **`mocha` + `ts-node`** (`bun test` for some packages) | Stable in CI; bun where speed matters. |
+| Toolchain | **`npm`** (workspaces + turbo) | Native by default. No Bun required for core/http/framework/security work. |
+| Test runner | **`mocha` + `ts-node`** | Stable in CI. (One not-yet-ready AI module uses `bun test` internally — irrelevant until Phase 12.) |
 | Container scope | **AsyncLocalStorage** (P1.4 ✅) | Per-request isolation everywhere. |
 | JWT | **`jose`** | Modern TypeScript-first, EdDSA/RS256. |
 | OAuth 2.0 / OIDC | **`arctic`** | Type-safe, by the author of Lucia. |
@@ -314,13 +321,15 @@ The framework is being rewritten from scratch in TypeScript. The reference JavaS
 | `@nodefony/realtime` | TCP/UDP/Unix sockets + JSON-RPC 2.0 hub | ⬜ Planned (Phase 13) |
 | `@nodefony/frontend` | Vite supervisor (Vue · React · Svelte) | 🔶 In progress (multi-bundle ✅) |
 | `@nodefony/studio` | Admin web UI at `/nodefony/*` | 🔶 Scaffold + Logs panel ✅ |
-| `@nodefony/llm` | Multi-provider — Claude · Gemini · Ollama · OpenAI | 🔶 Audit + refonte (Phase 12) |
-| `@nodefony/rag` | RAG pipeline | 🔶 Audit + refonte (Phase 12) |
-| `@nodefony/vector` | pgvector · Qdrant · Chroma | 🔶 Audit + refonte (Phase 12) |
-| `@nodefony/memory` | Agent memory (short + long term) | 🔶 Audit + refonte (Phase 12) |
-| `@nodefony/agent` | Orchestrator + sub-agents | 🔶 In progress (Phase 12) |
-| `@nodefony/mcp` | Model Context Protocol — server + client | ⬜ Planned (Phase 12) |
-| `@nodefony/agent-guard` | ⭐ AI Act compliance — PII · audit · voters | ⬜ Planned (Phase 12) |
+| `@nodefony/llm` | Multi-provider — Claude · Gemini · Ollama · OpenAI | ⬜ Not ready — Phase 12 (last) |
+| `@nodefony/rag` | RAG pipeline | ⬜ Not ready — Phase 12 (last) |
+| `@nodefony/vector` | pgvector · Qdrant · Chroma | ⬜ Not ready — Phase 12 (last) |
+| `@nodefony/memory` | Agent memory (short + long term) | ⬜ Not ready — Phase 12 (last) |
+| `@nodefony/agent` | Orchestrator + sub-agents | ⬜ Not ready — Phase 12 (last) |
+| `@nodefony/mcp` | Model Context Protocol — server + client | ⬜ Not ready — Phase 12 (last) |
+| `@nodefony/agent-guard` | ⭐ AI Act compliance — PII · audit · voters | ⬜ Not ready — Phase 12 (last) |
+
+> The AI modules above are **scaffolded placeholders**. They will be migrated **last**, after core / security / ORM / Studio. Do not rely on them yet.
 
 > ✅ Stable · 🔶 In migration / partial · ⬜ Planned · 🪦 Legacy maintenance
 
@@ -340,7 +349,7 @@ The framework is being rewritten from scratch in TypeScript. The reference JavaS
 | **9** | Polish · public READMEs · dependency audit | ⬜ Planned |
 | **10** | `@nodefony/studio` — admin web UI | 🔶 Scaffold + Logs panel |
 | **11** | CLI command tests · per-module commands | ⬜ Planned |
-| **12** | AI agentic platform (llm/rag/vector/memory + agent + MCP + agent-guard) | 🔶 Audit + refonte |
+| **12** | AI agentic platform (llm/rag/vector/memory + agent + MCP + agent-guard) — **LAST phase, scaffolded only** | ⬜ Not ready |
 | **13** | Realtime distributed (TCP/UDP/Unix + Redis/Kafka hubs + JSON-RPC 2.0) | ⬜ Planned |
 | **14** | `@nodefony/frontend` (Vite supervisor) + isomorphic core | 🔶 In progress |
 | **16** | Cloud-native (graceful SIGTERM, healthz/readyz, Secret abstraction, Docker, k8s manifests) | ⬜ Planned |
@@ -365,7 +374,6 @@ This means when you run `nodefony development` from the repo root, you're starti
 | **Node.js** | >= 22 | Runtime — all servers, AsyncLocalStorage native |
 | **npm** | >= 10 | Workspace manager (workspaces + turbo) |
 | **OpenSSL** | any | HTTPS/WSS self-signed certificates |
-| **bun** | >= 1.2 (optional) | Used for `@nodefony/llm` tests only |
 | **git** | any | Version control |
 
 ### Setup
