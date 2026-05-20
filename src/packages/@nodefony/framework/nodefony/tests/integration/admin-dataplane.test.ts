@@ -121,6 +121,15 @@ describe("Admin data plane — http", function () {
     expect(r.status).to.equal(200);
     expect((r.body as Record<string, unknown>).serversReady).to.be.a("number");
   });
+
+  it("GET /nodefony/http/api/sessions → état + flag deprecated", async () => {
+    const r = await req("GET", "/nodefony/http/api/sessions");
+    expect(r.status).to.equal(200);
+    const b = r.body as Record<string, unknown>;
+    expect(b.deprecated).to.equal(true);
+    // active = nombre (storage fichier) ou null
+    expect(b.active === null || typeof b.active === "number").to.be.true;
+  });
 });
 
 // ── framework ──────────────────────────────────────────────────────────────

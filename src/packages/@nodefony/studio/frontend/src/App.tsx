@@ -19,6 +19,7 @@ import { Dashboard } from "./routes/Dashboard";
 import { Chat } from "./routes/Chat";
 import { Logs } from "./routes/Logs";
 import { System } from "./routes/System";
+import { Modules } from "./routes/Modules";
 import {
   Sessions,
   Users,
@@ -26,7 +27,6 @@ import {
   Firewall,
   Databases,
   Services,
-  Modules,
   Npm,
   Pm2,
   Profiling,

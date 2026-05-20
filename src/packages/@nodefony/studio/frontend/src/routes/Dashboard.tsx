@@ -85,6 +85,11 @@ export const Dashboard = observer(() => {
   const store = useStore();
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [routesTotal, setRoutesTotal] = useState<number | null>(null);
+  const [sessions, setSessions] = useState<{
+    active: number | null;
+    storage: string;
+    deprecated: boolean;
+  } | null>(null);
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [history, setHistory] = useState<Sample[]>([]);
   const [logRate, setLogRate] = useState(0);
@@ -122,6 +127,14 @@ export const Dashboard = observer(() => {
       .getAbsolute<{ routesTotal: number }>("/nodefony/framework/api/info")
       .then((d) => {
         if (!cancelled) setRoutesTotal(d.routesTotal);
+      })
+      .catch(() => {});
+    store.api
+      .getAbsolute<{ active: number | null; storage: string; deprecated: boolean }>(
+        "/nodefony/http/api/sessions",
+      )
+      .then((d) => {
+        if (!cancelled) setSessions(d);
       })
       .catch(() => {});
     return () => {
@@ -357,9 +370,20 @@ export const Dashboard = observer(() => {
       {/* ── Stubs gated ── */}
       <Grid>
         <Kpi label="Sessions" icon={<IconUsers size={30} stroke={1.4} />} span={{ base: 12, sm: 6 }}
-          hint="Sessions actives — branché quand l'API admin par module (IAdminApi) existera.">
-          <Text fw={700} size="xl">—</Text>
-          <Text size="xs" c="dimmed">à venir (P10.3 IAdminApi)</Text>
+          hint="Sessions serveur actives (storage fichier). DÉPRÉCIÉ : Nodefony 2026 vise le full stateless (JWT cookie) — ce sous-système sera retiré (cf cloud-native).">
+          {sessions === null ? (
+            <Skeleton h={28} w={60} />
+          ) : (
+            <Group gap="xs" align="center">
+              <Text fw={700} size="xl">{sessions.active ?? "—"}</Text>
+              <Stack gap={0}>
+                <Text size="xs" c="dimmed">{sessions.storage}</Text>
+                {sessions.deprecated && (
+                  <Badge size="xs" color="yellow" variant="light">déprécié</Badge>
+                )}
+              </Stack>
+            </Group>
+          )}
         </Kpi>
         <Kpi label="Routes" icon={<IconRoute size={30} stroke={1.4} />} span={{ base: 12, sm: 6 }}
           hint="Nombre de routes HTTP+WS enregistrées dans le Router — réel via /nodefony/framework/api/info.">

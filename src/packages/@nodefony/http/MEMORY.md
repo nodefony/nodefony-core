@@ -257,7 +257,7 @@ Config ts-node: `tsconfig.tests.json` + hook `fix-reflect.mjs` (corrige `_virtua
 http = **2ᵉ producteur** du data plane admin Studio (1er = kernel). `createHttpAdminApi(module)` (`nodefony/service/HttpAdminApi.ts`) → enregistré dans `onKernelBoot` via `IAdminRegistry` du container (`this.kernel.container.get("adminBroker")`).
 
 - **Import : SEULEMENT `IAdminApi`/`IAdminRegistry` depuis `"nodefony"`** — jamais `@nodefony/framework` (cycle). C'est tout l'intérêt du split `IAdminRegistry` (core) / `IAdminBroker` (framework).
-- Endpoints (validés runtime) : `GET /nodefony/http/api/servers` (liste les 5 services serveur : type/scheme/protocol/address/port/family/ready) · `GET /nodefony/http/api/info` (serveurs prêts, ports, schemes, protocols).
+- Endpoints (validés runtime) : `GET /nodefony/http/api/servers` (5 services serveur : type/scheme/protocol/address/port/family/ready) · `GET /nodefony/http/api/info` (serveurs prêts, ports, schemes, protocols) · `GET /nodefony/http/api/sessions` (état sous-système sessions + `active` = nb fichiers sous `save_path`, **flag `deprecated:true`** — HTTP stateless JWT [[project_security_stateless_http_decision]]).
 - Lecture défensive des services `server-{http,https,websocket,websocket-secure,static}` via `module.get(name)`.
 - **Per-instance** : answers du process qui reçoit (LB route vers 1 pod). Header `x-nodefony-instance` posé par `AdminApiController` (convention `NODEFONY_INSTANCE_ID ?? pid`). Vue cluster = Redis P13. Cf [[project_multiprocess_scaling]].
 - Stateless : aucun `startSession()`, lit l'user via ALS (futur JWT). Cf [[project_security_stateless_http_decision]].
