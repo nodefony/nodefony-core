@@ -54,6 +54,7 @@ import {
   IconHash,
   IconExternalLink,
   IconRefresh,
+  IconStack2,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 
@@ -286,19 +287,24 @@ export const ModuleDetail = observer(() => {
 
       {/* ── En-tête ── */}
       <Group gap="md" wrap="nowrap">
-        <ThemeIcon variant="light" color={data.isApp ? "orange" : "gray"} size={54} radius="md">
-          {data.isApp ? <IconAppWindow size={30} /> : <IconPuzzle size={30} />}
+        <ThemeIcon
+          variant="light"
+          color={name === "core" ? "grape" : data.isApp ? "orange" : "gray"}
+          size={54}
+          radius="md"
+        >
+          {name === "core" ? <IconStack2 size={30} /> : data.isApp ? <IconAppWindow size={30} /> : <IconPuzzle size={30} />}
         </ThemeIcon>
         <Stack gap={4}>
           <Group gap="sm">
-            <Title order={2}>{data.name}</Title>
+            <Title order={2}>{name === "core" ? "Nodefony Core" : data.name}</Title>
             {data.version && <Badge variant="default">v{data.version}</Badge>}
-            <Badge variant="light" color={data.isApp ? "orange" : "gray"}>
-              {data.isApp ? "application" : "package"}
+            <Badge variant="light" color={name === "core" ? "grape" : data.isApp ? "orange" : "gray"}>
+              {name === "core" ? "socle du framework" : data.isApp ? "application" : "package"}
             </Badge>
           </Group>
           <Text c="dimmed" size="sm" ff="monospace">
-            {data.path ?? "—"}
+            {name === "core" ? "@nodefony/core · " : ""}{data.path ?? "—"}
           </Text>
         </Stack>
       </Group>
