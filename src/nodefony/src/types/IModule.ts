@@ -71,6 +71,9 @@ export interface IModule extends IService {
   getController<T = unknown>(name: string): IControllerConstructor<T>;
   getControllers<T = unknown>(): Record<string, IControllerConstructor<T>>;
 
+  // ─── Services enregistrés par ce module (introspection admin) ────────────
+  getServiceNames(): string[];
+
   // ─── Metadata ──────────────────────────────────────────────────────────────
   getPackageJson(cwd?: string): Promise<PackageJson>;
   getModuleName(): string | undefined;

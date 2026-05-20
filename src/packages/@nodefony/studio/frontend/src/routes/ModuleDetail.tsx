@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
-  Anchor,
   Badge,
   Box,
   Button,
@@ -12,6 +11,7 @@ import {
   Grid,
   Group,
   Loader,
+  ScrollArea,
   Stack,
   Table,
   Tabs,
@@ -40,6 +40,8 @@ interface ModuleDetailData {
   isApp: boolean;
   path: string | null;
   dependencies: string[];
+  services: { name: string; class: string | null }[];
+  config: Record<string, unknown>;
 }
 interface RouteRow {
   name: string;
@@ -182,11 +184,15 @@ export const ModuleDetail = observer(() => {
             >
               Routes
             </Tabs.Tab>
+            <Tabs.Tab
+              value="services"
+              leftSection={<IconAffiliate size={16} />}
+              rightSection={<Badge size="xs" variant="light" color="gray">{data.services.length}</Badge>}
+            >
+              Services
+            </Tabs.Tab>
             <Tabs.Tab value="config" leftSection={<IconSettings size={16} />}>
               Config
-            </Tabs.Tab>
-            <Tabs.Tab value="services" leftSection={<IconAffiliate size={16} />}>
-              Services
             </Tabs.Tab>
           </Tabs.List>
 
@@ -205,6 +211,7 @@ export const ModuleDetail = observer(() => {
                   <Stack gap={6}>
                     <Field k="Dépendances" v={String(data.dependencies.length)} />
                     <Field k="Routes" v={String(routes.length)} />
+                    <Field k="Services" v={String(data.services.length)} />
                     <Field k="Chemin" v={data.path ?? "—"} mono />
                   </Stack>
                 </Grid.Col>
@@ -267,17 +274,43 @@ export const ModuleDetail = observer(() => {
               )}
             </Tabs.Panel>
 
-            <Tabs.Panel value="config">
-              <StubTab
-                text="Configuration du module — exposée via IAdminApi du module (P10.4)."
-                legacy="getConfigByBundle"
-              />
-            </Tabs.Panel>
             <Tabs.Panel value="services">
-              <StubTab
-                text="Services DI enregistrés par le module — viendra de l'introspection du Container (P10.10)."
-                legacy="getServicesbyBundle"
-              />
+              {data.services.length === 0 ? (
+                <Text c="dimmed" size="sm">Ce module n'enregistre aucun service.</Text>
+              ) : (
+                <Table.ScrollContainer minWidth={420}>
+                  <Table striped highlightOnHover withRowBorders={false}>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Nom (DI)</Table.Th>
+                        <Table.Th>Classe</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {data.services.map((s) => (
+                        <Table.Tr key={s.name}>
+                          <Table.Td>
+                            <Code>{s.name}</Code>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">{s.class ?? "—"}</Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
+              )}
+            </Tabs.Panel>
+
+            <Tabs.Panel value="config">
+              {!data.config || Object.keys(data.config).length === 0 ? (
+                <Text c="dimmed" size="sm">Aucune configuration.</Text>
+              ) : (
+                <ScrollArea.Autosize mah={520}>
+                  <Code block>{JSON.stringify(data.config, null, 2)}</Code>
+                </ScrollArea.Autosize>
+              )}
             </Tabs.Panel>
           </Box>
         </Tabs>
@@ -294,17 +327,6 @@ function Field({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
         {v}
       </Text>
     </Group>
-  );
-}
-
-function StubTab({ text, legacy }: { text: string; legacy: string }) {
-  return (
-    <Alert color="gray" variant="light" icon={<IconInfoCircle size={16} />}>
-      <Text size="sm">{text}</Text>
-      <Text size="xs" c="dimmed" mt={4}>
-        Équivalent legacy : <Code>{legacy}</Code> (monitoring-bundle).
-      </Text>
-    </Alert>
   );
 }
 

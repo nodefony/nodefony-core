@@ -78,6 +78,13 @@ class Module extends Service implements IModule {
   package?: PackageJson;
   path: string = "";
   isApp: boolean = false;
+  /**
+   * Noms des services enregistrés PAR ce module (via {@link addService},
+   * y compris ceux du décorateur `@services`). Alloué au 1er ajout (lazy).
+   * Sert l'introspection admin (Studio) — qui n'est pas inférable du Container
+   * partagé seul. Cf {@link getServiceNames}.
+   */
+  private _serviceNames: string[] | null = null;
   rollup?: RollupService | null;
   watcherService?: watcherService | null;
   watcher?: FSWatcher | null;
@@ -308,7 +315,16 @@ class Module extends Service implements IModule {
       await serviceInit.initialize(this);
     }
     this.set(inst.name, inst);
+    (this._serviceNames ??= []).push(inst.name);
     return this.get<Service>(inst.name) as Service;
+  }
+
+  /**
+   * Noms des services enregistrés par ce module (ordre d'ajout).
+   * Vide tant qu'aucun service n'a été ajouté.
+   */
+  getServiceNames(): string[] {
+    return this._serviceNames ? [...this._serviceNames] : [];
   }
 
   /**

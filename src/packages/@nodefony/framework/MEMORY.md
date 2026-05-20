@@ -55,7 +55,7 @@ Contrat d'exposition admin pour Studio. **Inversion de dépendance** : contrat p
 - **framework** : `GET /nodefony/framework/api/{routes,info,admin}` — `createFrameworkAdminApi(broker)`. `routes` = dump `Router.routes` ; `admin` = **catalogue discovery P10.2** (tous les producteurs + descriptors + endpoints, ordonné par `descriptor.order`) → source de la nav admin Studio. Le framework héberge le broker → register direct dans `onKernelReady` avant `mountAll`.
 - **http** : `GET /nodefony/http/api/{servers,info}` (cf http MEMORY.md).
 - **syslog** : `GET /nodefony/syslog/api/{logs,info}` — `createSyslogAdminApi(kernel.syslog)` lit `ISyslog.ringStack` (FIFO). `logs` supporte `?severity=ERROR&limit=N`. Wrappé par framework (syslog est dans le core).
-- **+ endpoint paramétré témoin** : `GET /nodefony/kernel/api/module/{name}` (détail module — exerce la regexp `{x}`).
+- **+ endpoint paramétré** : `GET /nodefony/kernel/api/module/{name}` — détail module (regexp `{x}`) : key/name/version/isApp/path + `dependencies` + **`services`** (`[{name,class}]` via `Module.getServiceNames()`) + **`config`** (`module.options` sérialisé défensivement : profondeur bornée, fonctions/cycles neutralisés). Alimente les onglets Studio Services/Config.
 
 ## Route Registration Flow
 

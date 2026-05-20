@@ -1,6 +1,34 @@
 import type { IKernel, IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
 
 /**
+ * Sérialisation défensive de config : borne la profondeur, neutralise les
+ * fonctions, casse les cycles. Les `options` d'un module peuvent contenir des
+ * fonctions/refs circulaires (vers le kernel) → JSON.stringify direct planterait.
+ */
+function safeConfig(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
+  if (typeof value === "function") return "[Function]";
+  if (typeof value === "bigint") return value.toString();
+  if (value === null || typeof value !== "object") return value;
+  if (depth > 5) return "[depth limit]";
+  if (seen.has(value)) return "[Circular]";
+  seen.add(value);
+  if (value instanceof Date) return value.toISOString();
+  if (value instanceof RegExp) return value.toString();
+  if (Array.isArray(value)) {
+    return value.slice(0, 100).map((v) => safeConfig(v, depth + 1, seen));
+  }
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(value as Record<string, unknown>).slice(0, 200)) {
+    try {
+      out[k] = safeConfig((value as Record<string, unknown>)[k], depth + 1, seen);
+    } catch {
+      out[k] = "[unreadable]";
+    }
+  }
+  return out;
+}
+
+/**
  * Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`.
  *
  * Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core`
@@ -80,6 +108,15 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           // Enveloppe IAdminResponse : `status` présent → reconnue par le broker.
           return { status: 404, body: { error: "Module not found", key } };
         }
+        // Services enregistrés par le module + classe d'implémentation (le nom
+        // de registration vient de Module.getServiceNames, la classe du
+        // container partagé).
+        const services = mod.getServiceNames().map((sname) => ({
+          name: sname,
+          class:
+            (mod.get(sname) as { constructor?: { name?: string } } | null)
+              ?.constructor?.name ?? null,
+        }));
         // Succès = donnée brute (le broker assume 200). NE PAS wrapper dans
         // `{ body }` sans `status`/`headers` → normalize ne le reconnaît pas
         // comme enveloppe et double-wrappe.
@@ -90,6 +127,8 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           isApp: mod.isApp ?? false,
           path: mod.path ?? null,
           dependencies: mod.getDependencies?.() ?? [],
+          services,
+          config: safeConfig(mod.options ?? {}),
         };
       },
     },
