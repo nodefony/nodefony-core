@@ -76,7 +76,7 @@ class AdminBroker extends Service implements IAdminBroker {
     return existed;
   }
 
-  has(namespace: string): boolean {
+  override has(namespace: string): boolean {
     return this.producers.has(namespace);
   }
 
