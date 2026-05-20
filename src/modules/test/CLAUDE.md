@@ -52,6 +52,22 @@ src/modules/test/
 | `/memory` | GET | `process.memoryUsage()` du serveur (rss, heapTotal, heapUsed, external) |
 | `/forward` | GET | Forward vers `app:AppController:method1` |
 
+### AlsController (`/nodefony/test/als-test`)
+
+Sondes ALS (AsyncLocalStorage) pour BUG-001 (WS messages) + BUG-002 (`onAfterResponse`). État partagé `alsTestState` exporté, relu via `/state`.
+
+| Route | Méthode | Description |
+|---|---|---|
+| `/after` | GET | register hook `onAfterResponse` → capture `requestId` ALS dans `byContext` |
+| `/after/user` | GET | `RequestContext.set("user")` puis hook lit le user |
+| `/after/late` | GET | hook1 (ALS restauré) register hook2 late → exerce la branche `_afterResponseFired` |
+| `/state` / `/reset` | GET | lecture / reset de `alsTestState` |
+| `/ws` | WEBSOCKET | echo `requestId`/`user`/`traceparent` ALS à chaque message + handshake |
+| `/ws/user` | WEBSOCKET | message "login" → `set("user")`, persiste au message suivant |
+| `/ws/after` | WEBSOCKET | hook `onAfterResponse` au handshake → lit ALS à la fermeture |
+
+> ⚠️ Au handshake WS, l'action reçoit `undefined` (pas `null`) → détecter via `message == null`, jamais `.toString()` un message absent.
+
 ### RestController (`/nodefony/test/rest`)
 
 | Route | Méthode | Description |

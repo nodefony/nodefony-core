@@ -155,11 +155,13 @@ RequestContext.getUser();          // unknown | undefined
 RequestContext.set("user", user);  // mute le store actuel
 ```
 
-**⚠️ BUGS connus** (cf [`../../BUG_REPORT.md`](../../BUG_REPORT.md)) :
-- **BUG-001** : ALS WS messages — listener `ws.on("message")` attaché au handshake fire hors bulle ALS
-- **BUG-002** : ALS perdu dans `onAfterResponse` HTTP+WS — listeners `response.once("finish"|"close")` attachés AVANT `RequestContext.run()`
+**✅ BUGS résolus** (2026-05-20, cf [`../../BUG_REPORT.md`](../../BUG_REPORT.md)) :
+- **BUG-001** : ALS WS messages — `AsyncResource.bind` sur `close`/`message` dans `WebsocketContext.connect()`
+- **BUG-002** : ALS dans `onAfterResponse` HTTP+WS — `AsyncResource.bind(fn)` au register dans `Context.onAfterResponse`
 
-Fix proposé pour les deux : `AsyncResource.bind()` au moment du bind. **BLOCKER P6** (security décorateurs).
+**Règle dérivée** : tout listener EventEmitter attaché dans la bulle ALS mais qui fire plus tard
+(message/close/finish, timers, hooks post-réponse) et qui doit lire l'ALS → `AsyncResource.bind()`
+au moment du bind. P6 (security décorateurs isomorphes) débloqué.
 
 ### Pattern `@injectable` + `@inject` (DI)
 

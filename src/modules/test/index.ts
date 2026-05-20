@@ -13,6 +13,7 @@ import RouterController from "./nodefony/controller/RouteController";
 import WebsocketController from "./nodefony/controller/WebSocketController";
 import FrameworkController from "./nodefony/controller/FrameworkController";
 import DecoratorController from "./nodefony/controller/DecoratorController";
+import AlsController from "./nodefony/controller/AlsController";
 import { controllers } from "@nodefony/framework";
 import BoatEntity from "./nodefony/entity/BoatEntity";
 
@@ -27,6 +28,7 @@ import BoatEntity from "./nodefony/entity/BoatEntity";
   WebsocketController,
   FrameworkController,
   DecoratorController,
+  AlsController,
 ])
 @entities([BoatEntity])
 class Test extends Module {

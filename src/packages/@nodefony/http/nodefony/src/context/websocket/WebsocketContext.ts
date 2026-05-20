@@ -1,5 +1,6 @@
 import Context from "../Context.js";
 import url from "node:url";
+import { AsyncResource } from "node:async_hooks";
 import clc from "cli-color";
 import {
   ServerType,
@@ -140,10 +141,14 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     }
     // ws is already connected — just wire up event handlers
     this.response.setConnection(this.connection);
-    this.connection.on("close", this.onClose.bind(this));
+    // BUG-001 — `close`/`message` fire on later event-loop ticks, outside the
+    // ALS bubble opened for the handshake. AsyncResource.bind captures the
+    // store at bind time (in-bubble) and restores it on every callback, so
+    // RequestContext.getRequestId()/getUser() stay valid across messages.
+    this.connection.on("close", AsyncResource.bind(this.onClose.bind(this)));
     await this.fireAsync("onConnect", this, this.connection);
     this.requestEnded = true;
-    this.connection.on("message", this.handleMessage.bind(this));
+    this.connection.on("message", AsyncResource.bind(this.handleMessage.bind(this)));
     this.logRequest(null, this.acceptedProtocol ?? null);
     this.webSocketState = "connected";
     return this.connection;

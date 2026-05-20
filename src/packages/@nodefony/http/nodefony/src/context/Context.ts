@@ -19,6 +19,7 @@ import http from "node:http";
 import https from "node:https";
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
+import { AsyncResource } from "node:async_hooks";
 import HttpKernel, {
   //ContextType,
   ServerType,
@@ -250,17 +251,23 @@ class Context extends Service implements IContextInterface {
   }
 
   onAfterResponse(fn: AfterResponseHandler): void {
+    // BUG-002 — the hook fires from response "finish"/"close" (HTTP) or
+    // "onFinish" (WS) listeners attached before RequestContext.run() opens the
+    // ALS bubble. The controller registering here IS inside the bubble, so
+    // bind at registration time to restore requestId/user/traceparent when the
+    // hook runs later, outside the bubble.
+    const boundFn = AsyncResource.bind(fn);
     if (this._afterResponseFired) {
       // Late subscribe — best-effort, run on next microtask
       Promise.resolve()
-        .then(() => fn(this))
+        .then(() => boundFn(this))
         .catch((e) => this.log(e, "ERROR", "onAfterResponse(late)"));
       return;
     }
     if (this._afterResponseFns === null) {
       this._afterResponseFns = [];
     }
-    this._afterResponseFns.push(fn);
+    this._afterResponseFns.push(boundFn);
   }
 
   async _runAfterResponse(): Promise<void> {

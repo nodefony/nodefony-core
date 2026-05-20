@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-20T01:13:18.294Z",
+  "generated": "2026-05-20T07:42:41.968Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 216,
-    "symbols": 500,
-    "classes": 172,
+    "files": 217,
+    "symbols": 502,
+    "classes": 173,
     "interfaces": 167,
     "types": 122,
     "enums": 1,
     "functions": 32,
-    "constants": 6
+    "constants": 7
   },
   "symbols": {
     "Cli": {
@@ -1218,6 +1218,27 @@
         "ITransport"
       ],
       "decorators": []
+    },
+    "AlsController": {
+      "name": "AlsController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/AlsController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Dedicated test controller for AsyncLocalStorage propagation across the WebSocket message lifecycle (BUG-001) and the onAfterResponse hook (BUG-002). Kept out of DefaultController to avoid a catch-a…"
+    },
+    "alsTestState": {
+      "name": "alsTestState",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/controller/AlsController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Shared observation state for the ALS propagation integration tests (BUG-001 WS messages, BUG-002 onAfterResponse). Module-level singleton — controllers are scoped per request, so the captured value…"
     },
     "DecoratorController": {
       "name": "DecoratorController",
@@ -3910,6 +3931,7 @@
         "Pm2"
       ],
       "Controller": [
+        "AlsController",
         "DecoratorController",
         "DefaultController",
         "FrameworkController",
@@ -4129,6 +4151,7 @@
         "Sequelize"
       ],
       "controller": [
+        "AlsController",
         "DecoratorController",
         "DefaultController",
         "FrameworkController",
@@ -4660,6 +4683,9 @@
       "DecoratorController": [
         "src/modules/test/index.ts"
       ],
+      "AlsController": [
+        "src/modules/test/index.ts"
+      ],
       "controllers": [
         "src/modules/test/index.ts",
         "src/modules/test-frontend-react/index.ts",
@@ -4699,6 +4725,7 @@
       "Controller": [
         "src/packages/@nodefony/framework/index.ts",
         "src/nodefony/src/kernel/Module.ts",
+        "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
@@ -4733,6 +4760,7 @@
       ],
       "route": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
@@ -4745,6 +4773,7 @@
       ],
       "controller": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
@@ -4794,6 +4823,7 @@
       ],
       "Context": [
         "src/packages/@nodefony/http/index.ts",
+        "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
@@ -5218,6 +5248,12 @@
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
       ],
+      "RequestContext": [
+        "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -5267,11 +5303,6 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
-      "RequestContext": [
-        "src/modules/test/nodefony/controller/DefaultController.ts",
-        "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"

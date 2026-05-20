@@ -22,12 +22,14 @@ Bugs structurels identifiés mais non encore corrigés. Triés par criticité.
 
 ---
 
-## 🚨 BUG-001 — ALS WebSocket : bulle non propagée aux messages (BLOCKER P6)
+## ✅ BUG-001 — ALS WebSocket : bulle non propagée aux messages (RÉSOLU 2026-05-20)
 
 **Découvert** : 2026-05-20
 **Sévérité** : BLOCKER pour P6 (couche security)
 **Phase impactée** : P6 (security décorateurs WS isomorphes), P12 (agents IA WS), P13 (Realtime)
-**Statut** : non corrigé — fix proposé, tests à écrire
+**Statut** : ✅ **RÉSOLU 2026-05-20** — `AsyncResource.bind` sur les listeners `close`/`message`
+dans `WebsocketContext.connect()`. 5 tests `request-context-ws.test.ts` (verts). Aucun listener
+`error` sur `connection` à binder dans ce fichier (audit confirmé).
 
 ### Description
 
@@ -149,12 +151,14 @@ class AlsTestWsController {
 
 ---
 
-## 🚨 BUG-002 — ALS perdu dans `onAfterResponse` (HTTP + WS) (BLOCKER P6)
+## ✅ BUG-002 — ALS perdu dans `onAfterResponse` (HTTP + WS) (RÉSOLU 2026-05-20)
 
 **Découvert** : 2026-05-20 (suite à investigation BUG-001)
 **Sévérité** : BLOCKER pour P6 (décorateur `@AuditLog`)
 **Phase impactée** : P6 (audit log), P3 (logs structurés post-réponse)
-**Statut** : non corrigé — fix proposé, tests à écrire
+**Statut** : ✅ **RÉSOLU 2026-05-20** — `AsyncResource.bind(fn)` au moment du register dans
+`Context.onAfterResponse` (Option B), bind placé AVANT le check `_afterResponseFired` (couvre aussi
+le late subscribe). 5 tests `after-response-als.test.ts` (verts, dont HTTP + WS + late + isolation).
 
 ### Description
 

@@ -124,6 +124,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | ✅ P0.1 | Fix **11 fails** `http-rfc-errors.test.ts`                                  | 9.1 #6   | 1 ses. | —           | Résolu (commit d0f8ecf) — RFC 9110 §15.5.6 ne s'applique pas WS. Tests 370/0 (2026-05-16)   |
 | ✅ P0.2 | Fix **2 fails WS binary séquentiels**                                       | —        | 1 ses. | —           | Résolu — tests WS binary verts. Vérifié 2026-05-16 (370 passing)                            |
 | ✅ P0.3 | `IModule.getController()` → `IController` (au lieu de `unknown`)            | Blocker  | 0.5 ses. | Phase 5.1 ✅ | Résolu (commits f2208d2 + 83049fc) — `IControllerConstructor<T>` générique                   |
+| ✅ P0.4 | **BUG-001 + BUG-002** — propagation ALS (WS messages + `onAfterResponse`)   | Blocker P6 | 1 ses. | P1.4 ✅      | ✅ 2026-05-20 — `AsyncResource.bind` (WebsocketContext close/message + Context.onAfterResponse). 10 tests verts, suite 472/0, memory OK. **Débloque P6 décorateurs security isomorphes** |
 
 ### P1 — Fondations symbiose (refactors techniques 9.5)
 
