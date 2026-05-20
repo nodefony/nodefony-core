@@ -71,45 +71,30 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 ## Progression globale
 
-> ⚠️ **AVERTISSEMENT (audit 2026-05-20)** : ce tableau **par composant** est **indicatif et partiellement périmé** — il n'a pas été re-synchronisé du détail au fil des sessions et compte à une **granularité différente** (sous-items) de la roadmap priorisée (tâches P0–P16). Plusieurs lignes sous-comptent le réel (ex. `HTTP / WS 0✅` alors que les 4 serveurs tournent ; `Logs`, `Studio`, `Frontend` désynchronisés). **La source de vérité = la roadmap P0–P16 ci-dessous**, qui porte les marques `✅/🔶` vérifiées dans le code (audit 2026-05-20). Lignes recalées ci-dessous : Logs (9.3), Studio (P10), Frontend (P14).
+> **Comptage par PHASE = source de vérité** (audit vérifié dans le code 2026-05-20, refait par le skill `migration-audit`). Chaque ligne mappe 1:1 la roadmap priorisée P0–P16 ci-dessous (compte les **tâches**, pas des sous-items). L'ancien tableau « par composant » a été retiré : il dérivait sans cesse (granularité différente, jamais re-synchronisé). Légende : ✅ fait · 🔶 partiel/legacy en place · ⬜ à faire.
 
-| Catégorie                            | Total   | ✅     | 🔶    | ⬜     |
-| ------------------------------------ | ------- | ------ | ----- | ------ |
-| **Build System**                     | 10      | 10     | 0     | 0      |
-| Core / Kernel                        | 6       | 4      | 0     | 2      |
-| DI Container                         | 3       | 2      | 0     | 1      |
-| Module System                        | 5       | 3      | 0     | 2      |
-| Syslog / Pdu                         | 4       | 4      | 0     | 0      |
-| Router                               | 4       | 4      | 0     | 0      |
-| HTTP / WS                            | 6       | 0      | 0     | 6      |
-| Controller                           | 3       | 3      | 0     | 0      |
-| Session (refactor)                   | 8       | 1      | 2     | 5      |
-| **User module (NEW — séparé 2026-05-20)** | 13 | 0      | 0     | 13     |
-| **ORM Core (NEW)**                   | 11      | 0      | 0     | 11     |
-| ORM Drivers (Sequelize/Mongoose/**Drizzle**/**MikroORM**🆕) | 9 | 0      | 0     | 9      |
-| Security / Auth (+ décorateurs panoplie + Voters + Authenticators + defineSecurityConfig + Zod, refondé 2026-05-20) | 13 | 0 | 0 | 13 |
-| CLI                                  | 4       | 0      | 0     | 4      |
-| Monitoring                           | 3       | 0      | 0     | 3      |
-| Types / Interfaces                   | 6       | 5      | 0     | 1      |
-| **Symbiose http↔fw (Phase 9.1)**     | 8       | 0      | 5     | 3      |
-| **Cycle de vie Context (Phase 9.2)** | 12      | 0      | 0     | 12     |
-| **Logs structurés (Phase 9.3)**      | 10      | 5      | 1     | 4      |
-| **Studio admin web (Phase 10)**      | 12      | 4      | 3     | 5      |
-| **CLI commandes par module (P11)**   | 14      | 0      | 0     | 14     |
-| **IA — llm/vector/rag/memory (P12.1)** | 5     | 0      | 4     | 1      |
-| **IA — agent orchestrateur (P12.2)** | 6       | 0      | 1     | 5      |
-| **IA — MCP (P12.3)**                 | 5       | 0      | 0     | 5      |
-| **IA — agent-guard (P12.4)**         | 10      | 0      | 0     | 10     |
-| **IA — Studio panels (P12.5)**       | 4       | 0      | 0     | 4      |
-| **IA — Tests E2E + AI Act (P12.6)**  | 6       | 0      | 0     | 6      |
-| **Realtime TCP/UDP/Unix (P13.1)**    | 13      | 0      | 0     | 13     |
-| **Redis cluster + pub/sub (P13.2)**  | 13      | 1      | 1     | 11     |
-| 🆕 **RealtimeHub + Service + RPC (P13.4-9)** | 6 | 0      | 0     | 6      |
-| 🆕 **Kafka driver (P13.6)**          | 1       | 0      | 0     | 1      |
-| **Frontend Vite + 🆕 Core isomorphe (P14)** | 14 | 6      | 2     | 6      |
-| 🆕 **Mediasoup + SIP/Asterisk (P15)** | 8     | 0      | 0     | 8      |
-| 🆕 **Cloud-native + retrait PM2 (P16 — 7 axes)** | 26 | 0   | 0     | 26     |
-| **TOTAL** (≥ plancher — autres lignes encore périmées) | **299** | **51** | **16**| **232**|
+| Phase                                            | Tâches  | ✅     | 🔶    | ⬜     |
+| ------------------------------------------------ | ------- | ------ | ----- | ------ |
+| **P0** — Bugs bloquants                          | 6       | 6      | 0     | 0      |
+| **P1** — Fondations symbiose (Context/ALS/logs)  | 8       | 8      | 0     | 0      |
+| **P2** — Cycle de vie Context                    | 9       | 3      | 1     | 5      |
+| **P3** — Logs structurés                         | 10      | 5      | 1     | 4      |
+| **P4** — Tests symbiose http↔fw                  | 6       | 2      | 3     | 1      |
+| **P5** — Session + User + ORM Core               | 16      | 0      | 0     | 16     |
+| **P6** — Security (refonte — legacy TS en place) | 13      | 0      | 0     | 13     |
+| **P7** — ORM Drivers                             | 9       | 0      | 3     | 6      |
+| **P8** — CLI + Monitoring                        | 4       | 1      | 1     | 2      |
+| **P9** — Polish + clôture                        | 4       | 0      | 1     | 3      |
+| **P10** — Studio (admin web)                     | 12      | 4      | 3     | 5      |
+| **P11** — Commandes CLI par module               | 5       | 0      | 3     | 2      |
+| **P12** — Couche IA agentic                      | 6       | 0      | 2     | 4      |
+| **P13** — Realtime distribué                     | 8       | 0      | 3     | 5      |
+| **P14** — Frontend Vite + Core isomorphe         | 14      | 6      | 3     | 5      |
+| **P15** — Mediasoup + SIP/Asterisk               | 8       | 0      | 0     | 8      |
+| **P16** — Cloud-Native (7 axes)                  | 26      | 0      | 0     | 26     |
+| **TOTAL**                                        | **164** | **35** | **24**| **105**|
+
+> Build System (10/10 ✅), Core/Kernel, DI, Syslog, Router, Controller, Types — fondations **déjà migrées** en amont de la roadmap P0 (ère Phases 0–4, cf sections narratives « ## Phase X » plus bas). Le comptage ci-dessus couvre la **dette + features priorisées** (P0→P16).
 
 ---
 
