@@ -283,6 +283,97 @@ export async function listModuleSymbols(
  */
 export const CORE_PACKAGE = "@nodefony/core";
 
+/** Dépendance d'un module : range déclarée + version installée. */
+export interface DepInfo {
+  name: string;
+  kind: "nodefony" | "external";
+  range: string | null;
+  installed: string | null;
+}
+
+/** Statut "outdated" d'une dep externe (registry npm). */
+export interface OutdatedInfo {
+  name: string;
+  installed: string | null;
+  latest: string | null;
+  outdated: boolean;
+}
+
+/**
+ * Dépendances d'un module : depuis son `package.json` (dependencies +
+ * peerDependencies) avec la version RÉELLEMENT installée (lue dans
+ * `node_modules/<dep>/package.json`, local puis hoisté à la racine).
+ */
+export async function readDependencies(modulePath: string): Promise<DepInfo[]> {
+  let pkg: { dependencies?: Record<string, string>; peerDependencies?: Record<string, string> } = {};
+  try {
+    pkg = JSON.parse(await readFile(join(modulePath, "package.json"), "utf8"));
+  } catch {
+    /* pas de package.json */
+  }
+  const ranges: Record<string, string> = { ...(pkg.dependencies ?? {}), ...(pkg.peerDependencies ?? {}) };
+  const root = process.cwd();
+  const out: DepInfo[] = [];
+  for (const name of Object.keys(ranges).sort()) {
+    const kind: DepInfo["kind"] = name === "nodefony" || name.startsWith("@nodefony/") ? "nodefony" : "external";
+    let installed: string | null = null;
+    for (const base of [modulePath, root]) {
+      try {
+        const dp = JSON.parse(await readFile(join(base, "node_modules", name, "package.json"), "utf8"));
+        if (typeof dp.version === "string") {
+          installed = dp.version;
+          break;
+        }
+      } catch {
+        /* dep absente à cet emplacement */
+      }
+    }
+    out.push({ name, kind, range: ranges[name] ?? null, installed });
+  }
+  return out;
+}
+
+/** Compare deux versions semver (a > b ?) — major.minor.patch numérique. */
+function semverGt(a: string, b: string): boolean {
+  const p = (s: string) => s.replace(/^[^\d]*/, "").split(".").map((n) => parseInt(n, 10) || 0);
+  const pa = p(a);
+  const pb = p(b);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return true;
+    if ((pa[i] || 0) < (pb[i] || 0)) return false;
+  }
+  return false;
+}
+
+/**
+ * Vérifie les MAJ des deps EXTERNES via le registry npm (`/<pkg>/latest`).
+ * Les deps Nodefony (workspaces locaux) sont ignorées. Réseau → on-demand.
+ */
+export async function checkOutdated(deps: DepInfo[]): Promise<OutdatedInfo[]> {
+  const external = deps.filter((d) => d.kind === "external");
+  return Promise.all(
+    external.map(async (d) => {
+      let latest: string | null = null;
+      try {
+        const url = `https://registry.npmjs.org/${d.name.replace("/", "%2F")}/latest`;
+        const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (r.ok) {
+          const j = (await r.json()) as { version?: unknown };
+          if (typeof j.version === "string") latest = j.version;
+        }
+      } catch {
+        /* registry indispo / timeout */
+      }
+      return {
+        name: d.name,
+        installed: d.installed,
+        latest,
+        outdated: Boolean(latest && d.installed && semverGt(latest, d.installed)),
+      };
+    }),
+  );
+}
+
 /** Résultat d'un lancement de tests (un fichier ou toute la suite). */
 export interface TestRunResult {
   ok: boolean;

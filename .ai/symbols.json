@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-20T16:48:28.257Z",
+  "generated": "2026-05-20T16:58:34.439Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 228,
-    "symbols": 555,
+    "symbols": 560,
     "classes": 176,
-    "interfaces": 187,
+    "interfaces": 189,
     "types": 126,
     "enums": 1,
-    "functions": 55,
+    "functions": 58,
     "constants": 10
   },
   "symbols": {
@@ -1833,6 +1833,24 @@
       "extends": null,
       "description": "Symbole TS exporté d'un module, projeté depuis `.ai/symbols.json`."
     },
+    "DepInfo": {
+      "name": "DepInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Dépendance d'un module : range déclarée + version installée."
+    },
+    "OutdatedInfo": {
+      "name": "OutdatedInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Statut \"outdated\" d'une dep externe (registry npm)."
+    },
     "TestRunResult": {
       "name": "TestRunResult",
       "kind": "interface",
@@ -1900,6 +1918,22 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Symboles TS exportés d'un module + descriptions TSDoc, lus depuis `.ai/symbols.json` (à la racine du repo, `process.cwd()`). 100 % auto-généré (jamais de `.d.ts` manuel) → zéro divergence avec le c…"
+    },
+    "readDependencies": {
+      "name": "readDependencies",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Dépendances d'un module : depuis son `package.json` (dependencies + peerDependencies) avec la version RÉELLEMENT installée (lue dans `node_modules/<dep>/package.json`, local puis hoisté à la racine)."
+    },
+    "checkOutdated": {
+      "name": "checkOutdated",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Vérifie les MAJ des deps EXTERNES via le registry npm (`/<pkg>/latest`). Les deps Nodefony (workspaces locaux) sont ignorées. Réseau → on-demand."
     },
     "listTestFiles": {
       "name": "listTestFiles",
@@ -5864,6 +5898,12 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "readCoverage": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "readDependencies": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "checkOutdated": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "listTestFiles": [

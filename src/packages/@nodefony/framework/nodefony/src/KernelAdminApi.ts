@@ -6,6 +6,8 @@ import {
   readModuleDoc,
   listModuleSymbols,
   readCoverage,
+  readDependencies,
+  checkOutdated,
   listTestFiles,
   runModuleTests,
   resolveCorePath,
@@ -192,6 +194,31 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           services,
           config: safeConfig(mod.options ?? {}),
         };
+      },
+    },
+    {
+      // Dépendances du module + version installée (range déclarée vs installée).
+      path: "module/{name}/dependencies",
+      summary: "Module dependencies with installed versions",
+      handler: async (request) => {
+        const target = resolveTarget(request.params.name);
+        if (!target) {
+          return { status: 404, body: { error: "Module not found", key: request.params.name } };
+        }
+        return { key: request.params.name, deps: await readDependencies(target.path) };
+      },
+    },
+    {
+      // Check MAJ des deps externes (registry npm) — réseau, on-demand.
+      path: "module/{name}/dependencies/outdated",
+      summary: "Check external dependencies for updates (npm registry)",
+      handler: async (request) => {
+        const target = resolveTarget(request.params.name);
+        if (!target) {
+          return { status: 404, body: { error: "Module not found", key: request.params.name } };
+        }
+        const deps = await readDependencies(target.path);
+        return { key: request.params.name, outdated: await checkOutdated(deps) };
       },
     },
     {

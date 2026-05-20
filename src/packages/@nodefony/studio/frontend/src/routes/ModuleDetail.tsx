@@ -53,6 +53,7 @@ import {
   IconPackage,
   IconHash,
   IconExternalLink,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 
@@ -111,6 +112,18 @@ interface CoverageReport {
   generated?: string | null;
   total?: { lines: number; statements: number; functions: number; branches: number };
   files?: CoverageFileRow[];
+}
+interface DepInfo {
+  name: string;
+  kind: "nodefony" | "external";
+  range: string | null;
+  installed: string | null;
+}
+interface OutdatedInfo {
+  name: string;
+  installed: string | null;
+  latest: string | null;
+  outdated: boolean;
 }
 interface TestsInfo {
   files: string[];
@@ -397,7 +410,7 @@ export const ModuleDetail = observer(() => {
             {hasDeps && (
               <Tabs.Panel value="deps">
                 <DepsPanel
-                  deps={data.dependencies}
+                  moduleKey={name}
                   onNavigate={(short) => navigate(`/nodefony/modules/${short}`)}
                 />
               </Tabs.Panel>
@@ -787,68 +800,134 @@ function StatCard({
   );
 }
 
-/** Carte d'une dépendance (cliquable : module Nodefony → page, npm → npmjs). */
-function DepCard({
-  name,
-  kind,
-  onClick,
-}: {
-  name: string;
-  kind: "nodefony" | "external";
-  onClick: () => void;
-}) {
+/** Carte d'une dépendance : nom + version installée + statut MAJ (si vérifié). */
+function DepCard({ dep, out, onClick }: { dep: DepInfo; out?: OutdatedInfo; onClick: () => void }) {
   return (
     <Card withBorder radius="md" p="sm" onClick={onClick} style={{ cursor: "pointer" }}>
       <Group gap="sm" wrap="nowrap">
-        <ThemeIcon variant="light" color={kind === "nodefony" ? "orange" : "gray"} size={34} radius="md">
+        <ThemeIcon variant="light" color={dep.kind === "nodefony" ? "orange" : "gray"} size={34} radius="md">
           <IconPackage size={18} />
         </ThemeIcon>
-        <Stack gap={0} style={{ minWidth: 0 }}>
-          <Text size="sm" fw={500} truncate>{name}</Text>
-          <Group gap={4} wrap="nowrap">
-            <Text size="xs" c="dimmed">{kind === "nodefony" ? "module Nodefony" : "npm"}</Text>
-            {kind === "external" && <IconExternalLink size={11} style={{ opacity: 0.5 }} />}
+        <Stack gap={3} style={{ minWidth: 0, flex: 1 }}>
+          <Text size="sm" fw={500} truncate>{dep.name}</Text>
+          <Group gap={6} wrap="nowrap">
+            {dep.installed ? (
+              <Badge size="xs" variant="default">v{dep.installed}</Badge>
+            ) : (
+              <Badge size="xs" variant="light" color="gray">non installé</Badge>
+            )}
+            {dep.range && <Text size="xs" c="dimmed" truncate>{dep.range}</Text>}
           </Group>
         </Stack>
+        {out &&
+          (out.outdated ? (
+            <Tooltip label={`Dernière version npm : ${out.latest}`}>
+              <Badge size="xs" color="orange" variant="filled" style={{ flexShrink: 0 }}>↑ {out.latest}</Badge>
+            </Tooltip>
+          ) : out.latest ? (
+            <Badge size="xs" color="teal" variant="light" style={{ flexShrink: 0 }}>à jour</Badge>
+          ) : null)}
+        {dep.kind === "external" && !out && (
+          <IconExternalLink size={13} style={{ opacity: 0.4, flexShrink: 0 }} />
+        )}
       </Group>
     </Card>
   );
 }
 
-/** DepsPanel — dépendances groupées (Nodefony vs externes) en cartes cliquables. */
-function DepsPanel({ deps, onNavigate }: { deps: string[]; onNavigate: (short: string) => void }) {
-  const isNf = (d: string) => d === "nodefony" || d.startsWith("@nodefony/");
-  const nf = deps.filter(isNf).sort();
-  const ext = deps.filter((d) => !isNf(d)).sort();
-  const shortOf = (d: string) => (d === "nodefony" ? "core" : d.replace("@nodefony/", ""));
+/**
+ * DepsPanel — dépendances groupées (Nodefony vs externes) avec versions
+ * installées + check MAJ on-demand (registry npm) via
+ * `/module/{key}/dependencies` (+ `/outdated`). Carte Nodefony → page module,
+ * externe → npmjs.com.
+ */
+function DepsPanel({ moduleKey, onNavigate }: { moduleKey: string; onNavigate: (short: string) => void }) {
+  const store = useStore();
+  const [deps, setDeps] = useState<DepInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [outdated, setOutdated] = useState<Record<string, OutdatedInfo>>({});
+  const [checking, setChecking] = useState(false);
+  const base = `/nodefony/kernel/api/module/${encodeURIComponent(moduleKey)}/dependencies`;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setOutdated({});
+    store.api
+      .getAbsolute<{ deps: DepInfo[] }>(base)
+      .then((r) => { if (!cancelled) setDeps(r.deps ?? []); })
+      .catch(() => { if (!cancelled) setDeps([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [store, base]);
+
+  const check = async () => {
+    setChecking(true);
+    try {
+      const r = await store.api.getAbsolute<{ outdated: OutdatedInfo[] }>(`${base}/outdated`);
+      const map: Record<string, OutdatedInfo> = {};
+      (r.outdated ?? []).forEach((o) => { map[o.name] = o; });
+      setOutdated(map);
+    } catch {
+      /* registre indispo */
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  if (loading) return <Group justify="center" py="xl"><Loader size="sm" /></Group>;
+
+  const nf = deps.filter((d) => d.kind === "nodefony");
+  const ext = deps.filter((d) => d.kind === "external");
+  const shortOf = (n: string) => (n === "nodefony" ? "core" : n.replace("@nodefony/", ""));
+  const nbOutdated = Object.values(outdated).filter((o) => o.outdated).length;
+  const checked = Object.keys(outdated).length > 0;
+
   return (
     <Stack gap="xl">
+      <Group justify="space-between" wrap="nowrap">
+        <Text size="xs" c="dimmed">
+          Versions installées (node_modules). Le check interroge le registry npm (deps externes).
+        </Text>
+        <Button
+          size="xs"
+          variant="light"
+          color={nbOutdated > 0 ? "orange" : undefined}
+          leftSection={<IconRefresh size={14} />}
+          loading={checking}
+          onClick={check}
+        >
+          {checked ? (nbOutdated > 0 ? `${nbOutdated} MAJ dispo` : "Tout à jour") : "Vérifier les MAJ"}
+        </Button>
+      </Group>
+
       {nf.length > 0 && (
         <Stack gap="sm">
           <Group gap="xs">
             <Text size="sm" fw={700}>Nodefony</Text>
             <Badge size="sm" variant="light" color="orange">{nf.length}</Badge>
           </Group>
-          <SimpleGrid cols={{ base: 2, sm: 3, lg: 4 }} spacing="sm">
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
             {nf.map((d) => (
-              <DepCard key={d} name={d} kind="nodefony" onClick={() => onNavigate(shortOf(d))} />
+              <DepCard key={d.name} dep={d} onClick={() => onNavigate(shortOf(d.name))} />
             ))}
           </SimpleGrid>
         </Stack>
       )}
+
       {ext.length > 0 && (
         <Stack gap="sm">
           <Group gap="xs">
             <Text size="sm" fw={700}>Externes</Text>
             <Badge size="sm" variant="light" color="gray">{ext.length}</Badge>
           </Group>
-          <SimpleGrid cols={{ base: 2, sm: 3, lg: 4 }} spacing="sm">
+          <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
             {ext.map((d) => (
               <DepCard
-                key={d}
-                name={d}
-                kind="external"
-                onClick={() => window.open(`https://www.npmjs.com/package/${d}`, "_blank", "noopener")}
+                key={d.name}
+                dep={d}
+                out={outdated[d.name]}
+                onClick={() => window.open(`https://www.npmjs.com/package/${d.name}`, "_blank", "noopener")}
               />
             ))}
           </SimpleGrid>
