@@ -212,45 +212,38 @@ export const Modules = observer(() => {
         </Grid>
       ) : (
         <>
-          {/* Application + Core sur la même ligne (cartes auto-labellisées) */}
-          {(() => {
-            const top = filtered
-              .filter((m) => {
-                const c = categoryOf(m);
-                return c === "app" || c === "core";
-              })
-              .sort((a, b) => CATS[categoryOf(a)].order - CATS[categoryOf(b)].order);
-            if (!top.length) return null;
-            return (
-              <Grid>
-                {top.map((m) => (
-                  <Grid.Col key={m.key} span={{ base: 12, sm: 6 }}>
-                    <ModuleCard
-                      m={m}
-                      cat={categoryOf(m)}
-                      detail={details[m.key]}
-                      routeCount={routeCounts[m.key] ?? 0}
-                      onOpen={() => navigate(`/nodefony/modules/${encodeURIComponent(m.key)}`)}
-                    />
-                  </Grid.Col>
-                ))}
-              </Grid>
-            );
-          })()}
+          {/* Application + Core : 2 sections (titre + compteur) côte à côte */}
+          <Grid>
+            {(["app", "core"] as CatId[]).map((cat) => {
+              const items = filtered.filter((m) => categoryOf(m) === cat);
+              if (!items.length) return null;
+              return (
+                <Grid.Col key={cat} span={{ base: 12, sm: 6 }}>
+                  <Stack gap="sm">
+                    <SectionHeader cat={cat} count={items.length} />
+                    {items.map((m) => (
+                      <ModuleCard
+                        key={m.key}
+                        m={m}
+                        cat={cat}
+                        detail={details[m.key]}
+                        routeCount={routeCounts[m.key] ?? 0}
+                        onOpen={() => navigate(`/nodefony/modules/${encodeURIComponent(m.key)}`)}
+                      />
+                    ))}
+                  </Stack>
+                </Grid.Col>
+              );
+            })}
+          </Grid>
 
-          {/* Framework + Modules applicatifs en sections */}
+          {/* Framework + Modules applicatifs : sections pleine largeur */}
           {(["framework", "module"] as CatId[]).map((cat) => {
             const items = filtered.filter((m) => categoryOf(m) === cat);
             if (!items.length) return null;
             return (
               <Stack gap="sm" key={cat}>
-                <Group gap="xs">
-                  <ThemeIcon variant="light" color={CATS[cat].color} size="sm" radius="sm">
-                    <CatIcon cat={cat} size={14} />
-                  </ThemeIcon>
-                  <Text size="sm" fw={700}>{CATS[cat].label}</Text>
-                  <Badge size="sm" variant="light" color={CATS[cat].color}>{items.length}</Badge>
-                </Group>
+                <SectionHeader cat={cat} count={items.length} />
                 <Grid>
                   {items.map((m) => (
                     <Grid.Col key={m.key} span={{ base: 12, sm: 6, lg: 4 }}>
@@ -283,6 +276,19 @@ export const Modules = observer(() => {
 function CatIcon({ cat, size }: { cat: CatId; size: number }) {
   const I = CATS[cat].Icon;
   return <I size={size} />;
+}
+
+/** En-tête de section catégorie : icône + libellé + compteur. */
+function SectionHeader({ cat, count }: { cat: CatId; count: number }) {
+  return (
+    <Group gap="xs">
+      <ThemeIcon variant="light" color={CATS[cat].color} size="sm" radius="sm">
+        <CatIcon cat={cat} size={14} />
+      </ThemeIcon>
+      <Text size="sm" fw={700}>{CATS[cat].label}</Text>
+      <Badge size="sm" variant="light" color={CATS[cat].color}>{count}</Badge>
+    </Group>
+  );
 }
 
 function ModuleCard({
