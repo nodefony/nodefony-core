@@ -19,7 +19,11 @@ import { v5 as uuidv5, v4 as uuidv4 } from "uuid";
 import Websocket from "./transport/websocket";
 import Storage from "./api/Storage";
 import { RealtimeClient } from "./realtime/RealtimeClient";
-export type { RealtimeState, RealtimeOptions } from "./realtime/RealtimeClient";
+export type {
+  RealtimeState,
+  RealtimeOptions,
+  MessageStats,
+} from "./realtime/RealtimeClient";
 
 class Nodefony {
   private static instance: Nodefony;

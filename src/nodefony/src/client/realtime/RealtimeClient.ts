@@ -61,6 +61,26 @@ interface JsonRpcNotification {
   params?: unknown;
 }
 
+/**
+ * Stats d'un canal/méthode reçus — GÉNÉRIQUES, calculées dans le client donc
+ * réutilisables par toute app (`import { RealtimeClient } from "nodefony"`).
+ */
+export interface MessageStats {
+  /** Méthode JSON-RPC == nom du canal pub/sub. */
+  method: string;
+  /** Total de notifications reçues sur ce canal. */
+  msgCount: number;
+  /** Timestamp (ms) de la dernière notification. */
+  lastMessage: number | null;
+  /** Débit instantané (msg/s), échantillonné 1×/s. */
+  rate: number;
+  /** Historique du débit (VU-mètre) — fenêtre glissante. */
+  series: number[];
+}
+
+/** Points conservés dans la série de débit (~32 s à 1 échantillon/s). */
+const STATS_SERIES_POINTS = 32;
+
 interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (reason: unknown) => void;
@@ -79,8 +99,18 @@ export class RealtimeClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private intentionalClose = false;
+  // Stats génériques par méthode/canal — calculées ici (au point d'arrivée des
+  // frames), donc fiables et réutilisables par toute app.
+  private readonly _stats = new Map<string, MessageStats>();
+  private _framesReceived = 0;
+  private _lastFrameAt: number | null = null;
+  private _lastFrameMethod: string | null = null;
+  private statsTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly _prevSampled = new Map<string, number>();
 
-  constructor(private readonly opts: RealtimeOptions = {}) {}
+  constructor(private readonly opts: RealtimeOptions = {}) {
+    this.startStatsSampler();
+  }
 
   get state(): RealtimeState {
     return this._state;
@@ -186,7 +216,77 @@ export class RealtimeClient {
     });
   }
 
+  // ── Stats (génériques, réutilisables) ──────────────────────────────────
+
+  /** Total de notifications reçues, tous canaux confondus (welcome inclus). */
+  get framesReceived(): number {
+    return this._framesReceived;
+  }
+
+  /** Timestamp (ms) de la dernière notification reçue. */
+  get lastFrameAt(): number | null {
+    return this._lastFrameAt;
+  }
+
+  /** `method`/canal de la dernière notification reçue. */
+  get lastFrameMethod(): string | null {
+    return this._lastFrameMethod;
+  }
+
+  /** Snapshot des stats par canal (msgCount/rate/series). Les objets sont les
+   *  refs internes — à LIRE, pas à muter (copier les valeurs si besoin). */
+  getStats(): MessageStats[] {
+    return Array.from(this._stats.values());
+  }
+
+  /** Stats d'un canal précis (== method JSON-RPC) ou `undefined`. */
+  getChannelStats(method: string): MessageStats | undefined {
+    return this._stats.get(method);
+  }
+
   // ── Internals ─────────────────────────────────────────────────────────
+
+  /** Comptabilise une notification entrante (avant dispatch aux handlers). */
+  private trackFrame(method: string): void {
+    const now = Date.now();
+    this._framesReceived++;
+    this._lastFrameAt = now;
+    this._lastFrameMethod = method;
+    let st = this._stats.get(method);
+    if (!st) {
+      st = { method, msgCount: 0, lastMessage: null, rate: 0, series: [] };
+      this._stats.set(method, st);
+    }
+    st.msgCount++;
+    st.lastMessage = now;
+  }
+
+  /** Échantillonne le débit (msg/s) + série par canal, 1×/s, puis émet
+   *  `__stats__` (event local) pour notifier les consommateurs réactifs. */
+  private startStatsSampler(): void {
+    if (this.statsTimer) return;
+    this.statsTimer = setInterval(() => {
+      for (const st of this._stats.values()) {
+        const prev = this._prevSampled.get(st.method) ?? st.msgCount;
+        st.rate = Math.max(0, st.msgCount - prev);
+        this._prevSampled.set(st.method, st.msgCount);
+        st.series = [...st.series, st.rate].slice(-STATS_SERIES_POINTS);
+      }
+      this.fireLocal("__stats__");
+    }, 1000);
+    (this.statsTimer as { unref?: () => void }).unref?.();
+  }
+
+  /** Déclenche les handlers locaux d'un event interne (pas d'envoi réseau). */
+  private fireLocal(event: string, ...args: unknown[]): void {
+    this.handlers.get(event)?.forEach((h) => {
+      try {
+        h(...args);
+      } catch {
+        /* ignore handler errors */
+      }
+    });
+  }
 
   private defaultUrl(): string {
     if (typeof window === "undefined") return "ws://localhost/realtime";
@@ -312,6 +412,7 @@ export class RealtimeClient {
     // Notification (no id) — pub/sub event
     const n = msg as JsonRpcNotification;
     if (n.method) {
+      this.trackFrame(n.method); // stats génériques avant dispatch
       this.handlers.get(n.method)?.forEach((h) => {
         try {
           h(n.params);
@@ -333,7 +434,7 @@ export class RealtimeClient {
   private setState(s: RealtimeState): void {
     if (this._state === s) return;
     this._state = s;
-    this.handlers.get("__state__")?.forEach((h) => h(s));
+    this.fireLocal("__state__", s);
   }
 }
 

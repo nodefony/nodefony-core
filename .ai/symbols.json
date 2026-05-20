@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-20T21:13:26.653Z",
+  "generated": "2026-05-20T22:08:02.361Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 236,
-    "symbols": 566,
+    "symbols": 567,
     "classes": 180,
-    "interfaces": 190,
+    "interfaces": 191,
     "types": 126,
     "enums": 1,
     "functions": 59,
@@ -996,6 +996,15 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null
+    },
+    "MessageStats": {
+      "name": "MessageStats",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Stats d'un canal/méthode reçus — GÉNÉRIQUES, calculées dans le client donc réutilisables par toute app (`import { RealtimeClient } from \"nodefony\"`)."
     },
     "RealtimeState": {
       "name": "RealtimeState",

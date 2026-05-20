@@ -1,9 +1,6 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import type { RealtimeClient, RealtimeState } from "nodefony";
 
-/** Nb de points conservés dans la série de débit (VU-mètre) — ~32 s. */
-const SAMPLE_POINTS = 32;
-
 /** Transport sous-jacent d'un flux temps réel. */
 export type RealtimeTransport = "ws" | "sse" | "webrtc" | "tcp";
 /** Nature du flux temps réel. */
@@ -66,12 +63,10 @@ export class ConnectionStore {
   connectedAt: number | null = null;
   /** URL de l'endpoint WS (affichée dans le hub). */
   endpointUrl = "";
-  /** Total des frames JSON-RPC reçues, TOUS canaux + welcome confondus (capté
-   *  par un handler wildcard `*` indépendant des abonnements). Diagnostic brut :
-   *  si ça monte, le transport reçoit bien ; sinon le serveur ne pousse pas. */
+  /** Miroirs des stats du `RealtimeClient` (source de vérité, Core isomorphe) —
+   *  rafraîchis sur l'event `__stats__` (1×/s). framesReceived = total frames. */
   framesReceived = 0;
   lastFrameAt: number | null = null;
-  /** `method` de la dernière frame reçue (diagnostic du routing par canal). */
   lastFrameMethod: string | null = null;
 
   /** Disposers + wrapped handlers pour détacher + simuler des messages. */
@@ -80,22 +75,12 @@ export class ConnectionStore {
     { dispose: () => void; wrapped: (...args: unknown[]) => void }
   >();
 
-  /** Sampler de débit (1×/s) — calcule rate + série par abonnement dans le store
-   *  (source unique, pilotée par msgCount qui marche). Le drawer ne fait que lire. */
-  private sampleTimer: ReturnType<typeof setInterval> | null = null;
-  /** Dernier msgCount échantillonné par canal (pour le delta du débit). */
-  private prevSampled: Record<string, number> = {};
-
   constructor(
     private readonly client: RealtimeClient,
     endpointUrl = "",
   ) {
     this.endpointUrl = endpointUrl;
-    makeAutoObservable(
-      this,
-      { sampleTimer: false, prevSampled: false },
-      { autoBind: true },
-    );
+    makeAutoObservable(this, {}, { autoBind: true });
     this.client.on("__state__", (s) => {
       runInAction(() => {
         this.state = s as RealtimeState;
@@ -115,43 +100,30 @@ export class ConnectionStore {
         }
       }
     });
-    // Compteur de frames + STATS PAR ABONNEMENT pilotés par le wildcard `*`.
-    // C'est la SOURCE UNIQUE de comptage : le wildcard fire de façon fiable pour
-    // toute notification (le handler par canal, lui, ne se déclenchait pas selon
-    // le cas — instance/timing). Le `method` reçu == le nom du canal abonné, donc
-    // on retrouve l'abonnement et on met à jour ses stats (msgCount + débit).
-    this.client.on("*", (method) => {
-      runInAction(() => {
-        this.framesReceived++;
-        this.lastFrameAt = Date.now();
-        if (typeof method === "string") {
-          this.lastFrameMethod = method;
-          const sub = this.activeSubscriptions.get(method);
-          if (sub) {
-            sub.msgCount++;
-            sub.lastMessage = Date.now();
-          }
-        }
-      });
-    });
-    this.startSampler();
+    // Les stats (framesReceived + msgCount/rate/série par canal) sont calculées
+    // par le RealtimeClient (Core) — source unique réutilisable. Le store n'en est
+    // qu'un MIROIR réactif (MobX), rafraîchi sur `__stats__` (émis 1×/s par le
+    // client). cf RealtimeClient.startStatsSampler / getChannelStats.
+    this.client.on("__stats__", () => this.syncStats());
   }
 
-  /** Échantillonne le débit (msg/s) de chaque abonnement 1×/s dans le store —
-   *  source unique du VU-mètre. Timer toujours actif (UI admin, coût négligeable). */
-  private startSampler(): void {
-    if (this.sampleTimer) return;
-    this.sampleTimer = setInterval(() => {
-      runInAction(() => {
-        for (const sub of this.activeSubscriptions.values()) {
-          const cur = sub.msgCount;
-          const prev = this.prevSampled[sub.channel] ?? cur;
-          sub.rate = Math.max(0, cur - prev);
-          this.prevSampled[sub.channel] = cur;
-          sub.series = [...sub.series, sub.rate].slice(-SAMPLE_POINTS);
+  /** Copie les stats du client dans les structures observables (MobX) → le drawer
+   *  (observer) réaffiche. SSE (transport propre, hors client) garde son comptage. */
+  private syncStats(): void {
+    runInAction(() => {
+      this.framesReceived = this.client.framesReceived;
+      this.lastFrameAt = this.client.lastFrameAt;
+      this.lastFrameMethod = this.client.lastFrameMethod;
+      for (const sub of this.activeSubscriptions.values()) {
+        const cs = this.client.getChannelStats(sub.channel);
+        if (cs) {
+          sub.msgCount = cs.msgCount;
+          sub.lastMessage = cs.lastMessage;
+          sub.rate = cs.rate;
+          sub.series = cs.series;
         }
-      });
-    }, 1000);
+      }
+    });
   }
 
   get isConnected(): boolean {
