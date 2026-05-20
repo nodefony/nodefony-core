@@ -71,6 +71,8 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 ## Progression globale
 
+> ⚠️ **AVERTISSEMENT (audit 2026-05-20)** : ce tableau **par composant** est **indicatif et partiellement périmé** — il n'a pas été re-synchronisé du détail au fil des sessions et compte à une **granularité différente** (sous-items) de la roadmap priorisée (tâches P0–P16). Plusieurs lignes sous-comptent le réel (ex. `HTTP / WS 0✅` alors que les 4 serveurs tournent ; `Logs`, `Studio`, `Frontend` désynchronisés). **La source de vérité = la roadmap P0–P16 ci-dessous**, qui porte les marques `✅/🔶` vérifiées dans le code (audit 2026-05-20). Lignes recalées ci-dessous : Logs (9.3), Studio (P10), Frontend (P14).
+
 | Catégorie                            | Total   | ✅     | 🔶    | ⬜     |
 | ------------------------------------ | ------- | ------ | ----- | ------ |
 | **Build System**                     | 10      | 10     | 0     | 0      |
@@ -91,8 +93,8 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | Types / Interfaces                   | 6       | 5      | 0     | 1      |
 | **Symbiose http↔fw (Phase 9.1)**     | 8       | 0      | 5     | 3      |
 | **Cycle de vie Context (Phase 9.2)** | 12      | 0      | 0     | 12     |
-| **Logs structurés (Phase 9.3)**      | 10      | 0      | 0     | 10     |
-| **Studio admin web (Phase 10)**      | 11      | 1      | 3     | 7      |
+| **Logs structurés (Phase 9.3)**      | 10      | 5      | 1     | 4      |
+| **Studio admin web (Phase 10)**      | 12      | 4      | 3     | 5      |
 | **CLI commandes par module (P11)**   | 14      | 0      | 0     | 14     |
 | **IA — llm/vector/rag/memory (P12.1)** | 5     | 0      | 4     | 1      |
 | **IA — agent orchestrateur (P12.2)** | 6       | 0      | 1     | 5      |
@@ -104,10 +106,10 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **Redis cluster + pub/sub (P13.2)**  | 13      | 1      | 1     | 11     |
 | 🆕 **RealtimeHub + Service + RPC (P13.4-9)** | 6 | 0      | 0     | 6      |
 | 🆕 **Kafka driver (P13.6)**          | 1       | 0      | 0     | 1      |
-| **Frontend Vite + 🆕 Core isomorphe (P14)** | 13 | 0      | 0     | 13     |
+| **Frontend Vite + 🆕 Core isomorphe (P14)** | 14 | 6      | 2     | 6      |
 | 🆕 **Mediasoup + SIP/Asterisk (P15)** | 8     | 0      | 0     | 8      |
 | 🆕 **Cloud-native + retrait PM2 (P16 — 7 axes)** | 26 | 0   | 0     | 26     |
-| **TOTAL**                            | **297** | **37** | **13**| **247**|
+| **TOTAL** (≥ plancher — autres lignes encore périmées) | **299** | **51** | **16**| **232**|
 
 ---
 
@@ -147,9 +149,9 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 | #     | Tâche                                                              | Axe     | Effort  | Dépendances | Notes                                                  |
 | ----- | ------------------------------------------------------------------ | ------- | ------- | ----------- | ------------------------------------------------------ |
-| P2.1  | Boundary timing phase-by-phase                                     | 9.2.9   | 1 ses.  | P1.1        | `performance.now()` à chaque hook HttpKernel           |
-| P2.2  | Context tear-down déterministe (finish + close, dedup)             | 9.2.11  | 0.5 ses.| P1.2        | Couplé à P1.2                                          |
-| P2.3  | Aborted requests cleanup + 499 status interne                      | 9.2.12  | 1 ses.  | P1.3        | Utilise `context.signal`                               |
+| ✅ P2.1  | Boundary timing phase-by-phase                                     | 9.2.9   | 1 ses.  | P1.1        | ✅ **livré via P1.1** (vérif audit 2026-05-20) — `Context.phases`/`phaseStart()`/`phaseEnd()` (gated `timing.enabled`, lazy alloc), `performance.now()` à chaque hook HttpKernel |
+| ✅ P2.2  | Context tear-down déterministe (finish + close, dedup)             | 9.2.11  | 0.5 ses.| P1.2        | ✅ **livré via P1.2** (vérif audit 2026-05-20) — kernel `context.finished`/`close()` + race finish/close dedup (http-kernel l.368-385) |
+| 🔶 P2.3  | Aborted requests cleanup + 499 status interne                      | 9.2.12  | 1 ses.  | P1.3        | 🔶 **partiel** (vérif audit 2026-05-20) — `_abortIfPending()` HTTP (l.580) + WS (l.749) via P1.3 ✅ ; **manque le status 499 interne** |
 | P2.4  | `initialize()` error boundary — réponse cohérente avec action crash | 9.2.16  | 0.5 ses.| P1.5        | Réutilise errorRenderer                                |
 | P2.5  | Request timeout global (config + 408)                              | 9.2.18  | 0.5 ses.| P1.3        | Utilise AbortSignal                                    |
 | P2.6  | Idempotency keys (`X-Idempotency-Key`)                             | 9.2.17  | 1 ses.  | P1.4        | Dédup via ALS scope court terme                        |
@@ -176,12 +178,12 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 | #     | Tâche                                                                       | Axe    | Effort  | Dépendances | Notes                                                                       |
 | ----- | --------------------------------------------------------------------------- | ------ | ------- | ----------- | --------------------------------------------------------------------------- |
-| P4.1  | Tests `forward("mod:ctrl:action")` cross-module + context partagé           | 9.1 #2 | 1 ses.  | P0.1        | `@nodefony/framework/tests/integration/forward.test.ts`                     |
-| P4.2  | Tests decorators × pipeline combinés (@HttpCode + @Header + @Param + ...)   | 9.1 #3 | 1 ses.  | P0.1        | Étendre `http/decorators.test.ts`                                           |
-| P4.3  | Tests concurrence / context leak (N=100 req // + assertions unicité IDs)    | 9.1 #4 | 1 ses.  | P1.4        | `lifecycle.test.ts` + `concurrency.test.ts` (créer)                         |
-| P4.4  | Tests WS pipeline complet (handshake protocol → action → message handler)   | 9.1 #7 | 1 ses.  | P0.2        | Finaliser couverture WS (déjà partiel)                                      |
-| P4.5  | Tests DI scope × requête (singleton vs transient, isolation)                 | 9.1 #8 | 1 ses.  | P1.4        | Préalable à Injector Phase B (scoped/ALS officiel)                          |
-| P4.6  | Tests lifecycle session × controller (load → modify → persist → reload)     | 9.1 #5 | 1 ses.  | —           | Étendre `http/session.test.ts`                                              |
+| P4.1  | Tests `forward("mod:ctrl:action")` cross-module + context partagé           | 9.1 #2 | 1 ses.  | P0.1        | ⬜ vérif audit 2026-05-20 : aucun `*forward*` test — vraiment à faire        |
+| 🔶 P4.2  | Tests decorators × pipeline combinés (@HttpCode + @Header + @Param + ...)   | 9.1 #3 | 1 ses.  | P0.1        | 🔶 vérif audit : `http/decorators.test.ts` + framework `httpMethodDecorators.test.ts` existent ; scénarios combinés à compléter |
+| 🔶 P4.3  | Tests concurrence / context leak (N=100 req // + assertions unicité IDs)    | 9.1 #4 | 1 ses.  | P1.4        | 🔶 vérif audit : couvert par `integration/lifecycle-als.test.ts` + `load/als-load.test.ts` (delta scopes BUG-003/004) |
+| ✅ P4.4  | Tests WS pipeline complet (handshake protocol → action → message handler)   | 9.1 #7 | 1 ses.  | P0.2        | ✅ vérif audit : 7 fichiers WS (`websocket`, `-protocol`, `-session`, `-binary-broadcast`, `-w3c`, `-limits`, `request-context-ws`) |
+| 🔶 P4.5  | Tests DI scope × requête (singleton vs transient, isolation)                 | 9.1 #8 | 1 ses.  | P1.4        | 🔶 vérif audit : couvert par `lifecycle-als` + `als-load` (comptage `container.scopes`) |
+| ✅ P4.6  | Tests lifecycle session × controller (load → modify → persist → reload)     | 9.1 #5 | 1 ses.  | —           | ✅ vérif audit : `http/session.test.ts` + `unit/Session.test.ts` + `websocket-session.test.ts` |
 
 ### P5 — Session + User + ORM Core (préalables Security)
 
@@ -240,13 +242,13 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 | #     | Tâche                                                                        | Effort  | Dépendances | Notes                                                  |
 | ----- | ---------------------------------------------------------------------------- | ------- | ----------- | ------------------------------------------------------ |
-| P7.1  | 🪦 `@nodefony/sequelize` — legacy maintenance uniquement (v6 figé, **pas nouveaux dev**) | 2 ses.  | P5.4        | Compat ascendante max. NE PLUS communiquer dessus. ⚠️ Voir mémoire `project_decisions_p5_p6_orm.md` |
-| P7.2  | `@nodefony/mongoose` — `Orm` extends + connector                             | 1 ses.  | P5.4        | Module existe partiellement. Standard NoSQL acté       |
+| 🔶 P7.1  | 🪦 `@nodefony/sequelize` — legacy maintenance uniquement (v6 figé, **pas nouveaux dev**) | 2 ses.  | P5.4        | 🔶 vérif audit 2026-05-20 : module présent (7 fichiers TS, `service/orm.ts`), chargé au runtime — **pas encore branché sur orm-core** (P5.2 inexistant). Compat ascendante max. ⚠️ `project_decisions_p5_p6_orm.md` |
+| 🔶 P7.2  | `@nodefony/mongoose` — `Orm` extends + connector                             | 1 ses.  | P5.4        | 🔶 vérif audit : module présent (5 fichiers TS, `service/orm.ts`). Standard NoSQL acté. Pas branché orm-core |
 | P7.3  | Tests intégration Sequelize (SQLite memory)                                  | 1 ses.  | P7.1        | Filet de sécurité legacy                               |
 | P7.4  | ⭐ **`@nodefony/drizzle` (NEW)** — `Orm` + connector + schema TS-first       | 3 ses.  | P5.4        | **Choix #1 SQL moderne 2026** — type-safe natif, SQL brut via tag `sql`` `` |
 | P7.5  | Tests intégration Mongoose (mongodb-memory-server)                           | 1 ses.  | P7.2        |                                                        |
 | P7.6  | Tests intégration Drizzle (SQLite/Postgres)                                  | 1 ses.  | P7.4        |                                                        |
-| P7.7  | `@nodefony/redis` refactor (cache + session storage)                         | 1 ses.  | P5.12       | Existant — adapter à orm-core lifecycle si pertinent   |
+| 🔶 P7.7  | `@nodefony/redis` refactor (cache + session storage)                         | 1 ses.  | P5.12       | 🔶 vérif audit : module présent (5 fichiers TS). Adapter à orm-core lifecycle si pertinent |
 | P7.8  | 🆕 **`@nodefony/mikroorm` (NEW)** — Data Mapper + Unit of Work + Identity Map | 3 ses. | P5.4        | 4ème ORM ajouté 2026-05-16 — apps complexes (Doctrine-like). Trappe SQL brut via `em.getConnection().execute()` |
 | P7.9  | Tests intégration MikroORM (SQLite/Postgres)                                 | 1 ses.  | P7.8        |                                                        |
 
@@ -254,10 +256,10 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 | #     | Tâche                                                          | Effort  | Dépendances | Notes                                          |
 | ----- | -------------------------------------------------------------- | ------- | ----------- | ---------------------------------------------- |
-| P8.1  | `bin/nodefony.ts` — shebang via rollup banner                  | 1 ses.  | —           | CLI principal                                  |
+| ✅ P8.1  | `bin/nodefony.ts` — shebang via rollup banner                  | 1 ses.  | —           | ✅ vérif audit 2026-05-20 : `src/nodefony/bin/nodefony` + banner rollup ; CLI fonctionnel (mode `development` utilisé en continu) |
 | P8.2  | Generators (`Module.ts`, `Controller.ts`, `Service.ts`)        | 1 ses.  | P8.1        |                                                |
 | P8.3  | `DebugBar` (monitoring middleware HTML + JSON)                 | 2 ses.  | P3.1        | Consomme audit log                             |
-| P8.4  | `Metrics` runtime (memory, requests, errors)                   | 1 ses.  | P3.1        |                                                |
+| 🔶 P8.4  | `Metrics` runtime (memory, requests, errors)                   | 1 ses.  | P3.1        | 🔶 vérif audit 2026-05-20 : métriques live via Studio (`realtime/providers.ts` + canal `dashboard:stats`) — pas un service `Metrics` standalone |
 
 ### P11 — Tests commandes CLI + commandes par module (Phase 11)
 
@@ -289,7 +291,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P14.8 | Tests intégration                                                 | 1 ses.  | P14.3              | ✅ FAIT          | 14 unit `ViteConfigGenerator` + 3 integration `ViteProcessSupervisor` real spawn (~6s) |
 | P14.9 | Presets optionnels Svelte 5 + Solid + **Angular** + Vue 3         | 2 ses.  | P14.3              | 🟡 PARTIEL (2026-05-20) | **Angular ✅** via `@analogjs/vite-plugin-angular@2.5` (Angular 21 standalone+zoneless). Preset `angularPreset` + case `"angular"` (tsconfig ABSOLU depuis entry root) + module `test-frontend-angular` (`/angular/app`). Validé runtime : 3 frameworks (React+Vue+Angular) coexistent sous 1 supervisor Vite, composant compilé `ɵɵdefineComponent`, zéro régression. **Gotchas** : (1) ERESOLVE TS6 vs `@angular/build`(<6.0) → install `--legacy-peer-deps` (compiler-cli accepte <6.1, OK runtime) ; (2) externaliser `@analogjs/*`+`@angular` dans `rollup.config.ts` frontend (compiler-cli interop CJS typescript non-bundlable) ; (3) HMR Angular = page reload (pas hot-swap). Reste : Svelte5/Solid. |
 | P14.10| Migration Studio sur `@nodefony/frontend`                          | 1 ses.  | P14.4              | ⏳ À FAIRE       | Studio = 1er consommateur prod                         |
-| P14.11| 🆕 **Core isomorphe** : adapter `Container`, `Syslog`, `Service`, `EventEmitter` pour fonctionner sans Node natifs (export browser-compat via `package.json.exports.browser`) | 4 ses. | P14.4 | ⏳ À FAIRE       | EX-P13.3. ⚠️ Surveiller bundle size < 50 KB minified gzippé. Tree-shaking obligatoire |
+| P14.11| 🆕 **Core isomorphe** : adapter `Container`, `Syslog`, `Service`, `EventEmitter` pour fonctionner sans Node natifs (export browser-compat via `package.json.exports.browser`) | 4 ses. | P14.4 | 🔶 PARTIEL       | vérif audit 2026-05-20 : `src/nodefony/src/client/realtime/RealtimeClient.ts` isomorphe **déjà** consommé par le frontend Studio (P10.7). Reste Container/Syslog/Service browser-compat + `exports.browser`. ⚠️ bundle < 50 KB gzippé |
 | P14.12| 🆕 Plugin Vite Nodefony : alias auto (`@nodefony/core` etc.) + injection env vars (`__NODEFONY_CONFIG__` : wsUrl, env, instanceId) | 1 ses. | P14.11 | ⏳ À FAIRE       | Zéro config dev — transparent                          |
 | P14.13| 🆕 Syslog isomorphe : transport WS qui pipe logs front → syslog back centralisé | 2 ses. | P14.11, P13.7 | ⏳ À FAIRE       | Traçabilité totale front prod                          |
 | P14.14| 🆕 **TODO security** : API CSP origines dynamiques (cf `project_csp_vite_security_todo`) | 1 ses. | P14.4, P5 | ⏳ À FAIRE       | Remplace le hack POC dans le controller (`setHeader Content-Security-Policy` à la main) |
@@ -303,10 +305,10 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | ----- | ---------------------------------------------------------------- | ------- | ------------------ | ------------------------------------------------------ |
 | P13.1 | `@nodefony/realtime` (TCP/UDP/Unix sockets — IoT/IPC/protocoles) | 7 ses.  | P1 (Context hooks) | Indépendant. Chaque protocole crée un `RequestContext` Nodefony (ALS, logs, security) |
 | P13.2 | `@nodefony/redis` refactor (cluster + pub/sub + storage)         | 8 ses.  | —                  | **Prioritaire** — débloque P5.12, apps prod cluster + driver `RedisRealtimeHub` |
-| P13.4 | 🆕 `IRealtimeHub` interface + `LocalRealtimeHub` (dev) + `RealtimeService` central (façade, normalisation, dédup échos cluster) | 3 ses. | P1.4 (ALS) | NOUVEAU — fondation temps réel distribué              |
+| 🔶 P13.4 | 🆕 `IRealtimeHub` interface + `LocalRealtimeHub` (dev) + `RealtimeService` central (façade, normalisation, dédup échos cluster) | 3 ses. | P1.4 (ALS) | 🔶 **précurseur** (vérif audit 2026-05-20) — Studio `realtime/providers.ts` (pub/sub transport-agnostique) + `StudioRealtimeController` + `RealtimeClient` côté client. Reste à extraire en `RealtimeService` formel |
 | P13.5 | 🆕 `RedisRealtimeHub` driver (cluster low-latency, Pub/Sub)      | 2 ses.  | P13.2, P13.4       | Sessions UI, chat, broadcast standard                  |
 | P13.6 | 🆕 **`KafkaRealtimeHub`** driver (cluster massif, persistence, at-least-once) | 3 ses. | P13.4 | Apps massives + bus events agents IA (P12)            |
-| P13.7 | 🆕 Protocole **JSON-RPC 2.0 maison** + RPC bidirectionnel (Promise) + HTTP long-polling fallback + types partagés `ServerToClientEvents`/`ClientToServerEvents` | 4 ses. | P13.4, P1.7 | Symbiose Socket.IO-like sans wrap. Type-safe E2E       |
+| 🔶 P13.7 | 🆕 Protocole **JSON-RPC 2.0 maison** + RPC bidirectionnel (Promise) + HTTP long-polling fallback + types partagés `ServerToClientEvents`/`ClientToServerEvents` | 4 ses. | P13.4, P1.7 | 🔶 **précurseur** (vérif audit) — JSON-RPC 2.0 implémenté dans Studio (`StudioRealtimeController` WS pub/sub). Pas encore extrait en module générique + long-polling fallback |
 | P13.8 | 🆕 Décorateurs `@RealtimeController(path)` + `@RealtimeEvent(name)` (lecture `Reflect.metadata`) | 2 ses. | P13.7 | Pattern @route mais pour events temps réel             |
 | P13.9 | 🆕 Tests intégration cluster simulé (2+ instances + Hub + filtre écho) | 2 ses. | P13.5 ou P13.6 | Valide pas de duplication de messages cluster         |
 
@@ -439,7 +441,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P9.1  | `@entities` decorator + tests (pattern `Decorators.test.ts`)   | 0.5 ses. | Phase 1.3 résiduel                             |
 | P9.2  | Barrel `src/container/index.ts`, `src/bundles/index.ts`, etc. | 0.5 ses. | Phase 1.3, 2.2, 2.1 résiduels                  |
 | P9.3  | README.md publics (http, framework, security)                  | 1 ses.   | Audience humaine                               |
-| P9.4  | Vulnérabilités restantes (9 — twig/mocha)                      | 0.5 ses. | Audit dépendances + upgrades majeurs possibles |
+| P9.4  | Vulnérabilités restantes (**11** — 4 critical/4 high/2 mod/1 low, vérif 2026-05-20)                      | 0.5 ses. | ⚠️ Passé de 9→11 : critical/high apparues avec l'install Angular `--legacy-peer-deps` (analog/@angular). Audit deps + upgrades majeurs |
 
 ### Synthèse effort total
 
