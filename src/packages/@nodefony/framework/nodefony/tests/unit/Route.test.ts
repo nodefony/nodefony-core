@@ -117,6 +117,39 @@ describe("Route — match()", () => {
   });
 });
 
+// ─── strictness mono-segment des variables ───────────────────────────────────
+// Invariant critique : une variable `{x}` = `[^/]+` ne franchit JAMAIS `/`.
+// C'est ce qui garantit que `module/{name}` ne masque pas `module/{name}/docs`,
+// et que le fallback SPA 2 segments ne masque pas les routes API ≥3 segments.
+
+describe("Route — strictness mono-segment des variables", () => {
+  it("/foo/{id} matche /foo/42 mais REJETTE /foo/a/b (pas de / dans la variable)", () => {
+    const r = new Route("r", { path: "/foo/{id}" });
+    expect(r.match(makeCtx("/foo/42"))).to.be.an("array");
+    expect(r.match(makeCtx("/foo/a/b"))).to.not.be.ok;
+  });
+
+  it("/{section}/{page} matche EXACTEMENT 2 segments", () => {
+    const r = new Route("r", { path: "/{section}/{page}" });
+    const m = r.match(makeCtx("/modules/core")) as string[] & Record<string, string>;
+    expect(m).to.be.an("array");
+    expect(m["section"]).to.equal("modules");
+    expect(m["page"]).to.equal("core");
+  });
+
+  it("/{section}/{page} REJETTE 1 segment ET 3 segments (ne masque pas /<mod>/api/<ep>)", () => {
+    const r = new Route("r", { path: "/{section}/{page}" });
+    expect(r.match(makeCtx("/modules")), "1 segment").to.not.be.ok;
+    expect(r.match(makeCtx("/kernel/api/info")), "3 segments").to.not.be.ok;
+  });
+
+  it("/foo/{id}/docs matche /foo/x/docs mais pas /foo/x (route plus profonde non masquée)", () => {
+    const r = new Route("r", { path: "/foo/{id}/docs" });
+    expect(r.match(makeCtx("/foo/x/docs"))).to.be.an("array");
+    expect(r.match(makeCtx("/foo/x"))).to.not.be.ok;
+  });
+});
+
 // ─── matchRequirements — methods ─────────────────────────────────────────────
 
 describe("Route — matchRequirements() — methods", () => {

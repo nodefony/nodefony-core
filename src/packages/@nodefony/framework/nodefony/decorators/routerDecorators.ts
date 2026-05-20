@@ -223,6 +223,25 @@ const Post = httpMethodDecorator(["POST"]);
 const Put = httpMethodDecorator(["PUT"]);
 const Delete = httpMethodDecorator(["DELETE"]);
 const Patch = httpMethodDecorator(["PATCH"]);
+const Options = httpMethodDecorator(["OPTIONS"]);
+const Head = httpMethodDecorator(["HEAD"]);
+
+/**
+ * `@All` — route sans restriction de méthode : matche **toutes** les méthodes
+ * HTTP (équivalent NestJS `@All()`). N'émet aucun requirement `methods`, donc
+ * `Route.matchRequirements` ne lève jamais 405 sur la méthode.
+ */
+function All(path: string = "", options: MethodDecoratorOptions = {}) {
+  return function (
+    target: object,
+    propertyKey: string,
+    descriptor: PropertyDescriptor
+  ): PropertyDescriptor {
+    const proto = target as Record<string, unknown>;
+    const name = `${(proto.constructor as { name: string }).name}::${propertyKey}`;
+    return route(name, { ...options, path })(target, propertyKey, descriptor);
+  };
+}
 
 // ── Response decorators ─────────────────────────────────────────────────────
 function HttpCode(statusCode: number) {
@@ -296,6 +315,9 @@ export {
   Put,
   Delete,
   Patch,
+  Options,
+  Head,
+  All,
   HttpCode,
   Header,
   Redirect,

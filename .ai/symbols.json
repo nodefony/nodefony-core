@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-20T14:43:21.077Z",
+  "generated": "2026-05-20T15:43:18.724Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 228,
-    "symbols": 546,
+    "symbols": 547,
     "classes": 176,
     "interfaces": 184,
     "types": 126,
     "enums": 1,
-    "functions": 49,
+    "functions": 50,
     "constants": 10
   },
   "symbols": {
@@ -1620,6 +1620,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Crée une route avec le nom et les options spécifiés."
+    },
+    "All": {
+      "name": "All",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "`@All` — route sans restriction de méthode : matche **toutes** les méthodes HTTP (équivalent NestJS `@All()`). N'émet aucun requirement `methods`, donc `Route.matchRequirements` ne lève jamais 405 …"
     },
     "HttpCode": {
       "name": "HttpCode",
@@ -5112,8 +5120,6 @@
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
-        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "controller": [
@@ -5131,6 +5137,9 @@
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "All": [
+        "src/packages/@nodefony/framework/index.ts"
       ],
       "HttpCode": [
         "src/packages/@nodefony/framework/index.ts",

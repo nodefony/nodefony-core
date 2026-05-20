@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Controller, route, controller } from "@nodefony/framework";
+import { Controller, Get, Post, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
 
@@ -34,7 +34,7 @@ class StudioController extends Controller {
   }
 
   /** Page HTML — entrypoint Studio. */
-  @route("studio-index", { path: "/" })
+  @Get("/")
   renderStudio(): unknown {
     this.setContextHtml();
     const svc = this.context?.container?.get("frontend") as
@@ -66,28 +66,28 @@ class StudioController extends Controller {
   }
 
   /** SPA fallback — toute route /nodefony/<page> retourne la même page React. */
-  @route("studio-spa-fallback", { path: "/{page}" })
+  @Get("/{page}")
   renderSpaFallback(): unknown {
     return this.renderStudio();
   }
 
   /**
-   * SPA fallback profondeur 2 — deep-links / refresh sur une page React à deux
-   * segments (ex `/nodefony/modules/core`, route `modules/:name`). Sans lui, un
-   * F5 sur ces URLs tombait sur le 404 backend (le fallback mono-segment ne les
-   * couvrait pas).
+   * SPA fallback profondeur 2 — deep-link / refresh sur la seule page React à
+   * deux segments : `modules/:name` (ex `/nodefony/modules/core`). Sans lui, un
+   * F5 sur cette URL tombait sur le 404 backend.
    *
-   * Sûr vis-à-vis du data plane : les routes admin font **≥ 3 segments**
-   * (`/nodefony/<module>/api/*`) → ce pattern à exactement 2 segments ne peut
-   * pas les masquer. La SPA n'a pas de route à 3+ segments (profondeur max =
-   * `modules/:name`), donc 2 niveaux suffisent.
+   * ⚠️ Segment littéral `modules` (PAS un générique `/{section}/{page}`) :
+   * d'autres modules montent de vraies routes sous `/nodefony/<x>/<y>` (ex le
+   * module test : `/nodefony/test/index`). Un fallback générique les masquerait
+   * (régression). On ne capture donc QUE le préfixe SPA connu. Toute nouvelle
+   * page SPA à ≥2 segments → ajouter son fallback littéral ici.
    */
-  @route("studio-spa-fallback-deep", { path: "/{section}/{page}" })
+  @Get("/modules/{name}")
   renderSpaFallbackDeep(): unknown {
     return this.renderStudio();
   }
 
-  @route("studio-api-health", { path: "/studio/api/health" })
+  @Get("/studio/api/health")
   apiHealth() {
     return this.renderJson({
       status: "ok",
@@ -96,7 +96,7 @@ class StudioController extends Controller {
     });
   }
 
-  @route("studio-api-info", { path: "/studio/api/info" })
+  @Get("/studio/api/info")
   apiInfo() {
     return this.renderJson({
       name: "Nodefony Studio",
@@ -114,7 +114,7 @@ class StudioController extends Controller {
    * Mock login — accepte n'importe quoi pour le POC.
    * Sera remplacé par P6 (@nodefony/security firewall + AuthBridge).
    */
-  @route("studio-api-login", { path: "/studio/api/auth/login", method: "POST" })
+  @Post("/studio/api/auth/login")
   apiLogin() {
     const body = (this.context as { body?: { username?: string } })?.body ?? {};
     const username = body.username ?? "admin";
@@ -129,7 +129,7 @@ class StudioController extends Controller {
     });
   }
 
-  @route("studio-api-me", { path: "/studio/api/auth/me" })
+  @Get("/studio/api/auth/me")
   apiMe() {
     return this.renderJson({
       id: 1,
@@ -139,7 +139,7 @@ class StudioController extends Controller {
     });
   }
 
-  @route("studio-api-logout", { path: "/studio/api/auth/logout", method: "POST" })
+  @Post("/studio/api/auth/logout")
   apiLogout() {
     return this.renderJson({ ok: true });
   }
@@ -149,7 +149,7 @@ class StudioController extends Controller {
    * Le client front lit ça pour savoir où ouvrir le WebSocket.
    * Sera relié à P13.4 RealtimeService + P13.7 JSON-RPC.
    */
-  @route("studio-api-realtime-info", { path: "/studio/api/realtime/info" })
+  @Get("/studio/api/realtime/info")
   apiRealtimeInfo() {
     return this.renderJson({
       wsUrl: "/nodefony/studio/api/realtime", // StudioRealtimeController (WS JSON-RPC 2.0)
@@ -171,7 +171,7 @@ class StudioController extends Controller {
    *
    * TODO P13.4 : déplacer dans un endpoint WS dédié + canal pub/sub.
    */
-  @route("studio-api-logs-stream", { path: "/studio/api/logs/stream" })
+  @Get("/studio/api/logs/stream")
   async apiLogsStream(): Promise<void> {
     const httpResp = this.context?.response as
       | { response?: { setHeader: (k: string, v: string) => void; write: (s: string) => boolean; flushHeaders?: () => void; once: (e: string, fn: () => void) => void } }

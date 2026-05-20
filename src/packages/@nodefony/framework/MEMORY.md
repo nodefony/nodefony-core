@@ -19,7 +19,7 @@ Module Nodefony : routeur HTTP+WS, Controller, Resolver, décorateurs `@route`/`
 | `Resolver`              | 290    | Extends Service. `match(route, ctx)` → `_applyResponseDecorators()` → `callController()` → `_handleRedirect()` → `returnController()`. `newController()` via Injector. |
 | `Route`                 | 440    | `name`, `path`, `pattern` (RegExp compilé), `variables[]`, `defaults`, `requirements`. `match(ctx)` → vérifie url+requirements. `matchRequirements` vérifie `requirements.methods` (pas `route.method`). |
 | `Router` (service)      | 131    | Tableau statique `routes: Route[]` partagé process-wide. `resolve(ctx)` → Resolver. `createRoute(name, opts)` static. |
-| `routerDecorators`      | 290    | `@controllers`, `@controller(prefix)`, `@route(name, opts)` + **`@Get/@Post/@Put/@Delete/@Patch`** (requirements.methods) + **`@HttpCode/@Header/@Redirect`** + **`@Param/@Body/@Query`** (Reflect metadata). |
+| `routerDecorators`      | 290    | `@controllers`, `@controller(prefix)`, `@route(name, opts)` + **`@Get/@Post/@Put/@Delete/@Patch/@Options/@Head`** (requirements.methods) + **`@All`** (AUCUN requirement methods → matche toutes) + **`@HttpCode/@Header/@Redirect`** + **`@Param/@Body/@Query`** (Reflect metadata). |
 | `Twig` / `Ejs`          | 118/43 | Services template. `render(file, params)` → Promise\<string\>. |
 
 ## Interfaces
@@ -82,7 +82,8 @@ Contrat d'exposition admin pour Studio. **Inversion de dépendance** : contrat p
 ```typescript
 @Get(path?, options?)    // → requirements: { methods: ["GET"] }
 @Post(path?, options?)   // → requirements: { methods: ["POST"] }
-@Put / @Delete / @Patch  // idem
+@Put / @Delete / @Patch / @Options / @Head  // idem (1 méthode chacun)
+@All(path?, options?)    // → AUCUN requirements.methods → matche TOUTES les méthodes (NestJS-like)
 ```
 
 Auto-name : `ClassName::methodName` — déterministe, unique par (classe, méthode).

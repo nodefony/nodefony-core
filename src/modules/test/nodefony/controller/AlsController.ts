@@ -1,4 +1,4 @@
-import { Controller, route, controller } from "@nodefony/framework";
+import { Controller, route, Get, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import { RequestContext } from "nodefony";
 
@@ -41,7 +41,7 @@ class AlsController extends Controller {
   }
 
   // ── BUG-002 HTTP — after-response hook reads ALS ─────────────────
-  @route("als-test-after", { path: "/after", requirements: { methods: ["GET"] } })
+  @Get("/after")
   afterRegister() {
     const ctxId = this.context.requestId;
     this.context.onAfterResponse(() => {
@@ -54,7 +54,7 @@ class AlsController extends Controller {
   }
 
   // ── BUG-002 HTTP — user set mid-request visible in the hook ──────
-  @route("als-test-after-user", { path: "/after/user", requirements: { methods: ["GET"] } })
+  @Get("/after/user")
   afterUser() {
     RequestContext.set("user", { id: "http-user-7" });
     this.context.onAfterResponse(() => {
@@ -67,7 +67,7 @@ class AlsController extends Controller {
   // ── BUG-002 HTTP — late subscribe (after _afterResponseFired) ───
   // hook1 runs with restored ALS (the fix) and registers hook2 while
   // fired === true, exercising the late branch bind.
-  @route("als-test-after-late", { path: "/after/late", requirements: { methods: ["GET"] } })
+  @Get("/after/late")
   afterLate() {
     const ctxId = this.context.requestId;
     this.context.onAfterResponse((ctx) => {
@@ -78,7 +78,7 @@ class AlsController extends Controller {
     return this.renderJson({ contextRequestId: ctxId });
   }
 
-  @route("als-test-state", { path: "/state", requirements: { methods: ["GET"] } })
+  @Get("/state")
   state() {
     return this.renderJson({
       byContext: alsTestState.byContext,
@@ -95,7 +95,7 @@ class AlsController extends Controller {
   // Lifecycle diagnostic — number of live "request" scopes still held by the
   // DI container. Ground truth for scope leaks (immune to GC/Rollup heap noise).
   // A clean server idles near 1 (the scope of this very request).
-  @route("als-test-scopes", { path: "/scopes", requirements: { methods: ["GET"] } })
+  @Get("/scopes")
   scopeCount() {
     const httpKernel = this.kernel?.get("HttpKernel") as
       | { container?: { scopes?: Record<string, Record<string, unknown>> } }
@@ -106,7 +106,7 @@ class AlsController extends Controller {
     });
   }
 
-  @route("als-test-reset", { path: "/reset", requirements: { methods: ["GET"] } })
+  @Get("/reset")
   reset() {
     alsTestState.byContext = {};
     alsTestState.lastHookRequestId = null;

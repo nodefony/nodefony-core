@@ -76,6 +76,44 @@ describe("routerDecorators — @route + @controller", () => {
   });
 });
 
+// ─── route magic '*' (catch-all) ──────────────────────────────────────────────
+// Le décorateur @controller traite `path == "*"` comme route "magic" : elle est
+// créée APRÈS toutes les autres routes du controller (registered last), pour ne
+// pas masquer les routes spécifiques sœurs.
+
+describe("routerDecorators — route magic '*'", () => {
+  afterEach(() => { while (Router.routes.length) Router.routes.pop(); });
+
+  it("la route magic (path '*') est enregistrée EN DERNIER, après les routes spécifiques", () => {
+    @controller("/mg")
+    class MgCtrl extends StubController {
+      @route("mg-a", { path: "/a" })
+      mg_a() { return null; }
+      @route("mg-catch", { path: "*" })
+      mg_catch() { return null; }
+      @route("mg-b", { path: "/b" })
+      mg_b() { return null; }
+    }
+    void MgCtrl;
+    const names = Router.routes.map((r) => r.name);
+    const idxCatch = names.indexOf("mg-catch");
+    expect(idxCatch).to.be.greaterThan(names.indexOf("mg-a"));
+    expect(idxCatch).to.be.greaterThan(names.indexOf("mg-b"));
+  });
+
+  it("la route magic compile en wildcard `/<prefix>/*` (matche tout suffixe profond)", () => {
+    @controller("/mg2")
+    class Mg2Ctrl extends StubController {
+      @route("mg2-catch", { path: "*" })
+      mg2_catch() { return null; }
+    }
+    void Mg2Ctrl;
+    const r = Router.routes.find((x) => x.name === "mg2-catch");
+    expect(r?.path).to.equal("/mg2/*");
+    expect(r?.pattern!.test("/mg2/any/deep/path")).to.be.true;
+  });
+});
+
 // ─── @Param / @Body / @Query ──────────────────────────────────────────────────
 import {
   Param,

@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Controller, route, controller } from "@nodefony/framework";
+import { Controller, Get, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
 import { performance } from "node:perf_hooks";
@@ -23,7 +23,7 @@ class PocController extends Controller {
    * En dev avec Vite spawné, le browser charge `http://127.0.0.1:5173/src/main.tsx`
    * directement → backend Node n'est PAS sur le chemin critique des assets.
    */
-  @route("poc-react", { path: "/react" })
+  @Get("/react")
   renderReact(): unknown {
     this.setContextHtml();
     const svc = this.context?.container?.get("frontend") as
@@ -58,7 +58,7 @@ class PocController extends Controller {
    * Endpoint léger pour bencher la latence backend pendant que Vite compile/HMR.
    * Renvoie un JSON minimal — pas de DB, pas de I/O, juste perf.now().
    */
-  @route("poc-api-data", { path: "/api/data" })
+  @Get("/api/data")
   apiData() {
     return this.renderJson({
       ts: performance.now(),
@@ -71,7 +71,7 @@ class PocController extends Controller {
    * Endpoint calibration : brûle CPU pendant ms (synchrone) pour valider
    * que la mesure de latence détecte un freeze event-loop. NE PAS BENCHER ICI.
    */
-  @route("poc-api-burn", { path: "/api/burn/{ms}" })
+  @Get("/api/burn/{ms}")
   apiBurn() {
     const ms = parseInt(this.queryGet?.ms ?? "100", 10);
     const start = Date.now();

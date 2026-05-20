@@ -169,6 +169,7 @@ Module @nodefony/{{name}} créé.
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
     "test": "mocha",
+    "coverage": "mcr -c mcr.config.js npm run test",
     "lint": "tsc --noEmit"
   },
   "keywords": ["nodefony", "typescript"],
@@ -181,6 +182,7 @@ Module @nodefony/{{name}} créé.
     "@types/node": "25.8.0",
     "chai": "6.2.2",
     "mocha": "11.7.5",
+    "monocart-coverage-reports": "2.12.11",
     "rimraf": "6.1.3",
     "rollup": "4.60.4",
     "rollup-sourcemap-path-transform": "1.2.0",
@@ -206,6 +208,37 @@ Module @nodefony/{{name}} créé.
   "@nodefony/frontend": "*"
 }
 ```
+
+### `mcr.config.js` (coverage — convention universelle)
+
+Tout module embarque un coverage `monocart-coverage-reports` (= core ; **jamais c8**, KO en ESM/Node récent). Lancé par `npm run coverage`. Remplacer `<module>` par le nom du package (`@nodefony/<x>` ou `modules/<x>`).
+
+```js
+// Couverture du module — `npm run coverage` (mcr wrappe la suite unit in-process).
+// ⚠️ Les tests d'INTÉGRATION (test:integration) tapent un serveur dans un process
+// SÉPARÉ → non couverts par le wrapping mocha. Seule la suite unit est mesurée.
+// ⚠️ ts-node mappe mal le V8 coverage (monocart ne résout qu'une partie des
+// sourcemaps) → pour un % FIABLE, faire tourner les unit tests sous `tsx`
+// (comme le core src/nodefony), pas ts-node. Voir mémoire feedback_coverage_modules.
+const inModule = (url) =>
+  typeof url === "string" &&
+  url.includes("/<module>/") &&
+  !url.includes("/node_modules/") &&
+  !url.includes("/dist/");
+
+export default {
+  name: "<module>",
+  reports: ["console-summary", "v8", "lcov"],
+  outputDir: ".coverage",
+  entryFilter: (e) => inModule(e && e.url ? e.url : String(e)),
+  sourceFilter: (p) =>
+    typeof p === "string" && p.endsWith(".ts") &&
+    p.includes("/<module>/") &&
+    !p.includes("/node_modules/") && !p.includes("/tests/") && !p.includes("/dist/"),
+};
+```
+
+> `.coverage/` doit être gitignored (rapport HTML/lcov généré).
 
 ### `tsconfig.json`
 

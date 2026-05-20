@@ -16,6 +16,9 @@ nodefony/databases/*
 *.tsbuildinfo
 *.js.map
 
+# Rapports de couverture monocart-coverage-reports (tous modules)
+.coverage/
+
 # Ignore les fichiers d'environnement
 .env
 

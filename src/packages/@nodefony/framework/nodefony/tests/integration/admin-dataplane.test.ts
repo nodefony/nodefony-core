@@ -186,3 +186,34 @@ describe("Admin data plane — syslog", function () {
     expect((r.body as unknown[]).length).to.be.at.most(3);
   });
 });
+
+// ── SPA fallback ne masque PAS les vraies routes /nodefony/* (régression) ──────
+// Le fallback deep-link Studio doit utiliser un préfixe LITTÉRAL (`/modules/{name}`),
+// pas un générique `/{section}/{page}` : sinon il masque les routes des autres
+// modules montées sous `/nodefony/<x>/<y>` (ex le module test `/nodefony/test/index`).
+// Régression vécue 2026-05-20 (fallback générique → 21 échecs http). Requiert
+// studio + module test chargés (app dev).
+
+describe("Admin data plane — SPA fallback vs vraies routes (non-shadow)", function () {
+  this.timeout(TIMEOUT);
+
+  it("GET /nodefony/modules/core → 200 HTML (deep-link SPA, fallback littéral /modules/{name})", async () => {
+    const r = await req("GET", "/nodefony/modules/core");
+    expect(r.status).to.equal(200);
+    expect(r.body, "le SPA renvoie du HTML brut, pas du JSON").to.be.a("string");
+    expect(r.body as string).to.include("<!DOCTYPE");
+  });
+
+  it("GET /nodefony/kernel/api/info → 200 JSON (route ≥3 seg NON masquée)", async () => {
+    const r = await req("GET", "/nodefony/kernel/api/info");
+    expect(r.status).to.equal(200);
+    expect(r.body, "la route data plane gagne → JSON").to.be.an("object");
+    expect((r.body as Record<string, unknown>).version).to.be.a("string");
+  });
+
+  it("GET /nodefony/test/index → JSON (route 2-seg d'un AUTRE module NON masquée par le fallback)", async () => {
+    const r = await req("GET", "/nodefony/test/index");
+    expect(r.status).to.equal(200);
+    expect(r.body, "le module test gagne → JSON, pas le HTML du SPA").to.be.an("object");
+  });
+});

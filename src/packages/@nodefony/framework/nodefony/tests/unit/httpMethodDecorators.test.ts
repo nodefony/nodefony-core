@@ -9,6 +9,9 @@ import {
   Put,
   Delete,
   Patch,
+  Options,
+  Head,
+  All,
   HttpCode,
   Header,
   Redirect,
@@ -23,6 +26,15 @@ class StubCtrl extends Controller {
   constructor() {
     super("stub", {} as ContextType);
   }
+}
+
+/** Contexte minimal pour exercer `Route.match()` (chemin + méthode). */
+function ctx(pathname: string, method: string): ContextType {
+  return {
+    request: { url: new URL(`http://localhost${pathname}`) },
+    method,
+    domain: "localhost",
+  } as unknown as ContextType;
 }
 
 // ─── HTTP method decorators ───────────────────────────────────────────────────
@@ -131,6 +143,82 @@ describe("HTTP method decorators — route auto-naming", () => {
     void CompileCtrl;
     const r = Router.routes.find((r) => r.name === "CompileCtrl::show");
     expect(r?.pattern).to.be.instanceof(RegExp);
+  });
+});
+
+// ─── @Options / @Head / @All (+ limites) ─────────────────────────────────────
+
+describe("HTTP method decorators — @Options / @Head / @All (+ limites)", () => {
+  afterEach(() => { while (Router.routes.length) Router.routes.pop(); });
+
+  it("@Options restreint à OPTIONS", () => {
+    @controller("/opt")
+    class OptCtrl extends StubCtrl {
+      @Options("/x") x() { return null; }
+    }
+    void OptCtrl;
+    const r = Router.routes.find((r) => r.name === "OptCtrl::x");
+    expect(r?.requirements?.methods).to.deep.equal(["OPTIONS"]);
+  });
+
+  it("@Head restreint à HEAD", () => {
+    @controller("/hd")
+    class HdCtrl extends StubCtrl {
+      @Head("/x") x() { return null; }
+    }
+    void HdCtrl;
+    const r = Router.routes.find((r) => r.name === "HdCtrl::x");
+    expect(r?.requirements?.methods).to.deep.equal(["HEAD"]);
+  });
+
+  it("@All n'émet AUCUN requirement de méthode (matche toutes)", () => {
+    @controller("/all")
+    class AllCtrl extends StubCtrl {
+      @All("/x") x() { return null; }
+    }
+    void AllCtrl;
+    const r = Router.routes.find((r) => r.name === "AllCtrl::x");
+    expect(r, "route enregistrée").to.exist;
+    expect(r?.requirements?.methods, "pas de restriction de méthode").to.be.undefined;
+  });
+
+  // ── Limites : matching réel via Route.match (méthode autorisée vs 405) ──
+
+  it("@Head — HEAD passe, GET → 405", () => {
+    @controller("/hl")
+    class HlCtrl extends StubCtrl { @Head("/r") r() { return null; } }
+    void HlCtrl;
+    const r = Router.routes.find((x) => x.name === "HlCtrl::r")!;
+    expect(() => r.match(ctx("/hl/r", "HEAD")), "HEAD autorisé").to.not.throw();
+    expect(() => r.match(ctx("/hl/r", "GET")), "GET → 405").to.throw();
+  });
+
+  it("@Options — OPTIONS passe, POST → 405", () => {
+    @controller("/ol")
+    class OlCtrl extends StubCtrl { @Options("/r") r() { return null; } }
+    void OlCtrl;
+    const r = Router.routes.find((x) => x.name === "OlCtrl::r")!;
+    expect(() => r.match(ctx("/ol/r", "OPTIONS"))).to.not.throw();
+    expect(() => r.match(ctx("/ol/r", "POST"))).to.throw();
+  });
+
+  it("@All — toutes les méthodes passent (aucun 405)", () => {
+    @controller("/al")
+    class AlCtrl extends StubCtrl { @All("/r") r() { return null; } }
+    void AlCtrl;
+    const r = Router.routes.find((x) => x.name === "AlCtrl::r")!;
+    for (const m of ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]) {
+      expect(() => r.match(ctx("/al/r", m)), m).to.not.throw();
+      expect(r.match(ctx("/al/r", m)), m).to.be.an("array");
+    }
+  });
+
+  it("@Head — ne matche pas un chemin différent (limite path)", () => {
+    @controller("/hp")
+    class HpCtrl extends StubCtrl { @Head("/only") only() { return null; } }
+    void HpCtrl;
+    const r = Router.routes.find((x) => x.name === "HpCtrl::only")!;
+    expect(r.match(ctx("/hp/other", "HEAD"))).to.not.be.ok;
   });
 });
 
