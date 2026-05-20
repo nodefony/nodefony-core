@@ -142,24 +142,74 @@ describe("P2.7 — W3C traceparent (requires server)", () => {
     });
   });
 
-  describe("WS — traceparent propagated via upgrade headers", () => {
-    it("WS handshake completes when a valid traceparent is sent", async () => {
-      const incoming =
-        "00-deadbeefdeadbeefdeadbeefdeadbeef-cafebabecafebabe-01";
-      const ws = new WebSocket("wss://localhost:5152/nodefony/test/ws/echo", {
-        rejectUnauthorized: false,
-        headers: { traceparent: incoming },
-      });
-      await new Promise<void>((resolve, reject) => {
+  describe("WS — traceparent propagated into the message lifecycle", () => {
+    // Probe: /als-test/ws echoes RequestContext.traceparent on handshake AND on
+    // every message frame (BUG-001 — ALS must survive across WS messages).
+    const WS_PROBE = "wss://localhost:5152/nodefony/test/als-test/ws";
+
+    // Opens the WS with the given upgrade headers, sends one frame, resolves
+    // with the parsed JSON of the *message* response (not the handshake).
+    function wsTrace(
+      headers: Record<string, string>,
+    ): Promise<{ handshake: boolean; alsTraceparent: string | null }> {
+      return new Promise((resolve, reject) => {
+        const ws = new WebSocket(WS_PROBE, { rejectUnauthorized: false, headers });
+        let opened = false;
         ws.on("open", () => {
-          ws.close();
-          resolve();
+          opened = true;
+          ws.send("ping");
+        });
+        ws.on("message", (raw: Buffer) => {
+          const msg = JSON.parse(raw.toString());
+          if (msg.handshake === false) {
+            ws.close();
+            resolve(msg);
+          }
         });
         ws.on("error", (err) => reject(err));
+        setTimeout(() => {
+          if (!opened) reject(new Error("WS never opened"));
+        }, 2000);
       });
-      // Property: WS pipeline does not reject the upgrade because of the
-      // traceparent header (regression check — the kernel must tolerate it
-      // and propagate it internally via RequestContext).
+    }
+
+    it("handshake completes when a valid traceparent is sent (regression)", async () => {
+      const ws = new WebSocket("wss://localhost:5152/nodefony/test/ws/echo", {
+        rejectUnauthorized: false,
+        headers: { traceparent: "00-deadbeefdeadbeefdeadbeefdeadbeef-cafebabecafebabe-01" },
+      });
+      await new Promise<void>((resolve, reject) => {
+        ws.on("open", () => { ws.close(); resolve(); });
+        ws.on("error", (err) => reject(err));
+      });
+    });
+
+    it("incoming traceId survives into a WS message handler (via ALS)", async () => {
+      const incoming = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+      const { alsTraceparent } = await wsTrace({ traceparent: incoming });
+      expect(alsTraceparent, "traceparent readable in WS message via RequestContext").to.be.a("string");
+      const parsed = parseTrace(alsTraceparent!);
+      expect(parsed, "stored traceparent matches W3C grammar").to.not.equal(null);
+      expect(parsed!.traceId, "same trace, propagated across the upgrade").to.equal(
+        "0af7651916cd43dd8448eb211c80319c",
+      );
+      // child span on our side — parentId must have been re-minted
+      expect(parsed!.parentId).to.not.equal("b7ad6b7169203331");
+    });
+
+    it("generates a fresh traceparent when none is sent on the upgrade", async () => {
+      const { alsTraceparent } = await wsTrace({});
+      expect(alsTraceparent, "WS context always has a traceparent").to.be.a("string");
+      const parsed = parseTrace(alsTraceparent!);
+      expect(parsed, "generated header is W3C-valid").to.not.equal(null);
+      expect(parsed!.traceId).to.not.match(/^0+$/);
+    });
+
+    it("rejects an invalid incoming traceparent and mints a new one", async () => {
+      const { alsTraceparent } = await wsTrace({ traceparent: "garbage-not-w3c" });
+      const parsed = parseTrace(alsTraceparent!);
+      expect(parsed, "fallback header is W3C-valid").to.not.equal(null);
+      expect(parsed!.version).to.equal("00");
     });
   });
 });

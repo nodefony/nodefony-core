@@ -162,6 +162,9 @@ Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
 - **Charge / mémoire / leak / scopes DI** : `npx mocha --config .mocharc.load.json` (= `tests/load/**` + `memory.test.ts`). À lancer AVANT tout commit touchant Kernel / pipeline request / cycle de vie / mémoire — pas à chaque non-régression (sinon trop lent).
 - Gate perf seul : `npx mocha --config .mocharc.load.json --grep "Memory"`.
 - Tests ALS/lifecycle : `tests/integration/{request-context-ws,after-response-als,lifecycle-als}.test.ts` (rapides, assertions delta) + `tests/load/als-load.test.ts` (lourds). Route diagnostic scopes : `/nodefony/test/als-test/scopes`.
+- **Stress WS** (2 axes distincts) : `tests/load/ws-connections-load.test.ts` (axe 1 — nombre de sockets simultanées) + `tests/load/ws-messages-load.test.ts` (axe 2 — débit frames + broadcast). Cas CI-stables = lossless + plancher de débit + scopes drainés (poll `drainTo`, pas de `wait` fixe). Sondes plafond/rupture gated derrière `RUN_WS_RUPTURE=1` (cap `WS_RUPTURE_CAP`, défaut 8000) car elles épuisent les ports éphémères loopback. Mesures observées : ~750+ conn / 33–38k msg/s soutenu jusqu'à 200k frames sans perte.
+  - Gotcha harness : ouvrir N centaines de WS en **un seul** `Promise.all` → `AggregateError` (connect TLS loopback dual-stack `internalConnectMultiple`) → ouvrir par **batches** (`openFleet`, 50/batch). Tracker chaque socket (`Set` + `afterEach` terminate) sinon un test qui throw laisse des sockets ouvertes qui **polluent la baseline scopes** du test suivant.
+- **Traceparent W3C sur WS** : `tests/http/traceparent.test.ts` assert désormais la **propagation réelle** du traceId dans le handler de message WS (via la sonde `/nodefony/test/als-test/ws` qui renvoie `RequestContext.traceparent`), pas seulement la tolérance au handshake.
 
 ---
 
