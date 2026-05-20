@@ -81,11 +81,30 @@ Les **sessions totales par phase** viennent de la section `### Synthèse effort 
 - Priorité : 🔴 P1 critique (chemin critique MVP) · 🟠 P2 haute · 🟡 P3 moyenne · ⚪ P4 future.
 - **Dépendances** : tirer la colonne `Dépendances` de la roadmap (déps inter-phases clés ; mettre en gras les bloquantes, ex. **P5**, **P10**).
 
-Règles communes :
+Règles communes (A **et** B) :
 - Recompter ✅/🔶/⬜ depuis la roadmap P0–P16 (jamais hardcoder).
+- **TOUJOURS afficher le graphe à barres** (variante A) — même en mode tableau parfait, mettre le graphe AVANT le tableau détaillé (le user veut le visuel).
 - Toujours finir par la ligne **TOTAL** (compteurs + reste sessions + reste `~h / ~j`).
-- Toujours rappeler le **chemin critique** sous le tableau (ex. « P5→P6 = 31 ses ≈ ~93h ≈ ~15.5j — débloque tout le reste »).
+- **TOUJOURS terminer par un encadré « ➡️ PROCHAINE ÉTAPE »** (voir gabarit ci-dessous) — c'est la conclusion la plus utile.
 - Annotations : `legacy en place`, `cassé claude-ts`, `précurseur`, `◀ session courante`.
+
+#### Encadré « PROCHAINE ÉTAPE » (obligatoire en fin de synthèse)
+
+Déterminer la prochaine étape = **première phase non finie sur le chemin critique** (typiquement P5 tant que sécurité pas faite). Format encadré ASCII :
+
+```
+╔═══════════════════════════════════════════════════════════════╗
+║  ➡️  PROCHAINE ÉTAPE  →  <Phase> : <titre court>               ║
+╠═══════════════════════════════════════════════════════════════╣
+║  Pourquoi : <1-2 lignes — ce que ça débloque>                  ║
+║  1er pas concret (ordre roadmap) :                             ║
+║   • <P_x.y  sous-tâche>   ~<effort>                            ║
+║   • …                                                          ║
+║  Chemin critique MVP : <P5→P6 ≈ X ses ≈ ~Y jours>             ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+Règle de choix : tant que **P5/P6 = 0%**, la prochaine étape est **P5** (ORM core + @nodefony/user) — c'est le bloqueur racine de la sécurité, du Studio data-réelle, des drivers ORM, de l'IA. Lister les 2-3 premières sous-tâches roadmap avec leur effort.
 
 ### Étape 2 — Synthèse + corrections (fin)
 
