@@ -16,7 +16,8 @@
     "declaration": true,
     "declarationDir": "./dist/types",
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "types": ["node"]
   },
   "include": [
     "index.ts",

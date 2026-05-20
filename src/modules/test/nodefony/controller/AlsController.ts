@@ -43,8 +43,8 @@ class AlsController extends Controller {
   // ── BUG-002 HTTP — after-response hook reads ALS ─────────────────
   @Get("/after")
   afterRegister() {
-    const ctxId = this.context.requestId;
-    this.context.onAfterResponse(() => {
+    const ctxId = this.context!.requestId;
+    this.context!.onAfterResponse(() => {
       const alsId = RequestContext.getRequestId() ?? null;
       alsTestState.lastHookRequestId = alsId;
       alsTestState.byContext[ctxId] = alsId;
@@ -57,7 +57,7 @@ class AlsController extends Controller {
   @Get("/after/user")
   afterUser() {
     RequestContext.set("user", { id: "http-user-7" });
-    this.context.onAfterResponse(() => {
+    this.context!.onAfterResponse(() => {
       alsTestState.hookUser =
         (RequestContext.getUser() as { id?: string } | undefined)?.id ?? null;
     });
@@ -69,8 +69,8 @@ class AlsController extends Controller {
   // fired === true, exercising the late branch bind.
   @Get("/after/late")
   afterLate() {
-    const ctxId = this.context.requestId;
-    this.context.onAfterResponse((ctx) => {
+    const ctxId = this.context!.requestId;
+    this.context!.onAfterResponse((ctx) => {
       ctx.onAfterResponse(() => {
         alsTestState.lateHookRequestId = RequestContext.getRequestId() ?? null;
       });

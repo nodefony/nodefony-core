@@ -137,7 +137,7 @@ class DefaultController extends Controller {
   // ── P1.2 onAfterResponse probes ─────────────────────────────────
   @route("after-incr", { path: "/after/incr" })
   afterIncr() {
-    this.context.onAfterResponse(() => {
+    this.context!.onAfterResponse(() => {
       afterResponseState.count++;
       afterResponseState.lastFiredAtMs = Date.now();
     });
@@ -146,13 +146,13 @@ class DefaultController extends Controller {
 
   @route("after-multi", { path: "/after/multi" })
   afterMulti() {
-    this.context.onAfterResponse(() => {
+    this.context!.onAfterResponse(() => {
       afterResponseState.multiCount += 1;
     });
-    this.context.onAfterResponse(() => {
+    this.context!.onAfterResponse(() => {
       afterResponseState.multiCount += 10;
     });
-    this.context.onAfterResponse(() => {
+    this.context!.onAfterResponse(() => {
       afterResponseState.multiCount += 100;
     });
     return this.renderJson({ ok: true });
@@ -160,7 +160,7 @@ class DefaultController extends Controller {
 
   @route("after-throw", { path: "/after/throw" })
   afterThrow() {
-    this.context.onAfterResponse(() => {
+    this.context!.onAfterResponse(() => {
       afterResponseState.count++;
     });
     throw new Error("after-throw — hook must still fire", 500);
@@ -187,7 +187,7 @@ class DefaultController extends Controller {
   // Waits up to 2s; resolves early if context.signal aborts (client disconnect).
   @route("abort-wait", { path: "/abort/wait" })
   async abortWait() {
-    const signal = this.context.signal;
+    const signal = this.context!.signal;
     try {
       await new Promise<void>((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -260,7 +260,7 @@ class DefaultController extends Controller {
     return this.renderJson({
       requestId: RequestContext.getRequestId() ?? null,
       scheme: RequestContext.get()?.scheme ?? null,
-      contextRequestId: this.context.requestId,
+      contextRequestId: this.context!.requestId,
     });
   }
 
@@ -275,7 +275,7 @@ class DefaultController extends Controller {
       beforeAwait: beforeAwait ?? null,
       afterAwait: afterAwait ?? null,
       sameAcrossAwait: beforeAwait === afterAwait,
-      contextRequestId: this.context.requestId,
+      contextRequestId: this.context!.requestId,
     });
   }
 }
