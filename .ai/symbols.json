@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-20T11:47:31.241Z",
+  "generated": "2026-05-20T11:52:11.107Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 225,
-    "symbols": 524,
+    "files": 226,
+    "symbols": 525,
     "classes": 176,
     "interfaces": 177,
     "types": 125,
     "enums": 1,
-    "functions": 36,
+    "functions": 37,
     "constants": 9
   },
   "symbols": {
@@ -1788,6 +1788,14 @@
         "IController"
       ],
       "decorators": []
+    },
+    "createFrameworkAdminApi": {
+      "name": "createFrameworkAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Producteur `IAdminApi` du module **framework** — exposé sous `/nodefony/framework/api/*`. 3ᵉ producteur du data plane admin (kernel, http, puis framework). Introspecte le **Router** : c'est l'équiv…"
     },
     "createKernelAdminApi": {
       "name": "createKernelAdminApi",
@@ -4914,6 +4922,7 @@
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
         "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
@@ -4923,6 +4932,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
@@ -4966,6 +4976,9 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
       ],
       "createKernelAdminApi": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "createFrameworkAdminApi": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "Twig": [
@@ -5579,6 +5592,7 @@
       ],
       "IAdminEndpoint": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
       ],
@@ -5636,6 +5650,7 @@
       ],
       "IAdminApi": [
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
       ],
@@ -5654,6 +5669,7 @@
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
       ],
       "IAdminDescriptor": [
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
       ],

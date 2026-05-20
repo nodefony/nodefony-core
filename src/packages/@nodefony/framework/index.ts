@@ -8,6 +8,7 @@ import Resolver from "./nodefony/src/Resolver";
 import AdminBroker from "./nodefony/service/AdminBroker";
 import AdminApiController from "./nodefony/src/AdminApiController";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
+import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import Twig from "./nodefony/service/Twig";
 import Ejs from "./nodefony/service/Ejs";
 //import mygraphql from "graphql";
@@ -53,6 +54,9 @@ class Framework extends Module {
       if (!broker.has("kernel")) {
         broker.register(createKernelAdminApi(this.kernel));
       }
+      if (!broker.has("framework")) {
+        broker.register(createFrameworkAdminApi());
+      }
       broker.mountAll();
     }
     return this;
@@ -76,6 +80,7 @@ export {
   AdminBroker,
   AdminApiController,
   createKernelAdminApi,
+  createFrameworkAdminApi,
   Twig,
   Ejs,
   route,

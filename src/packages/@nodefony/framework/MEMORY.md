@@ -48,7 +48,10 @@ Contrat d'exposition admin pour Studio. **Inversion de dépendance** : contrat p
 - `mountAll()` à `onKernelReady` → producteurs s'enregistrent en `onKernelBoot`.
 - Routes admin **≥3 segments** `/nodefony/<ns>/api/*` (jamais mono-segment → collision SPA Studio).
 
-**Kernel migré ✅** (runtime 2026-05-20) : `GET /nodefony/kernel/api/{health,info,modules}`. Le kernel ne s'enregistre pas lui-même (pas d'import framework) → framework le wrappe via `createKernelAdminApi`.
+**Producteurs migrés ✅** (runtime 2026-05-20) :
+- **kernel** : `GET /nodefony/kernel/api/{health,info,modules}` — `createKernelAdminApi(kernel)` (le kernel ne peut pas s'auto-enregistrer → framework le wrappe).
+- **framework** : `GET /nodefony/framework/api/{routes,info}` — `createFrameworkAdminApi()` dump `Router.routes` (équivalent web `router:dump`, source vue Routes Studio P10.8). Le framework héberge le broker → register direct dans `onKernelReady` avant `mountAll`.
+- **http** : `GET /nodefony/http/api/{servers,info}` (cf http MEMORY.md).
 
 ## Route Registration Flow
 
