@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { Controller, route, controller } from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
+import type { WebsocketContext } from "@nodefony/http";
 import { Cookie } from "@nodefony/http";
 //import { inject, Fetch, Error } from "nodefony";
 
@@ -8,6 +9,11 @@ import { Cookie } from "@nodefony/http";
 class WebsocketController extends Controller {
   constructor(context: Context) {
     super("WebsocketController", context);
+  }
+
+  /** Contexte courant typé WebSocket — toutes les routes ici sont `methods: ["WEBSOCKET"]`. */
+  private get ws(): WebsocketContext | undefined {
+    return this.context as WebsocketContext | undefined;
   }
 
   async initialize(): Promise<this> {
@@ -116,7 +122,7 @@ class WebsocketController extends Controller {
     requirements: { methods: ["WEBSOCKET"], protocol: "" },
   })
   async protoReflect(message: string | Buffer | null) {
-    const protocol = this.context?.acceptedProtocol ?? null;
+    const protocol = this.ws?.acceptedProtocol ?? null;
     if (!message) {
       return this.renderJson({ handshake: true, acceptedProtocol: protocol });
     }
@@ -147,7 +153,7 @@ class WebsocketController extends Controller {
       return this.renderJson({ handshake: true, binary: true });
     }
     const buf = Buffer.isBuffer(message) ? message : Buffer.from(message as string);
-    return this.context?.send(buf, "binary");
+    return this.ws?.send(buf, "binary");
   }
 
   @route("route-websocket-broadcast", {
@@ -158,7 +164,7 @@ class WebsocketController extends Controller {
     if (!message) {
       return this.renderJson({ handshake: true });
     }
-    this.context?.broadcast(message.toString());
+    this.ws?.broadcast(message.toString());
   }
 
   @route("route-websocket-cookie", {
@@ -166,7 +172,7 @@ class WebsocketController extends Controller {
     requirements: { methods: ["WEBSOCKET"] },
   })
   async cookie(message: string | Buffer | null) {
-    switch (this.context?.webSocketState) {
+    switch (this.ws?.webSocketState) {
       case "connected":
         return this.renderJson({
           ...this.context?.metaData,
