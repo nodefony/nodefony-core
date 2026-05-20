@@ -75,6 +75,16 @@ Avant de commencer une nouvelle phase / tâche :
 
 ---
 
+## 🧭 Hygiène de session (adoptée 2026-05-20 — APPLIQUER)
+
+Trois règles convenues pour gagner en coût/qualité (cf mémoire IA `feedback_session_hygiene`) :
+
+1. **1 feature = 1 session courte.** Proposer activement `/clear` entre features non liées et `/compact` quand ça s'allonge (ne pas attendre le quota). Tenir « une session = un module ».
+2. **Mini-cahier des charges en amont** d'un gros écran/feature : lister (ou valider en 1 question) ce qui doit apparaître/se comporter AVANT de coder → 1 passe au lieu de N petits Edits.
+3. **Avant de dire « fait » :** après une modif **frontend** → annoncer la vérif (curl transform Vite) + demander un **hard-reload** (cache React) ; **lancer la suite de tests impactée** + **suspecter son propre diff** avant de qualifier un échec de « pré-existant ».
+
+---
+
 ## Token Optimization Rules (URGENT)
 
 Pour économiser le quota de tokens (session de 5h) :
