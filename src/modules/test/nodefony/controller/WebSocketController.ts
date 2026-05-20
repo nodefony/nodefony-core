@@ -17,7 +17,12 @@ class WebsocketController extends Controller {
   }
 
   async initialize(): Promise<this> {
-    await this.startSession();
+    // PAS de startSession() global ici : il s'appliquait à TOUTES les routes WS
+    // (echo/broadcast/binary/index…) qui n'ont aucun besoin de session. Sous
+    // charge (ex broadcast flood), chaque connexion persistait une session SQLite
+    // au onFinish → tempête d'INSERT + collisions `session_id must be unique`
+    // (write() = findOne+create non atomique). La session n'est démarrée que sur
+    // la route qui la teste réellement (`/cookie`).
     if (!this.context?.getRequestCookies("websocket")) {
       let mycookis = new Cookie("websocket", "test");
       this.context?.setCookie(mycookis);
@@ -172,6 +177,7 @@ class WebsocketController extends Controller {
     requirements: { methods: ["WEBSOCKET"] },
   })
   async cookie(message: string | Buffer | null) {
+    await this.startSession(); // seule route WS qui exerce la session
     switch (this.ws?.webSocketState) {
       case "connected":
         return this.renderJson({

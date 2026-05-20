@@ -86,6 +86,8 @@ export const Logs = observer(() => {
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   const keyCounter = useRef(0);
+  // logs omis côté serveur sous surcharge (coalescing syslog:stream).
+  const [dropped, setDropped] = useState(0);
 
   // ── Snapshot initial : ring buffer réel via /nodefony/syslog/api/logs ──
   // Amorce la liste avec l'historique présent au chargement (le WS ne pousse
@@ -117,15 +119,19 @@ export const Logs = observer(() => {
     const handler = (data: unknown) => {
       if (pausedRef.current) return;
       if (!data || typeof data !== "object") return;
+      // Canal coalescé : { logs: Pdu[], dropped }. Back-compat : Pdu unique.
+      const rec = data as { logs?: unknown[]; dropped?: number };
+      const rows = Array.isArray(rec.logs) ? rec.logs : [data];
+      if (rec.dropped) setDropped((n) => n + rec.dropped!);
+      if (rows.length === 0) return;
       // Hydratation isomorphe : new Pdu() vide + Object.assign — la même
       // classe Pdu est utilisée côté serveur pour sérialiser.
-      const pdu = Object.assign(new Pdu(""), data) as Pdu;
-      const view: PduView = {
-        pdu,
-        key: `${pdu.uid}-${keyCounter.current++}`,
-      };
+      const views: PduView[] = rows.map((d) => {
+        const pdu = Object.assign(new Pdu(""), d) as Pdu;
+        return { pdu, key: `${pdu.uid}-${keyCounter.current++}` };
+      });
       setEntries((prev) => {
-        const next = [...prev, view];
+        const next = [...prev, ...views];
         return next.length > MAX_ENTRIES ? next.slice(-MAX_ENTRIES) : next;
       });
     };
@@ -187,12 +193,22 @@ export const Logs = observer(() => {
           <Tooltip label="Effacer">
             <ActionIcon
               variant="default"
-              onClick={() => setEntries([])}
+              onClick={() => {
+                setEntries([]);
+                setDropped(0);
+              }}
               aria-label="clear"
             >
               <IconTrash size={16} />
             </ActionIcon>
           </Tooltip>
+          {dropped > 0 && (
+            <Tooltip label="Logs omis côté serveur sous surcharge (coalescing syslog:stream)">
+              <Badge size="sm" variant="light" color="orange">
+                {dropped} omis
+              </Badge>
+            </Tooltip>
+          )}
         </Group>
       </Group>
 

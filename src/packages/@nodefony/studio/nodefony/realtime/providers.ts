@@ -45,17 +45,87 @@ export const CHANNELS = {
   stats: "dashboard:stats",
 } as const;
 
+/** Options de coalescing du pont syslog. */
+export interface SyslogBridgeOptions {
+  /** Fenêtre d'agrégation : 1 frame WS au plus toutes les `flushMs`. Défaut 200. */
+  flushMs?: number;
+  /** Cap d'un batch (ring buffer) : au-delà, on garde les + récents et on compte
+   *  les omis. Borne la mémoire ET le nb de Pdu envoyés au front. Défaut 500. */
+  maxBatch?: number;
+}
+
 /**
- * Pont syslog kernel → canal `syslog:stream`. Chaque `Pdu` est publié tel quel
- * (la sérialisation est déléguée au transport).
+ * Pont syslog kernel → canal `syslog:stream`, **coalescé**.
  *
- * @returns dispose() qui détache le listener — OBLIGATOIRE (règle perf : aucun
- *          listener sans cleanup, sinon fuite à chaque (dé)connexion WS).
+ * Au lieu de pousser 1 frame WS par `Pdu` (un flood de logs — ex broadcast WS
+ * massif — noyait le front Studio à coups de N `JSON.stringify`+`send` par tick),
+ * on accumule les Pdu dans un **ring buffer borné** et on flush **1 frame
+ * agrégée toutes les `flushMs`** : `{ logs: Pdu[], dropped }`. Sous surcharge, le
+ * ring écrase les plus vieux et `dropped` indique combien ont été omis → le front
+ * affiche un récap au lieu de se figer. C'est le découplage débit-source / débit-UI.
+ *
+ * Perf (règle ABSOLUE) : alloc **lazy** (ring `null` tant qu'aucun log), timer
+ * **armé au 1er log** puis désarmé au flush (aucun timer si silence), `unref`
+ * (cloud-native), refs libérées au flush. Mémoire bornée à `maxBatch` Pdu.
+ *
+ * Forward-compat P13.4 : le coalescing vit dans le provider (couche collecte) →
+ * identique quand on branchera `realtimeService.publish`.
+ *
+ * @returns dispose() qui désarme le timer ET détache le listener — OBLIGATOIRE
+ *          (aucun listener/timer sans cleanup, sinon fuite à chaque déconnexion WS).
  */
-export function createSyslogBridge(syslog: SyslogLike, publish: Publish): () => void {
-  const onLog = (pdu: unknown): void => publish(CHANNELS.syslog, pdu);
+export function createSyslogBridge(
+  syslog: SyslogLike,
+  publish: Publish,
+  opts: SyslogBridgeOptions = {},
+): () => void {
+  const flushMs = opts.flushMs ?? 200;
+  const maxBatch = opts.maxBatch ?? 500;
+
+  let ring: unknown[] | null = null; // lazy : alloué au 1er log
+  let head = 0; // index du plus ancien
+  let count = 0; // éléments vivants
+  let dropped = 0; // omis (cap dépassé) depuis le dernier flush
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const flush = (): void => {
+    timer = null;
+    if (count === 0 && dropped === 0) return;
+    const logs = new Array(count);
+    for (let i = 0; i < count; i++) logs[i] = ring![(head + i) % maxBatch];
+    const d = dropped;
+    // reset + libère les refs (évite de retenir des Pdu/stack traces).
+    for (let i = 0; i < maxBatch; i++) ring![i] = undefined;
+    head = 0;
+    count = 0;
+    dropped = 0;
+    publish(CHANNELS.syslog, { logs, dropped: d });
+  };
+
+  const onLog = (pdu: unknown): void => {
+    if (ring === null) ring = new Array(maxBatch);
+    if (count === maxBatch) {
+      ring[head] = pdu; // ring plein → écrase le plus ancien
+      head = (head + 1) % maxBatch;
+      dropped++;
+    } else {
+      ring[(head + count) % maxBatch] = pdu;
+      count++;
+    }
+    if (timer === null) {
+      timer = setTimeout(flush, flushMs);
+      (timer as { unref?: () => void }).unref?.();
+    }
+  };
+
   syslog.on("onLog", onLog);
   return () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    ring = null;
+    head = count = dropped = 0;
     (syslog.off ?? syslog.removeListener)?.call(syslog, "onLog", onLog);
   };
 }

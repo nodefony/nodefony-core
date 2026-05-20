@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-20T19:55:54.417Z",
+  "generated": "2026-05-20T21:13:26.653Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 236,
-    "symbols": 565,
+    "symbols": 566,
     "classes": 180,
-    "interfaces": 189,
+    "interfaces": 190,
     "types": 126,
     "enums": 1,
     "functions": 59,
@@ -3596,6 +3596,15 @@
       ],
       "description": "StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio. Route : `WS /nodefony/studio/api/realtime`. Protocole : **JSON-RPC 2.0**. - notifications serveur→client : `{ jsonrpc:\"…"
     },
+    "SyslogBridgeOptions": {
+      "name": "SyslogBridgeOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": null,
+      "description": "Options de coalescing du pont syslog."
+    },
     "Publish": {
       "name": "Publish",
       "kind": "type",
@@ -3609,7 +3618,7 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Pont syslog kernel → canal `syslog:stream`. Chaque `Pdu` est publié tel quel (la sérialisation est déléguée au transport)."
+      "description": "Pont syslog kernel → canal `syslog:stream`, **coalescé**. Au lieu de pousser 1 frame WS par `Pdu` (un flood de logs — ex broadcast WS massif — noyait le front Studio à coups de N `JSON.stringify`+`…"
     },
     "createStatsTicker": {
       "name": "createStatsTicker",

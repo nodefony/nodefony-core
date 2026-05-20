@@ -175,8 +175,14 @@ export const Dashboard = observer(() => {
   }, [conn]);
 
   useEffect(() => {
-    const dispose = conn.subscribe("syslog:stream", () => {
-      logCount.current++;
+    const dispose = conn.subscribe("syslog:stream", (data: unknown) => {
+      // Canal coalescé : { logs: Pdu[], dropped }. Compter les logs réels (+ omis)
+      // pour un vrai débit/s, pas 1 par frame agrégée. Back-compat : Pdu unique.
+      const rec = data as { logs?: unknown[]; dropped?: number } | null;
+      const n = rec && Array.isArray(rec.logs)
+        ? rec.logs.length + (rec.dropped ?? 0)
+        : 1;
+      logCount.current += n;
     });
     return () => dispose();
   }, [conn]);
