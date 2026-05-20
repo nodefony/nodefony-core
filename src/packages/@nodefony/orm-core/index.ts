@@ -21,3 +21,19 @@ export { OrmRegistry, ormRegistry } from "./nodefony/src/OrmRegistry";
 export { EntityRegistry, entityRegistry } from "./nodefony/src/EntityRegistry";
 export { Orm } from "./nodefony/src/Orm";
 export { Entity } from "./nodefony/src/Entity";
+
+// ─── Décorateurs (P5.3) — @entity / @repository (WeakMap, sans reflect) ──────
+export { entity, repository } from "./nodefony/src/decorators/index";
+export {
+  getEntityMeta,
+  hasEntityMeta,
+  getRepositoryMeta,
+  hasRepositoryMeta,
+} from "./nodefony/src/decorators/index";
+export type {
+  EntityOptions,
+  RepositoryOptions,
+  EntityMetadata,
+  RepositoryMetadata,
+  DecoratedClass,
+} from "./nodefony/src/decorators/index";

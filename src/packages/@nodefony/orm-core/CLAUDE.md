@@ -32,10 +32,10 @@ Consommé par les drivers (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefo
 
 ## Roadmap (MIGRATION_STATUS P5)
 
-- ✅ P5.1 interfaces (`nodefony/interfaces/`) — cette session.
-- ⬜ P5.2 `OrmRegistry` + `EntityRegistry` + `Orm` base class (extends Service, event `onOrmReady`).
-- ⬜ P5.3 `@entity` + `@repository` decorators (Reflect metadata, auto-register).
-- ⬜ P5.4 tests unit + multi-orm integration.
+- ✅ P5.1 interfaces (`nodefony/interfaces/`).
+- ✅ P5.2 `OrmRegistry` + `EntityRegistry` + `Orm`/`Entity` base classes (extends Service, event `onOrmReady`).
+- ✅ P5.3 `@entity` + `@repository` decorators (WeakMap `metadataStore`, **sans reflect-metadata** — lib pure ; auto-register descripteur).
+- ⬜ P5.4 tests intégration multi-ORM (2 ORM en parallèle) + 1 adapter Sequelize branché.
 
 ## Build / types
 

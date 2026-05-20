@@ -59,11 +59,42 @@ await orm.transaction(async (tx) => {
 });
 ```
 
+## Décorateurs `@entity` / `@repository` (P5.3)
+
+Déclaration d'entités et de repositories par décorateur de classe. Le décorateur
+s'exécute **au chargement du module** (sur la classe, pas sur une instance) — il
+connaît donc `name`/`orm` sans rien instancier et enregistre directement l'entité.
+
+```typescript
+import { entity, repository } from "@nodefony/orm-core";
+import type { IRepository } from "@nodefony/orm-core";
+
+// `name` par défaut = nom de la classe ; ici forcé à "User".
+@entity({
+  orm: "db_principale",
+  name: "User",
+  schema: { id: { type: "uuid", primaryKey: true }, email: { type: "string" } },
+  relations: [{ type: "one-to-many", target: "Room", field: "rooms" }],
+})
+class UserEntity {}
+
+@repository("repository.user", { entity: "User", orm: "db_principale" })
+class UserRepository implements IRepository<UserEntity> {
+  /* find/findOne/create/... fournis par l'adapter ORM */
+}
+```
+
+> **Sans `reflect-metadata`.** Les métadonnées sont stockées dans un `WeakMap`
+> interne (helpers `getEntityMeta` / `getRepositoryMeta`). orm-core reste une lib
+> pure sans dépendance runtime : il ne fait pas d'injection par type de
+> constructeur (`design:paramtypes`), donc le polyfill Reflect est inutile.
+
 ## État
 
 - ✅ Interfaces (`IOrm`, `IEntity`, `IRepository`, `ITransaction`) — P5.1.
-- ⏳ `OrmRegistry`, `EntityRegistry`, `Orm`/`Entity` base classes — P5.2.
-- ⏳ Décorateurs `@entity` / `@repository` — P5.3.
+- ✅ `OrmRegistry`, `EntityRegistry`, `Orm`/`Entity` base classes — P5.2.
+- ✅ Décorateurs `@entity` / `@repository` — P5.3.
+- ⏳ Tests intégration multi-ORM + 1 adapter (Sequelize) — P5.4.
 
 ## Licence
 

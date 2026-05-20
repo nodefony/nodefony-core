@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-20T23:28:12.310Z",
+  "generated": "2026-05-20T23:42:33.493Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 246,
-    "symbols": 579,
+    "files": 250,
+    "symbols": 592,
     "classes": 184,
-    "interfaces": 196,
-    "types": 127,
+    "interfaces": 200,
+    "types": 128,
     "enums": 1,
-    "functions": 59,
+    "functions": 67,
     "constants": 12
   },
   "symbols": {
@@ -4212,6 +4212,114 @@
       "exported": true,
       "module": "@nodefony/http"
     },
+    "EntityOptions": {
+      "name": "EntityOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Options du décorateur {@link entity}."
+    },
+    "entity": {
+      "name": "entity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Décore une classe comme entité multi-ORM et l'enregistre au chargement. Résout le piège d'ordre d'initialisation TS (le constructeur de base s'exécute avant les initialiseurs de champs de la sous-c…"
+    },
+    "EntityMetadata": {
+      "name": "EntityMetadata",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Métadonnée attachée à une classe par {@link entity}."
+    },
+    "RepositoryMetadata": {
+      "name": "RepositoryMetadata",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Métadonnée attachée à une classe par {@link repository}."
+    },
+    "DecoratedClass": {
+      "name": "DecoratedClass",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Constructeur de classe ciblé par un décorateur orm-core (paramètres libres). `never[]` en rest accepte n'importe quelle signature de constructeur concrète tout en restant assignable comme clé `Weak…"
+    },
+    "setEntityMeta": {
+      "name": "setEntityMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Enregistre la métadonnée `@entity` d'une classe."
+    },
+    "getEntityMeta": {
+      "name": "getEntityMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Récupère la métadonnée `@entity` d'une classe, ou `undefined`."
+    },
+    "hasEntityMeta": {
+      "name": "hasEntityMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Indique si une classe porte une métadonnée `@entity`."
+    },
+    "setRepositoryMeta": {
+      "name": "setRepositoryMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Enregistre la métadonnée `@repository` d'une classe."
+    },
+    "getRepositoryMeta": {
+      "name": "getRepositoryMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Récupère la métadonnée `@repository` d'une classe, ou `undefined`."
+    },
+    "hasRepositoryMeta": {
+      "name": "hasRepositoryMeta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Indique si une classe porte une métadonnée `@repository`."
+    },
+    "RepositoryOptions": {
+      "name": "RepositoryOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/repositoryDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Options du décorateur {@link repository}."
+    },
+    "repository": {
+      "name": "repository",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/decorators/repositoryDecorator.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Décore une classe comme repository d'une entité (tag métadonnée pur). Stocke le lien repo↔entity dans un `WeakMap` (cf. `metadataStore`, sans `reflect-metadata`). N'enregistre RIEN dans un registre…"
+    },
     "firewall": {
       "name": "firewall",
       "kind": "function",
@@ -6406,13 +6514,17 @@
       ],
       "IEntity": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
       ],
       "IEntityRelation": [
-        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts"
       ],
       "entityRegistry": [
-        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
       ],
       "IOrm": [
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
@@ -6642,6 +6754,22 @@
       ],
       "CookieOptionsType": [
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "DecoratedClass": [
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/repositoryDecorator.ts"
+      ],
+      "EntityMetadata": [
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
+      ],
+      "setEntityMeta": [
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
+      ],
+      "RepositoryMetadata": [
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/repositoryDecorator.ts"
+      ],
+      "setRepositoryMeta": [
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/repositoryDecorator.ts"
       ],
       "Cookies": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
