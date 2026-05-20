@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -22,6 +22,7 @@ import {
   rem,
   RingProgress,
   ScrollArea,
+  SimpleGrid,
   Stack,
   Table,
   Tabs,
@@ -49,6 +50,9 @@ import {
   IconShieldCheck,
   IconFlask,
   IconPlayerPlay,
+  IconPackage,
+  IconHash,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 
@@ -163,11 +167,13 @@ export const ModuleDetail = observer(() => {
   const [tests, setTests] = useState<TestsInfo>({ files: [], devMode: false });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setTab(null); // revient à l'onglet par défaut quand on change de module
     Promise.all([
       store.api.getAbsolute<ModuleDetailData>(
         `/nodefony/kernel/api/module/${encodeURIComponent(name)}`,
@@ -286,7 +292,7 @@ export const ModuleDetail = observer(() => {
 
       {/* ── Card à onglets (seuls les onglets avec contenu sont affichés) ── */}
       <Card withBorder radius="md" p={0}>
-        <Tabs defaultValue={hasDocs ? "docs" : "overview"}>
+        <Tabs value={tab ?? (hasDocs ? "docs" : "overview")} onChange={setTab}>
           <Tabs.List>
             <Tabs.Tab value="overview" leftSection={<IconInfoCircle size={16} />}>
               Vue d'ensemble
@@ -343,25 +349,25 @@ export const ModuleDetail = observer(() => {
 
           <Box p="lg">
             <Tabs.Panel value="overview">
-              <Grid>
-                <Grid.Col span={{ base: 12, sm: 6 }}>
-                  <Stack gap={6}>
+              <Stack gap="lg">
+                <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }} spacing="md">
+                  {hasDocs && <StatCard label="Docs" value={docs.length} color="cyan" icon={<IconBook size={22} />} onClick={() => setTab("docs")} />}
+                  {hasApi && <StatCard label="API" value={symbols.length} color="grape" icon={<IconCode size={22} />} onClick={() => setTab("api")} />}
+                  {hasCoverage && <StatCard label="Coverage" value={`${Math.round(coverage.total?.lines ?? 0)}%`} color={covColor(coverage.total?.lines ?? 0)} icon={<IconShieldCheck size={22} />} onClick={() => setTab("coverage")} />}
+                  {hasDeps && <StatCard label="Dépendances" value={data.dependencies.length} color="orange" icon={<IconPackages size={22} />} onClick={() => setTab("deps")} />}
+                  {hasRoutes && <StatCard label="Routes" value={routes.length} color="teal" icon={<IconRoute size={22} />} onClick={() => setTab("routes")} />}
+                  {hasServices && <StatCard label="Services" value={data.services.length} color="blue" icon={<IconAffiliate size={22} />} onClick={() => setTab("services")} />}
+                </SimpleGrid>
+                <Card withBorder radius="md" p="lg">
+                  <Stack gap="xs">
                     <Field k="Clé" v={data.key} mono />
                     <Field k="Package" v={data.name} />
                     <Field k="Version" v={data.version ?? "—"} />
                     <Field k="Type" v={data.isApp ? "application" : "package"} />
-                  </Stack>
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, sm: 6 }}>
-                  <Stack gap={6}>
-                    {hasDeps && <Field k="Dépendances" v={String(data.dependencies.length)} />}
-                    {hasRoutes && <Field k="Routes" v={String(routes.length)} />}
-                    {hasServices && <Field k="Services" v={String(data.services.length)} />}
-                    {hasApi && <Field k="Symboles" v={String(symbols.length)} />}
                     <Field k="Chemin" v={data.path ?? "—"} mono />
                   </Stack>
-                </Grid.Col>
-              </Grid>
+                </Card>
+              </Stack>
             </Tabs.Panel>
 
             {hasDocs && (
@@ -390,18 +396,10 @@ export const ModuleDetail = observer(() => {
 
             {hasDeps && (
               <Tabs.Panel value="deps">
-                <Group gap={8}>
-                  {data.dependencies.map((d) => (
-                    <Badge
-                      key={d}
-                      variant="outline"
-                      size="md"
-                      color={d === "nodefony" || d.startsWith("@nodefony/") ? "orange" : "gray"}
-                    >
-                      {d}
-                    </Badge>
-                  ))}
-                </Group>
+                <DepsPanel
+                  deps={data.dependencies}
+                  onNavigate={(short) => navigate(`/nodefony/modules/${short}`)}
+                />
               </Tabs.Panel>
             )}
 
@@ -753,6 +751,110 @@ function ApiPanel({ symbols }: { symbols: ModuleSymbol[] }) {
         </Table.Tbody>
       </Table>
     </Table.ScrollContainer>
+  );
+}
+
+/** Carte KPI cliquable (Vue d'ensemble) → bascule vers l'onglet correspondant. */
+function StatCard({
+  label,
+  value,
+  color,
+  icon,
+  onClick,
+}: {
+  label: string;
+  value: number | string;
+  color: string;
+  icon: ReactNode;
+  onClick?: () => void;
+}) {
+  return (
+    <Card
+      withBorder
+      radius="md"
+      p="md"
+      onClick={onClick}
+      style={{ cursor: onClick ? "pointer" : "default" }}
+    >
+      <Group justify="space-between" wrap="nowrap">
+        <Stack gap={2}>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>{label}</Text>
+          <Text fz={28} fw={700} lh={1}>{value}</Text>
+        </Stack>
+        <ThemeIcon variant="light" color={color} size={44} radius="md">{icon}</ThemeIcon>
+      </Group>
+    </Card>
+  );
+}
+
+/** Carte d'une dépendance (cliquable : module Nodefony → page, npm → npmjs). */
+function DepCard({
+  name,
+  kind,
+  onClick,
+}: {
+  name: string;
+  kind: "nodefony" | "external";
+  onClick: () => void;
+}) {
+  return (
+    <Card withBorder radius="md" p="sm" onClick={onClick} style={{ cursor: "pointer" }}>
+      <Group gap="sm" wrap="nowrap">
+        <ThemeIcon variant="light" color={kind === "nodefony" ? "orange" : "gray"} size={34} radius="md">
+          <IconPackage size={18} />
+        </ThemeIcon>
+        <Stack gap={0} style={{ minWidth: 0 }}>
+          <Text size="sm" fw={500} truncate>{name}</Text>
+          <Group gap={4} wrap="nowrap">
+            <Text size="xs" c="dimmed">{kind === "nodefony" ? "module Nodefony" : "npm"}</Text>
+            {kind === "external" && <IconExternalLink size={11} style={{ opacity: 0.5 }} />}
+          </Group>
+        </Stack>
+      </Group>
+    </Card>
+  );
+}
+
+/** DepsPanel — dépendances groupées (Nodefony vs externes) en cartes cliquables. */
+function DepsPanel({ deps, onNavigate }: { deps: string[]; onNavigate: (short: string) => void }) {
+  const isNf = (d: string) => d === "nodefony" || d.startsWith("@nodefony/");
+  const nf = deps.filter(isNf).sort();
+  const ext = deps.filter((d) => !isNf(d)).sort();
+  const shortOf = (d: string) => (d === "nodefony" ? "core" : d.replace("@nodefony/", ""));
+  return (
+    <Stack gap="xl">
+      {nf.length > 0 && (
+        <Stack gap="sm">
+          <Group gap="xs">
+            <Text size="sm" fw={700}>Nodefony</Text>
+            <Badge size="sm" variant="light" color="orange">{nf.length}</Badge>
+          </Group>
+          <SimpleGrid cols={{ base: 2, sm: 3, lg: 4 }} spacing="sm">
+            {nf.map((d) => (
+              <DepCard key={d} name={d} kind="nodefony" onClick={() => onNavigate(shortOf(d))} />
+            ))}
+          </SimpleGrid>
+        </Stack>
+      )}
+      {ext.length > 0 && (
+        <Stack gap="sm">
+          <Group gap="xs">
+            <Text size="sm" fw={700}>Externes</Text>
+            <Badge size="sm" variant="light" color="gray">{ext.length}</Badge>
+          </Group>
+          <SimpleGrid cols={{ base: 2, sm: 3, lg: 4 }} spacing="sm">
+            {ext.map((d) => (
+              <DepCard
+                key={d}
+                name={d}
+                kind="external"
+                onClick={() => window.open(`https://www.npmjs.com/package/${d}`, "_blank", "noopener")}
+              />
+            ))}
+          </SimpleGrid>
+        </Stack>
+      )}
+    </Stack>
   );
 }
 
