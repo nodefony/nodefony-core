@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-20T10:55:17.663Z",
+  "generated": "2026-05-20T11:41:33.342Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 219,
-    "symbols": 510,
-    "classes": 174,
-    "interfaces": 169,
-    "types": 123,
+    "files": 224,
+    "symbols": 523,
+    "classes": 176,
+    "interfaces": 177,
+    "types": 125,
     "enums": 1,
-    "functions": 34,
+    "functions": 35,
     "constants": 9
   },
   "symbols": {
@@ -751,6 +751,76 @@
       "file": "src/nodefony/src/syslog/Syslog.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "IAdminRequest": {
+      "name": "IAdminRequest",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Requête admin normalisée — projection minimale du Context HTTP/WS. Le broker (framework) construit cet objet à partir du `ContextType` réel, puis le passe au handler. Le handler n'accède jamais au …"
+    },
+    "IAdminResponse": {
+      "name": "IAdminResponse",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Enveloppe de réponse d'un endpoint admin. Un handler peut renvoyer directement sa donnée (`T`) — le broker assume `{ status: 200, body: T }` — ou cette enveloppe pour piloter le statut et les en-tê…"
+    },
+    "IAdminEndpoint": {
+      "name": "IAdminEndpoint",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Définition déclarative d'un endpoint, relative au namespace du module. Exemple : `{ path: \"sessions\", method: \"GET\" }` sur le module `http` est monté en `GET /nodefony/http/api/sessions`."
+    },
+    "IAdminDescriptor": {
+      "name": "IAdminDescriptor",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Métadonnées d'affichage du module dans la sidebar Studio."
+    },
+    "IAdminApi": {
+      "name": "IAdminApi",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Contrat qu'un producteur (module ou kernel) implémente pour exposer sa donnée d'admin à Studio via le data plane `/nodefony/<namespace>/api/*`. Un `IAdminApi` est un objet **séparé** de la classe `…"
+    },
+    "IAdminRegistry": {
+      "name": "IAdminRegistry",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Façade d'enregistrement du data plane admin — vue **minimale** du broker que voit un producteur. Vit dans le core (pas dans framework) précisément pour que n'importe quel module producteur puisse s…"
+    },
+    "AdminHttpMethod": {
+      "name": "AdminHttpMethod",
+      "kind": "type",
+      "file": "src/nodefony/src/types/IAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Contrat d'exposition d'admin (Studio data plane) — défini dans le CORE. Vit dans `@nodefony/core` (et non dans framework/http) pour une raison d'architecture : la donnée d'admin peut être produite …"
+    },
+    "AdminHandler": {
+      "name": "AdminHandler",
+      "kind": "type",
+      "file": "src/nodefony/src/types/IAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Handler d'un endpoint admin : fonction pure entrée → sortie. Synchrone ou async. Renvoie soit la donnée brute, soit une {@link IAdminResponse} pour contrôler statut/headers."
     },
     "ICliKernel": {
       "name": "ICliKernel",
@@ -1600,6 +1670,24 @@
       "exported": true,
       "module": "@nodefony/framework"
     },
+    "IAdminRoute": {
+      "name": "IAdminRoute",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Entrée résolue d'un endpoint admin — couple le producteur, sa définition et le chemin absolu monté. Renvoyé par l'introspection du broker (utile à l'auto-doc Studio et aux tests)."
+    },
+    "IAdminBroker": {
+      "name": "IAdminBroker",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "IAdminRegistry",
+      "description": "Service du data plane admin — vit dans `@nodefony/framework` car lui seul a le Router pour créer des routes dynamiquement. Rôle : collecter les {@link IAdminApi} produits par les modules (et par le…"
+    },
     "IController": {
       "name": "IController",
       "kind": "interface",
@@ -1623,6 +1711,21 @@
       "exported": true,
       "module": "@nodefony/framework",
       "extends": null
+    },
+    "AdminBroker": {
+      "name": "AdminBroker",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Service",
+      "implements": [
+        "IAdminBroker"
+      ],
+      "decorators": [
+        "injectable"
+      ],
+      "description": "Implémentation du data plane admin (Studio) — collecte les {@link IAdminApi} et monte `/nodefony/<namespace>/api/*` via le Router. Vit dans `@nodefony/framework` : seul niveau qui possède le Router…"
     },
     "Ejs": {
       "name": "Ejs",
@@ -1663,6 +1766,17 @@
       "implements": [],
       "decorators": []
     },
+    "AdminApiController": {
+      "name": "AdminApiController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Controller pont unique du data plane admin (Studio). Toutes les routes `/nodefony/<namespace>/api/*` montées par le broker pointent vers `AdminApiController.dispatch`. À l'exécution, le controller …"
+    },
     "Controller": {
       "name": "Controller",
       "kind": "class",
@@ -1674,6 +1788,14 @@
         "IController"
       ],
       "decorators": []
+    },
+    "createKernelAdminApi": {
+      "name": "createKernelAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`. Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core` et ne peut donc pas importer le broker (qui …"
     },
     "Resolver": {
       "name": "Resolver",
@@ -3875,6 +3997,7 @@
         "Orm",
         "Babylon",
         "Rollup",
+        "AdminBroker",
         "Router",
         "Controller",
         "Resolver",
@@ -3994,6 +4117,7 @@
         "RouteController",
         "WebsocketController",
         "PocController",
+        "AdminApiController",
         "StudioController",
         "StudioRealtimeController"
       ],
@@ -4009,6 +4133,9 @@
         "ToolExecutionError",
         "ToolValidationError",
         "AgentMaxIterationsError"
+      ],
+      "IAdminRegistry": [
+        "IAdminBroker"
       ],
       "Template": [
         "Ejs",
@@ -4116,6 +4243,9 @@
         "HttpTransport",
         "SyslogTransport"
       ],
+      "IAdminBroker": [
+        "AdminBroker"
+      ],
       "IController": [
         "Controller"
       ],
@@ -4219,6 +4349,7 @@
         "StudioRealtimeController"
       ],
       "injectable": [
+        "AdminBroker",
         "Router",
         "FrontendService",
         "HttpKernel",
@@ -4270,6 +4401,7 @@
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -4329,6 +4461,7 @@
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -4382,6 +4515,7 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/babel/babylon.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -4584,7 +4718,8 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/types/IModule.ts",
-        "src/nodefony/src/types/IService.ts"
+        "src/nodefony/src/types/IService.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "DynamicParam": [
         "src/nodefony/src/Service.ts",
@@ -4652,6 +4787,7 @@
         "src/modules/test/nodefony/entity/BoatEntity.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
@@ -4759,9 +4895,15 @@
       "PocController": [
         "src/modules/test-frontend-react/index.ts"
       ],
+      "IAdminBroker": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
+      ],
       "Router": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
@@ -4791,7 +4933,9 @@
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -4804,6 +4948,16 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "AdminBroker": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "AdminApiController": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts"
+      ],
+      "createKernelAdminApi": [
+        "src/packages/@nodefony/framework/index.ts"
       ],
       "Twig": [
         "src/packages/@nodefony/framework/index.ts",
@@ -5313,6 +5467,7 @@
       "RequestContext": [
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
@@ -5322,6 +5477,7 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
@@ -5395,6 +5551,7 @@
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -5403,6 +5560,13 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "IAdminEndpoint": [
+        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "IAdminRegistry": [
+        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts"
       ],
       "contextRequest": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -5448,6 +5612,7 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts"
       ],
       "injectable": [
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
@@ -5455,9 +5620,26 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
+      "IAdminApi": [
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "IAdminRoute": [
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
+      ],
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
         "src/packages/@nodefony/framework/nodefony/service/Twig.ts"
+      ],
+      "IAdminRequest": [
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
+      ],
+      "IAdminResponse": [
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
+      ],
+      "IAdminDescriptor": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"

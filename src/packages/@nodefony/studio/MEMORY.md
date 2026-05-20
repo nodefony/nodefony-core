@@ -41,7 +41,7 @@ Admin web Nodefony (successeur `monitoring-bundle`). Backend controller + SPA Re
 
 ## Routes API admin (convention `/nodefony/<module>/api/*`)
 
-Studio est le consommateur. Chaque module exposera son `IAdminApi` (P10.2-P10.4). Aujourd'hui : seulement les mocks du StudioController.
+Studio est le consommateur. Chaque module expose son `IAdminApi` (P10.2 ✅ contrat figé — cf framework MEMORY.md). **Kernel migré ✅ 2026-05-20** : `GET /nodefony/kernel/api/{health,info,modules}` réels via `AdminBroker` (validé runtime). Les mocks `/nodefony/studio/api/{health,info}` du StudioController **restent** (front non migré) → TODO : pointer le front vers `/nodefony/kernel/api/*`. Reste producteurs : http/security/etc.
 
 ## Liens
 

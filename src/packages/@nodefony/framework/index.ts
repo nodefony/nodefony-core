@@ -1,9 +1,13 @@
 import { Kernel, Module, services } from "nodefony";
+import type { IAdminBroker } from "./nodefony/interfaces/IAdminBroker";
 import config from "./nodefony/config/config";
 import Router from "./nodefony/service/router";
 import Route from "./nodefony/src/Route";
 import Controller from "./nodefony/src/Controller";
 import Resolver from "./nodefony/src/Resolver";
+import AdminBroker from "./nodefony/service/AdminBroker";
+import AdminApiController from "./nodefony/src/AdminApiController";
+import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import Twig from "./nodefony/service/Twig";
 import Ejs from "./nodefony/service/Ejs";
 //import mygraphql from "graphql";
@@ -28,10 +32,30 @@ import {
   Query,
 } from "./nodefony/decorators/routerDecorators";
 
-@services([Router, Twig, Ejs])
+@services([Router, Twig, Ejs, AdminBroker])
 class Framework extends Module {
   constructor(kernel: Kernel) {
     super("framework", kernel, import.meta.url, config);
+  }
+
+  /**
+   * Phase `onReady` (après le boot de tous les modules) : enregistre le
+   * producteur admin du kernel puis monte le data plane `/nodefony/<ns>/api/*`.
+   *
+   * Les autres modules s'enregistrent dans leur `onKernelBoot` (phase
+   * antérieure) → tous présents au moment du `mountAll()` ici.
+   */
+  override async onKernelReady(): Promise<this> {
+    const broker = this.kernel?.container?.get("adminBroker") as
+      | IAdminBroker
+      | undefined;
+    if (broker && this.kernel) {
+      if (!broker.has("kernel")) {
+        broker.register(createKernelAdminApi(this.kernel));
+      }
+      broker.mountAll();
+    }
+    return this;
   }
 }
 
@@ -49,6 +73,9 @@ export {
   Route,
   Router,
   Resolver,
+  AdminBroker,
+  AdminApiController,
+  createKernelAdminApi,
   Twig,
   Ejs,
   route,
@@ -67,4 +94,10 @@ export {
   Query,
   graphql,
 };
-export type { IController, IRoute, IResolver } from "./nodefony/interfaces/index.js";
+export type {
+  IController,
+  IRoute,
+  IResolver,
+  IAdminBroker,
+  IAdminRoute,
+} from "./nodefony/interfaces/index.js";

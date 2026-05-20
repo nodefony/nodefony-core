@@ -83,6 +83,16 @@ export type {
 } from "./types/IService";
 export type { IContainer, IScope } from "./types/IContainer";
 export type { IModule } from "./types/IModule";
+export type {
+  IAdminApi,
+  IAdminRegistry,
+  IAdminEndpoint,
+  IAdminDescriptor,
+  IAdminRequest,
+  IAdminResponse,
+  AdminHandler,
+  AdminHttpMethod,
+} from "./types/IAdminApi";
 export type { ISyslog } from "./types/ISyslog";
 export type { ITransport } from "./types/ITransport";
 export type { EnvironmentType, DebugType } from "./types/globals";

@@ -29,6 +29,26 @@ Module Nodefony : routeur HTTP+WS, Controller, Resolver, décorateurs `@route`/`
 | `IController`| `nodefony/interfaces/IController.ts` | `Controller` — `route` est `readonly` dans l'interface (covariance) |
 | `IRoute`     | `nodefony/interfaces/IRoute.ts`      | `Route` |
 | `IResolver`  | `nodefony/interfaces/IResolver.ts`   | `Resolver` |
+| `IAdminBroker`| `nodefony/interfaces/IAdminBroker.ts` | `AdminBroker` — étend `IAdminRegistry` (core) |
+
+## Admin data plane — `IAdminApi` / `AdminBroker` (P10.2-P10.3, 2026-05-20)
+
+Contrat d'exposition admin pour Studio. **Inversion de dépendance** : contrat producteur dans le core, transport dans framework.
+
+- **Core (`nodefony`)** : `IAdminApi` (`adminNamespace`, `adminDescriptor()`, `adminEndpoints()`), `IAdminEndpoint` (`path` relatif, `method`, `role`, `handler`), `IAdminRequest`/`IAdminResponse` (abstraction du Context → core ne dépend pas de http), `IAdminRegistry` (façade minimale `register/unregister/has/getApi/list`).
+- **Framework** : `IAdminBroker extends IAdminRegistry` (+ `mountAll`, `resolvePath`, `resolve` O(1), `routes`). `AdminBroker` (Service `"adminBroker"`), `AdminApiController` (controller pont unique), `createKernelAdminApi(kernel)`.
+
+**Flux** : producteur `register(api)` en `onKernelBoot` → `Framework.onKernelReady` enregistre le kernel + `broker.mountAll()` → `Router.createRoute` 1 route/endpoint vers `AdminApiController.dispatch` + `setController` once → dispatch `resolve(route.name)` O(1) → `Context→IAdminRequest` → RBAC → `handler` → `renderJson`.
+
+**Producteur externe (http/security…)** : importe SEULEMENT `IAdminApi`/`IAdminRegistry` depuis `"nodefony"` (jamais framework — dép. circulaire). `container.get("adminBroker") as IAdminRegistry` → `.register(api)`.
+
+**Gotchas** :
+- `AdminBroker extends Service` → `Service.get()` existe : le getter producteur s'appelle **`getApi`** (pas `get`).
+- **RBAC différé** : `request.roles` vide tant que P6 absent → 403 inactif (mode mock). S'active dès que le firewall peuple les rôles, sans changer le code.
+- `mountAll()` à `onKernelReady` → producteurs s'enregistrent en `onKernelBoot`.
+- Routes admin **≥3 segments** `/nodefony/<ns>/api/*` (jamais mono-segment → collision SPA Studio).
+
+**Kernel migré ✅** (runtime 2026-05-20) : `GET /nodefony/kernel/api/{health,info,modules}`. Le kernel ne s'enregistre pas lui-même (pas d'import framework) → framework le wrappe via `createKernelAdminApi`.
 
 ## Route Registration Flow
 
