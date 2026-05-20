@@ -35,6 +35,13 @@ Admin web Nodefony (successeur `monitoring-bundle`). Backend controller + SPA Re
 - `package.json` : `main` OK ; ⚠️ **pas de `types` ni `exports`** (TODO). peerDeps : nodefony, @nodefony/{http,framework,frontend}, vite, @vitejs/plugin-react. deps frontend dans CE package.json (pas de frontend/package.json). Onglet Docs : **`react-markdown`+`remark-gfm`** (compat React 19 OK, ≠ recharts cf [[feedback_recharts_react19]]) + **`mermaid`** (gros, mais **lazy** `import()` → chunk à part, 0 impact bundle initial).
 - **Docs colocalisées** : `studio/docs/index.md` (+ http/framework/frontend idem). Frontmatter `title/module/since/updated/status/order` lu par le backend (`docsReader`). `frontend/docs/index.md` = ex-`docs/packages/frontend.md` (git mv, ADR-0001).
 
+## Tests
+
+- **Harness vitest** (scaffold 2026-05-21, miroir `@nodefony/frontend`) : `vitest.config.ts` + `nodefony/tests/{vitest.setup.ts,vitest-mocha-shim.mjs}`. Scripts `test`=`vitest run`, `coverage`=`vitest run --coverage`. devDeps `vitest`+`@vitest/coverage-v8` 4.1.7, `@types/chai`. `expect` importé de **chai** (≠ vitest expect), `vi` de vitest (fake timers + mocks).
+- **`nodefony/tests/unit/providers.test.ts`** (11 tests, 98.55% stmts / 100% lines providers.ts) : verrouille le **coalescing** `createSyslogBridge` (lazy, 1 frame `{logs,dropped}`/flushMs, ring borné `maxBatch` écrase + ancien + compte `dropped`, dispose détache listener+timer = 0 fuite) + `createStatsTicker` (heartbeat `dashboard:stats`/intervalMs, forme payload, dispose stoppe). Fake timers `vi.useFakeTimers()` → déterministe sans serveur.
+- **Split** (cf vitest.config) : `StudioRealtimeController` (WS endpoint) = **intégration live-server** (subscribe/unsubscribe → frame JSON-RPC ; couvert par la suite WS de @nodefony/http, à ajouter). Frontend React (stores MobX, ConnectionDrawer) = instrumentation séparée (non scaffoldée).
+- Coverage : `npm run coverage` → `.coverage/` (gitignored), affiché par l'onglet Coverage Studio.
+
 ## Behaviors
 
 - Boot : studio chargé APRÈS @nodefony/frontend (sinon service Vite absent au boot). Coexiste avec test-frontend-react (multibundle résolu).
