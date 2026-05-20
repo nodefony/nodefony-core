@@ -50,28 +50,42 @@ Pour chaque phase, dans cet ordre :
 
 ### Mode « synthèse graphique » (à la demande — « résumé migration », « avancement migration »)
 
-Sortie compacte pour **compréhension globale en 5 secondes**, sans revue phase-par-phase. Trié par % d'avancement décroissant, barres de progression ASCII.
+Sortie compacte pour **compréhension globale**, sans revue phase-par-phase. Deux variantes selon la demande :
 
-**Formule** : `% = (✅ + 0,5 × 🔶) / tâches`. Barre 10 segments : `n = round(% / 10)` blocs `█`, reste `░`.
+#### Variante A — barres rapides (défaut)
 
-Gabarit :
+Trié par % décroissant, barres ASCII.
+
+**Formule %** : `% = (✅ + 0,5 × 🔶) / tâches`. Barre 10 segments : `n = round(% / 10)` blocs `█`, reste `░`.
 
 ```
 ÉTAT MIGRATION NODEFONY — <N> tâches — vérifié code <date>
-
   P0  bugs            ██████████ 100%   6/6     ✅ bouclé
   …
   P5  user/orm core   ░░░░░░░░░░   0%   0/16   ◀ CHEMIN CRITIQUE
-  …
   GLOBAL  ███░░░░░░░  29%   (35 ✅ · 24 🔶 · 105 ⬜)
 ```
 
-Règles :
-- 1 ligne/phase : `P<n>  <libellé court>  <barre>  <%>  <fait/total>  <annotation courte>`.
-- Annoter le **chemin critique** (`◀ CHEMIN CRITIQUE`) et la **phase en cours de session** (`◀ session courante`).
-- Annotations utiles : `legacy en place`, `cassé claude-ts`, `précurseur`, etc. (tirées de l'audit).
-- Toujours finir par la barre **GLOBAL** + le total `✅/🔶/⬜`.
-- Recompter les chiffres depuis la roadmap P0–P16 (pas les hardcoder — ils évoluent).
+#### Variante B — « tableau parfait » (« tableau complet », « avec détails »)
+
+Tableau riche avec **dépendances, priorité, effort, temps**.
+
+Colonnes : `Phase | Tâches (✅/🔶/⬜) | % | Diff | Prio | Dépend | Reste (ses.) | ~Temps`.
+
+**Conversions temps** : `1 session ≈ 3 h` (CLAUDE.md : 1–4 h) · `1 jour ≈ 6 h` productives.
+`Reste (ses.) = sessions_totales_phase × (1 − %)`. `~Temps = Reste × 3 h` (afficher en `~Xh` si < 10h, sinon `~Xh (~Yj)`).
+Les **sessions totales par phase** viennent de la section `### Synthèse effort total` du fichier (+ P16 ≈ 26).
+
+**Échelles** :
+- Difficulté : 🟢 Facile · 🟡 Moyen · 🟠 Difficile · 🔴 Expert.
+- Priorité : 🔴 P1 critique (chemin critique MVP) · 🟠 P2 haute · 🟡 P3 moyenne · ⚪ P4 future.
+- **Dépendances** : tirer la colonne `Dépendances` de la roadmap (déps inter-phases clés ; mettre en gras les bloquantes, ex. **P5**, **P10**).
+
+Règles communes :
+- Recompter ✅/🔶/⬜ depuis la roadmap P0–P16 (jamais hardcoder).
+- Toujours finir par la ligne **TOTAL** (compteurs + reste sessions + reste `~h / ~j`).
+- Toujours rappeler le **chemin critique** sous le tableau (ex. « P5→P6 = 31 ses ≈ ~93h ≈ ~15.5j — débloque tout le reste »).
+- Annotations : `legacy en place`, `cassé claude-ts`, `précurseur`, `◀ session courante`.
 
 ### Étape 2 — Synthèse + corrections (fin)
 
