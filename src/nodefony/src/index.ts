@@ -47,6 +47,7 @@ export type {
   RequestContextPayload,
   IProfilerQuery,
 } from "./runtime/RequestContext";
+export { redactSecrets } from "./runtime/redact";
 
 // ─── ORM ──────────────────────────────────────────────────────────────────────
 export { default as Orm } from "./kernel/orm/Orm";

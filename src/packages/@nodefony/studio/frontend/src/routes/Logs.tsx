@@ -15,7 +15,9 @@ import {
   Text,
   Paper,
   Alert,
+  SegmentedControl,
 } from "@mantine/core";
+import { LogFiles } from "./LogFiles";
 import {
   IconPlayerPause,
   IconPlayerPlay,
@@ -73,7 +75,7 @@ interface PduView {
  * Le hub `ConnectionStore` track la subscription (chip topbar "1 sub").
  * Canal figé `syslog:stream` → migrera vers RealtimeService pub/sub en P13.4 sans toucher au front.
  */
-export const Logs = observer(() => {
+const LiveLogs = observer(() => {
   const conn = useConnection();
   const store = useStore();
   const [entries, setEntries] = useState<PduView[]>([]);
@@ -342,6 +344,31 @@ export const Logs = observer(() => {
           )}
         </ScrollArea>
       </Paper>
+    </Stack>
+  );
+});
+
+/**
+ * Page Logs — deux modes via segmented control :
+ *  - **Live** : stream temps réel des Pdu du syslog kernel (WS `syslog:stream`).
+ *  - **Fichiers** : viewer des fichiers `*.log` du `tmpDir` (DEV) — remplace
+ *    `tail -f`, polling incrémental par offset (cf {@link LogFiles}).
+ */
+export const Logs = observer(() => {
+  const [mode, setMode] = useState<"live" | "files">("live");
+  return (
+    <Stack gap="md">
+      <SegmentedControl
+        value={mode}
+        onChange={(v) => setMode(v as "live" | "files")}
+        data={[
+          { value: "live", label: "Live" },
+          { value: "files", label: "Fichiers" },
+        ]}
+        size="xs"
+        style={{ alignSelf: "flex-start" }}
+      />
+      {mode === "live" ? <LiveLogs /> : <LogFiles />}
     </Stack>
   );
 });

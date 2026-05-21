@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-21T21:26:28.874Z",
+  "generated": "2026-05-21T22:02:48.087Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 292,
-    "symbols": 718,
+    "files": 293,
+    "symbols": 722,
     "classes": 207,
-    "interfaces": 243,
+    "interfaces": 246,
     "types": 143,
     "enums": 1,
-    "functions": 106,
+    "functions": 107,
     "constants": 18
   },
   "symbols": {
@@ -615,6 +615,14 @@
       "file": "src/nodefony/src/kernel/Module.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "redactSecrets": {
+      "name": "redactSecrets",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/redact.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Renvoie `line` avec les secrets connus masqués par `***`. Idempotent (re-rédiger une ligne déjà masquée ne change rien). Conserve la structure (clés, ponctuation) pour que la ligne reste lisible/di…"
     },
     "RequestContext": {
       "name": "RequestContext",
@@ -2498,6 +2506,15 @@
       "exported": true,
       "module": "@nodefony/framework",
       "extends": null
+    },
+    "SyslogAdminApiOptions": {
+      "name": "SyslogAdminApiOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Options du producteur syslog — viewer de fichiers (DEV only)."
     },
     "createSyslogAdminApi": {
       "name": "createSyslogAdminApi",
@@ -5943,6 +5960,7 @@
         "src/nodefony/src/finder/File.ts",
         "src/nodefony/src/finder/Finder.ts",
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/types/IKernel.ts",
         "src/nodefony/src/service/babel/babylon.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
@@ -7261,7 +7279,8 @@
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "IAdminResponse": [
-        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
+        "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
@@ -7326,6 +7345,9 @@
       ],
       "ParamMeta": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "redactSecrets": [
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "IFrontPreset": [
         "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontBuilder.ts",

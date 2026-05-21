@@ -62,7 +62,17 @@ class Framework extends Module {
         broker.register(createFrameworkAdminApi(broker));
       }
       if (this.kernel.syslog && !broker.has("syslog")) {
-        broker.register(createSyslogAdminApi(this.kernel.syslog));
+        // Viewer de fichiers = confort DEV (remplace `tail -f`). En prod, les
+        // logs vont sur stdout/stderr → collecteur : pas de fichiers exposés.
+        const tmp = this.kernel.tmpDir?.path;
+        broker.register(
+          createSyslogAdminApi(this.kernel.syslog, {
+            // `isProd` n'est pas fiable (défaut `true`, jamais remis à false en
+            // dev) → on se fie à `environment` (vaut "development" au runtime).
+            logDir: typeof tmp === "string" ? tmp : undefined,
+            enableFiles: this.kernel.environment !== "production",
+          }),
+        );
       }
       broker.mountAll();
     }

@@ -1,5 +1,6 @@
 import type { IService } from "./IService";
 import type { IModule } from "./IModule";
+import type FileClass from "../FileClass";
 import type { EnvironmentType, DebugType } from "./globals";
 import type { ICliKernel } from "./ICliKernel";
 import type { ICommand } from "./ICommand";
@@ -42,6 +43,10 @@ export interface IKernel extends IService {
   // ─── Processus ─────────────────────────────────────────────────────────────
   readonly pid: number;
   readonly platform: NodeJS.Platform;
+
+  // ─── Système de fichiers ─────────────────────────────────────────────────────
+  /** Répertoire temporaire du projet (`<cwd>/tmp`), initialisé au boot. */
+  tmpDir?: FileClass;
 
   // ─── Lifecycle flags ───────────────────────────────────────────────────────
   readonly started: boolean;
