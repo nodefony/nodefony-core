@@ -1,6 +1,5 @@
 import { AbstractCrudService } from "@nodefony/orm-core";
-import type { Container, Event, DefaultOptionsService } from "nodefony";
-import type { Criteria } from "@nodefony/orm-core";
+import type { Criteria, ServiceWiring } from "@nodefony/orm-core";
 import type { IPasswordAuthenticatedUser } from "../contracts/IUser";
 import type { IPasswordEncoder } from "../contracts/IPasswordEncoder";
 import type { IUserRepository } from "../contracts/IUserRepository";
@@ -61,18 +60,14 @@ export class UserService extends AbstractCrudService<
   /**
    * @param repository - source de persistance des utilisateurs (credential inclus).
    * @param encoder - encodeur de mot de passe (hash/verify/needsRehash).
-   * @param container - container DI hérité (Kernel) ou nouveau si omis.
-   * @param notificationsCenter - bus d'événements partagé, `false` pour aucun.
-   * @param options - options de service.
+   * @param wiring - câblage Service ({@link ServiceWiring}) — quasi toujours omis.
    */
   constructor(
     repository: IUserRepository,
     encoder: IPasswordEncoder,
-    container?: Container,
-    notificationsCenter?: Event | false | null,
-    options?: DefaultOptionsService,
+    ...wiring: ServiceWiring
   ) {
-    super("users", repository, container, notificationsCenter, options);
+    super("users", repository, ...wiring);
     this.encoder = encoder;
   }
 

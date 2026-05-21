@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-21T16:45:23.696Z",
+  "generated": "2026-05-21T16:51:38.659Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 279,
-    "symbols": 642,
+    "files": 280,
+    "symbols": 643,
     "classes": 202,
     "interfaces": 216,
-    "types": 137,
+    "types": 138,
     "enums": 1,
     "functions": 69,
     "constants": 17
@@ -3464,6 +3464,14 @@
       "module": "@nodefony/orm-core",
       "description": "Singleton process-wide partagé par tous les drivers et consommateurs ORM. Les modules ORM s'enregistrent ici ; la classe {@link OrmRegistry} reste instanciable séparément pour des registres isolés …"
     },
+    "ServiceWiring": {
+      "name": "ServiceWiring",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Câblage d'un {@link Service} (DI / bus d'événements / options) sous forme de **tuple** — évite de redéclarer `container` / `notificationsCenter` / `options` dans le constructeur de chaque service j…"
+    },
     "FixedChunker": {
       "name": "FixedChunker",
       "kind": "class",
@@ -5462,9 +5470,8 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts"
       ],
       "Container": [
         "src/nodefony/src/Cli.ts",
@@ -5494,8 +5501,8 @@
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
@@ -5507,7 +5514,6 @@
         "src/packages/@nodefony/security/nodefony/src/Provider.ts",
         "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -5552,8 +5558,8 @@
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
         "src/packages/@nodefony/security/nodefony/service/cors.ts",
@@ -5564,7 +5570,6 @@
         "src/packages/@nodefony/security/nodefony/src/Provider.ts",
         "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -7083,6 +7088,10 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
+      "ServiceWiring": [
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "FieldOperators": [
         "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",

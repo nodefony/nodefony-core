@@ -1,10 +1,10 @@
 import { Service } from "nodefony";
-import type { Container, Event, DefaultOptionsService } from "nodefony";
 import type {
   IRepository,
   Criteria,
   RepositoryReadOptions,
 } from "../interfaces/index";
+import type { ServiceWiring } from "./serviceWiring";
 
 /**
  * Service CRUD **générique** — socle réutilisable au-dessus d'un {@link IRepository}.
@@ -40,18 +40,11 @@ export abstract class AbstractCrudService<
   /**
    * @param name - identifiant logique du service (msgid des logs, clé d'abonnement events).
    * @param repository - source de persistance injectée (DI).
-   * @param container - container DI hérité (Kernel) ou nouveau si omis.
-   * @param notificationsCenter - bus d'événements partagé, `false` pour aucun.
-   * @param options - options de service.
+   * @param wiring - câblage Service ({@link ServiceWiring} : `container?`,
+   *   `notificationsCenter?`, `options?`) — quasi toujours omis (fourni par le container DI).
    */
-  constructor(
-    name: string,
-    repository: R,
-    container?: Container,
-    notificationsCenter?: Event | false | null,
-    options?: DefaultOptionsService,
-  ) {
-    super(name, container, notificationsCenter, options);
+  constructor(name: string, repository: R, ...wiring: ServiceWiring) {
+    super(name, ...wiring);
     this.repository = repository;
   }
 

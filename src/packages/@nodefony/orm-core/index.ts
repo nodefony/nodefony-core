@@ -32,6 +32,7 @@ export { Entity } from "./nodefony/src/Entity";
 
 // ─── Service CRUD générique — socle réutilisable sur IRepository<T> ──────────
 export { AbstractCrudService } from "./nodefony/src/AbstractCrudService";
+export type { ServiceWiring } from "./nodefony/src/serviceWiring";
 
 // ─── Décorateurs (P5.3) — @entity / @repository (WeakMap, sans reflect) ──────
 export { entity, repository } from "./nodefony/src/decorators/index";
