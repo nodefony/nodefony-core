@@ -36,10 +36,19 @@ n'appliquer que les checks pertinents.
 
 ### A. Injection — requêtes TOUJOURS paramétrées ⛔
 - SQL/NoSQL via **bindings**, jamais de concat/template dans la requête.
-- `sql\`... ${x}\`` (drizzle) = bindé ✅. `\`SELECT ... ${x}\`` passé en string brute = ⛔.
+- `db.all(sql\`... ${x}\`)` (drizzle, **tag `sql`**) = bindé ✅. Risque = un template
+  **brut** (sans tag) ou une concat passé à un appel db.
 ```bash
-git diff HEAD -- 'src/**/*.ts' | grep -nE '(query|exec|raw|sql)\(' | grep -E '\$\{|\+ *['"'"'"`]'
+# 1) Template brut interpolé directement dans un appel db (paren collé au backtick) = ⛔
+git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
+  | grep -E '\.(all|get|run|query|execute|exec|raw|prepare)\(\s*`[^`]*\$\{'
+# 2) Concat de string dans une requête = ⛔
+git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
+  | grep -E '(query|execute|exec|raw)\(' | grep -E '\+ *['"'"'"`]'
 ```
+> Le tag `sql\`…${x}\`` (drizzle) bind les `${}` → **sûr** : il a `sql` AVANT le backtick,
+> donc il ne matche PAS le motif `\(\s*\`` du check 1. Si un appel db a un backtick
+> **directement** après la parenthèse → template brut → vérifier à la main.
 - Critère portable orm-core : passer par `Criteria`/`FieldOperators` (déjà bindés), pas du SQL maison.
 
 ### B. Secrets & credentials — jamais en clair, jamais loggés ⛔
