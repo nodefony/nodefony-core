@@ -42,6 +42,12 @@ Config surcharge `"module-http".statics.test` → `src/modules/test/public/`
 - `/test/oceans-clip.webm` (video/webm)
 - `/favicon.ico`
 
+## Debug bar sur page EJS (démo serveur-rendu)
+- `RouteController` `/nodefony/test/route/ejs/{name}` rend `views/index.ejs` (lu depuis la **source**, pas dist).
+- `DefaultController` `/nodefony/test/debugbar.js` sert le bundle **standalone** `nodefony/debugbar.js` (résolu+caché) + `mountDebugBar();` appended (auto-montant).
+- `index.ejs` charge `<script type="module" src="/nodefony/test/debugbar.js">` — **externe** (pas inline) car la page EJS a CSP `script-src 'self'` (un inline serait bloqué ; les pages React surchargent la CSP, pas l'EJS).
+- Pas de carte HMR (hors Vite) ; env/branche/realtime OK via WS studio même origine.
+
 ## Session
 DefaultController + RestController : `initialize()` → `this.startSession("test")`.
 RestController injecte `@inject("session")`.

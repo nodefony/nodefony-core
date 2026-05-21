@@ -119,3 +119,11 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - GET /nodefony/frontend/api/entries → list entries résolues
 - POST /nodefony/frontend/api/restart → stop + startDev
 - (TODO Phase 14.2 quand Studio MVP ✅)
+
+## Debug bar — auto-injection dev (`TemplateHelper`)
+
+`renderDevTags()` injecte en **dev only** la debug bar Core (`nodefony/debugbar`) après l'entry :
+- résout le fichier 1× via `createRequire(import.meta.url).resolve("nodefony/debugbar")` (caché module-level), sert via le `/@fs/<abs>` de Vite (couvert par `server.fs.allow` = cwd).
+- `mountDebugBar({ frontend: { framework, name, viteOrigin, hmrUrl } })` → carte Frontend + sonde HMR (`wss://host:port/`). `framework` = `entry.type` (react19/vue3/angular).
+- irrésoluble → commentaire HTML, n'altère jamais la page. Apparaît sur toutes les pages front en dev (Studio inclus).
+- Pages **hors Vite** (EJS/Twig) : pas concernées par renderTags → utiliser le bundle standalone `nodefony/debugbar.js` (cf core MEMORY, ex. route test `/nodefony/test/debugbar.js`).

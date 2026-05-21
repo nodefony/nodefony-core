@@ -72,6 +72,13 @@ Studio est le consommateur. Chaque module expose son `IAdminApi` (P10.2 ✅ cont
 - **Docs+API modules ✅ 2026-05-20** (kit `project_studio_docs_integration_kit`) : producteur kernel enrichi → `module/{name}/docs`, `module/{name}/docs/{slug}`, `module/{name}/symbols` (helper `framework/nodefony/src/docsReader.ts`). Onglets Docs+API dans `ModuleDetail`. Docs colocalisées (`<module>/docs/*.md`, hybride ADR-0001) sur core/http/framework/frontend/studio. Validé runtime curl.
 - **Carte Core ✅ 2026-05-20** : le core (`@nodefony/core`, package `nodefony`) n'est PAS dans `getModules()` → injecté comme **pseudo-module** `key:"core"` en tête de `/kernel/api/modules` (`readCoreInfo`/`resolveCorePath` dans `docsReader.ts`). Front INCHANGÉ (Modules.tsx itère la liste, ModuleDetail appelle `module/core/{docs,symbols}`). Docs `src/nodefony/docs/*.md` (ex-`docs/architecture/*`, git mv), symbols filtre `@nodefony/core` (131). `resolveTarget(key)` dans `KernelAdminApi` gère core vs module chargé. Détail core : services/config vides, deps depuis package.json.
 
+## Debug bar (Core isomorphe `nodefony/debugbar`)
+
+Studio = 2ᵉ consommateur du backbone realtime + **pilote** la debug bar.
+- **`dashboard:stats` enrichi** : `createStatsTicker(publish, 1000, meta)` ajoute un bloc `app` = `{name,version,env,debug,branch}`. `branch` via `readGitBranch()` (lit `.git/HEAD`, **pas de spawn git**, caché 1×) ; env/version/debug depuis le kernel (`StudioRealtimeController.appMeta()`). → la barre affiche env (badge couleur) + branche git sur toute page.
+- **Interrupteur Studio** : `UiStore.debugBar` + `toggleDebugBar()`, clé localStorage **partagée** `nf.debugbar.visible` (synchro avec le widget). Pilote la barre auto-injectée via `window.__NODEFONY_DEBUGBAR__.setVisible()`. Bouton topbar `AdminLayout` (icône bottombar).
+- La barre s'auto-injecte aussi sur la page Studio (montage @nodefony/frontend) — redondant mais OK.
+
 ## Liens
 
-`project_studio_prep_kit` (reprise) · `project_studio_module` · `project_ia_studio_final` · `project_realtime_vision_studio_beta` · `project_frontend_architecture_decision` · `project_csp_vite_security_todo` · `feedback_sse_http2_request_close`
+`project_studio_prep_kit` (reprise) · `project_studio_module` · `project_ia_studio_final` · `project_realtime_vision_studio_beta` · `project_frontend_architecture_decision` · `project_csp_vite_security_todo` · `feedback_sse_http2_request_close` · `project_studio_debugbar`
