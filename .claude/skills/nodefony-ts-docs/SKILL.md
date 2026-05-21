@@ -14,10 +14,9 @@ Sources TypeScript et @types/node — raw GitHub uniquement.
 
 ## Règle d'or
 
-- **Interdiction** de charger les pages du site `typescriptlang.org` (JS lourd, perte de tokens).
-- **Raccourci** : utiliser le proxy `https://r.jina.ai/` devant l'URL GitHub Raw.
-- **Zéro Bla-bla** : extraire la structure du type officiel → l'adapter à Nodefony → l'intégrer sans rapport de lecture.
-- **Cache MEMORY** : une fois une API Node.js comprise (ex: `node:http2`), stocker les signatures critiques dans le `MEMORY.md` du module pour ne plus relire.
+Mécanisme de chargement = **règle universelle du `CLAUDE.md` racine** : raw GitHub + proxy `https://r.jina.ai/`, jamais `typescriptlang.org` (JS lourd).
+**Zéro blabla** : extraire la structure du type officiel → l'adapter à Nodefony → l'intégrer sans rapport de lecture.
+**Cache MEMORY** : une fois une API Node.js comprise (ex: `node:http2`), stocker ses signatures critiques dans le `MEMORY.md` du module pour ne plus relire.
 
 ## Sources canoniques
 
@@ -71,6 +70,5 @@ https://r.jina.ai/https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTy
 
 ## Anti-patterns à éviter
 
-- Charger `typescriptlang.org` — JS lourd, plante l'agent.
 - Reformuler le handbook dans la conversation.
 - Inventer la signature d'une API @types/node — vérifier d'abord.

@@ -14,9 +14,9 @@ Référence canonique des RFC pour le framework Nodefony — sources brutes uniq
 
 ## Règle d'or
 
-- **Interdiction** d'utiliser `tools.ietf.org` ou `w3c.org` via les pages HTML.
-- Les fichiers `.txt` officiels IETF sont parfaits : 0 token gaspillé en structure de page.
-- **Zéro Prose** : trouver la section RFC → appliquer la syntaxe exacte dans le code (casse headers, séparateurs `\r\n`) → valider. Pas de rapport historique.
+Mécanisme de chargement = **règle universelle du `CLAUDE.md` racine** : sources brutes via raw GitHub + proxy `r.jina.ai`, jamais les pages HTML (`tools.ietf.org`, `w3c.org`).
+Exception RFC : les `.txt` officiels IETF sont déjà bruts → les charger en direct, sans proxy.
+**Zéro prose** : trouver la section RFC → appliquer la syntaxe exacte (casse headers, séparateurs `\r\n`) → valider. Pas de rapport historique.
 
 ## Sources canoniques
 
@@ -46,7 +46,7 @@ Handshake HTTP, masquage frames, fermeture connexions :
 https://www.ietf.org/rfc/rfc6455.txt
 ```
 
-### 4. Cookies & SameSite — RFC 6265bis
+### 4. Cookies & SameSite — RFC 6265
 
 Pour `@nodefony/security` (firewall, session, CSRF) :
 
