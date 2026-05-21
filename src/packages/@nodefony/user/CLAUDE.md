@@ -37,7 +37,9 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 - **`id: string`** (UUID, **pas** `string|number`).
 - `IUser.roles: string[]` reste **plat** (perf ALS + logs structurés). RBAC dynamique = `IRole`/`IPermission` (niveau B, P6.8).
 - **`IUserProvider`** API étendue : `loadUserByIdentifier` + `loadUserByOAuth(provider,providerId)` + `refreshUser(user)`. Pattern **Shadow User** (ligne locale même en auth OAuth).
-- **`IUserRepository`** étend `IRepository<IUser>` de `@nodefony/orm-core` (peerDep) — ORM-agnostique.
+- **`IUserRepository`** étend `IRepository<IPasswordAuthenticatedUser>` de `@nodefony/orm-core` (peerDep) — ORM-agnostique. **Affiné P5.6** : la persistance EST la frontière credential (le repo lit/écrit le hash) ; le split protège les consommateurs *en aval* (`IUserProvider` rend `IUser`), pas le stockage.
+- **`BcryptEncoder` (P5.6)** : `@node-rs/bcrypt` (NAPI Rust) en **peerDep optionnelle** + externalisé rollup (binaire natif jamais bundlé). `verify` délègue la promesse (0 async superflu). `needsRehash` parse le coût `$2[aby]$NN$`.
+- **`UserService` (P5.6)** étend `Service` (DI + bus events). `authenticate()` : leurre anti-timing (hash lazy), re-hash transparent sur coût obsolète, 6 events. CRUD haché ; `changePassword` seul chemin du credential (`updateUser` exclut `id`/`password`).
 
 ## Interdits
 
@@ -48,7 +50,7 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 
 - ✅ **P5.5a** scaffold workspace : package.json/tsconfig/rollup/index.ts/docs + arbo `nodefony/{contracts,src/encoders,service}/`.
 - ✅ **P5.5** contracts : `IUser` (strict) + `IPasswordAuthenticatedUser` + `ISocialProvider` + `IUserProvider` + `IUserRepository` + `IPasswordEncoder` + `BaseUser` + `AnonymousUser` (+ singleton `anonymousUser`). 11 tests verts. **`IRole`/`IPermission` DIFFÉRÉS → P6.8** (slot réservé/commenté dans le barrel ; format RBAC à figer sur cas voter concret).
-- ⬜ **P5.6** `UserService` (CRUD + `authenticate()` + events lifecycle) + `BcryptEncoder` (rounds: 12).
+- ✅ **P5.6** `UserService` (CRUD haché + `authenticate()` + 6 events lifecycle) + `BcryptEncoder` (`@node-rs/bcrypt`, rounds: 12). 22 tests (33 total). Contrat `IUserRepository` affiné → `IPasswordAuthenticatedUser`.
 - ⬜ **P5.7/5.8/5.9** adapters User entity Sequelize / Mongoose / Drizzle.
 - ⬜ **P5.10** tests cross-ORM (même `IUser`, 3 adapters CRUD).
 - ⬜ **P5.11** session refactor (`session.user: IUser` + `regenerateId()`).

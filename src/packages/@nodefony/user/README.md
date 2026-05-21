@@ -17,14 +17,12 @@ comme Symfony sépare `security-core` de `security-bundle`.
 
 ## Statut
 
-🚧 **Scaffold (P5.5a)** — workspace en place, contrats et implémentations à venir :
-
 | Phase | Contenu | État |
 | ----- | ------- | ---- |
 | P5.5a | Workspace (package, tsconfig, rollup, arbo) | ✅ |
 | P5.5  | `IUser`, `IPasswordAuthenticatedUser`, `IUserProvider`, `IUserRepository`, `IPasswordEncoder`, `BaseUser`, `AnonymousUser` | ✅ |
 | —     | `IRole`, `IPermission` (RBAC dynamique) — **différés à P6.8** | ⏸ |
-| P5.6  | `UserService` (CRUD + `authenticate()`) + `BcryptEncoder` | ⬜ |
+| P5.6  | `UserService` (CRUD + `authenticate()`) + `BcryptEncoder` | ✅ |
 | P5.7–5.9 | Adapters User Sequelize / Mongoose / Drizzle | ⬜ |
 | P5.10 | Tests cross-ORM (même `IUser`, 3 adapters) | ⬜ |
 | P5.11 | Refactor session (`session.user: IUser`) | ⬜ |
@@ -61,9 +59,32 @@ interface IUser {
 (`Record<string, unknown>`), `currentRole` (profil actif de session), `password?` (nullable pour
 les comptes 100 % OAuth).
 
+### `BcryptEncoder` & `UserService` (P5.6)
+
+```typescript
+import { BcryptEncoder, UserService } from "@nodefony/user";
+
+const encoder = new BcryptEncoder(12); // coût bcrypt (défaut 12)
+const users = new UserService(userRepository, encoder); // repository injecté (DI)
+
+const u = await users.createUser({ identifier: "jane@x.io", plainPassword: "s3cret" });
+const auth = await users.authenticate("jane@x.io", "s3cret"); // IUser | null
+await users.changePassword(u.id, "nouveau"); // seul chemin du credential
+```
+
+`authenticate()` nivelle le temps de réponse sur identifiant inconnu (anti-énumération), re-hache
+de façon transparente quand le coût stocké est obsolète, et émet des events de cycle de vie
+(`onUserCreated`, `onUserAuthenticated`, `onAuthenticationFailure`, …) consommables par
+`@nodefony/security` ou Studio.
+
+> `BcryptEncoder` s'appuie sur `@node-rs/bcrypt` (binding NAPI Rust, async non bloquant), déclaré en
+> **peerDependency optionnelle** : seules les applications qui authentifient par mot de passe local
+> l'installent. Un consommateur qui n'importe que le type `IUser` ne tire aucun binaire natif.
+
 ## Installation (workspace)
 
-Module workspace du monorepo `nodefony-core`. peerDependencies : `nodefony`, `@nodefony/orm-core`.
+Module workspace du monorepo `nodefony-core`. peerDependencies : `nodefony`, `@nodefony/orm-core`,
+et **optionnelle** `@node-rs/bcrypt` (requise uniquement pour `BcryptEncoder`).
 
 ```bash
 npm run build --workspace=src/packages/@nodefony/user

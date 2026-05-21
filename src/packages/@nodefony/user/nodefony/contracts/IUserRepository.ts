@@ -1,22 +1,33 @@
 import type { IRepository } from "@nodefony/orm-core";
-import type { IUser } from "./IUser";
+import type { IPasswordAuthenticatedUser } from "./IUser";
 
 /**
- * Repository **spécialisé utilisateur** — `IRepository<IUser>` enrichi de finders métier.
+ * Repository **spécialisé utilisateur** — `IRepository<IPasswordAuthenticatedUser>`
+ * enrichi de finders métier.
  *
  * Étend le contrat CRUD portable de `@nodefony/orm-core` (`find`, `create`,
  * `withTransaction`...) avec les accès propres à l'authentification. Implémenté
  * une fois par adapter (Sequelize/Mongoose/Drizzle, P5.7–5.9) ; l'ORM concret
  * reste invisible des consommateurs (DI : `@Inject('repository.user')`).
+ *
+ * @remarks Type d'entité = {@link IPasswordAuthenticatedUser} (credential inclus),
+ * pas `IUser`. Le repository **est** la frontière de persistance du mot de passe :
+ * seul composant qui lit/écrit le hash (consommé par `UserService` et
+ * `@nodefony/security`). Le split credential (façon Symfony) protège les
+ * consommateurs *en aval* (framework/authz reçoivent `IUser` via `IUserProvider`),
+ * pas la couche de stockage qui, par nature, manipule le hash.
  */
-export interface IUserRepository extends IRepository<IUser> {
+export interface IUserRepository
+  extends IRepository<IPasswordAuthenticatedUser> {
   /**
    * Retrouve un utilisateur par son identifiant fonctionnel (email, login...).
    *
    * @param identifier - identifiant unique.
-   * @returns l'utilisateur, ou `null` s'il n'existe pas.
+   * @returns l'utilisateur (credential inclus), ou `null` s'il n'existe pas.
    */
-  findByIdentifier(identifier: string): Promise<IUser | null>;
+  findByIdentifier(
+    identifier: string,
+  ): Promise<IPasswordAuthenticatedUser | null>;
 
   /**
    * Retrouve un utilisateur lié à un compte d'un fournisseur OAuth/OIDC.
@@ -28,5 +39,5 @@ export interface IUserRepository extends IRepository<IUser> {
   findBySocialProvider(
     provider: string,
     providerId: string,
-  ): Promise<IUser | null>;
+  ): Promise<IPasswordAuthenticatedUser | null>;
 }

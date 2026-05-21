@@ -7,14 +7,14 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 
 ## Core Components
 
-- `nodefony/contracts/` ✅ : `IUser` (strict), `IPasswordAuthenticatedUser` (+`password`), `ISocialProvider`, `IPasswordEncoder`, `IUserProvider`, `IUserRepository extends IRepository<IUser>` (+ barrel). `IRole`/`IPermission` = **commentés, différés P6.8**.
-- `nodefony/src/` ✅ : `BaseUser` (POJO impl `IPasswordAuthenticatedUser` + mutateurs chaînables), `AnonymousUser` + singleton `anonymousUser` + `ROLE_ANONYMOUS`. ⬜ `encoders/BcryptEncoder` (P5.6).
-- `nodefony/service/` ⬜ : `UserService` (CRUD + authenticate + events) — P5.6.
+- `nodefony/contracts/` ✅ : `IUser` (strict), `IPasswordAuthenticatedUser` (+`password`), `ISocialProvider`, `IPasswordEncoder`, `IUserProvider`, `IUserRepository extends IRepository<IPasswordAuthenticatedUser>` (+ barrel). `IRole`/`IPermission` = **commentés, différés P6.8**.
+- `nodefony/src/` ✅ : `BaseUser` (POJO impl `IPasswordAuthenticatedUser` + mutateurs chaînables), `AnonymousUser` + singleton `anonymousUser` + `ROLE_ANONYMOUS`, `encoders/BcryptEncoder` ✅ (P5.6).
+- `nodefony/service/` ✅ : `UserService extends Service` (CRUD haché + `authenticate()` + 6 events) — P5.6.
 
 ## Config
 
-- Lib pure. peerDeps : `nodefony` + `@nodefony/orm-core` (pour `IRepository`). PAS de Module runtime, PAS dans `@modules()`.
-- rollup external : `nodefony`, `tslib`, `@nodefony/orm-core`.
+- Lib pure. peerDeps : `nodefony` + `@nodefony/orm-core` (pour `IRepository`) + `@node-rs/bcrypt` (**optionnelle** — binaire NAPI, tirée seulement si on utilise `BcryptEncoder`). PAS de Module runtime, PAS dans `@modules()`.
+- rollup external : `nodefony`, `tslib`, `@nodefony/orm-core`, `@node-rs/bcrypt` (jamais bundler un addon natif).
 
 ## Behaviors
 
@@ -23,8 +23,10 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 - `BaseUser implements IPasswordAuthenticatedUser` : champs anti-migration `socialProviders[]` JSON, `metadata:Record<string,unknown>`, `currentRole`, `password`. Ctor = objet `IBaseUserOptions`. Copie défensive de `roles`/`socialProviders`. Mutateurs chaînables: `addRole/removeRole/addSocialProvider/enable/disable/lock/unlock/setCurrentRole/setPassword`.
 - `AnonymousUser`: `id="anonymous"`, `roles=[ROLE_ANONYMOUS]` (gelé partagé), singleton gelé `anonymousUser` (0 alloc/req).
 - `IUserProvider`: `loadUserByIdentifier` + `loadUserByOAuth` + `refreshUser` (lèvent si introuvable). Shadow User.
-- `IUserRepository extends IRepository<IUser>` (orm-core) + `findByIdentifier`/`findBySocialProvider`.
-- `IPasswordEncoder`: `hash`/`verify`(async, temps constant)/`needsRehash`. Impl `BcryptEncoder` (P5.6, rounds 12).
+- `IUserRepository extends IRepository<IPasswordAuthenticatedUser>` (orm-core) + `findByIdentifier`/`findBySocialProvider`. **Repository = frontière credential** (voit `password`), pas `IUser`.
+- `IPasswordEncoder`: `hash`/`verify`(async, temps constant)/`needsRehash`. Impl `BcryptEncoder` (rounds 12 par défaut, `[4,31]`, `needsRehash` parse `$2[aby]$NN$`).
+- `BcryptEncoder`: `@node-rs/bcrypt` (`hash`/`verify` NAPI). `verify` délègue la promesse (0 async superflu).
+- `UserService extends Service`(name `"users"`): `createUser`(hache)/`findById`/`findByIdentifier`/`updateUser`(`UserUpdate`=Omit id+password)/`changePassword`/`deleteUser`/`authenticate`. Events: `onUserCreated`/`onUserUpdated`/`onUserDeleted`/`onUserPasswordChanged`/`onUserAuthenticated`/`onAuthenticationFailure`(raison). `authenticate`: leurre `consumeDummy` (hash lazy, anti-timing) sur identifiant inconnu/sans password ; re-hash transparent si `needsRehash` ; ordre check = locked > disabled > no_password > bad_credentials.
 
 ## Gotchas
 
@@ -36,4 +38,4 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 
 ## État
 
-✅ P5.5a (scaffold) + P5.5 (contracts + base users, 11 tests). Suite = **P5.6** (`UserService` + `BcryptEncoder`).
+✅ P5.5a (scaffold) + P5.5 (contracts + base users) + P5.6 (`BcryptEncoder` + `UserService`). **33 tests**. Suite = **P5.7** (adapter Sequelize : User entity + `IUserRepository` impl).

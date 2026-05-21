@@ -36,7 +36,12 @@ export {
 } from "./nodefony/src/AnonymousUser";
 
 // ─── Encoders (P5.6) ─────────────────────────────────────────────────────────
-// export { BcryptEncoder } from "./nodefony/src/encoders/BcryptEncoder";
+export { BcryptEncoder } from "./nodefony/src/encoders/BcryptEncoder";
 
 // ─── Service (P5.6) ──────────────────────────────────────────────────────────
-// export { UserService } from "./nodefony/service/UserService";
+export { UserService } from "./nodefony/service/UserService";
+export type {
+  ICreateUserInput,
+  UserUpdate,
+  AuthFailureReason,
+} from "./nodefony/service/UserService";

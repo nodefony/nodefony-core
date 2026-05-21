@@ -4,7 +4,13 @@ import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import { globSync } from "glob";
 
-const external: string[] = ["nodefony", "tslib", "@nodefony/orm-core"];
+const external: string[] = [
+  "nodefony",
+  "tslib",
+  "@nodefony/orm-core",
+  // peerDep optionnelle : binaire natif NAPI, jamais bundlé (résolu par le consommateur).
+  "@node-rs/bcrypt",
+];
 
 const nodefonyFiles = globSync("nodefony/**/*.ts", {
   ignore: ["**/*.d.ts", "**/*.spec.ts", "**/*.test.ts", "**/tests/**"],

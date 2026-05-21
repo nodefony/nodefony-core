@@ -18,7 +18,7 @@
     "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
-    "test": "node -e \"console.log('test')\""
+    "test": "mocha --config .mocharc.json"
   },
   "private": false,
   "keywords": [
@@ -30,9 +30,16 @@
   ],
   "peerDependencies": {
     "nodefony": "*",
-    "@nodefony/orm-core": "*"
+    "@nodefony/orm-core": "*",
+    "@node-rs/bcrypt": "^1.10.0"
+  },
+  "peerDependenciesMeta": {
+    "@node-rs/bcrypt": {
+      "optional": true
+    }
   },
   "devDependencies": {
+    "@node-rs/bcrypt": "^1.10.0",
     "@rollup/plugin-commonjs": "29.0.2",
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",
