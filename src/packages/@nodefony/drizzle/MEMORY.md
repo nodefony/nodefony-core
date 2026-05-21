@@ -1,6 +1,14 @@
 # MEMORY.md — @nodefony/drizzle
 
-Purpose: 3e adapter orm-core. Drizzle + better-sqlite3. Type-safe-first. P7.4.
+Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-safe-first. P7.4.
+
+## Module bootable (2026-05-21)
+
+- `index.ts` default export = `Drizzle extends Module` + `@services([DrizzleService])`. Ajouté à `@modules()` app (après sequelize). ORM SQL par défaut.
+- `nodefony/service/DrizzleService.ts` : ctor `super(name, module.container, module.notificationsCenter, module.options)` ; `kernel.once("onBoot")` → `connectAll()` (1 DrizzleOrm/connecteur, mkdir dossier db) ; `onTerminate` → disconnectAll. `getOrm(name="default")`.
+- `nodefony/config/config.ts` : `{ connectors: { default: { filename: <root>/nodefony/databases/nodefony-drizzle.db } } }`. Surcharge app possible via `config/modules/drizzle-config.ts`.
+- better-sqlite3 = **dependencies** (runtime), pas devDeps.
+- Boot vérifié : `MODULE ADD : drizzle` + `Drizzle ORM "default" connected` + db créée, 4 serveurs UP, health 200.
 
 ## Core Components
 

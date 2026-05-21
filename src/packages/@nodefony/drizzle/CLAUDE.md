@@ -7,13 +7,24 @@
 Implémente `Orm`/`IOrm`, `IRepository<T>`, `ITransaction` au-dessus de Drizzle ORM
 + `better-sqlite3` (test) — Postgres/MySQL par simple changement de driver.
 
-## Nature
+## Nature : module bootable + adapter lib
 
-- **Adapter lib**, comme les sous-dossiers `orm-core/` de sequelize/mongoose.
-- **PAS enregistré dans `@modules()` racine** : on l'instancie explicitement
-  (`new DrizzleOrm(name, { filename })`) ; `extends Orm` → auto-register dans
-  `ormRegistry`. (Booter une connexion au démarrage serveur viendra avec la
-  config réelle, hors banc-test.)
+Deux usages :
+
+1. **Module bootable** (depuis 2026-05-21) : `index.ts` exporte par défaut une
+   classe `Drizzle extends Module` (`@services([DrizzleService])`). Ajouté à
+   `@modules()` de l'app → `DrizzleService` connecte au boot (`onBoot`) un
+   `DrizzleOrm` **par connecteur** de la config (`nodefony/config/config.ts`,
+   défaut : connecteur `default` sur `<root>/nodefony/databases/nodefony-drizzle.db`).
+   Ferme à `onTerminate`. C'est l'**ORM SQL par défaut recommandé** de l'app dev.
+2. **Adapter lib** : les classes `DrizzleOrm`/`Repository`/`Transaction` restent
+   exportées (named) pour un usage direct / banc-test (`new DrizzleOrm(name, {filename})`,
+   auto-register dans `ormRegistry`).
+
+> `better-sqlite3` est en **`dependencies`** (driver runtime du module bootable),
+> pas en devDeps. Service pattern calqué sur `FrontendService` :
+> `super(name, module.container, module.notificationsCenter, module.options)` +
+> hooks `kernel.once("onBoot"|"onTerminate")` dans le constructeur.
 
 ## Décisions figées (P7.4)
 

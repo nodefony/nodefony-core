@@ -14,7 +14,41 @@ Adapter [Drizzle ORM](https://orm.drizzle.team/) pour Nodefony, branché sur
 npm install @nodefony/drizzle drizzle-orm better-sqlite3
 ```
 
-## Démarrage
+## Utilisation comme module Nodefony (bootable)
+
+Ajouter `@nodefony/drizzle` à `@modules()` de l'app : le `DrizzleService` connecte
+au boot un ORM par connecteur configuré (c'est l'ORM SQL par défaut recommandé).
+
+```typescript
+@modules([
+  "@nodefony/drizzle", // connecte au boot, ferme au shutdown
+  "@nodefony/http",
+  // ...
+])
+class App extends Module {}
+```
+
+Config par défaut (`nodefony/config/config.ts`) — surchargeable côté app via
+`nodefony/config/modules/drizzle-config.ts` :
+
+```typescript
+export default {
+  connectors: {
+    default: { filename: "<root>/nodefony/databases/nodefony-drizzle.db" },
+    // ":memory:" ou absent → base éphémère
+  },
+};
+```
+
+Au runtime, l'ORM est récupérable via le registre :
+
+```typescript
+import { OrmRegistry } from "@nodefony/orm-core";
+const orm = OrmRegistry.get("default");
+const users = orm.getRepository("User");
+```
+
+## Démarrage (usage direct / banc-test)
 
 ```typescript
 import { randomUUID } from "node:crypto";

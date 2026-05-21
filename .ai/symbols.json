@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-21T00:44:41.001Z",
+  "generated": "2026-05-21T00:54:14.495Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 264,
-    "symbols": 615,
-    "classes": 193,
-    "interfaces": 204,
+    "files": 266,
+    "symbols": 619,
+    "classes": 195,
+    "interfaces": 206,
     "types": 135,
     "enums": 1,
     "functions": 69,
@@ -239,6 +239,18 @@
       "implements": [],
       "decorators": [
         "controllers"
+      ]
+    },
+    "Drizzle": {
+      "name": "Drizzle",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/index.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "services"
       ]
     },
     "Framework": {
@@ -1633,6 +1645,35 @@
       "extends": null,
       "implements": [],
       "decorators": []
+    },
+    "DrizzleConnectorConfig": {
+      "name": "DrizzleConnectorConfig",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Config d'une connexion Drizzle (driver `better-sqlite3`)."
+    },
+    "DrizzleModuleConfig": {
+      "name": "DrizzleModuleConfig",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Config du module `@nodefony/drizzle` : N connexions nommées."
+    },
+    "DrizzleService": {
+      "name": "DrizzleService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "Service bootable du module `@nodefony/drizzle`. Au boot du kernel (`onBoot`), instancie un {@link DrizzleOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le connecte ; chaque OR…"
     },
     "ParamMeta": {
       "name": "ParamMeta",
@@ -4703,6 +4744,7 @@
         "Orm",
         "Babylon",
         "Rollup",
+        "DrizzleService",
         "AdminBroker",
         "Router",
         "Controller",
@@ -4762,6 +4804,7 @@
         "TestFrontendAngular",
         "TestFrontendReact",
         "TestFrontendVue",
+        "Drizzle",
         "Framework",
         "Frontend",
         "Http",
@@ -5045,6 +5088,7 @@
     "decoratedBy": {
       "services": [
         "Test",
+        "Drizzle",
         "Framework",
         "Frontend",
         "Http",
@@ -5135,6 +5179,7 @@
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
@@ -5197,6 +5242,7 @@
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
@@ -5252,6 +5298,7 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/babel/babylon.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
@@ -5299,6 +5346,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
@@ -5319,6 +5367,7 @@
         "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/modules/test/nodefony/config/config.ts",
+        "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
         "src/packages/@nodefony/redis/nodefony/config/config.ts",
         "src/packages/@nodefony/sequelize/nodefony/config/config.ts"
       ],
@@ -5432,6 +5481,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/config/config.ts",
+        "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
         "src/packages/@nodefony/http/nodefony/config/config.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
@@ -5510,6 +5560,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
@@ -5527,6 +5578,7 @@
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/modules/test/nodefony/entity/BoatEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -5564,6 +5616,7 @@
       ],
       "services": [
         "src/modules/test/index.ts",
+        "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
@@ -5649,6 +5702,9 @@
       ],
       "VueController": [
         "src/modules/test-frontend-vue/index.ts"
+      ],
+      "DrizzleService": [
+        "src/packages/@nodefony/drizzle/index.ts"
       ],
       "IAdminBroker": [
         "src/packages/@nodefony/framework/index.ts",
@@ -6316,6 +6372,15 @@
       ],
       "ToolExecutionError": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
+      ],
+      "DrizzleOrm": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "DrizzleConnectorConfig": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "DrizzleModuleConfig": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "TypeController": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"

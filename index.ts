@@ -16,6 +16,8 @@ import indexController from "./nodefony/controllers/indexController";
 @modules([
   "@nodefony/sequelize",
   //"@nodefony/mongoose",
+  // ORM SQL par défaut recommandé (orm-core) — bootable, connecte au boot.
+  "@nodefony/drizzle",
   "@nodefony/http",
   "@nodefony/framework",
   "@nodefony/security",
