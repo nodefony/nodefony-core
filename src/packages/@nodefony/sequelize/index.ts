@@ -28,3 +28,10 @@ class Sequelize extends Module {
 
 export default Sequelize;
 export { sequelize, entities, Models, SessionStorage };
+
+// Adapter orm-core (P5.4) — distinct du service legacy.
+export {
+  SequelizeOrm,
+  SequelizeRepository,
+  SequelizeTransaction,
+} from "./nodefony/src/orm-core/index";

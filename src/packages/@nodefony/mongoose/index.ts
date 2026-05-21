@@ -19,3 +19,10 @@ class Mongoose extends Module {
 
 export default Mongoose;
 export { mongoose, SessionStorage, ISession, SessionModel };
+
+// Adapter orm-core (P5.4) — distinct du service legacy.
+export {
+  MongooseOrm,
+  MongooseRepository,
+  MongooseTransaction,
+} from "./nodefony/src/orm-core/index";

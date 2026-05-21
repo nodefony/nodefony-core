@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-21T00:12:01.786Z",
+  "generated": "2026-05-21T00:19:31.537Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 254,
-    "symbols": 597,
-    "classes": 187,
+    "files": 258,
+    "symbols": 602,
+    "classes": 190,
     "interfaces": 201,
-    "types": 129,
+    "types": 131,
     "enums": 1,
     "functions": 67,
     "constants": 12
@@ -4229,6 +4229,43 @@
       "exported": true,
       "module": "@nodefony/http"
     },
+    "MongooseOrm": {
+      "name": "MongooseOrm",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": "Orm",
+      "implements": [],
+      "decorators": [],
+      "description": "Adapter Mongoose **branché sur `@nodefony/orm-core`** (P5.4). 2ᵉ adapter, **hétérogène** au SQL : valide que le contrat enrichi (`relations`/`withTransaction`) est réellement portable sur un store …"
+    },
+    "MongooseRepository": {
+      "name": "MongooseRepository",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "implements": [
+        "IRepository"
+      ],
+      "decorators": [],
+      "description": "Repository portable (contrat {@link IRepository}) au-dessus d'un modèle Mongoose. Démontre la portabilité du contrat sur un **store documentaire hétérogène** : - `options.relations` → `populate()` …"
+    },
+    "MongooseTransaction": {
+      "name": "MongooseTransaction",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "implements": [
+        "ITransaction"
+      ],
+      "decorators": [],
+      "description": "Adapte une `ClientSession` MongoDB au contrat portable {@link ITransaction}. Obtenue dans le callback de `MongooseOrm.transaction()`, qui gère le commit/abort automatique via `session.withTransacti…"
+    },
     "EntityOptions": {
       "name": "EntityOptions",
       "kind": "interface",
@@ -4749,6 +4786,7 @@
       "Orm": [
         "Mongoose",
         "Sequelize",
+        "MongooseOrm",
         "SequelizeOrm"
       ],
       "RagError": [
@@ -4880,9 +4918,11 @@
         "Cookie"
       ],
       "IRepository": [
+        "MongooseRepository",
         "SequelizeRepository"
       ],
       "ITransaction": [
+        "MongooseTransaction",
         "SequelizeTransaction"
       ],
       "IHttpContextInterface": [
@@ -5989,6 +6029,7 @@
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
       "CommandArgs": [
@@ -6569,6 +6610,8 @@
       "IRepository": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
@@ -6576,6 +6619,9 @@
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts"
@@ -6583,6 +6629,7 @@
       "IEntity": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
@@ -6593,6 +6640,7 @@
       ],
       "entityRegistry": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
@@ -6652,7 +6700,8 @@
         "src/packages/@nodefony/rag/src/services/RagService.ts"
       ],
       "Connection": [
-        "src/packages/@nodefony/redis/nodefony/service/redis.ts"
+        "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
       "Factory": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -6827,6 +6876,20 @@
       "CookieOptionsType": [
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
+      "MongooseRepository": [
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "MongooseTransaction": [
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "Criteria": [
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
+      "RepositoryReadOptions": [
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
       "DecoratedClass": [
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/repositoryDecorator.ts"
@@ -6848,12 +6911,6 @@
       ],
       "SequelizeTransaction": [
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
-      ],
-      "Criteria": [
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
-      ],
-      "RepositoryReadOptions": [
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
       "Cookies": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"

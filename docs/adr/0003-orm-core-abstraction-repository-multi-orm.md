@@ -166,9 +166,32 @@ jour. **orm-core 22 tests / Sequelize 7 tests verts.**
 - **Nommage FK** : `IEntityRelation.foreignKey?` (override explicite) ; sinon
   l'adapter dérive un camelCase déterministe.
 
-**Reste avant P7.x** : valider le contrat enrichi sur un **2ᵉ adapter
-hétérogène** (Mongoose — eager-load = `populate`, tx = session/replica set) pour
-confirmer que `relations`/`withTransaction` sont réellement portables.
+### Portabilité confirmée — 2ᵉ adapter hétérogène Mongoose (2026-05-21)
+
+`MongooseOrm` (`@nodefony/mongoose/nodefony/src/orm-core/`) validé sur un
+**replica set MongoDB en mémoire** (`mongodb-memory-server`), **mêmes entités
+logiques** que le banc Sequelize. **6 tests verts.** Le contrat enrichi est
+**réellement portable SQL ↔ documentaire** :
+
+- `find/findOne(criteria, { relations })` : `populate` (Mongo) vs `include` (SQL),
+  **API identique** côté métier ;
+- `withTransaction(tx)` : `session` (Mongo, replica set) vs `transaction` (SQL),
+  rollback annule user + room dans les deux ;
+- `Criteria<T>` partiellement typé : identique.
+
+**Divergences absorbées par l'adapter (findings) :**
+
+- **PK `_id` (ObjectId) ≠ `id`** : l'adapter Mongoose traduit `{ id }`→`{ _id }`
+  et expose le virtuel `id` (hex string) → contrat `id: string` tenu malgré des
+  stratégies d'id différentes (UUID SQL vs ObjectId Mongo).
+- **Relations sans FK** : `one-to-many` = réf ObjectId sur l'enfant + virtual
+  populate sur le parent (vs auto-FK Sequelize) ; `many-to-many` → native des deux côtés.
+- **Savepoints** : no-op sous MongoDB (le contrat `ITransaction` le permet déjà).
+- **Transactions** : replica set obligatoire (limite MongoDB, pas du contrat).
+
+**Conclusion P5.4 :** l'abstraction est validée sur 2 ORM hétérogènes. Feu vert
+pour multiplier les drivers (P7.x). Le **risque #3** (opérateurs riches typés)
+reste le seul à trancher, au branchement **Drizzle (P7.4)**.
 
 ## Liens
 
