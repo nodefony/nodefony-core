@@ -57,6 +57,11 @@ Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, 
 
 ## 🚦 Checklist début de session (LIRE EN PREMIER)
 
+> **Juste après un `/clear` : dire simplement « reprends »** → skill `nodefony-session` mode RESUME
+> restitue la dernière session (décisions + prochaine étape) depuis `project_session_<date>_state.md`.
+> **Avant de fermer : dire « fin de session »** → mode END (retex + écrit cette mémoire de reprise).
+> Rien d'autre à mémoriser : le cycle reprise → travail → clôture tient dans un seul skill.
+
 Avant de commencer une nouvelle phase / tâche :
 
 1. **Lire `MIGRATION_STATUS.md`** — Roadmap priorisée P0→P14 + chemin critique. Vérifier dépendances de la tâche.

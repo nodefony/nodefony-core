@@ -1,17 +1,20 @@
 ---
 name: nodefony-session
 description: >
-  Cycle de vie d'une session Claude Code sur Nodefony — ouverture ET clôture en un seul skill.
-  Mode START (défaut) : prépare le contexte d'un module prêt à coder (phase active MIGRATION_STATUS,
-  CLAUDE.md + MEMORY.md du module, fraîcheur dist, symboles exportés, contexte git). Mode END :
-  retour d'expérience (RETEX) de la session — analyse le transcript JSONL, compte les tool_use,
-  fichiers les + lus, commandes répétées, propose skills/mémoires, sauvegarde dans docs/session-retros/.
-  Mode CONSOLIDATE : tous les 10-20 retex, produit un plan d'amélioration IA.
-  Déclencheurs START : "prépare le contexte", "session sur <module>", "je vais bosser sur <module>",
-  "bootstrap nodefony", "ready to code", "ouvrir session". Argument optionnel = nom du module.
-  Déclencheurs END : "retex", "retour d'expérience", "fais le retex", "fin de session",
-  "où sont passés les tokens", "audit session", "qu'est-ce qui a coûté cher", "propose des skills".
-  Déclencheurs CONSOLIDATE : "consolide les retex", "plan d'amélioration IA".
+  Cycle de vie d'une session Claude Code sur Nodefony — reprise, ouverture, clôture en un seul skill.
+  Mode RESUME : reprendre après un /clear — restitue la DERNIÈRE session (décisions + prochaine
+  étape) depuis la mémoire IA project_session_<date>_state.md + la phase active. À déclencher dès
+  qu'on ne sait plus où on en était. Mode START : prépare le contexte d'un MODULE prêt à coder
+  (phase MIGRATION_STATUS, CLAUDE.md + MEMORY.md du module, fraîcheur dist, symboles, git).
+  Mode END : retour d'expérience (RETEX) du transcript JSONL ET écrit la mémoire de reprise
+  project_session_<date>_state.md (décisions + prochaine étape) ; sauve aussi docs/session-retros/.
+  Mode CONSOLIDATE : tous les 10-20 retex, plan d'amélioration IA.
+  Déclencheurs RESUME : "reprends", "on en était où", "où on s'est arrêté", "dernière session",
+  "continue la session", "resume", "c'est quoi la suite". Déclencheurs START : "prépare le contexte",
+  "session sur <module>", "je vais bosser sur <module>", "bootstrap", "ready to code". Arg = module.
+  Déclencheurs END : "retex", "fin de session", "fais le retex", "où sont passés les tokens",
+  "clôture la session", "propose des skills". Déclencheurs CONSOLIDATE : "consolide les retex",
+  "plan d'amélioration IA".
 ---
 
 # nodefony-session
@@ -23,9 +26,51 @@ Bornes symétriques d'une session = un seul skill, routé par mode.
 
 | Argument / phrasé | Mode |
 | ----------------- | ---- |
+| `resume`, `reprendre`, "reprends", "on en était où", "dernière session", "c'est quoi la suite" | **RESUME** |
 | *(vide)*, `start`, nom de module (`http`, `framework`…), "prépare le contexte" | **START** |
 | `end`, `retex`, "fais le retex", "fin de session", "où sont passés les tokens" | **END** |
 | `consolidate`, "consolide les retex", "plan d'amélioration IA" | **CONSOLIDATE** |
+
+> **Après un `/clear`, dis simplement « reprends » → mode RESUME.** Rien à mémoriser.
+
+---
+
+# MODE RESUME — reprendre après un /clear
+
+Le problème résolu : après `/clear` tu ne sais plus quoi taper ni où on en était.
+Réponse : dis **« reprends »**. L'index `MEMORY.md` est déjà rechargé dans mon contexte ;
+ce mode en extrait **LA prochaine action** et te la présente.
+
+## 1. Dernière session enregistrée + kit éventuel
+
+```bash
+MEM="/Users/cci/.claude/projects/-Users-cci-repository-nodefony-core/memory"
+echo "--- dernier état de session (tri par date du nom, pas mtime) ---"
+ls "$MEM"/project_session_*_state.md 2>/dev/null | sort | tail -1
+echo "--- kits 'LIRE EN PREMIER' actifs ---"
+grep -rl "LIRE EN PREMIER" "$MEM"/*_kit.md 2>/dev/null
+```
+
+Lire le `_state.md` le plus récent (sections **Fait / Décisions / Reste**). S'il y a un kit
+« LIRE EN PREMIER », le lire aussi (priorité sur le _state générique).
+
+## 2. Phase active + git
+
+```bash
+grep -n "🎯\|## P[0-9]" MIGRATION_STATUS.md | head -10
+echo "Branche : $(git branch --show-current) — non commités : $(git status --short | wc -l | tr -d ' ')"
+```
+
+## 3. Restituer (≤ 25 lignes)
+
+1. **Dernière session** : date + focus
+2. **Décisions prises** (extraites du `_state.md`)
+3. **➡️ Prochaine étape** : la ligne « Priorité 1 » du Reste (en gras, c'est LE point)
+4. **Branche git** + non commités (alerte si dist périmé probable)
+5. **Question** : « On reprend ça, ou autre chose ? »
+
+> Aucun `_state.md` trouvé → fallback : dernier retex `docs/session-retros/` + phase active.
+> Puis suggérer un `start <module>` si la prochaine étape cible un module précis.
 
 ---
 
@@ -240,6 +285,46 @@ focus: <1 ligne — sujet principal>
 | Commit | Sujet |
 | ------ | ----- |
 ```
+
+## 10. Mémoire de reprise (OBLIGATOIRE — c'est ce que lit le mode RESUME)
+
+Le retex ci-dessus = **stats**. Les **décisions + la prochaine étape** vont dans une mémoire IA
+dédiée, écrite/MAJ à CHAQUE fin de session — sinon RESUME n'a rien à reprendre au prochain `/clear`.
+
+```bash
+MEM="/Users/cci/.claude/projects/-Users-cci-repository-nodefony-core/memory"
+DATE=$(date +%Y-%m-%d)
+echo "Mémoire de reprise : $MEM/project_session_${DATE}_state.md"
+ls "$MEM"/project_session_${DATE}_state.md 2>/dev/null && echo "(existe → MAJ)" || echo "(à créer)"
+```
+
+Écrire (via tool Write) le fichier `project_session_<date>_state.md` :
+
+```markdown
+---
+name: project-session-<date>-state
+description: État fin session <date> — <focus 1 ligne + prochaine étape>
+metadata:
+  node_type: memory
+  type: project
+  originSessionId: <full-session-id>
+---
+
+# Session <date> — <focus>
+
+## Fait
+- <livrables + commits (hash + sujet)>
+
+## Décisions
+- <choix archi/design pris cette session, avec le POURQUOI> ; liens [[autre-memoire]]
+
+## Reste — prochaine étape
+1. **Priorité 1** : <LA chose à faire ensuite> — liens [[kit]] / [[memoire]]
+2. <suite éventuelle>
+```
+
+Puis **ajouter/MAJ la ligne pointeur** dans `MEMORY.md` (l'index auto-chargé) :
+`- [Session <date> — état + reprise](project_session_<date>_state.md) — <hook + prochaine étape>`
 
 ---
 
