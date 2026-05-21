@@ -17,16 +17,27 @@ Revue **interactive et vérifiée dans le code** de la migration Nodefony. Le fi
 
 ## Workflow
 
-### Étape 0 — Cadrage (1 question)
+### Étape 0 — Cadrage
 
-Lire `MIGRATION_STATUS.md` (au moins les en-têtes `grep -nE "^### P[0-9]+|^## Phase"`). Puis demander le mode via `AskUserQuestion` :
+Lire `MIGRATION_STATUS.md` (au moins les en-têtes `grep -nE "^### P[0-9]+|^## Phase"`).
 
-- **Phase par phase (recommandé)** — revue interactive P0→P16, le user dit « suivante ».
-- **Synthèse rapide** — un seul tableau récap toutes phases (pas d'arrêt), puis corrections.
-- **Une phase précise** — le user donne le numéro (ex. P6), audit ciblé.
-- **Reprendre** — lire `project_migration_audit_progress`, repartir où on s'était arrêté.
+**Si un mode est déjà fourni** (slash command `/migration-audit <mode>` ou demande explicite du user) → **ne PAS poser de question**, exécuter directement ce mode. Sinon, demander via `AskUserQuestion`.
 
-### Étape 1 — Boucle phase par phase
+Modes :
+
+| Mode | Argument slash | Comportement |
+|------|----------------|--------------|
+| **Phase par phase** (défaut) | `phase` / vide | Revue interactive P0→P16 (Étape 1), STOP après chaque phase, le user dit « suivante ». |
+| **Tableau / synthèse** | `tableau` `synthèse` `résumé` | Uniquement la synthèse graphique (barres + encadré « prochaine étape »). Aucun arrêt, aucune correction (sauf demande). |
+| **Auto** | `auto` | Audit COMPLET non-interactif : exécuter la vérif code de **toutes** les phases et sortir leurs tableaux **d'affilée** (sans STOP « suivante »), puis le récap (Étape 2) + corrections proposées. Demander l'accord avant d'écrire. |
+| **Une phase** | `P<n>` (ex. `P6`) | Audit ciblé d'une seule phase. |
+| **Reprendre** | `reprendre` | Lire `project_migration_audit_progress`, repartir où on s'était arrêté. |
+
+### Étape 1 — Boucle phase par phase (modes `phase` et `auto`)
+
+> En mode **`auto`**, dérouler la boucle pour **toutes** les phases sans le « STOP »
+> entre chacune (enchaîner les tableaux), puis passer directement à l'Étape 2.
+> En mode **`phase`**, STOP après chaque phase et attendre « suivante ».
 
 Pour chaque phase, dans cet ordre :
 
