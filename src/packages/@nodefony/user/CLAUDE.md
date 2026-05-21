@@ -39,7 +39,7 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 - **`IUserProvider`** API étendue : `loadUserByIdentifier` + `loadUserByOAuth(provider,providerId)` + `refreshUser(user)`. Pattern **Shadow User** (ligne locale même en auth OAuth).
 - **`IUserRepository`** étend `IRepository<IPasswordAuthenticatedUser>` de `@nodefony/orm-core` (peerDep) — ORM-agnostique. **Affiné P5.6** : la persistance EST la frontière credential (le repo lit/écrit le hash) ; le split protège les consommateurs *en aval* (`IUserProvider` rend `IUser`), pas le stockage.
 - **`BcryptEncoder` (P5.6)** : `@node-rs/bcrypt` (NAPI Rust) en **peerDep optionnelle** + externalisé rollup (binaire natif jamais bundlé). `verify` délègue la promesse (0 async superflu). `needsRehash` parse le coût `$2[aby]$NN$`.
-- **`UserService` (P5.6)** étend `Service` (DI + bus events). `authenticate()` : leurre anti-timing (hash lazy), re-hash transparent sur coût obsolète, 6 events. CRUD haché ; `changePassword` seul chemin du credential (`updateUser` exclut `id`/`password`).
+- **`UserService` (P5.6)** étend **`AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>`** (orm-core) : CRUD générique hérité (`find/findOne/findById/count/create/update/delete` + events `onCreated/onUpdated/onDeleted`). N'ajoute que le credential : `createUser` (hache `plainPassword` → `create`), `findByIdentifier`, `changePassword` (→ `onPasswordChanged`), `authenticate` (leurre anti-timing + re-hash transparent ; → `onAuthenticated`/`onAuthenticationFailure`). C'est la 1ère validation réelle du pattern AbstractCrudService.
 
 ## Interdits
 
@@ -50,7 +50,7 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 
 - ✅ **P5.5a** scaffold workspace : package.json/tsconfig/rollup/index.ts/docs + arbo `nodefony/{contracts,src/encoders,service}/`.
 - ✅ **P5.5** contracts : `IUser` (strict) + `IPasswordAuthenticatedUser` + `ISocialProvider` + `IUserProvider` + `IUserRepository` + `IPasswordEncoder` + `BaseUser` + `AnonymousUser` (+ singleton `anonymousUser`). 11 tests verts. **`IRole`/`IPermission` DIFFÉRÉS → P6.8** (slot réservé/commenté dans le barrel ; format RBAC à figer sur cas voter concret).
-- ✅ **P5.6** `UserService` (CRUD haché + `authenticate()` + 6 events lifecycle) + `BcryptEncoder` (`@node-rs/bcrypt`, rounds: 12). 22 tests (33 total). Contrat `IUserRepository` affiné → `IPasswordAuthenticatedUser`.
+- ✅ **P5.6** `UserService extends AbstractCrudService` (CRUD hérité + `authenticate()` + events credential) + `BcryptEncoder` (`@node-rs/bcrypt`, rounds: 12). 32 tests. Contrat `IUserRepository` affiné → `IPasswordAuthenticatedUser`.
 - ⬜ **P5.7/5.8/5.9** adapters User entity Sequelize / Mongoose / Drizzle.
 - ⬜ **P5.10** tests cross-ORM (même `IUser`, 3 adapters CRUD).
 - ⬜ **P5.11** session refactor (`session.user: IUser` + `regenerateId()`).

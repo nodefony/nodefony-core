@@ -72,9 +72,14 @@ const auth = await users.authenticate("jane@x.io", "s3cret"); // IUser | null
 await users.changePassword(u.id, "nouveau"); // seul chemin du credential
 ```
 
+`UserService` étend `AbstractCrudService` (`@nodefony/orm-core`) : il hérite du CRUD générique
+(`find`/`findOne`/`findById`/`count`/`create`/`update`/`delete` + events `onCreated`/`onUpdated`/
+`onDeleted`) et n'ajoute que le spécifique credential (`createUser`, `changePassword`,
+`findByIdentifier`, `authenticate`).
+
 `authenticate()` nivelle le temps de réponse sur identifiant inconnu (anti-énumération), re-hache
-de façon transparente quand le coût stocké est obsolète, et émet des events de cycle de vie
-(`onUserCreated`, `onUserAuthenticated`, `onAuthenticationFailure`, …) consommables par
+de façon transparente quand le coût stocké est obsolète, et émet des events
+(`onAuthenticated`, `onAuthenticationFailure`, `onPasswordChanged`) consommables par
 `@nodefony/security` ou Studio.
 
 > `BcryptEncoder` s'appuie sur `@node-rs/bcrypt` (binding NAPI Rust, async non bloquant), déclaré en

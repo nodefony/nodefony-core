@@ -42,6 +42,5 @@ export { BcryptEncoder } from "./nodefony/src/encoders/BcryptEncoder";
 export { UserService } from "./nodefony/service/UserService";
 export type {
   ICreateUserInput,
-  UserUpdate,
   AuthFailureReason,
 } from "./nodefony/service/UserService";

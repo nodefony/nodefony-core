@@ -1,4 +1,4 @@
-import { Service } from "nodefony";
+import { AbstractCrudService } from "@nodefony/orm-core";
 import type { Container, Event, DefaultOptionsService } from "nodefony";
 import type { Criteria } from "@nodefony/orm-core";
 import type { IPasswordAuthenticatedUser } from "../contracts/IUser";
@@ -18,18 +18,6 @@ export interface ICreateUserInput {
   roles?: string[];
 }
 
-/**
- * Champs modifiables via {@link UserService.updateUser} — `id` et `password` exclus.
- *
- * Le credential ne se change que par {@link UserService.changePassword} (qui hache) ;
- * l'identité (`id`) est immuable. Empêche d'écrire par mégarde un mot de passe en
- * clair dans la colonne `password`.
- */
-export type UserUpdate = Omit<
-  Partial<IPasswordAuthenticatedUser>,
-  "id" | "password"
->;
-
 /** Raison d'un échec d'authentification (émise avec `onAuthenticationFailure`). */
 export type AuthFailureReason =
   | "unknown_identifier"
@@ -45,19 +33,25 @@ const DUMMY_PLAINTEXT = "nodefony.dummy.timing.guard";
 /**
  * Service applicatif **utilisateur** — CRUD haché + authentification + events de cycle de vie.
  *
- * Singleton DI (étend {@link Service} : container, Syslog, bus d'événements),
- * instancié une fois au boot — hors hot path requête. Il est le **seul** point qui
- * combine le {@link IUserRepository} (persistance, credential visible) et un
- * {@link IPasswordEncoder} : il hache à la création / au changement de mot de passe
- * et vérifie à l'authentification. Les consommateurs en aval (firewall, controllers)
- * reçoivent des `IUser` purs via `IUserProvider`, jamais le hash.
+ * Spécialisation d'{@link AbstractCrudService} sur l'entité utilisateur : hérite du
+ * CRUD générique (`find`/`findOne`/`findById`/`count`/`create`/`update`/`delete` +
+ * events `onCreated`/`onUpdated`/`onDeleted`) et n'ajoute que le **spécifique
+ * credential** : hachage à la création (`createUser`), changement de mot de passe
+ * (`changePassword`), recherche par identifiant fonctionnel et authentification.
  *
- * Events émis (via `fire`, consommables par `@nodefony/security` / Studio) :
- * `onUserCreated`, `onUserUpdated`, `onUserDeleted`, `onUserPasswordChanged`,
- * `onUserAuthenticated`, `onAuthenticationFailure`.
+ * Singleton DI stateless (cf {@link AbstractCrudService}) : aucun état par requête
+ * (le credential est lu depuis le repository, le hash leurre est un cache immuable).
+ *
+ * Events propres (en plus des events CRUD hérités) : `onPasswordChanged`,
+ * `onAuthenticated`, `onAuthenticationFailure` (avec {@link AuthFailureReason}).
+ *
+ * @typeParam — fixé : `T = IPasswordAuthenticatedUser` (le repository est la
+ *   frontière credential), `R = IUserRepository` (conserve les finders métier).
  */
-export class UserService extends Service {
-  protected readonly repository: IUserRepository;
+export class UserService extends AbstractCrudService<
+  IPasswordAuthenticatedUser,
+  IUserRepository
+> {
   protected readonly encoder: IPasswordEncoder;
 
   // Hash leurre calculé paresseusement au 1er échec d'authentification : zéro coût
@@ -78,16 +72,16 @@ export class UserService extends Service {
     notificationsCenter?: Event | false | null,
     options?: DefaultOptionsService,
   ) {
-    super("users", container, notificationsCenter, options);
-    this.repository = repository;
+    super("users", repository, container, notificationsCenter, options);
     this.encoder = encoder;
   }
 
   /**
-   * Crée un utilisateur — hache le mot de passe en clair s'il est fourni.
+   * Crée un utilisateur — hache le mot de passe en clair s'il est fourni, puis
+   * délègue au `create` générique (hooks + event `onCreated`).
    *
    * @param input - identité + mot de passe en clair optionnel + rôles.
-   * @returns l'utilisateur persisté (id généré, hash stocké). Émet `onUserCreated`.
+   * @returns l'utilisateur persisté (id généré, hash stocké).
    */
   async createUser(
     input: ICreateUserInput,
@@ -96,23 +90,11 @@ export class UserService extends Service {
       input.plainPassword != null
         ? await this.encoder.hash(input.plainPassword)
         : null;
-    const created = await this.repository.create({
+    return this.create({
       identifier: input.identifier,
       roles: input.roles ?? [],
       password,
     });
-    this.fire("onUserCreated", created);
-    return created;
-  }
-
-  /**
-   * Charge un utilisateur par son identifiant interne (UUID).
-   *
-   * @param id - identifiant interne.
-   * @returns l'utilisateur, ou `null`.
-   */
-  findById(id: string): Promise<IPasswordAuthenticatedUser | null> {
-    return this.repository.findOne({ id });
   }
 
   /**
@@ -128,30 +110,14 @@ export class UserService extends Service {
   }
 
   /**
-   * Met à jour des champs non sensibles d'un utilisateur (jamais `id` ni `password`).
-   *
-   * @param id - identifiant interne ciblé.
-   * @param changes - champs à modifier ({@link UserUpdate}).
-   * @returns l'utilisateur mis à jour, ou `null` s'il n'existe pas. Émet `onUserUpdated`.
-   */
-  async updateUser(
-    id: string,
-    changes: UserUpdate,
-  ): Promise<IPasswordAuthenticatedUser | null> {
-    const updated = await this.repository.update(
-      { id } as Criteria<IPasswordAuthenticatedUser>,
-      changes,
-    );
-    if (updated !== null) this.fire("onUserUpdated", updated);
-    return updated;
-  }
-
-  /**
    * Change le mot de passe d'un utilisateur — hache le clair avant persistance.
+   *
+   * Distinct du `update` générique : émet l'event credential `onPasswordChanged`,
+   * pas `onUpdated`.
    *
    * @param id - identifiant interne ciblé.
    * @param plainPassword - nouveau mot de passe en clair.
-   * @returns l'utilisateur mis à jour, ou `null`. Émet `onUserPasswordChanged`.
+   * @returns l'utilisateur mis à jour, ou `null`.
    */
   async changePassword(
     id: string,
@@ -162,23 +128,8 @@ export class UserService extends Service {
       { id } as Criteria<IPasswordAuthenticatedUser>,
       { password },
     );
-    if (updated !== null) this.fire("onUserPasswordChanged", updated);
+    if (updated !== null) this.fire("onPasswordChanged", updated);
     return updated;
-  }
-
-  /**
-   * Supprime un utilisateur par son identifiant interne.
-   *
-   * @param id - identifiant interne ciblé.
-   * @returns `true` si une ligne a été supprimée. Émet `onUserDeleted` (avec l'id).
-   */
-  async deleteUser(id: string): Promise<boolean> {
-    const removed = await this.repository.delete({
-      id,
-    } as Criteria<IPasswordAuthenticatedUser>);
-    const deleted = removed > 0;
-    if (deleted) this.fire("onUserDeleted", id);
-    return deleted;
   }
 
   /**
@@ -193,7 +144,7 @@ export class UserService extends Service {
    * @param identifier - identifiant fonctionnel saisi.
    * @param plain - mot de passe en clair saisi.
    * @returns l'utilisateur authentifié, ou `null` en cas d'échec. Émet
-   *   `onUserAuthenticated` (succès) ou `onAuthenticationFailure` (échec + raison).
+   *   `onAuthenticated` (succès) ou `onAuthenticationFailure` (échec + raison).
    */
   async authenticate(
     identifier: string,
@@ -227,10 +178,10 @@ export class UserService extends Service {
         { id: user.id } as Criteria<IPasswordAuthenticatedUser>,
         { password: fresh },
       );
-      this.fire("onUserPasswordChanged", rehashed ?? user);
+      this.fire("onPasswordChanged", rehashed ?? user);
     }
 
-    this.fire("onUserAuthenticated", user);
+    this.fire("onAuthenticated", user);
     return user;
   }
 

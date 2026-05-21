@@ -95,12 +95,12 @@ function makeService(rounds = FAST) {
   return { repo, service };
 }
 
-describe("UserService (P5.6)", () => {
+describe("UserService (P5.6 — extends AbstractCrudService)", () => {
   describe("createUser", () => {
-    it("hache le mot de passe et émet onUserCreated", async () => {
+    it("hache le mot de passe et émet onCreated (CRUD hérité)", async () => {
       const { service } = makeService();
       let fired: IPasswordAuthenticatedUser | null = null;
-      service.on("onUserCreated", (u) => {
+      service.on("onCreated", (u) => {
         fired = u as IPasswordAuthenticatedUser;
       });
 
@@ -125,76 +125,75 @@ describe("UserService (P5.6)", () => {
     });
   });
 
-  describe("find / update / delete", () => {
-    it("findById et findByIdentifier", async () => {
+  describe("lectures héritées + finder métier", () => {
+    it("findById (hérité) et findByIdentifier (spécifique)", async () => {
       const { service } = makeService();
       const created = await service.createUser({ identifier: "a@x.io" });
       assert.equal((await service.findById(created.id))?.id, created.id);
-      assert.equal(
-        (await service.findByIdentifier("a@x.io"))?.id,
-        created.id,
-      );
+      assert.equal((await service.findByIdentifier("a@x.io"))?.id, created.id);
       assert.equal(await service.findByIdentifier("nope@x.io"), null);
+      assert.equal(await service.count(), 1);
     });
+  });
 
-    it("updateUser modifie les rôles et émet onUserUpdated", async () => {
+  describe("update / delete (CRUD hérité)", () => {
+    it("update modifie les rôles et émet onUpdated", async () => {
       const { service } = makeService();
       const created = await service.createUser({ identifier: "a@x.io" });
       let fired = false;
-      service.on("onUserUpdated", () => {
+      service.on("onUpdated", () => {
         fired = true;
       });
-      const updated = await service.updateUser(created.id, {
-        roles: ["ROLE_ADMIN"],
-      });
+      const updated = await service.update(
+        { id: created.id },
+        { roles: ["ROLE_ADMIN"] },
+      );
       assert.equal(updated?.hasRole("ROLE_ADMIN"), true);
       assert.equal(fired, true);
     });
 
-    it("updateUser retourne null si l'utilisateur n'existe pas", async () => {
-      const { service } = makeService();
-      assert.equal(await service.updateUser("ghost", { roles: [] }), null);
+    it("delete supprime et émet onDeleted", async () => {
+      const { service, repo } = makeService();
+      const created = await service.createUser({ identifier: "a@x.io" });
+      let count = -1;
+      service.on("onDeleted", (_criteria, n) => {
+        count = n as number;
+      });
+      assert.equal(await service.delete({ id: created.id }), 1);
+      assert.equal(count, 1);
+      assert.equal(repo.store.size, 0);
+      assert.equal(await service.delete({ id: created.id }), 0); // déjà supprimé
     });
+  });
 
-    it("changePassword re-hache et émet onUserPasswordChanged", async () => {
+  describe("changePassword (credential spécifique)", () => {
+    it("re-hache et émet onPasswordChanged (pas onUpdated)", async () => {
       const { service } = makeService();
       const created = await service.createUser({
         identifier: "a@x.io",
         plainPassword: "old",
       });
       const oldHash = created.password;
-      let fired = false;
-      service.on("onUserPasswordChanged", () => {
-        fired = true;
-      });
+      let pwdFired = false;
+      let updFired = false;
+      service.on("onPasswordChanged", () => (pwdFired = true));
+      service.on("onUpdated", () => (updFired = true));
       const updated = await service.changePassword(created.id, "new");
       assert.notEqual(updated?.password, oldHash);
-      assert.equal(fired, true);
-    });
-
-    it("deleteUser supprime et émet onUserDeleted", async () => {
-      const { service, repo } = makeService();
-      const created = await service.createUser({ identifier: "a@x.io" });
-      let deletedId: string | null = null;
-      service.on("onUserDeleted", (id) => {
-        deletedId = id as string;
-      });
-      assert.equal(await service.deleteUser(created.id), true);
-      assert.equal(deletedId, created.id);
-      assert.equal(repo.store.size, 0);
-      assert.equal(await service.deleteUser(created.id), false); // déjà supprimé
+      assert.equal(pwdFired, true);
+      assert.equal(updFired, false);
     });
   });
 
   describe("authenticate", () => {
-    it("succès : émet onUserAuthenticated et retourne l'utilisateur", async () => {
+    it("succès : émet onAuthenticated et retourne l'utilisateur", async () => {
       const { service } = makeService();
       const created = await service.createUser({
         identifier: "a@x.io",
         plainPassword: "s3cret",
       });
       let ok = false;
-      service.on("onUserAuthenticated", () => {
+      service.on("onAuthenticated", () => {
         ok = true;
       });
       const user = await service.authenticate("a@x.io", "s3cret");
@@ -265,7 +264,6 @@ describe("UserService (P5.6)", () => {
     });
 
     it("re-hache le credential si le coût est obsolète (upgrade transparent)", async () => {
-      // Utilisateur créé avec un coût 4, puis service au coût 6.
       const repo = new MemoryUserRepo();
       const weak = new UserService(repo, new BcryptEncoder(4));
       const created = await weak.createUser({
@@ -276,7 +274,7 @@ describe("UserService (P5.6)", () => {
 
       const strong = new UserService(repo, new BcryptEncoder(6));
       let rehashed = false;
-      strong.on("onUserPasswordChanged", () => {
+      strong.on("onPasswordChanged", () => {
         rehashed = true;
       });
       const user = await strong.authenticate("a@x.io", "s3cret");

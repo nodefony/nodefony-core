@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-21T16:35:58.479Z",
+  "generated": "2026-05-21T16:45:23.696Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 279,
-    "symbols": 643,
+    "symbols": 642,
     "classes": 202,
     "interfaces": 216,
-    "types": 138,
+    "types": 137,
     "enums": 1,
     "functions": 69,
     "constants": 17
@@ -3990,10 +3990,10 @@
       "file": "src/packages/@nodefony/user/nodefony/service/UserService.ts",
       "exported": true,
       "module": "@nodefony/user",
-      "extends": "Service",
+      "extends": "AbstractCrudService",
       "implements": [],
       "decorators": [],
-      "description": "Service applicatif **utilisateur** — CRUD haché + authentification + events de cycle de vie. Singleton DI (étend {@link Service} : container, Syslog, bus d'événements), instancié une fois au boot —…"
+      "description": "Service applicatif **utilisateur** — CRUD haché + authentification + events de cycle de vie. Spécialisation d'{@link AbstractCrudService} sur l'entité utilisateur : hérite du CRUD générique (`find`…"
     },
     "ICreateUserInput": {
       "name": "ICreateUserInput",
@@ -4003,14 +4003,6 @@
       "module": "@nodefony/user",
       "extends": null,
       "description": "Données d'entrée de création d'un utilisateur — le mot de passe est fourni en **clair** puis haché par {@link UserService.createUser} (jamais persisté tel quel)."
-    },
-    "UserUpdate": {
-      "name": "UserUpdate",
-      "kind": "type",
-      "file": "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-      "exported": true,
-      "module": "@nodefony/user",
-      "description": "Champs modifiables via {@link UserService.updateUser} — `id` et `password` exclus. Le credential ne se change que par {@link UserService.changePassword} (qui hache) ; l'identité (`id`) est immuable…"
     },
     "AuthFailureReason": {
       "name": "AuthFailureReason",
@@ -4993,7 +4985,6 @@
         "Helmet",
         "Provider",
         "SecuredArea",
-        "UserService",
         "ServerHttp",
         "ServerHttps",
         "Statics",
@@ -5174,6 +5165,9 @@
       ],
       "IRepository": [
         "IUserRepository"
+      ],
+      "AbstractCrudService": [
+        "UserService"
       ],
       "IVectorStoreConfig": [
         "IPgVectorConfig"
@@ -5452,7 +5446,6 @@
         "src/packages/@nodefony/security/nodefony/types/provider.types.ts",
         "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -7244,6 +7237,9 @@
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
+      ],
+      "AbstractCrudService": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "IPasswordEncoder": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",

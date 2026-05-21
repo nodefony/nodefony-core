@@ -9,7 +9,7 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 
 - `nodefony/contracts/` ✅ : `IUser` (strict), `IPasswordAuthenticatedUser` (+`password`), `ISocialProvider`, `IPasswordEncoder`, `IUserProvider`, `IUserRepository extends IRepository<IPasswordAuthenticatedUser>` (+ barrel). `IRole`/`IPermission` = **commentés, différés P6.8**.
 - `nodefony/src/` ✅ : `BaseUser` (POJO impl `IPasswordAuthenticatedUser` + mutateurs chaînables), `AnonymousUser` + singleton `anonymousUser` + `ROLE_ANONYMOUS`, `encoders/BcryptEncoder` ✅ (P5.6).
-- `nodefony/service/` ✅ : `UserService extends Service` (CRUD haché + `authenticate()` + 6 events) — P5.6.
+- `nodefony/service/` ✅ : `UserService extends AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>` (CRUD hérité + `authenticate()` + events credential) — P5.6.
 
 ## Config
 
@@ -26,7 +26,7 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 - `IUserRepository extends IRepository<IPasswordAuthenticatedUser>` (orm-core) + `findByIdentifier`/`findBySocialProvider`. **Repository = frontière credential** (voit `password`), pas `IUser`.
 - `IPasswordEncoder`: `hash`/`verify`(async, temps constant)/`needsRehash`. Impl `BcryptEncoder` (rounds 12 par défaut, `[4,31]`, `needsRehash` parse `$2[aby]$NN$`).
 - `BcryptEncoder`: `@node-rs/bcrypt` (`hash`/`verify` NAPI). `verify` délègue la promesse (0 async superflu).
-- `UserService extends Service`(name `"users"`): `createUser`(hache)/`findById`/`findByIdentifier`/`updateUser`(`UserUpdate`=Omit id+password)/`changePassword`/`deleteUser`/`authenticate`. Events: `onUserCreated`/`onUserUpdated`/`onUserDeleted`/`onUserPasswordChanged`/`onUserAuthenticated`/`onAuthenticationFailure`(raison). `authenticate`: leurre `consumeDummy` (hash lazy, anti-timing) sur identifiant inconnu/sans password ; re-hash transparent si `needsRehash` ; ordre check = locked > disabled > no_password > bad_credentials.
+- `UserService extends AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>` (name `"users"`). **CRUD hérité** : `find/findOne/findById/count/create/update/delete` + events `onCreated/onUpdated/onDeleted`. **Spécifique** : `createUser(input)` (hache `plainPassword` → `this.create` → onCreated), `findByIdentifier`, `changePassword` (→ `onPasswordChanged`, pas onUpdated), `authenticate` (→ `onAuthenticated`/`onAuthenticationFailure`(raison)). `authenticate`: leurre `consumeDummy` (hash lazy `#dummyHash`, anti-timing) sur identifiant inconnu/sans password ; re-hash transparent si `needsRehash` (→ onPasswordChanged) ; ordre check = locked > disabled > no_password > bad_credentials. **Drop au rétro-fit** : `updateUser`/`deleteUser`/`UserUpdate` (le CRUD générique suffit). `encoder` = champ propre.
 
 ## Gotchas
 
@@ -38,4 +38,4 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 
 ## État
 
-✅ P5.5a (scaffold) + P5.5 (contracts + base users) + P5.6 (`BcryptEncoder` + `UserService`). **33 tests**. Suite = **P5.7** (adapter Sequelize : User entity + `IUserRepository` impl).
+✅ P5.5a (scaffold) + P5.5 (contracts + base users) + P5.6 (`BcryptEncoder` + `UserService extends AbstractCrudService`). **32 tests**. Suite = **P5.7** (adapter Sequelize : User entity + `IUserRepository` impl).
