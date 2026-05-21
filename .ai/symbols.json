@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-21T22:10:42.967Z",
+  "generated": "2026-05-21T22:25:25.668Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 293,
-    "symbols": 723,
+    "files": 295,
+    "symbols": 736,
     "classes": 207,
-    "interfaces": 246,
+    "interfaces": 251,
     "types": 144,
     "enums": 1,
-    "functions": 107,
+    "functions": 115,
     "constants": 18
   },
   "symbols": {
@@ -3623,6 +3623,51 @@
       "extends": null,
       "description": "Contrat d'une instance ORM gérée par le framework (une par connexion logique). Implémenté par chaque adapter (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefony/drizzle`...) et enregistré dans…"
     },
+    "IColumnInfo": {
+      "name": "IColumnInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Représentation **canonique et sérialisable** du modèle de données multi-ORM. C'est la pièce maîtresse « IA-first » du data plane ORM : un graphe normalisé (ORM-agnostique) qui sert à la fois : - la…"
+    },
+    "IRelationInfo": {
+      "name": "IRelationInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Relation projetée pour le graphe (sous-ensemble sérialisable de `IEntityRelation`)."
+    },
+    "IEntityGraphNode": {
+      "name": "IEntityGraphNode",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Nœud du graphe : une entité avec ses colonnes et ses relations."
+    },
+    "IOrmSummary": {
+      "name": "IOrmSummary",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Résumé d'un ORM/connecteur enregistré."
+    },
+    "IOrmGraph": {
+      "name": "IOrmGraph",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Graphe complet du modèle de données — réponse de `/nodefony/orm/api/graph`."
+    },
     "FieldOperators": {
       "name": "FieldOperators",
       "kind": "interface",
@@ -3762,6 +3807,38 @@
       ],
       "decorators": [],
       "description": "Classe de base abstraite de tout ORM Nodefony — câble {@link Service} (DI, Syslog, bus d'événements) et le contrat {@link IOrm}, et s'auto-enregistre dans le {@link ormRegistry} process-wide à la c…"
+    },
+    "buildOrmGraph": {
+      "name": "buildOrmGraph",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Construit le graphe canonique complet (optionnellement filtré par ORM)."
+    },
+    "toDbml": {
+      "name": "toDbml",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Sérialise un graphe en **DBML** (Database Markup Language) — format pivot lu par dbdiagram.io, les outils IA et convertible en SQL. Les `Ref:` sont dérivés des relations selon la convention FK des …"
+    },
+    "createOrmAdminApi": {
+      "name": "createOrmAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Construit le producteur `IAdminApi` du data plane ORM."
+    },
+    "registerOrmAdminApi": {
+      "name": "registerOrmAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Enregistre l'`OrmAdminApi` sur le broker admin, **idempotent** (no-op si déjà monté). Appelé par un module driver à son `onKernelBoot` (orm-core est une lib pure et ne peut pas s'auto-monter)."
     },
     "OrmRegistry": {
       "name": "OrmRegistry",
@@ -6388,6 +6465,15 @@
       "VueController": [
         "src/modules/test-frontend-vue/index.ts"
       ],
+      "IAdminRegistry": [
+        "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+      ],
+      "registerOrmAdminApi": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
       "DrizzleService": [
         "src/packages/@nodefony/drizzle/index.ts"
       ],
@@ -6527,10 +6613,6 @@
       ],
       "FrontendStatus": [
         "src/packages/@nodefony/frontend/index.ts"
-      ],
-      "IAdminRegistry": [
-        "src/packages/@nodefony/http/index.ts",
-        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts"
       ],
       "createHttpAdminApi": [
         "src/packages/@nodefony/http/index.ts"
@@ -7150,7 +7232,8 @@
       ],
       "ormRegistry": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -7205,7 +7288,8 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts"
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "contextRequest": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -7265,7 +7349,8 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts"
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IAdminRoute": [
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -7277,18 +7362,21 @@
       ],
       "IAdminRequest": [
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IAdminResponse": [
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts"
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "TestRunResult": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
@@ -7597,6 +7685,11 @@
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts"
       ],
+      "IColumnInfo": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
       "Criteria": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
@@ -7639,6 +7732,7 @@
       ],
       "entityRegistry": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
@@ -7648,6 +7742,15 @@
       "IOrm": [
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmRegistry.ts"
+      ],
+      "IEntityGraphNode": [
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+      ],
+      "IOrmGraph": [
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+      ],
+      "IOrmSummary": [
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IChunker": [
         "src/packages/@nodefony/rag/src/chunking/FixedChunker.ts",

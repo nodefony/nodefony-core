@@ -1,6 +1,11 @@
 import { Service } from "nodefony";
 import type { Container, Event, DefaultOptionsService } from "nodefony";
-import type { IOrm, IRepository, ITransaction } from "../interfaces/index";
+import type {
+  IColumnInfo,
+  IOrm,
+  IRepository,
+  ITransaction,
+} from "../interfaces/index";
 import { ormRegistry } from "./OrmRegistry";
 
 /**
@@ -75,4 +80,16 @@ export abstract class Orm extends Service implements IOrm {
 
   /** Expose la connexion native du driver (trappe SQL/commandes brutes). */
   abstract getNativeConnection<C = unknown>(): C;
+
+  /**
+   * Décrit les colonnes d'une entité pour le graphe canonique. Défaut : `[]`
+   * (relations seules dans l'ERD). Les adapters surchargent avec l'introspection
+   * native (Drizzle `getTableConfig`, Sequelize `getAttributes`, Mongoose paths).
+   *
+   * @param _name - nom logique de l'entité.
+   * @returns colonnes normalisées.
+   */
+  describeEntity(_name: string): IColumnInfo[] {
+    return [];
+  }
 }

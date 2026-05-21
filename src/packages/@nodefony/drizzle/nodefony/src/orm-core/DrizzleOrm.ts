@@ -4,6 +4,7 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { Orm, entityRegistry } from "@nodefony/orm-core";
 import type {
+  IColumnInfo,
   IEntity,
   IEntityRelation,
   IRepository,
@@ -241,5 +242,27 @@ export class DrizzleOrm extends Orm {
       throw new Error(`DrizzleOrm "${this.name}": not connected.`);
     }
     return this.#db as C;
+  }
+
+  /**
+   * Colonnes normalisées d'une entité, dérivées du DDL Drizzle
+   * (`getTableConfig`) — alimente le graphe canonique / ERD / contexte IA.
+   *
+   * @param name - nom logique de l'entité.
+   * @returns colonnes (`[]` si l'entité n'est pas connue de cet ORM).
+   */
+  override describeEntity(name: string): IColumnInfo[] {
+    const table = this.#tables?.[name];
+    if (!table) {
+      return [];
+    }
+    const { columns } = getTableConfig(table);
+    return columns.map((col) => ({
+      name: col.name,
+      type: col.getSQLType(),
+      primaryKey: col.primary,
+      nullable: !col.notNull,
+      unique: col.isUnique ?? false,
+    }));
   }
 }

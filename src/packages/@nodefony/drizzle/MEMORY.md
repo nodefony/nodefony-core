@@ -19,7 +19,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 ## Core Components
 
-- `DrizzleOrm extends Orm` : onConnect → `new BetterSqlite3(filename)` + `drizzle(client)`. Schema-as-code (entity.schema = table). DDL via `getTableConfig()`. tx manuelle.
+- `DrizzleOrm extends Orm` : onConnect → `new BetterSqlite3(filename)` + `drizzle(client)`. Schema-as-code (entity.schema = table). DDL via `getTableConfig()`. tx manuelle. **`describeEntity(name)` (2026-05-22)** : colonnes normalisées via `getTableConfig().columns` (`name/getSQLType()/primary/!notNull/isUnique`) → alimente le data plane ORM/ERD/IA (orm-core). Le **module Drizzle** (`index.ts onKernelBoot`) appelle `registerOrmAdminApi(broker)` (idempotent) → monte `/nodefony/orm/api/*` (orm-core étant lib pure).
 - `DrizzleRepository<T>` : CRUD + `#where` (criteria → eq/and/gt/inArray/like) + eager-load manuel (`#populate`, 1 req IN par relation) + `withTransaction`.
 - `DrizzleTransaction` : BEGIN/COMMIT/ROLLBACK sur client (managée). `getNative()` = même db (1 connexion). savepoint = SQL brut.
 - `DrizzleOrmOptions { filename }` (`:memory:` par défaut).

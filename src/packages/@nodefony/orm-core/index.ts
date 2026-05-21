@@ -34,6 +34,21 @@ export { Entity } from "./nodefony/src/Entity";
 export { AbstractCrudService } from "./nodefony/src/AbstractCrudService";
 export type { ServiceWiring } from "./nodefony/src/serviceWiring";
 
+// ─── Data plane ORM (graphe canonique IA-first + admin API + export DBML) ────
+export {
+  buildOrmGraph,
+  toDbml,
+  createOrmAdminApi,
+  registerOrmAdminApi,
+} from "./nodefony/src/OrmAdminApi";
+export type {
+  IColumnInfo,
+  IRelationInfo,
+  IEntityGraphNode,
+  IOrmSummary,
+  IOrmGraph,
+} from "./nodefony/interfaces/IOrmGraph";
+
 // ─── Décorateurs (P5.3) — @entity / @repository (WeakMap, sans reflect) ──────
 export { entity, repository } from "./nodefony/src/decorators/index";
 export {

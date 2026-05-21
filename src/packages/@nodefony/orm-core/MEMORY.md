@@ -25,6 +25,16 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 - Multi-managers : `db_principale`/`db_logs`. DI `@Inject('repository.user.drizzle')`.
 - Tous ORM emit `onOrmReady` AVANT Kernel onReady (P5.2).
 
+## Data plane ORM — graphe canonique IA-first (`OrmAdminApi.ts`, 2026-05-22)
+
+- **But** : 1 représentation canonique sérialisable du modèle (ORMs+entités+colonnes+relations) qui sert ERD Studio (**React Flow** choisi) + **contexte IA** (text-to-SQL/RAG) + interop. Le diagramme = projection ; la DONNÉE = la pièce maîtresse.
+- **Types** (`interfaces/IOrmGraph.ts`) : `IColumnInfo` (name/type/primaryKey/nullable/unique), `IRelationInfo`, `IEntityGraphNode` (name/orm/columns/relations), `IOrmSummary` (name/default/connected/entityCount), `IOrmGraph`.
+- **`IOrm.describeEntity?(name): IColumnInfo[]`** — OPTIONNEL ; base `Orm` retourne `[]` (relations seules), adapters surchargent. **Drizzle FAIT** (`getTableConfig`). Sequelize/Mongoose = TODO (`getAttributes`/`schema.paths`).
+- **`buildOrmGraph(ormFilter?)`** lit `ormRegistry`+`entityRegistry`. **`toDbml(graph)`** = export DBML (Refs dérivés des relations, convention FK `<source>Id`/`<target>Id`). SQL DDL / JSON Schema = TODO.
+- **`createOrmAdminApi()`** : endpoints `orms`/`entities`/`entity/{name}`/`graph`/`export/{format}` (`?orm=` filtre). Succès=donnée brute ; 400(format)/404(entité) via `IAdminResponse`.
+- **`registerOrmAdminApi(broker)`** idempotent (`has("orm")`). orm-core=lib pure → monté par module driver (**Drizzle `onKernelBoot`**), lit registres globaux → couvre tous les ORM. Runtime OK : `/nodefony/orm/api/*`.
+- Tests : `tests/unit/OrmAdminApi.test.ts` (6, **vitest** ; singleton+cleanup afterEach ; relations+DBML Refs).
+
 ## Gotchas
 
 - **Entity NE s'auto-register PAS au ctor** : en TS, ctor base s'exécute AVANT les initialiseurs de champs de la sous-classe → `this.name`/`this.orm` seraient `undefined`. Auto-register = job du décorateur `@entity` (P5.3, métadonnées de classe). Sans décorateur : `entity.register()` explicite. `Orm` lui s'auto-register au ctor car `name` arrive de `Service` (super early).

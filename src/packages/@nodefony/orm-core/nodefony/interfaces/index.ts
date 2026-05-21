@@ -9,3 +9,10 @@ export type {
   RepositoryReadOptions,
 } from "./IRepository";
 export type { ITransaction } from "./ITransaction";
+export type {
+  IColumnInfo,
+  IRelationInfo,
+  IEntityGraphNode,
+  IOrmSummary,
+  IOrmGraph,
+} from "./IOrmGraph";

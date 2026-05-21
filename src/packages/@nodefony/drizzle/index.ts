@@ -9,6 +9,8 @@
  * Mongoose) ; type-safe-first (a figé la forme des opérateurs riches, ADR-0003 #3).
  */
 import { Kernel, Module, services } from "nodefony";
+import type { IAdminRegistry } from "nodefony";
+import { registerOrmAdminApi } from "@nodefony/orm-core";
 import config from "./nodefony/config/config";
 import DrizzleService from "./nodefony/service/DrizzleService";
 
@@ -16,6 +18,22 @@ import DrizzleService from "./nodefony/service/DrizzleService";
 class Drizzle extends Module {
   constructor(kernel: Kernel) {
     super("drizzle", kernel, import.meta.url, config);
+  }
+
+  /**
+   * Monte le data plane ORM (`/nodefony/orm/api/*`) sur le broker admin.
+   * Idempotent + lit les registres GLOBAUX → couvre tous les ORM présents, pas
+   * seulement Drizzle. orm-core étant une lib pure, c'est un module driver qui
+   * déclenche l'enregistrement (avant le `mountAll` de framework à `onKernelReady`).
+   */
+  override async onKernelBoot(): Promise<this> {
+    const broker = this.kernel?.container?.get("adminBroker") as
+      | IAdminRegistry
+      | undefined;
+    if (broker) {
+      registerOrmAdminApi(broker);
+    }
+    return this;
   }
 }
 

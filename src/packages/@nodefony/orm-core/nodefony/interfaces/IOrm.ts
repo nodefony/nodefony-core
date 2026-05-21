@@ -1,5 +1,6 @@
 import type { IRepository } from "./IRepository";
 import type { ITransaction } from "./ITransaction";
+import type { IColumnInfo } from "./IOrmGraph";
 
 /**
  * Contrat d'une instance ORM gérée par le framework (une par connexion logique).
@@ -48,4 +49,14 @@ export interface IOrm {
    * @typeParam C - type natif attendu.
    */
   getNativeConnection<C = unknown>(): C;
+
+  /**
+   * Décrit les colonnes normalisées d'une entité pour le graphe canonique
+   * (data plane ORM / ERD / contexte IA). **Optionnel** : un adapter qui ne
+   * l'implémente pas laisse le graphe sans colonnes (relations seules).
+   *
+   * @param name - nom logique de l'entité.
+   * @returns colonnes normalisées, ou `[]` si inconnu/non implémenté.
+   */
+  describeEntity?(name: string): IColumnInfo[];
 }
