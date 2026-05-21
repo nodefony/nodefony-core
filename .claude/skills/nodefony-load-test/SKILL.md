@@ -1,5 +1,5 @@
 ---
-name: load-test
+name: nodefony-load-test
 description: >
   Tests de charge / stress HTTP et WebSocket du framework Nodefony. Deux niveaux :
   (1) les SUITES MOCHA versionnées (non-régression de charge, CI-stable + sondes
@@ -13,7 +13,7 @@ description: >
 # load-test
 
 Deux niveaux complémentaires. **Toujours s'assurer que le serveur dev tourne d'abord**
-(`bash .claude/skills/start-nodefony-server/start.sh`). Le serveur écoute 5151 (http/ws)
+(`bash .claude/skills/nodefony-start-server/start.sh`). Le serveur écoute 5151 (http/ws)
 + 5152 (https/wss). Les scripts ciblent **5152 (TLS, `rejectUnauthorized:false`)** par défaut.
 
 ## Niveau 1 — Suites mocha versionnées (non-régression)
@@ -103,6 +103,6 @@ ENV : `URL` `N`(1000) `C`(50) `METHOD`(GET) `BODY`.
 
 ## Liens
 
-- `start-nodefony-server` — démarrer le serveur (prérequis)
-- `tail-error-logs` — corréler une rupture avec les logs serveur
+- `nodefony-start-server` — démarrer le serveur (prérequis)
+- `nodefony-tail-error-logs` — corréler une rupture avec les logs serveur
 - Mémoires IA : `project_ws_stress_studio_lag`, `feedback_load_tests_separation`, `feedback_perf_memory_rule`

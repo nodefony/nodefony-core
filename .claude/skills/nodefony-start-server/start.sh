@@ -2,7 +2,7 @@
 # start.sh — démarre le serveur Nodefony (development) de manière fiable.
 # Consolide TOUT le workflow en 1 script → 1 seule approbation Bash au lieu de ~8.
 #
-# Usage : bash .claude/skills/start-nodefony-server/start.sh [-d] [--force-build]
+# Usage : bash .claude/skills/nodefony-start-server/start.sh [-d] [--force-build]
 #   -d            mode debug (npx nodefony -d development) — logs DEBUG verbeux
 #   --force-build force le rebuild du module test même si dist à jour
 #
@@ -23,7 +23,7 @@ done
 # Racine repo dérivée du chemin du script (BASH_SOURCE), PAS de $(pwd) : le cwd
 # Bash persiste entre appels → après un `cd <subdir>`, un `$(pwd)` cassait le
 # chemin (piège vu 3× malgré la mémoire `feedback_cd_startsh_relative_path`).
-# .claude/skills/start-nodefony-server/start.sh → racine = 3 niveaux au-dessus.
+# .claude/skills/nodefony-start-server/start.sh → racine = 3 niveaux au-dessus.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 LOG="/tmp/nodefony-server.log"

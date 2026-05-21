@@ -1,5 +1,5 @@
 ---
-name: migration-audit
+name: nodefony-migration-audit
 description: Audit interactif phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, et corrige les écarts. Inclut un mode "synthèse graphique" (barres de progression par phase) pour la compréhension globale à la demande. Le user valide chaque phase ("suivante") puis décide des corrections. Mots-clés déclencheurs : "audit migration", "état des lieux migration", "où en est la migration", "résumé migration", "avancement migration", "vérifier MIGRATION_STATUS", "revue phase par phase", "le fichier migration a des erreurs", "mets à jour le migration", "état de la migration".
 ---
 
@@ -152,9 +152,9 @@ Règle de choix : tant que **P5/P6 = 0%**, la prochaine étape est **P5** (ORM c
 | Décorateur / API | `grep -rln "<@Decorator>\|<symbolName>" src --include=*.ts \| grep -v dist` ou `.ai/symbols.json` |
 | Endpoint/route défini | `grep -rhoE '@(Get\|Post\|controller)\("[^"]+"\)' <controller>.ts` |
 | Test existe | `find src/.../<m> -iname '*<feature>*test*' \| grep -v dist` |
-| Symbole exporté | `jq '.symbols.<Name>' .ai/symbols.json` (cf skill `generate-symbols`) |
+| Symbole exporté | `jq '.symbols.<Name>' .ai/symbols.json` (cf skill `nodefony-generate-symbols`) |
 | Vulnérabilités | `npm audit 2>/dev/null \| grep vulnerabilities \| tail -1` |
-| Runtime (endpoint répond) | serveur up (`start-nodefony-server`) puis `curl -sk https://127.0.0.1:5152/<route>` |
+| Runtime (endpoint répond) | serveur up (`nodefony-start-server`) puis `curl -sk https://127.0.0.1:5152/<route>` |
 
 > ⚠️ Une tâche peut être **livrée via une autre** (ex. P2.1 timing = livré par P1.1 ; tests P4.4 WS écrits pendant P0/P1). Toujours chercher le livrable, pas le numéro.
 

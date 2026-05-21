@@ -2,7 +2,7 @@
 # Wrapper unique du skill load-test. Route vers les suites mocha VERSIONNÉES
 # (non-régression de charge) ou vers les scripts client standalone (exploration).
 #
-# Prérequis : serveur Nodefony dev UP (bash .claude/skills/start-nodefony-server/start.sh).
+# Prérequis : serveur Nodefony dev UP (bash .claude/skills/nodefony-start-server/start.sh).
 #
 # Usage (depuis n'importe où — la racine repo est dérivée) :
 #   run.sh mocha            # suites load WS versionnées (CI-stable)

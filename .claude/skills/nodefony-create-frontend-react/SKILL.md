@@ -253,7 +253,7 @@ cd /Users/cci/repository/nodefony-core/src/modules/{MOD} && npm run build
 cd /Users/cci/repository/nodefony-core && npx tsc --noEmit | head -20
 ```
 
-Lancer le serveur (skill `start-nodefony-server`) puis naviguer :
+Lancer le serveur (skill `nodefony-start-server`) puis naviguer :
 - `http://127.0.0.1:5151{ROUTE}/` (HTTP)
 - `https://127.0.0.1:5152{ROUTE}/` (HTTPS — recommandé si `HTTPS_VITE=true`)
 
@@ -303,6 +303,6 @@ Le skill utilise `{MOD}`, `{MOD_PASCAL}`, `{ROUTE}`, `{HTTPS_VITE}` littéraleme
 ## Skills liés
 
 - `nodefony-create-module` — délégué de la phase 1 (squelette de module)
-- `start-nodefony-server` — pour lancer le serveur après scaffold
+- `nodefony-start-server` — pour lancer le serveur après scaffold
 - `src/packages/@nodefony/frontend/README.md` — doc complète @nodefony/frontend
 - `src/modules/test-frontend-react/` — référence canonique

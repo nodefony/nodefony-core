@@ -1,5 +1,5 @@
 ---
-name: tail-error-logs
+name: nodefony-tail-error-logs
 description: Extrait uniquement les erreurs (ERROR / CRITIC / TypeError / SyntaxError / stack traces) des derniers logs du serveur Nodefony en supprimant les codes couleur ANSI et les requêtes 200 OK. Utiliser dès qu'un test d'intégration échoue ou que le serveur a crashé au boot. Mots-clés : "logs du serveur", "erreurs serveur", "voir les crashs", "pourquoi le test échoue", "tail logs", "stack trace nodefony".
 ---
 
@@ -69,8 +69,8 @@ grep "abc12345" /tmp/nodefony-server.log | sed 's/\x1b\[[0-9;]*m//g'
 | ------------------------------------------------ | --------------------------------------------- | --------------------------------------------------------- |
 | `SyntaxError: does not provide an export named X` | dist d'un module périmé                       | `cd src/packages/@nodefony/<m> && npm run build` + restart |
 | `CRITIC KERNEL ... terminate : 0` au boot         | crash early : voir lignes précédentes         | Lire le stack trace                                       |
-| `404` répétés sur des routes valides              | dist du module test périmé                    | Rebuild + restart (skill `start-nodefony-server`)         |
-| `ECONNREFUSED`                                    | serveur mort                                  | Relancer via skill `start-nodefony-server`                |
+| `404` répétés sur des routes valides              | dist du module test périmé                    | Rebuild + restart (skill `nodefony-start-server`)         |
+| `ECONNREFUSED`                                    | serveur mort                                  | Relancer via skill `nodefony-start-server`                |
 | `EADDRINUSE 5151/5152`                            | autre process sur les ports                   | `lsof -ti:5151 -ti:5152 \| xargs kill -9`                 |
 
 ## Quand NE PAS utiliser

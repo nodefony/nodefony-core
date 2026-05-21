@@ -18,7 +18,7 @@ Route selon l'argument (insensible à la casse et aux accents). En cas de doute,
 | `reprendre` | Repart où on s'était arrêté (mémoire `project_migration_audit_progress`). |
 | `help` / `aide` | Affiche cette aide. |
 
-## Sinon → lance le skill `migration-audit` (`.claude/skills/migration-audit/SKILL.md`) dans le mode :
+## Sinon → lance le skill `nodefony-migration-audit` (`.claude/skills/nodefony-migration-audit/SKILL.md`) dans le mode :
 
 - `tableau` / `synthèse` / `résumé` / `table` → **mode synthèse graphique** (variante A barres + encadré prochaine étape), et STOP (pas de phase-par-phase, pas de correction sauf demande).
 - `auto` → **mode auto** : audite toutes les phases dans le code et présente tout d'un coup (toutes les phases enchaînées + récap + corrections proposées), sans pause « suivante ». Demander l'accord avant d'écrire les corrections.

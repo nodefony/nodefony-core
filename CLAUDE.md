@@ -67,7 +67,7 @@ Avant de commencer une nouvelle phase / tâche :
    Le journal peut être périmé même de quelques jours.
 3. **Vérifier les pièges connus** (mémoire IA `feedback_session_pitfalls.md`) :
    - Dist périmé après pull/merge → `npm run clean && npm run build`
-   - `npx nodefony development &` meurt SIGHUP → utiliser le skill `start-nodefony-server`
+   - `npx nodefony development &` meurt SIGHUP → utiliser le skill `nodefony-start-server`
    - Bun requis pour `@nodefony/llm/test`
 4. **Lire le `CLAUDE.md` + `MEMORY.md`** du module ciblé (table d'index plus bas).
 5. **Si fiche kit existante** (ex: `project_p1_1_kit.md` pour P1.1) → la lire AVANT toute exploration.
@@ -441,7 +441,7 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 
 ## 🗂 Graphe symbolique TS — `.ai/symbols.json` (v2.0 — map indexée + relations)
 
-> Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `generate-symbols`). Régénéré automatiquement par le hook pre-commit.
+> Généré par `npm run generate-symbols` (script `scripts/generate-symbols.ts` + skill `nodefony-generate-symbols`). Régénéré automatiquement par le hook pre-commit.
 
 Format v2.0 : `symbols` est une **map indexée par nom** (accès O(1)), `relations` contient les index inversés pré-calculés. Les agents IA doivent l'utiliser AVANT de grep le repo.
 
@@ -457,7 +457,7 @@ Format v2.0 : `symbols` est une **map indexée par nom** (accès O(1)), `relatio
 
 **Homonymes** : un second symbole d'un même nom est stocké sous `"Module:Name"`. Lever l'ambiguïté via `.module`.
 
-Voir `.claude/skills/generate-symbols/SKILL.md` pour le cheat-sheet complet.
+Voir `.claude/skills/nodefony-generate-symbols/SKILL.md` pour le cheat-sheet complet.
 
 ---
 
@@ -525,10 +525,11 @@ grep -r "TODO\|FIXME\|console\.log" src/nodefony/src/
 
 ## Lancer le framework (tests runtime)
 
-Utiliser le skill **`start-nodefony-server`** (versionné dans `.claude/skills/start-nodefony-server/`) :
+Utiliser le skill **`nodefony-start-server`** (versionné dans `.claude/skills/nodefony-start-server/`) :
 
-- CLI : `/start-nodefony-server`
-- Langage naturel : "lance le serveur", "démarre nodefony", "relance le serveur"
+- Command (entrée tapée + args) : `/start-server [start|stop|restart|debug|build|help]` → délègue au skill
+- CLI direct du skill : `/nodefony-start-server`
+- Langage naturel (auto-trigger) : "lance le serveur", "démarre nodefony", "relance le serveur"
 
 Le skill gère : kill ports 5151/5152, rebuild `src/modules/test`, spawn `detached` (évite SIGHUP), attente boot avec progression, health check, diagnostic crash. Détails complets (signaux d'alarme, parsing logs, symptômes 404, watch Rollup runtime piège) dans le `SKILL.md`.
 

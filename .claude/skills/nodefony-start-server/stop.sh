@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # stop.sh — arrête le serveur Nodefony proprement (one-shot, pas de respawn).
 #
-# Usage : bash .claude/skills/start-nodefony-server/stop.sh
+# Usage : bash .claude/skills/nodefony-start-server/stop.sh
 #
 # Tue watch+rollup AVANT lsof+kill (sinon le watch respawn un process sur les ports).
 # Cf mémoire IA feedback_server_kill_oneshot.

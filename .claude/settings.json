@@ -40,7 +40,7 @@
       "Bash(curl -s https://127.0.0.1*)",
       "Bash(curl -s http://127.0.0.1*)",
       "Read(//tmp/**)",
-      "Skill(start-nodefony-server)",
+      "Skill(nodefony-start-server)",
       "Skill(nodefony-bootstrap)"
     ]
   }

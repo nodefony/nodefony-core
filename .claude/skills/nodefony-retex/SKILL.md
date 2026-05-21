@@ -1,5 +1,5 @@
 ---
-name: retex
+name: nodefony-retex
 description: >
   Retour d'expérience (RETEX) de la session Claude Code en cours — analyse le transcript JSONL,
   compte les tool_use, identifie les fichiers les + lus, les commandes Bash récurrentes, et propose
@@ -105,7 +105,7 @@ jq -r 'select(.type == "assistant") | .message.content[]?
 - **Même commande Bash répétée 3+ fois** → skill avec wrapper.
 - **Même fichier lu 5+ fois** → cacher dans MEMORY.md OU skill view-X.
 - **Séquence répétée** (build → test → grep error → fix) → skill orchestrateur.
-- **Beaucoup de `find`/`grep`** → utiliser `.ai/symbols.json` (skill `generate-symbols`).
+- **Beaucoup de `find`/`grep`** → utiliser `.ai/symbols.json` (skill `nodefony-generate-symbols`).
 - **Friction récurrente** (permissions, validations, pièges) → MAJ CLAUDE.md / settings.
 - **Décision archi prise** → vérifier qu'elle est en mémoire IA (sinon perte au prochain /clear).
 

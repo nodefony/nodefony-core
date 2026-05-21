@@ -1,5 +1,5 @@
 ---
-name: start-nodefony-server
+name: nodefony-start-server
 description: >
   Lance le serveur Nodefony en mode développement pour les tests d'intégration.
   TOUT est consolidé dans un script unique (start.sh) → 1 seule commande, 1 seule approbation.
@@ -10,7 +10,7 @@ description: >
   Également utile si les tests d'intégration échouent avec des 404 (dist périmé → rebuild + restart).
 ---
 
-# start-nodefony-server
+# nodefony-start-server
 
 Démarre le serveur Nodefony (development) de manière fiable. **Workflow consolidé en 2 scripts**
 pour éliminer la friction (avant : ~8 commandes Bash, chacune pouvant demander une approbation ;
@@ -19,18 +19,18 @@ maintenant : 1 seule).
 ## ⚡ Usage — 1 commande
 
 ```bash
-bash .claude/skills/start-nodefony-server/start.sh
+bash .claude/skills/nodefony-start-server/start.sh
 ```
 
 Variantes :
 ```bash
-bash .claude/skills/start-nodefony-server/start.sh -d            # mode debug (logs DEBUG verbeux)
-bash .claude/skills/start-nodefony-server/start.sh --force-build # force rebuild module test
+bash .claude/skills/nodefony-start-server/start.sh -d            # mode debug (logs DEBUG verbeux)
+bash .claude/skills/nodefony-start-server/start.sh --force-build # force rebuild module test
 ```
 
 Arrêter :
 ```bash
-bash .claude/skills/start-nodefony-server/stop.sh
+bash .claude/skills/nodefony-start-server/stop.sh
 ```
 
 Le script gère **tout** : kill watch+rollup+ports → build conditionnel module test → spawn detached
@@ -63,10 +63,10 @@ affiche l'ancien comportement" → 99% c'est le watch, pas un bug.
 
 À CHAQUE itération de fix où on vérifie le comportement runtime :
 
-1. **Tuer le serveur AVANT de modifier** : `bash .claude/skills/start-nodefony-server/stop.sh`
+1. **Tuer le serveur AVANT de modifier** : `bash .claude/skills/nodefony-start-server/stop.sh`
    (libère le watch — sinon il écrase ton dist pendant que tu édites).
 2. Modifier le code (`Edit`/`Write` libres — pas de watch actif).
-3. Relancer : `bash .claude/skills/start-nodefony-server/start.sh` (build conditionnel inclus).
+3. Relancer : `bash .claude/skills/nodefony-start-server/start.sh` (build conditionnel inclus).
 4. **Grep le log DANS LES ~6s** après `>>> READY` — avant que le nouveau watch ne réécrive.
 
 ### Signal d'alarme
@@ -117,7 +117,7 @@ sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep "Rollup Module" | grep
 
 ## Maintenance des scripts
 
-- `start.sh` / `stop.sh` sont dans ce dossier (`.claude/skills/start-nodefony-server/`).
+- `start.sh` / `stop.sh` sont dans ce dossier (`.claude/skills/nodefony-start-server/`).
 - Ports en dur : 5151 (http/ws) + 5152 (https/wss). Module test : `src/modules/test`.
 - Si le port ou le chemin du module test change → éditer les variables en tête de `start.sh`.
 - `start.sh` dérive la racine repo de **`BASH_SOURCE`** (chemin absolu) → invocable depuis n'importe quel cwd, y compris après un `cd <subdir>` (piège `feedback_cd_startsh_relative_path` corrigé 2026-05-21).

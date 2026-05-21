@@ -155,6 +155,6 @@ Format de sortie cible : **40 lignes max**. Si dépasse → résumer plus dur.
 
 ## Anti-patterns à éviter
 
-- Lancer les tests (long, bruyant) — pas dans le bootstrap. Le user lance les tests sciemment via `check-memory-health` ou commande directe.
+- Lancer les tests (long, bruyant) — pas dans le bootstrap. Le user lance les tests sciemment via `nodefony-check-memory-health` ou commande directe.
 - Charger plus de 200 lignes par section — préférer `head` et résumer.
 - Ignorer le message "dist périmé" — c'est la première cause d'échec de session.

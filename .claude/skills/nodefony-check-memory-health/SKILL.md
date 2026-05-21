@@ -1,5 +1,5 @@
 ---
-name: check-memory-health
+name: nodefony-check-memory-health
 description: Lance la suite de tests d'intégration mémoire de `@nodefony/http` (1000 GET séquentiels, 100 crashs sync/async, 100 connexions WS) et valide les seuils de Heap Delta selon la grille Nodefony. Indispensable avant tout commit qui touche le Kernel, le DI Container ou le pipeline request. Mots-clés : "vérifier la mémoire", "memory leak", "test mémoire", "heap delta", "fuite mémoire", "check memory", "perf mémoire serveur".
 ---
 
@@ -20,7 +20,7 @@ Lancer Mocha sans filtre = des centaines de lignes d'output incluant tous les au
 
 ## Prérequis
 
-- Serveur Nodefony **lancé** sur ports 5151/5152 (voir skill `start-nodefony-server`)
+- Serveur Nodefony **lancé** sur ports 5151/5152 (voir skill `nodefony-start-server`)
 - Les tests utilisent l'endpoint `/nodefony/test/memory` du module test pour mesurer le heap
 
 ## Commande à exécuter
@@ -80,4 +80,4 @@ Memory : 8/8 verts | 1000 GET 3200ms (<35MB) | crashs 10/10/15 MB OK | WS 30/20 
 
 - Pour mesurer une seule requête isolée → `node --inspect` + profiler Chrome
 - Pour de la perf CPU pure → utiliser `npx clinic` ou un benchmark séparé
-- Si le serveur n'est pas lancé → lancer d'abord via skill `start-nodefony-server`
+- Si le serveur n'est pas lancé → lancer d'abord via skill `nodefony-start-server`
