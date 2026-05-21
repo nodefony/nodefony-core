@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-21T22:55:42.737Z",
+  "generated": "2026-05-21T23:58:26.473Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 295,
     "symbols": 736,
     "classes": 207,
-    "interfaces": 251,
-    "types": 144,
+    "interfaces": 252,
+    "types": 143,
     "enums": 1,
     "functions": 115,
     "constants": 18
@@ -673,25 +673,6 @@
       "implements": [],
       "decorators": [],
       "description": "Service de daemonisation via PM2."
-    },
-    "Watcher": {
-      "name": "Watcher",
-      "kind": "class",
-      "file": "src/nodefony/src/service/watcherService.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Service",
-      "implements": [],
-      "decorators": [],
-      "description": "Watcher — façade légère au-dessus du service Rollup pour le mode dev. Deux rôles : 1. **Lance un watcher Rollup par module** via {@link createRollupWatcher}. Délègue à `rollupService.watch`, qui éc…"
-    },
-    "HotReloadHook": {
-      "name": "HotReloadHook",
-      "kind": "type",
-      "file": "src/nodefony/src/service/watcherService.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Hook appelé par le Watcher après chaque rebuild Rollup d'un module en mode dev. Reçoit le module rebuildé et l'`OutputOptions` Rollup (`output.dir` = chemin du dist fraîchement écrit). Le hook DOIT…"
     },
     "Pdu": {
       "name": "Pdu",
@@ -1559,6 +1540,26 @@
       "implements": [],
       "decorators": []
     },
+    "DevSupervisor": {
+      "name": "DevSupervisor",
+      "kind": "class",
+      "file": "src/nodefony/src/service/dev/DevSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Superviseur de développement « auto-restart » (modèle nodemon, cloud-native : le process serveur est jetable). Topologie : ce process **parent** ne boote PAS le kernel applicatif — il `spawn` le se…"
+    },
+    "DevSupervisorOptions": {
+      "name": "DevSupervisorOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/DevSupervisor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options du superviseur de dev."
+    },
     "Rollup": {
       "name": "Rollup",
       "kind": "class",
@@ -1568,7 +1569,7 @@
       "extends": "Service",
       "implements": [],
       "decorators": [],
-      "description": "Service Rollup runtime — orchestre `rollup.watch()` pour chaque module en dev. État actuel : write-only watcher (rebuild → dist/ puis stop). PAS DE HMR."
+      "description": "Service Rollup runtime — fournit la config Rollup par défaut et le **build one-shot** des modules (`nodefony build` via {@link Module.build}). Le watch « write-only » (re-bundle dist/ sans recharge…"
     },
     "ConsoleTransport": {
       "name": "ConsoleTransport",
@@ -5463,7 +5464,6 @@
         "Module",
         "Fetch",
         "Pm2",
-        "Watcher",
         "Storage",
         "Websocket",
         "Injector",
@@ -5924,7 +5924,6 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/service/pm2Service.ts",
-        "src/nodefony/src/service/watcherService.ts",
         "src/nodefony/src/client/api/Storage.ts",
         "src/nodefony/src/client/transport/websocket.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
@@ -5991,7 +5990,6 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/service/pm2Service.ts",
-        "src/nodefony/src/service/watcherService.ts",
         "src/nodefony/src/client/api/Storage.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
@@ -6117,7 +6115,6 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/pm2Service.ts",
-        "src/nodefony/src/service/watcherService.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
@@ -6334,7 +6331,6 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/service/fetchService.ts",
-        "src/nodefony/src/service/watcherService.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
@@ -6976,9 +6972,6 @@
       "Rollup": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
-      "Watcher": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
       "Injector": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
@@ -7117,6 +7110,9 @@
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
       ],
+      "DevSupervisor": [
+        "src/nodefony/src/kernel/commands/DevCommand.ts"
+      ],
       "ModuleConstructor": [
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
       ],
@@ -7141,6 +7137,9 @@
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+      ],
+      "Stats": [
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "RequestContext": [
         "src/modules/test/nodefony/controller/AlsController.ts",

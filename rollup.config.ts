@@ -16,6 +16,11 @@ const external: string[] = [
   "@nodefony/redis",
   "@nodefony/test",
   "@nodefony/user",
+  // ORM (orm-core + driver Drizzle) : l'app déclare ses entités → import côté app.
+  // Externalisés pour ne pas bundler le driver natif `better-sqlite3`.
+  "@nodefony/drizzle",
+  "@nodefony/orm-core",
+  "drizzle-orm",
   "tslib",
 ];
 

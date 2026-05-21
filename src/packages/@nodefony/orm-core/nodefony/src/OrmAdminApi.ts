@@ -131,10 +131,13 @@ export function toDbml(graph: IOrmGraph): string {
     lines.push("}");
     lines.push("");
   }
+  // Une même FK physique peut être déclarée des deux côtés (1-N côté source +
+  // N-1 côté cible) → dédup par ligne `Ref:` pour ne dessiner qu'une arête.
+  const refs = new Set<string>();
   for (const node of graph.entities) {
     for (const rel of node.relations) {
       if (rel.type === "many-to-many") {
-        lines.push(
+        refs.add(
           `// many-to-many ${node.name}.${rel.field} <> ${rel.target} (table de jonction)`,
         );
         continue;
@@ -144,17 +147,18 @@ export function toDbml(graph: IOrmGraph): string {
       const camel = (n: string) => `${n.charAt(0).toLowerCase()}${n.slice(1)}Id`;
       if (rel.type === "one-to-many") {
         const fk = rel.foreignKey ?? camel(node.name);
-        lines.push(
+        refs.add(
           `Ref: ${dbmlId(rel.target)}.${dbmlId(fk)} > ${dbmlId(node.name)}.id`,
         );
       } else {
         const fk = rel.foreignKey ?? camel(rel.target);
-        lines.push(
+        refs.add(
           `Ref: ${dbmlId(node.name)}.${dbmlId(fk)} > ${dbmlId(rel.target)}.id`,
         );
       }
     }
   }
+  lines.push(...refs);
   return `${lines.join("\n").trimEnd()}\n`;
 }
 

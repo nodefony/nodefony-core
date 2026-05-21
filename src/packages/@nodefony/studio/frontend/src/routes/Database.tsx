@@ -214,18 +214,51 @@ function layoutGraph(entities: EntityNode[]): { nodes: Node[]; edges: Edge[] } {
   for (const e of entities) {
     g.setNode(e.name, { width: NODE_W, height: nodeHeight(e) });
   }
+  // Une FK physique peut être déclarée des deux côtés (1-N côté source + N-1 côté
+  // cible) → on canonicalise chaque relation en arête `FK → PK` (sens ERD) et on
+  // dédup par clé FK pour ne tracer qu'une arête par FK.
   const edges: Edge[] = [];
+  const seen = new Set<string>();
   for (const e of entities) {
     for (const r of e.relations) {
       if (!names.has(r.target)) continue; // relation hors du périmètre filtré
-      g.setEdge(e.name, r.target);
+      if (r.type === "many-to-many") {
+        const key = [e.name, r.target].sort().join("<>");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        g.setEdge(e.name, r.target);
+        edges.push({
+          id: `m2m-${key}`,
+          source: e.name,
+          target: r.target,
+          type: "smoothstep",
+          animated: true,
+          label: REL_LABEL["many-to-many"],
+          markerEnd: { type: MarkerType.ArrowClosed },
+          style: { stroke: "var(--mantine-color-grape-5)", strokeDasharray: "5 5" },
+        });
+        continue;
+      }
+      // FK canonique : table portant la FK → table portant la PK ciblée.
+      const fkTable = r.type === "one-to-many" ? r.target : e.name;
+      const pkTable = r.type === "one-to-many" ? e.name : r.target;
+      const fk =
+        r.foreignKey ??
+        camelFk(r.type === "one-to-many" ? e.name : r.target);
+      const key = `${fkTable}.${fk}>${pkTable}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      g.setEdge(fkTable, pkTable);
       edges.push({
-        id: `${e.name}-${r.field}-${r.target}`,
-        source: e.name,
-        target: r.target,
+        id: key,
+        source: fkTable,
+        target: pkTable,
         type: "smoothstep",
-        animated: r.type.includes("many"),
-        label: REL_LABEL[r.type],
+        animated: false,
+        label:
+          r.type === "one-to-one"
+            ? REL_LABEL["one-to-one"]
+            : REL_LABEL["many-to-one"],
         markerEnd: { type: MarkerType.ArrowClosed },
         style: { stroke: "var(--mantine-color-blue-5)" },
       });

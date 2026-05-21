@@ -9,6 +9,9 @@ import config from "./nodefony/config/config";
 //import Test from "@nodefony/test";
 import AppController from "./nodefony/controllers/AppController";
 import indexController from "./nodefony/controllers/indexController";
+// Entités de démo (User 1-N Post) sur l'ORM Drizzle par défaut : enregistrées au
+// top-level → présentes dans le entityRegistry avant le boot (ERD + profiler).
+import "./nodefony/entity/demo";
 
 /**
  * The App class extends the Module class and represents an application  entry point.
