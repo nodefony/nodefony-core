@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-21T00:19:31.537Z",
+  "generated": "2026-05-21T00:44:41.001Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 258,
-    "symbols": 602,
-    "classes": 190,
-    "interfaces": 201,
-    "types": 131,
+    "files": 264,
+    "symbols": 615,
+    "classes": 193,
+    "interfaces": 204,
+    "types": 135,
     "enums": 1,
-    "functions": 67,
-    "constants": 12
+    "functions": 69,
+    "constants": 13
   },
   "symbols": {
     "Cli": {
@@ -3214,6 +3214,15 @@
       "extends": null,
       "description": "Contrat d'une instance ORM gérée par le framework (une par connexion logique). Implémenté par chaque adapter (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefony/drizzle`...) et enregistré dans…"
     },
+    "FieldOperators": {
+      "name": "FieldOperators",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Opérateurs de comparaison riches applicables à **un** champ, façon MongoDB. Forme tranchée en P7.4 (ADR-0003 risque #3) : objet d'opérateurs `$`-préfixés. Raison : (1) familier (convention Mongo) ;…"
+    },
     "RepositoryReadOptions": {
       "name": "RepositoryReadOptions",
       "kind": "interface",
@@ -3240,13 +3249,21 @@
       "module": "@nodefony/orm-core",
       "description": "Critère de filtre brut passé aux opérations d'un repository. Volontairement abstrait (`Record<string, unknown>`) : chaque adapter ORM traduit ce critère dans sa syntaxe native (clause `WHERE` SQL, …"
     },
+    "FieldCriteria": {
+      "name": "FieldCriteria",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Valeur de critère pour un champ : soit l'**égalité** directe (valeur nue), soit un objet d'{@link FieldOperators} riche."
+    },
     "Criteria": {
       "name": "Criteria",
       "kind": "type",
       "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
       "exported": true,
       "module": "@nodefony/orm-core",
-      "description": "Critère **partiellement typé** d'une entité `T`. `Partial<T>` type-vérifie l'égalité sur les champs connus (ex. `{ email }` doit être un `string` si `T.email` l'est) ; l'intersection avec {@link Or…"
+      "description": "Critère **typé par champ** d'une entité `T`. Chaque champ connu accepte soit son égalité (`{ email }` doit être un `string` si `T.email` l'est), soit un objet d'opérateurs riches typé sur la valeur…"
     },
     "ITransaction": {
       "name": "ITransaction",
@@ -3256,6 +3273,30 @@
       "module": "@nodefony/orm-core",
       "extends": null,
       "description": "Unité de travail transactionnelle abstraite (commit / rollback / savepoint). Obtenue dans le callback de `IOrm.transaction()`. Les transactions cross-ORM (2PC) ne sont PAS garanties : une transacti…"
+    },
+    "OperatorKey": {
+      "name": "OperatorKey",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Clé d'opérateur riche reconnue."
+    },
+    "isFieldOperators": {
+      "name": "isFieldOperators",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Indique si une valeur de champ est un objet d'{@link FieldOperators}. Heuristique : objet simple, non-`null`, non-tableau, dont **toutes** les clés propres sont des opérateurs reconnus (et au moins…"
+    },
+    "OPERATOR_KEYS": {
+      "name": "OPERATOR_KEYS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Liste figée des opérateurs riches reconnus dans un critère portable. Source de vérité unique partagée par tous les adapters : un objet de valeur de champ n'est traité comme {@link FieldOperators} q…"
     },
     "@nodefony/orm-core:Entity": {
       "name": "Entity",
@@ -3926,6 +3967,69 @@
       "implements": [],
       "decorators": [],
       "description": "Commande CLI `nodefony pm2:*` — outils PM2 (status, logs, restart, etc.)."
+    },
+    "DrizzleOrm": {
+      "name": "DrizzleOrm",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": "Orm",
+      "implements": [],
+      "decorators": [],
+      "description": "Adapter Drizzle (driver `better-sqlite3`) **branché sur `@nodefony/orm-core`** — 3ᵉ adapter du banc multi-ORM (P7.4), choix SQL #1 moderne. Particularité vs Sequelize/Mongoose : Drizzle est **schem…"
+    },
+    "DrizzleOrmOptions": {
+      "name": "DrizzleOrmOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Options de connexion de l'adapter Drizzle + `better-sqlite3`."
+    },
+    "DrizzleRepository": {
+      "name": "DrizzleRepository",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "IRepository"
+      ],
+      "decorators": [],
+      "description": "Repository portable (contrat {@link IRepository}) au-dessus d'une table Drizzle + driver `better-sqlite3`. 3ᵉ adapter du banc orm-core (ADR-0003) : valide le contrat sur un ORM **type-safe-first** …"
+    },
+    "DrizzleResolvedRelation": {
+      "name": "DrizzleResolvedRelation",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Relation résolue au boot de l'ORM, prête pour l'eager-load manuel (sans la couche `relations()` de Drizzle, pour rester générique cross-entités)."
+    },
+    "DrizzleDb": {
+      "name": "DrizzleDb",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Handle Drizzle (instance racine ou transaction) — schéma résolu côté adapter."
+    },
+    "DrizzleTransaction": {
+      "name": "DrizzleTransaction",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "ITransaction"
+      ],
+      "decorators": [],
+      "description": "Adapte une transaction `better-sqlite3` au contrat portable {@link ITransaction}. **Pourquoi une transaction manuelle (`BEGIN`/`COMMIT`/`ROLLBACK`) et pas le helper `db.transaction()` de Drizzle** …"
     },
     "ViteBuilder": {
       "name": "ViteBuilder",
@@ -4786,6 +4890,7 @@
       "Orm": [
         "Mongoose",
         "Sequelize",
+        "DrizzleOrm",
         "MongooseOrm",
         "SequelizeOrm"
       ],
@@ -4908,6 +5013,16 @@
         "MemoryVectorStore",
         "PgVectorAdapter"
       ],
+      "IRepository": [
+        "DrizzleRepository",
+        "MongooseRepository",
+        "SequelizeRepository"
+      ],
+      "ITransaction": [
+        "DrizzleTransaction",
+        "MongooseTransaction",
+        "SequelizeTransaction"
+      ],
       "IFrontBuilder": [
         "ViteBuilder"
       ],
@@ -4916,14 +5031,6 @@
       ],
       "ICookieInterface": [
         "Cookie"
-      ],
-      "IRepository": [
-        "MongooseRepository",
-        "SequelizeRepository"
-      ],
-      "ITransaction": [
-        "MongooseTransaction",
-        "SequelizeTransaction"
       ],
       "IHttpContextInterface": [
         "HttpContext"
@@ -6029,6 +6136,7 @@
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
@@ -6610,6 +6718,8 @@
       "IRepository": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
@@ -6619,6 +6729,9 @@
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts",
@@ -6626,20 +6739,29 @@
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts"
       ],
+      "FieldOperators": [
+        "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
       "IEntity": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
       "IEntityRelation": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts"
       ],
       "entityRegistry": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
@@ -6791,6 +6913,34 @@
       "VectorConnectionError": [
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
       ],
+      "DrizzleRepository": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "DrizzleDb": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
+      ],
+      "DrizzleResolvedRelation": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "DrizzleTransaction": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "isFieldOperators": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
+      "Criteria": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
+      "RepositoryReadOptions": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
       "IFrontBuilder": [
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
       ],
@@ -6881,14 +7031,6 @@
       ],
       "MongooseTransaction": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
-      ],
-      "Criteria": [
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
-      ],
-      "RepositoryReadOptions": [
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
       "DecoratedClass": [
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",

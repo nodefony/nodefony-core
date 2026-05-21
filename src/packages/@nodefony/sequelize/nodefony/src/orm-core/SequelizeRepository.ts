@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import type {
   FindOptions,
   Model,
@@ -6,8 +7,10 @@ import type {
   Transaction,
   WhereOptions,
 } from "sequelize";
+import { isFieldOperators } from "@nodefony/orm-core";
 import type {
   Criteria,
+  FieldOperators,
   IRepository,
   ITransaction,
   RepositoryReadOptions,
@@ -39,6 +42,30 @@ export class SequelizeRepository<T = unknown> implements IRepository<T> {
     this.#tx = tx;
   }
 
+  /** Traduit les opérateurs riches portables (`$gt`/`$in`...) en symboles `Op.*`. */
+  #mapOperators(ops: FieldOperators<unknown>): Record<symbol, unknown> {
+    const out: Record<symbol, unknown> = {};
+    if (ops.$eq !== undefined) out[Op.eq] = ops.$eq;
+    if (ops.$ne !== undefined) out[Op.ne] = ops.$ne;
+    if (ops.$gt !== undefined) out[Op.gt] = ops.$gt;
+    if (ops.$gte !== undefined) out[Op.gte] = ops.$gte;
+    if (ops.$lt !== undefined) out[Op.lt] = ops.$lt;
+    if (ops.$lte !== undefined) out[Op.lte] = ops.$lte;
+    if (ops.$in !== undefined) out[Op.in] = ops.$in;
+    if (ops.$nin !== undefined) out[Op.notIn] = ops.$nin;
+    if (ops.$like !== undefined) out[Op.like] = ops.$like;
+    return out;
+  }
+
+  /** Traduit un critère portable en clause `where` Sequelize (égalité + opérateurs). */
+  #toWhere(criteria: Criteria<T>): WhereOptions {
+    const where: Record<string, unknown> = {};
+    for (const [field, value] of Object.entries(criteria)) {
+      where[field] = isFieldOperators(value) ? this.#mapOperators(value) : value;
+    }
+    return where as WhereOptions;
+  }
+
   /** Construit les `FindOptions` Sequelize depuis critère + options portables. */
   #findOptions(
     criteria?: Criteria<T>,
@@ -46,7 +73,7 @@ export class SequelizeRepository<T = unknown> implements IRepository<T> {
   ): FindOptions {
     const find: FindOptions = {};
     if (criteria) {
-      find.where = criteria as WhereOptions;
+      find.where = this.#toWhere(criteria);
     }
     if (this.#tx) {
       find.transaction = this.#tx;
@@ -104,7 +131,7 @@ export class SequelizeRepository<T = unknown> implements IRepository<T> {
 
   async update(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
     await this.#model.update(data as Record<string, unknown>, {
-      where: criteria as WhereOptions,
+      where: this.#toWhere(criteria),
       ...this.#txOpt(),
     });
     return this.findOne(criteria);
@@ -112,14 +139,14 @@ export class SequelizeRepository<T = unknown> implements IRepository<T> {
 
   async delete(criteria: Criteria<T>): Promise<number> {
     return this.#model.destroy({
-      where: criteria as WhereOptions,
+      where: this.#toWhere(criteria),
       ...this.#txOpt(),
     });
   }
 
   async count(criteria?: Criteria<T>): Promise<number> {
     return this.#model.count({
-      ...(criteria ? { where: criteria as WhereOptions } : {}),
+      ...(criteria ? { where: this.#toWhere(criteria) } : {}),
       ...this.#txOpt(),
     });
   }

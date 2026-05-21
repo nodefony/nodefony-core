@@ -1,0 +1,8 @@
+{
+  "extension": ["ts"],
+  "spec": "tests/load/**/*.test.ts",
+  "recursive": true,
+  "exit": true,
+  "timeout": 180000,
+  "node-option": ["import=tsx", "expose-gc"]
+}

@@ -14,9 +14,15 @@ export type {
   IRepository,
   OrmCriteria,
   Criteria,
+  FieldCriteria,
+  FieldOperators,
   RepositoryReadOptions,
   ITransaction,
 } from "./nodefony/interfaces/index";
+
+// ─── Critères riches (P7.4) — helper de détection d'opérateurs (lib pure) ────
+export { OPERATOR_KEYS, isFieldOperators } from "./nodefony/src/criteria";
+export type { OperatorKey } from "./nodefony/src/criteria";
 
 // ─── Runtime (P5.2) — registres singletons + classes de base ────────────────
 export { OrmRegistry, ormRegistry } from "./nodefony/src/OrmRegistry";

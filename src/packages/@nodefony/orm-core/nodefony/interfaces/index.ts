@@ -4,6 +4,8 @@ export type {
   IRepository,
   OrmCriteria,
   Criteria,
+  FieldCriteria,
+  FieldOperators,
   RepositoryReadOptions,
 } from "./IRepository";
 export type { ITransaction } from "./ITransaction";

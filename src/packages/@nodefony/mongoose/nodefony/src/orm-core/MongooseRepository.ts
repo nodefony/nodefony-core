@@ -1,6 +1,8 @@
 import type { ClientSession, FilterQuery, Model } from "mongoose";
+import { isFieldOperators } from "@nodefony/orm-core";
 import type {
   Criteria,
+  FieldOperators,
   IRepository,
   ITransaction,
   RepositoryReadOptions,
@@ -8,6 +10,16 @@ import type {
 
 /** Modèle Mongoose à document libre (boundary — typé finement côté repo). */
 type LooseModel = Model<Record<string, unknown>>;
+
+/**
+ * Traduit un motif SQL `LIKE` (`%` = n caractères, `_` = un caractère) en RegExp
+ * ancrée — `$like` portable n'a pas d'équivalent natif MongoDB.
+ */
+function sqlLikeToRegex(pattern: string): RegExp {
+  // 1) échappe les méta-caractères regex, 2) traduit les jokers SQL.
+  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^${escaped.replace(/%/g, ".*").replace(/_/g, ".")}$`);
+}
 
 /**
  * Repository portable (contrat {@link IRepository}) au-dessus d'un modèle Mongoose.
@@ -35,17 +47,37 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     this.#session = session;
   }
 
-  /** Traduit le critère portable : `id` → `_id` (PK MongoDB). */
+  /**
+   * Traduit les opérateurs riches portables en opérateurs MongoDB.
+   *
+   * Quasi-identité : `$gt`/`$in`/`$nin`/`$ne`/`$eq`/`$lt`... sont natifs Mongo ;
+   * seul `$like` (motif SQL) est converti en `$regex`.
+   */
+  #mongoOps(ops: FieldOperators<unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(ops)) {
+      if (key === "$like") {
+        out.$regex = sqlLikeToRegex(value as string);
+      } else {
+        out[key] = value;
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Traduit le critère portable : `id` → `_id` (PK MongoDB) + opérateurs riches.
+   */
   #filter(criteria?: Criteria<T>): FilterQuery<Record<string, unknown>> {
     if (!criteria) {
       return {};
     }
-    const raw = criteria as Record<string, unknown>;
-    if (!("id" in raw)) {
-      return raw as FilterQuery<Record<string, unknown>>;
+    const out: Record<string, unknown> = {};
+    for (const [field, value] of Object.entries(criteria)) {
+      const key = field === "id" ? "_id" : field;
+      out[key] = isFieldOperators(value) ? this.#mongoOps(value) : value;
     }
-    const { id, ...rest } = raw;
-    return { ...rest, _id: id } as FilterQuery<Record<string, unknown>>;
+    return out as FilterQuery<Record<string, unknown>>;
   }
 
   /** Sérialise un document en objet plat (virtuels inclus → `id`, populates). */

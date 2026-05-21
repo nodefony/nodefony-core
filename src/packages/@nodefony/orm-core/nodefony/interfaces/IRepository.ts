@@ -10,16 +10,62 @@ import type { ITransaction } from "./ITransaction";
 export type OrmCriteria = Record<string, unknown>;
 
 /**
- * Critère **partiellement typé** d'une entité `T`.
+ * Opérateurs de comparaison riches applicables à **un** champ, façon MongoDB.
  *
- * `Partial<T>` type-vérifie l'égalité sur les champs connus (ex. `{ email }`
- * doit être un `string` si `T.email` l'est) ; l'intersection avec
- * {@link OrmCriteria} conserve une échappatoire pour les clés non typées
- * (opérateurs riches `$gt`/`$in`... à formaliser au branchement Drizzle, P7.4).
+ * Forme tranchée en P7.4 (ADR-0003 risque #3) : objet d'opérateurs `$`-préfixés.
+ * Raison : (1) familier (convention Mongo) ; (2) mappable par les **trois**
+ * drivers — Mongoose en (quasi) identité (`$gt`/`$in` natifs, `$like`→`$regex`),
+ * Sequelize via `Op.*`, Drizzle via `gt()`/`inArray()`/`like()`. Le sous-ensemble
+ * est volontairement minimal = intersection portable des 3 ORM.
+ *
+ * Plusieurs opérateurs sur le même champ se combinent en `AND`
+ * (ex. `{ age: { $gte: 18, $lt: 65 } }`).
+ *
+ * @typeParam V - type de la valeur du champ ciblé.
+ */
+export interface FieldOperators<V> {
+  /** Égalité stricte (équivalent à passer la valeur nue). */
+  $eq?: V;
+  /** Différent de. */
+  $ne?: V;
+  /** Strictement supérieur à. */
+  $gt?: V;
+  /** Supérieur ou égal à. */
+  $gte?: V;
+  /** Strictement inférieur à. */
+  $lt?: V;
+  /** Inférieur ou égal à. */
+  $lte?: V;
+  /** Appartient à l'ensemble. */
+  $in?: readonly V[];
+  /** N'appartient pas à l'ensemble. */
+  $nin?: readonly V[];
+  /** Motif SQL `LIKE` (`%`/`_`) — pertinent pour les champs texte uniquement. */
+  $like?: string;
+}
+
+/**
+ * Valeur de critère pour un champ : soit l'**égalité** directe (valeur nue),
+ * soit un objet d'{@link FieldOperators} riche.
+ *
+ * @typeParam V - type de la valeur du champ.
+ */
+export type FieldCriteria<V> = V | FieldOperators<NonNullable<V>>;
+
+/**
+ * Critère **typé par champ** d'une entité `T`.
+ *
+ * Chaque champ connu accepte soit son égalité (`{ email }` doit être un `string`
+ * si `T.email` l'est), soit un objet d'opérateurs riches typé sur la valeur du
+ * champ (`{ age: { $gt: 18 } }`). L'intersection avec {@link OrmCriteria}
+ * conserve une échappatoire pour les clés non typées (champ calculé, opérateur
+ * natif non couvert). Chaque adapter traduit ce critère dans sa syntaxe native.
  *
  * @typeParam T - type de l'entité gérée.
  */
-export type Criteria<T> = Partial<T> & OrmCriteria;
+export type Criteria<T> = {
+  [K in keyof T]?: FieldCriteria<T[K]>;
+} & OrmCriteria;
 
 /**
  * Options de lecture (`find`/`findOne`) portables cross-ORM.

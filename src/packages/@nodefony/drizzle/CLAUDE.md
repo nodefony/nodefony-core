@@ -1,0 +1,67 @@
+# CLAUDE.md — @nodefony/drizzle
+
+## Rôle
+
+3ᵉ **adapter concret** de `@nodefony/orm-core` (après `@nodefony/sequelize` et
+`@nodefony/mongoose`). Driver SQL **type-safe-first** (choix #1 SQL moderne 2026).
+Implémente `Orm`/`IOrm`, `IRepository<T>`, `ITransaction` au-dessus de Drizzle ORM
++ `better-sqlite3` (test) — Postgres/MySQL par simple changement de driver.
+
+## Nature
+
+- **Adapter lib**, comme les sous-dossiers `orm-core/` de sequelize/mongoose.
+- **PAS enregistré dans `@modules()` racine** : on l'instancie explicitement
+  (`new DrizzleOrm(name, { filename })`) ; `extends Orm` → auto-register dans
+  `ormRegistry`. (Booter une connexion au démarrage serveur viendra avec la
+  config réelle, hors banc-test.)
+
+## Décisions figées (P7.4)
+
+- **Schema-as-code** : `entity.schema` EST une table Drizzle (`sqliteTable(...)`).
+  Pas de `define()`. L'adapter dérive le **DDL** via `getTableConfig()` (dev/test) ;
+  la **prod = `drizzle-kit`** (migrations).
+- **Opérateurs riches** (ADR-0003 risque #3 — tranché ici) : objet `$`-préfixé
+  typé (`FieldOperators<V>` de orm-core) → traduit en `eq()/gt()/inArray()/like()`.
+  `$like` reste sémantique **SQL** (`%`/`_`), natif Drizzle.
+- **Eager-load manuel** (`options.relations`) : 1 requête `IN (...)` par relation
+  déclarée + regroupement mémoire. Volontairement **sans** la couche `relations()`
+  de Drizzle (générique cross-entités, pas de double déclaration).
+- **Transaction manuelle** `BEGIN`/`COMMIT`/`ROLLBACK` : `better-sqlite3` est
+  **synchrone** → son helper `db.transaction()` committe au `return`, avant les
+  `await` du contrat async. Connexion unique → encadrer = atomique.
+  `withTransaction(tx)` réutilise le **même** db.
+- **Trappe SQL brut** : `getNativeConnection()` renvoie le db Drizzle (tag `sql`).
+
+## Interdits
+
+- `any`, `@ts-ignore`, `require()`. ESM only, préfixe `node:`.
+- Importer `@nodefony/http`/`@nodefony/framework` (orm = couche basse).
+- Logique métier.
+
+## Gotchas
+
+- `better-sqlite3` = natif (compile via node-gyp) ; OK sur Node 26 (prebuild 12.x).
+- `db.query.*` (API relationnelle Drizzle) **non** utilisée → typage générique
+  sans schéma (`BetterSQLite3Database<Record<string, never>>`), eager-load manuel.
+- Colonne d'une table : `(table as unknown as Record<string,SQLiteColumn>)[name]`.
+- `OFFSET` SQLite exige un `LIMIT` → `limit(-1)` si seul l'offset est posé.
+- `mocha`/`tsx` viennent de la **racine** (ne pas les remettre en devDeps locales,
+  sinon résolution CJS du test → `ERR_PACKAGE_PATH_NOT_EXPORTED` sur orm-core).
+
+## Build / types / test
+
+- `npm run build` (rollup preserveModules) → `dist/` + `dist/types/` + `exports`
+  (standard conforme, pas de `.d.ts` manuel).
+- `npm test` (`.mocharc.json`) → `tests/integration/` : banc orm-core (8) +
+  jointure très complexe (2 : CTE+window+sous-requêtes corrélées via trappe native,
+  + LEFT JOIN typé). **10 tests**.
+- `npm run test:load` (`.mocharc.load.json`, `expose-gc`) → `tests/load/` :
+  charge/limites/mémoire (8 tests). Mesures 2026-05-21 (Node 26, :memory:) :
+  insert 20k ≈ 15k ops/s, scan 20k ≈ 1M ops/s, $in(5000) 23ms, 30k cycles
+  create/find/delete heapΔ 0.3MB, 300 connexions heapΔ 0.1MB (**0 fuite**).
+
+## Roadmap
+
+- ✅ P7.4 adapter orm-core + ADR-0003 risque #3 résolu.
+- ⬜ P5.9 entité `User` Drizzle. P7.6 = tests intégration (couvert par le banc P7.4).
+- ⬜ Postgres/MySQL drivers (changer le client + le dialecte de table).

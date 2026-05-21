@@ -13,12 +13,16 @@ Consommé par les drivers (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefo
 
 ## Décisions figées
 
-- **Archi = Repository multi-ORM (pas Active Record)** — risques connus documentés dans [`docs/adr/0003`](../../../../docs/adr/0003-orm-core-abstraction-repository-multi-orm.md) : (1) abstraction qui fuit (jointures/criteria riches → trappe native), (2) multi-ORM simultané = YAGNI (vraie valeur = swap d'ORM dans le temps), (3) `OrmCriteria` non typé en tension avec Drizzle. **À trancher sur cas concret en P5.4** (jointure User↔Room avant de multiplier les drivers).
+- **Archi = Repository multi-ORM (pas Active Record)** — risques documentés dans [`docs/adr/0003`](../../../../docs/adr/0003-orm-core-abstraction-repository-multi-orm.md). **4 risques TRAITÉS (2026-05-21)** sur 3 adapters (Sequelize/Mongoose/Drizzle) : (1) jointure → eager-load portable (`{relations}`) + trappe native ; (2) multi-ORM simultané = YAGNI (valeur = swap d'ORM) ; (3) criteria typé + opérateurs riches **RÉSOLU** (P7.4) ; (4) repo tx-aware (`withTransaction`). ADR clôturé côté design ; reste l'industrialisation (drivers de prod sur orm-core, P7.1/P7.2).
 - Interfaces : `IOrm`, `IEntity` (+ `IEntityRelation`), `IRepository<T>` (+ `OrmCriteria`), `ITransaction`.
 - **`IOrm.getNativeConnection<C>()`** = trappe SQL/commandes brutes — **indispensable** (anti-blocage requêtes non couvertes par l'abstraction).
 - Multi-managers : chaque ORM enregistré sous un nom (`db_principale`, `db_logs`...). Controller via DI pur (`@Inject('repository.user.drizzle')`), JAMAIS l'ORM en dur.
 - Transactions cross-ORM (2PC) **non garanties** — une tx = un ORM.
-- Critères = `OrmCriteria` (`Record<string, unknown>`) traduit par chaque adapter.
+- Critères = `Criteria<T>` typé par champ + **opérateurs riches** `$`-préfixés
+  (`FieldOperators<V>` : `$eq $ne $gt $gte $lt $lte $in $nin $like`, helper
+  `OPERATOR_KEYS`/`isFieldOperators`). Forme figée P7.4 (ADR-0003 risque #3 RÉSOLU,
+  cf 3 adapters). `OrmCriteria` (`Record<string,unknown>`) reste l'échappatoire.
+  Chaque adapter traduit (`Op.*` / `$`+`$regex` / `eq()/inArray()`). `$like` = SQL.
 
 ## Interdits
 
@@ -36,7 +40,8 @@ Consommé par les drivers (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefo
 - ✅ P5.1 interfaces (`nodefony/interfaces/`).
 - ✅ P5.2 `OrmRegistry` + `EntityRegistry` + `Orm`/`Entity` base classes (extends Service, event `onOrmReady`).
 - ✅ P5.3 `@entity` + `@repository` decorators (WeakMap `metadataStore`, **sans reflect-metadata** — lib pure ; auto-register descripteur).
-- ⬜ P5.4 tests intégration multi-ORM (2 ORM en parallèle) + 1 adapter Sequelize branché.
+- ✅ P5.4 adapters Sequelize + Mongoose branchés (CRUD/relations/tx portables).
+- ✅ P7.4 3ᵉ adapter Drizzle + **opérateurs riches** (`FieldOperators`/`isFieldOperators`, `nodefony/src/criteria.ts`) → ADR-0003 risque #3 résolu, rétro-appliqué aux 3 adapters. 26 tests unit.
 
 ## Build / types
 

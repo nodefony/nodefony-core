@@ -11,6 +11,7 @@ const ORM = "db_test";
 interface User {
   id: string;
   email: string;
+  age?: number;
   rooms?: Room[]; // peuplé par eager-load (options.relations)
 }
 interface Room {
@@ -27,6 +28,7 @@ interface Room {
   schema: {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     email: { type: DataTypes.STRING, allowNull: false, unique: true },
+    age: { type: DataTypes.INTEGER, allowNull: true },
   },
   relations: [{ type: "one-to-many", target: "Room", field: "rooms" }],
 })
@@ -158,5 +160,23 @@ describe("orm-core ↔ Sequelize adapter (P5.4)", () => {
     assert.equal(await rooms.count(), beforeRooms);
     assert.equal(await users.count(), beforeUsers); // user AUSSI rollback
     assert.equal(await users.findOne({ email: "doomed@b.c" }), null);
+  });
+
+  // ── ADR-0003 risque #3 résolu : opérateurs riches typés et portables ──────
+  it("opérateurs riches : $gt / $gte / $lt / $in / $nin / $ne / $like", async () => {
+    await rooms.delete({});
+    await users.delete({});
+    await users.create({ email: "u20@x.c", age: 20 });
+    await users.create({ email: "u30@x.c", age: 30 });
+    await users.create({ email: "u40@x.c", age: 40 });
+
+    assert.equal((await users.find({ age: { $gt: 25 } })).length, 2);
+    assert.equal((await users.find({ age: { $gte: 30 } })).length, 2);
+    assert.equal((await users.find({ age: { $lt: 30 } })).length, 1);
+    assert.equal((await users.find({ age: { $gte: 20, $lte: 30 } })).length, 2);
+    assert.equal((await users.find({ age: { $in: [20, 40] } })).length, 2);
+    assert.equal((await users.find({ age: { $nin: [20, 40] } })).length, 1);
+    assert.equal((await users.find({ age: { $ne: 30 } })).length, 2);
+    assert.equal((await users.find({ email: { $like: "u2%" } })).length, 1);
   });
 });

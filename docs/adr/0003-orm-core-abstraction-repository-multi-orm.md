@@ -193,6 +193,48 @@ logiques** que le banc Sequelize. **6 tests verts.** Le contrat enrichi est
 pour multiplier les drivers (P7.x). Le **risque #3** (opérateurs riches typés)
 reste le seul à trancher, au branchement **Drizzle (P7.4)**.
 
+### Risque #3 RÉSOLU — 3ᵉ adapter type-safe-first Drizzle (P7.4, 2026-05-21)
+
+`DrizzleOrm` (`@nodefony/drizzle/nodefony/src/orm-core/`, driver `better-sqlite3`)
+validé sur les **mêmes entités logiques** que les 2 autres bancs. **8 tests verts**
+(CRUD, relation, eager-load, opérateurs riches, trappe native, tx commit/rollback).
+
+**Forme tranchée du critère riche** (le dernier risque ADR-0003) : objet
+d'opérateurs **`$`-préfixés façon MongoDB**, typés par champ via
+`FieldOperators<V>` + `Criteria<T> = { [K in keyof T]?: FieldCriteria<T[K]> } & OrmCriteria`.
+
+- **Pourquoi cette forme** : (1) familière (convention Mongo) ; (2) mappable par
+  les **3** drivers — Mongoose en quasi-identité (`$gt`/`$in` natifs), Sequelize via
+  `Op.*`, Drizzle via `gt()`/`inArray()`/`like()` ; (3) le sous-ensemble figé
+  (`$eq $ne $gt $gte $lt $lte $in $nin $like`, helper `OPERATOR_KEYS`) = intersection
+  portable des 3 ORM. Plusieurs opérateurs sur un champ = `AND`.
+- **Détection centralisée** : `isFieldOperators(value)` (lib pure orm-core) — une
+  valeur n'est un filtre riche que si **toutes** ses clés sont des opérateurs (sinon
+  = égalité, ex. colonne JSON). Source de vérité unique partagée par les 3 adapters.
+- **Rétro-appliqué** aux 2 adapters existants (Sequelize + Mongoose) → **mêmes
+  assertions** d'opérateurs vertes sur les 3 (`tests/integration/orm-core-*.test.ts`).
+- **Nuance portée par l'adapter** : `$like` est **sémantique SQL** (`%`/`_`) ;
+  natif pour Sequelize/Drizzle, **converti en RegExp ancrée** côté Mongoose
+  (`sqlLikeToRegex`). Le critère métier reste identique.
+
+**Divergences Drizzle absorbées par l'adapter (findings) :**
+
+- **Schema-as-code** : `entity.schema` *est* déjà une table Drizzle (pas de
+  `define()`/compilation). L'adapter dérive le DDL via `getTableConfig()` pour le
+  dev/test (la prod = `drizzle-kit`).
+- **Eager-load manuel** : pas de couche `relations()` imposée → 1 requête `IN (...)`
+  par relation déclarée + regroupement mémoire (`options.relations`, API identique).
+- **Transaction manuelle** `BEGIN`/`COMMIT`/`ROLLBACK` : `better-sqlite3` est
+  **synchrone**, son helper committe au `return` *avant* les `await` du contrat
+  async ; la connexion étant unique, encadrer le travail garantit l'atomicité.
+  `withTransaction(tx)` réutilise le **même** db (connexion unique).
+
+**Conclusion P7.4 :** abstraction validée sur **3 ORM hétérogènes** (SQL classique,
+SQL type-safe-first, documentaire). Les **4 risques ADR-0003 sont traités** (#1
+eager-load portable + trappe native, #2 swap-d'ORM assumé, #3 opérateurs riches
+typés, #4 repo tx-aware). ADR clôturé côté design ; reste l'industrialisation
+(migration des drivers **de prod** sur orm-core : P7.1 Sequelize, P7.2 Mongoose).
+
 ## Liens
 
 - ADR-0002 (schéma banc de test mediasoup) — fournit le cas dur (User↔Room).

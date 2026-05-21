@@ -82,7 +82,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **P4** — Tests symbiose http↔fw                  | 6       | 2      | 3     | 1      |
 | **P5** — Session + User + ORM Core               | 16      | 0      | 0     | 16     |
 | **P6** — Security (refonte — legacy TS en place) | 13      | 0      | 0     | 13     |
-| **P7** — ORM Drivers                             | 9       | 0      | 3     | 6      |
+| **P7** — ORM Drivers                             | 9       | 2      | 3     | 4      |
 | **P8** — CLI + Monitoring                        | 4       | 1      | 1     | 2      |
 | **P9** — Polish + clôture                        | 4       | 0      | 0     | 4      |
 | **P10** — Studio (admin web)                     | 12      | 4      | 3     | 5      |
@@ -92,7 +92,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **P14** — Frontend Vite + Core isomorphe         | 14      | 6      | 3     | 5      |
 | **P15** — Mediasoup + SIP/Asterisk               | 8       | 0      | 0     | 8      |
 | **P16** — Cloud-Native (7 axes)                  | 26      | 0      | 0     | 26     |
-| **TOTAL**                                        | **164** | **35** | **20**| **109**|
+| **TOTAL**                                        | **164** | **37** | **20**| **107**|
 
 > Build System (10/10 ✅), Core/Kernel, DI, Syslog, Router, Controller, Types — fondations **déjà migrées** en amont de la roadmap P0 (ère Phases 0–4, cf sections narratives « ## Phase X » plus bas). Le comptage ci-dessus couvre la **dette + features priorisées** (P0→P16).
 
@@ -227,12 +227,12 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 | #     | Tâche                                                                        | Effort  | Dépendances | Notes                                                  |
 | ----- | ---------------------------------------------------------------------------- | ------- | ----------- | ------------------------------------------------------ |
-| 🔶 P7.1  | 🪦 `@nodefony/sequelize` — legacy maintenance uniquement (v6 figé, **pas nouveaux dev**) | 2 ses.  | P5.4        | 🔶 2026-05-21 : **adapter orm-core LIVRÉ** (`nodefony/src/orm-core/`, 7 tests) à côté du legacy `service/orm.ts`. **Reste P7.1** = refondre le legacy de prod (SessionStorage, ancien Orm du core) sur orm-core. ⚠️ `project_decisions_p5_p6_orm.md` |
-| 🔶 P7.2  | `@nodefony/mongoose` — adapter orm-core + legacy                             | 1 ses.  | P5.4        | 🔶 2026-05-21 : **adapter orm-core LIVRÉ** (`nodefony/src/orm-core/`, 6 tests, replica set mémoire) à côté du legacy. **Reste P7.2** = refondre le legacy de prod sur orm-core |
+| 🔶 P7.1  | 🪦 `@nodefony/sequelize` — legacy maintenance uniquement (v6 figé, **pas nouveaux dev**) | 2 ses.  | P5.4        | 🔶 2026-05-21 : **adapter orm-core LIVRÉ** (`nodefony/src/orm-core/`, 8 tests dont opérateurs riches) à côté du legacy `service/orm.ts`. **Reste P7.1** = refondre le legacy de prod (SessionStorage, ancien Orm du core) sur orm-core. ⚠️ `project_decisions_p5_p6_orm.md` |
+| 🔶 P7.2  | `@nodefony/mongoose` — adapter orm-core + legacy                             | 1 ses.  | P5.4        | 🔶 2026-05-21 : **adapter orm-core LIVRÉ** (`nodefony/src/orm-core/`, 7 tests dont opérateurs riches `$like`→`$regex`, replica set mémoire) à côté du legacy. **Reste P7.2** = refondre le legacy de prod sur orm-core |
 | P7.3  | Tests intégration Sequelize (SQLite memory)                                  | 1 ses.  | P7.1        | Filet de sécurité legacy                               |
-| P7.4  | ⭐ **`@nodefony/drizzle` (NEW)** — `Orm` + connector + schema TS-first       | 3 ses.  | P5.4        | **Choix #1 SQL moderne 2026** — type-safe natif, SQL brut via tag `sql`` `` |
-| P7.5  | Tests intégration Mongoose (mongodb-memory-server)                           | 1 ses.  | P7.2        |                                                        |
-| P7.6  | Tests intégration Drizzle (SQLite/Postgres)                                  | 1 ses.  | P7.4        |                                                        |
+| ✅ P7.4  | ⭐ **`@nodefony/drizzle` (NEW)** — `Orm` + connector + schema TS-first       | 3 ses.  | P5.4        | ✅ 2026-05-21 — adapter orm-core (`DrizzleOrm`/`DrizzleRepository`/`DrizzleTransaction`, driver `better-sqlite3`). **8 tests verts**. **ADR-0003 risque #3 RÉSOLU** : opérateurs `$`-préfixés typés (`FieldOperators`/`isFieldOperators` dans orm-core) **rétro-appliqués** à Sequelize+Mongoose (mêmes assertions vertes sur les 3). Schema-as-code (DDL via `getTableConfig`), eager-load manuel, tx manuelle (better-sqlite3 sync). Reste P7.x = migrer les drivers **de prod** sur orm-core |
+| P7.5  | Tests intégration Mongoose (mongodb-memory-server)                           | 1 ses.  | P7.2        | 🔶 couvert par le banc orm-core Mongoose (7 tests, replset mémoire) ; reste tests du driver de prod |
+| ✅ P7.6  | Tests intégration Drizzle (SQLite/Postgres)                                  | 1 ses.  | P7.4        | ✅ 2026-05-21 — couvert par le banc `tests/integration/orm-core-drizzle.test.ts` (8 tests, sqlite `:memory:`) |
 | 🔶 P7.7  | `@nodefony/redis` refactor (cache + session storage)                         | 1 ses.  | P5.12       | 🔶 vérif audit : module présent (5 fichiers TS). Adapter à orm-core lifecycle si pertinent |
 | P7.8  | 🆕 **`@nodefony/mikroorm` (NEW)** — Data Mapper + Unit of Work + Identity Map | 3 ses. | P5.4        | 4ème ORM ajouté 2026-05-16 — apps complexes (Doctrine-like). Trappe SQL brut via `em.getConnection().execute()` |
 | P7.9  | Tests intégration MikroORM (SQLite/Postgres)                                 | 1 ses.  | P7.8        |                                                        |
