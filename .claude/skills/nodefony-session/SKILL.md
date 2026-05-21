@@ -3,8 +3,9 @@ name: nodefony-session
 description: >
   Cycle de vie d'une session Claude Code sur Nodefony — reprise, ouverture, clôture en un seul skill.
   Mode RESUME : reprendre après un /clear — restitue la DERNIÈRE session (décisions + prochaine
-  étape) depuis la mémoire IA project_session_<date>_state.md + la phase active. À déclencher dès
-  qu'on ne sait plus où on en était. Mode START : prépare le contexte d'un MODULE prêt à coder
+  étape) depuis la mémoire IA project_session_<date>_state.md, + un mini-état migration (barres de
+  progression via le skill nodefony-migration-audit) si on est dans une phase, + le contexte module
+  (mode START) si la suite cible un module. À déclencher dès qu'on ne sait plus où on en était. Mode START : prépare le contexte d'un MODULE prêt à coder
   (phase MIGRATION_STATUS, CLAUDE.md + MEMORY.md du module, fraîcheur dist, symboles, git).
   Mode END : retour d'expérience (RETEX) du transcript JSONL ET écrit la mémoire de reprise
   project_session_<date>_state.md (décisions + prochaine étape) ; sauve aussi docs/session-retros/.
@@ -61,16 +62,27 @@ grep -n "🎯\|## P[0-9]" MIGRATION_STATUS.md | head -10
 echo "Branche : $(git branch --show-current) — non commités : $(git status --short | wc -l | tr -d ' ')"
 ```
 
-## 3. Restituer (≤ 25 lignes)
+## 3. Mini-état migration (SI la prochaine étape cible une phase P<n>)
+
+Composer avec le skill **`nodefony-migration-audit`, mode `tableau` / variante A uniquement** :
+barres ASCII de progression par phase (tri % décroissant) + l'encadré **PROCHAINE ÉTAPE**
+(première phase non finie du chemin critique). Compact — **PAS** l'audit interactif code-par-code.
+
+> Audit réel vérifié dans le code : `/migration-audit` ou dire « audit migration ».
+> Si la prochaine étape ne touche aucune phase (chore, fix, doc, skill) → **sauter** ce mini-état.
+
+## 4. Restituer (≤ 30 lignes)
 
 1. **Dernière session** : date + focus
 2. **Décisions prises** (extraites du `_state.md`)
 3. **➡️ Prochaine étape** : la ligne « Priorité 1 » du Reste (en gras, c'est LE point)
-4. **Branche git** + non commités (alerte si dist périmé probable)
-5. **Question** : « On reprend ça, ou autre chose ? »
+4. **Mini-état migration** (barres + encadré, via `nodefony-migration-audit`) — si phase concernée
+5. **Branche git** + non commités (alerte si dist périmé probable)
+6. **Question** : « On reprend ça, ou autre chose ? »
 
 > Aucun `_state.md` trouvé → fallback : dernier retex `docs/session-retros/` + phase active.
-> Puis suggérer un `start <module>` si la prochaine étape cible un module précis.
+> Si la prochaine étape cible un module précis → enchaîner sur le **mode START** (`start <module>`)
+> pour charger son contexte (CLAUDE.md/MEMORY.md, dist, symboles). RESUME compose avec START.
 
 ---
 
