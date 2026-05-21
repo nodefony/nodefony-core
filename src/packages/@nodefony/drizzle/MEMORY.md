@@ -26,6 +26,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 ## Behaviors
 
+- **Profiler tap `#prof(builder)` (2026-05-22)** : chaque exécution (find/create/update/delete/count + eager-load) passe par `#prof`. Si `RequestContext.get()?.queries` existe (dev), mesure `performance.now()` + pousse `{sql,durationMs,rows,connector:"drizzle"}`. **Lecture ALS directe** (pas de closure par-requête à la Sequelize) : better-sqlite3 est **synchrone**, sans pool → l'ALS reste valide pendant `await builder`. Buffer lu **avant toute alloc** → coût nul en prod (1 lecture ALS). **Sécu** : `builder.toSQL().sql` = SQL **paramétré** (`?`, jamais les valeurs) → credentials hors texte par construction ; `redactSecrets` en plus (défense, idempotent). ⚠️ les finders natifs `sql\`…\`` (`findBySocialProvider`) NE passent PAS par `#prof` (raw `db.all`).
 - Opérateurs riches: `FieldOperators` (orm-core) `$eq $ne $gt $gte $lt $lte $in $nin $like`. `isFieldOperators()` détecte. `$like`=SQL natif.
 - DDL dérivé: `col.name/getSQLType()/primary/notNull/isUnique`. CREATE TABLE IF NOT EXISTS.
 - Relations: one-to-many FK=`<source>Id` sur target; many/one-to-one FK=`<target>Id` sur source. localKey/targetKey='id'.

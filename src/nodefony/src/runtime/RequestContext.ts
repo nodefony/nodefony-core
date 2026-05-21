@@ -41,6 +41,11 @@ export interface RequestContextPayload {
    * le `HttpKernel` l'alloue (profiler actif). Son absence = signal « ne pas
    * profiler » : les adapters ORM gardent un coût nul en prod. Même référence
    * que `context.profilerQueries`, lue par `Profiler.collect()` au teardown.
+   *
+   * ⚠️ Contrat sécurité : un adapter qui pousse ici DOIT redacter le `sql`
+   * via {@link redactSecrets} AVANT le push (le SQL interpolé peut contenir un
+   * credential). Le SQL paramétré (placeholders `?`, ex. Drizzle) est déjà
+   * credential-free ; le SQL interpolé (ex. Sequelize `logging`) ne l'est pas.
    */
   queries?: IProfilerQuery[];
   [key: string]: unknown;

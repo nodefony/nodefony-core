@@ -7,7 +7,7 @@ import type {
   Transaction,
   WhereOptions,
 } from "sequelize";
-import { RequestContext } from "nodefony";
+import { RequestContext, redactSecrets } from "nodefony";
 import type { IProfilerQuery } from "nodefony";
 import { isFieldOperators } from "@nodefony/orm-core";
 import type {
@@ -131,8 +131,14 @@ export class SequelizeRepository<T = unknown> implements IRepository<T> {
       ...(base as object),
       benchmark: true,
       logging: (sql: string, timing?: number): void => {
+        // Sequelize `logging` fournit le SQL **interpolé** (valeurs inline) →
+        // un INSERT/UPDATE User y mettrait le hash du mot de passe. Redaction
+        // AVANT troncature (le `***` raccourcit, donc l'ordre est correct) —
+        // défense en profondeur, le profiler reste dev-only mais ne doit jamais
+        // exposer un credential au browser/debug bar.
+        const safe = redactSecrets(sql);
         buf.push({
-          sql: sql.length > 2000 ? `${sql.slice(0, 2000)}…` : sql,
+          sql: safe.length > 2000 ? `${safe.slice(0, 2000)}…` : safe,
           durationMs: typeof timing === "number" ? timing : 0,
           connector: "sequelize",
         } satisfies IProfilerQuery);

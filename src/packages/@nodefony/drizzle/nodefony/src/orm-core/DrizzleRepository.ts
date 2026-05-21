@@ -16,6 +16,7 @@ import {
 import type { SQL } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
+import { RequestContext, redactSecrets } from "nodefony";
 import { isFieldOperators } from "@nodefony/orm-core";
 import type {
   Criteria,
@@ -30,6 +31,9 @@ export type DrizzleDb = BetterSQLite3Database<Record<string, never>>;
 
 /** Vue colonnes d'une table Drizzle (accès par nom logique). */
 type TableColumns = Record<string, SQLiteColumn>;
+
+/** Builder Drizzle exécutable ET introspectable (`toSQL()`) — cible du tap profiler. */
+type ProfiledQuery<R> = PromiseLike<R> & { toSQL: () => { sql: string } };
 
 /**
  * Relation résolue au boot de l'ORM, prête pour l'eager-load manuel (sans la
@@ -88,6 +92,44 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   /** Colonne Drizzle d'une table par nom logique. */
   #col(table: SQLiteTable, name: string): SQLiteColumn {
     return (table as unknown as TableColumns)[name];
+  }
+
+  /**
+   * Tap profiler dev-only : exécute le builder en mesurant la durée et pousse
+   * la requête dans le buffer du scope courant (ALS).
+   *
+   * POURQUOI lecture directe de l'ALS (≠ tap par-requête de Sequelize) :
+   * `better-sqlite3` est **synchrone**, sans pool → pas de contexte async
+   * détaché, l'ALS reste valide pendant `await builder`. Le buffer est lu
+   * **avant toute allocation** → coût nul en prod (buffer absent = return direct).
+   *
+   * Sécurité : `toSQL()` renvoie le SQL **paramétré** (placeholders `?`, jamais
+   * les valeurs) → les credentials (hash) restent hors du texte. `redactSecrets`
+   * en plus (défense en profondeur, idempotent).
+   *
+   * @param builder - requête Drizzle (thenable + `toSQL()`).
+   * @returns le résultat de la requête.
+   */
+  async #prof<R>(builder: ProfiledQuery<R>): Promise<R> {
+    const buf = RequestContext.get()?.queries;
+    if (!buf) {
+      return builder;
+    }
+    const start = performance.now();
+    const result = await builder;
+    let sql: string;
+    try {
+      sql = builder.toSQL().sql;
+    } catch {
+      sql = "<drizzle query>";
+    }
+    buf.push({
+      sql: redactSecrets(sql.length > 2000 ? `${sql.slice(0, 2000)}…` : sql),
+      durationMs: performance.now() - start,
+      rows: Array.isArray(result) ? result.length : undefined,
+      connector: "drizzle",
+    });
+    return result;
   }
 
   /** Empile les conditions d'un objet d'opérateurs riches sur une colonne. */
@@ -158,7 +200,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (options?.offset !== undefined) {
       query = query.offset(options.offset);
     }
-    return (await query) as Record<string, unknown>[];
+    return (await this.#prof(
+      query as unknown as ProfiledQuery<Record<string, unknown>[]>,
+    )) as Record<string, unknown>[];
   }
 
   /** Eager-load manuel des relations déclarées (1 requête `IN (...)` par relation). */
@@ -179,10 +223,14 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       if (rel.type === "one-to-many") {
         const parentIds = rows.map((row) => row[rel.localKey]);
         const fkCol = this.#col(rel.targetTable, rel.foreignKey);
-        const children = (await this.#db
-          .select()
-          .from(rel.targetTable)
-          .where(inArray(fkCol, parentIds))) as Record<string, unknown>[];
+        const children = (await this.#prof(
+          this.#db
+            .select()
+            .from(rel.targetTable)
+            .where(inArray(fkCol, parentIds)) as unknown as ProfiledQuery<
+            Record<string, unknown>[]
+          >,
+        )) as Record<string, unknown>[];
         const byParent = new Map<unknown, Record<string, unknown>[]>();
         for (const child of children) {
           const key = child[rel.foreignKey];
@@ -204,10 +252,14 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         const idCol = this.#col(rel.targetTable, rel.targetKey);
         const parents =
           fkValues.length > 0
-            ? ((await this.#db
-                .select()
-                .from(rel.targetTable)
-                .where(inArray(idCol, fkValues))) as Record<string, unknown>[])
+            ? ((await this.#prof(
+                this.#db
+                  .select()
+                  .from(rel.targetTable)
+                  .where(inArray(idCol, fkValues)) as unknown as ProfiledQuery<
+                  Record<string, unknown>[]
+                >,
+              )) as Record<string, unknown>[])
             : [];
         const byId = new Map(parents.map((p) => [p[rel.targetKey], p]));
         for (const row of rows) {
@@ -237,10 +289,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   }
 
   async create(data: Partial<T>): Promise<T> {
-    const rows = (await this.#db
-      .insert(this.#table)
-      .values(data as Record<string, unknown>)
-      .returning()) as Record<string, unknown>[];
+    const rows = (await this.#prof(
+      this.#db
+        .insert(this.#table)
+        .values(data as Record<string, unknown>)
+        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
+    )) as Record<string, unknown>[];
     return rows[0] as T;
   }
 
@@ -249,16 +303,20 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     const builder = this.#db
       .update(this.#table)
       .set(data as Record<string, unknown>);
-    await (where ? builder.where(where) : builder);
+    await this.#prof(
+      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<unknown>,
+    );
     return this.findOne(criteria);
   }
 
   async delete(criteria: Criteria<T>): Promise<number> {
     const where = this.#where(criteria);
     const builder = this.#db.delete(this.#table);
-    const result = (await (where ? builder.where(where) : builder)) as {
-      changes?: number;
-    };
+    const result = (await this.#prof(
+      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<{
+        changes?: number;
+      }>,
+    )) as { changes?: number };
     return result.changes ?? 0;
   }
 
@@ -268,9 +326,11 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       .select({ value: count() })
       .from(this.#table)
       .$dynamic();
-    const rows = (await (where ? builder.where(where) : builder)) as Array<{
-      value: number;
-    }>;
+    const rows = (await this.#prof(
+      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<
+        Array<{ value: number }>
+      >,
+    )) as Array<{ value: number }>;
     return Number(rows[0]?.value ?? 0);
   }
 
