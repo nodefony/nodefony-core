@@ -186,11 +186,16 @@ const extend = (...args: any[]): any => {
  * typeOf(null);            // null
  * ```
  */
+// `Buffer` n'existe pas en navigateur (Core isomorphe) — accès via globalThis
+// pour compiler sous tsconfigClient `types: []`. undefined côté browser → skip.
+const _gBuffer = (globalThis as { Buffer?: { isBuffer(v: unknown): boolean } })
+  .Buffer;
+
 const typeOf = (value: any): string | null => {
   const t = typeof value;
   if (t === "object") {
     if (value === null) return null;
-    if (Buffer.isBuffer(value)) return "buffer";
+    if (_gBuffer?.isBuffer(value)) return "buffer";
     if (isArray(value)) return "array";
     if (value instanceof Date) return "date";
     if (isRegExp(value)) return "RegExp";

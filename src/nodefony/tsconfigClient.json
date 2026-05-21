@@ -26,6 +26,12 @@
     "noImplicitOverride": true,
     "noUnusedLocals": true,
     "esModuleInterop": true,
-    "useUnknownInCatchVariables": false
+    "useUnknownInCatchVariables": false,
+    "types": [],
+    "paths": {
+      "node:util": ["./src/client/shim/util.ts"],
+      "node:events": ["./src/client/shim/events.ts"],
+      "cli-color": ["./src/client/shim/cli-color.ts"]
+    }
   }
 }

@@ -14,6 +14,30 @@ const cyan = clc ? clc.cyan.bold : (ele: string) => ele;
 const blue = clc ? clc.blueBright.bold : (ele: string) => ele;
 const green = clc ? clc.green : (ele: string) => ele;
 
+// ── Sink stdout/stderr isomorphe ────────────────────────────────────────────
+// Node : écrit direct sur process.stdout/stderr (perf, pas d'overhead console).
+// Navigateur (Core isomorphe — pas de process.stdout) : retombe sur console.*
+// avec ANSI strippé. Accès via `globalThis` (pas `process`) pour compiler sous
+// tsconfigClient `types: []`. `_proc` résolu 1× au load → coût/log négligeable.
+interface ProcStream {
+  write(s: string): void;
+}
+const _proc = (
+  globalThis as {
+    process?: { stdout?: ProcStream; stderr?: ProcStream };
+  }
+).process;
+// eslint-disable-next-line no-control-regex
+const _stripAnsi = (s: string): string => s.replace(/\x1b\[[0-9;]*m/g, "");
+const writeOut = (s: string): void => {
+  if (_proc?.stdout) _proc.stdout.write(s);
+  else console.log(_stripAnsi(s).replace(/\n$/, ""));
+};
+const writeErr = (s: string): void => {
+  if (_proc?.stderr) _proc.stderr.write(s);
+  else console.error(_stripAnsi(s).replace(/\n$/, ""));
+};
+
 type Operator = "<" | ">" | "<=" | ">=" | "==" | "===" | "!=" | "RegExp";
 type Condition = "&&" | "||";
 
@@ -891,9 +915,9 @@ class Syslog extends Event implements ISyslog {
     }
     const message = pdu.payload;
     if (pdu.severity === -1) {
-      process.stdout.write("[0G");
-      process.stdout.write(`${green(pdu.msgid)} : ${String(message)}`);
-      process.stdout.write("[90m[0m");
+      writeOut("[0G");
+      writeOut(`${green(pdu.msgid)} : ${String(message)}`);
+      writeOut("[90m[0m");
       return pdu;
     }
     const wrap = Syslog.wrapper(pdu);
@@ -908,12 +932,12 @@ class Syslog extends Event implements ISyslog {
   static rawLog(pdu: Pdu, pid: string = ""): Pdu {
     if (pdu.payload === "" || pdu.payload === undefined) return pdu;
     if (pdu.severity === -1) {
-      process.stdout.write(
+      writeOut(
         `\r${green(pdu.msgid)} : ${String(pdu.payload)}\x1b[90m\x1b[0m`,
       );
       return pdu;
     }
-    const stream = pdu.severity <= 3 ? process.stderr : process.stdout;
+    const write = pdu.severity <= 3 ? writeErr : writeOut;
     const { text } = Syslog.wrapper(pdu);
     const msg =
       typeof pdu.payload === "string" || typeof pdu.payload === "number"
@@ -925,7 +949,7 @@ class Syslog extends Event implements ISyslog {
           });
     // Préfixe pid seulement si fourni — voir commentaire normalizeLog.
     const prefix = pid ? `${pid} ` : "";
-    stream.write(`${prefix}${text}${msg}\n`);
+    write(`${prefix}${text}${msg}\n`);
     return pdu;
   }
 

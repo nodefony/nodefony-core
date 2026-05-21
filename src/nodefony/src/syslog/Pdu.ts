@@ -85,6 +85,11 @@ const severityNameMap = new Map<number, keyof typeof SysLogSeverity>(
   ).map(([k, v]) => [v, k as keyof typeof SysLogSeverity]),
 );
 
+// `Buffer` n'existe pas en navigateur (Core isomorphe) — accès via globalThis
+// pour compiler sous tsconfigClient `types: []`. undefined côté browser → skip.
+const _gBuffer = (globalThis as { Buffer?: { isBuffer(v: unknown): boolean } })
+  .Buffer;
+
 // Fast inline typeof for PDU payload — avoids lodash overhead on hot log path
 const fastTypeOf = (value: unknown): string | null => {
   if (value === null) return null;
@@ -94,7 +99,7 @@ const fastTypeOf = (value: unknown): string | null => {
   if (value instanceof Date) return "date";
   if (value instanceof RegExp) return "RegExp";
   if (value instanceof Error) return "Error";
-  if (Buffer.isBuffer(value)) return "buffer";
+  if (_gBuffer?.isBuffer(value)) return "buffer";
   return "object";
 };
 
