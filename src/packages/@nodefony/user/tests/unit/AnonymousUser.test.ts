@@ -1,6 +1,5 @@
 /// <reference types="node" />
 import assert from "node:assert";
-import { describe, it } from "mocha";
 import {
   AnonymousUser,
   anonymousUser,

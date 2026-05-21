@@ -29,8 +29,8 @@
     "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
-    "test": "mocha",
-    "coverage": "mcr -c mcr.config.js npm run test",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "lint": "tsc --noEmit"
   },
   "keywords": ["nodefony", "typescript"],
@@ -39,17 +39,14 @@
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",
     "@rollup/plugin-typescript": "12.3.0",
-    "@types/mocha": "10.0.10",
     "@types/node": "25.8.0",
-    "chai": "6.2.2",
-    "mocha": "11.7.5",
-    "monocart-coverage-reports": "2.12.11",
+    "@vitest/coverage-v8": "4.1.7",
     "rimraf": "6.1.3",
     "rollup": "4.60.4",
     "rollup-sourcemap-path-transform": "1.2.0",
-    "ts-node": "10.9.2",
     "tslib": "2.8.1",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.7"
   },
   "private": true,
   "license": "CECILL-B"
@@ -74,7 +71,7 @@
 
 Tout module utilise **`vitest` + `@vitest/coverage-v8`** (ESM-natif ; **jamais c8** KO ESM/Node, et **pas monocart+mocha+tsx** qui casse dès qu'un test importe un dist Rollup — `mcr --require` bascule en CJS, cf [[feedback_coverage_modules]]). Studio lit `.coverage/coverage-summary.json` (onglet Coverage).
 
-Les tests **mocha+chai existants tournent sans réécriture** grâce à `globals` + un shim `import "mocha"` + le setup. devDeps : `vitest` + `@vitest/coverage-v8`. Scripts :
+devDeps (déjà dans le `package.json` ci-dessus) : `vitest` + `@vitest/coverage-v8`. Scripts :
 ```jsonc
 "test": "vitest run",
 "coverage": "vitest run --coverage",
@@ -82,45 +79,31 @@ Les tests **mocha+chai existants tournent sans réécriture** grâce à `globals
 "test:integration": "TS_NODE_PROJECT=tsconfig.tests.json mocha --config .mocharc.integration.json"
 ```
 
-`vitest.config.ts` (remplacer `<module>` n'est pas nécessaire — chemins relatifs) :
+**Tests fraîchement scaffoldés** = `node:assert` + `describe`/`it` en **globals** (aucun import mocha) → la config MINIMALE ci-dessous suffit (réf. réelles : `@nodefony/orm-core`, `@nodefony/user`) :
 ```ts
 import { defineConfig } from "vitest/config";
-import { fileURLToPath } from "node:url";
-const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   test: {
     globals: true,
-    include: ["nodefony/tests/unit/**/*.test.ts"],
-    setupFiles: [r("./nodefony/tests/vitest.setup.ts")],
+    include: ["tests/unit/**/*.test.ts"], // ou "nodefony/tests/unit/**" selon l'emplacement
     coverage: {
       provider: "v8",
-      include: ["nodefony/**/*.ts"],
-      exclude: ["nodefony/tests/**", "**/dist/**", "**/*.d.ts"],
-      reporter: ["text-summary", "json-summary", "lcov"],
+      include: ["index.ts", "nodefony/**/*.ts"],
+      // interfaces/contracts = type-only (effacés à la compil) → hors métrique
+      exclude: ["nodefony/interfaces/**", "nodefony/contracts/**", "**/*.d.ts", "**/dist/**"],
+      reporter: ["text", "text-summary", "json-summary", "lcov"],
       reportsDirectory: ".coverage",
-    },
-  },
-  resolve: {
-    alias: {
-      mocha: r("./nodefony/tests/vitest-mocha-shim.mjs"),
-      // si le module (ou ses deps) importe l'ORM hors kernel :
-      "@nodefony/sequelize": r("./nodefony/tests/stubs/sequelize.ts"),
-      "@nodefony/mongoose": r("./nodefony/tests/stubs/mongoose.ts"),
     },
   },
 });
 ```
-`nodefony/tests/vitest.setup.ts` :
-```ts
-import "reflect-metadata";
-import { beforeAll, afterAll } from "vitest";
-const g = globalThis as Record<string, unknown>;
-g.before ??= beforeAll;  // compat mocha (vitest n'a que beforeAll/afterAll)
-g.after ??= afterAll;
-```
-`nodefony/tests/vitest-mocha-shim.mjs` : `export {};` (neutralise `import "mocha"`).
 
-> `.coverage/` est gitignored. Le core garde monocart (source pur, marche) ; Studio lit son `lcov.info` (readCoverage gère summary OU lcov).
+**Ajouts CONDITIONNELS** (ne PAS mettre par défaut — réservés au portage de modules type framework/http) :
+- **décorateurs** (DI reflect) → `setupFiles: [r("./.../vitest.setup.ts")]` avec `import "reflect-metadata"` (+ `g.before ??= beforeAll` pour compat mocha). _orm-core n'en a PAS besoin (décorateurs WeakMap, sans reflect)._
+- **tests mocha existants** `import "mocha"` → `resolve.alias.mocha = r("./.../vitest-mocha-shim.mjs")` (`export {};`).
+- **import d'un ORM hors kernel** qui crashe → `resolve.alias["@nodefony/sequelize"|"mongoose"]` vers des stubs.
+
+> **JAMAIS c8** (KO ESM/Node) ni **monocart+mocha+tsx** (`mcr --require` → CJS, sous-mappe le TS, lignes faussées — cf [[feedback_coverage_modules]]). vitest mappe le source TS proprement. `.coverage/` est gitignored ; Studio lit `.coverage/coverage-summary.json` OU `lcov.info`. Seul le **core** (`src/nodefony`) reste sur monocart (source pur sans dist importé).
 
 ### `tsconfig.json`
 

@@ -18,7 +18,9 @@
     "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
-    "test": "mocha --config .mocharc.json"
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "test:load": "tsx tests/load/bcrypt-throughput.ts"
   },
   "private": false,
   "keywords": [
@@ -40,6 +42,8 @@
   },
   "devDependencies": {
     "@node-rs/bcrypt": "^1.10.0",
+    "@vitest/coverage-v8": "4.1.7",
+    "vitest": "4.1.7",
     "@rollup/plugin-commonjs": "29.0.2",
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",

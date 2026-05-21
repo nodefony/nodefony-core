@@ -18,7 +18,8 @@
     "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
-    "test": "node -e \"console.log('test')\""
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
   },
   "private": false,
   "keywords": [
@@ -31,6 +32,8 @@
     "nodefony": "*"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "4.1.7",
+    "vitest": "4.1.7",
     "@rollup/plugin-commonjs": "29.0.2",
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",
