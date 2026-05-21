@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-20T23:42:33.493Z",
+  "generated": "2026-05-21T00:06:30.485Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 250,
-    "symbols": 592,
-    "classes": 184,
+    "files": 254,
+    "symbols": 595,
+    "classes": 187,
     "interfaces": 200,
     "types": 128,
     "enums": 1,
@@ -4327,6 +4327,43 @@
       "exported": true,
       "module": "@nodefony/security"
     },
+    "SequelizeOrm": {
+      "name": "SequelizeOrm",
+      "kind": "class",
+      "file": "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize",
+      "extends": "Orm",
+      "implements": [],
+      "decorators": [],
+      "description": "Adapter Sequelize **branché sur `@nodefony/orm-core`** (P5.4). Implémentation propre et minimale du contrat {@link Orm}/`IOrm`, **distincte** du service legacy `nodefony/service/orm.ts` (qui étend …"
+    },
+    "SequelizeRepository": {
+      "name": "SequelizeRepository",
+      "kind": "class",
+      "file": "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize",
+      "extends": null,
+      "implements": [
+        "IRepository"
+      ],
+      "decorators": [],
+      "description": "Repository portable (contrat {@link IRepository}) au-dessus d'un modèle Sequelize compilé. Traduit le CRUD abstrait en appels Sequelize et **renvoie des objets plats** (`get({ plain: true })`) — ja…"
+    },
+    "SequelizeTransaction": {
+      "name": "SequelizeTransaction",
+      "kind": "class",
+      "file": "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize",
+      "extends": null,
+      "implements": [
+        "ITransaction"
+      ],
+      "decorators": [],
+      "description": "Adapte une transaction Sequelize au contrat portable {@link ITransaction}. Obtenue dans le callback de `SequelizeOrm.transaction()`, qui gère le commit/rollback automatique (commit si la closure ré…"
+    },
     "HttpContext": {
       "name": "HttpContext",
       "kind": "class",
@@ -4694,7 +4731,8 @@
       ],
       "Orm": [
         "Mongoose",
-        "Sequelize"
+        "Sequelize",
+        "SequelizeOrm"
       ],
       "RagError": [
         "RagInvalidInputError",
@@ -4823,6 +4861,12 @@
       ],
       "ICookieInterface": [
         "Cookie"
+      ],
+      "IRepository": [
+        "SequelizeRepository"
+      ],
+      "ITransaction": [
+        "SequelizeTransaction"
       ],
       "IHttpContextInterface": [
         "HttpContext"
@@ -5927,7 +5971,8 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
       "CommandArgs": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -6506,16 +6551,21 @@
       ],
       "IRepository": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
       "ITransaction": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts"
       ],
       "IEntity": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
       "IEntityRelation": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
@@ -6524,7 +6574,8 @@
       ],
       "entityRegistry": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
       "IOrm": [
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
@@ -6630,7 +6681,9 @@
       ],
       "Sequelize": [
         "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts"
       ],
       "createSyslogBridge": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
@@ -6770,6 +6823,15 @@
       ],
       "setRepositoryMeta": [
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/repositoryDecorator.ts"
+      ],
+      "SequelizeRepository": [
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+      ],
+      "SequelizeTransaction": [
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+      ],
+      "OrmCriteria": [
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
       "Cookies": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"

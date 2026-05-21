@@ -112,6 +112,42 @@ driver Drizzle sera branché, sur un type d'entité concret.
   User↔Room** ; on documente la part native nécessaire ; si elle est trop grande,
   `IRepository` évolue avant la multiplication des drivers.
 
+## Verdict P5.4 (2026-05-21)
+
+Premier adapter réel branché : `SequelizeOrm` (`@nodefony/sequelize/nodefony/src/orm-core/`,
+distinct du service legacy), validé sur **sqlite `::memory:`** avec les entités
+ADR-0002 (User *one-to-many* Room, UUID-first). **6 tests d'intégration verts.**
+
+**Prouvé (chaîne P5.1→P5.4 de bout en bout) :**
+
+- `@entity` (descripteur) → l'adapter **compile les modèles** depuis `entity.schema`
+  + câble les associations → `getRepository(name)` sert un repository portable ;
+- `Orm` s'auto-enregistre dans `ormRegistry`, template `connect()` émet `onOrmReady` ;
+- **CRUD portable OK** : `create/findOne/find/count/update/delete` (UUID auto) ;
+- relation one-to-many : lecture portable par critère simple (`find({ userId })`) OK ;
+- transaction managée : commit persiste / rollback annule ; FK **appliquée** (sqlite).
+
+**Fuites mesurées (confirment les risques + 1 nouveau) :**
+
+1. **Jointure / eager-load** → impossible via `IRepository` → `getNativeConnection()`
+   (`include`). Confirme le **risque #1**. Alternative portable = N+1.
+2. **Repository non tx-aware (NOUVEAU, risque #4)** : dans `transaction(work)`, le
+   `IRepository.create()` portable ne connaît pas la tx active → il a fallu écrire
+   via `getNativeConnection()` + `{ transaction: tx.getNative() }`. Threader la tx
+   au repo exigera soit `repo.withTransaction(tx)`, soit CLS/ALS (le legacy
+   utilisait `cls-hooked`).
+3. **Nommage FK** : Sequelize génère une FK PascalCase (`UserId`) par défaut ;
+   l'adapter force le camelCase (`userId`) pour que le critère portable
+   `{ userId }` matche. Toute abstraction de relation devra fixer cette convention.
+4. Le **risque #3** (`OrmCriteria` non typé vs Drizzle) reste ouvert — non
+   exercé ici (Sequelize n'est pas type-safe-first), à trancher au branchement Drizzle (P7.4).
+
+**Décision de sortie :** le contrat suffit pour le CRUD + lookups simples.
+**Avant de multiplier les drivers** (P7.x), trancher : (a) critère typé/opérateurs,
+(b) repository tx-aware (`withTransaction` ou ALS), (c) API de relation/eager-load
+OU acceptation explicite « jointures = native uniquement ». La migration du driver
+Sequelize **de production** (refonte du legacy `service/orm.ts` sur orm-core) reste **P7.1**.
+
 ## Liens
 
 - ADR-0002 (schéma banc de test mediasoup) — fournit le cas dur (User↔Room).
