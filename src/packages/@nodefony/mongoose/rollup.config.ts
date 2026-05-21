@@ -4,7 +4,14 @@ import nodeResolve from "@rollup/plugin-node-resolve";
 import typescript from "@rollup/plugin-typescript";
 import { globSync } from "glob";
 
-const external: string[] = ["nodefony", "mongodb", "mongoose", "tslib"];
+const external: string[] = [
+  "nodefony",
+  "@nodefony/http",
+  "@nodefony/orm-core",
+  "mongodb",
+  "mongoose",
+  "tslib",
+];
 
 const nodefonyFiles = globSync("nodefony/**/*.ts", {
   ignore: ["**/*.d.ts", "**/*.spec.ts", "**/*.test.ts", "**/tests/**"],

@@ -361,4 +361,7 @@ class SessionStorage {
   }
 }
 
+// Auto-enregistrement dans le registre de session de @nodefony/http (IoC).
+SessionsService.registerStorage("sequelize", SessionStorage);
+
 export default SessionStorage;

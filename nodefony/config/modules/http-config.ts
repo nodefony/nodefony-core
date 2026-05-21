@@ -50,7 +50,9 @@ export default {
   rejectUnauthorized,
   certificates,
   session: {
-    handler: "sequelize",
+    // Stockage de session via @nodefony/drizzle (orm-core). Sequelize reste
+    // chargé pour les tests multi-ORM, mais n'héberge plus les sessions.
+    handler: "drizzle",
   },
   formidable: {
     uploadDir: "./tmp/upload",

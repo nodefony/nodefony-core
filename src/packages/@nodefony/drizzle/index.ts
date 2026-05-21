@@ -26,6 +26,16 @@ export type {
   DrizzleModuleConfig,
 } from "./nodefony/config/config";
 
+// ─── Stockage de session Drizzle (consommé par @nodefony/http) ──────────────
+// L'import de l'entité exécute son décorateur `@entity` → table créée au boot.
+export { default as SessionStorage } from "./nodefony/src/SessionStorage";
+export {
+  default as SessionEntity,
+  sessionTable,
+  SESSION_ORM,
+} from "./nodefony/entity/sessionEntity";
+export type { SessionRow } from "./nodefony/entity/sessionEntity";
+
 // ─── Classes adapter orm-core (usage direct / banc-test) ────────────────────
 export {
   DrizzleOrm,

@@ -6,6 +6,8 @@ import { globSync } from "glob";
 
 const external: string[] = [
   "nodefony",
+  "@nodefony/http",
+  "@nodefony/orm-core",
   "@alt3/sequelize-to-json-schemas",
   "cls-hooked",
   "mariadb",

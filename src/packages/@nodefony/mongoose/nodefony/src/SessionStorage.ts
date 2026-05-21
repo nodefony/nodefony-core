@@ -211,4 +211,7 @@ class SessionStorage {
   }
 }
 
+// Auto-enregistrement dans le registre de session de @nodefony/http (IoC).
+SessionsService.registerStorage("mongoose", SessionStorage);
+
 export default SessionStorage;

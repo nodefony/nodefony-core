@@ -1,5 +1,6 @@
 import {
   extend,
+  Nodefony,
   Service,
   //Kernel,
   Container,
@@ -24,9 +25,6 @@ import Http2Request from "../../src/context/http2/Request";
 import HttpRequest from "../../src/context/http/Request";
 import Certificate from "../../service/certificates";
 import { createHash } from "node:crypto";
-import { SessionStorage as SequelizeStorage } from "@nodefony/sequelize";
-import { SessionStorage as MongooseStorage } from "@nodefony/mongoose";
-
 import FileSessionStorage from "../../src/session/storage/FileSessionStorage";
 
 export type sessionStrategyType = "none" | "migrate" | "invalidate";
@@ -55,8 +53,48 @@ export interface sessionStorageInterface {
   gc: (maxlifetime: number, contextSession: string) => Promise<void>;
 }
 
+/** Constructeur d'un storage de session (enregistré dans le registre). */
+export type SessionStorageCtor = new (
+  manager: SessionsService
+) => sessionStorageInterface;
+
 @injectable()
 class SessionsService extends Service {
+  /**
+   * Registre des storages de session — inversion de contrôle.
+   *
+   * Chaque module qui fournit un storage l'enregistre à son chargement
+   * (`SessionsService.registerStorage("drizzle", DrizzleStorage)`). Ainsi
+   * `@nodefony/http` **ne dépend d'aucun ORM** : pas d'import croisé, pas de
+   * cycle, et ajouter un driver ne touche plus ce fichier. Le handler de la
+   * config (`session.handler`) sélectionne le storage par son nom.
+   */
+  static readonly #storages = new Map<string, SessionStorageCtor>();
+
+  /**
+   * Enregistre un storage de session sous un nom de handler (insensible à la
+   * casse) et émet l'événement kernel `onRegisterSessionStorage` (observabilité
+   * Studio / extension). Le kernel peut être absent au tout premier chargement
+   * (registration statique) → fire gardé.
+   */
+  static registerStorage(name: string, ctor: SessionStorageCtor): void {
+    const key = name.toLowerCase();
+    SessionsService.#storages.set(key, ctor);
+    const kernel = Nodefony.getKernel();
+    kernel?.fire("onRegisterSessionStorage", key, ctor);
+    kernel?.log(`SESSION STORAGE registered : ${key}`, "DEBUG", "SESSION");
+  }
+
+  /** Storage enregistré pour un handler, ou `undefined`. */
+  static getStorage(name: string): SessionStorageCtor | undefined {
+    return SessionsService.#storages.get(String(name ?? "").toLowerCase());
+  }
+
+  /** Noms des handlers de session enregistrés. */
+  static storageHandlers(): string[] {
+    return [...SessionsService.#storages.keys()];
+  }
+
   sessionStrategy: sessionStrategyType = "migrate";
   storage: any = null;
   gc_probability: number = 1;
@@ -100,42 +138,26 @@ class SessionsService extends Service {
     return this;
   }
 
-  initializeStorage(): sessionStorageInterface {
-    let storage: any = null;
-    switch (this.options.handler) {
-      case "orm":
-      case "ORM":
-        //storage = nodefony.session.storage[this.kernel?.getOrm()];
-        break;
-      case "sequelize":
-        storage = SequelizeStorage;
-        break;
-      case "mongoose":
-        storage = MongooseStorage;
-        break;
-      case "files":
-        storage = FileSessionStorage;
-        break;
-      default:
-        throw new Error(`Session Storage not found `);
+  initializeStorage(): sessionStorageInterface | null {
+    const Storage = SessionsService.getStorage(this.options.handler);
+    if (!Storage) {
+      this.storage = null;
+      this.log(
+        `SESSION HANDLER STORAGE NOT FOUND : "${this.options.handler}" ` +
+          `(enregistrés : ${SessionsService.storageHandlers().join(", ") || "aucun"})`,
+        "ERROR"
+      );
+      return null;
     }
-    try {
-      if (storage) {
-        this.storage = new storage(this);
-        this.kernel?.on("onReady", async () => {
-          await this.storage.open("default");
-        });
-      } else {
-        this.storage = null;
-        this.log(
-          `SESSION HANDLER STORAGE NOT FOUND :${this.options.handler}`,
-          "ERROR"
-        );
-      }
-      return this.storage;
-    } catch (e) {
-      throw e;
-    }
+    this.storage = new Storage(this);
+    this.log(`SESSION STORAGE active : ${this.options.handler}`, "INFO");
+    // Événement (kernel + service) : quel backend de session est actif.
+    this.fire("onSessionStorageReady", this.options.handler, this.storage);
+    this.kernel?.fire("onSessionStorageReady", this.options.handler, this.storage);
+    this.kernel?.on("onReady", async () => {
+      await this.storage.open("default");
+    });
+    return this.storage;
   }
 
   createSecret(): Buffer {
@@ -289,5 +311,8 @@ class SessionsService extends Service {
     return false;
   }
 }
+
+// Storage built-in fourni par @nodefony/http (les ORM enregistrent les leurs).
+SessionsService.registerStorage("files", FileSessionStorage);
 
 export default SessionsService;

@@ -22,8 +22,6 @@ const sourcemapPathTransform = createPathTransform({
 
 const external: string[] = [
   "nodefony",
-  "@nodefony/sequelize",
-  "@nodefony/mongoose",
   "@nodefony/framework",
   "cli-color",
   "cookie",
