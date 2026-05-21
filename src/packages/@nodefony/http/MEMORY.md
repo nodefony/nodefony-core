@@ -61,6 +61,13 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.logRequest()` : affiche `ID : <uuid>` dans chaque log de fin de requête
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
+- ⚠️ **HTTP/2 GOTCHA (fix 2026-05-21)** : `http2/Response.writeHead` chemin `stream.respond()` **bypasse** `super.writeHead` → pose `x-request-id` + `traceparent` ICI aussi. Sinon réponses HTTP/2 (port 5152, dont Studio) **sans header** → corrélation profiler/debug bar impossible (symptôme : clic requête = « no requestId »).
+
+## Profiler — dev-only (2026-05-21)
+
+- `src/profiler/Profiler.ts` : ring buffer `Map<requestId, ProfileEntry>` (cap 500, éviction insertion-order), `collect(ctx)` = snapshot fin de requête (phases/route/controller/user/traceparent/status), `get`/`recent`/`clear`. **Borné** (pas de fuite, validé). Seam ORM `queries?` (futur, à pousser via ALS).
+- Hook : `http-kernel` teardown (`this.profiler?.collect(ctx)` avant `clean()`), résolu container `"profiler"` à onReady, **null en prod** (module l'instancie dev-only dans `index.ts` onKernelBoot → `this.kernel?.environment !== "prod"`).
+- Data-plane : `createProfilerAdminApi(profiler)` → namespace `profiler` → `GET /nodefony/profiler/api/recent` (+`?limit`) / `GET /{id}` (404 si absent) / `DELETE recent`. Tests `tests/unit/Profiler.test.ts` (9, vitest).
 
 ## PrettyRequestLogger — P3.2 (2026-05-16)
 

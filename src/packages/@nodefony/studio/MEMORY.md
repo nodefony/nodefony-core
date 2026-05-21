@@ -79,6 +79,12 @@ Studio = 2ᵉ consommateur du backbone realtime + **pilote** la debug bar.
 - **Interrupteur Studio** : `UiStore.debugBar` + `toggleDebugBar()`, clé localStorage **partagée** `nf.debugbar.visible` (synchro avec le widget). Pilote la barre auto-injectée via `window.__NODEFONY_DEBUGBAR__.setVisible()`. Bouton topbar `AdminLayout` (icône bottombar).
 - La barre s'auto-injecte aussi sur la page Studio (montage @nodefony/frontend) — redondant mais OK.
 
+### Page Profiler + sync (2026-05-21)
+- **Page** `routes/Profiler.tsx` + `ProfilerStore` (consomme data-plane `/nodefony/profiler/api/*` via `ApiClient.getAbsolute`/`deleteAbsolute`). Route `/nodefony/profiling` (ex-stub — câblée dans `App.tsx`, lazy). Liste recent + waterfall, **réutilise `computeWaterfall`** importé de `nodefony/debugbar` (core isomorphe, 0 dup). Auto-refresh poll 3s opt-in.
+- ⚠️ **`ProfilerStore.ts` n'importe PAS `nodefony/debugbar`** : le plugin `@analogjs/vite-plugin-angular` (Vite multi-framework partagé) trébuche sur ce subpath dans un `.ts` (« contains Angular decorators »). → types **miroir locaux** dans le store. Les `.tsx` (Profiler.tsx, pris par le plugin React) peuvent importer du subpath.
+- **Sync barre→Studio** : la debug bar dispatch `window` CustomEvent `nodefony:debugbar:select {requestId}` au clic ; `AdminLayout` écoute → `navigate("/nodefony/profiling?req="+id)` ; Profiler lit `?req=` (useSearchParams) → `store.select` (deep-linkable, robuste au timing).
+- ⚠️ Pré-requis corrélation : le serveur doit poser `x-request-id` sur **HTTP/2** (cf http MEMORY — fix 2026-05-21). Studio = HTTP/2 (5152).
+
 ## Liens
 
 `project_studio_prep_kit` (reprise) · `project_studio_module` · `project_ia_studio_final` · `project_realtime_vision_studio_beta` · `project_frontend_architecture_decision` · `project_csp_vite_security_todo` · `feedback_sse_http2_request_close` · `project_studio_debugbar`

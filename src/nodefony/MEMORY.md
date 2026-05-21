@@ -219,5 +219,12 @@ Build Rollup dédié (`createClientConfig`, `tsconfigClient.json` `types:[]`), s
 - Données via `RealtimeClient` (canaux `dashboard:stats` + `syslog:stream`, endpoint défaut `/nodefony/studio/api/realtime`). Logs **réhydratés en `new Pdu()`** (champs `payload`/`moduleName`/`severity`, PAS `pci`/`msgid`).
 - Pouls realtime = `client.framesReceived` (msg/s + VU). Sonde HMR Vite = `connectViteHmr` (2ᵉ client WS `vite-hmr`, dev). Sparklines = SVG maison (pas recharts).
 - Env + branche git viennent du bloc `app` de `dashboard:stats` (poussé serveur, cf studio providers).
-- Chrome persisté localStorage : `nf.debugbar.{visible,min,side}`. Handle global `window.__NODEFONY_DEBUGBAR__` (show/hide/minimize) → bridge app (Studio).
+- Chrome persisté localStorage : `nf.debugbar.{visible,min,side,tab,h}`. Handle global `window.__NODEFONY_DEBUGBAR__` (show/hide/minimize) → bridge app (Studio).
 - Gotcha : le conteneur `.minbar` (chip réduit) n'a pas de `[data-el]` → ref stockée à la main (sinon barre réduite invisible).
+
+### Network panel + profiler (2026-05-21)
+- `network.ts` : intercepteur **fetch + XHR** dev-only — **header-only** (jamais le body), défensif (try/catch, relaie l'original), réversible (`uninstall`), chain-safe, opt-out (`network:false`), **filtre les appels Vite** (cross-origin 5173). Lit `x-request-id` (clé profiler) + `traceparent` (W3C) des réponses.
+- `profile.ts` : **purs** — `NetworkModel` (ring buffer 80 + compteurs + cache profils), `computeWaterfall(phases)` (layout %), types `ProfileEntry`/`ProfilePhase`/`ProfileQuery`. **Réexportés du subpath** `nodefony/debugbar` → réutilisés par Studio (page Profiler). Tests `tests/Profiler.client.test.ts` (11).
+- Clic ligne → fetch `/nodefony/profiler/api/{requestId}` (ignoré par l'intercepteur) → **waterfall** des phases serveur + méta (route/user/trace). Bouton ✕ ferme.
+- **UI** : onglets (Realtime/Network/Perf/Logs/Runtime, **1 seul pane rendu**). Liste Network en **MAJ incrémentale** (noeuds stables via `Map<id,node>`, jamais d'`innerHTML` global → clic non perdu + scroll ne saute pas). Hauteur panneau **responsive** ≈48vh (55vh à l'ouverture profil), resize persisté, re-clamp au resize fenêtre. **Strip responsive** `clamp(12→16px)` + tout en `em`. Fond panneau **OPAQUE** (le `backdrop-filter:blur` recompositait à chaque frame de scroll → lag ; blur gardé sur la strip seule).
+- **Sync→hôte** : clic dispatch `window` CustomEvent `nodefony:debugbar:select {requestId}` (no-op si pas de listener). Studio écoute → page Profiler.

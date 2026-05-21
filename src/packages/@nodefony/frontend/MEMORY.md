@@ -91,6 +91,8 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - Si `state !== "ready"` quand renderTags est appelé → commentaire HTML `<!-- vite supervisor state=... -->`.
 - Container.get("frontend") = name passé au constructor Service (pas le className).
 - CSP : `script-src 'self'` par défaut bloque les scripts Vite cross-origin. Hack POC : `controller.context.response.setHeader("Content-Security-Policy", svc.getCspDirectives())`. TODO → migrer dans @nodefony/security.
+- CSP (2026-05-21) : `getCspDirectives()` inclut **`worker-src 'self' blob:`** (un Worker depuis `blob:` retombe sinon sur `script-src` qui n'autorise pas blob: → bloqué) + `blob:`/`data:` sur `connect-src`/`img-src`. Dev only.
+- Proxy Vite (2026-05-21) : en dev, `ViteConfigGenerator` ajoute **TOUJOURS** la regex `^/nodefony/[^/]+/api` au `server.proxy` (en plus des `apiProxyPaths` déclarés) → le data-plane admin/profiler (`/nodefony/<module>/api/*`) est toujours proxifié vers le backend, sinon la debug bar auto-injectée fetch `/nodefony/profiler/api` tombe sur le fallback SPA Vite (HTML) → clic « mort ».
 - `process.kill(child.pid)` tue `npx` (parent), pas Vite. Pour tuer Vite réel dans tests : `lsof -ti:port -sTCP:LISTEN`.
 - Test crash auto-restart : `pidListeningOn(port)` puis SIGKILL ; attendre `state==="ready"` + `pid !== nodefonyPidBefore` + `restartCount === 1`.
 
