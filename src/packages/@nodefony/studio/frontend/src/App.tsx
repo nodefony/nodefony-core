@@ -43,15 +43,16 @@ const RoutesView = lazy(() =>
 const Profiler = lazy(() =>
   import("./routes/Profiler").then((m) => ({ default: m.Profiler })),
 );
+const Database = lazy(() =>
+  import("./routes/Database").then((m) => ({ default: m.Database })),
+);
 
 import {
   Sessions,
   Users,
   Firewall,
-  Databases,
   Services,
   Npm,
-  Pm2,
   Migrate,
   Settings,
   NotFound,
@@ -84,13 +85,12 @@ const router = createBrowserRouter([
           { path: "logs", element: <Logs /> },
           { path: "system", element: <System /> },
           { path: "firewall", element: <Firewall /> },
-          { path: "databases", element: <Databases /> },
+          { path: "databases", element: <Database /> },
           { path: "migrate", element: <Migrate /> },
           { path: "services", element: <Services /> },
           { path: "modules", element: <Modules /> },
           { path: "modules/:name", element: <ModuleDetail /> },
           { path: "npm", element: <Npm /> },
-          { path: "pm2", element: <Pm2 /> },
           { path: "profiling", element: <Profiler /> },
           { path: "settings", element: <Settings /> },
           { path: "*", element: <NotFound /> },

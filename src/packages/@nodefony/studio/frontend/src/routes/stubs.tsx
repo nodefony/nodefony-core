@@ -27,15 +27,6 @@ export const Firewall = () => (
   />
 );
 
-export const Databases = () => (
-  <StubPage
-    title="Databases"
-    description="Connecteurs ORM enregistrés, état pool, requêtes lentes."
-    phase="P10.9 + P7.x"
-    legacyRef="monitoring-bundle/views/databases/"
-  />
-);
-
 export const Services = () => (
   <StubPage
     title="Services"
@@ -60,15 +51,6 @@ export const Npm = () => (
     description="Dépendances installées, vulnérabilités, audit, outdated."
     phase="P10.10"
     legacyRef="monitoring-bundle/views/npm/"
-  />
-);
-
-export const Pm2 = () => (
-  <StubPage
-    title="PM2"
-    description="Workers cluster, restart, logs, metrics."
-    phase="P10.10 + P14.6"
-    legacyRef="monitoring-bundle/views/pm2/"
   />
 );
 

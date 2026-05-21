@@ -6,7 +6,6 @@ import {
   IconShieldLock,
   IconDatabase,
   IconBox,
-  IconBrandReact,
   IconBrandNpm,
   IconAffiliate,
   IconChartBar,
@@ -53,15 +52,14 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    id: "runtime",
-    label: "Runtime",
-    icon: IconList,
+    // Groupe dédié — destiné à grossir (rôles, tokens, OAuth, voters, audit…).
+    id: "security",
+    label: "Security",
+    icon: IconShieldLock,
     items: [
-      { to: "/nodefony/sessions", label: "Sessions", icon: IconList },
-      { to: "/nodefony/users", label: "Users", icon: IconUsers },
-      { to: "/nodefony/routes", label: "Routes", icon: IconRoute },
-      { to: "/nodefony/logs", label: "Logs", icon: IconFileText },
       { to: "/nodefony/firewall", label: "Firewall", icon: IconShieldLock },
+      { to: "/nodefony/users", label: "Users", icon: IconUsers },
+      { to: "/nodefony/sessions", label: "Sessions", icon: IconList },
     ],
   },
   {
@@ -69,8 +67,17 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Data",
     icon: IconDatabase,
     items: [
-      { to: "/nodefony/databases", label: "Databases", icon: IconDatabase },
+      { to: "/nodefony/databases", label: "Database", icon: IconDatabase },
       { to: "/nodefony/migrate", label: "Migrations", icon: IconArrowsExchange },
+    ],
+  },
+  {
+    id: "observability",
+    label: "Observability",
+    icon: IconChartBar,
+    items: [
+      { to: "/nodefony/logs", label: "Logs", icon: IconFileText },
+      { to: "/nodefony/profiling", label: "Profiling", icon: IconChartBar },
     ],
   },
   {
@@ -79,11 +86,10 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: IconApi,
     items: [
       { to: "/nodefony/system", label: "Admin API", icon: IconApi },
-      { to: "/nodefony/services", label: "Services", icon: IconAffiliate },
       { to: "/nodefony/modules", label: "Modules", icon: IconBox },
+      { to: "/nodefony/services", label: "Services", icon: IconAffiliate },
+      { to: "/nodefony/routes", label: "Routes", icon: IconRoute },
       { to: "/nodefony/npm", label: "NPM", icon: IconBrandNpm },
-      { to: "/nodefony/pm2", label: "PM2", icon: IconBrandReact },
-      { to: "/nodefony/profiling", label: "Profiling", icon: IconChartBar },
     ],
   },
   {
