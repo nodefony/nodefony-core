@@ -40,6 +40,15 @@ class Http2Response extends HttpResponse {
       if (statusCode) {
         this.setStatusCode(statusCode);
       }
+      // Stream HTTP/2 fermé/détruit (client abandonné, réponse lente, timeout) :
+      // ne pas appeler respond() → évite ERR_HTTP2_INVALID_STREAM.
+      if (this.stream.destroyed || this.stream.closed) {
+        this.log(
+          "HTTP/2 stream destroyed before writeHead — skip",
+          "DEBUG"
+        );
+        return;
+      }
       if (!this.stream.headersSent) {
         try {
           if (this.statusCode) {
@@ -92,6 +101,15 @@ class Http2Response extends HttpResponse {
           return resolve(this);
         }
         if (this.stream) {
+          // Stream fermé/non-writable (client abandonné, write-after-end) :
+          // résoudre sans écrire → évite ERR_STREAM_WRITE_AFTER_END (CRITIC).
+          if (this.stream.destroyed || !this.stream.writable) {
+            this.log(
+              "HTTP/2 stream not writable before send — skip",
+              "DEBUG"
+            );
+            return resolve(this);
+          }
           if (chunk) {
             this.setBody(chunk);
           }
@@ -124,6 +142,10 @@ class Http2Response extends HttpResponse {
       try {
         if (this.stream) {
           this.ended = true;
+          // Stream déjà fermé/détruit : ne pas re-appeler end().
+          if (this.stream.destroyed || this.stream.closed) {
+            return resolve(this.stream);
+          }
           return resolve(
             this.stream.end(
               chunk,
