@@ -13,6 +13,8 @@ export type {
   IEntityRelation,
   IRepository,
   OrmCriteria,
+  Criteria,
+  RepositoryReadOptions,
   ITransaction,
 } from "./nodefony/interfaces/index";
 

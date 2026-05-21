@@ -95,20 +95,21 @@ export class SequelizeOrm extends Orm {
             // FK sur la cible, nommée d'après la source (`userId` sur Room).
             source.hasMany(target, {
               as: relation.field,
-              foreignKey: this.#foreignKey(entity.name),
+              foreignKey: relation.foreignKey ?? this.#foreignKey(entity.name),
             });
             break;
           case "many-to-one":
             // FK sur la source, nommée d'après la cible (inverse cohérent).
             source.belongsTo(target, {
               as: relation.field,
-              foreignKey: this.#foreignKey(relation.target),
+              foreignKey:
+                relation.foreignKey ?? this.#foreignKey(relation.target),
             });
             break;
           case "one-to-one":
             source.hasOne(target, {
               as: relation.field,
-              foreignKey: this.#foreignKey(entity.name),
+              foreignKey: relation.foreignKey ?? this.#foreignKey(entity.name),
             });
             break;
           case "many-to-many":

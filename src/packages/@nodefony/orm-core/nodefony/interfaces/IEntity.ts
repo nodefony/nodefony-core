@@ -10,6 +10,13 @@ export interface IEntityRelation {
 
   /** Champ portant la relation côté entité courante. */
   readonly field: string;
+
+  /**
+   * Clé étrangère explicite. Si omise, l'adapter en dérive une déterministe
+   * (camelCase `<entité>Id`) — évite la divergence avec le défaut du driver
+   * (Sequelize génère du PascalCase `UserId`).
+   */
+  readonly foreignKey?: string;
 }
 
 /**

@@ -11,6 +11,7 @@ const ORM = "db_test";
 interface User {
   id: string;
   email: string;
+  rooms?: Room[]; // peuplé par eager-load (options.relations)
 }
 interface Room {
   id: string;
@@ -102,13 +103,19 @@ describe("orm-core ↔ Sequelize adapter (P5.4)", () => {
     assert.equal(ownerRooms[0].userId, owner.id);
   });
 
-  // ── CAS DUR (ADR-0003 risque #1 « abstraction qui fuit ») ─────────────────
-  it("jointure/eager-load : IMPOSSIBLE via le repo portable → trappe native", async () => {
+  // ── Fuite #1 résolue : eager-load PORTABLE via options.relations ──────────
+  it("eager-load PORTABLE : findOne(criteria, { relations }) charge l'association", async () => {
+    const owner = await users.findOne(
+      { email: "owner@b.c" },
+      { relations: ["rooms"] },
+    );
+    assert.ok(owner);
+    assert.equal(owner.rooms?.length, 2); // 1 requête (JOIN), sans trappe native
+  });
+
+  it("trappe native toujours dispo pour jointures arbitraires (ADR-0003 risque #1)", async () => {
     const owner = await users.findOne({ email: "owner@b.c" });
     assert.ok(owner);
-
-    // Le contrat IRepository (find/findOne + OrmCriteria) n'exprime PAS d'include.
-    // → on doit descendre à la connexion native (limite documentée).
     const native = orm.getNativeConnection<Sequelize>();
     const row = await native.models.User.findOne({
       where: { id: owner.id },
@@ -117,43 +124,39 @@ describe("orm-core ↔ Sequelize adapter (P5.4)", () => {
     const plain = row?.get({ plain: true }) as
       | (User & { rooms: Room[] })
       | undefined;
-    assert.equal(plain?.rooms.length, 2); // 1 seule requête (JOIN)
-
-    // Alternative 100 % portable mais N+1 (2 requêtes séquentielles).
-    const ownerAgain = await users.findOne({ id: owner.id });
-    const ownerRooms = await rooms.find({ userId: ownerAgain?.id });
-    assert.equal(ownerRooms.length, 2);
+    assert.equal(plain?.rooms.length, 2);
   });
 
-  it("transaction managée : commit persiste", async () => {
+  // ── Fuite #4 résolue : repository tx-aware via withTransaction ─────────────
+  it("transaction : commit persiste (repo tx-aware, sans trappe native)", async () => {
     const before = await rooms.count();
     await orm.transaction(async (tx) => {
-      const native = orm.getNativeConnection<Sequelize>();
-      const owner = await users.create({ email: "tx@b.c" });
-      await native.models.Room.create(
-        { name: "tx-room", userId: owner.id },
-        { transaction: tx.getNative() },
-      );
+      const owner = await users.withTransaction(tx).create({ email: "tx@b.c" });
+      await rooms
+        .withTransaction(tx)
+        .create({ name: "tx-room", userId: owner.id });
     });
     assert.equal(await rooms.count(), before + 1);
+    assert.ok(await users.findOne({ email: "tx@b.c" })); // user aussi committé
   });
 
-  it("transaction managée : rollback annule (closure qui rejette)", async () => {
-    const owner = await users.findOne({ email: "owner@b.c" });
-    assert.ok(owner);
-    const before = await rooms.count();
+  it("transaction : rollback annule TOUT (user + room dans la même tx)", async () => {
+    const beforeRooms = await rooms.count();
+    const beforeUsers = await users.count();
     await assert.rejects(
       orm.transaction(async (tx) => {
-        const native = orm.getNativeConnection<Sequelize>();
-        // Insert valide DANS la tx, puis on jette → la tx doit tout annuler.
-        await native.models.Room.create(
-          { name: "doomed", userId: owner.id },
-          { transaction: tx.getNative() },
-        );
+        const u = await users
+          .withTransaction(tx)
+          .create({ email: "doomed@b.c" });
+        await rooms
+          .withTransaction(tx)
+          .create({ name: "doomed", userId: u.id });
         throw new Error("boom");
       }),
       /boom/,
     );
-    assert.equal(await rooms.count(), before); // rien persisté (rollback)
+    assert.equal(await rooms.count(), beforeRooms);
+    assert.equal(await users.count(), beforeUsers); // user AUSSI rollback
+    assert.equal(await users.findOne({ email: "doomed@b.c" }), null);
   });
 });

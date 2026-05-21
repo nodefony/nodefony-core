@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-21T00:06:30.485Z",
+  "generated": "2026-05-21T00:12:01.786Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 254,
-    "symbols": 595,
+    "symbols": 597,
     "classes": 187,
-    "interfaces": 200,
-    "types": 128,
+    "interfaces": 201,
+    "types": 129,
     "enums": 1,
     "functions": 67,
     "constants": 12
@@ -3214,6 +3214,15 @@
       "extends": null,
       "description": "Contrat d'une instance ORM gérée par le framework (une par connexion logique). Implémenté par chaque adapter (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefony/drizzle`...) et enregistré dans…"
     },
+    "RepositoryReadOptions": {
+      "name": "RepositoryReadOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Options de lecture (`find`/`findOne`) portables cross-ORM. `relations` charge des associations **déclarées** dans `@entity` (eager-load : `include` Sequelize / `populate` Mongoose / `with` Drizzle)…"
+    },
     "IRepository": {
       "name": "IRepository",
       "kind": "interface",
@@ -3229,7 +3238,15 @@
       "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
       "exported": true,
       "module": "@nodefony/orm-core",
-      "description": "Critère de filtre passé aux opérations de lecture/écriture d'un repository. Volontairement abstrait (`Record<string, unknown>`) : chaque adapter ORM traduit ce critère dans sa syntaxe native (claus…"
+      "description": "Critère de filtre brut passé aux opérations d'un repository. Volontairement abstrait (`Record<string, unknown>`) : chaque adapter ORM traduit ce critère dans sa syntaxe native (clause `WHERE` SQL, …"
+    },
+    "Criteria": {
+      "name": "Criteria",
+      "kind": "type",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Critère **partiellement typé** d'une entité `T`. `Partial<T>` type-vérifie l'égalité sur les champs connus (ex. `{ email }` doit être un `string` si `T.email` l'est) ; l'intersection avec {@link Or…"
     },
     "ITransaction": {
       "name": "ITransaction",
@@ -6557,8 +6574,10 @@
       ],
       "ITransaction": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts"
       ],
       "IEntity": [
@@ -6830,7 +6849,10 @@
       "SequelizeTransaction": [
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
-      "OrmCriteria": [
+      "Criteria": [
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
+      "RepositoryReadOptions": [
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
       "Cookies": [

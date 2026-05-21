@@ -148,6 +148,28 @@ ADR-0002 (User *one-to-many* Room, UUID-first). **6 tests d'intégration verts.*
 OU acceptation explicite « jointures = native uniquement ». La migration du driver
 Sequelize **de production** (refonte du legacy `service/orm.ts` sur orm-core) reste **P7.1**.
 
+### Mise à jour — fuites traitées (2026-05-21, même session)
+
+Contrat `IRepository` enrichi (additif, non-cassant) + adapter Sequelize mis à
+jour. **orm-core 22 tests / Sequelize 7 tests verts.**
+
+- **Risque #1 (jointure) — RÉSOLU pour le cas commun** : `find/findOne(criteria,
+  { relations: [...] })` charge les **associations déclarées** (`include`/`populate`/
+  `with` selon l'adapter). Les jointures **arbitraires** restent via
+  `getNativeConnection()` (acceptation explicite). Ajout aussi `limit/offset/order`.
+- **Risque #4 (repo non tx-aware) — RÉSOLU** : `repo.withTransaction(tx)` renvoie
+  une vue liée à la tx (toutes les ops passent `{ transaction }`), **sans état
+  global ni CLS**. Test : user + room créés dans la même tx, rollback annule les deux.
+- **Risque #3 (criteria typé) — PARTIEL** : `Criteria<T> = Partial<T> & OrmCriteria`
+  → égalité sur champs connus **type-checkée**, échappatoire conservée. Opérateurs
+  riches (`$gt`/`$in`...) toujours différés au branchement **Drizzle (P7.4)**.
+- **Nommage FK** : `IEntityRelation.foreignKey?` (override explicite) ; sinon
+  l'adapter dérive un camelCase déterministe.
+
+**Reste avant P7.x** : valider le contrat enrichi sur un **2ᵉ adapter
+hétérogène** (Mongoose — eager-load = `populate`, tx = session/replica set) pour
+confirmer que `relations`/`withTransaction` sont réellement portables.
+
 ## Liens
 
 - ADR-0002 (schéma banc de test mediasoup) — fournit le cas dur (User↔Room).

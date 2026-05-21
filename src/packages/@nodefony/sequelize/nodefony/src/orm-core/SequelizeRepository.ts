@@ -1,65 +1,130 @@
-import type { Model, ModelStatic, WhereOptions } from "sequelize";
-import type { IRepository, OrmCriteria } from "@nodefony/orm-core";
+import type {
+  FindOptions,
+  Model,
+  ModelStatic,
+  Order,
+  Transaction,
+  WhereOptions,
+} from "sequelize";
+import type {
+  Criteria,
+  IRepository,
+  ITransaction,
+  RepositoryReadOptions,
+} from "@nodefony/orm-core";
 
 /**
  * Repository portable (contrat {@link IRepository}) au-dessus d'un modèle
  * Sequelize compilé.
  *
  * Traduit le CRUD abstrait en appels Sequelize et **renvoie des objets plats**
- * (`get({ plain: true })`) — jamais des instances `Model` (le métier ne doit pas
- * dépendre du driver). Les requêtes riches (jointures/eager-load, opérateurs)
- * ne sont PAS exprimables ici : passer par `IOrm.getNativeConnection()` (limite
- * documentée — cf ADR-0003, risque #1 « abstraction qui fuit »).
+ * (`get({ plain: true })`) — jamais des instances `Model`. Supporte :
+ * - l'**eager-load portable** via `options.relations` (mappé sur les associations
+ *   déclarées → `include`), résolvant la fuite « jointure » du cas commun ;
+ * - la **liaison transactionnelle** via {@link SequelizeRepository.withTransaction}
+ *   (toutes les opérations passent `{ transaction }`).
  *
  * @typeParam T - forme plate de l'entité gérée.
  */
 export class SequelizeRepository<T = unknown> implements IRepository<T> {
   readonly #model: ModelStatic<Model>;
+  readonly #tx: Transaction | null;
 
   /**
    * @param model - modèle Sequelize compilé (issu de `sequelize.define`).
+   * @param tx - transaction native à laquelle lier les opérations (ou `null`).
    */
-  constructor(model: ModelStatic<Model>) {
+  constructor(model: ModelStatic<Model>, tx: Transaction | null = null) {
     this.#model = model;
+    this.#tx = tx;
   }
 
-  /** Toutes les lignes correspondant au critère (toutes si omis). */
-  async find(criteria?: OrmCriteria): Promise<T[]> {
-    const rows = await this.#model.findAll(
-      criteria ? { where: criteria as WhereOptions } : undefined,
-    );
+  /** Construit les `FindOptions` Sequelize depuis critère + options portables. */
+  #findOptions(
+    criteria?: Criteria<T>,
+    options?: RepositoryReadOptions,
+  ): FindOptions {
+    const find: FindOptions = {};
+    if (criteria) {
+      find.where = criteria as WhereOptions;
+    }
+    if (this.#tx) {
+      find.transaction = this.#tx;
+    }
+    if (options?.relations?.length) {
+      find.include = options.relations.map((name) => {
+        if (!this.#model.associations[name]) {
+          throw new Error(
+            `SequelizeRepository(${this.#model.name}): relation "${name}" non déclarée.`,
+          );
+        }
+        return { association: name };
+      });
+    }
+    if (options?.limit !== undefined) {
+      find.limit = options.limit;
+    }
+    if (options?.offset !== undefined) {
+      find.offset = options.offset;
+    }
+    if (options?.order?.length) {
+      find.order = options.order as Order;
+    }
+    return find;
+  }
+
+  /** `{ transaction }` si lié, sinon `undefined` (factorisation write ops). */
+  #txOpt(): { transaction: Transaction } | undefined {
+    return this.#tx ? { transaction: this.#tx } : undefined;
+  }
+
+  async find(
+    criteria?: Criteria<T>,
+    options?: RepositoryReadOptions,
+  ): Promise<T[]> {
+    const rows = await this.#model.findAll(this.#findOptions(criteria, options));
     return rows.map((row) => row.get({ plain: true }) as T);
   }
 
-  /** Première ligne correspondant au critère, ou `null`. */
-  async findOne(criteria: OrmCriteria): Promise<T | null> {
-    const row = await this.#model.findOne({ where: criteria as WhereOptions });
+  async findOne(
+    criteria: Criteria<T>,
+    options?: RepositoryReadOptions,
+  ): Promise<T | null> {
+    const row = await this.#model.findOne(this.#findOptions(criteria, options));
     return row ? (row.get({ plain: true }) as T) : null;
   }
 
-  /** Persiste une nouvelle ligne et renvoie sa version plate. */
   async create(data: Partial<T>): Promise<T> {
-    const row = await this.#model.create(data as Record<string, unknown>);
+    const row = await this.#model.create(
+      data as Record<string, unknown>,
+      this.#txOpt(),
+    );
     return row.get({ plain: true }) as T;
   }
 
-  /** Met à jour les lignes du critère et renvoie la première à jour, ou `null`. */
-  async update(criteria: OrmCriteria, data: Partial<T>): Promise<T | null> {
+  async update(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
     await this.#model.update(data as Record<string, unknown>, {
       where: criteria as WhereOptions,
+      ...this.#txOpt(),
     });
     return this.findOne(criteria);
   }
 
-  /** Supprime les lignes du critère ; renvoie le nombre supprimé. */
-  async delete(criteria: OrmCriteria): Promise<number> {
-    return this.#model.destroy({ where: criteria as WhereOptions });
+  async delete(criteria: Criteria<T>): Promise<number> {
+    return this.#model.destroy({
+      where: criteria as WhereOptions,
+      ...this.#txOpt(),
+    });
   }
 
-  /** Compte les lignes correspondant au critère (toutes si omis). */
-  async count(criteria?: OrmCriteria): Promise<number> {
-    return this.#model.count(
-      criteria ? { where: criteria as WhereOptions } : undefined,
-    );
+  async count(criteria?: Criteria<T>): Promise<number> {
+    return this.#model.count({
+      ...(criteria ? { where: criteria as WhereOptions } : {}),
+      ...this.#txOpt(),
+    });
+  }
+
+  withTransaction(tx: ITransaction): IRepository<T> {
+    return new SequelizeRepository<T>(this.#model, tx.getNative<Transaction>());
   }
 }
