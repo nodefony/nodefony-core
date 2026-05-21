@@ -25,6 +25,7 @@ import {
   IconAlertTriangle,
   IconClockHour4,
 } from "@tabler/icons-react";
+import { useSearchParams } from "react-router-dom";
 import { computeWaterfall, type ProfileEntry } from "nodefony/debugbar";
 import { useProfiler } from "../stores";
 
@@ -218,11 +219,19 @@ const ProfileDetail = observer(({ profile }: { profile: ProfileEntry }) => {
  */
 export const Profiler = observer(() => {
   const store = useProfiler();
+  const [params] = useSearchParams();
+  const req = params.get("req");
 
   useEffect(() => {
     void store.loadRecent();
     return () => store.dispose();
   }, [store]);
+
+  // Deep-link / sync depuis la debug bar : `?req=<requestId>` → sélectionne ce
+  // profil (le clic dans la barre navigue ici avec ce param).
+  useEffect(() => {
+    if (req) void store.select(req);
+  }, [req, store]);
 
   return (
     <Stack gap="md">

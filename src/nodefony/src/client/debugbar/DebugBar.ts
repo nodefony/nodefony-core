@@ -56,17 +56,28 @@ const DEFAULT_PROFILER_BASE = "/nodefony/profiler/api";
 const HOST_ID = "nodefony-debugbar";
 
 /** Dimensions des sparklines (unités viewBox SVG). */
-const MINI_W = 46;
-const MINI_H = 16;
+const MINI_W = 58;
+const MINI_H = 20;
 const CHART_W = 260;
 const CHART_H = 46;
 const RT_POINTS = 60;
 
-/** Hauteur de panneau par défaut + bornes (px). */
-const PANEL_H_DEFAULT = 340;
+/** Borne basse de hauteur du panneau (px). */
 const PANEL_H_MIN = 140;
-/** Hauteur mini garantie à l'ouverture d'un profil (waterfall lisible). */
-const PANEL_H_DETAIL = 360;
+/**
+ * Hauteur par défaut = **fraction de l'écran** (≈48 % du viewport) — gros écran
+ * → grand panneau, petit écran → panneau modeste. Bornée [300, 640] pour rester
+ * raisonnable aux extrêmes.
+ */
+function defaultPanelH(): number {
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  return Math.min(640, Math.max(300, Math.round(vh * 0.48)));
+}
+/** Hauteur mini à l'ouverture d'un profil (waterfall confortable) ≈55 % écran. */
+function detailPanelH(): number {
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  return Math.min(680, Math.max(360, Math.round(vh * 0.55)));
+}
 
 /** Onglets disponibles (ordre d'affichage). */
 type TabId = "realtime" | "network" | "perf" | "logs" | "runtime";
@@ -138,16 +149,19 @@ const STYLES = `
 .bar.bottom::before { top:0; } .bar.top::before { bottom:0; }
 @keyframes flow { to { background-position: 200% 0; } }
 
-.strip { display: flex; align-items: center; gap: 14px; padding: 6px 14px; cursor: pointer;
-  flex-wrap: nowrap; overflow: hidden; background: rgba(20,22,26,.6);
-  backdrop-filter: blur(14px) saturate(140%); }
+/* Strip responsive : police (et tout le contenu en em) scale avec la largeur
+   d'écran, bornée 12→15px. Padding scale aussi. */
+.strip { display: flex; align-items: center; gap: clamp(12px,1.1vw,20px);
+  padding: clamp(8px,1vh,13px) clamp(14px,1.4vw,26px); cursor: pointer;
+  font-size: clamp(12px, 0.35vw + 8px, 16px); flex-wrap: nowrap; overflow: hidden;
+  background: rgba(20,22,26,.6); backdrop-filter: blur(14px) saturate(140%); }
 .strip:hover { background: rgba(255,255,255,.03); }
 .brand { display:flex; align-items:center; gap:8px; font-weight:800; letter-spacing:.2px; flex:none; }
-.brand .logo { color: var(--blue2); font-size:13px; filter: drop-shadow(0 0 6px rgba(58,160,255,.6)); }
+.brand .logo { color: var(--blue2); font-size:1.05em; filter: drop-shadow(0 0 6px rgba(58,160,255,.6)); }
 .brand .name { background: linear-gradient(90deg,#fff,var(--blue2)); -webkit-background-clip:text;
   background-clip:text; -webkit-text-fill-color:transparent; }
-.rt-pill { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:11px; flex:none;
-  font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+.rt-pill { display:flex; align-items:center; gap:5px; padding:.2em .7em; border-radius:11px; flex:none;
+  font-size:.76em; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
   color:var(--muted); background:#22262e; border:1px solid var(--line); }
 .rt-pill.live { color:#fff; border-color:rgba(58,160,255,.5);
   background: linear-gradient(90deg, rgba(0,103,186,.35), rgba(255,138,61,.25));
@@ -163,15 +177,15 @@ const STYLES = `
 @keyframes pulse { 0%{box-shadow:0 0 0 0 currentColor} 70%{box-shadow:0 0 0 5px transparent} 100%{box-shadow:0 0 0 0 transparent} }
 
 .metric { display: flex; align-items: center; gap: 6px; white-space: nowrap; flex:none; }
-.metric .k { color: var(--muted); text-transform: uppercase; font-size: 9px; letter-spacing:.5px; }
-.metric .v { font-weight: 700; min-width: 30px; }
-.mini { width: ${MINI_W}px; height: ${MINI_H}px; display:block; }
+.metric .k { color: var(--muted); text-transform: uppercase; font-size: .76em; letter-spacing:.5px; }
+.metric .v { font-weight: 700; min-width: 2.6em; font-size: 1em; }
+.mini { width: 3.8em; height: 1.35em; display:block; }
 .mini polyline { fill:none; stroke-width:1.5; vector-effect:non-scaling-stroke; }
-.chip { display:flex; align-items:center; gap:5px; padding:1px 8px; border-radius:10px; flex:none;
-  background:#22262e; font-weight:700; white-space:nowrap; }
-.chip .k { color: var(--muted); font-size:9px; text-transform:uppercase; }
+.chip { display:flex; align-items:center; gap:6px; padding:.2em .7em; border-radius:11px; flex:none;
+  background:#22262e; font-weight:700; font-size:.92em; white-space:nowrap; }
+.chip .k { color: var(--muted); font-size:.82em; text-transform:uppercase; }
 .spacer { flex: 1 1 auto; min-width: 8px; }
-.toggle { color: var(--muted); font-size: 11px; transition: transform .25s; flex:none; }
+.toggle { color: var(--muted); font-size: .85em; transition: transform .25s; flex:none; }
 .bar.open .toggle { transform: rotate(180deg); }
 .ok{color:var(--ok)} .warn{color:var(--warn)} .crit{color:var(--crit)} .info{color:var(--info)} .muted{color:var(--muted)} .blue{color:var(--blue2)}
 .spark.ok{stroke:var(--ok)} .spark.warn{stroke:var(--warn)} .spark.crit{stroke:var(--crit)} .spark.rt{stroke:var(--blue2)}
@@ -243,14 +257,14 @@ const STYLES = `
 .fe polyline { fill:none; stroke-width:1.75; vector-effect:non-scaling-stroke; }
 .spark.fe { stroke:var(--orange); } .area.fe { fill:rgba(255,138,61,.16); }
 
-.env-badge { padding:2px 9px; border-radius:6px; font-size:10px; font-weight:800;
+.env-badge { padding:.2em .7em; border-radius:6px; font-size:.76em; font-weight:800;
   letter-spacing:.6px; text-transform:uppercase; color:#0b0d10; background:var(--muted); flex:none; }
 .env-badge.dev { background: var(--ok); } .env-badge.prod { background: var(--crit); color:#fff; }
 .env-badge.test { background: var(--warn); } .env-badge.staging { background:#a06bff; color:#fff; }
 .branch { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:6px; flex:none;
   background:#22262e; font-weight:700; max-width:200px; cursor:help; }
 .branch .git { color:var(--blue2); } .branch span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ctrl { color:var(--muted); cursor:pointer; padding:0 4px; font-weight:800; font-size:13px; line-height:1; flex:none; }
+.ctrl { color:var(--muted); cursor:pointer; padding:0 4px; font-weight:800; font-size:1.05em; line-height:1; flex:none; }
 .ctrl:hover { color:#fff; }
 
 .minbar { position:fixed; z-index:2147483000; display:none; align-items:center; gap:8px;
@@ -442,7 +456,9 @@ export class DebugBar {
     this.minimized = lsGet(LS.min, "0") === "1";
     this.side = lsGet(LS.side, "right") === "left" ? "left" : "right";
     this.activeTab = (lsGet(LS.tab, "realtime") as TabId) || "realtime";
-    this.panelH = clampH(parseInt(lsGet(LS.h, String(PANEL_H_DEFAULT)), 10) || PANEL_H_DEFAULT);
+    this.panelH = clampH(
+      parseInt(lsGet(LS.h, String(defaultPanelH())), 10) || defaultPanelH(),
+    );
   }
 
   /** Construit le DOM, branche le realtime et ouvre la connexion. No-op si déjà monté. */
@@ -619,6 +635,19 @@ export class DebugBar {
     const onMin = (): void => this.setMinimized(false);
     minbar.addEventListener("click", onMin);
     this.disposers.push(() => minbar.removeEventListener("click", onMin));
+    // Resize fenêtre → re-clamp la hauteur (jamais > 85vh, ne déborde pas sur
+    // un écran réduit). Throttle léger via rAF.
+    let resizePending = false;
+    const onWinResize = (): void => {
+      if (resizePending) return;
+      resizePending = true;
+      requestAnimationFrame(() => {
+        resizePending = false;
+        this.setPanelH(this.panelH);
+      });
+    };
+    window.addEventListener("resize", onWinResize);
+    this.disposers.push(() => window.removeEventListener("resize", onWinResize));
   }
 
   private startResize(ev: PointerEvent): void {
@@ -1042,8 +1071,23 @@ export class DebugBar {
     // Garantit une hauteur de panneau suffisante pour voir le waterfall (sinon
     // le détail à 60% d'un petit panneau reste illisible). Transitoire (non
     // persisté → ne piétine pas la hauteur choisie par l'utilisateur au resize).
-    if (rid && this.panelH < PANEL_H_DETAIL) this.setPanelH(PANEL_H_DETAIL);
+    const minDetail = detailPanelH();
+    if (rid && this.panelH < minDetail) this.setPanelH(minDetail);
     if (rid && !this.net.profileState(rid)) this.fetchProfile(rid);
+    // Pont vers une app hôte (ex. Studio) : un clic sur une requête sélectionne
+    // le même requestId dans sa page Profiler. CustomEvent → 0 couplage (no-op
+    // si aucun listener). Le widget est vanilla/Shadow DOM, l'hôte est libre.
+    if (rid && typeof window !== "undefined") {
+      try {
+        window.dispatchEvent(
+          new CustomEvent("nodefony:debugbar:select", {
+            detail: { requestId: rid },
+          }),
+        );
+      } catch {
+        /* CustomEvent indispo (très vieux env) → ignore */
+      }
+    }
     this.scheduleRender();
   }
 
