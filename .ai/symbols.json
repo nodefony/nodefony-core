@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-21T13:36:56.154Z",
+  "generated": "2026-05-21T16:35:58.479Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 278,
-    "symbols": 642,
-    "classes": 201,
+    "files": 279,
+    "symbols": 643,
+    "classes": 202,
     "interfaces": 216,
     "types": 138,
     "enums": 1,
@@ -3365,6 +3365,17 @@
       "extends": null,
       "description": "Unité de travail transactionnelle abstraite (commit / rollback / savepoint). Obtenue dans le callback de `IOrm.transaction()`. Les transactions cross-ORM (2PC) ne sont PAS garanties : une transacti…"
     },
+    "AbstractCrudService": {
+      "name": "AbstractCrudService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "Service CRUD **générique** — socle réutilisable au-dessus d'un {@link IRepository}. Toute entité (User, Article, Room...) expose son CRUD « toujours de la même manière » en étendant cette classe : …"
+    },
     "OperatorKey": {
       "name": "OperatorKey",
       "kind": "type",
@@ -4965,6 +4976,7 @@
         "FrontendService",
         "Certificate",
         "HttpKernel",
+        "AbstractCrudService",
         "Orm",
         "Redis",
         "Connection",
@@ -5422,6 +5434,7 @@
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
@@ -5456,6 +5469,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
@@ -5487,6 +5501,7 @@
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
@@ -5544,6 +5559,7 @@
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
@@ -6631,6 +6647,7 @@
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
@@ -7061,6 +7078,19 @@
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts"
       ],
+      "Criteria": [
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
+      "RepositoryReadOptions": [
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
       "FieldOperators": [
         "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
@@ -7215,12 +7245,6 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
       ],
-      "Criteria": [
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
-      ],
       "IPasswordEncoder": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts"
@@ -7271,11 +7295,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "isFieldOperators": [
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
-      ],
-      "RepositoryReadOptions": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"

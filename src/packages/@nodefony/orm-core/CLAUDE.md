@@ -40,6 +40,7 @@ Consommé par les drivers (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefo
 - ✅ P5.1 interfaces (`nodefony/interfaces/`).
 - ✅ P5.2 `OrmRegistry` + `EntityRegistry` + `Orm`/`Entity` base classes (extends Service, event `onOrmReady`).
 - ✅ P5.3 `@entity` + `@repository` decorators (WeakMap `metadataStore`, **sans reflect-metadata** — lib pure ; auto-register descripteur).
+- ✅ P5.3b `AbstractCrudService<T, R>` — socle CRUD générique (extends Service, singleton stateless). Lectures = délégation pure ; mutations = hooks template-method + events `onCreated/onUpdated/onDeleted`. Pattern canonique : service = source de vérité, REST/WS/GraphQL/CLI = adaptateurs minces. 9 tests. Cf `project_crud_pattern_decision`.
 - ✅ P5.4 adapters Sequelize + Mongoose branchés (CRUD/relations/tx portables).
 - ✅ P7.4 3ᵉ adapter Drizzle + **opérateurs riches** (`FieldOperators`/`isFieldOperators`, `nodefony/src/criteria.ts`) → ADR-0003 risque #3 résolu, rétro-appliqué aux 3 adapters. 26 tests unit.
 
