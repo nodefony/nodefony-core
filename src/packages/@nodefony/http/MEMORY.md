@@ -230,6 +230,10 @@ Extension de l'`AuditErrorEntry` :
 
 **Sessions WS** : nécessitent `startSession()` dans `initialize()` du controller.
 
+**Session storage = IoC** : `SessionsService` tient un **registre statique** (`registerStorage/getStorage/storageHandlers`) ; http n'importe AUCUN ORM. Chaque backend s'auto-enregistre au chargement (`files` par http ; `drizzle`/`sequelize`/`mongoose` par leur module). Sélection via config `session.handler` (casse-insensible). Events kernel `onRegisterSessionStorage` / `onSessionStorageReady`. Défaut reco = `drizzle`. Guide : [[guide session-storage]] (`docs/guides/session-storage.md`). ⚠️ appeler `registerStorage` rend l'import http VALEUR → externaliser `@nodefony/http` dans le rollup du module fournisseur.
+
+**HTTP/2 write-after-end** : sur réponse lente, le client abandonne / le stream se ferme → `stream.respond()`/`write()` sur stream détruit = `ERR_HTTP2_INVALID_STREAM` + `ERR_STREAM_WRITE_AFTER_END` (CRITIC). Fix : gardes `stream.destroyed/closed/writable` dans `Http2Response.writeHead/send/end` → skip DEBUG. (Relève de P2.3 aborted-requests.)
+
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
 ## Tests — 452 intégration + 128 unit = 580 (2026-05-16)
