@@ -22,7 +22,8 @@ comme Symfony sépare `security-core` de `security-bundle`.
 | Phase | Contenu | État |
 | ----- | ------- | ---- |
 | P5.5a | Workspace (package, tsconfig, rollup, arbo) | ✅ |
-| P5.5  | `IUser`, `IRole`, `IPermission`, `IUserProvider`, `IUserRepository`, `IPasswordEncoder`, `BaseUser`, `AnonymousUser` | ⬜ |
+| P5.5  | `IUser`, `IPasswordAuthenticatedUser`, `IUserProvider`, `IUserRepository`, `IPasswordEncoder`, `BaseUser`, `AnonymousUser` | ✅ |
+| —     | `IRole`, `IPermission` (RBAC dynamique) — **différés à P6.8** | ⏸ |
 | P5.6  | `UserService` (CRUD + `authenticate()`) + `BcryptEncoder` | ⬜ |
 | P5.7–5.9 | Adapters User Sequelize / Mongoose / Drizzle | ⬜ |
 | P5.10 | Tests cross-ORM (même `IUser`, 3 adapters) | ⬜ |

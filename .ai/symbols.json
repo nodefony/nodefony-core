@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-21T12:29:47.719Z",
+  "generated": "2026-05-21T12:44:56.286Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 269,
-    "symbols": 626,
-    "classes": 197,
-    "interfaces": 208,
+    "files": 276,
+    "symbols": 637,
+    "classes": 199,
+    "interfaces": 215,
     "types": 136,
     "enums": 1,
     "functions": 69,
-    "constants": 15
+    "constants": 17
   },
   "symbols": {
     "Cli": {
@@ -3919,6 +3919,111 @@
       "module": "@nodefony/studio",
       "description": "Canaux temps réel FIGÉS (deviendront des canaux RealtimeService en P13.4)."
     },
+    "IPasswordEncoder": {
+      "name": "IPasswordEncoder",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IPasswordEncoder.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Contrat d'un encodeur de mot de passe — abstraction de l'algorithme de hachage. Implémenté par `BcryptEncoder` (P5.6, rounds: 12 par défaut), interchangeable (argon2, scrypt...) sans toucher au res…"
+    },
+    "ISocialProvider": {
+      "name": "ISocialProvider",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IUser.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Référence à un compte d'un fournisseur d'identité externe (OAuth / OIDC). Stocké en **JSON** sur l'utilisateur (`BaseUser.socialProviders`) plutôt qu'en colonnes dédiées (`googleId`, `githubId`...)…"
+    },
+    "IUser": {
+      "name": "IUser",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IUser.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Contrat **strict** d'un utilisateur Nodefony — surface minimale garantie au framework. C'est le type manipulé par la grande majorité des consommateurs (framework, adapters ORM, agent, llm, rag, rea…"
+    },
+    "IPasswordAuthenticatedUser": {
+      "name": "IPasswordAuthenticatedUser",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IUser.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": "IUser",
+      "description": "Utilisateur **porteur d'un credential mot de passe local** — extension de {@link IUser}. Séparé de `IUser` (façon `PasswordAuthenticatedUserInterface` de Symfony) pour garder le contrat de base pur…"
+    },
+    "IUserProvider": {
+      "name": "IUserProvider",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Contrat de **fourniture** d'utilisateurs — la source d'identité (DB, LDAP, SSO...). Consommé par les authenticators de `@nodefony/security` : il découple la stratégie d'authentification du stockage…"
+    },
+    "IUserRepository": {
+      "name": "IUserRepository",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": "IRepository",
+      "description": "Repository **spécialisé utilisateur** — `IRepository<IUser>` enrichi de finders métier. Étend le contrat CRUD portable de `@nodefony/orm-core` (`find`, `create`, `withTransaction`...) avec les accè…"
+    },
+    "AnonymousUser": {
+      "name": "AnonymousUser",
+      "kind": "class",
+      "file": "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "implements": [
+        "IUser"
+      ],
+      "decorators": [],
+      "description": "Utilisateur **non authentifié** — implémente {@link IUser} sans credential. Permet de typer le contexte de sécurité sans `null` (Zero Trust : un visiteur est un utilisateur anonyme, pas une absence…"
+    },
+    "ROLE_ANONYMOUS": {
+      "name": "ROLE_ANONYMOUS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Rôle unique d'un utilisateur non authentifié."
+    },
+    "anonymousUser": {
+      "name": "anonymousUser",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Singleton d'{@link AnonymousUser} — instance partagée et gelée à réutiliser à chaque requête non authentifiée (zéro allocation dans le hot path)."
+    },
+    "BaseUser": {
+      "name": "BaseUser",
+      "kind": "class",
+      "file": "src/packages/@nodefony/user/nodefony/src/BaseUser.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "implements": [
+        "IPasswordAuthenticatedUser"
+      ],
+      "decorators": [],
+      "description": "Implémentation POJO de référence d'un utilisateur — base partagée par tous les ORM. Porte le contrat {@link IPasswordAuthenticatedUser} plus les **champs anti-migration** : `socialProviders` (JSON,…"
+    },
+    "IBaseUserOptions": {
+      "name": "IBaseUserOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/src/BaseUser.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Options de construction d'un {@link BaseUser} — signature en objet (lisibilité + extensibilité)."
+    },
     "MemoryVectorStore": {
       "name": "MemoryVectorStore",
       "kind": "class",
@@ -5002,6 +5107,12 @@
       "Connector": [
         "ConnectorSequelise"
       ],
+      "IUser": [
+        "IPasswordAuthenticatedUser"
+      ],
+      "IRepository": [
+        "IUserRepository"
+      ],
       "IVectorStoreConfig": [
         "IPgVectorConfig"
       ],
@@ -5112,6 +5223,12 @@
       ],
       "IRagService": [
         "RagService"
+      ],
+      "IUser": [
+        "AnonymousUser"
+      ],
+      "IPasswordAuthenticatedUser": [
+        "BaseUser"
       ],
       "IVectorStore": [
         "MemoryVectorStore",
@@ -6458,6 +6575,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
@@ -7030,6 +7148,17 @@
       ],
       "Publish": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "IUser": [
+        "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts"
+      ],
+      "IPasswordAuthenticatedUser": [
+        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
+      ],
+      "ISocialProvider": [
+        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
       ],
       "IVectorSearchOptions": [
         "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
