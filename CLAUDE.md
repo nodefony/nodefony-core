@@ -139,6 +139,8 @@ La doc externe (RFC, TS handbook, NestJS) et les phases futures (10/12/13/14) so
 
 **Règle universelle** : interdiction de charger les sites HTML lourds (`nodejs.org`, `typescriptlang.org`, `docs.nestjs.com`, `tools.ietf.org`). Toujours via raw GitHub + proxy `https://r.jina.ai/`. Les skills contiennent les URLs canoniques + le pattern d'usage.
 
+**Convention skills/commands (figée 2026-05-21)** : tous les skills sont préfixés `nodefony-` (namespace + auto-trigger) ; les slash-commands restent **courtes et non préfixées** (couche UX tapée qui délègue au skill — ex. `/start-server`, `/migration-audit`). Cycle de vie d'une session = **un seul skill `nodefony-session`** (modes : RESUME « reprends » après `/clear` / START `<module>` / END « fin de session » / CONSOLIDATE). La liste complète des skills est fournie par le harness — ne pas la dupliquer ici.
+
 **Convention de route `/nodefony/*` réservée à Studio** : tout module exposant une API d'admin (stats, introspection) doit exposer `/nodefony/<module>/api/*` documenté dans son `MEMORY.md`. Concevoir en GraphQL/REST JSON — pas de couplage à la vue. (Détails complets : skill `nodefony-roadmap`.)
 
 **Cache MEMORY** : une fois une API Node.js comprise (ex : `node:http2`), stocker les signatures critiques dans le `MEMORY.md` du module concerné — évite de relire la doc.
