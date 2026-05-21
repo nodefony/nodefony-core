@@ -4,7 +4,7 @@ description: >
   Charge le contexte des phases futures Nodefony — Phase 10 (Studio admin web), 12 (couche IA
   agentic), 13 (Realtime + Redis cluster + client navigateur), 14 (frontend builder Vite). À utiliser
   quand un module doit prévoir une API admin, un design IA-compatible ou un endpoint Studio.
-  Déclencheurs : "Vision", "Studio", "Phase 10", "Phase 12", "Phase 13", "Phase 14", "couche IA",
+  Déclencheurs : "Studio", "Phase 10", "Phase 12", "Phase 13", "Phase 14", "couche IA",
   "agentic", "@nodefony/agent", "@nodefony/realtime", "@nodefony/client", "API admin", "route /nodefony", "AI Act".
 ---
 
@@ -12,13 +12,13 @@ description: >
 
 Contexte des phases futures (10, 12, 13, 14) — à activer quand un module impacte ces phases.
 
-## Phase 10 — Module `@nodefony/vision`
+## Phase 10 — Module `@nodefony/studio`
 
 Successeur de `monitoring-bundle` Vue 2 legacy. Application web d'administration du framework et des apps.
 
 ### 🔒 Convention de route RÉSERVÉE — applicable dès maintenant
 
-- Le préfixe `/nodefony` est **réservé à Vision** dans toutes les apps en production.
+- Le préfixe `/nodefony` est **réservé à Studio** dans toutes les apps en production.
 - Modules internes exposant des routes admin → `/nodefony/<module>/...` (ex : `/nodefony/http/api/stats`).
 - Les apps utilisateur doivent éviter `/nodefony/*`.
 - Le module `test` actuel utilise `/nodefony/test/*` — cohérent (route interne).
@@ -31,7 +31,7 @@ Si le module expose une API d'introspection/admin :
 - `@nodefony/security` → users connectés
 - `@nodefony/orm-*` → état connexions DB
 
-→ **Prévoir un controller `/nodefony/<module>/api/*` documenté** consommé par Vision.
+→ **Prévoir un controller `/nodefony/<module>/api/*` documenté** consommé par Studio.
 → Concevoir les API en **GraphQL ou REST JSON** — pas de couplage à la vue.
 → Documenter chaque endpoint admin dans le `MEMORY.md` du module.
 
@@ -68,7 +68,7 @@ Si le module expose une API d'introspection/admin :
 | `@nodefony/agent`       | Orchestrateur + sous-agents (`@Agent`, `@Tool`)              | 🔶 partiel | P12.2      |
 | `@nodefony/mcp`         | MCP server + client (Model Context Protocol Anthropic)       | ⬜         | P12.3      |
 | `@nodefony/agent-guard` | **Différenciateur** — zones, PII, audit, approval, coûts     | ⬜         | P12.4      |
-| `@nodefony/studio`      | Panels IA intégrés dans `@nodefony/vision` (pas séparé)      | ⬜         | P12.5      |
+| `@nodefony/studio`      | Panels IA intégrés dans `@nodefony/studio` (pas séparé)      | ⬜         | P12.5      |
 
 ### Principes invariants (ne pas dévier)
 
@@ -84,7 +84,7 @@ Si le module expose une API d'introspection/admin :
 
 - Si module consommé par IA (security, user, orm-core, http WS, session, syslog) → **prévoir usage IA dans le design** : interfaces extensibles, async iterators, pas de couplage rigide.
 - Modules IA existants partiellement TS : ne pas casser, mais design pas figé. Audit + refonte en P12.1.
-- `@nodefony/studio` **intègre les panels IA** (agents, costs, audit, approvals). NB : `@nodefony/vision` a été renommé `@nodefony/studio` (2026-05-18) — il n'y a plus qu'un seul module Studio.
+- `@nodefony/studio` **intègre les panels IA** (agents, costs, audit, approvals). NB : ce module a été renommé `vision` → `studio` (2026-05-18) — il n'y a plus qu'un seul module Studio.
 - **Ne pas démarrer de session sur les modules IA** pendant P0-P11 sauf demande explicite.
 
 ### Fichiers IA contexte (lire en session IA, pas en session framework)
@@ -104,21 +104,21 @@ Si le module expose une API d'introspection/admin :
 | Module                | Rôle                                                         | Bloque             | Réf JS legacy                                |
 | --------------------- | ------------------------------------------------------------ | ------------------ | -------------------------------------------- |
 | `@nodefony/redis`     | Cluster + pub/sub + storage (cache, session, lock distribué) | P5.12 + apps prod  | `bundles/redis-bundle/` (166 L)              |
-| `@nodefony/client`    | Lib navigateur — HTTP/WS/auth/streaming LLM browser          | **P10.7 Vision**   | N/A — à créer                                |
+| `@nodefony/client`    | Lib navigateur — HTTP/WS/auth/streaming LLM browser          | **P10.7 Studio**   | N/A — à créer                                |
 | `@nodefony/realtime`  | Serveurs TCP/UDP/Unix sockets (IoT, IPC, protos binaires)    | indépendant        | `bundles/realtime-bundle/` (689 L + sockets) |
 
 ### Règles transverses
 
 - **WS reste dans `@nodefony/http`** — `realtime` complète avec TCP/UDP/Unix, pas WS.
 - **Sessions prod** : `RedisSessionStorage` (P5.12) dépend de refacto `@nodefony/redis` (P13.2). Cluster Nodefony multi-instance → P13.2 non-négociable.
-- **Vision frontend** consomme `@nodefony/client` → doit exposer : WS reconnect auto, fetch auth/CSRF, AsyncIterable streaming LLM, AuthClient (login/refresh).
+- **Studio frontend** consomme `@nodefony/client` → doit exposer : WS reconnect auto, fetch auth/CSRF, AsyncIterable streaming LLM, AuthClient (login/refresh).
 - **`@nodefony/client` bas niveau** — pas de Vue/React inclus, utilisable depuis n'importe quel framework UI.
 - **TypeScript shared types** : créer `@nodefony/contracts` (micro-package types-only) si nécessaire pour éviter cycles client↔server.
 - **Pub/Sub Redis** : critique pour cluster — WS broadcast scalable nécessite pub/sub.
 
 ---
 
-## Phase 14 — `@nodefony/frontend` (builder Vue/React/Svelte intégré)
+## Phase 14 — `@nodefony/frontend` (builder Vite multi-framework : React/Vue/Angular)
 
 **Mécanique legacy à reproduire moderne** : chaque bundle pouvait déclarer `type: "react" | "vue"` → framework transpilait son frontend (`webpackService.js` 631 L + `cli/builder/{react,vue}/` 634 L).
 
@@ -130,7 +130,7 @@ Si le module expose une API d'introspection/admin :
 // nodefony/config/config.ts
 export default {
   frontend: {
-    type: "vue3",              // ou "react19", "svelte5", "solid"
+    type: "vue3",              // ou "react19", "angular", "svelte5", "solid"
     entry: "./frontend/src/main.ts",
     outDir: "./public/dist",
     integrate: true            // true = middleware HMR dans @nodefony/http | false = proxy Vite externe
@@ -149,12 +149,12 @@ export default {
 
 | Module                | Rôle                                                                              |
 | --------------------- | --------------------------------------------------------------------------------- |
-| `@nodefony/frontend`  | **Builder** : transpile/bundle les frontends des modules (Vue/React/Svelte)       |
+| `@nodefony/frontend`  | **Builder** : transpile/bundle les frontends des modules (React/Vue/Angular)      |
 | `@nodefony/client`    | **Lib JS bas niveau** : HTTP/WS/auth/streaming clients, importée DANS le code UI  |
 
-Vision = consommateur des deux : `@nodefony/frontend` (Vite + Vue 3) pour bundler son frontend, qui importe `@nodefony/client` pour les appels backend.
+Studio = consommateur des deux : `@nodefony/frontend` (Vite, multi-framework) pour bundler son frontend, qui importe `@nodefony/client` pour les appels backend.
 
-P14 bloque P10.7 (Vision frontend).
+P14 bloque P10.7 (Studio frontend).
 
 ---
 

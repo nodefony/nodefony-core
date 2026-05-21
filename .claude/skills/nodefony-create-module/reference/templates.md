@@ -435,7 +435,7 @@ export default {{NameClass}}Service;
 /**
  * Erreur de base pour @nodefony/{{name}}.
  *
- * - `code` : identifiant machine, consommé par Vision et l'audit-logger.
+ * - `code` : identifiant machine, consommé par Studio et l'audit-logger.
  * - `context` : payload structuré pour le PDU syslog.
  */
 export class {{NameClass}}Error extends Error {
@@ -506,7 +506,7 @@ import { Controller, route, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 
 /**
- * Controller {{NameClass}} — préfixe `/nodefony/{{name}}/*` (conv. Vision Phase 10).
+ * Controller {{NameClass}} — préfixe `/nodefony/{{name}}/*` (conv. Studio Phase 10).
  */
 @controller("/nodefony/{{name}}")
 class {{NameClass}}Controller extends Controller {
@@ -519,7 +519,7 @@ class {{NameClass}}Controller extends Controller {
     return this.renderJson({ module: "{{name}}", ok: true });
   }
 
-  // Endpoint Vision (Phase 10) — état du module pour l'API admin.
+  // Endpoint Studio (Phase 10) — état du module pour l'API admin.
   @route("{{name}}-api-status", { path: "/api/status" })
   apiStatus(): unknown {
     return this.renderJson({ module: "{{name}}", ts: Date.now() });
@@ -643,7 +643,7 @@ Purpose: {{description}}
 - `declarationDir` requiert `declaration: true` (TS5069).
 - ANSI codes dans logs externes : strip via `/\x1b\[[0-9;]*m/g`.
 
-## API Vision (route /nodefony/{{name}}/* — Phase 10)
+## API Studio (route /nodefony/{{name}}/* — Phase 10)
 
 - GET /nodefony/{{name}}/api/status → JSON status
 - (à étendre)

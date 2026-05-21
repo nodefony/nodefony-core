@@ -120,7 +120,7 @@ Déterminer la prochaine étape = **première phase non finie sur le chemin crit
 ╚═══════════════════════════════════════════════════════════════╝
 ```
 
-Règle de choix : tant que **P5/P6 = 0%**, la prochaine étape est **P5** (ORM core + @nodefony/user) — c'est le bloqueur racine de la sécurité, du Studio data-réelle, des drivers ORM, de l'IA. Lister les 2-3 premières sous-tâches roadmap avec leur effort.
+Règle de choix : tant que **P5/P6 ne sont pas terminées**, la prochaine étape est la première phase non finie du chemin critique — typiquement **P5** (ORM core + @nodefony/user), bloqueur racine de la sécurité, du Studio data-réelle, des drivers ORM, de l'IA. **Mesurer leur % réel dans le code, ne pas le supposer** (P5.2/P5.3/P7.4 déjà livrés au 2026-05-21) ; lister les 2-3 premières sous-tâches NON faites avec leur effort.
 
 ### Étape 2 — Synthèse + corrections (fin)
 
