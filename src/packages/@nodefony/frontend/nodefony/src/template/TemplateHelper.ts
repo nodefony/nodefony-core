@@ -1,5 +1,12 @@
 import path from "node:path";
+import { createRequire } from "node:module";
 import type { IViteSupervisor } from "../../interfaces/IViteSupervisor";
+
+/**
+ * Chemin résolu (1×, caché) du build navigateur de la debug bar Nodefony
+ * (`nodefony/debugbar`). `undefined` = pas encore tenté, `null` = irrésolu.
+ */
+let debugbarFile: string | null | undefined;
 
 /**
  * Génère les balises HTML à injecter dans la page rendue côté serveur
@@ -69,7 +76,43 @@ window.__vite_plugin_react_preamble_installed__ = true;
     }
     tags.push(`<script type="module" src="${baseUrl}/@vite/client"></script>`);
     tags.push(`<script type="module" src="${entryUrl}"></script>`);
+    // Debug bar Nodefony (dev only, auto) — vitrine realtime + HMR fusionnés au
+    // runtime. Le script est servi depuis le build navigateur du Core via Vite
+    // (`/@fs/<abs>`) ; on lui injecte le framework + l'origine + le WS HMR Vite.
+    const hmrUrl = `${status.https ? "wss" : "ws"}://${status.host}:${status.port}/`;
+    const dbg = this.debugBarTag(baseUrl, entry.type, entryName, hmrUrl);
+    if (dbg) tags.push(dbg);
     return tags.join("\n");
+  }
+
+  /**
+   * Tag d'injection de la debug bar (subpath `nodefony/debugbar`). Résout le
+   * fichier dist navigateur côté serveur (1×, caché) et le sert via `/@fs`.
+   * Renvoie un commentaire HTML (jamais d'erreur) si le subpath est irrésoluble.
+   */
+  private debugBarTag(
+    baseUrl: string,
+    framework: string,
+    entryName: string,
+    hmrUrl: string,
+  ): string {
+    if (debugbarFile === undefined) {
+      try {
+        debugbarFile = createRequire(import.meta.url).resolve("nodefony/debugbar");
+      } catch {
+        debugbarFile = null;
+      }
+    }
+    if (!debugbarFile) return `<!-- @nodefony/frontend: debugbar unresolved -->`;
+    const norm = debugbarFile.replace(/\\/g, "/");
+    const fsUrl = `${baseUrl}${norm.startsWith("/") ? `/@fs${norm}` : `/@fs/${norm}`}`;
+    const opts = JSON.stringify({
+      frontend: { framework, name: entryName, viteOrigin: baseUrl, hmrUrl },
+    });
+    return `<script type="module">
+import { mountDebugBar } from ${JSON.stringify(fsUrl)};
+mountDebugBar(${opts});
+</script>`;
   }
 
   private renderProdTags(_entryName: string): string {

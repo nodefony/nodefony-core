@@ -11,9 +11,42 @@
  */
 import os from "node:os";
 import v8 from "node:v8";
+import fs from "node:fs";
+import path from "node:path";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 
 export type Publish = (channel: string, payload: unknown) => void;
+
+/** Métadonnées applicatives statiques poussées avec `dashboard:stats`. */
+export interface AppMeta {
+  name?: string;
+  version?: string;
+  env?: string;
+  debug?: boolean;
+  branch?: string;
+}
+
+/** Branche git, lue UNE seule fois (cache process). `""` si indéterminée. */
+let _gitBranch: string | undefined;
+
+/**
+ * Lit la branche git courante depuis `.git/HEAD` (pas de spawn `git`). Détaché →
+ * sha court. Caché pour la vie du process (constant). Best-effort : `""` si hors
+ * dépôt ou worktree.
+ *
+ * @param cwd - racine où chercher `.git` (défaut `process.cwd()`)
+ */
+export function readGitBranch(cwd: string = process.cwd()): string {
+  if (_gitBranch !== undefined) return _gitBranch;
+  try {
+    const head = fs.readFileSync(path.join(cwd, ".git", "HEAD"), "utf8").trim();
+    const m = head.match(/^ref:\s*refs\/heads\/(.+)$/);
+    _gitBranch = m ? m[1]! : head.slice(0, 7); // détaché → sha court
+  } catch {
+    _gitBranch = "";
+  }
+  return _gitBranch;
+}
 
 /**
  * Plafond du tas V8 (`--max-old-space-size`, ~2-4 Go par défaut). **Constant**
@@ -136,7 +169,11 @@ export function createSyslogBridge(
  *
  * @returns dispose() qui clear l'interval — OBLIGATOIRE.
  */
-export function createStatsTicker(publish: Publish, intervalMs = 1000): () => void {
+export function createStatsTicker(
+  publish: Publish,
+  intervalMs = 1000,
+  meta?: AppMeta,
+): () => void {
   const cores = os.cpus().length || 1; // 1 seule lecture (os.cpus alloue un array)
   let prevCpu = process.cpuUsage();
   let prevTs = Date.now();
@@ -163,6 +200,7 @@ export function createStatsTicker(publish: Publish, intervalMs = 1000): () => vo
     const mem = process.memoryUsage();
     publish(CHANNELS.stats, {
       ts: now,
+      app: meta, // statique (constant ref) : env, branche git, version, name
       instanceId: INSTANCE_ID,
       uptime: process.uptime(),
       pid: process.pid,

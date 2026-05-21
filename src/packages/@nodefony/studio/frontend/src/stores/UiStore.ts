@@ -5,6 +5,13 @@ const THEME_KEY = "nodefony.studio.theme";
 const PALETTE_KEY = "nodefony.studio.palette";
 const RAIL_KEY = "nodefony.studio.sidebar.rail";
 const GROUPS_KEY = "nodefony.studio.sidebar.groups";
+/** Clé PARTAGÉE avec le widget Core (`nodefony/debugbar`) → état synchronisé. */
+const DEBUGBAR_KEY = "nf.debugbar.visible";
+
+/** Handle global exposé par la debug bar Core (`window.__NODEFONY_DEBUGBAR__`). */
+interface DebugBarHandle {
+  setVisible(v: boolean): void;
+}
 
 export type ThemeMode = "light" | "dark" | "auto";
 
@@ -24,10 +31,32 @@ export class UiStore {
   collapsedGroups: Record<string, boolean> = {};
   /** Filtre live de la nav (libellés). Transient — jamais persisté. */
   navQuery = "";
+  /** Debug bar Nodefony visible (dev). Persisté, partagé avec le widget Core. */
+  debugBar = true;
 
   constructor() {
     makeAutoObservable(this);
     this.loadPrefs();
+  }
+
+  setDebugBar(v: boolean): void {
+    this.debugBar = v;
+    this.applyDebugBar();
+  }
+
+  toggleDebugBar(): void {
+    this.setDebugBar(!this.debugBar);
+  }
+
+  /** Écrit la pref + pilote la barre auto-injectée via son handle global. */
+  private applyDebugBar(): void {
+    try {
+      localStorage.setItem(DEBUGBAR_KEY, this.debugBar ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+    const w = window as unknown as { __NODEFONY_DEBUGBAR__?: DebugBarHandle };
+    w.__NODEFONY_DEBUGBAR__?.setVisible(this.debugBar);
   }
 
   setTheme(mode: ThemeMode): void {
@@ -76,6 +105,7 @@ export class UiStore {
       const p = localStorage.getItem(PALETTE_KEY);
       if (p === "orange" || p === "nodefony") this.palette = p;
       this.rail = localStorage.getItem(RAIL_KEY) === "1";
+      this.debugBar = localStorage.getItem(DEBUGBAR_KEY) !== "0";
       const g = localStorage.getItem(GROUPS_KEY);
       if (g) {
         const parsed: unknown = JSON.parse(g);

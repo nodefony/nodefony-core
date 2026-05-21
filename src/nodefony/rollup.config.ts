@@ -65,6 +65,8 @@ function onwarn(
   if (warning.code === "EVAL") return;
   // TS5055: declarationDir conflict when bin bundle loads the types just generated
   if (warning.message.includes("TS5055")) return;
+  // TS5069: declarationDir hérité du tsconfig sur le bundle standalone (declaration:false)
+  if (warning.message.includes("TS5069")) return;
   warn(warning);
 }
 
@@ -157,7 +159,10 @@ const browserShim: Plugin = {
 
 function createClientConfig(isProduction: boolean): RollupOptions {
   return defineConfig({
-    input: "src/client/index.ts",
+    // Multi-entry : `index` (barrel browser `nodefony`) + `debugbar` (subpath
+    // `nodefony/debugbar`). preserveModules → RealtimeClient partagé, émis 1×
+    // (0 duplication). Le subpath n'est JAMAIS réexporté depuis client/index.ts.
+    input: ["src/client/index.ts", "src/client/debugbar/index.ts"],
     onwarn,
     output: {
       dir: "./dist/client",
@@ -181,11 +186,38 @@ function createClientConfig(isProduction: boolean): RollupOptions {
   });
 }
 
+// ─── 4. Debug bar STANDALONE (dist/client/debugbar.standalone.js) ────────────
+// Bundle mono-fichier (deps inlinées) du subpath `nodefony/debugbar` — pour
+// l'inclure via un simple <script type="module"> sur une page rendue serveur
+// (EJS/Twig/HTML statique), SANS Vite ni résolution d'imports relatifs.
+function createDebugbarStandaloneConfig(isProduction: boolean): RollupOptions {
+  return defineConfig({
+    input: "src/client/debugbar/index.ts",
+    onwarn,
+    output: {
+      file: "./dist/client/debugbar.standalone.js",
+      format: "esm",
+      sourcemap: !isProduction,
+    },
+    plugins: [
+      browserShim,
+      nodePolyfills(),
+      nodeResolve({ browser: true, preferBuiltins: false }),
+      typescript({
+        tsconfig: path.resolve(__dirname, "tsconfigClient.json"),
+        declaration: false,
+      }),
+      json(),
+    ],
+  });
+}
+
 export default (commandLineArgs: Record<string, unknown>): RollupOptions[] => {
   const isProduction = !commandLineArgs["watch"];
   return [
     createNodeConfig(isProduction),
     createBinaryConfig(isProduction),
     createClientConfig(isProduction),
+    createDebugbarStandaloneConfig(isProduction),
   ];
 };

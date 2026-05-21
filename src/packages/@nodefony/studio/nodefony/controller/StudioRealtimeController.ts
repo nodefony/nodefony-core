@@ -4,7 +4,9 @@ import { Context, WebsocketContext } from "@nodefony/http";
 import {
   createSyslogBridge,
   createStatsTicker,
+  readGitBranch,
   CHANNELS,
+  type AppMeta,
   type Publish,
 } from "../realtime/providers";
 
@@ -120,7 +122,7 @@ class StudioRealtimeController extends Controller {
     if (channel === CHANNELS.syslog && this.syslog) {
       dispose = createSyslogBridge(this.syslog, publish);
     } else if (channel === CHANNELS.stats) {
-      dispose = createStatsTicker(publish, 1000);
+      dispose = createStatsTicker(publish, 1000, this.appMeta());
     }
     if (dispose) {
       state.channels.set(channel, dispose);
@@ -142,6 +144,18 @@ class StudioRealtimeController extends Controller {
       state.channels.delete(channel);
       this.log(`WS unsubscribe → ${channel}`, "DEBUG");
     }
+  }
+
+  /** Métadonnées app statiques (env, branche git, version) pour `dashboard:stats`. */
+  private appMeta(): AppMeta {
+    const k = this.kernel;
+    return {
+      name: k?.projectName,
+      version: k?.version,
+      env: k?.environment,
+      debug: Boolean(k?.debug),
+      branch: readGitBranch(),
+    };
   }
 
   /** Lit/initialise l'état pub/sub stocké sur le contexte (persiste entre messages WS). */

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-21T17:36:23.254Z",
+  "generated": "2026-05-21T18:41:37.560Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 280,
-    "symbols": 644,
-    "classes": 202,
-    "interfaces": 217,
-    "types": 138,
+    "files": 285,
+    "symbols": 677,
+    "classes": 204,
+    "interfaces": 230,
+    "types": 140,
     "enums": 1,
-    "functions": 69,
+    "functions": 85,
     "constants": 17
   },
   "symbols": {
@@ -989,6 +989,187 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "DebugBar": {
+      "name": "DebugBar",
+      "kind": "class",
+      "file": "src/nodefony/src/client/debugbar/DebugBar.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Widget DOM. Lazy : ne construit le Shadow DOM qu'au `mount()`. Idempotent (un seul `#nodefony-debugbar` par page)."
+    },
+    "DebugBarFrontend": {
+      "name": "DebugBarFrontend",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/DebugBar.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Contexte frontend injecté par le builder Vite (@nodefony/frontend) en dev."
+    },
+    "DebugBarOptions": {
+      "name": "DebugBarOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/DebugBar.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "DebugBarHandle": {
+      "name": "DebugBarHandle",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/DebugBar.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Handle global exposé sur `window.__NODEFONY_DEBUGBAR__` — permet à une app (ex. Studio) de piloter la visibilité de la barre auto-injectée sans la remonter. Bridge entre le widget (Core) et un stor…"
+    },
+    "GaugeTier": {
+      "name": "GaugeTier",
+      "kind": "type",
+      "file": "src/nodefony/src/client/debugbar/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Palier de santé d'une jauge 0-100 — pilote la couleur du widget."
+    },
+    "formatBytes": {
+      "name": "formatBytes",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Formatte un nombre d'octets en unité lisible (1 décimale, base 1024)."
+    },
+    "formatUptime": {
+      "name": "formatUptime",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Formatte une durée (secondes) en chaîne compacte (`1h 02m`, `3m 12s`, `45s`)."
+    },
+    "gauge": {
+      "name": "gauge",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Classe une valeur 0-100 en palier vert/orange/rouge."
+    },
+    "stripAnsi": {
+      "name": "stripAnsi",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retire les séquences d'échappement ANSI (couleurs terminal) d'une chaîne."
+    },
+    "sparklinePoints": {
+      "name": "sparklinePoints",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/format.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Calcule l'attribut `points` d'un `<polyline>` SVG (sparkline) à partir d'une série de valeurs. Pur → testable. Mise à l'échelle sur `[0, max]`."
+    },
+    "HmrEvent": {
+      "name": "HmrEvent",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/hmr.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "HmrKind": {
+      "name": "HmrKind",
+      "kind": "type",
+      "file": "src/nodefony/src/client/debugbar/hmr.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sonde HMR Vite — se branche en **2ᵉ client** sur le WebSocket HMR du serveur de dev Vite (sous-protocole `vite-hmr`) pour OBSERVER les hot-updates en live. But (psychologie produit) : montrer que l…"
+    },
+    "connectViteHmr": {
+      "name": "connectViteHmr",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/hmr.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ouvre un WS HMR vers `url` et appelle `onEvent` à chaque message Vite. Reconnexion best-effort (1,5 s). No-op hors navigateur."
+    },
+    "mountDebugBar": {
+      "name": "mountDebugBar",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Monte la debug bar sur la page courante. Idempotent (un seul widget par page). No-op hors navigateur (SSR). Branche un {@link RealtimeClient} sur le WS realtime et rend l'overlay live."
+    },
+    "DebugBarModel": {
+      "name": "DebugBarModel",
+      "kind": "class",
+      "file": "src/nodefony/src/client/debugbar/model.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    "AppMeta": {
+      "name": "AppMeta",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/model.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Métadonnées applicatives statiques (env, branche git, version) — bloc `app`."
+    },
+    "StatsPayload": {
+      "name": "StatsPayload",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/model.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Payload du canal `dashboard:stats` (cf studio `createStatsTicker`)."
+    },
+    "LogEntry": {
+      "name": "LogEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/model.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Pdu sérialisé tel qu'il transite sur `syslog:stream` (JSON.stringify d'un {@link Pdu} côté serveur). Le message vit dans `payload`, le producteur dans `moduleName` — on réhydrate un vrai {@link Pdu…"
+    },
+    "SyslogPayload": {
+      "name": "SyslogPayload",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/model.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Payload coalescé du canal `syslog:stream` (cf studio `createSyslogBridge`)."
+    },
+    "FeedLog": {
+      "name": "FeedLog",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/model.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Log normalisé pour le feed du widget."
+    },
+    "DebugBarView": {
+      "name": "DebugBarView",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/model.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Vue dénormalisée consommée par le rendu."
     },
     "RealtimeClient": {
       "name": "RealtimeClient",
@@ -3890,6 +4071,15 @@
       ],
       "description": "StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio. Route : `WS /nodefony/studio/api/realtime`. Protocole : **JSON-RPC 2.0**. - notifications serveur→client : `{ jsonrpc:\"…"
     },
+    "@nodefony/studio:AppMeta": {
+      "name": "AppMeta",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": null,
+      "description": "Métadonnées applicatives statiques poussées avec `dashboard:stats`."
+    },
     "SyslogBridgeOptions": {
       "name": "SyslogBridgeOptions",
       "kind": "interface",
@@ -3905,6 +4095,14 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
       "exported": true,
       "module": "@nodefony/studio"
+    },
+    "readGitBranch": {
+      "name": "readGitBranch",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Lit la branche git courante depuis `.git/HEAD` (pas de spawn `git`). Détaché → sha court. Caché pour la vie du process (constant). Best-effort : `\"\"` si hors dépôt ou worktree."
     },
     "createSyslogBridge": {
       "name": "createSyslogBridge",
@@ -5695,6 +5893,7 @@
         "src/nodefony/src/types/IContainer.ts",
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/types/ISyslog.ts",
+        "src/nodefony/src/client/debugbar/model.ts",
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
@@ -5782,6 +5981,7 @@
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/types/ISyslog.ts",
         "src/nodefony/src/types/ITransport.ts",
+        "src/nodefony/src/client/debugbar/model.ts",
         "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
         "src/nodefony/src/syslog/transports/FileTransport.ts",
         "src/nodefony/src/syslog/transports/HttpTransport.ts",
@@ -6362,7 +6562,8 @@
         "src/nodefony/src/client/index.ts"
       ],
       "RealtimeClient": [
-        "src/nodefony/src/client/index.ts"
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
       "File": [
         "src/nodefony/src/command/Builder.ts",
@@ -6511,6 +6712,49 @@
       ],
       "WrapperResult": [
         "src/nodefony/src/types/ISyslog.ts"
+      ],
+      "RealtimeState": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts",
+        "src/nodefony/src/client/debugbar/model.ts"
+      ],
+      "DebugBarModel": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "FeedLog": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "StatsPayload": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "SyslogPayload": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "formatBytes": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "formatUptime": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "gauge": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "sparklinePoints": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "connectViteHmr": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "HmrEvent": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "DebugBar": [
+        "src/nodefony/src/client/debugbar/index.ts"
+      ],
+      "DebugBarOptions": [
+        "src/nodefony/src/client/debugbar/index.ts"
+      ],
+      "stripAnsi": [
+        "src/nodefony/src/client/debugbar/model.ts"
       ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
@@ -7232,7 +7476,13 @@
       "createStatsTicker": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
+      "readGitBranch": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
       "CHANNELS": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "AppMeta": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "Publish": [

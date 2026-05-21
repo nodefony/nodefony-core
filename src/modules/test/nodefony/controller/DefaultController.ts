@@ -1,6 +1,25 @@
+import { createRequire } from "node:module";
+import fs from "node:fs";
 import { Controller, route, controller } from "@nodefony/framework";
 import { Context, HttpContext, HttpError } from "@nodefony/http";
 import { inject, Fetch, nodefonyError as Error, RequestContext } from "nodefony";
+
+/**
+ * Bundle standalone de la debug bar (`nodefony/debugbar.js`), lu UNE fois +
+ * caché. Sert à l'inclure via `<script>` sur la page EJS (rendue serveur, sans
+ * Vite). `null` = pas encore lu, `false` = irrésoluble.
+ */
+let debugbarBundle: string | false | null = null;
+function loadDebugbarBundle(): string | false {
+  if (debugbarBundle !== null) return debugbarBundle;
+  try {
+    const file = createRequire(import.meta.url).resolve("nodefony/debugbar.js");
+    debugbarBundle = fs.readFileSync(file, "utf8");
+  } catch {
+    debugbarBundle = false;
+  }
+  return debugbarBundle;
+}
 
 // Module-level counter used by P1.2 onAfterResponse integration tests.
 // Lives outside the controller class because controllers are scoped per request.
@@ -65,6 +84,25 @@ class DefaultController extends Controller {
   index4() {
     return this.render({
       route: this.route,
+    });
+  }
+
+  // Sert le bundle standalone de la debug bar pour la page EJS (rendue serveur,
+  // hors Vite). La page `/index4` l'inclut via <script type="module">.
+  @route("debugbar-js", {
+    path: "/debugbar.js",
+    requirements: { methods: ["GET", "HEAD"] },
+  })
+  debugbarJs() {
+    const js = loadDebugbarBundle();
+    if (js === false) {
+      throw new HttpError("debugbar bundle introuvable", 404, this.context);
+    }
+    // Auto-montage appended : la page EJS l'inclut en <script src> EXTERNE
+    // (autorisé par CSP `script-src 'self'`) — un script inline serait bloqué.
+    return this.render(`${js}\nmountDebugBar();\n`, "utf-8", 200, {
+      "content-type": "text/javascript; charset=utf-8",
+      "cache-control": "no-cache",
     });
   }
 

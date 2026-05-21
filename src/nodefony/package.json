@@ -20,6 +20,11 @@
       "types": "./dist/client/types/src/client/index.d.ts",
       "default": "./dist/client/client/index.js"
     },
+    "./debugbar": {
+      "types": "./dist/client/types/src/client/debugbar/index.d.ts",
+      "default": "./dist/client/client/debugbar/index.js"
+    },
+    "./debugbar.js": "./dist/client/debugbar.standalone.js",
     "./package.json": "./package.json"
   },
   "private": false,

@@ -43,6 +43,7 @@ import {
   IconChevronRight,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
+  IconLayoutBottombar,
   type Icon,
 } from "@tabler/icons-react";
 import { useAdmin, useAuth, useConnection, useUi } from "../stores";
@@ -238,6 +239,18 @@ export const AdminLayout = observer(() => {
                 aria-label="Toggle palette"
               >
                 <IconPalette size={18} />
+              </ActionIcon>
+            </Tooltip>
+            <Tooltip
+              label={`Debug bar : ${ui.debugBar ? "visible" : "masquée"} — cliquer pour basculer`}
+            >
+              <ActionIcon
+                variant={ui.debugBar ? "light" : "subtle"}
+                color="brand"
+                onClick={() => ui.toggleDebugBar()}
+                aria-label="Toggle debug bar"
+              >
+                <IconLayoutBottombar size={18} />
               </ActionIcon>
             </Tooltip>
             <ActionIcon
