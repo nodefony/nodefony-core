@@ -45,32 +45,31 @@ Exit 0 = UP, exit 1 = crash/timeout. Log : `/tmp/nodefony-server.log`, PID : `/t
 
 ## Contexte critique (pourquoi spawn detached)
 
-- En mode `development`, Nodefony charge le `dist/` existant au boot, puis recompile (~12s) et l'écrase.
-  Si le source a changé depuis le dernier build, les routes seront absentes → `start.sh` build le module
-  test conditionnellement avant de spawn.
+- En mode `development`, Nodefony charge le `dist/` existant au boot. `start.sh` build le module test
+  conditionnellement (mtime source vs dist) avant de spawn pour garantir les routes à jour.
 - `npx nodefony development > log 2>&1 &` meurt immédiatement (SIGHUP du subshell) → le script utilise
   `spawn` Node.js `detached: true` + `unref()`.
 
-## 🚨 Piège ABSOLU — le watch Rollup runtime écrase le dist
+## Serveur dev = DevSupervisor (auto-restart, depuis 2026-05-22)
 
-En mode `development`, le serveur lance un **watch Rollup runtime** qui re-build chaque workspace ~12s
-après le boot et **écrase les `dist/`**. Le piège classique : "mon code est dans le dist mais le runtime
-affiche l'ancien comportement" → 99% c'est le watch, pas un bug.
+`npx nodefony development` lance un **`DevSupervisor`** (process parent) qui spawn le serveur dans un
+process **enfant** (`NODEFONY_DEV_CHILD=1`) et surveille les sources **backend**. À chaque save d'un
+`.ts` backend : **rebuild ciblé** (`turbo --filter=<module>...`) → **restart de l'enfant** (~5s),
+visible en logs `[dev] changement → rebuild → restart`. Les modifs **frontend** (`**/frontend/**`)
+restent en **HMR Vite** → **0 restart**.
+
+> L'ancien **watch Rollup write-only** (qui écrasait le `dist/` ~12s après boot → mismatch dist/log
+> silencieux) a été **SUPPRIMÉ**. Plus de piège silencieux : un changement backend = restart explicite.
 
 ### Protocole "modif code + test via boot"
 
-À CHAQUE itération de fix où on vérifie le comportement runtime :
-
-1. **Tuer le serveur AVANT de modifier** : `bash .claude/skills/nodefony-start-server/stop.sh`
-   (libère le watch — sinon il écrase ton dist pendant que tu édites).
-2. Modifier le code (`Edit`/`Write` libres — pas de watch actif).
-3. Relancer : `bash .claude/skills/nodefony-start-server/start.sh` (build conditionnel inclus).
-4. **Grep le log DANS LES ~6s** après `>>> READY` — avant que le nouveau watch ne réécrive.
-
-### Signal d'alarme
-
-`grep "ma_modif" dist/...` OK mais `grep "ma_modif" log` retourne 0 → c'est le watch, pas un bug.
-Vérifier mtime : `stat -f "%Sm" dist/.../file.js` — si APRÈS le spawn → le watch a réécrit.
+- **Modif backend pendant que le serveur tourne** → le superviseur rebuild + restart **tout seul** (~5s).
+  Attendre le `[dev] build OK — restart` puis tester. **NE PAS** lancer de `npm run build` manuel en
+  parallèle (le superviseur build déjà → race sur le dist).
+- **Refactor multi-fichiers** : soit `stop.sh` avant (édite tout, puis `start.sh`), soit laisser le
+  superviseur enchaîner (anti-rebond 250ms regroupe les saves quasi-simultanées).
+- **Tests d'intégration / memory** : serveur stable suffit (pas de modif `.ts` pendant). Pour 0 bruit →
+  `stop.sh` + serveur enfant direct `NODEFONY_DEV_CHILD=1`.
 
 ## Quand lancer en debug (`-d`)
 
@@ -111,7 +110,8 @@ sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep "Rollup Module" | grep
 | `start.sh` → `>>> TIMEOUT` | Rollup lent / kernel bloqué | Vérifier `ps aux \| grep rollup` ; relancer |
 | `EADDRINUSE` | port occupé | `start.sh` kill avant spawn ; si persiste, process zombie hors lsof |
 | 4 servers OK mais 404 sur `/nodefony/test/*` | dist module test périmé | `start.sh --force-build` |
-| Modifs pas prises malgré rebuild | watch Rollup a écrasé le dist | `stop.sh` AVANT modif, puis `start.sh` |
+| Modif backend pas prise | le superviseur n'a pas fini son cycle, ou build en échec | regarder les logs `[dev]` ; attendre `build OK — restart` ; ne pas lancer de build manuel concurrent |
+| `ERR_MODULE_NOT_FOUND` au boot enfant | build manuel concurrent du superviseur (race dist) | relancer ; ne pas builder en parallèle du superviseur |
 
 ## Maintenance des scripts
 

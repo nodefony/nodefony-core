@@ -82,11 +82,11 @@ export class MyModule extends Module {
 ```
 
 **Constructor side effects** (TOUJOURS exécutés) :
-- `kernel.once("onBoot", ...)` → récupère rollup/watcher
-- `kernel.once("onPostReady", ...)` → démarre watch si dev + `options.watch`
+- `kernel.once("onBoot", ...)` → récupère le service `rollup` (build one-shot)
 - `setParameters("modules.${name}", options)`
 
-→ **Conséquence** : 2 listeners attachés par module, indépendamment de tes hooks personnalisés.
+→ **Conséquence** : 1 listener attaché par module, indépendamment de tes hooks personnalisés.
+> Le watch Rollup runtime write-only (listener `onPostReady` + `Module.watch()` + service `watcherService`) a été RETIRÉ (2026-05-22) : il ne rechargeait rien. Le dev = `DevSupervisor` (auto-restart du process, `src/nodefony/src/service/dev/`).
 
 **Hooks lifecycle attachés via `setEvents()`** (méthodes prototype obligatoires, pas property initializers) :
 - `onKernelRegister` → `kernel.once("onRegister", ...)`

@@ -13,44 +13,24 @@ import { Severity } from "../../syslog/Pdu";
 import { EnvironmentType } from "../../types/globals";
 import {
   rollup,
-  watch,
-  RollupWatcher,
-  RollupWatchOptions,
-  RollupWatcherEvent,
-  //RollupBuild,
   RollupOptions,
   OutputOptions,
   defineConfig,
   LogLevel,
   RollupLog,
-  OutputChunk,
-  OutputAsset,
 } from "rollup";
-//import { loadConfigFile } from "rollup/loadConfigFile";
 
 /**
- * Service Rollup runtime — orchestre `rollup.watch()` pour chaque module en dev.
+ * Service Rollup runtime — fournit la config Rollup par défaut et le **build
+ * one-shot** des modules (`nodefony build` via {@link Module.build}).
  *
- * État actuel : write-only watcher (rebuild → dist/ puis stop). PAS DE HMR.
- *
- * @todo HMR — pré-requis (à implémenter dans une phase ultérieure) :
- *   1. **Bus d'événements** ✅ (en place) : `rollup:bundle:end` et
- *      `rollup:bundle:error` émis depuis `watch()`. S'abonner via
- *      `kernel.on("rollup:bundle:end", (module, output) => ...)`.
- *   2. **Re-import dynamique** : `import(url + "?v=" + Date.now())` ou
- *      `vm.SourceTextModule` (voir squelette commenté dans Watcher.run).
- *   3. **API `hotReload(module)` par Module** : chaque consommateur décide
- *      QUOI faire (Router.refreshRoutes, Sequelize.reloadModels…).
- *   4. **Cleanup avant reload** : retirer listeners, fermer sockets, vider
- *      le scope DI du module — sinon double-bind garanti.
- *
- * Événements émis :
- * - `rollup:bundle:end` `(module: Module, output: OutputOptions)` — succès build
- * - `rollup:bundle:error` `(module: Module, error: Error)` — échec build
+ * Le watch « write-only » (re-bundle dist/ sans recharger le process) a été
+ * RETIRÉ : il ne reloadait rien (Node ne réimporte pas un module ESM déjà chargé)
+ * et coûtait un re-bundle complet par sauvegarde. Le rechargement backend en dev
+ * est désormais assuré par le `DevSupervisor` (auto-restart du process, build
+ * CIBLÉ via turbo). Le HMR frontend reste géré par Vite.
  */
 class Rollup extends Service {
-  //public rollup: typeof rollup;
-  private watchers: RollupWatcher[] = [];
   constructor(kernel: Kernel) {
     super("rollup", kernel.container as Container);
   }
@@ -106,6 +86,11 @@ class Rollup extends Service {
       "@nodefony/framework",
       "@nodefony/sequelize",
       "@nodefony/mongoose",
+      // ORM Drizzle (orm-core + driver) : driver natif `better-sqlite3` non
+      // bundlable → toujours externe au build runtime, comme sequelize/mongoose.
+      "@nodefony/drizzle",
+      "@nodefony/orm-core",
+      "drizzle-orm",
       "@nodefony/test",
       "@nodefony/user",
       "tslib",
@@ -229,90 +214,6 @@ class Rollup extends Service {
     } as RollupOptions;
   }
 
-  async prepareWatch(options: RollupWatchOptions): Promise<{
-    js: string[];
-    ts: string[];
-    output: [OutputChunk, ...(OutputAsset | OutputChunk)[]];
-  }> {
-    const bundle = await rollup(options);
-    const js: string[] = [];
-    const ts: string[] = [];
-    // Générer le code
-    //const dist = (options.output as OutputOptions)?.dir || "";
-    const { output } = await bundle.generate(options.output as OutputOptions);
-    for (const chunkOrAsset of output) {
-      if (chunkOrAsset.type === "chunk") {
-        //console.log(chunkOrAsset);
-        //js.push(`${dist}/${chunkOrAsset.fileName}`);
-        //ts.push(`${dist}/${chunkOrAsset.name}.ts`);
-        js.push(chunkOrAsset.fileName);
-        ts.push(chunkOrAsset.facadeModuleId as string);
-      }
-    }
-    await bundle.close();
-    return { js, ts, output };
-  }
-
-  async watch(
-    module: Module,
-    options?: RollupWatchOptions,
-  ): Promise<RollupWatcher> {
-    if (!options) {
-      const mylog = function (this: Rollup, level: LogLevel, log: RollupLog) {
-        this.loggerRollup(module, level, log);
-        //handler(level, log);
-      }.bind(this);
-      options = Rollup.setDefaultConfig(
-        module,
-        this.kernel?.environment,
-        mylog,
-      );
-    }
-    options.watch = {
-      clearScreen: true,
-      exclude: [/node_modules/, /dist/],
-      //include: []
-    };
-    this.log(`${options.input}`, "INFO", `Rollup Module ${module.name}`);
-    const watcher = watch(options);
-    watcher.on("event", async (event: RollupWatcherEvent) => {
-      if (event.code === "BUNDLE_END") {
-        if (event.result && event.result.write) {
-          const out = options?.output as OutputOptions;
-          await event.result.write(out);
-          this.log(
-            `write rollup bundle in : ${out?.dir}`,
-            "INFO",
-            `Rollup Module ${module.name}`,
-          );
-          // HMR hook : annonce qu'un nouveau bundle est disponible sur disk.
-          // Les consommateurs (ORM, Router, etc.) peuvent s'abonner pour reload.
-          // Pas await — fire-and-forget vers les listeners async via fireAsync.
-          this.fireAsync("rollup:bundle:end", module, out).catch((e) =>
-            this.log(e, "ERROR", `Rollup HMR hook ${module.name}`),
-          );
-        }
-      }
-      if (event.code === "ERROR") {
-        this.log(event.error, "ERROR", `Rollup Module ${module.name}`);
-        // HMR hook : annonce l'échec aux consommateurs (peuvent invalider leur état).
-        this.fireAsync("rollup:bundle:error", module, event.error).catch((e) =>
-          this.log(e, "ERROR", `Rollup HMR hook ${module.name}`),
-        );
-      }
-    });
-    // watcher.on("change", (id: string, change) => {
-    //   console.log("change", id, change);
-    // });
-    watcher.on("close", () => {
-      this.log("close", "INFO", `Rollup Module ${module.name}`);
-    });
-    this.kernel?.once("onTerminate", () => {
-      watcher.close();
-    });
-    this.watchers.push(watcher);
-    return watcher;
-  }
 }
 
 export default Rollup;

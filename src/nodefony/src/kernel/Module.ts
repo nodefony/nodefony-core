@@ -20,20 +20,14 @@ import { extend } from "../Tools";
 import cluster from "node:cluster";
 import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
 import RollupService from "../service/rollup/rollupService";
-import watcherService from "../service/watcherService";
 //import vm from "node:vm";
 const regModuleName: RegExp = /^[Mm]odule-([\w-]+)/u;
 import {
-  RollupWatchOptions,
   RollupOptions,
-  RollupWatcher,
   rollup,
   RollupOutput,
   OutputOptions,
-  LogLevel,
-  RollupLog,
 } from "rollup";
-import { FSWatcher } from "chokidar";
 import { createRequire } from "node:module";
 import Entity from "./orm/Entity";
 import { Controller } from "@nodefony/framework";
@@ -86,8 +80,6 @@ class Module extends Service implements IModule {
    */
   private _serviceNames: string[] | null = null;
   rollup?: RollupService | null;
-  watcherService?: watcherService | null;
-  watcher?: FSWatcher | null;
   public onKernelRegister?(): Promise<this>;
   public onKernelBoot?(): Promise<this>;
   public onKernelReady?(): Promise<this>;
@@ -112,38 +104,14 @@ class Module extends Service implements IModule {
     this.setEvents();
     this.kernel?.once("onBoot", async () => {
       this.rollup = this.get<RollupService>("rollup");
-      this.watcherService = this.get<watcherService>("watcher");
     });
-    this.kernel?.once("onPostReady", async () => {
-      if (this.options.watch && this.kernel?.environment === "development") {
-        await this.watch();
-      }
-    });
-  }
-
-  /**
-   * Démarre un watcher Rollup sur les sources du module (mode dev).
-   *
-   * Appelé automatiquement à `onPostReady` si `options.watch === true` ET environnement
-   * `development`. Recompile les fichiers TS modifiés à la volée et écrit dans `dist/`.
-   *
-   * @param options - surcharge optionnelle de la config Rollup (sinon defaults via {@link RollupService.setDefaultConfig}).
-   * @returns instance `RollupWatcher` active (chokidar sous-jacent).
-   * @throws Si le `watcherService` n'est pas disponible dans le container.
-   */
-  async watch(options?: RollupWatchOptions): Promise<RollupWatcher> {
-    if (this.watcherService) {
-      const mylog = function (this: Module, level: LogLevel, log: RollupLog) {
-        this.rollup?.loggerRollup(this, level, log);
-      }.bind(this);
-      options = RollupService.setDefaultConfig(
-        this,
-        this.kernel?.environment,
-        mylog,
-      );
-      return this.watcherService?.createRollupWatcher(this, options);
-    }
-    throw new Error(`Watcher Service service not found`);
+    // ⚠️ Le watch Rollup runtime "write-only" (re-bundle dist/ sans recharger le
+    // process) est RETIRÉ : il ne reloadait rien (Node ne réimporte pas les
+    // modules déjà chargés), coûtait un re-bundle complet par save et écrasait le
+    // dist ~12s après le boot (race + config external divergente). En dev, le
+    // rechargement backend est assuré par le DevSupervisor (auto-restart du
+    // process). Le HMR frontend reste géré par Vite. `Module.watch()` est conservé
+    // pour un usage explicite/legacy mais n'est plus déclenché automatiquement.
   }
 
   /**

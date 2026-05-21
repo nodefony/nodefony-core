@@ -89,8 +89,8 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 **Constructor** `new Module(name, kernel, path, options)`:
 - `setPath(path)` → résout vers répertoire
 - `setEvents()` → wire hooks lifecycle
-- `kernel.once("onBoot", ...)` → récupère rollup/watcher — **toujours ajouté** (même sans hooks)
-- `kernel.once("onPostReady", ...)` → démarre watch si `options.watch && env === "development"` — **toujours ajouté**
+- `kernel.once("onBoot", ...)` → récupère le service `rollup` (build one-shot) — **toujours ajouté** (même sans hooks)
+- ⚠️ watch runtime write-only RETIRÉ (2026-05-22) : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = `DevSupervisor` (auto-restart process)
 - `setParameters("modules.${name}", options)`
 
 **setPath(p)**:
@@ -196,7 +196,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 ## Deps
 
 - Kernel → Container, Service, Injector, FileClass, Nodefony, CliKernel, Module, @nodefony/http
-- Module → Service, Kernel, Injector, Container, CliKernel, RollupService, watcherService
+- Module → Service, Kernel, Injector, Container, CliKernel, RollupService (build one-shot)
 - CliKernel → Cli, Kernel, Command, Syslog/Pdu
 - Injector → Service, Container, Event, Kernel, Nodefony, Fetch, reflect-metadata
 

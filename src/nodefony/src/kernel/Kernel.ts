@@ -18,7 +18,6 @@ import Module from "./Module";
 import { HttpKernel } from "@nodefony/http";
 import Pm2 from "../service/pm2Service";
 import Rollup from "../service/rollup/rollupService";
-import Watcher from "../service/watcherService";
 import Injector from "./injector/injector";
 import Entity from "./orm/Entity";
 import type { IKernel } from "../types/IKernel";
@@ -241,7 +240,7 @@ class Kernel extends Service implements IKernel {
 
   /**
    * Point d'entrée du boot. Fire `"onPreStart"` puis `"onStart"`, charge l'application
-   * (`loadApp()`), instancie services kernel (Rollup, Watcher, Pm2), puis enchaîne sur
+   * (`loadApp()`), instancie services kernel (Rollup, Pm2), puis enchaîne sur
    * `preRegister()` → `boot()` → `onReady()` → `initServers()`.
    *
    * Si `command.kernelEvent` matche une phase déjà atteinte → terminate(0) immédiat (la
@@ -288,7 +287,6 @@ class Kernel extends Service implements IKernel {
     //TODO don't instancce on prod
     //this.babel = (await this.addKernelService(Babylon)) as Babylon;
     await this.addKernelService(Rollup);
-    await this.addKernelService(Watcher);
 
     if (!this.started) {
       await this.fireAsync("onPreStart", this).catch((e) => {
@@ -574,7 +572,7 @@ class Kernel extends Service implements IKernel {
   /**
    * Instancie un service au niveau kernel (vs niveau module via `Module.addService`).
    *
-   * Utilisé pour les services partagés essentiels au boot (Rollup, Watcher, Pm2, HttpKernel).
+   * Utilisé pour les services partagés essentiels au boot (Rollup, Pm2, HttpKernel).
    * Stocke directement dans le container kernel.
    *
    * @param ctor - constructeur du service (typiquement décoré `@injectable`).

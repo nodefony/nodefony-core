@@ -534,8 +534,9 @@ class Session extends Container {
         return false;
       case "disabled":
         try {
-          this.storage = this.manager.initializeStorage();
-          if (this.storage) {
+          const storage = this.manager.initializeStorage();
+          if (storage) {
+            this.storage = storage;
             this.status = "none";
             return "restart";
           }
