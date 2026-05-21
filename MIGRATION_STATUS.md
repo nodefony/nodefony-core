@@ -80,7 +80,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **P2** — Cycle de vie Context                    | 9       | 3      | 1     | 5      |
 | **P3** — Logs structurés                         | 10      | 5      | 0     | 5      |
 | **P4** — Tests symbiose http↔fw                  | 6       | 2      | 3     | 1      |
-| **P5** — Session + User + ORM Core               | 16      | 0      | 1     | 15     |
+| **P5** — Session + User + ORM Core               | 16      | 2      | 2     | 12     |
 | **P6** — Security (refonte — legacy TS en place) | 13      | 0      | 0     | 13     |
 | **P7** — ORM Drivers                             | 9       | 2      | 3     | 4      |
 | **P8** — CLI + Monitoring                        | 4       | 1      | 1     | 2      |
@@ -92,7 +92,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **P14** — Frontend Vite + Core isomorphe         | 14      | 6      | 3     | 5      |
 | **P15** — Mediasoup + SIP/Asterisk               | 8       | 0      | 0     | 8      |
 | **P16** — Cloud-Native (7 axes)                  | 26      | 0      | 0     | 26     |
-| **TOTAL**                                        | **164** | **37** | **21**| **106**|
+| **TOTAL**                                        | **164** | **39** | **22**| **103**|
 
 > Build System (10/10 ✅), Core/Kernel, DI, Syslog, Router, Controller, Types — fondations **déjà migrées** en amont de la roadmap P0 (ère Phases 0–4, cf sections narratives « ## Phase X » plus bas). Le comptage ci-dessus couvre la **dette + features priorisées** (P0→P16).
 
