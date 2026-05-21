@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-21T01:16:30.975Z",
+  "generated": "2026-05-21T01:25:27.745Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -335,8 +335,7 @@
       "extends": "Module",
       "implements": [],
       "decorators": [
-        "services",
-        "entities"
+        "services"
       ]
     },
     "Studio": {
@@ -5168,8 +5167,7 @@
       ],
       "entities": [
         "Test",
-        "Mongoose",
-        "Sequelize"
+        "Mongoose"
       ],
       "controller": [
         "AlsController",
@@ -5953,7 +5951,6 @@
       ],
       "Session": [
         "src/packages/@nodefony/http/index.ts",
-        "src/packages/@nodefony/sequelize/index.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
