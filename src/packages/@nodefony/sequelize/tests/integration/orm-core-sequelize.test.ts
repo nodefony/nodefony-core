@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { DataTypes } from "sequelize";
 import type { Sequelize } from "sequelize";
+import { RequestContext } from "nodefony";
+import type { IProfilerQuery } from "nodefony";
 import { entity, entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { SequelizeOrm } from "../../nodefony/src/orm-core/index";
@@ -178,5 +180,28 @@ describe("orm-core ↔ Sequelize adapter (P5.4)", () => {
     assert.equal((await users.find({ age: { $nin: [20, 40] } })).length, 1);
     assert.equal((await users.find({ age: { $ne: 30 } })).length, 2);
     assert.equal((await users.find({ email: { $like: "u2%" } })).length, 1);
+  });
+
+  // ── Profiler seam : tap logging+benchmark → RequestContext.pushQuery ──────
+  it("profiler : pousse les requêtes SQL dans le buffer ALS (dev)", async () => {
+    const queries: IProfilerQuery[] = [];
+    await RequestContext.run({ requestId: "prof-1", queries }, async () => {
+      await users.create({ email: "prof@b.c" });
+      await users.findOne({ email: "prof@b.c" });
+    });
+    assert.ok(queries.length >= 2, `attendu >= 2 requêtes, eu ${queries.length}`);
+    assert.equal(queries[0].connector, "sequelize");
+    assert.equal(typeof queries[0].durationMs, "number");
+    assert.ok(queries.some((q) => /insert/i.test(q.sql)));
+    assert.ok(queries.some((q) => /select/i.test(q.sql)));
+  });
+
+  it("profiler : coût nul hors profiling (pas de buffer → pas de push)", async () => {
+    // Scope SANS queries (= prod) : isProfiling() false, rien ne fuit.
+    await RequestContext.run({ requestId: "prof-off" }, async () => {
+      assert.equal(RequestContext.isProfiling(), false);
+      await users.count();
+    });
+    assert.equal(RequestContext.get(), undefined); // scope refermé
   });
 });

@@ -153,7 +153,11 @@ RequestContext.get();              // payload entier ou undefined
 RequestContext.getRequestId();     // string | undefined
 RequestContext.getUser();          // unknown | undefined
 RequestContext.set("user", user);  // mute le store actuel
+RequestContext.isProfiling();      // bool — buffer queries actif (dev profiler)
+RequestContext.pushQuery({ sql, durationMs, rows?, connector? }); // no-op si !isProfiling
 ```
+
+**Seam profiler ORM (`queries`)** : `HttpKernel.handleHttp` alloue `payload.queries: IProfilerQuery[]` **uniquement en dev** (profiler actif) ; les adapters ORM y poussent via `pushQuery()` (gratuit en prod = buffer absent). ⚠️ Ne PAS lire l'ALS depuis un callback détaché (pool ORM, listener) → `isProfiling()` y est faux ; capturer la réf du buffer dans le contexte valide (cf adapter Sequelize `#prof`).
 
 **✅ BUGS résolus** (2026-05-20, cf [`../../BUG_REPORT.md`](../../BUG_REPORT.md)) :
 - **BUG-001** : ALS WS messages — `AsyncResource.bind` sur `close`/`message` dans `WebsocketContext.connect()`

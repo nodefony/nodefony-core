@@ -2,6 +2,22 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 /**
+ * Une requête ORM (SQL/NoSQL) capturée pendant le scope de requête, pour le
+ * profiler dev-only. Shape canonique partagée par tous les adapters ORM et le
+ * Profiler `@nodefony/http` (structurellement identique à `ProfileQuery`).
+ */
+export interface IProfilerQuery {
+  /** Requête (SQL ou commande NoSQL), tronquée si volumineuse. */
+  sql: string;
+  /** Durée d'exécution en ms. */
+  durationMs: number;
+  /** Lignes affectées/retournées, si connu. */
+  rows?: number;
+  /** Connecteur émetteur (`sequelize`, `drizzle`, `mongoose`…). */
+  connector?: string;
+}
+
+/**
  * Per-request state propagated transparently across the async pipeline.
  *
  * Set by HttpKernel at request entry (`handleHttp` / `handleWebsocket`) and
@@ -20,6 +36,13 @@ export interface RequestContextPayload {
   user?: unknown;
   /** W3C traceparent header for OpenTelemetry compatibility (P2.7). */
   traceparent?: string;
+  /**
+   * Buffer de requêtes ORM du profiler — **présent uniquement en dev** quand
+   * le `HttpKernel` l'alloue (profiler actif). Son absence = signal « ne pas
+   * profiler » : les adapters ORM gardent un coût nul en prod. Même référence
+   * que `context.profilerQueries`, lue par `Profiler.collect()` au teardown.
+   */
+  queries?: IProfilerQuery[];
   [key: string]: unknown;
 }
 
@@ -77,6 +100,28 @@ class RequestContext {
   ): void {
     const store = this.get();
     if (store) store[key] = value;
+  }
+
+  /**
+   * `true` si un buffer de profiling de requêtes ORM est actif sur le scope
+   * courant (dev + `HttpKernel` profiler activé). Les adapters ORM lisent ce
+   * flag AVANT de mesurer (`performance.now()`) pour rester gratuits en prod.
+   *
+   * @returns `true` si `pushQuery` aura un effet, `false` sinon.
+   */
+  static isProfiling(): boolean {
+    return this.get()?.queries !== undefined;
+  }
+
+  /**
+   * Pousse une requête ORM dans le buffer de profiling du scope courant.
+   * No-op hors scope ou hors dev (buffer absent) → coût nul en prod.
+   *
+   * @param query - requête capturée (sql, durée, lignes, connecteur).
+   */
+  static pushQuery(query: IProfilerQuery): void {
+    const buf = this.get()?.queries;
+    if (buf) buf.push(query);
   }
 }
 

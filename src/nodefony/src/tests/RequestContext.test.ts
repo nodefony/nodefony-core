@@ -72,4 +72,30 @@ describe("RequestContext (AsyncLocalStorage façade)", () => {
     });
     expect(RequestContext.get()).to.equal(undefined);
   });
+
+  describe("profiler queries seam", () => {
+    it("isProfiling() = false sans buffer (prod) → pushQuery no-op", () => {
+      RequestContext.run({ requestId: "no-buf" }, () => {
+        expect(RequestContext.isProfiling()).to.equal(false);
+        RequestContext.pushQuery({ sql: "SELECT 1", durationMs: 1 });
+        expect(RequestContext.get()?.queries).to.equal(undefined);
+      });
+    });
+
+    it("isProfiling() = false hors scope → pushQuery no-op", () => {
+      expect(RequestContext.isProfiling()).to.equal(false);
+      RequestContext.pushQuery({ sql: "SELECT 1", durationMs: 1 }); // ne throw pas
+    });
+
+    it("pushQuery() remplit le buffer fourni (dev)", () => {
+      const queries: { sql: string; durationMs: number }[] = [];
+      RequestContext.run({ requestId: "dev", queries }, () => {
+        expect(RequestContext.isProfiling()).to.equal(true);
+        RequestContext.pushQuery({ sql: "SELECT 2", durationMs: 0.5, rows: 1 });
+        RequestContext.pushQuery({ sql: "SELECT 3", durationMs: 0.2 });
+      });
+      expect(queries).to.have.length(2);
+      expect(queries[0]).to.deep.include({ sql: "SELECT 2", rows: 1 });
+    });
+  });
 });

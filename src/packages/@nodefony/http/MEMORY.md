@@ -65,9 +65,10 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 ## Profiler — dev-only (2026-05-21)
 
-- `src/profiler/Profiler.ts` : ring buffer `Map<requestId, ProfileEntry>` (cap 500, éviction insertion-order), `collect(ctx)` = snapshot fin de requête (phases/route/controller/user/traceparent/status), `get`/`recent`/`clear`. **Borné** (pas de fuite, validé). Seam ORM `queries?` (futur, à pousser via ALS).
+- `src/profiler/Profiler.ts` : ring buffer `Map<requestId, ProfileEntry>` (cap 500, éviction insertion-order), `collect(ctx)` = snapshot fin de requête (phases/route/controller/user/traceparent/status + **queries ORM**), `get`/`recent`/`clear`. **Borné** (pas de fuite, validé).
+- **Seam ORM `queries` BRANCHÉ (2026-05-21)** : `handleHttp` alloue `context.profilerQueries = this.profiler ? [] : null` (**dev-only, 0 alloc prod**) et passe la **même réf** dans la payload ALS (clé `queries`). Les adapters ORM y poussent via `RequestContext.pushQuery()` ; `collect` lit `ctx.profilerQueries` au teardown (teardown est **hors bulle ALS** → on lit la réf sur le context, jamais `RequestContext.get()`). `queries` reste `undefined` si vide (contrat preserved). WS : pas encore collecté (teardown HTTP only). Tests Profiler +2.
 - Hook : `http-kernel` teardown (`this.profiler?.collect(ctx)` avant `clean()`), résolu container `"profiler"` à onReady, **null en prod** (module l'instancie dev-only dans `index.ts` onKernelBoot → `this.kernel?.environment !== "prod"`).
-- Data-plane : `createProfilerAdminApi(profiler)` → namespace `profiler` → `GET /nodefony/profiler/api/recent` (+`?limit`) / `GET /{id}` (404 si absent) / `DELETE recent`. Tests `tests/unit/Profiler.test.ts` (9, vitest).
+- Data-plane : `createProfilerAdminApi(profiler)` → namespace `profiler` → `GET /nodefony/profiler/api/recent` (+`?limit`) / `GET /{id}` (404 si absent) / `DELETE recent`. Tests `tests/unit/Profiler.test.ts` (11).
 
 ## PrettyRequestLogger — P3.2 (2026-05-16)
 

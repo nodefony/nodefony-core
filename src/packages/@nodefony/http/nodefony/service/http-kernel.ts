@@ -620,6 +620,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           (request.headers as Record<string, string | string[] | undefined>)
             ?.traceparent as string | undefined,
         );
+        // Dev-only — allocate the ORM query buffer when the profiler is active
+        // (null in prod → 0 alloc). Threaded into the ALS payload so ORM
+        // adapters push transparently, and onto the context so `collect()`
+        // reads the same array at teardown (outside the ALS bubble).
+        const profilerQueries = this.profiler ? [] : null;
+        context.profilerQueries = profilerQueries;
         // P1.4 — enter ALS scope so requestId is propagated to every
         // downstream async hop (logs, ORM, security decorators, etc.).
         return await RequestContext.run(
@@ -627,6 +633,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             requestId: context.requestId,
             scheme: context.scheme,
             traceparent: context.traceparent,
+            queries: profilerQueries ?? undefined,
           },
           async () => {
             context!.phaseStart("parse");

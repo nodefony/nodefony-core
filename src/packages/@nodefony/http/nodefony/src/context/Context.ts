@@ -12,6 +12,7 @@ import {
   extend,
   Scope,
 } from "nodefony";
+import type { IProfilerQuery } from "nodefony";
 import { Resolver, Router } from "@nodefony/framework";
 import { WebSocketServer } from "ws";
 import http2 from "node:http2";
@@ -136,6 +137,11 @@ class Context extends Service implements IContextInterface {
   // Null until resolution runs — should never be read before the kernel
   // has populated it in the standard pipeline.
   traceparent: string | null = null;
+  // Dev-only ORM query buffer for the Profiler. Allocated by HttpKernel only
+  // when the dev profiler is active (null in prod → 0 cost). Same array
+  // reference as the RequestContext (ALS) payload's `queries`, so ORM adapters
+  // push here transparently; read by `Profiler.collect()` at teardown.
+  profilerQueries: IProfilerQuery[] | null = null;
   // Timing: opt-out in prod (default), opt-in elsewhere. Overridable via
   // kernel.options.timing.enabled. When disabled: `phases` is a shared frozen
   // empty array, `phaseStart`/`phaseEnd` are noops, no Map is allocated.

@@ -110,4 +110,30 @@ describe("Profiler — unit", () => {
     p.clear();
     expect(p.size).to.equal(0);
   });
+
+  describe("ORM queries seam", () => {
+    it("maps profilerQueries onto the entry", () => {
+      const p = new Profiler();
+      p.collect(
+        ctx({
+          profilerQueries: [
+            { sql: "SELECT 1", durationMs: 0.4, connector: "sequelize" },
+            { sql: "SELECT 2", durationMs: 1.2, rows: 3, connector: "sequelize" },
+          ],
+        }) as never,
+      );
+      const q = p.get("req-1")!.queries;
+      expect(q).to.have.length(2);
+      expect(q![1]).to.deep.include({ sql: "SELECT 2", rows: 3 });
+      expect(q![0].connector).to.equal("sequelize");
+    });
+
+    it("leaves queries undefined when no adapter pushed (empty/null)", () => {
+      const p = new Profiler();
+      p.collect(ctx({ requestId: "empty", profilerQueries: [] }) as never);
+      p.collect(ctx({ requestId: "nul", profilerQueries: null }) as never);
+      expect(p.get("empty")!.queries).to.be.undefined;
+      expect(p.get("nul")!.queries).to.be.undefined;
+    });
+  });
 });

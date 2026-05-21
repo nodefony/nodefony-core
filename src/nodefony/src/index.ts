@@ -43,7 +43,10 @@ export { default as Injector } from "./kernel/injector/injector";
 
 // ─── Runtime (P1.4 — AsyncLocalStorage) ───────────────────────────────────────
 export { default as RequestContext } from "./runtime/RequestContext";
-export type { RequestContextPayload } from "./runtime/RequestContext";
+export type {
+  RequestContextPayload,
+  IProfilerQuery,
+} from "./runtime/RequestContext";
 
 // ─── ORM ──────────────────────────────────────────────────────────────────────
 export { default as Orm } from "./kernel/orm/Orm";

@@ -7,6 +7,8 @@ import type {
   Transaction,
   WhereOptions,
 } from "sequelize";
+import { RequestContext } from "nodefony";
+import type { IProfilerQuery } from "nodefony";
 import { isFieldOperators } from "@nodefony/orm-core";
 import type {
   Criteria,
@@ -105,11 +107,46 @@ export class SequelizeRepository<T = unknown> implements IRepository<T> {
     return this.#tx ? { transaction: this.#tx } : undefined;
   }
 
+  /**
+   * Tap profiler dev-only : si un buffer de requêtes est actif sur le scope
+   * courant (ALS, lu **en synchrone ici** où le contexte est encore valide),
+   * ajoute `benchmark` + un `logging` par requête qui pousse dans ce buffer.
+   *
+   * POURQUOI per-query (et pas `logging` global sur l'instance) : le pool de
+   * connexions Sequelize résout sur un contexte async **détaché** → l'ALS y est
+   * perdue (cf BUG-001/002). La closure capture la référence du buffer au
+   * moment de l'appel (contexte valide), donc le callback n'a plus besoin de
+   * relire l'ALS. Hors dev/scope : `base` renvoyé tel quel → coût = 1 lecture
+   * ALS, zéro benchmark.
+   *
+   * @param base - options Sequelize de la requête (ou `undefined`).
+   * @returns les mêmes options, augmentées du tap si profiling actif.
+   */
+  #prof<O extends object | undefined>(base: O): O {
+    const buf = RequestContext.get()?.queries;
+    if (!buf) {
+      return base;
+    }
+    return {
+      ...(base as object),
+      benchmark: true,
+      logging: (sql: string, timing?: number): void => {
+        buf.push({
+          sql: sql.length > 2000 ? `${sql.slice(0, 2000)}…` : sql,
+          durationMs: typeof timing === "number" ? timing : 0,
+          connector: "sequelize",
+        } satisfies IProfilerQuery);
+      },
+    } as unknown as O;
+  }
+
   async find(
     criteria?: Criteria<T>,
     options?: RepositoryReadOptions,
   ): Promise<T[]> {
-    const rows = await this.#model.findAll(this.#findOptions(criteria, options));
+    const rows = await this.#model.findAll(
+      this.#prof(this.#findOptions(criteria, options)),
+    );
     return rows.map((row) => row.get({ plain: true }) as T);
   }
 
@@ -117,38 +154,47 @@ export class SequelizeRepository<T = unknown> implements IRepository<T> {
     criteria: Criteria<T>,
     options?: RepositoryReadOptions,
   ): Promise<T | null> {
-    const row = await this.#model.findOne(this.#findOptions(criteria, options));
+    const row = await this.#model.findOne(
+      this.#prof(this.#findOptions(criteria, options)),
+    );
     return row ? (row.get({ plain: true }) as T) : null;
   }
 
   async create(data: Partial<T>): Promise<T> {
     const row = await this.#model.create(
       data as Record<string, unknown>,
-      this.#txOpt(),
+      this.#prof(this.#txOpt()),
     );
     return row.get({ plain: true }) as T;
   }
 
   async update(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
-    await this.#model.update(data as Record<string, unknown>, {
-      where: this.#toWhere(criteria),
-      ...this.#txOpt(),
-    });
+    await this.#model.update(
+      data as Record<string, unknown>,
+      this.#prof({
+        where: this.#toWhere(criteria),
+        ...this.#txOpt(),
+      }),
+    );
     return this.findOne(criteria);
   }
 
   async delete(criteria: Criteria<T>): Promise<number> {
-    return this.#model.destroy({
-      where: this.#toWhere(criteria),
-      ...this.#txOpt(),
-    });
+    return this.#model.destroy(
+      this.#prof({
+        where: this.#toWhere(criteria),
+        ...this.#txOpt(),
+      }),
+    );
   }
 
   async count(criteria?: Criteria<T>): Promise<number> {
-    return this.#model.count({
-      ...(criteria ? { where: this.#toWhere(criteria) } : {}),
-      ...this.#txOpt(),
-    });
+    return this.#model.count(
+      this.#prof({
+        ...(criteria ? { where: this.#toWhere(criteria) } : {}),
+        ...this.#txOpt(),
+      }),
+    );
   }
 
   withTransaction(tx: ITransaction): IRepository<T> {

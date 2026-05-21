@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-21T20:46:44.558Z",
+  "generated": "2026-05-21T21:09:26.047Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 289,
-    "symbols": 711,
+    "symbols": 712,
     "classes": 206,
-    "interfaces": 241,
+    "interfaces": 242,
     "types": 142,
     "enums": 1,
     "functions": 104,
@@ -626,6 +626,15 @@
       "implements": [],
       "decorators": [],
       "description": "AsyncLocalStorage facade — single shared instance per process. Lazily constructed so importing this module has zero cost if `run()` is never called (the ALS allocation is the only cost). Perf : `al…"
+    },
+    "IProfilerQuery": {
+      "name": "IProfilerQuery",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/RequestContext.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une requête ORM (SQL/NoSQL) capturée pendant le scope de requête, pour le profiler dev-only. Shape canonique partagée par tous les adapters ORM et le Profiler `@nodefony/http` (structurellement ide…"
     },
     "RequestContextPayload": {
       "name": "RequestContextPayload",
@@ -6989,7 +6998,8 @@
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
@@ -7775,6 +7785,10 @@
       ],
       "KernelEventsType": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+      ],
+      "IProfilerQuery": [
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
       "Data": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"

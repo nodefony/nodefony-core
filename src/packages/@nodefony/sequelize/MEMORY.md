@@ -11,6 +11,7 @@ Driver Sequelize (v6, **figé** — legacy maintenance, cf MIGRATION_STATUS P7.1
 
 - `SequelizeOrm extends Orm` (orm-core) : `onConnect()` = `new Sequelize(options)` + compile les entités de `entityRegistry` (filtre `entity.orm === this.name`) via `sequelize.define(name, entity.schema)`, câble les relations, `sync()` (dev/test). `getRepository(name)` (lazy, mémoïsé), `transaction(work)` (managée), `getNativeConnection<Sequelize>()`.
 - `SequelizeRepository<T> implements IRepository<T>` : wrap `ModelStatic`, renvoie des **objets plats** (`get({plain:true})`), jamais des `Model`. Supporte `options.relations` (→ `include` via `model.associations[name]`, eager-load portable) + `limit/offset/order`, et `withTransaction(tx)` (→ nouvelle instance liée, `{transaction}` sur toutes les ops).
+- **Profiler tap `#prof(opts)` (2026-05-21)** : sur chaque op, si `RequestContext.get()?.queries` existe (dev, lu **en synchrone** à l'entrée de la méthode), ajoute `benchmark:true` + un `logging` **par requête** qui pousse `{sql,durationMs,connector:"sequelize"}` dans le buffer capturé (closure). Hors dev/scope → opts inchangées (0 benchmark, coût = 1 lecture ALS).
 - `SequelizeTransaction implements ITransaction` : wrap `Transaction`, savepoint = SQL brut.
 - Exports : `index.ts` racine du module → `{ SequelizeOrm, SequelizeRepository, SequelizeTransaction }` (via `nodefony/src/orm-core/index`).
 
@@ -21,7 +22,7 @@ Driver Sequelize (v6, **figé** — legacy maintenance, cf MIGRATION_STATUS P7.1
 
 ## Behaviors / Tests
 
-- Tests intégration adapter : `npx mocha --config .mocharc.json` (mocha+tsx, `node:assert`), sqlite `::memory:`. **6 verts** (`tests/integration/orm-core-sequelize.test.ts`).
+- Tests intégration adapter : `npx mocha --config .mocharc.json` (mocha+tsx, `node:assert`), sqlite `::memory:`. **10 verts** (`tests/integration/orm-core-sequelize.test.ts`) — dont 2 profiler (push dans buffer ALS + coût nul hors profiling).
 - `test` script package.json = placeholder legacy `node -e` → lancer via mocha direct.
 
 ## Gotchas
@@ -31,6 +32,7 @@ Driver Sequelize (v6, **figé** — legacy maintenance, cf MIGRATION_STATUS P7.1
 - **Repository tx-aware** : `repo.withTransaction(tx).create(...)` dans `transaction(work)` → toutes les ops dans la tx (rollback annule tout). Plus besoin de `getNativeConnection()` pour les écritures transactionnelles (ADR-0003 risque #4 résolu).
 - FK **appliquée** sous sqlite (SequelizeForeignKeyConstraintError) — un userId inexistant fait rollback la tx.
 - Service base : `new SequelizeOrm("db")` marche sans kernel (Container auto). S'auto-register dans `ormRegistry` au ctor → unregister en teardown de test (sinon doublon au re-run).
+- **⚠️ ALS perdue dans le pool Sequelize** : un `logging` **global** sur l'instance lit l'ALS dans un contexte async **détaché** (pool de connexions) → `RequestContext.isProfiling()` y est toujours `false` (même piège que BUG-001/002). C'est pourquoi le profiler tape **par requête** (`#prof`, closure qui capture le buffer au boundary où l'ALS est valide), JAMAIS via `logging` global.
 
 ## Liens
 

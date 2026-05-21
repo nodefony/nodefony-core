@@ -107,6 +107,12 @@ interface ProfilableContext {
     controller?: { name?: string } | null;
     actionName?: string;
   } | null;
+  /**
+   * Buffer de requêtes ORM rempli pendant la requête (dev-only). Même tableau
+   * que la payload ALS — les adapters ORM y poussent via `RequestContext`.
+   * `null`/absent hors profiling.
+   */
+  profilerQueries?: ProfileQuery[] | null;
 }
 
 /** Durée totale = (fin de la dernière phase terminée) − (début de la 1ère). */
@@ -170,6 +176,13 @@ export class Profiler {
         startMs: p.startMs,
         durationMs: p.durationMs ?? null,
       })),
+      // SEAM ORM — `undefined` tant qu'aucun adapter n'a poussé (contrat
+      // historique préservé : pas de tableau vide qui ferait apparaître un
+      // onglet « Queries » vide côté client).
+      queries:
+        ctx.profilerQueries && ctx.profilerQueries.length > 0
+          ? ctx.profilerQueries
+          : undefined,
     };
     // Ré-insertion = la clé repasse en queue (entrée la plus récente).
     this._buf.delete(requestId);
