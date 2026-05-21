@@ -10,6 +10,26 @@ trappe vers le driver natif pour les cas avancés.
 > `@nodefony/mongoose`, `@nodefony/drizzle`...) qui sont des modules Nodefony et
 > qui s'enregistrent eux-mêmes dans le `OrmRegistry`.
 
+## Quel ORM par défaut ?
+
+**Par design : aucun.** orm-core est une abstraction Repository — on choisit l'ORM
+par application via l'injection de dépendances (`@Inject('repository.<entité>.<orm>')`),
+jamais en dur. Le framework ne couple aucun ORM ; la valeur recherchée est de
+**pouvoir changer d'ORM dans le temps** sans réécrire le métier (pas de
+multi-ORM simultané imposé).
+
+**Recommandations (nouveau développement) :**
+
+| Besoin                | ORM recommandé | Pourquoi                                                                 |
+| --------------------- | -------------- | ----------------------------------------------------------------------- |
+| **SQL** (défaut)      | **Drizzle**    | Type-safe-first (aligné TypeScript strict), léger, SQL brut via tag `sql` |
+| **NoSQL / documentaire** | **Mongoose** | Standard MongoDB, schémas + populate                                     |
+| Apps très complexes   | MikroORM       | Data Mapper + Unit of Work + Identity Map (option)                       |
+| Legacy existant       | Sequelize      | **Maintenance descendante** — pas de nouveau développement              |
+
+> ⚠️ Les transactions **cross-ORM (2PC) ne sont pas garanties** : une transaction
+> porte sur un seul ORM / une seule connexion.
+
 ## Architecture
 
 ```
@@ -28,13 +48,30 @@ sequelize   mongoose      drizzle          mikroorm        (drivers = Modules)
 | `IEntity<S,M>`      | Entité enregistrée : nom logique, ORM cible, schéma, modèle natif    |
 | `IRepository<T>`    | CRUD portable : `find/findOne/create/update/delete/count`           |
 | `ITransaction`      | Unité de travail : `commit/rollback/savepoint/rollbackTo`           |
-| `OrmCriteria`       | Filtre abstrait (`Record<string, unknown>`)                         |
+| `Criteria<T>`       | Filtre typé par champ + opérateurs riches ; `OrmCriteria` = échappatoire |
+
+### Critères riches (opérateurs typés)
+
+`Criteria<T>` type-vérifie chaque champ et accepte des **opérateurs `$`-préfixés**
+typés (`FieldOperators<V>`) — forme portable identique sur les 3 drivers (mappée en
+`Op.*` Sequelize, `$`/`$regex` Mongoose, `eq()/gt()/inArray()` Drizzle) :
+
+```typescript
+await users.find({ age: { $gte: 18, $lt: 65 } }); // plusieurs opérateurs = AND
+await users.find({ id: { $in: ids } });
+await users.find({ email: { $like: "a%" } });      // sémantique SQL (`%`, `_`)
+```
+
+Opérateurs : `$eq $ne $gt $gte $lt $lte $in $nin $like`. Une valeur nue = égalité.
+Helper `isFieldOperators(value)` (lib pure) : une valeur n'est un filtre riche que
+si **toutes** ses clés sont des opérateurs (sinon = égalité, ex. colonne JSON).
 
 ### Trappe SQL brut
 
 `IOrm.getNativeConnection<C>()` expose la connexion native du driver pour toute
 requête non couverte par l'abstraction (tag `sql` de Drizzle, `connection`
-Mongoose, etc.) — anti-blocage indispensable.
+Mongoose, etc.) — anti-blocage indispensable (jointures arbitraires, CTE, fonctions
+fenêtre...).
 
 ## Exemple (cible, après P5.2)
 
@@ -94,7 +131,9 @@ class UserRepository implements IRepository<UserEntity> {
 - ✅ Interfaces (`IOrm`, `IEntity`, `IRepository`, `ITransaction`) — P5.1.
 - ✅ `OrmRegistry`, `EntityRegistry`, `Orm`/`Entity` base classes — P5.2.
 - ✅ Décorateurs `@entity` / `@repository` — P5.3.
-- ⏳ Tests intégration multi-ORM + 1 adapter (Sequelize) — P5.4.
+- ✅ Adapters Sequelize + Mongoose (CRUD/relations/tx portables) — P5.4.
+- ✅ Adapter Drizzle + opérateurs riches typés (`FieldOperators`/`isFieldOperators`)
+  — P7.4 ; **4 risques ADR-0003 traités** (cf `docs/adr/0003`).
 
 ## Licence
 
