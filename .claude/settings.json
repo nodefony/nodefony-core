@@ -41,7 +41,7 @@
       "Bash(curl -s http://127.0.0.1*)",
       "Read(//tmp/**)",
       "Skill(nodefony-start-server)",
-      "Skill(nodefony-bootstrap)"
+      "Skill(nodefony-session)"
     ]
   }
 }
