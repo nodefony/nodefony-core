@@ -212,14 +212,22 @@ class Kernel extends Service implements IKernel {
     options?: TypeKernelOptions,
   ) {
     const container: Container | Scope | null | undefined = cli?.container;
+    const mergedOptions = extend(
+      {},
+      kernelDefaultOptions,
+      options,
+    ) as TypeKernelOptions;
     super(
       "KERNEL",
       container as Container,
       undefined, //cli.notificationsCenter as Event,
-      extend({}, kernelDefaultOptions, options),
+      mergedOptions,
     );
     this.environment = environment;
-    this.setMaxListeners(30);
+    // Limite de listeners alignée sur la config (`events.nbListeners`, défaut 60) :
+    // chaque module/service attache ≥1 listener lifecycle (onBoot/onTerminate/…),
+    // un `30` en dur sautait dès ~15 modules (MaxListenersExceededWarning au boot).
+    this.setMaxListeners(mergedOptions.events?.nbListeners ?? 60);
     Nodefony.setKernel(this);
     this.kernel = this;
     this.set("kernel", this);
