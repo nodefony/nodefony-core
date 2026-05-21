@@ -222,7 +222,7 @@ const config = {
 
 ## Quickstart
 
-Voir le guide complet [`../guides/frontend-react.md`](../guides/frontend-react.md) pour scaffold un module avec frontend React 19 en 6 étapes, ou utiliser le skill `nodefony-create-frontend-react`.
+Voir le guide complet [`../guides/frontend-react.md`](../guides/frontend-react.md) pour scaffold un module avec frontend React 19 en 6 étapes, ou utiliser le skill `nodefony-create-frontend-module` (React 19 / Vue 3 / Angular 21).
 
 ## Gotchas
 
@@ -258,5 +258,5 @@ npm run test:integration    # 3 integration tests real spawn (~6s)
 - MEMORY (notes internes IA) : `src/packages/@nodefony/frontend/MEMORY.md`
 - Guide step-by-step : [`../guides/frontend-react.md`](../guides/frontend-react.md)
 - Audit perf POC : [`../audits/poc-frontend-comparison.md`](../audits/poc-frontend-comparison.md)
-- Skill scaffold : `.claude/skills/nodefony-create-frontend-react/SKILL.md`
-- Module exemple : `src/modules/test-frontend-react/` (référence canonique)
+- Skill scaffold : `.claude/skills/nodefony-create-frontend-module/SKILL.md` (React 19 / Vue 3 / Angular 21)
+- Modules exemple : `src/modules/test-frontend-{react,vue,angular}/` (références canoniques)

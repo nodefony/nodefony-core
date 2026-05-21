@@ -18,10 +18,10 @@ last-updated: 2026-05-18
 ## Approche express — via le skill
 
 ```
-/nodefony-create-frontend-react
+/nodefony-create-frontend-module react
 ```
 
-Le skill `nodefony-create-frontend-react` (cf `.claude/skills/`) délègue au skill `nodefony-create-module` pour le squelette, puis enrichit avec les éléments React (controller HTML+CSP, frontend/, peerDeps). Te fait gagner les ~6 étapes manuelles ci-dessous.
+Le skill `nodefony-create-frontend-module` (cf `.claude/skills/`) délègue au skill `nodefony-create-module` pour le squelette, puis enrichit avec les éléments du framework choisi — **React 19, Vue 3 ou Angular 21** (controller HTML+CSP, frontend/, peerDeps). Te fait gagner les ~6 étapes manuelles ci-dessous.
 
 Le reste de ce guide explique la **version manuelle**, utile pour comprendre ce que le skill fait sous le capot.
 
