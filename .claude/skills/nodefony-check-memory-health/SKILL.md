@@ -1,6 +1,11 @@
 ---
 name: nodefony-check-memory-health
-description: Lance la suite de tests d'intégration mémoire de `@nodefony/http` (1000 GET séquentiels, 100 crashs sync/async, 100 connexions WS) et valide les seuils de Heap Delta selon la grille Nodefony. Indispensable avant tout commit qui touche le Kernel, le DI Container ou le pipeline request. Mots-clés : "vérifier la mémoire", "memory leak", "test mémoire", "heap delta", "fuite mémoire", "check memory", "perf mémoire serveur".
+description: >
+  Lance la suite de tests d'intégration mémoire de @nodefony/http (1000 GET séquentiels,
+  100 crashs sync/async, 100 connexions WS) et valide les seuils de Heap Delta Nodefony.
+  Indispensable avant tout commit touchant le Kernel, le DI Container ou le pipeline request.
+  Déclencheurs : "vérifier la mémoire", "memory leak", "test mémoire", "heap delta",
+  "fuite mémoire", "check memory", "perf mémoire serveur".
 ---
 
 # check-memory-health

@@ -1,6 +1,9 @@
 ---
 name: nodefony-generate-symbols
-description: Génère le graphe symbolique TypeScript de Nodefony (classes, interfaces, types, decorators, relations inverses) en JSON indexé pour retrieval O(1) cross-module sans grep ni cat de fichiers entiers.
+description: >
+  Génère le graphe symbolique TypeScript de Nodefony (classes, interfaces, types, decorators,
+  relations inverses) en JSON indexé .ai/symbols.json pour retrieval O(1) cross-module sans grep.
+  Déclencheurs : "génère les symboles", "graphe symbolique", "regenerate symbols", "symbols.json".
 ---
 
 # generate-symbols

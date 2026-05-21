@@ -1,21 +1,11 @@
 ---
 name: nodefony-session
 description: >
-  Cycle de vie d'une session Claude Code sur Nodefony — reprise, ouverture, clôture en un seul skill.
-  Mode RESUME : reprendre après un /clear — restitue la DERNIÈRE session (décisions + prochaine
-  étape) depuis la mémoire IA project_session_<date>_state.md, + un mini-état migration (barres de
-  progression via le skill nodefony-migration-audit) si on est dans une phase, + le contexte module
-  (mode START) si la suite cible un module. À déclencher dès qu'on ne sait plus où on en était. Mode START : prépare le contexte d'un MODULE prêt à coder
-  (phase MIGRATION_STATUS, CLAUDE.md + MEMORY.md du module, fraîcheur dist, symboles, git).
-  Mode END : retour d'expérience (RETEX) du transcript JSONL ET écrit la mémoire de reprise
-  project_session_<date>_state.md (décisions + prochaine étape) ; sauve aussi docs/session-retros/.
-  Mode CONSOLIDATE : tous les 10-20 retex, plan d'amélioration IA.
-  Déclencheurs RESUME : "reprends", "on en était où", "où on s'est arrêté", "dernière session",
-  "continue la session", "resume", "c'est quoi la suite". Déclencheurs START : "prépare le contexte",
-  "session sur <module>", "je vais bosser sur <module>", "bootstrap", "ready to code". Arg = module.
-  Déclencheurs END : "retex", "fin de session", "fais le retex", "où sont passés les tokens",
-  "clôture la session", "propose des skills". Déclencheurs CONSOLIDATE : "consolide les retex",
-  "plan d'amélioration IA".
+  Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) :
+  reprendre après un /clear, préparer le contexte d'un module, clôturer avec retex + mémoire de
+  reprise. Le détail de chaque mode est dans le corps.
+  Déclencheurs : "reprends", "on en était où", "dernière session", "prépare le contexte",
+  "session sur <module>", "fin de session", "retex", "consolide les retex".
 ---
 
 # nodefony-session

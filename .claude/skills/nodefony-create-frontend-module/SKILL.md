@@ -2,13 +2,11 @@
 name: nodefony-create-frontend-module
 description: >
   Scaffold d'un module applicatif Nodefony (src/modules/) avec frontend SPA servi par
-  @nodefony/frontend via Vite — framework au choix : React 19, Vue 3 ou Angular 21.
-  Wrapper de `nodefony-create-module` : délègue le squelette (package.json, tsconfig, rollup,
-  index.ts, errors) puis enrichit avec le spécifique frontend : controller backend qui rend
-  l'HTML + override CSP, registerEntry + apiProxyPaths, entry + composant App du framework choisi,
-  peerDeps. Met à jour @modules() racine en plaçant le module APRÈS @nodefony/frontend (ordre boot).
+  @nodefony/frontend via Vite — framework au choix : React 19, Vue 3 ou Angular 21. Wrapper de
+  nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller
+  HTML+CSP, registerEntry, entry+App du framework, peerDeps).
   Déclencheurs : "crée un module frontend", "module react", "module vue", "module angular",
-  "scaffold module avec front", "nouveau front nodefony", "module vite", "front spa nodefony".
+  "scaffold module avec front", "nouveau front nodefony", "module vite".
 ---
 
 # nodefony-create-frontend-module

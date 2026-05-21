@@ -1,14 +1,11 @@
 ---
 name: nodefony-roadmap
 description: >
-  Charge le contexte des phases futures Nodefony — Phase 10 (Vision admin web),
-  Phase 12 (couche IA agentic — 8 modules), Phase 13 (Realtime + Redis cluster + client navigateur),
-  Phase 14 (frontend builder Vite/Vue3/React19). À utiliser quand on touche un module qui doit
-  prévoir une API admin, un design IA-compatible, ou un endpoint exposable à Vision.
-  Déclencheurs : "Vision", "Phase 10", "Phase 12", "Phase 13", "Phase 14", "monitoring-bundle",
-  "module admin", "couche IA", "agentic", "@nodefony/vision", "@nodefony/agent", "@nodefony/llm",
-  "@nodefony/redis cluster", "@nodefony/realtime", "@nodefony/client browser", "@nodefony/frontend builder",
-  "API admin", "endpoint admin", "route /nodefony", "AI Act", "mode souverain".
+  Charge le contexte des phases futures Nodefony — Phase 10 (Studio admin web), 12 (couche IA
+  agentic), 13 (Realtime + Redis cluster + client navigateur), 14 (frontend builder Vite). À utiliser
+  quand un module doit prévoir une API admin, un design IA-compatible ou un endpoint Studio.
+  Déclencheurs : "Vision", "Studio", "Phase 10", "Phase 12", "Phase 13", "Phase 14", "couche IA",
+  "agentic", "@nodefony/agent", "@nodefony/realtime", "@nodefony/client", "API admin", "route /nodefony", "AI Act".
 ---
 
 # nodefony-roadmap

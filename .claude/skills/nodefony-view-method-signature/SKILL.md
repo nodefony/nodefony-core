@@ -1,6 +1,10 @@
 ---
 name: nodefony-view-method-signature
-description: Affiche la signature d'une méthode (nom, visibilité, static, décorateurs, description TSDoc) depuis l'AST extrait dans `dist/symbols.json`. Évite de cat un fichier source de 500 lignes pour connaître l'ordre des arguments. Mots-clés : "signature de méthode", "args de fonction", "comment appeler X", "quels paramètres prend Y", "view method signature".
+description: >
+  Affiche la signature d'une méthode (nom, visibilité, static, décorateurs, TSDoc) depuis l'AST
+  extrait dans dist/symbols.json — évite de lire un fichier source de 500 lignes pour l'ordre des args.
+  Déclencheurs : "signature de méthode", "args de fonction", "comment appeler X",
+  "quels paramètres prend Y", "view method signature".
 ---
 
 # view-method-signature

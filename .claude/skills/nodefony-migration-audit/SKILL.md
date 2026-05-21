@@ -1,6 +1,11 @@
 ---
 name: nodefony-migration-audit
-description: Audit interactif phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au code (grep/ls/find), une phase à la fois, et corrige les écarts. Inclut un mode "synthèse graphique" (barres de progression par phase) pour la compréhension globale à la demande. Le user valide chaque phase ("suivante") puis décide des corrections. Mots-clés déclencheurs : "audit migration", "état des lieux migration", "où en est la migration", "résumé migration", "avancement migration", "vérifier MIGRATION_STATUS", "revue phase par phase", "le fichier migration a des erreurs", "mets à jour le migration", "état de la migration".
+description: >
+  Audit phase-par-phase de l'état RÉEL de la migration Nodefony — confronte MIGRATION_STATUS.md au
+  code (grep/ls/find), une phase à la fois, corrige les écarts. Inclut un mode synthèse graphique
+  (barres de progression par phase) à la demande.
+  Déclencheurs : "audit migration", "état des lieux migration", "où en est la migration",
+  "avancement migration", "vérifier MIGRATION_STATUS", "revue phase par phase", "mets à jour le migration".
 ---
 
 # migration-audit

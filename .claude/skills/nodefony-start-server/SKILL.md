@@ -1,13 +1,11 @@
 ---
 name: nodefony-start-server
 description: >
-  Lance le serveur Nodefony en mode développement pour les tests d'intégration.
-  TOUT est consolidé dans un script unique (start.sh) → 1 seule commande, 1 seule approbation.
-  Build conditionnel du module test (skip si dist à jour → gain de temps), kill watch+ports,
-  spawn detached, wait boot avec fail-fast, health check.
-  Utilise ce skill dès que l'utilisateur dit "lance le serveur", "démarre nodefony",
-  "relance le serveur", "start server", "redémarre le serveur", ou toute variante.
-  Également utile si les tests d'intégration échouent avec des 404 (dist périmé → rebuild + restart).
+  Lance le serveur Nodefony en mode développement pour les tests d'intégration — script unique
+  start.sh (1 commande, 1 approbation) : build conditionnel du module test, kill watch+ports, spawn
+  detached, wait boot fail-fast, health check.
+  Déclencheurs : "lance le serveur", "démarre nodefony", "relance le serveur", "start server",
+  "redémarre le serveur", tests d'intégration en 404 (dist périmé).
 ---
 
 # nodefony-start-server

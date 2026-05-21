@@ -1,11 +1,11 @@
 ---
 name: nodefony-ts-docs
 description: >
-  Consulte la documentation officielle TypeScript (utility types, handbook, do's and don'ts)
-  et les types Node.js (@types/node DefinitelyTyped) via sources brutes raw GitHub + proxy
-  `r.jina.ai`. Interdiction d'utiliser `typescriptlang.org` (trop lourd, JS bloque Claude Code).
+  Consulte la doc officielle TypeScript (utility types, handbook, do's and don'ts) et les types
+  Node.js (@types/node DefinitelyTyped) via sources brutes raw GitHub + proxy r.jina.ai, jamais
+  typescriptlang.org (JS lourd).
   Déclencheurs : "comment typer X", "utility type", "Pick/Omit/ReturnType", "@types/node",
-  "NodeJS.Timeout", "TS handbook", "design declaration file", "mapped types", "conditional type".
+  "NodeJS.Timeout", "TS handbook", "mapped types", "conditional type".
 ---
 
 # nodefony-ts-docs

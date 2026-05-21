@@ -1,6 +1,11 @@
 ---
 name: nodefony-tail-error-logs
-description: Extrait uniquement les erreurs (ERROR / CRITIC / TypeError / SyntaxError / stack traces) des derniers logs du serveur Nodefony en supprimant les codes couleur ANSI et les requêtes 200 OK. Utiliser dès qu'un test d'intégration échoue ou que le serveur a crashé au boot. Mots-clés : "logs du serveur", "erreurs serveur", "voir les crashs", "pourquoi le test échoue", "tail logs", "stack trace nodefony".
+description: >
+  Extrait uniquement les erreurs (ERROR / CRITIC / TypeError / SyntaxError / stack traces) des
+  derniers logs du serveur Nodefony — supprime les codes ANSI et les requêtes 200 OK. À utiliser dès
+  qu'un test d'intégration échoue ou que le serveur a crashé au boot.
+  Déclencheurs : "logs du serveur", "erreurs serveur", "voir les crashs", "pourquoi le test échoue",
+  "tail logs", "stack trace nodefony".
 ---
 
 # tail-error-logs

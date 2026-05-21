@@ -1,13 +1,11 @@
 ---
 name: nodefony-load-test
 description: >
-  Tests de charge / stress HTTP et WebSocket du framework Nodefony. Deux niveaux :
-  (1) les SUITES MOCHA versionnées (non-régression de charge, CI-stable + sondes
-  rupture derrière un flag), (2) des SCRIPTS NODE client standalone paramétrables
-  pour explorer les limites à la main (plafond connexions WS, débit messages/broadcast,
-  RPS+percentiles HTTP). Utilise ce skill quand l'utilisateur dit "test de charge",
-  "stress", "combien de connexions/messages", "benchmark", "jusqu'à la rupture",
-  "RPS", "latence p99", ou veut hammerer le serveur. Prérequis : serveur dev UP.
+  Tests de charge / stress HTTP et WebSocket de Nodefony. Deux niveaux : suites Mocha versionnées
+  (non-régression de charge + sondes rupture derrière un flag) et scripts Node standalone pour
+  explorer les limites (plafond connexions WS, débit messages, RPS + percentiles). Prérequis : serveur dev UP.
+  Déclencheurs : "test de charge", "stress", "benchmark", "combien de connexions",
+  "jusqu'à la rupture", "RPS", "latence p99", "hammerer le serveur".
 ---
 
 # load-test

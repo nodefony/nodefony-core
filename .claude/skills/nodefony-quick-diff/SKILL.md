@@ -1,6 +1,10 @@
 ---
 name: nodefony-quick-diff
-description: Résume les modifications non commitées sur `src/` uniquement (ignore les `dist/`, `node_modules`, fichiers générés) avant un build ou un test. Évite de polluer le contexte avec des fichiers compilés. Mots-clés : "diff rapide", "qu'est-ce que j'ai modifié", "quick diff", "voir les changements src", "git diff propre".
+description: >
+  Résume les modifications non commitées sur src/ uniquement (ignore dist/, node_modules, fichiers
+  générés) avant un build ou un test — évite de polluer le contexte avec du compilé.
+  Déclencheurs : "diff rapide", "qu'est-ce que j'ai modifié", "quick diff",
+  "voir les changements src", "git diff propre".
 ---
 
 # quick-diff

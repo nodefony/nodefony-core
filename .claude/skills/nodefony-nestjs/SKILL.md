@@ -1,12 +1,10 @@
 ---
 name: nodefony-nestjs
 description: >
-  Inspire l'architecture Nodefony (decorators, controllers, modules, DI, guards) des concepts
-  NestJS via le repo officiel `docs.nestjs.com` en format raw markdown. Interdiction d'utiliser
-  le site `docs.nestjs.com` (JS lourd plante Claude Code). Déclencheur EXCLUSIF : le mot-clé
-  "NestJS" dans le message utilisateur. Sans ce mot-clé, ignorer totalement.
-  Exemples : "inspire-toi de NestJS pour le décorateur X", "calquer le DI NestJS",
-  "NestJS modules pattern", "NestJS guards pour security".
+  Inspire l'architecture Nodefony (decorators, controllers, modules, DI, guards) des concepts NestJS
+  via le repo officiel en raw markdown (jamais le site docs.nestjs.com, JS lourd). Déclencheur
+  EXCLUSIF : le mot-clé "NestJS" dans le message — sans lui, ignorer totalement.
+  Exemples : "inspire-toi de NestJS pour X", "DI NestJS", "NestJS modules pattern", "NestJS guards".
 ---
 
 # nodefony-nestjs

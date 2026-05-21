@@ -2,8 +2,8 @@
 name: nodefony-rfc
 description: >
   Cite et applique les RFC officielles IETF et W3C pour valider la conformité HTTP/1.1, HTTP/2,
-  WebSocket, CORS, Cookies dans Nodefony. Utilise les sources brutes (TXT IETF, raw GitHub W3C)
-  via le proxy `r.jina.ai` quand nécessaire — interdiction de naviguer sur les pages HTML.
+  WebSocket, CORS, Cookies dans Nodefony — sources brutes (TXT IETF, raw GitHub W3C) via proxy
+  r.jina.ai, jamais les pages HTML.
   Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "Fetch standard",
   "RFC 9110/9113/6455/6265", "pseudo-headers HTTP/2", "frame masking", "SameSite cookies".
 ---
