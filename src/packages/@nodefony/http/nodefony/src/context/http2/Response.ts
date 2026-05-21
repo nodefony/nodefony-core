@@ -68,6 +68,16 @@ class Http2Response extends HttpResponse {
             headers
           );
           this.headers[HTTP2_HEADER_STATUS] = this.statusCode;
+          // Request tracing — le chemin stream HTTP/2 bypasse super.writeHead
+          // (http/Response.ts), donc on pose ICI les headers de corrélation,
+          // sinon les réponses HTTP/2 (port 5152) n'ont NI x-request-id NI
+          // traceparent → la debug bar / profiler ne peut pas corréler.
+          const requestId = (this.context as { requestId?: string }).requestId;
+          if (requestId) this.headers["x-request-id"] = requestId;
+          const traceparent = (
+            this.context as { traceparent?: string | null }
+          ).traceparent;
+          if (traceparent) this.headers["traceparent"] = traceparent;
           //console.log("HTTH2 respond", this.headers);
           this.stream.respond(this.headers, {
             endStream: false,

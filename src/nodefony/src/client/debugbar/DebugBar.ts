@@ -1,34 +1,47 @@
 /**
  * DebugBar — toolbar de debug par-page type Symfony WDT, **dev-only**, pensée
- * comme une **vitrine du realtime Nodefony** (psychologie produit : on doit
- * *voir* le framework respirer en direct, pas juste lire des chiffres).
+ * comme une **vitrine du realtime Nodefony** (on doit *voir* le framework
+ * respirer en direct).
  *
- * 2ᵉ consommateur navigateur du Core isomorphe après Studio : se branche sur le
- * MÊME backbone realtime (WS JSON-RPC 2.0, canaux `dashboard:stats` /
- * `syslog:stream`) via {@link RealtimeClient}. Aucun rendu serveur splicé dans
- * le body (≠ l'ancien monitoring-bundle) : le serveur *collecte*, le client *rend*.
+ * 2ᵉ consommateur navigateur du Core isomorphe après Studio : MÊME backbone
+ * realtime (WS JSON-RPC 2.0, canaux `dashboard:stats` / `syslog:stream`) via
+ * {@link RealtimeClient}. Aucun rendu serveur splicé dans le body : le serveur
+ * *collecte*, le client *rend*.
  *
- * Le `RealtimeClient` mesure lui-même son débit (`framesReceived`, `getStats()`)
- * → la barre affiche un **pouls live msg/s + VU-mètre** : c'est le différenciateur
- * « HTTP et WebSocket co-citoyens, push natif, 0 polling » rendu tangible.
+ * UI : **onglets** (Realtime / Network / Perf / Logs / Runtime) — un seul pane
+ * rendu/visible à la fois (≠ grid fourre-tout) + **poignée de resize** (hauteur
+ * persistée). Vanilla TS + **Shadow DOM** + sparklines **SVG maison** — 0 dep UI.
  *
- * Vanilla TS + **Shadow DOM** + sparklines **SVG maison** — zéro dépendance UI
- * (React/Mantine/recharts) pour se monter sur n'importe quelle page
- * (React/Vue/Angular/HTML) sans présumer du framework hôte ni polluer ses styles.
+ * Perf scroll (critique) : fond OPAQUE sur le panneau (le `backdrop-filter:blur`
+ * sur le conteneur scrollable recompositait à chaque frame), `contain:content`
+ * par pane, et la liste Network en **mise à jour incrémentale** (nœuds stables,
+ * jamais de rebuild `innerHTML` global → le clic n'est plus perdu, le scroll ne
+ * saute plus).
  *
- * MVP = live only. Le profiler par `requestId` (timeline par requête) arrivera
- * avec le collecteur serveur (WDT complet).
+ * Panneau **Network** (dev-only) : intercepte `fetch`/`XHR` (header-only,
+ * défensif, réversible) → liste des appels AJAX ; clic sur un appel → fetch du
+ * profil serveur (`/nodefony/profiler/api/{requestId}`, corrélé via le header
+ * `X-Request-Id`) → **waterfall des phases** du pipeline. SPA-first : on profile
+ * les appels, pas la page. Le `traceparent` W3C (RFC-propre) est aussi remonté.
  */
 import { RealtimeClient } from "../realtime/RealtimeClient";
 import type { RealtimeState } from "../realtime/RealtimeClient";
 import {
   DebugBarModel,
+  type DebugBarView,
   type FeedLog,
   type StatsPayload,
   type SyslogPayload,
 } from "./model";
 import { formatBytes, formatUptime, gauge, sparklinePoints } from "./format";
 import { connectViteHmr, type HmrEvent } from "./hmr";
+import { installNetworkInterceptor, type NetEntry } from "./network";
+import {
+  NetworkModel,
+  computeWaterfall,
+  isError as isNetError,
+  type ProfileEntry,
+} from "./profile";
 
 /** Canaux realtime consommés (figés, alignés sur les providers Studio). */
 const CHANNELS = {
@@ -38,6 +51,8 @@ const CHANNELS = {
 
 /** Endpoint WS realtime par défaut (porté par Studio aujourd'hui, RealtimeService demain). */
 const DEFAULT_PATH = "/nodefony/studio/api/realtime";
+/** Base du data-plane profiler (data-plane admin `IAdminApi` namespace `profiler`). */
+const DEFAULT_PROFILER_BASE = "/nodefony/profiler/api";
 const HOST_ID = "nodefony-debugbar";
 
 /** Dimensions des sparklines (unités viewBox SVG). */
@@ -46,6 +61,15 @@ const MINI_H = 16;
 const CHART_W = 260;
 const CHART_H = 46;
 const RT_POINTS = 60;
+
+/** Hauteur de panneau par défaut + bornes (px). */
+const PANEL_H_DEFAULT = 340;
+const PANEL_H_MIN = 140;
+/** Hauteur mini garantie à l'ouverture d'un profil (waterfall lisible). */
+const PANEL_H_DETAIL = 360;
+
+/** Onglets disponibles (ordre d'affichage). */
+type TabId = "realtime" | "network" | "perf" | "logs" | "runtime";
 
 /** Contexte frontend injecté par le builder Vite (@nodefony/frontend) en dev. */
 export interface DebugBarFrontend {
@@ -70,6 +94,13 @@ export interface DebugBarOptions {
   open?: boolean;
   /** Contexte frontend (active la carte Frontend + la sonde HMR Vite). */
   frontend?: DebugBarFrontend;
+  /**
+   * Active le panneau Network (intercepte `fetch`/`XHR`). Défaut `true`.
+   * `false` → aucun monkey-patch des globals (opt-out total).
+   */
+  network?: boolean;
+  /** Base du data-plane profiler. Défaut `/nodefony/profiler/api`. */
+  profilerBase?: string;
 }
 
 /** Métadonnées d'affichage par framework (couleur de marque officielle). */
@@ -89,9 +120,12 @@ const STYLES = `
   position: fixed; left: 0; right: 0; z-index: 2147483000;
   font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: #e8eaed;
-  background: rgba(18,20,25,.86); backdrop-filter: blur(14px) saturate(140%);
+  /* Fond OPAQUE (pas de backdrop-filter sur le conteneur scrollable : il
+     recompositait le blur à chaque frame de scroll → lag). Blur seulement sur
+     .strip (fin, non scrollé). */
+  background: #14161a;
   --blue:#0067ba; --blue2:#3aa0ff; --orange:#ff8a3d; --ok:#36b37e; --warn:#ffab00;
-  --crit:#ff5630; --info:#4c9aff; --muted:#8a9099; --line:#2a2e36; --card:rgba(28,31,38,.7);
+  --crit:#ff5630; --info:#4c9aff; --muted:#8a9099; --line:#2a2e36; --card:#1c1f26;
   box-shadow: 0 -8px 40px rgba(0,0,0,.5);
 }
 .bar.bottom { bottom: 0; }
@@ -104,13 +138,15 @@ const STYLES = `
 .bar.bottom::before { top:0; } .bar.top::before { bottom:0; }
 @keyframes flow { to { background-position: 200% 0; } }
 
-.strip { display: flex; align-items: center; gap: 16px; padding: 6px 14px; cursor: pointer; }
+.strip { display: flex; align-items: center; gap: 14px; padding: 6px 14px; cursor: pointer;
+  flex-wrap: nowrap; overflow: hidden; background: rgba(20,22,26,.6);
+  backdrop-filter: blur(14px) saturate(140%); }
 .strip:hover { background: rgba(255,255,255,.03); }
-.brand { display:flex; align-items:center; gap:8px; font-weight:800; letter-spacing:.2px; }
+.brand { display:flex; align-items:center; gap:8px; font-weight:800; letter-spacing:.2px; flex:none; }
 .brand .logo { color: var(--blue2); font-size:13px; filter: drop-shadow(0 0 6px rgba(58,160,255,.6)); }
 .brand .name { background: linear-gradient(90deg,#fff,var(--blue2)); -webkit-background-clip:text;
   background-clip:text; -webkit-text-fill-color:transparent; }
-.rt-pill { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:11px;
+.rt-pill { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:11px; flex:none;
   font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
   color:var(--muted); background:#22262e; border:1px solid var(--line); }
 .rt-pill.live { color:#fff; border-color:rgba(58,160,255,.5);
@@ -126,25 +162,43 @@ const STYLES = `
 .dot.error, .dot.disconnected { background: var(--crit); color: var(--crit); }
 @keyframes pulse { 0%{box-shadow:0 0 0 0 currentColor} 70%{box-shadow:0 0 0 5px transparent} 100%{box-shadow:0 0 0 0 transparent} }
 
-.metric { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.metric { display: flex; align-items: center; gap: 6px; white-space: nowrap; flex:none; }
 .metric .k { color: var(--muted); text-transform: uppercase; font-size: 9px; letter-spacing:.5px; }
-.metric .v { font-weight: 700; min-width: 34px; }
+.metric .v { font-weight: 700; min-width: 30px; }
 .mini { width: ${MINI_W}px; height: ${MINI_H}px; display:block; }
 .mini polyline { fill:none; stroke-width:1.5; vector-effect:non-scaling-stroke; }
-.chip { display:flex; align-items:center; gap:5px; padding:1px 8px; border-radius:10px;
-  background:#22262e; font-weight:700; }
+.chip { display:flex; align-items:center; gap:5px; padding:1px 8px; border-radius:10px; flex:none;
+  background:#22262e; font-weight:700; white-space:nowrap; }
 .chip .k { color: var(--muted); font-size:9px; text-transform:uppercase; }
-.spacer { flex: 1; }
-.toggle { color: var(--muted); font-size: 11px; transition: transform .25s; }
+.spacer { flex: 1 1 auto; min-width: 8px; }
+.toggle { color: var(--muted); font-size: 11px; transition: transform .25s; flex:none; }
 .bar.open .toggle { transform: rotate(180deg); }
 .ok{color:var(--ok)} .warn{color:var(--warn)} .crit{color:var(--crit)} .info{color:var(--info)} .muted{color:var(--muted)} .blue{color:var(--blue2)}
 .spark.ok{stroke:var(--ok)} .spark.warn{stroke:var(--warn)} .spark.crit{stroke:var(--crit)} .spark.rt{stroke:var(--blue2)}
 .area.ok{fill:rgba(54,179,126,.12)} .area.warn{fill:rgba(255,171,0,.14)} .area.crit{fill:rgba(255,86,48,.16)} .area.rt{fill:rgba(58,160,255,.16)}
 
-.panel { display:none; gap:14px; padding:14px; max-height:48vh; overflow:auto;
-  border-top:1px solid var(--line);
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); align-items:start; }
-.bar.open .panel { display:grid; }
+/* ── Panneau : resize + onglets + panes ──────────────────────────────────── */
+.panelwrap { display:none; flex-direction:column; border-top:1px solid var(--line); }
+.bar.open .panelwrap { display:flex; }
+.resize { height:8px; cursor:ns-resize; display:flex; align-items:center; justify-content:center;
+  flex:none; background:rgba(255,255,255,.015); }
+.resize::after { content:""; width:42px; height:3px; border-radius:2px; background:var(--line); transition:background .15s; }
+.resize:hover::after { background:var(--blue2); }
+.tabs { display:flex; gap:2px; padding:0 8px; flex:none; border-bottom:1px solid var(--line);
+  overflow-x:auto; scrollbar-width:none; }
+.tabs::-webkit-scrollbar { display:none; }
+.tab { padding:7px 12px; font:inherit; font-size:11px; font-weight:700; color:var(--muted);
+  cursor:pointer; border:0; background:none; border-bottom:2px solid transparent;
+  text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; display:flex; align-items:center; gap:5px; }
+.tab:hover { color:#fff; }
+.tab.active { color:#fff; border-bottom-color:var(--blue2); }
+.tab .tcount { font-size:9px; padding:0 5px; border-radius:8px; background:#22262e; color:var(--muted); }
+.tab.active .tcount { background:rgba(58,160,255,.25); color:#fff; }
+.tab .tcount.crit { background:rgba(255,86,48,.3); color:#fff; }
+.panes { overflow:hidden; }
+.pane { display:none; height:100%; overflow:auto; padding:14px; contain:content; }
+.pane.active { display:block; }
+.cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:14px; align-items:start; }
 .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:11px 13px; }
 .card.hero { border-color: rgba(58,160,255,.35);
   background: linear-gradient(160deg, rgba(0,103,186,.16), rgba(28,31,38,.7) 60%); }
@@ -171,10 +225,9 @@ const STYLES = `
 .kv .k { color:var(--muted); } .kv .v { font-weight:600; text-align:right; overflow:hidden; text-overflow:ellipsis; }
 
 .counts { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
-.feed { font-size:11px; max-height:160px; overflow:auto; border-top:1px solid var(--line); padding-top:6px; }
+.feed { font-size:11px; }
 .feed .empty { color:var(--muted); padding:6px 0; }
-.log { display:flex; gap:7px; padding:2px 0; align-items:baseline; border-bottom:1px solid rgba(255,255,255,.04); animation: fadein .3s; }
-@keyframes fadein { from{opacity:0;transform:translateY(-2px)} to{opacity:1} }
+.log { display:flex; gap:7px; padding:2px 0; align-items:baseline; border-bottom:1px solid rgba(255,255,255,.04); }
 .log .sev { flex:none; width:54px; font-size:9px; font-weight:800; text-transform:uppercase; }
 .log .mod { flex:none; color:var(--muted); max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .log .txt { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -191,13 +244,13 @@ const STYLES = `
 .spark.fe { stroke:var(--orange); } .area.fe { fill:rgba(255,138,61,.16); }
 
 .env-badge { padding:2px 9px; border-radius:6px; font-size:10px; font-weight:800;
-  letter-spacing:.6px; text-transform:uppercase; color:#0b0d10; background:var(--muted); }
+  letter-spacing:.6px; text-transform:uppercase; color:#0b0d10; background:var(--muted); flex:none; }
 .env-badge.dev { background: var(--ok); } .env-badge.prod { background: var(--crit); color:#fff; }
 .env-badge.test { background: var(--warn); } .env-badge.staging { background:#a06bff; color:#fff; }
-.branch { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:6px;
-  background:#22262e; font-weight:700; max-width:260px; cursor:help; }
+.branch { display:flex; align-items:center; gap:5px; padding:2px 9px; border-radius:6px; flex:none;
+  background:#22262e; font-weight:700; max-width:200px; cursor:help; }
 .branch .git { color:var(--blue2); } .branch span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.ctrl { color:var(--muted); cursor:pointer; padding:0 4px; font-weight:800; font-size:13px; line-height:1; }
+.ctrl { color:var(--muted); cursor:pointer; padding:0 4px; font-weight:800; font-size:13px; line-height:1; flex:none; }
 .ctrl:hover { color:#fff; }
 
 .minbar { position:fixed; z-index:2147483000; display:none; align-items:center; gap:8px;
@@ -213,6 +266,64 @@ const STYLES = `
 .minbar .dot.connecting,.minbar .dot.reconnecting { background:#ffab00; }
 .minbar .mlogo { color:#ff8a3d; } .minbar .mrate { font-weight:800; }
 .minbar .mbadge { font-size:9px; font-weight:800; text-transform:uppercase; color:#8a9099; }
+
+/* ── Network ─────────────────────────────────────────────────────────────── */
+.net-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+.net-clear { margin-left:auto; color:var(--muted); cursor:pointer; font-size:10px;
+  text-transform:uppercase; letter-spacing:.5px; padding:2px 6px; border-radius:6px; }
+.net-clear:hover { color:#fff; background:rgba(255,255,255,.06); }
+.net-list { border-top:1px solid var(--line); }
+.net-list .empty { color:var(--muted); padding:8px 0; }
+.net-row { display:flex; align-items:center; gap:9px; padding:3px 4px; cursor:pointer;
+  border-bottom:1px solid rgba(255,255,255,.04); }
+.net-row:hover { background:rgba(255,255,255,.04); }
+.net-row.sel { background:rgba(58,160,255,.14); }
+.net-row.err .net-path { color:#ffb4a6; }
+.net-method { flex:none; width:46px; text-align:center; font-weight:800; font-size:9px;
+  padding:1px 0; border-radius:5px; text-transform:uppercase; color:#0b0d10; background:var(--muted); }
+.net-method.get { background:var(--blue2); } .net-method.post { background:var(--ok); }
+.net-method.put,.net-method.patch { background:var(--orange); }
+.net-method.delete { background:var(--crit); color:#fff; }
+.net-method.ws { background:#a06bff; color:#fff; }
+.net-path { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.net-status { flex:none; width:38px; text-align:center; font-weight:800; font-size:10px; }
+.net-status.s2 { color:var(--ok); } .net-status.s3 { color:var(--info); }
+.net-status.s4 { color:var(--warn); } .net-status.s5 { color:var(--crit); }
+.net-status.sp { color:var(--muted); }
+.net-dur { flex:none; width:58px; text-align:right; color:var(--muted); font-size:10px; }
+.net-rid { flex:none; color:var(--blue2); font-size:9px; opacity:.7; }
+
+.net-detail { margin-top:10px; border-top:1px solid var(--line); padding-top:10px; }
+.net-detail .empty { color:var(--muted); }
+.det-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:2px 14px; margin-bottom:10px; }
+.wf { display:flex; flex-direction:column; gap:3px; }
+.wf-title { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+.wf-row { display:flex; align-items:center; gap:8px; }
+.wf-name { flex:none; width:74px; text-align:right; color:#cfd3d8; font-size:10px; }
+.wf-track { flex:1; position:relative; height:14px; background:rgba(255,255,255,.04); border-radius:3px; }
+.wf-bar { position:absolute; top:0; bottom:0; border-radius:3px; min-width:2px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.wf-ms { flex:none; width:62px; text-align:right; color:var(--muted); font-size:10px; }
+.wf-bar.parse { background:#4c9aff; } .wf-bar.resolve { background:#3aa0ff; }
+.wf-bar.firewall { background:#ff8a3d; } .wf-bar.init { background:#a06bff; }
+.wf-bar.action { background:#36b37e; } .wf-bar.render { background:#ffab00; }
+.wf-bar.send { background:#00b8d9; } .wf-bar.other { background:#8a9099; }
+.det-loading,.det-err { color:var(--muted); padding:6px 0; } .det-err { color:var(--crit); }
+
+/* Network pane = split DevTools : liste (scroll) + détail (scroll), détail
+   TOUJOURS visible (≠ tout dans un seul scroll où le détail finit hors écran). */
+.pane.np.active { display:flex; flex-direction:column; padding:0; }
+.np .net-head { padding:10px 14px 8px; flex:none; margin:0; }
+.np .net-list { flex:1 1 auto; min-height:56px; overflow:auto; padding:0 14px; border-top:1px solid var(--line); }
+/* Détail : placeholder = petit (flex:0). Sélection active (.np.sel) → le détail
+   prend une vraie part (60%) avec son propre scroll → le waterfall est visible,
+   la liste se réduit. */
+.np .net-detail { flex:0 1 auto; max-height:50%; overflow:auto; padding:8px 14px 12px; margin-top:0; border-top:1px solid var(--line); }
+.np.sel .net-list { flex:1 1 40%; min-height:48px; }
+.np.sel .net-detail { flex:1 1 60%; max-height:none; }
+.det-bar { display:flex; justify-content:flex-end; margin-bottom:2px; }
+.det-close { cursor:pointer; color:var(--muted); font-weight:800; font-size:15px; line-height:1; padding:0 4px; }
+.det-close:hover { color:#fff; }
 `;
 
 function pushCap(arr: number[], v: number, cap: number): void {
@@ -220,11 +331,21 @@ function pushCap(arr: number[], v: number, cap: number): void {
   if (arr.length > cap) arr.shift();
 }
 
+function clampH(h: number): number {
+  const max =
+    typeof window !== "undefined" ? window.innerHeight * 0.85 : 700;
+  if (h < PANEL_H_MIN) return PANEL_H_MIN;
+  if (h > max) return Math.round(max);
+  return Math.round(h);
+}
+
 /** Clés de persistance localStorage (état chrome de la barre). */
 const LS = {
   visible: "nf.debugbar.visible",
   min: "nf.debugbar.min",
   side: "nf.debugbar.side",
+  tab: "nf.debugbar.tab",
+  h: "nf.debugbar.h",
 } as const;
 
 function lsGet(key: string, def: string): string {
@@ -276,6 +397,8 @@ export class DebugBar {
   private visible: boolean;
   private minimized: boolean;
   private side: "left" | "right";
+  private activeTab: TabId;
+  private panelH: number;
   private rafPending = false;
   private feedLen = -1;
   // Pouls realtime — débit msg/s dérivé du compteur de frames du client.
@@ -293,6 +416,18 @@ export class DebugBar {
   private flashTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly disposers: Array<() => void> = [];
   private readonly el: Record<string, Element> = Object.create(null);
+  // Network — modèle + corrélation profiler serveur.
+  private readonly networkEnabled: boolean;
+  private readonly profilerBase: string;
+  private readonly net = new NetworkModel();
+  // Nœuds de ligne PERSISTANTS (id → row) — mise à jour incrémentale, jamais de
+  // rebuild innerHTML global (sinon clic perdu + scroll qui saute).
+  private readonly netRows = new Map<number, HTMLElement>();
+  private selectedRid: string | null = null;
+  private selRowId: number | null = null;
+  private selNoRid = false; // ligne cliquée sans requestId lisible
+  private detailVersion = 0;
+  private detailRendered = -1;
 
   constructor(opts: DebugBarOptions = {}) {
     this.url = opts.url ?? DEFAULT_PATH;
@@ -300,10 +435,14 @@ export class DebugBar {
     this.startOpen = opts.open ?? false;
     this.ownClient = !opts.client;
     this.frontend = opts.frontend ?? null;
+    this.networkEnabled = opts.network !== false;
+    this.profilerBase = (opts.profilerBase ?? DEFAULT_PROFILER_BASE).replace(/\/$/, "");
     this.client = opts.client ?? new RealtimeClient({ url: this.url });
     this.visible = lsGet(LS.visible, "1") !== "0";
     this.minimized = lsGet(LS.min, "0") === "1";
     this.side = lsGet(LS.side, "right") === "left" ? "left" : "right";
+    this.activeTab = (lsGet(LS.tab, "realtime") as TabId) || "realtime";
+    this.panelH = clampH(parseInt(lsGet(LS.h, String(PANEL_H_DEFAULT)), 10) || PANEL_H_DEFAULT);
   }
 
   /** Construit le DOM, branche le realtime et ouvre la connexion. No-op si déjà monté. */
@@ -313,6 +452,7 @@ export class DebugBar {
     this.buildDom();
     this.wireRealtime();
     this.wireHmr();
+    this.wireNetwork();
     this.applyChrome();
     this.registerHandle();
     if (this.ownClient) {
@@ -337,7 +477,7 @@ export class DebugBar {
     this.bar = null;
   }
 
-  // ── Chrome (visibilité / réduction / dock) ──────────────────────────────
+  // ── Chrome (visibilité / réduction / dock / onglet / hauteur) ────────────
 
   /** Affiche/masque la barre (pilotable depuis une app via le handle global). */
   setVisible(v: boolean): void {
@@ -358,7 +498,32 @@ export class DebugBar {
     this.applyChrome();
   }
 
-  /** Applique l'état chrome au DOM (display + classes de dock). */
+  private setTab(tab: TabId): void {
+    this.activeTab = tab;
+    lsSet(LS.tab, tab);
+    this.applyTab();
+    this.render();
+  }
+
+  private setPanelH(h: number): void {
+    this.panelH = clampH(h);
+    const panes = this.el.panes as HTMLElement | undefined;
+    if (panes) panes.style.height = `${this.panelH}px`;
+  }
+
+  /** Reflète l'onglet actif sur les boutons + panes. */
+  private applyTab(): void {
+    const tabs = this.bar?.querySelectorAll(".tab");
+    tabs?.forEach((t) =>
+      t.classList.toggle("active", t.getAttribute("data-tab") === this.activeTab),
+    );
+    const panes = this.bar?.querySelectorAll(".pane");
+    panes?.forEach((p) =>
+      p.classList.toggle("active", p.getAttribute("data-pane") === this.activeTab),
+    );
+  }
+
+  /** Applique l'état chrome au DOM (display + classes de dock + hauteur). */
   private applyChrome(): void {
     if (!this.host || !this.bar) return;
     this.host.style.display = this.visible ? "" : "none";
@@ -368,6 +533,8 @@ export class DebugBar {
       min.style.display = this.minimized ? "flex" : "none";
       min.setAttribute("class", `minbar ${this.position} dock-${this.side}`);
     }
+    this.setPanelH(this.panelH);
+    this.applyTab();
   }
 
   private registerHandle(): void {
@@ -408,8 +575,6 @@ export class DebugBar {
     document.body.appendChild(host);
     this.host = host;
     this.bar = bar;
-    // Le conteneur `.minbar` n'a pas de [data-el] → on garde la ref directement
-    // (sinon `applyChrome` ne peut pas l'afficher → barre réduite = invisible).
     this.el.minbar = minbar;
     shadow.querySelectorAll("[data-el]").forEach((node) => {
       const key = node.getAttribute("data-el");
@@ -419,6 +584,7 @@ export class DebugBar {
     const strip = bar.querySelector(".strip")!;
     const onStrip = (): void => {
       bar.classList.toggle("open");
+      this.render();
     };
     strip.addEventListener("click", onStrip);
     this.disposers.push(() => strip.removeEventListener("click", onStrip));
@@ -431,10 +597,46 @@ export class DebugBar {
       e.stopPropagation();
       this.toggleSide();
     });
+    // Onglets.
+    const tabsBar = bar.querySelector(".tabs");
+    if (tabsBar) {
+      const onTab = (ev: Event): void => {
+        const t = (ev.target as HTMLElement | null)?.closest?.(".tab");
+        const id = t?.getAttribute("data-tab") as TabId | null;
+        if (id) this.setTab(id);
+      };
+      tabsBar.addEventListener("click", onTab);
+      this.disposers.push(() => tabsBar.removeEventListener("click", onTab));
+    }
+    // Poignée de resize.
+    const resize = this.el.resize as HTMLElement | undefined;
+    if (resize) {
+      const onDown = (e: PointerEvent): void => this.startResize(e);
+      resize.addEventListener("pointerdown", onDown);
+      this.disposers.push(() => resize.removeEventListener("pointerdown", onDown));
+    }
     // Chip réduit → restaure la barre complète.
     const onMin = (): void => this.setMinimized(false);
     minbar.addEventListener("click", onMin);
     this.disposers.push(() => minbar.removeEventListener("click", onMin));
+  }
+
+  private startResize(ev: PointerEvent): void {
+    ev.preventDefault();
+    const startY = ev.clientY;
+    const startH = this.panelH;
+    const onMove = (e: PointerEvent): void => {
+      const delta =
+        this.position === "bottom" ? startY - e.clientY : e.clientY - startY;
+      this.setPanelH(startH + delta);
+    };
+    const onUp = (): void => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      lsSet(LS.h, String(this.panelH));
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
   }
 
   private wireBtn(key: string, handler: (e: Event) => void): void {
@@ -455,65 +657,109 @@ export class DebugBar {
         ${this.miniMetric("rt", "rt", "rtMini", "0/s")}
         ${this.miniMetric("cpu", "cpu", "cpuMini", "0%")}
         ${this.miniMetric("mem", "mem", "memMini", "0%")}
-        <span class="metric"><span class="k">loop</span><span class="v" data-el="loop">0ms</span></span>
         <span class="spacer"></span>
+        ${this.networkEnabled ? `<span class="chip"><span class="k">net</span><span class="blue" data-el="netChip">0</span></span>` : ""}
         <span class="chip"><span class="k">logs</span><span data-el="logs">0</span></span>
         <span class="chip"><span class="k">err</span><span class="crit" data-el="err">0</span></span>
-        <span class="chip"><span class="k">warn</span><span class="warn" data-el="warn">0</span></span>
         <span class="ctrl" data-el="btnSide" title="Changer de côté">⇄</span>
         <span class="ctrl" data-el="btnMin" title="Réduire">—</span>
         <span class="toggle">▴</span>
       </div>
-      <div class="panel">
-        <div class="card hero">
-          <h4><span class="blue">⚡</span> Realtime</h4>
-          <div class="big"><span data-el="rtBig">0</span><small>msg/s</small></div>
-          <svg viewBox="0 0 ${CHART_W} 38" preserveAspectRatio="none">
-            <polygon class="area rt" data-el="rtArea" points=""/>
-            <polyline class="spark rt" data-el="rtLine" points=""/>
-          </svg>
-          ${this.kv("transport", "rtTransport")}
-          ${this.kv("protocole", "rtProto")}
-          ${this.kv("état", "rtState")}
-          ${this.kv("frames reçues", "rtFrames")}
-          ${this.kv("pic", "rtPeak")}
-          <div class="tag"><b>HTTP &amp; WebSocket, même contexte.</b> Push natif, <b>0 polling</b> — chaque chiffre ci-dessus arrive en temps réel par le Core isomorphe.</div>
+      <div class="panelwrap">
+        <div class="resize" data-el="resize" title="Redimensionner"></div>
+        <div class="tabs">
+          <button class="tab" data-tab="realtime">Realtime</button>
+          ${this.networkEnabled ? `<button class="tab" data-tab="network">Network <span class="tcount" data-el="netTab">0</span></button>` : ""}
+          <button class="tab" data-tab="perf">Perf</button>
+          <button class="tab" data-tab="logs">Logs <span class="tcount" data-el="logsTab">0</span></button>
+          <button class="tab" data-tab="runtime">Runtime</button>
         </div>
-        ${this.frontendCard()}
-        <div class="card">
-          <h4>Performance</h4>
-          ${this.chart("CPU", "cpuVal", "cpuPeak", "cpuLine", "cpuArea")}
-          ${this.chart("Heap", "heapVal", "heapPeak", "heapLine", "heapArea")}
-          ${this.chart("Event loop", "loopVal", "loopPeak", "loopLine", "loopArea")}
-        </div>
-        <div class="card">
-          <h4>Runtime</h4>
-          ${this.kv("app", "appName")}
-          ${this.kv("version", "appVersion")}
-          ${this.kv("environnement", "envRow")}
-          ${this.kv("branche", "branchRow")}
-          ${this.kv("pid", "pid")}
-          ${this.kv("uptime", "uptime")}
-          ${this.kv("instance", "instance")}
-          ${this.kv("cpu cores", "cores")}
-          ${this.kv("loadavg", "load")}
-          ${this.kv("rss", "rss")}
-          ${this.kv("heap used", "heapUsed")}
-          ${this.kv("heap total", "heapTotal")}
-          ${this.kv("heap limit", "heapLimit")}
-          ${this.kv("external", "external")}
-        </div>
-        <div class="card">
-          <h4>Logs</h4>
-          <div class="counts">
-            <span class="chip"><span class="k">total</span><span data-el="cTotal">0</span></span>
-            <span class="chip"><span class="k">err</span><span class="crit" data-el="cErr">0</span></span>
-            <span class="chip"><span class="k">warn</span><span class="warn" data-el="cWarn">0</span></span>
-            <span class="chip"><span class="k">dropped</span><span class="muted" data-el="cDrop">0</span></span>
-          </div>
-          <div class="feed" data-el="feed"><div class="empty">en attente de logs…</div></div>
+        <div class="panes" data-el="panes">
+          ${this.realtimePane()}
+          ${this.networkEnabled ? this.networkPane() : ""}
+          ${this.perfPane()}
+          ${this.logsPane()}
+          ${this.runtimePane()}
         </div>
       </div>`;
+  }
+
+  private realtimePane(): string {
+    return `<div class="pane" data-pane="realtime"><div class="cards">
+      <div class="card hero">
+        <h4><span class="blue">⚡</span> Realtime</h4>
+        <div class="big"><span data-el="rtBig">0</span><small>msg/s</small></div>
+        <svg viewBox="0 0 ${CHART_W} 38" preserveAspectRatio="none">
+          <polygon class="area rt" data-el="rtArea" points=""/>
+          <polyline class="spark rt" data-el="rtLine" points=""/>
+        </svg>
+        ${this.kv("transport", "rtTransport")}
+        ${this.kv("protocole", "rtProto")}
+        ${this.kv("état", "rtState")}
+        ${this.kv("frames reçues", "rtFrames")}
+        ${this.kv("pic", "rtPeak")}
+        <div class="tag"><b>HTTP &amp; WebSocket, même contexte.</b> Push natif, <b>0 polling</b> — chaque chiffre arrive en temps réel par le Core isomorphe.</div>
+      </div>
+      ${this.frontendCard()}
+    </div></div>`;
+  }
+
+  private networkPane(): string {
+    return `<div class="pane np" data-pane="network">
+      <div class="net-head">
+        <span class="chip"><span class="k">total</span><span data-el="netTotal">0</span></span>
+        <span class="chip"><span class="k">err</span><span class="crit" data-el="netErr">0</span></span>
+        <span class="chip"><span class="k">pending</span><span class="muted" data-el="netPend">0</span></span>
+        <span class="net-clear" data-el="netClear" title="vider la liste">vider</span>
+      </div>
+      <div class="net-list" data-el="netList"><div class="empty">en attente d'appels AJAX (fetch / XHR)…</div></div>
+      <div class="net-detail" data-el="netDetail"><div class="empty">clique un appel → profil serveur (waterfall des phases, route, user).</div></div>
+    </div>`;
+  }
+
+  private perfPane(): string {
+    return `<div class="pane" data-pane="perf"><div class="cards">
+      <div class="card">
+        <h4>Performance</h4>
+        ${this.chart("CPU", "cpuVal", "cpuPeak", "cpuLine", "cpuArea")}
+        ${this.chart("Heap", "heapVal", "heapPeak", "heapLine", "heapArea")}
+        ${this.chart("Event loop", "loopVal", "loopPeak", "loopLine", "loopArea")}
+      </div>
+    </div></div>`;
+  }
+
+  private logsPane(): string {
+    return `<div class="pane" data-pane="logs">
+      <div class="counts">
+        <span class="chip"><span class="k">total</span><span data-el="cTotal">0</span></span>
+        <span class="chip"><span class="k">err</span><span class="crit" data-el="cErr">0</span></span>
+        <span class="chip"><span class="k">warn</span><span class="warn" data-el="cWarn">0</span></span>
+        <span class="chip"><span class="k">dropped</span><span class="muted" data-el="cDrop">0</span></span>
+      </div>
+      <div class="feed" data-el="feed"><div class="empty">en attente de logs…</div></div>
+    </div>`;
+  }
+
+  private runtimePane(): string {
+    return `<div class="pane" data-pane="runtime"><div class="cards">
+      <div class="card">
+        <h4>Runtime</h4>
+        ${this.kv("app", "appName")}
+        ${this.kv("version", "appVersion")}
+        ${this.kv("environnement", "envRow")}
+        ${this.kv("branche", "branchRow")}
+        ${this.kv("pid", "pid")}
+        ${this.kv("uptime", "uptime")}
+        ${this.kv("instance", "instance")}
+        ${this.kv("cpu cores", "cores")}
+        ${this.kv("loadavg", "load")}
+        ${this.kv("rss", "rss")}
+        ${this.kv("heap used", "heapUsed")}
+        ${this.kv("heap total", "heapTotal")}
+        ${this.kv("heap limit", "heapLimit")}
+        ${this.kv("external", "external")}
+      </div>
+    </div></div>`;
   }
 
   private miniMetric(
@@ -574,7 +820,7 @@ export class DebugBar {
       </svg>
       ${this.kv("bundler", "feVite")}
       ${this.kv("dernier module", "hmrLast")}
-      <div class="tag"><b>Backend &amp; frontend, un seul process.</b> HMR Vite branché au runtime Nodefony — sauvegarde un composant, la barre pulse.</div>
+      <div class="tag"><b>Backend &amp; frontend, un seul process.</b> HMR Vite branché au runtime — sauvegarde un composant, la barre pulse.</div>
     </div>`;
   }
 
@@ -586,7 +832,6 @@ export class DebugBar {
       if (a[0] === "connected") this.subscribeAll();
       this.scheduleRender();
     });
-    // `__stats__` : tick 1/s du client → échantillonne le débit msg/s (pouls realtime).
     const offTick = this.client.on("__stats__", () => {
       this.sampleThroughput();
       this.scheduleRender();
@@ -617,7 +862,6 @@ export class DebugBar {
     this.prevFrames = total;
     if (this.rtRate > this.rtPeak) this.rtPeak = this.rtRate;
     pushCap(this.rtSeries, this.rtRate, RT_POINTS);
-    // Échantillonne aussi le débit HMR sur le même tick 1/s.
     this.hmrRate = Math.max(0, this.hmrCount - this.hmrPrev);
     this.hmrPrev = this.hmrCount;
     pushCap(this.hmrSeries, this.hmrRate, RT_POINTS);
@@ -647,7 +891,6 @@ export class DebugBar {
     this.scheduleRender();
   }
 
-  /** Pulse visuel du compteur HMR à chaque hot-update (psychologie : ça vit). */
   private flashHmr(): void {
     const node = this.el.hmrBig;
     if (!node) return;
@@ -656,6 +899,191 @@ export class DebugBar {
     this.flashTimer = setTimeout(() => {
       node.setAttribute("class", "hmr-big");
     }, 600);
+  }
+
+  // ── Network ─────────────────────────────────────────────────────────────
+
+  private wireNetwork(): void {
+    if (!this.networkEnabled) return;
+    // Origine du dev server Vite (cross-origin : modules ESM + HMR) — ces appels
+    // n'ont pas de X-Request-Id et ne sont pas des requêtes Nodefony → on les
+    // exclut du panneau (sinon il est noyé de bruit non profilable).
+    const viteOrigin = this.frontend?.viteOrigin ?? "";
+    const uninstall = installNetworkInterceptor({
+      onChange: (e) => this.onNetEntry(e),
+      ignore: (url) =>
+        url.includes(this.profilerBase) ||
+        url.includes("/@vite/") ||
+        url.includes("/@fs/") ||
+        url.includes("/node_modules/.vite/") ||
+        (viteOrigin !== "" && url.includes(viteOrigin)),
+    });
+    this.disposers.push(uninstall);
+    // Délégation sur le conteneur PERSISTANT (jamais reconstruit en innerHTML).
+    const list = this.el.netList as HTMLElement | undefined;
+    if (list) {
+      const onClick = (ev: Event): void => {
+        const row = (ev.target as HTMLElement | null)?.closest?.(".net-row") as
+          | HTMLElement
+          | null;
+        if (!row) return;
+        const rid = row.dataset.rid;
+        this.selectRow(row, rid || null);
+      };
+      list.addEventListener("click", onClick);
+      this.disposers.push(() => list.removeEventListener("click", onClick));
+    }
+    // Bouton ✕ du détail (délégué : le détail est re-rendu en innerHTML).
+    const detail = this.el.netDetail as HTMLElement | undefined;
+    if (detail) {
+      const onDetail = (ev: Event): void => {
+        const t = ev.target as HTMLElement | null;
+        if (t?.closest?.('[data-act="close"]')) this.deselect();
+      };
+      detail.addEventListener("click", onDetail);
+      this.disposers.push(() => detail.removeEventListener("click", onDetail));
+    }
+    const clear = this.el.netClear as HTMLElement | undefined;
+    if (clear) {
+      const onClear = (e: Event): void => {
+        e.stopPropagation();
+        this.net.clear();
+        this.netRows.clear();
+        this.selectedRid = null;
+        this.selRowId = null;
+        const node = this.el.netList;
+        if (node) node.innerHTML = `<div class="empty">en attente d'appels AJAX (fetch / XHR)…</div>`;
+        this.detailVersion++;
+        this.scheduleRender();
+      };
+      clear.addEventListener("click", onClear);
+      this.disposers.push(() => clear.removeEventListener("click", onClear));
+    }
+  }
+
+  private onNetEntry(e: NetEntry): void {
+    this.net.ingest(e);
+    // MAJ incrémentale de la ligne (nœud stable) — pas de rebuild global.
+    this.upsertNetRow(e);
+    if (e.requestId && e.requestId === this.selectedRid) this.detailVersion++;
+    this.scheduleRender();
+  }
+
+  /** Crée ou met à jour le nœud de ligne d'un appel (jamais d'innerHTML global). */
+  private upsertNetRow(e: NetEntry): void {
+    const list = this.el.netList as HTMLElement | undefined;
+    if (!list) return;
+    let row = this.netRows.get(e.id);
+    if (!row) {
+      // Première ligne → retire le placeholder "empty".
+      if (this.netRows.size === 0) list.textContent = "";
+      row = document.createElement("div");
+      row.className = "net-row";
+      row.innerHTML =
+        `<span class="net-method"></span>` +
+        `<span class="net-path"></span>` +
+        `<span class="net-rid"></span>` +
+        `<span class="net-status"></span>` +
+        `<span class="net-dur"></span>`;
+      this.netRows.set(e.id, row);
+      list.insertBefore(row, list.firstChild); // newest en haut
+      // Cap DOM (aligné sur le cap du modèle).
+      while (this.netRows.size > 80 && list.lastElementChild) {
+        const last = list.lastElementChild as HTMLElement;
+        // Retrouve l'id de la dernière ligne pour purger la map.
+        for (const [id, n] of this.netRows) {
+          if (n === last) {
+            this.netRows.delete(id);
+            break;
+          }
+        }
+        last.remove();
+      }
+    }
+    this.fillNetRow(row, e);
+  }
+
+  /** Remplit/actualise les cellules d'une ligne (textContent → 0 échappement). */
+  private fillNetRow(row: HTMLElement, e: NetEntry): void {
+    row.dataset.rid = e.requestId ?? "";
+    const sel = e.requestId && e.requestId === this.selectedRid;
+    row.className = `net-row${sel ? " sel" : ""}${isNetError(e) ? " err" : ""}`;
+    const [m, path, rid, status, dur] = row.children as unknown as HTMLElement[];
+    m.className = `net-method ${methodClass(e.method)}`;
+    m.textContent = e.method;
+    path.textContent = e.path;
+    path.title = e.url;
+    rid.textContent = e.requestId ? shortId(e.requestId) : "";
+    if (e.pending) {
+      status.className = "net-status sp";
+      status.textContent = "···";
+    } else if (e.error) {
+      status.className = "net-status s5";
+      status.textContent = "ERR";
+    } else {
+      status.className = `net-status s${statusFamily(e.status)}`;
+      status.textContent = e.status === null ? "—" : String(e.status);
+    }
+    dur.textContent = e.durationMs === null ? "" : `${e.durationMs}ms`;
+  }
+
+  /** Sélectionne une ligne (highlight) + déclenche le fetch du profil. */
+  private selectRow(row: HTMLElement, rid: string | null): void {
+    // Highlight : retire l'ancien, pose le nouveau (pas de re-render de liste).
+    if (this.selRowId !== null) {
+      this.netRows.get(this.selRowId)?.classList.remove("sel");
+    }
+    row.classList.add("sel");
+    const idEntry = [...this.netRows.entries()].find(([, n]) => n === row);
+    this.selRowId = idEntry ? idEntry[0] : null;
+    this.selectedRid = rid;
+    this.selNoRid = !rid;
+    this.detailVersion++;
+    // Garantit une hauteur de panneau suffisante pour voir le waterfall (sinon
+    // le détail à 60% d'un petit panneau reste illisible). Transitoire (non
+    // persisté → ne piétine pas la hauteur choisie par l'utilisateur au resize).
+    if (rid && this.panelH < PANEL_H_DETAIL) this.setPanelH(PANEL_H_DETAIL);
+    if (rid && !this.net.profileState(rid)) this.fetchProfile(rid);
+    this.scheduleRender();
+  }
+
+  /** Fetch `/{profilerBase}/{requestId}` (ignoré par l'intercepteur). */
+  private fetchProfile(requestId: string): void {
+    if (typeof fetch === "undefined") return;
+    this.net.setProfileState(requestId, { status: "loading" });
+    fetch(`${this.profilerBase}/${encodeURIComponent(requestId)}`, {
+      headers: { accept: "application/json" },
+    })
+      .then(async (res) => {
+        if (res.status === 404) {
+          this.net.setProfileState(requestId, { status: "missing" });
+          return;
+        }
+        const ct = res.headers.get("content-type") ?? "";
+        if (!res.ok || !ct.includes("application/json")) {
+          // Réponse non-JSON = souvent le fallback SPA de Vite (path
+          // `/nodefony/profiler/api` non proxifié) → message actionnable.
+          this.net.setProfileState(requestId, {
+            status: "error",
+            message: res.ok
+              ? "réponse non-JSON (path profiler non proxifié par Vite ?)"
+              : `HTTP ${res.status}`,
+          });
+          return;
+        }
+        const profile = (await res.json()) as ProfileEntry;
+        this.net.setProfileState(requestId, { status: "ready", profile });
+      })
+      .catch((err: unknown) => {
+        this.net.setProfileState(requestId, {
+          status: "error",
+          message: err instanceof Error ? err.message : "fetch failed",
+        });
+      })
+      .finally(() => {
+        if (requestId === this.selectedRid) this.detailVersion++;
+        this.scheduleRender();
+      });
   }
 
   // ── Rendu ─────────────────────────────────────────────────────────────
@@ -709,14 +1137,34 @@ export class DebugBar {
   private render(): void {
     if (!this.bar) return;
     const v = this.model.view;
+    this.renderStrip(v);
+    if (!this.bar.classList.contains("open")) return; // panneau fermé → stop
+    switch (this.activeTab) {
+      case "realtime":
+        this.renderRealtimePane(v);
+        break;
+      case "network":
+        this.renderNetwork();
+        break;
+      case "perf":
+        this.renderPerf(v);
+        break;
+      case "logs":
+        this.renderLogsPane(v);
+        break;
+      case "runtime":
+        this.renderRuntime(v);
+        break;
+    }
+  }
+
+  /** Bandeau toujours visible (chips + pouls) — léger. */
+  private renderStrip(v: DebugBarView): void {
     const live = v.state === "connected";
     const cpuT = gauge(v.cpuPercent);
     const memT = gauge(v.heapPercent);
-    const loopT = gauge(v.eventLoopMs, 50, 200);
-
-    // app meta (env + branche git) — la signature « framework realtime »
-    const env = v.env || (live ? "—" : "");
-    this.text("envBadge", env || "env");
+    // env + branche
+    this.text("envBadge", v.env || "env");
     this.cls("envBadge", `env-badge ${envClass(v.env)}`);
     this.text("branchName", v.branch || "—");
     this.el.branch?.setAttribute(
@@ -724,8 +1172,7 @@ export class DebugBar {
       v.branch ? `branche git : ${v.branch}` : "branche git",
     );
     this.text("mEnv", v.env);
-
-    // realtime hook
+    // realtime
     this.cls("dot", `dot ${v.state}`);
     this.cls("mdot", `dot ${v.state}`);
     this.text("mrate", `${this.rtRate}/s`);
@@ -734,6 +1181,30 @@ export class DebugBar {
     this.cls("rt", "v blue");
     this.el.rtMini?.setAttribute("points", sparklinePoints(this.rtSeries, MINI_W, MINI_H));
     this.el.rtMini?.setAttribute("class", "spark rt");
+    // mini cpu / mem / loop
+    this.text("cpu", `${v.cpuPercent}%`);
+    this.cls("cpu", `v ${cpuT}`);
+    this.text("mem", `${v.heapPercent}%`);
+    this.cls("mem", `v ${memT}`);
+    this.el.cpuMini?.setAttribute("points", sparklinePoints(v.cpuSeries, MINI_W, MINI_H, 100));
+    this.el.cpuMini?.setAttribute("class", `spark ${cpuT}`);
+    this.el.memMini?.setAttribute("points", sparklinePoints(v.heapSeries, MINI_W, MINI_H, 100));
+    this.el.memMini?.setAttribute("class", `spark ${memT}`);
+    // chips
+    if (this.networkEnabled) {
+      this.text("netChip", String(this.net.total));
+      this.cls("netChip", this.net.errors > 0 ? "crit" : "blue");
+      this.text("netTab", String(this.net.total));
+      this.cls("netTab", this.net.errors > 0 ? "tcount crit" : "tcount");
+    }
+    this.text("logs", String(v.logTotal));
+    this.text("err", String(v.errorCount));
+    this.text("logsTab", String(v.logTotal));
+    this.cls("logsTab", v.errorCount > 0 ? "tcount crit" : "tcount");
+  }
+
+  private renderRealtimePane(v: DebugBarView): void {
+    const live = v.state === "connected";
     this.text("rtBig", String(this.rtRate));
     this.setPoints("rtLine", "rtArea", this.rtSeries, "rt", 38);
     this.text("rtTransport", "WebSocket");
@@ -742,8 +1213,6 @@ export class DebugBar {
     this.cls("rtState", `v ${live ? "ok" : "warn"}`);
     this.text("rtFrames", String(this.client.framesReceived));
     this.text("rtPeak", `${this.rtPeak}/s`);
-
-    // frontend / HMR
     if (this.frontend) {
       this.text("hmrBig", String(this.hmrCount));
       this.setPoints("hmrLine", "hmrArea", this.hmrSeries, "fe", 34);
@@ -751,23 +1220,12 @@ export class DebugBar {
       this.cls("feVite", `v ${this.viteConnected ? "ok" : "warn"}`);
       this.text("hmrLast", this.hmrLast);
     }
+  }
 
-    // strip metrics
-    this.text("cpu", `${v.cpuPercent}%`);
-    this.cls("cpu", `v ${cpuT}`);
-    this.text("mem", `${v.heapPercent}%`);
-    this.cls("mem", `v ${memT}`);
-    this.text("loop", `${v.eventLoopMs}ms`);
-    this.cls("loop", `v ${loopT}`);
-    this.text("logs", String(v.logTotal));
-    this.text("err", String(v.errorCount));
-    this.text("warn", String(v.warnCount));
-    this.el.cpuMini?.setAttribute("points", sparklinePoints(v.cpuSeries, MINI_W, MINI_H, 100));
-    this.el.cpuMini?.setAttribute("class", `spark ${cpuT}`);
-    this.el.memMini?.setAttribute("points", sparklinePoints(v.heapSeries, MINI_W, MINI_H, 100));
-    this.el.memMini?.setAttribute("class", `spark ${memT}`);
-
-    // perf charts
+  private renderPerf(v: DebugBarView): void {
+    const cpuT = gauge(v.cpuPercent);
+    const memT = gauge(v.heapPercent);
+    const loopT = gauge(v.eventLoopMs, 50, 200);
     this.text("cpuVal", `${v.cpuPercent}%`);
     this.text("cpuPeak", v.cpuPeak ? `peak ${v.cpuPeak}%` : "");
     this.cls("cpuVal", `val ${cpuT}`);
@@ -780,8 +1238,9 @@ export class DebugBar {
     this.text("loopPeak", v.eventLoopPeak ? `peak ${v.eventLoopPeak}ms` : "");
     this.cls("loopVal", `val ${loopT}`);
     this.setPoints("loopLine", "loopArea", v.loopSeries, loopT, CHART_H);
+  }
 
-    // runtime
+  private renderRuntime(v: DebugBarView): void {
     this.text("appName", v.appName || "—");
     this.text("appVersion", v.appVersion || "—");
     this.text("envRow", v.debug ? `${v.env} · debug` : v.env || "—");
@@ -796,8 +1255,9 @@ export class DebugBar {
     this.text("heapTotal", formatBytes(v.heapTotal));
     this.text("heapLimit", formatBytes(v.heapLimit));
     this.text("external", formatBytes(v.external));
+  }
 
-    // logs
+  private renderLogsPane(v: DebugBarView): void {
     this.text("cTotal", String(v.logTotal));
     this.text("cErr", String(v.errorCount));
     this.text("cWarn", String(v.warnCount));
@@ -828,6 +1288,146 @@ export class DebugBar {
     }
     node.innerHTML = html;
   }
+
+  // ── Rendu Network ───────────────────────────────────────────────────────
+
+  private renderNetwork(): void {
+    this.text("netTotal", String(this.net.total));
+    this.text("netErr", String(this.net.errors));
+    this.text("netPend", String(this.net.pending));
+    if (this.detailVersion !== this.detailRendered) {
+      this.detailRendered = this.detailVersion;
+      this.renderDetail();
+    }
+  }
+
+  private renderDetail(): void {
+    const node = this.el.netDetail;
+    if (!node) return;
+    const rid = this.selectedRid;
+    const hasSel = !!rid || this.selNoRid;
+    // Donne une vraie hauteur au détail quand un profil est ouvert (sinon le
+    // waterfall passe sous le pli, masqué par la liste).
+    (node.parentElement as HTMLElement | null)?.classList.toggle("sel", hasSel);
+    // Aucune sélection → placeholder, pas de bouton fermer.
+    if (!hasSel) {
+      node.innerHTML = `<div class="empty">clique un appel → profil serveur (waterfall des phases, route, user).</div>`;
+      return;
+    }
+    // Barre avec bouton fermer (✕) — délégué sur le conteneur netDetail.
+    const closeBar = `<div class="det-bar"><span class="det-close" data-act="close" title="Fermer le détail">✕</span></div>`;
+    let body: string;
+    if (!rid) {
+      body = `<div class="det-err">cet appel n'a pas de requestId lisible — réponse sans header <b>X-Request-Id</b> (cross-origin sans Access-Control-Expose-Headers, ou appel hors Nodefony).</div>`;
+    } else {
+      const st = this.net.profileState(rid);
+      if (!st || st.status === "loading") {
+        body = `<div class="det-loading">profil <b>${escapeHtml(shortId(rid))}</b> — chargement…</div>`;
+      } else if (st.status === "missing") {
+        body = `<div class="det-err">profil introuvable (évincé du ring buffer, ou requête sans timing).</div>`;
+      } else if (st.status === "error") {
+        body = `<div class="det-err">erreur profiler : ${escapeHtml(st.message)}</div>`;
+      } else {
+        body = this.profileHtml(st.profile);
+      }
+    }
+    node.innerHTML = closeBar + body;
+  }
+
+  /** Désélectionne la requête → referme le détail (placeholder). */
+  private deselect(): void {
+    if (this.selRowId !== null) {
+      this.netRows.get(this.selRowId)?.classList.remove("sel");
+    }
+    this.selRowId = null;
+    this.selectedRid = null;
+    this.selNoRid = false;
+    this.detailVersion++;
+    this.scheduleRender();
+  }
+
+  /** Rend le détail d'un profil serveur (méta + waterfall des phases). */
+  private profileHtml(p: ProfileEntry): string {
+    const bars = computeWaterfall(p.phases);
+    const total = p.durationMs === null ? "—" : `${p.durationMs}ms`;
+    const kv = (k: string, val: string): string =>
+      `<div class="kv"><span class="k">${k}</span><span class="v">${val}</span></div>`;
+    const meta =
+      `<div class="det-grid">` +
+      kv("route", escapeHtml(p.route ?? "—")) +
+      kv(
+        "controller",
+        escapeHtml(p.controller ? `${p.controller}.${p.action ?? "?"}` : "—"),
+      ) +
+      kv("status", `${p.status ?? "—"}`) +
+      kv("total serveur", total) +
+      kv("user", escapeHtml(p.user ?? "anonyme")) +
+      kv("kind", p.kind) +
+      kv("requestId", escapeHtml(shortId(p.requestId))) +
+      kv("traceparent", escapeHtml(traceId(p))) +
+      (p.error ? kv("erreur", `<span class="crit">${escapeHtml(p.error)}</span>`) : "") +
+      `</div>`;
+    let wf = "";
+    if (bars.length === 0) {
+      wf = `<div class="empty">aucune phase mesurée (timing désactivé ?).</div>`;
+    } else {
+      wf = `<div class="wf-title">timeline des phases (serveur)</div><div class="wf">`;
+      for (const b of bars) {
+        wf +=
+          `<div class="wf-row">` +
+          `<span class="wf-name">${escapeHtml(b.name)}</span>` +
+          `<div class="wf-track"><div class="wf-bar ${b.tier}" style="left:${b.leftPct}%;width:${b.widthPct}%"></div></div>` +
+          `<span class="wf-ms">${b.durationMs}ms</span>` +
+          `</div>`;
+      }
+      wf += `</div>`;
+    }
+    return meta + wf + this.queriesHtml(p.queries);
+  }
+
+  /** Rend les requêtes ORM (SEAM futur) — vide tant qu'aucun adapter ne pushe. */
+  private queriesHtml(queries: ProfileEntry["queries"]): string {
+    if (!queries || queries.length === 0) return "";
+    let out = `<div class="wf-title" style="margin-top:10px">requêtes ORM (${queries.length})</div><div class="net-list" style="border:0">`;
+    for (const q of queries) {
+      out +=
+        `<div class="net-row" style="cursor:default">` +
+        `<span class="net-path" title="${escapeHtml(q.sql)}">${escapeHtml(q.sql)}</span>` +
+        (q.connector ? `<span class="net-rid">${escapeHtml(q.connector)}</span>` : "") +
+        (typeof q.rows === "number" ? `<span class="net-dur">${q.rows} rows</span>` : "") +
+        `<span class="net-dur">${q.durationMs}ms</span>` +
+        `</div>`;
+    }
+    out += `</div>`;
+    return out;
+  }
+}
+
+/** Famille de status (2/3/4/5) → classe de couleur. `null` → 5 (inconnu). */
+function statusFamily(status: number | null): number {
+  if (status === null) return 5;
+  return Math.floor(status / 100);
+}
+
+/** Méthode HTTP → classe de couleur du chip. */
+function methodClass(method: string): string {
+  const m = method.toLowerCase();
+  if (m === "get" || m === "post" || m === "put" || m === "patch" || m === "delete")
+    return m;
+  return "ws";
+}
+
+/** Raccourci d'un id (1er bloc UUID, ou 8 chars). */
+function shortId(id: string): string {
+  return id.length > 8 ? id.slice(0, 8) : id;
+}
+
+/** Extrait le trace-id (2ᵉ segment) d'un `traceparent` W3C, raccourci. */
+function traceId(p: { traceparent: string | null }): string {
+  if (!p.traceparent) return "—";
+  const seg = p.traceparent.split("-");
+  const tid = seg.length >= 2 ? seg[1] : p.traceparent;
+  return tid && tid.length > 12 ? tid.slice(0, 12) + "…" : (tid ?? "—");
 }
 
 /** Mappe un nom d'environnement vers une classe de couleur du badge. */

@@ -17,6 +17,24 @@ export { DebugBar };
 export type { DebugBarOptions };
 export type { DebugBarView, DebugBarModel } from "./model";
 
+// Modèle PUR du profiler/Network (tree-shakeable, 0 DOM) — réutilisé par Studio
+// (page Profiler React) sans dupliquer la logique de waterfall. Cf décision
+// « widget par-page + Studio = 2 consommateurs du même Core isomorphe ».
+export {
+  computeWaterfall,
+  phaseTier,
+  NetworkModel,
+  isError as isNetworkError,
+} from "./profile";
+export type {
+  ProfileEntry,
+  ProfilePhase,
+  ProfileQuery,
+  ProfileState,
+  WaterfallBar,
+} from "./profile";
+export type { NetEntry } from "./network";
+
 /**
  * Monte la debug bar sur la page courante. Idempotent (un seul widget par page).
  * No-op hors navigateur (SSR). Branche un {@link RealtimeClient} sur le WS

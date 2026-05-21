@@ -22,3 +22,4 @@ export const useUi = () => useStore().ui;
 export const useConnection = () => useStore().connection;
 export const useChat = () => useStore().chat;
 export const useAdmin = () => useStore().admin;
+export const useProfiler = () => useStore().profiler;

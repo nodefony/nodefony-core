@@ -282,10 +282,14 @@ class FrontendService extends Service implements IFrontendService {
       // TemplateHelper (HMR @vitejs/plugin-react). À retirer en prod — le bundle
       // production n'a pas besoin de scripts inline.
       `script-src 'self' 'unsafe-inline' ${scheme}://${origin}`,
+      // worker-src : certains modules (Vite, libs) créent un Worker depuis un
+      // `blob:` → sans directive dédiée, le browser retombe sur script-src qui
+      // n'autorise pas `blob:` → worker bloqué. Dev only.
+      "worker-src 'self' blob:",
       `style-src 'self' 'unsafe-inline' ${scheme}://${origin}`,
-      `img-src 'self' data: ${scheme}://${origin}`,
+      `img-src 'self' data: blob: ${scheme}://${origin}`,
       `font-src 'self' data: ${scheme}://${origin}`,
-      `connect-src 'self' ${scheme}://${origin} ${wsScheme}://${origin}`,
+      `connect-src 'self' blob: data: ${scheme}://${origin} ${wsScheme}://${origin}`,
       "object-src 'none'",
     ].join("; ");
   }

@@ -146,6 +146,13 @@ export class ViteConfigGenerator {
       for (const e of entries) {
         for (const p of e.apiProxyPaths) proxyPaths.add(p);
       }
+      // Data-plane admin/profiler TOUJOURS proxifié (convention
+      // `/nodefony/<module>/api/*`) : la debug bar dev (auto-injectée) fetch
+      // `/nodefony/profiler/api/{requestId}`, et Studio consomme `/nodefony/
+      // <module>/api/*`. Sans ça, sur une page servie par Vite ces fetch
+      // tombent sur le fallback SPA (HTML) → clic profiler « mort ». Regex
+      // Vite (clé `^…`) → couvre tous les modules, présents et futurs.
+      proxyPaths.add("^/nodefony/[^/]+/api");
     }
     const proxyLines = proxyPaths.size > 0
       ? Array.from(proxyPaths)

@@ -80,6 +80,14 @@ export class ApiClient {
     return this.send<T>("POST", absolutePath, body, init);
   }
 
+  /** DELETE sur un chemin ABSOLU (data plane), hors `baseUrl` (cf getAbsolute). */
+  async deleteAbsolute<T = unknown>(
+    absolutePath: string,
+    init?: RequestInit,
+  ): Promise<T> {
+    return this.send<T>("DELETE", absolutePath, undefined, init);
+  }
+
   private async request<T>(
     method: string,
     path: string,

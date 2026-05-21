@@ -16,6 +16,7 @@ import {
 import { Resolver, Router } from "@nodefony/framework";
 import { Controller } from "@nodefony/framework";
 import HttpError from "../src/errors/httpError";
+import type { Profiler } from "../src/profiler/Profiler";
 import http from "node:http";
 //import https from "node:https";
 import http2 from "node:http2";
@@ -126,6 +127,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   private errorRenderer: IErrorRenderer = new DefaultErrorRenderer();
   // Singleton — zero per-request alloc. Swap via setRequestLogger().
   private requestLogger: IRequestLogger = new DefaultRequestLogger();
+  // Dev-only request profiler — null in prod (module ne l'enregistre qu'hors
+  // prod). Résolu une fois à onReady → 1 simple null-check per-request.
+  private profiler: Profiler | null = null;
   constructor(module: Module) {
     super(
       serviceName,
@@ -159,6 +163,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.regAlias = this.compileAlias();
       this.sessionService = this.get<SessionsService>("sessions");
       this.sessionAutoStart = this.sessionService?.sessionAutoStart as boolean;
+      // Profiler dev-only — null si non enregistré (prod). Container.get
+      // renvoie null pour un service absent (pas de throw).
+      this.profiler = this.get<Profiler>("profiler");
     });
     this.kernel?.prependOnceListener("onBoot", () => {
       this.router = this.get<Router>("router");
@@ -562,6 +569,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         response.removeListener("close", onClose);
         if (!context || context.finished) return;
         context.logRequest();
+        // Snapshot dev-only AVANT clean() (la donnée disparaît après).
+        this.profiler?.collect(context as unknown as Parameters<Profiler["collect"]>[0]);
         await context._runAfterResponse();
         await context.fireAsync("onFinish", context).catch((e) => {
           throw e;

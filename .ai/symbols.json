@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-21T18:41:37.560Z",
+  "generated": "2026-05-21T20:22:30.714Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 285,
-    "symbols": 677,
-    "classes": 204,
-    "interfaces": 230,
-    "types": 140,
+    "files": 289,
+    "symbols": 709,
+    "classes": 206,
+    "interfaces": 241,
+    "types": 142,
     "enums": 1,
-    "functions": 85,
+    "functions": 102,
     "constants": 17
   },
   "symbols": {
@@ -1170,6 +1170,109 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Vue dénormalisée consommée par le rendu."
+    },
+    "NetEntry": {
+      "name": "NetEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/network.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une entrée du panneau Network (1 appel AJAX observé)."
+    },
+    "NetworkInterceptorOptions": {
+      "name": "NetworkInterceptorOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/network.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "installNetworkInterceptor": {
+      "name": "installNetworkInterceptor",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/network.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Installe l'intercepteur fetch + XHR. No-op hors navigateur."
+    },
+    "NetworkModel": {
+      "name": "NetworkModel",
+      "kind": "class",
+      "file": "src/nodefony/src/client/debugbar/profile.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    "ProfilePhase": {
+      "name": "ProfilePhase",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/profile.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Phase serveur projetée (miroir client de `@nodefony/http` `ProfilePhase`)."
+    },
+    "ProfileQuery": {
+      "name": "ProfileQuery",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/profile.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Requête ORM (miroir client de `@nodefony/http` `ProfileQuery` — SEAM futur)."
+    },
+    "ProfileEntry": {
+      "name": "ProfileEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/profile.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Profil serveur complet (miroir client de `@nodefony/http` `ProfileEntry`)."
+    },
+    "WaterfallBar": {
+      "name": "WaterfallBar",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/debugbar/profile.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une barre du waterfall (positions en % du span total)."
+    },
+    "ProfileState": {
+      "name": "ProfileState",
+      "kind": "type",
+      "file": "src/nodefony/src/client/debugbar/profile.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "État de chargement d'un profil serveur dans le cache."
+    },
+    "phaseTier": {
+      "name": "phaseTier",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/profile.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Mappe un nom de phase vers sa classe de couleur (défaut neutre)."
+    },
+    "isError": {
+      "name": "isError",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/profile.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vrai si une entrée est en erreur réseau ou status ≥ 400."
+    },
+    "computeWaterfall": {
+      "name": "computeWaterfall",
+      "kind": "function",
+      "file": "src/nodefony/src/client/debugbar/profile.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Calcule le layout proportionnel des phases serveur (waterfall). Pur. Chaque barre est positionnée sur le span `[min start, max end]` en %. Une phase de durée nulle reçoit une largeur plancher (visi…"
     },
     "RealtimeClient": {
       "name": "RealtimeClient",
@@ -3079,6 +3182,14 @@
       "decorators": [],
       "description": "Pretty single-line logger for dev (P3.2) — the biggest gain for humans. Format (no padding, ANSI-colored): `GET 200 /api/test 12.3ms 127.0.0.1 [a1b2c3d4]` - method : cyan - status : green (2xx) / y…"
     },
+    "createProfilerAdminApi": {
+      "name": "createProfilerAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Producteur `IAdminApi` du **profiler** — exposé sous `/nodefony/profiler/api/*`. Namespace dédié (≠ replié dans `http`) car le profiling par requête est un concern transverse : timing par phase, ro…"
+    },
     "DefaultRequestLogger": {
       "name": "DefaultRequestLogger",
       "kind": "class",
@@ -4765,6 +4876,52 @@
       "implements": [],
       "decorators": []
     },
+    "Profiler": {
+      "name": "Profiler",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/profiler/Profiler.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    "@nodefony/http:ProfilePhase": {
+      "name": "ProfilePhase",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/profiler/Profiler.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Profiler — collecteur **dev-only** de profils de requête, indexé par `requestId`. Modèle inversé (≠ ancien monitoring-bundle qui splicait du Twig serveur dans le body) : le serveur **collecte** un …"
+    },
+    "@nodefony/http:ProfileQuery": {
+      "name": "ProfileQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/profiler/Profiler.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Une requête SQL/NoSQL exécutée pendant la requête HTTP (SEAM ORM — futur). Non collecté aujourd'hui : quand `@nodefony/orm-core` arrivera, les adapters pousseront leurs requêtes dans un buffer per-…"
+    },
+    "@nodefony/http:ProfileEntry": {
+      "name": "ProfileEntry",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/profiler/Profiler.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Profil complet d'une requête (HTTP ou message WS), exposé par `get`."
+    },
+    "ProfileSummary": {
+      "name": "ProfileSummary",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/profiler/Profiler.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Résumé léger d'un profil pour la liste `recent` (sans les phases)."
+    },
     "@nodefony/http:Session": {
       "name": "Session",
       "kind": "class",
@@ -6302,6 +6459,14 @@
       "createHttpAdminApi": [
         "src/packages/@nodefony/http/index.ts"
       ],
+      "createProfilerAdminApi": [
+        "src/packages/@nodefony/http/index.ts"
+      ],
+      "Profiler": [
+        "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts"
+      ],
       "SessionsService": [
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -6720,6 +6885,9 @@
       "DebugBarModel": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
+      "DebugBarView": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
       "FeedLog": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
@@ -6745,6 +6913,25 @@
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
       "HmrEvent": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "installNetworkInterceptor": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "NetEntry": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts",
+        "src/nodefony/src/client/debugbar/profile.ts"
+      ],
+      "NetworkModel": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "computeWaterfall": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "isError": [
+        "src/nodefony/src/client/debugbar/DebugBar.ts"
+      ],
+      "ProfileEntry": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
       "DebugBar": [
@@ -6937,7 +7124,8 @@
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts"
       ],
       "contextRequest": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -6996,7 +7184,8 @@
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts"
       ],
       "IAdminRoute": [
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -7017,7 +7206,8 @@
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts"
+        "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts"
       ],
       "TestRunResult": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"

@@ -2,6 +2,8 @@ import { Kernel, Module, services } from "nodefony";
 import type { IAdminRegistry } from "nodefony";
 import config from "./nodefony/config/config";
 import { createHttpAdminApi } from "./nodefony/service/HttpAdminApi";
+import { createProfilerAdminApi } from "./nodefony/service/ProfilerAdminApi";
+import { Profiler } from "./nodefony/src/profiler/Profiler";
 import HttpKernel from "./nodefony/service/http-kernel";
 import HttpServer from "./nodefony/service/servers/server-http";
 import HttpsServer from "./nodefony/service/servers/server-https";
@@ -60,6 +62,16 @@ class Http extends Module {
     if (registry && !registry.has("http")) {
       registry.register(createHttpAdminApi(this));
     }
+    // Profiler par requête — dev-only (perf + fuite d'info en prod). Instancié
+    // ici, partagé via le container (`http-kernel` le résout à onReady) et
+    // exposé en data plane sous `/nodefony/profiler/api/*`.
+    if (this.kernel?.environment !== "prod") {
+      const profiler = new Profiler();
+      this.container?.set("profiler", profiler);
+      if (registry && !registry.has("profiler")) {
+        registry.register(createProfilerAdminApi(profiler));
+      }
+    }
     return this;
   }
 
@@ -111,7 +123,14 @@ export {
   DefaultRequestLogger,
   JsonAuditLogger,
   PrettyRequestLogger,
+  Profiler,
 };
+
+export type {
+  ProfileEntry,
+  ProfileSummary,
+  ProfilePhase,
+} from "./nodefony/src/profiler/Profiler";
 
 // Public interfaces — consommables par les autres modules
 export type {

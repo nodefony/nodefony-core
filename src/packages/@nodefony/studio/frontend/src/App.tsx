@@ -40,6 +40,9 @@ const ModuleDetail = lazy(() =>
 const RoutesView = lazy(() =>
   import("./routes/RoutesView").then((m) => ({ default: m.RoutesView })),
 );
+const Profiler = lazy(() =>
+  import("./routes/Profiler").then((m) => ({ default: m.Profiler })),
+);
 
 import {
   Sessions,
@@ -49,7 +52,6 @@ import {
   Services,
   Npm,
   Pm2,
-  Profiling,
   Migrate,
   Settings,
   NotFound,
@@ -89,7 +91,7 @@ const router = createBrowserRouter([
           { path: "modules/:name", element: <ModuleDetail /> },
           { path: "npm", element: <Npm /> },
           { path: "pm2", element: <Pm2 /> },
-          { path: "profiling", element: <Profiling /> },
+          { path: "profiling", element: <Profiler /> },
           { path: "settings", element: <Settings /> },
           { path: "*", element: <NotFound /> },
         ],
