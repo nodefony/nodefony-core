@@ -8,6 +8,7 @@ const external: string[] = [
   "nodefony",
   "@nodefony/orm-core",
   "@nodefony/http",
+  "@nodefony/user",
   "drizzle-orm",
   "better-sqlite3",
   "tslib",

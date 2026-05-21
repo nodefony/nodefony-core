@@ -47,3 +47,12 @@ export type {
   DrizzleDb,
   DrizzleResolvedRelation,
 } from "./nodefony/src/orm-core/index";
+
+// ─── Adapter User Drizzle (contrat @nodefony/user — ORM SQL par défaut, P5.9) ─
+export {
+  userTable,
+  createUserEntity,
+  registerUserEntity,
+  DrizzleUserRepository,
+} from "./nodefony/src/user/index";
+export type { UserRow } from "./nodefony/src/user/index";

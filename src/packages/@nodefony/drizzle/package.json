@@ -50,7 +50,8 @@
   "peerDependencies": {
     "nodefony": "*",
     "@nodefony/http": "*",
-    "@nodefony/orm-core": "*"
+    "@nodefony/orm-core": "*",
+    "@nodefony/user": "*"
   },
   "repository": {
     "type": "git",
