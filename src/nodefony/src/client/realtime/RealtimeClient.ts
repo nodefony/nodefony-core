@@ -96,6 +96,7 @@ export class RealtimeClient {
   private readonly pending = new Map<number, PendingRequest>();
   private readonly handlers = new Map<string, Set<EventHandler>>();
   private reconnectAttempt = 0;
+  private _nextRetryAt: number | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private intentionalClose = false;
@@ -114,6 +115,36 @@ export class RealtimeClient {
 
   get state(): RealtimeState {
     return this._state;
+  }
+
+  /** Nombre de tentatives de reconnexion depuis la dernière connexion réussie. */
+  get reconnectAttempts(): number {
+    return this.reconnectAttempt;
+  }
+
+  /**
+   * Timestamp (ms epoch) de la prochaine tentative de reconnexion planifiée,
+   * `null` hors backoff. Permet un compte à rebours UI synchronisé au vrai délai.
+   */
+  get nextRetryAt(): number | null {
+    return this._nextRetryAt;
+  }
+
+  /**
+   * Force une reconnexion **immédiate** (annule le backoff en cours). No-op si
+   * déjà connecté/connexion en cours.
+   */
+  retryNow(): void {
+    if (this._state === "connected" || this._state === "connecting") return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this._nextRetryAt = null;
+    this.intentionalClose = false;
+    this.openSocket().catch(() => {
+      /* onclose relancera le backoff */
+    });
   }
 
   /**
@@ -312,6 +343,7 @@ export class RealtimeClient {
       }
       this.ws.onopen = () => {
         this.reconnectAttempt = 0;
+        this._nextRetryAt = null;
         this.setState("connected");
         this.startHeartbeat();
         resolve();
@@ -341,7 +373,14 @@ export class RealtimeClient {
     const base = this.opts.reconnectDelay ?? 1000;
     const max = this.opts.reconnectDelayMax ?? 30000;
     const delay = Math.min(base * 2 ** (this.reconnectAttempt - 1), max);
+    this._nextRetryAt = Date.now() + delay;
     this.setState("reconnecting");
+    // Event dédié → l'UI peut afficher tentative + compte à rebours live.
+    this.fireLocal("__reconnect__", {
+      attempt: this.reconnectAttempt,
+      delay,
+      nextRetryAt: this._nextRetryAt,
+    });
     this.reconnectTimer = setTimeout(() => {
       this.openSocket().catch(() => {
         /* swallow — onclose re-déclenchera */

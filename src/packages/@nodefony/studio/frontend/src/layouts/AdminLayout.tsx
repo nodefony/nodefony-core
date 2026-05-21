@@ -23,6 +23,8 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { ConnectionDrawer } from "../components/ConnectionDrawer";
+import { ConnectionOverlay } from "../components/ConnectionOverlay";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import {
   NavLink as RouterNavLink,
   Outlet,
@@ -460,18 +462,21 @@ export const AdminLayout = observer(() => {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Suspense
-          fallback={
-            <Center h="60vh">
-              <Loader />
-            </Center>
-          }
-        >
-          <Outlet />
-        </Suspense>
+        <ErrorBoundary key={loc.pathname} variant="page">
+          <Suspense
+            fallback={
+              <Center h="60vh">
+                <Loader />
+              </Center>
+            }
+          >
+            <Outlet />
+          </Suspense>
+        </ErrorBoundary>
       </AppShell.Main>
 
       <ConnectionDrawer opened={drawerOpen} onClose={drawerHandlers.close} />
+      <ConnectionOverlay />
     </AppShell>
   );
 });

@@ -44,6 +44,10 @@ export class RootStore {
     this.realtime = new RealtimeClient({
       url: realtimeUrl(),
       autoReconnect: true,
+      // Backoff court : dès que le serveur revient, on se reconnecte en ≤4s
+      // (sinon l'overlay « reste » pendant le long backoff par défaut de 30s).
+      reconnectDelay: 800,
+      reconnectDelayMax: 4000,
     });
 
     this.api = new ApiClient({

@@ -16,6 +16,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
+import { type CSSProperties } from "react";
 import {
   Group,
   Title,
@@ -28,6 +29,7 @@ import {
   Tooltip,
   ActionIcon,
   Alert,
+  useComputedColorScheme,
 } from "@mantine/core";
 import {
   IconDatabase,
@@ -84,6 +86,31 @@ const REL_LABEL: Record<RelationInfo["type"], string> = {
   "many-to-one": "N—1",
   "many-to-many": "N—N",
 };
+
+/**
+ * Relie le thème React Flow aux variables CSS Mantine → le canvas suit le
+ * Studio (fond = `--mantine-color-body`, pas le noir par défaut) et bascule
+ * light/dark avec le scheme. Posé sur `style` de `<ReactFlow>` (les vars
+ * cascadent vers Background/Controls/MiniMap/edges).
+ */
+const RF_THEME = {
+  width: "100%",
+  height: "100%",
+  "--xy-background-color": "var(--mantine-color-body)",
+  "--xy-background-pattern-color": "var(--mantine-color-default-border)",
+  "--xy-edge-stroke": "var(--mantine-color-blue-5)",
+  "--xy-edge-stroke-selected": "var(--mantine-primary-color-filled)",
+  "--xy-connectionline-stroke": "var(--mantine-color-blue-5)",
+  "--xy-controls-button-background-color": "var(--mantine-color-default)",
+  "--xy-controls-button-background-color-hover":
+    "var(--mantine-color-default-hover)",
+  "--xy-controls-button-color": "var(--mantine-color-text)",
+  "--xy-controls-button-color-hover": "var(--mantine-color-text)",
+  "--xy-controls-button-border-color": "var(--mantine-color-default-border)",
+  "--xy-minimap-background-color": "var(--mantine-color-default)",
+  "--xy-minimap-mask-background-color":
+    "color-mix(in srgb, var(--mantine-color-body) 70%, transparent)",
+} as unknown as CSSProperties;
 
 /** Nœud « table » de l'ERD : nom d'entité + colonnes (PK/FK/unique typées). */
 function TableNode({ data }: NodeProps) {
@@ -226,6 +253,7 @@ function layoutGraph(entities: EntityNode[]): { nodes: Node[]; edges: Edge[] } {
  */
 export const Database = observer(() => {
   const store = useStore();
+  const scheme = useComputedColorScheme("dark");
   const [orms, setOrms] = useState<OrmSummary[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -341,7 +369,14 @@ export const Database = observer(() => {
 
       <Paper
         withBorder
-        style={{ flex: 1, minHeight: 560, position: "relative", overflow: "hidden" }}
+        style={{
+          // Hauteur DÉFINIE obligatoire : React Flow est en height:100% → un
+          // simple minHeight (parent height:auto) le résout à 0 = canvas vide.
+          height: "calc(100vh - 210px)",
+          minHeight: 480,
+          position: "relative",
+          overflow: "hidden",
+        }}
       >
         {loading && (
           <Group justify="center" align="center" style={{ position: "absolute", inset: 0, zIndex: 5 }}>
@@ -361,8 +396,10 @@ export const Database = observer(() => {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             nodeTypes={nodeTypes}
-            colorMode="dark"
+            colorMode={scheme}
+            style={RF_THEME}
             fitView
+            fitViewOptions={{ maxZoom: 1, padding: 0.3 }}
             minZoom={0.1}
             proOptions={{ hideAttribution: true }}
           >

@@ -61,6 +61,12 @@ export class ConnectionStore {
   activeSubscriptions: Map<string, SubscriptionStats> = new Map();
   /** Timestamp du dernier passage à "connected" (uptime de la session WS). */
   connectedAt: number | null = null;
+  /** `true` dès la 1ʳᵉ connexion réussie — distingue un VRAI drop du boot initial. */
+  everConnected = false;
+  /** Tentative de reconnexion courante (backoff client), 0 hors reconnexion. */
+  reconnectAttempt = 0;
+  /** Timestamp (ms) de la prochaine tentative planifiée (compte à rebours UI). */
+  nextRetryAt: number | null = null;
   /** URL de l'endpoint WS (affichée dans le hub). */
   endpointUrl = "";
   /** Miroirs des stats du `RealtimeClient` (source de vérité, Core isomorphe) —
@@ -87,6 +93,9 @@ export class ConnectionStore {
         if (s === "connected") {
           this.lastError = null;
           this.connectedAt = Date.now();
+          this.everConnected = true;
+          this.reconnectAttempt = 0;
+          this.nextRetryAt = null;
         } else if (s === "disconnected" || s === "error") {
           this.connectedAt = null;
         }
@@ -105,6 +114,28 @@ export class ConnectionStore {
     // qu'un MIROIR réactif (MobX), rafraîchi sur `__stats__` (émis 1×/s par le
     // client). cf RealtimeClient.startStatsSampler / getChannelStats.
     this.client.on("__stats__", () => this.syncStats());
+    // Backoff de reconnexion (Core) → compte à rebours live dans l'overlay.
+    this.client.on("__reconnect__", (info) => {
+      const i = info as { attempt: number; nextRetryAt: number };
+      runInAction(() => {
+        this.reconnectAttempt = i.attempt;
+        this.nextRetryAt = i.nextRetryAt;
+      });
+    });
+  }
+
+  /** `true` quand la connexion temps réel est rompue APRÈS avoir été établie. */
+  get isDown(): boolean {
+    return (
+      this.state === "reconnecting" ||
+      this.state === "error" ||
+      (this.state === "disconnected" && this.everConnected)
+    );
+  }
+
+  /** Force une reconnexion immédiate (annule le backoff). */
+  retryNow(): void {
+    this.client.retryNow();
   }
 
   /** Copie les stats du client dans les structures observables (MobX) → le drawer

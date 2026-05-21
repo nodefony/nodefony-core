@@ -10,6 +10,7 @@ import {
 } from "react-router-dom";
 
 import { StoreProvider, RootStore, useAuth } from "./stores";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { buildStudioTheme } from "./theme";
 import { AuthGuard } from "./components/AuthGuard";
 import { AuthLayout } from "./layouts/AuthLayout";
@@ -128,9 +129,11 @@ export const App = observer(() => {
       <Notifications position="top-right" />
       <ModalsProvider>
         <StoreProvider value={rootStore}>
-          <SessionBootstrap>
-            <RouterProvider router={router} />
-          </SessionBootstrap>
+          <ErrorBoundary variant="full">
+            <SessionBootstrap>
+              <RouterProvider router={router} />
+            </SessionBootstrap>
+          </ErrorBoundary>
         </StoreProvider>
       </ModalsProvider>
     </MantineProvider>
