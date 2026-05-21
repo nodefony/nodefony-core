@@ -80,7 +80,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **P2** — Cycle de vie Context                    | 9       | 3      | 1     | 5      |
 | **P3** — Logs structurés                         | 10      | 5      | 0     | 5      |
 | **P4** — Tests symbiose http↔fw                  | 6       | 2      | 3     | 1      |
-| **P5** — Session + User + ORM Core               | 16      | 0      | 0     | 16     |
+| **P5** — Session + User + ORM Core               | 16      | 0      | 1     | 15     |
 | **P6** — Security (refonte — legacy TS en place) | 13      | 0      | 0     | 13     |
 | **P7** — ORM Drivers                             | 9       | 2      | 3     | 4      |
 | **P8** — CLI + Monitoring                        | 4       | 1      | 1     | 2      |
@@ -92,7 +92,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | **P14** — Frontend Vite + Core isomorphe         | 14      | 6      | 3     | 5      |
 | **P15** — Mediasoup + SIP/Asterisk               | 8       | 0      | 0     | 8      |
 | **P16** — Cloud-Native (7 axes)                  | 26      | 0      | 0     | 26     |
-| **TOTAL**                                        | **164** | **37** | **20**| **107**|
+| **TOTAL**                                        | **164** | **37** | **21**| **106**|
 
 > Build System (10/10 ✅), Core/Kernel, DI, Syslog, Router, Controller, Types — fondations **déjà migrées** en amont de la roadmap P0 (ère Phases 0–4, cf sections narratives « ## Phase X » plus bas). Le comptage ci-dessus couvre la **dette + features priorisées** (P0→P16).
 
@@ -191,7 +191,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P5.10  | Tests intégration User cross-ORM (même IUser, 3 adapters CRUD)                 | 5.3       | 1 ses.  | P5.7-9      | Garantit que IUser tient face aux 3 drivers                                 |
 | P5.11  | **Session refactor** : `session.user: IUser` + `regenerateId()` + hooks invalidation | 5.2 | 1 ses.  | P5.5        | Étendre `session.ts` actuel, pas réécrire                                   |
 | P5.12  | `MemorySessionStorage` (tests) + `RedisSessionStorage` (prod)                  | 5.2       | 1 ses.  | P5.11, **P13.2** | Drivers manquants — file storage déjà ✅ — RedisSessionStorage en P13.2 |
-| P5.13  | `OrmSessionStorage` générique (via orm-core)                                   | 5.2       | 1 ses.  | P5.11, P5.4 | Storage backed par n'importe quel ORM enregistré                            |
+| 🔶 P5.13  | `OrmSessionStorage` générique (via orm-core)                                   | 5.2       | 1 ses.  | P5.11, P5.4 | 🔶 2026-05-21 : 1ère implé concrète orm-core livrée — **`SessionStorage` Drizzle** (`@nodefony/drizzle`, repo orm-core, GC via `{updatedAt:{$lt}}`) + **mécanisme IoC** (`SessionsService.registerStorage`/events, http découplé des ORM). Validé runtime (8000 sessions sous charge, 0 perte/erreur). Reste = généraliser en `OrmSessionStorage<any-orm>` + storages sequelize/mongoose sur orm-core. Cf `docs/guides/session-storage.md` |
 | P5.14  | Tests intégration sessions cross-request + expiry + flash + invalidation       | 5.2       | 1 ses.  | P5.13       |                                                                              |
 
 ### P6 — Security (Phase 6 / 9.6) — refondée 2026-05-20
