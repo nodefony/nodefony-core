@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-22T12:08:08.961Z",
+  "generated": "2026-05-22T12:18:31.512Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 305,
-    "symbols": 780,
+    "symbols": 783,
     "classes": 212,
     "interfaces": 259,
     "types": 145,
     "enums": 1,
     "functions": 138,
-    "constants": 25
+    "constants": 28
   },
   "symbols": {
     "Cli": {
@@ -1879,6 +1879,30 @@
       "exported": true,
       "module": "modules/mediasoup",
       "description": "Événement de calendrier (modèle Google Calendar). start/end/recurrence JSON."
+    },
+    "recordingTable": {
+      "name": "recordingTable",
+      "kind": "const",
+      "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "description": "Enregistrement média d'une `Room` (sortie d'un worker ffmpeg/gstreamer). Cas de test : **1-N** (Room→Recording), **FK nullable** (eventId), **soft-delete**, colonne **JSON** (metadata), pseudo-**EN…"
+    },
+    "tagTable": {
+      "name": "tagTable",
+      "kind": "const",
+      "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "description": "Étiquette réutilisable (N-N avec `Event` via `EventTag`). `name` **unique**."
+    },
+    "eventTagTable": {
+      "name": "eventTagTable",
+      "kind": "const",
+      "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "description": "Jonction `Event`↔`Tag` (2ᵉ relation N-N explicite du modèle)."
     },
     "AlsController": {
       "name": "AlsController",

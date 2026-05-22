@@ -122,6 +122,61 @@ export const eventTable = sqliteTable("Event", {
   calendarId: text("calendarId").notNull(),
   roomId: text("roomId"),
   creatorId: text("creatorId").notNull(),
+  // Auto-référence : instance d'un événement récurrent → son maître (nullable).
+  parentEventId: text("parentEventId"),
+  // Soft-delete : timestamp de suppression logique (NULL = actif).
+  deletedAt: integer("deletedAt"),
+});
+
+/**
+ * Enregistrement média d'une `Room` (sortie d'un worker ffmpeg/gstreamer).
+ * Cas de test : **1-N** (Room→Recording), **FK nullable** (eventId), **soft-delete**,
+ * colonne **JSON** (metadata), pseudo-**ENUM** (kind/status en text).
+ */
+export const recordingTable = sqliteTable("Recording", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
+  roomId: text("roomId").notNull(),
+  eventId: text("eventId"),
+  kind: text("kind")
+    .notNull()
+    .$defaultFn(() => "video"),
+  format: text("format")
+    .notNull()
+    .$defaultFn(() => "webm"),
+  status: text("status")
+    .notNull()
+    .$defaultFn(() => "recording"),
+  durationMs: integer("durationMs"),
+  sizeBytes: integer("sizeBytes"),
+  path: text("path"),
+  metadata: text("metadata", { mode: "json" }).$defaultFn(() => ({})),
+  startedAt: integer("startedAt")
+    .notNull()
+    .$defaultFn(() => Date.now()),
+  endedAt: integer("endedAt"),
+  deletedAt: integer("deletedAt"),
+});
+
+/** Étiquette réutilisable (N-N avec `Event` via `EventTag`). `name` **unique**. */
+export const tagTable = sqliteTable("Tag", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
+  name: text("name").notNull().unique(),
+  color: text("color")
+    .notNull()
+    .$defaultFn(() => "#888888"),
+});
+
+/** Jonction `Event`↔`Tag` (2ᵉ relation N-N explicite du modèle). */
+export const eventTagTable = sqliteTable("EventTag", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
+  eventId: text("eventId").notNull(),
+  tagId: text("tagId").notNull(),
 });
 
 /**
@@ -179,6 +234,45 @@ export function registerMediasoupEntities(orm: string): void {
           field: "creator",
           foreignKey: "creatorId",
         },
+        // Auto-référence : un événement récurrent pointe vers son maître.
+        {
+          type: "many-to-one",
+          target: "Event",
+          field: "parent",
+          foreignKey: "parentEventId",
+        },
+      ],
+    },
+    {
+      orm,
+      module: MODULE,
+      name: "Recording",
+      schema: recordingTable,
+      relations: [
+        { type: "many-to-one", target: "Room", field: "room", foreignKey: "roomId" },
+        // FK nullable : un enregistrement peut être ad-hoc (sans Event planifié).
+        {
+          type: "many-to-one",
+          target: "Event",
+          field: "event",
+          foreignKey: "eventId",
+        },
+      ],
+    },
+    { orm, module: MODULE, name: "Tag", schema: tagTable },
+    {
+      orm,
+      module: MODULE,
+      name: "EventTag",
+      schema: eventTagTable,
+      relations: [
+        {
+          type: "many-to-one",
+          target: "Event",
+          field: "event",
+          foreignKey: "eventId",
+        },
+        { type: "many-to-one", target: "Tag", field: "tag", foreignKey: "tagId" },
       ],
     },
   ];

@@ -109,11 +109,17 @@ curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/jsonschema?orm=mediasou
 | **Room** | `name` (text) | `type` (ENUM WEBRTC), `access` (ENUM private/public), secure, locked, stickyCookie | cible de RoomMember, Event |
 | **RoomMember** | `id` (uuid) | role, joinedAt | **N-1 Room** (`roomId`) + **N-1 User** (`userId`) → **= jonction N-N** |
 | **Calendar** | `id` (uuid) | `etag` (uuid unique), summary, `conferenceProperties` (json), `defaultReminders` (json), isPrimary, hidden | **N-1 User** (`creatorId`) |
-| **Event** | `id` (uuid) | `start`/`end`/`recurrence`/`attendees`/`organizer` (json), status, visibility, timezone | **N-1 Calendar** (`calendarId`) + **N-1 Room** (`roomId`, nullable) + **N-1 User** (`creatorId`) |
+| **Event** | `id` (uuid) | `start`/`end`/`recurrence`/`attendees`/`organizer` (json), status, visibility, timezone, `deletedAt` (soft-delete) | **N-1 Calendar** (`calendarId`) + **N-1 Room** (`roomId`, nullable) + **N-1 User** (`creatorId`) + **N-1 Event** (`parentEventId`, **auto-référence**) |
+| **Recording** | `id` (uuid) | kind/format/status (pseudo-ENUM), durationMs, sizeBytes, `metadata` (json), `deletedAt` (soft-delete) | **N-1 Room** (`roomId`) + **N-1 Event** (`eventId`, **nullable**) |
+| **Tag** | `id` (uuid) | `name` (**unique**), color | cible de EventTag |
+| **EventTag** | `id` (uuid) | — | **N-1 Event** (`eventId`) + **N-1 Tag** (`tagId`) → **= 2ᵉ jonction N-N** |
 
-> 🔸 **Le N-N est explicite** (`RoomMember`) : les adapters Nodefony (Drizzle/Sequelize/Mongoose)
-> **rejettent le `many-to-many` déclaratif** — la table de jonction est le pattern portable (et la
-> bonne pratique SQL). C'est volontairement un cas de test.
+> 🔸 **Les N-N sont explicites** (`RoomMember`, `EventTag`) : les adapters Nodefony
+> (Drizzle/Sequelize/Mongoose) **rejettent le `many-to-many` déclaratif** — la table de jonction est
+> le pattern portable (et la bonne pratique SQL). C'est volontairement un cas de test.
+> 🔸 **8 entités** au total. Cas de test couverts : N-N (×2), **auto-référence** (`Event.parentEventId`),
+> **FK nullable** (`Recording.eventId`), **soft-delete** (`Event`/`Recording.deletedAt`), **unique** (`Tag.name`),
+> JSON, UUID, FK multiples.
 
 ---
 
@@ -139,14 +145,18 @@ tests unitaires génériques restant dans `@nodefony/orm-core`) :
 
 ## Backlog — enrichissements du modèle (= plus de tests ORM)
 
-Pistes pour étoffer la surface de test (non implémentées) :
+Implémentés (2026-05-22) :
 
-- **`Recording`** (1-N depuis `Room`/`Event`) : sortie ffmpeg/gstreamer — métadonnées JSON (codec, durée, taille), statut ENUM. → teste un 1-N supplémentaire + JSON + cycle de vie.
-- **Self-référence** `User.invitedById → User` : teste une FK **auto-référente**.
-- **Soft-delete** (`deleted`/`deletedAt`) + scopes : teste le filtrage par défaut.
-- **`Tag` N-N `Event`** (2ᵉ jonction) : un deuxième pattern N-N.
-- **Index/unicité composite** (ex. `RoomMember(roomId, userId)` unique) : teste les contraintes.
+- ✅ **`Recording`** (1-N `Room`, N-1 `Event` **nullable**) : sortie ffmpeg/gstreamer — JSON, pseudo-ENUM, soft-delete.
+- ✅ **Auto-référence** `Event.parentEventId → Event` (instance d'un récurrent) : FK **auto-référente**.
+- ✅ **Soft-delete** (`deletedAt`) sur `Event` et `Recording`.
+- ✅ **`Tag` N-N `Event`** via `EventTag` (2ᵉ jonction) + `Tag.name` **unique**.
+
+Restent (non implémentés) :
+
+- **Index/unicité composite** (ex. `RoomMember(roomId, userId)` unique) — ⚠️ l'adapter Drizzle ne génère pas encore d'index composite dans son DDL dérivé (`#createTableSQL` = colonnes + pk/unique par colonne) ; à traiter avec le support index.
 - **Volume** : générer N milliers de lignes (suite lourde) pour le stress ORM/perf.
+- **Portabilité** : rejouer le modèle (8 entités) sur **Sequelize** et **Mongoose**.
 
 ---
 
