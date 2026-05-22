@@ -52,6 +52,7 @@
       "Bash(npx mcr *)",
       "Bash(mkdir *)",
       "Bash(rm -f /tmp/*)",
+      "Bash(rm -f .git/index.lock)",
       "Read(//tmp/**)",
       "Skill(nodefony-start-server)",
       "Skill(nodefony-session)"
