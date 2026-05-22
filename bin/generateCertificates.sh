@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 # inspired by https://jamielinux.com/docs/openssl-certificate-authority/index.html
+#
+# ⚠️ OUTIL AVANCÉ — PAS le chemin par défaut du dev.
+# Le certificat de développement est généré automatiquement par le service
+# `certificates` (@nodefony/http) : mkcert (CA locale TRUSTÉE → HTTPS sans erreur
+# navigateur, HMR cross-origin/WSS) si disponible, sinon fallback auto-signé
+# node-forge. Rien à lancer à la main pour un dev HTTPS standard.
+#
+# Ce script reste pour les cas avancés : PKI maison COMPLÈTE et OFFLINE
+# (root CA + intermediate CA + cert serveur + cert CLIENT mTLS + ca-chain +
+# haproxy.pem). Sa CA n'est PAS trustée par le navigateur (à importer soi-même).
+# Lancement explicite : `npm run certificates`.
 
 ROOT_DIR="./nodefony/config/certificates"
 CONF_DIR="./nodefony/config/openssl"
