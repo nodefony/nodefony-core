@@ -12,6 +12,8 @@ import indexController from "./nodefony/controllers/indexController";
 // Entités de démo (User 1-N Post) sur l'ORM Drizzle par défaut : enregistrées au
 // top-level → présentes dans le entityRegistry avant le boot (ERD + profiler).
 import "./nodefony/entity/demo";
+// Démo multi-store : AuditLog sur l'ORM Sequelize (base distincte de Drizzle).
+import "./nodefony/entity/audit";
 
 /**
  * The App class extends the Module class and represents an application  entry point.
