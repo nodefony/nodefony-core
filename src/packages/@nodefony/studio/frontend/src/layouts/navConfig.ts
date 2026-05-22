@@ -53,7 +53,6 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     icon: IconDashboard,
     items: [
-      { to: "/nodefony/hub", label: "Realtime Hub", icon: IconBroadcast },
       {
         to: "/nodefony/dev",
         label: "Dashboard Dev",
@@ -66,6 +65,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: IconActivityHeartbeat,
         roles: [ROLE_SUPERVISOR],
       },
+      { to: "/nodefony/hub", label: "Realtime Hub", icon: IconBroadcast },
       { to: "/nodefony/chat", label: "Chat IA", icon: IconMessageChatbot },
     ],
   },

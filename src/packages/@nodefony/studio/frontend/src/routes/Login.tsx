@@ -47,8 +47,6 @@ export const Login = observer(() => {
     },
   });
 
-  const redirectAfter = (loc.state as { from?: string } | null)?.from ?? "/nodefony";
-
   const runFlow = async (values: { username: string; password: string }) => {
     setBusy(true);
     setError(null);
@@ -81,7 +79,13 @@ export const Login = observer(() => {
 
       setStep("done");
       setStatus("ok");
-      navigate(redirectAfter, { replace: true });
+      // Accueil LIÉ AU RÔLE : on honore un vrai deep-link (`from`) mais on retombe
+      // sur le dashboard du rôle (`homePath`) pour une connexion normale — jamais
+      // l'index générique. `auth.homePath` est valide ici (user chargé par login).
+      const from = (loc.state as { from?: string } | null)?.from;
+      const deepLink =
+        from && from !== "/nodefony" && from !== "/nodefony/login";
+      navigate(deepLink ? from : auth.homePath, { replace: true });
     } catch (e) {
       setStatus("error");
       setError(e instanceof Error ? e.message : String(e));
