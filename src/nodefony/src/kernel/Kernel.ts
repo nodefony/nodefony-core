@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 import clc from "cli-color";
 import cluster from "node:cluster";
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Container, { Scope } from "../Container";
@@ -283,7 +284,14 @@ class Kernel extends Service implements IKernel {
       this.cli.blankLine();
     }
 
-    this.tmpDir = new FileClass(`${process.cwd()}/tmp`);
+    // `tmp/` est gitignored (jamais commité) → absent sur un checkout frais (CI),
+    // un container/pod neuf ou un premier boot. `FileClass` fait un `lstatSync()`
+    // synchrone qui throw ENOENT si le dossier manque → `start()` rejette à
+    // progress=1 (terminate:0, jamais de "Server Listen"). On garantit donc le
+    // dossier ici (idempotent, un seul syscall au boot — hors hot path).
+    const tmpPath = path.resolve(process.cwd(), "tmp");
+    fs.mkdirSync(tmpPath, { recursive: true });
+    this.tmpDir = new FileClass(tmpPath);
     //TODO don't instancce on prod
     //this.babel = (await this.addKernelService(Babylon)) as Babylon;
     await this.addKernelService(Rollup);
@@ -1115,16 +1123,6 @@ class Kernel extends Service implements IKernel {
       code = 0;
     }
     this.log(`terminate : ${code}`);
-    // [CI-DIAG temporaire] — diagnostiquer le terminate:0 précoce en CI
-    // (non reproductible localement). À RETIRER une fois la cause trouvée.
-    this.log(
-      `[CI-DIAG] terminate code=${code} cmd=${this.command?.name ?? "null"} kEvent=${this.command?.kernelEvent ?? "null"} progress=${this.progress} trunk=${this.trunk} started=${this.started} booted=${this.booted} CHILD=${process.env.NODEFONY_DEV_CHILD ?? ""}`,
-      "WARNING",
-    );
-    this.log(
-      new Error("[CI-DIAG] terminate appelé depuis").stack ?? "no-stack",
-      "WARNING",
-    );
     try {
       //console.log(this.notificationsCenter?._events);
       await this.fireAsync("onTerminate", this, code);
