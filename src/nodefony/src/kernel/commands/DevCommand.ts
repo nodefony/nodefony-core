@@ -40,7 +40,7 @@ class Dev extends Command {
       cwd: process.cwd(),
       childEnvKey: CHILD_ENV,
     });
-    supervisor.start();
+    await supervisor.start();
     // Parke le flow CLI : le superviseur gère désormais le cycle de vie + Ctrl+C.
     await new Promise<void>(() => {});
   }

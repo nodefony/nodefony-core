@@ -1,5 +1,12 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, readFileSync, type Stats } from "node:fs";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  type Stats,
+} from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
@@ -74,6 +81,8 @@ export class DevSupervisor {
   readonly #debounceMs: number;
   readonly #childEnvKey: string;
   readonly #ports: readonly number[];
+  /** Fichier verrou single-instance (PID du superviseur courant). */
+  readonly #pidFile: string;
 
   #child: ChildProcess | null = null;
   #childSpawnedAt = 0;
@@ -95,6 +104,15 @@ export class DevSupervisor {
     const wanted = options.paths ?? ["src", "nodefony", "config", "index.ts"];
     this.#paths = wanted.filter((p) => existsSync(path.resolve(this.#cwd, p)));
     this.#ports = options.ports ?? this.#defaultPorts();
+    // Verrou par projet, sous node_modules/.cache (déjà gitignoré, pas de
+    // pollution du repo). Un seul superviseur par cwd à la fois.
+    this.#pidFile = path.join(
+      this.#cwd,
+      "node_modules",
+      ".cache",
+      "nodefony",
+      "dev-supervisor.pid",
+    );
   }
 
   /** Ports par défaut : `NODEFONY_DEV_PORTS` (CSV) sinon HTTP/HTTPS Nodefony. */
@@ -115,15 +133,119 @@ export class DevSupervisor {
     );
   }
 
-  /** Démarre l'enfant, attache la surveillance et les signaux d'arrêt. */
-  start(): void {
+  /**
+   * Démarre le superviseur : revendique le verrou single-instance (tue tout
+   * superviseur précédent resté en vie), branche les signaux d'arrêt, attend les
+   * ports libres puis lance l'enfant et la surveillance.
+   */
+  async start(): Promise<void> {
+    await this.#claimSingleInstance();
     this.#installSignals();
+    // Un ancien enfant peut encore tenir les ports le temps de mourir.
+    await this.#waitPortsFree();
     this.#spawnChild();
     this.#startWatch();
     this.#log(
-      `superviseur actif — surveille ${this.#paths.join(", ")} (frontend exclu → HMR Vite intact)`,
+      `superviseur actif (pid ${process.pid}) — surveille ${this.#paths.join(", ")} (frontend exclu → HMR Vite intact)`,
       "green",
     );
+  }
+
+  /**
+   * Garde **single-instance** : empêche l'empilement de superviseurs.
+   *
+   * Le superviseur est de type CONSOLE — il ne bind **aucun** port serveur, donc
+   * rien (pas d'`EADDRINUSE`) n'empêche d'en lancer plusieurs. Lancé `detached`,
+   * il survit à la fermeture du terminal. Sans ce verrou, chaque
+   * `nodefony development` ajoutait un superviseur orphelin de plus, et **tous**
+   * rebuildaient (turbo + rollup) au moindre changement → machine saturée.
+   *
+   * On lit le PID du superviseur précédent ; s'il est encore vivant **et** que
+   * c'est bien un process Nodefony, on le tue (avec son groupe) avant de prendre
+   * la main et d'écrire notre propre PID.
+   */
+  async #claimSingleInstance(): Promise<void> {
+    try {
+      if (existsSync(this.#pidFile)) {
+        const prev = Number.parseInt(
+          readFileSync(this.#pidFile, "utf8").trim(),
+          10,
+        );
+        if (
+          Number.isInteger(prev) &&
+          prev > 0 &&
+          prev !== process.pid &&
+          this.#isNodefonySupervisor(prev)
+        ) {
+          this.#log(
+            `superviseur précédent encore actif (pid ${prev}) — arrêt avant démarrage`,
+            "yellow",
+          );
+          await this.#killSupervisor(prev);
+        }
+      }
+    } catch {
+      /* pidfile illisible / périmé → on l'écrase */
+    }
+    try {
+      mkdirSync(path.dirname(this.#pidFile), { recursive: true });
+      writeFileSync(this.#pidFile, String(process.pid), "utf8");
+    } catch {
+      /* best-effort : pas de verrou possible, on démarre quand même */
+    }
+  }
+
+  /**
+   * `true` si `pid` est vivant ET correspond à un process Nodefony — évite de
+   * tuer un PID recyclé par un process tiers. POSIX : vérifié via `ps`. Windows :
+   * pas de `ps` fiable → best-effort (vivant suffit).
+   */
+  #isNodefonySupervisor(pid: number): boolean {
+    try {
+      process.kill(pid, 0); // throw si le process n'existe plus
+    } catch {
+      return false;
+    }
+    if (process.platform === "win32") return true;
+    try {
+      const out = spawnSync("ps", ["-p", String(pid), "-o", "command="], {
+        encoding: "utf8",
+      });
+      return (out.stdout ?? "").toLowerCase().includes("nodefony");
+    } catch {
+      return true; // ps indisponible → on ne bloque pas le nettoyage
+    }
+  }
+
+  /**
+   * Tue le superviseur précédent et **son groupe** (enfant serveur + Vite) :
+   * SIGTERM (arrêt propre), puis SIGKILL si toujours vivant après 1,5 s.
+   */
+  async #killSupervisor(pid: number): Promise<void> {
+    const groupKill = (signal: NodeJS.Signals): void => {
+      try {
+        if (process.platform !== "win32") process.kill(-pid, signal);
+      } catch {
+        /* pas leader de groupe / groupe disparu */
+      }
+      try {
+        process.kill(pid, signal);
+      } catch {
+        /* déjà mort */
+      }
+    };
+    groupKill("SIGTERM");
+    const deadline = Date.now() + 1500;
+    while (Date.now() < deadline) {
+      await delay(100);
+      try {
+        process.kill(pid, 0);
+      } catch {
+        return; // mort proprement
+      }
+    }
+    groupKill("SIGKILL");
+    await delay(200);
   }
 
   /** (Re)lance le serveur enfant — même commande + flag enfant, en leader de groupe. */
@@ -401,20 +523,44 @@ export class DevSupervisor {
     }
   }
 
-  /** Arrêt propre du superviseur (Ctrl+C) : ferme le watcher et tue le groupe. */
+  /** Arrête le superviseur : ferme le watcher, tue le groupe, libère le verrou. */
   async #shutdown(): Promise<void> {
     if (this.#stopping) return;
     this.#stopping = true;
     if (this.#timer) clearTimeout(this.#timer);
     await this.#watcher?.close();
     await this.#killChild();
+    this.#releaseLock();
     process.exit(0);
   }
 
-  /** Branche SIGINT/SIGTERM → arrêt propre. */
+  /** Supprime le pidfile s'il nous appartient encore (idempotent, best-effort). */
+  #releaseLock(): void {
+    try {
+      if (
+        existsSync(this.#pidFile) &&
+        readFileSync(this.#pidFile, "utf8").trim() === String(process.pid)
+      ) {
+        rmSync(this.#pidFile, { force: true });
+      }
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  /**
+   * Branche les signaux d'arrêt → arrêt propre.
+   *
+   * `SIGHUP` est **essentiel** : c'est le signal reçu quand le terminal se ferme.
+   * Sans lui, un superviseur lancé `detached` survivait indéfiniment (orphelin
+   * PPID 1 qui rebuild en boucle). Le handler `exit` libère le verrou en dernier
+   * recours (kill non interceptable, ou sortie inattendue).
+   */
   #installSignals(): void {
     process.once("SIGINT", () => void this.#shutdown());
     process.once("SIGTERM", () => void this.#shutdown());
+    process.once("SIGHUP", () => void this.#shutdown());
+    process.once("exit", () => this.#releaseLock());
   }
 }
 
