@@ -147,9 +147,12 @@ export class RealtimeClient {
   private _lastFrameMethod: string | null = null;
   private statsTimer: ReturnType<typeof setInterval> | null = null;
   private readonly _prevSampled = new Map<string, number>();
-  // Log protocole (inspecteur realtime) — ring LAZY : alloué + alimenté SEULEMENT
-  // quand un listener `__frame__` existe (console ouverte) → 0 surcoût sinon.
-  private _frames: RealtimeFrame[] | null = null;
+  // Log protocole (inspecteur realtime) — ring ALWAYS-ON mais bon marché : on ne
+  // pousse qu'une RÉF brute (`{ts,dir,msg}`) ; la construction + la redaction
+  // sont DIFFÉRÉES à la lecture (`frameLog`) ou au live (`__frame__`). Toujours
+  // alimenté → la console « retrace l'instant » dès l'ouverture (pas de vide).
+  private _rawFrames: { ts: number; dir: "in" | "out"; msg: unknown }[] | null =
+    null;
 
   constructor(private readonly opts: RealtimeOptions = {}) {
     this.startStatsSampler();
@@ -532,25 +535,41 @@ export class RealtimeClient {
   }
 
   /**
-   * Log protocole (frames JSON-RPC récentes, redactées). Vide tant que la console
-   * n'écoute pas (`__frame__`). Réservé à l'inspecteur realtime / debug.
+   * Log protocole : les `FRAME_LOG_MAX` dernières frames JSON-RPC (redactées),
+   * enregistrées EN CONTINU → la console « retrace l'instant » dès l'ouverture
+   * (jamais de démarrage à vide). Construction + redaction faites ici, à la lecture.
    */
   get frameLog(): readonly RealtimeFrame[] {
-    return this._frames ?? [];
+    return (this._rawFrames ?? []).map((f) =>
+      RealtimeClient.buildFrame(f.dir, f.msg, f.ts),
+    );
   }
 
   /** Purge le log protocole. */
   clearFrameLog(): void {
-    if (this._frames) this._frames.length = 0;
+    if (this._rawFrames) this._rawFrames.length = 0;
   }
 
   /**
-   * Enregistre une frame DANS le ring + notifie `__frame__` — **uniquement** si
-   * un listener existe (console ouverte) → coût nul en fonctionnement normal.
+   * Enregistre une frame dans le ring — coût = 1 push de réf (construction +
+   * redaction DIFFÉRÉES). Émet `__frame__` (frame construite) seulement si la
+   * console écoute.
    */
   private recordFrame(dir: "in" | "out", msg: unknown): void {
+    const ts = Date.now();
+    (this._rawFrames ??= []).push({ ts, dir, msg });
+    if (this._rawFrames.length > FRAME_LOG_MAX) this._rawFrames.shift();
     const listeners = this.handlers.get("__frame__");
-    if (!listeners || listeners.size === 0) return; // LAZY : 0 alloc/0 surcoût
+    if (listeners && listeners.size > 0)
+      this.fireLocal("__frame__", RealtimeClient.buildFrame(dir, msg, ts));
+  }
+
+  /** Construit une frame affichable (kind/canal/id + payload redacté). */
+  private static buildFrame(
+    dir: "in" | "out",
+    msg: unknown,
+    ts: number,
+  ): RealtimeFrame {
     const m = (msg ?? {}) as Record<string, unknown>;
     let kind = "?";
     let channel: string | undefined;
@@ -561,17 +580,14 @@ export class RealtimeClient {
     } else if ("error" in m) kind = "error";
     else if ("stream" in m) kind = "stream";
     else if ("result" in m) kind = "response";
-    const frame: RealtimeFrame = {
-      ts: Date.now(),
+    return {
+      ts,
       dir,
       kind,
       id: typeof m.id === "number" ? m.id : undefined,
       channel,
       payload: redactFrame(msg),
     };
-    (this._frames ??= []).push(frame);
-    if (this._frames.length > FRAME_LOG_MAX) this._frames.shift();
-    this.fireLocal("__frame__", frame);
   }
 
   private send(msg: unknown): void {

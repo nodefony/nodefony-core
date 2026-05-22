@@ -193,7 +193,8 @@ export const RealtimeConsole = observer(() => {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Canal</Table.Th>
-                <Table.Th>Pile</Table.Th>
+                <Table.Th>Protocole</Table.Th>
+                <Table.Th>Transport</Table.Th>
                 <Table.Th>Messages</Table.Th>
                 <Table.Th>Débit</Table.Th>
                 <Table.Th w={140}>Activité</Table.Th>
@@ -206,9 +207,21 @@ export const RealtimeConsole = observer(() => {
                     <Code>{s.channel}</Code>
                   </Table.Td>
                   <Table.Td>
-                    <Badge size="xs" variant="light" color="gray">
-                      {s.protocol ?? "json-rpc"} / {s.transport ?? "ws"}
+                    <Badge size="xs" variant="light" color="grape">
+                      {s.protocol ?? "json-rpc-2.0"}
                     </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap={4} wrap="nowrap">
+                      <Badge size="xs" variant="light" color="gray">
+                        {s.transport ?? "ws"}
+                      </Badge>
+                      {s.peer && (
+                        <Text size="xs" c="dimmed">
+                          {s.peer}
+                        </Text>
+                      )}
+                    </Group>
                   </Table.Td>
                   <Table.Td>{s.msgCount}</Table.Td>
                   <Table.Td>{s.rate}/s</Table.Td>
