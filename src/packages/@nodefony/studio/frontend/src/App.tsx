@@ -60,6 +60,9 @@ const Profiler = lazy(() =>
 const Database = lazy(() =>
   import("./routes/Database").then((m) => ({ default: m.Database })),
 );
+const OrmOverview = lazy(() =>
+  import("./routes/OrmOverview").then((m) => ({ default: m.OrmOverview })),
+);
 
 import {
   Sessions,
@@ -125,6 +128,7 @@ const router = createBrowserRouter([
           { path: "logs", element: <Logs /> },
           { path: "system", element: <System /> },
           { path: "firewall", element: <Firewall /> },
+          { path: "orm", element: <OrmOverview /> },
           { path: "databases", element: <Database /> },
           { path: "migrate", element: <Migrate /> },
           { path: "services", element: <Services /> },

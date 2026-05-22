@@ -85,8 +85,13 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Data",
     icon: IconDatabase,
     items: [
-      { to: "/nodefony/databases", label: "Database", icon: IconDatabase },
-      { to: "/nodefony/migrate", label: "Migrations", icon: IconArrowsExchange },
+      { to: "/nodefony/orm", label: "ORM", icon: IconDatabase },
+      { to: "/nodefony/databases", label: "Schéma ERD", icon: IconAffiliate },
+      {
+        to: "/nodefony/migrate",
+        label: "Migrations",
+        icon: IconArrowsExchange,
+      },
     ],
   },
   {
@@ -114,7 +119,9 @@ export const NAV_GROUPS: NavGroup[] = [
     id: "account",
     label: "Account",
     icon: IconSettings,
-    items: [{ to: "/nodefony/settings", label: "Settings", icon: IconSettings }],
+    items: [
+      { to: "/nodefony/settings", label: "Settings", icon: IconSettings },
+    ],
   },
 ];
 
