@@ -28,6 +28,7 @@ const external: string[] = [
   "semver",
   "shelljs",
   "uuid",
+  "reflect-metadata",
   "twig",
   "ejs",
   "pm2",
@@ -51,7 +52,15 @@ const external: string[] = [
 
 const treeshakeOptions = defineConfig({
   treeshake: {
-    moduleSideEffects: "no-external",
+    // Équivalent de "no-external" (les externes n'ont pas d'effet de bord, le
+    // reste si) MAIS exception pour `reflect-metadata` : c'est un import
+    // side-effect-only (`import "reflect-metadata"`) qui patche le global
+    // `Reflect` (defineMetadata/getMetadata). En le traitant comme externe sans
+    // effet de bord, rollup le stripait → `Reflect.defineMetadata is not a
+    // function` au runtime (décorateurs @Service/@inject). On force donc son
+    // side-effect à survivre.
+    moduleSideEffects: (id: string, external: boolean): boolean =>
+      id.includes("reflect-metadata") ? true : !external,
     propertyReadSideEffects: false,
     tryCatchDeoptimization: false,
   },
