@@ -31,6 +31,8 @@
       "Bash(while *)",
       "Bash(ps *)",
       "Bash(kill -9 *)",
+      "Bash(kill *)",
+      "Bash(pgrep *)",
       "Bash(pkill *)",
       "Bash(lsof -ti:5151 -ti:5152)",
       "Bash(rm -f /tmp/nodefony-server.log)",
