@@ -13,7 +13,6 @@ import {
   ScrollArea,
   SegmentedControl,
   Switch,
-  Collapse,
   Code,
 } from "@mantine/core";
 import {
@@ -72,7 +71,6 @@ export const RealtimeConsole = observer(() => {
   const [paused, setPaused] = useState(false);
   const [dir, setDir] = useState<"all" | "in" | "out">("all");
   const [open, setOpen] = useState<number | null>(null);
-  const [, setNow] = useState(Date.now());
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
@@ -98,16 +96,10 @@ export const RealtimeConsole = observer(() => {
     return off;
   }, [client]);
 
-  // Tick 1s pour l'uptime de session affiché en live.
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
   const online = state === "connected";
   const subs = [...conn.activeSubscriptions.values()];
   const shown = dir === "all" ? frames : frames.filter((f) => f.dir === dir);
-  const uptime = conn.connectedAt ? uptimeStr(Date.now() - conn.connectedAt) : "—";
+  const recent = shown.slice(-150); // ne rendre que les plus récentes (perf DOM)
 
   return (
     <Stack gap="lg">
@@ -154,9 +146,7 @@ export const RealtimeConsole = observer(() => {
           icon={<IconClock size={28} stroke={1.4} />}
           hint="Durée depuis la dernière connexion réussie."
         >
-          <Text fw={700} size="xl">
-            {uptime}
-          </Text>
+          <SessionUptime connectedAt={conn.connectedAt} />
         </Kpi>
         <Kpi
           label="Abonnements"
@@ -303,11 +293,13 @@ export const RealtimeConsole = observer(() => {
         ) : (
           <ScrollArea h={420} type="auto" offsetScrollbars>
             <Stack gap={0}>
-              {shown
+              {/* Ne RENDRE que les 150 plus récentes (le ring en garde 300) →
+                  montage/démontage légers, pas 300 lignes DOM d'un coup. */}
+              {recent
                 .slice()
                 .reverse()
                 .map((f, i) => {
-                  const idx = shown.length - 1 - i;
+                  const idx = recent.length - 1 - i;
                   const isOpen = open === idx;
                   return (
                     <div key={`${f.ts}-${idx}`}>
@@ -352,14 +344,17 @@ export const RealtimeConsole = observer(() => {
                           </Text>
                         )}
                       </Group>
-                      <Collapse in={isOpen}>
+                      {/* Payload rendu UNIQUEMENT si la ligne est ouverte : pas
+                          de 300 Collapse montés ni 300 JSON.stringify par render
+                          → render léger + démontage rapide. */}
+                      {isOpen && (
                         <Code
                           block
                           style={{ fontSize: 11, margin: "2px 0 6px" }}
                         >
                           {JSON.stringify(f.payload, null, 2)}
                         </Code>
-                      </Collapse>
+                      )}
                     </div>
                   );
                 })}
@@ -370,5 +365,20 @@ export const RealtimeConsole = observer(() => {
     </Stack>
   );
 });
+
+/** Uptime de session qui tique en interne (1s) — isolé pour ne PAS re-render la
+ *  liste de frames chaque seconde (perf : seul ce petit composant se met à jour). */
+function SessionUptime({ connectedAt }: { connectedAt: number | null }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <Text fw={700} size="xl" style={{ fontVariantNumeric: "tabular-nums" }}>
+      {connectedAt ? uptimeStr(Date.now() - connectedAt) : "—"}
+    </Text>
+  );
+}
 
 export default RealtimeConsole;
