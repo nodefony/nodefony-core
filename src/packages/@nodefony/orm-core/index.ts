@@ -43,6 +43,7 @@ export {
 } from "./nodefony/src/OrmAdminApi";
 export type {
   IColumnInfo,
+  IConnectionInfo,
   IRelationInfo,
   IEntityGraphNode,
   IOrmSummary,

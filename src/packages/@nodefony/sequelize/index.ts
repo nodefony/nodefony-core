@@ -6,6 +6,8 @@ import orm from "./nodefony/service/orm";
 // Sequelize reste chargé pour les tests multi-ORM (adapter orm-core), pas la session.
 import Command from "./nodefony/command/sync";
 import { Models } from "./nodefony/service/orm";
+// Service orm-core bootable (P5.4) — connecte les SequelizeOrm du registre OrmRegistry.
+import SequelizeService from "./nodefony/service/SequelizeService";
 // import sequelize, {
 //   Model,
 //   ConnectionOptions,
@@ -18,7 +20,7 @@ import { Models } from "./nodefony/service/orm";
 import * as sequelize from "sequelize";
 import SessionStorage from "./nodefony/src/SessionStorage";
 
-@services([orm])
+@services([orm, SequelizeService])
 class Sequelize extends Module {
   constructor(kernel: Kernel) {
     super("sequelize", kernel, import.meta.url, config);
@@ -27,7 +29,7 @@ class Sequelize extends Module {
 }
 
 export default Sequelize;
-export { sequelize, entities, Models, SessionStorage };
+export { sequelize, entities, Models, SessionStorage, SequelizeService };
 
 // Adapter orm-core (P5.4) — distinct du service legacy.
 export {

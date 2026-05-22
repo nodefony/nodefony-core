@@ -15,7 +15,7 @@ export default {
           (Nodefony.getKernel() as Kernel).path,
           "nodefony",
           "databases",
-          "nodefony.db"
+          "nodefony.db",
         );
       },
       options: {
@@ -39,6 +39,29 @@ export default {
       },
     },
   },
+  // orm-core (P5.4) — connecteurs de l'adapter `SequelizeOrm` enregistrés dans le
+  // `OrmRegistry` (≠ `connectors` legacy ci-dessus, registre core historique).
+  // Surfacés dans le Dashboard ORM (/nodefony/orm) → 2 ORM distincts (Drizzle +
+  // Sequelize). Clé ≠ "default" (réservé à Drizzle) : un nom = un ORM dans le
+  // registre process-wide.
+  orm: {
+    connectors: {
+      sequelize: {
+        dialect: "sqlite",
+        logging: false,
+        // Getter lazy (idem dbname) : kernel déréférencé à la LECTURE (boot/merge),
+        // pas à l'import → module importable sans kernel (testabilité).
+        get storage(): string {
+          return path.resolve(
+            (Nodefony.getKernel() as Kernel).path,
+            "nodefony",
+            "databases",
+            "nodefony-sequelize.db",
+          );
+        },
+      },
+    },
+  },
   migrations: {
     storage: "sequelize", // sequelize || memory || json
     // Getters lazy (idem dbname) : pas de déréférencement kernel à l'import.
@@ -47,7 +70,7 @@ export default {
         (Nodefony.getKernel() as Kernel).path,
         "nodefony",
         "migrations",
-        "sequelize"
+        "sequelize",
       );
     },
     get seedeersPath(): string {
@@ -55,7 +78,7 @@ export default {
         (Nodefony.getKernel() as Kernel).path,
         "nodefony",
         "migrations",
-        "seedeers"
+        "seedeers",
       );
     },
     storageSeedeers: "json",

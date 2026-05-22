@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-22T22:03:21.627Z",
+  "generated": "2026-05-22T22:24:07.388Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 306,
-    "symbols": 791,
-    "classes": 212,
-    "interfaces": 262,
+    "files": 307,
+    "symbols": 793,
+    "classes": 213,
+    "interfaces": 263,
     "types": 146,
     "enums": 1,
     "functions": 142,
@@ -4633,6 +4633,17 @@
       "exported": true,
       "module": "@nodefony/sequelize"
     },
+    "SequelizeService": {
+      "name": "SequelizeService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
+      "exported": true,
+      "module": "@nodefony/sequelize",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "Service bootable orm-core du module `@nodefony/sequelize`. Au boot du kernel (`onBoot`), instancie un {@link SequelizeOrm} (adapter orm-core) **par connecteur** déclaré dans `config.orm.connectors`…"
+    },
     "@nodefony/sequelize:SessionStorage": {
       "name": "SessionStorage",
       "kind": "class",
@@ -5888,6 +5899,7 @@
         "Helmet",
         "Provider",
         "SecuredArea",
+        "SequelizeService",
         "ServerHttp",
         "ServerHttps",
         "Statics",
@@ -6355,6 +6367,7 @@
         "src/packages/@nodefony/security/nodefony/types/provider.types.ts",
         "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -6414,6 +6427,7 @@
         "src/packages/@nodefony/security/nodefony/src/Provider.ts",
         "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -6471,6 +6485,7 @@
         "src/packages/@nodefony/security/nodefony/src/Provider.ts",
         "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -6761,6 +6776,7 @@
         "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
         "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -7260,6 +7276,9 @@
       "Models": [
         "src/packages/@nodefony/sequelize/index.ts",
         "src/modules/test/nodefony/entity/BoatEntity.ts"
+      ],
+      "SequelizeService": [
+        "src/packages/@nodefony/sequelize/index.ts"
       ],
       "StudioController": [
         "src/packages/@nodefony/studio/index.ts"
@@ -8156,7 +8175,8 @@
       "IConnectionInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
       "Criteria": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
@@ -8303,6 +8323,9 @@
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts"
+      ],
+      "SequelizeOrm": [
+        "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts"
       ],
       "createSyslogBridge": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"

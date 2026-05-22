@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { createRequire } from "node:module";
 import { Sequelize } from "sequelize";
 import type {
   DataType,
@@ -10,6 +13,7 @@ import type {
 import { Orm, entityRegistry } from "@nodefony/orm-core";
 import type {
   IColumnInfo,
+  IConnectionInfo,
   IEntity,
   IRepository,
   ITransaction,
@@ -58,6 +62,8 @@ import { SequelizeTransaction } from "./SequelizeTransaction";
 export class SequelizeOrm extends Orm {
   #sequelize: Sequelize | null = null;
   #connected = false;
+  /** Version du moteur SQL capturée à la connexion (la requête est async). */
+  #engineVersion: string | undefined;
   /** Modèles compilés indexés par nom logique d'entité (lazy). */
   #models: Record<string, ModelStatic<Model>> | null = null;
   /** Repositories mémoïsés par nom d'entité (lazy). */
@@ -93,6 +99,11 @@ export class SequelizeOrm extends Orm {
     const sequelize = new Sequelize(this.#options);
     await sequelize.authenticate();
     this.#sequelize = sequelize;
+    // Version du moteur capturée maintenant : `databaseVersion()` est async, alors
+    // que `describeConnection()` (data plane) est synchrone.
+    this.#engineVersion = await sequelize
+      .databaseVersion()
+      .catch(() => undefined);
     this.#models = Object.create(null) as Record<string, ModelStatic<Model>>;
 
     const entities = this.#ownEntities();
@@ -164,6 +175,7 @@ export class SequelizeOrm extends Orm {
     }
     this.#sequelize = null;
     this.#connected = false;
+    this.#engineVersion = undefined;
     this.#models = null;
     this.#repositories = null;
   }
@@ -234,5 +246,88 @@ export class SequelizeOrm extends Orm {
       // `unique` peut être un booléen, une chaîne (index nommé) ou un objet.
       unique: attr.unique != null && attr.unique !== false,
     }));
+  }
+
+  /**
+   * Décrit la connexion sous-jacente : dialecte (= driver, `sqlite`/`postgres`/
+   * `mysql`/`mariadb`…), cible lisible et versions (moteur + lib Sequelize).
+   *
+   * **Sécurité** : aucune fuite. Cible SQLite = chemin **relatif** au cwd (jamais
+   * d'absolu → pas d'arborescence FS du serveur) ; cible serveur = `host:port/base`
+   * **sans** credential (username/password jamais inclus). Cf règle info-leak FS.
+   *
+   * @returns driver + cible (relative/`:memory:`/`host:port/db`) + versions.
+   */
+  override describeConnection(): IConnectionInfo {
+    return {
+      driver: String(
+        this.#options.dialect ?? this.#sequelize?.getDialect() ?? "sequelize",
+      ),
+      target: this.#safeTarget(),
+      version: this.#engineVersion,
+      ormVersion: SequelizeOrm.#ormVersion(),
+    };
+  }
+
+  /**
+   * Cible affichable, sans fuite : SQLite → `:memory:` ou chemin **relatif** au
+   * cwd (basename si hors projet) ; serveur → `host:port/base` **sans** credential.
+   */
+  #safeTarget(): string | undefined {
+    const dialect = String(this.#options.dialect ?? "");
+    if (dialect === "sqlite") {
+      const storage = this.#options.storage;
+      if (!storage || storage === ":memory:") {
+        return ":memory:";
+      }
+      if (!path.isAbsolute(storage)) {
+        return storage;
+      }
+      const rel = path.relative(process.cwd(), storage);
+      return rel && !rel.startsWith("..") ? rel : path.basename(storage);
+    }
+    // Dialectes serveur : host:port/base — JAMAIS username/password.
+    const host = this.#options.host ?? "localhost";
+    const port = this.#options.port != null ? `:${this.#options.port}` : "";
+    const database = this.#options.database ? `/${this.#options.database}` : "";
+    return `${host}${port}${database}`;
+  }
+
+  /** Version de la lib `sequelize` (résolue + cachée une seule fois). */
+  static #cachedOrmVersion: string | null | undefined;
+  static #ormVersion(): string | undefined {
+    if (SequelizeOrm.#cachedOrmVersion === undefined) {
+      SequelizeOrm.#cachedOrmVersion =
+        SequelizeOrm.#resolvePkgVersion("sequelize") ?? null;
+    }
+    return SequelizeOrm.#cachedOrmVersion ?? undefined;
+  }
+
+  /**
+   * Version d'un package npm via son `package.json` — `createRequire` + remontée
+   * FS (`require("<pkg>/package.json")` direct échoue souvent : `exports` ne
+   * publie pas toujours `./package.json`).
+   */
+  static #resolvePkgVersion(name: string): string | undefined {
+    try {
+      const req = createRequire(import.meta.url);
+      let dir = path.dirname(req.resolve(name));
+      for (let i = 0; i < 8; i++) {
+        const pkgPath = path.join(dir, "package.json");
+        if (fs.existsSync(pkgPath)) {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
+            name?: string;
+            version?: string;
+          };
+          if (pkg.name === name) return pkg.version;
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+      }
+    } catch {
+      /* package introuvable / illisible → version inconnue */
+    }
+    return undefined;
   }
 }

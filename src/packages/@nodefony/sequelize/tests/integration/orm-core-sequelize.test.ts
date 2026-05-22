@@ -28,7 +28,11 @@ interface Room {
   orm: ORM,
   name: "User",
   schema: {
-    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
     email: { type: DataTypes.STRING, allowNull: false, unique: true },
     age: { type: DataTypes.INTEGER, allowNull: true },
   },
@@ -40,7 +44,11 @@ class UserEntity {}
   orm: ORM,
   name: "Room",
   schema: {
-    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
     name: { type: DataTypes.STRING, allowNull: false },
   },
 })
@@ -213,7 +221,10 @@ describe("orm-core ↔ Sequelize adapter (P5.4)", () => {
       await users.create({ email: "prof@b.c" });
       await users.findOne({ email: "prof@b.c" });
     });
-    assert.ok(queries.length >= 2, `attendu >= 2 requêtes, eu ${queries.length}`);
+    assert.ok(
+      queries.length >= 2,
+      `attendu >= 2 requêtes, eu ${queries.length}`,
+    );
     assert.equal(queries[0].connector, "sequelize");
     assert.equal(typeof queries[0].durationMs, "number");
     assert.ok(queries.some((q) => /insert/i.test(q.sql)));
@@ -227,5 +238,45 @@ describe("orm-core ↔ Sequelize adapter (P5.4)", () => {
       await users.count();
     });
     assert.equal(RequestContext.get(), undefined); // scope refermé
+  });
+
+  // ── describeConnection : data plane Dashboard ORM ─────────────────────────
+  it("describeConnection : SQLite :memory: (driver/cible/versions)", () => {
+    const info = orm.describeConnection();
+    assert.equal(info.driver, "sqlite");
+    assert.equal(info.target, ":memory:");
+    assert.match(info.version ?? "", /^\d+\.\d+/); // version moteur SQLite captée au connect
+    assert.match(info.ormVersion ?? "", /^\d+\.\d+/); // version lib sequelize
+  });
+
+  it("describeConnection : SQLite chemin absolu → relatif au cwd (anti info-leak)", () => {
+    const abs = `${process.cwd()}/tmp/leak.db`;
+    const probe = new SequelizeOrm("db_target", {
+      dialect: "sqlite",
+      storage: abs,
+      logging: false,
+    });
+    const { target } = probe.describeConnection();
+    assert.equal(target, "tmp/leak.db"); // jamais d'absolu
+    assert.ok(!target?.startsWith("/"), "ne doit jamais commencer par /");
+    ormRegistry.unregister("db_target");
+  });
+
+  it("describeConnection : dialecte serveur → host:port/base SANS credential", () => {
+    const probe = new SequelizeOrm("db_pg", {
+      dialect: "postgres",
+      host: "db.internal",
+      port: 5432,
+      database: "nodefony",
+      username: "postgres",
+      password: "s3cr3t",
+      logging: false,
+    });
+    const { driver, target } = probe.describeConnection();
+    assert.equal(driver, "postgres");
+    assert.equal(target, "db.internal:5432/nodefony");
+    assert.ok(!target?.includes("s3cr3t"), "le password ne doit JAMAIS fuiter");
+    assert.ok(!target?.includes("postgres@"), "le username ne doit pas fuiter");
+    ormRegistry.unregister("db_pg");
   });
 });

@@ -10,7 +10,7 @@ const config = {
         (Nodefony.getKernel() as Kernel).path,
         "nodefony",
         "databases",
-        "nodefony.db"
+        "nodefony.db",
       ),
       options: {
         dialect: "sqlite",
@@ -82,6 +82,44 @@ const config = {
     //     },
     //   },
     // },
+  },
+  // ─── ORM orm-core (Dashboard ORM /nodefony/orm) ───────────────────────────
+  // C'EST ICI qu'on choisit le dialecte/la cible de l'adapter `SequelizeOrm`
+  // (registre `OrmRegistry`, ≠ `connectors` legacy ci-dessus). Le connecteur
+  // `sequelize` apparaît à côté de Drizzle dans le dashboard. Pour basculer en
+  // serveur, décommenter MySQL/Postgres : `describeConnection` n'expose JAMAIS
+  // les credentials (seul `host:port/base` est affiché ; password rédacté).
+  orm: {
+    connectors: {
+      sequelize: {
+        dialect: "sqlite",
+        logging: false,
+        storage: path.resolve(
+          (Nodefony.getKernel() as Kernel).path,
+          "nodefony",
+          "databases",
+          "nodefony-sequelize.db",
+        ),
+      },
+      // sequelize: {
+      //   dialect: "mysql",
+      //   host: "localhost",
+      //   port: 3306,
+      //   database: "nodefony",
+      //   username: "root",
+      //   password: "nodefony", // rédacté dans le dashboard
+      //   logging: false,
+      // },
+      // sequelize: {
+      //   dialect: "postgres",
+      //   host: "localhost",
+      //   port: 5432,
+      //   database: "nodefony",
+      //   username: "postgres",
+      //   password: "nodefony", // rédacté dans le dashboard
+      //   logging: false,
+      // },
+    },
   },
 };
 
