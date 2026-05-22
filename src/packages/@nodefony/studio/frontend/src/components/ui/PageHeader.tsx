@@ -9,6 +9,13 @@ export interface PageHeaderProps {
   icon?: ReactNode;
   /** Actions alignées à droite (boutons « Recharger », filtres globaux…). */
   actions?: ReactNode;
+  /**
+   * Colle l'en-tête en haut de la zone scrollable (juste sous la barre AppShell)
+   * → le titre reste visible quand la page défile. Pour les pages longues
+   * (dashboards, hub). Fond opaque + bord bas pour masquer le contenu qui passe
+   * dessous.
+   */
+  sticky?: boolean;
 }
 
 /**
@@ -20,9 +27,37 @@ export interface PageHeaderProps {
  * d'ancrage du lecteur d'écran ; `size="h2"` conserve la taille visuelle
  * historique. Les titres de cartes restent `h2`+ (hiérarchie cohérente).
  */
-export function PageHeader({ title, subtitle, icon, actions }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  subtitle,
+  icon,
+  actions,
+  sticky,
+}: PageHeaderProps) {
   return (
-    <Group justify="space-between" align="flex-end" wrap="nowrap" mb="md">
+    <Group
+      justify="space-between"
+      align="flex-end"
+      wrap="nowrap"
+      mb="md"
+      // Sticky : se fige sous la barre AppShell (hauteur 56 → var Mantine). Les
+      // marges négatives + padding réalignés couvrent toute la largeur malgré le
+      // padding de AppShell.Main, sinon le contenu déborderait sur les côtés.
+      style={
+        sticky
+          ? {
+              position: "sticky",
+              top: "var(--app-shell-header-height, 56px)",
+              zIndex: 2,
+              background: "var(--mantine-color-body)",
+              marginInline: "calc(var(--mantine-spacing-md) * -1)",
+              paddingInline: "var(--mantine-spacing-md)",
+              paddingBlock: "var(--mantine-spacing-sm)",
+              borderBottom: "1px solid var(--mantine-color-default-border)",
+            }
+          : undefined
+      }
+    >
       <Stack gap={4}>
         <Group gap="xs" wrap="nowrap">
           {icon}

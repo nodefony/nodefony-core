@@ -100,8 +100,7 @@ export const Dashboard = observer(() => {
   );
   const mods = useResource(
     useCallback(
-      () =>
-        store.api.getAbsolute<unknown[]>("/nodefony/kernel/api/modules"),
+      () => store.api.getAbsolute<unknown[]>("/nodefony/kernel/api/modules"),
       [store],
     ),
   );
@@ -123,6 +122,7 @@ export const Dashboard = observer(() => {
   return (
     <Stack gap="lg">
       <PageHeader
+        sticky
         title="Dashboard Dev"
         subtitle={
           <>Configuration & introspection du projet — {auth.user?.username}.</>
@@ -286,48 +286,48 @@ export const Dashboard = observer(() => {
               {ormList.map((o) => {
                 const v = o.vendor ? VENDORS[o.vendor] : undefined;
                 return (
-                <Table.Tr key={o.name}>
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap">
-                      <ThemeIcon
-                        size="sm"
-                        radius="sm"
+                  <Table.Tr key={o.name}>
+                    <Table.Td>
+                      <Group gap="xs" wrap="nowrap">
+                        <ThemeIcon
+                          size="sm"
+                          radius="sm"
+                          variant="light"
+                          color={v?.color ?? "gray"}
+                          aria-label={v?.label ?? o.vendor ?? "ORM"}
+                        >
+                          <IconDatabase size={14} />
+                        </ThemeIcon>
+                        <div>
+                          <Text fw={600}>{o.name}</Text>
+                          {o.vendor && (
+                            <Text size="xs" c="dimmed">
+                              {v?.label ?? o.vendor}
+                            </Text>
+                          )}
+                        </div>
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      {o.default ? (
+                        <Badge size="xs" color="brand" variant="light">
+                          défaut
+                        </Badge>
+                      ) : (
+                        <Text c="dimmed">—</Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge
+                        size="xs"
+                        color={o.connected ? "teal" : "red"}
                         variant="light"
-                        color={v?.color ?? "gray"}
-                        aria-label={v?.label ?? o.vendor ?? "ORM"}
                       >
-                        <IconDatabase size={14} />
-                      </ThemeIcon>
-                      <div>
-                        <Text fw={600}>{o.name}</Text>
-                        {o.vendor && (
-                          <Text size="xs" c="dimmed">
-                            {v?.label ?? o.vendor}
-                          </Text>
-                        )}
-                      </div>
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>
-                    {o.default ? (
-                      <Badge size="xs" color="brand" variant="light">
-                        défaut
+                        {o.connected ? "connecté" : "déconnecté"}
                       </Badge>
-                    ) : (
-                      <Text c="dimmed">—</Text>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge
-                      size="xs"
-                      color={o.connected ? "teal" : "red"}
-                      variant="light"
-                    >
-                      {o.connected ? "connecté" : "déconnecté"}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>{o.entityCount}</Table.Td>
-                </Table.Tr>
+                    </Table.Td>
+                    <Table.Td>{o.entityCount}</Table.Td>
+                  </Table.Tr>
                 );
               })}
             </Table.Tbody>

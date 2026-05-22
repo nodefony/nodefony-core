@@ -114,6 +114,7 @@ export const RealtimeConsole = observer(() => {
   return (
     <Stack gap="lg">
       <PageHeader
+        sticky
         title="Realtime Hub"
         subtitle="Connexion, abonnements & protocole de la socket en direct"
         actions={

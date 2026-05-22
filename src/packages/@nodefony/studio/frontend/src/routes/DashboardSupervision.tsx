@@ -188,24 +188,34 @@ export const DashboardSupervision = observer(() => {
   // couleur seule — WCAG 2.2).
   const alerts: { color: string; msg: string }[] = [];
   if (!rtOnline)
-    alerts.push({ color: "red", msg: `Temps réel ${rtState} — métriques figées` });
+    alerts.push({
+      color: "red",
+      msg: `Temps réel ${rtState} — métriques figées`,
+    });
   if (cpuH.color !== "teal")
     alerts.push({ color: cpuH.color, msg: `CPU ${cpu}% (${cpuH.label})` });
   if (memH.color !== "teal")
-    alerts.push({ color: memH.color, msg: `Mémoire heap ${heapPct}% (${memH.label})` });
+    alerts.push({
+      color: memH.color,
+      msg: `Mémoire heap ${heapPct}% (${memH.label})`,
+    });
   if (loopH.color !== "teal")
     alerts.push({
       color: loopH.color,
       msg: `Event-loop ${loop.toFixed(1)} ms (${loopH.label})`,
     });
   if (errH.color !== "teal")
-    alerts.push({ color: errH.color, msg: `${errPerMin} erreur(s)/min (${errH.label})` });
+    alerts.push({
+      color: errH.color,
+      msg: `${errPerMin} erreur(s)/min (${errH.label})`,
+    });
 
   const up = rtOnline && !!stats && alerts.length === 0;
 
   return (
     <Stack gap="lg">
       <PageHeader
+        sticky
         title="Supervision"
         subtitle={
           <>
@@ -226,7 +236,13 @@ export const DashboardSupervision = observer(() => {
               </Badge>
             )}
             <Badge
-              color={rtOnline ? "teal" : rtState === "reconnecting" ? "yellow" : "gray"}
+              color={
+                rtOnline
+                  ? "teal"
+                  : rtState === "reconnecting"
+                    ? "yellow"
+                    : "gray"
+              }
               variant="light"
               size="lg"
             >
@@ -378,7 +394,12 @@ export const DashboardSupervision = observer(() => {
       </Grid>
 
       {/* ── Détail en onglets (« tablettes ») ── */}
-      <Tabs defaultValue="performance" keepMounted={false} variant="outline" radius="md">
+      <Tabs
+        defaultValue="performance"
+        keepMounted={false}
+        variant="outline"
+        radius="md"
+      >
         <Tabs.List mb="md">
           <Tabs.Tab value="performance" leftSection={<IconCpu size={15} />}>
             Performance
@@ -394,147 +415,153 @@ export const DashboardSupervision = observer(() => {
           </Tabs.Tab>
         </Tabs.List>
 
-      <Tabs.Panel value="performance">
-      <Grid>
-        <Grid.Col span={{ base: 12, md: 6 }}>
-          <ChartCard
-            title="Charge CPU"
-            badge={
-              <Badge variant="light" color={cpuH.color}>
-                {cpu}%
-              </Badge>
-            }
-            caption="% d'un cœur sur les 60 dernières secondes. Zone rouge = >80%."
-          >
-            {cpuHist.length > 1 ? (
-              <MiniChart
-                height={180}
-                max={100}
-                threshold={80}
-                format={(v) => `${Math.round(v)}%`}
-                series={[
-                  {
-                    data: cpuHist,
-                    color: "var(--mantine-color-teal-6)",
-                    label: "CPU",
-                  },
-                ]}
-              />
-            ) : (
-              <Waiting />
-            )}
-          </ChartCard>
-        </Grid.Col>
+        <Tabs.Panel value="performance">
+          <Grid>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <ChartCard
+                title="Charge CPU"
+                badge={
+                  <Badge variant="light" color={cpuH.color}>
+                    {cpu}%
+                  </Badge>
+                }
+                caption="% d'un cœur sur les 60 dernières secondes. Zone rouge = >80%."
+              >
+                {cpuHist.length > 1 ? (
+                  <MiniChart
+                    height={180}
+                    max={100}
+                    threshold={80}
+                    format={(v) => `${Math.round(v)}%`}
+                    series={[
+                      {
+                        data: cpuHist,
+                        color: "var(--mantine-color-teal-6)",
+                        label: "CPU",
+                      },
+                    ]}
+                  />
+                ) : (
+                  <Waiting />
+                )}
+              </ChartCard>
+            </Grid.Col>
 
-        <Grid.Col span={{ base: 12, md: 6 }}>
-          <ChartCard
-            title="Event-loop lag"
-            badge={
-              <Badge variant="light" color={loopH.color}>
-                {loop.toFixed(1)} ms
-              </Badge>
-            }
-            caption="Retard de la boucle Node. Plus c'est bas, plus le serveur est réactif. Zone rouge = >50ms."
-          >
-            {loopHist.length > 1 ? (
-              <MiniChart
-                height={180}
-                threshold={50}
-                format={ms}
-                series={[
-                  {
-                    data: loopHist,
-                    color: "var(--mantine-color-grape-6)",
-                    label: "Lag",
-                  },
-                ]}
-              />
-            ) : (
-              <Waiting />
-            )}
-          </ChartCard>
-        </Grid.Col>
-      </Grid>
-      </Tabs.Panel>
+            <Grid.Col span={{ base: 12, md: 6 }}>
+              <ChartCard
+                title="Event-loop lag"
+                badge={
+                  <Badge variant="light" color={loopH.color}>
+                    {loop.toFixed(1)} ms
+                  </Badge>
+                }
+                caption="Retard de la boucle Node. Plus c'est bas, plus le serveur est réactif. Zone rouge = >50ms."
+              >
+                {loopHist.length > 1 ? (
+                  <MiniChart
+                    height={180}
+                    threshold={50}
+                    format={ms}
+                    series={[
+                      {
+                        data: loopHist,
+                        color: "var(--mantine-color-grape-6)",
+                        label: "Lag",
+                      },
+                    ]}
+                  />
+                ) : (
+                  <Waiting />
+                )}
+              </ChartCard>
+            </Grid.Col>
+          </Grid>
+        </Tabs.Panel>
 
-      <Tabs.Panel value="memoire">
-      <Stack gap="lg">
-      <ChartCard
-        title="Mémoire"
-        badge={
-          stats && (
-            <Badge variant="light" color="blue">
-              {bytes(stats.memory.heapUsed)} / {bytes(stats.memory.rss)}
-            </Badge>
-          )
-        }
-        caption="Heap (bleu) = objets JS gérés par V8. RSS (violet) = mémoire totale du process. Une croissance continue du heap = fuite potentielle."
-      >
-        {memHist.length > 1 ? (
-          <>
-            <MiniChart
-              height={190}
-              format={mb}
-              series={[
-                {
-                  data: memHist.map((m) => m.heap),
-                  color: "var(--mantine-color-blue-6)",
-                  label: "Heap",
-                },
-                {
-                  data: memHist.map((m) => m.rss),
-                  color: "var(--mantine-color-grape-6)",
-                  label: "RSS",
-                },
-              ]}
-            />
-            <Group gap="lg" mt="xs">
-              <Legend color="var(--mantine-color-blue-6)" label="Heap (objets JS)" />
-              <Legend color="var(--mantine-color-grape-6)" label="RSS (process)" />
-            </Group>
-          </>
-        ) : (
-          <Waiting />
-        )}
-      </ChartCard>
+        <Tabs.Panel value="memoire">
+          <Stack gap="lg">
+            <ChartCard
+              title="Mémoire"
+              badge={
+                stats && (
+                  <Badge variant="light" color="blue">
+                    {bytes(stats.memory.heapUsed)} / {bytes(stats.memory.rss)}
+                  </Badge>
+                )
+              }
+              caption="Heap (bleu) = objets JS gérés par V8. RSS (violet) = mémoire totale du process. Une croissance continue du heap = fuite potentielle."
+            >
+              {memHist.length > 1 ? (
+                <>
+                  <MiniChart
+                    height={190}
+                    format={mb}
+                    series={[
+                      {
+                        data: memHist.map((m) => m.heap),
+                        color: "var(--mantine-color-blue-6)",
+                        label: "Heap",
+                      },
+                      {
+                        data: memHist.map((m) => m.rss),
+                        color: "var(--mantine-color-grape-6)",
+                        label: "RSS",
+                      },
+                    ]}
+                  />
+                  <Group gap="lg" mt="xs">
+                    <Legend
+                      color="var(--mantine-color-blue-6)"
+                      label="Heap (objets JS)"
+                    />
+                    <Legend
+                      color="var(--mantine-color-grape-6)"
+                      label="RSS (process)"
+                    />
+                  </Group>
+                </>
+              ) : (
+                <Waiting />
+              )}
+            </ChartCard>
 
-      {/* Heap V8 — onglet Mémoire */}
-      <Card withBorder radius="md" p="lg">
-            <Group gap={6} mb="md">
-              <IconDatabase size={20} stroke={1.5} />
-              <Title order={4}>Heap V8</Title>
-              <Text size="xs" c="dimmed">
-                % du plafond
-              </Text>
-            </Group>
-            {waiting ? (
-              <Skeleton h={120} />
-            ) : (
-              <Group align="center" gap="xl" wrap="nowrap">
-                <RingProgress
-                  size={110}
-                  thickness={12}
-                  sections={[{ value: heapPct, color: memH.color }]}
-                  label={
-                    <Text ta="center" size="lg" fw={700}>
-                      {heapPct}%
-                    </Text>
-                  }
-                />
-                <Stack gap={4} style={{ flex: 1 }}>
-                  <Row k="Heap utilisé" v={bytes(stats!.memory.heapUsed)} />
-                  <Row k="Heap alloué" v={bytes(stats!.memory.heapTotal)} />
-                  <Row k="Plafond V8" v={bytes(heapCeiling)} />
-                  <Row k="RSS" v={bytes(stats!.memory.rss)} />
-                  <Row k="Externe" v={bytes(stats!.memory.external)} />
-                </Stack>
+            {/* Heap V8 — onglet Mémoire */}
+            <Card withBorder radius="md" p="lg">
+              <Group gap={6} mb="md">
+                <IconDatabase size={20} stroke={1.5} />
+                <Title order={4}>Heap V8</Title>
+                <Text size="xs" c="dimmed">
+                  % du plafond
+                </Text>
               </Group>
-            )}
-      </Card>
-      </Stack>
-      </Tabs.Panel>
+              {waiting ? (
+                <Skeleton h={120} />
+              ) : (
+                <Group align="center" gap="xl" wrap="nowrap">
+                  <RingProgress
+                    size={110}
+                    thickness={12}
+                    sections={[{ value: heapPct, color: memH.color }]}
+                    label={
+                      <Text ta="center" size="lg" fw={700}>
+                        {heapPct}%
+                      </Text>
+                    }
+                  />
+                  <Stack gap={4} style={{ flex: 1 }}>
+                    <Row k="Heap utilisé" v={bytes(stats!.memory.heapUsed)} />
+                    <Row k="Heap alloué" v={bytes(stats!.memory.heapTotal)} />
+                    <Row k="Plafond V8" v={bytes(heapCeiling)} />
+                    <Row k="RSS" v={bytes(stats!.memory.rss)} />
+                    <Row k="Externe" v={bytes(stats!.memory.external)} />
+                  </Stack>
+                </Group>
+              )}
+            </Card>
+          </Stack>
+        </Tabs.Panel>
 
-      <Tabs.Panel value="erreurs">
+        <Tabs.Panel value="erreurs">
           <ChartCard
             title="Erreurs / s"
             badge={
@@ -561,38 +588,48 @@ export const DashboardSupervision = observer(() => {
               <Waiting />
             )}
           </ChartCard>
-      </Tabs.Panel>
+        </Tabs.Panel>
 
-      <Tabs.Panel value="systeme">
-      <Card withBorder radius="md" p="lg">
-        <Group justify="space-between" mb="md">
-          <Title order={4}>Système</Title>
-          <IconServer size={20} stroke={1.4} />
-        </Group>
-        <Grid>
-          <Grid.Col span={{ base: 12, sm: 6 }}>
-            <Stack gap={6}>
-              <Row k="Environnement" v={info?.environment ?? "—"} mono />
-              <Row k="Version" v={info?.version ?? "—"} mono />
-              <Row k="PID" v={String(stats?.pid ?? info?.pid ?? "—")} mono />
-            </Stack>
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, sm: 6 }}>
-            <Stack gap={6}>
-              <Row
-                k="Load avg"
-                v={
-                  stats ? stats.loadavg.map((l) => l.toFixed(2)).join(" / ") : "—"
-                }
-                mono
-              />
-              <Row k="Cœurs" v={String(stats?.cpuCount ?? "—")} mono />
-              <Row k="Uptime" v={stats ? uptimeStr(stats.uptime) : "—"} mono />
-            </Stack>
-          </Grid.Col>
-        </Grid>
-      </Card>
-      </Tabs.Panel>
+        <Tabs.Panel value="systeme">
+          <Card withBorder radius="md" p="lg">
+            <Group justify="space-between" mb="md">
+              <Title order={4}>Système</Title>
+              <IconServer size={20} stroke={1.4} />
+            </Group>
+            <Grid>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Stack gap={6}>
+                  <Row k="Environnement" v={info?.environment ?? "—"} mono />
+                  <Row k="Version" v={info?.version ?? "—"} mono />
+                  <Row
+                    k="PID"
+                    v={String(stats?.pid ?? info?.pid ?? "—")}
+                    mono
+                  />
+                </Stack>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Stack gap={6}>
+                  <Row
+                    k="Load avg"
+                    v={
+                      stats
+                        ? stats.loadavg.map((l) => l.toFixed(2)).join(" / ")
+                        : "—"
+                    }
+                    mono
+                  />
+                  <Row k="Cœurs" v={String(stats?.cpuCount ?? "—")} mono />
+                  <Row
+                    k="Uptime"
+                    v={stats ? uptimeStr(stats.uptime) : "—"}
+                    mono
+                  />
+                </Stack>
+              </Grid.Col>
+            </Grid>
+          </Card>
+        </Tabs.Panel>
       </Tabs>
     </Stack>
   );
