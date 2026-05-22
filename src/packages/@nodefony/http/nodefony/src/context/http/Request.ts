@@ -9,13 +9,7 @@ import formidable, { IncomingForm } from "formidable";
 //import { Container } from "nodefony";
 import { ParserXml, ParserQs, Parser, acceptParser } from "./parser";
 import { UploadedFile } from "../../../service/upload/upload-service";
-import {
-  extend,
-  Pdu,
-  Message,
-  Severity,
-  Msgid,
-} from "nodefony";
+import { extend, Pdu, Message, Severity, Msgid } from "nodefony";
 import Session from "../../session/session";
 import { HttpError } from "@nodefony/http";
 
@@ -87,7 +81,7 @@ class HttpRequest {
   origin: string | undefined;
   constructor(
     request: http.IncomingMessage | http2.Http2ServerRequest,
-    context: HttpContext
+    context: HttpContext,
   ) {
     this.request = request;
     this.request.on("data", (data) => {
@@ -107,7 +101,10 @@ class HttpRequest {
     this.formidableOption =
       this.context?.httpKernel?.module.options.formidable || {};
     if (this.url.search) {
-      this.url.query = QS.parse(this.url.search.slice(1), this.queryStringOptions || {});
+      this.url.query = QS.parse(
+        this.url.search.slice(1),
+        this.queryStringOptions || {},
+      );
     } else {
       this.url.query = {};
     }
@@ -145,7 +142,7 @@ class HttpRequest {
             } catch (error) {
               return this.context?.httpKernel?.onError(
                 error as Error,
-                this.context
+                this.context,
               );
             }
             //});
@@ -163,7 +160,7 @@ class HttpRequest {
               } catch (error) {
                 return this.context.httpKernel?.onError(
                   error as Error,
-                  this.context
+                  this.context,
                 );
               }
               // });
@@ -202,7 +199,7 @@ class HttpRequest {
               let fields;
               let files;
               [fields, files] = await this.parser.parse(
-                this.request as http.IncomingMessage
+                this.request as http.IncomingMessage,
               );
               try {
                 await parserInst.parse();
@@ -223,10 +220,10 @@ class HttpRequest {
                           let tab: formidable.File[] = ele as formidable.File[];
                           for (const multifiles in tab) {
                             let ele = tab[multifiles];
-                            this.createFileUpload(
+                            await this.createFileUpload(
                               multifiles,
                               ele,
-                              opt.maxFileSize
+                              opt.maxFileSize,
                             );
                           }
                         }
@@ -235,17 +232,17 @@ class HttpRequest {
                         // }
                       } else if (Array.isArray(ele)) {
                         for (const multifiles in ele) {
-                          this.createFileUpload(
+                          await this.createFileUpload(
                             multifiles,
                             ele[multifiles],
-                            opt.maxFileSize
+                            opt.maxFileSize,
                           );
                         }
                       } else {
-                        this.createFileUpload(
+                        await this.createFileUpload(
                           file,
                           ele as any,
-                          opt.maxFileSize
+                          opt.maxFileSize,
                         );
                       }
                     } catch (err) {
@@ -322,21 +319,21 @@ class HttpRequest {
     }
   }
 
-  createFileUpload(
+  async createFileUpload(
     name: string,
     file?: formidable.File,
-    maxSize?: number
-  ): any {
+    maxSize?: number,
+  ): Promise<any> {
     if (file && maxSize && file.size > maxSize) {
       throw new Error(
         `maxFileSize exceeded, received ${file.size} bytes of file data for : ${file.originalFilename}` ||
           name ||
-          file.newFilename
+          file.newFilename,
       );
     }
-    const fileUpload = this.context.uploadService?.createUploadFile(
+    const fileUpload = await this.context.uploadService?.createUploadFile(
       file as formidable.File,
-      name
+      name,
     );
     /*const index =*/
     if (fileUpload) {
@@ -352,7 +349,7 @@ class HttpRequest {
   }
 
   getContentType(
-    request: http.IncomingMessage | http2.Http2ServerRequest
+    request: http.IncomingMessage | http2.Http2ServerRequest,
   ): string | null {
     if (request.headers["content-type"]) {
       const tab = request.headers["content-type"].split(";");

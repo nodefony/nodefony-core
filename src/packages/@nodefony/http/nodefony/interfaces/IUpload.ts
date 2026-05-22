@@ -8,6 +8,8 @@ export interface IUploadedFile {
   lastModifiedDate: Date | null | undefined;
 
   move(target: string): IUploadedFile;
+  /** Variante non bloquante de `move()` (recommandée dans le pipeline). */
+  moveAsync(target: string): Promise<IUploadedFile>;
   getMimeType(): string | null | undefined;
   getSize(): number;
   getPrettySize(): string;
@@ -15,5 +17,6 @@ export interface IUploadedFile {
 
 export interface IUploadService {
   path?: string | unknown;
-  createUploadFile(file: unknown, name: string): IUploadedFile;
+  /** Construit un `UploadedFile` en async (stat non bloquant). */
+  createUploadFile(file: unknown, name: string): Promise<IUploadedFile>;
 }
