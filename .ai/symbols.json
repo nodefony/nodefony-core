@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-22T07:14:17.385Z",
+  "generated": "2026-05-22T08:14:28.925Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 296,
-    "symbols": 742,
+    "files": 297,
+    "symbols": 752,
     "classes": 207,
-    "interfaces": 252,
+    "interfaces": 255,
     "types": 144,
     "enums": 1,
-    "functions": 118,
+    "functions": 125,
     "constants": 20
   },
   "symbols": {
@@ -1279,6 +1279,87 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Calcule le layout proportionnel des phases serveur (waterfall). Pur. Chaque barre est positionnée sur le span `[min start, max end]` en %. Une phase de durée nulle reçoit une largeur plancher (visi…"
+    },
+    "NodefonyProviderProps": {
+      "name": "NodefonyProviderProps",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "ChannelStatsSnapshot": {
+      "name": "ChannelStatsSnapshot",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Stats observées d'un canal (telles que calculées par le client Core)."
+    },
+    "UseSyslogOptions": {
+      "name": "UseSyslogOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "NodefonyProvider": {
+      "name": "NodefonyProvider",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Injecte le client temps réel Nodefony dans le sous-arbre. À monter une fois, au-dessus des composants qui consomment les hooks `useNodefony*`."
+    },
+    "useNodefony": {
+      "name": "useNodefony",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefony()` — le client temps réel brut (hub : canaux, syslog, stats…). Tête de gondole + échappatoire pour les cas avancés. Référence stable (pas de re-render) ; pour l'état réactif, utiliser …"
+    },
+    "useNodefonyState": {
+      "name": "useNodefonyState",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyState()` — état de la connexion (`\"connected\" | \"reconnecting\" | …`). `useSyncExternalStore` : re-render UNIQUEMENT au changement d'état (snapshot primitif, sans tearing en mode concurr…"
+    },
+    "useNodefonyChannel": {
+      "name": "useNodefonyChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyChannel()` — s'abonne à un canal pub/sub : `onMessage` est appelé à chaque message. Gère subscribe/unsubscribe serveur (ref-comptés) + re-subscribe au reconnect. Le handler peut changer…"
+    },
+    "useNodefonyChannelData": {
+      "name": "useNodefonyChannelData",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyChannelData()` — la **dernière valeur** reçue sur un canal (cas le plus courant : dernière mesure d'un flux de stats). `null` tant que rien n'est arrivé."
+    },
+    "useNodefonyChannelStats": {
+      "name": "useNodefonyChannelStats",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyChannelStats()` — stats live d'un canal (débit, série VU-mètre, total). Source = le client Core (`getChannelStats`, échantillonné 1×/s). Implémenté en `state`+effet (pas `useSyncExterna…"
+    },
+    "useNodefonySyslog": {
+      "name": "useNodefonySyslog",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonySyslog()` — flux syslog prêt à l'emploi : ring buffer borné + filtre de sévérité. Gère le format **coalescé** du canal (`{ logs: Pdu[], dropped }`) ET le Pdu unique. Brique de la page L…"
     },
     "RealtimeClient": {
       "name": "RealtimeClient",
@@ -6931,7 +7012,8 @@
       ],
       "RealtimeClient": [
         "src/nodefony/src/client/index.ts",
-        "src/nodefony/src/client/debugbar/DebugBar.ts"
+        "src/nodefony/src/client/debugbar/DebugBar.ts",
+        "src/nodefony/src/client/react/index.ts"
       ],
       "File": [
         "src/nodefony/src/command/Builder.ts",
@@ -7080,7 +7162,8 @@
       ],
       "RealtimeState": [
         "src/nodefony/src/client/debugbar/DebugBar.ts",
-        "src/nodefony/src/client/debugbar/model.ts"
+        "src/nodefony/src/client/debugbar/model.ts",
+        "src/nodefony/src/client/react/index.ts"
       ],
       "DebugBarModel": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"

@@ -160,10 +160,22 @@ const browserShim: Plugin = {
 function createClientConfig(isProduction: boolean): RollupOptions {
   return defineConfig({
     // Multi-entry : `index` (barrel browser `nodefony`) + `debugbar` (subpath
-    // `nodefony/debugbar`). preserveModules → RealtimeClient partagé, émis 1×
-    // (0 duplication). Le subpath n'est JAMAIS réexporté depuis client/index.ts.
-    input: ["src/client/index.ts", "src/client/debugbar/index.ts"],
+    // `nodefony/debugbar`) + `react` (subpath `nodefony/react`). preserveModules
+    // → RealtimeClient partagé, émis 1× (0 duplication). Les subpaths ne sont
+    // JAMAIS réexportés depuis client/index.ts.
+    input: [
+      "src/client/index.ts",
+      "src/client/debugbar/index.ts",
+      "src/client/react/index.ts",
+    ],
     onwarn,
+    // `react` = peerDep OPTIONNELLE du subpath `nodefony/react` → externe
+    // (jamais bundlée ; c'est l'app qui fournit React).
+    external: (id) =>
+      id === "react" ||
+      id === "react-dom" ||
+      id.startsWith("react/") ||
+      id.startsWith("react-dom/"),
     output: {
       dir: "./dist/client",
       entryFileNames: "[name].js",

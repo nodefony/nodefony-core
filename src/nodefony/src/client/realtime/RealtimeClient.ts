@@ -95,6 +95,11 @@ export class RealtimeClient {
   private nextId = 1;
   private readonly pending = new Map<number, PendingRequest>();
   private readonly handlers = new Map<string, Set<EventHandler>>();
+  // Abonnements pub/sub ref-comptés (canal → nb de consommateurs). Le subscribe/
+  // unsubscribe RÉSEAU n'est émis qu'aux transitions 0↔1 → N consommateurs (hooks
+  // React `nodefony/react` + store MobX Studio) partagent UN seul abonnement
+  // serveur, sans se couper l'un l'autre. Ré-abonné automatiquement au reconnect.
+  private readonly _subscriptions = new Map<string, number>();
   private reconnectAttempt = 0;
   private _nextRetryAt: number | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -180,6 +185,42 @@ export class RealtimeClient {
   emit(method: string, params?: unknown): void {
     const msg: JsonRpcNotification = { jsonrpc: "2.0", method, params };
     this.send(msg);
+  }
+
+  /**
+   * S'abonne à un canal pub/sub serveur (**ref-compté**). Émet la notification
+   * `subscribe` au serveur UNIQUEMENT au 1er consommateur du canal ; les suivants
+   * ne font qu'incrémenter le compteur. Ré-émis automatiquement à chaque
+   * (re)connexion. NE remplace PAS {@link on} : `on(channel, h)` REÇOIT les
+   * messages, `subscribe(channel)` DEMANDE au serveur de les pousser.
+   *
+   * Autorité unique partagée par le binding `nodefony/react` ET le store Studio →
+   * deux consommateurs du même canal ne se coupent plus l'un l'autre.
+   */
+  subscribe(channel: string): void {
+    const n = (this._subscriptions.get(channel) ?? 0) + 1;
+    this._subscriptions.set(channel, n);
+    if (n === 1) this.emit("subscribe", { channel });
+  }
+
+  /**
+   * Désabonne un consommateur d'un canal (ref-compté) : émet `unsubscribe` au
+   * serveur seulement au **dernier** consommateur. No-op si le canal n'est pas suivi.
+   */
+  unsubscribe(channel: string): void {
+    const cur = this._subscriptions.get(channel);
+    if (!cur) return;
+    if (cur <= 1) {
+      this._subscriptions.delete(channel);
+      this.emit("unsubscribe", { channel });
+    } else {
+      this._subscriptions.set(channel, cur - 1);
+    }
+  }
+
+  /** Canaux actuellement abonnés (≥ 1 consommateur). Lecture seule. */
+  get subscribedChannels(): string[] {
+    return Array.from(this._subscriptions.keys());
   }
 
   /** Request/response JSON-RPC 2.0 — Promise resolved with `result`. */
@@ -346,6 +387,12 @@ export class RealtimeClient {
         this._nextRetryAt = null;
         this.setState("connected");
         this.startHeartbeat();
+        // Ré-abonne tous les canaux ref-comptés : le serveur repart d'un état
+        // vide après une (re)connexion ; couvre aussi un `subscribe` appelé avant
+        // l'ouverture du socket (l'`emit` avait alors été droppé par `send`).
+        for (const channel of this._subscriptions.keys()) {
+          this.emit("subscribe", { channel });
+        }
         resolve();
       };
       this.ws.onmessage = (ev) => this.handleMessage(ev.data);
