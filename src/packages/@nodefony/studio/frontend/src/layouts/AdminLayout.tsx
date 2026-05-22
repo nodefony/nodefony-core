@@ -19,10 +19,11 @@ import {
   Tooltip,
   TextInput,
   UnstyledButton,
+  HoverCard,
   useMantineColorScheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { ConnectionDrawer } from "../components/ConnectionDrawer";
+import { RealtimeHubContent } from "../components/RealtimeHubContent";
 import { ConnectionOverlay } from "../components/ConnectionOverlay";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import {
@@ -108,7 +109,6 @@ function NavEntry({
 
 export const AdminLayout = observer(() => {
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure(false);
-  const [drawerOpen, drawerHandlers] = useDisclosure(false);
   const auth = useAuth();
   const conn = useConnection();
   const ui = useUi();
@@ -214,46 +214,59 @@ export const AdminLayout = observer(() => {
             </RouterNavLink>
           </Group>
           <Group gap="xs">
-            <Tooltip
-              label={
-                conn.isConnected
-                  ? `Realtime connecté — ${conn.subscriptionCount} sub${conn.subscriptionCount > 1 ? "s" : ""} — ouvrir la console`
-                  : `Realtime: ${conn.state} — ouvrir la console`
-              }
+            {/* Hover = aperçu du hub (abonnements de la PAGE COURANTE, en live —
+                la vraie vision par page) ; clic = console Realtime complète. */}
+            <HoverCard
+              width={380}
+              position="bottom-end"
+              shadow="md"
+              openDelay={150}
+              closeDelay={120}
+              withinPortal
             >
-              <UnstyledButton onClick={() => navigate("/nodefony/realtime")}>
-                <Badge
-                  leftSection={
-                    conn.isConnected ? (
-                      <IconPlugConnected size={12} />
-                    ) : (
-                      <IconPlugX size={12} />
-                    )
-                  }
-                  color={
-                    conn.isConnected
-                      ? "teal"
-                      : conn.state === "connecting" ||
-                          conn.state === "reconnecting"
-                        ? "yellow"
-                        : conn.state === "error"
-                          ? "red"
-                          : "gray"
-                  }
-                  variant="light"
-                  rightSection={
-                    conn.subscriptionCount > 0 ? (
-                      <Badge size="xs" variant="filled" color="brand" circle>
-                        {conn.subscriptionCount}
-                      </Badge>
-                    ) : null
-                  }
-                  style={{ cursor: "pointer" }}
+              <HoverCard.Target>
+                <UnstyledButton
+                  onClick={() => navigate("/nodefony/realtime")}
+                  aria-label="Hub temps réel — ouvrir la console"
                 >
-                  {conn.state}
-                </Badge>
-              </UnstyledButton>
-            </Tooltip>
+                  <Badge
+                    leftSection={
+                      conn.isConnected ? (
+                        <IconPlugConnected size={12} />
+                      ) : (
+                        <IconPlugX size={12} />
+                      )
+                    }
+                    color={
+                      conn.isConnected
+                        ? "teal"
+                        : conn.state === "connecting" ||
+                            conn.state === "reconnecting"
+                          ? "yellow"
+                          : conn.state === "error"
+                            ? "red"
+                            : "gray"
+                    }
+                    variant="light"
+                    rightSection={
+                      conn.subscriptionCount > 0 ? (
+                        <Badge size="xs" variant="filled" color="brand" circle>
+                          {conn.subscriptionCount}
+                        </Badge>
+                      ) : null
+                    }
+                    style={{ cursor: "pointer" }}
+                  >
+                    {conn.state}
+                  </Badge>
+                </UnstyledButton>
+              </HoverCard.Target>
+              <HoverCard.Dropdown p="sm">
+                <RealtimeHubContent
+                  onOpenConsole={() => navigate("/nodefony/realtime")}
+                />
+              </HoverCard.Dropdown>
+            </HoverCard>
             <Tooltip
               label={`Palette : ${ui.palette === "nodefony" ? "Nodefony (bleu)" : "Orange"} — cliquer pour basculer`}
             >
@@ -487,7 +500,6 @@ export const AdminLayout = observer(() => {
         </ErrorBoundary>
       </AppShell.Main>
 
-      <ConnectionDrawer opened={drawerOpen} onClose={drawerHandlers.close} />
       <ConnectionOverlay />
     </AppShell>
   );
