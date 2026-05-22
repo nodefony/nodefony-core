@@ -10,6 +10,16 @@
 - Roadmap Phase 10 : skill `nodefony-roadmap`
 - Kit de reprise IA : mémoire `project_studio_prep_kit`
 
+## 🚨 RÈGLE ABSOLUE — dev Studio = skill `nodefony-studio-dev` OBLIGATOIRE
+
+**Dès que tu développes le frontend Studio** (page, dashboard, panneau, onglet, composant),
+tu DOIS d'abord invoquer le skill **`nodefony-studio-dev`** (déclencheurs : « dev studio »,
+« page studio », « dashboard studio », « écran/panneau studio »). Il contient le kit VIVANT :
+API exacte du UI kit + hooks `nodefony/react`, recette (route/lazy/navConfig/fallback/data plane),
+squelettes, règles qualité (a11y/sécu/perf), gate `npm run typecheck`, et le **retex** (tous les
+problèmes rencontrés + leur fix). Source de vérité unique → ne PAS réinventer ni explorer le kit.
+**Fin de session Studio** : compléter la section Retex du skill (problèmes + fixes + nouvelles briques).
+
 ## Rôle du module
 
 **Admin web de Nodefony** — successeur du legacy `monitoring-bundle`. Backend = controller Nodefony exposant l'UI + des API. Frontend = SPA **React 19** servie via `@nodefony/frontend` (Vite). C'est le **1er consommateur prod** de `@nodefony/frontend`.
