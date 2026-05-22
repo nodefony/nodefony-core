@@ -159,7 +159,7 @@ Restent (non implémentés) :
 
 - **Index/unicité composite** (ex. `RoomMember(roomId, userId)` unique) — ⚠️ l'adapter Drizzle ne génère pas encore d'index composite dans son DDL dérivé (`#createTableSQL` = colonnes + pk/unique par colonne) ; à traiter avec le support index.
 - **Volume** : générer N milliers de lignes (suite lourde) pour le stress ORM/perf.
-- **Portabilité** : rejouer le modèle (8 entités) sur **Sequelize** et **Mongoose**.
+- ✅ **Portabilité Sequelize** faite (11 tests). Reste **Mongoose** (store documentaire : refs ObjectId + virtual populate).
 
 ---
 
@@ -167,6 +167,7 @@ Restent (non implémentés) :
 
 - ✅ **Modèle ORM Drizzle** (8 entités) + connecteur dédié + ERD Studio (2026-05-22).
 - ✅ **Tests d'intégration ORM** (`tests/integration/orm-mediasoup.test.ts`, **11 tests** : N-N ×2, auto-réf, FK nullable, soft-delete, unique, JSON, eager-load, opérateurs, transactions) — `npm test`.
+- ✅ **Portabilité Sequelize** (`tests/integration/orm-mediasoup-sequelize.test.ts`, **11 tests**) : MÊME modèle logique + MÊME API repository, schéma réécrit en `DataTypes`. **22 tests verts au total** (Drizzle + Sequelize).
 - ⬜ Portabilité Sequelize / Mongoose (même modèle).
 - ⬜ Fixtures portées du legacy.
 - ⬜ **P15** — couche mediasoup : `MediasoupService` (Workers), `RoomManager`/`PeersService`,
