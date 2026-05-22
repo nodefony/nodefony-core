@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.1.0
+version: 1.2.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.1.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.2.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -110,6 +110,14 @@ sûr, typé** sans ré-explorer les ~15 `CLAUDE.md`/`MEMORY.md` : signatures, ch
 - **Module hooks = méthodes prototype**, jamais arrow ni property initializer (`super()` tourne avant
   les initializers → un hook en property n'est pas encore défini quand `setEvents()` le wire).
 - **`@nodefony/http` ne peut PAS importer `@nodefony/framework`** (cycle) → resolver via `(context as any)?.resolver`.
+- **Zéro I/O synchrone dans le pipeline/boot** : `fs.lstatSync`/`readFileSync`/`existsSync` bloquent l'event-loop.
+  `FileClass` a une voie **async** : `await FileClass.from(path)` (au lieu de `new FileClass` = `lstatSync`),
+  `moveAsync`/`unlinkAsync` ; `Finder` stat en parallèle (`Promise.all`) + `checkPathAsync`. `Controller.getFile()`
+  est `@deprecated` → `getFileAsync()`. Les `render*`/`stream*` sont async. Exception tolérée : un `mkdirSync`
+  **idempotent au boot** hors hot path (ex. `tmp/` — cf BUG-CI-001, dossier gitignored absent en CI/pod frais).
+- **`turbo run build` (et `clean && build`) NE busте PAS le cache turbo** : il restaure un `dist/` caché avec un
+  mtime neuf → tu testes l'ANCIEN code (route qui hang, header périmé, export manquant). Avant tout test runtime
+  d'un diff non commité : **`npx turbo run build --force --filter=@nodefony/http --filter=@nodefony/test`**.
 
 ### Sécurité (directive permanente — Nodefony = référence)
 
@@ -329,6 +337,33 @@ export class ThingsController extends Controller {
 - **Points d'extension HttpKernel** (pluggables, singleton stateless 0-alloc) : `setRequestLogger(IRequestLogger)`
   (`DefaultRequestLogger`/`PrettyRequestLogger`/`JsonAuditLogger`) · `setErrorRenderer(IErrorRenderer)`
   (`DefaultErrorRenderer` → override pour RFC 7807, hide-stack prod, auth-challenge headers).
+
+### Contrat de réponse RFC du cycle (HTTP **et** WS — crucial realtime)
+
+Le `Resolver.returnController` normalise le retour d'action. **Connaître le contrat évite le « trap »** :
+
+- **`return <object|array>`** → **auto-JSON gardé** : `setContextJson()` + `render()`. Gardes : si `context.sended`
+  déjà → no-op ; n'auto-JSON QUE `isPlainObject`/`isArray` (un stream/Buffer/instance n'est PAS sérialisé).
+- **`return <string>`** → `ctx.send(result)`. **`return <Promise>`** → résolu puis re-normalisé.
+- **`return undefined` SANS avoir `send/stream/render`** = **le trap** : la réponse reste pendante. En `development`,
+  `HttpKernel.teardown` **WARN** (`waitAsync && !sended`) avec le nom de la route. → toujours `return` une valeur
+  rendable, ou envoyer manuellement.
+- **JSON sans charset** : `application/json` (et `+json`) émis **SANS** `; charset=` (RFC 8259 §11 — JSON = UTF-8
+  par spec, un param charset est non conforme/ignoré). Le reste garde `; charset=utf-8`.
+- **Headers par défaut** (RFC 9110) : `Content-Length` exact (omis sur HEAD/OPTIONS/TRACE + 204/304), `Date`
+  (auto Node h1), `x-request-id` (généré ou echo du `X-Request-Id` client), `traceparent` echo. `statusMessage`
+  réduit à l'ASCII imprimable avant `writeHead` (sinon `ERR_INVALID_CHAR`).
+- **`forward("mod:Ctrl:action")`** = re-dispatch **interne** sur le **même** contexte (RFC : **pas** un 3xx, aucun
+  `Location`, URL cliente inchangée, méthode/corps préservés). Status = celui du controller cible (défaut 200).
+- **Codes de fermeture WS RFC 6455 §7.4** : coercition via le helper pur `toWsCloseCode(code)` (exporté de
+  `WebsocketContext`). Émissibles conservés (1000-1003, 1007-1011, 3000-4999) ; HTTP 5xx→**1011**, 401/403→**1008**,
+  autre 4xx (404…)→**4004** privé (⚠️ **PAS** de `4000+code`/`4404` inventé) ; 0-999 + réservés non émissibles
+  (1004/1005/1006/1015)→1011. **`connection.on("error")` OBLIGATOIRE** sur toute socket ws (un `error` sans
+  listener = crash process). Côté client (RealtimeClient) : politique de reco PAR code (cf `[[project_realtime_close_codes_client]]`).
+- **`maxPayload` WS** (config `websocket.maxPayload`, défaut sûr **1 MiB** anti-DoS) → message trop gros = `ws`
+  ferme **1009 « Message Too Big »** (RFC 6455 §7.4.1) ; l'`error` est captée par `onConnectionError` (pas de crash).
+- **Throws** : pas de `try { … } catch (e) { throw e }` (no-op) ni `return await` dans le hot path (microtask
+  en plus) — laisser l'erreur/le rejet remonter seul jusqu'à `HttpKernel.onError`.
 
 ### Tests d'intégration (terrain de jeu = `src/modules/test`)
 
@@ -1033,6 +1068,18 @@ no entity table registered under "session"`, code 401, au Ctrl+C) : `DrizzleServ
   (a) toute promesse fire-and-forget dans le pipeline DOIT `.catch()` ; (b) un service infra doit tolérer
   d'être sollicité pendant le shutdown ; (c) reproduire une race de shutdown = boot enfant direct +
   marteler une route + SIGINT (cf recette §4 « Debug runtime »). Commit `ce181ba`.
+- _(2026-05-22)_ **Passe RFC complète du cycle** (HTTP+WS). (a) `application/json` portait `; charset=utf-8` →
+  retiré (RFC 8259 §11). (b) Auto-JSON gardé + WARN dev sur retour pendant (le « trap »). (c) Codes close WS
+  refaits via helper pur `toWsCloseCode` (pas de `4404` inventé — 4xx→4004) + `connection.on("error")` ajouté
+  (manquait → crash process possible sur erreur socket). (d) **`maxPayload` WS** câblé (n'était PAS passé à `ws`
+  → 100 MiB implicite = DoS mémoire) défaut 1 MiB → close 1009. (e) `forward` du module test pointait un
+  controller **inexistant** (`app:AppController` → forward cassé). **Leçons** : (1) toujours vérifier la RFC EXACTE
+  d'un comportement « raisonnable » (charset JSON, 4xxx privé) via `nodefony-rfc` ; (2) toute socket ws SANS
+  `on("error")` peut crasher le process ; (3) une option de lib (`maxPayload`) « par défaut » non passée = trou
+  silencieux — l'auditer. Commits `50d21cf` (1009) + tests headers/forward/stream-load.
+- _(2026-05-22)_ **turbo restaure du dist caché** : `clean && build` ne busте pas le cache → runtime sur vieux
+  code (route qui hang, header périmé). Fix systématique : `npx turbo run build --force --filter=…` avant test
+  runtime d'un diff non commité. (Promu en piège structurel §2.)
 
 ## 12. Fin de session (OBLIGATOIRE) + auto-audit de complétude
 
@@ -1096,6 +1143,10 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.2.0** (2026-05-22) — Section **« Contrat de réponse RFC du cycle »** (§4) : auto-JSON gardé + le « trap »
+  (WARN dev), JSON sans charset (RFC 8259 §11), headers défaut (RFC 9110), `forward` interne (pas un 3xx), codes
+  close WS (`toWsCloseCode` RFC 6455, pas de `4404`), `maxPayload`→1009, throws sans no-op. §2 : I/O sync interdit
+  (`FileClass.from`/`getFileAsync`) + piège **turbo restaure du dist caché** (`--force`). §11 : 2 RETEX (passe RFC, turbo).
 - **1.1.0** (2026-05-22) — Recette **« Debug runtime »** (§4) : boot enfant direct
   (`NODEFONY_DEV_CHILD=1`), reproduction d'une race de shutdown (martèlement + SIGINT), lecture de la
   vraie stack d'`unhandledRejection` (`PROMISE CHAIN BREAKING`), preuve d'erreur de type pré-existante
