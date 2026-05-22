@@ -21,7 +21,7 @@ import {
 } from "node:child_process";
 import moment from "moment";
 import semver from "semver";
-import asciify from "asciify";
+import figlet from "figlet";
 import Table, { TableConstructorOptions } from "cli-table3";
 import { get, random } from "node-emoji";
 import clc from "cli-color";
@@ -303,7 +303,7 @@ class Cli extends Service {
       name = this.name;
     }
     return await this.asciify(`      ${name}`, {
-      font: this.options.font || "standard",
+      font: this.options.font || "Standard",
     })
       .then((data: string) => {
         this.fire("onAsciify", data);
@@ -421,8 +421,8 @@ class Cli extends Service {
   }
 
   getFonts(): void {
-    asciify.getFonts((_err, fonts) => {
-      fonts.forEach((ele) => {
+    figlet.fonts((_err, fonts) => {
+      fonts?.forEach((ele) => {
         this.log(ele);
       });
     });
@@ -434,22 +434,22 @@ class Cli extends Service {
     callback?: (error: Error, data: string) => void,
   ): Promise<string> {
     return new Promise((resolve, reject) => {
-      asciify(
+      figlet(
         txt,
         extend(
           {
-            font: "standard",
+            font: "Standard",
           },
           options,
         ),
         (error, data) => {
           if (callback && typeof callback === "function") {
-            return callback(error, data);
+            return callback(error as Error, data ?? "");
           }
           if (error) {
             return reject(error);
           }
-          return resolve(data);
+          return resolve(data ?? "");
         },
       );
     });

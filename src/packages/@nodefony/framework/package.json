@@ -35,7 +35,7 @@
     "ejs": "3.1.10",
     "graphql": "16.14.0",
     "reflect-metadata": "0.2.2",
-    "twig": "1.17.1"
+    "twig": "3.0.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "29.0.2",

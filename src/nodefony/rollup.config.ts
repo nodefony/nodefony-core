@@ -11,7 +11,7 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 const external: string[] = [
   "nodefony",
-  "asciify",
+  "figlet",
   "cli-color",
   "cli-table3",
   "clui",
