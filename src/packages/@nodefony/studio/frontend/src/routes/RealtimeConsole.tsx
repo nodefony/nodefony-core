@@ -24,15 +24,24 @@ import {
   IconStack2,
   IconArrowsExchange,
   IconReload,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import {
   useNodefony,
   useNodefonyState,
   useNodefonyChannel,
 } from "nodefony/react";
-import type { RealtimeFrame } from "nodefony";
-import { useConnection } from "../stores";
+import type { RealtimeFrame, NoticeLevel } from "nodefony";
+import { useConnection, useNotifications } from "../stores";
 import { PageHeader, StatCard as Kpi, MiniChart } from "../components/ui";
+
+/** Niveau de notice → couleur Mantine (incidents temps réel). */
+const NOTICE_COLOR: Record<NoticeLevel, string> = {
+  success: "teal",
+  info: "blue",
+  warning: "yellow",
+  error: "red",
+};
 
 const MAX = 300;
 
@@ -66,6 +75,7 @@ export const RealtimeConsole = observer(() => {
   const client = useNodefony();
   const state = useNodefonyState();
   const conn = useConnection();
+  const incidents = useNotifications().realtimeIncidents;
 
   const [frames, setFrames] = useState<RealtimeFrame[]>([]);
   const [paused, setPaused] = useState(false);
@@ -240,6 +250,61 @@ export const RealtimeConsole = observer(() => {
         )}
       </Card>
 
+      {/* ── Incidents temps réel ── historique borné des notices normalisées
+          (criticités realtime + erreurs serveur poussées). L'overlay de connexion
+          est éphémère ; ici on garde la trace. Affiché seulement s'il y en a. */}
+      {incidents.length > 0 && (
+        <Card withBorder radius="md" p="lg">
+          <Group gap={6} mb="md">
+            <IconAlertTriangle size={20} stroke={1.5} />
+            <Title order={4}>Incidents temps réel</Title>
+            <Text size="xs" c="dimmed">
+              {incidents.length} — criticités &amp; erreurs serveur
+            </Text>
+          </Group>
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th w={90}>Niveau</Table.Th>
+                <Table.Th>Message</Table.Th>
+                <Table.Th w={90}>Source</Table.Th>
+                <Table.Th w={70}>Code</Table.Th>
+                <Table.Th w={110}>Heure</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {incidents.slice(0, 30).map((n, i) => (
+                <Table.Tr key={`${n.ts}-${i}`}>
+                  <Table.Td>
+                    <Badge
+                      size="xs"
+                      variant="light"
+                      color={NOTICE_COLOR[n.level]}
+                    >
+                      {n.level}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm">{n.message}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge size="xs" variant="outline" color="gray">
+                      {n.source}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>{n.code ?? "—"}</Table.Td>
+                  <Table.Td>
+                    <Text size="xs" c="dimmed">
+                      {new Date(n.ts).toLocaleTimeString()}
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Card>
+      )}
+
       {/* ── Log protocole ── */}
       <Card withBorder radius="md" p="lg">
         <Group justify="space-between" mb="md" wrap="wrap">
@@ -310,7 +375,8 @@ export const RealtimeConsole = observer(() => {
                         style={{
                           cursor: "pointer",
                           padding: "3px 4px",
-                          borderBottom: "1px solid var(--mantine-color-default-border)",
+                          borderBottom:
+                            "1px solid var(--mantine-color-default-border)",
                         }}
                       >
                         <Text
@@ -323,9 +389,15 @@ export const RealtimeConsole = observer(() => {
                           {clock(f.ts)}
                         </Text>
                         {f.dir === "out" ? (
-                          <IconArrowUp size={14} color="var(--mantine-color-blue-6)" />
+                          <IconArrowUp
+                            size={14}
+                            color="var(--mantine-color-blue-6)"
+                          />
                         ) : (
-                          <IconArrowDown size={14} color="var(--mantine-color-teal-6)" />
+                          <IconArrowDown
+                            size={14}
+                            color="var(--mantine-color-teal-6)"
+                          />
                         )}
                         <Badge
                           size="xs"
