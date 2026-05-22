@@ -515,6 +515,16 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 
 **Composants/conventions nés cette session**
 
+- **`PageHeader sticky`** (prop) : en-tête collé sous la barre AppShell au scroll
+  (`top: var(--app-shell-header-height)`, fond opaque, marges négatives = largeur pleine). À activer
+  sur les pages longues (dashboards, hub) → le titre reste visible.
+- **`DbLogo` + `assets/db-logos/`** : logos officiels bases/ORM (devicon colorés ; simple-icons recoloré
+  pour drizzle) rendus en **`<img>`** (pas d'exécution SVG, ≠ inline). `hasDbLogo(name)` + mapping
+  driver/vendor → svg. Réutilisable pour tout panneau ORM/data.
+- **Dashboard ORM** = page **séparée** `/nodefony/orm` (PAS d'onglets dans l'ERD `/nodefony/databases` =
+  React Flow pleine hauteur, ne pas le refactorer pour si peu). Carte connecteur : logo base + logo ORM
+  - versions (`describeConnection` data plane) + badge `:memory:` ou chemin. ⚠️ **Cible = chemin RELATIF**
+    (jamais d'absolu = info-leak FS → règle skill `nodefony-security-review` §B).
 - **Centre de notifications (snackbar)** : `NotificationStore` (MobX) branché sur `realtime.onNotice`
   au constructeur (comme `ConnectionStore`) → `notifications.show()` Mantine (déjà monté `<Notifications/>`
   dans `App.tsx`) + ring `recent`. Source NORMALISÉE = `NodefonyNotice` (Core isomorphe). `ApiClient`
