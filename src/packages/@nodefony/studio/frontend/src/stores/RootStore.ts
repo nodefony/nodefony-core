@@ -1,6 +1,7 @@
 import { ApiClient } from "../services/ApiClient";
 import { AuthService } from "../services/AuthService";
 import { RealtimeClient } from "nodefony";
+import type { NoticeLevel } from "nodefony";
 import { AuthStore } from "./AuthStore";
 import { ConnectionStore } from "./ConnectionStore";
 import { UiStore } from "./UiStore";
@@ -84,5 +85,20 @@ export class RootStore {
     this.chat = new ChatStore(this.realtime);
     this.admin = new AdminStore(this.api);
     this.profiler = new ProfilerStore(this.api);
+
+    // Aide au DEV uniquement : déclencher un toast depuis la console
+    // (`nodefonyNotify("success","coucou")`) pour vérifier le centre de
+    // notifications sans avoir à provoquer une vraie erreur. Jamais en prod.
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      (
+        window as unknown as {
+          nodefonyNotify?: (level: NoticeLevel, message: string) => void;
+        }
+      ).nodefonyNotify = (level, message) =>
+        this.notifications.notify(level, message, {
+          title: "Test",
+          source: "server",
+        });
+    }
   }
 }

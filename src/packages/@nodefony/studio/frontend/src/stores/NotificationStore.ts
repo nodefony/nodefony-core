@@ -14,14 +14,16 @@ const LEVEL_COLOR: Record<NoticeLevel, string> = {
 };
 
 /**
- * Auto-fermeture (ms) par niveau. Les **erreurs restent** (`false`) : une
- * criticité qui casse le temps réel ne doit pas disparaître toute seule.
+ * Auto-fermeture (ms) par niveau. Toutes finies (même les erreurs) : un toast qui
+ * ne part JAMAIS (`false`) remplit la pile et bloque la file d'attente → effet
+ * « ça lague / ça tourne ». L'erreur reste plus longtemps (10 s) ; sa trace
+ * durable est de toute façon dans l'historique du hub (`realtimeIncidents`).
  */
-const LEVEL_AUTOCLOSE: Record<NoticeLevel, number | false> = {
+const LEVEL_AUTOCLOSE: Record<NoticeLevel, number> = {
   success: 3000,
   info: 4000,
   warning: 6000,
-  error: false,
+  error: 10000,
 };
 
 /**
@@ -42,14 +44,30 @@ export class NotificationStore {
     // Branché au constructeur (comme ConnectionStore) : le store vit autant que
     // la connexion partagée (singleton appli) → pas de dispose à gérer.
     realtime.onNotice((notice) => this.push(notice));
+
+    // DEV uniquement : API brute Mantine sur window pour expérimenter le rendu
+    // (auto-close court → la pile « défile »). Jamais en prod.
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      (window as unknown as { nfShow?: typeof notifications.show }).nfShow =
+        notifications.show;
+    }
   }
 
-  /** Pousse une notice : toast Mantine + ajout à l'historique borné. */
+  /**
+   * Pousse une notice : historique borné (toujours) + toast Mantine **sauf** pour
+   * les notices `source:"realtime"`. Raison : une coupure/reconnexion du transport
+   * est déjà signalée par le `ConnectionOverlay` plein écran (flou + compte à
+   * rebours) → un toast en plus serait un doublon. On les garde toutefois dans
+   * l'historique (`realtimeIncidents`, hub) car l'overlay est éphémère. Les
+   * erreurs serveur poussées (`server`, WS ouvert) et data plane (`api`) n'ont
+   * PAS d'overlay → elles, on les toaste.
+   */
   push(notice: NodefonyNotice): void {
     this.recent.push(notice);
     if (this.recent.length > MAX_RECENT) {
       this.recent.splice(0, this.recent.length - MAX_RECENT);
     }
+    if (notice.source === "realtime") return;
     notifications.show({
       color: LEVEL_COLOR[notice.level],
       title: notice.title,

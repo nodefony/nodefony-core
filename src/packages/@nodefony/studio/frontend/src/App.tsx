@@ -165,7 +165,9 @@ export const App = observer(() => {
   const theme = buildStudioTheme(rootStore.ui.palette);
   return (
     <MantineProvider theme={theme} defaultColorScheme="dark">
-      <Notifications position="top-right" />
+      {/* limit borne la pile visible (le reste passe en file d'attente) → pas de
+          flood ; autoClose défaut = filet de sécurité si un appel oublie le sien. */}
+      <Notifications position="top-right" limit={5} autoClose={4000} />
       <ModalsProvider>
         <StoreProvider value={rootStore}>
           <NodefonyProvider client={rootStore.realtime}>
