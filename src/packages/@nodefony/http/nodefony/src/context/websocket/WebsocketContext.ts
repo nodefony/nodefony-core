@@ -24,6 +24,41 @@ export type WsIncomingMessage = IncomingMessage & IWsRequestExtension;
 
 import type { IWebsocketContext as IWebsocketContextInterface } from "../../../interfaces/IContext";
 
+/**
+ * Coerce un code (applicatif / HTTP / WS) en code de fermeture WebSocket VALIDE
+ * et conforme RFC 6455 §7.4, en PRÉFÉRANT les codes standard §7.4.1 quand le
+ * sens existe :
+ *  - code déjà valide émissible (1000-1003, 1007-1011, 3000-4999) → conservé ;
+ *  - HTTP 5xx / interne / code absent → **1011** (Internal Error) ;
+ *  - HTTP 401 / 403 → **1008** (Policy Violation) ;
+ *  - autre `< 1000` (ex. 404, sans équivalent RFC) → **4004**, plage privée
+ *    4000-4999 (§7.4.2, « undefined by this protocol » → convention applicative).
+ *
+ * Évite d'émettre un code de la plage 0-999 (« not used », rejeté par `ws`) ou
+ * un code réservé non émissible (1004/1005/1006/1015).
+ *
+ * @param code - code source (number, undefined…).
+ * @returns un code de fermeture WS valide.
+ */
+export function toWsCloseCode(code: number | undefined | null): number {
+  if (typeof code !== "number" || !Number.isInteger(code)) return 1011;
+  // Codes valides émissibles tels quels : 1000, 1001-1003, 1007-1011 (RFC
+  // standard), 3000-4999 (framework/privé). Exclut 1004/1005/1006/1015 et 1012+
+  // (réservés non émissibles) + tout hors plage.
+  if (
+    code === 1000 ||
+    (code >= 1001 && code <= 1003) ||
+    (code >= 1007 && code <= 1011) ||
+    (code >= 3000 && code <= 4999)
+  ) {
+    return code;
+  }
+  if (code >= 500 && code < 600) return 1011; // HTTP 5xx → internal error (§7.4.1)
+  if (code === 401 || code === 403) return 1008; // auth/forbidden → policy violation
+  if (code >= 400 && code < 500) return 4004; // autre 4xx (404…) → privé app unique
+  return 1011; // inconnu / hors plage / invalide → internal error
+}
+
 export default class WebsocketContext
   extends Context
   implements IWebsocketContextInterface
@@ -154,6 +189,14 @@ export default class WebsocketContext
     // store at bind time (in-bubble) and restores it on every callback, so
     // RequestContext.getRequestId()/getUser() stay valid across messages.
     this.connection.on("close", AsyncResource.bind(this.onClose.bind(this)));
+    // OBLIGATOIRE : un 'error' sur une socket ws SANS listener = `Unhandled
+    // 'error' event` → crash process (EventEmitter Node). `ws` émet 'error' PUIS
+    // 'close' → onClose fait le teardown ; ici on se contente de LOGGER (pas de
+    // double-close). AsyncResource.bind : l'event fire hors bulle ALS.
+    this.connection.on(
+      "error",
+      AsyncResource.bind(this.onConnectionError.bind(this)),
+    );
     // Teardown is now wired: onClose → fire("onFinish") → leaveScope + clean.
     this.teardownWired = true;
     await this.fireAsync("onConnect", this, this.connection);
@@ -218,17 +261,12 @@ export default class WebsocketContext
           .catch((error: unknown) => {
             if (!this.rejected) {
               if (this.requestEnded) {
-                if ((error as HttpError).code) {
-                  // Code applicatif/HTTP (ex 404/500) → plage 3000-3999 réservée
-                  // aux frameworks (RFC 6455 §7.4.2). 404→3404, 500→3500.
-                  throw this.close(
-                    ((error as HttpError).code ?? 500) + 3000,
-                    (error as HttpError).message,
-                  );
-                }
-                // Erreur sans code → 1011 "Internal Error" (RFC 6455 §7.4.1) ;
-                // 500 serait un code de fermeture INVALIDE (0-999 inutilisés).
-                throw this.close(1011, (error as HttpError).message);
+                // close() coerce le code via `toWsCloseCode` (RFC 6455 §7.4) :
+                // 5xx/absent → 1011, 401/403 → 1008, 404/autre → 4004.
+                throw this.close(
+                  (error as HttpError).code,
+                  (error as HttpError).message,
+                );
               }
               this.reject(
                 (error as HttpError).code ?? undefined,
@@ -351,6 +389,24 @@ export default class WebsocketContext
     this.webSocketState = "closed";
   }
 
+  /**
+   * Listener `error` de la socket ws (OBLIGATOIRE — sans lui, un 'error' émis
+   * sans listener crashe le process via EventEmitter). `ws` émet 'error' PUIS
+   * 'close' → le teardown se fait dans {@link onClose} ; ici on logge seulement
+   * (pas de double-close). Erreur transport (reset TCP, frame corrompue…).
+   *
+   * @param error - erreur émise par la socket.
+   */
+  onConnectionError(error: Error): void {
+    this.webSocketState = "error";
+    this.log(
+      `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("error")} : ${error?.message}`,
+      "ERROR",
+      `${this.type} ${clc.red("SOCKET ERROR")} ${this.method}`,
+    );
+    this.fire("onError", error, this);
+  }
+
   override setScheme(): SchemeType {
     return this.wsUrl?.protocol.replace(":", "") as SchemeType;
   }
@@ -390,9 +446,11 @@ export default class WebsocketContext
     super.clean();
   }
 
-  close(reasonCode: number, description: string) {
+  close(reasonCode: number | undefined | null, description: string) {
     if (this.response) {
-      return this.response.close(reasonCode, description);
+      // Coercition RFC 6455 §7.4 — protège contre un code invalide (0-999) ou
+      // réservé non émissible. Un code déjà valide (1002, 4004…) est conservé.
+      return this.response.close(toWsCloseCode(reasonCode), description);
     }
   }
 
@@ -404,18 +462,10 @@ export default class WebsocketContext
 
   reject(code: number | string | undefined, message?: string) {
     if (this.connection && (this.connection as Ws).readyState === Ws.OPEN) {
-      let numCode =
-        typeof code === "string" ? parseInt(code, 10) : (code ?? 4000);
-      // RFC 6455 §7.4.2 : les codes 0-999 ne sont PAS émissibles. Un code
-      // applicatif/HTTP (<1000, ex 404/500) est mappé dans la plage privée
-      // 4000-4999 réservée aux applications (404→4404, 500→4500). Code déjà
-      // valide (≥1000) conservé tel quel ; non-entier → 4000.
-      if (!Number.isInteger(numCode)) {
-        numCode = 4000;
-      } else if (numCode > 0 && numCode < 1000) {
-        numCode = 4000 + numCode;
-      }
-      this.connection.close(numCode, message ?? "Rejected");
+      const raw = typeof code === "string" ? parseInt(code, 10) : code;
+      // Coercition RFC 6455 §7.4 (cf `toWsCloseCode`) : codes standard préférés,
+      // jamais de code 0-999 ni de 4xxx inventé.
+      this.connection.close(toWsCloseCode(raw), message ?? "Rejected");
     }
     this.rejected = true;
   }

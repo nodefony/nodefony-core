@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-22T20:05:24.334Z",
+  "generated": "2026-05-22T20:16:20.790Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 305,
-    "symbols": 783,
+    "symbols": 784,
     "classes": 212,
     "interfaces": 259,
     "types": 145,
     "enums": 1,
-    "functions": 138,
+    "functions": 139,
     "constants": 28
   },
   "symbols": {
@@ -5765,6 +5765,14 @@
       "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts",
       "exported": true,
       "module": "@nodefony/http"
+    },
+    "toWsCloseCode": {
+      "name": "toWsCloseCode",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Coerce un code (applicatif / HTTP / WS) en code de fermeture WebSocket VALIDE et conforme RFC 6455 §7.4, en PRÉFÉRANT les codes standard §7.4.1 quand le sens existe : - code déjà valide émissible (…"
     },
     "FileSessionStorage": {
       "name": "FileSessionStorage",

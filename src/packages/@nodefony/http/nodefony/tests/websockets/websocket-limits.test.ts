@@ -306,10 +306,7 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
   });
 
   it("Route 2 variables: multiple values echo", (done) => {
-    ws = new WebSocket(
-      `${WSS}/nodefony/test/ws/routes/aaa/route2/bbb`,
-      wsOpts
-    );
+    ws = new WebSocket(`${WSS}/nodefony/test/ws/routes/aaa/route2/bbb`, wsOpts);
     let firstMsg = true;
     ws.on("message", (data) => {
       const msg = JSON.parse(data.toString());
@@ -328,9 +325,12 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
   });
 
   it("Unknown route returns close with error code", (done) => {
-    ws = new WebSocket(`${WSS}/nodefony/test/ws/nonexistent/deeply/nested`, wsOpts);
+    ws = new WebSocket(
+      `${WSS}/nodefony/test/ws/nonexistent/deeply/nested`,
+      wsOpts,
+    );
     ws.on("close", (code) => {
-      expect(code).to.be.oneOf([1011, 4004, 4404]);
+      expect(code).to.be.oneOf([1011, 4004]);
       done();
     });
     ws.on("unexpected-response", () => done());
