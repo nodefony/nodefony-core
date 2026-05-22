@@ -34,7 +34,7 @@ class Http2Response extends HttpResponse {
 
   override writeHead(
     statusCode?: number,
-    headers?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[]
+    headers?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[],
   ): void {
     if (this.stream) {
       if (statusCode) {
@@ -43,48 +43,40 @@ class Http2Response extends HttpResponse {
       // Stream HTTP/2 fermé/détruit (client abandonné, réponse lente, timeout) :
       // ne pas appeler respond() → évite ERR_HTTP2_INVALID_STREAM.
       if (this.stream.destroyed || this.stream.closed) {
-        this.log(
-          "HTTP/2 stream destroyed before writeHead — skip",
-          "DEBUG"
-        );
+        this.log("HTTP/2 stream destroyed before writeHead — skip", "DEBUG");
         return;
       }
       if (!this.stream.headersSent) {
-        try {
-          if (this.statusCode) {
-            if (typeof this.statusCode === "string") {
-              this.statusCode = parseInt(this.statusCode, 10);
-            }
-            if (this.statusCode > 599) {
-              this.statusCode = 500;
-            }
+        if (this.statusCode) {
+          if (typeof this.statusCode === "string") {
+            this.statusCode = parseInt(this.statusCode, 10);
           }
-          this.statusMessage = this.getStatusMessage();
-          this.setLength();
-          this.headers = extend(
-            true,
-            { "X-Status-Message": this.statusMessage },
-            this.getHeaders(),
-            headers
-          );
-          this.headers[HTTP2_HEADER_STATUS] = this.statusCode;
-          // Request tracing — le chemin stream HTTP/2 bypasse super.writeHead
-          // (http/Response.ts), donc on pose ICI les headers de corrélation,
-          // sinon les réponses HTTP/2 (port 5152) n'ont NI x-request-id NI
-          // traceparent → la debug bar / profiler ne peut pas corréler.
-          const requestId = (this.context as { requestId?: string }).requestId;
-          if (requestId) this.headers["x-request-id"] = requestId;
-          const traceparent = (
-            this.context as { traceparent?: string | null }
-          ).traceparent;
-          if (traceparent) this.headers["traceparent"] = traceparent;
-          //console.log("HTTH2 respond", this.headers);
-          this.stream.respond(this.headers, {
-            endStream: false,
-          });
-        } catch (e) {
-          throw e;
+          if (this.statusCode > 599) {
+            this.statusCode = 500;
+          }
         }
+        this.statusMessage = this.getStatusMessage();
+        this.setLength();
+        this.headers = extend(
+          true,
+          { "X-Status-Message": this.statusMessage },
+          this.getHeaders(),
+          headers,
+        );
+        this.headers[HTTP2_HEADER_STATUS] = this.statusCode;
+        // Request tracing — le chemin stream HTTP/2 bypasse super.writeHead
+        // (http/Response.ts), donc on pose ICI les headers de corrélation,
+        // sinon les réponses HTTP/2 (port 5152) n'ont NI x-request-id NI
+        // traceparent → la debug bar / profiler ne peut pas corréler.
+        const requestId = (this.context as { requestId?: string }).requestId;
+        if (requestId) this.headers["x-request-id"] = requestId;
+        const traceparent = (this.context as { traceparent?: string | null })
+          .traceparent;
+        if (traceparent) this.headers["traceparent"] = traceparent;
+        //console.log("HTTH2 respond", this.headers);
+        this.stream.respond(this.headers, {
+          endStream: false,
+        });
       } else {
         // throw new Error("Headers already sent !!");
         this.log("Headers already sent !!", "WARNING");
@@ -97,7 +89,7 @@ class Http2Response extends HttpResponse {
   override async send(
     chunk: any,
     encoding?: BufferEncoding,
-    flush: boolean = false
+    flush: boolean = false,
   ): Promise<Http2Response> {
     return new Promise(async (resolve, reject) => {
       try {
@@ -114,10 +106,7 @@ class Http2Response extends HttpResponse {
           // Stream fermé/non-writable (client abandonné, write-after-end) :
           // résoudre sans écrire → évite ERR_STREAM_WRITE_AFTER_END (CRITIC).
           if (this.stream.destroyed || !this.stream.writable) {
-            this.log(
-              "HTTP/2 stream not writable before send — skip",
-              "DEBUG"
-            );
+            this.log("HTTP/2 stream not writable before send — skip", "DEBUG");
             return resolve(this);
           }
           if (chunk) {
@@ -134,7 +123,7 @@ class Http2Response extends HttpResponse {
                 return reject(error);
               }
               return resolve(this);
-            }
+            },
           );
         }
         return super.send(chunk, encoding);
@@ -146,7 +135,7 @@ class Http2Response extends HttpResponse {
 
   override end(
     chunk?: any,
-    encoding?: BufferEncoding
+    encoding?: BufferEncoding,
   ): Promise<http.ServerResponse | http2.ServerHttp2Stream> {
     return new Promise((resolve, reject) => {
       try {
@@ -159,8 +148,8 @@ class Http2Response extends HttpResponse {
           return resolve(
             this.stream.end(
               chunk,
-              encoding || this.encoding
-            ) as http2.ServerHttp2Stream
+              encoding || this.encoding,
+            ) as http2.ServerHttp2Stream,
           );
         }
         return resolve(super.end(chunk, encoding));

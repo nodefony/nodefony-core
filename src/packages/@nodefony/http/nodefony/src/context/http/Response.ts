@@ -340,47 +340,39 @@ class HttpResponse {
       this.setStatusCode(statusCode);
     }
     if (this.response && !this.response.headersSent) {
-      try {
-        if (this.statusCode) {
-          if (typeof this.statusCode === "string") {
-            this.statusCode = parseInt(this.statusCode as string, 10);
-          }
-          if (this.statusCode > 599) {
-            this.statusCode = 500;
-          }
+      if (this.statusCode) {
+        if (typeof this.statusCode === "string") {
+          this.statusCode = parseInt(this.statusCode as string, 10);
         }
-        this.statusMessage = this.getStatusMessage();
-        if ((this.context as any).requestId && !this.response.headersSent) {
-          this.response.setHeader(
-            "x-request-id",
-            (this.context as any).requestId,
-          );
+        if (this.statusCode > 599) {
+          this.statusCode = 500;
         }
-        // P2.7 — echo W3C traceparent so downstream services and clients can
-        // continue the trace. Header name is lower-case per the spec.
-        if ((this.context as any).traceparent && !this.response.headersSent) {
-          this.response.setHeader(
-            "traceparent",
-            (this.context as any).traceparent,
-          );
-        }
-        this.setLength();
-        if (this.response) {
-          // RFC 7230 §3.1.2 — status-message must be printable US-ASCII
-          const safeMsg =
-            this.statusMessage.replace(/[^\x20-\x7E]/g, "").trim() ||
-            (http.STATUS_CODES[this.statusCode] ?? "Unknown Error");
-          (this.response as http.ServerResponse).writeHead(
-            this.statusCode,
-            safeMsg,
-            headers as http.OutgoingHttpHeaders,
-          );
-          return;
-        }
-        throw new Error(`response not found`);
-      } catch (e) {
-        throw e;
       }
+      this.statusMessage = this.getStatusMessage();
+      if ((this.context as any).requestId && !this.response.headersSent) {
+        this.response.setHeader(
+          "x-request-id",
+          (this.context as any).requestId,
+        );
+      }
+      // P2.7 — echo W3C traceparent so downstream services and clients can
+      // continue the trace. Header name is lower-case per the spec.
+      if ((this.context as any).traceparent && !this.response.headersSent) {
+        this.response.setHeader(
+          "traceparent",
+          (this.context as any).traceparent,
+        );
+      }
+      this.setLength();
+      // RFC 7230 §3.1.2 — status-message must be printable US-ASCII
+      const safeMsg =
+        this.statusMessage.replace(/[^\x20-\x7E]/g, "").trim() ||
+        (http.STATUS_CODES[this.statusCode] ?? "Unknown Error");
+      (this.response as http.ServerResponse).writeHead(
+        this.statusCode,
+        safeMsg,
+        headers as http.OutgoingHttpHeaders,
+      );
     } else {
       this.log("Headers already sent !!", "WARNING");
       throw new Error(`Headers already sent !!`);
@@ -396,11 +388,7 @@ class HttpResponse {
   // }
 
   addTrailers(headers: http.OutgoingHttpHeaders): void {
-    try {
-      return this.response?.addTrailers(headers);
-    } catch (e) {
-      throw e;
-    }
+    return this.response?.addTrailers(headers);
   }
 
   flush(chunk: any, encoding: BufferEncoding) {

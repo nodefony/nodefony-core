@@ -209,9 +209,7 @@ class Controller extends Service implements IController {
       } else {
         file = await FileClass.from(path);
       }
-      data = await this.twig?.render(file, param).catch((e) => {
-        throw e;
-      });
+      data = await this.twig?.render(file, param);
       this.setContextHtml();
       return this.renderResponse(data, "utf8", status, headers);
     } catch (e) {
@@ -225,15 +223,9 @@ class Controller extends Service implements IController {
     status?: string | number,
     headers?: OutgoingHttpHeaders,
   ) {
-    let data = null;
-    try {
-      data = JSON.stringify(obj);
-      this.setContextJson();
-      return this.renderResponse(data, "utf8", status, headers);
-    } catch (e) {
-      //this.log(e, "ERROR");
-      throw e;
-    }
+    const data = JSON.stringify(obj);
+    this.setContextJson();
+    return this.renderResponse(data, "utf8", status, headers);
   }
 
   setRoute(route: Route): Route {
@@ -271,11 +263,7 @@ class Controller extends Service implements IController {
     if (!url) {
       throw new Error("Redirect error no url !!!");
     }
-    try {
-      (this.context as HttpContext).redirect(url, status, headers);
-    } catch (e) {
-      throw e;
-    }
+    (this.context as HttpContext).redirect(url, status, headers);
   }
 
   getFlashBag(key: string) {
