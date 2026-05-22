@@ -415,7 +415,7 @@ export const RealtimeHubContent = observer(
             leftSection={<IconExternalLink size={14} />}
             onClick={onOpenConsole}
           >
-            Ouvrir la console Realtime
+            Ouvrir le Realtime Hub
           </Button>
         )}
       </Stack>

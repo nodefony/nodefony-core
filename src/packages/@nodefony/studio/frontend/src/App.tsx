@@ -101,7 +101,7 @@ const router = createBrowserRouter([
         element: <AdminLayout />,
         children: [
           { index: true, element: <HomeRedirect /> },
-          { path: "realtime", element: <RealtimeConsole /> },
+          { path: "hub", element: <RealtimeConsole /> },
           {
             path: "dev",
             element: (

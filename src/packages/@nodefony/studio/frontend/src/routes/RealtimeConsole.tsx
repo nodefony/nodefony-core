@@ -104,8 +104,8 @@ export const RealtimeConsole = observer(() => {
   return (
     <Stack gap="lg">
       <PageHeader
-        title="Realtime"
-        subtitle="Hub temps réel — connexion, abonnements & protocole de la socket"
+        title="Realtime Hub"
+        subtitle="Connexion, abonnements & protocole de la socket en direct"
         actions={
           <>
             <Badge variant="outline" color="gray" size="lg" tt="none">

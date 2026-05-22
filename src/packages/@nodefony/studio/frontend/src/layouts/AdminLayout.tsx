@@ -226,8 +226,8 @@ export const AdminLayout = observer(() => {
             >
               <HoverCard.Target>
                 <UnstyledButton
-                  onClick={() => navigate("/nodefony/realtime")}
-                  aria-label="Hub temps réel — ouvrir la console"
+                  onClick={() => navigate("/nodefony/hub")}
+                  aria-label="Realtime Hub — ouvrir le hub temps réel"
                 >
                   <Badge
                     leftSection={
@@ -263,7 +263,7 @@ export const AdminLayout = observer(() => {
               </HoverCard.Target>
               <HoverCard.Dropdown p="sm">
                 <RealtimeHubContent
-                  onOpenConsole={() => navigate("/nodefony/realtime")}
+                  onOpenConsole={() => navigate("/nodefony/hub")}
                 />
               </HoverCard.Dropdown>
             </HoverCard>

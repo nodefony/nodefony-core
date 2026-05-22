@@ -53,7 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     icon: IconDashboard,
     items: [
-      { to: "/nodefony/realtime", label: "Realtime", icon: IconBroadcast },
+      { to: "/nodefony/hub", label: "Realtime Hub", icon: IconBroadcast },
       {
         to: "/nodefony/dev",
         label: "Dashboard Dev",
