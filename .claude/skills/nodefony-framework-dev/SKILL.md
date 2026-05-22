@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.0.0
+version: 1.1.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.0.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.1.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -337,6 +337,57 @@ Une route de test = à ajouter dans le **controller approprié** de `src/modules
 routes (serveur requis). Écrire les tests **dans la même session** que le code. Existant : `/nodefony/test/*`
 (context, crash sync/async/native, header-echo, memory), `…/rest/*` (session CRUD), `…/html/*` (stream/upload/media),
 `…/als-test/*` (sondes ALS). Tout fichier test `.ts` commence par `/// <reference types="node" />`.
+
+### Debug runtime — reproduire un bug de boot/shutdown/race (boot enfant direct)
+
+Pour diagnostiquer un bug **runtime** (crash au boot, `unhandledRejection`, race de
+shutdown au Ctrl+C, fuite, 500 intermittent) il faut un process **qu'on contrôle et
+dont on capture le stdout**. Le `nodefony development` normal passe par le
+**DevSupervisor** (parent CONSOLE + enfant SERVER) → son stdout file ailleurs et il
+auto-restart. Bypass : forcer le **mode enfant direct** = 1 seul process, SIGINT-able,
+loggable.
+
+```bash
+# 1. Stopper le serveur courant (libère 5151/5152). Superviseur = group-kill du parent.
+kill -TERM "$(pgrep -f 'nodefony development' | head -1)" 2>/dev/null; sleep 1
+lsof -ti:5151 -ti:5152 2>/dev/null || echo "ports libres"
+
+# 2. Boot ENFANT DIRECT loggé (NODEFONY_DEV_CHILD=1 → DevCommand boote le serveur,
+#    PAS le superviseur). spawn detached pour survivre au shell (cf SIGHUP).
+LOG=/tmp/nf-repro.log; rm -f "$LOG"
+NODEFONY_DEV_CHILD=1 node -e "
+const {spawn}=require('child_process'),fs=require('fs');
+const out=fs.openSync('$LOG','w');
+const c=spawn('npx',['nodefony','development'],{cwd:process.cwd(),env:process.env,stdio:['ignore',out,out],detached:true});
+fs.writeFileSync('/tmp/nf-repro.pid',String(c.pid));console.log('PID='+c.pid);c.unref();"
+for i in $(seq 1 30); do grep -q 'Server Listen on' "$LOG" && { echo "BOOT $i s"; break; }; sleep 1; done
+
+# 3. REPRODUIRE une race de shutdown : marteler une route PENDANT le SIGINT (une
+#    requête in-flight au moment du terminate déclenche la race infra/serveurs).
+PID=$(cat /tmp/nf-repro.pid)
+( for r in $(seq 1 2500); do curl -sk -o /dev/null https://127.0.0.1:5152/ & curl -s -o /dev/null http://127.0.0.1:5151/ & done; wait ) >/dev/null 2>&1 &
+HPID=$!; sleep 0.5; kill -INT "$PID"; sleep 4; kill $HPID 2>/dev/null; pkill -f 'curl -sk' 2>/dev/null
+
+# 4. VERDICT — grep ciblé (strip ANSI). 0 partout = sain.
+echo "rejection:$(grep -c unhandledRejection "$LOG")  500:$(grep -cE 'GET  500' "$LOG")  err:$(grep -c 'ERROR\|CRITIC' "$LOG")"
+grep -nE 'unhandledRejection|PROMISE CHAIN BREAKING' "$LOG" | sed 's/\x1b\[[0-9;]*m//g'   # → stack complète juste après
+```
+
+- **Lire la vraie stack d'un `unhandledRejection`** : Nodefony logge `WARNING  !!! PROMISE
+CHAIN BREAKING : <err>` + `Trace: Promise { <rejected> … at … }` (via `Cli.listenRejection`).
+  C'est LA stack à suivre (pas la `[CI-DIAG]` de `terminate()`, qui ne trace que QUI appelle terminate).
+- **Race de shutdown = motif récurrent** : un service infra (ORM, redis…) qui se déconnecte
+  sur `onTerminate` AVANT que les serveurs http/WS aient drainé → toute requête en vol qui
+  retouche l'infra jette. `fireAsync("onTerminate")` est **séquentiel en ordre d'enregistrement** ;
+  un service enregistré tôt (module avant `http` dans `@modules`, handler posé au **ctor**/onPreBoot)
+  tourne AVANT les serveurs. Fixes : (a) **catcher** toute promesse fire-and-forget du pipeline ;
+  (b) **dégrader gracieusement** quand l'infra est `!isConnected()` au lieu de jeter. Cf RETEX §11.
+- **Prouver qu'une erreur de type/tests est PRÉ-EXISTANTE** (pas ta régression) :
+  `git stash && npx tsc --noEmit -p <pkg>/tsconfig.json ; git stash pop && npx tsc --noEmit -p …`
+  → même erreur des deux côtés = antérieure (à noter, pas à corriger dans ce diff).
+- **Tests à seuil mémoire** (`memory.test.ts`) flakent en **pleine suite** (pression GC) → rejouer
+  le test isolé (`--grep "<nom>"`) ; s'il passe seul = flaky connu, pas une fuite.
+- Pour un boot **stable** (suites de tests, pas de diagnostic shutdown) → `nodefony-start-server`.
 
 ### Endpoint admin data plane (Studio)
 
@@ -972,6 +1023,16 @@ npm outdated                     # versions en retard (ou commande `npx nodefony
   machine saturée. Fix : single-instance (pidfile + SIGHUP + group-kill). **Leçon** : ne JAMAIS spawn
   serveur/superviseur en background sans cleanup dans la même tâche.
 - _(amorce)_ **Tests perf à seuil absolu** flakaient en CI (runners non déterministes) → skip si `CI`.
+- _(2026-05-22)_ **Race de shutdown session-sur-Drizzle** (`unhandledRejection: DrizzleOrm "default":
+no entity table registered under "session"`, code 401, au Ctrl+C) : `DrizzleService` déconnecte
+  l'ORM sur `onTerminate` (annule ses tables) AVANT que les serveurs http aient drainé → une requête
+  en vol (page Twig → firewall `startSession`) retouche l'ORM mort. Aggravé par le **GC probabiliste
+  de session lancé fire-and-forget SANS `.catch()`** (`sessions-service.start`) → rejet non géré qui
+  casse le process. Fix double : (1) le GC opportuniste catche+loggue ; (2) `SessionStorage` (Drizzle)
+  dégrade gracieusement quand `!orm.isConnected()` (read→vide, write/gc/destroy/open→no-op). **Leçons** :
+  (a) toute promesse fire-and-forget dans le pipeline DOIT `.catch()` ; (b) un service infra doit tolérer
+  d'être sollicité pendant le shutdown ; (c) reproduire une race de shutdown = boot enfant direct +
+  marteler une route + SIGINT (cf recette §4 « Debug runtime »). Commit `ce181ba`.
 
 ## 12. Fin de session (OBLIGATOIRE) + auto-audit de complétude
 
@@ -1035,6 +1096,12 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.1.0** (2026-05-22) — Recette **« Debug runtime »** (§4) : boot enfant direct
+  (`NODEFONY_DEV_CHILD=1`), reproduction d'une race de shutdown (martèlement + SIGINT), lecture de la
+  vraie stack d'`unhandledRejection` (`PROMISE CHAIN BREAKING`), preuve d'erreur de type pré-existante
+  (`git stash`/`tsc`), rejouer un test mémoire flaky isolé. RETEX §11 : race session-sur-Drizzle au
+  Ctrl+C (GC fire-and-forget non catché + ORM déconnecté trop tôt) + leçon « fire-and-forget DOIT
+  catcher » et « infra tolère le shutdown ». Premier usage debug réel du kit (commit `ce181ba`).
 - **1.0.0** (2026-05-22) — Création. 12 sections : règles absolues (perf/mémoire, TS, ALS, lazy/cleanup),
   cartographie + lookup symbols, recettes vérifiées sur le source (Service/DI, Logging, Module, CLI,
   Controller+décorateurs, tests, admin data plane, Config, Certificats TLS, Interfaces/types, Erreurs,

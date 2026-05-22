@@ -5,7 +5,8 @@
 3ᵉ **adapter concret** de `@nodefony/orm-core` (après `@nodefony/sequelize` et
 `@nodefony/mongoose`). Driver SQL **type-safe-first** (choix #1 SQL moderne 2026).
 Implémente `Orm`/`IOrm`, `IRepository<T>`, `ITransaction` au-dessus de Drizzle ORM
-+ `better-sqlite3` (test) — Postgres/MySQL par simple changement de driver.
+
+- `better-sqlite3` (test) — Postgres/MySQL par simple changement de driver.
 
 ## Nature : module bootable + adapter lib
 
@@ -58,6 +59,11 @@ Deux usages :
 - `OFFSET` SQLite exige un `LIMIT` → `limit(-1)` si seul l'offset est posé.
 - `mocha`/`tsx` viennent de la **racine** (ne pas les remettre en devDeps locales,
   sinon résolution CJS du test → `ERR_PACKAGE_PATH_NOT_EXPORTED` sur orm-core).
+- **`SessionStorage` tolère le shutdown** (fix 2026-05-22, commit `ce181ba`) : `#repo()`
+  renvoie `null` si `!orm.isConnected()` (l'ORM se déconnecte au `onTerminate` avant le
+  drain des serveurs http → requête Twig en vol qui retouchait l'ORM mort = `unhandledRejection`
+  « no entity table registered under session »). read→session vide, write/gc/destroy/open→no-op.
+  NE PAS « simplifier » en rappelant `getRepository` direct. Cf RETEX skill `nodefony-framework-dev` §11.
 
 ## Build / types / test
 
@@ -65,7 +71,7 @@ Deux usages :
   (standard conforme, pas de `.d.ts` manuel).
 - `npm test` (`.mocharc.json`) → `tests/integration/` : banc orm-core (8) +
   jointure très complexe (2 : CTE+window+sous-requêtes corrélées via trappe native,
-  + LEFT JOIN typé). **10 tests**.
+  - LEFT JOIN typé). **10 tests**.
 - `npm run test:load` (`.mocharc.load.json`, `expose-gc`) → `tests/load/` :
   charge/limites/mémoire (8 tests). Mesures 2026-05-21 (Node 26, :memory:) :
   insert 20k ≈ 15k ops/s, scan 20k ≈ 1M ops/s, $in(5000) 23ms, 30k cycles

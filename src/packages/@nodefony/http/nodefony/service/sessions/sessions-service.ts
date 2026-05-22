@@ -44,7 +44,7 @@ export interface sessionStorageInterface {
   write: (
     name: string,
     serialize: SerializeSessionType,
-    contextSession: string
+    contextSession: string,
   ) => Promise<SerializeSessionType>;
   start: (id: string, contextSession: string) => Promise<SerializeSessionType>;
   open: (contextSession: string) => Promise<number>;
@@ -55,7 +55,7 @@ export interface sessionStorageInterface {
 
 /** Constructeur d'un storage de session (enregistré dans le registre). */
 export type SessionStorageCtor = new (
-  manager: SessionsService
+  manager: SessionsService,
 ) => sessionStorageInterface;
 
 @injectable()
@@ -111,13 +111,13 @@ class SessionsService extends Service {
   certificates: Certificate | null;
   constructor(
     module: Module,
-    @inject("HttpKernel") public httpKernel: HttpKernel
+    @inject("HttpKernel") public httpKernel: HttpKernel,
   ) {
     super(
       "sessions",
       module.container as Container,
       module.notificationsCenter as Event,
-      module.options.session
+      module.options.session,
     );
     this.module = module;
     this.certificates = this.get<Certificate>("certificates");
@@ -149,7 +149,7 @@ class SessionsService extends Service {
       this.log(
         `SESSION HANDLER STORAGE NOT FOUND : "${this.options.handler}" ` +
           `(enregistrés : ${SessionsService.storageHandlers().join(", ") || "aucun"})`,
-        "ERROR"
+        "ERROR",
       );
       return null;
     }
@@ -157,7 +157,11 @@ class SessionsService extends Service {
     this.log(`SESSION STORAGE active : ${this.options.handler}`, "INFO");
     // Événement (kernel + service) : quel backend de session est actif.
     this.fire("onSessionStorageReady", this.options.handler, this.storage);
-    this.kernel?.fire("onSessionStorageReady", this.options.handler, this.storage);
+    this.kernel?.fire(
+      "onSessionStorageReady",
+      this.options.handler,
+      this.storage,
+    );
     this.kernel?.on("onReady", async () => {
       await this.storage.open("default");
     });
@@ -197,7 +201,7 @@ class SessionsService extends Service {
 
   async start(
     context: ContextType,
-    sessionContext?: string
+    sessionContext?: string,
   ): Promise<Session | null> {
     return new Promise((resolve, reject) => {
       if (context.sessionStarting) {
@@ -217,7 +221,7 @@ class SessionsService extends Service {
         if (context.session.status === "active") {
           this.log(
             `SESSION ALLREADY STARTED ==> ${context.session.name} : ${context.session.id}`,
-            "DEBUG"
+            "DEBUG",
           );
           return resolve(context.session);
         }
@@ -227,7 +231,15 @@ class SessionsService extends Service {
         context.sessionStarting = true;
         sessionContext = this.setAutoStart(sessionContext) as string;
         if (this.probaGarbage()) {
-          this.storage.gc(this.options.gc_maxlifetime, sessionContext);
+          // GC opportuniste (probabiliste) en arrière-plan : fire-and-forget
+          // VOLONTAIRE — on ne bloque pas le démarrage de session pour ça. Mais
+          // sa promesse DOIT capturer ses rejets : sinon une erreur du storage
+          // (ex. ORM déconnecté pendant le shutdown du kernel, requête encore en
+          // vol) remonte en `unhandledRejection` et casse le process. L'échec
+          // d'un GC opportuniste se loggue, il ne crashe jamais.
+          void this.storage
+            .gc(this.options.gc_maxlifetime, sessionContext)
+            .catch((e: Error) => this.log(e, "WARNING", "SESSION-GC"));
         }
         inst = this.createSession(this.defaultSessionName);
       } catch (e) {
@@ -277,7 +289,7 @@ class SessionsService extends Service {
       if (!context.session.saved) {
         return context.session.save(
           context.user ? context.user : null,
-          context.session.contextSession
+          context.session.contextSession,
         );
       }
     }

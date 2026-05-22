@@ -32,9 +32,25 @@ class SessionStorage implements ISessionStorage {
     this.gc_maxlifetime = manager.options.gc_maxlifetime;
   }
 
-  /** Repository de l'entité session (ORM connecté au boot). */
-  #repo(): IRepository<SessionRow> {
-    return ormRegistry.get(SESSION_ORM).getRepository<SessionRow>("session");
+  /**
+   * Repository de l'entité session, ou `null` si l'ORM n'est pas (ou plus)
+   * connecté.
+   *
+   * Cas concret : pendant le shutdown du kernel, `DrizzleService` déconnecte
+   * l'ORM (`disconnect()` annule ses tables) alors que des requêtes peuvent
+   * encore être en vol (firewall → `startSession`). Plutôt que de jeter
+   * « no entity table registered under session » (qui devenait un 500 sur ces
+   * requêtes + un `unhandledRejection` via le GC fire-and-forget), on renvoie
+   * `null` et chaque opération dégrade gracieusement (session non persistée le
+   * temps de l'arrêt). Une table réellement absente sur un ORM **connecté**
+   * (vraie misconfig) jette toujours via `getRepository`.
+   */
+  #repo(): IRepository<SessionRow> | null {
+    const orm = ormRegistry.get(SESSION_ORM);
+    if (!orm.isConnected()) {
+      return null;
+    }
+    return orm.getRepository<SessionRow>("session");
   }
 
   async read(id: string, contextSession?: string): Promise<unknown> {
@@ -42,7 +58,11 @@ class SessionStorage implements ISessionStorage {
     if (contextSession) {
       criteria.context = contextSession;
     }
-    const row = await this.#repo().findOne(criteria);
+    const repo = this.#repo();
+    if (!repo) {
+      return {} as SerializedSession;
+    }
+    const row = await repo.findOne(criteria);
     if (!row) {
       return {} as SerializedSession;
     }
@@ -68,6 +88,14 @@ class SessionStorage implements ISessionStorage {
     const serialize = data as SerializedSession;
     const now = Date.now();
     const repo = this.#repo();
+    if (!repo) {
+      // ORM indisponible (shutdown) — pas de persistance, on renvoie l'état courant.
+      return {
+        ...serialize,
+        createdAt: new Date(now),
+        updatedAt: new Date(now),
+      };
+    }
     const fields = {
       context: contextSession || "default",
       Attributes: serialize.Attributes,
@@ -95,7 +123,11 @@ class SessionStorage implements ISessionStorage {
 
   async open(contextSession: string): Promise<number> {
     await this.gc(this.gc_maxlifetime, contextSession);
-    const count = await this.#repo().count(
+    const repo = this.#repo();
+    if (!repo) {
+      return 0;
+    }
+    const count = await repo.count(
       contextSession ? { context: contextSession } : undefined,
     );
     this.manager.log(
@@ -115,7 +147,11 @@ class SessionStorage implements ISessionStorage {
     if (contextSession) {
       criteria.context = contextSession;
     }
-    await this.#repo().delete(criteria);
+    const repo = this.#repo();
+    if (!repo) {
+      return true;
+    }
+    await repo.delete(criteria);
     this.manager.log(
       `DRIZZLE DESTROY SESSION context : ${contextSession} ID : ${id}`,
       "DEBUG",
@@ -129,9 +165,11 @@ class SessionStorage implements ISessionStorage {
     if (contextSession) {
       criteria.context = contextSession;
     }
-    const deleted = await this.#repo().delete(
-      criteria as Partial<SessionRow>,
-    );
+    const repo = this.#repo();
+    if (!repo) {
+      return;
+    }
+    const deleted = await repo.delete(criteria as Partial<SessionRow>);
     if (deleted > 0) {
       this.manager.log(
         `DRIZZLE SESSIONS GC context : ${contextSession || "default"} ==> ${deleted} DELETED`,
