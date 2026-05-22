@@ -41,7 +41,10 @@ export class RootStore {
   constructor() {
     this.ui = new UiStore();
 
-    this.realtime = new RealtimeClient({
+    // Connexion realtime PARTAGÉE par URL : la même socket sert Studio ET la
+    // barre de debug (qui appelle aussi RealtimeClient.shared sur la même URL)
+    // → une seule connexion WebSocket, pas deux.
+    this.realtime = RealtimeClient.shared({
       url: realtimeUrl(),
       autoReconnect: true,
       // Backoff court : dès que le serveur revient, on se reconnecte en ≤4s

@@ -118,6 +118,45 @@ export class RealtimeClient {
     this.startStatsSampler();
   }
 
+  /**
+   * Instance de connexion **partagée par URL** (résolue en absolu) sur
+   * `globalThis`. Plusieurs consommateurs d'une même page (ex. Studio + barre de
+   * debug) obtiennent la MÊME instance → **une seule socket** WebSocket. Les
+   * options ne s'appliquent qu'à la 1ʳᵉ création (les suivantes réutilisent).
+   *
+   * @param opts - options (au moins `url`), appliquées seulement à la création.
+   * @returns l'instance partagée pour cette URL.
+   */
+  static shared(opts: RealtimeOptions = {}): RealtimeClient {
+    const key = RealtimeClient.resolveUrl(opts.url);
+    const g = globalThis as { __nfRealtime__?: Map<string, RealtimeClient> };
+    const map = (g.__nfRealtime__ ??= new Map<string, RealtimeClient>());
+    let client = map.get(key);
+    if (!client) {
+      client = new RealtimeClient({ ...opts, url: key });
+      map.set(key, client);
+    }
+    return client;
+  }
+
+  /** Résout une URL (relative ou absolue) en chaîne absolue stable = clé du singleton. */
+  private static resolveUrl(url?: string): string {
+    if (typeof window === "undefined")
+      return url ?? "ws://localhost/nodefony/api/realtime";
+    const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const fallback = `${wsProto}//${window.location.host}/nodefony/api/realtime`;
+    try {
+      const u = new URL(url ?? fallback, window.location.href);
+      // Normaliser http(s)→ws(s) : une URL RELATIVE résout vers le scheme de la
+      // page (https) → sinon la clé `https://…` ≠ `wss://…` → 2 instances/2 sockets.
+      if (u.protocol === "http:") u.protocol = "ws:";
+      else if (u.protocol === "https:") u.protocol = "wss:";
+      return u.toString();
+    } catch {
+      return fallback;
+    }
+  }
+
   get state(): RealtimeState {
     return this._state;
   }
@@ -375,6 +414,10 @@ export class RealtimeClient {
             ? window.location.href
             : "http://localhost";
         const url = new URL(this.opts.url ?? this.defaultUrl(), base);
+        // Une URL relative hérite du scheme de la page (http/https) → WebSocket
+        // exige ws/wss. Normaliser systématiquement (sinon throw "scheme must be…").
+        if (url.protocol === "http:") url.protocol = "ws:";
+        else if (url.protocol === "https:") url.protocol = "wss:";
         if (this.opts.token) url.searchParams.set("token", this.opts.token);
         this.ws = new WebSocket(url.toString());
       } catch (e) {

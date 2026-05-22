@@ -117,6 +117,17 @@ export class ConnectionStore {
         this.nextRetryAt = i.nextRetryAt;
       });
     });
+    // La socket est PARTAGÉE (singleton) : elle peut être DÉJÀ ouverte (barre de
+    // debug montée avant ce store) → on raterait l'event "connected" passé. On
+    // initialise donc l'état + les stats depuis l'état COURANT du client.
+    runInAction(() => {
+      this.state = this.client.state;
+      if (this.client.state === "connected") {
+        this.connectedAt = Date.now();
+        this.everConnected = true;
+      }
+    });
+    this.syncStats();
   }
 
   /** `true` quand la connexion temps réel est rompue APRÈS avoir été établie. */

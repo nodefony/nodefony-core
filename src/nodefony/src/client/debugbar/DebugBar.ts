@@ -449,11 +449,14 @@ export class DebugBar {
     this.url = opts.url ?? DEFAULT_PATH;
     this.position = opts.position ?? "bottom";
     this.startOpen = opts.open ?? false;
-    this.ownClient = !opts.client;
+    // Client TOUJOURS partagé : `opts.client` explicite OU le singleton par URL
+    // (`RealtimeClient.shared`) → mutualise la socket avec l'app hôte (Studio).
+    // Jamais « possédé » → la barre ne déconnecte JAMAIS au démontage.
+    this.ownClient = false;
     this.frontend = opts.frontend ?? null;
     this.networkEnabled = opts.network !== false;
     this.profilerBase = (opts.profilerBase ?? DEFAULT_PROFILER_BASE).replace(/\/$/, "");
-    this.client = opts.client ?? new RealtimeClient({ url: this.url });
+    this.client = opts.client ?? RealtimeClient.shared({ url: this.url });
     this.visible = lsGet(LS.visible, "1") !== "0";
     this.minimized = lsGet(LS.min, "0") === "1";
     this.side = lsGet(LS.side, "right") === "left" ? "left" : "right";
@@ -473,11 +476,12 @@ export class DebugBar {
     this.wireNetwork();
     this.applyChrome();
     this.registerHandle();
-    if (this.ownClient) {
-      this.client.connect(this.url).catch(() => {
-        /* reconnexion gérée par le client */
-      });
-    }
+    // `connect()` SANS argument : utilise l'URL (normalisée wss) déjà portée par
+    // le client partagé — ne PAS repasser `this.url` (relatif) qui écraserait la
+    // clé. Idempotent : no-op si l'hôte (Studio) a déjà ouvert la socket. → 1 socket.
+    this.client.connect().catch(() => {
+      /* reconnexion gérée par le client */
+    });
     this.render();
     return this;
   }

@@ -1,6 +1,6 @@
 import { Center, Paper, Stack, Title, Text } from "@mantine/core";
-import { IconShield } from "@tabler/icons-react";
 import type { ReactNode } from "react";
+import { NodefonyLogo } from "../components/NodefonyLogo";
 
 /**
  * AuthLayout — page centrée pour Login / SignUp / ForgotPassword.
@@ -17,9 +17,14 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         w={{ base: "100%", sm: 460 }}
       >
         <Stack gap="lg">
-          <Stack gap={4} align="center">
-            <IconShield size={42} stroke={1.5} />
-            <Title order={3}>Nodefony Studio</Title>
+          <Stack gap={8} align="center">
+            <NodefonyLogo height={52} />
+            <Title order={3}>
+              Nodefony{" "}
+              <Text span c="brand" inherit>
+                Studio
+              </Text>
+            </Title>
             <Text c="dimmed" size="sm">
               Admin web
             </Text>
