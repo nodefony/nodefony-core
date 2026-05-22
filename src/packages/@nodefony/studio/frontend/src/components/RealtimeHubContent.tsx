@@ -149,7 +149,15 @@ function StatTile({
           {icon}
         </ThemeIcon>
         <div style={{ minWidth: 0 }}>
-          <Text fw={700} size="md" lh={1}>
+          <Text
+            fw={700}
+            size="md"
+            lh={1}
+            style={{
+              fontVariantNumeric: "tabular-nums",
+              whiteSpace: "nowrap",
+            }}
+          >
             {value}
           </Text>
           <Text size="xs" c="dimmed">
@@ -247,7 +255,16 @@ export const RealtimeHubContent = observer(
               </CopyButton>
             </Group>
 
-            <Text size="xs" c={conn.framesReceived > 0 ? "teal.6" : "dimmed"}>
+            <Text
+              size="xs"
+              c={conn.framesReceived > 0 ? "teal.6" : "dimmed"}
+              style={{
+                fontVariantNumeric: "tabular-nums",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               {conn.framesReceived.toLocaleString()} frames reçues
               {conn.lastFrameAt
                 ? ` · dernière il y a ${fmtAge(now - conn.lastFrameAt)}`
@@ -342,7 +359,14 @@ export const RealtimeHubContent = observer(
                                 {s.peer ? ` → ${s.peer}` : ""}
                               </Text>
                             </Group>
-                            <Text size="xs" c="dimmed">
+                            <Text
+                              size="xs"
+                              c="dimmed"
+                              style={{
+                                fontVariantNumeric: "tabular-nums",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
                               {s.msgCount.toLocaleString()} msg ·{" "}
                               {ageMs != null ? `il y a ${fmtAge(ageMs)}` : "—"}
                             </Text>
@@ -358,6 +382,7 @@ export const RealtimeHubContent = observer(
                             variant={s.rate > 0 ? "filled" : "light"}
                             color={s.rate > 0 ? "teal" : "gray"}
                             miw={46}
+                            style={{ fontVariantNumeric: "tabular-nums" }}
                           >
                             {s.rate}/s
                           </Badge>
