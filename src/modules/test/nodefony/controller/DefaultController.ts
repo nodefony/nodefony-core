@@ -2,7 +2,12 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import { Controller, route, controller } from "@nodefony/framework";
 import { Context, HttpContext, HttpError } from "@nodefony/http";
-import { inject, Fetch, nodefonyError as Error, RequestContext } from "nodefony";
+import {
+  inject,
+  Fetch,
+  nodefonyError as Error,
+  RequestContext,
+} from "nodefony";
 
 /**
  * Bundle standalone de la debug bar (`nodefony/debugbar.js`), lu UNE fois +
@@ -50,7 +55,7 @@ export const securityHooksState = {
 class DefaultController extends Controller {
   constructor(
     context: Context,
-    @inject("Fetch") private fetchService: Fetch
+    @inject("Fetch") private fetchService: Fetch,
   ) {
     super("DefaultController", context);
   }
@@ -60,14 +65,19 @@ class DefaultController extends Controller {
     return this;
   }
 
-  @route("index", { path: "/index", requirements: { methods: ["GET", "HEAD"] } })
+  @route("index", {
+    path: "/index",
+    requirements: { methods: ["GET", "HEAD"] },
+  })
   index() {
     return this.renderJson({});
   }
 
   @route("forward", { path: "/forward" })
   testForward() {
-    return this.forward("app:AppController:method1");
+    // Forward interne (RFC : re-dispatch serveur, PAS un 3xx) vers un controller
+    // réel du module. Format "module:Controller:action".
+    return this.forward("test:RouteController:method1");
   }
 
   @route("index2", { path: "/index2" })
@@ -236,7 +246,8 @@ class DefaultController extends Controller {
           clearTimeout(timer);
           abortState.abortedCount++;
           abortState.lastAbortReason =
-            (signal.reason as Error)?.message ?? String(signal.reason ?? "aborted");
+            (signal.reason as Error)?.message ??
+            String(signal.reason ?? "aborted");
           reject(new Error("aborted"));
         };
         if (signal.aborted) {
