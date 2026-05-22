@@ -2,17 +2,8 @@ import Context from "../Context.js";
 import url from "node:url";
 import { AsyncResource } from "node:async_hooks";
 import clc from "cli-color";
-import {
-  ServerType,
-  SchemeType,
-} from "../../../service/http-kernel.js";
-import {
-  Severity,
-  Msgid,
-  Message,
-  nodefonyError,
-  Scope,
-} from "nodefony";
+import { ServerType, SchemeType } from "../../../service/http-kernel.js";
+import { Severity, Msgid, Message, nodefonyError, Scope } from "nodefony";
 import Ws from "ws";
 import type { IncomingMessage } from "node:http";
 import WebsocketResponse from "./Response.js";
@@ -33,7 +24,10 @@ export type WsIncomingMessage = IncomingMessage & IWsRequestExtension;
 
 import type { IWebsocketContext as IWebsocketContextInterface } from "../../../interfaces/IContext";
 
-export default class WebsocketContext extends Context implements IWebsocketContextInterface {
+export default class WebsocketContext
+  extends Context
+  implements IWebsocketContextInterface
+{
   override request: WsIncomingMessage | null;
   override response: WebsocketResponse | null = null;
   acceptedProtocol?: string;
@@ -59,8 +53,11 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     this.response = new WebsocketResponse(ws as Ws, this);
     this.method = this.getMethod();
     this.origin = (req.headers.origin as string) ?? "";
-    this.remoteAddress = req.socket?.remoteAddress ?? req.headers["x-forwarded-for"] as string;
-    this.acceptedProtocol = req.headers["sec-websocket-protocol"] as string | undefined;
+    this.remoteAddress =
+      req.socket?.remoteAddress ?? (req.headers["x-forwarded-for"] as string);
+    this.acceptedProtocol = req.headers["sec-websocket-protocol"] as
+      | string
+      | undefined;
     this.scheme = type === "websocket-secure" ? "wss" : "ws";
 
     const incomingId = req.headers["x-request-id"] as string | undefined;
@@ -75,11 +72,13 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     this.queryRequest = { ...this.queryGet };
     this.wsPath = this.wsUrl.pathname + this.wsUrl.search;
     this.url = url.format(this.wsUrl);
-    this.port = parseInt(this.wsUrl.port, 10) || (type === "websocket-secure" ? 443 : 80);
+    this.port =
+      parseInt(this.wsUrl.port, 10) || (type === "websocket-secure" ? 443 : 80);
 
     // Extend request with URL object so the router can use request.url.pathname
     // Cast needed: IncomingMessage.url is string, IWsRequestExtension.url is URL → intersection string & URL
-    (this.request as WsIncomingMessage).url = this.wsUrl as unknown as string & URL;
+    (this.request as WsIncomingMessage).url = this.wsUrl as unknown as string &
+      URL;
     (this.request as WsIncomingMessage).queryGet = this.queryGet;
     (this.request as WsIncomingMessage).query = this.queryRequest;
     (this.request as WsIncomingMessage).path = this.wsPath;
@@ -92,7 +91,7 @@ export default class WebsocketContext extends Context implements IWebsocketConte
 
     this.parseCookies();
     this.cookieSession = this.getCookieSession(
-      this.sessionService?.options.name
+      this.sessionService?.options.name,
     );
     this.domain = this.getHostName() as string;
     this.validDomain = this.isValidDomain();
@@ -110,19 +109,24 @@ export default class WebsocketContext extends Context implements IWebsocketConte
       };
       this.log(
         `PROXY WEBSOCKET REQUEST x-forwarded VIA : ${this.proxy?.proxyVia}`,
-        "DEBUG"
+        "DEBUG",
       );
     }
   }
 
-  override log(pci: unknown, severity?: Severity, msgid?: Msgid, msg?: Message) {
+  override log(
+    pci: unknown,
+    severity?: Severity,
+    msgid?: Msgid,
+    msg?: Message,
+  ) {
     if (!msgid) msgid = "WEBSOCKET CONTEXT";
     return super.log(pci, severity, msgid, msg);
   }
 
   override logRequest(
     httpError?: Error | HttpError | nodefonyError | null,
-    acceptedProtocol?: string | null
+    acceptedProtocol?: string | null,
   ) {
     try {
       const logger = this.httpKernel?.getRequestLogger();
@@ -154,7 +158,10 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     this.teardownWired = true;
     await this.fireAsync("onConnect", this, this.connection);
     this.requestEnded = true;
-    this.connection.on("message", AsyncResource.bind(this.handleMessage.bind(this)));
+    this.connection.on(
+      "message",
+      AsyncResource.bind(this.handleMessage.bind(this)),
+    );
     this.logRequest(null, this.acceptedProtocol ?? null);
     this.webSocketState = "connected";
     return this.connection;
@@ -173,7 +180,10 @@ export default class WebsocketContext extends Context implements IWebsocketConte
           this.resolver.match(this.resolver.route as Route, this);
         } catch (e) {
           if (!this.rejected) {
-            this.reject((e as HttpError).code ?? undefined, (e as HttpError).message);
+            this.reject(
+              (e as HttpError).code ?? undefined,
+              (e as HttpError).message,
+            );
           }
           throw e;
         }
@@ -200,21 +210,30 @@ export default class WebsocketContext extends Context implements IWebsocketConte
                   this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
                 }
               })
-              .catch((e) => { throw e; });
+              .catch((e) => {
+                throw e;
+              });
             return this;
           })
           .catch((error: unknown) => {
             if (!this.rejected) {
               if (this.requestEnded) {
                 if ((error as HttpError).code) {
+                  // Code applicatif/HTTP (ex 404/500) → plage 3000-3999 réservée
+                  // aux frameworks (RFC 6455 §7.4.2). 404→3404, 500→3500.
                   throw this.close(
                     ((error as HttpError).code ?? 500) + 3000,
-                    (error as HttpError).message
+                    (error as HttpError).message,
                   );
                 }
-                throw this.close(500, (error as HttpError).message);
+                // Erreur sans code → 1011 "Internal Error" (RFC 6455 §7.4.1) ;
+                // 500 serait un code de fermeture INVALIDE (0-999 inutilisés).
+                throw this.close(1011, (error as HttpError).message);
               }
-              this.reject((error as HttpError).code ?? undefined, (error as HttpError).message);
+              this.reject(
+                (error as HttpError).code ?? undefined,
+                (error as HttpError).message,
+              );
               this.rejected = true;
               this.webSocketState = "error";
               throw error;
@@ -255,7 +274,10 @@ export default class WebsocketContext extends Context implements IWebsocketConte
       if (payload) {
         this.fire("onMessage", payload, this, "BROADCAST");
         this.fire("onBroadcast", payload, this);
-        return this.response.broadcast(payload as string | Buffer | null, encoding);
+        return this.response.broadcast(
+          payload as string | Buffer | null,
+          encoding,
+        );
       }
     }
     return null;
@@ -265,7 +287,9 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     this.webSocketState = "message";
     const message = isBinary ? data : data.toString();
     if (this.response) {
-      this.response.body = Buffer.isBuffer(data) ? data : Buffer.from(data.toString());
+      this.response.body = Buffer.isBuffer(data)
+        ? data
+        : Buffer.from(data.toString());
     }
     try {
       if (!this.resolver) {
@@ -295,7 +319,9 @@ export default class WebsocketContext extends Context implements IWebsocketConte
         this.rejected = true;
       }
     } catch (e) {
-      this.reject(4500, "Internal Error");
+      // 1011 "Internal Error" = code RFC 6455 §7.4.1 dédié (serveur, condition
+      // inattendue) — préféré à un code privé 4xxx pour un échec interne.
+      this.reject(1011, "Internal Error");
       throw e;
     }
   }
@@ -305,7 +331,7 @@ export default class WebsocketContext extends Context implements IWebsocketConte
     this.log(
       `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host} ${clc.cyan("Description")} : ${description}`,
       "INFO",
-      `${this.type} ${clc.magenta(code)} CLOSE ${this.method}`
+      `${this.type} ${clc.magenta(code)} CLOSE ${this.method}`,
     );
     if (this.connection?.readyState !== Ws.CLOSED) {
       try {
@@ -314,7 +340,7 @@ export default class WebsocketContext extends Context implements IWebsocketConte
         this.log(
           `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host} ${clc.cyan("error")} : ${(e as Error).message}`,
           "ERROR",
-          `${this.type} CLOSE ${clc.red(this.method)}`
+          `${this.type} CLOSE ${clc.red(this.method)}`,
         );
       }
       this.fire("onClose", code, description, this.connection);
@@ -378,7 +404,17 @@ export default class WebsocketContext extends Context implements IWebsocketConte
 
   reject(code: number | string | undefined, message?: string) {
     if (this.connection && (this.connection as Ws).readyState === Ws.OPEN) {
-      const numCode = typeof code === "string" ? parseInt(code, 10) : (code ?? 4000);
+      let numCode =
+        typeof code === "string" ? parseInt(code, 10) : (code ?? 4000);
+      // RFC 6455 §7.4.2 : les codes 0-999 ne sont PAS émissibles. Un code
+      // applicatif/HTTP (<1000, ex 404/500) est mappé dans la plage privée
+      // 4000-4999 réservée aux applications (404→4404, 500→4500). Code déjà
+      // valide (≥1000) conservé tel quel ; non-entier → 4000.
+      if (!Number.isInteger(numCode)) {
+        numCode = 4000;
+      } else if (numCode > 0 && numCode < 1000) {
+        numCode = 4000 + numCode;
+      }
       this.connection.close(numCode, message ?? "Rejected");
     }
     this.rejected = true;
