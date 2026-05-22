@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-22T00:22:17.626Z",
+  "generated": "2026-05-22T00:35:53.724Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 294,
-    "symbols": 734,
+    "symbols": 737,
     "classes": 206,
-    "interfaces": 251,
-    "types": 143,
+    "interfaces": 253,
+    "types": 144,
     "enums": 1,
     "functions": 115,
     "constants": 18
@@ -3059,6 +3059,15 @@
       "exported": true,
       "module": "@nodefony/http",
       "extends": null
+    },
+    "CertificateDevOptions": {
+      "name": "CertificateDevOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Options de génération du certificat TLS en mode développement."
     },
     "CertificateOptions": {
       "name": "CertificateOptions",

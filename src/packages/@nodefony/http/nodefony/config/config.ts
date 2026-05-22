@@ -182,7 +182,11 @@ export default {
    * Utilisés par le serveur HTTPS et WSS.
    *
    * Si ca/key/cert sont vides, Nodefony génère automatiquement un certificat
-   * auto-signé au démarrage via node-forge.
+   * au démarrage :
+   *   - en développement, via `mkcert` si disponible (CA locale trustée → HTTPS
+   *     sans erreur navigateur, requis pour le HMR cross-origin/WSS), sinon
+   *     fallback auto-signé node-forge (avec SAN, mais non trusté) ;
+   *   - en production, fallback auto-signé node-forge (fournir un vrai cert).
    *
    * Surcharge pour la production :
    *   "module-http": {
@@ -202,6 +206,17 @@ export default {
 
     /** Chemin vers le certificat TLS. Vide = généré automatiquement. */
     cert: "",
+
+    /** Options de génération en développement. */
+    dev: {
+      /**
+       * Préférer `mkcert` (CA locale trustée) pour le certificat de dev.
+       * true = HTTPS sans erreur navigateur (HMR cross-origin/WSS) si mkcert
+       * est installé (`brew install mkcert nss && mkcert -install`).
+       * false = forcer le fallback auto-signé node-forge. Ignoré hors dev.
+       */
+      useMkcert: true,
+    },
 
     /** Options pour la génération automatique du certificat auto-signé. */
     openssl: {

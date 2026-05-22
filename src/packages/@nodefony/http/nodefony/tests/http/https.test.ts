@@ -55,10 +55,12 @@ describe("HTTPS/TLS — port 5152 (requires server)", function () {
       s.destroy();
     });
 
-    it("server certificate CN is 'localhost'", async () => {
+    it("server certificate advertises 'localhost' in SAN", async () => {
       const s = await tlsConnect();
       const cert = s.getPeerCertificate();
-      expect(cert.subject.CN).to.equal("localhost");
+      // Le hostname doit être dans le subjectAltName (RFC 6125) — le CN est
+      // déprécié et n'est plus posé par mkcert ni par le fallback node-forge.
+      expect(cert.subjectaltname).to.match(/DNS:localhost/);
       s.destroy();
     });
 
