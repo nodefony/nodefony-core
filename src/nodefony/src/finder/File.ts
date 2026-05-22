@@ -28,7 +28,7 @@ class File extends FileClass {
    * @param parent - `File` parent (arborescence Finder), `null` à la racine.
    * @returns instance `File` hydratée (stats async).
    */
-  static async from(
+  static override async from(
     path: string | fs.PathOrFileDescriptor,
     parent: File | null = null,
   ): Promise<File> {
