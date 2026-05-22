@@ -252,16 +252,25 @@ export const RealtimeConsole = observer(() => {
 
       {/* ── Incidents temps réel ── historique borné des notices normalisées
           (criticités realtime + erreurs serveur poussées). L'overlay de connexion
-          est éphémère ; ici on garde la trace. Affiché seulement s'il y en a. */}
-      {incidents.length > 0 && (
-        <Card withBorder radius="md" p="lg">
-          <Group gap={6} mb="md">
-            <IconAlertTriangle size={20} stroke={1.5} />
-            <Title order={4}>Incidents temps réel</Title>
-            <Text size="xs" c="dimmed">
-              {incidents.length} — criticités &amp; erreurs serveur
-            </Text>
-          </Group>
+          est éphémère ; ici on garde la trace. Zone TOUJOURS visible (état vide
+          explicite) pour qu'on la trouve même sans incident. */}
+      <Card withBorder radius="md" p="lg">
+        <Group gap={6} mb="md">
+          <IconAlertTriangle size={20} stroke={1.5} />
+          <Title order={4}>Incidents temps réel</Title>
+          <Text size="xs" c="dimmed">
+            {incidents.length > 0
+              ? `${incidents.length} — criticités & erreurs serveur`
+              : "criticités & erreurs serveur"}
+          </Text>
+        </Group>
+        {incidents.length === 0 ? (
+          <Text c="dimmed" size="sm">
+            Aucun incident. Apparaît ici sur coupure/erreur du temps réel ou
+            erreur serveur poussée (test dev :{" "}
+            <Code>nodefonyNotify("error", "test")</Code>).
+          </Text>
+        ) : (
           <Table>
             <Table.Thead>
               <Table.Tr>
@@ -302,8 +311,8 @@ export const RealtimeConsole = observer(() => {
               ))}
             </Table.Tbody>
           </Table>
-        </Card>
-      )}
+        )}
+      </Card>
 
       {/* ── Log protocole ── */}
       <Card withBorder radius="md" p="lg">
