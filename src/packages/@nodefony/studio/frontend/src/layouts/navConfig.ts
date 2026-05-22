@@ -18,6 +18,7 @@ import {
   IconSettings,
   IconCode,
   IconActivityHeartbeat,
+  IconBroadcast,
   type Icon,
 } from "@tabler/icons-react";
 import { ROLE_DEV, ROLE_SUPERVISOR } from "../auth/dashboards";
@@ -52,6 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     icon: IconDashboard,
     items: [
+      { to: "/nodefony/realtime", label: "Realtime", icon: IconBroadcast },
       {
         to: "/nodefony/dev",
         label: "Dashboard Dev",

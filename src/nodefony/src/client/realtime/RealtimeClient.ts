@@ -81,6 +81,40 @@ export interface MessageStats {
 /** Points conservés dans la série de débit (~32 s à 1 échantillon/s). */
 const STATS_SERIES_POINTS = 32;
 
+/** Une frame du protocole temps réel (JSON-RPC 2.0) — pour le log/inspecteur. */
+export interface RealtimeFrame {
+  /** Timestamp (ms epoch). */
+  ts: number;
+  /** Sens : `out` = client→serveur, `in` = serveur→client. */
+  dir: "in" | "out";
+  /** Méthode (notification/requête) ou `response`/`error`/`stream`. */
+  kind: string;
+  /** id JSON-RPC (requêtes/réponses), si présent. */
+  id?: number;
+  /** Canal pub/sub (`params.channel`), si présent. */
+  channel?: string;
+  /** Payload affichable — champs sensibles **redactés** (token/secret…). */
+  payload: unknown;
+}
+
+/** Taille max du ring du log protocole (inspecteur realtime). */
+const FRAME_LOG_MAX = 300;
+
+/** Clés sensibles masquées dans le log protocole (sécurité — jamais de secret en clair). */
+const FRAME_REDACT_RE =
+  /(token|password|secret|api[_-]?key|apikey|authorization|bearer)/i;
+
+/** Copie d'un payload JSON-RPC avec masquage des champs sensibles (bornée en profondeur). */
+function redactFrame(value: unknown, depth = 0): unknown {
+  if (depth > 4 || value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((v) => redactFrame(v, depth + 1));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = FRAME_REDACT_RE.test(k) ? "[redacted]" : redactFrame(v, depth + 1);
+  }
+  return out;
+}
+
 interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (reason: unknown) => void;
@@ -113,6 +147,9 @@ export class RealtimeClient {
   private _lastFrameMethod: string | null = null;
   private statsTimer: ReturnType<typeof setInterval> | null = null;
   private readonly _prevSampled = new Map<string, number>();
+  // Log protocole (inspecteur realtime) — ring LAZY : alloué + alimenté SEULEMENT
+  // quand un listener `__frame__` existe (console ouverte) → 0 surcoût sinon.
+  private _frames: RealtimeFrame[] | null = null;
 
   constructor(private readonly opts: RealtimeOptions = {}) {
     this.startStatsSampler();
@@ -494,12 +531,56 @@ export class RealtimeClient {
     this.heartbeatTimer = null;
   }
 
+  /**
+   * Log protocole (frames JSON-RPC récentes, redactées). Vide tant que la console
+   * n'écoute pas (`__frame__`). Réservé à l'inspecteur realtime / debug.
+   */
+  get frameLog(): readonly RealtimeFrame[] {
+    return this._frames ?? [];
+  }
+
+  /** Purge le log protocole. */
+  clearFrameLog(): void {
+    if (this._frames) this._frames.length = 0;
+  }
+
+  /**
+   * Enregistre une frame DANS le ring + notifie `__frame__` — **uniquement** si
+   * un listener existe (console ouverte) → coût nul en fonctionnement normal.
+   */
+  private recordFrame(dir: "in" | "out", msg: unknown): void {
+    const listeners = this.handlers.get("__frame__");
+    if (!listeners || listeners.size === 0) return; // LAZY : 0 alloc/0 surcoût
+    const m = (msg ?? {}) as Record<string, unknown>;
+    let kind = "?";
+    let channel: string | undefined;
+    if (typeof m.method === "string") {
+      kind = m.method;
+      const p = m.params as { channel?: unknown } | undefined;
+      if (p && typeof p.channel === "string") channel = p.channel;
+    } else if ("error" in m) kind = "error";
+    else if ("stream" in m) kind = "stream";
+    else if ("result" in m) kind = "response";
+    const frame: RealtimeFrame = {
+      ts: Date.now(),
+      dir,
+      kind,
+      id: typeof m.id === "number" ? m.id : undefined,
+      channel,
+      payload: redactFrame(msg),
+    };
+    (this._frames ??= []).push(frame);
+    if (this._frames.length > FRAME_LOG_MAX) this._frames.shift();
+    this.fireLocal("__frame__", frame);
+  }
+
   private send(msg: unknown): void {
     if (this.ws?.readyState !== WebSocket.OPEN) {
       // TODO P13.7 : buffering offline ? Pour l'instant on drop.
       return;
     }
     this.ws.send(JSON.stringify(msg));
+    this.recordFrame("out", msg);
   }
 
   private handleMessage(raw: string | ArrayBuffer | Blob): void {
@@ -516,6 +597,8 @@ export class RealtimeClient {
       (msg as { jsonrpc?: string }).jsonrpc !== "2.0"
     )
       return;
+
+    this.recordFrame("in", msg); // log protocole (lazy)
 
     // Response (with id)
     if ("id" in msg && typeof (msg as { id: unknown }).id === "number") {

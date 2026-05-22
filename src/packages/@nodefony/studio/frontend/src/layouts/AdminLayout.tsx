@@ -217,11 +217,11 @@ export const AdminLayout = observer(() => {
             <Tooltip
               label={
                 conn.isConnected
-                  ? `Realtime connecté — ${conn.subscriptionCount} sub${conn.subscriptionCount > 1 ? "s" : ""}`
-                  : `Realtime: ${conn.state} — click pour le hub`
+                  ? `Realtime connecté — ${conn.subscriptionCount} sub${conn.subscriptionCount > 1 ? "s" : ""} — ouvrir la console`
+                  : `Realtime: ${conn.state} — ouvrir la console`
               }
             >
-              <UnstyledButton onClick={drawerHandlers.open}>
+              <UnstyledButton onClick={() => navigate("/nodefony/realtime")}>
                 <Badge
                   leftSection={
                     conn.isConnected ? (

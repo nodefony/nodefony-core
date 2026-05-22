@@ -31,6 +31,11 @@ const DashboardSupervision = lazy(() =>
     default: m.DashboardSupervision,
   })),
 );
+const RealtimeConsole = lazy(() =>
+  import("./routes/RealtimeConsole").then((m) => ({
+    default: m.RealtimeConsole,
+  })),
+);
 const Chat = lazy(() =>
   import("./routes/Chat").then((m) => ({ default: m.Chat })),
 );
@@ -96,6 +101,7 @@ const router = createBrowserRouter([
         element: <AdminLayout />,
         children: [
           { index: true, element: <HomeRedirect /> },
+          { path: "realtime", element: <RealtimeConsole /> },
           {
             path: "dev",
             element: (

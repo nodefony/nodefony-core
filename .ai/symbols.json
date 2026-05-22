@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-22T09:55:48.497Z",
+  "generated": "2026-05-22T10:01:32.290Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 301,
-    "symbols": 766,
+    "symbols": 768,
     "classes": 210,
-    "interfaces": 256,
+    "interfaces": 257,
     "types": 145,
     "enums": 1,
-    "functions": 133,
+    "functions": 134,
     "constants": 21
   },
   "symbols": {
@@ -1407,6 +1407,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Stats d'un canal/méthode reçus — GÉNÉRIQUES, calculées dans le client donc réutilisables par toute app (`import { RealtimeClient } from \"nodefony\"`)."
+    },
+    "RealtimeFrame": {
+      "name": "RealtimeFrame",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une frame du protocole temps réel (JSON-RPC 2.0) — pour le log/inspecteur."
     },
     "RealtimeState": {
       "name": "RealtimeState",

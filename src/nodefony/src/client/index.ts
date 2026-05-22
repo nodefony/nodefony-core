@@ -23,6 +23,7 @@ export type {
   RealtimeState,
   RealtimeOptions,
   MessageStats,
+  RealtimeFrame,
 } from "./realtime/RealtimeClient";
 
 class Nodefony {
