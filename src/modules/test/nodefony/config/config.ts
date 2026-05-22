@@ -19,12 +19,16 @@ export default {
     connectors: {
       myconnector: {
         driver: "sqlite",
-        dbname: path.resolve(
-          (Nodefony.getKernel() as Kernel).path,
-          "nodefony",
-          "databases",
-          "myconnector.db"
-        ),
+        // Getter lazy : kernel déréférencé à la LECTURE (boot), pas à l'import
+        // → le module reste IMPORTABLE sans kernel (testabilité). Runtime inchangé.
+        get dbname(): string {
+          return path.resolve(
+            (Nodefony.getKernel() as Kernel).path,
+            "nodefony",
+            "databases",
+            "myconnector.db"
+          );
+        },
         options: {
           dialect: "sqlite",
           // isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,

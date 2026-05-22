@@ -8,12 +8,16 @@ export default {
   connectors: {
     nodefony: {
       driver: "sqlite",
-      dbname: path.resolve(
-        (Nodefony.getKernel() as Kernel).path,
-        "nodefony",
-        "databases",
-        "nodefony.db"
-      ),
+      // Getter lazy : kernel déréférencé à la LECTURE (boot/merge), pas à l'import
+      // → le module reste IMPORTABLE sans kernel (testabilité). Runtime inchangé.
+      get dbname(): string {
+        return path.resolve(
+          (Nodefony.getKernel() as Kernel).path,
+          "nodefony",
+          "databases",
+          "nodefony.db"
+        );
+      },
       options: {
         dialect: "sqlite",
         // isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
@@ -37,18 +41,23 @@ export default {
   },
   migrations: {
     storage: "sequelize", // sequelize || memory || json
-    path: path.resolve(
-      (Nodefony.getKernel() as Kernel).path,
-      "nodefony",
-      "migrations",
-      "sequelize"
-    ),
-    seedeersPath: path.resolve(
-      (Nodefony.getKernel() as Kernel).path,
-      "nodefony",
-      "migrations",
-      "seedeers"
-    ),
+    // Getters lazy (idem dbname) : pas de déréférencement kernel à l'import.
+    get path(): string {
+      return path.resolve(
+        (Nodefony.getKernel() as Kernel).path,
+        "nodefony",
+        "migrations",
+        "sequelize"
+      );
+    },
+    get seedeersPath(): string {
+      return path.resolve(
+        (Nodefony.getKernel() as Kernel).path,
+        "nodefony",
+        "migrations",
+        "seedeers"
+      );
+    },
     storageSeedeers: "json",
     options: {},
   },
