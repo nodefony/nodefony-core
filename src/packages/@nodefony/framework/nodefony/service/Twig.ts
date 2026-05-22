@@ -34,26 +34,28 @@ class Twig extends Template {
     }
   }
 
-  renderFile(file: PathOrFileDescriptor | FileClass, options = {}) {
+  async renderFile(file: PathOrFileDescriptor | FileClass, options = {}) {
+    // Résolution du FileClass en async (FileClass.from = pas de lstatSync
+    // bloquant) AVANT le Promise du moteur. Si appelé par le Controller, `file`
+    // est déjà un FileClass hydraté (chemin courant) → pas de re-stat.
+    const myFile =
+      file instanceof FileClass ? file : await FileClass.from(file as string);
+    const mypath = myFile.path as string;
+    const settings = extend(
+      true,
+      {},
+      this.options,
+      {
+        views: myFile.dirname,
+        allowAsync: true,
+        "twig options": {
+          cache: this.cache,
+        },
+      },
+      options,
+    );
     return new Promise((resolve, reject) => {
       try {
-        if (!(file instanceof FileClass)) {
-          file = new FileClass(file);
-        }
-        const mypath = file.path as string;
-        const settings = extend(
-          true,
-          {},
-          this.options,
-          {
-            views: file.dirname,
-            allowAsync: true,
-            "twig options": {
-              cache: this.cache,
-            },
-          },
-          options
-        );
         return this.engine.renderFile(mypath, settings, (error, result) => {
           if (error || result === undefined) {
             if (!error) {
@@ -109,7 +111,7 @@ class Twig extends Template {
 
   extendFilter(
     name: string,
-    definition: (left: any, params: false | any[]) => string
+    definition: (left: any, params: false | any[]) => string,
   ) {
     return this.engine.extendFilter(name, definition);
   }

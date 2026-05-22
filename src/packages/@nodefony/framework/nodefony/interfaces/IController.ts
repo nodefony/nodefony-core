@@ -33,24 +33,24 @@ export interface IController {
     data: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ): Promise<unknown>;
   renderResponse(
     data: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
-    headers?: OutgoingHttpHeaders
+    headers?: OutgoingHttpHeaders,
   ): Promise<HttpResponse | Http2Response | WebsocketResponse>;
   renderView(
     path: string,
     param?: Record<string, unknown>,
     status?: string | number,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ): Promise<HttpResponse | Http2Response | WebsocketResponse>;
   renderJson(
     obj: unknown,
     status?: string | number,
-    headers?: OutgoingHttpHeaders
+    headers?: OutgoingHttpHeaders,
   ): Promise<unknown>;
   setRoute(route: IRoute): IRoute;
   startSession(sessionContext?: string): unknown;
@@ -58,21 +58,24 @@ export interface IController {
   redirect(
     url: string,
     status?: string | number,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ): void;
   getFlashBag(key: string): unknown;
   setFlashBag(key: string, value: unknown): unknown;
   addFlash(key: string, value: unknown): unknown;
   forward(name: string, param?: unknown): unknown;
+  /** @deprecated Bloque l'event-loop (`lstatSync`). Préférer `getFileAsync`. */
   getFile(file: FileClass | string): FileClass;
+  /** Variante async de `getFile` (stat non bloquant via `FileClass.from`). */
+  getFileAsync(file: FileClass | string): Promise<FileClass>;
   renderFileDownload(
     file: unknown,
     options?: unknown,
-    headers?: OutgoingHttpHeaders
+    headers?: OutgoingHttpHeaders,
   ): Promise<ReadStream>;
   streamFile(
     file: FileClass | string,
     headers?: OutgoingHttpHeaders,
-    options?: Record<string, unknown>
+    options?: Record<string, unknown>,
   ): Promise<ReadStream>;
 }

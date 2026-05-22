@@ -79,13 +79,13 @@ class Controller extends Service implements IController {
   ejs?: Ejs | null;
   constructor(
     name: string,
-    context: ContextType
+    context: ContextType,
     //@inject("HttpKernel") private httpKernel?: HttpKernel
   ) {
     super(
       name,
       context.container as Container,
-      context.notificationsCenter as Event
+      context.notificationsCenter as Event,
     );
     this.twig = this.get<Twig>("twig");
     this.ejs = this.get<Ejs>("ejs");
@@ -124,7 +124,7 @@ class Controller extends Service implements IController {
     data: any,
     encoding?: BufferEncoding,
     status?: string | number,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ) {
     try {
       return (this.context as HttpContext)
@@ -141,7 +141,7 @@ class Controller extends Service implements IController {
     data: any,
     encoding?: BufferEncoding,
     status?: string | number,
-    headers?: OutgoingHttpHeaders
+    headers?: OutgoingHttpHeaders,
   ): Promise<Http2Response | HttpResponse> | Promise<WebsocketResponse> {
     if (headers) {
       this.response?.setHeaders(headers);
@@ -156,9 +156,9 @@ class Controller extends Service implements IController {
     path: string,
     param: Record<string, any> = {},
     status?: string | number,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ): Promise<Http2Response | HttpResponse | WebsocketResponse> {
-    const file = new FileClass(path);
+    const file = await FileClass.from(path);
     //console.log("renderView", file);
     const extension = file.extention || file.ext.slice(1);
     switch (extension) {
@@ -175,7 +175,7 @@ class Controller extends Service implements IController {
     path: string | FileClass,
     param: Record<string, any> = {},
     status?: string | number,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ): Promise<Http2Response | HttpResponse | WebsocketResponse> {
     let data: string | undefined;
     try {
@@ -183,7 +183,7 @@ class Controller extends Service implements IController {
       if (path instanceof FileClass) {
         file = path;
       } else {
-        file = new FileClass(path);
+        file = await FileClass.from(path);
       }
       data = await this.ejs?.render((await file.readAsync()).toString(), param);
       this.setContextHtml();
@@ -198,7 +198,7 @@ class Controller extends Service implements IController {
     path: string | FileClass,
     param: Record<string, any> = {},
     status?: string | number,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ): Promise<Http2Response | HttpResponse | WebsocketResponse> {
     // "app:ejs:index"
     let data: string | undefined;
@@ -207,7 +207,7 @@ class Controller extends Service implements IController {
       if (path instanceof FileClass) {
         file = path;
       } else {
-        file = new FileClass(path);
+        file = await FileClass.from(path);
       }
       data = await this.twig?.render(file, param).catch((e) => {
         throw e;
@@ -223,7 +223,7 @@ class Controller extends Service implements IController {
   async renderJson(
     obj: any,
     status?: string | number,
-    headers?: OutgoingHttpHeaders
+    headers?: OutgoingHttpHeaders,
   ) {
     let data = null;
     try {
@@ -263,7 +263,7 @@ class Controller extends Service implements IController {
   redirect(
     url: string,
     status?: string | number,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ) {
     // if (!(this.context as HttpContext).redirect) {
     //   throw new Error("subRequest can't redirect request");
@@ -301,11 +301,15 @@ class Controller extends Service implements IController {
   forward(name: string, param?: any) {
     const resolver = (this.get("router") as Router).resolveController(
       this.context as ContextType,
-      name
+      name,
     );
     return resolver.callController(param, true);
   }
 
+  /**
+   * @deprecated Bloque l'event-loop (`fs.lstatSync` via `new FileClass`).
+   *   Utiliser {@link getFileAsync} dans tout pipeline. Conservé pour compat.
+   */
   getFile(file: FileClass | string): FileClass {
     try {
       let File: FileClass;
@@ -326,12 +330,37 @@ class Controller extends Service implements IController {
     }
   }
 
-  renderFileDownload(
+  /**
+   * Variante **async** de `getFile()` — résout les stats via `FileClass.from`
+   * (pas de `lstatSync` bloquant). À préférer dans le pipeline (render/stream).
+   *
+   * @param file - `FileClass` déjà hydraté OU chemin string.
+   * @returns le `FileClass` (type `"File"` validé).
+   * @throws Si le type n'est pas `"File"` ou si le chemin est invalide.
+   */
+  async getFileAsync(file: FileClass | string): Promise<FileClass> {
+    let File: FileClass;
+    if (file instanceof FileClass) {
+      File = file;
+    } else if (typeof file === "string") {
+      File = await FileClass.from(file);
+    } else {
+      throw new Error(
+        `File argument bad type for getFileAsync :${typeof file}`,
+      );
+    }
+    if (File.type !== "File") {
+      throw new Error(`getFileAsync bad type for  :${file}`);
+    }
+    return File;
+  }
+
+  async renderFileDownload(
     file: any,
     options?: any,
-    headers: OutgoingHttpHeaders = {}
+    headers: OutgoingHttpHeaders = {},
   ): Promise<ReadStream> {
-    const File = this.getFile(file);
+    const File = await this.getFileAsync(file);
     const length = File.stats.size;
     const head = {
       ...{
@@ -351,10 +380,10 @@ class Controller extends Service implements IController {
     }
   }
 
-  streamFile(
+  async streamFile(
     file: FileClass | string,
     headers?: OutgoingHttpHeaders,
-    options: ReadStreamOptions | undefined = {}
+    options: ReadStreamOptions | undefined = {},
   ): Promise<ReadStream> {
     if (!this.response) {
       throw new Error(`response not found`);
@@ -366,19 +395,19 @@ class Controller extends Service implements IController {
     }
     (options as ReadStreamOptions).autoClose = false;
     try {
-      const fileDetails = this.getFile(file);
+      const fileDetails = await this.getFileAsync(file);
 
       (this.response as HttpResponse | Http2Response).response?.removeHeader(
-        "Content-Type"
+        "Content-Type",
       );
       (this.response as HttpResponse | Http2Response).response?.removeHeader(
-        "content-type"
+        "content-type",
       );
       const contentTypeHeader =
         headers && (headers["Content-Type"] || headers["content-type"]);
       if (!contentTypeHeader) {
         (this.response as HttpResponse | Http2Response).setFileMimeType(
-          fileDetails.name
+          fileDetails.name,
         );
       }
       const contentLength =
@@ -388,16 +417,16 @@ class Controller extends Service implements IController {
           headers = {};
         }
         (this.response as HttpResponse | Http2Response).response?.removeHeader(
-          "Content-Length"
+          "Content-Length",
         );
         (this.response as HttpResponse | Http2Response).response?.removeHeader(
-          "content-length"
+          "content-length",
         );
         headers["Content-Length"] = fileDetails.stats.size;
       }
       const streamFile = createReadStream(
         fileDetails.path as fs.PathLike,
-        options
+        options,
       ) as ReadStreamWithFD;
 
       return new Promise((resolve, reject) => {
@@ -406,7 +435,7 @@ class Controller extends Service implements IController {
           try {
             (this.context as HttpContext)?.writeHead(
               contextResponse?.statusCode as number,
-              headers
+              headers,
             );
             streamFile.pipe(response, { end: false });
           } catch (e) {
@@ -451,12 +480,12 @@ class Controller extends Service implements IController {
     }
   }
 
-  renderMediaStream(
+  async renderMediaStream(
     file: FileClass | string,
     headers: OutgoingHttpHeaders = {},
-    options: ReadStreamOptions | undefined = {}
+    options: ReadStreamOptions | undefined = {},
   ) {
-    const File = this.getFile(file);
+    const File = await this.getFileAsync(file);
     this.response?.setEncoding("binary");
     const { range } = (this.request as HttpRequest | Http2Request)?.headers;
     const length = File.stats.size;
