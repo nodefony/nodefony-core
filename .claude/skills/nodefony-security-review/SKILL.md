@@ -35,9 +35,11 @@ n'appliquer que les checks pertinents.
 ## 2. Checklist (grep ciblé sur le diff, pas tout le repo)
 
 ### A. Injection — requêtes TOUJOURS paramétrées ⛔
+
 - SQL/NoSQL via **bindings**, jamais de concat/template dans la requête.
-- `db.all(sql\`... ${x}\`)` (drizzle, **tag `sql`**) = bindé ✅. Risque = un template
-  **brut** (sans tag) ou une concat passé à un appel db.
+- `db.all(sql\`... ${x}\`)`(drizzle, **tag`sql`**) = bindé ✅. Risque = un template
+  **brut\*\* (sans tag) ou une concat passé à un appel db.
+
 ```bash
 # 1) Template brut interpolé directement dans un appel db (paren collé au backtick) = ⛔
 git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
@@ -46,23 +48,42 @@ git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
 git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
   | grep -E '(query|execute|exec|raw)\(' | grep -E '\+ *['"'"'"`]'
 ```
-> Le tag `sql\`…${x}\`` (drizzle) bind les `${}` → **sûr** : il a `sql` AVANT le backtick,
-> donc il ne matche PAS le motif `\(\s*\`` du check 1. Si un appel db a un backtick
+
+> Le tag `sql\`…${x}\`` (drizzle) bind les `${}`→ **sûr** : il a`sql`AVANT le backtick,
+donc il ne matche PAS le motif`\(\s\*\`` du check 1. Si un appel db a un backtick
 > **directement** après la parenthèse → template brut → vérifier à la main.
+
 - Critère portable orm-core : passer par `Criteria`/`FieldOperators` (déjà bindés), pas du SQL maison.
 
 ### B. Secrets & credentials — jamais en clair, jamais loggés ⛔
+
 - Pas de `password`/`token`/`secret`/`apiKey`/clé privée dans un `log()/console`/exception/réponse.
+
 ```bash
 git diff HEAD -- 'src/**/*.ts' | grep -niE '(log|console\.|throw|message:).*(password|secret|token|apikey|private[_-]?key)'
 ```
+
 - ⚠️ **Dette connue** : le **profiler** (`@nodefony/http`) capture le SQL → un INSERT/UPDATE User
   contient le hash. Si la modif alimente `profiler.queries` ou un logger ORM → **redacter** les
   valeurs sensibles (au minimum les colonnes `password`/token). Vérifier la redaction.
 - Mots de passe : **hash** (`BcryptEncoder`/argon2), jamais MD5/SHA1, jamais stocké en clair.
 - Comparaisons credential = **constant-time** (le leurre anti-timing de `UserService.authenticate`).
+- ⛔ **Chemins & infra — pas d'info-leak FS dans une réponse data plane** : jamais de **chemin
+  absolu** serveur (révèle le home, l'arborescence, l'OS) ni d'**URI de connexion avec credential**.
+  → relativiser le chemin à la racine du process (`path.relative(process.cwd(), p)`, basename si hors
+  projet) ; rédacter le `password` d'une URI (`postgres://user:***@host/db`). Vécu 2026-05-22 :
+  `DrizzleOrm.describeConnection` renvoyait le `filename` **absolu** dans `/nodefony/orm/api/orms`
+  (dashboard ORM) → corrigé en chemin relatif (`#safeTarget`). Tout adapter exposant une cible de
+  connexion DOIT appliquer la même règle.
+
+```bash
+# Chemin absolu (home/tmp/var) ou URI avec credential dans une valeur renvoyée
+git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
+  | grep -E '(target|path|file|uri|url|dsn|connection)\s*[:=].*("|`)/(Users|home|var|tmp|opt|etc)/|//[^/]+:[^@/]+@'
+```
 
 ### C. Conformité RFC (si code protocolaire) ⚠️→⛔
+
 - Toucher status/headers/méthodes/cookies/CORS/WS/JWT → **vérifier la RFC** (skill `nodefony-rfc`)
   AVANT, et **citer la RFC** dans le commit.
 - Headers : casse + séparateurs `\r\n` ; sanitize `statusMessage` (`[^\x20-\x7E]`) avant `writeHead`.
@@ -71,6 +92,7 @@ git diff HEAD -- 'src/**/*.ts' | grep -niE '(log|console\.|throw|message:).*(pas
 - `traceparent` W3C, `X-Request-Id` (RFC 6648 grandfather).
 
 ### D. Auth / AuthZ — Zero Trust par défaut ⛔
+
 - HTTP **stateless** : JWT cookie `HttpOnly; Secure; SameSite=Strict` (+ refresh rotation OWASP),
   pas de session RAM serveur (cf `project_security_stateless_http_decision`).
 - Route sans décorateur de sécurité → **403 systématique** (jamais d'accès par défaut).
@@ -80,18 +102,22 @@ git diff HEAD -- 'src/**/*.ts' | grep -niE '(log|console\.|throw|message:).*(pas
   X-Frame-Options.
 
 ### E. Typage = garde-fou ⛔
+
 ```bash
 git diff HEAD -- 'src/**/*.ts' | grep -nE ':\s*any\b|as any|@ts-ignore|@ts-nocheck|\brequire\('
 ```
+
 - Zéro `any` / `@ts-ignore` / `require()`. Contrats credential **typés** (`IPasswordAuthenticatedUser`),
   jamais de downcast pour atteindre le hash.
 
 ### F. Entrées externes & erreurs ⚠️
+
 - Valider les entrées aux frontières (Zod au boot config ; payloads requête typés/validés).
 - Pas de fuite de stack/détails internes au client en prod (errorRenderer).
 - Uploads : limites taille/type. WS : limites taille/séquence de frames.
 
 ### G. Agentic (couche IA, Phase 12) ⚠️
+
 - Outils d'agent = surface d'attaque : permissions explicites, sandbox, anti prompt-injection,
   pas d'exécution arbitraire. Tracer (AI Act).
 

@@ -60,10 +60,15 @@ export interface IConnectionInfo {
    */
   driver: string;
   /**
-   * Cible lisible : chemin du fichier (SQLite), `host:port/base` (serveur) ou
-   * URI redactée. **Jamais de credential** (mot de passe retiré côté adapter).
+   * Cible lisible : chemin du fichier (SQLite, **relatif** — jamais d'absolu),
+   * `host:port/base` (serveur) ou URI redactée. **Jamais de credential** (mot de
+   * passe retiré côté adapter).
    */
   target?: string;
+  /** Version du moteur/base (ex. SQLite `3.45.1`), si l'adapter peut l'obtenir. */
+  version?: string;
+  /** Version de la lib ORM elle-même (ex. drizzle-orm `0.44.x`), si connue. */
+  ormVersion?: string;
 }
 
 /** Résumé d'un ORM/connecteur enregistré. */

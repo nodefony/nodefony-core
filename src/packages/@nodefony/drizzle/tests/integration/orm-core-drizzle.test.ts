@@ -79,11 +79,11 @@ describe("orm-core ↔ Drizzle adapter (P7.4)", () => {
     assert.equal(orm.isConnected(), true);
   });
 
-  it("describeConnection : driver sqlite + cible = fichier (data plane / dashboard)", () => {
-    assert.deepEqual(orm.describeConnection(), {
-      driver: "sqlite",
-      target: ":memory:",
-    });
+  it("describeConnection : driver sqlite + cible :memory: + version (data plane)", () => {
+    const c = orm.describeConnection();
+    assert.equal(c.driver, "sqlite");
+    assert.equal(c.target, ":memory:");
+    assert.match(c.version ?? "", /^\d+\.\d+/); // ex. "3.45.1"
   });
 
   it("CRUD portable : create / findOne / find / count / update / delete", async () => {

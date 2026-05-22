@@ -1,3 +1,6 @@
+import path from "node:path";
+import fs from "node:fs";
+import { createRequire } from "node:module";
 import BetterSqlite3 from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
@@ -266,12 +269,80 @@ export class DrizzleOrm extends Orm {
   }
 
   /**
-   * Décrit la connexion : driver `sqlite` (better-sqlite3) + chemin du fichier
-   * (`:memory:` pour les tests). Aucun credential (SQLite = fichier local).
+   * Décrit la connexion : driver `sqlite` (better-sqlite3) + cible (chemin du
+   * fichier, `:memory:` pour les tests). Aucun credential (SQLite = fichier local).
+   * Le chemin est **relativisé** à la racine du process : on ne fuite jamais
+   * l'arborescence absolue du serveur (home, structure FS) dans le data plane.
    *
-   * @returns driver + cible (chemin du fichier SQLite).
+   * @returns driver + cible (chemin relatif, basename si hors projet, ou `:memory:`).
    */
   override describeConnection(): IConnectionInfo {
-    return { driver: "sqlite", target: this.#filename };
+    return {
+      driver: "sqlite",
+      target: this.#safeTarget(),
+      version: this.#sqliteVersion(),
+      ormVersion: DrizzleOrm.#ormVersion(),
+    };
+  }
+
+  /** Version de la lib `drizzle-orm` (résolue + cachée une seule fois). */
+  static #cachedOrmVersion: string | null | undefined;
+  static #ormVersion(): string | undefined {
+    if (DrizzleOrm.#cachedOrmVersion === undefined) {
+      DrizzleOrm.#cachedOrmVersion =
+        DrizzleOrm.#resolvePkgVersion("drizzle-orm") ?? null;
+    }
+    return DrizzleOrm.#cachedOrmVersion ?? undefined;
+  }
+
+  /**
+   * Version d'un package npm via son `package.json` — `createRequire` +
+   * remontée FS. (`require("<pkg>/package.json")` direct échoue souvent :
+   * `exports` ne publie pas toujours `./package.json`.)
+   */
+  static #resolvePkgVersion(name: string): string | undefined {
+    try {
+      const req = createRequire(import.meta.url);
+      let dir = path.dirname(req.resolve(name));
+      for (let i = 0; i < 8; i++) {
+        const pkgPath = path.join(dir, "package.json");
+        if (fs.existsSync(pkgPath)) {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
+            name?: string;
+            version?: string;
+          };
+          if (pkg.name === name) return pkg.version;
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+      }
+    } catch {
+      /* package introuvable / illisible → version inconnue */
+    }
+    return undefined;
+  }
+
+  /** Cible affichable : `:memory:` tel quel, sinon chemin relatif au cwd
+   *  (basename si hors projet) — jamais d'absolu (anti info-leak). */
+  #safeTarget(): string {
+    if (this.#filename === ":memory:" || !path.isAbsolute(this.#filename)) {
+      return this.#filename;
+    }
+    const rel = path.relative(process.cwd(), this.#filename);
+    return rel && !rel.startsWith("..") ? rel : path.basename(this.#filename);
+  }
+
+  /** Version du moteur SQLite (`SELECT sqlite_version()`), si connecté. */
+  #sqliteVersion(): string | undefined {
+    if (!this.#client) return undefined;
+    try {
+      const row = this.#client.prepare("SELECT sqlite_version() AS v").get() as
+        | { v?: string }
+        | undefined;
+      return row?.v;
+    } catch {
+      return undefined;
+    }
   }
 }

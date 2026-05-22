@@ -19,6 +19,7 @@ import {
   IconPlugX,
   IconAffiliate,
   IconTable,
+  IconBolt,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
@@ -33,8 +34,13 @@ interface OrmSummary {
   default: boolean;
   connected: boolean;
   entityCount: number;
-  /** Connexion sous-jacente : driver (→ logo base) + cible (chemin fichier / host). */
-  connection?: { driver: string; target?: string };
+  /** Connexion sous-jacente : driver (→ logo base) + cible + versions base/ORM. */
+  connection?: {
+    driver: string;
+    target?: string;
+    version?: string;
+    ormVersion?: string;
+  };
 }
 
 /** Entité du graphe canonique (/nodefony/orm/api/graph) — on n'utilise que les relations. */
@@ -61,7 +67,10 @@ const VENDOR_LABEL: Record<string, string> = {
 function OrmCard({ orm }: { orm: OrmSummary }) {
   const driver = orm.connection?.driver ?? "";
   const target = orm.connection?.target;
+  const version = orm.connection?.version;
+  const ormVersion = orm.connection?.ormVersion;
   const vendorLabel = VENDOR_LABEL[orm.vendor ?? ""] ?? orm.vendor ?? "—";
+  const inMemory = target === ":memory:";
 
   return (
     <Card withBorder radius="md" p="lg">
@@ -79,14 +88,16 @@ function OrmCard({ orm }: { orm: OrmSummary }) {
             <Text fw={700} truncate>
               {orm.name}
             </Text>
-            {/* Logo + nom de l'ORM (vendor) + driver. */}
+            {/* Logo ORM + vendor (+ version ORM) · driver (+ version base). */}
             <Group gap={5} wrap="nowrap" style={{ minWidth: 0 }}>
               {hasDbLogo(orm.vendor) && (
                 <DbLogo name={orm.vendor} size={13} title={vendorLabel} />
               )}
               <Text size="xs" c="dimmed" truncate>
                 {vendorLabel}
+                {ormVersion ? ` ${ormVersion}` : ""}
                 {driver ? ` · ${driver}` : ""}
+                {version ? ` ${version}` : ""}
               </Text>
             </Group>
           </div>
@@ -98,20 +109,27 @@ function OrmCard({ orm }: { orm: OrmSummary }) {
         )}
       </Group>
 
-      {/* Cible : chemin du fichier SQLite (ou host/base) — jamais de credential. */}
-      {target && (
-        <Code
-          block
-          style={{
-            fontSize: 11,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-          title={target}
+      {/* Cible : base en mémoire (volatile) OU chemin de fichier relatif (jamais
+          d'absolu ni de credential). */}
+      {inMemory ? (
+        <Badge
+          size="sm"
+          variant="light"
+          color="grape"
+          leftSection={<IconBolt size={12} />}
         >
-          {target}
-        </Code>
+          en mémoire (volatile)
+        </Badge>
+      ) : (
+        target && (
+          <Code
+            block
+            style={{ fontSize: 11, wordBreak: "break-all" }}
+            title={target}
+          >
+            {target}
+          </Code>
+        )
       )}
 
       <Group justify="space-between" mt="sm">
