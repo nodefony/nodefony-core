@@ -70,17 +70,53 @@ Sortie compacte pour **compréhension globale**, sans revue phase-par-phase. Deu
 
 #### Variante A — barres rapides (défaut)
 
-Trié par % décroissant, barres ASCII.
+##### Comptage FIABLE (recette unique — ne pas improviser)
 
-**Formule %** : `% = (✅ + 0,5 × 🔶) / tâches`. Barre 10 segments : `n = round(% / 10)` blocs `█`, reste `░`.
+> **Le fichier marque de façon incohérente** (1ʳᵉ cellule pour P0–P10, parfois colonne Notes
+> pour P14/P12). Règle d'or : **l'autorité de statut = l'emoji en TÊTE de la 1ʳᵉ cellule du tableau**
+> (la colonne `#`). Une tâche = **une ligne de tableau** dont la 1ʳᵉ cellule est un `P<n>.<x>`.
+> Statut : `✅` si la 1ʳᵉ cellule commence par ✅, `🔶` si 🔶, **sinon `⬜`** (pas de marque = à faire).
+
+```bash
+# Borne la roadmap P0–P16 (s'arrête à "### Synthèse effort total")
+S=$(grep -n "^### P0" MIGRATION_STATUS.md | head -1 | cut -d: -f1)
+E=$(grep -n "^### Synthèse effort" MIGRATION_STATUS.md | head -1 | cut -d: -f1)
+awk -v s="$S" -v e="$E" 'NR>=s && NR<e' MIGRATION_STATUS.md | awk -F'|' '
+  /^### P[0-9]+/ { if(ph)printf "%s %d %d %d\n",ph,d,p,t; ph=$0; sub(/^### /,"",ph); sub(/ .*/,"",ph); d=p=t=0; next }
+  $2 ~ /P[0-9]+\.[0-9]/ {            # ligne de tâche : 1re cellule = le # de tâche
+    if($2 ~ /✅/) d++; else if($2 ~ /🔶/) p++; else t++ }   # statut = emoji 1re CELLULE
+  END { if(ph)printf "%s %d %d %d\n",ph,d,p,t }'
+```
+
+**❌ Méthodes à NE PAS utiliser** (sources des chiffres faux) :
+- `gsub(/✅/...)` (compter les occurrences) → multi-emoji par ligne = sur-compte.
+- `$0 ~ /✅/` (emoji n'importe où dans la ligne) → une **note** « ✅ **Décision** » ou « ✅ 2026 » dans
+  la colonne Notes d'une tâche **non livrée** (ex. `P5.0b`) compte un faux ✅.
+- Faire confiance au tableau résumé `## Progression globale` (périmé, granularité ≠).
+
+**⚠️ Divergence 1ʳᵉ cellule ≠ réalité** (ex. P14 « fait » mais marqué en notes, pas en tête) = une
+**INCOHÉRENCE À CORRIGER** (normaliser, cf. ci-dessous), **pas** à contourner en changeant la formule.
+
+##### Formule + rendu
+
+`% = (✅ + 0,5 × 🔶) / tâches`. Barre 10 segments : `n = round(% / 10)` blocs `█`, reste `░`.
+Emoji de phase : `✅` si 100 %, `⬜` si 0 %, sinon `🔶`. Tri par % décroissant ; **flag `◀` le chemin
+critique** (P5/P6) même s'il n'est pas en tête.
 
 ```
-ÉTAT MIGRATION NODEFONY — <N> tâches — vérifié code <date>
-  P0  bugs            ██████████ 100%   6/6     ✅ bouclé
-  …
-  P5  user/orm core   ░░░░░░░░░░   0%   0/16   ◀ CHEMIN CRITIQUE
-  GLOBAL  ███░░░░░░░  29%   (35 ✅ · 24 🔶 · 105 ⬜)
+━━━ NODEFONY · ÉTAT MIGRATION ━━━━━━━━━━━━━━━━━━━━ vérifié code <date> ━━━
+ ✅ P0   Bugs bloquants        ██████████  100%    6/6
+ ✅ P1   Fondations            ██████████  100%    8/8
+ 🔶 P5   ORM / User / Session  ██████░░░░   62%   10/17   ◀ chemin critique
+ ⬜ P6   Security              ░░░░░░░░░░    0%    0/13   ◀ bloqueur suivant
+ …  (une ligne par phase, triée % décroissant)
+─────────────────────────────────────────────────────────────────────────
+ GLOBAL                        ████░░░░░░   ~42%   46✅ · 18🔶 · 70⬜  (134)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
+
+> Aligner les colonnes (titre ~20c, barre 10c, %, `n/N`). Ne PAS tenter une bordure droite fermée
+> (largeur emoji variable selon terminal → casse l'alignement) : règles `━`/`─` pleines uniquement.
 
 #### Variante B — « tableau parfait » (« tableau complet », « avec détails »)
 
@@ -121,6 +157,29 @@ Déterminer la prochaine étape = **première phase non finie sur le chemin crit
 ```
 
 Règle de choix : tant que **P5/P6 ne sont pas terminées**, la prochaine étape est la première phase non finie du chemin critique — typiquement **P5** (ORM core + @nodefony/user), bloqueur racine de la sécurité, du Studio data-réelle, des drivers ORM, de l'IA. **Mesurer leur % réel dans le code, ne pas le supposer** (P5.2/P5.3/P7.4 déjà livrés au 2026-05-21) ; lister les 2-3 premières sous-tâches NON faites avec leur effort.
+
+### Normalisation des marques (CORRIGER les incohérences) — objectif du skill
+
+Le but n'est pas que de *mesurer* l'état, c'est de **rendre le fichier cohérent** pour que toute mesure
+future soit triviale et fiable. **Convention unique imposée** : chaque ligne de tâche porte son statut
+en **TÊTE de la 1ʳᵉ cellule** (`| ✅ P5.2 | …`, `| 🔶 P5.4 | …`, `| ⬜ P5.7 | …`). Marquer `⬜`
+explicitement les tâches non faites (plus de « pas de marque » ambigu).
+
+**Détecter les incohérences** = comparer 2 comptes :
+```bash
+# A) autorité 1re cellule (cf recette fiable)   B) emoji n'importe où ($0 ~ /✅|🔶/)
+# Une phase où A < B = des tâches marquées AILLEURS que la 1re cellule → à normaliser.
+```
+
+**Corriger (par ligne divergente, avec jugement — ne pas automatiser aveuglément)** :
+1. Lire la ligne (et au besoin la section détaillée `## Phase N`).
+2. Décider le vrai statut : **livré** (`✅`), **partiel/legacy en place** (`🔶`), **à faire** (`⬜`).
+   ⚠️ Une **note** « ✅ **Décision** … » = décision prise, **PAS** une tâche livrée → reste `⬜`/`🔶`.
+3. Préfixer la 1ʳᵉ cellule par l'emoji (déplacer la marque depuis les notes si elle y était).
+4. Re-lancer le compteur fiable → A == B (plus de divergence) = fichier cohérent.
+
+> Toujours **montrer le diff** (avant/après) et **demander l'accord** avant d'écrire dans
+> `MIGRATION_STATUS.md` (c'est la source de vérité). Commit dédié `docs(migration): normalise les marques de statut (1re cellule) …`.
 
 ### Étape 2 — Synthèse + corrections (fin)
 
@@ -165,6 +224,9 @@ Règle de choix : tant que **P5/P6 ne sont pas terminées**, la prochaine étape
 
 ## Pièges connus (issus de l'audit 2026-05-20)
 
+- **Comptage faux par emoji-occurrence / emoji-n'importe-où** (audit 2026-05-22) : sur-compte
+  (multi-emoji, notes « ✅ Décision » d'une tâche non faite). **Autorité = emoji 1ʳᵉ cellule** ($2),
+  une ligne = une tâche. Voir recette fiable « Variante A ». Marquage incohérent du fichier → **normaliser**.
 - **Tableau résumé `## Progression globale` = périmé** (ex. `HTTP / WS 0✅` alors que les 4 serveurs tournent). Ne jamais s'y fier ; c'est la roadmap P0–P16 qui porte les vraies marques.
 - **Granularité ≠** : le résumé compte ~297 sous-items, la roadmap ~150 tâches → pas de mapping 1:1. Ne pas tenter un recompte total exact.
 - **Structures de module** : certains modules IA utilisent `src/` (pas `nodefony/`) → `find` large, pas seulement `nodefony/**`.
