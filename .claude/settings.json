@@ -9,6 +9,8 @@
       "Bash(npx turbo *)",
       "Bash(npx mocha *)",
       "Bash(npx tsc *)",
+      "Bash(node_modules/.bin/tsc *)",
+      "Bash(*/node_modules/.bin/tsc *)",
       "Bash(npx rollup *)",
       "Bash(npx ncu *)",
       "Bash(node *)",
