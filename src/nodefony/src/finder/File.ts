@@ -14,9 +14,27 @@ class File extends FileClass {
   constructor(
     path: string | fs.PathOrFileDescriptor,
     parent: File | null = null,
+    options?: { defer?: boolean },
   ) {
-    super(path);
+    super(path, options);
     this.parent = parent;
+  }
+
+  /**
+   * Construit un `File` SANS `lstatSync` bloquant — stat résolu en async.
+   * À utiliser dans le Finder pour ne pas bloquer l'event-loop par entrée.
+   *
+   * @param path - chemin du fichier/dossier.
+   * @param parent - `File` parent (arborescence Finder), `null` à la racine.
+   * @returns instance `File` hydratée (stats async).
+   */
+  static async from(
+    path: string | fs.PathOrFileDescriptor,
+    parent: File | null = null,
+  ): Promise<File> {
+    const file = new File(path, parent, { defer: true });
+    await file.stat();
+    return file;
   }
 
   get length(): number {

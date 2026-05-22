@@ -56,57 +56,106 @@ const defaultEncoding = {
  * const content = file.read();
  * ```
  *
- * @remarks **Synchronous-first** — le constructeur appelle `fs.lstatSync()`. À utiliser dans
- *   un contexte de boot/CLI, **pas dans le hot path d'une requête HTTP**. Pour de la lecture
- *   async dans un controller, utiliser `fs/promises` directement.
+ * @remarks Le constructeur `new FileClass(path)` fait un `fs.lstatSync()` **synchrone**
+ *   (bloque l'event-loop) — réservé au boot/CLI. Dans **tout hot path** (requête HTTP,
+ *   Finder, upload), utiliser `await FileClass.from(path)` qui résout les stats en async
+ *   (`fsp.lstat`/`fsp.realpath`) sans bloquer la loop. Idem `moveAsync()` vs `move()`.
  */
 class FileClass {
-  public stats: fs.Stats;
+  public stats!: fs.Stats;
   public type: string | undefined;
   public path: fs.PathOrFileDescriptor;
-  public parse: path.ParsedPath;
-  public name: string;
-  public shortName: string;
-  public ext: string;
+  public parse!: path.ParsedPath;
+  public name!: string;
+  public shortName!: string;
+  public ext!: string;
   public mimeType: string | false = false;
   public encoding: string = "UTF-8";
   public extention: string | false = false;
-  public dirName: string;
+  public dirName!: string;
   public match: RegExpExecArray | null = null;
 
   /**
    * Construit un FileClass à partir d'un chemin (absolu OR relatif à `process.cwd()`).
    *
-   * Résout `lstatSync` (suit pas les symlinks), parse path, devine MIME type pour les
-   * fichiers. Throw si `Path` falsy ou inexistant.
+   * Par défaut : résout `lstatSync` (suit pas les symlinks) + `realpathSync`, parse le
+   * path, devine le MIME type — **synchrone, bloque l'event-loop** (boot/CLI uniquement).
+   * Passer `{ defer: true }` n'effectue AUCUNE I/O (utilisé par `FileClass.from()` async).
    *
    * @param Path - chemin absolu OR relatif vers le fichier/dossier.
-   * @throws Si `Path` est falsy OR si `lstatSync` échoue (fichier inexistant).
+   * @param options - `defer: true` → pas de stat au constructeur (hydrater via `stat()`).
+   * @throws Si `Path` est falsy OR si `lstatSync` échoue (fichier inexistant, hors defer).
    */
-  constructor(Path: string | fs.PathOrFileDescriptor) {
-    if (Path) {
-      Path = checkPath(Path);
-      this.stats = fs.lstatSync(Path);
-      this.type = this.checkType();
-      if (this.stats.isSymbolicLink()) {
-        fs.readlinkSync(Path);
-        this.path = Path;
-      } else {
-        this.path = this.getRealpath(Path);
-      }
-      this.parse = path.parse(this.path as string);
-      this.name = this.parse.name + this.parse.ext;
-      this.ext = this.parse.ext;
-      this.shortName = this.parse.name;
-      if (this.type === "File") {
-        this.mimeType = this.getMimeType(this.name);
-        this.encoding = "UTF-8";
-        this.extention = this.getExtension(this.mimeType);
-      }
-      this.dirName = this.parse.dir;
-    } else {
+  constructor(
+    Path: string | fs.PathOrFileDescriptor,
+    options?: { defer?: boolean },
+  ) {
+    if (!Path) {
       throw new Error(`error fileClass Path : ${Path}`);
     }
+    this.path = checkPath(Path);
+    if (!options?.defer) {
+      const stats = fs.lstatSync(this.path as string);
+      const resolved = stats.isSymbolicLink()
+        ? (this.path as string)
+        : fs.realpathSync(this.path as string);
+      this.hydrate(stats, resolved);
+    }
+  }
+
+  /**
+   * Construit un FileClass SANS I/O synchrone — `fsp.lstat`/`fsp.realpath` async.
+   *
+   * À utiliser dans tout hot path (Finder, upload, render controller) pour ne PAS
+   * bloquer l'event-loop. Équivalent async de `new FileClass(path)`.
+   *
+   * @param Path - chemin absolu ou relatif à `process.cwd()`.
+   * @returns une instance hydratée (stats résolus).
+   * @throws Si `Path` est falsy ou si `lstat` échoue (inexistant).
+   */
+  static async from(
+    Path: string | fs.PathOrFileDescriptor,
+  ): Promise<FileClass> {
+    const file = new FileClass(Path, { defer: true });
+    await file.stat();
+    return file;
+  }
+
+  /**
+   * Résout les stats en async (`fsp.lstat` + `fsp.realpath`) puis hydrate l'instance.
+   * Aucune I/O synchrone. Appelé par `FileClass.from()` ; rappelable pour rafraîchir.
+   *
+   * @returns `this` (chaînable, type polymorphe pour les sous-classes type `File`).
+   */
+  async stat(): Promise<this> {
+    const p = checkPath(this.path as string);
+    const stats = await fsp.lstat(p);
+    const resolved = stats.isSymbolicLink() ? p : await fsp.realpath(p);
+    this.hydrate(stats, resolved);
+    return this;
+  }
+
+  /**
+   * Renseigne stats/type/path/parse/name/mime à partir de stats déjà résolus.
+   * Partagé par le constructeur sync et `stat()` async — **aucune I/O ici** (pur).
+   *
+   * @param stats - résultat d'un `lstat` (sync ou async).
+   * @param resolvedPath - path réel (realpath) ou path original si symlink.
+   */
+  private hydrate(stats: fs.Stats, resolvedPath: string): void {
+    this.stats = stats;
+    this.type = this.checkType();
+    this.path = resolvedPath;
+    this.parse = path.parse(this.path as string);
+    this.name = this.parse.name + this.parse.ext;
+    this.ext = this.parse.ext;
+    this.shortName = this.parse.name;
+    if (this.type === "File") {
+      this.mimeType = this.getMimeType(this.name);
+      this.encoding = "UTF-8";
+      this.extention = this.getExtension(this.mimeType);
+    }
+    this.dirName = this.parse.dir;
   }
 
   /**
@@ -293,9 +342,26 @@ class FileClass {
     return new FileClass(<string>target);
   }
 
+  /**
+   * Déplace/renomme le fichier en **async** (`fsp.rename`) — variante non bloquante
+   * de `move()`. À préférer dans le pipeline (upload, controller).
+   *
+   * @param target - chemin de destination.
+   * @returns nouvelle instance FileClass (hydratée async) sur `target`.
+   */
+  async moveAsync(target: fs.PathLike): Promise<FileClass> {
+    await fsp.rename(<fs.PathLike>this.path, target);
+    return FileClass.from(<string>target);
+  }
+
   /** Supprime le fichier du filesystem (synchronous, irréversible). */
   unlink(): void {
     fs.unlinkSync(<fs.PathLike>this.path);
+  }
+
+  /** Supprime le fichier du filesystem en **async** (`fsp.unlink`). */
+  async unlinkAsync(): Promise<void> {
+    await fsp.unlink(<fs.PathLike>this.path);
   }
 }
 

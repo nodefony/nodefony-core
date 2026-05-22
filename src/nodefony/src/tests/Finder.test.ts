@@ -91,6 +91,23 @@ describe("NODEFONY CORE FINDER", () => {
       assert.equal(file2.name, "nodefony");
     });
 
+    it("PATH ASYNC — checkPathAsync (non bloquant, parité)", async () => {
+      // string
+      const result = await global.finder.checkPathAsync(global.bundlePath);
+      assert(result instanceof FileResult);
+      assert.strictEqual(result.length, 1);
+      assert(result[0] instanceof File);
+      assert.equal(result[0].type, "Directory");
+      assert.equal(result[0].path, global.bundlePath);
+      // array (stats résolus en parallèle)
+      const arr = await global.finder.checkPathAsync(global.arrayPath);
+      assert.strictEqual(arr.length, 2);
+      assert.equal(arr[0].name, "bundles");
+      assert.equal(arr[1].name, "nodefony");
+      // path invalide → rejette (pas de throw sync)
+      await assert.rejects(global.finder.checkPathAsync("bad path"));
+    });
+
     it("PARSE IN", async () => {
       assert.rejects(global.finder.in("bad path"));
       let res = await global.finder.in("bad path").catch((e) => {

@@ -58,10 +58,18 @@ const checkExclude = function (info: File, options: DefaultSettingsInterface) {
   if (options.exclude && info.matchName(options.exclude)) {
     return true;
   }
-  if (options.excludeDir && info.isDirectory() && info.matchName(options.excludeDir)) {
+  if (
+    options.excludeDir &&
+    info.isDirectory() &&
+    info.matchName(options.excludeDir)
+  ) {
     return true;
   }
-  if (options.excludeFile && info.isFile() && info.matchName(options.excludeFile)) {
+  if (
+    options.excludeFile &&
+    info.isFile() &&
+    info.matchName(options.excludeFile)
+  ) {
     return true;
   }
   return false;
@@ -150,9 +158,15 @@ async function parser(
       res = await fsp.readlink(file.path as fs.PathLike);
     }
     if (res && res.length) {
+      // Stat de TOUTES les entrées du dossier EN PARALLÈLE (async, non bloquant) —
+      // remplace les N `new File()` synchrones (lstatSync) d'affilée qui gelaient
+      // l'event-loop sur les gros dossiers et la récursion profonde.
+      const paths: string[] = [];
       for (let i = 0; i < res.length; i++) {
-        const ret = path.resolve(file.path as string, res[i]);
-        const info = new File(ret, parent);
+        paths.push(path.resolve(file.path as string, res[i]));
+      }
+      const infos = await Promise.all(paths.map((p) => File.from(p, parent)));
+      for (const info of infos) {
         const hidden = info.isHidden();
         if (hidden && !options.seeHidden) {
           continue;
@@ -167,7 +181,7 @@ async function parser(
               info.dirName,
               await fsp.readlink(info.path as fs.PathLike),
             );
-            symLink = new File(read, info);
+            symLink = await File.from(read, info);
           } catch (e) {
             this.fire("onError", e, this);
             continue;
@@ -196,7 +210,14 @@ async function parser(
           case "symbolicLink":
             if (symLink?.isDirectory()) {
               const myDepth: number | null = depth === null ? null : depth - 1;
-              await parser.call(this, symLink, undefined, options, myDepth, info);
+              await parser.call(
+                this,
+                symLink,
+                undefined,
+                options,
+                myDepth,
+                info,
+              );
             }
             break;
         }
@@ -258,13 +279,47 @@ class Finder extends Event {
     }
   }
 
+  /**
+   * Variante **async** de {@link checkPath} — résout la (les) racine(s) via
+   * `File.from()` (pas de `lstatSync`). Utilisée par `in()` pour ne pas bloquer
+   * l'event-loop dès la résolution du point d'entrée.
+   *
+   * @param Path - string, array de strings, ou FileClass.
+   * @returns `Result` contenant les `File` racines hydratés.
+   */
+  async checkPathAsync(Path: string | FileClass | string[]): Promise<Result> {
+    const type = typeOf(Path);
+    const result = new FileResult();
+    switch (true) {
+      case type === "string":
+        result.push(await File.from(Path as string));
+        return result;
+      case type === "array": {
+        const files = await Promise.all(
+          (Path as string[]).map((p) => File.from(p)),
+        );
+        for (const f of files) {
+          result.push(f);
+        }
+        return result;
+      }
+      case Path instanceof FileClass:
+        result.push(await File.from((Path as FileClass).path));
+        return result;
+      default:
+        throw new Error(
+          `Bad Path type: ${type} Accept only String, Array or fileClass`,
+        );
+    }
+  }
+
   async in(
     Path: string | FileClass | string[],
     settings = {},
   ): Promise<Result> {
     let result = null;
     try {
-      result = this.checkPath(Path);
+      result = await this.checkPathAsync(Path);
       this.settingsToListen(settings);
       const options = extend({}, this.settings, settings);
       for await (const res of result) {

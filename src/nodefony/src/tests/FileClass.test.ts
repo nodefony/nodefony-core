@@ -81,6 +81,68 @@ describe("NODEFONY CORE FileClass", () => {
     });
   });
 
+  // ─── API async (from / stat / moveAsync) — non bloquante ─────────────────────
+  describe("async — FileClass.from / stat / moveAsync", () => {
+    it("from(file) → mêmes champs que new FileClass (parité)", async () => {
+      const sync = new FileClass(dataJs);
+      const asyncF = await FileClass.from(dataJs);
+      expect(asyncF).to.be.instanceOf(FileClass);
+      expect(asyncF.type).to.equal(sync.type);
+      expect(asyncF.path).to.equal(sync.path);
+      expect(asyncF.name).to.equal(sync.name);
+      expect(asyncF.ext).to.equal(sync.ext);
+      expect(asyncF.shortName).to.equal(sync.shortName);
+      expect(asyncF.dirName).to.equal(sync.dirName);
+      expect(asyncF.mimeType).to.equal(sync.mimeType);
+      expect(asyncF.stats).to.be.instanceOf(fs.Stats);
+    });
+
+    it("from(dir) → type Directory", async () => {
+      const f = await FileClass.from(dataDir);
+      expect(f.type).to.equal("Directory");
+      expect(f.mimeType).to.equal(false);
+    });
+
+    it("from(path inexistant) → rejette (pas de throw sync)", async () => {
+      let rejected = false;
+      try {
+        await FileClass.from("/no/such/path/xyz");
+      } catch {
+        rejected = true;
+      }
+      expect(rejected).to.be.true;
+    });
+
+    it("defer:true → AUCUNE I/O au constructeur (stats non hydraté)", () => {
+      const f = new FileClass(dataJs, { defer: true });
+      // path résolu (pur, pas d'I/O) mais stats absent tant que stat() pas appelé
+      expect(path.isAbsolute(f.path as string)).to.be.true;
+      expect((f as unknown as { stats?: fs.Stats }).stats).to.equal(undefined);
+    });
+
+    it("stat() hydrate une instance deferred", async () => {
+      const f = new FileClass(dataJs, { defer: true });
+      const ret = await f.stat();
+      expect(ret).to.equal(f); // chaînable (this)
+      expect(f.stats).to.be.instanceOf(fs.Stats);
+      expect(f.type).to.equal("File");
+      expect(f.name).to.equal("data.js");
+    });
+
+    it("moveAsync() déplace le fichier sans bloquer + retourne un FileClass", async () => {
+      const src = path.join(os.tmpdir(), `nf-move-${Date.now()}.txt`);
+      const dst = path.join(os.tmpdir(), `nf-moved-${Date.now()}.txt`);
+      await fsp.writeFile(src, "hello");
+      const f = await FileClass.from(src);
+      const moved = await f.moveAsync(dst);
+      expect(moved).to.be.instanceOf(FileClass);
+      expect(moved.path).to.equal(fs.realpathSync(dst));
+      expect(await fsp.readFile(dst, "utf8")).to.equal("hello");
+      await fsp.rm(dst, { force: true });
+      expect(fs.existsSync(src)).to.be.false; // source déplacée
+    });
+  });
+
   // ─── type checks ────────────────────────────────────────────────────────────
   describe("type checks", () => {
     it("isFile() — true for file", () => {
