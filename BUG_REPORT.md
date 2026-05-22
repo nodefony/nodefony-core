@@ -439,77 +439,67 @@ Préserve l'intention "persister avant teardown" sans dépendre de l'ordre d'ém
 
 ---
 
-## BUG-CI-001 — `nodefony production --no-daemon` termine au boot (CI uniquement)
+## ✅ BUG-CI-001 — `nodefony production --no-daemon` termine au boot (RÉSOLU 2026-05-22)
 
-**Découvert** : 2026-05-22 · **Statut** : OUVERT (diag en place, commit `6a4b26c` — à retirer après fix).
+**Découvert** : 2026-05-22 · **Statut** : ✅ **RÉSOLU 2026-05-22** (commit `06a29bf`, diag `6a4b26c` retiré).
 **Job** : `test-integration` (Node 22 + 24), step « Start Nodefony server ».
 
-### Symptôme
+### Cause racine (le diag visait le mauvais maillon)
 
-Le serveur affiche le banner puis `KERNEL : terminate : 0`, **aucun** « Server Listen on ».
-Le poll CI détecte « terminate : » → « Serveur a crashé au démarrage » → exit 1.
+Le diag montrait `terminate code=0 progress=1` appelé depuis le `.catch` de
+`kernel.start()` (CliKernel) — donc **`start()` REJETTE tôt** (progress=1 = avant
+tout `setCommandComplete`). La cause réelle = `Kernel.start()` ligne 286 faisait
+`new FileClass(\`${process.cwd()}/tmp\`)`. Le constructeur `FileClass`appelle`fs.lstatSync()`(synchrone) qui **throw ENOENT si le dossier manque**. Or`tmp/`est **gitignored, jamais commité** → absent sur un checkout frais (CI), un
+container/pod neuf ou un premier boot. En local`tmp/`existait (runs antérieurs)
+→ masquait le bug. Repro locale en retirant`tmp/` = diag byte-for-byte identique.
 
-### Reproductibilité
+### Fix (commit `06a29bf`)
 
-**CI uniquement** (runners Ubuntu). NON reproductible en local :
+`fs.mkdirSync(tmpPath, { recursive: true })` (idempotent, un syscall au boot, hors
+hot path) avant le wrap `FileClass`. C'était aussi un **bug prod** (pod frais).
+Vérif : `tmp/` absent → 6 Server Listen ; memory.test 8/8. Diag `[CI-DIAG]` retiré.
 
-- `node bin production --no-daemon` → 6 Server Listen ✓
-- `CI=true node bin production --no-daemon` → 6 Server Listen ✓
-- certs absents en local aussi (écarté) ; `isTrunk` OK (écarté).
-
-### DIAG (run 26297729004, log serveur artefact)
-
-```
-[CI-DIAG] terminate code=0 cmd=production kEvent=onPostReady progress=1 trunk=typescript started=false booted=false CHILD=
-Error: [CI-DIAG] terminate appelé depuis
-  at Kernel.terminate (dist/node/kernel/Kernel.js:915:18)
-  at dist/node/kernel/CliKernel.js:155:48
-```
-
-### Analyse
-
-- terminate appelé depuis **`CliKernel.js:155`** (PAS le flow `Kernel.start()`).
-- `progress=1` (onInit seul), `started=false`, `booted=false` → **avant le boot**.
-- `cmd=production`, `kEvent=onPostReady`, `trunk=typescript` → commande correcte, isTrunk OK.
-- → Ni isTrunk, ni setCommandComplete, ni certs. C'est **CliKernel** qui sort le process
-  tôt après le parse de commande, dans un chemin spécifique à l'environnement CI.
-
-### Prochaine étape
-
-- Mapper `dist/node/kernel/CliKernel.js:155` → ligne source `CliKernel.ts` (flow `runCommand`/`parseCommand`/`start`).
-- Comprendre pourquoi `terminate(0)` est appelé là EN CI et pas en local
-  (TTY absent ? option `-i` interactive ? Promise du parse qui résout en exit sans TTY ?).
-- Retirer le diag `[CI-DIAG]` (commit `6a4b26c`) après correction.
+> **Note design** : `FileClass` a deux arêtes — I/O synchrone bloquant
+> (`lstatSync`) dans le constructeur + throw-on-missing (couple « décrire un
+> chemin » à « le fichier existe »). Refacto futur possible (constructeur pur +
+> factory async + stat lazy). Voir audit appels bloquants ci-dessous.
 
 ---
 
-## BUG-CI-002 — test-unit rouge résiduel sur Node 22 + Windows
+## ✅ BUG-CI-002 — test-unit rouge sur Node 22 + Windows (RÉSOLU 2026-05-22)
 
-**Découvert** : 2026-05-22 · **Statut** : OUVERT. **Job** : `test-unit`.
+**Découvert** : 2026-05-22 · **Statut** : ✅ **RÉSOLU 2026-05-22** (commits `c704879` + `74a1b51`).
+**Job** : `test-unit`. Le warning « Target signature provides too few arguments »
+(sequelize SessionStorage) était un **leurre** — warning rollup non bloquant, le
+build était déjà vert (6/6).
 
-### Contexte
+### Deux causes distinctes (vraie analyse via les logs CI + repro Node 22 local)
 
-Le fix perf-skip (commit `05ce331`, root hook mocha qui skip les tests « < N ms » en CI)
-a réglé Node 24 sur macos + ubuntu (✓). Restent **rouges** : **Node 22 (tous OS) + Windows (tous Node)**.
+**1. Node 22 (tous OS) — reflect-metadata bundlé (commit `c704879`)**
+`@nodefony/mediasoup:test` (mocha, sans setup) crashait :
+`SyntaxError: ... reflect-metadata/Reflect.js does not provide an export named '__require'`.
+Le core avait reflect-metadata en `dependencies` mais **absent de `external`** du
+rollup → bundlé via `@rollup/plugin-commonjs` → shim cassé
+`dist/node/_virtual/Reflect.js` (`import { __require } from ...`). Node 24 tolérait
+l'interop, Node 22 rejetait. Fix : `"reflect-metadata"` dans `external` +
+`treeshake.moduleSideEffects` passé en fonction (préserver son import side-effect,
+sinon `Reflect.defineMetadata is not a function` au runtime). Repro Node 22 :
+mediasoup 22/22 (était 0).
 
-### Erreur visible (ubuntu Node 22)
+**2. Windows (tous Node) — substitution bash dans le script test (commit `74a1b51`)**
+`nodefony#test` utilisait `tsx $(node -e "...require.resolve('mocha')...")` →
+`$(...)` non interprété par `cmd.exe` → exit 1. Fix : `"test": "mocha"` +
+spec/loader tsx dans `.mocharc.cjs` (pattern des autres modules, cross-platform).
 
-```
-Target signature provides too few arguments. Expected 2 or more, but got 1.
-```
+### Vérifs
 
-(erreur TS au build rollup) + warnings `TS2307 Cannot find module 'nodefony'` sur redis (pré-existants, à part).
+- Node 22 : mediasoup 22/22.
+- Node 26 : core 1241 passing / 20 pending (`CI=true`) ; boot prod 6 Listen ;
+  memory.test 8/8 ; build complet vert ; zéro shim `_virtual/Reflect` cassé.
 
-### Prochaine étape
+### Acquis antérieurs (session 2026-05-22, CI partiellement réparée)
 
-- Reproduire sous **Node 22** en local (`nvm use 22 && npm test`) pour isoler le workspace/test qui casse.
-- Vérifier : comportement TS/Node 22 vs 24/26, test vitest spécifique, ou bun (`@nodefony/llm`).
-- Windows : tester séparément (chemins, EOL, group-kill non POSIX du DevSupervisor).
-
-### Acquis de la session 2026-05-22 (CI partiellement réparée)
-
-- ✅ **Build 6/6** — fix TS18036 (`static #storages` → `private static`, commit `5b787dd`) qui bloquait
-  TOUT le pipeline (le `tsc --noEmit` rejetait ce que rollup ne faisait qu'avertir).
-- ✅ test-unit Node 24 macos + ubuntu (fix perf-skip).
-- ❌ test-unit Node 22 + Windows → **BUG-CI-002**.
-- ❌ test-integration → **BUG-CI-001**.
+- ✅ **Build 6/6** — fix TS18036 (`static #storages` → `private static`, commit `5b787dd`).
+- ✅ test-unit Node 24 macos + ubuntu (fix perf-skip `05ce331`).
+- ✅ test-unit Node 22 + Windows → **BUG-CI-002 résolu**.
+- ✅ test-integration → **BUG-CI-001 résolu**.
