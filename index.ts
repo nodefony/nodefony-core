@@ -34,6 +34,8 @@ import "./nodefony/entity/demo";
   "@nodefony/test-frontend-vue",
   // Multi-framework Vite : bundle Angular 21 (standalone, via @analogjs/vite-plugin-angular).
   "@nodefony/test-frontend-angular",
+  // Banc test ORM : modèle mediasoup (Drizzle, connecteur dédié) + build Vue (front à venir).
+  "@nodefony/mediasoup",
   "@nodefony/studio",
   //Test,
   //"@nodefony/redis",

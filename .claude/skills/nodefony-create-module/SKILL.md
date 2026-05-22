@@ -124,7 +124,20 @@ Si l'user a dit oui à Q4 :
 ])
 ```
 
-Re-build : `npm run build 2>&1 | tail -5`. Si OK, mentionner à l'user que le module est utilisable au prochain `npx nodefony development`.
+**Séquence post-scaffold FIABLE** (ordre vécu 2026-05-22 sur `mediasoup` — chaque étape évite un crash) :
+
+```bash
+# (a) Symlink du nouveau workspace — SINON boot crash "Cannot find package .../dist/index.js"
+npm install
+# (b) Build du module + des deps modifiées EN DIRECT (pas turbo : cache → types périmés / TS2353)
+cd src/modules/{{name}} && npm run build && ls dist/index.js   # ← vérifier l'émission, pas "created dist"
+# (c) Dist RACINE rebuild (sinon 1er boot rate le module ; start.sh ne build que le module test)
+cd /Users/cci/repository/nodefony-core && npx rollup -c
+# (d) stop + start
+bash .claude/skills/nodefony-start-server/stop.sh && bash .claude/skills/nodefony-start-server/start.sh
+```
+
+Si OK, mentionner à l'user que le module est utilisable. ⚠️ Ne PAS se fier au seul « created dist » : vérifier `ls dist/index.js`.
 
 ### 6. Reporter à l'user
 
@@ -171,6 +184,10 @@ Après génération :
 | `path.resolve(root, "./frontend/src/main.tsx")` quand root déjà absolu | `frontend/frontend/...` doublé | Stocker entryFile relatif au root (`path.relative(root, abs)`) |
 | Activation `@modules` dans le mauvais ordre | service non trouvé au consumer | Frontend AVANT son consumer ; framework/http AVANT modules qui les utilisent |
 | Forgot `/// <reference types="node" />` | TS errors sur globals Node | Première ligne des fichiers test |
+| **Nouveau workspace sans `npm install`** | **boot crash `Cannot find package '.../node_modules/@nodefony/<mod>/dist/index.js'`** | **`npm install` racine APRÈS création** → crée le symlink `node_modules/@nodefony/<mod>` (glob workspaces `src/modules/*` / `src/packages/@nodefony/*`) |
+| **Dist RACINE périmé après `@modules()`** | 1er boot rate le module (même si le module est bâti) | **rebuild dist racine** (`npx rollup -c` à la racine) — `start.sh` ne build QUE le module test ; cf mémoire `feedback_root_dist_stale_modules` |
+| **Turbo sert des types périmés d'une lib partagée** | `TS2353 '<champ>' n'existe pas sur <IInterface>` alors que la source l'a (ex. champ ajouté à `IEntity` dans orm-core) | **builder la dép EN DIRECT** (`cd <dep> && npm run build`), PAS via turbo (cache stale) ; cf `feedback_turbo_cache_stale_logs` |
+| **`created dist` menteur** | build « réussi » mais `dist/index.js` **absent** — les erreurs de type `@rollup/plugin-typescript` sont des **WARNINGS**, le JS s'émet (ou pas) sans faire échouer | **TOUJOURS `ls dist/index.js`** après build, ne pas se fier au message « created dist » |
 
 ## Exemples concrets de modules créés
 

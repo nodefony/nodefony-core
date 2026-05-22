@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-22T11:07:38.960Z",
+  "generated": "2026-05-22T12:08:08.961Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 301,
-    "symbols": 773,
-    "classes": 210,
+    "files": 305,
+    "symbols": 780,
+    "classes": 212,
     "interfaces": 259,
     "types": 145,
     "enums": 1,
-    "functions": 137,
-    "constants": 21
+    "functions": 138,
+    "constants": 25
   },
   "symbols": {
     "Cli": {
@@ -190,6 +190,18 @@
       ],
       "decorators": [],
       "description": "Brique de base de tout composant Nodefony — câble un nom, un {@link Container} DI, un {@link Syslog} et un bus d'événements {@link Event} (notificationsCenter). Tous les services, modules, kernels …"
+    },
+    "Mediasoup": {
+      "name": "Mediasoup",
+      "kind": "class",
+      "file": "src/modules/mediasoup/index.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "controllers"
+      ]
     },
     "Test": {
       "name": "Test",
@@ -1814,6 +1826,59 @@
         "ITransport"
       ],
       "decorators": []
+    },
+    "MediasoupController": {
+      "name": "MediasoupController",
+      "kind": "class",
+      "file": "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Controller du module `mediasoup` (front Vue **non implémenté** — build prêt) : - GET `/mediasoup/` → page HTML qui charge le bundle Vue 3 via Vite - GET `/mediasoup/api/data` → endpoint léger (ping…"
+    },
+    "registerMediasoupEntities": {
+      "name": "registerMediasoupEntities",
+      "kind": "function",
+      "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "description": "Enregistre les entités `mediasoup` dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter résout les relations au connect et exige que toutes les cibles soient d…"
+    },
+    "roomTable": {
+      "name": "roomTable",
+      "kind": "const",
+      "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "description": "Salle WebRTC. PK = nom (legacy). ENUM rendus en `text` + valeur par défaut JS."
+    },
+    "roomMemberTable": {
+      "name": "roomMemberTable",
+      "kind": "const",
+      "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "description": "Jonction `Room`↔`User` (membres) = la relation N-N matérialisée."
+    },
+    "calendarTable": {
+      "name": "calendarTable",
+      "kind": "const",
+      "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "description": "Calendrier (modèle Google Calendar). `etag` UUID unique, propriétés JSON."
+    },
+    "eventTable": {
+      "name": "eventTable",
+      "kind": "const",
+      "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "description": "Événement de calendrier (modèle Google Calendar). start/end/recurrence JSON."
     },
     "AlsController": {
       "name": "AlsController",
@@ -5765,6 +5830,7 @@
         "Event"
       ],
       "Module": [
+        "Mediasoup",
         "Test",
         "TestFrontendAngular",
         "TestFrontendReact",
@@ -5823,6 +5889,7 @@
         "Pm2"
       ],
       "Controller": [
+        "MediasoupController",
         "AlsController",
         "DecoratorController",
         "DefaultController",
@@ -6075,6 +6142,14 @@
       ]
     },
     "decoratedBy": {
+      "controllers": [
+        "Mediasoup",
+        "Test",
+        "TestFrontendAngular",
+        "TestFrontendReact",
+        "TestFrontendVue",
+        "Studio"
+      ],
       "services": [
         "Test",
         "Drizzle",
@@ -6086,18 +6161,12 @@
         "Security",
         "Sequelize"
       ],
-      "controllers": [
-        "Test",
-        "TestFrontendAngular",
-        "TestFrontendReact",
-        "TestFrontendVue",
-        "Studio"
-      ],
       "entities": [
         "Test",
         "Mongoose"
       ],
       "controller": [
+        "MediasoupController",
         "AlsController",
         "DecoratorController",
         "DefaultController",
@@ -6336,6 +6405,7 @@
       "Kernel": [
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Nodefony.ts",
+        "src/modules/mediasoup/index.ts",
         "src/modules/test/index.ts",
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
@@ -6552,6 +6622,7 @@
         "src/nodefony/src/types/ISyslog.ts"
       ],
       "Module": [
+        "src/modules/mediasoup/index.ts",
         "src/modules/test/index.ts",
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
@@ -6608,6 +6679,42 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+      ],
+      "controllers": [
+        "src/modules/mediasoup/index.ts",
+        "src/modules/test/index.ts",
+        "src/modules/test-frontend-angular/index.ts",
+        "src/modules/test-frontend-react/index.ts",
+        "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/studio/index.ts"
+      ],
+      "FrontendService": [
+        "src/modules/mediasoup/index.ts",
+        "src/modules/test-frontend-angular/index.ts",
+        "src/modules/test-frontend-react/index.ts",
+        "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/frontend/index.ts",
+        "src/packages/@nodefony/studio/index.ts",
+        "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
+        "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
+        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
+        "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
+        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+      ],
+      "DrizzleOrm": [
+        "src/modules/mediasoup/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts"
+      ],
+      "MediasoupController": [
+        "src/modules/mediasoup/index.ts"
+      ],
+      "registerMediasoupEntities": [
+        "src/modules/mediasoup/index.ts"
       ],
       "services": [
         "src/modules/test/index.ts",
@@ -6667,28 +6774,6 @@
       "AlsController": [
         "src/modules/test/index.ts"
       ],
-      "controllers": [
-        "src/modules/test/index.ts",
-        "src/modules/test-frontend-angular/index.ts",
-        "src/modules/test-frontend-react/index.ts",
-        "src/modules/test-frontend-vue/index.ts",
-        "src/packages/@nodefony/framework/index.ts",
-        "src/packages/@nodefony/studio/index.ts"
-      ],
-      "FrontendService": [
-        "src/modules/test-frontend-angular/index.ts",
-        "src/modules/test-frontend-react/index.ts",
-        "src/modules/test-frontend-vue/index.ts",
-        "src/packages/@nodefony/frontend/index.ts",
-        "src/packages/@nodefony/studio/index.ts",
-        "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
-        "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
-        "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
-        "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
-        "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
-        "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
-      ],
       "AngularController": [
         "src/modules/test-frontend-angular/index.ts"
       ],
@@ -6739,6 +6824,7 @@
       "Controller": [
         "src/packages/@nodefony/framework/index.ts",
         "src/nodefony/src/kernel/Module.ts",
+        "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -6807,6 +6893,7 @@
       ],
       "controller": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -6875,6 +6962,7 @@
       ],
       "Context": [
         "src/packages/@nodefony/http/index.ts",
+        "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
@@ -7383,6 +7471,29 @@
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "entityRegistry": [
+        "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+      ],
+      "IEntity": [
+        "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+      ],
+      "userTable": [
+        "src/modules/mediasoup/nodefony/entity/schema.ts"
+      ],
       "RequestContext": [
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -7457,10 +7568,6 @@
       ],
       "entity": [
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts"
-      ],
-      "DrizzleOrm": [
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts"
       ],
       "DrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
@@ -7974,29 +8081,11 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
-      "IEntity": [
-        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
-      ],
       "IEntityRelation": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts"
-      ],
-      "entityRegistry": [
-        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
       "IOrm": [
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",

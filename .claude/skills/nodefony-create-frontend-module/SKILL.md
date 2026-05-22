@@ -154,9 +154,17 @@ Pour un résultat riche, copier/adapter depuis le module de référence (`src/mo
 
 ## Phase 3 — Build + validation
 ```bash
-cd /Users/cci/repository/nodefony-core/src/modules/{MOD} && npm run build
+# (a) Nouveau workspace → symlink (SINON boot crash "Cannot find package .../dist/index.js")
+cd /Users/cci/repository/nodefony-core && npm install
+# (b) Build module EN DIRECT + VÉRIFIER l'émission (ne pas se fier au message "created dist")
+cd /Users/cci/repository/nodefony-core/src/modules/{MOD} && npm run build && ls dist/index.js
+# (c) Dist RACINE rebuild après ajout @modules (start.sh ne build QUE le module test)
+cd /Users/cci/repository/nodefony-core && npx rollup -c
 cd /Users/cci/repository/nodefony-core && npx tsc --noEmit | head -20
 ```
+> ⚠️ Si le module **consomme une lib partagée modifiée** (champ ajouté à `@nodefony/orm-core`…),
+> builder cette dép **EN DIRECT** (`cd <dep> && npm run build`) avant le module — turbo sert des
+> **types périmés** (`TS2353 '<champ>' n'existe pas`). Tableau complet : skill `nodefony-create-module` (Pièges).
 Lancer le serveur (skill `nodefony-start-server`) puis naviguer :
 `http://127.0.0.1:5151{ROUTE}/` · `https://127.0.0.1:5152{ROUTE}/` (si HTTPS).
 **Pas de Chrome headless** (bloque la machine) → vérif `curl -sk` transform Vite + hard-reload user.
@@ -169,6 +177,7 @@ Lancer le serveur (skill `nodefony-start-server`) puis naviguer :
 - [ ] `@modules` racine : `@nodefony/frontend` AVANT `@nodefony/{MOD}` (ordre boot critique)
 - [ ] peerDeps du framework présents (react+react-dom / vue / @angular*)
 - [ ] `npx tsc --noEmit` 0 erreur + `npm run build` du module OK
+- [ ] `npm install` lancé (symlink workspace) + `ls dist/index.js` vérifié + `rollup -c` racine (dist racine à jour)
 
 ## Pièges communs (les 3 frameworks)
 1. **Ordre `@modules`** : frontend AVANT le module → sinon `@nodefony/frontend service unavailable` au boot.
