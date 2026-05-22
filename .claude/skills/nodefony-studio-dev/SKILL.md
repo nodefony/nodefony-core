@@ -24,6 +24,15 @@ MobX + React Router 7). Racine module : `src/packages/@nodefony/studio`.
 > Page DÉTAIL (onglets) : `frontend/src/routes/ModuleDetail.tsx`. Live : `frontend/src/routes/Dashboard.tsx`.
 > Ne PAS relire les sources du kit : tout est ci-dessous.
 
+> 🔗 **Skill frère `nodefony-framework-dev`** — pour le **back-end** (cœur). Ce skill-ci couvre le
+> FRONT Studio + la partie back STRICTEMENT Studio (controller/data plane/providers). Dès que le besoin
+> touche le CŒUR — créer un service injectable, un module, une commande CLI, une entité/repository/adapter
+> ORM, le pipeline HTTP/WS, un **nouveau canal/format realtime côté serveur** (RealtimeService,
+> `IRealtimeHub`, providers TCP/UDP/Redis), un **subpath Core isomorphe** (`nodefony/*`), ou savoir QUOI
+> construire pour le non-fait (roadmap, P6 security) — **invoquer `nodefony-framework-dev`** (il porte les
+> RÈGLES ABSOLUES perf-mémoire, les recettes vérifiées source, les gates qualité Core). Les deux se
+> composent : front Studio ici, brique backend là.
+
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
 ```ts
@@ -51,19 +60,34 @@ useNodefonyChannel(channel, (payload)=>void, deps?=[])    // sub/unsub auto + re
 useNodefonyChannelData<T>(channel, initial?=null): T|null  // dernière valeur reçue
 useNodefonyChannelStats(channel): { msgCount; lastMessage; rate; series } | null
 useNodefonySyslog({ max?=500; severities?; channel?="syslog:stream" }): unknown[]   // ring buffer prêt
+useNodefonyNotifications((notice: NodefonyNotice)=>void, deps?=[])   // chaque notice normalisée → handler (bridge snackbar). Monter 1× au shell.
+useNodefonyNoticeLog({ max?=50; sources? }): NodefonyNotice[]        // ring buffer des notices (hub « incidents temps réel »)
 ```
+
+`NodefonyNotice = { level:"success"|"info"|"warning"|"error"; title?; message; source:"realtime"|"api"|"server"; code?; ts }` (import depuis `nodefony`). Émise par `RealtimeClient` sur close anormal (RFC 6455 → `closeCodeToNotice`), erreur serveur poussée, reconnexion. **Studio ne consomme PAS ces hooks** : il branche `NotificationStore` (MobX) sur `realtime.onNotice` au constructeur (les hooks servent les apps React non-MobX).
 `<NodefonyProvider>` est DÉJÀ monté dans `App.tsx` et la connexion ouverte par l'app
 (`AdminLayout`). **NE JAMAIS** remonter le Provider ni appeler `client.connect()` dans une page.
 
 ## Accès données + stores
 
 ```ts
-import { useStore, useAuth, useUi, useConnection, useAdmin, useProfiler } from "../stores";
+import {
+  useStore,
+  useAuth,
+  useUi,
+  useConnection,
+  useAdmin,
+  useProfiler,
+  useNotifications,
+} from "../stores";
+// useNotifications() → NotificationStore : .notify(level,message,{title?,source?,code?}) pour pousser
+// un toast (ex. depuis une action) ; .realtimeIncidents (notices realtime/server, hub) ; .recent.
 const store = useStore();
-store.api.getAbsolute<T>("/nodefony/<module>/api/...")    // data plane absolu (modules) — le cas courant
-store.api.get<T>("/...")                                   // relatif à /nodefony/studio/api
+store.api.getAbsolute<T>("/nodefony/<module>/api/..."); // data plane absolu (modules) — le cas courant
+store.api.get<T>("/..."); // relatif à /nodefony/studio/api
 // + postAbsolute / deleteAbsolute. Catalogue des producteurs : /nodefony/framework/api/admin
 ```
+
 Data plane utile : `/nodefony/kernel/api/{info,modules,module/{name}}`, `/nodefony/framework/api/{info,routes,admin}`, `/nodefony/<module>/api/*`. JAMAIS d'URL en dur hors data plane.
 
 ## Recette — ajouter un écran (étapes déterministes)
@@ -93,15 +117,33 @@ import { PageHeader, DataState } from "../components/ui";
 export const Things = observer(() => {
   const store = useStore();
   const fetcher = useCallback(
-    () => store.api.getAbsolute<Thing[]>("/nodefony/<mod>/api/things"), [store]);
+    () => store.api.getAbsolute<Thing[]>("/nodefony/<mod>/api/things"),
+    [store],
+  );
   const { data, loading, error, reload } = useResource(fetcher);
   const rows = data ?? [];
   return (
     <Stack gap="md">
-      <PageHeader title="Things" subtitle={`${rows.length} élément(s)`}
-        actions={<Button variant="light" leftSection={<IconRefresh size={16}/>}
-          loading={loading} onClick={reload}>Recharger</Button>} />
-      <DataState loading={loading && !rows.length} error={error} empty={!rows.length} onRetry={reload}>
+      <PageHeader
+        title="Things"
+        subtitle={`${rows.length} élément(s)`}
+        actions={
+          <Button
+            variant="light"
+            leftSection={<IconRefresh size={16} />}
+            loading={loading}
+            onClick={reload}
+          >
+            Recharger
+          </Button>
+        }
+      />
+      <DataState
+        loading={loading && !rows.length}
+        error={error}
+        empty={!rows.length}
+        onRetry={reload}
+      >
         {/* table TanStack (copier RoutesView) OU grille de cartes */}
       </DataState>
     </Stack>
@@ -122,9 +164,17 @@ export function LiveBoard() {
   return (
     <Stack gap="lg">
       <PageHeader title="Board" subtitle={`Realtime : ${state}`} />
-      <Grid><StatCard label="Débit" hint="msg/s">{stats?.rate ?? "—"}</StatCard></Grid>
+      <Grid>
+        <StatCard label="Débit" hint="msg/s">
+          {stats?.rate ?? "—"}
+        </StatCard>
+      </Grid>
       <ChartCard title="…" caption="…">
-        <MiniChart series={[{ data: history, color: "var(--mantine-color-blue-6)", label: "x" }]} />
+        <MiniChart
+          series={[
+            { data: history, color: "var(--mantine-color-blue-6)", label: "x" },
+          ]}
+        />
       </ChartCard>
     </Stack>
   );
@@ -156,7 +206,7 @@ isomorphe, **vanilla TS + Shadow DOM** — **AUCUN React/Mantine/JSX, AUCUN UI k
   (`AdminLayout` → handle global) ; (3) standalone `nodefony/debugbar.js`
   (`dist/client/debugbar.standalone.js`, mono-fichier, `<script type=module>` sur page EJS/Twig).
 - **Symbiose Studio** : clic Network → `dispatchEvent(new CustomEvent("nodefony:debugbar:select",
-  { detail:{ requestId } }))` → `AdminLayout` écoute → `navigate("/nodefony/profiling?req="+id)`.
+{ detail:{ requestId } }))` → `AdminLayout` écoute → `navigate("/nodefony/profiling?req="+id)`.
   Profil serveur via data-plane `/nodefony/profiler/api/*`. SPA : on profile **les appels AJAX**
   (chacun son `X-Request-Id`), pas la page.
 - ⚠️ **Build = Core** : `cd src/nodefony && npm run build` (PAS Vite HMR). La règle perf/mémoire Core
@@ -175,12 +225,14 @@ Studio a un **back-end Nodefony** (≠ front React). Fichiers : `nodefony/contro
 ne s'applique PAS ici (c'est le serveur), mais la **règle perf/mémoire Core** oui.
 
 **Partition du namespace `/nodefony` (FIGÉE — cf studio/CLAUDE.md)** :
+
 - UI SPA (humain) = **mono-segment** `/nodefony` + `/nodefony/{page}`, portée par Studio.
 - Data plane (machine) = `/nodefony/<module>/api/*` (**≥3 segments**, marqueur `/api/`), porté par
   CHAQUE module (vit dans le module propriétaire : kernel/framework/http…, PAS dans Studio).
 - Règle : un module n'expose JAMAIS une route admin mono-segment `/nodefony/<module>`. Toujours `/api/*`.
 
 **Ajouter un endpoint data plane** (dans le module propriétaire, pas Studio si possible) :
+
 ```ts
 // @controller("/nodefony") dans le module ; renvoyer du JSON
 @Get("/<module>/api/things")
@@ -188,9 +240,11 @@ listThings(@Query("limit") limit?: string) {
   return this.renderJson({ things: [...] });   // jamais de couplage à la vue
 }
 ```
+
 Le front consomme via `store.api.getAbsolute<T>("/nodefony/<module>/api/things")`.
 
 **Lire la requête — décorateurs, PAS `this.context.body`** :
+
 - `@Body() body: T` (corps parsé), `@Param("x")`, `@Query("x")`, `@Header("x")`.
   ⚠️ **`this.context.body` est vide/non parsé** → un POST lu ainsi tombe sur le défaut silencieusement
   (bug vécu : mock login renvoyait toujours `admin`). Toujours `@Body()`.
@@ -199,6 +253,7 @@ Le front consomme via `store.api.getAbsolute<T>("/nodefony/<module>/api/things")
 - Réponses : `this.renderJson(obj)` (API), `this.setContextHtml()` + `this.render(html)` (page).
 
 **Sécurité back Studio (Zero Trust, priorité max)** :
+
 - Toute API admin EXIGE un rôle (`ROLE_NODEFONY_ADMIN`) → **403** sinon (P6 ; aujourd'hui mock).
 - Rôles dérivés **côté serveur**, jamais lus tels quels du token client (même en mock).
 - Endpoints qui EXÉCUTENT (run tests, scaffold) → **DEV-ONLY** : 403 hors `development`.
@@ -212,13 +267,14 @@ garanti au `unsubscribe` ET `ctx.once("onFinish")`. ⚠️ Après le handshake `
 (fire trop tôt en HTTP/2).
 
 **Cycle de build (≠ front !)** :
+
 - Modif **front** (`frontend/src/**`) → **HMR Vite, 0 restart**.
 - Modif **back** Studio (`nodefony/**` : controller, providers, config) → `cd src/packages/@nodefony/studio
-  && npm run build` (**rollup**, pas Vite) **puis** restart serveur (`start.sh`).
+&& npm run build` (**rollup**, pas Vite) **puis** restart serveur (`start.sh`).
 - Modif **core** ou **nouveau subpath `nodefony/*`** → build core (`cd src/nodefony && npm run build`)
   **puis** restart (Vite ré-optimise les deps au boot ; un subpath neuf n'est pas résolu à chaud).
 - Vérif back sans navigateur : **curl le data plane** (`curl -sk https://127.0.0.1:5152/nodefony/<m>/api/...`)
-  + curl le transform Vite (`https://127.0.0.1:5173/@fs/<abs>.tsx`) pour valider la résolution d'un subpath.
+  - curl le transform Vite (`https://127.0.0.1:5173/@fs/<abs>.tsx`) pour valider la résolution d'un subpath.
 
 ## Realtime Studio — canaux, socket PARTAGÉE, hub, log protocole
 
@@ -227,12 +283,14 @@ Le temps réel est **le différenciateur** (« le patron »). Architecture : WS 
 Pub/sub PAR CANAL on-demand ; providers serveur **transport-agnostiques** (`nodefony/realtime/providers.ts`).
 
 **Ajouter un canal realtime** :
+
 1. Serveur : un provider qui `publish(channel, payload)` (cf `createSyslogBridge`/`createStatsTicker`) ;
    le `StudioRealtimeController` le démarre au `subscribe`, `dispose()` au `unsubscribe` + `onFinish`.
 2. Client : **s'abonner = ref-compté** via `useNodefonyChannel("<canal>", handler)` (page) ou
    `useNodefonyChannelData/Stats` ; le client ré-abonne seul au reconnect.
 
 **🚨 Invariant SOCKET PARTAGÉE (le piège #1 du soir)** :
+
 - 1 SEULE socket par origine : `RealtimeClient.shared({url})` (singleton par URL sur `globalThis`,
   scheme normalisé ws/wss). Studio (`RootStore`) ET la debug bar l'utilisent → pas 2 connexions.
 - **TOUS les consommateurs DOIVENT ref-compter** : `client.subscribe(channel)` /
@@ -243,6 +301,7 @@ Pub/sub PAR CANAL on-demand ; providers serveur **transport-agnostiques** (`node
   socket peut être DÉJÀ ouverte (barre montée avant) → sinon on rate l'event « connected » passé.
 
 **Log protocole (inspecteur de frames)** :
+
 - `RealtimeClient` garde un **ring always-on bon marché** : `recordFrame` ne pousse qu'une réf brute
   `{ts,dir,msg}` ; la construction + **redaction des secrets** sont DIFFÉRÉES à la lecture
   (`get frameLog`) ou au live (`__frame__`, émis seulement si un listener écoute). → la console
@@ -253,6 +312,7 @@ Pub/sub PAR CANAL on-demand ; providers serveur **transport-agnostiques** (`node
 
 **Hub (UI)** — source unique `components/RealtimeHubContent.tsx` (carte connexion + stats + VU-mètres
 par canal + couper), réutilisée dans :
+
 - **HoverCard du chip topbar** = aperçu live des abonnements de la PAGE COURANTE (la vraie vision par
   page, sans la quitter) ; le chip **navigue** (clic) → **plus de drawer**.
 - **Console `/nodefony/hub`** (« Realtime Hub ») = plein écran : KPIs + abonnements (Protocole/Transport/
@@ -261,15 +321,15 @@ par canal + couper), réutilisée dans :
 
 ## Décision rapide (quel outil)
 
-| Besoin | Outil | NE PAS |
-| ------ | ----- | ------ |
-| fetch + états | `useResource` + `<DataState>` | re-rouler `loading? … : error? …` |
-| dernière mesure live | `useNodefonyChannelData` | `conn.subscribe`+useEffect manuel |
-| réagir à un flux | `useNodefonyChannel` | idem |
-| logs | `useNodefonySyslog` | buffer maison |
-| courbe | `<MiniChart>` | recharts / @mantine/charts (cassés R19) |
-| dump JSON | `<JsonViewer>` | `dangerouslySetInnerHTML` |
-| KPI | `<StatCard>` dans `<Grid>` | Card ad-hoc |
+| Besoin               | Outil                         | NE PAS                                  |
+| -------------------- | ----------------------------- | --------------------------------------- |
+| fetch + états        | `useResource` + `<DataState>` | re-rouler `loading? … : error? …`       |
+| dernière mesure live | `useNodefonyChannelData`      | `conn.subscribe`+useEffect manuel       |
+| réagir à un flux     | `useNodefonyChannel`          | idem                                    |
+| logs                 | `useNodefonySyslog`           | buffer maison                           |
+| courbe               | `<MiniChart>`                 | recharts / @mantine/charts (cassés R19) |
+| dump JSON            | `<JsonViewer>`                | `dangerouslySetInnerHTML`               |
+| KPI                  | `<StatCard>` dans `<Grid>`    | Card ad-hoc                             |
 
 ## Règles non négociables (qualité IA)
 
@@ -316,6 +376,7 @@ Front specifics, NON négociables :
 ## ♿ Normes & accessibilité W3C — TOUJOURS vérifier
 
 Pour TOUT composant/interaction Studio, vérifier la norme **W3C AVANT** de livrer :
+
 - **WCAG 2.2** (niveau AA) : contraste, focus visible, cible tactile, alternatives texte, pas
   d'info portée par la couleur seule.
 - **WAI-ARIA 1.2** + **ARIA Authoring Practices (APG)** : le pattern ARIA EXACT d'un widget
@@ -325,6 +386,7 @@ Pour TOUT composant/interaction Studio, vérifier la norme **W3C AVANT** de livr
 
 ⚠️ Règle universelle (CLAUDE.md racine) : NE JAMAIS charger les pages HTML lourdes (`w3.org`).
 Toujours via le proxy **`https://r.jina.ai/`** ou raw GitHub `w3c/*`. Sources canoniques :
+
 - `https://r.jina.ai/https://www.w3.org/TR/WCAG22/`
 - `https://r.jina.ai/https://www.w3.org/WAI/ARIA/apg/patterns/`
 
@@ -337,6 +399,7 @@ icône-seule → `aria-label`.
 ```bash
 cd src/packages/@nodefony/studio && npm run typecheck     # gate frontend = exit 0 (0 erreur)
 ```
+
 1. **Sécurité** : passer le diff au skill `nodefony-security-review` (PRIORITÉ MAX).
 2. **A11y** : vérifier WCAG 2.2 AA + pattern ARIA (APG) des composants ajoutés (section ci-dessus).
 3. **Type-check** : `npm run typecheck` = 0 erreur.
@@ -350,6 +413,7 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 > compléter à chaque session (cf « Fin de session » plus bas).
 
 **Build / typage**
+
 - Frontend non type-checké (Vite/esbuild transpile sans tsc) → gate `frontend/tsconfig.json` +
   `npm run typecheck`.
 - 🔑 `tsc` sortait 33 erreurs cross-package (source http/security tirée) + `nodefony` n'exposait pas
@@ -361,11 +425,13 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 - Commentaire `//xxx` DANS `compilerOptions` → TS5025 ; mettre les notes au niveau racine (`"//"`).
 
 **Perf / deps**
+
 - `recharts` (cassé React 19, courbes invisibles) + `@mantine/charts` = deps MORTES → retirées ;
   courbes = `<MiniChart>` SVG maison. Vérifier `vite-env.d.ts` (déclaration CSS) en cas de retrait.
 - Stubs morts dans `routes/stubs.tsx` (non importés par App) → supprimer.
 
 **Temps réel**
+
 - Canal PARTAGÉ (`syslog:stream` Logs+Dashboard) : hook ET store émettaient subscribe/unsubscribe →
   un démontage coupait l'autre. Fix : **autorité ref-comptée dans `RealtimeClient.subscribe/unsubscribe`**
   (réseau émis aux seules transitions 0↔1, re-subscribe au `onopen`) ; binding + store ne font qu'appeler.
@@ -378,12 +444,14 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 - Nouveau subpath (`nodefony/react`) pas résolu par Vite → **redémarrer** le serveur (optimizeDeps).
 
 **Archi / collisions**
+
 - Collision de nom (`StatCard` local d'une page vs kit) → renommer le local (ex `OverviewStat`).
 - SPA fallback générique masque les routes d'autres modules → fallback **littéral** par deep-link.
 - Routes dashboards = **mono-segment** (`/nodefony/dev`, `/nodefony/supervision`) → couvertes par le
   fallback SPA existant, **0 ajout backend**. (≥2 segments = fallback littéral à ajouter au controller.)
 
 **Back-end (controller / data plane)** — section dédiée ci-dessus
+
 - 🔑 **`this.context.body` est VIDE** : un POST lu ainsi tombe sur le défaut en silence (mock login
   renvoyait toujours `admin`, jamais le username envoyé). → décorateur **`@Body()`** (+ `@Param/@Query/@Header`).
 - En-tête `Authorization` côté controller : `this.context.request.headers.authorization` (clé minuscule).
@@ -391,10 +459,11 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 - Modif controller Studio → `npm run build` (rollup) **+ restart** ; n'est PAS du HMR.
 
 **Rôles / autorisation (nouveau — `nodefony/roles`)**
+
 - Mécanisme rôles = subpath Core **isomorphe** `nodefony/roles` (front Studio + serveur P6) : `hasRole`,
   `hasAnyRole`, `hasAllRoles` (purs, 0 alloc), `RoleSet` (O(1) répété), `RoleRegistry` (bitmask, set fixe).
   Les NOMS de rôles (`ROLE_DEV`…) sont **applicatifs** → définis côté Studio (`frontend/src/auth/dashboards.ts`
-  + mirroir mock backend), JAMAIS dans le core (mécanisme ≠ politique).
+  - mirroir mock backend), JAMAIS dans le core (mécanisme ≠ politique).
 - Gating front (nav filtrée par `roles`, `RoleGuard` → 403) = **affichage seulement**, PAS de la sécu :
   l'enforcement réel (403 serveur par rôle) = P6. Ne jamais mettre de donnée sensible derrière un guard front.
 - Dashboard par rôle : registre `DASHBOARDS` (role→path/label/icon) pilote nav + `RoleGuard` + `homePath`
@@ -403,12 +472,14 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
   Inadapté aux rôles DYNAMIQUES (DB) : pas de bit fixe.
 
 **Sécu (dette notée)**
+
 - JWT en `localStorage` (XSS) → migrer cookie HttpOnly Secure SameSite=Strict (P6) ; `ApiClient`
   cast `as T` sans validation runtime → Zod (différé).
 - Mock auth multi-rôles (`mockRolesFor`) = POC ; rôles applicatifs dupliqués front/back (commentaire
   d'alignement) → P6 fera la source de vérité serveur unique.
 
 **Realtime = LE PATRON (console `/nodefony/realtime`, pas un drawer)**
+
 - Le temps réel est le différenciateur Nodefony → console de **premier plan** (entrée nav en tête,
   le chip topbar y NAVIGUE). Un drawer pour ça = « pièce rapportée », à proscrire.
 - **1 seule socket** Studio + debug bar : `RealtimeClient.shared({url})` = singleton **par URL**
@@ -425,6 +496,7 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
   (forward-compat SIP/UDP/TCP — `SubscriptionMeta`).
 
 **Dashboards par rôle**
+
 - Registre `frontend/src/auth/dashboards.ts` (`DASHBOARDS` role→path/label/icon) pilote nav + `RoleGuard`
   (→ 403) + `AuthStore.homePath` (accueil = 1ᵉʳ dashboard autorisé). Multi-rôles ⇒ N entrées de nav.
 - **DEV = config/introspection STATIQUE** (env, git, ORM+vendor, modules) ; **SUPERVISION = runtime/santé
@@ -433,6 +505,7 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 - Gating front = **affichage seulement** (≠ sécu ; enforcement 403 serveur = P6).
 
 **Perf data plane (quand une page rame)**
+
 - **Mesurer** : `curl -sk -o /dev/null -w "%{time_total}s %{size_download}o" <url>` par endpoint.
   Payload minuscule + temps élevé ⇒ coût **fs/git**, pas le réseau.
 - Vécu : `kernel/api/module/{name}` 3.6s / `.../docs` 4s = **`git log` spawné PAR doc** dans
@@ -441,6 +514,16 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 - **Loader = skeleton** qui épouse la page (en-tête + KPIs + cartes), pas un spinner centré.
 
 **Composants/conventions nés cette session**
+
+- **Centre de notifications (snackbar)** : `NotificationStore` (MobX) branché sur `realtime.onNotice`
+  au constructeur (comme `ConnectionStore`) → `notifications.show()` Mantine (déjà monté `<Notifications/>`
+  dans `App.tsx`) + ring `recent`. Source NORMALISÉE = `NodefonyNotice` (Core isomorphe). `ApiClient`
+  option `onError` → toast les **mutations** échouées (POST/PUT/DELETE) ; **PAS les GET** (déjà rendus
+  par `<DataState>`) ni **401** (déjà = logout) → évite le double affichage. Erreurs auto-close `false`
+  (une criticité ne disparaît pas seule). Hub : bloc « incidents temps réel » = `realtimeIncidents`
+  (historique borné, distinct de `conn.lastError`). La logique pure testée côté Core
+  (`closeCodeToNotice`, 11 tests) ; le `NotificationStore` (frontend MobX) **non testé** = dette
+  (harness React Studio toujours non scaffoldé).
 - `ConfigView` (UI kit) : config en **options lisibles** (clé→valeur + type, booléens en badge), PAS
   un dump JSON. Texte only.
 - `GitService` (core, `nodefony`) : lecture `.git` (branche+commit) **sans spawn ni dépendance**,

@@ -25,6 +25,8 @@ import {
   useNodefonyChannelData,
   useNodefonyChannelStats,
   useNodefonySyslog,
+  useNodefonyNotifications,
+  useNodefonyNoticeLog,
 } from "nodefony/react";
 ```
 
@@ -75,25 +77,45 @@ export function App() {
 Chaque hook a **une** responsabilité — tu composes ce dont la vue a besoin (pas de
 god-hook qui re-render à chaque message). Tous portent le préfixe `useNodefony*`.
 
-| Hook | Renvoie | Quand l'utiliser |
-| ---- | ------- | ---------------- |
-| `useNodefony()` | le `RealtimeClient` brut | cas avancé / échappatoire |
-| `useNodefonyState()` | `"connected" \| "reconnecting" \| …` | badge / état de connexion |
-| `useNodefonyChannel(ch, onMsg, deps?)` | `void` (effet) | réagir aux messages d'un canal |
-| `useNodefonyChannelData<T>(ch)` | dernière valeur `T \| null` | afficher la dernière mesure |
-| `useNodefonyChannelStats(ch)` | `{ rate, series, msgCount, lastMessage } \| null` | VU-mètre / débit |
-| `useNodefonySyslog(opts)` | `unknown[]` (ring buffer) | flux de logs |
+| Hook                                        | Renvoie                                           | Quand l'utiliser                                             |
+| ------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------ |
+| `useNodefony()`                             | le `RealtimeClient` brut                          | cas avancé / échappatoire                                    |
+| `useNodefonyState()`                        | `"connected" \| "reconnecting" \| …`              | badge / état de connexion                                    |
+| `useNodefonyChannel(ch, onMsg, deps?)`      | `void` (effet)                                    | réagir aux messages d'un canal                               |
+| `useNodefonyChannelData<T>(ch)`             | dernière valeur `T \| null`                       | afficher la dernière mesure                                  |
+| `useNodefonyChannelStats(ch)`               | `{ rate, series, msgCount, lastMessage } \| null` | VU-mètre / débit                                             |
+| `useNodefonySyslog(opts)`                   | `unknown[]` (ring buffer)                         | flux de logs                                                 |
+| `useNodefonyNotifications(onNotice, deps?)` | `void` (effet)                                    | brancher un centre de notifications (snackbar) — 1× au shell |
+| `useNodefonyNoticeLog(opts?)`               | `NodefonyNotice[]` (ring)                         | historique d'incidents temps réel                            |
+
+### Notices normalisées (`useNodefonyNotifications` / `useNodefonyNoticeLog`)
+
+Le client émet des **notices normalisées** (`NodefonyNotice = { level, title?, message,
+source, code?, ts }`) sur ce qui mérite l'attention de l'utilisateur : une fermeture
+WebSocket **anormale** (code RFC 6455 interprété côté client par `closeCodeToNotice` —
+pendant du `toWsCloseCode` serveur), une **erreur serveur poussée**, ou le
+**rétablissement** de la connexion. `useNodefonyNotifications` appelle `onNotice` pour
+chacune (à brancher **une fois** au shell → toast/snackbar) ; `useNodefonyNoticeLog`
+en garde un ring borné (filtrable par `sources`) pour un panneau d'incidents.
+
+```tsx
+useNodefonyNotifications((n) =>
+  toast({ type: n.level, title: n.title, msg: n.message }),
+);
+```
 
 ### `useNodefonyState()`
 
 État de la connexion temps réel. Re-render **uniquement** quand l'état change
-(snapshot via `useSyncExternalStore`, sans *tearing* en mode concurrent).
+(snapshot via `useSyncExternalStore`, sans _tearing_ en mode concurrent).
 
 ```tsx
 function ConnectionBadge() {
   const state = useNodefonyState();
   const online = state === "connected";
-  return <Badge color={online ? "green" : "gray"}>{online ? "online" : state}</Badge>;
+  return (
+    <Badge color={online ? "green" : "gray"}>{online ? "online" : state}</Badge>
+  );
 }
 ```
 
@@ -119,7 +141,10 @@ La **dernière valeur** reçue sur un canal — le cas le plus courant (afficher
 dernière mesure d'un flux). `null` tant que rien n'est arrivé.
 
 ```tsx
-interface Stats { cpuPercent: number; eventLoopMs: number }
+interface Stats {
+  cpuPercent: number;
+  eventLoopMs: number;
+}
 
 function CpuGauge() {
   const stats = useNodefonyChannelData<Stats>("dashboard:stats");
@@ -145,15 +170,18 @@ function Throughput() {
 Flux syslog prêt à l'emploi : **ring buffer** borné + filtre de sévérité. Gère le
 format coalescé du canal (`{ logs: Pdu[], dropped }`) comme le Pdu unique.
 
-| Option | Défaut | Rôle |
-| ------ | ------ | ---- |
-| `max` | `500` | taille du buffer (les plus anciennes lignes sont évincées) |
-| `severities` | toutes | ne garder que ces sévérités (ex `["ERROR","CRITIC"]`) |
-| `channel` | `"syslog:stream"` | canal source |
+| Option       | Défaut            | Rôle                                                       |
+| ------------ | ----------------- | ---------------------------------------------------------- |
+| `max`        | `500`             | taille du buffer (les plus anciennes lignes sont évincées) |
+| `severities` | toutes            | ne garder que ces sévérités (ex `["ERROR","CRITIC"]`)      |
+| `channel`    | `"syslog:stream"` | canal source                                               |
 
 ```tsx
 function ErrorLog() {
-  const lines = useNodefonySyslog({ max: 200, severities: ["ERROR", "CRITIC"] });
+  const lines = useNodefonySyslog({
+    max: 200,
+    severities: ["ERROR", "CRITIC"],
+  });
   return (
     <ul>
       {lines.map((l, i) => (
@@ -202,7 +230,10 @@ function ChatBox() {
 ```tsx
 import { useNodefonyState, useNodefonyChannelData } from "nodefony/react";
 
-interface Stats { cpuPercent: number; eventLoopMs: number }
+interface Stats {
+  cpuPercent: number;
+  eventLoopMs: number;
+}
 
 export function MiniMonitor() {
   const state = useNodefonyState();

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-22T20:43:04.495Z",
+  "generated": "2026-05-22T21:07:26.012Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 305,
-    "symbols": 784,
+    "files": 306,
+    "symbols": 790,
     "classes": 212,
-    "interfaces": 259,
-    "types": 145,
+    "interfaces": 261,
+    "types": 146,
     "enums": 1,
-    "functions": 139,
+    "functions": 142,
     "constants": 28
   },
   "symbols": {
@@ -1337,6 +1337,14 @@
       "module": "@nodefony/core",
       "extends": null
     },
+    "UseNoticeLogOptions": {
+      "name": "UseNoticeLogOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
     "NodefonyProvider": {
       "name": "NodefonyProvider",
       "kind": "function",
@@ -1393,6 +1401,47 @@
       "module": "@nodefony/core",
       "description": "`useNodefonySyslog()` — flux syslog prêt à l'emploi : ring buffer borné + filtre de sévérité. Gère le format **coalescé** du canal (`{ logs: Pdu[], dropped }`) ET le Pdu unique. Brique de la page L…"
     },
+    "useNodefonyNotifications": {
+      "name": "useNodefonyNotifications",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyNotifications()` — s'abonne au flux de **notices normalisées** du client : criticités qui cassent le temps réel (close codes RFC 6455 interprétés), erreurs serveur poussées, rétablissem…"
+    },
+    "useNodefonyNoticeLog": {
+      "name": "useNodefonyNoticeLog",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyNoticeLog()` — ring buffer borné des dernières notices, filtrable par source. Brique du hub temps réel (« incidents temps réel ») : un historique léger des criticités realtime, distinct…"
+    },
+    "NodefonyNotice": {
+      "name": "NodefonyNotice",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/notice.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Notice normalisée prête à afficher (snackbar / centre de notifications)."
+    },
+    "NoticeLevel": {
+      "name": "NoticeLevel",
+      "kind": "type",
+      "file": "src/nodefony/src/client/realtime/notice.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Notice temps réel normalisée — Core isomorphe Nodefony. Format **unique** d'un retour à porter à l'attention de l'utilisateur, quelle que soit sa source (transport temps réel, appel data plane, pus…"
+    },
+    "closeCodeToNotice": {
+      "name": "closeCodeToNotice",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/notice.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Traduit un **code de fermeture WebSocket** (RFC 6455 §7.4) en {@link NodefonyNotice} — pendant CLIENT du `toWsCloseCode` serveur (`@nodefony/http`). Pur, sans état, donc trivialement testable et ré…"
+    },
     "RealtimeClient": {
       "name": "RealtimeClient",
       "kind": "class",
@@ -1434,8 +1483,7 @@
       "kind": "type",
       "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "RealtimeClient — Core isomorphe Nodefony côté navigateur (P14.11). Protocole : JSON-RPC 2.0 maison sur WebSocket (+ HTTP long-polling fallback TODO P13). State machine : disconnected → connecting →…"
+      "module": "@nodefony/core"
     },
     "RoleRegistry": {
       "name": "RoleRegistry",
@@ -7242,6 +7290,10 @@
         "src/nodefony/src/client/debugbar/DebugBar.ts",
         "src/nodefony/src/client/react/index.ts"
       ],
+      "closeCodeToNotice": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
       "File": [
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/finder/FileResult.ts",
@@ -7452,6 +7504,10 @@
       ],
       "stripAnsi": [
         "src/nodefony/src/client/debugbar/model.ts"
+      ],
+      "NodefonyNotice": [
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "Role": [
         "src/nodefony/src/client/roles/registry.ts"

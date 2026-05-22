@@ -7,6 +7,7 @@ import { UiStore } from "./UiStore";
 import { ChatStore } from "./ChatStore";
 import { AdminStore } from "./AdminStore";
 import { ProfilerStore } from "./ProfilerStore";
+import { NotificationStore } from "./NotificationStore";
 
 /**
  * URL de l'endpoint WS realtime de Studio (`StudioRealtimeController`, JSON-RPC 2.0).
@@ -34,6 +35,7 @@ export class RootStore {
   readonly chat: ChatStore;
   readonly admin: AdminStore;
   readonly profiler: ProfilerStore;
+  readonly notifications: NotificationStore;
 
   readonly api: ApiClient;
   readonly realtime: RealtimeClient;
@@ -53,11 +55,26 @@ export class RootStore {
       reconnectDelayMax: 4000,
     });
 
+    // Centre de notifications : avant l'ApiClient (qui s'en sert dans onError).
+    // Branché sur realtime.onNotice (close codes RFC 6455 interprétés, etc.).
+    this.notifications = new NotificationStore(this.realtime);
+
     this.api = new ApiClient({
       getToken: () => this.auth?.getToken() ?? null,
       onUnauthorized: () => {
         // 401 → on force logout pour relancer le flow.
         void this.auth?.logout();
+      },
+      onError: ({ method, status, message }) => {
+        // 401 = déjà géré (logout). GET = chargement de page, l'erreur est rendue
+        // par <DataState> dans la vue → pas de toast redondant. On toaste les
+        // MUTATIONS (POST/PUT/DELETE) qui n'ont pas d'autre feedback visible.
+        if (status === 401 || method === "GET") return;
+        this.notifications.notify("error", message, {
+          title: `Erreur ${status}`,
+          source: "api",
+          code: status,
+        });
       },
     });
 

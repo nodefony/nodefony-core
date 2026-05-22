@@ -32,7 +32,8 @@ import {
   IconMessages,
   IconExternalLink,
 } from "@tabler/icons-react";
-import { useConnection } from "../stores";
+import { useConnection, useNotifications } from "../stores";
+import type { NoticeLevel } from "nodefony";
 
 const STATE_META: Record<string, { color: string; label: string }> = {
   connected: { color: "teal", label: "connecté" },
@@ -40,6 +41,14 @@ const STATE_META: Record<string, { color: string; label: string }> = {
   reconnecting: { color: "yellow", label: "reconnexion…" },
   error: { color: "red", label: "erreur" },
   disconnected: { color: "gray", label: "déconnecté" },
+};
+
+/** Niveau de notice → couleur Mantine (incidents temps réel). */
+const NOTICE_COLOR: Record<NoticeLevel, string> = {
+  success: "teal",
+  info: "blue",
+  warning: "yellow",
+  error: "red",
 };
 
 /** Couleur du badge transport (ws/sse/webrtc/tcp…) — protocole encapsulé à côté. */
@@ -182,6 +191,8 @@ function StatTile({
 export const RealtimeHubContent = observer(
   ({ onOpenConsole }: { onOpenConsole?: () => void }) => {
     const conn = useConnection();
+    const notif = useNotifications();
+    const incidents = notif.realtimeIncidents;
     const [now, setNow] = useState(() => Date.now());
     useEffect(() => {
       const id = setInterval(() => setNow(Date.now()), 1000);
@@ -203,7 +214,12 @@ export const RealtimeHubContent = observer(
           <Stack gap={10}>
             <Group justify="space-between" wrap="nowrap">
               <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                <ThemeIcon size="lg" radius="md" variant="light" color={meta.color}>
+                <ThemeIcon
+                  size="lg"
+                  radius="md"
+                  variant="light"
+                  color={meta.color}
+                >
                   {conn.isConnected ? (
                     <IconPlugConnected size={18} />
                   ) : (
@@ -218,8 +234,10 @@ export const RealtimeHubContent = observer(
                     {busy && <Loader size={12} color={meta.color} />}
                   </Group>
                   <Text size="xs" c="dimmed">
-                    {conn.latencyMs != null ? `${conn.latencyMs} ms` : "latence —"} ·
-                    uptime {uptime}
+                    {conn.latencyMs != null
+                      ? `${conn.latencyMs} ms`
+                      : "latence —"}{" "}
+                    · uptime {uptime}
                   </Text>
                 </div>
               </Group>
@@ -248,7 +266,11 @@ export const RealtimeHubContent = observer(
                       onClick={copy}
                       aria-label="copy url"
                     >
-                      {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                      {copied ? (
+                        <IconCheck size={14} />
+                      ) : (
+                        <IconCopy size={14} />
+                      )}
                     </ActionIcon>
                   </Tooltip>
                 )}
@@ -284,6 +306,53 @@ export const RealtimeHubContent = observer(
           >
             <Text size="xs">{conn.lastError}</Text>
           </Alert>
+        )}
+
+        {/* ── Incidents temps réel ── criticités normalisées (close codes RFC
+            6455 interprétés côté client, erreurs serveur poussées) qui cassent
+            le temps réel. Distinct de « dernière erreur » : historique borné. */}
+        {incidents.length > 0 && (
+          <div>
+            <Divider
+              label={`Incidents temps réel (${incidents.length})`}
+              labelPosition="left"
+              mb="xs"
+            />
+            <ScrollArea.Autosize mah={180} type="auto">
+              <Stack gap={6} role="log" aria-label="Incidents temps réel">
+                {incidents.slice(0, 8).map((n, i) => (
+                  <Paper key={`${n.ts}-${i}`} withBorder p="xs" radius="md">
+                    <Group justify="space-between" wrap="nowrap" gap="xs">
+                      <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                        <Badge
+                          size="xs"
+                          variant="light"
+                          color={NOTICE_COLOR[n.level]}
+                          style={{ flexShrink: 0 }}
+                        >
+                          {n.level}
+                        </Badge>
+                        <Text size="xs" style={ELLIPSIS}>
+                          {n.message}
+                        </Text>
+                      </Group>
+                      <Text
+                        size="xs"
+                        c="dimmed"
+                        style={{
+                          whiteSpace: "nowrap",
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        {n.code != null ? `${n.code} · ` : ""}
+                        il y a {fmtAge(Math.max(0, now - n.ts))}
+                      </Text>
+                    </Group>
+                  </Paper>
+                ))}
+              </Stack>
+            </ScrollArea.Autosize>
+          </div>
         )}
 
         {/* ── Stats agrégées ── */}
@@ -349,7 +418,9 @@ export const RealtimeHubContent = observer(
                               <Badge
                                 size="xs"
                                 variant="light"
-                                color={TRANSPORT_COLOR[s.transport ?? "ws"] ?? "gray"}
+                                color={
+                                  TRANSPORT_COLOR[s.transport ?? "ws"] ?? "gray"
+                                }
                                 style={{ flexShrink: 0 }}
                               >
                                 {s.transport ?? "ws"}

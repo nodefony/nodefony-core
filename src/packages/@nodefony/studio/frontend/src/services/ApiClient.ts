@@ -18,21 +18,43 @@ export class ApiError extends Error {
   }
 }
 
+/** Détail d'une erreur HTTP, fourni au centre de notifications. */
+export interface ApiErrorInfo {
+  method: string;
+  status: number;
+  message: string;
+  body: unknown;
+}
+
 export interface ApiClientOptions {
   baseUrl?: string;
   getToken?: () => string | null;
   onUnauthorized?: () => void;
+  /** Notifié sur toute réponse non-2xx → branché au centre de notifications. */
+  onError?: (info: ApiErrorInfo) => void;
+}
+
+/** Extrait un message lisible d'un payload d'erreur Nodefony (`{error:{message}}` ou `{message}`). */
+function extractMessage(payload: unknown, fallback: string): string {
+  if (payload && typeof payload === "object") {
+    const p = payload as Record<string, unknown>;
+    const e = (p.error ?? p) as Record<string, unknown>;
+    if (typeof e.message === "string" && e.message) return e.message;
+  }
+  return fallback;
 }
 
 export class ApiClient {
   private readonly baseUrl: string;
   private readonly getToken: () => string | null;
   private readonly onUnauthorized?: () => void;
+  private readonly onError?: (info: ApiErrorInfo) => void;
 
   constructor(opts: ApiClientOptions = {}) {
     this.baseUrl = opts.baseUrl ?? "/nodefony/studio/api";
     this.getToken = opts.getToken ?? (() => null);
     this.onUnauthorized = opts.onUnauthorized;
+    this.onError = opts.onError;
   }
 
   async get<T = unknown>(path: string, init?: RequestInit): Promise<T> {
@@ -125,6 +147,8 @@ export class ApiClient {
     const payload = isJson ? await res.json() : await res.text();
 
     if (!res.ok) {
+      const message = extractMessage(payload, `HTTP ${res.status}`);
+      this.onError?.({ method, status: res.status, message, body: payload });
       throw new ApiError(
         res.status,
         payload,

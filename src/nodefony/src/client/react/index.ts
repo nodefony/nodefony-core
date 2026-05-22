@@ -18,7 +18,11 @@
  * @module nodefony/react
  */
 import * as React from "react";
-import type { RealtimeClient, RealtimeState } from "../realtime/RealtimeClient";
+import type {
+  RealtimeClient,
+  RealtimeState,
+  NodefonyNotice,
+} from "../realtime/RealtimeClient";
 
 const NodefonyContext = React.createContext<RealtimeClient | null>(null);
 
@@ -32,7 +36,9 @@ export interface NodefonyProviderProps {
  * Injecte le client temps réel Nodefony dans le sous-arbre. À monter une fois,
  * au-dessus des composants qui consomment les hooks `useNodefony*`.
  */
-export function NodefonyProvider(props: NodefonyProviderProps): React.ReactElement {
+export function NodefonyProvider(
+  props: NodefonyProviderProps,
+): React.ReactElement {
   return React.createElement(
     NodefonyContext.Provider,
     { value: props.client },
@@ -50,7 +56,9 @@ export function NodefonyProvider(props: NodefonyProviderProps): React.ReactEleme
 export function useNodefony(): RealtimeClient {
   const client = React.useContext(NodefonyContext);
   if (!client) {
-    throw new Error("useNodefony() doit être utilisé dans un <NodefonyProvider>.");
+    throw new Error(
+      "useNodefony() doit être utilisé dans un <NodefonyProvider>.",
+    );
   }
   return client;
 }
@@ -138,7 +146,8 @@ export function useNodefonyChannelStats(
 ): ChannelStatsSnapshot | null {
   const client = useNodefony();
   const read = (): ChannelStatsSnapshot | null =>
-    (client.getChannelStats(channel) as ChannelStatsSnapshot | undefined) ?? null;
+    (client.getChannelStats(channel) as ChannelStatsSnapshot | undefined) ??
+    null;
   const [stats, setStats] = React.useState<ChannelStatsSnapshot | null>(read);
   React.useEffect(() => {
     const dispose = client.on("__stats__", () => setStats(read()));
@@ -188,4 +197,57 @@ export function useNodefonySyslog(opts: UseSyslogOptions = {}): unknown[] {
   );
 
   return entries;
+}
+
+/**
+ * `useNodefonyNotifications()` — s'abonne au flux de **notices normalisées** du
+ * client : criticités qui cassent le temps réel (close codes RFC 6455 interprétés),
+ * erreurs serveur poussées, rétablissement de connexion. `onNotice` est appelé
+ * pour CHAQUE notice → brancher un centre de notifications (snackbar). Le handler
+ * peut changer à chaque render sans re-déclencher l'abonnement (capturé via ref).
+ *
+ * À monter **une seule fois** (shell de l'app) pour ne pas dupliquer les toasts.
+ */
+export function useNodefonyNotifications(
+  onNotice: (notice: NodefonyNotice) => void,
+  deps: React.DependencyList = [],
+): void {
+  const client = useNodefony();
+  const handlerRef = React.useRef(onNotice);
+  handlerRef.current = onNotice;
+  React.useEffect(() => {
+    return client.onNotice((notice) => handlerRef.current(notice));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, ...deps]);
+}
+
+export interface UseNoticeLogOptions {
+  /** Taille max du ring (anciennes notices évincées). Défaut 50. */
+  max?: number;
+  /** Ne garder que ces sources (ex `["realtime"]`). Toutes par défaut. */
+  sources?: NodefonyNotice["source"][];
+}
+
+/**
+ * `useNodefonyNoticeLog()` — ring buffer borné des dernières notices, filtrable
+ * par source. Brique du hub temps réel (« incidents temps réel ») : un historique
+ * léger des criticités realtime, distinct des toasts éphémères.
+ */
+export function useNodefonyNoticeLog(
+  opts: UseNoticeLogOptions = {},
+): NodefonyNotice[] {
+  const { max = 50, sources } = opts;
+  const srcKey = sources ? sources.join(",") : "";
+  const [notices, setNotices] = React.useState<NodefonyNotice[]>([]);
+  useNodefonyNotifications(
+    (notice) => {
+      if (sources && !sources.includes(notice.source)) return;
+      setNotices((prev) => {
+        const next = prev.concat(notice);
+        return next.length > max ? next.slice(-max) : next;
+      });
+    },
+    [max, srcKey],
+  );
+  return notices;
 }

@@ -13,6 +13,10 @@
  * Le backend WS de référence (RealtimeService) sera implémenté en P13.4.
  * En attendant, ce client peut parler à n'importe quel serveur JSON-RPC 2.0.
  */
+import { closeCodeToNotice, type NodefonyNotice } from "./notice";
+export { closeCodeToNotice } from "./notice";
+export type { NodefonyNotice, NoticeLevel } from "./notice";
+
 export type RealtimeState =
   | "disconnected"
   | "connecting"
@@ -260,6 +264,20 @@ export class RealtimeClient {
     this.handlers.get(event)?.delete(handler);
   }
 
+  /**
+   * S'abonne aux **notices normalisées** émises par le client : criticités qui
+   * cassent le temps réel (close codes RFC 6455 interprétés via
+   * {@link closeCodeToNotice}), erreurs serveur poussées, rétablissement de
+   * connexion. Réutilisable par toute app — le centre de notifications (snackbar
+   * Studio) s'y branche directement.
+   *
+   * @param handler - reçoit chaque {@link NodefonyNotice}.
+   * @returns dispose (désabonnement).
+   */
+  onNotice(handler: (notice: NodefonyNotice) => void): () => void {
+    return this.on("__notice__", handler as EventHandler);
+  }
+
   /** Notification one-way client → server (pas de réponse attendue). */
   emit(method: string, params?: unknown): void {
     const msg: JsonRpcNotification = { jsonrpc: "2.0", method, params };
@@ -428,6 +446,11 @@ export class RealtimeClient {
     (this.statsTimer as { unref?: () => void }).unref?.();
   }
 
+  /** Émet une notice normalisée aux abonnés `onNotice` (event local, pas réseau). */
+  private fireNotice(notice: NodefonyNotice): void {
+    this.fireLocal("__notice__", notice);
+  }
+
   /** Déclenche les handlers locaux d'un event interne (pas d'envoi réseau). */
   private fireLocal(event: string, ...args: unknown[]): void {
     this.handlers.get(event)?.forEach((h) => {
@@ -466,6 +489,7 @@ export class RealtimeClient {
         return;
       }
       this.ws.onopen = () => {
+        const wasReconnecting = this.reconnectAttempt > 0;
         this.reconnectAttempt = 0;
         this._nextRetryAt = null;
         this.setState("connected");
@@ -476,19 +500,34 @@ export class RealtimeClient {
         for (const channel of this._subscriptions.keys()) {
           this.emit("subscribe", { channel });
         }
+        // Notice de rétablissement : seulement après une vraie perte (pas au 1er
+        // connect) → l'UI confirme le retour du temps réel.
+        if (wasReconnecting) {
+          this.fireNotice({
+            level: "success",
+            title: "Temps réel",
+            message: "Connexion temps réel rétablie",
+            source: "realtime",
+            ts: Date.now(),
+          });
+        }
         resolve();
       };
       this.ws.onmessage = (ev) => this.handleMessage(ev.data);
       this.ws.onerror = () => {
         // L'event `close` qui suit gère le reconnect.
       };
-      this.ws.onclose = () => {
+      this.ws.onclose = (ev) => {
         this.clearTimers();
         this.ws = null;
         if (this.intentionalClose) {
           this.setState("disconnected");
           return;
         }
+        // Criticité qui casse le temps réel (RFC 6455 §7.4) → notice normalisée,
+        // pendant client du `toWsCloseCode` serveur (@nodefony/http).
+        const notice = closeCodeToNotice(ev?.code, ev?.reason);
+        if (notice) this.fireNotice(notice);
         if (this.opts.autoReconnect !== false) {
           this.scheduleReconnect();
         } else {
@@ -634,6 +673,21 @@ export class RealtimeClient {
         this.pending.delete(m.id as number);
         pending.resolve(m.result);
       }
+      return;
+    }
+
+    // Erreur JSON-RPC poussée SANS id = erreur globale serveur (pas une réponse
+    // à une requête) → notice normalisée pour le centre de notifications.
+    if ("error" in msg && (msg as JsonRpcResponse).error) {
+      const err = (msg as JsonRpcResponse).error!;
+      this.fireNotice({
+        level: "error",
+        title: "Temps réel",
+        message: err.message || "Erreur serveur temps réel",
+        source: "server",
+        code: err.code,
+        ts: Date.now(),
+      });
       return;
     }
 
