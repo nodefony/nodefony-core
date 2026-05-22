@@ -264,6 +264,20 @@ export default {
      * Après ce délai sans close frame du client, la socket est détruite.
      */
     closeTimeout: 5000,
+
+    /**
+     * Taille maximale (octets) d'un message WebSocket entrant.
+     * Au-delà, `ws` ferme la connexion avec le code RFC 6455 §7.4.1
+     * **1009 "Message Too Big"** (et émet `error` → capté par
+     * `WebsocketContext.onConnectionError`, pas de crash process).
+     *
+     * Défaut **1 MiB** : secure-by-default contre le DoS mémoire (un message
+     * non borné = allocation côté serveur pilotée par le client). Précédent
+     * socket.io (`maxHttpBufferSize` = 1e6). `ws` lui-même défaute à 100 MiB.
+     * Une app qui transfère de gros payloads doit relever explicitement ce seuil :
+     *   "module-http": { websocket: { maxPayload: 16 * 1024 * 1024 } }
+     */
+    maxPayload: 1024 * 1024,
   },
 
   /**
@@ -274,6 +288,7 @@ export default {
     keepaliveInterval: 20000,
     keepaliveGracePeriod: 10000,
     closeTimeout: 5000,
+    maxPayload: 1024 * 1024,
   },
 
   /**

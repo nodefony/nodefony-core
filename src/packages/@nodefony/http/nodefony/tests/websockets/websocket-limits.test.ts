@@ -95,6 +95,34 @@ describe("WEBSOCKETS LIMITS", function () {
     ws.on("error", done);
   });
 
+  // ─── Oversized message (RFC 6455 §7.4.1 — 1009 Message Too Big) ─
+
+  it("Oversized message (> maxPayload) → close 1009", (done) => {
+    // Défaut maxPayload = 1 MiB (config http). Un message de 2 MiB doit
+    // déclencher la fermeture RFC 6455 §7.4.1 « Message Too Big » côté ws,
+    // SANS crash process (capté par WebsocketContext.onConnectionError).
+    ws = openWs(`${WSS}/nodefony/test/ws/echo`);
+    const huge = "z".repeat(2 * 1024 * 1024); // 2 MiB > 1 MiB
+    let closed = false;
+    ws.on("message", (data) => {
+      const msg = JSON.parse(data.toString());
+      if (msg.handshake === true) {
+        ws!.send(huge);
+      }
+    });
+    ws.on("close", (code) => {
+      closed = true;
+      expect(code).to.equal(1009);
+      done();
+    });
+    // 'error' peut précéder 'close' (ws émet error puis close) — toléré.
+    ws.on("error", () => {
+      if (!closed) {
+        /* attendre le close 1009 */
+      }
+    });
+  });
+
   // ─── Message sequence ──────────────────────────────────────────
 
   it("Sequential messages (10) are ordered", (done) => {

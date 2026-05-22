@@ -31,13 +31,13 @@ class WebsocketSecure extends Service {
   infos: AddressInfo | null = null;
   constructor(
     module: Module,
-    @inject("HttpKernel") private httpKernel: HttpKernel
+    @inject("HttpKernel") private httpKernel: HttpKernel,
   ) {
     super(
       "server-websocket-secure",
       module.container as Container,
       module.notificationsCenter as Event,
-      module.options.websocket
+      module.options.websocket,
     );
     this.module = module;
     this.port = this.setPort();
@@ -55,16 +55,28 @@ class WebsocketSecure extends Service {
   async createServer(serverHttps: httpsServers): Promise<WebSocketServer> {
     return new Promise((resolve, reject) => {
       try {
-        this.infos = (serverHttps.server as https.Server).address() as AddressInfo;
+        this.infos = (
+          serverHttps.server as https.Server
+        ).address() as AddressInfo;
         if (this.infos) {
           this.port = this.infos.port;
           this.address = this.infos.address;
           this.family = this.infos.family as FamilyType;
           this.protocol = serverHttps.protocol;
         }
-        this.server = new WebSocketServer({ server: serverHttps.server as https.Server });
+        // RFC 6455 §7.4.1 — `maxPayload` borne la taille des messages entrants ;
+        // au-delà `ws` ferme avec le code 1009 « Message Too Big ». Défaut sûr
+        // (1 MiB) défini en config (anti-DoS mémoire), surchargeable par l'app.
+        const maxPayload = (this.options as { maxPayload?: number }).maxPayload;
+        this.server = new WebSocketServer({
+          server: serverHttps.server as https.Server,
+          maxPayload,
+        });
         this.server.on("connection", this.onConnection.bind(this));
-        this.kernel?.prependOnceListener("onTerminate", this.terminate.bind(this));
+        this.kernel?.prependOnceListener(
+          "onTerminate",
+          this.terminate.bind(this),
+        );
         if (this.server) {
           this.ready = true;
         }
@@ -99,7 +111,7 @@ class WebsocketSecure extends Service {
             this.server?.close();
             this.log(
               ` SHUTDOWN WEBSOCKET Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
-              "INFO"
+              "INFO",
             );
             return resolve(true);
           } catch (e) {
@@ -114,7 +126,7 @@ class WebsocketSecure extends Service {
   showBanner(): void {
     if (this.infos) {
       this.log(
-        `Server Listen on ${this.scheme}://${this.infos.address}:${this.infos.port} Family: ${this.infos.family} Protocol : ${this.protocol}`
+        `Server Listen on ${this.scheme}://${this.infos.address}:${this.infos.port} Family: ${this.infos.family} Protocol : ${this.protocol}`,
       );
     }
   }
