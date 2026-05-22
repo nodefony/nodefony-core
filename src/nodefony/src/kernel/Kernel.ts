@@ -471,7 +471,9 @@ class Kernel extends Service implements IKernel {
         // initServers() sans jamais solliciter PM2. C'est la cible cloud-native
         // (1 process Node = 1 pod/container, supervision déléguée à l'orchestrateur)
         // et le prérequis de la CI d'intégration. Cf project_pm2_deprecation (P16.1).
-        const prodOpts = this.commandArgs[0] as { daemon?: boolean } | undefined;
+        const prodOpts = this.commandArgs[0] as
+          | { daemon?: boolean }
+          | undefined;
         const noDaemon =
           typeof prodOpts === "object" &&
           prodOpts !== null &&
@@ -1113,6 +1115,16 @@ class Kernel extends Service implements IKernel {
       code = 0;
     }
     this.log(`terminate : ${code}`);
+    // [CI-DIAG temporaire] — diagnostiquer le terminate:0 précoce en CI
+    // (non reproductible localement). À RETIRER une fois la cause trouvée.
+    this.log(
+      `[CI-DIAG] terminate code=${code} cmd=${this.command?.name ?? "null"} kEvent=${this.command?.kernelEvent ?? "null"} progress=${this.progress} trunk=${this.trunk} started=${this.started} booted=${this.booted} CHILD=${process.env.NODEFONY_DEV_CHILD ?? ""}`,
+      "WARNING",
+    );
+    this.log(
+      new Error("[CI-DIAG] terminate appelé depuis").stack ?? "no-stack",
+      "WARNING",
+    );
     try {
       //console.log(this.notificationsCenter?._events);
       await this.fireAsync("onTerminate", this, code);
