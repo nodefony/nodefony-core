@@ -356,6 +356,28 @@ import fs from "node:fs";
 // ESM uniquement — import, jamais require
 ```
 
+### Config de module — JAMAIS dérefencer le kernel à l'évaluation du module
+
+Un `nodefony/config/config.ts` ne doit **jamais** appeler `Nodefony.getKernel()` (ou lire `.path`,
+`.domain`…) **au top-level / à la création de l'objet config** : le kernel n'existe pas encore au
+**moment de l'`import`** → le module **crashe à l'import** (`Cannot read properties of null`) et devient
+**non importable / non testable** sans serveur (impossible de tester le module ou ses consommateurs).
+
+```typescript
+// ❌ INTERDIT — déréférence eager, crashe sans kernel
+export default { connectors: { db: { filename: path.resolve((Nodefony.getKernel() as Kernel).path, "x.db") } } };
+
+// ✅ LAZY (getter) — résolu à la LECTURE (au boot/merge, kernel présent). Runtime inchangé.
+export default { connectors: { db: { get filename() { return path.resolve((Nodefony.getKernel() as Kernel).path, "x.db"); } } } };
+
+// ✅ GUARDÉ — optional chaining + fallback (si pas de kernel → défaut)
+const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
+```
+
+> Vérifié 2026-05-22 : `drizzle`/`sequelize`/module `test` portaient le bug (corrigés en getter) ;
+> `http`/`mongoose` étaient déjà sûrs (guardés `?.`). Vaut pour TOUT accès kernel au top-level d'un
+> fichier chargé à l'import du module (pas que `config.ts`).
+
 ---
 
 ## Workflow de session Claude Code
