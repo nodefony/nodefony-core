@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-22T21:07:26.012Z",
+  "generated": "2026-05-22T21:51:56.532Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 306,
-    "symbols": 790,
+    "symbols": 791,
     "classes": 212,
-    "interfaces": 261,
+    "interfaces": 262,
     "types": 146,
     "enums": 1,
     "functions": 142,
@@ -4016,6 +4016,15 @@
       "module": "@nodefony/orm-core",
       "extends": null,
       "description": "Nœud du graphe : une entité avec ses colonnes et ses relations."
+    },
+    "IConnectionInfo": {
+      "name": "IConnectionInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Connexion sous-jacente d'un ORM (extrait via {@link IOrm.describeConnection})."
     },
     "IOrmSummary": {
       "name": "IOrmSummary",
@@ -8143,6 +8152,11 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+      ],
+      "IConnectionInfo": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "Criteria": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",

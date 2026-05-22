@@ -7,7 +7,11 @@ import {
   toDbml,
   toJsonSchema,
 } from "../../nodefony/src/OrmAdminApi";
-import type { IColumnInfo, IOrm, IEntity } from "../../nodefony/interfaces/index";
+import type {
+  IColumnInfo,
+  IOrm,
+  IEntity,
+} from "../../nodefony/interfaces/index";
 import type { IAdminRequest } from "nodefony";
 
 const ORM = "testblog";
@@ -15,13 +19,43 @@ const ORM = "testblog";
 /** Stub IOrm : seuls `isConnected` + `describeEntity` sont lus par le graphe. */
 const cols: Record<string, IColumnInfo[]> = {
   Author: [
-    { name: "id", type: "text", primaryKey: true, nullable: false, unique: false },
-    { name: "email", type: "text", primaryKey: false, nullable: false, unique: true },
+    {
+      name: "id",
+      type: "text",
+      primaryKey: true,
+      nullable: false,
+      unique: false,
+    },
+    {
+      name: "email",
+      type: "text",
+      primaryKey: false,
+      nullable: false,
+      unique: true,
+    },
   ],
   Article: [
-    { name: "id", type: "text", primaryKey: true, nullable: false, unique: false },
-    { name: "title", type: "text", primaryKey: false, nullable: false, unique: false },
-    { name: "authorId", type: "text", primaryKey: false, nullable: true, unique: false },
+    {
+      name: "id",
+      type: "text",
+      primaryKey: true,
+      nullable: false,
+      unique: false,
+    },
+    {
+      name: "title",
+      type: "text",
+      primaryKey: false,
+      nullable: false,
+      unique: false,
+    },
+    {
+      name: "authorId",
+      type: "text",
+      primaryKey: false,
+      nullable: true,
+      unique: false,
+    },
   ],
 };
 
@@ -85,6 +119,8 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
       default: false,
       connected: true,
       entityCount: 2,
+      // le stub n'implémente pas describeConnection → undefined.
+      connection: undefined,
     });
     const author = g.entities.find((e) => e.name === "Author");
     assert.ok(author);
@@ -94,7 +130,7 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     assert.equal(author.module, "blog"); // module propriétaire propagé
   });
 
-  it("graphe : module propagé par entité (regroupement ERD) ; défaut \"\"", () => {
+  it('graphe : module propagé par entité (regroupement ERD) ; défaut ""', () => {
     // Une entité sans module → groupe « — » (chaîne vide), jamais undefined.
     entityRegistry.register({ name: "Orphan", orm: ORM, schema: {} });
     try {
@@ -128,7 +164,10 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
 
   it("toJsonSchema : $defs par entité, required = non-nullables, relations en $ref", () => {
     const schema = toJsonSchema(buildOrmGraph(ORM));
-    assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
+    assert.equal(
+      schema.$schema,
+      "https://json-schema.org/draft/2020-12/schema",
+    );
 
     const a = schema.$defs.Author;
     assert.ok(a);
@@ -156,7 +195,9 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
       req({ format: "jsonschema" }, { orm: ORM }),
     )) as { format: string; content: string };
     assert.equal(res.format, "jsonschema");
-    const parsed = JSON.parse(res.content) as { $defs: Record<string, unknown> };
+    const parsed = JSON.parse(res.content) as {
+      $defs: Record<string, unknown>;
+    };
     assert.ok(parsed.$defs.Author && parsed.$defs.Article);
   });
 

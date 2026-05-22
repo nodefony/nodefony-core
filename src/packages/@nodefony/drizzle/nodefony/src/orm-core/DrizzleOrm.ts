@@ -5,6 +5,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { Orm, entityRegistry } from "@nodefony/orm-core";
 import type {
   IColumnInfo,
+  IConnectionInfo,
   IEntity,
   IEntityRelation,
   IRepository,
@@ -48,10 +49,8 @@ export class DrizzleOrm extends Orm {
   /** Tables Drizzle indexées par nom logique d'entité (lazy). */
   #tables: Record<string, SQLiteTable> | null = null;
   /** Relations résolues : entité → champ → relation eager-load (lazy). */
-  #relations: Record<
-    string,
-    Record<string, DrizzleResolvedRelation>
-  > | null = null;
+  #relations: Record<string, Record<string, DrizzleResolvedRelation>> | null =
+    null;
   /** Repositories mémoïsés par nom d'entité (lazy). */
   #repositories: Record<string, IRepository> | null = null;
   readonly #filename: string;
@@ -264,5 +263,15 @@ export class DrizzleOrm extends Orm {
       nullable: !col.notNull,
       unique: col.isUnique ?? false,
     }));
+  }
+
+  /**
+   * Décrit la connexion : driver `sqlite` (better-sqlite3) + chemin du fichier
+   * (`:memory:` pour les tests). Aucun credential (SQLite = fichier local).
+   *
+   * @returns driver + cible (chemin du fichier SQLite).
+   */
+  override describeConnection(): IConnectionInfo {
+    return { driver: "sqlite", target: this.#filename };
   }
 }

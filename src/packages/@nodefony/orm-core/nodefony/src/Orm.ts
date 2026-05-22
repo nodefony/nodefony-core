@@ -2,6 +2,7 @@ import { Service } from "nodefony";
 import type { Container, Event, DefaultOptionsService } from "nodefony";
 import type {
   IColumnInfo,
+  IConnectionInfo,
   IOrm,
   IRepository,
   ITransaction,
@@ -91,5 +92,16 @@ export abstract class Orm extends Service implements IOrm {
    */
   describeEntity(_name: string): IColumnInfo[] {
     return [];
+  }
+
+  /**
+   * Décrit la connexion sous-jacente (driver + cible). Défaut : driver vide
+   * (inconnu). Les adapters surchargent (Drizzle → `sqlite` + fichier, etc.).
+   * Ne DOIT jamais exposer de credential.
+   *
+   * @returns infos de connexion (driver vide si non renseigné).
+   */
+  describeConnection(): IConnectionInfo {
+    return { driver: "" };
   }
 }

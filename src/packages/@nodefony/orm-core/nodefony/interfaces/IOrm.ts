@@ -1,6 +1,6 @@
 import type { IRepository } from "./IRepository";
 import type { ITransaction } from "./ITransaction";
-import type { IColumnInfo } from "./IOrmGraph";
+import type { IColumnInfo, IConnectionInfo } from "./IOrmGraph";
 
 /**
  * Contrat d'une instance ORM gérée par le framework (une par connexion logique).
@@ -59,4 +59,14 @@ export interface IOrm {
    * @returns colonnes normalisées, ou `[]` si inconnu/non implémenté.
    */
   describeEntity?(name: string): IColumnInfo[];
+
+  /**
+   * Décrit la connexion sous-jacente (driver + cible lisible) pour le data plane
+   * ORM / dashboard. **Optionnel** : un adapter qui ne l'implémente pas laisse le
+   * connecteur sans détail de connexion. Ne DOIT jamais exposer de credential
+   * (mot de passe retiré de la cible).
+   *
+   * @returns infos de connexion, ou `undefined` si non implémenté.
+   */
+  describeConnection?(): IConnectionInfo;
 }

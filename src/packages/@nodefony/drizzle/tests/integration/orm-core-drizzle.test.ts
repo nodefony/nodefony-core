@@ -79,6 +79,13 @@ describe("orm-core ↔ Drizzle adapter (P7.4)", () => {
     assert.equal(orm.isConnected(), true);
   });
 
+  it("describeConnection : driver sqlite + cible = fichier (data plane / dashboard)", () => {
+    assert.deepEqual(orm.describeConnection(), {
+      driver: "sqlite",
+      target: ":memory:",
+    });
+  });
+
   it("CRUD portable : create / findOne / find / count / update / delete", async () => {
     const created = await users.create({ email: "a@b.c", age: 30 });
     assert.match(created.id, /[0-9a-f-]{36}/); // UUID auto-généré ($defaultFn)

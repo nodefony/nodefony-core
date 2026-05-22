@@ -11,6 +11,7 @@ export type {
 export type { ITransaction } from "./ITransaction";
 export type {
   IColumnInfo,
+  IConnectionInfo,
   IRelationInfo,
   IEntityGraphNode,
   IOrmSummary,

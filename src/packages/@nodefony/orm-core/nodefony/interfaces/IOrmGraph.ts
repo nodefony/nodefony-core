@@ -52,6 +52,20 @@ export interface IEntityGraphNode {
   relations: IRelationInfo[];
 }
 
+/** Connexion sous-jacente d'un ORM (extrait via {@link IOrm.describeConnection}). */
+export interface IConnectionInfo {
+  /**
+   * Base/driver sous-jacent en minuscules (`sqlite`, `postgres`, `mysql`,
+   * `mariadb`, `mongodb`…) — sert à choisir le logo et qualifier le connecteur.
+   */
+  driver: string;
+  /**
+   * Cible lisible : chemin du fichier (SQLite), `host:port/base` (serveur) ou
+   * URI redactée. **Jamais de credential** (mot de passe retiré côté adapter).
+   */
+  target?: string;
+}
+
 /** Résumé d'un ORM/connecteur enregistré. */
 export interface IOrmSummary {
   /** Clé du connecteur dans le `OrmRegistry`. */
@@ -68,6 +82,8 @@ export interface IOrmSummary {
   connected: boolean;
   /** Nombre d'entités rattachées à cet ORM. */
   entityCount: number;
+  /** Connexion sous-jacente (driver + cible), si l'adapter l'expose. */
+  connection?: IConnectionInfo;
 }
 
 /** Graphe complet du modèle de données — réponse de `/nodefony/orm/api/graph`. */

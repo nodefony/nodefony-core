@@ -57,10 +57,12 @@ function buildOrmSummaries(): IOrmSummary[] {
   return ormRegistry.list().map((name) => {
     let connected = false;
     let vendor = "";
+    let connection: IOrmSummary["connection"];
     try {
       const orm = ormRegistry.get(name);
       connected = orm.isConnected();
       vendor = vendorOf(orm);
+      connection = orm.describeConnection?.();
     } catch {
       connected = false;
     }
@@ -70,6 +72,7 @@ function buildOrmSummaries(): IOrmSummary[] {
       default: name === "default",
       connected,
       entityCount: entities.filter((e) => e.orm === name).length,
+      connection,
     } satisfies IOrmSummary;
   });
 }
@@ -160,7 +163,8 @@ export function toDbml(graph: IOrmGraph): string {
       }
       // 1-N : FK sur la cible (nommée d'après la source) → target.fk > source.id
       // N-1 / 1-1 : FK sur la source (nommée d'après la cible) → source.fk > target.id
-      const camel = (n: string) => `${n.charAt(0).toLowerCase()}${n.slice(1)}Id`;
+      const camel = (n: string) =>
+        `${n.charAt(0).toLowerCase()}${n.slice(1)}Id`;
       if (rel.type === "one-to-many") {
         const fk = rel.foreignKey ?? camel(node.name);
         refs.add(
@@ -300,7 +304,10 @@ export function createOrmAdminApi(): IAdminApi {
             .list()
             .find((e) => e.name === name && (!orm || e.orm === orm));
           if (!found) {
-            return { status: 404, body: { error: `entity "${name}" not found` } };
+            return {
+              status: 404,
+              body: { error: `entity "${name}" not found` },
+            };
           }
           return buildEntityNode(found.orm, found.name);
         } catch {
@@ -315,7 +322,8 @@ export function createOrmAdminApi(): IAdminApi {
     },
     {
       path: "export/{format}",
-      summary: "Export du modèle — format: dbml | jsonschema (?orm= pour filtrer)",
+      summary:
+        "Export du modèle — format: dbml | jsonschema (?orm= pour filtrer)",
       handler: (
         request,
       ):

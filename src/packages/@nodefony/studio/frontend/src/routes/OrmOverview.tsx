@@ -10,6 +10,7 @@ import {
   ThemeIcon,
   Button,
   SimpleGrid,
+  Code,
 } from "@mantine/core";
 import { Link } from "react-router-dom";
 import {
@@ -22,15 +23,18 @@ import {
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
 import { PageHeader, StatCard as Kpi, DataState } from "../components/ui";
+import { DbLogo, hasDbLogo } from "../components/DbLogo";
 
 /** Résumé d'un connecteur ORM (data plane /nodefony/orm/api/orms). */
 interface OrmSummary {
   name: string;
-  /** `drizzle` | `sequelize` | `mongoose`… pour l'icône de marque. */
+  /** `drizzle` | `sequelize` | `mongoose`… (vendor ORM, pour le logo + le label). */
   vendor?: string;
   default: boolean;
   connected: boolean;
   entityCount: number;
+  /** Connexion sous-jacente : driver (→ logo base) + cible (chemin fichier / host). */
+  connection?: { driver: string; target?: string };
 }
 
 /** Entité du graphe canonique (/nodefony/orm/api/graph) — on n'utilise que les relations. */
@@ -45,34 +49,46 @@ interface OrmGraph {
   entities: EntityNode[];
 }
 
-/** Couleur de marque + libellé par vendor (icône colorée — a11y : couleur + texte). */
-const VENDORS: Record<string, { color: string; label: string }> = {
-  drizzle: { color: "#C5F74F", label: "Drizzle" },
-  sequelize: { color: "#52B0E7", label: "Sequelize" },
-  mongoose: { color: "#880000", label: "Mongoose" },
-  mikroorm: { color: "#864342", label: "MikroORM" },
+/** Libellé lisible par vendor (le logo vient de DbLogo). */
+const VENDOR_LABEL: Record<string, string> = {
+  drizzle: "Drizzle",
+  sequelize: "Sequelize",
+  mongoose: "Mongoose",
+  mikroorm: "MikroORM",
 };
 
-/** Carte d'un connecteur : marque, état de connexion, nb d'entités, accès au schéma. */
+/** Carte d'un connecteur : logo base + ORM, cible, état, nb d'entités, accès au schéma. */
 function OrmCard({ orm }: { orm: OrmSummary }) {
-  const v = VENDORS[orm.vendor ?? ""] ?? {
-    color: "gray",
-    label: orm.vendor || "—",
-  };
+  const driver = orm.connection?.driver ?? "";
+  const target = orm.connection?.target;
+  const vendorLabel = VENDOR_LABEL[orm.vendor ?? ""] ?? orm.vendor ?? "—";
+
   return (
     <Card withBorder radius="md" p="lg">
       <Group justify="space-between" wrap="nowrap" mb="sm">
-        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-          <ThemeIcon size="lg" radius="md" variant="light" color="gray">
-            <IconDatabase size={20} color={v.color} />
+        <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+          {/* Logo de la BASE (driver) — fallback icône générique si inconnu. */}
+          <ThemeIcon size={42} radius="md" variant="default">
+            {hasDbLogo(driver) ? (
+              <DbLogo name={driver} size={26} title={driver} />
+            ) : (
+              <IconDatabase size={24} />
+            )}
           </ThemeIcon>
           <div style={{ minWidth: 0 }}>
             <Text fw={700} truncate>
               {orm.name}
             </Text>
-            <Text size="xs" c="dimmed">
-              {v.label}
-            </Text>
+            {/* Logo + nom de l'ORM (vendor) + driver. */}
+            <Group gap={5} wrap="nowrap" style={{ minWidth: 0 }}>
+              {hasDbLogo(orm.vendor) && (
+                <DbLogo name={orm.vendor} size={13} title={vendorLabel} />
+              )}
+              <Text size="xs" c="dimmed" truncate>
+                {vendorLabel}
+                {driver ? ` · ${driver}` : ""}
+              </Text>
+            </Group>
           </div>
         </Group>
         {orm.default && (
@@ -82,7 +98,23 @@ function OrmCard({ orm }: { orm: OrmSummary }) {
         )}
       </Group>
 
-      <Group justify="space-between">
+      {/* Cible : chemin du fichier SQLite (ou host/base) — jamais de credential. */}
+      {target && (
+        <Code
+          block
+          style={{
+            fontSize: 11,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+          title={target}
+        >
+          {target}
+        </Code>
+      )}
+
+      <Group justify="space-between" mt="sm">
         <Badge
           variant="light"
           color={orm.connected ? "teal" : "gray"}
