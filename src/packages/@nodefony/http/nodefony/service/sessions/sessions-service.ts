@@ -69,7 +69,11 @@ class SessionsService extends Service {
    * cycle, et ajouter un driver ne touche plus ce fichier. Le handler de la
    * config (`session.handler`) sélectionne le storage par son nom.
    */
-  static readonly #storages = new Map<string, SessionStorageCtor>();
+  // `private static` (soft TS) et non `static #storages` (hard ECMAScript) :
+  // un identifiant privé `#` statique est incompatible avec un décorateur de
+  // classe (`@injectable()`) → TS18036 sous `tsc --noEmit` (bloquait la CI).
+  // Encapsulation et runtime identiques.
+  private static readonly storages = new Map<string, SessionStorageCtor>();
 
   /**
    * Enregistre un storage de session sous un nom de handler (insensible à la
@@ -79,7 +83,7 @@ class SessionsService extends Service {
    */
   static registerStorage(name: string, ctor: SessionStorageCtor): void {
     const key = name.toLowerCase();
-    SessionsService.#storages.set(key, ctor);
+    SessionsService.storages.set(key, ctor);
     const kernel = Nodefony.getKernel();
     kernel?.fire("onRegisterSessionStorage", key, ctor);
     kernel?.log(`SESSION STORAGE registered : ${key}`, "DEBUG", "SESSION");
@@ -87,12 +91,12 @@ class SessionsService extends Service {
 
   /** Storage enregistré pour un handler, ou `undefined`. */
   static getStorage(name: string): SessionStorageCtor | undefined {
-    return SessionsService.#storages.get(String(name ?? "").toLowerCase());
+    return SessionsService.storages.get(String(name ?? "").toLowerCase());
   }
 
   /** Noms des handlers de session enregistrés. */
   static storageHandlers(): string[] {
-    return [...SessionsService.#storages.keys()];
+    return [...SessionsService.storages.keys()];
   }
 
   sessionStrategy: sessionStrategyType = "migrate";
