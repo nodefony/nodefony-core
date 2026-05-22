@@ -90,7 +90,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 - `setPath(path)` → résout vers répertoire
 - `setEvents()` → wire hooks lifecycle
 - `kernel.once("onBoot", ...)` → récupère le service `rollup` (build one-shot) — **toujours ajouté** (même sans hooks)
-- ⚠️ watch runtime write-only RETIRÉ (2026-05-22) : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = `DevSupervisor` (auto-restart process)
+- ⚠️ watch runtime write-only RETIRÉ (2026-05-22) : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = boot direct + restart manuel (superviseur auto-restart = chantier, kit `project_dev_supervisor_hmr_kit`)
 - `setParameters("modules.${name}", options)`
 
 **setPath(p)**:

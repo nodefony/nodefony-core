@@ -86,7 +86,7 @@ export class MyModule extends Module {
 - `setParameters("modules.${name}", options)`
 
 → **Conséquence** : 1 listener attaché par module, indépendamment de tes hooks personnalisés.
-> Le watch Rollup runtime write-only (listener `onPostReady` + `Module.watch()` + service `watcherService`) a été RETIRÉ (2026-05-22) : il ne rechargeait rien. Le dev = `DevSupervisor` (auto-restart du process, `src/nodefony/src/service/dev/`).
+> Le watch Rollup runtime write-only (listener `onPostReady` + `Module.watch()` + service `watcherService`) a été RETIRÉ (2026-05-22) : il ne rechargeait rien. Le dev = **boot direct + restart manuel** (`stop.sh`/`start.sh`). Un superviseur auto-restart est un chantier prévu (kit IA `project_dev_supervisor_hmr_kit`).
 
 **Hooks lifecycle attachés via `setEvents()`** (méthodes prototype obligatoires, pas property initializers) :
 - `onKernelRegister` → `kernel.once("onRegister", ...)`

@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-21T23:58:44.803Z",
+  "generated": "2026-05-22T00:22:17.626Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 295,
-    "symbols": 736,
-    "classes": 207,
-    "interfaces": 252,
+    "files": 294,
+    "symbols": 734,
+    "classes": 206,
+    "interfaces": 251,
     "types": 143,
     "enums": 1,
     "functions": 115,
@@ -1539,26 +1539,6 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
-    },
-    "DevSupervisor": {
-      "name": "DevSupervisor",
-      "kind": "class",
-      "file": "src/nodefony/src/service/dev/DevSupervisor.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": null,
-      "implements": [],
-      "decorators": [],
-      "description": "Superviseur de développement « auto-restart » (modèle nodemon, cloud-native : le process serveur est jetable). Topologie : ce process **parent** ne boote PAS le kernel applicatif — il `spawn` le se…"
-    },
-    "DevSupervisorOptions": {
-      "name": "DevSupervisorOptions",
-      "kind": "interface",
-      "file": "src/nodefony/src/service/dev/DevSupervisor.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": null,
-      "description": "Options du superviseur de dev."
     },
     "Rollup": {
       "name": "Rollup",
@@ -7110,9 +7090,6 @@
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
       ],
-      "DevSupervisor": [
-        "src/nodefony/src/kernel/commands/DevCommand.ts"
-      ],
       "ModuleConstructor": [
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
       ],
@@ -7137,9 +7114,6 @@
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
-      ],
-      "Stats": [
-        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "RequestContext": [
         "src/modules/test/nodefony/controller/AlsController.ts",

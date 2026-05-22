@@ -50,26 +50,21 @@ Exit 0 = UP, exit 1 = crash/timeout. Log : `/tmp/nodefony-server.log`, PID : `/t
 - `npx nodefony development > log 2>&1 &` meurt immédiatement (SIGHUP du subshell) → le script utilise
   `spawn` Node.js `detached: true` + `unref()`.
 
-## Serveur dev = DevSupervisor (auto-restart, depuis 2026-05-22)
+## Serveur dev = boot direct + restart MANUEL (depuis 2026-05-22)
 
-`npx nodefony development` lance un **`DevSupervisor`** (process parent) qui spawn le serveur dans un
-process **enfant** (`NODEFONY_DEV_CHILD=1`) et surveille les sources **backend**. À chaque save d'un
-`.ts` backend : **rebuild ciblé** (`turbo --filter=<module>...`) → **restart de l'enfant** (~5s),
-visible en logs `[dev] changement → rebuild → restart`. Les modifs **frontend** (`**/frontend/**`)
-restent en **HMR Vite** → **0 restart**.
+`npx nodefony development` boote directement le serveur (HTTP/WS), **sans watch ni auto-restart**.
 
 > L'ancien **watch Rollup write-only** (qui écrasait le `dist/` ~12s après boot → mismatch dist/log
-> silencieux) a été **SUPPRIMÉ**. Plus de piège silencieux : un changement backend = restart explicite.
+> silencieux) a été **SUPPRIMÉ** (A). Plus de piège silencieux.
+> Un superviseur **auto-restart** (B) a été prototypé puis retiré (friction process : orphelins Vite +
+> EADDRINUSE au restart). À refaire robuste — voir le kit de reprise IA `project_dev_supervisor_hmr_kit`.
 
 ### Protocole "modif code + test via boot"
 
-- **Modif backend pendant que le serveur tourne** → le superviseur rebuild + restart **tout seul** (~5s).
-  Attendre le `[dev] build OK — restart` puis tester. **NE PAS** lancer de `npm run build` manuel en
-  parallèle (le superviseur build déjà → race sur le dist).
-- **Refactor multi-fichiers** : soit `stop.sh` avant (édite tout, puis `start.sh`), soit laisser le
-  superviseur enchaîner (anti-rebond 250ms regroupe les saves quasi-simultanées).
-- **Tests d'intégration / memory** : serveur stable suffit (pas de modif `.ts` pendant). Pour 0 bruit →
-  `stop.sh` + serveur enfant direct `NODEFONY_DEV_CHILD=1`.
+- **Modif backend** → `stop.sh` puis `start.sh` (le build du module test est conditionnel, mtime).
+  Pour un refactor multi-fichiers : édite tout, PUIS un seul `stop → start`.
+- **Modif frontend** → HMR Vite (0 restart) si le HMR fonctionne (⚠️ cassé tant que le cert n'est pas
+  *trusté* — cf kit, solution = mkcert).
 
 ## Quand lancer en debug (`-d`)
 
@@ -110,8 +105,8 @@ sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep "Rollup Module" | grep
 | `start.sh` → `>>> TIMEOUT` | Rollup lent / kernel bloqué | Vérifier `ps aux \| grep rollup` ; relancer |
 | `EADDRINUSE` | port occupé | `start.sh` kill avant spawn ; si persiste, process zombie hors lsof |
 | 4 servers OK mais 404 sur `/nodefony/test/*` | dist module test périmé | `start.sh --force-build` |
-| Modif backend pas prise | le superviseur n'a pas fini son cycle, ou build en échec | regarder les logs `[dev]` ; attendre `build OK — restart` ; ne pas lancer de build manuel concurrent |
-| `ERR_MODULE_NOT_FOUND` au boot enfant | build manuel concurrent du superviseur (race dist) | relancer ; ne pas builder en parallèle du superviseur |
+| Modif backend pas prise | dist pas rebuildé (pas de watch) | `stop.sh` puis `start.sh` (build conditionnel) |
+| Page front noire / `ERR_CERT_AUTHORITY_INVALID` | cert self-signed non *trusté* → assets cross-origin 5173 bloqués | accepter le cert OU (vrai fix) cert trusté via mkcert — cf kit `project_dev_supervisor_hmr_kit` |
 
 ## Maintenance des scripts
 
