@@ -220,6 +220,45 @@ garanti au `unsubscribe` ET `ctx.once("onFinish")`. ⚠️ Après le handshake `
 - Vérif back sans navigateur : **curl le data plane** (`curl -sk https://127.0.0.1:5152/nodefony/<m>/api/...`)
   + curl le transform Vite (`https://127.0.0.1:5173/@fs/<abs>.tsx`) pour valider la résolution d'un subpath.
 
+## Realtime Studio — canaux, socket PARTAGÉE, hub, log protocole
+
+Le temps réel est **le différenciateur** (« le patron »). Architecture : WS JSON-RPC 2.0
+`WS /nodefony/studio/api/realtime` (`StudioRealtimeController`) ⇄ `RealtimeClient` (Core, `nodefony`).
+Pub/sub PAR CANAL on-demand ; providers serveur **transport-agnostiques** (`nodefony/realtime/providers.ts`).
+
+**Ajouter un canal realtime** :
+1. Serveur : un provider qui `publish(channel, payload)` (cf `createSyslogBridge`/`createStatsTicker`) ;
+   le `StudioRealtimeController` le démarre au `subscribe`, `dispose()` au `unsubscribe` + `onFinish`.
+2. Client : **s'abonner = ref-compté** via `useNodefonyChannel("<canal>", handler)` (page) ou
+   `useNodefonyChannelData/Stats` ; le client ré-abonne seul au reconnect.
+
+**🚨 Invariant SOCKET PARTAGÉE (le piège #1 du soir)** :
+- 1 SEULE socket par origine : `RealtimeClient.shared({url})` (singleton par URL sur `globalThis`,
+  scheme normalisé ws/wss). Studio (`RootStore`) ET la debug bar l'utilisent → pas 2 connexions.
+- **TOUS les consommateurs DOIVENT ref-compter** : `client.subscribe(channel)` /
+  `useNodefonyChannel` / `conn.subscribe`. **JAMAIS** de raw `client.emit("subscribe")` : sur le
+  client partagé, un `unsubscribe` ref-compté (ref→0) coupe le canal pour TOUS (bug vécu : la barre
+  perdait ses canaux quand une page se démontait).
+- Un consommateur MobX (store) **doit initialiser son état depuis `client.state`** au montage : la
+  socket peut être DÉJÀ ouverte (barre montée avant) → sinon on rate l'event « connected » passé.
+
+**Log protocole (inspecteur de frames)** :
+- `RealtimeClient` garde un **ring always-on bon marché** : `recordFrame` ne pousse qu'une réf brute
+  `{ts,dir,msg}` ; la construction + **redaction des secrets** sont DIFFÉRÉES à la lecture
+  (`get frameLog`) ou au live (`__frame__`, émis seulement si un listener écoute). → la console
+  « retrace l'instant » dès l'ouverture (seed depuis `frameLog`), sans surcoût hors console.
+- Côté UI : payload stringifié **uniquement à l'ouverture** d'une ligne (pas 300 `Collapse`/stringify),
+  **cap ~150 lignes rendues** (ring = 300), uptime isolé (`<SessionUptime>`) pour ne pas re-render la
+  liste chaque seconde. Payload affiché en TEXTE (jamais d'HTML).
+
+**Hub (UI)** — source unique `components/RealtimeHubContent.tsx` (carte connexion + stats + VU-mètres
+par canal + couper), réutilisée dans :
+- **HoverCard du chip topbar** = aperçu live des abonnements de la PAGE COURANTE (la vraie vision par
+  page, sans la quitter) ; le chip **navigue** (clic) → **plus de drawer**.
+- **Console `/nodefony/hub`** (« Realtime Hub ») = plein écran : KPIs + abonnements (Protocole/Transport/
+  peer, forward-compat SIP/UDP/TCP) + log protocole. La console **s'auto-abonne** aux canaux standard
+  → toujours vivante. Box stable = `tabular-nums` + `nowrap` (sinon saute à chaque message).
+
 ## Décision rapide (quel outil)
 
 | Besoin | Outil | NE PAS |
