@@ -129,12 +129,20 @@ jobs:
       - name: Rebuild test module
         run: npm run build --workspace=src/modules/test
 
-      - name: Start Nodefony server (background, detached, fail-fast)
+      - name: Start Nodefony server (production, no PM2, detached, fail-fast)
         shell: bash
         run: |
           node -e "
           const { spawn } = require('child_process');
-          const child = spawn('npx', ['nodefony', 'development'], {
+          const path = require('path');
+          // Le bin 'nodefony' est un artefact de build (src/nodefony/.gitignore: /bin/)
+          // généré par 'npm run build'. À l'install (npm ci) il n'existe pas encore →
+          // npm ne crée PAS le symlink node_modules/.bin/nodefony → 'npx nodefony'
+          // échoue en CI (sh: nodefony: not found). On invoque le bin construit en direct.
+          const bin = path.join(process.cwd(), 'node_modules', 'nodefony', 'bin', 'nodefony');
+          // production --no-daemon : boot foreground in-process, SANS PM2 (cible
+          // cloud-native, 1 process = 1 pod). Logs sur stdout → captés ci-dessous.
+          const child = spawn(process.execPath, [bin, 'production', '--no-daemon'], {
             cwd: process.cwd(),
             stdio: ['ignore', 'pipe', 'pipe'],
             detached: true,

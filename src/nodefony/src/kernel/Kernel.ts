@@ -466,10 +466,20 @@ class Kernel extends Service implements IKernel {
         if (this.setCommandComplete(Events.onReady)) {
           return this.terminate(0);
         }
-        //PM2
+        // Mode production : daemonisation PM2 (LEGACY) uniquement avec `--daemon`
+        // (le défaut). `--no-daemon` → boot foreground in-process : on tombe dans
+        // initServers() sans jamais solliciter PM2. C'est la cible cloud-native
+        // (1 process Node = 1 pod/container, supervision déléguée à l'orchestrateur)
+        // et le prérequis de la CI d'intégration. Cf project_pm2_deprecation (P16.1).
+        const prodOpts = this.commandArgs[0] as { daemon?: boolean } | undefined;
+        const noDaemon =
+          typeof prodOpts === "object" &&
+          prodOpts !== null &&
+          prodOpts.daemon === false;
         if (
           this.command?.name === "production" &&
-          process.env.MODE_START !== "PM2"
+          process.env.MODE_START !== "PM2" &&
+          !noDaemon
         ) {
           return this.command.action(...this.commandArgs).then(() => {
             return this;

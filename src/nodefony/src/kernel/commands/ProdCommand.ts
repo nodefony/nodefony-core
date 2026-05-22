@@ -47,8 +47,13 @@ class Prod extends Command {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override async generate(options: any): Promise<void | Kernel> {
     try {
-      if (process.env.MODE_START && process.env.MODE_START === "PM2") {
-        // is pm2
+      // Enfant PM2 (legacy) OU foreground `--no-daemon` : les serveurs sont déjà
+      // démarrés par Kernel.initServers() — generate() est un no-op, PM2 n'est
+      // jamais sollicité (cible cloud-native, prérequis CI). Cf P16.1.
+      if (
+        (process.env.MODE_START && process.env.MODE_START === "PM2") ||
+        options.daemon === false
+      ) {
         return this.kernel as Kernel;
       } else {
         if (!this.service) {
