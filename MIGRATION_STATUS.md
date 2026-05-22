@@ -222,6 +222,29 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | P6.10  | Logs auth (audit S1-S5) + **CSP stricte** `default-src 'self'` + nonces + security headers (HSTS, X-Content-Type-Options, X-Frame-Options) | — | 1 ses. | P3.1, P6.3 | Extension de 9.3 / 9.6 — OWASP A05:2021. Nonces CSP par requête. Aligné avec `project_csp_vite_security_todo.md` (API CSP origines dynamiques) |
 | P6.11  | Tests intégration security complets (firewall-http/ws, cors, csrf double-submit, oauth2, mtls, decorators, voters, stack symbiose) | — | 2.5 ses. | P6.10 | `symbiose-stack.test.ts` couvre CORS→Firewall→ACL→CSRF→Authenticator chain→Controller. Tests `@CsrfProtect` HMAC, JWT rotation, OAuth2 arctic, mTLS handshake |
 
+### P13 — Realtime distribué (refonte 2026-05-16 — voir mémoire `project_decisions_realtime_isomorphic.md`)
+
+> **🔼 PROMU CHEMIN CRITIQUE (2026-05-22, décision user)** : P13 remonté **juste après P6** —
+> le temps réel distribué est une priorité produit majeure. Nouvel ordre : **P5 → P6 → P13 → P7…**.
+> ⚠️ Découpage par blocage : les tâches **LOCAL/protocole** (P13.1 sockets, P13.4 `LocalRealtimeHub`,
+> P13.7 JSON-RPC, P13.8 décorateurs) sont faisables **sans infra** ; les tâches **DISTRIBUÉ**
+> (P13.2 Redis, P13.5 `RedisRealtimeHub`, P13.6 `KafkaRealtimeHub`) sont **bloquées par l'infra
+> Docker (Redis/Kafka)**. P13 client dépend aussi de **P14.11 (Core isomorphe, 🔶 partiel)**.
+>
+> **P13.3 SUPPRIMÉE** — Core devient isomorphe, intégré dans P14.
+> Architecture **Pattern Hub** : `IRealtimeHub` interchangeable + `RealtimeService` central. Permet cluster K8s transparent.
+
+| #     | Tâche                                                            | Effort  | Dépendances        | Notes                                                  |
+| ----- | ---------------------------------------------------------------- | ------- | ------------------ | ------------------------------------------------------ |
+| P13.1 | `@nodefony/realtime` (TCP/UDP/Unix sockets — IoT/IPC/protocoles) | 7 ses.  | P1 (Context hooks) | Indépendant. Chaque protocole crée un `RequestContext` Nodefony (ALS, logs, security) |
+| 🔶 P13.2 | `@nodefony/redis` refactor (cluster + pub/sub + storage)         | 8 ses.  | —                  | 🔶 vérif audit 2026-05-21 : module présent (5 ts), legacy en place. **Prioritaire** — débloque P5.12, apps prod cluster + driver `RedisRealtimeHub` |
+| 🔶 P13.4 | 🆕 `IRealtimeHub` interface + `LocalRealtimeHub` (dev) + `RealtimeService` central (façade, normalisation, dédup échos cluster) | 3 ses. | P1.4 (ALS) | 🔶 **précurseur** (vérif audit 2026-05-20) — Studio `realtime/providers.ts` (pub/sub transport-agnostique) + `StudioRealtimeController` + `RealtimeClient` côté client. Reste à extraire en `RealtimeService` formel |
+| P13.5 | 🆕 `RedisRealtimeHub` driver (cluster low-latency, Pub/Sub)      | 2 ses.  | P13.2, P13.4       | Sessions UI, chat, broadcast standard                  |
+| P13.6 | 🆕 **`KafkaRealtimeHub`** driver (cluster massif, persistence, at-least-once) | 3 ses. | P13.4 | Apps massives + bus events agents IA (P12)            |
+| 🔶 P13.7 | 🆕 Protocole **JSON-RPC 2.0 maison** + RPC bidirectionnel (Promise) + HTTP long-polling fallback + types partagés `ServerToClientEvents`/`ClientToServerEvents` | 4 ses. | P13.4, P1.7 | 🔶 **précurseur** (vérif audit) — JSON-RPC 2.0 implémenté dans Studio (`StudioRealtimeController` WS pub/sub). Pas encore extrait en module générique + long-polling fallback |
+| P13.8 | 🆕 Décorateurs `@RealtimeController(path)` + `@RealtimeEvent(name)` (lecture `Reflect.metadata`) | 2 ses. | P13.7 | Pattern @route mais pour events temps réel             |
+| P13.9 | 🆕 Tests intégration cluster simulé (2+ instances + Hub + filtre écho) | 2 ses. | P13.5 ou P13.6 | Valide pas de duplication de messages cluster         |
+
 ### P7 — ORM Drivers (consomment orm-core de P5.1-P5.4)
 
 > Architecture refondue — voir [Phase 7](#phase-7--orm-multi-driver-architecture-refondée).
@@ -283,22 +306,6 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 | ✅ P14.13| 🆕 **Superviseur dev auto-restart** (`DevSupervisor`, volet 2 du chantier HMR) | 1 ses. | P14.13 | ✅ FAIT (2026-05-22) | `src/nodefony/src/service/dev/DevSupervisor.ts` (récupéré de `6188447`, recréé après revert `ec38bba`) + câblage `DevCommand`. Parent type CONSOLE `spawn` l'enfant serveur `NODEFONY_DEV_CHILD=1` en **leader de groupe** (`detached:true`), watch backend (frontend exclu → HMR Vite intact), rebuild **ciblé** (`turbo --filter=pkg...` + `rollup -c`), **group-kill** au restart (`process.kill(-pid)` → tue les instances Vite filles, **0 orphelin**) + **attente ports libres** (sonde TCP `net.connect`, anti-`EADDRINUSE`) + **retry crash borné** (3×). Tient compte du multi-instance Vite (5173+5177 dans le groupe enfant). **Validé runtime** : boot, restart ciblé 1.2s, anti-orphelin (ancien enfant+2 Vite tués), Ctrl+C → 0 zombie, ports libres ; core 1250✅. Découverte : ~5 superviseurs fantômes accumulés des sessions précédentes (cause des EADDRINUSE en cascade) nettoyés. |
 | ⬜ P14.13| 🆕 Syslog isomorphe : transport WS qui pipe logs front → syslog back centralisé | 2 ses. | P14.11, P13.7 | ⏳ À FAIRE       | Traçabilité totale front prod                          |
 | ⬜ P14.14| 🆕 **TODO security** : API CSP origines dynamiques (cf `project_csp_vite_security_todo`) | 1 ses. | P14.4, P5 | ⏳ À FAIRE       | Remplace le hack POC dans le controller (`setHeader Content-Security-Policy` à la main) |
-
-### P13 — Realtime distribué (refonte 2026-05-16 — voir mémoire `project_decisions_realtime_isomorphic.md`)
-
-> **P13.3 SUPPRIMÉE** — Core devient isomorphe, intégré dans P14.
-> Architecture **Pattern Hub** : `IRealtimeHub` interchangeable + `RealtimeService` central. Permet cluster K8s transparent.
-
-| #     | Tâche                                                            | Effort  | Dépendances        | Notes                                                  |
-| ----- | ---------------------------------------------------------------- | ------- | ------------------ | ------------------------------------------------------ |
-| P13.1 | `@nodefony/realtime` (TCP/UDP/Unix sockets — IoT/IPC/protocoles) | 7 ses.  | P1 (Context hooks) | Indépendant. Chaque protocole crée un `RequestContext` Nodefony (ALS, logs, security) |
-| 🔶 P13.2 | `@nodefony/redis` refactor (cluster + pub/sub + storage)         | 8 ses.  | —                  | 🔶 vérif audit 2026-05-21 : module présent (5 ts), legacy en place. **Prioritaire** — débloque P5.12, apps prod cluster + driver `RedisRealtimeHub` |
-| 🔶 P13.4 | 🆕 `IRealtimeHub` interface + `LocalRealtimeHub` (dev) + `RealtimeService` central (façade, normalisation, dédup échos cluster) | 3 ses. | P1.4 (ALS) | 🔶 **précurseur** (vérif audit 2026-05-20) — Studio `realtime/providers.ts` (pub/sub transport-agnostique) + `StudioRealtimeController` + `RealtimeClient` côté client. Reste à extraire en `RealtimeService` formel |
-| P13.5 | 🆕 `RedisRealtimeHub` driver (cluster low-latency, Pub/Sub)      | 2 ses.  | P13.2, P13.4       | Sessions UI, chat, broadcast standard                  |
-| P13.6 | 🆕 **`KafkaRealtimeHub`** driver (cluster massif, persistence, at-least-once) | 3 ses. | P13.4 | Apps massives + bus events agents IA (P12)            |
-| 🔶 P13.7 | 🆕 Protocole **JSON-RPC 2.0 maison** + RPC bidirectionnel (Promise) + HTTP long-polling fallback + types partagés `ServerToClientEvents`/`ClientToServerEvents` | 4 ses. | P13.4, P1.7 | 🔶 **précurseur** (vérif audit) — JSON-RPC 2.0 implémenté dans Studio (`StudioRealtimeController` WS pub/sub). Pas encore extrait en module générique + long-polling fallback |
-| P13.8 | 🆕 Décorateurs `@RealtimeController(path)` + `@RealtimeEvent(name)` (lecture `Reflect.metadata`) | 2 ses. | P13.7 | Pattern @route mais pour events temps réel             |
-| P13.9 | 🆕 Tests intégration cluster simulé (2+ instances + Hub + filtre écho) | 2 ses. | P13.5 ou P13.6 | Valide pas de duplication de messages cluster         |
 
 ### P12 — Couche IA agentic (DERNIÈRE phase — voir [Phase 12](#phase-12--couche-ia-agentic-dernière-phase-de-migration))
 
