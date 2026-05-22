@@ -4,6 +4,8 @@ import {
   Event,
   typeOf,
   isPromise,
+  isPlainObject,
+  isArray,
   Injector,
   Module,
   //inject,
@@ -55,7 +57,7 @@ class Resolver extends Service implements IResolver {
     super(
       "RESOLVER",
       context.container as Container,
-      context.notificationsCenter as Event
+      context.notificationsCenter as Event,
     );
     this.context = context;
     this.injector = this.get<Injector>("injector");
@@ -90,7 +92,7 @@ class Resolver extends Service implements IResolver {
     tab = name.split(":");
     if (tab.length !== 3) {
       throw new Error(
-        `Invalid name format: expected "module:controller:action"`
+        `Invalid name format: expected "module:controller:action"`,
       );
     }
     module = this.kernel?.getModule(tab[0]) as Module | undefined;
@@ -132,7 +134,7 @@ class Resolver extends Service implements IResolver {
     if (this.controller) {
       const controller = this.injector?.instantiate(
         this.controller,
-        context || this.context
+        context || this.context,
       );
       if (controller) {
         this.set("controller", controller);
@@ -150,59 +152,52 @@ class Resolver extends Service implements IResolver {
   }
 
   async callController(data?: any[], reload: boolean = false) {
-    try {
-      let controller = this.get("controller") as Controller;
-      if (!controller || reload) {
-        controller = await this.newController();
-      }
-      if (this.controller?.prototype.module) {
-        controller.module = this.controller?.prototype.module;
-      }
-      this.set("action", this.action);
-      this.set("route", this.route);
-      controller.setRoute(this.route!);
-      const methodKey = this.actionName as keyof typeof controller;
-      let args: any[];
-      if (data) {
-        args = [...this.variables, ...data];
-      } else {
-        args = [...this.variables];
-      }
-      const proto = Object.getPrototypeOf(controller);
-      const paramsMeta: ParamMeta[] | undefined = Reflect.getMetadata(
-        PARAM_ARGS_METADATA,
-        proto,
-        this.actionName!
-      );
-      if (paramsMeta && paramsMeta.length > 0) {
-        args = this._buildParamArgs(paramsMeta);
-      }
-      this._applyResponseDecorators(controller, proto);
-      const redirectMeta: RedirectMeta | undefined = Reflect.getMetadata(
-        REDIRECT_METADATA,
-        proto,
-        this.actionName!
-      );
-      if (typeof controller[methodKey] === "function") {
-        try {
-          const actionResult = (controller[methodKey] as (...a: unknown[]) => unknown)(...args);
-          return await this._handleRedirect(actionResult, redirectMeta);
-        } catch (e) {
-          throw e;
-        }
-      }
-      if (this.action) {
-        try {
-          const actionResult = this.action(...args);
-          return await this._handleRedirect(actionResult, redirectMeta);
-        } catch (e) {
-          throw e;
-        }
-      }
-      throw new Error(`Route Action not found`);
-    } catch (e) {
-      throw e;
+    let controller = this.get("controller") as Controller;
+    if (!controller || reload) {
+      controller = await this.newController();
     }
+    if (this.controller?.prototype.module) {
+      controller.module = this.controller?.prototype.module;
+    }
+    this.set("action", this.action);
+    this.set("route", this.route);
+    controller.setRoute(this.route!);
+    const methodKey = this.actionName as keyof typeof controller;
+    let args: any[];
+    if (data) {
+      args = [...this.variables, ...data];
+    } else {
+      args = [...this.variables];
+    }
+    const proto = Object.getPrototypeOf(controller);
+    const paramsMeta: ParamMeta[] | undefined = Reflect.getMetadata(
+      PARAM_ARGS_METADATA,
+      proto,
+      this.actionName!,
+    );
+    if (paramsMeta && paramsMeta.length > 0) {
+      args = this._buildParamArgs(paramsMeta);
+    }
+    this._applyResponseDecorators(controller, proto);
+    const redirectMeta: RedirectMeta | undefined = Reflect.getMetadata(
+      REDIRECT_METADATA,
+      proto,
+      this.actionName!,
+    );
+    // Pas de try/catch re-throw (no-op) : les erreurs de l'action remontent
+    // seules jusqu'à HttpKernel.onError. Pas de `await` avant return (microtask
+    // en moins) — le rejet se propage via la promesse retournée.
+    if (typeof controller[methodKey] === "function") {
+      const actionResult = (
+        controller[methodKey] as (...a: unknown[]) => unknown
+      )(...args);
+      return this._handleRedirect(actionResult, redirectMeta);
+    }
+    if (this.action) {
+      const actionResult = this.action(...args);
+      return this._handleRedirect(actionResult, redirectMeta);
+    }
+    throw new Error(`Route Action not found`);
   }
 
   private _buildParamArgs(metas: ParamMeta[]): unknown[] {
@@ -229,11 +224,14 @@ class Resolver extends Service implements IResolver {
     return result;
   }
 
-  private _applyResponseDecorators(controller: Controller, proto: object): void {
+  private _applyResponseDecorators(
+    controller: Controller,
+    proto: object,
+  ): void {
     const httpCode: number | undefined = Reflect.getMetadata(
       HTTP_CODE_METADATA,
       proto,
-      this.actionName!
+      this.actionName!,
     );
     if (httpCode !== undefined) {
       controller.response?.setStatusCode(httpCode);
@@ -241,33 +239,47 @@ class Resolver extends Service implements IResolver {
     const headers: Record<string, string> | undefined = Reflect.getMetadata(
       HEADERS_METADATA,
       proto,
-      this.actionName!
+      this.actionName!,
     );
     if (headers) {
       for (const [key, value] of Object.entries(headers)) {
-        (controller.response as HttpResponse | Http2Response | null)?.setHeader(key, value);
+        (controller.response as HttpResponse | Http2Response | null)?.setHeader(
+          key,
+          value,
+        );
       }
     }
   }
 
   private async _handleRedirect(
     actionResult: unknown,
-    redirectMeta: RedirectMeta | undefined
+    redirectMeta: RedirectMeta | undefined,
   ): Promise<unknown> {
     if (!redirectMeta) {
-      return this.returnController(actionResult).catch((e: unknown) => { throw e; });
+      return this.returnController(actionResult);
     }
     const resolved = await Promise.resolve(actionResult);
-    if (resolved !== null && resolved !== undefined && typeof resolved === "object" && "url" in resolved) {
+    if (
+      resolved !== null &&
+      resolved !== undefined &&
+      typeof resolved === "object" &&
+      "url" in resolved
+    ) {
       const override = resolved as { url: string; statusCode?: number };
-      (this.context as HttpContext).redirect(override.url, override.statusCode ?? redirectMeta.statusCode);
+      (this.context as HttpContext).redirect(
+        override.url,
+        override.statusCode ?? redirectMeta.statusCode,
+      );
       return this.returnController(undefined);
     }
     if (resolved === undefined || resolved === null) {
-      (this.context as HttpContext).redirect(redirectMeta.url, redirectMeta.statusCode);
+      (this.context as HttpContext).redirect(
+        redirectMeta.url,
+        redirectMeta.statusCode,
+      );
       return this.returnController(undefined);
     }
-    return this.returnController(resolved).catch((e: unknown) => { throw e; });
+    return this.returnController(resolved);
   }
 
   async returnController(result: any) {
@@ -276,22 +288,14 @@ class Resolver extends Service implements IResolver {
       case result instanceof Promise:
       case result instanceof BlueBird:
       case isPromise(result):
-        return result
-          .then(async (myresult: any) => {
-            return this.returnController(myresult).catch((e) => {
-              throw e;
-            });
-          })
-          .catch((e: Error) => {
-            throw e;
-          });
+        // Unwrap puis re-dispatch. Pas de `.catch(e => throw e)` (no-op qui
+        // ajoute une microtask par requête) — le rejet se propage seul.
+        return result.then((myresult: unknown) =>
+          this.returnController(myresult),
+        );
       case type === "string":
       case result instanceof String:
-        return (this.context as HttpContext | WebsocketContext)
-          .send(result)
-          .catch((e: Error) => {
-            throw e;
-          });
+        return (this.context as HttpContext | WebsocketContext).send(result);
       case result instanceof Http2Response:
       case result instanceof HttpResponse:
       case result instanceof WebsocketResponse:
@@ -299,8 +303,28 @@ class Resolver extends Service implements IResolver {
       //return (this.context as HttpContext).send().catch((e: Error) => {
       //  throw e;
       //});
-      case type === "object":
-        break;
+      case type === "array":
+      case type === "object": {
+        // Réponse déjà envoyée (ex: ReadStream piped par streamFile, send
+        // manuel) → ne rien refaire. (`sended` n'existe que sur HttpContext ;
+        // undefined pour le WS → on poursuit, le WS peut répondre par message.)
+        if ((this.context as HttpContext).sended) {
+          return;
+        }
+        // Objet/array sérialisable → auto-JSON. Contrat moderne, symétrique avec
+        // le `case string`, et VALABLE POUR LE REALTIME WS (un handler qui
+        // `return { type: "pong" }` envoie désormais au lieu d'être droppé).
+        // `render()` sérialise via `isJson` (posé par `setContextJson`).
+        // Buffer / ReadStream / instances de classe → NON sérialisés (laissés
+        // tels quels : déjà envoyés/gérés ailleurs), jamais `JSON.stringify`.
+        if (isPlainObject(result) || isArray(result)) {
+          this.context.setContextJson();
+          return (this.context as HttpContext | WebsocketContext).render(
+            result,
+          );
+        }
+        return;
+      }
       default:
         switch (this.context.type) {
           case "http":
@@ -311,9 +335,7 @@ class Resolver extends Service implements IResolver {
               return;
             }
             if ((this.context as HttpContext).isRedirect) {
-              return (this.context as HttpContext).send().catch((e: Error) => {
-                throw e;
-              });
+              return (this.context as HttpContext).send();
             }
             this.context.waitAsync = true;
             break;

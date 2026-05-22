@@ -135,7 +135,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       serviceName,
       module.container as Container,
       module.notificationsCenter as Event,
-      module.options
+      module.options,
     );
     this.module = module;
     this.container?.addScope("request");
@@ -201,14 +201,22 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // Resolve "auto" lazily at boot — by now kernel.environment is set.
     if (format === "auto") {
       const env = this.kernel?.environment;
-      format = env === "production" ? "json" : env === "development" ? "pretty" : "default";
+      format =
+        env === "production"
+          ? "json"
+          : env === "development"
+            ? "pretty"
+            : "default";
     }
     if (format === "pretty") {
       this.requestLogger = new PrettyRequestLogger();
     } else if (format === "json") {
       const advanced = kernelLog.requestLogger ?? {};
       const opts: { includeStack?: boolean; maxCauseDepth?: number } = {};
-      if (advanced.includeStack !== null && advanced.includeStack !== undefined) {
+      if (
+        advanced.includeStack !== null &&
+        advanced.includeStack !== undefined
+      ) {
         opts.includeStack = advanced.includeStack;
       }
       if (typeof advanced.maxCauseDepth === "number") {
@@ -222,7 +230,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   async handle(
     request: httpRequest,
     response: httpResponse | null,
-    type: ServerType
+    type: ServerType,
   ): Promise<any> {
     const scope = this.container?.enterScope("request");
     const log = clc.cyan.bgBlue(`${request.url}`);
@@ -231,7 +239,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       scope as Scope,
       request,
       response as httpResponse,
-      type
+      type,
     ).catch(async (e) => {
       throw e;
     });
@@ -239,7 +247,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
 
   async handleFrontController(
     context: ContextType,
-    checkFirewall: boolean = true
+    checkFirewall: boolean = true,
   ): Promise<Controller | number> {
     return new Promise(async (resolve, reject) => {
       if (!this.router) {
@@ -352,7 +360,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   async onError(
     error: Error | HttpError | nodefonyError,
     context?: ContextType,
-    _extraHeaders?: Record<string, unknown> | object
+    _extraHeaders?: Record<string, unknown> | object,
   ): Promise<HttpContext | WebsocketContext> {
     try {
       if (context) {
@@ -460,7 +468,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   async onHttpRequest(
     request: httpRequest,
     response: httpResponse,
-    type: ServerType
+    type: ServerType,
   ): Promise<http.ServerResponse | http2.Http2ServerResponse> {
     response.setHeader("Server", this.options.headerServer);
     if (
@@ -475,7 +483,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
               "onServerRequest",
               request,
               response,
-              type
+              type,
             ).catch((e) => {
               throw e;
             });
@@ -495,7 +503,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     await this.fireAsync("onServerRequest", request, response, type).catch(
       (e) => {
         throw e;
-      }
+      },
     );
     return await this.handle(request, response, type).catch((e) => {
       throw e;
@@ -520,7 +528,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       servers.push(serverWebsocket);
     }
     const serverWebsocketSecure = this.get<websocketSecureServer>(
-      "server-websocket-secure"
+      "server-websocket-secure",
     );
     if (serverWebsocketSecure && serverHttps) {
       await serverWebsocketSecure.createServer(serverHttps);
@@ -530,7 +538,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   async startSession(
-    context: WebsocketContext | HttpContext
+    context: WebsocketContext | HttpContext,
   ): Promise<Session | null> {
     if (
       this.sessionService &&
@@ -556,7 +564,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     scope: Scope,
     request: httpRequest,
     response: httpResponse,
-    type: ServerType
+    type: ServerType,
   ): HttpContext {
     try {
       const context = new HttpContext(scope, request, response, type);
@@ -568,9 +576,25 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         response.removeListener("finish", onFinish);
         response.removeListener("close", onClose);
         if (!context || context.finished) return;
+        // Dev-only : l'action a retourné une valeur non rendable (number/boolean/
+        // void) → `waitAsync` posé mais AUCUN envoi → la requête a pendu (timeout
+        // / disconnect). Pister tôt pour éviter le hang silencieux. Gratuit en
+        // prod (gardé par l'env + n'alloue rien sauf si le warn fire).
+        if (
+          context.waitAsync &&
+          !context.sended &&
+          this.kernel?.environment === "development"
+        ) {
+          this.log(
+            `Action "${context.resolver?.route?.name ?? context.url}" returned a non-renderable value (number/boolean/void) and never sent a response. Use 'return <object|string>' (auto-JSON) or send/stream manually.`,
+            "WARNING",
+          );
+        }
         context.logRequest();
         // Snapshot dev-only AVANT clean() (la donnée disparaît après).
-        this.profiler?.collect(context as unknown as Parameters<Profiler["collect"]>[0]);
+        this.profiler?.collect(
+          context as unknown as Parameters<Profiler["collect"]>[0],
+        );
         await context._runAfterResponse();
         await context.fireAsync("onFinish", context).catch((e) => {
           throw e;
@@ -604,7 +628,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     scope: Scope,
     request: httpRequest,
     response: httpResponse,
-    type: ServerType
+    type: ServerType,
   ): Promise<HttpContext> {
     return new Promise(async (resolve, reject) => {
       let context: HttpContext | null = null;
@@ -669,7 +693,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
 
   async onRequestEnd(
     context: HttpContext,
-    error?: Error | null | undefined
+    error?: Error | null | undefined,
   ): Promise<HttpContext | number> {
     return new Promise(async (resolve, reject) => {
       // EVENT
@@ -711,7 +735,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             } catch (authError) {
               // SECURITY HOOK — onAuthFailure (P1.7)
               await this.fireAsync("onAuthFailure", context, authError).catch(
-                (e) => this.log(e, "ERROR", "onAuthFailure")
+                (e) => this.log(e, "ERROR", "onAuthFailure"),
               );
               throw authError;
             }
@@ -751,7 +775,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     scope: Scope,
     req: IncomingMessage,
     ws: Ws,
-    type: ServerType
+    type: ServerType,
   ): WebsocketContext {
     const context = new WebsocketContext(scope, req, ws, type);
     context.once("onFinish", async (wscontext) => {
@@ -785,7 +809,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   // WEBSOCKET ENTRY POINT
-  async onWebsocketRequest(ws: Ws, req: IncomingMessage, type: ServerType): Promise<any> {
+  async onWebsocketRequest(
+    ws: Ws,
+    req: IncomingMessage,
+    type: ServerType,
+  ): Promise<any> {
     await this.fireAsync("onServerRequest", req, null, type).catch((e) => {
       throw e;
     });
@@ -799,7 +827,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     scope: Scope,
     ws: Ws,
     req: IncomingMessage,
-    type: ServerType
+    type: ServerType,
   ): Promise<any> {
     let context: WebsocketContext | null = null;
     let error: Error | null | unknown = null;
@@ -833,7 +861,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         async () => {
           await this.onConnect(context as WebsocketContext, error);
           // FIREWALL
-          if (this.firewall && (context?.secure || context?.isControlledAccess)) {
+          if (
+            this.firewall &&
+            (context?.secure || context?.isControlledAccess)
+          ) {
             context.phaseStart("firewall");
             try {
               try {
@@ -841,7 +872,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
                 await this.fireAsync("afterAuth", context);
               } catch (authError) {
                 await this.fireAsync("onAuthFailure", context, authError).catch(
-                  (e) => this.log(e, "ERROR", "onAuthFailure")
+                  (e) => this.log(e, "ERROR", "onAuthFailure"),
                 );
                 throw authError;
               }
@@ -880,7 +911,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // finished. Handles the orphan case where the context failed to construct.
   private releaseOrphanWsScope(
     scope: Scope,
-    context: WebsocketContext | null
+    context: WebsocketContext | null,
   ): void {
     if (!context) {
       // Context construction failed — the scope is orphaned, free it.
@@ -897,7 +928,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
 
   async onConnect(
     context: WebsocketContext,
-    error: null | undefined | unknown = null
+    error: null | undefined | unknown = null,
   ): Promise<Ws | number> {
     try {
       if (error) {
@@ -934,12 +965,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         try {
           const session = await this.sessionService.start(
             context,
-            context.sessionAutoStart as string
+            context.sessionAutoStart as string,
           );
           if (!(session instanceof Session)) {
             this.log(
               new Error("SESSION START session storage ERROR"),
-              "WARNING"
+              "WARNING",
             );
           }
           // if (this.firewall) {

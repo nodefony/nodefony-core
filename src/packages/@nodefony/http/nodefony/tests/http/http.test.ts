@@ -20,7 +20,7 @@ describe("HTTP UNIT TESTS ", () => {
         try {
           expect(res.statusCode).to.equal(200);
           expect(res.headers["content-type"]).to.equal(
-            "text/html; charset=utf-8"
+            "text/html; charset=utf-8",
           );
           done();
         } catch (e) {
@@ -79,9 +79,8 @@ describe("HTTP UNIT TESTS ", () => {
       res.on("end", () => {
         try {
           expect(res.statusCode).to.equal(200);
-          expect(res.headers["content-type"]).to.equal(
-            "application/json; charset=utf-8"
-          );
+          // RFC 8259 §11 : application/json sans paramètre charset.
+          expect(res.headers["content-type"]).to.equal("application/json");
           const responseData = JSON.parse(data);
           expect(responseData).to.be.an("object");
           expect(responseData).to.have.property("route");

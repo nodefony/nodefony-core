@@ -145,6 +145,12 @@ class HttpResponse {
         mytype = mytype.split(";")[0];
         this.contentType = mytype;
         this.encoding = encoding;
+        // RFC 8259 §11 : `application/json` (et tout type structuré `+json`) ne
+        // définit AUCUN paramètre `charset` (le JSON est UTF-8 par spec). Émettre
+        // `; charset=` serait un paramètre non conforme (ignoré). → type nu.
+        if (mytype === "application/json" || mytype.endsWith("+json")) {
+          return this.setHeader("Content-Type", mytype);
+        }
         return this.setHeader("Content-Type", `${mytype}; charset=${encoding}`);
       }
     }
@@ -210,8 +216,11 @@ class HttpResponse {
     this.statusCode = (status as number) || this.statusCode;
     if (message) {
       // HTTP status messages must be printable US-ASCII only (RFC 7230 §3.1.2)
-      const ascii = stripAinsi(message).replace(/[^\x20-\x7E]/g, "").trim();
-      this.statusMessage = ascii || (http.STATUS_CODES[this.statusCode] ?? "Unknown Error");
+      const ascii = stripAinsi(message)
+        .replace(/[^\x20-\x7E]/g, "")
+        .trim();
+      this.statusMessage =
+        ascii || (http.STATUS_CODES[this.statusCode] ?? "Unknown Error");
     } else if (!this.statusMessage) {
       if (http.STATUS_CODES[this.statusCode]) {
         this.statusMessage = http.STATUS_CODES[this.statusCode] as string;
@@ -342,7 +351,10 @@ class HttpResponse {
         }
         this.statusMessage = this.getStatusMessage();
         if ((this.context as any).requestId && !this.response.headersSent) {
-          this.response.setHeader("x-request-id", (this.context as any).requestId);
+          this.response.setHeader(
+            "x-request-id",
+            (this.context as any).requestId,
+          );
         }
         // P2.7 — echo W3C traceparent so downstream services and clients can
         // continue the trace. Header name is lower-case per the spec.
@@ -355,8 +367,9 @@ class HttpResponse {
         this.setLength();
         if (this.response) {
           // RFC 7230 §3.1.2 — status-message must be printable US-ASCII
-          const safeMsg = this.statusMessage.replace(/[^\x20-\x7E]/g, "").trim()
-            || (http.STATUS_CODES[this.statusCode] ?? "Unknown Error");
+          const safeMsg =
+            this.statusMessage.replace(/[^\x20-\x7E]/g, "").trim() ||
+            (http.STATUS_CODES[this.statusCode] ?? "Unknown Error");
           (this.response as http.ServerResponse).writeHead(
             this.statusCode,
             safeMsg,

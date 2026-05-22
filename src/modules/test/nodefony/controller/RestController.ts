@@ -17,7 +17,28 @@ class RestController extends Controller {
     return this.renderJson({});
   }
 
-  @route("rest-session-info", { path: "/session", requirements: { methods: "GET" } })
+  // Retour BRUT d'un objet (PAS de renderJson) → auto-JSON par le Resolver.
+  @route("rest-auto-object", {
+    path: "/auto/object",
+    requirements: { methods: "GET" },
+  })
+  autoObject() {
+    return { ok: true, n: 42, nested: { a: [1, 2, 3] } };
+  }
+
+  // Retour BRUT d'un array → auto-JSON (array) par le Resolver.
+  @route("rest-auto-array", {
+    path: "/auto/array",
+    requirements: { methods: "GET" },
+  })
+  autoArray() {
+    return [1, "two", { three: 3 }];
+  }
+
+  @route("rest-session-info", {
+    path: "/session",
+    requirements: { methods: "GET" },
+  })
   sessionInfo() {
     const session = this.getSession();
     if (!session) throw new HttpError("Session not started", 500, this.context);
@@ -68,7 +89,11 @@ class RestController extends Controller {
   flashGet(key: string) {
     const session = this.getSession();
     if (!session) throw new HttpError("Session not started", 500, this.context);
-    return this.renderJson({ id: session.id, key, value: session.getFlashBag(key) });
+    return this.renderJson({
+      id: session.id,
+      key,
+      value: session.getFlashBag(key),
+    });
   }
 
   @route("rest-session-destroy", {
