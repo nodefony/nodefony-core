@@ -369,6 +369,46 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 - Mock auth multi-rôles (`mockRolesFor`) = POC ; rôles applicatifs dupliqués front/back (commentaire
   d'alignement) → P6 fera la source de vérité serveur unique.
 
+**Realtime = LE PATRON (console `/nodefony/realtime`, pas un drawer)**
+- Le temps réel est le différenciateur Nodefony → console de **premier plan** (entrée nav en tête,
+  le chip topbar y NAVIGUE). Un drawer pour ça = « pièce rapportée », à proscrire.
+- **1 seule socket** Studio + debug bar : `RealtimeClient.shared({url})` = singleton **par URL**
+  sur `globalThis`. ⚠️ Normaliser `http(s)→ws(s)` (clé ET WebSocket) : une URL relative hérite du
+  scheme `https` → clé `https://…` ≠ `wss://…` = 2 instances/2 sockets, et `new WebSocket("https://…")`
+  **throw**. La barre = `shared(...)`, `connect()` sans arg, jamais « possédée » (ne déconnecte pas).
+- ⚠️ **Consommateur d'un client partagé = init depuis `client.state`** : la socket peut être DÉJÀ
+  ouverte (barre montée avant le store) → sinon on rate l'event « connected » passé → hub « disconnected »
+  à tort. (`ConnectionStore` initialise state+stats au montage.)
+- **Log protocole** = `RealtimeClient` frame-ring **LAZY** : enregistré/émis (`__frame__`) seulement
+  si un listener existe (console ouverte) → 0 surcoût sinon. Secrets **redactés** (`redactFrame`).
+  La page tape `client.on("__frame__")` (active la capture) ; afficher payload en **texte** (pas d'HTML).
+- Hub **protocol-aware** : la table d'abonnements montre `protocol`/`transport`/`peer`
+  (forward-compat SIP/UDP/TCP — `SubscriptionMeta`).
+
+**Dashboards par rôle**
+- Registre `frontend/src/auth/dashboards.ts` (`DASHBOARDS` role→path/label/icon) pilote nav + `RoleGuard`
+  (→ 403) + `AuthStore.homePath` (accueil = 1ᵉʳ dashboard autorisé). Multi-rôles ⇒ N entrées de nav.
+- **DEV = config/introspection STATIQUE** (env, git, ORM+vendor, modules) ; **SUPERVISION = runtime/santé
+  LIVE** (KPIs seuillés + alertes + graphes). Ne pas mélanger (le runtime ne va PAS dans DEV).
+- « Tablette » demandée = **grille de cartes + onglets Mantine** (`<Tabs>`), PAS un window manager.
+- Gating front = **affichage seulement** (≠ sécu ; enforcement 403 serveur = P6).
+
+**Perf data plane (quand une page rame)**
+- **Mesurer** : `curl -sk -o /dev/null -w "%{time_total}s %{size_download}o" <url>` par endpoint.
+  Payload minuscule + temps élevé ⇒ coût **fs/git**, pas le réseau.
+- Vécu : `kernel/api/module/{name}` 3.6s / `.../docs` 4s = **`git log` spawné PAR doc** dans
+  `listModuleDocs`, appelé 2× → `countModuleDocs` (readdir seul) pour les counts + git **à l'ouverture**
+  seulement. → 45ms / 14ms (~80×).
+- **Loader = skeleton** qui épouse la page (en-tête + KPIs + cartes), pas un spinner centré.
+
+**Composants/conventions nés cette session**
+- `ConfigView` (UI kit) : config en **options lisibles** (clé→valeur + type, booléens en badge), PAS
+  un dump JSON. Texte only.
+- `GitService` (core, `nodefony`) : lecture `.git` (branche+commit) **sans spawn ni dépendance**,
+  exposé via `kernel/api/info.git`. Vendor ORM dérivé du nom de classe (dette : `IOrm.vendor` P7.1).
+- Debug bar : publie `--nodefony-debugbar-height` (ResizeObserver) → l'hôte réserve le `padding-bottom`
+  (`var(--nodefony-debugbar-height, 0px)`) ; sûr même barre absente.
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +

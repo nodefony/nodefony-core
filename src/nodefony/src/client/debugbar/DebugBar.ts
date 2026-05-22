@@ -897,7 +897,6 @@ export class DebugBar {
   private wireRealtime(): void {
     const offState = this.client.on("__state__", (...a) => {
       this.model.setState(a[0] as RealtimeState);
-      if (a[0] === "connected") this.subscribeAll();
       this.scheduleRender();
     });
     const offTick = this.client.on("__stats__", () => {
@@ -915,13 +914,16 @@ export class DebugBar {
         this.model.ingestSyslog(p as SyslogPayload);
       this.scheduleRender();
     });
-    this.disposers.push(offState, offTick, offStats, offSyslog);
-    if (this.client.state === "connected") this.subscribeAll();
-  }
-
-  private subscribeAll(): void {
-    this.client.emit("subscribe", { channel: CHANNELS.stats });
-    this.client.emit("subscribe", { channel: CHANNELS.syslog });
+    // Abonnement REF-COMPTÉ (UNE fois) : sur le client PARTAGÉ, un canal reste
+    // actif tant qu'un consommateur — barre OU page Studio — le veut. Le client
+    // ré-abonne seul au reconnect → surtout PAS de re-subscribe sur "connected"
+    // (sinon le compteur de réf gonfle). Cleanup = relâche la réf de la barre.
+    this.client.subscribe(CHANNELS.stats);
+    this.client.subscribe(CHANNELS.syslog);
+    this.disposers.push(offState, offTick, offStats, offSyslog, () => {
+      this.client.unsubscribe(CHANNELS.stats);
+      this.client.unsubscribe(CHANNELS.syslog);
+    });
   }
 
   private sampleThroughput(): void {

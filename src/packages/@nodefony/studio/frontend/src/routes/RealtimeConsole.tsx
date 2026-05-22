@@ -26,7 +26,11 @@ import {
   IconArrowsExchange,
   IconReload,
 } from "@tabler/icons-react";
-import { useNodefony, useNodefonyState } from "nodefony/react";
+import {
+  useNodefony,
+  useNodefonyState,
+  useNodefonyChannel,
+} from "nodefony/react";
 import type { RealtimeFrame } from "nodefony";
 import { useConnection } from "../stores";
 import { PageHeader, StatCard as Kpi, MiniChart } from "../components/ui";
@@ -71,6 +75,14 @@ export const RealtimeConsole = observer(() => {
   const [, setNow] = useState(Date.now());
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+
+  // La console S'ABONNE elle-même aux canaux standard tant qu'elle est ouverte
+  // → on voit TOUJOURS l'activité realtime (frames + abonnements + débit), même
+  // après avoir quitté un dashboard (les abonnements sont par page). Ref-compté
+  // → coexiste sans couper les autres consommateurs. Handlers no-op : le client
+  // capture déjà frames (`__frame__`) + stats par canal.
+  useNodefonyChannel("dashboard:stats", () => {});
+  useNodefonyChannel("syslog:stream", () => {});
 
   // Capture des frames : l'abonnement à `__frame__` enclenche le ring côté client.
   useEffect(() => {
