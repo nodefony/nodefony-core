@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-22T09:35:47.053Z",
+  "generated": "2026-05-22T09:42:36.468Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 301,
-    "symbols": 765,
+    "symbols": 766,
     "classes": 210,
     "interfaces": 256,
     "types": 145,
     "enums": 1,
-    "functions": 132,
+    "functions": 133,
     "constants": 21
   },
   "symbols": {
@@ -2525,6 +2525,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Sommaire des docs d'un module : lit les `*.md` de `<modulePath>/docs/` (un niveau, non récursif), parse le frontmatter, trie par `order` puis slug."
+    },
+    "countModuleDocs": {
+      "name": "countModuleDocs",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Comptage rapide des docs (`*.md`) d'un module — readdir seul, sans lire/parser ni `git`. Pour les KPI/overview (`docsCount`) où seul le nombre importe."
     },
     "readModuleDoc": {
       "name": "readModuleDoc",
@@ -7601,6 +7609,9 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "listModuleDocs": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "countModuleDocs": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "readModuleDoc": [

@@ -23,6 +23,7 @@ import {
   RingProgress,
   ScrollArea,
   SimpleGrid,
+  Skeleton,
   Stack,
   Table,
   Tabs,
@@ -240,11 +241,7 @@ export const ModuleDetail = observer(() => {
   }, [store, name]);
 
   if (loading) {
-    return (
-      <Group justify="center" py="xl">
-        <Loader />
-      </Group>
-    );
+    return <ModuleDetailSkeleton />;
   }
 
   if (error || !data) {
@@ -378,15 +375,45 @@ export const ModuleDetail = observer(() => {
                   {hasRoutes && <OverviewStat label="Routes" value={routes.length} color="teal" icon={<IconRoute size={22} />} onClick={() => setTab("routes")} />}
                   {hasServices && <OverviewStat label="Services" value={data.services.length} color="blue" icon={<IconAffiliate size={22} />} onClick={() => setTab("services")} />}
                 </SimpleGrid>
-                <Card withBorder radius="md" p="lg">
-                  <Stack gap="xs">
-                    <KeyValue k="Clé" v={data.key} mono />
-                    <KeyValue k="Package" v={data.name} />
-                    <KeyValue k="Version" v={data.version ?? "—"} />
-                    <KeyValue k="Type" v={data.isApp ? "application" : "package"} />
-                    <KeyValue k="Chemin" v={data.path ?? "—"} mono />
-                  </Stack>
-                </Card>
+                <Grid>
+                  <Grid.Col span={{ base: 12, md: hasConfig ? 6 : 12 }}>
+                    <Card withBorder radius="md" p="lg" h="100%">
+                      <Group gap={6} mb="sm">
+                        <IconInfoCircle size={18} />
+                        <Title order={5}>Identité</Title>
+                      </Group>
+                      <Stack gap="xs">
+                        <KeyValue k="Clé" v={data.key} mono />
+                        <KeyValue k="Package" v={data.name} />
+                        <KeyValue k="Version" v={data.version ?? "—"} />
+                        <KeyValue k="Type" v={data.isApp ? "application" : "package"} />
+                        <KeyValue k="Services" v={String(data.services.length)} />
+                        <KeyValue k="Routes" v={String(routes.length)} />
+                        <KeyValue k="Chemin" v={data.path ?? "—"} mono />
+                      </Stack>
+                    </Card>
+                  </Grid.Col>
+                  {hasConfig && (
+                    <Grid.Col span={{ base: 12, md: 6 }}>
+                      <Card withBorder radius="md" p="lg" h="100%">
+                        <Group justify="space-between" mb="sm">
+                          <Group gap={6}>
+                            <IconSettings size={18} />
+                            <Title order={5}>Configuration</Title>
+                          </Group>
+                          <Button
+                            variant="light"
+                            size="xs"
+                            onClick={() => setTab("config")}
+                          >
+                            Tout voir
+                          </Button>
+                        </Group>
+                        <JsonViewer value={data.config} maxHeight={260} />
+                      </Card>
+                    </Grid.Col>
+                  )}
+                </Grid>
               </Stack>
             </Tabs.Panel>
 
@@ -492,6 +519,46 @@ export const ModuleDetail = observer(() => {
     </Stack>
   );
 });
+
+/**
+ * Squelette de chargement — épouse la mise en page réelle (retour + en-tête +
+ * barre d'onglets + KPIs + 2 cartes) plutôt qu'un simple spinner centré. Réduit
+ * le décalage visuel à l'arrivée des données.
+ */
+function ModuleDetailSkeleton() {
+  return (
+    <Stack gap="md" aria-busy="true">
+      <Skeleton height={28} width={90} radius="sm" />
+      <Group gap="md" wrap="nowrap">
+        <Skeleton height={54} width={54} radius="md" />
+        <Stack gap={8} style={{ flex: 1 }}>
+          <Skeleton height={26} width="38%" radius="sm" />
+          <Skeleton height={13} width="55%" radius="sm" />
+        </Stack>
+      </Group>
+      <Card withBorder radius="md" p="md">
+        <Group gap="xs" mb="lg">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} height={30} width={104} radius="sm" />
+          ))}
+        </Group>
+        <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }} spacing="md" mb="lg">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} height={84} radius="md" />
+          ))}
+        </SimpleGrid>
+        <Grid>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Skeleton height={220} radius="md" />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6 }}>
+            <Skeleton height={220} radius="md" />
+          </Grid.Col>
+        </Grid>
+      </Card>
+    </Stack>
+  );
+}
 
 /** Hauteur de lecture inline = viewport moins l'en-tête de page + onglets. */
 const READER_HEIGHT = "calc(100vh - 250px)";

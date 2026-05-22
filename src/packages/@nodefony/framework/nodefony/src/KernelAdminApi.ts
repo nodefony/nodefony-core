@@ -4,6 +4,7 @@ import type { IKernel, IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodef
 import type { TestRunResult } from "./docsReader";
 import {
   listModuleDocs,
+  countModuleDocs,
   readModuleDoc,
   listModuleSymbols,
   readCoverage,
@@ -185,7 +186,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             dependencies: core.dependencies,
             services: [],
             config: {},
-            docsCount: (await listModuleDocs(core.path)).length,
+            docsCount: await countModuleDocs(core.path),
             symbolsCount: (await listModuleSymbols(CORE_PACKAGE)).length,
             coverageLines: (await readCoverage(core.path)).total?.lines ?? null,
           };
@@ -217,7 +218,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           dependencies: mod.getDependencies?.() ?? [],
           services,
           config: safeConfig(mod.options ?? {}),
-          docsCount: (await listModuleDocs(mod.path)).length,
+          docsCount: await countModuleDocs(mod.path),
           symbolsCount: (await listModuleSymbols(pkg)).length,
           coverageLines: (await readCoverage(mod.path)).total?.lines ?? null,
         };

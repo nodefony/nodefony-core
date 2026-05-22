@@ -144,6 +144,7 @@ async function gitLastUpdated(file: string): Promise<string | null> {
 async function summarize(
   docsDir: string,
   fileName: string,
+  withGit: boolean,
 ): Promise<DocSummary> {
   const slug = basename(fileName, extname(fileName));
   const full = join(docsDir, fileName);
@@ -159,7 +160,9 @@ async function summarize(
     status: typeof data.status === "string" ? data.status : null,
     since: typeof data.since === "string" ? data.since : null,
     updated: typeof data.updated === "string" ? data.updated : null,
-    gitUpdated: await gitLastUpdated(full),
+    // Git par doc = 1 spawn → coûteux × N. Skippé dans la LISTE (gitUpdated réel
+    // calculé à l'ouverture par `readModuleDoc`). Cf perf endpoint module detail.
+    gitUpdated: withGit ? await gitLastUpdated(full) : null,
     order:
       typeof data.order === "number"
         ? data.order
@@ -176,7 +179,10 @@ async function summarize(
  * @param modulePath - chemin disque du module (`Module.path`).
  * @returns liste triée (vide si le dossier `docs/` est absent).
  */
-export async function listModuleDocs(modulePath: string): Promise<DocSummary[]> {
+export async function listModuleDocs(
+  modulePath: string,
+  withGit = false,
+): Promise<DocSummary[]> {
   const docsDir = join(modulePath, "docs");
   let entries: string[];
   try {
@@ -186,11 +192,27 @@ export async function listModuleDocs(modulePath: string): Promise<DocSummary[]> 
   }
   const mdFiles = entries.filter((f) => f.toLowerCase().endsWith(".md"));
   const summaries = await Promise.all(
-    mdFiles.map((f) => summarize(docsDir, f)),
+    mdFiles.map((f) => summarize(docsDir, f, withGit)),
   );
   return summaries.sort(
     (a, b) => a.order - b.order || a.slug.localeCompare(b.slug),
   );
+}
+
+/**
+ * Comptage rapide des docs (`*.md`) d'un module — readdir seul, sans lire/parser
+ * ni `git`. Pour les KPI/overview (`docsCount`) où seul le nombre importe.
+ *
+ * @param modulePath - chemin disque du module (`Module.path`).
+ * @returns nombre de fichiers `.md` dans `<modulePath>/docs/` (0 si absent).
+ */
+export async function countModuleDocs(modulePath: string): Promise<number> {
+  try {
+    const entries = await readdir(join(modulePath, "docs"));
+    return entries.filter((f) => f.toLowerCase().endsWith(".md")).length;
+  } catch {
+    return 0;
+  }
 }
 
 /**
