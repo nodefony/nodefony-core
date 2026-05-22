@@ -58,7 +58,7 @@ import {
   IconStack2,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
-import { JsonViewer, KeyValue } from "../components/ui";
+import { ConfigView, KeyValue } from "../components/ui";
 
 interface ModuleDetailData {
   key: string;
@@ -409,7 +409,9 @@ export const ModuleDetail = observer(() => {
                             Tout voir
                           </Button>
                         </Group>
-                        <JsonViewer value={data.config} maxHeight={260} />
+                        <ScrollArea h={260} type="auto" offsetScrollbars>
+                          <ConfigView value={data.config} />
+                        </ScrollArea>
                       </Card>
                     </Grid.Col>
                   )}
@@ -510,7 +512,9 @@ export const ModuleDetail = observer(() => {
 
             {hasConfig && (
               <Tabs.Panel value="config">
-                <JsonViewer value={data.config} maxHeight={520} />
+                <ScrollArea h={520} type="auto" offsetScrollbars>
+                  <ConfigView value={data.config} />
+                </ScrollArea>
               </Tabs.Panel>
             )}
           </Box>
