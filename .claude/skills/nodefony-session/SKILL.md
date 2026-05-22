@@ -243,6 +243,26 @@ jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="tool_use" a
 - Friction récurrente (permissions, pièges) → MAJ CLAUDE.md / settings.
 - Décision archi prise → vérifier qu'elle est en mémoire IA (sinon perte au `/clear`).
 
+## 8b. Balayage allowlist (OBLIGATOIRE — directive user 2026-05-22)
+
+À CHAQUE retex : ajouter à `.claude/settings.json` les **commandes process non
+dangereuses** qui ont prompté cette session et ne sont pas encore couvertes — par
+**wildcard sûr**, pas par invocation exacte (cf [[feedback-permission-autonomy]]).
+
+```bash
+# Commandes Bash de la session (1er token réel, après cd .../; et VAR=)
+jq -r 'select(.type=="assistant")|.message.content[]?|select(.type=="tool_use" and .name=="Bash")|.input.command' "$LATEST" \
+ | sed -E 's/^[[:space:]]*//; s#^cd [^;&]*(;|&&)[[:space:]]*##; s/^[A-Za-z_]+=[^ ]+ //' \
+ | awk '{print $1}' | grep -E '^[a-z]' | sort | uniq -c | sort -rn | head -30
+```
+
+Pour chaque token récurrent (≥3) : couvert par un wildcard de `settings.json` ? Sinon,
+**est-il dangereux** ? Dangereux = écrit/supprime/pousse/installe hors scope sûr
+(`rm` hors `/tmp`, `mv`/`cp`, `git push`, `sudo`, `npx`/`node`/`bash` **générique** non
+borné). → ces derniers **restent en prompt**. Les sûrs (read-only, lookup, runner de test
+ciblé, `mkdir`, scripts `.claude/skills/*`, `lsof`, `curl` localhost) → ajouter le wildcard
+le plus étroit possible dans `permissions.allow` (dédupliquer, ne rien retirer).
+
 ## 9. Sauvegarde OBLIGATOIRE (auto-save)
 
 ```bash
