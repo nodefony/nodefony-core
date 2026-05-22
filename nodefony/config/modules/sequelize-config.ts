@@ -1,125 +1,36 @@
 import path from "path";
 import { Nodefony, Kernel } from "nodefony";
-//import { sequelize } from "@nodefony/sequelize";
 
+/**
+ * Surcharge app du module `@nodefony/sequelize`.
+ *
+ * Un seul endroit pour CHOISIR le moteur du connecteur `sequelize` : éditer
+ * `dialect` (+ params de connexion). L'entité (`orm: "sequelize"`) ne connaît que
+ * le NOM du connecteur — le driver vit ici. `describeConnection` n'expose JAMAIS
+ * les credentials (dialectes serveur = `host:port/base`, password rédacté).
+ */
 const config = {
   connectors: {
-    nodefony: {
-      driver: "sqlite",
-      dbname: path.resolve(
+    sequelize: {
+      dialect: "sqlite",
+      logging: false,
+      storage: path.resolve(
         (Nodefony.getKernel() as Kernel).path,
         "nodefony",
         "databases",
-        "nodefony.db",
+        "nodefony-sequelize.db",
       ),
-      options: {
-        dialect: "sqlite",
-        // isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
-        retry: {
-          match: [/Deadlock/i, "SQLITE_BUSY"],
-          max: 5,
-        },
-        pool: {
-          max: 5,
-          min: 0,
-          idle: 10000,
-        },
-      },
     },
-    // nodefony: {
-    //   driver: "mysql",
-    //   dbname: "nodefony",
+    // Pour basculer en serveur, remplacer le bloc ci-dessus :
+    // sequelize: {
+    //   dialect: "mysql",      // ou "postgres"
+    //   host: "localhost",
+    //   port: 3306,            // 5432 pour postgres
+    //   database: "nodefony",
     //   username: "root",
-    //   password: "nodefony",
-    //   //credentials: vault,
-    //   options: {
-    //     dialect: "mysql",
-    //     host: "localhost",
-    //     port: "3306",
-    //     //isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
-    //     retry: {
-    //       match: [
-    //         sequelize.ConnectionError,
-    //         sequelize.ConnectionTimedOutError,
-    //         sequelize.TimeoutError,
-    //         /Deadlock/i,
-    //       ],
-    //       max: 5,
-    //     },
-    //     pool: {
-    //       max: 20,
-    //       min: 0,
-    //       idle: 10000,
-    //       acquire: 60000,
-    //     },
-    //   },
+    //   password: "nodefony",  // rédacté dans le dashboard
+    //   logging: false,
     // },
-    // nodefony: {
-    //   driver: "postgres",
-    //   dbname: "nodefony",
-    //   username: "postgres",
-    //   password: "nodefony",
-    //   //credentials: vault,
-    //   options: {
-    //     dialect: "postgres",
-    //     host: "localhost",
-    //     port: "5432",
-    //     //isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
-    //     retry: {
-    //       match: [
-    //         sequelize.ConnectionError,
-    //         sequelize.ConnectionTimedOutError,
-    //         sequelize.TimeoutError,
-    //         /Deadlock/i,
-    //       ],
-    //       max: 5,
-    //     },
-    //     pool: {
-    //       max: 20,
-    //       min: 0,
-    //       idle: 10000,
-    //       acquire: 60000,
-    //     },
-    //   },
-    // },
-  },
-  // ─── ORM orm-core (Dashboard ORM /nodefony/orm) ───────────────────────────
-  // C'EST ICI qu'on choisit le dialecte/la cible de l'adapter `SequelizeOrm`
-  // (registre `OrmRegistry`, ≠ `connectors` legacy ci-dessus). Le connecteur
-  // `sequelize` apparaît à côté de Drizzle dans le dashboard. Pour basculer en
-  // serveur, décommenter MySQL/Postgres : `describeConnection` n'expose JAMAIS
-  // les credentials (seul `host:port/base` est affiché ; password rédacté).
-  orm: {
-    connectors: {
-      sequelize: {
-        dialect: "sqlite",
-        logging: false,
-        storage: path.resolve(
-          (Nodefony.getKernel() as Kernel).path,
-          "nodefony",
-          "databases",
-          "nodefony-sequelize.db",
-        ),
-      },
-      // sequelize: {
-      //   dialect: "mysql",
-      //   host: "localhost",
-      //   port: 3306,
-      //   database: "nodefony",
-      //   username: "root",
-      //   password: "nodefony", // rédacté dans le dashboard
-      //   logging: false,
-      // },
-      // sequelize: {
-      //   dialect: "postgres",
-      //   host: "localhost",
-      //   port: 5432,
-      //   database: "nodefony",
-      //   username: "postgres",
-      //   password: "nodefony", // rédacté dans le dashboard
-      //   logging: false,
-      // },
-    },
   },
 };
 

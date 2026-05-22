@@ -7,12 +7,9 @@ import { SequelizeOrm } from "../src/orm-core/SequelizeOrm";
 
 const serviceName = "sequelizeOrm";
 
-/** Section orm-core de la config du module (≠ `connectors` legacy). */
-interface SequelizeOrmConfig {
-  orm?: {
-    /** Connecteurs orm-core indexés par nom (= clé dans le `ormRegistry`). */
-    connectors?: Record<string, Options>;
-  };
+/** Config du module : connecteurs orm-core indexés par nom (= clé du `ormRegistry`). */
+interface SequelizeModuleConfig {
+  connectors?: Record<string, Options>;
 }
 
 /**
@@ -57,8 +54,7 @@ class SequelizeService extends Service {
 
   /** Connecte tous les connecteurs orm-core déclarés en config. */
   async connectAll(): Promise<void> {
-    const connectors =
-      (this.options as SequelizeOrmConfig).orm?.connectors ?? {};
+    const connectors = (this.options as SequelizeModuleConfig).connectors ?? {};
     for (const [name, cfg] of Object.entries(connectors)) {
       await this.#connectOne(name, cfg);
     }

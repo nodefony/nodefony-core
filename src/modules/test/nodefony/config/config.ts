@@ -1,6 +1,3 @@
-import path from "node:path";
-import { Nodefony, Kernel } from "nodefony";
-
 export default {
   watch: true,
 
@@ -10,43 +7,6 @@ export default {
         path: "src/modules/test/public",
         options: {
           maxAge: 30 * 24 * 60 * 60 * 1000,
-        },
-      },
-    },
-  },
-
-  "module-sequelize": {
-    connectors: {
-      myconnector: {
-        driver: "sqlite",
-        // Getter lazy : kernel déréférencé à la LECTURE (boot), pas à l'import
-        // → le module reste IMPORTABLE sans kernel (testabilité). Runtime inchangé.
-        get dbname(): string {
-          return path.resolve(
-            (Nodefony.getKernel() as Kernel).path,
-            "nodefony",
-            "databases",
-            "myconnector.db"
-          );
-        },
-        options: {
-          dialect: "sqlite",
-          // isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
-          retry: {
-            match: [
-              // Sequelize.ConnectionError,
-              // Sequelize.ConnectionTimedOutError,
-              // Sequelize.TimeoutError,
-              /Deadlock/i,
-              "SQLITE_BUSY",
-            ],
-            max: 5,
-          },
-          pool: {
-            max: 5,
-            min: 0,
-            idle: 10000,
-          },
         },
       },
     },

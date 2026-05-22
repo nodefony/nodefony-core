@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-22T22:24:07.388Z",
+  "generated": "2026-05-22T23:19:01.786Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 307,
-    "symbols": 793,
-    "classes": 213,
+    "symbols": 792,
+    "classes": 212,
     "interfaces": 263,
     "types": 146,
     "enums": 1,
@@ -213,8 +213,7 @@
       "implements": [],
       "decorators": [
         "services",
-        "controllers",
-        "entities"
+        "controllers"
       ]
     },
     "TestFrontendAngular": {
@@ -2087,16 +2086,6 @@
       "decorators": [
         "controller"
       ]
-    },
-    "Boat": {
-      "name": "Boat",
-      "kind": "class",
-      "file": "src/modules/test/nodefony/entity/BoatEntity.ts",
-      "exported": true,
-      "module": "modules/test",
-      "extends": "Entity",
-      "implements": [],
-      "decorators": []
     },
     "AngularController": {
       "name": "AngularController",
@@ -6008,11 +5997,6 @@
         "StudioController",
         "StudioRealtimeController"
       ],
-      "Entity": [
-        "Boat",
-        "Session",
-        "Session"
-      ],
       "AgentError": [
         "AgentShutdownError",
         "AgentAbortedError",
@@ -6056,6 +6040,10 @@
       "MemoryError": [
         "MemoryShutdownError",
         "MemoryInvalidInputError"
+      ],
+      "Entity": [
+        "Session",
+        "Session"
       ],
       "Document": [
         "ISession"
@@ -6263,7 +6251,6 @@
         "Sequelize"
       ],
       "entities": [
-        "Test",
         "Mongoose"
       ],
       "controller": [
@@ -6299,7 +6286,6 @@
       "Command": [
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Cli.ts",
-        "src/packages/@nodefony/sequelize/index.ts",
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
@@ -6533,7 +6519,6 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
-        "src/modules/test/nodefony/config/config.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
         "src/packages/@nodefony/redis/nodefony/config/config.ts",
         "src/packages/@nodefony/sequelize/nodefony/config/config.ts"
@@ -6648,7 +6633,6 @@
         "src/nodefony/src/Error.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
-        "src/modules/test/nodefony/config/config.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
         "src/packages/@nodefony/http/nodefony/config/config.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
@@ -6747,7 +6731,6 @@
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
-        "src/modules/test/nodefony/entity/BoatEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -6830,11 +6813,6 @@
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/sequelize/index.ts"
-      ],
-      "entities": [
-        "src/modules/test/index.ts",
-        "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/sequelize/index.ts"
       ],
       "HttpKernel": [
@@ -7199,6 +7177,10 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts"
       ],
+      "entities": [
+        "src/packages/@nodefony/mongoose/index.ts",
+        "src/packages/@nodefony/sequelize/index.ts"
+      ],
       "ISession": [
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
@@ -7260,22 +7242,6 @@
         "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
         "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
         "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
-      ],
-      "Entity": [
-        "src/packages/@nodefony/sequelize/index.ts",
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/kernel/Module.ts",
-        "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
-        "src/nodefony/src/kernel/orm/Orm.ts",
-        "src/modules/test/nodefony/entity/BoatEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
-      ],
-      "Models": [
-        "src/packages/@nodefony/sequelize/index.ts",
-        "src/modules/test/nodefony/entity/BoatEntity.ts"
       ],
       "SequelizeService": [
         "src/packages/@nodefony/sequelize/index.ts"
@@ -7420,6 +7386,16 @@
         "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
         "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
         "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+      ],
+      "Entity": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
+        "src/nodefony/src/kernel/orm/Orm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
+        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
       ],
       "ServiceConstructor": [
         "src/nodefony/src/kernel/Module.ts",
@@ -7589,6 +7565,7 @@
       ],
       "entityRegistry": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/modules/test/nodefony/entity/auditEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
@@ -7599,6 +7576,7 @@
       ],
       "IEntity": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/modules/test/nodefony/entity/auditEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",

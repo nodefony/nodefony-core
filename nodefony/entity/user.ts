@@ -3,12 +3,13 @@ import type { IEntity } from "@nodefony/orm-core";
 import { userTable } from "@nodefony/drizzle";
 
 /**
- * Entité de **démonstration** de l'app dev, branchée sur l'ORM Drizzle par
- * défaut (connecteur `"default"`).
+ * Entité **User** de l'app dev, branchée sur l'ORM Drizzle par défaut
+ * (connecteur `"default"`).
  *
- * But : rendre l'ERD Studio (`/nodefony/databases`) et le profiler SQL vivants
- * avec une entité réelle. Aucune logique métier — juste `User` que le
- * `DrizzleService` matérialise en table au boot.
+ * Ce n'est pas une démo jetable : `userTable` est le schéma de persistance **réel**
+ * du système d'authentification, fourni par `@nodefony/drizzle` (P5.9). On le
+ * déclare ici pour que la table soit matérialisée au boot et visible dans l'ERD
+ * Studio (`/nodefony/databases`) + le profiler SQL.
  *
  * L'enregistrement se fait au **top-level** (à l'import depuis `index.ts`) → il
  * a lieu avant le `onBoot` du `DrizzleService`, qui crée les tables à partir du

@@ -1,5 +1,4 @@
 import { Kernel, Module, services } from "nodefony";
-import { entities } from "@nodefony/sequelize";
 import type { HttpKernel } from "@nodefony/http";
 import config from "./nodefony/config/config";
 import DefaultController, {
@@ -15,7 +14,8 @@ import FrameworkController from "./nodefony/controller/FrameworkController";
 import DecoratorController from "./nodefony/controller/DecoratorController";
 import AlsController from "./nodefony/controller/AlsController";
 import { controllers } from "@nodefony/framework";
-import BoatEntity from "./nodefony/entity/BoatEntity";
+// Entité de démo Sequelize (orm-core) — enregistrée au top-level (side-effect).
+import "./nodefony/entity/auditEntity";
 
 @services([])
 @controllers([
@@ -30,7 +30,6 @@ import BoatEntity from "./nodefony/entity/BoatEntity";
   DecoratorController,
   AlsController,
 ])
-@entities([BoatEntity])
 class Test extends Module {
   constructor(kernel: Kernel) {
     super("test", kernel, import.meta.url, config);
@@ -58,4 +57,3 @@ class Test extends Module {
 }
 
 export default Test;
-export { BoatEntity };
