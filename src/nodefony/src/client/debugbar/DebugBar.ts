@@ -249,6 +249,8 @@ const STYLES = `
 .fw { display:flex; align-items:center; gap:9px; margin-bottom:9px; }
 .fw .badge { padding:2px 10px; border-radius:7px; font-weight:800; font-size:11px; color:#0b0d10; }
 .fw .name { color:var(--muted); }
+.fe .hd { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px; }
+.fe .lbl { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
 .hmr-big { font-size:26px; font-weight:800; line-height:1; transition: color .2s; }
 .hmr-big.hmr-flash { color: var(--orange); text-shadow: 0 0 14px rgba(255,138,61,.7); }
 .fe svg { width:100%; height:34px; display:block; margin:6px 0 8px; }
