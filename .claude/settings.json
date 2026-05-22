@@ -55,6 +55,11 @@
       "Bash(mkdir *)",
       "Bash(rm -f /tmp/*)",
       "Bash(rm -f .git/index.lock)",
+      "Bash(gh run *)",
+      "Bash(find *)",
+      "Bash(jq *)",
+      "Bash(du *)",
+      "Bash(head *)",
       "Read(//tmp/**)",
       "Skill(nodefony-start-server)",
       "Skill(nodefony-session)"
