@@ -86,7 +86,7 @@ export class MyModule extends Module {
 - `setParameters("modules.${name}", options)`
 
 → **Conséquence** : 1 listener attaché par module, indépendamment de tes hooks personnalisés.
-> Le watch Rollup runtime write-only (listener `onPostReady` + `Module.watch()` + service `watcherService`) a été RETIRÉ (2026-05-22) : il ne rechargeait rien. Le dev = **boot direct + restart manuel** (`stop.sh`/`start.sh`). Un superviseur auto-restart est un chantier prévu (kit IA `project_dev_supervisor_hmr_kit`).
+> Le watch Rollup runtime write-only (listener `onPostReady` + `Module.watch()` + service `watcherService`) a été RETIRÉ (2026-05-22) : il ne rechargeait rien. Le dev = **`DevSupervisor` auto-restart** (`src/service/dev/DevSupervisor.ts`, activé par `DevCommand` en mode `development`) : un process parent (type CONSOLE, ne boote pas de serveur) `spawn` le serveur enfant (`NODEFONY_DEV_CHILD=1`) en **leader de groupe** (`detached:true`), watch les sources backend (frontend exclu → HMR Vite préservé), rebuild **ciblé** (`turbo --filter` + `rollup -c` racine) puis **group-kill** l'enfant (tue les instances Vite filles → 0 orphelin) et relance après **attente des ports libres** (anti-`EADDRINUSE`) avec retry crash borné. Validé runtime 2026-05-22 (boot/restart 1.2s/anti-orphelin/multi-Vite/Ctrl+C propre). Le `stop.sh`/`start.sh` du skill `nodefony-start-server` reste l'option « boot direct » pour les suites de tests (serveur stable sans superviseur).
 
 **Hooks lifecycle attachés via `setEvents()`** (méthodes prototype obligatoires, pas property initializers) :
 - `onKernelRegister` → `kernel.once("onRegister", ...)`
