@@ -20,6 +20,9 @@ export interface EntityMetadata<S = unknown> {
   /** ORM cible enregistré dans le `ormRegistry`. */
   readonly orm: string;
 
+  /** Module Nodefony propriétaire (regroupement graphe/ERD), si fourni. */
+  readonly module?: string;
+
   /** Schéma natif du driver (forme libre), si fourni au décorateur. */
   readonly schema?: S;
 

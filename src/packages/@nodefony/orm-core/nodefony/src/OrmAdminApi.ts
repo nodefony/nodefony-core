@@ -90,6 +90,7 @@ function buildEntityNode(orm: string, name: string): IEntityGraphNode {
   return {
     name: entity.name,
     orm: entity.orm,
+    module: entity.module ?? "",
     columns,
     relations: (entity.relations ?? []).map((r) => ({
       type: r.type,

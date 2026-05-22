@@ -76,7 +76,8 @@ export interface UserRow {
  * @returns descripteur {@link IEntity} (`name: "User"`, `schema: userTable`).
  */
 export function createUserEntity(orm: string): IEntity {
-  return { orm, name: "User", schema: userTable };
+  // `module: "user"` → l'entité est regroupée sous @nodefony/user dans l'ERD Studio.
+  return { orm, name: "User", module: "user", schema: userTable };
 }
 
 /**

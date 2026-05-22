@@ -18,6 +18,12 @@ export interface EntityOptions<S = unknown> {
   /** Nom logique ; par défaut le nom de la classe décorée. */
   name?: string;
 
+  /**
+   * Module Nodefony propriétaire (ex. `"user"`, `"test"`) — regroupe l'entité
+   * dans le graphe canonique / ERD Studio. Optionnel.
+   */
+  module?: string;
+
   /** Schéma natif du driver (attributs Sequelize, schéma Mongoose...). */
   schema?: S;
 
@@ -52,6 +58,7 @@ export function entity<S = unknown>(options: EntityOptions<S>) {
     const meta: EntityMetadata<S> = {
       name,
       orm: options.orm,
+      module: options.module,
       schema: options.schema,
       relations: options.relations,
       target,
@@ -61,6 +68,7 @@ export function entity<S = unknown>(options: EntityOptions<S>) {
     const descriptor: IEntity<S> = {
       name,
       orm: options.orm,
+      module: options.module,
       schema: options.schema as S,
       relations: options.relations,
     };

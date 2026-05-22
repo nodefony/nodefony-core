@@ -45,12 +45,14 @@ const stubOrm: IOrm = {
 const author: IEntity = {
   name: "Author",
   orm: ORM,
+  module: "blog",
   schema: {},
   relations: [{ type: "one-to-many", target: "Article", field: "articles" }],
 };
 const article: IEntity = {
   name: "Article",
   orm: ORM,
+  module: "blog",
   schema: {},
   relations: [{ type: "many-to-one", target: "Author", field: "author" }],
 };
@@ -89,6 +91,26 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     assert.equal(author.columns.length, 2);
     assert.equal(author.columns[0].name, "id");
     assert.equal(author.relations[0].target, "Article");
+    assert.equal(author.module, "blog"); // module propriétaire propagé
+  });
+
+  it("graphe : module propagé par entité (regroupement ERD) ; défaut \"\"", () => {
+    // Une entité sans module → groupe « — » (chaîne vide), jamais undefined.
+    entityRegistry.register({ name: "Orphan", orm: ORM, schema: {} });
+    try {
+      const g = buildOrmGraph(ORM);
+      const byModule = new Map<string, string[]>();
+      for (const e of g.entities) {
+        byModule.set(e.module, [...(byModule.get(e.module) ?? []), e.name]);
+      }
+      assert.deepEqual([...(byModule.get("blog") ?? [])].sort(), [
+        "Article",
+        "Author",
+      ]);
+      assert.deepEqual(byModule.get(""), ["Orphan"]); // non rattachée
+    } finally {
+      entityRegistry.unregister("Orphan", ORM);
+    }
   });
 
   it("toDbml : tables + colonnes typées + settings pk/unique/not null", () => {

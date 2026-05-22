@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { observer } from "mobx-react-lite";
 import {
   ReactFlow,
@@ -59,6 +59,8 @@ interface RelationInfo {
 interface EntityNode {
   name: string;
   orm: string;
+  /** Module Nodefony propriétaire (`""` = non rattaché → groupe « — »). */
+  module: string;
   columns: ColumnInfo[];
   relations: RelationInfo[];
 }
@@ -88,6 +90,36 @@ const REL_LABEL: Record<RelationInfo["type"], string> = {
   "many-to-one": "N—1",
   "many-to-many": "N—N",
 };
+
+/** Valeur d'option pour le groupe « non rattaché » (module vide). */
+const NONE = "·none·";
+
+/** Palette Mantine cyclée pour distinguer les modules dans l'ERD. */
+const MODULE_COLORS = [
+  "blue",
+  "grape",
+  "teal",
+  "orange",
+  "cyan",
+  "pink",
+  "lime",
+  "indigo",
+  "violet",
+  "green",
+];
+
+/**
+ * Couleur Mantine déterministe d'un module (hash du nom → palette). Vide → gris
+ * (groupe « non rattaché »). Stable entre rendus → même couleur nœud + légende.
+ */
+function moduleColor(module: string): string {
+  if (!module) return "gray";
+  let h = 0;
+  for (let i = 0; i < module.length; i += 1) {
+    h = (h * 31 + module.charCodeAt(i)) >>> 0;
+  }
+  return MODULE_COLORS[h % MODULE_COLORS.length];
+}
 
 /**
  * Relie le thème React Flow aux variables CSS Mantine → le canvas suit le
@@ -124,6 +156,7 @@ function TableNode({ data }: NodeProps) {
       fk.add(r.foreignKey ?? camelFk(r.target));
     }
   }
+  const color = moduleColor(entity.module);
   return (
     <div
       style={{
@@ -145,15 +178,15 @@ function TableNode({ data }: NodeProps) {
           alignItems: "center",
           gap: 6,
           padding: "0 10px",
-          background: "var(--mantine-primary-color-light)",
-          color: "var(--mantine-primary-color-light-color)",
+          background: `var(--mantine-color-${color}-light)`,
+          color: `var(--mantine-color-${color}-light-color)`,
           fontWeight: 600,
           borderBottom: "1px solid var(--mantine-color-default-border)",
         }}
       >
         <IconDatabase size={14} />
         <span style={{ flex: 1 }}>{entity.name}</span>
-        <span style={{ opacity: 0.6, fontSize: 10 }}>{entity.orm}</span>
+        <span style={{ opacity: 0.7, fontSize: 10 }}>{entity.module || "—"}</span>
       </div>
       <div>
         {entity.columns.length === 0 && (
@@ -297,6 +330,15 @@ export const Database = observer(() => {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [entityCount, setEntityCount] = useState(0);
+  // Entités brutes du connecteur (avant filtre module) + filtre module courant.
+  const [allEntities, setAllEntities] = useState<EntityNode[]>([]);
+  const [moduleFilter, setModuleFilter] = useState<string | null>(null);
+
+  // Modules présents dans le connecteur (légende + filtre). "" = non rattaché.
+  const modules = useMemo(
+    () => [...new Set(allEntities.map((e) => e.module || ""))].sort(),
+    [allEntities],
+  );
 
   // Liste des connecteurs (sélecteur) + choix initial = ORM par défaut.
   useEffect(() => {
@@ -322,10 +364,7 @@ export const Database = observer(() => {
           `/nodefony/orm/api/graph?orm=${encodeURIComponent(orm)}`,
         )
         .then((g) => {
-          setEntityCount(g.entities.length);
-          const laid = layoutGraph(g.entities);
-          setNodes(laid.nodes);
-          setEdges(laid.edges);
+          setAllEntities(g.entities);
           setError(null);
         })
         .catch((e: unknown) =>
@@ -333,12 +372,27 @@ export const Database = observer(() => {
         )
         .finally(() => setLoading(false));
     },
-    [store, setNodes, setEdges],
+    [store],
   );
 
+  // Changer de connecteur recharge le graphe et réinitialise le filtre module.
   useEffect(() => {
-    if (selected) loadGraph(selected);
+    if (selected) {
+      setModuleFilter(null);
+      loadGraph(selected);
+    }
   }, [selected, loadGraph]);
+
+  // (Re)calcule nœuds + arêtes dès que les entités OU le filtre module changent.
+  useEffect(() => {
+    const visible = moduleFilter
+      ? allEntities.filter((e) => (e.module || NONE) === moduleFilter)
+      : allEntities;
+    setEntityCount(visible.length);
+    const laid = layoutGraph(visible);
+    setNodes(laid.nodes);
+    setEdges(laid.edges);
+  }, [allEntities, moduleFilter, setNodes, setEdges]);
 
   // Export du modèle (formats pivot IA) → presse-papier. Un même endpoint
   // `/export/{format}` sert DBML (diagramme) et JSON Schema (validation/IA).
@@ -384,6 +438,18 @@ export const Database = observer(() => {
             style={{ width: 220 }}
             placeholder="connecteur…"
           />
+          {modules.length > 1 && (
+            <Select
+              data={modules.map((m) => ({ value: m || NONE, label: m || "—" }))}
+              value={moduleFilter}
+              onChange={setModuleFilter}
+              size="xs"
+              style={{ width: 170 }}
+              placeholder="tous les modules"
+              clearable
+              aria-label="filtrer par module"
+            />
+          )}
           <Menu shadow="md" position="bottom-end" withinPortal>
             <Menu.Target>
               <Tooltip label="Exporter le schéma (pivot IA)">
@@ -424,6 +490,28 @@ export const Database = observer(() => {
         <Alert color="red" variant="light" title="Erreur">
           {error}
         </Alert>
+      )}
+
+      {modules.length > 1 && (
+        <Group gap="xs" aria-label="légende des modules">
+          <Text size="xs" c="dimmed">
+            Modules :
+          </Text>
+          {modules.map((m) => (
+            <Badge
+              key={m || NONE}
+              size="sm"
+              variant={
+                !moduleFilter || moduleFilter === (m || NONE)
+                  ? "light"
+                  : "outline"
+              }
+              color={moduleColor(m)}
+            >
+              {m || "—"}
+            </Badge>
+          ))}
+        </Group>
       )}
 
       <Paper

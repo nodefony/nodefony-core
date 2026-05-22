@@ -37,6 +37,13 @@ export interface IEntity<S = unknown, M = unknown> {
   /** Nom de l'ORM cible enregistré dans le registre (ex. `"db_principale"`). */
   readonly orm: string;
 
+  /**
+   * Module Nodefony propriétaire de l'entité (ex. `"user"`, `"test"`).
+   * **Optionnel** : sert au regroupement dans le graphe canonique / ERD Studio.
+   * Non renseigné → entité non rattachée (groupe « — » côté UI).
+   */
+  readonly module?: string;
+
   /** Définition de schéma propre au driver (forme libre). */
   readonly schema: S;
 

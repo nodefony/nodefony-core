@@ -42,6 +42,10 @@ export interface IEntityGraphNode {
   name: string;
   /** ORM/connecteur cible. */
   orm: string;
+  /**
+   * Module Nodefony propriétaire (regroupement ERD), `""` si non rattaché.
+   */
+  module: string;
   /** Colonnes normalisées (vide si l'adapter n'implémente pas `describeEntity`). */
   columns: IColumnInfo[];
   /** Relations déclarées. */
