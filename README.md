@@ -4,31 +4,89 @@
 
 **Full-stack TypeScript framework for real-time applications and AI agents**
 
-*HTTP and WebSocket as first-class citizens · One controller, one context, one codebase.*
+*HTTP and WebSocket as first-class citizens — one controller, one context, one codebase.*
 
 [![License: CeCILL-B](https://img.shields.io/badge/License-CeCILL--B-blue.svg?style=flat-square)](http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html)
+[![Version](https://img.shields.io/badge/version-10.0.0--alpha-blueviolet?style=flat-square)](./package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-green?style=flat-square)](https://nodejs.org/)
 [![ESM only](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](https://nodejs.org/api/esm.html)
-[![Status](https://img.shields.io/badge/Status-TypeScript%20migration%20in%20progress-yellow?style=flat-square)](./MIGRATION_STATUS.md)
+[![Status](https://img.shields.io/badge/migration-~42%25-yellow?style=flat-square)](./MIGRATION_STATUS.md)
 
 </div>
 
 ---
 
-> ⚠️ **Project status — TypeScript migration in progress.**
-> Nodefony is being rewritten from JavaScript (legacy `nodefony-bundle/*`) to **strict TypeScript** with an ESM-only, decorator-driven, cloud-native architecture. Active branch: `claude-ts`. See [MIGRATION_STATUS.md](./MIGRATION_STATUS.md) for the live roadmap and progress (currently ~13% complete, MVP path estimated ~37 sessions).
+## Table of contents
+
+- [The story so far](#the-story-so-far)
+- [What is Nodefony?](#what-is-nodefony)
+- [Why it matters](#why-it-matters)
+- [Architecture](#architecture)
+- [Design principles](#design-principles-the-non-negotiables)
+- [Security pipeline](#security-pipeline--symfony--spring--nestjs)
+- [The AI vision](#the-ai-vision--phase-12-not-yet-available)
+- [Cloud-native by design](#cloud-native-by-design)
+- [Tech stack](#tech-stack--at-a-glance)
+- [Where we are](#where-we-are--migration-status)
+- [Direction](#direction--the-road-ahead)
+- [Working in this repo](#working-in-this-repo)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## The story so far
+
+Nodefony did not start in 2023. It started in **2017** as a full-stack **JavaScript**
+framework, born from a simple conviction: the Node.js ecosystem had powerful building
+blocks but no opinionated, batteries-included structure comparable to **Symfony** in
+the PHP world — a real kernel, a dependency-injection container, modules, a security
+firewall, a logging system, a CLI.
+
+Over roughly six years, that JavaScript framework matured to **version 7** (still living
+at [`nodefony/nodefony`](https://github.com/nodefony/nodefony)). It accumulated a complete
+runtime: HTTP/HTTP2 servers, native WebSocket, sessions, an ORM layer, a frontend builder,
+a process supervisor, a monitoring bundle. It worked — but it carried the weight of its era:
+CommonJS, loose typing, runtime surprises that a compiler should have caught.
+
+In **December 2023**, the rewrite began. Not a port — a **ground-up reconstruction** in
+**strict TypeScript**, ESM-only, decorator-driven, designed for the cloud-native world that
+did not exist when Nodefony was first written. This repository (`nodefony-core`) is that
+reconstruction, targeting **version 10**.
+
+Two things changed along the way:
+
+1. **The bar moved up.** Strict TypeScript with zero `any`, native ESM, per-module typed
+   builds, AsyncLocalStorage-based request scoping, and a security model that returns `403`
+   by default. The compiler is now the first test suite.
+
+2. **A second pillar appeared.** What began as a real-time web framework is now also a
+   foundation for **AI agents** — RAG pipelines, sub-agent orchestration, MCP servers,
+   memory, and AI-Act-aware guardrails — built as the *same* composable modules, served
+   over the *same* unified controller pipeline.
+
+> **Today (2026):** the TypeScript rewrite is roughly **42% complete**. The runtime core,
+> HTTP stack, framework layer, ORM abstraction, user module, and frontend builder are
+> substantially in place; the Studio admin UI is live; the security layer is next; the AI
+> platform is the final phase. The live, per-task picture is in
+> [MIGRATION_STATUS.md](./MIGRATION_STATUS.md).
 
 ---
 
 ## What is Nodefony?
 
-Nodefony is a **Node.js framework** designed to build, in the same codebase and with the same decorator-driven model:
+Nodefony is a **Node.js framework** for building, in the same codebase and with the same
+decorator-driven model:
 
 1. **Real-time web applications** — HTTP and WebSocket sharing a unified controller context.
-2. **AI agents** — RAG pipelines, sub-agents orchestration, MCP servers, all as composable modules.
+2. **AI agents** — RAG pipelines, sub-agent orchestration, MCP servers, all as composable modules.
 
-It's heavily inspired by **Symfony** (DI container, modules, kernel, firewall + secured areas) and **NestJS** (TypeScript decorators), with one big differentiator: **HTTP and WebSocket are co-citizens**, not bolted-on. The same controller method can serve both transports with the same session, the same authentication, the same routing.
+It is heavily inspired by **Symfony** (DI container, modules, kernel, firewall with secured
+areas) and **NestJS** (TypeScript decorators), with one decisive differentiator:
+**HTTP and WebSocket are co-citizens**, not bolted on. The same controller method can serve
+both transports with the same session, the same authentication, the same routing.
 
 ```typescript
 @Controller('/data')
@@ -46,30 +104,35 @@ No separate gateway. No duplicated logic. Two transports, one action.
 
 ---
 
-## Why does this matter?
+## Why it matters
 
-Most Node.js frameworks treat WebSocket as an afterthought: a separate middleware stack, a separate authentication path, a separate routing layer. As soon as your app needs live updates (a chat, a streaming AI agent, a collaborative editor, a vocal interface), you end up gluing two parallel codebases together.
+Most Node.js frameworks treat WebSocket as an afterthought: a separate middleware stack, a
+separate authentication path, a separate routing layer. As soon as your app needs live
+updates — a chat, a streaming AI agent, a collaborative editor, a vocal interface — you end
+up gluing two parallel codebases together.
 
-Nodefony was built from the start on the assumption that **modern applications are real-time by default**. The pipeline below applies to every request — HTTP REST, WebSocket frame, JSON-RPC message — without the developer having to think about the transport:
+Nodefony was rebuilt on the assumption that **modern applications are real-time by default**.
+The pipeline below applies to every request — HTTP REST, WebSocket frame, JSON-RPC message —
+without the developer having to think about the transport:
 
 ```
 [ Request HTTP / WS frame ]
          │
          ▼
 ┌────────────────────────────────────────────────────┐
-│ 1. Kernel Scoping (AsyncLocalStorage)              │  ← per-request context
-│    requestId · user · traceparent · scheme          │
+│ 1. Kernel scoping (AsyncLocalStorage)              │  ← per-request context
+│    requestId · user · traceparent · scheme         │
 └────────────────┬───────────────────────────────────┘
                  ▼
 ┌────────────────────────────────────────────────────┐
-│ 2. Firewall (Secured Areas)                        │  ← Symfony-style zones
+│ 2. Firewall (secured areas)                        │  ← Symfony-style zones
 │    Authenticator chain · WAF cooperation · CSRF    │
 └────────────────┬───────────────────────────────────┘
                  ▼
 ┌────────────────────────────────────────────────────┐
-│ 3. Controller + Decorators                         │  ← Spring-style guards
+│ 3. Controller + decorators                         │  ← Spring-style guards
 │    @IsGranted · @CurrentUser · @AuditLog · ...     │
-│    3-level authorization: hierarchy · RBAC · Voters │
+│    3-level authorization: hierarchy · RBAC · Voters│
 └────────────────┬───────────────────────────────────┘
                  ▼
 ┌────────────────────────────────────────────────────┐
@@ -81,81 +144,85 @@ Nodefony was built from the start on the assumption that **modern applications a
 
 ## Architecture
 
-The framework is split into composable workspaces. Each package is independently versioned and published, with strict TypeScript types generated per module.
+The framework is split into composable workspaces. Each package is independently versioned,
+with strict TypeScript types generated per module (Rollup `preserveModules`).
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                          your application                          │
+│                          your application                           │
 │              modules · controllers · services · entities           │
 └─────────────────────────────────┬──────────────────────────────────┘
                                   │ (DI container, decorators)
 ┌─────────────────────────────────▼──────────────────────────────────┐
-│                        nodefony runtime                            │
+│                         nodefony runtime                            │
 │                                                                    │
-│  @nodefony/core       Kernel · DI · Module · Syslog · CLI          │
-│  @nodefony/http       HTTP/HTTPS/HTTP2/WS/WSS servers + Context    │
-│  @nodefony/framework  Router · Resolver · Controller · decorators  │
+│  nodefony (core)      Kernel · DI · Module · Service · Syslog · CLI │
+│  @nodefony/http       HTTP/HTTPS/HTTP2/WS/WSS servers + Context     │
+│  @nodefony/framework  Router · Resolver · Controller · decorators   │
 │  @nodefony/user       IUser · BaseUser · IPasswordEncoder · service │
-│  @nodefony/security   Firewall · SecuredArea · Authenticators       │
-│                       defineSecurityConfig + Zod · CSRF · CORS     │
-│  @nodefony/frontend   Vite supervisor (Vue · React · Svelte · ...)  │
+│  @nodefony/security   Firewall · SecuredArea · Authenticators (P6)  │
+│  @nodefony/frontend   Vite supervisor (React 19 · Vue 3 · Angular)  │
 │  @nodefony/studio     Admin web UI — routes under /nodefony/*       │
 └─────────────────────────────────┬──────────────────────────────────┘
                                   │
 ┌─────────────────────────────────▼──────────────────────────────────┐
-│              data layer (optional, multi-driver)                   │
+│              data layer (optional, multi-driver)                    │
 │                                                                    │
 │  @nodefony/orm-core   IOrm · IRepository · IEntity (abstraction)    │
-│  @nodefony/drizzle    ⭐ Drizzle ORM — SQL-builder, TypeScript-first │
-│  @nodefony/mikroorm   MikroORM — Data Mapper + Unit of Work         │
+│  @nodefony/drizzle    ⭐ Drizzle ORM — SQL-builder, TS-first (default)│
 │  @nodefony/mongoose   Mongoose — MongoDB                            │
 │  @nodefony/sequelize  🪦 Sequelize — legacy maintenance only        │
 │  @nodefony/redis      Cluster · pub/sub · session storage           │
 └─────────────────────────────────┬──────────────────────────────────┘
                                   │
 ┌─────────────────────────────────▼──────────────────────────────────┐
-│         ai platform (Phase 12 — LAST, scaffolded, NOT ready)       │
+│         AI platform (Phase 12 — LAST, scaffolded, NOT ready)        │
 │                                                                    │
-│  @nodefony/llm        Unified provider — Claude · Gemini · Ollama  │
-│  @nodefony/rag        Indexing · chunking · vector search           │
+│  @nodefony/llm        Unified provider — Claude · Gemini · Ollama   │
+│  @nodefony/rag        Indexing · chunking · vector search          │
 │  @nodefony/vector     pgvector · Qdrant · Chroma                    │
 │  @nodefony/agent      Orchestrator + sub-agents                     │
 │  @nodefony/mcp        Model Context Protocol — server + client      │
 │  @nodefony/memory     Short-term + long-term memory                 │
-│  @nodefony/agent-guard ⭐ AI Act compliance — PII · audit · voters  │
+│  @nodefony/agent-guard ⭐ AI-Act compliance — PII · audit · voters  │
 └────────────────────────────────────────────────────────────────────┘
 ```
+
+> The framework is **self-hosted**: the root of this repository is itself a consumer
+> application that exercises the framework in real conditions. See
+> [Working in this repo](#working-in-this-repo).
 
 ---
 
 ## Design principles (the non-negotiables)
 
-These are the figured-in-stone rules behind every decision in the codebase.
+These are the rules behind every decision in the codebase.
 
 | Principle | Why |
 |-----------|-----|
 | **TypeScript strict, zero `any`, zero `@ts-ignore`** | The compiler is the first test suite. |
-| **ESM only** (`import`/`export`, `node:` prefix) | Modern Node.js. CommonJS is dead. |
+| **ESM only** (`import`/`export`, `node:` prefix) | Modern Node.js. CommonJS is gone. |
 | **Named exports only** (`import { Nodefony } from "nodefony"`) | Better tree-shaking, better IDE support, no default-export ambiguity. |
-| **Interfaces prefixed `I`** (`IKernel`, `IService`, `IUser`) | Industry-wide convention, immediate visual disambiguation. |
-| **Native Node.js servers** (`node:http`, `node:http2`, `ws`) | No `Express`, no `Fastify`, no `Bun.serve`. Direct control over the request lifecycle. |
+| **Interfaces prefixed `I`** (`IKernel`, `IService`, `IUser`) | Immediate visual disambiguation. |
+| **Native Node.js servers** (`node:http` · `node:http2` · `ws`) | No Express, no Fastify, no `Bun.serve`. Direct control over the request lifecycle. |
 | **Rollup, `preserveModules: true`** | Per-module `.d.ts`, tree-shakeable consumers, idiomatic npm publishing. |
-| **AsyncLocalStorage everywhere** | Zero context-leak across concurrent requests. The framework knows *which* user made *this* call without threading it through every function. |
-| **HTTP stateless** (JWT cookies, no in-memory session) | Cloud-native: 1 pod = 1 process. Sessions in RAM break load-balancing. |
-| **WebSocket stateful** (handshake JWT, ALS-scoped) | Real-time needs persistent state; isolated per-socket via ALS. |
-| **Zero Trust by default** | A route with no security decorator returns `403` automatically. Public access must be explicit (`@Anonymous()`). |
-| **1 process = 1 pod / container** | Scaling horizontally is delegated to the orchestrator (Kubernetes, Docker, Cloud Run, Nomad). |
+| **AsyncLocalStorage everywhere** | Zero context leak across concurrent requests — the framework knows *which* user made *this* call without threading it through every function. |
+| **HTTP stateless** (JWT cookies, no in-memory session) | Cloud-native: 1 pod = 1 process. Sessions in RAM break load balancing. |
+| **WebSocket stateful** (handshake JWT, ALS-scoped) | Real-time needs persistent state, isolated per socket via ALS. |
+| **Zero Trust by default** | A route with no security decorator returns `403`. Public access must be explicit (`@Anonymous()`). |
+| **1 process = 1 pod / container** | Horizontal scaling is delegated to the orchestrator (Kubernetes, Docker, Cloud Run, Nomad). |
 | **Perf and memory matter on every request** | Lazy allocation, no silent listeners, no allocation "just in case". See [`CLAUDE.md`](./CLAUDE.md). |
 
 ---
 
 ## Security pipeline — Symfony × Spring × NestJS
 
-The security layer (Phase 6, currently planned) combines three patterns from three frameworks:
+The security layer (Phase 6 — design frozen, implementation in progress) combines three
+patterns from three frameworks:
 
-- **From Symfony**: *Secured Areas* (firewalls) with declarative URL patterns and per-area authenticator chains.
-- **From NestJS**: *TypeScript decorators* (`@IsGranted`, `@CurrentUser`, `@AuditLog`) read via `Reflect.metadata` at request time.
-- **From Spring Security**: *3-level authorization* — role hierarchy, RBAC permissions, contextual Voters (`GRANT`/`DENY`/`ABSTAIN`).
+- **From Symfony** — *secured areas* (firewalls) with declarative URL patterns and per-area authenticator chains.
+- **From NestJS** — *TypeScript decorators* (`@IsGranted`, `@CurrentUser`, `@AuditLog`) read via `Reflect.metadata` at request time.
+- **From Spring Security** — *3-level authorization*: role hierarchy, RBAC permissions, contextual Voters (`GRANT` / `DENY` / `ABSTAIN`).
 
 ```typescript
 // config/security.ts
@@ -192,32 +259,36 @@ export class ProjectController extends NodefonyController {
 
   @Patch(':id')
   @IsGranted(ProjectVoter.EDIT, { subjectFromParam: 'id', voter: ProjectVoter })
-  async update(@Param('id') id: string, @Body() data: any) {
+  async update(@Param('id') id: string, @Body() data: UpdateProjectDto) {
     return this.svc.update(id, data);
   }
 }
 ```
 
-**Stack figured-in-stone (Phase 6):**
+**Stack frozen for Phase 6:**
+
 - JWT via [`jose`](https://github.com/panva/jose) (RFC 7519 + RFC 7515, EdDSA / RS256)
 - OAuth 2.0 / OIDC via [`arctic`](https://github.com/pilcrowonpaper/arctic) — one config-driven authenticator for 50+ providers
-- Passwords via `bcrypt` (rounds: 12 default)
-- CSRF: `SameSite=Strict` + `Origin` check by default, `@CsrfProtect()` HMAC opt-in for critical routes
-- `@nodefony/user` separate module (IUser + BcryptEncoder + UserService) → consumed by ORM, Studio, agents without pulling the security pipeline
-- **Passport.js: abandoned.** Sessions in RAM: abandoned. LDAP: shipped as separate plugin.
+- Passwords via `bcrypt` (12 rounds default), shipped today in `@nodefony/user`
+- CSRF: `SameSite=Strict` + `Origin` check by default; `@CsrfProtect()` HMAC opt-in for critical routes
+- `@nodefony/user` is a **separate** module (IUser + BcryptEncoder + UserService) consumed by ORM, Studio, and agents without pulling in the full security pipeline
+- **Passport.js: abandoned. In-memory sessions: abandoned. LDAP: shipped as a separate plugin.**
+
+> Note: the per-request scoping bugs that historically blocked this phase (ALS propagation
+> across WS messages and post-response hooks) are **resolved** — see [`BUG_REPORT.md`](./BUG_REPORT.md).
 
 ---
 
-## AI agent — long-term vision (Phase 12, NOT yet available)
+## The AI vision — Phase 12 (NOT yet available)
 
 > ⚠️ **This is a target API, not a shipped feature.** The AI platform modules
 > (`@nodefony/llm`, `@nodefony/rag`, `@nodefony/vector`, `@nodefony/memory`,
-> `@nodefony/agent`, `@nodefony/mcp`, `@nodefony/agent-guard`) are scaffolded but **not
-> production-ready** — they are the **last migration phase (Phase 12)**, scheduled well after
-> the framework core, security, ORM, and Studio are complete. The code below illustrates the
-> intended developer experience; the interfaces and behaviour will change.
+> `@nodefony/agent`, `@nodefony/mcp`, `@nodefony/agent-guard`) are **scaffolded placeholders**.
+> They are the **last migration phase**, scheduled after the core, security, ORM, and Studio
+> are complete. The code below illustrates the intended developer experience; the interfaces
+> will change.
 
-Nodefony's goal is to provide **generic, reusable AI modules** so the domain logic stays yours:
+The goal is to provide **generic, reusable AI modules** so the domain logic stays yours:
 
 ```typescript
 // 1. Index your corpus (legal, financial, medical...)
@@ -244,7 +315,7 @@ export class LegalAgent implements IAgent {
   }
 }
 
-// 3. Stream answers in real-time via WebSocket
+// 3. Stream answers in real time over WebSocket
 @Controller('/legal')
 export class LegalController extends NodefonyController {
   constructor(@Inject('legal-agent') private agent: LegalAgent) { super(); }
@@ -258,22 +329,26 @@ export class LegalController extends NodefonyController {
 }
 ```
 
-The same pattern is intended to fit wealth management, medical records, support agents, HR tools — only the corpus and the system prompt would change. **Again: this is the Phase 12 vision, not current functionality.**
+The same pattern is intended to fit wealth management, medical records, support agents, HR
+tools — only the corpus and the system prompt change. **Again: this is the Phase 12 vision,
+not current functionality.**
 
 ---
 
 ## Cloud-native by design
 
-Nodefony targets **1 Node process = 1 pod / container**. Scaling is delegated to the orchestrator (Kubernetes HPA, Docker, Nomad, Cloud Run, Fargate). PM2 is deprecated and will be removed.
+Nodefony targets **1 Node process = 1 pod / container**. Scaling is delegated to the
+orchestrator (Kubernetes HPA, Docker, Nomad, Cloud Run, Fargate). PM2 is **deprecated** and
+will be removed in Phase 16; the cloud-native production boot (`nodefony production --no-daemon`,
+foreground, logs to stdout) is already the path used in CI.
 
 Planned (Phase 16, after the security layer ships):
 
 - Graceful shutdown on `SIGTERM` (HTTP + WS + ORM drain)
 - `/nodefony/healthz` + `/nodefony/readyz` endpoints with an `IHealthCheck` registry per module
-- Trusted-proxy parser (`X-Forwarded-For`/`X-Forwarded-Proto`) with security-side whitelist
+- Trusted-proxy parser (`X-Forwarded-For` / `X-Forwarded-Proto`) with a security-side allow-list
 - `ISecretProvider` abstraction (`EnvSecretProvider` default, `VaultSecretProvider` pluggable)
-- Dockerfile (alpine + tini PID 1) + progressive `docker-compose.yml` with profiles
-- Skills for `docker-debug` and `infra-up` to let Claude self-debug in containerised environments
+- Dockerfile (alpine + tini as PID 1) + progressive `docker-compose.yml` with profiles
 
 ---
 
@@ -285,76 +360,74 @@ Planned (Phase 16, after the security layer ships):
 | Modules | **ESM only** | `import { ... } from "node:fs"`, no CommonJS. |
 | Servers | **`node:http` · `node:http2` · `ws`** | Native, no Express/Fastify/Bun.serve. |
 | Bundler | **Rollup** (`preserveModules: true`) | Per-module `.d.ts`, tree-shakeable. |
-| Toolchain | **`npm`** (workspaces + turbo) | Native by default. No Bun required for core/http/framework/security work. |
-| Test runner | **`mocha` + `ts-node`** | Stable in CI. (One not-yet-ready AI module uses `bun test` internally — irrelevant until Phase 12.) |
-| Container scope | **AsyncLocalStorage** (P1.4 ✅) | Per-request isolation everywhere. |
-| JWT | **`jose`** | Modern TypeScript-first, EdDSA/RS256. |
+| Toolchain | **`npm`** workspaces + **turbo** | Native by default. |
+| Test runner | **`mocha` + `tsx`** | Stable in CI. (One not-yet-ready AI module uses `bun test` internally — irrelevant until Phase 12.) |
+| Request scope | **AsyncLocalStorage** | Per-request isolation everywhere. |
+| JWT | **`jose`** | Modern, TypeScript-first, EdDSA/RS256. |
 | OAuth 2.0 / OIDC | **`arctic`** | Type-safe, by the author of Lucia. |
 | Password hashing | **`bcrypt`** | Battle-tested. |
 | Config validation | **`zod`** | Runtime + type-level, single source of truth. |
-| SQL (primary) | **Drizzle** ⭐ | Modern SQL-builder, TypeScript-first. |
-| SQL (alternative) | **MikroORM** | Data Mapper + Unit of Work for complex apps. |
+| SQL (default) | **Drizzle** ⭐ | Modern SQL-builder, TypeScript-first. |
+| SQL (legacy) | **Sequelize** 🪦 | Maintenance only — descending. |
 | NoSQL | **Mongoose** | The MongoDB standard. |
-| Frontend builder | **Vite** (Vue 3 · React 19 · Svelte 5 · Angular planned) | Per-module bundling, HMR. |
+| Frontend builder | **Vite** (React 19 · Vue 3 · Angular 21) | Per-module bundling, HMR. |
 
 ---
 
-## Status — TypeScript migration in progress
+## Where we are — migration status
 
-The framework is being rewritten from scratch in TypeScript. The reference JavaScript implementation lives in [`nodefony/nodefony`](https://github.com/nodefony/nodefony) (cloned alongside this repo by the author).
+The framework is being rewritten from scratch in TypeScript. The reference JavaScript
+implementation lives in [`nodefony/nodefony`](https://github.com/nodefony/nodefony).
+
+**Overall: ~42% of the migration roadmap complete** (45 tasks done, 27 in progress, 68 planned).
 
 ### Per-package status
 
 | Package | Description | Status |
 |---------|-------------|--------|
-| `@nodefony/core` | Kernel · DI Container · Module · Service · Syslog · CLI | 🔶 Migration TS (~67% core, fondations OK) |
-| `@nodefony/http` | HTTP/1.1 · HTTPS · HTTP/2 · WS · WSS (native Node.js) | ✅ Stable (336 tests passing) |
+| `nodefony` (core) | Kernel · DI · Module · Service · Syslog · CLI · ALS scoping | 🔶 In migration — foundations stable |
+| `@nodefony/http` | HTTP/1.1 · HTTPS · HTTP/2 · WS · WSS (native Node.js) | ✅ Stable — memory-tested |
 | `@nodefony/framework` | Router · Resolver · Controller · decorators | ✅ Migrated |
-| `@nodefony/user` | IUser · BaseUser · IPasswordEncoder · UserService | ⬜ Planned (Phase 5) |
-| `@nodefony/security` | Firewall · SecuredArea · Authenticators · CSRF · CORS | ⬜ Planned (Phase 6) |
-| `@nodefony/orm-core` | IOrm · IRepository · IEntity abstraction | ⬜ Planned (Phase 5) |
-| `@nodefony/drizzle` ⭐ | Drizzle adapter (SQL primary) | ⬜ Planned (Phase 7) |
-| `@nodefony/mikroorm` | MikroORM adapter (SQL alternative) | ⬜ Planned (Phase 7) |
-| `@nodefony/mongoose` | MongoDB adapter | 🔶 Legacy port |
-| `@nodefony/sequelize` | 🪦 Sequelize v6 (legacy maintenance only) | 🔶 Legacy port |
-| `@nodefony/redis` | Cache · session storage · cluster | 🔶 Legacy port |
-| `@nodefony/realtime` | TCP/UDP/Unix sockets + JSON-RPC 2.0 hub | ⬜ Planned (Phase 13) |
-| `@nodefony/frontend` | Vite supervisor (Vue · React · Svelte) | 🔶 In progress (multi-bundle ✅) |
-| `@nodefony/studio` | Admin web UI at `/nodefony/*` | 🔶 Scaffold + Logs panel ✅ |
-| `@nodefony/llm` | Multi-provider — Claude · Gemini · Ollama · OpenAI | ⬜ Not ready — Phase 12 (last) |
-| `@nodefony/rag` | RAG pipeline | ⬜ Not ready — Phase 12 (last) |
-| `@nodefony/vector` | pgvector · Qdrant · Chroma | ⬜ Not ready — Phase 12 (last) |
-| `@nodefony/memory` | Agent memory (short + long term) | ⬜ Not ready — Phase 12 (last) |
-| `@nodefony/agent` | Orchestrator + sub-agents | ⬜ Not ready — Phase 12 (last) |
-| `@nodefony/mcp` | Model Context Protocol — server + client | ⬜ Not ready — Phase 12 (last) |
-| `@nodefony/agent-guard` | ⭐ AI Act compliance — PII · audit · voters | ⬜ Not ready — Phase 12 (last) |
-
-> The AI modules above are **scaffolded placeholders**. They will be migrated **last**, after core / security / ORM / Studio. Do not rely on them yet.
+| `@nodefony/orm-core` | IOrm · IRepository · IEntity · `AbstractCrudService` | ✅ Abstraction done |
+| `@nodefony/drizzle` ⭐ | Drizzle adapter — default SQL driver | ✅ Done |
+| `@nodefony/sequelize` 🪦 | Sequelize adapter — legacy, portability validated | 🔶 Legacy adapter |
+| `@nodefony/mongoose` | MongoDB adapter | 🔶 Partial (Docker-gated) |
+| `@nodefony/redis` | Cache · session storage · cluster | 🔶 Legacy port (Docker-gated) |
+| `@nodefony/user` | IUser · BaseUser · BcryptEncoder · UserService (Drizzle-backed) | ✅ Done |
+| `@nodefony/security` | Firewall · SecuredArea · Authenticators · CSRF · CORS | 🔶 Design frozen — next |
+| `@nodefony/frontend` | Vite supervisor (React 19 · Vue 3 · Angular 21), multi-bundle, HMR | 🔶 In progress |
+| `@nodefony/studio` | Admin web UI at `/nodefony/*` — dashboards, routes, ORM ERD, docs, realtime, debug bar | 🔶 In progress |
+| `@nodefony/llm` · `rag` · `vector` · `memory` · `agent` · `mcp` · `agent-guard` | AI agentic platform | ⬜ Phase 12 (last) — scaffolded only |
 
 > ✅ Stable · 🔶 In migration / partial · ⬜ Planned · 🪦 Legacy maintenance
+>
+> The AI modules are **scaffolded placeholders** — migrated **last**, after core / security
+> / ORM / Studio. Do not rely on them yet.
 
-### Roadmap (high-level)
+---
+
+## Direction — the road ahead
 
 | Phase | Theme | State |
 |-------|-------|-------|
 | **0** | Build system (Rollup + TS strict + ESM + per-module types) | ✅ Done |
-| **1** | Kernel · DI · Module · AsyncLocalStorage · Context lifecycle hooks | ✅ Done (`P1.1` → `P1.8`) |
-| **2** | Context lifecycle (tear-down, abort, timeout, idempotency) | ⬜ Planned |
-| **3** | Structured logs (audit, NCSA, per-requestId filtering) | ⬜ Planned |
-| **4** | Symbiose tests HTTP↔framework | 🔶 Partial |
-| **5** | Session refactor + User module + ORM Core abstraction | ⬜ Planned |
-| **6** | Security — firewall, authenticators, decorators, voters, CSRF | ⬜ Planned (blocked by ALS bugs, see [BUG_REPORT.md](./BUG_REPORT.md)) |
-| **7** | ORM drivers (Drizzle, MikroORM, Mongoose, Sequelize legacy) | ⬜ Planned |
-| **8** | CLI generators · monitoring (DebugBar, metrics) | ⬜ Planned |
-| **9** | Polish · public READMEs · dependency audit | ⬜ Planned |
-| **10** | `@nodefony/studio` — admin web UI | 🔶 Scaffold + Logs panel |
+| **1** | Kernel · DI · Module · AsyncLocalStorage · Context lifecycle hooks | ✅ Done |
+| **5** | Session refactor · `@nodefony/user` · ORM Core abstraction · `AbstractCrudService` | ✅ Mostly done |
+| **6** | Security — firewall, authenticators, decorators, voters, CSRF | 🔶 **Next** (unblocked) |
+| **7** | ORM drivers (Drizzle ✅ · Sequelize legacy ✅ · Mongoose partial) | 🔶 In progress |
+| **10** | `@nodefony/studio` — admin web UI | 🔶 Substantial (live dashboards) |
 | **11** | CLI command tests · per-module commands | ⬜ Planned |
-| **12** | AI agentic platform (llm/rag/vector/memory + agent + MCP + agent-guard) — **LAST phase, scaffolded only** | ⬜ Not ready |
-| **13** | Realtime distributed (TCP/UDP/Unix + Redis/Kafka hubs + JSON-RPC 2.0) | ⬜ Planned |
+| **13** | Realtime distributed (TCP/UDP/Unix + Redis/Kafka hubs + JSON-RPC 2.0 + browser client) | ⬜ Planned (after P6) |
 | **14** | `@nodefony/frontend` (Vite supervisor) + isomorphic core | 🔶 In progress |
-| **16** | Cloud-native (graceful SIGTERM, healthz/readyz, Secret abstraction, Docker, k8s manifests) | ⬜ Planned |
+| **12** | AI agentic platform (llm/rag/vector/memory + agent + MCP + agent-guard) | ⬜ **Last** — scaffolded only |
+| **16** | Cloud-native (graceful SIGTERM, healthz/readyz, Secret abstraction, Docker, k8s) | ⬜ Planned |
 
-The full live roadmap (per-task breakdown, dependencies, effort estimates, decisions) lives in [MIGRATION_STATUS.md](./MIGRATION_STATUS.md).
+The full live roadmap — per-task breakdown, dependencies, effort estimates, decisions — lives
+in [MIGRATION_STATUS.md](./MIGRATION_STATUS.md).
+
+**Near-term focus:** ship the security layer (P6), finish the ORM drivers (P7), then bring the
+real-time distribution layer (P13) and the Studio admin UI to completion. The AI platform
+comes last, once the foundation it depends on is solid.
 
 ---
 
@@ -362,16 +435,20 @@ The full live roadmap (per-task breakdown, dependencies, effort estimates, decis
 
 This repository has a **dual nature**:
 
-1. The **framework** lives under `src/nodefony/` (workspace `@nodefony/core`) and `src/packages/@nodefony/*` (sibling packages).
-2. The **root** of the repo (`./`) acts as a **consumer application** that uses the framework — it's how the author tests the framework in real conditions (a self-hosted test bed).
+1. The **framework** lives under `src/nodefony/` (workspace `nodefony` / core) and
+   `src/packages/@nodefony/*` (sibling packages).
+2. The **root** (`./`) acts as a **consumer application** that uses the framework — it is how
+   the author tests the framework in real conditions (a self-hosted test bed).
 
-This means when you run `nodefony development` from the repo root, you're starting an application that *consumes* the framework you're developing. Live reload is wired through Rollup watch on the framework packages.
+Running `nodefony development` from the repo root starts an application that *consumes* the
+framework you are developing. In development mode a **supervisor** watches the framework
+sources and restarts the server on change (frontend changes go through Vite HMR, no restart).
 
 ### Requirements
 
 | Tool | Version | Role |
 |------|---------|------|
-| **Node.js** | >= 22 | Runtime — all servers, AsyncLocalStorage native |
+| **Node.js** | >= 22 | Runtime — all servers, native AsyncLocalStorage |
 | **npm** | >= 10 | Workspace manager (workspaces + turbo) |
 | **OpenSSL** | any | HTTPS/WSS self-signed certificates |
 | **git** | any | Version control |
@@ -381,11 +458,11 @@ This means when you run `nodefony development` from the repo root, you're starti
 ```bash
 git clone https://github.com/nodefony/nodefony-core
 cd nodefony-core
-git checkout claude-ts
+git checkout claude-ts        # active development line
 npm install
-npm run build
-npm run test            # runs unit + integration test suites
-npx nodefony development   # boots the self-hosted test app
+npm run build                 # build all workspaces (Rollup + turbo)
+npm run test                  # unit + integration suites
+npx nodefony development      # boot the self-hosted test app
 ```
 
 ### Local URLs after `nodefony development`
@@ -398,7 +475,8 @@ npx nodefony development   # boots the self-hosted test app
 | `wss://localhost:5152` | WebSocket Secure (TLS) |
 | `http://localhost:5151/nodefony/*` | Admin web UI (`@nodefony/studio`, in progress) |
 
-Self-signed certificates are generated on first run under `config/certificates/`. Add the generated CA to your browser to trust local HTTPS / WSS:
+Self-signed certificates are generated on first run under `config/certificates/`. Add the
+generated CA to your browser to trust local HTTPS / WSS:
 
 ```
 config/certificates/ca/nodefony-root-ca.crt.pem
@@ -407,14 +485,14 @@ config/certificates/ca/nodefony-root-ca.crt.pem
 ### CLI overview
 
 ```bash
-npx nodefony development     # dev server (foreground)
-npx nodefony build           # build all workspaces (Rollup)
-npx nodefony test            # run all test suites
-npx nodefony certificates    # generate / renew SSL certificates
-# ... see `src/nodefony/src/kernel/commands/` for the full set
+npx nodefony development            # dev server with auto-restart supervisor
+npx nodefony build                  # build all workspaces (Rollup)
+npx nodefony production --no-daemon # cloud-native foreground boot (no PM2)
+npx nodefony --help                 # full command set
 ```
 
-> Project commands (`nodefony create`, `nodefony generate:module`, etc.) are part of Phase 8/11 and are not stabilised yet on the `claude-ts` migration branch.
+> Per-module scaffolding commands (`module:create`, etc.) are part of Phase 8/11 and are not
+> stabilised yet on the migration branch.
 
 ---
 
@@ -422,42 +500,44 @@ npx nodefony certificates    # generate / renew SSL certificates
 
 - **[CLAUDE.md](./CLAUDE.md)** — architectural rules, conventions, design decisions. Required reading before contributing.
 - **[MIGRATION_STATUS.md](./MIGRATION_STATUS.md)** — live roadmap, per-task progress, dependency graph.
-- **[BUG_REPORT.md](./BUG_REPORT.md)** — known structural bugs awaiting fixes.
-- Per-module `CLAUDE.md` and `MEMORY.md` under each `src/packages/@nodefony/*/` — internals, gotchas, public API.
-- Per-module `docs/` (e.g. `src/nodefony/docs/`) — architectural deep-dives, colocated and surfaced in Studio (ADR-0001). Cross-module guides/audits live under root `docs/`.
+- **[BUG_REPORT.md](./BUG_REPORT.md)** — known structural issues and their resolution status.
+- Per-module `CLAUDE.md` / `MEMORY.md` under each `src/packages/@nodefony/*/` — internals, gotchas, public API.
+- Per-module `docs/` (e.g. `src/nodefony/docs/`) — architectural deep-dives, colocated and surfaced in Studio (ADR-0001). Cross-module guides and audits live under the root `docs/`.
 
 ---
 
 ## Contributing
 
-Nodefony is open source under the CeCILL-B license (compatible with LGPL).
-Contributions, issues, and pull requests are welcome — but be aware the framework is in active rewrite. The `claude-ts` branch is the active line of development; PRs against `main` are unlikely to land until Phase 6 (security) is complete.
-
-If you want to discuss the architecture, open a discussion on GitHub before sending a large PR.
+Nodefony is open source under the **CeCILL-B** license (compatible with LGPL).
+Contributions, issues, and pull requests are welcome — but be aware the framework is in active
+rewrite. The `claude-ts` branch is the active line of development; `main` mirrors the latest
+integrated state. For anything substantial, open a GitHub discussion about the architecture
+before sending a large PR.
 
 ---
 
 ## References
 
 - [Node.js](https://nodejs.org/) · [TypeScript](https://www.typescriptlang.org/) · [Rollup](https://rollupjs.org/)
-- [Symfony Security](https://symfony.com/doc/current/security.html) — Secured Areas, Voters, role hierarchy
+- [Symfony Security](https://symfony.com/doc/current/security.html) — secured areas, voters, role hierarchy
 - [Spring Security](https://spring.io/projects/spring-security) — `@PreAuthorize`, expression-based authorization
-- [NestJS](https://docs.nestjs.com/) — decorator-driven architecture (`@Controller`, `@Module`, guards)
+- [NestJS](https://docs.nestjs.com/) — decorator-driven architecture
 - [jose](https://github.com/panva/jose) · [arctic](https://github.com/pilcrowonpaper/arctic) · [zod](https://zod.dev/)
-- [Drizzle ORM](https://orm.drizzle.team/) · [MikroORM](https://mikro-orm.io/)
+- [Drizzle ORM](https://orm.drizzle.team/)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
-- [EU AI Act](https://artificialintelligenceact.eu/) — drives `@nodefony/agent-guard` design
+- [EU AI Act](https://artificialintelligenceact.eu/) — drives the `@nodefony/agent-guard` design
 
 ---
 
 ## Author
 
-**Christophe CAMENSULI** — [github/ccamensuli](https://github.com/ccamensuli)
+**Christophe CAMENSULI** — [github.com/ccamensuli](https://github.com/ccamensuli)
 
-Built solo, for everyone. Free and open source.
+Building Nodefony since 2017. Solo, for everyone. Free and open source.
 
 ---
 
 ## License
 
-[CeCILL-B](http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html) — French free software license, compatible with LGPL.
+[CeCILL-B](http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html) — French free software
+license, compatible with LGPL.
