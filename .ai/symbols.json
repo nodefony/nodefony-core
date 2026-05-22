@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-22T00:35:53.724Z",
+  "generated": "2026-05-22T00:57:19.438Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 294,
-    "symbols": 737,
+    "files": 295,
+    "symbols": 741,
     "classes": 206,
     "interfaces": 253,
     "types": 144,
     "enums": 1,
-    "functions": 115,
-    "constants": 18
+    "functions": 118,
+    "constants": 19
   },
   "symbols": {
     "Cli": {
@@ -2696,6 +2696,38 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "extends": null
+    },
+    "isolationGroup": {
+      "name": "isolationGroup",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/isolationGroups.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Famille d'isolation Vite d'un type de preset frontend. Les presets d'une même famille **cohabitent dans une seule instance Vite** ; les familles distinctes tournent dans des **process Vite séparés*…"
+    },
+    "orderFamilies": {
+      "name": "orderFamilies",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/isolationGroups.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Ordonne les familles de façon déterministe : la famille primaire d'abord (port de base), puis les autres triées alphabétiquement. L'ordre fixe le port attribué à chaque famille — il doit être stabl…"
+    },
+    "familyPortPlan": {
+      "name": "familyPortPlan",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/isolationGroups.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Plan d'allocation des ports : un **bloc disjoint** par famille. Chaque famille réserve `portRetryAttempts + 1` ports consécutifs → le port-retry d'une instance (sur EADDRINUSE) ne peut jamais empié…"
+    },
+    "PRIMARY_FAMILY": {
+      "name": "PRIMARY_FAMILY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/isolationGroups.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Famille servie sur le port de base (`devPort`). Les autres familles prennent les blocs de ports suivants. Garder `default` ici garantit que l'instance principale (React/Vue/Studio) reste sur le por…"
     },
     "Network": {
       "name": "Network",
@@ -7466,6 +7498,19 @@
       "FrontendNoEntriesError": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
+      "FrontendSupervisorStartError": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
+      "isolationGroup": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "familyPortPlan": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "PRIMARY_FAMILY": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
       "FrontendConfig": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
@@ -7474,9 +7519,6 @@
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
       ],
       "ViteSupervisorState": [
-        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
-      ],
-      "FrontendSupervisorStartError": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "ViteConfigGenerator": [

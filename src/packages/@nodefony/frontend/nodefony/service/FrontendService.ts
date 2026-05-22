@@ -15,7 +15,13 @@ import ViteProcessSupervisor from "./ViteProcessSupervisor";
 import TemplateHelper from "../src/template/TemplateHelper";
 import {
   FrontendNoEntriesError,
+  FrontendSupervisorStartError,
 } from "../src/errors/FrontendError";
+import {
+  isolationGroup,
+  familyPortPlan,
+  PRIMARY_FAMILY,
+} from "../src/isolationGroups";
 import defaultConfig, { type FrontendConfig } from "../config/config";
 import path from "node:path";
 
@@ -38,8 +44,12 @@ class FrontendService extends Service implements IFrontendService {
 
   private readonly builder = new ViteBuilder();
   private readonly entries: IResolvedFrontendEntry[] = [];
-  private supervisor: IViteSupervisor | null = null;
-  private templateHelper: TemplateHelper | null = null;
+  /** Une instance Vite par famille d'isolation (`default`, `angular`, …). */
+  private readonly supervisors = new Map<string, IViteSupervisor>();
+  /** Template helper par famille (route les `<script>` vers le bon port Vite). */
+  private readonly templateHelpers = new Map<string, TemplateHelper>();
+  /** Index inverse `entryName → famille`, pour router `renderTags`. */
+  private readonly entryFamily = new Map<string, string>();
 
   constructor(module: Module) {
     const merged = extend(
@@ -142,7 +152,10 @@ class FrontendService extends Service implements IFrontendService {
   }
 
   status(): IViteSupervisorStatus {
-    if (!this.supervisor) {
+    const primary =
+      this.supervisors.get(PRIMARY_FAMILY) ??
+      [...this.supervisors.values()][0];
+    if (!primary) {
       return {
         state: "idle",
         host: this.cfg.devHost,
@@ -155,51 +168,153 @@ class FrontendService extends Service implements IFrontendService {
         entries: this.entries,
       };
     }
-    return this.supervisor.status();
+    return primary.status();
   }
 
+  statusAll(): ReadonlyArray<{ family: string; status: IViteSupervisorStatus }> {
+    return [...this.supervisors.entries()].map(([family, s]) => ({
+      family,
+      status: s.status(),
+    }));
+  }
+
+  /**
+   * Démarre une instance Vite **par famille d'isolation** (multi-supervisor).
+   *
+   * Résilience : chaque famille démarre indépendamment (`Promise.allSettled`).
+   * Une famille qui échoue (ex. Angular) est isolée — elle ne fait jamais
+   * échouer les autres ni le backend. `startDev` ne rejette que si **aucune**
+   * famille n'a pu démarrer.
+   */
   async startDev(): Promise<void> {
     if (this.entries.length === 0) {
       throw new FrontendNoEntriesError();
     }
-    if (this.supervisor && this.supervisor.status().state === "ready") {
+    // Idempotence : si une instance tourne déjà, no-op.
+    if (
+      this.supervisors.size > 0 &&
+      [...this.supervisors.values()].some(
+        (s) => s.status().state === "ready",
+      )
+    ) {
       return;
     }
+
     const backendOrigin =
       `${this.cfg.backendProtocol}://${this.cfg.backendHost}:${this.cfg.backendPort}`;
-    // Si HTTPS demandé, récupère les certs Nodefony via DI (service `certificates`
-    // exposé par @nodefony/http). Pas de duplication — on partage les mêmes PEM
-    // que `server-https` (5152).
-    let https: { keyPath: string; certPath: string } | undefined;
-    if (this.cfg.https) {
-      const certs = this.container?.get?.("certificates") as
-        | { privateKeyPath?: string; certPath?: string }
-        | undefined;
-      if (!certs?.privateKeyPath || !certs?.certPath) {
-        this.log(
-          "https: true requested but `certificates` service unavailable — falling back to HTTP",
-          "WARNING",
-        );
-      } else {
-        https = { keyPath: certs.privateKeyPath, certPath: certs.certPath };
-      }
-    }
+    const https = this.resolveHttps();
     // Propage l'environnement Nodefony à Vite :
     //  - NODE_ENV = kernel.environment (lu par les plugins Vite via process.env)
     //  - extraEnv = config.viteEnv → variables VITE_* exposées au browser
     const nodeEnv = this.kernel?.environment;
     const extraEnv = (this.cfg.viteEnv ?? {}) as Record<string, string>;
+
+    const groups = this.groupEntriesByFamily();
+    // Plan de ports : un bloc disjoint par famille (`default` reste sur 5173).
+    const portPlan = familyPortPlan(
+      this.cfg.devPort,
+      [...groups.keys()],
+      this.cfg.resilience?.portRetryAttempts ?? 3,
+    );
+    const families = [...portPlan.keys()];
+
+    this.fire("frontend:starting", { backendOrigin, entries: this.entries });
+
+    const results = await Promise.allSettled(
+      families.map((family) =>
+        this.startFamily(family, groups.get(family)!, portPlan.get(family)!, {
+          backendOrigin,
+          https,
+          nodeEnv,
+          extraEnv,
+        }),
+      ),
+    );
+
+    results.forEach((res, i) => {
+      if (res.status === "rejected") {
+        const reason = res.reason as { message?: string } | undefined;
+        this.log(
+          `frontend family "${families[i]}" failed to start (isolated): ${reason?.message ?? reason}`,
+          "ERROR",
+        );
+      }
+    });
+
+    const ready = [...this.supervisors.values()].filter(
+      (s) => s.status().state === "ready",
+    );
+    if (ready.length === 0) {
+      const err = new FrontendSupervisorStartError(
+        "no frontend family could start",
+      );
+      this.fire("frontend:error", err);
+      throw err;
+    }
+    this.fire("frontend:ready", this.status());
+  }
+
+  /**
+   * Résout les certificats HTTPS partagés (service `certificates` de
+   * @nodefony/http) si `https: true`. Pas de duplication — mêmes PEM que
+   * `server-https` (5152). Retombe sur HTTP avec un warning si indisponible.
+   */
+  private resolveHttps(): { keyPath: string; certPath: string } | undefined {
+    if (!this.cfg.https) return undefined;
+    const certs = this.container?.get?.("certificates") as
+      | { privateKeyPath?: string; certPath?: string }
+      | undefined;
+    if (!certs?.privateKeyPath || !certs?.certPath) {
+      this.log(
+        "https: true requested but `certificates` service unavailable — falling back to HTTP",
+        "WARNING",
+      );
+      return undefined;
+    }
+    return { keyPath: certs.privateKeyPath, certPath: certs.certPath };
+  }
+
+  /** Regroupe les entries par famille d'isolation + remplit l'index inverse. */
+  private groupEntriesByFamily(): Map<string, IResolvedFrontendEntry[]> {
+    const groups = new Map<string, IResolvedFrontendEntry[]>();
+    this.entryFamily.clear();
+    for (const entry of this.entries) {
+      const family = isolationGroup(entry.type);
+      this.entryFamily.set(entry.entryName, family);
+      const arr = groups.get(family);
+      if (arr) arr.push(entry);
+      else groups.set(family, [entry]);
+    }
+    return groups;
+  }
+
+  /**
+   * Démarre l'instance Vite d'une famille sur un port dédié. Enregistre le
+   * supervisor + son template helper AVANT le `start()` (l'état dégradé reste
+   * observable même si le démarrage échoue → rendu propre, pas d'exception).
+   */
+  private async startFamily(
+    family: string,
+    entries: ReadonlyArray<IResolvedFrontendEntry>,
+    port: number,
+    ctx: {
+      backendOrigin: string;
+      https: { keyPath: string; certPath: string } | undefined;
+      nodeEnv: string | undefined;
+      extraEnv: Record<string, string>;
+    },
+  ): Promise<void> {
     const r = this.cfg.resilience ?? {};
     const supervisor = new ViteProcessSupervisor({
       devHost: this.cfg.devHost,
-      devPort: this.cfg.devPort,
+      devPort: port,
       startupTimeoutMs: this.cfg.startupTimeoutMs,
       pipeLogs: this.cfg.pipeViteLogs,
-      cwd: this.entries[0]!.root,
-      backendOrigin,
-      https,
-      nodeEnv,
-      extraEnv,
+      cwd: entries[0]!.root,
+      backendOrigin: ctx.backendOrigin,
+      https: ctx.https,
+      nodeEnv: ctx.nodeEnv,
+      extraEnv: ctx.extraEnv,
       autoRestart: r.autoRestart,
       maxRestarts: r.maxRestarts,
       restartBackoffBaseMs: r.restartBackoffBaseMs,
@@ -209,37 +324,34 @@ class FrontendService extends Service implements IFrontendService {
       healthCheckTimeoutMs: r.healthCheckTimeoutMs,
       portRetryAttempts: r.portRetryAttempts,
       logger: {
-        info: (m) => this.log(m, "INFO"),
-        error: (m) => this.log(m, "ERROR"),
-        debug: (m) => this.log(m, "DEBUG"),
+        info: (m) => this.log(`[${family}] ${m}`, "INFO"),
+        error: (m) => this.log(`[${family}] ${m}`, "ERROR"),
+        debug: (m) => this.log(`[${family}] ${m}`, "DEBUG"),
       },
     });
-    this.supervisor = supervisor;
-    this.templateHelper = new TemplateHelper(supervisor, "development");
-
-    this.fire("frontend:starting", { backendOrigin, entries: this.entries });
+    this.supervisors.set(family, supervisor);
+    this.templateHelpers.set(family, new TemplateHelper(supervisor, "development"));
 
     // Le builder n'est pas utilisé en dev (config générée par le generator),
     // mais on passe la config (vide) pour respecter le contrat.
-    const cfg = await this.builder.buildViteConfig(this.entries, "development");
-    try {
-      await supervisor.start(this.entries, cfg);
-    } catch (e) {
-      this.fire("frontend:error", e);
-      throw e;
-    }
+    const cfg = await this.builder.buildViteConfig([...entries], "development");
+    await supervisor.start(entries, cfg);
     this.log(
-      `vite dev server ready on ${supervisor.status().host}:${supervisor.status().port}`,
+      `vite [${family}] ready on ${supervisor.status().host}:${supervisor.status().port}`,
       "INFO",
     );
-    this.fire("frontend:ready", supervisor.status());
   }
 
   async stopDev(): Promise<void> {
-    if (!this.supervisor) return;
-    await this.supervisor.stop();
-    this.supervisor = null;
-    this.templateHelper = null;
+    if (this.supervisors.size === 0) return;
+    // allSettled : une instance qui throw au stop n'empêche pas de tuer les
+    // autres (chaque supervisor fait SIGINT → SIGKILL timeout, 0 orphelin).
+    await Promise.allSettled(
+      [...this.supervisors.values()].map((s) => s.stop()),
+    );
+    this.supervisors.clear();
+    this.templateHelpers.clear();
+    this.entryFamily.clear();
     this.fire("frontend:stopped");
   }
 
@@ -255,10 +367,12 @@ class FrontendService extends Service implements IFrontendService {
   }
 
   renderTags(entryName: string): string {
-    if (!this.templateHelper) {
-      return `<!-- @nodefony/frontend: helper not initialized (supervisor not started) -->`;
+    const family = this.entryFamily.get(entryName);
+    const helper = family ? this.templateHelpers.get(family) : undefined;
+    if (!helper) {
+      return `<!-- @nodefony/frontend: helper not initialized for "${entryName}" -->`;
     }
-    return this.templateHelper.renderTags(entryName);
+    return helper.renderTags(entryName);
   }
 
   /**
@@ -275,23 +389,44 @@ class FrontendService extends Service implements IFrontendService {
   getCspDirectives(): string {
     const scheme = this.cfg.https ? "https" : "http";
     const wsScheme = this.cfg.https ? "wss" : "ws";
-    const origin = `${this.cfg.devHost}:${this.cfg.devPort}`;
+    // Multi-instance : autorise TOUTES les origines Vite actives (une par
+    // famille, ports distincts). Sans ça, la page d'une famille servie depuis
+    // un autre port que 5173 (ex. Angular sur 5177) serait bloquée par la CSP.
+    const origins = this.viteOrigins();
+    const httpSrc = origins.map((o) => `${scheme}://${o}`).join(" ");
+    const wsSrc = origins.map((o) => `${wsScheme}://${o}`).join(" ");
     return [
       "default-src 'self'",
       // 'unsafe-inline' requis pour le preamble React Fast Refresh inliné par
       // TemplateHelper (HMR @vitejs/plugin-react). À retirer en prod — le bundle
       // production n'a pas besoin de scripts inline.
-      `script-src 'self' 'unsafe-inline' ${scheme}://${origin}`,
+      `script-src 'self' 'unsafe-inline' ${httpSrc}`,
       // worker-src : certains modules (Vite, libs) créent un Worker depuis un
       // `blob:` → sans directive dédiée, le browser retombe sur script-src qui
       // n'autorise pas `blob:` → worker bloqué. Dev only.
       "worker-src 'self' blob:",
-      `style-src 'self' 'unsafe-inline' ${scheme}://${origin}`,
-      `img-src 'self' data: blob: ${scheme}://${origin}`,
-      `font-src 'self' data: ${scheme}://${origin}`,
-      `connect-src 'self' blob: data: ${scheme}://${origin} ${wsScheme}://${origin}`,
+      `style-src 'self' 'unsafe-inline' ${httpSrc}`,
+      `img-src 'self' data: blob: ${httpSrc}`,
+      `font-src 'self' data: ${httpSrc}`,
+      `connect-src 'self' blob: data: ${httpSrc} ${wsSrc}`,
       "object-src 'none'",
     ].join("; ");
+  }
+
+  /**
+   * Origines (`host:port`) de toutes les instances Vite actives, dédupliquées.
+   * Retombe sur l'origine de base si aucune instance n'a encore résolu son port.
+   */
+  private viteOrigins(): string[] {
+    const set = new Set<string>();
+    for (const s of this.supervisors.values()) {
+      const st = s.status();
+      if (st.port) set.add(`${st.host}:${st.port}`);
+    }
+    if (set.size === 0) {
+      set.add(`${this.cfg.devHost}:${this.cfg.devPort}`);
+    }
+    return [...set];
   }
 }
 

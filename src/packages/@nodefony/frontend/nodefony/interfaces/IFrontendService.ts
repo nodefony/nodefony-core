@@ -13,8 +13,16 @@ import type { IViteSupervisorStatus } from "./IViteSupervisor";
 export interface IFrontendService {
   /** Entrées front résolues (snapshot lecture). */
   listEntries(): ReadonlyArray<IResolvedFrontendEntry>;
-  /** État du superviseur, pour template helper + Vision. */
+  /**
+   * État de l'instance Vite primaire (`default`), pour compat. En multi-instance,
+   * préférer `statusAll()` pour voir chaque famille.
+   */
   status(): IViteSupervisorStatus;
+  /**
+   * État de **chaque** instance Vite, étiqueté par famille d'isolation
+   * (`default`, `angular`, …). Vide tant qu'aucune instance n'est démarrée.
+   */
+  statusAll(): ReadonlyArray<{ family: string; status: IViteSupervisorStatus }>;
   /** Lance le dev server (idempotent — premier appel boot). */
   startDev(): Promise<void>;
   /** Stoppe proprement le superviseur. */
