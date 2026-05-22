@@ -34,7 +34,7 @@ import {
   type SyslogPayload,
 } from "./model";
 import { formatBytes, formatUptime, gauge, sparklinePoints } from "./format";
-import { connectViteHmr, type HmrEvent } from "./hmr";
+import { observeViteHmr, type HmrEvent } from "./hmr";
 import { installNetworkInterceptor, type NetEntry } from "./network";
 import {
   NetworkModel,
@@ -90,8 +90,6 @@ export interface DebugBarFrontend {
   name?: string;
   /** Origine du serveur Vite (ex. `https://127.0.0.1:5173`). */
   viteOrigin?: string;
-  /** WS HMR Vite à observer (ex. `wss://127.0.0.1:5173/`). */
-  hmrUrl?: string;
 }
 
 export interface DebugBarOptions {
@@ -420,7 +418,7 @@ export class DebugBar {
   private rtRate = 0;
   private rtPeak = 0;
   private readonly rtSeries: number[] = [];
-  // Pouls HMR Vite — observé via la sonde `connectViteHmr`.
+  // Pouls HMR Vite — observé via `observeViteHmr` (window CustomEvent, 0 socket).
   private viteConnected = false;
   private hmrCount = 0;
   private hmrPrev = 0;
@@ -899,9 +897,10 @@ export class DebugBar {
   // ── HMR Vite ──────────────────────────────────────────────────────────
 
   private wireHmr(): void {
-    const url = this.frontend?.hmrUrl;
-    if (!url) return;
-    const dispose = connectViteHmr(url, (e) => this.onHmr(e));
+    // Observe le HMR via l'événement window `nodefony:hmr` (pont createHotContext
+    // injecté côté page) — AUCUNE connexion WebSocket ouverte (≠ ancienne sonde).
+    if (!this.frontend) return;
+    const dispose = observeViteHmr((e) => this.onHmr(e));
     this.disposers.push(dispose);
   }
 

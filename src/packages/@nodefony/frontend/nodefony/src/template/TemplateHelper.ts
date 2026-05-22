@@ -76,13 +76,45 @@ window.__vite_plugin_react_preamble_installed__ = true;
     }
     tags.push(`<script type="module" src="${baseUrl}/@vite/client"></script>`);
     tags.push(`<script type="module" src="${entryUrl}"></script>`);
+    // Pont HMR : relaie les hot-updates Vite vers un CustomEvent `window` que la
+    // debug bar observe. Branché sur `createHotContext` (réutilise le client
+    // `@vite/client` DÉJÀ chargé) → AUCUNE connexion WebSocket supplémentaire
+    // (≠ ancienne sonde qui ouvrait un 2ᵉ client `vite-hmr` en boucle).
+    tags.push(this.hmrBridgeTag(baseUrl));
     // Debug bar Nodefony (dev only, auto) — vitrine realtime + HMR fusionnés au
     // runtime. Le script est servi depuis le build navigateur du Core via Vite
-    // (`/@fs/<abs>`) ; on lui injecte le framework + l'origine + le WS HMR Vite.
-    const hmrUrl = `${status.https ? "wss" : "ws"}://${status.host}:${status.port}/`;
-    const dbg = this.debugBarTag(baseUrl, entry.type, entryName, hmrUrl);
+    // (`/@fs/<abs>`) ; on lui injecte le framework + l'origine.
+    const dbg = this.debugBarTag(baseUrl, entry.type, entryName);
     if (dbg) tags.push(dbg);
     return tags.join("\n");
+  }
+
+  /**
+   * Pont HMR sans socket : relaie les événements globaux de Vite
+   * (`vite:afterUpdate`, etc.) vers un `CustomEvent` `nodefony:hmr` sur `window`,
+   * que la debug bar écoute. `createHotContext` réutilise le client HMR déjà
+   * ouvert par `@vite/client` — zéro connexion ajoutée. Tolérant aux versions
+   * (try/catch) : si l'export change, le compteur HMR reste à 0 sans casser la page.
+   */
+  private hmrBridgeTag(baseUrl: string): string {
+    return `<script type="module">
+try {
+  const { createHotContext } = await import("${baseUrl}/@vite/client");
+  const h = createHotContext("/@nodefony-debugbar-hmr");
+  const fire = (kind, path) =>
+    window.dispatchEvent(new CustomEvent("nodefony:hmr", { detail: { kind, path } }));
+  fire("connected");
+  h.on("vite:afterUpdate", (p) => {
+    const ups = (p && p.updates) || [];
+    if (ups.length) ups.forEach((u) => fire("update", u.acceptedPath || u.path));
+    else fire("update");
+  });
+  h.on("vite:beforeFullReload", () => fire("full-reload"));
+  h.on("vite:error", () => fire("error"));
+} catch (e) {
+  /* pont HMR indisponible — compteur debug bar à 0, page intacte */
+}
+</script>`;
   }
 
   /**
@@ -94,7 +126,6 @@ window.__vite_plugin_react_preamble_installed__ = true;
     baseUrl: string,
     framework: string,
     entryName: string,
-    hmrUrl: string,
   ): string {
     if (debugbarFile === undefined) {
       try {
@@ -107,7 +138,7 @@ window.__vite_plugin_react_preamble_installed__ = true;
     const norm = debugbarFile.replace(/\\/g, "/");
     const fsUrl = `${baseUrl}${norm.startsWith("/") ? `/@fs${norm}` : `/@fs/${norm}`}`;
     const opts = JSON.stringify({
-      frontend: { framework, name: entryName, viteOrigin: baseUrl, hmrUrl },
+      frontend: { framework, name: entryName, viteOrigin: baseUrl },
     });
     return `<script type="module">
 import { mountDebugBar } from ${JSON.stringify(fsUrl)};

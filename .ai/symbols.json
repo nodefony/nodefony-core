@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-22T00:57:19.438Z",
+  "generated": "2026-05-22T01:08:22.799Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 295,
-    "symbols": 741,
+    "symbols": 740,
     "classes": 206,
-    "interfaces": 253,
+    "interfaces": 251,
     "types": 144,
     "enums": 1,
     "functions": 118,
-    "constants": 19
+    "constants": 20
   },
   "symbols": {
     "Cli": {
@@ -1087,15 +1087,23 @@
       "file": "src/nodefony/src/client/debugbar/hmr.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Sonde HMR Vite — se branche en **2ᵉ client** sur le WebSocket HMR du serveur de dev Vite (sous-protocole `vite-hmr`) pour OBSERVER les hot-updates en live. But (psychologie produit) : montrer que l…"
+      "description": "Observation des hot-updates Vite **sans ouvrir de WebSocket**. Historique : cette sonde ouvrait jadis un **2ᵉ client** WebSocket `vite-hmr` sur le serveur HMR de Vite. Ce client passif (il ne renvo…"
     },
-    "connectViteHmr": {
-      "name": "connectViteHmr",
+    "observeViteHmr": {
+      "name": "observeViteHmr",
       "kind": "function",
       "file": "src/nodefony/src/client/debugbar/hmr.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Ouvre un WS HMR vers `url` et appelle `onEvent` à chaque message Vite. Reconnexion best-effort (1,5 s). No-op hors navigateur."
+      "description": "Observe les hot-updates Vite via l'événement `window` `nodefony:hmr`. Aucune connexion réseau ouverte. No-op hors navigateur."
+    },
+    "HMR_EVENT": {
+      "name": "HMR_EVENT",
+      "kind": "const",
+      "file": "src/nodefony/src/client/debugbar/hmr.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom de l'événement DOM émis par le pont HMR côté page."
     },
     "mountDebugBar": {
       "name": "mountDebugBar",
@@ -7081,7 +7089,7 @@
       "sparklinePoints": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
-      "connectViteHmr": [
+      "observeViteHmr": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
       "HmrEvent": [
