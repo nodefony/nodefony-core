@@ -4,28 +4,29 @@ Bugs structurels. Triés par criticité.
 
 ## État (2026-05-20)
 
-| Bug | Sujet | Statut |
-|-----|-------|--------|
-| BUG-001 | ALS WS messages hors bulle | ✅ RÉSOLU |
-| BUG-002 | ALS perdu dans `onAfterResponse` | ✅ RÉSOLU |
-| BUG-003 | Leak scope DI sur erreur WS avant `connect()` | ✅ RÉSOLU |
+| Bug     | Sujet                                                    | Statut    |
+| ------- | -------------------------------------------------------- | --------- |
+| BUG-001 | ALS WS messages hors bulle                               | ✅ RÉSOLU |
+| BUG-002 | ALS perdu dans `onAfterResponse`                         | ✅ RÉSOLU |
+| BUG-003 | Leak scope DI sur erreur WS avant `connect()`            | ✅ RÉSOLU |
 | BUG-004 | Leak scope DI sur WS **avec session** fermé au handshake | ✅ RÉSOLU |
 
 ## Audit exhaustif listeners EventEmitter @nodefony/http (2026-05-20)
 
 43 listeners scannés (grep `.on()/.once()/prependOnceListener` sur tout le module hors tests/commentés) :
 
-| Catégorie | # | Statut |
-|-----------|---|--------|
-| Boot/teardown kernel | 10 | ✅ OK (hors request scope attendu) |
-| Server-level (request/connection/error) | 11 | ✅ OK (eux ouvrent la bulle ALS) |
-| **BUGS confirmés** (BUG-001 + BUG-002, ✅ corrigés) | **5** | ✅ Résolus — voir ci-dessous |
-| DANS request scope, handlers triviaux | 7 | ⚠️ Surveillance (voir tableau dans mémoire `project_als_ws_bug`) |
-| Code commenté | 5 | — Skip |
+| Catégorie                                           | #     | Statut                                                           |
+| --------------------------------------------------- | ----- | ---------------------------------------------------------------- |
+| Boot/teardown kernel                                | 10    | ✅ OK (hors request scope attendu)                               |
+| Server-level (request/connection/error)             | 11    | ✅ OK (eux ouvrent la bulle ALS)                                 |
+| **BUGS confirmés** (BUG-001 + BUG-002, ✅ corrigés) | **5** | ✅ Résolus — voir ci-dessous                                     |
+| DANS request scope, handlers triviaux               | 7     | ⚠️ Surveillance (voir tableau dans mémoire `project_als_ws_bug`) |
+| Code commenté                                       | 5     | — Skip                                                           |
 
 **Conclusion audit (révisée 2026-05-20)** : l'audit listeners ne couvrait QUE la propagation ALS. Un audit du **cycle de vie des scopes DI** (déclenché par une question sur les chemins throw/erreur) a révélé 2 leaks de scope supplémentaires : BUG-003 (WS erreur avant `connect()`, ✅ corrigé) et BUG-004 (WS avec session fermé au handshake, ✅ corrigé). **Au 2026-05-20 : les 4 bugs sont résolus, aucun bug ouvert.** Les 7 listeners catégorie D (Request.ts:93, parser.ts:13, Request.ts:126, http-kernel.ts:269, http-kernel.ts:757, Context.ts:305, HttpContext.ts:132) ont des handlers qui ne lisent PAS l'ALS aujourd'hui — pas de fuite de contexte actuelle, mais si on les étend, appliquer `AsyncResource.bind` au moment du bind.
 
 **Vérifications externes restantes** :
+
 - Pas de `stream.on()/session.on()` HTTP/2 dans le module → OK en l'état
 - SSE dans Studio (`rawRes.on("close")` mentionné dans `feedback_sse_http2_request_close`) — à auditer quand Studio scopé sécurité (P10.x)
 
@@ -52,10 +53,13 @@ suivants.
 **`src/packages/@nodefony/http/nodefony/service/http-kernel.ts:807-847`** :
 
 ```ts
-return await RequestContext.run({ requestId, scheme, traceparent }, async () => {
-  await this.onConnect(context, error);
-  // firewall + context.handle() exécutés ICI dans la bulle ALS
-});
+return await RequestContext.run(
+  { requestId, scheme, traceparent },
+  async () => {
+    await this.onConnect(context, error);
+    // firewall + context.handle() exécutés ICI dans la bulle ALS
+  },
+);
 // ← La bulle se ferme ici quand le await termine
 ```
 
@@ -98,7 +102,10 @@ this.connection.on("message", this.handleMessage.bind(this));
 // APRÈS (FIX)
 import { AsyncResource } from "node:async_hooks";
 this.connection.on("close", AsyncResource.bind(this.onClose.bind(this)));
-this.connection.on("message", AsyncResource.bind(this.handleMessage.bind(this)));
+this.connection.on(
+  "message",
+  AsyncResource.bind(this.handleMessage.bind(this)),
+);
 ```
 
 `AsyncResource.bind` capture le store actif au moment du `bind` (DANS la bulle ALS du handshake)
@@ -129,11 +136,14 @@ Créer `nodefony/tests/integration/request-context-ws.test.ts` :
 ```ts
 // Controller WS exposant un endpoint qui retourne RequestContext.getRequestId()
 // à chaque message reçu, pour validation cross-message
-@RealtimeController('/ws/als-test')
+@RealtimeController("/ws/als-test")
 class AlsTestWsController {
-  @RealtimeEvent('echo-request-id')
+  @RealtimeEvent("echo-request-id")
   echo() {
-    return { requestId: RequestContext.getRequestId(), user: RequestContext.getUser() };
+    return {
+      requestId: RequestContext.getRequestId(),
+      user: RequestContext.getUser(),
+    };
   }
 }
 ```
@@ -210,9 +220,9 @@ problème : l'event `onFinish` fire hors de la bulle ALS du handshake.
 // Tout pattern @AuditLog ferait :
 context.onAfterResponse((ctx) => {
   audit.log({
-    user: RequestContext.getUser(),          // ❌ undefined
+    user: RequestContext.getUser(), // ❌ undefined
     requestId: RequestContext.getRequestId(), // ❌ undefined
-    traceparent: RequestContext.get('traceparent'), // ❌ undefined
+    traceparent: RequestContext.get("traceparent"), // ❌ undefined
     statusCode: ctx.response.statusCode,
     durationMs: Date.now() - ctx.startTime,
   });
@@ -225,6 +235,7 @@ reste du framework. Pour `user` post-auth, il faudrait `ctx.user` — pas encore
 ### Aucun test ne couvre ça
 
 `nodefony/tests/integration/after-response.test.ts` — 5 tests qui vérifient :
+
 - Hook fire après 200
 - Hook fire UNE seule fois (dedup finish vs close)
 - Plusieurs requêtes successives
@@ -269,6 +280,7 @@ onAfterResponse(fn: AfterResponseHandler): void {
 ```
 
 **Avantage Option B (registration-time bind)** vs Option A (refactor kernel) :
+
 - Localisation chirurgicale dans `Context.ts`, pas de touche au kernel
 - Couvre automatiquement futurs hooks similaires (`onAfterAuth`, `onPreShutdown`, etc.)
 - Compatibilité parfaite : `AsyncResource.bind(fn)` est transparent côté API user
@@ -362,9 +374,19 @@ Le handler `context.once("onFinish")` (`http-kernel.ts:741-768`) :
 
 ```ts
 if (context.session) {
-  if (context.session.saved) { leaveScope; clean; }
-  else { context.once("onSaveSession", () => { leaveScope; clean; }); }  // ← peut rater l'event
-} else { leaveScope; clean; }
+  if (context.session.saved) {
+    leaveScope;
+    clean;
+  } else {
+    context.once("onSaveSession", () => {
+      leaveScope;
+      clean;
+    });
+  } // ← peut rater l'event
+} else {
+  leaveScope;
+  clean;
+}
 ```
 
 Pour un WS qui crée une session (`initialize()` → `startSession()`) et se ferme **autour du
@@ -390,8 +412,11 @@ Instrumentation `onFinish` (3 connexions) : `session=true saved=false` → `regi
 
 ```ts
 if (context.session && !context.session.saved) {
-  try { await context.saveSession(); }
-  catch (e) { this.log(e, "ERROR", "WS onFinish saveSession"); }
+  try {
+    await context.saveSession();
+  } catch (e) {
+    this.log(e, "ERROR", "WS onFinish saveSession");
+  }
 }
 this.container?.leaveScope(wscontext.container);
 context.clean();
@@ -411,3 +436,80 @@ Préserve l'intention "persister avant teardown" sans dépendre de l'ordre d'ém
 - Code : `http-kernel.ts:741-768` (onFinish WS), `session.ts:557-579` (`save` + `fireAsync("onSaveSession")`),
   `sessions-service.ts:248-258` (`saveSession`)
 - Mémoire : `project_als_ws_bug.md` (section cycle de vie)
+
+---
+
+## BUG-CI-001 — `nodefony production --no-daemon` termine au boot (CI uniquement)
+
+**Découvert** : 2026-05-22 · **Statut** : OUVERT (diag en place, commit `6a4b26c` — à retirer après fix).
+**Job** : `test-integration` (Node 22 + 24), step « Start Nodefony server ».
+
+### Symptôme
+
+Le serveur affiche le banner puis `KERNEL : terminate : 0`, **aucun** « Server Listen on ».
+Le poll CI détecte « terminate : » → « Serveur a crashé au démarrage » → exit 1.
+
+### Reproductibilité
+
+**CI uniquement** (runners Ubuntu). NON reproductible en local :
+
+- `node bin production --no-daemon` → 6 Server Listen ✓
+- `CI=true node bin production --no-daemon` → 6 Server Listen ✓
+- certs absents en local aussi (écarté) ; `isTrunk` OK (écarté).
+
+### DIAG (run 26297729004, log serveur artefact)
+
+```
+[CI-DIAG] terminate code=0 cmd=production kEvent=onPostReady progress=1 trunk=typescript started=false booted=false CHILD=
+Error: [CI-DIAG] terminate appelé depuis
+  at Kernel.terminate (dist/node/kernel/Kernel.js:915:18)
+  at dist/node/kernel/CliKernel.js:155:48
+```
+
+### Analyse
+
+- terminate appelé depuis **`CliKernel.js:155`** (PAS le flow `Kernel.start()`).
+- `progress=1` (onInit seul), `started=false`, `booted=false` → **avant le boot**.
+- `cmd=production`, `kEvent=onPostReady`, `trunk=typescript` → commande correcte, isTrunk OK.
+- → Ni isTrunk, ni setCommandComplete, ni certs. C'est **CliKernel** qui sort le process
+  tôt après le parse de commande, dans un chemin spécifique à l'environnement CI.
+
+### Prochaine étape
+
+- Mapper `dist/node/kernel/CliKernel.js:155` → ligne source `CliKernel.ts` (flow `runCommand`/`parseCommand`/`start`).
+- Comprendre pourquoi `terminate(0)` est appelé là EN CI et pas en local
+  (TTY absent ? option `-i` interactive ? Promise du parse qui résout en exit sans TTY ?).
+- Retirer le diag `[CI-DIAG]` (commit `6a4b26c`) après correction.
+
+---
+
+## BUG-CI-002 — test-unit rouge résiduel sur Node 22 + Windows
+
+**Découvert** : 2026-05-22 · **Statut** : OUVERT. **Job** : `test-unit`.
+
+### Contexte
+
+Le fix perf-skip (commit `05ce331`, root hook mocha qui skip les tests « < N ms » en CI)
+a réglé Node 24 sur macos + ubuntu (✓). Restent **rouges** : **Node 22 (tous OS) + Windows (tous Node)**.
+
+### Erreur visible (ubuntu Node 22)
+
+```
+Target signature provides too few arguments. Expected 2 or more, but got 1.
+```
+
+(erreur TS au build rollup) + warnings `TS2307 Cannot find module 'nodefony'` sur redis (pré-existants, à part).
+
+### Prochaine étape
+
+- Reproduire sous **Node 22** en local (`nvm use 22 && npm test`) pour isoler le workspace/test qui casse.
+- Vérifier : comportement TS/Node 22 vs 24/26, test vitest spécifique, ou bun (`@nodefony/llm`).
+- Windows : tester séparément (chemins, EOL, group-kill non POSIX du DevSupervisor).
+
+### Acquis de la session 2026-05-22 (CI partiellement réparée)
+
+- ✅ **Build 6/6** — fix TS18036 (`static #storages` → `private static`, commit `5b787dd`) qui bloquait
+  TOUT le pipeline (le `tsc --noEmit` rejetait ce que rollup ne faisait qu'avertir).
+- ✅ test-unit Node 24 macos + ubuntu (fix perf-skip).
+- ❌ test-unit Node 22 + Windows → **BUG-CI-002**.
+- ❌ test-integration → **BUG-CI-001**.
