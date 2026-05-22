@@ -166,6 +166,60 @@ isomorphe, **vanilla TS + Shadow DOM** — **AUCUN React/Mantine/JSX, AUCUN UI k
   les `.tsx` (plugin React) peuvent importer le subpath.
 - **Dev-only / opt-in strict** : jamais en prod (perf + fuite d'info). Réf : mémoire `project_studio_debugbar`.
 
+## Back-end Studio (controller + data plane + auth/mock + realtime)
+
+Studio a un **back-end Nodefony** (≠ front React). Fichiers : `nodefony/controller/StudioController.ts`
+(pages UI + mock auth + data plane studio), `nodefony/controller/StudioRealtimeController.ts`
+(WS JSON-RPC), `nodefony/realtime/providers.ts` (providers de canaux). Tout est du **TS serveur**
+(`Controller` de `@nodefony/framework`, `Context` de `@nodefony/http`) — la frontière isomorphe
+ne s'applique PAS ici (c'est le serveur), mais la **règle perf/mémoire Core** oui.
+
+**Partition du namespace `/nodefony` (FIGÉE — cf studio/CLAUDE.md)** :
+- UI SPA (humain) = **mono-segment** `/nodefony` + `/nodefony/{page}`, portée par Studio.
+- Data plane (machine) = `/nodefony/<module>/api/*` (**≥3 segments**, marqueur `/api/`), porté par
+  CHAQUE module (vit dans le module propriétaire : kernel/framework/http…, PAS dans Studio).
+- Règle : un module n'expose JAMAIS une route admin mono-segment `/nodefony/<module>`. Toujours `/api/*`.
+
+**Ajouter un endpoint data plane** (dans le module propriétaire, pas Studio si possible) :
+```ts
+// @controller("/nodefony") dans le module ; renvoyer du JSON
+@Get("/<module>/api/things")
+listThings(@Query("limit") limit?: string) {
+  return this.renderJson({ things: [...] });   // jamais de couplage à la vue
+}
+```
+Le front consomme via `store.api.getAbsolute<T>("/nodefony/<module>/api/things")`.
+
+**Lire la requête — décorateurs, PAS `this.context.body`** :
+- `@Body() body: T` (corps parsé), `@Param("x")`, `@Query("x")`, `@Header("x")`.
+  ⚠️ **`this.context.body` est vide/non parsé** → un POST lu ainsi tombe sur le défaut silencieusement
+  (bug vécu : mock login renvoyait toujours `admin`). Toujours `@Body()`.
+- En-têtes bruts (ex. `Authorization`) : `this.context.request.headers.authorization` (clé **minuscule**,
+  Node lowercase ; peut être `string | string[]`).
+- Réponses : `this.renderJson(obj)` (API), `this.setContextHtml()` + `this.render(html)` (page).
+
+**Sécurité back Studio (Zero Trust, priorité max)** :
+- Toute API admin EXIGE un rôle (`ROLE_NODEFONY_ADMIN`) → **403** sinon (P6 ; aujourd'hui mock).
+- Rôles dérivés **côté serveur**, jamais lus tels quels du token client (même en mock).
+- Endpoints qui EXÉCUTENT (run tests, scaffold) → **DEV-ONLY** : 403 hors `development`.
+- Secrets/credentials **redactés côté serveur** avant `renderJson` ; jamais en clair, jamais loggés.
+- Mock auth (`/auth/login|me|logout`) = POC ; ne rien bâtir de sûr dessus (→ firewall P6).
+
+**Realtime serveur (push WS)** : providers transport-agnostiques (`createXxx(publish)`), `dispose()`
+garanti au `unsubscribe` ET `ctx.once("onFinish")`. ⚠️ Après le handshake `ctx.send()` **rejette**
+(`requestEnded=true`) → pousser sur la **connexion brute** `ctx.connection.send(str, cb)` (garde
+`readyState===1`). **SSE** : écouter `rawRes.once("close")` (RESPONSE), jamais `request.on("close")`
+(fire trop tôt en HTTP/2).
+
+**Cycle de build (≠ front !)** :
+- Modif **front** (`frontend/src/**`) → **HMR Vite, 0 restart**.
+- Modif **back** Studio (`nodefony/**` : controller, providers, config) → `cd src/packages/@nodefony/studio
+  && npm run build` (**rollup**, pas Vite) **puis** restart serveur (`start.sh`).
+- Modif **core** ou **nouveau subpath `nodefony/*`** → build core (`cd src/nodefony && npm run build`)
+  **puis** restart (Vite ré-optimise les deps au boot ; un subpath neuf n'est pas résolu à chaud).
+- Vérif back sans navigateur : **curl le data plane** (`curl -sk https://127.0.0.1:5152/nodefony/<m>/api/...`)
+  + curl le transform Vite (`https://127.0.0.1:5173/@fs/<abs>.tsx`) pour valider la résolution d'un subpath.
+
 ## Décision rapide (quel outil)
 
 | Besoin | Outil | NE PAS |
@@ -287,10 +341,33 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 **Archi / collisions**
 - Collision de nom (`StatCard` local d'une page vs kit) → renommer le local (ex `OverviewStat`).
 - SPA fallback générique masque les routes d'autres modules → fallback **littéral** par deep-link.
+- Routes dashboards = **mono-segment** (`/nodefony/dev`, `/nodefony/supervision`) → couvertes par le
+  fallback SPA existant, **0 ajout backend**. (≥2 segments = fallback littéral à ajouter au controller.)
+
+**Back-end (controller / data plane)** — section dédiée ci-dessus
+- 🔑 **`this.context.body` est VIDE** : un POST lu ainsi tombe sur le défaut en silence (mock login
+  renvoyait toujours `admin`, jamais le username envoyé). → décorateur **`@Body()`** (+ `@Param/@Query/@Header`).
+- En-tête `Authorization` côté controller : `this.context.request.headers.authorization` (clé minuscule).
+- Rôles dérivés **côté serveur** depuis le username du token (le client ne dicte pas ses rôles, même en mock).
+- Modif controller Studio → `npm run build` (rollup) **+ restart** ; n'est PAS du HMR.
+
+**Rôles / autorisation (nouveau — `nodefony/roles`)**
+- Mécanisme rôles = subpath Core **isomorphe** `nodefony/roles` (front Studio + serveur P6) : `hasRole`,
+  `hasAnyRole`, `hasAllRoles` (purs, 0 alloc), `RoleSet` (O(1) répété), `RoleRegistry` (bitmask, set fixe).
+  Les NOMS de rôles (`ROLE_DEV`…) sont **applicatifs** → définis côté Studio (`frontend/src/auth/dashboards.ts`
+  + mirroir mock backend), JAMAIS dans le core (mécanisme ≠ politique).
+- Gating front (nav filtrée par `roles`, `RoleGuard` → 403) = **affichage seulement**, PAS de la sécu :
+  l'enforcement réel (403 serveur par rôle) = P6. Ne jamais mettre de donnée sensible derrière un guard front.
+- Dashboard par rôle : registre `DASHBOARDS` (role→path/label/icon) pilote nav + `RoleGuard` + `homePath`
+  (redirection d'accueil = 1er dashboard autorisé). Multi-rôles ⇒ plusieurs entrées de nav.
+- ⚠️ Bitmask JS = **32 bits signés** → cap 31 rôles (`ROLE_MASK_CAPACITY`) ; au-delà → strings/BigInt.
+  Inadapté aux rôles DYNAMIQUES (DB) : pas de bit fixe.
 
 **Sécu (dette notée)**
 - JWT en `localStorage` (XSS) → migrer cookie HttpOnly Secure SameSite=Strict (P6) ; `ApiClient`
   cast `as T` sans validation runtime → Zod (différé).
+- Mock auth multi-rôles (`mockRolesFor`) = POC ; rôles applicatifs dupliqués front/back (commentaire
+  d'alignement) → P6 fera la source de vérité serveur unique.
 
 ## Fin de session Studio (OBLIGATOIRE)
 

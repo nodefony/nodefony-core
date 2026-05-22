@@ -39,6 +39,8 @@ export { default as FileResult } from "./finder/FileResult";
 
 // ─── Services ─────────────────────────────────────────────────────────────────
 export { default as Fetch } from "./service/fetchService";
+export { default as GitService } from "./service/gitService";
+export type { GitInfo } from "./service/gitService";
 export { default as Injector } from "./kernel/injector/injector";
 
 // ─── Runtime (P1.4 — AsyncLocalStorage) ───────────────────────────────────────

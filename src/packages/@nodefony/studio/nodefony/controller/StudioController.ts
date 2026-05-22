@@ -1,7 +1,37 @@
 /// <reference types="node" />
-import { Controller, Get, Post, controller } from "@nodefony/framework";
+import { Controller, Get, Post, Body, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
+
+/**
+ * Rôles applicatifs Studio (MOCK). ⚠️ Doivent rester alignés avec
+ * `frontend/src/auth/dashboards.ts` — la source de vérité passera à
+ * @nodefony/security (P6, firewall + voters).
+ */
+const ROLE_NODEFONY_ADMIN = "ROLE_NODEFONY_ADMIN";
+const ROLE_DEV = "ROLE_DEV";
+const ROLE_SUPERVISOR = "ROLE_SUPERVISOR";
+
+/** Préfixe du token mock : porte le username (relu par /auth/me au reload). */
+const MOCK_TOKEN_PREFIX = "mock-jwt.";
+
+/**
+ * Mappe un username mock → ses rôles, pour exercer le routage par rôle SANS le
+ * firewall P6 : `dev` → dashboard dev, `supervisor` → supervision, tout autre
+ * compte (dont `admin`) → les deux. Rôles dérivés **côté serveur** (le token ne
+ * porte que le username) — aucune confiance au client, même en mock.
+ */
+function mockRolesFor(username: string): string[] {
+  switch (username.trim().toLowerCase()) {
+    case "dev":
+      return [ROLE_NODEFONY_ADMIN, ROLE_DEV];
+    case "sup":
+    case "supervisor":
+      return [ROLE_NODEFONY_ADMIN, ROLE_SUPERVISOR];
+    default:
+      return [ROLE_NODEFONY_ADMIN, ROLE_DEV, ROLE_SUPERVISOR];
+  }
+}
 
 /**
  * Controller Studio admin.
@@ -115,15 +145,14 @@ class StudioController extends Controller {
    * Sera remplacé par P6 (@nodefony/security firewall + AuthBridge).
    */
   @Post("/studio/api/auth/login")
-  apiLogin() {
-    const body = (this.context as { body?: { username?: string } })?.body ?? {};
-    const username = body.username ?? "admin";
+  apiLogin(@Body() body: { username?: string }) {
+    const username = (body?.username ?? "admin").trim() || "admin";
     return this.renderJson({
-      token: `mock-jwt-${Date.now()}`,
+      token: `${MOCK_TOKEN_PREFIX}${encodeURIComponent(username)}`,
       user: {
         id: 1,
         username,
-        roles: ["ROLE_NODEFONY_ADMIN"],
+        roles: mockRolesFor(username),
         email: `${username}@nodefony.local`,
       },
     });
@@ -131,12 +160,31 @@ class StudioController extends Controller {
 
   @Get("/studio/api/auth/me")
   apiMe() {
+    const username = this.mockUsername();
     return this.renderJson({
       id: 1,
-      username: "admin",
-      roles: ["ROLE_NODEFONY_ADMIN"],
-      email: "admin@nodefony.local",
+      username,
+      roles: mockRolesFor(username),
+      email: `${username}@nodefony.local`,
     });
+  }
+
+  /** Username déduit du token mock (en-tête Authorization), repli `admin`. */
+  private mockUsername(): string {
+    const raw = (
+      this.context as {
+        request?: { headers?: Record<string, string | string[] | undefined> };
+      }
+    )?.request?.headers?.authorization;
+    const header = Array.isArray(raw) ? raw[0] : raw;
+    if (typeof header !== "string") return "admin";
+    const token = header.replace(/^Bearer\s+/i, "");
+    if (!token.startsWith(MOCK_TOKEN_PREFIX)) return "admin";
+    try {
+      return decodeURIComponent(token.slice(MOCK_TOKEN_PREFIX.length)) || "admin";
+    } catch {
+      return "admin";
+    }
   }
 
   @Post("/studio/api/auth/logout")

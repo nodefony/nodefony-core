@@ -434,6 +434,8 @@ export class DebugBar {
   private readonly networkEnabled: boolean;
   private readonly profilerBase: string;
   private readonly net = new NetworkModel();
+  /** Observe la barre → publie sa hauteur (var CSS) pour l'app hôte. */
+  private ro: ResizeObserver | null = null;
   // Nœuds de ligne PERSISTANTS (id → row) — mise à jour incrémentale, jamais de
   // rebuild innerHTML global (sinon clic perdu + scroll qui saute).
   private readonly netRows = new Map<number, HTMLElement>();
@@ -488,6 +490,13 @@ export class DebugBar {
     this.flashTimer = null;
     if (this.ownClient) this.client.disconnect();
     this.unregisterHandle();
+    this.ro?.disconnect();
+    this.ro = null;
+    try {
+      document.documentElement.style.removeProperty("--nodefony-debugbar-height");
+    } catch {
+      /* noop */
+    }
     this.host?.remove();
     this.host = null;
     this.bar = null;
@@ -551,6 +560,25 @@ export class DebugBar {
     }
     this.setPanelH(this.panelH);
     this.applyTab();
+    this.publishHeight();
+  }
+
+  /**
+   * Publie la hauteur occupée par la barre (dock bas, visible, dépliée) en
+   * variable CSS `--nodefony-debugbar-height` sur `:root`. L'app hôte (Studio)
+   * la réserve en `padding-bottom` → le contenu n'est jamais masqué. `0px` si
+   * masquée / réduite (chip flottante) / dockée en haut.
+   */
+  private publishHeight(): void {
+    if (typeof document === "undefined") return;
+    const h =
+      this.visible && !this.minimized && this.position === "bottom" && this.bar
+        ? this.bar.offsetHeight
+        : 0;
+    document.documentElement.style.setProperty(
+      "--nodefony-debugbar-height",
+      `${h}px`,
+    );
   }
 
   private registerHandle(): void {
@@ -592,6 +620,13 @@ export class DebugBar {
     this.host = host;
     this.bar = bar;
     this.el.minbar = minbar;
+    // Publie la hauteur occupée (dock bas) en var CSS `:root` → l'app hôte
+    // (Studio) réserve un padding-bottom et n'est jamais masquée. Le
+    // ResizeObserver couvre déplier/replier/resize/réduire/masquer en une fois.
+    if (typeof ResizeObserver !== "undefined") {
+      this.ro = new ResizeObserver(() => this.publishHeight());
+      this.ro.observe(bar);
+    }
     shadow.querySelectorAll("[data-el]").forEach((node) => {
       const key = node.getAttribute("data-el");
       if (key) this.el[key] = node;

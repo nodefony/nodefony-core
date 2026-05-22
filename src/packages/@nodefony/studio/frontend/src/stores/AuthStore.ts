@@ -1,5 +1,7 @@
 import { makeAutoObservable, runInAction } from "mobx";
+import { hasRole } from "nodefony/roles";
 import type { AuthService, AuthUser, LoginCredentials } from "../services/AuthService";
+import { DASHBOARDS, type DashboardDef } from "../auth/dashboards";
 
 const TOKEN_KEY = "nodefony.studio.token";
 
@@ -22,6 +24,25 @@ export class AuthStore {
 
   get displayName(): string {
     return this.user?.username ?? "guest";
+  }
+
+  /** Rôles de l'utilisateur courant (claim `roles`), sinon tableau vide. */
+  get roles(): string[] {
+    return this.user?.roles ?? [];
+  }
+
+  /** Dashboards accessibles, filtrés par rôle (pilote nav + accueil). */
+  get dashboards(): DashboardDef[] {
+    const roles = this.roles;
+    return DASHBOARDS.filter((d) => hasRole(roles, d.role));
+  }
+
+  /**
+   * Page d'accueil = 1er dashboard autorisé. Sans rôle de dashboard, repli sur
+   * l'Admin API (toujours visible).
+   */
+  get homePath(): string {
+    return this.dashboards[0]?.path ?? "/nodefony/system";
   }
 
   /** Au mount de l'app : si token, tenter `/me`. */

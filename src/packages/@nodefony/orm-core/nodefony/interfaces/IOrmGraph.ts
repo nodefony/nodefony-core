@@ -52,6 +52,12 @@ export interface IEntityGraphNode {
 export interface IOrmSummary {
   /** Clé du connecteur dans le `OrmRegistry`. */
   name: string;
+  /**
+   * Vendor de l'adapter en minuscules (`drizzle`, `sequelize`, `mongoose`…),
+   * dérivé du nom de classe. `""` si indéterminé. Dette : promouvoir en
+   * `IOrm.vendor` déclaré par chaque adapter (P7.1 industrialisation ORM).
+   */
+  vendor: string;
   /** `true` si c'est le connecteur par défaut (`"default"`). */
   default: boolean;
   /** État de la connexion. */

@@ -49,6 +49,7 @@ import {
   IconLayoutBottombar,
   type Icon,
 } from "@tabler/icons-react";
+import { hasAnyRole } from "nodefony/roles";
 import { useAdmin, useAuth, useConnection, useProfiler, useUi } from "../stores";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { NAV_GROUPS, PRODUCER_ICONS } from "./navConfig";
@@ -349,9 +350,14 @@ export const AdminLayout = observer(() => {
 
         <ScrollArea style={{ flex: 1 }} type="scroll">
           {NAV_GROUPS.map((g) => {
+            // Gating par rôle : un item `roles` n'apparaît que si l'utilisateur
+            // a au moins un de ces rôles (les dashboards dev/supervision).
+            const visible = g.items.filter(
+              (i) => !i.roles || hasAnyRole(auth.roles, i.roles),
+            );
             const items = filtering
-              ? g.items.filter((i) => i.label.toLowerCase().includes(q))
-              : g.items;
+              ? visible.filter((i) => i.label.toLowerCase().includes(q))
+              : visible;
             if (items.length === 0) return null;
             const collapsed = !filtering && !rail && ui.isGroupCollapsed(g.id);
 
@@ -460,7 +466,14 @@ export const AdminLayout = observer(() => {
         </ScrollArea>
       </AppShell.Navbar>
 
-      <AppShell.Main>
+      <AppShell.Main
+        // Réserve la hauteur de la debug bar (var publiée par `nodefony/debugbar`)
+        // → le contenu n'est jamais masqué par la barre. 0 si barre absente/masquée.
+        style={{
+          paddingBottom:
+            "calc(var(--mantine-spacing-md) + var(--nodefony-debugbar-height, 0px))",
+        }}
+      >
         <ErrorBoundary key={loc.pathname} variant="page">
           <Suspense
             fallback={

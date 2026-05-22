@@ -28,6 +28,10 @@
       "types": "./dist/client/types/src/client/react/index.d.ts",
       "default": "./dist/client/client/react/index.js"
     },
+    "./roles": {
+      "types": "./dist/client/types/src/client/roles/index.d.ts",
+      "default": "./dist/client/client/roles/index.js"
+    },
     "./debugbar.js": "./dist/client/debugbar.standalone.js",
     "./package.json": "./package.json"
   },

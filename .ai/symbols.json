@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-22T08:14:28.925Z",
+  "generated": "2026-05-22T09:35:47.053Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 297,
-    "symbols": 752,
-    "classes": 207,
-    "interfaces": 255,
-    "types": 144,
+    "files": 301,
+    "symbols": 765,
+    "classes": 210,
+    "interfaces": 256,
+    "types": 145,
     "enums": 1,
-    "functions": 125,
-    "constants": 20
+    "functions": 132,
+    "constants": 21
   },
   "symbols": {
     "Cli": {
@@ -662,6 +662,26 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "GitService": {
+      "name": "GitService",
+      "kind": "class",
+      "file": "src/nodefony/src/service/gitService.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Introspection git du dépôt — **sans spawn `git` ni dépendance** (lecture directe de `.git/`). Résultat caché pour la vie du process. Best-effort : champs `\"\"` hors d'un dépôt (ex. container sans `.…"
+    },
+    "GitInfo": {
+      "name": "GitInfo",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/gitService.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Identité git du dépôt courant. Champs `\"\"` si indéterminés (hors dépôt)."
     },
     "Pm2": {
       "name": "Pm2",
@@ -1395,6 +1415,68 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "RealtimeClient — Core isomorphe Nodefony côté navigateur (P14.11). Protocole : JSON-RPC 2.0 maison sur WebSocket (+ HTTP long-polling fallback TODO P13). State machine : disconnected → connecting →…"
+    },
+    "RoleRegistry": {
+      "name": "RoleRegistry",
+      "kind": "class",
+      "file": "src/nodefony/src/client/roles/registry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Registre OPTIONNEL qui assigne un bit à chaque rôle d'un ENSEMBLE FIXE, pour des contrôles d'autorisation en masque (`&`/`|`) — O(1), sans allocation, adapté au hot path serveur (voters, pipeline s…"
+    },
+    "ROLE_MASK_CAPACITY": {
+      "name": "ROLE_MASK_CAPACITY",
+      "kind": "const",
+      "file": "src/nodefony/src/client/roles/registry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nombre maximum de rôles qu'un {@link RoleRegistry} peut indexer en masque `number`. Les opérateurs bit-à-bit de JavaScript travaillent sur des entiers **32 bits signés** : `1 << 31` devient négatif…"
+    },
+    "RoleSet": {
+      "name": "RoleSet",
+      "kind": "class",
+      "file": "src/nodefony/src/client/roles/roles.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Ensemble de rôles indexé pour des contrôles répétés en O(1). À utiliser quand on teste plusieurs fois les rôles d'un même utilisateur (filtrage d'une navigation, rendu conditionnel de N panneaux) :…"
+    },
+    "Role": {
+      "name": "Role",
+      "kind": "type",
+      "file": "src/nodefony/src/client/roles/roles.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type d'un rôle Nodefony. Convention `ROLE_*` (alignée Symfony) — mais le mécanisme reste agnostique : n'importe quelle chaîne fait office de rôle."
+    },
+    "hasRole": {
+      "name": "hasRole",
+      "kind": "function",
+      "file": "src/nodefony/src/client/roles/roles.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Indique si l'utilisateur possède `role`. Implémentation sans allocation (parcours linéaire) : optimale pour un contrôle ponctuel sur un petit tableau (cas courant : 1 à 5 rôles dans un JWT). Pour d…"
+    },
+    "hasAnyRole": {
+      "name": "hasAnyRole",
+      "kind": "function",
+      "file": "src/nodefony/src/client/roles/roles.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Indique si l'utilisateur possède AU MOINS UN des `roles` (OR logique)."
+    },
+    "hasAllRoles": {
+      "name": "hasAllRoles",
+      "kind": "function",
+      "file": "src/nodefony/src/client/roles/roles.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Indique si l'utilisateur possède TOUS les `roles` (AND logique)."
     },
     "EventEmitter": {
       "name": "EventEmitter",
@@ -7226,6 +7308,9 @@
       "stripAnsi": [
         "src/nodefony/src/client/debugbar/model.ts"
       ],
+      "Role": [
+        "src/nodefony/src/client/roles/registry.ts"
+      ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
@@ -7508,6 +7593,9 @@
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+      ],
+      "GitService": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "TestRunResult": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"

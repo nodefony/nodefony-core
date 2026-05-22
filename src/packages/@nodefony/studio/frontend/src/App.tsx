@@ -14,6 +14,8 @@ import { StoreProvider, RootStore, useAuth } from "./stores";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { buildStudioTheme } from "./theme";
 import { AuthGuard } from "./components/AuthGuard";
+import { RoleGuard } from "./components/RoleGuard";
+import { ROLE_DEV, ROLE_SUPERVISOR } from "./auth/dashboards";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Login } from "./routes/Login";
@@ -23,6 +25,11 @@ import { Login } from "./routes/Login";
 // vers `default` (contrat React.lazy). Le fallback Suspense vit dans AdminLayout.
 const Dashboard = lazy(() =>
   import("./routes/Dashboard").then((m) => ({ default: m.Dashboard })),
+);
+const DashboardSupervision = lazy(() =>
+  import("./routes/DashboardSupervision").then((m) => ({
+    default: m.DashboardSupervision,
+  })),
 );
 const Chat = lazy(() =>
   import("./routes/Chat").then((m) => ({ default: m.Chat })),
@@ -67,6 +74,15 @@ import "@mantine/dates/styles.css";
 // Singleton — partagé par tout le sous-arbre via le StoreProvider context.
 const rootStore = new RootStore();
 
+/**
+ * Redirige l'index `/nodefony` vers le 1er dashboard autorisé de l'utilisateur
+ * (cf `AuthStore.homePath`). Rendu sous AuthGuard → user déjà chargé.
+ */
+const HomeRedirect = observer(() => {
+  const auth = useAuth();
+  return <Navigate to={auth.homePath} replace />;
+});
+
 const router = createBrowserRouter([
   {
     path: "/nodefony/login",
@@ -79,7 +95,23 @@ const router = createBrowserRouter([
       {
         element: <AdminLayout />,
         children: [
-          { index: true, element: <Dashboard /> },
+          { index: true, element: <HomeRedirect /> },
+          {
+            path: "dev",
+            element: (
+              <RoleGuard roles={[ROLE_DEV]}>
+                <Dashboard />
+              </RoleGuard>
+            ),
+          },
+          {
+            path: "supervision",
+            element: (
+              <RoleGuard roles={[ROLE_SUPERVISOR]}>
+                <DashboardSupervision />
+              </RoleGuard>
+            ),
+          },
           { path: "chat", element: <Chat /> },
           { path: "sessions", element: <Sessions /> },
           { path: "users", element: <Users /> },

@@ -16,8 +16,11 @@ import {
   IconNetwork,
   IconFileText,
   IconSettings,
+  IconCode,
+  IconActivityHeartbeat,
   type Icon,
 } from "@tabler/icons-react";
+import { ROLE_DEV, ROLE_SUPERVISOR } from "../auth/dashboards";
 
 /** Une entrée de navigation (lien vers une page Studio). */
 export interface NavItem {
@@ -26,6 +29,8 @@ export interface NavItem {
   icon: Icon;
   /** Match exact requis (ex: l'index `/nodefony`). Sinon préfixe. */
   exact?: boolean;
+  /** Si défini, item visible seulement si l'utilisateur a AU MOINS UN de ces rôles. */
+  roles?: string[];
 }
 
 /** Un groupe de navigation repliable. */
@@ -47,7 +52,18 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     icon: IconDashboard,
     items: [
-      { to: "/nodefony", label: "Dashboard", icon: IconDashboard, exact: true },
+      {
+        to: "/nodefony/dev",
+        label: "Dashboard Dev",
+        icon: IconCode,
+        roles: [ROLE_DEV],
+      },
+      {
+        to: "/nodefony/supervision",
+        label: "Supervision",
+        icon: IconActivityHeartbeat,
+        roles: [ROLE_SUPERVISOR],
+      },
       { to: "/nodefony/chat", label: "Chat IA", icon: IconMessageChatbot },
     ],
   },

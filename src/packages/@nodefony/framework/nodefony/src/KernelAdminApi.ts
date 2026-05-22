@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { GitService } from "nodefony";
 import type { IKernel, IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
 import type { TestRunResult } from "./docsReader";
 import {
@@ -130,6 +131,8 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         platform: process.platform,
         uptime: process.uptime(),
         modules: Object.keys(kernel.getModules()).length,
+        // Identité git (branche + commit court) — lecture `.git`, sans spawn.
+        git: GitService.read(),
       }),
     },
     {

@@ -40,18 +40,33 @@ function oneParam(req: IAdminRequest, key: string): string | undefined {
   return Array.isArray(raw) ? raw[0] : raw;
 }
 
+/**
+ * Vendor de l'adapter dérivé de son nom de classe (`DrizzleOrm` → `drizzle`,
+ * `SequelizeOrm`/`Sequelize` → `sequelize`…). Dette : remplacer par un
+ * `IOrm.vendor` déclaré par chaque adapter (P7.1). `""` si indéterminé.
+ */
+function vendorOf(orm: unknown): string {
+  const cls = (orm as { constructor?: { name?: string } })?.constructor?.name;
+  if (!cls) return "";
+  return cls.replace(/Orm$/, "").toLowerCase();
+}
+
 /** Résumé des ORM enregistrés (statut connexion + nombre d'entités). */
 function buildOrmSummaries(): IOrmSummary[] {
   const entities = entityRegistry.list();
   return ormRegistry.list().map((name) => {
     let connected = false;
+    let vendor = "";
     try {
-      connected = ormRegistry.get(name).isConnected();
+      const orm = ormRegistry.get(name);
+      connected = orm.isConnected();
+      vendor = vendorOf(orm);
     } catch {
       connected = false;
     }
     return {
       name,
+      vendor,
       default: name === "default",
       connected,
       entityCount: entities.filter((e) => e.orm === name).length,
