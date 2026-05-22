@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-22T12:18:31.512Z",
+  "generated": "2026-05-22T12:36:39.474Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -1854,7 +1854,7 @@
       "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
       "exported": true,
       "module": "modules/mediasoup",
-      "description": "Salle WebRTC. PK = nom (legacy). ENUM rendus en `text` + valeur par défaut JS."
+      "description": "Salle WebRTC. ENUM rendus en `text` + valeur par défaut JS. PK = `id` UUID (le legacy utilisait `name` comme PK, mais l'abstraction orm-core **exige une PK `id`** pour les relations/eager-load — `l…"
     },
     "roomMemberTable": {
       "name": "roomMemberTable",

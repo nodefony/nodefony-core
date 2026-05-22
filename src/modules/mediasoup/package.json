@@ -9,6 +9,7 @@
     "rollup": "npx rollup --config ./rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "clean": "rimraf dist",
+    "test": "mocha",
     "frontend:vite-only": "vite --config frontend/vite.config.generated.mjs"
   },
   "private": true,

@@ -120,6 +120,9 @@ curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/jsonschema?orm=mediasou
 > 🔸 **8 entités** au total. Cas de test couverts : N-N (×2), **auto-référence** (`Event.parentEventId`),
 > **FK nullable** (`Recording.eventId`), **soft-delete** (`Event`/`Recording.deletedAt`), **unique** (`Tag.name`),
 > JSON, UUID, FK multiples.
+> 🔸 **Contrainte orm-core découverte** : les relations exigent une **PK `id`** sur chaque entité
+> (`localKey`/`targetKey` figés à `"id"` dans l'adapter) → `Room` utilise `id` UUID (et non `name`).
+> Le `many-to-many` déclaratif est rejeté → jonction explicite. (À lever si l'abstraction gère des PK arbitraires.)
 
 ---
 
@@ -162,8 +165,8 @@ Restent (non implémentés) :
 
 ## Roadmap
 
-- ✅ **Modèle ORM Drizzle** + connecteur dédié + ERD Studio (2026-05-22).
-- ⬜ Tests d'intégration ORM sur le modèle (banc).
+- ✅ **Modèle ORM Drizzle** (8 entités) + connecteur dédié + ERD Studio (2026-05-22).
+- ✅ **Tests d'intégration ORM** (`tests/integration/orm-mediasoup.test.ts`, **11 tests** : N-N ×2, auto-réf, FK nullable, soft-delete, unique, JSON, eager-load, opérateurs, transactions) — `npm test`.
 - ⬜ Portabilité Sequelize / Mongoose (même modèle).
 - ⬜ Fixtures portées du legacy.
 - ⬜ **P15** — couche mediasoup : `MediasoupService` (Workers), `RoomManager`/`PeersService`,

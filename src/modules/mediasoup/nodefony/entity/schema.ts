@@ -23,9 +23,17 @@ import { userTable } from "@nodefony/drizzle";
 /** Module propriétaire — regroupe les entités dans l'ERD Studio. */
 const MODULE = "mediasoup";
 
-/** Salle WebRTC. PK = nom (legacy). ENUM rendus en `text` + valeur par défaut JS. */
+/**
+ * Salle WebRTC. ENUM rendus en `text` + valeur par défaut JS.
+ * PK = `id` UUID (le legacy utilisait `name` comme PK, mais l'abstraction orm-core
+ * **exige une PK `id`** pour les relations/eager-load — `localKey`/`targetKey` y sont
+ * figés). `name` reste une **clé métier unique**.
+ */
 export const roomTable = sqliteTable("Room", {
-  name: text("name").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
+  name: text("name").notNull().unique(),
   type: text("type")
     .notNull()
     .$defaultFn(() => "WEBRTC"),

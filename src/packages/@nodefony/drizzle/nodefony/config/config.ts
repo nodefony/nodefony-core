@@ -20,12 +20,18 @@ export interface DrizzleModuleConfig {
 const config: DrizzleModuleConfig = {
   connectors: {
     default: {
-      filename: path.resolve(
-        (Nodefony.getKernel() as Kernel).path,
-        "nodefony",
-        "databases",
-        "nodefony-drizzle.db",
-      ),
+      // Getter (lazy) : la résolution via le kernel est différée à la LECTURE
+      // (au boot/merge de config, le kernel existe). Le module reste ainsi
+      // IMPORTABLE sans kernel — indispensable pour tester un module consommateur
+      // (`import "@nodefony/drizzle"` n'évalue plus `getKernel().path` à la volée).
+      get filename(): string {
+        return path.resolve(
+          (Nodefony.getKernel() as Kernel).path,
+          "nodefony",
+          "databases",
+          "nodefony-drizzle.db",
+        );
+      },
     },
   },
 };
