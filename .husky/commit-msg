@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+# Valide le format Conventional Commits (type(scope): sujet) via commitlint.
+# Refuse un message hors-norme. Bypass d'urgence : git commit --no-verify.
+npx --no-install commitlint --edit "$1"

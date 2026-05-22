@@ -1,5 +1,10 @@
 #!/usr/bin/env sh
 
+# Formatage auto des fichiers staged (prettier via lint-staged).
+# NON bloquant pour ton workflow : prettier --write réussit toujours sur du code
+# valide ; il reformate, il ne refuse pas. Bypass d'urgence : git commit --no-verify.
+npx --no-install lint-staged || exit 1
+
 # Pré-filtre rapide (shell pur, AUCUN boot node) : si aucun .ts n'est staged,
 # il n'y a rien à régénérer → on évite ~1,3 s de démarrage node/tsx sur les
 # commits sans code (docs, config, json…). Réduit aussi la fenêtre pendant

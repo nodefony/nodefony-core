@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# Typecheck strict (tsc --noEmit) AVANT chaque push.
+# C'est exactement le bug qui a cassé la CI (TS18036 visible seulement en
+# typecheck, pas au build rollup) : ce hook l'attrape en local avant de pousser.
+# Coût ~qq s ; push = rare. Bypass d'urgence : git push --no-verify.
+npm run typecheck

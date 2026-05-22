@@ -1,0 +1,22 @@
+# Artefacts générés / build
+**/dist/**
+**/node_modules/**
+**/.turbo/**
+**/coverage/**
+**/.coverage/**
+**/bin/**
+.ai/**
+*.generated.*
+**/*.generated.*
+
+# Lockfiles & data
+package-lock.json
+**/*.min.js
+**/*.min.css
+
+# Frontends buildés
+src/**/frontend/dist/**
+public/**
+
+# Legacy (non migré)
+src/nodefony/src/service/babel/**
