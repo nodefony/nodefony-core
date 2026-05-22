@@ -9,6 +9,7 @@ import {
   RouterProvider,
 } from "react-router-dom";
 
+import { NodefonyProvider } from "nodefony/react";
 import { StoreProvider, RootStore, useAuth } from "./stores";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { buildStudioTheme } from "./theme";
@@ -129,11 +130,13 @@ export const App = observer(() => {
       <Notifications position="top-right" />
       <ModalsProvider>
         <StoreProvider value={rootStore}>
-          <ErrorBoundary variant="full">
-            <SessionBootstrap>
-              <RouterProvider router={router} />
-            </SessionBootstrap>
-          </ErrorBoundary>
+          <NodefonyProvider client={rootStore.realtime}>
+            <ErrorBoundary variant="full">
+              <SessionBootstrap>
+                <RouterProvider router={router} />
+              </SessionBootstrap>
+            </ErrorBoundary>
+          </NodefonyProvider>
         </StoreProvider>
       </ModalsProvider>
     </MantineProvider>

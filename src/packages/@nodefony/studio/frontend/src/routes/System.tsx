@@ -9,13 +9,10 @@ import {
   Button,
   Code,
   Group,
-  Loader,
-  ScrollArea,
   Stack,
   Text,
   TextInput,
   ThemeIcon,
-  Title,
   Tooltip,
 } from "@mantine/core";
 import {
@@ -25,11 +22,11 @@ import {
   IconFileText,
   IconApi,
   IconRefresh,
-  IconAlertTriangle,
   IconPlayerPlay,
 } from "@tabler/icons-react";
 import { useAdmin } from "../stores";
 import type { AdminEndpointMeta } from "../stores/AdminStore";
+import { PageHeader, DataState, JsonViewer } from "../components/ui";
 
 /** Mappe le nom d'icône du descriptor (backend) vers une icône Tabler. */
 const ICONS: Record<string, typeof IconServer> = {
@@ -71,42 +68,35 @@ export const System = observer(() => {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="center">
-        <div>
-          <Title order={2}>System — Admin API</Title>
-          <Text c="dimmed" size="sm">
+      <PageHeader
+        title="System — Admin API"
+        subtitle={
+          <>
             Data plane découvert via{" "}
             <Code>/nodefony/framework/api/admin</Code> — {admin.producers.length}{" "}
             module(s), {admin.endpointCount} endpoint(s)
-          </Text>
-        </div>
-        <Button
-          variant="light"
-          leftSection={<IconRefresh size={16} />}
-          loading={admin.loading}
-          onClick={() => void admin.loadCatalog()}
-        >
-          Recharger
-        </Button>
-      </Group>
+          </>
+        }
+        actions={
+          <Button
+            variant="light"
+            leftSection={<IconRefresh size={16} />}
+            loading={admin.loading}
+            onClick={() => void admin.loadCatalog()}
+          >
+            Recharger
+          </Button>
+        }
+      />
 
-      {admin.error && (
-        <Alert
-          color="red"
-          icon={<IconAlertTriangle size={16} />}
-          title="Catalogue indisponible"
-        >
-          {admin.error}
-        </Alert>
-      )}
-
-      {admin.loading && admin.producers.length === 0 && (
-        <Group justify="center" py="xl">
-          <Loader />
-        </Group>
-      )}
-
-      <Accordion variant="separated" multiple value={open} onChange={setOpen}>
+      <DataState
+        loading={admin.loading && admin.producers.length === 0}
+        error={admin.error}
+        empty={!admin.loading && admin.producers.length === 0}
+        emptyMessage="Aucun producteur admin découvert."
+        onRetry={() => void admin.loadCatalog()}
+      >
+        <Accordion variant="separated" multiple value={open} onChange={setOpen}>
         {admin.producers.map((p) => {
           const Icon = (p.icon && ICONS[p.icon]) || IconApi;
           return (
@@ -138,7 +128,8 @@ export const System = observer(() => {
             </Accordion.Item>
           );
         })}
-      </Accordion>
+        </Accordion>
+      </DataState>
     </Stack>
   );
 });
@@ -242,15 +233,15 @@ const EndpointRow = observer(({ ep }: { ep: AdminEndpointMeta }) => {
       )}
 
       {inv && !inv.loading && (
-        <ScrollArea.Autosize mah={280} mt="xs">
+        <Box mt="xs">
           {inv.error ? (
             <Alert color="red" variant="light" p="xs">
               {inv.error}
             </Alert>
           ) : (
-            <Code block>{JSON.stringify(inv.data, null, 2)}</Code>
+            <JsonViewer value={inv.data} maxHeight={280} />
           )}
-        </ScrollArea.Autosize>
+        </Box>
       )}
     </Box>
   );

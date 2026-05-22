@@ -193,25 +193,24 @@ export const AdminLayout = observer(() => {
                 )}
               </ActionIcon>
             </Tooltip>
-            <Group
-              gap={6}
-              component={RouterNavLink}
+            <RouterNavLink
               to="/nodefony"
               style={{ textDecoration: "none", color: "inherit" }}
-              wrap="nowrap"
             >
-              <NodefonyLogo height={26} />
-              <Text fw={700} size="lg" c="brand">
-                Nodefony{" "}
-                <Text
-                  span
-                  c={ui.palette === "nodefony" ? "nodefonyCyan" : "orange"}
-                  inherit
-                >
-                  Studio
+              <Group gap={6} wrap="nowrap">
+                <NodefonyLogo height={26} />
+                <Text fw={700} size="lg" c="brand">
+                  Nodefony{" "}
+                  <Text
+                    span
+                    c={ui.palette === "nodefony" ? "nodefonyCyan" : "orange"}
+                    inherit
+                  >
+                    Studio
+                  </Text>
                 </Text>
-              </Text>
-            </Group>
+              </Group>
+            </RouterNavLink>
           </Group>
           <Group gap="xs">
             <Tooltip

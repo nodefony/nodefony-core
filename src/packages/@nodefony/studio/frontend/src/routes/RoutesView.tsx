@@ -1,23 +1,19 @@
 import { observer } from "mobx-react-lite";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
-  Alert,
   Badge,
   Button,
   Code,
   Group,
-  Loader,
   ScrollArea,
   Stack,
   Table,
   Text,
   TextInput,
-  Title,
   Tooltip,
 } from "@mantine/core";
 import {
   IconRefresh,
-  IconAlertTriangle,
   IconSearch,
   IconRoute,
   IconArrowsSort,
@@ -35,6 +31,8 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useStore } from "../stores";
+import { useResource } from "../hooks";
+import { PageHeader, DataState } from "../components/ui";
 
 /** Une route telle que sérialisée par `/nodefony/framework/api/routes`. */
 interface RouteRow {
@@ -129,40 +127,25 @@ const columns = [
 /**
  * RoutesView — table de routage HTTP+WS réelle, alimentée par le data plane
  * `GET /nodefony/framework/api/routes` (Router dump). Recherche globale + tri.
- * Remplace l'ancien stub. Aucune donnée mock.
+ *
+ * Page de RÉFÉRENCE du pattern d'écran Studio : `useResource` (fetch + erreur +
+ * annulation), `PageHeader` (titre/sous-titre/actions), `DataState` (états
+ * loading/error). Aucune donnée mock.
  */
 export const RoutesView = observer(() => {
   const store = useStore();
-  const [data, setData] = useState<RouteRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const fetcher = useCallback(
+    () => store.api.getAbsolute<RouteRow[]>("/nodefony/framework/api/routes"),
+    [store],
+  );
+  const { data, loading, error, reload } = useResource(fetcher);
+  const rows = data ?? [];
+
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([{ id: "path", desc: false }]);
 
-  const load = useMemo(
-    () => async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const rows = await store.api.getAbsolute<RouteRow[]>(
-          "/nodefony/framework/api/routes",
-        );
-        setData(rows ?? []);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [store],
-  );
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
   const table = useReactTable({
-    data,
+    data: rows,
     columns,
     state: { globalFilter, sorting },
     onGlobalFilterChange: setGlobalFilter,
@@ -176,32 +159,26 @@ export const RoutesView = observer(() => {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="center">
-        <div>
-          <Group gap="xs">
-            <IconRoute size={24} />
-            <Title order={2}>Routes</Title>
-          </Group>
-          <Text c="dimmed" size="sm">
+      <PageHeader
+        icon={<IconRoute size={24} />}
+        title="Routes"
+        subtitle={
+          <>
             Router dump via <Code>/nodefony/framework/api/routes</Code> — {shown}/
-            {data.length} route(s)
-          </Text>
-        </div>
-        <Button
-          variant="light"
-          leftSection={<IconRefresh size={16} />}
-          loading={loading}
-          onClick={() => void load()}
-        >
-          Recharger
-        </Button>
-      </Group>
-
-      {error && (
-        <Alert color="red" icon={<IconAlertTriangle size={16} />} title="Routes indisponibles">
-          {error}
-        </Alert>
-      )}
+            {rows.length} route(s)
+          </>
+        }
+        actions={
+          <Button
+            variant="light"
+            leftSection={<IconRefresh size={16} />}
+            loading={loading}
+            onClick={reload}
+          >
+            Recharger
+          </Button>
+        }
+      />
 
       <TextInput
         placeholder="Filtrer (path, méthode, controller, module…)"
@@ -211,11 +188,7 @@ export const RoutesView = observer(() => {
         maw={420}
       />
 
-      {loading && data.length === 0 ? (
-        <Group justify="center" py="xl">
-          <Loader />
-        </Group>
-      ) : (
+      <DataState loading={loading && rows.length === 0} error={error} onRetry={reload}>
         <ScrollArea>
           <Table striped highlightOnHover withTableBorder stickyHeader>
             <Table.Thead>
@@ -270,7 +243,7 @@ export const RoutesView = observer(() => {
             </Table.Tbody>
           </Table>
         </ScrollArea>
-      )}
+      </DataState>
     </Stack>
   );
 });

@@ -57,6 +57,7 @@ import {
   IconStack2,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
+import { JsonViewer, KeyValue } from "../components/ui";
 
 interface ModuleDetailData {
   key: string;
@@ -370,20 +371,20 @@ export const ModuleDetail = observer(() => {
             <Tabs.Panel value="overview">
               <Stack gap="lg">
                 <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }} spacing="md">
-                  {hasDocs && <StatCard label="Docs" value={docs.length} color="cyan" icon={<IconBook size={22} />} onClick={() => setTab("docs")} />}
-                  {hasApi && <StatCard label="API" value={symbols.length} color="grape" icon={<IconCode size={22} />} onClick={() => setTab("api")} />}
-                  {hasCoverage && <StatCard label="Coverage" value={`${Math.round(coverage.total?.lines ?? 0)}%`} color={covColor(coverage.total?.lines ?? 0)} icon={<IconShieldCheck size={22} />} onClick={() => setTab("coverage")} />}
-                  {hasDeps && <StatCard label="Dépendances" value={data.dependencies.length} color="orange" icon={<IconPackages size={22} />} onClick={() => setTab("deps")} />}
-                  {hasRoutes && <StatCard label="Routes" value={routes.length} color="teal" icon={<IconRoute size={22} />} onClick={() => setTab("routes")} />}
-                  {hasServices && <StatCard label="Services" value={data.services.length} color="blue" icon={<IconAffiliate size={22} />} onClick={() => setTab("services")} />}
+                  {hasDocs && <OverviewStat label="Docs" value={docs.length} color="cyan" icon={<IconBook size={22} />} onClick={() => setTab("docs")} />}
+                  {hasApi && <OverviewStat label="API" value={symbols.length} color="grape" icon={<IconCode size={22} />} onClick={() => setTab("api")} />}
+                  {hasCoverage && <OverviewStat label="Coverage" value={`${Math.round(coverage.total?.lines ?? 0)}%`} color={covColor(coverage.total?.lines ?? 0)} icon={<IconShieldCheck size={22} />} onClick={() => setTab("coverage")} />}
+                  {hasDeps && <OverviewStat label="Dépendances" value={data.dependencies.length} color="orange" icon={<IconPackages size={22} />} onClick={() => setTab("deps")} />}
+                  {hasRoutes && <OverviewStat label="Routes" value={routes.length} color="teal" icon={<IconRoute size={22} />} onClick={() => setTab("routes")} />}
+                  {hasServices && <OverviewStat label="Services" value={data.services.length} color="blue" icon={<IconAffiliate size={22} />} onClick={() => setTab("services")} />}
                 </SimpleGrid>
                 <Card withBorder radius="md" p="lg">
                   <Stack gap="xs">
-                    <Field k="Clé" v={data.key} mono />
-                    <Field k="Package" v={data.name} />
-                    <Field k="Version" v={data.version ?? "—"} />
-                    <Field k="Type" v={data.isApp ? "application" : "package"} />
-                    <Field k="Chemin" v={data.path ?? "—"} mono />
+                    <KeyValue k="Clé" v={data.key} mono />
+                    <KeyValue k="Package" v={data.name} />
+                    <KeyValue k="Version" v={data.version ?? "—"} />
+                    <KeyValue k="Type" v={data.isApp ? "application" : "package"} />
+                    <KeyValue k="Chemin" v={data.path ?? "—"} mono />
                   </Stack>
                 </Card>
               </Stack>
@@ -482,9 +483,7 @@ export const ModuleDetail = observer(() => {
 
             {hasConfig && (
               <Tabs.Panel value="config">
-                <ScrollArea.Autosize mah={520}>
-                  <Code block>{JSON.stringify(data.config, null, 2)}</Code>
-                </ScrollArea.Autosize>
+                <JsonViewer value={data.config} maxHeight={520} />
               </Tabs.Panel>
             )}
           </Box>
@@ -774,7 +773,7 @@ function ApiPanel({ symbols }: { symbols: ModuleSymbol[] }) {
 }
 
 /** Carte KPI cliquable (Vue d'ensemble) → bascule vers l'onglet correspondant. */
-function StatCard({
+function OverviewStat({
   label,
   value,
   color,
@@ -1153,17 +1152,6 @@ function CountBadge({ n }: { n: number }) {
     <Badge size="xs" variant="light" color="gray">
       {n}
     </Badge>
-  );
-}
-
-function Field({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
-  return (
-    <Group justify="space-between" wrap="nowrap" gap="xl">
-      <Text size="sm" c="dimmed">{k}</Text>
-      <Text size="sm" fw={500} ff={mono ? "monospace" : undefined} style={{ wordBreak: "break-all", textAlign: "right" }}>
-        {v}
-      </Text>
-    </Group>
   );
 }
 

@@ -100,14 +100,9 @@ export class ConnectionStore {
           this.connectedAt = null;
         }
       });
-      // (Re)connexion : ré-émettre les `subscribe` de tous les canaux actifs.
-      // Couvre le reconnect (le serveur repart d'un état vide) ET la course au
-      // 1er connect (subscribe appelé avant l'ouverture du socket → emit droppé).
-      if (s === "connected") {
-        for (const channel of this.activeSubscriptions.keys()) {
-          this.client.emit("subscribe", { channel });
-        }
-      }
+      // Le ré-abonnement au (re)connect est désormais porté par le CLIENT
+      // (`RealtimeClient.subscribe` ref-compté + re-subscribe à l'ouverture du
+      // socket) — autorité unique partagée avec le binding `nodefony/react`.
     });
     // Les stats (framesReceived + msgCount/rate/série par canal) sont calculées
     // par le RealtimeClient (Core) — source unique réutilisable. Le store n'en est
@@ -145,6 +140,33 @@ export class ConnectionStore {
       this.framesReceived = this.client.framesReceived;
       this.lastFrameAt = this.client.lastFrameAt;
       this.lastFrameMethod = this.client.lastFrameMethod;
+
+      // Réconcilie l'affichage du hub avec l'AUTORITÉ du client : les canaux WS
+      // abonnés via les hooks `nodefony/react` (pas seulement via le store)
+      // apparaissent ainsi dans le Drawer avec leurs graphes. Les flux SSE
+      // (transport "sse", hors `client.subscribedChannels`) sont préservés.
+      const liveWs = new Set(this.client.subscribedChannels);
+      for (const channel of liveWs) {
+        if (!this.activeSubscriptions.has(channel)) {
+          this.activeSubscriptions.set(channel, {
+            channel,
+            msgCount: 0,
+            lastMessage: null,
+            subscribedAt: Date.now(),
+            rate: 0,
+            series: [],
+            protocol: "json-rpc-2.0",
+            transport: "ws",
+            kind: "channel",
+          });
+        }
+      }
+      for (const [channel, sub] of this.activeSubscriptions) {
+        if (sub.transport !== "sse" && !liveWs.has(channel)) {
+          this.activeSubscriptions.delete(channel);
+        }
+      }
+
       for (const sub of this.activeSubscriptions.values()) {
         const cs = this.client.getChannelStats(sub.channel);
         if (cs) {
@@ -232,7 +254,10 @@ export class ConnectionStore {
     handler: (...args: unknown[]) => void,
     meta: SubscriptionMeta = {},
   ): () => void {
-    if (this.activeSubscriptions.has(channel)) {
+    // Garde sur les souscriptions PROPRES au store (clientHandlers) — pas
+    // activeSubscriptions, qui peut contenir des entrées d'affichage réconciliées
+    // depuis l'autorité client (canaux abonnés via les hooks `nodefony/react`).
+    if (this.clientHandlers.has(channel)) {
       // eslint-disable-next-line no-console
       console.warn(`[Connection] already subscribed to ${channel}`);
       return () => this.unsubscribe(channel);
@@ -262,9 +287,9 @@ export class ConnectionStore {
       this.activeSubscriptions.set(channel, stats);
     });
     this.clientHandlers.set(channel, { dispose, wrapped });
-    // Demande au serveur de POUSSER ce canal (no-op si pas connecté → ré-émis
-    // au prochain "connected" via le listener __state__).
-    this.client.emit("subscribe", { channel });
+    // Demande au serveur de POUSSER ce canal — via l'autorité ref-comptée du
+    // client (re-subscribe auto au reconnect inclus, partagé avec les hooks).
+    this.client.subscribe(channel);
     return () => this.unsubscribe(channel);
   }
 
@@ -274,9 +299,9 @@ export class ConnectionStore {
     runInAction(() => {
       this.activeSubscriptions.delete(channel);
     });
-    // Dit au serveur d'ARRÊTER de pousser ce canal — le WS reste ouvert (ex:
-    // on quitte le Dashboard mais on garde la connexion pour les autres pages).
-    this.client.emit("unsubscribe", { channel });
+    // Dit au serveur d'ARRÊTER de pousser ce canal (ref-compté côté client : émis
+    // seulement au dernier consommateur). Le WS reste ouvert.
+    this.client.unsubscribe(channel);
   }
 
   /**
@@ -303,7 +328,10 @@ export class ConnectionStore {
     handler: (payload: unknown) => void,
     meta: SubscriptionMeta = {},
   ): () => void {
-    if (this.activeSubscriptions.has(channel)) {
+    // Garde sur les souscriptions PROPRES au store (clientHandlers) — pas
+    // activeSubscriptions, qui peut contenir des entrées d'affichage réconciliées
+    // depuis l'autorité client (canaux abonnés via les hooks `nodefony/react`).
+    if (this.clientHandlers.has(channel)) {
       // eslint-disable-next-line no-console
       console.warn(`[Connection] already subscribed to ${channel}`);
       return () => this.unsubscribe(channel);

@@ -36,30 +36,12 @@ export const Services = () => (
   />
 );
 
-export const Modules = () => (
-  <StubPage
-    title="Modules"
-    description="Modules Nodefony chargés (ex-bundles), versions, état boot/ready."
-    phase="P10.5"
-    legacyRef="monitoring-bundle/views/bundles/"
-  />
-);
-
 export const Npm = () => (
   <StubPage
     title="NPM"
     description="Dépendances installées, vulnérabilités, audit, outdated."
     phase="P10.10"
     legacyRef="monitoring-bundle/views/npm/"
-  />
-);
-
-export const Profiling = () => (
-  <StubPage
-    title="Profiling"
-    description="CPU flamegraph, heap snapshots, latency p50/p95/p99 par route."
-    phase="P10.10 + P8.4 Metrics"
-    legacyRef="monitoring-bundle/views/profiling/"
   />
 );
 

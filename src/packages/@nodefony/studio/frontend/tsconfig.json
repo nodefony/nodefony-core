@@ -1,0 +1,25 @@
+{
+  "//": "Type-check du frontend Studio (Vite/React 19). Vite transpile via esbuild SANS vérifier les types — ce tsconfig est le filet `tsc --noEmit` (script `npm run typecheck`). Les règles d'unused-vars relèvent d'ESLint, pas d'ici.",
+  "//customConditions": "`customConditions:['browser']` aligne tsc sur Vite : l'import `nodefony` résout vers le build client isomorphe (condition d'export `browser`) qui expose RealtimeClient/RealtimeState et ne tire PAS la source serveur http/security. Sans ça, tsc prenait les types node (33 erreurs cross-package).",
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "customConditions": ["browser"],
+    "jsx": "react-jsx",
+    "types": ["react", "react-dom", "vite/client"],
+
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src", "vite-env.d.ts"]
+}

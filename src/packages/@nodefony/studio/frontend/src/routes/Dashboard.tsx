@@ -11,22 +11,28 @@ import {
   RingProgress,
   Skeleton,
   Tooltip,
-  Paper,
-  ThemeIcon,
 } from "@mantine/core";
 import {
   IconCpu,
   IconUsers,
   IconRoute,
   IconActivityHeartbeat,
-  IconClock,
   IconServer,
   IconList,
   IconBug,
-  IconInfoCircle,
   IconBrandNodejs,
 } from "@tabler/icons-react";
-import { useStore, useAuth, useConnection } from "../stores";
+import { useStore, useAuth } from "../stores";
+import { useNodefonyState, useNodefonyChannel } from "nodefony/react";
+import {
+  PageHeader,
+  StatCard as Kpi,
+  InfoHint as Info,
+  KeyValue as Row,
+  MiniChart,
+  ChartCard,
+  Legend,
+} from "../components/ui";
 
 /** Infos statiques (one-shot GET /info). */
 interface ServerInfo {
@@ -89,8 +95,11 @@ function uptimeStr(s: number): string {
 
 export const Dashboard = observer(() => {
   const auth = useAuth();
-  const conn = useConnection();
   const store = useStore();
+  // 100 % via le binding publié `nodefony/react` — plus de dépendance au store
+  // pour le realtime (état + abonnements ref-comptés par le client).
+  const rtState = useNodefonyState();
+  const rtOnline = rtState === "connected";
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [routesTotal, setRoutesTotal] = useState<number | null>(null);
   const [sessions, setSessions] = useState<{
@@ -150,42 +159,37 @@ export const Dashboard = observer(() => {
     };
   }, [store]);
 
-  useEffect(() => {
-    const dispose = conn.subscribe("dashboard:stats", (payload: unknown) => {
-      const s = payload as StatsPayload;
-      if (!s || typeof s !== "object" || !s.memory) return;
-      setStats(s);
-      setHistory((prev) => {
-        const next = [
-          ...prev,
-          {
-            i: sampleIdx.current++,
-            cpu: s.cpuPercent,
-            heap: Math.round((s.memory.heapUsed / MB) * 10) / 10,
-            rss: Math.round((s.memory.rss / MB) * 10) / 10,
-            loop: s.eventLoopMs,
-          },
-        ];
-        return next.length > HISTORY ? next.slice(-HISTORY) : next;
-      });
-      setLogRate(logCount.current - lastLogCount.current);
-      lastLogCount.current = logCount.current;
+  // Stats live via le binding publié `nodefony/react` (le client ref-compte
+  // l'abonnement → cohabite avec le store/les autres pages sur le même canal).
+  useNodefonyChannel("dashboard:stats", (payload: unknown) => {
+    const s = payload as StatsPayload;
+    if (!s || typeof s !== "object" || !s.memory) return;
+    setStats(s);
+    setHistory((prev) => {
+      const next = [
+        ...prev,
+        {
+          i: sampleIdx.current++,
+          cpu: s.cpuPercent,
+          heap: Math.round((s.memory.heapUsed / MB) * 10) / 10,
+          rss: Math.round((s.memory.rss / MB) * 10) / 10,
+          loop: s.eventLoopMs,
+        },
+      ];
+      return next.length > HISTORY ? next.slice(-HISTORY) : next;
     });
-    return () => dispose();
-  }, [conn]);
+    setLogRate(logCount.current - lastLogCount.current);
+    lastLogCount.current = logCount.current;
+  });
 
-  useEffect(() => {
-    const dispose = conn.subscribe("syslog:stream", (data: unknown) => {
-      // Canal coalescé : { logs: Pdu[], dropped }. Compter les logs réels (+ omis)
-      // pour un vrai débit/s, pas 1 par frame agrégée. Back-compat : Pdu unique.
-      const rec = data as { logs?: unknown[]; dropped?: number } | null;
-      const n = rec && Array.isArray(rec.logs)
-        ? rec.logs.length + (rec.dropped ?? 0)
-        : 1;
-      logCount.current += n;
-    });
-    return () => dispose();
-  }, [conn]);
+  // Canal PARTAGÉ avec la page Logs : sûr car le client ref-compte (démonter le
+  // Dashboard ne coupe pas le flux pour Logs). Frame coalescée { logs[], dropped }.
+  useNodefonyChannel("syslog:stream", (data: unknown) => {
+    const rec = data as { logs?: unknown[]; dropped?: number } | null;
+    const n =
+      rec && Array.isArray(rec.logs) ? rec.logs.length + (rec.dropped ?? 0) : 1;
+    logCount.current += n;
+  });
 
   // Jauge Heap V8 = heapUsed / plafond V8 (heap_size_limit), PAS / heapTotal.
   // heapUsed/heapTotal vaut ~99% en permanence (V8 garde heapTotal collé au
@@ -216,45 +220,52 @@ export const Dashboard = observer(() => {
 
   return (
     <Stack gap="lg">
-      <Group justify="space-between" align="flex-end">
-        <Stack gap={4}>
-          <Title order={2}>Dashboard</Title>
-          <Text c="dimmed" size="sm">
-            Métriques runtime en temps réel (WebSocket, 1 mesure/s) — bienvenue {auth.user?.username}.
-          </Text>
-        </Stack>
-        <Group gap="xs">
-          {info && (
-            <Badge variant="light" color="gray" size="lg">{info.env}</Badge>
-          )}
-          {info?.debug && (
-            <Tooltip label="Serveur lancé avec --debug (logs DEBUG verbeux)" withArrow>
-              <Badge variant="filled" color="orange" size="lg" leftSection={<IconBug size={14} />}>
-                DEBUG
+      <PageHeader
+        title="Dashboard"
+        subtitle={
+          <>
+            Métriques runtime en temps réel (WebSocket, 1 mesure/s) — bienvenue{" "}
+            {auth.user?.username}.
+          </>
+        }
+        actions={
+          <>
+            {info && (
+              <Badge variant="light" color="gray" size="lg">
+                {info.env}
+              </Badge>
+            )}
+            {info?.debug && (
+              <Tooltip label="Serveur lancé avec --debug (logs DEBUG verbeux)" withArrow>
+                <Badge variant="filled" color="orange" size="lg" leftSection={<IconBug size={14} />}>
+                  DEBUG
+                </Badge>
+              </Tooltip>
+            )}
+            {stats && (
+              <Tooltip
+                label="Instance (process) qui te sert. En multi-process tu n'en vois qu'une — la vue cluster arrivera avec Redis (Phase 13)."
+                withArrow
+                multiline
+                w={260}
+              >
+                <Badge variant="outline" color="gray" size="lg">
+                  instance {stats.instanceId}
+                </Badge>
+              </Tooltip>
+            )}
+            <Tooltip label="État du WebSocket temps réel permanent (reconnexion auto)." withArrow>
+              <Badge
+                color={rtOnline ? "teal" : rtState === "reconnecting" ? "yellow" : "gray"}
+                variant="light"
+                size="lg"
+              >
+                {rtOnline ? "Realtime online" : rtState}
               </Badge>
             </Tooltip>
-          )}
-          {stats && (
-            <Tooltip
-              label="Instance (process) qui te sert. En multi-process tu n'en vois qu'une — la vue cluster arrivera avec Redis (Phase 13)."
-              withArrow
-              multiline
-              w={260}
-            >
-              <Badge variant="outline" color="gray" size="lg">instance {stats.instanceId}</Badge>
-            </Tooltip>
-          )}
-          <Tooltip label="État du WebSocket temps réel permanent (reconnexion auto)." withArrow>
-            <Badge
-              color={conn.isConnected ? "teal" : conn.state === "reconnecting" ? "yellow" : "gray"}
-              variant="light"
-              size="lg"
-            >
-              {conn.isConnected ? "Realtime online" : conn.state}
-            </Badge>
-          </Tooltip>
-        </Group>
-      </Group>
+          </>
+        }
+      />
 
       {/* ── KPIs ── */}
       <Grid>
@@ -431,168 +442,6 @@ export const Dashboard = observer(() => {
   );
 });
 
-/**
- * Mini-graphe SVG temps-réel — zéro dépendance (recharts 2.x cassé sous React 19).
- * Survol : ligne-guide + point + tooltip valeur. Repères Y (0/max), pastille de la
- * dernière valeur, zone de seuil optionnelle.
- */
-function MiniChart({
-  series,
-  height = 190,
-  max,
-  threshold,
-  format = (v) => String(Math.round(v)),
-}: {
-  series: { data: number[]; color: string; label: string }[];
-  height?: number;
-  max?: number;
-  threshold?: number;
-  format?: (v: number) => string;
-}) {
-  const W = 600;
-  const H = 200;
-  const pad = 6;
-  const [hover, setHover] = useState<{ idx: number; xPx: number; w: number } | null>(null);
-  const n = Math.max(0, ...series.map((s) => s.data.length));
-  if (n < 2) return null;
-  const top = max ?? Math.max(1, ...series.flatMap((s) => s.data)) * 1.15;
-  const xOf = (i: number) => (i / (n - 1)) * (W - pad * 2) + pad;
-  const yOf = (v: number) => H - pad - (Math.min(v, top) / top) * (H - pad * 2);
-
-  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    const frac = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
-    setHover({ idx: Math.round(frac * (n - 1)), xPx: frac * r.width, w: r.width });
-  };
-
-  const tipLeft = hover ? (hover.xPx > hover.w * 0.6 ? hover.xPx - 140 : hover.xPx + 12) : 0;
-
-  return (
-    <div style={{ position: "relative" }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
-      <svg width="100%" height={height} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
-        style={{ display: "block", overflow: "visible" }}>
-        {threshold != null && (
-          <rect x={pad} y={yOf(top)} width={W - pad * 2} height={Math.max(0, yOf(threshold) - yOf(top))}
-            fill="var(--mantine-color-red-6)" opacity={0.07} />
-        )}
-        <line x1={pad} y1={yOf(0)} x2={W - pad} y2={yOf(0)}
-          stroke="var(--mantine-color-default-border)" strokeWidth={1} vectorEffect="non-scaling-stroke" opacity={0.6} />
-        {series.map((s, si) => {
-          const line = s.data.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(" ");
-          const area = `${pad},${H - pad} ${line} ${W - pad},${H - pad}`;
-          const last = s.data[s.data.length - 1];
-          return (
-            <g key={si}>
-              <polygon points={area} fill={s.color} opacity={0.1} />
-              <polyline points={line} fill="none" stroke={s.color} strokeWidth={2}
-                strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-              <circle cx={xOf(n - 1)} cy={yOf(last)} r={3} fill={s.color} vectorEffect="non-scaling-stroke" />
-            </g>
-          );
-        })}
-        {hover && (
-          <>
-            <line x1={xOf(hover.idx)} y1={pad} x2={xOf(hover.idx)} y2={H - pad}
-              stroke="var(--mantine-color-dimmed)" strokeWidth={1} strokeDasharray="4 4"
-              vectorEffect="non-scaling-stroke" opacity={0.6} />
-            {series.map((s, si) => (
-              <circle key={si} cx={xOf(hover.idx)} cy={yOf(s.data[hover.idx] ?? 0)} r={3.5}
-                fill={s.color} stroke="var(--mantine-color-body)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
-            ))}
-          </>
-        )}
-      </svg>
-      <Text c="dimmed" style={{ position: "absolute", top: 0, left: 2, fontSize: 10 }}>{format(top)}</Text>
-      <Text c="dimmed" style={{ position: "absolute", bottom: 0, left: 2, fontSize: 10 }}>0</Text>
-      {hover && (
-        <Paper shadow="sm" p={6} withBorder
-          style={{ position: "absolute", top: 4, left: tipLeft, pointerEvents: "none", zIndex: 5 }}>
-          <Stack gap={2}>
-            {series.map((s, si) => (
-              <Group key={si} gap={6} wrap="nowrap">
-                <span style={{ width: 8, height: 8, background: s.color, borderRadius: 2 }} />
-                <Text size="xs">{s.label} : <b>{format(s.data[hover.idx] ?? 0)}</b></Text>
-              </Group>
-            ))}
-          </Stack>
-        </Paper>
-      )}
-    </div>
-  );
-}
-
-function ChartCard({
-  title,
-  caption,
-  badge,
-  children,
-}: {
-  title: string;
-  caption: string;
-  badge?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card withBorder radius="md" p="lg">
-      <Group justify="space-between" mb={2}>
-        <Title order={4}>{title}</Title>
-        {badge}
-      </Group>
-      <Text size="xs" c="dimmed" mb="sm">{caption}</Text>
-      {children}
-    </Card>
-  );
-}
-
-function Kpi({
-  label,
-  icon,
-  hint,
-  children,
-  span = { base: 12, sm: 6, lg: 3 },
-}: {
-  label: string;
-  icon: React.ReactNode;
-  hint: string;
-  children: React.ReactNode;
-  span?: Record<string, number>;
-}) {
-  return (
-    <Grid.Col span={span}>
-      <Card withBorder radius="md" p="lg">
-        <Group justify="space-between">
-          <Stack gap={2}>
-            <Group gap={4}>
-              <Text size="xs" c="dimmed" tt="uppercase" fw={600}>{label}</Text>
-              <Info text={hint} />
-            </Group>
-            {children}
-          </Stack>
-          {icon}
-        </Group>
-      </Card>
-    </Grid.Col>
-  );
-}
-
-function Info({ text }: { text: string }) {
-  return (
-    <Tooltip label={text} multiline w={280} withArrow position="top" events={{ hover: true, focus: true, touch: true }}>
-      <ThemeIcon variant="subtle" color="gray" size="sm" style={{ cursor: "help" }}>
-        <IconInfoCircle size={15} />
-      </ThemeIcon>
-    </Tooltip>
-  );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <Group gap={6} wrap="nowrap">
-      <span style={{ width: 12, height: 3, background: color, borderRadius: 2 }} />
-      <Text size="xs" c="dimmed">{label}</Text>
-    </Group>
-  );
-}
 
 function Waiting() {
   return (
@@ -603,11 +452,3 @@ function Waiting() {
   );
 }
 
-function Row({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
-  return (
-    <Group justify="space-between" wrap="nowrap">
-      <Text size="sm" c="dimmed">{k}</Text>
-      <Text size="sm" fw={600} ff={mono ? "monospace" : undefined}>{v}</Text>
-    </Group>
-  );
-}
