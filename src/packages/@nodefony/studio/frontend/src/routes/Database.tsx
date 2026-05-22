@@ -29,14 +29,16 @@ import {
   Tooltip,
   ActionIcon,
   Alert,
+  Menu,
   useComputedColorScheme,
 } from "@mantine/core";
 import {
   IconDatabase,
   IconKey,
   IconRefresh,
-  IconCopy,
   IconCheck,
+  IconDownload,
+  IconBraces,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 
@@ -338,19 +340,24 @@ export const Database = observer(() => {
     if (selected) loadGraph(selected);
   }, [selected, loadGraph]);
 
-  const copyDbml = useCallback(() => {
-    if (!selected) return;
-    store.api
-      .getAbsolute<{ content: string }>(
-        `/nodefony/orm/api/export/dbml?orm=${encodeURIComponent(selected)}`,
-      )
-      .then((r) => navigator.clipboard.writeText(r.content))
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      })
-      .catch(() => {});
-  }, [store, selected]);
+  // Export du modèle (formats pivot IA) → presse-papier. Un même endpoint
+  // `/export/{format}` sert DBML (diagramme) et JSON Schema (validation/IA).
+  const copyExport = useCallback(
+    (format: "dbml" | "jsonschema") => {
+      if (!selected) return;
+      store.api
+        .getAbsolute<{ content: string }>(
+          `/nodefony/orm/api/export/${format}?orm=${encodeURIComponent(selected)}`,
+        )
+        .then((r) => navigator.clipboard.writeText(r.content))
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        })
+        .catch(() => {});
+    },
+    [store, selected],
+  );
 
   return (
     <Stack gap="md" style={{ height: "100%" }}>
@@ -377,11 +384,30 @@ export const Database = observer(() => {
             style={{ width: 220 }}
             placeholder="connecteur…"
           />
-          <Tooltip label="Copier le schéma DBML (pivot IA)">
-            <ActionIcon variant="default" onClick={copyDbml} aria-label="copy dbml">
-              {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-            </ActionIcon>
-          </Tooltip>
+          <Menu shadow="md" position="bottom-end" withinPortal>
+            <Menu.Target>
+              <Tooltip label="Exporter le schéma (pivot IA)">
+                <ActionIcon variant="default" aria-label="export schema">
+                  {copied ? <IconCheck size={16} /> : <IconDownload size={16} />}
+                </ActionIcon>
+              </Tooltip>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>Copier dans le presse-papier</Menu.Label>
+              <Menu.Item
+                leftSection={<IconDatabase size={14} />}
+                onClick={() => copyExport("dbml")}
+              >
+                DBML (dbdiagram.io)
+              </Menu.Item>
+              <Menu.Item
+                leftSection={<IconBraces size={14} />}
+                onClick={() => copyExport("jsonschema")}
+              >
+                JSON Schema (IA / validation)
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
           <Tooltip label="Rafraîchir">
             <ActionIcon
               variant="default"

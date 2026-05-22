@@ -107,6 +107,30 @@ describe("orm-core ↔ Sequelize adapter (P5.4)", () => {
     assert.equal(ownerRooms[0].userId, owner.id);
   });
 
+  // ── Graphe canonique : describeEntity (getAttributes) ─────────────────────
+  it("describeEntity : colonnes normalisées (pk/nullable/unique/type)", () => {
+    const cols = orm.describeEntity("User");
+    const byName = new Map(cols.map((c) => [c.name, c]));
+
+    const id = byName.get("id");
+    assert.ok(id, "colonne id absente");
+    assert.equal(id.primaryKey, true);
+    assert.equal(id.nullable, false); // PK jamais nullable
+
+    const email = byName.get("email");
+    assert.ok(email);
+    assert.equal(email.unique, true);
+    assert.equal(email.nullable, false);
+    assert.match(email.type, /char|text|string/i); // VARCHAR(255) / STRING
+
+    const age = byName.get("age");
+    assert.ok(age);
+    assert.equal(age.primaryKey, false);
+    assert.equal(age.nullable, true);
+
+    assert.deepEqual(orm.describeEntity("Inconnu"), []); // entité inconnue → []
+  });
+
   // ── Fuite #1 résolue : eager-load PORTABLE via options.relations ──────────
   it("eager-load PORTABLE : findOne(criteria, { relations }) charge l'association", async () => {
     const owner = await users.findOne(

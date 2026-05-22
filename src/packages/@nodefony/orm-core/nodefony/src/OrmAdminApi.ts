@@ -177,6 +177,91 @@ export function toDbml(graph: IOrmGraph): string {
   return `${lines.join("\n").trimEnd()}\n`;
 }
 
+/** Propriété d'un schéma JSON (scalaire, réf relation, ou tableau de réfs). */
+interface IJsonSchemaProperty {
+  type?: string;
+  format?: string;
+  $ref?: string;
+  items?: { $ref: string };
+}
+
+/** Définition d'objet JSON Schema pour une entité. */
+interface IJsonSchemaObject {
+  type: "object";
+  title: string;
+  properties: Record<string, IJsonSchemaProperty>;
+  required?: string[];
+  additionalProperties: false;
+}
+
+/**
+ * Mappe un type natif rapporté par l'adapter (`describeEntity`) vers un type
+ * JSON Schema. Heuristique tolérante (SQL + Mongoose) : `INTEGER`→integer,
+ * `VARCHAR(255)`/`uuid`/`ObjectId`→string, `BOOLEAN`→boolean, `json`→object,
+ * `timestamp`→string(date-time). Défaut prudent : `string`.
+ */
+function jsonSchemaType(nativeType: string): IJsonSchemaProperty {
+  const t = nativeType.toLowerCase();
+  if (/\b(serial|bigint|smallint|tinyint|mediumint|int|integer)\b/.test(t)) {
+    return { type: "integer" };
+  }
+  if (/(real|float|double|decimal|numeric|number)/.test(t)) {
+    return { type: "number" };
+  }
+  if (/bool/.test(t)) {
+    return { type: "boolean" };
+  }
+  if (/json/.test(t)) {
+    return { type: "object" };
+  }
+  if (/(date|time|timestamp)/.test(t)) {
+    return { type: "string", format: "date-time" };
+  }
+  return { type: "string" }; // text/varchar/char/uuid/objectid/enum/string…
+}
+
+/**
+ * Sérialise un graphe en **JSON Schema** (draft 2020-12) — un `$defs` par
+ * entité. Format « IA-first » : un agent (text-to-SQL, génération de formulaire,
+ * validation de payload) consomme directement ce schéma. Les colonnes
+ * non-nullables alimentent `required` ; les relations deviennent des `$ref`
+ * (N→1/1→1) ou des tableaux de `$ref` (1→N/N→N) vers les autres `$defs`.
+ *
+ * @param graph - graphe canonique.
+ * @returns document JSON Schema ({@link IJsonSchemaObject} par entité).
+ */
+export function toJsonSchema(graph: IOrmGraph): {
+  $schema: string;
+  $defs: Record<string, IJsonSchemaObject>;
+} {
+  const $defs: Record<string, IJsonSchemaObject> = {};
+  for (const node of graph.entities) {
+    const properties: Record<string, IJsonSchemaProperty> = {};
+    const required: string[] = [];
+    for (const col of node.columns) {
+      properties[col.name] = jsonSchemaType(col.type);
+      if (!col.nullable) {
+        required.push(col.name);
+      }
+    }
+    for (const rel of node.relations) {
+      const ref = `#/$defs/${rel.target}`;
+      properties[rel.field] =
+        rel.type === "one-to-many" || rel.type === "many-to-many"
+          ? { type: "array", items: { $ref: ref } }
+          : { $ref: ref };
+    }
+    $defs[node.name] = {
+      type: "object",
+      title: node.name,
+      properties,
+      ...(required.length ? { required } : {}),
+      additionalProperties: false,
+    };
+  }
+  return { $schema: "https://json-schema.org/draft/2020-12/schema", $defs };
+}
+
 const descriptor: IAdminDescriptor = {
   label: "ORM",
   icon: "database",
@@ -229,7 +314,7 @@ export function createOrmAdminApi(): IAdminApi {
     },
     {
       path: "export/{format}",
-      summary: "Export du modèle — format: dbml (?orm= pour filtrer)",
+      summary: "Export du modèle — format: dbml | jsonschema (?orm= pour filtrer)",
       handler: (
         request,
       ):
@@ -240,9 +325,17 @@ export function createOrmAdminApi(): IAdminApi {
         if (format === "dbml") {
           return { format: "dbml", content: toDbml(graph) };
         }
+        if (format === "jsonschema") {
+          return {
+            format: "jsonschema",
+            content: JSON.stringify(toJsonSchema(graph), null, 2),
+          };
+        }
         return {
           status: 400,
-          body: { error: `unsupported export format "${format}" (dbml)` },
+          body: {
+            error: `unsupported export format "${format}" (dbml, jsonschema)`,
+          },
         };
       },
     },

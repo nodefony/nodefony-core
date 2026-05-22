@@ -5,6 +5,7 @@ import {
   buildOrmGraph,
   createOrmAdminApi,
   toDbml,
+  toJsonSchema,
 } from "../../nodefony/src/OrmAdminApi";
 import type { IColumnInfo, IOrm, IEntity } from "../../nodefony/interfaces/index";
 import type { IAdminRequest } from "nodefony";
@@ -77,6 +78,8 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     assert.equal(g.orms.length, 1);
     assert.deepEqual(g.orms[0], {
       name: ORM,
+      // vendor dérivé du nom de classe ; le stub = objet littéral → ctor `Object`.
+      vendor: "object",
       default: false,
       connected: true,
       entityCount: 2,
@@ -99,6 +102,40 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     const dbml = toDbml(buildOrmGraph(ORM));
     // one-to-many Author->Article : FK authorId sur Article → Article.authorId > Author.id
     assert.match(dbml, /Ref: Article\.authorId > Author\.id/);
+  });
+
+  it("toJsonSchema : $defs par entité, required = non-nullables, relations en $ref", () => {
+    const schema = toJsonSchema(buildOrmGraph(ORM));
+    assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");
+
+    const a = schema.$defs.Author;
+    assert.ok(a);
+    assert.equal(a.type, "object");
+    assert.equal(a.additionalProperties, false);
+    assert.equal(a.properties.id.type, "string");
+    assert.deepEqual(a.required, ["id", "email"]); // les deux non-nullables
+    // one-to-many → tableau de $ref vers Article.
+    assert.deepEqual(a.properties.articles, {
+      type: "array",
+      items: { $ref: "#/$defs/Article" },
+    });
+
+    const art = schema.$defs.Article;
+    assert.ok(art);
+    assert.deepEqual(art.required, ["id", "title"]); // authorId nullable → exclu
+    // many-to-one → $ref simple vers Author.
+    assert.deepEqual(art.properties.author, { $ref: "#/$defs/Author" });
+  });
+
+  it("handler export jsonschema → JSON valide (draft 2020-12)", async () => {
+    const api = createOrmAdminApi();
+    const ep = api.adminEndpoints().find((e) => e.path === "export/{format}")!;
+    const res = (await ep.handler(
+      req({ format: "jsonschema" }, { orm: ORM }),
+    )) as { format: string; content: string };
+    assert.equal(res.format, "jsonschema");
+    const parsed = JSON.parse(res.content) as { $defs: Record<string, unknown> };
+    assert.ok(parsed.$defs.Author && parsed.$defs.Article);
   });
 
   it("handler orms / graph / export dbml", async () => {

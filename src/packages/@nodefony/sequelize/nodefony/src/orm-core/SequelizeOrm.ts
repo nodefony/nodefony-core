@@ -1,7 +1,39 @@
 import { Sequelize } from "sequelize";
-import type { Model, ModelAttributes, ModelStatic, Options } from "sequelize";
+import type {
+  DataType,
+  Model,
+  ModelAttributeColumnOptions,
+  ModelAttributes,
+  ModelStatic,
+  Options,
+} from "sequelize";
 import { Orm, entityRegistry } from "@nodefony/orm-core";
-import type { IEntity, IRepository, ITransaction } from "@nodefony/orm-core";
+import type {
+  IColumnInfo,
+  IEntity,
+  IRepository,
+  ITransaction,
+} from "@nodefony/orm-core";
+
+/**
+ * Type SQL lisible d'un attribut Sequelize **sans coupler au dialecte** :
+ * `String(type)` rend le SQL concret (`VARCHAR(255)`) quand le `DataType` est lié,
+ * sinon repli sur sa clé abstraite (`STRING`, `INTEGER`). Jamais de `throw`.
+ */
+function sequelizeColumnType(type: DataType): string {
+  if (typeof type === "string") {
+    return type;
+  }
+  try {
+    const sql = String(type);
+    if (sql && sql !== "[object Object]") {
+      return sql;
+    }
+  } catch {
+    // toString lié au dialecte peut throw avant sync → repli sur la clé.
+  }
+  return (type as { key?: string }).key ?? "unknown";
+}
 import { SequelizeRepository } from "./SequelizeRepository";
 import { SequelizeTransaction } from "./SequelizeTransaction";
 
@@ -174,5 +206,33 @@ export class SequelizeOrm extends Orm {
       throw new Error(`SequelizeOrm "${this.name}": not connected.`);
     }
     return this.#sequelize as C;
+  }
+
+  /**
+   * Colonnes normalisées d'une entité depuis les attributs Sequelize compilés
+   * (`getAttributes`) — alimente le graphe canonique / ERD / contexte IA.
+   *
+   * @param name - nom logique de l'entité.
+   * @returns colonnes (`[]` si l'entité n'est pas connue de cet ORM).
+   */
+  override describeEntity(name: string): IColumnInfo[] {
+    const model = this.#models?.[name];
+    if (!model) {
+      return [];
+    }
+    const attributes = model.getAttributes() as Record<
+      string,
+      ModelAttributeColumnOptions
+    >;
+    return Object.entries(attributes).map(([key, attr]) => ({
+      // `field` = nom de colonne en base ; défaut = clé de l'attribut.
+      name: attr.field ?? key,
+      type: sequelizeColumnType(attr.type),
+      primaryKey: attr.primaryKey === true,
+      // Sequelize : NULL autorisé par défaut, jamais sur une PK.
+      nullable: attr.primaryKey === true ? false : attr.allowNull !== false,
+      // `unique` peut être un booléen, une chaîne (index nommé) ou un objet.
+      unique: attr.unique != null && attr.unique !== false,
+    }));
   }
 }

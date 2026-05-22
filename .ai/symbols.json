@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-22T10:14:13.669Z",
+  "generated": "2026-05-22T10:58:31.487Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 301,
-    "symbols": 768,
+    "symbols": 773,
     "classes": 210,
-    "interfaces": 257,
+    "interfaces": 259,
     "types": 145,
     "enums": 1,
-    "functions": 134,
+    "functions": 137,
     "constants": 21
   },
   "symbols": {
@@ -4054,6 +4054,14 @@
       "module": "@nodefony/orm-core",
       "description": "Sérialise un graphe en **DBML** (Database Markup Language) — format pivot lu par dbdiagram.io, les outils IA et convertible en SQL. Les `Ref:` sont dérivés des relations selon la convention FK des …"
     },
+    "toJsonSchema": {
+      "name": "toJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Sérialise un graphe en **JSON Schema** (draft 2020-12) — un `$defs` par entité. Format « IA-first » : un agent (text-to-SQL, génération de formulaire, validation de payload) consomme directement ce…"
+    },
     "createOrmAdminApi": {
       "name": "createOrmAdminApi",
       "kind": "function",
@@ -7937,7 +7945,9 @@
       "IColumnInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
       "Criteria": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",

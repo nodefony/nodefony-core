@@ -1,7 +1,18 @@
 import mongoose from "mongoose";
-import type { Connection, Model, Schema, SchemaDefinition } from "mongoose";
+import type {
+  Connection,
+  Model,
+  Schema,
+  SchemaDefinition,
+  SchemaType,
+} from "mongoose";
 import { Orm, entityRegistry } from "@nodefony/orm-core";
-import type { IEntity, IRepository, ITransaction } from "@nodefony/orm-core";
+import type {
+  IColumnInfo,
+  IEntity,
+  IRepository,
+  ITransaction,
+} from "@nodefony/orm-core";
 import { MongooseRepository } from "./MongooseRepository";
 import { MongooseTransaction } from "./MongooseTransaction";
 
@@ -187,5 +198,29 @@ export class MongooseOrm extends Orm {
       throw new Error(`MongooseOrm "${this.name}": not connected.`);
     }
     return this.#connection as C;
+  }
+
+  /**
+   * Colonnes normalisées d'une entité depuis les `paths` du schéma Mongoose —
+   * alimente le graphe canonique / ERD / contexte IA. Pas de PK SQL : `_id` est
+   * la clé primaire implicite de tout document.
+   *
+   * @param name - nom logique de l'entité.
+   * @returns colonnes (`[]` si l'entité n'est pas connue de cet ORM).
+   */
+  override describeEntity(name: string): IColumnInfo[] {
+    const model = this.#models?.[name];
+    if (!model) {
+      return [];
+    }
+    const paths = model.schema.paths as Record<string, SchemaType>;
+    return Object.entries(paths).map(([path, schemaType]) => ({
+      name: path,
+      // `instance` = type Mongoose ("String", "ObjectId", "Number", "Date"...).
+      type: schemaType.instance || "Mixed",
+      primaryKey: path === "_id",
+      nullable: path === "_id" ? false : schemaType.isRequired !== true,
+      unique: (schemaType.options as { unique?: unknown }).unique === true,
+    }));
   }
 }

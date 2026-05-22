@@ -94,6 +94,31 @@ describe("orm-core ↔ Mongoose adapter (P5.4, store hétérogène)", () => {
     assert.equal(ownerRooms.length, 2);
   });
 
+  // ── Graphe canonique : describeEntity (schema.paths) ──────────────────────
+  it("describeEntity : colonnes normalisées (_id pk, types Mongoose)", () => {
+    const cols = orm.describeEntity("User");
+    const byName = new Map(cols.map((c) => [c.name, c]));
+
+    const id = byName.get("_id");
+    assert.ok(id, "_id absent");
+    assert.equal(id.primaryKey, true);
+    assert.equal(id.nullable, false);
+    assert.match(id.type, /objectid/i); // "ObjectID"/"ObjectId" selon version
+
+    const email = byName.get("email");
+    assert.ok(email);
+    assert.equal(email.type, "String");
+    assert.equal(email.unique, true);
+    assert.equal(email.nullable, false); // required: true
+
+    const age = byName.get("age");
+    assert.ok(age);
+    assert.equal(age.type, "Number");
+    assert.equal(age.nullable, true); // pas de required
+
+    assert.deepEqual(orm.describeEntity("Inconnu"), []); // entité inconnue → []
+  });
+
   it("eager-load PORTABLE : findOne(criteria, { relations }) → populate", async () => {
     const owner = await users.findOne(
       { email: "owner@b.c" },
