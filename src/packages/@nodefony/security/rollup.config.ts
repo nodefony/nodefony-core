@@ -22,22 +22,8 @@ const external: string[] = [
   "@nodefony/http",
   "@nodefony/framework",
   "@nodefony/user",
-  "@nodefony/sequelize",
-  "@nodefony/mongoose",
   "zod",
-  "bcrypt",
-  "csrf",
-  "jsonwebtoken",
-  "passport",
-  "passport-github2",
-  "passport-google-oauth20",
-  "passport-http",
-  "passport-jwt",
-  "passport-ldapauth",
-  "passport-local",
-  "passport-oauth2",
   "tslib",
-  "helmet",
 ];
 
 const nodefonyFiles = globSync("nodefony/**/*.ts", {
