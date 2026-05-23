@@ -65,27 +65,26 @@ src/packages/@nodefony/studio/
 
 - **UI SPA (humain)** — mono-segment, portée par CE module (disparaît si Studio absent) :
 
-| Route | Méthode | Rôle |
-|---|---|---|
-| `/nodefony` | GET | Page HTML (charge le bundle React via `frontendService.renderTags("studio")`) |
-| `/nodefony/{page}` | GET | SPA fallback 1 segment → même page React |
-| `/nodefony/modules/{name}` | GET | SPA fallback 2 segments **littéral** (deep-link/F5 sur `modules/:name`) → même page React. ⚠️ littéral `modules`, PAS `/{section}/{page}` (sinon masque `/nodefony/test/*` & co — régression 2026-05-20) |
+| Route                      | Méthode | Rôle                                                                                                                                                                                                     |
+| -------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/nodefony`                | GET     | Page HTML (charge le bundle React via `frontendService.renderTags("studio")`)                                                                                                                            |
+| `/nodefony/{page}`         | GET     | SPA fallback 1 segment → même page React                                                                                                                                                                 |
+| `/nodefony/modules/{name}` | GET     | SPA fallback 2 segments **littéral** (deep-link/F5 sur `modules/:name`) → même page React. ⚠️ littéral `modules`, PAS `/{section}/{page}` (sinon masque `/nodefony/test/*` & co — régression 2026-05-20) |
 
 - **Data plane admin (machine)** — `/nodefony/studio/api/*`, ≥3 segments. Mocks "cat.3" hébergés ici faute de mieux, migreront vers leur module propriétaire (`/nodefony/<module>/api/*`) :
 
-| Route | Méthode | Rôle | Cible migration |
-|---|---|---|---|
-| `/nodefony/studio/api/health` · `/info` | GET | Ping / infos runtime (`/info` inclut `debug`) | kernel |
-| `/nodefony/studio/api/auth/login` (POST) · `/auth/me` · `/auth/logout` (POST) | — | **MOCK** (accepte tout, JWT bidon, `ROLE_NODEFONY_ADMIN`) | @nodefony/security P6 |
-| `/nodefony/studio/api/realtime/info` | GET | Infos endpoint WS (available:**true**) | P13.4/P13.7 |
-| `/nodefony/studio/api/realtime` | **WS** | **WebSocket permanent JSON-RPC 2.0** (`StudioRealtimeController`) — pub/sub par canal (`subscribe`/`unsubscribe`) : `syslog:stream`, `dashboard:stats` | RealtimeService P13.4 |
-| `/nodefony/studio/api/logs/stream` | GET | SSE Pdu — **dormant** (le front utilise désormais le canal WS `syslog:stream`) | core syslog |
+| Route                                                                         | Méthode | Rôle                                                                                                                                                   | Cible migration       |
+| ----------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- |
+| `/nodefony/studio/api/health` · `/info`                                       | GET     | Ping / infos runtime (`/info` inclut `debug`)                                                                                                          | kernel                |
+| `/nodefony/studio/api/auth/login` (POST) · `/auth/me` · `/auth/logout` (POST) | —       | **MOCK** (accepte tout, JWT bidon, `ROLE_NODEFONY_ADMIN`)                                                                                              | @nodefony/security P6 |
+| `/nodefony/studio/api/realtime/info`                                          | GET     | Infos endpoint WS (available:**true**)                                                                                                                 | P13.4/P13.7           |
+| `/nodefony/studio/api/realtime`                                               | **WS**  | **WebSocket permanent JSON-RPC 2.0** (`StudioRealtimeController`) — pub/sub par canal (`subscribe`/`unsubscribe`) : `syslog:stream`, `dashboard:stats` | RealtimeService P13.4 |
 
 > **Pourquoi pas `/studio` pour l'UI** : `/nodefony` est réservé au framework, aucune app user n'y monte ses routes ; `/studio` entrerait en collision avec une route applicative. **Le framework boote sans Studio** — l'UI (cat.1) disparaît, le data plane par module (cat.2) reste porté par chaque module.
 > **Règle figée** : interdit aux modules une route admin mono-segment `/nodefony/<module>` — toujours `/nodefony/<module>/api/*`.
 > **Fallback SPA deep-link = préfixe LITTÉRAL** (`/modules/{name}`), jamais générique `/{section}/{page}` ni catch-all `*`. Un générique masquerait les vraies routes des autres modules sous `/nodefony/<x>/<y>` (ex `/nodefony/test/index` du module test) — **régression vécue le 2026-05-20** (21 échecs http). Le mono-segment `/{page}` est sûr car le framework réserve `/nodefony` (aucune app n'y monte une route mono-segment). Toute nouvelle page SPA à ≥2 segments → ajouter SON fallback littéral. Test de non-régression : `admin-dataplane.test` (`/nodefony/test/index` → JSON).
 > **`apiProxyPaths: ["/nodefony/studio/api"]`** — proxifie UNIQUEMENT l'API ; les pages SPA `/nodefony/{page}` restent servies par Vite.
-> **SSE** : écouter `rawRes.once("close")` (RESPONSE), jamais `request.on("close")` (fire trop tôt en HTTP/2). Cf mémoire `feedback_sse_http2_request_close`.
+> **SSE retiré (2026-05-23)** : l'ancien endpoint `/studio/api/logs/stream` (Pdu syslog) était mort (front passé au canal WS `syslog:stream`) et cassé en HTTP/2 (`flushHeaders` absent sur `Http2ServerResponse` → `code=000`). Supprimé back + `subscribeSSE` front. La leçon SSE/HTTP2 (écouter `rawRes.once("close")` sur la RESPONSE, pas `request` qui fire trop tôt en HTTP/2) reste valable pour tout futur SSE → mémoire `feedback_sse_http2_request_close`.
 
 ## Realtime WS (✅ implémenté 2026-05-20 — forward-compat P13.4)
 
@@ -127,20 +126,17 @@ WebSocket **permanent** `WS /nodefony/studio/api/realtime` (`StudioRealtimeContr
 
 ### Backlog UX page Logs (`frontend/src/routes/Logs.tsx`) — idées 2026-05-20
 
-> État actuel : SSE Pdu réel, Pause/Live, Clear, filtres (sévérité MultiSelect + module + msgid), autoscroll switch, ansiToReact, MAX_ENTRIES=500, `ScrollArea h=500` fixe.
+> État actuel : Pdu réel via canal WS `syslog:stream` (plus de SSE), Pause/Live, Clear, filtres (sévérité MultiSelect + module + msgid), autoscroll switch, ansiToReact, MAX_ENTRIES=500, `ScrollArea h=500` fixe.
 
 Quick wins (faible effort, fort impact) :
+
 1. **Autoscroll intelligent** : scroll vers le haut → pause auto le suivi ; bouton flottant « ↓ N nouveaux » pour revenir en bas (réflexe tail moderne, remplace le switch manuel).
 2. **Lignes ERROR/CRITIC surlignées** : fond rouge subtil sur toute la ligne (pas juste le badge).
 3. **Compteurs par sévérité cliquables** : chips `ERROR 3` / `WARN 12` en topbar, clic = toggle filtre (santé en un coup d'œil).
 4. **Recherche plein-texte** sur le message/payload (aujourd'hui on filtre module/msgid mais pas le contenu) + surlignage des matchs.
 5. **Copier une ligne / copier le set filtré** (clipboard, pour coller un crash dans un rapport).
 
-Plus gros (mais payant) :
-6. **Clic ligne → détail** : drawer/collapse avec le Pdu complet (payload objet, stack trace, pid, tous champs). Aujourd'hui payload objet = `JSON.stringify` inline illisible.
-7. **État SSE réel** : afficher connected/reconnecting/error depuis l'EventSource (le `Live/Pause` actuel n'est que la pause locale — une coupure SSE est invisible). `ConnectionStore.lastError` déjà dispo.
-8. **Layout colonnes alignées + hauteur pleine** : `Group` minWidth → vraie grille ; `ScrollArea` remplit le viewport au lieu de `h={500}` fixe.
-9. **Virtualisation** si buffer augmenté : TanStack Virtual (déjà dans les deps) pour ne pas rendre 500+ lignes riches.
+Plus gros (mais payant) : 6. **Clic ligne → détail** : drawer/collapse avec le Pdu complet (payload objet, stack trace, pid, tous champs). Aujourd'hui payload objet = `JSON.stringify` inline illisible. 7. **État WS réel dans la page** : afficher connected/reconnecting/error inline (le `Live/Pause` actuel n'est que la pause locale). Largement couvert par `ConnectionOverlay` global ; `ConnectionStore.lastError`/`state` dispo si on veut un badge local. 8. **Layout colonnes alignées + hauteur pleine** : `Group` minWidth → vraie grille ; `ScrollArea` remplit le viewport au lieu de `h={500}` fixe. 9. **Virtualisation** si buffer augmenté : TanStack Virtual (déjà dans les deps) pour ne pas rendre 500+ lignes riches.
 
 Combo recommandé 1ʳᵉ passe : **1 + 2 + 3 + 6**.
 

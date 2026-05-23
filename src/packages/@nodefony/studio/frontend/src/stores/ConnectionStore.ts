@@ -15,9 +15,9 @@ export type RealtimeKind = "channel" | "stream" | "rpc" | "binary";
 export interface SubscriptionMeta {
   /** Protocole applicatif encapsulé/négocié (ex "json-rpc-2.0", "sip", "mqtt", "binary"). */
   protocol?: string;
-  /** Transport sous-jacent. Défaut "ws" (subscribe) / "sse" (subscribeSSE). */
+  /** Transport sous-jacent. Défaut "ws". */
   transport?: RealtimeTransport;
-  /** Nature du flux. Défaut "channel" (subscribe) / "stream" (subscribeSSE). */
+  /** Nature du flux. Défaut "channel". */
   kind?: RealtimeKind;
   /**
    * Destination/pair distant du flux supervisé (ex "asterisk@pbx:5060",
@@ -145,7 +145,7 @@ export class ConnectionStore {
   }
 
   /** Copie les stats du client dans les structures observables (MobX) → le drawer
-   *  (observer) réaffiche. SSE (transport propre, hors client) garde son comptage. */
+   *  (observer) réaffiche. */
   private syncStats(): void {
     runInAction(() => {
       this.framesReceived = this.client.framesReceived;
@@ -154,8 +154,7 @@ export class ConnectionStore {
 
       // Réconcilie l'affichage du hub avec l'AUTORITÉ du client : les canaux WS
       // abonnés via les hooks `nodefony/react` (pas seulement via le store)
-      // apparaissent ainsi dans le Drawer avec leurs graphes. Les flux SSE
-      // (transport "sse", hors `client.subscribedChannels`) sont préservés.
+      // apparaissent ainsi dans le Drawer avec leurs graphes.
       const liveWs = new Set(this.client.subscribedChannels);
       for (const channel of liveWs) {
         if (!this.activeSubscriptions.has(channel)) {
@@ -172,8 +171,8 @@ export class ConnectionStore {
           });
         }
       }
-      for (const [channel, sub] of this.activeSubscriptions) {
-        if (sub.transport !== "sse" && !liveWs.has(channel)) {
+      for (const channel of this.activeSubscriptions.keys()) {
+        if (!liveWs.has(channel)) {
           this.activeSubscriptions.delete(channel);
         }
       }
@@ -323,78 +322,5 @@ export class ConnectionStore {
    */
   simulateMessage(channel: string, payload: unknown): void {
     this.clientHandlers.get(channel)?.wrapped(payload);
-  }
-
-  /**
-   * Subscribe via Server-Sent Events — utilisé en attendant le WS backend
-   * (P13.4). Le canal est traité comme une vraie subscription du hub :
-   * stats trackées, dispose() ferme l'EventSource.
-   *
-   * Les events SSE arrivent en `data: <json>` → parsés et passés au handler.
-   * Idéal pour streamer les Pdu du syslog kernel côté browser.
-   */
-  subscribeSSE(
-    channel: string,
-    url: string,
-    handler: (payload: unknown) => void,
-    meta: SubscriptionMeta = {},
-  ): () => void {
-    // Garde sur les souscriptions PROPRES au store (clientHandlers) — pas
-    // activeSubscriptions, qui peut contenir des entrées d'affichage réconciliées
-    // depuis l'autorité client (canaux abonnés via les hooks `nodefony/react`).
-    if (this.clientHandlers.has(channel)) {
-      // eslint-disable-next-line no-console
-      console.warn(`[Connection] already subscribed to ${channel}`);
-      return () => this.unsubscribe(channel);
-    }
-    const stats: SubscriptionStats = {
-      channel,
-      msgCount: 0,
-      lastMessage: null,
-      subscribedAt: Date.now(),
-      rate: 0,
-      series: [],
-      protocol: meta.protocol ?? "text/event-stream",
-      transport: meta.transport ?? "sse",
-      kind: meta.kind ?? "stream",
-      peer: meta.peer,
-    };
-    const wrapped = (...args: unknown[]) => {
-      // SSE ne passe PAS par le wildcard du RealtimeClient → on compte ici, en
-      // mutant l'entrée observable de la map (le proxy MobX), pas la ref locale.
-      const live = this.activeSubscriptions.get(channel);
-      if (live) {
-        runInAction(() => {
-          live.msgCount++;
-          live.lastMessage = Date.now();
-        });
-      }
-      handler(args[0]);
-    };
-
-    const es = new EventSource(url);
-    es.onmessage = (ev) => {
-      try {
-        const data = JSON.parse(ev.data);
-        wrapped(data);
-      } catch {
-        /* malformed event */
-      }
-    };
-    es.onerror = () => {
-      // Le browser auto-reconnect par défaut. Log mais ne ferme pas.
-      runInAction(() => {
-        this.lastError = `SSE error on ${channel}`;
-      });
-    };
-
-    const dispose = (): void => {
-      es.close();
-    };
-    runInAction(() => {
-      this.activeSubscriptions.set(channel, stats);
-    });
-    this.clientHandlers.set(channel, { dispose, wrapped });
-    return () => this.unsubscribe(channel);
   }
 }

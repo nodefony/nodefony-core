@@ -60,7 +60,11 @@ function mockRolesFor(username: string): string[] {
  *  - GET  /nodefony/studio/api/auth/me       → mock user (cible : @nodefony/security P6)
  *  - POST /nodefony/studio/api/auth/logout   → mock logout (cible : @nodefony/security P6)
  *  - GET  /nodefony/studio/api/realtime/info → URL WS @nodefony/client (cible : P13)
- *  - GET  /nodefony/studio/api/logs/stream   → SSE Pdu syslog (cible : core syslog)
+ *
+ * Le streaming des logs passe désormais par le canal WS `syslog:stream`
+ * (`StudioRealtimeController`, JSON-RPC 2.0). L'ancien endpoint SSE
+ * `/studio/api/logs/stream` a été retiré (mort + cassé en HTTP/2 : `flushHeaders`
+ * inexistant sur Http2ServerResponse → `code=000`). Cf `feedback_sse_http2_request_close`.
  */
 @controller("/nodefony")
 class StudioController extends Controller {
@@ -231,72 +235,6 @@ class StudioController extends Controller {
       protocol: "jsonrpc-2.0",
       heartbeatInterval: 30000,
       available: true, // endpoint WS live ; migrera vers RealtimeService en P13.4
-    });
-  }
-
-  /**
-   * Streaming SSE des Pdu du Syslog kernel.
-   *
-   * Vision P14.11 isomorphe : chaque Pdu est sérialisé en JSON et envoyé
-   * au browser, qui le rehydrate via `new Pdu()` + `parseJson()` — la même
-   * classe Pdu importée depuis `nodefony` (Core isomorphe).
-   *
-   * Format SSE : `data: <pdu json>\n\n`. Heartbeat `: ping` toutes les 15s.
-   * Cleanup auto sur client close → removeListener du syslog.
-   *
-   * TODO P13.4 : déplacer dans un endpoint WS dédié + canal pub/sub.
-   */
-  @Get("/studio/api/logs/stream")
-  async apiLogsStream(): Promise<void> {
-    const httpResp = this.context?.response as
-      | {
-          response?: {
-            setHeader: (k: string, v: string) => void;
-            write: (s: string) => boolean;
-            flushHeaders?: () => void;
-            once: (e: string, fn: () => void) => void;
-          };
-        }
-      | undefined;
-    const rawRes = httpResp?.response;
-    if (!rawRes || !this.syslog) return;
-
-    rawRes.setHeader("Content-Type", "text/event-stream");
-    rawRes.setHeader("Cache-Control", "no-cache, no-transform");
-    rawRes.setHeader("X-Accel-Buffering", "no");
-    rawRes.flushHeaders?.();
-    rawRes.write(": connected\n\n");
-
-    const onLog = (pdu: unknown) => {
-      try {
-        rawRes.write(`data: ${JSON.stringify(pdu)}\n\n`);
-      } catch {
-        /* socket closed during write */
-      }
-    };
-    this.syslog.on("onLog", onLog);
-    this.log("SSE handler connected", "INFO");
-
-    const heartbeat = setInterval(() => {
-      try {
-        rawRes.write(": ping\n\n");
-      } catch {
-        /* socket closed */
-      }
-    }, 15000);
-
-    // En HTTP/2, `request.on("close")` fire dès la fin du stream REQUEST
-    // (client a fini d'envoyer ses headers, pas de body) — bien avant la
-    // fermeture du stream response. Écouter "close" sur la RESPONSE qui
-    // reste ouverte tant que SSE émet.
-    await new Promise<void>((resolve) => {
-      const cleanup = () => {
-        clearInterval(heartbeat);
-        this.syslog?.off?.("onLog", onLog);
-        resolve();
-      };
-      rawRes.once("close", cleanup);
-      rawRes.once("error", cleanup);
     });
   }
 }

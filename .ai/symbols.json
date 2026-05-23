@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-23T12:30:38.681Z",
+  "generated": "2026-05-23T16:12:07.449Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 720,
-    "symbols": 1217,
-    "classes": 211,
-    "interfaces": 271,
+    "files": 722,
+    "symbols": 1225,
+    "classes": 212,
+    "interfaces": 275,
     "types": 142,
     "enums": 2,
-    "functions": 150,
-    "constants": 441
+    "functions": 151,
+    "constants": 443
   },
   "symbols": {
     "Cli": {
@@ -3980,6 +3980,33 @@
       "extends": null,
       "description": "Contrat d'une instance ORM gérée par le framework (une par connexion logique). Implémenté par chaque adapter (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefony/drizzle`...) et enregistré dans…"
     },
+    "ISlowQuery": {
+      "name": "ISlowQuery",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmFlow.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Sonde **flux ORM** — débit de requêtes vers la base, agrégé process-wide et **indépendant de l'ALS** (≠ profiler par-requête de la debug bar). Observe « combien de requêtes/s, à quelle latence, et …"
+    },
+    "IQueryFlow": {
+      "name": "IQueryFlow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmFlow.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Compteurs de flux d'UN connecteur ORM. Cumuls depuis le boot (le débit/s se dérive du delta de `total`). Latence en deux vues : moyenne sur la vie du process (`avgMs`) et EWMA lissée (`ewmaMs`, sui…"
+    },
+    "IOrmFlowReport": {
+      "name": "IOrmFlowReport",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmFlow.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Rapport de flux complet — un par instance (cloud-native : per-process). Le débit/s n'y figure pas (dérivé du delta de `total` entre deux `ts`)."
+    },
     "IColumnInfo": {
       "name": "IColumnInfo",
       "kind": "interface",
@@ -4261,6 +4288,14 @@
       "module": "@nodefony/orm-core",
       "description": "Construit le **diagnostic complet des connexions** (per-instance) : ping live (latence enregistrée dans la fenêtre glissante), sonde profonde driver ({@link IOrm.probe} — stockage/pool), et compteu…"
     },
+    "buildOrmFlow": {
+      "name": "buildOrmFlow",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Construit le rapport de **flux ORM** (per-instance) : débit (via `total`), latence (moyenne + EWMA), pire latence et requêtes lentes récentes, par connecteur enregistré. Lecture pure du {@link quer…"
+    },
     "toDbml": {
       "name": "toDbml",
       "kind": "function",
@@ -4311,6 +4346,14 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Singleton process-wide partagé par tous les drivers et consommateurs ORM. Les modules ORM s'enregistrent ici ; la classe {@link OrmRegistry} reste instanciable séparément pour des registres isolés …"
+    },
+    "queryFlowMonitor": {
+      "name": "queryFlowMonitor",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/QueryFlowMonitor.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Singleton process-wide de la sonde de flux ORM."
     },
     "ServiceWiring": {
       "name": "ServiceWiring",
@@ -4790,13 +4833,13 @@
       "module": "@nodefony/studio",
       "description": "Snapshot ONE-SHOT des sondes process — pendant HTTP du canal `dashboard:supervision` (PATRON sondes+hub : endpoint + ticker). Échantillonne CPU% et event-loop sur une courte fenêtre (`sampleMs`) po…"
     },
-    "createOrmHealthTicker": {
-      "name": "createOrmHealthTicker",
+    "createBrokerTicker": {
+      "name": "createBrokerTicker",
       "kind": "function",
       "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Ticker temps réel du diagnostic ORM (`orm:health`) — pousse périodiquement le paquet de **sondes** complet par connecteur (état, latence/fenêtre, erreurs, reconnexions, stockage, pool) pour le **co…"
+      "description": "Ticker temps réel **générique** branché sur un endpoint admin via le broker — pousse périodiquement sur un canal le résultat d'un `fetch` asynchrone. Sert la **santé ORM** (`orm:health` : état/ping…"
     },
     "INSTANCE_ID": {
       "name": "INSTANCE_ID",
@@ -4805,6 +4848,14 @@
       "exported": true,
       "module": "@nodefony/studio",
       "description": "Identifiant stable de CETTE instance/process. Override possible via env `NODEFONY_INSTANCE_ID` (utile en multi-process pour distinguer les workers). Forward-compat vue cluster (P13) : les stats son…"
+    },
+    "PROC": {
+      "name": "PROC",
+      "kind": "const",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Identité du process — **constante** (lue une fois). Détaille le process pour la carte « Process » de la supervision : runtime Node, OS, parent, exécutable."
     },
     "CHANNELS": {
       "name": "CHANNELS",
@@ -10550,6 +10601,11 @@
       "entity": [
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts"
       ],
+      "queryFlowMonitor": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
+      ],
       "DrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
@@ -11114,6 +11170,15 @@
       "IOrmSummary": [
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
+      "IOrmFlowReport": [
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+      ],
+      "IQueryFlow": [
+        "src/packages/@nodefony/orm-core/nodefony/src/QueryFlowMonitor.ts"
+      ],
+      "ISlowQuery": [
+        "src/packages/@nodefony/orm-core/nodefony/src/QueryFlowMonitor.ts"
+      ],
       "IChunker": [
         "src/packages/@nodefony/rag/src/chunking/FixedChunker.ts",
         "src/packages/@nodefony/rag/src/chunking/SentenceChunker.ts",
@@ -11239,7 +11304,7 @@
       "createStatsTicker": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
-      "createOrmHealthTicker": [
+      "createBrokerTicker": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "CHANNELS": [
