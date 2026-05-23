@@ -13,15 +13,21 @@ last-updated: 2026-05-20
 
 ## Pages (nouvel emplacement)
 
-| Page                                                              | Sujet                                             | Statut |
-| ---------------------------------------------------------------- | ------------------------------------------------- | ------ |
-| [`src/nodefony/docs/index.md`](../../src/nodefony/docs/index.md)             | Vue d'ensemble du core                            | stable |
-| [`src/nodefony/docs/container.md`](../../src/nodefony/docs/container.md)     | DI Container, Scope, services, parameters         | stable |
-| [`src/nodefony/docs/kernel.md`](../../src/nodefony/docs/kernel.md)           | Kernel lifecycle, modules, boot phases, CliKernel | draft  |
-| [`src/nodefony/docs/service.md`](../../src/nodefony/docs/service.md)         | Classe de base (DI + Events + Logging)            | draft  |
-| [`src/nodefony/docs/request-context.md`](../../src/nodefony/docs/request-context.md) | `AsyncLocalStorage`, requestId/user      | draft  |
-| [`src/nodefony/docs/injection.md`](../../src/nodefony/docs/injection.md)     | `@injectable`, `@inject`, scopes, résolution      | draft  |
-| [`src/nodefony/docs/syslog.md`](../../src/nodefony/docs/syslog.md)           | Logger RFC 5424, Pdu, ring buffer                 | draft  |
+| Page                                                                                 | Sujet                                             | Statut |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------- | ------ |
+| [`src/nodefony/docs/index.md`](../../src/nodefony/docs/index.md)                     | Vue d'ensemble du core                            | stable |
+| [`src/nodefony/docs/container.md`](../../src/nodefony/docs/container.md)             | DI Container, Scope, services, parameters         | stable |
+| [`src/nodefony/docs/kernel.md`](../../src/nodefony/docs/kernel.md)                   | Kernel lifecycle, modules, boot phases, CliKernel | draft  |
+| [`src/nodefony/docs/service.md`](../../src/nodefony/docs/service.md)                 | Classe de base (DI + Events + Logging)            | draft  |
+| [`src/nodefony/docs/request-context.md`](../../src/nodefony/docs/request-context.md) | `AsyncLocalStorage`, requestId/user               | draft  |
+| [`src/nodefony/docs/injection.md`](../../src/nodefony/docs/injection.md)             | `@injectable`, `@inject`, scopes, résolution      | draft  |
+| [`src/nodefony/docs/syslog.md`](../../src/nodefony/docs/syslog.md)                   | Logger RFC 5424, Pdu, ring buffer                 | draft  |
+
+## Vision / architecture transverse (multi-module)
+
+| Page                                                         | Sujet                                                                                                                                                                                | Statut |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| [`realtime-socket-nodefony.md`](realtime-socket-nodefony.md) | « La socket Nodefony » — hub realtime isomorphe, canaux duplex à backing pluggable (pubsub/SIP/bridge/proxy), backplane Redis cross-pod, portage SIP depuis `nodefony-client` (prod) | vision |
 
 ## Où mettre une nouvelle doc (cf ADR-0001)
 
