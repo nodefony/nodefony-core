@@ -19,6 +19,12 @@ import {
   type IRealtimeTransport,
   type RealtimeTransportFactory,
 } from "../../realtime/IRealtimeTransport";
+import type {
+  IRealtimeHub,
+  IRealtimeChannel,
+  IChannelStats,
+  RealtimeHandler,
+} from "../../realtime/IRealtimeHub";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 export { closeCodeToNotice } from "./notice";
 export type { NodefonyNotice, NoticeLevel } from "./notice";
@@ -72,21 +78,10 @@ interface JsonRpcNotification {
 }
 
 /**
- * Stats d'un canal/méthode reçus — GÉNÉRIQUES, calculées dans le client donc
- * réutilisables par toute app (`import { RealtimeClient } from "nodefony"`).
+ * Stats d'un canal — alias historique de {@link IChannelStats} (le contrat isomorphe
+ * `IRealtimeHub`). Conservé pour les consommateurs qui importent `MessageStats`.
  */
-export interface MessageStats {
-  /** Méthode JSON-RPC == nom du canal pub/sub. */
-  method: string;
-  /** Total de notifications reçues sur ce canal. */
-  msgCount: number;
-  /** Timestamp (ms) de la dernière notification. */
-  lastMessage: number | null;
-  /** Débit instantané (msg/s), échantillonné 1×/s. */
-  rate: number;
-  /** Historique du débit (VU-mètre) — fenêtre glissante. */
-  series: number[];
-}
+export type MessageStats = IChannelStats;
 
 /** Points conservés dans la série de débit (~32 s à 1 échantillon/s). */
 const STATS_SERIES_POINTS = 32;
@@ -147,7 +142,7 @@ export interface KernelPingResult {
   version?: string;
 }
 
-export class RealtimeClient {
+export class RealtimeClient implements IRealtimeHub {
   // Transport courant ({@link IRealtimeTransport}) — recréé à chaque (re)connexion.
   // L'orchestration (reconnect/heartbeat/state) vit ici ; le transport reste « bête ».
   private transport: IRealtimeTransport | null = null;
@@ -315,6 +310,14 @@ export class RealtimeClient {
   }
 
   /**
+   * Émet sur un canal — verbe « hub » de {@link IRealtimeHub.publish}. Côté client =
+   * notification au serveur (alias clair de {@link emit} dans le vocabulaire socket).
+   */
+  publish(channel: string, payload?: unknown): void {
+    this.emit(channel, payload);
+  }
+
+  /**
    * S'abonne à un canal pub/sub serveur (**ref-compté**). Émet la notification
    * `subscribe` au serveur UNIQUEMENT au 1er consommateur du canal ; les suivants
    * ne font qu'incrémenter le compteur. Ré-émis automatiquement à chaque
@@ -348,6 +351,40 @@ export class RealtimeClient {
   /** Canaux actuellement abonnés (≥ 1 consommateur). Lecture seule. */
   get subscribedChannels(): string[] {
     return Array.from(this._subscriptions.keys());
+  }
+
+  /**
+   * Handle « socket-like » d'un canal ({@link IRealtimeChannel}) — fine liaison sur
+   * les primitives (`subscribe`/`on`/`publish`/`unsubscribe`), forme naturelle des
+   * canaux à état (SIP, bridge) et point d'accroche des couches à venir (codec,
+   * cadence, politique). N'ouvre rien : appeler `.open()` pour s'abonner. `kind` reste
+   * indéfini côté client tant que le serveur ne l'annonce pas.
+   */
+  channel(name: string): IRealtimeChannel {
+    const hub = this;
+    const disposers = new Set<() => void>();
+    return {
+      name,
+      on(handler: RealtimeHandler): () => void {
+        const dispose = hub.on(name, handler);
+        disposers.add(dispose);
+        return () => {
+          dispose();
+          disposers.delete(dispose);
+        };
+      },
+      send(payload?: unknown): void {
+        hub.publish(name, payload);
+      },
+      open(): void {
+        hub.subscribe(name);
+      },
+      close(): void {
+        for (const d of disposers) d();
+        disposers.clear();
+        hub.unsubscribe(name);
+      },
+    };
   }
 
   /** Request/response JSON-RPC 2.0 — Promise resolved with `result`. */

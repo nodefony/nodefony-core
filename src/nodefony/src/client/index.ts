@@ -44,6 +44,12 @@ export type {
   TransportStateValue,
   RealtimeTransportFactory,
 } from "../realtime/IRealtimeTransport";
+export type {
+  IRealtimeHub,
+  IRealtimeChannel,
+  IChannelStats,
+  RealtimeHandler,
+} from "../realtime/IRealtimeHub";
 
 class Nodefony {
   private static instance: Nodefony;

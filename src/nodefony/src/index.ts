@@ -43,6 +43,12 @@ export type {
   TransportStateValue,
   RealtimeTransportFactory,
 } from "./realtime/IRealtimeTransport";
+export type {
+  IRealtimeHub,
+  IRealtimeChannel,
+  IChannelStats,
+  RealtimeHandler,
+} from "./realtime/IRealtimeHub";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 export { default as nodefonyError } from "./Error";

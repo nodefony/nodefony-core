@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-23T17:30:52.004Z",
+  "generated": "2026-05-23T21:32:03.749Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 728,
-    "symbols": 1246,
+    "files": 729,
+    "symbols": 1250,
     "classes": 216,
-    "interfaces": 285,
-    "types": 148,
+    "interfaces": 287,
+    "types": 150,
     "enums": 2,
     "functions": 151,
     "constants": 444
@@ -627,6 +627,40 @@
       "file": "src/nodefony/src/kernel/Module.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "IChannelStats": {
+      "name": "IChannelStats",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/IRealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Compteurs d'un canal — **génériques**, calculés au point d'arrivée des frames donc fiables et réutilisables par toute app. (`RealtimeClient.MessageStats` en est l'alias.)"
+    },
+    "IRealtimeChannel": {
+      "name": "IRealtimeChannel",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/IRealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Handle d'UN canal — vue « socket-like » d'un sous-flux duplex multiplexé sur la {@link IRealtimeHub}. Forme naturelle des canaux à état (un appel SIP, une connexion bridgée) : il porte son nom, sa …"
+    },
+    "IRealtimeHub": {
+      "name": "IRealtimeHub",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/IRealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "RealtimeHandler": {
+      "name": "RealtimeHandler",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/IRealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "IRealtimeHub — « la socket Nodefony » : le lien temps réel **ISOMORPHE** client↔back. C'est LA brique du realtime Nodefony (cf vision « la socket Nodefony ») : un seul lien, qui a une **existence i…"
     },
     "IRealtimeTransport": {
       "name": "IRealtimeTransport",
@@ -1555,7 +1589,9 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "implements": [],
+      "implements": [
+        "IRealtimeHub"
+      ],
       "decorators": []
     },
     "RealtimeOptions": {
@@ -1565,15 +1601,6 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null
-    },
-    "MessageStats": {
-      "name": "MessageStats",
-      "kind": "interface",
-      "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": null,
-      "description": "Stats d'un canal/méthode reçus — GÉNÉRIQUES, calculées dans le client donc réutilisables par toute app (`import { RealtimeClient } from \"nodefony\"`)."
     },
     "RealtimeFrame": {
       "name": "RealtimeFrame",
@@ -1599,6 +1626,14 @@
       "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "MessageStats": {
+      "name": "MessageStats",
+      "kind": "type",
+      "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Stats d'un canal — alias historique de {@link IChannelStats} (le contrat isomorphe `IRealtimeHub`). Conservé pour les consommateurs qui importent `MessageStats`."
     },
     "RoleRegistry": {
       "name": "RoleRegistry",
@@ -9340,6 +9375,9 @@
         "BrowserWsTransport",
         "WsConnectionTransport"
       ],
+      "IRealtimeHub": [
+        "RealtimeClient"
+      ],
       "ITransport": [
         "ConsoleTransport",
         "FileTransport",
@@ -10661,6 +10699,18 @@
         "src/packages/@nodefony/framework/nodefony/src/WsConnectionTransport.ts"
       ],
       "RealtimeTransportFactory": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "IRealtimeHub": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "IRealtimeChannel": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "IChannelStats": [
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "RealtimeHandler": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "Role": [
