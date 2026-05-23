@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-23T21:59:58.847Z",
+  "generated": "2026-05-23T22:23:34.938Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 730,
-    "symbols": 1256,
+    "files": 731,
+    "symbols": 1260,
     "classes": 217,
-    "interfaces": 288,
+    "interfaces": 289,
     "types": 153,
     "enums": 2,
-    "functions": 152,
+    "functions": 155,
     "constants": 444
   },
   "symbols": {
@@ -627,6 +627,39 @@
       "file": "src/nodefony/src/kernel/Module.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "RateBounds": {
+      "name": "RateBounds",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/channelRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "channelRate — granularité (cadence) d'un canal realtime, **convention isomorphe** partagée par les deux bords de la socket. La cadence d'un canal à état (stats, supervision) vit dans son **nom** : …"
+    },
+    "rateChannel": {
+      "name": "rateChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/realtime/channelRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit le nom d'un canal cadencé à partir de sa base et de la cadence demandée. `intervalMs` omis OU égal à `defaultMs` → renvoie `base` nu : on **n'émet pas** de suffixe pour la cadence par déf…"
+    },
+    "parseRate": {
+      "name": "parseRate",
+      "kind": "function",
+      "file": "src/nodefony/src/realtime/channelRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout la cadence (ms) d'un canal cadencé connu, côté serveur. Le serveur connaît la `base` qu'il vient de matcher ; ce helper en extrait le suffixe `:<ms>`, **borne** dans `bounds` et retombe sur …"
+    },
+    "isRateChannel": {
+      "name": "isRateChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/realtime/channelRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Vrai si `channel` est le canal de base nu OU une de ses variantes cadencées `base:<ms>`."
     },
     "IChannelStats": {
       "name": "IChannelStats",
@@ -10523,6 +10556,16 @@
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
+      "rateChannel": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "parseRate": [
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "isRateChannel": [
+        "src/nodefony/src/client/index.ts"
+      ],
       "File": [
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/finder/FileResult.ts",
@@ -11628,6 +11671,9 @@
       ],
       "AppMeta": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "RateBounds": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "createSyslogBridge": [

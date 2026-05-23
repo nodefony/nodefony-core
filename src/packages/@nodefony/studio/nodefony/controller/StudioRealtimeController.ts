@@ -2,7 +2,8 @@
 import { RealtimeController, route, controller } from "@nodefony/framework";
 import type { IAdminBroker, RealtimePublish } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
-import type { IAdminRequest, RpcActionHandler } from "nodefony";
+import type { IAdminRequest, RpcActionHandler, RateBounds } from "nodefony";
+import { parseRate } from "nodefony";
 import {
   createSyslogBridge,
   createStatsTicker,
@@ -11,6 +12,18 @@ import {
   CHANNELS,
   type AppMeta,
 } from "../realtime/providers";
+
+/**
+ * Bornes de cadence par canal cadencé — défaut + min/max (ms). Convention partagée avec
+ * le front via {@link rateChannel}/{@link parseRate} (module isomorphe `nodefony`).
+ */
+const RATE_BOUNDS: Readonly<Record<string, RateBounds>> = {
+  // Stats process (supervision page ET debug bar) : même ticker, canaux séparés.
+  stats: { default: 1000, min: 250, max: 60000 },
+  ormHealth: { default: 5000, min: 1000, max: 60000 },
+  // Flux ORM : plus dynamique → défaut 2 s.
+  ormFlow: { default: 2000, min: 500, max: 60000 },
+};
 
 /**
  * StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio.
@@ -83,16 +96,7 @@ class StudioRealtimeController extends RealtimeController {
     }
     if (statsBase) {
       // Granularité client via suffixe `:<ms>` (borné 250 ms–60 s). Défaut 1 s.
-      const ms =
-        channel === statsBase
-          ? 1000
-          : Math.min(
-              60000,
-              Math.max(
-                250,
-                parseInt(channel.slice(statsBase.length + 1), 10) || 1000,
-              ),
-            );
+      const ms = parseRate(channel, statsBase, RATE_BOUNDS.stats);
       // La supervision compte les erreurs CÔTÉ SERVEUR (syslog passé) → pas besoin
       // d'abonner le dashboard à syslog:stream. La debug bar non.
       const sysForErrors =
@@ -110,17 +114,7 @@ class StudioRealtimeController extends RealtimeController {
       channel.startsWith(`${CHANNELS.ormHealth}:`)
     ) {
       // Granularité `orm:health:<ms>` (borné 1–60 s). Défaut 5 s.
-      const ms =
-        channel === CHANNELS.ormHealth
-          ? 5000
-          : Math.min(
-              60000,
-              Math.max(
-                1000,
-                parseInt(channel.slice(CHANNELS.ormHealth.length + 1), 10) ||
-                  5000,
-              ),
-            );
+      const ms = parseRate(channel, CHANNELS.ormHealth, RATE_BOUNDS.ormHealth);
       // Broker capturé À LA CRÉATION (singleton long-lived) : le provider est PARTAGÉ
       // par le hub et survit à la connexion qui l'a créé — ne JAMAIS capturer `this`.
       const broker = this.get<IAdminBroker>("adminBroker");
@@ -140,17 +134,7 @@ class StudioRealtimeController extends RealtimeController {
       channel.startsWith(`${CHANNELS.ormFlow}:`)
     ) {
       // Flux ORM : plus dynamique → défaut 2 s (borné 500 ms–60 s).
-      const ms =
-        channel === CHANNELS.ormFlow
-          ? 2000
-          : Math.min(
-              60000,
-              Math.max(
-                500,
-                parseInt(channel.slice(CHANNELS.ormFlow.length + 1), 10) ||
-                  2000,
-              ),
-            );
+      const ms = parseRate(channel, CHANNELS.ormFlow, RATE_BOUNDS.ormFlow);
       const broker = this.get<IAdminBroker>("adminBroker");
       return createBrokerTicker(
         () => StudioRealtimeController.fetchOrmEndpoint(broker, "flow"),

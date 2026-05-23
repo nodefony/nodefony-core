@@ -49,6 +49,8 @@ export type {
   IChannelStats,
   RealtimeHandler,
 } from "./realtime/IRealtimeSocket";
+export { rateChannel, parseRate, isRateChannel } from "./realtime/channelRate";
+export type { RateBounds } from "./realtime/channelRate";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 export { default as nodefonyError } from "./Error";

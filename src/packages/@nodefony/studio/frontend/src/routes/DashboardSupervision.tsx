@@ -46,7 +46,11 @@ import {
 import { useStore, useAuth } from "../stores";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
-import { useNodefonyState, useNodefonyChannel } from "nodefony/react";
+import {
+  useNodefonyState,
+  useNodefonyChannel,
+  rateChannel,
+} from "nodefony/react";
 import {
   PageHeader,
   KpiCard,
@@ -188,7 +192,10 @@ const MB = 1024 ** 2;
  * noms internes cryptiques → libellé clair + explication (aide ⓘ PAR élément).
  */
 const HANDLE_INFO: Record<string, { label: string; desc: string }> = {
-  TTYWrap: { label: "Terminal", desc: "Flux terminal (stdout / stderr / stdin)." },
+  TTYWrap: {
+    label: "Terminal",
+    desc: "Flux terminal (stdout / stderr / stdin).",
+  },
   TCPSocketWrap: {
     label: "Socket TCP",
     desc: "Connexion TCP active — requête HTTP entrante, WebSocket, client sortant…",
@@ -553,9 +560,10 @@ export const DashboardSupervision = observer(() => {
   // on garde le rapport précédent (ts + totals) pour le calcul, live-only.
   const [ormFlow, setOrmFlow] = useState<FlowReport | null>(null);
   const [flowRates, setFlowRates] = useState<Record<string, number>>({});
-  const prevFlowRef = useRef<{ ts: number; totals: Record<string, number> } | null>(
-    null,
-  );
+  const prevFlowRef = useRef<{
+    ts: number;
+    totals: Record<string, number>;
+  } | null>(null);
   // Historique du débit PAR CONNECTEUR (1 point = un instantané {connecteur→req/s})
   // → courbe multi-séries (1 ligne/connecteur) + légendes au débit temps réel.
   const [flowHist, setFlowHist] = useState<{ rates: Record<string, number> }[]>(
@@ -616,14 +624,10 @@ export const DashboardSupervision = observer(() => {
     }, 1000);
     return () => window.clearInterval(id);
   }, [live, liveMs]);
-  const statsChannel =
-    liveMs === 1000
-      ? "dashboard:supervision"
-      : `dashboard:supervision:${liveMs}`;
-  // Canal santé ORM (même granularité ; le canal nu vaut 5 s côté serveur).
-  const ormChannel = liveMs === 5000 ? "orm:health" : `orm:health:${liveMs}`;
-  // Canal flux ORM (même granularité ; le canal nu vaut 2 s côté serveur).
-  const flowChannel = liveMs === 2000 ? "orm:flow" : `orm:flow:${liveMs}`;
+  // Granularité = convention partagée (nu = défaut serveur, sinon `base:<ms>`).
+  const statsChannel = rateChannel("dashboard:supervision", liveMs, 1000);
+  const ormChannel = rateChannel("orm:health", liveMs, 5000);
+  const flowChannel = rateChannel("orm:flow", liveMs, 2000);
 
   const cap = (arr: number[], v: number): number[] => {
     const n = [...arr, v];
@@ -846,7 +850,10 @@ export const DashboardSupervision = observer(() => {
     .slice(0, 8);
   // Échelle des barres = pire latence visible ; colonne connecteur seulement si
   // plusieurs connecteurs ont des requêtes lentes (sinon redondant).
-  const slowWorstMs = slowQueries.reduce((m, q) => Math.max(m, q.durationMs), 0);
+  const slowWorstMs = slowQueries.reduce(
+    (m, q) => Math.max(m, q.durationMs),
+    0,
+  );
   const slowMultiConn = new Set(slowQueries.map((q) => q.connector)).size > 1;
   const flowTotal = flowConns.reduce((a, c) => a + c.total, 0);
   // Connecteurs tracés sur la courbe multi-séries = ceux ayant eu ≥1 requête
@@ -1092,8 +1099,8 @@ export const DashboardSupervision = observer(() => {
               c="dimmed"
               style={{ fontVariantNumeric: "tabular-nums" }}
             >
-              PID {stats?.proc?.pid ?? stats?.pid ?? info?.pid ?? "—"} · instance{" "}
-              {stats?.instanceId ?? "—"}
+              PID {stats?.proc?.pid ?? stats?.pid ?? info?.pid ?? "—"} ·
+              instance {stats?.instanceId ?? "—"}
               {stats ? ` · uptime ${uptimeStr(stats.uptime)}` : ""}
             </Text>
           </Group>
@@ -1244,8 +1251,8 @@ export const DashboardSupervision = observer(() => {
                     </Button>
                   </Group>
                   <Text size="xs" c="dimmed" mb="sm">
-                    Glissez le poids de chaque sonde (0 = exclue). Le % se recalcule
-                    et l'indice se met à jour en direct.
+                    Glissez le poids de chaque sonde (0 = exclue). Le % se
+                    recalcule et l'indice se met à jour en direct.
                   </Text>
                   <Stack gap="sm">
                     {Object.keys(DEFAULT_WEIGHTS).map((label) => {
@@ -1348,20 +1355,25 @@ export const DashboardSupervision = observer(() => {
                                 ? "orange"
                                 : "red"
                         }
-                        style={{ cursor: "help", fontVariantNumeric: "tabular-nums" }}
+                        style={{
+                          cursor: "help",
+                          fontVariantNumeric: "tabular-nums",
+                        }}
                       >
-                        {p.label} {p.score} · {Math.round((p.weight / healthTotalW) * 100)}%
+                        {p.label} {p.score} ·{" "}
+                        {Math.round((p.weight / healthTotalW) * 100)}%
                       </Badge>
                     </Tooltip>
                   ))}
                 </Group>
                 <Text size="xs" c="dimmed">
-                  Pondération : le <b>poids ×N</b> donne l'importance de la sonde dans
-                  la moyenne géométrique. <b>🛡 saturation</b> (CPU, ELU, event-loop,
-                  GC) = planchée → tire vers « Dégradé », jamais « Critique » seule.{" "}
-                  <b>⚠ panne</b> (erreurs, connecteurs, mémoire OOM) = peut tirer
-                  l'indice à 0. ELU & event-loop pèsent le plus (×1.5) car ce sont les
-                  vraies jauges de saturation du thread.
+                  Pondération : le <b>poids ×N</b> donne l'importance de la
+                  sonde dans la moyenne géométrique. <b>🛡 saturation</b> (CPU,
+                  ELU, event-loop, GC) = planchée → tire vers « Dégradé »,
+                  jamais « Critique » seule. <b>⚠ panne</b> (erreurs,
+                  connecteurs, mémoire OOM) = peut tirer l'indice à 0. ELU &
+                  event-loop pèsent le plus (×1.5) car ce sont les vraies jauges
+                  de saturation du thread.
                 </Text>
               </Stack>
             )}
@@ -1836,16 +1848,24 @@ export const DashboardSupervision = observer(() => {
                               </Badge>
                             </Group>
                           </Table.Td>
-                          <Table.Td style={{ fontVariantNumeric: "tabular-nums" }}>
+                          <Table.Td
+                            style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
                             {Math.round(flowRates[c.connector] ?? 0)} req/s
                           </Table.Td>
-                          <Table.Td style={{ fontVariantNumeric: "tabular-nums" }}>
+                          <Table.Td
+                            style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
                             {c.ewmaMs != null ? `${c.ewmaMs} ms` : "—"}
                           </Table.Td>
-                          <Table.Td style={{ fontVariantNumeric: "tabular-nums" }}>
+                          <Table.Td
+                            style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
                             {c.avgMs != null ? c.avgMs : "—"} / {c.maxMs} ms
                           </Table.Td>
-                          <Table.Td style={{ fontVariantNumeric: "tabular-nums" }}>
+                          <Table.Td
+                            style={{ fontVariantNumeric: "tabular-nums" }}
+                          >
                             {c.total.toLocaleString()}
                           </Table.Td>
                           <Table.Td
@@ -2350,9 +2370,13 @@ export const DashboardSupervision = observer(() => {
                 icon={<IconBolt size={16} />}
                 title="Sonde de flux désactivée"
               >
-                La sonde de flux ORM est OFF (environnement de production) pour ne
-                rien coûter sur le chemin des requêtes. Réactivable via la variable
-                d'environnement <Text span fw={600}>NODEFONY_ORM_FLOW=1</Text>.
+                La sonde de flux ORM est OFF (environnement de production) pour
+                ne rien coûter sur le chemin des requêtes. Réactivable via la
+                variable d'environnement{" "}
+                <Text span fw={600}>
+                  NODEFONY_ORM_FLOW=1
+                </Text>
+                .
               </Alert>
             ) : !flowConns.length ? (
               <Text size="sm" c="dimmed">
@@ -2370,7 +2394,11 @@ export const DashboardSupervision = observer(() => {
                       >
                         <Card withBorder radius="sm" p="md" h="100%">
                           <Group justify="space-between" wrap="nowrap" mb={6}>
-                            <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                            <Group
+                              gap={6}
+                              wrap="nowrap"
+                              style={{ minWidth: 0 }}
+                            >
                               {dbIcon(c.vendor, 18)}
                               <Text fw={600} truncate>
                                 {c.connector}
@@ -2657,7 +2685,9 @@ export const DashboardSupervision = observer(() => {
                       }
                       v={
                         stats?.elu ? (
-                          <FlashValue value={Math.round(stats.elu.utilization * 100)}>
+                          <FlashValue
+                            value={Math.round(stats.elu.utilization * 100)}
+                          >
                             <Text
                               inherit
                               c={
@@ -2755,7 +2785,11 @@ export const DashboardSupervision = observer(() => {
                       }
                       mono
                     />
-                    <Row k="Cœurs CPU" v={String(stats?.cpuCount ?? "—")} mono />
+                    <Row
+                      k="Cœurs CPU"
+                      v={String(stats?.cpuCount ?? "—")}
+                      mono
+                    />
                   </Stack>
                 </Grid.Col>
                 <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -2769,7 +2803,9 @@ export const DashboardSupervision = observer(() => {
                       }
                       v={
                         stats && stats.cpuCount
-                          ? ((stats.loadavg[0] ?? 0) / stats.cpuCount).toFixed(2)
+                          ? ((stats.loadavg[0] ?? 0) / stats.cpuCount).toFixed(
+                              2,
+                            )
                           : "—"
                       }
                       mono

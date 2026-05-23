@@ -56,7 +56,7 @@ import {
   DefinitionList,
 } from "../components/ui";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
-import { useNodefonyChannel } from "nodefony/react";
+import { useNodefonyChannel, rateChannel } from "nodefony/react";
 
 /** Résumé d'un connecteur ORM (data plane /nodefony/orm/api/orms). */
 interface OrmSummary {
@@ -381,8 +381,7 @@ function OrmHealthLive({
 }) {
   // Granularité : canal paramétré `orm:health:<ms>` (le serveur cadence le
   // ticker dessus). Changer `intervalMs` change le canal → ré-abonnement auto.
-  const channel =
-    intervalMs === 5000 ? "orm:health" : `orm:health:${intervalMs}`;
+  const channel = rateChannel("orm:health", intervalMs, 5000);
   useNodefonyChannel(channel, (payload: unknown) => {
     if (Array.isArray(payload)) onData(payload as ConnHealth[]);
   });

@@ -24,6 +24,15 @@ import type {
   NodefonyNotice,
 } from "../realtime/RealtimeClient";
 
+// Convention de cadence partagée client↔serveur — réexportée ici pour que le front
+// fabrique ses canaux cadencés depuis le même subpath que les hooks canal.
+export {
+  rateChannel,
+  parseRate,
+  isRateChannel,
+} from "../../realtime/channelRate";
+export type { RateBounds } from "../../realtime/channelRate";
+
 const NodefonyContext = React.createContext<RealtimeClient | null>(null);
 
 export interface NodefonyProviderProps {

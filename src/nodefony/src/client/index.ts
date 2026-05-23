@@ -23,6 +23,7 @@ import { closeCodeToNotice } from "./realtime/notice";
 import { JsonRpcPeer } from "../realtime/JsonRpcPeer";
 import { TransportState } from "../realtime/IRealtimeTransport";
 import { BrowserWsTransport } from "./realtime/BrowserWsTransport";
+import { rateChannel, parseRate, isRateChannel } from "../realtime/channelRate";
 export type {
   RealtimeState,
   RealtimeOptions,
@@ -97,4 +98,8 @@ export {
   TransportState,
   BrowserWsTransport,
   closeCodeToNotice,
+  rateChannel,
+  parseRate,
+  isRateChannel,
 };
+export type { RateBounds } from "../realtime/channelRate";
