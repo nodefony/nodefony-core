@@ -749,6 +749,23 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   `npm run build -- --force` (bypass cache) puis restart. Back Studio/core modifié = rebuild + restart
   (le `start.sh` ne rebuild QUE le module test).
 
+**Briques réutilisables nées en supervision (2026-05-23, observabilité)**
+
+- **Indice de santé composite** (`buildHealth`/`healthDesirability` dans `DashboardSupervision.tsx`) :
+  agrège N sondes hétérogènes en 1 score 0-100 par **Derringer-Suich** (moyenne géométrique pondérée
+  des désirabilités, NIST). 2 classes : **saturation** (`floor>0` → planchée, « Dégradé » max, jamais
+  Critique seule) vs **panne** (`critical:true` → peut tirer l'indice à 0). Null exclu (poids recalculés).
+  Échelle Excellent→Critique + facteur limitant + **sliders de pondération** réglables/persistés
+  (localStorage) + bouton « Par défaut » + cas tout-à-zéro géré. Patron pour tout « état général ».
+- **Icônes de PROVENANCE** sur les cartes (réfs stables module-scope) : `<IconBrandNodejs>` (runtime Node),
+  `<NodefonyLogo>` (framework), `dbIcon(vendor)`→`<DbLogo>` (élément ORM). Doubler l'icône topique est OK.
+- **`ChartCard` prop `fullscreen`** : bouton ⤢ → Modal plein écran ; passer `children` en **render-prop**
+  `({fullscreen}) => …` pour agrandir le graphe (`MiniChart height` adapté) + police (légendes/table) ;
+  `Legend` a un prop `size`. Provenance/poids transparents = ⓘ + texte in-card, pas seulement tooltip.
+- **Tester un round-trip WS** (bidirectionnel) : sur serveur **CALME** (un stress sature le handshake →
+  faux négatif). Le transport est prouvé (welcome + réponse RPC id-matchée + push) ; manque une méthode
+  RPC qui renvoie un `result` (direction « actions / contrôle total »).
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
