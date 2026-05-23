@@ -13,9 +13,11 @@ import type {
   IOrmGraph,
   IOrmSummary,
 } from "../interfaces/IOrmGraph";
+import type { IOrmFlowReport } from "../interfaces/IOrmFlow";
 import { ormRegistry } from "./OrmRegistry";
 import { entityRegistry } from "./EntityRegistry";
 import { connectionMonitor } from "./ConnectionMonitor";
+import { queryFlowMonitor } from "./QueryFlowMonitor";
 
 /**
  * Producteur `IAdminApi` du **modèle de données ORM** — exposé sous
@@ -221,6 +223,36 @@ export async function buildConnectionHealth(
     });
   }
   return out;
+}
+
+/**
+ * Construit le rapport de **flux ORM** (per-instance) : débit (via `total`),
+ * latence (moyenne + EWMA), pire latence et requêtes lentes récentes, par
+ * connecteur enregistré. Lecture pure du {@link queryFlowMonitor} (aucune
+ * requête émise — contrairement à `buildConnectionHealth` qui ping) → bon marché.
+ * Réutilisé par l'endpoint `flow` ET le ticker hub realtime de Studio.
+ *
+ * @param filter - nom de connecteur (optionnel) pour ne rapporter que celui-ci.
+ * @returns le rapport (`enabled=false` en prod → connecteurs à 0).
+ */
+export function buildOrmFlow(filter?: string): IOrmFlowReport {
+  const names = ormRegistry.list().filter((n) => !filter || n === filter);
+  const connectors = names.map((name) => {
+    let vendor = "";
+    try {
+      vendor = vendorOf(ormRegistry.get(name));
+    } catch {
+      vendor = "";
+    }
+    return queryFlowMonitor.snapshot(name, vendor);
+  });
+  return {
+    enabled: queryFlowMonitor.enabled,
+    ts: Date.now(),
+    instanceId: String(process.pid),
+    slowMs: queryFlowMonitor.slowMs,
+    connectors,
+  };
 }
 
 /** Échappe un identifiant DBML s'il contient autre chose que `[A-Za-z0-9_]`. */
@@ -455,6 +487,12 @@ export function createOrmAdminApi(): IAdminApi {
       summary:
         "Diagnostic des connexions (per-instance) — état, ping/latence (fenêtre), erreurs, reconnexions, sondes (stockage/pool). ?orm= pour filtrer.",
       handler: (request) => buildConnectionHealth(oneParam(request, "orm")),
+    },
+    {
+      path: "flow",
+      summary:
+        "Flux des requêtes (per-instance) — débit (via total), latence moy/EWMA, pire latence, requêtes lentes. ?orm= pour filtrer. enabled=false en prod.",
+      handler: (request) => buildOrmFlow(oneParam(request, "orm")),
     },
     {
       path: "export/{format}",

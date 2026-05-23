@@ -17,7 +17,7 @@ import type { SQL } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { RequestContext, redactSecrets } from "nodefony";
-import { isFieldOperators } from "@nodefony/orm-core";
+import { isFieldOperators, queryFlowMonitor } from "@nodefony/orm-core";
 import type {
   Criteria,
   FieldOperators,
@@ -73,20 +73,25 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   readonly #db: DrizzleDb;
   readonly #table: SQLiteTable;
   readonly #relations: Record<string, DrizzleResolvedRelation>;
+  /** Connecteur ORM (clé du registre) — tag des métriques de flux. */
+  readonly #ormName: string;
 
   /**
    * @param db - handle Drizzle (instance racine ou transaction).
    * @param table - table Drizzle de l'entité.
    * @param relations - relations résolues (eager-load), indexées par champ.
+   * @param ormName - nom du connecteur ORM (registre) — défaut `"default"`.
    */
   constructor(
     db: DrizzleDb,
     table: SQLiteTable,
     relations: Record<string, DrizzleResolvedRelation>,
+    ormName = "default",
   ) {
     this.#db = db;
     this.#table = table;
     this.#relations = relations;
+    this.#ormName = ormName;
   }
 
   /** Colonne Drizzle d'une table par nom logique. */
@@ -94,41 +99,60 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return (table as unknown as TableColumns)[name];
   }
 
-  /**
-   * Tap profiler dev-only : exécute le builder en mesurant la durée et pousse
-   * la requête dans le buffer du scope courant (ALS).
-   *
-   * POURQUOI lecture directe de l'ALS (≠ tap par-requête de Sequelize) :
-   * `better-sqlite3` est **synchrone**, sans pool → pas de contexte async
-   * détaché, l'ALS reste valide pendant `await builder`. Le buffer est lu
-   * **avant toute allocation** → coût nul en prod (buffer absent = return direct).
-   *
-   * Sécurité : `toSQL()` renvoie le SQL **paramétré** (placeholders `?`, jamais
-   * les valeurs) → les credentials (hash) restent hors du texte. `redactSecrets`
-   * en plus (défense en profondeur, idempotent).
-   *
-   * @param builder - requête Drizzle (thenable + `toSQL()`).
-   * @returns le résultat de la requête.
-   */
-  async #prof<R>(builder: ProfiledQuery<R>): Promise<R> {
-    const buf = RequestContext.get()?.queries;
-    if (!buf) {
-      return builder;
-    }
-    const start = performance.now();
-    const result = await builder;
+  /** Tronque + redacte un SQL paramétré pour l'affichage (jamais de valeur). */
+  #safeSql(builder: ProfiledQuery<unknown>): string {
     let sql: string;
     try {
       sql = builder.toSQL().sql;
     } catch {
       sql = "<drizzle query>";
     }
-    buf.push({
-      sql: redactSecrets(sql.length > 2000 ? `${sql.slice(0, 2000)}…` : sql),
-      durationMs: performance.now() - start,
-      rows: Array.isArray(result) ? result.length : undefined,
-      connector: "drizzle",
-    });
+    return redactSecrets(sql.length > 2000 ? `${sql.slice(0, 2000)}…` : sql);
+  }
+
+  /**
+   * Tap dev-only : exécute le builder en mesurant la durée, alimente **deux**
+   * sondes complémentaires (sans surcoût quand les deux sont inactives) :
+   *  1. **profiler par-requête** (buffer de scope ALS, debug bar) — capture le
+   *     SQL paramétré de CHAQUE requête tracée ;
+   *  2. **flux ORM agrégé** ({@link queryFlowMonitor}, process-wide) — compte le
+   *     débit + la latence ; n'extrait le SQL que sur le chemin **lent** (rare).
+   *
+   * POURQUOI lecture directe de l'ALS (≠ tap par-requête de Sequelize) :
+   * `better-sqlite3` est **synchrone**, sans pool → l'ALS reste valide pendant
+   * `await builder`. Les deux drapeaux sont lus **avant toute allocation** →
+   * coût nul quand rien n'observe (prod, bancs de charge hors kernel).
+   *
+   * Sécurité : `toSQL()` renvoie le SQL **paramétré** (placeholders `?`, jamais
+   * les valeurs) → credentials hors texte ; `redactSecrets` en défense en profondeur.
+   *
+   * @param builder - requête Drizzle (thenable + `toSQL()`).
+   * @returns le résultat de la requête.
+   */
+  async #prof<R>(builder: ProfiledQuery<R>): Promise<R> {
+    const buf = RequestContext.get()?.queries;
+    const flow = queryFlowMonitor.enabled;
+    if (!buf && !flow) {
+      return builder;
+    }
+    const start = performance.now();
+    const result = await builder;
+    const durationMs = performance.now() - start;
+    if (flow) {
+      // toSQL UNIQUEMENT sur le chemin lent (rare) — l'agrégat ne paie jamais
+      // la sérialisation du texte au cas nominal.
+      const sql =
+        durationMs >= queryFlowMonitor.slowMs ? this.#safeSql(builder) : undefined;
+      queryFlowMonitor.record(this.#ormName, durationMs, sql);
+    }
+    if (buf) {
+      buf.push({
+        sql: this.#safeSql(builder),
+        durationMs,
+        rows: Array.isArray(result) ? result.length : undefined,
+        connector: "drizzle",
+      });
+    }
     return result;
   }
 
@@ -339,6 +363,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       tx.getNative<DrizzleDb>(),
       this.#table,
       this.#relations,
+      this.#ormName,
     );
   }
 }

@@ -214,6 +214,7 @@ export class DrizzleOrm extends Orm {
         this.#db,
         table,
         this.#relations?.[name] ?? {},
+        this.name,
       );
       this.#repositories[name] = repository;
     }

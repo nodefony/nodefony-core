@@ -38,10 +38,17 @@ export type { ServiceWiring } from "./nodefony/src/serviceWiring";
 export {
   buildOrmGraph,
   buildConnectionHealth,
+  buildOrmFlow,
   toDbml,
   createOrmAdminApi,
   registerOrmAdminApi,
 } from "./nodefony/src/OrmAdminApi";
+export { queryFlowMonitor } from "./nodefony/src/QueryFlowMonitor";
+export type {
+  ISlowQuery,
+  IQueryFlow,
+  IOrmFlowReport,
+} from "./nodefony/interfaces/IOrmFlow";
 export type {
   IColumnInfo,
   IConnectionInfo,

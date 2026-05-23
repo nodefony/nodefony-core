@@ -35,6 +35,16 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 - **`registerOrmAdminApi(broker)`** idempotent (`has("orm")`). orm-core=lib pure → monté par module driver (**Drizzle `onKernelBoot`**), lit registres globaux → couvre tous les ORM. Runtime OK : `/nodefony/orm/api/*`.
 - Tests : `tests/unit/OrmAdminApi.test.ts` (6, **vitest** ; singleton+cleanup afterEach ; relations+DBML Refs).
 
+## Sonde FLUX ORM — débit/latence/slow (`QueryFlowMonitor.ts` + endpoint `flow`, 2026-05-23)
+
+- **But** : observer le DÉBIT réel de requêtes (queries/s, latence moy+EWMA, requêtes lentes) en supervision — distinct du **profiler par-requête** (debug bar, buffer ALS dev-only) ET de la **santé** (`connection/health` : ping/stockage/pool). Patron sondes+hub.
+- **`queryFlowMonitor`** (singleton, `nodefony/src/QueryFlowMonitor.ts`) : process-wide, **indépendant de l'ALS**, **lazy** (Map au 1ᵉʳ record, ring slow au 1ᵉʳ lent). API : `enabled` (**OFF défaut** → coût nul prod/bancs), `slowMs` (défaut 50), `setEnabled`, `record(connector, durationMs, sql?)`, `snapshot(connector, vendor): IQueryFlow`. EWMA α=0.2 ; ring slow borné **20** (newest-first). Le `sql` n'est fourni par le tap que sur le **chemin lent** (rare) → **jamais `toSQL()` au cas nominal**.
+- **Débit/s NON stocké** : dérivé côté lecteur (delta `total`/`ts` entre 2 rapports, comme CPU%) → 0 état mutable à la lecture, robuste sous saturation event-loop. **0 persistance** (RAM only, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe).
+- **`buildOrmFlow(filter?): IOrmFlowReport`** (`OrmAdminApi.ts`) : `{enabled, ts, instanceId, slowMs, connectors[]}`. Lecture pure (n'émet AUCUNE requête, ≠ `buildConnectionHealth` qui ping). Endpoint `GET /nodefony/orm/api/flow` (`?orm=`).
+- **Types** `interfaces/IOrmFlow.ts` : `ISlowQuery`/`IQueryFlow`/`IOrmFlowReport`. Exportés (+ `queryFlowMonitor`).
+- **Gating** = job du driver (orm-core ignore l'env) : Drizzle `DrizzleService.onBoot` → `setEnabled(env!==production)` (override `NODEFONY_ORM_FLOW=1/0`).
+- **Couverture** : seul **Drizzle** alimente le tap (`DrizzleRepository.#prof`). Sequelize=**deprecated** (pas câblé). Mongoose=TODO (pas de tap par-requête → middleware à créer). Connecteurs non câblés → snapshot neutre (0).
+
 ## Gotchas
 
 - **Entity NE s'auto-register PAS au ctor** : en TS, ctor base s'exécute AVANT les initialiseurs de champs de la sous-classe → `this.name`/`this.orm` seraient `undefined`. Auto-register = job du décorateur `@entity` (P5.3, métadonnées de classe). Sans décorateur : `entity.register()` explicite. `Orm` lui s'auto-register au ctor car `name` arrive de `Service` (super early).
