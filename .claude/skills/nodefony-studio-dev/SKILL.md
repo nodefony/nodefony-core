@@ -1,5 +1,6 @@
 ---
 name: nodefony-studio-dev
+version: 1.6.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -24,14 +25,30 @@ MobX + React Router 7). Racine module : `src/packages/@nodefony/studio`.
 > Page DÉTAIL (onglets) : `frontend/src/routes/ModuleDetail.tsx`. Live : `frontend/src/routes/Dashboard.tsx`.
 > Ne PAS relire les sources du kit : tout est ci-dessous.
 
-> 🔗 **Skill frère `nodefony-framework-dev`** — pour le **back-end** (cœur). Ce skill-ci couvre le
-> FRONT Studio + la partie back STRICTEMENT Studio (controller/data plane/providers). Dès que le besoin
-> touche le CŒUR — créer un service injectable, un module, une commande CLI, une entité/repository/adapter
-> ORM, le pipeline HTTP/WS, un **nouveau canal/format realtime côté serveur** (RealtimeService,
-> `IRealtimeHub`, providers TCP/UDP/Redis), un **subpath Core isomorphe** (`nodefony/*`), ou savoir QUOI
-> construire pour le non-fait (roadmap, P6 security) — **invoquer `nodefony-framework-dev`** (il porte les
-> RÈGLES ABSOLUES perf-mémoire, les recettes vérifiées source, les gates qualité Core). Les deux se
-> composent : front Studio ici, brique backend là.
+## 🔗 Paire POLYMORPHE front ⇄ back (co-évolution OBLIGATOIRE)
+
+`nodefony-studio-dev` (front) et `nodefony-framework-dev` (back) sont les **deux faces d'UN kit full-stack**,
+à l'image de l'isomorphisme Nodefony (back/front partagent `nodefony`). **Ce skill = CONSOMMER le contrat** ;
+`nodefony-framework-dev` = le **produire**. Le SEAM partagé :
+
+- **Data-plane** `/nodefony/<mod>/api/*` (front via `useResource`/`ApiClient` ← back via `IAdminApi`).
+- **Realtime** : canaux + actions (front via hooks/`conn.request`/`conn.ping` ← back via `RealtimeController`). Hub = patron.
+- **Types** : exports `nodefony` (isomorphes) + `I*Api`/`I*Controller` = **source de vérité unique** (jamais une copie figée).
+
+**Quand passer la main** : dès que le besoin touche le CŒUR — service injectable, module, commande CLI, entité/
+repository/adapter ORM, pipeline HTTP/WS, **nouveau canal/action/format realtime SERVEUR** (`RealtimeController`,
+`JsonRpcPeer`, `IRealtimeHub`, transports TCP/UDP/Redis), **subpath Core isomorphe** (`nodefony/*`), ou QUOI
+construire pour le non-fait (roadmap, P6) — **invoquer `nodefony-framework-dev`** (RÈGLES perf-mémoire, recettes
+vérifiées source, gates Core).
+
+**RÈGLE DE CO-ÉVOLUTION (les skills « dev ensemble »)** : une feature qui traverse front+back →
+**mettre à jour LES DEUX skills dans la MÊME session**, retex cross-liés (même apprentissage, 2 angles).
+Quand le front commence à consommer un **canal/action/endpoint/type** nouveau → vérifier qu'il est décrit côté
+`nodefony-framework-dev` (et inversement). Ouvrir le skill jumeau dès qu'une feature touche son côté.
+
+**VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
+snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.6.0**.
 
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
@@ -305,6 +322,21 @@ Pub/sub PAR CANAL on-demand ; providers serveur **transport-agnostiques** (`node
 2. Client : **s'abonner = ref-compté** via `useNodefonyChannel("<canal>", handler)` (page) ou
    `useNodefonyChannelData/Stats` ; le client ré-abonne seul au reconnect.
 
+**Actions (requête→réponse, ≠ pub/sub) — direction CONTRÔLE (2026-05-23)** :
+
+- Une frame **avec `id`** attend une réponse `result`/`error` (boutons « reconnecter / vacuum / purger / Force GC »).
+  Front : `const r = await conn.request<T>("kernel:ping", params)` (Promise id-matchée, timeout 30 s) ; helper
+  réutilisable `conn.ping()` (RTT). Le `realtime:welcome` annonce `params.methods` → **actions découvrables**.
+- Côté serveur : le controller étend **`RealtimeController`** (framework) et déclare `realtimeActions()`
+  (`kernel:ping`/`kernel:gc` aujourd'hui). Inconnu → `-32601` ; throw → `-32603` générique. **Pour ajouter une
+  action serveur → skill `nodefony-framework-dev`.** Le générique (protocole, RTT) vit dans la lib/le framework,
+  PAS dupliqué dans le front.
+
+**Architecture « la socket Nodefony »** (north-star, mémoire `project_realtime_nodefony_socket_vision`) : le hub
+(`IRealtimeHub`) = lien fusionnel isomorphe ; sous lui Endpoint(`IRealtimePeer`) > Peer(`JsonRpcPeer`) >
+Transport(`IRealtimeTransport`, seul seam). `RealtimeClient` et `StudioRealtimeController` composent le MÊME peer.
+Front = consommateur du hub → utilise les hooks/stores, ne touche jamais le protocole.
+
 **🚨 Invariant SOCKET PARTAGÉE (le piège #1 du soir)** :
 
 - 1 SEULE socket par origine : `RealtimeClient.shared({url})` (singleton par URL sur `globalThis`,
@@ -553,6 +585,14 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 - `useSyncExternalStore` + snapshot OBJET = boucle de render (réf instable) → stats via `state`+effet ;
   réserver `useSyncExternalStore` aux snapshots PRIMITIFS (ex `client.state`).
 - Nouveau subpath (`nodefony/react`) pas résolu par Vite → **redémarrer** le serveur (optimizeDeps).
+- **Actions WS + extraction isomorphe (2026-05-23)** : le front peut APPELER le serveur — `await conn.request("kernel:ping")`
+  / `conn.ping()` (RTT) ; `realtime:welcome.methods` = actions découvrables. Côté serveur, le protocole est sorti
+  dans **`JsonRpcPeer`** (core, isomorphe) + **`RealtimeController`** (framework, le controller n'a plus de
+  `dispatchRequest` hand-rollé) ; transport derrière **`IRealtimeTransport`** (`BrowserWsTransport`/`WsConnectionTransport`).
+  Le front reste un **consommateur du hub** (hooks/stores) — ne touche jamais le protocole. **Ajouter une action serveur
+  → skill `nodefony-framework-dev`.** Vision « la socket Nodefony » : mémoire `project_realtime_nodefony_socket_vision`.
+- ⚠️ Piège instrumentation : un canal à granularité `dashboard:supervision:<ms>` est poussé sur le canal **EXACT
+  souscrit** (suffixe inclus) → un listener de test/debug doit matcher `startsWith("dashboard:supervision")`, pas le nom nu.
 
 **Archi / collisions**
 
@@ -780,3 +820,15 @@ mémoire IA dédiée + lien.
 `project_realtime_framework_bindings` (hooks `nodefony/react`, autorité ref-comptée) ·
 `feedback_spa_fallback_literal` (deep-link) · `project_studio_page_playbook` (pointeur) ·
 module `CLAUDE.md`/`MEMORY.md`.
+
+## Changelog (SemVer — version COMMUNE avec `nodefony-framework-dev`, lockstep)
+
+> Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
+
+- **1.6.0** (2026-05-23) — Realtime **actions côté front** : `conn.request("kernel:ping")` / `conn.ping()` (RTT),
+  actions découvrables via `realtime:welcome.methods`. Le protocole serveur est sorti dans `JsonRpcPeer` (core) +
+  `RealtimeController` (framework) — le front reste **consommateur du hub** (hooks/stores), ne touche pas le
+  protocole. Ajout du bloc **« Paire POLYMORPHE front ⇄ back »** + règle de co-évolution + **version lockstep**.
+  Retex : piège canal à granularité poussé sur le nom EXACT suffixé. (Côté back = framework-dev 1.6.0.)
+- **< 1.6.0** — historique non versionné SemVer ; voir la section **Retex** (journal symptôme→cause→fix) +
+  l'history git du fichier.

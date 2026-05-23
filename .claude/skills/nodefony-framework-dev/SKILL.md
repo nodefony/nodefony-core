@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.5.0
+version: 1.6.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.4.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.6.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -29,6 +29,26 @@ sûr, typé** sans ré-explorer les ~15 `CLAUDE.md`/`MEMORY.md` : signatures, ch
 
 > Frontend Studio (React) → **`nodefony-studio-dev`**. Scaffolder un module neuf → **`nodefony-create-module`**
 > (ce skill couvre comment CODER dedans, pas le squelette). Doc RFC → `nodefony-rfc`. Types TS → `nodefony-ts-docs`.
+
+## 🔗 Paire POLYMORPHE back ⇄ front (co-évolution OBLIGATOIRE)
+
+`nodefony-framework-dev` (back) et `nodefony-studio-dev` (front) sont les **deux faces d'UN kit full-stack**,
+à l'image de l'isomorphisme Nodefony (back/front partagent `nodefony`). **Ce skill = produire le CONTRAT** ;
+`nodefony-studio-dev` = le **consommer**. Le SEAM partagé :
+
+- **Data-plane** `/nodefony/<mod>/api/*` (back l'expose via `IAdminApi` → front via `useResource`/`ApiClient`).
+- **Realtime** : canaux + actions (back via `RealtimeController` → front via hooks/`conn.request`). Hub = patron.
+- **Types** : exports `nodefony` (isomorphes) + `I*Controller`/`I*Api` = **source de vérité unique** du contrat
+  (jamais une copie figée dans un seul skill — sinon dérive contrat ↔ conso).
+
+**RÈGLE DE CO-ÉVOLUTION (les skills « dev ensemble »)** : une feature qui traverse back+front →
+**mettre à jour LES DEUX skills dans la MÊME session**, retex cross-liés (même apprentissage, 2 angles).
+Quand tu changes ici un **canal / action / endpoint / type** consommé par le front → vérifier/MAJ la section
+correspondante de `nodefony-studio-dev` (et inversement). Ouvrir le skill jumeau dès qu'une feature touche son côté.
+
+**VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
+snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.6.0**.
 
 ## 1. Quand l'utiliser / quand passer la main
 
@@ -615,38 +635,89 @@ await c.stream<TChunk>("method", params, (chunk) => {}); // RPC streaming
   consommateurs ref-comptent (`subscribe`/`unsubscribe`) ; JAMAIS de `emit("subscribe")` brut (un unsub à
   ref→0 couperait le canal pour tous). Normaliser `http(s)→ws(s)` (clé + WebSocket) sinon 2 sockets/throw.
 
-**Côté serveur (push WS)** — provider transport-agnostique + controller WS JSON-RPC :
+### Architecture « la socket Nodefony » (NORTH STAR — 2026-05-23)
 
-```typescript
-// provider : createXxx(publish) démarré au subscribe, dispose() au unsubscribe ET ctx.once("onFinish")
+Le realtime est **stratifié** ; seul le transport diffère client/serveur, tout le reste est **isomorphe** :
+
+```
+4. Hub        IRealtimeHub        ← LE PATRON : subscribe/publish/on + stats        ⬜ (RealtimeService P13)
+3. Endpoint   IRealtimePeer       ← request/notify/receive (1 connexion)            ✅
+2. Peer       JsonRpcPeer         ← protocole JSON-RPC 2.0 (discrimination)         ✅
+1. Transport  IRealtimeTransport  ← octets : WS / ws / TCP / UDP / SIP / Redis      ✅ (seam polymorphe)
 ```
 
-- ⚠️ Après le handshake, `ctx.send()` **rejette** (`requestEnded`) → pousser sur la **connexion brute**
-  `ctx.connection.send(str, cb)` (garde `readyState===1`). **SSE** : préférer un **canal WS** (le SSE dormant
-  Studio a été supprimé : `flushHeaders` absent sur `Http2ServerResponse` → `code=000`). Si SSE quand même :
-  écouter `rawRes.once("close")` (RESPONSE), jamais `request.on("close")` (fire trop tôt en HTTP/2).
+> Vision complète : mémoire `project_realtime_nodefony_socket_vision`. Backplane Redis = fan-out cross-pod
+> (cloud-native) derrière le MÊME hub (le front ne change pas). « le hub, c'est le patron » : une page parle
+> au hub, JAMAIS au socket brut.
 
-**Actions WS (requête→réponse, ≠ pub/sub)** — une frame **avec `id`** attend une réponse `result`/`error` :
+**`JsonRpcPeer` (core `src/realtime/`, ISOMORPHE, `implements IRealtimePeer`)** — moteur protocole écrit
+UNE fois, composé des 2 côtés. ZÉRO dépendance node (pub/sub via `Map`+callbacks, pas d'`Event`) → aucun shim.
+
+- **Discrimination par `method`, PAS par `id`** (règle absolue) : `method`+`id`=requête → `result`/`error` ;
+  `method` seul=notification ; `id` sans `method`=réponse (matchée au pending, ignorée si aucun). `id` string|number.
+  Inconnu → `-32601` ; handler qui throw → `-32603` **message générique** (détail via `onError`=Zero Trust).
+- API : `register/unregister/methods` (actions entrantes) · `request/requestStream/notify` (sortant) · `receive`
+  (entrant) · `dispose`. Bug à NE PAS refaire : le stream doit pousser dans `pending.chunks` (sinon résout `[]`).
+
+**`IRealtimeTransport` (core, seam)** — `connect/send/close/readyState` + `onOpen/onMessage/onClose/onError`.
+`TransportState` (0..3, aligné WebSocket). `BrowserWsTransport` (navigateur, wrap `WebSocket`) ; `WsConnectionTransport`
+(serveur, wrap `ctx.connection` — inbound poussé par `feed()`, fermeture par `fireClose()`). Le transport est « bête » ;
+reconnect/backoff/heartbeat vivent au-dessus (`RealtimeClient` crée un transport NEUF par tentative).
+
+**Endpoint SERVEUR = étendre `RealtimeController` (framework)** — le protocole (handshake/welcome, dispatch,
+pub/sub, cleanup) est factorisé ; le contrôleur ne déclare QUE son métier :
 
 ```typescript
-// SERVEUR (controller WS) : router les requêtes id, hors du chemin chaud subscribe.
-if ("id" in msg && typeof msg.id === "number")
-  this.dispatchRequest(ctx, msg.id, msg.method, msg.params);
-// dispatchRequest : switch(method) → result ; défaut -32601 ; handler throw → -32603 (msg GÉNÉRIQUE
-// au client, détail loggé serveur = Zero Trust). Promise.resolve(result) → { jsonrpc, id, result }.
-// CLIENT (lib core, déjà là) :
-const r = await client.request<T>("kernel:ping"); // Promise id-matchée (timeout 30 s)
-const { rtt, ...pong } = await client.ping(); // helper RÉUTILISABLE (RTT) — dans la LIB, pas le front
+@controller("/nodefony/<mod>/api")
+class MyRealtime extends RealtimeController {
+  @route("ws", { path: "/realtime", requirements: { methods: ["WEBSOCKET"] } })
+  async realtime(message: string | Buffer | null) {
+    this.handleRealtime(message);
+  } // délègue tout
+
+  // SEUL point obligatoire : provider d'un canal au subscribe → dispose (appelé au unsubscribe ET au close)
+  createRealtimeChannel(
+    channel: string,
+    publish: RealtimePublish,
+  ): (() => void) | null {
+    if (channel === "my:chan") return createMyTicker(publish); // null = canal inconnu
+    return null;
+  }
+  protected override realtimeActions() {
+    return { "kernel:ping": () => ({ pong: true }) };
+  } // requête→result
+  protected override realtimeChannels() {
+    return ["my:chan"];
+  } // annoncés au welcome (+ methods auto)
+}
 ```
 
-- 🚨 **Le générique va dans la lib cliente** (`RealtimeClient`), jamais dupliqué par front (Studio/debugbar/apps
-  partagent). Seuls les **noms+handlers serveur** restent à l'edge (et migreront dans `RealtimeService` P13.4).
-- Perf : le routage `id` ne s'exécute que sur une requête explicite — `subscribe`/`unsubscribe`/`ping` restent
-  sync/0-alloc. Test unit du helper en stubant `request()` (cf `src/nodefony/src/tests/RealtimeClientPing.test.ts`).
-- **Build** : modif du Core/d'un subpath `nodefony/*` → `cd src/nodefony && npm run build` **puis restart**
-  (Vite ré-optimise les deps au boot ; un subpath neuf n'est pas résolu à chaud). Règle perf/mémoire Core s'applique.
-- Réfs : core `MEMORY.md` (section client), mémoires `project_client_lib_subpaths_decision`,
-  `project_realtime_framework_bindings`, `project_studio_realtime_ws`, `project_decisions_realtime_isomorphic`.
+- 1 connexion = 1 `JsonRpcPeer` + 1 `WsConnectionTransport` (le MÊME peer que le client). `peer.dispose` + dispose
+  des canaux sur `ctx.once("onFinish")`. Le `welcome` annonce `channels` + `methods` (découverte côté client).
+- 🚨 **Le générique va dans la lib/le framework**, jamais dupliqué : protocole=`JsonRpcPeer`, plomberie=`RealtimeController`.
+  Studio/debugbar/apps partagent. (Avant : chaque controller hand-rollait `dispatchRequest` → dérive. Supprimé.)
+- ⚠️ Push hors handshake : `ctx.send()` rejette (`requestEnded`) → la base pousse sur `ctx.connection` brute
+  (`WsConnectionTransport`, garde `readyState===1`). **SSE supprimé** (mort + `flushHeaders` absent sur `Http2ServerResponse`
+  → `code=000`) ; tout futur SSE écoute `rawRes.once("close")` (RESPONSE), pas `request` (fire trop tôt HTTP/2).
+
+**Côté client (lib, déjà là)** : `client.request<T>("kernel:ping")` (Promise id-matchée) ; helper réutilisable
+`client.ping()` (RTT). Le générique vit dans `RealtimeClient`, pas le front.
+
+**Tests realtime (BÉTON, sans navigateur)** :
+
+- `JsonRpcPeer` : `send` capturé dans un tableau, `receive(frame)` → asserte la discrimination + le cycle req/rép
+  (`src/nodefony/src/tests/JsonRpcPeer.test.ts`, 14).
+- `RealtimeClient` : transport **mock** injecté (2e param ctor) + délais réels → connect/reconnect/heartbeat/disconnect
+  (`RealtimeClientTransport.test.ts`, 6) ; discrimination + `ping()` en stubant `request` (`RealtimeClient{Dispatch,Ping}.test.ts`).
+- `RealtimeController` : **faux Context** `{ connection: mockConn, once }` (Controller se construit avec `{} as ContextType`),
+  sous-classe de test → handshake/welcome/subscribe/actions/-32601/-32603/réponse-ignorée/onFinish
+  (`@nodefony/framework` vitest `RealtimeController.test.ts`, 12) + `WsConnectionTransport.test.ts` (7).
+- Le dispatch d'action est **async** (microtask) → flusher (`await new Promise(r=>setTimeout(r,0))`) avant d'asserter.
+
+- **Build** : modif Core/subpath `nodefony/*` ou framework → rebuild **puis restart** (Vite ré-optimise au boot).
+  Règle perf/mémoire Core s'applique. memory.test obligatoire (touche pipeline WS).
+- Réfs : `project_realtime_nodefony_socket_vision`, `project_client_lib_subpaths_decision`,
+  `project_studio_realtime_ws`, `project_decisions_realtime_isomorphic`, `project_realtime_granularity_clientlib` (AIMD).
 
 ## 5. ORM — Entity / Repository / Service CRUD
 
@@ -1202,7 +1273,11 @@ cœur (avant le commit final) :
 3. **Bump SemVer** (frontmatter `version`) : **patch** = gotcha/fix/précision · **minor** = nouvelle recette/section ·
    **major** = refonte structurelle. + **ligne au changelog** ci-dessous (date + résumé).
 4. **Re-lancer l'audit de complétude** (ci-dessus) si un module/une phase a bougé.
-5. Git versionne le fichier (history) ; le changelog interne = mémoire lisible par l'agent au prochain chargement.
+5. **CO-ÉVOLUTION du skill jumeau** (cf « Paire polymorphe » en tête) : si la feature a touché le **contrat
+   consommé par le front** (canal/action/endpoint/type), **MAJ `nodefony-studio-dev` dans la MÊME session**
+   (retex cross-lié, même apprentissage 2 angles). Les deux skills « dev ensemble » → jamais l'un sans l'autre
+   sur une feature full-stack.
+6. Git versionne le fichier (history) ; le changelog interne = mémoire lisible par l'agent au prochain chargement.
 
 > But (directive user) : que l'IA **apprenne à développer Nodefony parfaitement** et **s'auto-développe** —
 > chaque session cœur rend ce kit plus juste. Vérité = le **source** (vérifier, ne pas se fier aux docs seules).
@@ -1218,6 +1293,14 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.6.0** (2026-05-23) — §6 **Architecture « la socket Nodefony »** (extraction isomorphe) : pile
+  Hub > Endpoint(`IRealtimePeer`) > Peer(`JsonRpcPeer`) > Transport(`IRealtimeTransport`). `JsonRpcPeer`
+  (core, 0 dep node) = protocole écrit une fois, composé des 2 côtés. `IRealtimeTransport` = seul seam
+  (WS/ws/TCP/UDP/SIP/Redis) ; `BrowserWsTransport`/`WsConnectionTransport`. **Endpoint serveur = étendre
+  `RealtimeController`** (framework) → ne déclare que `createRealtimeChannel` + `realtimeActions`/`realtimeChannels`
+  (fini le `dispatchRequest` hand-rollé par controller). Patterns de TEST béton (peer pur / transport mock /
+  faux Context). Vision : mémoire `project_realtime_nodefony_socket_vision` (backplane Redis cloud-native +
+  AIMD-dans-le-hub à venir). RETEX : « le hub, c'est le patron » ; le générique va dans le framework/la lib.
 - **1.5.0** (2026-05-23) — §6 **Actions WS (requête→réponse)** : discrimination de frame JSON-RPC
   par **`method`** (pas `id`) — une réponse (id sans method) n'est plus prise pour une requête,
   une requête entrante n'est plus prise pour une réponse ; `id` string|number ; `-32601`/`-32603`
