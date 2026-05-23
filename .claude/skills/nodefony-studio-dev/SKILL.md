@@ -402,7 +402,8 @@ purger…) sur le même canal/data-plane (DEV-ONLY + RBAC P6).
 - **Sécu** : 0 secret loggé/affiché brut ; rendu de données non maîtrisées via `<JsonViewer>`/`<Text>`
   (texte), jamais HTML. JWT client = transitoire POC (→ cookie HttpOnly P6) — ne pas étendre.
 - **Perf** : pas d'alloc inutile dans le hot render ; `MiniChart` (SVG) pas recharts ; hooks realtime
-  ref-comptés (cohabitent — ne pas dédupliquer à la main).
+  ref-comptés (cohabitent — ne pas dédupliquer à la main). **CSS = aussi un sujet perf** → section
+  « ⚡ CSS & perf de rendu » ci-dessous (directive user 2026-05-23).
 - **TS strict** : 0 `any`, 0 `@ts-ignore` ; ESM `import` ; `import type` pour les types.
 - **Style** : commentaires FR ; coller au pattern de `RoutesView.tsx`.
 - **🟢 Aide contextuelle ⓘ DYNAMIQUE (directive user 2026-05-23, PRIORITAIRE)** : tout contrôle non
@@ -414,6 +415,44 @@ purger…) sur le même canal/data-plane (DEV-ONLY + RBAC P6).
   étaient le pain point #1 du user (« des fois on comprend rien quand c'est trop compliqué ») → un ⓘ
   vivant par contrôle est la réponse standard. Vérifier que la valeur reflète l'état réel (ex. nb de
   groupes du connecteur courant, pas une constante). À faire **à chaque écran/spec développé**.
+
+## ⚡ CSS & perf de rendu (directive user 2026-05-23 — appliquer EN CONSTRUISANT)
+
+Le CSS est **un sujet de perf à part entière**, surtout sur les écrans **live** (supervision,
+dashboards re-rendus à chaque tick). Ne pas « écrire du CSS qui marche » → écrire le CSS le **moins
+coûteux** pour le pipeline de rendu. **Chercher la meilleure façon** (sources ci-dessous), ne pas
+deviner. Règles (issues web.dev/MDN, vérifiées) :
+
+- **Animer UNIQUEMENT `transform` + `opacity`** (compositor-only, GPU, ni layout ni paint). **JAMAIS**
+  animer `width`/`height`/`top`/`left`/`margin` (→ **layout/reflow**) ni `box-shadow`/`filter`/`blur`
+  (→ **paint** coûteux). Un flash de couleur (`background`) = paint : OK s'il est **bref + sur une
+  petite surface** (ex. `nf-flash`), sinon préférer `opacity` sur un calque.
+- **`will-change` parcimonieux** : seulement sur un élément qui anime **souvent**, retirer après.
+  Forcer un calque = `will-change: transform` / `transform: translateZ(0)` — pas en masse (coût mémoire).
+- **`contain: content` (ou `layout paint`)** sur tout **widget live indépendant** (carte qui flashe/se
+  met à jour) → isole le reflow/repaint à la carte au lieu de toute la page. Le réflexe pour un
+  dashboard qui tique.
+- **`content-visibility: auto`** (+ `contain-intrinsic-size`) sur les **longues listes hors écran**
+  (logs, grosses tables) → le navigateur saute le rendu du hors-champ.
+- **`tabular-nums`** (`font-variant-numeric`) sur tout nombre qui change → évite le **jitter de
+  largeur** (donc des reflows) à chaque mise à jour. (Déjà appliqué aux KPI/latences.)
+- **Pas d'objet `style={{…}}` recréé à chaque render** dans un composant live (nouvelle réf → React
+  ré-applique) : **hisser** les styles statiques en `const` au niveau module, ou les passer en
+  **classe CSS** ; ne garder en inline que la **valeur réellement dynamique** (largeur d'une barre…).
+- **Pas de layout thrashing** : ne pas lire une métrique de layout (`offsetWidth`, `getBoundingClientRect`)
+  puis écrire un style dans la même frame en boucle. Mesurer une fois, écrire ensuite.
+- Style injecté **une seule fois** (pattern `ensureLiveStyles` : `document.createElement("style")` gardé
+  par flag), animations/hover en **CSS pur** (0 re-render React).
+
+**Où chercher (autorité, via proxy — règle universelle : jamais la page HTML lourde directe)** :
+
+- `https://r.jina.ai/https://web.dev/articles/animations-guide` (compositor-only, will-change)
+- `https://r.jina.ai/https://web.dev/articles/content-visibility` · `.../articles/dom-size-and-interactivity`
+- `https://r.jina.ai/https://developer.mozilla.org/en-US/docs/Web/Performance/CSS_JavaScript_animation_performance`
+- `https://r.jina.ai/https://developer.mozilla.org/en-US/docs/Web/CSS/contain`
+
+Réflexe : avant d'animer/styler un élément qui bouge en live, se demander « layout, paint ou
+compositor ? » et choisir le moins cher ; au moindre doute → consulter la source ci-dessus.
 
 ## 🔒 Sécurité — PRIORITÉ MAX (directive permanente)
 

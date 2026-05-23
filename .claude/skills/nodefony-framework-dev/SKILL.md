@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.3.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.4.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -781,7 +781,13 @@ await orm.transaction(async (tx) => {
 
 `describeEntity(name)` (surchargé par Drizzle via `getTableConfig`) alimente le graphe canonique
 (`buildOrmGraph` → ERD React Flow + contexte IA + DBML). Monté par le module driver
-(`registerOrmAdminApi(broker)` en `onKernelBoot`, idempotent) → `/nodefony/orm/api/{orms,entities,entity/{name},graph,export/{format}}`.
+(`registerOrmAdminApi(broker)` en `onKernelBoot`, idempotent) → `/nodefony/orm/api/{orms,entities,entity/{name},graph,counts,connection/health,flow,export/{format}}`.
+
+**3 sondes ORM, ne pas confondre** (patron sondes+hub) :
+
+- **profiler par-requête** (`RequestContext.queries`, debug bar) : SQL de CHAQUE requête tracée, dev-only, **coût nul hors requête tracée** (buffer ALS absent).
+- **santé** (`connection/health` + canal `orm:health`) : état/ping/latence-fenêtre/erreurs/reconnexions + sonde profonde `IOrm.probe()` (storage PRAGMA / pool). Générique (`buildConnectionHealth` itère `ormRegistry`, ping+probe), **émet une requête** (ping).
+- **flux** (`flow` + canal `orm:flow`, `queryFlowMonitor`, 2026-05-23) : DÉBIT (queries/s) + latence moy/EWMA + requêtes lentes. **Process-wide, indépendant de l'ALS**, **OFF par défaut** (gaté par le driver : `setEnabled(env!==production)`, override `NODEFONY_ORM_FLOW`). Lazy, ring slow borné 20, `toSQL()` **seulement sur le chemin lent**. **Per-connecteur** : `Map<connecteur>` (clé = nom registre, pas vendor) → le repo passe son `ormName` au tap. Débit/s **dérivé** (delta `total`/`ts`), **0 persistance** (RAM, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe). Câblé : **Drizzle** seul (Sequelize deprecated, Mongoose = TODO middleware). Ticker realtime = `createBrokerTicker` générique (réutilisé santé+flux).
 
 ### Gotchas ORM
 
@@ -1118,6 +1124,18 @@ no entity table registered under "session"`, code 401, au Ctrl+C) : `DrizzleServ
 - _(2026-05-22)_ **turbo restaure du dist caché** : `clean && build` ne busте pas le cache → runtime sur vieux
   code (route qui hang, header périmé). Fix systématique : `npx turbo run build --force --filter=…` avant test
   runtime d'un diff non commité. (Promu en piège structurel §2.)
+- _(2026-05-23)_ **Sonde flux ORM = nouveau hot path → gating env-aware par le driver**. Un compteur
+  global force à chronométrer CHAQUE requête (même sans ALS) → contraire au « coût nul prod ». Réconcilié
+  SANS perdre l'observabilité dev : `queryFlowMonitor.enabled` **OFF par défaut**, activé par le driver au
+  boot (`setEnabled(env!==production)`). Les bancs `test:load` instancient l'adapter **hors kernel** →
+  flux reste OFF → **0 régression** mesurée (insert 16k ops/s, scan 1M ops/s inchangés). **Leçons** :
+  (1) une sonde always-on doit être **gatée par le composant qui connaît l'env** (orm-core lib pure ne le
+  connaît pas → c'est le module driver) ; (2) `toSQL()`/sérialisation **seulement sur le chemin lent**
+  (rare) — l'agrégat ne paie jamais le texte au cas nominal ; (3) débit/s **dérivé** (delta `total`/`ts`,
+  comme CPU%) → 0 état de lecture, robuste sous saturation event-loop ; (4) **0 persistance** (une sonde
+  n'écrit jamais dans la base qu'elle observe : amplification absurde + pollution hot path). Validé live :
+  248k requêtes comptées, slow réelles capturées (SQL paramétré, 0 credential). Per-connecteur via `ormName`
+  passé au tap (≠ vendor).
 
 ## 12. Fin de session (OBLIGATOIRE) + auto-audit de complétude
 
@@ -1181,6 +1199,12 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.4.0** (2026-05-23) — §5.F **3 sondes ORM** (profiler par-requête / santé / **flux**) :
+  `queryFlowMonitor` (orm-core) = débit/latence-EWMA/slow **process-wide, OFF par défaut** (gaté driver,
+  per-connecteur via `ormName` au tap, ring slow 20, `toSQL` slow-only, débit dérivé delta `total`, **0
+  persistance**) + endpoint `orm/api/flow` + canal `orm:flow` (ticker générique `createBrokerTicker`).
+  Câblé Drizzle seul (Sequelize deprecated, Mongoose TODO). Front : carte « Flux ORM » + tableau slow
+  intelligent (Studio). **0 régression load** (flux OFF hors kernel). RETEX : tap multi-sonde gardé.
 - **1.3.0** (2026-05-23) — §6.F **« Choix de runtime / langage — boussole stratégique »** : plafond =
   famine event-loop mono-thread (vu en charge : WS 1300 + 80k msg/s, 0 % err mais realtime figé) ;
   Elixir/BEAM = réponse pure-realtime (mais pas isomorphe) ; **décision : TS reste (isomorphisme non
