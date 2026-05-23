@@ -27,6 +27,17 @@ export type {
   HttpTransportOptions,
 } from "./syslog/transports/index";
 
+// ─── Realtime (protocole JSON-RPC 2.0 isomorphe) ───────────────────────────────
+export { default as JsonRpcPeer } from "./realtime/JsonRpcPeer";
+export type {
+  IRealtimePeer,
+  RpcActionHandler,
+  RpcNotificationHandler,
+  JsonRpcFrameKind,
+  JsonRpcErrorObject,
+  JsonRpcPeerOptions,
+} from "./realtime/JsonRpcPeer";
+
 // ─── Errors ───────────────────────────────────────────────────────────────────
 export { default as nodefonyError } from "./Error";
 

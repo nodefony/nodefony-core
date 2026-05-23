@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-23T16:44:41.011Z",
+  "generated": "2026-05-23T17:03:23.394Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 722,
-    "symbols": 1226,
-    "classes": 212,
-    "interfaces": 276,
-    "types": 142,
+    "files": 723,
+    "symbols": 1235,
+    "classes": 213,
+    "interfaces": 281,
+    "types": 145,
     "enums": 2,
     "functions": 151,
     "constants": 443
@@ -627,6 +627,68 @@
       "file": "src/nodefony/src/kernel/Module.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "JsonRpcPeer": {
+      "name": "JsonRpcPeer",
+      "kind": "class",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "IRealtimePeer"
+      ],
+      "decorators": []
+    },
+    "JsonRpcErrorObject": {
+      "name": "JsonRpcErrorObject",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "JsonRpcPeer — moteur protocole **JSON-RPC 2.0 ISOMORPHE** (client ET serveur). Client et serveur sont des **pairs** : le protocole (classer une frame, router, corréler les réponses) est identique d…"
+    },
+    "JsonRpcPeerOptions": {
+      "name": "JsonRpcPeerOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "IRealtimePeer": {
+      "name": "IRealtimePeer",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Surface BIDIRECTIONNELLE d'un endpoint temps réel — **contrat ISOMORPHE**, identique back et front. `RealtimeClient` (navigateur) ET la connexion serveur l'exposent, en composant le même {@link Jso…"
+    },
+    "RpcActionHandler": {
+      "name": "RpcActionHandler",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Handler d'une action (requête→réponse). Sync ou async ; throw → `-32603`."
+    },
+    "RpcNotificationHandler": {
+      "name": "RpcNotificationHandler",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Handler des notifications entrantes (pas de réponse)."
+    },
+    "JsonRpcFrameKind": {
+      "name": "JsonRpcFrameKind",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nature d'une frame entrante (renvoyée par {@link JsonRpcPeer.handleFrame})."
     },
     "redactSecrets": {
       "name": "redactSecrets",
@@ -9169,6 +9231,9 @@
       "IModule": [
         "Module"
       ],
+      "IRealtimePeer": [
+        "JsonRpcPeer"
+      ],
       "ISyslog": [
         "Syslog"
       ],
@@ -10240,6 +10305,9 @@
       "closeCodeToNotice": [
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "JsonRpcPeer": [
+        "src/nodefony/src/client/index.ts"
       ],
       "File": [
         "src/nodefony/src/command/Builder.ts",

@@ -20,6 +20,7 @@ import Websocket from "./transport/websocket";
 import Storage from "./api/Storage";
 import { RealtimeClient } from "./realtime/RealtimeClient";
 import { closeCodeToNotice } from "./realtime/notice";
+import { JsonRpcPeer } from "../realtime/JsonRpcPeer";
 export type {
   RealtimeState,
   RealtimeOptions,
@@ -28,6 +29,14 @@ export type {
   KernelPingResult,
 } from "./realtime/RealtimeClient";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
+export type {
+  IRealtimePeer,
+  RpcActionHandler,
+  RpcNotificationHandler,
+  JsonRpcFrameKind,
+  JsonRpcErrorObject,
+  JsonRpcPeerOptions,
+} from "../realtime/JsonRpcPeer";
 
 class Nodefony {
   private static instance: Nodefony;
@@ -71,5 +80,6 @@ export {
   isPromise,
   isSubclassOf,
   RealtimeClient,
+  JsonRpcPeer,
   closeCodeToNotice,
 };
