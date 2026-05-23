@@ -9,8 +9,6 @@ import {
   Title,
   Badge,
   Button,
-  Table,
-  ThemeIcon,
 } from "@mantine/core";
 import { Link } from "react-router-dom";
 import {
@@ -50,24 +48,6 @@ interface KernelInfo {
   git?: { branch: string; commit: string };
 }
 
-/** Connecteur ORM exposé par /nodefony/orm/api/orms. */
-interface OrmConn {
-  name: string;
-  /** Vendor (`drizzle`, `sequelize`, `mongoose`…) pour l'icône. */
-  vendor?: string;
-  default: boolean;
-  connected: boolean;
-  entityCount: number;
-}
-
-/** Couleur de marque + libellé par vendor ORM (icône colorée, a11y = couleur+texte). */
-const VENDORS: Record<string, { color: string; label: string }> = {
-  drizzle: { color: "#C5F74F", label: "Drizzle" },
-  sequelize: { color: "#52B0E7", label: "Sequelize" },
-  mongoose: { color: "#880000", label: "Mongoose" },
-  mikroorm: { color: "#864342", label: "MikroORM" },
-};
-
 function uptimeStr(s: number): string {
   s = Math.floor(s);
   const d = Math.floor(s / 86400);
@@ -92,12 +72,6 @@ export const Dashboard = observer(() => {
       [store],
     ),
   );
-  const orms = useResource(
-    useCallback(
-      () => store.api.getAbsolute<OrmConn[]>("/nodefony/orm/api/orms"),
-      [store],
-    ),
-  );
   const mods = useResource(
     useCallback(
       () => store.api.getAbsolute<unknown[]>("/nodefony/kernel/api/modules"),
@@ -116,8 +90,6 @@ export const Dashboard = observer(() => {
 
   const i = info.data;
   const moduleCount = Array.isArray(mods.data) ? mods.data.length : 0;
-  const ormList = orms.data ?? [];
-  const entityTotal = ormList.reduce((a, o) => a + (o.entityCount || 0), 0);
 
   return (
     <Stack gap="lg">
@@ -187,15 +159,6 @@ export const Dashboard = observer(() => {
             {moduleCount || "—"}
           </Text>
         </Kpi>
-        <Kpi
-          label="Entités ORM"
-          icon={<IconDatabase size={30} stroke={1.4} />}
-          hint="Total des entités mappées sur tous les connecteurs."
-        >
-          <Text fw={700} size="xl">
-            {entityTotal || "—"}
-          </Text>
-        </Kpi>
       </Grid>
 
       {/* ── Config générale + Git ── */}
@@ -249,91 +212,6 @@ export const Dashboard = observer(() => {
           </Card>
         </Grid.Col>
       </Grid>
-
-      {/* ── ORM ── */}
-      <Card withBorder radius="md" p="lg">
-        <Group justify="space-between" mb="md">
-          <Group gap={6}>
-            <IconDatabase size={20} stroke={1.5} />
-            <Title order={4}>ORM & connecteurs</Title>
-          </Group>
-          <Button
-            component={Link}
-            to="/nodefony/databases"
-            variant="light"
-            size="xs"
-          >
-            Détails
-          </Button>
-        </Group>
-        <DataState
-          loading={orms.loading && !ormList.length}
-          error={orms.error}
-          empty={!ormList.length}
-          onRetry={orms.reload}
-          emptyMessage="Aucun connecteur ORM enregistré."
-        >
-          <Table highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Connecteur</Table.Th>
-                <Table.Th>Défaut</Table.Th>
-                <Table.Th>État</Table.Th>
-                <Table.Th>Entités</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {ormList.map((o) => {
-                const v = o.vendor ? VENDORS[o.vendor] : undefined;
-                return (
-                  <Table.Tr key={o.name}>
-                    <Table.Td>
-                      <Group gap="xs" wrap="nowrap">
-                        <ThemeIcon
-                          size="sm"
-                          radius="sm"
-                          variant="light"
-                          color={v?.color ?? "gray"}
-                          aria-label={v?.label ?? o.vendor ?? "ORM"}
-                        >
-                          <IconDatabase size={14} />
-                        </ThemeIcon>
-                        <div>
-                          <Text fw={600}>{o.name}</Text>
-                          {o.vendor && (
-                            <Text size="xs" c="dimmed">
-                              {v?.label ?? o.vendor}
-                            </Text>
-                          )}
-                        </div>
-                      </Group>
-                    </Table.Td>
-                    <Table.Td>
-                      {o.default ? (
-                        <Badge size="xs" color="brand" variant="light">
-                          défaut
-                        </Badge>
-                      ) : (
-                        <Text c="dimmed">—</Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        size="xs"
-                        color={o.connected ? "teal" : "red"}
-                        variant="light"
-                      >
-                        {o.connected ? "connecté" : "déconnecté"}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{o.entityCount}</Table.Td>
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        </DataState>
-      </Card>
 
       {/* ── Outils dev (accès rapide) ── */}
       <Card withBorder radius="md" p="md">

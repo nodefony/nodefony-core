@@ -6,7 +6,7 @@ import type { IAdminRequest } from "nodefony";
 import {
   createSyslogBridge,
   createStatsTicker,
-  createOrmHealthTicker,
+  createBrokerTicker,
   readGitBranch,
   CHANNELS,
   type AppMeta,
@@ -155,7 +155,17 @@ class StudioRealtimeController extends Controller {
                 parseInt(channel.slice(statsBase.length + 1), 10) || 1000,
               ),
             );
-      dispose = createStatsTicker(publish, ms, this.appMeta(), channel);
+      // Le canal supervision compte les erreurs CÔTÉ SERVEUR (syslog passé) →
+      // pas besoin d'abonner le dashboard à syslog:stream. La debug bar non.
+      const sysForErrors =
+        statsBase === CHANNELS.supervision ? this.syslog : undefined;
+      dispose = createStatsTicker(
+        publish,
+        ms,
+        this.appMeta(),
+        channel,
+        sysForErrors ?? undefined,
+      );
     } else if (
       channel === CHANNELS.ormHealth ||
       channel.startsWith(`${CHANNELS.ormHealth}:`)
@@ -173,12 +183,23 @@ class StudioRealtimeController extends Controller {
                   5000,
               ),
             );
-      dispose = createOrmHealthTicker(
-        () => this.fetchOrmHealth(),
-        publish,
-        channel,
-        ms,
-      );
+      dispose = createBrokerTicker(() => this.fetchOrmHealth(), publish, channel, ms);
+    } else if (
+      channel === CHANNELS.ormFlow ||
+      channel.startsWith(`${CHANNELS.ormFlow}:`)
+    ) {
+      // Flux ORM : plus dynamique que la santé → défaut 2 s (borné 500 ms–60 s).
+      const ms =
+        channel === CHANNELS.ormFlow
+          ? 2000
+          : Math.min(
+              60000,
+              Math.max(
+                500,
+                parseInt(channel.slice(CHANNELS.ormFlow.length + 1), 10) || 2000,
+              ),
+            );
+      dispose = createBrokerTicker(() => this.fetchOrmFlow(), publish, channel, ms);
     }
     if (dispose) {
       state.channels.set(channel, dispose);
@@ -213,6 +234,24 @@ class StudioRealtimeController extends Controller {
     const ep = orm
       ?.adminEndpoints()
       .find((e) => e.path === "connection/health");
+    if (!ep) return null;
+    return ep.handler({
+      params: {},
+      query: {},
+      body: null,
+      user: null,
+      roles: [],
+    } as IAdminRequest);
+  }
+
+  /**
+   * Produit le flux ORM pour le canal `orm:flow` en invoquant l'endpoint admin
+   * `orm/flow` **via le broker** (Studio reste générique). `null` si non monté.
+   */
+  private async fetchOrmFlow(): Promise<unknown> {
+    const broker = this.get<IAdminBroker>("adminBroker");
+    const orm = broker?.list().find((p) => p.adminNamespace === "orm");
+    const ep = orm?.adminEndpoints().find((e) => e.path === "flow");
     if (!ep) return null;
     return ep.handler({
       params: {},

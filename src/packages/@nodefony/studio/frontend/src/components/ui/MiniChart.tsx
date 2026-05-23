@@ -1,5 +1,16 @@
 import { useState } from "react";
-import { Card, Group, Paper, Stack, Text, Title } from "@mantine/core";
+import {
+  ActionIcon,
+  Card,
+  Group,
+  Modal,
+  Paper,
+  Stack,
+  Text,
+  Title,
+  Tooltip,
+} from "@mantine/core";
+import { IconArrowsMaximize } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
 /** Une série de points pour {@link MiniChart}. */
@@ -167,40 +178,108 @@ export function MiniChart({
   );
 }
 
-/** Carte titrée enveloppant un graphe (titre + badge + légende courte). */
+/**
+ * Carte titrée enveloppant un graphe (titre + badge + légende courte).
+ *
+ * `fullscreen` (opt-in) ajoute un bouton ⤢ qui ouvre le graphe en plein écran
+ * (Modal `fullScreen`). Pour que le graphe **grossisse vraiment** (et pas juste
+ * se centre), passer `children` en **render-prop** `({ fullscreen }) => …` et
+ * adapter la hauteur du `MiniChart` (le SVG est `preserveAspectRatio="none"` →
+ * il s'étire à la hauteur donnée). `children` ReactNode simple reste supporté.
+ */
 export function ChartCard({
   title,
   caption,
   badge,
+  icon,
+  fullscreen = false,
   children,
 }: {
   title: string;
   caption: string;
   badge?: ReactNode;
-  children: ReactNode;
+  /** Icône de provenance (ex. logo Node.js, icône de l'élément qui détient la sonde). */
+  icon?: ReactNode;
+  fullscreen?: boolean;
+  children: ReactNode | ((opts: { fullscreen: boolean }) => ReactNode);
 }) {
+  const [opened, setOpened] = useState(false);
+  const render = (fs: boolean): ReactNode =>
+    typeof children === "function" ? children({ fullscreen: fs }) : children;
   return (
     <Card withBorder radius="md" p="lg">
-      <Group justify="space-between" mb={2}>
-        <Title order={2} size="h4">
-          {title}
-        </Title>
-        {badge}
+      <Group justify="space-between" mb={2} wrap="nowrap">
+        <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+          {icon}
+          <Title order={2} size="h4">
+            {title}
+          </Title>
+        </Group>
+        <Group gap="xs" wrap="nowrap">
+          {badge}
+          {fullscreen && (
+            <Tooltip label="Plein écran" withArrow>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label={`Afficher « ${title} » en plein écran`}
+                onClick={() => setOpened(true)}
+              >
+                <IconArrowsMaximize size={16} />
+              </ActionIcon>
+            </Tooltip>
+          )}
+        </Group>
       </Group>
       <Text size="xs" c="dimmed" mb="sm">
         {caption}
       </Text>
-      {children}
+      {render(false)}
+      {fullscreen && (
+        <Modal
+          opened={opened}
+          onClose={() => setOpened(false)}
+          fullScreen
+          radius={0}
+          title={title}
+          transitionProps={{ transition: "fade", duration: 150 }}
+        >
+          <Stack gap="sm">
+            {badge && <Group gap="xs">{badge}</Group>}
+            <Text size="sm" c="dimmed">
+              {caption}
+            </Text>
+            {render(true)}
+          </Stack>
+        </Modal>
+      )}
     </Card>
   );
 }
 
-/** Pastille de légende (trait coloré + libellé gris). */
-export function Legend({ color, label }: { color: string; label: string }) {
+/** Pastille de légende (trait coloré + libellé gris). `size` adapte la police
+ *  (ex. `"md"` en plein écran). */
+export function Legend({
+  color,
+  label,
+  size = "xs",
+}: {
+  color: string;
+  label: string;
+  size?: string;
+}) {
+  const big = size !== "xs";
   return (
     <Group gap={6} wrap="nowrap">
-      <span style={{ width: 12, height: 3, background: color, borderRadius: 2 }} />
-      <Text size="xs" c="dimmed">
+      <span
+        style={{
+          width: big ? 18 : 12,
+          height: big ? 4 : 3,
+          background: color,
+          borderRadius: 2,
+        }}
+      />
+      <Text size={size} c="dimmed">
         {label}
       </Text>
     </Group>

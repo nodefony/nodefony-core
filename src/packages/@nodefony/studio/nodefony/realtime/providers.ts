@@ -16,6 +16,7 @@ import path from "node:path";
 import {
   monitorEventLoopDelay,
   PerformanceObserver,
+  performance,
   constants as perfConstants,
 } from "node:perf_hooks";
 
@@ -71,6 +72,19 @@ const HEAP_LIMIT = v8.getHeapStatistics().heap_size_limit;
 export const INSTANCE_ID =
   process.env.NODEFONY_INSTANCE_ID ?? String(process.pid);
 
+/**
+ * Identité du process — **constante** (lue une fois). Détaille le process pour la
+ * carte « Process » de la supervision : runtime Node, OS, parent, exécutable.
+ */
+export const PROC = {
+  nodeVersion: process.version,
+  platform: process.platform,
+  arch: process.arch,
+  pid: process.pid,
+  ppid: process.ppid,
+  // ⚠️ PAS d'execPath/cwd/argv : chemins absolus = info-leak FS (règle data plane).
+} as const;
+
 interface SyslogLike {
   on(event: string, fn: (...a: unknown[]) => void): unknown;
   off?(event: string, fn: (...a: unknown[]) => void): unknown;
@@ -87,6 +101,9 @@ export const CHANNELS = {
   // toujours présente en dev, ne maintient PAS le canal supervision actif.
   debugbar: "debugbar:stats",
   ormHealth: "orm:health",
+  // Canal du FLUX ORM (débit requêtes/s + latence + slow) — distinct de la santé
+  // (état/ping). Plus dynamique → cadence par défaut plus serrée côté controller.
+  ormFlow: "orm:flow",
 } as const;
 
 /** Options de coalescing du pont syslog. */
@@ -198,10 +215,27 @@ export function createStatsTicker(
   intervalMs = 1000,
   meta?: AppMeta,
   channel: string = CHANNELS.supervision,
+  syslog?: SyslogLike,
 ): () => void {
   const cores = os.cpus().length || 1; // 1 seule lecture (os.cpus alloue un array)
   let prevCpu = process.cpuUsage();
   let prevTs = Date.now();
+  // Compteur d'erreurs (ERROR/CRITIC) sur l'intervalle, compté CÔTÉ SERVEUR pour
+  // éviter de streamer TOUT le syslog au dashboard juste pour un compteur (effet
+  // d'observateur sous charge). 1 listener léger (incrément), détaché au dispose.
+  let errCount = 0;
+  const onErr = (pdu: unknown): void => {
+    const sev = (pdu as { severityName?: string } | null)?.severityName;
+    if (sev === "ERROR" || sev === "CRITIC") errCount += 1;
+  };
+  if (syslog) syslog.on("onLog", onErr);
+  // Baselines pour les deltas par intervalle :
+  //  - ELU (Event Loop Utilization) : fraction du temps où la boucle est ACTIVE
+  //    (≠ lag). ~1.0 = thread mono saturé (CPU-bound) — la vraie jauge de saturation.
+  //  - changements de contexte (getrusage) : involontaires = OS qui PRÉEMPTE le
+  //    process (contention CPU) ; volontaires = process qui cède (attente I/O/lock).
+  let prevElu = performance.eventLoopUtilization();
+  let prevRu = process.resourceUsage();
   // Event-loop lag : métrique dev clé (détecte le blocage synchrone). Histogramme
   // natif, mean lu + reset à chaque tick → lag moyen sur l'intervalle.
   const eld = monitorEventLoopDelay({ resolution: 20 });
@@ -267,15 +301,37 @@ export function createStatsTicker(
     const byType: Record<string, number> = Object.create(null);
     for (const r of resources) byType[r] = (byType[r] ?? 0) + 1;
 
+    // Sonde SATURATION boucle (ELU) sur l'intervalle : delta entre 2 mesures.
+    const curElu = performance.eventLoopUtilization();
+    const eluDelta = performance.eventLoopUtilization(curElu, prevElu);
+    prevElu = curElu;
+    const elu = {
+      utilization: Math.round(eluDelta.utilization * 1000) / 1000, // 0-1
+      active: Math.round(eluDelta.active * 100) / 100, // ms boucle active
+      idle: Math.round(eluDelta.idle * 100) / 100, // ms boucle idle
+    };
+
+    // Sonde CHANGEMENTS DE CONTEXTE (getrusage) : delta sur l'intervalle.
+    const ru = process.resourceUsage();
+    const ctx = {
+      voluntary: ru.voluntaryContextSwitches - prevRu.voluntaryContextSwitches,
+      involuntary:
+        ru.involuntaryContextSwitches - prevRu.involuntaryContextSwitches,
+    };
+    prevRu = ru;
+
     publish(channel, {
       ts: now,
       app: meta, // statique (constant ref) : env, branche git, version, name
       instanceId: INSTANCE_ID,
+      proc: PROC, // identité process (constant ref) : node/os/arch/ppid
       uptime: process.uptime(),
       pid: process.pid,
       cpuPercent,
       cpuCount: cores,
       eventLoopMs,
+      elu,
+      ctx,
       loadavg: os.loadavg(),
       memory: {
         rss: mem.rss,
@@ -287,7 +343,9 @@ export function createStatsTicker(
       gc,
       heapSpaces,
       handles: { total: resources.length, byType },
+      errCount, // ERROR/CRITIC sur l'intervalle (compté serveur, pas via syslog:stream)
     });
+    errCount = 0;
   };
   const timer = setInterval(tick, intervalMs);
   (timer as { unref?: () => void }).unref?.(); // cloud-native : ne bloque pas l'exit
@@ -295,6 +353,7 @@ export function createStatsTicker(
     clearInterval(timer);
     eld.disable();
     gcObs.disconnect();
+    if (syslog) (syslog.off ?? syslog.removeListener)?.call(syslog, "onLog", onErr);
   };
 }
 
@@ -317,6 +376,7 @@ export async function readStatsSnapshot(
 ): Promise<Record<string, unknown>> {
   const cores = os.cpus().length || 1;
   const c0 = process.cpuUsage();
+  const elu0 = performance.eventLoopUtilization();
   const t0 = Date.now();
   const eld = monitorEventLoopDelay({ resolution: 20 });
   eld.enable();
@@ -325,6 +385,7 @@ export async function readStatsSnapshot(
     (t as { unref?: () => void }).unref?.();
   });
   const d = process.cpuUsage(c0);
+  const eluDelta = performance.eventLoopUtilization(elu0);
   const elapsedMs = Math.max(Date.now() - t0, 1);
   eld.disable();
   const cpuPercent = Math.min(
@@ -345,11 +406,20 @@ export async function readStatsSnapshot(
     ts: Date.now(),
     app: meta,
     instanceId: INSTANCE_ID,
+    proc: PROC,
     uptime: process.uptime(),
     pid: process.pid,
     cpuPercent,
     cpuCount: cores,
     eventLoopMs,
+    // ELU mesurée sur la fenêtre d'échantillon (réelle). Les changements de
+    // contexte (ctx) restent live-only (delta sur intervalle) → null en snapshot.
+    elu: {
+      utilization: Math.round(eluDelta.utilization * 1000) / 1000,
+      active: Math.round(eluDelta.active * 100) / 100,
+      idle: Math.round(eluDelta.idle * 100) / 100,
+    },
+    ctx: null,
     loadavg: os.loadavg(),
     memory: {
       rss: mem.rss,
@@ -365,23 +435,26 @@ export async function readStatsSnapshot(
 }
 
 /**
- * Ticker temps réel du diagnostic ORM (`orm:health`) — pousse périodiquement le
- * paquet de **sondes** complet par connecteur (état, latence/fenêtre, erreurs,
- * reconnexions, stockage, pool) pour le **contrôle total des ORM**.
+ * Ticker temps réel **générique** branché sur un endpoint admin via le broker —
+ * pousse périodiquement sur un canal le résultat d'un `fetch` asynchrone. Sert
+ * la **santé ORM** (`orm:health` : état/ping/latence/stockage) ET le **flux ORM**
+ * (`orm:flow` : débit/latence/slow) — même mécanique, sources différentes.
  *
- * SOURCE-AGNOSTIQUE : reçoit un `fetch` que le controller branche sur l'endpoint
- * admin `orm/connection/health` **via le broker** → Studio reste générique (zéro
- * dép directe à orm-core). 1ᵉʳ tick immédiat puis intervalle. `setInterval` unref.
+ * SOURCE-AGNOSTIQUE : le `fetch` est branché par le controller sur l'endpoint
+ * admin (`orm/connection/health`, `orm/flow`…) **via le broker** → Studio reste
+ * générique (zéro dép directe à orm-core). 1ᵉʳ tick immédiat puis intervalle.
+ * `setInterval` unref (cloud-native).
  *
- * @param fetch - producteur asynchrone du paquet santé (broker → endpoint).
+ * @param fetch - producteur asynchrone du paquet (broker → endpoint).
  * @param publish - callback de publication (transport-agnostique).
+ * @param channel - canal exact souscrit (granularité `:<ms>`).
  * @param intervalMs - cadence (défaut 5000 ms).
  * @returns dispose() — arrête le ticker.
  */
-export function createOrmHealthTicker(
+export function createBrokerTicker(
   fetch: () => Promise<unknown>,
   publish: Publish,
-  channel: string = CHANNELS.ormHealth,
+  channel: string,
   intervalMs = 5000,
 ): () => void {
   let stopped = false;
