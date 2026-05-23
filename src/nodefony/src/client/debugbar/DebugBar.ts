@@ -269,6 +269,9 @@ const STYLES = `
 .branch .git { color:var(--blue2); } .branch span:last-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ctrl { color:var(--muted); cursor:pointer; padding:0 4px; font-weight:800; font-size:1.05em; line-height:1; flex:none; }
 .ctrl:hover { color:#fff; }
+.ctrl.live { font-size:.78em; font-weight:700; border:1px solid var(--line); border-radius:6px; padding:2px 7px; letter-spacing:.3px; }
+.ctrl.live.on { color:var(--ok); border-color:var(--ok); }
+.ctrl.live:not(.on) { color:var(--muted); }
 
 .minbar { position:fixed; z-index:2147483000; display:none; align-items:center; gap:8px;
   padding:6px 13px; border-radius:22px; cursor:pointer;
@@ -362,6 +365,9 @@ const LS = {
   side: "nf.debugbar.side",
   tab: "nf.debugbar.tab",
   h: "nf.debugbar.h",
+  // Temps réel OFF par défaut (perf) : opt-in via le bouton de la barre — sinon
+  // la barre maintiendrait les tickers (stats + syslog) en permanence en dev.
+  live: "nf.debugbar.live",
 } as const;
 
 function lsGet(key: string, def: string): string {
@@ -415,6 +421,10 @@ export class DebugBar {
   private side: "left" | "right";
   private activeTab: TabId;
   private panelH: number;
+  // Temps réel (abonnements stats+syslog) — OFF par défaut (perf), opt-in bouton.
+  private live: boolean;
+  /** dispose des abonnements realtime (null quand OFF). */
+  private liveOff: (() => void) | null = null;
   private rafPending = false;
   private feedLen = -1;
   // Pouls realtime — débit msg/s dérivé du compteur de frames du client.
@@ -469,6 +479,7 @@ export class DebugBar {
     this.panelH = clampH(
       parseInt(lsGet(LS.h, String(defaultPanelH())), 10) || defaultPanelH(),
     );
+    this.live = lsGet(LS.live, "0") === "1";
   }
 
   /** Construit le DOM, branche le realtime et ouvre la connexion. No-op si déjà monté. */
@@ -665,6 +676,11 @@ export class DebugBar {
       e.stopPropagation();
       this.toggleSide();
     });
+    this.wireBtn("btnLive", (e) => {
+      e.stopPropagation();
+      this.setLive(!this.live);
+    });
+    this.updateLiveBtn();
     // Onglets.
     const tabsBar = bar.querySelector(".tabs");
     if (tabsBar) {
@@ -746,6 +762,7 @@ export class DebugBar {
         ${this.networkEnabled ? `<span class="chip"><span class="k">net</span><span class="blue" data-el="netChip">0</span></span>` : ""}
         <span class="chip"><span class="k">logs</span><span data-el="logs">0</span></span>
         <span class="chip"><span class="k">err</span><span class="crit" data-el="err">0</span></span>
+        <span class="ctrl live" data-el="btnLive" role="button" tabindex="0" aria-pressed="false" title="Temps réel">○ live</span>
         <span class="ctrl" data-el="btnSide" title="Changer de côté">⇄</span>
         <span class="ctrl" data-el="btnMin" title="Réduire">—</span>
         <span class="toggle">▴</span>
@@ -912,6 +929,9 @@ export class DebugBar {
   // ── Realtime ──────────────────────────────────────────────────────────
 
   private wireRealtime(): void {
+    // Listeners TOUJOURS branchés (gratuit : `.on` ne génère aucun trafic réseau ;
+    // les handlers ne firent que si un canal est abonné). L'état + le pouls de
+    // frames restent vivants même OFF (la socket est partagée avec l'app hôte).
     const offState = this.client.on("__state__", (...a) => {
       this.model.setState(a[0] as RealtimeState);
       this.scheduleRender();
@@ -931,16 +951,58 @@ export class DebugBar {
         this.model.ingestSyslog(p as SyslogPayload);
       this.scheduleRender();
     });
-    // Abonnement REF-COMPTÉ (UNE fois) : sur le client PARTAGÉ, un canal reste
-    // actif tant qu'un consommateur — barre OU page Studio — le veut. Le client
-    // ré-abonne seul au reconnect → surtout PAS de re-subscribe sur "connected"
-    // (sinon le compteur de réf gonfle). Cleanup = relâche la réf de la barre.
+    this.model.setState(this.client.state);
+    this.disposers.push(offState, offTick, offStats, offSyslog, () => {
+      this.stopLive();
+    });
+    // Abonnements (tickers serveur) gérés par le bouton « Temps réel » — OFF par
+    // défaut (perf). Si la préférence persistée est ON, on démarre au montage.
+    if (this.live) this.startLive();
+  }
+
+  /**
+   * Démarre les abonnements realtime (tickers serveur stats+syslog). REF-COMPTÉ
+   * (UNE fois) sur le client PARTAGÉ : un canal reste actif tant qu'un
+   * consommateur le veut ; le client ré-abonne seul au reconnect. Idempotent.
+   */
+  private startLive(): void {
+    if (this.liveOff) return;
     this.client.subscribe(CHANNELS.stats);
     this.client.subscribe(CHANNELS.syslog);
-    this.disposers.push(offState, offTick, offStats, offSyslog, () => {
+    this.liveOff = () => {
       this.client.unsubscribe(CHANNELS.stats);
       this.client.unsubscribe(CHANNELS.syslog);
-    });
+    };
+  }
+
+  /** Arrête les abonnements realtime (relâche la réf de la barre). Idempotent. */
+  private stopLive(): void {
+    if (!this.liveOff) return;
+    this.liveOff();
+    this.liveOff = null;
+  }
+
+  /** Active/désactive le temps réel (bouton de la barre) + persiste la préférence. */
+  setLive(v: boolean): void {
+    if (v === this.live && !!this.liveOff === v) return;
+    this.live = v;
+    lsSet(LS.live, v ? "1" : "0");
+    if (v) this.startLive();
+    else this.stopLive();
+    this.updateLiveBtn();
+    this.scheduleRender();
+  }
+
+  /** Met à jour l'aspect du bouton « Temps réel » selon l'état. */
+  private updateLiveBtn(): void {
+    const btn = this.el["btnLive"] as HTMLElement | undefined;
+    if (!btn) return;
+    btn.textContent = this.live ? "● live" : "○ live";
+    btn.title = this.live
+      ? "Temps réel ACTIF — clic pour couper (stats + logs)"
+      : "Temps réel coupé (perf) — clic pour activer (stats + logs)";
+    btn.setAttribute("aria-pressed", this.live ? "true" : "false");
+    btn.classList.toggle("on", this.live);
   }
 
   private sampleThroughput(): void {
