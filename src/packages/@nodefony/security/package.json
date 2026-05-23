@@ -40,7 +40,8 @@
     "passport-jwt": "4.0.1",
     "passport-ldapauth": "^3.0.1",
     "passport-local": "^1.0.0",
-    "passport-oauth2": "1.8.0"
+    "passport-oauth2": "1.8.0",
+    "zod": "^4.1.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "29.0.2",
@@ -63,6 +64,7 @@
   "peerDependencies": {
     "nodefony": "*",
     "@nodefony/http": "*",
-    "@nodefony/framework": "*"
+    "@nodefony/framework": "*",
+    "@nodefony/user": "*"
   }
 }

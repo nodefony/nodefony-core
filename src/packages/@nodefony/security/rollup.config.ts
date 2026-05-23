@@ -20,9 +20,11 @@ const sourcemapPathTransform = createPathTransform({
 const external: string[] = [
   "nodefony",
   "@nodefony/http",
+  "@nodefony/framework",
+  "@nodefony/user",
   "@nodefony/sequelize",
   "@nodefony/mongoose",
-  "@nodefony/framework",
+  "zod",
   "bcrypt",
   "csrf",
   "jsonwebtoken",

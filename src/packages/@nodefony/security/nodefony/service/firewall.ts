@@ -1,269 +1,166 @@
-import Cors from "./cors";
-import Authorization from "./authorization";
-import Csrf from "./csrf";
-import SecuredArea from "../src/securedArea";
-import Factory from "../src/Factory";
-import Provider from "../src/Provider";
 import {
   Service,
   Module,
   Container,
   Event,
-  inject,
-  Injector,
+  RequestContext,
   Severity,
+  Msgid,
   Message,
   Pdu,
-  Msgid,
 } from "nodefony";
-import {
-  ContextType,
-  HttpContext,
-  Session,
-  SessionsService,
-} from "@nodefony/http";
-import {
-  Areas,
-  Factories,
-  optionsFactory,
-  optionsSecuredArea,
-  Providers,
-  Helmet,
-} from "../types";
-import { optionsProvider } from "../types/provider.types";
+import type { ContextType } from "@nodefony/http";
 
-const serviceName: string = "firewall";
+import { SecuredArea } from "../src/SecuredArea";
+import { RoleHierarchyWalker } from "../src/RoleHierarchyWalker";
+import { AnonymousToken } from "../src/token/AnonymousToken";
+import { AuthenticationError } from "../errors/AuthenticationError";
+import type { IFirewall } from "../contracts/IFirewall";
+import type { IAuthenticator } from "../contracts/IAuthenticator";
+import type { IToken } from "../contracts/IToken";
+import type { ISecuredArea } from "../contracts/ISecuredArea";
+import type { ISecurityAreaConfig } from "../config/defineSecurityConfig";
 
-class Firewall extends Service {
-  cors?: Cors | null;
-  helmet?: Helmet | null;
-  authorization?: Authorization | null;
-  csrf?: Csrf | null;
-  securedAreas: Areas = {};
-  factories: Factories = {};
-  providers: Providers = {};
-  constructor(
-    public module: Module,
-    //@inject("HttpKernel") private httpKernel: HttpKernel,
-    @inject("injector") private injector: Injector,
-    @inject("sessions") private sessionService: SessionsService
-  ) {
+const serviceName = "firewall";
+
+/**
+ * Orchestrateur de sécurité Nodefony — refonte 2026 (P6).
+ *
+ * `isSecure()` (hot-path, court-circuit si aucune zone) ne fait QUE matcher la
+ * zone et poser `context.security`. `handleSecurity()` (lazy, seulement sur une
+ * zone protégée) exécute la chaîne d'authentication → propage l'utilisateur dans
+ * l'ALS → applique le **Zero Trust** (zone protégée + visiteur anonyme → 401).
+ *
+ * CORS, CSRF et autorisation par décorateurs viennent se brancher en S4/S5.
+ * Toutes les structures sont **lazy** (perf : une app sans zone = zéro alloc).
+ */
+class Firewall extends Service implements IFirewall {
+  // Zones triées par spécificité — null tant qu'aucune zone n'est configurée.
+  #areas: SecuredArea[] | null = null;
+  // Authenticators enregistrés par nom — null tant qu'aucun n'est enregistré.
+  #authenticators: Map<string, IAuthenticator> | null = null;
+  #roleHierarchy: RoleHierarchyWalker | null = null;
+
+  constructor(public module: Module) {
     super(
       serviceName,
       module.container as Container,
       module.notificationsCenter as Event,
-      module.options
+      module.options,
     );
-    this.kernel?.once("onBoot", () => {
-      this.cors = this.get<Cors>("cors");
-      this.helmet = this.get<Helmet>("helmet");
-      this.authorization = this.get<Authorization>("authorization");
-      this.csrf = this.get<Csrf>("csrf");
-      if (this.options.firewalls) {
-        for (const firewall in this.options.firewalls) {
-          try {
-            this.addSecuredArea(firewall, this.options.firewalls[firewall]);
-          } catch (e) {
-            this.log(e, "ERROR");
-            continue;
-          }
-        }
-      }
-    });
+    this.kernel?.once("onBoot", () => this.#build());
   }
 
-  isSecure(context: ContextType): boolean {
-    if (context.resolver && context.resolver.bypassFirewall) {
-      return false;
+  // Compile les zones + la hiérarchie de rôles depuis la config (au boot).
+  #build(): void {
+    const opts = this.options as {
+      areas?: Record<string, ISecurityAreaConfig>;
+      roleHierarchy?: Record<string, string[]>;
+    };
+    this.#roleHierarchy = new RoleHierarchyWalker(opts.roleHierarchy ?? {});
+
+    const areas = opts.areas ?? {};
+    const names = Object.keys(areas);
+    if (names.length) {
+      const list: SecuredArea[] = [];
+      for (const name of names) {
+        try {
+          list.push(new SecuredArea(name, areas[name]));
+        } catch (e) {
+          this.log(e, "ERROR");
+        }
+      }
+      // Spécificité : pattern le plus long d'abord (déterministe, simple).
+      list.sort((a, b) => b.pattern.source.length - a.pattern.source.length);
+      this.#areas = list;
     }
-    // context.accessControl =
-    //   this.authorizationService.isControlledAccess(context);
-    // context.isControlledAccess = Boolean(context.accessControl.length);
-    // if (context.isControlledAccess) {
-    //   this.log(
-    //     `Front Controler isControlledAccess : ${context.isControlledAccess}`,
-    //     "DEBUG"
-    //   );
-    // }
-    for (const area in this.securedAreas) {
-      if (this.securedAreas[area].match(context)) {
-        context.security = this.securedAreas[area];
-        const state = context.security?.stateLess ? "STATELESS" : "STATEFULL";
-        context.security?.log(`ENTER SECURE AREA : ${state}`, "DEBUG");
+
+    this.log(
+      `Firewall ready — ${this.#areas?.length ?? 0} area(s), ${
+        this.#authenticators?.size ?? 0
+      } authenticator(s)`,
+      "DEBUG",
+    );
+  }
+
+  /** Hiérarchie de rôles résolue (niveau A de l'autorisation, P6.8). */
+  get roleHierarchy(): RoleHierarchyWalker {
+    return (this.#roleHierarchy ??= new RoleHierarchyWalker());
+  }
+
+  registerAuthenticator(authenticator: IAuthenticator): void {
+    (this.#authenticators ??= new Map()).set(authenticator.name, authenticator);
+  }
+
+  getArea(name: string): ISecuredArea | undefined {
+    return this.#areas?.find((a) => a.name === name);
+  }
+
+  /** Match rapide de zone — pose `context.security`. `true` si zone capturée. */
+  isSecure(context: ContextType): boolean {
+    if (!this.#areas) return false; // aucune zone → court-circuit hot-path
+    for (const area of this.#areas) {
+      if (area.match(context)) {
+        context.security = area;
         return true;
       }
     }
     return false;
   }
 
-  addSecuredArea(name: string, options: optionsSecuredArea): SecuredArea {
-    if (!this.securedAreas[name]) {
-      this.securedAreas[name] = this.injector.instantiate(
-        SecuredArea,
-        this.module,
-        name,
-        options
-      ); //new SecuredArea(this.module, name, options);
-      this.log(`ADD security context : ${name}`, "DEBUG");
-      return this.securedAreas[name];
-    }
-    throw new Error(` Add Secure Area : ${name}  already exist`);
-  }
-
-  getSecuredArea(name: string): SecuredArea {
-    if (name in this.securedAreas) {
-      return this.securedAreas[name];
-    }
-    throw new Error(` Secure Area : ${name} Not found`);
-  }
-
-  addFactory(name: string, options: optionsFactory): Factory {
-    if (!this.factories[name] && this.injector) {
-      this.factories[name] = this.injector.instantiate(Factory, name, options);
-      this.log(`ADD Factory  : ${name}`, "DEBUG");
-      return this.factories[name];
-    }
-    throw new Error(`Add Factory : ${name}  already exist`);
-  }
-
-  getFactory(name: string): Factory {
-    if (name in this.factories) {
-      return this.factories[name];
-    }
-    throw new Error(` Factory : ${name} Not found`);
-  }
-
-  addProvider(name: string, options: optionsProvider): Provider {
-    if (!this.providers[name] && this.injector) {
-      this.providers[name] = this.injector.instantiate(Provider, name, options);
-      this.log(`ADD Provider  : ${name}`, "DEBUG");
-      return this.providers[name];
-    }
-    throw new Error(`Add Factory : ${name}  already exist`);
-  }
-
-  getProvider(name: string): Provider {
-    if (name in this.providers) {
-      return this.providers[name];
-    }
-    throw new Error(` Provider : ${name} Not found`);
-  }
-
+  /** Pipeline complet de la zone : auth → ALS → Zero Trust. Rejette (401) ou résout. */
   async handleSecurity(context: ContextType): Promise<ContextType> {
-    return new Promise((resolve, reject) => {
-      if (context.resolver) {
-        if (context.resolver.bypassFirewall) {
-          context.resolver?.log(`bypassFirewall ${context.url}`, "DEBUG");
-          return resolve(context);
-        }
-        this.fire("onSecurity", context);
-        return this.handle(context).then(() => {
-          return resolve(context);
-        });
-      }
-      return reject(new Error(`not resolve`));
-    });
+    const area = context.security as ISecuredArea | null | undefined;
+    if (!area || !area.security) return context; // hors zone ou zone publique
+    const bypass = (context as { resolver?: { bypassFirewall?: boolean } })
+      .resolver?.bypassFirewall;
+    if (bypass) return context;
+
+    const token = await this.#authenticate(context, area);
+    RequestContext.set("user", token.getUser());
+
+    // Zero Trust : zone protégée + visiteur anonyme → 401.
+    if (!token.isAuthenticated()) {
+      throw new AuthenticationError(
+        `Authentication required for area "${area.name}"`,
+      );
+    }
+    return context;
   }
 
-  async handle(context: ContextType): Promise<ContextType> {
-    return new Promise(async (resolve, reject) => {
-      // if (context.type === "HTTP" && this.httpsReady) {
-      //     if (context.security && context.security.redirect_Https) {
-      //       resolve(this.redirectHttps(context));
-      //       return;
-      //     }
-      //   }
-      if (
-        context instanceof HttpContext &&
-        context.security?.helmetMiddleware
-      ) {
-        await this.helmet
-          ?.handle(context as HttpContext, context.security.helmetMiddleware)
-          .catch((e) => {
-            throw e;
-          });
+  // Exécute la chaîne d'authenticators de la zone (premier supports() qui matche).
+  async #authenticate(
+    context: ContextType,
+    area: ISecuredArea,
+  ): Promise<IToken> {
+    for (const name of area.authenticators) {
+      const authenticator = this.#authenticators?.get(name);
+      if (!authenticator) {
+        this.log(`authenticator "${name}" not registered`, "WARNING");
+        continue;
       }
-
-      if (context.security?.stateLess) {
-        if (context.sessionAutoStart) {
-          await this.startSession(context);
-        }
-        return this.handleStateLess(context)
-          .then((ctx) => resolve(ctx))
-          .catch((error) => {
-            if (!error.code) {
-              error.code = 401;
-            }
-            return reject(error);
-          });
-      }
-      return this.handleStateFull(context)
-        .then((ctx) => resolve(ctx))
-        .catch((error) => {
-          if (!error.code) {
-            error.code = 401;
-          }
-          return reject(error);
-        });
-    });
-  }
-
-  async startSession(context: ContextType): Promise<Session | null> {
-    if (!context.sessionAutoStart) {
-      if (context.security) {
-        context.sessionAutoStart = context.security.sessionContext;
+      if (!authenticator.supports(context)) continue;
+      const token = await authenticator.createToken(context);
+      try {
+        const authenticated = await authenticator.authenticate(token);
+        await authenticator.onSuccess(context, authenticated);
+        return authenticated;
+      } catch (error) {
+        await authenticator.onFailure(context, error as Error);
+        throw error instanceof AuthenticationError
+          ? error
+          : new AuthenticationError(error as Error);
       }
     }
-    return this.sessionService
-      .start(context, context.sessionAutoStart as string)
-      .catch(async (error: unknown) => {
-        throw error;
-      });
-  }
-
-  async handleStateLess(context: ContextType): Promise<ContextType> {
-    if (context.security) {
-      return context.security
-        .handle(context)
-        .then((ctx: ContextType) => {
-          // if (ctx.isControlledAccess && !ctx.checkLogin) {
-          //   return this.authorizationService.handle(ctx);
-          // }
-          return ctx;
-        })
-        .catch((e: unknown) => {
-          throw e;
-        });
-    }
-    // if (ctx.isControlledAccess && !ctx.checkLogin) {
-    //   return this.authorizationService.handle(ctx);
-    // }
-    throw new Error(`No security context`);
-  }
-
-  async handleStateFull(context: ContextType): Promise<ContextType> {
-    if (context.security) {
-      return this.startSession(context)
-        .then(async () => {
-          return this.handleStateLess(context).then(() => {
-            return context;
-          });
-        })
-        .catch((e) => {
-          throw e;
-        });
-    }
-    // if (ctx.isControlledAccess && !ctx.checkLogin) {
-    //   return this.authorizationService.handle(ctx);
-    // }
-    throw new Error(`No security context`);
+    // Aucun authenticator applicable → identité anonyme (Zero Trust géré en aval).
+    return new AnonymousToken();
   }
 
   override log(
-    pci: any,
+    pci: unknown,
     severity?: Severity,
     msgid?: Msgid,
-    msg?: Message
+    msg?: Message,
   ): Pdu {
     if (!msgid) {
       msgid = "\x1b[36mFIREWALL\x1b[0m";
@@ -273,3 +170,4 @@ class Firewall extends Service {
 }
 
 export default Firewall;
+export { Firewall };

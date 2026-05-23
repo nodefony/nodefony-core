@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-22T23:19:01.786Z",
+  "generated": "2026-05-23T06:44:09.004Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 307,
-    "symbols": 792,
-    "classes": 212,
+    "symbols": 789,
+    "classes": 210,
     "interfaces": 263,
-    "types": 146,
-    "enums": 1,
-    "functions": 142,
+    "types": 142,
+    "enums": 2,
+    "functions": 144,
     "constants": 28
   },
   "symbols": {
@@ -335,7 +335,8 @@
       "implements": [],
       "decorators": [
         "services"
-      ]
+      ],
+      "description": "`@nodefony/security` — couche de sécurité de Nodefony (refonte 2026, P6). HTTP **full stateless** (JWT cookie), pattern **`IAuthenticator`** (Symfony 6), **Zero Trust** par défaut, config type-safe…"
     },
     "Sequelize": {
       "name": "Sequelize",
@@ -4389,25 +4390,120 @@
       "implements": [],
       "decorators": []
     },
-    "Authorization": {
-      "name": "Authorization",
-      "kind": "class",
-      "file": "src/packages/@nodefony/security/nodefony/service/authorization.ts",
+    "ISecurityConfigInput": {
+      "name": "ISecurityConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": "Service",
-      "implements": [],
-      "decorators": []
+      "description": "Entrée du builder (champs avec défaut optionnels)."
     },
-    "Cors": {
-      "name": "Cors",
-      "kind": "class",
-      "file": "src/packages/@nodefony/security/nodefony/service/cors.ts",
+    "ISecurityConfig": {
+      "name": "ISecurityConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": "Service",
+      "description": "Config normalisée et gelée (sortie du builder, lue par le firewall)."
+    },
+    "ISecurityAreaConfig": {
+      "name": "ISecurityAreaConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Config d'une zone normalisée."
+    },
+    "defineSecurityConfig": {
+      "name": "defineSecurityConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Valide + normalise + gèle la configuration de sécurité."
+    },
+    "securityConfigJsonSchema": {
+      "name": "securityConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "JSON Schema introspectable de la config sécurité — **Studio génère son formulaire d'édition depuis ça** (labels/types/défauts/descriptions), sans UI hardcodée. Surface du data plane `/nodefony/secu…"
+    },
+    "IAccessVoter": {
+      "name": "IAccessVoter",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAccessVoter.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Voter contextuel (niveau C de l'autorisation, P6.8) — décide d'un accès en fonction du token ET du sujet (ex. « cet user édite-t-il SON projet ? »). Découverts par DI au boot (`@injectable`), index…"
+    },
+    "VoterVote": {
+      "name": "VoterVote",
+      "kind": "enum",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAccessVoter.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Vote d'un {@link IAccessVoter}. Stratégie firewall = affirmative + DENY veto : un seul DENY bloque ; sinon un GRANT suffit ; tous ABSTAIN → DENY (Zero Trust)."
+    },
+    "IAuthenticator": {
+      "name": "IAuthenticator",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Stratégie d'authentification — pattern « authenticator » (Symfony 6), pas Bridge/Factory (héritage Passport/YAML abandonné). Une zone sécurisée ({@link ISecuredArea}) liste les noms d'authenticator…"
+    },
+    "IFirewall": {
+      "name": "IFirewall",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Orchestrateur de sécurité — branché dans le pipeline HTTP/WS de `@nodefony/http`. `isSecure()` (rapide, hot-path) ne fait QUE matcher la zone et poser `context.security`. `handleSecurity()` (lazy, …"
+    },
+    "ISecuredArea": {
+      "name": "ISecuredArea",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/ISecuredArea.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Zone sécurisée — un pattern d'URL + la liste des authenticators à exécuter. Le firewall teste chaque zone par ordre de spécificité ; la première dont le pattern matche capture la requête (`context.…"
+    },
+    "IToken": {
+      "name": "IToken",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/contracts/IToken.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Jeton de sécurité — porte l'identité (authentifiée ou non) d'une requête. Produit par un {@link IAuthenticator}, propagé via ALS (`RequestContext`) pour tout le pipeline. Ne contient JAMAIS de cred…"
+    },
+    "AccessDeniedError": {
+      "name": "AccessDeniedError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "nodefonyError",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Accès refusé — `code = 403`. Levée par l'autorisation (un `@IsGranted` non satisfait, un voter DENY) : l'utilisateur EST authentifié mais n'a pas le droit. À distinguer d'{@link AuthenticationError…"
+    },
+    "AuthenticationError": {
+      "name": "AuthenticationError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Échec d'authentification — `code = 401`. Levée par un {@link IAuthenticator} quand le credential est absent/invalide, ou par le firewall en Zero Trust (zone protégée + visiteur anonyme + route sans…"
     },
     "Csrf": {
       "name": "Csrf",
@@ -4417,17 +4513,8 @@
       "module": "@nodefony/security",
       "extends": null,
       "implements": [],
-      "decorators": []
-    },
-    "CsrfService": {
-      "name": "CsrfService",
-      "kind": "class",
-      "file": "src/packages/@nodefony/security/nodefony/service/csrf.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "Service",
-      "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Placeholder CSRF — réécriture complète en S4 (P6.7) : défense par défaut **SameSite + Origin check** (OWASP CSRF Cheat Sheet 2024) + décorateur `@CsrfProtect({ttl})` HMAC double-submit opt-in pour …"
     },
     "Firewall": {
       "name": "Firewall",
@@ -4436,137 +4523,35 @@
       "exported": true,
       "module": "@nodefony/security",
       "extends": "Service",
-      "implements": [],
-      "decorators": []
+      "implements": [
+        "IFirewall"
+      ],
+      "decorators": [],
+      "description": "Orchestrateur de sécurité Nodefony — refonte 2026 (P6). `isSecure()` (hot-path, court-circuit si aucune zone) ne fait QUE matcher la zone et poser `context.security`. `handleSecurity()` (lazy, seul…"
     },
-    "Helmet": {
-      "name": "Helmet",
+    "RoleHierarchyWalker": {
+      "name": "RoleHierarchyWalker",
       "kind": "class",
-      "file": "src/packages/@nodefony/security/nodefony/service/helmet.ts",
+      "file": "src/packages/@nodefony/security/nodefony/src/RoleHierarchyWalker.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": "Service",
+      "extends": null,
       "implements": [],
-      "decorators": []
-    },
-    "Factory": {
-      "name": "Factory",
-      "kind": "class",
-      "file": "src/packages/@nodefony/security/nodefony/src/Factory.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "Service",
-      "implements": [],
-      "decorators": []
-    },
-    "Provider": {
-      "name": "Provider",
-      "kind": "class",
-      "file": "src/packages/@nodefony/security/nodefony/src/Provider.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "Service",
-      "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Résout la hiérarchie de rôles — `ROLE_ADMIN` hérite `ROLE_USER`, etc. Aplatissement DFS **précalculé au boot** (lecture O(1) au runtime, hot-path) + **détection de cycles au boot** (throw avec le c…"
     },
     "SecuredArea": {
       "name": "SecuredArea",
       "kind": "class",
-      "file": "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
+      "file": "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": "Service",
-      "implements": [],
-      "decorators": []
-    },
-    "@nodefony/security:Factory": {
-      "name": "Factory",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/security/nodefony/types/factory.types.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "Service"
-    },
-    "optionsFactory": {
-      "name": "optionsFactory",
-      "kind": "type",
-      "file": "src/packages/@nodefony/security/nodefony/types/factory.types.ts",
-      "exported": true,
-      "module": "@nodefony/security"
-    },
-    "@nodefony/security:Firewall": {
-      "name": "Firewall",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "Service"
-    },
-    "Areas": {
-      "name": "Areas",
-      "kind": "type",
-      "file": "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-      "exported": true,
-      "module": "@nodefony/security"
-    },
-    "Factories": {
-      "name": "Factories",
-      "kind": "type",
-      "file": "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-      "exported": true,
-      "module": "@nodefony/security"
-    },
-    "Providers": {
-      "name": "Providers",
-      "kind": "type",
-      "file": "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-      "exported": true,
-      "module": "@nodefony/security"
-    },
-    "@nodefony/security:Helmet": {
-      "name": "Helmet",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "Service"
-    },
-    "HelmetMiddleware": {
-      "name": "HelmetMiddleware",
-      "kind": "type",
-      "file": "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
-      "exported": true,
-      "module": "@nodefony/security"
-    },
-    "@nodefony/security:Provider": {
-      "name": "Provider",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/security/nodefony/types/provider.types.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "Service"
-    },
-    "optionsProvider": {
-      "name": "optionsProvider",
-      "kind": "type",
-      "file": "src/packages/@nodefony/security/nodefony/types/provider.types.ts",
-      "exported": true,
-      "module": "@nodefony/security"
-    },
-    "@nodefony/security:SecuredArea": {
-      "name": "SecuredArea",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "extends": "Service"
-    },
-    "optionsSecuredArea": {
-      "name": "optionsSecuredArea",
-      "kind": "type",
-      "file": "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
-      "exported": true,
-      "module": "@nodefony/security"
+      "extends": null,
+      "implements": [
+        "ISecuredArea"
+      ],
+      "decorators": [],
+      "description": "Zone sécurisée concrète — pattern d'URL compilé + métadonnées d'authentification. Objet **léger** (pas un Service DI : zéro besoin d'event/log par zone, hot-path). Le firewall en instancie une par …"
     },
     "SequelizeCommand": {
       "name": "SequelizeCommand",
@@ -5617,12 +5602,18 @@
       "module": "@nodefony/orm-core",
       "description": "Décore une classe comme repository d'une entité (tag métadonnée pur). Stocke le lien repo↔entity dans un `WeakMap` (cf. `metadataStore`, sans `reflect-metadata`). N'enregistre RIEN dans un registre…"
     },
-    "firewall": {
-      "name": "firewall",
-      "kind": "function",
-      "file": "src/packages/@nodefony/security/nodefony/src/decorators/firewallDecorator.ts",
+    "AnonymousToken": {
+      "name": "AnonymousToken",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts",
       "exported": true,
-      "module": "@nodefony/security"
+      "module": "@nodefony/security",
+      "extends": null,
+      "implements": [
+        "IToken"
+      ],
+      "decorators": [],
+      "description": "Token du visiteur non authentifié — Zero Trust : un visiteur EST un utilisateur anonyme (jamais `null`). Porte le singleton gelé `anonymousUser` → **zéro allocation d'utilisateur** par requête non …"
     },
     "SequelizeOrm": {
       "name": "SequelizeOrm",
@@ -5875,19 +5866,7 @@
         "Orm",
         "Redis",
         "Connection",
-        "Authorization",
-        "Cors",
-        "CsrfService",
         "Firewall",
-        "Helmet",
-        "Factory",
-        "Provider",
-        "SecuredArea",
-        "Factory",
-        "Firewall",
-        "Helmet",
-        "Provider",
-        "SecuredArea",
         "SequelizeService",
         "ServerHttp",
         "ServerHttps",
@@ -6062,6 +6041,10 @@
         "RagInvalidInputError",
         "RagShutdownError"
       ],
+      "nodefonyError": [
+        "AccessDeniedError",
+        "AuthenticationError"
+      ],
       "Connector": [
         "ConnectorSequelise"
       ],
@@ -6185,6 +6168,12 @@
       "IRagService": [
         "RagService"
       ],
+      "IFirewall": [
+        "Firewall"
+      ],
+      "ISecuredArea": [
+        "SecuredArea"
+      ],
       "IUser": [
         "AnonymousUser"
       ],
@@ -6216,6 +6205,9 @@
       ],
       "ICookieInterface": [
         "Cookie"
+      ],
+      "IToken": [
+        "AnonymousToken"
       ],
       "IPasswordEncoder": [
         "BcryptEncoder"
@@ -6339,19 +6331,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
-        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-        "src/packages/@nodefony/security/nodefony/service/cors.ts",
-        "src/packages/@nodefony/security/nodefony/service/csrf.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/helmet.ts",
-        "src/packages/@nodefony/security/nodefony/src/Factory.ts",
-        "src/packages/@nodefony/security/nodefony/src/Provider.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/factory.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/provider.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -6404,14 +6384,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
-        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-        "src/packages/@nodefony/security/nodefony/service/cors.ts",
-        "src/packages/@nodefony/security/nodefony/service/csrf.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/helmet.ts",
-        "src/packages/@nodefony/security/nodefony/src/Factory.ts",
-        "src/packages/@nodefony/security/nodefony/src/Provider.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -6462,14 +6435,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
-        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-        "src/packages/@nodefony/security/nodefony/service/cors.ts",
-        "src/packages/@nodefony/security/nodefony/service/csrf.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/helmet.ts",
-        "src/packages/@nodefony/security/nodefony/src/Factory.ts",
-        "src/packages/@nodefony/security/nodefony/src/Provider.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -6537,9 +6503,6 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
@@ -6562,9 +6525,6 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
@@ -6609,9 +6569,6 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
@@ -6689,9 +6646,6 @@
         "src/nodefony/src/syslog/transports/HttpTransport.ts",
         "src/nodefony/src/syslog/transports/SyslogTransport.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
@@ -6748,15 +6702,7 @@
         "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
-        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-        "src/packages/@nodefony/security/nodefony/service/cors.ts",
-        "src/packages/@nodefony/security/nodefony/service/csrf.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/helmet.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
         "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
@@ -6819,12 +6765,6 @@
         "src/modules/test/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/nodefony/src/kernel/Kernel.ts",
-        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-        "src/packages/@nodefony/security/nodefony/service/cors.ts",
-        "src/packages/@nodefony/security/nodefony/service/csrf.ts",
-        "src/packages/@nodefony/security/nodefony/service/helmet.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -6891,8 +6831,6 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "Route": [
@@ -7034,8 +6972,6 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
@@ -7069,8 +7005,6 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
@@ -7135,11 +7069,6 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/security/nodefony/service/cors.ts",
-        "src/packages/@nodefony/security/nodefony/service/csrf.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/helmet.ts",
-        "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
@@ -7196,52 +7125,7 @@
       ],
       "Firewall": [
         "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-        "src/packages/@nodefony/security/nodefony/service/cors.ts",
-        "src/packages/@nodefony/security/nodefony/service/csrf.ts",
-        "src/packages/@nodefony/security/nodefony/service/helmet.ts",
-        "src/packages/@nodefony/security/nodefony/src/Factory.ts",
-        "src/packages/@nodefony/security/nodefony/src/Provider.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/factory.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/helmet.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/provider.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
-      ],
-      "SecuredArea": [
-        "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
-      ],
-      "Authorization": [
-        "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts"
-      ],
-      "Cors": [
-        "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
-      ],
-      "CsrfService": [
-        "src/packages/@nodefony/security/index.ts"
-      ],
-      "Csrf": [
-        "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
-      ],
-      "Helmet": [
-        "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "SequelizeService": [
         "src/packages/@nodefony/sequelize/index.ts"
@@ -7381,11 +7265,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "Entity": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -7594,6 +7474,7 @@
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
@@ -7607,10 +7488,11 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/ISecuredArea.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts",
+        "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
@@ -7620,14 +7502,6 @@
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
-        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-        "src/packages/@nodefony/security/nodefony/service/cors.ts",
-        "src/packages/@nodefony/security/nodefony/service/csrf.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/helmet.ts",
-        "src/packages/@nodefony/security/nodefony/src/Factory.ts",
-        "src/packages/@nodefony/security/nodefony/src/Provider.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -7641,6 +7515,8 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
+        "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -8252,46 +8128,49 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
-      "Factory": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+      "defineSecurityConfig": [
+        "src/packages/@nodefony/security/nodefony/config/config.ts"
       ],
-      "Provider": [
+      "IToken": [
+        "src/packages/@nodefony/security/nodefony/contracts/IAccessVoter.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+        "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts"
       ],
-      "Areas": [
+      "IAuthenticator": [
+        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
-      "Factories": [
+      "ISecuredArea": [
+        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
+      ],
+      "IUser": [
+        "src/packages/@nodefony/security/nodefony/contracts/IToken.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
+        "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts",
+        "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts"
+      ],
+      "SecuredArea": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+      ],
+      "RoleHierarchyWalker": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
-      "optionsFactory": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/Factory.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts"
-      ],
-      "optionsSecuredArea": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts"
-      ],
-      "Providers": [
+      "AnonymousToken": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
-      "optionsProvider": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/src/Provider.ts",
-        "src/packages/@nodefony/security/nodefony/types/firewall.types.ts"
+      "AuthenticationError": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
-      "HelmetMiddleware": [
-        "src/packages/@nodefony/security/nodefony/service/helmet.ts",
-        "src/packages/@nodefony/security/nodefony/src/securedArea.ts",
-        "src/packages/@nodefony/security/nodefony/types/securedArea.types.ts"
+      "IFirewall": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
+      ],
+      "ISecurityAreaConfig": [
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
       ],
       "ConnectorSequelise": [
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
@@ -8322,10 +8201,6 @@
       ],
       "Publish": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
-      ],
-      "IUser": [
-        "src/packages/@nodefony/user/nodefony/contracts/IUserProvider.ts",
-        "src/packages/@nodefony/user/nodefony/src/AnonymousUser.ts"
       ],
       "IPasswordAuthenticatedUser": [
         "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
@@ -8510,11 +8385,17 @@
       "setRepositoryMeta": [
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/repositoryDecorator.ts"
       ],
+      "anonymousUser": [
+        "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts"
+      ],
       "SequelizeRepository": [
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
       "SequelizeTransaction": [
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+      ],
+      "Csrf": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "Cookies": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
