@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-23T21:32:03.749Z",
+  "generated": "2026-05-23T21:54:34.539Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 729,
-    "symbols": 1250,
-    "classes": 216,
-    "interfaces": 287,
-    "types": 150,
+    "files": 730,
+    "symbols": 1255,
+    "classes": 217,
+    "interfaces": 288,
+    "types": 152,
     "enums": 2,
-    "functions": 151,
+    "functions": 152,
     "constants": 444
   },
   "symbols": {
@@ -631,7 +631,7 @@
     "IChannelStats": {
       "name": "IChannelStats",
       "kind": "interface",
-      "file": "src/nodefony/src/realtime/IRealtimeHub.ts",
+      "file": "src/nodefony/src/realtime/IRealtimeSocket.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
@@ -640,27 +640,28 @@
     "IRealtimeChannel": {
       "name": "IRealtimeChannel",
       "kind": "interface",
-      "file": "src/nodefony/src/realtime/IRealtimeHub.ts",
+      "file": "src/nodefony/src/realtime/IRealtimeSocket.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Handle d'UN canal — vue « socket-like » d'un sous-flux duplex multiplexé sur la {@link IRealtimeHub}. Forme naturelle des canaux à état (un appel SIP, une connexion bridgée) : il porte son nom, sa …"
+      "description": "Handle d'UN canal — vue par-canal d'un sous-flux duplex multiplexé sur la {@link IRealtimeSocket}. Forme naturelle des canaux à état (un appel SIP, une connexion bridgée) : il porte son nom, sa nat…"
     },
-    "IRealtimeHub": {
-      "name": "IRealtimeHub",
+    "IRealtimeSocket": {
+      "name": "IRealtimeSocket",
       "kind": "interface",
-      "file": "src/nodefony/src/realtime/IRealtimeHub.ts",
+      "file": "src/nodefony/src/realtime/IRealtimeSocket.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "extends": null
+      "extends": null,
+      "description": "Contrat de « la socket Nodefony » — voir le bloc de tête du fichier. Implémenté par {@link RealtimeClient} (front) et, à terme, par une façade serveur au-dessus du hub."
     },
     "RealtimeHandler": {
       "name": "RealtimeHandler",
       "kind": "type",
-      "file": "src/nodefony/src/realtime/IRealtimeHub.ts",
+      "file": "src/nodefony/src/realtime/IRealtimeSocket.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "IRealtimeHub — « la socket Nodefony » : le lien temps réel **ISOMORPHE** client↔back. C'est LA brique du realtime Nodefony (cf vision « la socket Nodefony ») : un seul lien, qui a une **existence i…"
+      "description": "IRealtimeSocket — « la socket Nodefony » : la prise temps réel **ISOMORPHE** client↔back. C'est LA brique du realtime Nodefony (cf vision « la socket Nodefony ») : un seul lien, qui a une **existen…"
     },
     "IRealtimeTransport": {
       "name": "IRealtimeTransport",
@@ -1590,7 +1591,7 @@
       "module": "@nodefony/core",
       "extends": null,
       "implements": [
-        "IRealtimeHub"
+        "IRealtimeSocket"
       ],
       "decorators": []
     },
@@ -1633,7 +1634,7 @@
       "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Stats d'un canal — alias historique de {@link IChannelStats} (le contrat isomorphe `IRealtimeHub`). Conservé pour les consommateurs qui importent `MessageStats`."
+      "description": "Stats d'un canal — alias historique de {@link IChannelStats} (le contrat isomorphe `IRealtimeSocket`). Conservé pour les consommateurs qui importent `MessageStats`."
     },
     "RoleRegistry": {
       "name": "RoleRegistry",
@@ -2945,6 +2946,41 @@
       ],
       "decorators": [],
       "description": "RealtimeController — base d'un endpoint WebSocket temps réel SERVEUR (JSON-RPC 2.0). Factorise TOUT le protocole (handshake/welcome, discrimination request/notification/ response via {@link JsonRpc…"
+    },
+    "RealtimeHub": {
+      "name": "RealtimeHub",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "RealtimeHub — broker temps réel **PAR INSTANCE** (1 pod = 1 process = 1 hub local). Élève le realtime serveur du modèle **per-connexion** (chaque connexion son propre ticker/listener = N fois le mê…"
+    },
+    "ChannelSink": {
+      "name": "ChannelSink",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Sink d'un canal : pousse une charge vers UNE connexion abonnée (son `peer.notify`). 1 sink = 1 connexion. Le hub fan-out la charge à tous les sinks d'un canal."
+    },
+    "ChannelFactory": {
+      "name": "ChannelFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Fabrique le provider PARTAGÉ d'un canal (listener/ticker qui pousse via `publish`). Appelée UNE fois, au 1ᵉʳ abonné. Renvoie son `dispose` (appelé au dernier désabonné) ou `null` si le canal est in…"
+    },
+    "getRealtimeHub": {
+      "name": "getRealtimeHub",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Renvoie le hub realtime du process (singleton lazy)."
     },
     "Resolver": {
       "name": "Resolver",
@@ -9375,7 +9411,7 @@
         "BrowserWsTransport",
         "WsConnectionTransport"
       ],
-      "IRealtimeHub": [
+      "IRealtimeSocket": [
         "RealtimeClient"
       ],
       "ITransport": [
@@ -10151,6 +10187,13 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
+      "RealtimeHub": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "getRealtimeHub": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
+      ],
       "WsConnectionTransport": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
@@ -10701,7 +10744,7 @@
       "RealtimeTransportFactory": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
-      "IRealtimeHub": [
+      "IRealtimeSocket": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "IRealtimeChannel": [
@@ -11073,11 +11116,15 @@
       "RawWsConnection": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
       ],
+      "ChannelSink": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
+      ],
       "IRealtimeController": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
       ],
       "RealtimePublish": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "IResolver": [

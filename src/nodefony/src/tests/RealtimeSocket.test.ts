@@ -5,10 +5,10 @@ import {
   TransportState,
   type IRealtimeTransport,
 } from "../realtime/IRealtimeTransport";
-import type { IRealtimeHub } from "../realtime/IRealtimeHub";
+import type { IRealtimeSocket } from "../realtime/IRealtimeSocket";
 
 /**
- * RealtimeClient implémente le contrat ISOMORPHE {@link IRealtimeHub} (« la socket
+ * RealtimeClient implémente le contrat ISOMORPHE {@link IRealtimeSocket} (« la socket
  * Nodefony »). On vérifie la conformité de la surface (primitives duplex + handle de
  * canal) via un transport MOCK injecté — sans vrai WebSocket ni navigateur.
  */
@@ -70,15 +70,15 @@ async function openClient(): Promise<{
   return { client, transport: transports[0] };
 }
 
-describe("RealtimeClient — conformité IRealtimeHub (la socket Nodefony)", () => {
-  it("est assignable à IRealtimeHub (surface du contrat présente)", async () => {
+describe("RealtimeClient — conformité IRealtimeSocket (la socket Nodefony)", () => {
+  it("est assignable à IRealtimeSocket (surface du contrat présente)", async () => {
     const { client } = await openClient();
-    const hub: IRealtimeHub = client; // compile-time : conformité structurelle
-    expect(hub.subscribedChannels).to.deep.equal([]);
-    expect(typeof hub.publish).to.equal("function");
-    expect(typeof hub.request).to.equal("function");
-    expect(typeof hub.channel).to.equal("function");
-    expect(typeof hub.getStats).to.equal("function");
+    const socket: IRealtimeSocket = client; // compile-time : conformité structurelle
+    expect(socket.subscribedChannels).to.deep.equal([]);
+    expect(typeof socket.publish).to.equal("function");
+    expect(typeof socket.request).to.equal("function");
+    expect(typeof socket.channel).to.equal("function");
+    expect(typeof socket.getStats).to.equal("function");
     client.disconnect();
   });
 

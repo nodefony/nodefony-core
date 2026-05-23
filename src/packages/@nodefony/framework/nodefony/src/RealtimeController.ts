@@ -5,6 +5,7 @@ import {
   WsConnectionTransport,
   type RawWsConnection,
 } from "./WsConnectionTransport";
+import { getRealtimeHub, type ChannelSink } from "./RealtimeHub";
 import type {
   IRealtimeController,
   RealtimePublish,
@@ -15,8 +16,8 @@ interface RealtimeConnState {
   welcomed: boolean;
   peer: JsonRpcPeer;
   transport: WsConnectionTransport;
-  /** canal → dispose() du provider actif. */
-  channels: Map<string, () => void>;
+  /** canal → sink de CETTE connexion auprès du hub partagé (pour se désabonner). */
+  channels: Map<string, ChannelSink>;
 }
 
 interface RealtimeHolder {
@@ -40,8 +41,10 @@ interface RealtimeHolder {
  * async realtime(message: string | Buffer | null) { this.handleRealtime(message); }
  * ```
  *
- * Perf : 1 provider = 1 listener/interval, démarré au `subscribe`, `dispose()` au
- * `unsubscribe` ET à `onFinish`. Le dispatch d'action n'est payé que sur une requête `id`.
+ * Perf : les canaux sont **partagés** via {@link RealtimeHub} (1 provider/canal/pod, pas
+ * 1 par connexion) ; chaque connexion n'ajoute/retire qu'un *sink* (fan-out). Provider
+ * créé au 1ᵉʳ abonné, `dispose()` au dernier (`unsubscribe` ou `onFinish`). Le dispatch
+ * d'action n'est payé que sur une requête `id`. C'est aussi le seam du backplane Redis.
  */
 export abstract class RealtimeController
   extends Controller
@@ -122,12 +125,11 @@ export abstract class RealtimeController
     holder.__nfRealtime = state;
 
     ctx.once?.("onFinish", () => {
-      for (const dispose of state.channels.values()) {
-        try {
-          dispose();
-        } catch {
-          /* noop */
-        }
+      // Désabonne CETTE connexion de tous ses canaux : le hub dispose le provider
+      // partagé au dernier abonné (aucun timer/listener orphelin).
+      const hub = getRealtimeHub();
+      for (const [channel, sink] of state.channels) {
+        hub.unsubscribe(channel, sink);
       }
       state.channels.clear();
       transport.fireClose();
@@ -157,31 +159,31 @@ export abstract class RealtimeController
     // `ping` = heartbeat no-op ; notification inconnue = ignorée.
   }
 
-  /** Démarre le provider d'un canal (idempotent). */
+  /** Abonne la connexion à un canal via le hub partagé (idempotent par connexion). */
   private startChannel(ctx: WebsocketContext, channel?: string): void {
     if (!channel) return;
     const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
     if (!state || state.channels.has(channel)) return;
-    const publish: RealtimePublish = (ch, payload) =>
-      state.peer.notify(ch, payload);
-    const dispose = this.createRealtimeChannel(channel, publish);
-    if (dispose) {
-      state.channels.set(channel, dispose);
+    // Sink de CETTE connexion : pousse la charge fan-outée par le hub sur son peer.
+    const sink: ChannelSink = (payload) => state.peer.notify(channel, payload);
+    // Le hub PARTAGE le provider entre connexions (1 ticker/canal/pod) ; la factory
+    // (appelée au 1ᵉʳ abonné) doit capturer des deps long-lived — cf createRealtimeChannel.
+    const ok = getRealtimeHub().subscribe(channel, sink, (ch, publish) =>
+      this.createRealtimeChannel(ch, publish),
+    );
+    if (ok) {
+      state.channels.set(channel, sink);
       this.log(`WS subscribe → ${channel}`, "DEBUG");
     }
   }
 
-  /** Arrête le provider d'un canal. */
+  /** Désabonne la connexion d'un canal (le hub dispose le provider au dernier abonné). */
   private stopChannel(ctx: WebsocketContext, channel?: string): void {
     if (!channel) return;
     const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
-    const dispose = state?.channels.get(channel);
-    if (dispose) {
-      try {
-        dispose();
-      } catch {
-        /* noop */
-      }
+    const sink = state?.channels.get(channel);
+    if (sink) {
+      getRealtimeHub().unsubscribe(channel, sink);
       state!.channels.delete(channel);
       this.log(`WS unsubscribe → ${channel}`, "DEBUG");
     }

@@ -5,6 +5,7 @@ import Router from "./nodefony/service/router";
 import Route from "./nodefony/src/Route";
 import Controller from "./nodefony/src/Controller";
 import RealtimeController from "./nodefony/src/RealtimeController";
+import RealtimeHub, { getRealtimeHub } from "./nodefony/src/RealtimeHub";
 import WsConnectionTransport from "./nodefony/src/WsConnectionTransport";
 import Resolver from "./nodefony/src/Resolver";
 import AdminBroker from "./nodefony/service/AdminBroker";
@@ -94,6 +95,8 @@ export default Framework;
 export {
   Controller,
   RealtimeController,
+  RealtimeHub,
+  getRealtimeHub,
   WsConnectionTransport,
   Route,
   Router,
@@ -135,4 +138,5 @@ export type {
   IRealtimeController,
   RealtimePublish,
 } from "./nodefony/interfaces/IRealtimeController";
+export type { ChannelSink, ChannelFactory } from "./nodefony/src/RealtimeHub";
 export type { RawWsConnection } from "./nodefony/src/WsConnectionTransport";

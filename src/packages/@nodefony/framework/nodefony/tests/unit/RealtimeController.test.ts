@@ -2,6 +2,7 @@ import { expect } from "chai";
 import "mocha";
 import "reflect-metadata";
 import { RealtimeController } from "../../src/RealtimeController.js";
+import { getRealtimeHub } from "../../src/RealtimeHub.js";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
 import type { RpcActionHandler } from "nodefony";
 import type { ContextType } from "@nodefony/http";
@@ -79,6 +80,10 @@ const frame = (o: Record<string, unknown>): string =>
   JSON.stringify({ jsonrpc: "2.0", ...o });
 
 describe("RealtimeController — base endpoint WS (protocole factorisé)", () => {
+  // Le hub des canaux est un singleton PAR PROCESS partagé entre connexions → on le
+  // remet à zéro entre tests (sinon un canal d'un test précédent fausse le suivant).
+  beforeEach(() => getRealtimeHub().clear());
+
   describe("handshake", () => {
     it("message null → welcome (canaux + actions découvrables)", () => {
       const { ctx, sent } = makeCtx();

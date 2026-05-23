@@ -121,8 +121,15 @@ class StudioRealtimeController extends RealtimeController {
                   5000,
               ),
             );
+      // Broker capturé À LA CRÉATION (singleton long-lived) : le provider est PARTAGÉ
+      // par le hub et survit à la connexion qui l'a créé — ne JAMAIS capturer `this`.
+      const broker = this.get<IAdminBroker>("adminBroker");
       return createBrokerTicker(
-        () => this.fetchOrmHealth(),
+        () =>
+          StudioRealtimeController.fetchOrmEndpoint(
+            broker,
+            "connection/health",
+          ),
         publish,
         channel,
         ms,
@@ -144,8 +151,9 @@ class StudioRealtimeController extends RealtimeController {
                   2000,
               ),
             );
+      const broker = this.get<IAdminBroker>("adminBroker");
       return createBrokerTicker(
-        () => this.fetchOrmFlow(),
+        () => StudioRealtimeController.fetchOrmEndpoint(broker, "flow"),
         publish,
         channel,
         ms,
@@ -193,32 +201,19 @@ class StudioRealtimeController extends RealtimeController {
   }
 
   /**
-   * Diagnostic ORM (`orm:health`) via le broker admin (`orm/connection/health`) —
-   * Studio reste générique (pas de dép directe à orm-core). `null` si ORM absent.
+   * Appelle un endpoint admin du namespace `orm` via le broker (`orm/connection/health`,
+   * `orm/flow`…) — Studio reste générique (pas de dép directe à orm-core). `null` si absent.
+   *
+   * **Statique** + `broker` en paramètre : appelé depuis un provider de canal PARTAGÉ (hub),
+   * qui doit capturer le broker (singleton long-lived) à la création, JAMAIS `this` (la
+   * connexion créatrice peut fermer alors que le provider partagé survit).
    */
-  private async fetchOrmHealth(): Promise<unknown> {
-    const broker = this.get<IAdminBroker>("adminBroker");
+  private static async fetchOrmEndpoint(
+    broker: IAdminBroker | null | undefined,
+    path: string,
+  ): Promise<unknown> {
     const orm = broker?.list().find((p) => p.adminNamespace === "orm");
-    const ep = orm
-      ?.adminEndpoints()
-      .find((e) => e.path === "connection/health");
-    if (!ep) return null;
-    return ep.handler({
-      params: {},
-      query: {},
-      body: null,
-      user: null,
-      roles: [],
-    } as IAdminRequest);
-  }
-
-  /**
-   * Flux ORM (`orm:flow`) via le broker admin (`orm/flow`). `null` si non monté.
-   */
-  private async fetchOrmFlow(): Promise<unknown> {
-    const broker = this.get<IAdminBroker>("adminBroker");
-    const orm = broker?.list().find((p) => p.adminNamespace === "orm");
-    const ep = orm?.adminEndpoints().find((e) => e.path === "flow");
+    const ep = orm?.adminEndpoints().find((e) => e.path === path);
     if (!ep) return null;
     return ep.handler({
       params: {},

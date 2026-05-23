@@ -14,8 +14,9 @@ deciders: [Christophe CAMENSULI]
 > Document de vision/architecture **transverse** (core + framework + studio + futurs
 > redis/sip/media). Capture **précisément** la discussion d'architecture du 2026-05-23.
 > C'est l'étoile polaire vers laquelle converge tout le travail realtime.
-> Principe DX : **« le hub, c'est le patron »** — un consommateur ne parle JAMAIS au
-> socket brut, il parle au hub.
+> Principe DX : **« la socket, c'est le patron »** — un consommateur ne parle JAMAIS au
+> transport brut, il parle à la socket. (Vocabulaire : la **socket** = la prise que tient
+> le métier ; le **hub** = le broker serveur caché qui aiguille entre les sockets + cross-pod.)
 
 ## 1. L'idée en une phrase
 
@@ -28,7 +29,7 @@ souscription. Un consommateur (page front OU service back) tient **UN handle**
 ## 2. Le modèle en couches
 
 ```
-NODEFONY SOCKET  IRealtimeHub        ← 1 handle isomorphe (ce que tient le métier)
+NODEFONY SOCKET  IRealtimeSocket        ← 1 handle isomorphe (ce que tient le métier)
    │  plan de contrôle JSON-RPC, multiplexe N CANAUX (subscription)
    ├─ canal     IRealtimeChannel     ← sous-flux nommé DUPLEX, backing pluggable
    │     backings : pubsub | SIP (encapsulation) | bridge TCP/UDP | proxy
@@ -37,13 +38,13 @@ NODEFONY SOCKET  IRealtimeHub        ← 1 handle isomorphe (ce que tient le mé
    └─ octets    IRealtimeTransport   ← WS / ws / TCP / UDP (le SEUL maillon qui diffère)
 ```
 
-- **2 couches isomorphes** (identiques client/serveur) : `IRealtimeHub`, `JsonRpcPeer`.
+- **2 couches isomorphes** (identiques client/serveur) : `IRealtimeSocket`, `JsonRpcPeer`.
 - **2 seams polymorphes** : `IRealtimeTransport` (octets d'UN lien) et `IRealtimeBackplane`
   (diffusion ENTRE instances). Changer de seam ne change PAS le code métier ni le front.
 
-## 3. Le hub = le patron (règles d'or)
+## 3. La socket = le patron (règles d'or)
 
-- Le métier parle **au hub**, jamais au socket brut.
+- Le métier parle **à la socket**, jamais au transport brut.
 - Le **générique** vit dans la lib/le framework, **jamais dupliqué** (la cause d'un bug
   passé : la discrimination request/response vivait à 2 endroits divergents).
 - Client et serveur sont **les deux bouts de la MÊME interface** — le pari isomorphe
@@ -195,27 +196,32 @@ enregistre — utilise le protocolaire SIP porté).
 
 ## 11. État & suite
 
-**Fait (2026-05-23)** — contrat-only, 0 changement runtime :
+**Fait (2026-05-23) :**
 
 - ✅ `JsonRpcPeer` (protocole isomorphe), `IRealtimeTransport` (seam octets),
-  `RealtimeController` (base serveur per-connexion), `WsConnectionTransport`.
-- ✅ **Contrat hub** : `IRealtimeHub` + `IRealtimeChannel` + `IChannelStats` (core
-  `src/nodefony/src/realtime/`) ; `RealtimeClient implements IRealtimeHub` (1ʳᵉ impl,
-  `publish()`/`channel()` ajoutés, `MessageStats` = alias). Tests conformité 5/5.
+  `RealtimeController` (base serveur), `WsConnectionTransport`.
+- ✅ **Contrat socket** : `IRealtimeSocket` + `IRealtimeChannel` + `IChannelStats` (core
+  `src/nodefony/src/realtime/`) ; `RealtimeClient implements IRealtimeSocket` (1ʳᵉ impl,
+  `publish()`/`channel()`, `MessageStats` = alias). Tests conformité 5/5.
+- ✅ **Hub serveur** : `RealtimeHub` (framework, broker per-instance) = canaux **partagés**
+  (1 provider/canal/pod au lieu de N per-connexion) + fan-out + dispose au dernier abonné.
+  `RealtimeController` délègue subscribe/publish/cleanup au hub ; `StudioRealtimeController`
+  capture ses deps long-lived (provider partagé survit à la connexion créatrice). Tests hub
+  5/5 + controller verts ; `memory.test` WS vert (100 conns < 30 MB).
 
 **Reste, dans l'ordre :**
 
-1. **Hub serveur** : canaux **partagés** (1 ticker/canal/pod au lieu de N per-connexion) +
-   **full-duplex** (router publish client → provider) + fan-out. Runtime → `memory.test`.
+1. **Full-duplex** : router `publish` client → provider du canal (débloque les backings entrants).
 2. **Backplane Redis** : un backing fan-out derrière le hub serveur (cross-pod).
 3. **Bridge TCP/UDP** (Node pur, faible risque).
 4. **AIMD** (cadence adaptative par canal) → s'accroche à `IRealtimeChannel`.
 5. **SIP** (porter le protocolaire) + **médias** (P15 ; SFU mediasoup ; Asterisk = serveur).
+6. **Canaux privés/per-connexion** (mode SIP-ligne, ≠ broadcast) + façade `IRealtimeSocket` serveur.
 
 ## Références
 
-- Code : `src/nodefony/src/realtime/` (`IRealtimeHub`, `IRealtimeChannel`, `JsonRpcPeer`,
+- Code : `src/nodefony/src/realtime/` (`IRealtimeSocket`, `IRealtimeChannel`, `JsonRpcPeer`,
   `IRealtimeTransport`), `src/nodefony/src/client/realtime/RealtimeClient.ts`,
-  `src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts`.
+  `src/packages/@nodefony/framework/nodefony/src/` (`RealtimeController.ts`, `RealtimeHub.ts` = broker).
 - Lib prod de référence : `/Users/cci/repository/nodefony-client` (`protocols/sip`, `medias`).
 - ADR-0002 — schéma conférence WebRTC/mediasoup ([`../adr/0002-schema-conference-webrtc-mediasoup.md`](../adr/0002-schema-conference-webrtc-mediasoup.md)).

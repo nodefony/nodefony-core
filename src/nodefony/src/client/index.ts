@@ -45,11 +45,11 @@ export type {
   RealtimeTransportFactory,
 } from "../realtime/IRealtimeTransport";
 export type {
-  IRealtimeHub,
+  IRealtimeSocket,
   IRealtimeChannel,
   IChannelStats,
   RealtimeHandler,
-} from "../realtime/IRealtimeHub";
+} from "../realtime/IRealtimeSocket";
 
 class Nodefony {
   private static instance: Nodefony;

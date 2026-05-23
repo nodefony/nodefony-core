@@ -20,11 +20,11 @@ import {
   type RealtimeTransportFactory,
 } from "../../realtime/IRealtimeTransport";
 import type {
-  IRealtimeHub,
+  IRealtimeSocket,
   IRealtimeChannel,
   IChannelStats,
   RealtimeHandler,
-} from "../../realtime/IRealtimeHub";
+} from "../../realtime/IRealtimeSocket";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 export { closeCodeToNotice } from "./notice";
 export type { NodefonyNotice, NoticeLevel } from "./notice";
@@ -79,7 +79,7 @@ interface JsonRpcNotification {
 
 /**
  * Stats d'un canal — alias historique de {@link IChannelStats} (le contrat isomorphe
- * `IRealtimeHub`). Conservé pour les consommateurs qui importent `MessageStats`.
+ * `IRealtimeSocket`). Conservé pour les consommateurs qui importent `MessageStats`.
  */
 export type MessageStats = IChannelStats;
 
@@ -142,7 +142,7 @@ export interface KernelPingResult {
   version?: string;
 }
 
-export class RealtimeClient implements IRealtimeHub {
+export class RealtimeClient implements IRealtimeSocket {
   // Transport courant ({@link IRealtimeTransport}) — recréé à chaque (re)connexion.
   // L'orchestration (reconnect/heartbeat/state) vit ici ; le transport reste « bête ».
   private transport: IRealtimeTransport | null = null;
@@ -310,8 +310,8 @@ export class RealtimeClient implements IRealtimeHub {
   }
 
   /**
-   * Émet sur un canal — verbe « hub » de {@link IRealtimeHub.publish}. Côté client =
-   * notification au serveur (alias clair de {@link emit} dans le vocabulaire socket).
+   * Émet sur un canal — verbe socket de {@link IRealtimeSocket.publish}. Côté client =
+   * notification au serveur (alias clair de {@link emit}).
    */
   publish(channel: string, payload?: unknown): void {
     this.emit(channel, payload);
