@@ -1,9 +1,12 @@
 /// <reference types="node" />
 import { Controller, route, controller } from "@nodefony/framework";
+import type { IAdminBroker } from "@nodefony/framework";
 import { Context, WebsocketContext } from "@nodefony/http";
+import type { IAdminRequest } from "nodefony";
 import {
   createSyslogBridge,
   createStatsTicker,
+  createOrmHealthTicker,
   readGitBranch,
   CHANNELS,
   type AppMeta,
@@ -85,7 +88,11 @@ class StudioRealtimeController extends Controller {
 
   /** Route les messages JSON-RPC : subscribe / unsubscribe / ping ; requête id → not found. */
   private handleRpc(ctx: WebsocketContext, raw: string): void {
-    let msg: { id?: unknown; method?: string; params?: { channel?: string } } | null = null;
+    let msg: {
+      id?: unknown;
+      method?: string;
+      params?: { channel?: string };
+    } | null = null;
     try {
       msg = JSON.parse(raw);
     } catch {
@@ -107,7 +114,10 @@ class StudioRealtimeController extends Controller {
       this.send(ctx, {
         jsonrpc: "2.0",
         id: msg.id,
-        error: { code: -32601, message: `method not found: ${msg.method ?? ""}` },
+        error: {
+          code: -32601,
+          message: `method not found: ${msg.method ?? ""}`,
+        },
       });
     }
   }
@@ -123,6 +133,29 @@ class StudioRealtimeController extends Controller {
       dispose = createSyslogBridge(this.syslog, publish);
     } else if (channel === CHANNELS.stats) {
       dispose = createStatsTicker(publish, 1000, this.appMeta());
+    } else if (
+      channel === CHANNELS.ormHealth ||
+      channel.startsWith(`${CHANNELS.ormHealth}:`)
+    ) {
+      // Granularité pilotée par le client via le suffixe `orm:health:<ms>`
+      // (borné 1–60 s). Défaut 5 s pour le canal nu. Publie sur le canal souscrit.
+      const ms =
+        channel === CHANNELS.ormHealth
+          ? 5000
+          : Math.min(
+              60000,
+              Math.max(
+                1000,
+                parseInt(channel.slice(CHANNELS.ormHealth.length + 1), 10) ||
+                  5000,
+              ),
+            );
+      dispose = createOrmHealthTicker(
+        () => this.fetchOrmHealth(),
+        publish,
+        channel,
+        ms,
+      );
     }
     if (dispose) {
       state.channels.set(channel, dispose);
@@ -144,6 +177,27 @@ class StudioRealtimeController extends Controller {
       state.channels.delete(channel);
       this.log(`WS unsubscribe → ${channel}`, "DEBUG");
     }
+  }
+
+  /**
+   * Produit le diagnostic ORM pour le canal `orm:health` en invoquant l'endpoint
+   * admin `orm/connection/health` **via le broker** (Studio reste générique : pas
+   * de dép directe à orm-core). `null` si l'ORM n'est pas monté.
+   */
+  private async fetchOrmHealth(): Promise<unknown> {
+    const broker = this.get<IAdminBroker>("adminBroker");
+    const orm = broker?.list().find((p) => p.adminNamespace === "orm");
+    const ep = orm
+      ?.adminEndpoints()
+      .find((e) => e.path === "connection/health");
+    if (!ep) return null;
+    return ep.handler({
+      params: {},
+      query: {},
+      body: null,
+      user: null,
+      roles: [],
+    } as IAdminRequest);
   }
 
   /** Métadonnées app statiques (env, branche git, version) pour `dashboard:stats`. */
@@ -171,7 +225,11 @@ class StudioRealtimeController extends Controller {
    * Push sur la connexion ws BRUTE. Après le handshake `requestEnded=true` → `ctx.send()`
    * rejette ; on streame donc directement sur le socket `ws` (garde `readyState === 1`).
    */
-  private publish(ctx: WebsocketContext, channel: string, payload: unknown): void {
+  private publish(
+    ctx: WebsocketContext,
+    channel: string,
+    payload: unknown,
+  ): void {
     this.send(ctx, { jsonrpc: "2.0", method: channel, params: payload });
   }
 

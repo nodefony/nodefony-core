@@ -64,7 +64,8 @@ const HEAP_LIMIT = v8.getHeapStatistics().heap_size_limit;
  * Forward-compat vue cluster (P13) : les stats sont taguées avec, le futur
  * RealtimeService Redis fan-out → le dashboard pourra tracer N séries par instance.
  */
-export const INSTANCE_ID = process.env.NODEFONY_INSTANCE_ID ?? String(process.pid);
+export const INSTANCE_ID =
+  process.env.NODEFONY_INSTANCE_ID ?? String(process.pid);
 
 interface SyslogLike {
   on(event: string, fn: (...a: unknown[]) => void): unknown;
@@ -76,6 +77,7 @@ interface SyslogLike {
 export const CHANNELS = {
   syslog: "syslog:stream",
   stats: "dashboard:stats",
+  ormHealth: "orm:health",
 } as const;
 
 /** Options de coalescing du pont syslog. */
@@ -222,5 +224,45 @@ export function createStatsTicker(
   return () => {
     clearInterval(timer);
     eld.disable();
+  };
+}
+
+/**
+ * Ticker temps réel du diagnostic ORM (`orm:health`) — pousse périodiquement le
+ * paquet de **sondes** complet par connecteur (état, latence/fenêtre, erreurs,
+ * reconnexions, stockage, pool) pour le **contrôle total des ORM**.
+ *
+ * SOURCE-AGNOSTIQUE : reçoit un `fetch` que le controller branche sur l'endpoint
+ * admin `orm/connection/health` **via le broker** → Studio reste générique (zéro
+ * dép directe à orm-core). 1ᵉʳ tick immédiat puis intervalle. `setInterval` unref.
+ *
+ * @param fetch - producteur asynchrone du paquet santé (broker → endpoint).
+ * @param publish - callback de publication (transport-agnostique).
+ * @param intervalMs - cadence (défaut 5000 ms).
+ * @returns dispose() — arrête le ticker.
+ */
+export function createOrmHealthTicker(
+  fetch: () => Promise<unknown>,
+  publish: Publish,
+  channel: string = CHANNELS.ormHealth,
+  intervalMs = 5000,
+): () => void {
+  let stopped = false;
+  const tick = async (): Promise<void> => {
+    if (stopped) return;
+    try {
+      const data = await fetch();
+      // Publie sur le canal EXACT souscrit (granularité : `orm:health:<ms>`).
+      if (!stopped && data) publish(channel, data);
+    } catch {
+      /* best-effort : un tick raté n'interrompt pas le flux */
+    }
+  };
+  void tick(); // 1ᵉʳ paquet immédiat (pas d'attente de l'intervalle)
+  const timer = setInterval(() => void tick(), intervalMs);
+  (timer as { unref?: () => void }).unref?.();
+  return () => {
+    stopped = true;
+    clearInterval(timer);
   };
 }

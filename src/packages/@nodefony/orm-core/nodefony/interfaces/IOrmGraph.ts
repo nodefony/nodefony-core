@@ -10,6 +10,12 @@
  * Une source, plusieurs consommateurs. Le diagramme n'est qu'une projection.
  */
 
+import type {
+  ILatencyWindow,
+  IOrmStorageProbe,
+  IOrmPoolProbe,
+} from "./IOrmProbe";
+
 /** Colonne/champ normalisé d'une entité (extrait via {@link IOrm.describeEntity}). */
 export interface IColumnInfo {
   /** Nom de la colonne. */
@@ -46,6 +52,11 @@ export interface IEntityGraphNode {
    * Module Nodefony propriétaire (regroupement ERD), `""` si non rattaché.
    */
   module: string;
+  /**
+   * Classification (domaine fonctionnel) — axe de regroupement ERD distinct du
+   * `module`, `""` si non renseigné. Rend une grosse base navigable.
+   */
+  domain: string;
   /** Colonnes normalisées (vide si l'adapter n'implémente pas `describeEntity`). */
   columns: IColumnInfo[];
   /** Relations déclarées. */
@@ -89,6 +100,73 @@ export interface IOrmSummary {
   entityCount: number;
   /** Connexion sous-jacente (driver + cible), si l'adapter l'expose. */
   connection?: IConnectionInfo;
+}
+
+/** Erreur de connexion horodatée (message **redacté** — jamais de credential). */
+export interface IConnectionError {
+  /** Message d'erreur (driver), credential déjà retiré. */
+  message: string;
+  /** Horodatage epoch ms. */
+  ts: number;
+}
+
+/**
+ * Diagnostic d'un connecteur — réponse de `/nodefony/orm/api/connection/health`.
+ * Combine l'état figé ({@link IConnectionInfo}), les compteurs de cycle de vie
+ * (connexions, **reconnexions**, **erreurs**) du moniteur, et un **ping live**
+ * (round-trip réel mesuré à la requête).
+ */
+export interface IConnectionHealth {
+  /**
+   * Identité de l'**instance** (process) qui rapporte — cloud-native : le
+   * diagnostic est per-pod (pool DB local au process). Vue multi-pod = agrégation
+   * externe (Prometheus / fan-out Redis P13).
+   */
+  instanceId: string;
+  /** Clé du connecteur. */
+  name: string;
+  /** Vendor ORM (`drizzle`, `mongoose`…). */
+  vendor: string;
+  /** Base/driver (`sqlite`, `mongodb`…). */
+  driver: string;
+  /** Cible lisible (chemin relatif / host:port), jamais de credential. */
+  target?: string;
+  /** Version moteur. */
+  version?: string;
+  /** Version lib ORM. */
+  ormVersion?: string;
+  /** État courant (`isConnected`). */
+  connected: boolean;
+  /** Connecté depuis (epoch ms), `null` si jamais connecté. */
+  connectedSince: number | null;
+  /** Durée depuis la dernière connexion réussie (ms), `null` si jamais. */
+  uptimeMs: number | null;
+  /** Nombre total de connexions réussies. */
+  connectCount: number;
+  /** Reconnexions (connexions au-delà de la première). */
+  reconnectCount: number;
+  /** Nombre total d'erreurs enregistrées (connexion + ping). */
+  errorCount: number;
+  /** Dernière erreur, `null` si aucune. */
+  lastError: IConnectionError | null;
+  /** Erreurs récentes (ring borné, plus récentes d'abord). */
+  recentErrors: IConnectionError[];
+  /** Latence de la dernière connexion réussie (ms), `null` si inconnue. */
+  lastConnectMs: number | null;
+  /** Latence du ping live (ms), `null` si non pingable / déconnecté. */
+  pingMs: number | null;
+  /** `true` si le ping live a réussi. */
+  pingOk: boolean;
+  /** Message d'erreur du ping live, `null` si OK. */
+  pingError: string | null;
+  /** Fenêtre glissante de latence (min/moy/max sur les N derniers pings). */
+  latency: ILatencyWindow;
+  /** Sonde de stockage (driver), si l'adapter l'expose. */
+  storage?: IOrmStorageProbe;
+  /** Sonde de pool de connexions (driver), si l'adapter l'expose. */
+  pool?: IOrmPoolProbe;
+  /** Métriques driver libres (clé→valeur). */
+  extra?: Record<string, string | number | boolean>;
 }
 
 /** Graphe complet du modèle de données — réponse de `/nodefony/orm/api/graph`. */

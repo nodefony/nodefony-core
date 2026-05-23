@@ -26,6 +26,11 @@ const external: string[] = [
   // bundlé ici, le module aurait sa PROPRE instance d'entityRegistry → l'entité
   // enregistrée ne serait pas vue par les ORM (résolus via le package partagé).
   "@nodefony/orm-core",
+  // Idem orm-core : drizzle-orm doit rester partagé (1 seule copie process-wide).
+  // Bundlé ici, les `sqliteTable(...)` du schéma dolibarr porteraient des Symbols
+  // distincts → `getTableConfig()` de l'adapter Drizzle ne lirait pas la table
+  // (dual-package hazard). Externalisé : Node résout l'unique copie de node_modules.
+  "drizzle-orm",
   "@nodefony/security",
   "@nodefony/framework",
   "tslib",

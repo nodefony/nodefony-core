@@ -1,6 +1,7 @@
 import type { IRepository } from "./IRepository";
 import type { ITransaction } from "./ITransaction";
 import type { IColumnInfo, IConnectionInfo } from "./IOrmGraph";
+import type { IOrmProbe } from "./IOrmProbe";
 
 /**
  * Contrat d'une instance ORM gérée par le framework (une par connexion logique).
@@ -69,4 +70,25 @@ export interface IOrm {
    * @returns infos de connexion, ou `undefined` si non implémenté.
    */
   describeConnection?(): IConnectionInfo;
+
+  /**
+   * Ping bas-coût de la connexion (round-trip réel vers la base) pour le
+   * diagnostic du data plane. **Optionnel** : un adapter qui ne l'implémente pas
+   * laisse le diagnostic mesurer une latence `null` (état dérivé d'`isConnected`).
+   * SQL → `SELECT 1` ; Mongo → `admin().ping`. Doit **rejeter** si la base ne
+   * répond pas (la latence et l'erreur alimentent le moniteur de connexion).
+   *
+   * @throws si la base est injoignable.
+   */
+  ping?(): Promise<void>;
+
+  /**
+   * Sonde profonde driver-spécifique (stockage, pool…) pour le contrôle total
+   * des ORM via le hub temps réel. **Optionnel** : un adapter qui ne l'implémente
+   * pas ne rapporte que les métriques génériques (latence, cycle de vie).
+   * Best-effort : ne DOIT jamais throw (retourner un objet partiel/vide).
+   *
+   * @returns métriques driver, ou objet vide si rien à rapporter.
+   */
+  probe?(): Promise<IOrmProbe>;
 }

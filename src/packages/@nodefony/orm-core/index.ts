@@ -37,6 +37,7 @@ export type { ServiceWiring } from "./nodefony/src/serviceWiring";
 // ─── Data plane ORM (graphe canonique IA-first + admin API + export DBML) ────
 export {
   buildOrmGraph,
+  buildConnectionHealth,
   toDbml,
   createOrmAdminApi,
   registerOrmAdminApi,
@@ -48,7 +49,15 @@ export type {
   IEntityGraphNode,
   IOrmSummary,
   IOrmGraph,
+  IConnectionError,
+  IConnectionHealth,
 } from "./nodefony/interfaces/IOrmGraph";
+export type {
+  ILatencyWindow,
+  IOrmStorageProbe,
+  IOrmPoolProbe,
+  IOrmProbe,
+} from "./nodefony/interfaces/IOrmProbe";
 
 // ─── Décorateurs (P5.3) — @entity / @repository (WeakMap, sans reflect) ──────
 export { entity, repository } from "./nodefony/src/decorators/index";

@@ -16,6 +16,11 @@ import AlsController from "./nodefony/controller/AlsController";
 import { controllers } from "@nodefony/framework";
 // Entité de démo Sequelize (orm-core) — enregistrée au top-level (side-effect).
 import "./nodefony/entity/auditEntity";
+// Fixture "gros schéma" Dolibarr (410 tables, GPLv3, .gitignore) sur l'ORM Drizzle
+// par défaut — register au top-level AVANT le onBoot du DrizzleService (qui crée les
+// tables via CREATE TABLE IF NOT EXISTS depuis l'entityRegistry).
+import { registerDolibarrEntities } from "./nodefony/entity/dolibarr";
+registerDolibarrEntities("default");
 
 @services([])
 @controllers([

@@ -56,11 +56,112 @@ export function createFrameworkAdminApi(broker?: IAdminBroker): IAdminApi {
     order: 2,
   };
 
+  // ── Pagination/tri/filtre SERVEUR (endpoint routes/page, démo <DataGrid mode="server">) ──
+  type RouteDump = ReturnType<typeof serializeRoute>;
+  /** Premier param d'une query (string|string[]). */
+  const one = (v: string | string[] | undefined): string | undefined =>
+    Array.isArray(v) ? v[0] : v;
+  /** Valeur d'une colonne pour le tri/filtre serveur (clés = colonnes du front). */
+  const cell = (r: RouteDump, key: string): string => {
+    switch (key) {
+      case "methods":
+        return r.methods.join(",");
+      case "path":
+        return r.path ?? "";
+      case "name":
+        return r.name ?? "";
+      case "controller":
+        return [r.controller, r.action].filter(Boolean).join(".");
+      case "module":
+        return r.module ?? "";
+      case "firewall":
+        return r.bypassFirewall ? "bypass" : "protected";
+      default:
+        return "";
+    }
+  };
+  /** Applique un opérateur de filtre (miroir serveur du DataGrid). */
+  const matchOp = (raw: string, op: string, value: string): boolean => {
+    const s = String(raw ?? "");
+    const v = String(value ?? "");
+    if (op !== "isEmpty" && op !== "notEmpty" && v === "") return true;
+    switch (op) {
+      case "contains":
+        return s.toLowerCase().includes(v.toLowerCase());
+      case "equals":
+        return s === v;
+      case "startsWith":
+        return s.toLowerCase().startsWith(v.toLowerCase());
+      case "endsWith":
+        return s.toLowerCase().endsWith(v.toLowerCase());
+      case "isEmpty":
+        return s === "";
+      case "notEmpty":
+        return s !== "";
+      default:
+        return true;
+    }
+  };
+
   const endpoints: IAdminEndpoint[] = [
     {
       path: "routes",
-      summary: "All registered routes (Router dump) — name, path, methods, controller",
+      summary:
+        "All registered routes (Router dump) — name, path, methods, controller",
       handler: () => Router.routes.map(serializeRoute),
+    },
+    {
+      path: "routes/page",
+      summary:
+        "Routes paginées côté SERVEUR — query: page, pageSize, sort, dir, q, filters(JSON)",
+      handler: (request) => {
+        const q = request.query;
+        const page = Math.max(1, parseInt(one(q.page) ?? "1", 10) || 1);
+        const pageSize = Math.min(
+          200,
+          Math.max(1, parseInt(one(q.pageSize) ?? "25", 10) || 25),
+        );
+        const search = (one(q.q) ?? "").trim().toLowerCase();
+        const sortKey = one(q.sort) ?? "";
+        const dir = (one(q.dir) ?? "asc") === "desc" ? -1 : 1;
+        let filters: { key: string; op: string; value: string }[] = [];
+        try {
+          const raw = one(q.filters);
+          if (raw) filters = JSON.parse(raw) as typeof filters;
+        } catch {
+          filters = [];
+        }
+
+        let rows = Router.routes.map(serializeRoute);
+        if (search) {
+          rows = rows.filter((r) =>
+            [
+              r.methods.join(","),
+              r.path,
+              r.name,
+              r.controller,
+              r.action,
+              r.module,
+              r.bypassFirewall ? "bypass" : "protected",
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase()
+              .includes(search),
+          );
+        }
+        for (const f of filters) {
+          rows = rows.filter((r) => matchOp(cell(r, f.key), f.op, f.value));
+        }
+        const total = rows.length;
+        if (sortKey) {
+          rows = [...rows].sort(
+            (a, b) => cell(a, sortKey).localeCompare(cell(b, sortKey)) * dir,
+          );
+        }
+        const start = (page - 1) * pageSize;
+        return { rows: rows.slice(start, start + pageSize), total };
+      },
     },
     {
       path: "info",
@@ -93,7 +194,12 @@ export function createFrameworkAdminApi(broker?: IAdminBroker): IAdminApi {
         );
         const byNs = new Map<
           string,
-          { method: string; path: string; role: string; summary: string | null }[]
+          {
+            method: string;
+            path: string;
+            role: string;
+            summary: string | null;
+          }[]
         >();
         for (const r of broker.routes()) {
           let arr = byNs.get(r.namespace);

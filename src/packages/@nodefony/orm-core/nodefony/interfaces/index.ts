@@ -16,4 +16,12 @@ export type {
   IEntityGraphNode,
   IOrmSummary,
   IOrmGraph,
+  IConnectionError,
+  IConnectionHealth,
 } from "./IOrmGraph";
+export type {
+  ILatencyWindow,
+  IOrmStorageProbe,
+  IOrmPoolProbe,
+  IOrmProbe,
+} from "./IOrmProbe";

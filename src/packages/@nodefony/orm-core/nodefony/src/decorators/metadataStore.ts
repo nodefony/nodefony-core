@@ -23,6 +23,9 @@ export interface EntityMetadata<S = unknown> {
   /** Module Nodefony propriétaire (regroupement graphe/ERD), si fourni. */
   readonly module?: string;
 
+  /** Classification (domaine fonctionnel), axe de regroupement distinct du module. */
+  readonly domain?: string;
+
   /** Schéma natif du driver (forme libre), si fourni au décorateur. */
   readonly schema?: S;
 
@@ -63,12 +66,17 @@ const ENTITY_META = new WeakMap<DecoratedClass, EntityMetadata>();
 const REPOSITORY_META = new WeakMap<DecoratedClass, RepositoryMetadata>();
 
 /** Enregistre la métadonnée `@entity` d'une classe. */
-export function setEntityMeta(target: DecoratedClass, meta: EntityMetadata): void {
+export function setEntityMeta(
+  target: DecoratedClass,
+  meta: EntityMetadata,
+): void {
   ENTITY_META.set(target, meta);
 }
 
 /** Récupère la métadonnée `@entity` d'une classe, ou `undefined`. */
-export function getEntityMeta(target: DecoratedClass): EntityMetadata | undefined {
+export function getEntityMeta(
+  target: DecoratedClass,
+): EntityMetadata | undefined {
   return ENTITY_META.get(target);
 }
 

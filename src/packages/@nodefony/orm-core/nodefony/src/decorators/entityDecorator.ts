@@ -24,6 +24,12 @@ export interface EntityOptions<S = unknown> {
    */
   module?: string;
 
+  /**
+   * Classification (domaine fonctionnel) — axe de regroupement ERD distinct du
+   * `module`. Optionnel. Voir {@link IEntity.domain}.
+   */
+  domain?: string;
+
   /** Schéma natif du driver (attributs Sequelize, schéma Mongoose...). */
   schema?: S;
 
@@ -59,6 +65,7 @@ export function entity<S = unknown>(options: EntityOptions<S>) {
       name,
       orm: options.orm,
       module: options.module,
+      domain: options.domain,
       schema: options.schema,
       relations: options.relations,
       target,
@@ -69,6 +76,7 @@ export function entity<S = unknown>(options: EntityOptions<S>) {
       name,
       orm: options.orm,
       module: options.module,
+      domain: options.domain,
       schema: options.schema as S,
       relations: options.relations,
     };

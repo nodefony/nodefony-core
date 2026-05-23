@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react-lite";
 import {
   ReactFlow,
@@ -13,6 +13,7 @@ import {
   type Node,
   type Edge,
   type NodeProps,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
@@ -30,6 +31,8 @@ import {
   ActionIcon,
   Alert,
   Menu,
+  Button,
+  SegmentedControl,
   useComputedColorScheme,
 } from "@mantine/core";
 import {
@@ -39,8 +42,13 @@ import {
   IconCheck,
   IconDownload,
   IconBraces,
+  IconSearch,
+  IconTarget,
+  IconArrowsMaximize,
 } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import { useStore } from "../stores";
+import { InfoHint, DataGrid, type DataGridColumn } from "../components/ui";
 
 // ── Types miroir du data plane /nodefony/orm/api (graphe canonique) ──────────
 interface ColumnInfo {
@@ -61,9 +69,18 @@ interface EntityNode {
   orm: string;
   /** Module Nodefony propriétaire (`""` = non rattaché → groupe « — »). */
   module: string;
+  /** Classification (domaine fonctionnel) — axe de regroupement prioritaire si présent. */
+  domain: string;
   columns: ColumnInfo[];
   relations: RelationInfo[];
 }
+
+/**
+ * Clé de regroupement ERD : le **domaine** (classification, ex. `facturation`)
+ * s'il est renseigné, sinon le **module** (propriété). Permet de subdiviser une
+ * grosse base mono-module (Dolibarr : 1 module, 34 domaines).
+ */
+const groupKey = (e: EntityNode): string => e.domain || e.module || "";
 interface OrmSummary {
   name: string;
   default: boolean;
@@ -156,7 +173,7 @@ function TableNode({ data }: NodeProps) {
       fk.add(r.foreignKey ?? camelFk(r.target));
     }
   }
-  const color = moduleColor(entity.module);
+  const color = moduleColor(groupKey(entity));
   return (
     <div
       style={{
@@ -186,11 +203,20 @@ function TableNode({ data }: NodeProps) {
       >
         <IconDatabase size={14} />
         <span style={{ flex: 1 }}>{entity.name}</span>
-        <span style={{ opacity: 0.7, fontSize: 10 }}>{entity.module || "—"}</span>
+        <span style={{ opacity: 0.7, fontSize: 10 }}>
+          {groupKey(entity) || "—"}
+        </span>
       </div>
       <div>
         {entity.columns.length === 0 && (
-          <div style={{ height: ROW_H, lineHeight: `${ROW_H}px`, padding: "0 10px", color: "var(--mantine-color-dimmed)" }}>
+          <div
+            style={{
+              height: ROW_H,
+              lineHeight: `${ROW_H}px`,
+              padding: "0 10px",
+              color: "var(--mantine-color-dimmed)",
+            }}
+          >
             (colonnes non introspectées)
           </div>
         )}
@@ -209,7 +235,15 @@ function TableNode({ data }: NodeProps) {
             {c.primaryKey ? (
               <IconKey size={11} color="var(--mantine-color-yellow-6)" />
             ) : fk.has(c.name) ? (
-              <span style={{ fontSize: 9, color: "var(--mantine-color-blue-5)", fontWeight: 700 }}>FK</span>
+              <span
+                style={{
+                  fontSize: 9,
+                  color: "var(--mantine-color-blue-5)",
+                  fontWeight: 700,
+                }}
+              >
+                FK
+              </span>
             ) : (
               <span style={{ width: 11 }} />
             )}
@@ -223,7 +257,9 @@ function TableNode({ data }: NodeProps) {
               {c.name}
               {c.unique && !c.primaryKey ? " ◦" : ""}
             </span>
-            <span style={{ color: "var(--mantine-color-dimmed)", fontSize: 11 }}>
+            <span
+              style={{ color: "var(--mantine-color-dimmed)", fontSize: 11 }}
+            >
               {c.type}
               {c.nullable ? "?" : ""}
             </span>
@@ -240,8 +276,12 @@ const nodeTypes = { table: TableNode };
 const nodeHeight = (e: EntityNode) =>
   HEADER_H + Math.max(1, e.columns.length) * ROW_H + 2;
 
-/** Place les entités via dagre (gauche→droite) et construit nœuds + arêtes. */
-function layoutGraph(entities: EntityNode[]): { nodes: Node[]; edges: Edge[] } {
+/** Place les entités via dagre (gauche→droite) et construit nœuds + arêtes.
+ *  `rootName` (optionnel, mode focus) = nœud surligné + arêtes incidentes accentuées. */
+function layoutGraph(
+  entities: EntityNode[],
+  rootName?: string,
+): { nodes: Node[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", nodesep: 45, ranksep: 90 });
   g.setDefaultEdgeLabel(() => ({}));
@@ -262,6 +302,7 @@ function layoutGraph(entities: EntityNode[]): { nodes: Node[]; edges: Edge[] } {
         if (seen.has(key)) continue;
         seen.add(key);
         g.setEdge(e.name, r.target);
+        const incident = rootName === e.name || rootName === r.target;
         edges.push({
           id: `m2m-${key}`,
           source: e.name,
@@ -270,7 +311,13 @@ function layoutGraph(entities: EntityNode[]): { nodes: Node[]; edges: Edge[] } {
           animated: true,
           label: REL_LABEL["many-to-many"],
           markerEnd: { type: MarkerType.ArrowClosed },
-          style: { stroke: "var(--mantine-color-grape-5)", strokeDasharray: "5 5" },
+          style: {
+            stroke: incident
+              ? "var(--mantine-primary-color-filled)"
+              : "var(--mantine-color-grape-5)",
+            strokeDasharray: "5 5",
+            strokeWidth: incident ? 2 : 1,
+          },
         });
         continue;
       }
@@ -278,24 +325,29 @@ function layoutGraph(entities: EntityNode[]): { nodes: Node[]; edges: Edge[] } {
       const fkTable = r.type === "one-to-many" ? r.target : e.name;
       const pkTable = r.type === "one-to-many" ? e.name : r.target;
       const fk =
-        r.foreignKey ??
-        camelFk(r.type === "one-to-many" ? e.name : r.target);
+        r.foreignKey ?? camelFk(r.type === "one-to-many" ? e.name : r.target);
       const key = `${fkTable}.${fk}>${pkTable}`;
       if (seen.has(key)) continue;
       seen.add(key);
       g.setEdge(fkTable, pkTable);
+      const incident = rootName === fkTable || rootName === pkTable;
       edges.push({
         id: key,
         source: fkTable,
         target: pkTable,
         type: "smoothstep",
-        animated: false,
+        animated: incident,
         label:
           r.type === "one-to-one"
             ? REL_LABEL["one-to-one"]
             : REL_LABEL["many-to-one"],
         markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: "var(--mantine-color-blue-5)" },
+        style: {
+          stroke: incident
+            ? "var(--mantine-primary-color-filled)"
+            : "var(--mantine-color-blue-5)",
+          strokeWidth: incident ? 2 : 1,
+        },
       });
     }
   }
@@ -307,9 +359,76 @@ function layoutGraph(entities: EntityNode[]): { nodes: Node[]; edges: Edge[] } {
       type: "table",
       position: { x: p.x - NODE_W / 2, y: p.y - nodeHeight(e) / 2 },
       data: { entity: e },
+      style:
+        e.name === rootName
+          ? {
+              outline: "3px solid var(--mantine-primary-color-filled)",
+              outlineOffset: 2,
+              borderRadius: 8,
+            }
+          : undefined,
     };
   });
   return { nodes, edges };
+}
+
+/**
+ * Sous-graphe « focus » : la table `root` + ses voisines à `depth` sauts (BFS sur
+ * les relations dans LES DEUX SENS — tables qu'elle référence ET qui la
+ * référencent). Rend une grosse base (410 tables) lisible en ne montrant qu'un
+ * voisinage. `depth=1` = relations directes ; `depth=2` = + voisines des voisines.
+ */
+function neighborhood(
+  entities: EntityNode[],
+  root: string,
+  depth: number,
+): EntityNode[] {
+  const byName = new Map(entities.map((e) => [e.name, e]));
+  if (!byName.has(root)) return [];
+  const adj = new Map<string, Set<string>>();
+  const link = (a: string, b: string) => {
+    let s = adj.get(a);
+    if (!s) {
+      s = new Set();
+      adj.set(a, s);
+    }
+    s.add(b);
+  };
+  for (const e of entities) {
+    for (const r of e.relations) {
+      if (!byName.has(r.target)) continue;
+      link(e.name, r.target);
+      link(r.target, e.name);
+    }
+  }
+  const keep = new Set<string>([root]);
+  let frontier = [root];
+  for (let d = 0; d < depth; d += 1) {
+    const next: string[] = [];
+    for (const n of frontier) {
+      for (const m of adj.get(n) ?? []) {
+        if (!keep.has(m)) {
+          keep.add(m);
+          next.push(m);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return entities.filter((e) => keep.has(e.name));
+}
+
+/** Au-delà de ce nombre de tables, on n'auto-rend pas le graphe complet (focus requis). */
+const LARGE_GRAPH = 60;
+
+/** Ligne de la vue Liste (inventaire des entités). */
+interface ListRow {
+  name: string;
+  group: string;
+  cols: number;
+  rels: number;
+  /** Nb de lignes : `null` = pas encore chargé, `-1` = non comptable (ORM déconnecté). */
+  rows: number | null;
 }
 
 /**
@@ -333,12 +452,167 @@ export const Database = observer(() => {
   // Entités brutes du connecteur (avant filtre module) + filtre module courant.
   const [allEntities, setAllEntities] = useState<EntityNode[]>([]);
   const [moduleFilter, setModuleFilter] = useState<string | null>(null);
+  // Focus = table ciblée par la recherche → sous-graphe (table + voisines).
+  const [focus, setFocus] = useState<string | null>(null);
+  const [depth, setDepth] = useState(1);
+  // Au-delà de LARGE_GRAPH tables sans focus, on attend un choix (perf) sauf override.
+  const [showAll, setShowAll] = useState(false);
+  // Instance React Flow (capturée au montage) pour cadrer le sous-graphe (fitView).
+  const rfRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
+  const navigate = useNavigate();
+  // Vue : diagramme (relations / focus) ou liste triable (inventaire + stats).
+  const [view, setView] = useState<"graph" | "list">("graph");
+  // Nb de lignes par table — lazy (chargé à l'ouverture de la Liste), par connecteur.
+  const [counts, setCounts] = useState<Record<string, number> | null>(null);
 
-  // Modules présents dans le connecteur (légende + filtre). "" = non rattaché.
+  // Groupes présents (domaine sinon module) — légende + filtre. "" = non rattaché.
   const modules = useMemo(
-    () => [...new Set(allEntities.map((e) => e.module || ""))].sort(),
+    () => [...new Set(allEntities.map(groupKey))].sort(),
     [allEntities],
   );
+
+  // Noms de tables (options de recherche), triés.
+  const entityNames = useMemo(
+    () => allEntities.map((e) => e.name).sort((a, b) => a.localeCompare(b)),
+    [allEntities],
+  );
+
+  // Périmètre visible : focus (sous-graphe) > filtre module > tout (gardé si grand).
+  const { visible, oversized, totalBase } = useMemo(() => {
+    if (focus) {
+      return {
+        visible: neighborhood(allEntities, focus, depth),
+        oversized: false,
+        totalBase: 0,
+      };
+    }
+    const base = moduleFilter
+      ? allEntities.filter((e) => (groupKey(e) || NONE) === moduleFilter)
+      : allEntities;
+    if (base.length > LARGE_GRAPH && !showAll) {
+      return {
+        visible: [] as EntityNode[],
+        oversized: true,
+        totalBase: base.length,
+      };
+    }
+    return { visible: base, oversized: false, totalBase: base.length };
+  }, [allEntities, moduleFilter, focus, depth, showAll]);
+
+  // Inventaire (vue Liste) — filtré par groupe, indépendant du focus graphe.
+  // Le tri + la pagination sont délégués au composant <DataGrid> (mode client).
+  const listRows = useMemo<ListRow[]>(() => {
+    // Liste = TOUTES les entités du connecteur ; le <DataGrid> gère recherche + filtre groupe.
+    return allEntities.map((e) => ({
+      name: e.name,
+      group: groupKey(e) || "—",
+      cols: e.columns.length,
+      rels: e.relations.length,
+      rows: counts ? (counts[e.name] ?? null) : null,
+    }));
+  }, [allEntities, counts]);
+
+  // Counts (nb lignes) — lazy : chargés à l'ouverture de la Liste, par connecteur.
+  const loadCounts = useCallback(
+    (orm: string) => {
+      store.api
+        .getAbsolute<Record<string, number>>(
+          `/nodefony/orm/api/counts?orm=${encodeURIComponent(orm)}`,
+        )
+        .then(setCounts)
+        .catch(() => setCounts({}));
+    },
+    [store],
+  );
+  useEffect(() => {
+    if (view === "list" && selected && counts === null) loadCounts(selected);
+  }, [view, selected, counts, loadCounts]);
+
+  // Navigation vers la page détail d'une entité (clic nœud graphe OU ligne liste).
+  const goEntity = useCallback(
+    (name: string) =>
+      navigate(
+        `/nodefony/orm-entity?name=${encodeURIComponent(name)}&orm=${encodeURIComponent(selected ?? "")}`,
+      ),
+    [navigate, selected],
+  );
+
+  // Cellule « nb lignes » : … (chargement), — (non comptable), sinon le nombre.
+  const rowsCell = (n: number | null) =>
+    n === null ? (
+      <Text size="sm" c="dimmed">
+        …
+      </Text>
+    ) : n < 0 ? (
+      <Text size="sm" c="dimmed">
+        —
+      </Text>
+    ) : (
+      <Text size="sm">{n.toLocaleString()}</Text>
+    );
+
+  // Colonnes de la vue Liste (déléguée au <DataGrid> : tri + pagination client).
+  const listColumns: DataGridColumn<ListRow>[] = [
+    {
+      key: "name",
+      header: "Table",
+      sortable: true,
+      filterable: true,
+      filterType: "text",
+      value: (r) => r.name,
+      render: (r) => (
+        <Text size="sm" fw={500}>
+          {r.name}
+        </Text>
+      ),
+    },
+    {
+      key: "group",
+      header: "Domaine / module",
+      sortable: true,
+      filterable: true,
+      filterType: "select",
+      value: (r) => r.group,
+      render: (r) => (
+        <Badge
+          size="xs"
+          variant="light"
+          color={moduleColor(r.group === "—" ? "" : r.group)}
+        >
+          {r.group}
+        </Badge>
+      ),
+    },
+    {
+      key: "cols",
+      header: "Colonnes",
+      align: "right",
+      sortable: true,
+      filterable: true,
+      filterType: "number",
+      value: (r) => r.cols,
+    },
+    {
+      key: "rels",
+      header: "Relations",
+      align: "right",
+      sortable: true,
+      filterable: true,
+      filterType: "number",
+      value: (r) => r.rels,
+    },
+    {
+      key: "rows",
+      header: "Lignes",
+      align: "right",
+      sortable: true,
+      filterable: true,
+      filterType: "number",
+      value: (r) => r.rows ?? -1,
+      hint: "COUNT(*) par table. « … » = comptage en cours, « — » = ORM déconnecté / non comptable.",
+      render: (r) => rowsCell(r.rows),
+    },
+  ];
 
   // Liste des connecteurs (sélecteur) + choix initial = ORM par défaut.
   useEffect(() => {
@@ -347,7 +621,8 @@ export const Database = observer(() => {
       .then((list) => {
         setOrms(list);
         setSelected(
-          (s) => s ?? list.find((o) => o.default)?.name ?? list[0]?.name ?? null,
+          (s) =>
+            s ?? list.find((o) => o.default)?.name ?? list[0]?.name ?? null,
         );
         if (list.length === 0) setLoading(false);
       })
@@ -375,24 +650,33 @@ export const Database = observer(() => {
     [store],
   );
 
-  // Changer de connecteur recharge le graphe et réinitialise le filtre module.
+  // Changer de connecteur recharge le graphe et réinitialise filtre/focus.
   useEffect(() => {
     if (selected) {
       setModuleFilter(null);
+      setFocus(null);
+      setShowAll(false);
+      setCounts(null);
       loadGraph(selected);
     }
   }, [selected, loadGraph]);
 
-  // (Re)calcule nœuds + arêtes dès que les entités OU le filtre module changent.
+  // (Re)calcule nœuds + arêtes dès que le périmètre visible change.
   useEffect(() => {
-    const visible = moduleFilter
-      ? allEntities.filter((e) => (e.module || NONE) === moduleFilter)
-      : allEntities;
     setEntityCount(visible.length);
-    const laid = layoutGraph(visible);
+    const laid = layoutGraph(visible, focus ?? undefined);
     setNodes(laid.nodes);
     setEdges(laid.edges);
-  }, [allEntities, moduleFilter, setNodes, setEdges]);
+  }, [visible, focus, setNodes, setEdges]);
+
+  // En mode focus, cadrer (zoom) le sous-graphe une fois les nœuds committés.
+  useEffect(() => {
+    if (!focus || nodes.length === 0) return;
+    const id = requestAnimationFrame(() =>
+      rfRef.current?.fitView({ padding: 0.25, duration: 400, maxZoom: 1.3 }),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [focus, nodes]);
 
   // Export du modèle (formats pivot IA) → presse-papier. Un même endpoint
   // `/export/{format}` sert DBML (diagramme) et JSON Schema (validation/IA).
@@ -425,36 +709,124 @@ export const Database = observer(() => {
           <Text size="sm" c="dimmed">
             {entityCount} entités · {edges.length} relations
           </Text>
+          {focus && (
+            <Badge
+              variant="filled"
+              color="brand"
+              leftSection={<IconTarget size={11} />}
+              rightSection={
+                <ActionIcon
+                  size={14}
+                  variant="transparent"
+                  color="gray"
+                  aria-label="quitter le focus"
+                  onClick={() => setFocus(null)}
+                >
+                  ✕
+                </ActionIcon>
+              }
+            >
+              focus : {focus}
+            </Badge>
+          )}
         </Group>
         <Group gap="xs">
-          <Select
-            data={orms.map((o) => ({
-              value: o.name,
-              label: `${o.name}${o.default ? " (défaut)" : ""}${o.connected ? "" : " ⚠"}`,
-            }))}
-            value={selected}
-            onChange={setSelected}
-            size="xs"
-            style={{ width: 220 }}
-            placeholder="connecteur…"
-          />
-          {modules.length > 1 && (
-            <Select
-              data={modules.map((m) => ({ value: m || NONE, label: m || "—" }))}
-              value={moduleFilter}
-              onChange={setModuleFilter}
+          <Group gap={4} wrap="nowrap">
+            <SegmentedControl
               size="xs"
-              style={{ width: 170 }}
-              placeholder="tous les modules"
-              clearable
-              aria-label="filtrer par module"
+              value={view}
+              onChange={(v) => setView(v as "graph" | "list")}
+              data={[
+                { label: "Graphe", value: "graph" },
+                { label: "Liste", value: "list" },
+              ]}
+              aria-label="mode d'affichage"
             />
+            <InfoHint text="Graphe = diagramme des relations (recherche + focus sur une table). Liste = inventaire triable (colonnes, relations, nb de lignes par table)." />
+          </Group>
+          {view === "graph" && (
+            <>
+              <Group gap={4} wrap="nowrap">
+                <Select
+                  data={entityNames}
+                  value={focus}
+                  onChange={setFocus}
+                  searchable
+                  clearable
+                  size="xs"
+                  style={{ width: 240 }}
+                  placeholder="Rechercher une table…"
+                  nothingFoundMessage="aucune table"
+                  leftSection={<IconSearch size={14} />}
+                  comboboxProps={{ withinPortal: true }}
+                  aria-label="rechercher et cibler une table"
+                />
+                <InfoHint
+                  text={`Cible une table : l'ERD n'affiche plus qu'elle + ses tables liées (voisinage par les clés étrangères) et zoome dessus. Indispensable sur une grosse base (ici ${allEntities.length} tables).`}
+                />
+              </Group>
+              {focus && (
+                <Group gap={4} wrap="nowrap">
+                  <SegmentedControl
+                    size="xs"
+                    value={String(depth)}
+                    onChange={(v) => setDepth(Number(v))}
+                    data={[
+                      { label: "1 saut", value: "1" },
+                      { label: "2 sauts", value: "2" },
+                    ]}
+                    aria-label="profondeur du voisinage"
+                  />
+                  <InfoHint text="Profondeur du voisinage autour de la table ciblée. 1 saut = relations directes (FK entrantes + sortantes). 2 sauts = + les voisines des voisines (plus large, plus dense)." />
+                </Group>
+              )}
+            </>
+          )}
+          <Group gap={4} wrap="nowrap">
+            <Select
+              data={orms.map((o) => ({
+                value: o.name,
+                label: `${o.name}${o.default ? " (défaut)" : ""}${o.connected ? "" : " ⚠"}`,
+              }))}
+              value={selected}
+              onChange={setSelected}
+              size="xs"
+              style={{ width: 220 }}
+              placeholder="connecteur…"
+              aria-label="connecteur ORM"
+            />
+            <InfoHint text="Connecteur ORM (base de données) à visualiser. « ⚠ » = connecteur déclaré mais non connecté au boot." />
+          </Group>
+          {view === "graph" && modules.length > 1 && (
+            <Group gap={4} wrap="nowrap">
+              <Select
+                data={modules.map((m) => ({
+                  value: m || NONE,
+                  label: m || "—",
+                }))}
+                value={moduleFilter}
+                onChange={setModuleFilter}
+                size="xs"
+                style={{ width: 180 }}
+                placeholder="Domaine / module…"
+                clearable
+                disabled={!!focus}
+                aria-label="filtrer par domaine ou module"
+              />
+              <InfoHint
+                text={`Regroupe les tables par DOMAINE fonctionnel (ex. « facturation », « comptabilité ») si l'entité en déclare un, sinon par MODULE Nodefony propriétaire. Ici ${modules.length} groupe(s) sur ce connecteur. Désactivé en mode focus.`}
+              />
+            </Group>
           )}
           <Menu shadow="md" position="bottom-end" withinPortal>
             <Menu.Target>
               <Tooltip label="Exporter le schéma (pivot IA)">
                 <ActionIcon variant="default" aria-label="export schema">
-                  {copied ? <IconCheck size={16} /> : <IconDownload size={16} />}
+                  {copied ? (
+                    <IconCheck size={16} />
+                  ) : (
+                    <IconDownload size={16} />
+                  )}
                 </ActionIcon>
               </Tooltip>
             </Menu.Target>
@@ -492,25 +864,34 @@ export const Database = observer(() => {
         </Alert>
       )}
 
-      {modules.length > 1 && (
-        <Group gap="xs" aria-label="légende des modules">
-          <Text size="xs" c="dimmed">
-            Modules :
-          </Text>
-          {modules.map((m) => (
-            <Badge
-              key={m || NONE}
-              size="sm"
-              variant={
-                !moduleFilter || moduleFilter === (m || NONE)
-                  ? "light"
-                  : "outline"
-              }
-              color={moduleColor(m)}
-            >
-              {m || "—"}
-            </Badge>
-          ))}
+      {view === "graph" && modules.length > 1 && (
+        <Group gap="xs" aria-label="légende des groupes">
+          <Group gap={4} wrap="nowrap">
+            <Text size="xs" c="dimmed">
+              Domaine / module :
+            </Text>
+            <InfoHint text="Couleur = domaine fonctionnel de la table (ex. « facturation ») si défini, sinon module Nodefony. Clique un badge = filtre. C'est le même axe que le sélecteur « Domaine / module ». ⚠ = connecteur non connecté." />
+          </Group>
+          {modules.map((m) => {
+            const key = m || NONE;
+            const active = moduleFilter === key;
+            return (
+              <Badge
+                key={key}
+                component="button"
+                size="sm"
+                variant={!moduleFilter || active ? "light" : "outline"}
+                color={moduleColor(m)}
+                onClick={() => !focus && setModuleFilter(active ? null : key)}
+                disabled={!!focus}
+                aria-pressed={active}
+                aria-label={`filtrer : ${m || "non rattaché"}`}
+                style={{ cursor: focus ? "default" : "pointer" }}
+              >
+                {m || "—"}
+              </Badge>
+            );
+          })}
         </Group>
       )}
 
@@ -519,29 +900,84 @@ export const Database = observer(() => {
         style={{
           // Hauteur DÉFINIE obligatoire : React Flow est en height:100% → un
           // simple minHeight (parent height:auto) le résout à 0 = canvas vide.
-          height: "calc(100vh - 210px)",
+          height: "calc(100vh - 210px - var(--nodefony-debugbar-height, 0px))",
           minHeight: 480,
           position: "relative",
           overflow: "hidden",
         }}
       >
-        {loading && (
-          <Group justify="center" align="center" style={{ position: "absolute", inset: 0, zIndex: 5 }}>
+        {loading && view === "graph" && (
+          <Group
+            justify="center"
+            align="center"
+            style={{ position: "absolute", inset: 0, zIndex: 5 }}
+          >
             <Loader size="sm" />
           </Group>
         )}
-        {!loading && nodes.length === 0 ? (
-          <Group justify="center" align="center" style={{ position: "absolute", inset: 0 }}>
-            <Text c="dimmed" size="sm">
-              Aucune entité pour ce connecteur.
-            </Text>
-          </Group>
+        {view === "list" ? (
+          <div
+            style={{
+              height: "100%",
+              padding: "var(--mantine-spacing-xs)",
+              boxSizing: "border-box",
+            }}
+          >
+            <DataGrid
+              mode="client"
+              data={listRows}
+              columns={listColumns}
+              getRowId={(r) => r.name}
+              onRowClick={(r) => goEntity(r.name)}
+              initialSort={{ key: "name", dir: "asc" }}
+              pageSize={25}
+              height="100%"
+              loading={loading}
+              searchPlaceholder="Rechercher une table…"
+              emptyMessage="Aucune entité pour ce connecteur."
+              persist={{ key: "studio.orm.databases", storage: "local" }}
+            />
+          </div>
+        ) : !loading && nodes.length === 0 ? (
+          <Stack
+            align="center"
+            justify="center"
+            gap="sm"
+            style={{ position: "absolute", inset: 0, padding: 24 }}
+          >
+            {oversized ? (
+              <>
+                <IconTarget size={28} style={{ opacity: 0.45 }} />
+                <Text c="dimmed" size="sm" ta="center" maw={460}>
+                  Grand schéma : <b>{totalBase}</b> tables. Recherche une table
+                  ci-dessus pour la cibler avec ses voisines, bascule en vue
+                  Liste, ou affiche tout (le rendu peut ramer).
+                </Text>
+                <Button
+                  size="xs"
+                  variant="light"
+                  leftSection={<IconArrowsMaximize size={14} />}
+                  onClick={() => setShowAll(true)}
+                >
+                  Afficher les {totalBase} tables
+                </Button>
+              </>
+            ) : (
+              <Text c="dimmed" size="sm">
+                Aucune entité pour ce connecteur.
+              </Text>
+            )}
+          </Stack>
         ) : (
           <ReactFlow
             nodes={nodes}
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onNodeClick={(_, node) => goEntity(node.id)}
+            onInit={(inst) => {
+              rfRef.current = inst;
+            }}
             nodeTypes={nodeTypes}
             colorMode={scheme}
             style={RF_THEME}

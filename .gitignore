@@ -35,6 +35,9 @@ ehthumbs.db
 example/
 temp/
 
+# Fixture Dolibarr — schéma GPLv3 dérivé (local only, ne pas committer dans un repo CeCILL-B)
+src/modules/test/nodefony/entity/dolibarr/
+
 yarn.lock
 bun.lockb
 

@@ -25,6 +25,7 @@ import {
   IconArrowsExchange,
   IconReload,
   IconAlertTriangle,
+  IconJson,
 } from "@tabler/icons-react";
 import {
   useNodefony,
@@ -321,8 +322,17 @@ export const RealtimeConsole = observer(() => {
           <Group gap={6}>
             <IconArrowsExchange size={20} stroke={1.5} />
             <Title order={4}>Log protocole</Title>
+            <Badge
+              size="sm"
+              variant="light"
+              color="gray"
+              leftSection={<IconJson size={12} />}
+              title="Protocole de la socket"
+            >
+              JSON-RPC 2.0
+            </Badge>
             <Text size="xs" c="dimmed">
-              JSON-RPC 2.0 — secrets redactés
+              secrets redactés
             </Text>
           </Group>
           <Group gap="sm">

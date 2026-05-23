@@ -11,6 +11,7 @@ import type {
   IConnectionInfo,
   IEntity,
   IEntityRelation,
+  IOrmProbe,
   IRepository,
   ITransaction,
 } from "@nodefony/orm-core";
@@ -244,6 +245,60 @@ export class DrizzleOrm extends Orm {
       throw new Error(`DrizzleOrm "${this.name}": not connected.`);
     }
     return this.#db as C;
+  }
+
+  /**
+   * Ping bas-coût : `SELECT 1` via le client `better-sqlite3` (synchrone).
+   * Mesure un round-trip réel vers le fichier SQLite pour le diagnostic.
+   *
+   * @throws si le client n'est pas connecté.
+   */
+  async ping(): Promise<void> {
+    if (!this.#client) {
+      throw new Error(`DrizzleOrm "${this.name}": not connected.`);
+    }
+    this.#client.prepare("SELECT 1").get();
+  }
+
+  /**
+   * Sonde de stockage SQLite via PRAGMA (synchrone, bon marché) : taille
+   * (`page_count × page_size`), mode de journal (WAL ?), pages libres
+   * (fragmentation). Best-effort — `{}` si non connecté ou PRAGMA indisponible.
+   *
+   * @returns sonde `storage` + `extra` (driver), ou `{}`.
+   */
+  async probe(): Promise<IOrmProbe> {
+    const client = this.#client;
+    if (!client) return {};
+    try {
+      const num = (sql: string, key: string): number | undefined => {
+        const row = client.prepare(sql).get() as Record<string, unknown>;
+        const v = row?.[key];
+        return typeof v === "number" ? v : undefined;
+      };
+      const str = (sql: string, key: string): string | undefined => {
+        const row = client.prepare(sql).get() as Record<string, unknown>;
+        const v = row?.[key];
+        return typeof v === "string" ? v : undefined;
+      };
+      const pages = num("PRAGMA page_count", "page_count");
+      const pageSize = num("PRAGMA page_size", "page_size");
+      return {
+        storage: {
+          pages,
+          pageSize,
+          sizeBytes:
+            pages !== undefined && pageSize !== undefined
+              ? pages * pageSize
+              : undefined,
+          journalMode: str("PRAGMA journal_mode", "journal_mode"),
+          freePages: num("PRAGMA freelist_count", "freelist_count"),
+        },
+        extra: { connections: 1 },
+      };
+    } catch {
+      return {};
+    }
   }
 
   /**

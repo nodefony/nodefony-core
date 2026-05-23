@@ -6,13 +6,16 @@ import type {
   IAdminRequest,
   IAdminResponse,
 } from "nodefony";
+import { performance } from "node:perf_hooks";
 import type {
+  IConnectionHealth,
   IEntityGraphNode,
   IOrmGraph,
   IOrmSummary,
 } from "../interfaces/IOrmGraph";
 import { ormRegistry } from "./OrmRegistry";
 import { entityRegistry } from "./EntityRegistry";
+import { connectionMonitor } from "./ConnectionMonitor";
 
 /**
  * Producteur `IAdminApi` du **modèle de données ORM** — exposé sous
@@ -94,6 +97,7 @@ function buildEntityNode(orm: string, name: string): IEntityGraphNode {
     name: entity.name,
     orm: entity.orm,
     module: entity.module ?? "",
+    domain: entity.domain ?? "",
     columns,
     relations: (entity.relations ?? []).map((r) => ({
       type: r.type,
@@ -115,6 +119,108 @@ export function buildOrmGraph(ormFilter?: string): IOrmGraph {
     orms: ormFilter ? orms.filter((o) => o.name === ormFilter) : orms,
     entities,
   };
+}
+
+/**
+ * Construit le **diagnostic complet des connexions** (per-instance) : ping live
+ * (latence enregistrée dans la fenêtre glissante), sonde profonde driver
+ * ({@link IOrm.probe} — stockage/pool), et compteurs de cycle de vie du
+ * {@link connectionMonitor}. Réutilisé par l'endpoint `connection/health` ET par
+ * le ticker hub realtime de Studio (« contrôle total des ORM »).
+ *
+ * @param filter - nom de connecteur (optionnel) pour ne sonder que celui-ci.
+ * @returns un {@link IConnectionHealth} par connecteur.
+ */
+export async function buildConnectionHealth(
+  filter?: string,
+): Promise<IConnectionHealth[]> {
+  const instanceId = String(process.pid);
+  const names = ormRegistry.list().filter((n) => !filter || n === filter);
+  const out: IConnectionHealth[] = [];
+  for (const name of names) {
+    let connected = false;
+    let vendor = "";
+    let driver = "";
+    let target: string | undefined;
+    let version: string | undefined;
+    let ormVersion: string | undefined;
+    let pingMs: number | null = null;
+    let pingOk = false;
+    let pingError: string | null = null;
+    let storage: IConnectionHealth["storage"];
+    let pool: IConnectionHealth["pool"];
+    let extra: IConnectionHealth["extra"];
+    try {
+      const inst = ormRegistry.get(name);
+      connected = inst.isConnected();
+      vendor = vendorOf(inst);
+      const c = inst.describeConnection?.();
+      if (c) {
+        driver = c.driver;
+        target = c.target;
+        version = c.version;
+        ormVersion = c.ormVersion;
+      }
+      if (connected) {
+        const t0 = performance.now();
+        try {
+          // Ping portable : méthode dédiée de l'adapter (Drizzle `SELECT 1`,
+          // Mongoose `admin().ping`) ; sinon round-trip transactionnel.
+          if (typeof inst.ping === "function") {
+            await inst.ping();
+          } else {
+            await inst.transaction(async () => undefined);
+          }
+          pingMs = Math.round((performance.now() - t0) * 100) / 100;
+          pingOk = true;
+          connectionMonitor.recordPing(name, pingMs);
+        } catch (e) {
+          pingError = e instanceof Error ? e.message : "ping failed";
+          connectionMonitor.recordError(name, pingError);
+        }
+        // Sonde profonde driver-spécifique (best-effort, ne casse jamais le tick).
+        try {
+          const probe = await inst.probe?.();
+          if (probe) {
+            storage = probe.storage;
+            pool = probe.pool;
+            extra = probe.extra;
+          }
+        } catch {
+          /* sonde best-effort */
+        }
+      }
+    } catch (e) {
+      pingError = e instanceof Error ? e.message : String(e);
+    }
+    const core = connectionMonitor.snapshot(name);
+    out.push({
+      instanceId,
+      name,
+      vendor,
+      driver,
+      target,
+      version,
+      ormVersion,
+      connected,
+      connectedSince: core.connectedSince,
+      uptimeMs: core.uptimeMs,
+      connectCount: core.connectCount,
+      reconnectCount: core.reconnectCount,
+      errorCount: core.errorCount,
+      lastError: core.lastError,
+      recentErrors: core.recentErrors,
+      lastConnectMs: core.lastConnectMs,
+      pingMs,
+      pingOk,
+      pingError,
+      latency: core.latency,
+      storage,
+      pool,
+      extra,
+    });
+  }
+  return out;
 }
 
 /** Échappe un identifiant DBML s'il contient autre chose que `[A-Za-z0-9_]`. */
@@ -319,6 +425,36 @@ export function createOrmAdminApi(): IAdminApi {
       path: "graph",
       summary: "Graphe canonique complet (ORMs + entités) — ?orm= pour filtrer",
       handler: (request) => buildOrmGraph(oneParam(request, "orm")),
+    },
+    {
+      path: "counts",
+      summary:
+        "Nombre de lignes par entité (COUNT(*)) — ?orm= pour filtrer. Lazy : 1 COUNT par table.",
+      handler: async (request): Promise<Record<string, number>> => {
+        const orm = oneParam(request, "orm");
+        const counts: Record<string, number> = {};
+        const entities = entityRegistry
+          .list()
+          .filter((e) => !orm || e.orm === orm);
+        for (const e of entities) {
+          try {
+            const inst = ormRegistry.get(e.orm);
+            // -1 = non comptable (ORM déconnecté / pas de repository) → l'UI affiche « — ».
+            counts[e.name] = inst.isConnected()
+              ? await inst.getRepository(e.name).count()
+              : -1;
+          } catch {
+            counts[e.name] = -1;
+          }
+        }
+        return counts;
+      },
+    },
+    {
+      path: "connection/health",
+      summary:
+        "Diagnostic des connexions (per-instance) — état, ping/latence (fenêtre), erreurs, reconnexions, sondes (stockage/pool). ?orm= pour filtrer.",
+      handler: (request) => buildConnectionHealth(oneParam(request, "orm")),
     },
     {
       path: "export/{format}",

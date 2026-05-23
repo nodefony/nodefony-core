@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-23T06:44:09.004Z",
+  "generated": "2026-05-23T11:18:09.370Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 307,
-    "symbols": 789,
-    "classes": 210,
-    "interfaces": 263,
+    "files": 720,
+    "symbols": 1216,
+    "classes": 211,
+    "interfaces": 271,
     "types": 142,
     "enums": 2,
-    "functions": 144,
-    "constants": 28
+    "functions": 149,
+    "constants": 441
   },
   "symbols": {
     "Cli": {
@@ -3987,7 +3987,7 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "extends": null,
-      "description": "Représentation **canonique et sérialisable** du modèle de données multi-ORM. C'est la pièce maîtresse « IA-first » du data plane ORM : un graphe normalisé (ORM-agnostique) qui sert à la fois : - la…"
+      "description": "Colonne/champ normalisé d'une entité (extrait via {@link IOrm.describeEntity})."
     },
     "IRelationInfo": {
       "name": "IRelationInfo",
@@ -4025,6 +4025,24 @@
       "extends": null,
       "description": "Résumé d'un ORM/connecteur enregistré."
     },
+    "IConnectionError": {
+      "name": "IConnectionError",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Erreur de connexion horodatée (message **redacté** — jamais de credential)."
+    },
+    "IConnectionHealth": {
+      "name": "IConnectionHealth",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Diagnostic d'un connecteur — réponse de `/nodefony/orm/api/connection/health`. Combine l'état figé ({@link IConnectionInfo}), les compteurs de cycle de vie (connexions, **reconnexions**, **erreurs*…"
+    },
     "IOrmGraph": {
       "name": "IOrmGraph",
       "kind": "interface",
@@ -4033,6 +4051,42 @@
       "module": "@nodefony/orm-core",
       "extends": null,
       "description": "Graphe complet du modèle de données — réponse de `/nodefony/orm/api/graph`."
+    },
+    "ILatencyWindow": {
+      "name": "ILatencyWindow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmProbe.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Sondes ORM — métriques d'observabilité profonde d'un connecteur, poussées via le hub temps réel (`orm:health`) pour un **contrôle total** des ORM. Deux niveaux : - **générique** (porté par {@link C…"
+    },
+    "IOrmStorageProbe": {
+      "name": "IOrmStorageProbe",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmProbe.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Sonde de stockage — driver-spécifique. Pour SQLite : dérivée des PRAGMA (`page_count`, `page_size`, `journal_mode`, `freelist_count`). Pour un serveur : taille logique de la base si l'adapter sait …"
+    },
+    "IOrmPoolProbe": {
+      "name": "IOrmPoolProbe",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmProbe.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Sonde de pool de connexions — pertinente pour les bases serveur (Mongo, Postgres, MySQL). SQLite (better-sqlite3) = mono-connexion → non renseigné."
+    },
+    "IOrmProbe": {
+      "name": "IOrmProbe",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmProbe.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Sonde profonde driver-spécifique retournée par {@link IOrm.probe}. Tous les champs sont optionnels : un adapter ne rapporte que ce qu'il sait mesurer."
     },
     "FieldOperators": {
       "name": "FieldOperators",
@@ -4104,6 +4158,23 @@
       "implements": [],
       "decorators": [],
       "description": "Service CRUD **générique** — socle réutilisable au-dessus d'un {@link IRepository}. Toute entité (User, Article, Room...) expose son CRUD « toujours de la même manière » en étendant cette classe : …"
+    },
+    "IConnectionMonitorCore": {
+      "name": "IConnectionMonitorCore",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/ConnectionMonitor.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Vue figée des compteurs du moniteur pour un connecteur."
+    },
+    "connectionMonitor": {
+      "name": "connectionMonitor",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/ConnectionMonitor.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Singleton process-wide du moniteur de connexions."
     },
     "OperatorKey": {
       "name": "OperatorKey",
@@ -4181,6 +4252,14 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Construit le graphe canonique complet (optionnellement filtré par ORM)."
+    },
+    "buildConnectionHealth": {
+      "name": "buildConnectionHealth",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Construit le **diagnostic complet des connexions** (per-instance) : ping live (latence enregistrée dans la fenêtre glissante), sonde profonde driver ({@link IOrm.probe} — stockage/pool), et compteu…"
     },
     "toDbml": {
       "name": "toDbml",
@@ -4703,6 +4782,14 @@
       "module": "@nodefony/studio",
       "description": "Ticker de stats runtime → canal `dashboard:stats` toutes les `intervalMs`. CPU% calculé en delta entre deux ticks (1 seul `process.cpuUsage()` par tick)."
     },
+    "createOrmHealthTicker": {
+      "name": "createOrmHealthTicker",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Ticker temps réel du diagnostic ORM (`orm:health`) — pousse périodiquement le paquet de **sondes** complet par connecteur (état, latence/fenêtre, erreurs, reconnexions, stockage, pool) pour le **co…"
+    },
     "INSTANCE_ID": {
       "name": "INSTANCE_ID",
       "kind": "const",
@@ -4991,6 +5078,2916 @@
       "implements": [],
       "decorators": [],
       "description": "Commande CLI `nodefony pm2:*` — outils PM2 (status, logs, restart, etc.)."
+    },
+    "dolibarrDomain": {
+      "name": "dolibarrDomain",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/entity/dolibarr/index.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Domaine fonctionnel d'une table Dolibarr (ex. `facturation`, `comptabilité`), dérivé de son préfixe. Sert d'axe de regroupement ERD **distinct** du module (toutes les tables ont `module: \"dolibarr\"…"
+    },
+    "dolibarrEntities": {
+      "name": "dolibarrEntities",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/entity/dolibarr/index.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Liste des descripteurs d'entité Dolibarr pour un ORM donné."
+    },
+    "registerDolibarrEntities": {
+      "name": "registerDolibarrEntities",
+      "kind": "function",
+      "file": "src/modules/test/nodefony/entity/dolibarr/index.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Enregistrement OPT-IN dans l'entityRegistry (NON appelé au boot). À invoquer AVANT orm.connect() sur un connecteur dédié (ex. \"dolibarr\") si tu veux matérialiser les 410 tables. Sinon, le schéma re…"
+    },
+    "dolibarrTables": {
+      "name": "dolibarrTables",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/index.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Map nom de table -> table Drizzle (410 tables Dolibarr)."
+    },
+    "dolibarrRelations": {
+      "name": "dolibarrRelations",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/index.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Relations (FK) par table source -> ERD Studio (793 arêtes, 245 tables). Sources : 227 FK explicites (.key.sql Dolibarr) + 566 déduites de la convention `fk_*` à cible certaine. `target` = nom d'ent…"
+    },
+    "llx_accounting_account": {
+      "name": "llx_accounting_account",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_account.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_analytic_account": {
+      "name": "llx_accounting_analytic_account",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_analytic_account.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_analytic_axis": {
+      "name": "llx_accounting_analytic_axis",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_analytic_axis.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_analytic_distribution": {
+      "name": "llx_accounting_analytic_distribution",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_analytic_distribution.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_balance_snapshot": {
+      "name": "llx_accounting_balance_snapshot",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_balance_snapshot.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_bookkeeping_piece": {
+      "name": "llx_accounting_bookkeeping_piece",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_bookkeeping_piece.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_bookkeeping_tmp": {
+      "name": "llx_accounting_bookkeeping_tmp",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_bookkeeping_tmp.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_bookkeeping": {
+      "name": "llx_accounting_bookkeeping",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_bookkeeping.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_category_account": {
+      "name": "llx_accounting_category_account",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_category_account.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_fiscalyear": {
+      "name": "llx_accounting_fiscalyear",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_fiscalyear.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_groups_account": {
+      "name": "llx_accounting_groups_account",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_groups_account.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_journal": {
+      "name": "llx_accounting_journal",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_journal.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_system": {
+      "name": "llx_accounting_system",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_system.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_transaction_template_det": {
+      "name": "llx_accounting_transaction_template_det",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_transaction_template_det.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_accounting_transaction_template": {
+      "name": "llx_accounting_transaction_template",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_accounting_transaction_template.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_actioncomm_extrafields": {
+      "name": "llx_actioncomm_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_actioncomm_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_actioncomm_reminder": {
+      "name": "llx_actioncomm_reminder",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_actioncomm_reminder.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_actioncomm_resources": {
+      "name": "llx_actioncomm_resources",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_actioncomm_resources.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_actioncomm": {
+      "name": "llx_actioncomm",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_actioncomm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_adherent_extrafields": {
+      "name": "llx_adherent_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_adherent_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_adherent_type_extrafields": {
+      "name": "llx_adherent_type_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_adherent_type_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_adherent_type_lang": {
+      "name": "llx_adherent_type_lang",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_adherent_type_lang.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_adherent_type": {
+      "name": "llx_adherent_type",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_adherent_type.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_adherent": {
+      "name": "llx_adherent",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_adherent.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_ai_request_log": {
+      "name": "llx_ai_request_log",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_ai_request_log.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_asset_accountancy_codes_economic": {
+      "name": "llx_asset_accountancy_codes_economic",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_asset_accountancy_codes_economic.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_asset_accountancy_codes_fiscal": {
+      "name": "llx_asset_accountancy_codes_fiscal",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_asset_accountancy_codes_fiscal.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_asset_depreciation_options_economic": {
+      "name": "llx_asset_depreciation_options_economic",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_asset_depreciation_options_economic.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_asset_depreciation_options_fiscal": {
+      "name": "llx_asset_depreciation_options_fiscal",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_asset_depreciation_options_fiscal.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_asset_depreciation": {
+      "name": "llx_asset_depreciation",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_asset_depreciation.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_asset_extrafields": {
+      "name": "llx_asset_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_asset_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_asset_model_extrafields": {
+      "name": "llx_asset_model_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_asset_model_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_asset_model": {
+      "name": "llx_asset_model",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_asset_model.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_asset": {
+      "name": "llx_asset",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_asset.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bank_account_extrafields": {
+      "name": "llx_bank_account_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bank_account_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bank_account": {
+      "name": "llx_bank_account",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bank_account.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bank_extrafields": {
+      "name": "llx_bank_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bank_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bank_import": {
+      "name": "llx_bank_import",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bank_import.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bank_record_link": {
+      "name": "llx_bank_record_link",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bank_record_link.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bank_record": {
+      "name": "llx_bank_record",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bank_record.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bank_url": {
+      "name": "llx_bank_url",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bank_url.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bank": {
+      "name": "llx_bank",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bank.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_blockedlog": {
+      "name": "llx_blockedlog",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_blockedlog.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bom_bom_extrafields": {
+      "name": "llx_bom_bom_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bom_bom_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bom_bom": {
+      "name": "llx_bom_bom",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bom_bom.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bom_bomline_extrafields": {
+      "name": "llx_bom_bomline_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bom_bomline_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bom_bomline": {
+      "name": "llx_bom_bomline",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bom_bomline.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bookcal_availabilities_extrafields": {
+      "name": "llx_bookcal_availabilities_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bookcal_availabilities_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bookcal_availabilities": {
+      "name": "llx_bookcal_availabilities",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bookcal_availabilities.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bookcal_calendar_extrafields": {
+      "name": "llx_bookcal_calendar_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bookcal_calendar_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bookcal_calendar": {
+      "name": "llx_bookcal_calendar",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bookcal_calendar.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bookmark": {
+      "name": "llx_bookmark",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bookmark.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_bordereau_cheque": {
+      "name": "llx_bordereau_cheque",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_bordereau_cheque.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_boxes_def": {
+      "name": "llx_boxes_def",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_boxes_def.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_boxes": {
+      "name": "llx_boxes",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_boxes.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_budget_lines": {
+      "name": "llx_budget_lines",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_budget_lines.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_budget": {
+      "name": "llx_budget",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_budget.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_accounting_category": {
+      "name": "llx_c_accounting_category",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_accounting_category.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_accounting_report": {
+      "name": "llx_c_accounting_report",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_accounting_report.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_action_trigger": {
+      "name": "llx_c_action_trigger",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_action_trigger.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_actioncomm": {
+      "name": "llx_c_actioncomm",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_actioncomm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_asset_disposal_type": {
+      "name": "llx_c_asset_disposal_type",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_asset_disposal_type.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_availability": {
+      "name": "llx_c_availability",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_availability.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_barcode_type": {
+      "name": "llx_c_barcode_type",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_barcode_type.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_chargesociales": {
+      "name": "llx_c_chargesociales",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_chargesociales.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_civility": {
+      "name": "llx_c_civility",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_civility.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_country": {
+      "name": "llx_c_country",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_country.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_currencies": {
+      "name": "llx_c_currencies",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_currencies.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_departements": {
+      "name": "llx_c_departements",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_departements.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_ecotaxe": {
+      "name": "llx_c_ecotaxe",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_ecotaxe.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_effectif": {
+      "name": "llx_c_effectif",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_effectif.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_email_senderprofile": {
+      "name": "llx_c_email_senderprofile",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_email_senderprofile.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_email_templates": {
+      "name": "llx_c_email_templates",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_email_templates.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_exp_tax_cat": {
+      "name": "llx_c_exp_tax_cat",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_exp_tax_cat.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_exp_tax_range": {
+      "name": "llx_c_exp_tax_range",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_exp_tax_range.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_field_list": {
+      "name": "llx_c_field_list",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_field_list.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_format_cards": {
+      "name": "llx_c_format_cards",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_format_cards.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_forme_juridique": {
+      "name": "llx_c_forme_juridique",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_forme_juridique.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_holiday_types": {
+      "name": "llx_c_holiday_types",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_holiday_types.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_hrm_department": {
+      "name": "llx_c_hrm_department",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_hrm_department.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_hrm_function": {
+      "name": "llx_c_hrm_function",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_hrm_function.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_hrm_public_holiday": {
+      "name": "llx_c_hrm_public_holiday",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_hrm_public_holiday.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_incoterms": {
+      "name": "llx_c_incoterms",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_incoterms.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_input_method": {
+      "name": "llx_c_input_method",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_input_method.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_input_reason": {
+      "name": "llx_c_input_reason",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_input_reason.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_invoice_subtype": {
+      "name": "llx_c_invoice_subtype",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_invoice_subtype.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_lead_status": {
+      "name": "llx_c_lead_status",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_lead_status.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_paiement": {
+      "name": "llx_c_paiement",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_paiement.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_paper_format": {
+      "name": "llx_c_paper_format",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_paper_format.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_partnership_type": {
+      "name": "llx_c_partnership_type",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_partnership_type.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_payment_term": {
+      "name": "llx_c_payment_term",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_payment_term.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_price_expression": {
+      "name": "llx_c_price_expression",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_price_expression.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_price_global_variable_updater": {
+      "name": "llx_c_price_global_variable_updater",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_price_global_variable_updater.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_price_global_variable": {
+      "name": "llx_c_price_global_variable",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_price_global_variable.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_product_nature": {
+      "name": "llx_c_product_nature",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_product_nature.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_product_thirdparty_relation_type": {
+      "name": "llx_c_product_thirdparty_relation_type",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_product_thirdparty_relation_type.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_productbatch_qcstatus": {
+      "name": "llx_c_productbatch_qcstatus",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_productbatch_qcstatus.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_propalst": {
+      "name": "llx_c_propalst",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_propalst.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_prospectcontactlevel": {
+      "name": "llx_c_prospectcontactlevel",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_prospectcontactlevel.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_prospectlevel": {
+      "name": "llx_c_prospectlevel",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_prospectlevel.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_recruitment_origin": {
+      "name": "llx_c_recruitment_origin",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_recruitment_origin.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_regions": {
+      "name": "llx_c_regions",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_regions.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_revenuestamp": {
+      "name": "llx_c_revenuestamp",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_revenuestamp.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_shipment_mode": {
+      "name": "llx_c_shipment_mode",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_shipment_mode.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_shipment_package_type": {
+      "name": "llx_c_shipment_package_type",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_shipment_package_type.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_socialnetworks": {
+      "name": "llx_c_socialnetworks",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_socialnetworks.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_stcomm": {
+      "name": "llx_c_stcomm",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_stcomm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_stcommcontact": {
+      "name": "llx_c_stcommcontact",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_stcommcontact.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_ticket_category": {
+      "name": "llx_c_ticket_category",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_ticket_category.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_ticket_resolution": {
+      "name": "llx_c_ticket_resolution",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_ticket_resolution.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_ticket_severity": {
+      "name": "llx_c_ticket_severity",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_ticket_severity.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_ticket_type": {
+      "name": "llx_c_ticket_type",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_ticket_type.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_transport_mode": {
+      "name": "llx_c_transport_mode",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_transport_mode.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_tva": {
+      "name": "llx_c_tva",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_tva.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_type_contact": {
+      "name": "llx_c_type_contact",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_type_contact.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_type_container": {
+      "name": "llx_c_type_container",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_type_container.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_type_fees": {
+      "name": "llx_c_type_fees",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_type_fees.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_type_resource": {
+      "name": "llx_c_type_resource",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_type_resource.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_typent": {
+      "name": "llx_c_typent",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_typent.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_units": {
+      "name": "llx_c_units",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_units.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_c_ziptown": {
+      "name": "llx_c_ziptown",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_c_ziptown.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_account": {
+      "name": "llx_categorie_account",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_account.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_actioncomm": {
+      "name": "llx_categorie_actioncomm",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_actioncomm.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_contact": {
+      "name": "llx_categorie_contact",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_contact.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_fichinter": {
+      "name": "llx_categorie_fichinter",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_fichinter.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_fournisseur": {
+      "name": "llx_categorie_fournisseur",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_fournisseur.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_invoice": {
+      "name": "llx_categorie_invoice",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_invoice.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_knowledgemanagement": {
+      "name": "llx_categorie_knowledgemanagement",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_knowledgemanagement.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_lang_extrafields": {
+      "name": "llx_categorie_lang_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_lang_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_lang": {
+      "name": "llx_categorie_lang",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_lang.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_member": {
+      "name": "llx_categorie_member",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_member.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_mo": {
+      "name": "llx_categorie_mo",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_mo.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_order": {
+      "name": "llx_categorie_order",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_order.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_product": {
+      "name": "llx_categorie_product",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_product.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_project_task": {
+      "name": "llx_categorie_project_task",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_project_task.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_project": {
+      "name": "llx_categorie_project",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_project.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_propal": {
+      "name": "llx_categorie_propal",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_propal.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_societe": {
+      "name": "llx_categorie_societe",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_societe.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_supplier_invoice": {
+      "name": "llx_categorie_supplier_invoice",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_supplier_invoice.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_supplier_order": {
+      "name": "llx_categorie_supplier_order",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_supplier_order.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_supplier_proposal": {
+      "name": "llx_categorie_supplier_proposal",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_supplier_proposal.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_ticket": {
+      "name": "llx_categorie_ticket",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_ticket.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_user": {
+      "name": "llx_categorie_user",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_user.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_warehouse": {
+      "name": "llx_categorie_warehouse",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_warehouse.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie_website_page": {
+      "name": "llx_categorie_website_page",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie_website_page.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categorie": {
+      "name": "llx_categorie",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categorie.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_categories_extrafields": {
+      "name": "llx_categories_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_categories_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_category_bankline": {
+      "name": "llx_category_bankline",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_category_bankline.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_chargesociales": {
+      "name": "llx_chargesociales",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_chargesociales.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_commande_extrafields": {
+      "name": "llx_commande_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_commande_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_commande_fournisseur_extrafields": {
+      "name": "llx_commande_fournisseur_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_commande_fournisseur_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_commande_fournisseur_log": {
+      "name": "llx_commande_fournisseur_log",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_commande_fournisseur_log.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_commande_fournisseur": {
+      "name": "llx_commande_fournisseur",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_commande_fournisseur.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_commande_fournisseurdet_extrafields": {
+      "name": "llx_commande_fournisseurdet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_commande_fournisseurdet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_commande_fournisseurdet": {
+      "name": "llx_commande_fournisseurdet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_commande_fournisseurdet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_commande": {
+      "name": "llx_commande",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_commande.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_commandedet_extrafields": {
+      "name": "llx_commandedet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_commandedet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_commandedet": {
+      "name": "llx_commandedet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_commandedet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_comment": {
+      "name": "llx_comment",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_comment.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_const": {
+      "name": "llx_const",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_const.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_contrat_extrafields": {
+      "name": "llx_contrat_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_contrat_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_contrat": {
+      "name": "llx_contrat",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_contrat.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_contratdet_extrafields": {
+      "name": "llx_contratdet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_contratdet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_contratdet": {
+      "name": "llx_contratdet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_contratdet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_cronjob": {
+      "name": "llx_cronjob",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_cronjob.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_default_values": {
+      "name": "llx_default_values",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_default_values.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_delivery_extrafields": {
+      "name": "llx_delivery_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_delivery_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_delivery": {
+      "name": "llx_delivery",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_delivery.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_deliverydet_extrafields": {
+      "name": "llx_deliverydet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_deliverydet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_deliverydet": {
+      "name": "llx_deliverydet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_deliverydet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_deplacement": {
+      "name": "llx_deplacement",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_deplacement.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_document_model": {
+      "name": "llx_document_model",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_document_model.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_don_extrafields": {
+      "name": "llx_don_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_don_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_don": {
+      "name": "llx_don",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_don.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_ecm_directories_extrafields": {
+      "name": "llx_ecm_directories_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_ecm_directories_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_ecm_directories": {
+      "name": "llx_ecm_directories",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_ecm_directories.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_ecm_files_extrafields": {
+      "name": "llx_ecm_files_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_ecm_files_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_ecm_files": {
+      "name": "llx_ecm_files",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_ecm_files.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_element_categorie": {
+      "name": "llx_element_categorie",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_element_categorie.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_element_contact": {
+      "name": "llx_element_contact",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_element_contact.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_element_element": {
+      "name": "llx_element_element",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_element_element.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_element_resources": {
+      "name": "llx_element_resources",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_element_resources.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_element_time": {
+      "name": "llx_element_time",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_element_time.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_emailcollector_emailcollector": {
+      "name": "llx_emailcollector_emailcollector",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_emailcollector_emailcollector.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_emailcollector_emailcollectoraction": {
+      "name": "llx_emailcollector_emailcollectoraction",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_emailcollector_emailcollectoraction.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_emailcollector_emailcollectorfilter": {
+      "name": "llx_emailcollector_emailcollectorfilter",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_emailcollector_emailcollectorfilter.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_entrepot_extrafields": {
+      "name": "llx_entrepot_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_entrepot_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_entrepot": {
+      "name": "llx_entrepot",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_entrepot.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_establishment": {
+      "name": "llx_establishment",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_establishment.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_eventorganization_conferenceorboothattendee_extrafields": {
+      "name": "llx_eventorganization_conferenceorboothattendee_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_eventorganization_conferenceorboothattendee_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_eventorganization_conferenceorboothattendee": {
+      "name": "llx_eventorganization_conferenceorboothattendee",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_eventorganization_conferenceorboothattendee.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_events": {
+      "name": "llx_events",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_events.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expedition_extrafields": {
+      "name": "llx_expedition_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expedition_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expedition_package": {
+      "name": "llx_expedition_package",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expedition_package.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expedition": {
+      "name": "llx_expedition",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expedition.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expeditiondet_batch": {
+      "name": "llx_expeditiondet_batch",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expeditiondet_batch.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expeditiondet_extrafields": {
+      "name": "llx_expeditiondet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expeditiondet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expeditiondet": {
+      "name": "llx_expeditiondet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expeditiondet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expensereport_det_extrafields": {
+      "name": "llx_expensereport_det_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expensereport_det_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expensereport_det": {
+      "name": "llx_expensereport_det",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expensereport_det.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expensereport_extrafields": {
+      "name": "llx_expensereport_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expensereport_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expensereport_ik": {
+      "name": "llx_expensereport_ik",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expensereport_ik.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expensereport_rules": {
+      "name": "llx_expensereport_rules",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expensereport_rules.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_expensereport": {
+      "name": "llx_expensereport",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_expensereport.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_export_model": {
+      "name": "llx_export_model",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_export_model.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_extrafields": {
+      "name": "llx_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_extrafields": {
+      "name": "llx_facture_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_fourn_det_extrafields": {
+      "name": "llx_facture_fourn_det_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_fourn_det_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_fourn_det_rec_extrafields": {
+      "name": "llx_facture_fourn_det_rec_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_fourn_det_rec_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_fourn_det_rec": {
+      "name": "llx_facture_fourn_det_rec",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_fourn_det_rec.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_fourn_det": {
+      "name": "llx_facture_fourn_det",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_fourn_det.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_fourn_extrafields": {
+      "name": "llx_facture_fourn_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_fourn_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_fourn_rec_extrafields": {
+      "name": "llx_facture_fourn_rec_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_fourn_rec_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_fourn_rec": {
+      "name": "llx_facture_fourn_rec",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_fourn_rec.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_fourn": {
+      "name": "llx_facture_fourn",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_fourn.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_rec_extrafields": {
+      "name": "llx_facture_rec_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_rec_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture_rec": {
+      "name": "llx_facture_rec",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture_rec.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facture": {
+      "name": "llx_facture",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facture.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facturedet_extrafields": {
+      "name": "llx_facturedet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facturedet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facturedet_rec_extrafields": {
+      "name": "llx_facturedet_rec_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facturedet_rec_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facturedet_rec": {
+      "name": "llx_facturedet_rec",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facturedet_rec.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_facturedet": {
+      "name": "llx_facturedet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_facturedet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_fichinter_extrafields": {
+      "name": "llx_fichinter_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_fichinter_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_fichinter_rec": {
+      "name": "llx_fichinter_rec",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_fichinter_rec.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_fichinter": {
+      "name": "llx_fichinter",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_fichinter.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_fichinterdet_extrafields": {
+      "name": "llx_fichinterdet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_fichinterdet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_fichinterdet_rec": {
+      "name": "llx_fichinterdet_rec",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_fichinterdet_rec.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_fichinterdet": {
+      "name": "llx_fichinterdet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_fichinterdet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_holiday_config": {
+      "name": "llx_holiday_config",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_holiday_config.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_holiday_extrafields": {
+      "name": "llx_holiday_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_holiday_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_holiday_logs": {
+      "name": "llx_holiday_logs",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_holiday_logs.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_holiday_users": {
+      "name": "llx_holiday_users",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_holiday_users.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_holiday": {
+      "name": "llx_holiday",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_holiday.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_evaluation_extrafields": {
+      "name": "llx_hrm_evaluation_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_evaluation_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_evaluation": {
+      "name": "llx_hrm_evaluation",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_evaluation.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_evaluationdet_extrafields": {
+      "name": "llx_hrm_evaluationdet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_evaluationdet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_evaluationdet": {
+      "name": "llx_hrm_evaluationdet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_evaluationdet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_job_extrafields": {
+      "name": "llx_hrm_job_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_job_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_job_user": {
+      "name": "llx_hrm_job_user",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_job_user.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_job": {
+      "name": "llx_hrm_job",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_job.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_skill_extrafields": {
+      "name": "llx_hrm_skill_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_skill_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_skill": {
+      "name": "llx_hrm_skill",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_skill.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_skilldet": {
+      "name": "llx_hrm_skilldet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_skilldet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_hrm_skillrank": {
+      "name": "llx_hrm_skillrank",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_hrm_skillrank.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_import_model": {
+      "name": "llx_import_model",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_import_model.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_intracommreport": {
+      "name": "llx_intracommreport",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_intracommreport.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_inventory_extrafields": {
+      "name": "llx_inventory_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_inventory_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_inventory": {
+      "name": "llx_inventory",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_inventory.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_inventorydet": {
+      "name": "llx_inventorydet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_inventorydet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_knowledgemanagement_knowledgerecord_extrafields": {
+      "name": "llx_knowledgemanagement_knowledgerecord_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_knowledgemanagement_knowledgerecord_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_knowledgemanagement_knowledgerecord": {
+      "name": "llx_knowledgemanagement_knowledgerecord",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_knowledgemanagement_knowledgerecord.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_links": {
+      "name": "llx_links",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_links.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_loan_schedule": {
+      "name": "llx_loan_schedule",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_loan_schedule.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_loan": {
+      "name": "llx_loan",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_loan.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_localtax": {
+      "name": "llx_localtax",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_localtax.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_mailing_advtarget": {
+      "name": "llx_mailing_advtarget",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_mailing_advtarget.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_mailing_cibles": {
+      "name": "llx_mailing_cibles",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_mailing_cibles.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_mailing_unsubscribe": {
+      "name": "llx_mailing_unsubscribe",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_mailing_unsubscribe.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_mailing": {
+      "name": "llx_mailing",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_mailing.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_menu": {
+      "name": "llx_menu",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_menu.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_mrp_mo_extrafields": {
+      "name": "llx_mrp_mo_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_mrp_mo_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_mrp_mo": {
+      "name": "llx_mrp_mo",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_mrp_mo.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_mrp_production_extrafields": {
+      "name": "llx_mrp_production_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_mrp_production_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_mrp_production": {
+      "name": "llx_mrp_production",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_mrp_production.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_multicurrency_rate": {
+      "name": "llx_multicurrency_rate",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_multicurrency_rate.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_multicurrency": {
+      "name": "llx_multicurrency",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_multicurrency.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_notify_def_object": {
+      "name": "llx_notify_def_object",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_notify_def_object.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_notify_def": {
+      "name": "llx_notify_def",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_notify_def.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_notify": {
+      "name": "llx_notify",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_notify.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_oauth_state": {
+      "name": "llx_oauth_state",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_oauth_state.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_oauth_token": {
+      "name": "llx_oauth_token",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_oauth_token.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_object_lang": {
+      "name": "llx_object_lang",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_object_lang.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_onlinesignature": {
+      "name": "llx_onlinesignature",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_onlinesignature.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_opensurvey_comments": {
+      "name": "llx_opensurvey_comments",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_opensurvey_comments.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_opensurvey_formquestions": {
+      "name": "llx_opensurvey_formquestions",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_opensurvey_formquestions.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_opensurvey_sondage": {
+      "name": "llx_opensurvey_sondage",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_opensurvey_sondage.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_opensurvey_user_formanswers": {
+      "name": "llx_opensurvey_user_formanswers",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_opensurvey_user_formanswers.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_opensurvey_user_studs": {
+      "name": "llx_opensurvey_user_studs",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_opensurvey_user_studs.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_overwrite_trans": {
+      "name": "llx_overwrite_trans",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_overwrite_trans.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_paiement_extrafields": {
+      "name": "llx_paiement_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_paiement_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_paiement_facture": {
+      "name": "llx_paiement_facture",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_paiement_facture.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_paiement": {
+      "name": "llx_paiement",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_paiement.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_paiementcharge": {
+      "name": "llx_paiementcharge",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_paiementcharge.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_paiementfourn_facturefourn": {
+      "name": "llx_paiementfourn_facturefourn",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_paiementfourn_facturefourn.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_paiementfourn": {
+      "name": "llx_paiementfourn",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_paiementfourn.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_partnership_extrafields": {
+      "name": "llx_partnership_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_partnership_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_partnership": {
+      "name": "llx_partnership",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_partnership.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_payment_donation": {
+      "name": "llx_payment_donation",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_payment_donation.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_payment_expensereport": {
+      "name": "llx_payment_expensereport",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_payment_expensereport.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_payment_loan": {
+      "name": "llx_payment_loan",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_payment_loan.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_payment_salary": {
+      "name": "llx_payment_salary",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_payment_salary.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_payment_various_extrafields": {
+      "name": "llx_payment_various_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_payment_various_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_payment_various": {
+      "name": "llx_payment_various",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_payment_various.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_payment_vat": {
+      "name": "llx_payment_vat",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_payment_vat.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_paymentexpensereport_expensereport": {
+      "name": "llx_paymentexpensereport_expensereport",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_paymentexpensereport_expensereport.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_pos_cash_fence_extrafields": {
+      "name": "llx_pos_cash_fence_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_pos_cash_fence_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_pos_cash_fence": {
+      "name": "llx_pos_cash_fence",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_pos_cash_fence.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_prelevement_bons": {
+      "name": "llx_prelevement_bons",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_prelevement_bons.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_prelevement_demande": {
+      "name": "llx_prelevement_demande",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_prelevement_demande.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_prelevement_lignes": {
+      "name": "llx_prelevement_lignes",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_prelevement_lignes.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_prelevement_rejet": {
+      "name": "llx_prelevement_rejet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_prelevement_rejet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_prelevement": {
+      "name": "llx_prelevement",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_prelevement.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_printer_receipt_template": {
+      "name": "llx_printer_receipt_template",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_printer_receipt_template.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_printer_receipt": {
+      "name": "llx_printer_receipt",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_printer_receipt.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_printing": {
+      "name": "llx_printing",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_printing.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_association": {
+      "name": "llx_product_association",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_association.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_attribute_combination_price_level": {
+      "name": "llx_product_attribute_combination_price_level",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_attribute_combination_price_level.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_attribute_combination": {
+      "name": "llx_product_attribute_combination",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_attribute_combination.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_attribute_combination2val": {
+      "name": "llx_product_attribute_combination2val",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_attribute_combination2val.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_attribute_extrafields": {
+      "name": "llx_product_attribute_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_attribute_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_attribute_value_extrafields": {
+      "name": "llx_product_attribute_value_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_attribute_value_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_attribute_value": {
+      "name": "llx_product_attribute_value",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_attribute_value.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_attribute": {
+      "name": "llx_product_attribute",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_attribute.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_batch": {
+      "name": "llx_product_batch",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_batch.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_customer_price_extrafields": {
+      "name": "llx_product_customer_price_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_customer_price_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_customer_price_log": {
+      "name": "llx_product_customer_price_log",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_customer_price_log.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_customer_price": {
+      "name": "llx_product_customer_price",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_customer_price.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_extrafields": {
+      "name": "llx_product_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_fournisseur_price_extrafields": {
+      "name": "llx_product_fournisseur_price_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_fournisseur_price_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_fournisseur_price_log": {
+      "name": "llx_product_fournisseur_price_log",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_fournisseur_price_log.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_fournisseur_price": {
+      "name": "llx_product_fournisseur_price",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_fournisseur_price.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_lang_extrafields": {
+      "name": "llx_product_lang_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_lang_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_lang": {
+      "name": "llx_product_lang",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_lang.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_lot_extrafields": {
+      "name": "llx_product_lot_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_lot_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_lot": {
+      "name": "llx_product_lot",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_lot.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_perentity": {
+      "name": "llx_product_perentity",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_perentity.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_price_by_qty": {
+      "name": "llx_product_price_by_qty",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_price_by_qty.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_price_extrafields": {
+      "name": "llx_product_price_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_price_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_price": {
+      "name": "llx_product_price",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_price.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_pricerules": {
+      "name": "llx_product_pricerules",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_pricerules.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_stock": {
+      "name": "llx_product_stock",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_stock.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_thirdparty": {
+      "name": "llx_product_thirdparty",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_thirdparty.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product_warehouse_properties": {
+      "name": "llx_product_warehouse_properties",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product_warehouse_properties.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_product": {
+      "name": "llx_product",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_product.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_projet_extrafields": {
+      "name": "llx_projet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_projet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_projet_task_extrafields": {
+      "name": "llx_projet_task_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_projet_task_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_projet_task": {
+      "name": "llx_projet_task",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_projet_task.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_projet": {
+      "name": "llx_projet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_projet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_propal_extrafields": {
+      "name": "llx_propal_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_propal_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_propal_merge_pdf_product": {
+      "name": "llx_propal_merge_pdf_product",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_propal_merge_pdf_product.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_propal": {
+      "name": "llx_propal",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_propal.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_propaldet_extrafields": {
+      "name": "llx_propaldet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_propaldet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_propaldet": {
+      "name": "llx_propaldet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_propaldet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_quickmemo_memo_extrafields": {
+      "name": "llx_quickmemo_memo_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_quickmemo_memo_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_quickmemo_memo_user": {
+      "name": "llx_quickmemo_memo_user",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_quickmemo_memo_user.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_quickmemo_memo": {
+      "name": "llx_quickmemo_memo",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_quickmemo_memo.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_reception_extrafields": {
+      "name": "llx_reception_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_reception_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_reception": {
+      "name": "llx_reception",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_reception.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_receptiondet_batch_extrafields": {
+      "name": "llx_receptiondet_batch_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_receptiondet_batch_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_receptiondet_batch": {
+      "name": "llx_receptiondet_batch",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_receptiondet_batch.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_recruitment_recruitmentcandidature_extrafields": {
+      "name": "llx_recruitment_recruitmentcandidature_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_recruitment_recruitmentcandidature_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_recruitment_recruitmentcandidature": {
+      "name": "llx_recruitment_recruitmentcandidature",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_recruitment_recruitmentcandidature.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_recruitment_recruitmentjobposition_extrafields": {
+      "name": "llx_recruitment_recruitmentjobposition_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_recruitment_recruitmentjobposition_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_recruitment_recruitmentjobposition": {
+      "name": "llx_recruitment_recruitmentjobposition",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_recruitment_recruitmentjobposition.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_resource_extrafields": {
+      "name": "llx_resource_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_resource_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_resource": {
+      "name": "llx_resource",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_resource.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_rights_def": {
+      "name": "llx_rights_def",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_rights_def.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_salary_extrafields": {
+      "name": "llx_salary_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_salary_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_salary": {
+      "name": "llx_salary",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_salary.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_session": {
+      "name": "llx_session",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_session.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe_account": {
+      "name": "llx_societe_account",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe_account.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe_commerciaux": {
+      "name": "llx_societe_commerciaux",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe_commerciaux.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe_contacts": {
+      "name": "llx_societe_contacts",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe_contacts.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe_extrafields": {
+      "name": "llx_societe_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe_perentity": {
+      "name": "llx_societe_perentity",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe_perentity.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe_prices": {
+      "name": "llx_societe_prices",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe_prices.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe_remise_except": {
+      "name": "llx_societe_remise_except",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe_remise_except.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe_remise_supplier": {
+      "name": "llx_societe_remise_supplier",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe_remise_supplier.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe_remise": {
+      "name": "llx_societe_remise",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe_remise.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe_rib": {
+      "name": "llx_societe_rib",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe_rib.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_societe": {
+      "name": "llx_societe",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_societe.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_socpeople_extrafields": {
+      "name": "llx_socpeople_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_socpeople_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_socpeople": {
+      "name": "llx_socpeople",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_socpeople.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_stock_mouvement_extrafields": {
+      "name": "llx_stock_mouvement_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_stock_mouvement_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_stock_mouvement": {
+      "name": "llx_stock_mouvement",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_stock_mouvement.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_stocktransfer_stocktransfer_extrafields": {
+      "name": "llx_stocktransfer_stocktransfer_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_stocktransfer_stocktransfer_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_stocktransfer_stocktransfer": {
+      "name": "llx_stocktransfer_stocktransfer",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_stocktransfer_stocktransfer.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_stocktransfer_stocktransferline_extrafields": {
+      "name": "llx_stocktransfer_stocktransferline_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_stocktransfer_stocktransferline_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_stocktransfer_stocktransferline": {
+      "name": "llx_stocktransfer_stocktransferline",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_stocktransfer_stocktransferline.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_subscription": {
+      "name": "llx_subscription",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_subscription.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_supplier_proposal_extrafields": {
+      "name": "llx_supplier_proposal_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_supplier_proposal_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_supplier_proposal": {
+      "name": "llx_supplier_proposal",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_supplier_proposal.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_supplier_proposaldet_extrafields": {
+      "name": "llx_supplier_proposaldet_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_supplier_proposaldet_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_supplier_proposaldet": {
+      "name": "llx_supplier_proposaldet",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_supplier_proposaldet.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_takepos_floor_tables": {
+      "name": "llx_takepos_floor_tables",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_takepos_floor_tables.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_ticket_extrafields": {
+      "name": "llx_ticket_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_ticket_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_ticket": {
+      "name": "llx_ticket",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_ticket.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_tva": {
+      "name": "llx_tva",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_tva.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_user_alert": {
+      "name": "llx_user_alert",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_user_alert.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_user_clicktodial": {
+      "name": "llx_user_clicktodial",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_user_clicktodial.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_user_employment": {
+      "name": "llx_user_employment",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_user_employment.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_user_extrafields": {
+      "name": "llx_user_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_user_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_user_param": {
+      "name": "llx_user_param",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_user_param.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_user_rib": {
+      "name": "llx_user_rib",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_user_rib.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_user_rights": {
+      "name": "llx_user_rights",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_user_rights.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_user": {
+      "name": "llx_user",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_user.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_usergroup_extrafields": {
+      "name": "llx_usergroup_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_usergroup_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_usergroup_rights": {
+      "name": "llx_usergroup_rights",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_usergroup_rights.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_usergroup_user": {
+      "name": "llx_usergroup_user",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_usergroup_user.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_usergroup": {
+      "name": "llx_usergroup",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_usergroup.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_webhook_history": {
+      "name": "llx_webhook_history",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_webhook_history.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_webhook_target": {
+      "name": "llx_webhook_target",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_webhook_target.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_website_extrafields": {
+      "name": "llx_website_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_website_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_website_page": {
+      "name": "llx_website_page",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_website_page.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_website": {
+      "name": "llx_website",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_website.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_workstation_workstation_extrafields": {
+      "name": "llx_workstation_workstation_extrafields",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_workstation_workstation_extrafields.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_workstation_workstation_resource": {
+      "name": "llx_workstation_workstation_resource",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_workstation_workstation_resource.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_workstation_workstation_usergroup": {
+      "name": "llx_workstation_workstation_usergroup",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_workstation_workstation_usergroup.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_workstation_workstation": {
+      "name": "llx_workstation_workstation",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_workstation_workstation.ts",
+      "exported": true,
+      "module": "modules/test"
+    },
+    "llx_zapier_hook": {
+      "name": "llx_zapier_hook",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/entity/dolibarr/llx_zapier_hook.ts",
+      "exported": true,
+      "module": "modules/test"
     },
     "DrizzleOrm": {
       "name": "DrizzleOrm",
@@ -6797,6 +9794,9 @@
       "AlsController": [
         "src/modules/test/index.ts"
       ],
+      "registerDolibarrEntities": [
+        "src/modules/test/index.ts"
+      ],
       "AngularController": [
         "src/modules/test-frontend-angular/index.ts"
       ],
@@ -6822,7 +9822,8 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "Router": [
         "src/packages/@nodefony/framework/index.ts",
@@ -7448,6 +10449,7 @@
         "src/modules/test/nodefony/entity/auditEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/modules/test/nodefony/entity/dolibarr/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
@@ -7459,6 +10461,7 @@
         "src/modules/test/nodefony/entity/auditEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
+        "src/modules/test/nodefony/entity/dolibarr/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
@@ -7681,7 +10684,8 @@
       "IAdminRequest": [
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "IAdminResponse": [
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
@@ -8032,6 +11036,21 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
+      "IOrmProbe": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "ILatencyWindow": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/ConnectionMonitor.ts"
+      ],
+      "IOrmStorageProbe": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts"
+      ],
+      "IOrmPoolProbe": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts"
+      ],
       "Criteria": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
@@ -8051,6 +11070,9 @@
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
+      "IConnectionError": [
+        "src/packages/@nodefony/orm-core/nodefony/src/ConnectionMonitor.ts"
+      ],
       "FieldOperators": [
         "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
@@ -8059,6 +11081,7 @@
       ],
       "IEntityRelation": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/modules/test/nodefony/entity/dolibarr/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/metadataStore.ts"
@@ -8066,6 +11089,13 @@
       "IOrm": [
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmRegistry.ts"
+      ],
+      "connectionMonitor": [
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+      ],
+      "IConnectionHealth": [
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IEntityGraphNode": [
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
@@ -8190,6 +11220,9 @@
       "createStatsTicker": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
+      "createOrmHealthTicker": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
       "readGitBranch": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
@@ -8248,6 +11281,1236 @@
       ],
       "VectorConnectionError": [
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
+      ],
+      "llx_accounting_account": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_analytic_account": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_analytic_axis": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_analytic_distribution": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_balance_snapshot": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_bookkeeping": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_bookkeeping_piece": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_bookkeeping_tmp": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_category_account": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_fiscalyear": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_groups_account": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_journal": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_system": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_transaction_template": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_accounting_transaction_template_det": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_actioncomm": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_actioncomm_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_actioncomm_reminder": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_actioncomm_resources": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_adherent": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_adherent_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_adherent_type": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_adherent_type_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_adherent_type_lang": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_ai_request_log": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_asset": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_asset_accountancy_codes_economic": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_asset_accountancy_codes_fiscal": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_asset_depreciation": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_asset_depreciation_options_economic": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_asset_depreciation_options_fiscal": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_asset_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_asset_model": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_asset_model_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bank": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bank_account": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bank_account_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bank_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bank_import": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bank_record": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bank_record_link": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bank_url": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_blockedlog": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bom_bom": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bom_bom_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bom_bomline": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bom_bomline_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bookcal_availabilities": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bookcal_availabilities_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bookcal_calendar": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bookcal_calendar_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bookmark": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_bordereau_cheque": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_boxes": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_boxes_def": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_budget": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_budget_lines": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_accounting_category": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_accounting_report": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_action_trigger": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_actioncomm": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_asset_disposal_type": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_availability": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_barcode_type": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_chargesociales": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_civility": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_country": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_currencies": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_departements": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_ecotaxe": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_effectif": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_email_senderprofile": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_email_templates": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_exp_tax_cat": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_exp_tax_range": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_field_list": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_format_cards": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_forme_juridique": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_holiday_types": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_hrm_department": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_hrm_function": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_hrm_public_holiday": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_incoterms": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_input_method": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_input_reason": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_invoice_subtype": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_lead_status": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_paiement": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_paper_format": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_partnership_type": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_payment_term": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_price_expression": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_price_global_variable": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_price_global_variable_updater": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_product_nature": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_product_thirdparty_relation_type": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_productbatch_qcstatus": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_propalst": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_prospectcontactlevel": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_prospectlevel": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_recruitment_origin": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_regions": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_revenuestamp": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_shipment_mode": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_shipment_package_type": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_socialnetworks": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_stcomm": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_stcommcontact": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_ticket_category": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_ticket_resolution": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_ticket_severity": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_ticket_type": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_transport_mode": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_tva": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_type_contact": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_type_container": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_type_fees": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_type_resource": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_typent": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_units": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_c_ziptown": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_account": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_actioncomm": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_contact": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_fichinter": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_fournisseur": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_invoice": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_knowledgemanagement": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_lang": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_lang_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_member": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_mo": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_order": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_product": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_project": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_project_task": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_propal": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_societe": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_supplier_invoice": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_supplier_order": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_supplier_proposal": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_ticket": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_user": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_warehouse": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categorie_website_page": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_categories_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_category_bankline": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_chargesociales": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_commande": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_commande_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_commande_fournisseur": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_commande_fournisseur_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_commande_fournisseur_log": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_commande_fournisseurdet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_commande_fournisseurdet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_commandedet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_commandedet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_comment": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_const": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_contrat": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_contrat_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_contratdet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_contratdet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_cronjob": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_default_values": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_delivery": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_delivery_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_deliverydet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_deliverydet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_deplacement": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_document_model": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_don": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_don_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_ecm_directories": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_ecm_directories_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_ecm_files": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_ecm_files_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_element_categorie": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_element_contact": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_element_element": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_element_resources": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_element_time": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_emailcollector_emailcollector": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_emailcollector_emailcollectoraction": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_emailcollector_emailcollectorfilter": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_entrepot": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_entrepot_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_establishment": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_eventorganization_conferenceorboothattendee": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_eventorganization_conferenceorboothattendee_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_events": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expedition": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expedition_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expedition_package": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expeditiondet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expeditiondet_batch": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expeditiondet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expensereport": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expensereport_det": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expensereport_det_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expensereport_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expensereport_ik": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_expensereport_rules": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_export_model": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_fourn": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_fourn_det": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_fourn_det_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_fourn_det_rec": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_fourn_det_rec_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_fourn_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_fourn_rec": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_fourn_rec_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_rec": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facture_rec_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facturedet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facturedet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facturedet_rec": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_facturedet_rec_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_fichinter": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_fichinter_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_fichinter_rec": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_fichinterdet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_fichinterdet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_fichinterdet_rec": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_holiday": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_holiday_config": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_holiday_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_holiday_logs": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_holiday_users": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_evaluation": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_evaluation_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_evaluationdet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_evaluationdet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_job": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_job_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_job_user": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_skill": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_skill_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_skilldet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_hrm_skillrank": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_import_model": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_intracommreport": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_inventory": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_inventory_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_inventorydet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_knowledgemanagement_knowledgerecord": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_knowledgemanagement_knowledgerecord_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_links": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_loan": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_loan_schedule": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_localtax": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_mailing": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_mailing_advtarget": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_mailing_cibles": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_mailing_unsubscribe": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_menu": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_mrp_mo": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_mrp_mo_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_mrp_production": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_mrp_production_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_multicurrency": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_multicurrency_rate": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_notify": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_notify_def": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_notify_def_object": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_oauth_state": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_oauth_token": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_object_lang": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_onlinesignature": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_opensurvey_comments": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_opensurvey_formquestions": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_opensurvey_sondage": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_opensurvey_user_formanswers": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_opensurvey_user_studs": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_overwrite_trans": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_paiement": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_paiement_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_paiement_facture": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_paiementcharge": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_paiementfourn": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_paiementfourn_facturefourn": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_partnership": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_partnership_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_payment_donation": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_payment_expensereport": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_payment_loan": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_payment_salary": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_payment_various": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_payment_various_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_payment_vat": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_paymentexpensereport_expensereport": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_pos_cash_fence": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_pos_cash_fence_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_prelevement": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_prelevement_bons": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_prelevement_demande": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_prelevement_lignes": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_prelevement_rejet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_printing": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_printer_receipt": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_printer_receipt_template": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_association": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_attribute": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_attribute_combination": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_attribute_combination2val": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_attribute_combination_price_level": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_attribute_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_attribute_value": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_attribute_value_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_batch": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_customer_price": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_customer_price_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_customer_price_log": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_fournisseur_price": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_fournisseur_price_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_fournisseur_price_log": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_lang": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_lang_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_lot": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_lot_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_perentity": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_price": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_price_by_qty": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_price_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_pricerules": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_stock": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_thirdparty": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_product_warehouse_properties": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_projet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_projet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_projet_task": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_projet_task_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_propal": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_propal_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_propal_merge_pdf_product": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_propaldet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_propaldet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_quickmemo_memo": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_quickmemo_memo_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_quickmemo_memo_user": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_reception": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_reception_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_receptiondet_batch": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_receptiondet_batch_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_recruitment_recruitmentcandidature": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_recruitment_recruitmentcandidature_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_recruitment_recruitmentjobposition": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_recruitment_recruitmentjobposition_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_resource": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_resource_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_rights_def": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_salary": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_salary_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_session": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe_account": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe_commerciaux": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe_contacts": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe_perentity": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe_prices": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe_remise": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe_remise_except": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe_remise_supplier": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_societe_rib": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_socpeople": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_socpeople_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_stock_mouvement": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_stock_mouvement_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_stocktransfer_stocktransfer": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_stocktransfer_stocktransfer_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_stocktransfer_stocktransferline": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_stocktransfer_stocktransferline_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_subscription": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_supplier_proposal": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_supplier_proposal_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_supplier_proposaldet": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_supplier_proposaldet_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_takepos_floor_tables": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_ticket": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_ticket_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_tva": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_user": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_user_alert": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_user_clicktodial": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_user_employment": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_user_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_user_param": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_user_rib": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_user_rights": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_usergroup": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_usergroup_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_usergroup_rights": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_usergroup_user": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_webhook_history": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_webhook_target": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_website": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_website_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_website_page": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_workstation_workstation": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_workstation_workstation_extrafields": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_workstation_workstation_resource": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_workstation_workstation_usergroup": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "llx_zapier_hook": [
+        "src/modules/test/nodefony/entity/dolibarr/index.ts"
       ],
       "DrizzleRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"

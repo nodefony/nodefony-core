@@ -10,6 +10,7 @@ import { Orm, entityRegistry } from "@nodefony/orm-core";
 import type {
   IColumnInfo,
   IEntity,
+  IOrmProbe,
   IRepository,
   ITransaction,
 } from "@nodefony/orm-core";
@@ -100,7 +101,10 @@ export class MongooseOrm extends Orm {
             const fk = relation.foreignKey ?? this.#foreignKey(entity.name);
             if (!targetSchema.path(fk)) {
               targetSchema.add({
-                [fk]: { type: mongoose.Schema.Types.ObjectId, ref: entity.name },
+                [fk]: {
+                  type: mongoose.Schema.Types.ObjectId,
+                  ref: entity.name,
+                },
               });
             }
             sourceSchema.virtual(relation.field, {
@@ -116,7 +120,10 @@ export class MongooseOrm extends Orm {
             const fk = relation.foreignKey ?? relation.field;
             if (!sourceSchema.path(fk)) {
               sourceSchema.add({
-                [fk]: { type: mongoose.Schema.Types.ObjectId, ref: relation.target },
+                [fk]: {
+                  type: mongoose.Schema.Types.ObjectId,
+                  ref: relation.target,
+                },
               });
             }
             break;
@@ -198,6 +205,48 @@ export class MongooseOrm extends Orm {
       throw new Error(`MongooseOrm "${this.name}": not connected.`);
     }
     return this.#connection as C;
+  }
+
+  /**
+   * Ping bas-coût : commande `{ ping: 1 }` sur la base native (`admin().command`)
+   * — round-trip réel vers MongoDB pour le diagnostic du data plane.
+   *
+   * @throws si la connexion (ou sa base native) n'est pas prête, ou si la base
+   *   ne répond pas.
+   */
+  async ping(): Promise<void> {
+    const db = this.#connection?.db;
+    if (!db) {
+      throw new Error(`MongooseOrm "${this.name}": not connected.`);
+    }
+    await db.admin().command({ ping: 1 });
+  }
+
+  /**
+   * Sonde Mongo (best-effort) : connexions du serveur (`serverStatus`) → pool.
+   * Round-trip réseau → uniquement pendant un abonnement actif. `{}` si indispo.
+   *
+   * @returns sonde `pool` + `extra`, ou `{}`.
+   */
+  async probe(): Promise<IOrmProbe> {
+    const db = this.#connection?.db;
+    if (!db) return {};
+    try {
+      const status = (await db.admin().serverStatus()) as {
+        connections?: { current?: number; available?: number };
+        version?: string;
+      };
+      const conn = status.connections;
+      return {
+        pool: {
+          borrowed: conn?.current,
+          available: conn?.available,
+        },
+        extra: status.version ? { serverVersion: status.version } : {},
+      };
+    } catch {
+      return {};
+    }
   }
 
   /**

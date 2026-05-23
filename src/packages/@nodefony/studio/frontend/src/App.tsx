@@ -60,6 +60,9 @@ const Profiler = lazy(() =>
 const Database = lazy(() =>
   import("./routes/Database").then((m) => ({ default: m.Database })),
 );
+const OrmEntity = lazy(() =>
+  import("./routes/OrmEntity").then((m) => ({ default: m.OrmEntity })),
+);
 const OrmOverview = lazy(() =>
   import("./routes/OrmOverview").then((m) => ({ default: m.OrmOverview })),
 );
@@ -130,6 +133,7 @@ const router = createBrowserRouter([
           { path: "firewall", element: <Firewall /> },
           { path: "orm", element: <OrmOverview /> },
           { path: "databases", element: <Database /> },
+          { path: "orm-entity", element: <OrmEntity /> },
           { path: "migrate", element: <Migrate /> },
           { path: "services", element: <Services /> },
           { path: "modules", element: <Modules /> },

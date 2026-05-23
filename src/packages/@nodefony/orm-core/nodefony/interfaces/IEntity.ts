@@ -44,6 +44,15 @@ export interface IEntity<S = unknown, M = unknown> {
    */
   readonly module?: string;
 
+  /**
+   * **Classification** de l'entité (ex. domaine fonctionnel `"facturation"`,
+   * `"comptabilité"`) — axe de regroupement **distinct** du `module`
+   * (propriété/qui enregistre). Indispensable pour rendre lisible une **grosse
+   * base** (centaines de tables d'un même module) : l'ERD groupe/filtre par
+   * `domain`. **Optionnel** ; non renseigné → retombe sur `module`.
+   */
+  readonly domain?: string;
+
   /** Définition de schéma propre au driver (forme libre). */
   readonly schema: S;
 

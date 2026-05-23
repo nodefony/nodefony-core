@@ -49,6 +49,22 @@ useResource<T>(fetcher: () => Promise<T>): { data: T|null; loading: boolean; err
 <MiniChart series={[{data:number[],color:string,label:string}]} height? max? threshold? format? />  // courbe SVG ; JAMAIS recharts
 <ChartCard title caption badge?>{<MiniChart/>}</ChartCard>
 <Legend color label />
+
+// DataGrid<T> — grille RÉUTILISABLE (bâtie sur @tanstack/react-table, déjà en deps).
+// NE PAS hand-roller un tableau/filtre/tri/pagination : utiliser ceci.
+<DataGrid
+  mode="client" data={rows[]}                       // CLIENT : tout en mémoire
+  // OU mode="server" loader={(q)=>Promise<{rows,total}>}  // SERVEUR : q={page,pageSize,sort,search,columnFilters} ; loader DOIT être useCallback
+  columns={DataGridColumn<T>[]}                      // {key,header,align?,sortable?,filterable?,filterType?:"text"|"number"|"select",filterOptions?,hint?,render?(row),value?(row)}
+  getRowId={(r)=>string} onRowClick?={(r)=>void}
+  initialSort?={{key,dir}} pageSize?={25} height?="100%"
+  searchable?={true} searchPlaceholder?
+  persist?={{ key:"studio.<vue>", storage:"session"|"local" }}  // sauve tri+filtres+colonnes+pagination (clé indexée nf.datagrid:<key>)
+/>
+// Inclus : recherche globale, filtres par colonne à OPÉRATEURS (inline, contains/=/≥/vide…),
+// masquer des colonnes (menu Colonnes), tri, pagination client+serveur, persistance + clear.
+// En mode serveur, l'état persisté est restauré AVANT la 1ʳᵉ requête (pas de double-fetch).
+// Réf client : routes/Database.tsx (vue Liste). Réf serveur : routes/RoutesView.tsx + back FrameworkAdminApi `routes/page`.
 ```
 
 ## API exacte — hooks temps réel (`import { … } from "nodefony/react"`)
@@ -319,6 +335,42 @@ par canal + couper), réutilisée dans :
   peer, forward-compat SIP/UDP/TCP) + log protocole. La console **s'auto-abonne** aux canaux standard
   → toujours vivante. Box stable = `tabular-nums` + `nowrap` (sinon saute à chaque message).
 
+## 🎯 PATRON Studio = Sondes back + Abonnement hub (VISION — observabilité/contrôle TOTAL temps réel)
+
+> Validé par le user (2026-05-23, dashboard ORM). **C'est le modèle de TOUT panneau Studio
+> d'observabilité désormais.** Studio = console de **contrôle temps réel** de chaque sous-système
+> (ORM, http, sécurité, agents IA…), PAS un dashboard statique. Réf mémoire `project_studio_probes_hub_vision`.
+
+**Les 5 pièces (à répliquer par module) :**
+
+1. **Sondes riches côté back** — interface `I<X>Probe` + méthode **optionnelle** `probe(): Promise<I<X>Probe>`
+   sur le service/adapter → métriques profondes module-spécifiques. Best-effort (jamais throw, **jamais de
+   credential**). Ex ORM : latence (fenêtre glissante min/moy/max), cycle de vie (connexions/reconnexions/
+   erreurs/uptime), stockage (SQLite PRAGMA size/journal/freelist), pool (Mongo).
+2. **Moniteur générique lazy** process-wide (ex `ConnectionMonitor`) branché sur les **template methods**
+   du cycle de vie (`Orm.connect`) → capture latence/erreurs/reconnexions. Alloc **lazy** (`null` par défaut,
+   ring borné), **per-instance** (cloud-native).
+3. **Fonction `build<X>Health()` réutilisable** dans le module → exposée par un **endpoint data plane**
+   `/nodefony/<module>/api/<x>/health` ET poussée par un **provider ticker** realtime (transport-agnostique,
+   `publish`, `dispose()` au unsubscribe + `onFinish`, `setInterval` unref).
+4. **Studio reste GÉNÉRIQUE** : le provider realtime invoque l'endpoint admin **via le broker**
+   (`this.get<IAdminBroker>("adminBroker")` → `broker.list()`→producer `adminNamespace`→
+   `endpoint.handler({params:{},query:{},roles:[]})`), **PAS de dép directe au module** (philosophie IAdminApi).
+5. **Front** : abonnement **conditionnel** (switch « Temps réel ») via **montage/démontage** d'un petit
+   composant qui appelle `useNodefonyChannel("<module>:health", onData)` (ref-compté → unsubscribe auto au
+   démontage) ; fallback `useResource` HTTP pour le 1ᵉʳ paint + bouton « Tester » (one-shot).
+
+**Subtilité CSS = voir CE QUI BOUGE dans les cartes** (pas juste un point on/off) : **flash léger** sur les
+valeurs qui changent (re-clé sur la valeur → l'animation CSS rejoue : `key={String(v)}` + classe `nf-flash`
+`@keyframes` background bref). + point pulsant on/off près du switch. Style injecté **une fois**
+(`document.createElement("style")` gardé par flag), hover/anim en CSS pur (0 re-render).
+
+**Cloud-native** : `instanceId`=pid stampé ; per-instance, vue multi-pod = Prometheus / fan-out Redis (P13).
+NE PAS agréger dans le process.
+
+**« Contrôle total »** : à terme pas que de la lecture → aussi des **actions** (boutons : reconnecter, vacuum,
+purger…) sur le même canal/data-plane (DEV-ONLY + RBAC P6).
+
 ## Décision rapide (quel outil)
 
 | Besoin               | Outil                         | NE PAS                                  |
@@ -333,6 +385,17 @@ par canal + couper), réutilisée dans :
 
 ## Règles non négociables (qualité IA)
 
+- **🔎 VÉRIFIER L'EXISTANT AVANT DE CODER (directive user 2026-05-23, PRIORITÉ #1)** : avant de
+  hand-roller un composant/une primitive UI (tableau, filtre, tri, pagination, autocomplete,
+  date-picker, popover complexe…), **CHERCHER s'il existe déjà**, dans cet ordre :
+  1. **UI kit Studio** (`components/ui/` : `DataGrid`, `DataState`, `StatCard`, `JsonViewer`, `MiniChart`, `KeyValue`, `ConfigView`, `InfoHint`…).
+  2. **`@mantine/core`** (le composant Mantine natif).
+  3. **deps DÉJÀ installées** (`package.json`) — ex. **`@tanstack/react-table`** (déjà là !) = tableau headless standard : filtres à opérateurs (`filterFn`), faceting (valeurs distinctes), tri, pagination **client + serveur** (`manualPagination`/`manualFiltering`). MUI DataGrid Pro & mantine-react-table ne sont QUE des UI par-dessus ça.
+  4. Sinon, peser une dep éprouvée (⚠ compat : Mantine **v8** + React **19** — `mantine-react-table` est conçu pour v7 = risqué).
+     Ne hand-roll **qu'en dernier recours**, en réutilisant les primitives Mantine. **Coût vécu** :
+     un popover de filtre maison = bug de focus (input intypable) + plusieurs cycles perdus, **alors que
+     TanStack Table était déjà installé**. Réutiliser > réinventer. **Toujours `grep` le `package.json` +
+     `components/ui/` avant de créer un composant.**
 - **a11y** : 1 `<h1>`/page (PageHeader le fait) ; `aria-label` sur tout `ActionIcon` icône-seule ;
   `aria-expanded` sur un toggle ; états async → `aria-live` (DataState le fait). Norme = section
   « Normes & accessibilité W3C » ci-dessous (vérifier le pattern ARIA exact).
@@ -342,6 +405,15 @@ par canal + couper), réutilisée dans :
   ref-comptés (cohabitent — ne pas dédupliquer à la main).
 - **TS strict** : 0 `any`, 0 `@ts-ignore` ; ESM `import` ; `import type` pour les types.
 - **Style** : commentaires FR ; coller au pattern de `RoutesView.tsx`.
+- **🟢 Aide contextuelle ⓘ DYNAMIQUE (directive user 2026-05-23, PRIORITAIRE)** : tout contrôle non
+  trivial (filtre, recherche, toggle, tri, segment, métrique) DOIT porter un `<InfoHint text={…}/>`
+  (UI kit, `../components/ui`) qui explique en clair ce qu'il fait. Le texte est **dynamique** —
+  interpolé depuis les **données live** (`${entities.length}`, `${groups.length}`, noms, counts…),
+  **JAMAIS de valeur codée en dur** (« 410 tables », « 34 domaines ») qui se périme et ment.
+  But : écran **auto-explicatif** sans alourdir les labels. Contexte : les filtres « pas clairs »
+  étaient le pain point #1 du user (« des fois on comprend rien quand c'est trop compliqué ») → un ⓘ
+  vivant par contrôle est la réponse standard. Vérifier que la valeur reflète l'état réel (ex. nb de
+  groupes du connecteur courant, pas une constante). À faire **à chaque écran/spec développé**.
 
 ## 🔒 Sécurité — PRIORITÉ MAX (directive permanente)
 
@@ -539,7 +611,42 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 - `GitService` (core, `nodefony`) : lecture `.git` (branche+commit) **sans spawn ni dépendance**,
   exposé via `kernel/api/info.git`. Vendor ORM dérivé du nom de classe (dette : `IOrm.vendor` P7.1).
 - Debug bar : publie `--nodefony-debugbar-height` (ResizeObserver) → l'hôte réserve le `padding-bottom`
-  (`var(--nodefony-debugbar-height, 0px)`) ; sûr même barre absente.
+  (`var(--nodefony-debugbar-height, 0px)`) ; sûr même barre absente. ⚠️ **Le padding-bottom de l'hôte
+  ne suffit PAS pour un enfant à hauteur viewport fixe** (`height: calc(100vh - Xpx)`, ex. DataGrid
+  pleine page) : il déborde sous la barre (sa pagination disparaît). → tout `calc(100vh - …)` doit
+  **aussi** soustraire `- var(--nodefony-debugbar-height, 0px)` (vécu 2026-05-23 sur Routes/Database).
+- **ERD grosse base (`Database.tsx`) — recherche + focus N-hop** : un ERD React Flow devient illisible/laggy
+  au-delà de ~quelques dizaines de tables (vécu : Dolibarr 410 tables / 793 relations). Pattern ajouté :
+  (1) **`Select searchable`** des noms d'entités → `focus` ; (2) **sous-graphe `neighborhood(entities, root, depth)`**
+  (BFS bidirectionnel sur `relations`, 1 ou 2 sauts via `SegmentedControl`) → on ne layoute QUE le voisinage ;
+  (3) **garde `LARGE_GRAPH`** (>60 tables sans focus → on ne rend pas tout : invite à chercher + bouton « Afficher
+  les N tables » `showAll`) ; (4) **cadrage auto** = capturer l'instance via `onInit={(inst)=>rfRef.current=inst}`
+  (`ReactFlowInstance<Node,Edge>` en `useRef` — `useReactFlow()` indisponible hors `<ReactFlow>`/Provider) puis
+  `requestAnimationFrame(()=>rf.fitView({padding,duration,maxZoom}))` dans un effet `[focus, nodes]` (laisser
+  React Flow committer les nœuds avant de cadrer) ; (5) **racine surlignée** + arêtes incidentes accentuées via
+  un param `rootName` de `layoutGraph` (node.style outline + edge stroke `primary-color-filled`). Focus prime
+  sur le filtre module (désactivé en focus). Réutilisable pour tout grand graphe.
+- **`DataGrid<T>` (UI kit) — grille réutilisable sur TanStack Table (2026-05-23)** : tri, filtres
+  par colonne à opérateurs, masquage de colonnes, recherche globale, pagination **client+serveur**,
+  persistance storage. **Toujours réutiliser au lieu de hand-roller un tableau.** Leçons (chèrement
+  payées) :
+  1. **NE PAS hand-roller** un tableau/filtre/tri/pagination → `@tanstack/react-table` est déjà en
+     deps (cf règle #1 « vérifier l'existant »). MUI DataGrid Pro / mantine-react-table = juste des UI
+     dessus, et MRT cible Mantine v7 (risqué sur notre v8/React19).
+  2. **Filtres = INLINE (ligne sous l'en-tête), PAS un Popover** : un Popover Mantine autour d'un input
+     vole le focus → input intypable (3 cycles perdus). Inline = typable.
+  3. Un `Select`/combobox **inline dans une table** doit être **`comboboxProps={{withinPortal:true}}`**
+     sinon son menu est **clippé** par l'overflow de la table (≠ dans un Popover où c'est l'inverse).
+  4. **Ne jamais remplacer toute la table par l'état vide** : à 0 résultat, garder en-têtes + ligne de
+     filtres visibles (sinon « tout disparaît » et on ne peut plus corriger le filtre). Empty = une
+     ligne de corps.
+  5. Filtre tolérant : valeur vide / nombre en cours de frappe → **ne filtre pas** (sinon vide tout).
+  6. **Serveur** : `loader` en `useCallback` (sinon refetch en boucle) ; un compteur `refresh` dans ses
+     deps = bouton Recharger. État persisté restauré en **initialiseur `useState` lazy** (SYNCHRONE) →
+     prêt AVANT la 1ʳᵉ requête (pas de double-fetch « vide puis restauré »). Endpoint back = renvoyer
+     `{rows,total}` et lire `page/pageSize/sort/dir/q/filters(JSON)` (cf `FrameworkAdminApi` `routes/page`).
+  7. Persistance **indexée** : clé `nf.datagrid:<persist.key>` (unique par grille → pas de mélange) ;
+     « Effacer la sauvegarde » dans le menu Colonnes.
 
 ## Fin de session Studio (OBLIGATOIRE)
 

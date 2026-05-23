@@ -31,6 +31,7 @@ import {
   IconBolt,
   IconMessages,
   IconExternalLink,
+  IconJson,
 } from "@tabler/icons-react";
 import { useConnection, useNotifications } from "../stores";
 import type { NoticeLevel } from "nodefony";
@@ -232,6 +233,15 @@ export const RealtimeHubContent = observer(
                       {meta.label}
                     </Text>
                     {busy && <Loader size={12} color={meta.color} />}
+                    <Badge
+                      size="xs"
+                      variant="light"
+                      color="gray"
+                      leftSection={<IconJson size={10} />}
+                      title="Protocole de la socket"
+                    >
+                      JSON-RPC 2.0
+                    </Badge>
                   </Group>
                   <Text size="xs" c="dimmed">
                     {conn.latencyMs != null

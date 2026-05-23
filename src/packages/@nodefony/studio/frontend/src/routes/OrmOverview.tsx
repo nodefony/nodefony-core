@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Grid,
   Stack,
@@ -11,6 +11,18 @@ import {
   Button,
   SimpleGrid,
   Code,
+  Progress,
+  Anchor,
+  Divider,
+  Loader,
+  Menu,
+  Tabs,
+  ScrollArea,
+  Table,
+  Switch,
+  HoverCard,
+  SegmentedControl,
+  type MantineColor,
 } from "@mantine/core";
 import { Link } from "react-router-dom";
 import {
@@ -20,21 +32,39 @@ import {
   IconAffiliate,
   IconTable,
   IconBolt,
+  IconChartBar,
+  IconCategory,
+  IconActivity,
+  IconDownload,
+  IconListSearch,
+  IconStack2,
+  IconFile,
+  IconServer,
+  IconHeartRateMonitor,
+  IconClockHour4,
+  IconReload,
+  IconAlertTriangle,
+  IconCircleCheck,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
-import { PageHeader, StatCard as Kpi, DataState } from "../components/ui";
+import {
+  PageHeader,
+  DataState,
+  InfoHint,
+  KeyValue,
+  DefinitionList,
+} from "../components/ui";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
+import { useNodefonyChannel } from "nodefony/react";
 
 /** Résumé d'un connecteur ORM (data plane /nodefony/orm/api/orms). */
 interface OrmSummary {
   name: string;
-  /** `drizzle` | `sequelize` | `mongoose`… (vendor ORM, pour le logo + le label). */
   vendor?: string;
   default: boolean;
   connected: boolean;
   entityCount: number;
-  /** Connexion sous-jacente : driver (→ logo base) + cible + versions base/ORM. */
   connection?: {
     driver: string;
     target?: string;
@@ -43,11 +73,22 @@ interface OrmSummary {
   };
 }
 
-/** Entité du graphe canonique (/nodefony/orm/api/graph) — on n'utilise que les relations. */
+/** Relation déclarée entre deux entités (graphe canonique). */
+interface EntityRel {
+  type: string;
+  target: string;
+  field: string;
+  foreignKey?: string;
+}
+
+/** Entité du graphe canonique (/nodefony/orm/api/graph). */
 interface EntityNode {
   name: string;
   orm: string;
-  relations?: unknown[];
+  module?: string;
+  domain?: string;
+  columns?: { name: string; type: string }[];
+  relations?: EntityRel[];
 }
 
 interface OrmGraph {
@@ -55,7 +96,6 @@ interface OrmGraph {
   entities: EntityNode[];
 }
 
-/** Libellé lisible par vendor (le logo vient de DbLogo). */
 const VENDOR_LABEL: Record<string, string> = {
   drizzle: "Drizzle",
   sequelize: "Sequelize",
@@ -63,32 +103,510 @@ const VENDOR_LABEL: Record<string, string> = {
   mikroorm: "MikroORM",
 };
 
-/** Carte d'un connecteur : logo base + ORM, cible, état, nb d'entités, accès au schéma. */
-function OrmCard({ orm }: { orm: OrmSummary }) {
-  const driver = orm.connection?.driver ?? "";
-  const target = orm.connection?.target;
-  const version = orm.connection?.version;
-  const ormVersion = orm.connection?.ormVersion;
+/** Libellé court d'un type de relation. */
+const REL_LABEL: Record<string, string> = {
+  "one-to-many": "1-N",
+  "many-to-one": "N-1",
+  "one-to-one": "1-1",
+  "many-to-many": "N-N",
+};
+
+/** Formatte un nombre de lignes en compact (1.2k, 3.4M) ; `-1` → « — ». */
+function fmtNum(n: number): string {
+  if (n < 0) return "—";
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) {
+    const v = n / 1000;
+    return `${v >= 100 ? Math.round(v) : v.toFixed(1).replace(/\.0$/, "")}k`;
+  }
+  return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+}
+
+/**
+ * Agrège un ensemble d'entités : relations (total + par type), domaines
+ * (entités + lignes), santé (orphelines, colonnes non introspectées).
+ * Pure → mémoïsable côté global ET par onglet ORM.
+ */
+function analyzeModel(ents: EntityNode[], countMap: Record<string, number>) {
+  let relationTotal = 0;
+  let orphans = 0;
+  let noColumns = 0;
+  let rowsTotal = 0;
+  const relByType: Record<string, number> = {};
+  const entitiesByDomain: Record<string, number> = {};
+  const rowsByDomain: Record<string, number> = {};
+  for (const e of ents) {
+    const rels = e.relations ?? [];
+    relationTotal += rels.length;
+    if (rels.length === 0) orphans++;
+    if (!e.columns || e.columns.length === 0) noColumns++;
+    for (const r of rels) relByType[r.type] = (relByType[r.type] ?? 0) + 1;
+    const d = e.domain || "(non classé)";
+    entitiesByDomain[d] = (entitiesByDomain[d] ?? 0) + 1;
+    const c = countMap[e.name];
+    if (typeof c === "number" && c > 0) {
+      rowsTotal += c;
+      rowsByDomain[d] = (rowsByDomain[d] ?? 0) + c;
+    }
+  }
+  return {
+    relationTotal,
+    orphans,
+    noColumns,
+    rowsTotal,
+    relByType,
+    entitiesByDomain,
+    rowsByDomain,
+    domainCount: Object.keys(entitiesByDomain).length,
+  };
+}
+
+// Styles « temps réel » — injectés UNE fois (point pulsant + halo de carte).
+let livePulseInjected = false;
+function ensureLivePulseStyle(): void {
+  if (livePulseInjected || typeof document === "undefined") return;
+  livePulseInjected = true;
+  const el = document.createElement("style");
+  el.setAttribute("data-nf-orm-live", "");
+  el.textContent = `
+@keyframes nf-live-pulse{0%{box-shadow:0 0 0 0 rgba(18,184,134,.5)}70%{box-shadow:0 0 0 5px rgba(18,184,134,0)}100%{box-shadow:0 0 0 0 rgba(18,184,134,0)}}
+.nf-live-dot{width:8px;height:8px;border-radius:50%;background:var(--mantine-color-teal-6);animation:nf-live-pulse 1.6s ease-out infinite;flex:0 0 auto}
+@keyframes nf-live-glow{0%,100%{box-shadow:0 0 0 0 rgba(18,184,134,0)}50%{box-shadow:0 0 0 3px rgba(18,184,134,.16)}}
+.nf-live-card{animation:nf-live-glow 2.4s ease-in-out infinite}
+@keyframes nf-flash{0%{background:rgba(18,184,134,.32)}100%{background:transparent}}
+.nf-flash{animation:nf-flash .9s ease-out;border-radius:4px}
+`;
+  document.head.appendChild(el);
+}
+
+/** Lecture localStorage tolérante (navigation privée / quota). */
+function lsGet(k: string): string | null {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+}
+/** Écriture localStorage tolérante. */
+function lsSet(k: string, v: string): void {
+  try {
+    localStorage.setItem(k, v);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Une ligne de classement (barre proportionnelle). */
+interface RankItem {
+  key: string;
+  label: string;
+  value: number;
+  href?: string;
+}
+
+/**
+ * Mini bar-list (classement horizontal) — label + valeur + barre proportionnelle
+ * à la valeur max. Catégoriel → barres (pas MiniChart, réservé aux séries temps).
+ */
+function RankBars({
+  items,
+  color = "brand",
+  empty = "Aucune donnée.",
+}: {
+  items: RankItem[];
+  color?: MantineColor;
+  empty?: string;
+}) {
+  const max = Math.max(1, ...items.map((i) => (i.value < 0 ? 0 : i.value)));
+  if (!items.length)
+    return (
+      <Text size="sm" c="dimmed">
+        {empty}
+      </Text>
+    );
+  return (
+    <Stack gap={10}>
+      {items.map((it) => (
+        <div key={it.key}>
+          <Group justify="space-between" gap="xs" wrap="nowrap" mb={3}>
+            {it.href ? (
+              <Anchor component={Link} to={it.href} size="xs" truncate>
+                {it.label}
+              </Anchor>
+            ) : (
+              <Text size="xs" truncate>
+                {it.label}
+              </Text>
+            )}
+            <Text size="xs" c="dimmed" ff="monospace" style={{ flexShrink: 0 }}>
+              {fmtNum(it.value)}
+            </Text>
+          </Group>
+          <Progress
+            value={it.value < 0 ? 0 : (it.value / max) * 100}
+            color={color}
+            size="sm"
+            radius="sm"
+          />
+        </div>
+      ))}
+    </Stack>
+  );
+}
+
+/** En-tête de panneau (icône + titre + bulle d'aide ⓘ dynamique + action). */
+function Panel({
+  title,
+  icon,
+  hint,
+  right,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  /** Texte de la bulle ⓘ — typiquement DYNAMIQUE (compteurs, scope ORM). */
+  hint?: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card withBorder radius="md" p="md" h="100%">
+      <Group justify="space-between" wrap="nowrap" mb="sm">
+        <Group gap="xs" wrap="nowrap">
+          {icon}
+          <Text fw={600}>{title}</Text>
+          {hint ? <InfoHint text={hint} /> : null}
+        </Group>
+        {right}
+      </Group>
+      {children}
+    </Card>
+  );
+}
+
+/** Erreur de connexion (data plane connection/health). */
+interface ConnError {
+  message: string;
+  ts: number;
+}
+
+/** Diagnostic d'un connecteur (/nodefony/orm/api/connection/health). */
+interface ConnHealth {
+  instanceId: string;
+  name: string;
+  vendor: string;
+  driver: string;
+  target?: string;
+  version?: string;
+  ormVersion?: string;
+  connected: boolean;
+  connectedSince: number | null;
+  uptimeMs: number | null;
+  connectCount: number;
+  reconnectCount: number;
+  errorCount: number;
+  lastError: ConnError | null;
+  recentErrors: ConnError[];
+  lastConnectMs: number | null;
+  pingMs: number | null;
+  pingOk: boolean;
+  pingError: string | null;
+  latency: {
+    last: number | null;
+    min: number | null;
+    avg: number | null;
+    max: number | null;
+    samples: number;
+  };
+  storage?: {
+    sizeBytes?: number;
+    pages?: number;
+    pageSize?: number;
+    journalMode?: string;
+    freePages?: number;
+  };
+  pool?: {
+    size?: number;
+    available?: number;
+    borrowed?: number;
+    pending?: number;
+  };
+  extra?: Record<string, string | number | boolean>;
+}
+
+/** Latence en ms → texte lisible (`0.15 ms`, `2.6 ms`, `1.20 s`). */
+function fmtMs(ms: number | null): string {
+  if (ms == null) return "—";
+  if (ms < 1000) return `${ms < 10 ? ms.toFixed(2) : Math.round(ms)} ms`;
+  return `${(ms / 1000).toFixed(2)} s`;
+}
+
+/** Durée en ms → `12s` / `5m 3s` / `2h 10m` / `3j 4h`. */
+function fmtDuration(ms: number | null): string {
+  if (ms == null || ms < 0) return "—";
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${s % 60}s`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m`;
+  return `${Math.floor(h / 24)}j ${h % 24}h`;
+}
+
+/** Horodatage epoch ms → heure locale. */
+function fmtClock(ts: number): string {
+  return new Date(ts).toLocaleTimeString();
+}
+
+/** Octets → texte lisible (o / Ko / Mo / Go). */
+function fmtBytes(n?: number): string {
+  if (n == null) return "—";
+  if (n < 1024) return `${n} o`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} Ko`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} Mo`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(2)} Go`;
+}
+
+/**
+ * Abonné HUB au canal `orm:health` — monté UNIQUEMENT quand « Temps réel » est ON.
+ * `useNodefonyChannel` est ref-compté : démonter ce composant désabonne (→ le
+ * serveur arrête le ticker, 0 travail quand OFF). Pousse chaque paquet à `onData`.
+ */
+function OrmHealthLive({
+  intervalMs,
+  onData,
+}: {
+  intervalMs: number;
+  onData: (h: ConnHealth[]) => void;
+}) {
+  // Granularité : canal paramétré `orm:health:<ms>` (le serveur cadence le
+  // ticker dessus). Changer `intervalMs` change le canal → ré-abonnement auto.
+  const channel =
+    intervalMs === 5000 ? "orm:health" : `orm:health:${intervalMs}`;
+  useNodefonyChannel(channel, (payload: unknown) => {
+    if (Array.isArray(payload)) onData(payload as ConnHealth[]);
+  });
+  return null;
+}
+
+/** Type de stockage déduit (icône + libellé + couleur). */
+function storageOf(driver: string, target?: string) {
+  if (target === ":memory:")
+    return {
+      label: "En mémoire (volatile)",
+      icon: <IconBolt size={14} />,
+      color: "grape" as const,
+    };
+  if (driver === "sqlite" && target)
+    return {
+      label: "Fichier local",
+      icon: <IconFile size={14} />,
+      color: "blue" as const,
+    };
+  return {
+    label: "Serveur",
+    icon: <IconServer size={14} />,
+    color: "teal" as const,
+  };
+}
+
+/** Mini-statistique encadrée — icône + label + bulle ⓘ + valeur colorée. */
+function MiniStat({
+  icon,
+  label,
+  value,
+  hint,
+  color,
+  flashKey,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  color?: MantineColor;
+  /** Si fourni, la valeur FLASHE quand cette clé change (live = « ce qui bouge »). */
+  flashKey?: string | number;
+}) {
+  return (
+    <Card withBorder radius="sm" p="sm">
+      <Group gap={6} wrap="nowrap" mb={4} c="dimmed">
+        {icon}
+        <Text size="xs">{label}</Text>
+        {hint ? <InfoHint text={hint} /> : null}
+      </Group>
+      <Text fw={700} size="lg" c={color}>
+        {flashKey !== undefined ? (
+          <span key={String(flashKey)} className="nf-flash">
+            {value}
+          </span>
+        ) : (
+          value
+        )}
+      </Text>
+    </Card>
+  );
+}
+
+/**
+ * **KpiCard** — carte de tête riche : label + ⓘ, grande valeur, **pied de carte**
+ * (sous-métriques live), accent coloré, et **clic → onglet** (intégration au
+ * dashboard). Bordure accent quand l'onglet cible est actif.
+ */
+function KpiCard({
+  icon,
+  label,
+  hint,
+  value,
+  accent = "brand",
+  footer,
+  onClick,
+  active,
+  pulse,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  hint?: string;
+  value: React.ReactNode;
+  accent?: MantineColor;
+  footer?: React.ReactNode;
+  onClick?: () => void;
+  active?: boolean;
+  /** Halo CSS pulsant — signale que cette carte est rafraîchie en temps réel. */
+  pulse?: boolean;
+}) {
+  return (
+    <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
+      <Card
+        withBorder
+        radius="md"
+        p="md"
+        h="100%"
+        className={pulse ? "nf-live-card" : undefined}
+        onClick={onClick}
+        role={onClick ? "button" : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        aria-pressed={onClick ? active : undefined}
+        onKeyDown={
+          onClick
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onClick();
+                }
+              }
+            : undefined
+        }
+        style={{
+          cursor: onClick ? "pointer" : undefined,
+          borderColor: active
+            ? `var(--mantine-color-${accent}-filled)`
+            : undefined,
+          transition: "border-color 120ms ease",
+        }}
+      >
+        <Group justify="space-between" wrap="nowrap" mb={8} align="flex-start">
+          <Group gap={6} wrap="nowrap" c="dimmed" style={{ minWidth: 0 }}>
+            <Text
+              size="xs"
+              fw={600}
+              tt="uppercase"
+              style={{ letterSpacing: 0.3 }}
+              truncate
+            >
+              {label}
+            </Text>
+            {hint ? <InfoHint text={hint} /> : null}
+          </Group>
+          <ThemeIcon variant="light" color={accent} size={34} radius="md">
+            {icon}
+          </ThemeIcon>
+        </Group>
+        <Text fw={700} style={{ fontSize: 30, lineHeight: 1.05 }}>
+          {value}
+        </Text>
+        {footer ? <div style={{ marginTop: 10 }}>{footer}</div> : null}
+      </Card>
+    </Grid.Col>
+  );
+}
+
+/**
+ * **ConnectorCard** — vue COMPLÈTE d'un connecteur en onglets (place limitée) :
+ *  - **Diagnostic** : état live, ping/latence, erreurs, reconnexions, uptime
+ *    (data plane `connection/health`, **per-instance** cloud-native).
+ *  - **Connexion** : config figée (vendor, driver, versions, emplacement).
+ *  - **Modèle** : entités/relations/domaines/lignes de ce connecteur.
+ *  - **Entités** : liste triée par volume, vers le détail.
+ *
+ * Toutes les métriques portent une bulle ⓘ explicative (exigence UX).
+ */
+function ConnectorCard({
+  orm,
+  entities,
+  countMap,
+  health,
+}: {
+  orm: OrmSummary;
+  entities: EntityNode[];
+  countMap: Record<string, number>;
+  health?: ConnHealth;
+}) {
+  const driver = orm.connection?.driver ?? health?.driver ?? "";
+  const target = orm.connection?.target ?? health?.target;
+  const version = orm.connection?.version ?? health?.version;
+  const ormVersion = orm.connection?.ormVersion ?? health?.ormVersion;
   const vendorLabel = VENDOR_LABEL[orm.vendor ?? ""] ?? orm.vendor ?? "—";
-  const inMemory = target === ":memory:";
+  const storage = storageOf(driver, target);
+
+  // Modèle propre à ce connecteur (dérivé du graphe + counts).
+  const own = useMemo(() => {
+    const ents = entities.filter((e) => e.orm === orm.name);
+    let relations = 0;
+    let rows = 0;
+    const domains = new Set<string>();
+    const rowList = ents
+      .map((e) => {
+        relations += e.relations?.length ?? 0;
+        domains.add(e.domain || "(non classé)");
+        const c = countMap[e.name];
+        if (typeof c === "number" && c > 0) rows += c;
+        return { name: e.name, domain: e.domain || "—", rows: c ?? -1 };
+      })
+      .sort((a, b) => b.rows - a.rows || a.name.localeCompare(b.name));
+    return {
+      count: ents.length,
+      relations,
+      rows,
+      domainCount: domains.size,
+      rowList,
+    };
+  }, [entities, countMap, orm.name]);
+
+  const errs = health?.recentErrors ?? [];
 
   return (
     <Card withBorder radius="md" p="lg">
-      <Group justify="space-between" wrap="nowrap" mb="sm">
+      {/* En-tête : identité + état live */}
+      <Group justify="space-between" wrap="nowrap" mb="md">
         <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-          {/* Logo de la BASE (driver) — fallback icône générique si inconnu. */}
-          <ThemeIcon size={42} radius="md" variant="default">
+          <ThemeIcon size={46} radius="md" variant="default">
             {hasDbLogo(driver) ? (
-              <DbLogo name={driver} size={26} title={driver} />
+              <DbLogo name={driver} size={28} title={driver} />
             ) : (
-              <IconDatabase size={24} />
+              <IconDatabase size={26} />
             )}
           </ThemeIcon>
           <div style={{ minWidth: 0 }}>
-            <Text fw={700} truncate>
-              {orm.name}
-            </Text>
-            {/* Logo ORM + vendor (+ version ORM) · driver (+ version base). */}
+            <Group gap={6} wrap="nowrap">
+              <Text fw={700} truncate>
+                {orm.name}
+              </Text>
+              {orm.default && (
+                <Badge size="xs" variant="light" color="brand">
+                  défaut
+                </Badge>
+              )}
+            </Group>
             <Group gap={5} wrap="nowrap" style={{ minWidth: 0 }}>
               {hasDbLogo(orm.vendor) && (
                 <DbLogo name={orm.vendor} size={13} title={vendorLabel} />
@@ -97,42 +615,10 @@ function OrmCard({ orm }: { orm: OrmSummary }) {
                 {vendorLabel}
                 {ormVersion ? ` ${ormVersion}` : ""}
                 {driver ? ` · ${driver}` : ""}
-                {version ? ` ${version}` : ""}
               </Text>
             </Group>
           </div>
         </Group>
-        {orm.default && (
-          <Badge size="xs" variant="light" color="brand">
-            défaut
-          </Badge>
-        )}
-      </Group>
-
-      {/* Cible : base en mémoire (volatile) OU chemin de fichier relatif (jamais
-          d'absolu ni de credential). */}
-      {inMemory ? (
-        <Badge
-          size="sm"
-          variant="light"
-          color="grape"
-          leftSection={<IconBolt size={12} />}
-        >
-          en mémoire (volatile)
-        </Badge>
-      ) : (
-        target && (
-          <Code
-            block
-            style={{ fontSize: 11, wordBreak: "break-all" }}
-            title={target}
-          >
-            {target}
-          </Code>
-        )
-      )}
-
-      <Group justify="space-between" mt="sm">
         <Badge
           variant="light"
           color={orm.connected ? "teal" : "gray"}
@@ -146,33 +632,356 @@ function OrmCard({ orm }: { orm: OrmSummary }) {
         >
           {orm.connected ? "connecté" : "déconnecté"}
         </Badge>
-        <Group gap={4} c="dimmed">
-          <IconTable size={14} />
-          <Text size="sm">{orm.entityCount} entité(s)</Text>
-        </Group>
       </Group>
 
-      <Button
-        component={Link}
-        to="/nodefony/databases"
-        variant="subtle"
-        size="xs"
-        mt="md"
-        fullWidth
-        leftSection={<IconAffiliate size={14} />}
-      >
-        Voir le schéma
-      </Button>
+      <Tabs defaultValue="diagnostic" keepMounted={false}>
+        <Tabs.List mb="md">
+          <Tabs.Tab
+            value="diagnostic"
+            leftSection={<IconHeartRateMonitor size={14} />}
+          >
+            Diagnostic
+          </Tabs.Tab>
+          <Tabs.Tab
+            value="connexion"
+            leftSection={<IconPlugConnected size={14} />}
+          >
+            Connexion
+          </Tabs.Tab>
+          <Tabs.Tab value="modele" leftSection={<IconAffiliate size={14} />}>
+            Modèle
+          </Tabs.Tab>
+          <Tabs.Tab value="entites" leftSection={<IconTable size={14} />}>
+            Entités
+          </Tabs.Tab>
+        </Tabs.List>
+
+        {/* ── Diagnostic ── */}
+        <Tabs.Panel value="diagnostic">
+          <Group gap="xs" wrap="nowrap" mb="sm">
+            <Badge
+              size="sm"
+              variant="light"
+              color={
+                health
+                  ? health.pingOk
+                    ? "teal"
+                    : "red"
+                  : orm.connected
+                    ? "gray"
+                    : "red"
+              }
+              leftSection={<IconBolt size={12} />}
+            >
+              {health ? (
+                <span key={String(health.pingMs)} className="nf-flash">
+                  {health.pingOk
+                    ? `ping ${fmtMs(health.pingMs)}`
+                    : "ping échec"}
+                </span>
+              ) : (
+                "ping —"
+              )}
+            </Badge>
+            {health && (
+              <Badge
+                size="sm"
+                variant="default"
+                leftSection={<IconServer size={12} />}
+              >
+                instance {health.instanceId}
+              </Badge>
+            )}
+            <InfoHint text="Diagnostic PER-INSTANCE (cloud-native) : chaque process/pod a son propre pool de connexions, donc ses propres métriques. Données poussées en TEMPS RÉEL par le hub (switch « Temps réel »). La vue multi-pod relève de l'observabilité externe (Prometheus) ou du fan-out Redis (P13)." />
+          </Group>
+
+          <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
+            <MiniStat
+              icon={<IconBolt size={16} />}
+              label="Latence ping"
+              value={fmtMs(health?.pingMs ?? null)}
+              color={health?.pingOk ? "teal" : undefined}
+              flashKey={health?.pingMs ?? "—"}
+              hint="Round-trip RÉEL vers la base (SQL `SELECT 1` / Mongo `ping`), mesuré à chaque push temps réel et au bouton « Tester »."
+            />
+            <MiniStat
+              icon={<IconClockHour4 size={16} />}
+              label="Uptime"
+              value={fmtDuration(health?.uptimeMs ?? null)}
+              hint="Temps écoulé depuis la dernière connexion réussie de ce process."
+            />
+            <MiniStat
+              icon={<IconPlugConnected size={16} />}
+              label="Connexions"
+              value={health?.connectCount ?? "—"}
+              hint="Nombre de connexions réussies depuis le démarrage du process (1 = boot normal)."
+            />
+            <MiniStat
+              icon={<IconReload size={16} />}
+              label="Reconnexions"
+              value={health?.reconnectCount ?? "—"}
+              color={health && health.reconnectCount > 0 ? "orange" : undefined}
+              hint="Connexions au-delà de la première = rétablissements après une coupure. > 0 signale une connexion instable (per-instance)."
+            />
+            <MiniStat
+              icon={<IconAlertTriangle size={16} />}
+              label="Erreurs"
+              value={health?.errorCount ?? "—"}
+              color={health && health.errorCount > 0 ? "red" : undefined}
+              hint="Erreurs de connexion + pings en échec cumulés sur ce process. > 0 = la base a refusé/coupé au moins une fois."
+            />
+            <MiniStat
+              icon={<IconClockHour4 size={16} />}
+              label="Latence connexion"
+              value={fmtMs(health?.lastConnectMs ?? null)}
+              hint="Durée d'établissement de la dernière connexion (handshake + pool). Élevée = base lente à répondre au boot."
+            />
+          </SimpleGrid>
+
+          {health &&
+            (health.latency.samples > 0 || health.storage || health.pool) && (
+              <>
+                <Divider my="sm" label="Sondes" labelPosition="left" />
+                <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
+                  {health.latency.samples > 0 && (
+                    <MiniStat
+                      icon={<IconBolt size={16} />}
+                      label="Latence min/⌀/max"
+                      value={`${fmtMs(health.latency.min)} / ${fmtMs(
+                        health.latency.avg,
+                      )} / ${fmtMs(health.latency.max)}`}
+                      flashKey={health.latency.last ?? "—"}
+                      hint={`Fenêtre glissante sur ${health.latency.samples} ping(s) — révèle les pics, pas qu'un instantané.`}
+                    />
+                  )}
+                  {health.storage && (
+                    <>
+                      <MiniStat
+                        icon={<IconDatabase size={16} />}
+                        label="Taille base"
+                        value={fmtBytes(health.storage.sizeBytes)}
+                        flashKey={health.storage.sizeBytes ?? "—"}
+                        hint={`${health.storage.pages ?? "—"} pages × ${
+                          health.storage.pageSize ?? "—"
+                        } o. Croissance visible en direct.`}
+                      />
+                      <MiniStat
+                        icon={<IconActivity size={16} />}
+                        label="Journal"
+                        value={health.storage.journalMode ?? "—"}
+                        hint="Mode de journalisation SQLite (`wal` = lectures concurrentes pendant l'écriture ; `delete` = défaut)."
+                      />
+                      <MiniStat
+                        icon={<IconAlertTriangle size={16} />}
+                        label="Pages libres"
+                        value={health.storage.freePages ?? "—"}
+                        color={
+                          (health.storage.freePages ?? 0) > 1000
+                            ? "orange"
+                            : undefined
+                        }
+                        hint="Pages libérées non récupérées (fragmentation). Élevé → un `VACUUM` récupérerait de l'espace."
+                      />
+                    </>
+                  )}
+                  {health.pool && (
+                    <MiniStat
+                      icon={<IconServer size={16} />}
+                      label="Pool (actives/dispo)"
+                      value={`${health.pool.borrowed ?? "—"} / ${
+                        health.pool.available ?? "—"
+                      }`}
+                      hint="Connexions en cours d'utilisation / disponibles (bases serveur)."
+                    />
+                  )}
+                </SimpleGrid>
+              </>
+            )}
+
+          <Divider
+            my="sm"
+            label={`Erreurs récentes${errs.length ? ` (${errs.length})` : ""}`}
+            labelPosition="left"
+          />
+          {errs.length === 0 ? (
+            <Group gap={6} c="teal">
+              <IconCircleCheck size={16} />
+              <Text size="sm">Aucune erreur de connexion enregistrée.</Text>
+            </Group>
+          ) : (
+            <ScrollArea.Autosize mah={150} type="auto">
+              <Stack gap={6}>
+                {errs.map((e, i) => (
+                  <Group
+                    key={`${e.ts}-${i}`}
+                    gap="xs"
+                    wrap="nowrap"
+                    align="flex-start"
+                  >
+                    <Text
+                      size="xs"
+                      c="dimmed"
+                      ff="monospace"
+                      style={{ flexShrink: 0 }}
+                    >
+                      {fmtClock(e.ts)}
+                    </Text>
+                    <Text size="xs" c="red" style={{ wordBreak: "break-word" }}>
+                      {e.message}
+                    </Text>
+                  </Group>
+                ))}
+              </Stack>
+            </ScrollArea.Autosize>
+          )}
+          {health?.pingError && (
+            <Text size="xs" c="red" mt="xs">
+              Dernier ping : {health.pingError}
+            </Text>
+          )}
+        </Tabs.Panel>
+
+        {/* ── Connexion ── */}
+        <Tabs.Panel value="connexion">
+          <DefinitionList>
+            <KeyValue
+              k="Vendor ORM"
+              v={`${vendorLabel}${ormVersion ? ` ${ormVersion}` : ""}`}
+            />
+            <KeyValue k="Base / driver" v={driver || "—"} mono />
+            <KeyValue k="Version base" v={version ?? "—"} mono />
+            <KeyValue
+              k="Connecteur"
+              v={`${orm.name}${orm.default ? " (défaut)" : ""}`}
+              mono
+            />
+          </DefinitionList>
+          <Group gap="xs" mt="sm" align="center">
+            <Badge
+              variant="light"
+              color={storage.color}
+              leftSection={storage.icon}
+            >
+              {storage.label}
+            </Badge>
+            <InfoHint text="Emplacement physique de la base. Chemin TOUJOURS relatif à la racine du projet (jamais d'absolu ni de credential exposé dans le data plane)." />
+          </Group>
+          {target && target !== ":memory:" && (
+            <Code
+              block
+              mt="xs"
+              style={{ fontSize: 11, wordBreak: "break-all" }}
+              title={target}
+            >
+              {target}
+            </Code>
+          )}
+        </Tabs.Panel>
+
+        {/* ── Modèle ── */}
+        <Tabs.Panel value="modele">
+          <SimpleGrid cols={2} spacing="sm">
+            <MiniStat
+              icon={<IconTable size={16} />}
+              label="Entités"
+              value={own.count}
+              hint="Entités mappées sur ce connecteur."
+            />
+            <MiniStat
+              icon={<IconAffiliate size={16} />}
+              label="Relations"
+              value={own.relations}
+              hint="Relations déclarées entre entités de ce connecteur."
+            />
+            <MiniStat
+              icon={<IconCategory size={16} />}
+              label="Domaines"
+              value={own.domainCount}
+              hint="Domaines fonctionnels distincts couverts."
+            />
+            <MiniStat
+              icon={<IconChartBar size={16} />}
+              label="Lignes"
+              value={fmtNum(own.rows)}
+              hint="Total des lignes en base pour ce connecteur (COUNT(*))."
+            />
+          </SimpleGrid>
+          <Button
+            component={Link}
+            to="/nodefony/databases"
+            variant="subtle"
+            size="xs"
+            mt="md"
+            fullWidth
+            leftSection={<IconAffiliate size={14} />}
+          >
+            Voir le schéma ERD
+          </Button>
+        </Tabs.Panel>
+
+        {/* ── Entités ── */}
+        <Tabs.Panel value="entites">
+          {own.rowList.length === 0 ? (
+            <Text size="sm" c="dimmed">
+              Aucune entité sur ce connecteur.
+            </Text>
+          ) : (
+            <ScrollArea h={300} type="auto" offsetScrollbars="y">
+              <Table stickyHeader highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Entité</Table.Th>
+                    <Table.Th>Domaine</Table.Th>
+                    <Table.Th style={{ textAlign: "right" }}>Lignes</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {own.rowList.map((e) => (
+                    <Table.Tr key={e.name}>
+                      <Table.Td>
+                        <Anchor
+                          component={Link}
+                          to={`/nodefony/orm-entity?name=${encodeURIComponent(
+                            e.name,
+                          )}&orm=${encodeURIComponent(orm.name)}`}
+                          size="xs"
+                        >
+                          {e.name}
+                        </Anchor>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="xs" c="dimmed">
+                          {e.domain}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: "right" }}>
+                        <Text size="xs" ff="monospace">
+                          {fmtNum(e.rows)}
+                        </Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </ScrollArea>
+          )}
+        </Tabs.Panel>
+      </Tabs>
     </Card>
   );
 }
 
 /**
- * Dashboard ORM — vue d'ensemble des connecteurs : KPIs (connecteurs, connectés,
- * entités, relations) + une carte par ORM (marque, état, nb d'entités, accès au
- * schéma ERD). Données STATIQUES via le data plane `/nodefony/orm/api`
- * (`useResource`). Le détail visuel du modèle (ERD React Flow) vit dans
- * `/nodefony/databases`.
+ * Dashboard ORM — vue d'ensemble EXPLOITABLE du modèle de données : KPIs
+ * (connecteurs, entités, relations, **lignes réelles**), classements live
+ * (**top tables par volume** via `COUNT(*)`, **entités & lignes par domaine**),
+ * **santé du modèle** (orphelines, colonnes non introspectées, types de relations)
+ * et cartes connecteurs. Exporte le modèle (DBML / JSON Schema). Le rendu visuel
+ * du modèle (ERD) vit dans `/nodefony/databases`.
+ *
+ * Data plane `/nodefony/orm/api` : `orms` + `graph` (rapides) ; `counts`
+ * (COUNT(*) par entité, plus lent) chargé séparément → la page peint aussitôt,
+ * les volumes se remplissent ensuite.
  */
 export const OrmOverview = observer(() => {
   const store = useStore();
@@ -183,92 +992,666 @@ export const OrmOverview = observer(() => {
       [store],
     ),
   );
-  // Graphe complet (sans filtre) → compte les relations tous connecteurs confondus.
   const graph = useResource(
     useCallback(
       () => store.api.getAbsolute<OrmGraph>("/nodefony/orm/api/graph"),
       [store],
     ),
   );
+  // Volumes réels — endpoint séparé (1 COUNT(*) par table) : peut être lent sur
+  // un gros schéma → ne bloque pas le 1er rendu.
+  const counts = useResource(
+    useCallback(
+      () =>
+        store.api.getAbsolute<Record<string, number>>(
+          "/nodefony/orm/api/counts",
+        ),
+      [store],
+    ),
+  );
+  // Diagnostic des connexions (per-instance) : état, ping/latence, erreurs,
+  // reconnexions. `reload` = re-ping live (bouton « Tester »).
+  const health = useResource(
+    useCallback(
+      () =>
+        store.api.getAbsolute<ConnHealth[]>(
+          "/nodefony/orm/api/connection/health",
+        ),
+      [store],
+    ),
+  );
+  // Source effective du diagnostic : push HUB (temps réel) sinon fetch HTTP
+  // (1er paint + bouton « Tester »).
+  const [liveHealth, setLiveHealth] = useState<ConnHealth[] | null>(null);
+  const healthList = useMemo(
+    () => liveHealth ?? health.data ?? [],
+    [liveHealth, health.data],
+  );
+  const healthByName = useMemo(() => {
+    const m: Record<string, ConnHealth> = {};
+    for (const h of healthList) m[h.name] = h;
+    return m;
+  }, [healthList]);
 
   const list = orms.data ?? [];
+  const entities = useMemo(() => graph.data?.entities ?? [], [graph.data]);
+  const countMap = useMemo(() => counts.data ?? {}, [counts.data]);
+
   const connected = list.filter((o) => o.connected).length;
-  const entityTotal = list.reduce((a, o) => a + (o.entityCount || 0), 0);
-  const relationTotal = (graph.data?.entities ?? []).reduce(
-    (a, e) => a + (e.relations?.length ?? 0),
-    0,
+
+  // Onglet ORM actif ("*" = tous) → scope du compartiment « Modèle de données ».
+  const [activeOrm, setActiveOrm] = useState<string>("*");
+  const scopedEntities = useMemo(
+    () =>
+      activeOrm === "*"
+        ? entities
+        : entities.filter((e) => e.orm === activeOrm),
+    [entities, activeOrm],
   );
+  // KPIs = projet entier ; panneaux = scope de l'onglet (~400 entités → mémo).
+  const globalAgg = useMemo(
+    () => analyzeModel(entities, countMap),
+    [entities, countMap],
+  );
+  const agg = useMemo(
+    () => analyzeModel(scopedEntities, countMap),
+    [scopedEntities, countMap],
+  );
+  // Suffixe d'aide selon l'onglet actif (rend les bulles ⓘ contextuelles).
+  const scopeLabel = activeOrm === "*" ? "tous connecteurs" : activeOrm;
+
+  // Onglet de section actif (contrôlé) — les KPIs cliquables y naviguent.
+  const [section, setSection] = useState<"connecteurs" | "modele">(
+    "connecteurs",
+  );
+
+  useEffect(ensureLivePulseStyle, []);
+
+  // Temps réel : abonnement HUB (push WS) via <OrmHealthLive/>. Le switch
+  // monte/démonte l'abonné (ref-compté) → 0 travail serveur quand OFF.
+  // DÉSACTIVÉ par défaut au chargement (opt-in par session, NON persisté) → la
+  // page démarre statique (1 fetch HTTP). OFF → on relâche `liveHealth`.
+  const [live, setLive] = useState<boolean>(false);
+  // Granularité (cadence du hub) — préférence persistée, défaut 5 s.
+  const [liveMs, setLiveMs] = useState<number>(
+    () => Number(lsGet("nf.orm.liveMs")) || 5000,
+  );
+  useEffect(() => {
+    if (!live) setLiveHealth(null);
+  }, [live]);
+  useEffect(() => lsSet("nf.orm.liveMs", String(liveMs)), [liveMs]);
+
+  // Santé connexions agrégée (per-instance) : latence ⌀, erreurs, reconnexions.
+  const connHealth = useMemo(() => {
+    let errors = 0;
+    let recon = 0;
+    let pingSum = 0;
+    let pingN = 0;
+    for (const h of healthList) {
+      errors += h.errorCount;
+      recon += h.reconnectCount;
+      if (h.pingOk && h.pingMs != null) {
+        pingSum += h.pingMs;
+        pingN += 1;
+      }
+    }
+    return { errors, recon, avgPing: pingN ? pingSum / pingN : null };
+  }, [healthList]);
+  const healthColor: MantineColor =
+    connHealth.errors > 0 ? "red" : connected < list.length ? "orange" : "teal";
+
+  // Volume global : plus grosse table + nb de tables peuplées (KPI « Lignes »).
+  const volume = useMemo(() => {
+    let populated = 0;
+    let topName = "";
+    let topRows = 0;
+    for (const e of entities) {
+      const c = countMap[e.name];
+      if (typeof c === "number" && c > 0) {
+        populated += 1;
+        if (c > topRows) {
+          topRows = c;
+          topName = e.name;
+        }
+      }
+    }
+    return { populated, topName, topRows };
+  }, [entities, countMap]);
+
+  // Top 12 tables par volume (lignes), liées au détail de l'entité.
+  const topEntities = useMemo<RankItem[]>(
+    () =>
+      scopedEntities
+        .map((e) => ({
+          key: `${e.orm}:${e.name}`,
+          label: e.name,
+          value: countMap[e.name] ?? -1,
+          href: `/nodefony/orm-entity?name=${encodeURIComponent(
+            e.name,
+          )}&orm=${encodeURIComponent(e.orm)}`,
+        }))
+        .filter((x) => x.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 12),
+    [scopedEntities, countMap],
+  );
+
+  const topDomainsByEntities = useMemo<RankItem[]>(
+    () =>
+      Object.entries(agg.entitiesByDomain)
+        .map(([k, v]) => ({ key: k, label: k, value: v }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 12),
+    [agg.entitiesByDomain],
+  );
+
+  const topDomainsByRows = useMemo<RankItem[]>(
+    () =>
+      Object.entries(agg.rowsByDomain)
+        .map(([k, v]) => ({ key: k, label: k, value: v }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 12),
+    [agg.rowsByDomain],
+  );
+
+  const exportModel = useCallback(
+    async (format: "dbml" | "jsonschema") => {
+      const res = await store.api.getAbsolute<{
+        format: string;
+        content: string;
+      }>(`/nodefony/orm/api/export/${format}`);
+      const ext = format === "dbml" ? "dbml" : "json";
+      const blob = new Blob([res.content], {
+        type: "text/plain;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `nodefony-model.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    [store],
+  );
+
+  const loadingCore = orms.loading && !list.length;
 
   return (
     <Stack gap="lg">
       <PageHeader
         sticky
         title="Dashboard ORM"
-        subtitle="Connecteurs, entités & relations du projet"
+        subtitle="Connecteurs, modèle de données & volumes réels"
         actions={
-          <Button
-            component={Link}
-            to="/nodefony/databases"
-            variant="light"
-            leftSection={<IconAffiliate size={16} />}
-          >
-            Schéma ERD
-          </Button>
+          <Group gap="xs">
+            {live && <span className="nf-live-dot" aria-hidden />}
+            <HoverCard
+              width={250}
+              shadow="md"
+              position="bottom"
+              withinPortal
+              openDelay={120}
+              closeDelay={120}
+            >
+              <HoverCard.Target>
+                <div>
+                  <Switch
+                    size="sm"
+                    checked={live}
+                    onChange={(e) => setLive(e.currentTarget.checked)}
+                    label="Temps réel"
+                    aria-label="abonnement temps réel (hub) du diagnostic connexions"
+                  />
+                </div>
+              </HoverCard.Target>
+              <HoverCard.Dropdown>
+                <Group gap={6} mb={6}>
+                  <IconBolt size={14} />
+                  <Text size="xs" fw={600}>
+                    Granularité du temps réel
+                  </Text>
+                </Group>
+                <SegmentedControl
+                  fullWidth
+                  size="xs"
+                  value={String(liveMs)}
+                  onChange={(v) => setLiveMs(Number(v))}
+                  data={[
+                    { label: "2 s", value: "2000" },
+                    { label: "5 s", value: "5000" },
+                    { label: "10 s", value: "10000" },
+                    { label: "30 s", value: "30000" },
+                  ]}
+                />
+                <Text size="xs" c="dimmed" mt={6}>
+                  Cadence des pushes du hub (sondes ORM). Plus court = plus
+                  réactif, mais plus de pings/sondes par seconde côté serveur.
+                </Text>
+              </HoverCard.Dropdown>
+            </HoverCard>
+            <Button
+              component={Link}
+              to="/nodefony/databases"
+              variant="light"
+              leftSection={<IconAffiliate size={16} />}
+            >
+              Schéma ERD
+            </Button>
+            <Menu shadow="md" position="bottom-end" withinPortal>
+              <Menu.Target>
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  leftSection={<IconDownload size={16} />}
+                >
+                  Exporter
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Label>Modèle de données</Menu.Label>
+                <Menu.Item onClick={() => void exportModel("dbml")}>
+                  DBML (dbdiagram.io)
+                </Menu.Item>
+                <Menu.Item onClick={() => void exportModel("jsonschema")}>
+                  JSON Schema (2020-12)
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+          </Group>
         }
       />
 
+      {live && <OrmHealthLive intervalMs={liveMs} onData={setLiveHealth} />}
+
       <Grid>
-        <Kpi
+        {/* Connecteurs — vendors présents + ratio up. Clic → onglet Connecteurs. */}
+        <KpiCard
           label="Connecteurs"
-          icon={<IconDatabase size={30} stroke={1.4} />}
-          hint="ORM enregistrés dans le registre."
-        >
-          <Text fw={700} size="xl">
-            {list.length || "—"}
-          </Text>
-        </Kpi>
-        <Kpi
-          label="Connectés"
-          icon={<IconPlugConnected size={30} stroke={1.4} />}
-          hint="Connecteurs dont la connexion est ouverte."
-        >
-          <Text fw={700} size="xl">
-            {list.length ? `${connected}/${list.length}` : "—"}
-          </Text>
-        </Kpi>
-        <Kpi
+          accent="brand"
+          icon={<IconDatabase size={20} />}
+          hint="ORM enregistrés dans le registre process-wide. Clic → onglet Connecteurs."
+          value={list.length || "—"}
+          active={section === "connecteurs"}
+          onClick={() => setSection("connecteurs")}
+          footer={
+            <Group justify="space-between" wrap="nowrap" gap="xs">
+              <Group gap={4} wrap="nowrap">
+                {[...new Set(list.map((o) => o.vendor).filter(Boolean))].map(
+                  (v) =>
+                    hasDbLogo(v) ? (
+                      <DbLogo key={v} name={v} size={16} title={v} />
+                    ) : null,
+                )}
+              </Group>
+              <Badge
+                size="sm"
+                variant="light"
+                color={
+                  connected === list.length
+                    ? "teal"
+                    : connected === 0
+                      ? "red"
+                      : "orange"
+                }
+              >
+                {connected}/{list.length} up
+              </Badge>
+            </Group>
+          }
+        />
+
+        {/* Santé connexions — latence ⌀ + incidents (données live). */}
+        <KpiCard
+          label="Santé connexions"
+          accent={healthColor}
+          icon={<IconActivity size={20} />}
+          hint="Connexions ouvertes + latence MOYENNE des pings live + incidents (erreurs / reconnexions). Per-instance (process courant)."
+          value={list.length ? `${connected}/${list.length}` : "—"}
+          active={section === "connecteurs"}
+          pulse={live}
+          onClick={() => setSection("connecteurs")}
+          footer={
+            <Group gap="xs" wrap="nowrap">
+              <Badge
+                size="sm"
+                variant="light"
+                color={connHealth.avgPing == null ? "gray" : "teal"}
+                leftSection={<IconBolt size={11} />}
+              >
+                ⌀ {fmtMs(connHealth.avgPing)}
+              </Badge>
+              {connHealth.errors > 0 && (
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color="red"
+                  leftSection={<IconAlertTriangle size={11} />}
+                >
+                  {connHealth.errors}
+                </Badge>
+              )}
+              {connHealth.recon > 0 && (
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color="orange"
+                  leftSection={<IconReload size={11} />}
+                >
+                  {connHealth.recon}
+                </Badge>
+              )}
+              {connHealth.errors === 0 && connHealth.recon === 0 && (
+                <Text size="xs" c="dimmed">
+                  aucun incident
+                </Text>
+              )}
+            </Group>
+          }
+        />
+
+        {/* Entités — relations + domaines. Clic → onglet Modèle. */}
+        <KpiCard
           label="Entités"
-          icon={<IconTable size={30} stroke={1.4} />}
-          hint="Total des entités mappées, tous connecteurs."
-        >
-          <Text fw={700} size="xl">
-            {entityTotal || "—"}
-          </Text>
-        </Kpi>
-        <Kpi
-          label="Relations"
-          icon={<IconAffiliate size={30} stroke={1.4} />}
-          hint="Relations déclarées entre entités (graphe canonique)."
-        >
-          <Text fw={700} size="xl">
-            {relationTotal || "—"}
-          </Text>
-        </Kpi>
+          accent="indigo"
+          icon={<IconTable size={20} />}
+          hint="Entités mappées tous connecteurs. Clic → onglet Modèle de données."
+          value={entities.length || "—"}
+          active={section === "modele"}
+          onClick={() => setSection("modele")}
+          footer={
+            <Group gap="xs" wrap="nowrap">
+              <Badge
+                size="sm"
+                variant="light"
+                color="indigo"
+                leftSection={<IconAffiliate size={11} />}
+              >
+                {globalAgg.relationTotal} rel.
+              </Badge>
+              <Badge
+                size="sm"
+                variant="light"
+                color="grape"
+                leftSection={<IconCategory size={11} />}
+              >
+                {globalAgg.domainCount} dom.
+              </Badge>
+            </Group>
+          }
+        />
+
+        {/* Lignes — volume réel + plus grosse table. Clic → onglet Modèle. */}
+        <KpiCard
+          label="Lignes (réelles)"
+          accent="teal"
+          icon={<IconChartBar size={20} />}
+          hint="Total des lignes en base (COUNT(*) par table) + table la plus volumineuse. Clic → onglet Modèle de données."
+          value={
+            counts.loading ? (
+              <Loader size="sm" />
+            ) : globalAgg.rowsTotal ? (
+              fmtNum(globalAgg.rowsTotal)
+            ) : (
+              "—"
+            )
+          }
+          active={section === "modele"}
+          onClick={() => setSection("modele")}
+          footer={
+            counts.loading ? (
+              <Text size="xs" c="dimmed">
+                comptage…
+              </Text>
+            ) : volume.topName ? (
+              <Group justify="space-between" wrap="nowrap" gap="xs">
+                <Text size="xs" c="dimmed" truncate title={volume.topName}>
+                  ↑ {volume.topName}
+                </Text>
+                <Text
+                  size="xs"
+                  c="dimmed"
+                  ff="monospace"
+                  style={{ flexShrink: 0 }}
+                >
+                  {fmtNum(volume.topRows)} · {volume.populated} tables
+                </Text>
+              </Group>
+            ) : (
+              <Text size="xs" c="dimmed">
+                aucune table peuplée
+              </Text>
+            )
+          }
+        />
       </Grid>
 
       <DataState
-        loading={orms.loading && !list.length}
-        error={orms.error}
+        loading={loadingCore}
+        error={orms.error ?? graph.error}
         empty={!list.length}
-        onRetry={orms.reload}
+        onRetry={() => {
+          orms.reload();
+          graph.reload();
+        }}
         emptyMessage="Aucun connecteur ORM enregistré au runtime."
       >
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
-          {list.map((o) => (
-            <OrmCard key={o.name} orm={o} />
-          ))}
-        </SimpleGrid>
+        <Tabs
+          value={section}
+          onChange={(v) =>
+            setSection((v as "connecteurs" | "modele") ?? "connecteurs")
+          }
+          keepMounted={false}
+        >
+          <Tabs.List mb="md">
+            <Tabs.Tab
+              value="connecteurs"
+              leftSection={<IconDatabase size={16} />}
+            >
+              Connecteurs ({list.length})
+            </Tabs.Tab>
+            <Tabs.Tab value="modele" leftSection={<IconAffiliate size={16} />}>
+              Modèle de données
+            </Tabs.Tab>
+          </Tabs.List>
+
+          <Tabs.Panel value="connecteurs">
+            {/* Compartiment Connecteurs */}
+            <Card withBorder radius="md" p="md">
+              <Group gap="xs" mb="md">
+                <IconDatabase size={18} />
+                <Text fw={600}>Connecteurs</Text>
+                <Badge variant="light" color="gray" size="sm">
+                  {list.length}
+                </Badge>
+                <InfoHint
+                  text={`${list.length} connecteur(s) enregistré(s) · ${connected} connecté(s).`}
+                />
+              </Group>
+              <SimpleGrid cols={list.length > 1 ? { base: 1, xl: 2 } : 1}>
+                {list.map((o) => (
+                  <ConnectorCard
+                    key={o.name}
+                    orm={o}
+                    entities={entities}
+                    countMap={countMap}
+                    health={healthByName[o.name]}
+                  />
+                ))}
+              </SimpleGrid>
+            </Card>
+          </Tabs.Panel>
+
+          <Tabs.Panel value="modele">
+            {/* Compartiment Modèle de données — sous-onglets par connecteur (filtre live) */}
+            <Card withBorder radius="md" p="md">
+              <Group gap="xs" mb="sm">
+                <IconAffiliate size={18} />
+                <Text fw={600}>Modèle de données</Text>
+                <InfoHint
+                  text={`${entities.length} entité(s) · ${globalAgg.relationTotal} relation(s) · ${globalAgg.domainCount} domaine(s). Onglet = filtre par connecteur.`}
+                />
+              </Group>
+              <Tabs
+                value={activeOrm}
+                onChange={(v) => setActiveOrm(v ?? "*")}
+                variant="pills"
+              >
+                <Tabs.List mb="md">
+                  <Tabs.Tab value="*" leftSection={<IconStack2 size={14} />}>
+                    Tous
+                  </Tabs.Tab>
+                  {list.map((o) => (
+                    <Tabs.Tab
+                      key={o.name}
+                      value={o.name}
+                      leftSection={
+                        hasDbLogo(o.vendor) ? (
+                          <DbLogo name={o.vendor} size={14} />
+                        ) : (
+                          <IconDatabase size={14} />
+                        )
+                      }
+                    >
+                      {o.name}
+                    </Tabs.Tab>
+                  ))}
+                </Tabs.List>
+                <Tabs.Panel value={activeOrm}>
+                  <Grid>
+                    <Grid.Col span={{ base: 12, lg: 6 }}>
+                      <Panel
+                        title="Top tables par volume"
+                        icon={<IconChartBar size={18} />}
+                        hint={`${topEntities.length} table(s) peuplée(s) — top 12 par COUNT(*) · ${scopeLabel}.`}
+                        right={
+                          counts.loading ? (
+                            <Loader size="xs" />
+                          ) : (
+                            <Badge variant="light" color="gray" size="sm">
+                              COUNT(*)
+                            </Badge>
+                          )
+                        }
+                      >
+                        <RankBars
+                          items={topEntities}
+                          color="brand"
+                          empty={
+                            counts.loading
+                              ? "Comptage en cours…"
+                              : "Aucune table peuplée."
+                          }
+                        />
+                      </Panel>
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, lg: 6 }}>
+                      <Panel
+                        title="Entités par domaine"
+                        icon={<IconCategory size={18} />}
+                        hint={`${scopedEntities.length} entité(s) classée(s) sur ${agg.domainCount} domaine(s) · ${scopeLabel}.`}
+                        right={
+                          <Badge variant="light" color="gray" size="sm">
+                            {agg.domainCount}
+                          </Badge>
+                        }
+                      >
+                        <RankBars items={topDomainsByEntities} color="indigo" />
+                      </Panel>
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, lg: 6 }}>
+                      <Panel
+                        title="Lignes par domaine"
+                        icon={<IconCategory size={18} />}
+                        hint={`${fmtNum(agg.rowsTotal)} ligne(s) réparties sur ${Object.keys(agg.rowsByDomain).length} domaine(s) peuplé(s) · ${scopeLabel}.`}
+                      >
+                        <RankBars
+                          items={topDomainsByRows}
+                          color="teal"
+                          empty={
+                            counts.loading
+                              ? "Comptage en cours…"
+                              : "Aucune donnée."
+                          }
+                        />
+                      </Panel>
+                    </Grid.Col>
+
+                    <Grid.Col span={{ base: 12, lg: 6 }}>
+                      <Panel
+                        title="Santé du modèle"
+                        icon={<IconActivity size={18} />}
+                        hint={`${agg.orphans} entité(s) sans relation · ${agg.relationTotal} relation(s) sur ${scopedEntities.length} entité(s) · ${scopeLabel}.`}
+                        right={
+                          <Button
+                            component={Link}
+                            to="/nodefony/databases"
+                            variant="subtle"
+                            size="compact-xs"
+                            leftSection={<IconListSearch size={14} />}
+                          >
+                            Explorer
+                          </Button>
+                        }
+                      >
+                        <Stack gap="sm">
+                          <Group justify="space-between" wrap="nowrap">
+                            <Text size="sm">
+                              Entités orphelines (0 relation)
+                            </Text>
+                            <Badge
+                              variant="light"
+                              color={agg.orphans ? "orange" : "teal"}
+                            >
+                              {agg.orphans}
+                            </Badge>
+                          </Group>
+                          <Group justify="space-between" wrap="nowrap">
+                            <Text size="sm">Colonnes non introspectées</Text>
+                            <Badge
+                              variant="light"
+                              color={agg.noColumns ? "yellow" : "teal"}
+                            >
+                              {agg.noColumns}
+                            </Badge>
+                          </Group>
+                          <Divider
+                            label="Relations par type"
+                            labelPosition="left"
+                          />
+                          {Object.keys(agg.relByType).length ? (
+                            <Group gap="xs">
+                              {Object.entries(agg.relByType)
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([t, n]) => (
+                                  <Badge
+                                    key={t}
+                                    variant="light"
+                                    color="brand"
+                                    size="lg"
+                                  >
+                                    {REL_LABEL[t] ?? t} · {n}
+                                  </Badge>
+                                ))}
+                            </Group>
+                          ) : (
+                            <Text size="sm" c="dimmed">
+                              Aucune relation déclarée.
+                            </Text>
+                          )}
+                        </Stack>
+                      </Panel>
+                    </Grid.Col>
+                  </Grid>
+                </Tabs.Panel>
+              </Tabs>
+            </Card>
+          </Tabs.Panel>
+        </Tabs>
       </DataState>
     </Stack>
   );
 });
+
+export default OrmOverview;

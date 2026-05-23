@@ -7,7 +7,9 @@ import type {
   IRepository,
   ITransaction,
 } from "../interfaces/index";
+import { performance } from "node:perf_hooks";
 import { ormRegistry } from "./OrmRegistry";
+import { connectionMonitor } from "./ConnectionMonitor";
 
 /**
  * Classe de base abstraite de tout ORM Nodefony — câble {@link Service} (DI,
@@ -46,9 +48,21 @@ export abstract class Orm extends Service implements IOrm {
    * Connecte le driver puis émet `onOrmReady`.
    *
    * Template method : ne pas surcharger — implémenter {@link Orm.onConnect}.
+   * Instrumente le {@link connectionMonitor} (latence + reconnexion en cas de
+   * succès, erreur de connexion en cas d'échec).
    */
   async connect(): Promise<void> {
-    await this.onConnect();
+    const t0 = performance.now();
+    try {
+      await this.onConnect();
+      connectionMonitor.recordConnect(this.name, performance.now() - t0);
+    } catch (e) {
+      connectionMonitor.recordError(
+        this.name,
+        e instanceof Error ? e.message : String(e),
+      );
+      throw e;
+    }
     this.fire("onOrmReady", this);
   }
 
