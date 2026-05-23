@@ -105,6 +105,15 @@ ENV : `STAGES`(6) `STAGE_MS`(10000) `WS_STEP`(200) `HTTP_STEP`(40) `ORM_STEP`(4)
 > charge DB lourde, pointer `ORM_PATH` sur une route qui exécute des requêtes (ex. counts
 > si exposée). Reporter live 1/s : `WS open | HTTP rps ⌀ms %err | ORM rps ⌀ms %err | msgIn/s`.
 
+> 🔥 **Wedge event-loop pour démo supervision (2026-05-23)** : `ORM_PATH=/nodefony/orm/api/counts`
+> = ~412 `COUNT(*)` **synchrones** (better-sqlite3) + table `session` 104k lignes → bloque la boucle
+> **plusieurs secondes** d'affilée. C'est LE levier pour faire bouger d'un coup TOUT le dashboard
+> Supervision : **ELU → 100 %**, **event-loop → 500-600 ms**, CPU 100 %, ctx switch **involontaires** ↑
+> (préemption OS), flux ORM (débit) explose, **indice de santé → « Dégradé »**, et le **badge « retard »**
+> (famine realtime) s'allume (le ticker ne pousse plus à temps — il faut un wedge **> 3 s** à granularité
+> 1 s, seuil = 3× la cadence). Pour forcer le badge : rafale `counts` ultra-concurrente
+> (`for i in $(seq 1 35); do curl -sk .../orm/api/counts & done; wait`, en boucle ~25 s).
+
 ## Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
 
 - **Connexions** : rupture **16 372** simultanées (re-validé 2026-05-21, plage 49152–65535
@@ -116,6 +125,15 @@ ENV : `STAGES`(6) `STAGE_MS`(10000) `WS_STEP`(200) `HTTP_STEP`(40) `ORM_STEP`(4)
   `RUPTURE` le font ; lever `WS_RUPTURE_CAP=20000` pour que la sonde atteigne le vrai plafond.
 - **Messages** : echo 1 conn ~7 200 msg/s ; broadcast fan-out propre jusqu'à ~**40k msg/s**,
   sature vers ~**120k msg/s** (le serveur bufferise, ne crash pas).
+- **Stress combiné supervision (2026-05-23, ORM_PATH=counts)** : sous `WS_STEP=400 HTTP_STEP=80
+  ORM_STEP=4` (≈ 4000 WS + counts qui wedgent la boucle), mesuré **CPU 100 %, ELU 100 % (idle 0),
+  event-loop 500-600 ms, flux ORM ~180k req comptées**. ⚠️ **Le serveur NE TOMBE PAS** : il a répondu
+  HTTP **200 en ~5,3 s** (vs ~240 ms à vide) — il **dégrade la latence mais sert toujours, 0 crash, 0 % err**.
+  C'est la thèse confirmée : sous charge, le **différenciateur (realtime) meurt en premier** par famine
+  event-loop, pas le service HTTP. **Indice de santé** = « Dégradé » (saturation planchée), PAS « Critique »
+  (réservé aux pannes : erreurs, connecteur coupé, heap proche OOM). Cf [[project_realtime_granularity_clientlib]]
+  (cadence adaptative AIMD = la suite). heap/rss gonflés PENDANT le stress (WS tenues) = normal, PAS une fuite
+  (vérifier le reclaim APRÈS drain, pas pendant).
 - Détails + historique : mémoire IA `project_ws_stress_studio_lag`.
 
 ## Gotchas (vécus — ne pas réapprendre)
