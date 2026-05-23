@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.2.0
+version: 1.3.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.2.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.3.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -880,6 +880,44 @@ mémoires `project_decisions_realtime_isomorphic` (IRealtimeHub/RealtimeService/
 gotcha push) · `project_multiprocess_scaling` (Redis fan-out) · `project_realtime_vision_studio_beta` (vision) ·
 `project_ws_stress_studio_lag` (limites). Roadmap détaillée → skill **`nodefony-roadmap`** (Phase 13). RFC WS → `nodefony-rfc`.
 
+### F. Choix de runtime / langage — boussole stratégique (TOUJOURS à l'esprit)
+
+> Contexte permanent pour tout raisonnement sur la couche realtime/perf. Question posée par le user
+> (2026-05-23) : « quel langage choisir pour Nodefony et ses specs temps réel ? ». La réponse oriente
+> chaque décision d'archi du hot path.
+
+**Le plafond observé = famine de l'event-loop MONO-THREAD** (test de charge 2026-05-23 : WS 1300 +
+80k msg/s → 0 % err MAIS realtime figé par vagues, ping ORM gonflé 8 s = ordonnancement pas la base).
+C'est un **artefact du modèle Node**, pas une fatalité. Garder ça en tête : sous charge, le
+**différenciateur (realtime) meurt EN PREMIER** car tout (CPU-bound, sérialisation, ticker, ORM
+synchrone) se bat sur un thread.
+
+**Runtimes où ce problème n'existe pas** (pour situer nos choix, PAS pour réécrire) :
+
+- **Elixir/BEAM** = réponse de manuel pour le pur realtime : process préemptifs (une requête lente ne
+  gèle pas les autres), Phoenix Channels (= notre patron canal/ref-count natif), clustering distribué
+  natif (= notre fan-out Redis gratuit), supervision/« let it crash » (résilience cloud-native),
+  backpressure first-class (GenStage = notre AIMD). **Origine télécom → colle au Phase 15 SIP.**
+- **Go** : goroutines = 1 conn = 1 goroutine, vrai parallélisme, tue le fan-out de connexions.
+- **Rust** : perf/p99 ultimes, 0 GC — mais vélocité trop lente (solo) + ergonomie DI/agentic pénible.
+
+**MAIS le pari #1 de Nodefony = le Core ISOMORPHE** (même code client+serveur : `RealtimeClient`
+partagé, debug bar, hooks). **Seul TS tourne nativement dans le navigateur** — aucun langage
+compilé/BEAM n'est isomorphe. Changer = tuer l'isomorphisme (re-créer une lib cliente = ce que P13.3
+a justement supprimé).
+
+**→ Décision (boussole) :**
+
+- **Le framework reste TypeScript** : l'isomorphisme EST Nodefony, non négociable. Le plafond
+  event-loop se **mitige** (worker_threads pour le CPU-bound, AIMD/backpressure, sortir l'ORM
+  synchrone du thread principal).
+- **Si l'isomorphisme était négociable & seul le realtime à l'échelle comptait → Elixir/Phoenix.**
+- **Geste malin (polyglotte ciblé)** : `RealtimeService`/`IRealtimeHub` est **déjà
+  transport-agnostique** → c'est LE seam pour pousser, le jour du mur, le hot path du hub (pump WS,
+  fan-out, backpressure) dans un **addon natif Rust (napi-rs)** in-process OU un **sidecar Go/Elixir**
+  parlant notre JSON-RPC, **sans toucher au framework**. L'abstraction déjà en place vaut de l'or
+  précisément pour ça. Réfs : [[project_realtime_granularity_clientlib]] (AIMD), [[project_decisions_realtime_isomorphic]].
+
 ## 7. Ce qu'il reste à construire — roadmap + design figé (orientation action)
 
 Le skill décrit l'EXISTANT (§1-6) **ET** sait quoi BÂTIR pour le non-fait. **Réflexe début de tâche** :
@@ -1143,6 +1181,12 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.3.0** (2026-05-23) — §6.F **« Choix de runtime / langage — boussole stratégique »** : plafond =
+  famine event-loop mono-thread (vu en charge : WS 1300 + 80k msg/s, 0 % err mais realtime figé) ;
+  Elixir/BEAM = réponse pure-realtime (mais pas isomorphe) ; **décision : TS reste (isomorphisme non
+  négociable) + seam polyglotte sur `IRealtimeHub`** (Rust napi-rs / sidecar Go-Elixir) le jour du mur.
+  À garder à l'esprit pour TOUTE décision hot path. (Note : préparer le terrain au fil de l'eau →
+  durcir l'abstraction realtime + isomorphe à chaque passe.)
 - **1.2.0** (2026-05-22) — Section **« Contrat de réponse RFC du cycle »** (§4) : auto-JSON gardé + le « trap »
   (WARN dev), JSON sans charset (RFC 8259 §11), headers défaut (RFC 9110), `forward` interne (pas un 3xx), codes
   close WS (`toWsCloseCode` RFC 6455, pas de `4404`), `maxPayload`→1009, throws sans no-op. §2 : I/O sync interdit
