@@ -12,14 +12,16 @@ description: >
 
 Deux niveaux complémentaires. **Toujours s'assurer que le serveur dev tourne d'abord**
 (`bash .claude/skills/nodefony-start-server/start.sh`). Le serveur écoute 5151 (http/ws)
-+ 5152 (https/wss). Les scripts ciblent **5152 (TLS, `rejectUnauthorized:false`)** par défaut.
+
+- 5152 (https/wss). Les scripts ciblent **5152 (TLS, `rejectUnauthorized:false`)** par défaut.
 
 ## Niveau 1 — Suites mocha versionnées (non-régression)
 
 Le « vrai » filet de sécurité, committé dans `@nodefony/http`, lancé via la config
 **dédiée** `.mocharc.load.json` (séparée de la non-régression rapide). Cas CI-stables
-+ sondes plafond/rupture **gated** derrière `RUN_WS_RUPTURE=1` (épuisent les ports
-éphémères → disruptif, jamais en CI par défaut).
+
+- sondes plafond/rupture **gated** derrière `RUN_WS_RUPTURE=1` (épuisent les ports
+  éphémères → disruptif, jamais en CI par défaut).
 
 ```bash
 bash .claude/skills/load-test/scripts/run.sh mocha             # WS load CI-stable
@@ -28,14 +30,15 @@ bash .claude/skills/load-test/scripts/run.sh mocha --rupture   # + plafond/ruptu
 
 Fichiers couverts (cf `src/packages/@nodefony/http/CLAUDE.md` § « Suites séparées ») :
 
-| Fichier | Sujet |
-| --- | --- |
+| Fichier                                  | Sujet                                                    |
+| ---------------------------------------- | -------------------------------------------------------- |
 | `tests/load/ws-connections-load.test.ts` | axe 1 — connexions concurrentes + churn (drain par poll) |
-| `tests/load/ws-messages-load.test.ts` | axe 2 — débit echo + broadcast fan-out |
-| `tests/load/als-load.test.ts` | leaks de scopes DI (BUG-001/003/004) sous charge WS |
-| `tests/http/memory.test.ts` | deltas heap HTTP + WS (seuils blockers) |
+| `tests/load/ws-messages-load.test.ts`    | axe 2 — débit echo + broadcast fan-out                   |
+| `tests/load/als-load.test.ts`            | leaks de scopes DI (BUG-001/003/004) sous charge WS      |
+| `tests/http/memory.test.ts`              | deltas heap HTTP + WS (seuils blockers)                  |
 
 Gate perf seul (avant tout commit touchant Kernel/pipeline/mémoire) :
+
 ```bash
 cd src/packages/@nodefony/http && npx mocha --config .mocharc.load.json --grep "Memory"
 ```
@@ -46,29 +49,61 @@ Pour pousser **à la main** au-delà des seuils CI et trouver les vraies limites
 Node ESM purs (`ws` + builtins), **lancés depuis la racine du repo**, paramétrés par ENV.
 
 ### Axe 1 — plafond de connexions WS (`ws-connections.mjs`)
+
 Combien de sockets simultanées le process tient. Rampe par batches jusqu'au 1er
 palier incomplet (= plafond) ou `CAP`, mesure le coût heap/connexion, ferme tout.
+
 ```bash
 bash .claude/skills/load-test/scripts/run.sh ws-conn
 CAP=4000 STEP=500 BATCH=80 run.sh ws-conn      # via wrapper, ENV inline
 ```
+
 ENV : `WS_URL` `CAP`(8000) `STEP`(250) `BATCH`(50) `HOLD_MS`(0) `HEAP_URL`.
 
 ### Axe 2 — débit messages / broadcast (`ws-messages.mjs`)
+
 ```bash
 bash .claude/skills/load-test/scripts/run.sh ws-msg              # echo flood (paliers)
 MODE=broadcast CLIENTS=30 BURST=100 run.sh ws-msg               # fan-out N clients
 ```
+
 ENV : `MODE`(echo|broadcast) `HOST` `WS_URL` `BURSTS`(CSV) `CLIENTS`(20) `BURST`(50) `TIMEOUT_MS`(60000).
 
 ### Charge HTTP (`http-load.mjs`)
+
 RPS + latence p50/p90/p95/p99/max + distribution des codes, Agent keep-alive.
+
 ```bash
 bash .claude/skills/load-test/scripts/run.sh http
 N=5000 C=100 URL=https://127.0.0.1:5152/nodefony/test/index run.sh http
 METHOD=POST BODY='{"x":1}' URL=https://127.0.0.1:5152/nodefony/test/... run.sh http
 ```
+
 ENV : `URL` `N`(1000) `C`(50) `METHOD`(GET) `BODY`.
+
+### Stress COMBINÉ « supervision » (`supervision-stress.mjs`)
+
+Pousse **simultanément** 3 lanes (HTTP + connexions/messages WS + ORM/DB) en **rampe
+par paliers** pour voir le **dashboard Supervision** (CPU, heap, GC, event-loop, handles)
+ET le **dashboard ORM** bouger d'un coup d'œil, jusqu'à la **rupture**. La charge
+s'ACCUMULE par palier ; chaque palier est tenu `STAGE_MS` (≥ la granularité du hub) ;
+arrêt à la rupture (taux d'erreur du palier > `ERR_RUPTURE`) ou après `STAGES` paliers.
+
+```bash
+# AVANT : ouvrir /nodefony/supervision (switch « Temps réel » ON) + /nodefony/orm
+bash .claude/skills/nodefony-load-test/scripts/run.sh stress
+STAGES=10 WS_STEP=400 HTTP_STEP=80 ORM_STEP=8 run.sh stress   # plus agressif → rupture
+```
+
+ENV : `STAGES`(6) `STAGE_MS`(10000) `WS_STEP`(200) `HTTP_STEP`(40) `ORM_STEP`(4)
+`MSG_HZ`(4) `BATCH`(50) `ERR_RUPTURE`(0.30) `HTTP_PATH`(/nodefony/test/index)
+`ORM_PATH`(/nodefony/orm/api/orms) `WS_PATH`(/nodefony/test/ws/echo) `HOST` `PORT`.
+
+> Lanes : HTTP = workers concurrents sur une route test ; WS = connexions persistantes
+> (handles ↑) + echo à `MSG_HZ` (CPU/event-loop ↑) ; ORM = workers sur le data-plane
+> `/nodefony/orm/api/orms` (touche les connexions/versions DB → latence ORM ↑). Pour une
+> charge DB lourde, pointer `ORM_PATH` sur une route qui exécute des requêtes (ex. counts
+> si exposée). Reporter live 1/s : `WS open | HTTP rps ⌀ms %err | ORM rps ⌀ms %err | msgIn/s`.
 
 ## Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
 

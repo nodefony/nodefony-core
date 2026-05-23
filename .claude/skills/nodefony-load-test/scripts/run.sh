@@ -10,6 +10,7 @@
 #   run.sh ws-conn          # script axe 1 — plafond connexions WS
 #   run.sh ws-msg           # script axe 2 — débit echo (MODE=broadcast pour fan-out)
 #   run.sh http             # script charge HTTP (RPS + percentiles)
+#   run.sh stress           # STRESS COMBINÉ HTTP+WS+ORM en rampe (voir Supervision bouger)
 # Les ENV des scripts (CAP, STEP, MODE, N, C, URL…) se passent inline :
 #   CAP=4000 run.sh ws-conn        MODE=broadcast CLIENTS=30 run.sh ws-msg
 set -euo pipefail
@@ -32,6 +33,7 @@ case "$cmd" in
   ws-conn)  cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ws-connections.mjs" ;;
   ws-msg)   cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ws-messages.mjs" ;;
   http)     cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/http-load.mjs" ;;
+  stress)   cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/supervision-stress.mjs" ;;
   help|*)
     sed -n '2,20p' "${BASH_SOURCE[0]}"
     ;;
