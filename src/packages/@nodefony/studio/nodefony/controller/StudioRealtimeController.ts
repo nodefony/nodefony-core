@@ -131,8 +131,23 @@ class StudioRealtimeController extends Controller {
     let dispose: (() => void) | null = null;
     if (channel === CHANNELS.syslog && this.syslog) {
       dispose = createSyslogBridge(this.syslog, publish);
-    } else if (channel === CHANNELS.stats) {
-      dispose = createStatsTicker(publish, 1000, this.appMeta());
+    } else if (
+      channel === CHANNELS.stats ||
+      channel.startsWith(`${CHANNELS.stats}:`)
+    ) {
+      // Granularité pilotée par le client via le suffixe `dashboard:supervision:<ms>`
+      // (borné 250 ms–60 s). Défaut 1 s pour le canal nu. Publie sur le canal souscrit.
+      const ms =
+        channel === CHANNELS.stats
+          ? 1000
+          : Math.min(
+              60000,
+              Math.max(
+                250,
+                parseInt(channel.slice(CHANNELS.stats.length + 1), 10) || 1000,
+              ),
+            );
+      dispose = createStatsTicker(publish, ms, this.appMeta(), channel);
     } else if (
       channel === CHANNELS.ormHealth ||
       channel.startsWith(`${CHANNELS.ormHealth}:`)
@@ -200,7 +215,7 @@ class StudioRealtimeController extends Controller {
     } as IAdminRequest);
   }
 
-  /** Métadonnées app statiques (env, branche git, version) pour `dashboard:stats`. */
+  /** Métadonnées app statiques (env, branche git, version) pour `dashboard:supervision`. */
   private appMeta(): AppMeta {
     const k = this.kernel;
     return {

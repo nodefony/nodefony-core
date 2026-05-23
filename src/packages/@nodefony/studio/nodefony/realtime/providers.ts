@@ -13,11 +13,15 @@ import os from "node:os";
 import v8 from "node:v8";
 import fs from "node:fs";
 import path from "node:path";
-import { monitorEventLoopDelay } from "node:perf_hooks";
+import {
+  monitorEventLoopDelay,
+  PerformanceObserver,
+  constants as perfConstants,
+} from "node:perf_hooks";
 
 export type Publish = (channel: string, payload: unknown) => void;
 
-/** Métadonnées applicatives statiques poussées avec `dashboard:stats`. */
+/** Métadonnées applicatives statiques poussées avec `dashboard:supervision`. */
 export interface AppMeta {
   name?: string;
   version?: string;
@@ -76,7 +80,9 @@ interface SyslogLike {
 /** Canaux temps réel FIGÉS (deviendront des canaux RealtimeService en P13.4). */
 export const CHANNELS = {
   syslog: "syslog:stream",
-  stats: "dashboard:stats",
+  // Canal de la SUPERVISION (sondes process) — nommé `dashboard:supervision`
+  // pour la clarté du hub. Abonné UNIQUEMENT par la page Supervision (opt-in).
+  stats: "dashboard:supervision",
   ormHealth: "orm:health",
 } as const;
 
@@ -166,15 +172,29 @@ export function createSyslogBridge(
 }
 
 /**
- * Ticker de stats runtime → canal `dashboard:stats` toutes les `intervalMs`.
- * CPU% calculé en delta entre deux ticks (1 seul `process.cpuUsage()` par tick).
+ * Ticker de stats runtime → canal `dashboard:supervision` (ou `dashboard:supervision:<ms>`
+ * pour la granularité) toutes les `intervalMs`. CPU% calculé en delta entre deux
+ * ticks (1 seul `process.cpuUsage()` par tick).
  *
- * @returns dispose() qui clear l'interval — OBLIGATOIRE.
+ * En plus du cœur (CPU/mémoire/event-loop), pousse les **sondes process riches**
+ * du PATRON sondes+hub — l'équivalent runtime des sondes ORM (latence/storage/pool) :
+ *  - **GC** : pression sur l'intervalle (cycles, pause totale, majeurs/mineurs).
+ *  - **heapSpaces** : répartition mémoire V8 par espace (new/old/code/large…).
+ *  - **handles** : ressources actives qui tiennent la boucle, par type.
+ *
+ * Perf (règle ABSOLUE) : 1 `PerformanceObserver` GC (incréments O(1) par cycle,
+ * **détaché au dispose**) ; les sondes lourdes (`getHeapSpaceStatistics`,
+ * `getActiveResourcesInfo`) ne tournent qu'au tick (≥ 1 s, jamais en hot path) ;
+ * `setInterval` unref (cloud-native).
+ *
+ * @param channel - canal de publication (granularité `dashboard:supervision:<ms>`).
+ * @returns dispose() qui clear l'interval + détache l'observer GC — OBLIGATOIRE.
  */
 export function createStatsTicker(
   publish: Publish,
   intervalMs = 1000,
   meta?: AppMeta,
+  channel: string = CHANNELS.stats,
 ): () => void {
   const cores = os.cpus().length || 1; // 1 seule lecture (os.cpus alloue un array)
   let prevCpu = process.cpuUsage();
@@ -183,6 +203,28 @@ export function createStatsTicker(
   // natif, mean lu + reset à chaque tick → lag moyen sur l'intervalle.
   const eld = monitorEventLoopDelay({ resolution: 20 });
   eld.enable();
+
+  // Pression GC accumulée sur l'intervalle (reset à chaque tick). 1 observer,
+  // incréments O(1) par cycle GC ; détaché au dispose (aucun listener orphelin).
+  let gcCount = 0;
+  let gcPauseMs = 0;
+  let gcMajor = 0;
+  let gcMinor = 0;
+  const gcObs = new PerformanceObserver((list) => {
+    for (const e of list.getEntries()) {
+      gcCount += 1;
+      gcPauseMs += e.duration;
+      const kind = (e.detail as { kind?: number } | null)?.kind;
+      if (kind === perfConstants.NODE_PERFORMANCE_GC_MAJOR) gcMajor += 1;
+      else if (kind === perfConstants.NODE_PERFORMANCE_GC_MINOR) gcMinor += 1;
+    }
+  });
+  try {
+    gcObs.observe({ entryTypes: ["gc"] });
+  } catch {
+    /* 'gc' indisponible : best-effort, on continue sans sonde GC */
+  }
+
   const tick = (): void => {
     const now = Date.now();
     const cur = process.cpuUsage();
@@ -200,7 +242,29 @@ export function createStatsTicker(
     const eventLoopMs = Math.round((eld.mean / 1e6) * 100) / 100;
     eld.reset();
     const mem = process.memoryUsage();
-    publish(CHANNELS.stats, {
+
+    // Sonde GC : snapshot de la pression sur l'intervalle écoulé, puis reset.
+    const gc = {
+      count: gcCount,
+      pauseMs: Math.round(gcPauseMs * 100) / 100,
+      major: gcMajor,
+      minor: gcMinor,
+    };
+    gcCount = gcPauseMs = gcMajor = gcMinor = 0;
+
+    // Sonde mémoire V8 : répartition par espace (new/old/code/large_object…).
+    const heapSpaces = v8.getHeapSpaceStatistics().map((s) => ({
+      name: s.space_name,
+      used: s.space_used_size,
+      size: s.space_size,
+    }));
+
+    // Sonde ressources actives : ce qui tient la boucle vivante, agrégé par type.
+    const resources = process.getActiveResourcesInfo();
+    const byType: Record<string, number> = Object.create(null);
+    for (const r of resources) byType[r] = (byType[r] ?? 0) + 1;
+
+    publish(channel, {
       ts: now,
       app: meta, // statique (constant ref) : env, branche git, version, name
       instanceId: INSTANCE_ID,
@@ -217,6 +281,9 @@ export function createStatsTicker(
         heapLimit: HEAP_LIMIT,
         external: mem.external,
       },
+      gc,
+      heapSpaces,
+      handles: { total: resources.length, byType },
     });
   };
   const timer = setInterval(tick, intervalMs);
@@ -224,6 +291,73 @@ export function createStatsTicker(
   return () => {
     clearInterval(timer);
     eld.disable();
+    gcObs.disconnect();
+  };
+}
+
+/**
+ * Snapshot ONE-SHOT des sondes process — pendant HTTP du canal `dashboard:supervision`
+ * (PATRON sondes+hub : endpoint + ticker). Échantillonne CPU% et event-loop sur
+ * une courte fenêtre (`sampleMs`) pour une valeur instantanée RÉELLE en une seule
+ * requête, sans flux WS. `gc` est `null` (la pression GC nécessite un observer
+ * dans la durée — disponible uniquement via le ticker).
+ *
+ * Usage : Studio affiche ce snapshot quand le temps réel est désactivé (défaut,
+ * pour la perf) → cartes peuplées de vraies valeurs au lieu d'un écran vide.
+ *
+ * @param meta - métadonnées app statiques (env, version, branche).
+ * @param sampleMs - fenêtre d'échantillonnage CPU/event-loop (défaut 150 ms).
+ */
+export async function readStatsSnapshot(
+  meta?: AppMeta,
+  sampleMs = 150,
+): Promise<Record<string, unknown>> {
+  const cores = os.cpus().length || 1;
+  const c0 = process.cpuUsage();
+  const t0 = Date.now();
+  const eld = monitorEventLoopDelay({ resolution: 20 });
+  eld.enable();
+  await new Promise<void>((resolve) => {
+    const t = setTimeout(resolve, sampleMs);
+    (t as { unref?: () => void }).unref?.();
+  });
+  const d = process.cpuUsage(c0);
+  const elapsedMs = Math.max(Date.now() - t0, 1);
+  eld.disable();
+  const cpuPercent = Math.min(
+    100,
+    Math.round(((d.user + d.system) / 1000 / elapsedMs) * 100),
+  );
+  const eventLoopMs = Math.round((eld.mean / 1e6) * 100) / 100 || 0;
+  const mem = process.memoryUsage();
+  const heapSpaces = v8.getHeapSpaceStatistics().map((s) => ({
+    name: s.space_name,
+    used: s.space_used_size,
+    size: s.space_size,
+  }));
+  const resources = process.getActiveResourcesInfo();
+  const byType: Record<string, number> = Object.create(null);
+  for (const r of resources) byType[r] = (byType[r] ?? 0) + 1;
+  return {
+    ts: Date.now(),
+    app: meta,
+    instanceId: INSTANCE_ID,
+    uptime: process.uptime(),
+    pid: process.pid,
+    cpuPercent,
+    cpuCount: cores,
+    eventLoopMs,
+    loadavg: os.loadavg(),
+    memory: {
+      rss: mem.rss,
+      heapUsed: mem.heapUsed,
+      heapTotal: mem.heapTotal,
+      heapLimit: HEAP_LIMIT,
+      external: mem.external,
+    },
+    gc: null,
+    heapSpaces,
+    handles: { total: resources.length, byType },
   };
 }
 

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-23T11:18:09.370Z",
+  "generated": "2026-05-23T11:46:32.968Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 720,
-    "symbols": 1216,
+    "symbols": 1217,
     "classes": 211,
     "interfaces": 271,
     "types": 142,
     "enums": 2,
-    "functions": 149,
+    "functions": 150,
     "constants": 441
   },
   "symbols": {
@@ -4740,7 +4740,7 @@
       "exported": true,
       "module": "@nodefony/studio",
       "extends": null,
-      "description": "Métadonnées applicatives statiques poussées avec `dashboard:stats`."
+      "description": "Métadonnées applicatives statiques poussées avec `dashboard:supervision`."
     },
     "SyslogBridgeOptions": {
       "name": "SyslogBridgeOptions",
@@ -4780,7 +4780,15 @@
       "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Ticker de stats runtime → canal `dashboard:stats` toutes les `intervalMs`. CPU% calculé en delta entre deux ticks (1 seul `process.cpuUsage()` par tick)."
+      "description": "Ticker de stats runtime → canal `dashboard:supervision` (ou `dashboard:supervision:<ms>` pour la granularité) toutes les `intervalMs`. CPU% calculé en delta entre deux ticks (1 seul `process.cpuUsa…"
+    },
+    "readStatsSnapshot": {
+      "name": "readStatsSnapshot",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/providers.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Snapshot ONE-SHOT des sondes process — pendant HTTP du canal `dashboard:supervision` (PATRON sondes+hub : endpoint + ticker). Échantillonne CPU% et event-loop sur une courte fenêtre (`sampleMs`) po…"
     },
     "createOrmHealthTicker": {
       "name": "createOrmHealthTicker",
@@ -11214,6 +11222,17 @@
       "SequelizeOrm": [
         "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts"
       ],
+      "readStatsSnapshot": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+      ],
+      "readGitBranch": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "AppMeta": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
       "createSyslogBridge": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
@@ -11223,13 +11242,7 @@
       "createOrmHealthTicker": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
-      "readGitBranch": [
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
-      ],
       "CHANNELS": [
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
-      ],
-      "AppMeta": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "Publish": [

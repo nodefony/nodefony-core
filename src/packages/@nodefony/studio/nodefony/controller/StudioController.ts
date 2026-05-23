@@ -2,6 +2,11 @@
 import { Controller, Get, Post, Body, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import type { FrontendService } from "@nodefony/frontend";
+import {
+  readStatsSnapshot,
+  readGitBranch,
+  type AppMeta,
+} from "../realtime/providers";
 
 /**
  * Rôles applicatifs Studio (MOCK). ⚠️ Doivent rester alignés avec
@@ -141,6 +146,26 @@ class StudioController extends Controller {
   }
 
   /**
+   * Snapshot ONE-SHOT des sondes process (PATRON sondes+hub) — pendant HTTP du
+   * canal realtime `dashboard:supervision`. Permet à la Supervision d'afficher des
+   * valeurs RÉELLES quand le temps réel est désactivé (défaut, pour la perf),
+   * sans ouvrir de flux WS. CPU% + event-loop échantillonnés sur une courte
+   * fenêtre (~150 ms) ; `gc` null (nécessite un observer dans la durée).
+   */
+  @Get("/studio/api/stats")
+  async apiStats() {
+    const k = this.kernel;
+    const meta: AppMeta = {
+      name: k?.projectName,
+      version: k?.version,
+      env: k?.environment,
+      debug: Boolean(k?.debug),
+      branch: readGitBranch(),
+    };
+    return this.renderJson(await readStatsSnapshot(meta));
+  }
+
+  /**
    * Mock login — accepte n'importe quoi pour le POC.
    * Sera remplacé par P6 (@nodefony/security firewall + AuthBridge).
    */
@@ -181,7 +206,9 @@ class StudioController extends Controller {
     const token = header.replace(/^Bearer\s+/i, "");
     if (!token.startsWith(MOCK_TOKEN_PREFIX)) return "admin";
     try {
-      return decodeURIComponent(token.slice(MOCK_TOKEN_PREFIX.length)) || "admin";
+      return (
+        decodeURIComponent(token.slice(MOCK_TOKEN_PREFIX.length)) || "admin"
+      );
     } catch {
       return "admin";
     }
@@ -222,7 +249,14 @@ class StudioController extends Controller {
   @Get("/studio/api/logs/stream")
   async apiLogsStream(): Promise<void> {
     const httpResp = this.context?.response as
-      | { response?: { setHeader: (k: string, v: string) => void; write: (s: string) => boolean; flushHeaders?: () => void; once: (e: string, fn: () => void) => void } }
+      | {
+          response?: {
+            setHeader: (k: string, v: string) => void;
+            write: (s: string) => boolean;
+            flushHeaders?: () => void;
+            once: (e: string, fn: () => void) => void;
+          };
+        }
       | undefined;
     const rawRes = httpResp?.response;
     if (!rawRes || !this.syslog) return;

@@ -48,7 +48,7 @@ type Frame = { logs: unknown[]; dropped: number };
 describe("realtime providers — CHANNELS / INSTANCE_ID", () => {
   it("canaux figés (contrat front + futur RealtimeService)", () => {
     expect(CHANNELS.syslog).to.equal("syslog:stream");
-    expect(CHANNELS.stats).to.equal("dashboard:stats");
+    expect(CHANNELS.stats).to.equal("dashboard:supervision");
   });
   it("INSTANCE_ID = string non vide (défaut = pid)", () => {
     expect(INSTANCE_ID).to.be.a("string");
@@ -66,14 +66,19 @@ describe("createSyslogBridge — coalescing (fix lag Studio)", () => {
     const dispose = createSyslogBridge(syslog, publish, { flushMs: 200 });
     expect(syslog.count("onLog"), "1 listener attaché").to.equal(1);
     vi.advanceTimersByTime(1000);
-    expect(publish.mock.calls.length, "lazy : aucun publish sans log").to.equal(0);
+    expect(publish.mock.calls.length, "lazy : aucun publish sans log").to.equal(
+      0,
+    );
     dispose();
   });
 
   it("agrège N logs en 1 frame après flushMs, ordre préservé", () => {
     const syslog = fakeSyslog();
     const publish = vi.fn();
-    const dispose = createSyslogBridge(syslog, publish, { flushMs: 200, maxBatch: 500 });
+    const dispose = createSyslogBridge(syslog, publish, {
+      flushMs: 200,
+      maxBatch: 500,
+    });
 
     syslog.emit("onLog", "a");
     syslog.emit("onLog", "b");
@@ -109,7 +114,10 @@ describe("createSyslogBridge — coalescing (fix lag Studio)", () => {
   it("ring buffer borné : écrase le + ancien au-delà de maxBatch et compte dropped", () => {
     const syslog = fakeSyslog();
     const publish = vi.fn();
-    const dispose = createSyslogBridge(syslog, publish, { flushMs: 50, maxBatch: 3 });
+    const dispose = createSyslogBridge(syslog, publish, {
+      flushMs: 50,
+      maxBatch: 3,
+    });
 
     // 5 logs, cap 3 → garde les 3 + récents (c,d,e), 2 omis.
     for (const l of ["a", "b", "c", "d", "e"]) syslog.emit("onLog", l);
@@ -143,15 +151,18 @@ describe("createSyslogBridge — coalescing (fix lag Studio)", () => {
     dispose(); // avant la fenêtre
     expect(syslog.count("onLog"), "listener détaché").to.equal(0);
     vi.advanceTimersByTime(500);
-    expect(publish.mock.calls.length, "le flush en attente est annulé").to.equal(0);
+    expect(
+      publish.mock.calls.length,
+      "le flush en attente est annulé",
+    ).to.equal(0);
   });
 });
 
-describe("createStatsTicker — heartbeat dashboard:stats", () => {
+describe("createStatsTicker — heartbeat dashboard:supervision", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("publie sur dashboard:stats à chaque intervalMs", () => {
+  it("publie sur dashboard:supervision à chaque intervalMs", () => {
     const publish: ReturnType<typeof vi.fn> = vi.fn();
     const dispose = createStatsTicker(publish, 1000);
     expect(publish.mock.calls.length, "rien avant le 1er tick").to.equal(0);

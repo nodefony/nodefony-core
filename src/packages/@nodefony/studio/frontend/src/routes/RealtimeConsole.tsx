@@ -85,12 +85,14 @@ export const RealtimeConsole = observer(() => {
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
-  // La console S'ABONNE elle-même aux canaux standard tant qu'elle est ouverte
-  // → on voit TOUJOURS l'activité realtime (frames + abonnements + débit), même
-  // après avoir quitté un dashboard (les abonnements sont par page). Ref-compté
-  // → coexiste sans couper les autres consommateurs. Handlers no-op : le client
-  // capture déjà frames (`__frame__`) + stats par canal.
-  useNodefonyChannel("dashboard:stats", () => {});
+  // La console S'ABONNE elle-même au flux de logs tant qu'elle est ouverte → on
+  // voit TOUJOURS l'activité realtime (frames + abonnements + débit), même après
+  // avoir quitté un dashboard (les abonnements sont par page). Ref-compté → coexiste
+  // sans couper les autres consommateurs. Handler no-op : le client capture déjà
+  // les frames (`__frame__`) + les stats par canal.
+  // ⚠️ PAS de keepalive du canal supervision (`dashboard:supervision`) : il est
+  // OPT-IN (perf), abonné UNIQUEMENT par la page Supervision — sinon il tournerait
+  // en continu dès qu'on ouvre le hub (ou via lui, ailleurs).
   useNodefonyChannel("syslog:stream", () => {});
 
   // Capture des frames : l'abonnement à `__frame__` enclenche le ring côté client.

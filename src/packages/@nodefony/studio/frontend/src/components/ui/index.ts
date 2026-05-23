@@ -9,6 +9,12 @@ export { KeyValue, DefinitionList, type KeyValueProps } from "./KeyValue";
 export { JsonViewer, type JsonViewerProps } from "./JsonViewer";
 export { ConfigView, type ConfigViewProps } from "./ConfigView";
 export {
+  FlashValue,
+  ensureLiveStyles,
+  type FlashValueProps,
+} from "./FlashValue";
+export { KpiCard, type KpiCardProps } from "./KpiCard";
+export {
   MiniChart,
   ChartCard,
   Legend,

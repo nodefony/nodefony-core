@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Grid,
   Stack,
@@ -9,10 +9,14 @@ import {
   Title,
   Badge,
   Alert,
-  ThemeIcon,
   RingProgress,
   Tabs,
   Skeleton,
+  Button,
+  Switch,
+  HoverCard,
+  SegmentedControl,
+  Progress,
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
@@ -23,19 +27,32 @@ import {
   IconCircleCheck,
   IconBug,
   IconServer,
+  IconBolt,
+  IconRecycle,
+  IconBoxMultiple,
+  IconPlugConnected,
+  IconRefresh,
+  IconPlayerPause,
 } from "@tabler/icons-react";
 import { useStore, useAuth } from "../stores";
 import { useNodefonyState, useNodefonyChannel } from "nodefony/react";
 import {
   PageHeader,
-  StatCard as Kpi,
+  KpiCard,
   ChartCard,
   MiniChart,
   KeyValue as Row,
   Legend,
+  InfoHint,
+  FlashValue,
+  ensureLiveStyles,
 } from "../components/ui";
 
-/** Stats live poussées sur le canal WS `dashboard:stats` (1/s). */
+/**
+ * Sondes process (PATRON sondes+hub) poussées sur le canal WS
+ * `dashboard:supervision[:ms]` (live) OU lues en one-shot via
+ * `GET /nodefony/studio/api/stats` (snapshot statique quand le temps réel est OFF).
+ */
 interface StatsPayload {
   ts: number;
   instanceId: string;
@@ -52,6 +69,10 @@ interface StatsPayload {
     heapLimit?: number;
     external: number;
   };
+  /** Sondes riches — optionnelles ; `gc` est null dans le snapshot (live-only). */
+  gc?: { count: number; pauseMs: number; major: number; minor: number } | null;
+  heapSpaces?: { name: string; used: number; size: number }[];
+  handles?: { total: number; byType: Record<string, number> };
 }
 
 interface KernelInfo {
@@ -62,6 +83,23 @@ interface KernelInfo {
 
 const HISTORY = 60;
 const MB = 1024 ** 2;
+
+/** Lecture localStorage tolérante (navigation privée / quota). */
+function lsGet(k: string): string | null {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+}
+/** Écriture localStorage tolérante. */
+function lsSet(k: string, v: string): void {
+  try {
+    localStorage.setItem(k, v);
+  } catch {
+    /* ignore */
+  }
+}
 
 function bytes(n: number): string {
   if (n < MB) return `${(n / 1024).toFixed(0)} KB`;
@@ -92,10 +130,33 @@ function level(v: number, warn: number, crit: number): Health {
 }
 
 /**
- * Dashboard SUPERVISION — vue ops « est-ce que ça va ». Mêmes flux que le board
- * dev (`dashboard:stats` + `syslog:stream`) mais présentés en indicateurs de
- * santé seuillés + bandeau d'alertes, pas en courbes brutes. Per-instance (le
- * process qui tient le WS) ; vue cluster = Redis P13.
+ * Abonné HUB au canal supervision — monté UNIQUEMENT quand « Temps réel » est ON.
+ * `useNodefonyChannel` est ref-compté : démonter ce composant désabonne (→ le
+ * serveur arrête le ticker, 0 travail quand OFF). C'est la mécanique du OFF par
+ * défaut « pour la perf ». Granularité = canal paramétré `:<ms>` (re-cadence).
+ */
+function SupervisionLive({
+  channel,
+  onStats,
+  onLog,
+}: {
+  channel: string;
+  onStats: (p: unknown) => void;
+  onLog: (d: unknown) => void;
+}) {
+  useNodefonyChannel(channel, onStats);
+  useNodefonyChannel("syslog:stream", onLog);
+  return null;
+}
+
+/**
+ * Dashboard SUPERVISION — vue ops « est-ce que ça va » : indicateurs de santé
+ * seuillés + bandeau d'alertes + sondes process riches. Per-instance (le process
+ * courant) ; vue cluster = Redis P13.
+ *
+ * Temps réel **OFF par défaut** (perf) : au chargement, un snapshot HTTP one-shot
+ * peuple les cartes ; activer « Temps réel » ouvre le flux WS (courbes + GC +
+ * flash). Les KPIs cliquables naviguent vers l'onglet de détail correspondant.
  */
 export const DashboardSupervision = observer(() => {
   const auth = useAuth();
@@ -109,13 +170,36 @@ export const DashboardSupervision = observer(() => {
   const [loopHist, setLoopHist] = useState<number[]>([]);
   const [memHist, setMemHist] = useState<{ heap: number; rss: number }[]>([]);
   const [errHist, setErrHist] = useState<number[]>([]);
+  const [gcHist, setGcHist] = useState<number[]>([]);
+  // Historique CORRÉLÉ CPU% / Heap% (même échelle 0-100) — vue superviseur :
+  // CPU et mémoire sont liés (un pic mémoire → pression GC → CPU).
+  const [sysHist, setSysHist] = useState<{ cpu: number; heap: number }[]>([]);
   const errSec = useRef(0);
+
+  // Onglet de détail actif (CONTRÔLÉ) → les KPIs du haut y naviguent au clic.
+  const [tab, setTab] = useState<string>("performance");
+
+  // Temps réel : OFF par défaut (opt-in par SESSION, NON persisté) — pour la perf.
+  // OFF → snapshot HTTP statique ; ON → flux WS (courbes + GC + flash).
+  const [live, setLive] = useState<boolean>(false);
+  // Granularité (cadence des pushes) — préférence PERSISTÉE, défaut 1 s. Canal
+  // paramétré `dashboard:supervision:<ms>` ; 1 s = canal nu. Re-cadence = ré-abo.
+  const [liveMs, setLiveMs] = useState<number>(
+    () => Number(lsGet("nf.supervision.liveMs")) || 1000,
+  );
+  useEffect(() => lsSet("nf.supervision.liveMs", String(liveMs)), [liveMs]);
+  useEffect(ensureLiveStyles, []);
+  const statsChannel =
+    liveMs === 1000
+      ? "dashboard:supervision"
+      : `dashboard:supervision:${liveMs}`;
 
   const cap = (arr: number[], v: number): number[] => {
     const n = [...arr, v];
     return n.length > HISTORY ? n.slice(-HISTORY) : n;
   };
 
+  // Infos kernel statiques (env, version, pid).
   useEffect(() => {
     let cancelled = false;
     store.api
@@ -129,14 +213,47 @@ export const DashboardSupervision = observer(() => {
     };
   }, [store]);
 
-  // Tick stats (1/s) → met à jour les jauges + bascule le compteur d'erreurs
-  // de la seconde écoulée dans l'historique (erreurs/min = somme sur 60 s).
-  useNodefonyChannel("dashboard:stats", (payload: unknown) => {
+  // Snapshot one-shot des sondes process (sans flux WS) — pour le mode OFF.
+  const fetchSnapshot = useCallback(() => {
+    store.api
+      .getAbsolute<StatsPayload>("/nodefony/studio/api/stats")
+      .then((s) => {
+        if (s && s.memory) setStats(s);
+      })
+      .catch(() => {});
+  }, [store]);
+
+  // OFF → on prend le snapshot et on vide les séries temporelles (live-only).
+  // ON → `SupervisionLive` prend le relais (rien à faire ici).
+  useEffect(() => {
+    if (live) return;
+    fetchSnapshot();
+    setCpuHist([]);
+    setLoopHist([]);
+    setMemHist([]);
+    setErrHist([]);
+    setGcHist([]);
+    setSysHist([]);
+    errSec.current = 0;
+  }, [live, fetchSnapshot]);
+
+  // Handler tick stats (live) → jauges + séries + bascule du compteur d'erreurs.
+  const onStats = (payload: unknown) => {
     const s = payload as StatsPayload;
     if (!s || typeof s !== "object" || !s.memory) return;
     setStats(s);
     setCpuHist((prev) => cap(prev, s.cpuPercent));
     setLoopHist((prev) => cap(prev, s.eventLoopMs));
+    if (s.gc) setGcHist((prev) => cap(prev, s.gc!.pauseMs));
+    const ceil =
+      s.memory.heapLimit && s.memory.heapLimit > 0
+        ? s.memory.heapLimit
+        : s.memory.heapTotal;
+    const hp = ceil > 0 ? Math.round((s.memory.heapUsed / ceil) * 100) : 0;
+    setSysHist((prev) => {
+      const next = [...prev, { cpu: s.cpuPercent, heap: hp }];
+      return next.length > HISTORY ? next.slice(-HISTORY) : next;
+    });
     setMemHist((prev) => {
       const next = [
         ...prev,
@@ -149,11 +266,10 @@ export const DashboardSupervision = observer(() => {
       errSec.current = 0;
       return next.length > HISTORY ? next.slice(-HISTORY) : next;
     });
-  });
+  };
 
-  // Canal partagé (ref-compté) : on ne compte QUE les ERROR/CRITIC pour le taux
-  // d'erreurs. Frame coalescée { logs[], dropped }.
-  useNodefonyChannel("syslog:stream", (data: unknown) => {
+  // Handler syslog (live) : on ne compte QUE les ERROR/CRITIC. Frame coalescée.
+  const onLog = (data: unknown) => {
     if (!data || typeof data !== "object") return;
     const rec = data as { logs?: Array<{ severityName?: string }> };
     if (!Array.isArray(rec.logs)) return;
@@ -162,7 +278,7 @@ export const DashboardSupervision = observer(() => {
         errSec.current += 1;
       }
     }
-  });
+  };
 
   const waiting = !stats;
   const cpu = stats?.cpuPercent ?? 0;
@@ -176,16 +292,21 @@ export const DashboardSupervision = observer(() => {
       ? Math.round((stats.memory.heapUsed / heapCeiling) * 100)
       : 0;
   const errPerMin = errHist.reduce((a, b) => a + b, 0);
-  const mb = (v: number) => `${v.toFixed(0)} MB`;
   const ms = (v: number) => `${v.toFixed(1)} ms`;
 
   const cpuH = level(cpu, 50, 80);
   const memH = level(heapPct, 60, 80);
   const loopH = level(loop, 20, 50);
-  const errH = level(errPerMin, 1, 10);
+  // Erreurs : mesurées en LIVE uniquement (flux syslog). En pause → non évaluées.
+  const errH = level(live ? errPerMin : 0, 1, 10);
+
+  // Sondes process riches — optionnelles selon le payload.
+  const gc = stats?.gc ?? undefined;
+  const heapSpaces = stats?.heapSpaces ?? [];
+  const handles = stats?.handles;
 
   // Bandeau d'alertes : tout indicateur hors-OK. Couleur + libellé (jamais la
-  // couleur seule — WCAG 2.2).
+  // couleur seule — WCAG 2.2). Les erreurs ne comptent qu'en live.
   const alerts: { color: string; msg: string }[] = [];
   if (!rtOnline)
     alerts.push({
@@ -204,27 +325,127 @@ export const DashboardSupervision = observer(() => {
       color: loopH.color,
       msg: `Event-loop ${loop.toFixed(1)} ms (${loopH.label})`,
     });
-  if (errH.color !== "teal")
+  if (live && errH.color !== "teal")
     alerts.push({
       color: errH.color,
       msg: `${errPerMin} erreur(s)/min (${errH.label})`,
     });
 
-  const up = rtOnline && !!stats && alerts.length === 0;
+  // Santé GLOBALE à 3 états (≠ binaire) : le ROUGE « Dégradé » est réservé aux
+  // alertes critiques ; un simple warning jaune = « À surveiller » (PAS dégradé).
+  // Évite le faux « Dégradé » permanent dès la moindre erreur/min.
+  const hasRed = alerts.some((a) => a.color === "red");
+  const hasWarn = alerts.length > 0;
+  const globalState: "ok" | "watch" | "degraded" | "unknown" =
+    !rtOnline || !stats
+      ? "unknown"
+      : hasRed
+        ? "degraded"
+        : hasWarn
+          ? "watch"
+          : "ok";
+  const GLOBAL: Record<
+    "ok" | "watch" | "degraded" | "unknown",
+    { label: string; color: string }
+  > = {
+    ok: { label: "Opérationnel", color: "teal" },
+    watch: { label: "À surveiller", color: "yellow" },
+    degraded: { label: "Dégradé", color: "red" },
+    unknown: { label: "En attente", color: "gray" },
+  };
+  const gState = GLOBAL[globalState];
+
+  // Légende du suffixe d'aide selon le mode (rend les ⓘ contextuelles/honnêtes).
+  const liveSuffix = live
+    ? `Temps réel ON (${liveMs / 1000}s).`
+    : "Temps réel OFF — snapshot statique (activez pour les courbes).";
+  const chartHint = live
+    ? "En attente des premières mesures…"
+    : "Activez « Temps réel » pour tracer les courbes.";
 
   return (
     <Stack gap="lg">
+      {live && (
+        <SupervisionLive
+          channel={statsChannel}
+          onStats={onStats}
+          onLog={onLog}
+        />
+      )}
+
       <PageHeader
         sticky
         title="Supervision"
         subtitle={
           <>
-            Santé applicative en temps réel — {auth.user?.username}. Vue
-            per-instance.
+            Santé applicative {live ? "en temps réel" : "(snapshot)"} —{" "}
+            {auth.user?.username}. Vue per-instance.
           </>
         }
         actions={
-          <>
+          <Group gap="xs">
+            {live && <span className="nf-live-dot" aria-hidden />}
+            {!live && (
+              <Button
+                variant="subtle"
+                color="gray"
+                size="xs"
+                leftSection={<IconRefresh size={14} />}
+                onClick={fetchSnapshot}
+                aria-label="rafraîchir le snapshot"
+              >
+                Rafraîchir
+              </Button>
+            )}
+            {/* Switch temps réel + granularité (HoverCard) — OFF par défaut. */}
+            <HoverCard
+              width={280}
+              shadow="md"
+              position="bottom-end"
+              withinPortal
+              openDelay={120}
+              closeDelay={120}
+            >
+              <HoverCard.Target>
+                <div>
+                  <Switch
+                    size="sm"
+                    checked={live}
+                    onChange={(e) => setLive(e.currentTarget.checked)}
+                    label="Temps réel"
+                    aria-label="abonnement temps réel (hub) des sondes de supervision"
+                  />
+                </div>
+              </HoverCard.Target>
+              <HoverCard.Dropdown>
+                <Group gap={6} mb={6}>
+                  <IconBolt size={14} />
+                  <Text size="xs" fw={600}>
+                    Temps réel & granularité
+                  </Text>
+                </Group>
+                <Text size="xs" c="dimmed" mb={8}>
+                  OFF par défaut (perf) : snapshot statique. ON ouvre le flux WS
+                  (courbes, GC, flash). Cadence des pushes :
+                </Text>
+                <SegmentedControl
+                  fullWidth
+                  size="xs"
+                  value={String(liveMs)}
+                  onChange={(v) => setLiveMs(Number(v))}
+                  data={[
+                    { label: "1 s", value: "1000" },
+                    { label: "2 s", value: "2000" },
+                    { label: "5 s", value: "5000" },
+                    { label: "10 s", value: "10000" },
+                  ]}
+                />
+                <Text size="xs" c="dimmed" mt={6}>
+                  Plus court = plus réactif, mais plus de mesures/s côté
+                  serveur.
+                </Text>
+              </HoverCard.Dropdown>
+            </HoverCard>
             {info && (
               <Badge variant="light" color="gray" size="lg">
                 {info.environment}
@@ -246,16 +467,32 @@ export const DashboardSupervision = observer(() => {
               variant="light"
               size="lg"
             >
-              {rtOnline ? "Realtime online" : rtState}
+              {rtOnline
+                ? live
+                  ? "Realtime online"
+                  : "Realtime prêt"
+                : rtState}
             </Badge>
-          </>
+          </Group>
         }
       />
 
       {/* ── Bandeau état global / alertes ── */}
       {waiting ? (
         <Skeleton h={56} radius="md" />
-      ) : up ? (
+      ) : !live ? (
+        <Alert
+          variant="light"
+          color="blue"
+          icon={<IconPlayerPause size={18} />}
+          title="Temps réel en pause (snapshot statique)"
+          role="status"
+        >
+          Les valeurs ci-dessous sont un instantané. Activez « Temps réel » pour
+          les courbes, la pression GC et le suivi des erreurs (désactivé par
+          défaut pour la perf).
+        </Alert>
+      ) : globalState === "ok" ? (
         <Alert
           variant="light"
           color="teal"
@@ -268,9 +505,9 @@ export const DashboardSupervision = observer(() => {
       ) : (
         <Alert
           variant="light"
-          color={alerts.some((a) => a.color === "red") ? "red" : "yellow"}
+          color={hasRed ? "red" : "yellow"}
           icon={<IconAlertTriangle size={18} />}
-          title={`${alerts.length} alerte(s) active(s)`}
+          title={`${alerts.length} alerte(s) active(s) — ${gState.label}`}
           role="alert"
         >
           <Stack gap={4}>
@@ -286,116 +523,244 @@ export const DashboardSupervision = observer(() => {
         </Alert>
       )}
 
-      {/* ── Indicateurs de santé ── */}
+      {/* ── Indicateurs de santé (cards riches cliquables → onglet) ── */}
       <Grid>
-        <Kpi
+        {/* État global — synthèse 3 états. */}
+        <KpiCard
           label="État"
-          icon={<IconActivityHeartbeat size={30} stroke={1.4} />}
-          hint="Synthèse : temps réel connecté + métriques reçues + aucune alerte."
-        >
-          {waiting ? (
-            <Skeleton h={28} w={120} />
-          ) : (
-            <Text fw={700} size="xl" c={up ? "teal" : "red"}>
-              {up ? "Opérationnel" : "Dégradé"}
-            </Text>
-          )}
-        </Kpi>
+          accent={gState.color}
+          icon={<IconActivityHeartbeat size={20} />}
+          pulse={live}
+          hint={`Synthèse 3 états : ROUGE « Dégradé » seulement si alerte critique, JAUNE « À surveiller » si avertissement, VERT sinon. Actuellement ${alerts.length} alerte(s), temps réel ${rtState}. ${liveSuffix}`}
+          value={
+            waiting ? (
+              <Skeleton h={30} w={160} />
+            ) : (
+              <Text inherit c={gState.color}>
+                <FlashValue value={gState.label}>{gState.label}</FlashValue>
+              </Text>
+            )
+          }
+          footer={
+            <Group gap="xs" wrap="nowrap">
+              <Badge size="sm" variant="light" color={gState.color}>
+                {alerts.length === 0
+                  ? "aucune alerte"
+                  : `${alerts.length} alerte(s)`}
+              </Badge>
+              <Badge size="sm" variant="light" color={live ? "teal" : "gray"}>
+                {live ? "live" : "snapshot"}
+              </Badge>
+            </Group>
+          }
+        />
 
-        <Kpi
-          label="Uptime"
-          icon={<IconClock size={30} stroke={1.4} />}
-          hint="Durée depuis le démarrage du process (per-instance)."
-        >
-          {waiting ? (
-            <Skeleton h={28} w={90} />
-          ) : (
-            <Text fw={700} size="xl">
-              {uptimeStr(stats!.uptime)}
-            </Text>
-          )}
-        </Kpi>
-
-        <Kpi
+        {/* CPU → onglet Performance. */}
+        <KpiCard
           label="CPU"
-          icon={<IconCpu size={30} stroke={1.4} />}
-          hint="% d'un cœur consommé par le process. Élevé >50%, critique >80%."
-        >
-          {waiting ? (
-            <Skeleton h={28} w={70} />
-          ) : (
-            <>
-              <Text fw={700} size="xl" c={cpuH.color}>
-                {cpu}%
+          accent={cpuH.color}
+          icon={<IconCpu size={20} />}
+          pulse={live}
+          active={tab === "performance"}
+          onClick={() => setTab("performance")}
+          hint={`CPU à ${cpu}% d'un cœur (${cpuH.label}). Seuils : élevé ≥50%, critique ≥80%. Charge ⌀ ${stats ? stats.loadavg[0].toFixed(2) : "—"} sur ${stats?.cpuCount ?? "—"} cœur(s). Clic → onglet Performance.`}
+          value={
+            waiting ? (
+              <Skeleton h={30} w={80} />
+            ) : (
+              <Text inherit c={cpuH.color}>
+                <FlashValue value={cpu}>{cpu}%</FlashValue>
               </Text>
-              <Text size="xs" c="dimmed">
+            )
+          }
+          footer={
+            <Group gap="xs" wrap="nowrap">
+              <Badge size="sm" variant="light" color={cpuH.color}>
                 {cpuH.label}
-              </Text>
-            </>
-          )}
-        </Kpi>
+              </Badge>
+              {stats && (
+                <Text size="xs" c="dimmed">
+                  charge ⌀ {stats.loadavg[0].toFixed(2)}
+                </Text>
+              )}
+            </Group>
+          }
+        />
 
-        <Kpi
-          label="Erreurs / min"
-          icon={<IconBug size={30} stroke={1.4} />}
-          hint="ERROR + CRITIC sur les 60 dernières secondes (canal syslog:stream)."
-        >
-          {waiting ? (
-            <Skeleton h={28} w={50} />
-          ) : (
-            <>
-              <Text fw={700} size="xl" c={errH.color}>
-                {errPerMin}
-              </Text>
-              <Text size="xs" c="dimmed">
-                {errH.label}
-              </Text>
-            </>
-          )}
-        </Kpi>
-
-        <Kpi
+        {/* Mémoire → onglet Mémoire. */}
+        <KpiCard
           label="Mémoire heap"
-          icon={<IconDatabase size={30} stroke={1.4} />}
-          hint="Heap utilisé / plafond V8. Élevé >60%, critique >80% (proche OOM)."
-        >
-          {waiting ? (
-            <Skeleton h={28} w={70} />
-          ) : (
-            <>
-              <Text fw={700} size="xl" c={memH.color}>
-                {heapPct}%
+          accent={memH.color}
+          icon={<IconDatabase size={20} />}
+          pulse={live}
+          active={tab === "memoire"}
+          onClick={() => setTab("memoire")}
+          hint={`Heap V8 ${stats ? bytes(stats.memory.heapUsed) : "—"} / ${bytes(heapCeiling)} = ${heapPct}% (${memH.label}). Critique ≥80% (proche OOM). CPU et mémoire sont liés → voir le graphe « Corrélation ». Clic → onglet Mémoire.`}
+          value={
+            waiting ? (
+              <Skeleton h={30} w={80} />
+            ) : (
+              <Text inherit c={memH.color}>
+                <FlashValue value={heapPct}>{heapPct}%</FlashValue>
               </Text>
-              <Text size="xs" c="dimmed">
-                {memH.label}
-              </Text>
-            </>
-          )}
-        </Kpi>
+            )
+          }
+          footer={
+            <Group gap="xs" wrap="nowrap">
+              <Badge size="sm" variant="light" color={memH.color}>
+                {stats ? bytes(stats.memory.heapUsed) : "—"}
+              </Badge>
+              {gc && (
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color={gc.pauseMs > 50 ? "orange" : "gray"}
+                  leftSection={<IconRecycle size={11} />}
+                >
+                  GC {gc.pauseMs.toFixed(0)} ms
+                </Badge>
+              )}
+            </Group>
+          }
+        />
 
-        <Kpi
+        {/* Event-loop → onglet Performance. */}
+        <KpiCard
           label="Event-loop"
-          icon={<IconActivityHeartbeat size={30} stroke={1.4} />}
-          hint="Retard de la boucle Node. Élevé >20ms, critique >50ms."
-        >
-          {waiting ? (
-            <Skeleton h={28} w={80} />
-          ) : (
-            <>
-              <Text fw={700} size="xl" c={loopH.color}>
-                {loop.toFixed(1)} ms
+          accent={loopH.color}
+          icon={<IconActivityHeartbeat size={20} />}
+          pulse={live}
+          active={tab === "performance"}
+          onClick={() => setTab("performance")}
+          hint={`Retard de la boucle Node ${loop.toFixed(1)} ms (${loopH.label}). Plus c'est bas, plus le serveur est réactif. Élevé ≥20ms, critique ≥50ms. Clic → onglet Performance.`}
+          value={
+            waiting ? (
+              <Skeleton h={30} w={90} />
+            ) : (
+              <Text inherit c={loopH.color}>
+                <FlashValue value={loop.toFixed(1)}>
+                  {loop.toFixed(1)} ms
+                </FlashValue>
               </Text>
-              <Text size="xs" c="dimmed">
-                {loopH.label}
+            )
+          }
+          footer={
+            <Badge size="sm" variant="light" color={loopH.color}>
+              {loopH.label}
+            </Badge>
+          }
+        />
+
+        {/* Erreurs (live-only) → onglet Erreurs. */}
+        <KpiCard
+          label="Erreurs / min"
+          accent={errH.color}
+          icon={<IconBug size={20} />}
+          pulse={live}
+          active={tab === "erreurs"}
+          onClick={() => setTab("erreurs")}
+          hint={`ERROR + CRITIC sur les 60 dernières secondes (canal syslog:stream). Surveillé ≥1/min, critique ≥10/min. ${live ? `Actuellement ${errPerMin}/min.` : "Mesuré uniquement en temps réel (activez-le)."} Clic → onglet Erreurs.`}
+          value={
+            waiting ? (
+              <Skeleton h={30} w={50} />
+            ) : !live ? (
+              <Text inherit c="dimmed">
+                —
               </Text>
-            </>
-          )}
-        </Kpi>
+            ) : (
+              <Text inherit c={errH.color}>
+                <FlashValue value={errPerMin}>{errPerMin}</FlashValue>
+              </Text>
+            )
+          }
+          footer={
+            <Badge size="sm" variant="light" color={live ? errH.color : "gray"}>
+              {!live
+                ? "temps réel requis"
+                : errPerMin === 0
+                  ? "aucune erreur"
+                  : errH.label}
+            </Badge>
+          }
+        />
+
+        {/* Uptime → onglet Système. */}
+        <KpiCard
+          label="Uptime"
+          accent="gray"
+          icon={<IconClock size={20} />}
+          active={tab === "systeme"}
+          onClick={() => setTab("systeme")}
+          hint={`Durée depuis le démarrage du process (per-instance). PID ${stats?.pid ?? info?.pid ?? "—"}, instance ${stats?.instanceId ?? "—"}. Clic → onglet Système.`}
+          value={
+            waiting ? <Skeleton h={30} w={110} /> : uptimeStr(stats!.uptime)
+          }
+          footer={
+            <Badge size="sm" variant="light" color="gray">
+              PID {stats?.pid ?? info?.pid ?? "—"}
+            </Badge>
+          }
+        />
       </Grid>
+
+      {/* ── Vue superviseur : CPU & mémoire CORRÉLÉS (même échelle %) ── */}
+      <ChartCard
+        title="Corrélation CPU / Mémoire"
+        badge={
+          <Group gap="xs" wrap="nowrap">
+            <Badge variant="light" color={cpuH.color}>
+              CPU {cpu}%
+            </Badge>
+            <Badge variant="light" color={memH.color}>
+              Heap {heapPct}%
+            </Badge>
+            <InfoHint
+              text={`CPU (% d'un cœur) et mémoire heap (% du plafond V8) tracés sur la MÊME échelle 0-100% (${sysHist.length} mesures). Lecture liée : pic mémoire qui tire le CPU = pression GC ; montée CPU sans mémoire = charge calcul ; les deux hauts ensemble = saturation. Zone rouge >80%. ${liveSuffix}`}
+            />
+          </Group>
+        }
+        caption="CPU et mémoire sont souvent liés — ici sur le même plan pour voir leur corrélation d'un coup d'œil."
+      >
+        {sysHist.length > 1 ? (
+          <>
+            <MiniChart
+              height={210}
+              max={100}
+              threshold={80}
+              format={(v) => `${Math.round(v)}%`}
+              series={[
+                {
+                  data: sysHist.map((p) => p.cpu),
+                  color: "var(--mantine-color-teal-6)",
+                  label: "CPU %",
+                },
+                {
+                  data: sysHist.map((p) => p.heap),
+                  color: "var(--mantine-color-blue-6)",
+                  label: "Heap %",
+                },
+              ]}
+            />
+            <Group gap="lg" mt="xs">
+              <Legend
+                color="var(--mantine-color-teal-6)"
+                label="CPU (% d'un cœur)"
+              />
+              <Legend
+                color="var(--mantine-color-blue-6)"
+                label="Heap (% du plafond V8)"
+              />
+            </Group>
+          </>
+        ) : (
+          <Waiting msg={chartHint} />
+        )}
+      </ChartCard>
 
       {/* ── Détail en onglets (« tablettes ») ── */}
       <Tabs
-        defaultValue="performance"
+        value={tab}
+        onChange={(v) => setTab(v ?? "performance")}
         keepMounted={false}
         variant="outline"
         radius="md"
@@ -442,7 +807,7 @@ export const DashboardSupervision = observer(() => {
                     ]}
                   />
                 ) : (
-                  <Waiting />
+                  <Waiting msg={chartHint} />
                 )}
               </ChartCard>
             </Grid.Col>
@@ -471,7 +836,51 @@ export const DashboardSupervision = observer(() => {
                     ]}
                   />
                 ) : (
-                  <Waiting />
+                  <Waiting msg={chartHint} />
+                )}
+              </ChartCard>
+            </Grid.Col>
+
+            {/* Garbage Collector — pression GC (sonde process riche, live-only). */}
+            <Grid.Col span={12}>
+              <ChartCard
+                title="Garbage Collector"
+                badge={
+                  gc ? (
+                    <Badge
+                      variant="light"
+                      color={gc.pauseMs > 50 ? "orange" : "teal"}
+                    >
+                      {gc.pauseMs.toFixed(1)} ms / {liveMs / 1000}s
+                    </Badge>
+                  ) : undefined
+                }
+                caption={`Pause GC cumulée par intervalle (${liveMs / 1000}s). Une pause élevée = pression mémoire → latence. Majeurs (mark-sweep) plus coûteux que mineurs (scavenge). Disponible en temps réel uniquement.`}
+              >
+                {gcHist.length > 1 ? (
+                  <>
+                    <MiniChart
+                      height={150}
+                      threshold={50}
+                      format={(v) => `${v.toFixed(1)} ms`}
+                      series={[
+                        {
+                          data: gcHist,
+                          color: "var(--mantine-color-orange-6)",
+                          label: "Pause GC",
+                        },
+                      ]}
+                    />
+                    {gc && (
+                      <Group gap="xl" mt="sm">
+                        <MiniMetric label="Cycles" value={gc.count} />
+                        <MiniMetric label="Majeurs" value={gc.major} />
+                        <MiniMetric label="Mineurs" value={gc.minor} />
+                      </Group>
+                    )}
+                  </>
+                ) : (
+                  <Waiting msg={chartHint} />
                 )}
               </ChartCard>
             </Grid.Col>
@@ -495,7 +904,7 @@ export const DashboardSupervision = observer(() => {
                 <>
                   <MiniChart
                     height={190}
-                    format={mb}
+                    format={(v) => `${v.toFixed(0)} MB`}
                     series={[
                       {
                         data: memHist.map((m) => m.heap),
@@ -521,18 +930,16 @@ export const DashboardSupervision = observer(() => {
                   </Group>
                 </>
               ) : (
-                <Waiting />
+                <Waiting msg={chartHint} />
               )}
             </ChartCard>
 
-            {/* Heap V8 — onglet Mémoire */}
+            {/* Heap V8 — anneau (statique, OK en snapshot). */}
             <Card withBorder radius="md" p="lg">
               <Group gap={6} mb="md">
                 <IconDatabase size={20} stroke={1.5} />
                 <Title order={4}>Heap V8</Title>
-                <Text size="xs" c="dimmed">
-                  % du plafond
-                </Text>
+                <InfoHint text="Part du tas V8 utilisée par rapport au plafond (--max-old-space-size). Critique au-delà de 80% (risque d'OOM). Disponible aussi en snapshot." />
               </Group>
               {waiting ? (
                 <Skeleton h={120} />
@@ -558,6 +965,60 @@ export const DashboardSupervision = observer(() => {
                 </Group>
               )}
             </Card>
+
+            {/* Espaces mémoire V8 — sonde process riche (répartition du tas). */}
+            <Card withBorder radius="md" p="lg">
+              <Group gap={6} mb="md">
+                <IconBoxMultiple size={20} stroke={1.5} />
+                <Title order={4}>Espaces mémoire V8</Title>
+                <InfoHint text="Répartition du tas V8 par espace : new_space (objets jeunes, scavenge fréquent), old_space (objets promus), large_object_space (gros objets), code_space (code compilé)… Une saturation cible la nature de la pression mémoire." />
+              </Group>
+              {waiting ? (
+                <Skeleton h={120} />
+              ) : heapSpaces.length ? (
+                <Stack gap={10}>
+                  {heapSpaces
+                    .filter((sp) => sp.size > 0)
+                    .map((sp) => {
+                      const pct = Math.round((sp.used / sp.size) * 100);
+                      return (
+                        <div key={sp.name}>
+                          <Group
+                            justify="space-between"
+                            gap="xs"
+                            mb={3}
+                            wrap="nowrap"
+                          >
+                            <Text size="xs" ff="monospace" truncate>
+                              {sp.name}
+                            </Text>
+                            <Text
+                              size="xs"
+                              c="dimmed"
+                              ff="monospace"
+                              style={{ flexShrink: 0 }}
+                            >
+                              {bytes(sp.used)} / {bytes(sp.size)} ({pct}%)
+                            </Text>
+                          </Group>
+                          <Progress
+                            value={pct}
+                            color={
+                              pct >= 90 ? "red" : pct >= 70 ? "yellow" : "teal"
+                            }
+                            size="sm"
+                            radius="sm"
+                          />
+                        </div>
+                      );
+                    })}
+                </Stack>
+              ) : (
+                <Text size="sm" c="dimmed">
+                  Sondes mémoire V8 indisponibles.
+                </Text>
+              )}
+            </Card>
           </Stack>
         </Tabs.Panel>
 
@@ -565,11 +1026,11 @@ export const DashboardSupervision = observer(() => {
           <ChartCard
             title="Erreurs / s"
             badge={
-              <Badge variant="light" color={errH.color}>
-                {errPerMin}/min
+              <Badge variant="light" color={live ? errH.color : "gray"}>
+                {live ? `${errPerMin}/min` : "temps réel requis"}
               </Badge>
             }
-            caption="Nombre d'ERROR+CRITIC par seconde. Toute barre rouge = incident à investiguer."
+            caption="Nombre d'ERROR+CRITIC par seconde (canal syslog:stream). Toute barre rouge = incident à investiguer. Mesuré en temps réel uniquement."
           >
             {errHist.length > 1 ? (
               <MiniChart
@@ -585,62 +1046,119 @@ export const DashboardSupervision = observer(() => {
                 ]}
               />
             ) : (
-              <Waiting />
+              <Waiting msg={chartHint} />
             )}
           </ChartCard>
         </Tabs.Panel>
 
         <Tabs.Panel value="systeme">
-          <Card withBorder radius="md" p="lg">
-            <Group justify="space-between" mb="md">
-              <Title order={4}>Système</Title>
-              <IconServer size={20} stroke={1.4} />
-            </Group>
-            <Grid>
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <Stack gap={6}>
-                  <Row k="Environnement" v={info?.environment ?? "—"} mono />
-                  <Row k="Version" v={info?.version ?? "—"} mono />
-                  <Row
-                    k="PID"
-                    v={String(stats?.pid ?? info?.pid ?? "—")}
-                    mono
-                  />
-                </Stack>
-              </Grid.Col>
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <Stack gap={6}>
-                  <Row
-                    k="Load avg"
-                    v={
-                      stats
-                        ? stats.loadavg.map((l) => l.toFixed(2)).join(" / ")
-                        : "—"
-                    }
-                    mono
-                  />
-                  <Row k="Cœurs" v={String(stats?.cpuCount ?? "—")} mono />
-                  <Row
-                    k="Uptime"
-                    v={stats ? uptimeStr(stats.uptime) : "—"}
-                    mono
-                  />
-                </Stack>
-              </Grid.Col>
-            </Grid>
-          </Card>
+          <Stack gap="lg">
+            <Card withBorder radius="md" p="lg">
+              <Group justify="space-between" mb="md">
+                <Title order={4}>Système</Title>
+                <IconServer size={20} stroke={1.4} />
+              </Group>
+              <Grid>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Stack gap={6}>
+                    <Row k="Environnement" v={info?.environment ?? "—"} mono />
+                    <Row k="Version" v={info?.version ?? "—"} mono />
+                    <Row
+                      k="PID"
+                      v={String(stats?.pid ?? info?.pid ?? "—")}
+                      mono
+                    />
+                  </Stack>
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Stack gap={6}>
+                    <Row
+                      k="Load avg"
+                      v={
+                        stats
+                          ? stats.loadavg.map((l) => l.toFixed(2)).join(" / ")
+                          : "—"
+                      }
+                      mono
+                    />
+                    <Row k="Cœurs" v={String(stats?.cpuCount ?? "—")} mono />
+                    <Row
+                      k="Uptime"
+                      v={stats ? uptimeStr(stats.uptime) : "—"}
+                      mono
+                    />
+                  </Stack>
+                </Grid.Col>
+              </Grid>
+            </Card>
+
+            {/* Ressources actives — sonde process riche (ce qui tient la boucle). */}
+            <Card withBorder radius="md" p="lg">
+              <Group gap={6} mb="md">
+                <IconPlugConnected size={20} stroke={1.5} />
+                <Title order={4}>Ressources actives</Title>
+                <Text size="xs" c="dimmed">
+                  {handles ? (
+                    <FlashValue value={handles.total}>
+                      {handles.total}
+                    </FlashValue>
+                  ) : (
+                    "—"
+                  )}{" "}
+                  handle(s)
+                </Text>
+                <InfoHint text="Ressources qui maintiennent la boucle d'événements vivante (timers, sockets, serveurs, file handles…), agrégées par type. Une croissance continue d'un type = fuite de handle potentielle." />
+              </Group>
+              {waiting ? (
+                <Skeleton h={100} />
+              ) : handles && Object.keys(handles.byType).length ? (
+                <Grid>
+                  {Object.entries(handles.byType)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([type, n]) => (
+                      <Grid.Col key={type} span={{ base: 6, sm: 4, md: 3 }}>
+                        <Row
+                          k={type}
+                          v={<FlashValue value={n}>{n}</FlashValue>}
+                          mono
+                        />
+                      </Grid.Col>
+                    ))}
+                </Grid>
+              ) : (
+                <Text size="sm" c="dimmed">
+                  Aucune ressource active rapportée.
+                </Text>
+              )}
+            </Card>
+          </Stack>
         </Tabs.Panel>
       </Tabs>
     </Stack>
   );
 });
 
-function Waiting() {
+/** Placeholder de graphe en attente (ou temps réel désactivé). */
+function Waiting({ msg }: { msg?: string }) {
   return (
     <Stack align="center" justify="center" h={180} gap={4}>
       <Skeleton h={140} w="100%" />
       <Text size="xs" c="dimmed">
-        En attente des premières mesures…
+        {msg ?? "En attente des premières mesures…"}
+      </Text>
+    </Stack>
+  );
+}
+
+/** Petite métrique inline (label + valeur), flashée à chaque changement. */
+function MiniMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <Stack gap={0}>
+      <Text size="xs" c="dimmed">
+        {label}
+      </Text>
+      <Text fw={700} size="md">
+        <FlashValue value={value}>{value}</FlashValue>
       </Text>
     </Stack>
   );
