@@ -31,6 +31,7 @@ import {
   IconRecycle,
   IconBoxMultiple,
   IconPlugConnected,
+  IconPlug,
   IconRefresh,
   IconPlayerPause,
 } from "@tabler/icons-react";
@@ -79,6 +80,44 @@ interface KernelInfo {
   version: string;
   environment: string;
   pid: number;
+}
+
+/**
+ * Connecteur ORM unifié pour la supervision : LIVE via le canal `orm:health[:ms]`
+ * (ping/erreurs/reconnexions), SNAPSHOT via `GET /nodefony/orm/api/orms` (état +
+ * driver/target/entités). Vue « tout d'un coup d'œil » : bases ↔ process.
+ */
+interface OrmConn {
+  name: string;
+  vendor: string;
+  driver: string;
+  target?: string;
+  connected: boolean;
+  entityCount?: number;
+  pingMs?: number | null;
+  pingOk?: boolean;
+  errorCount?: number;
+  reconnectCount?: number;
+}
+/** Sous-ensemble du payload `orm:health` (live) qu'on consomme. */
+interface OrmHealth {
+  name: string;
+  vendor: string;
+  driver: string;
+  target?: string;
+  connected: boolean;
+  pingMs?: number | null;
+  pingOk?: boolean;
+  errorCount?: number;
+  reconnectCount?: number;
+}
+/** Sous-ensemble de `/orm/api/orms` (snapshot). */
+interface OrmSummary {
+  name: string;
+  vendor: string;
+  connected: boolean;
+  entityCount?: number;
+  connection?: { driver?: string; target?: string };
 }
 
 const HISTORY = 60;
@@ -137,15 +176,20 @@ function level(v: number, warn: number, crit: number): Health {
  */
 function SupervisionLive({
   channel,
+  ormChannel,
   onStats,
   onLog,
+  onOrm,
 }: {
   channel: string;
+  ormChannel: string;
   onStats: (p: unknown) => void;
   onLog: (d: unknown) => void;
+  onOrm: (p: unknown) => void;
 }) {
   useNodefonyChannel(channel, onStats);
   useNodefonyChannel("syslog:stream", onLog);
+  useNodefonyChannel(ormChannel, onOrm);
   return null;
 }
 
@@ -174,6 +218,9 @@ export const DashboardSupervision = observer(() => {
   // Historique CORRÉLÉ CPU% / Heap% (même échelle 0-100) — vue superviseur :
   // CPU et mémoire sont liés (un pic mémoire → pression GC → CPU).
   const [sysHist, setSysHist] = useState<{ cpu: number; heap: number }[]>([]);
+  // Connecteurs ORM : snapshot (/orm/api/orms) + santé live (canal orm:health).
+  const [orms, setOrms] = useState<OrmSummary[]>([]);
+  const [ormHealth, setOrmHealth] = useState<OrmHealth[] | null>(null);
   const errSec = useRef(0);
 
   // Onglet de détail actif (CONTRÔLÉ) → les KPIs du haut y naviguent au clic.
@@ -193,6 +240,8 @@ export const DashboardSupervision = observer(() => {
     liveMs === 1000
       ? "dashboard:supervision"
       : `dashboard:supervision:${liveMs}`;
+  // Canal santé ORM (même granularité ; le canal nu vaut 5 s côté serveur).
+  const ormChannel = liveMs === 5000 ? "orm:health" : `orm:health:${liveMs}`;
 
   const cap = (arr: number[], v: number): number[] => {
     const n = [...arr, v];
@@ -223,11 +272,23 @@ export const DashboardSupervision = observer(() => {
       .catch(() => {});
   }, [store]);
 
+  // Snapshot des connecteurs ORM (état + driver/target/entités), sans flux WS.
+  const fetchOrms = useCallback(() => {
+    store.api
+      .getAbsolute<OrmSummary[]>("/nodefony/orm/api/orms")
+      .then((d) => {
+        if (Array.isArray(d)) setOrms(d);
+      })
+      .catch(() => {});
+  }, [store]);
+
   // OFF → on prend le snapshot et on vide les séries temporelles (live-only).
   // ON → `SupervisionLive` prend le relais (rien à faire ici).
   useEffect(() => {
     if (live) return;
     fetchSnapshot();
+    fetchOrms();
+    setOrmHealth(null);
     setCpuHist([]);
     setLoopHist([]);
     setMemHist([]);
@@ -235,7 +296,7 @@ export const DashboardSupervision = observer(() => {
     setGcHist([]);
     setSysHist([]);
     errSec.current = 0;
-  }, [live, fetchSnapshot]);
+  }, [live, fetchSnapshot, fetchOrms]);
 
   // Handler tick stats (live) → jauges + séries + bascule du compteur d'erreurs.
   const onStats = (payload: unknown) => {
@@ -268,6 +329,11 @@ export const DashboardSupervision = observer(() => {
     });
   };
 
+  // Handler santé ORM (live) : remplace l'état par le dernier paquet du hub.
+  const onOrm = (payload: unknown) => {
+    if (Array.isArray(payload)) setOrmHealth(payload as OrmHealth[]);
+  };
+
   // Handler syslog (live) : on ne compte QUE les ERROR/CRITIC. Frame coalescée.
   const onLog = (data: unknown) => {
     if (!data || typeof data !== "object") return;
@@ -294,9 +360,13 @@ export const DashboardSupervision = observer(() => {
   const errPerMin = errHist.reduce((a, b) => a + b, 0);
   const ms = (v: number) => `${v.toFixed(1)} ms`;
 
+  // En DÉVELOPPEMENT, l'event-loop partage le process avec Vite/HMR/rollup → un
+  // lag de 15-25 ms est NORMAL (≠ prod). On relâche donc le seuil en dev pour ne
+  // pas crier au loup ; en prod on vise <10 ms (seuils stricts).
+  const isDev = info?.environment === "development";
   const cpuH = level(cpu, 50, 80);
   const memH = level(heapPct, 60, 80);
-  const loopH = level(loop, 20, 50);
+  const loopH = level(loop, isDev ? 50 : 20, isDev ? 120 : 50);
   // Erreurs : mesurées en LIVE uniquement (flux syslog). En pause → non évaluées.
   const errH = level(live ? errPerMin : 0, 1, 10);
 
@@ -305,30 +375,76 @@ export const DashboardSupervision = observer(() => {
   const heapSpaces = stats?.heapSpaces ?? [];
   const handles = stats?.handles;
 
+  // Connecteurs ORM unifiés : santé LIVE (orm:health) prioritaire, sinon SNAPSHOT.
+  const connectors: OrmConn[] =
+    live && ormHealth && ormHealth.length
+      ? ormHealth.map((h) => ({
+          name: h.name,
+          vendor: h.vendor,
+          driver: h.driver,
+          target: h.target,
+          connected: h.connected,
+          pingMs: h.pingMs,
+          pingOk: h.pingOk,
+          errorCount: h.errorCount,
+          reconnectCount: h.reconnectCount,
+          entityCount: orms.find((o) => o.name === h.name)?.entityCount,
+        }))
+      : orms.map((o) => ({
+          name: o.name,
+          vendor: o.vendor,
+          driver: o.connection?.driver ?? "",
+          target: o.connection?.target,
+          connected: o.connected,
+          entityCount: o.entityCount,
+        }));
+  const connUp = connectors.filter((c) => c.connected).length;
+  const connErr = connectors.reduce((a, c) => a + (c.errorCount ?? 0), 0);
+  const connColor: string =
+    connErr > 0
+      ? "red"
+      : connUp < connectors.length
+        ? "orange"
+        : connectors.length
+          ? "teal"
+          : "gray";
+
   // Bandeau d'alertes : tout indicateur hors-OK. Couleur + libellé (jamais la
   // couleur seule — WCAG 2.2). Les erreurs ne comptent qu'en live.
-  const alerts: { color: string; msg: string }[] = [];
+  // Chaque alerte porte une EXPLICATION (ⓘ) : ce que ça veut dire + si c'est
+  // grave + quoi regarder — pour qu'un utilisateur non-expert comprenne.
+  const alerts: { color: string; msg: string; help: string }[] = [];
   if (!rtOnline)
     alerts.push({
       color: "red",
       msg: `Temps réel ${rtState} — métriques figées`,
+      help: "Le flux WebSocket temps réel est coupé : les valeurs affichées ne sont plus rafraîchies. Vérifiez que le serveur tourne et la connexion réseau.",
     });
   if (cpuH.color !== "teal")
-    alerts.push({ color: cpuH.color, msg: `CPU ${cpu}% (${cpuH.label})` });
+    alerts.push({
+      color: cpuH.color,
+      msg: `CPU ${cpu}% (${cpuH.label})`,
+      help: "Pourcentage d'UN cœur consommé par le process. Un pic court est normal (une requête lourde) ; élevé SUR LA DURÉE = charge de calcul soutenue. Voir l'onglet Performance.",
+    });
   if (memH.color !== "teal")
     alerts.push({
       color: memH.color,
       msg: `Mémoire heap ${heapPct}% (${memH.label})`,
+      help: "Part du tas V8 utilisée par rapport au plafond. >80% = risque d'OOM (crash mémoire). Surveillez surtout une croissance CONTINUE (fuite) plutôt qu'un pic. Voir l'onglet Mémoire.",
     });
   if (loopH.color !== "teal")
     alerts.push({
       color: loopH.color,
       msg: `Event-loop ${loop.toFixed(1)} ms (${loopH.label})`,
+      help: isDev
+        ? "Latence de la boucle d'événements Node. EN DÉVELOPPEMENT, Vite/HMR/rollup tournent dans le MÊME process → 15-25 ms est normal, ce n'est pas un incident. En production on vise <10 ms."
+        : "Latence de la boucle d'événements Node : le temps avant que le serveur traite le prochain événement. Élevée = du code synchrone bloque la boucle (latence p99 dégradée). >50 ms = à investiguer.",
     });
   if (live && errH.color !== "teal")
     alerts.push({
       color: errH.color,
       msg: `${errPerMin} erreur(s)/min (${errH.label})`,
+      help: "Nombre de logs ERROR + CRITIC sur les 60 dernières secondes (canal syslog). Ouvrez l'onglet Erreurs puis la page Logs pour la stack trace.",
     });
 
   // Santé GLOBALE à 3 états (≠ binaire) : le ROUGE « Dégradé » est réservé aux
@@ -355,21 +471,36 @@ export const DashboardSupervision = observer(() => {
   };
   const gState = GLOBAL[globalState];
 
+  // Onglets visibles selon le mode : en OFF, on MASQUE les onglets purement
+  // live (courbes temporelles : Performance, Erreurs) qui n'auraient rien à
+  // montrer. Mémoire (anneau + espaces V8) et Système (infos + handles) restent
+  // utiles depuis le snapshot. L'onglet actif retombe sur un onglet visible.
+  const tabs = live
+    ? ["performance", "memoire", "connecteurs", "erreurs", "systeme"]
+    : ["memoire", "connecteurs", "systeme"];
+  const activeTab = tabs.includes(tab) ? tab : tabs[0];
+  // Naviguer vers un onglet live-only depuis un KPI : si OFF, on active d'abord
+  // le temps réel (sinon l'onglet n'existe pas).
+  const goLiveTab = (t: string) => {
+    if (!live) setLive(true);
+    setTab(t);
+  };
+
   // Légende du suffixe d'aide selon le mode (rend les ⓘ contextuelles/honnêtes).
   const liveSuffix = live
     ? `Temps réel ON (${liveMs / 1000}s).`
     : "Temps réel OFF — snapshot statique (activez pour les courbes).";
-  const chartHint = live
-    ? "En attente des premières mesures…"
-    : "Activez « Temps réel » pour tracer les courbes.";
+  const chartHint = "En attente des premières mesures…";
 
   return (
     <Stack gap="lg">
       {live && (
         <SupervisionLive
           channel={statsChannel}
+          ormChannel={ormChannel}
           onStats={onStats}
           onLog={onLog}
+          onOrm={onOrm}
         />
       )}
 
@@ -512,13 +643,18 @@ export const DashboardSupervision = observer(() => {
         >
           <Stack gap={4}>
             {alerts.map((a, i) => (
-              <Group key={i} gap={8}>
+              <Group key={i} gap={8} wrap="nowrap">
                 <Badge size="xs" color={a.color} variant="filled" circle>
                   {" "}
                 </Badge>
                 <Text size="sm">{a.msg}</Text>
+                <InfoHint text={a.help} />
               </Group>
             ))}
+            <Text size="xs" c="dimmed" mt={4}>
+              Survolez ⓘ pour comprendre chaque alerte. « À surveiller » (jaune)
+              = à garder à l'œil ; « Dégradé » (rouge) = action requise.
+            </Text>
           </Stack>
         </Alert>
       )}
@@ -561,8 +697,8 @@ export const DashboardSupervision = observer(() => {
           accent={cpuH.color}
           icon={<IconCpu size={20} />}
           pulse={live}
-          active={tab === "performance"}
-          onClick={() => setTab("performance")}
+          active={activeTab === "performance"}
+          onClick={() => goLiveTab("performance")}
           hint={`CPU à ${cpu}% d'un cœur (${cpuH.label}). Seuils : élevé ≥50%, critique ≥80%. Charge ⌀ ${stats ? stats.loadavg[0].toFixed(2) : "—"} sur ${stats?.cpuCount ?? "—"} cœur(s). Clic → onglet Performance.`}
           value={
             waiting ? (
@@ -593,7 +729,7 @@ export const DashboardSupervision = observer(() => {
           accent={memH.color}
           icon={<IconDatabase size={20} />}
           pulse={live}
-          active={tab === "memoire"}
+          active={activeTab === "memoire"}
           onClick={() => setTab("memoire")}
           hint={`Heap V8 ${stats ? bytes(stats.memory.heapUsed) : "—"} / ${bytes(heapCeiling)} = ${heapPct}% (${memH.label}). Critique ≥80% (proche OOM). CPU et mémoire sont liés → voir le graphe « Corrélation ». Clic → onglet Mémoire.`}
           value={
@@ -630,9 +766,9 @@ export const DashboardSupervision = observer(() => {
           accent={loopH.color}
           icon={<IconActivityHeartbeat size={20} />}
           pulse={live}
-          active={tab === "performance"}
-          onClick={() => setTab("performance")}
-          hint={`Retard de la boucle Node ${loop.toFixed(1)} ms (${loopH.label}). Plus c'est bas, plus le serveur est réactif. Élevé ≥20ms, critique ≥50ms. Clic → onglet Performance.`}
+          active={activeTab === "performance"}
+          onClick={() => goLiveTab("performance")}
+          hint={`Retard de la boucle Node ${loop.toFixed(1)} ms (${loopH.label}). Plus c'est bas, plus le serveur est réactif. Seuils ${isDev ? "DEV (Vite in-process) : élevé ≥50ms, critique ≥120ms" : "PROD : élevé ≥20ms, critique ≥50ms"}. Clic → onglet Performance.`}
           value={
             waiting ? (
               <Skeleton h={30} w={90} />
@@ -657,8 +793,8 @@ export const DashboardSupervision = observer(() => {
           accent={errH.color}
           icon={<IconBug size={20} />}
           pulse={live}
-          active={tab === "erreurs"}
-          onClick={() => setTab("erreurs")}
+          active={activeTab === "erreurs"}
+          onClick={() => goLiveTab("erreurs")}
           hint={`ERROR + CRITIC sur les 60 dernières secondes (canal syslog:stream). Surveillé ≥1/min, critique ≥10/min. ${live ? `Actuellement ${errPerMin}/min.` : "Mesuré uniquement en temps réel (activez-le)."} Clic → onglet Erreurs.`}
           value={
             waiting ? (
@@ -689,7 +825,7 @@ export const DashboardSupervision = observer(() => {
           label="Uptime"
           accent="gray"
           icon={<IconClock size={20} />}
-          active={tab === "systeme"}
+          active={activeTab === "systeme"}
           onClick={() => setTab("systeme")}
           hint={`Durée depuis le démarrage du process (per-instance). PID ${stats?.pid ?? info?.pid ?? "—"}, instance ${stats?.instanceId ?? "—"}. Clic → onglet Système.`}
           value={
@@ -701,238 +837,291 @@ export const DashboardSupervision = observer(() => {
             </Badge>
           }
         />
+
+        {/* Connecteurs ORM → onglet Connecteurs. Live = ping/erreurs du hub. */}
+        <KpiCard
+          label="Connecteurs"
+          accent={connColor}
+          icon={<IconPlug size={20} />}
+          pulse={live && !!ormHealth}
+          active={activeTab === "connecteurs"}
+          onClick={() => setTab("connecteurs")}
+          hint={`Connexions ORM/bases ${connUp}/${connectors.length} actives${connErr > 0 ? `, ${connErr} erreur(s)` : ""}. ${live ? "Ping/erreurs en temps réel (canal orm:health)." : "Snapshot — activez le temps réel pour le ping live."} Clic → onglet Connecteurs.`}
+          value={
+            connectors.length ? (
+              <Text inherit c={connColor}>
+                <FlashValue value={`${connUp}/${connectors.length}`}>
+                  {connUp}/{connectors.length}
+                </FlashValue>
+              </Text>
+            ) : (
+              <Text inherit c="dimmed">
+                —
+              </Text>
+            )
+          }
+          footer={
+            <Group gap="xs" wrap="nowrap">
+              {[
+                ...new Set(connectors.map((c) => c.vendor).filter(Boolean)),
+              ].map((v) => (
+                <Badge key={v} size="sm" variant="light" color="gray">
+                  {v}
+                </Badge>
+              ))}
+              {connErr > 0 && (
+                <Badge size="sm" variant="light" color="red">
+                  {connErr} err
+                </Badge>
+              )}
+            </Group>
+          }
+        />
       </Grid>
 
-      {/* ── Vue superviseur : CPU & mémoire CORRÉLÉS (même échelle %) ── */}
-      <ChartCard
-        title="Corrélation CPU / Mémoire"
-        badge={
-          <Group gap="xs" wrap="nowrap">
-            <Badge variant="light" color={cpuH.color}>
-              CPU {cpu}%
-            </Badge>
-            <Badge variant="light" color={memH.color}>
-              Heap {heapPct}%
-            </Badge>
-            <InfoHint
-              text={`CPU (% d'un cœur) et mémoire heap (% du plafond V8) tracés sur la MÊME échelle 0-100% (${sysHist.length} mesures). Lecture liée : pic mémoire qui tire le CPU = pression GC ; montée CPU sans mémoire = charge calcul ; les deux hauts ensemble = saturation. Zone rouge >80%. ${liveSuffix}`}
-            />
-          </Group>
-        }
-        caption="CPU et mémoire sont souvent liés — ici sur le même plan pour voir leur corrélation d'un coup d'œil."
-      >
-        {sysHist.length > 1 ? (
-          <>
-            <MiniChart
-              height={210}
-              max={100}
-              threshold={80}
-              format={(v) => `${Math.round(v)}%`}
-              series={[
-                {
-                  data: sysHist.map((p) => p.cpu),
-                  color: "var(--mantine-color-teal-6)",
-                  label: "CPU %",
-                },
-                {
-                  data: sysHist.map((p) => p.heap),
-                  color: "var(--mantine-color-blue-6)",
-                  label: "Heap %",
-                },
-              ]}
-            />
-            <Group gap="lg" mt="xs">
-              <Legend
-                color="var(--mantine-color-teal-6)"
-                label="CPU (% d'un cœur)"
-              />
-              <Legend
-                color="var(--mantine-color-blue-6)"
-                label="Heap (% du plafond V8)"
+      {/* ── Vue superviseur : CPU & mémoire CORRÉLÉS (live-only, masqué en OFF) ── */}
+      {live && (
+        <ChartCard
+          title="Corrélation CPU / Mémoire"
+          badge={
+            <Group gap="xs" wrap="nowrap">
+              <Badge variant="light" color={cpuH.color}>
+                CPU {cpu}%
+              </Badge>
+              <Badge variant="light" color={memH.color}>
+                Heap {heapPct}%
+              </Badge>
+              <InfoHint
+                text={`CPU (% d'un cœur) et mémoire heap (% du plafond V8) tracés sur la MÊME échelle 0-100% (${sysHist.length} mesures). Lecture liée : pic mémoire qui tire le CPU = pression GC ; montée CPU sans mémoire = charge calcul ; les deux hauts ensemble = saturation. Zone rouge >80%. ${liveSuffix}`}
               />
             </Group>
-          </>
-        ) : (
-          <Waiting msg={chartHint} />
-        )}
-      </ChartCard>
+          }
+          caption="CPU et mémoire sont souvent liés — ici sur le même plan pour voir leur corrélation d'un coup d'œil."
+        >
+          {sysHist.length > 1 ? (
+            <>
+              <MiniChart
+                height={210}
+                max={100}
+                threshold={80}
+                format={(v) => `${Math.round(v)}%`}
+                series={[
+                  {
+                    data: sysHist.map((p) => p.cpu),
+                    color: "var(--mantine-color-teal-6)",
+                    label: "CPU %",
+                  },
+                  {
+                    data: sysHist.map((p) => p.heap),
+                    color: "var(--mantine-color-blue-6)",
+                    label: "Heap %",
+                  },
+                ]}
+              />
+              <Group gap="lg" mt="xs">
+                <Legend
+                  color="var(--mantine-color-teal-6)"
+                  label="CPU (% d'un cœur)"
+                />
+                <Legend
+                  color="var(--mantine-color-blue-6)"
+                  label="Heap (% du plafond V8)"
+                />
+              </Group>
+            </>
+          ) : (
+            <Waiting msg={chartHint} />
+          )}
+        </ChartCard>
+      )}
 
-      {/* ── Détail en onglets (« tablettes ») ── */}
+      {/* ── Détail en onglets (« tablettes ») — onglets live-only masqués en OFF ── */}
       <Tabs
-        value={tab}
-        onChange={(v) => setTab(v ?? "performance")}
+        value={activeTab}
+        onChange={(v) => setTab(v ?? "memoire")}
         keepMounted={false}
         variant="outline"
         radius="md"
       >
         <Tabs.List mb="md">
-          <Tabs.Tab value="performance" leftSection={<IconCpu size={15} />}>
-            Performance
-          </Tabs.Tab>
+          {live && (
+            <Tabs.Tab value="performance" leftSection={<IconCpu size={15} />}>
+              Performance
+            </Tabs.Tab>
+          )}
           <Tabs.Tab value="memoire" leftSection={<IconDatabase size={15} />}>
             Mémoire
           </Tabs.Tab>
-          <Tabs.Tab value="erreurs" leftSection={<IconBug size={15} />}>
-            Erreurs
+          <Tabs.Tab value="connecteurs" leftSection={<IconPlug size={15} />}>
+            Connecteurs
           </Tabs.Tab>
+          {live && (
+            <Tabs.Tab value="erreurs" leftSection={<IconBug size={15} />}>
+              Erreurs
+            </Tabs.Tab>
+          )}
           <Tabs.Tab value="systeme" leftSection={<IconServer size={15} />}>
             Système
           </Tabs.Tab>
         </Tabs.List>
 
-        <Tabs.Panel value="performance">
-          <Grid>
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <ChartCard
-                title="Charge CPU"
-                badge={
-                  <Badge variant="light" color={cpuH.color}>
-                    {cpu}%
-                  </Badge>
-                }
-                caption="% d'un cœur sur les 60 dernières secondes. Zone rouge = >80%."
-              >
-                {cpuHist.length > 1 ? (
-                  <MiniChart
-                    height={180}
-                    max={100}
-                    threshold={80}
-                    format={(v) => `${Math.round(v)}%`}
-                    series={[
-                      {
-                        data: cpuHist,
-                        color: "var(--mantine-color-teal-6)",
-                        label: "CPU",
-                      },
-                    ]}
-                  />
-                ) : (
-                  <Waiting msg={chartHint} />
-                )}
-              </ChartCard>
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, md: 6 }}>
-              <ChartCard
-                title="Event-loop lag"
-                badge={
-                  <Badge variant="light" color={loopH.color}>
-                    {loop.toFixed(1)} ms
-                  </Badge>
-                }
-                caption="Retard de la boucle Node. Plus c'est bas, plus le serveur est réactif. Zone rouge = >50ms."
-              >
-                {loopHist.length > 1 ? (
-                  <MiniChart
-                    height={180}
-                    threshold={50}
-                    format={ms}
-                    series={[
-                      {
-                        data: loopHist,
-                        color: "var(--mantine-color-grape-6)",
-                        label: "Lag",
-                      },
-                    ]}
-                  />
-                ) : (
-                  <Waiting msg={chartHint} />
-                )}
-              </ChartCard>
-            </Grid.Col>
-
-            {/* Garbage Collector — pression GC (sonde process riche, live-only). */}
-            <Grid.Col span={12}>
-              <ChartCard
-                title="Garbage Collector"
-                badge={
-                  gc ? (
-                    <Badge
-                      variant="light"
-                      color={gc.pauseMs > 50 ? "orange" : "teal"}
-                    >
-                      {gc.pauseMs.toFixed(1)} ms / {liveMs / 1000}s
+        {live && (
+          <Tabs.Panel value="performance">
+            <Grid>
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                <ChartCard
+                  title="Charge CPU"
+                  badge={
+                    <Badge variant="light" color={cpuH.color}>
+                      {cpu}%
                     </Badge>
-                  ) : undefined
-                }
-                caption={`Pause GC cumulée par intervalle (${liveMs / 1000}s). Une pause élevée = pression mémoire → latence. Majeurs (mark-sweep) plus coûteux que mineurs (scavenge). Disponible en temps réel uniquement.`}
-              >
-                {gcHist.length > 1 ? (
-                  <>
+                  }
+                  caption="% d'un cœur sur les 60 dernières secondes. Zone rouge = >80%."
+                >
+                  {cpuHist.length > 1 ? (
                     <MiniChart
-                      height={150}
-                      threshold={50}
-                      format={(v) => `${v.toFixed(1)} ms`}
+                      height={180}
+                      max={100}
+                      threshold={80}
+                      format={(v) => `${Math.round(v)}%`}
                       series={[
                         {
-                          data: gcHist,
-                          color: "var(--mantine-color-orange-6)",
-                          label: "Pause GC",
+                          data: cpuHist,
+                          color: "var(--mantine-color-teal-6)",
+                          label: "CPU",
                         },
                       ]}
                     />
-                    {gc && (
-                      <Group gap="xl" mt="sm">
-                        <MiniMetric label="Cycles" value={gc.count} />
-                        <MiniMetric label="Majeurs" value={gc.major} />
-                        <MiniMetric label="Mineurs" value={gc.minor} />
-                      </Group>
-                    )}
+                  ) : (
+                    <Waiting msg={chartHint} />
+                  )}
+                </ChartCard>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, md: 6 }}>
+                <ChartCard
+                  title="Event-loop lag"
+                  badge={
+                    <Badge variant="light" color={loopH.color}>
+                      {loop.toFixed(1)} ms
+                    </Badge>
+                  }
+                  caption="Retard de la boucle Node. Plus c'est bas, plus le serveur est réactif. Zone rouge = >50ms."
+                >
+                  {loopHist.length > 1 ? (
+                    <MiniChart
+                      height={180}
+                      threshold={50}
+                      format={ms}
+                      series={[
+                        {
+                          data: loopHist,
+                          color: "var(--mantine-color-grape-6)",
+                          label: "Lag",
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <Waiting msg={chartHint} />
+                  )}
+                </ChartCard>
+              </Grid.Col>
+
+              {/* Garbage Collector — pression GC (sonde process riche, live-only). */}
+              <Grid.Col span={12}>
+                <ChartCard
+                  title="Garbage Collector"
+                  badge={
+                    gc ? (
+                      <Badge
+                        variant="light"
+                        color={gc.pauseMs > 50 ? "orange" : "teal"}
+                      >
+                        {gc.pauseMs.toFixed(1)} ms / {liveMs / 1000}s
+                      </Badge>
+                    ) : undefined
+                  }
+                  caption={`Pause GC cumulée par intervalle (${liveMs / 1000}s). Une pause élevée = pression mémoire → latence. Majeurs (mark-sweep) plus coûteux que mineurs (scavenge). Disponible en temps réel uniquement.`}
+                >
+                  {gcHist.length > 1 ? (
+                    <>
+                      <MiniChart
+                        height={150}
+                        threshold={50}
+                        format={(v) => `${v.toFixed(1)} ms`}
+                        series={[
+                          {
+                            data: gcHist,
+                            color: "var(--mantine-color-orange-6)",
+                            label: "Pause GC",
+                          },
+                        ]}
+                      />
+                      {gc && (
+                        <Group gap="xl" mt="sm">
+                          <MiniMetric label="Cycles" value={gc.count} />
+                          <MiniMetric label="Majeurs" value={gc.major} />
+                          <MiniMetric label="Mineurs" value={gc.minor} />
+                        </Group>
+                      )}
+                    </>
+                  ) : (
+                    <Waiting msg={chartHint} />
+                  )}
+                </ChartCard>
+              </Grid.Col>
+            </Grid>
+          </Tabs.Panel>
+        )}
+
+        <Tabs.Panel value="memoire">
+          <Stack gap="lg">
+            {live && (
+              <ChartCard
+                title="Mémoire"
+                badge={
+                  stats && (
+                    <Badge variant="light" color="blue">
+                      {bytes(stats.memory.heapUsed)} / {bytes(stats.memory.rss)}
+                    </Badge>
+                  )
+                }
+                caption="Heap (bleu) = objets JS gérés par V8. RSS (violet) = mémoire totale du process. Une croissance continue du heap = fuite potentielle."
+              >
+                {memHist.length > 1 ? (
+                  <>
+                    <MiniChart
+                      height={190}
+                      format={(v) => `${v.toFixed(0)} MB`}
+                      series={[
+                        {
+                          data: memHist.map((m) => m.heap),
+                          color: "var(--mantine-color-blue-6)",
+                          label: "Heap",
+                        },
+                        {
+                          data: memHist.map((m) => m.rss),
+                          color: "var(--mantine-color-grape-6)",
+                          label: "RSS",
+                        },
+                      ]}
+                    />
+                    <Group gap="lg" mt="xs">
+                      <Legend
+                        color="var(--mantine-color-blue-6)"
+                        label="Heap (objets JS)"
+                      />
+                      <Legend
+                        color="var(--mantine-color-grape-6)"
+                        label="RSS (process)"
+                      />
+                    </Group>
                   </>
                 ) : (
                   <Waiting msg={chartHint} />
                 )}
               </ChartCard>
-            </Grid.Col>
-          </Grid>
-        </Tabs.Panel>
-
-        <Tabs.Panel value="memoire">
-          <Stack gap="lg">
-            <ChartCard
-              title="Mémoire"
-              badge={
-                stats && (
-                  <Badge variant="light" color="blue">
-                    {bytes(stats.memory.heapUsed)} / {bytes(stats.memory.rss)}
-                  </Badge>
-                )
-              }
-              caption="Heap (bleu) = objets JS gérés par V8. RSS (violet) = mémoire totale du process. Une croissance continue du heap = fuite potentielle."
-            >
-              {memHist.length > 1 ? (
-                <>
-                  <MiniChart
-                    height={190}
-                    format={(v) => `${v.toFixed(0)} MB`}
-                    series={[
-                      {
-                        data: memHist.map((m) => m.heap),
-                        color: "var(--mantine-color-blue-6)",
-                        label: "Heap",
-                      },
-                      {
-                        data: memHist.map((m) => m.rss),
-                        color: "var(--mantine-color-grape-6)",
-                        label: "RSS",
-                      },
-                    ]}
-                  />
-                  <Group gap="lg" mt="xs">
-                    <Legend
-                      color="var(--mantine-color-blue-6)"
-                      label="Heap (objets JS)"
-                    />
-                    <Legend
-                      color="var(--mantine-color-grape-6)"
-                      label="RSS (process)"
-                    />
-                  </Group>
-                </>
-              ) : (
-                <Waiting msg={chartHint} />
-              )}
-            </ChartCard>
+            )}
 
             {/* Heap V8 — anneau (statique, OK en snapshot). */}
             <Card withBorder radius="md" p="lg">
@@ -1022,34 +1211,129 @@ export const DashboardSupervision = observer(() => {
           </Stack>
         </Tabs.Panel>
 
-        <Tabs.Panel value="erreurs">
-          <ChartCard
-            title="Erreurs / s"
-            badge={
-              <Badge variant="light" color={live ? errH.color : "gray"}>
-                {live ? `${errPerMin}/min` : "temps réel requis"}
-              </Badge>
-            }
-            caption="Nombre d'ERROR+CRITIC par seconde (canal syslog:stream). Toute barre rouge = incident à investiguer. Mesuré en temps réel uniquement."
-          >
-            {errHist.length > 1 ? (
-              <MiniChart
-                height={180}
-                threshold={1}
-                format={(v) => String(Math.round(v))}
-                series={[
-                  {
-                    data: errHist,
-                    color: "var(--mantine-color-red-6)",
-                    label: "Erreurs",
-                  },
-                ]}
+        {/* Connecteurs ORM — snapshot toujours dispo ; ping/erreurs en live. */}
+        <Tabs.Panel value="connecteurs">
+          <Card withBorder radius="md" p="lg">
+            <Group gap={6} mb="md">
+              <IconPlug size={20} stroke={1.5} />
+              <Title order={4}>Connecteurs ORM / bases</Title>
+              <Text size="xs" c="dimmed">
+                {connUp}/{connectors.length} actif(s)
+              </Text>
+              <InfoHint
+                text={`Connexions ORM du process (per-instance). ${live ? "Ping, erreurs et reconnexions en temps réel (canal orm:health)." : "Snapshot statique — activez le temps réel pour le ping live."} Cible affichée en chemin relatif (sécurité).`}
               />
+            </Group>
+            {!connectors.length ? (
+              <Text size="sm" c="dimmed">
+                Aucun connecteur ORM monté.
+              </Text>
             ) : (
-              <Waiting msg={chartHint} />
+              <Grid>
+                {connectors.map((c) => (
+                  <Grid.Col key={c.name} span={{ base: 12, sm: 6, lg: 4 }}>
+                    <Card withBorder radius="sm" p="md" h="100%">
+                      <Group justify="space-between" wrap="nowrap" mb={6}>
+                        <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                          <Text fw={600} truncate>
+                            {c.name}
+                          </Text>
+                          <Badge size="xs" variant="light" color="gray">
+                            {c.vendor}
+                          </Badge>
+                        </Group>
+                        <Badge
+                          size="sm"
+                          variant="light"
+                          color={c.connected ? "teal" : "red"}
+                        >
+                          {c.connected ? "connecté" : "coupé"}
+                        </Badge>
+                      </Group>
+                      <Stack gap={4}>
+                        <Row k="Driver" v={c.driver || "—"} mono />
+                        <Row k="Cible" v={c.target ?? "—"} mono />
+                        {c.entityCount != null && (
+                          <Row k="Entités" v={String(c.entityCount)} />
+                        )}
+                        {live && (
+                          <>
+                            <Row
+                              k="Ping"
+                              v={
+                                c.pingOk ? (
+                                  <FlashValue value={c.pingMs ?? 0}>
+                                    {c.pingMs != null ? `${c.pingMs} ms` : "—"}
+                                  </FlashValue>
+                                ) : (
+                                  <Text inherit c="red">
+                                    échec
+                                  </Text>
+                                )
+                              }
+                            />
+                            <Row
+                              k="Erreurs"
+                              v={
+                                <FlashValue value={c.errorCount ?? 0}>
+                                  {c.errorCount ?? 0}
+                                </FlashValue>
+                              }
+                            />
+                            <Row
+                              k="Reconnexions"
+                              v={
+                                <FlashValue value={c.reconnectCount ?? 0}>
+                                  {c.reconnectCount ?? 0}
+                                </FlashValue>
+                              }
+                            />
+                          </>
+                        )}
+                      </Stack>
+                      {!live && (
+                        <Text size="xs" c="dimmed" mt={6}>
+                          Ping/erreurs : activez le temps réel.
+                        </Text>
+                      )}
+                    </Card>
+                  </Grid.Col>
+                ))}
+              </Grid>
             )}
-          </ChartCard>
+          </Card>
         </Tabs.Panel>
+
+        {live && (
+          <Tabs.Panel value="erreurs">
+            <ChartCard
+              title="Erreurs / s"
+              badge={
+                <Badge variant="light" color={live ? errH.color : "gray"}>
+                  {live ? `${errPerMin}/min` : "temps réel requis"}
+                </Badge>
+              }
+              caption="Nombre d'ERROR+CRITIC par seconde (canal syslog:stream). Toute barre rouge = incident à investiguer. Mesuré en temps réel uniquement."
+            >
+              {errHist.length > 1 ? (
+                <MiniChart
+                  height={180}
+                  threshold={1}
+                  format={(v) => String(Math.round(v))}
+                  series={[
+                    {
+                      data: errHist,
+                      color: "var(--mantine-color-red-6)",
+                      label: "Erreurs",
+                    },
+                  ]}
+                />
+              ) : (
+                <Waiting msg={chartHint} />
+              )}
+            </ChartCard>
+          </Tabs.Panel>
+        )}
 
         <Tabs.Panel value="systeme">
           <Stack gap="lg">

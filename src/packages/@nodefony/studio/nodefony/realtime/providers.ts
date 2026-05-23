@@ -82,7 +82,7 @@ export const CHANNELS = {
   syslog: "syslog:stream",
   // Canal de la SUPERVISION (sondes process) — nommé `dashboard:supervision`
   // pour la clarté du hub. Abonné UNIQUEMENT par la page Supervision (opt-in).
-  stats: "dashboard:supervision",
+  supervision: "dashboard:supervision",
   ormHealth: "orm:health",
 } as const;
 
@@ -194,7 +194,7 @@ export function createStatsTicker(
   publish: Publish,
   intervalMs = 1000,
   meta?: AppMeta,
-  channel: string = CHANNELS.stats,
+  channel: string = CHANNELS.supervision,
 ): () => void {
   const cores = os.cpus().length || 1; // 1 seule lecture (os.cpus alloue un array)
   let prevCpu = process.cpuUsage();

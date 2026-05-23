@@ -132,19 +132,20 @@ class StudioRealtimeController extends Controller {
     if (channel === CHANNELS.syslog && this.syslog) {
       dispose = createSyslogBridge(this.syslog, publish);
     } else if (
-      channel === CHANNELS.stats ||
-      channel.startsWith(`${CHANNELS.stats}:`)
+      channel === CHANNELS.supervision ||
+      channel.startsWith(`${CHANNELS.supervision}:`)
     ) {
       // Granularité pilotée par le client via le suffixe `dashboard:supervision:<ms>`
       // (borné 250 ms–60 s). Défaut 1 s pour le canal nu. Publie sur le canal souscrit.
       const ms =
-        channel === CHANNELS.stats
+        channel === CHANNELS.supervision
           ? 1000
           : Math.min(
               60000,
               Math.max(
                 250,
-                parseInt(channel.slice(CHANNELS.stats.length + 1), 10) || 1000,
+                parseInt(channel.slice(CHANNELS.supervision.length + 1), 10) ||
+                  1000,
               ),
             );
       dispose = createStatsTicker(publish, ms, this.appMeta(), channel);

@@ -48,7 +48,7 @@ type Frame = { logs: unknown[]; dropped: number };
 describe("realtime providers — CHANNELS / INSTANCE_ID", () => {
   it("canaux figés (contrat front + futur RealtimeService)", () => {
     expect(CHANNELS.syslog).to.equal("syslog:stream");
-    expect(CHANNELS.stats).to.equal("dashboard:supervision");
+    expect(CHANNELS.supervision).to.equal("dashboard:supervision");
   });
   it("INSTANCE_ID = string non vide (défaut = pid)", () => {
     expect(INSTANCE_ID).to.be.a("string");
@@ -170,7 +170,7 @@ describe("createStatsTicker — heartbeat dashboard:supervision", () => {
     expect(publish.mock.calls.length).to.equal(1);
     vi.advanceTimersByTime(1000);
     expect(publish.mock.calls.length).to.equal(2);
-    expect(publish.mock.calls[0][0]).to.equal(CHANNELS.stats);
+    expect(publish.mock.calls[0][0]).to.equal(CHANNELS.supervision);
     dispose();
   });
 
