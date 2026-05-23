@@ -648,6 +648,53 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
   7. Persistance **indexée** : clé `nf.datagrid:<persist.key>` (unique par grille → pas de mélange) ;
      « Effacer la sauvegarde » dans le menu Colonnes.
 
+**Patron sondes+hub appliqué à la SUPERVISION + briques partagées (2026-05-23 soir)**
+
+- **`KpiCard` (UI kit)** : carte KPI RICHE (≠ `StatCard` simple) — icône ThemeIcon accent, grande
+  valeur, **footer sous-métriques**, **clic→onglet** (bordure accent `active`), **halo pulse** live,
+  ⓘ. Réutiliser pour tout dashboard d'observabilité (extrait du dashboard ORM).
+- **`FlashValue` + `ensureLiveStyles` (UI kit)** : flash « ce qui bouge » PARTAGÉ (re-clé sur valeur
+  - `.nf-flash` ; `ensureLiveStyles()` injecte aussi `.nf-live-dot`/`.nf-live-card`). Appeler
+    `useEffect(ensureLiveStyles, [])`.
+- **Snapshot HTTP one-shot pour le mode OFF** : le PATRON expose AUSSI un endpoint pendant du canal
+  (`GET /studio/api/stats` = `readStatsSnapshot`, échantillon CPU/event-loop ~150ms) → cartes peuplées
+  de vraies valeurs SANS flux WS quand le temps réel est OFF. Symétrie endpoint+ticker (comme ORM).
+- **Temps réel OFF par défaut (perf)** : abonnement = enfant monté conditionnellement
+  (`{live && <XxxLive .../>}` qui appelle `useNodefonyChannel`, ref-compté → 0 ticker serveur quand OFF).
+  Switch + HoverCard granularité (canal `:<ms>`). **Masquer les widgets live-only en OFF** (courbes,
+  GC) ; garder les widgets snapshot (KPIs, breakdown, système). Onglets live-only retirés en OFF +
+  `activeTab` retombe sur un onglet visible ; clic KPI live-only → active le temps réel.
+- **Santé GLOBALE = 3 états** (OK/À surveiller/Dégradé) JAMAIS binaire : rouge réservé aux alertes
+  CRITIQUES, un warning jaune = « À surveiller » (sinon faux « Dégradé » permanent dès 1 erreur/min).
+- **Alertes EXPLIQUÉES** : chaque alerte du bandeau porte un `<InfoHint>` (sens + gravité + quoi
+  regarder) + légende couleur. Directive ⓘ dynamique étendue aux alertes.
+- **Seuils env-aware** : en DEV, l'event-loop partage le process avec Vite/HMR (15-25ms normal) →
+  seuils relâchés (élevé ≥50ms/critique ≥120ms) vs prod (≥20/≥50ms). `info.environment` pilote.
+- **Ping connecteur** : « en attente… » (gris) tant que la santé live n'est pas reçue, « échec »
+  (rouge) UNIQUEMENT si `pingOk===false` (pas `undefined`) — évite le faux échec au 1ᵉʳ render.
+
+**Debug bar (`nodefony/debugbar`, Core vanilla) — 2026-05-23 soir**
+
+- **Canal DÉDIÉ `debugbar:stats`** (≠ `dashboard:supervision`, réservé à la page Supervision) : la
+  barre est présente en permanence en dev → un canal partagé la ferait maintenir le ticker supervision
+  actif. Dispatcher serveur route `debugbar:stats[:ms]` ET `dashboard:supervision[:ms]` vers le même
+  `createStatsTicker` (base détectée), canaux distincts.
+- **Bouton ○/● live** (temps réel opt-in, OFF défaut, `nf.debugbar.live`) : `startLive/stopLive`
+  (subscribe/unsubscribe ref-compté). Listeners `.on` TOUJOURS branchés (gratuit) ; seul l'ABONNEMENT
+  est gaté.
+- ⚠️ **Graphe « frames/s » figé en OFF** : il s'alimente de `__stats__` = compteur GLOBAL du client
+  PARTAGÉ (frames des autres consommateurs) → gater `sampleThroughput` sur `live` + recaler
+  `prevFrames` au ré-ON (sinon pic). Le graphe stats (`debugbar:stats`) se gèle seul (canal désabonné).
+
+**⚠️ Trappe dist (a coûté ~8 restarts + 1 rebuild --force cette session)**
+
+- Endpoint/canal renommé qui **ne s'affiche pas au runtime** → suspecter le **DIST**, pas le code :
+  `grep` dans `dist/` + comparer mtime. Causes vécues : orm-core **turbo-caché** sans `connection/health`
+  (→ `orm:health` muet → faux « ping échec ») ; `framework`/`http` dist **manquants** (→ crash boot
+  `ERR_MODULE_NOT_FOUND`) ; **front HMR en avance sur le back** (→ widgets fantômes). Fix robuste =
+  `npm run build -- --force` (bypass cache) puis restart. Back Studio/core modifié = rebuild + restart
+  (le `start.sh` ne rebuild QUE le module test).
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
