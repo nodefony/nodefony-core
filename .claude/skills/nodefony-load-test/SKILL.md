@@ -114,6 +114,27 @@ ENV : `STAGES`(6) `STAGE_MS`(10000) `WS_STEP`(200) `HTTP_STEP`(40) `ORM_STEP`(4)
 > 1 s, seuil = 3× la cadence). Pour forcer le badge : rafale `counts` ultra-concurrente
 > (`for i in $(seq 1 35); do curl -sk .../orm/api/counts & done; wait`, en boucle ~25 s).
 
+### Démo AIMD — cadence adaptative (`aimd-demo.mjs`)
+
+Montre la **cadence adaptative (AIMD)** « en action », LISIBLE et déterministe — sans navigateur
+(l'AIMD est client-driven → dur à observer dans le DOM). Exerce la **vraie lib** (`bindAdaptiveChannel`
+du core buildé) contre une socket MOCK + horloge contrôlée, et imprime chaque changement de cadence :
+on VOIT la socket reculer sous famine (Multiplicative Decrease → re-`subscribe` d'un canal `:<ms>` plus
+grossier) puis remonter quand c'est sain (Additive Increase). **Prérequis : core buildé** (`cd
+src/nodefony && npm run build`). Aucun serveur requis.
+
+```bash
+bash .claude/skills/nodefony-load-test/scripts/run.sh aimd
+```
+
+Sortie type : `1000ms (init) → 2000 → 4000 → 8000 (decrease, famine) → 4000 → 2000 → 1000 (increase, reprise)`.
+
+> **Voir l'AIMD sous VRAIE charge (navigateur)** : ouvrir `/nodefony/supervision` ou `/nodefony/orm`,
+> activer **Cadence auto (AIMD)** (Hub) + **Temps réel** (granularité 2 s = seuil bas), puis lancer
+> `run.sh stress` (wedge `ORM_PATH=/nodefony/orm/api/counts`) → le badge `auto ~Xs` grimpe sous charge
+> puis redescend à l'arrêt. La démo `aimd` prouve l'algorithme ; le stress le montre de bout en bout.
+> Réf : mémoire `project_realtime_granularity_clientlib`.
+
 ## Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
 
 - **Connexions** : rupture **16 372** simultanées (re-validé 2026-05-21, plage 49152–65535
@@ -126,7 +147,7 @@ ENV : `STAGES`(6) `STAGE_MS`(10000) `WS_STEP`(200) `HTTP_STEP`(40) `ORM_STEP`(4)
 - **Messages** : echo 1 conn ~7 200 msg/s ; broadcast fan-out propre jusqu'à ~**40k msg/s**,
   sature vers ~**120k msg/s** (le serveur bufferise, ne crash pas).
 - **Stress combiné supervision (2026-05-23, ORM_PATH=counts)** : sous `WS_STEP=400 HTTP_STEP=80
-  ORM_STEP=4` (≈ 4000 WS + counts qui wedgent la boucle), mesuré **CPU 100 %, ELU 100 % (idle 0),
+ORM_STEP=4` (≈ 4000 WS + counts qui wedgent la boucle), mesuré **CPU 100 %, ELU 100 % (idle 0),
   event-loop 500-600 ms, flux ORM ~180k req comptées**. ⚠️ **Le serveur NE TOMBE PAS** : il a répondu
   HTTP **200 en ~5,3 s** (vs ~240 ms à vide) — il **dégrade la latence mais sert toujours, 0 crash, 0 % err**.
   C'est la thèse confirmée : sous charge, le **différenciateur (realtime) meurt en premier** par famine

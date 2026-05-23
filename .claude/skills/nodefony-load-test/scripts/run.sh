@@ -34,6 +34,7 @@ case "$cmd" in
   ws-msg)   cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ws-messages.mjs" ;;
   http)     cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/http-load.mjs" ;;
   stress)   cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/supervision-stress.mjs" ;;
+  aimd)     cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/aimd-demo.mjs" ;;
   help|*)
     sed -n '2,20p' "${BASH_SOURCE[0]}"
     ;;
