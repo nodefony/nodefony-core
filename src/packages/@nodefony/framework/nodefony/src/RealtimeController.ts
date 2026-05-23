@@ -1,0 +1,191 @@
+import { JsonRpcPeer, type RpcActionHandler } from "nodefony";
+import type { WebsocketContext } from "@nodefony/http";
+import Controller from "./Controller";
+import {
+  WsConnectionTransport,
+  type RawWsConnection,
+} from "./WsConnectionTransport";
+import type {
+  IRealtimeController,
+  RealtimePublish,
+} from "../interfaces/IRealtimeController";
+
+/** État realtime PAR connexion ws, stocké sur le contexte (persiste entre messages). */
+interface RealtimeConnState {
+  welcomed: boolean;
+  peer: JsonRpcPeer;
+  transport: WsConnectionTransport;
+  /** canal → dispose() du provider actif. */
+  channels: Map<string, () => void>;
+}
+
+interface RealtimeHolder {
+  __nfRealtime?: RealtimeConnState;
+}
+
+/**
+ * RealtimeController — base d'un endpoint WebSocket temps réel SERVEUR (JSON-RPC 2.0).
+ *
+ * Factorise TOUT le protocole (handshake/welcome, discrimination request/notification/
+ * response via {@link JsonRpcPeer}, actions `result`/`error`, pub/sub par canal, cleanup)
+ * — écrit UNE fois, partagé par tous les modules. Un contrôleur concret ne déclare que
+ * son métier : {@link createRealtimeChannel} (providers de canaux) + {@link realtimeActions}.
+ *
+ * Chaque connexion compose un `JsonRpcPeer` (le MÊME que `RealtimeClient` côté navigateur
+ * — symétrie isomorphe) branché sur un {@link WsConnectionTransport}.
+ *
+ * Usage : le sous-classe garde sa route WS et délègue —
+ * ```ts
+ * @route("ws", { path: "/realtime", requirements: { methods: ["WEBSOCKET"] } })
+ * async realtime(message: string | Buffer | null) { this.handleRealtime(message); }
+ * ```
+ *
+ * Perf : 1 provider = 1 listener/interval, démarré au `subscribe`, `dispose()` au
+ * `unsubscribe` ET à `onFinish`. Le dispatch d'action n'est payé que sur une requête `id`.
+ */
+export abstract class RealtimeController
+  extends Controller
+  implements IRealtimeController
+{
+  /**
+   * Crée le provider d'un canal (listener/ticker → `publish`) et renvoie son `dispose`.
+   * `null` si le canal est inconnu. C'est le SEUL point que doit fournir un endpoint.
+   */
+  abstract createRealtimeChannel(
+    channel: string,
+    publish: RealtimePublish,
+  ): (() => void) | null;
+
+  /** Actions RPC exposées (requête→réponse). À surcharger ; défaut : aucune. */
+  protected realtimeActions(): Record<string, RpcActionHandler> {
+    return {};
+  }
+
+  /** Canaux annoncés au handshake. À surcharger ; défaut : aucun. */
+  protected realtimeChannels(): string[] {
+    return [];
+  }
+
+  /**
+   * Point d'entrée à appeler depuis la route WS du contrôleur. `message === null`
+   * = handshake (1ʳᵉ invocation) ; sinon = frame entrante.
+   */
+  protected handleRealtime(message: string | Buffer | null): void {
+    const ctx = this.context as WebsocketContext | undefined;
+    if (!ctx) return;
+    if (message == null) {
+      this.onHandshake(ctx);
+      return;
+    }
+    (ctx as unknown as RealtimeHolder).__nfRealtime?.transport.feed(
+      message.toString(),
+    );
+  }
+
+  /** Handshake : crée peer+transport, enregistre les actions, welcome + cleanup. */
+  private onHandshake(ctx: WebsocketContext): void {
+    const holder = ctx as unknown as RealtimeHolder;
+    if (holder.__nfRealtime?.welcomed) return;
+    const conn = ctx.connection as RawWsConnection | null;
+    if (!conn) return;
+
+    const transport = new WsConnectionTransport(conn);
+    const peer = new JsonRpcPeer({
+      send: (frame) => transport.send(JSON.stringify(frame)),
+      onNotification: (method, params) =>
+        this.onRealtimeNotification(ctx, method, params),
+      onError: (context, err) =>
+        this.log(
+          `${context}: ${err instanceof Error ? err.message : String(err)}`,
+          "ERROR",
+        ),
+    });
+    transport.onMessage((raw) => {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        return; // frame illisible → ignorée
+      }
+      peer.receive(parsed);
+    });
+    for (const [name, handler] of Object.entries(this.realtimeActions())) {
+      peer.register(name, handler);
+    }
+
+    const state: RealtimeConnState = {
+      welcomed: true,
+      peer,
+      transport,
+      channels: new Map(),
+    };
+    holder.__nfRealtime = state;
+
+    ctx.once?.("onFinish", () => {
+      for (const dispose of state.channels.values()) {
+        try {
+          dispose();
+        } catch {
+          /* noop */
+        }
+      }
+      state.channels.clear();
+      transport.fireClose();
+      peer.dispose("ws closed");
+      this.log("WS realtime client disconnected — cleanup done", "INFO");
+    });
+
+    // `realtime:welcome` annonce canaux + actions découvrables.
+    peer.notify("realtime:welcome", {
+      ts: Date.now(),
+      protocol: "jsonrpc-2.0",
+      channels: this.realtimeChannels(),
+      methods: peer.methods,
+    });
+    this.log("WS realtime client connected", "INFO");
+  }
+
+  /** Notifications entrantes : pub/sub (subscribe/unsubscribe) + heartbeat (ping). */
+  private onRealtimeNotification(
+    ctx: WebsocketContext,
+    method: string,
+    params: unknown,
+  ): void {
+    const channel = (params as { channel?: string } | undefined)?.channel;
+    if (method === "subscribe") this.startChannel(ctx, channel);
+    else if (method === "unsubscribe") this.stopChannel(ctx, channel);
+    // `ping` = heartbeat no-op ; notification inconnue = ignorée.
+  }
+
+  /** Démarre le provider d'un canal (idempotent). */
+  private startChannel(ctx: WebsocketContext, channel?: string): void {
+    if (!channel) return;
+    const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
+    if (!state || state.channels.has(channel)) return;
+    const publish: RealtimePublish = (ch, payload) =>
+      state.peer.notify(ch, payload);
+    const dispose = this.createRealtimeChannel(channel, publish);
+    if (dispose) {
+      state.channels.set(channel, dispose);
+      this.log(`WS subscribe → ${channel}`, "DEBUG");
+    }
+  }
+
+  /** Arrête le provider d'un canal. */
+  private stopChannel(ctx: WebsocketContext, channel?: string): void {
+    if (!channel) return;
+    const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
+    const dispose = state?.channels.get(channel);
+    if (dispose) {
+      try {
+        dispose();
+      } catch {
+        /* noop */
+      }
+      state!.channels.delete(channel);
+      this.log(`WS unsubscribe → ${channel}`, "DEBUG");
+    }
+  }
+}
+
+export default RealtimeController;

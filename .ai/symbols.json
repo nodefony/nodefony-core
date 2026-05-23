@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-23T17:11:04.102Z",
+  "generated": "2026-05-23T17:30:52.004Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 725,
-    "symbols": 1240,
-    "classes": 214,
-    "interfaces": 282,
-    "types": 147,
+    "files": 728,
+    "symbols": 1246,
+    "classes": 216,
+    "interfaces": 285,
+    "types": 148,
     "enums": 2,
     "functions": 151,
     "constants": 444
@@ -2578,6 +2578,23 @@
       "module": "@nodefony/framework",
       "extends": null
     },
+    "IRealtimeController": {
+      "name": "IRealtimeController",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "IRealtimeController — contrat d'un contrôleur temps réel SERVEUR (endpoint WS JSON-RPC 2.0). Le protocole (discrimination, dispatch, actions, pending, pub/sub, cleanup) est porté par {@link Realtim…"
+    },
+    "RealtimePublish": {
+      "name": "RealtimePublish",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Publie une charge sur un canal (notification serveur→client)."
+    },
     "IResolver": {
       "name": "IResolver",
       "kind": "interface",
@@ -2881,6 +2898,19 @@
       "module": "@nodefony/framework",
       "description": "Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`. Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core` et ne peut donc pas importer le broker (qui …"
     },
+    "RealtimeController": {
+      "name": "RealtimeController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [
+        "IRealtimeController"
+      ],
+      "decorators": [],
+      "description": "RealtimeController — base d'un endpoint WebSocket temps réel SERVEUR (JSON-RPC 2.0). Factorise TOUT le protocole (handshake/welcome, discrimination request/notification/ response via {@link JsonRpc…"
+    },
     "Resolver": {
       "name": "Resolver",
       "kind": "class",
@@ -2964,6 +2994,28 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "WsConnectionTransport": {
+      "name": "WsConnectionTransport",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/WsConnectionTransport.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "implements": [
+        "IRealtimeTransport"
+      ],
+      "decorators": [],
+      "description": "WsConnectionTransport — transport {@link IRealtimeTransport} CÔTÉ SERVEUR : wrap d'une connexion `ws` (1 par client connecté). Pendant serveur du `BrowserWsTransport` → la connexion serveur compose…"
+    },
+    "RawWsConnection": {
+      "name": "RawWsConnection",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/WsConnectionTransport.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Connexion ws brute, typée structurellement (évite d'importer le package `ws`). `ctx.connection` (WebsocketContext) la fournit."
     },
     "FrontendBuild": {
       "name": "FrontendBuild",
@@ -4884,12 +4936,12 @@
       "file": "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "extends": "Controller",
+      "extends": "RealtimeController",
       "implements": [],
       "decorators": [
         "controller"
       ],
-      "description": "StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio. Route : `WS /nodefony/studio/api/realtime`. Protocole : **JSON-RPC 2.0**. - notifications serveur→client : `{ jsonrpc:\"…"
+      "description": "StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio. Route : `WS /nodefony/studio/api/realtime`. Protocole : **JSON-RPC 2.0**. Dérive de {@link RealtimeController} (framewo…"
     },
     "@nodefony/studio:AppMeta": {
       "name": "AppMeta",
@@ -9144,8 +9196,8 @@
         "PocController",
         "VueController",
         "AdminApiController",
-        "StudioController",
-        "StudioRealtimeController"
+        "RealtimeController",
+        "StudioController"
       ],
       "AgentError": [
         "AgentShutdownError",
@@ -9219,6 +9271,9 @@
       "Connector": [
         "ConnectorSequelise"
       ],
+      "RealtimeController": [
+        "StudioRealtimeController"
+      ],
       "IUser": [
         "IPasswordAuthenticatedUser"
       ],
@@ -9282,7 +9337,8 @@
         "Syslog"
       ],
       "IRealtimeTransport": [
-        "BrowserWsTransport"
+        "BrowserWsTransport",
+        "WsConnectionTransport"
       ],
       "ITransport": [
         "ConsoleTransport",
@@ -9298,6 +9354,9 @@
       ],
       "IController": [
         "Controller"
+      ],
+      "IRealtimeController": [
+        "RealtimeController"
       ],
       "IResolver": [
         "Resolver"
@@ -10044,11 +10103,19 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+      ],
+      "RealtimeController": [
+        "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "WsConnectionTransport": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
       ],
       "Resolver": [
         "src/packages/@nodefony/framework/index.ts",
@@ -10261,10 +10328,10 @@
         "src/packages/@nodefony/http/index.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
@@ -10354,12 +10421,14 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "JsonRpcPeer": [
-        "src/nodefony/src/client/index.ts"
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
       ],
       "TransportState": [
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/client/realtime/BrowserWsTransport.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/framework/nodefony/src/WsConnectionTransport.ts"
       ],
       "BrowserWsTransport": [
         "src/nodefony/src/client/index.ts",
@@ -10588,7 +10657,8 @@
       ],
       "IRealtimeTransport": [
         "src/nodefony/src/client/realtime/BrowserWsTransport.ts",
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+        "src/nodefony/src/client/realtime/RealtimeClient.ts",
+        "src/packages/@nodefony/framework/nodefony/src/WsConnectionTransport.ts"
       ],
       "RealtimeTransportFactory": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
@@ -10945,6 +11015,20 @@
       ],
       "CORE_PACKAGE": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "RpcActionHandler": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "RawWsConnection": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
+      ],
+      "IRealtimeController": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
+      ],
+      "RealtimePublish": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
@@ -11448,9 +11532,6 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "CHANNELS": [
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
-      ],
-      "Publish": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "IPasswordAuthenticatedUser": [
