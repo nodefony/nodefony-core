@@ -14,6 +14,12 @@
  * En attendant, ce client peut parler à n'importe quel serveur JSON-RPC 2.0.
  */
 import { closeCodeToNotice, type NodefonyNotice } from "./notice";
+import {
+  TransportState,
+  type IRealtimeTransport,
+  type RealtimeTransportFactory,
+} from "../../realtime/IRealtimeTransport";
+import { BrowserWsTransport } from "./BrowserWsTransport";
 export { closeCodeToNotice } from "./notice";
 export type { NodefonyNotice, NoticeLevel } from "./notice";
 
@@ -142,7 +148,10 @@ export interface KernelPingResult {
 }
 
 export class RealtimeClient {
-  private ws: WebSocket | null = null;
+  // Transport courant ({@link IRealtimeTransport}) — recréé à chaque (re)connexion.
+  // L'orchestration (reconnect/heartbeat/state) vit ici ; le transport reste « bête ».
+  private transport: IRealtimeTransport | null = null;
+  private readonly transportFactory: RealtimeTransportFactory;
   private _state: RealtimeState = "disconnected";
   private nextId = 1;
   private readonly pending = new Map<number, PendingRequest>();
@@ -172,7 +181,14 @@ export class RealtimeClient {
   private _rawFrames: { ts: number; dir: "in" | "out"; msg: unknown }[] | null =
     null;
 
-  constructor(private readonly opts: RealtimeOptions = {}) {
+  constructor(
+    private readonly opts: RealtimeOptions = {},
+    // Fabrique de transport injectable (tests = transport mock ; défaut = WebSocket
+    // navigateur). Garde RealtimeClient testable sans vrai socket.
+    transportFactory?: RealtimeTransportFactory,
+  ) {
+    this.transportFactory =
+      transportFactory ?? ((url: string) => new BrowserWsTransport(url));
     this.startStatsSampler();
   }
 
@@ -263,7 +279,7 @@ export class RealtimeClient {
   disconnect(): void {
     this.intentionalClose = true;
     this.clearTimers();
-    this.ws?.close(1000, "client disconnect");
+    this.transport?.close(1000, "client disconnect");
     this.setState("disconnected");
   }
 
@@ -508,6 +524,7 @@ export class RealtimeClient {
   private openSocket(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.setState(this.reconnectAttempt > 0 ? "reconnecting" : "connecting");
+      let transport: IRealtimeTransport;
       try {
         const base =
           typeof window !== "undefined"
@@ -519,13 +536,16 @@ export class RealtimeClient {
         if (url.protocol === "http:") url.protocol = "ws:";
         else if (url.protocol === "https:") url.protocol = "wss:";
         if (this.opts.token) url.searchParams.set("token", this.opts.token);
-        this.ws = new WebSocket(url.toString());
+        // Transport NEUF à chaque tentative (le précédent est clos). Le transport
+        // ne sait QUE ouvrir/envoyer/fermer ; l'orchestration reste ici.
+        transport = this.transportFactory(url.toString());
+        this.transport = transport;
       } catch (e) {
         this.setState("error");
         reject(e);
         return;
       }
-      this.ws.onopen = () => {
+      transport.onOpen(() => {
         const wasReconnecting = this.reconnectAttempt > 0;
         this.reconnectAttempt = 0;
         this._nextRetryAt = null;
@@ -549,28 +569,29 @@ export class RealtimeClient {
           });
         }
         resolve();
-      };
-      this.ws.onmessage = (ev) => this.handleMessage(ev.data);
-      this.ws.onerror = () => {
+      });
+      transport.onMessage((raw) => this.handleMessage(raw));
+      transport.onError(() => {
         // L'event `close` qui suit gère le reconnect.
-      };
-      this.ws.onclose = (ev) => {
+      });
+      transport.onClose((code, reason) => {
         this.clearTimers();
-        this.ws = null;
+        this.transport = null;
         if (this.intentionalClose) {
           this.setState("disconnected");
           return;
         }
         // Criticité qui casse le temps réel (RFC 6455 §7.4) → notice normalisée,
         // pendant client du `toWsCloseCode` serveur (@nodefony/http).
-        const notice = closeCodeToNotice(ev?.code, ev?.reason);
+        const notice = closeCodeToNotice(code, reason);
         if (notice) this.fireNotice(notice);
         if (this.opts.autoReconnect !== false) {
           this.scheduleReconnect();
         } else {
           this.setState("disconnected");
         }
-      };
+      });
+      transport.connect();
     });
   }
 
@@ -597,7 +618,7 @@ export class RealtimeClient {
   private startHeartbeat(): void {
     const interval = this.opts.heartbeatInterval ?? 30000;
     this.heartbeatTimer = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
+      if (this.transport?.readyState === TransportState.OPEN) {
         this.emit("ping", { ts: Date.now() });
       }
     }, interval);
@@ -667,11 +688,11 @@ export class RealtimeClient {
   }
 
   private send(msg: unknown): void {
-    if (this.ws?.readyState !== WebSocket.OPEN) {
+    if (this.transport?.readyState !== TransportState.OPEN) {
       // TODO P13.7 : buffering offline ? Pour l'instant on drop.
       return;
     }
-    this.ws.send(JSON.stringify(msg));
+    this.transport.send(JSON.stringify(msg));
     this.recordFrame("out", msg);
   }
 

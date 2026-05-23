@@ -21,6 +21,8 @@ import Storage from "./api/Storage";
 import { RealtimeClient } from "./realtime/RealtimeClient";
 import { closeCodeToNotice } from "./realtime/notice";
 import { JsonRpcPeer } from "../realtime/JsonRpcPeer";
+import { TransportState } from "../realtime/IRealtimeTransport";
+import { BrowserWsTransport } from "./realtime/BrowserWsTransport";
 export type {
   RealtimeState,
   RealtimeOptions,
@@ -37,6 +39,11 @@ export type {
   JsonRpcErrorObject,
   JsonRpcPeerOptions,
 } from "../realtime/JsonRpcPeer";
+export type {
+  IRealtimeTransport,
+  TransportStateValue,
+  RealtimeTransportFactory,
+} from "../realtime/IRealtimeTransport";
 
 class Nodefony {
   private static instance: Nodefony;
@@ -81,5 +88,7 @@ export {
   isSubclassOf,
   RealtimeClient,
   JsonRpcPeer,
+  TransportState,
+  BrowserWsTransport,
   closeCodeToNotice,
 };

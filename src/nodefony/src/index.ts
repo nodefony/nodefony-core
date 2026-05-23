@@ -37,6 +37,12 @@ export type {
   JsonRpcErrorObject,
   JsonRpcPeerOptions,
 } from "./realtime/JsonRpcPeer";
+export { TransportState } from "./realtime/IRealtimeTransport";
+export type {
+  IRealtimeTransport,
+  TransportStateValue,
+  RealtimeTransportFactory,
+} from "./realtime/IRealtimeTransport";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 export { default as nodefonyError } from "./Error";

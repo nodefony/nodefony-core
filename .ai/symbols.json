@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-23T17:03:23.394Z",
+  "generated": "2026-05-23T17:11:04.102Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 723,
-    "symbols": 1235,
-    "classes": 213,
-    "interfaces": 281,
-    "types": 145,
+    "files": 725,
+    "symbols": 1240,
+    "classes": 214,
+    "interfaces": 282,
+    "types": 147,
     "enums": 2,
     "functions": 151,
-    "constants": 443
+    "constants": 444
   },
   "symbols": {
     "Cli": {
@@ -627,6 +627,37 @@
       "file": "src/nodefony/src/kernel/Module.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "IRealtimeTransport": {
+      "name": "IRealtimeTransport",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/IRealtimeTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "TransportStateValue": {
+      "name": "TransportStateValue",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/IRealtimeTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "RealtimeTransportFactory": {
+      "name": "RealtimeTransportFactory",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/IRealtimeTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fabrique d'un transport pour une URL — injectable (tests, transports alternatifs)."
+    },
+    "TransportState": {
+      "name": "TransportState",
+      "kind": "const",
+      "file": "src/nodefony/src/realtime/IRealtimeTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "IRealtimeTransport — le SEUL maillon qui diffère client/serveur. Le protocole ({@link JsonRpcPeer}) et les « smarts » (stats, pub/sub) sont isomorphes ; seule la façon dont les **octets** entrent e…"
     },
     "JsonRpcPeer": {
       "name": "JsonRpcPeer",
@@ -1478,6 +1509,19 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "`useNodefonyNoticeLog()` — ring buffer borné des dernières notices, filtrable par source. Brique du hub temps réel (« incidents temps réel ») : un historique léger des criticités realtime, distinct…"
+    },
+    "BrowserWsTransport": {
+      "name": "BrowserWsTransport",
+      "kind": "class",
+      "file": "src/nodefony/src/client/realtime/BrowserWsTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "IRealtimeTransport"
+      ],
+      "decorators": [],
+      "description": "BrowserWsTransport — transport {@link IRealtimeTransport} pour le navigateur : wrap d'un `WebSocket` natif. Volontairement « bête » : il ouvre/envoie/ferme et relaie les events. L'orchestration (re…"
     },
     "NodefonyNotice": {
       "name": "NodefonyNotice",
@@ -9237,6 +9281,9 @@
       "ISyslog": [
         "Syslog"
       ],
+      "IRealtimeTransport": [
+        "BrowserWsTransport"
+      ],
       "ITransport": [
         "ConsoleTransport",
         "FileTransport",
@@ -10309,6 +10356,15 @@
       "JsonRpcPeer": [
         "src/nodefony/src/client/index.ts"
       ],
+      "TransportState": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/realtime/BrowserWsTransport.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "BrowserWsTransport": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
       "File": [
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/finder/FileResult.ts",
@@ -10528,6 +10584,13 @@
       ],
       "NodefonyNotice": [
         "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "IRealtimeTransport": [
+        "src/nodefony/src/client/realtime/BrowserWsTransport.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "RealtimeTransportFactory": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "Role": [
