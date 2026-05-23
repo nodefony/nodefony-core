@@ -937,6 +937,10 @@ export class DebugBar {
       this.scheduleRender();
     });
     const offTick = this.client.on("__stats__", () => {
+      // OFF → on N'ÉCHANTILLONNE PAS : le compteur de frames est GLOBAL au client
+      // partagé (frames des autres consommateurs, ex. Studio) → sinon le graphe
+      // « frames/s » continuerait de bouger alors que la barre est désactivée.
+      if (!this.live) return;
       this.sampleThroughput();
       this.scheduleRender();
     });
@@ -987,8 +991,16 @@ export class DebugBar {
     if (v === this.live && !!this.liveOff === v) return;
     this.live = v;
     lsSet(LS.live, v ? "1" : "0");
-    if (v) this.startLive();
-    else this.stopLive();
+    if (v) {
+      // Recale la base du compteur GLOBAL → pas de pic « frames/s » au 1ᵉʳ tick.
+      this.prevFrames = this.client.framesReceived;
+      this.startLive();
+    } else {
+      this.stopLive();
+      // Fige le graphe « frames/s » à 0 (sinon il resterait sur sa dernière valeur).
+      this.rtRate = 0;
+      pushCap(this.rtSeries, 0, RT_POINTS);
+    }
     this.updateLiveBtn();
     this.scheduleRender();
   }
