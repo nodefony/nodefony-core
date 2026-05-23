@@ -83,6 +83,9 @@ export const CHANNELS = {
   // Canal de la SUPERVISION (sondes process) — nommé `dashboard:supervision`
   // pour la clarté du hub. Abonné UNIQUEMENT par la page Supervision (opt-in).
   supervision: "dashboard:supervision",
+  // Canal DÉDIÉ à la debug bar (mêmes sondes process, ticker séparé) → la barre,
+  // toujours présente en dev, ne maintient PAS le canal supervision actif.
+  debugbar: "debugbar:stats",
   ormHealth: "orm:health",
 } as const;
 

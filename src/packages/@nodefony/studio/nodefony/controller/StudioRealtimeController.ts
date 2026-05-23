@@ -129,23 +129,30 @@ class StudioRealtimeController extends Controller {
     if (state.channels.has(channel)) return; // déjà actif sur cette connexion
     const publish: Publish = (ch, payload) => this.publish(ctx, ch, payload);
     let dispose: (() => void) | null = null;
-    if (channel === CHANNELS.syslog && this.syslog) {
-      dispose = createSyslogBridge(this.syslog, publish);
-    } else if (
+    // Base « stats process » : le canal supervision (page) ET le canal dédié à la
+    // debug bar partagent le MÊME ticker (sondes process), mais sur des canaux
+    // SÉPARÉS → la barre ne maintient pas le canal supervision actif.
+    const statsBase =
       channel === CHANNELS.supervision ||
       channel.startsWith(`${CHANNELS.supervision}:`)
-    ) {
-      // Granularité pilotée par le client via le suffixe `dashboard:supervision:<ms>`
-      // (borné 250 ms–60 s). Défaut 1 s pour le canal nu. Publie sur le canal souscrit.
+        ? CHANNELS.supervision
+        : channel === CHANNELS.debugbar ||
+            channel.startsWith(`${CHANNELS.debugbar}:`)
+          ? CHANNELS.debugbar
+          : null;
+    if (channel === CHANNELS.syslog && this.syslog) {
+      dispose = createSyslogBridge(this.syslog, publish);
+    } else if (statsBase) {
+      // Granularité pilotée par le client via le suffixe `:<ms>` (borné 250 ms–60 s).
+      // Défaut 1 s pour le canal nu. Publie sur le canal EXACT souscrit.
       const ms =
-        channel === CHANNELS.supervision
+        channel === statsBase
           ? 1000
           : Math.min(
               60000,
               Math.max(
                 250,
-                parseInt(channel.slice(CHANNELS.supervision.length + 1), 10) ||
-                  1000,
+                parseInt(channel.slice(statsBase.length + 1), 10) || 1000,
               ),
             );
       dispose = createStatsTicker(publish, ms, this.appMeta(), channel);

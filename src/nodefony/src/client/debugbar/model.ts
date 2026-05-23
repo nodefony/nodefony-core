@@ -1,6 +1,6 @@
 /**
  * État PUR de la debug bar — ingère les payloads des canaux realtime
- * (`dashboard:stats`, `syslog:stream`) et expose une vue dénormalisée prête
+ * (`dashboard:supervision`, `syslog:stream`) et expose une vue dénormalisée prête
  * à rendre (séries temporelles pour sparklines incluses). Aucune dépendance
  * DOM/réseau → unit-testable côté Node.
  *
@@ -21,7 +21,7 @@ export interface AppMeta {
   branch?: string;
 }
 
-/** Payload du canal `dashboard:stats` (cf studio `createStatsTicker`). */
+/** Payload du canal `dashboard:supervision` (cf studio `createStatsTicker`). */
 export interface StatsPayload {
   ts: number;
   app?: AppMeta;
@@ -161,7 +161,8 @@ export class DebugBarModel {
     const loop = payload.eventLoopMs ?? 0;
     const heapUsed = payload.memory?.heapUsed ?? 0;
     const heapLimit = payload.memory?.heapLimit ?? 0;
-    const heapPct = heapLimit > 0 ? Math.round((heapUsed / heapLimit) * 100) : 0;
+    const heapPct =
+      heapLimit > 0 ? Math.round((heapUsed / heapLimit) * 100) : 0;
     pushCapped(this._cpuSeries, cpu, SERIES_POINTS);
     pushCapped(this._heapSeries, heapPct, SERIES_POINTS);
     pushCapped(this._loopSeries, loop, SERIES_POINTS);

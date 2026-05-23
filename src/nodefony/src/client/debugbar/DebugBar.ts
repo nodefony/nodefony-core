@@ -4,7 +4,7 @@
  * respirer en direct).
  *
  * 2ᵉ consommateur navigateur du Core isomorphe après Studio : MÊME backbone
- * realtime (WS JSON-RPC 2.0, canaux `dashboard:stats` / `syslog:stream`) via
+ * realtime (WS JSON-RPC 2.0, canaux `dashboard:supervision` / `syslog:stream`) via
  * {@link RealtimeClient}. Aucun rendu serveur splicé dans le body : le serveur
  * *collecte*, le client *rend*.
  *
@@ -45,7 +45,10 @@ import {
 
 /** Canaux realtime consommés (figés, alignés sur les providers Studio). */
 const CHANNELS = {
-  stats: "dashboard:stats",
+  // Canal DÉDIÉ à la debug bar (≠ `dashboard:supervision`, réservé à la page
+  // Supervision) : mêmes sondes process, ticker séparé côté serveur → la barre,
+  // présente en permanence en dev, ne maintient PAS le canal supervision actif.
+  stats: "debugbar:stats",
   syslog: "syslog:stream",
 } as const;
 
@@ -346,8 +349,7 @@ function pushCap(arr: number[], v: number, cap: number): void {
 }
 
 function clampH(h: number): number {
-  const max =
-    typeof window !== "undefined" ? window.innerHeight * 0.85 : 700;
+  const max = typeof window !== "undefined" ? window.innerHeight * 0.85 : 700;
   if (h < PANEL_H_MIN) return PANEL_H_MIN;
   if (h > max) return Math.round(max);
   return Math.round(h);
@@ -455,7 +457,10 @@ export class DebugBar {
     this.ownClient = false;
     this.frontend = opts.frontend ?? null;
     this.networkEnabled = opts.network !== false;
-    this.profilerBase = (opts.profilerBase ?? DEFAULT_PROFILER_BASE).replace(/\/$/, "");
+    this.profilerBase = (opts.profilerBase ?? DEFAULT_PROFILER_BASE).replace(
+      /\/$/,
+      "",
+    );
     this.client = opts.client ?? RealtimeClient.shared({ url: this.url });
     this.visible = lsGet(LS.visible, "1") !== "0";
     this.minimized = lsGet(LS.min, "0") === "1";
@@ -497,7 +502,9 @@ export class DebugBar {
     this.ro?.disconnect();
     this.ro = null;
     try {
-      document.documentElement.style.removeProperty("--nodefony-debugbar-height");
+      document.documentElement.style.removeProperty(
+        "--nodefony-debugbar-height",
+      );
     } catch {
       /* noop */
     }
@@ -544,11 +551,17 @@ export class DebugBar {
   private applyTab(): void {
     const tabs = this.bar?.querySelectorAll(".tab");
     tabs?.forEach((t) =>
-      t.classList.toggle("active", t.getAttribute("data-tab") === this.activeTab),
+      t.classList.toggle(
+        "active",
+        t.getAttribute("data-tab") === this.activeTab,
+      ),
     );
     const panes = this.bar?.querySelectorAll(".pane");
     panes?.forEach((p) =>
-      p.classList.toggle("active", p.getAttribute("data-pane") === this.activeTab),
+      p.classList.toggle(
+        "active",
+        p.getAttribute("data-pane") === this.activeTab,
+      ),
     );
   }
 
@@ -668,7 +681,9 @@ export class DebugBar {
     if (resize) {
       const onDown = (e: PointerEvent): void => this.startResize(e);
       resize.addEventListener("pointerdown", onDown);
-      this.disposers.push(() => resize.removeEventListener("pointerdown", onDown));
+      this.disposers.push(() =>
+        resize.removeEventListener("pointerdown", onDown),
+      );
     }
     // Chip réduit → restaure la barre complète.
     const onMin = (): void => this.setMinimized(false);
@@ -686,7 +701,9 @@ export class DebugBar {
       });
     };
     window.addEventListener("resize", onWinResize);
-    this.disposers.push(() => window.removeEventListener("resize", onWinResize));
+    this.disposers.push(() =>
+      window.removeEventListener("resize", onWinResize),
+    );
   }
 
   private startResize(ev: PointerEvent): void {
@@ -994,9 +1011,9 @@ export class DebugBar {
     const list = this.el.netList as HTMLElement | undefined;
     if (list) {
       const onClick = (ev: Event): void => {
-        const row = (ev.target as HTMLElement | null)?.closest?.(".net-row") as
-          | HTMLElement
-          | null;
+        const row = (ev.target as HTMLElement | null)?.closest?.(
+          ".net-row",
+        ) as HTMLElement | null;
         if (!row) return;
         const rid = row.dataset.rid;
         this.selectRow(row, rid || null);
@@ -1023,7 +1040,8 @@ export class DebugBar {
         this.selectedRid = null;
         this.selRowId = null;
         const node = this.el.netList;
-        if (node) node.innerHTML = `<div class="empty">en attente d'appels AJAX (fetch / XHR)…</div>`;
+        if (node)
+          node.innerHTML = `<div class="empty">en attente d'appels AJAX (fetch / XHR)…</div>`;
         this.detailVersion++;
         this.scheduleRender();
       };
@@ -1079,7 +1097,8 @@ export class DebugBar {
     row.dataset.rid = e.requestId ?? "";
     const sel = e.requestId && e.requestId === this.selectedRid;
     row.className = `net-row${sel ? " sel" : ""}${isNetError(e) ? " err" : ""}`;
-    const [m, path, rid, status, dur] = row.children as unknown as HTMLElement[];
+    const [m, path, rid, status, dur] =
+      row.children as unknown as HTMLElement[];
     m.className = `net-method ${methodClass(e.method)}`;
     m.textContent = e.method;
     path.textContent = e.path;
@@ -1265,16 +1284,25 @@ export class DebugBar {
     this.cls("rtPill", live ? "rt-pill live" : "rt-pill");
     this.text("rt", `${this.rtRate}/s`);
     this.cls("rt", "v blue");
-    this.el.rtMini?.setAttribute("points", sparklinePoints(this.rtSeries, MINI_W, MINI_H));
+    this.el.rtMini?.setAttribute(
+      "points",
+      sparklinePoints(this.rtSeries, MINI_W, MINI_H),
+    );
     this.el.rtMini?.setAttribute("class", "spark rt");
     // mini cpu / mem / loop
     this.text("cpu", `${v.cpuPercent}%`);
     this.cls("cpu", `v ${cpuT}`);
     this.text("mem", `${v.heapPercent}%`);
     this.cls("mem", `v ${memT}`);
-    this.el.cpuMini?.setAttribute("points", sparklinePoints(v.cpuSeries, MINI_W, MINI_H, 100));
+    this.el.cpuMini?.setAttribute(
+      "points",
+      sparklinePoints(v.cpuSeries, MINI_W, MINI_H, 100),
+    );
     this.el.cpuMini?.setAttribute("class", `spark ${cpuT}`);
-    this.el.memMini?.setAttribute("points", sparklinePoints(v.heapSeries, MINI_W, MINI_H, 100));
+    this.el.memMini?.setAttribute(
+      "points",
+      sparklinePoints(v.heapSeries, MINI_W, MINI_H, 100),
+    );
     this.el.memMini?.setAttribute("class", `spark ${memT}`);
     // chips
     if (this.networkEnabled) {
@@ -1451,7 +1479,9 @@ export class DebugBar {
       kv("kind", p.kind) +
       kv("requestId", escapeHtml(shortId(p.requestId))) +
       kv("traceparent", escapeHtml(traceId(p))) +
-      (p.error ? kv("erreur", `<span class="crit">${escapeHtml(p.error)}</span>`) : "") +
+      (p.error
+        ? kv("erreur", `<span class="crit">${escapeHtml(p.error)}</span>`)
+        : "") +
       `</div>`;
     let wf = "";
     if (bars.length === 0) {
@@ -1479,8 +1509,12 @@ export class DebugBar {
       out +=
         `<div class="net-row" style="cursor:default">` +
         `<span class="net-path" title="${escapeHtml(q.sql)}">${escapeHtml(q.sql)}</span>` +
-        (q.connector ? `<span class="net-rid">${escapeHtml(q.connector)}</span>` : "") +
-        (typeof q.rows === "number" ? `<span class="net-dur">${q.rows} rows</span>` : "") +
+        (q.connector
+          ? `<span class="net-rid">${escapeHtml(q.connector)}</span>`
+          : "") +
+        (typeof q.rows === "number"
+          ? `<span class="net-dur">${q.rows} rows</span>`
+          : "") +
         `<span class="net-dur">${q.durationMs}ms</span>` +
         `</div>`;
     }
@@ -1498,7 +1532,13 @@ function statusFamily(status: number | null): number {
 /** Méthode HTTP → classe de couleur du chip. */
 function methodClass(method: string): string {
   const m = method.toLowerCase();
-  if (m === "get" || m === "post" || m === "put" || m === "patch" || m === "delete")
+  if (
+    m === "get" ||
+    m === "post" ||
+    m === "put" ||
+    m === "patch" ||
+    m === "delete"
+  )
     return m;
   return "ws";
 }

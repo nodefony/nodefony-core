@@ -1265,9 +1265,13 @@ export const DashboardSupervision = observer(() => {
                                   <FlashValue value={c.pingMs ?? 0}>
                                     {c.pingMs != null ? `${c.pingMs} ms` : "—"}
                                   </FlashValue>
-                                ) : (
+                                ) : c.pingOk === false ? (
                                   <Text inherit c="red">
                                     échec
+                                  </Text>
+                                ) : (
+                                  <Text inherit c="dimmed">
+                                    en attente…
                                   </Text>
                                 )
                               }
