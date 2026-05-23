@@ -3,7 +3,10 @@ import "mocha";
 import "reflect-metadata";
 import { RealtimeController } from "../../src/RealtimeController.js";
 import { getRealtimeHub } from "../../src/RealtimeHub.js";
-import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
+import type {
+  RealtimePublish,
+  RealtimeInboundHandler,
+} from "../../interfaces/IRealtimeController.js";
 import type { RpcActionHandler } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 
@@ -67,6 +70,16 @@ class TestRt extends RealtimeController {
 
   protected override realtimeChannels(): string[] {
     return ["tick", "logs"];
+  }
+
+  inboundCalls: unknown[] = [];
+  protected override realtimeInbound(): Record<string, RealtimeInboundHandler> {
+    return {
+      "sip:line1": (params, reply) => {
+        this.inboundCalls.push(params);
+        reply({ ack: true });
+      },
+    };
   }
 
   /** Pont public pour les tests (handleRealtime est protected). */
@@ -165,6 +178,29 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       rt.feed(frame({ method: "subscribe", params: { channel: "logs" } }));
       fireFinish();
       expect(rt.disposed.sort()).to.deep.equal(["logs", "tick"]);
+    });
+  });
+
+  describe("full-duplex (entrée client → handler gated)", () => {
+    it("notification sur un canal entrant déclaré → handler appelé + reply sur le même canal", () => {
+      const { ctx, sent } = makeCtx();
+      const rt = new TestRt(ctx);
+      rt.feed(null);
+      rt.feed(frame({ method: "sip:line1", params: { invite: 1 } }));
+      expect(rt.inboundCalls).to.deep.equal([{ invite: 1 }]);
+      const reply = sent.find((f) => f.method === "sip:line1");
+      expect(reply).to.exist;
+      expect(reply!.params).to.deep.equal({ ack: true });
+    });
+
+    it("notification sur un canal NON déclaré entrant → ignorée (sûr par défaut)", () => {
+      const { ctx, sent } = makeCtx();
+      const rt = new TestRt(ctx);
+      rt.feed(null);
+      const before = sent.length;
+      rt.feed(frame({ method: "sip:lineX", params: { x: 1 } }));
+      expect(rt.inboundCalls).to.have.length(0);
+      expect(sent.length).to.equal(before); // aucune sortie
     });
   });
 

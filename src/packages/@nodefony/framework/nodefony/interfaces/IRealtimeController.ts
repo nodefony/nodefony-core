@@ -2,6 +2,23 @@
 export type RealtimePublish = (channel: string, payload: unknown) => void;
 
 /**
+ * Handler d'un message ENTRANT sur un canal full-duplex (client → serveur). C'est le
+ * seam des backings entrants (SIP, bridge) : le client `publish(channel, payload)` ; si
+ * le contrôleur a déclaré ce canal dans `realtimeInbound()`, le handler est appelé.
+ *
+ * - `params` = la charge du client. **NON FIABLE** (Zero Trust) : le handler DOIT la
+ *   valider (origine non authentifiée au niveau transport).
+ * - `reply` = pousse une charge serveur→client sur le MÊME canal, vers CETTE connexion
+ *   uniquement (ex. réponse SIP). Per-connexion (≠ fan-out).
+ *
+ * Par défaut aucun canal n'accepte d'entrée (sûr) : un contrôleur opte explicitement.
+ */
+export type RealtimeInboundHandler = (
+  params: unknown,
+  reply: (payload: unknown) => void,
+) => void;
+
+/**
  * IRealtimeController — contrat d'un contrôleur temps réel SERVEUR (endpoint WS
  * JSON-RPC 2.0). Le protocole (discrimination, dispatch, actions, pending, pub/sub,
  * cleanup) est porté par {@link RealtimeController} via un `JsonRpcPeer` PAR

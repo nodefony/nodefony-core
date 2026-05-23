@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-23T21:54:34.539Z",
+  "generated": "2026-05-23T21:59:58.847Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 730,
-    "symbols": 1255,
+    "symbols": 1256,
     "classes": 217,
     "interfaces": 288,
-    "types": 152,
+    "types": 153,
     "enums": 2,
     "functions": 152,
     "constants": 444
@@ -2630,6 +2630,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Publie une charge sur un canal (notification serveur→client)."
+    },
+    "RealtimeInboundHandler": {
+      "name": "RealtimeInboundHandler",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Handler d'un message ENTRANT sur un canal full-duplex (client → serveur). C'est le seam des backings entrants (SIP, bridge) : le client `publish(channel, payload)` ; si le contrôleur a déclaré ce c…"
     },
     "IResolver": {
       "name": "IResolver",
@@ -11126,6 +11134,9 @@
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",
         "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "RealtimeInboundHandler": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
       ],
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"

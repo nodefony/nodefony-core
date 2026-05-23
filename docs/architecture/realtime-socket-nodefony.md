@@ -208,15 +208,19 @@ enregistre — utilise le protocolaire SIP porté).
   `RealtimeController` délègue subscribe/publish/cleanup au hub ; `StudioRealtimeController`
   capture ses deps long-lived (provider partagé survit à la connexion créatrice). Tests hub
   5/5 + controller verts ; `memory.test` WS vert (100 conns < 30 MB).
+- ✅ **Full-duplex (entrant, gated)** : hook `realtimeInbound()` du `RealtimeController` →
+  un client `publish(channel, payload)` sur un canal **déclaré** atteint un
+  `RealtimeInboundHandler` per-connexion `(params, reply)`. **Sûr par défaut** (aucun canal
+  entrant tant que non déclaré) ; params NON FIABLES (Zero Trust). C'est le seam des backings
+  entrants (SIP, bridge). 0 lookup sur le chemin notification si aucun canal entrant.
 
 **Reste, dans l'ordre :**
 
-1. **Full-duplex** : router `publish` client → provider du canal (débloque les backings entrants).
-2. **Backplane Redis** : un backing fan-out derrière le hub serveur (cross-pod).
-3. **Bridge TCP/UDP** (Node pur, faible risque).
-4. **AIMD** (cadence adaptative par canal) → s'accroche à `IRealtimeChannel`.
-5. **SIP** (porter le protocolaire) + **médias** (P15 ; SFU mediasoup ; Asterisk = serveur).
-6. **Canaux privés/per-connexion** (mode SIP-ligne, ≠ broadcast) + façade `IRealtimeSocket` serveur.
+1. **Backplane Redis** : un backing fan-out derrière `RealtimeHub.publish` (cross-pod, anti-boucle).
+2. **Bridge TCP/UDP** (Node pur, faible risque) + **canaux privés/per-connexion** (mode SIP-ligne).
+3. **AIMD** (cadence adaptative par canal) → s'accroche à `IRealtimeChannel`.
+4. **SIP** (porter le protocolaire `nodefony-client`) + **médias** (P15 ; SFU mediasoup ; Asterisk = serveur).
+5. **Façade `IRealtimeSocket` serveur** (un service back tient une socket : publish/on via le hub).
 
 ## Références
 

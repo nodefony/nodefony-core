@@ -9,6 +9,7 @@ import { getRealtimeHub, type ChannelSink } from "./RealtimeHub";
 import type {
   IRealtimeController,
   RealtimePublish,
+  RealtimeInboundHandler,
 } from "../interfaces/IRealtimeController";
 
 /** État realtime PAR connexion ws, stocké sur le contexte (persiste entre messages). */
@@ -18,6 +19,8 @@ interface RealtimeConnState {
   transport: WsConnectionTransport;
   /** canal → sink de CETTE connexion auprès du hub partagé (pour se désabonner). */
   channels: Map<string, ChannelSink>;
+  /** canaux full-duplex acceptant une entrée client (null si aucun — cas par défaut). */
+  inbound: Record<string, RealtimeInboundHandler> | null;
 }
 
 interface RealtimeHolder {
@@ -70,6 +73,16 @@ export abstract class RealtimeController
   }
 
   /**
+   * Canaux FULL-DUPLEX acceptant une entrée client (`method` = nom du canal). À
+   * surcharger ; défaut : **aucun** (sûr — un client ne peut rien pousser au serveur
+   * tant qu'un canal n'est pas explicitement déclaré ici). Seam des backings entrants
+   * (SIP, bridge). Cf {@link RealtimeInboundHandler} (params NON FIABLES).
+   */
+  protected realtimeInbound(): Record<string, RealtimeInboundHandler> {
+    return {};
+  }
+
+  /**
    * Point d'entrée à appeler depuis la route WS du contrôleur. `message === null`
    * = handshake (1ʳᵉ invocation) ; sinon = frame entrante.
    */
@@ -116,11 +129,17 @@ export abstract class RealtimeController
       peer.register(name, handler);
     }
 
+    // Canaux full-duplex déclarés (entrée client). `null` si aucun → 0 lookup sur le
+    // chemin notification (cas par défaut, ex. Studio).
+    const inboundMap = this.realtimeInbound();
+    const inbound = Object.keys(inboundMap).length > 0 ? inboundMap : null;
+
     const state: RealtimeConnState = {
       welcomed: true,
       peer,
       transport,
       channels: new Map(),
+      inbound,
     };
     holder.__nfRealtime = state;
 
@@ -147,15 +166,36 @@ export abstract class RealtimeController
     this.log("WS realtime client connected", "INFO");
   }
 
-  /** Notifications entrantes : pub/sub (subscribe/unsubscribe) + heartbeat (ping). */
+  /**
+   * Notifications entrantes : pub/sub (subscribe/unsubscribe), heartbeat (ping), puis
+   * canaux FULL-DUPLEX déclarés (entrée client → handler `realtimeInbound`).
+   */
   private onRealtimeNotification(
     ctx: WebsocketContext,
     method: string,
     params: unknown,
   ): void {
-    const channel = (params as { channel?: string } | undefined)?.channel;
-    if (method === "subscribe") this.startChannel(ctx, channel);
-    else if (method === "unsubscribe") this.stopChannel(ctx, channel);
+    if (method === "subscribe") {
+      this.startChannel(
+        ctx,
+        (params as { channel?: string } | undefined)?.channel,
+      );
+      return;
+    }
+    if (method === "unsubscribe") {
+      this.stopChannel(
+        ctx,
+        (params as { channel?: string } | undefined)?.channel,
+      );
+      return;
+    }
+    // Full-duplex : `method` == nom du canal entrant déclaré → handler (per-connexion).
+    const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
+    const handler = state?.inbound?.[method];
+    if (handler) {
+      // reply = push serveur→client sur le MÊME canal, vers CETTE connexion.
+      handler(params, (payload) => state!.peer.notify(method, payload));
+    }
     // `ping` = heartbeat no-op ; notification inconnue = ignorée.
   }
 

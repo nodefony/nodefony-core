@@ -137,6 +137,7 @@ export type {
 export type {
   IRealtimeController,
   RealtimePublish,
+  RealtimeInboundHandler,
 } from "./nodefony/interfaces/IRealtimeController";
 export type { ChannelSink, ChannelFactory } from "./nodefony/src/RealtimeHub";
 export type { RawWsConnection } from "./nodefony/src/WsConnectionTransport";
