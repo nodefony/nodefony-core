@@ -86,40 +86,142 @@ class StudioRealtimeController extends Controller {
     this.log("WS realtime client connected", "INFO");
   }
 
-  /** Route les messages JSON-RPC : subscribe / unsubscribe / ping ; requête id → not found. */
+  /** Route les messages JSON-RPC : notifications subscribe/unsubscribe/ping (pub/sub),
+   *  ou requête `id` → `dispatchRequest` (actions, réponse `result`/`error`). */
   private handleRpc(ctx: WebsocketContext, raw: string): void {
     let msg: {
+      jsonrpc?: unknown;
       id?: unknown;
-      method?: string;
-      params?: { channel?: string };
+      method?: unknown;
+      params?: { channel?: string } & Record<string, unknown>;
     } | null = null;
     try {
       msg = JSON.parse(raw);
     } catch {
       return;
     }
-    if (!msg || typeof msg !== "object") return;
+    if (!msg || typeof msg !== "object" || msg.jsonrpc !== "2.0") return;
 
-    if (msg.method === "subscribe") {
-      this.startChannel(ctx, msg.params?.channel);
+    // Le RÔLE d'une frame se lit sur `method`, PAS sur `id` : une RÉPONSE (id, sans
+    // method) ne doit JAMAIS entrer dans le dispatch d'actions (sinon on lui
+    // renverrait `-32601`). `id` autorisé string OU number (JSON-RPC 2.0 §id).
+    const id = msg.id;
+    const hasId = typeof id === "number" || typeof id === "string";
+    const method = typeof msg.method === "string" ? msg.method : undefined;
+
+    // Frame AVEC `method` = appel ENTRANT (le client/un pair nous appelle).
+    if (method !== undefined) {
+      if (hasId) {
+        // Requête → attend une réponse `result`/`error` : direction ACTIONS.
+        this.dispatchRequest(ctx, id as number | string, method, msg.params);
+        return;
+      }
+      // Notifications (pas d'`id`) — pub/sub + heartbeat. Chemin chaud, sync.
+      if (method === "subscribe") this.startChannel(ctx, msg.params?.channel);
+      else if (method === "unsubscribe")
+        this.stopChannel(ctx, msg.params?.channel);
+      // `ping` = heartbeat no-op ; notification inconnue = ignorée (spec JSON-RPC :
+      // pas de réponse à une notification).
       return;
     }
-    if (msg.method === "unsubscribe") {
-      this.stopChannel(ctx, msg.params?.channel);
-      return;
-    }
-    if (msg.method === "ping") return; // heartbeat
 
-    if ("id" in msg && typeof msg.id === "number") {
-      this.send(ctx, {
-        jsonrpc: "2.0",
-        id: msg.id,
-        error: {
-          code: -32601,
-          message: `method not found: ${msg.method ?? ""}`,
-        },
-      });
+    // Frame SANS `method` mais AVEC `id` = RÉPONSE à une requête que le SERVEUR
+    // aurait initiée (serveur→client). Pas encore d'initiateur côté serveur → on
+    // l'ignore proprement (NE PAS répondre `-32601`). Brancher une `pending` map
+    // ici le jour où le serveur appellera le client (bidirectionnel complet).
+    void hasId; // frame sans method (réponse/erreur globale/invalide) → ignorée
+  }
+
+  /**
+   * Dispatch d'une requête JSON-RPC 2.0 (action de contrôle, attend un `result`).
+   *
+   * Renvoie le résultat (ou l'erreur) sur la connexion avec le MÊME `id` — c'est
+   * la `Promise` que résout `RealtimeClient.request()` côté navigateur. Un handler
+   * peut être sync ou async (normalisé en `Promise`). Méthode inconnue → `-32601` ;
+   * handler qui throw → `-32603` avec un message GÉNÉRIQUE (le détail reste serveur,
+   * loggé — pas de fuite d'info au client, Zero Trust).
+   *
+   * Forward-compat P13.4 : ce routeur + ces actions migreront tels quels dans
+   * `RealtimeService` (même enveloppe JSON-RPC, fan-out multi-clients).
+   */
+  private dispatchRequest(
+    ctx: WebsocketContext,
+    id: number | string,
+    method: string | undefined,
+    params: Record<string, unknown> | undefined,
+  ): void {
+    let result: unknown;
+    switch (method) {
+      case "kernel:ping":
+        result = this.actionPing();
+        break;
+      case "kernel:gc":
+        result = this.actionGc();
+        break;
+      default:
+        this.send(ctx, {
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32601, message: `method not found: ${method ?? ""}` },
+        });
+        return;
     }
+    void params; // réservé aux actions paramétrées (ex. orm:flow:reset {connector})
+    Promise.resolve(result).then(
+      (r) => this.send(ctx, { jsonrpc: "2.0", id, result: r }),
+      (err: unknown) => {
+        this.log(
+          `RPC ${method} failed: ${err instanceof Error ? err.message : String(err)}`,
+          "ERROR",
+        );
+        this.send(ctx, {
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32603, message: "internal error" },
+        });
+      },
+    );
+  }
+
+  /**
+   * Action `kernel:ping` — liveness + round-trip. Renvoie un `result` minimal :
+   * le client mesure la latence WS (RTT) et confirme que la direction
+   * requête→réponse fonctionne. Lecture pure, aucun effet de bord.
+   */
+  private actionPing(): {
+    pong: true;
+    ts: number;
+    uptime: number;
+    pid: number;
+    version?: string;
+  } {
+    return {
+      pong: true,
+      ts: Date.now(),
+      uptime: process.uptime(),
+      pid: process.pid,
+      version: this.kernel?.version,
+    };
+  }
+
+  /**
+   * Action `kernel:gc` — force un cycle de garbage collection V8 SI le process a
+   * été lancé avec `--expose-gc` (`global.gc`). Renvoie le delta heap (avant/après)
+   * pour un futur bouton « Force GC » de la supervision. `available:false` sinon
+   * (aucun crash, dégradation gracieuse). Action de CONTRÔLE à effet réel.
+   */
+  private actionGc(): {
+    available: boolean;
+    before?: number;
+    after?: number;
+    freed?: number;
+  } {
+    const gc = (globalThis as { gc?: () => void }).gc;
+    if (typeof gc !== "function") return { available: false };
+    const before = process.memoryUsage().heapUsed;
+    gc();
+    const after = process.memoryUsage().heapUsed;
+    return { available: true, before, after, freed: before - after };
   }
 
   /** Démarre le provider d'un canal (idempotent). */
@@ -183,7 +285,12 @@ class StudioRealtimeController extends Controller {
                   5000,
               ),
             );
-      dispose = createBrokerTicker(() => this.fetchOrmHealth(), publish, channel, ms);
+      dispose = createBrokerTicker(
+        () => this.fetchOrmHealth(),
+        publish,
+        channel,
+        ms,
+      );
     } else if (
       channel === CHANNELS.ormFlow ||
       channel.startsWith(`${CHANNELS.ormFlow}:`)
@@ -196,10 +303,16 @@ class StudioRealtimeController extends Controller {
               60000,
               Math.max(
                 500,
-                parseInt(channel.slice(CHANNELS.ormFlow.length + 1), 10) || 2000,
+                parseInt(channel.slice(CHANNELS.ormFlow.length + 1), 10) ||
+                  2000,
               ),
             );
-      dispose = createBrokerTicker(() => this.fetchOrmFlow(), publish, channel, ms);
+      dispose = createBrokerTicker(
+        () => this.fetchOrmFlow(),
+        publish,
+        channel,
+        ms,
+      );
     }
     if (dispose) {
       state.channels.set(channel, dispose);

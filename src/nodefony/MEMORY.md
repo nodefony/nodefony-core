@@ -15,6 +15,7 @@
 **Purpose** : Classe de base de tout service Nodefony. Kernel, Module, Controller, adapters ORM en héritent tous.
 
 **Core Components**
+
 - `name: string` — identifiant du service
 - `container: Container | null` — DI container (injection)
 - `kernel: IKernel | null` — récupéré depuis `container.get("kernel")`
@@ -22,9 +23,11 @@
 - `#nc: Event | undefined` — EventEmitter privé (notificationsCenter)
 
 **Constructeur**
+
 ```
 Service(name, container?, notificationsCenter?, options?)
 ```
+
 - `container` absent → `new Container()` créé automatiquement
 - `notificationsCenter=false` → pas d'Event (mode silencieux)
 - `notificationsCenter=null` → traité comme absent → nouveau Event créé
@@ -35,6 +38,7 @@ Service(name, container?, notificationsCenter?, options?)
 - `notificationsCenter` mis dans container seulement si PAS de kernel (intentionnel)
 
 **Events — délégation vers `#nc` via getter privé `nc`**
+
 - Getter privé `nc` : lance `Error: notificationsCenter not initialized` si `#nc undefined` — élimine le if/throw ×18
 - Tous les EventEmitter standard : `on/off/once/emit/addListener/removeListener/removeAllListeners/prependListener/prependOnceListener/listeners/rawListeners/listenerCount/eventNames/setMaxListeners/getMaxListeners`
 - `fire()` = alias `emit()` | `fireAsync()`/`emitAsync()` = async
@@ -45,6 +49,7 @@ Service(name, container?, notificationsCenter?, options?)
 - **clean() avec Event partagé** : retire uniquement les listeners traçés de ce service → pas de fuite mémoire inter-services
 
 **Logging**
+
 - `log(pci, severity?, msgid?, msg?)` → `Pdu`
 - `pdu.severity` = numérique (enum `SysLogSeverity`), `pdu.severityName` = string
 - Severités : `EMERGENCY(0) ALERT(1) CRITIC(2) ERROR(3) WARNING(4) NOTICE(5) INFO(6) DEBUG(7) SPINNER(-1)`
@@ -54,6 +59,7 @@ Service(name, container?, notificationsCenter?, options?)
 - Fallback si `syslog null` : `new Pdu(pci, severity, this.name, msgid, msg)` — moduleName = nom du service
 
 **Container delegation**
+
 - `get<T>(name)` → `null` si container null (no throw)
 - `set<T>(name, obj)` → **throw** si container null
 - `has(name)` → `false` si container null (no throw)
@@ -63,11 +69,13 @@ Service(name, container?, notificationsCenter?, options?)
 - `remove()` appelle `clean()` sur les enfants `instanceof Service`
 
 **Cycle de vie**
+
 - `initSyslog(env, debug, options?)` → initialise le syslog (dev/prod/test)
 - `clean(syslog=false)` → null toutes les refs. `clean(true)` appelle `syslog.reset()`
 - `clean()` idempotent
 
 **Héritage**
+
 - Étendre avec `class MyService extends Service`
 - `super(name, container, notificationsCenter, options)` dans le constructeur
 - `remove()` appelle `clean()` sur toute sous-classe `instanceof Service`
@@ -75,6 +83,7 @@ Service(name, container?, notificationsCenter?, options?)
 **Deps** : `Container`, `Event` (node:events), `Syslog`, `Pdu`, `IService`, `IKernel`
 
 **Gotchas**
+
 - `Service.remove()` retourne `true` si trouvé/supprimé, `false` sinon (propagé depuis Container)
 - `options.events.nbListeners` propagé dans les deux branches (partagé et auto-créé)
 - `settingsToListen()` et `listen()` → listeners non traçés → PAS retirés à `clean()`
@@ -90,17 +99,20 @@ Service(name, container?, notificationsCenter?, options?)
 **Purpose** : DI Container — registry de services + paramètres dot-notation + scopes hiérarchiques.
 
 **Interfaces** : `src/types/IContainer.ts` — `IContainer` + `IScope`
+
 - `Container implements IContainer`
 - `Scope extends Container implements IScope`
 - `IService.container` typé `IContainer | null` (pas la classe concrète)
 
 **Core**
+
 - `id: string` — uuid unique (public)
 - `services: DynamicService | null` — map des services (hérite de `protoService.prototype`)
 - `parameters: DynamicParam | null` — map dot-notation
 - `scopes: Scopes` — scopes nommés, chacun indexé par id
 
 **Services API**
+
 - `set(name, obj)` — stocke dans `services[name]` ET `protoService.prototype[name]` (héritage scopes)
 - `get<T>(name)` → `T | null` — utilise `name in this.services` (inclut prototype chain)
 - `has(name)` → `boolean` — utilise `name in this.services` (pas `!!value` — supporte valeurs falsy)
@@ -109,11 +121,13 @@ Service(name, container?, notificationsCenter?, options?)
 - `keys()` / `entries()` — liste les services propres
 
 **Paramètres**
+
 - `setParameters(name, val)` — dot-notation, crée les nœuds intermédiaires automatiquement
 - `getParameters(name)` → `DynamicParam | null`
 - Erreur si name non-string, value undefined, ou descente dans un nœud non-objet
 
 **Scopes**
+
 - `addScope(name)` — déclare un scope (idempotent), retourne le dict existant si déjà créé
 - `enterScope(name)` → `IScope` — crée une instance Scope héritant du proto du parent
 - `leaveScope(scope: IScope)` — nettoie le scope, le retire du dict
@@ -122,14 +136,17 @@ Service(name, container?, notificationsCenter?, options?)
 - `Scope.getParameters(name, merge=true, deep=true)` — merge local + parent si les deux sont des objets
 
 **Cycle de vie**
+
 - `clean()` — `services=null`, `parameters=null`, nettoie tous les scopes
 - `reset()` — `clean()` + recrée protoService/protoParameters → utilisable à nouveau
 
 **Constructeur clone**
+
 - `new Container(parent)` — shallow clone (services et params partagés via proto)
 - `new Container(parent, true)` — deep clone des paramètres (`structuredClone` avec fallback)
 
 **Gotchas**
+
 - `has()` et `remove()` utilisent `name in services` (pas `!!value`) — valeurs falsy (0, false, "") correctement gérées
 - `set()` après `clean()` → throw "Container bad argument name" (message trompeur — vraie cause : services=null)
 - `get(name)` retourne `null` si value est `null` (null stocké → `services[name] = null` → retourne null comme "absent")
@@ -154,6 +171,7 @@ Nodefony.generateV5Id(name, ns?) // uuidv5 string
 **Règle** : `private constructor()` — jamais instancier. `#kernel` est un champ privé statique.
 
 **Gotchas**
+
 - `getKernel()` retourne `null` avant `Kernel.start()` — toujours utiliser `?.`
 - Ancienne API supprimée : `nodefony.kernel`, `nodefony.generateId()`, default export
 
@@ -164,30 +182,32 @@ Nodefony.generateV5Id(name, ns?) // uuidv5 string
 **Règle** : zéro default export — tout est nommé. `import { X } from "nodefony"` uniquement.
 
 **Exports clés** :
+
 ```typescript
 // Classes
-Nodefony, Kernel, Module, CliKernel, Service, Container, Event, Syslog, Pdu
+(Nodefony, Kernel, Module, CliKernel, Service, Container, Event, Syslog, Pdu);
 // Erreurs
-nodefonyError        // ← anciennement exporté comme "Error" (cassant)
+nodefonyError; // ← anciennement exporté comme "Error" (cassant)
 // ORM
-Orm, Entity, Connector
+(Orm, Entity, Connector);
 // DI
-inject, injectable, services, entities, modules
+(inject, injectable, services, entities, modules);
 // Utils
-extend, typeOf, isArray, isPromise, isPlainObject, isFunction, isContainer
+(extend, typeOf, isArray, isPromise, isPlainObject, isFunction, isContainer);
 // Types (import type)
-IKernel, IService, IContainer, IScope, IModule, ISyslog
-DynamicParam, DynamicService, ProtoService, ProtoParameters
+(IKernel, IService, IContainer, IScope, IModule, ISyslog);
+(DynamicParam, DynamicService, ProtoService, ProtoParameters);
 ```
 
 **Migration `nodefony` default → named** :
+
 ```typescript
 // Avant (cassé)
 import nodefony, { Kernel } from "nodefony";
-nodefony.kernel  //  ← undefined
+nodefony.kernel; //  ← undefined
 // Après
 import { Nodefony, Kernel } from "nodefony";
-Nodefony.getKernel()
+Nodefony.getKernel();
 ```
 
 **Types path** : `dist/types/src/index.d.ts` (après `npm run clean && npm run build` dans `src/nodefony`)
@@ -211,10 +231,12 @@ Nodefony.getKernel()
 Build Rollup dédié (`createClientConfig`, `tsconfigClient.json` `types:[]`), shims `node:util/events/cli-color`, sortie `dist/client/`.
 
 - **`nodefony`** (cond. `browser`) + **`nodefony/client`** : barrel browser (RealtimeClient, Pdu, Syslog, Tools…). Bundle ~25 KB gz. **Ne JAMAIS** réexporter sip/media/debugbar depuis `client/index.ts` (exploserait le barrel).
+- **RealtimeClient (lib cliente réutilisable)** : pub/sub (`on/off/subscribe` ref-compté) + `request(method,params,timeoutMs=30000)` (req→rép JSON-RPC, Promise id-matchée) + `callStream` (LLM). Helper `ping(timeoutMs=5000)` → `{...kernel:ping, rtt}` (RTT mesuré client ; type `KernelPingResult`). RÈGLE : le générique realtime vit ICI (Studio/debugbar/apps partagent), pas dupliqué par front. Test `tests/RealtimeClientPing.test.ts`.
 - **`nodefony/debugbar`** : subpath debug bar (entry Rollup séparée, RealtimeClient/Pdu **partagés** via preserveModules → 0 duplication). `mountDebugBar(opts?)` + `DebugBar`. Vanilla TS + **Shadow DOM**, 0 dep UI.
 - **`nodefony/debugbar.js`** : bundle **standalone mono-fichier** (`createDebugbarStandaloneConfig` → `dist/client/debugbar.standalone.js`, deps inlinées) pour `<script type="module" src>` sur page rendue serveur (EJS/Twig, hors Vite).
 
 ### Debug bar — internals
+
 - `debugbar/{DebugBar,model,format,hmr,index}.ts`. **model/format = purs** (testés `tests/DebugBar.test.ts`, 12). DOM = vérif navigateur.
 - Données via `RealtimeClient` (canaux `dashboard:stats` + `syslog:stream`, endpoint défaut `/nodefony/studio/api/realtime`). Logs **réhydratés en `new Pdu()`** (champs `payload`/`moduleName`/`severity`, PAS `pci`/`msgid`).
 - Pouls realtime = `client.framesReceived` (msg/s + VU). Sonde HMR Vite = `connectViteHmr` (2ᵉ client WS `vite-hmr`, dev). Sparklines = SVG maison (pas recharts).
@@ -223,6 +245,7 @@ Build Rollup dédié (`createClientConfig`, `tsconfigClient.json` `types:[]`), s
 - Gotcha : le conteneur `.minbar` (chip réduit) n'a pas de `[data-el]` → ref stockée à la main (sinon barre réduite invisible).
 
 ### Network panel + profiler (2026-05-21)
+
 - `network.ts` : intercepteur **fetch + XHR** dev-only — **header-only** (jamais le body), défensif (try/catch, relaie l'original), réversible (`uninstall`), chain-safe, opt-out (`network:false`), **filtre les appels Vite** (cross-origin 5173). Lit `x-request-id` (clé profiler) + `traceparent` (W3C) des réponses.
 - `profile.ts` : **purs** — `NetworkModel` (ring buffer 80 + compteurs + cache profils), `computeWaterfall(phases)` (layout %), types `ProfileEntry`/`ProfilePhase`/`ProfileQuery`. **Réexportés du subpath** `nodefony/debugbar` → réutilisés par Studio (page Profiler). Tests `tests/Profiler.client.test.ts` (11).
 - Clic ligne → fetch `/nodefony/profiler/api/{requestId}` (ignoré par l'intercepteur) → **waterfall** des phases serveur + méta (route/user/trace). Bouton ✕ ferme.

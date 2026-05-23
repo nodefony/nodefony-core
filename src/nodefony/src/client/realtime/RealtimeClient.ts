@@ -127,6 +127,20 @@ interface PendingRequest {
   chunks?: unknown[];
 }
 
+/**
+ * Réponse de la méthode RPC standard `kernel:ping` — CONVENTION Nodefony : tout
+ * endpoint realtime (Studio aujourd'hui, `RealtimeService` en P13.4) y répond.
+ * Sert de liveness + base de mesure du round-trip (cf {@link RealtimeClient.ping}).
+ */
+export interface KernelPingResult {
+  pong: true;
+  ts: number;
+  /** uptime process serveur (s). */
+  uptime: number;
+  pid: number;
+  version?: string;
+}
+
 export class RealtimeClient {
   private ws: WebSocket | null = null;
   private _state: RealtimeState = "disconnected";
@@ -345,6 +359,29 @@ export class RealtimeClient {
       const msg: JsonRpcRequest = { jsonrpc: "2.0", id, method, params };
       this.send(msg);
     });
+  }
+
+  /**
+   * Mesure le round-trip WS via la méthode RPC standard `kernel:ping` — helper
+   * RÉUTILISABLE par tout consommateur (topbar Studio, debug bar, app user) :
+   * la mesure du RTT et la convention `kernel:ping` vivent dans la lib cliente,
+   * pas dupliquées dans chaque front. Renvoie le payload serveur enrichi de `rtt`
+   * (ms, aller-retour mesuré côté client). Lève si le serveur ne répond pas
+   * (`request` timeout) ou ne connaît pas la méthode (`-32601`).
+   */
+  async ping(timeoutMs = 5000): Promise<KernelPingResult & { rtt: number }> {
+    const now = (): number =>
+      typeof performance !== "undefined" &&
+      typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+    const t0 = now();
+    const res = await this.request<KernelPingResult>(
+      "kernel:ping",
+      undefined,
+      timeoutMs,
+    );
+    return { ...res, rtt: Math.round(now() - t0) };
   }
 
   /**
@@ -655,30 +692,76 @@ export class RealtimeClient {
 
     this.recordFrame("in", msg); // log protocole (lazy)
 
-    // Response (with id)
-    if ("id" in msg && typeof (msg as { id: unknown }).id === "number") {
+    // Le RÔLE d'une frame se lit sur `method`, PAS sur `id` (sinon une réponse
+    // serait prise pour une requête, et une requête serveur→client pour une
+    // réponse). `id` autorisé string OU number (JSON-RPC 2.0 §id).
+    const id = (msg as { id?: unknown }).id;
+    const hasId = typeof id === "number" || typeof id === "string";
+    const method =
+      typeof (msg as { method?: unknown }).method === "string"
+        ? (msg as { method: string }).method
+        : undefined;
+
+    // Frame AVEC `method` = appel ENTRANT (le serveur nous appelle).
+    if (method !== undefined) {
+      if (hasId) {
+        // Requête serveur→client : pas (encore) de registre d'actions exposées
+        // côté client → réponse standard « méthode inconnue » (le serveur voit son
+        // `request()` rejeter au lieu d'attendre le timeout). Brancher ici un
+        // registre le jour du bidirectionnel complet (client = callee).
+        this.send({
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32601, message: `method not found: ${method}` },
+        });
+        return;
+      }
+      // Notification (pas d'`id`) — événement pub/sub.
+      const params = (msg as JsonRpcNotification).params;
+      this.trackFrame(method); // stats génériques avant dispatch
+      this.handlers.get(method)?.forEach((h) => {
+        try {
+          h(params);
+        } catch {
+          /* ignore handler errors */
+        }
+      });
+      // wildcard
+      this.handlers.get("*")?.forEach((h) => {
+        try {
+          h(method, params);
+        } catch {
+          /* ignore */
+        }
+      });
+      return;
+    }
+
+    // Frame SANS `method` mais AVEC `id` = RÉPONSE à une de NOS requêtes (flux
+    // sortant). Nos `id` sont numériques (cf `nextId`) → on ne matche que ceux-là.
+    if (typeof id === "number") {
       const m = msg as JsonRpcResponse | JsonRpcStreamChunk;
-      const pending = this.pending.get(m.id as number);
+      const pending = this.pending.get(id);
       if (!pending) return;
       if ("stream" in m) {
         pending.onChunk?.(m.stream.chunk);
         if (m.stream.done) {
-          this.pending.delete(m.id as number);
+          this.pending.delete(id);
           pending.resolve(pending.chunks);
         }
       } else if ("error" in m && m.error) {
-        this.pending.delete(m.id as number);
+        this.pending.delete(id);
         pending.reject(new Error(m.error.message));
       } else if ("result" in m) {
-        this.pending.delete(m.id as number);
+        this.pending.delete(id);
         pending.resolve(m.result);
       }
       return;
     }
 
-    // Erreur JSON-RPC poussée SANS id = erreur globale serveur (pas une réponse
-    // à une requête) → notice normalisée pour le centre de notifications.
-    if ("error" in msg && (msg as JsonRpcResponse).error) {
+    // Frame SANS `method` ni `id` mais AVEC `error` = erreur globale serveur (pas
+    // une réponse à une requête) → notice normalisée pour le centre de notifications.
+    if ((msg as JsonRpcResponse).error) {
       const err = (msg as JsonRpcResponse).error!;
       this.fireNotice({
         level: "error",
@@ -687,28 +770,6 @@ export class RealtimeClient {
         source: "server",
         code: err.code,
         ts: Date.now(),
-      });
-      return;
-    }
-
-    // Notification (no id) — pub/sub event
-    const n = msg as JsonRpcNotification;
-    if (n.method) {
-      this.trackFrame(n.method); // stats génériques avant dispatch
-      this.handlers.get(n.method)?.forEach((h) => {
-        try {
-          h(n.params);
-        } catch {
-          /* ignore handler errors */
-        }
-      });
-      // wildcard
-      this.handlers.get("*")?.forEach((h) => {
-        try {
-          h(n.method, n.params);
-        } catch {
-          /* ignore */
-        }
       });
     }
   }

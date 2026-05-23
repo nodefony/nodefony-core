@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.3.0
+version: 1.5.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -622,8 +622,27 @@ await c.stream<TChunk>("method", params, (chunk) => {}); // RPC streaming
 ```
 
 - ⚠️ Après le handshake, `ctx.send()` **rejette** (`requestEnded`) → pousser sur la **connexion brute**
-  `ctx.connection.send(str, cb)` (garde `readyState===1`). **SSE** : écouter `rawRes.once("close")` (RESPONSE),
-  jamais `request.on("close")` (fire trop tôt en HTTP/2).
+  `ctx.connection.send(str, cb)` (garde `readyState===1`). **SSE** : préférer un **canal WS** (le SSE dormant
+  Studio a été supprimé : `flushHeaders` absent sur `Http2ServerResponse` → `code=000`). Si SSE quand même :
+  écouter `rawRes.once("close")` (RESPONSE), jamais `request.on("close")` (fire trop tôt en HTTP/2).
+
+**Actions WS (requête→réponse, ≠ pub/sub)** — une frame **avec `id`** attend une réponse `result`/`error` :
+
+```typescript
+// SERVEUR (controller WS) : router les requêtes id, hors du chemin chaud subscribe.
+if ("id" in msg && typeof msg.id === "number")
+  this.dispatchRequest(ctx, msg.id, msg.method, msg.params);
+// dispatchRequest : switch(method) → result ; défaut -32601 ; handler throw → -32603 (msg GÉNÉRIQUE
+// au client, détail loggé serveur = Zero Trust). Promise.resolve(result) → { jsonrpc, id, result }.
+// CLIENT (lib core, déjà là) :
+const r = await client.request<T>("kernel:ping"); // Promise id-matchée (timeout 30 s)
+const { rtt, ...pong } = await client.ping(); // helper RÉUTILISABLE (RTT) — dans la LIB, pas le front
+```
+
+- 🚨 **Le générique va dans la lib cliente** (`RealtimeClient`), jamais dupliqué par front (Studio/debugbar/apps
+  partagent). Seuls les **noms+handlers serveur** restent à l'edge (et migreront dans `RealtimeService` P13.4).
+- Perf : le routage `id` ne s'exécute que sur une requête explicite — `subscribe`/`unsubscribe`/`ping` restent
+  sync/0-alloc. Test unit du helper en stubant `request()` (cf `src/nodefony/src/tests/RealtimeClientPing.test.ts`).
 - **Build** : modif du Core/d'un subpath `nodefony/*` → `cd src/nodefony && npm run build` **puis restart**
   (Vite ré-optimise les deps au boot ; un subpath neuf n'est pas résolu à chaud). Règle perf/mémoire Core s'applique.
 - Réfs : core `MEMORY.md` (section client), mémoires `project_client_lib_subpaths_decision`,
@@ -1199,6 +1218,12 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.5.0** (2026-05-23) — §6 **Actions WS (requête→réponse)** : discrimination de frame JSON-RPC
+  par **`method`** (pas `id`) — une réponse (id sans method) n'est plus prise pour une requête,
+  une requête entrante n'est plus prise pour une réponse ; `id` string|number ; `-32601`/`-32603`
+  (msg générique, détail loggé = Zero Trust). Helper réutilisable `RealtimeClient.ping()` (RTT) **dans
+  la lib**, pas le front. MVP serveur `kernel:ping`/`kernel:gc` (Studio). Tests core `RealtimeClient{Ping,Dispatch}`.
+  RETEX : le générique realtime va dans la lib cliente ; **piste = base `RealtimeController` + `IRealtimeController`** (framework) pour DRY le protocole (cf §6).
 - **1.4.0** (2026-05-23) — §5.F **3 sondes ORM** (profiler par-requête / santé / **flux**) :
   `queryFlowMonitor` (orm-core) = débit/latence-EWMA/slow **process-wide, OFF par défaut** (gaté driver,
   per-connecteur via `ormName` au tap, ring slow 20, `toSQL` slow-only, débit dérivé delta `total`, **0

@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-23T16:12:07.449Z",
+  "generated": "2026-05-23T16:44:41.011Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 722,
-    "symbols": 1225,
+    "symbols": 1226,
     "classes": 212,
-    "interfaces": 275,
+    "interfaces": 276,
     "types": 142,
     "enums": 2,
     "functions": 151,
@@ -1477,6 +1477,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Une frame du protocole temps réel (JSON-RPC 2.0) — pour le log/inspecteur."
+    },
+    "KernelPingResult": {
+      "name": "KernelPingResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/RealtimeClient.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réponse de la méthode RPC standard `kernel:ping` — CONVENTION Nodefony : tout endpoint realtime (Studio aujourd'hui, `RealtimeService` en P13.4) y répond. Sert de liveness + base de mesure du round…"
     },
     "RealtimeState": {
       "name": "RealtimeState",

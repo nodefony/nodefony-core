@@ -25,6 +25,7 @@ export type {
   RealtimeOptions,
   MessageStats,
   RealtimeFrame,
+  KernelPingResult,
 } from "./realtime/RealtimeClient";
 export type { NodefonyNotice, NoticeLevel } from "./realtime/notice";
 
