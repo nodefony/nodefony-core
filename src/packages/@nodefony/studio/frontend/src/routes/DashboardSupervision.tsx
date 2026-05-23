@@ -222,6 +222,14 @@ export const DashboardSupervision = observer(() => {
   const [orms, setOrms] = useState<OrmSummary[]>([]);
   const [ormHealth, setOrmHealth] = useState<OrmHealth[] | null>(null);
   const errSec = useRef(0);
+  // Cadence RÉELLE du temps réel (client-observée). Sous saturation event-loop
+  // côté serveur, les ticks arrivent en retard → le « temps réel » ne tient plus
+  // sa cadence (symptôme #1 vu sous charge : refresh « par paliers de N s »). On
+  // mesure l'écart entre 2 frames reçues (tickGap) + le retard courant depuis la
+  // dernière (overdue, via heartbeat) pour le SIGNALER au lieu d'avoir l'air figé.
+  const lastTickRef = useRef(0);
+  const [tickGapMs, setTickGapMs] = useState(0);
+  const [overdueMs, setOverdueMs] = useState(0);
 
   // Onglet de détail actif (CONTRÔLÉ) → les KPIs du haut y naviguent au clic.
   const [tab, setTab] = useState<string>("performance");
@@ -236,6 +244,24 @@ export const DashboardSupervision = observer(() => {
   );
   useEffect(() => lsSet("nf.supervision.liveMs", String(liveMs)), [liveMs]);
   useEffect(ensureLiveStyles, []);
+  // Heartbeat client (1/s, live-only) : détecte un tick EN RETARD même quand
+  // AUCUNE frame n'arrive (serveur affamé) — sinon « en retard » ne se verrait
+  // jamais (pas de re-render sans tick). Cheap : ne setState que si réellement en
+  // retard (gap > cadence) ; sinon 0 → React bail-out (pas de render parasite/s).
+  useEffect(() => {
+    if (!live) {
+      lastTickRef.current = 0;
+      setTickGapMs(0);
+      setOverdueMs(0);
+      return;
+    }
+    const id = window.setInterval(() => {
+      if (!lastTickRef.current) return;
+      const gap = Date.now() - lastTickRef.current;
+      setOverdueMs(gap > liveMs ? gap : 0);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [live, liveMs]);
   const statsChannel =
     liveMs === 1000
       ? "dashboard:supervision"
@@ -302,6 +328,11 @@ export const DashboardSupervision = observer(() => {
   const onStats = (payload: unknown) => {
     const s = payload as StatsPayload;
     if (!s || typeof s !== "object" || !s.memory) return;
+    // Cadence réelle : écart depuis le tick précédent ; retard remis à zéro.
+    const now = Date.now();
+    if (lastTickRef.current) setTickGapMs(now - lastTickRef.current);
+    lastTickRef.current = now;
+    setOverdueMs(0);
     setStats(s);
     setCpuHist((prev) => cap(prev, s.cpuPercent));
     setLoopHist((prev) => cap(prev, s.eventLoopMs));
@@ -359,6 +390,13 @@ export const DashboardSupervision = observer(() => {
       : 0;
   const errPerMin = errHist.reduce((a, b) => a + b, 0);
   const ms = (v: number) => `${v.toFixed(1)} ms`;
+
+  // Cadence réelle observée vs demandée (liveMs). Pire des deux : écart entre 2
+  // frames OU retard courant. > 3× la cadence = le serveur ne pousse plus à temps
+  // (event-loop saturé) → on le DIT (le dashboard est affamé, pas planté).
+  const observedGapMs = Math.max(tickGapMs, overdueMs);
+  const realtimeStale =
+    live && rtOnline && lastTickRef.current > 0 && observedGapMs > liveMs * 3;
 
   // En DÉVELOPPEMENT, l'event-loop partage le process avec Vite/HMR/rollup → un
   // lag de 15-25 ms est NORMAL (≠ prod). On relâche donc le seuil en dev pour ne
@@ -445,6 +483,12 @@ export const DashboardSupervision = observer(() => {
       color: errH.color,
       msg: `${errPerMin} erreur(s)/min (${errH.label})`,
       help: "Nombre de logs ERROR + CRITIC sur les 60 dernières secondes (canal syslog). Ouvrez l'onglet Erreurs puis la page Logs pour la stack trace.",
+    });
+  if (realtimeStale)
+    alerts.push({
+      color: "orange",
+      msg: `Temps réel en retard — rafraîchi ~toutes les ${(observedGapMs / 1000).toFixed(1)} s (cadence demandée ${(liveMs / 1000).toFixed(0)} s)`,
+      help: "Les mesures arrivent en retard : la boucle d'événements du serveur est saturée (forte charge WS/HTTP) → le ticker temps réel ne tient plus sa cadence. Le dashboard n'est PAS planté, il est AFFAMÉ. Conséquence : les latences mesurées côté serveur (ex. ping ORM) sont gonflées par l'attente d'ordonnancement, PAS par la base.",
     });
 
   // Santé GLOBALE à 3 états (≠ binaire) : le ROUGE « Dégradé » est réservé aux
@@ -687,6 +731,11 @@ export const DashboardSupervision = observer(() => {
               <Badge size="sm" variant="light" color={live ? "teal" : "gray"}>
                 {live ? "live" : "snapshot"}
               </Badge>
+              {realtimeStale && (
+                <Badge size="sm" variant="light" color="orange">
+                  retard ~{(observedGapMs / 1000).toFixed(1)}s
+                </Badge>
+              )}
             </Group>
           }
         />
@@ -768,7 +817,7 @@ export const DashboardSupervision = observer(() => {
           pulse={live}
           active={activeTab === "performance"}
           onClick={() => goLiveTab("performance")}
-          hint={`Retard de la boucle Node ${loop.toFixed(1)} ms (${loopH.label}). Plus c'est bas, plus le serveur est réactif. Seuils ${isDev ? "DEV (Vite in-process) : élevé ≥50ms, critique ≥120ms" : "PROD : élevé ≥20ms, critique ≥50ms"}. Clic → onglet Performance.`}
+          hint={`Retard de la boucle Node ${loop.toFixed(1)} ms (${loopH.label}). Plus c'est bas, plus le serveur est réactif. Seuils ${isDev ? "DEV (Vite in-process) : élevé ≥50ms, critique ≥120ms" : "PROD : élevé ≥20ms, critique ≥50ms"}. Quand il monte, il retarde AUSSI le rafraîchissement temps réel et gonfle le ping ORM (attente d'ordonnancement, pas la base). Clic → onglet Performance.`}
           value={
             waiting ? (
               <Skeleton h={30} w={90} />
@@ -1259,7 +1308,18 @@ export const DashboardSupervision = observer(() => {
                         {live && (
                           <>
                             <Row
-                              k="Ping"
+                              k={
+                                loopH.color !== "teal" ? (
+                                  <Group gap={4} wrap="nowrap">
+                                    Ping
+                                    <InfoHint
+                                      text={`Latence mesurée côté serveur (await ping). L'event-loop est à ${loop.toFixed(0)} ms : une grande part de ce ping = attente d'ordonnancement, PAS la base (${c.vendor} local ≈ µs). Ne lisez pas ce ping comme un souci de base tant que l'event-loop est élevé.`}
+                                    />
+                                  </Group>
+                                ) : (
+                                  "Ping"
+                                )
+                              }
                               v={
                                 c.pingOk ? (
                                   <FlashValue value={c.pingMs ?? 0}>

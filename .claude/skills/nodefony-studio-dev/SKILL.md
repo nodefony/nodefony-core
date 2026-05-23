@@ -672,6 +672,21 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
   seuils relâchés (élevé ≥50ms/critique ≥120ms) vs prod (≥20/≥50ms). `info.environment` pilote.
 - **Ping connecteur** : « en attente… » (gris) tant que la santé live n'est pas reçue, « échec »
   (rouge) UNIQUEMENT si `pingOk===false` (pas `undefined`) — évite le faux échec au 1ᵉʳ render.
+- **Famine realtime SIGNALÉE, pas figée (fix B, 2026-05-23)** : sous forte charge, l'event-loop
+  serveur sature → le ticker `setInterval` dérape → le dashboard se rafraîchit « par paliers » et a
+  l'air planté. Fix = **mesurer la cadence RÉELLE côté client** (`observedGapMs` = max(écart entre 2
+  frames, retard courant) vs `liveMs`) via un **heartbeat 1/s live-only** (détecte le retard même quand
+  AUCUNE frame n'arrive ; setState seulement si `gap>liveMs` → 0 render parasite). `realtimeStale =
+observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (= « à surveiller », jamais
+  rouge). ⚠️ Le seuil étant **relatif** à la cadence, à 10 s de granularité il faut 30 s de retard pour
+  déclencher (tester en 1 s). **Réutilisable** = jauge de santé du flux pour tout dashboard live. C'est
+  la « jauge » dont l'évolution future est le **gouverneur** = cadence adaptative AIMD (mémoire IA
+  `project_realtime_granularity_clientlib`).
+- **Latence dérivée contextualisée** : une latence mesurée côté serveur en JS (ex. **ping ORM** =
+  `await inst.ping()`) est **gonflée par l'attente event-loop** sous charge (8 s observés = ordonnancement,
+  pas la base — SQLite local ≈ µs). Quand `loopH.color !== "teal"`, afficher un `<InfoHint>` qui le DIT,
+  sinon l'utilisateur croit que sa base déconne. Règle : toute latence applicative affichée se lit à
+  l'aune de l'event-loop lag.
 
 **Debug bar (`nodefony/debugbar`, Core vanilla) — 2026-05-23 soir**
 
