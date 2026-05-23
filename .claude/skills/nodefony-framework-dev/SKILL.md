@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.6.0
+version: 1.7.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.6.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.7.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -37,7 +37,7 @@ sûr, typé** sans ré-explorer les ~15 `CLAUDE.md`/`MEMORY.md` : signatures, ch
 `nodefony-studio-dev` = le **consommer**. Le SEAM partagé :
 
 - **Data-plane** `/nodefony/<mod>/api/*` (back l'expose via `IAdminApi` → front via `useResource`/`ApiClient`).
-- **Realtime** : canaux + actions (back via `RealtimeController` → front via hooks/`conn.request`). Hub = patron.
+- **Realtime** : la **socket** (`IRealtimeSocket`) = la prise que tient le métier (multiplexe des canaux) ; le **hub** (`RealtimeHub`, framework) = broker serveur (canaux PARTAGÉS + fan-out). Back : `RealtimeController` délègue au hub ; canaux out via `createRealtimeChannel`, **entrants gated** via `realtimeInbound()` (SIP/bridge).
 - **Types** : exports `nodefony` (isomorphes) + `I*Controller`/`I*Api` = **source de vérité unique** du contrat
   (jamais une copie figée dans un seul skill — sinon dérive contrat ↔ conso).
 
@@ -48,7 +48,7 @@ correspondante de `nodefony-studio-dev` (et inversement). Ouvrir le skill jumeau
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.6.0**.
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.7.0**.
 
 ## 1. Quand l'utiliser / quand passer la main
 
@@ -1293,6 +1293,18 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.7.0** (2026-05-24) — §6 **Hub serveur + full-duplex + vocabulaire socket**. (a) **`RealtimeHub`**
+  (framework, broker per-instance) : canaux **PARTAGÉS** (1 provider/canal/pod au lieu de N per-connexion)
+  - fan-out + dispose au dernier abonné ; `RealtimeController` délègue subscribe/publish/cleanup au hub
+    (1 sink/connexion) ; **factory passée par `subscribe`** → le provider capture des deps **long-lived**
+    (survit à la connexion créatrice, ne JAMAIS capturer `this`/ctx). Seam backplane Redis = `RealtimeHub.publish`
+    (fan-out local + forward ; ingress = `publishLocal` only = anti-boucle). (b) **Full-duplex entrant gated** :
+    hook `realtimeInbound()` → client `publish(channel)` sur un canal DÉCLARÉ → `RealtimeInboundHandler
+(params, reply)` per-connexion ; **sûr par défaut** (aucun canal entrant sinon ; params NON FIABLES Zero
+    Trust). Seam SIP/bridge. (c) **VOCAB figé** : `IRealtimeHub`→**`IRealtimeSocket`** (la prise que tient le
+    métier, multiplexe des canaux) ; « hub » réservé au **broker serveur** (`RealtimeHub`). RETEX : trancher le
+    vocab AVANT d'écrire un contrat (rename mid-feature = ~10 edits). PROCHAINE = AIMD (prérequis : granularité
+    1ʳᵉ classe dans la lib). Doc `docs/architecture/realtime-socket-nodefony.md`.
 - **1.6.0** (2026-05-23) — §6 **Architecture « la socket Nodefony »** (extraction isomorphe) : pile
   Hub > Endpoint(`IRealtimePeer`) > Peer(`JsonRpcPeer`) > Transport(`IRealtimeTransport`). `JsonRpcPeer`
   (core, 0 dep node) = protocole écrit une fois, composé des 2 côtés. `IRealtimeTransport` = seul seam

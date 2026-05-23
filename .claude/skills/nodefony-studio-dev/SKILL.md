@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.6.0
+version: 1.7.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -48,7 +48,7 @@ Quand le front commence à consommer un **canal/action/endpoint/type** nouveau �
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.6.0**.
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.7.0**.
 
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
@@ -825,6 +825,11 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.7.0** (2026-05-24) — Lockstep (session BACKEND realtime — front Studio inchangé). Côté back que le front
+  consomme : la **socket** s'appelle `IRealtimeSocket` (renommé ex-`IRealtimeHub` ; « hub » = broker serveur
+  `RealtimeHub`) ; canaux serveur désormais **PARTAGÉS** (1 provider/canal/pod) + **full-duplex entrant gated**
+  (`realtimeInbound()`, seam SIP/bridge). **DX front identique** : `useNodefonyChannel`/`ConnectionStore`
+  inchangés (le hub fan-out est transparent). Cf `nodefony-framework-dev` 1.7.0 + `docs/architecture/realtime-socket-nodefony.md`.
 - **1.6.0** (2026-05-23) — Realtime **actions côté front** : `conn.request("kernel:ping")` / `conn.ping()` (RTT),
   actions découvrables via `realtime:welcome.methods`. Le protocole serveur est sorti dans `JsonRpcPeer` (core) +
   `RealtimeController` (framework) — le front reste **consommateur du hub** (hooks/stores), ne touche pas le
