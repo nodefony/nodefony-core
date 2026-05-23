@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-23T22:23:34.938Z",
+  "generated": "2026-05-23T23:52:53.671Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 731,
-    "symbols": 1260,
-    "classes": 217,
-    "interfaces": 289,
-    "types": 153,
+    "files": 732,
+    "symbols": 1273,
+    "classes": 218,
+    "interfaces": 295,
+    "types": 155,
     "enums": 2,
-    "functions": 155,
+    "functions": 159,
     "constants": 444
   },
   "symbols": {
@@ -1481,6 +1481,15 @@
       "module": "@nodefony/core",
       "extends": null
     },
+    "AdaptiveChannelData": {
+      "name": "AdaptiveChannelData",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat de {@link useNodefonyAdaptiveChannelData} : dernière valeur + cadence réelle."
+    },
     "ChannelStatsSnapshot": {
       "name": "ChannelStatsSnapshot",
       "kind": "interface",
@@ -1505,6 +1514,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null
+    },
+    "AdaptiveChannelHookOptions": {
+      "name": "AdaptiveChannelHookOptions",
+      "kind": "type",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Réglages adaptatifs du hook (cadence désirée fixée à part par `intervalMs`)."
     },
     "NodefonyProvider": {
       "name": "NodefonyProvider",
@@ -1546,6 +1563,22 @@
       "module": "@nodefony/core",
       "description": "`useNodefonyChannelData()` — la **dernière valeur** reçue sur un canal (cas le plus courant : dernière mesure d'un flux de stats). `null` tant que rien n'est arrivé."
     },
+    "useNodefonyAdaptiveChannel": {
+      "name": "useNodefonyAdaptiveChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyAdaptiveChannel()` — équivalent **handler-based** de {@link useNodefonyChannel} mais en **cadence adaptative** (AIMD client-driven, cf {@link RealtimeClient.adaptiveChannel}) : la lib r…"
+    },
+    "useNodefonyAdaptiveChannelData": {
+      "name": "useNodefonyAdaptiveChannelData",
+      "kind": "function",
+      "file": "src/nodefony/src/client/react/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`useNodefonyAdaptiveChannelData()` — comme {@link useNodefonyChannelData} mais en cadence adaptative. Mince surcouche de {@link useNodefonyAdaptiveChannel} : garde la **dernière valeur** reçue + re…"
+    },
     "useNodefonyChannelStats": {
       "name": "useNodefonyChannelStats",
       "kind": "function",
@@ -1577,6 +1610,77 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "`useNodefonyNoticeLog()` — ring buffer borné des dernières notices, filtrable par source. Brique du hub temps réel (« incidents temps réel ») : un historique léger des criticités realtime, distinct…"
+    },
+    "AdaptiveRate": {
+      "name": "AdaptiveRate",
+      "kind": "class",
+      "file": "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": []
+    },
+    "RateDecision": {
+      "name": "RateDecision",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Décision de la boucle AIMD : nouvelle cadence + pourquoi. `null` = ne rien changer."
+    },
+    "AdaptiveRateOptions": {
+      "name": "AdaptiveRateOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Réglages de la cadence adaptative. Seul `intervalMs` est requis."
+    },
+    "AdaptiveScheduler": {
+      "name": "AdaptiveScheduler",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Planificateur du watchdog — injectable pour des tests déterministes (défaut : globals)."
+    },
+    "BindAdaptiveOptions": {
+      "name": "BindAdaptiveOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "AdaptiveRateOptions",
+      "description": "Réglages du câblage adaptatif = {@link AdaptiveRateOptions} + crochets/injection."
+    },
+    "AdaptiveChannelBinding": {
+      "name": "AdaptiveChannelBinding",
+      "kind": "interface",
+      "file": "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Poignée du canal adaptatif — cadence courante + coupure."
+    },
+    "RateChangeReason": {
+      "name": "RateChangeReason",
+      "kind": "type",
+      "file": "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Raison d'un changement de cadence (pour un badge UI)."
+    },
+    "bindAdaptiveChannel": {
+      "name": "bindAdaptiveChannel",
+      "kind": "function",
+      "file": "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Câble un {@link AdaptiveRate} à une socket réelle : abonne `base` à sa cadence désirée, mesure la gigue d'arrivée, et **ré-abonne** automatiquement à une cadence plus grossière en cas de famine (MD…"
     },
     "BrowserWsTransport": {
       "name": "BrowserWsTransport",
@@ -9276,6 +9380,9 @@
       "EventDefaultInterface": [
         "DefaultOptionsService"
       ],
+      "AdaptiveRateOptions": [
+        "BindAdaptiveOptions"
+      ],
       "Command": [
         "Dev",
         "Dev",
@@ -10557,7 +10664,8 @@
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "rateChannel": [
-        "src/nodefony/src/client/index.ts"
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/realtime/AdaptiveRate.ts"
       ],
       "parseRate": [
         "src/nodefony/src/client/index.ts",
@@ -10565,6 +10673,13 @@
       ],
       "isRateChannel": [
         "src/nodefony/src/client/index.ts"
+      ],
+      "AdaptiveRate": [
+        "src/nodefony/src/client/index.ts"
+      ],
+      "bindAdaptiveChannel": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "File": [
         "src/nodefony/src/command/Builder.ts",
@@ -10787,6 +10902,18 @@
         "src/nodefony/src/client/react/index.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
+      "BindAdaptiveOptions": [
+        "src/nodefony/src/client/react/index.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "IRealtimeSocket": [
+        "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "RealtimeHandler": [
+        "src/nodefony/src/client/realtime/AdaptiveRate.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
       "IRealtimeTransport": [
         "src/nodefony/src/client/realtime/BrowserWsTransport.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts",
@@ -10795,16 +10922,13 @@
       "RealtimeTransportFactory": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
-      "IRealtimeSocket": [
-        "src/nodefony/src/client/realtime/RealtimeClient.ts"
-      ],
       "IRealtimeChannel": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "IChannelStats": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
-      "RealtimeHandler": [
+      "AdaptiveChannelBinding": [
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "Role": [

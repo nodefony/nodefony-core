@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Grid,
   Stack,
@@ -46,7 +46,7 @@ import {
   IconAlertTriangle,
   IconCircleCheck,
 } from "@tabler/icons-react";
-import { useStore } from "../stores";
+import { useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
 import {
   PageHeader,
@@ -54,9 +54,13 @@ import {
   InfoHint,
   KeyValue,
   DefinitionList,
+  MiniChart,
 } from "../components/ui";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
-import { useNodefonyChannel, rateChannel } from "nodefony/react";
+import {
+  useNodefonyAdaptiveChannel,
+  useNodefonyAdaptiveChannelData,
+} from "nodefony/react";
 
 /** Résumé d'un connecteur ORM (data plane /nodefony/orm/api/orms). */
 interface OrmSummary {
@@ -368,22 +372,80 @@ function fmtBytes(n?: number): string {
 }
 
 /**
- * Abonné HUB au canal `orm:health` — monté UNIQUEMENT quand « Temps réel » est ON.
- * `useNodefonyChannel` est ref-compté : démonter ce composant désabonne (→ le
- * serveur arrête le ticker, 0 travail quand OFF). Pousse chaque paquet à `onData`.
+ * Abonné à la SOCKET Nodefony, canal `orm:health` — monté UNIQUEMENT quand « Temps
+ * réel » est ON (abonnement ref-compté → démonter désabonne → le serveur arrête le
+ * ticker, 0 travail quand OFF). Pousse le dernier paquet à `onData`.
+ *
+ * Cadence : **fixe** (granularité choisie) OU **adaptative (AIMD)** si `adaptive`.
+ * En adaptatif, la lib mesure la gigue d'arrivée et ré-abonne le canal à une cadence
+ * plus grossière sous famine puis plus fine quand c'est sain (cf `adaptiveChannel`).
+ * `enabled:false` ⇒ simple abonnement à `intervalMs` ; `onRate` remonte la cadence réelle.
  */
 function OrmHealthLive({
   intervalMs,
+  adaptive,
   onData,
+  onRate,
 }: {
   intervalMs: number;
+  adaptive: boolean;
   onData: (h: ConnHealth[]) => void;
+  /** Remonte la cadence RÉELLE (ms) appliquée par l'AIMD → badge feedback. */
+  onRate?: (ms: number) => void;
 }) {
-  // Granularité : canal paramétré `orm:health:<ms>` (le serveur cadence le
-  // ticker dessus). Changer `intervalMs` change le canal → ré-abonnement auto.
-  const channel = rateChannel("orm:health", intervalMs, 5000);
-  useNodefonyChannel(channel, (payload: unknown) => {
-    if (Array.isArray(payload)) onData(payload as ConnHealth[]);
+  const { data, intervalMs: effectiveMs } = useNodefonyAdaptiveChannelData<
+    ConnHealth[]
+  >("orm:health", intervalMs, {
+    defaultMs: 5000,
+    enabled: adaptive,
+  });
+  useEffect(() => {
+    if (Array.isArray(data)) onData(data);
+    // onData = setState (stable) → hors deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+  useEffect(() => {
+    onRate?.(effectiveMs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveMs]);
+  return null;
+}
+
+/** Flux d'un connecteur (canal `orm:flow` / `GET /orm/api/flow`) — sous-ensemble consommé. */
+interface FlowConn {
+  connector: string;
+  total: number;
+  ewmaMs: number | null;
+}
+interface FlowReport {
+  ts: number;
+  connectors: FlowConn[];
+}
+/** Vue flux par connecteur (débit instantané + latence EWMA + historique sparkline). */
+export interface ConnFlow {
+  rate: number;
+  ewmaMs: number | null;
+  hist: number[];
+}
+const FLOW_HISTORY = 40;
+
+/**
+ * Abonné à la SOCKET, canal `orm:flow` — **même mécanique adaptative** qu'`OrmHealthLive`
+ * (suit le réglage global AIMD). Dérive le débit/s du delta de `total` entre 2 frames et
+ * pousse une vue par connecteur (rate + EWMA + historique) → sparkline `MiniChart`.
+ */
+function OrmFlowLive({
+  intervalMs,
+  adaptive,
+  onFlow,
+}: {
+  intervalMs: number;
+  adaptive: boolean;
+  onFlow: (payload: unknown) => void;
+}) {
+  useNodefonyAdaptiveChannel("orm:flow", onFlow, intervalMs, {
+    defaultMs: 2000,
+    enabled: adaptive,
   });
   return null;
 }
@@ -544,11 +606,13 @@ function ConnectorCard({
   entities,
   countMap,
   health,
+  flow,
 }: {
   orm: OrmSummary;
   entities: EntityNode[];
   countMap: Record<string, number>;
   health?: ConnHealth;
+  flow?: ConnFlow;
 }) {
   const driver = orm.connection?.driver ?? health?.driver ?? "";
   const target = orm.connection?.target ?? health?.target;
@@ -691,7 +755,7 @@ function ConnectorCard({
                 instance {health.instanceId}
               </Badge>
             )}
-            <InfoHint text="Diagnostic PER-INSTANCE (cloud-native) : chaque process/pod a son propre pool de connexions, donc ses propres métriques. Données poussées en TEMPS RÉEL par le hub (switch « Temps réel »). La vue multi-pod relève de l'observabilité externe (Prometheus) ou du fan-out Redis (P13)." />
+            <InfoHint text="Diagnostic PER-INSTANCE (cloud-native) : chaque process/pod a son propre pool de connexions, donc ses propres métriques. Données poussées en TEMPS RÉEL par la socket Nodefony (switch « Temps réel »). La vue multi-pod relève de l'observabilité externe (Prometheus) ou du fan-out Redis cross-pod (P13)." />
           </Group>
 
           <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
@@ -736,6 +800,69 @@ function ConnectorCard({
               hint="Durée d'établissement de la dernière connexion (handshake + pool). Élevée = base lente à répondre au boot."
             />
           </SimpleGrid>
+
+          {flow && (
+            <>
+              <Divider
+                my="sm"
+                label={
+                  <Group gap={5}>
+                    Flux requêtes (live)
+                    <InfoHint text="Débit SQL de CE connecteur (requêtes/s, dérivé du delta entre 2 mesures) + latence moyenne lissée (EWMA). Le petit graphe = historique du débit. Canal `orm:flow`, cadence suivant le réglage temps réel." />
+                  </Group>
+                }
+                labelPosition="left"
+              />
+              <Group
+                justify="space-between"
+                align="flex-end"
+                wrap="nowrap"
+                gap="md"
+              >
+                <Group gap="lg" wrap="nowrap">
+                  <div>
+                    <Text size="xs" c="dimmed">
+                      Débit
+                    </Text>
+                    <Text
+                      fw={700}
+                      style={{ fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {flow.rate.toFixed(flow.rate < 10 ? 1 : 0)}{" "}
+                      <Text span size="xs" c="dimmed">
+                        req/s
+                      </Text>
+                    </Text>
+                  </div>
+                  <div>
+                    <Text size="xs" c="dimmed">
+                      Latence ⌀ (EWMA)
+                    </Text>
+                    <Text
+                      fw={700}
+                      style={{ fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {fmtMs(flow.ewmaMs)}
+                    </Text>
+                  </div>
+                </Group>
+                {flow.hist.length > 1 && (
+                  <div style={{ flex: 1, minWidth: 0, maxWidth: 240 }}>
+                    <MiniChart
+                      series={[
+                        {
+                          data: flow.hist,
+                          color: "var(--mantine-color-grape-5)",
+                          label: "req/s",
+                        },
+                      ]}
+                      height={46}
+                    />
+                  </div>
+                )}
+              </Group>
+            </>
+          )}
 
           {health &&
             (health.latency.samples > 0 || health.storage || health.pool) && (
@@ -984,6 +1111,7 @@ function ConnectorCard({
  */
 export const OrmOverview = observer(() => {
   const store = useStore();
+  const ui = useUi();
 
   const orms = useResource(
     useCallback(
@@ -1071,12 +1199,52 @@ export const OrmOverview = observer(() => {
   // DÉSACTIVÉ par défaut au chargement (opt-in par session, NON persisté) → la
   // page démarre statique (1 fetch HTTP). OFF → on relâche `liveHealth`.
   const [live, setLive] = useState<boolean>(false);
-  // Granularité (cadence du hub) — préférence persistée, défaut 5 s.
+  // Granularité (cadence du canal) — préférence persistée, défaut 5 s. En cadence
+  // auto, sert de PLANCHER (cadence la plus rapide souhaitée).
   const [liveMs, setLiveMs] = useState<number>(
     () => Number(lsGet("nf.orm.liveMs")) || 5000,
   );
+  // Cadence ADAPTATIVE (AIMD) : politique GLOBALE de la socket, pilotée depuis le Hub
+  // (/nodefony/hub). Cette page la SUIT (elle ne la règle pas localement).
+  const auto = ui.adaptiveCadence;
+  // Cadence réelle appliquée par l'AIMD (lecture seule) → badge feedback sur la page.
+  const [effectiveMs, setEffectiveMs] = useState<number>(liveMs);
+  // Flux ORM par connecteur (débit/s + latence EWMA + historique sparkline), live-only.
+  const [flowByName, setFlowByName] = useState<Record<string, ConnFlow>>({});
+  const prevFlowRef = useRef<{
+    ts: number;
+    totals: Record<string, number>;
+  } | null>(null);
+  const onFlow = useCallback((payload: unknown) => {
+    const r = payload as FlowReport;
+    if (!r || !Array.isArray(r.connectors)) return;
+    const prev = prevFlowRef.current;
+    const dt = prev ? (r.ts - prev.ts) / 1000 : 0;
+    setFlowByName((cur) => {
+      const next: Record<string, ConnFlow> = { ...cur };
+      for (const c of r.connectors) {
+        const p = prev?.totals[c.connector];
+        const rate =
+          p != null && dt > 0
+            ? Math.max(0, (c.total - p) / dt)
+            : (next[c.connector]?.rate ?? 0);
+        const hist = [...(next[c.connector]?.hist ?? []), rate].slice(
+          -FLOW_HISTORY,
+        );
+        next[c.connector] = { rate, ewmaMs: c.ewmaMs, hist };
+      }
+      return next;
+    });
+    const totals: Record<string, number> = {};
+    for (const c of r.connectors) totals[c.connector] = c.total;
+    prevFlowRef.current = { ts: r.ts, totals };
+  }, []);
   useEffect(() => {
-    if (!live) setLiveHealth(null);
+    if (!live) {
+      setLiveHealth(null);
+      setFlowByName({});
+      prevFlowRef.current = null;
+    }
   }, [live]);
   useEffect(() => lsSet("nf.orm.liveMs", String(liveMs)), [liveMs]);
 
@@ -1199,7 +1367,7 @@ export const OrmOverview = observer(() => {
                     checked={live}
                     onChange={(e) => setLive(e.currentTarget.checked)}
                     label="Temps réel"
-                    aria-label="abonnement temps réel (hub) du diagnostic connexions"
+                    aria-label="abonnement temps réel (socket Nodefony) du diagnostic connexions"
                   />
                 </div>
               </HoverCard.Target>
@@ -1207,7 +1375,9 @@ export const OrmOverview = observer(() => {
                 <Group gap={6} mb={6}>
                   <IconBolt size={14} />
                   <Text size="xs" fw={600}>
-                    Granularité du temps réel
+                    {auto
+                      ? "Cadence désirée (plancher)"
+                      : "Granularité du canal"}
                   </Text>
                 </Group>
                 <SegmentedControl
@@ -1223,11 +1393,26 @@ export const OrmOverview = observer(() => {
                   ]}
                 />
                 <Text size="xs" c="dimmed" mt={6}>
-                  Cadence des pushes du hub (sondes ORM). Plus court = plus
-                  réactif, mais plus de pings/sondes par seconde côté serveur.
+                  {auto
+                    ? "Cadence auto (AIMD) ACTIVE — réglée globalement dans le Hub. Cette valeur sert de plancher : la socket part de là et l'ajuste seule selon la charge serveur."
+                    : "Cadence des pushes de la socket (sondes ORM). Plus court = plus réactif, mais plus de sondes par seconde côté serveur. (Cadence auto réglable dans le Hub.)"}
                 </Text>
               </HoverCard.Dropdown>
             </HoverCard>
+            {auto && live ? (
+              <Badge
+                size="sm"
+                variant="light"
+                color="grape"
+                title="Cadence auto (AIMD) — cadence réelle appliquée. Recule sous charge serveur, remonte quand c'est fluide. Réglage global dans le Hub."
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                auto ~
+                {effectiveMs < 1000
+                  ? `${effectiveMs}ms`
+                  : `${effectiveMs / 1000}s`}
+              </Badge>
+            ) : null}
             <Button
               component={Link}
               to="/nodefony/databases"
@@ -1260,7 +1445,17 @@ export const OrmOverview = observer(() => {
         }
       />
 
-      {live && <OrmHealthLive intervalMs={liveMs} onData={setLiveHealth} />}
+      {live && (
+        <OrmHealthLive
+          intervalMs={liveMs}
+          adaptive={auto}
+          onData={setLiveHealth}
+          onRate={setEffectiveMs}
+        />
+      )}
+      {live && (
+        <OrmFlowLive intervalMs={liveMs} adaptive={auto} onFlow={onFlow} />
+      )}
 
       <Grid>
         {/* Connecteurs — vendors présents + ratio up. Clic → onglet Connecteurs. */}
@@ -1474,6 +1669,7 @@ export const OrmOverview = observer(() => {
                     entities={entities}
                     countMap={countMap}
                     health={healthByName[o.name]}
+                    flow={flowByName[o.name]}
                   />
                 ))}
               </SimpleGrid>

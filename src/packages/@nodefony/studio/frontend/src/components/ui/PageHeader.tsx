@@ -66,7 +66,9 @@ export function PageHeader({
           </Title>
         </Group>
         {subtitle && (
-          <Text c="dimmed" size="sm">
+          // `component="div"` : le sous-titre peut être un nœud riche (Group, badges…) →
+          // un <p> (défaut de Text) y serait invalide (« <p> dans <p> » → erreur d'hydratation).
+          <Text c="dimmed" size="sm" component="div">
             {subtitle}
           </Text>
         )}

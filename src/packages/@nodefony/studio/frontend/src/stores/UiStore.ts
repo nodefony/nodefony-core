@@ -7,6 +7,8 @@ const RAIL_KEY = "nodefony.studio.sidebar.rail";
 const GROUPS_KEY = "nodefony.studio.sidebar.groups";
 /** Clé PARTAGÉE avec le widget Core (`nodefony/debugbar`) → état synchronisé. */
 const DEBUGBAR_KEY = "nf.debugbar.visible";
+/** Cadence adaptative (AIMD) de la socket — politique globale, pilotée depuis le Hub. */
+const ADAPTIVE_KEY = "nf.realtime.adaptive";
 
 /** Handle global exposé par la debug bar Core (`window.__NODEFONY_DEBUGBAR__`). */
 interface DebugBarHandle {
@@ -33,6 +35,12 @@ export class UiStore {
   navQuery = "";
   /** Debug bar Nodefony visible (dev). Persisté, partagé avec le widget Core. */
   debugBar = true;
+  /**
+   * Cadence ADAPTATIVE (AIMD) de la socket Nodefony — politique GLOBALE pilotée depuis
+   * le Hub. Les pages consommatrices de canaux d'état (ORM, supervision…) la suivent :
+   * la socket recule la cadence sous famine puis la remonte quand c'est sain. Persisté.
+   */
+  adaptiveCadence = false;
 
   constructor() {
     makeAutoObservable(this);
@@ -97,6 +105,15 @@ export class UiStore {
     this.navQuery = q;
   }
 
+  setAdaptiveCadence(v: boolean): void {
+    this.adaptiveCadence = v;
+    this.persist();
+  }
+
+  toggleAdaptiveCadence(): void {
+    this.setAdaptiveCadence(!this.adaptiveCadence);
+  }
+
   private loadPrefs(): void {
     try {
       if (typeof localStorage === "undefined") return;
@@ -106,6 +123,7 @@ export class UiStore {
       if (p === "orange" || p === "nodefony") this.palette = p;
       this.rail = localStorage.getItem(RAIL_KEY) === "1";
       this.debugBar = localStorage.getItem(DEBUGBAR_KEY) !== "0";
+      this.adaptiveCadence = localStorage.getItem(ADAPTIVE_KEY) === "1";
       const g = localStorage.getItem(GROUPS_KEY);
       if (g) {
         const parsed: unknown = JSON.parse(g);
@@ -124,6 +142,7 @@ export class UiStore {
       localStorage.setItem(THEME_KEY, this.theme);
       localStorage.setItem(PALETTE_KEY, this.palette);
       localStorage.setItem(RAIL_KEY, this.rail ? "1" : "0");
+      localStorage.setItem(ADAPTIVE_KEY, this.adaptiveCadence ? "1" : "0");
       localStorage.setItem(GROUPS_KEY, JSON.stringify(this.collapsedGroups));
     } catch {
       /* ignore */

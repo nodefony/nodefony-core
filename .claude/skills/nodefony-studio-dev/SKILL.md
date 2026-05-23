@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.7.0
+version: 1.8.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -486,6 +486,72 @@ deviner. Règles (issues web.dev/MDN, vérifiées) :
 Réflexe : avant d'animer/styler un élément qui bouge en live, se demander « layout, paint ou
 compositor ? » et choisir le moins cher ; au moindre doute → consulter la source ci-dessus.
 
+## 🧘 Temps réel CALME — neutre pour l'œil (ergonomie, directive user 2026-05-24)
+
+**Principe (validé user).** Dans une UI **pro**, le temps réel doit être **neutre pour l'œil** : il
+informe **sans solliciter**. Un flux qui clignote/saute = amateur ; un flux **calme** = maîtrise.
+C'est de la **psychologie** : la vision périphérique détecte le mouvement de façon **involontaire**
+(NN/g) → le moindre scintillement vole l'attention hors du focus et fatigue. **Règle d'or : le
+statique domine, le mouvement est RARE et porteur de sens.** À appliquer sur TOUT widget live.
+
+1. **Texte qui se met à jour = format STABLE.** Pas de bascule d'unité (ms↔s), pas de décimale qui
+   churn. Utiliser des **paliers** (« à l'instant » sous ~1,5 s, puis secondes/min/h ENTIÈRES).
+   `tabular-nums` + `nowrap` → 0 jitter de largeur. _Vécu : `fmtAge` affichait `200ms→800ms→1.2s` →
+   clignotait ; remplacé par `sinceLabel` (paliers) → calme._
+2. **Aucune animation qui REJOUE à chaque tick.** Un `box-shadow`/glow qui s'allume-s'éteint = paint
+   répété **= le clignotement**. Indicateur d'état = couleur/opacité **stable** (transition douce),
+   pas un battement. Réserver le flash (`nf-flash`, re-key sur la valeur) aux **changements
+   signifiants**, **bref**, sur **petite surface** — jamais en régime permanent.
+3. **Pas de bascule de style binaire sur donnée bruitée** : badge `filled↔light`, couleur teal↔gray
+   quand un débit oscille 0/1 → garder un **variant stable** (la donnée change, pas le style).
+4. **Isoler le re-render.** `contain: content` par carte live ; idéalement isoler la valeur qui tique
+   dans un **petit composant auto-tickant** (le reste de la carte ne re-render pas). Un `setInterval`
+   parent qui re-render toute la liste 1×/s = source de churn.
+5. **Mouvement = compositor only** (`opacity`/`transform`), jamais layout/paint dans le hot path
+   (cf section « ⚡ CSS & perf de rendu »).
+6. **Respecter `prefers-reduced-motion`.** Sous `@media (prefers-reduced-motion: reduce)` : couper/
+   atténuer flashes et animations (alternative en opacité douce, ou rien). Obligation a11y (troubles
+   vestibulaires).
+7. **Contrôle utilisateur OBLIGATOIRE — WCAG 2.2 SC 2.2.2 (Pause, Stop, Hide).** Tout contenu
+   **auto-mis-à-jour** doit offrir **pause/stop/hide OU un contrôle de fréquence** (au-delà de 5 s
+   d'auto-update). Nodefony coche déjà le trio : switch **« Temps réel »** (stop), **granularité**
+   (`:ms`), **cadence auto AIMD**. Le garder sur tout dashboard live.
+8. **Exception change-blindness (NN/g).** Pour un changement **rare ET important** qui pourrait être
+   manqué, un flash **subtil** le révèle mieux qu'une alerte statique criarde — mais c'est l'exception,
+   pas le régime permanent.
+
+> **Test mental avant de livrer un widget live** : « si je fixe l'écran 30 s sans rien faire, est-ce
+> que quelque chose attire l'œil sans raison ? » Si oui → neutraliser (palier, variant stable,
+> `contain`, isoler le tick). Le temps réel parfait est **invisible** tant qu'il ne se passe rien.
+
+**Comment TESTER / faire une passe ergonomie (live calm audit) :**
+
+1. **Test des 30 s** (le plus important, 0 outil) : ouvrir l'écran live, **ne rien faire**, fixer
+   30 s. Tout ce qui **bouge/clignote/saute sans cause** = défaut → lister puis neutraliser.
+2. **DevTools → Rendering** : activer **« Paint flashing »** (zones repeintes en vert) et **« Layout
+   Shift Regions »**. Un widget calme ne doit repeindre **que** la valeur qui change, pas toute la
+   carte/liste à chaque tick. Vert qui clignote partout = `contain` manquant / glow animé / re-render
+   trop large. **« Frame Rendering Stats »** (FPS meter) : un dashboard idle doit rester ~0 % GPU.
+3. **Simuler la charge** pour voir l'AIMD/anti-jitter : pousser une cadence rapide (`:250` / `:500`)
+   via la granularité, ou le skill **`nodefony-load-test`** (stress event-loop) → vérifier que les
+   textes restent en paliers (pas de churn ms↔s) et que la cadence **recule** sans saccade visible.
+4. **`prefers-reduced-motion`** : DevTools → Cmd Palette → « Emulate CSS prefers-reduced-motion:
+   reduce » → flashes/animations doivent disparaître ou s'atténuer.
+5. **A11y/perf gate** : Lighthouse (onglet a11y + perf) sur la page ; viser 0 régression CLS
+   (Cumulative Layout Shift) — le jitter de largeur fait monter le CLS.
+6. **Checklist par widget** : (a) format texte = paliers ? (b) `tabular-nums` ? (c) variant/couleur
+   stables ? (d) `contain: content` ? (e) re-render isolé au tick ? (f) contrôle pause/fréquence
+   (WCAG 2.2.2) ? (g) `prefers-reduced-motion` géré ?
+
+> ⚠️ Vérif navigateur = **curl + confirmation visuelle user** (pas de headless — règle projet) ; le
+> « test des 30 s » est fait par le user, l'agent prépare le diff + la checklist.
+
+**Sources (proxy `r.jina.ai` — jamais la page HTML lourde directe) :**
+
+- WCAG 2.2 SC 2.2.2 Pause, Stop, Hide : `https://r.jina.ai/https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html`
+- NN/g — Animation & motion (vision périphérique, restraint) : `https://r.jina.ai/https://www.nngroup.com/articles/animation-purpose-ux/`
+- MDN — `prefers-reduced-motion` : `https://r.jina.ai/https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion`
+
 ## 🔒 Sécurité — PRIORITÉ MAX (directive permanente)
 
 Conformité = directive prioritaire (mémoire `feedback_security_rfc_rigor`). Nodefony doit être une
@@ -645,6 +711,30 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
   La page tape `client.on("__frame__")` (active la capture) ; afficher payload en **texte** (pas d'HTML).
 - Hub **protocol-aware** : la table d'abonnements montre `protocol`/`transport`/`peer`
   (forward-compat SIP/UDP/TCP — `SubscriptionMeta`).
+- **Cadence auto (AIMD) = réglage GLOBAL via store (2026-05-24)** : `UiStore.adaptiveCadence`
+  (persisté `nf.realtime.adaptive`). Switch rendu **2×** sur la même valeur — console `/nodefony/hub`
+  (`RealtimeConsole` PageHeader) **et** popover du chip topbar (`RealtimeHubContent`, le composant
+  partagé). ⚠️ **`RealtimeConsole` ne rend PAS `RealtimeHubContent`** (contenu dupliqué) → pour qu'un
+  contrôle apparaisse dans le **popover du chip**, l'ajouter à **`RealtimeHubContent`** (pas à la
+  console). Les pages d'état (ORM…) **lisent** `ui.adaptiveCadence` et passent `enabled` au hook —
+  pas de switch local par page (le mettre au Hub, pas sur ORM). Cadence réelle/canal = badge `~Xs`
+  dérivé du suffixe `:ms` du nom de canal (`channelCadenceMs`).
+- ⚠️ **Anti-clignotement « temps réel calme » (2026-05-24, cf section « 🧘 Temps réel CALME »)** : le
+  popover du chip clignotait. 3 causes cumulées, toutes corrigées dans `RealtimeHubContent` :
+  (1) `fmtAge` affichait `200ms→1.2s` (bascule unité ms↔s + décimale à chaque tick) → **`sinceLabel`**
+  à paliers (« à l'instant » <1,5 s, puis s/min/h entières) ; (2) `ActivityDot` allumait un
+  **`box-shadow` glow** chaque tick (paint) → anime juste l'`opacity`, styles stables par état ;
+  (3) badge débit `variant filled↔light` qui flippait → **variant stable** ; + `contain: content`
+  par carte canal. Régime cible = **statique tant que rien ne change**.
+- ⚠️ **Passe ergonomie Supervision (2026-05-24) — corrigée dans les BRIQUES PARTAGÉES** (donc gain
+  sur ORM/Supervision/futurs dashboards) : (a) `PageHeader` mettait un `subtitle` riche (Group) dans
+  un `<Text>` (=`<p>`) → **`<p> dans <p>`** (warning hydratation au boot) → `<Text component="div">`.
+  (b) `ensureLiveStyles` (`FlashValue.tsx`) : `.nf-live-card` était un **halo `box-shadow` qui bat en
+  boucle** (le pire anti-calme : mouvement périphérique constant + paint) → **anneau statique** ;
+  `.nf-live-dot` pulsait via `box-shadow` → **respiration d'`opacity`** (compositor) ; **ajout
+  `@media (prefers-reduced-motion: reduce)`** (coupe les animations). (c) `KpiCard` : grande valeur
+  sans `tabular-nums` → jitter de largeur au tick → ajouté. (d) badge « retard ~Xs » décimale → entier.
+  Régle retenue : **corriger dans la brique partagée** (PageHeader/FlashValue/KpiCard), pas par page.
 
 **Dashboards par rôle**
 
@@ -825,6 +915,14 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.8.0** (2026-05-24) — **Cadence adaptative (AIMD) front + ergonomie « temps réel calme »**.
+  (a) Nouvelle section **« 🧘 Temps réel CALME »** (neutre pour l'œil = psychologie/maîtrise) +
+  recette de **passe ergonomie/test** (test des 30 s, DevTools Paint flashing, `prefers-reduced-motion`,
+  WCAG 2.2.2). (b) Hub : switch global **« Cadence auto (AIMD) »** lié à `UiStore.adaptiveCadence`
+  (console `/nodefony/hub` **et** popover du chip topbar `RealtimeHubContent`) ; badge **`~Xs`** de
+  cadence réelle par canal. Les pages d'état (ORM…) **suivent** ce réglage global. (c) **Retex
+  anti-clignotement** (cf section Retex). Côté lib = framework-dev 1.8.0 (`channelRate`/`AdaptiveRate`/
+  `useNodefonyAdaptiveChannelData`).
 - **1.7.0** (2026-05-24) — Lockstep (session BACKEND realtime — front Studio inchangé). Côté back que le front
   consomme : la **socket** s'appelle `IRealtimeSocket` (renommé ex-`IRealtimeHub` ; « hub » = broker serveur
   `RealtimeHub`) ; canaux serveur désormais **PARTAGÉS** (1 provider/canal/pod) + **full-duplex entrant gated**

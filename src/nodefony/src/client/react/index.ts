@@ -23,6 +23,7 @@ import type {
   RealtimeState,
   NodefonyNotice,
 } from "../realtime/RealtimeClient";
+import type { BindAdaptiveOptions } from "../realtime/AdaptiveRate";
 
 // Convention de cadence partagée client↔serveur — réexportée ici pour que le front
 // fabrique ses canaux cadencés depuis le même subpath que les hooks canal.
@@ -133,6 +134,87 @@ export function useNodefonyChannelData<T = unknown>(
   const [data, setData] = React.useState<T | null>(initial);
   useNodefonyChannel(channel, (payload) => setData(payload as T), []);
   return data;
+}
+
+/** Réglages adaptatifs du hook (cadence désirée fixée à part par `intervalMs`). */
+export type AdaptiveChannelHookOptions = Omit<
+  BindAdaptiveOptions,
+  "intervalMs" | "onRate"
+>;
+
+/** Résultat de {@link useNodefonyAdaptiveChannelData} : dernière valeur + cadence réelle. */
+export interface AdaptiveChannelData<T> {
+  /** Dernière valeur reçue, `null` tant que rien n'est arrivé. */
+  data: T | null;
+  /** Cadence effective courante (ms) — bouge avec l'AIMD, à afficher en badge. */
+  intervalMs: number;
+}
+
+/**
+ * `useNodefonyAdaptiveChannel()` — équivalent **handler-based** de {@link useNodefonyChannel}
+ * mais en **cadence adaptative** (AIMD client-driven, cf {@link RealtimeClient.adaptiveChannel}) :
+ * la lib recule la cadence sous famine puis la remonte quand c'est sain. `onMessage` reçoit
+ * chaque frame (handler riche autorisé) ; **renvoie la cadence effective** (ms) pour un badge.
+ * Primitif commun à tous les dashboards d'état (Supervision, ORM…) → **logique live identique**.
+ * Réservé aux canaux d'ÉTAT (latest-wins). Réglage `enabled` (off = abonnement fixe).
+ *
+ * Le ré-abonnement n'est relancé que si `base`, `desiredMs`, `enabled` ou `deps` changent
+ * (le handler + les `opts` sont capturés par ref → identité instable sans re-bind).
+ */
+export function useNodefonyAdaptiveChannel(
+  base: string,
+  onMessage: (payload: unknown) => void,
+  desiredMs: number,
+  opts: AdaptiveChannelHookOptions = {},
+  deps: React.DependencyList = [],
+): number {
+  const client = useNodefony();
+  const handlerRef = React.useRef(onMessage);
+  handlerRef.current = onMessage;
+  const optsRef = React.useRef(opts);
+  optsRef.current = opts;
+  const [intervalMs, setIntervalMs] = React.useState<number>(desiredMs);
+  // Primitif → re-bind au toggle adaptatif ⇄ fixe (opts capturées par ref ne le font pas).
+  const enabled = opts.enabled !== false;
+
+  React.useEffect(() => {
+    const binding = client.adaptiveChannel(
+      base,
+      (...args: unknown[]) => handlerRef.current(args[0]),
+      {
+        ...optsRef.current,
+        intervalMs: desiredMs,
+        enabled,
+        onRate: (ms) => setIntervalMs(ms),
+      },
+    );
+    return () => binding.dispose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, base, desiredMs, enabled, ...deps]);
+
+  return intervalMs;
+}
+
+/**
+ * `useNodefonyAdaptiveChannelData()` — comme {@link useNodefonyChannelData} mais en cadence
+ * adaptative. Mince surcouche de {@link useNodefonyAdaptiveChannel} : garde la **dernière
+ * valeur** reçue + renvoie la cadence effective (badge UI). Réservé aux canaux d'ÉTAT.
+ */
+export function useNodefonyAdaptiveChannelData<T = unknown>(
+  base: string,
+  desiredMs: number,
+  opts: AdaptiveChannelHookOptions = {},
+  deps: React.DependencyList = [],
+): AdaptiveChannelData<T> {
+  const [data, setData] = React.useState<T | null>(null);
+  const intervalMs = useNodefonyAdaptiveChannel(
+    base,
+    (payload) => setData(payload as T),
+    desiredMs,
+    opts,
+    deps,
+  );
+  return { data, intervalMs };
 }
 
 /** Stats observées d'un canal (telles que calculées par le client Core). */

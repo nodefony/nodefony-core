@@ -17,7 +17,7 @@ export interface KpiCardProps {
   onClick?: () => void;
   /** Bordure d'accent quand la cible est active. */
   active?: boolean;
-  /** Halo CSS pulsant (classe `.nf-live-card`, injectée par `ensureLiveStyles`). */
+  /** Accent « live » : anneau STATIQUE discret (`.nf-live-card`) — calme, pas un halo qui bat. */
   pulse?: boolean;
   /** Span Grid responsive. Rend sa propre `Grid.Col` → s'utilise DANS une `<Grid>`. */
   span?: Record<string, number>;
@@ -89,7 +89,15 @@ export function KpiCard({
             {icon}
           </ThemeIcon>
         </Group>
-        <Text fw={700} style={{ fontSize: 30, lineHeight: 1.05 }}>
+        <Text
+          fw={700}
+          style={{
+            fontSize: 30,
+            lineHeight: 1.05,
+            // valeur live → chiffres à chasse fixe = pas de jitter de largeur au tick.
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
           {value}
         </Text>
         {footer ? <div style={{ marginTop: 10 }}>{footer}</div> : null}

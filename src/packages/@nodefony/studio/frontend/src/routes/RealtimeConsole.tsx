@@ -33,8 +33,13 @@ import {
   useNodefonyChannel,
 } from "nodefony/react";
 import type { RealtimeFrame, NoticeLevel } from "nodefony";
-import { useConnection, useNotifications } from "../stores";
-import { PageHeader, StatCard as Kpi, MiniChart } from "../components/ui";
+import { useConnection, useNotifications, useUi } from "../stores";
+import {
+  PageHeader,
+  StatCard as Kpi,
+  MiniChart,
+  InfoHint,
+} from "../components/ui";
 
 /** Niveau de notice → couleur Mantine (incidents temps réel). */
 const NOTICE_COLOR: Record<NoticeLevel, string> = {
@@ -76,6 +81,7 @@ export const RealtimeConsole = observer(() => {
   const client = useNodefony();
   const state = useNodefonyState();
   const conn = useConnection();
+  const ui = useUi();
   const incidents = useNotifications().realtimeIncidents;
 
   const [frames, setFrames] = useState<RealtimeFrame[]>([]);
@@ -122,6 +128,16 @@ export const RealtimeConsole = observer(() => {
         subtitle="Connexion, abonnements & protocole de la socket en direct"
         actions={
           <>
+            <Group gap={4} wrap="nowrap">
+              <Switch
+                size="sm"
+                checked={ui.adaptiveCadence}
+                onChange={(e) => ui.setAdaptiveCadence(e.currentTarget.checked)}
+                label="Cadence auto (AIMD)"
+                aria-label="cadence adaptative automatique globale de la socket Nodefony"
+              />
+              <InfoHint text="Cadence AUTO (adaptative, façon « ABR » des vidéos en streaming) — politique GLOBALE de la socket Nodefony. La socket surveille à quel rythme RÉEL les données arrivent sur chaque canal d'état ; si le serveur prend du retard (surcharge), elle RALENTIT toute seule la cadence — comme une vidéo qui baisse sa qualité sur une connexion lente — ce qui soulage le serveur, puis RÉACCÉLÈRE quand c'est fluide. ON/OFF unique : les pages (ORM, supervision…) suivent ce réglage. La cadence réelle par canal se lit ci-dessous (suffixe « :ms » du canal)." />
+            </Group>
             <Badge variant="outline" color="gray" size="lg" tt="none">
               {conn.endpointUrl || "—"}
             </Badge>

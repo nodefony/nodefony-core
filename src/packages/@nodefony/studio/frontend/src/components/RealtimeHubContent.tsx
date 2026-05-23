@@ -18,6 +18,7 @@ import {
   SimpleGrid,
   Button,
   Loader,
+  Switch,
 } from "@mantine/core";
 import {
   IconPlugConnected,
@@ -33,7 +34,8 @@ import {
   IconExternalLink,
   IconJson,
 } from "@tabler/icons-react";
-import { useConnection, useNotifications } from "../stores";
+import { useConnection, useNotifications, useUi } from "../stores";
+import { InfoHint } from "./ui";
 import type { NoticeLevel } from "nodefony";
 
 const STATE_META: Record<string, { color: string; label: string }> = {
@@ -68,10 +70,17 @@ function fmtUptime(ms: number): string {
   return `${hh}:${mm}:${ss}`;
 }
 
-function fmtAge(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60000)}min`;
+/**
+ * Libellé d'ancienneté STABLE (anti-clignotement) : « à l'instant » sous 1,5 s, puis
+ * secondes/minutes/heures ENTIÈRES. Jamais de ms ni de décimale → pas de bascule d'unité
+ * ms↔s ni de digit qui saute à chaque tick (la cause du clignotement). Un canal rapide
+ * reste sur « à l'instant » au lieu de faire défiler 200ms/800ms/1.2s.
+ */
+function sinceLabel(ms: number): string {
+  if (ms < 1500) return "à l'instant";
+  if (ms < 60000) return `il y a ${Math.round(ms / 1000)}s`;
+  if (ms < 3600000) return `il y a ${Math.floor(ms / 60000)}min`;
+  return `il y a ${Math.floor(ms / 3600000)}h`;
 }
 
 const ELLIPSIS = {
@@ -79,6 +88,18 @@ const ELLIPSIS = {
   textOverflow: "ellipsis",
   whiteSpace: "nowrap" as const,
 };
+
+/**
+ * Cadence (ms) d'un canal cadencé, lue depuis le suffixe `:<ms>` de son nom (convention
+ * `rateChannel`). `null` si le canal n'est pas cadencé (pas de suffixe numérique). Sous
+ * cadence auto (AIMD), ce suffixe EST la cadence réelle en cours (la socket ré-abonne à
+ * `base:<ms>`) → la table du Hub montre la cadence vivante par canal.
+ */
+function channelCadenceMs(channel: string): number | null {
+  const tail = channel.slice(channel.lastIndexOf(":") + 1);
+  const ms = Number.parseInt(tail, 10);
+  return Number.isFinite(ms) && ms > 0 && String(ms) === tail ? ms : null;
+}
 
 /** Nb de barres affichées dans le VU-mètre (les + récentes à droite). */
 const METER_BARS = 24;
@@ -117,23 +138,32 @@ function BarMeter({ data, color }: { data: number[]; color: string }) {
   );
 }
 
-/** Pastille d'activité : brille (glow teal) quand un message vient d'arriver. */
+// Style de carte canal hoisté (réf stable — pas recréé par render). `contain:content`
+// isole reflow/paint à la carte (le tick 1 s ne repeint pas toute la liste).
+const SUB_CARD_STYLE = { contain: "content" as const };
+
+// Pastille d'activité : teal vif quand actif, gris atténué sinon. On anime UNIQUEMENT
+// `opacity` (compositor, pas de repaint) — PAS de box-shadow/glow qui « bat » à chaque
+// tick (paint coûteux = le clignotement). Réf de style stable par état (2 constantes).
+const DOT_BASE = {
+  width: 9,
+  height: 9,
+  borderRadius: "50%",
+  flexShrink: 0,
+  transition: "opacity 0.5s ease, background-color 0.5s ease",
+} as const;
+const DOT_ACTIVE = {
+  ...DOT_BASE,
+  background: "var(--mantine-color-teal-5)",
+  opacity: 1,
+};
+const DOT_IDLE = {
+  ...DOT_BASE,
+  background: "var(--mantine-color-gray-6)",
+  opacity: 0.55,
+};
 function ActivityDot({ active }: { active: boolean }) {
-  return (
-    <Box
-      w={9}
-      h={9}
-      style={{
-        borderRadius: "50%",
-        flexShrink: 0,
-        background: active
-          ? "var(--mantine-color-teal-5)"
-          : "var(--mantine-color-gray-5)",
-        boxShadow: active ? "0 0 7px 1px var(--mantine-color-teal-5)" : "none",
-        transition: "background 0.3s ease, box-shadow 0.3s ease",
-      }}
-    />
-  );
+  return <Box style={active ? DOT_ACTIVE : DOT_IDLE} />;
 }
 
 function StatTile({
@@ -192,6 +222,7 @@ function StatTile({
 export const RealtimeHubContent = observer(
   ({ onOpenConsole }: { onOpenConsole?: () => void }) => {
     const conn = useConnection();
+    const ui = useUi();
     const notif = useNotifications();
     const incidents = notif.realtimeIncidents;
     const [now, setNow] = useState(() => Date.now());
@@ -210,6 +241,19 @@ export const RealtimeHubContent = observer(
 
     return (
       <Stack gap="md">
+        {/* ── Cadence auto (AIMD) — réglage GLOBAL de la socket, partagé avec le store
+            (même valeur que le switch de la console /nodefony/hub). ── */}
+        <Group justify="space-between" align="center" wrap="nowrap" gap="xs">
+          <Switch
+            size="sm"
+            checked={ui.adaptiveCadence}
+            onChange={(e) => ui.setAdaptiveCadence(e.currentTarget.checked)}
+            label="Cadence auto (AIMD)"
+            aria-label="cadence adaptative globale de la socket Nodefony"
+          />
+          <InfoHint text="Réglage GLOBAL de la socket Nodefony (même valeur partout). Cadence AUTO (adaptative, façon « ABR » vidéo) : la socket surveille le rythme réel d'arrivée des données sur chaque canal ; si le serveur prend du retard, elle RALENTIT seule la cadence — comme une vidéo qui baisse sa qualité sur une connexion lente — puis RÉACCÉLÈRE quand c'est fluide. Les pages suivent ce réglage ; la cadence réelle par canal se lit ci-dessous (badge « ~Xs »)." />
+        </Group>
+
         {/* ── Carte connexion ── */}
         <Paper withBorder p="sm" radius="md">
           <Stack gap={10}>
@@ -299,7 +343,7 @@ export const RealtimeHubContent = observer(
             >
               {conn.framesReceived.toLocaleString()} frames reçues
               {conn.lastFrameAt
-                ? ` · dernière il y a ${fmtAge(now - conn.lastFrameAt)}`
+                ? ` · dernière ${sinceLabel(now - conn.lastFrameAt)}`
                 : " · aucune"}
               {conn.lastFrameMethod ? ` · ${conn.lastFrameMethod}` : ""}
             </Text>
@@ -355,7 +399,7 @@ export const RealtimeHubContent = observer(
                         }}
                       >
                         {n.code != null ? `${n.code} · ` : ""}
-                        il y a {fmtAge(Math.max(0, now - n.ts))}
+                        {sinceLabel(Math.max(0, now - n.ts))}
                       </Text>
                     </Group>
                   </Paper>
@@ -407,7 +451,13 @@ export const RealtimeHubContent = observer(
                     : null;
                   const active = ageMs != null && ageMs < 1500;
                   return (
-                    <Paper key={s.channel} withBorder p="xs" radius="md">
+                    <Paper
+                      key={s.channel}
+                      withBorder
+                      p="xs"
+                      radius="md"
+                      style={SUB_CARD_STYLE}
+                    >
                       <Group justify="space-between" wrap="nowrap" gap="xs">
                         <Group
                           gap={8}
@@ -439,6 +489,23 @@ export const RealtimeHubContent = observer(
                                 {s.protocol ?? "—"}
                                 {s.peer ? ` → ${s.peer}` : ""}
                               </Text>
+                              {(() => {
+                                const ms = channelCadenceMs(s.channel);
+                                return ms != null ? (
+                                  <Badge
+                                    size="xs"
+                                    variant="outline"
+                                    color="grape"
+                                    style={{
+                                      flexShrink: 0,
+                                      fontVariantNumeric: "tabular-nums",
+                                    }}
+                                    title="Cadence du canal (suffixe :ms). Sous cadence auto, c'est la valeur ajustée par l'AIMD."
+                                  >
+                                    ~{ms < 1000 ? `${ms}ms` : `${ms / 1000}s`}
+                                  </Badge>
+                                ) : null;
+                              })()}
                             </Group>
                             <Text
                               size="xs"
@@ -449,7 +516,7 @@ export const RealtimeHubContent = observer(
                               }}
                             >
                               {s.msgCount.toLocaleString()} msg ·{" "}
-                              {ageMs != null ? `il y a ${fmtAge(ageMs)}` : "—"}
+                              {ageMs != null ? sinceLabel(ageMs) : "—"}
                             </Text>
                           </div>
                         </Group>
@@ -460,7 +527,7 @@ export const RealtimeHubContent = observer(
                           />
                           <Badge
                             size="sm"
-                            variant={s.rate > 0 ? "filled" : "light"}
+                            variant="light"
                             color={s.rate > 0 ? "teal" : "gray"}
                             miw={46}
                             style={{ fontVariantNumeric: "tabular-nums" }}

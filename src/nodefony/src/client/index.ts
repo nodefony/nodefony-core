@@ -24,6 +24,7 @@ import { JsonRpcPeer } from "../realtime/JsonRpcPeer";
 import { TransportState } from "../realtime/IRealtimeTransport";
 import { BrowserWsTransport } from "./realtime/BrowserWsTransport";
 import { rateChannel, parseRate, isRateChannel } from "../realtime/channelRate";
+import { AdaptiveRate, bindAdaptiveChannel } from "./realtime/AdaptiveRate";
 export type {
   RealtimeState,
   RealtimeOptions,
@@ -101,5 +102,15 @@ export {
   rateChannel,
   parseRate,
   isRateChannel,
+  AdaptiveRate,
+  bindAdaptiveChannel,
 };
 export type { RateBounds } from "../realtime/channelRate";
+export type {
+  RateChangeReason,
+  RateDecision,
+  AdaptiveRateOptions,
+  BindAdaptiveOptions,
+  AdaptiveChannelBinding,
+  AdaptiveScheduler,
+} from "./realtime/AdaptiveRate";

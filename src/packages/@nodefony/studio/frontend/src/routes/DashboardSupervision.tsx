@@ -43,14 +43,10 @@ import {
   IconBrandNodejs,
   IconAdjustmentsHorizontal,
 } from "@tabler/icons-react";
-import { useStore, useAuth } from "../stores";
+import { useStore, useAuth, useUi } from "../stores";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
-import {
-  useNodefonyState,
-  useNodefonyChannel,
-  rateChannel,
-} from "nodefony/react";
+import { useNodefonyState, useNodefonyAdaptiveChannel } from "nodefony/react";
 import {
   PageHeader,
   KpiCard,
@@ -499,31 +495,50 @@ function level(v: number, warn: number, crit: number): Health {
 }
 
 /**
- * Abonné HUB au canal supervision — monté UNIQUEMENT quand « Temps réel » est ON.
- * `useNodefonyChannel` est ref-compté : démonter ce composant désabonne (→ le
- * serveur arrête le ticker, 0 travail quand OFF). C'est la mécanique du OFF par
- * défaut « pour la perf ». Granularité = canal paramétré `:<ms>` (re-cadence).
+ * Abonné à la SOCKET (canaux supervision/orm) — monté UNIQUEMENT quand « Temps réel » est
+ * ON (abonnement ref-compté → démonter désabonne, 0 travail serveur quand OFF). **Même
+ * mécanique adaptative qu'ORM** (`useNodefonyAdaptiveChannel`) : `desiredMs` = plancher,
+ * `enabled = auto` (politique globale du Hub). Remonte la cadence RÉELLE du canal principal
+ * via `onRate` (badge feedback). Les 3 canaux suivent le même plancher.
  */
 function SupervisionLive({
-  channel,
-  ormChannel,
-  flowChannel,
+  desiredMs,
+  auto,
   onStats,
   onOrm,
   onFlow,
+  onRate,
 }: {
-  channel: string;
-  ormChannel: string;
-  flowChannel: string;
+  desiredMs: number;
+  auto: boolean;
   onStats: (p: unknown) => void;
   onOrm: (p: unknown) => void;
   onFlow: (p: unknown) => void;
+  onRate: (ms: number) => void;
 }) {
   // Pas d'abo `syslog:stream` ici : le compteur d'erreurs vient du payload
   // supervision (compté serveur) → on n'inonde pas le dashboard de tous les logs.
-  useNodefonyChannel(channel, onStats);
-  useNodefonyChannel(ormChannel, onOrm);
-  useNodefonyChannel(flowChannel, onFlow);
+  const eff = useNodefonyAdaptiveChannel(
+    "dashboard:supervision",
+    onStats,
+    desiredMs,
+    {
+      defaultMs: 1000,
+      enabled: auto,
+    },
+  );
+  useNodefonyAdaptiveChannel("orm:health", onOrm, desiredMs, {
+    defaultMs: 5000,
+    enabled: auto,
+  });
+  useNodefonyAdaptiveChannel("orm:flow", onFlow, desiredMs, {
+    defaultMs: 2000,
+    enabled: auto,
+  });
+  useEffect(() => {
+    onRate(eff);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eff]);
   return null;
 }
 
@@ -590,6 +605,12 @@ export const DashboardSupervision = observer(() => {
     () => Number(lsGet("nf.supervision.liveMs")) || 1000,
   );
   useEffect(() => lsSet("nf.supervision.liveMs", String(liveMs)), [liveMs]);
+  // Cadence ADAPTATIVE (AIMD) : politique GLOBALE de la socket, pilotée depuis le Hub.
+  // Cette page la SUIT (comme ORM). `liveMs` = plancher (cadence désirée).
+  const ui = useUi();
+  const auto = ui.adaptiveCadence;
+  // Cadence RÉELLE appliquée par l'AIMD sur le canal principal (lecture seule, badge).
+  const [effectiveMs, setEffectiveMs] = useState<number>(liveMs);
   // Poids de l'indice de santé — réglables par l'utilisateur, persistés.
   const [weights, setWeights] = useState<Record<string, number>>(() => {
     try {
@@ -620,14 +641,12 @@ export const DashboardSupervision = observer(() => {
     const id = window.setInterval(() => {
       if (!lastTickRef.current) return;
       const gap = Date.now() - lastTickRef.current;
-      setOverdueMs(gap > liveMs ? gap : 0);
+      // Comparé à la cadence RÉELLE (effectiveMs) : sous AIMD la cadence recule,
+      // donc « en retard » se juge vs la cadence courante, pas le plancher désiré.
+      setOverdueMs(gap > effectiveMs ? gap : 0);
     }, 1000);
     return () => window.clearInterval(id);
-  }, [live, liveMs]);
-  // Granularité = convention partagée (nu = défaut serveur, sinon `base:<ms>`).
-  const statsChannel = rateChannel("dashboard:supervision", liveMs, 1000);
-  const ormChannel = rateChannel("orm:health", liveMs, 5000);
-  const flowChannel = rateChannel("orm:flow", liveMs, 2000);
+  }, [live, effectiveMs]);
 
   const cap = (arr: number[], v: number): number[] => {
     const n = [...arr, v];
@@ -786,7 +805,10 @@ export const DashboardSupervision = observer(() => {
   // (event-loop saturé) → on le DIT (le dashboard est affamé, pas planté).
   const observedGapMs = Math.max(tickGapMs, overdueMs);
   const realtimeStale =
-    live && rtOnline && lastTickRef.current > 0 && observedGapMs > liveMs * 3;
+    live &&
+    rtOnline &&
+    lastTickRef.current > 0 &&
+    observedGapMs > effectiveMs * 3;
 
   // En DÉVELOPPEMENT, l'event-loop partage le process avec Vite/HMR/rollup → un
   // lag de 15-25 ms est NORMAL (≠ prod). On relâche donc le seuil en dev pour ne
@@ -923,7 +945,7 @@ export const DashboardSupervision = observer(() => {
   if (realtimeStale)
     alerts.push({
       color: "orange",
-      msg: `Temps réel en retard — rafraîchi ~toutes les ${(observedGapMs / 1000).toFixed(1)} s (cadence demandée ${(liveMs / 1000).toFixed(0)} s)`,
+      msg: `Temps réel en retard — rafraîchi ~toutes les ${(observedGapMs / 1000).toFixed(0)} s (cadence demandée ${(liveMs / 1000).toFixed(0)} s)`,
       help: "Les mesures arrivent en retard : la boucle d'événements du serveur est saturée (forte charge WS/HTTP) → le ticker temps réel ne tient plus sa cadence. Le dashboard n'est PAS planté, il est AFFAMÉ. Conséquence : les latences mesurées côté serveur (ex. ping ORM) sont gonflées par l'attente d'ordonnancement, PAS par la base.",
     });
 
@@ -968,7 +990,7 @@ export const DashboardSupervision = observer(() => {
 
   // Légende du suffixe d'aide selon le mode (rend les ⓘ contextuelles/honnêtes).
   const liveSuffix = live
-    ? `Temps réel ON (${liveMs / 1000}s).`
+    ? `Temps réel ON (${auto ? `auto ~${effectiveMs / 1000}s` : `${liveMs / 1000}s`}).`
     : "Temps réel OFF — snapshot statique (activez pour les courbes).";
   const chartHint = "En attente des premières mesures…";
 
@@ -1054,12 +1076,12 @@ export const DashboardSupervision = observer(() => {
     <Stack gap="lg">
       {live && (
         <SupervisionLive
-          channel={statsChannel}
-          ormChannel={ormChannel}
-          flowChannel={flowChannel}
+          desiredMs={liveMs}
+          auto={auto}
           onStats={onStats}
           onOrm={onOrm}
           onFlow={onFlow}
+          onRate={setEffectiveMs}
         />
       )}
 
@@ -1108,6 +1130,20 @@ export const DashboardSupervision = observer(() => {
         actions={
           <Group gap="xs">
             {live && <span className="nf-live-dot" aria-hidden />}
+            {auto && live ? (
+              <Badge
+                size="sm"
+                variant="light"
+                color="grape"
+                title="Cadence auto (AIMD) — cadence réelle appliquée. Recule sous charge serveur, remonte quand c'est fluide. Réglage global dans le Hub."
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                auto ~
+                {effectiveMs < 1000
+                  ? `${effectiveMs}ms`
+                  : `${effectiveMs / 1000}s`}
+              </Badge>
+            ) : null}
             {/* Badge « retard » (famine realtime) dans la top bar STICKY → toujours
                 visible. Le ticker serveur ne tient plus sa cadence (event-loop saturé)
                 → le dashboard est AFFAMÉ, pas planté. Cf fix B. */}
@@ -1124,7 +1160,7 @@ export const DashboardSupervision = observer(() => {
                   leftSection={<IconAlertTriangle size={12} />}
                   style={{ cursor: "help" }}
                 >
-                  retard ~{(observedGapMs / 1000).toFixed(1)}s
+                  retard ~{(observedGapMs / 1000).toFixed(0)}s
                 </Badge>
               </Tooltip>
             )}
@@ -1156,7 +1192,7 @@ export const DashboardSupervision = observer(() => {
                     checked={live}
                     onChange={(e) => setLive(e.currentTarget.checked)}
                     label="Temps réel"
-                    aria-label="abonnement temps réel (hub) des sondes de supervision"
+                    aria-label="abonnement temps réel (socket Nodefony) des sondes de supervision"
                   />
                 </div>
               </HoverCard.Target>
@@ -1462,7 +1498,7 @@ export const DashboardSupervision = observer(() => {
               </Badge>
               {realtimeStale && (
                 <Badge size="sm" variant="light" color="orange">
-                  retard ~{(observedGapMs / 1000).toFixed(1)}s
+                  retard ~{(observedGapMs / 1000).toFixed(0)}s
                 </Badge>
               )}
             </Group>

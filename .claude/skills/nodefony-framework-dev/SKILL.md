@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.7.0
+version: 1.8.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1293,6 +1293,19 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.8.0** (2026-05-24) — **Granularité 1ʳᵉ classe + cadence adaptative (AIMD) dans la lib cliente**
+  (Core isomorphe). (a) **`channelRate`** (`src/realtime/channelRate.ts`, isomorphe) : convention de
+  cadence PARTAGÉE client↔serveur — `rateChannel(base,ms,default)` (fabrication), `parseRate(channel,
+base,bounds)` (résolution+bornage serveur), `isRateChannel`, `RateBounds` ; fin de la dérive
+  `:${ms}` (front) vs `slice+clamp` (serveur) dupliqués 6×. 1 canal = 1 cadence = 1 ref-count.
+  (b) **`AdaptiveRate`** + **`bindAdaptiveChannel`** (`src/client/realtime/AdaptiveRate.ts`) : AIMD
+  **client-driven niveau 1** (0 changement serveur) — machine à états PURE (testable sans timer :
+  `noteFrame`/`checkStarvation`, hystérésis MD immédiat/AI fenêtré) + glue socket (watchdog injectable,
+  re-subscribe `base:ms` plus grossier sous famine / plus fin si sain). Option **`enabled`** (off =
+  abonnement fixe). `RealtimeClient.adaptiveChannel()` + hook React **`useNodefonyAdaptiveChannelData`**
+  (`nodefony/react`). Réservé canaux d'ÉTAT (latest-wins). Tests : `channelRate` 14 + `AdaptiveRate`
+  (machine/limites/glue) verts. Côté front Studio = studio-dev 1.8.0 (switch Hub global + calm UI).
+  Réfs : [[project_realtime_granularity_clientlib]] · [[project_realtime_nodefony_socket_vision]].
 - **1.7.0** (2026-05-24) — §6 **Hub serveur + full-duplex + vocabulaire socket**. (a) **`RealtimeHub`**
   (framework, broker per-instance) : canaux **PARTAGÉS** (1 provider/canal/pod au lieu de N per-connexion)
   - fan-out + dispose au dernier abonné ; `RealtimeController` délègue subscribe/publish/cleanup au hub

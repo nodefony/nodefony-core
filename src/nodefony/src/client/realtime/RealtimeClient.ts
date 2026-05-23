@@ -26,6 +26,11 @@ import type {
   RealtimeHandler,
 } from "../../realtime/IRealtimeSocket";
 import { BrowserWsTransport } from "./BrowserWsTransport";
+import {
+  bindAdaptiveChannel,
+  type BindAdaptiveOptions,
+  type AdaptiveChannelBinding,
+} from "./AdaptiveRate";
 export { closeCodeToNotice } from "./notice";
 export type { NodefonyNotice, NoticeLevel } from "./notice";
 
@@ -385,6 +390,25 @@ export class RealtimeClient implements IRealtimeSocket {
         hub.unsubscribe(name);
       },
     };
+  }
+
+  /**
+   * S'abonne à un canal d'ÉTAT en **cadence adaptative** (AIMD client-driven) : la lib
+   * mesure la gigue d'arrivée et ré-abonne automatiquement à une cadence plus grossière en
+   * cas de famine, plus fine quand c'est sain — sans changement serveur. `handler` reçoit
+   * les frames à travers les changements de cadence. Réservé aux canaux latest-wins.
+   *
+   * @param base - canal de base (sans suffixe de cadence).
+   * @param handler - reçoit le payload de chaque frame.
+   * @param options - cadence désirée + réglages AIMD (cf {@link BindAdaptiveOptions}).
+   * @returns une poignée {@link AdaptiveChannelBinding} (cadence courante + `dispose`).
+   */
+  adaptiveChannel(
+    base: string,
+    handler: RealtimeHandler,
+    options: BindAdaptiveOptions,
+  ): AdaptiveChannelBinding {
+    return bindAdaptiveChannel(this, base, handler, options);
   }
 
   /** Request/response JSON-RPC 2.0 — Promise resolved with `result`. */
