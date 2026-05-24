@@ -19,6 +19,13 @@ interface ViteManifestChunk {
 }
 type ViteManifest = Record<string, ViteManifestChunk>;
 
+/** Marqueur optionnel dans l'`index.html` du module où injecter les tags. */
+const FRONTEND_MARKER = "<!--nodefony:frontend-->";
+
+/** Échappe une string pour usage littéral dans une RegExp. */
+const escapeRe = (s: string): string =>
+  s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 /**
  * Génère les balises HTML à injecter dans la page rendue côté serveur
  * pour brancher le frontend Vite.
@@ -32,6 +39,9 @@ export class TemplateHelper {
    * `null` = lecture tentée mais manifest absent/illisible (build manquant).
    */
   private readonly manifestCache = new Map<string, ViteManifest | null>();
+
+  /** `index.html` des modules, caché par `root` (prod only — dev re-lit). */
+  private readonly indexCache = new Map<string, string | null>();
 
   /**
    * @param supervisor superviseur Vite (dev) — `null` en prod (Vite ne tourne pas).
@@ -53,6 +63,86 @@ export class TemplateHelper {
       return this.renderDevTags(entryName);
     }
     return this.renderProdTags(entryName);
+  }
+
+  /**
+   * Document HTML complet pour une entrée : lit l'`index.html` du module (le dev
+   * y met SES meta/polices/scripts externes), retire le `<script type=module>`
+   * de l'entrée source (Vite-native, non résolvable quand Nodefony sert la page)
+   * et injecte les tags Nodefony — au marqueur `<!--nodefony:frontend-->` sinon
+   * avant `</head>`. Pas d'`index.html` → coquille minimale générée.
+   *
+   * @param entryName nom logique de l'entrée
+   */
+  renderDocument(entryName: string): string {
+    const tags = this.renderTags(entryName);
+    const entry =
+      this.entries.find((e) => e.entryName === entryName) ??
+      this.supervisor?.status().entries.find((e) => e.entryName === entryName);
+    const html = entry ? this.loadIndexHtml(entry.root) : null;
+    if (!html) {
+      return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+${tags}
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`;
+    }
+    return this.injectIntoHtml(html, tags, entry!.entryFile);
+  }
+
+  /** Injecte `tags` dans `html` (marqueur > `</head>` > `</body>` > append). */
+  private injectIntoHtml(
+    html: string,
+    tags: string,
+    entryFile: string,
+  ): string {
+    // Retire le <script type=module src=…entry…> source : en page servie par
+    // Nodefony il pointe vers un chemin que seul le dev server Vite résout.
+    const base = escapeRe(entryFile.replace(/\\/g, "/").split("/").pop() ?? "");
+    const stripped = base
+      ? html.replace(
+          new RegExp(
+            `<script\\b[^>]*type=["']module["'][^>]*src=["'][^"']*${base}["'][^>]*>\\s*</script>`,
+            "i",
+          ),
+          "",
+        )
+      : html;
+    if (stripped.includes(FRONTEND_MARKER)) {
+      return stripped.replace(FRONTEND_MARKER, tags);
+    }
+    if (/<\/head>/i.test(stripped)) {
+      return stripped.replace(/<\/head>/i, `${tags}\n</head>`);
+    }
+    if (/<\/body>/i.test(stripped)) {
+      return stripped.replace(/<\/body>/i, `${tags}\n</body>`);
+    }
+    return stripped + tags;
+  }
+
+  /**
+   * Lit `${root}/index.html`. Caché par root en **prod** (hot path) ; en dev,
+   * re-lu à chaque appel pour refléter les éditions du shell. `null` si absent.
+   */
+  private loadIndexHtml(root: string): string | null {
+    if (this.mode === "production") {
+      const cached = this.indexCache.get(root);
+      if (cached !== undefined) return cached;
+    }
+    let html: string | null = null;
+    try {
+      html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+    } catch {
+      html = null;
+    }
+    if (this.mode === "production") this.indexCache.set(root, html);
+    return html;
   }
 
   private renderDevTags(entryName: string): string {

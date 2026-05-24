@@ -171,6 +171,25 @@ class Controller extends Service implements IController {
     }
   }
 
+  /**
+   * Injecte les helpers frontend (`frontendTags`/`frontendDocument`) dans les
+   * locals EJS — EJS n'a pas de registre global (≠ Twig `extendFunction`).
+   * Service `frontend` résolu par nom (pas d'import `@nodefony/frontend`). Les
+   * valeurs fournies par l'action priment (spread `param` en dernier).
+   */
+  private withFrontendLocals(param: Record<string, any>): Record<string, any> {
+    const fe = this.get<{
+      renderTags?: (entry: string) => string;
+      renderDocument?: (entry: string) => string;
+    }>("frontend");
+    if (!fe?.renderTags) return param;
+    return {
+      frontendTags: (entry: string) => fe.renderTags!(entry),
+      frontendDocument: (entry: string) => fe.renderDocument!(entry),
+      ...param,
+    };
+  }
+
   async renderEjs(
     path: string | FileClass,
     param: Record<string, any> = {},
@@ -185,7 +204,10 @@ class Controller extends Service implements IController {
       } else {
         file = await FileClass.from(path);
       }
-      data = await this.ejs?.render((await file.readAsync()).toString(), param);
+      data = await this.ejs?.render(
+        (await file.readAsync()).toString(),
+        this.withFrontendLocals(param),
+      );
       this.setContextHtml();
       return this.renderResponse(data, "utf8", status, headers);
     } catch (e) {

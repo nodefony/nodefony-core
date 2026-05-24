@@ -121,4 +121,71 @@ describe("@nodefony/frontend — prod build + renderProdTags (P14.5)", () => {
     const helper = new TemplateHelper(null, "production", [makeEntry()]);
     expect(helper.renderTags("nope")).to.include('unknown entry "nope"');
   });
+
+  it("renderDocument injecte dans l'index.html du module + retire le script source", () => {
+    const root = path.join(OUT_DIR, "doc-root");
+    fs.mkdirSync(path.join(root, ".vite"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "index.html"),
+      `<!doctype html><html><head><title>Mon App</title><link rel="icon" href="/fav.ico"></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>`,
+    );
+    fs.writeFileSync(
+      path.join(root, ".vite", "manifest.json"),
+      JSON.stringify({
+        "src/main.tsx": {
+          file: "assets/app-h.js",
+          isEntry: true,
+          css: ["assets/app-h.css"],
+        },
+      }),
+    );
+    const entry = makeEntry({ root, outDir: root, entryFile: "src/main.tsx" });
+    const doc = new TemplateHelper(null, "production", [entry]).renderDocument(
+      "fixture",
+    );
+    expect(doc).to.include("<title>Mon App</title>"); // head du dev préservé
+    expect(doc).to.include('href="/fav.ico"'); // externe du dev préservé
+    expect(doc).to.include('src="/_assets/fixture/assets/app-h.js"'); // tags injectés
+    expect(doc).to.include('href="/_assets/fixture/assets/app-h.css"');
+    expect(doc).to.not.include('src="/src/main.tsx"'); // script source retiré
+  });
+
+  it("renderDocument respecte le marqueur <!--nodefony:frontend-->", () => {
+    const root = path.join(OUT_DIR, "doc-marker");
+    fs.mkdirSync(path.join(root, ".vite"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "index.html"),
+      `<!doctype html><html><head><!--nodefony:frontend--></head><body></body></html>`,
+    );
+    fs.writeFileSync(
+      path.join(root, ".vite", "manifest.json"),
+      JSON.stringify({
+        "src/main.tsx": { file: "assets/m.js", isEntry: true },
+      }),
+    );
+    const entry = makeEntry({ root, outDir: root, entryFile: "src/main.tsx" });
+    const doc = new TemplateHelper(null, "production", [entry]).renderDocument(
+      "fixture",
+    );
+    expect(doc).to.include('src="/_assets/fixture/assets/m.js"');
+    expect(doc).to.not.include("nodefony:frontend"); // marqueur remplacé
+  });
+
+  it("renderDocument génère une coquille minimale sans index.html", () => {
+    const root = path.join(OUT_DIR, "no-index");
+    fs.mkdirSync(path.join(root, ".vite"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, ".vite", "manifest.json"),
+      JSON.stringify({
+        "src/main.tsx": { file: "assets/x.js", isEntry: true },
+      }),
+    );
+    const entry = makeEntry({ root, outDir: root, entryFile: "src/main.tsx" });
+    const doc = new TemplateHelper(null, "production", [entry]).renderDocument(
+      "fixture",
+    );
+    expect(doc).to.include("<!DOCTYPE html>");
+    expect(doc).to.include('<div id="root">');
+    expect(doc).to.include('src="/_assets/fixture/assets/x.js"');
+  });
 });

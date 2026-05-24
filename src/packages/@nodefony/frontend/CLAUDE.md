@@ -108,6 +108,13 @@ Kernel onTerminate
 - **Rendu** : `TemplateHelper.renderProdTags()` lit `outDir/.vite/manifest.json` (caché par outDir, 0 relecture disque/req) → `<link rel="stylesheet">` (CSS récursif) + `<link rel="modulepreload">` (imports) + `<script type="module" crossorigin>`, **préfixés par `publicPath`**. Manifest absent → commentaire HTML (pas de crash).
 - **Service statique** : en prod (`env !== "development"`), `FrontendService.setupProd()` (hook `onServersReady`) monte chaque `outDir` sur son `publicPath` via `container.get("server-static").addMount(prefix, dir)` — **résolu par nom** (anti-cycle, pas d'import `@nodefony/http`). Cloud-native (nginx/haproxy/CDN frontal) = Phase 16, bascule via `publicPath` sans toucher `renderProdTags`.
 
+### Coquille templatable (2026-05-24) — plus de shell hardcodé
+
+- `renderDocument(entry)` : lit l'`index.html` **du module** (le dev y met meta/polices/externals) + injecte les tags (marqueur `<!--nodefony:frontend-->` ou avant `</head>`) + retire le `<script>` d'entrée source. `StudioController.renderStudio` = `this.render(svc.renderDocument("studio"))`.
+- Helpers template (style Symfony `encore_entry_script_tags`), même source `renderTags`/`renderDocument` :
+  - **Twig** `{{ frontend_tags('studio')|raw }}` / `{{ frontend_document('studio')|raw }}` (via `twig.extendFunction`, échappe → `|raw`).
+  - **EJS** `<%- frontendTags('studio') %>` / `<%- frontendDocument('studio') %>` (injecté dans les locals par `Controller.withFrontendLocals`, `<%-` = brut).
+
 ### `publicPath` — concept pivot (aligne 3 pièces)
 
 Défaut `/_assets/<entryName>/` (surchargeable via `frontend.publicPath`). Sert de : `base` Vite au build · mount prefix de `Statics` (guard `startsWith` O(1) + strip) · préfixe des URLs émises par `renderProdTags`. → les trois restent cohérents par construction.

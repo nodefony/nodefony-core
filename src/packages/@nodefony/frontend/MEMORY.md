@@ -131,7 +131,16 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - **`Statics` (http)** : `addMount(prefix,dir)` (normalise, idempotent, `serve-static` cache 96h) + `hasMounts()`. `handle()` : guard `url.startsWith(prefix)` (O(1), 0 stat disque sinon) → strip → `serve-static` (pose Content-Type ; fichier servi = Promise pending = routing court-circuité). `http-kernel.onHttpRequest` déclenche le static si `options.statics` OU `hasMounts()`.
 - **Page blanche** = route back `GET /nodefony` (StudioController) : injectait `renderTags("studio")` = stub en prod → 0 `<script>` → React jamais chargé. Même route dev/prod, seul le contenu injecté diffère.
 - **Pipeline** : `npm run build` (backend) PUIS `npm run build:front`/`build:all`. ⚠️ CLI `frontend:build` = `unknown command` (bug pré-existant `project_cli_commands_broken_claude_ts`).
-- **Preuve runtime** : cluster `-w 2` → `GET /nodefony` = balises `/_assets/studio/...` fingerprintées, assets HTTP 200 via Statics. Tests : `tests/integration/frontend-build.test.ts` (5, vrai vite.build).
+- **Preuve runtime** : cluster `-w 2` → `GET /nodefony` = balises `/_assets/studio/...` fingerprintées, assets HTTP 200 via Statics. Tests : `tests/integration/frontend-build.test.ts` (8, vrai vite.build + renderDocument).
+
+## Coquille templatable — `renderDocument` + helpers Twig/EJS (2026-05-24)
+
+- **Plus de shell codé en dur** dans le controller. `TemplateHelper.renderDocument(entry)` lit l'`index.html` DU MODULE (`entry.root`, le dev y met meta/polices/scripts externes), **retire** le `<script type=module src=…entry…>` source (Vite-native, non résolvable quand Nodefony sert la page), injecte les tags au marqueur **`<!--nodefony:frontend-->`** sinon avant `</head>`. Pas d'`index.html` → coquille minimale générée. `index.html` caché par root en **prod** (dev re-lit pour refléter les éditions).
+- `FrontendService.renderDocument(entry)` route comme `renderTags` (prodHelper / family helper). `StudioController.renderStudio` = `this.render(svc.renderDocument("studio"))`.
+- **Helpers template (façon Symfony `encore_entry_script_tags`)**, source unique = `renderTags`/`renderDocument` :
+  - **Twig** : `FrontendService.registerTemplateHelpers()` (à `onServersReady`) → `twig.extendFunction("frontend_tags"|"frontend_document", …)`. Usage `{{ frontend_tags('studio')|raw }}` (Twig échappe → `|raw`).
+  - **EJS** (pas de registre global) : injecté dans les locals par `Controller.withFrontendLocals(param)` (résout `frontend` par nom, anti-cycle) → `<%- frontendTags('studio') %>` / `<%- frontendDocument('studio') %>` (`<%-` = brut).
+- 3 portes d'entrée, 1 source : `index.html` statique (injection marqueur) · Twig (`frontend_tags`) · EJS (`frontendTags`). Toutes finissent par `renderProdTags` (prod) / dev tags.
 
 ## Debug bar — auto-injection dev (`TemplateHelper`)
 

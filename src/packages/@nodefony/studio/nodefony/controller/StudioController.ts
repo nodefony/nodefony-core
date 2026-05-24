@@ -86,22 +86,13 @@ class StudioController extends Controller {
         svc.getCspDirectives(),
       );
     }
-    const viteTags =
-      svc?.renderTags("studio") ??
-      "<!-- @nodefony/studio: frontend service unavailable -->";
-    return this.render(`<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="color-scheme" content="dark light" />
-    <title>Nodefony Studio</title>
-    ${viteTags}
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
-</html>`);
+    // Coquille = `frontend/index.html` du module (le head/meta/externals y vivent),
+    // tags injectés par @nodefony/frontend (dev = Vite, prod = manifest). Plus de
+    // shell codé en dur ici → un dev personnalise son index.html sans toucher au core.
+    const html =
+      svc?.renderDocument("studio") ??
+      "<!DOCTYPE html><!-- @nodefony/studio: frontend service unavailable -->";
+    return this.render(html);
   }
 
   /** SPA fallback — toute route /nodefony/<page> retourne la même page React. */

@@ -44,4 +44,10 @@ export interface IFrontendService {
   build(opts?: { force?: boolean }): Promise<IFrontendBuildResult>;
   /** Helper template — retourne les balises `<script>` à injecter dans une page. */
   renderTags(entryName: string): string;
+  /**
+   * Document HTML complet : `index.html` du module + tags injectés. Pour les
+   * controllers qui veulent déléguer toute la coquille (le dev contrôle le
+   * `<head>` via son `index.html`).
+   */
+  renderDocument(entryName: string): string;
 }
