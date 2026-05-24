@@ -11,6 +11,18 @@ const options: OptionsCommandInterface = {
 /** Variable d'env distinguant le serveur enfant du process superviseur parent. */
 const CHILD_ENV = "NODEFONY_DEV_CHILD";
 
+/**
+ * Commande `nodefony development` — serveur en mode dev (front Vite/HMR + auto-restart).
+ *
+ * **Invariant non négociable : `development` = TOUJOURS 1 process.** La molette
+ * topologie (`cluster.workers` / `--workers` / `NODEFONY_WORKERS`) est **ignorée** en
+ * dev : Vite exige un process maître unique (conflit port HMR si N workers spawnaient
+ * chacun leur Vite). Le multi-process se règle uniquement sur le runtime prod
+ * (`nodefony cluster`). Cf décision « 2 molettes » 2026-05-24.
+ *
+ * Le seul « 2ᵉ process » en dev est le couple superviseur/enfant du {@link DevSupervisor}
+ * (auto-restart au changement de source backend) — ce n'est PAS du cluster.
+ */
 class Dev extends Command {
   constructor(cli: CliKernel) {
     super(

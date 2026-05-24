@@ -35,6 +35,7 @@ import http from "./modules/http-config";
 import sequelize from "./modules/sequelize-config";
 import mongoose from "./modules/mongoose-config";
 import pm2 from "./pm2/pm2.config";
+import cluster from "./cluster/cluster.config";
 import security from "./modules/security-config";
 
 let statics = true;
@@ -93,7 +94,19 @@ const config = {
   locale: "en_en",
 
   /**
+   * TOPOLOGIE / CLUSTER (cloud-native) — successeur de PM2 `instances`.
+   * « Molette » DevOps : combien de process Node lancer.
+   *   workers: 1      → mono-process (défaut : 1 process = 1 pod, scaling via l'orchestrateur)
+   *   workers: "auto" → nb cgroup-aware (conteneur), workers: <N> → explicite
+   * Override runtime : CLI `--workers` > env `NODEFONY_WORKERS` > ce fichier.
+   * `development` est TOUJOURS mono-process (ignore ce réglage — Vite exige 1 maître).
+   * Voir `./cluster/cluster.config.ts`.
+   */
+  cluster,
+
+  /**
    * Configuration PM2 (production process manager).
+   * @deprecated cloud-native — retrait Phase 16. Préférer `cluster.workers` ci-dessus.
    * Voir `./pm2/pm2.config.ts` pour la liste des options.
    */
   pm2,

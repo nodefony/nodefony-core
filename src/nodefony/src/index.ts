@@ -77,6 +77,14 @@ export type {
   ResolveWorkerOptions,
   FileReader,
 } from "./service/cluster/cpuQuota";
+export { resolveTopology, loadClusterConfig } from "./service/cluster/topology";
+export type {
+  WorkersSetting,
+  IClusterConfig,
+  Topology,
+  TopologySource,
+  ResolveTopologyOptions,
+} from "./service/cluster/topology";
 export {
   ClusterManager,
   computeBackoff,

@@ -290,21 +290,17 @@ describe("KernelCommand — StagingCommand", () => {
     assert.strictEqual(cmd.kernelEvent, "onStart");
   });
 
-  it("cpu est un nombre positif", () => {
-    const cmd = new StagingCommand(cli);
-    expect(cmd.cpu).to.be.a("number").and.greaterThan(0);
-  });
-
   it("onKernelStart est défini", () => {
     const cmd = new StagingCommand(cli);
     expect(cmd.onKernelStart).to.be.a("function");
   });
 
-  it("preProd() ne throw pas si cluster.isPrimary", () => {
+  // @deprecated 2026-05-24 : le fork `os.cpus()` legacy (champ `cpu`, méthode
+  // `preProd()`) est remplacé par le runtime cluster moderne via `generate()`
+  // (topologie pilotée par `cluster.workers`). Cf StagingCommand TSDoc.
+  it("generate est défini (délègue au runtime cluster moderne)", () => {
     const cmd = new StagingCommand(cli);
-    assert.doesNotThrow(() => {
-      cmd.preProd();
-    });
+    expect(cmd.generate).to.be.a("function");
   });
 });
 
@@ -427,7 +423,10 @@ describe("KernelCommands — registre complet", () => {
       new Pm2Command(cli),
     ];
     for (const cmd of cmds) {
-      assert(cmd instanceof Command, `${cmd.name} n'est pas instanceof Command`);
+      assert(
+        cmd instanceof Command,
+        `${cmd.name} n'est pas instanceof Command`,
+      );
     }
   });
 });

@@ -2,10 +2,14 @@ import cluster from "node:cluster";
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
-import { resolveWorkerCount } from "../../service/cluster/cpuQuota";
-import { ClusterManager } from "../../service/cluster/ClusterManager";
-import { ClusterRelay } from "../../service/cluster/ClusterRelay";
-import { ClusterProbeAggregator } from "../../service/cluster/ClusterProbeAggregator";
+import {
+  resolveTopology,
+  loadClusterConfig,
+} from "../../service/cluster/topology";
+import { startClusterMaster } from "../../service/cluster/clusterMaster";
+import type { ClusterManager } from "../../service/cluster/ClusterManager";
+import type { ClusterRelay } from "../../service/cluster/ClusterRelay";
+import type { ClusterProbeAggregator } from "../../service/cluster/ClusterProbeAggregator";
 
 const options: OptionsCommandInterface = {
   showBanner: false,
@@ -53,60 +57,46 @@ class Cluster extends Command {
 
   override async generate(opts: { workers?: string }): Promise<void | Kernel> {
     if (cluster.isPrimary) {
-      // Marque les workers (héritage env au fork) → le module Framework branche
-      // alors le ClusterBackplane sur son RealtimeHub (cf index.ts @nodefony/framework).
-      process.env.NODEFONY_CLUSTER = "1";
+      // Topologie = source unique de vérité : CLI `--workers` > env NODEFONY_WORKERS
+      // > config app `cluster.workers` (lue standalone, sans kernel) > défaut 1.
+      const cfgWorkers = await loadClusterConfig();
+      const topo = resolveTopology({
+        flag: opts?.workers,
+        config: cfgWorkers ?? undefined,
+      });
 
-      const requested =
-        opts?.workers !== undefined ? Number(opts.workers) : undefined;
-      const workers = resolveWorkerCount({ requested });
+      // `workers: 1` = VRAI mono-process → ZÉRO machinerie cluster (pas de master,
+      // pas de backplane, pas d'agrégateur, pas de 2ᵉ process). On boote directement
+      // un Kernel dans CE process. (Décision « 2 molettes » 2026-05-24.)
+      if (topo.workers <= 1) {
+        this.log(
+          `Cluster topology: 1 process (source: ${topo.source}) — mono-process, no cluster machinery`,
+          "INFO",
+        );
+        const kernel = new Kernel(
+          this.cli.environment,
+          this.cli as CliKernel,
+          options,
+        );
+        return kernel.start().catch((e) => {
+          this.cli.log(e, "ERROR");
+          throw e;
+        });
+      }
 
-      // Master = GATEWAY IPC : relaie les publications realtime d'un worker vers les
-      // AUTRES (fan-out cross-process intra-pod, « comme si Redis était là ») ET agrège
-      // les sondes des workers pour servir la vue POD (Phase 4c, push). Les events GLOBAUX
-      // `fork`/`exit` couvrent les forks initiaux ET les respawns du ClusterManager → un
-      // worker relancé est (ré)attaché. Attachés AVANT `manager.start()` (aucun fork manqué).
-      const relay = new ClusterRelay({
+      this.log(
+        `Cluster topology: ${topo.workers} workers (source: ${topo.source})`,
+        "INFO",
+      );
+      // Master = superviseur + gateway IPC (relay realtime + sonde pod). Bootstrap
+      // partagé (cf clusterMaster.ts) — pas de Kernel HTTP ici, le master reste vivant.
+      const handles = startClusterMaster({
+        workers: topo.workers,
         log: (msg, severity) => this.log(msg, severity),
       });
-      this.#relay = relay;
-      // Sonde agrégée : opt-in, désactivable (NODEFONY_CLUSTER_PROBE=0) → bypass total
-      // (aucun agrégateur, aucun timer de diffusion ; chaque worker sert sa vue per-instance).
-      const probes =
-        process.env.NODEFONY_CLUSTER_PROBE !== "0"
-          ? new ClusterProbeAggregator({
-              log: (msg, severity) => this.log(msg, severity),
-            })
-          : null;
-      this.#probes = probes;
-      cluster.on("fork", (w) => {
-        const handle = {
-          id: w.id,
-          send: (m: unknown) => {
-            try {
-              w.send(m);
-            } catch {
-              /* worker en cours de fork / déjà mort : ignoré */
-            }
-          },
-          onMessage: (cb: (msg: unknown) => void) => w.on("message", cb),
-        };
-        relay.attach(handle);
-        probes?.attach(handle);
-      });
-      cluster.on("exit", (w) => {
-        relay.detach(w.id);
-        probes?.detach(w.id);
-      });
-      probes?.start();
-
-      this.#manager = new ClusterManager({
-        workers,
-        log: (msg, severity) => this.log(msg, severity),
-      });
-      this.#manager.start();
-      this.#manager.installSignalHandlers();
-      // Le master reste vivant (superviseur + gateway IPC) — pas de Kernel HTTP ici.
+      this.#manager = handles.manager;
+      this.#relay = handles.relay;
+      this.#probes = handles.probes;
       return;
     }
     // Process worker : boot d'un Kernel complet (serveurs HTTP/WS).

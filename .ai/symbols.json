@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-24T14:41:30.414Z",
+  "generated": "2026-05-24T18:08:18.289Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 744,
-    "symbols": 1319,
+    "files": 746,
+    "symbols": 1330,
     "classes": 225,
-    "interfaces": 315,
-    "types": 157,
+    "interfaces": 319,
+    "types": 160,
     "enums": 2,
-    "functions": 170,
+    "functions": 174,
     "constants": 450
   },
   "symbols": {
@@ -1892,7 +1892,8 @@
       "module": "@nodefony/core",
       "extends": "Command",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Commande `nodefony development` — serveur en mode dev (front Vite/HMR + auto-restart). **Invariant non négociable : `development` = TOUJOURS 1 process.** La molette topologie (`cluster.workers` / `…"
     },
     "Install": {
       "name": "Install",
@@ -1943,7 +1944,8 @@
       "module": "@nodefony/core",
       "extends": "Command",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Commande `nodefony staging` / `preprod`."
     },
     "Start": {
       "name": "Start",
@@ -2134,6 +2136,31 @@
       "module": "@nodefony/core",
       "description": "Calcule le délai de respawn d'un worker mort selon un backoff exponentiel. Anti crash-loop : un worker qui crashe en boucle ne doit pas être re-forké en rafale (CPU 100 %, logs noyés). Le délai dou…"
     },
+    "ClusterMasterHandles": {
+      "name": "ClusterMasterHandles",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/clusterMaster.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Poignées du process master, conservées par l'appelant (référence vivante)."
+    },
+    "ClusterLog": {
+      "name": "ClusterLog",
+      "kind": "type",
+      "file": "src/nodefony/src/service/cluster/clusterMaster.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Logger des composants cluster — aligné sur `ClusterManager`/`Relay`/`Aggregator`."
+    },
+    "startClusterMaster": {
+      "name": "startClusterMaster",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/clusterMaster.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Démarre le process MASTER d'un cluster multi-worker — bootstrap partagé par les commandes de lancement (`cluster`, `staging` legacy, et le futur runtime prod unifié). Le master ne sert **aucun HTTP…"
+    },
     "IClusterMessage": {
       "name": "IClusterMessage",
       "kind": "interface",
@@ -2265,6 +2292,65 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Résout le nombre de workers à forker, dans l'ordre de priorité : 1. `requested` explicite (`--workers N`) si `> 0` — honoré **tel quel**, jamais borné. 2. Quota CPU cgroup (conteneur) → arrondi au …"
+    },
+    "IClusterConfig": {
+      "name": "IClusterConfig",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/topology.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Bloc `cluster` de la config app — lisible **sans kernel** (le master fork les workers AVANT de booter le moindre Kernel : il doit donc lire ce réglage seul). Doit rester kernel-free pour pouvoir êt…"
+    },
+    "Topology": {
+      "name": "Topology",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/topology.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat résolu de la topologie : nombre de workers + provenance."
+    },
+    "ResolveTopologyOptions": {
+      "name": "ResolveTopologyOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/topology.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Seams de {@link resolveTopology} — tous injectables (résolution pure, testable sans FS)."
+    },
+    "WorkersSetting": {
+      "name": "WorkersSetting",
+      "kind": "type",
+      "file": "src/nodefony/src/service/cluster/topology.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Réglage de topologie de l'application — la « molette » côté DevOps (remplace le rôle de `instances` dans l'ancien `pm2.config.ts`, retiré en cloud-native). - `1` — VRAI mono-process : aucune machin…"
+    },
+    "TopologySource": {
+      "name": "TopologySource",
+      "kind": "type",
+      "file": "src/nodefony/src/service/cluster/topology.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "D'où vient la valeur `workers` retenue — pour le log de diagnostic au boot."
+    },
+    "resolveTopology": {
+      "name": "resolveTopology",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/topology.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout LA topologie de lancement — source unique de vérité pour « combien de workers ». Ordre de priorité (premier défini gagne) : 1. **CLI `--workers`** — override explicite de l'opérateur (jamais…"
+    },
+    "loadClusterConfig": {
+      "name": "loadClusterConfig",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/topology.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le bloc `cluster` de la config app de façon **standalone** (best-effort), sans booter de Kernel — c'est tout ce dont le master a besoin pour décider du fork. Importe le fichier compilé `dist/no…"
     },
     "DevSupervisor": {
       "name": "DevSupervisor",
@@ -10440,6 +10526,7 @@
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/service/cluster/ClusterManager.ts",
+        "src/nodefony/src/service/cluster/clusterMaster.ts",
         "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
         "src/nodefony/src/service/cluster/ClusterRelay.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
@@ -11434,17 +11521,32 @@
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
       ],
-      "resolveWorkerCount": [
-        "src/nodefony/src/kernel/commands/ClusterCommand.ts"
+      "resolveTopology": [
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/StagingCommand.ts"
+      ],
+      "loadClusterConfig": [
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/StagingCommand.ts"
+      ],
+      "startClusterMaster": [
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/StagingCommand.ts"
       ],
       "ClusterManager": [
-        "src/nodefony/src/kernel/commands/ClusterCommand.ts"
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/StagingCommand.ts",
+        "src/nodefony/src/service/cluster/clusterMaster.ts"
       ],
       "ClusterRelay": [
-        "src/nodefony/src/kernel/commands/ClusterCommand.ts"
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/StagingCommand.ts",
+        "src/nodefony/src/service/cluster/clusterMaster.ts"
       ],
       "ClusterProbeAggregator": [
-        "src/nodefony/src/kernel/commands/ClusterCommand.ts"
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/StagingCommand.ts",
+        "src/nodefony/src/service/cluster/clusterMaster.ts"
       ],
       "DevSupervisor": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
@@ -11477,6 +11579,9 @@
       "CLUSTER_PROBE_KIND": [
         "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
         "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
+      ],
+      "resolveWorkerCount": [
+        "src/nodefony/src/service/cluster/topology.ts"
       ],
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
