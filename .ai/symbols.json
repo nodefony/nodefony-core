@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-24T13:17:20.903Z",
+  "generated": "2026-05-24T13:32:13.181Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 736,
-    "symbols": 1284,
-    "classes": 219,
-    "interfaces": 301,
-    "types": 156,
+    "files": 739,
+    "symbols": 1295,
+    "classes": 221,
+    "interfaces": 306,
+    "types": 157,
     "enums": 2,
-    "functions": 161,
+    "functions": 164,
     "constants": 445
   },
   "symbols": {
@@ -1873,6 +1873,17 @@
       "implements": [],
       "decorators": []
     },
+    "Cluster": {
+      "name": "Cluster",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony cluster` — démarre le serveur en mode cluster sans PM2. Refonte « beaucoup mieux » de l'ancien `nodefony staging`/`preprod` : - **cgroup-aware** — `--workers N` explicite, sinon …"
+    },
     "@nodefony/core:Dev": {
       "name": "Dev",
       "kind": "class",
@@ -2067,6 +2078,94 @@
       "extends": "Service",
       "implements": [],
       "decorators": []
+    },
+    "ClusterManager": {
+      "name": "ClusterManager",
+      "kind": "class",
+      "file": "src/nodefony/src/service/cluster/ClusterManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Superviseur cluster du process MASTER (Phase 2 du mode cluster sans PM2). Le master ne sert AUCUN HTTP : il fork N workers, les respawn avec backoff en cas de crash, et coordonne un arrêt gracieux …"
+    },
+    "IClusterWorker": {
+      "name": "IClusterWorker",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/ClusterManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Handle minimal d'un worker — sous-ensemble de `cluster.Worker` réellement utilisé (testable)."
+    },
+    "IClusterRuntime": {
+      "name": "IClusterRuntime",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/ClusterManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Runtime cluster — abstrait `node:cluster` pour piloter fork/exit dans les tests sans forker de process."
+    },
+    "ClusterScheduler": {
+      "name": "ClusterScheduler",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/ClusterManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Planificateur (setTimeout/clearTimeout) — injectable pour tester backoff + timeout sans horloge réelle."
+    },
+    "ClusterManagerOptions": {
+      "name": "ClusterManagerOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/ClusterManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options du {@link ClusterManager}. Tous les effets de bord (runtime, timers, exit, log) sont injectables."
+    },
+    "computeBackoff": {
+      "name": "computeBackoff",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/ClusterManager.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Calcule le délai de respawn d'un worker mort selon un backoff exponentiel. Anti crash-loop : un worker qui crashe en boucle ne doit pas être re-forké en rafale (CPU 100 %, logs noyés). Le délai dou…"
+    },
+    "ResolveWorkerOptions": {
+      "name": "ResolveWorkerOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/cpuQuota.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options de {@link resolveWorkerCount} — tous les seams sont injectables pour les tests."
+    },
+    "FileReader": {
+      "name": "FileReader",
+      "kind": "type",
+      "file": "src/nodefony/src/service/cluster/cpuQuota.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lecteur de fichier système — abstrait pour rendre la résolution cgroup testable sans conteneur. Retourne le contenu du fichier, ou `null` si absent / illisible."
+    },
+    "readCgroupCpuQuota": {
+      "name": "readCgroupCpuQuota",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/cpuQuota.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le quota CPU effectif depuis les cgroups Linux — cgroup v2 (`cpu.max`) puis v1 (`cpu.cfs_quota_us` / `cpu.cfs_period_us`). C'est LA correction du bug de l'ancien cluster JS : `os.cpus().length`…"
+    },
+    "resolveWorkerCount": {
+      "name": "resolveWorkerCount",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/cpuQuota.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout le nombre de workers à forker, dans l'ordre de priorité : 1. `requested` explicite (`--workers N`) si `> 0` — honoré **tel quel**, jamais borné. 2. Quota CPU cgroup (conteneur) → arrondi au …"
     },
     "DevSupervisor": {
       "name": "DevSupervisor",
@@ -9485,6 +9584,7 @@
       ],
       "Command": [
         "Dev",
+        "Cluster",
         "Dev",
         "Install",
         "Kill",
@@ -9853,6 +9953,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/types/ICliKernel.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/KillCommnand.ts",
@@ -10045,6 +10146,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/pm2Service.ts",
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
@@ -10126,6 +10228,7 @@
         "src/nodefony/src/client/debugbar/model.ts",
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
+        "src/nodefony/src/service/cluster/ClusterManager.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
@@ -10741,6 +10844,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/KillCommnand.ts",
@@ -10864,6 +10968,9 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Staging": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "Cluster": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Install": [
@@ -11058,6 +11165,7 @@
       ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/KillCommnand.ts",
@@ -11071,6 +11179,12 @@
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
+      ],
+      "resolveWorkerCount": [
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts"
+      ],
+      "ClusterManager": [
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts"
       ],
       "DevSupervisor": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"

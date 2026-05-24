@@ -18,9 +18,11 @@
 **Purpose**: Orchestrateur principal du framework. `extends Service implements IKernel`.
 
 **Lifecycle flags** (ordre strict, jamais régressifs):
+
 ```
 started → preRegistered → registered → booted → ready → postReady
 ```
+
 - `preRegistered` : set après `onPreRegister` (avant `onRegister`)
 - `registered` : set après `onRegister` (dans `preRegister()`)
 - `booted` : set après `onBoot` (dans `boot()`)
@@ -28,6 +30,7 @@ started → preRegistered → registered → booted → ready → postReady
 - `postReady` : set après `onPostReady` (dans `onReady()`)
 
 **Events bitmask** (`Events`, frozen, exporté):
+
 ```
 onInit=1  onPreStart=2  onStart=4  onPreRegister=8  onRegister=16
 onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTerminate=1024
@@ -39,6 +42,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 **`isCommandComplete(p)`** → `!!(this.progress & Events[command.kernelEvent])`. Toujours `false` si `this.command === null`.
 
 **Constructor** `new Kernel(env, cli?, options?)`:
+
 - Appelle `Nodefony.setKernel(this)` — **pollue le singleton global**.
 - Initialise: container (depuis cli), `Injector`, interfaces réseau OS, fire `"onInit"`.
 - `kernelDefaultOptions.events.nbListeners = 60`.
@@ -56,6 +60,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 **readConfig(config?)**: sans arg → retourne `this.options` sans mutation. Avec → `extend(this.options, config)` (merge in-place).
 
 **interfacesFilter(filters?)**:
+
 - Sans filtre → retourne `this.interfaces` brut.
 - Avec `{ type: "external" }` → `!infos.internal`; `{ type: "local" }` → `infos.internal`.
 - `condition` : `"&&"` (défaut), `"||"`. `"=="` → traité comme `"&&"`.
@@ -75,6 +80,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 **isModule(subclass)**: signature `unknown` (pas `any`). Throws TypeError si `subclass === null`.
 
 **Registre modules**:
+
 - `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.initialize(this)` si présente.
 - `getModule(name)` / `getModules()`.
 - `addKernelService(Ctor, ...args)` → instancie directement sur container kernel (pas sur module).
@@ -87,6 +93,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 **Purpose**: Unité fonctionnelle (ex-Bundle). `extends Service implements IModule`. Path propre, options, services, controllers.
 
 **Constructor** `new Module(name, kernel, path, options)`:
+
 - `setPath(path)` → résout vers répertoire
 - `setEvents()` → wire hooks lifecycle
 - `kernel.once("onBoot", ...)` → récupère le service `rollup` (build one-shot) — **toujours ajouté** (même sans hooks)
@@ -94,19 +101,22 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 - `setParameters("modules.${name}", options)`
 
 **setPath(p)**:
+
 - `file://...` → fileURLToPath d'abord
 - `basename(dirname(p)) === "dist"` → remonte 2 niveaux
 - sinon → `dirname(p)` (1 niveau)
 - Passer un path vers `package.json` → retourne son répertoire parent
 
 **setEvents()**:
+
 - `onKernelRegister` → `kernel.once("onRegister", fn.bind(this))`
 - `onKernelBoot` → `kernel.once("onBoot", fn.bind(this))`
 - `onKernelReady` → `kernel.once("onReady", fn.bind(this))`
-- + `kernel.prependOnceListener("onPreBoot", ...)` → charge `package.json` + `readOverrideModuleConfig()`
+- - `kernel.prependOnceListener("onPreBoot", ...)` → charge `package.json` + `readOverrideModuleConfig()`
 - **CRITIQUE** : hooks = méthodes prototype (pas property initializers). `super()` tourne avant les initializers.
 
 **Lifecycle hooks** (optionnels, méthodes prototype):
+
 ```typescript
 async onKernelRegister(): Promise<this> { ... }
 async onKernelBoot(): Promise<this> { ... }
@@ -141,6 +151,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 **Purpose**: CLI du framework. `extends Cli` (**PAS Kernel**). Pas de méthode `isConsole()`.
 
 **Constructor** `new CliKernel(environment?)`:
+
 - `super("NODEFONY", cliOptions)` → enregistre `-v/--version` automatiquement.
 - **Ne pas appeler** `setCommandVersion()` à nouveau → throws "Cannot add option '-v, --version'".
 - `this.type = "CONSOLE"` (prop directe).
@@ -151,11 +162,13 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 **setType(type)**: `toLocaleUpperCase()` → KernelType.
 
 **addCommand(Ctor)**: instancie, stocke `commands[name]`, enregistre dans commander.
+
 - Type exporté: `CommandConstructor = new (cli: CliKernel) => Command` (2026-05-14).
 
 **parseCommand(argv?)** / **parseCommandAsync(argv?)**: délèguent à `commander.parse/parseAsync`.
 
 **initSyslog(env?, debug?, opts?)**:
+
 - Sans `this.kernel` → `super.initSyslog()`
 - Avec kernel: severity `[0..6]`. debug → +7. SERVER+dev → +4,5.
 - `commander.opts().json` → return immédiat (mode silencieux JSON).
@@ -163,7 +176,17 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 
 **terminate(code?)**: avec kernel → `kernel.terminate(code)`. Sans → `super.terminate(code, quiet)`.
 
-**start(options?)**: crée `Kernel`, ajoute 9 commandes (Start/Dev/Build/Prod/Staging/Install/Outdated/Pm2/Kill), configure Commander, `parseAsync()` + `kernel.start()`.
+**start(options?)**: crée `Kernel`, ajoute 10 commandes (Start/Dev/Build/Prod/Staging/**Cluster**/Install/Outdated/Pm2/Kill), configure Commander, `parseAsync()` + `kernel.start()`.
+
+## Cluster (mode multi-process sans PM2 — Phase 2)
+
+> `service/cluster/` (core). Refonte « beaucoup mieux » de `StagingCommand` (legacy `os.cpus()` + 0 respawn). Vision : mémoire IA `project_cluster_backplane_vision`.
+
+**`ClusterCommand`** (`nodefony cluster`, alias aucun, `kernelEvent:"onStart"`, `--workers N`) : master (`cluster.isPrimary`) → `ClusterManager.start()+installSignalHandlers()` (0 HTTP, superviseur) ; worker → `new Kernel().start()`. `onKernelStart` : setType SERVER + env production + `MODE_START="cluster"`.
+
+**`resolveWorkerCount(opts)`** (`cpuQuota.ts`, PUR) : ordre = (1) `--workers N` explicite, **non borné** (harnais backplane : sur-souscrire OK) → (2) quota cgroup arrondi, borné par `availableParallelism` → (3) `os.availableParallelism()`. Toujours `>= 1`. **`readCgroupCpuQuota(read)`** : v2 `cpu.max` (`"max"`=null) → v1 `cfs_quota/period` (`-1`=null). LE fix du bug conteneur (`os.cpus()` lit l'hôte, ignore cgroup).
+
+**`ClusterManager`** (master-only, hors hot path request) : fork N, **respawn backoff** (`computeBackoff`= base·2^(n-1) capé ; reset si worker vit ≥ `stableMs`), **graceful shutdown** (`shutdown()` : SIGTERM tous → SIGKILL survivants après `shutdownTimeoutMs` → `exit`). Tout seam injecté (`IClusterRuntime`/`ClusterScheduler`/`exit`/`log`) → state machine testée sans forker (30 tests `ClusterManager.test.ts`+`cpuQuota.test.ts`). `installSignalHandlers()` : `removeAllListeners(SIGTERM/SIGINT)` (le master prend la main : sinon `Cli.handleSignals`→`terminate()` tuerait le master avant drain). Seam IPC Phase 3 (ClusterBackplane) = `Kernel.initCluster` (`onCluster`/`onMessage` worker déjà câblés).
 
 **ICliKernel** (`src/types/ICliKernel.ts`): interface minimale pour `Kernel.ts` — évite import circulaire. Propriétés: `commander`, `environment`, `type`, `debug`, `pid`. Méthodes: `setProcessTitle`, `showBanner`, `blankLine`, `clear`, `showAsciify`, `parseCommandAsync`, `runCommandAsync`, `setPackageManager`, `setCommandVersion`, `initSyslog`.
 
@@ -178,6 +201,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 > Détail complet dans [`injector/MEMORY.md`](injector/MEMORY.md).
 
 **Résumé clés** :
+
 - Registre statique `injectables: Record<string, Ctor>` — global, partagé
 - `@injectable` → register + scope. `@inject` → param ctor. `@Inject` → propriété post-ctor.
 - `instantiate` → `_instantiateWithStack(Ctor, [], args)` — circular detection + property injection
@@ -186,6 +210,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 - tsx : pas de `design:paramtypes` → appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)`.
 
 **Decorators module** (`@modules`/`@services`/`@entities`) :
+
 - `@modules` → `onPreRegister` → loadModule|addModule
 - `@services` → `onPreBoot` → addService|loadService (erreurs catchées)
 - `@entities` → `onBoot` → addEntity|loadEntity
@@ -203,10 +228,27 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 ## Types CLI (2026-05-14)
 
 **ICommand** (`src/types/ICommand.ts`):
+
 ```typescript
-export type KernelEventKey = "onInit"|"onPreStart"|"onStart"|"onPreRegister"|"onRegister"|"onPreBoot"|"onBoot"|"onReady"|"onServersReady"|"onPostReady"|"onTerminate";
-export interface ICommand { name: string; kernelEvent: KernelEventKey; action(...args: unknown[]): Promise<unknown>; }
+export type KernelEventKey =
+  | "onInit"
+  | "onPreStart"
+  | "onStart"
+  | "onPreRegister"
+  | "onRegister"
+  | "onPreBoot"
+  | "onBoot"
+  | "onReady"
+  | "onServersReady"
+  | "onPostReady"
+  | "onTerminate";
+export interface ICommand {
+  name: string;
+  kernelEvent: KernelEventKey;
+  action(...args: unknown[]): Promise<unknown>;
+}
 ```
+
 Redéfini localement — import circulaire `IKernel→Kernel→Command→IKernel` impossible.
 
 **Command.kernelEvent**: était `keyof typeof Events` (= `string`). Remplacé par `KernelEventKey` (union littérale).

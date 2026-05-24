@@ -30,12 +30,12 @@ src/nodefony/src/kernel/
 
 ## Classes — vue d'ensemble
 
-| Classe | Extends | Rôle |
-|--------|---------|------|
-| **`Kernel`** | `Service` | Boot orchestrator, lifecycle events, modules registry |
-| **`Module`** | `Service` | Unit fonctionnel (ex-Bundle) — hooks lifecycle, registration |
-| **`CliKernel`** | `Cli` (PAS Kernel) | CLI runner — Commander, parseCommand, addCommand |
-| **`Command`** | `EventEmitter` | Base class CLI command (lifecycle hooks `onKernelStart`, `generate`) |
+| Classe          | Extends            | Rôle                                                                 |
+| --------------- | ------------------ | -------------------------------------------------------------------- |
+| **`Kernel`**    | `Service`          | Boot orchestrator, lifecycle events, modules registry                |
+| **`Module`**    | `Service`          | Unit fonctionnel (ex-Bundle) — hooks lifecycle, registration         |
+| **`CliKernel`** | `Cli` (PAS Kernel) | CLI runner — Commander, parseCommand, addCommand                     |
+| **`Command`**   | `EventEmitter`     | Base class CLI command (lifecycle hooks `onKernelStart`, `generate`) |
 
 ⚠️ **Piège fondamental** : `CliKernel` étend **`Cli`** pas `Kernel`. Le `Kernel` est instancié séparément et linké à `CliKernel.kernel`. Ne pas confondre.
 
@@ -62,7 +62,7 @@ import { Module, Service } from "nodefony";
 
 @Service({ singleton: true })
 export class MyModule extends Module {
-  static readonly path: string = import.meta.url;  // OBLIGATOIRE — sert setPath()
+  static readonly path: string = import.meta.url; // OBLIGATOIRE — sert setPath()
 
   async onKernelRegister(): Promise<this> {
     this.log("Registering MyModule", "DEBUG");
@@ -82,13 +82,16 @@ export class MyModule extends Module {
 ```
 
 **Constructor side effects** (TOUJOURS exécutés) :
+
 - `kernel.once("onBoot", ...)` → récupère le service `rollup` (build one-shot)
 - `setParameters("modules.${name}", options)`
 
 → **Conséquence** : 1 listener attaché par module, indépendamment de tes hooks personnalisés.
+
 > Le watch Rollup runtime write-only (listener `onPostReady` + `Module.watch()` + service `watcherService`) a été RETIRÉ (2026-05-22) : il ne rechargeait rien. Le dev = **`DevSupervisor` auto-restart** (`src/service/dev/DevSupervisor.ts`, activé par `DevCommand` en mode `development`) : un process parent (type CONSOLE, ne boote pas de serveur) `spawn` le serveur enfant (`NODEFONY_DEV_CHILD=1`) en **leader de groupe** (`detached:true`), watch les sources backend (frontend exclu → HMR Vite préservé), rebuild **ciblé** (`turbo --filter` + `rollup -c` racine) puis **group-kill** l'enfant (tue les instances Vite filles → 0 orphelin) et relance après **attente des ports libres** (anti-`EADDRINUSE`) avec retry crash borné. Validé runtime 2026-05-22 (boot/restart 1.2s/anti-orphelin/multi-Vite/Ctrl+C propre). Le `stop.sh`/`start.sh` du skill `nodefony-start-server` reste l'option « boot direct » pour les suites de tests (serveur stable sans superviseur).
 
 **Hooks lifecycle attachés via `setEvents()`** (méthodes prototype obligatoires, pas property initializers) :
+
 - `onKernelRegister` → `kernel.once("onRegister", ...)`
 - `onKernelBoot` → `kernel.once("onBoot", ...)`
 - `onKernelReady` → `kernel.once("onReady", ...)`
@@ -99,6 +102,7 @@ export class MyModule extends Module {
 ## CliKernel — spécificités
 
 ### Pattern de construction
+
 ```typescript
 new CliKernel(environment?: string)
 //   ↑ environment peut être undefined au constructor !
@@ -125,10 +129,12 @@ class DevCommand extends Command {
 ```
 
 ### Type CLI
+
 - `this.type = "CONSOLE"` (défaut) — propriété directe, PAS méthode `isConsole()` côté CliKernel
 - `setType("SERVER")` → déclenche le démarrage des serveurs HTTP/WS via `@nodefony/http`
 
 ### Package manager
+
 `this.packageManager = this.pnpm` par défaut. `setPackageManager("npm" | "yarn" | "pnpm")`.
 
 ## Commands — pattern Command
@@ -139,7 +145,7 @@ import CliKernel from "../CliKernel";
 
 const options: OptionsCommandInterface = {
   showBanner: true,
-  kernelEvent: "onPostReady",  // ← attend cette phase avant generate()
+  kernelEvent: "onPostReady", // ← attend cette phase avant generate()
 };
 
 class MyCommand extends Command {
@@ -163,17 +169,18 @@ class MyCommand extends Command {
 
 ## Commandes built-in
 
-| Command | Alias | Status |
-|---------|-------|--------|
-| `Start` | — | ✅ |
-| `Dev` | `dev` | ✅ |
-| `Build` | — | ✅ |
-| `Prod` | `prod` | 🪦 mention PM2 deprecated |
-| `Staging` | — | ✅ |
-| `Install` | — | ✅ |
-| `Outdated` | — | ✅ |
-| `Pm2` | — | 🪦 DEPRECATED — retrait Phase 16 (cf `project_pm2_deprecation`) |
-| `Kill` | — | ✅ (note: typo `KillCommnand.ts` conservée) |
+| Command    | Alias     | Status                                                                     |
+| ---------- | --------- | -------------------------------------------------------------------------- |
+| `Start`    | —         | ✅                                                                         |
+| `Dev`      | `dev`     | ✅                                                                         |
+| `Build`    | —         | ✅                                                                         |
+| `Prod`     | `prod`    | 🪦 mention PM2 deprecated                                                  |
+| `Staging`  | `preprod` | ✅ (legacy — fork `os.cpus()`, 0 respawn)                                  |
+| `Cluster`  | —         | ✅ cgroup-aware + respawn backoff + graceful shutdown (refonte de Staging) |
+| `Install`  | —         | ✅                                                                         |
+| `Outdated` | —         | ✅                                                                         |
+| `Pm2`      | —         | 🪦 DEPRECATED — retrait Phase 16 (cf `project_pm2_deprecation`)            |
+| `Kill`     | —         | ✅ (note: typo `KillCommnand.ts` conservée)                                |
 
 ⚠️ **Tests CLI** : Phase 11 non finalisée. Les commands ne sont pas couvertes par des tests d'intégration. État réel à vérifier au cas par cas.
 
@@ -185,27 +192,27 @@ class MyCommand extends Command {
 
 Cf [`injector/CLAUDE.md`](injector/CLAUDE.md) pour le détail.
 
-| Décorateur | Phase déclenchée | Rôle |
-|-----------|------------------|------|
-| `@modules([...])` | `onPreRegister` | Liste des modules à charger |
-| `@services([...])` | `onPreBoot` | Services à enregistrer dans le module |
-| `@entities([...])` | `onBoot` | Entités ORM à enregistrer |
-| `@injectable()` | runtime | Marque classe injectable |
-| `@inject("name")` | runtime | Injection paramètre constructeur |
-| `@Inject("name")` | runtime | Injection propriété (Phase A partielle) |
+| Décorateur         | Phase déclenchée | Rôle                                    |
+| ------------------ | ---------------- | --------------------------------------- |
+| `@modules([...])`  | `onPreRegister`  | Liste des modules à charger             |
+| `@services([...])` | `onPreBoot`      | Services à enregistrer dans le module   |
+| `@entities([...])` | `onBoot`         | Entités ORM à enregistrer               |
+| `@injectable()`    | runtime          | Marque classe injectable                |
+| `@inject("name")`  | runtime          | Injection paramètre constructeur        |
+| `@Inject("name")`  | runtime          | Injection propriété (Phase A partielle) |
 
 ## Gotchas critiques
 
-| Symptôme | Cause | Fix |
-|----------|-------|-----|
-| `Cannot read 'environment' of undefined` | Constructor CliKernel | Conditionner dans `onKernelStart()` |
-| `Kernel not ready` (`addCommand`) | `cli === null` | Vérifier `kernel.cli` avant `addCommand` |
-| Hook lifecycle pas appelé | Arrow function / property init au lieu de prototype | Méthode classique `async onKernelBoot() {}` |
-| 2 listeners en trop par module | Module constructor toujours add onBoot + onPostReady | Comportement normal — accepter ou cleanup explicite |
-| `setCommandComplete` retourne false | `this.command === null` | Vérifier qu'une command est attachée |
-| `isModule(null)` → TypeError | Pas false, vraiment throw | Vérifier null avant |
-| `getDependencies()` doublons | dep dans deps + peerDeps | Ne pas se fier à l'unicité |
-| `Cannot add option '-v, --version'` | `setCommandVersion()` appelé 2× | Le constructor le fait déjà |
+| Symptôme                                 | Cause                                                | Fix                                                 |
+| ---------------------------------------- | ---------------------------------------------------- | --------------------------------------------------- |
+| `Cannot read 'environment' of undefined` | Constructor CliKernel                                | Conditionner dans `onKernelStart()`                 |
+| `Kernel not ready` (`addCommand`)        | `cli === null`                                       | Vérifier `kernel.cli` avant `addCommand`            |
+| Hook lifecycle pas appelé                | Arrow function / property init au lieu de prototype  | Méthode classique `async onKernelBoot() {}`         |
+| 2 listeners en trop par module           | Module constructor toujours add onBoot + onPostReady | Comportement normal — accepter ou cleanup explicite |
+| `setCommandComplete` retourne false      | `this.command === null`                              | Vérifier qu'une command est attachée                |
+| `isModule(null)` → TypeError             | Pas false, vraiment throw                            | Vérifier null avant                                 |
+| `getDependencies()` doublons             | dep dans deps + peerDeps                             | Ne pas se fier à l'unicité                          |
+| `Cannot add option '-v, --version'`      | `setCommandVersion()` appelé 2×                      | Le constructor le fait déjà                         |
 
 ## Lancer le code
 

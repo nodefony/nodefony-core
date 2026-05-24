@@ -68,6 +68,26 @@ export { default as GitService } from "./service/gitService";
 export type { GitInfo } from "./service/gitService";
 export { default as Injector } from "./kernel/injector/injector";
 
+// ─── Cluster (mode multi-process sans PM2 — cgroup-aware) ─────────────────────
+export {
+  resolveWorkerCount,
+  readCgroupCpuQuota,
+} from "./service/cluster/cpuQuota";
+export type {
+  ResolveWorkerOptions,
+  FileReader,
+} from "./service/cluster/cpuQuota";
+export {
+  ClusterManager,
+  computeBackoff,
+} from "./service/cluster/ClusterManager";
+export type {
+  ClusterManagerOptions,
+  IClusterRuntime,
+  IClusterWorker,
+  ClusterScheduler,
+} from "./service/cluster/ClusterManager";
+
 // ─── Runtime (P1.4 — AsyncLocalStorage) ───────────────────────────────────────
 export { default as RequestContext } from "./runtime/RequestContext";
 export type {
