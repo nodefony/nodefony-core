@@ -174,7 +174,35 @@ jobs:
 
 ---
 
-## 8. Hors scope aujourd'hui
+## 8. Critères de release 10.0.0 (Definition of Done)
+
+> **Gate = migration complète SAUF IA + média/SIP ; cloud-native en BASELINE.**
+> Cadrage : 10.0.0 = **framework fullstack complet** (web + realtime + ORM + sécurité +
+> cloud-native baseline). L'IA et le télécom (média/SIP) arrivent en **10.x / 11**.
+
+### ✅ INCLUS — doivent être prêts pour 10.0.0
+
+| Domaine          | Phase              | Gate précis                                                                                                                                                                |
+| ---------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sécurité**     | P6                 | **Complète** (firewall, auth, JWT, RBAC `@IsGranted`). **Bloqueur #1, non négociable.**                                                                                    |
+| **ORM**          | P5/P7              | **Core stable + défaut Drizzle production-ready** (✅). Adapters User Sequelize/Mongoose + MikroORM = **acceptable en 10.x** (ne bloquent pas).                            |
+| **Cloud-native** | P16 (**baseline**) | **Dockerfile prêt** + **config 100 % par variables d'env** (12-factor). **PAS** le P16 complet (HPA, opérateurs k8s, secret managers, outillage multi-process = **10.x**). |
+| **Reste**        | P10/P11/P13/P14    | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend.                                                              |
+
+### ❌ EXCLUS de 10.0.0 (→ 10.x / 11)
+
+| Exclu                                            | Phase / subpaths                                |
+| ------------------------------------------------ | ----------------------------------------------- |
+| **Modules IA** (agent, llm, rag, vector, memory) | P12 — `alpha`, dernière phase de migration      |
+| **Mediasoup** (média WebRTC)                     | P15                                             |
+| **Couche client SIP**                            | P15 + subpaths `nodefony/sip`, `nodefony/media` |
+
+> **Conséquence mono-distrib** : l'assemblage 10.0.0 n'inclut **que les subpaths « released »** →
+> les subpaths IA + `sip`/`media` sont simplement **exclus** de l'artefact 10.0.0 (ajoutés en 10.x).
+
+---
+
+## 9. Hors scope aujourd'hui
 
 Exécution de la release. Ce doc ne fait que **capturer** la cible et les décisions. Reprendre la
 discussion → relire ce fichier d'abord.
@@ -183,12 +211,15 @@ discussion → relire ce fichier d'abord.
 
 ## Journal des décisions
 
-| Date       | Décision                                                                                       | Statut                  |
-| ---------- | ---------------------------------------------------------------------------------------------- | ----------------------- |
-| 2026-05-24 | Périmètre = `src/nodefony` + `src/packages/@nodefony/*` (modules/\* + racine exclus)           | ✅ acté                 |
-| 2026-05-24 | **Version UNIQUE** + build embarque les dist (fini les N packages indépendants)                | ✅ acté (vision)        |
-| 2026-05-24 | App utilisateur = **repo dev-ready** (DX du repo de dev, sans source framework)                | ✅ acté (vision)        |
-| 2026-05-24 | Modèle mono-package subpaths + deps lourdes optionnelles                                       | 🔶 proposé, à confirmer |
-| 2026-05-24 | Résolution types par `exports[...].types` par subpath + attw + tsc témoin                      | 🔶 proposé              |
-| 2026-05-24 | **Pipeline = script Node** (logique, runnable local) + **GH Action mince** (wrapper)           | ✅ acté (vision)        |
-| 2026-05-24 | Déclencheur tag `v10.*`/`workflow_dispatch` ; assemblage N→1 = MAISON ; version via commitlint | 🔶 proposé              |
+| Date       | Décision                                                                                                                    | Statut                  |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| 2026-05-24 | Périmètre = `src/nodefony` + `src/packages/@nodefony/*` (modules/\* + racine exclus)                                        | ✅ acté                 |
+| 2026-05-24 | **Version UNIQUE** + build embarque les dist (fini les N packages indépendants)                                             | ✅ acté (vision)        |
+| 2026-05-24 | App utilisateur = **repo dev-ready** (DX du repo de dev, sans source framework)                                             | ✅ acté (vision)        |
+| 2026-05-24 | Modèle mono-package subpaths + deps lourdes optionnelles                                                                    | 🔶 proposé, à confirmer |
+| 2026-05-24 | Résolution types par `exports[...].types` par subpath + attw + tsc témoin                                                   | 🔶 proposé              |
+| 2026-05-24 | **Pipeline = script Node** (logique, runnable local) + **GH Action mince** (wrapper)                                        | ✅ acté (vision)        |
+| 2026-05-24 | Déclencheur tag `v10.*`/`workflow_dispatch` ; assemblage N→1 = MAISON ; version via commitlint                              | 🔶 proposé              |
+| 2026-05-24 | **DoD 10.0.0** = P6 sécu + ORM(core+Drizzle) + cloud-native BASELINE (Dockerfile + env), tout SAUF IA(P12) + média/SIP(P15) | ✅ acté                 |
+| 2026-05-24 | Cloud-native gate = **Dockerfile + config par env** seulement (PAS tout P16)                                                | ✅ acté                 |
+| 2026-05-24 | **Couche client SIP exclue** de 10.0.0 (avec mediasoup + IA) → 10.x                                                         | ✅ acté                 |
