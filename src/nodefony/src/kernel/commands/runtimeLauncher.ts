@@ -49,6 +49,11 @@ export async function launchTopology(
     );
     // Master = superviseur + gateway IPC (relay realtime + sonde pod) ; pas de Kernel HTTP.
     startClusterMaster({ workers: topo.workers, log });
+    // Parke le flow CLI (comme DevCommand). SANS ça : generate() retourne à `onStart`
+    // → le CLI termine le process → le master meurt → les workers échouent leur
+    // handshake IPC (write EPIPE) au fork. Le master reste vivant (superviseur) ;
+    // l'arrêt passe par les signal handlers du ClusterManager (graceful shutdown).
+    await new Promise<void>(() => {});
     return;
   }
 
@@ -60,8 +65,20 @@ export async function launchTopology(
   }
   // Mono-process OU worker forké : boot d'un Kernel complet (serveurs HTTP/WS).
   const kernel = new Kernel(cli.environment, cli, options);
-  return kernel.start().catch((e) => {
+  await kernel.start().catch((e) => {
     cli.log(e, "ERROR");
     throw e;
   });
+  // Nom de process LISIBLE dans Activity Monitor / `ps` (worker N vs mono server) —
+  // cf master dans clusterMaster.ts. ⚠️ APRÈS start() : Kernel.setProcessTitle() pose
+  // `projectName` pendant le boot (Kernel.ts) → on doit avoir le dernier mot. Le pid
+  // (= instanceId de la sonde) reste le lien avec les logs / la vue pod.
+  process.title = cluster.isWorker
+    ? `nodefony worker ${cluster.worker?.id ?? "?"} [cluster]`
+    : "nodefony server";
+  // Parke le flow CLI (comme DevCommand). À `onStart`, une fois l'action terminée la
+  // chaîne de boot du kernel CLI s'arrête → le CLI ferait `terminate` (les serveurs
+  // sont portés par le Kernel ci-dessus, pas par le kernel CLI). Sans ce park, le
+  // worker bootait ses 4 serveurs PUIS terminait aussitôt (crash-loop respawn master).
+  await new Promise<void>(() => {});
 }

@@ -44,9 +44,13 @@ PIDFILE="/tmp/srv.pid"
 TEST_MODULE="$ROOT/src/modules/test"
 
 # ── 1. KILL : watch/rollup AVANT lsof (sinon respawn immédiat) ──────────────
-# Tous les runtimes (un cluster/staging résiduel tiendrait les ports). Le master
-# cluster + ses workers forkés héritent de l'argv `nodefony cluster` → matchés.
+# Un cluster résiduel tiendrait les ports. ⚠️ process.title COUPLÉ : master/workers/mono
+# se renomment `nodefony master|worker|server` (lisibles dans Activity Monitor) → il FAUT
+# ces patterns EN PLUS de l'argv (cf stop.sh) ; un master parké est immortel.
 echo ">>> KILL watch+rollup+ports 5151/5152"
+pkill -9 -f "nodefony master" 2>/dev/null
+pkill -9 -f "nodefony worker" 2>/dev/null
+pkill -9 -f "nodefony server" 2>/dev/null
 pkill -9 -f "nodefony development" 2>/dev/null
 pkill -9 -f "nodefony cluster" 2>/dev/null
 pkill -9 -f "nodefony staging" 2>/dev/null

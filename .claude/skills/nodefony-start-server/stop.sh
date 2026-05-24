@@ -9,11 +9,16 @@
 set -uo pipefail
 
 echo ">>> KILL nodefony server (watch+rollup d'abord)"
-# Tous les runtimes : development (dev), cluster (master + workers forkés héritent
-# de l'argv `nodefony cluster` → matchés), staging/preprod (déprécié), production.
-# Le master cluster ne sert pas les ports mais relaye les workers → le tuer aussi.
+# ⚠️ process.title COUPLÉ : master/workers/mono se renomment `nodefony master|worker|server`
+# (cf clusterMaster.ts + runtimeLauncher.ts → lisibles dans Activity Monitor / ps). Donc
+# `pkill -f "nodefony cluster"` ne les matche PLUS → il FAUT aussi ces 3 patterns, sinon
+# un master immortel (parké) laisse des workers qui tiennent les ports (EADDRINUSE).
+# Les patterns argv (cluster/production/...) couvrent la fenêtre AVANT que le titre soit posé.
+pkill -9 -f "nodefony master" 2>/dev/null      # superviseur cluster (parké, immortel)
+pkill -9 -f "nodefony worker" 2>/dev/null      # workers forkés (détiennent/partagent les ports)
+pkill -9 -f "nodefony server" 2>/dev/null      # runtime mono-process
 pkill -9 -f "nodefony development" 2>/dev/null
-pkill -9 -f "nodefony cluster" 2>/dev/null
+pkill -9 -f "nodefony cluster" 2>/dev/null     # fenêtre pré-titre (npm exec nodefony cluster)
 pkill -9 -f "nodefony staging" 2>/dev/null
 pkill -9 -f "nodefony preprod" 2>/dev/null
 pkill -9 -f "nodefony production" 2>/dev/null

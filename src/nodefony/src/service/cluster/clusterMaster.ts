@@ -44,6 +44,9 @@ export function startClusterMaster(opts: {
   log: ClusterLog;
 }): ClusterMasterHandles {
   const { workers, log } = opts;
+  // Nom de process LISIBLE dans Activity Monitor / `ps` / `top` (sinon tous les
+  // process s'affichent `npm exec nodefony cluster` → master et workers indistinguables).
+  process.title = `nodefony master [cluster ${workers}w]`;
   // Marque les workers (héritage env au fork) → branchement du ClusterBackplane.
   process.env.NODEFONY_CLUSTER = "1";
 
