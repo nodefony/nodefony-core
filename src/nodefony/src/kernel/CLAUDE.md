@@ -184,6 +184,14 @@ class MyCommand extends Command {
 
 ⚠️ **Tests CLI** : Phase 11 non finalisée. Les commands ne sont pas couvertes par des tests d'intégration. État réel à vérifier au cas par cas.
 
+### Dispatch built-in vs commande de module (fix 2026-05-25)
+
+Les built-ins ci-dessus sont enregistrés dans commander par `CliKernel.start()` **avant** le parse argv. Les **commandes de module** (`frontend:build`, `network`, …, posées par les modules à `onPreRegister` via `addCommand`) ne sont pas encore connues à cet instant → un parse immédiat échouait (`unknown command`) et tombait dans le fallback qui **bootait un serveur** (bug `project_cli_commands_broken_claude_ts`).
+
+Fix : `CliKernel` classe la commande demandée (helper `getRequestedCommandName` vs `getBuiltinCommandNames`, dérivé de commander — 0 hardcode). Si ce n'est pas un built-in → **dispatch différé** (`dispatchModuleCommand`) : un listener `onPreRegister` (posé via `onStart` pour passer APRÈS `@modules`, `emitAsync` séquentiel) parse argv une fois les modules enregistrés. Kernel reste **CONSOLE** (0 serveur) ; commande introuvable → `terminate(1)`, jamais de fallback serveur.
+
+> Limite connue : `nodefony --help` ne liste **que** les built-ins (les modules ne sont pas chargés au moment du help). Contrainte serveur : une commande de module ne peut pas être de type SERVER (son `onKernelStart` ne fire pas — `onStart` déjà passé). Le câblage propre (parse pur + registry + `type`/`kernelEvent` déclaratifs) est noté comme dette d'archi (`project_cli_module_command_dispatch`).
+
 ## Pollution singleton
 
 `new Kernel()` → appelle `Nodefony.setKernel(this)`. Cela écrase le singleton global. **Conséquence tests** : isoler les tests Kernel avec un mock minimal pour ne pas casser les autres tests qui dépendent de `Nodefony.getKernel()`.

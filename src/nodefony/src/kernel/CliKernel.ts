@@ -178,6 +178,22 @@ class CliKernel extends Cli {
         // // @ts-expect-error: overloaded  _hasHelpOption
         //this.commander._hasHelpOption = false;
 
+        // ─── Commandes de MODULE : dispatch DIFFÉRÉ ──────────────────────────
+        // Les built-ins ci-dessus sont les seules commandes connues de commander
+        // à ce stade. Les commandes de module (`frontend:build`, `network`, …) ne
+        // sont posées qu'à `onPreRegister` (par les modules via le décorateur
+        // @modules). Si la commande demandée n'est pas un built-in, parser argv
+        // MAINTENANT échouerait (`unknown command`) → fallback qui boote un serveur.
+        // On diffère donc son dispatch jusqu'à ce que les modules l'aient
+        // enregistrée. Cf project_cli_commands_broken_claude_ts.
+        const requested = this.getRequestedCommandName();
+        if (
+          requested !== null &&
+          !this.getBuiltinCommandNames().has(requested)
+        ) {
+          return this.dispatchModuleCommand(requested);
+        }
+
         return this.commander
           ?.parseAsync()
           .then(async () => {
@@ -215,6 +231,85 @@ class CliKernel extends Cli {
       this.log(e, "ERROR");
       throw e;
     }
+  }
+
+  /**
+   * Nom de la commande demandée = premier token non-option de `process.argv`.
+   *
+   * `null` si aucun (invocation nue, `--help`, `--version`) → on retombe sur le
+   * flow built-in inchangé.
+   *
+   * @returns nom de commande demandé ou `null`.
+   */
+  private getRequestedCommandName(): string | null {
+    for (const arg of process.argv.slice(2)) {
+      if (!arg.startsWith("-")) {
+        return arg;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Noms + alias des commandes built-in déjà enregistrées dans commander.
+   *
+   * Dérivé de commander (pas de liste en dur → suit l'ajout/retrait de built-ins).
+   * À appeler APRÈS `addCommand(...)` des built-ins et AVANT que les modules
+   * n'enregistrent les leurs.
+   *
+   * @returns set des noms et alias built-in.
+   */
+  private getBuiltinCommandNames(): Set<string> {
+    const names = new Set<string>();
+    for (const cmd of this.commander?.commands ?? []) {
+      names.add(cmd.name());
+      for (const alias of cmd.aliases?.() ?? []) {
+        names.add(alias);
+      }
+    }
+    return names;
+  }
+
+  /**
+   * Dispatch DIFFÉRÉ d'une commande de module.
+   *
+   * commander ignore la commande au boot (posée par le module à `onPreRegister`
+   * via @modules). On parse donc argv depuis un listener `onPreRegister` lui-même
+   * posé via `onStart` : `loadApp()` (qui pose le listener @modules) précède
+   * `onStart`, et `emitAsync` est séquentiel → notre listener tourne APRÈS celui
+   * de @modules, donc quand toutes les commandes de module sont connues, mais
+   * AVANT les phases qu'elles ciblent (`onRegister`/`onReady`/…) → leur
+   * `kernel.once(kernelEvent)` fire normalement. Le kernel reste en mode CONSOLE
+   * (aucune commande serveur ne fixe `type=SERVER`) → 0 serveur démarré. Commande
+   * réellement introuvable (typo) → `terminate(1)`, jamais de fallback serveur.
+   *
+   * @param requested - nom de commande demandé (pour le message d'erreur).
+   * @returns le Kernel booté (terminé après exécution de la commande).
+   */
+  private dispatchModuleCommand(requested: string): Promise<Kernel> {
+    const kernel = this.kernel as Kernel;
+    kernel.once("onStart", () => {
+      kernel.once("onPreRegister", async () => {
+        try {
+          await this.commander?.parseAsync();
+        } catch (e) {
+          const code = (e as { code?: string })?.code;
+          if (
+            code === "commander.helpDisplayed" ||
+            code === "commander.version"
+          ) {
+            await this.kernel?.terminate(0);
+            return;
+          }
+          this.log(`command not found: ${requested}`, "ERROR");
+          await this.kernel?.terminate(1);
+        }
+      });
+    });
+    return kernel.start().catch(async (e) => {
+      await this.kernel?.terminate(1);
+      throw e;
+    });
   }
 
   /**

@@ -104,7 +104,7 @@ Kernel onTerminate
   - **Idempotent** : une entrée dont `outDir/.vite/manifest.json` est plus récent que ses sources est **ignorée** (`skipped`) → relance prod console rapide. `--force` rebuild tout.
   - **Erreurs collectées** : un bundle KO n'arrête pas les autres ; `failures[]` remonté → la commande met `process.exitCode = 1` (pipeline CI).
   - Scripts racine : `npm run build:front` (= `nodefony frontend:build`) · `npm run build:all` (backend turbo + front).
-  - ⚠️ CLI `nodefony frontend:build` = bug pré-existant `unknown command` (cf mémoire `project_cli_commands_broken_claude_ts`) → en attendant, `build:all` ou fix CLI séparé.
+  - ✅ CLI `nodefony frontend:build` fonctionne (fix dispatch commandes de module 2026-05-25 : `CliKernel` diffère le parse des commandes non-built-in à `onPreRegister`, après enregistrement par les modules — cf `project_cli_commands_broken_claude_ts`).
 - **Rendu** : `TemplateHelper.renderProdTags()` lit `outDir/.vite/manifest.json` (caché par outDir, 0 relecture disque/req) → `<link rel="stylesheet">` (CSS récursif) + `<link rel="modulepreload">` (imports) + `<script type="module" crossorigin>`, **préfixés par `publicPath`**. Manifest absent → commentaire HTML (pas de crash).
 - **Service statique** : en prod (`env !== "development"`), `FrontendService.setupProd()` (hook `onServersReady`) monte chaque `outDir` sur son `publicPath` via `container.get("server-static").addMount(prefix, dir)` — **résolu par nom** (anti-cycle, pas d'import `@nodefony/http`). Cloud-native (nginx/haproxy/CDN frontal) = Phase 16, bascule via `publicPath` sans toucher `renderProdTags`.
 
