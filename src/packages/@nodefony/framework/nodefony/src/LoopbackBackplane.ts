@@ -1,0 +1,43 @@
+import type { IBackplane, BackplaneHandler } from "../interfaces/IBackplane.js";
+
+/**
+ * Backplane **mono-process no-op** — implémentation de RÉFÉRENCE du port
+ * {@link IBackplane} quand il n'existe **aucun pair** (1 process = 1 pod).
+ *
+ * `publish` ne sort rien (pas de pair à qui propager), `onMessage` ne fire jamais
+ * (rien n'arrive de l'extérieur) → 0 fan-out cross-process, le hub se comporte
+ * exactement comme en local pur.
+ *
+ * Rôle : (1) matérialiser le contrat pour les tests (cible de vérification du câblage
+ * du hub) ; (2) câblage explicite « backplane présent mais inactif ». NB perf : en
+ * mono-process le {@link RealtimeHub} garde `#backplane === null` (0 overhead réel,
+ * style lazy du fichier) — ce Loopback n'est donc PAS sur le hot path par défaut, il
+ * sert à prouver que brancher un backplane ne change rien tant qu'il n'y a pas de pair.
+ *
+ * SERVEUR uniquement (`process.pid`) — pas isomorphe.
+ */
+export class LoopbackBackplane implements IBackplane {
+  readonly originId: string;
+
+  constructor(originId: string = String(process.pid)) {
+    this.originId = originId;
+  }
+
+  start(): void {
+    /* no-op — aucun transport */
+  }
+
+  publish(_channel: string, _payload: unknown): void {
+    /* no-op — aucun pair */
+  }
+
+  onMessage(_handler: BackplaneHandler): void {
+    /* no-op — rien n'arrive jamais */
+  }
+
+  stop(): void {
+    /* no-op */
+  }
+}
+
+export default LoopbackBackplane;

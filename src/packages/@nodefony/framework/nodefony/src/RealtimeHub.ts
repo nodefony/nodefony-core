@@ -3,6 +3,7 @@ import type {
   IRealtimeConnProbe,
   IRealtimeProbe,
 } from "../interfaces/IRealtimeProbe";
+import type { IBackplane } from "../interfaces/IBackplane";
 
 /**
  * Seuil d'alerte slow-consumer (octets de `bufferedAmount`). Au-delà, la connexion
@@ -82,6 +83,12 @@ export class RealtimeHub {
   // pas sur le sink opaque). Inscrit au handshake, retiré au close (symétrique).
   #connections: Set<IRealtimeConnProbe> | null = null;
 
+  // Backplane cross-process (P13). `null` par défaut = mono-process (Loopback implicite,
+  // 0 overhead : `publish` ne paie qu'un test `!== null`). Branché par le module quand
+  // un mode multi-process est détecté (cluster IPC → ClusterBackplane ; pods → Redis).
+  // Cf {@link setBackplane} + IBackplane.
+  #backplane: IBackplane | null = null;
+
   /**
    * Abonne une connexion à un canal. Crée le provider partagé au **1ᵉʳ** abonné (via
    * `factory`), puis ajoute le sink. Le sink est inscrit AVANT l'appel à `factory` →
@@ -134,11 +141,28 @@ export class RealtimeHub {
   }
 
   /**
-   * Fan-out d'une charge à tous les abonnés locaux d'un canal. Point d'extension du
-   * **backplane** (P13) : forward Redis ici ; l'ingress backplane appellera un
-   * `publishLocal` (fan-out SEULEMENT) pour ne pas reboucler.
+   * Publie une charge sur un canal : **fan-out local** ({@link publishLocal}) **+**
+   * propagation au {@link IBackplane} (autres workers/pods). C'est le point d'entrée
+   * des providers locaux (tickers, listeners) ET de tout code serveur.
+   *
+   * Anti-boucle : un message **reçu** du backplane ne repasse PAS par ici (il appelle
+   * `publishLocal` directement) → aucune ré-émission cross-process, pas de tempête.
    */
   publish(channel: string, payload: unknown): void {
+    this.publishLocal(channel, payload);
+    // Propagation cross-process : no-op tant qu'aucun backplane n'est branché
+    // (mono-process). Le test `!== null` est le seul coût en mono-process.
+    if (this.#backplane !== null) this.#backplane.publish(channel, payload);
+  }
+
+  /**
+   * Fan-out d'une charge aux **seuls abonnés locaux** d'un canal (process courant).
+   * NE propage PAS au backplane → c'est la voie d'**ingress** d'un message venu d'un
+   * autre pair (le hub câble `backplane.onMessage` dessus dans {@link setBackplane}) :
+   * réinjection locale sans reboucler. Aussi appelable directement pour un push
+   * strictement local (jamais propagé).
+   */
+  publishLocal(channel: string, payload: unknown): void {
     const st = this.#channels?.get(channel);
     if (!st) return;
     // Sonde : 1 publish, N livraisons (= fan-out réel). Incréments O(1).
@@ -152,6 +176,27 @@ export class RealtimeHub {
         /* une connexion fautive ne casse pas le fan-out aux autres */
       }
     }
+  }
+
+  /**
+   * Branche le {@link IBackplane} cross-process (cluster IPC, Redis…) et câble son
+   * ingress : tout message reçu d'un autre pair est réinjecté en **fan-out local
+   * uniquement** ({@link publishLocal}) — barrière anti-boucle côté hub (le backplane
+   * filtre déjà son propre echo). Remplace un backplane précédent (l'appelant est
+   * responsable de `stop()` l'ancien). Démarre le transport.
+   *
+   * @returns le backplane branché (chaînage).
+   */
+  setBackplane(backplane: IBackplane): IBackplane {
+    this.#backplane = backplane;
+    backplane.onMessage((msg) => this.publishLocal(msg.channel, msg.payload));
+    backplane.start();
+    return backplane;
+  }
+
+  /** Backplane cross-process branché, ou `null` en mono-process (lecture/tests/sonde). */
+  get backplane(): IBackplane | null {
+    return this.#backplane;
   }
 
   /** Nombre d'abonnés locaux d'un canal (observabilité / tests). */
@@ -254,6 +299,9 @@ export class RealtimeHub {
     }
     this.#connections?.clear();
     this.#connections = null;
+    // Détache le backplane (reset). On ne `stop()` PAS ici : le hub n'en est pas
+    // l'owner (créé/détruit par le module qui l'a branché) — il le libère lui-même.
+    this.#backplane = null;
     this.#publishTotal = 0;
     this.#fanoutTotal = 0;
     this.#inboundTotal = 0;

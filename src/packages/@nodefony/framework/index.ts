@@ -9,6 +9,7 @@ import RealtimeHub, {
   getRealtimeHub,
   SLOW_CONSUMER_BYTES,
 } from "./nodefony/src/RealtimeHub";
+import LoopbackBackplane from "./nodefony/src/LoopbackBackplane";
 import WsConnectionTransport from "./nodefony/src/WsConnectionTransport";
 import Resolver from "./nodefony/src/Resolver";
 import AdminBroker from "./nodefony/service/AdminBroker";
@@ -110,6 +111,7 @@ export {
   RealtimeHub,
   getRealtimeHub,
   SLOW_CONSUMER_BYTES,
+  LoopbackBackplane,
   WsConnectionTransport,
   Route,
   Router,
@@ -155,6 +157,11 @@ export type {
   RealtimeInboundHandler,
 } from "./nodefony/interfaces/IRealtimeController";
 export type { ChannelSink, ChannelFactory } from "./nodefony/src/RealtimeHub";
+export type {
+  IBackplane,
+  IBackplaneMessage,
+  BackplaneHandler,
+} from "./nodefony/interfaces/IBackplane";
 export type { RawWsConnection } from "./nodefony/src/WsConnectionTransport";
 export type {
   IRealtimeProbe,

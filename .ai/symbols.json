@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-24T09:16:56.066Z",
+  "generated": "2026-05-24T13:17:20.903Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 734,
-    "symbols": 1280,
-    "classes": 218,
-    "interfaces": 299,
-    "types": 155,
+    "files": 736,
+    "symbols": 1284,
+    "classes": 219,
+    "interfaces": 301,
+    "types": 156,
     "enums": 2,
     "functions": 161,
     "constants": 445
@@ -2743,6 +2743,32 @@
       "extends": "IAdminRegistry",
       "description": "Service du data plane admin — vit dans `@nodefony/framework` car lui seul a le Router pour créer des routes dynamiquement. Rôle : collecter les {@link IAdminApi} produits par les modules (et par le…"
     },
+    "IBackplaneMessage": {
+      "name": "IBackplaneMessage",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Port du **backplane** de la socket Nodefony — l'abstraction de fan-out **CROSS-PROCESS** du {@link RealtimeHub}. Le hub fait le fan-out **local** (aux connexions du process courant). Le backplane p…"
+    },
+    "IBackplane": {
+      "name": "IBackplane",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Contrat d'un backplane realtime. Implémentation **stateless du point de vue métier** (l'état des canaux vit dans le hub) ; le backplane ne porte que le transport vers les pairs + son identité."
+    },
+    "BackplaneHandler": {
+      "name": "BackplaneHandler",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Handler d'ingress : reçoit un message publié par un **autre** pair. L'echo du pair courant a déjà été filtré par l'implémentation → le handler peut réinjecter sans condition (mais en fan-out **loca…"
+    },
     "IController": {
       "name": "IController",
       "kind": "interface",
@@ -3114,6 +3140,19 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`. Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core` et ne peut donc pas importer le broker (qui …"
+    },
+    "LoopbackBackplane": {
+      "name": "LoopbackBackplane",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/LoopbackBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "implements": [
+        "IBackplane"
+      ],
+      "decorators": [],
+      "description": "Backplane **mono-process no-op** — implémentation de RÉFÉRENCE du port {@link IBackplane} quand il n'existe **aucun pair** (1 process = 1 pod). `publish` ne sort rien (pas de pair à qui propager), …"
     },
     "buildRealtimeHealth": {
       "name": "buildRealtimeHealth",
@@ -9641,6 +9680,9 @@
       "IController": [
         "Controller"
       ],
+      "IBackplane": [
+        "LoopbackBackplane"
+      ],
       "IRealtimeController": [
         "RealtimeController"
       ],
@@ -10411,6 +10453,9 @@
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
       ],
       "SLOW_CONSUMER_BYTES": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "LoopbackBackplane": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "WsConnectionTransport": [
@@ -11363,6 +11408,13 @@
       ],
       "CORE_PACKAGE": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "IBackplane": [
+        "src/packages/@nodefony/framework/nodefony/src/LoopbackBackplane.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts"
+      ],
+      "BackplaneHandler": [
+        "src/packages/@nodefony/framework/nodefony/src/LoopbackBackplane.ts"
       ],
       "IRealtimeHealth": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"

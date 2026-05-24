@@ -1,8 +1,42 @@
 import { expect } from "chai";
 import "mocha";
 import { RealtimeHub, SLOW_CONSUMER_BYTES } from "../../src/RealtimeHub.js";
+import { LoopbackBackplane } from "../../src/LoopbackBackplane.js";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
 import type { IRealtimeConnProbe } from "../../interfaces/IRealtimeProbe.js";
+import type {
+  IBackplane,
+  IBackplaneMessage,
+  BackplaneHandler,
+} from "../../interfaces/IBackplane.js";
+
+/**
+ * Backplane factice : capture les publications sortantes et expose `deliver()` pour
+ * simuler l'arrivée d'un message d'un AUTRE pair (ingress).
+ */
+class FakeBackplane implements IBackplane {
+  readonly originId = "test-origin";
+  started = 0;
+  stopped = 0;
+  published: Array<{ channel: string; payload: unknown }> = [];
+  handler: BackplaneHandler | null = null;
+  start(): void {
+    this.started++;
+  }
+  stop(): void {
+    this.stopped++;
+  }
+  publish(channel: string, payload: unknown): void {
+    this.published.push({ channel, payload });
+  }
+  onMessage(handler: BackplaneHandler): void {
+    this.handler = handler;
+  }
+  /** Simule un message reçu d'un autre pair (echo déjà filtré par l'impl réelle). */
+  deliver(msg: IBackplaneMessage): void {
+    this.handler?.(msg);
+  }
+}
 
 /** Connexion factice (sonde) : `bufferedAmount` mutable pour simuler un slow-consumer. */
 function fakeConn(over: Partial<IRealtimeConnProbe> = {}): IRealtimeConnProbe {
@@ -207,5 +241,103 @@ describe("RealtimeHub.probe — auto-observabilité (fan-out + backpressure)", (
     expect(p.inboundTotal).to.equal(0);
     expect(p.connectionCount).to.equal(0);
     expect(p.channelCount).to.equal(0);
+  });
+});
+
+/**
+ * Backplane cross-process — le port {@link IBackplane} câblé au hub. Prouve le contrat
+ * (publish = local + propagation ; ingress = local-only anti-boucle) avec un backplane
+ * factice, AVANT toute impl IPC/Redis. C'est le test qui « stabilise l'archi ».
+ */
+describe("RealtimeHub — backplane cross-process (port IBackplane)", () => {
+  const factory = (): (() => void) => () => {};
+
+  it("mono-process : publish = fan-out local, aucun backplane branché", () => {
+    const hub = new RealtimeHub();
+    const got: unknown[] = [];
+    hub.subscribe("ch", (p) => got.push(p), factory);
+    hub.publish("ch", { v: 1 });
+    expect(got).to.deep.equal([{ v: 1 }]);
+    expect(hub.backplane).to.equal(null);
+  });
+
+  it("setBackplane : démarre le transport, publish fan-out local ET propage", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    expect(hub.setBackplane(bp)).to.equal(bp); // chaînage
+    expect(hub.backplane).to.equal(bp);
+    expect(bp.started).to.equal(1); // start() câblé
+    const got: unknown[] = [];
+    hub.subscribe("ch", (p) => got.push(p), factory);
+    hub.publish("ch", { v: 1 });
+    expect(got).to.deep.equal([{ v: 1 }]); // fan-out local
+    expect(bp.published).to.deep.equal([{ channel: "ch", payload: { v: 1 } }]); // propagé
+  });
+
+  it("ingress : message d'un pair = fan-out LOCAL, jamais re-propagé (anti-boucle)", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    const got: unknown[] = [];
+    hub.subscribe("ch", (p) => got.push(p), factory);
+    bp.deliver({
+      channel: "ch",
+      payload: { fromPeer: true },
+      originId: "other",
+    });
+    expect(got).to.deep.equal([{ fromPeer: true }]); // réinjecté localement
+    expect(bp.published).to.deep.equal([]); // PAS re-propagé → 0 boucle
+  });
+
+  it("publishLocal ne propage JAMAIS au backplane (voie d'ingress)", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    hub.subscribe("ch", () => {}, factory);
+    hub.publishLocal("ch", 42);
+    expect(bp.published).to.deep.equal([]);
+  });
+
+  it("clear() détache le backplane sans le stopper (lifecycle externe)", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    hub.clear();
+    expect(hub.backplane).to.equal(null);
+    expect(bp.stopped).to.equal(0); // le hub n'est pas owner du backplane
+  });
+});
+
+/**
+ * LoopbackBackplane — impl de référence no-op (aucun pair). Brancher un backplane
+ * Loopback ne change RIEN au comportement local : c'est la garantie du port.
+ */
+describe("LoopbackBackplane — no-op mono-process", () => {
+  it("publish/onMessage/start/stop ne font rien et ne throw pas", () => {
+    const bp = new LoopbackBackplane("pid-1");
+    expect(bp.originId).to.equal("pid-1");
+    let fired = 0;
+    bp.onMessage(() => fired++);
+    bp.start();
+    bp.publish("ch", { v: 1 });
+    bp.stop();
+    expect(fired).to.equal(0); // aucun ingress ne fire jamais
+  });
+
+  it("originId par défaut = pid du process", () => {
+    expect(new LoopbackBackplane().originId).to.equal(String(process.pid));
+  });
+
+  it("câblé au hub : se comporte comme le mono-process pur (0 propagation observable)", () => {
+    const hub = new RealtimeHub();
+    hub.setBackplane(new LoopbackBackplane());
+    const got: unknown[] = [];
+    hub.subscribe(
+      "ch",
+      (p) => got.push(p),
+      () => () => {},
+    );
+    hub.publish("ch", { v: 1 });
+    expect(got).to.deep.equal([{ v: 1 }]); // fan-out local intact, rien ne sort
   });
 });
