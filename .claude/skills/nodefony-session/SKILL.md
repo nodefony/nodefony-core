@@ -45,12 +45,25 @@ grep -rl "LIRE EN PREMIER" "$MEM"/*_kit.md 2>/dev/null
 Lire le `_state.md` le plus récent (sections **Fait / Décisions / Reste**). S'il y a un kit
 « LIRE EN PREMIER », le lire aussi (priorité sur le \_state générique).
 
-## 2. Phase active + git
+## 2. Phase active + git + 🚨 GARDE-FOU cohérence `_state` ↔ commits
 
 ```bash
 grep -n "🎯\|## P[0-9]" MIGRATION_STATUS.md | head -10
 echo "Branche : $(git branch --show-current) — non commités : $(git status --short | wc -l | tr -d ' ')"
+echo "--- VÉRITÉ TERRAIN : derniers commits (croiser avec _state.Fait) ---"
+git log -6 --format="%h %ci %s"
 ```
+
+> 🚨 **GARDE-FOU OBLIGATOIRE (anti-`_state`-périmé, ajouté 2026-05-25).** Le `_state` est écrit à la
+> MAIN par le mode END ; si END a été lancé au MILIEU d'une session qui a continué, le `_state` ment
+> (cas réel 2026-05-25 : END à 00:16 « prochaine = P6 », puis cluster codé à 01:07 → jamais reflété ;
+> RESUME a pointé P6 au lieu du cluster). **La vérité = les commits, pas le `_state`.**
+>
+> **Vérifier** : le dernier commit `feat(...)`/`fix(...)` apparaît-il dans la section `## Fait` du
+> `_state` ? **NON → `_state` PÉRIMÉ.** Alors : déduire la prochaine étape du **dernier commit
+> `feat/fix` + son kit associé** (pas de la « Priorité 1 » du `_state`), SIGNALER l'incohérence au
+> user, et proposer de réécrire le `_state`. Ne JAMAIS restituer la « Priorité 1 » d'un `_state` que
+> les commits contredisent.
 
 ## 3. Mini-état migration (SI la prochaine étape cible une phase P<n>)
 
@@ -65,7 +78,9 @@ barres ASCII de progression par phase (tri % décroissant) + l'encadré **PROCHA
 
 1. **Dernière session** : date + focus
 2. **Décisions prises** (extraites du `_state.md`)
-3. **➡️ Prochaine étape** : la ligne « Priorité 1 » du Reste (en gras, c'est LE point)
+3. **➡️ Prochaine étape** : la « Priorité 1 » du Reste — **SAUF si le garde-fou §2 a détecté un
+   `_state` périmé** : alors la prochaine étape vient du **dernier commit + son kit**, et on dit au
+   user que le `_state` était périmé.
 4. **Mini-état migration** (barres + encadré, via `nodefony-migration-audit`) — si phase concernée
 5. **Branche git** + non commités (alerte si dist périmé probable)
 6. **Question** : « On reprend ça, ou autre chose ? »
