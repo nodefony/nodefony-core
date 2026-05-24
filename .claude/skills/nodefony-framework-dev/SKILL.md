@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.8.0
+version: 1.8.1
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -107,6 +107,37 @@ snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** �
   AVANT commit (cf §8). Seuils blockers : **35 MB / 1000 req HTTP**, **10 MB / 100 crashes**,
   **30 MB / 100 WS**. Si ça saute → NE PAS commit, lazy + cleanup d'abord.
 - Quantifier dans le commit si écart > 5 % : « 1000 req : Xms avant / Yms après, heap delta Z MB ».
+
+### Doctrine Node « ne pas bloquer l'event-loop » (compléments officiels)
+
+> Source canonique (proxy obligatoire, JAMAIS nodejs.org HTML direct) :
+> `https://r.jina.ai/https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop`.
+> 1 seul Event Loop + petit Worker Pool → **un callback lourd bloque TOUS les clients = DoS**.
+
+- **Chaque callback borné O(1)/O(n)** (jamais O(n²) sur input user). CPU **< 1 ms** → sur l'event loop ;
+  **lourd** → **partitionner** (`setImmediate` entre tranches) ou **offload Worker Pool** (`node:worker_threads`).
+- **Pas d'API `*Sync`** sur l'event loop (`crypto.*Sync`/`pbkdf2Sync`, `zlib.*Sync`, fs sync, `child_process.*Sync`)
+  → variantes async / streams. (Cf « Zéro I/O synchrone » ci-dessus.)
+- **ReDoS = faille SÉCURITÉ** : pas de quantificateurs imbriqués `(a+)*`, pas d'alternance qui se chevauche
+  `(a|a)*`, **jamais de backreference** `\1`. `indexOf` pour le simple ; `safe-regex` / RE2 (`node-re2`) pour
+  tout **input non fiable**. (Aligne avec `nodefony-security-review`.)
+- **JSON borné** : valider la **taille** avant `JSON.parse`/`stringify` (gros > ~10 MB → streaming). Borner
+  les paramètres user (taille fichier, longueur, sortie crypto).
+- **Worker Pool = variance minimale** : pas de tâche géante qui affame les autres ; **streams**
+  (`fs.read`/`ReadStream`) au lieu de `readFile` pour les gros fichiers ; tranches de coût comparable.
+- **Mesure = event-loop latency + p99 sous charge** (supervision `eventLoopMs` + skill `nodefony-load-test`),
+  **PAS** un microbench à seuil dans la suite.
+
+### Tests de PERF = isolés + opt-in (`RUN_PERF=1`)
+
+- Un **microbench à seuil temporel** (`expect(elapsed).lessThan(Nms)`) ne mesure RIEN de fiable **dans la
+  suite** : CPU non déterministe + event-loop chargé par les ~1300 tests précédents (machine chaude + GC)
+  → faux échec (vécu : `extend 50k deep 536 ms` > 500 ms en suite, **162 ms isolé**).
+- Le root-hook `src/tests/perf-skip.cjs` skippe donc les perfs **par défaut** (titres `… < Nms` ou describe
+  `performance`) ; elles sont **OPT-IN** : `RUN_PERF=1 npm test` (+ toujours skippées en CI). → `npm test`
+  est **déterministe** (0 faux failing). **Mesurer une perf = la lancer ISOLÉE** (`RUN_PERF=1 npx mocha
+src/tests/Tools.test.ts`), jamais sur la suite chaude. **Ne PAS desserrer un seuil** pour masquer la
+  contamination — corriger l'environnement de mesure, pas le seuil.
 
 ### TypeScript / ESM
 
@@ -1293,6 +1324,12 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.8.1** (2026-05-24) — §2 **Doctrine Node « ne pas bloquer l'event-loop »** (source canonique
+  proxy) : callback borné O(1)/O(n) + partition `setImmediate`/Worker Pool, ReDoS = faille sécu,
+  JSON borné, Worker Pool variance, mesure = event-loop latency/p99. + **Tests de perf isolés &
+  opt-in `RUN_PERF=1`** (`perf-skip.cjs` skippe par défaut ; microbench-en-suite ne mesure rien —
+  vécu `extend` 536 ms suite / 162 ms isolé ; ne pas desserrer un seuil pour masquer la contamination).
+  (Patch doc framework-only ; studio-dev reste 1.8.0.)
 - **1.8.0** (2026-05-24) — **Granularité 1ʳᵉ classe + cadence adaptative (AIMD) dans la lib cliente**
   (Core isomorphe). (a) **`channelRate`** (`src/realtime/channelRate.ts`, isomorphe) : convention de
   cadence PARTAGÉE client↔serveur — `rateChannel(base,ms,default)` (fabrication), `parseRate(channel,
