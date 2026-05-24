@@ -51,12 +51,15 @@ import { useResource } from "../hooks";
 import {
   PageHeader,
   DataState,
-  InfoHint,
+  DocHint,
   KeyValue,
   DefinitionList,
   MiniChart,
 } from "../components/ui";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
+
+/** Version de la doc des fiches d'aide (`DocHint`) du dashboard ORM. */
+const ORM_DOC = "v1.0";
 import {
   useNodefonyAdaptiveChannel,
   useNodefonyAdaptiveChannelData,
@@ -263,6 +266,7 @@ function Panel({
   title,
   icon,
   hint,
+  info,
   right,
   children,
 }: {
@@ -270,6 +274,8 @@ function Panel({
   icon: React.ReactNode;
   /** Texte de la bulle ⓘ — typiquement DYNAMIQUE (compteurs, scope ORM). */
   hint?: string;
+  /** Fiche d'aide riche (`<DocHint/>`) — rendue à la place de `hint` si fournie. */
+  info?: React.ReactNode;
   right?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -279,7 +285,10 @@ function Panel({
         <Group gap="xs" wrap="nowrap">
           {icon}
           <Text fw={600}>{title}</Text>
-          {hint ? <InfoHint text={hint} /> : null}
+          {info ??
+            (hint ? (
+              <DocHint title={title} version={ORM_DOC} summary={hint} />
+            ) : null)}
         </Group>
         {right}
       </Group>
@@ -477,6 +486,7 @@ function MiniStat({
   label,
   value,
   hint,
+  info,
   color,
   flashKey,
 }: {
@@ -484,6 +494,7 @@ function MiniStat({
   label: string;
   value: React.ReactNode;
   hint?: string;
+  info?: React.ReactNode;
   color?: MantineColor;
   /** Si fourni, la valeur FLASHE quand cette clé change (live = « ce qui bouge »). */
   flashKey?: string | number;
@@ -493,7 +504,10 @@ function MiniStat({
       <Group gap={6} wrap="nowrap" mb={4} c="dimmed">
         {icon}
         <Text size="xs">{label}</Text>
-        {hint ? <InfoHint text={hint} /> : null}
+        {info ??
+          (hint ? (
+            <DocHint title={label} version={ORM_DOC} summary={hint} />
+          ) : null)}
       </Group>
       <Text fw={700} size="lg" c={color}>
         {flashKey !== undefined ? (
@@ -517,6 +531,7 @@ function KpiCard({
   icon,
   label,
   hint,
+  info,
   value,
   accent = "brand",
   footer,
@@ -527,6 +542,7 @@ function KpiCard({
   icon: React.ReactNode;
   label: string;
   hint?: string;
+  info?: React.ReactNode;
   value: React.ReactNode;
   accent?: MantineColor;
   footer?: React.ReactNode;
@@ -576,7 +592,10 @@ function KpiCard({
             >
               {label}
             </Text>
-            {hint ? <InfoHint text={hint} /> : null}
+            {info ??
+              (hint ? (
+                <DocHint title={label} version={ORM_DOC} summary={hint} />
+              ) : null)}
           </Group>
           <ThemeIcon variant="light" color={accent} size={34} radius="md">
             {icon}
@@ -755,7 +774,21 @@ function ConnectorCard({
                 instance {health.instanceId}
               </Badge>
             )}
-            <InfoHint text="Diagnostic PER-INSTANCE (cloud-native) : chaque process/pod a son propre pool de connexions, donc ses propres métriques. Données poussées en TEMPS RÉEL par la socket Nodefony (switch « Temps réel »). La vue multi-pod relève de l'observabilité externe (Prometheus) ou du fan-out Redis cross-pod (P13)." />
+            <DocHint
+              title="Diagnostic per-instance"
+              version={ORM_DOC}
+              summary="Chaque process/pod a son propre pool de connexions, donc ses propres métriques (cloud-native)."
+              sections={[
+                {
+                  label: "Temps réel",
+                  body: "Données poussées en direct par la Socket Nodefony (switch « Temps réel »).",
+                },
+                {
+                  label: "Multi-pod",
+                  body: "La vue agrégée relève de l'observabilité externe (Prometheus) ou du fan-out Redis cross-pod (P13).",
+                },
+              ]}
+            />
           </Group>
 
           <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
@@ -808,7 +841,21 @@ function ConnectorCard({
                 label={
                   <Group gap={5}>
                     Flux requêtes (live)
-                    <InfoHint text="Débit SQL de CE connecteur (requêtes/s, dérivé du delta entre 2 mesures) + latence moyenne lissée (EWMA). Le petit graphe = historique du débit. Canal `orm:flow`, cadence suivant le réglage temps réel." />
+                    <DocHint
+                      title="Flux SQL du connecteur"
+                      version={ORM_DOC}
+                      summary="Débit SQL de ce connecteur (requêtes/s) + latence moyenne lissée (EWMA)."
+                      sections={[
+                        {
+                          label: "Technique",
+                          body: "Débit dérivé du delta entre 2 mesures ; latence lissée en EWMA. Le petit graphe = historique du débit.",
+                        },
+                        {
+                          label: "Source",
+                          body: "Canal orm:flow, cadence suivant le réglage temps réel.",
+                        },
+                      ]}
+                    />
                   </Group>
                 }
                 labelPosition="left"
@@ -990,7 +1037,17 @@ function ConnectorCard({
             >
               {storage.label}
             </Badge>
-            <InfoHint text="Emplacement physique de la base. Chemin TOUJOURS relatif à la racine du projet (jamais d'absolu ni de credential exposé dans le data plane)." />
+            <DocHint
+              title="Emplacement"
+              version={ORM_DOC}
+              summary="Emplacement physique de la base de données."
+              sections={[
+                {
+                  label: "Sécurité",
+                  body: "Chemin TOUJOURS relatif à la racine du projet — jamais d'absolu ni de credential exposé dans le data plane.",
+                },
+              ]}
+            />
           </Group>
           {target && target !== ":memory:" && (
             <Code
@@ -1657,8 +1714,16 @@ export const OrmOverview = observer(() => {
                 <Badge variant="light" color="gray" size="sm">
                   {list.length}
                 </Badge>
-                <InfoHint
-                  text={`${list.length} connecteur(s) enregistré(s) · ${connected} connecté(s).`}
+                <DocHint
+                  title="Connecteurs"
+                  version={ORM_DOC}
+                  summary={`${list.length} connecteur(s) enregistré(s) · ${connected} connecté(s).`}
+                  sections={[
+                    {
+                      label: "Définition",
+                      body: "Un connecteur = une instance ORM (Drizzle, Sequelize, Mongoose…) reliée à une base, enregistrée dans le registre process-wide.",
+                    },
+                  ]}
                 />
               </Group>
               <SimpleGrid cols={list.length > 1 ? { base: 1, xl: 2 } : 1}>
@@ -1682,8 +1747,16 @@ export const OrmOverview = observer(() => {
               <Group gap="xs" mb="sm">
                 <IconAffiliate size={18} />
                 <Text fw={600}>Modèle de données</Text>
-                <InfoHint
-                  text={`${entities.length} entité(s) · ${globalAgg.relationTotal} relation(s) · ${globalAgg.domainCount} domaine(s). Onglet = filtre par connecteur.`}
+                <DocHint
+                  title="Modèle de données"
+                  version={ORM_DOC}
+                  summary={`${entities.length} entité(s) · ${globalAgg.relationTotal} relation(s) · ${globalAgg.domainCount} domaine(s).`}
+                  sections={[
+                    {
+                      label: "Navigation",
+                      body: "Chaque sous-onglet filtre le modèle par connecteur.",
+                    },
+                  ]}
                 />
               </Group>
               <Tabs

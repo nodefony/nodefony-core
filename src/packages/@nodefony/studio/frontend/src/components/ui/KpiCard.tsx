@@ -1,13 +1,15 @@
 import { Card, Grid, Group, Text, ThemeIcon } from "@mantine/core";
 import type { MantineColor } from "@mantine/core";
 import type { ReactNode } from "react";
-import { InfoHint } from "./StatCard";
+import { DocHint } from "./DocHint";
 
 export interface KpiCardProps {
   icon: ReactNode;
   label: string;
-  /** Bulle ⓘ (idéalement DYNAMIQUE — interpolée des données live). */
+  /** Bulle ⓘ simple (idéalement DYNAMIQUE — interpolée des données live). */
   hint?: string;
+  /** Fiche d'aide riche (ex. `<DocHint/>`) — rendue À LA PLACE de `hint` si fournie. */
+  info?: ReactNode;
   value: ReactNode;
   /** Couleur d'accent (icône + bordure active). Défaut `brand`. */
   accent?: MantineColor;
@@ -34,6 +36,7 @@ export function KpiCard({
   icon,
   label,
   hint,
+  info,
   value,
   accent = "brand",
   footer,
@@ -83,7 +86,7 @@ export function KpiCard({
             >
               {label}
             </Text>
-            {hint ? <InfoHint text={hint} /> : null}
+            {info ?? (hint ? <DocHint title={label} summary={hint} /> : null)}
           </Group>
           <ThemeIcon variant="light" color={accent} size={34} radius="md">
             {icon}

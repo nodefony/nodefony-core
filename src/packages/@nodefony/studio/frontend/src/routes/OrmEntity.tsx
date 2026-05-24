@@ -14,7 +14,10 @@ import {
 import { IconArrowLeft, IconDatabase, IconKey } from "@tabler/icons-react";
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
-import { PageHeader, DataState, InfoHint } from "../components/ui";
+import { PageHeader, DataState, DocHint } from "../components/ui";
+
+/** Version de la doc des fiches d'aide (`DocHint`) du détail d'entité ORM. */
+const ORM_DOC = "v1.0";
 
 // ── Types miroir du data plane /nodefony/orm/api/entity/{name} ──────────────
 interface ColumnInfo {
@@ -107,8 +110,16 @@ export const OrmEntity = observer(() => {
               <Group justify="space-between" mb="sm">
                 <Group gap={6}>
                   <Text fw={600}>Colonnes</Text>
-                  <InfoHint
-                    text={`${data.columns.length} colonne(s). 🔑 = clé primaire, FK = clé étrangère (relation), ◦ = unique, « ? » sur le type = nullable.`}
+                  <DocHint
+                    title="Colonnes"
+                    version={ORM_DOC}
+                    summary={`${data.columns.length} colonne(s) de la table.`}
+                    sections={[
+                      {
+                        label: "Légende",
+                        body: "🔑 = clé primaire, FK = clé étrangère (relation), ◦ = unique, « ? » sur le type = nullable.",
+                      },
+                    ]}
                   />
                 </Group>
                 <Badge variant="light">{data.columns.length}</Badge>
@@ -185,8 +196,16 @@ export const OrmEntity = observer(() => {
               <Group justify="space-between" mb="sm">
                 <Group gap={6}>
                   <Text fw={600}>Relations</Text>
-                  <InfoHint
-                    text={`${data.relations.length} relation(s) déclarée(s). Clique une cible pour ouvrir cette table (navigation de proche en proche dans le modèle).`}
+                  <DocHint
+                    title="Relations"
+                    version={ORM_DOC}
+                    summary={`${data.relations.length} relation(s) déclarée(s).`}
+                    sections={[
+                      {
+                        label: "Navigation",
+                        body: "Clique une cible pour ouvrir cette table (navigation de proche en proche dans le modèle).",
+                      },
+                    ]}
                   />
                 </Group>
                 <Badge variant="light">{data.relations.length}</Badge>

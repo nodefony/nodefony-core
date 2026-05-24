@@ -48,7 +48,10 @@ import {
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../stores";
-import { InfoHint, DataGrid, type DataGridColumn } from "../components/ui";
+import { DocHint, DataGrid, type DataGridColumn } from "../components/ui";
+
+/** Version de la doc des fiches d'aide (`DocHint`) de la vue base de données. */
+const DB_DOC = "v1.0";
 
 // ── Types miroir du data plane /nodefony/orm/api (graphe canonique) ──────────
 interface ColumnInfo {
@@ -742,7 +745,21 @@ export const Database = observer(() => {
               ]}
               aria-label="mode d'affichage"
             />
-            <InfoHint text="Graphe = diagramme des relations (recherche + focus sur une table). Liste = inventaire triable (colonnes, relations, nb de lignes par table)." />
+            <DocHint
+              title="Vues Graphe / Liste"
+              version={DB_DOC}
+              summary="Deux façons d'explorer le schéma de la base."
+              sections={[
+                {
+                  label: "Graphe",
+                  body: "Diagramme des relations (recherche + focus sur une table).",
+                },
+                {
+                  label: "Liste",
+                  body: "Inventaire triable (colonnes, relations, nombre de lignes par table).",
+                },
+              ]}
+            />
           </Group>
           {view === "graph" && (
             <>
@@ -761,8 +778,16 @@ export const Database = observer(() => {
                   comboboxProps={{ withinPortal: true }}
                   aria-label="rechercher et cibler une table"
                 />
-                <InfoHint
-                  text={`Cible une table : l'ERD n'affiche plus qu'elle + ses tables liées (voisinage par les clés étrangères) et zoome dessus. Indispensable sur une grosse base (ici ${allEntities.length} tables).`}
+                <DocHint
+                  title="Recherche / focus"
+                  version={DB_DOC}
+                  summary="Cible une table : l'ERD n'affiche plus qu'elle + ses tables liées et zoome dessus."
+                  sections={[
+                    {
+                      label: "Pourquoi",
+                      body: `Indispensable sur une grosse base (ici ${allEntities.length} tables) : on ne dessine que le voisinage par les clés étrangères.`,
+                    },
+                  ]}
                 />
               </Group>
               {focus && (
@@ -777,7 +802,21 @@ export const Database = observer(() => {
                     ]}
                     aria-label="profondeur du voisinage"
                   />
-                  <InfoHint text="Profondeur du voisinage autour de la table ciblée. 1 saut = relations directes (FK entrantes + sortantes). 2 sauts = + les voisines des voisines (plus large, plus dense)." />
+                  <DocHint
+                    title="Profondeur (sauts)"
+                    version={DB_DOC}
+                    summary="Étendue du voisinage affiché autour de la table ciblée."
+                    sections={[
+                      {
+                        label: "1 saut",
+                        body: "Relations directes (FK entrantes + sortantes).",
+                      },
+                      {
+                        label: "2 sauts",
+                        body: "+ les voisines des voisines (plus large, plus dense).",
+                      },
+                    ]}
+                  />
                 </Group>
               )}
             </>
@@ -795,7 +834,17 @@ export const Database = observer(() => {
               placeholder="connecteur…"
               aria-label="connecteur ORM"
             />
-            <InfoHint text="Connecteur ORM (base de données) à visualiser. « ⚠ » = connecteur déclaré mais non connecté au boot." />
+            <DocHint
+              title="Connecteur"
+              version={DB_DOC}
+              summary="Connecteur ORM (base de données) à visualiser."
+              sections={[
+                {
+                  label: "Légende",
+                  body: "« ⚠ » = connecteur déclaré mais non connecté au boot.",
+                },
+              ]}
+            />
           </Group>
           {view === "graph" && modules.length > 1 && (
             <Group gap={4} wrap="nowrap">
@@ -813,8 +862,16 @@ export const Database = observer(() => {
                 disabled={!!focus}
                 aria-label="filtrer par domaine ou module"
               />
-              <InfoHint
-                text={`Regroupe les tables par DOMAINE fonctionnel (ex. « facturation », « comptabilité ») si l'entité en déclare un, sinon par MODULE Nodefony propriétaire. Ici ${modules.length} groupe(s) sur ce connecteur. Désactivé en mode focus.`}
+              <DocHint
+                title="Domaine / module"
+                version={DB_DOC}
+                summary="Regroupe les tables par domaine fonctionnel (ex. « facturation ») si l'entité en déclare un, sinon par module Nodefony propriétaire."
+                sections={[
+                  {
+                    label: "Ici",
+                    body: `${modules.length} groupe(s) sur ce connecteur. Désactivé en mode focus.`,
+                  },
+                ]}
               />
             </Group>
           )}
@@ -870,7 +927,18 @@ export const Database = observer(() => {
             <Text size="xs" c="dimmed">
               Domaine / module :
             </Text>
-            <InfoHint text="Couleur = domaine fonctionnel de la table (ex. « facturation ») si défini, sinon module Nodefony. Clique un badge = filtre. C'est le même axe que le sélecteur « Domaine / module ». ⚠ = connecteur non connecté." />
+            <DocHint
+              title="Légende des couleurs"
+              version={DB_DOC}
+              summary="La couleur d'une table = son domaine fonctionnel (ex. « facturation ») si défini, sinon son module Nodefony."
+              sections={[
+                {
+                  label: "Interaction",
+                  body: "Clique un badge = filtre (même axe que le sélecteur « Domaine / module »).",
+                },
+                { label: "Légende", body: "⚠ = connecteur non connecté." },
+              ]}
+            />
           </Group>
           {modules.map((m) => {
             const key = m || NONE;

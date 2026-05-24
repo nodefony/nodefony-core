@@ -54,10 +54,15 @@ import {
   MiniChart,
   KeyValue as Row,
   Legend,
-  InfoHint,
+  DocHint,
+  GraphHint,
+  WarnHint,
   FlashValue,
   ensureLiveStyles,
 } from "../components/ui";
+
+/** Version de la doc des fiches d'aide (`DocHint`) du dashboard Supervision. */
+const SUP_DOC = "v1.0";
 
 /**
  * Sondes process (PATRON sondes+hub) poussées sur le canal WS
@@ -1258,8 +1263,24 @@ export const DashboardSupervision = observer(() => {
               <Badge color={health.color} size="lg" variant="light">
                 {health.label}
               </Badge>
-              <InfoHint
-                text={`Indice composite 0-100 = moyenne géométrique pondérée des désirabilités (méthode Derringer-Suich, NIST), seuils adaptés à ${isDev ? "DEV" : "PROD"}. DEUX classes : la SATURATION (CPU, ELU, event-loop, GC) dégrade le score avec un PLANCHER — un framework saturé RALENTIT mais SERT toujours (« Dégradé », jamais « Critique » seule) ; une PANNE réelle (erreurs, connecteur coupé, mémoire proche OOM) peut, elle, tirer l'indice à 0 (« Critique »). Sondes indisponibles (temps réel OFF) exclues. ${health.parts.length} sonde(s) prise(s) en compte.`}
+              <DocHint
+                title="Santé du framework"
+                version={SUP_DOC}
+                summary={`Indice composite 0-100 (${health.parts.length} sonde(s)) — moyenne géométrique pondérée des désirabilités (Derringer-Suich, NIST), seuils ${isDev ? "DEV" : "PROD"}.`}
+                sections={[
+                  {
+                    label: "Saturation",
+                    body: "CPU, ELU, event-loop, GC dégradent le score avec un PLANCHER : un framework saturé RALENTIT mais SERT toujours (« Dégradé », jamais « Critique » seule).",
+                  },
+                  {
+                    label: "Panne",
+                    body: "Erreurs, connecteur coupé ou mémoire proche OOM peuvent tirer l'indice à 0 (« Critique »).",
+                  },
+                  {
+                    label: "Si vide",
+                    body: "Sondes indisponibles (temps réel OFF) exclues du calcul.",
+                  },
+                ]}
               />
               {/* Réglage des poids de pondération par l'utilisateur (sliders + reset). */}
               <Popover width={320} position="bottom-end" withArrow shadow="md">
@@ -1457,7 +1478,7 @@ export const DashboardSupervision = observer(() => {
                   {" "}
                 </Badge>
                 <Text size="sm">{a.msg}</Text>
-                <InfoHint text={a.help} />
+                <WarnHint title="Alerte" version={SUP_DOC} summary={a.help} />
               </Group>
             ))}
             <Text size="xs" c="dimmed" mt={4}>
@@ -1707,8 +1728,16 @@ export const DashboardSupervision = observer(() => {
               <Badge variant="light" color={memH.color}>
                 Heap {heapPct}%
               </Badge>
-              <InfoHint
-                text={`CPU (% d'un cœur) et mémoire heap (% du plafond V8) tracés sur la MÊME échelle 0-100% (${sysHist.length} mesures). Lecture liée : pic mémoire qui tire le CPU = pression GC ; montée CPU sans mémoire = charge calcul ; les deux hauts ensemble = saturation. Zone rouge >80%. ${liveSuffix}`}
+              <GraphHint
+                title="CPU & mémoire"
+                version={SUP_DOC}
+                summary={`CPU (% d'un cœur) et heap (% du plafond V8) sur la même échelle 0-100% (${sysHist.length} mesures). Zone rouge > 80%. ${liveSuffix}`}
+                sections={[
+                  {
+                    label: "Lecture liée",
+                    body: "Pic mémoire qui tire le CPU = pression GC ; montée CPU sans mémoire = charge calcul ; les deux hauts ensemble = saturation.",
+                  },
+                ]}
               />
             </Group>
           }
@@ -2112,7 +2141,11 @@ export const DashboardSupervision = observer(() => {
                                         {t.value}
                                       </FlashValue>
                                     </Text>
-                                    <InfoHint text={t.info} />
+                                    <DocHint
+                                      title={t.label}
+                                      version={SUP_DOC}
+                                      summary={t.info}
+                                    />
                                   </Group>
                                   <Text size="sm" fw={500} truncate>
                                     {t.label}
@@ -2189,7 +2222,21 @@ export const DashboardSupervision = observer(() => {
                 <IconDatabase size={20} stroke={1.5} />
                 {SRC_NODE}
                 <Title order={4}>Heap V8</Title>
-                <InfoHint text="Part du tas V8 utilisée par rapport au plafond (--max-old-space-size). Critique au-delà de 80% (risque d'OOM). Disponible aussi en snapshot." />
+                <DocHint
+                  title="Heap utilisé"
+                  version={SUP_DOC}
+                  summary="Part du tas V8 utilisée par rapport au plafond (--max-old-space-size)."
+                  sections={[
+                    {
+                      label: "Seuil",
+                      body: "Critique au-delà de 80 % (risque d'OOM).",
+                    },
+                    {
+                      label: "Disponibilité",
+                      body: "Aussi en snapshot (hors temps réel).",
+                    },
+                  ]}
+                />
               </Group>
               {waiting ? (
                 <Skeleton h={120} />
@@ -2222,7 +2269,21 @@ export const DashboardSupervision = observer(() => {
                 <IconBoxMultiple size={20} stroke={1.5} />
                 {SRC_NODE}
                 <Title order={4}>Espaces mémoire V8</Title>
-                <InfoHint text="Répartition du tas V8 par espace : new_space (objets jeunes, scavenge fréquent), old_space (objets promus), large_object_space (gros objets), code_space (code compilé)… Une saturation cible la nature de la pression mémoire." />
+                <DocHint
+                  title="Tas V8 par espace"
+                  version={SUP_DOC}
+                  summary="Répartition du tas V8 par espace mémoire."
+                  sections={[
+                    {
+                      label: "Espaces",
+                      body: "new_space (objets jeunes, scavenge fréquent), old_space (objets promus), large_object_space (gros objets), code_space (code compilé)…",
+                    },
+                    {
+                      label: "Lecture",
+                      body: "Une saturation cible la nature de la pression mémoire.",
+                    },
+                  ]}
+                />
               </Group>
               {waiting ? (
                 <Skeleton h={120} />
@@ -2283,8 +2344,18 @@ export const DashboardSupervision = observer(() => {
               <Text size="xs" c="dimmed">
                 {connUp}/{connectors.length} actif(s)
               </Text>
-              <InfoHint
-                text={`Connexions ORM du process (per-instance). ${live ? "Ping, erreurs et reconnexions en temps réel (canal orm:health)." : "Snapshot statique — activez le temps réel pour le ping live."} Cible affichée en chemin relatif (sécurité).`}
+              <DocHint
+                title="Connecteurs ORM"
+                version={SUP_DOC}
+                summary="Connexions ORM du process (per-instance). Cible affichée en chemin relatif (sécurité)."
+                sections={[
+                  {
+                    label: live ? "Temps réel" : "Snapshot",
+                    body: live
+                      ? "Ping, erreurs et reconnexions en direct (canal orm:health)."
+                      : "Snapshot statique — activez le temps réel pour le ping live.",
+                  },
+                ]}
               />
             </Group>
             {!connectors.length ? (
@@ -2327,8 +2398,16 @@ export const DashboardSupervision = observer(() => {
                                 loopH.color !== "teal" ? (
                                   <Group gap={4} wrap="nowrap">
                                     Ping
-                                    <InfoHint
-                                      text={`Latence mesurée côté serveur (await ping). L'event-loop est à ${loop.toFixed(0)} ms : une grande part de ce ping = attente d'ordonnancement, PAS la base (${c.vendor} local ≈ µs). Ne lisez pas ce ping comme un souci de base tant que l'event-loop est élevé.`}
+                                    <WarnHint
+                                      title="Ping — latence trompeuse"
+                                      version={SUP_DOC}
+                                      summary={`Latence mesurée côté serveur (await ping). L'event-loop est à ${loop.toFixed(0)} ms.`}
+                                      sections={[
+                                        {
+                                          label: "Attention",
+                                          body: `Une grande part de ce ping = attente d'ordonnancement, PAS la base (${c.vendor} local ≈ µs). Ne le lisez pas comme un souci de base tant que l'event-loop est élevé.`,
+                                        },
+                                      ]}
                                     />
                                   </Group>
                                 ) : (
@@ -2394,8 +2473,24 @@ export const DashboardSupervision = observer(() => {
               <Text size="xs" c="dimmed">
                 {flowTotal.toLocaleString()} requête(s) cumulée(s)
               </Text>
-              <InfoHint
-                text={`Débit réel des requêtes vers la base (sonde process-wide, ${flowConns.length} connecteur(s)). Le débit/s se dérive du delta de requêtes entre deux mesures (comme le CPU%) → temps réel requis. Latence EWMA = moyenne lissée par requête ; une requête est « lente » au-delà de ${ormFlow?.slowMs ?? 50} ms (capturée avec son SQL paramétré, sans valeur). ${flowOff ? "Sonde désactivée (production) : coût nul sur le hot path." : live ? "Débit/s en temps réel." : "Activez le temps réel pour le débit/s."}`}
+              <DocHint
+                title="Flux ORM"
+                version={SUP_DOC}
+                summary={`Débit réel des requêtes vers la base (sonde process-wide, ${flowConns.length} connecteur(s)).`}
+                sections={[
+                  {
+                    label: "Technique",
+                    body: `Débit/s dérivé du delta de requêtes entre 2 mesures (comme le CPU%) → temps réel requis. Latence EWMA = moyenne lissée ; « lente » au-delà de ${ormFlow?.slowMs ?? 50} ms (SQL paramétré capturé, sans valeur).`,
+                  },
+                  {
+                    label: "Mode",
+                    body: flowOff
+                      ? "Sonde désactivée (production) : coût nul sur le hot path."
+                      : live
+                        ? "Débit/s en temps réel."
+                        : "Activez le temps réel pour le débit/s.",
+                  },
+                ]}
               />
             </Group>
 
@@ -2513,8 +2608,20 @@ export const DashboardSupervision = observer(() => {
                       <Text fw={600} size="sm">
                         Requêtes lentes récentes
                       </Text>
-                      <InfoHint
-                        text={`Les ${slowQueries.length} requêtes les plus récentes au-delà de ${ormFlow?.slowMs ?? 50} ms, triées par fraîcheur. Opération color-codée, table cible extraite, barre = durée relative à la pire (${Math.round(slowWorstMs)} ms). SQL complet au survol — paramétré (0 valeur, 0 credential).`}
+                      <DocHint
+                        title="Requêtes lentes"
+                        version={SUP_DOC}
+                        summary={`Les ${slowQueries.length} requêtes les plus récentes au-delà de ${ormFlow?.slowMs ?? 50} ms, triées par fraîcheur.`}
+                        sections={[
+                          {
+                            label: "Lecture",
+                            body: `Opération color-codée, table cible extraite, barre = durée relative à la pire (${Math.round(slowWorstMs)} ms).`,
+                          },
+                          {
+                            label: "Sécurité",
+                            body: "SQL complet au survol — paramétré (0 valeur, 0 credential).",
+                          },
+                        ]}
                       />
                     </Group>
                     <Table.ScrollContainer minWidth={520}>
@@ -2716,7 +2823,21 @@ export const DashboardSupervision = observer(() => {
                       k={
                         <Group gap={4} wrap="nowrap">
                           Saturation (ELU)
-                          <InfoHint text="Event Loop Utilization : fraction du temps où la boucle est ACTIVE (vs idle). ~100% = thread mono saturé (CPU-bound) — la vraie jauge de saturation, ≠ le lag. Temps réel uniquement." />
+                          <DocHint
+                            title="Event Loop Utilization (ELU)"
+                            version={SUP_DOC}
+                            summary="Fraction du temps où la boucle est ACTIVE (vs idle)."
+                            sections={[
+                              {
+                                label: "Lecture",
+                                body: "~100 % = thread mono saturé (CPU-bound) — la vraie jauge de saturation, ≠ le lag.",
+                              },
+                              {
+                                label: "Disponibilité",
+                                body: "Temps réel uniquement.",
+                              },
+                            ]}
+                          />
                         </Group>
                       }
                       v={
@@ -2748,7 +2869,21 @@ export const DashboardSupervision = observer(() => {
                       k={
                         <Group gap={4} wrap="nowrap">
                           Ctx switch invol.
-                          <InfoHint text="Changements de contexte INVOLONTAIRES sur l'intervalle = l'OS a PRÉEMPTÉ le process (contention CPU, cœurs sur-souscrits). C'est LE « switch de contexte » : s'il explose sous charge, le CPU est le goulot (pas le code). Temps réel uniquement." />
+                          <DocHint
+                            title="Contexte — involontaires"
+                            version={SUP_DOC}
+                            summary="L'OS a PRÉEMPTÉ le process sur l'intervalle (contention CPU, cœurs sur-souscrits)."
+                            sections={[
+                              {
+                                label: "Lecture",
+                                body: "C'est LE « switch de contexte » : s'il explose sous charge, le CPU est le goulot (pas le code).",
+                              },
+                              {
+                                label: "Disponibilité",
+                                body: "Temps réel uniquement.",
+                              },
+                            ]}
+                          />
                         </Group>
                       }
                       v={
@@ -2776,7 +2911,17 @@ export const DashboardSupervision = observer(() => {
                       k={
                         <Group gap={4} wrap="nowrap">
                           Ctx switch vol.
-                          <InfoHint text="Changements de contexte VOLONTAIRES = le process a cédé le CPU lui-même (attente I/O, lock, syscall bloquant). Normal ; à comparer aux involontaires." />
+                          <DocHint
+                            title="Contexte — volontaires"
+                            version={SUP_DOC}
+                            summary="Le process a cédé le CPU lui-même (attente I/O, lock, syscall bloquant)."
+                            sections={[
+                              {
+                                label: "Lecture",
+                                body: "Normal ; à comparer aux involontaires.",
+                              },
+                            ]}
+                          />
                         </Group>
                       }
                       v={
@@ -2811,7 +2956,17 @@ export const DashboardSupervision = observer(() => {
                       k={
                         <Group gap={4} wrap="nowrap">
                           Load average
-                          <InfoHint text="Charge moyenne de l'HÔTE (tous process confondus) sur 1 / 5 / 15 min, en nombre de tâches prêtes. À comparer au nombre de cœurs : > cœurs = machine surchargée → préemptions (cf ctx switch involontaires)." />
+                          <DocHint
+                            title="Charge moyenne (load average)"
+                            version={SUP_DOC}
+                            summary="Charge moyenne de l'HÔTE (tous process) sur 1 / 5 / 15 min, en nombre de tâches prêtes."
+                            sections={[
+                              {
+                                label: "Lecture",
+                                body: "À comparer au nombre de cœurs : > cœurs = machine surchargée → préemptions (cf contexte involontaires).",
+                              },
+                            ]}
+                          />
                         </Group>
                       }
                       v={
@@ -2834,7 +2989,17 @@ export const DashboardSupervision = observer(() => {
                       k={
                         <Group gap={4} wrap="nowrap">
                           Charge / cœur
-                          <InfoHint text="Load average 1 min ÷ nombre de cœurs. < 1 = la machine suit ; > 1 = saturée (les tâches attendent un cœur → préemptions, latence)." />
+                          <DocHint
+                            title="Charge par cœur"
+                            version={SUP_DOC}
+                            summary="Load average 1 min ÷ nombre de cœurs."
+                            sections={[
+                              {
+                                label: "Lecture",
+                                body: "< 1 = la machine suit ; > 1 = saturée (les tâches attendent un cœur → préemptions, latence).",
+                              },
+                            ]}
+                          />
                         </Group>
                       }
                       v={
@@ -2867,12 +3032,25 @@ export const DashboardSupervision = observer(() => {
                   )}{" "}
                   handle(s)
                 </Text>
-                <InfoHint
-                  text={
+                <DocHint
+                  title="Handles actives"
+                  version={SUP_DOC}
+                  summary={
                     handles
-                      ? `${handles.total} ressource(s) en ${Object.keys(handles.byType).length} type(s)${handlesTop ? ` — dominant : ${describeHandle(handlesTop[0]).label} (×${handlesTop[1]})` : ""}. Chaque tuile a son ⓘ. Une croissance continue d'un type entre deux ticks = fuite potentielle.`
-                      : "Ressources qui maintiennent la boucle d'événements active. Activez le temps réel pour le détail par type."
+                      ? `${handles.total} ressource(s) en ${Object.keys(handles.byType).length} type(s)${handlesTop ? ` — dominant : ${describeHandle(handlesTop[0]).label} (×${handlesTop[1]})` : ""}.`
+                      : "Ressources qui maintiennent la boucle d'événements active."
                   }
+                  sections={[
+                    handles
+                      ? {
+                          label: "Fuite ?",
+                          body: "Une croissance continue d'un type entre deux ticks = fuite potentielle. Chaque tuile a son ⓘ.",
+                        }
+                      : {
+                          label: "Disponibilité",
+                          body: "Activez le temps réel pour le détail par type.",
+                        },
+                  ]}
                 />
               </Group>
               {waiting ? (
@@ -2898,7 +3076,11 @@ export const DashboardSupervision = observer(() => {
                               >
                                 <FlashValue value={n}>{n}</FlashValue>
                               </Text>
-                              <InfoHint text={`${d.label} — ${d.desc}`} />
+                              <DocHint
+                                title={d.label}
+                                version={SUP_DOC}
+                                summary={d.desc}
+                              />
                             </Group>
                             <Text size="sm" fw={500} truncate>
                               {d.label}
