@@ -87,6 +87,16 @@ export type {
   IClusterWorker,
   ClusterScheduler,
 } from "./service/cluster/ClusterManager";
+export { ClusterRelay } from "./service/cluster/ClusterRelay";
+export type {
+  IRelayWorker,
+  ClusterRelayOptions,
+} from "./service/cluster/ClusterRelay";
+export {
+  CLUSTER_RT_KIND,
+  isClusterMessage,
+} from "./service/cluster/clusterMessage";
+export type { IClusterMessage } from "./service/cluster/clusterMessage";
 
 // ─── Runtime (P1.4 — AsyncLocalStorage) ───────────────────────────────────────
 export { default as RequestContext } from "./runtime/RequestContext";

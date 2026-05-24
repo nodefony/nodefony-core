@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-24T13:32:13.181Z",
+  "generated": "2026-05-24T14:02:55.682Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 739,
-    "symbols": 1295,
-    "classes": 221,
-    "interfaces": 306,
+    "files": 742,
+    "symbols": 1306,
+    "classes": 223,
+    "interfaces": 311,
     "types": 157,
     "enums": 2,
-    "functions": 164,
-    "constants": 445
+    "functions": 166,
+    "constants": 447
   },
   "symbols": {
     "Cli": {
@@ -2134,6 +2134,60 @@
       "module": "@nodefony/core",
       "description": "Calcule le délai de respawn d'un worker mort selon un backoff exponentiel. Anti crash-loop : un worker qui crashe en boucle ne doit pas être re-forké en rafale (CPU 100 %, logs noyés). Le délai dou…"
     },
+    "IClusterMessage": {
+      "name": "IClusterMessage",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Base de tout message du protocole IPC cluster — seul le `kind` est imposé. Les autres champs sont opaques pour le master (il route/agrège sans les inspecter)."
+    },
+    "isClusterMessage": {
+      "name": "isClusterMessage",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type-guard d'un message IPC cluster — narrowing sûr d'un message `unknown` du canal partagé."
+    },
+    "CLUSTER_RT_KIND": {
+      "name": "CLUSTER_RT_KIND",
+      "kind": "const",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Protocole de fil IPC du cluster Nodefony (mode sans PM2). Le master est le **gateway** : tout message worker↔worker transite par lui via IPC (`process.send` côté worker / `worker.send` côté master)…"
+    },
+    "ClusterRelay": {
+      "name": "ClusterRelay",
+      "kind": "class",
+      "file": "src/nodefony/src/service/cluster/ClusterRelay.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "**Master-gateway** du backplane realtime cluster (Phase 3) — routeur IPC qui vit dans le process MASTER (lequel ne sert AUCUN HTTP, cf {@link ClusterManager}). Les workers d'un cluster Node natif n…"
+    },
+    "IRelayWorker": {
+      "name": "IRelayWorker",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/ClusterRelay.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Handle master-side d'un worker, vu par le relay — sous-ensemble **testable** de `cluster.Worker` réellement utilisé (même approche que `IClusterWorker` du ClusterManager). Permet de prouver le rout…"
+    },
+    "ClusterRelayOptions": {
+      "name": "ClusterRelayOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/ClusterRelay.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options du {@link ClusterRelay}. Effets de bord (log) injectables."
+    },
     "ResolveWorkerOptions": {
       "name": "ResolveWorkerOptions",
       "kind": "interface",
@@ -3017,6 +3071,45 @@
       "implements": [],
       "decorators": [],
       "description": "Controller pont unique du data plane admin (Studio). Toutes les routes `/nodefony/<namespace>/api/*` montées par le broker pointent vers `AdminApiController.dispatch`. À l'exécution, le controller …"
+    },
+    "ClusterBackplane": {
+      "name": "ClusterBackplane",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "implements": [
+        "IBackplane"
+      ],
+      "decorators": [],
+      "description": "Backplane **IPC cross-process** (Phase 3) — implémentation worker-side du port {@link IBackplane} dans un cluster Node natif, où les workers ne se parlent qu'à travers le **master-gateway** (un wor…"
+    },
+    "ClusterBackplaneEnvelope": {
+      "name": "ClusterBackplaneEnvelope",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "IBackplaneMessage",
+      "description": "Enveloppe IPC d'une publication realtime = {@link IBackplaneMessage} + discriminant. Sérialisée une fois par `process.send`/`worker.send` (`structuredClone` IPC) → le `payload` doit rester structur…"
+    },
+    "IClusterBackplaneTransport": {
+      "name": "IClusterBackplaneTransport",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Transport IPC du backplane cluster — abstrait `process.send` / la réception des messages relayés par le master, derrière un seam **injectable** (même pattern que `IClusterRuntime` côté ClusterManag…"
+    },
+    "processIpcTransport": {
+      "name": "processIpcTransport",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Transport de production : `process.send` (émission) + `process.on(\"message\")` (réception). Standalone — utilisable tel quel. En vrai câblage cluster (Phase 3c), un transport branché sur l'event ker…"
     },
     "Controller": {
       "name": "Controller",
@@ -9636,6 +9729,9 @@
         "Ejs",
         "Twig"
       ],
+      "IBackplaneMessage": [
+        "ClusterBackplaneEnvelope"
+      ],
       "IContext": [
         "IHttpContext",
         "IWebsocketContext"
@@ -9777,11 +9873,12 @@
       "IAdminBroker": [
         "AdminBroker"
       ],
+      "IBackplane": [
+        "ClusterBackplane",
+        "LoopbackBackplane"
+      ],
       "IController": [
         "Controller"
-      ],
-      "IBackplane": [
-        "LoopbackBackplane"
       ],
       "IRealtimeController": [
         "RealtimeController"
@@ -10229,6 +10326,7 @@
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/service/cluster/ClusterManager.ts",
+        "src/nodefony/src/service/cluster/ClusterRelay.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
@@ -10559,6 +10657,12 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "LoopbackBackplane": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "ClusterBackplane": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "processIpcTransport": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "WsConnectionTransport": [
@@ -11015,6 +11119,15 @@
         "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
       ],
+      "isClusterMessage": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/service/cluster/ClusterRelay.ts"
+      ],
+      "CLUSTER_RT_KIND": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/service/cluster/ClusterRelay.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts"
+      ],
       "ServiceConstructor": [
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
@@ -11184,6 +11297,9 @@
         "src/nodefony/src/kernel/commands/ClusterCommand.ts"
       ],
       "ClusterManager": [
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts"
+      ],
+      "ClusterRelay": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts"
       ],
       "DevSupervisor": [
@@ -11472,6 +11588,18 @@
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
+      "IBackplane": [
+        "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts",
+        "src/packages/@nodefony/framework/nodefony/src/LoopbackBackplane.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts"
+      ],
+      "BackplaneHandler": [
+        "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts",
+        "src/packages/@nodefony/framework/nodefony/src/LoopbackBackplane.ts"
+      ],
+      "IBackplaneMessage": [
+        "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts"
+      ],
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
@@ -11522,13 +11650,6 @@
       ],
       "CORE_PACKAGE": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
-      ],
-      "IBackplane": [
-        "src/packages/@nodefony/framework/nodefony/src/LoopbackBackplane.ts",
-        "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts"
-      ],
-      "BackplaneHandler": [
-        "src/packages/@nodefony/framework/nodefony/src/LoopbackBackplane.ts"
       ],
       "IRealtimeHealth": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"

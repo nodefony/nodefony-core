@@ -13,11 +13,11 @@ last-updated: 2026-05-17
 
 ## Audiences
 
-| Cible       | Source de vérité                                     | Caractère                                |
-| ----------- | ---------------------------------------------------- | ---------------------------------------- |
-| Humain      | Ce dossier (`docs/`) + `README.md` des modules       | Exemples complets, guides pas-à-pas      |
-| IA session  | `CLAUDE.md` + `MEMORY.md` racine/module              | Règles, gotchas, mots-clés               |
-| IA RAG futur (Vision) | Ce dossier (`docs/`) + TSDoc extrait via `generate-symbols` | Texte indexable          |
+| Cible                 | Source de vérité                                            | Caractère                           |
+| --------------------- | ----------------------------------------------------------- | ----------------------------------- |
+| Humain                | Ce dossier (`docs/`) + `README.md` des modules              | Exemples complets, guides pas-à-pas |
+| IA session            | `CLAUDE.md` + `MEMORY.md` racine/module                     | Règles, gotchas, mots-clés          |
+| IA RAG futur (Vision) | Ce dossier (`docs/`) + TSDoc extrait via `generate-symbols` | Texte indexable                     |
 
 ## Structure
 
@@ -39,49 +39,88 @@ Chaque fichier `.md` (sauf `README.md` d'index simple) commence par un bloc fron
 
 ```yaml
 ---
-module: "@nodefony/core"          # workspace ou "global" pour transverse
-topic: container                   # slug court — identifiant du sujet
-audience: [human, ai]              # cibles : human, ai, ou les deux
-tags: [di, container, scope]       # mots-clés pour le RAG
-status: stable                     # stable | draft | obsolete
-last-updated: 2026-05-17           # YYYY-MM-DD
+module: "@nodefony/core" # workspace ou "global" pour transverse
+topic: container # slug court — identifiant du sujet
+audience: [human, ai] # cibles : human, ai, ou les deux
+tags: [di, container, scope] # mots-clés pour le RAG
+status: stable # stable | draft | obsolete
+last-updated: 2026-05-17 # YYYY-MM-DD
 ---
 ```
 
-| Champ          | Valeurs                                                | Rôle                              |
-| -------------- | ------------------------------------------------------ | --------------------------------- |
-| `module`       | `@nodefony/<name>` / `global` / `app`                  | Filtre par scope dans le RAG      |
-| `topic`        | slug-kebab-case                                        | Identifiant stable de la page     |
-| `audience`     | sous-ensemble de `[human, ai]`                         | Permet de séparer doc utilisateur vs notes internes |
-| `tags`         | tableau de mots-clés                                   | Indexation thématique             |
-| `status`       | `stable` / `draft` / `obsolete`                        | Vision ignore `obsolete`, signale `draft` |
-| `last-updated` | date `YYYY-MM-DD`                                      | Permet de prioriser les pages fraîches |
+| Champ          | Valeurs                               | Rôle                                                |
+| -------------- | ------------------------------------- | --------------------------------------------------- |
+| `module`       | `@nodefony/<name>` / `global` / `app` | Filtre par scope dans le RAG                        |
+| `topic`        | slug-kebab-case                       | Identifiant stable de la page                       |
+| `audience`     | sous-ensemble de `[human, ai]`        | Permet de séparer doc utilisateur vs notes internes |
+| `tags`         | tableau de mots-clés                  | Indexation thématique                               |
+| `status`       | `stable` / `draft` / `obsolete`       | Vision ignore `obsolete`, signale `draft`           |
+| `last-updated` | date `YYYY-MM-DD`                     | Permet de prioriser les pages fraîches              |
 
 ### Structure du corps
 
-```markdown
+````markdown
 # <Titre H1 — un seul par fichier>
 
 > Pitch en une phrase (utilisé comme résumé RAG).
 
 ## Vue d'ensemble
+
 …
 
 ## API publique / concepts clés
+
 …
 
 ## Exemples
+
 ```typescript
 // code complet et exécutable
 ```
+````
 
 ## Gotchas
+
 …
 
 ## Liens internes
+
 - [[link/to/other-doc]]
 - Code source : `src/...`
-```
+
+````
+
+### Vulgarisation — règle de rédaction (philosophie du projet)
+
+> **Un bon niveau technique ne dispense JAMAIS de vulgariser. La vulgarisation rassure.**
+
+Le lecteur (humain ou IA) ne doit pas avoir à *deviner* l'intention derrière un concept. Même
+pour une notion pointue, on **ancre d'abord l'image**, puis on entre dans le technique :
+
+1. **Une analogie concrète d'abord** — de préférence physique/du quotidien. Elle donne au lecteur
+   un « crochet mental » avant le jargon. Ex. *backplane* → **fond de panier** : la carte passive
+   au fond d'un châssis qui *relie* les cartes sans rien calculer. Le lecteur « voit » avant de lire
+   l'API.
+2. **Puis le terme exact + la traduction française** entre parenthèses au 1ᵉʳ emploi
+   (`backplane` = *fond de panier*). On n'invente pas un terme : on garde le mot consacré, on
+   l'explique.
+3. **Le schéma ASCII** quand il y a une topologie (qui relie quoi à quoi) — un dessin vaut dix lignes.
+4. **« Pourquoi » avant « comment »** — la raison d'être du concept avant sa signature.
+
+```markdown
+<!-- ✅ BIEN -->
+Un **backplane** (*fond de panier*) relie les process entre eux : comme la carte passive
+au fond d'un serveur rack qui connecte les cartes sans rien calculer. Le hub publie dessus,
+sans savoir si « derrière » c'est du cluster IPC ou du Redis.
+
+<!-- ❌ À ÉVITER -->
+`IBackplane` est un port de fan-out cross-process avec `publish`/`onMessage`.
+````
+
+Cette règle vaut pour les `docs/`, les `README.md` de module, les TSDoc de classe (la 1ʳᵉ phrase),
+et les explications en session. Le différenciateur Nodefony est aussi **pédagogique** : la doc doit
+mettre à l'aise un dev de niveau intermédiaire sans ennuyer l'expert (l'analogie tient en une ligne,
+le technique suit).
 
 ### Liens
 
@@ -93,7 +132,7 @@ last-updated: 2026-05-17           # YYYY-MM-DD
 
 Toute classe/interface/méthode publique migrée en TypeScript **doit** porter un bloc TSDoc :
 
-```typescript
+````typescript
 /**
  * Pitch en une phrase (extrait dans `.ai/symbols.json` → `symbols.X.description`).
  *
@@ -107,7 +146,7 @@ Toute classe/interface/méthode publique migrée en TypeScript **doit** porter u
  * const x = container.get<MyService>("my-service");
  * ```
  */
-```
+````
 
 - La **première phrase** (jusqu'au point final) est extraite automatiquement par `npm run generate-symbols` dans le champ `symbols.<Name>.description`. Garder cette phrase auto-suffisante.
 - Pas de paraphrase de la signature : décrire **l'intention** et les **invariants**.
@@ -115,14 +154,14 @@ Toute classe/interface/méthode publique migrée en TypeScript **doit** porter u
 
 ## Workflow
 
-| Quand                                | Action                                                                        |
-| ------------------------------------ | ----------------------------------------------------------------------------- |
-| Migration TS d'un fichier            | Ajouter TSDoc sur classe + méthodes publiques (au minimum première phrase)    |
-| Nouveau module ou refonte d'API      | Créer/mettre à jour `<module>/docs/index.md` (colocalisé, ADR-0001 — surfacé dans Studio) |
-| Concept d'un module précis           | `<module>/docs/<concept>.md` (ex core → `src/nodefony/docs/`)                  |
-| Concept **transverse** multi-module  | `docs/guides/` / `docs/architecture/` (racine)                                |
-| Nouvelle façon d'utiliser le framework | Créer `docs/guides/<sujet>.md`                                              |
-| Renommage / changement d'API public  | Mettre à jour la doc dans la même PR — sinon `status: obsolete` dans le frontmatter |
+| Quand                                  | Action                                                                                    |
+| -------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Migration TS d'un fichier              | Ajouter TSDoc sur classe + méthodes publiques (au minimum première phrase)                |
+| Nouveau module ou refonte d'API        | Créer/mettre à jour `<module>/docs/index.md` (colocalisé, ADR-0001 — surfacé dans Studio) |
+| Concept d'un module précis             | `<module>/docs/<concept>.md` (ex core → `src/nodefony/docs/`)                             |
+| Concept **transverse** multi-module    | `docs/guides/` / `docs/architecture/` (racine)                                            |
+| Nouvelle façon d'utiliser le framework | Créer `docs/guides/<sujet>.md`                                                            |
+| Renommage / changement d'API public    | Mettre à jour la doc dans la même PR — sinon `status: obsolete` dans le frontmatter       |
 
 Pas de hook bloquant pour l'instant : la règle est documentaire. Vision (Phase 10) reconstruira la base RAG depuis ce dossier au boot du mode dev.
 

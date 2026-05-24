@@ -10,6 +10,9 @@ import RealtimeHub, {
   SLOW_CONSUMER_BYTES,
 } from "./nodefony/src/RealtimeHub";
 import LoopbackBackplane from "./nodefony/src/LoopbackBackplane";
+import ClusterBackplane, {
+  processIpcTransport,
+} from "./nodefony/src/ClusterBackplane";
 import WsConnectionTransport from "./nodefony/src/WsConnectionTransport";
 import Resolver from "./nodefony/src/Resolver";
 import AdminBroker from "./nodefony/service/AdminBroker";
@@ -52,6 +55,35 @@ import {
 class Framework extends Module {
   constructor(kernel: Kernel) {
     super("framework", kernel, import.meta.url, config);
+    // Backplane cross-process : le kernel annonce le rôle cluster via `onCluster`
+    // (émis en preRegister, avant onRegister). `once` = 1 seul fire / process, listener
+    // boot-time (pas de coût par requête). En worker de cluster → branche le
+    // ClusterBackplane IPC sur le hub ; sinon no-op (mono-process reste Loopback).
+    kernel.once("onCluster", (role: "MASTER" | "WORKER") =>
+      this.#wireClusterBackplane(role),
+    );
+  }
+
+  /**
+   * Branche le {@link ClusterBackplane} IPC sur le {@link RealtimeHub} du process —
+   * UNIQUEMENT dans un worker forké par le `ClusterManager` Nodefony (`nodefony
+   * cluster`), repéré par l'env `NODEFONY_CLUSTER` posée côté master. Le master-gateway
+   * relaie alors les publications aux autres workers (fan-out cross-process intra-pod).
+   *
+   * No-op si : rôle MASTER, mono-process (`development`/`start` → reste Loopback, 0
+   * overhead), ou worker `staging`/`preprod` legacy (pas de gateway relais). Idempotent.
+   */
+  #wireClusterBackplane(role: "MASTER" | "WORKER"): void {
+    if (role !== "WORKER" || process.env.NODEFONY_CLUSTER !== "1") return;
+    const hub = getRealtimeHub();
+    if (hub.backplane !== null) return; // déjà branché
+    hub.setBackplane(
+      new ClusterBackplane(processIpcTransport, String(process.pid)),
+    );
+    this.log(
+      "RealtimeHub: ClusterBackplane IPC branché (worker cluster)",
+      "INFO",
+    );
   }
 
   /**
@@ -112,6 +144,8 @@ export {
   getRealtimeHub,
   SLOW_CONSUMER_BYTES,
   LoopbackBackplane,
+  ClusterBackplane,
+  processIpcTransport,
   WsConnectionTransport,
   Route,
   Router,
@@ -162,6 +196,10 @@ export type {
   IBackplaneMessage,
   BackplaneHandler,
 } from "./nodefony/interfaces/IBackplane";
+export type {
+  IClusterBackplaneTransport,
+  ClusterBackplaneEnvelope,
+} from "./nodefony/src/ClusterBackplane";
 export type { RawWsConnection } from "./nodefony/src/WsConnectionTransport";
 export type {
   IRealtimeProbe,
