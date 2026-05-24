@@ -51,7 +51,13 @@ import {
   type Icon,
 } from "@tabler/icons-react";
 import { hasAnyRole } from "nodefony/roles";
-import { useAdmin, useAuth, useConnection, useProfiler, useUi } from "../stores";
+import {
+  useAdmin,
+  useAuth,
+  useConnection,
+  useProfiler,
+  useUi,
+} from "../stores";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { NAV_GROUPS, PRODUCER_ICONS } from "./navConfig";
 
@@ -383,7 +389,13 @@ export const AdminLayout = observer(() => {
                     onClick={() => !filtering && ui.toggleGroup(g.id)}
                     style={{ width: "100%" }}
                   >
-                    <Group justify="space-between" px="sm" mt="sm" mb={4} gap={4}>
+                    <Group
+                      justify="space-between"
+                      px="sm"
+                      mt="sm"
+                      mb={4}
+                      gap={4}
+                    >
                       <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
                         {g.label}
                       </Text>
@@ -409,6 +421,13 @@ export const AdminLayout = observer(() => {
                       icon={item.icon}
                       rail={rail}
                       active={matchItem(item.to, item.exact)}
+                      rightSection={
+                        item.wip ? (
+                          <Badge size="xs" variant="light" color="gray">
+                            à venir
+                          </Badge>
+                        ) : undefined
+                      }
                     />
                   ))}
                 </Collapse>
@@ -433,7 +452,13 @@ export const AdminLayout = observer(() => {
                     onClick={() => !filtering && ui.toggleGroup("dataplane")}
                     style={{ width: "100%" }}
                   >
-                    <Group justify="space-between" px="sm" mt="sm" mb={4} gap={4}>
+                    <Group
+                      justify="space-between"
+                      px="sm"
+                      mt="sm"
+                      mb={4}
+                      gap={4}
+                    >
                       <Text size="xs" tt="uppercase" c="dimmed" fw={600}>
                         Data plane
                       </Text>
@@ -455,7 +480,8 @@ export const AdminLayout = observer(() => {
                     const ItemIcon =
                       (p.icon && PRODUCER_ICONS[p.icon]) || IconApi;
                     const active =
-                      loc.pathname === "/nodefony/system" && focusNs === p.namespace;
+                      loc.pathname === "/nodefony/system" &&
+                      focusNs === p.namespace;
                     return (
                       <NavEntry
                         key={p.namespace}

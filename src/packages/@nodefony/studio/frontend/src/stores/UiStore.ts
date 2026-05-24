@@ -4,7 +4,9 @@ import type { StudioPalette } from "../theme";
 const THEME_KEY = "nodefony.studio.theme";
 const PALETTE_KEY = "nodefony.studio.palette";
 const RAIL_KEY = "nodefony.studio.sidebar.rail";
-const GROUPS_KEY = "nodefony.studio.sidebar.groups";
+// v2 : la sémantique par défaut a changé (groupes PLIÉS au démarrage) → nouvelle
+// clé pour repartir propre, sans hériter d'un ancien état « tout déplié ».
+const GROUPS_KEY = "nodefony.studio.sidebar.groups.v2";
 /** Clé PARTAGÉE avec le widget Core (`nodefony/debugbar`) → état synchronisé. */
 const DEBUGBAR_KEY = "nf.debugbar.visible";
 /** Cadence adaptative (AIMD) de la socket — politique globale, pilotée depuis le Hub. */
@@ -29,7 +31,11 @@ export class UiStore {
   palette: StudioPalette = "nodefony";
   /** Mode rail : navbar étroite icônes-seules (desktop). Persisté. */
   rail = false;
-  /** Groupes repliés par id. `true` = replié. Persisté. */
+  /**
+   * État de pliage par groupe. Sémantique : **plié par défaut** (la sidebar est
+   * dense en 10.0.0) — un groupe est OUVERT seulement si explicitement `false`.
+   * Absent / `true` = plié. Persisté.
+   */
   collapsedGroups: Record<string, boolean> = {};
   /** Filtre live de la nav (libellés). Transient — jamais persisté. */
   navQuery = "";
@@ -93,11 +99,12 @@ export class UiStore {
   }
 
   isGroupCollapsed(id: string): boolean {
-    return this.collapsedGroups[id] === true;
+    // Plié par défaut : seul un `false` explicite (déplié à la main) ouvre le groupe.
+    return this.collapsedGroups[id] !== false;
   }
 
   toggleGroup(id: string): void {
-    this.collapsedGroups[id] = !this.collapsedGroups[id];
+    this.collapsedGroups[id] = !this.isGroupCollapsed(id);
     this.persist();
   }
 
