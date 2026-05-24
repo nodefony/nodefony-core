@@ -1,131 +1,71 @@
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
-import pm2 from "pm2";
-import pm2Service from "../../service/pm2Service";
+import {
+  resolveTopology,
+  loadClusterConfig,
+} from "../../service/cluster/topology";
+import { launchTopology } from "./runtimeLauncher";
 
 const options: OptionsCommandInterface = {
   showBanner: true,
-  kernelEvent: "onPostReady",
+  kernelEvent: "onStart",
 };
 
 /**
- * Commande `nodefony production` — démarre le serveur en environnement prod.
+ * Commande `nodefony production` — runtime PROD cloud-native, **foreground**.
  *
- * **Mode actuel** : daemonise via PM2 par défaut, `--no-daemon` pour foreground.
+ * Modèle « 2 molettes » (2026-05-24) : front prod (dist, pas de Vite) × topologie
+ * pilotée par la molette `workers` ({@link resolveTopology} : `--workers` >
+ * `NODEFONY_WORKERS` > config `cluster.workers` > défaut 1). `workers:1` = mono-process
+ * (1 process = 1 pod, scaling délégué à l'orchestrateur) ; `>= 2` = cluster (master +
+ * workers), via le flow partagé {@link launchTopology} (même runtime que `cluster`).
  *
- * **Évolution Phase 16** : le default deviendra foreground (1 process Node = 1
- * pod / container, géré par k8s / systemd / Docker). La branche PM2 sera
- * supprimée. Voir `project_pm2_deprecation.md` + CLAUDE.md racine.
+ * **Foreground par défaut** (P16.1) — pensé pour k8s / systemd / Docker.
+ * @deprecated PM2 daemonisation RETIRÉE de cette commande (cible cloud-native). Pour
+ * le legacy bare-metal/VPS, la commande dédiée `nodefony pm2` reste disponible (retrait
+ * complet Phase 16). L'option `--no-daemon` est conservée en **no-op** (back-compat).
  */
 class Prod extends Command {
-  service?: pm2Service | null;
   constructor(cli: CliKernel) {
     super(
       "production",
-      "Start Server in Production Mode (foreground recommended ; PM2 daemonization deprecated, removed in Phase 16)",
+      "Start Server in Production Mode (foreground, cloud-native — topology = workers)",
       cli as CliKernel,
       options,
     );
     this.alias("prod");
     this.addOption(
-      "--no-daemon",
-      "Foreground mode — recommandé pour Docker / k8s / systemd. Deviendra le défaut en Phase 16.",
+      "-w, --workers <number>",
+      "Number of worker processes (default: config cluster.workers / NODEFONY_WORKERS / 1)",
     );
-    // this.addOption(
-    //   "--no-dump",
-    //   "Nodefony Start don't run Webpack Production Mode"
-    // );
+    this.addOption(
+      "--no-daemon",
+      "[DEPRECATED no-op] foreground est désormais le défaut ; PM2 daemonisation → commande `pm2`.",
+    );
   }
 
   override async onKernelStart(): Promise<void> {
     (this.cli as CliKernel).setType("SERVER");
     this.cli.environment = "production";
-    this.service = this.get<pm2Service>("pm2");
+    process.env.MODE_START = "production";
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override async generate(options: any): Promise<void | Kernel> {
-    try {
-      // Enfant PM2 (legacy) OU foreground `--no-daemon` : les serveurs sont déjà
-      // démarrés par Kernel.initServers() — generate() est un no-op, PM2 n'est
-      // jamais sollicité (cible cloud-native, prérequis CI). Cf P16.1.
-      if (
-        (process.env.MODE_START && process.env.MODE_START === "PM2") ||
-        options.daemon === false
-      ) {
-        return this.kernel as Kernel;
-      } else {
-        if (!this.service) {
-          throw new Error(`Service PM2 nor found `);
-        }
-        await this.service
-          .pm2Start()
-          .then(async () => {
-            if (options.daemon) {
-              this.cli.log(`DAEMONIZE Process
-                      --no-daemon  if don't want DAEMONIZE  (Usefull for docker)
-              `);
-              await this.showStatus();
-              pm2.disconnect();
-              return await this.cli.terminate(0);
-            }
-            this.log("NO DAEMONIZE");
-            await this.showStatus();
-            return this.kernel as Kernel;
-          })
-          .catch(async (e) => {
-            this.log(e, "ERROR");
-            console.trace(e);
-            pm2.disconnect();
-            return await this.cli.terminate(1);
-          });
-      }
-    } catch (e) {
-      this.log(e, "ERROR");
-      throw e;
-    }
-  }
-
-  showStatus(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      process.nextTick(async () => {
-        try {
-          await pm2Service.tablePm2Process(null, this.cli);
-          this.log(`
-
-PM2 Process Manager 2 :
-   stop [name]                                             Stop Production Project
-   reload [name]                                           Reload Production Project
-   delete [name]                                           Delete Production Project from PM2 management
-   restart [name]                                          Restart Production Project
-   list                                                    List all Production Projects
-   kill                                                    Kill PM2 daemon
-   logs [name] [nblines]                                   Stream pm2 logs  [name] is project name  and [nblines] to show
-   clean-log                                               Remove logs
-   pm2-logrotate                                           install pm2 logrotate
-   pm2-save                                                save pm2 deamon status, It will save the process list with the corresponding environments into the dump file
-   pm2-startup                                             Detect available init system, generate configuration and enable startup system
-   pm2-unstartup                                           Disabling startup system
-
-Examples :
-
-$ nodefony logs
-$ nodefony reload <myproject>
-$ nodedony pm2-logrotate
-$ nodedony pm2-save
-
-Examples with pm2 native tools :
-
-$ npx pm2 monit
-$ npx pm2 --lines 1000 logs
-                    `);
-          return resolve();
-        } catch (e) {
-          return reject(e);
-        }
-      });
+  override async generate(opts: { workers?: string }): Promise<void | Kernel> {
+    // Topologie = source unique : CLI `--workers` > env NODEFONY_WORKERS > config app
+    // `cluster.workers` (lue standalone, sans kernel) > défaut 1.
+    const cfgWorkers = await loadClusterConfig();
+    const topo = resolveTopology({
+      flag: opts?.workers,
+      config: cfgWorkers ?? undefined,
+    });
+    return launchTopology({
+      cli: this.cli as CliKernel,
+      options,
+      topo,
+      log: (msg, severity) => this.log(msg, severity),
     });
   }
 }
+
 export default Prod;

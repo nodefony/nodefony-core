@@ -1,4 +1,3 @@
-import cluster from "node:cluster";
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
@@ -6,10 +5,7 @@ import {
   resolveTopology,
   loadClusterConfig,
 } from "../../service/cluster/topology";
-import { startClusterMaster } from "../../service/cluster/clusterMaster";
-import type { ClusterManager } from "../../service/cluster/ClusterManager";
-import type { ClusterRelay } from "../../service/cluster/ClusterRelay";
-import type { ClusterProbeAggregator } from "../../service/cluster/ClusterProbeAggregator";
+import { launchTopology } from "./runtimeLauncher";
 
 const options: OptionsCommandInterface = {
   showBanner: false,
@@ -25,17 +21,14 @@ const options: OptionsCommandInterface = {
  * - **respawn backoff** — un worker mort est re-forké avec backoff exponentiel (anti crash-loop).
  * - **graceful shutdown** — SIGTERM/SIGINT draine les workers (SIGKILL après timeout).
  *
- * Le process MASTER ne sert aucun HTTP : c'est un superviseur (et, en Phase 3, la
- * gateway IPC du `ClusterBackplane`). Chaque worker boote un `Kernel` complet.
+ * Topologie = source unique {@link resolveTopology} : `--workers` > `NODEFONY_WORKERS`
+ * > config app `cluster.workers` > défaut 1. **`workers:1` = VRAI mono-process** (zéro
+ * machinerie cluster) ; `>= 2` → master (superviseur + gateway IPC) + N workers.
  *
  * Régime de déploiement : ON pour container multi-cœurs / VPS / bare-metal ; OFF
  * (1 process/pod) pour petit pod k8s + HPA. Cf `project_cluster_backplane_vision`.
  */
 class Cluster extends Command {
-  #manager: ClusterManager | null = null;
-  #relay: ClusterRelay | null = null;
-  #probes: ClusterProbeAggregator | null = null;
-
   constructor(cli: CliKernel) {
     super(
       "cluster",
@@ -45,7 +38,7 @@ class Cluster extends Command {
     );
     this.addOption(
       "-w, --workers <number>",
-      "Number of worker processes to fork (default: cgroup CPU quota → availableParallelism)",
+      "Number of worker processes to fork (default: config cluster.workers / NODEFONY_WORKERS / 1)",
     );
   }
 
@@ -56,58 +49,18 @@ class Cluster extends Command {
   }
 
   override async generate(opts: { workers?: string }): Promise<void | Kernel> {
-    if (cluster.isPrimary) {
-      // Topologie = source unique de vérité : CLI `--workers` > env NODEFONY_WORKERS
-      // > config app `cluster.workers` (lue standalone, sans kernel) > défaut 1.
-      const cfgWorkers = await loadClusterConfig();
-      const topo = resolveTopology({
-        flag: opts?.workers,
-        config: cfgWorkers ?? undefined,
-      });
-
-      // `workers: 1` = VRAI mono-process → ZÉRO machinerie cluster (pas de master,
-      // pas de backplane, pas d'agrégateur, pas de 2ᵉ process). On boote directement
-      // un Kernel dans CE process. (Décision « 2 molettes » 2026-05-24.)
-      if (topo.workers <= 1) {
-        this.log(
-          `Cluster topology: 1 process (source: ${topo.source}) — mono-process, no cluster machinery`,
-          "INFO",
-        );
-        const kernel = new Kernel(
-          this.cli.environment,
-          this.cli as CliKernel,
-          options,
-        );
-        return kernel.start().catch((e) => {
-          this.cli.log(e, "ERROR");
-          throw e;
-        });
-      }
-
-      this.log(
-        `Cluster topology: ${topo.workers} workers (source: ${topo.source})`,
-        "INFO",
-      );
-      // Master = superviseur + gateway IPC (relay realtime + sonde pod). Bootstrap
-      // partagé (cf clusterMaster.ts) — pas de Kernel HTTP ici, le master reste vivant.
-      const handles = startClusterMaster({
-        workers: topo.workers,
-        log: (msg, severity) => this.log(msg, severity),
-      });
-      this.#manager = handles.manager;
-      this.#relay = handles.relay;
-      this.#probes = handles.probes;
-      return;
-    }
-    // Process worker : boot d'un Kernel complet (serveurs HTTP/WS).
-    const kernel = new Kernel(
-      this.cli.environment,
-      this.cli as CliKernel,
+    // Topologie = source unique : CLI `--workers` > env NODEFONY_WORKERS > config app
+    // `cluster.workers` (lue standalone, sans kernel) > défaut 1.
+    const cfgWorkers = await loadClusterConfig();
+    const topo = resolveTopology({
+      flag: opts?.workers,
+      config: cfgWorkers ?? undefined,
+    });
+    return launchTopology({
+      cli: this.cli as CliKernel,
       options,
-    );
-    return kernel.start().catch((e) => {
-      this.cli.log(e, "ERROR");
-      throw e;
+      topo,
+      log: (msg, severity) => this.log(msg, severity),
     });
   }
 }

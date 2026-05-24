@@ -1,4 +1,5 @@
 import cluster from "node:cluster";
+import type { Serializable } from "node:child_process";
 import { Severity } from "../../syslog/Pdu";
 import { ClusterManager } from "./ClusterManager";
 import { ClusterRelay } from "./ClusterRelay";
@@ -58,7 +59,8 @@ export function startClusterMaster(opts: {
       id: w.id,
       send: (m: unknown) => {
         try {
-          w.send(m);
+          // Les messages IPC sont des clusterMessage sérialisables (cf clusterMessage.ts).
+          w.send(m as Serializable);
         } catch {
           /* worker en cours de fork / déjà mort : ignoré */
         }

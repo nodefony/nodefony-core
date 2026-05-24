@@ -244,16 +244,25 @@ describe("KernelCommand — ProdCommand", () => {
     assert.strictEqual(cmd.command.alias(), "prod");
   });
 
-  it("kernelEvent = 'onPostReady'", () => {
+  // onStart (et non plus onPostReady) : la topologie doit être décidée AVANT le boot
+  // des serveurs (le master cluster ne doit pas binder les ports). Cf launchTopology.
+  it("kernelEvent = 'onStart'", () => {
     const cmd = new ProdCommand(cli);
-    assert.strictEqual(cmd.kernelEvent, "onPostReady");
+    assert.strictEqual(cmd.kernelEvent, "onStart");
   });
 
-  it("option --no-daemon enregistrée", () => {
+  it("option --no-daemon enregistrée (no-op déprécié, back-compat)", () => {
     const cmd = new ProdCommand(cli);
     const opts = cmd.command.options;
     const noDaemon = opts.find((o: any) => o.long === "--no-daemon");
     assert.ok(noDaemon, "option --no-daemon manquante");
+  });
+
+  it("option --workers enregistrée (topologie)", () => {
+    const cmd = new ProdCommand(cli);
+    const opts = cmd.command.options;
+    const workers = opts.find((o: any) => o.long === "--workers");
+    assert.ok(workers, "option --workers manquante");
   });
 
   it("onKernelStart est défini", () => {

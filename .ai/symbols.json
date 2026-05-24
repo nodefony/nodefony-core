@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-24T18:08:18.289Z",
+  "generated": "2026-05-24T18:18:42.282Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 746,
-    "symbols": 1330,
+    "files": 747,
+    "symbols": 1332,
     "classes": 225,
-    "interfaces": 319,
+    "interfaces": 320,
     "types": 160,
     "enums": 2,
-    "functions": 174,
+    "functions": 175,
     "constants": 450
   },
   "symbols": {
@@ -1934,7 +1934,24 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "Commande `nodefony production` — démarre le serveur en environnement prod. **Mode actuel** : daemonise via PM2 par défaut, `--no-daemon` pour foreground. **Évolution Phase 16** : le default deviend…"
+      "description": "Commande `nodefony production` — runtime PROD cloud-native, **foreground**. Modèle « 2 molettes » (2026-05-24) : front prod (dist, pas de Vite) × topologie pilotée par la molette `workers` ({@link …"
+    },
+    "LaunchTopologyOptions": {
+      "name": "LaunchTopologyOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Arguments de {@link launchTopology}."
+    },
+    "launchTopology": {
+      "name": "launchTopology",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lance le runtime serveur selon la topologie résolue — flow **PARTAGÉ** par toutes les commandes de lancement (`cluster`, `staging` legacy, `production`). C'est la source unique de la décision « mon…"
     },
     "Staging": {
       "name": "Staging",
@@ -10447,6 +10464,7 @@
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/commands/StagingCommand.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/babel/babylon.ts",
@@ -11175,6 +11193,7 @@
         "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/commands/StagingCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -11512,6 +11531,7 @@
         "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/commands/StagingCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
@@ -11523,33 +11543,30 @@
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StagingCommand.ts"
       ],
       "loadClusterConfig": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StagingCommand.ts"
       ],
-      "startClusterMaster": [
+      "launchTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
+        "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StagingCommand.ts"
-      ],
-      "ClusterManager": [
-        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
-        "src/nodefony/src/kernel/commands/StagingCommand.ts",
-        "src/nodefony/src/service/cluster/clusterMaster.ts"
-      ],
-      "ClusterRelay": [
-        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
-        "src/nodefony/src/kernel/commands/StagingCommand.ts",
-        "src/nodefony/src/service/cluster/clusterMaster.ts"
-      ],
-      "ClusterProbeAggregator": [
-        "src/nodefony/src/kernel/commands/ClusterCommand.ts",
-        "src/nodefony/src/kernel/commands/StagingCommand.ts",
-        "src/nodefony/src/service/cluster/clusterMaster.ts"
       ],
       "DevSupervisor": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
+      ],
+      "startClusterMaster": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
+      ],
+      "ClusterLog": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
+      ],
+      "Topology": [
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
       ],
       "ModuleConstructor": [
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
@@ -11575,6 +11592,15 @@
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+      ],
+      "ClusterManager": [
+        "src/nodefony/src/service/cluster/clusterMaster.ts"
+      ],
+      "ClusterRelay": [
+        "src/nodefony/src/service/cluster/clusterMaster.ts"
+      ],
+      "ClusterProbeAggregator": [
+        "src/nodefony/src/service/cluster/clusterMaster.ts"
       ],
       "CLUSTER_PROBE_KIND": [
         "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
