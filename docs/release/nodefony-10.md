@@ -116,7 +116,65 @@ des centaines de Mo).
 
 ---
 
-## 7. Hors scope aujourd'hui
+## 7. Pipeline de release (GitHub Action + script)
+
+**Principe : la logique vit dans un SCRIPT Node (runnable en LOCAL) ; la GH Action est un wrapper
+mince.** Jamais de boîte noire « ça ne marche qu'en CI » (même philosophie que `start.sh`/`run.sh`).
+
+### 7.1 Pourquoi un script Node (pas tout-YAML, pas bash)
+
+- **Reproductible local** : `npm run release -- --dry` débugue sans pousser.
+- **Node ≫ bash pour CE job** : lire/fusionner des `package.json`, **ordre topologique** des deps
+  internes, **assembler `dist/` + `dist/types/`** dans la mono-distrib, **générer la map `exports`**
+  (+ `types` par subpath), **estampiller UNE version** partout → manipulation JSON/graphe = Node/TS.
+- **Action mince** : `checkout → setup-node → npm ci → node scripts/release.mjs --publish` + secret
+  `NPM_TOKEN`. Tout le reste dans le script.
+
+### 7.2 Étapes du script (= le pipeline)
+
+1. `clean` + **build** tous les packages (turbo → `dist/` + `dist/types/` par package).
+2. **Assemble** la mono-distrib `nodefony` : collecte chaque `dist` sous `nodefony/dist/<subpath>/`,
+   génère `exports` (+ `types` par subpath), **stamp 1 version** partout (lockstep).
+3. **Vérifie** : `@arethetypeswrong/cli` sur le tarball + `tsc` depuis l'app **témoin** (le template)
+   - smoke `import "nodefony/http"` (type ET runtime). Échec ⇒ abort avant publish.
+4. **Pack/publish** : `npm pack` (dry-run) → `npm publish` (la distrib unique). + maj template
+   `create-nodefony`.
+5. **Tag + GitHub Release** : tag `v10.x` + `gh release create` + changelog.
+
+### 7.3 Déclencheur + outillage version/changelog
+
+- **Déclencheur** : push de tag `v10.*` **OU** `workflow_dispatch` (manuel). Pas sur chaque push.
+- **Version + changelog** : commitlint (conventional commits) est **déjà en place** → soit
+  **release-please / semantic-release** (version+changelog+tag auto, puis appellent le script
+  d'assemblage), soit script maison qui lit `git log`.
+- **Changesets** = standard monorepo mais brille pour le versioning **indépendant** → moins pertinent
+  (on veut version **unique**). ⚠️ **Quel que soit l'outil, l'ASSEMBLAGE N-packages → 1 distrib avec
+  types par subpath reste MAISON** (aucun outil du marché ne le fait).
+
+### 7.4 Squelette (à titre indicatif)
+
+```yaml
+# .github/workflows/release.yml (MINCE)
+on: { push: { tags: ["v10.*"] }, workflow_dispatch: {} }
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, registry-url: "https://registry.npmjs.org" }
+      - run: npm ci
+      - run: node scripts/release.mjs --publish
+        env:
+          {
+            NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}",
+            GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}",
+          }
+```
+
+---
+
+## 8. Hors scope aujourd'hui
 
 Exécution de la release. Ce doc ne fait que **capturer** la cible et les décisions. Reprendre la
 discussion → relire ce fichier d'abord.
@@ -125,10 +183,12 @@ discussion → relire ce fichier d'abord.
 
 ## Journal des décisions
 
-| Date       | Décision                                                                             | Statut                  |
-| ---------- | ------------------------------------------------------------------------------------ | ----------------------- |
-| 2026-05-24 | Périmètre = `src/nodefony` + `src/packages/@nodefony/*` (modules/\* + racine exclus) | ✅ acté                 |
-| 2026-05-24 | **Version UNIQUE** + build embarque les dist (fini les N packages indépendants)      | ✅ acté (vision)        |
-| 2026-05-24 | App utilisateur = **repo dev-ready** (DX du repo de dev, sans source framework)      | ✅ acté (vision)        |
-| 2026-05-24 | Modèle mono-package subpaths + deps lourdes optionnelles                             | 🔶 proposé, à confirmer |
-| 2026-05-24 | Résolution types par `exports[...].types` par subpath + attw + tsc témoin            | 🔶 proposé              |
+| Date       | Décision                                                                                       | Statut                  |
+| ---------- | ---------------------------------------------------------------------------------------------- | ----------------------- |
+| 2026-05-24 | Périmètre = `src/nodefony` + `src/packages/@nodefony/*` (modules/\* + racine exclus)           | ✅ acté                 |
+| 2026-05-24 | **Version UNIQUE** + build embarque les dist (fini les N packages indépendants)                | ✅ acté (vision)        |
+| 2026-05-24 | App utilisateur = **repo dev-ready** (DX du repo de dev, sans source framework)                | ✅ acté (vision)        |
+| 2026-05-24 | Modèle mono-package subpaths + deps lourdes optionnelles                                       | 🔶 proposé, à confirmer |
+| 2026-05-24 | Résolution types par `exports[...].types` par subpath + attw + tsc témoin                      | 🔶 proposé              |
+| 2026-05-24 | **Pipeline = script Node** (logique, runnable local) + **GH Action mince** (wrapper)           | ✅ acté (vision)        |
+| 2026-05-24 | Déclencheur tag `v10.*`/`workflow_dispatch` ; assemblage N→1 = MAISON ; version via commitlint | 🔶 proposé              |
