@@ -81,6 +81,42 @@ METHOD=POST BODY='{"x":1}' URL=https://127.0.0.1:5152/nodefony/test/... run.sh h
 
 ENV : `URL` `N`(1000) `C`(50) `METHOD`(GET) `BODY`.
 
+### Charge du HUB realtime (`hub-load.mjs`) — panneau `/nodefony/hub`
+
+Fait bouger la sonde de **la Socket Nodefony** (`RealtimeHub.probe` → endpoint
+`/nodefony/realtime/api/health` + canal `realtime:health` + panneau « Realtime Hub »
+de Studio). **Vise la socket STUDIO** `/nodefony/studio/api/realtime` (JSON-RPC
+pub/sub) — c'est elle qui passe par le hub. ⚠️ Les routes WS du module test
+(`ws/echo`, `ws/broadcast`) **BYPASSENT le hub** → elles ne bougent PAS `realtime:health`.
+Le script **sonde lui-même** l'endpoint toutes les 2 s (conn/abonnés/diffusion/backpressure).
+
+```bash
+bash .claude/skills/nodefony-load-test/scripts/run.sh hub        # MODE=fanout (défaut)
+MODE=slow run.sh hub                                             # backpressure (consommateurs lents)
+N=400 CH=dashboard:supervision:250 run.sh hub                    # plus d'abonnés / cadence + fine
+```
+
+Deux modes :
+
+- **`MODE=fanout`** (défaut) — N abonnés **SAINS** (drainent) à un canal qui tique
+  (`dashboard:supervision:500`) → **connexions / abonnés / Diffusion (fan-out) / débit**
+  montent ; **backpressure reste 0** (loopback + lecteurs sains = aucune congestion, c'est sain).
+- **`MODE=slow`** — N **consommateurs LENTS** : ils s'abonnent (défaut `syslog:stream`)
+  puis **cessent de lire** (`socket.pause()`). Couplé à un flot de logs (`HTTP_RPS` →
+  remplit `syslog:stream`), la file d'envoi du serveur (`ws.bufferedAmount`) grossit pour
+  eux → **backpressure grimpe** (jauge jaune/rouge), `slowConsumers` ↑. C'est LE moyen de
+  voir la congestion bouger (impossible avec des lecteurs sains sur loopback).
+
+> **Pourquoi `backpressure` reste 0 en `fanout`** : `ws.bufferedAmount` = octets que le
+> serveur a voulu envoyer mais que le client n'a pas encore acceptés. Sur loopback (BP quasi
+> infinie) avec des clients qui lisent, l'OS draine instantanément → rien ne s'accumule. Il
+> faut un **client qui n'avale pas** (`MODE=slow`) pour le faire monter. Cf panneau Hub
+> (mémoire `project_realtime_socket_probe`).
+
+ENV : `MODE`(fanout|slow) `N`(fanout 250 / slow 150) `BATCH`(40) `HOLD_MS`(60000)
+`CH`(fanout `dashboard:supervision:500` / slow `syslog:stream`) `HTTP_RPS`(slow 300, fanout 0)
+`HTTP_PATH`(/nodefony/test/index) `HOST` `PORT`.
+
 ### Stress COMBINÉ « supervision » (`supervision-stress.mjs`)
 
 Pousse **simultanément** 3 lanes (HTTP + connexions/messages WS + ORM/DB) en **rampe

@@ -11,8 +11,10 @@
 #   run.sh ws-msg           # script axe 2 — débit echo (MODE=broadcast pour fan-out)
 #   run.sh http             # script charge HTTP (RPS + percentiles)
 #   run.sh stress           # STRESS COMBINÉ HTTP+WS+ORM en rampe (voir Supervision bouger)
+#   run.sh hub              # charge du HUB realtime (panneau /nodefony/hub) — MODE=fanout|slow
 # Les ENV des scripts (CAP, STEP, MODE, N, C, URL…) se passent inline :
 #   CAP=4000 run.sh ws-conn        MODE=broadcast CLIENTS=30 run.sh ws-msg
+#   run.sh hub                     MODE=slow run.sh hub   # backpressure (consommateurs lents)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,6 +36,7 @@ case "$cmd" in
   ws-msg)   cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ws-messages.mjs" ;;
   http)     cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/http-load.mjs" ;;
   stress)   cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/supervision-stress.mjs" ;;
+  hub)      cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/hub-load.mjs" ;;
   aimd)     cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/aimd-demo.mjs" ;;
   help|*)
     sed -n '2,20p' "${BASH_SOURCE[0]}"

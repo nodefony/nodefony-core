@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.9.0
+version: 1.10.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -48,7 +48,9 @@ Quand le front commence à consommer un **canal/action/endpoint/type** nouveau �
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.9.0**.
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.10.0**
+(bump **front-only** : famille de bulles d'aide typées `Hint`/`DocHint` — aucun changement de contrat back,
+`nodefony-framework-dev` reste à 1.9.0).
 
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
@@ -59,7 +61,19 @@ useResource<T>(fetcher: () => Promise<T>): { data: T|null; loading: boolean; err
 <PageHeader title subtitle? icon? actions? />            // title = <h1>. actions = boutons à droite.
 <DataState loading error? empty? onRetry? emptyMessage? minHeight?>{children}</DataState>  // priorité error>loading>empty>children
 <StatCard label icon? hint? span?>{valeur}</StatCard>    // REND sa propre <Grid.Col> → mettre DANS <Grid>. span défaut {base:12,sm:6,lg:3}
-<InfoHint text />                                          // bulle ⓘ accessible
+<InfoHint text />                                          // tooltip SIMPLE (micro-UI : filtre, toggle, colonne DataGrid)
+
+// Bulles d'aide TYPÉES = fiches de doc (HoverCard : en-tête icône+titre+badge version, résumé,
+// paragraphes structurés, liens externes sécurisés). Ouvre au survol ET focus clavier ; reste
+// ouverte pour lire/sélectionner. Le `kind` choisit icône+accent+badge. Réf : routes/RealtimeConsole.tsx.
+<DocHint   title version? summary? sections? links? />     // 📖 doc (défaut)  — concept, métrique
+<GraphHint title version? summary? sections? />            // 📈 graphe        — comment lire une courbe
+<LinkHint  title links={[{label,href}]} summary? />        // 🔗 lien externe  — RFC, doc tierce (rel=noreferrer)
+<TipHint   title summary? sections? />                     // 💡 astuce        — conseil d'usage, raccourci
+<WarnHint  title summary? sections? />                     // ⚠ attention     — limite, piège, prérequis
+<Hint kind="doc|graph|link|tip|warning" title … />         // forme générique (les 5 ci-dessus en sont les presets)
+//   sections = [{ label:"Technique"|"Si vide"|…, body }] ; KpiCard/StatCard/MiniStat/Panel acceptent
+//   `info={<DocHint/>}` (rendu À LA PLACE du `hint` texte). DocHint = ex-InfoHint « riche ».
 <KeyValue k v mono? />                                     // ligne label→valeur ; mono=monospace
 <DefinitionList gap?>{…KeyValue}</DefinitionList>
 <JsonViewer value maxHeight? />                            // dump JSON read-only + copier (texte sûr, 0 injection)
@@ -450,14 +464,20 @@ purger…) sur le même canal/data-plane (DEV-ONLY + RBAC P6).
 - **TS strict** : 0 `any`, 0 `@ts-ignore` ; ESM `import` ; `import type` pour les types.
 - **Style** : commentaires FR ; coller au pattern de `RoutesView.tsx`.
 - **🟢 Aide contextuelle ⓘ DYNAMIQUE (directive user 2026-05-23, PRIORITAIRE)** : tout contrôle non
-  trivial (filtre, recherche, toggle, tri, segment, métrique) DOIT porter un `<InfoHint text={…}/>`
-  (UI kit, `../components/ui`) qui explique en clair ce qu'il fait. Le texte est **dynamique** —
-  interpolé depuis les **données live** (`${entities.length}`, `${groups.length}`, noms, counts…),
-  **JAMAIS de valeur codée en dur** (« 410 tables », « 34 domaines ») qui se périme et ment.
-  But : écran **auto-explicatif** sans alourdir les labels. Contexte : les filtres « pas clairs »
-  étaient le pain point #1 du user (« des fois on comprend rien quand c'est trop compliqué ») → un ⓘ
-  vivant par contrôle est la réponse standard. Vérifier que la valeur reflète l'état réel (ex. nb de
-  groupes du connecteur courant, pas une constante). À faire **à chaque écran/spec développé**.
+  trivial (filtre, recherche, toggle, tri, segment, métrique) DOIT porter une bulle d'aide qui
+  explique en clair ce qu'il fait, **dynamique** — interpolée depuis les **données live**
+  (`${entities.length}`, counts, noms…), **JAMAIS de valeur codée en dur** (« 410 tables ») qui se
+  périme et ment. But : écran **auto-explicatif** sans alourdir les labels (pain point #1 du user :
+  « des fois on comprend rien »). Vérifier que la valeur reflète l'état réel. À faire **à chaque écran**.
+  - **Quel composant** (directive user 2026-05-24) : une **bulle TYPÉE = fiche de doc** (`DocHint`/
+    `GraphHint`/`LinkHint`/`TipHint`/`WarnHint`, cf API UI kit) — en-tête icône+titre+badge version,
+    **résumé + paragraphes** (`sections=[{label:"Technique"|"Si vide"|…, body}]`), **+ cas null/0
+    expliqués** (pourquoi c'est vide, pas un « — » nu). `InfoHint` (texte brut) **réservé aux
+    micro-tooltips d'UI** (option de filtre, en-tête de colonne DataGrid). Sur une carte
+    (`KpiCard`/`StatCard`/`MiniStat`/`Panel`), passer `info={<DocHint …/>}` (rendu à la place de
+    `hint`) ; mieux : router le `hint` du composant local à travers `DocHint` (titre = le label de la
+    carte) → toutes ses ⓘ deviennent des fiches sans toucher les call-sites (pattern OrmOverview).
+  - **Versionner** la doc par surface : un const `XXX_DOC = "v1.0"` passé en `version=` (ORM, Hub…).
 
 ## ⚡ CSS & perf de rendu (directive user 2026-05-23 — appliquer EN CONSTRUISANT)
 
@@ -932,6 +952,13 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.10.0** (2026-05-24) — **Bulles d'aide TYPÉES (fiches de doc) — front-only**. Famille `Hint` (UI kit
+  `components/ui/DocHint.tsx`) : presets `DocHint` (📖 défaut), `GraphHint` (📈), `LinkHint` (🔗 externe
+  sécurisé), `TipHint` (💡), `WarnHint` (⚠). HoverCard = en-tête icône+titre+badge version, résumé,
+  `sections=[{label,body}]`, `links`. `KpiCard`/`StatCard`/`MiniStat`/`Panel` acceptent `info={<DocHint/>}`
+  (rendu à la place du `hint` texte). `InfoHint` = réservé micro-tooltip UI. Migrés : panneau Hub +
+  pages ORM (OrmOverview/OrmEntity/Database) — `hint` des composants locaux routé via `DocHint` (titre =
+  label). Versionner par surface (`HUB_DOC`/`ORM_DOC`/`DB_DOC = "v1.0"`). `nodefony-framework-dev` inchangé (1.9.0).
 - **1.9.0** (2026-05-24) — **Lockstep : sonde de la Socket Nodefony** (backend livré côté `nodefony-framework-dev`).
   Côté Studio : canal **`realtime:health`** documenté (broker ticker `fetchAdminEndpoint(broker,"realtime","health")`,
   endpoint `GET /nodefony/realtime/api/health`) avec sa forme (`channels[]`, fan-out, `backpressure{bufferedAmount,
