@@ -16,6 +16,8 @@ import ClusterBackplane, {
 import ClusterProbeClient, {
   setClusterProbeClient,
   clusterProbeHealth,
+  clusterProbeRequestEnrich,
+  clusterProbeInstance,
   mergeClusterHealth,
   processProbeTransport,
 } from "./nodefony/src/ClusterProbeClient";
@@ -176,6 +178,8 @@ export {
   buildRealtimeHealth,
   buildOwnHealth,
   clusterProbeHealth,
+  clusterProbeRequestEnrich,
+  clusterProbeInstance,
   mergeClusterHealth,
   Twig,
   Ejs,

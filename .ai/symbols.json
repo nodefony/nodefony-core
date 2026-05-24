@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-24T23:32:42.725Z",
+  "generated": "2026-05-24T23:36:52.078Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 750,
-    "symbols": 1356,
+    "symbols": 1358,
     "classes": 228,
     "interfaces": 330,
     "types": 162,
     "enums": 2,
-    "functions": 182,
+    "functions": 184,
     "constants": 452
   },
   "symbols": {
@@ -3401,6 +3401,22 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Vue POD agrégée si la sonde cluster est branchée ET a reçu un snapshot, sinon `null`. `null` ⇒ l'endpoint santé sert la vue per-instance (mono-process / sonde désactivée / cold start). Lecture pure…"
+    },
+    "clusterProbeRequestEnrich": {
+      "name": "clusterProbeRequestEnrich",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Demande au master d'(arrêter d')enrichir le worker `pid` (drill-down Phase 2)."
+    },
+    "clusterProbeInstance": {
+      "name": "clusterProbeInstance",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Santé d'UN worker `pid` extraite du dernier snapshot pod (avec sa sonde riche si le drill est actif), ou `null` (mono-process, pid inconnu, ou cold start). Lecture pure."
     },
     "processProbeTransport": {
       "name": "processProbeTransport",
@@ -11046,6 +11062,12 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
       ],
+      "clusterProbeRequestEnrich": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "clusterProbeInstance": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
       "mergeClusterHealth": [
         "src/packages/@nodefony/framework/index.ts"
       ],
@@ -11974,6 +11996,9 @@
       "IProcessHealth": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts"
       ],
+      "IProcessRich": [
+        "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts"
+      ],
       "IController": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
@@ -12043,6 +12068,15 @@
       ],
       "IBackplaneMessage": [
         "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts"
+      ],
+      "CLUSTER_PROBE_CTL_KIND": [
+        "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
+      ],
+      "RichProcessProbe": [
+        "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
+      ],
+      "isClusterProbeEnrich": [
+        "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
       ],
       "IRealtimeHealth": [
         "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",

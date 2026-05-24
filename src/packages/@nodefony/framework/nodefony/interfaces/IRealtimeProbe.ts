@@ -13,7 +13,7 @@
  *    seuil de drop). Tous les cumuls sont **monotones** → le débit/s se dérive côté
  *    lecteur (delta `total`/`ts`, comme le CPU% ou le flux ORM) : 0 état de lecture.
  */
-import type { IProcessHealth } from "nodefony";
+import type { IProcessHealth, IProcessRich } from "nodefony";
 
 /** Vue d'UNE connexion realtime pour la sonde (backpressure = risque #1). */
 export interface IRealtimeConnProbe {
@@ -86,6 +86,13 @@ export interface IRealtimeHealth extends IRealtimeProbe {
    * sonde process coupée) → les consommateurs realtime existants l'ignorent (non-breaking).
    */
   process?: IProcessHealth;
+  /**
+   * Sonde process **riche** (GC/heap-spaces/handles/ELU active-idle/ctx-switches) —
+   * présente UNIQUEMENT pendant un drill-down de CE worker (Phase 2 : le master a envoyé
+   * `nf:probe:enrich` à ce pid). Absente sinon → « on paie ce qu'on regarde » (0 surcoût
+   * hors drill). Fusionnée côté front avec `process` pour la vue Supervision complète.
+   */
+  rich?: IProcessRich;
 }
 
 /**

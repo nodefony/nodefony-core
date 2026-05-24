@@ -1,7 +1,10 @@
 import {
   CLUSTER_PROBE_KIND,
   CLUSTER_PROBE_SNAPSHOT_KIND,
+  CLUSTER_PROBE_CTL_KIND,
+  RichProcessProbe,
   isClusterMessage,
+  isClusterProbeEnrich,
 } from "nodefony";
 import type {
   IRealtimeHealth,
@@ -102,6 +105,11 @@ export class ClusterProbeClient {
   #snapTs = 0;
   #timer: ReturnType<typeof setInterval> | null = null;
   #started = false;
+  // Drill-down (Phase 2) : sonde riche de CE worker, allouée SEULEMENT quand le master
+  // demande l'enrichissement (`nf:probe:enrich {enabled:true}`) → « on paie ce qu'on
+  // regarde ». Le rich voyage ensuite dans le report → snapshot pod → vue Supervision.
+  #richProbe: RichProcessProbe | null = null;
+  #richEnabled = false;
 
   constructor(
     transport: IClusterProbeTransport = processProbeTransport,
@@ -126,14 +134,46 @@ export class ClusterProbeClient {
   }
 
   #report(buildOwn: () => IRealtimeHealth): void {
+    const payload = buildOwn();
+    // Drill-down actif sur CE worker → joindre la sonde riche au report. Lazy : la sonde
+    // (+ son observer GC) n'existe que pendant le drill, libérée dès `stop`/désactivation.
+    if (this.#richEnabled) {
+      if (this.#richProbe === null) this.#richProbe = new RichProcessProbe();
+      payload.rich = this.#richProbe.read();
+    }
+    this.#transport.send({ kind: CLUSTER_PROBE_KIND, payload });
+  }
+
+  /**
+   * Demande au master d'(arrêter d')enrichir le worker `pid` (drill-down). Émis par le
+   * worker qui tient la connexion navigateur quand un client subscribe/unsubscribe le
+   * canal `dashboard:supervision@<pid>`. No-op hors cluster (`send` no-op).
+   *
+   * @param pid - worker ciblé (identité de la vue pod).
+   * @param enable - `true` = activer la sonde riche sur ce worker, `false` = la couper.
+   */
+  requestEnrich(pid: number, enable: boolean): void {
     this.#transport.send({
-      kind: CLUSTER_PROBE_KIND,
-      payload: buildOwn(),
+      kind: CLUSTER_PROBE_CTL_KIND,
+      op: enable ? "enrich" : "stop",
+      pid,
     });
   }
 
-  /** Met en cache le dernier snapshot agrégé. Ignore les autres kinds + malformés. */
+  /**
+   * Met en cache le dernier snapshot agrégé, OU applique un ordre d'enrichissement ciblé
+   * du master (`nf:probe:enrich`). Ignore les autres kinds + malformés.
+   */
   #ingest(msg: unknown): void {
+    if (isClusterProbeEnrich(msg)) {
+      this.#richEnabled = msg.enabled;
+      // Désactivation → libérer immédiatement la sonde riche (détache l'observer GC).
+      if (!msg.enabled && this.#richProbe !== null) {
+        this.#richProbe.disable();
+        this.#richProbe = null;
+      }
+      return;
+    }
     if (!isClusterMessage(msg) || msg.kind !== CLUSTER_PROBE_SNAPSHOT_KIND) {
       return;
     }
@@ -150,7 +190,7 @@ export class ClusterProbeClient {
     return mergeClusterHealth(this.#lastInstances, this.#snapTs);
   }
 
-  /** Arrête le report et purge le cache. Idempotent. */
+  /** Arrête le report et purge le cache. Idempotent. Libère la sonde riche (drill). */
   stop(): void {
     if (this.#timer !== null) {
       clearInterval(this.#timer);
@@ -158,6 +198,11 @@ export class ClusterProbeClient {
     }
     this.#started = false;
     this.#lastInstances = null;
+    this.#richEnabled = false;
+    if (this.#richProbe !== null) {
+      this.#richProbe.disable();
+      this.#richProbe = null;
+    }
   }
 }
 
@@ -180,6 +225,36 @@ export function setClusterProbeClient(
  */
 export function clusterProbeHealth(): IRealtimeClusterHealth | null {
   return _client?.getClusterHealth() ?? null;
+}
+
+/**
+ * Demande au master d'(arrêter d')enrichir le worker `pid` (drill-down Phase 2).
+ *
+ * @returns `true` si la sonde cluster est branchée (worker de cluster) → l'ordre est émis ;
+ *   `false` en mono-process / sonde désactivée (pas de drill cross-worker possible → le
+ *   consommateur retombe sur la sonde riche locale du process courant).
+ */
+export function clusterProbeRequestEnrich(
+  pid: number,
+  enable: boolean,
+): boolean {
+  if (_client === null) return false;
+  _client.requestEnrich(pid, enable);
+  return true;
+}
+
+/**
+ * Santé d'UN worker `pid` extraite du dernier snapshot pod (avec sa sonde riche si le
+ * drill est actif), ou `null` (mono-process, pid inconnu, ou cold start). Lecture pure.
+ */
+export function clusterProbeInstance(pid: number): IRealtimeHealth | null {
+  const health = _client?.getClusterHealth();
+  if (!health) return null;
+  return (
+    health.instances.find(
+      (i) => i.process?.pid === pid || i.instanceId === String(pid),
+    ) ?? null
+  );
 }
 
 export default ClusterProbeClient;

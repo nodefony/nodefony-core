@@ -1,13 +1,21 @@
 import { expect } from "chai";
 import "mocha";
+import { vi } from "vitest";
 import {
   ClusterProbeClient,
   mergeClusterHealth,
   clusterProbeHealth,
+  clusterProbeInstance,
+  clusterProbeRequestEnrich,
   setClusterProbeClient,
   type IClusterProbeTransport,
 } from "../../src/ClusterProbeClient.js";
-import { CLUSTER_PROBE_KIND, CLUSTER_PROBE_SNAPSHOT_KIND } from "nodefony";
+import {
+  CLUSTER_PROBE_KIND,
+  CLUSTER_PROBE_SNAPSHOT_KIND,
+  CLUSTER_PROBE_CTL_KIND,
+  CLUSTER_PROBE_ENRICH_KIND,
+} from "nodefony";
 import type { IRealtimeHealth } from "../../interfaces/IRealtimeProbe.js";
 
 /** Santé per-instance factice (champs scalaires paramétrables). */
@@ -144,6 +152,83 @@ describe("ClusterProbeClient — report + cache snapshot (worker)", () => {
     expect(c.getClusterHealth()).to.not.equal(null);
     c.stop();
     expect(c.getClusterHealth()).to.equal(null);
+  });
+});
+
+describe("ClusterProbeClient — drill-down (enrich/rich, Phase 2)", () => {
+  it("requestEnrich envoie un ctl op:enrich/stop avec le pid ciblé", () => {
+    const t = new FakeTransport();
+    const c = new ClusterProbeClient(t, 999999);
+    c.start(() => health()); // consomme le report immédiat
+    t.sent.length = 0;
+    c.requestEnrich(1234, true);
+    c.requestEnrich(1234, false);
+    expect(t.sent).to.deep.equal([
+      { kind: CLUSTER_PROBE_CTL_KIND, op: "enrich", pid: 1234 },
+      { kind: CLUSTER_PROBE_CTL_KIND, op: "stop", pid: 1234 },
+    ]);
+    c.stop();
+  });
+
+  it("après enrich le report inclut la sonde riche ; après stop il ne l'inclut plus", () => {
+    vi.useFakeTimers();
+    try {
+      const t = new FakeTransport();
+      const c = new ClusterProbeClient(t, 1000);
+      c.start(() => health({ instanceId: "me" })); // report #1 (pas de rich)
+      expect((t.sent[0] as { payload: IRealtimeHealth }).payload.rich).to.equal(
+        undefined,
+      );
+      t.deliver({ kind: CLUSTER_PROBE_ENRICH_KIND, enabled: true });
+      vi.advanceTimersByTime(1000); // report #2 → enrichi
+      const r2 = (t.sent[1] as { payload: IRealtimeHealth }).payload;
+      expect(r2.rich).to.be.an("object");
+      expect(r2.rich).to.include.keys([
+        "gc",
+        "heapSpaces",
+        "handles",
+        "elu",
+        "ctx",
+      ]);
+      t.deliver({ kind: CLUSTER_PROBE_ENRICH_KIND, enabled: false });
+      vi.advanceTimersByTime(1000); // report #3 → rich coupé
+      expect((t.sent[2] as { payload: IRealtimeHealth }).payload.rich).to.equal(
+        undefined,
+      );
+      c.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clusterProbeInstance trouve l'instance par pid (instanceId)", () => {
+    const t = new FakeTransport();
+    const c = new ClusterProbeClient(t, 999999);
+    setClusterProbeClient(c);
+    c.start(() => health({ instanceId: "me" }));
+    t.deliver({
+      kind: CLUSTER_PROBE_SNAPSHOT_KIND,
+      ts: 1,
+      instances: [health({ instanceId: "7" }), health({ instanceId: "9" })],
+    });
+    expect(clusterProbeInstance(7)?.instanceId).to.equal("7");
+    expect(clusterProbeInstance(404)).to.equal(null); // pid absent
+    c.stop();
+  });
+
+  it("clusterProbeRequestEnrich (helper singleton) émet le ctl et renvoie true", () => {
+    const t = new FakeTransport();
+    const c = new ClusterProbeClient(t, 999999);
+    setClusterProbeClient(c);
+    c.start(() => health());
+    t.sent.length = 0;
+    expect(clusterProbeRequestEnrich(55, true)).to.equal(true);
+    expect(t.sent[0]).to.deep.equal({
+      kind: CLUSTER_PROBE_CTL_KIND,
+      op: "enrich",
+      pid: 55,
+    });
+    c.stop();
   });
 });
 
