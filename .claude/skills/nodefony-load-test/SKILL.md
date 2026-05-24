@@ -171,6 +171,31 @@ Sortie type : `1000ms (init) → 2000 → 4000 → 8000 (decrease, famine) → 4
 > puis redescend à l'arrêt. La démo `aimd` prouve l'algorithme ; le stress le montre de bout en bout.
 > Réf : mémoire `project_realtime_granularity_clientlib`.
 
+### Cluster sans PM2 — backplane realtime cross-process (`cluster-ipc.mjs`, `cluster-realtime-e2e.mjs`)
+
+Ces deux scripts **forkent eux-mêmes** un cluster Node natif (master `ClusterRelay` + workers
+`ClusterBackplane`) — **PAS de serveur dev requis** ; ils importent les dist (**prérequis :
+`npm run build` core + framework**). Le master sert 0 HTTP : il est la gateway IPC qui relaie les
+publications realtime d'un worker aux **autres** (fan-out cross-process intra-pod « comme si Redis
+était là », gratuit).
+
+```bash
+# Bench du FIL IPC (coût brut worker→master→workers) — pub/s, MB/s, RTT 4-sauts.
+bash .claude/skills/nodefony-load-test/scripts/run.sh cluster-ipc
+WORKERS=8 PAYLOAD=1024 DURATION=8 run.sh cluster-ipc       # throughput
+MODE=rtt WORKERS=2 RATE=2000 run.sh cluster-ipc            # latence aller-retour
+
+# Preuve E2E (Phase 4b) : monte le RealtimeHub COMPLET + la politique de forward (4a)
+# et ASSERTE (exit 0/1) : broadcast cross-process, anti-echo, canal instance-local NON
+# forwardé (realtime:health), fan-out local intact. 8 checks.
+bash .claude/skills/nodefony-load-test/scripts/run.sh cluster-e2e
+```
+
+Repères fil IPC (loopback) : ~300k pub/s @256B ; master sature @4KB×7sub (~176 MB/s = plafond
+gateway → coalescer avant `publish` au-delà) ; RTT 4-sauts p50 ~0.40 / p99 ~0.77 ms.
+
+> Réfs : mémoires `project_cluster_backplane_vision`, `project_realtime_socket_probe`.
+
 ## Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
 
 - **Connexions** : rupture **16 372** simultanées (re-validé 2026-05-21, plage 49152–65535
