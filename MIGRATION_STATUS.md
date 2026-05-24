@@ -80,26 +80,26 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 
 > **Comptage par PHASE = source de vérité** (audit vérifié dans le code 2026-05-21, refait par le skill `migration-audit`). Chaque ligne mappe 1:1 la roadmap priorisée P0–P16 ci-dessous (compte les **tâches**, pas des sous-items). L'ancien tableau « par composant » a été retiré : il dérivait sans cesse (granularité différente, jamais re-synchronisé). Légende : ✅ fait · 🔶 partiel/legacy en place · ⬜ à faire.
 
-| Phase                                            | Tâches  | ✅     | 🔶     | ⬜      |
-| ------------------------------------------------ | ------- | ------ | ------ | ------- |
-| **P0** — Bugs bloquants                          | 6       | 6      | 0      | 0       |
-| **P1** — Fondations symbiose (Context/ALS/logs)  | 8       | 8      | 0      | 0       |
-| **P2** — Cycle de vie Context                    | 9       | 3      | 1      | 5       |
-| **P3** — Logs structurés                         | 10      | 5      | 0      | 5       |
-| **P4** — Tests symbiose http↔fw                  | 6       | 2      | 3      | 1       |
-| **P5** — Session + User + ORM Core               | 16      | 2      | 2      | 12      |
-| **P6** — Security (refonte — legacy TS en place) | 13      | 0      | 0      | 13      |
-| **P7** — ORM Drivers                             | 9       | 2      | 3      | 4       |
-| **P8** — CLI + Monitoring                        | 4       | 1      | 1      | 2       |
-| **P9** — Polish + clôture                        | 4       | 0      | 0      | 4       |
-| **P10** — Studio (admin web)                     | 12      | 4      | 3      | 5       |
-| **P11** — Commandes CLI par module               | 5       | 0      | 1      | 4       |
-| **P12** — Couche IA agentic                      | 6       | 0      | 2      | 4       |
-| **P13** — Realtime distribué                     | 10      | 1      | 3      | 6       |
-| **P14** — Frontend Vite + Core isomorphe         | 15      | 7      | 3      | 5       |
-| **P15** — Mediasoup + SIP/Asterisk               | 8       | 0      | 0      | 8       |
-| **P16** — Cloud-Native (7 axes)                  | 26      | 0      | 0      | 26      |
-| **TOTAL**                                        | **167** | **41** | **22** | **104** |
+| Phase                                            | Tâches  | ✅     | 🔶     | ⬜     |
+| ------------------------------------------------ | ------- | ------ | ------ | ------ |
+| **P0** — Bugs bloquants                          | 6       | 6      | 0      | 0      |
+| **P1** — Fondations symbiose (Context/ALS/logs)  | 8       | 8      | 0      | 0      |
+| **P2** — Cycle de vie Context                    | 9       | 3      | 1      | 5      |
+| **P3** — Logs structurés                         | 10      | 5      | 0      | 5      |
+| **P4** — Tests symbiose http↔fw                  | 6       | 2      | 3      | 1      |
+| **P5** — Session + User + ORM Core               | 17      | 8      | 1      | 8      |
+| **P6** — Security (refonte — legacy TS en place) | 13      | 0      | 0      | 13     |
+| **P7** — ORM Drivers                             | 9       | 2      | 5      | 2      |
+| **P8** — CLI + Monitoring                        | 4       | 1      | 1      | 2      |
+| **P9** — Polish + clôture                        | 4       | 0      | 0      | 4      |
+| **P10** — Studio (admin web)                     | 12      | 4      | 3      | 5      |
+| **P11** — Commandes CLI par module               | 5       | 0      | 1      | 4      |
+| **P12** — Couche IA agentic                      | 6       | 0      | 2      | 4      |
+| **P13** — Realtime distribué                     | 10      | 1      | 3      | 6      |
+| **P14** — Frontend Vite + Core isomorphe         | 15      | 7      | 3      | 5      |
+| **P15** — Mediasoup + SIP/Asterisk               | 8       | 0      | 0      | 8      |
+| **P16** — Cloud-Native (7 axes)                  | 26      | 0      | 0      | 26     |
+| **TOTAL**                                        | **168** | **47** | **23** | **98** |
 
 > Build System (10/10 ✅), Core/Kernel, DI, Syslog, Router, Controller, Types — fondations **déjà migrées** en amont de la roadmap P0 (ère Phases 0–4, cf sections narratives « ## Phase X » plus bas). Le comptage ci-dessus couvre la **dette + features priorisées** (P0→P16).
 
