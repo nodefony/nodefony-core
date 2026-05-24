@@ -15,12 +15,12 @@ Bornes symétriques d'une session = un seul skill, routé par mode.
 
 ## Routage du mode
 
-| Argument / phrasé | Mode |
-| ----------------- | ---- |
-| `resume`, `reprendre`, "reprends", "on en était où", "dernière session", "c'est quoi la suite" | **RESUME** |
-| *(vide)*, `start`, nom de module (`http`, `framework`…), "prépare le contexte" | **START** |
-| `end`, `retex`, "fais le retex", "fin de session", "où sont passés les tokens" | **END** |
-| `consolidate`, "consolide les retex", "plan d'amélioration IA" | **CONSOLIDATE** |
+| Argument / phrasé                                                                              | Mode            |
+| ---------------------------------------------------------------------------------------------- | --------------- |
+| `resume`, `reprendre`, "reprends", "on en était où", "dernière session", "c'est quoi la suite" | **RESUME**      |
+| _(vide)_, `start`, nom de module (`http`, `framework`…), "prépare le contexte"                 | **START**       |
+| `end`, `retex`, "fais le retex", "fin de session", "où sont passés les tokens"                 | **END**         |
+| `consolidate`, "consolide les retex", "plan d'amélioration IA"                                 | **CONSOLIDATE** |
 
 > **Après un `/clear`, dis simplement « reprends » → mode RESUME.** Rien à mémoriser.
 
@@ -43,7 +43,7 @@ grep -rl "LIRE EN PREMIER" "$MEM"/*_kit.md 2>/dev/null
 ```
 
 Lire le `_state.md` le plus récent (sections **Fait / Décisions / Reste**). S'il y a un kit
-« LIRE EN PREMIER », le lire aussi (priorité sur le _state générique).
+« LIRE EN PREMIER », le lire aussi (priorité sur le \_state générique).
 
 ## 2. Phase active + git
 
@@ -285,25 +285,31 @@ focus: <1 ligne — sujet principal>
 # Session retro — <date> — <session-short-id>
 
 ## Tool usage
+
 | Outil | Calls |
 | ----- | ----: |
 
 ## Top fichiers Read/Edit
-| Fichier | × |
-| ------- | -: |
+
+| Fichier |   × |
+| ------- | --: |
 
 ## Coûts évidents
+
 - <ce qui a brûlé tokens/temps — restarts serveur, re-lectures…>
 
 ## Recommandations
+
 1. <skill suggéré> — raison
 2. <pattern à éviter> — raison
 3. <mémorisation MEMORY.md> — raison
 
 ## Patterns récurrents (déjà gérés)
+
 - ✅ <pattern déjà en mémoire/skill>
 
 ## Commits produits
+
 | Commit | Sujet |
 | ------ | ----- |
 ```
@@ -335,18 +341,41 @@ metadata:
 # Session <date> — <focus>
 
 ## Fait
+
 - <livrables + commits (hash + sujet)>
 
 ## Décisions
+
 - <choix archi/design pris cette session, avec le POURQUOI> ; liens [[autre-memoire]]
 
 ## Reste — prochaine étape
+
 1. **Priorité 1** : <LA chose à faire ensuite> — liens [[kit]] / [[memoire]]
 2. <suite éventuelle>
 ```
 
 Puis **ajouter/MAJ la ligne pointeur** dans `MEMORY.md` (l'index auto-chargé) :
 `- [Session <date> — état + reprise](project_session_<date>_state.md) — <hook + prochaine étape>`
+
+## 11. Sauvegarde de la mémoire IA (OBLIGATOIRE — durabilité crash / changement de PC)
+
+La mémoire IA vit dans `~/.claude/projects/-Users-cci-repository-nodefony-core/memory/` — **HORS
+du repo nodefony** (non versionnée par le repo projet). Elle est sauvegardée dans un **repo git
+PRIVÉ dédié** `ccamensuli/nodefony-ai-memory` (mis en place 2026-05-24). **À CHAQUE fin de session**,
+après avoir écrit le retex + l'état de reprise + MAJ `MEMORY.md`, **commit + push** ce repo, sinon
+le backup se périme et un crash perd le travail :
+
+```bash
+MEM="/Users/cci/.claude/projects/-Users-cci-repository-nodefony-core/memory"
+git -C "$MEM" add -A
+git -C "$MEM" -c user.name="Christophe CAMENSULI" -c user.email="ccamensuli@gmail.com" \
+  commit -q -m "session <date>: <focus court>" && git -C "$MEM" push -q
+git -C "$MEM" log --oneline -1
+```
+
+> Restauration sur un nouveau PC (même chemin projet) :
+> `git clone git@github.com:ccamensuli/nodefony-ai-memory.git ~/.claude/projects/-Users-cci-repository-nodefony-core/memory`.
+> Le mode **RESUME** peut faire `git -C "$MEM" pull -q` au début pour récupérer une session faite ailleurs.
 
 ---
 
@@ -385,15 +414,18 @@ Présenter au user + sauver dans `docs/session-retros/CONSOLIDATION-<date>.md` :
 # Consolidation retex — <date> — retex #<N1> à #<N2>
 
 ## Patterns récurrents détectés
+
 | Pattern | Occurrences | Impact |
 | ------- | ----------- | ------ |
 
 ## Plan d'action (qualité IA)
+
 1. **<action>** (ex: créer skill X) — résout <pattern>, gain estimé
 2. **<MAJ CLAUDE.md>** — règle Y vue N fois
 3. **<nouvelle mémoire IA>** — capture décision Z
 
 ## À archiver
+
 - Retex consolidés → optionnel : docs/session-retros/archive/
 ```
 
