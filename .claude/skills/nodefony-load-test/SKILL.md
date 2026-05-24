@@ -196,8 +196,17 @@ bash .claude/skills/nodefony-load-test/scripts/run.sh cluster-e2e
 bash .claude/skills/nodefony-load-test/scripts/run.sh cluster-probe
 ```
 
-> Sonde agrégée **désactivable** → bypass total : `NODEFONY_CLUSTER_PROBE=0 npx nodefony cluster`
+> Sonde agrégée **désactivable** → bypass total :
+> `NODEFONY_CLUSTER_PROBE=0 npx nodefony cluster --workers 4`
 > ⇒ aucun reporter/agrégateur (0 timer, 0 IPC sonde), l'endpoint santé sert la vue per-instance.
+>
+> ⚠️ **Modèle « 2 molettes » (2026-05-24)** : la topologie = `--workers N` > env
+> `NODEFONY_WORKERS` > config `cluster.workers` > **défaut 1**. Donc `nodefony cluster` SANS
+> `--workers` (et config=1) = **mono-process** (zéro machinerie cluster) — pour un VRAI
+> cluster, toujours `--workers N` (≥2) ou `NODEFONY_WORKERS=N`. `staging`/`preprod` =
+> **déprécié**. Pour lancer un runtime cluster à tester :
+> `bash .claude/skills/nodefony-start-server/start.sh --cluster -w N`. Les scripts `cluster-*.mjs`
+> ci-dessus forkent en DIRECT (harnais de preuve, indépendant du CLI) → non concernés.
 
 Repères fil IPC (loopback) : ~300k pub/s @256B ; master sature @4KB×7sub (~176 MB/s = plafond
 gateway → coalescer avant `publish` au-delà) ; RTT 4-sauts p50 ~0.40 / p99 ~0.77 ms.

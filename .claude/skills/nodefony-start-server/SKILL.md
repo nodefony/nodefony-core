@@ -21,15 +21,29 @@ bash .claude/skills/nodefony-start-server/start.sh
 ```
 
 Variantes :
+
 ```bash
 bash .claude/skills/nodefony-start-server/start.sh -d            # mode debug (logs DEBUG verbeux)
 bash .claude/skills/nodefony-start-server/start.sh --force-build # force rebuild module test
+bash .claude/skills/nodefony-start-server/start.sh --cluster        # runtime cluster (défaut 2 workers)
+bash .claude/skills/nodefony-start-server/start.sh --cluster -w 4   # cluster à 4 workers
 ```
 
 Arrêter :
+
 ```bash
-bash .claude/skills/nodefony-start-server/stop.sh
+bash .claude/skills/nodefony-start-server/stop.sh   # tue dev ET cluster (master + workers) + ports
 ```
+
+> **Modèle « 2 molettes » (2026-05-24)** : front (dev/prod) × topologie (`workers`).
+>
+> - **défaut = `development`** → TOUJOURS 1 process (Vite/HMR exige 1 maître).
+> - **`--cluster [-w N]`** → runtime prod `nodefony cluster --workers N` (front prod, pas
+>   de Vite), pour exercer la **vue pod / l'observabilité multi-process**. Défaut N=2 (un
+>   vrai cluster). En cluster le front n'est pas servi tant que `renderProdTags()` (14.2)
+>   n'est pas fait → l'API/observabilité (`/nodefony/realtime/api/health` → `cluster:true`)
+>   reste testable. `staging`/`preprod` = **déprécié** (→ `cluster`). Topologie : voir
+>   `nodefony/config/cluster/cluster.config.ts` (`cluster.workers`) ou `NODEFONY_WORKERS`.
 
 Le script gère **tout** : kill watch+rollup+ports → build conditionnel module test → spawn detached
 → wait boot (fail-fast) → verify 4 servers réseau → health check. Sortie : marqueurs `>>>` sur stdout.
@@ -64,16 +78,16 @@ Exit 0 = UP, exit 1 = crash/timeout. Log : `/tmp/nodefony-server.log`, PID : `/t
 - **Modif backend** → `stop.sh` puis `start.sh` (le build du module test est conditionnel, mtime).
   Pour un refactor multi-fichiers : édite tout, PUIS un seul `stop → start`.
 - **Modif frontend** → HMR Vite (0 restart) si le HMR fonctionne (⚠️ cassé tant que le cert n'est pas
-  *trusté* — cf kit, solution = mkcert).
+  _trusté_ — cf kit, solution = mkcert).
 
 ## Quand lancer en debug (`-d`)
 
-| Cas | Flag |
-| --- | ---- |
-| Tests d'intégration `npm run test:integration` | SANS `-d` (INFO suffit) |
-| Diagnostiquer un crash au démarrage | AVEC `-d` (révèle SERVICE/MODULE ADD, EVENT KERNEL) |
-| Routes 404 inattendues | AVEC `-d` (liste les `route +` enregistrées) |
-| Mode "tourne en fond, je teste" | SANS `-d` (moins de bruit) |
+| Cas                                            | Flag                                                |
+| ---------------------------------------------- | --------------------------------------------------- |
+| Tests d'intégration `npm run test:integration` | SANS `-d` (INFO suffit)                             |
+| Diagnostiquer un crash au démarrage            | AVEC `-d` (révèle SERVICE/MODULE ADD, EVENT KERNEL) |
+| Routes 404 inattendues                         | AVEC `-d` (liste les `route +` enregistrées)        |
+| Mode "tourne en fond, je teste"                | SANS `-d` (moins de bruit)                          |
 
 ## Parsing des logs (debug rapide)
 
@@ -98,15 +112,15 @@ sed 's/\x1b\[[0-9;]*m//g' /tmp/nodefony-server.log | grep "Rollup Module" | grep
 
 ## Symptômes courants
 
-| Symptôme | Cause | Fix |
-| -------- | ----- | --- |
-| `SyntaxError: does not provide an export named 'X'` | dist d'un module périmé | `cd src/packages/@nodefony/<module> && npm run build` puis relancer (ou `--force-build`) |
-| `start.sh` → `>>> FATAL` | crash au boot | Le script affiche le stack trace ; lire `/tmp/nodefony-server.log` |
-| `start.sh` → `>>> TIMEOUT` | Rollup lent / kernel bloqué | Vérifier `ps aux \| grep rollup` ; relancer |
-| `EADDRINUSE` | port occupé | `start.sh` kill avant spawn ; si persiste, process zombie hors lsof |
-| 4 servers OK mais 404 sur `/nodefony/test/*` | dist module test périmé | `start.sh --force-build` |
-| Modif backend pas prise | dist pas rebuildé (pas de watch) | `stop.sh` puis `start.sh` (build conditionnel) |
-| Page front noire / `ERR_CERT_AUTHORITY_INVALID` | cert self-signed non *trusté* → assets cross-origin 5173 bloqués | accepter le cert OU (vrai fix) cert trusté via mkcert — cf kit `project_dev_supervisor_hmr_kit` |
+| Symptôme                                            | Cause                                                            | Fix                                                                                             |
+| --------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `SyntaxError: does not provide an export named 'X'` | dist d'un module périmé                                          | `cd src/packages/@nodefony/<module> && npm run build` puis relancer (ou `--force-build`)        |
+| `start.sh` → `>>> FATAL`                            | crash au boot                                                    | Le script affiche le stack trace ; lire `/tmp/nodefony-server.log`                              |
+| `start.sh` → `>>> TIMEOUT`                          | Rollup lent / kernel bloqué                                      | Vérifier `ps aux \| grep rollup` ; relancer                                                     |
+| `EADDRINUSE`                                        | port occupé                                                      | `start.sh` kill avant spawn ; si persiste, process zombie hors lsof                             |
+| 4 servers OK mais 404 sur `/nodefony/test/*`        | dist module test périmé                                          | `start.sh --force-build`                                                                        |
+| Modif backend pas prise                             | dist pas rebuildé (pas de watch)                                 | `stop.sh` puis `start.sh` (build conditionnel)                                                  |
+| Page front noire / `ERR_CERT_AUTHORITY_INVALID`     | cert self-signed non _trusté_ → assets cross-origin 5173 bloqués | accepter le cert OU (vrai fix) cert trusté via mkcert — cf kit `project_dev_supervisor_hmr_kit` |
 
 ## Maintenance des scripts
 

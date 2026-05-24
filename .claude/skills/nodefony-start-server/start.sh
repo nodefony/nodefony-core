@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
-# start.sh — démarre le serveur Nodefony (development) de manière fiable.
+# start.sh — démarre le serveur Nodefony de manière fiable.
 # Consolide TOUT le workflow en 1 script → 1 seule approbation Bash au lieu de ~8.
 #
-# Usage : bash .claude/skills/nodefony-start-server/start.sh [-d] [--force-build]
-#   -d            mode debug (npx nodefony -d development) — logs DEBUG verbeux
+# Modèle « 2 molettes » (2026-05-24) : front (dev/prod) × topologie (workers).
+#   - défaut          = `development` → TOUJOURS 1 process (Vite/HMR).
+#   - --cluster [-w N]= runtime prod cluster (`nodefony cluster --workers N`),
+#                       front prod (pas de Vite) → exercer la vue pod / l'observabilité.
+#
+# Usage : bash .claude/skills/nodefony-start-server/start.sh [-d] [--force-build] [--cluster [-w N]]
+#   -d            mode debug (logs DEBUG verbeux)
 #   --force-build force le rebuild du module test même si dist à jour
+#   --cluster     lance le runtime cluster (multi-process) au lieu de development
+#   -w, --workers N  nb de workers en cluster (défaut 2 — un vrai cluster pour tester la vue pod)
 #
 # Sortie : marqueurs >>> sur stdout. Exit 0 = serveur UP, exit 1 = crash/timeout.
 # Log serveur : /tmp/nodefony-server.log   PID : /tmp/srv.pid
@@ -13,11 +20,17 @@ set -uo pipefail
 
 DEBUG_FLAG=""
 FORCE_BUILD=0
-for arg in "$@"; do
-  case "$arg" in
+MODE="development"   # "development" (défaut, 1 process) | "cluster" (multi-process)
+WORKERS=2            # nb de workers en mode cluster (défaut : vrai cluster pour la vue pod)
+while [ $# -gt 0 ]; do
+  case "$1" in
     -d) DEBUG_FLAG="-d" ;;
     --force-build) FORCE_BUILD=1 ;;
+    --cluster) MODE="cluster" ;;
+    -w|--workers) shift; WORKERS="${1:-2}" ;;
+    -w=*|--workers=*) WORKERS="${1#*=}" ;;
   esac
+  shift
 done
 
 # Racine repo dérivée du chemin du script (BASH_SOURCE), PAS de $(pwd) : le cwd
@@ -31,8 +44,14 @@ PIDFILE="/tmp/srv.pid"
 TEST_MODULE="$ROOT/src/modules/test"
 
 # ── 1. KILL : watch/rollup AVANT lsof (sinon respawn immédiat) ──────────────
+# Tous les runtimes (un cluster/staging résiduel tiendrait les ports). Le master
+# cluster + ses workers forkés héritent de l'argv `nodefony cluster` → matchés.
 echo ">>> KILL watch+rollup+ports 5151/5152"
 pkill -9 -f "nodefony development" 2>/dev/null
+pkill -9 -f "nodefony cluster" 2>/dev/null
+pkill -9 -f "nodefony staging" 2>/dev/null
+pkill -9 -f "nodefony preprod" 2>/dev/null
+pkill -9 -f "nodefony production" 2>/dev/null
 pkill -9 -f "rollup" 2>/dev/null
 PIDS=$(lsof -ti:5151 -ti:5152 2>/dev/null)
 [ -n "$PIDS" ] && kill -9 $PIDS 2>/dev/null
@@ -64,9 +83,15 @@ else
 fi
 
 # ── 3. SPAWN detached (rm log d'abord pour éviter faux positif READY) ────────
-echo ">>> SPAWN nodefony ${DEBUG_FLAG:+-d }development (detached)"
+if [ "$MODE" = "cluster" ]; then
+  echo ">>> SPAWN nodefony ${DEBUG_FLAG:+-d }cluster --workers $WORKERS (detached, prod front — pas de Vite)"
+  echo ">>> NB cluster : env=production → front non servi tant que renderProdTags() (14.2) ; API/observabilité OK. Si boot KO → 'npm run build' racine (dist prod périmé)."
+  ARGS="['nodefony'${DEBUG_FLAG:+, '-d'}, 'cluster', '--workers', '$WORKERS']"
+else
+  echo ">>> SPAWN nodefony ${DEBUG_FLAG:+-d }development (detached, 1 process)"
+  ARGS="['nodefony'${DEBUG_FLAG:+, '-d'}, 'development']"
+fi
 rm -f "$LOG" "$PIDFILE"
-ARGS="['nodefony'${DEBUG_FLAG:+, '-d'}, 'development']"
 node -e "
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -106,6 +131,10 @@ if [ "$READY" -eq 0 ]; then
 fi
 
 # ── 5. VERIFY + HEALTH ───────────────────────────────────────────────────────
+if [ "$MODE" = "cluster" ]; then
+  echo ">>> CLUSTER master :"
+  grep -E "cluster master up|Cluster topology" "$LOG" | sed 's/\x1b\[[0-9;]*m//g' | tail -3
+fi
 echo ">>> SERVERS :"
 grep "Server Listen" "$LOG" | sed 's/\x1b\[[0-9;]*m//g'
 echo ">>> HEALTH /nodefony/test/index (2 tries — watch Rollup peut occuper l'event loop juste après boot) :"
@@ -125,4 +154,9 @@ function retry(attempt, why) {
 probe(1);
 " 2>/dev/null
 
-echo ">>> UP — http://127.0.0.1:5151 | https://127.0.0.1:5152 | PID=$(cat "$PIDFILE" 2>/dev/null)"
+if [ "$MODE" = "cluster" ]; then
+  echo ">>> UP (cluster $WORKERS workers) — https://127.0.0.1:5152 | master PID=$(cat "$PIDFILE" 2>/dev/null)"
+  echo ">>> Vue pod : curl -k https://127.0.0.1:5152/nodefony/realtime/api/health  → cluster:true, instanceCount:$WORKERS"
+else
+  echo ">>> UP — http://127.0.0.1:5151 | https://127.0.0.1:5152 | PID=$(cat "$PIDFILE" 2>/dev/null)"
+fi
