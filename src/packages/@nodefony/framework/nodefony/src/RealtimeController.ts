@@ -73,6 +73,17 @@ export abstract class RealtimeController
   }
 
   /**
+   * Préfixes de canaux **broadcast** (cross-process) de cet endpoint. À surcharger ;
+   * défaut : **aucun** → tous les canaux restent **instance-local** (observabilité,
+   * état du pod). Un canal listé ici traverse le {@link IBackplane} (cluster IPC /
+   * Redis) : chat, présence, notifications… Cf {@link RealtimeHub.markBroadcastChannel}
+   * (défaut sûr : pas de fuite cross-pod de données per-instance sans intention explicite).
+   */
+  protected realtimeBroadcastChannels(): string[] {
+    return [];
+  }
+
+  /**
    * Canaux FULL-DUPLEX acceptant une entrée client (`method` = nom du canal). À
    * surcharger ; défaut : **aucun** (sûr — un client ne peut rien pousser au serveur
    * tant qu'un canal n'est pas explicitement déclaré ici). Seam des backings entrants
@@ -132,7 +143,15 @@ export abstract class RealtimeController
     // Sonde socket : la connexion (= ce transport) entre au registre du hub. La
     // backpressure (`bufferedAmount`) vit sur la connexion brute → seul le transport
     // l'expose. Retiré au close (onFinish, plus bas).
-    getRealtimeHub().registerConnection(transport);
+    const hub = getRealtimeHub();
+    hub.registerConnection(transport);
+
+    // Politique de forward : déclare les canaux broadcast (cross-process) de cet
+    // endpoint au hub (idempotent, cold-path). Défaut = aucun → tout instance-local.
+    const broadcast = this.realtimeBroadcastChannels();
+    for (let i = 0; i < broadcast.length; i++) {
+      hub.markBroadcastChannel(broadcast[i]!);
+    }
 
     // Canaux full-duplex déclarés (entrée client). `null` si aucun → 0 lookup sur le
     // chemin notification (cas par défaut, ex. Studio).

@@ -261,12 +261,13 @@ describe("RealtimeHub — backplane cross-process (port IBackplane)", () => {
     expect(hub.backplane).to.equal(null);
   });
 
-  it("setBackplane : démarre le transport, publish fan-out local ET propage", () => {
+  it("setBackplane : démarre le transport ; un canal BROADCAST fan-out local ET propage", () => {
     const hub = new RealtimeHub();
     const bp = new FakeBackplane();
     expect(hub.setBackplane(bp)).to.equal(bp); // chaînage
     expect(hub.backplane).to.equal(bp);
     expect(bp.started).to.equal(1); // start() câblé
+    hub.markBroadcastChannel("ch"); // opt-in cross-process
     const got: unknown[] = [];
     hub.subscribe("ch", (p) => got.push(p), factory);
     hub.publish("ch", { v: 1 });
@@ -305,6 +306,83 @@ describe("RealtimeHub — backplane cross-process (port IBackplane)", () => {
     hub.clear();
     expect(hub.backplane).to.equal(null);
     expect(bp.stopped).to.equal(0); // le hub n'est pas owner du backplane
+  });
+});
+
+/**
+ * Politique de forward PAR CANAL (Phase 4) — le forward backplane est **opt-in** :
+ * défaut instance-local (sûreté Zero-Trust + correct pour tous les canaux per-instance),
+ * un canal déclaré broadcast traverse le backplane (chat/présence/notifications).
+ */
+describe("RealtimeHub — politique de forward par canal (opt-in broadcast)", () => {
+  const factory = (): (() => void) => () => {};
+
+  it("DÉFAUT instance-local : un canal non déclaré ne propage PAS (fan-out local seul)", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    const got: unknown[] = [];
+    hub.subscribe("realtime:health:1000", (p) => got.push(p), factory);
+    hub.publish("realtime:health:1000", { cpu: 1 });
+    expect(got).to.deep.equal([{ cpu: 1 }]); // fan-out local OK
+    expect(bp.published).to.deep.equal([]); // per-instance → JAMAIS cross-process
+  });
+
+  it("opt-in broadcast par PRÉFIXE : couvre le suffixe de cadence `:<ms>`", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    hub.markBroadcastChannel("chat:");
+    hub.subscribe("chat:room1:500", () => {}, factory);
+    hub.publish("chat:room1:500", { msg: "hi" });
+    expect(bp.published).to.deep.equal([
+      { channel: "chat:room1:500", payload: { msg: "hi" } },
+    ]);
+  });
+
+  it("ordre indifférent : markBroadcastChannel APRÈS subscribe réévalue le canal actif", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    hub.subscribe("chat:room1", () => {}, factory); // abonné AVANT la déclaration
+    hub.markBroadcastChannel("chat:"); // déclaration après → réévalue
+    hub.publish("chat:room1", { msg: "ok" });
+    expect(bp.published).to.deep.equal([
+      { channel: "chat:room1", payload: { msg: "ok" } },
+    ]);
+  });
+
+  it("publish SERVEUR sans abonné local : la politique broadcast est évaluée à la volée", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    hub.markBroadcastChannel("chat:");
+    hub.publish("chat:room1", { msg: "no-local-sub" }); // aucun subscribe ici
+    expect(bp.published).to.deep.equal([
+      { channel: "chat:room1", payload: { msg: "no-local-sub" } },
+    ]);
+  });
+
+  it("mono-process : la politique n'a aucun effet observable (rien ne sort)", () => {
+    const hub = new RealtimeHub();
+    hub.markBroadcastChannel("chat:");
+    const got: unknown[] = [];
+    hub.subscribe("chat:room1", (p) => got.push(p), factory);
+    hub.publish("chat:room1", { v: 1 });
+    expect(got).to.deep.equal([{ v: 1 }]); // fan-out local intact
+    expect(hub.backplane).to.equal(null);
+  });
+
+  it("clear() réinitialise la politique de forward", () => {
+    const hub = new RealtimeHub();
+    const bp = new FakeBackplane();
+    hub.setBackplane(bp);
+    hub.markBroadcastChannel("chat:");
+    hub.clear();
+    hub.setBackplane(bp);
+    hub.subscribe("chat:room1", () => {}, factory);
+    hub.publish("chat:room1", { v: 1 });
+    expect(bp.published).to.deep.equal([]); // préfixe oublié → de nouveau local
   });
 });
 

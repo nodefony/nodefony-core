@@ -39,6 +39,12 @@ interface ChannelState {
   sinks: Set<ChannelSink>;
   /** publications cumulées sur ce canal (monotone) — sonde fan-out. */
   messages: number;
+  /**
+   * Le canal traverse-t-il le {@link IBackplane} (cross-process) ? Mis en cache au
+   * 1ᵉʳ abonné depuis la politique de forward (cf {@link RealtimeHub.markBroadcastChannel})
+   * → le chemin chaud `publish` lit un booléen, jamais une comparaison de chaîne.
+   */
+  forward: boolean;
 }
 
 /**
@@ -89,6 +95,18 @@ export class RealtimeHub {
   // Cf {@link setBackplane} + IBackplane.
   #backplane: IBackplane | null = null;
 
+  // Politique de forward PAR CANAL (Phase 4). Préfixes des canaux **broadcast**
+  // (cross-process). Lazy : `null` tant qu'aucun canal broadcast n'est déclaré →
+  // par défaut TOUT canal est **instance-local** (ne traverse PAS le backplane).
+  // POURQUOI ce défaut : (1) sûreté Zero-Trust — aucune donnée per-instance (logs,
+  // sondes, état interne) ne fuit cross-process sans intention explicite ; (2) tous
+  // les canaux d'observabilité actuels (syslog/supervision/orm/realtime:health) sont
+  // per-instance → corrects en cluster sans aucune déclaration ; (3) le forward (chat,
+  // présence, notifications) devient une capacité qu'un canal **demande**. Cf
+  // {@link markBroadcastChannel}. En mono-process (`#backplane === null`) cette
+  // politique n'est JAMAIS évaluée (le hot path ne paie qu'un test `=== null`).
+  #broadcastPrefixes: string[] | null = null;
+
   /**
    * Abonne une connexion à un canal. Crée le provider partagé au **1ᵉʳ** abonné (via
    * `factory`), puis ajoute le sink. Le sink est inscrit AVANT l'appel à `factory` →
@@ -109,7 +127,13 @@ export class RealtimeHub {
       return true;
     }
     // 1ᵉʳ abonné : on inscrit le sink AVANT de créer le provider (capte son 1ᵉʳ push).
-    st = { dispose: null, sinks: new Set([sink]), messages: 0 };
+    // `forward` résolu UNE fois ici (cold path) puis lu en O(1) sur `publish`.
+    st = {
+      dispose: null,
+      sinks: new Set([sink]),
+      messages: 0,
+      forward: this.#isBroadcast(channel),
+    };
     channels.set(channel, st);
     const dispose = factory(channel, (ch, payload) =>
       this.publish(ch, payload),
@@ -141,18 +165,29 @@ export class RealtimeHub {
   }
 
   /**
-   * Publie une charge sur un canal : **fan-out local** ({@link publishLocal}) **+**
-   * propagation au {@link IBackplane} (autres workers/pods). C'est le point d'entrée
-   * des providers locaux (tickers, listeners) ET de tout code serveur.
+   * Publie une charge sur un canal : **fan-out local** **+** propagation conditionnelle
+   * au {@link IBackplane} (autres workers/pods). C'est le point d'entrée des providers
+   * locaux (tickers, listeners) ET de tout code serveur.
+   *
+   * Forward **opt-in par canal** : la charge ne traverse le backplane que si le canal
+   * est déclaré **broadcast** ({@link markBroadcastChannel}). Par défaut un canal est
+   * **instance-local** (per-instance : observabilité, état du pod) → il reste dans le
+   * process. Le flag est mis en cache dans l'état du canal (lu en O(1)) ; pour un
+   * `publish` serveur sans abonné local (pas d'état), la politique est évaluée à la volée.
    *
    * Anti-boucle : un message **reçu** du backplane ne repasse PAS par ici (il appelle
    * `publishLocal` directement) → aucune ré-émission cross-process, pas de tempête.
    */
   publish(channel: string, payload: unknown): void {
-    this.publishLocal(channel, payload);
-    // Propagation cross-process : no-op tant qu'aucun backplane n'est branché
-    // (mono-process). Le test `!== null` est le seul coût en mono-process.
-    if (this.#backplane !== null) this.#backplane.publish(channel, payload);
+    const st = this.#channels?.get(channel);
+    if (st !== undefined) this.#fanout(st, payload);
+    // Mono-process : aucun backplane → seul ce test est payé, la politique de forward
+    // n'est JAMAIS évaluée (préserve l'invariant « hot path = 1 test null »).
+    if (this.#backplane === null) return;
+    // Forward opt-in : flag caché si le canal a un état local, sinon politique à la volée
+    // (publish serveur vers un canal sans abonné ici mais avec des abonnés ailleurs).
+    const forward = st !== undefined ? st.forward : this.#isBroadcast(channel);
+    if (forward) this.#backplane.publish(channel, payload);
   }
 
   /**
@@ -164,7 +199,11 @@ export class RealtimeHub {
    */
   publishLocal(channel: string, payload: unknown): void {
     const st = this.#channels?.get(channel);
-    if (!st) return;
+    if (st !== undefined) this.#fanout(st, payload);
+  }
+
+  /** Fan-out interne (sonde + livraison isolée). Partagé par `publish`/`publishLocal`. */
+  #fanout(st: ChannelState, payload: unknown): void {
     // Sonde : 1 publish, N livraisons (= fan-out réel). Incréments O(1).
     this.#publishTotal += 1;
     st.messages += 1;
@@ -176,6 +215,38 @@ export class RealtimeHub {
         /* une connexion fautive ne casse pas le fan-out aux autres */
       }
     }
+  }
+
+  /**
+   * Déclare un **préfixe** de canal **broadcast** : ses publications traversent le
+   * {@link IBackplane} (cross-process). Tout le reste demeure instance-local (défaut sûr).
+   * Le préfixe couvre la granularité de cadence (`chat:` matche `chat:room1:1000`).
+   *
+   * Idempotent ; cold-path (appelé au handshake/boot d'un endpoint realtime, jamais
+   * sur le chemin chaud). Réévalue les canaux DÉJÀ actifs → l'ordre déclaration/abonnement
+   * n'a pas d'importance.
+   *
+   * @param prefix - préfixe de canal à forwarder (ex. `"chat:"`, `"presence:"`).
+   */
+  markBroadcastChannel(prefix: string): void {
+    const prefixes = (this.#broadcastPrefixes ??= []);
+    if (prefixes.includes(prefix)) return;
+    prefixes.push(prefix);
+    if (this.#channels) {
+      for (const [channel, st] of this.#channels) {
+        if (!st.forward && channel.startsWith(prefix)) st.forward = true;
+      }
+    }
+  }
+
+  /** Un canal est-il broadcast (préfixe déclaré) ? `false` si aucune politique (défaut local). */
+  #isBroadcast(channel: string): boolean {
+    const prefixes = this.#broadcastPrefixes;
+    if (prefixes === null) return false;
+    for (let i = 0; i < prefixes.length; i++) {
+      if (channel.startsWith(prefixes[i]!)) return true;
+    }
+    return false;
   }
 
   /**
@@ -299,6 +370,7 @@ export class RealtimeHub {
     }
     this.#connections?.clear();
     this.#connections = null;
+    this.#broadcastPrefixes = null;
     // Détache le backplane (reset). On ne `stop()` PAS ici : le hub n'en est pas
     // l'owner (créé/détruit par le module qui l'a branché) — il le libère lui-même.
     this.#backplane = null;
