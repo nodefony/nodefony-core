@@ -37,10 +37,34 @@ import {
   FlashValue,
   ensureLiveStyles,
   DocHint,
+  GraphHint,
+  MiniChart,
 } from "../components/ui";
 
 /** Version de la doc des fiches d'aide (`DocHint`) de la vue Cluster. */
 const CLUSTER_DOC = "v1.0";
+
+/** Points d'historique gardés par worker pour les sparklines (≈ 40 ticks). */
+const HISTORY = 40;
+const MB = 1024 ** 2;
+
+/** Séries temporelles dérivées (live) d'UN worker — clé = pid (`instanceId`). */
+interface WorkerSeries {
+  /** % CPU d'un cœur sur l'intervalle. */
+  cpu: number[];
+  /** Heap V8 utilisé (Mo). */
+  heap: number[];
+  /** Lag event-loop (ms). */
+  loop: number[];
+}
+
+/** Ajoute une valeur à une série bornée (FIFO, cap `HISTORY`) — 0 mutation in-place. */
+function cap(arr: number[], v: number): number[] {
+  const n =
+    arr.length >= HISTORY ? arr.slice(arr.length - HISTORY + 1) : arr.slice();
+  n.push(v);
+  return n;
+}
 
 // ───────────────────────────────────────────────────────────────────────────
 // Types MIROIR (frontière isomorphe : ne JAMAIS importer le runtime serveur
@@ -216,10 +240,14 @@ function ClusterHealthLive({
   onRate?: (ms: number) => void;
 }) {
   const { data, intervalMs: effectiveMs } =
-    useNodefonyAdaptiveChannelData<HealthPayload>("realtime:health", intervalMs, {
-      defaultMs: 5000,
-      enabled: adaptive,
-    });
+    useNodefonyAdaptiveChannelData<HealthPayload>(
+      "realtime:health",
+      intervalMs,
+      {
+        defaultMs: 5000,
+        enabled: adaptive,
+      },
+    );
   useEffect(() => {
     if (data) onData(data);
     // onData = setState (stable) → hors deps
@@ -260,6 +288,48 @@ function Metric({
 }
 
 /**
+ * Mini-courbe live d'UNE métrique d'un worker (SVG, jamais recharts) — en-tête
+ * label + dernière valeur (tabular-nums), tracé borné. Rendue UNIQUEMENT en temps
+ * réel quand ≥ 2 points (l'historique se dérive des snapshots pod, 0 backend).
+ */
+function Sparkline({
+  label,
+  data,
+  color,
+  unit,
+  max,
+  threshold,
+}: {
+  label: string;
+  data: number[];
+  color: string;
+  unit: string;
+  max?: number;
+  threshold?: number;
+}) {
+  const last = data.length ? data[data.length - 1]! : 0;
+  return (
+    <div style={{ minWidth: 0 }}>
+      <Group gap={4} justify="space-between" wrap="nowrap">
+        <Text size="xs" c="dimmed" truncate>
+          {label}
+        </Text>
+        <Text size="xs" fw={600} style={{ fontVariantNumeric: "tabular-nums" }}>
+          {last}
+          {unit}
+        </Text>
+      </Group>
+      <MiniChart
+        series={[{ data, color, label }]}
+        height={34}
+        max={max}
+        threshold={threshold}
+      />
+    </div>
+  );
+}
+
+/**
  * Carte « salle des machines » d'UN worker — process (CPU/event-loop/ELU/mém) +
  * socket (canaux, connexions, fan-out, backpressure). `contain: content` isole
  * le repaint au tick à cette carte (cf « ⚡ CSS & perf »).
@@ -268,13 +338,17 @@ function WorkerCard({
   inst,
   live,
   index,
+  series,
 }: {
   inst: InstanceHealth;
   live: boolean;
   index: number;
+  series?: WorkerSeries;
 }) {
   const p = inst.process;
   const channels = inst.channels.map((c) => c.channel).join(", ") || "aucun";
+  // Sparklines visibles seulement en live avec ≥ 2 points (sinon rien à tracer).
+  const hasGraphs = live && !!series && series.cpu.length > 1;
   return (
     <Card
       withBorder
@@ -291,27 +365,78 @@ function WorkerCard({
           </ThemeIcon>
           <div>
             <Text fw={600}>worker {index + 1}</Text>
-            <Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
+            <Text
+              size="xs"
+              c="dimmed"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
               pid {inst.instanceId}
             </Text>
           </div>
         </Group>
         {p ? (
           <Badge variant="light" color="gray">
-            <FlashValue value={fmtUptime(p.uptime)}>{fmtUptime(p.uptime)}</FlashValue>
+            <FlashValue value={fmtUptime(p.uptime)}>
+              {fmtUptime(p.uptime)}
+            </FlashValue>
           </Badge>
         ) : null}
       </Group>
 
       <Divider
-        label="Process"
+        label={
+          <Group gap={4} wrap="nowrap">
+            <Text inherit>Process</Text>
+            {hasGraphs ? (
+              <GraphHint
+                title="Courbes live du worker"
+                version={CLUSTER_DOC}
+                summary="CPU, heap et event-loop sur les dernières mesures — séries dérivées des snapshots pod (par pid), 0 état serveur."
+                sections={[
+                  {
+                    label: "Lecture",
+                    body: "CPU = % d'un cœur (≈100 = saturé). Event-loop > 50 ms = blocage synchrone (seuil orange).",
+                  },
+                ]}
+              />
+            ) : null}
+          </Group>
+        }
         labelPosition="left"
         mb="xs"
         styles={{ label: { fontSize: 11 } }}
       />
+      {hasGraphs && series ? (
+        <SimpleGrid cols={3} spacing="xs" mb="sm">
+          <Sparkline
+            label="CPU"
+            data={series.cpu}
+            color="var(--mantine-color-teal-6)"
+            unit="%"
+            max={100}
+          />
+          <Sparkline
+            label="Heap"
+            data={series.heap}
+            color="var(--mantine-color-blue-6)"
+            unit=" Mo"
+          />
+          <Sparkline
+            label="Event-loop"
+            data={series.loop}
+            color="var(--mantine-color-grape-6)"
+            unit=" ms"
+            threshold={50}
+          />
+        </SimpleGrid>
+      ) : null}
       {p ? (
         <SimpleGrid cols={3} spacing="xs" mb="sm">
-          <Metric label="CPU" value={`${p.cpuPercent}%`} color={cpuColor(p.cpuPercent)} />
+          <Metric
+            label="CPU"
+            value={`${p.cpuPercent}%`}
+            color={cpuColor(p.cpuPercent)}
+          />
           <Metric
             label="Event-loop"
             value={`${p.eventLoopMs} ms`}
@@ -330,7 +455,11 @@ function WorkerCard({
               />
             }
           />
-          <Metric label="ELU" value={p.eluUtilization.toFixed(2)} color={loopColor(p.eventLoopMs)} />
+          <Metric
+            label="ELU"
+            value={p.eluUtilization.toFixed(2)}
+            color={loopColor(p.eventLoopMs)}
+          />
           <Metric label="RSS" value={niceBytes(p.rss)} />
           <Metric label="Heap" value={niceBytes(p.heapUsed)} />
           <Metric label="Hors-heap" value={niceBytes(p.external)} />
@@ -374,7 +503,9 @@ function WorkerCard({
         <Metric
           label="Backpressure"
           value={niceBytes(inst.backpressure.totalBufferedAmount)}
-          color={inst.backpressure.totalBufferedAmount > 0 ? "orange" : undefined}
+          color={
+            inst.backpressure.totalBufferedAmount > 0 ? "orange" : undefined
+          }
           info={
             <DocHint
               title="Backpressure (bufferedAmount)"
@@ -421,9 +552,44 @@ export const Cluster = observer(() => {
   const [effectiveMs, setEffectiveMs] = useState(liveMs);
   // Dernier snapshot live (écrase le snapshot HTTP tant que ON).
   const [liveHealth, setLiveHealth] = useState<HealthPayload | null>(null);
+  // Séries temporelles PAR worker (pid → cpu/heap/loop), dérivées des snapshots
+  // pod successifs. 0 backend : l'historique se reconstitue côté front.
+  const [series, setSeries] = useState<Map<string, WorkerSeries>>(new Map());
   useEffect(() => {
-    if (!live) setLiveHealth(null);
+    if (!live) {
+      setLiveHealth(null);
+      setSeries(new Map());
+    }
   }, [live]);
+
+  // À chaque snapshot live, empile les métriques process de chaque worker (clé pid)
+  // et PURGE les pid disparus (respawn → nouveau pid = nouvelle série, l'ancienne tombe).
+  useEffect(() => {
+    if (!live || !liveHealth) return;
+    const n = normalize(liveHealth);
+    if (!n) return;
+    setSeries((prev) => {
+      const next = new Map(prev);
+      const seen = new Set<string>();
+      for (const inst of n.instances) {
+        seen.add(inst.instanceId);
+        const p = inst.process;
+        if (!p) continue;
+        const cur = next.get(inst.instanceId) ?? {
+          cpu: [],
+          heap: [],
+          loop: [],
+        };
+        next.set(inst.instanceId, {
+          cpu: cap(cur.cpu, p.cpuPercent),
+          heap: cap(cur.heap, Math.round(p.heapUsed / MB)),
+          loop: cap(cur.loop, p.eventLoopMs),
+        });
+      }
+      for (const id of next.keys()) if (!seen.has(id)) next.delete(id);
+      return next;
+    });
+  }, [liveHealth, live]);
 
   const norm = normalize(live ? (liveHealth ?? data) : data);
   const workers = norm?.instances ?? [];
@@ -444,11 +610,21 @@ export const Cluster = observer(() => {
         actions={
           <Group gap="sm">
             {auto && live ? (
-              <Badge variant="light" color="grape" leftSection={<IconBolt size={12} />}>
+              <Badge
+                variant="light"
+                color="grape"
+                leftSection={<IconBolt size={12} />}
+              >
                 AIMD ~{Math.round(effectiveMs / 1000)}s
               </Badge>
             ) : null}
-            <HoverCard width={300} shadow="md" position="bottom-end" openDelay={120} closeDelay={120}>
+            <HoverCard
+              width={300}
+              shadow="md"
+              position="bottom-end"
+              openDelay={120}
+              closeDelay={120}
+            >
               <HoverCard.Target>
                 <div>
                   <Switch
@@ -464,7 +640,9 @@ export const Cluster = observer(() => {
                 <Group gap={6} mb={6}>
                   <IconBolt size={14} />
                   <Text size="xs" fw={600}>
-                    {auto ? "Cadence désirée (plancher)" : "Granularité du canal"}
+                    {auto
+                      ? "Cadence désirée (plancher)"
+                      : "Granularité du canal"}
                   </Text>
                 </Group>
                 <SegmentedControl
@@ -515,7 +693,8 @@ export const Cluster = observer(() => {
           icon={<IconInfoCircle size={18} />}
           title="Mode mono-process"
         >
-          Ce process tourne seul (pas de cluster). Pour la vue pod agrégée, lancer{" "}
+          Ce process tourne seul (pas de cluster). Pour la vue pod agrégée,
+          lancer{" "}
           <Text span ff="monospace" fz="sm">
             nodefony cluster -w N
           </Text>{" "}
@@ -591,7 +770,9 @@ export const Cluster = observer(() => {
             <KpiCard
               icon={<IconActivity size={20} />}
               label="Backpressure"
-              accent={totals.backpressure.totalBufferedAmount > 0 ? "orange" : "gray"}
+              accent={
+                totals.backpressure.totalBufferedAmount > 0 ? "orange" : "gray"
+              }
               pulse={live}
               value={
                 <FlashValue value={totals.backpressure.totalBufferedAmount}>
@@ -617,7 +798,13 @@ export const Cluster = observer(() => {
 
         <SimpleGrid cols={{ base: 1, md: 2, xl: 3 }} spacing="md" mt="md">
           {workers.map((inst, i) => (
-            <WorkerCard key={inst.instanceId} inst={inst} live={live} index={i} />
+            <WorkerCard
+              key={inst.instanceId}
+              inst={inst}
+              live={live}
+              index={i}
+              series={series.get(inst.instanceId)}
+            />
           ))}
         </SimpleGrid>
       </DataState>

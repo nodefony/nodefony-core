@@ -200,33 +200,37 @@ const MODES: {
 ];
 
 /** Provenance du nombre de workers — chaîne de priorité (1er défini gagne). */
-const WORKER_SOURCES: { rank: number; key: string; desc: string; ex: string }[] =
-  [
-    {
-      rank: 1,
-      key: "CLI --workers <n|auto>",
-      desc: "Override explicite de l'opérateur au lancement. Priorité maximale (jamais bridé).",
-      ex: "nodefony cluster --workers 4",
-    },
-    {
-      rank: 2,
-      key: "env NODEFONY_WORKERS",
-      desc: "Override de déploiement (Docker / k8s) sans éditer de fichier.",
-      ex: "NODEFONY_WORKERS=4 nodefony cluster",
-    },
-    {
-      rank: 3,
-      key: "config cluster.workers",
-      desc: "Le réglage DevOps par défaut de l'app — successeur de l'ancien « instances » de PM2.",
-      ex: "cluster.config.ts → { workers: 4 }",
-    },
-    {
-      rank: 4,
-      key: "défaut",
-      desc: "Mono-process cloud-native (1 process = 1 pod). Aucune machinerie cluster.",
-      ex: "1",
-    },
-  ];
+const WORKER_SOURCES: {
+  rank: number;
+  key: string;
+  desc: string;
+  ex: string;
+}[] = [
+  {
+    rank: 1,
+    key: "CLI --workers <n|auto>",
+    desc: "Override explicite de l'opérateur au lancement. Priorité maximale (jamais bridé).",
+    ex: "nodefony cluster --workers 4",
+  },
+  {
+    rank: 2,
+    key: "env NODEFONY_WORKERS",
+    desc: "Override de déploiement (Docker / k8s) sans éditer de fichier.",
+    ex: "NODEFONY_WORKERS=4 nodefony cluster",
+  },
+  {
+    rank: 3,
+    key: "config cluster.workers",
+    desc: "Le réglage DevOps par défaut de l'app — successeur de l'ancien « instances » de PM2.",
+    ex: "cluster.config.ts → { workers: 4 }",
+  },
+  {
+    rank: 4,
+    key: "défaut",
+    desc: "Mono-process cloud-native (1 process = 1 pod). Aucune machinerie cluster.",
+    ex: "1",
+  },
+];
 
 /** Petite stat de la sous-card Vite : label + valeur (mono/tabular) + badge optionnel. */
 function ViteStat({
@@ -303,7 +307,9 @@ export const Runtime = observer(() => {
   const vite = useResource(
     useCallback(
       () =>
-        store.api.getAbsolute<FrontendStatusView>("/nodefony/frontend/api/vite"),
+        store.api.getAbsolute<FrontendStatusView>(
+          "/nodefony/frontend/api/vite",
+        ),
       [store],
     ),
   );
@@ -342,7 +348,12 @@ export const Runtime = observer(() => {
           <Card withBorder radius="md" p="lg">
             <Group justify="space-between" align="flex-start" wrap="wrap">
               <Group gap="md" wrap="nowrap">
-                <ThemeIcon size={52} radius="md" variant="light" color={mode.color}>
+                <ThemeIcon
+                  size={52}
+                  radius="md"
+                  variant="light"
+                  color={mode.color}
+                >
                   <IconRocket size={30} />
                 </ThemeIcon>
                 <div>
@@ -364,7 +375,7 @@ export const Runtime = observer(() => {
                       sections={[
                         {
                           label: "Note",
-                          body: "En cluster, l'UI n'est pas encore servie (renderProdTags 14.2) → cette page s'affiche surtout en développement ; l'API reste interrogeable.",
+                          body: "En production/cluster, l'UI est servie depuis le bundle compilé (manifest.json, P14.5) — pas de Vite. L'API reste interrogeable dans tous les modes.",
                         },
                       ]}
                     />
@@ -510,7 +521,10 @@ export const Runtime = observer(() => {
                         label="Port"
                         value={vite.data.primary.port ?? "—"}
                       />
-                      <ViteStat label="PID" value={vite.data.primary.pid ?? "—"} />
+                      <ViteStat
+                        label="PID"
+                        value={vite.data.primary.pid ?? "—"}
+                      />
                       <ViteStat
                         label="Protocole"
                         value={vite.data.primary.https ? "https" : "http"}
@@ -547,7 +561,10 @@ export const Runtime = observer(() => {
 
       {/* ───────── 2. Modes de lancement ───────── */}
       <div>
-        <Section icon={<IconTerminal2 size={18} />} title="Modes de lancement" />
+        <Section
+          icon={<IconTerminal2 size={18} />}
+          title="Modes de lancement"
+        />
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
           {MODES.map((m) => {
             const isCurrent = mode?.id === m.id;
@@ -594,15 +611,16 @@ export const Runtime = observer(() => {
               <IconAdjustmentsHorizontal size={18} />
             </ThemeIcon>
             <Text fw={700}>
-              Logique DevOps — <Code>workers</Code> est un paramètre de déploiement
+              Logique DevOps — <Code>workers</Code> est un paramètre de
+              déploiement
             </Text>
           </Group>
           <Text size="sm" c="dimmed" mb="md" maw={840}>
             Ce choix se pose <b>au déploiement — en production / cluster</b>. En{" "}
-            <b>développement</b>, la topologie est figée à 1 process (Vite exige un
-            maître unique), donc rien à décider. Le <b>même artefact</b> tourne
-            ensuite en 1 ou N process selon la <b>cible</b>, sans recompiler. La
-            question pivot : <b>qui assure le scaling ?</b>
+            <b>développement</b>, la topologie est figée à 1 process (Vite exige
+            un maître unique), donc rien à décider. Le <b>même artefact</b>{" "}
+            tourne ensuite en 1 ou N process selon la <b>cible</b>, sans
+            recompiler. La question pivot : <b>qui assure le scaling ?</b>
           </Text>
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
             <Paper withBorder radius="md" p="md">
@@ -615,17 +633,19 @@ export const Runtime = observer(() => {
                 </Text>
               </Group>
               <Text size="sm" c="dimmed">
-                1 pod / container = 1 process. Scaling <b>horizontal délégué</b> :
-                k8s HPA, Cloud Run, Fargate, Nomad, Swarm ajoutent des réplicas.
-                Supervision + restart assurés par l'orchestrateur (liveness /
-                readiness) ; observabilité par pod, agrégée côté collecteur
-                (Prometheus). <b>Défaut cloud-native.</b>
+                1 pod / container = 1 process. Scaling <b>horizontal délégué</b>{" "}
+                : k8s HPA, Cloud Run, Fargate, Nomad, Swarm ajoutent des
+                réplicas. Supervision + restart assurés par l'orchestrateur
+                (liveness / readiness) ; observabilité par pod, agrégée côté
+                collecteur (Prometheus). <b>Défaut cloud-native.</b>
               </Text>
               <Text size="xs" fw={700} c="blue" mt="sm" mb={4}>
                 Choisis-le si :
               </Text>
               <List size="xs" spacing={2}>
-                <List.Item>k8s / Cloud Run / Fargate / Nomad / Swarm.</List.Item>
+                <List.Item>
+                  k8s / Cloud Run / Fargate / Nomad / Swarm.
+                </List.Item>
                 <List.Item>
                   tu veux auto-scaling (HPA), rolling updates, self-healing.
                 </List.Item>
@@ -645,18 +665,20 @@ export const Runtime = observer(() => {
                 </Text>
               </Group>
               <Text size="sm" c="dimmed">
-                Une grosse VM / VPS / gros pod <b>sans orchestrateur</b>. Le master
-                fork N workers (<Code>cluster</Code> Node), le noyau répartit les
-                connexions. Scaling <b>vertical</b> : exploiter les cœurs d'une
-                machine en un seul lancement. <Code>auto</Code> = cgroup-aware (lit
-                le quota CPU du conteneur, jamais <Code>os.cpus()</Code> → ne
-                sur-fork pas un pod bridé).
+                Une grosse VM / VPS / gros pod <b>sans orchestrateur</b>. Le
+                master fork N workers (<Code>cluster</Code> Node), le noyau
+                répartit les connexions. Scaling <b>vertical</b> : exploiter les
+                cœurs d'une machine en un seul lancement. <Code>auto</Code> =
+                cgroup-aware (lit le quota CPU du conteneur, jamais{" "}
+                <Code>os.cpus()</Code> → ne sur-fork pas un pod bridé).
               </Text>
               <Text size="xs" fw={700} c="grape" mt="sm" mb={4}>
                 Choisis-le si :
               </Text>
               <List size="xs" spacing={2}>
-                <List.Item>1 VM / VPS / bare-metal, pas d'orchestrateur.</List.Item>
+                <List.Item>
+                  1 VM / VPS / bare-metal, pas d'orchestrateur.
+                </List.Item>
                 <List.Item>
                   tu veux saturer les cœurs sans gérer N réplicas.
                 </List.Item>
@@ -677,9 +699,9 @@ export const Runtime = observer(() => {
           >
             <b>Réglable sans rebuild</b> : on cible au déploiement via{" "}
             <Code>NODEFONY_WORKERS</Code> (Docker / k8s) ou{" "}
-            <Code>cluster.workers</Code> (config app) — ordre de priorité détaillé
-            plus bas. PM2 est déprécié : la supervision des process revient à
-            l'orchestrateur (mode 1) ou au master (mode cluster).
+            <Code>cluster.workers</Code> (config app) — ordre de priorité
+            détaillé plus bas. PM2 est déprécié : la supervision des process
+            revient à l'orchestrateur (mode 1) ou au master (mode cluster).
           </Alert>
         </Paper>
       </div>
@@ -691,13 +713,13 @@ export const Runtime = observer(() => {
           title="Deux axes orthogonaux"
         />
         <Text c="dimmed" mb="md" maw={780}>
-          Sous le capot, le lancement se règle sur <b>deux axes indépendants</b> :
-          le <b>pipeline front</b> (comment l'UI est servie) et le{" "}
+          Sous le capot, le lancement se règle sur <b>deux axes indépendants</b>{" "}
+          : le <b>pipeline front</b> (comment l'UI est servie) et le{" "}
           <b>modèle de process</b> (combien de process Node servent le trafic).
           Ils sont <b>orthogonaux</b> — l'un ne contraint pas l'autre, chaque
-          combinaison est un point valide de la matrice. C'est de la séparation des
-          préoccupations : une seule source de vérité par axe, aucun mode composite
-          à maintenir en plus.
+          combinaison est un point valide de la matrice. C'est de la séparation
+          des préoccupations : une seule source de vérité par axe, aucun mode
+          composite à maintenir en plus.
         </Text>
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
           <Paper withBorder radius="md" p="md">
@@ -712,12 +734,13 @@ export const Runtime = observer(() => {
             </Text>
             <List size="sm" spacing={4}>
               <List.Item>
-                <b>development</b> → serveur Vite : transpile à la volée + HMR (0
-                rebuild, état préservé).
+                <b>development</b> → serveur Vite : transpile à la volée + HMR
+                (0 rebuild, état préservé).
               </List.Item>
               <List.Item>
-                <b>production</b> → bundle pré-compilé + <Code>manifest.json</Code>,
-                servi en statique (assets fingerprintés, immuables).
+                <b>production</b> → bundle pré-compilé +{" "}
+                <Code>manifest.json</Code>, servi en statique (assets
+                fingerprintés, immuables).
               </List.Item>
             </List>
           </Paper>
@@ -735,7 +758,8 @@ export const Runtime = observer(() => {
             <List size="sm" spacing={4}>
               <List.Item>
                 <b>1</b> → mono-process : aucune machinerie cluster (défaut
-                cloud-native, 1 pod = 1 process, scaling délégué à l'orchestrateur).
+                cloud-native, 1 pod = 1 process, scaling délégué à
+                l'orchestrateur).
               </List.Item>
               <List.Item>
                 <b>N</b> → cluster : 1 master + N workers (<Code>cluster</Code>{" "}
@@ -750,12 +774,13 @@ export const Runtime = observer(() => {
           color="blue"
           icon={<IconInfoCircle size={18} />}
         >
-          <b>Pourquoi deux axes plutôt qu'une liste de modes ?</b> Servir le front
-          et dimensionner les process sont des préoccupations orthogonales. En les
-          découplant, le réglage <Code>workers</Code> reste la <b>seule</b> source
-          de vérité de la topologie ; <Code>development</Code> impose juste 1
-          process (Vite exige un maître unique). On évite ainsi un mode composite
-          « cluster-dev » à maintenir en parallèle.
+          <b>Pourquoi deux axes plutôt qu'une liste de modes ?</b> Servir le
+          front et dimensionner les process sont des préoccupations
+          orthogonales. En les découplant, le réglage <Code>workers</Code> reste
+          la <b>seule</b> source de vérité de la topologie ;{" "}
+          <Code>development</Code> impose juste 1 process (Vite exige un maître
+          unique). On évite ainsi un mode composite « cluster-dev » à maintenir
+          en parallèle.
         </Alert>
       </div>
 
@@ -766,9 +791,10 @@ export const Runtime = observer(() => {
           title="Schéma — master & workers (mode cluster)"
         />
         <Text c="dimmed" mb="md" maw={760}>
-          En cluster, un process <b>master</b> ne sert <b>aucun trafic HTTP</b> :
-          il <i>fork</i> les workers, relaie les messages internes (IPC), agrège
-          les sondes et tient le pont unique vers l'extérieur (futur Redis). Chaque
+          En cluster, un process <b>master</b> ne sert <b>aucun trafic HTTP</b>{" "}
+          : il <i>fork</i> les workers, relaie les messages internes (IPC),
+          agrège les sondes et tient le pont unique vers l'extérieur (futur
+          Redis). Chaque
           <b> worker</b> est un serveur complet (HTTP + WS) avec sa propre sonde
           process. Le système d'exploitation répartit les connexions entre eux.
         </Text>
@@ -827,8 +853,8 @@ export const Runtime = observer(() => {
           color="teal"
           icon={<IconBolt size={18} />}
         >
-          En <b>développement</b>, pas de master : <b>un seul process</b> avec Vite
-          intégré (HMR). Le multi-process est réservé à production/cluster.
+          En <b>développement</b>, pas de master : <b>un seul process</b> avec
+          Vite intégré (HMR). Le multi-process est réservé à production/cluster.
         </Alert>
       </div>
 
