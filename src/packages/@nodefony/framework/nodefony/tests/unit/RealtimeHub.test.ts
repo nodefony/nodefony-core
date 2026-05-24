@@ -1,7 +1,19 @@
 import { expect } from "chai";
 import "mocha";
-import { RealtimeHub } from "../../src/RealtimeHub.js";
+import { RealtimeHub, SLOW_CONSUMER_BYTES } from "../../src/RealtimeHub.js";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
+import type { IRealtimeConnProbe } from "../../interfaces/IRealtimeProbe.js";
+
+/** Connexion factice (sonde) : `bufferedAmount` mutable pour simuler un slow-consumer. */
+function fakeConn(over: Partial<IRealtimeConnProbe> = {}): IRealtimeConnProbe {
+  return {
+    readyState: 1,
+    bufferedAmount: 0,
+    bytesSent: 0,
+    messagesSent: 0,
+    ...over,
+  };
+}
 
 /**
  * RealtimeHub — broker des canaux PARTAGÉS côté serveur : 1 provider par canal/pod,
@@ -81,5 +93,119 @@ describe("RealtimeHub — broker canaux partagés (fan-out + ref-count)", () => 
     hub.clear();
     expect(disposed).to.equal(2);
     expect(hub.activeChannels).to.deep.equal([]);
+  });
+});
+
+/**
+ * Sonde « socket Nodefony » — auto-observabilité du hub : canaux/abonnés, fan-out,
+ * connexions, backpressure (`bufferedAmount` = blocker #1). Tests purs (pas de WS).
+ */
+describe("RealtimeHub.probe — auto-observabilité (fan-out + backpressure)", () => {
+  const factory = (): (() => void) => () => {};
+
+  it("hub vide → snapshot à zéro (0 alloc)", () => {
+    const p = new RealtimeHub().probe();
+    expect(p.channels).to.deep.equal([]);
+    expect(p.channelCount).to.equal(0);
+    expect(p.publishTotal).to.equal(0);
+    expect(p.fanoutTotal).to.equal(0);
+    expect(p.connectionCount).to.equal(0);
+    expect(p.backpressure.maxBufferedAmount).to.equal(0);
+    expect(p.backpressure.slowConsumers).to.equal(0);
+    expect(p.ts).to.be.a("number");
+  });
+
+  it("canaux : abonnés + publications cumulées par canal", () => {
+    const hub = new RealtimeHub();
+    let pub: RealtimePublish | null = null;
+    hub.subscribe(
+      "ch",
+      () => {},
+      (_c, p) => ((pub = p), () => {}),
+    );
+    hub.subscribe("ch", () => {}, factory); // 2ᵉ abonné, provider partagé
+    pub!("ch", { v: 1 });
+    pub!("ch", { v: 2 });
+    const stat = hub.probe().channels.find((c) => c.channel === "ch")!;
+    expect(stat.subscribers).to.equal(2);
+    expect(stat.messages).to.equal(2); // 2 publish sur le canal
+  });
+
+  it("fan-out : publishTotal = appels, fanoutTotal = publish × abonnés", () => {
+    const hub = new RealtimeHub();
+    let pub: RealtimePublish | null = null;
+    hub.subscribe(
+      "ch",
+      () => {},
+      (_c, p) => ((pub = p), () => {}),
+    );
+    hub.subscribe("ch", () => {}, factory); // 2 abonnés
+    pub!("ch", 1);
+    pub!("ch", 2); // 2 publishes × 2 abonnés = 4 livraisons
+    const p = hub.probe();
+    expect(p.publishTotal).to.equal(2);
+    expect(p.fanoutTotal).to.equal(4);
+  });
+
+  it("backpressure : max/total bufferedAmount + comptage slow-consumers", () => {
+    const hub = new RealtimeHub();
+    const slow = fakeConn({
+      bufferedAmount: SLOW_CONSUMER_BYTES + 1,
+      bytesSent: 10,
+    });
+    const ok = fakeConn({
+      bufferedAmount: 2048,
+      bytesSent: 5,
+      messagesSent: 3,
+    });
+    hub.registerConnection(slow);
+    hub.registerConnection(ok);
+    const p = hub.probe();
+    expect(p.connectionCount).to.equal(2);
+    expect(p.backpressure.totalBufferedAmount).to.equal(
+      SLOW_CONSUMER_BYTES + 1 + 2048,
+    );
+    expect(p.backpressure.maxBufferedAmount).to.equal(SLOW_CONSUMER_BYTES + 1);
+    expect(p.backpressure.slowConsumers).to.equal(1); // seul `slow` dépasse le seuil
+    expect(p.bytesSentTotal).to.equal(15);
+    expect(p.messagesSentTotal).to.equal(3);
+  });
+
+  it("unregisterConnection retire du registre de la sonde", () => {
+    const hub = new RealtimeHub();
+    const c = fakeConn({ bufferedAmount: 100 });
+    hub.registerConnection(c);
+    expect(hub.probe().connectionCount).to.equal(1);
+    hub.unregisterConnection(c);
+    const p = hub.probe();
+    expect(p.connectionCount).to.equal(0);
+    expect(p.backpressure.totalBufferedAmount).to.equal(0);
+  });
+
+  it("recordInbound compte les frames full-duplex entrantes", () => {
+    const hub = new RealtimeHub();
+    hub.recordInbound();
+    hub.recordInbound();
+    expect(hub.probe().inboundTotal).to.equal(2);
+  });
+
+  it("clear() remet les compteurs et le registre à zéro", () => {
+    const hub = new RealtimeHub();
+    let pub: RealtimePublish | null = null;
+    hub.subscribe(
+      "ch",
+      () => {},
+      (_c, p) => ((pub = p), () => {}),
+    );
+    pub!("ch", 1);
+    hub.registerConnection(fakeConn({ bufferedAmount: 50 }));
+    hub.recordInbound();
+    hub.clear();
+    const p = hub.probe();
+    expect(p.publishTotal).to.equal(0);
+    expect(p.fanoutTotal).to.equal(0);
+    expect(p.inboundTotal).to.equal(0);
+    expect(p.connectionCount).to.equal(0);
+    expect(p.channelCount).to.equal(0);
   });
 });

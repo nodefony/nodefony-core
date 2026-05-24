@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-23T23:52:53.671Z",
+  "generated": "2026-05-24T09:16:56.066Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 732,
-    "symbols": 1273,
+    "files": 734,
+    "symbols": 1280,
     "classes": 218,
-    "interfaces": 295,
+    "interfaces": 299,
     "types": 155,
     "enums": 2,
-    "functions": 159,
-    "constants": 444
+    "functions": 161,
+    "constants": 445
   },
   "symbols": {
     "Cli": {
@@ -2776,6 +2776,42 @@
       "module": "@nodefony/framework",
       "description": "Handler d'un message ENTRANT sur un canal full-duplex (client → serveur). C'est le seam des backings entrants (SIP, bridge) : le client `publish(channel, payload)` ; si le contrôleur a déclaré ce c…"
     },
+    "IRealtimeConnProbe": {
+      "name": "IRealtimeConnProbe",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Contrats d'**auto-observabilité de la socket Nodefony** — la sonde SERVEUR du {@link RealtimeHub}. Applique le patron sondes+hub (comme les sondes ORM) à la couche realtime elle-même : « la socket …"
+    },
+    "IRealtimeChannelStat": {
+      "name": "IRealtimeChannelStat",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Stat per-canal du hub (fan-out)."
+    },
+    "IRealtimeProbe": {
+      "name": "IRealtimeProbe",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Snapshot PUR du hub (sans identité process) — ce que renvoie {@link RealtimeHub.probe}. Per-instance/pod (cloud-native) ; l'agrégat multi-pod = backplane Redis / Prometheus (P13)."
+    },
+    "IRealtimeHealth": {
+      "name": "IRealtimeHealth",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "IRealtimeProbe",
+      "description": "Snapshot enrichi de l'identité d'instance — sortie de `buildRealtimeHealth`."
+    },
     "IResolver": {
       "name": "IResolver",
       "kind": "interface",
@@ -3079,6 +3115,22 @@
       "module": "@nodefony/framework",
       "description": "Producteur `IAdminApi` du **kernel** — exposé sous `/nodefony/kernel/api/*`. Le kernel ne peut pas s'enregistrer lui-même : il vit dans `@nodefony/core` et ne peut donc pas importer le broker (qui …"
     },
+    "buildRealtimeHealth": {
+      "name": "buildRealtimeHealth",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Producteur `IAdminApi` de la **socket Nodefony** — exposé sous `/nodefony/realtime/api/*`. Surface l'**auto-observabilité** du {@link RealtimeHub} (la socket s'observe à travers elle-même) : canaux…"
+    },
+    "createRealtimeAdminApi": {
+      "name": "createRealtimeAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Construit le producteur `IAdminApi` de la socket (namespace `\"realtime\"`)."
+    },
     "RealtimeController": {
       "name": "RealtimeController",
       "kind": "class",
@@ -3126,6 +3178,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Renvoie le hub realtime du process (singleton lazy)."
+    },
+    "SLOW_CONSUMER_BYTES": {
+      "name": "SLOW_CONSUMER_BYTES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Seuil d'alerte slow-consumer (octets de `bufferedAmount`). Au-delà, la connexion est comptée comme « lente » par la sonde (PAS encore de drop/close — la sonde MESURE avant qu'on optimise : stringif…"
     },
     "Resolver": {
       "name": "Resolver",
@@ -3219,7 +3279,8 @@
       "module": "@nodefony/framework",
       "extends": null,
       "implements": [
-        "IRealtimeTransport"
+        "IRealtimeTransport",
+        "IRealtimeConnProbe"
       ],
       "decorators": [],
       "description": "WsConnectionTransport — transport {@link IRealtimeTransport} CÔTÉ SERVEUR : wrap d'une connexion `ws` (1 par client connecté). Pendant serveur du `BrowserWsTransport` → la connexion serveur compose…"
@@ -9429,6 +9490,9 @@
       "IAdminRegistry": [
         "IAdminBroker"
       ],
+      "IRealtimeProbe": [
+        "IRealtimeHealth"
+      ],
       "Template": [
         "Ejs",
         "Twig"
@@ -9585,6 +9649,9 @@
       ],
       "IRoute": [
         "Route"
+      ],
+      "IRealtimeConnProbe": [
+        "WsConnectionTransport"
       ],
       "IFrontendService": [
         "FrontendService"
@@ -10340,7 +10407,11 @@
       ],
       "getRealtimeHub": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
+      ],
+      "SLOW_CONSUMER_BYTES": [
+        "src/packages/@nodefony/framework/index.ts"
       ],
       "WsConnectionTransport": [
         "src/packages/@nodefony/framework/index.ts",
@@ -10367,6 +10438,12 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "createSyslogAdminApi": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "createRealtimeAdminApi": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "buildRealtimeHealth": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "Twig": [
@@ -11149,6 +11226,7 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
@@ -11210,6 +11288,7 @@
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
@@ -11237,6 +11316,7 @@
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
@@ -11284,6 +11364,9 @@
       "CORE_PACKAGE": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
+      "IRealtimeHealth": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
+      ],
       "RpcActionHandler": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
@@ -11304,6 +11387,13 @@
       ],
       "RealtimeInboundHandler": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
+      ],
+      "IRealtimeConnProbe": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts",
+        "src/packages/@nodefony/framework/nodefony/src/WsConnectionTransport.ts"
+      ],
+      "IRealtimeProbe": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts"
       ],
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"

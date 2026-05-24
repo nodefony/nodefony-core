@@ -104,6 +104,10 @@ export const CHANNELS = {
   // Canal du FLUX ORM (débit requêtes/s + latence + slow) — distinct de la santé
   // (état/ping). Plus dynamique → cadence par défaut plus serrée côté controller.
   ormFlow: "orm:flow",
+  // Canal de SANTÉ de la socket Nodefony (auto-observabilité du RealtimeHub) :
+  // canaux/abonnés, fan-out, connexions, backpressure (bufferedAmount). La socket
+  // s'observe à travers elle-même.
+  realtimeHealth: "realtime:health",
 } as const;
 
 /** Options de coalescing du pont syslog. */
@@ -353,7 +357,8 @@ export function createStatsTicker(
     clearInterval(timer);
     eld.disable();
     gcObs.disconnect();
-    if (syslog) (syslog.off ?? syslog.removeListener)?.call(syslog, "onLog", onErr);
+    if (syslog)
+      (syslog.off ?? syslog.removeListener)?.call(syslog, "onLog", onErr);
   };
 }
 

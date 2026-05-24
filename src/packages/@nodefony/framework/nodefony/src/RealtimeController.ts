@@ -129,6 +129,11 @@ export abstract class RealtimeController
       peer.register(name, handler);
     }
 
+    // Sonde socket : la connexion (= ce transport) entre au registre du hub. La
+    // backpressure (`bufferedAmount`) vit sur la connexion brute → seul le transport
+    // l'expose. Retiré au close (onFinish, plus bas).
+    getRealtimeHub().registerConnection(transport);
+
     // Canaux full-duplex déclarés (entrée client). `null` si aucun → 0 lookup sur le
     // chemin notification (cas par défaut, ex. Studio).
     const inboundMap = this.realtimeInbound();
@@ -151,6 +156,7 @@ export abstract class RealtimeController
         hub.unsubscribe(channel, sink);
       }
       state.channels.clear();
+      hub.unregisterConnection(transport); // sonde : sortie symétrique du registre
       transport.fireClose();
       peer.dispose("ws closed");
       this.log("WS realtime client disconnected — cleanup done", "INFO");
@@ -193,6 +199,7 @@ export abstract class RealtimeController
     const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
     const handler = state?.inbound?.[method];
     if (handler) {
+      getRealtimeHub().recordInbound(); // sonde : frame full-duplex entrante
       // reply = push serveur→client sur le MÊME canal, vers CETTE connexion.
       handler(params, (payload) => state!.peer.notify(method, payload));
     }

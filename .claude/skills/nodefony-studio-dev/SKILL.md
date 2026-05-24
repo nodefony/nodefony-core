@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.8.0
+version: 1.9.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -48,7 +48,7 @@ Quand le front commence à consommer un **canal/action/endpoint/type** nouveau �
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.7.0**.
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.9.0**.
 
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
@@ -321,6 +321,17 @@ Pub/sub PAR CANAL on-demand ; providers serveur **transport-agnostiques** (`node
    le `StudioRealtimeController` le démarre au `subscribe`, `dispose()` au `unsubscribe` + `onFinish`.
 2. Client : **s'abonner = ref-compté** via `useNodefonyChannel("<canal>", handler)` (page) ou
    `useNodefonyChannelData/Stats` ; le client ré-abonne seul au reconnect.
+
+**Canaux SANTÉ génériques (broker ticker)** : `orm:health`/`orm:flow`/**`realtime:health`** sont poussés par
+`createBrokerTicker(() => fetchAdminEndpoint(broker, ns, path), …)` → Studio reste générique (0 dép au module
+producteur). Le **canal `realtime:health`** (2026-05-24) = sonde de **la Socket Nodefony** (`RealtimeHub.probe`,
+backend livré côté `nodefony-framework-dev`) : `{channels[{channel,subscribers,messages}], publish/fanoutTotal,
+connectionCount, bytes/messagesSentTotal, backpressure{max/totalBufferedAmount, slowConsumers}}`. Endpoint 1ᵉʳ
+paint = `GET /nodefony/realtime/api/health`. **À CODER (panneau Studio « Hub »)** : KpiCard canaux/abonnés/fan-out
+
+- MiniChart débit + **jauge backpressure** (bufferedAmount max/total + slow-consumers). ⚠️ le **débit/s se DÉRIVE**
+  des snapshots (delta `total`/`ts`) dans un **store sampler** (comme les stats realtime), PAS en interval React.
+  [[project_realtime_socket_probe]] · nommage « **la Socket Nodefony** » (majuscule=concept).
 
 **Actions (requête→réponse, ≠ pub/sub) — direction CONTRÔLE (2026-05-23)** :
 
@@ -921,6 +932,12 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.9.0** (2026-05-24) — **Lockstep : sonde de la Socket Nodefony** (backend livré côté `nodefony-framework-dev`).
+  Côté Studio : canal **`realtime:health`** documenté (broker ticker `fetchAdminEndpoint(broker,"realtime","health")`,
+  endpoint `GET /nodefony/realtime/api/health`) avec sa forme (`channels[]`, fan-out, `backpressure{bufferedAmount,
+slowConsumers}`). **À CODER** : panneau Studio « Hub » (KpiCard canaux/abonnés/fan-out + MiniChart débit + jauge
+  backpressure) — débit/s **dérivé** des snapshots dans un store sampler (PAS interval React). Nommage « la Socket
+  Nodefony » (majuscule=concept, minuscule=couche). [[project_realtime_socket_probe]].
 - **1.8.0** (2026-05-24) — **Cadence adaptative (AIMD) front + ergonomie « temps réel calme »**.
   (a) Nouvelle section **« 🧘 Temps réel CALME »** (neutre pour l'œil = psychologie/maîtrise) +
   recette de **passe ergonomie/test** (test des 30 s, DevTools Paint flashing, `prefers-reduced-motion`,

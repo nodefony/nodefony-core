@@ -5,7 +5,10 @@ import Router from "./nodefony/service/router";
 import Route from "./nodefony/src/Route";
 import Controller from "./nodefony/src/Controller";
 import RealtimeController from "./nodefony/src/RealtimeController";
-import RealtimeHub, { getRealtimeHub } from "./nodefony/src/RealtimeHub";
+import RealtimeHub, {
+  getRealtimeHub,
+  SLOW_CONSUMER_BYTES,
+} from "./nodefony/src/RealtimeHub";
 import WsConnectionTransport from "./nodefony/src/WsConnectionTransport";
 import Resolver from "./nodefony/src/Resolver";
 import AdminBroker from "./nodefony/service/AdminBroker";
@@ -13,6 +16,10 @@ import AdminApiController from "./nodefony/src/AdminApiController";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
+import {
+  createRealtimeAdminApi,
+  buildRealtimeHealth,
+} from "./nodefony/src/RealtimeAdminApi";
 import Twig from "./nodefony/service/Twig";
 import Ejs from "./nodefony/service/Ejs";
 //import mygraphql from "graphql";
@@ -64,6 +71,11 @@ class Framework extends Module {
       if (!broker.has("framework")) {
         broker.register(createFrameworkAdminApi(broker));
       }
+      if (!broker.has("realtime")) {
+        // Auto-observabilité de la socket Nodefony (sonde du RealtimeHub). Vit ici
+        // tant que `@nodefony/realtime` (P13.1) n'existe pas — déménagera tel quel.
+        broker.register(createRealtimeAdminApi());
+      }
       if (this.kernel.syslog && !broker.has("syslog")) {
         // Viewer de fichiers = confort DEV (remplace `tail -f`). En prod, les
         // logs vont sur stdout/stderr → collecteur : pas de fichiers exposés.
@@ -97,6 +109,7 @@ export {
   RealtimeController,
   RealtimeHub,
   getRealtimeHub,
+  SLOW_CONSUMER_BYTES,
   WsConnectionTransport,
   Route,
   Router,
@@ -106,6 +119,8 @@ export {
   createKernelAdminApi,
   createFrameworkAdminApi,
   createSyslogAdminApi,
+  createRealtimeAdminApi,
+  buildRealtimeHealth,
   Twig,
   Ejs,
   route,
@@ -141,3 +156,9 @@ export type {
 } from "./nodefony/interfaces/IRealtimeController";
 export type { ChannelSink, ChannelFactory } from "./nodefony/src/RealtimeHub";
 export type { RawWsConnection } from "./nodefony/src/WsConnectionTransport";
+export type {
+  IRealtimeProbe,
+  IRealtimeHealth,
+  IRealtimeChannelStat,
+  IRealtimeConnProbe,
+} from "./nodefony/interfaces/IRealtimeProbe";

@@ -1,4 +1,17 @@
 import type { RealtimePublish } from "../interfaces/IRealtimeController";
+import type {
+  IRealtimeConnProbe,
+  IRealtimeProbe,
+} from "../interfaces/IRealtimeProbe";
+
+/**
+ * Seuil d'alerte slow-consumer (octets de `bufferedAmount`). Au-delà, la connexion
+ * est comptée comme « lente » par la sonde (PAS encore de drop/close — la sonde MESURE
+ * avant qu'on optimise : stringify unique → seuil de drop → coalescing). 1 MiB =
+ * `websocket.maxPayload` par défaut : une file qui dépasse une frame max pleine est
+ * déjà anormale pour des canaux d'ÉTAT (latest-wins).
+ */
+export const SLOW_CONSUMER_BYTES = 1 << 20; // 1 MiB
 
 /**
  * Sink d'un canal : pousse une charge vers UNE connexion abonnée (son `peer.notify`).
@@ -23,6 +36,8 @@ interface ChannelState {
   dispose: (() => void) | null;
   /** abonnés locaux (1 sink = 1 connexion). */
   sinks: Set<ChannelSink>;
+  /** publications cumulées sur ce canal (monotone) — sonde fan-out. */
+  messages: number;
 }
 
 /**
@@ -55,6 +70,18 @@ export class RealtimeHub {
   // Lazy : alloué au 1ᵉʳ subscribe (un process sans abonné n'alloue rien).
   #channels: Map<string, ChannelState> | null = null;
 
+  // Compteurs d'auto-observabilité (sonde socket). Primitives → 0 alloc, incrément
+  // O(1) sur le chemin `publish` (pas de syscall/stringify). Cumuls MONOTONES → le
+  // débit/s se dérive côté lecteur. Cf {@link probe}.
+  #publishTotal = 0;
+  #fanoutTotal = 0;
+  #inboundTotal = 0;
+
+  // Registre des connexions vivantes — lazy (0 alloc tant qu'aucune connexion). Sert
+  // UNIQUEMENT la sonde (backpressure : `bufferedAmount` vit sur la connexion brute,
+  // pas sur le sink opaque). Inscrit au handshake, retiré au close (symétrique).
+  #connections: Set<IRealtimeConnProbe> | null = null;
+
   /**
    * Abonne une connexion à un canal. Crée le provider partagé au **1ᵉʳ** abonné (via
    * `factory`), puis ajoute le sink. Le sink est inscrit AVANT l'appel à `factory` →
@@ -75,7 +102,7 @@ export class RealtimeHub {
       return true;
     }
     // 1ᵉʳ abonné : on inscrit le sink AVANT de créer le provider (capte son 1ᵉʳ push).
-    st = { dispose: null, sinks: new Set([sink]) };
+    st = { dispose: null, sinks: new Set([sink]), messages: 0 };
     channels.set(channel, st);
     const dispose = factory(channel, (ch, payload) =>
       this.publish(ch, payload),
@@ -114,6 +141,10 @@ export class RealtimeHub {
   publish(channel: string, payload: unknown): void {
     const st = this.#channels?.get(channel);
     if (!st) return;
+    // Sonde : 1 publish, N livraisons (= fan-out réel). Incréments O(1).
+    this.#publishTotal += 1;
+    st.messages += 1;
+    this.#fanoutTotal += st.sinks.size;
     for (const sink of st.sinks) {
       try {
         sink(payload);
@@ -128,6 +159,81 @@ export class RealtimeHub {
     return this.#channels?.get(channel)?.sinks.size ?? 0;
   }
 
+  /**
+   * Inscrit une connexion au registre de la sonde (au handshake). Lazy : alloue le
+   * Set au 1ᵉʳ appel. Le hub ne lit ces connexions QUE dans {@link probe} (jamais
+   * sur le chemin chaud). À équilibrer par {@link unregisterConnection} au close.
+   */
+  registerConnection(conn: IRealtimeConnProbe): void {
+    (this.#connections ??= new Set<IRealtimeConnProbe>()).add(conn);
+  }
+
+  /** Retire une connexion du registre de la sonde (au close). No-op si absente. */
+  unregisterConnection(conn: IRealtimeConnProbe): void {
+    this.#connections?.delete(conn);
+  }
+
+  /**
+   * Compte une frame entrante full-duplex (canaux gated SIP/bridge). Appelé par le
+   * contrôleur quand un handler `realtimeInbound` traite un message client.
+   */
+  recordInbound(): void {
+    this.#inboundTotal += 1;
+  }
+
+  /**
+   * Snapshot d'auto-observabilité de la socket (per-instance). Lecture PURE (aucune
+   * alloc sur le chemin chaud, jamais throw) : agrège canaux + fan-out + connexions +
+   * **backpressure** (`bufferedAmount`, risque #1). Appelé à la demande (endpoint HTTP)
+   * ou par le ticker hub `realtime:health`. Les cumuls sont monotones → débit dérivé
+   * côté lecteur. Cf {@link IRealtimeProbe}.
+   */
+  probe(): IRealtimeProbe {
+    const channels: IRealtimeProbe["channels"] = [];
+    if (this.#channels) {
+      for (const [channel, st] of this.#channels) {
+        channels.push({
+          channel,
+          subscribers: st.sinks.size,
+          messages: st.messages,
+        });
+      }
+    }
+    let connectionCount = 0;
+    let bytesSentTotal = 0;
+    let messagesSentTotal = 0;
+    let maxBufferedAmount = 0;
+    let totalBufferedAmount = 0;
+    let slowConsumers = 0;
+    if (this.#connections) {
+      for (const c of this.#connections) {
+        connectionCount += 1;
+        bytesSentTotal += c.bytesSent;
+        messagesSentTotal += c.messagesSent;
+        const buf = c.bufferedAmount;
+        if (buf > maxBufferedAmount) maxBufferedAmount = buf;
+        totalBufferedAmount += buf;
+        if (buf >= SLOW_CONSUMER_BYTES) slowConsumers += 1;
+      }
+    }
+    return {
+      ts: Date.now(),
+      channels,
+      channelCount: channels.length,
+      publishTotal: this.#publishTotal,
+      fanoutTotal: this.#fanoutTotal,
+      inboundTotal: this.#inboundTotal,
+      connectionCount,
+      bytesSentTotal,
+      messagesSentTotal,
+      backpressure: {
+        maxBufferedAmount,
+        totalBufferedAmount,
+        slowConsumers,
+      },
+    };
+  }
+
   /** Canaux actifs (≥ 1 abonné). Lecture seule. */
   get activeChannels(): string[] {
     return this.#channels ? [...this.#channels.keys()] : [];
@@ -135,16 +241,22 @@ export class RealtimeHub {
 
   /** Dispose tous les providers et vide le hub (arrêt process / reset de test). */
   clear(): void {
-    if (!this.#channels) return;
-    for (const st of this.#channels.values()) {
-      try {
-        st.dispose?.();
-      } catch {
-        /* noop */
+    if (this.#channels) {
+      for (const st of this.#channels.values()) {
+        try {
+          st.dispose?.();
+        } catch {
+          /* noop */
+        }
       }
+      this.#channels.clear();
+      this.#channels = null;
     }
-    this.#channels.clear();
-    this.#channels = null;
+    this.#connections?.clear();
+    this.#connections = null;
+    this.#publishTotal = 0;
+    this.#fanoutTotal = 0;
+    this.#inboundTotal = 0;
   }
 }
 

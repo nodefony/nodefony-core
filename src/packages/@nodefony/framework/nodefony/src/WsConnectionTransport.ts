@@ -1,4 +1,5 @@
 import { TransportState, type IRealtimeTransport } from "nodefony";
+import type { IRealtimeConnProbe } from "../interfaces/IRealtimeProbe";
 
 /**
  * Connexion ws brute, typée structurellement (évite d'importer le package `ws`).
@@ -8,6 +9,12 @@ export interface RawWsConnection {
   send(data: string, cb?: (err?: Error) => void): void;
   close(code?: number, reason?: string): void;
   readonly readyState: number;
+  /**
+   * Octets en file d'envoi non drainés (`ws.bufferedAmount`). Optionnel : absent
+   * des connexions mockées en test → la sonde lit `0`. Sur une vraie socket `ws`,
+   * c'est le signal du blocker mémoire #1 (slow-consumer).
+   */
+  readonly bufferedAmount?: number;
 }
 
 /**
@@ -21,9 +28,17 @@ export interface RawWsConnection {
  * la fermeture est signalée par `fireClose()` (hook `onFinish` du Context). Le
  * `connect`/`onOpen` sont des no-op (la connexion est déjà ouverte au handshake).
  */
-export class WsConnectionTransport implements IRealtimeTransport {
+export class WsConnectionTransport
+  implements IRealtimeTransport, IRealtimeConnProbe
+{
   private _onMessage: ((raw: string) => void) | null = null;
   private _onClose: ((code: number, reason: string) => void) | null = null;
+  // Compteurs d'auto-observabilité (sonde socket). Primitives → 0 alloc ; incrément
+  // O(1) par `send` (pas de syscall, pas de stringify supplémentaire). Toujours-ON :
+  // la backpressure est le blocker #1, elle doit être visible sans flag (≠ flux ORM
+  // qui chronométrait CHAQUE requête → gaté). Lus par {@link RealtimeHub.probe}.
+  private _bytesSent = 0;
+  private _messagesSent = 0;
 
   constructor(private readonly conn: RawWsConnection) {}
 
@@ -33,6 +48,10 @@ export class WsConnectionTransport implements IRealtimeTransport {
 
   send(raw: string): void {
     if (this.conn.readyState === TransportState.OPEN) {
+      // `raw.length` (≈ octets pour l'ASCII/JSON ; O(1) en V8) compté AVANT l'envoi :
+      // un échec d'envoi reste rare et la file `ws` retient quand même la frame.
+      this._bytesSent += raw.length;
+      this._messagesSent += 1;
       this.conn.send(raw, () => {
         /* socket fermée pendant l'envoi — ignoré */
       });
@@ -45,6 +64,21 @@ export class WsConnectionTransport implements IRealtimeTransport {
 
   get readyState(): number {
     return this.conn.readyState;
+  }
+
+  /** Octets en file d'envoi non drainés (`ws.bufferedAmount`) — risque #1. `0` si mock. */
+  get bufferedAmount(): number {
+    return this.conn.bufferedAmount ?? 0;
+  }
+
+  /** Cumul d'octets envoyés sur cette connexion (monotone). */
+  get bytesSent(): number {
+    return this._bytesSent;
+  }
+
+  /** Cumul de frames envoyées sur cette connexion (monotone). */
+  get messagesSent(): number {
+    return this._messagesSent;
   }
 
   onOpen(): void {

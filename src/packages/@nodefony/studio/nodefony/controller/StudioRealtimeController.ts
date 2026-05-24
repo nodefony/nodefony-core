@@ -23,6 +23,9 @@ const RATE_BOUNDS: Readonly<Record<string, RateBounds>> = {
   ormHealth: { default: 5000, min: 1000, max: 60000 },
   // Flux ORM : plus dynamique → défaut 2 s.
   ormFlow: { default: 2000, min: 500, max: 60000 },
+  // Santé de la socket Nodefony (auto-observabilité) : backpressure + fan-out.
+  // Défaut 2 s (le débit se dérive de snapshots ; trop fin = bruit, trop lent = perd les pics).
+  realtimeHealth: { default: 2000, min: 500, max: 60000 },
 };
 
 /**
@@ -120,8 +123,9 @@ class StudioRealtimeController extends RealtimeController {
       const broker = this.get<IAdminBroker>("adminBroker");
       return createBrokerTicker(
         () =>
-          StudioRealtimeController.fetchOrmEndpoint(
+          StudioRealtimeController.fetchAdminEndpoint(
             broker,
+            "orm",
             "connection/health",
           ),
         publish,
@@ -137,7 +141,31 @@ class StudioRealtimeController extends RealtimeController {
       const ms = parseRate(channel, CHANNELS.ormFlow, RATE_BOUNDS.ormFlow);
       const broker = this.get<IAdminBroker>("adminBroker");
       return createBrokerTicker(
-        () => StudioRealtimeController.fetchOrmEndpoint(broker, "flow"),
+        () =>
+          StudioRealtimeController.fetchAdminEndpoint(broker, "orm", "flow"),
+        publish,
+        channel,
+        ms,
+      );
+    }
+    if (
+      channel === CHANNELS.realtimeHealth ||
+      channel.startsWith(`${CHANNELS.realtimeHealth}:`)
+    ) {
+      // Santé de la socket Nodefony (sonde du RealtimeHub) — défaut 2 s (500 ms–60 s).
+      const ms = parseRate(
+        channel,
+        CHANNELS.realtimeHealth,
+        RATE_BOUNDS.realtimeHealth,
+      );
+      const broker = this.get<IAdminBroker>("adminBroker");
+      return createBrokerTicker(
+        () =>
+          StudioRealtimeController.fetchAdminEndpoint(
+            broker,
+            "realtime",
+            "health",
+          ),
         publish,
         channel,
         ms,
@@ -185,19 +213,21 @@ class StudioRealtimeController extends RealtimeController {
   }
 
   /**
-   * Appelle un endpoint admin du namespace `orm` via le broker (`orm/connection/health`,
-   * `orm/flow`…) — Studio reste générique (pas de dép directe à orm-core). `null` si absent.
+   * Appelle un endpoint admin (`<namespace>/<path>`) via le broker — Studio reste
+   * GÉNÉRIQUE (aucune dép directe au module producteur : orm-core, framework…). `null`
+   * si le producteur ou l'endpoint est absent.
    *
-   * **Statique** + `broker` en paramètre : appelé depuis un provider de canal PARTAGÉ (hub),
-   * qui doit capturer le broker (singleton long-lived) à la création, JAMAIS `this` (la
-   * connexion créatrice peut fermer alors que le provider partagé survit).
+   * **Statique** + `broker` en paramètre : appelé depuis un provider de canal PARTAGÉ
+   * (hub), qui doit capturer le broker (singleton long-lived) à la création, JAMAIS
+   * `this` (la connexion créatrice peut fermer alors que le provider partagé survit).
    */
-  private static async fetchOrmEndpoint(
+  private static async fetchAdminEndpoint(
     broker: IAdminBroker | null | undefined,
+    namespace: string,
     path: string,
   ): Promise<unknown> {
-    const orm = broker?.list().find((p) => p.adminNamespace === "orm");
-    const ep = orm?.adminEndpoints().find((e) => e.path === path);
+    const producer = broker?.list().find((p) => p.adminNamespace === namespace);
+    const ep = producer?.adminEndpoints().find((e) => e.path === path);
     if (!ep) return null;
     return ep.handler({
       params: {},

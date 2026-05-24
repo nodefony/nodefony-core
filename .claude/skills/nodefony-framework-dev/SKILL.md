@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.8.1
+version: 1.9.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -48,7 +48,7 @@ correspondante de `nodefony-studio-dev` (et inversement). Ouvrir le skill jumeau
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.7.0**.
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.9.0**.
 
 ## 1. Quand l'utiliser / quand passer la main
 
@@ -745,9 +745,36 @@ class MyRealtime extends RealtimeController {
   (`@nodefony/framework` vitest `RealtimeController.test.ts`, 12) + `WsConnectionTransport.test.ts` (7).
 - Le dispatch d'action est **async** (microtask) → flusher (`await new Promise(r=>setTimeout(r,0))`) avant d'asserter.
 
+**Auto-observabilité = la sonde de la Socket Nodefony** (`RealtimeHub.probe()`, livré 2026-05-24) —
+« la socket s'observe à travers elle-même ». Le multiplexing N canaux/1 WS est bon mais déplace 3 risques
+sur le hub → la sonde les rend MESURABLES **avant** d'optimiser :
+
+- `RealtimeHub.probe(): IRealtimeProbe` — lecture PURE (0 alloc, jamais throw) : canaux+`subscribers`+`messages`,
+  `publishTotal`/`fanoutTotal` (=publish×abonnés), `inboundTotal`, connexions, `bytes/messagesSentTotal`,
+  **`backpressure`{max/totalBufferedAmount, slowConsumers}** (= risque #1, `bufferedAmount` du slow-consumer).
+- **Compteurs always-ON** (≠ flux ORM gaté) : intégers O(1) sur `publish`/`send`, **0 syscall/stringify** → la
+  backpressure (blocker #1) doit être visible sans flag. (Le flux ORM, lui, chronométrait CHAQUE requête → gaté.)
+- `bufferedAmount` vit sur la conn `ws` brute → seul `WsConnectionTransport` l'expose (`implements IRealtimeConnProbe`,
+  `bytesSent`/`messagesSent` cumulés dans `send`). `RealtimeController` `registerConnection`/`unregisterConnection`
+  (handshake/onFinish, **symétrique**) auprès du hub (registre lazy, lu QUE dans `probe`). Cumuls **monotones** →
+  débit dérivé côté lecteur (delta total/ts, comme CPU%/flux ORM). `SLOW_CONSUMER_BYTES=1 MiB` (alerte, **pas** de drop).
+- Endpoint `GET /nodefony/realtime/api/health` (`buildRealtimeHealth`=probe+`instanceId`, namespace `realtime` →
+  déménagera dans `@nodefony/realtime` P13.1) + canal Studio `realtime:health` (ticker broker `createBrokerTicker`).
+- **Ordre des optims** (la sonde = préalable « mesurer avant d'optimiser ») : sonde → **stringify unique broadcast**
+  (gratuit, 1× par publish au lieu de N) → **seuil bufferedAmount** drop (latest-wins) / close 1013 (slow-consumer) →
+  coalescing si la sonde le justifie. Panneau Studio Hub = côté `nodefony-studio-dev`. [[project_realtime_socket_probe]].
+
+> **NOMMAGE** : « **la Socket Nodefony** » (MAJUSCULE) = le patron/concept entier (prose, docs, pitch) ;
+> minuscule/code = vocabulaire stratifié précis (`socket`/`IRealtimeSocket`=prise, `RealtimeHub`=broker,
+> `channel`, `transport`/`peer`). Analogie « le Web » vs « un web ». [[project_realtime_nodefony_socket_vision]].
+
+- **Placement** : hub/sonde/controller vivent dans **`@nodefony/framework`** (le broker y est déjà ; `http` ne peut
+  pas importer framework = cycle) → déménageront **d'un bloc** dans `@nodefony/realtime` (P13.1, session dédiée — NE PAS
+  l'extraire au milieu d'une autre feature). Config realtime future → section `realtime` de `@nodefony/http` (transport :
+  `bufferedAmount`/maxPayload) ; cadence des canaux → Studio.
 - **Build** : modif Core/subpath `nodefony/*` ou framework → rebuild **puis restart** (Vite ré-optimise au boot).
   Règle perf/mémoire Core s'applique. memory.test obligatoire (touche pipeline WS).
-- Réfs : `project_realtime_nodefony_socket_vision`, `project_client_lib_subpaths_decision`,
+- Réfs : `project_realtime_nodefony_socket_vision`, `project_realtime_socket_probe`, `project_client_lib_subpaths_decision`,
   `project_studio_realtime_ws`, `project_decisions_realtime_isomorphic`, `project_realtime_granularity_clientlib` (AIMD).
 
 ## 5. ORM — Entity / Repository / Service CRUD
@@ -1257,6 +1284,18 @@ no entity table registered under "session"`, code 401, au Ctrl+C) : `DrizzleServ
   n'écrit jamais dans la base qu'elle observe : amplification absurde + pollution hot path). Validé live :
   248k requêtes comptées, slow réelles capturées (SQL paramétré, 0 credential). Per-connecteur via `ormName`
   passé au tap (≠ vendor).
+- _(2026-05-24)_ **Sonde Socket Nodefony — compteurs always-ON (≠ flux ORM gaté) + bufferedAmount via le transport**.
+  Contraste assumé avec la sonde flux ORM : ici les compteurs (`publish`/`send`) sont **toujours actifs** car ce ne
+  sont que des **incréments d'intégers O(1)** (0 syscall, 0 stringify, 0 alloc) — alors que le flux ORM chronométrait
+  CHAQUE requête (`performance.now()`+`toSQL()`) → lui devait être gaté. **Leçon** : « gater une sonde » dépend de
+  son COÛT unitaire réel, pas d'un réflexe ; un compteur entier ne se gate pas, un timer/serializer si. Le
+  `bufferedAmount` (risque #1) vit sur la conn `ws` brute → la sonde ne peut PAS le lire depuis le hub (qui n'a que
+  des sinks opaques) : exposé par `WsConnectionTransport` (seul à tenir la conn), connexions inscrites au registre du
+  hub par le controller (handshake/onFinish, **symétrique** = 0 fuite). Cumuls **monotones** → débit dérivé côté
+  lecteur (réutilise le patron CPU%/flux ORM). Validé live (curl + WS subscribe → connectionCount/canal/fan-out
+  reflétés, canal disposé au close). **Décision archi** (questions user) : pas de module `@nodefony/realtime` au milieu
+  de la feature (scope ×3, contre 1 feature=1 session) → hub/sonde restent dans framework, déménageront en bloc P13.1 ;
+  config realtime future = section `realtime` de `@nodefony/http`. Nommage « la Socket Nodefony » (cf §4 + mémoires).
 
 ## 12. Fin de session (OBLIGATOIRE) + auto-audit de complétude
 
@@ -1324,6 +1363,16 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.9.0** (2026-05-24) — §4 **Sonde de la Socket Nodefony** (auto-observabilité du `RealtimeHub`,
+  « la socket s'observe à travers elle-même ») : `RealtimeHub.probe(): IRealtimeProbe` (canaux/abonnés/
+  messages, publish/fanoutTotal, inbound, connexions, bytes/msg, **backpressure** max/total `bufferedAmount`
+  - slowConsumers = risque #1) ; compteurs **always-ON** (intégers O(1), ≠ flux ORM gaté) ; `bufferedAmount`
+    exposé par `WsConnectionTransport` (`IRealtimeConnProbe`), connexions registre hub (controller, symétrique) ;
+    `buildRealtimeHealth` + endpoint `/nodefony/realtime/api/health` (namespace `realtime`) + canal Studio
+    `realtime:health`. **Décision nommage** « la Socket Nodefony » (majuscule=concept, minuscule=couche) +
+    **placement** (reste framework, déménage P13.1 ; config future = section `realtime` de `@nodefony/http`).
+    RETEX §11 (gater dépend du coût unitaire ; bufferedAmount via transport). Lockstep studio-dev 1.9.0 (canal
+    documenté ; panneau Hub = à coder côté studio-dev). [[project_realtime_socket_probe]].
 - **1.8.1** (2026-05-24) — §2 **Doctrine Node « ne pas bloquer l'event-loop »** (source canonique
   proxy) : callback borné O(1)/O(n) + partition `setImmediate`/Worker Pool, ReDoS = faille sécu,
   JSON borné, Worker Pool variance, mesure = event-loop latency/p99. + **Tests de perf isolés &
