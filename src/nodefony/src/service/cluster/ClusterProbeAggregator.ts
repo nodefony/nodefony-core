@@ -1,7 +1,9 @@
 import {
   CLUSTER_PROBE_KIND,
   CLUSTER_PROBE_SNAPSHOT_KIND,
+  CLUSTER_PROBE_ENRICH_KIND,
   isClusterMessage,
+  isClusterProbeCtl,
 } from "./clusterMessage";
 import { Severity } from "../../syslog/Pdu";
 
@@ -12,6 +14,8 @@ import { Severity } from "../../syslog/Pdu";
  */
 export interface IProbeWorker {
   readonly id: number;
+  /** PID OS du worker (`worker.process.pid`) — clé de ciblage du drill-down (Phase 2). */
+  readonly pid: number;
   /** Envoie un message IPC à CE worker (master → worker). */
   send(msg: unknown): void;
   /** Enregistre le récepteur des messages de CE worker (worker → master). */
@@ -46,6 +50,8 @@ export interface ClusterProbeAggregatorOptions {
  */
 export class ClusterProbeAggregator {
   readonly #workers = new Map<number, IProbeWorker>();
+  /** pid → worker (ciblage du drill-down Phase 2 ; le front identifie un worker par pid). */
+  readonly #byPid = new Map<number, IProbeWorker>();
   /** workerId → dernier payload de sonde (opaque). */
   readonly #probes = new Map<number, unknown>();
   readonly #intervalMs: number;
@@ -74,17 +80,34 @@ export class ClusterProbeAggregator {
    */
   attach(worker: IProbeWorker): void {
     this.#workers.set(worker.id, worker);
+    this.#byPid.set(worker.pid, worker);
     worker.onMessage((msg) => this.#collect(worker.id, msg));
   }
 
   /** Détache un worker (au `exit`) : il sort de l'agrégat. No-op s'il est déjà parti. */
   detach(id: number): void {
+    const w = this.#workers.get(id);
+    if (w) this.#byPid.delete(w.pid);
     this.#workers.delete(id);
     this.#probes.delete(id);
   }
 
-  /** Collecte une remontée de sonde. Ignore les autres kinds + les messages malformés. */
+  /**
+   * Traite un message d'un worker. Deux usages sur le canal partagé :
+   *  - **remontée de sonde** (`CLUSTER_PROBE_KIND`) → mémorise le dernier payload (opaque) ;
+   *  - **ordre d'enrichissement** (`CLUSTER_PROBE_CTL_KIND`, drill-down Phase 2) émis par le
+   *    worker qui tient le navigateur → **route ciblé** vers le worker `pid` concerné
+   *    (`CLUSTER_PROBE_ENRICH_KIND`). Le master ne lit toujours PAS le contenu d'une sonde
+   *    (opacité), il route juste l'ordre via la map pid→worker. Autres kinds / malformés ignorés.
+   */
   #collect(fromId: number, msg: unknown): void {
+    if (isClusterProbeCtl(msg)) {
+      this.#byPid.get(msg.pid)?.send({
+        kind: CLUSTER_PROBE_ENRICH_KIND,
+        enabled: msg.op === "enrich",
+      });
+      return;
+    }
     if (!isClusterMessage(msg) || msg.kind !== CLUSTER_PROBE_KIND) return;
     this.#probes.set(fromId, (msg as { payload?: unknown }).payload);
   }
@@ -92,6 +115,10 @@ export class ClusterProbeAggregator {
   /** Démarre la diffusion périodique du snapshot agrégé. Idempotent. Timer `unref`. */
   start(): void {
     if (this.#timer !== null) return;
+    this.#log(
+      `probe aggregator: diffusion snapshot toutes les ${this.#intervalMs}ms`,
+      "DEBUG",
+    );
     this.#timer = setInterval(() => this.broadcast(), this.#intervalMs);
     (this.#timer as { unref?: () => void }).unref?.();
   }
@@ -130,6 +157,7 @@ export class ClusterProbeAggregator {
   clear(): void {
     this.stop();
     this.#workers.clear();
+    this.#byPid.clear();
     this.#probes.clear();
   }
 }

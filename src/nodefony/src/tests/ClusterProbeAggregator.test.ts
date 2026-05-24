@@ -7,6 +7,8 @@ import {
 import {
   CLUSTER_PROBE_KIND,
   CLUSTER_PROBE_SNAPSHOT_KIND,
+  CLUSTER_PROBE_CTL_KIND,
+  CLUSTER_PROBE_ENRICH_KIND,
 } from "../service/cluster/clusterMessage";
 
 /**
@@ -17,10 +19,12 @@ import {
 describe("cluster / ClusterProbeAggregator (sonde agrégée master)", () => {
   class FakeWorker implements IProbeWorker {
     readonly id: number;
+    readonly pid: number;
     readonly received: unknown[] = [];
     #cb: ((msg: unknown) => void) | null = null;
-    constructor(id: number) {
+    constructor(id: number, pid: number = id) {
       this.id = id;
+      this.pid = pid;
     }
     send(msg: unknown): void {
       this.received.push(msg);
@@ -124,5 +128,74 @@ describe("cluster / ClusterProbeAggregator (sonde agrégée master)", () => {
     expect(agg.size).to.equal(0);
     agg.broadcast();
     expect(a.received).to.have.length(0);
+  });
+
+  // Drill-down Phase 2 : un worker (celui qui tient le navigateur) émet un ordre
+  // d'enrichissement `nf:probe:ctl {op,pid}` ; le master le route en `nf:probe:enrich
+  // {enabled}` vers le SEUL worker ciblé par son pid. Le master ne lit jamais une sonde.
+  describe("drill-down (ctl → enrich ciblé par pid)", () => {
+    const ctl = (op: "enrich" | "stop", pid: number) => ({
+      kind: CLUSTER_PROBE_CTL_KIND,
+      op,
+      pid,
+    });
+
+    it("route enrich vers le SEUL worker ciblé par pid (pas les autres)", () => {
+      const agg = new ClusterProbeAggregator();
+      const nav = new FakeWorker(1, 1001); // tient le navigateur
+      const target = new FakeWorker(2, 1002); // worker drillé
+      const other = new FakeWorker(3, 1003);
+      agg.attach(nav);
+      agg.attach(target);
+      agg.attach(other);
+      nav.emit(ctl("enrich", 1002)); // drill du worker pid=1002
+      expect(target.received).to.deep.equal([
+        { kind: CLUSTER_PROBE_ENRICH_KIND, enabled: true },
+      ]);
+      expect(other.received).to.have.length(0);
+      expect(nav.received).to.have.length(0);
+    });
+
+    it("op:stop route enabled:false vers le worker ciblé", () => {
+      const agg = new ClusterProbeAggregator();
+      const nav = new FakeWorker(1, 1001);
+      const target = new FakeWorker(2, 1002);
+      agg.attach(nav);
+      agg.attach(target);
+      nav.emit(ctl("stop", 1002));
+      expect(target.received).to.deep.equal([
+        { kind: CLUSTER_PROBE_ENRICH_KIND, enabled: false },
+      ]);
+    });
+
+    it("ctl vers un pid inconnu = no-op (pas de throw)", () => {
+      const agg = new ClusterProbeAggregator();
+      const nav = new FakeWorker(1, 1001);
+      agg.attach(nav);
+      expect(() => nav.emit(ctl("enrich", 9999))).to.not.throw();
+    });
+
+    it("un worker détaché sort de la map pid → son drill devient no-op", () => {
+      const agg = new ClusterProbeAggregator();
+      const nav = new FakeWorker(1, 1001);
+      const target = new FakeWorker(2, 1002);
+      agg.attach(nav);
+      agg.attach(target);
+      agg.detach(2); // le worker drillé meurt
+      nav.emit(ctl("enrich", 1002));
+      expect(target.received).to.have.length(0);
+    });
+
+    it("le ctl n'est PAS collecté comme une sonde (absent du snapshot)", () => {
+      const agg = new ClusterProbeAggregator();
+      const nav = new FakeWorker(1, 1001);
+      agg.attach(nav);
+      nav.emit(ctl("enrich", 1001));
+      agg.broadcast();
+      const snap = nav.received.find(
+        (m) => (m as { kind?: string }).kind === CLUSTER_PROBE_SNAPSHOT_KIND,
+      ) as { instances: unknown[] };
+      expect(snap.instances).to.deep.equal([]); // ctl ≠ remontée de sonde
+    });
   });
 });

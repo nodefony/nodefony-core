@@ -67,6 +67,10 @@ export class ClusterRelay {
   attach(worker: IRelayWorker): void {
     this.#workers.set(worker.id, worker);
     worker.onMessage((msg) => this.#route(worker.id, msg));
+    this.#log(
+      `relay: worker ${worker.id} attaché au fan-out (${this.#workers.size} au total)`,
+      "DEBUG",
+    );
   }
 
   /** Détache un worker (au `exit`). No-op s'il est déjà parti. */

@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-24T22:12:56.753Z",
+  "generated": "2026-05-24T23:32:42.725Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 749,
-    "symbols": 1348,
-    "classes": 227,
-    "interfaces": 327,
+    "files": 750,
+    "symbols": 1356,
+    "classes": 228,
+    "interfaces": 330,
     "types": 162,
     "enums": 2,
-    "functions": 180,
-    "constants": 450
+    "functions": 182,
+    "constants": 452
   },
   "symbols": {
     "Cli": {
@@ -2187,6 +2187,40 @@
       "extends": null,
       "description": "Base de tout message du protocole IPC cluster — seul le `kind` est imposé. Les autres champs sont opaques pour le master (il route/agrège sans les inspecter)."
     },
+    "IClusterProbeCtl": {
+      "name": "IClusterProbeCtl",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "IClusterMessage",
+      "description": "Ordre d'enrichissement (worker → master, {@link CLUSTER_PROBE_CTL_KIND}). `op` = `\"enrich\"` (activer) | `\"stop\"` (couper) ; `pid` = worker à (dés)enrichir."
+    },
+    "IClusterProbeEnrich": {
+      "name": "IClusterProbeEnrich",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "IClusterMessage",
+      "description": "Ordre ciblé (master → worker, {@link CLUSTER_PROBE_ENRICH_KIND}). `enabled` = le worker doit-il joindre sa sonde riche à ses prochains reports."
+    },
+    "isClusterProbeCtl": {
+      "name": "isClusterProbeCtl",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type-guard d'un {@link IClusterProbeCtl} — narrowing sûr du canal IPC partagé."
+    },
+    "isClusterProbeEnrich": {
+      "name": "isClusterProbeEnrich",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type-guard d'un {@link IClusterProbeEnrich} — narrowing sûr du canal IPC partagé."
+    },
     "isClusterMessage": {
       "name": "isClusterMessage",
       "kind": "function",
@@ -2218,6 +2252,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "`kind` du **snapshot agrégé** master → workers (Phase 4c). Le master diffuse périodiquement la liste des sondes de TOUS les workers (`{ ts, instances }`) ; chaque worker la met en cache pour servir…"
+    },
+    "CLUSTER_PROBE_CTL_KIND": {
+      "name": "CLUSTER_PROBE_CTL_KIND",
+      "kind": "const",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`kind` d'un **ordre d'enrichissement** worker → master (Phase 2 drill-down). Un worker (celui qui tient la connexion navigateur) demande au master d'activer/couper la sonde **riche** (GC/heap-space…"
+    },
+    "CLUSTER_PROBE_ENRICH_KIND": {
+      "name": "CLUSTER_PROBE_ENRICH_KIND",
+      "kind": "const",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`kind` de l'**ordre ciblé** master → worker (Phase 2 drill-down). Dit au worker d'inclure (ou non) son blob de sonde **riche** dans son report périodique (`CLUSTER_PROBE_KIND`). Le rich voyage ensu…"
     },
     "ClusterProbeAggregator": {
       "name": "ClusterProbeAggregator",
@@ -2329,6 +2379,26 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Santé PROCESS d'un worker — lue par {@link ProcessProbe}, agrégée par worker dans le snapshot pod (cf `ClusterProbeAggregator`). Volontairement **lean** (sérialisée par worker à chaque tick de repo…"
+    },
+    "RichProcessProbe": {
+      "name": "RichProcessProbe",
+      "kind": "class",
+      "file": "src/nodefony/src/service/cluster/richProcessProbe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Sonde process **riche stateful** d'un worker — calcule les métriques par INTERVALLE (GC, ELU active/idle, changements de contexte sont des deltas entre deux `read()`). Une instance par process work…"
+    },
+    "IProcessRich": {
+      "name": "IProcessRich",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/richProcessProbe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Sonde process **riche** d'un worker — le complément du lean {@link IProcessHealth} pour le drill-down (Phase 2). Ne contient QUE ce qui manque au lean : pression GC, répartition du heap V8, ressour…"
     },
     "IClusterConfig": {
       "name": "IClusterConfig",
@@ -9983,6 +10053,10 @@
         "SequelizeCommand",
         "Pm2"
       ],
+      "IClusterMessage": [
+        "IClusterProbeCtl",
+        "IClusterProbeEnrich"
+      ],
       "Controller": [
         "MediasoupController",
         "AlsController",
@@ -11685,6 +11759,12 @@
       "CLUSTER_PROBE_KIND": [
         "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
         "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
+      ],
+      "CLUSTER_PROBE_ENRICH_KIND": [
+        "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts"
+      ],
+      "isClusterProbeCtl": [
+        "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts"
       ],
       "resolveWorkerCount": [
         "src/nodefony/src/service/cluster/topology.ts"

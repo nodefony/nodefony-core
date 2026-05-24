@@ -80,6 +80,8 @@ export type {
 export { resolveTopology, loadClusterConfig } from "./service/cluster/topology";
 export { ProcessProbe } from "./service/cluster/processProbe";
 export type { IProcessHealth } from "./service/cluster/processProbe";
+export { RichProcessProbe } from "./service/cluster/richProcessProbe";
+export type { IProcessRich } from "./service/cluster/richProcessProbe";
 export type {
   WorkersSetting,
   IClusterConfig,
@@ -111,9 +113,17 @@ export {
   CLUSTER_RT_KIND,
   CLUSTER_PROBE_KIND,
   CLUSTER_PROBE_SNAPSHOT_KIND,
+  CLUSTER_PROBE_CTL_KIND,
+  CLUSTER_PROBE_ENRICH_KIND,
   isClusterMessage,
+  isClusterProbeCtl,
+  isClusterProbeEnrich,
 } from "./service/cluster/clusterMessage";
-export type { IClusterMessage } from "./service/cluster/clusterMessage";
+export type {
+  IClusterMessage,
+  IClusterProbeCtl,
+  IClusterProbeEnrich,
+} from "./service/cluster/clusterMessage";
 
 // ─── Runtime (P1.4 — AsyncLocalStorage) ───────────────────────────────────────
 export { default as RequestContext } from "./runtime/RequestContext";
