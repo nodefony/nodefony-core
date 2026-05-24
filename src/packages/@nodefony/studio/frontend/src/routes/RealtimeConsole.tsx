@@ -36,6 +36,7 @@ import {
   IconCircleCheck,
   IconChartLine,
   IconLayoutGrid,
+  IconServer2,
 } from "@tabler/icons-react";
 import {
   useNodefony,
@@ -124,6 +125,113 @@ interface RealtimeHealth {
     maxBufferedAmount: number;
     totalBufferedAmount: number;
     slowConsumers: number;
+  };
+}
+
+/**
+ * Snapshot per-instance enrichi de l'identité worker — un élément de la vue POD.
+ * Type MIROIR de `IRealtimeHealth` serveur (frontière isomorphe : pas d'import).
+ */
+interface InstanceHealth extends RealtimeHealth {
+  instanceId: string;
+}
+
+/**
+ * Vue POD agrégée (mode cluster, Phase 4c) — type MIROIR de `IRealtimeClusterHealth`.
+ * `cluster:true` = discriminant : l'endpoint `realtime:health` sert CETTE forme quand le
+ * master pousse l'agrégat multi-worker, sinon {@link RealtimeHealth} per-instance.
+ */
+interface RealtimeClusterHealth {
+  cluster: true;
+  ts: number;
+  instanceCount: number;
+  instances: InstanceHealth[];
+  totals: {
+    channelCount: number;
+    publishTotal: number;
+    fanoutTotal: number;
+    inboundTotal: number;
+    connectionCount: number;
+    bytesSentTotal: number;
+    messagesSentTotal: number;
+    backpressure: {
+      maxBufferedAmount: number;
+      totalBufferedAmount: number;
+      slowConsumers: number;
+    };
+  };
+}
+
+/** Forme brute servie par la sonde : per-instance OU vue pod agrégée. */
+type RawHealth = RealtimeHealth | RealtimeClusterHealth;
+
+/** Métadonnées de la vue pod (drill-down par worker) ; `null` en per-instance. */
+interface ClusterMeta {
+  instanceCount: number;
+  instances: InstanceHealth[];
+}
+
+/** Style cellule numérique (chasse stable) — hissé (pas de réf recréée au render). */
+const TNUM = { fontVariantNumeric: "tabular-nums" } as const;
+
+/** Discriminant de type : la sonde a-t-elle renvoyé la vue pod agrégée ? */
+function isClusterHealth(r: RawHealth): r is RealtimeClusterHealth {
+  return (r as RealtimeClusterHealth).cluster === true;
+}
+
+/**
+ * Fusionne les canaux de TOUS les workers en une liste pod-wide : un même canal présent
+ * sur N workers → 1 ligne, abonnés et publications SOMMÉS (cumuls monotones). Donne la
+ * vue « canaux du pod » que `totals` (scalaires seuls) ne porte pas.
+ */
+function mergeClusterChannels(instances: InstanceHealth[]): RtChannelStat[] {
+  const map = new Map<string, RtChannelStat>();
+  for (const inst of instances) {
+    for (const c of inst.channels) {
+      const e = map.get(c.channel);
+      if (e) {
+        e.subscribers += c.subscribers;
+        e.messages += c.messages;
+      } else {
+        map.set(c.channel, {
+          channel: c.channel,
+          subscribers: c.subscribers,
+          messages: c.messages,
+        });
+      }
+    }
+  }
+  return [...map.values()];
+}
+
+/**
+ * Projette la forme brute vers la vue consommée par le panneau : en cluster, replie
+ * `totals` (+ canaux mergés des workers) dans un {@link RealtimeHealth} synthétique →
+ * TOUTE la machinerie existante (KPIs, débit dérivé, congestion, courbes) marche sans
+ * réécriture. `channelCount` = nb de canaux DISTINCTS du pod (cohérent avec la table) ;
+ * la backpressure `maxBufferedAmount` est déjà le pire worker (MAX côté serveur).
+ */
+function normalizeHealth(raw: RawHealth): {
+  view: RealtimeHealth;
+  cluster: ClusterMeta | null;
+} {
+  if (!isClusterHealth(raw)) return { view: raw, cluster: null };
+  const channels = mergeClusterChannels(raw.instances);
+  const t = raw.totals;
+  return {
+    view: {
+      ts: raw.ts,
+      channels,
+      channelCount: channels.length,
+      publishTotal: t.publishTotal,
+      fanoutTotal: t.fanoutTotal,
+      inboundTotal: t.inboundTotal,
+      connectionCount: t.connectionCount,
+      bytesSentTotal: t.bytesSentTotal,
+      messagesSentTotal: t.messagesSentTotal,
+      backpressure: t.backpressure,
+    },
+    cluster: { instanceCount: raw.instanceCount, instances: raw.instances },
   };
 }
 
@@ -256,10 +364,10 @@ function HubHealthLive({
   onRate,
 }: {
   adaptive: boolean;
-  onSnap: (s: RealtimeHealth) => void;
+  onSnap: (s: RawHealth) => void;
   onRate: (ms: number) => void;
 }) {
-  const { data, intervalMs } = useNodefonyAdaptiveChannelData<RealtimeHealth>(
+  const { data, intervalMs } = useNodefonyAdaptiveChannelData<RawHealth>(
     "realtime:health",
     REALTIME_HEALTH_MS,
     { defaultMs: REALTIME_HEALTH_MS, enabled: adaptive },
@@ -279,6 +387,8 @@ function HubHealthLive({
 /** Résultat du hook {@link useHubProbe}. */
 interface HubProbe {
   snap: RealtimeHealth | null;
+  /** Vue pod (détail par worker) si la sonde agrège un cluster, sinon `null`. */
+  cluster: ClusterMeta | null;
   rates: { fanout: number; bytes: number; publish: number };
   hist: HubHist;
   effectiveMs: number;
@@ -299,13 +409,18 @@ function useHubProbe(live: boolean, adaptive: boolean): HubProbe {
   const store = useStore();
 
   const fetcher = useCallback(
-    () =>
-      store.api.getAbsolute<RealtimeHealth>("/nodefony/realtime/api/health"),
+    () => store.api.getAbsolute<RawHealth>("/nodefony/realtime/api/health"),
     [store],
   );
   const http = useResource(fetcher);
+  // Instantané HTTP (mode OFF) → normalisé : per-instance OU vue pod agrégée.
+  const httpNorm = useMemo(
+    () => (http.data ? normalizeHealth(http.data) : null),
+    [http.data],
+  );
 
   const [liveSnap, setLiveSnap] = useState<RealtimeHealth | null>(null);
+  const [liveCluster, setLiveCluster] = useState<ClusterMeta | null>(null);
   const [effectiveMs, setEffectiveMs] = useState(REALTIME_HEALTH_MS);
   const [rates, setRates] = useState({ fanout: 0, bytes: 0, publish: 0 });
   const [hist, setHist] = useState<HubHist>(EMPTY_HIST);
@@ -317,8 +432,10 @@ function useHubProbe(live: boolean, adaptive: boolean): HubProbe {
   } | null>(null);
   const cadenceRef = useRef(REALTIME_HEALTH_MS);
 
-  const onSnap = useCallback((s: RealtimeHealth) => {
+  const onSnap = useCallback((raw: RawHealth) => {
+    const { view: s, cluster } = normalizeHealth(raw);
     setLiveSnap(s);
+    setLiveCluster(cluster);
     const prev = prevRef.current;
     prevRef.current = {
       ts: s.ts,
@@ -363,7 +480,8 @@ function useHubProbe(live: boolean, adaptive: boolean): HubProbe {
   }, [live]);
 
   return {
-    snap: (live ? liveSnap : null) ?? http.data,
+    snap: (live ? liveSnap : null) ?? httpNorm?.view ?? null,
+    cluster: (live ? liveCluster : null) ?? httpNorm?.cluster ?? null,
     rates,
     hist,
     effectiveMs,
@@ -415,7 +533,7 @@ export const RealtimeConsole = observer(() => {
   };
 
   const probe = useHubProbe(live, ui.adaptiveCadence);
-  const { snap, rates, hist } = probe;
+  const { snap, rates, hist, cluster } = probe;
 
   // ── Protocole (frames JSON-RPC) — capture client tant que la console est ouverte.
   const [frames, setFrames] = useState<RealtimeFrame[]>([]);
@@ -592,6 +710,18 @@ export const RealtimeConsole = observer(() => {
             <Badge variant="outline" color="gray" size="lg" tt="none">
               {conn.endpointUrl || "—"}
             </Badge>
+            {cluster && (
+              <Badge
+                size="lg"
+                variant="light"
+                color="indigo"
+                leftSection={<IconServer2 size={14} />}
+                title="Vue agrégée du pod (plusieurs workers)"
+              >
+                Pod • {cluster.instanceCount} worker
+                {cluster.instanceCount > 1 ? "s" : ""}
+              </Badge>
+            )}
             <Badge
               size="lg"
               variant="light"
@@ -645,7 +775,9 @@ export const RealtimeConsole = observer(() => {
             },
             {
               label: "Cloud-native",
-              body: "Ce panneau = la Socket qui s'observe via sa propre sonde (clients / canaux / abonnés / débit / congestion). Vue par process-pod ; l'agrégat multi-pod = Prometheus / Redis (P13).",
+              body: cluster
+                ? `Mode cluster : les ${cluster.instanceCount} workers de CE pod sont agrégés en une seule vue (le master collecte la sonde de chacun et la pousse — Phase 4c). Le détail par worker est dans l'onglet « Workers ». L'agrégat multi-POD reste Prometheus / Redis (P13).`
+                : "Ce panneau = la Socket qui s'observe via sa propre sonde (clients / canaux / abonnés / débit / congestion). Vue par process ; l'agrégat multi-pod = Prometheus / Redis (P13).",
             },
           ]}
         />
@@ -657,7 +789,7 @@ export const RealtimeConsole = observer(() => {
         variant="light"
         color={overall.color}
         icon={<overall.Icon size={18} />}
-        title={`État du Hub : ${overall.label}`}
+        title={`État ${cluster ? `du pod (${cluster.instanceCount} workers)` : "du Hub"} : ${overall.label}`}
       >
         {overall.msg}
       </Alert>
@@ -1036,6 +1168,19 @@ export const RealtimeConsole = observer(() => {
             >
               Canaux
             </Tabs.Tab>
+            {cluster && (
+              <Tabs.Tab
+                value="workers"
+                leftSection={<IconServer2 size={16} />}
+                rightSection={
+                  <Badge size="xs" variant="light" color="indigo" circle>
+                    {cluster.instanceCount}
+                  </Badge>
+                }
+              >
+                Workers
+              </Tabs.Tab>
+            )}
             <Tabs.Tab
               value="protocole"
               leftSection={<IconArrowsExchange size={16} />}
@@ -1127,18 +1272,30 @@ export const RealtimeConsole = observer(() => {
                   <Title order={5}>Canaux du Hub</Title>
                   <Text size="xs" c="dimmed">
                     {snap && snap.channelCount > 0
-                      ? `${snap.channelCount} actif(s) — tous clients de ce process`
+                      ? `${snap.channelCount} actif(s) — ${cluster ? `fusionnés sur les ${cluster.instanceCount} workers du pod` : "tous clients de ce process"}`
                       : "aucun canal actif"}
                   </Text>
                   <DocHint
                     title="Canaux du Hub"
                     version={HUB_DOC}
-                    summary="Vue SERVEUR : tous les canaux du hub avec leurs abonnés (tous clients confondus) et leurs publications cumulées."
+                    summary={
+                      cluster
+                        ? "Vue SERVEUR agrégée du POD : canaux FUSIONNÉS de tous les workers (un même canal sur N workers → 1 ligne ; abonnés et publications sommés)."
+                        : "Vue SERVEUR : tous les canaux du hub avec leurs abonnés (tous clients confondus) et leurs publications cumulées."
+                    }
                     sections={[
                       {
                         label: "≠ Mes abonnements",
                         body: "« Mes abonnements » (ci-dessous) = ce que cette console consomme ; ici = ce que voit le serveur pour tous les clients.",
                       },
+                      ...(cluster
+                        ? [
+                            {
+                              label: "Détail par worker",
+                              body: "Le débit et la congestion par process sont dans l'onglet « Workers ».",
+                            },
+                          ]
+                        : []),
                     ]}
                   />
                 </Group>
@@ -1256,6 +1413,82 @@ export const RealtimeConsole = observer(() => {
               </Card>
             </Stack>
           </Tabs.Panel>
+
+          {/* ── Workers : détail par process du pod (mode cluster) ── */}
+          {cluster && (
+            <Tabs.Panel value="workers" pt="md">
+              <Card withBorder radius="md" p="lg">
+                <Group gap={6} mb="md">
+                  <IconServer2 size={20} stroke={1.5} />
+                  <Title order={5}>Workers du pod</Title>
+                  <Text size="xs" c="dimmed">
+                    {cluster.instanceCount} process — agrégés en vue pod
+                  </Text>
+                  <DocHint
+                    title="Workers du pod"
+                    version={HUB_DOC}
+                    summary="Détail par worker (process) du pod. Les KPIs et la congestion en haut de page sont la SOMME de ces workers — la backpressure étant le PIRE d'entre eux, pas une somme."
+                    sections={[
+                      {
+                        label: "Pourquoi",
+                        body: "En cluster, chaque worker tient ses propres connexions WS. Le master collecte la sonde de chacun et la diffuse ; ce tableau repère le worker qui concentre les connexions ou la congestion.",
+                      },
+                      {
+                        label: "Backpressure",
+                        body: `Par worker : pire file d'envoi + nombre de consommateurs lents (seuil ${fmtBytes(SLOW_CONSUMER_BYTES)}).`,
+                      },
+                    ]}
+                  />
+                </Group>
+                <Table highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Worker (pid)</Table.Th>
+                      <Table.Th w={110}>Connexions</Table.Th>
+                      <Table.Th w={90}>Canaux</Table.Th>
+                      <Table.Th w={130}>Octets envoyés</Table.Th>
+                      <Table.Th w={130}>Pire file</Table.Th>
+                      <Table.Th w={110}>Slow-cons.</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {cluster.instances.map((inst) => {
+                      const h = backpressureHealth(inst.backpressure);
+                      return (
+                        <Table.Tr key={inst.instanceId}>
+                          <Table.Td>
+                            <Code>{inst.instanceId}</Code>
+                          </Table.Td>
+                          <Table.Td style={TNUM}>
+                            {inst.connectionCount}
+                          </Table.Td>
+                          <Table.Td style={TNUM}>{inst.channelCount}</Table.Td>
+                          <Table.Td style={TNUM}>
+                            {fmtBytes(inst.bytesSentTotal)}
+                          </Table.Td>
+                          <Table.Td style={TNUM}>
+                            <Badge size="sm" variant="light" color={h.color}>
+                              {fmtBytes(inst.backpressure.maxBufferedAmount)}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td
+                            style={TNUM}
+                            c={
+                              inst.backpressure.slowConsumers > 0
+                                ? "red"
+                                : undefined
+                            }
+                          >
+                            {inst.backpressure.slowConsumers}
+                          </Table.Td>
+                        </Table.Tr>
+                      );
+                    })}
+                  </Table.Tbody>
+                </Table>
+              </Card>
+            </Tabs.Panel>
+          )}
 
           {/* ── Protocole : stats + log de frames JSON-RPC ── */}
           <Tabs.Panel value="protocole" pt="md">
