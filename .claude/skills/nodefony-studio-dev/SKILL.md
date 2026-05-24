@@ -666,6 +666,12 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
 - SPA fallback générique masque les routes d'autres modules → fallback **littéral** par deep-link.
 - Routes dashboards = **mono-segment** (`/nodefony/dev`, `/nodefony/supervision`) → couvertes par le
   fallback SPA existant, **0 ajout backend**. (≥2 segments = fallback littéral à ajouter au controller.)
+- **Nav = `navConfig.ts` data-driven** (2026-05-24) : restructurer/ajouter une page = éditer `NAV_GROUPS`
+  - route mono-segment dans `App.tsx`. Page non livrée = **`StubPage`** + flag **`NavItem.wip`** → badge
+    « à venir » (rightSection plein, masqué en rail) = la sidebar devient la **carte d'avancement** du produit.
+    « Tout plié au boot » = **inverser** la sémantique `UiStore.isGroupCollapsed` (`!== false` = plié sauf
+    déplié explicite) + `toggleGroup` (`!isGroupCollapsed(id)`) + **bumper la clé localStorage**
+    (`…groups.v2`) pour ne pas hériter d'un ancien état. Tout additif (aucune route retirée) = « sans rien casser ».
 
 **Back-end (controller / data plane)** — section dédiée ci-dessus
 
