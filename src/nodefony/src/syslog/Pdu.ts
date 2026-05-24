@@ -90,6 +90,13 @@ const severityNameMap = new Map<number, keyof typeof SysLogSeverity>(
 const _gBuffer = (globalThis as { Buffer?: { isBuffer(v: unknown): boolean } })
   .Buffer;
 
+// `process` n'existe pas en navigateur (Core isomorphe) — accès via globalThis pour
+// compiler sous tsconfigClient `types: []`. Capturé UNE seule fois (process.pid ne change
+// jamais) → 0 appel système par log (hot path). = procid RFC 5424 : identifie le PROCESS
+// émetteur → en cluster, permet de grouper/filtrer les logs PAR WORKER (ring buffer,
+// syslog:stream, transports JSON). Browser → 0.
+const PID = (globalThis as { process?: { pid?: number } }).process?.pid ?? 0;
+
 // Fast inline typeof for PDU payload — avoids lodash overhead on hot log path
 const fastTypeOf = (value: unknown): string | null => {
   if (value === null) return null;
@@ -133,6 +140,8 @@ class Pdu {
   public msgid: Msgid;
   public msg: Message;
   public status: Status;
+  /** PID du process émetteur (= procid RFC 5424). Constant, capturé au chargement du module. */
+  public pid: number;
 
   /**
    * Construit un Pdu prêt à être publié dans le pipeline Syslog.
@@ -176,6 +185,7 @@ class Pdu {
     this.msgid = msgid;
     this.msg = msg;
     this.status = "NOTDEFINED";
+    this.pid = PID; // constant module-level → 1 assignation, 0 appel système
   }
 
   /**

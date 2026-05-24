@@ -23,17 +23,17 @@ src/nodefony/src/syslog/
 
 ## Sévérités — `SysLogSeverity` (RFC 5424 + extension)
 
-| # | Nom | Usage |
-|---|-----|-------|
-| 0 | `EMERGENCY` | Système inutilisable |
-| 1 | `ALERT` | Action immédiate |
-| 2 | **`CRITIC`** (PAS CRITICAL) | Conditions critiques |
-| 3 | `ERROR` | Erreurs logique |
-| 4 | `WARNING` | Conditions d'alerte |
-| 5 | `NOTICE` | Normal mais important |
-| 6 | `INFO` | Informationnel |
-| 7 | `DEBUG` | Debug |
-| -1 | `SPINNER` | Animation CLI (extension non-RFC) |
+| #   | Nom                         | Usage                             |
+| --- | --------------------------- | --------------------------------- |
+| 0   | `EMERGENCY`                 | Système inutilisable              |
+| 1   | `ALERT`                     | Action immédiate                  |
+| 2   | **`CRITIC`** (PAS CRITICAL) | Conditions critiques              |
+| 3   | `ERROR`                     | Erreurs logique                   |
+| 4   | `WARNING`                   | Conditions d'alerte               |
+| 5   | `NOTICE`                    | Normal mais important             |
+| 6   | `INFO`                      | Informationnel                    |
+| 7   | `DEBUG`                     | Debug                             |
+| -1  | `SPINNER`                   | Animation CLI (extension non-RFC) |
 
 ⚠️ Le nom dans l'enum est `"CRITIC"`, jamais `"CRITICAL"`.
 
@@ -41,17 +41,26 @@ src/nodefony/src/syslog/
 
 ```typescript
 class Pdu {
-  payload: unknown;           // contenu (string, Error, objet)
-  severity: number;           // 6 (numérique pour comparaisons rapides)
-  severityName: string;       // "INFO" (string pour affichage)
-  moduleName: string;         // nom du syslog parent ou du service
-  msgid: string;              // catégorie ("AUTH", "ROUTER", "HTTP-KERNEL"...)
-  msg: string;                // détail libre optionnel
-  timeStamp: number;          // Date.now()
-  pid: number;                // process.pid
-  date: Date;                 // dérivé timeStamp
+  payload: unknown; // contenu (string, Error, objet)
+  uid: number; // id incrémental du log
+  severity: number; // 6 (numérique pour comparaisons rapides)
+  severityName: string; // "INFO" (string pour affichage)
+  typePayload: string | null; // typeof rapide du payload
+  moduleName: string; // nom du syslog parent ou du service
+  msgid: string; // catégorie ("AUTH", "ROUTER", "HTTP-KERNEL"...)
+  msg: string; // détail libre optionnel
+  timeStamp: number; // Date.now() (pas d'objet Date stocké — getDate() le dérive)
+  status: Status; // "NOTDEFINED" | "INVALID" | "ACCEPTED" | "DROPPED"
+  pid: number; // = procid RFC 5424. const PID module-level (process.pid,
+  //   capturé 1× → 0 appel système/log). Browser → 0.
+  //   Voyage dans ring buffer / syslog:stream / JSON → groupe par worker.
 }
 ```
+
+> ⚠️ Il n'y a **PAS** de champ `date: Date` (en stocker un = 1 allocation Date PAR log =
+> violation hot path). Le timestamp vit dans `timeStamp: number` ; `getDate()` le formate à la demande.
+> `pid` a été **ajouté au Pdu le 2026-05-24** (auparavant le pid n'existait qu'à l'affichage console,
+> ne voyageait pas dans le pipeline structuré).
 
 ## Flux d'un log
 
@@ -80,11 +89,11 @@ class MyService extends Service {
   doSomething(): void {
     this.log("simple", "INFO");
     this.log(error, "ERROR", "AUTH", "user login failed");
-    this.spinlog("Chargement...");            // SPINNER
-    
+    this.spinlog("Chargement..."); // SPINNER
+
     const pdu = this.log("returned", "WARNING");
-    pdu.severityName;  // "WARNING"
-    pdu.severity;      // 4
+    pdu.severityName; // "WARNING"
+    pdu.severity; // 4
   }
 }
 ```
@@ -109,6 +118,7 @@ syslog.setConditions({
 Stocke les N derniers logs en mémoire (configurable, défaut ~1000).
 
 **Usages** :
+
 - Studio (Phase 10) — `kernel.syslog.buffer.toArray()` → snapshot rapide
 - SSE Logs panel — stream live (cf `@nodefony/studio/frontend/src/pages/Logs.tsx`)
 - Debug en cours d'exécution
@@ -118,9 +128,9 @@ Stocke les N derniers logs en mémoire (configurable, défaut ~1000).
 ## Initialisation par environnement
 
 ```typescript
-svc.initSyslog("development", true);   // verbose, DEBUG OK
-svc.initSyslog("production", false);   // INFO+ seulement
-svc.initSyslog("test", false);         // silencieux ou WARN+
+svc.initSyslog("development", true); // verbose, DEBUG OK
+svc.initSyslog("production", false); // INFO+ seulement
+svc.initSyslog("test", false); // silencieux ou WARN+
 ```
 
 Applique les **conditions par défaut** selon environnement.
@@ -129,22 +139,22 @@ Applique les **conditions par défaut** selon environnement.
 
 ```typescript
 // @nodefony/studio (futur P10)
-@Controller('/nodefony/api/logs')
+@Controller("/nodefony/api/logs")
 class LogsController {
-  @Get('/stream')
+  @Get("/stream")
   async stream(ctx: HttpContext) {
-    ctx.response.setHeader('Content-Type', 'text/event-stream');
-    
+    ctx.response.setHeader("Content-Type", "text/event-stream");
+
     const handler = (pdu: Pdu) => {
       ctx.response.write(`data: ${JSON.stringify(pdu)}\n\n`);
     };
-    
-    this.kernel.syslog.on('onLog', handler);
-    
+
+    this.kernel.syslog.on("onLog", handler);
+
     // ⚠️ Cleanup : listener sur RESPONSE (rawRes), pas REQUEST en HTTP/2
     // cf mémoire feedback_sse_http2_request_close
-    ctx.rawRes.on('close', () => {
-      this.kernel.syslog.off('onLog', handler);
+    ctx.rawRes.on("close", () => {
+      this.kernel.syslog.off("onLog", handler);
     });
   }
 }
@@ -170,20 +180,20 @@ cd src/nodefony && npm run test 2>&1 | grep -A 3 "Syslog\|Pdu"
 
 ## ⚠️ Gotchas
 
-| Symptôme | Cause | Fix |
-|----------|-------|-----|
-| `Cannot find "CRITICAL"` | Le nom est `"CRITIC"` | Utiliser `"CRITIC"` ou `SysLogSeverity.CRITIC` |
-| Log perdu après `clean()` | `syslog=null` après clean | Pdu standalone fallback créé (mais perdu) — ne pas logger après clean |
-| `pdu.severity === "INFO"` false | severity = numérique | Comparer `pdu.severityName === "INFO"` |
-| Logs trop verbeux en prod | `initSyslog("development", true)` au boot | Passer bon env (`"production"`) |
-| ANSI codes pollueent les greps | Console transport ajoute couleurs | `sed 's/\x1b\[[0-9;]*m//g'` sur le tail |
-| Tous les sévérités du même listener | Conditions non setées | Appeler `setConditions()` au boot |
+| Symptôme                            | Cause                                     | Fix                                                                   |
+| ----------------------------------- | ----------------------------------------- | --------------------------------------------------------------------- |
+| `Cannot find "CRITICAL"`            | Le nom est `"CRITIC"`                     | Utiliser `"CRITIC"` ou `SysLogSeverity.CRITIC`                        |
+| Log perdu après `clean()`           | `syslog=null` après clean                 | Pdu standalone fallback créé (mais perdu) — ne pas logger après clean |
+| `pdu.severity === "INFO"` false     | severity = numérique                      | Comparer `pdu.severityName === "INFO"`                                |
+| Logs trop verbeux en prod           | `initSyslog("development", true)` au boot | Passer bon env (`"production"`)                                       |
+| ANSI codes pollueent les greps      | Console transport ajoute couleurs         | `sed 's/\x1b\[[0-9;]*m//g'` sur le tail                               |
+| Tous les sévérités du même listener | Conditions non setées                     | Appeler `setConditions()` au boot                                     |
 
 ## Cycle de vie
 
 ```typescript
-syslog.reset();     // vide ring buffer + reset compteurs
-syslog.clean();     // libère transports + reset
+syslog.reset(); // vide ring buffer + reset compteurs
+syslog.clean(); // libère transports + reset
 ```
 
 À `Service.clean(true)` → appelle `syslog.reset()`. À `clean()` simple → conservé. À `clean(false)` → conservé sans reset.

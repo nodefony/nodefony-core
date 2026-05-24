@@ -112,6 +112,18 @@ describe("NODEFONY SYSLOG", () => {
       assert.strict.equal(inst.ringStack.length, 500);
       done();
     });
+
+    it("Pdu porte le pid du process (procid RFC 5424)", () => {
+      const pdu = new Pdu("test", "INFO");
+      assert.strict.equal(pdu.pid, process.pid);
+    });
+
+    it("pid voyage via parseJson (round-trip pipeline / cluster)", () => {
+      const pdu = new Pdu("x", "INFO");
+      pdu.parseJson(JSON.stringify({ pid: 99999, payload: "y" }));
+      assert.strict.equal(pdu.pid, 99999);
+      assert.strict.equal(pdu.payload, "y");
+    });
   });
 
   describe("RING STACK", () => {
