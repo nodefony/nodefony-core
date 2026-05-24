@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.9.0
+version: 1.10.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.7.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.10.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -48,7 +48,7 @@ correspondante de `nodefony-studio-dev` (et inversement). Ouvrir le skill jumeau
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.9.0**.
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.10.0**.
 
 ## 1. Quand l'utiliser / quand passer la main
 
@@ -777,6 +777,27 @@ sur le hub → la sonde les rend MESURABLES **avant** d'optimiser :
 - Réfs : `project_realtime_nodefony_socket_vision`, `project_realtime_socket_probe`, `project_client_lib_subpaths_decision`,
   `project_studio_realtime_ws`, `project_decisions_realtime_isomorphic`, `project_realtime_granularity_clientlib` (AIMD).
 
+**Backplane cross-process — port `IBackplane`** (framework, LIVRÉ Phase 1, `ac21bec`) — l'abstraction de
+fan-out **cross-process** du hub. Le hub fait le fan-out LOCAL ; le backplane propage aux **autres pairs**
+(workers IPC, pods Redis) et réinjecte localement. **Même contrat, backings interchangeables** → on prouve
+l'archi multi-process AVANT toute infra (c'est le mode cluster sans PM2 : cf [[project_cluster_backplane_vision]]).
+
+- `IBackplane` (`interfaces/IBackplane.ts`) : `originId` (identité pair, anti-echo) · `publish(channel,payload)`
+  (→ autres pairs, **PAS** de fan-out local) · `onMessage(handler)` (ingress, echo déjà filtré) · `start/stop`.
+  Sémantique **best-effort / at-most-once** (pub/sub — 0 garantie ordre/delivery, le client re-sync ; ne pas sur-concevoir).
+- `LoopbackBackplane` (no-op, aucun pair) = impl de référence + cible de test.
+- **Hub câblé** : `publish` = `publishLocal` **+** `#backplane?.publish` ; `publishLocal` = fan-out local
+  SEUL = **voie d'ingress** (jamais re-propagée). `setBackplane(bp)` câble `bp.onMessage→publishLocal` + `bp.start()`.
+  **`#backplane = null` par défaut** → 0 overhead mono-process (seul un test `!== null` sur le hot path, style lazy).
+  `clear()` détache sans `stop` (lifecycle externe = owner du backplane). Getter `backplane`.
+- 🚨 **Anti-boucle = 2 barrières** : (1) ingress → `publishLocal` (jamais `publish`) → pas de re-forward ;
+  (2) le backplane filtre son propre `originId`. Une publication LOCALE part au backplane ; un message REÇU n'en repart jamais.
+- Impls à venir : **`ClusterBackplane`** (IPC **master-gateway** : worker→`process.send` ; master sert 0 HTTP =
+  relay IPC + agrège les sondes + **pont unique** Redis = 1 conn/pod, worker découplé) puis **`RedisBackplane`** (P13, drop-in).
+- ⚠️ **Politique par canal** (à trancher Phase 3) : `publish` forward TOUT pour l'instant. Or un canal per-instance
+  (`realtime:health` = snapshot du pod) ne doit PAS se mélanger cross-pod. Le harnais cluster RÉVÉLERA ces cas =
+  l'intérêt de tester tôt. Phase 2 = lifecycle cluster core (`nodefony cluster`, fork cgroup-aware, respawn, `isPrimary`).
+
 ## 5. ORM — Entity / Repository / Service CRUD
 
 **Archi = Repository multi-ORM (pas Active Record)** — ADR-0003. `@nodefony/orm-core` = **lib pure**
@@ -1296,6 +1317,16 @@ no entity table registered under "session"`, code 401, au Ctrl+C) : `DrizzleServ
   reflétés, canal disposé au close). **Décision archi** (questions user) : pas de module `@nodefony/realtime` au milieu
   de la feature (scope ×3, contre 1 feature=1 session) → hub/sonde restent dans framework, déménageront en bloc P13.1 ;
   config realtime future = section `realtime` de `@nodefony/http`. Nommage « la Socket Nodefony » (cf §4 + mémoires).
+- _(2026-05-24)_ **Port `IBackplane` AVANT toute impl (Phase 1 cluster sans PM2)** : refacto du hub pour séparer
+  `publish` (fan-out local **+** propagation cross-process) de `publishLocal` (fan-out local SEUL = voie d'ingress).
+  **Leçon archi** : définir le PORT et le PROUVER avec un backplane factice + un `LoopbackBackplane` no-op AVANT
+  d'écrire l'IPC/Redis — sinon on code une API qui ne marche qu'avec Redis. Tester le contrat avec **2 backings dès
+  le départ** = la garantie du drop-in. **Anti-boucle = 2 barrières** (ingress→`publishLocal` jamais `publish` ; le
+  backplane filtre son `originId`). **Perf** : `#backplane=null` par défaut (lazy, comme le reste du hub) → 0 overhead
+  mono-process, pas même un appel de méthode no-op ; le Loopback matérialise le contrat sans être sur le hot path.
+  Refacto pur (runtime inchangé) → mémoire WS 8/8 verte, 0 régression. Commit `ac21bec`,
+  [[project_cluster_backplane_vision]]. PROCHAINE = Phase 2 (lifecycle cluster CORE : `nodefony cluster`, fork
+  **cgroup-aware** — jamais `os.cpus()` aveugle en conteneur —, respawn backoff, `isPrimary`) → session core dédiée.
 
 ## 12. Fin de session (OBLIGATOIRE) + auto-audit de complétude
 
@@ -1363,6 +1394,13 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.10.0** (2026-05-24) — §4 **Backplane cross-process — port `IBackplane`** (Phase 1 du mode cluster sans
+  PM2, commit `ac21bec`) : abstraction de fan-out cross-process du `RealtimeHub` (Loopback → Cluster IPC → Redis,
+  **interchangeables**). Hub split `publish` (local **+** propagation) / `publishLocal` (local SEUL = ingress) ;
+  `setBackplane` câble `onMessage→publishLocal` (anti-boucle) + `start` ; `#backplane=null` défaut = 0 overhead
+  mono-process. `LoopbackBackplane` no-op de référence. RETEX §11 (définir+PROUVER le port avant l'impl ; anti-boucle
+  2 barrières ; lazy null). Re-aligne le **lockstep** sur studio-dev 1.10.0 (backplane = pas de contrat front →
+  studio-dev inchangé). [[project_cluster_backplane_vision]].
 - **1.9.0** (2026-05-24) — §4 **Sonde de la Socket Nodefony** (auto-observabilité du `RealtimeHub`,
   « la socket s'observe à travers elle-même ») : `RealtimeHub.probe(): IRealtimeProbe` (canaux/abonnés/
   messages, publish/fanoutTotal, inbound, connexions, bytes/msg, **backpressure** max/total `bufferedAmount`
