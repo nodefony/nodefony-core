@@ -35,8 +35,11 @@ import {
   IconJson,
 } from "@tabler/icons-react";
 import { useConnection, useNotifications, useUi } from "../stores";
-import { InfoHint } from "./ui";
+import { DocHint } from "./ui";
 import type { NoticeLevel } from "nodefony";
+
+/** Version de la doc des fiches d'aide (`DocHint`) du popover Hub. */
+const HUB_DOC = "v1.0";
 
 const STATE_META: Record<string, { color: string; label: string }> = {
   connected: { color: "teal", label: "connecté" },
@@ -251,7 +254,21 @@ export const RealtimeHubContent = observer(
             label="Cadence auto (AIMD)"
             aria-label="cadence adaptative globale de la socket Nodefony"
           />
-          <InfoHint text="Réglage GLOBAL de la socket Nodefony (même valeur partout). Cadence AUTO (adaptative, façon « ABR » vidéo) : la socket surveille le rythme réel d'arrivée des données sur chaque canal ; si le serveur prend du retard, elle RALENTIT seule la cadence — comme une vidéo qui baisse sa qualité sur une connexion lente — puis RÉACCÉLÈRE quand c'est fluide. Les pages suivent ce réglage ; la cadence réelle par canal se lit ci-dessous (badge « ~Xs »)." />
+          <DocHint
+            title="Cadence auto (AIMD)"
+            version={HUB_DOC}
+            summary="Réglage GLOBAL de la Socket Nodefony (même valeur partout)."
+            sections={[
+              {
+                label: "Principe",
+                body: "Cadence adaptative (façon « ABR » vidéo) : la socket surveille le rythme réel d'arrivée sur chaque canal ; si le serveur prend du retard, elle RALENTIT seule puis RÉACCÉLÈRE quand c'est fluide.",
+              },
+              {
+                label: "Effet",
+                body: "Les pages suivent ce réglage ; la cadence réelle par canal se lit via le badge « ~Xs ».",
+              },
+            ]}
+          />
         </Group>
 
         {/* ── Carte connexion ── */}
