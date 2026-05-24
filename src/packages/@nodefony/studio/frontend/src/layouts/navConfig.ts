@@ -24,6 +24,8 @@ import {
   IconCode,
   IconActivityHeartbeat,
   IconBroadcast,
+  IconCpu,
+  IconRocket,
   IconRobot,
   IconMessageChatbot,
   IconSparkles,
@@ -106,6 +108,8 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: IconChartBar,
     items: [
       { to: "/nodefony/hub", label: "Realtime Hub", icon: IconBroadcast },
+      { to: "/nodefony/runtime", label: "Runtime", icon: IconRocket },
+      { to: "/nodefony/cluster", label: "Cluster", icon: IconCpu },
       { to: "/nodefony/logs", label: "Logs", icon: IconFileText },
       { to: "/nodefony/profiling", label: "Profiling", icon: IconChartBar },
     ],

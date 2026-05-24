@@ -36,6 +36,12 @@ const RealtimeConsole = lazy(() =>
     default: m.RealtimeConsole,
   })),
 );
+const Cluster = lazy(() =>
+  import("./routes/Cluster").then((m) => ({ default: m.Cluster })),
+);
+const Runtime = lazy(() =>
+  import("./routes/Runtime").then((m) => ({ default: m.Runtime })),
+);
 const Chat = lazy(() =>
   import("./routes/Chat").then((m) => ({ default: m.Chat })),
 );
@@ -123,6 +129,8 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <HomeRedirect /> },
           { path: "hub", element: <RealtimeConsole /> },
+          { path: "cluster", element: <Cluster /> },
+          { path: "runtime", element: <Runtime /> },
           {
             path: "dev",
             element: (

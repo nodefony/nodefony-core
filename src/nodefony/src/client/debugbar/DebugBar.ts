@@ -164,11 +164,11 @@ const STYLES = `
 .rt-pill { display:flex; align-items:center; gap:5px; padding:.2em .7em; border-radius:11px; flex:none;
   font-size:.76em; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
   color:var(--muted); background:#22262e; border:1px solid var(--line); }
-.rt-pill.live { color:#fff; border-color:rgba(58,160,255,.5);
+.rt-pill.connected { color:#fff; border-color:rgba(58,160,255,.5);
   background: linear-gradient(90deg, rgba(0,103,186,.35), rgba(255,138,61,.25));
   box-shadow: 0 0 14px rgba(58,160,255,.35); }
 .rt-pill .bolt { animation: bolt 1.6s ease-in-out infinite; }
-.rt-pill.live .bolt { color: var(--orange); }
+.rt-pill.connected .bolt { color: var(--orange); }
 @keyframes bolt { 0%,100%{opacity:.5;transform:scale(.9)} 50%{opacity:1;transform:scale(1.15)} }
 
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; color: var(--muted); }
@@ -754,7 +754,7 @@ export class DebugBar {
         <span class="brand"><span class="logo">◆</span><span class="name">nodefony</span></span>
         <span class="env-badge" data-el="envBadge">env</span>
         <span class="branch" data-el="branch" title="branche git"><span class="git">⎇</span><span data-el="branchName">—</span></span>
-        <span class="rt-pill" data-el="rtPill"><span class="bolt">⚡</span> realtime</span>
+        <span class="rt-pill" data-el="rtPill" title="Connexion temps réel"><span class="bolt">⚡</span> realtime</span>
         ${this.miniMetric("rt", "rt", "rtMini", "0/s")}
         ${this.miniMetric("cpu", "cpu", "cpuMini", "0%")}
         ${this.miniMetric("mem", "mem", "memMini", "0%")}
@@ -762,7 +762,7 @@ export class DebugBar {
         ${this.networkEnabled ? `<span class="chip"><span class="k">net</span><span class="blue" data-el="netChip">0</span></span>` : ""}
         <span class="chip"><span class="k">logs</span><span data-el="logs">0</span></span>
         <span class="chip"><span class="k">err</span><span class="crit" data-el="err">0</span></span>
-        <span class="ctrl live" data-el="btnLive" role="button" tabindex="0" aria-pressed="false" title="Temps réel">○ live</span>
+        <span class="ctrl live" data-el="btnLive" role="button" tabindex="0" aria-pressed="false" title="Abonnement aux flux push">flux OFF</span>
         <span class="ctrl" data-el="btnSide" title="Changer de côté">⇄</span>
         <span class="ctrl" data-el="btnMin" title="Réduire">—</span>
         <span class="toggle">▴</span>
@@ -1009,10 +1009,10 @@ export class DebugBar {
   private updateLiveBtn(): void {
     const btn = this.el["btnLive"] as HTMLElement | undefined;
     if (!btn) return;
-    btn.textContent = this.live ? "● live" : "○ live";
+    btn.textContent = this.live ? "flux ON" : "flux OFF";
     btn.title = this.live
-      ? "Temps réel ACTIF — clic pour couper (stats + logs)"
-      : "Temps réel coupé (perf) — clic pour activer (stats + logs)";
+      ? "Flux push ACTIF (stats + logs) — clic pour couper. ≠ état de la connexion (pastille « realtime »)."
+      : "Flux push coupé (perf) — clic pour activer (stats + logs). ≠ état de la connexion (pastille « realtime »).";
     btn.setAttribute("aria-pressed", this.live ? "true" : "false");
     btn.classList.toggle("on", this.live);
   }
@@ -1339,7 +1339,7 @@ export class DebugBar {
 
   /** Bandeau toujours visible (chips + pouls) — léger. */
   private renderStrip(v: DebugBarView): void {
-    const live = v.state === "connected";
+    const connected = v.state === "connected";
     const cpuT = gauge(v.cpuPercent);
     const memT = gauge(v.heapPercent);
     // env + branche
@@ -1351,11 +1351,14 @@ export class DebugBar {
       v.branch ? `branche git : ${v.branch}` : "branche git",
     );
     this.text("mEnv", v.env);
-    // realtime
+    // realtime — état de CONNEXION (≠ abonnement « flux » opt-in du bouton)
     this.cls("dot", `dot ${v.state}`);
     this.cls("mdot", `dot ${v.state}`);
     this.text("mrate", `${this.rtRate}/s`);
-    this.cls("rtPill", live ? "rt-pill live" : "rt-pill");
+    this.cls("rtPill", connected ? "rt-pill connected" : "rt-pill");
+    const connTitle = `Connexion temps réel : ${v.state}`;
+    this.el.rtPill?.setAttribute("title", connTitle);
+    this.el.dot?.setAttribute("title", connTitle);
     this.text("rt", `${this.rtRate}/s`);
     this.cls("rt", "v blue");
     this.el.rtMini?.setAttribute(

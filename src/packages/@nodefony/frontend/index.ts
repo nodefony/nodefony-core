@@ -9,9 +9,11 @@
  *
  * Voir `nodefony/CLAUDE.md` du module pour les décisions d'archi figées.
  */
+import type { IAdminRegistry } from "nodefony";
 import { Kernel, Module, services } from "nodefony";
 import config from "./nodefony/config/config";
 import FrontendService from "./nodefony/service/FrontendService";
+import { createFrontendAdminApi } from "./nodefony/src/FrontendAdminApi";
 import FrontendBuild from "./nodefony/command/frontend-build";
 import FrontendDev from "./nodefony/command/frontend-dev";
 import FrontendStatus from "./nodefony/command/frontend-status";
@@ -25,6 +27,25 @@ class Frontend extends Module {
     this.addCommand(FrontendStatus);
   }
 
+  /**
+   * Phase `onBoot` : enregistre le producteur admin (`/nodefony/frontend/api/*`)
+   * auprès du broker, AVANT que framework ne monte le data plane à `onReady`.
+   * Handler lazy → le statut Vite est lu à la requête (superviseur démarré à
+   * `onServersReady`, bien après ce hook).
+   */
+  override async onKernelBoot(): Promise<this> {
+    const registry = this.kernel?.container?.get("adminBroker") as
+      | IAdminRegistry
+      | undefined;
+    const svc = this.kernel?.container?.get("frontend") as
+      | FrontendService
+      | undefined;
+    if (registry && svc && !registry.has("frontend")) {
+      registry.register(createFrontendAdminApi(svc));
+    }
+    return this;
+  }
+
   override async onKernelReady(): Promise<this> {
     return this;
   }
@@ -35,6 +56,16 @@ export { Frontend };
 
 // Service injectable.
 export { FrontendService };
+
+// Producteur admin (data plane `/nodefony/frontend/api/*`).
+export {
+  createFrontendAdminApi,
+  buildFrontendStatus,
+} from "./nodefony/src/FrontendAdminApi";
+export type {
+  IFrontendStatusView,
+  IViteInstanceView,
+} from "./nodefony/src/FrontendAdminApi";
 
 // Builders / Supervisors / Presets — exposés pour extension par d'autres modules.
 export { default as ViteBuilder } from "./nodefony/src/builders/ViteBuilder";
