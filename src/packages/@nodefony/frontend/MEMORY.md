@@ -115,16 +115,28 @@ Purpose: builder Vite multi-framework. Successeur webpackService legacy.
 - **ViteConfigGenerator.ts = 100% lines (53/53)** ; module-wide ~12% (autres fichiers non testés inclus dans `include`, idem framework/http — le % unit ne mesure pas le runtime).
 - **Split assumé (décision A, 2026-05-20)** : l'intégration (`ViteProcessSupervisor`, spawn Vite) tourne en process séparé → JAMAIS instrumentée. cf [[feedback_coverage_modules]].
 
-## API Studio (route /nodefony/frontend/* — Phase 10)
+## API Studio (route /nodefony/frontend/\* — Phase 10)
 
 - GET /nodefony/frontend/api/status → JSON status (idem `frontend:status -j`)
 - GET /nodefony/frontend/api/entries → list entries résolues
 - POST /nodefony/frontend/api/restart → stop + startDev
 - (TODO Phase 14.2 quand Studio MVP ✅)
 
+## Prod build + renderProdTags (P14.5 ✅ 2026-05-24 — page blanche résolue)
+
+- **`publicPath`** (IResolvedFrontendEntry, requis) : défaut `/_assets/<entryName>/` (normalisé leading+trailing `/`). = `base` Vite (prod) ⇄ mount `Statics` ⇄ préfixe URLs manifest. Surcharge via `frontend.publicPath`.
+- **`TemplateHelper(supervisor|null, mode, entries?)`** : prod → `renderProdTags` lit `outDir/.vite/manifest.json` (caché `Map` par outDir, fallback `manifest.json` legacy). Clé = `entryFile` POSIX sinon chunk `isEntry`. Émet CSS (récursif via imports) + `modulepreload` (imports) + `<script type=module crossorigin>`, préfixés `publicPath`. Manifest absent → commentaire (0 crash).
+- **`FrontendService.build({force?})`** : `vite.build` **par entry** (boucle, pas 1 config partagée — multi-module + Angular isolé). **Skip** si `manifest.mtime >= newestSourceMtime(root)` (scan borné, ignore node_modules/.vite/outDir). Retourne `{built, skipped, failures}`. `ViteBuilder` ajoute `base = publicPath` SEULEMENT en `production`.
+- **`setupProd()`** (hook `onServersReady`, `env !== development`) : `container.get("server-static").addMount(publicPath, outDir)` par entry + `prodHelper`. `renderTags` route vers `prodHelper` si présent. **Anti-cycle** : jamais d'import `@nodefony/http`, résolution par nom DI.
+- **`Statics` (http)** : `addMount(prefix,dir)` (normalise, idempotent, `serve-static` cache 96h) + `hasMounts()`. `handle()` : guard `url.startsWith(prefix)` (O(1), 0 stat disque sinon) → strip → `serve-static` (pose Content-Type ; fichier servi = Promise pending = routing court-circuité). `http-kernel.onHttpRequest` déclenche le static si `options.statics` OU `hasMounts()`.
+- **Page blanche** = route back `GET /nodefony` (StudioController) : injectait `renderTags("studio")` = stub en prod → 0 `<script>` → React jamais chargé. Même route dev/prod, seul le contenu injecté diffère.
+- **Pipeline** : `npm run build` (backend) PUIS `npm run build:front`/`build:all`. ⚠️ CLI `frontend:build` = `unknown command` (bug pré-existant `project_cli_commands_broken_claude_ts`).
+- **Preuve runtime** : cluster `-w 2` → `GET /nodefony` = balises `/_assets/studio/...` fingerprintées, assets HTTP 200 via Statics. Tests : `tests/integration/frontend-build.test.ts` (5, vrai vite.build).
+
 ## Debug bar — auto-injection dev (`TemplateHelper`)
 
 `renderDevTags()` injecte en **dev only** la debug bar Core (`nodefony/debugbar`) après l'entry :
+
 - résout le fichier 1× via `createRequire(import.meta.url).resolve("nodefony/debugbar")` (caché module-level), sert via le `/@fs/<abs>` de Vite (couvert par `server.fs.allow` = cwd).
 - `mountDebugBar({ frontend: { framework, name, viteOrigin, hmrUrl } })` → carte Frontend + sonde HMR (`wss://host:port/`). `framework` = `entry.type` (react19/vue3/angular).
 - irrésoluble → commentaire HTML, n'altère jamais la page. Apparaît sur toutes les pages front en dev (Studio inclus).

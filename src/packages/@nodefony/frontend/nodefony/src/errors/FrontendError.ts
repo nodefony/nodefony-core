@@ -34,6 +34,25 @@ export class FrontendSupervisorStartError extends FrontendError {
   }
 }
 
+/** Au moins un bundle a échoué au build production (Vite). */
+export class FrontendBuildError extends FrontendError {
+  constructor(
+    public readonly failures: ReadonlyArray<{
+      entryName: string;
+      message: string;
+    }>,
+  ) {
+    super(
+      `Frontend production build failed for ${failures.length} bundle(s): ${failures
+        .map((f) => f.entryName)
+        .join(", ")}`,
+      "BUILD_FAILED",
+      { failures },
+    );
+    this.name = "FrontendBuildError";
+  }
+}
+
 /** Aucune entrée front trouvée alors qu'on tente de démarrer le dev server. */
 export class FrontendNoEntriesError extends FrontendError {
   constructor() {

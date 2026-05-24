@@ -472,8 +472,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ): Promise<http.ServerResponse | http2.Http2ServerResponse> {
     response.setHeader("Server", this.options.headerServer);
     if (
-      (this.kernel?.options.servers.statics || this.kernel?.options.statics) &&
-      this.serverStatic
+      this.serverStatic &&
+      (this.kernel?.options.servers.statics ||
+        this.kernel?.options.statics ||
+        this.serverStatic.hasMounts())
     ) {
       return this.serverStatic
         .handle(request, response)

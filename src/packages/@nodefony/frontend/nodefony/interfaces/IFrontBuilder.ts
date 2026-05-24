@@ -19,6 +19,13 @@ export interface IFrontendModuleDeclaration {
   /** Nom logique de l'entrée multi-bundle (défaut = nom du module). */
   readonly name?: string;
   /**
+   * Préfixe public sous lequel les assets buildés sont servis en prod
+   * (par le serveur statique `Statics` de @nodefony/http, ou par un proxy
+   * frontal en cloud-native). Défaut `/_assets/<name>/`. Sert de `base` Vite
+   * au build ET de mount prefix au serveur statique → les deux restent alignés.
+   */
+  readonly publicPath?: string;
+  /**
    * Préfixes de paths à proxifier depuis Vite vers Nodefony (dev only).
    * Sans ça, un `fetch("/poc/api/data")` depuis l'app React servie par Vite
    * tape Vite (qui retourne son index.html SPA-fallback) au lieu du backend.
@@ -37,6 +44,11 @@ export interface IResolvedFrontendEntry {
   readonly root: string;
   readonly entryFile: string;
   readonly outDir: string;
+  /**
+   * Préfixe public normalisé (leading + trailing `/`, ex `/_assets/studio/`)
+   * — `base` Vite en prod + mount prefix du serveur statique.
+   */
+  readonly publicPath: string;
   /** Préfixes à proxifier vers Nodefony (résolus depuis la déclaration). */
   readonly apiProxyPaths: ReadonlyArray<string>;
 }

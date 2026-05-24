@@ -10,6 +10,7 @@ const baseEntry: IResolvedFrontendEntry = {
   root: "/abs/path/to/frontend",
   entryFile: "src/main.tsx",
   outDir: "/abs/path/to/public/dist",
+  publicPath: "/_assets/test-mod/",
   apiProxyPaths: [],
 };
 
@@ -28,10 +29,7 @@ describe("ViteConfigGenerator — toMjs()", () => {
   });
 
   it("does NOT emit react import for vanilla preset", () => {
-    const out = gen.toMjs(
-      [{ ...baseEntry, type: "vanilla" }],
-      "development",
-    );
+    const out = gen.toMjs([{ ...baseEntry, type: "vanilla" }], "development");
     expect(out).to.not.include("@vitejs/plugin-react");
   });
 
@@ -60,10 +58,12 @@ describe("ViteConfigGenerator — toMjs()", () => {
       "development",
     );
     expect(out).to.include('import { defineConfig } from "vite"');
-    expect(out).to.include('import angular from "@analogjs/vite-plugin-angular"');
+    expect(out).to.include(
+      'import angular from "@analogjs/vite-plugin-angular"',
+    );
     // tsconfig résolu en absolu depuis le root de l'entry (≠ relatif).
     expect(out).to.include("angular({ tsconfig:");
-    expect(out).to.include('/abs/path/to/frontend/tsconfig.app.json');
+    expect(out).to.include("/abs/path/to/frontend/tsconfig.app.json");
     expect(out).to.include('"@angular/core",');
   });
 
@@ -194,7 +194,8 @@ describe("ViteConfigGenerator — toMjs()", () => {
       ],
       "development",
     );
-    const rootOccurrences = (out.match(/"\/abs\/path\/to\/frontend"/g) || []).length;
+    const rootOccurrences = (out.match(/"\/abs\/path\/to\/frontend"/g) || [])
+      .length;
     // 1× pour `root:`, 1× dans `fs.allow` → 2 max
     expect(rootOccurrences).to.equal(2);
   });

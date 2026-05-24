@@ -70,8 +70,14 @@ export class ViteBuilder implements IFrontBuilder {
     const root = entries[0]!.root;
     const outDir = entries[0]!.outDir;
 
+    // Prod : `base` = publicPath → Vite préfixe les imports/assets internes avec
+    // le même chemin que celui servi par `Statics`. Dev : base par défaut "/"
+    // (le port Vite est l'origine). Multi-entry partage le base de la 1ʳᵉ entrée.
+    const base = mode === "production" ? entries[0]!.publicPath : undefined;
+
     return {
       mode,
+      ...(base ? { base } : {}),
       root,
       plugins,
       optimizeDeps: { include: optimizeInclude },

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-24T18:43:12.624Z",
+  "generated": "2026-05-24T20:58:56.665Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 748,
-    "symbols": 1334,
-    "classes": 226,
-    "interfaces": 321,
-    "types": 160,
+    "files": 749,
+    "symbols": 1347,
+    "classes": 227,
+    "interfaces": 326,
+    "types": 162,
     "enums": 2,
-    "functions": 175,
+    "functions": 180,
     "constants": 450
   },
   "symbols": {
@@ -3771,7 +3771,7 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "`nodefony frontend:build` — build production de tous les frontends déclarés par les modules. Lit le manifest généré dans `outDir`, à exposer ensuite par `server-static`."
+      "description": "`nodefony frontend:build` — build production de tous les frontends déclarés. Écrit `public/dist/` + `manifest.json` par bundle (lu ensuite par `renderProdTags` + servi par `server-static`). - Idemp…"
     },
     "FrontendDev": {
       "name": "FrontendDev",
@@ -3828,6 +3828,15 @@
       "module": "@nodefony/frontend",
       "extends": null,
       "description": "Builder responsable de construire la config Vite finale à partir des déclarations modules + des presets."
+    },
+    "IFrontendBuildResult": {
+      "name": "IFrontendBuildResult",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontendService.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Résultat d'un `build()` — exploité par la commande CLI (exit code pipeline)."
     },
     "IFrontendService": {
       "name": "IFrontendService",
@@ -3943,6 +3952,40 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "extends": null
+    },
+    "IViteInstanceView": {
+      "name": "IViteInstanceView",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Producteur `IAdminApi` du builder frontend — exposé sous `/nodefony/frontend/api/*`. Surface l'état du **superviseur Vite** (dev) pour la visibilité Studio : process Vite (pid), port réel résolu, é…"
+    },
+    "IFrontendStatusView": {
+      "name": "IFrontendStatusView",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": null,
+      "description": "Snapshot frontend servi par l'endpoint `vite`."
+    },
+    "buildFrontendStatus": {
+      "name": "buildFrontendStatus",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Construit le snapshot frontend (état Vite) — lecture pure, jamais throw."
+    },
+    "createFrontendAdminApi": {
+      "name": "createFrontendAdminApi",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Construit le producteur `IAdminApi` du frontend (namespace `\"frontend\"`)."
     },
     "isolationGroup": {
       "name": "isolationGroup",
@@ -9115,6 +9158,17 @@
       "decorators": [],
       "description": "Echec de démarrage de Vite (spawn raté, port occupé, config invalide)."
     },
+    "FrontendBuildError": {
+      "name": "FrontendBuildError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/errors/FrontendError.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "extends": "FrontendError",
+      "implements": [],
+      "decorators": [],
+      "description": "Au moins un bundle a échoué au build production (Vite)."
+    },
     "FrontendNoEntriesError": {
       "name": "FrontendNoEntriesError",
       "kind": "class",
@@ -10049,6 +10103,7 @@
       "FrontendError": [
         "FrontendPresetUnknownError",
         "FrontendSupervisorStartError",
+        "FrontendBuildError",
         "FrontendNoEntriesError"
       ],
       "NodefonyError": [
@@ -10745,6 +10800,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
       ],
       "DrizzleOrm": [
@@ -10819,6 +10875,7 @@
       ],
       "IAdminRegistry": [
         "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
@@ -11010,6 +11067,9 @@
       "Redirect": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts"
+      ],
+      "createFrontendAdminApi": [
+        "src/packages/@nodefony/frontend/index.ts"
       ],
       "FrontendBuild": [
         "src/packages/@nodefony/frontend/index.ts"
@@ -11802,6 +11862,7 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
@@ -11867,6 +11928,7 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
@@ -11915,6 +11977,7 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
@@ -12032,14 +12095,19 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
-        "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
+        "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts"
       ],
       "IViteSupervisorStatus": [
         "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontendService.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
+        "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts"
       ],
       "IFrontendService": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
+      "IFrontendBuildResult": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "IFrontendModuleDeclaration": [

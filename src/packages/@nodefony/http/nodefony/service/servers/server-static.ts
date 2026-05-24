@@ -30,12 +30,17 @@ const defaultOptions: serveStatic.ServeStaticOptions = {
   maxAge: 96 * 60 * 60,
 };
 
+/** Un dossier monté sous un préfixe public (`/_assets/x/` → dir). */
+type StaticMount = { prefix: string; server: serveStaticType; dir: string };
+
 class Statics extends Service {
   module: Module;
   servers: ServersStatic;
+  /** Montages préfixés (prod frontend). Lazy : `[]` rempli à `addMount`. */
+  mounts: StaticMount[] = [];
   defaultOptions: serveStatic.ServeStaticOptions = defaultOptions;
   constructor(
-    module: Module
+    module: Module,
     //@inject("HttpKernel") private httpKernel: HttpKernel
   ) {
     const container = module.container || undefined;
@@ -50,7 +55,7 @@ class Statics extends Service {
     this.servers = {};
     this.defaultOptions = extend(
       defaultOptions,
-      this.options.defaultOptions || {}
+      this.options.defaultOptions || {},
     );
     if (this.options.defaultOptions) delete this.options.defaultOptions;
     this.initStaticFiles();
@@ -85,6 +90,33 @@ class Statics extends Service {
     }
   }
 
+  /**
+   * Monte un dossier sous un préfixe public (ex `/_assets/studio/` → outDir).
+   * Le préfixe est normalisé (leading + trailing `/`). Idempotent : un même
+   * préfixe est remplacé. Consommé par `@nodefony/frontend` en prod (assets
+   * Vite buildés) — résolu par nom via le Container, sans import croisé.
+   *
+   * @param prefix préfixe d'URL public
+   * @param dir dossier absolu à servir
+   */
+  addMount(prefix: string, dir: string): void {
+    let p = prefix.trim();
+    if (!p.startsWith("/")) p = `/${p}`;
+    if (!p.endsWith("/")) p = `${p}/`;
+    p = p.replace(/\/{2,}/g, "/");
+    const server = serveStatic(dir, extend({}, this.defaultOptions));
+    const entry: StaticMount = { prefix: p, server, dir };
+    const i = this.mounts.findIndex((m) => m.prefix === p);
+    if (i >= 0) this.mounts[i] = entry;
+    else this.mounts.push(entry);
+    this.log(`mount ${p} → ${dir}`, "INFO");
+  }
+
+  /** `true` si au moins un montage préfixé est actif (gate du pipeline). */
+  hasMounts(): boolean {
+    return this.mounts.length > 0;
+  }
+
   addDirectory(Path: string, options: any) {
     if (!Path) {
       throw new Error("Static file path not Defined ");
@@ -101,7 +133,7 @@ class Statics extends Service {
   getStatic(
     server: serveStaticType,
     request: http.IncomingMessage | http2.Http2ServerRequest,
-    response: http.ServerResponse | http2.Http2ServerResponse
+    response: http.ServerResponse | http2.Http2ServerResponse,
   ): Promise<http.ServerResponse | http2.Http2ServerResponse> {
     return new Promise((resolve, reject) => {
       server(
@@ -113,7 +145,7 @@ class Statics extends Service {
             return reject(err);
           }
           return resolve(response);
-        }
+        },
       );
     });
   }
@@ -143,12 +175,32 @@ class Statics extends Service {
 
   async handle(
     request: http.IncomingMessage | http2.Http2ServerRequest,
-    response: http.ServerResponse | http2.Http2ServerResponse
+    response: http.ServerResponse | http2.Http2ServerResponse,
   ): Promise<http.ServerResponse | http2.Http2ServerResponse> {
     const baseURL = this.getUrl(request);
     const { pathname } = new URL(request.url as string, baseURL);
     if (!pathname) {
       throw new Error(`Bad url ${request.url}`);
+    }
+    // Montages préfixés (prod frontend). Guard `startsWith` = O(1), aucun stat
+    // disque si l'URL ne vise pas un mount → les routes dynamiques ne paient rien.
+    // `serve-static` pose lui-même le Content-Type. Si le fichier est servi, la
+    // Promise reste pending (pas de `next()`) → le routing n'est jamais atteint.
+    if (this.mounts.length > 0) {
+      const raw = request.url as string;
+      for (const m of this.mounts) {
+        if (!raw.startsWith(m.prefix)) continue;
+        request.url = `/${raw.slice(m.prefix.length)}`;
+        try {
+          await this.getStatic(m.server, request, response);
+          // Fichier absent (next appelé) → restaure l'URL, laisse le routing gérer.
+          request.url = raw;
+        } catch (e) {
+          request.url = raw;
+          return Promise.reject(e);
+        }
+        break;
+      }
     }
     for (const server in this.servers) {
       try {

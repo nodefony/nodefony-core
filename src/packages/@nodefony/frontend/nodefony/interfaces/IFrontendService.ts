@@ -1,6 +1,16 @@
 import type { IResolvedFrontendEntry } from "./IFrontBuilder";
 import type { IViteSupervisorStatus } from "./IViteSupervisor";
 
+/** Résultat d'un `build()` — exploité par la commande CLI (exit code pipeline). */
+export interface IFrontendBuildResult {
+  /** Bundles effectivement (re)buildés. */
+  built: string[];
+  /** Bundles ignorés car déjà à jour (manifest plus récent que les sources). */
+  skipped: string[];
+  /** Bundles en échec (`entryName` + message Vite). */
+  failures: { entryName: string; message: string }[];
+}
+
 /**
  * API publique du `FrontendService` injectable.
  *
@@ -27,8 +37,11 @@ export interface IFrontendService {
   startDev(): Promise<void>;
   /** Stoppe proprement le superviseur. */
   stopDev(): Promise<void>;
-  /** Build production — appelle Vite en mode build, écrit manifest.json. */
-  build(): Promise<void>;
+  /**
+   * Build production — `vite.build()` par entry (manifest.json par bundle).
+   * @param opts.force rebuild même si le manifest est plus récent que les sources.
+   */
+  build(opts?: { force?: boolean }): Promise<IFrontendBuildResult>;
   /** Helper template — retourne les balises `<script>` à injecter dans une page. */
   renderTags(entryName: string): string;
 }

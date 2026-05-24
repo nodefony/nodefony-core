@@ -1,12 +1,23 @@
 import path from "node:path";
+import fs from "node:fs";
 import { createRequire } from "node:module";
 import type { IViteSupervisor } from "../../interfaces/IViteSupervisor";
+import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder";
 
 /**
  * Chemin résolu (1×, caché) du build navigateur de la debug bar Nodefony
  * (`nodefony/debugbar`). `undefined` = pas encore tenté, `null` = irrésolu.
  */
 let debugbarFile: string | null | undefined;
+
+/** Une entrée du `manifest.json` de Vite (champs utiles seulement). */
+interface ViteManifestChunk {
+  file: string;
+  isEntry?: boolean;
+  css?: string[];
+  imports?: string[];
+}
+type ViteManifest = Record<string, ViteManifestChunk>;
 
 /**
  * Génère les balises HTML à injecter dans la page rendue côté serveur
@@ -16,9 +27,21 @@ let debugbarFile: string | null | undefined;
  * Prod : lira `manifest.json` du build pour les chemins fingerprintés (TODO).
  */
 export class TemplateHelper {
+  /**
+   * Manifests Vite parsés, cachés par `outDir` (lecture disque 1× par bundle).
+   * `null` = lecture tentée mais manifest absent/illisible (build manquant).
+   */
+  private readonly manifestCache = new Map<string, ViteManifest | null>();
+
+  /**
+   * @param supervisor superviseur Vite (dev) — `null` en prod (Vite ne tourne pas).
+   * @param mode bascule dev (URLs vers le dev server) / prod (manifest).
+   * @param entries entrées résolues — requises en prod pour `outDir`/`publicPath`.
+   */
   constructor(
-    private readonly supervisor: IViteSupervisor,
+    private readonly supervisor: IViteSupervisor | null,
     private readonly mode: "development" | "production",
+    private readonly entries: ReadonlyArray<IResolvedFrontendEntry> = [],
   ) {}
 
   /**
@@ -33,6 +56,9 @@ export class TemplateHelper {
   }
 
   private renderDevTags(entryName: string): string {
+    if (!this.supervisor) {
+      return `<!-- @nodefony/frontend: no vite supervisor (dev) -->`;
+    }
     const status = this.supervisor.status();
     if (status.state !== "ready") {
       // Tag commentaire HTML — UX dev : indique que Vite n'est pas prêt.
@@ -129,12 +155,15 @@ try {
   ): string {
     if (debugbarFile === undefined) {
       try {
-        debugbarFile = createRequire(import.meta.url).resolve("nodefony/debugbar");
+        debugbarFile = createRequire(import.meta.url).resolve(
+          "nodefony/debugbar",
+        );
       } catch {
         debugbarFile = null;
       }
     }
-    if (!debugbarFile) return `<!-- @nodefony/frontend: debugbar unresolved -->`;
+    if (!debugbarFile)
+      return `<!-- @nodefony/frontend: debugbar unresolved -->`;
     const norm = debugbarFile.replace(/\\/g, "/");
     const fsUrl = `${baseUrl}${norm.startsWith("/") ? `/@fs${norm}` : `/@fs/${norm}`}`;
     const opts = JSON.stringify({
@@ -146,9 +175,91 @@ mountDebugBar(${opts});
 </script>`;
   }
 
-  private renderProdTags(_entryName: string): string {
-    // TODO Phase ultérieure : lire manifest.json + injecter assets fingerprintés.
-    return `<!-- @nodefony/frontend: prod manifest not yet implemented -->`;
+  /**
+   * Prod : lit le `manifest.json` du build Vite (caché par `outDir`) et injecte
+   * les assets fingerprintés du chunk d'entrée — JS + CSS + preload des imports
+   * partagés — préfixés par le `publicPath` de l'entrée (servi par `Statics`).
+   */
+  private renderProdTags(entryName: string): string {
+    const entry = this.entries.find((e) => e.entryName === entryName);
+    if (!entry) {
+      return `<!-- @nodefony/frontend: unknown entry "${entryName}" -->`;
+    }
+    const manifest = this.loadManifest(entry.outDir);
+    if (!manifest) {
+      return `<!-- @nodefony/frontend: prod manifest missing for "${entryName}" (run \`nodefony frontend:build\`) -->`;
+    }
+    // Clé manifest = chemin source relatif au root Vite (POSIX). `entryFile` est
+    // déjà relatif au root (FrontendService) — normaliser les backslashes Windows.
+    const key = entry.entryFile.replace(/\\/g, "/");
+    const chunk =
+      manifest[key] ??
+      // Fallback : retrouver le chunk marqué `isEntry` si la clé ne matche pas.
+      Object.values(manifest).find((c) => c.isEntry);
+    if (!chunk) {
+      return `<!-- @nodefony/frontend: entry chunk "${key}" not in manifest -->`;
+    }
+    // publicPath finit par `/`, les `file` du manifest ne commencent pas par `/`.
+    const base = entry.publicPath;
+    const tags: string[] = [];
+    // CSS d'abord (évite le FOUC) — récursif sur les imports pour le CSS partagé.
+    for (const href of this.collectCss(manifest, key)) {
+      tags.push(`<link rel="stylesheet" href="${base}${href}">`);
+    }
+    // Preload des chunks partagés (perf : parallélise le téléchargement).
+    for (const imp of chunk.imports ?? []) {
+      const dep = manifest[imp];
+      if (dep)
+        tags.push(`<link rel="modulepreload" href="${base}${dep.file}">`);
+    }
+    tags.push(
+      `<script type="module" crossorigin src="${base}${chunk.file}"></script>`,
+    );
+    return tags.join("\n");
+  }
+
+  /**
+   * Lit + parse `${outDir}/.vite/manifest.json` (Vite ≥5) une seule fois par
+   * `outDir`. Retombe sur `${outDir}/manifest.json` (layout legacy). `null` mis
+   * en cache si absent — pas de relecture disque par requête (hot path).
+   */
+  private loadManifest(outDir: string): ViteManifest | null {
+    const cached = this.manifestCache.get(outDir);
+    if (cached !== undefined) return cached;
+    let parsed: ViteManifest | null = null;
+    for (const rel of [".vite/manifest.json", "manifest.json"]) {
+      try {
+        const raw = fs.readFileSync(path.join(outDir, rel), "utf8");
+        parsed = JSON.parse(raw) as ViteManifest;
+        break;
+      } catch {
+        /* essaie le layout suivant */
+      }
+    }
+    this.manifestCache.set(outDir, parsed);
+    return parsed;
+  }
+
+  /**
+   * Collecte récursivement les fichiers CSS d'un chunk + de ses imports
+   * (le CSS d'un chunk partagé doit être chargé par toutes les entrées).
+   * Dédup via un `Set`, anti-cycle via l'ensemble des clés visitées.
+   */
+  private collectCss(
+    manifest: ViteManifest,
+    key: string,
+    seen = new Set<string>(),
+    out = new Set<string>(),
+  ): Set<string> {
+    if (seen.has(key)) return out;
+    seen.add(key);
+    const chunk = manifest[key];
+    if (!chunk) return out;
+    for (const css of chunk.css ?? []) out.add(css);
+    for (const imp of chunk.imports ?? []) {
+      this.collectCss(manifest, imp, seen, out);
+    }
+    return out;
   }
 }
 

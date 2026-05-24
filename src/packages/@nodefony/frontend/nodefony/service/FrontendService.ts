@@ -1,6 +1,14 @@
-import { Service, Module, Container, Event, extend, injectable } from "nodefony";
+import {
+  Service,
+  Module,
+  Container,
+  Event,
+  extend,
+  injectable,
+} from "nodefony";
 import type {
   IFrontendService,
+  IFrontendBuildResult,
 } from "../interfaces/IFrontendService";
 import type {
   IFrontendModuleDeclaration,
@@ -17,6 +25,7 @@ import {
   FrontendNoEntriesError,
   FrontendSupervisorStartError,
 } from "../src/errors/FrontendError";
+import fs from "node:fs";
 import {
   isolationGroup,
   familyPortPlan,
@@ -24,6 +33,26 @@ import {
 } from "../src/isolationGroups";
 import defaultConfig, { type FrontendConfig } from "../config/config";
 import path from "node:path";
+
+/**
+ * Vue minimale du service statique de `@nodefony/http` (résolu par nom via le
+ * Container — `@nodefony/frontend` ne peut PAS importer `@nodefony/http`, cycle).
+ */
+interface IStaticMountService {
+  addMount(prefix: string, dir: string): void;
+  hasMounts(): boolean;
+}
+
+/**
+ * Normalise un préfixe public : garantit un `/` en tête et en queue.
+ * `"_assets/x"` → `"/_assets/x/"`, `"/"` → `"/"`.
+ */
+const normalizePublicPath = (p: string): string => {
+  let s = p.trim();
+  if (!s.startsWith("/")) s = `/${s}`;
+  if (!s.endsWith("/")) s = `${s}/`;
+  return s.replace(/\/{2,}/g, "/");
+};
 
 /**
  * Service injectable du module `@nodefony/frontend`.
@@ -50,6 +79,8 @@ class FrontendService extends Service implements IFrontendService {
   private readonly templateHelpers = new Map<string, TemplateHelper>();
   /** Index inverse `entryName → famille`, pour router `renderTags`. */
   private readonly entryFamily = new Map<string, string>();
+  /** Helper prod unique (lit les manifests) — `null` tant qu'on n'est pas en prod. */
+  private prodHelper: TemplateHelper | null = null;
 
   constructor(module: Module) {
     const merged = extend(
@@ -89,6 +120,11 @@ class FrontendService extends Service implements IFrontendService {
         } catch (e) {
           this.log(e, "ERROR");
         }
+      } else if (env !== "development") {
+        // Prod / cluster / staging : pas de Vite. Servir les assets buildés
+        // (`public/dist/`) via le serveur statique de @nodefony/http + préparer
+        // le helper qui lit les manifests.
+        this.setupProd();
       }
     });
 
@@ -114,8 +150,8 @@ class FrontendService extends Service implements IFrontendService {
     consumerModule: Module,
     declaration: IFrontendModuleDeclaration,
   ): IResolvedFrontendEntry {
-    const moduleRoot = (consumerModule as unknown as { path?: string }).path
-      ?? process.cwd();
+    const moduleRoot =
+      (consumerModule as unknown as { path?: string }).path ?? process.cwd();
     const root = path.resolve(
       moduleRoot,
       declaration.root ?? this.cfg.defaultRoot,
@@ -130,13 +166,19 @@ class FrontendService extends Service implements IFrontendService {
     // construise l'URL Vite (`${baseUrl}/src/main.tsx`) sans manipulation.
     const absEntry = path.resolve(moduleRoot, declaration.entry);
     const relEntry = path.relative(root, absEntry);
+    const entryName = declaration.name ?? consumerModule.name;
     const entry: IResolvedFrontendEntry = {
       moduleName: consumerModule.name,
-      entryName: declaration.name ?? consumerModule.name,
+      entryName,
       type: declaration.type,
       root,
       entryFile: relEntry,
       outDir,
+      // Défaut `/_assets/<entryName>/` : isole chaque bundle (pas de collision
+      // multi-module) + sert de `base` Vite ET de mount prefix statique.
+      publicPath: normalizePublicPath(
+        declaration.publicPath ?? `/_assets/${entryName}`,
+      ),
       apiProxyPaths: declaration.apiProxyPaths ?? [],
     };
     this.entries.push(entry);
@@ -153,8 +195,7 @@ class FrontendService extends Service implements IFrontendService {
 
   status(): IViteSupervisorStatus {
     const primary =
-      this.supervisors.get(PRIMARY_FAMILY) ??
-      [...this.supervisors.values()][0];
+      this.supervisors.get(PRIMARY_FAMILY) ?? [...this.supervisors.values()][0];
     if (!primary) {
       return {
         state: "idle",
@@ -171,7 +212,10 @@ class FrontendService extends Service implements IFrontendService {
     return primary.status();
   }
 
-  statusAll(): ReadonlyArray<{ family: string; status: IViteSupervisorStatus }> {
+  statusAll(): ReadonlyArray<{
+    family: string;
+    status: IViteSupervisorStatus;
+  }> {
     return [...this.supervisors.entries()].map(([family, s]) => ({
       family,
       status: s.status(),
@@ -193,15 +237,12 @@ class FrontendService extends Service implements IFrontendService {
     // Idempotence : si une instance tourne déjà, no-op.
     if (
       this.supervisors.size > 0 &&
-      [...this.supervisors.values()].some(
-        (s) => s.status().state === "ready",
-      )
+      [...this.supervisors.values()].some((s) => s.status().state === "ready")
     ) {
       return;
     }
 
-    const backendOrigin =
-      `${this.cfg.backendProtocol}://${this.cfg.backendHost}:${this.cfg.backendPort}`;
+    const backendOrigin = `${this.cfg.backendProtocol}://${this.cfg.backendHost}:${this.cfg.backendPort}`;
     const https = this.resolveHttps();
     // Propage l'environnement Nodefony à Vite :
     //  - NODE_ENV = kernel.environment (lu par les plugins Vite via process.env)
@@ -330,7 +371,10 @@ class FrontendService extends Service implements IFrontendService {
       },
     });
     this.supervisors.set(family, supervisor);
-    this.templateHelpers.set(family, new TemplateHelper(supervisor, "development"));
+    this.templateHelpers.set(
+      family,
+      new TemplateHelper(supervisor, "development"),
+    );
 
     // Le builder n'est pas utilisé en dev (config générée par le generator),
     // mais on passe la config (vide) pour respecter le contrat.
@@ -340,6 +384,38 @@ class FrontendService extends Service implements IFrontendService {
       `vite [${family}] ready on ${supervisor.status().host}:${supervisor.status().port}`,
       "INFO",
     );
+  }
+
+  /**
+   * Câblage prod (idempotent) : monte chaque `outDir` sur son `publicPath`
+   * auprès du serveur statique `server-static` (résolu par nom — pas d'import
+   * http) et crée le helper prod (lecture manifests). No-op si pas d'entrée.
+   */
+  private setupProd(): void {
+    if (this.prodHelper) return;
+    if (this.entries.length === 0) {
+      this.log(
+        "no frontend entries declared — prod static not mounted",
+        "INFO",
+      );
+      return;
+    }
+    const stat = this.container?.get?.("server-static") as
+      | IStaticMountService
+      | undefined;
+    if (stat?.addMount) {
+      for (const e of this.entries) {
+        stat.addMount(e.publicPath, e.outDir);
+        this.log(`prod static mount ${e.publicPath} → ${e.outDir}`, "INFO");
+      }
+    } else {
+      this.log(
+        "server-static service unavailable — assets won't be served by Nodefony (expecting a frontal proxy)",
+        "WARNING",
+      );
+    }
+    this.prodHelper = new TemplateHelper(null, "production", this.entries);
+    this.fire("frontend:ready", this.status());
   }
 
   async stopDev(): Promise<void> {
@@ -355,18 +431,105 @@ class FrontendService extends Service implements IFrontendService {
     this.fire("frontend:stopped");
   }
 
-  async build(): Promise<void> {
-    // Mode production — appel programmatique à `vite.build()`.
+  /**
+   * Build production — `vite.build()` **par entry** (chaque bundle a son propre
+   * `root`/`outDir`/`base`/`manifest` : multi-module + isolation Angular).
+   *
+   * Idempotent : une entrée dont le `manifest.json` est plus récent que ses
+   * sources est **ignorée** (`skipped`) — relance prod console rapide. `force`
+   * rebuild tout. Les échecs sont **collectés** (un bundle KO n'arrête pas les
+   * autres) et remontés dans `failures` → la commande CLI casse l'exit code.
+   *
+   * @param opts.force ignore le cache de fraîcheur (rebuild systématique).
+   */
+  async build(opts?: { force?: boolean }): Promise<IFrontendBuildResult> {
     if (this.entries.length === 0) throw new FrontendNoEntriesError();
-    const cfg = await this.builder.buildViteConfig(this.entries, "production");
     const vite = (await import("vite")) as {
       build: (cfg: Record<string, unknown>) => Promise<unknown>;
     };
-    await vite.build(cfg);
-    this.log("vite production build complete", "INFO");
+    const result: IFrontendBuildResult = {
+      built: [],
+      skipped: [],
+      failures: [],
+    };
+    for (const entry of this.entries) {
+      if (!opts?.force && this.isBuildFresh(entry)) {
+        result.skipped.push(entry.entryName);
+        this.log(
+          `build skip "${entry.entryName}" (à jour — --force pour forcer)`,
+          "INFO",
+        );
+        continue;
+      }
+      try {
+        const cfg = await this.builder.buildViteConfig([entry], "production");
+        await vite.build(cfg);
+        result.built.push(entry.entryName);
+        this.log(`build ok "${entry.entryName}" → ${entry.outDir}`, "INFO");
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        result.failures.push({ entryName: entry.entryName, message });
+        this.log(`build FAILED "${entry.entryName}": ${message}`, "ERROR");
+      }
+    }
+    this.log(
+      `frontend build: ${result.built.length} built, ${result.skipped.length} skipped, ${result.failures.length} failed`,
+      result.failures.length ? "WARNING" : "INFO",
+    );
+    return result;
+  }
+
+  /**
+   * Une entrée est « fraîche » si son `manifest.json` existe ET qu'aucun fichier
+   * source (sous `root`, hors `node_modules`/`outDir`/`.vite`) n'est plus récent.
+   * Scan disque borné (dossier front petit) — évite un rebuild Vite inutile.
+   */
+  private isBuildFresh(entry: IResolvedFrontendEntry): boolean {
+    let manifestMtime: number;
+    try {
+      manifestMtime = fs.statSync(
+        path.join(entry.outDir, ".vite", "manifest.json"),
+      ).mtimeMs;
+    } catch {
+      return false;
+    }
+    return this.newestSourceMtime(entry.root, entry.outDir) <= manifestMtime;
+  }
+
+  /** Mtime du fichier le plus récent sous `dir` (récursif borné). */
+  private newestSourceMtime(dir: string, outDir: string): number {
+    let newest = 0;
+    const walk = (d: string): void => {
+      let items: fs.Dirent[];
+      try {
+        items = fs.readdirSync(d, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const it of items) {
+        if (it.name === "node_modules" || it.name === ".vite") continue;
+        const full = path.join(d, it.name);
+        if (full === outDir) continue;
+        if (it.isDirectory()) walk(full);
+        else {
+          try {
+            const m = fs.statSync(full).mtimeMs;
+            if (m > newest) newest = m;
+          } catch {
+            /* fichier disparu entre readdir et stat — ignore */
+          }
+        }
+      }
+    };
+    walk(dir);
+    return newest;
   }
 
   renderTags(entryName: string): string {
+    // Prod : helper unique qui lit les manifests (Vite ne tourne pas).
+    if (this.prodHelper) {
+      return this.prodHelper.renderTags(entryName);
+    }
     const family = this.entryFamily.get(entryName);
     const helper = family ? this.templateHelpers.get(family) : undefined;
     if (!helper) {

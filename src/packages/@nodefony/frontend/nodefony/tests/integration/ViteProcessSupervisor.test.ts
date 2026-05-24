@@ -41,6 +41,7 @@ function makeEntry(): IResolvedFrontendEntry {
     root: FIXTURE_ROOT,
     entryFile: "src/main.ts",
     outDir: path.resolve(FIXTURE_ROOT, "dist"),
+    publicPath: "/_assets/fixture/",
     apiProxyPaths: [],
   };
 }
@@ -152,9 +153,9 @@ describe("ViteProcessSupervisor — intégration (real spawn)", function () {
         await new Promise((r) => setTimeout(r, 200));
         const s = sup.status();
         if (
-          s.state === "ready"
-          && s.pid !== null
-          && s.pid !== nodefonyPidBefore
+          s.state === "ready" &&
+          s.pid !== null &&
+          s.pid !== nodefonyPidBefore
         ) {
           break;
         }
