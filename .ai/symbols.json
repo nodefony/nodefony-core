@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-24T18:34:02.865Z",
+  "generated": "2026-05-24T18:43:12.624Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 747,
-    "symbols": 1332,
-    "classes": 225,
-    "interfaces": 320,
+    "files": 748,
+    "symbols": 1334,
+    "classes": 226,
+    "interfaces": 321,
     "types": 160,
     "enums": 2,
     "functions": 175,
@@ -2310,6 +2310,26 @@
       "module": "@nodefony/core",
       "description": "Résout le nombre de workers à forker, dans l'ordre de priorité : 1. `requested` explicite (`--workers N`) si `> 0` — honoré **tel quel**, jamais borné. 2. Quota CPU cgroup (conteneur) → arrondi au …"
     },
+    "ProcessProbe": {
+      "name": "ProcessProbe",
+      "kind": "class",
+      "file": "src/nodefony/src/service/cluster/processProbe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Sonde PROCESS **stateful** d'un worker — calcule les métriques par INTERVALLE (CPU, event-loop lag, ELU sont des deltas entre 2 `read()`). Une instance par process worker. Perf (worker uniquement, …"
+    },
+    "IProcessHealth": {
+      "name": "IProcessHealth",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/processProbe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Santé PROCESS d'un worker — lue par {@link ProcessProbe}, agrégée par worker dans le snapshot pod (cf `ClusterProbeAggregator`). Volontairement **lean** (sérialisée par worker à chaque tick de repo…"
+    },
     "IClusterConfig": {
       "name": "IClusterConfig",
       "kind": "interface",
@@ -3110,7 +3130,7 @@
       "exported": true,
       "module": "@nodefony/framework",
       "extends": null,
-      "description": "Contrats d'**auto-observabilité de la socket Nodefony** — la sonde SERVEUR du {@link RealtimeHub}. Applique le patron sondes+hub (comme les sondes ORM) à la couche realtime elle-même : « la socket …"
+      "description": "Vue d'UNE connexion realtime pour la sonde (backpressure = risque #1)."
     },
     "IRealtimeChannelStat": {
       "name": "IRealtimeChannelStat",
@@ -11810,6 +11830,9 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts"
       ],
+      "IProcessHealth": [
+        "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts"
+      ],
       "IController": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
@@ -11937,6 +11960,9 @@
       ],
       "CORE_PACKAGE": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "ProcessProbe": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
       ],
       "RpcActionHandler": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",

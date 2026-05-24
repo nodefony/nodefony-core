@@ -1,10 +1,17 @@
 import type { IAdminApi, IAdminDescriptor, IAdminEndpoint } from "nodefony";
+import { ProcessProbe } from "nodefony";
 import { getRealtimeHub } from "./RealtimeHub";
 import { clusterProbeHealth } from "./ClusterProbeClient";
 import type {
   IRealtimeHealth,
   IRealtimeClusterHealth,
 } from "../interfaces/IRealtimeProbe";
+
+// Sonde process du worker (CPU/mém/event-loop) — 1 instance/process (deltas par
+// intervalle). Lue dans buildOwnHealth → voyage dans le report de sonde (cluster) puis le
+// snapshot pod → la vue « salle des machines » a les stats process PAR worker. lazy : le
+// monitor event-loop ne s'active qu'au 1ᵉʳ read(). SERVEUR (ProcessProbe = node:perf_hooks).
+const processProbe = new ProcessProbe();
 
 /**
  * Producteur `IAdminApi` de la **socket Nodefony** — exposé sous
@@ -31,6 +38,7 @@ export function buildOwnHealth(): IRealtimeHealth {
   return {
     instanceId: String(process.pid),
     ...getRealtimeHub().probe(),
+    process: processProbe.read(),
   };
 }
 

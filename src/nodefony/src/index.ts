@@ -78,6 +78,8 @@ export type {
   FileReader,
 } from "./service/cluster/cpuQuota";
 export { resolveTopology, loadClusterConfig } from "./service/cluster/topology";
+export { ProcessProbe } from "./service/cluster/processProbe";
+export type { IProcessHealth } from "./service/cluster/processProbe";
 export type {
   WorkersSetting,
   IClusterConfig,

@@ -13,6 +13,7 @@
  *    seuil de drop). Tous les cumuls sont **monotones** → le débit/s se dérive côté
  *    lecteur (delta `total`/`ts`, comme le CPU% ou le flux ORM) : 0 état de lecture.
  */
+import type { IProcessHealth } from "nodefony";
 
 /** Vue d'UNE connexion realtime pour la sonde (backpressure = risque #1). */
 export interface IRealtimeConnProbe {
@@ -79,6 +80,12 @@ export interface IRealtimeProbe {
 export interface IRealtimeHealth extends IRealtimeProbe {
   /** Identifiant de CE process/pod (per-instance). */
   instanceId: string;
+  /**
+   * Santé PROCESS du worker (CPU/mém/event-loop) — additif : la grille « salle des
+   * machines » de la vue pod lit `instances[].process` par worker. Optionnel (absent si
+   * sonde process coupée) → les consommateurs realtime existants l'ignorent (non-breaking).
+   */
+  process?: IProcessHealth;
 }
 
 /**
