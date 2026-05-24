@@ -75,8 +75,46 @@ export interface IRealtimeProbe {
   };
 }
 
-/** Snapshot enrichi de l'identité d'instance — sortie de `buildRealtimeHealth`. */
+/** Snapshot enrichi de l'identité d'instance — santé per-instance d'un worker/pod. */
 export interface IRealtimeHealth extends IRealtimeProbe {
   /** Identifiant de CE process/pod (per-instance). */
   instanceId: string;
+}
+
+/**
+ * Vue **POD agrégée** de la socket (Phase 4c, mode cluster) — la santé de TOUS les workers
+ * du pod consolidée. Servie par n'importe quel worker via l'endpoint santé quand le master
+ * pousse le snapshot agrégé (sinon on retombe sur {@link IRealtimeHealth} per-instance).
+ *
+ * `cluster: true` est le discriminant : un consommateur (Studio) distingue la vue pod de la
+ * vue per-instance. `instances` garde le détail par worker (drill-down) ; `totals` somme les
+ * scalaires (la backpressure `maxBufferedAmount` est un MAX, pas une somme — c'est le pire pod).
+ */
+export interface IRealtimeClusterHealth {
+  /** Discriminant : vue agrégée multi-worker (≠ {@link IRealtimeHealth} per-instance). */
+  cluster: true;
+  /** Horodatage du snapshot agrégé (ms epoch). */
+  ts: number;
+  /** Nombre de workers présents dans l'agrégat. */
+  instanceCount: number;
+  /** Santé par worker (détail per-instance pour le drill-down). */
+  instances: IRealtimeHealth[];
+  /** Totaux pod (sommes des scalaires ; backpressure max = pire worker). */
+  totals: {
+    channelCount: number;
+    publishTotal: number;
+    fanoutTotal: number;
+    inboundTotal: number;
+    connectionCount: number;
+    bytesSentTotal: number;
+    messagesSentTotal: number;
+    backpressure: {
+      /** Pire `maxBufferedAmount` parmi les workers (octets) — pas une somme. */
+      maxBufferedAmount: number;
+      /** Somme des octets en attente, tous workers. */
+      totalBufferedAmount: number;
+      /** Total des slow-consumers du pod. */
+      slowConsumers: number;
+    };
+  };
 }

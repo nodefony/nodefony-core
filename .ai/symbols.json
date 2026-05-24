@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-24T14:14:12.239Z",
+  "generated": "2026-05-24T14:41:30.414Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 742,
-    "symbols": 1306,
-    "classes": 223,
-    "interfaces": 311,
+    "files": 744,
+    "symbols": 1319,
+    "classes": 225,
+    "interfaces": 315,
     "types": 157,
     "enums": 2,
-    "functions": 166,
-    "constants": 447
+    "functions": 170,
+    "constants": 450
   },
   "symbols": {
     "Cli": {
@@ -2159,6 +2159,51 @@
       "module": "@nodefony/core",
       "description": "Protocole de fil IPC du cluster Nodefony (mode sans PM2). Le master est le **gateway** : tout message worker↔worker transite par lui via IPC (`process.send` côté worker / `worker.send` côté master)…"
     },
+    "CLUSTER_PROBE_KIND": {
+      "name": "CLUSTER_PROBE_KIND",
+      "kind": "const",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`kind` d'une **remontée de sonde** worker → master (Phase 4c). Chaque worker envoie périodiquement sa santé per-instance (opaque pour le master) ; le {@link \"./ClusterProbeAggregator\"} les collecte…"
+    },
+    "CLUSTER_PROBE_SNAPSHOT_KIND": {
+      "name": "CLUSTER_PROBE_SNAPSHOT_KIND",
+      "kind": "const",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`kind` du **snapshot agrégé** master → workers (Phase 4c). Le master diffuse périodiquement la liste des sondes de TOUS les workers (`{ ts, instances }`) ; chaque worker la met en cache pour servir…"
+    },
+    "ClusterProbeAggregator": {
+      "name": "ClusterProbeAggregator",
+      "kind": "class",
+      "file": "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "**Agrégateur de sondes** master-side du mode cluster (Phase 4c) — le « gardien » qui collecte la santé de chaque worker et **rediffuse la vue d'ensemble** à tous. Pourquoi : chaque worker n'a que S…"
+    },
+    "IProbeWorker": {
+      "name": "IProbeWorker",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Handle master-side d'un worker, vu par l'agrégateur — sous-ensemble **testable** de `cluster.Worker` (même seam que `IRelayWorker`). Prouve la collecte + la diffusion sans forker de process réel."
+    },
+    "ClusterProbeAggregatorOptions": {
+      "name": "ClusterProbeAggregatorOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options du {@link ClusterProbeAggregator}."
+    },
     "ClusterRelay": {
       "name": "ClusterRelay",
       "kind": "class",
@@ -2989,7 +3034,16 @@
       "exported": true,
       "module": "@nodefony/framework",
       "extends": "IRealtimeProbe",
-      "description": "Snapshot enrichi de l'identité d'instance — sortie de `buildRealtimeHealth`."
+      "description": "Snapshot enrichi de l'identité d'instance — santé per-instance d'un worker/pod."
+    },
+    "IRealtimeClusterHealth": {
+      "name": "IRealtimeClusterHealth",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Vue **POD agrégée** de la socket (Phase 4c, mode cluster) — la santé de TOUS les workers du pod consolidée. Servie par n'importe quel worker via l'endpoint santé quand le master pousse le snapshot …"
     },
     "IResolver": {
       "name": "IResolver",
@@ -3110,6 +3164,58 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Transport de production : `process.send` (émission) + `process.on(\"message\")` (réception). Standalone — utilisable tel quel. En vrai câblage cluster (Phase 3c), un transport branché sur l'event ker…"
+    },
+    "ClusterProbeClient": {
+      "name": "ClusterProbeClient",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Client de sonde cluster **côté worker** (Phase 4c) — le pendant de {@link ClusterProbeAggregator} (master). Deux rôles : - **report** : envoie périodiquement sa santé per-instance au master (`CLUST…"
+    },
+    "IClusterProbeTransport": {
+      "name": "IClusterProbeTransport",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Transport IPC de la sonde cluster côté worker — abstrait `process.send` / la réception des snapshots du master, derrière un seam **injectable** (même pattern que `IClusterBackplaneTransport`). Perm…"
+    },
+    "mergeClusterHealth": {
+      "name": "mergeClusterHealth",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Consolide N santés per-instance en une vue **POD** ({@link IRealtimeClusterHealth}). Pur (aucune I/O) : somme les scalaires ; la backpressure `maxBufferedAmount` est un MAX (le pire worker), `total…"
+    },
+    "setClusterProbeClient": {
+      "name": "setClusterProbeClient",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Branche le client de sonde cluster du process (worker). Remplace un éventuel précédent."
+    },
+    "clusterProbeHealth": {
+      "name": "clusterProbeHealth",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Vue POD agrégée si la sonde cluster est branchée ET a reçu un snapshot, sinon `null`. `null` ⇒ l'endpoint santé sert la vue per-instance (mono-process / sonde désactivée / cold start). Lecture pure…"
+    },
+    "processProbeTransport": {
+      "name": "processProbeTransport",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Transport de production : `process.send` + `process.on(\"message\")`."
     },
     "Controller": {
       "name": "Controller",
@@ -3346,13 +3452,21 @@
       "decorators": [],
       "description": "Backplane **mono-process no-op** — implémentation de RÉFÉRENCE du port {@link IBackplane} quand il n'existe **aucun pair** (1 process = 1 pod). `publish` ne sort rien (pas de pair à qui propager), …"
     },
+    "buildOwnHealth": {
+      "name": "buildOwnHealth",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Producteur `IAdminApi` de la **socket Nodefony** — exposé sous `/nodefony/realtime/api/*`. Surface l'**auto-observabilité** du {@link RealtimeHub} (la socket s'observe à travers elle-même) : canaux…"
+    },
     "buildRealtimeHealth": {
       "name": "buildRealtimeHealth",
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Producteur `IAdminApi` de la **socket Nodefony** — exposé sous `/nodefony/realtime/api/*`. Surface l'**auto-observabilité** du {@link RealtimeHub} (la socket s'observe à travers elle-même) : canaux…"
+      "description": "Construit la **santé de la socket** servie par l'endpoint/le canal `realtime:health` : la **vue POD agrégée** si la sonde cluster est branchée et a reçu un snapshot du master (Phase 4c, push), sino…"
     },
     "createRealtimeAdminApi": {
       "name": "createRealtimeAdminApi",
@@ -10326,6 +10440,7 @@
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/service/cluster/ClusterManager.ts",
+        "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
         "src/nodefony/src/service/cluster/ClusterRelay.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
@@ -10665,6 +10780,22 @@
       "processIpcTransport": [
         "src/packages/@nodefony/framework/index.ts"
       ],
+      "ClusterProbeClient": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "setClusterProbeClient": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "clusterProbeHealth": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
+      ],
+      "mergeClusterHealth": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "processProbeTransport": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
       "WsConnectionTransport": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
@@ -10696,6 +10827,9 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "buildRealtimeHealth": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "buildOwnHealth": [
         "src/packages/@nodefony/framework/index.ts"
       ],
       "Twig": [
@@ -11121,12 +11255,19 @@
       ],
       "isClusterMessage": [
         "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/service/cluster/ClusterRelay.ts"
+        "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
+        "src/nodefony/src/service/cluster/ClusterRelay.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
       ],
       "CLUSTER_RT_KIND": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/service/cluster/ClusterRelay.ts",
         "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts"
+      ],
+      "CLUSTER_PROBE_SNAPSHOT_KIND": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
       ],
       "ServiceConstructor": [
         "src/nodefony/src/kernel/Module.ts",
@@ -11302,6 +11443,9 @@
       "ClusterRelay": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts"
       ],
+      "ClusterProbeAggregator": [
+        "src/nodefony/src/kernel/commands/ClusterCommand.ts"
+      ],
       "DevSupervisor": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
@@ -11329,6 +11473,10 @@
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+      ],
+      "CLUSTER_PROBE_KIND": [
+        "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
       ],
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
@@ -11600,6 +11748,14 @@
       "IBackplaneMessage": [
         "src/packages/@nodefony/framework/nodefony/src/ClusterBackplane.ts"
       ],
+      "IRealtimeHealth": [
+        "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
+      ],
+      "IRealtimeClusterHealth": [
+        "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
+      ],
       "IAdminDescriptor": [
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
@@ -11650,9 +11806,6 @@
       ],
       "CORE_PACKAGE": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
-      ],
-      "IRealtimeHealth": [
-        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
       ],
       "RpcActionHandler": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",

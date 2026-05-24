@@ -189,7 +189,15 @@ MODE=rtt WORKERS=2 RATE=2000 run.sh cluster-ipc            # latence aller-retou
 # et ASSERTE (exit 0/1) : broadcast cross-process, anti-echo, canal instance-local NON
 # forwardé (realtime:health), fan-out local intact. 8 checks.
 bash .claude/skills/nodefony-load-test/scripts/run.sh cluster-e2e
+
+# Preuve E2E (Phase 4c) : sonde agrégée pod en PUSH — chaque worker reporte sa santé au
+# master (ClusterProbeAggregator), qui rediffuse le snapshot ; ASSERTE que chaque worker
+# voit la vue POD (instanceCount=2, connectionCount agrégé). 4 checks, exit 0/1.
+bash .claude/skills/nodefony-load-test/scripts/run.sh cluster-probe
 ```
+
+> Sonde agrégée **désactivable** → bypass total : `NODEFONY_CLUSTER_PROBE=0 npx nodefony cluster`
+> ⇒ aucun reporter/agrégateur (0 timer, 0 IPC sonde), l'endpoint santé sert la vue per-instance.
 
 Repères fil IPC (loopback) : ~300k pub/s @256B ; master sature @4KB×7sub (~176 MB/s = plafond
 gateway → coalescer avant `publish` au-delà) ; RTT 4-sauts p50 ~0.40 / p99 ~0.77 ms.

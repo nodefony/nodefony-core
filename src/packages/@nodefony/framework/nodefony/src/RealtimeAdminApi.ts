@@ -1,6 +1,10 @@
 import type { IAdminApi, IAdminDescriptor, IAdminEndpoint } from "nodefony";
 import { getRealtimeHub } from "./RealtimeHub";
-import type { IRealtimeHealth } from "../interfaces/IRealtimeProbe";
+import { clusterProbeHealth } from "./ClusterProbeClient";
+import type {
+  IRealtimeHealth,
+  IRealtimeClusterHealth,
+} from "../interfaces/IRealtimeProbe";
 
 /**
  * Producteur `IAdminApi` de la **socket Nodefony** — exposé sous
@@ -14,22 +18,34 @@ import type { IRealtimeHealth } from "../interfaces/IRealtimeProbe";
  * (1ᵉʳ paint) ET par le ticker hub realtime `realtime:health` (push live).
  *
  * Endpoints :
- *  - `GET /nodefony/realtime/api/health` → snapshot per-instance ({@link IRealtimeHealth})
+ *  - `GET /nodefony/realtime/api/health` → vue POD agrégée ({@link IRealtimeClusterHealth})
+ *    en cluster avec sonde active, sinon snapshot per-instance ({@link IRealtimeHealth}).
  */
 
 /**
- * Construit le snapshot de **santé de la socket** (per-instance) : lecture pure du
- * hub ({@link RealtimeHub.probe}) enrichie de l'identité process. Aucune I/O, jamais
- * throw → bon marché (appelable à chaque tick). Async pour matcher la signature des
- * tickers broker (`() => Promise<unknown>`), mais le coût reste synchrone.
- *
- * @returns le snapshot {@link IRealtimeHealth} du pod courant.
+ * Santé per-instance de CE worker : lecture pure du hub ({@link RealtimeHub.probe}) +
+ * identité process. Aucune I/O, jamais throw. C'est ce que chaque worker **remonte** au
+ * master (Phase 4c) et le fallback quand il n'y a pas d'agrégat.
  */
-export async function buildRealtimeHealth(): Promise<IRealtimeHealth> {
+export function buildOwnHealth(): IRealtimeHealth {
   return {
     instanceId: String(process.pid),
     ...getRealtimeHub().probe(),
   };
+}
+
+/**
+ * Construit la **santé de la socket** servie par l'endpoint/le canal `realtime:health` :
+ * la **vue POD agrégée** si la sonde cluster est branchée et a reçu un snapshot du master
+ * (Phase 4c, push), sinon la **vue per-instance** (mono-process, sonde désactivée, ou cold
+ * start). Lecture pure, jamais throw. Async pour matcher la signature des tickers broker.
+ *
+ * @returns {@link IRealtimeClusterHealth} (cluster) ou {@link IRealtimeHealth} (per-instance).
+ */
+export async function buildRealtimeHealth(): Promise<
+  IRealtimeHealth | IRealtimeClusterHealth
+> {
+  return clusterProbeHealth() ?? buildOwnHealth();
 }
 
 const descriptor: IAdminDescriptor = {

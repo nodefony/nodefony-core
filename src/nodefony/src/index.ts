@@ -92,8 +92,15 @@ export type {
   IRelayWorker,
   ClusterRelayOptions,
 } from "./service/cluster/ClusterRelay";
+export { ClusterProbeAggregator } from "./service/cluster/ClusterProbeAggregator";
+export type {
+  IProbeWorker,
+  ClusterProbeAggregatorOptions,
+} from "./service/cluster/ClusterProbeAggregator";
 export {
   CLUSTER_RT_KIND,
+  CLUSTER_PROBE_KIND,
+  CLUSTER_PROBE_SNAPSHOT_KIND,
   isClusterMessage,
 } from "./service/cluster/clusterMessage";
 export type { IClusterMessage } from "./service/cluster/clusterMessage";

@@ -24,6 +24,7 @@ import Entity from "./orm/Entity";
 import {
   isClusterMessage,
   CLUSTER_RT_KIND,
+  CLUSTER_PROBE_SNAPSHOT_KIND,
 } from "../service/cluster/clusterMessage";
 import type { IKernel } from "../types/IKernel";
 //import Babylon from "../service/babel/babylon";
@@ -893,11 +894,17 @@ class Kernel extends Service implements IKernel {
       this.worker = cluster.worker;
       this.fire("onCluster", "WORKER", this, process);
       process.on("message", (msg) => {
-        // Canal IPC partagé : les publications realtime (kind nf:rt) sont consommées
-        // par le ClusterBackplane (son propre listener) → ne PAS les logger ni les
-        // re-fire ici, sinon flood au rythme du fan-out cross-process. On ne relaie
-        // que les messages de contrôle (rares) via l'event `onMessage`.
-        if (isClusterMessage(msg) && msg.kind === CLUSTER_RT_KIND) return;
+        // Canal IPC partagé : les publications realtime (nf:rt) et les snapshots de sonde
+        // agrégée (nf:probe:snap) sont consommés par leurs propres listeners (ClusterBackplane
+        // / ClusterProbeClient) → ne PAS les logger ni les re-fire ici, sinon flood au rythme
+        // du fan-out / de la cadence sonde. On ne relaie que les messages de contrôle (rares).
+        if (
+          isClusterMessage(msg) &&
+          (msg.kind === CLUSTER_RT_KIND ||
+            msg.kind === CLUSTER_PROBE_SNAPSHOT_KIND)
+        ) {
+          return;
+        }
         this.log(msg, "INFO", "IPC MESSAGE");
         this.fire("onMessage", msg);
       });

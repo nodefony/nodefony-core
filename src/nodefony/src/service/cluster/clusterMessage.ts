@@ -22,6 +22,21 @@
 export const CLUSTER_RT_KIND = "nf:rt" as const;
 
 /**
+ * `kind` d'une **remontée de sonde** worker → master (Phase 4c). Chaque worker envoie
+ * périodiquement sa santé per-instance (opaque pour le master) ; le
+ * {@link "./ClusterProbeAggregator"} les collecte. Le {@link "./ClusterRelay"} IGNORE
+ * ce kind (ce n'est pas une publication realtime à rebroadcaster).
+ */
+export const CLUSTER_PROBE_KIND = "nf:probe" as const;
+
+/**
+ * `kind` du **snapshot agrégé** master → workers (Phase 4c). Le master diffuse
+ * périodiquement la liste des sondes de TOUS les workers (`{ ts, instances }`) ; chaque
+ * worker la met en cache pour servir la vue POD sur son endpoint santé (push, pas pull).
+ */
+export const CLUSTER_PROBE_SNAPSHOT_KIND = "nf:probe:snap" as const;
+
+/**
  * Base de tout message du protocole IPC cluster — seul le `kind` est imposé. Les autres
  * champs sont opaques pour le master (il route/agrège sans les inspecter).
  */

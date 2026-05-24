@@ -14,6 +14,7 @@
 #   run.sh hub              # charge du HUB realtime (panneau /nodefony/hub) — MODE=fanout|slow
 #   run.sh cluster-ipc      # bench du FIL IPC backplane cluster (fork réel)
 #   run.sh cluster-e2e      # preuve e2e realtime cross-process (fork réel — asserte, exit 0/1)
+#   run.sh cluster-probe    # preuve e2e sonde agrégée pod (fork réel — asserte, exit 0/1)
 # ⚠️ cluster-* ne dépendent PAS du serveur dev : ils forkent eux-mêmes (nécessitent `npm run build`).
 # Les ENV des scripts (CAP, STEP, MODE, N, C, URL…) se passent inline :
 #   CAP=4000 run.sh ws-conn        MODE=broadcast CLIENTS=30 run.sh ws-msg
@@ -43,7 +44,8 @@ case "$cmd" in
   aimd)     cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/aimd-demo.mjs" ;;
   cluster-ipc) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/cluster-ipc.mjs" ;;
   cluster-e2e) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/cluster-realtime-e2e.mjs" ;;
+  cluster-probe) cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/cluster-probe-e2e.mjs" ;;
   help|*)
-    sed -n '2,23p' "${BASH_SOURCE[0]}"
+    sed -n '2,24p' "${BASH_SOURCE[0]}"
     ;;
 esac

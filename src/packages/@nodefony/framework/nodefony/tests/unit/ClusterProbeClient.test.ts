@@ -1,0 +1,165 @@
+import { expect } from "chai";
+import "mocha";
+import {
+  ClusterProbeClient,
+  mergeClusterHealth,
+  clusterProbeHealth,
+  setClusterProbeClient,
+  type IClusterProbeTransport,
+} from "../../src/ClusterProbeClient.js";
+import { CLUSTER_PROBE_KIND, CLUSTER_PROBE_SNAPSHOT_KIND } from "nodefony";
+import type { IRealtimeHealth } from "../../interfaces/IRealtimeProbe.js";
+
+/** Santé per-instance factice (champs scalaires paramétrables). */
+function health(over: Partial<IRealtimeHealth> = {}): IRealtimeHealth {
+  return {
+    instanceId: "x",
+    ts: 1,
+    channels: [],
+    channelCount: 0,
+    publishTotal: 0,
+    fanoutTotal: 0,
+    inboundTotal: 0,
+    connectionCount: 0,
+    bytesSentTotal: 0,
+    messagesSentTotal: 0,
+    backpressure: {
+      maxBufferedAmount: 0,
+      totalBufferedAmount: 0,
+      slowConsumers: 0,
+    },
+    ...over,
+  };
+}
+
+/** Transport factice : capture les reports sortants, expose `deliver()` (master → worker). */
+class FakeTransport implements IClusterProbeTransport {
+  sent: unknown[] = [];
+  #cb: ((msg: unknown) => void) | null = null;
+  send(report: unknown): void {
+    this.sent.push(report);
+  }
+  onReceive(cb: (msg: unknown) => void): void {
+    this.#cb = cb;
+  }
+  deliver(msg: unknown): void {
+    this.#cb?.(msg);
+  }
+}
+
+describe("mergeClusterHealth — consolidation pod", () => {
+  it("somme les scalaires ; maxBufferedAmount = MAX (pas somme)", () => {
+    const merged = mergeClusterHealth(
+      [
+        health({
+          instanceId: "A",
+          connectionCount: 3,
+          publishTotal: 10,
+          backpressure: {
+            maxBufferedAmount: 100,
+            totalBufferedAmount: 100,
+            slowConsumers: 1,
+          },
+        }),
+        health({
+          instanceId: "B",
+          connectionCount: 5,
+          publishTotal: 7,
+          backpressure: {
+            maxBufferedAmount: 40,
+            totalBufferedAmount: 40,
+            slowConsumers: 2,
+          },
+        }),
+      ],
+      123,
+    );
+    expect(merged.cluster).to.equal(true);
+    expect(merged.ts).to.equal(123);
+    expect(merged.instanceCount).to.equal(2);
+    expect(merged.totals.connectionCount).to.equal(8);
+    expect(merged.totals.publishTotal).to.equal(17);
+    expect(merged.totals.backpressure.maxBufferedAmount).to.equal(100); // MAX
+    expect(merged.totals.backpressure.totalBufferedAmount).to.equal(140); // somme
+    expect(merged.totals.backpressure.slowConsumers).to.equal(3);
+    expect(merged.instances).to.have.length(2); // détail per-instance gardé
+  });
+
+  it("liste vide → totaux à zéro, instanceCount 0", () => {
+    const merged = mergeClusterHealth([]);
+    expect(merged.instanceCount).to.equal(0);
+    expect(merged.totals.connectionCount).to.equal(0);
+  });
+});
+
+describe("ClusterProbeClient — report + cache snapshot (worker)", () => {
+  it("start() : report immédiat de la santé per-instance (kind nf:probe)", () => {
+    const t = new FakeTransport();
+    const c = new ClusterProbeClient(t, 999999);
+    c.start(() => health({ instanceId: "me", connectionCount: 2 }));
+    expect(t.sent).to.have.length(1);
+    const r = t.sent[0] as { kind: string; payload: IRealtimeHealth };
+    expect(r.kind).to.equal(CLUSTER_PROBE_KIND);
+    expect(r.payload.instanceId).to.equal("me");
+    c.stop();
+  });
+
+  it("getClusterHealth : null avant snapshot, vue POD après réception", () => {
+    const t = new FakeTransport();
+    const c = new ClusterProbeClient(t, 999999);
+    c.start(() => health({ instanceId: "me" }));
+    expect(c.getClusterHealth()).to.equal(null); // cold start
+    t.deliver({
+      kind: CLUSTER_PROBE_SNAPSHOT_KIND,
+      ts: 50,
+      instances: [health({ instanceId: "A" }), health({ instanceId: "B" })],
+    });
+    const pod = c.getClusterHealth();
+    expect(pod?.cluster).to.equal(true);
+    expect(pod?.instanceCount).to.equal(2);
+    expect(pod?.ts).to.equal(50);
+    c.stop();
+  });
+
+  it("ignore les messages non-snapshot et malformés", () => {
+    const t = new FakeTransport();
+    const c = new ClusterProbeClient(t, 999999);
+    c.start(() => health());
+    t.deliver({ kind: "nf:rt", channel: "c", payload: 1 });
+    t.deliver(null);
+    t.deliver({ instances: [health()] }); // pas de kind
+    expect(c.getClusterHealth()).to.equal(null);
+    c.stop();
+  });
+
+  it("stop() purge le cache", () => {
+    const t = new FakeTransport();
+    const c = new ClusterProbeClient(t, 999999);
+    c.start(() => health());
+    t.deliver({
+      kind: CLUSTER_PROBE_SNAPSHOT_KIND,
+      ts: 1,
+      instances: [health()],
+    });
+    expect(c.getClusterHealth()).to.not.equal(null);
+    c.stop();
+    expect(c.getClusterHealth()).to.equal(null);
+  });
+});
+
+describe("clusterProbeHealth — singleton worker (fallback per-instance)", () => {
+  it("null tant qu'aucun client branché OU aucun snapshot", () => {
+    const t = new FakeTransport();
+    const c = new ClusterProbeClient(t, 999999);
+    setClusterProbeClient(c);
+    c.start(() => health({ instanceId: "me" }));
+    expect(clusterProbeHealth()).to.equal(null); // branché mais pas de snapshot
+    t.deliver({
+      kind: CLUSTER_PROBE_SNAPSHOT_KIND,
+      ts: 2,
+      instances: [health({ instanceId: "me" })],
+    });
+    expect(clusterProbeHealth()?.cluster).to.equal(true);
+    c.stop();
+  });
+});

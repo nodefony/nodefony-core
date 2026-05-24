@@ -5,6 +5,7 @@ import Kernel from "../Kernel";
 import { resolveWorkerCount } from "../../service/cluster/cpuQuota";
 import { ClusterManager } from "../../service/cluster/ClusterManager";
 import { ClusterRelay } from "../../service/cluster/ClusterRelay";
+import { ClusterProbeAggregator } from "../../service/cluster/ClusterProbeAggregator";
 
 const options: OptionsCommandInterface = {
   showBanner: false,
@@ -29,6 +30,7 @@ const options: OptionsCommandInterface = {
 class Cluster extends Command {
   #manager: ClusterManager | null = null;
   #relay: ClusterRelay | null = null;
+  #probes: ClusterProbeAggregator | null = null;
 
   constructor(cli: CliKernel) {
     super(
@@ -60,28 +62,43 @@ class Cluster extends Command {
       const workers = resolveWorkerCount({ requested });
 
       // Master = GATEWAY IPC : relaie les publications realtime d'un worker vers les
-      // AUTRES (fan-out cross-process intra-pod, « comme si Redis était là »). Les
-      // events GLOBAUX `fork`/`exit` couvrent les forks initiaux ET les respawns du
-      // ClusterManager → un worker relancé est automatiquement (ré)attaché. Attachés
-      // AVANT `manager.start()` pour ne manquer aucun fork.
+      // AUTRES (fan-out cross-process intra-pod, « comme si Redis était là ») ET agrège
+      // les sondes des workers pour servir la vue POD (Phase 4c, push). Les events GLOBAUX
+      // `fork`/`exit` couvrent les forks initiaux ET les respawns du ClusterManager → un
+      // worker relancé est (ré)attaché. Attachés AVANT `manager.start()` (aucun fork manqué).
       const relay = new ClusterRelay({
         log: (msg, severity) => this.log(msg, severity),
       });
       this.#relay = relay;
-      cluster.on("fork", (w) =>
-        relay.attach({
+      // Sonde agrégée : opt-in, désactivable (NODEFONY_CLUSTER_PROBE=0) → bypass total
+      // (aucun agrégateur, aucun timer de diffusion ; chaque worker sert sa vue per-instance).
+      const probes =
+        process.env.NODEFONY_CLUSTER_PROBE !== "0"
+          ? new ClusterProbeAggregator({
+              log: (msg, severity) => this.log(msg, severity),
+            })
+          : null;
+      this.#probes = probes;
+      cluster.on("fork", (w) => {
+        const handle = {
           id: w.id,
-          send: (m) => {
+          send: (m: unknown) => {
             try {
               w.send(m);
             } catch {
               /* worker en cours de fork / déjà mort : ignoré */
             }
           },
-          onMessage: (cb) => w.on("message", cb),
-        }),
-      );
-      cluster.on("exit", (w) => relay.detach(w.id));
+          onMessage: (cb: (msg: unknown) => void) => w.on("message", cb),
+        };
+        relay.attach(handle);
+        probes?.attach(handle);
+      });
+      cluster.on("exit", (w) => {
+        relay.detach(w.id);
+        probes?.detach(w.id);
+      });
+      probes?.start();
 
       this.#manager = new ClusterManager({
         workers,
