@@ -117,6 +117,17 @@ class StudioController extends Controller {
     return this.renderStudio();
   }
 
+  /**
+   * SPA fallback profondeur 2 — deep-link / refresh sur le drill-down d'un worker du
+   * cluster : `cluster/:pid` (ex `/nodefony/cluster/12345`). Même règle que `modules/:name` :
+   * segment littéral `cluster` (PAS de générique `/{section}/{page}` qui masquerait les
+   * routes des autres modules sous `/nodefony/<x>/<y>`).
+   */
+  @Get("/cluster/{pid}")
+  renderSpaFallbackCluster(): unknown {
+    return this.renderStudio();
+  }
+
   @Get("/studio/api/health")
   apiHealth() {
     return this.renderJson({

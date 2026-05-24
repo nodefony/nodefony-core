@@ -255,7 +255,8 @@ export function createStatsTicker(
     for (const e of list.getEntries()) {
       gcCount += 1;
       gcPauseMs += e.duration;
-      const kind = (e.detail as { kind?: number } | null)?.kind;
+      // `detail` n'est pas typé sur PerformanceEntry (selon @types/node) → cast de l'entrée.
+      const kind = (e as { detail?: { kind?: number } | null }).detail?.kind;
       if (kind === perfConstants.NODE_PERFORMANCE_GC_MAJOR) gcMajor += 1;
       else if (kind === perfConstants.NODE_PERFORMANCE_GC_MINOR) gcMinor += 1;
     }

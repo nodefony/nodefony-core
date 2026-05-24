@@ -12,6 +12,16 @@ import {
   CHANNELS,
   type AppMeta,
 } from "../realtime/providers";
+import { createClusterSupervisionTicker } from "../realtime/clusterSupervision";
+
+/**
+ * Canal de drill-down d'un worker du cluster : `dashboard:supervision@<pid>` avec granularité
+ * `:<ms>` optionnelle. Capture le `pid` ciblé. Le `@` (vs `:`) évite toute collision avec le
+ * canal supervision normal et son suffixe de cadence.
+ */
+const SUPERVISION_DRILL_RE = new RegExp(
+  `^${CHANNELS.supervision}@(\\d+)(?::\\d+)?$`,
+);
 
 /**
  * Bornes de cadence par canal cadencé — défaut + min/max (ms). Convention partagée avec
@@ -93,6 +103,35 @@ class StudioRealtimeController extends RealtimeController {
             channel.startsWith(`${CHANNELS.debugbar}:`)
           ? CHANNELS.debugbar
           : null;
+
+    // Drill-down cluster : supervision RICHE d'UN worker ciblé par pid. Testé AVANT
+    // `statsBase` (le `@<pid>` ne matche pas `dashboard:supervision:` mais on lève toute
+    // ambiguïté en priorisant le drill).
+    const drill = SUPERVISION_DRILL_RE.exec(channel);
+    if (drill) {
+      const pid = Number(drill[1]);
+      const base = `${CHANNELS.supervision}@${pid}`;
+      const ms = parseRate(channel, base, RATE_BOUNDS.stats);
+      if (pid === process.pid) {
+        // Cible = CE worker (ou mono-process) → sonde locale directe, pas d'IPC cluster.
+        // createStatsTicker produit déjà le format complet de la supervision.
+        return createStatsTicker(
+          publish,
+          ms,
+          this.appMeta(),
+          channel,
+          this.syslog ?? undefined,
+        );
+      }
+      // Worker DISTANT → enrichissement à la demande via le master (voie B1).
+      return createClusterSupervisionTicker(
+        publish,
+        channel,
+        pid,
+        ms,
+        this.appMeta(),
+      );
+    }
 
     if (channel === CHANNELS.syslog && this.syslog) {
       return createSyslogBridge(this.syslog, publish);

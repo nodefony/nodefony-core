@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-24T23:36:52.078Z",
+  "generated": "2026-05-24T23:44:47.515Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 750,
-    "symbols": 1358,
+    "files": 751,
+    "symbols": 1360,
     "classes": 228,
     "interfaces": 330,
     "types": 162,
     "enums": 2,
-    "functions": 184,
+    "functions": 186,
     "constants": 452
   },
   "symbols": {
@@ -5817,6 +5817,22 @@
       ],
       "description": "StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio. Route : `WS /nodefony/studio/api/realtime`. Protocole : **JSON-RPC 2.0**. Dérive de {@link RealtimeController} (framewo…"
     },
+    "mapInstanceToSupervision": {
+      "name": "mapInstanceToSupervision",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Mappe la santé d'UN worker du snapshot pod ({@link IRealtimeHealth} : lean `process` + sonde riche `rich` jointe pendant le drill) vers le **format du canal `dashboard:supervision`** — de sorte que…"
+    },
+    "createClusterSupervisionTicker": {
+      "name": "createClusterSupervisionTicker",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Provider du canal **drill-down cluster** `dashboard:supervision@<pid>` — supervision RICHE d'UN worker DISTANT du pod (≠ le worker qui tient la connexion navigateur). Réutilise le snapshot pod déjà…"
+    },
     "@nodefony/studio:AppMeta": {
       "name": "AppMeta",
       "kind": "interface",
@@ -11063,10 +11079,12 @@
         "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
       ],
       "clusterProbeRequestEnrich": [
-        "src/packages/@nodefony/framework/index.ts"
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
       "clusterProbeInstance": [
-        "src/packages/@nodefony/framework/index.ts"
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
       "mergeClusterHealth": [
         "src/packages/@nodefony/framework/index.ts"
@@ -12080,7 +12098,8 @@
       ],
       "IRealtimeHealth": [
         "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
-        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
       "IRealtimeClusterHealth": [
         "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
@@ -12157,7 +12176,8 @@
       "RealtimePublish": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",
         "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
       "RealtimeInboundHandler": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts"
@@ -12664,7 +12684,8 @@
       ],
       "AppMeta": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
       "RateBounds": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
@@ -12679,6 +12700,9 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "CHANNELS": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "createClusterSupervisionTicker": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "IPasswordAuthenticatedUser": [
