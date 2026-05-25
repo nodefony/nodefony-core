@@ -23,6 +23,7 @@ import {
   Popover,
   Slider,
   ActionIcon,
+  Select,
 } from "@mantine/core";
 import {
   IconActivityHeartbeat,
@@ -42,8 +43,12 @@ import {
   IconPlayerPause,
   IconBrandNodejs,
   IconAdjustmentsHorizontal,
+  IconArrowLeft,
+  IconInfoCircle,
 } from "@tabler/icons-react";
+import { useSearchParams } from "react-router-dom";
 import { useStore, useAuth, useUi } from "../stores";
+import { ProcessGraphGrid } from "../components/ProcessGraphGrid";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
 import { useNodefonyState, useNodefonyAdaptiveChannel } from "nodefony/react";
@@ -111,6 +116,12 @@ interface StatsPayload {
     debug?: boolean;
     branch?: string;
   };
+  /**
+   * Drill cluster (`dashboard:supervision@<pid>`) : `true` tant que la sonde riche
+   * du worker distant ciblé n'est pas encore propagée (enrich en cours) → afficher
+   * un état « warming », pas un écran vide. Absent sur le canal local.
+   */
+  richPending?: boolean;
 }
 
 interface KernelInfo {
@@ -507,6 +518,7 @@ function level(v: number, warn: number, crit: number): Health {
  * via `onRate` (badge feedback). Les 3 canaux suivent le même plancher.
  */
 function SupervisionLive({
+  channel,
   desiredMs,
   auto,
   onStats,
@@ -514,6 +526,8 @@ function SupervisionLive({
   onFlow,
   onRate,
 }: {
+  /** Canal supervision : `dashboard:supervision` (local) ou `…@<pid>` (drill worker). */
+  channel: string;
   desiredMs: number;
   auto: boolean;
   onStats: (p: unknown) => void;
@@ -523,15 +537,11 @@ function SupervisionLive({
 }) {
   // Pas d'abo `syslog:stream` ici : le compteur d'erreurs vient du payload
   // supervision (compté serveur) → on n'inonde pas le dashboard de tous les logs.
-  const eff = useNodefonyAdaptiveChannel(
-    "dashboard:supervision",
-    onStats,
-    desiredMs,
-    {
-      defaultMs: 1000,
-      enabled: auto,
-    },
-  );
+  // `channel` instance-aware → changer de worker ré-abonne (base dans les deps du hook).
+  const eff = useNodefonyAdaptiveChannel(channel, onStats, desiredMs, {
+    defaultMs: 1000,
+    enabled: auto,
+  });
   useNodefonyAdaptiveChannel("orm:health", onOrm, desiredMs, {
     defaultMs: 5000,
     enabled: auto,
@@ -601,9 +611,48 @@ export const DashboardSupervision = observer(() => {
   // Onglet de détail actif (CONTRÔLÉ) → les KPIs du haut y naviguent au clic.
   const [tab, setTab] = useState<string>("performance");
 
-  // Temps réel : OFF par défaut (opt-in par SESSION, NON persisté) — pour la perf.
-  // OFF → snapshot HTTP statique ; ON → flux WS (courbes + GC + flash).
-  const [live, setLive] = useState<boolean>(false);
+  // Temps réel : interrupteur GLOBAL partagé (UiStore) — le même sur toutes les
+  // pages realtime. OFF au (re)chargement (perf). OFF → snapshot HTTP statique ;
+  // ON → flux WS (courbes + GC + flash).
+  const ui = useUi();
+  const live = ui.realtimeLive;
+
+  // ─── Instance-aware (cluster) : quel WORKER superviser ──────────────────────
+  // Source de vérité = query param `?pid=` (deep-link depuis la grille Cluster).
+  // Local/absent = process courant → canal `dashboard:supervision`. Worker DISTANT
+  // → canal drill `dashboard:supervision@<pid>` (sonde riche à la demande, voie B1)
+  // qui ACTIVE l'enrich du worker ciblé côté master. Liste des workers = snapshot pod.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [pods, setPods] = useState<number[]>([]);
+  const localPid = info?.pid ?? stats?.pid ?? null;
+  const paramPid = searchParams.get("pid");
+  const targetPid = paramPid && /^\d+$/.test(paramPid) ? Number(paramPid) : null;
+  const isRemote = targetPid != null && targetPid !== localPid;
+  const isCluster = pods.length > 1;
+  // Anti-« fantôme » : un `?pid=` qui ne correspond à AUCUN worker vivant (pid d'un
+  // cluster mort après restart, deep-link périmé) → on retombe sur la grille au lieu
+  // d'un drill vers un process inexistant (canal `@<pid>` muet). Tolérant pendant le
+  // chargement de la liste (pods vide → on ne juge pas encore).
+  const podsLoaded = pods.length > 0;
+  const pidIsStale =
+    targetPid != null && podsLoaded && !pods.includes(targetPid);
+  const showOverview = isCluster && (targetPid == null || pidIsStale);
+  const supChannel = isRemote
+    ? `dashboard:supervision@${targetPid}`
+    : "dashboard:supervision";
+  // Sélection d'un worker (détail) : on cible TOUJOURS le pid (même local → détail
+  // de ce process, ≠ vue d'ensemble). Worker distant = sonde riche à la demande →
+  // on force le temps réel (pas de snapshot one-shot pour un process distant).
+  const selectWorker = (pid: number): void => {
+    setSearchParams({ pid: String(pid) }, { replace: true });
+    if (pid !== localPid) ui.setRealtimeLive(true);
+  };
+  // Retour à la grille d'accueil multi-process (efface le worker ciblé).
+  const goOverview = (): void => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("pid");
+    setSearchParams(next, { replace: true });
+  };
   // Granularité (cadence des pushes) — préférence PERSISTÉE, défaut 1 s. Canal
   // paramétré `dashboard:supervision:<ms>` ; 1 s = canal nu. Re-cadence = ré-abo.
   const [liveMs, setLiveMs] = useState<number>(
@@ -612,7 +661,6 @@ export const DashboardSupervision = observer(() => {
   useEffect(() => lsSet("nf.supervision.liveMs", String(liveMs)), [liveMs]);
   // Cadence ADAPTATIVE (AIMD) : politique GLOBALE de la socket, pilotée depuis le Hub.
   // Cette page la SUIT (comme ORM). `liveMs` = plancher (cadence désirée).
-  const ui = useUi();
   const auto = ui.adaptiveCadence;
   // Cadence RÉELLE appliquée par l'AIMD sur le canal principal (lecture seule, badge).
   const [effectiveMs, setEffectiveMs] = useState<number>(liveMs);
@@ -672,6 +720,27 @@ export const DashboardSupervision = observer(() => {
     };
   }, [store]);
 
+  // Liste des workers du pod (snapshot santé realtime) → alimente le sélecteur
+  // instance-aware. Mono-process : pas d'`instances[]` → liste vide → 0 sélecteur.
+  useEffect(() => {
+    let cancelled = false;
+    store.api
+      .getAbsolute<{ instances?: { instanceId: string }[] }>(
+        "/nodefony/realtime/api/health",
+      )
+      .then((h) => {
+        if (cancelled) return;
+        const list = Array.isArray(h?.instances)
+          ? h.instances.map((i) => Number(i.instanceId)).filter((n) => n > 0)
+          : [];
+        setPods(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [store]);
+
   // Snapshot one-shot des sondes process (sans flux WS) — pour le mode OFF.
   const fetchSnapshot = useCallback(() => {
     store.api
@@ -707,6 +776,12 @@ export const DashboardSupervision = observer(() => {
   // ON → `SupervisionLive` prend le relais (rien à faire ici).
   useEffect(() => {
     if (live) return;
+    // Worker DISTANT : aucun snapshot one-shot (la sonde riche n'existe que pendant
+    // l'abonnement) → on vide et l'UI invite à activer le temps réel.
+    if (isRemote) {
+      setStats(null);
+      return;
+    }
     fetchSnapshot();
     fetchOrms();
     fetchFlow();
@@ -720,7 +795,7 @@ export const DashboardSupervision = observer(() => {
     setFlowRates({});
     setFlowHist([]);
     prevFlowRef.current = null;
-  }, [live, fetchSnapshot, fetchOrms, fetchFlow]);
+  }, [live, isRemote, fetchSnapshot, fetchOrms, fetchFlow]);
 
   // Handler tick stats (live) → jauges + séries + bascule du compteur d'erreurs.
   const onStats = (payload: unknown) => {
@@ -989,7 +1064,7 @@ export const DashboardSupervision = observer(() => {
   // Naviguer vers un onglet live-only depuis un KPI : si OFF, on active d'abord
   // le temps réel (sinon l'onglet n'existe pas).
   const goLiveTab = (t: string) => {
-    if (!live) setLive(true);
+    if (!live) ui.setRealtimeLive(true);
     setTab(t);
   };
 
@@ -1077,10 +1152,118 @@ export const DashboardSupervision = observer(() => {
   // Tous les poids à 0 = aucune sonde pondérée → indice non calculable (≠ pas de données).
   const weightsAllZero = Object.keys(DEFAULT_WEIGHTS).every((l) => wOf(l) <= 0);
 
+  // ── Accueil multi-process ORIENTÉ GRAPHS ──────────────────────────────────
+  // En cluster SANS worker ciblé : grille de cards CPU+Heap (live, en direct) par
+  // process, cliquables → drill (`?pid`). Le détail complet (avec Select) s'affiche
+  // dès qu'un worker est ciblé, ou en mono-process. (≠ page Cluster, orientée KPIs.)
+  if (showOverview) {
+    // Sondes pondérables disponibles au niveau pod (snapshot lean).
+    const podWeightLabels = [
+      "CPU",
+      "Saturation (ELU)",
+      "Event-loop",
+      "Mémoire (heap)",
+    ];
+    return (
+      <Stack gap="lg">
+        <PageHeader
+          sticky
+          title="Supervision"
+          subtitle={`Vue multi-process — ${pods.length} workers · CPU & heap en direct (clic = détail)`}
+          actions={
+            <Popover width={300} position="bottom-end" withArrow shadow="md">
+              <Popover.Target>
+                <Button
+                  variant="light"
+                  size="xs"
+                  leftSection={<IconAdjustmentsHorizontal size={14} />}
+                  aria-label="Régler la pondération de la santé du framework"
+                >
+                  Pondération
+                </Button>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Group justify="space-between" mb={6}>
+                  <Text size="sm" fw={600}>
+                    Pondération de la santé
+                  </Text>
+                  <Button
+                    variant="subtle"
+                    size="compact-xs"
+                    onClick={() => setWeights({ ...DEFAULT_WEIGHTS })}
+                  >
+                    Défaut
+                  </Button>
+                </Group>
+                <Text size="xs" c="dimmed" mb="sm">
+                  Poids ×N de chaque sonde dans l'indice pod (rollup pire worker).
+                  Persisté, partagé avec la page mono.
+                </Text>
+                <Stack gap="xs">
+                  {podWeightLabels.map((label) => (
+                    <div key={label}>
+                      <Group justify="space-between" gap={4}>
+                        <Text size="xs">{label}</Text>
+                        <Text
+                          size="xs"
+                          c="dimmed"
+                          style={{ fontVariantNumeric: "tabular-nums" }}
+                        >
+                          ×{wOf(label).toFixed(1)}
+                        </Text>
+                      </Group>
+                      <Slider
+                        size="xs"
+                        min={0}
+                        max={3}
+                        step={0.1}
+                        value={wOf(label)}
+                        onChange={(v) =>
+                          setWeights((w) => ({ ...w, [label]: v }))
+                        }
+                        label={(v) => `×${v.toFixed(1)}`}
+                        aria-label={`poids ${label}`}
+                      />
+                    </div>
+                  ))}
+                </Stack>
+              </Popover.Dropdown>
+            </Popover>
+          }
+        />
+        {pidIsStale ? (
+          <Alert variant="light" color="yellow" icon={<IconInfoCircle size={18} />}>
+            Le worker <Text span ff="monospace">pid {targetPid}</Text> n'existe plus
+            (process redémarré). Choisis un worker actif ci-dessous.
+          </Alert>
+        ) : null}
+        <ProcessGraphGrid
+          weights={weights}
+          onSelect={(pid) =>
+            setSearchParams({ pid: String(pid) }, { replace: true })
+          }
+        />
+      </Stack>
+    );
+  }
+
   return (
     <Stack gap="lg">
+      {/* Cluster : retour clair vers l'accueil multi-process (grille). */}
+      {isCluster && (
+        <Button
+          variant="light"
+          size="xs"
+          leftSection={<IconArrowLeft size={14} />}
+          onClick={goOverview}
+          style={{ alignSelf: "flex-start" }}
+        >
+          Vue d'ensemble (tous les workers)
+        </Button>
+      )}
       {live && (
         <SupervisionLive
+          channel={supChannel}
           desiredMs={liveMs}
           auto={auto}
           onStats={onStats}
@@ -1134,6 +1317,23 @@ export const DashboardSupervision = observer(() => {
         }
         actions={
           <Group gap="xs">
+            {/* Cluster : Select pour basculer de worker sans repasser par la grille.
+                Worker distant = canal drill `@<pid>` (sonde riche à la demande). */}
+            {isCluster && (
+              <Select
+                size="xs"
+                w={170}
+                leftSection={<IconServer size={14} />}
+                value={targetPid != null ? String(targetPid) : null}
+                onChange={(v) => v && selectWorker(Number(v))}
+                data={pods.map((p) => ({
+                  value: String(p),
+                  label: p === localPid ? `worker ${p} (local)` : `worker ${p}`,
+                }))}
+                comboboxProps={{ withinPortal: true }}
+                aria-label="worker du pod à superviser"
+              />
+            )}
             {live && <span className="nf-live-dot" aria-hidden />}
             {auto && live ? (
               <Badge
@@ -1195,7 +1395,7 @@ export const DashboardSupervision = observer(() => {
                   <Switch
                     size="sm"
                     checked={live}
-                    onChange={(e) => setLive(e.currentTarget.checked)}
+                    onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
                     label="Temps réel"
                     aria-label="abonnement temps réel (socket Nodefony) des sondes de supervision"
                   />
@@ -1236,7 +1436,40 @@ export const DashboardSupervision = observer(() => {
         }
       />
 
-      {/* ── Indice de santé composite (Derringer-Suich) — état général en 1 chiffre ── */}
+      {/* Worker DISTANT sélectionné (drill cluster) : bandeau d'état dédié. */}
+      {isRemote && (
+        <Alert
+          variant="light"
+          color={!live ? "blue" : stats?.richPending ? "yellow" : "teal"}
+          icon={<IconServer size={18} />}
+          title={`Supervision du worker distant · pid ${targetPid}`}
+        >
+          {!live ? (
+            <>
+              Worker distant : la sonde riche est servie à la demande.{" "}
+              <Text
+                span
+                fw={600}
+                c="brand"
+                style={{ cursor: "pointer" }}
+                onClick={() => ui.setRealtimeLive(true)}
+              >
+                Activer le Temps réel
+              </Text>{" "}
+              pour superviser ce process.
+            </>
+          ) : stats?.richPending ? (
+            "Activation de la sonde riche du worker (GC, espaces de heap, handles, ctx)… arrive sous un cycle de snapshot."
+          ) : (
+            "Sonde riche active. Les panneaux ORM/flux restent ceux du worker qui tient la connexion (agrégation ORM par worker = à venir)."
+          )}
+        </Alert>
+      )}
+
+      {/* ── Indice de santé composite (Derringer-Suich) — état général en 1 chiffre.
+          MASQUÉ en cluster : par-worker il n'a pas de sens. La « Santé du framework »
+          AGRÉGÉE pod (rollup = pire worker) vit sur l'accueil multi-process (grille). ── */}
+      {!isCluster && (
       <Card withBorder radius="md" p="lg">
         <Group wrap="nowrap" align="center" gap="xl">
           <RingProgress
@@ -1437,6 +1670,7 @@ export const DashboardSupervision = observer(() => {
           </Stack>
         </Group>
       </Card>
+      )}
 
       {/* ── Bandeau état global / alertes ── */}
       {waiting ? (

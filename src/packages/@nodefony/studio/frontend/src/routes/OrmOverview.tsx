@@ -1253,9 +1253,10 @@ export const OrmOverview = observer(() => {
 
   // Temps réel : abonnement HUB (push WS) via <OrmHealthLive/>. Le switch
   // monte/démonte l'abonné (ref-compté) → 0 travail serveur quand OFF.
-  // DÉSACTIVÉ par défaut au chargement (opt-in par session, NON persisté) → la
-  // page démarre statique (1 fetch HTTP). OFF → on relâche `liveHealth`.
-  const [live, setLive] = useState<boolean>(false);
+  // Interrupteur GLOBAL partagé (UiStore) — le même sur toutes les pages realtime.
+  // OFF au (re)chargement (opt-in par session) → la page démarre statique (1 fetch
+  // HTTP). OFF → on relâche `liveHealth`.
+  const live = ui.realtimeLive;
   // Granularité (cadence du canal) — préférence persistée, défaut 5 s. En cadence
   // auto, sert de PLANCHER (cadence la plus rapide souhaitée).
   const [liveMs, setLiveMs] = useState<number>(
@@ -1422,7 +1423,7 @@ export const OrmOverview = observer(() => {
                   <Switch
                     size="sm"
                     checked={live}
-                    onChange={(e) => setLive(e.currentTarget.checked)}
+                    onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
                     label="Temps réel"
                     aria-label="abonnement temps réel (socket Nodefony) du diagnostic connexions"
                   />

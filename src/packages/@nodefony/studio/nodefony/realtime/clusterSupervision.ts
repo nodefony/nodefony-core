@@ -33,8 +33,8 @@ export function mapInstanceToSupervision(
     eventLoopMs: p?.eventLoopMs ?? 0,
     elu: {
       utilization: p?.eluUtilization ?? 0,
-      active: r?.elu.active ?? 0,
-      idle: r?.elu.idle ?? 0,
+      active: r?.elu?.active ?? 0,
+      idle: r?.elu?.idle ?? 0,
     },
     ctx: r?.ctx ?? { voluntary: 0, involuntary: 0 },
     loadavg: r?.loadavg ?? [0, 0, 0],

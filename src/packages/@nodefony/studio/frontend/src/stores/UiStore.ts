@@ -11,6 +11,8 @@ const GROUPS_KEY = "nodefony.studio.sidebar.groups.v2";
 const DEBUGBAR_KEY = "nf.debugbar.visible";
 /** Cadence adaptative (AIMD) de la socket — politique globale, pilotée depuis le Hub. */
 const ADAPTIVE_KEY = "nf.realtime.adaptive";
+/** Temps réel actif — persisté (l'utilisateur veut retrouver son choix au reload). */
+const LIVE_KEY = "nf.realtime.live";
 
 /** Handle global exposé par la debug bar Core (`window.__NODEFONY_DEBUGBAR__`). */
 interface DebugBarHandle {
@@ -47,10 +49,30 @@ export class UiStore {
    * la socket recule la cadence sous famine puis la remonte quand c'est sain. Persisté.
    */
   adaptiveCadence = false;
+  /**
+   * Temps réel ACTIF — interrupteur GLOBAL partagé par toutes les pages realtime
+   * (Cluster / Supervision / ORM). **Persisté** (`nf.realtime.live`) : l'utilisateur
+   * retrouve son choix au rechargement. Activer sur une page = actif sur toutes
+   * (1 seul état). La granularité (`:ms`) reste locale à chaque page.
+   */
+  realtimeLive = false;
 
   constructor() {
     makeAutoObservable(this);
     this.loadPrefs();
+  }
+
+  setRealtimeLive(v: boolean): void {
+    this.realtimeLive = v;
+    try {
+      localStorage.setItem(LIVE_KEY, v ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }
+
+  toggleRealtimeLive(): void {
+    this.setRealtimeLive(!this.realtimeLive);
   }
 
   setDebugBar(v: boolean): void {
@@ -131,6 +153,7 @@ export class UiStore {
       this.rail = localStorage.getItem(RAIL_KEY) === "1";
       this.debugBar = localStorage.getItem(DEBUGBAR_KEY) !== "0";
       this.adaptiveCadence = localStorage.getItem(ADAPTIVE_KEY) === "1";
+      this.realtimeLive = localStorage.getItem(LIVE_KEY) === "1";
       const g = localStorage.getItem(GROUPS_KEY);
       if (g) {
         const parsed: unknown = JSON.parse(g);

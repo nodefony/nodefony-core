@@ -15,10 +15,12 @@ import {
   Switch,
   Text,
   ThemeIcon,
+  UnstyledButton,
 } from "@mantine/core";
 import {
   IconActivity,
   IconBolt,
+  IconChevronRight,
   IconCpu,
   IconInfoCircle,
   IconPlugConnected,
@@ -27,6 +29,7 @@ import {
   IconStack3,
   IconBroadcast,
 } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import { useNodefonyAdaptiveChannelData } from "nodefony/react";
 import { useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
@@ -339,11 +342,14 @@ function WorkerCard({
   live,
   index,
   series,
+  onSelect,
 }: {
   inst: InstanceHealth;
   live: boolean;
   index: number;
   series?: WorkerSeries;
+  /** Drill-down → page détail `/nodefony/cluster/:pid`. */
+  onSelect: () => void;
 }) {
   const p = inst.process;
   const channels = inst.channels.map((c) => c.channel).join(", ") || "aucun";
@@ -359,21 +365,32 @@ function WorkerCard({
       style={{ contain: "content" }}
     >
       <Group justify="space-between" wrap="nowrap" mb="sm">
-        <Group gap="xs" wrap="nowrap">
-          <ThemeIcon variant="light" color="brand" radius="md">
-            <IconCpu size={18} />
-          </ThemeIcon>
-          <div>
-            <Text fw={600}>worker {index + 1}</Text>
-            <Text
-              size="xs"
-              c="dimmed"
-              style={{ fontVariantNumeric: "tabular-nums" }}
-            >
-              pid {inst.instanceId}
-            </Text>
-          </div>
-        </Group>
+        {/* Affordance de drill = UN bouton focusable (pas la carte entière, qui
+            contient déjà des ⓘ interactifs → pas de nested-interactive a11y). */}
+        <UnstyledButton
+          onClick={onSelect}
+          aria-label={`Voir le détail du worker ${index + 1} (pid ${inst.instanceId})`}
+          style={{ flex: 1, minWidth: 0, borderRadius: 8 }}
+        >
+          <Group gap="xs" wrap="nowrap">
+            <ThemeIcon variant="light" color="brand" radius="md">
+              <IconCpu size={18} />
+            </ThemeIcon>
+            <div style={{ minWidth: 0 }}>
+              <Group gap={4} wrap="nowrap">
+                <Text fw={600}>worker {index + 1}</Text>
+                <IconChevronRight size={14} style={{ opacity: 0.5 }} />
+              </Group>
+              <Text
+                size="xs"
+                c="dimmed"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                pid {inst.instanceId}
+              </Text>
+            </div>
+          </Group>
+        </UnstyledButton>
         {p ? (
           <Badge variant="light" color="gray">
             <FlashValue value={fmtUptime(p.uptime)}>
@@ -536,6 +553,7 @@ function WorkerCard({
 export const Cluster = observer(() => {
   const store = useStore();
   const ui = useUi();
+  const navigate = useNavigate();
   useEffect(ensureLiveStyles, []);
 
   // 1ᵉʳ paint : snapshot HTTP one-shot (pas de flux WS si « Temps réel » OFF).
@@ -545,8 +563,9 @@ export const Cluster = observer(() => {
   );
   const { data, loading, error, reload } = useResource(fetcher);
 
-  // Temps réel opt-in (NON persisté) → la page démarre statique.
-  const [live, setLive] = useState(false);
+  // Temps réel : interrupteur GLOBAL partagé (UiStore) — le même sur toutes les
+  // pages realtime. OFF au (re)chargement (perf). La granularité reste locale.
+  const live = ui.realtimeLive;
   const [liveMs, setLiveMs] = useState(5000);
   const auto = ui.adaptiveCadence;
   const [effectiveMs, setEffectiveMs] = useState(liveMs);
@@ -630,7 +649,7 @@ export const Cluster = observer(() => {
                   <Switch
                     size="sm"
                     checked={live}
-                    onChange={(e) => setLive(e.currentTarget.checked)}
+                    onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
                     label="Temps réel"
                     aria-label="abonnement temps réel (socket Nodefony) de la vue cluster"
                   />
@@ -804,6 +823,9 @@ export const Cluster = observer(() => {
               live={live}
               index={i}
               series={series.get(inst.instanceId)}
+              onSelect={() =>
+                navigate(`/nodefony/supervision?pid=${inst.instanceId}`)
+              }
             />
           ))}
         </SimpleGrid>

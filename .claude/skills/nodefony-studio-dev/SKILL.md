@@ -48,7 +48,7 @@ Quand le front commence à consommer un **canal/action/endpoint/type** nouveau �
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.10.0**
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.11.0**
 (bump **front-only** : famille de bulles d'aide typées `Hint`/`DocHint` — aucun changement de contrat back,
 `nodefony-framework-dev` reste à 1.9.0).
 
@@ -322,6 +322,25 @@ garanti au `unsubscribe` ET `ctx.once("onFinish")`. ⚠️ Après le handshake `
   **puis** restart (Vite ré-optimise les deps au boot ; un subpath neuf n'est pas résolu à chaud).
 - Vérif back sans navigateur : **curl le data plane** (`curl -sk https://127.0.0.1:5152/nodefony/<m>/api/...`)
   - curl le transform Vite (`https://127.0.0.1:5173/@fs/<abs>.tsx`) pour valider la résolution d'un subpath.
+
+> 🚨 **PIÈGE #1 EN CLUSTER (`nodefony cluster -w N`) — 0 HMR + `build:front` ≠ `build` (vécu 2026-05-25,
+> a coûté des heures)** : en cluster, le front est un **bundle prod figé** (Vite ne tourne pas). Deux
+> conséquences mortelles :
+> 1. **`npm run build:front` (= `nodefony frontend:build`, Vite) ne recompile QUE le frontend.** Il ne
+>    touche PAS le **back Studio** (`nodefony/**` : controller, **realtime providers** comme
+>    `clusterSupervision.ts`). Un fix back « invisible au runtime » alors qu'on a « rebuildé » 5× =
+>    on a rebuildé le mauvais étage. **Back Studio → `cd src/packages/@nodefony/studio && npm run build`
+>    (rollup)**, TOUJOURS. Vérifier : `grep <ta-chaîne> src/packages/@nodefony/studio/dist/nodefony/...`.
+> 2. **Toute modif front** = `build:front` **+ kill/restart cluster** (`renderProdTags` cache le manifest
+>    au boot → restart obligatoire, pas juste le build) **+ hard-reload navigateur avec DevTools
+>    « Disable cache » ON** (sinon vieux `index.html` → chunk hashé supprimé → **404 import lazy = "la
+>    page ne marche plus"**, ≠ bug code). Ne PAS saturer le cluster (ELU 100 %) en testant → la **socket
+>    Studio meurt en premier** (famine event-loop) → charge **modérée**. Cf [[feedback_live_cluster_debug_workflow]].
+> 3. **Diag drill cluster** : un canal `dashboard:supervision@<pid>` muet se prouve côté serveur par un
+>    mini-client `ws` (subscribe + compte frames) lancé **depuis `.claude/skills/nodefony-load-test/scripts/`**
+>    (résout `ws`), PAS depuis `/tmp`. Vrai bug trouvé ainsi : `mapInstanceToSupervision` faisait
+>    `r?.elu.active` → **TypeError dès que la sonde riche arrive** (`r.elu` undefined) → 0 frame →
+>    `r?.elu?.active`. Garder l'optional chaining JUSQU'AU BOUT sur les sondes riches optionnelles.
 
 ## Realtime Studio — canaux, socket PARTAGÉE, hub, log protocole
 
@@ -952,6 +971,18 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.11.0** (2026-05-25) — **Supervision MULTI-PROCESS instance-aware + drill worker réparé**. Front :
+  accueil `/nodefony/supervision` en cluster = **grille graph-oriented** (`ProcessGraphGrid` : par worker
+  % CPU+mémoire en grand + courbes CPU/Heap live + ELU/loop/uptime + badge santé ; en tête **Santé du
+  framework pod** = rollup pire worker **pondéré** + agrégats CPU moyen/loop max/heap pod) ; **détail
+  worker** = page Supervision complète sur `?pid=` (canal `dashboard:supervision@<pid>`) + Select + bouton
+  « Vue d'ensemble » + anti-fantôme (pid mort → grille). **Santé composite masquée par-worker** (`!isCluster`),
+  remontée à l'accueil. **Util partagé `utils/health.ts`** (`buildHealth` Derringer-Suich + poids persistés
+  `loadHealthWeights`) → la **pondération** (sliders) s'applique aussi au pod ; **sliders Pondération sur
+  l'accueil cluster**. Toggle **« Temps réel » → store persisté** `UiStore.realtimeLive` (`nf.realtime.live`),
+  partagé Cluster/Supervision/ORM. Back : **fix drill** `clusterSupervision` `r?.elu?.active`. **Leçon clé**
+  ajoutée (build:front ≠ build, cluster 0-HMR, diag drill `ws`). [[feedback_live_cluster_debug_workflow]].
+  `nodefony-framework-dev` suit en patch (back inchangé hormis le fix studio).
 - **1.10.0** (2026-05-24) — **Bulles d'aide TYPÉES (fiches de doc) — front-only**. Famille `Hint` (UI kit
   `components/ui/DocHint.tsx`) : presets `DocHint` (📖 défaut), `GraphHint` (📈), `LinkHint` (🔗 externe
   sécurisé), `TipHint` (💡), `WarnHint` (⚠). HoverCard = en-tête icône+titre+badge version, résumé,
