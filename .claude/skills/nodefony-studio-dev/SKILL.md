@@ -461,6 +461,10 @@ purger…) sur le même canal/data-plane (DEV-ONLY + RBAC P6).
 | dump JSON            | `<JsonViewer>`                | `dangerouslySetInnerHTML`               |
 | KPI                  | `<StatCard>` dans `<Grid>`    | Card ad-hoc                             |
 
+> **Doc / portail / markdown / sommaire / layout docs-site** (DocLayout, DocToc, MarkdownDoc,
+> FlowGraph, module `@nodefony/documentation`) → skill **`nodefony-documentation`** (concern transverse
+> dédié, hors de ce skill). Les règles de mise en page docs-site y vivent désormais.
+
 ## Règles non négociables (qualité IA)
 
 - **🔎 VÉRIFIER L'EXISTANT AVANT DE CODER (directive user 2026-05-23, PRIORITÉ #1)** : avant de
