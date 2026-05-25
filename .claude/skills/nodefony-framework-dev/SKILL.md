@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.13.0
+version: 1.14.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -48,7 +48,9 @@ correspondante de `nodefony-studio-dev` (et inversement). Ouvrir le skill jumeau
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.10.0**.
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.14.0**
+(session FRONT : page drill ORM `/nodefony/orm/:pid` — côté back, seul ajout = fallback SPA littéral
+`@Get("/orm/{pid}")` dans StudioController ; contrat data plane/realtime inchangé).
 
 ## 1. Quand l'utiliser / quand passer la main
 
@@ -1415,6 +1417,13 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.14.0** (2026-05-25) — **Lockstep** (session FRONT : page drill ORM `/nodefony/orm/:pid` par worker, commit
+  `0533180`). Côté back, seul changement = **fallback SPA littéral** `@Get("/orm/{pid}")` dans `StudioController`
+  (deep-link/F5 sur la page React à 2 segments — MÊME règle figée que `modules/:name` & `cluster/:pid` : segment
+  **littéral**, JAMAIS de catch-all `/{section}/{page}` qui masquerait les routes des autres modules → régression 21
+  tests http). Contrat data plane (`/nodefony/orm/api/*`, `/nodefony/realtime/api/health`) + canaux (`orm:health`/
+  `orm:flow`/`realtime:health`) **inchangés** — le front consomme l'existant. Relais ciblé **ORM riche @pid** (master→
+  worker, calqué `dashboard:supervision@<pid>`) reste le TODO backend. [[project_cluster_drilldown_kit]].
 - **1.13.0** (2026-05-25) — **Lockstep** (session FRONT : dashboard ORM cluster-aware + verdict « Santé ORM »).
   **Back inchangé** : la sonde lean pod (`IOrmLeanHealth` via `setOrmHealthProvider`, canal `realtime:health`)
   livrée en 1.12.0 (P16.H.7) suffit — le front la consomme désormais pour le verdict 3 états (Derringer-Suich)

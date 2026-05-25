@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.13.0
+version: 1.14.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -48,9 +48,9 @@ Quand le front commence à consommer un **canal/action/endpoint/type** nouveau �
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.12.0**
-(co-évolution full-stack P16.H.7 : santé pod ORM+erreurs par worker — back `nodefony-framework-dev` 1.12.0 produit le
-contrat `IRealtimeHealth.orm`/`.errors`, ce skill le consomme dans la page Cluster).
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.14.0**
+(front : page drill ORM `/nodefony/orm/:pid` par worker + extraction DRY ConnectorCard/types/format ; back
+`nodefony-framework-dev` 1.14.0 = fallback SPA littéral `@Get("/orm/{pid}")`, contrat data plane inchangé).
 
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
@@ -963,6 +963,21 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   connecteurs déconnectés `orange`). **Démo** : dev (HMR, 1 worker, instantané, fiable) montre toute l'UI ; la **grille
   N workers + agrégation pod** = cluster (`build:front` + restart + hard-reload — friction PIÈGE #1). Vu live OK
   (ORM 4304 req/EWMA 0.05ms/3-3 ; erreurs 7). Lockstep back = framework-dev 1.12.0. [[project_cluster_drilldown_kit]].
+- **Extraire une route géante + page DRILL par worker (2026-05-25, `0533180`, OrmOverview 2592→~1200 l)** : quand une
+  page route dépasse ~2k lignes (cache cher au cache-read), **extraire vers 3 cibles** : `types/<feat>.ts` (interfaces
+  - constantes, **0 JSX**), `utils/<feat>Format.ts` (helpers PURS — fmt\*, agrégateurs, **0 JSX** : un helper qui rend
+    une icône `<Icon/>` DOIT rester dans un `.tsx`, jamais un `.ts` → sinon erreur de build), `routes/<feat>/<Comp>.tsx`
+    (composants + abonnements live + **hooks dérivés** `useXxxRates`/`useXxxFlow` + contrôles partagés type `OrmRealtimeControls`).
+    Bénéfice double : la page consommatrice ET le drill importent le MÊME code (0 copie), et le diff/cache de la grosse
+    page fond. ⚠️ après le commit, **prettier (lint-staged) reformate** les nouveaux fichiers → ne pas s'étonner du diff.
+- **Page DRILL « front-only honnête » (pattern réutilisable, `OrmWorker.tsx`)** : pour drill un worker `:pid` sans relais
+  backend ciblé — (1) **exact** = ce qui vient de la **sonde lean pod agrégée par le master** (`realtime:health.instances`
+  filtré `find(i=>i.instanceId===pid)`) → verdict/métriques de CE pid sont justes ; (2) **best-effort honnête** = le
+  diagnostic RICHE (`connection/health`/`orm:flow`) tombe sur 1 worker au hasard (round-robin reusePort) → comparer
+  `healthList[0].instanceId` au `:pid` et afficher une **Alert orange « fourni par pid Y »** dès que ça diverge (mono =
+  toujours exact). Ne JAMAIS faire passer le rich d'un autre worker pour celui demandé. Route = **chemin** `/…/:pid`
+  (pas query) + **fallback SPA littéral** au controller (`@Get("/orm/{pid}")`, jamais catch-all). Lockstep back =
+  framework-dev 1.14.0. [[project_orm_dashboard_cluster_kit]] · [[project_cluster_drilldown_kit]].
 
 ## Fin de session Studio (OBLIGATOIRE)
 
@@ -983,6 +998,25 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.14.0** (2026-05-25) — **Page DRILL ORM par worker `/nodefony/orm/:pid` + extraction DRY** (front-only,
+  commit `0533180`). (a) Nouvelle page **`OrmWorker.tsx`** : **santé lean EXACTE du pid** (verdict 3 états +
+  6 MiniStat + courbe req/s, extraite de `realtime:health.instances` par pid → exacte car agrégée master) +
+  **diagnostic riche par connecteur** (`ConnectorCard`). En **cluster**, le rich (`connection/health` + `orm:flow`)
+  tombe sur 1 worker au hasard (round-robin reusePort) → **alerte honnête** « fourni par pid Y » dès que
+  `respondingPid !== pid` (`healthList[0].instanceId`) ; en mono = exact. Relais ciblé @pid = backend futur. (b)
+  **`OrmOverview` allégé** : onglet Connecteurs = **`ClusterOrmGrid` dans LES DEUX modes** (en-tête pod ssi
+  `rows.length>1`), carte worker **cliquable → `navigate('/nodefony/orm/'+pid)`** ; **cartes connecteur inline
+  retirées** + fetch `connection/health`/flow supprimés de l'overview (la grille lit la sonde lean) ; ajout d'une
+  **bande d'identité des connecteurs** (schéma invariant) ; KPI verdict footer = label+worst+connected (incidents
+  connHealth retirés) ; `RealtimeHealthLive` gagne `onRate` (badge cadence). (c) **Extraction DRY** (OrmOverview
+  2592 → ~1200 l, cache moins cher) : **`types/orm.ts`** (types+constantes), **`utils/ormFormat.ts`** (fmt*/
+  analyzeModel/ormHealthInputs/ensureLivePulseStyle/ls*, ORM_DOC→v1.2, **purs sans JSX**), **`routes/orm/ConnectorCard.tsx`**
+  (ConnectorCard + MiniStat + storageOf + OrmHealthLive/OrmFlowLive/RealtimeHealthLive + hooks **`useOrmRates`/`useOrmFlow`**
+  - **`OrmRealtimeControls`** partagé overview↔drill). (d) Back : `App.tsx` route lazy `orm/:pid` ; `StudioController`
+    **fallback SPA littéral `@Get("/orm/{pid}")`** (deep-link/F5, même règle que `modules`/`cluster/:x`). Prouvé live
+    cluster -w3 (deep-link 200 HTML+bundle, `realtime:health` cluster:true 3 workers, `connection/health` round-robin =
+    cas alerte). RETEX (extraction grosse page sous prettier ; helper JSX→`.tsx` pas `.ts` ; zsh `$F` non word-split ;
+    `index.lock` orphelin husky). Lockstep back = **framework-dev 1.14.0**. [[project_orm_dashboard_cluster_kit]].
 - **1.13.0** (2026-05-25) — **Dashboard ORM cluster-aware + verdict « Santé ORM » 3 états** (suite P16.H.7,
   front-only). `OrmOverview.tsx` consomme désormais la sonde lean pod `realtime:health` (`.totals.orm` +
   `.instances[].orm`, agrégée par le master → cohérente, ≠ `/orm/api/*` round-robin) : (a) **KPI « Santé ORM »**
