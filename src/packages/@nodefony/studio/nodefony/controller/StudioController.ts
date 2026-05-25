@@ -128,6 +128,17 @@ class StudioController extends Controller {
     return this.renderStudio();
   }
 
+  /**
+   * SPA fallback profondeur 2 — deep-link / refresh sur le drill ORM d'un worker :
+   * `orm/:pid` (ex `/nodefony/orm/12345`). Même règle que `modules/:name` : segment
+   * littéral `orm` (PAS de générique `/{section}/{page}` qui masquerait les routes
+   * des autres modules sous `/nodefony/<x>/<y>`).
+   */
+  @Get("/orm/{pid}")
+  renderSpaFallbackOrm(): unknown {
+    return this.renderStudio();
+  }
+
   @Get("/studio/api/health")
   apiHealth() {
     return this.renderJson({

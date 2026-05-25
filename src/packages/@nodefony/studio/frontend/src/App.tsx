@@ -72,6 +72,9 @@ const OrmEntity = lazy(() =>
 const OrmOverview = lazy(() =>
   import("./routes/OrmOverview").then((m) => ({ default: m.OrmOverview })),
 );
+const OrmWorker = lazy(() =>
+  import("./routes/OrmWorker").then((m) => ({ default: m.OrmWorker })),
+);
 
 import {
   Sessions,
@@ -170,6 +173,7 @@ const router = createBrowserRouter([
           { path: "system", element: <System /> },
           { path: "firewall", element: <Firewall /> },
           { path: "orm", element: <OrmOverview /> },
+          { path: "orm/:pid", element: <OrmWorker /> },
           { path: "databases", element: <Database /> },
           { path: "orm-entity", element: <OrmEntity /> },
           { path: "migrate", element: <Migrate /> },

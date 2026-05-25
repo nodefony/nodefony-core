@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-25T11:42:23.611Z",
+  "generated": "2026-05-25T14:58:22.632Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 750,
-    "symbols": 1360,
+    "files": 752,
+    "symbols": 1366,
     "classes": 227,
-    "interfaces": 330,
+    "interfaces": 332,
     "types": 162,
     "enums": 2,
-    "functions": 187,
+    "functions": 191,
     "constants": 452
   },
   "symbols": {
@@ -2349,6 +2349,40 @@
       "module": "@nodefony/core",
       "description": "Résout le nombre de workers à forker, dans l'ordre de priorité : 1. `requested` explicite (`--workers N`) si `> 0` — honoré **tel quel**, jamais borné. 2. Quota CPU cgroup (conteneur) → arrondi au …"
     },
+    "IOrmLeanHealth": {
+      "name": "IOrmLeanHealth",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/instanceProbe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Contrats de **santé per-instance NON realtime** (ORM + erreurs) qui voyagent dans le report de sonde cluster, à côté de {@link IProcessHealth} (process) et de la sonde de la socket. Généralise l'ag…"
+    },
+    "IInstanceErrorHealth": {
+      "name": "IInstanceErrorHealth",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/cluster/instanceProbe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Santé **erreurs per-instance** — compteurs Syslog monotones (cf `Syslog.errorTotal` / `Syslog.criticTotal`). Permet une carte « erreurs par worker » + un taux d'erreur pod (delta côté lecteur). Lec…"
+    },
+    "setOrmHealthProvider": {
+      "name": "setOrmHealthProvider",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/instanceProbe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Branche (ou débranche avec `null`) le fournisseur de santé ORM lean. Idempotent (dernier gagne) — plusieurs drivers branchant la même fonction globale est sûr."
+    },
+    "readOrmHealth": {
+      "name": "readOrmHealth",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/instanceProbe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit la santé ORM lean du process via le fournisseur branché, ou `null` si aucun ORM n'est branché (le champ `orm` du report est alors omis). Lecture pure, jamais throw."
+    },
     "ProcessProbe": {
       "name": "ProcessProbe",
       "kind": "class",
@@ -3655,8 +3689,7 @@
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
       "exported": true,
-      "module": "@nodefony/framework",
-      "description": "Producteur `IAdminApi` de la **socket Nodefony** — exposé sous `/nodefony/realtime/api/*`. Surface l'**auto-observabilité** du {@link RealtimeHub} (la socket s'observe à travers elle-même) : canaux…"
+      "module": "@nodefony/framework"
     },
     "buildRealtimeHealth": {
       "name": "buildRealtimeHealth",
@@ -5215,6 +5248,14 @@
       "implements": [],
       "decorators": [],
       "description": "Service CRUD **générique** — socle réutilisable au-dessus d'un {@link IRepository}. Toute entité (User, Article, Room...) expose son CRUD « toujours de la même manière » en étendant cette classe : …"
+    },
+    "buildOrmLeanHealth": {
+      "name": "buildOrmLeanHealth",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "**Santé ORM lean per-instance** — somme process-wide de tous les connecteurs enregistrés, destinée à voyager dans le report de sonde cluster (« ORM par worker »). C'est la fonction branchée par le …"
     },
     "IConnectionMonitorCore": {
       "name": "IConnectionMonitorCore",
@@ -10746,6 +10787,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/config/config.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
@@ -10965,6 +11007,9 @@
       "VueController": [
         "src/modules/test-frontend-vue/index.ts"
       ],
+      "setOrmHealthProvider": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
       "IAdminRegistry": [
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
@@ -10973,6 +11018,9 @@
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "registerOrmAdminApi": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
+      "buildOrmLeanHealth": [
         "src/packages/@nodefony/drizzle/index.ts"
       ],
       "DrizzleService": [
@@ -11890,6 +11938,7 @@
       ],
       "queryFlowMonitor": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
       ],
@@ -11904,6 +11953,7 @@
       ],
       "ormRegistry": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
@@ -11994,6 +12044,14 @@
       ],
       "IProcessRich": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts"
+      ],
+      "IOrmLeanHealth": [
+        "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts"
+      ],
+      "IInstanceErrorHealth": [
+        "src/packages/@nodefony/framework/nodefony/interfaces/IRealtimeProbe.ts",
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
       ],
       "IController": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
@@ -12136,6 +12194,9 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "ProcessProbe": [
+        "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
+      ],
+      "readOrmHealth": [
         "src/packages/@nodefony/framework/nodefony/src/RealtimeAdminApi.ts"
       ],
       "RpcActionHandler": [
@@ -12500,6 +12561,11 @@
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
+      "connectionMonitor": [
+        "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+      ],
       "IConnectionError": [
         "src/packages/@nodefony/orm-core/nodefony/src/ConnectionMonitor.ts"
       ],
@@ -12519,10 +12585,6 @@
       "IOrm": [
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmRegistry.ts"
-      ],
-      "connectionMonitor": [
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IConnectionHealth": [
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
