@@ -48,6 +48,8 @@ import {
 } from "@tabler/icons-react";
 import { useSearchParams } from "react-router-dom";
 import { useStore, useAuth, useUi } from "../stores";
+import { hasRole } from "nodefony/roles";
+import { ROLE_DEV } from "../auth/dashboards";
 import { ProcessGraphGrid } from "../components/ProcessGraphGrid";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
@@ -626,7 +628,8 @@ export const DashboardSupervision = observer(() => {
   const [pods, setPods] = useState<number[]>([]);
   const localPid = info?.pid ?? stats?.pid ?? null;
   const paramPid = searchParams.get("pid");
-  const targetPid = paramPid && /^\d+$/.test(paramPid) ? Number(paramPid) : null;
+  const targetPid =
+    paramPid && /^\d+$/.test(paramPid) ? Number(paramPid) : null;
   const isRemote = targetPid != null && targetPid !== localPid;
   const isCluster = pods.length > 1;
   // Anti-« fantôme » : un `?pid=` qui ne correspond à AUCUN worker vivant (pid d'un
@@ -1157,88 +1160,30 @@ export const DashboardSupervision = observer(() => {
   // process, cliquables → drill (`?pid`). Le détail complet (avec Select) s'affiche
   // dès qu'un worker est ciblé, ou en mono-process. (≠ page Cluster, orientée KPIs.)
   if (showOverview) {
-    // Sondes pondérables disponibles au niveau pod (snapshot lean).
-    const podWeightLabels = [
-      "CPU",
-      "Saturation (ELU)",
-      "Event-loop",
-      "Mémoire (heap)",
-    ];
     return (
       <Stack gap="lg">
         <PageHeader
           sticky
           title="Supervision"
           subtitle={`Vue multi-process — ${pods.length} workers · CPU & heap en direct (clic = détail)`}
-          actions={
-            <Popover width={300} position="bottom-end" withArrow shadow="md">
-              <Popover.Target>
-                <Button
-                  variant="light"
-                  size="xs"
-                  leftSection={<IconAdjustmentsHorizontal size={14} />}
-                  aria-label="Régler la pondération de la santé du framework"
-                >
-                  Pondération
-                </Button>
-              </Popover.Target>
-              <Popover.Dropdown>
-                <Group justify="space-between" mb={6}>
-                  <Text size="sm" fw={600}>
-                    Pondération de la santé
-                  </Text>
-                  <Button
-                    variant="subtle"
-                    size="compact-xs"
-                    onClick={() => setWeights({ ...DEFAULT_WEIGHTS })}
-                  >
-                    Défaut
-                  </Button>
-                </Group>
-                <Text size="xs" c="dimmed" mb="sm">
-                  Poids ×N de chaque sonde dans l'indice pod (rollup pire worker).
-                  Persisté, partagé avec la page mono.
-                </Text>
-                <Stack gap="xs">
-                  {podWeightLabels.map((label) => (
-                    <div key={label}>
-                      <Group justify="space-between" gap={4}>
-                        <Text size="xs">{label}</Text>
-                        <Text
-                          size="xs"
-                          c="dimmed"
-                          style={{ fontVariantNumeric: "tabular-nums" }}
-                        >
-                          ×{wOf(label).toFixed(1)}
-                        </Text>
-                      </Group>
-                      <Slider
-                        size="xs"
-                        min={0}
-                        max={3}
-                        step={0.1}
-                        value={wOf(label)}
-                        onChange={(v) =>
-                          setWeights((w) => ({ ...w, [label]: v }))
-                        }
-                        label={(v) => `×${v.toFixed(1)}`}
-                        aria-label={`poids ${label}`}
-                      />
-                    </div>
-                  ))}
-                </Stack>
-              </Popover.Dropdown>
-            </Popover>
-          }
         />
         {pidIsStale ? (
-          <Alert variant="light" color="yellow" icon={<IconInfoCircle size={18} />}>
-            Le worker <Text span ff="monospace">pid {targetPid}</Text> n'existe plus
-            (process redémarré). Choisis un worker actif ci-dessous.
+          <Alert
+            variant="light"
+            color="yellow"
+            icon={<IconInfoCircle size={18} />}
+          >
+            Le worker{" "}
+            <Text span ff="monospace">
+              pid {targetPid}
+            </Text>{" "}
+            n'existe plus (process redémarré). Choisis un worker actif
+            ci-dessous.
           </Alert>
         ) : null}
         <ProcessGraphGrid
           weights={weights}
+          onWeightsChange={setWeights}
           onSelect={(pid) =>
             setSearchParams({ pid: String(pid) }, { replace: true })
           }
@@ -1299,7 +1244,8 @@ export const DashboardSupervision = observer(() => {
             <Badge size="sm" variant="light" color="gray">
               {info?.environment ?? stats?.app?.env ?? "—"}
             </Badge>
-            {stats?.app?.branch && (
+            {/* Branche git = info dev/ops (divulgation interne) → réservée ROLE_DEV. */}
+            {hasRole(auth.roles, ROLE_DEV) && stats?.app?.branch && (
               <Badge size="sm" variant="light" color="brand">
                 {stats.app.branch}
               </Badge>
@@ -1395,7 +1341,9 @@ export const DashboardSupervision = observer(() => {
                   <Switch
                     size="sm"
                     checked={live}
-                    onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
+                    onChange={(e) =>
+                      ui.setRealtimeLive(e.currentTarget.checked)
+                    }
                     label="Temps réel"
                     aria-label="abonnement temps réel (socket Nodefony) des sondes de supervision"
                   />
@@ -1467,209 +1415,219 @@ export const DashboardSupervision = observer(() => {
       )}
 
       {/* ── Indice de santé composite (Derringer-Suich) — état général en 1 chiffre.
-          MASQUÉ en cluster : par-worker il n'a pas de sens. La « Santé du framework »
-          AGRÉGÉE pod (rollup = pire worker) vit sur l'accueil multi-process (grille). ── */}
-      {!isCluster && (
-      <Card withBorder radius="md" p="lg">
-        <Group wrap="nowrap" align="center" gap="xl">
-          <RingProgress
-            size={128}
-            thickness={13}
-            roundCaps
-            sections={[{ value: health.score ?? 0, color: health.color }]}
-            label={
-              <Stack gap={0} align="center">
-                <Text fw={800} size="28px" lh={1}>
-                  {health.score ?? "—"}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  / 100
-                </Text>
-              </Stack>
-            }
-          />
-          <Stack gap={8} style={{ flex: 1, minWidth: 0 }}>
-            <Group gap={8} wrap="nowrap">
-              <Title order={3} size="h4">
-                Santé du framework
-              </Title>
-              <Badge color={health.color} size="lg" variant="light">
-                {health.label}
-              </Badge>
-              <DocHint
-                title="Santé du framework"
-                version={SUP_DOC}
-                summary={`Indice composite 0-100 (${health.parts.length} sonde(s)) — moyenne géométrique pondérée des désirabilités (Derringer-Suich, NIST), seuils ${isDev ? "DEV" : "PROD"}.`}
-                sections={[
-                  {
-                    label: "Saturation",
-                    body: "CPU, ELU, event-loop, GC dégradent le score avec un PLANCHER : un framework saturé RALENTIT mais SERT toujours (« Dégradé », jamais « Critique » seule).",
-                  },
-                  {
-                    label: "Panne",
-                    body: "Erreurs, connecteur coupé ou mémoire proche OOM peuvent tirer l'indice à 0 (« Critique »).",
-                  },
-                  {
-                    label: "Si vide",
-                    body: "Sondes indisponibles (temps réel OFF) exclues du calcul.",
-                  },
-                ]}
-              />
-              {/* Réglage des poids de pondération par l'utilisateur (sliders + reset). */}
-              <Popover width={320} position="bottom-end" withArrow shadow="md">
-                <Popover.Target>
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    aria-label="Régler la pondération de l'indice"
-                  >
-                    <IconAdjustmentsHorizontal size={18} />
-                  </ActionIcon>
-                </Popover.Target>
-                <Popover.Dropdown>
-                  <Group justify="space-between" mb={6}>
-                    <Text size="sm" fw={600}>
-                      Pondération de l'indice
-                    </Text>
-                    <Button
-                      size="compact-xs"
+          Mono → « Santé du framework » du process courant. Drill worker (?pid) →
+          « Santé du worker <pid> » (ses propres sondes — `stats` vient du canal
+          dashboard:supervision@<pid>). L'AGRÉGÉ pod (pire worker) vit sur l'accueil
+          multi-process (grille). On atteint ce bloc en mono OU en drill détail
+          (l'overview cluster a `return` plus haut), donc la carte a toujours du sens. ── */}
+      {(!isCluster || targetPid != null) && (
+        <Card withBorder radius="md" p="lg">
+          <Group wrap="nowrap" align="center" gap="xl">
+            <RingProgress
+              size={128}
+              thickness={13}
+              roundCaps
+              sections={[{ value: health.score ?? 0, color: health.color }]}
+              label={
+                <Stack gap={0} align="center">
+                  <Text fw={800} size="28px" lh={1}>
+                    {health.score ?? "—"}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    / 100
+                  </Text>
+                </Stack>
+              }
+            />
+            <Stack gap={8} style={{ flex: 1, minWidth: 0 }}>
+              <Group gap={8} wrap="nowrap">
+                <Title order={3} size="h4">
+                  {isCluster
+                    ? `Santé du worker · pid ${targetPid}`
+                    : "Santé du framework"}
+                </Title>
+                <Badge color={health.color} size="lg" variant="light">
+                  {health.label}
+                </Badge>
+                <DocHint
+                  title="Santé du framework"
+                  version={SUP_DOC}
+                  summary={`Indice composite 0-100 (${health.parts.length} sonde(s)) — moyenne géométrique pondérée des désirabilités (Derringer-Suich, NIST), seuils ${isDev ? "DEV" : "PROD"}.`}
+                  sections={[
+                    {
+                      label: "Saturation",
+                      body: "CPU, ELU, event-loop, GC dégradent le score avec un PLANCHER : un framework saturé RALENTIT mais SERT toujours (« Dégradé », jamais « Critique » seule).",
+                    },
+                    {
+                      label: "Panne",
+                      body: "Erreurs, connecteur coupé ou mémoire proche OOM peuvent tirer l'indice à 0 (« Critique »).",
+                    },
+                    {
+                      label: "Si vide",
+                      body: "Sondes indisponibles (temps réel OFF) exclues du calcul.",
+                    },
+                  ]}
+                />
+                {/* Réglage des poids de pondération par l'utilisateur (sliders + reset). */}
+                <Popover
+                  width={320}
+                  position="bottom-end"
+                  withArrow
+                  shadow="md"
+                >
+                  <Popover.Target>
+                    <ActionIcon
                       variant="subtle"
                       color="gray"
-                      onClick={() => setWeights({ ...DEFAULT_WEIGHTS })}
+                      aria-label="Régler la pondération de l'indice"
                     >
-                      Par défaut
-                    </Button>
-                  </Group>
-                  <Text size="xs" c="dimmed" mb="sm">
-                    Glissez le poids de chaque sonde (0 = exclue). Le % se
-                    recalcule et l'indice se met à jour en direct.
-                  </Text>
-                  <Stack gap="sm">
-                    {Object.keys(DEFAULT_WEIGHTS).map((label) => {
-                      const wsum =
-                        Object.keys(DEFAULT_WEIGHTS).reduce(
-                          (a, l) => a + wOf(l),
-                          0,
-                        ) || 1;
-                      return (
-                        <div key={label}>
-                          <Group justify="space-between" gap={4} mb={2}>
-                            <Text size="xs">{label}</Text>
-                            <Text
-                              size="xs"
-                              c="dimmed"
-                              style={{ fontVariantNumeric: "tabular-nums" }}
-                            >
-                              ×{wOf(label).toFixed(1)} ·{" "}
-                              {Math.round((wOf(label) / wsum) * 100)}%
-                            </Text>
-                          </Group>
-                          <Slider
-                            size="sm"
-                            min={0}
-                            max={3}
-                            step={0.1}
-                            value={wOf(label)}
-                            onChange={(v) =>
-                              setWeights((w) => ({ ...w, [label]: v }))
-                            }
-                            label={(v) => v.toFixed(1)}
-                          />
-                        </div>
-                      );
-                    })}
-                  </Stack>
-                </Popover.Dropdown>
-              </Popover>
-            </Group>
-            <Text size="sm" c={weightsAllZero ? "orange" : "dimmed"}>
-              {weightsAllZero
-                ? "Toutes les sondes sont à 0 — réglez les poids (⚙) ou cliquez « Par défaut »."
-                : health.score == null
-                  ? "En attente de mesures…"
-                  : health.worst && health.score < 100
-                    ? `Limité par : ${health.worst}.`
-                    : "Tous les indicateurs au vert."}
-            </Text>
-            {/* Échelle lisible (bandes) */}
-            <Group gap="md" wrap="wrap">
-              {(
-                [
-                  ["≥90 Excellent", "teal"],
-                  ["≥75 Bon", "green"],
-                  ["≥50 À surveiller", "yellow"],
-                  ["≥25 Dégradé", "orange"],
-                  ["<25 Critique", "red"],
-                ] as [string, string][]
-              ).map(([lbl, c]) => (
-                <Group key={lbl} gap={4} wrap="nowrap">
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: 2,
-                      background: `var(--mantine-color-${c}-6)`,
-                    }}
-                  />
-                  <Text size="xs" c="dimmed">
-                    {lbl}
-                  </Text>
-                </Group>
-              ))}
-            </Group>
-            {/* Sous-scores par sonde + PONDÉRATION transparente : poids ×N et classe
-                (🛡 saturation planchée / ⚠ panne → peut Critique). */}
-            {health.parts.length > 0 && (
-              <Stack gap={6}>
-                <Group gap="xs" wrap="wrap">
-                  {health.parts.map((p) => (
-                    <Tooltip
-                      key={p.label}
-                      withArrow
-                      label={
-                        p.kind === "fail"
-                          ? `Panne possible (poids ${Math.round((p.weight / healthTotalW) * 100)} % · ×${p.weight}) : à son seuil critique, tire l'indice global à 0 (Critique).`
-                          : `Saturation (poids ${Math.round((p.weight / healthTotalW) * 100)} % · ×${p.weight}) : dégrade le score mais PLANCHÉE — ne provoque jamais « Critique » seule (le framework ralentit mais sert).`
-                      }
-                    >
-                      <Badge
-                        size="sm"
-                        variant="light"
-                        leftSection={p.kind === "fail" ? "⚠" : "🛡"}
-                        color={
-                          p.score >= 75
-                            ? "teal"
-                            : p.score >= 50
-                              ? "yellow"
-                              : p.score >= 25
-                                ? "orange"
-                                : "red"
-                        }
-                        style={{
-                          cursor: "help",
-                          fontVariantNumeric: "tabular-nums",
-                        }}
+                      <IconAdjustmentsHorizontal size={18} />
+                    </ActionIcon>
+                  </Popover.Target>
+                  <Popover.Dropdown>
+                    <Group justify="space-between" mb={6}>
+                      <Text size="sm" fw={600}>
+                        Pondération de l'indice
+                      </Text>
+                      <Button
+                        size="compact-xs"
+                        variant="subtle"
+                        color="gray"
+                        onClick={() => setWeights({ ...DEFAULT_WEIGHTS })}
                       >
-                        {p.label} {p.score} ·{" "}
-                        {Math.round((p.weight / healthTotalW) * 100)}%
-                      </Badge>
-                    </Tooltip>
-                  ))}
-                </Group>
-                <Text size="xs" c="dimmed">
-                  Pondération : le <b>poids ×N</b> donne l'importance de la
-                  sonde dans la moyenne géométrique. <b>🛡 saturation</b> (CPU,
-                  ELU, event-loop, GC) = planchée → tire vers « Dégradé »,
-                  jamais « Critique » seule. <b>⚠ panne</b> (erreurs,
-                  connecteurs, mémoire OOM) = peut tirer l'indice à 0. ELU &
-                  event-loop pèsent le plus (×1.5) car ce sont les vraies jauges
-                  de saturation du thread.
-                </Text>
-              </Stack>
-            )}
-          </Stack>
-        </Group>
-      </Card>
+                        Par défaut
+                      </Button>
+                    </Group>
+                    <Text size="xs" c="dimmed" mb="sm">
+                      Glissez le poids de chaque sonde (0 = exclue). Le % se
+                      recalcule et l'indice se met à jour en direct.
+                    </Text>
+                    <Stack gap="sm">
+                      {Object.keys(DEFAULT_WEIGHTS).map((label) => {
+                        const wsum =
+                          Object.keys(DEFAULT_WEIGHTS).reduce(
+                            (a, l) => a + wOf(l),
+                            0,
+                          ) || 1;
+                        return (
+                          <div key={label}>
+                            <Group justify="space-between" gap={4} mb={2}>
+                              <Text size="xs">{label}</Text>
+                              <Text
+                                size="xs"
+                                c="dimmed"
+                                style={{ fontVariantNumeric: "tabular-nums" }}
+                              >
+                                ×{wOf(label).toFixed(1)} ·{" "}
+                                {Math.round((wOf(label) / wsum) * 100)}%
+                              </Text>
+                            </Group>
+                            <Slider
+                              size="sm"
+                              min={0}
+                              max={3}
+                              step={0.1}
+                              value={wOf(label)}
+                              onChange={(v) =>
+                                setWeights((w) => ({ ...w, [label]: v }))
+                              }
+                              label={(v) => v.toFixed(1)}
+                            />
+                          </div>
+                        );
+                      })}
+                    </Stack>
+                  </Popover.Dropdown>
+                </Popover>
+              </Group>
+              <Text size="sm" c={weightsAllZero ? "orange" : "dimmed"}>
+                {weightsAllZero
+                  ? "Toutes les sondes sont à 0 — réglez les poids (⚙) ou cliquez « Par défaut »."
+                  : health.score == null
+                    ? "En attente de mesures…"
+                    : health.worst && health.score < 100
+                      ? `Limité par : ${health.worst}.`
+                      : "Tous les indicateurs au vert."}
+              </Text>
+              {/* Échelle lisible (bandes) */}
+              <Group gap="md" wrap="wrap">
+                {(
+                  [
+                    ["≥90 Excellent", "teal"],
+                    ["≥75 Bon", "green"],
+                    ["≥50 À surveiller", "yellow"],
+                    ["≥25 Dégradé", "orange"],
+                    ["<25 Critique", "red"],
+                  ] as [string, string][]
+                ).map(([lbl, c]) => (
+                  <Group key={lbl} gap={4} wrap="nowrap">
+                    <span
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: 2,
+                        background: `var(--mantine-color-${c}-6)`,
+                      }}
+                    />
+                    <Text size="xs" c="dimmed">
+                      {lbl}
+                    </Text>
+                  </Group>
+                ))}
+              </Group>
+              {/* Sous-scores par sonde + PONDÉRATION transparente : poids ×N et classe
+                (🛡 saturation planchée / ⚠ panne → peut Critique). */}
+              {health.parts.length > 0 && (
+                <Stack gap={6}>
+                  <Group gap="xs" wrap="wrap">
+                    {health.parts.map((p) => (
+                      <Tooltip
+                        key={p.label}
+                        withArrow
+                        label={
+                          p.kind === "fail"
+                            ? `Panne possible (poids ${Math.round((p.weight / healthTotalW) * 100)} % · ×${p.weight}) : à son seuil critique, tire l'indice global à 0 (Critique).`
+                            : `Saturation (poids ${Math.round((p.weight / healthTotalW) * 100)} % · ×${p.weight}) : dégrade le score mais PLANCHÉE — ne provoque jamais « Critique » seule (le framework ralentit mais sert).`
+                        }
+                      >
+                        <Badge
+                          size="sm"
+                          variant="light"
+                          leftSection={p.kind === "fail" ? "⚠" : "🛡"}
+                          color={
+                            p.score >= 75
+                              ? "teal"
+                              : p.score >= 50
+                                ? "yellow"
+                                : p.score >= 25
+                                  ? "orange"
+                                  : "red"
+                          }
+                          style={{
+                            cursor: "help",
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          {p.label} {p.score} ·{" "}
+                          {Math.round((p.weight / healthTotalW) * 100)}%
+                        </Badge>
+                      </Tooltip>
+                    ))}
+                  </Group>
+                  <Text size="xs" c="dimmed">
+                    Pondération : le <b>poids ×N</b> donne l'importance de la
+                    sonde dans la moyenne géométrique. <b>🛡 saturation</b>{" "}
+                    (CPU, ELU, event-loop, GC) = planchée → tire vers « Dégradé
+                    », jamais « Critique » seule. <b>⚠ panne</b> (erreurs,
+                    connecteurs, mémoire OOM) = peut tirer l'indice à 0. ELU &
+                    event-loop pèsent le plus (×1.5) car ce sont les vraies
+                    jauges de saturation du thread.
+                  </Text>
+                </Stack>
+              )}
+            </Stack>
+          </Group>
+        </Card>
       )}
 
       {/* ── Bandeau état global / alertes ── */}
@@ -3043,7 +3001,9 @@ export const DashboardSupervision = observer(() => {
                       v={info?.version ?? stats?.app?.version ?? "—"}
                       mono
                     />
-                    <Row k="Branche git" v={stats?.app?.branch || "—"} mono />
+                    {hasRole(auth.roles, ROLE_DEV) && (
+                      <Row k="Branche git" v={stats?.app?.branch || "—"} mono />
+                    )}
                     <Row
                       k="Uptime"
                       v={stats ? uptimeStr(stats.uptime) : "—"}

@@ -34,9 +34,18 @@ import {
   loadHealthWeights,
   type HealthResult,
 } from "../utils/health";
+import { HealthWeightsPopover } from "./HealthWeightsPopover";
 
 const HISTORY = 60;
 const MB = 1024 ** 2;
+
+/** Sondes pondérables au niveau POD (snapshot lean : 4 sondes process). */
+const POD_WEIGHT_LABELS = [
+  "CPU",
+  "Saturation (ELU)",
+  "Event-loop",
+  "Mémoire (heap)",
+];
 
 /** Sous-ensemble process du snapshot santé (miroir isomorphe, base lean). */
 interface ProcHealth {
@@ -44,6 +53,7 @@ interface ProcHealth {
   cpuPercent: number;
   heapUsed: number;
   heapTotal: number;
+  heapLimit: number;
   eventLoopMs: number;
   eluUtilization: number;
   rss: number;
@@ -68,7 +78,8 @@ function instancesOf(h: Health | null): Inst[] {
 
 /** Série bornée FIFO (cap `HISTORY`) — 0 mutation in-place. */
 function cap(arr: number[], v: number): number[] {
-  const n = arr.length >= HISTORY ? arr.slice(arr.length - HISTORY + 1) : arr.slice();
+  const n =
+    arr.length >= HISTORY ? arr.slice(arr.length - HISTORY + 1) : arr.slice();
   n.push(v);
   return n;
 }
@@ -123,7 +134,9 @@ function workerHealth(
   p: ProcHealth,
   weights: Record<string, number>,
 ): HealthResult {
-  const heapPct = p.heapTotal > 0 ? (p.heapUsed / p.heapTotal) * 100 : 0;
+  // heapUsed/heapLimit (plafond V8) = % avant OOM, actionnable. PAS heapUsed/heapTotal
+  // (V8 colle heapTotal à heapUsed → ~95 % au repos = faux « Critique »). Idem mono.
+  const heapPct = p.heapLimit > 0 ? (p.heapUsed / p.heapLimit) * 100 : 0;
   return buildHealth([
     {
       label: "CPU",
@@ -170,12 +183,15 @@ export interface ProcessGraphGridProps {
   onSelect: (pid: number) => void;
   /** Poids de l'indice (réglés par les sliders). Défaut = poids persistés. */
   weights?: Record<string, number>;
+  /** Réglage de la pondération SUR la card pod (sliders). Absent → bouton masqué. */
+  onWeightsChange?: (next: Record<string, number>) => void;
 }
 
 /** Grille « accueil supervision » multi-process orientée graphs. */
 export function ProcessGraphGrid({
   onSelect,
   weights: weightsProp,
+  onWeightsChange,
 }: ProcessGraphGridProps) {
   const store = useStore();
   useEffect(ensureLiveStyles, []);
@@ -208,9 +224,7 @@ export function ProcessGraphGrid({
   // Agrégats process pod (sondes lean). CPU/loop/ELU = par-worker → moyenne + pic
   // (jamais une somme : ça n'a pas de sens pour un %) ; heap/rss = somme (mémoire
   // réellement occupée par le pod) ; uptime min = worker le plus jeune (respawn ?).
-  const procs = insts
-    .map((i) => i.process)
-    .filter((p): p is ProcHealth => !!p);
+  const procs = insts.map((i) => i.process).filter((p): p is ProcHealth => !!p);
   const agg =
     procs.length > 0
       ? {
@@ -285,15 +299,23 @@ export function ProcessGraphGrid({
                   <Badge color={worst.h.color} variant="light">
                     {worst.h.label}
                   </Badge>
+                  {/* Réglage SUR la card, à côté du titre + état (⚙, comme le mono). */}
+                  {onWeightsChange ? (
+                    <HealthWeightsPopover
+                      weights={weights}
+                      onChange={onWeightsChange}
+                      labels={POD_WEIGHT_LABELS}
+                      summary="Poids ×N de chaque sonde dans l'indice pod (rollup pire worker). Persisté, partagé avec la page mono."
+                    />
+                  ) : null}
                 </Group>
                 <Text size="sm" c="dimmed">
-                  Pod de {scored.length} workers — rollup = <b>pire worker</b> (pid{" "}
-                  {worst.pid}, score {worst.h.score}). Pondération réglable (bouton
-                  « Pondération »).
+                  Pod de {scored.length} workers — rollup = <b>pire worker</b>{" "}
+                  (pid {worst.pid}, score {worst.h.score}). Pondération via ⚙.
                 </Text>
                 <Text size="xs" c="dimmed" mt={4}>
-                  Agrégation partielle (CPU · ELU · event-loop · heap). GC / ORM /
-                  erreurs par worker = agrégation backend à venir.
+                  Agrégation partielle (CPU · ELU · event-loop · heap). GC / ORM
+                  / erreurs par worker = agrégation backend à venir.
                 </Text>
               </div>
               {/* Agrégats process pod (CPU moyen, pic event-loop/ELU, mémoire totale). */}
@@ -315,176 +337,185 @@ export function ProcessGraphGrid({
         ) : null}
 
         <SimpleGrid cols={{ base: 1, md: 2, xl: 3 }} spacing="md">
-        {insts.map((inst, i) => {
-          const p = inst.process;
-          const s = series.get(inst.instanceId);
-          const cpuData = s?.cpu ?? (p ? [p.cpuPercent] : []);
-          const heapData =
-            s?.heap ?? (p ? [Math.round(p.heapUsed / MB)] : []);
-          const heapMo = p ? Math.round(p.heapUsed / MB) : 0;
-          // % mémoire = heap utilisé / heap alloué (V8) — lecture directe.
-          const memPct =
-            p && p.heapTotal > 0
-              ? Math.round((p.heapUsed / p.heapTotal) * 100)
-              : null;
-          const wh = p ? workerHealth(p, weights) : null;
-          const score = wh?.score ?? null;
-          return (
-            <UnstyledButton
-              key={inst.instanceId}
-              onClick={() => onSelect(Number(inst.instanceId))}
-              aria-label={`détail supervision du worker ${i + 1} (pid ${inst.instanceId})`}
-              style={{ display: "block" }}
-            >
-              <Card
-                withBorder
-                radius="md"
-                p="md"
-                h="100%"
-                className="nf-live-card"
-                style={{ contain: "content" }}
+          {insts.map((inst, i) => {
+            const p = inst.process;
+            const s = series.get(inst.instanceId);
+            const cpuData = s?.cpu ?? (p ? [p.cpuPercent] : []);
+            const heapData =
+              s?.heap ?? (p ? [Math.round(p.heapUsed / MB)] : []);
+            const heapMo = p ? Math.round(p.heapUsed / MB) : 0;
+            // % mémoire = heap utilisé / heap alloué (V8) — lecture directe.
+            const memPct =
+              p && p.heapTotal > 0
+                ? Math.round((p.heapUsed / p.heapTotal) * 100)
+                : null;
+            const wh = p ? workerHealth(p, weights) : null;
+            const score = wh?.score ?? null;
+            return (
+              <UnstyledButton
+                key={inst.instanceId}
+                onClick={() => onSelect(Number(inst.instanceId))}
+                aria-label={`détail supervision du worker ${i + 1} (pid ${inst.instanceId})`}
+                style={{ display: "block" }}
               >
-                <Group justify="space-between" wrap="nowrap" mb="sm">
-                  <Group gap="xs" wrap="nowrap">
-                    <ThemeIcon variant="light" color="brand" radius="md">
-                      <IconCpu size={18} />
-                    </ThemeIcon>
-                    <div>
-                      <Group gap={4} wrap="nowrap">
-                        <Text fw={600}>worker {i + 1}</Text>
-                        <IconChevronRight size={14} style={{ opacity: 0.5 }} />
-                      </Group>
+                <Card
+                  withBorder
+                  radius="md"
+                  p="md"
+                  h="100%"
+                  className="nf-live-card"
+                  style={{ contain: "content" }}
+                >
+                  <Group justify="space-between" wrap="nowrap" mb="sm">
+                    <Group gap="xs" wrap="nowrap">
+                      <ThemeIcon variant="light" color="brand" radius="md">
+                        <IconCpu size={18} />
+                      </ThemeIcon>
+                      <div>
+                        <Group gap={4} wrap="nowrap">
+                          <Text fw={600}>worker {i + 1}</Text>
+                          <IconChevronRight
+                            size={14}
+                            style={{ opacity: 0.5 }}
+                          />
+                        </Group>
+                        <Text
+                          size="xs"
+                          c="dimmed"
+                          style={{ fontVariantNumeric: "tabular-nums" }}
+                        >
+                          pid {inst.instanceId}
+                          {p ? ` · ${fmtUptime(p.uptime)}` : ""}
+                        </Text>
+                      </div>
+                    </Group>
+                    {/* Badge santé du worker (triage d'un coup d'œil). */}
+                    {wh && score != null ? (
+                      <Badge
+                        variant="light"
+                        color={wh.color}
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {score}
+                      </Badge>
+                    ) : null}
+                  </Group>
+
+                  {/* % CPU + % mémoire EN GRAND, en haut de card (visu direct). */}
+                  <Group grow mb="sm" gap="xs">
+                    <div style={{ textAlign: "center" }}>
+                      <Text size="xs" c="dimmed">
+                        CPU
+                      </Text>
+                      <Text
+                        fw={800}
+                        fz={28}
+                        lh={1.1}
+                        c={p ? cpuColor(p.cpuPercent) : undefined}
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {p ? (
+                          <FlashValue value={p.cpuPercent}>
+                            {p.cpuPercent}%
+                          </FlashValue>
+                        ) : (
+                          "—"
+                        )}
+                      </Text>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <Text size="xs" c="dimmed">
+                        Mémoire
+                      </Text>
+                      <Text
+                        fw={800}
+                        fz={28}
+                        lh={1.1}
+                        c={memPct != null ? memColor(memPct) : undefined}
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {memPct != null ? (
+                          <FlashValue value={memPct}>{memPct}%</FlashValue>
+                        ) : (
+                          "—"
+                        )}
+                      </Text>
                       <Text
                         size="xs"
                         c="dimmed"
                         style={{ fontVariantNumeric: "tabular-nums" }}
                       >
-                        pid {inst.instanceId}
-                        {p ? ` · ${fmtUptime(p.uptime)}` : ""}
+                        {p ? `${heapMo} Mo` : ""}
                       </Text>
                     </div>
                   </Group>
-                  {/* Badge santé du worker (triage d'un coup d'œil). */}
-                  {wh && score != null ? (
-                    <Badge
-                      variant="light"
-                      color={wh.color}
-                      style={{ fontVariantNumeric: "tabular-nums" }}
-                    >
-                      {score}
-                    </Badge>
-                  ) : null}
-                </Group>
 
-                {/* % CPU + % mémoire EN GRAND, en haut de card (visu direct). */}
-                <Group grow mb="sm" gap="xs">
-                  <div style={{ textAlign: "center" }}>
-                    <Text size="xs" c="dimmed">
-                      CPU
-                    </Text>
-                    <Text
-                      fw={800}
-                      fz={28}
-                      lh={1.1}
-                      c={p ? cpuColor(p.cpuPercent) : undefined}
-                      style={{ fontVariantNumeric: "tabular-nums" }}
-                    >
-                      {p ? (
-                        <FlashValue value={p.cpuPercent}>
-                          {p.cpuPercent}%
-                        </FlashValue>
-                      ) : (
-                        "—"
-                      )}
-                    </Text>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <Text size="xs" c="dimmed">
-                      Mémoire
-                    </Text>
-                    <Text
-                      fw={800}
-                      fz={28}
-                      lh={1.1}
-                      c={memPct != null ? memColor(memPct) : undefined}
-                      style={{ fontVariantNumeric: "tabular-nums" }}
-                    >
-                      {memPct != null ? (
-                        <FlashValue value={memPct}>{memPct}%</FlashValue>
-                      ) : (
-                        "—"
-                      )}
-                    </Text>
-                    <Text size="xs" c="dimmed" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      {p ? `${heapMo} Mo` : ""}
-                    </Text>
-                  </div>
-                </Group>
-
-                {/* CPU — courbe en grand (page orientée graphs). */}
-                <Text size="xs" c="dimmed" mb={2}>
-                  CPU
-                </Text>
-                <MiniChart
-                  series={[
-                    {
-                      data: cpuData,
-                      color: p ? cpuColor(p.cpuPercent) : "var(--mantine-color-teal-6)",
-                      label: "CPU %",
-                    },
-                  ]}
-                  height={72}
-                  max={100}
-                />
-
-                {/* Heap — courbe en grand. */}
-                <Group justify="space-between" mt="sm" mb={2}>
-                  <Text size="xs" c="dimmed">
-                    Heap
+                  {/* CPU — courbe en grand (page orientée graphs). */}
+                  <Text size="xs" c="dimmed" mb={2}>
+                    CPU
                   </Text>
-                  <Text
-                    size="xs"
-                    fw={600}
-                    style={{ fontVariantNumeric: "tabular-nums" }}
-                  >
-                    {p ? `${heapMo} Mo` : "—"}
-                  </Text>
-                </Group>
-                <MiniChart
-                  series={[
-                    {
-                      data: heapData,
-                      color: "var(--mantine-color-blue-6)",
-                      label: "Heap Mo",
-                    },
-                  ]}
-                  height={72}
-                />
+                  <MiniChart
+                    series={[
+                      {
+                        data: cpuData,
+                        color: p
+                          ? cpuColor(p.cpuPercent)
+                          : "var(--mantine-color-teal-6)",
+                        label: "CPU %",
+                      },
+                    ]}
+                    height={72}
+                    max={100}
+                  />
 
-                {/* Saturation : event-loop + ELU (le vrai signal « à fond » Node). */}
-                {p ? (
-                  <Group justify="space-between" mt="sm" gap="xs">
-                    <Text
-                      size="xs"
-                      c={loopColor(p.eventLoopMs)}
-                      style={{ fontVariantNumeric: "tabular-nums" }}
-                    >
-                      loop {Math.round(p.eventLoopMs)} ms
+                  {/* Heap — courbe en grand. */}
+                  <Group justify="space-between" mt="sm" mb={2}>
+                    <Text size="xs" c="dimmed">
+                      Heap
                     </Text>
                     <Text
                       size="xs"
-                      c="dimmed"
+                      fw={600}
                       style={{ fontVariantNumeric: "tabular-nums" }}
                     >
-                      ELU {Math.round(p.eluUtilization * 100)}% · RSS{" "}
-                      {niceBytes(p.rss)}
+                      {p ? `${heapMo} Mo` : "—"}
                     </Text>
                   </Group>
-                ) : null}
-              </Card>
-            </UnstyledButton>
-          );
-        })}
+                  <MiniChart
+                    series={[
+                      {
+                        data: heapData,
+                        color: "var(--mantine-color-blue-6)",
+                        label: "Heap Mo",
+                      },
+                    ]}
+                    height={72}
+                  />
+
+                  {/* Saturation : event-loop + ELU (le vrai signal « à fond » Node). */}
+                  {p ? (
+                    <Group justify="space-between" mt="sm" gap="xs">
+                      <Text
+                        size="xs"
+                        c={loopColor(p.eventLoopMs)}
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      >
+                        loop {Math.round(p.eventLoopMs)} ms
+                      </Text>
+                      <Text
+                        size="xs"
+                        c="dimmed"
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      >
+                        ELU {Math.round(p.eluUtilization * 100)}% · RSS{" "}
+                        {niceBytes(p.rss)}
+                      </Text>
+                    </Group>
+                  ) : null}
+                </Card>
+              </UnstyledButton>
+            );
+          })}
         </SimpleGrid>
       </Stack>
     </DataState>

@@ -4,6 +4,12 @@ import {
   type IntervalHistogram,
   type EventLoopUtilization,
 } from "node:perf_hooks";
+import v8 from "node:v8";
+
+// Plafond heap V8 (constant pour un process) — capturé 1× au chargement, comme le PID.
+// `heapUsed/heapTotal` est trompeur (V8 colle heapTotal à heapUsed → ~95 % au repos) ;
+// `heapUsed/HEAP_LIMIT` est actionnable (= % avant OOM). Même métrique que `providers.ts`.
+const HEAP_LIMIT = v8.getHeapStatistics().heap_size_limit;
 
 /**
  * Santé PROCESS d'un worker — lue par {@link ProcessProbe}, agrégée par worker dans le
@@ -29,6 +35,8 @@ export interface IProcessHealth {
   heapUsed: number;
   /** Heap V8 total (octets). */
   heapTotal: number;
+  /** Plafond heap V8 (octets, constant) — pour `heapUsed/heapLimit` (% avant OOM). */
+  heapLimit: number;
   /** Mémoire hors-heap (buffers, etc.) (octets). */
   external: number;
   /** Horodatage de la mesure. */
@@ -97,6 +105,7 @@ export class ProcessProbe {
       rss: mem.rss,
       heapUsed: mem.heapUsed,
       heapTotal: mem.heapTotal,
+      heapLimit: HEAP_LIMIT,
       external: mem.external,
       ts: now,
     };

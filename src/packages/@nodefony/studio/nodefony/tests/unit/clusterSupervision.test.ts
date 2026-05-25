@@ -38,6 +38,7 @@ describe("studio / clusterSupervision.mapInstanceToSupervision", () => {
     rss: 100,
     heapUsed: 50,
     heapTotal: 80,
+    heapLimit: 4096,
     external: 5,
     ts: 9,
   };
