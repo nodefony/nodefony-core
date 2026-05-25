@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.12.0
+version: 1.13.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -326,6 +326,7 @@ garanti au `unsubscribe` ET `ctx.once("onFinish")`. ⚠️ Après le handshake `
 > 🚨 **PIÈGE #1 EN CLUSTER (`nodefony cluster -w N`) — 0 HMR + `build:front` ≠ `build` (vécu 2026-05-25,
 > a coûté des heures)** : en cluster, le front est un **bundle prod figé** (Vite ne tourne pas). Deux
 > conséquences mortelles :
+>
 > 1. **`npm run build:front` (= `nodefony frontend:build`, Vite) ne recompile QUE le frontend.** Il ne
 >    touche PAS le **back Studio** (`nodefony/**` : controller, **realtime providers** comme
 >    `clusterSupervision.ts`). Un fix back « invisible au runtime » alors qu'on a « rebuildé » 5× =
@@ -982,6 +983,21 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.13.0** (2026-05-25) — **Dashboard ORM cluster-aware + verdict « Santé ORM » 3 états** (suite P16.H.7,
+  front-only). `OrmOverview.tsx` consomme désormais la sonde lean pod `realtime:health` (`.totals.orm` +
+  `.instances[].orm`, agrégée par le master → cohérente, ≠ `/orm/api/*` round-robin) : (a) **KPI « Santé ORM »**
+  (remplace « Santé connexions ») = verdict 3 états via `utils/health.ts` `buildHealth` (MÊME brique que la santé
+  framework), calculé **par worker, pod = pire worker (rollup)** ; erreurs/reconnexions en **TAUX (delta/min)** pas
+  cumul ; connecteurs+erreurs = PANNE (→ 0), latence/lentes/reconnex = SATURATION (planché « Dégradé »). (b) Cluster :
+  badges **« schéma identique · N workers »** (couche schéma invariante inchangée), **`ClusterOrmStrip`** (table ORM
+  lean PAR worker + verdict/worker + lien `/cluster`), **Alert** « diagnostic détaillé = 1 worker » (le rich
+  `connection/health`/`orm:flow` reste, labellisé honnêtement par pid). (c) **DRY** : types miroir `realtime:health`
+  - `normalize`/`isCluster` extraits dans **`utils/realtimeHealth.ts`** (source unique) → `Cluster.tsx` refactorisé
+    pour l'importer. ORM_DOC → v1.1. RETEX (verdict ORM = `buildHealth` réutilisé ; rates par pid via ref+state ;
+    source lean pod ≠ /orm/api round-robin). ⚠️ **Dette** : `RealtimeConsole.tsx`/`ProcessGraphGrid.tsx` portent encore
+    leurs propres mirrors divergents (noms différents) → à migrer vers `utils/realtimeHealth` une autre passe.
+    Lockstep back = **framework-dev 1.13.0** (contrat inchangé — sonde lean P16.H.7 déjà livrée ; bump de cohérence).
+    [[project_orm_dashboard_cluster_kit]] · [[project_cluster_drilldown_kit]].
 - **1.12.0** (2026-05-25) — **Page Cluster : ORM + erreurs par worker + KPI pod** (P16.H.7 front, commit `7ab9219`).
   `Cluster.tsx` consomme `IRealtimeHealth.orm`/`.errors` (+ `totals.*`) : WorkerCard gagne 2 sections conditionnelles
   (« ORM » requêtes/lentes/EWMA/connecteurs/erreurs ORM/reconnexions ; « Erreurs (logs) » erreurs/critiques) + 2 KPI pod

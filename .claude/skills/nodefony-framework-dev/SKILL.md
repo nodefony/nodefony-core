@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.12.0
+version: 1.13.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1415,6 +1415,11 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.13.0** (2026-05-25) — **Lockstep** (session FRONT : dashboard ORM cluster-aware + verdict « Santé ORM »).
+  **Back inchangé** : la sonde lean pod (`IOrmLeanHealth` via `setOrmHealthProvider`, canal `realtime:health`)
+  livrée en 1.12.0 (P16.H.7) suffit — le front la consomme désormais pour le verdict 3 états (Derringer-Suich)
+  et le breakdown par worker. Bump de cohérence (cf `nodefony-studio-dev` 1.13.0). Rappel contrat consommé :
+  `realtime:health.totals.orm` (pod, sommes + `maxEwmaMs`=pire worker) + `.instances[].orm` (par worker).
 - **1.12.0** (2026-05-25) — §5.F **Santé pod ORM + erreurs par worker** (P16.H.7, commits `aa9b6fc`/`7ab9219`).
   4ᵉ lecture ORM **lean cluster** (`buildOrmLeanHealth` orm-core → `IOrmLeanHealth`, 0 ping/0 toSQL) branchée via le
   **seam core** `setOrmHealthProvider`/`readOrmHealth` (driver Drizzle au boot → `framework` n'importe PAS `orm-core`) ;
