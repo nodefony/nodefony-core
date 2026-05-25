@@ -134,10 +134,15 @@ describe("cluster / ClusterProbeAggregator (sonde agrégée master)", () => {
   // d'enrichissement `nf:probe:ctl {op,pid}` ; le master le route en `nf:probe:enrich
   // {enabled}` vers le SEUL worker ciblé par son pid. Le master ne lit jamais une sonde.
   describe("drill-down (ctl → enrich ciblé par pid)", () => {
-    const ctl = (op: "enrich" | "stop", pid: number) => ({
+    const ctl = (
+      op: "enrich" | "stop",
+      pid: number,
+      facet?: "process" | "orm",
+    ) => ({
       kind: CLUSTER_PROBE_CTL_KIND,
       op,
       pid,
+      ...(facet ? { facet } : {}),
     });
 
     it("route enrich vers le SEUL worker ciblé par pid (pas les autres)", () => {
@@ -148,9 +153,9 @@ describe("cluster / ClusterProbeAggregator (sonde agrégée master)", () => {
       agg.attach(nav);
       agg.attach(target);
       agg.attach(other);
-      nav.emit(ctl("enrich", 1002)); // drill du worker pid=1002
+      nav.emit(ctl("enrich", 1002)); // drill du worker pid=1002 (facette défaut = process)
       expect(target.received).to.deep.equal([
-        { kind: CLUSTER_PROBE_ENRICH_KIND, enabled: true },
+        { kind: CLUSTER_PROBE_ENRICH_KIND, enabled: true, facet: "process" },
       ]);
       expect(other.received).to.have.length(0);
       expect(nav.received).to.have.length(0);
@@ -164,7 +169,19 @@ describe("cluster / ClusterProbeAggregator (sonde agrégée master)", () => {
       agg.attach(target);
       nav.emit(ctl("stop", 1002));
       expect(target.received).to.deep.equal([
-        { kind: CLUSTER_PROBE_ENRICH_KIND, enabled: false },
+        { kind: CLUSTER_PROBE_ENRICH_KIND, enabled: false, facet: "process" },
+      ]);
+    });
+
+    it("PROPAGE la facette 'orm' (drill ORM @pid) vers le worker ciblé", () => {
+      const agg = new ClusterProbeAggregator();
+      const nav = new FakeWorker(1, 1001);
+      const target = new FakeWorker(2, 1002);
+      agg.attach(nav);
+      agg.attach(target);
+      nav.emit(ctl("enrich", 1002, "orm"));
+      expect(target.received).to.deep.equal([
+        { kind: CLUSTER_PROBE_ENRICH_KIND, enabled: true, facet: "orm" },
       ]);
     });
 

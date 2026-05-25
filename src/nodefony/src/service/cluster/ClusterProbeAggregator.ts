@@ -102,9 +102,12 @@ export class ClusterProbeAggregator {
    */
   #collect(fromId: number, msg: unknown): void {
     if (isClusterProbeCtl(msg)) {
+      // Route l'ordre vers le worker `pid`, en PROPAGEANT la facette (process/orm) —
+      // le master reste opaque, il transmet juste quelle sonde riche (dés)activer.
       this.#byPid.get(msg.pid)?.send({
         kind: CLUSTER_PROBE_ENRICH_KIND,
         enabled: msg.op === "enrich",
+        facet: msg.facet ?? "process",
       });
       return;
     }

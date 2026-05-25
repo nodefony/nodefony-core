@@ -749,6 +749,60 @@ export function OrmFlowLive({
 }
 
 /**
+ * Abonné au canal **drill ORM cluster** `orm:rich@<pid>` — diagnostic ORM RICHE
+ * (`connection/health` + `flow`) du worker `pid` EXACT, en UN canal combiné. Remplace
+ * `OrmHealthLive` + `OrmFlowLive` sur la page drill : en cluster, ces deux canaux nus
+ * (`orm:health`/`orm:flow`) tombent sur un worker round-robin (reusePort) ; `orm:rich@<pid>`
+ * cible le worker demandé (relais ciblé master→worker, facette "orm"). En mono / worker
+ * courant, le serveur sert le diagnostic local exact.
+ *
+ * Payload : `{ pid, ts, richPending, health?, flow? }`. Tant que l'enrich ORM ne s'est pas
+ * propagé cross-process (≤ 1 cycle), `richPending:true` (pas encore de `health`/`flow`) →
+ * `onPending(true)` pour un état « préparation du diagnostic ». 1 canal = 1 enrich = pas de
+ * ref-count (le hub dédoublonne par nom de canal).
+ */
+export function OrmRichLive({
+  pid,
+  intervalMs,
+  adaptive,
+  onHealth,
+  onFlow,
+  onPending,
+}: {
+  pid: string;
+  intervalMs: number;
+  adaptive: boolean;
+  onHealth: (h: ConnHealth[]) => void;
+  onFlow: (payload: unknown) => void;
+  /** Remonte l'état « warming » (enrich ORM pas encore propagé au worker ciblé). */
+  onPending?: (pending: boolean) => void;
+}) {
+  const handler = useCallback(
+    (payload: unknown) => {
+      const p = payload as {
+        richPending?: boolean;
+        health?: ConnHealth[];
+        flow?: unknown;
+      } | null;
+      if (!p) return;
+      if (p.richPending) {
+        onPending?.(true);
+        return;
+      }
+      onPending?.(false);
+      if (Array.isArray(p.health)) onHealth(p.health);
+      if (p.flow !== undefined) onFlow(p.flow);
+    },
+    [onHealth, onFlow, onPending],
+  );
+  useNodefonyAdaptiveChannel(`orm:rich@${pid}`, handler, intervalMs, {
+    defaultMs: 3000,
+    enabled: adaptive,
+  });
+  return null;
+}
+
+/**
  * Abonné à la SOCKET Nodefony, canal `realtime:health` — sonde LEAN pod (cumuls
  * `IOrmLeanHealth` + erreurs) **agrégée par le master en cluster** (donc cohérente,
  * ≠ `/orm/api/*` qui tape 1 worker au hasard). Sert la **détection cluster** + le

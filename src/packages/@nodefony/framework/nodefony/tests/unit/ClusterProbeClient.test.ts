@@ -15,6 +15,7 @@ import {
   CLUSTER_PROBE_SNAPSHOT_KIND,
   CLUSTER_PROBE_CTL_KIND,
   CLUSTER_PROBE_ENRICH_KIND,
+  setOrmRichProvider,
 } from "nodefony";
 import type { IRealtimeHealth } from "../../interfaces/IRealtimeProbe.js";
 
@@ -206,7 +207,7 @@ describe("ClusterProbeClient — report + cache snapshot (worker)", () => {
 });
 
 describe("ClusterProbeClient — drill-down (enrich/rich, Phase 2)", () => {
-  it("requestEnrich envoie un ctl op:enrich/stop avec le pid ciblé", () => {
+  it("requestEnrich envoie un ctl op:enrich/stop avec le pid ciblé (facette défaut process)", () => {
     const t = new FakeTransport();
     const c = new ClusterProbeClient(t, 999999);
     c.start(() => health()); // consomme le report immédiat
@@ -214,8 +215,25 @@ describe("ClusterProbeClient — drill-down (enrich/rich, Phase 2)", () => {
     c.requestEnrich(1234, true);
     c.requestEnrich(1234, false);
     expect(t.sent).to.deep.equal([
-      { kind: CLUSTER_PROBE_CTL_KIND, op: "enrich", pid: 1234 },
-      { kind: CLUSTER_PROBE_CTL_KIND, op: "stop", pid: 1234 },
+      {
+        kind: CLUSTER_PROBE_CTL_KIND,
+        op: "enrich",
+        pid: 1234,
+        facet: "process",
+      },
+      { kind: CLUSTER_PROBE_CTL_KIND, op: "stop", pid: 1234, facet: "process" },
+    ]);
+    c.stop();
+  });
+
+  it("requestEnrich(pid, true, 'orm') émet un ctl avec la facette orm", () => {
+    const t = new FakeTransport();
+    const c = new ClusterProbeClient(t, 999999);
+    c.start(() => health());
+    t.sent.length = 0;
+    c.requestEnrich(1234, true, "orm");
+    expect(t.sent).to.deep.equal([
+      { kind: CLUSTER_PROBE_CTL_KIND, op: "enrich", pid: 1234, facet: "orm" },
     ]);
     c.stop();
   });
@@ -251,6 +269,74 @@ describe("ClusterProbeClient — drill-down (enrich/rich, Phase 2)", () => {
     }
   });
 
+  it("facette orm : après enrich ORM le report inclut ormRich ; après stop, non", async () => {
+    vi.useFakeTimers();
+    try {
+      const blob = {
+        health: [{ name: "default", pingOk: true }],
+        flow: { ts: 9 },
+      };
+      setOrmRichProvider(async () => blob);
+      const t = new FakeTransport();
+      const c = new ClusterProbeClient(t, 1000);
+      c.start(() => health({ instanceId: "me" })); // report #1 (pas d'ormRich)
+      expect(
+        (t.sent[0] as { payload: IRealtimeHealth }).payload.ormRich,
+      ).to.equal(undefined);
+      t.deliver({
+        kind: CLUSTER_PROBE_ENRICH_KIND,
+        enabled: true,
+        facet: "orm",
+      });
+      // Flush le refresh immédiat (provider async) → #ormRich rempli avant le report.
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      vi.advanceTimersByTime(1000); // report #2 → enrichi ORM
+      expect(
+        (t.sent[1] as { payload: IRealtimeHealth }).payload.ormRich,
+      ).to.deep.equal(blob);
+      t.deliver({
+        kind: CLUSTER_PROBE_ENRICH_KIND,
+        enabled: false,
+        facet: "orm",
+      });
+      vi.advanceTimersByTime(1000); // report #3 → ormRich coupé (cache purgé)
+      expect(
+        (t.sent[2] as { payload: IRealtimeHealth }).payload.ormRich,
+      ).to.equal(undefined);
+      c.stop();
+    } finally {
+      setOrmRichProvider(null);
+      vi.useRealTimers();
+    }
+  });
+
+  it("facette orm n'active PAS la sonde process (rich reste absent)", async () => {
+    vi.useFakeTimers();
+    try {
+      setOrmRichProvider(async () => ({ health: [], flow: {} }));
+      const t = new FakeTransport();
+      const c = new ClusterProbeClient(t, 1000);
+      c.start(() => health({ instanceId: "me" }));
+      t.deliver({
+        kind: CLUSTER_PROBE_ENRICH_KIND,
+        enabled: true,
+        facet: "orm",
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+      vi.advanceTimersByTime(1000);
+      const r = (t.sent[1] as { payload: IRealtimeHealth }).payload;
+      expect(r.rich).to.equal(undefined); // facette process restée OFF
+      expect(r.ormRich).to.not.equal(undefined);
+      c.stop();
+    } finally {
+      setOrmRichProvider(null);
+      vi.useRealTimers();
+    }
+  });
+
   it("clusterProbeInstance trouve l'instance par pid (instanceId)", () => {
     const t = new FakeTransport();
     const c = new ClusterProbeClient(t, 999999);
@@ -277,6 +363,7 @@ describe("ClusterProbeClient — drill-down (enrich/rich, Phase 2)", () => {
       kind: CLUSTER_PROBE_CTL_KIND,
       op: "enrich",
       pid: 55,
+      facet: "process",
     });
     c.stop();
   });

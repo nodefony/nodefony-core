@@ -70,3 +70,33 @@ export function setOrmHealthProvider(fn: (() => IOrmLeanHealth) | null): void {
 export function readOrmHealth(): IOrmLeanHealth | null {
   return _ormHealthProvider?.() ?? null;
 }
+
+/**
+ * Seam ORM **riche** (drill-down @pid) : fournisseur du diagnostic ORM complet du process
+ * (par connecteur : ping/latence/stockage/pool via `connection/health` + flux requêtes via
+ * `flow`). **Opaque** côté core/framework (qui ne font que le transporter) — seul le
+ * consommateur (Studio) connaît la forme `{ health, flow }`. **Async** (le `connection/health`
+ * émet un ping) — branché par le **driver** (Drizzle) à son boot, lu par le worker UNIQUEMENT
+ * pendant un drill (« on paie ce qu'on regarde »). `null` par défaut → 0 coût.
+ */
+let _ormRichProvider: (() => Promise<unknown>) | null = null;
+
+/**
+ * Branche (ou débranche avec `null`) le fournisseur de diagnostic ORM riche. Idempotent
+ * (dernier gagne). Coût NUL hors drill : ce fournisseur n'est appelé que quand le master
+ * a demandé l'enrichissement ORM de CE worker.
+ *
+ * @param fn - producteur async du blob `{ health, flow }`, ou `null` pour débrancher.
+ */
+export function setOrmRichProvider(fn: (() => Promise<unknown>) | null): void {
+  _ormRichProvider = fn;
+}
+
+/**
+ * Appelle le fournisseur ORM riche branché (async), ou `null` si aucun driver ne l'a posé.
+ * Le résultat est un blob OPAQUE (forme connue de Studio seul). Ne throw pas pour son propre
+ * compte : la propagation d'un rejet du provider reste à l'appelant (qui catch dans son tick).
+ */
+export function readOrmRich(): Promise<unknown> | null {
+  return _ormRichProvider?.() ?? null;
+}

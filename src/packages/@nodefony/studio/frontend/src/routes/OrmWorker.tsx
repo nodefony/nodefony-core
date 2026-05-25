@@ -41,8 +41,7 @@ import {
 import {
   ConnectorCard,
   MiniStat,
-  OrmHealthLive,
-  OrmFlowLive,
+  OrmRichLive,
   RealtimeHealthLive,
   OrmRealtimeControls,
   useOrmFlow,
@@ -106,6 +105,8 @@ export const OrmWorker = observer(() => {
     ),
   );
   const [liveHealth, setLiveHealth] = useState<ConnHealth[] | null>(null);
+  // « warming » : enrich ORM ciblé pas encore propagé au worker distant (≤ 1 cycle).
+  const [richPending, setRichPending] = useState(false);
   const healthList = useMemo(
     () => liveHealth ?? health.data ?? [],
     [liveHealth, health.data],
@@ -167,12 +168,14 @@ export const OrmWorker = observer(() => {
     if (!live) {
       setLiveHealth(null);
       setLiveRt(null);
+      setRichPending(false);
       resetFlow();
     }
   }, [live, resetFlow]);
 
-  // Diagnostic riche réellement fourni par CE worker ? (mono : oui ; cluster :
-  // seulement si le round-robin est tombé sur le pid demandé).
+  // Diagnostic riche réellement fourni par CE worker ? Mono : toujours. Cluster :
+  //  - en LIVE → canal `orm:rich@<pid>` = relais ciblé exact (respondingPid === pid) ;
+  //  - en OFF → fallback HTTP round-robin → exact seulement si le LB est tombé sur ce pid.
   const exactDiag =
     !isClusterMode || respondingPid == null || respondingPid === pid;
 
@@ -211,15 +214,17 @@ export const OrmWorker = observer(() => {
         }
       />
 
+      {/* Drill ORM riche du worker EXACT (relais ciblé @pid) : un seul canal combiné
+          `orm:rich@<pid>` → santé connecteurs + flux SQL du pid demandé (≠ round-robin). */}
       {live && (
-        <OrmHealthLive
+        <OrmRichLive
+          pid={pid}
           intervalMs={liveMs}
           adaptive={auto}
-          onData={setLiveHealth}
+          onHealth={setLiveHealth}
+          onFlow={onFlow}
+          onPending={setRichPending}
         />
-      )}
-      {live && (
-        <OrmFlowLive intervalMs={liveMs} adaptive={auto} onFlow={onFlow} />
       )}
       {live && (
         <RealtimeHealthLive
@@ -385,20 +390,36 @@ export const OrmWorker = observer(() => {
         )}
       </Card>
 
-      {/* Honnêteté cluster : le diagnostic riche vient d'un AUTRE worker que le pid demandé. */}
-      {isClusterMode && !exactDiag && (
+      {/* Warming : enrich ORM ciblé en cours de propagation au worker distant (≤ 1 cycle). */}
+      {isClusterMode && live && richPending && (
+        <Alert
+          variant="light"
+          color="blue"
+          icon={<Loader size={14} />}
+          title="Préparation du diagnostic riche…"
+        >
+          Activation de la sonde ORM riche sur le worker <b>pid {pid}</b> via le
+          master (relais ciblé). Le diagnostic détaillé arrive au prochain
+          cycle.
+        </Alert>
+      )}
+
+      {/* Honnêteté cluster : en OFF, le diagnostic riche HTTP tombe sur un worker round-robin.
+          Le relais ciblé exact @pid est disponible en activant le temps réel. */}
+      {isClusterMode && !live && !exactDiag && (
         <Alert
           variant="light"
           color="orange"
           icon={<IconInfoCircle size={18} />}
           title="Diagnostic riche : fourni par un autre worker"
         >
-          Le diagnostic détaillé par connecteur ci-dessous (ping, latence, pool,
-          stockage, flux SQL) provient du worker <b>pid {respondingPid}</b>{" "}
-          (choisi au hasard par le load-balancer, reusePort), pas du worker{" "}
-          {pid} demandé. La <b>santé lean ci-dessus</b>, elle, est exacte pour
-          le pid {pid}. Le relais ciblé du diagnostic riche vers un pid précis
-          est prévu côté backend (drill ORM riche @pid).
+          Hors temps réel, le diagnostic détaillé par connecteur ci-dessous
+          (ping, latence, pool, stockage, flux SQL) provient du worker{" "}
+          <b>pid {respondingPid}</b> (choisi au hasard par le load-balancer,
+          reusePort), pas du worker {pid} demandé. <b>Active le temps réel</b>{" "}
+          pour obtenir le diagnostic riche EXACT de ce pid (relais ciblé{" "}
+          <code>orm:rich@{pid}</code> master→worker). La santé lean ci-dessus
+          est déjà exacte pour le pid {pid}.
         </Alert>
       )}
 

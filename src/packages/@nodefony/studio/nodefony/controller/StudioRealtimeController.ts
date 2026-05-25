@@ -13,6 +13,7 @@ import {
   type AppMeta,
 } from "../realtime/providers";
 import { createClusterSupervisionTicker } from "../realtime/clusterSupervision";
+import { createClusterOrmTicker } from "../realtime/clusterOrm";
 
 /**
  * Canal de drill-down d'un worker du cluster : `dashboard:supervision@<pid>` avec granularité
@@ -24,6 +25,14 @@ const SUPERVISION_DRILL_RE = new RegExp(
 );
 
 /**
+ * Canal de drill ORM d'un worker du cluster : `orm:rich@<pid>` (granularité `:<ms>` optionnelle).
+ * Livre le diagnostic ORM RICHE (`connection/health` + `flow`) du worker `pid` EXACT — combine,
+ * en un canal, les sources séparées `orm:health`/`orm:flow` (qui, elles, tombent sur un worker
+ * round-robin en cluster). Un seul canal = un seul enrich = pas de ref-count.
+ */
+const ORM_RICH_DRILL_RE = /^orm:rich@(\d+)(?::\d+)?$/;
+
+/**
  * Bornes de cadence par canal cadencé — défaut + min/max (ms). Convention partagée avec
  * le front via {@link rateChannel}/{@link parseRate} (module isomorphe `nodefony`).
  */
@@ -33,6 +42,9 @@ const RATE_BOUNDS: Readonly<Record<string, RateBounds>> = {
   ormHealth: { default: 5000, min: 1000, max: 60000 },
   // Flux ORM : plus dynamique → défaut 2 s.
   ormFlow: { default: 2000, min: 500, max: 60000 },
+  // Drill ORM riche @pid : combine ping (connection/health) + flux → un peu plus lourd
+  // (le ping émet une requête) → défaut 3 s, plancher 1 s.
+  ormRich: { default: 3000, min: 1000, max: 60000 },
   // Santé de la socket Nodefony (auto-observabilité) : backpressure + fan-out.
   // Défaut 2 s (le débit se dérive de snapshots ; trop fin = bruit, trop lent = perd les pics).
   realtimeHealth: { default: 2000, min: 500, max: 60000 },
@@ -131,6 +143,41 @@ class StudioRealtimeController extends RealtimeController {
         ms,
         this.appMeta(),
       );
+    }
+
+    // Drill ORM riche d'UN worker ciblé par pid (`orm:rich@<pid>`) : connection/health + flow
+    // du worker EXACT. En mono / worker courant → combine localement via le broker ; worker
+    // distant → enrichissement ORM à la demande via le master (facette "orm", voie B1).
+    const ormDrill = ORM_RICH_DRILL_RE.exec(channel);
+    if (ormDrill) {
+      const pid = Number(ormDrill[1]);
+      const base = `orm:rich@${pid}`;
+      const ms = parseRate(channel, base, RATE_BOUNDS.ormRich);
+      if (pid === process.pid) {
+        // CE worker (ou mono-process) → diagnostic riche local exact, sans IPC cluster.
+        const broker = this.get<IAdminBroker>("adminBroker");
+        return createBrokerTicker(
+          async () => ({
+            pid,
+            ts: Date.now(),
+            richPending: false,
+            health: await StudioRealtimeController.fetchAdminEndpoint(
+              broker,
+              "orm",
+              "connection/health",
+            ),
+            flow: await StudioRealtimeController.fetchAdminEndpoint(
+              broker,
+              "orm",
+              "flow",
+            ),
+          }),
+          publish,
+          channel,
+          ms,
+        );
+      }
+      return createClusterOrmTicker(publish, channel, pid, ms);
     }
 
     if (channel === CHANNELS.syslog && this.syslog) {

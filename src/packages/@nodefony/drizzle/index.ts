@@ -8,9 +8,20 @@
  * direct/banc-test. 3ᵉ driver concret du socle multi-ORM (après Sequelize +
  * Mongoose) ; type-safe-first (a figé la forme des opérateurs riches, ADR-0003 #3).
  */
-import { Kernel, Module, services, setOrmHealthProvider } from "nodefony";
+import {
+  Kernel,
+  Module,
+  services,
+  setOrmHealthProvider,
+  setOrmRichProvider,
+} from "nodefony";
 import type { IAdminRegistry } from "nodefony";
-import { registerOrmAdminApi, buildOrmLeanHealth } from "@nodefony/orm-core";
+import {
+  registerOrmAdminApi,
+  buildOrmLeanHealth,
+  buildConnectionHealth,
+  buildOrmFlow,
+} from "@nodefony/orm-core";
 import config from "./nodefony/config/config";
 import DrizzleService from "./nodefony/service/DrizzleService";
 
@@ -37,6 +48,14 @@ class Drizzle extends Module {
     // Fonction GLOBALE (itère `ormRegistry`) → couvre tous les ORM, pas seulement Drizzle ;
     // idempotente (dernier gagne). Seam core → 0 dépendance framework→orm-core.
     setOrmHealthProvider(buildOrmLeanHealth);
+    // Branche le diagnostic ORM RICHE pour le drill `/nodefony/orm/<pid>` en cluster :
+    // `connection/health` (ping/latence/stockage/pool, async) + `flow` (débit/EWMA/slow).
+    // Appelé UNIQUEMENT pendant un drill ORM (facette "orm") → 0 ping hors drill. Global
+    // (itère `ormRegistry`) → couvre tous les ORM. Seam core (0 dépendance framework→orm-core).
+    setOrmRichProvider(async () => ({
+      health: await buildConnectionHealth(),
+      flow: buildOrmFlow(),
+    }));
     return this;
   }
 }

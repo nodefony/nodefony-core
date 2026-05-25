@@ -85,6 +85,8 @@ export type { IProcessRich } from "./service/cluster/richProcessProbe";
 export {
   setOrmHealthProvider,
   readOrmHealth,
+  setOrmRichProvider,
+  readOrmRich,
 } from "./service/cluster/instanceProbe";
 export type {
   IOrmLeanHealth,
@@ -131,6 +133,7 @@ export type {
   IClusterMessage,
   IClusterProbeCtl,
   IClusterProbeEnrich,
+  ClusterProbeFacet,
 } from "./service/cluster/clusterMessage";
 
 // ─── Runtime (P1.4 — AsyncLocalStorage) ───────────────────────────────────────

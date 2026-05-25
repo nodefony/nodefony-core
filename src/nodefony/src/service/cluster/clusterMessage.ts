@@ -54,6 +54,17 @@ export const CLUSTER_PROBE_CTL_KIND = "nf:probe:ctl" as const;
 export const CLUSTER_PROBE_ENRICH_KIND = "nf:probe:enrich" as const;
 
 /**
+ * **Facette** de sonde riche ciblée par un ordre d'enrichissement (drill-down) :
+ *  - `"process"` : sonde process riche (GC/heap-spaces/handles/ELU/ctx — `RichProcessProbe`) ;
+ *  - `"orm"` : sonde ORM riche (diagnostic connexions + flux — `connection/health` + `flow`).
+ *
+ * Indépendantes : un worker peut être enrichi sur l'une, l'autre, ou les deux à la fois (deux
+ * pages de drill distinctes). « On paie ce qu'on regarde » par sonde — activer le drill ORM
+ * n'allume PAS la sonde process (et inversement). Absente sur le fil ⇒ `"process"` (rétro-compat).
+ */
+export type ClusterProbeFacet = "process" | "orm";
+
+/**
  * Base de tout message du protocole IPC cluster — seul le `kind` est imposé. Les autres
  * champs sont opaques pour le master (il route/agrège sans les inspecter).
  */
@@ -63,28 +74,41 @@ export interface IClusterMessage {
 
 /**
  * Ordre d'enrichissement (worker → master, {@link CLUSTER_PROBE_CTL_KIND}). `op` =
- * `"enrich"` (activer) | `"stop"` (couper) ; `pid` = worker à (dés)enrichir.
+ * `"enrich"` (activer) | `"stop"` (couper) ; `pid` = worker à (dés)enrichir ; `facet` =
+ * quelle sonde riche cibler (défaut `"process"` si absent → rétro-compat supervision).
  */
 export interface IClusterProbeCtl extends IClusterMessage {
   readonly kind: typeof CLUSTER_PROBE_CTL_KIND;
   readonly op: "enrich" | "stop";
   readonly pid: number;
+  readonly facet?: ClusterProbeFacet;
 }
 
 /**
  * Ordre ciblé (master → worker, {@link CLUSTER_PROBE_ENRICH_KIND}). `enabled` = le worker
- * doit-il joindre sa sonde riche à ses prochains reports.
+ * doit-il joindre sa sonde riche à ses prochains reports ; `facet` = laquelle (défaut
+ * `"process"`).
  */
 export interface IClusterProbeEnrich extends IClusterMessage {
   readonly kind: typeof CLUSTER_PROBE_ENRICH_KIND;
   readonly enabled: boolean;
+  readonly facet?: ClusterProbeFacet;
+}
+
+/** `true` si `f` est une facette valide ou absente (absente ⇒ défaut `"process"`). */
+function isValidFacet(f: unknown): f is ClusterProbeFacet | undefined {
+  return f === undefined || f === "process" || f === "orm";
 }
 
 /** Type-guard d'un {@link IClusterProbeCtl} — narrowing sûr du canal IPC partagé. */
 export function isClusterProbeCtl(m: unknown): m is IClusterProbeCtl {
   if (!isClusterMessage(m) || m.kind !== CLUSTER_PROBE_CTL_KIND) return false;
   const c = m as IClusterProbeCtl;
-  return (c.op === "enrich" || c.op === "stop") && typeof c.pid === "number";
+  return (
+    (c.op === "enrich" || c.op === "stop") &&
+    typeof c.pid === "number" &&
+    isValidFacet(c.facet)
+  );
 }
 
 /** Type-guard d'un {@link IClusterProbeEnrich} — narrowing sûr du canal IPC partagé. */
@@ -92,7 +116,8 @@ export function isClusterProbeEnrich(m: unknown): m is IClusterProbeEnrich {
   return (
     isClusterMessage(m) &&
     m.kind === CLUSTER_PROBE_ENRICH_KIND &&
-    typeof (m as IClusterProbeEnrich).enabled === "boolean"
+    typeof (m as IClusterProbeEnrich).enabled === "boolean" &&
+    isValidFacet((m as IClusterProbeEnrich).facet)
   );
 }
 

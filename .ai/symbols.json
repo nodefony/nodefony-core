@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-25T14:58:22.632Z",
+  "generated": "2026-05-25T15:54:04.048Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 752,
-    "symbols": 1366,
+    "files": 753,
+    "symbols": 1371,
     "classes": 227,
     "interfaces": 332,
-    "types": 162,
+    "types": 163,
     "enums": 2,
-    "functions": 191,
+    "functions": 195,
     "constants": 452
   },
   "symbols": {
@@ -2183,7 +2183,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": "IClusterMessage",
-      "description": "Ordre d'enrichissement (worker → master, {@link CLUSTER_PROBE_CTL_KIND}). `op` = `\"enrich\"` (activer) | `\"stop\"` (couper) ; `pid` = worker à (dés)enrichir."
+      "description": "Ordre d'enrichissement (worker → master, {@link CLUSTER_PROBE_CTL_KIND}). `op` = `\"enrich\"` (activer) | `\"stop\"` (couper) ; `pid` = worker à (dés)enrichir ; `facet` = quelle sonde riche cibler (déf…"
     },
     "IClusterProbeEnrich": {
       "name": "IClusterProbeEnrich",
@@ -2192,7 +2192,15 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": "IClusterMessage",
-      "description": "Ordre ciblé (master → worker, {@link CLUSTER_PROBE_ENRICH_KIND}). `enabled` = le worker doit-il joindre sa sonde riche à ses prochains reports."
+      "description": "Ordre ciblé (master → worker, {@link CLUSTER_PROBE_ENRICH_KIND}). `enabled` = le worker doit-il joindre sa sonde riche à ses prochains reports ; `facet` = laquelle (défaut `\"process\"`)."
+    },
+    "ClusterProbeFacet": {
+      "name": "ClusterProbeFacet",
+      "kind": "type",
+      "file": "src/nodefony/src/service/cluster/clusterMessage.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "**Facette** de sonde riche ciblée par un ordre d'enrichissement (drill-down) : - `\"process\"` : sonde process riche (GC/heap-spaces/handles/ELU/ctx — `RichProcessProbe`) ; - `\"orm\"` : sonde ORM rich…"
     },
     "isClusterProbeCtl": {
       "name": "isClusterProbeCtl",
@@ -2382,6 +2390,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit la santé ORM lean du process via le fournisseur branché, ou `null` si aucun ORM n'est branché (le champ `orm` du report est alors omis). Lecture pure, jamais throw."
+    },
+    "setOrmRichProvider": {
+      "name": "setOrmRichProvider",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/instanceProbe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Branche (ou débranche avec `null`) le fournisseur de diagnostic ORM riche. Idempotent (dernier gagne). Coût NUL hors drill : ce fournisseur n'est appelé que quand le master a demandé l'enrichisseme…"
+    },
+    "readOrmRich": {
+      "name": "readOrmRich",
+      "kind": "function",
+      "file": "src/nodefony/src/service/cluster/instanceProbe.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Appelle le fournisseur ORM riche branché (async), ou `null` si aucun driver ne l'a posé. Le résultat est un blob OPAQUE (forme connue de Studio seul). Ne throw pas pour son propre compte : la propa…"
     },
     "ProcessProbe": {
       "name": "ProcessProbe",
@@ -3431,7 +3455,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "description": "Demande au master d'(arrêter d')enrichir le worker `pid` (drill-down Phase 2)."
+      "description": "Demande au master d'(arrêter d')enrichir le worker `pid` sur une **facette** (drill-down Phase 2). Facettes indépendantes : `\"process\"` (supervision) et `\"orm\"` (drill ORM)."
     },
     "clusterProbeInstance": {
       "name": "clusterProbeInstance",
@@ -5846,6 +5870,14 @@
         "controller"
       ],
       "description": "StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio. Route : `WS /nodefony/studio/api/realtime`. Protocole : **JSON-RPC 2.0**. Dérive de {@link RealtimeController} (framewo…"
+    },
+    "createClusterOrmTicker": {
+      "name": "createClusterOrmTicker",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/realtime/clusterOrm.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Provider du canal **drill ORM cluster** `orm:rich@<pid>` — diagnostic ORM RICHE (par connecteur : ping/latence/stockage/pool + flux requêtes) d'UN worker DISTANT du pod (≠ celui qui tient la connex…"
     },
     "mapInstanceToSupervision": {
       "name": "mapInstanceToSupervision",
@@ -11010,6 +11042,9 @@
       "setOrmHealthProvider": [
         "src/packages/@nodefony/drizzle/index.ts"
       ],
+      "setOrmRichProvider": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
       "IAdminRegistry": [
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
@@ -11021,6 +11056,12 @@
         "src/packages/@nodefony/drizzle/index.ts"
       ],
       "buildOrmLeanHealth": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
+      "buildConnectionHealth": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
+      "buildOrmFlow": [
         "src/packages/@nodefony/drizzle/index.ts"
       ],
       "DrizzleService": [
@@ -11114,10 +11155,12 @@
       ],
       "clusterProbeRequestEnrich": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterOrm.ts",
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
       "clusterProbeInstance": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterOrm.ts",
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
       "mergeClusterHealth": [
@@ -12129,7 +12172,13 @@
       "RichProcessProbe": [
         "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
       ],
+      "readOrmRich": [
+        "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
+      ],
       "isClusterProbeEnrich": [
+        "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
+      ],
+      "ClusterProbeFacet": [
         "src/packages/@nodefony/framework/nodefony/src/ClusterProbeClient.ts"
       ],
       "IRealtimeHealth": [
@@ -12216,6 +12265,7 @@
         "src/packages/@nodefony/framework/nodefony/src/RealtimeController.ts",
         "src/packages/@nodefony/framework/nodefony/src/RealtimeHub.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterOrm.ts",
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
       "RealtimeInboundHandler": [
@@ -12743,6 +12793,9 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "createClusterSupervisionTicker": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "createClusterOrmTicker": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "IPasswordAuthenticatedUser": [

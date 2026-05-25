@@ -3,9 +3,11 @@ import {
   CLUSTER_PROBE_SNAPSHOT_KIND,
   CLUSTER_PROBE_CTL_KIND,
   RichProcessProbe,
+  readOrmRich,
   isClusterMessage,
   isClusterProbeEnrich,
 } from "nodefony";
+import type { ClusterProbeFacet } from "nodefony";
 import type {
   IRealtimeHealth,
   IRealtimeClusterHealth,
@@ -143,6 +145,12 @@ export class ClusterProbeClient {
   // regarde ». Le rich voyage ensuite dans le report → snapshot pod → vue Supervision.
   #richProbe: RichProcessProbe | null = null;
   #richEnabled = false;
+  // Drill-down ORM (facette "orm") : dernier blob de diagnostic ORM riche de CE worker,
+  // rafraîchi par un ticker SEULEMENT pendant le drill (le `connection/health` est async
+  // → on ne peut pas le lire dans le report sync). Joint au report tant qu'il est non-null.
+  #ormRich: unknown = null;
+  #ormRichTimer: ReturnType<typeof setInterval> | null = null;
+  #ormRichEnabled = false;
 
   constructor(
     transport: IClusterProbeTransport = processProbeTransport,
@@ -174,22 +182,68 @@ export class ClusterProbeClient {
       if (this.#richProbe === null) this.#richProbe = new RichProcessProbe();
       payload.rich = this.#richProbe.read();
     }
+    // Drill ORM actif sur CE worker → joindre le dernier blob ORM riche en cache (produit
+    // par le ticker async #startOrmRich). Voyage ensuite dans le snapshot pod → canal
+    // `orm:rich@<pid>`. Absent hors drill (cache null) → 0 surcoût.
+    if (this.#ormRich !== null) payload.ormRich = this.#ormRich;
     this.#transport.send({ kind: CLUSTER_PROBE_KIND, payload });
   }
 
   /**
-   * Demande au master d'(arrêter d')enrichir le worker `pid` (drill-down). Émis par le
-   * worker qui tient la connexion navigateur quand un client subscribe/unsubscribe le
-   * canal `dashboard:supervision@<pid>`. No-op hors cluster (`send` no-op).
+   * Démarre le rafraîchissement périodique du blob ORM riche (facette `"orm"`). Idempotent.
+   * Le `connection/health` étant ASYNC (ping), on ne peut pas le lire dans le report sync :
+   * un ticker `unref` met à jour le cache `#ormRich`, que le report joint ensuite. 1ᵉʳ fetch
+   * immédiat. No-op si aucun driver n'a branché `setOrmRichProvider` (`readOrmRich() === null`).
+   */
+  #startOrmRich(): void {
+    if (this.#ormRichTimer !== null) return;
+    const refresh = (): void => {
+      const p = readOrmRich();
+      if (p === null) {
+        this.#ormRich = null;
+        return;
+      }
+      p.then((r) => {
+        // Garde anti-course : ne garder le résultat que si le drill est toujours actif.
+        if (this.#ormRichEnabled) this.#ormRich = r;
+      }).catch(() => {
+        /* best-effort : un tick raté n'interrompt pas le drill */
+      });
+    };
+    refresh();
+    this.#ormRichTimer = setInterval(refresh, this.#intervalMs);
+    (this.#ormRichTimer as { unref?: () => void }).unref?.();
+  }
+
+  /** Arrête le rafraîchissement ORM riche et purge le cache. Idempotent. */
+  #stopOrmRich(): void {
+    if (this.#ormRichTimer !== null) {
+      clearInterval(this.#ormRichTimer);
+      this.#ormRichTimer = null;
+    }
+    this.#ormRich = null;
+  }
+
+  /**
+   * Demande au master d'(arrêter d')enrichir le worker `pid` sur une **facette** (drill-down).
+   * Émis par le worker qui tient la connexion navigateur quand un client subscribe/unsubscribe
+   * le canal `dashboard:supervision@<pid>` (facette `"process"`) ou `orm:rich@<pid>` (facette
+   * `"orm"`). No-op hors cluster (`send` no-op).
    *
    * @param pid - worker ciblé (identité de la vue pod).
    * @param enable - `true` = activer la sonde riche sur ce worker, `false` = la couper.
+   * @param facet - quelle sonde riche cibler (défaut `"process"`).
    */
-  requestEnrich(pid: number, enable: boolean): void {
+  requestEnrich(
+    pid: number,
+    enable: boolean,
+    facet: ClusterProbeFacet = "process",
+  ): void {
     this.#transport.send({
       kind: CLUSTER_PROBE_CTL_KIND,
       op: enable ? "enrich" : "stop",
       pid,
+      facet,
     });
   }
 
@@ -199,6 +253,14 @@ export class ClusterProbeClient {
    */
   #ingest(msg: unknown): void {
     if (isClusterProbeEnrich(msg)) {
+      // Facette ORM : (dés)active le ticker de cache ORM riche (indépendant du process).
+      if ((msg.facet ?? "process") === "orm") {
+        this.#ormRichEnabled = msg.enabled;
+        if (msg.enabled) this.#startOrmRich();
+        else this.#stopOrmRich();
+        return;
+      }
+      // Facette process (défaut) : sonde process riche.
       this.#richEnabled = msg.enabled;
       // Désactivation → libérer immédiatement la sonde riche (détache l'observer GC).
       if (!msg.enabled && this.#richProbe !== null) {
@@ -236,6 +298,8 @@ export class ClusterProbeClient {
       this.#richProbe.disable();
       this.#richProbe = null;
     }
+    this.#ormRichEnabled = false;
+    this.#stopOrmRich();
   }
 }
 
@@ -261,8 +325,12 @@ export function clusterProbeHealth(): IRealtimeClusterHealth | null {
 }
 
 /**
- * Demande au master d'(arrêter d')enrichir le worker `pid` (drill-down Phase 2).
+ * Demande au master d'(arrêter d')enrichir le worker `pid` sur une **facette** (drill-down
+ * Phase 2). Facettes indépendantes : `"process"` (supervision) et `"orm"` (drill ORM).
  *
+ * @param pid - worker ciblé.
+ * @param enable - activer/couper la sonde riche.
+ * @param facet - quelle sonde riche cibler (défaut `"process"`).
  * @returns `true` si la sonde cluster est branchée (worker de cluster) → l'ordre est émis ;
  *   `false` en mono-process / sonde désactivée (pas de drill cross-worker possible → le
  *   consommateur retombe sur la sonde riche locale du process courant).
@@ -270,9 +338,10 @@ export function clusterProbeHealth(): IRealtimeClusterHealth | null {
 export function clusterProbeRequestEnrich(
   pid: number,
   enable: boolean,
+  facet: ClusterProbeFacet = "process",
 ): boolean {
   if (_client === null) return false;
-  _client.requestEnrich(pid, enable);
+  _client.requestEnrich(pid, enable, facet);
   return true;
 }
 

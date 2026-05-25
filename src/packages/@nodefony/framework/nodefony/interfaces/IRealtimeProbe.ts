@@ -111,6 +111,15 @@ export interface IRealtimeHealth extends IRealtimeProbe {
    * sonde n'a pu lire le syslog du kernel.
    */
   errors?: IInstanceErrorHealth;
+  /**
+   * Diagnostic ORM **riche** du worker (par connecteur : ping/latence/stockage/pool +
+   * flux requêtes) — blob OPAQUE `{ health, flow }` produit par le driver, présent
+   * UNIQUEMENT pendant un drill ORM de CE worker (facette `"orm"` : le master a envoyé
+   * `nf:probe:enrich {facet:"orm"}` à ce pid). Absent sinon → « on paie ce qu'on regarde »
+   * (0 ping ORM hors drill). Consommé par la page drill `/nodefony/orm/<pid>` (canal
+   * `orm:rich@<pid>`) → diagnostic riche du pid EXACT (≠ round-robin).
+   */
+  ormRich?: unknown;
 }
 
 /**
