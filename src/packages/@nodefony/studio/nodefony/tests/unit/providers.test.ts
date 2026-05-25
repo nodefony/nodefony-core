@@ -163,7 +163,7 @@ describe("createStatsTicker — heartbeat dashboard:supervision", () => {
   afterEach(() => vi.useRealTimers());
 
   it("publie sur dashboard:supervision à chaque intervalMs", () => {
-    const publish: ReturnType<typeof vi.fn> = vi.fn();
+    const publish = vi.fn();
     const dispose = createStatsTicker(publish, 1000);
     expect(publish.mock.calls.length, "rien avant le 1er tick").to.equal(0);
     vi.advanceTimersByTime(1000);
@@ -175,7 +175,7 @@ describe("createStatsTicker — heartbeat dashboard:supervision", () => {
   });
 
   it("payload : forme runtime attendue (per-instance, cloud-native)", () => {
-    const publish: ReturnType<typeof vi.fn> = vi.fn();
+    const publish = vi.fn();
     const dispose = createStatsTicker(publish, 1000);
     vi.advanceTimersByTime(1000);
     const p = publish.mock.calls[0][1] as Record<string, unknown>;
@@ -195,7 +195,7 @@ describe("createStatsTicker — heartbeat dashboard:supervision", () => {
   });
 
   it("dispose() arrête le ticker (plus aucun tick)", () => {
-    const publish: ReturnType<typeof vi.fn> = vi.fn();
+    const publish = vi.fn();
     const dispose = createStatsTicker(publish, 500);
     vi.advanceTimersByTime(500);
     expect(publish.mock.calls.length).to.equal(1);
