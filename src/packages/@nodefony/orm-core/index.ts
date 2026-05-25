@@ -44,6 +44,7 @@ export {
   registerOrmAdminApi,
 } from "./nodefony/src/OrmAdminApi";
 export { queryFlowMonitor } from "./nodefony/src/QueryFlowMonitor";
+export { buildOrmLeanHealth } from "./nodefony/src/buildOrmLeanHealth";
 export type {
   ISlowQuery,
   IQueryFlow,

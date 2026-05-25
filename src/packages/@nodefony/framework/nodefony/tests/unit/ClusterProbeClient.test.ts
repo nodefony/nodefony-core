@@ -98,6 +98,56 @@ describe("mergeClusterHealth — consolidation pod", () => {
     expect(merged.instanceCount).to.equal(0);
     expect(merged.totals.connectionCount).to.equal(0);
   });
+
+  it("agrège ORM + erreurs par worker (sommes ; maxEwmaMs = pire)", () => {
+    const merged = mergeClusterHealth([
+      health({
+        instanceId: "A",
+        orm: {
+          connectors: 1,
+          connected: 1,
+          queryTotal: 100,
+          slowTotal: 2,
+          errorTotal: 1,
+          reconnectTotal: 0,
+          maxEwmaMs: 12,
+        },
+        errors: { errorTotal: 3, criticTotal: 1 },
+      }),
+      health({
+        instanceId: "B",
+        orm: {
+          connectors: 1,
+          connected: 0,
+          queryTotal: 50,
+          slowTotal: 5,
+          errorTotal: 4,
+          reconnectTotal: 2,
+          maxEwmaMs: 30,
+        },
+        errors: { errorTotal: 7, criticTotal: 0 },
+      }),
+    ]);
+    expect(merged.totals.orm).to.deep.equal({
+      connectors: 2,
+      connected: 1,
+      queryTotal: 150,
+      slowTotal: 7,
+      errorTotal: 5,
+      reconnectTotal: 2,
+      maxEwmaMs: 30, // MAX, pas somme
+    });
+    expect(merged.totals.errors).to.deep.equal({
+      errorTotal: 10,
+      criticTotal: 1,
+    });
+  });
+
+  it("ORM/erreurs absents de TOUS les workers → totaux orm/errors omis", () => {
+    const merged = mergeClusterHealth([health({ instanceId: "A" })]);
+    expect(merged.totals.orm).to.equal(undefined);
+    expect(merged.totals.errors).to.equal(undefined);
+  });
 });
 
 describe("ClusterProbeClient — report + cache snapshot (worker)", () => {

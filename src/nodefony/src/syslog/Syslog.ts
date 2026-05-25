@@ -472,6 +472,15 @@ class Syslog extends Event implements ISyslog {
   public missed: number;
   public invalid: number;
   public valid: number;
+  /**
+   * Cumul monotone des logs de classe ERREUR (sévérité 0–3 : ERROR/CRITIC/ALERT/EMERGENCY)
+   * acceptés depuis la construction. Compteur entier O(1) bumpé dans le seul point de passage
+   * {@link pushStack} (0 alloc, hors SPINNER `-1`) → sonde « erreurs par worker » de la santé
+   * pod (cf `IInstanceErrorHealth`). Débit dérivé côté lecteur (delta `errorTotal`/ts).
+   */
+  public errorTotal: number;
+  /** Sous-ensemble CRITIQUE (sévérité 0–2 : CRITIC/ALERT/EMERGENCY). Cumul monotone. */
+  public criticTotal: number;
   public start: number;
   private _async: boolean = false;
   private _transports: ITransport[] = [];
@@ -490,6 +499,8 @@ class Syslog extends Event implements ISyslog {
     this.missed = 0;
     this.invalid = 0;
     this.valid = 0;
+    this.errorTotal = 0;
+    this.criticTotal = 0;
     this.start = 0;
     this._async = (this.settings.async as boolean) || false;
     if (this.settings.overrideConsole) {
@@ -570,6 +581,13 @@ class Syslog extends Event implements ISyslog {
   pushStack(pdu: Pdu): number {
     this._ring.push(pdu);
     this.valid++;
+    // Sonde « erreurs par worker » : 2 incréments entiers gardés (hors SPINNER `-1`).
+    // 0–3 = ERROR/CRITIC/ALERT/EMERGENCY ; 0–2 = sous-ensemble CRITIQUE. 0 alloc, hot path.
+    const sev = pdu.severity;
+    if (sev >= 0 && sev <= 3) {
+      this.errorTotal++;
+      if (sev <= 2) this.criticTotal++;
+    }
     return this._ring.length;
   }
 

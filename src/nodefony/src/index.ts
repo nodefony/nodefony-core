@@ -82,6 +82,14 @@ export { ProcessProbe } from "./service/cluster/processProbe";
 export type { IProcessHealth } from "./service/cluster/processProbe";
 export { RichProcessProbe } from "./service/cluster/richProcessProbe";
 export type { IProcessRich } from "./service/cluster/richProcessProbe";
+export {
+  setOrmHealthProvider,
+  readOrmHealth,
+} from "./service/cluster/instanceProbe";
+export type {
+  IOrmLeanHealth,
+  IInstanceErrorHealth,
+} from "./service/cluster/instanceProbe";
 export type {
   WorkersSetting,
   IClusterConfig,

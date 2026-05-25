@@ -1,5 +1,10 @@
-import type { IAdminApi, IAdminDescriptor, IAdminEndpoint } from "nodefony";
-import { ProcessProbe } from "nodefony";
+import type {
+  IAdminApi,
+  IAdminDescriptor,
+  IAdminEndpoint,
+  IInstanceErrorHealth,
+} from "nodefony";
+import { ProcessProbe, Nodefony, readOrmHealth } from "nodefony";
 import { getRealtimeHub } from "./RealtimeHub";
 import { clusterProbeHealth } from "./ClusterProbeClient";
 import type {
@@ -34,12 +39,28 @@ const processProbe = new ProcessProbe();
  * identité process. Aucune I/O, jamais throw. C'est ce que chaque worker **remonte** au
  * master (Phase 4c) et le fallback quand il n'y a pas d'agrégat.
  */
+/**
+ * Compteurs d'erreurs Syslog du worker (cumuls monotones), ou `undefined` si le kernel/son
+ * syslog n'est pas joignable. Lecture pure de 2 entiers (0 scan du ring buffer).
+ */
+function readInstanceErrorHealth(): IInstanceErrorHealth | undefined {
+  const syslog = Nodefony.getKernel()?.syslog;
+  if (!syslog) return undefined;
+  return { errorTotal: syslog.errorTotal, criticTotal: syslog.criticTotal };
+}
+
 export function buildOwnHealth(): IRealtimeHealth {
-  return {
+  const health: IRealtimeHealth = {
     instanceId: String(process.pid),
     ...getRealtimeHub().probe(),
     process: processProbe.read(),
   };
+  // Sondes per-instance NON realtime (additif, omis si absent → non-breaking) :
+  const orm = readOrmHealth();
+  if (orm) health.orm = orm;
+  const errors = readInstanceErrorHealth();
+  if (errors) health.errors = errors;
+  return health;
 }
 
 /**

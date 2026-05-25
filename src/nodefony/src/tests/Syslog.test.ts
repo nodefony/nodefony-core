@@ -1492,3 +1492,30 @@ describe("NODEFONY SYSLOG", () => {
     });
   });
 });
+
+describe("Syslog — compteurs erreurs (sonde par worker)", () => {
+  it("errorTotal/criticTotal bump sur ERROR..EMERGENCY, ignore INFO et SPINNER", () => {
+    const s = new Syslog({ moduleName: "TEST", rateLimit: false });
+    assert.strictEqual(s.errorTotal, 0);
+    assert.strictEqual(s.criticTotal, 0);
+    s.log("info", "INFO"); // 6 → aucun
+    s.log("notice", "NOTICE"); // 5 → aucun
+    s.log("warn", "WARNING"); // 4 → aucun (warning n'est PAS error)
+    s.log("err", "ERROR"); // 3 → error
+    s.log("crit", "CRITIC"); // 2 → error + critic
+    s.log("alert", "ALERT"); // 1 → error + critic
+    s.log("emerg", "EMERGENCY"); // 0 → error + critic
+    s.log("spin", "SPINNER"); // -1 → ignoré (guard sev >= 0)
+    assert.strictEqual(s.errorTotal, 4, "ERROR+CRITIC+ALERT+EMERGENCY");
+    assert.strictEqual(s.criticTotal, 3, "CRITIC+ALERT+EMERGENCY");
+    s.clean(true);
+  });
+
+  it("compteurs monotones (cumulent sur plusieurs logs)", () => {
+    const s = new Syslog({ moduleName: "TEST", rateLimit: false });
+    for (let i = 0; i < 5; i++) s.log("boom", "ERROR");
+    assert.strictEqual(s.errorTotal, 5);
+    assert.strictEqual(s.criticTotal, 0);
+    s.clean(true);
+  });
+});

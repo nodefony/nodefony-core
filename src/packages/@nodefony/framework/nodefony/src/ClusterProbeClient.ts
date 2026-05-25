@@ -45,7 +45,7 @@ export function mergeClusterHealth(
   instances: IRealtimeHealth[],
   ts: number = Date.now(),
 ): IRealtimeClusterHealth {
-  const totals = {
+  const totals: IRealtimeClusterHealth["totals"] = {
     channelCount: 0,
     publishTotal: 0,
     fanoutTotal: 0,
@@ -59,6 +59,9 @@ export function mergeClusterHealth(
       slowConsumers: 0,
     },
   };
+  // Sondes ORM/erreurs (additives) : agrégées seulement si ≥ 1 worker les remonte.
+  let orm: IRealtimeClusterHealth["totals"]["orm"] | undefined;
+  let errors: IRealtimeClusterHealth["totals"]["errors"] | undefined;
   for (const h of instances) {
     totals.channelCount += h.channelCount;
     totals.publishTotal += h.publishTotal;
@@ -73,7 +76,37 @@ export function mergeClusterHealth(
     }
     totals.backpressure.totalBufferedAmount += bp.totalBufferedAmount;
     totals.backpressure.slowConsumers += bp.slowConsumers;
+    if (h.orm) {
+      orm ??= {
+        connectors: 0,
+        connected: 0,
+        queryTotal: 0,
+        slowTotal: 0,
+        errorTotal: 0,
+        reconnectTotal: 0,
+        maxEwmaMs: null,
+      };
+      orm.connectors += h.orm.connectors;
+      orm.connected += h.orm.connected;
+      orm.queryTotal += h.orm.queryTotal;
+      orm.slowTotal += h.orm.slowTotal;
+      orm.errorTotal += h.orm.errorTotal;
+      orm.reconnectTotal += h.orm.reconnectTotal;
+      if (
+        h.orm.maxEwmaMs !== null &&
+        (orm.maxEwmaMs === null || h.orm.maxEwmaMs > orm.maxEwmaMs)
+      ) {
+        orm.maxEwmaMs = h.orm.maxEwmaMs;
+      }
+    }
+    if (h.errors) {
+      errors ??= { errorTotal: 0, criticTotal: 0 };
+      errors.errorTotal += h.errors.errorTotal;
+      errors.criticTotal += h.errors.criticTotal;
+    }
   }
+  if (orm) totals.orm = orm;
+  if (errors) totals.errors = errors;
   return {
     cluster: true,
     ts,

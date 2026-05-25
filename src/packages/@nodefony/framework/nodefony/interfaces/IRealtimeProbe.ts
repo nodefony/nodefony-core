@@ -13,7 +13,12 @@
  *    seuil de drop). Tous les cumuls sont **monotones** → le débit/s se dérive côté
  *    lecteur (delta `total`/`ts`, comme le CPU% ou le flux ORM) : 0 état de lecture.
  */
-import type { IProcessHealth, IProcessRich } from "nodefony";
+import type {
+  IProcessHealth,
+  IProcessRich,
+  IOrmLeanHealth,
+  IInstanceErrorHealth,
+} from "nodefony";
 
 /** Vue d'UNE connexion realtime pour la sonde (backpressure = risque #1). */
 export interface IRealtimeConnProbe {
@@ -93,6 +98,19 @@ export interface IRealtimeHealth extends IRealtimeProbe {
    * hors drill). Fusionnée côté front avec `process` pour la vue Supervision complète.
    */
   rich?: IProcessRich;
+  /**
+   * Santé ORM **lean** du worker (connecteurs/requêtes/erreurs/latence EWMA) — additif,
+   * comme `process`. Présent si un driver ORM a branché sa sonde (`setOrmHealthProvider`),
+   * absent sinon → les consommateurs realtime l'ignorent (non-breaking). Agrégée pod dans
+   * {@link IRealtimeClusterHealth.totals}.`orm`.
+   */
+  orm?: IOrmLeanHealth;
+  /**
+   * Compteurs d'erreurs Syslog du worker (ERROR/CRITIC cumulés) — additif. Permet une
+   * carte « erreurs par worker » + un taux d'erreur pod (delta côté lecteur). Absent si la
+   * sonde n'a pu lire le syslog du kernel.
+   */
+  errors?: IInstanceErrorHealth;
 }
 
 /**
@@ -130,5 +148,12 @@ export interface IRealtimeClusterHealth {
       /** Total des slow-consumers du pod. */
       slowConsumers: number;
     };
+    /**
+     * Santé ORM agrégée du pod (sommes ; `maxEwmaMs` = pire worker). Présent si ≥ 1 worker
+     * a remonté sa sonde ORM, absent sinon.
+     */
+    orm?: IOrmLeanHealth;
+    /** Erreurs Syslog agrégées du pod (sommes). Présent si ≥ 1 worker a remonté ses compteurs. */
+    errors?: IInstanceErrorHealth;
   };
 }

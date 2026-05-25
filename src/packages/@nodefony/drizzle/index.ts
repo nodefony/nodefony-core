@@ -8,9 +8,9 @@
  * direct/banc-test. 3ᵉ driver concret du socle multi-ORM (après Sequelize +
  * Mongoose) ; type-safe-first (a figé la forme des opérateurs riches, ADR-0003 #3).
  */
-import { Kernel, Module, services } from "nodefony";
+import { Kernel, Module, services, setOrmHealthProvider } from "nodefony";
 import type { IAdminRegistry } from "nodefony";
-import { registerOrmAdminApi } from "@nodefony/orm-core";
+import { registerOrmAdminApi, buildOrmLeanHealth } from "@nodefony/orm-core";
 import config from "./nodefony/config/config";
 import DrizzleService from "./nodefony/service/DrizzleService";
 
@@ -33,6 +33,10 @@ class Drizzle extends Module {
     if (broker) {
       registerOrmAdminApi(broker);
     }
+    // Branche la santé ORM lean dans le report de sonde cluster (« ORM par worker »).
+    // Fonction GLOBALE (itère `ormRegistry`) → couvre tous les ORM, pas seulement Drizzle ;
+    // idempotente (dernier gagne). Seam core → 0 dépendance framework→orm-core.
+    setOrmHealthProvider(buildOrmLeanHealth);
     return this;
   }
 }
