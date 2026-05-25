@@ -45,6 +45,11 @@ import {
   GraphHint,
   MiniChart,
 } from "../components/ui";
+import {
+  normalize,
+  type HealthPayload,
+  type InstanceHealth,
+} from "../utils/realtimeHealth";
 
 /** Version de la doc des fiches d'aide (`DocHint`) de la vue Cluster. */
 const CLUSTER_DOC = "v1.1";
@@ -72,122 +77,9 @@ function cap(arr: number[], v: number): number[] {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Types MIROIR (frontière isomorphe : ne JAMAIS importer le runtime serveur
-// @nodefony/framework dans le bundle client). Sous-ensemble des contrats
-// `IRealtimeProbe.ts` (process + santé socket) servis par le data plane
-// `/nodefony/realtime/api/health` ET poussés sur le canal `realtime:health`.
-// ───────────────────────────────────────────────────────────────────────────
-
-/** Santé PROCESS d'un worker (miroir de `IProcessHealth`, core). */
-interface ProcessHealth {
-  pid: number;
-  uptime: number;
-  cpuPercent: number;
-  eventLoopMs: number;
-  eluUtilization: number;
-  rss: number;
-  heapUsed: number;
-  heapTotal: number;
-  external: number;
-  ts: number;
-}
-
-/** Backpressure agrégée d'une connexion/instance (risque mémoire #1). */
-interface Backpressure {
-  maxBufferedAmount: number;
-  totalBufferedAmount: number;
-  slowConsumers: number;
-}
-
-/** Stat per-canal (fan-out). */
-interface ChannelStat {
-  channel: string;
-  subscribers: number;
-  messages: number;
-}
-
-/** Santé ORM lean d'un worker (miroir de `IOrmLeanHealth`, core). Cumuls monotones. */
-interface OrmLeanHealth {
-  connectors: number;
-  connected: number;
-  queryTotal: number;
-  slowTotal: number;
-  errorTotal: number;
-  reconnectTotal: number;
-  maxEwmaMs: number | null;
-}
-
-/** Erreurs Syslog d'un worker (miroir de `IInstanceErrorHealth`, core). Cumuls monotones. */
-interface InstanceErrorHealth {
-  errorTotal: number;
-  criticTotal: number;
-}
-
-/** Santé per-instance d'UN worker (miroir de `IRealtimeHealth`). */
-interface InstanceHealth {
-  instanceId: string;
-  ts: number;
-  channels: ChannelStat[];
-  channelCount: number;
-  publishTotal: number;
-  fanoutTotal: number;
-  inboundTotal: number;
-  connectionCount: number;
-  bytesSentTotal: number;
-  messagesSentTotal: number;
-  backpressure: Backpressure;
-  /** Optionnel : absent si la sonde process est coupée. */
-  process?: ProcessHealth;
-  /** Optionnel : absent si aucun driver ORM n'a branché sa sonde. */
-  orm?: OrmLeanHealth;
-  /** Optionnel : absent si la sonde n'a pu lire le syslog du kernel. */
-  errors?: InstanceErrorHealth;
-}
-
-/** Totaux pod (miroir de `IRealtimeClusterHealth.totals`). */
-interface PodTotals {
-  channelCount: number;
-  publishTotal: number;
-  fanoutTotal: number;
-  inboundTotal: number;
-  connectionCount: number;
-  bytesSentTotal: number;
-  messagesSentTotal: number;
-  backpressure: Backpressure;
-  /** Agrégat ORM pod (sommes ; `maxEwmaMs` = pire worker). Absent si aucun worker ne le remonte. */
-  orm?: OrmLeanHealth;
-  /** Agrégat erreurs pod (sommes). Absent si aucun worker ne le remonte. */
-  errors?: InstanceErrorHealth;
-}
-
-/** Vue POD agrégée (miroir de `IRealtimeClusterHealth`). */
-interface ClusterHealth {
-  cluster: true;
-  ts: number;
-  instanceCount: number;
-  instances: InstanceHealth[];
-  totals: PodTotals;
-}
-
-/** Réponse de l'endpoint santé : vue pod OU snapshot per-instance. */
-type HealthPayload = ClusterHealth | InstanceHealth;
-
-/** Vue normalisée commune (mono-process et cluster ramenés au même modèle). */
-interface NormalizedHealth {
-  cluster: boolean;
-  ts: number;
-  instances: InstanceHealth[];
-  totals: PodTotals;
-}
-
-// ───────────────────────────────────────────────────────────────────────────
 // Helpers — format STABLE (paliers, entiers) pour un live « calme » (0 jitter).
+// Types MIROIR + normalize : module partagé `utils/realtimeHealth` (1 source).
 // ───────────────────────────────────────────────────────────────────────────
-
-/** Discriminant cluster (vs per-instance). */
-function isCluster(h: HealthPayload): h is ClusterHealth {
-  return (h as ClusterHealth).cluster === true;
-}
 
 /** Octets → unité lisible (tabular-nums côté rendu). */
 function niceBytes(n: number): string {
@@ -221,37 +113,6 @@ function loopColor(ms: number): string {
   if (ms >= 120) return "red";
   if (ms >= 50) return "orange";
   return "teal";
-}
-
-/** Ramène n'importe quelle réponse santé au modèle normalisé. */
-function normalize(h: HealthPayload | null): NormalizedHealth | null {
-  if (!h) return null;
-  if (isCluster(h)) {
-    return {
-      cluster: true,
-      ts: h.ts,
-      instances: h.instances,
-      totals: h.totals,
-    };
-  }
-  // Per-instance : 1 worker, totaux = ses propres scalaires.
-  return {
-    cluster: false,
-    ts: h.ts,
-    instances: [h],
-    totals: {
-      channelCount: h.channelCount,
-      publishTotal: h.publishTotal,
-      fanoutTotal: h.fanoutTotal,
-      inboundTotal: h.inboundTotal,
-      connectionCount: h.connectionCount,
-      bytesSentTotal: h.bytesSentTotal,
-      messagesSentTotal: h.messagesSentTotal,
-      backpressure: h.backpressure,
-      orm: h.orm,
-      errors: h.errors,
-    },
-  };
 }
 
 /**
@@ -605,9 +466,7 @@ function WorkerCard({
             <Metric
               label="Latence EWMA"
               value={
-                inst.orm.maxEwmaMs === null
-                  ? "—"
-                  : `${inst.orm.maxEwmaMs} ms`
+                inst.orm.maxEwmaMs === null ? "—" : `${inst.orm.maxEwmaMs} ms`
               }
               info={
                 <DocHint
@@ -778,7 +637,9 @@ export const Cluster = observer(() => {
                   <Switch
                     size="sm"
                     checked={live}
-                    onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
+                    onChange={(e) =>
+                      ui.setRealtimeLive(e.currentTarget.checked)
+                    }
                     label="Temps réel"
                     aria-label="abonnement temps réel (socket Nodefony) de la vue cluster"
                   />

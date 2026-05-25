@@ -22,6 +22,7 @@ import {
   Switch,
   HoverCard,
   SegmentedControl,
+  Alert,
   type MantineColor,
 } from "@mantine/core";
 import { Link } from "react-router-dom";
@@ -45,6 +46,7 @@ import {
   IconReload,
   IconAlertTriangle,
   IconCircleCheck,
+  IconInfoCircle,
 } from "@tabler/icons-react";
 import { useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
@@ -59,11 +61,22 @@ import {
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
 
 /** Version de la doc des fiches d'aide (`DocHint`) du dashboard ORM. */
-const ORM_DOC = "v1.0";
+const ORM_DOC = "v1.1";
 import {
   useNodefonyAdaptiveChannel,
   useNodefonyAdaptiveChannelData,
 } from "nodefony/react";
+import {
+  buildHealth,
+  type HealthInput,
+  type HealthResult,
+} from "../utils/health";
+import {
+  normalize,
+  type HealthPayload,
+  type InstanceHealth,
+  type OrmLeanHealth,
+} from "../utils/realtimeHealth";
 
 /** Résumé d'un connecteur ORM (data plane /nodefony/orm/api/orms). */
 interface OrmSummary {
@@ -457,6 +470,111 @@ function OrmFlowLive({
     enabled: adaptive,
   });
   return null;
+}
+
+/**
+ * Abonné à la SOCKET Nodefony, canal `realtime:health` — sonde LEAN pod (cumuls
+ * `IOrmLeanHealth` + erreurs) **agrégée par le master en cluster** (donc cohérente,
+ * ≠ `/orm/api/*` qui tape 1 worker au hasard). Sert la **détection cluster** + le
+ * **verdict Santé ORM** + le breakdown par worker. Monté seulement quand « Temps
+ * réel » est ON (ref-compté → 0 ticker serveur OFF) ; suit l'AIMD global.
+ */
+function RealtimeHealthLive({
+  intervalMs,
+  adaptive,
+  onData,
+}: {
+  intervalMs: number;
+  adaptive: boolean;
+  onData: (h: HealthPayload) => void;
+}) {
+  const { data } = useNodefonyAdaptiveChannelData<HealthPayload>(
+    "realtime:health",
+    intervalMs,
+    { defaultMs: 5000, enabled: adaptive },
+  );
+  useEffect(() => {
+    if (data) onData(data);
+    // onData = setState (stable) → hors deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+  return null;
+}
+
+/** Taux ORM dérivés (delta des cumuls / temps) — `null` tant qu'un seul snapshot. */
+interface OrmRate {
+  /** Erreurs ORM par minute (delta `errorTotal`). */
+  errPerMin: number | null;
+  /** Reconnexions par minute (delta `reconnectTotal`). */
+  reconPerMin: number | null;
+}
+
+/**
+ * Signaux « Santé ORM » d'UN worker → entrées {@link buildHealth} (méthode
+ * Derringer-Suich, MÊME brique que la santé du framework). Choix figés (kit) :
+ * - **Erreurs/reconnexions = TAUX** (delta/min), JAMAIS le cumul (sinon un vieux
+ *   pod paraît malade) → exclus tant qu'on n'a pas 2 snapshots (`value:null`).
+ * - **Connecteurs déconnectés + erreurs = PANNE** (`critical` : tirent l'indice à 0).
+ * - **Latence EWMA + part de requêtes lentes + reconnexions = SATURATION** (planché
+ *   « Dégradé » : ralentit mais sert toujours, jamais « Critique » seul).
+ * - La part de requêtes lentes est un **ratio de vie** (slow/total), borné → pas de delta.
+ */
+function ormHealthInputs(orm: OrmLeanHealth, rate: OrmRate): HealthInput[] {
+  const inputs: HealthInput[] = [];
+  // Connecteurs coupés = panne (tous coupés → 0 = Critique).
+  inputs.push({
+    label: "Connecteurs",
+    value: orm.connectors > 0 ? orm.connectors - orm.connected : null,
+    good: 0,
+    crit: Math.max(1, orm.connectors),
+    weight: 1.5,
+    critical: true,
+  });
+  // Taux d'erreurs ORM (delta/min) = panne.
+  if (rate.errPerMin != null) {
+    inputs.push({
+      label: "Erreurs",
+      value: rate.errPerMin,
+      good: 0,
+      crit: 30,
+      weight: 1.2,
+      critical: true,
+    });
+  }
+  // Part de requêtes lentes (ratio de vie) = saturation.
+  if (orm.queryTotal > 0) {
+    inputs.push({
+      label: "Requêtes lentes",
+      value: orm.slowTotal / orm.queryTotal,
+      good: 0.01,
+      crit: 0.25,
+      weight: 1,
+      floor: 0.3,
+    });
+  }
+  // Latence EWMA (pire connecteur) = saturation. Se lit à l'aune de l'event-loop lag.
+  if (orm.maxEwmaMs != null) {
+    inputs.push({
+      label: "Latence",
+      value: orm.maxEwmaMs,
+      good: 20,
+      crit: 500,
+      weight: 1,
+      floor: 0.2,
+    });
+  }
+  // Taux de reconnexions (delta/min) = instabilité (saturation).
+  if (rate.reconPerMin != null) {
+    inputs.push({
+      label: "Reconnexions",
+      value: rate.reconPerMin,
+      good: 0,
+      crit: 6,
+      weight: 0.8,
+      floor: 0.2,
+    });
+  }
+  return inputs;
 }
 
 /** Type de stockage déduit (icône + libellé + couleur). */
@@ -1155,6 +1273,146 @@ function ConnectorCard({
 }
 
 /**
+ * Breakdown ORM LEAN **par worker** (cluster uniquement) — table compacte alimentée
+ * par la sonde pod `realtime:health.instances[].orm` (agrégée par le master → cohérente,
+ * ≠ `/orm/api/*` qui tombe sur 1 worker au hasard). Verdict par worker (même brique
+ * {@link buildHealth}) + lien vers la « salle des machines » `/nodefony/cluster`. Le
+ * détail process+socket complet d'un worker vit sur la page Cluster (non dupliqué ici).
+ */
+function ClusterOrmStrip({
+  workers,
+  ratesByPid,
+}: {
+  workers: InstanceHealth[];
+  ratesByPid: Map<string, OrmRate>;
+}) {
+  // Liste typée (worker + sonde ORM non-null) sans assertion `!`.
+  const rows = workers.flatMap((w) => (w.orm ? [{ w, o: w.orm }] : []));
+  if (!rows.length) return null;
+  return (
+    <Card withBorder radius="md" p="md" mb="md">
+      <Group justify="space-between" wrap="nowrap" mb="sm">
+        <Group gap="xs" wrap="nowrap">
+          <IconServer size={18} />
+          <Text fw={600}>ORM par worker</Text>
+          <Badge variant="light" color="grape" size="sm">
+            {rows.length} worker(s)
+          </Badge>
+          <DocHint
+            title="ORM par worker"
+            version={ORM_DOC}
+            summary="Sonde ORM lean de CHAQUE worker du pod (cumuls par process), agrégée par le master → vue cohérente."
+            sections={[
+              {
+                label: "Pourquoi ici",
+                body: "Le diagnostic détaillé par connecteur (plus bas) tombe sur 1 worker au hasard (round-robin). Cette table, elle, couvre TOUS les workers.",
+              },
+            ]}
+          />
+        </Group>
+        <Button
+          component={Link}
+          to="/nodefony/cluster"
+          variant="subtle"
+          size="compact-xs"
+          leftSection={<IconServer size={14} />}
+        >
+          Salle des machines
+        </Button>
+      </Group>
+      <ScrollArea.Autosize mah={280} type="auto">
+        <Table stickyHeader highlightOnHover>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Worker</Table.Th>
+              <Table.Th>Santé</Table.Th>
+              <Table.Th style={{ textAlign: "right" }}>Connect.</Table.Th>
+              <Table.Th style={{ textAlign: "right" }}>Requêtes</Table.Th>
+              <Table.Th style={{ textAlign: "right" }}>Lentes</Table.Th>
+              <Table.Th style={{ textAlign: "right" }}>Erreurs</Table.Th>
+              <Table.Th style={{ textAlign: "right" }}>EWMA</Table.Th>
+              <Table.Th style={{ textAlign: "right" }}>Reconnex.</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {rows.map(({ w, o }, i) => {
+              const r = buildHealth(
+                ormHealthInputs(
+                  o,
+                  ratesByPid.get(w.instanceId) ?? {
+                    errPerMin: null,
+                    reconPerMin: null,
+                  },
+                ),
+              );
+              return (
+                <Table.Tr key={w.instanceId}>
+                  <Table.Td>
+                    <Text size="xs" style={{ whiteSpace: "nowrap" }}>
+                      worker {i + 1}{" "}
+                      <Text span c="dimmed" ff="monospace">
+                        pid {w.instanceId}
+                      </Text>
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Badge size="sm" variant="light" color={r.color}>
+                      {r.label}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: "right" }}>
+                    <Text
+                      size="xs"
+                      ff="monospace"
+                      c={o.connected < o.connectors ? "orange" : undefined}
+                    >
+                      {o.connected}/{o.connectors}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: "right" }}>
+                    <Text size="xs" ff="monospace">
+                      {fmtNum(o.queryTotal)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: "right" }}>
+                    <Text
+                      size="xs"
+                      ff="monospace"
+                      c={o.slowTotal > 0 ? "orange" : undefined}
+                    >
+                      {o.slowTotal}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: "right" }}>
+                    <Text
+                      size="xs"
+                      ff="monospace"
+                      c={o.errorTotal > 0 ? "red" : undefined}
+                    >
+                      {o.errorTotal}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: "right" }}>
+                    <Text size="xs" ff="monospace">
+                      {o.maxEwmaMs == null ? "—" : fmtMs(o.maxEwmaMs)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td style={{ textAlign: "right" }}>
+                    <Text size="xs" ff="monospace">
+                      {o.reconnectTotal}
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })}
+          </Table.Tbody>
+        </Table>
+      </ScrollArea.Autosize>
+    </Card>
+  );
+}
+
+/**
  * Dashboard ORM — vue d'ensemble EXPLOITABLE du modèle de données : KPIs
  * (connecteurs, entités, relations, **lignes réelles**), classements live
  * (**top tables par volume** via `COUNT(*)`, **entités & lignes par domaine**),
@@ -1297,11 +1555,103 @@ export const OrmOverview = observer(() => {
     for (const c of r.connectors) totals[c.connector] = c.total;
     prevFlowRef.current = { ts: r.ts, totals };
   }, []);
+  // ── Sonde LEAN pod (canal `realtime:health`) — cluster-aware ──────────────
+  // 1ᵉʳ paint + détection cluster : snapshot pod one-shot (indépendant du toggle
+  // « Temps réel »). Le MASTER agrège en cluster → vue cohérente quel que soit le
+  // worker qui répond (≠ /orm/api/* en round-robin reusePort → 1 worker au hasard).
+  const realtime = useResource(
+    useCallback(
+      () =>
+        store.api.getAbsolute<HealthPayload>("/nodefony/realtime/api/health"),
+      [store],
+    ),
+  );
+  const [liveRt, setLiveRt] = useState<HealthPayload | null>(null);
+  const rt: HealthPayload | null = live
+    ? (liveRt ?? realtime.data)
+    : realtime.data;
+  const normRt = useMemo(() => normalize(rt), [rt]);
+  const isClusterMode = normRt?.cluster ?? false;
+  const workers = useMemo(() => normRt?.instances ?? [], [normRt]);
+  const podOrm = normRt?.totals.orm ?? null;
+
+  // Taux ORM par worker (delta des cumuls entre 2 snapshots pod) — erreurs/min &
+  // reconnexions/min. Ref = derniers cumuls vus ; state = taux dérivés (→ rerender).
+  const prevOrmRef = useRef<
+    Map<string, { ts: number; err: number; recon: number }>
+  >(new Map());
+  const [ratesByPid, setRatesByPid] = useState<Map<string, OrmRate>>(new Map());
+  useEffect(() => {
+    if (!normRt) return;
+    setRatesByPid((cur) => {
+      const next = new Map(cur);
+      const seen = new Set<string>();
+      for (const inst of normRt.instances) {
+        const o = inst.orm;
+        if (!o) continue;
+        seen.add(inst.instanceId);
+        const prev = prevOrmRef.current.get(inst.instanceId);
+        const dtMin = prev ? (normRt.ts - prev.ts) / 60000 : 0;
+        if (prev && dtMin > 0) {
+          next.set(inst.instanceId, {
+            errPerMin: Math.max(0, (o.errorTotal - prev.err) / dtMin),
+            reconPerMin: Math.max(0, (o.reconnectTotal - prev.recon) / dtMin),
+          });
+        } else if (!next.has(inst.instanceId)) {
+          next.set(inst.instanceId, { errPerMin: null, reconPerMin: null });
+        }
+        prevOrmRef.current.set(inst.instanceId, {
+          ts: normRt.ts,
+          err: o.errorTotal,
+          recon: o.reconnectTotal,
+        });
+      }
+      // Purge des pid disparus (respawn → l'ancien tombe).
+      for (const id of next.keys())
+        if (!seen.has(id)) {
+          next.delete(id);
+          prevOrmRef.current.delete(id);
+        }
+      return next;
+    });
+  }, [normRt]);
+
+  // Verdict « Santé ORM » 3 états — calculé PAR worker via buildHealth (même brique
+  // que la santé framework), pod = PIRE worker (rollup). Rouge réservé au critique.
+  const verdict = useMemo<{
+    result: HealthResult | null;
+    worstPid: string | null;
+  }>(() => {
+    let worst: HealthResult | null = null;
+    let worstPid: string | null = null;
+    for (const inst of workers) {
+      if (!inst.orm) continue;
+      const r = buildHealth(
+        ormHealthInputs(
+          inst.orm,
+          ratesByPid.get(inst.instanceId) ?? {
+            errPerMin: null,
+            reconPerMin: null,
+          },
+        ),
+      );
+      if (r.score == null) continue;
+      if (!worst || (r.score as number) < (worst.score as number)) {
+        worst = r;
+        worstPid = inst.instanceId;
+      }
+    }
+    return { result: worst, worstPid };
+  }, [workers, ratesByPid]);
+
   useEffect(() => {
     if (!live) {
       setLiveHealth(null);
       setFlowByName({});
       prevFlowRef.current = null;
+      setLiveRt(null);
+      setRatesByPid(new Map());
+      prevOrmRef.current = new Map();
     }
   }, [live]);
   useEffect(() => lsSet("nf.orm.liveMs", String(liveMs)), [liveMs]);
@@ -1322,8 +1672,6 @@ export const OrmOverview = observer(() => {
     }
     return { errors, recon, avgPing: pingN ? pingSum / pingN : null };
   }, [healthList]);
-  const healthColor: MantineColor =
-    connHealth.errors > 0 ? "red" : connected < list.length ? "orange" : "teal";
 
   // Volume global : plus grosse table + nb de tables peuplées (KPI « Lignes »).
   const volume = useMemo(() => {
@@ -1406,7 +1754,11 @@ export const OrmOverview = observer(() => {
       <PageHeader
         sticky
         title="Dashboard ORM"
-        subtitle="Connecteurs, modèle de données & volumes réels"
+        subtitle={
+          isClusterMode
+            ? `Cluster — ${workers.length} worker(s) · schéma identique, runtime agrégé`
+            : "Connecteurs, modèle de données & volumes réels"
+        }
         actions={
           <Group gap="xs">
             {live && <span className="nf-live-dot" aria-hidden />}
@@ -1423,7 +1775,9 @@ export const OrmOverview = observer(() => {
                   <Switch
                     size="sm"
                     checked={live}
-                    onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
+                    onChange={(e) =>
+                      ui.setRealtimeLive(e.currentTarget.checked)
+                    }
                     label="Temps réel"
                     aria-label="abonnement temps réel (socket Nodefony) du diagnostic connexions"
                   />
@@ -1514,6 +1868,13 @@ export const OrmOverview = observer(() => {
       {live && (
         <OrmFlowLive intervalMs={liveMs} adaptive={auto} onFlow={onFlow} />
       )}
+      {live && (
+        <RealtimeHealthLive
+          intervalMs={liveMs}
+          adaptive={auto}
+          onData={setLiveRt}
+        />
+      )}
 
       <Grid>
         {/* Connecteurs — vendors présents + ratio up. Clic → onglet Connecteurs. */}
@@ -1552,52 +1913,117 @@ export const OrmOverview = observer(() => {
           }
         />
 
-        {/* Santé connexions — latence ⌀ + incidents (données live). */}
+        {/* Santé ORM — verdict 3 états (pod = pire worker). Clic → onglet Connecteurs. */}
         <KpiCard
-          label="Santé connexions"
-          accent={healthColor}
-          icon={<IconActivity size={20} />}
-          hint="Connexions ouvertes + latence MOYENNE des pings live + incidents (erreurs / reconnexions). Per-instance (process courant)."
-          value={list.length ? `${connected}/${list.length}` : "—"}
+          label="Santé ORM"
+          accent={(verdict.result?.color ?? "gray") as MantineColor}
+          icon={<IconHeartRateMonitor size={20} />}
+          value={
+            verdict.result ? (
+              <Text span inherit c={verdict.result.color}>
+                {verdict.result.score}
+              </Text>
+            ) : (
+              "—"
+            )
+          }
           active={section === "connecteurs"}
           pulse={live}
           onClick={() => setSection("connecteurs")}
+          info={
+            <DocHint
+              title="Santé ORM"
+              version={ORM_DOC}
+              summary="Verdict 3 états (OK / à surveiller / dégradé) agrégé des sondes ORM par la méthode Derringer-Suich — même brique que la santé du framework."
+              sections={[
+                {
+                  label: "Signaux",
+                  body: "Connecteurs coupés & taux d'erreurs ORM = PANNE (peuvent tirer l'indice à 0). Latence EWMA, part de requêtes lentes & reconnexions = SATURATION (ralentit mais sert → « Dégradé » au pire, jamais « Critique » seul).",
+                },
+                {
+                  label: "Taux, pas cumul",
+                  body: "Erreurs & reconnexions lues en delta/minute (apparaissent après 2 mesures live) — un cumul ferait paraître un vieux pod malade.",
+                },
+                {
+                  label: isClusterMode ? "Cluster" : "Mono-process",
+                  body: isClusterMode
+                    ? `Pod = PIRE worker (rollup) sur ${workers.length} worker(s). Source = sonde lean agrégée par le master (cohérente, ≠ /orm/api/* en round-robin).`
+                    : "1 process : la latence EWMA & la part de requêtes lentes n'apparaissent que si le flux ORM est actif (NODEFONY_ORM_FLOW=1).",
+                },
+              ]}
+            />
+          }
           footer={
-            <Group gap="xs" wrap="nowrap">
-              <Badge
-                size="sm"
-                variant="light"
-                color={connHealth.avgPing == null ? "gray" : "teal"}
-                leftSection={<IconBolt size={11} />}
-              >
-                ⌀ {fmtMs(connHealth.avgPing)}
-              </Badge>
-              {connHealth.errors > 0 && (
+            <Stack gap={6}>
+              <Group gap="xs" wrap="nowrap">
                 <Badge
                   size="sm"
                   variant="light"
-                  color="red"
-                  leftSection={<IconAlertTriangle size={11} />}
+                  color={(verdict.result?.color ?? "gray") as MantineColor}
                 >
-                  {connHealth.errors}
+                  {verdict.result?.label ?? "—"}
                 </Badge>
-              )}
-              {connHealth.recon > 0 && (
-                <Badge
-                  size="sm"
-                  variant="light"
-                  color="orange"
-                  leftSection={<IconReload size={11} />}
-                >
-                  {connHealth.recon}
-                </Badge>
-              )}
-              {connHealth.errors === 0 && connHealth.recon === 0 && (
-                <Text size="xs" c="dimmed">
-                  aucun incident
-                </Text>
-              )}
-            </Group>
+                {verdict.result?.worst && (
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                    truncate
+                    title={`Facteur limitant : ${verdict.result.worst}`}
+                  >
+                    ↓ {verdict.result.worst}
+                  </Text>
+                )}
+              </Group>
+              <Group gap="xs" wrap="nowrap">
+                {podOrm && (
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color={
+                      podOrm.connected < podOrm.connectors ? "orange" : "teal"
+                    }
+                    leftSection={<IconPlugConnected size={11} />}
+                  >
+                    {podOrm.connected}/{podOrm.connectors}
+                  </Badge>
+                )}
+                {isClusterMode && verdict.worstPid && (
+                  <Text size="xs" c="dimmed">
+                    pire : pid {verdict.worstPid}
+                  </Text>
+                )}
+                {!isClusterMode && connHealth.avgPing != null && (
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color="teal"
+                    leftSection={<IconBolt size={11} />}
+                  >
+                    ⌀ {fmtMs(connHealth.avgPing)}
+                  </Badge>
+                )}
+                {!isClusterMode && connHealth.errors > 0 && (
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color="red"
+                    leftSection={<IconAlertTriangle size={11} />}
+                  >
+                    {connHealth.errors}
+                  </Badge>
+                )}
+                {!isClusterMode && connHealth.recon > 0 && (
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color="orange"
+                    leftSection={<IconReload size={11} />}
+                  >
+                    {connHealth.recon}
+                  </Badge>
+                )}
+              </Group>
+            </Stack>
           }
         />
 
@@ -1707,6 +2133,10 @@ export const OrmOverview = observer(() => {
           </Tabs.List>
 
           <Tabs.Panel value="connecteurs">
+            {/* Cluster : breakdown ORM lean PAR worker (vue pod cohérente). */}
+            {isClusterMode && (
+              <ClusterOrmStrip workers={workers} ratesByPid={ratesByPid} />
+            )}
             {/* Compartiment Connecteurs */}
             <Card withBorder radius="md" p="md">
               <Group gap="xs" mb="md">
@@ -1715,6 +2145,16 @@ export const OrmOverview = observer(() => {
                 <Badge variant="light" color="gray" size="sm">
                   {list.length}
                 </Badge>
+                {isClusterMode && (
+                  <Badge
+                    variant="light"
+                    color="grape"
+                    size="sm"
+                    leftSection={<IconServer size={11} />}
+                  >
+                    schéma identique · {workers.length} workers
+                  </Badge>
+                )}
                 <DocHint
                   title="Connecteurs"
                   version={ORM_DOC}
@@ -1724,9 +2164,32 @@ export const OrmOverview = observer(() => {
                       label: "Définition",
                       body: "Un connecteur = une instance ORM (Drizzle, Sequelize, Mongoose…) reliée à une base, enregistrée dans le registre process-wide.",
                     },
+                    ...(isClusterMode
+                      ? [
+                          {
+                            label: "Cluster",
+                            body: "Le schéma (entités, relations, base) est IDENTIQUE sur tous les workers (même code) — invariant. Seuls le runtime (santé, flux) varient par worker.",
+                          },
+                        ]
+                      : []),
                   ]}
                 />
               </Group>
+              {isClusterMode && (
+                <Alert
+                  variant="light"
+                  color="blue"
+                  icon={<IconInfoCircle size={18} />}
+                  mb="md"
+                  title="Diagnostic détaillé = 1 worker"
+                >
+                  En cluster, le diagnostic par connecteur ci-dessous (ping,
+                  latence, pool, stockage) provient d'UN worker au hasard (pid
+                  indiqué dans chaque carte). Vue pod cohérente → KPI « Santé
+                  ORM » + table « ORM par worker » ci-dessus, ou la page
+                  Cluster.
+                </Alert>
+              )}
               <SimpleGrid cols={list.length > 1 ? { base: 1, xl: 2 } : 1}>
                 {list.map((o) => (
                   <ConnectorCard
@@ -1748,6 +2211,16 @@ export const OrmOverview = observer(() => {
               <Group gap="xs" mb="sm">
                 <IconAffiliate size={18} />
                 <Text fw={600}>Modèle de données</Text>
+                {isClusterMode && (
+                  <Badge
+                    variant="light"
+                    color="grape"
+                    size="sm"
+                    leftSection={<IconServer size={11} />}
+                  >
+                    identique · {workers.length} workers
+                  </Badge>
+                )}
                 <DocHint
                   title="Modèle de données"
                   version={ORM_DOC}
@@ -1757,6 +2230,14 @@ export const OrmOverview = observer(() => {
                       label: "Navigation",
                       body: "Chaque sous-onglet filtre le modèle par connecteur.",
                     },
+                    ...(isClusterMode
+                      ? [
+                          {
+                            label: "Cluster",
+                            body: "Le modèle (schéma) est invariant : même code → mêmes tables sur les N workers. Aucun besoin de l'agréger.",
+                          },
+                        ]
+                      : []),
                   ]}
                 />
               </Group>
