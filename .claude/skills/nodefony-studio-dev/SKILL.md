@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.14.0
+version: 1.15.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -48,9 +48,10 @@ Quand le front commence à consommer un **canal/action/endpoint/type** nouveau �
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.14.0**
-(front : page drill ORM `/nodefony/orm/:pid` par worker + extraction DRY ConnectorCard/types/format ; back
-`nodefony-framework-dev` 1.14.0 = fallback SPA littéral `@Get("/orm/{pid}")`, contrat data plane inchangé).
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.15.0**
+(full-stack : **drill ORM riche @pid EXACT en cluster** — `OrmWorker` consomme le canal combiné
+`orm:rich@<pid>` (`OrmRichLive`) → supprime l'alerte « fourni par un autre worker » ; back
+`nodefony-framework-dev` 1.15.0 = facette enrich `"orm"` + seam `setOrmRichProvider` + relais master→worker).
 
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
@@ -978,6 +979,17 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   toujours exact). Ne JAMAIS faire passer le rich d'un autre worker pour celui demandé. Route = **chemin** `/…/:pid`
   (pas query) + **fallback SPA littéral** au controller (`@Get("/orm/{pid}")`, jamais catch-all). Lockstep back =
   framework-dev 1.14.0. [[project_orm_dashboard_cluster_kit]] · [[project_cluster_drilldown_kit]].
+- **Drill @pid EXACT via canal COMBINÉ (2026-05-25, relais backend livré → l'alerte « autre worker » DISPARAÎT)** : quand
+  le relais ciblé backend existe (cf framework-dev `orm:rich@<pid>`), le front passe du « front-only honnête » à l'exact.
+  (1) **Un seul composant live `OrmRichLive`** (dans `ConnectorCard.tsx`) abonné au **canal combiné** `orm:rich@${pid}`
+  (`useNodefonyAdaptiveChannel`) qui livre `{ health, flow, richPending }` → split `onHealth`/`onFlow` ; **remplace**
+  `OrmHealthLive`+`OrmFlowLive` sur la page drill (ces 2 canaux nus tombent sur un worker round-robin en cluster). Un seul
+  canal = un seul enrich (le hub dédoublonne par nom) → pas de ref-count. (2) **`richPending`** (≤ 1 cycle le temps que
+  l'enrich se propage cross-process) → bandeau bleu « Préparation du diagnostic » (état warming, pas écran vide). (3) **Le
+  canal `orm:rich@<pid>` marche en mono** (pid===process.pid → ticker broker local exact) ET en cluster (relais master→
+  worker) → **toujours `live` → exact**, plus besoin de comparer `respondingPid`. L'**alerte orange** ne reste que pour le
+  fallback HTTP **hors temps réel** (round-robin) → reformulée « active le temps réel pour l'exact ». Lockstep back =
+  framework-dev 1.15.0. [[project_cluster_drilldown_kit]].
 
 ## Fin de session Studio (OBLIGATOIRE)
 
@@ -998,6 +1010,16 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.15.0** (2026-05-25) — **Drill ORM riche @pid EXACT en cluster** (full-stack ; relais backend = framework-dev 1.15.0).
+  Front : `OrmWorker.tsx` consomme le **canal combiné `orm:rich@<pid>`** via un nouveau composant **`OrmRichLive`**
+  (`ConnectorCard.tsx`, `useNodefonyAdaptiveChannel`) → `{health, flow, richPending}` splitté vers `setLiveHealth`/`onFlow` ;
+  **remplace `OrmHealthLive`+`OrmFlowLive`** sur le drill (ces canaux nus = round-robin en cluster). En **live**, le
+  diagnostic riche est celui du **pid EXACT** (relais master→worker) → `respondingPid===pid` → **l'alerte « fourni par un
+  autre worker » disparaît** (reformulée : reste seulement hors temps réel = fallback HTTP round-robin → « active le temps
+  réel »). Bandeau bleu **« Préparation du diagnostic »** sur `richPending` (enrich en cours de propagation, ≤ 1 cycle).
+  Marche en mono (ticker broker local) ET cluster (relais). RETEX (canal combiné = 1 enrich pas de ref-count ; warming
+  richPending). Lockstep back = **framework-dev 1.15.0** (facette enrich `"orm"`, seam `setOrmRichProvider`, `createClusterOrmTicker`).
+  [[project_cluster_drilldown_kit]].
 - **1.14.0** (2026-05-25) — **Page DRILL ORM par worker `/nodefony/orm/:pid` + extraction DRY** (front-only,
   commit `0533180`). (a) Nouvelle page **`OrmWorker.tsx`** : **santé lean EXACTE du pid** (verdict 3 états +
   6 MiniStat + courbe req/s, extraite de `realtime:health.instances` par pid → exacte car agrégée master) +

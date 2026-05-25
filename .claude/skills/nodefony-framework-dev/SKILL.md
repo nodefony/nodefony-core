@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.14.0
+version: 1.15.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.12.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.15.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -48,9 +48,10 @@ correspondante de `nodefony-studio-dev` (et inversement). Ouvrir le skill jumeau
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.14.0**
-(session FRONT : page drill ORM `/nodefony/orm/:pid` — côté back, seul ajout = fallback SPA littéral
-`@Get("/orm/{pid}")` dans StudioController ; contrat data plane/realtime inchangé).
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.15.0**
+(session FULL-STACK : **relais ORM riche @pid** — drill `/nodefony/orm/<pid>` exact en cluster via
+facette d'enrich `"orm"` + seam `setOrmRichProvider` + canal combiné `orm:rich@<pid>` ; supprime
+l'alerte « fourni par un autre worker »).
 
 ## 1. Quand l'utiliser / quand passer la main
 
@@ -960,6 +961,7 @@ await orm.transaction(async (tx) => {
 - **santé** (`connection/health` + canal `orm:health`) : état/ping/latence-fenêtre/erreurs/reconnexions + sonde profonde `IOrm.probe()` (storage PRAGMA / pool). Générique (`buildConnectionHealth` itère `ormRegistry`, ping+probe), **émet une requête** (ping).
 - **flux** (`flow` + canal `orm:flow`, `queryFlowMonitor`, 2026-05-23) : DÉBIT (queries/s) + latence moy/EWMA + requêtes lentes. **Process-wide, indépendant de l'ALS**, **OFF par défaut** (gaté par le driver : `setEnabled(env!==production)`, override `NODEFONY_ORM_FLOW`). Lazy, ring slow borné 20, `toSQL()` **seulement sur le chemin lent**. **Per-connecteur** : `Map<connecteur>` (clé = nom registre, pas vendor) → le repo passe son `ormName` au tap. Débit/s **dérivé** (delta `total`/`ts`), **0 persistance** (RAM, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe). Câblé : **Drizzle** seul (Sequelize deprecated, Mongoose = TODO middleware). Ticker realtime = `createBrokerTicker` générique (réutilisé santé+flux).
 - **lean cluster** (`buildOrmLeanHealth()` orm-core, 2026-05-25) : agrégat **per-instance** de TOUS les connecteurs (registre + `queryFlowMonitor` + `connectionMonitor`) → `IOrmLeanHealth` (`connectors/connected/queryTotal/slowTotal/errorTotal/reconnectTotal/maxEwmaMs`). **0 ping / 0 toSQL**, O(N connecteurs). Branché dans le report de sonde cluster via le **seam core** `setOrmHealthProvider(buildOrmLeanHealth)` (driver Drizzle au boot) → **`framework` n'importe PAS `orm-core`**. Lu par `buildOwnHealth` (`IRealtimeHealth.orm`), agrégé pod dans `mergeClusterHealth.totals.orm`. Cf RETEX §11 + [[project_cluster_drilldown_kit]].
+- **rich @pid (drill cluster, 2026-05-25)** : diagnostic ORM COMPLET d'UN worker EXACT (`{ health: buildConnectionHealth(), flow: buildOrmFlow() }`) pour la page `/nodefony/orm/<pid>` en cluster. **Calqué `dashboard:supervision@<pid>`** (voie B1 : enrichir le colis broadcast, pas un 2ᵉ flux). Pièces : (1) **facette d'enrich** `ClusterProbeFacet` (`"process"|"orm"`, défaut process) sur `IClusterProbeCtl`/`IClusterProbeEnrich` (core) → 2 drills indépendants, « on paie ce qu'on regarde » par sonde ; (2) **seam core** `setOrmRichProvider(async ()=>blob)`/`readOrmRich()` (driver Drizzle, **async** car `connection/health` ping) — opaque côté core/framework ; (3) `ClusterProbeClient` : facette `"orm"` → **ticker de cache async** `#startOrmRich` (le report sync joint `payload.ormRich`, absent hors drill) ; (4) studio `orm:rich@<pid>` = **canal combiné** (1 canal = 1 enrich = **pas de ref-count**, le hub dédoublonne par nom) → local broker ticker si `pid===process.pid`, sinon `createClusterOrmTicker` (`requestEnrich(pid,true,"orm")` au sub, `false` au dispose). Prouvé e2e cross-process (`cluster-orm-rich-e2e.mjs`). Cf RETEX §11 + [[project_cluster_drilldown_kit]].
 
 ### Gotchas ORM
 
@@ -1350,6 +1352,22 @@ no entity table registered under "session"`, code 401, au Ctrl+C) : `DrizzleServ
   vérifier `.git/index.lock` + `git stash list` (le pop a-t-il vraiment eu lieu ?) AVANT de recoder ; (b) prouver une
   erreur pré-existante via `git stash` est utile mais **risqué avec un hook/lock husky** — préférer `git worktree` ou un
   `tsc` sur le commit parent. Garde-fou husky `index.lock` = [[project_retex_improvements_kit]] #I (le + rentable).
+- _(2026-05-25, RELAIS ORM RICHE @pid)_ **Généraliser un drill @pid existant = AJOUTER UNE FACETTE, pas un 2ᵉ flux.**
+  Le drill supervision (`dashboard:supervision@<pid>`) avait déjà tout le câblage IPC (ctl→enrich→report `rich`→
+  snapshot→`clusterProbeInstance`). Pour le drill ORM, **0 nouveau kind/flux** : on a ajouté un champ **`facet`
+  (`"process"|"orm"`)** optionnel (défaut process = rétro-compat) aux messages ctl/enrich → 2 sondes riches
+  **indépendantes** (le drill ORM n'allume pas la sonde process). **Leçons** : (1) chercher le mécanisme EXISTANT
+  le plus proche et le PARAMÉTRER (facette) plutôt que dupliquer un pipeline ; (2) **gérer l'ASYNC d'une sonde riche
+  par un cache** : `RichProcessProbe.read()` est sync, mais le rich ORM (`buildConnectionHealth` **ping** = async) ne
+  peut pas être lu dans le report sync → ticker `#startOrmRich` qui rafraîchit `#ormRich`, le report joint le cache
+  (absent = 0 surcoût) ; (3) **seam core opaque** (`setOrmRichProvider(()=>Promise<unknown>)`/`readOrmRich`) comme le
+  lean → `framework` n'importe pas `orm-core`, le **driver** branche `{health,flow}` ; (4) **canal combiné** `orm:rich@<pid>`
+  (pas `orm:health@pid` + `orm:flow@pid`) = **1 canal = 1 enrich**, le RealtimeHub dédoublonne déjà par nom de canal
+  → **pas de ref-count** d'enrich (2 canaux séparés → un unsub couperait l'autre). (5) **Caveat assumé (= supervision)** :
+  2 workers drillant le MÊME pid → un `stop` côté master coupe pour les deux (pas de ref-count master-side ; best-effort,
+  rare). Tests : core 4 (facette guards + seam rich + aggregator forward) / framework 4 (ctl orm + report ormRich on/off +
+  facette n'active pas process) / **e2e cross-process `cluster-orm-rich-e2e.mjs`** (A drille pidB → ormRich marqué "B" +
+  health/flow → stop = absent). memory.test 7/8 (sync-crashes = flake GC connu, vert isolé ; mon code cluster-only).
 
 ## 12. Fin de session (OBLIGATOIRE) + auto-audit de complétude
 
@@ -1417,6 +1435,16 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.15.0** (2026-05-25) — **Relais backend ORM riche @pid** (drill `/nodefony/orm/<pid>` exact en cluster, full-stack).
+  §5.F : nouvelle lecture **rich @pid** (`{health:buildConnectionHealth(), flow:buildOrmFlow()}`), calquée
+  `dashboard:supervision@<pid>` (voie B1). **Core** : `ClusterProbeFacet` (`"process"|"orm"`) + champ `facet?` sur
+  `IClusterProbeCtl`/`IClusterProbeEnrich` (+ guards) ; aggregator propage la facette ; seam `setOrmRichProvider`/
+  `readOrmRich` (async opaque). **Framework** : `ClusterProbeClient` facette `"orm"` → ticker cache async `#startOrmRich`,
+  report joint `payload.ormRich` ; `IRealtimeHealth.ormRich?` ; `requestEnrich(pid,enable,facet)`. **Drizzle** : branche
+  `setOrmRichProvider`. **Studio back** : canal combiné `orm:rich@<pid>` (`createClusterOrmTicker` + local broker ticker
+  si pid courant). RETEX §11 (généraliser = facette pas 2ᵉ flux ; async sonde = cache ; canal combiné = pas de ref-count).
+  Tests core 4 / framework 4 / **e2e `cluster-orm-rich-e2e.mjs`** PASS. Lockstep **studio-dev 1.15.0** (front consomme
+  `orm:rich@<pid>` → supprime l'alerte « autre worker »). [[project_cluster_drilldown_kit]].
 - **1.14.0** (2026-05-25) — **Lockstep** (session FRONT : page drill ORM `/nodefony/orm/:pid` par worker, commit
   `0533180`). Côté back, seul changement = **fallback SPA littéral** `@Get("/orm/{pid}")` dans `StudioController`
   (deep-link/F5 sur la page React à 2 segments — MÊME règle figée que `modules/:name` & `cluster/:pid` : segment
