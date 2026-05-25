@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-25T10:50:04.102Z",
+  "generated": "2026-05-25T11:03:23.570Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 751,
-    "symbols": 1360,
+    "symbols": 1361,
     "classes": 228,
     "interfaces": 330,
     "types": 162,
     "enums": 2,
-    "functions": 186,
+    "functions": 187,
     "constants": 452
   },
   "symbols": {

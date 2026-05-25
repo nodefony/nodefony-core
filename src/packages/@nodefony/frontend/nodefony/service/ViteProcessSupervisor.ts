@@ -1,5 +1,6 @@
 import { spawn, ChildProcess } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import http from "node:http";
 import https from "node:https";
 import path from "node:path";
@@ -11,6 +12,38 @@ import type {
 import type { IResolvedFrontendEntry } from "../interfaces/IFrontBuilder";
 import { FrontendSupervisorStartError } from "../src/errors/FrontendError";
 import ViteConfigGenerator from "./ViteConfigGenerator";
+
+/**
+ * Résout le binaire Vite **une seule fois** (mis en cache module-level).
+ *
+ * Lancer le VRAI `node vite.js` en direct — au lieu du shim `npx vite` — évite le
+ * process intermédiaire npm : 1 process au lieu de 2, et surtout `SIGINT`/`SIGKILL`
+ * atteignent **directement** Vite (`npx`/`npm exec` relaie mal les signaux → Vite
+ * orphelin → `EADDRINUSE` au restart).
+ *
+ * ⚠️ On passe par `vite/package.json` + son champ `bin` : la map `exports` de Vite
+ * **n'expose pas** `./bin/vite.js` → `require.resolve("vite/bin/vite.js")` throw
+ * `ERR_PACKAGE_PATH_NOT_EXPORTED`. `package.json`, lui, est exporté → résolvable.
+ *
+ * `null` = résolution impossible → fallback `npx` (jamais cassé = résilient).
+ * `undefined` = pas encore tenté.
+ */
+let _viteBin: string | null | undefined;
+function resolveViteBin(): string | null {
+  if (_viteBin !== undefined) return _viteBin;
+  try {
+    const pkgPath = createRequire(import.meta.url).resolve("vite/package.json");
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+      bin?: string | { vite?: string };
+    };
+    const rel = typeof pkg.bin === "string" ? pkg.bin : pkg.bin?.vite;
+    const abs = rel ? path.join(path.dirname(pkgPath), rel) : null;
+    _viteBin = abs && existsSync(abs) ? abs : null;
+  } catch {
+    _viteBin = null;
+  }
+  return _viteBin;
+}
 
 /**
  * Logger minimal — injecté par FrontendService pour piper les logs Vite
@@ -153,12 +186,11 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       healthCheckIntervalMs:
         opts.healthCheckIntervalMs ?? DEFAULTS.healthCheckIntervalMs,
       healthCheckFailureThreshold:
-        opts.healthCheckFailureThreshold
-        ?? DEFAULTS.healthCheckFailureThreshold,
+        opts.healthCheckFailureThreshold ??
+        DEFAULTS.healthCheckFailureThreshold,
       healthCheckTimeoutMs:
         opts.healthCheckTimeoutMs ?? DEFAULTS.healthCheckTimeoutMs,
-      portRetryAttempts:
-        opts.portRetryAttempts ?? DEFAULTS.portRetryAttempts,
+      portRetryAttempts: opts.portRetryAttempts ?? DEFAULTS.portRetryAttempts,
     };
   }
 
@@ -246,9 +278,9 @@ export class ViteProcessSupervisor implements IViteSupervisor {
 
   private isPortInUseError(e: Error): boolean {
     return (
-      /EADDRINUSE/i.test(e.message)
-      || /address already in use/i.test(e.message)
-      || /port \d+ is in use/i.test(e.message)
+      /EADDRINUSE/i.test(e.message) ||
+      /address already in use/i.test(e.message) ||
+      /port \d+ is in use/i.test(e.message)
     );
   }
 
@@ -258,10 +290,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
 
     // 1. Génère + écrit `vite.config.generated.mjs` à côté de l'index.html.
     const moduleRoot = this.entries[0]!.root;
-    this.configFilePath = path.resolve(
-      moduleRoot,
-      "vite.config.generated.mjs",
-    );
+    this.configFilePath = path.resolve(moduleRoot, "vite.config.generated.mjs");
     const scheme = this.opts.https ? "https" : "http";
     const viteOrigin = `${scheme}://${this.opts.devHost}:${port}`;
     const content = this.generator.toMjs(this.entries, "development", {
@@ -284,8 +313,19 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       ...(this.opts.nodeEnv ? ["--mode", this.opts.nodeEnv] : []),
     ];
 
+    // Spawn DIRECT du vrai Vite (résilient : fallback `npx` si non résolu). `detached:
+    // false` = Vite reste dans le groupe de process du serveur → un Ctrl+C terminal
+    // (SIGINT au groupe foreground) l'atteint AUSSI directement (kill propre, 0 orphelin).
+    const viteBin = resolveViteBin();
+    const spawnCmd = viteBin ? process.execPath : "npx";
+    const spawnArgs = viteBin ? [viteBin, ...args.slice(1)] : args;
+    this.opts.logger.debug?.(
+      viteBin
+        ? `vite spawn direct (node ${viteBin})`
+        : "vite spawn via npx (fallback — résolution directe indisponible)",
+    );
     try {
-      this.child = spawn("npx", args, {
+      this.child = spawn(spawnCmd, spawnArgs, {
         cwd: this.opts.cwd,
         stdio: ["ignore", "pipe", "pipe"],
         detached: false,
@@ -415,11 +455,12 @@ export class ViteProcessSupervisor implements IViteSupervisor {
    */
   private attachRuntimeExitHandler(): void {
     if (!this.child) return;
-    const onRuntimeExit = (code: number | null, signal: NodeJS.Signals | null) => {
+    const onRuntimeExit = (
+      code: number | null,
+      signal: NodeJS.Signals | null,
+    ) => {
       this.cleanupChildListeners();
-      this.opts.logger.info(
-        `[vite] exited (code=${code}, signal=${signal})`,
-      );
+      this.opts.logger.info(`[vite] exited (code=${code}, signal=${signal})`);
       if (this.willingShutdown) {
         this.state = "stopped";
         this.child = null;
@@ -498,8 +539,8 @@ export class ViteProcessSupervisor implements IViteSupervisor {
             `vite healthcheck failed (${this.healthFailures}/${this.cfg.healthCheckFailureThreshold}): ${e?.message ?? e}`,
           );
           if (
-            this.healthFailures >= this.cfg.healthCheckFailureThreshold
-            && this.state === "ready"
+            this.healthFailures >= this.cfg.healthCheckFailureThreshold &&
+            this.state === "ready"
           ) {
             this.opts.logger.error(
               `vite unhealthy — killing child to trigger restart`,
