@@ -28,6 +28,8 @@ import {
   IconServer,
   IconStack3,
   IconBroadcast,
+  IconDatabase,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { useNodefonyAdaptiveChannelData } from "nodefony/react";
@@ -45,7 +47,7 @@ import {
 } from "../components/ui";
 
 /** Version de la doc des fiches d'aide (`DocHint`) de la vue Cluster. */
-const CLUSTER_DOC = "v1.0";
+const CLUSTER_DOC = "v1.1";
 
 /** Points d'historique gardés par worker pour les sparklines (≈ 40 ticks). */
 const HISTORY = 40;
@@ -104,6 +106,23 @@ interface ChannelStat {
   messages: number;
 }
 
+/** Santé ORM lean d'un worker (miroir de `IOrmLeanHealth`, core). Cumuls monotones. */
+interface OrmLeanHealth {
+  connectors: number;
+  connected: number;
+  queryTotal: number;
+  slowTotal: number;
+  errorTotal: number;
+  reconnectTotal: number;
+  maxEwmaMs: number | null;
+}
+
+/** Erreurs Syslog d'un worker (miroir de `IInstanceErrorHealth`, core). Cumuls monotones. */
+interface InstanceErrorHealth {
+  errorTotal: number;
+  criticTotal: number;
+}
+
 /** Santé per-instance d'UN worker (miroir de `IRealtimeHealth`). */
 interface InstanceHealth {
   instanceId: string;
@@ -119,6 +138,10 @@ interface InstanceHealth {
   backpressure: Backpressure;
   /** Optionnel : absent si la sonde process est coupée. */
   process?: ProcessHealth;
+  /** Optionnel : absent si aucun driver ORM n'a branché sa sonde. */
+  orm?: OrmLeanHealth;
+  /** Optionnel : absent si la sonde n'a pu lire le syslog du kernel. */
+  errors?: InstanceErrorHealth;
 }
 
 /** Totaux pod (miroir de `IRealtimeClusterHealth.totals`). */
@@ -131,6 +154,10 @@ interface PodTotals {
   bytesSentTotal: number;
   messagesSentTotal: number;
   backpressure: Backpressure;
+  /** Agrégat ORM pod (sommes ; `maxEwmaMs` = pire worker). Absent si aucun worker ne le remonte. */
+  orm?: OrmLeanHealth;
+  /** Agrégat erreurs pod (sommes). Absent si aucun worker ne le remonte. */
+  errors?: InstanceErrorHealth;
 }
 
 /** Vue POD agrégée (miroir de `IRealtimeClusterHealth`). */
@@ -221,6 +248,8 @@ function normalize(h: HealthPayload | null): NormalizedHealth | null {
       bytesSentTotal: h.bytesSentTotal,
       messagesSentTotal: h.messagesSentTotal,
       backpressure: h.backpressure,
+      orm: h.orm,
+      errors: h.errors,
     },
   };
 }
@@ -540,6 +569,106 @@ function WorkerCard({
         <Metric label="Octets envoyés" value={niceBytes(inst.bytesSentTotal)} />
         <Metric label="Frames" value={inst.messagesSentTotal} />
       </SimpleGrid>
+
+      {inst.orm ? (
+        <>
+          <Divider
+            label="ORM"
+            labelPosition="left"
+            mt="sm"
+            mb="xs"
+            styles={{ label: { fontSize: 11 } }}
+          />
+          <SimpleGrid cols={3} spacing="xs">
+            <Metric
+              label="Requêtes"
+              value={inst.orm.queryTotal}
+              info={
+                <DocHint
+                  title="Requêtes ORM"
+                  version={CLUSTER_DOC}
+                  summary="Requêtes cumulées de ce worker depuis le boot (tous connecteurs)."
+                  sections={[
+                    {
+                      label: "Si 0",
+                      body: "La sonde de flux ORM est OFF (par défaut en production) — activer via NODEFONY_ORM_FLOW=1. Les erreurs/connecteurs restent comptés.",
+                    },
+                  ]}
+                />
+              }
+            />
+            <Metric
+              label="Lentes"
+              value={inst.orm.slowTotal}
+              color={inst.orm.slowTotal > 0 ? "orange" : undefined}
+            />
+            <Metric
+              label="Latence EWMA"
+              value={
+                inst.orm.maxEwmaMs === null
+                  ? "—"
+                  : `${inst.orm.maxEwmaMs} ms`
+              }
+              info={
+                <DocHint
+                  title="Latence EWMA"
+                  version={CLUSTER_DOC}
+                  summary="Pire latence moyenne lissée (EWMA) parmi les connecteurs du worker."
+                />
+              }
+            />
+            <Metric
+              label="Connecteurs"
+              value={`${inst.orm.connected}/${inst.orm.connectors}`}
+              color={
+                inst.orm.connected < inst.orm.connectors ? "orange" : undefined
+              }
+            />
+            <Metric
+              label="Erreurs ORM"
+              value={inst.orm.errorTotal}
+              color={inst.orm.errorTotal > 0 ? "orange" : undefined}
+            />
+            <Metric label="Reconnexions" value={inst.orm.reconnectTotal} />
+          </SimpleGrid>
+        </>
+      ) : null}
+
+      {inst.errors ? (
+        <>
+          <Divider
+            label="Erreurs (logs)"
+            labelPosition="left"
+            mt="sm"
+            mb="xs"
+            styles={{ label: { fontSize: 11 } }}
+          />
+          <SimpleGrid cols={2} spacing="xs">
+            <Metric
+              label="Erreurs"
+              value={inst.errors.errorTotal}
+              info={
+                <DocHint
+                  title="Erreurs Syslog (worker)"
+                  version={CLUSTER_DOC}
+                  summary="Logs ERROR/CRITIC/ALERT/EMERGENCY cumulés depuis le boot du worker (compteur monotone)."
+                  sections={[
+                    {
+                      label: "Lecture",
+                      body: "Un compteur élevé n'est pas forcément grave (cumul). Le taux d'erreur se dérive de l'évolution dans le temps.",
+                    },
+                  ]}
+                />
+              }
+            />
+            <Metric
+              label="Critiques"
+              value={inst.errors.criticTotal}
+              color={inst.errors.criticTotal > 0 ? "red" : undefined}
+            />
+          </SimpleGrid>
+        </>
+      ) : null}
     </Card>
   );
 }
@@ -812,6 +941,62 @@ export const Cluster = observer(() => {
                 />
               }
             />
+            {totals.orm ? (
+              <KpiCard
+                icon={<IconDatabase size={20} />}
+                label="Requêtes ORM"
+                accent={totals.orm.slowTotal > 0 ? "orange" : "cyan"}
+                pulse={live}
+                value={
+                  <FlashValue value={totals.orm.queryTotal}>
+                    {totals.orm.queryTotal}
+                  </FlashValue>
+                }
+                info={
+                  <DocHint
+                    title="ORM (pod)"
+                    version={CLUSTER_DOC}
+                    summary="Requêtes ORM cumulées, tous workers — agrégat des sondes ORM par worker."
+                    sections={[
+                      {
+                        label: "Détail",
+                        body: `${totals.orm.connected}/${totals.orm.connectors} connecteur(s) connecté(s) ; ${totals.orm.slowTotal} lente(s) ; ${totals.orm.errorTotal} erreur(s) ORM ; pire latence EWMA ${totals.orm.maxEwmaMs === null ? "—" : `${totals.orm.maxEwmaMs} ms`}.`,
+                      },
+                      {
+                        label: "Si 0",
+                        body: "Flux ORM OFF (défaut prod) — NODEFONY_ORM_FLOW=1 pour compter les requêtes.",
+                      },
+                    ]}
+                  />
+                }
+              />
+            ) : null}
+            {totals.errors ? (
+              <KpiCard
+                icon={<IconAlertTriangle size={20} />}
+                label="Erreurs (logs)"
+                accent={totals.errors.criticTotal > 0 ? "red" : "gray"}
+                pulse={live}
+                value={
+                  <FlashValue value={totals.errors.errorTotal}>
+                    {totals.errors.errorTotal}
+                  </FlashValue>
+                }
+                info={
+                  <DocHint
+                    title="Erreurs Syslog (pod)"
+                    version={CLUSTER_DOC}
+                    summary="Logs ERROR/CRITIC/ALERT/EMERGENCY cumulés, tous workers (compteurs monotones)."
+                    sections={[
+                      {
+                        label: "Détail",
+                        body: `${totals.errors.criticTotal} critique(s) (CRITIC/ALERT/EMERGENCY) dans le pod.`,
+                      },
+                    ]}
+                  />
+                }
+              />
+            ) : null}
           </Grid>
         ) : null}
 
