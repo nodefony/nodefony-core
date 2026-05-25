@@ -22,7 +22,7 @@ export interface LaunchTopologyOptions {
 
 /**
  * Lance le runtime serveur selon la topologie résolue — flow **PARTAGÉ** par toutes
- * les commandes de lancement (`cluster`, `staging` legacy, `production`). C'est la
+ * les commandes de lancement (`cluster`, `production`). C'est la
  * source unique de la décision « mono-process vs cluster » :
  *
  * - `workers >= 2` && process primaire → process **MASTER** : {@link startClusterMaster}

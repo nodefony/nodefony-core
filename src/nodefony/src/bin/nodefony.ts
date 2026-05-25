@@ -22,7 +22,6 @@ function detectEnvironmentFromArgv(
   for (const a of argv) {
     if (a === "development" || a === "dev") return "development";
     if (a === "production" || a === "prod") return "production";
-    if (a === "staging") return "staging";
   }
   return undefined;
 }

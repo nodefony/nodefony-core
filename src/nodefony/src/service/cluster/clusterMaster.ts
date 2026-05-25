@@ -20,7 +20,7 @@ export interface ClusterMasterHandles {
 
 /**
  * Démarre le process MASTER d'un cluster multi-worker — bootstrap partagé par les
- * commandes de lancement (`cluster`, `staging` legacy, et le futur runtime prod unifié).
+ * commandes de lancement (`cluster` et `production`).
  *
  * Le master ne sert **aucun HTTP** : il est superviseur + gateway IPC. Il
  * 1. marque `NODEFONY_CLUSTER=1` (hérité au fork → le module Framework branche le

@@ -16,7 +16,6 @@ import InstallCommand from "../kernel/commands/InstallCommand";
 import KillCommand from "../kernel/commands/KillCommnand";
 import OutdatedCommand from "../kernel/commands/OutdatedCommand";
 import ProdCommand from "../kernel/commands/ProdCommand";
-import StagingCommand from "../kernel/commands/StagingCommand";
 import StartCommand from "../kernel/commands/StartCommand";
 import Pm2Command from "../kernel/commands/pm2/Pm2Command";
 
@@ -271,48 +270,6 @@ describe("KernelCommand — ProdCommand", () => {
   });
 });
 
-// ─── 7. StagingCommand ───────────────────────────────────────────────────────
-
-describe("KernelCommand — StagingCommand", () => {
-  let cli: CliKernel;
-  beforeEach(() => {
-    cli = makeCli();
-  });
-
-  it("instance Command", () => {
-    const cmd = new StagingCommand(cli);
-    assert(cmd instanceof Command);
-  });
-
-  it("name = 'staging'", () => {
-    const cmd = new StagingCommand(cli);
-    assert.strictEqual(cmd.name, "staging");
-  });
-
-  it("alias 'preprod' enregistré", () => {
-    const cmd = new StagingCommand(cli);
-    assert.strictEqual(cmd.command.alias(), "preprod");
-  });
-
-  it("kernelEvent = 'onStart'", () => {
-    const cmd = new StagingCommand(cli);
-    assert.strictEqual(cmd.kernelEvent, "onStart");
-  });
-
-  it("onKernelStart est défini", () => {
-    const cmd = new StagingCommand(cli);
-    expect(cmd.onKernelStart).to.be.a("function");
-  });
-
-  // @deprecated 2026-05-24 : le fork `os.cpus()` legacy (champ `cpu`, méthode
-  // `preProd()`) est remplacé par le runtime cluster moderne via `generate()`
-  // (topologie pilotée par `cluster.workers`). Cf StagingCommand TSDoc.
-  it("generate est défini (délègue au runtime cluster moderne)", () => {
-    const cmd = new StagingCommand(cli);
-    expect(cmd.generate).to.be.a("function");
-  });
-});
-
 // ─── 8. StartCommand ─────────────────────────────────────────────────────────
 
 describe("KernelCommand — StartCommand", () => {
@@ -384,7 +341,7 @@ describe("KernelCommand — Pm2Command", () => {
 // ─── 10. Registre complet — toutes les commandes enregistrables ───────────────
 
 describe("KernelCommands — registre complet", () => {
-  it("9 commandes kernel construites sans erreur", () => {
+  it("8 commandes kernel construites sans erreur", () => {
     const cli = makeCli();
     const commands: Command[] = [];
     assert.doesNotThrow(() => {
@@ -394,11 +351,10 @@ describe("KernelCommands — registre complet", () => {
       commands.push(new KillCommand(cli));
       commands.push(new OutdatedCommand(cli));
       commands.push(new ProdCommand(cli));
-      commands.push(new StagingCommand(cli));
       commands.push(new StartCommand(cli));
       commands.push(new Pm2Command(cli));
     });
-    assert.strictEqual(commands.length, 9);
+    assert.strictEqual(commands.length, 8);
   });
 
   it("noms uniques", () => {
@@ -410,7 +366,6 @@ describe("KernelCommands — registre complet", () => {
       new KillCommand(cli).name,
       new OutdatedCommand(cli).name,
       new ProdCommand(cli).name,
-      new StagingCommand(cli).name,
       new StartCommand(cli).name,
       new Pm2Command(cli).name,
     ];
@@ -427,7 +382,6 @@ describe("KernelCommands — registre complet", () => {
       new KillCommand(cli),
       new OutdatedCommand(cli),
       new ProdCommand(cli),
-      new StagingCommand(cli),
       new StartCommand(cli),
       new Pm2Command(cli),
     ];
@@ -453,7 +407,6 @@ describe("KernelCommands — performance", () => {
       new KillCommand(cli);
       new OutdatedCommand(cli);
       new ProdCommand(cli);
-      new StagingCommand(cli);
       new StartCommand(cli);
       new Pm2Command(cli);
     }

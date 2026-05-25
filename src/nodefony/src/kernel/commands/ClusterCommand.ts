@@ -15,7 +15,8 @@ const options: OptionsCommandInterface = {
 /**
  * Commande `nodefony cluster` — démarre le serveur en mode cluster sans PM2.
  *
- * Refonte « beaucoup mieux » de l'ancien `nodefony staging`/`preprod` :
+ * Remplace l'ancien `nodefony staging`/`preprod` (retiré 2026-05-25 — fusionné dans
+ * le runtime prod « 2 molettes » : topologie = `cluster.workers`, env = `NODE_ENV`) :
  * - **cgroup-aware** — `--workers N` explicite, sinon quota CPU cgroup (conteneur),
  *   sinon `os.availableParallelism()`. Plus jamais `os.cpus().length` (bug conteneur).
  * - **respawn backoff** — un worker mort est re-forké avec backoff exponentiel (anti crash-loop).

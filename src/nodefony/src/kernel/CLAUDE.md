@@ -19,7 +19,7 @@ src/nodefony/src/kernel/
 │   ├── DevCommand.ts
 │   ├── BuildCommand.ts
 │   ├── ProdCommand.ts       ← 🪦 mention PM2 deprecated, retrait Phase 16
-│   ├── StagingCommand.ts
+│   ├── ClusterCommand.ts    ← cluster multi-worker (remplace l'ancien staging)
 │   ├── InstallCommand.ts
 │   ├── OutdatedCommand.ts
 │   ├── pm2/Pm2Command.ts    ← 🪦 DEPRECATED — retrait Phase 16
@@ -169,18 +169,17 @@ class MyCommand extends Command {
 
 ## Commandes built-in
 
-| Command    | Alias     | Status                                                                     |
-| ---------- | --------- | -------------------------------------------------------------------------- |
-| `Start`    | —         | ✅                                                                         |
-| `Dev`      | `dev`     | ✅                                                                         |
-| `Build`    | —         | ✅                                                                         |
-| `Prod`     | `prod`    | 🪦 mention PM2 deprecated                                                  |
-| `Staging`  | `preprod` | ✅ (legacy — fork `os.cpus()`, 0 respawn)                                  |
-| `Cluster`  | —         | ✅ cgroup-aware + respawn backoff + graceful shutdown (refonte de Staging) |
-| `Install`  | —         | ✅                                                                         |
-| `Outdated` | —         | ✅                                                                         |
-| `Pm2`      | —         | 🪦 DEPRECATED — retrait Phase 16 (cf `project_pm2_deprecation`)            |
-| `Kill`     | —         | ✅ (note: typo `KillCommnand.ts` conservée)                                |
+| Command    | Alias  | Status                                                          |
+| ---------- | ------ | --------------------------------------------------------------- |
+| `Start`    | —      | ✅                                                              |
+| `Dev`      | `dev`  | ✅                                                              |
+| `Build`    | —      | ✅                                                              |
+| `Prod`     | `prod` | 🪦 mention PM2 deprecated                                       |
+| `Cluster`  | —      | ✅ cgroup-aware + respawn backoff + graceful shutdown           |
+| `Install`  | —      | ✅                                                              |
+| `Outdated` | —      | ✅                                                              |
+| `Pm2`      | —      | 🪦 DEPRECATED — retrait Phase 16 (cf `project_pm2_deprecation`) |
+| `Kill`     | —      | ✅ (note: typo `KillCommnand.ts` conservée)                     |
 
 ⚠️ **Tests CLI** : Phase 11 non finalisée. Les commands ne sont pas couvertes par des tests d'intégration. État réel à vérifier au cas par cas.
 

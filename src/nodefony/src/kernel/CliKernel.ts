@@ -9,7 +9,6 @@ import Start from "./commands/StartCommand";
 import Dev from "./commands/DevCommand";
 import Build from "./commands/BuildCommand";
 import Prod from "./commands/ProdCommand";
-import Staging from "./commands/StagingCommand";
 import Cluster from "./commands/ClusterCommand";
 import Install from "./commands/InstallCommand";
 import Outated from "./commands/OutdatedCommand";
@@ -144,7 +143,6 @@ class CliKernel extends Cli {
         this.addCommand(Dev);
         this.addCommand(Build);
         this.addCommand(Prod);
-        this.addCommand(Staging);
         this.addCommand(Cluster);
         this.addCommand(Install);
         this.addCommand(Outated);

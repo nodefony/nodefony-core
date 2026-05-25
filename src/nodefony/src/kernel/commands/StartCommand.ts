@@ -25,13 +25,6 @@ const prompt = async function (command: Command): Promise<ConfigType> {
           command.cli?.getCommand("production")?.description() ||
           "Start Server in Production Mode (PM2 process manager)",
       },
-      {
-        name: "staging",
-        value: "staging",
-        description:
-          command.cli?.getCommand("staging")?.description() ||
-          "Start Server Staging  Mode ( Usefull to check Clusters Node use os.cpus().length )",
-      },
       new command.prompts.Separator(),
       {
         name: "install",

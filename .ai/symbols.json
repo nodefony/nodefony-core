@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-25T11:09:31.548Z",
+  "generated": "2026-05-25T11:42:23.611Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 751,
-    "symbols": 1361,
-    "classes": 228,
+    "files": 750,
+    "symbols": 1360,
+    "classes": 227,
     "interfaces": 330,
     "types": 162,
     "enums": 2,
@@ -1882,7 +1882,7 @@
       "extends": "Command",
       "implements": [],
       "decorators": [],
-      "description": "Commande `nodefony cluster` — démarre le serveur en mode cluster sans PM2. Refonte « beaucoup mieux » de l'ancien `nodefony staging`/`preprod` : - **cgroup-aware** — `--workers N` explicite, sinon …"
+      "description": "Commande `nodefony cluster` — démarre le serveur en mode cluster sans PM2. Remplace l'ancien `nodefony staging`/`preprod` (retiré 2026-05-25 — fusionné dans le runtime prod « 2 molettes » : topolog…"
     },
     "@nodefony/core:Dev": {
       "name": "Dev",
@@ -1951,18 +1951,7 @@
       "file": "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Lance le runtime serveur selon la topologie résolue — flow **PARTAGÉ** par toutes les commandes de lancement (`cluster`, `staging` legacy, `production`). C'est la source unique de la décision « mon…"
-    },
-    "Staging": {
-      "name": "Staging",
-      "kind": "class",
-      "file": "src/nodefony/src/kernel/commands/StagingCommand.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Command",
-      "implements": [],
-      "decorators": [],
-      "description": "Commande `nodefony staging` / `preprod`."
+      "description": "Lance le runtime serveur selon la topologie résolue — flow **PARTAGÉ** par toutes les commandes de lancement (`cluster`, `production`). C'est la source unique de la décision « mono-process vs clust…"
     },
     "Start": {
       "name": "Start",
@@ -2176,7 +2165,7 @@
       "file": "src/nodefony/src/service/cluster/clusterMaster.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Démarre le process MASTER d'un cluster multi-worker — bootstrap partagé par les commandes de lancement (`cluster`, `staging` legacy, et le futur runtime prod unifié). Le master ne sert **aucun HTTP…"
+      "description": "Démarre le process MASTER d'un cluster multi-worker — bootstrap partagé par les commandes de lancement (`cluster` et `production`). Le master ne sert **aucun HTTP** : il est superviseur + gateway I…"
     },
     "IClusterMessage": {
       "name": "IClusterMessage",
@@ -10076,7 +10065,6 @@
         "Kill",
         "Outdated",
         "Prod",
-        "Staging",
         "Start",
         "FrontendBuild",
         "FrontendDev",
@@ -10454,7 +10442,6 @@
         "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/StagingCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
@@ -10646,7 +10633,6 @@
         "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
-        "src/nodefony/src/kernel/commands/StagingCommand.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
@@ -11388,7 +11374,6 @@
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
-        "src/nodefony/src/kernel/commands/StagingCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
@@ -11503,9 +11488,6 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Prod": [
-        "src/nodefony/src/kernel/CliKernel.ts"
-      ],
-      "Staging": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Cluster": [
@@ -11726,7 +11708,6 @@
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
-        "src/nodefony/src/kernel/commands/StagingCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
@@ -11737,18 +11718,15 @@
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
-        "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/StagingCommand.ts"
+        "src/nodefony/src/kernel/commands/ProdCommand.ts"
       ],
       "loadClusterConfig": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
-        "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/StagingCommand.ts"
+        "src/nodefony/src/kernel/commands/ProdCommand.ts"
       ],
       "launchTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
-        "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/StagingCommand.ts"
+        "src/nodefony/src/kernel/commands/ProdCommand.ts"
       ],
       "DevSupervisor": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
