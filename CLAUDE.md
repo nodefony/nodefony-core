@@ -180,7 +180,7 @@ Nodefony est une **plateforme générique** pour construire :
 > Chaque module Nodefony peut enregistrer des commandes CLI via `module.addCommand(Ctor)`.
 > Pattern legacy : `nodefony <command> [args]` (ex : `nodefony pm2:start`, `nodefony users:add`).
 
-**État actuel** : commandes implémentées (`Start/Dev/Build/Prod/Staging/Install/Outdated/Pm2/Kill`) mais **pas testées en intégration** — voir Phase 11 dans `MIGRATION_STATUS.md`.
+**État actuel** : commandes implémentées (`Start/Dev/Build/Prod/Cluster/Install/Outdated/Pm2/Kill`) mais **pas testées en intégration** — voir Phase 11 dans `MIGRATION_STATUS.md`. (`staging`/`preprod` retirée 2026-05-25 — alias mort de `production` ; l'env `staging` reste via `NODE_ENV`.)
 
 **Règle** : tout module migré qui expose une commande CLI doit :
 
@@ -365,10 +365,24 @@ Un `nodefony/config/config.ts` ne doit **jamais** appeler `Nodefony.getKernel()`
 
 ```typescript
 // ❌ INTERDIT — déréférence eager, crashe sans kernel
-export default { connectors: { db: { filename: path.resolve((Nodefony.getKernel() as Kernel).path, "x.db") } } };
+export default {
+  connectors: {
+    db: {
+      filename: path.resolve((Nodefony.getKernel() as Kernel).path, "x.db"),
+    },
+  },
+};
 
 // ✅ LAZY (getter) — résolu à la LECTURE (au boot/merge, kernel présent). Runtime inchangé.
-export default { connectors: { db: { get filename() { return path.resolve((Nodefony.getKernel() as Kernel).path, "x.db"); } } } };
+export default {
+  connectors: {
+    db: {
+      get filename() {
+        return path.resolve((Nodefony.getKernel() as Kernel).path, "x.db");
+      },
+    },
+  },
+};
 
 // ✅ GUARDÉ — optional chaining + fallback (si pas de kernel → défaut)
 const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
@@ -453,12 +467,12 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 
 **Trois niveaux de doc à maintenir** :
 
-| Niveau                               | Emplacement                                    | Cible              | Quand l'écrire                       |
-| ------------------------------------ | ---------------------------------------------- | ------------------ | ------------------------------------ |
-| TSDoc inline                         | sources `.ts`                                  | IDE + AST + IA     | en migrant le fichier                |
+| Niveau                               | Emplacement                                                                     | Cible                     | Quand l'écrire                          |
+| ------------------------------------ | ------------------------------------------------------------------------------- | ------------------------- | --------------------------------------- |
+| TSDoc inline                         | sources `.ts`                                                                   | IDE + AST + IA            | en migrant le fichier                   |
 | `<module>/docs/`                     | colocalisé au module (`src/nodefony/docs/`, `src/packages/@nodefony/<m>/docs/`) | humain + RAG + **Studio** | doc d'un concept/API d'un module précis |
-| `docs/` (racine)                     | `docs/guides/` / `audits/` / `adr/`            | humain + RAG futur | transverse multi-module                  |
-| `CLAUDE.md` + `MEMORY.md` par module | racine du module                               | IA en session      | gotchas, mots-clés, décisions figées |
+| `docs/` (racine)                     | `docs/guides/` / `audits/` / `adr/`                                             | humain + RAG futur        | transverse multi-module                 |
+| `CLAUDE.md` + `MEMORY.md` par module | racine du module                                                                | IA en session             | gotchas, mots-clés, décisions figées    |
 
 > **Emplacement HYBRIDE (ADR-0001)** : la doc d'un module vit DANS le module (`<module>/docs/*.md`, frontmatter `module:`) et est surfacée dans **Studio** (`/nodefony/modules/{key}` onglet Docs ; core = carte `/nodefony/modules/core` ← `src/nodefony/docs/`). Le transverse reste sous `docs/` racine. Cf [`docs/adr/0001-docs-modules-emplacement-hybride.md`](docs/adr/0001-docs-modules-emplacement-hybride.md).
 
