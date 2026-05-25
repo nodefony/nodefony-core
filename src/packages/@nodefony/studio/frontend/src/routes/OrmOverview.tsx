@@ -23,9 +23,11 @@ import {
   HoverCard,
   SegmentedControl,
   Alert,
+  RingProgress,
+  UnstyledButton,
   type MantineColor,
 } from "@mantine/core";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   IconDatabase,
   IconPlugConnected,
@@ -47,6 +49,7 @@ import {
   IconAlertTriangle,
   IconCircleCheck,
   IconInfoCircle,
+  IconChevronRight,
 } from "@tabler/icons-react";
 import { useStore, useUi } from "../stores";
 import { useResource } from "../hooks";
@@ -57,6 +60,7 @@ import {
   KeyValue,
   DefinitionList,
   MiniChart,
+  FlashValue,
 } from "../components/ui";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
 
@@ -1272,143 +1276,290 @@ function ConnectorCard({
   );
 }
 
+/** Petite stat d'agrégat pod (label + valeur tabular-nums) — en-tête santé pod. */
+function PodStat({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: MantineColor;
+}) {
+  return (
+    <div>
+      <Text size="xs" c="dimmed">
+        {label}
+      </Text>
+      <Text fw={700} c={color} style={{ fontVariantNumeric: "tabular-nums" }}>
+        {value}
+      </Text>
+    </div>
+  );
+}
+
 /**
- * Breakdown ORM LEAN **par worker** (cluster uniquement) — table compacte alimentée
- * par la sonde pod `realtime:health.instances[].orm` (agrégée par le master → cohérente,
- * ≠ `/orm/api/*` qui tombe sur 1 worker au hasard). Verdict par worker (même brique
- * {@link buildHealth}) + lien vers la « salle des machines » `/nodefony/cluster`. Le
- * détail process+socket complet d'un worker vit sur la page Cluster (non dupliqué ici).
+ * **Vue ORM cluster — orientée GRAPHS, calquée sur l'accueil Supervision**
+ * (`ProcessGraphGrid`) : carte **« Santé ORM » pod** (anneau du verdict + rollup pire
+ * worker + agrégats pod) PUIS une **card par worker** (santé + requêtes/connecteurs en
+ * grand + **courbe débit req/s**). Alimentée par la sonde lean pod `realtime:health`
+ * (`.totals.orm` + `.instances[].orm`, agrégée par le master → cohérente, ≠ `/orm/api/*`
+ * round-robin). Clic d'une card → « salle des machines » `/nodefony/cluster`.
  */
-function ClusterOrmStrip({
+function ClusterOrmGrid({
   workers,
   ratesByPid,
+  qSeriesByPid,
+  podOrm,
+  verdict,
+  live,
+  onSelect,
 }: {
   workers: InstanceHealth[];
   ratesByPid: Map<string, OrmRate>;
+  qSeriesByPid: Map<string, number[]>;
+  podOrm: OrmLeanHealth | null;
+  verdict: { result: HealthResult | null; worstPid: string | null };
+  live: boolean;
+  onSelect: (pid: string) => void;
 }) {
   // Liste typée (worker + sonde ORM non-null) sans assertion `!`.
   const rows = workers.flatMap((w) => (w.orm ? [{ w, o: w.orm }] : []));
   if (!rows.length) return null;
+  const v = verdict.result;
   return (
-    <Card withBorder radius="md" p="md" mb="md">
-      <Group justify="space-between" wrap="nowrap" mb="sm">
-        <Group gap="xs" wrap="nowrap">
-          <IconServer size={18} />
-          <Text fw={600}>ORM par worker</Text>
-          <Badge variant="light" color="grape" size="sm">
-            {rows.length} worker(s)
-          </Badge>
-          <DocHint
-            title="ORM par worker"
-            version={ORM_DOC}
-            summary="Sonde ORM lean de CHAQUE worker du pod (cumuls par process), agrégée par le master → vue cohérente."
-            sections={[
-              {
-                label: "Pourquoi ici",
-                body: "Le diagnostic détaillé par connecteur (plus bas) tombe sur 1 worker au hasard (round-robin). Cette table, elle, couvre TOUS les workers.",
+    <Stack gap="md" mb="md">
+      {/* En-tête : Santé ORM AGRÉGÉE pod (rollup = pire worker), comme la santé framework. */}
+      {v ? (
+        <Card withBorder radius="md" p="md" style={{ contain: "content" }}>
+          <Group wrap="nowrap" align="center" gap="lg">
+            <RingProgress
+              size={92}
+              thickness={10}
+              roundCaps
+              sections={[{ value: v.score ?? 0, color: v.color }]}
+              label={
+                <Text
+                  ta="center"
+                  fw={800}
+                  fz={22}
+                  style={{ fontVariantNumeric: "tabular-nums" }}
+                >
+                  {v.score}
+                </Text>
+              }
+            />
+            <div style={{ minWidth: 0 }}>
+              <Group gap="xs" mb={4}>
+                <Text fw={700}>Santé ORM</Text>
+                <Badge color={v.color} variant="light">
+                  {v.label}
+                </Badge>
+                <DocHint
+                  title="Santé ORM (pod)"
+                  version={ORM_DOC}
+                  summary="Verdict 3 états agrégé des sondes ORM (Derringer-Suich) — même brique que la santé du framework. Rollup = PIRE worker."
+                  sections={[
+                    {
+                      label: "Signaux",
+                      body: "Connecteurs coupés & taux d'erreurs = PANNE (→ 0). Latence EWMA, requêtes lentes & reconnexions = SATURATION (planché « Dégradé »).",
+                    },
+                    {
+                      label: "Taux, pas cumul",
+                      body: "Erreurs & reconnexions en delta/min (après 2 mesures live). Requêtes lentes & EWMA = flux ORM (NODEFONY_ORM_FLOW=1).",
+                    },
+                  ]}
+                />
+              </Group>
+              <Text size="sm" c="dimmed">
+                Pod de {rows.length} workers — rollup = <b>pire worker</b>
+                {verdict.worstPid ? ` (pid ${verdict.worstPid}` : ""}
+                {verdict.worstPid && v.worst ? `, facteur ${v.worst})` : ""}
+                {verdict.worstPid && !v.worst ? ")" : ""}.
+              </Text>
+              <Text size="xs" c="dimmed" mt={4}>
+                Sonde lean agrégée par le master (cohérente, ≠ /orm/api/*
+                round-robin). Drill complet d'un worker → page Cluster.
+              </Text>
+            </div>
+            {podOrm ? (
+              <Group gap="xl" ml="auto" wrap="wrap" visibleFrom="sm">
+                <PodStat
+                  label="Connecteurs"
+                  value={`${podOrm.connected}/${podOrm.connectors}`}
+                  color={
+                    podOrm.connected < podOrm.connectors ? "orange" : undefined
+                  }
+                />
+                <PodStat
+                  label="Requêtes pod"
+                  value={fmtNum(podOrm.queryTotal)}
+                />
+                <PodStat
+                  label="Lentes"
+                  value={String(podOrm.slowTotal)}
+                  color={podOrm.slowTotal > 0 ? "orange" : undefined}
+                />
+                <PodStat
+                  label="Erreurs ORM"
+                  value={String(podOrm.errorTotal)}
+                  color={podOrm.errorTotal > 0 ? "red" : undefined}
+                />
+                <PodStat
+                  label="EWMA max"
+                  value={
+                    podOrm.maxEwmaMs == null ? "—" : fmtMs(podOrm.maxEwmaMs)
+                  }
+                />
+              </Group>
+            ) : null}
+          </Group>
+        </Card>
+      ) : null}
+
+      {/* Grille : une card par worker (santé + requêtes/connecteurs + courbe débit). */}
+      <SimpleGrid cols={{ base: 1, md: 2, xl: 3 }} spacing="md">
+        {rows.map(({ w, o }, i) => {
+          const wh = buildHealth(
+            ormHealthInputs(
+              o,
+              ratesByPid.get(w.instanceId) ?? {
+                errPerMin: null,
+                reconPerMin: null,
               },
-            ]}
-          />
-        </Group>
-        <Button
-          component={Link}
-          to="/nodefony/cluster"
-          variant="subtle"
-          size="compact-xs"
-          leftSection={<IconServer size={14} />}
-        >
-          Salle des machines
-        </Button>
-      </Group>
-      <ScrollArea.Autosize mah={280} type="auto">
-        <Table stickyHeader highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Worker</Table.Th>
-              <Table.Th>Santé</Table.Th>
-              <Table.Th style={{ textAlign: "right" }}>Connect.</Table.Th>
-              <Table.Th style={{ textAlign: "right" }}>Requêtes</Table.Th>
-              <Table.Th style={{ textAlign: "right" }}>Lentes</Table.Th>
-              <Table.Th style={{ textAlign: "right" }}>Erreurs</Table.Th>
-              <Table.Th style={{ textAlign: "right" }}>EWMA</Table.Th>
-              <Table.Th style={{ textAlign: "right" }}>Reconnex.</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {rows.map(({ w, o }, i) => {
-              const r = buildHealth(
-                ormHealthInputs(
-                  o,
-                  ratesByPid.get(w.instanceId) ?? {
-                    errPerMin: null,
-                    reconPerMin: null,
-                  },
-                ),
-              );
-              return (
-                <Table.Tr key={w.instanceId}>
-                  <Table.Td>
-                    <Text size="xs" style={{ whiteSpace: "nowrap" }}>
-                      worker {i + 1}{" "}
-                      <Text span c="dimmed" ff="monospace">
+            ),
+          );
+          const qHist = qSeriesByPid.get(w.instanceId) ?? [];
+          return (
+            <UnstyledButton
+              key={w.instanceId}
+              onClick={() => onSelect(w.instanceId)}
+              aria-label={`détail ORM du worker ${i + 1} (pid ${w.instanceId})`}
+              style={{ display: "block" }}
+            >
+              <Card
+                withBorder
+                radius="md"
+                p="md"
+                h="100%"
+                className={live ? "nf-live-card" : undefined}
+                style={{ contain: "content" }}
+              >
+                <Group justify="space-between" wrap="nowrap" mb="sm">
+                  <Group gap="xs" wrap="nowrap">
+                    <ThemeIcon variant="light" color="brand" radius="md">
+                      <IconDatabase size={18} />
+                    </ThemeIcon>
+                    <div>
+                      <Group gap={4} wrap="nowrap">
+                        <Text fw={600}>worker {i + 1}</Text>
+                        <IconChevronRight size={14} style={{ opacity: 0.5 }} />
+                      </Group>
+                      <Text
+                        size="xs"
+                        c="dimmed"
+                        style={{ fontVariantNumeric: "tabular-nums" }}
+                      >
                         pid {w.instanceId}
                       </Text>
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge size="sm" variant="light" color={r.color}>
-                      {r.label}
+                    </div>
+                  </Group>
+                  {wh.score != null ? (
+                    <Badge
+                      variant="light"
+                      color={wh.color}
+                      style={{ fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {wh.score}
                     </Badge>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: "right" }}>
+                  ) : null}
+                </Group>
+
+                {/* Requêtes + Connecteurs EN GRAND (visu directe). */}
+                <Group grow mb="sm" gap="xs">
+                  <div style={{ textAlign: "center" }}>
+                    <Text size="xs" c="dimmed">
+                      Requêtes
+                    </Text>
                     <Text
-                      size="xs"
-                      ff="monospace"
+                      fw={800}
+                      fz={28}
+                      lh={1.1}
+                      style={{ fontVariantNumeric: "tabular-nums" }}
+                    >
+                      <FlashValue value={o.queryTotal}>
+                        {fmtNum(o.queryTotal)}
+                      </FlashValue>
+                    </Text>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <Text size="xs" c="dimmed">
+                      Connecteurs
+                    </Text>
+                    <Text
+                      fw={800}
+                      fz={28}
+                      lh={1.1}
                       c={o.connected < o.connectors ? "orange" : undefined}
+                      style={{ fontVariantNumeric: "tabular-nums" }}
                     >
                       {o.connected}/{o.connectors}
                     </Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: "right" }}>
-                    <Text size="xs" ff="monospace">
-                      {fmtNum(o.queryTotal)}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: "right" }}>
-                    <Text
-                      size="xs"
-                      ff="monospace"
-                      c={o.slowTotal > 0 ? "orange" : undefined}
-                    >
-                      {o.slowTotal}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: "right" }}>
-                    <Text
-                      size="xs"
-                      ff="monospace"
-                      c={o.errorTotal > 0 ? "red" : undefined}
-                    >
-                      {o.errorTotal}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: "right" }}>
-                    <Text size="xs" ff="monospace">
-                      {o.maxEwmaMs == null ? "—" : fmtMs(o.maxEwmaMs)}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: "right" }}>
-                    <Text size="xs" ff="monospace">
-                      {o.reconnectTotal}
-                    </Text>
-                  </Table.Td>
-                </Table.Tr>
-              );
-            })}
-          </Table.Tbody>
-        </Table>
-      </ScrollArea.Autosize>
-    </Card>
+                  </div>
+                </Group>
+
+                {/* Débit requêtes/s — courbe en grand (page orientée graphs). */}
+                <Text size="xs" c="dimmed" mb={2}>
+                  Requêtes/s
+                </Text>
+                <MiniChart
+                  series={[
+                    {
+                      data: qHist.length ? qHist : [0],
+                      color: "var(--mantine-color-grape-5)",
+                      label: "req/s",
+                    },
+                  ]}
+                  height={64}
+                />
+
+                {/* Secondaire : lentes / erreurs / EWMA / reconnexions. */}
+                <Group justify="space-between" mt="sm" gap="xs" wrap="nowrap">
+                  <Text
+                    size="xs"
+                    c={o.slowTotal > 0 ? "orange" : "dimmed"}
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    lentes {o.slowTotal}
+                  </Text>
+                  <Text
+                    size="xs"
+                    c={o.errorTotal > 0 ? "red" : "dimmed"}
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    err {o.errorTotal}
+                  </Text>
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    EWMA {o.maxEwmaMs == null ? "—" : fmtMs(o.maxEwmaMs)}
+                  </Text>
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    recon {o.reconnectTotal}
+                  </Text>
+                </Group>
+              </Card>
+            </UnstyledButton>
+          );
+        })}
+      </SimpleGrid>
+    </Stack>
   );
 }
 
@@ -1575,43 +1726,65 @@ export const OrmOverview = observer(() => {
   const workers = useMemo(() => normRt?.instances ?? [], [normRt]);
   const podOrm = normRt?.totals.orm ?? null;
 
-  // Taux ORM par worker (delta des cumuls entre 2 snapshots pod) — erreurs/min &
-  // reconnexions/min. Ref = derniers cumuls vus ; state = taux dérivés (→ rerender).
+  // Taux ORM par worker (delta des cumuls entre 2 snapshots pod) : erreurs/min &
+  // reconnexions/min (verdict) + débit requêtes/s (sparkline des cartes worker).
+  // Ref = derniers cumuls vus ; states dérivés (→ rerender). 0 backend (histo front).
   const prevOrmRef = useRef<
-    Map<string, { ts: number; err: number; recon: number }>
+    Map<string, { ts: number; err: number; recon: number; q: number }>
   >(new Map());
   const [ratesByPid, setRatesByPid] = useState<Map<string, OrmRate>>(new Map());
+  // Historique du débit requêtes/s PAR worker (clé pid) → MiniChart « graphs ».
+  const [qSeriesByPid, setQSeriesByPid] = useState<Map<string, number[]>>(
+    new Map(),
+  );
   useEffect(() => {
     if (!normRt) return;
-    setRatesByPid((cur) => {
-      const next = new Map(cur);
-      const seen = new Set<string>();
-      for (const inst of normRt.instances) {
-        const o = inst.orm;
-        if (!o) continue;
-        seen.add(inst.instanceId);
-        const prev = prevOrmRef.current.get(inst.instanceId);
-        const dtMin = prev ? (normRt.ts - prev.ts) / 60000 : 0;
-        if (prev && dtMin > 0) {
-          next.set(inst.instanceId, {
-            errPerMin: Math.max(0, (o.errorTotal - prev.err) / dtMin),
-            reconPerMin: Math.max(0, (o.reconnectTotal - prev.recon) / dtMin),
-          });
-        } else if (!next.has(inst.instanceId)) {
-          next.set(inst.instanceId, { errPerMin: null, reconPerMin: null });
-        }
-        prevOrmRef.current.set(inst.instanceId, {
-          ts: normRt.ts,
-          err: o.errorTotal,
-          recon: o.reconnectTotal,
-        });
+    const rates = new Map<string, OrmRate>();
+    const qRates = new Map<string, number>();
+    const seen = new Set<string>();
+    for (const inst of normRt.instances) {
+      const o = inst.orm;
+      if (!o) continue;
+      seen.add(inst.instanceId);
+      const prev = prevOrmRef.current.get(inst.instanceId);
+      const dtMin = prev ? (normRt.ts - prev.ts) / 60000 : 0;
+      const dtSec = prev ? (normRt.ts - prev.ts) / 1000 : 0;
+      rates.set(
+        inst.instanceId,
+        prev && dtMin > 0
+          ? {
+              errPerMin: Math.max(0, (o.errorTotal - prev.err) / dtMin),
+              reconPerMin: Math.max(0, (o.reconnectTotal - prev.recon) / dtMin),
+            }
+          : { errPerMin: null, reconPerMin: null },
+      );
+      qRates.set(
+        inst.instanceId,
+        prev && dtSec > 0 ? Math.max(0, (o.queryTotal - prev.q) / dtSec) : 0,
+      );
+      prevOrmRef.current.set(inst.instanceId, {
+        ts: normRt.ts,
+        err: o.errorTotal,
+        recon: o.reconnectTotal,
+        q: o.queryTotal,
+      });
+    }
+    // Purge des pid disparus (respawn → l'ancien tombe).
+    for (const id of prevOrmRef.current.keys())
+      if (!seen.has(id)) prevOrmRef.current.delete(id);
+    setRatesByPid(rates);
+    setQSeriesByPid((prev) => {
+      const next = new Map(prev);
+      for (const [id, r] of qRates) {
+        const cur = next.get(id) ?? [];
+        const arr =
+          cur.length >= FLOW_HISTORY
+            ? cur.slice(cur.length - FLOW_HISTORY + 1)
+            : cur.slice();
+        arr.push(r);
+        next.set(id, arr);
       }
-      // Purge des pid disparus (respawn → l'ancien tombe).
-      for (const id of next.keys())
-        if (!seen.has(id)) {
-          next.delete(id);
-          prevOrmRef.current.delete(id);
-        }
+      for (const id of next.keys()) if (!seen.has(id)) next.delete(id);
       return next;
     });
   }, [normRt]);
@@ -1651,10 +1824,13 @@ export const OrmOverview = observer(() => {
       prevFlowRef.current = null;
       setLiveRt(null);
       setRatesByPid(new Map());
+      setQSeriesByPid(new Map());
       prevOrmRef.current = new Map();
     }
   }, [live]);
   useEffect(() => lsSet("nf.orm.liveMs", String(liveMs)), [liveMs]);
+
+  const navigate = useNavigate();
 
   // Santé connexions agrégée (per-instance) : latence ⌀, erreurs, reconnexions.
   const connHealth = useMemo(() => {
@@ -2133,9 +2309,18 @@ export const OrmOverview = observer(() => {
           </Tabs.List>
 
           <Tabs.Panel value="connecteurs">
-            {/* Cluster : breakdown ORM lean PAR worker (vue pod cohérente). */}
+            {/* Cluster : vue ORM orientée graphs (santé pod + grille worker),
+                calquée sur l'accueil Supervision. */}
             {isClusterMode && (
-              <ClusterOrmStrip workers={workers} ratesByPid={ratesByPid} />
+              <ClusterOrmGrid
+                workers={workers}
+                ratesByPid={ratesByPid}
+                qSeriesByPid={qSeriesByPid}
+                podOrm={podOrm}
+                verdict={verdict}
+                live={live}
+                onSelect={() => navigate("/nodefony/cluster")}
+              />
             )}
             {/* Compartiment Connecteurs */}
             <Card withBorder radius="md" p="md">

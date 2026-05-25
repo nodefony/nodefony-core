@@ -989,8 +989,10 @@ module `CLAUDE.md`/`MEMORY.md`.
   (remplace « Santé connexions ») = verdict 3 états via `utils/health.ts` `buildHealth` (MÊME brique que la santé
   framework), calculé **par worker, pod = pire worker (rollup)** ; erreurs/reconnexions en **TAUX (delta/min)** pas
   cumul ; connecteurs+erreurs = PANNE (→ 0), latence/lentes/reconnex = SATURATION (planché « Dégradé »). (b) Cluster :
-  badges **« schéma identique · N workers »** (couche schéma invariante inchangée), **`ClusterOrmStrip`** (table ORM
-  lean PAR worker + verdict/worker + lien `/cluster`), **Alert** « diagnostic détaillé = 1 worker » (le rich
+  badges **« schéma identique · N workers »** (couche schéma invariante inchangée), **`ClusterOrmGrid`** = vue ORM
+  **orientée graphs calquée sur l'accueil Supervision (`ProcessGraphGrid`)** : carte **« Santé ORM » pod** (anneau du
+  verdict + rollup pire worker + agrégats pod) puis **une card par worker** (santé + requêtes/connecteurs en grand +
+  **courbe débit req/s** dérivée des deltas `queryTotal` par pid). **Alert** « diagnostic détaillé = 1 worker » (le rich
   `connection/health`/`orm:flow` reste, labellisé honnêtement par pid). (c) **DRY** : types miroir `realtime:health`
   - `normalize`/`isCluster` extraits dans **`utils/realtimeHealth.ts`** (source unique) → `Cluster.tsx` refactorisé
     pour l'importer. ORM_DOC → v1.1. RETEX (verdict ORM = `buildHealth` réutilisé ; rates par pid via ref+state ;
