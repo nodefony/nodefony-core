@@ -319,6 +319,12 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     const viteBin = resolveViteBin();
     const spawnCmd = viteBin ? process.execPath : "npx";
     const spawnArgs = viteBin ? [viteBin, ...args.slice(1)] : args;
+    // Titre lisible dans `ps` : sinon `node …/vite/bin/vite.js --config <long path>`,
+    // impossible de distinguer les familles d'un coup d'œil. `argv0` = argv[0] du child
+    // (cosmétique : node lance quand même `viteBin` via argv[1]).
+    const psLabel = `nodefony-vite[${this.entries
+      .map((e) => e.entryName)
+      .join("+")}]`;
     this.opts.logger.debug?.(
       viteBin
         ? `vite spawn direct (node ${viteBin})`
@@ -327,6 +333,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     try {
       this.child = spawn(spawnCmd, spawnArgs, {
         cwd: this.opts.cwd,
+        argv0: psLabel,
         stdio: ["ignore", "pipe", "pipe"],
         detached: false,
         env: {
