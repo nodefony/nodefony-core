@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.10.0
+version: 1.12.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -48,9 +48,9 @@ Quand le front commence à consommer un **canal/action/endpoint/type** nouveau �
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.11.0**
-(bump **front-only** : famille de bulles d'aide typées `Hint`/`DocHint` — aucun changement de contrat back,
-`nodefony-framework-dev` reste à 1.9.0).
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.12.0**
+(co-évolution full-stack P16.H.7 : santé pod ORM+erreurs par worker — back `nodefony-framework-dev` 1.12.0 produit le
+contrat `IRealtimeHealth.orm`/`.errors`, ce skill le consomme dans la page Cluster).
 
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
@@ -951,6 +951,17 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
 - **Tester un round-trip WS** (bidirectionnel) : sur serveur **CALME** (un stress sature le handshake →
   faux négatif). Le transport est prouvé (welcome + réponse RPC id-matchée + push) ; manque une méthode
   RPC qui renvoie un `result` (direction « actions / contrôle total »).
+- **Surfacer une sonde additive sur une page live = champs OPTIONNELS + rendu conditionnel (2026-05-25, P16.H.7,
+  `Cluster.tsx`)** : le back a ajouté `IRealtimeHealth.orm`/`.errors` (additif). Côté front : (1) **types miroir
+  locaux** (`OrmLeanHealth`/`InstanceErrorHealth`, jamais d'import runtime serveur) avec `orm?`/`errors?` **optionnels**
+  sur l'instance ET les totaux ; (2) **rendu conditionnel** (`inst.orm ? <section/> : null`) → 0 régression si un worker
+  ne remonte pas la sonde (vieux pod, sonde coupée) ; (3) **`normalize()` propage** `orm`/`errors` dans les totaux du
+  cas **per-instance** (mono-process) → les KPI pod s'affichent aussi en dev, pas seulement en cluster ; (4) chaque
+  métrique porte un `DocHint` **dont le cas 0/null** (« Si 0 → flux ORM OFF en prod, NODEFONY_ORM_FLOW=1 ») — un compteur
+  cumulatif n'a PAS de couleur d'alarme (count ≠ rate), réserver la couleur aux signaux rares (critiques `red`,
+  connecteurs déconnectés `orange`). **Démo** : dev (HMR, 1 worker, instantané, fiable) montre toute l'UI ; la **grille
+  N workers + agrégation pod** = cluster (`build:front` + restart + hard-reload — friction PIÈGE #1). Vu live OK
+  (ORM 4304 req/EWMA 0.05ms/3-3 ; erreurs 7). Lockstep back = framework-dev 1.12.0. [[project_cluster_drilldown_kit]].
 
 ## Fin de session Studio (OBLIGATOIRE)
 
@@ -971,6 +982,13 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.12.0** (2026-05-25) — **Page Cluster : ORM + erreurs par worker + KPI pod** (P16.H.7 front, commit `7ab9219`).
+  `Cluster.tsx` consomme `IRealtimeHealth.orm`/`.errors` (+ `totals.*`) : WorkerCard gagne 2 sections conditionnelles
+  (« ORM » requêtes/lentes/EWMA/connecteurs/erreurs ORM/reconnexions ; « Erreurs (logs) » erreurs/critiques) + 2 KPI pod
+  (Requêtes ORM, Erreurs logs). Types miroir locaux optionnels, `normalize()` propage au cas per-instance, `DocHint`
+  avec cas 0/null. RETEX (sonde additive = champs optionnels + rendu conditionnel ; count ≠ rate côté couleur ; démo
+  dev-HMR vs grille cluster). Lockstep back = **framework-dev 1.12.0** (contrat `IOrmLeanHealth`/`IInstanceErrorHealth`,
+  seam core `setOrmHealthProvider`). [[project_cluster_drilldown_kit]].
 - **1.11.0** (2026-05-25) — **Supervision MULTI-PROCESS instance-aware + drill worker réparé**. Front :
   accueil `/nodefony/supervision` en cluster = **grille graph-oriented** (`ProcessGraphGrid` : par worker
   % CPU+mémoire en grand + courbes CPU/Heap live + ELU/loop/uptime + badge santé ; en tête **Santé du

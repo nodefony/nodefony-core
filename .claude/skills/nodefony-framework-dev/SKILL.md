@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.10.0
+version: 1.12.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.10.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.12.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -957,6 +957,7 @@ await orm.transaction(async (tx) => {
 - **profiler par-requête** (`RequestContext.queries`, debug bar) : SQL de CHAQUE requête tracée, dev-only, **coût nul hors requête tracée** (buffer ALS absent).
 - **santé** (`connection/health` + canal `orm:health`) : état/ping/latence-fenêtre/erreurs/reconnexions + sonde profonde `IOrm.probe()` (storage PRAGMA / pool). Générique (`buildConnectionHealth` itère `ormRegistry`, ping+probe), **émet une requête** (ping).
 - **flux** (`flow` + canal `orm:flow`, `queryFlowMonitor`, 2026-05-23) : DÉBIT (queries/s) + latence moy/EWMA + requêtes lentes. **Process-wide, indépendant de l'ALS**, **OFF par défaut** (gaté par le driver : `setEnabled(env!==production)`, override `NODEFONY_ORM_FLOW`). Lazy, ring slow borné 20, `toSQL()` **seulement sur le chemin lent**. **Per-connecteur** : `Map<connecteur>` (clé = nom registre, pas vendor) → le repo passe son `ormName` au tap. Débit/s **dérivé** (delta `total`/`ts`), **0 persistance** (RAM, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe). Câblé : **Drizzle** seul (Sequelize deprecated, Mongoose = TODO middleware). Ticker realtime = `createBrokerTicker` générique (réutilisé santé+flux).
+- **lean cluster** (`buildOrmLeanHealth()` orm-core, 2026-05-25) : agrégat **per-instance** de TOUS les connecteurs (registre + `queryFlowMonitor` + `connectionMonitor`) → `IOrmLeanHealth` (`connectors/connected/queryTotal/slowTotal/errorTotal/reconnectTotal/maxEwmaMs`). **0 ping / 0 toSQL**, O(N connecteurs). Branché dans le report de sonde cluster via le **seam core** `setOrmHealthProvider(buildOrmLeanHealth)` (driver Drizzle au boot) → **`framework` n'importe PAS `orm-core`**. Lu par `buildOwnHealth` (`IRealtimeHealth.orm`), agrégé pod dans `mergeClusterHealth.totals.orm`. Cf RETEX §11 + [[project_cluster_drilldown_kit]].
 
 ### Gotchas ORM
 
@@ -1327,6 +1328,26 @@ no entity table registered under "session"`, code 401, au Ctrl+C) : `DrizzleServ
   Refacto pur (runtime inchangé) → mémoire WS 8/8 verte, 0 régression. Commit `ac21bec`,
   [[project_cluster_backplane_vision]]. PROCHAINE = Phase 2 (lifecycle cluster CORE : `nodefony cluster`, fork
   **cgroup-aware** — jamais `os.cpus()` aveugle en conteneur —, respawn backoff, `isPrimary`) → session core dédiée.
+- _(2026-05-25)_ **Généraliser une agrégation cluster = enrichir le COLIS, pas l'agrégateur** (santé pod ORM+erreurs,
+  P16.H.7, commits `aa9b6fc`/`7ab9219`). `ClusterProbeAggregator` est **opaque** (garde le dernier payload/worker +
+  broadcast) → l'étendre « aux 3 sondes » = **0 ligne dans l'agrégateur** : on ajoute des champs **additifs** au report
+  per-worker (`IRealtimeHealth.orm`/`.errors`, comme `process?`/`rich?` l'avaient été) et le merge pod les somme.
+  **Leçons** : (1) un agrégat opaque ne se généralise PAS en le modifiant, mais en enrichissant ce qu'il transporte
+  (chercher l'opacité AVANT de coder) ; (2) **dépendance propre par seam core** : `framework` (assemble le report) ne
+  doit PAS importer `orm-core` → contrats `IOrmLeanHealth`/`IInstanceErrorHealth` + `setOrmHealthProvider`/`readOrmHealth`
+  dans le CORE (plus bas dénominateur commun), le **driver** branche l'impl au boot (même pattern que `setClusterProbeClient`) ;
+  (3) **gater une sonde dépend de son coût unitaire** (revu) : compteurs erreurs Syslog = 2 incréments entiers gardés
+  `sev>=0 && sev<=3` dans le SEUL `pushStack` → **always-ON** (mémoire 8/8, 0 ΔMB), comme la sonde socket et ≠ flux ORM
+  (qui chronométrait → gaté) ; lean ORM = lecture pure des singletons déjà alimentés (0 ping/0 toSQL). (4) **`mergeX`
+  avec champs optionnels** : annoter `const totals: IX["totals"] = {…}` (sinon TS infère le type fermé → `totals.orm =`
+  rejeté). Tests : core 5 / orm-core 2 (agrégat en **delta** baseline avant/après car singletons sans reset) / framework 13.
+- _(2026-05-25, PROCESS)_ **`.git/index.lock` orphelin = `git stash pop`/commit échouent silencieusement** (« error:
+  could not write index »). Vécu en faisant un `git stash -u` pour prouver une erreur pré-existante : le pop a échoué,
+  les edits sont **restés dans le stash** (working tree = original) → fausse impression de perte. Fix : `rm -f
+.git/index.lock` puis `git stash pop`. **Leçons** : (a) après tout `git` qui « réussit » mais dont l'effet manque,
+  vérifier `.git/index.lock` + `git stash list` (le pop a-t-il vraiment eu lieu ?) AVANT de recoder ; (b) prouver une
+  erreur pré-existante via `git stash` est utile mais **risqué avec un hook/lock husky** — préférer `git worktree` ou un
+  `tsc` sur le commit parent. Garde-fou husky `index.lock` = [[project_retex_improvements_kit]] #I (le + rentable).
 
 ## 12. Fin de session (OBLIGATOIRE) + auto-audit de complétude
 
@@ -1394,6 +1415,14 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.12.0** (2026-05-25) — §5.F **Santé pod ORM + erreurs par worker** (P16.H.7, commits `aa9b6fc`/`7ab9219`).
+  4ᵉ lecture ORM **lean cluster** (`buildOrmLeanHealth` orm-core → `IOrmLeanHealth`, 0 ping/0 toSQL) branchée via le
+  **seam core** `setOrmHealthProvider`/`readOrmHealth` (driver Drizzle au boot → `framework` n'importe PAS `orm-core`) ;
+  compteurs erreurs Syslog **always-ON** (`errorTotal`/`criticTotal`, 2 incréments gardés dans `pushStack`) ;
+  champs **additifs** `IRealtimeHealth.orm`/`.errors` (comme `process?`) → agrégés pod dans `mergeClusterHealth.totals`.
+  RETEX §11 (généraliser un agrégat opaque = enrichir le colis pas l'agrégateur ; seam core dep-propre ; gater = coût
+  unitaire ; `mergeX` champs optionnels = annoter `totals` ; **gotcha `.git/index.lock` orphelin → stash/commit muets**).
+  Lockstep **studio-dev 1.12.0** (front = cartes ORM/erreurs par worker dans la page Cluster). [[project_cluster_drilldown_kit]].
 - **1.10.0** (2026-05-24) — §4 **Backplane cross-process — port `IBackplane`** (Phase 1 du mode cluster sans
   PM2, commit `ac21bec`) : abstraction de fan-out cross-process du `RealtimeHub` (Loopback → Cluster IPC → Redis,
   **interchangeables**). Hub split `publish` (local **+** propagation) / `publishLocal` (local SEUL = ingress) ;
