@@ -75,6 +75,9 @@ const OrmOverview = lazy(() =>
 const OrmWorker = lazy(() =>
   import("./routes/OrmWorker").then((m) => ({ default: m.OrmWorker })),
 );
+const Documentation = lazy(() =>
+  import("./routes/Documentation").then((m) => ({ default: m.Documentation })),
+);
 
 import {
   Sessions,
@@ -180,6 +183,7 @@ const router = createBrowserRouter([
           { path: "services", element: <Services /> },
           { path: "modules", element: <Modules /> },
           { path: "modules/:name", element: <ModuleDetail /> },
+          { path: "documentation", element: <Documentation /> },
           { path: "npm", element: <Npm /> },
           { path: "profiling", element: <Profiler /> },
           { path: "settings", element: <Settings /> },

@@ -1,13 +1,10 @@
 import { observer } from "mobx-react-lite";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 import dayjs from "dayjs";
 import {
   ActionIcon,
   Alert,
-  Anchor,
   Badge,
   Box,
   Button,
@@ -16,7 +13,6 @@ import {
   Grid,
   Group,
   Loader,
-  Modal,
   NavLink,
   Progress,
   rem,
@@ -28,11 +24,10 @@ import {
   Table,
   Tabs,
   Text,
+  TextInput,
   ThemeIcon,
   Title,
   Tooltip,
-  TypographyStylesProvider,
-  useMantineColorScheme,
 } from "@mantine/core";
 import {
   IconAppWindow,
@@ -47,7 +42,6 @@ import {
   IconBook,
   IconCode,
   IconFileText,
-  IconMaximize,
   IconShieldCheck,
   IconFlask,
   IconPlayerPlay,
@@ -56,9 +50,13 @@ import {
   IconExternalLink,
   IconRefresh,
   IconStack2,
+  IconSitemap,
+  IconSearch,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
-import { ConfigView, KeyValue } from "../components/ui";
+import { ConfigView, DocLayout, KeyValue, MarkdownDoc } from "../components/ui";
+import { ModuleSymbolGraph } from "../components/SymbolGraph";
+import { RoleSwitch } from "../components/RoleSwitch";
 
 interface ModuleDetailData {
   key: string;
@@ -113,7 +111,12 @@ interface CoverageFileRow {
 interface CoverageReport {
   available: boolean;
   generated?: string | null;
-  total?: { lines: number; statements: number; functions: number; branches: number };
+  total?: {
+    lines: number;
+    statements: number;
+    functions: number;
+    branches: number;
+  };
   files?: CoverageFileRow[];
 }
 interface DepInfo {
@@ -179,7 +182,9 @@ export const ModuleDetail = observer(() => {
   const [routes, setRoutes] = useState<RouteRow[]>([]);
   const [docs, setDocs] = useState<DocSummary[]>([]);
   const [symbols, setSymbols] = useState<ModuleSymbol[]>([]);
-  const [coverage, setCoverage] = useState<CoverageReport>({ available: false });
+  const [coverage, setCoverage] = useState<CoverageReport>({
+    available: false,
+  });
   const [tests, setTests] = useState<TestsInfo>({ files: [], devMode: false });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -255,7 +260,11 @@ export const ModuleDetail = observer(() => {
         >
           Modules
         </Button>
-        <Alert color="red" icon={<IconAlertTriangle size={16} />} title="Module introuvable">
+        <Alert
+          color="red"
+          icon={<IconAlertTriangle size={16} />}
+          title="Module introuvable"
+        >
           {error ?? `Aucun module "${name}".`}
         </Alert>
       </Stack>
@@ -291,37 +300,87 @@ export const ModuleDetail = observer(() => {
           size={54}
           radius="md"
         >
-          {name === "core" ? <IconStack2 size={30} /> : data.isApp ? <IconAppWindow size={30} /> : <IconPuzzle size={30} />}
+          {name === "core" ? (
+            <IconStack2 size={30} />
+          ) : data.isApp ? (
+            <IconAppWindow size={30} />
+          ) : (
+            <IconPuzzle size={30} />
+          )}
         </ThemeIcon>
         <Stack gap={4}>
           <Group gap="sm">
-            <Title order={2}>{name === "core" ? "Nodefony Core" : data.name}</Title>
+            <Title order={2}>
+              {name === "core" ? "Nodefony Core" : data.name}
+            </Title>
             {data.version && <Badge variant="default">v{data.version}</Badge>}
-            <Badge variant="light" color={name === "core" ? "grape" : data.isApp ? "brand" : "gray"}>
-              {name === "core" ? "socle du framework" : data.isApp ? "application" : "package"}
+            <Badge
+              variant="light"
+              color={name === "core" ? "grape" : data.isApp ? "brand" : "gray"}
+            >
+              {name === "core"
+                ? "socle du framework"
+                : data.isApp
+                  ? "application"
+                  : "package"}
             </Badge>
           </Group>
           <Text c="dimmed" size="sm" ff="monospace">
-            {name === "core" ? "@nodefony/core · " : ""}{data.path ?? "—"}
+            {name === "core" ? "@nodefony/core · " : ""}
+            {data.path ?? "—"}
           </Text>
         </Stack>
       </Group>
 
       {/* ── Card à onglets (seuls les onglets avec contenu sont affichés) ── */}
-      <Card withBorder radius="md" p={0}>
+      <Card
+        withBorder
+        radius="md"
+        p={0}
+        mih="calc(100vh - 170px - var(--nodefony-debugbar-height, 0px))"
+        // overflow visible : sinon le `overflow:hidden` par défaut de Card
+        // CLIPPE le Tabs.List sticky (haut du contenu coupé + sticky cassé).
+        style={{ overflow: "visible" }}
+      >
         <Tabs value={tab ?? (hasDocs ? "docs" : "overview")} onChange={setTab}>
-          <Tabs.List>
-            <Tabs.Tab value="overview" leftSection={<IconInfoCircle size={16} />}>
+          <Tabs.List
+            style={{
+              position: "sticky",
+              top: "var(--app-shell-header-height, 56px)",
+              background: "var(--mantine-color-body)",
+              zIndex: 3,
+              // arrondi haut de la card conservé visuellement
+              borderTopLeftRadius: "var(--mantine-radius-md)",
+              borderTopRightRadius: "var(--mantine-radius-md)",
+            }}
+          >
+            <Tabs.Tab
+              value="overview"
+              leftSection={<IconInfoCircle size={16} />}
+            >
               Vue d'ensemble
             </Tabs.Tab>
             {hasDocs && (
-              <Tabs.Tab value="docs" leftSection={<IconBook size={16} />} rightSection={<CountBadge n={docs.length} />}>
+              <Tabs.Tab
+                value="docs"
+                leftSection={<IconBook size={16} />}
+                rightSection={<CountBadge n={docs.length} />}
+              >
                 Docs
               </Tabs.Tab>
             )}
             {hasApi && (
-              <Tabs.Tab value="api" leftSection={<IconCode size={16} />} rightSection={<CountBadge n={symbols.length} />}>
+              <Tabs.Tab
+                value="api"
+                leftSection={<IconCode size={16} />}
+                rightSection={<CountBadge n={symbols.length} />}
+              >
                 API
+              </Tabs.Tab>
+            )}
+            {hasApi && (
+              <Tabs.Tab value="graph" leftSection={<IconSitemap size={16} />}>
+                Graphe
               </Tabs.Tab>
             )}
             {hasCoverage && (
@@ -329,7 +388,11 @@ export const ModuleDetail = observer(() => {
                 value="coverage"
                 leftSection={<IconShieldCheck size={16} />}
                 rightSection={
-                  <Badge size="xs" variant="light" color={covColor(coverage.total?.lines ?? 0)}>
+                  <Badge
+                    size="xs"
+                    variant="light"
+                    color={covColor(coverage.total?.lines ?? 0)}
+                  >
                     {Math.round(coverage.total?.lines ?? 0)}%
                   </Badge>
                 }
@@ -338,22 +401,38 @@ export const ModuleDetail = observer(() => {
               </Tabs.Tab>
             )}
             {hasTests && (
-              <Tabs.Tab value="tests" leftSection={<IconFlask size={16} />} rightSection={<CountBadge n={tests.files.length} />}>
+              <Tabs.Tab
+                value="tests"
+                leftSection={<IconFlask size={16} />}
+                rightSection={<CountBadge n={tests.files.length} />}
+              >
                 Tests
               </Tabs.Tab>
             )}
             {hasDeps && (
-              <Tabs.Tab value="deps" leftSection={<IconPackages size={16} />} rightSection={<CountBadge n={data.dependencies.length} />}>
+              <Tabs.Tab
+                value="deps"
+                leftSection={<IconPackages size={16} />}
+                rightSection={<CountBadge n={data.dependencies.length} />}
+              >
                 Dépendances
               </Tabs.Tab>
             )}
             {hasRoutes && (
-              <Tabs.Tab value="routes" leftSection={<IconRoute size={16} />} rightSection={<CountBadge n={routes.length} />}>
+              <Tabs.Tab
+                value="routes"
+                leftSection={<IconRoute size={16} />}
+                rightSection={<CountBadge n={routes.length} />}
+              >
                 Routes
               </Tabs.Tab>
             )}
             {hasServices && (
-              <Tabs.Tab value="services" leftSection={<IconAffiliate size={16} />} rightSection={<CountBadge n={data.services.length} />}>
+              <Tabs.Tab
+                value="services"
+                leftSection={<IconAffiliate size={16} />}
+                rightSection={<CountBadge n={data.services.length} />}
+              >
                 Services
               </Tabs.Tab>
             )}
@@ -368,12 +447,60 @@ export const ModuleDetail = observer(() => {
             <Tabs.Panel value="overview">
               <Stack gap="lg">
                 <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }} spacing="md">
-                  {hasDocs && <OverviewStat label="Docs" value={docs.length} color="cyan" icon={<IconBook size={22} />} onClick={() => setTab("docs")} />}
-                  {hasApi && <OverviewStat label="API" value={symbols.length} color="grape" icon={<IconCode size={22} />} onClick={() => setTab("api")} />}
-                  {hasCoverage && <OverviewStat label="Coverage" value={`${Math.round(coverage.total?.lines ?? 0)}%`} color={covColor(coverage.total?.lines ?? 0)} icon={<IconShieldCheck size={22} />} onClick={() => setTab("coverage")} />}
-                  {hasDeps && <OverviewStat label="Dépendances" value={data.dependencies.length} color="orange" icon={<IconPackages size={22} />} onClick={() => setTab("deps")} />}
-                  {hasRoutes && <OverviewStat label="Routes" value={routes.length} color="teal" icon={<IconRoute size={22} />} onClick={() => setTab("routes")} />}
-                  {hasServices && <OverviewStat label="Services" value={data.services.length} color="blue" icon={<IconAffiliate size={22} />} onClick={() => setTab("services")} />}
+                  {hasDocs && (
+                    <OverviewStat
+                      label="Docs"
+                      value={docs.length}
+                      color="cyan"
+                      icon={<IconBook size={22} />}
+                      onClick={() => setTab("docs")}
+                    />
+                  )}
+                  {hasApi && (
+                    <OverviewStat
+                      label="API"
+                      value={symbols.length}
+                      color="grape"
+                      icon={<IconCode size={22} />}
+                      onClick={() => setTab("api")}
+                    />
+                  )}
+                  {hasCoverage && (
+                    <OverviewStat
+                      label="Coverage"
+                      value={`${Math.round(coverage.total?.lines ?? 0)}%`}
+                      color={covColor(coverage.total?.lines ?? 0)}
+                      icon={<IconShieldCheck size={22} />}
+                      onClick={() => setTab("coverage")}
+                    />
+                  )}
+                  {hasDeps && (
+                    <OverviewStat
+                      label="Dépendances"
+                      value={data.dependencies.length}
+                      color="orange"
+                      icon={<IconPackages size={22} />}
+                      onClick={() => setTab("deps")}
+                    />
+                  )}
+                  {hasRoutes && (
+                    <OverviewStat
+                      label="Routes"
+                      value={routes.length}
+                      color="teal"
+                      icon={<IconRoute size={22} />}
+                      onClick={() => setTab("routes")}
+                    />
+                  )}
+                  {hasServices && (
+                    <OverviewStat
+                      label="Services"
+                      value={data.services.length}
+                      color="blue"
+                      icon={<IconAffiliate size={22} />}
+                      onClick={() => setTab("services")}
+                    />
+                  )}
                 </SimpleGrid>
                 <Grid>
                   <Grid.Col span={{ base: 12, md: hasConfig ? 6 : 12 }}>
@@ -386,8 +513,14 @@ export const ModuleDetail = observer(() => {
                         <KeyValue k="Clé" v={data.key} mono />
                         <KeyValue k="Package" v={data.name} />
                         <KeyValue k="Version" v={data.version ?? "—"} />
-                        <KeyValue k="Type" v={data.isApp ? "application" : "package"} />
-                        <KeyValue k="Services" v={String(data.services.length)} />
+                        <KeyValue
+                          k="Type"
+                          v={data.isApp ? "application" : "package"}
+                        />
+                        <KeyValue
+                          k="Services"
+                          v={String(data.services.length)}
+                        />
                         <KeyValue k="Routes" v={String(routes.length)} />
                         <KeyValue k="Chemin" v={data.path ?? "—"} mono />
                       </Stack>
@@ -421,13 +554,23 @@ export const ModuleDetail = observer(() => {
 
             {hasDocs && (
               <Tabs.Panel value="docs">
-                <DocsPanel moduleKey={name} version={data.version} docs={docs} />
+                <DocsPanel
+                  moduleKey={name}
+                  version={data.version}
+                  docs={docs}
+                />
               </Tabs.Panel>
             )}
 
             {hasApi && (
               <Tabs.Panel value="api">
                 <ApiPanel symbols={symbols} />
+              </Tabs.Panel>
+            )}
+
+            {hasApi && (
+              <Tabs.Panel value="graph">
+                <ModuleSymbolGraph symbols={symbols} />
               </Tabs.Panel>
             )}
 
@@ -470,15 +613,28 @@ export const ModuleDetail = observer(() => {
                           <Table.Td>
                             <Group gap={4}>
                               {r.methods.map((m) => (
-                                <Badge key={m} size="xs" color={METHOD_COLORS[m] ?? "gray"} variant="light">
+                                <Badge
+                                  key={m}
+                                  size="xs"
+                                  color={METHOD_COLORS[m] ?? "gray"}
+                                  variant="light"
+                                >
                                   {m}
                                 </Badge>
                               ))}
                             </Group>
                           </Table.Td>
-                          <Table.Td><Code>{r.path}</Code></Table.Td>
-                          <Table.Td><Text size="xs">{r.controller ?? "—"}</Text></Table.Td>
-                          <Table.Td><Text size="xs" c="dimmed">{r.action ?? "—"}</Text></Table.Td>
+                          <Table.Td>
+                            <Code>{r.path}</Code>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs">{r.controller ?? "—"}</Text>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">
+                              {r.action ?? "—"}
+                            </Text>
+                          </Table.Td>
                         </Table.Tr>
                       ))}
                     </Table.Tbody>
@@ -500,8 +656,14 @@ export const ModuleDetail = observer(() => {
                     <Table.Tbody>
                       {data.services.map((s) => (
                         <Table.Tr key={s.name}>
-                          <Table.Td><Code>{s.name}</Code></Table.Td>
-                          <Table.Td><Text size="xs" c="dimmed">{s.class ?? "—"}</Text></Table.Td>
+                          <Table.Td>
+                            <Code>{s.name}</Code>
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="xs" c="dimmed">
+                              {s.class ?? "—"}
+                            </Text>
+                          </Table.Td>
                         </Table.Tr>
                       ))}
                     </Table.Tbody>
@@ -565,7 +727,8 @@ function ModuleDetailSkeleton() {
 }
 
 /** Hauteur de lecture inline = viewport moins l'en-tête de page + onglets. */
-const READER_HEIGHT = "calc(100vh - 250px)";
+const READER_HEIGHT =
+  "calc(100vh - 250px - var(--nodefony-debugbar-height, 0px))";
 
 /**
  * DocsPanel — lecture fluide de la doc colocalisée.
@@ -587,7 +750,9 @@ function DocsPanel({
   const [content, setContent] = useState<DocContent | null>(null);
   const [docLoading, setDocLoading] = useState(false);
   const [docError, setDocError] = useState<string | null>(null);
-  const [fullscreen, setFullscreen] = useState(false);
+  // Prévisualisation par rôle (filtrage réel = `audience` frontmatter à venir).
+  const [role, setRole] = useState<string>("admin");
+  const [pageQuery, setPageQuery] = useState("");
 
   useEffect(() => {
     if (!active) return;
@@ -614,192 +779,111 @@ function DocsPanel({
 
   const meta = docs.find((d) => d.slug === active);
 
-  // Composants markdown → primitives Mantine + liens internes `.md` cliquables
-  // + rendu Mermaid des blocks ```mermaid (vrais diagrammes vectoriels).
-  const mdComponents: Components = {
-    code({ className, children }) {
-      if (/\blanguage-mermaid\b/.test(className ?? "")) {
-        return <MermaidDiagram code={String(children ?? "").replace(/\n$/, "")} />;
-      }
-      return <code className={className}>{children}</code>;
-    },
-    a({ href, children }) {
-      const h = String(href ?? "");
-      const isExternal = /^https?:\/\//i.test(h);
-      const m = h.match(/^\.?\/?([a-z0-9._-]+)\.md(#.*)?$/i);
-      const slug = m?.[1];
-      if (slug && docs.some((d) => d.slug === slug)) {
-        return (
-          <Anchor
-            onClick={(e) => {
-              e.preventDefault();
-              setActive(slug);
-            }}
-            style={{ cursor: "pointer" }}
-          >
-            {children}
-          </Anchor>
+  const pages =
+    pageQuery.trim().length === 0
+      ? docs
+      : docs.filter((d) =>
+          d.title.toLowerCase().includes(pageQuery.trim().toLowerCase()),
         );
-      }
-      return (
-        <Anchor href={h} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noreferrer" : undefined}>
-          {children}
-        </Anchor>
-      );
-    },
-  };
 
-  const toc = (
-    <>
-      <Text size="xs" c="dimmed" tt="uppercase" fw={700} mb={6} px="xs">
-        Sommaire
-      </Text>
-      <Stack gap={2}>
-        {docs.map((d) => (
-          <NavLink
-            key={d.slug}
-            active={d.slug === active}
-            label={d.title}
-            leftSection={<IconFileText size={16} />}
-            onClick={() => setActive(d.slug)}
-            styles={{ label: { fontSize: rem(13) } }}
-          />
-        ))}
-      </Stack>
-    </>
+  const navList = (
+    <Stack gap={2}>
+      {pages.map((d) => (
+        <NavLink
+          key={d.slug}
+          active={d.slug === active}
+          label={d.title}
+          leftSection={<IconFileText size={16} />}
+          onClick={() => setActive(d.slug)}
+          styles={{ label: { fontSize: rem(13) } }}
+        />
+      ))}
+      {!pages.length && (
+        <Text size="xs" c="dimmed" px="xs">
+          Aucune page ne correspond.
+        </Text>
+      )}
+    </Stack>
   );
 
-  // Corps markdown — `full` élargit la colonne de lecture en plein écran.
-  const body = (full: boolean) =>
-    docLoading ? (
-      <Group justify="center" py="xl"><Loader size="sm" /></Group>
-    ) : docError ? (
-      <Alert color="red" icon={<IconAlertTriangle size={16} />}>{docError}</Alert>
-    ) : content ? (
-      <TypographyStylesProvider>
-        <Box style={{ maxWidth: rem(full ? 1100 : 820), fontSize: rem(15), lineHeight: 1.75 }}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-            {content.markdown}
-          </ReactMarkdown>
-        </Box>
-      </TypographyStylesProvider>
-    ) : null;
+  const navSearch =
+    docs.length > 6 ? (
+      <TextInput
+        size="xs"
+        mb={6}
+        placeholder="Rechercher une page…"
+        value={pageQuery}
+        onChange={(e) => setPageQuery(e.currentTarget.value)}
+        leftSection={<IconSearch size={13} />}
+        aria-label="Rechercher une page de doc"
+      />
+    ) : undefined;
 
-  const header = (full: boolean) =>
-    meta && (
-      <Group gap="xs" mb="md" wrap="nowrap">
-        <Title order={3} style={{ flex: 1, minWidth: 0 }} lineClamp={1}>
-          {meta.title}
-        </Title>
-        {version && <Badge variant="default" size="sm">v{version}</Badge>}
-        {meta.status && (
-          <Badge size="sm" color={STATUS_COLORS[meta.status] ?? "gray"} variant="light">
-            {meta.status}
-          </Badge>
-        )}
-        {(content?.gitUpdated ?? meta.gitUpdated) && (
-          <Tooltip label="Dernier commit git de ce fichier (détecte la dérive doc↔code)">
-            <Text size="xs" c="dimmed">
-              maj {dayjs(content?.gitUpdated ?? meta.gitUpdated).format("YYYY-MM-DD")}
-            </Text>
-          </Tooltip>
-        )}
-        {!full && (
-          <Tooltip label="Plein écran (schémas)">
-            <ActionIcon variant="subtle" color="gray" onClick={() => setFullscreen(true)}>
-              <IconMaximize size={18} />
-            </ActionIcon>
-          </Tooltip>
-        )}
-      </Group>
-    );
+  const docTitle = meta && (
+    <Group gap="xs" wrap="nowrap">
+      <Title order={3} style={{ minWidth: 0 }} lineClamp={1}>
+        {meta.title}
+      </Title>
+      <RoleSwitch value={role} onChange={setRole} />
+      {version && (
+        <Badge variant="default" size="sm">
+          v{version}
+        </Badge>
+      )}
+      {meta.status && (
+        <Badge
+          size="sm"
+          color={STATUS_COLORS[meta.status] ?? "gray"}
+          variant="light"
+        >
+          {meta.status}
+        </Badge>
+      )}
+      {(content?.gitUpdated ?? meta.gitUpdated) && (
+        <Tooltip label="Dernier commit git de ce fichier (détecte la dérive doc↔code)">
+          <Text size="xs" c="dimmed">
+            maj{" "}
+            {dayjs(content?.gitUpdated ?? meta.gitUpdated).format("YYYY-MM-DD")}
+          </Text>
+        </Tooltip>
+      )}
+    </Group>
+  );
+
+  const body = docLoading ? (
+    <Group justify="center" py="xl">
+      <Loader size="sm" />
+    </Group>
+  ) : docError ? (
+    <Alert color="red" icon={<IconAlertTriangle size={16} />}>
+      {docError}
+    </Alert>
+  ) : content ? (
+    <MarkdownDoc
+      markdown={content.markdown}
+      onInternalLink={(slug) => {
+        if (docs.some((d) => d.slug === slug)) {
+          setActive(slug);
+          return true;
+        }
+        return false;
+      }}
+    />
+  ) : null;
 
   return (
-    <>
-      <Grid gutter="xl">
-        <Grid.Col span={{ base: 12, sm: 3 }}>
-          <ScrollArea h={READER_HEIGHT} type="hover">
-            {toc}
-          </ScrollArea>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, sm: 9 }}>
-          {header(false)}
-          <ScrollArea h={READER_HEIGHT} type="auto" offsetScrollbars>
-            {body(false)}
-          </ScrollArea>
-        </Grid.Col>
-      </Grid>
-
-      <Modal
-        opened={fullscreen}
-        onClose={() => setFullscreen(false)}
-        fullScreen
-        radius={0}
-        title={meta?.title ?? "Documentation"}
-        styles={{ body: { height: "calc(100vh - 60px)" } }}
-      >
-        <Grid gutter="xl" h="100%">
-          <Grid.Col span={{ base: 12, sm: 3 }}>
-            <ScrollArea h="calc(100vh - 90px)" type="hover">
-              {toc}
-            </ScrollArea>
-          </Grid.Col>
-          <Grid.Col span={{ base: 12, sm: 9 }}>
-            <ScrollArea h="calc(100vh - 90px)" type="auto" offsetScrollbars>
-              {body(true)}
-            </ScrollArea>
-          </Grid.Col>
-        </Grid>
-      </Modal>
-    </>
+    <DocLayout
+      navTitle="Pages"
+      navSearch={navSearch}
+      nav={navList}
+      title={docTitle}
+      tocMarkdown={content?.markdown}
+      mode="container"
+      height={READER_HEIGHT}
+    >
+      {body}
+    </DocLayout>
   );
-}
-
-/**
- * MermaidDiagram — rend un block ```mermaid en SVG vectoriel.
- * Mermaid est **chargé en lazy** (`import()` dynamique) → chunk séparé, tiré
- * uniquement quand une doc contient un schéma. Thème suivi du colorScheme.
- */
-function MermaidDiagram({ code }: { code: string }) {
-  const { colorScheme } = useMantineColorScheme();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const baseId = useId().replace(/[^a-zA-Z0-9]/g, "");
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const mermaid = (await import("mermaid")).default;
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: colorScheme === "light" ? "default" : "dark",
-          securityLevel: "strict",
-          fontFamily: "inherit",
-        });
-        const { svg } = await mermaid.render(`mermaid-${baseId}-${Date.now()}`, code);
-        if (!cancelled && containerRef.current) {
-          containerRef.current.innerHTML = svg;
-          setError(null);
-        }
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [code, colorScheme, baseId]);
-
-  if (error) {
-    return (
-      <Alert color="orange" icon={<IconAlertTriangle size={16} />} title="Schéma Mermaid invalide" my="md">
-        <Code block>{code}</Code>
-        <Text size="xs" c="dimmed" mt="xs">{error}</Text>
-      </Alert>
-    );
-  }
-  return <Box ref={containerRef} my="md" style={{ overflowX: "auto", textAlign: "center" }} />;
 }
 
 /** ApiPanel — référence API auto (kind/nom/description) depuis `.ai/symbols.json`. */
@@ -818,7 +902,11 @@ function ApiPanel({ symbols }: { symbols: ModuleSymbol[] }) {
           {symbols.map((s) => (
             <Table.Tr key={`${s.kind}:${s.name}`}>
               <Table.Td>
-                <Badge size="xs" variant="light" color={KIND_COLORS[s.kind] ?? "gray"}>
+                <Badge
+                  size="xs"
+                  variant="light"
+                  color={KIND_COLORS[s.kind] ?? "gray"}
+                >
                   {s.kind}
                 </Badge>
               </Table.Td>
@@ -867,41 +955,90 @@ function OverviewStat({
     >
       <Group justify="space-between" wrap="nowrap">
         <Stack gap={2}>
-          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>{label}</Text>
-          <Text fz={28} fw={700} lh={1}>{value}</Text>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+            {label}
+          </Text>
+          <Text fz={28} fw={700} lh={1}>
+            {value}
+          </Text>
         </Stack>
-        <ThemeIcon variant="light" color={color} size={44} radius="md">{icon}</ThemeIcon>
+        <ThemeIcon variant="light" color={color} size={44} radius="md">
+          {icon}
+        </ThemeIcon>
       </Group>
     </Card>
   );
 }
 
 /** Carte d'une dépendance : nom + version installée + statut MAJ (si vérifié). */
-function DepCard({ dep, out, onClick }: { dep: DepInfo; out?: OutdatedInfo; onClick: () => void }) {
+function DepCard({
+  dep,
+  out,
+  onClick,
+}: {
+  dep: DepInfo;
+  out?: OutdatedInfo;
+  onClick: () => void;
+}) {
   return (
-    <Card withBorder radius="md" p="sm" onClick={onClick} style={{ cursor: "pointer" }}>
+    <Card
+      withBorder
+      radius="md"
+      p="sm"
+      onClick={onClick}
+      style={{ cursor: "pointer" }}
+    >
       <Group gap="sm" wrap="nowrap">
-        <ThemeIcon variant="light" color={dep.kind === "nodefony" ? "brand" : "gray"} size={34} radius="md">
+        <ThemeIcon
+          variant="light"
+          color={dep.kind === "nodefony" ? "brand" : "gray"}
+          size={34}
+          radius="md"
+        >
           <IconPackage size={18} />
         </ThemeIcon>
         <Stack gap={3} style={{ minWidth: 0, flex: 1 }}>
-          <Text size="sm" fw={500} truncate>{dep.name}</Text>
+          <Text size="sm" fw={500} truncate>
+            {dep.name}
+          </Text>
           <Group gap={6} wrap="nowrap">
             {dep.installed ? (
-              <Badge size="xs" variant="default">v{dep.installed}</Badge>
+              <Badge size="xs" variant="default">
+                v{dep.installed}
+              </Badge>
             ) : (
-              <Badge size="xs" variant="light" color="gray">non installé</Badge>
+              <Badge size="xs" variant="light" color="gray">
+                non installé
+              </Badge>
             )}
-            {dep.range && <Text size="xs" c="dimmed" truncate>{dep.range}</Text>}
+            {dep.range && (
+              <Text size="xs" c="dimmed" truncate>
+                {dep.range}
+              </Text>
+            )}
           </Group>
         </Stack>
         {out &&
           (out.outdated ? (
             <Tooltip label={`Dernière version npm : ${out.latest}`}>
-              <Badge size="xs" color="orange" variant="filled" style={{ flexShrink: 0 }}>↑ {out.latest}</Badge>
+              <Badge
+                size="xs"
+                color="orange"
+                variant="filled"
+                style={{ flexShrink: 0 }}
+              >
+                ↑ {out.latest}
+              </Badge>
             </Tooltip>
           ) : out.latest ? (
-            <Badge size="xs" color="teal" variant="light" style={{ flexShrink: 0 }}>à jour</Badge>
+            <Badge
+              size="xs"
+              color="teal"
+              variant="light"
+              style={{ flexShrink: 0 }}
+            >
+              à jour
+            </Badge>
           ) : null)}
         {dep.kind === "external" && !out && (
           <IconExternalLink size={13} style={{ opacity: 0.4, flexShrink: 0 }} />
@@ -917,7 +1054,13 @@ function DepCard({ dep, out, onClick }: { dep: DepInfo; out?: OutdatedInfo; onCl
  * `/module/{key}/dependencies` (+ `/outdated`). Carte Nodefony → page module,
  * externe → npmjs.com.
  */
-function DepsPanel({ moduleKey, onNavigate }: { moduleKey: string; onNavigate: (short: string) => void }) {
+function DepsPanel({
+  moduleKey,
+  onNavigate,
+}: {
+  moduleKey: string;
+  onNavigate: (short: string) => void;
+}) {
   const store = useStore();
   const [deps, setDeps] = useState<DepInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -931,18 +1074,30 @@ function DepsPanel({ moduleKey, onNavigate }: { moduleKey: string; onNavigate: (
     setOutdated({});
     store.api
       .getAbsolute<{ deps: DepInfo[] }>(base)
-      .then((r) => { if (!cancelled) setDeps(r.deps ?? []); })
-      .catch(() => { if (!cancelled) setDeps([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((r) => {
+        if (!cancelled) setDeps(r.deps ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setDeps([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [store, base]);
 
   const check = async () => {
     setChecking(true);
     try {
-      const r = await store.api.getAbsolute<{ outdated: OutdatedInfo[] }>(`${base}/outdated`);
+      const r = await store.api.getAbsolute<{ outdated: OutdatedInfo[] }>(
+        `${base}/outdated`,
+      );
       const map: Record<string, OutdatedInfo> = {};
-      (r.outdated ?? []).forEach((o) => { map[o.name] = o; });
+      (r.outdated ?? []).forEach((o) => {
+        map[o.name] = o;
+      });
       setOutdated(map);
     } catch {
       /* registre indispo */
@@ -951,11 +1106,17 @@ function DepsPanel({ moduleKey, onNavigate }: { moduleKey: string; onNavigate: (
     }
   };
 
-  if (loading) return <Group justify="center" py="xl"><Loader size="sm" /></Group>;
+  if (loading)
+    return (
+      <Group justify="center" py="xl">
+        <Loader size="sm" />
+      </Group>
+    );
 
   const nf = deps.filter((d) => d.kind === "nodefony");
   const ext = deps.filter((d) => d.kind === "external");
-  const shortOf = (n: string) => (n === "nodefony" ? "core" : n.replace("@nodefony/", ""));
+  const shortOf = (n: string) =>
+    n === "nodefony" ? "core" : n.replace("@nodefony/", "");
   const nbOutdated = Object.values(outdated).filter((o) => o.outdated).length;
   const checked = Object.keys(outdated).length > 0;
 
@@ -963,7 +1124,8 @@ function DepsPanel({ moduleKey, onNavigate }: { moduleKey: string; onNavigate: (
     <Stack gap="xl">
       <Group justify="space-between" wrap="nowrap">
         <Text size="xs" c="dimmed">
-          Versions installées (node_modules). Le check interroge le registry npm (deps externes).
+          Versions installées (node_modules). Le check interroge le registry npm
+          (deps externes).
         </Text>
         <Button
           size="xs"
@@ -973,19 +1135,31 @@ function DepsPanel({ moduleKey, onNavigate }: { moduleKey: string; onNavigate: (
           loading={checking}
           onClick={check}
         >
-          {checked ? (nbOutdated > 0 ? `${nbOutdated} MAJ dispo` : "Tout à jour") : "Vérifier les MAJ"}
+          {checked
+            ? nbOutdated > 0
+              ? `${nbOutdated} MAJ dispo`
+              : "Tout à jour"
+            : "Vérifier les MAJ"}
         </Button>
       </Group>
 
       {nf.length > 0 && (
         <Stack gap="sm">
           <Group gap="xs">
-            <Text size="sm" fw={700}>Nodefony</Text>
-            <Badge size="sm" variant="light" color="brand">{nf.length}</Badge>
+            <Text size="sm" fw={700}>
+              Nodefony
+            </Text>
+            <Badge size="sm" variant="light" color="brand">
+              {nf.length}
+            </Badge>
           </Group>
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
             {nf.map((d) => (
-              <DepCard key={d.name} dep={d} onClick={() => onNavigate(shortOf(d.name))} />
+              <DepCard
+                key={d.name}
+                dep={d}
+                onClick={() => onNavigate(shortOf(d.name))}
+              />
             ))}
           </SimpleGrid>
         </Stack>
@@ -994,8 +1168,12 @@ function DepsPanel({ moduleKey, onNavigate }: { moduleKey: string; onNavigate: (
       {ext.length > 0 && (
         <Stack gap="sm">
           <Group gap="xs">
-            <Text size="sm" fw={700}>Externes</Text>
-            <Badge size="sm" variant="light" color="gray">{ext.length}</Badge>
+            <Text size="sm" fw={700}>
+              Externes
+            </Text>
+            <Badge size="sm" variant="light" color="gray">
+              {ext.length}
+            </Badge>
           </Group>
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
             {ext.map((d) => (
@@ -1003,7 +1181,13 @@ function DepsPanel({ moduleKey, onNavigate }: { moduleKey: string; onNavigate: (
                 key={d.name}
                 dep={d}
                 out={outdated[d.name]}
-                onClick={() => window.open(`https://www.npmjs.com/package/${d.name}`, "_blank", "noopener")}
+                onClick={() =>
+                  window.open(
+                    `https://www.npmjs.com/package/${d.name}`,
+                    "_blank",
+                    "noopener",
+                  )
+                }
               />
             ))}
           </SimpleGrid>
@@ -1018,9 +1202,12 @@ function ResultBadge({ res }: { res: TestRunResult }) {
   return (
     <Group gap={6} wrap="nowrap">
       <Badge color={res.ok ? "teal" : "red"} variant="light">
-        {res.ok ? "✓" : "✗"} {res.passed} passed{res.failed ? ` / ${res.failed} failed` : ""}
+        {res.ok ? "✓" : "✗"} {res.passed} passed
+        {res.failed ? ` / ${res.failed} failed` : ""}
       </Badge>
-      <Text size="xs" c="dimmed">{(res.durationMs / 1000).toFixed(1)}s</Text>
+      <Text size="xs" c="dimmed">
+        {(res.durationMs / 1000).toFixed(1)}s
+      </Text>
     </Group>
   );
 }
@@ -1030,15 +1217,31 @@ function ResultBadge({ res }: { res: TestRunResult }) {
  * `POST /nodefony/kernel/api/module/{key}/test/run` (gardé DEV-ONLY côté
  * backend). « Lancer tous » = `npm run coverage` (rafraîchit aussi le coverage).
  */
-function TestsPanel({ moduleKey, tests }: { moduleKey: string; tests: TestsInfo }) {
+function TestsPanel({
+  moduleKey,
+  tests,
+}: {
+  moduleKey: string;
+  tests: TestsInfo;
+}) {
   const store = useStore();
   const ALL = "__all__";
-  const [results, setResults] = useState<Record<string, TestRunResult | "running">>({});
+  const [results, setResults] = useState<
+    Record<string, TestRunResult | "running">
+  >({});
 
   const fail = (k: string, msg: string) =>
     setResults((r) => ({
       ...r,
-      [k]: { ok: false, code: null, passed: 0, failed: 0, durationMs: 0, output: msg, mode: "" },
+      [k]: {
+        ok: false,
+        code: null,
+        passed: 0,
+        failed: 0,
+        durationMs: 0,
+        output: msg,
+        mode: "",
+      },
     }));
 
   // Run ASYNCHRONE : POST démarre + rend jobId, puis on poll GET ?jobId (les
@@ -1048,14 +1251,17 @@ function TestsPanel({ moduleKey, tests }: { moduleKey: string; tests: TestsInfo 
     const base = `/nodefony/kernel/api/module/${encodeURIComponent(moduleKey)}/test/run`;
     setResults((r) => ({ ...r, [k]: "running" }));
     try {
-      const start = await store.api.postAbsolute<{ jobId?: string }>(base, file ? { file } : {});
+      const start = await store.api.postAbsolute<{ jobId?: string }>(
+        base,
+        file ? { file } : {},
+      );
       const jobId = start.jobId;
       if (!jobId) return fail(k, "pas de jobId renvoyé");
       for (let i = 0; i < 120; i++) {
         await new Promise((res) => setTimeout(res, 1500));
-        const st = await store.api.getAbsolute<{ done: boolean } & TestRunResult>(
-          `${base}?jobId=${encodeURIComponent(jobId)}`,
-        );
+        const st = await store.api.getAbsolute<
+          { done: boolean } & TestRunResult
+        >(`${base}?jobId=${encodeURIComponent(jobId)}`);
         if (st.done) {
           setResults((r) => ({ ...r, [k]: st }));
           return;
@@ -1069,8 +1275,13 @@ function TestsPanel({ moduleKey, tests }: { moduleKey: string; tests: TestsInfo 
 
   if (!tests.devMode) {
     return (
-      <Alert color="yellow" icon={<IconAlertTriangle size={16} />} title="Lancement désactivé">
-        Le lancement des tests depuis Studio n'est autorisé qu'en mode <Code>development</Code>.
+      <Alert
+        color="yellow"
+        icon={<IconAlertTriangle size={16} />}
+        title="Lancement désactivé"
+      >
+        Le lancement des tests depuis Studio n'est autorisé qu'en mode{" "}
+        <Code>development</Code>.
       </Alert>
     );
   }
@@ -1092,7 +1303,8 @@ function TestsPanel({ moduleKey, tests }: { moduleKey: string; tests: TestsInfo 
         </Button>
         {allRes && allRes !== "running" && <ResultBadge res={allRes} />}
         <Text size="xs" c="dimmed">
-          « Lancer tous » régénère aussi le coverage (recharge la page pour le voir à jour).
+          « Lancer tous » régénère aussi le coverage (recharge la page pour le
+          voir à jour).
         </Text>
       </Group>
 
@@ -1110,7 +1322,9 @@ function TestsPanel({ moduleKey, tests }: { moduleKey: string; tests: TestsInfo 
               const res = results[f];
               return (
                 <Table.Tr key={f}>
-                  <Table.Td><Code>{f}</Code></Table.Td>
+                  <Table.Td>
+                    <Code>{f}</Code>
+                  </Table.Td>
                   <Table.Td>
                     <Button
                       size="xs"
@@ -1122,7 +1336,11 @@ function TestsPanel({ moduleKey, tests }: { moduleKey: string; tests: TestsInfo 
                       Run
                     </Button>
                   </Table.Td>
-                  <Table.Td>{res && res !== "running" ? <ResultBadge res={res} /> : null}</Table.Td>
+                  <Table.Td>
+                    {res && res !== "running" ? (
+                      <ResultBadge res={res} />
+                    ) : null}
+                  </Table.Td>
                 </Table.Tr>
               );
             })}
@@ -1131,7 +1349,12 @@ function TestsPanel({ moduleKey, tests }: { moduleKey: string; tests: TestsInfo 
       </Table.ScrollContainer>
 
       {failures.map(([k, r]) => (
-        <Alert key={k} color="red" icon={<IconAlertTriangle size={16} />} title={`Échec : ${k === ALL ? "suite complète" : k}`}>
+        <Alert
+          key={k}
+          color="red"
+          icon={<IconAlertTriangle size={16} />}
+          title={`Échec : ${k === ALL ? "suite complète" : k}`}
+        >
           <ScrollArea.Autosize mah={240}>
             <Code block>{r.output || "(pas de sortie)"}</Code>
           </ScrollArea.Autosize>
@@ -1163,9 +1386,15 @@ function CoveragePanel({ report }: { report: CoverageReport }) {
         thickness={8}
         roundCaps
         sections={[{ value: pct, color: covColor(pct) }]}
-        label={<Text ta="center" fw={700} size="sm">{Math.round(pct)}%</Text>}
+        label={
+          <Text ta="center" fw={700} size="sm">
+            {Math.round(pct)}%
+          </Text>
+        }
       />
-      <Text size="xs" c="dimmed">{label}</Text>
+      <Text size="xs" c="dimmed">
+        {label}
+      </Text>
     </Stack>
   );
   return (
@@ -1184,8 +1413,8 @@ function CoveragePanel({ report }: { report: CoverageReport }) {
         )}
       </Group>
       <Text size="xs" c="dimmed">
-        Couverture des tests <b>unit</b> (vitest + @vitest/coverage-v8). L'intégration
-        tape un serveur séparé → non mesurée ici.
+        Couverture des tests <b>unit</b> (vitest + @vitest/coverage-v8).
+        L'intégration tape un serveur séparé → non mesurée ici.
       </Text>
       <Table.ScrollContainer minWidth={560}>
         <Table striped highlightOnHover withRowBorders={false}>
@@ -1200,15 +1429,32 @@ function CoveragePanel({ report }: { report: CoverageReport }) {
           <Table.Tbody>
             {files.map((f) => (
               <Table.Tr key={f.file}>
-                <Table.Td><Code>{f.file}</Code></Table.Td>
+                <Table.Td>
+                  <Code>{f.file}</Code>
+                </Table.Td>
                 <Table.Td>
                   <Group gap="xs" wrap="nowrap">
-                    <Progress value={f.lines} color={covColor(f.lines)} w={110} size="sm" />
-                    <Text size="xs" w={34} ta="right">{Math.round(f.lines)}%</Text>
+                    <Progress
+                      value={f.lines}
+                      color={covColor(f.lines)}
+                      w={110}
+                      size="sm"
+                    />
+                    <Text size="xs" w={34} ta="right">
+                      {Math.round(f.lines)}%
+                    </Text>
                   </Group>
                 </Table.Td>
-                <Table.Td><Text size="xs" c={covColor(f.functions)}>{Math.round(f.functions)}%</Text></Table.Td>
-                <Table.Td><Text size="xs" c={covColor(f.branches)}>{Math.round(f.branches)}%</Text></Table.Td>
+                <Table.Td>
+                  <Text size="xs" c={covColor(f.functions)}>
+                    {Math.round(f.functions)}%
+                  </Text>
+                </Table.Td>
+                <Table.Td>
+                  <Text size="xs" c={covColor(f.branches)}>
+                    {Math.round(f.branches)}%
+                  </Text>
+                </Table.Td>
               </Table.Tr>
             ))}
           </Table.Tbody>

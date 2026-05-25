@@ -101,6 +101,20 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Portail de documentation unifié (DÉMO/POC) — doc par persona, graphes,
+    // doc dynamique. Futur module @nodefony/documentation.
+    id: "documentation",
+    label: "Documentation",
+    icon: IconBooks,
+    items: [
+      {
+        to: "/nodefony/documentation",
+        label: "Documentation",
+        icon: IconBooks,
+      },
+    ],
+  },
+  {
     // Couche TRANSVERSE : tout ce qui s'observe en temps réel (le différenciateur).
     // Le Realtime Hub y vit (sa console) ; le chip topbar reste le contrôle rapide.
     id: "observability",

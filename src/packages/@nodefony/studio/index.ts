@@ -17,8 +17,13 @@ import type { FrontendService } from "@nodefony/frontend";
 import config from "./nodefony/config/config";
 import StudioController from "./nodefony/controller/StudioController";
 import StudioRealtimeController from "./nodefony/controller/StudioRealtimeController";
+import DocumentationController from "./nodefony/controller/DocumentationController";
 
-@controllers([StudioController, StudioRealtimeController])
+@controllers([
+  StudioController,
+  StudioRealtimeController,
+  DocumentationController,
+])
 class Studio extends Module {
   constructor(kernel: Kernel) {
     super("studio", kernel, import.meta.url, config);

@@ -19,6 +19,32 @@ export {
   type DocSection,
 } from "./DocHint";
 export { KeyValue, DefinitionList, type KeyValueProps } from "./KeyValue";
+export {
+  MarkdownDoc,
+  MermaidDiagram,
+  type MarkdownDocProps,
+} from "./MarkdownDoc";
+export {
+  DocToc,
+  extractHeadings,
+  slugifyHeading,
+  type TocHeading,
+  type DocTocProps,
+} from "./DocToc";
+export {
+  STICKY_TOP,
+  CONTENT_STICKY_TOP,
+  SIDEBAR_MAX_HEIGHT,
+  HEADING_SCROLL_MARGIN,
+} from "./layout";
+export { DocLayout, type DocLayoutProps } from "./DocLayout";
+export {
+  FlowGraph,
+  type FlowGraphProps,
+  type FlowGraphNode,
+  type FlowGraphEdge,
+  type FlowNodeData,
+} from "./FlowGraph";
 export { JsonViewer, type JsonViewerProps } from "./JsonViewer";
 export { ConfigView, type ConfigViewProps } from "./ConfigView";
 export {
