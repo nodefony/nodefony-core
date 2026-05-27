@@ -1,6 +1,7 @@
 {
   "extension": ["ts"],
   "spec": "nodefony/tests/**/*.test.ts",
+  "ignore": "nodefony/tests/unit/**",
   "require": "ts-node/register",
   "recursive": true,
   "exit": true,
