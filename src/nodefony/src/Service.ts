@@ -105,7 +105,10 @@ class Service implements IService {
     if (notificationsCenter instanceof Event) {
       this.#sharedNc = true;
       this.#nc = notificationsCenter;
-      this.#nc.settingsToListen(options, this);
+      // Listeners injectés par config sur un bus PARTAGÉ → passer par notre
+      // wrapper tracké (this.on) sinon clean() ne les retire pas (fuite à
+      // chaque construction d'instance — règle absolue perf+mémoire).
+      this.attachConfiguredListeners(options);
       if (options.events?.nbListeners) {
         this.#nc.setMaxListeners(options.events.nbListeners);
       }
@@ -119,7 +122,29 @@ class Service implements IService {
       }
     }
 
+    // `delete` (et non `= undefined`) — `server-static.ts:initStaticFiles`
+    // itère `for (... in this.options)` et appelle `.path` sur chaque valeur
+    // (suppose la clé `events` ABSENTE après ctor). Le supposé gain V8 hidden
+    // class de `= undefined` est annulé par les `if (!v) continue` à ajouter
+    // chez tous les consommateurs (pattern `for...in` répandu).
     delete this.options.events;
+  }
+
+  /**
+   * Convention `onXxx` → enregistre les listeners déclarés en config (clé
+   * matchant `/^on(.+)$/`) via {@link Service.on} pour que {@link clean}
+   * puisse les retirer du bus partagé. Variante trackée de
+   * {@link Event.settingsToListen}.
+   */
+  private attachConfiguredListeners(
+    localSettings: DefaultOptionsService,
+  ): void {
+    for (const key of Object.keys(localSettings)) {
+      if (!/^on(.+)$/.test(key)) continue;
+      const handler = (localSettings as Record<string, unknown>)[key];
+      if (typeof handler !== "function") continue;
+      this.on(key, (handler as EventListener).bind(this));
+    }
   }
 
   /**

@@ -742,6 +742,32 @@ describe("Service — clean", () => {
     // NC auto-créé : les listeners restent dans l'objet NC (qui sera GC'd)
     assert.strictEqual(nc.listenerCount("evt"), 1);
   });
+
+  it("clean() retire les listeners INJECTÉS PAR CONFIG (onXxx) sur Event partagé", () => {
+    // Régression : avant le fix, `settingsToListen` du constructeur attachait
+    // les listeners config directement sur le bus partagé sans passer par le
+    // tracking → clean() ne pouvait pas les retirer (fuite à chaque alloc).
+    const shared = new Event();
+    let calls = 0;
+    const s = new Service("config-listen", undefined, shared, {
+      onConfigured: () => {
+        calls += 1;
+      },
+    } as never);
+    shared.emit("onConfigured");
+    assert.strictEqual(calls, 1, "listener config doit fire");
+    assert.strictEqual(
+      shared.listenerCount("onConfigured"),
+      1,
+      "listener attaché sur le bus partagé",
+    );
+    s.clean();
+    assert.strictEqual(
+      shared.listenerCount("onConfigured"),
+      0,
+      "listener config retiré après clean() — pas de fuite",
+    );
+  });
 });
 
 // ─── Héritage ─────────────────────────────────────────────────────────────────
