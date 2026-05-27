@@ -1,6 +1,6 @@
 ---
 name: nodefony-documentation
-version: 1.1.0
+version: 1.2.0
 description: >
   Kit de dev de la DOCUMENTATION Nodefony — le portail doc Studio (`/nodefony/documentation`)
   et le futur module `@nodefony/documentation`. Concern TRANSVERSE (ni purement front, ni purement
@@ -413,6 +413,52 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
   - composer. La variance ±6 px entre valeurs absorbée par les paddings naturels Mantine — ne PAS
     chercher la formule magique exacte. Préférer un nouveau token sémantique à un magic number en page.
 
+**Vitrine « doc Socket » + Registry Vite glob (v1.2.0, 2026-05-28)**
+
+- **Registry frontend = `import.meta.glob` eager pour les `.md`** : un seul appel
+  absorbe la laideur du path relatif et liste tous les MD en bloc. Pattern :
+  ```ts
+  const RAW_MAP = import.meta.glob<string>(
+    "../../../../../../../../docs/realtime/socket/*.md",
+    { query: "?raw", import: "default", eager: true },
+  );
+  ```
+  → ajouter un MD = il apparaît automatiquement dans la nav (Vite HMR détecte
+  le nouveau fichier matching le pattern, ré-évalue le module).
+- **PIÈGE Vite glob #1 — pattern LITTÉRAL** : le path doit être une string statique
+  (Vite parse à la compile-time). Pas de concat, pas de template literal. Si tu
+  changes de profondeur du fichier hôte (ex : `routes/` → `realtime/socket/`),
+  recompte les `..` à la main, le compilateur ne te le dit pas.
+- **PIÈGE Vite glob #2 — `Object.assign({})` vide = glob qui match rien** : si le
+  transform Vite (`curl /@fs/.../pages.ts`) montre `Object.assign({})` SANS entrée,
+  c'est que le glob ne résout aucun fichier (mauvais nombre de `..`, ou en dehors
+  de `server.fs.allow`). Diagnostic 30 secondes vs heures perdues à chercher le
+  bug React. **Toujours `curl` la transform après écriture du `pages.ts`**.
+- **Backend scan hiérarchique** (`DocumentationController.#listRootDocs`) :
+  grouper par chemin parent COMPLET (`realtime/socket`), pas par 1ᵉʳ segment (qui
+  fusionnait à plat). Map `labels` enrichie pour les chemins fréquents ; fallback
+  auto-capitalisé en `<segment> / <segment>` pour les inconnus.
+- **Frontmatter parsé côté serveur** : `#listRootDocs` lit chaque `.md` et appelle
+  `#parseFrontmatter(raw)` pour extraire `title:` — le tree backend expose le VRAI
+  titre (pas le filename humanisé). Idempotent, lazy au scan, ~50 fichiers = imperceptible.
+- **PIÈGE turbo rebuild Studio** : parfois `npm run build` du studio rend un dist
+  qui ne reflète pas la dernière modif source (cache turbo agressif). Symptôme :
+  `grep <ta-string> dist/*.js` retourne vide alors que la source la contient.
+  Fix éprouvé : `rm -rf dist && npx rollup --config ./rollup.config.ts --configPlugin typescript`
+  (direct, court-circuite le wrapper). Vérifier ensuite `grep` du dist AVANT de
+  redémarrer le serveur.
+- **DevSupervisor watch les SOURCES TS, pas le dist** : pour forcer un restart
+  après un rebuild manuel, `touch <source>.ts` déclenche le superviseur. Le PID
+  doit changer (`lsof -nP -iTCP:5152 -sTCP:LISTEN -t`) → restart effectif.
+- **Frontmatter mini-parser frontend** (POC) : 5 lignes regex, partagé entre
+  `pages.ts` (registry) et `SocketPocPage` (avant Phase C). À factoriser dans
+  un util commun quand un 3ᵉ consommateur arrive.
+- **Routing — Documentation.tsx migré de `useState` à `useSearchParams("?doc=")`**.
+  `useState(initialSlug)` interdit le deep-link, F5, et le bouton retour navigateur.
+  **Règle** : toute page Studio à état de sous-navigation (page courante, onglet,
+  filtre principal) DOIT utiliser `useSearchParams`. Pas négociable pour une doc
+  qu'on partage par URL.
+
 ---
 
 ## Réfs (mémoires IA — détails)
@@ -428,6 +474,28 @@ window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir
 
 ## Changelog (SemVer)
 
+- **1.2.0** (2026-05-28) — **Vitrine « doc Socket » + Registry Vite glob + Backend scan hiérarchique**.
+  Création de la première vitrine de doc complète (`docs/realtime/socket/`) :
+  7 pages MD (vue-ensemble · architecture · protocole · fan-out · sondes · backplane ·
+  actions), avec admonitions GitHub, anchors hover, code-copy, Mermaid, liens internes.
+  **Backplane détaillé** (Loopback / Cluster IPC / Redis pub-sub / Kafka) — tableau
+  comparatif, arbre de décision, sécurité, anti-patterns. **Registry frontend**
+  `realtime/socket/pages.ts` : `import.meta.glob` charge tous les MD du dossier en
+  bloc (eager, `?raw`), parse frontmatter mini-inline, expose `socketPages` trié par
+  préfixe numérique. Map `LIVE_GRAPHS[slug]` associe optionnellement un composant
+  graphe live (extensible). Brique **`LiveGraphSection`** (Paper + switch + graphe)
+  réutilisable. **Composant `ArchitectureLiveGraph`** (Phase B) consomme
+  `realtime:health` et alimente le `liveNodeData` du `FlowGraph`. Page POC
+  `/nodefony/socket-poc?sub=<slug>` route via `useSearchParams`. **Backend Studio
+  `DocumentationController.#listRootDocs`** étendu : groupement par chemin parent
+  COMPLET (`realtime/socket` ≠ `realtime/` plat) + parser frontmatter côté serveur
+  → tree expose les vrais titres + `page()` remonte `updated`/`status`/`sourceUrl`.
+  Labels enrichis (`Realtime / La Socket Nodefony`). Routing migré sur la page
+  principale `/nodefony/documentation` (`?doc=<slug>`). **PIÈGES retenus** :
+  Vite glob pattern littéral statique (8 `..` vs 7 selon profondeur du fichier
+  hôte) ; turbo cache parfois capricieux sur le rebuild Studio (utiliser
+  `npx rollup` direct quand `npm run build` semble silencieux) ; `Object.assign({})`
+  vide dans le transform = signe d'un glob qui ne match rien.
 - **1.1.0** (2026-05-28) — **Template doc impeccable + 0 magic number** (session 1, front-only).
   Briques `MarkdownDoc` enrichies : admonitions GitHub-flavor (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`
   → `<Alert>` Mantine, parser direct dans l'override blockquote, 0 dep), heading anchors cliquables

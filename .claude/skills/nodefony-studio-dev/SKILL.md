@@ -995,6 +995,31 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   fallback HTTP **hors temps réel** (round-robin) → reformulée « active le temps réel pour l'exact ». Lockstep back =
   framework-dev 1.15.0. [[project_cluster_drilldown_kit]].
 
+**FlowGraph mode LIVE — `liveNodeData` (2026-05-28, session 2 doc Socket, front-only)**
+
+- **Extension de `FlowGraph`** : prop optionnelle `liveNodeData?: Record<nodeId, LiveNodeData>`
+  avec `LiveNodeData = { metrics?: {label,value}[]; status?: "ok"|"warn"|"down"|"idle"; pulse? }`.
+  Quand fournie, chaque nœud rend un **bandeau métriques** (tabular-nums, isolé via
+  `contain: layout paint`) + un **dot d'état** (ok/warn/down/idle) + un éventuel
+  **pulse** (animation `opacity` seule, compositor, coupée par `prefers-reduced-motion`).
+  La hauteur de nœud passe de 86px à 132px **automatiquement** quand au moins un
+  `liveNodeData[id].metrics` est non-vide → dagre re-layout avec `ranksep` ajusté.
+- **Pattern « 0 ticker quand OFF »** sur les composants graphe live : séparer
+  `<MonGraphe live={false}>` (statique, **PAS d'appel** au hook qui s'abonne) de
+  `<LiveBranch>` (sous-composant qui appelle `useSocketLiveData()`). Quand le
+  switch passe à OFF, la `LiveBranch` est **démontée** → unsubscribe ref-compté →
+  ticker côté serveur arrêté. Le `live={false}` qui appellerait quand même le hook
+  garde l'abonnement actif → fuite. Vu et corrigé sur `ArchitectureLiveGraph`.
+- **Brique `<LiveGraphSection>`** (UI realtime/socket) : wrapper Paper + switch +
+  graphe. Réutilisable sur toutes les pages de doc qui ont un graphe live associé
+  via le registry (`LIVE_GRAPHS[slug]` du `pages.ts`). Hint personnalisable. État
+  `liveOn` local au composant → indépendant par page.
+- **Hook `useSocketLiveData()`** (`frontend/src/realtime/socket/`) : combine
+  `useNodefonyChannelData<RealtimeHealth>("realtime:health")` + `useNodefonyState()`.
+  Renvoie un `SocketLiveSnapshot`. Les `map<Schéma>Live(snap)` projettent vers
+  `Record<nodeId, LiveNodeData>` exploitable par `FlowGraph` (purs, testables,
+  PAS de connaissance métier dans `FlowGraph`).
+
 **Template doc impeccable + 0 magic number (2026-05-28, session 1, front-only — pas de bump lockstep)**
 
 - **`layout.ts` étendu = 4 nouveaux tokens** (`PAGE_CONTENT_HEIGHT`, `PAGE_CONTENT_HEIGHT_WITH_BAND`,

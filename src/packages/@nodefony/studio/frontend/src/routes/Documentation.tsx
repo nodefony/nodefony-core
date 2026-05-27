@@ -1,5 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ActionIcon,
   Alert,
@@ -433,7 +434,14 @@ export const Documentation = observer(() => {
   const store = useStore();
   const state = useNodefonyState();
   const [persona, setPersona] = useState<Persona>("developer");
-  const [activeSlug, setActiveSlug] = useState("socket");
+  // Routing — `?doc=<slug>` (deep-link + F5 + bouton retour navigateur OK).
+  // Fallback "socket" = la page riche en dur de démo.
+  const [params, setParams] = useSearchParams();
+  const activeSlug = params.get("doc") ?? "socket";
+  const setActiveSlug = useCallback(
+    (slug: string) => setParams({ doc: slug }, { replace: false }),
+    [setParams],
+  );
   const [live, setLive] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [navQuery, setNavQuery] = useState("");

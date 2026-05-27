@@ -50,6 +50,8 @@ export {
   type FlowGraphNode,
   type FlowGraphEdge,
   type FlowNodeData,
+  type LiveNodeData,
+  type LiveNodeMetric,
 } from "./FlowGraph";
 export { JsonViewer, type JsonViewerProps } from "./JsonViewer";
 export { ConfigView, type ConfigViewProps } from "./ConfigView";

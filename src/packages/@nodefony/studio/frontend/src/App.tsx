@@ -78,6 +78,9 @@ const OrmWorker = lazy(() =>
 const Documentation = lazy(() =>
   import("./routes/Documentation").then((m) => ({ default: m.Documentation })),
 );
+const SocketPocPage = lazy(() =>
+  import("./routes/SocketPocPage").then((m) => ({ default: m.SocketPocPage })),
+);
 
 import {
   Sessions,
@@ -180,6 +183,7 @@ const router = createBrowserRouter([
           { path: "databases", element: <Database /> },
           { path: "orm-entity", element: <OrmEntity /> },
           { path: "migrate", element: <Migrate /> },
+          { path: "socket-poc", element: <SocketPocPage /> },
           { path: "services", element: <Services /> },
           { path: "modules", element: <Modules /> },
           { path: "modules/:name", element: <ModuleDetail /> },
