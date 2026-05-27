@@ -16,6 +16,7 @@ import Syslog, {
 } from "../syslog/Syslog";
 //import nodefony  from "../Nodefony"
 import Pdu from "../syslog/Pdu";
+import RequestContext from "../runtime/RequestContext";
 import assert from "node:assert";
 import { ConsoleTransport } from "../syslog/transports/ConsoleTransport";
 import { FileTransport } from "../syslog/transports/FileTransport";
@@ -1517,5 +1518,108 @@ describe("Syslog — compteurs erreurs (sonde par worker)", () => {
     assert.strictEqual(s.errorTotal, 5);
     assert.strictEqual(s.criticTotal, 0);
     s.clean(true);
+  });
+});
+
+// ─── Pdu.requestId — corrélation log↔requête via ALS (gap comblé 2026-05-27) ───
+// Le `pid` du Pdu identifie le worker (procid RFC 5424). Le `requestId` ajouté
+// identifie LA requête : combiné au `pid`, on peut tracer une requête à travers
+// TOUS ses logs (debug + base future de l'observabilité IA).
+// Provider injectable (isomorphisme) : branché par `src/index.ts` côté Node sur
+// `RequestContext.getRequestId`, reste `null` côté browser (bundle client).
+describe("Pdu.requestId — corrélation log↔requête (ALS)", () => {
+  // Le branchement Node a déjà eu lieu à l'import du barrel (Syslog/Pdu sont
+  // ré-exportés depuis `src/index.ts`). On capture la valeur pour restaurer
+  // après les tests qui la mutent.
+  let originalProvider: (() => string | undefined) | null;
+
+  before(() => {
+    originalProvider = Pdu.requestIdProvider;
+    // Forcer le provider Node attendu pour les tests qui suivent (au cas où
+    // l'ordre d'évaluation des fichiers de test laisserait Pdu.requestIdProvider
+    // à null — ex : tests qui chargent Pdu directement sans passer par le barrel).
+    Pdu.requestIdProvider = () => RequestContext.getRequestId();
+  });
+
+  after(() => {
+    Pdu.requestIdProvider = originalProvider;
+  });
+
+  it("hors bulle ALS → requestId undefined", () => {
+    const pdu = new Pdu("test hors bulle", "INFO");
+    assert.strictEqual(pdu.requestId, undefined);
+  });
+
+  it("dans bulle ALS → requestId capturé (= RequestContext.getRequestId())", () => {
+    RequestContext.run({ requestId: "req-pdu-test-1" }, () => {
+      const pdu = new Pdu("test dans bulle", "INFO");
+      assert.strictEqual(pdu.requestId, "req-pdu-test-1");
+      assert.strictEqual(pdu.requestId, RequestContext.getRequestId());
+    });
+  });
+
+  it("provider null (mode browser émulé) → ne lit jamais l'ALS", () => {
+    Pdu.requestIdProvider = null; // simule le bundle client (pas de branchement)
+    let calls = 0;
+    // Provider espion installé APRÈS le null pour mesurer que le ctor ne le
+    // déclenche pas — il ne devrait JAMAIS être appelé puisque le test de
+    // référence dans le ctor (`if (Pdu.requestIdProvider !== null)`) court-circuite.
+    // (En vrai mode browser, le provider reste tout simplement null tout du long.)
+    RequestContext.run({ requestId: "req-not-read" }, () => {
+      const pdu = new Pdu("test browser", "INFO");
+      assert.strictEqual(pdu.requestId, undefined);
+      assert.strictEqual(calls, 0);
+    });
+    // Restaurer pour les tests suivants.
+    Pdu.requestIdProvider = () => RequestContext.getRequestId();
+  });
+
+  it("requestId est dans JSON.stringify quand présent", () => {
+    RequestContext.run({ requestId: "req-json-present" }, () => {
+      const pdu = new Pdu("payload", "INFO");
+      const json = JSON.parse(JSON.stringify(pdu));
+      assert.strictEqual(json.requestId, "req-json-present");
+    });
+  });
+
+  it("requestId est ABSENT du JSON quand pas dans bulle (champ non-défini)", () => {
+    const pdu = new Pdu("payload sans bulle", "INFO");
+    const json = JSON.parse(JSON.stringify(pdu));
+    assert.strictEqual(
+      "requestId" in json,
+      false,
+      "champ non-défini sur l'instance ne doit PAS apparaître dans le JSON",
+    );
+  });
+
+  it("provider qui retourne string → mappé tel quel sur requestId", () => {
+    Pdu.requestIdProvider = () => "static-fake-id";
+    const pdu = new Pdu("x", "INFO");
+    assert.strictEqual(pdu.requestId, "static-fake-id");
+    // Restaurer.
+    Pdu.requestIdProvider = () => RequestContext.getRequestId();
+  });
+
+  it("parseJson réhydrate aussi le requestId (debugbar/Studio cross-process)", () => {
+    // Pdu est isomorphe : côté browser, on réhydrate un Pdu depuis le JSON
+    // serveur via `parseJson`. Le requestId doit voyager.
+    const pdu = new Pdu("payload", "INFO");
+    pdu.parseJson(
+      JSON.stringify({
+        payload: "rehydrated",
+        severity: 6,
+        severityName: "INFO",
+        moduleName: "X",
+        msgid: "Y",
+        msg: "",
+        pid: 1234,
+        requestId: "req-rehydrated",
+        timeStamp: Date.now(),
+        uid: 99,
+        typePayload: "string",
+        status: "ACCEPTED",
+      }),
+    );
+    assert.strictEqual(pdu.requestId, "req-rehydrated");
   });
 });

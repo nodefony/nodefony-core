@@ -54,13 +54,30 @@ class Pdu {
   pid: number; // = procid RFC 5424. const PID module-level (process.pid,
   //   capturé 1× → 0 appel système/log). Browser → 0.
   //   Voyage dans ring buffer / syslog:stream / JSON → groupe par worker.
+  requestId?: string; // corrélation log↔requête via ALS (P1.4). Présent si le
+  //   Pdu est créé dans une bulle `RequestContext.run(...)` ;
+  //   capturé via `Pdu.requestIdProvider` (provider injectable,
+  //   branché par `src/index.ts` côté Node UNIQUEMENT).
+  //   Browser/debugbar : provider reste `null` → 0 lecture, 0 alloc.
+  //   Slot toujours créé (`= undefined` hors bulle) pour que
+  //   `parseJson` réhydrate correctement (`"requestId" in this`).
+  //   JSON.stringify ignore `undefined` → 0 verbosité côté wire.
 }
+
+// Provider injectable (corrélation log↔requête) :
+Pdu.requestIdProvider; // (() => string | undefined) | null
+//   - Node (barrel `src/index.ts`) : branché sur `RequestContext.getRequestId`.
+//   - Browser (bundle client `src/client/index.ts`) : non branché, reste `null`.
+//   - Coût : 1 test de référence ~5 ns + (si branché) ~50-100 ns par Pdu.
 ```
 
 > ⚠️ Il n'y a **PAS** de champ `date: Date` (en stocker un = 1 allocation Date PAR log =
 > violation hot path). Le timestamp vit dans `timeStamp: number` ; `getDate()` le formate à la demande.
-> `pid` a été **ajouté au Pdu le 2026-05-24** (auparavant le pid n'existait qu'à l'affichage console,
-> ne voyageait pas dans le pipeline structuré).
+>
+> **Champs historiques** :
+>
+> - `pid` ajouté **2026-05-24** (auparavant pid n'existait qu'à l'affichage console, ne voyageait pas dans le pipeline structuré).
+> - `requestId` ajouté **2026-05-27** (action E du tableau « trucs en suspend » — corrélation log↔requête comblée). Provider injectable pour préserver l'isomorphisme (Pdu reste utilisable côté browser/debugbar — cf `src/client/debugbar/model.ts`).
 
 ## Flux d'un log
 

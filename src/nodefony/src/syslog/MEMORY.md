@@ -15,6 +15,7 @@
 **Purpose** : Protocol Data Unit — entrée de log immuable créée à chaque `Syslog.log()`.
 
 **Champs**
+
 - `uid: number` — auto-incrémenté (module-global `guid`)
 - `payload: Pci` (`unknown`) — le message brut
 - `typePayload: string | null` — résultat de `fastTypeOf` (string/number/array/Error/Date/…)
@@ -25,20 +26,34 @@
 - `msgid: string` — identifiant du message
 - `msg: string` — message complémentaire
 - `status: Status` — `"NOTDEFINED" | "INVALID" | "ACCEPTED" | "DROPPED"`
+- `pid: number` — procid RFC 5424, capté 1× au load (const `PID`). Browser → 0.
+- `requestId?: string` — ALS via `Pdu.requestIdProvider` (provider injectable, ajouté 2026-05-27)
+
+**Provider injectable `Pdu.requestIdProvider`** (corrélation log↔requête)
+
+- Type : `(() => string | undefined) | null`
+- Node : branché dans `src/index.ts` sur `RequestContext.getRequestId`
+- Browser/debugbar : **non branché** (reste `null`) → 0 lecture ALS, 0 alloc (provider null → 1 test de référence ~5 ns)
+- Coût ajouté par Pdu côté Node : ~50-100 ns (ALS lookup + access)
+- Slot toujours créé (`this.requestId = undefined` hors bulle) pour `parseJson` réhydratation ; JSON.stringify ignore `undefined` (0 verbosité)
 
 **Sévérités** (`SysLogSeverity` enum)
+
 ```
 EMERGENCY=0  ALERT=1  CRITIC=2  ERROR=3  WARNING=4  NOTICE=5  INFO=6  DEBUG=7  SPINNER=-1
 ```
+
 **Attention** : c'est `CRITIC` pas `CRITICAL`. `SPINNER=-1` (animation CLI, non bufferisé).
 
 **`translateSeverity(severity)`**
+
 - string `"INFO"` → enum lookup `SysLogSeverity["INFO"] = 6`
 - number `6` → `sysLogSeverity[6] = 6` (array validation 0–7)
 - number `-1` → cas spécial SPINNER → retourne `-1` directement
 - number invalide (ex: 99) → throw `Not a valid nodefony syslog severity`
 
 **Gotchas**
+
 - `pdu.severity` est le number, `pdu.severityName` est la string — ne pas confondre
 - `severityNameMap` : Map précalculée `number → keyName` (O(1)) — utilisée dans le constructeur
 - `sysLogSeverity` array : validator 0–7, index ≠ valeur pour SPINNER (index 8 = valeur -1)
@@ -53,18 +68,21 @@ EMERGENCY=0  ALERT=1  CRITIC=2  ERROR=3  WARNING=4  NOTICE=5  INFO=6  DEBUG=7  S
 **Implémente** : `ISyslog`
 
 **État**
+
 - `_ring: CircularBuffer<Pdu>` — buffer FIFO O(1), capacité = `maxStack` (défaut 100)
 - `settings: SyslogDefaultSettings` — merged avec `defaultSettings` au constructeur
 - `valid/missed/invalid: number` — compteurs de logs
 - `burstPrinted/start: number` — rate limiting courant
 
 **`CircularBuffer<T>`** — interne
+
 - `push(item)` : écrase le plus ancien si plein, avance `head`
 - `last()` : O(1) dernier élément
 - `toArray()` : FIFO (oldest first, newest last)
 - `clear()` : reset head+size sans réallouer
 
 **Logging API**
+
 ```typescript
 syslog.log(payload, severity?, moduleName?, msg?)  // entrée principale → Pdu
 syslog.error(data)                 // = log(data, "ERROR")
@@ -77,10 +95,12 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 ```
 
 **Rate limiting** : `rateLimit: number (ms)` + `burstLimit: number`
+
 - Si `burstPrinted >= burstLimit` dans la fenêtre `rateLimit` ms → `status = "DROPPED"`
 - Reset automatique quand `now > start + rateLimit`
 
 **Filtrage conditionnel**
+
 - `listenWithConditions(conditions, callback)` = `filter(conditions, callback)`
 - Attache un listener `onLog` wrappé par les conditions
 - Opérateurs : `< > <= >= == === != RegExp`
@@ -89,14 +109,17 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 
 **Condition `severity`** : après sanitize, `data` est `{ "INFO": 6, "WARNING": 4 }` (clé=nom, val=number)  
 **Condition `msgid`** : après sanitize, `data` est soit `{ "NODEFONY": "||" }` (keys=msgids) soit une `RegExp`
+
 - **⚠️ RegExp** : case spécial dans `conditionsObj.msgid` — `condition.data.test(pdu.msgid)` (pas de `for...in`)
 
 **`getLogStack(start?, end?, condition?)`**
+
 - Sans args → dernier Pdu (O(1) via `_ring.last()`)
 - `(0, 10)` → `slice(0, 10)` (index dans le buffer trié FIFO)
 - `(n, n)` → `stack[length - n - 1]` (indexation depuis la fin)
 
 **`init(environment, debug?, options?)`**
+
 - Attache le listener de sortie console via `conditionOptions(env, debug)`
 - `conditionOptions("development", false)` → severity <= 6 (INFO)
 - `conditionOptions("development", true)` → severity <= 7 (DEBUG)
@@ -105,10 +128,12 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 **Sortie console** : `Syslog.normalizeLog(pdu)` via `Syslog.wrapper(pdu)` → couleurs cli-color
 
 **Cycle de vie**
+
 - `reset()` / `clean()` → vide le ring + retire tous les listeners
 - `clearLogStack()` → vide uniquement le ring
 
 **Console Override**
+
 - `overrideConsole: true` dans settings → active au constructeur
 - `Syslog.overrideConsole(instance)` → redirige `console.log/info/warn/error/debug/table/dir` vers syslog
 - `Syslog.restoreConsole()` → restore l'original (idempotent, restaure aussi `table`/`dir`)
@@ -119,6 +144,7 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 - `console.dir(obj)` → `logMultiple("DEBUG", obj)` — payload = l'objet brut
 
 **Transport Layer**
+
 - `ITransport { name: string; send(pdu): Promise<void> }` — interface dans `types/ITransport.ts`
 - `addTransport(t): this` / `removeTransport(t): this` — ajoute/retire un transport (deduplication par référence)
 - Firing : fire-and-forget après `fire("onLog")`, uniquement si `pdu.status === "ACCEPTED"`
@@ -132,11 +158,13 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 **Deps** : `Event`, `Pdu`, `cli-color`, `extend` (Tools), `ISyslog`, `ITransport`
 
 **`fastTypeOf` — valeurs retournées**
+
 - `null` → `null` (pas `"null"`)
 - `string/number/boolean/function` → même nom lowercase
 - `Array` → `"array"` | `Date` → `"date"` (lowercase) | `RegExp` → `"RegExp"` | `Error` → `"Error"` | `Buffer` → `"buffer"` | `object` → `"object"`
 
 **Gotchas**
+
 - `warnning` (avec double n) supprimé — utiliser `warn`
 - `filter()` modifie `conditions` par référence via `extend(true, {}, conditions)` — deep clone
 - `loadStack(stack, doEvent, beforeConditions)` : `beforeConditions` appelé AVANT `fire("onLog")`

@@ -142,6 +142,31 @@ class Pdu {
   public status: Status;
   /** PID du process émetteur (= procid RFC 5424). Constant, capturé au chargement du module. */
   public pid: number;
+  /**
+   * Identifiant de la requête en cours (corrélation log↔requête).
+   *
+   * Présent UNIQUEMENT si le Pdu est créé dans une bulle `RequestContext` active
+   * (ALS Node) ET que {@link Pdu.requestIdProvider} a été branché côté Node — voir
+   * `src/index.ts` (barrel Node uniquement, isomorphisme préservé : le bundle
+   * client/browser ne branche pas, le provider reste `null` → 0 alloc, 0 lecture).
+   *
+   * Combiné à `pid` (procid RFC 5424), permet la corrélation **complète** :
+   * `pid` = quel worker, `requestId` = quelle requête. Voyage dans ring buffer +
+   * `syslog:stream` + transports JSON (champ public sérialisé naturellement).
+   */
+  public requestId?: string;
+
+  /**
+   * Provider injectable du `requestId` courant (ALS). Branché par le barrel
+   * Node (`src/index.ts`) sur `RequestContext.getRequestId`. Reste `null` côté
+   * browser/debugbar (le bundle client n'importe pas `node:async_hooks`) et
+   * pendant les phases boot pré-Kernel (cohérent : pas de requête en cours).
+   *
+   * Coût : 1 test de référence par Pdu (~5 ns) quand `null` ; ~50-100 ns quand
+   * branché (lecture ALS + accès propriété). Pas d'alloc supplémentaire si
+   * `requestId` est `undefined` (le champ reste non-défini sur l'instance).
+   */
+  static requestIdProvider: (() => string | undefined) | null = null;
 
   /**
    * Construit un Pdu prêt à être publié dans le pipeline Syslog.
@@ -186,6 +211,15 @@ class Pdu {
     this.msg = msg;
     this.status = "NOTDEFINED";
     this.pid = PID; // constant module-level → 1 assignation, 0 appel système
+    // Lecture lazy ALS via provider injectable (isomorphisme préservé) :
+    // - null côté browser/avant branchement → 1 test de référence, no-op.
+    // - non-null + hors bulle ALS → provider retourne undefined → slot initialisé à undefined.
+    // - non-null + dans bulle ALS → on capture le requestId courant.
+    // Slot toujours créé (`this.requestId = ...`) pour que `parseJson` puisse
+    // réhydrater le champ depuis le wire format (`key in this` doit être vrai).
+    // JSON.stringify ignore les valeurs `undefined` → 0 verbosité dans le wire.
+    this.requestId =
+      Pdu.requestIdProvider !== null ? Pdu.requestIdProvider() : undefined;
   }
 
   /**

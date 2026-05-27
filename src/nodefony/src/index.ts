@@ -219,3 +219,14 @@ export type {
 } from "./kernel/Kernel";
 
 export type { OptionsCommandInterface, CommandEvents } from "./command/Command";
+
+// ─── Branchement Node-only : ALS → Pdu.requestId (corrélation log↔requête) ────
+// Le bundle browser/client (src/client/index.ts) NE RÉ-EXPORTE PAS ce fichier
+// et n'importe donc PAS `node:async_hooks`. Le provider reste `null` côté
+// browser → 0 alloc, 0 lecture. Coût ajouté côté Node : ~50-100 ns par Pdu
+// (lecture ALS + accès `.requestId`), gratuit hors bulle RequestContext.
+// Cf [[project_syslog_requestid_correlation]].
+import _PduForBranching from "./syslog/Pdu";
+import _RequestContextForBranching from "./runtime/RequestContext";
+_PduForBranching.requestIdProvider = () =>
+  _RequestContextForBranching.getRequestId();
