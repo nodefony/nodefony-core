@@ -36,6 +36,46 @@ export default {
   headerServer: "nodefony",
 
   /**
+   * EN-TÊTES DE SÉCURITÉ HTTP — defaults OWASP secure-by-default.
+   * Posés en amont (http-kernel.onHttpRequest) sur HTTP/HTTPS/HTTP2 — couvre
+   * aussi les statics. Mettre une valeur à `null` pour désactiver le header.
+   * @see https://owasp.org/www-project-secure-headers/
+   */
+  securityHeaders: {
+    /**
+     * Empêche le browser de "deviner" un type MIME différent du Content-Type.
+     * Mitige les attaques de MIME-sniffing (ex: .txt exécuté comme JS).
+     * Valeur fixe RFC : "nosniff" — pas d'autre valeur reconnue.
+     */
+    contentTypeOptions: "nosniff" as string | null,
+
+    /**
+     * Bloque l'embed du site dans un iframe externe — défense contre clickjacking.
+     * "DENY" = jamais (recommandé) | "SAMEORIGIN" = même origine seulement.
+     * NB : superposé par CSP `frame-ancestors` (Phase 6) — gardé pour compat
+     * navigateurs anciens.
+     */
+    frameOptions: "DENY" as string | null,
+
+    /**
+     * HSTS — forcer HTTPS pendant `max-age` secondes (TLS uniquement, ignoré sur HTTP).
+     * Posé UNIQUEMENT sur réponses HTTPS/HTTP2 (poser sur HTTP n'a aucun effet RFC).
+     * Défaut 1 an + includeSubDomains (recommandation OWASP). `preload` opt-in :
+     * ajoute le domaine à la HSTS preload list — ENGAGEMENT IRRÉVERSIBLE, ne pas
+     * activer sans avoir lu https://hstspreload.org/#removal.
+     */
+    strictTransportSecurity: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: false,
+    } as {
+      maxAge: number;
+      includeSubDomains: boolean;
+      preload: boolean;
+    } | null,
+  },
+
+  /**
    * PARSEUR DE FORMULAIRES ET UPLOADS — formidable
    * @see https://github.com/felixge/node-formidable
    *

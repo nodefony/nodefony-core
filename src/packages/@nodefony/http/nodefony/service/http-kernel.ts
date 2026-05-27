@@ -44,6 +44,20 @@ import PrettyRequestLogger from "./pretty-request-logger";
 import JsonAuditLogger from "./audit-logger";
 import { resolveTraceparent } from "./trace";
 
+/**
+ * Config interne (shape déclarée par `config/config.ts`). Locale au module —
+ * pas exportée tant que la surface publique n'a pas vocation à être étendue.
+ */
+interface SecurityHeadersConfig {
+  contentTypeOptions: string | null;
+  frameOptions: string | null;
+  strictTransportSecurity: {
+    maxAge: number;
+    includeSubDomains: boolean;
+    preload: boolean;
+  } | null;
+}
+
 export type ProtocolType = "1.1" | "2.0" | "3.0";
 export type httpRequest = http.IncomingMessage | http2.Http2ServerRequest;
 export type httpResponse = http.ServerResponse | http2.Http2ServerResponse;
@@ -119,6 +133,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     ws: number;
     wss: number;
   };
+  // Pré-calculés au boot (constants) : 0 alloc, 0 concat par requête sur le hot path.
+  // null = header désactivé en config → skip setHeader.
+  private secContentTypeOptions: string | null = null;
+  private secFrameOptions: string | null = null;
+  private secHsts: string | null = null;
   sessionService?: SessionsService | null;
   sessionAutoStart: boolean | string = false;
   router?: Router | null;
@@ -149,6 +168,21 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       ws: this.options.websocket.closeTimeout,
       wss: this.options.websocketSecure.closeTimeout,
     };
+    // Pré-calcul des security headers une fois au boot — defaults dans
+    // `config/config.ts` (`securityHeaders`). Évite alloc + concat par requête.
+    const sec = (this.options as { securityHeaders?: SecurityHeadersConfig })
+      .securityHeaders;
+    if (sec) {
+      this.secContentTypeOptions = sec.contentTypeOptions ?? null;
+      this.secFrameOptions = sec.frameOptions ?? null;
+      if (sec.strictTransportSecurity) {
+        const hsts = sec.strictTransportSecurity;
+        let v = `max-age=${hsts.maxAge}`;
+        if (hsts.includeSubDomains) v += "; includeSubDomains";
+        if (hsts.preload) v += "; preload";
+        this.secHsts = v;
+      }
+    }
   }
 
   async initialize(): Promise<this> {
@@ -471,6 +505,17 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     type: ServerType,
   ): Promise<http.ServerResponse | http2.Http2ServerResponse> {
     response.setHeader("Server", this.options.headerServer);
+    // Security headers OWASP — defaults secure-by-default (cf config.securityHeaders).
+    // HSTS gated TLS-only : poser sur HTTP plain n'a aucun effet RFC 6797 et pollue.
+    if (this.secContentTypeOptions !== null) {
+      response.setHeader("X-Content-Type-Options", this.secContentTypeOptions);
+    }
+    if (this.secFrameOptions !== null) {
+      response.setHeader("X-Frame-Options", this.secFrameOptions);
+    }
+    if (this.secHsts !== null && (type === "https" || type === "http2")) {
+      response.setHeader("Strict-Transport-Security", this.secHsts);
+    }
     if (
       this.serverStatic &&
       (this.kernel?.options.servers.statics ||
