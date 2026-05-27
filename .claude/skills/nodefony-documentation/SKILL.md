@@ -199,6 +199,15 @@ pensé**, pas une série de correctifs. Source de vérité = `components/ui/layo
 5. **Jamais `position:sticky` dans un `ScrollArea` Mantine** (ne s'accroche pas). Pour un panneau
    figé-en-tête-+-liste-scrollable, utiliser le mode auto-porté de `DocToc` (`maxHeight`) ou un
    `flex column` + `maxHeight`.
+6. **3 sticky parallèles à `CONTENT_STICKY_TOP`** en mode `page` du `DocLayout` —
+   nav (gauche), **en-tête de page (`title=`, le `DocPageHeader`)** et sommaire (droite). Le
+   **titre de la sous-page DOIT rester visible quand on scroll dans le contenu**, sinon
+   l'utilisateur perd le repère. Cohérent avec le PageHeader global sticky à `STICKY_TOP` :
+   PageHeader (top=56px) ↑ puis trio (top=CONTENT_STICKY_TOP=132px). Implémenté dans
+   `DocLayout` (en-tête central en `position:sticky; top: CONTENT_STICKY_TOP; background:
+var(--mantine-color-body); z-index: 1`). **À PRÉSERVER lors de toute refonte de `DocLayout`**.
+   N'est PAS appliqué en mode `container` (scroll interne) — la sticky serait relative au flex
+   parent et n'aurait pas le bon comportement.
 
 Réf mémoire : [[feedback_studio_layout_rigor]].
 

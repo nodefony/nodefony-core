@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ActionIcon,
   Box,
@@ -122,8 +122,28 @@ export function DocLayout({
     );
 
     // Barre d'en-tête du contenu (titre fourni + toggle sommaire + plein écran).
+    // En mode "page" : sticky AU MÊME `top` que la sidebar/TOC (CONTENT_STICKY_TOP)
+    // → le titre de la sous-page reste lisible quand on scroll dans un long contenu,
+    // cohérent visuellement avec les sidebars sticky. Règle docs-site (skill
+    // `nodefony-documentation` §Règles de mise en page).
+    const headerStickyStyle: CSSProperties =
+      m === "page"
+        ? {
+            position: "sticky",
+            top: CONTENT_STICKY_TOP,
+            background: "var(--mantine-color-body)",
+            zIndex: 1,
+            paddingTop: "var(--mantine-spacing-xs, 8px)",
+            paddingBottom: "var(--mantine-spacing-xs, 8px)",
+          }
+        : {};
     const headerBar = (
-      <Group gap="xs" mb="md" wrap="nowrap" style={{ flexShrink: 0 }}>
+      <Group
+        gap="xs"
+        mb="md"
+        wrap="nowrap"
+        style={{ flexShrink: 0, ...headerStickyStyle }}
+      >
         <Box style={{ flex: 1, minWidth: 0 }}>{title}</Box>
         {hasToc && !isModal && (
           <Tooltip
