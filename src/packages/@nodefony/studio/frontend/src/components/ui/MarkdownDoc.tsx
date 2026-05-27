@@ -1,5 +1,7 @@
 import {
+  cloneElement,
   isValidElement,
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -7,16 +9,27 @@ import {
   type ReactNode,
 } from "react";
 import {
+  ActionIcon,
   Alert,
   Anchor,
   Box,
-  Code,
+  Group,
+  Paper,
   Text,
+  Tooltip,
   TypographyStylesProvider,
   rem,
   useMantineColorScheme,
 } from "@mantine/core";
-import { IconAlertTriangle } from "@tabler/icons-react";
+import {
+  IconAlertCircle,
+  IconAlertTriangle,
+  IconBulb,
+  IconCheck,
+  IconCopy,
+  IconExclamationMark,
+  IconInfoCircle,
+} from "@tabler/icons-react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { slugifyHeading } from "./DocToc";
@@ -43,7 +56,116 @@ const HEADING_STYLE = { scrollMarginTop: HEADING_SCROLL_MARGIN } as const;
  * (`ModuleDetail`), la démo `/nodefony/documentation`, et le futur module
  * @nodefony/documentation. Sécurité : pas de `rehype-raw` (0 HTML injecté),
  * Mermaid en `securityLevel:"strict"`, liens externes `rel="noreferrer noopener"`.
+ *
+ * Surcharges « template impeccable » :
+ *  - admonitions GFM : `> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]` → <Alert>.
+ *  - heading anchors : icône # cliquable au hover (copie l'URL profond).
+ *  - code blocks : topbar « langue + Copier » (pas de syntax highlighting, différé).
  * ════════════════════════════════════════════════════════════════════════ */
+
+/** Injecte UNE seule fois les styles statiques (hover anchor) — `:hover` ≠ inline. */
+function ensureDocStyles() {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("nf-doc-styles")) return;
+  const s = document.createElement("style");
+  s.id = "nf-doc-styles";
+  s.textContent = `
+    .nf-heading { position: relative; }
+    .nf-heading-anchor {
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      margin-left: 0.4em;
+      color: var(--mantine-color-dimmed);
+      text-decoration: none;
+      font-weight: normal;
+      cursor: pointer;
+      user-select: none;
+    }
+    .nf-heading:hover .nf-heading-anchor,
+    .nf-heading:focus-within .nf-heading-anchor { opacity: 0.7; }
+    .nf-heading-anchor:hover,
+    .nf-heading-anchor:focus { opacity: 1 !important; color: var(--mantine-primary-color-filled); outline: none; }
+    @media (prefers-reduced-motion: reduce) { .nf-heading-anchor { transition: none; } }
+  `;
+  document.head.appendChild(s);
+}
+
+/* ─── Admonitions (GitHub flavor) ────────────────────────────────────────── */
+
+interface AdmonitionMeta {
+  title: string;
+  color: string;
+  icon: ReactNode;
+}
+
+const ADMONITIONS: Record<string, AdmonitionMeta> = {
+  note: { title: "Note", color: "blue", icon: <IconInfoCircle size={18} /> },
+  tip: { title: "Astuce", color: "teal", icon: <IconBulb size={18} /> },
+  important: {
+    title: "Important",
+    color: "violet",
+    icon: <IconAlertCircle size={18} />,
+  },
+  warning: {
+    title: "Avertissement",
+    color: "yellow",
+    icon: <IconAlertTriangle size={18} />,
+  },
+  caution: {
+    title: "Attention",
+    color: "red",
+    icon: <IconExclamationMark size={18} />,
+  },
+};
+
+const ADMONITION_RE = /^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n?/i;
+
+/**
+ * Cherche `[!TYPE]` dans le premier text node du blockquote ; si trouvé →
+ * retourne le type + les children avec le préfixe retiré. Sinon `null`.
+ *
+ * Pourquoi : `remark-gfm` ne parse pas les admonitions GitHub — le marqueur
+ * arrive ici comme du texte brut dans le 1ᵉʳ paragraphe du blockquote.
+ */
+function parseAdmonition(
+  children: ReactNode,
+): { meta: AdmonitionMeta; rest: ReactNode } | null {
+  let typeKey: string | null = null;
+
+  const strip = (node: ReactNode): ReactNode => {
+    if (typeKey) return node;
+    if (typeof node === "string") {
+      const m = ADMONITION_RE.exec(node);
+      if (!m) return node;
+      typeKey = m[1].toLowerCase();
+      const cleaned = node.replace(ADMONITION_RE, "");
+      return cleaned ? cleaned : null;
+    }
+    if (Array.isArray(node)) {
+      const out = node.map(strip).filter((c) => c !== null && c !== "");
+      return out;
+    }
+    if (isValidElement(node)) {
+      const childrenProp = (node.props as { children?: ReactNode }).children;
+      const stripped = strip(childrenProp);
+      if (typeKey)
+        return cloneElement(
+          node as React.ReactElement<{ children?: ReactNode }>,
+          {},
+          stripped,
+        );
+      return node;
+    }
+    return node;
+  };
+
+  const rest = strip(children);
+  if (!typeKey) return null;
+  const meta = ADMONITIONS[typeKey];
+  return meta ? { meta, rest } : null;
+}
+
+/* ─── Mermaid (rendu vectoriel theme-aware) ──────────────────────────────── */
 
 /** Rend un block ```mermaid``` en SVG vectoriel (lazy, theme-aware). */
 export function MermaidDiagram({ code }: { code: string }) {
@@ -81,7 +203,17 @@ export function MermaidDiagram({ code }: { code: string }) {
   if (error) {
     return (
       <Alert color="orange" icon={<IconAlertTriangle size={16} />} my="md">
-        <Code block>{code}</Code>
+        <Box
+          component="pre"
+          style={{
+            margin: 0,
+            fontSize: rem(12),
+            whiteSpace: "pre-wrap",
+            overflowX: "auto",
+          }}
+        >
+          {code}
+        </Box>
         <Text size="xs" c="dimmed" mt="xs">
           {error}
         </Text>
@@ -90,6 +222,135 @@ export function MermaidDiagram({ code }: { code: string }) {
   }
   return <Box ref={containerRef} my="md" style={{ textAlign: "center" }} />;
 }
+
+/* ─── Code block enrichi (topbar langue + Copier) ────────────────────────── */
+
+function CodeBlock({ language, code }: { language: string; code: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return;
+    navigator.clipboard
+      .writeText(code)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {});
+  }, [code]);
+  return (
+    <Paper withBorder radius="md" my="md" style={{ overflow: "hidden" }}>
+      <Group
+        justify="space-between"
+        px="sm"
+        py={4}
+        wrap="nowrap"
+        style={{
+          background: "var(--mantine-color-default-hover)",
+          borderBottom: "1px solid var(--mantine-color-default-border)",
+        }}
+      >
+        <Text
+          size="xs"
+          c="dimmed"
+          ff="monospace"
+          tt="lowercase"
+          style={{ userSelect: "none" }}
+        >
+          {language || "text"}
+        </Text>
+        <Tooltip label={copied ? "Copié" : "Copier"} withinPortal>
+          <ActionIcon
+            size="sm"
+            variant="subtle"
+            color="gray"
+            onClick={copy}
+            aria-label={copied ? "Code copié" : "Copier le bloc de code"}
+          >
+            {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+      <Box
+        component="pre"
+        style={{
+          margin: 0,
+          padding: rem(12),
+          overflowX: "auto",
+          fontSize: rem(13),
+          lineHeight: 1.6,
+        }}
+      >
+        <code>{code}</code>
+      </Box>
+    </Paper>
+  );
+}
+
+/* ─── Heading avec anchor cliquable au hover ─────────────────────────────── */
+
+function HeadingWithAnchor({
+  level,
+  children,
+}: {
+  level: 2 | 3 | 4;
+  children: ReactNode;
+}) {
+  useEffect(() => ensureDocStyles(), []);
+  const id = slugifyHeading(nodeText(children));
+  const label = nodeText(children);
+  const onAnchorClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      e.preventDefault();
+      if (typeof window === "undefined") return;
+      const url = `${window.location.origin}${window.location.pathname}#${id}`;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).catch(() => {});
+      }
+      const reduce = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      document.getElementById(id)?.scrollIntoView({
+        behavior: reduce ? "auto" : "smooth",
+        block: "start",
+      });
+    },
+    [id],
+  );
+  const anchor = (
+    <a
+      href={`#${id}`}
+      className="nf-heading-anchor"
+      onClick={onAnchorClick}
+      aria-label={`Lien vers la section : ${label}`}
+    >
+      #
+    </a>
+  );
+  if (level === 2) {
+    return (
+      <h2 id={id} className="nf-heading" style={HEADING_STYLE}>
+        {children}
+        {anchor}
+      </h2>
+    );
+  }
+  if (level === 3) {
+    return (
+      <h3 id={id} className="nf-heading" style={HEADING_STYLE}>
+        {children}
+        {anchor}
+      </h3>
+    );
+  }
+  return (
+    <h4 id={id} className="nf-heading" style={HEADING_STYLE}>
+      {children}
+      {anchor}
+    </h4>
+  );
+}
+
+/* ─── MarkdownDoc — composant principal ──────────────────────────────────── */
 
 export interface MarkdownDocProps {
   markdown: string;
@@ -102,37 +363,63 @@ export interface MarkdownDocProps {
   maxWidth?: number;
 }
 
-/** Rendu markdown complet (typographie Mantine + Mermaid + liens). */
+/** Rendu markdown complet (typographie Mantine + Mermaid + liens + admonitions). */
 export function MarkdownDoc({
   markdown,
   onInternalLink,
   maxWidth = 860,
 }: MarkdownDocProps) {
   const components: Components = {
-    code({ className, children }) {
-      if (/\blanguage-mermaid\b/.test(className ?? "")) {
-        return (
-          <MermaidDiagram code={String(children ?? "").replace(/\n$/, "")} />
-        );
-      }
-      return <code className={className}>{children}</code>;
-    },
-    // Ancres sur les titres (id = même slug que le sommaire DocToc) → navigation.
     h2: ({ children }) => (
-      <h2 id={slugifyHeading(nodeText(children))} style={HEADING_STYLE}>
-        {children}
-      </h2>
+      <HeadingWithAnchor level={2}>{children}</HeadingWithAnchor>
     ),
     h3: ({ children }) => (
-      <h3 id={slugifyHeading(nodeText(children))} style={HEADING_STYLE}>
-        {children}
-      </h3>
+      <HeadingWithAnchor level={3}>{children}</HeadingWithAnchor>
     ),
     h4: ({ children }) => (
-      <h4 id={slugifyHeading(nodeText(children))} style={HEADING_STYLE}>
-        {children}
-      </h4>
+      <HeadingWithAnchor level={4}>{children}</HeadingWithAnchor>
     ),
+    blockquote: ({ children }) => {
+      const adm = parseAdmonition(children);
+      if (adm) {
+        return (
+          <Alert
+            color={adm.meta.color}
+            icon={adm.meta.icon}
+            title={adm.meta.title}
+            variant="light"
+            my="md"
+          >
+            {adm.rest}
+          </Alert>
+        );
+      }
+      return <blockquote>{children}</blockquote>;
+    },
+    pre: ({ children }) => {
+      // children attendu : <code className="language-X">…</code>
+      const child = Array.isArray(children) ? children[0] : children;
+      if (isValidElement(child)) {
+        const props = child.props as {
+          className?: string;
+          children?: ReactNode;
+        };
+        const cls = props.className ?? "";
+        const raw = String(props.children ?? "").replace(/\n$/, "");
+        if (/\blanguage-mermaid\b/.test(cls)) {
+          return <MermaidDiagram code={raw} />;
+        }
+        if (/\blanguage-/.test(cls)) {
+          const lang = cls.match(/language-([a-z0-9]+)/i)?.[1] ?? "";
+          return <CodeBlock language={lang} code={raw} />;
+        }
+      }
+      return <pre>{children}</pre>;
+    },
+    code({ className, children }) {
+      // Inline only (les blocks passent par `pre` → CodeBlock).
+      return <code className={className}>{children}</code>;
+    },
     a({ href, children }) {
       const h = String(href ?? "");
       const ext = /^https?:\/\//i.test(h);

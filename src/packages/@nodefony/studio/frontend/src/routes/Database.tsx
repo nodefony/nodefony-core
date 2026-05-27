@@ -48,7 +48,12 @@ import {
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { useStore } from "../stores";
-import { DocHint, DataGrid, type DataGridColumn } from "../components/ui";
+import {
+  DocHint,
+  DataGrid,
+  PAGE_CONTENT_HEIGHT_WITH_BAND,
+  type DataGridColumn,
+} from "../components/ui";
 
 /** Version de la doc des fiches d'aide (`DocHint`) de la vue base de données. */
 const DB_DOC = "v1.0";
@@ -968,7 +973,7 @@ export const Database = observer(() => {
         style={{
           // Hauteur DÉFINIE obligatoire : React Flow est en height:100% → un
           // simple minHeight (parent height:auto) le résout à 0 = canvas vide.
-          height: "calc(100vh - 210px - var(--nodefony-debugbar-height, 0px))",
+          height: PAGE_CONTENT_HEIGHT_WITH_BAND,
           minHeight: 480,
           position: "relative",
           overflow: "hidden",

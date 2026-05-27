@@ -1,6 +1,6 @@
 ---
 name: nodefony-documentation
-version: 1.0.0
+version: 1.1.0
 description: >
   Kit de dev de la DOCUMENTATION Nodefony — le portail doc Studio (`/nodefony/documentation`)
   et le futur module `@nodefony/documentation`. Concern TRANSVERSE (ni purement front, ni purement
@@ -79,7 +79,7 @@ Toutes co-localisées dans `@nodefony/studio/frontend/src/components/ui/` (sauf 
 </DocLayout>
 ```
 
-### `MarkdownDoc` — rendu markdown + Mermaid + ancres
+### `MarkdownDoc` — rendu markdown + Mermaid + ancres + admonitions + code-copy
 
 ```tsx
 <MarkdownDoc
@@ -90,6 +90,44 @@ Toutes co-localisées dans `@nodefony/studio/frontend/src/components/ui/` (sauf 
 ```
 
 Pose les ancres de titres avec le MÊME `slugifyHeading` que `DocToc` → le scrollspy s'aligne.
+
+**Briques riches livrées (v1.1.0)** — toutes consommables DIRECTEMENT en `.md`, 0 nouvelle dep :
+
+- **Admonitions GitHub-flavor** : `> [!NOTE]` · `> [!TIP]` · `> [!IMPORTANT]` · `> [!WARNING]` ·
+  `> [!CAUTION]` → rendu `<Alert>` Mantine (icône + couleur + titre traduit FR). Le marqueur arrive
+  comme texte brut dans le 1ᵉʳ paragraphe du blockquote (remark-gfm ne parse pas les admonitions) ;
+  `parseAdmonition` parcourt récursivement les children React du blockquote, retire le préfixe
+  `[!TYPE]` du 1ᵉʳ text node, retourne le type + rest.
+- **Heading anchors cliquables au hover** sur `##`/`###`/`####` : icône `#` à droite, `opacity 0→0.7`
+  au `:hover` du titre, `opacity 1` sur l'anchor `:hover`/`:focus`. Clic = copie URL profonde
+  (`origin + path + #slug`) + `scrollIntoView` (gate `prefers-reduced-motion`). Styles statiques
+  injectés une fois (`ensureDocStyles`, identique au pattern `ensureLiveStyles` du UI kit). Pseudo-classe
+  `:hover` impossible inline → CSS injecté reste la solution la plus simple.
+- **Code blocks enrichis** : ` ```ts ` (etc.) → wrapper `Paper` avec topbar (chip langue +
+  bouton Copier avec feedback). Inline `<code>` inchangé. **Pas** de syntax highlighting (lourd,
+  différé). ⚠️ Override `<pre>` (pas `<code>`) sinon `<pre><Paper>…</Paper></pre>` = HTML invalide.
+- **`prefers-reduced-motion`** : gate sur tout `scrollIntoView` (`DocToc.go()` ET anchor copy)
+  → `behavior: reduce ? "auto" : "smooth"`. WCAG 2.3.3.
+
+### `DocPageHeader` — en-tête riche d'une page de doc (v1.1.0)
+
+```tsx
+<DocPageHeader
+  breadcrumbs={["Documentation", "Realtime"]} // optionnel
+  title="La socket Nodefony"
+  version="v1.2.0" // optionnel
+  status="stable" // stable | draft | temporary | experimental | deprecated (couleurs auto)
+  wip={false} // badge "à venir" si true
+  updated="2026-05-28" // ISO / Date — rendu "Mis à jour le 28 mai 2026"
+  sourceUrl="https://github.com/.../socket.md" // bouton "Modifier sur GitHub"
+  actions={<RoleSwitch …/>} // optionnel, à droite
+/>
+```
+
+Usage : `<DocPageHeader/>` passé au `title=` du `DocLayout`. Tout (sauf `title`) est **optionnel** :
+dégradation gracieuse → le backend pourra remonter `updated`/`sourceUrl` plus tard (frontmatter
+`updated` + frontmatter `source` → URL GitHub assemblée serveur) **sans casser les call-sites**.
+Le titre est en `h2` (la page hôte porte le `h1` global via `PageHeader`).
 
 ### `DocToc` — sommaire « Sur cette page » (scrollspy + recherche)
 
@@ -140,7 +178,17 @@ pensé**, pas une série de correctifs. Source de vérité = `components/ui/layo
    - `SIDEBAR_MAX_HEIGHT` = `calc(100vh - header - pageHeader - debugbar - 2*gap)` — hauteur max
      d'une sidebar sticky. **Soustraire `--nodefony-debugbar-height`** sinon la debug bar recouvre.
    - `HEADING_SCROLL_MARGIN` — marge d'ancre : un titre cible ne passe pas sous l'en-tête sticky au saut.
-   - **Jamais** un `250px` / `calc(100vh - 110px)` en dur dans une page.
+   - `PAGE_CONTENT_HEIGHT` (alias `SIDEBAR_MAX_HEIGHT`) — contenu plein viewport sous un PageHeader
+     (Card mih, panel principal).
+   - `PAGE_CONTENT_HEIGHT_WITH_BAND` — sous PageHeader + UNE bande sup (toolbar de recherche DataGrid,
+     bande de filtres ERD). Compose avec `BAND="48px"` interne.
+   - `TABS_PANEL_HEIGHT` — sous PageHeader + Tabs.List sticky DANS une Card paddée (Tabs.Panel à
+     scroll interne). Comprend les paddings sup de la Card.
+   - `MODAL_FULLSCREEN_BODY` / `MODAL_FULLSCREEN_CONTENT` — body/contenu d'un Modal Mantine fullScreen
+     (sous la topbar = `MODAL_HEADER="60px"` interne).
+   - **Jamais** un `250px` / `calc(100vh - 110px)` en dur dans une page. Vérifié par grep régulier :
+     `grep -rn "calc(100vh" src/packages/@nodefony/studio/frontend/src --include="*.tsx" | grep -v layout.ts`
+     doit renvoyer 0 résultat.
 2. **Modèle 3 colonnes** : nav | contenu | sommaire. **Le contenu est le SEUL à scroller** avec la
    page (aucune hauteur fixe, aucune `ScrollArea` interne). Les sidebars sont **sticky** + leur propre
    overflow (`ScrollArea.Autosize mah={SIDEBAR_MAX_HEIGHT}`, scroll interne SEULEMENT si trop long).
@@ -307,6 +355,66 @@ Après modif front pure → HMR Vite (0 restart). Après modif controller → `s
 
 ---
 
+## Retex — template doc impeccable (kit VIVANT, à enrichir)
+
+Photo à jour des pièges et briques rencontrés sur le portail doc. Format : symptôme → cause → fix.
+
+**Briques riches markdown (v1.1.0, 2026-05-28)**
+
+- **Admonitions sans dep** : `remark-gfm` (déjà bundlé) ne parse PAS les admonitions GitHub
+  (`> [!NOTE]`) — elles arrivent comme texte brut. Fix = parser direct dans l'override `blockquote`
+  de `MarkdownDoc` (`parseAdmonition`) qui descend récursivement les children React, regex sur le
+  1ᵉʳ text node, retire le préfixe, retourne `{meta, rest}`. Évite d'ajouter `remark-directive` +
+  custom plugin (overkill, ~10 KB de dep pour 5 patterns).
+- **Code blocks enrichis = override `<pre>`, PAS `<code>`** : React Markdown rend
+  `<pre><code className="language-X">…</code></pre>`. Si on override `<code>` pour rendre un `<Paper>`,
+  on a `<pre><Paper>…</Paper></pre>` = HTML invalide (block dans inline-ish). C'est `<pre>` qu'on
+  override : on inspecte son enfant `<code className="language-…">` et on rend le wrapper Paper à la
+  place. Inline `<code>` (sans `language-`) reste géré par `<code>`.
+- **Hover anchor cliquable = CSS injecté UNE fois + classe** : la pseudo-classe `:hover` est
+  IMPOSSIBLE en `style={{…}}` inline → la solution simple est d'injecter un `<style>` global une
+  seule fois (pattern `ensureDocStyles`, miroir de `ensureLiveStyles`) avec `.nf-heading:hover
+.nf-heading-anchor { opacity: 0.7 }`. Pas de re-render, pas de state, l'effet visuel coûte 0 frame.
+  Ajouter `@media (prefers-reduced-motion: reduce) { transition: none }` dans le même bloc.
+- **`prefers-reduced-motion` au moment du scroll, pas au montage** : lire `window.matchMedia(…).matches`
+  AU CLIC (l'utilisateur peut basculer la préférence pendant la session). Coût négligeable
+  (`matchMedia` est synchrone et caché par le navigateur). Vaut pour `DocToc.go()` et l'anchor copy.
+- **Copie d'URL profonde sûre** : `navigator.clipboard.writeText` nécessite **HTTPS** ou localhost ;
+  Studio sert en HTTPS (5152) → OK partout. Construire l'URL via `window.location.origin +
+window.location.pathname + "#" + slug` (jamais `href` brut qui pourrait contenir des hash en cascade).
+  Catch silencieux : si l'utilisateur refuse l'accès clipboard, le scroll au moins continue.
+
+**`DocPageHeader` (v1.1.0)**
+
+- **Dégradation gracieuse = champs optionnels côté front, remontée optionnelle côté back** : seuls
+  `breadcrumbs` et `title` ont du sens en POC ; `updated`/`status`/`sourceUrl`/`version` ne s'affichent
+  QUE si présents (rien à filtrer côté JSX, condition `&&`). Le backend documentation pourra remonter
+  ces champs dans la response `/api/page/{slug}` (frontmatter `updated`/`source` → URL GitHub assemblée
+  serveur via la config repo) sans toucher au call-site. Pattern recommandé pour TOUTE évolution du
+  contrat data plane → étend la response, le front consomme avec `?.` et `&&`.
+- **Pourquoi `h2` et pas `h1`** : la page Studio porte déjà un `h1` global via `<PageHeader>` ; ajouter
+  un `h1` interne casserait la hiérarchie (2 h1 frères). Le titre de la doc courante est sémantiquement
+  un `h2`. Les `##` du markdown rendu deviendront aussi des `h2` → frères sémantiquement OK
+  (l'en-tête de page + ses sections sont au même niveau, comme MDN/Docusaurus).
+- **Status reconnus & couleurs** : map `STATUS_COLOR` interne (`stable→teal`, `draft→yellow`,
+  `temporary→orange`, `experimental→violet`, `deprecated→red`, fallback `gray`). Étendre quand un
+  nouveau status sort du frontmatter ; ne pas hand-roller dans les call-sites.
+
+**Layout 0 magic number (v1.1.0)**
+
+- **`Chat.tsx` avait un bug debugbar** : `h="calc(100vh - 96px)"` SANS soustraction
+  `var(--nodefony-debugbar-height)` → la zone de chat débordait sous la debug bar quand elle était
+  active. Fix collatéral en migrant à `PAGE_CONTENT_HEIGHT` ET en passant le titre custom à
+  `<PageHeader>` (cohérence kit). Règle : tout `calc(100vh - …)` DOIT soustraire le debugbar — codifié
+  dans `layout.ts`, plus possible d'oublier.
+- **Taxonomie 4 tokens, pas 8** : les 8 magic numbers réels (170/200/210/250/96/60/90/90) tombent
+  dans 4 contextes sémantiques (page plein, page+bande, panel sous Tabs.List dans Card, Modal
+  fullScreen). Nommer les **contributeurs** (HEADER, PAGE_HEADER, BAND, DEBUGBAR, GAP, MODAL_HEADER)
+  - composer. La variance ±6 px entre valeurs absorbée par les paddings naturels Mantine — ne PAS
+    chercher la formule magique exacte. Préférer un nouveau token sémantique à un magic number en page.
+
+---
+
 ## Réfs (mémoires IA — détails)
 
 - [[project_doc_portal_faisabilite]] — étude de faisabilité (persona, graphes, providers, versioning, RBAC).
@@ -320,6 +428,19 @@ Après modif front pure → HMR Vite (0 restart). Après modif controller → `s
 
 ## Changelog (SemVer)
 
+- **1.1.0** (2026-05-28) — **Template doc impeccable + 0 magic number** (session 1, front-only).
+  Briques `MarkdownDoc` enrichies : admonitions GitHub-flavor (`> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]`
+  → `<Alert>` Mantine, parser direct dans l'override blockquote, 0 dep), heading anchors cliquables
+  au hover (icône `#`, copie URL profonde + scroll, `prefers-reduced-motion` respecté), code blocks
+  enrichis (topbar chip langue + bouton Copier ; override `<pre>` pour HTML valide). Nouvelle brique
+  `DocPageHeader` (breadcrumb · titre h2 · badges version/status/wip · meta line « Mis à jour le … »
+  - « Modifier sur GitHub », tout optionnel = dégradation gracieuse, prêt à recevoir `updated`/
+    `sourceUrl` du backend). `layout.ts` étendu = 4 tokens publics (`PAGE_CONTENT_HEIGHT`,
+    `PAGE_CONTENT_HEIGHT_WITH_BAND`, `TABS_PANEL_HEIGHT`, `MODAL_FULLSCREEN_BODY/CONTENT`) + 2 constantes
+    internes (`BAND="48px"`, `MODAL_HEADER="60px"`). 8 magic numbers migrés (RoutesView/ModuleDetail×2/
+    Database/Chat/DocLayout×2/FlowGraph) ; bug debugbar Chat fixé en bonus ; 0 résiduel hors `layout.ts`.
+    Section Retex initiée avec les pièges rencontrés. Gates : `npm run typecheck` Studio = 0 erreur,
+    transform Vite 200 sur 11 fichiers, HMR Vite = 0 restart serveur.
 - **1.0.0** (2026-05-25) — Création. Capitalise le POC portail doc `eb078ce` : briques front
   (DocLayout/DocToc/MarkdownDoc/FlowGraph/SymbolGraph + `layout.ts`), règles docs-site (0 magic
   number, sticky + 1 scroll, Card overflow, pas de sticky dans ScrollArea), data plane

@@ -55,6 +55,7 @@ import {
   DataState,
   DocHint,
   DocLayout,
+  DocPageHeader,
   FlowGraph,
   GraphHint,
   MarkdownDoc,
@@ -404,6 +405,12 @@ interface DocContent {
   slug: string;
   title: string;
   version?: string;
+  /** Statut de page (frontmatter `status`). Reconnu : stable/draft/experimental/deprecated. */
+  status?: string;
+  /** Date ISO de dernière mise à jour (frontmatter `updated` ou git mtime — backend futur). */
+  updated?: string;
+  /** URL absolue de la source markdown (lien "Modifier sur GitHub" — backend futur). */
+  sourceUrl?: string;
   vars?: Record<string, string | number>;
   markdown: string;
   temporary?: boolean;
@@ -467,6 +474,14 @@ export const Documentation = observer(() => {
       ),
     }))
     .filter((s) => s.pages.length > 0);
+
+  // Breadcrumb : section qui contient la page active (sinon racine seule).
+  const activeSection = sections.find((s) =>
+    s.pages.some((p) => p.slug === activeSlug),
+  );
+  const breadcrumbs = activeSection
+    ? ["Documentation", activeSection.label]
+    : ["Documentation"];
   const expandAll = () =>
     setCollapsed(Object.fromEntries(sections.map((s) => [s.id, false])));
   const collapseAll = () =>
@@ -593,17 +608,14 @@ export const Documentation = observer(() => {
           </DataState>
         }
         title={
-          <Group gap="xs" wrap="nowrap">
-            <Title order={2} lineClamp={1} style={{ minWidth: 0 }}>
-              {page.data?.title ?? "—"}
-            </Title>
-            {page.data?.temporary && (
-              <Badge color="yellow" variant="light">
-                temporaire
-              </Badge>
-            )}
-            <Badge variant="default">{page.data?.version ?? DOC_VERSION}</Badge>
-          </Group>
+          <DocPageHeader
+            breadcrumbs={breadcrumbs}
+            title={page.data?.title ?? "—"}
+            version={page.data?.version ?? DOC_VERSION}
+            status={page.data?.temporary ? "temporary" : page.data?.status}
+            updated={page.data?.updated}
+            sourceUrl={page.data?.sourceUrl}
+          />
         }
         tocMarkdown={isSocket ? undefined : markdown}
         mode="page"

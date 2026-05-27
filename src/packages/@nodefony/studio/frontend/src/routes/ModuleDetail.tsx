@@ -54,7 +54,14 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
-import { ConfigView, DocLayout, KeyValue, MarkdownDoc } from "../components/ui";
+import {
+  ConfigView,
+  DocLayout,
+  KeyValue,
+  MarkdownDoc,
+  PAGE_CONTENT_HEIGHT,
+  TABS_PANEL_HEIGHT,
+} from "../components/ui";
 import { ModuleSymbolGraph } from "../components/SymbolGraph";
 import { RoleSwitch } from "../components/RoleSwitch";
 
@@ -337,7 +344,7 @@ export const ModuleDetail = observer(() => {
         withBorder
         radius="md"
         p={0}
-        mih="calc(100vh - 170px - var(--nodefony-debugbar-height, 0px))"
+        mih={PAGE_CONTENT_HEIGHT}
         // overflow visible : sinon le `overflow:hidden` par défaut de Card
         // CLIPPE le Tabs.List sticky (haut du contenu coupé + sticky cassé).
         style={{ overflow: "visible" }}
@@ -727,8 +734,7 @@ function ModuleDetailSkeleton() {
 }
 
 /** Hauteur de lecture inline = viewport moins l'en-tête de page + onglets. */
-const READER_HEIGHT =
-  "calc(100vh - 250px - var(--nodefony-debugbar-height, 0px))";
+const READER_HEIGHT = TABS_PANEL_HEIGHT;
 
 /**
  * DocsPanel — lecture fluide de la doc colocalisée.

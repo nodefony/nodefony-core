@@ -16,7 +16,12 @@ import {
   IconMaximize,
 } from "@tabler/icons-react";
 import { DocToc, extractHeadings } from "./DocToc";
-import { CONTENT_STICKY_TOP, SIDEBAR_MAX_HEIGHT } from "./layout";
+import {
+  CONTENT_STICKY_TOP,
+  MODAL_FULLSCREEN_BODY,
+  MODAL_FULLSCREEN_CONTENT,
+  SIDEBAR_MAX_HEIGHT,
+} from "./layout";
 
 /* ════════════════════════════════════════════════════════════════════════
  * DocLayout — LE layout de documentation UNIQUE, utilisé PARTOUT.
@@ -218,9 +223,9 @@ export function DocLayout({
         fullScreen
         radius={0}
         title={navTitle}
-        styles={{ body: { height: "calc(100vh - 60px)" } }}
+        styles={{ body: { height: MODAL_FULLSCREEN_BODY } }}
       >
-        {renderGrid("container", "calc(100vh - 90px)", true)}
+        {renderGrid("container", MODAL_FULLSCREEN_CONTENT, true)}
       </Modal>
     </>
   );

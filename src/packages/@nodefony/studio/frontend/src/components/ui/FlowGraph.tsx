@@ -25,6 +25,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
 import { IconMaximize } from "@tabler/icons-react";
+import { MODAL_FULLSCREEN_CONTENT } from "./layout";
 
 /* ════════════════════════════════════════════════════════════════════════
  * FlowGraph — brique de schéma RÉUTILISABLE (React Flow + dagre).
@@ -265,7 +266,7 @@ export function FlowGraph({
         radius={0}
         title={ariaLabel}
       >
-        {flow("calc(100vh - 90px)")}
+        {flow(MODAL_FULLSCREEN_CONTENT)}
       </Modal>
     </>
   );

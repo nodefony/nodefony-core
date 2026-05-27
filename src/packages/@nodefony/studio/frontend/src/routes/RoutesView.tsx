@@ -7,6 +7,7 @@ import { useStore } from "../stores";
 import {
   PageHeader,
   DataGrid,
+  PAGE_CONTENT_HEIGHT_WITH_BAND,
   type DataGridColumn,
   type DataGridServerQuery,
   type DataGridServerResult,
@@ -198,7 +199,7 @@ export const RoutesView = observer(() => {
         getRowId={(r) => r.name || `${r.methods.join()}:${r.path}`}
         initialSort={{ key: "path", dir: "asc" }}
         pageSize={25}
-        height="calc(100vh - 200px - var(--nodefony-debugbar-height, 0px))"
+        height={PAGE_CONTENT_HEIGHT_WITH_BAND}
         searchPlaceholder="Rechercher (path, méthode, controller, module…)"
         emptyMessage="Aucune route ne correspond."
         persist={{ key: "studio.routes", storage: "session" }}

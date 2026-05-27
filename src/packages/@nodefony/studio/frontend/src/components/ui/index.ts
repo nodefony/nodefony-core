@@ -36,8 +36,14 @@ export {
   CONTENT_STICKY_TOP,
   SIDEBAR_MAX_HEIGHT,
   HEADING_SCROLL_MARGIN,
+  PAGE_CONTENT_HEIGHT,
+  PAGE_CONTENT_HEIGHT_WITH_BAND,
+  TABS_PANEL_HEIGHT,
+  MODAL_FULLSCREEN_BODY,
+  MODAL_FULLSCREEN_CONTENT,
 } from "./layout";
 export { DocLayout, type DocLayoutProps } from "./DocLayout";
+export { DocPageHeader, type DocPageHeaderProps } from "./DocPageHeader";
 export {
   FlowGraph,
   type FlowGraphProps,

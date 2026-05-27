@@ -11,10 +11,10 @@ import {
   Stack,
   Text,
   Textarea,
-  Title,
 } from "@mantine/core";
 import { IconSend, IconRobot, IconUser, IconTrash } from "@tabler/icons-react";
 import { useChat, useConnection } from "../stores";
+import { PageHeader, PAGE_CONTENT_HEIGHT } from "../components/ui";
 
 /**
  * Chat IA temps réel — préfigure la vue agentic Nodefony (P12).
@@ -29,7 +29,10 @@ export const Chat = observer(() => {
   const viewport = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    viewport.current?.scrollTo({ top: viewport.current.scrollHeight, behavior: "smooth" });
+    viewport.current?.scrollTo({
+      top: viewport.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [chat.messages.length, chat.currentResponse]);
 
   const submit = () => {
@@ -39,35 +42,48 @@ export const Chat = observer(() => {
   };
 
   return (
-    <Stack gap="md" h="calc(100vh - 96px)">
-      <Group justify="space-between" align="flex-end">
-        <Stack gap={4}>
-          <Title order={2}>Chat IA</Title>
-          <Text c="dimmed" size="sm">
-            Pipeline cible : @nodefony/agent + LLM provider + streaming via le Core isomorphe `nodefony` (RealtimeClient, P12).
-          </Text>
-        </Stack>
-        <Group gap="xs">
-          <Badge color={conn.isConnected ? "teal" : "yellow"} variant="light">
-            {conn.isConnected ? "RT online" : "mock local"}
-          </Badge>
-          <ActionIcon
-            variant="subtle"
-            color="red"
-            aria-label="Clear chat"
-            onClick={() => chat.clear()}
-            disabled={chat.messages.length === 0}
-          >
-            <IconTrash size={18} />
-          </ActionIcon>
-        </Group>
-      </Group>
+    <Stack gap="md" h={PAGE_CONTENT_HEIGHT}>
+      <PageHeader
+        title="Chat IA"
+        subtitle="Pipeline cible : @nodefony/agent + LLM provider + streaming via le Core isomorphe `nodefony` (RealtimeClient, P12)."
+        icon={<IconRobot size={22} />}
+        actions={
+          <Group gap="xs">
+            <Badge color={conn.isConnected ? "teal" : "yellow"} variant="light">
+              {conn.isConnected ? "RT online" : "mock local"}
+            </Badge>
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              aria-label="Clear chat"
+              onClick={() => chat.clear()}
+              disabled={chat.messages.length === 0}
+            >
+              <IconTrash size={18} />
+            </ActionIcon>
+          </Group>
+        }
+      />
 
-      <Card withBorder radius="md" p={0} style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      <Card
+        withBorder
+        radius="md"
+        p={0}
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+        }}
+      >
         <ScrollArea viewportRef={viewport} style={{ flex: 1 }} p="md">
           <Stack gap="md">
             {chat.messages.length === 0 && !chat.isStreaming && (
-              <Alert color="blue" variant="light" icon={<IconRobot size={18} />}>
+              <Alert
+                color="blue"
+                variant="light"
+                icon={<IconRobot size={18} />}
+              >
                 Aucun message. Tape ci-dessous pour interroger l'agent (mock).
               </Alert>
             )}
@@ -75,7 +91,11 @@ export const Chat = observer(() => {
               <ChatBubble key={m.id} role={m.role} content={m.content} />
             ))}
             {chat.isStreaming && chat.currentResponse && (
-              <ChatBubble role="assistant" content={chat.currentResponse} streaming />
+              <ChatBubble
+                role="assistant"
+                content={chat.currentResponse}
+                streaming
+              />
             )}
             {chat.error && (
               <Alert color="red" variant="light">
@@ -85,7 +105,12 @@ export const Chat = observer(() => {
           </Stack>
         </ScrollArea>
 
-        <Group gap="xs" p="sm" align="flex-end" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+        <Group
+          gap="xs"
+          p="sm"
+          align="flex-end"
+          style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}
+        >
           <Textarea
             placeholder="Pose une question à l'agent…"
             autosize
@@ -129,7 +154,11 @@ function ChatBubble({
 }) {
   const isUser = role === "user";
   return (
-    <Group align="flex-start" wrap="nowrap" justify={isUser ? "flex-end" : "flex-start"}>
+    <Group
+      align="flex-start"
+      wrap="nowrap"
+      justify={isUser ? "flex-end" : "flex-start"}
+    >
       {!isUser && (
         <Paper radius="xl" p={6} bg="dark.6">
           <IconRobot size={18} />
@@ -142,7 +171,14 @@ function ChatBubble({
         bg={isUser ? "orange.9" : undefined}
         style={{ maxWidth: "70%", whiteSpace: "pre-wrap" }}
       >
-        <Text size="sm">{content}{streaming && <Text span c="dimmed">▍</Text>}</Text>
+        <Text size="sm">
+          {content}
+          {streaming && (
+            <Text span c="dimmed">
+              ▍
+            </Text>
+          )}
+        </Text>
       </Paper>
       {isUser && (
         <Paper radius="xl" p={6} bg="orange.7">

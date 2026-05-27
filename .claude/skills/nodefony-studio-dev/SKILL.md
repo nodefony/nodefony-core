@@ -995,6 +995,54 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   fallback HTTP **hors temps réel** (round-robin) → reformulée « active le temps réel pour l'exact ». Lockstep back =
   framework-dev 1.15.0. [[project_cluster_drilldown_kit]].
 
+**Template doc impeccable + 0 magic number (2026-05-28, session 1, front-only — pas de bump lockstep)**
+
+- **`layout.ts` étendu = 4 nouveaux tokens** (`PAGE_CONTENT_HEIGHT`, `PAGE_CONTENT_HEIGHT_WITH_BAND`,
+  `TABS_PANEL_HEIGHT`, `MODAL_FULLSCREEN_BODY`, `MODAL_FULLSCREEN_CONTENT`) avec 2 constantes internes
+  `BAND="48px"` (toolbar/filtres ou Tabs.List sticky) et `MODAL_HEADER="60px"` (topbar Modal Mantine
+  fullScreen). **0 `calc(100vh - Npx)` résiduel hors `layout.ts`** (vérifié par grep). Réponse à
+  [[feedback_studio_layout_rigor]] §1.
+- **8 magic numbers migrés** : `RoutesView.tsx` (DataGrid 200→`WITH_BAND`), `ModuleDetail.tsx` (Card mih
+  170→`PAGE_CONTENT_HEIGHT` + `READER_HEIGHT` 250→`TABS_PANEL_HEIGHT`), `Database.tsx` (ERD 210→`WITH_BAND`),
+  `Chat.tsx` (96→`PAGE_CONTENT_HEIGHT` **+ bug debugbar corrigé** en passant à `<PageHeader>` au passage —
+  cohérence kit), `DocLayout.tsx` (Modal body 60→`FULLSCREEN_BODY` + grid 90→`FULLSCREEN_CONTENT`),
+  `FlowGraph.tsx` (Modal 90→`FULLSCREEN_CONTENT`). RÈGLE confirmée : la valeur de hauteur exacte n'est
+  PAS le but — nommer les **contributeurs** (HEADER, PAGE_HEADER, BAND, DEBUGBAR, GAP) et composer.
+- **`<DocPageHeader>` (UI kit, NOUVELLE BRIQUE)** : en-tête riche d'une page de doc — breadcrumb
+  (Section › Page) + titre h2 + badges (`version`, `status`, `wip`) + meta line (« Mis à jour le … » +
+  « Modifier sur GitHub »). Tout sauf le titre est optionnel → dégradation gracieuse. Status reconnus :
+  `stable`/`draft`/`temporary`/`experimental`/`deprecated` (couleurs auto). Usage = passer `<DocPageHeader/>`
+  au `title=` du `DocLayout`. Front prêt à recevoir `updated`/`sourceUrl` du backend sans changer
+  les call-sites — le backend documentation pourra remonter ces champs (frontmatter `updated`+`source`
+  → URL GitHub assemblée serveur) plus tard sans casser le rendu actuel.
+- **Admonitions GitHub-flavor dans `MarkdownDoc`** : `> [!NOTE|TIP|IMPORTANT|WARNING|CAUTION]` détecté
+  par parser direct dans `parseAdmonition` (recursion sur les children React du blockquote, retire le
+  préfixe `[!TYPE]` du 1ᵉʳ text node) → rendu `<Alert>` Mantine (icône + couleur + titre traduit FR :
+  Note / Astuce / Important / Avertissement / Attention). **0 nouvelle dep** — `remark-gfm` ne parse
+  pas les admonitions, on consomme le texte brut. Permet d'écrire des callouts en `.md` (avant : il
+  fallait être en React, cf le bloc `if (isSocket)` de `Documentation.tsx`).
+- **Heading anchors cliquables au hover** dans `MarkdownDoc` : sur h2/h3/h4, icône `#` à droite qui
+  passe `opacity 0→0.7` au `:hover`, `opacity 1` au `:focus`/anchor `:hover`. Clic = copie URL profonde
+  (`origin + path + #slug`) dans le presse-papier + `scrollIntoView` (smooth ou auto selon
+  `prefers-reduced-motion`). Styles injectés une seule fois (pattern `ensureDocStyles` — pareil que
+  `ensureLiveStyles`, 0 re-render React). `:hover`/`:focus-within` impossibles en inline style → la
+  classe CSS + injection unique restent la solution la plus simple.
+- **Code blocks enrichis** dans `MarkdownDoc` : override de `pre` qui détecte un enfant
+  `<code className="language-X">` → wrapper `Paper` avec topbar (`<chip langue>` + `ActionIcon` Copier
+  avec feedback `IconCopy → IconCheck` 1.2s). Inline `<code>` inchangé (pas de className `language-`).
+  **Pas** de syntax highlighting (lourd, différé). ⚠️ Piège HTML évité : si on override `<code>` qui
+  rend un `<Paper>`, on a `<pre><Paper>...</Paper></pre>` = invalide → c'est `<pre>` qu'on doit override
+  pour rendre le block enrichi, pas `<code>`.
+- **`prefers-reduced-motion` gate** ajoutée à `DocToc.go()` ET à l'anchor copy : `behavior` = `"auto"`
+  si reduce, `"smooth"` sinon. WCAG 2.3.3 Animation from Interactions.
+- **Sécurité** vérifiée : `navigator.clipboard.writeText` est OK en HTTPS (Studio sur 5152). Pas de
+  `dangerouslySetInnerHTML` ajouté. `Anchor` externe garde `rel="noreferrer noopener"`. Mermaid reste
+  en `securityLevel:"strict"`.
+- **Gates verts** : `npm run typecheck` (frontend Studio) = 0 erreur ; curl du transform Vite (`@fs`)
+  sur 11 fichiers touchés = 200 partout (esbuild OK). HMR Vite suffit, 0 restart serveur.
+- **PAS de bump lockstep** : front-only (briques UI kit + 1 page + cleanup layout) → la version commune
+  reste 1.15.0. Bumper si une future passe touche le contrat front+back (canal, action, type isomorphe).
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
