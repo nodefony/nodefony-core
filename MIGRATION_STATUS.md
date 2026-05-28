@@ -248,8 +248,8 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 > - **P13.4a** — `IRealtimeAuthenticator` sur handshake WS (façade `RealtimeService`)
 > - **P13.4b** — Areas WS dans `defineSecurityConfig()` (pattern `{pattern:"kernel:*", authenticator:"jwt"}`)
 > - **P13.4c** — Origin check natif sur upgrade WS (CSRF defense, absence de SameSite côté WS)
-> - **P13.7a** — Hook `onFrameAudit(reason, frame)` dans `JsonRpcPeer` (event audit → P6.14)
-> - **P13.8a** — Hook `beforeDispatch(frame, peer)` dans `JsonRpcPeer` (lit metadata `@IsGranted`)
+> - ✅ **P13.7a** — Hook `onFrameAudit(reason, frame)` dans `JsonRpcPeer` (event audit → P6.14) — **livré 2026-05-28 (`b3a5890`)** : 4 raisons (`invalid` / `denied` / `method_not_found` / `internal_error`), sync fire-and-forget, bypass 0-coût quand `undefined`. Type `FrameAuditReason` exporté depuis `nodefony`.
+> - ✅ **P13.8a** — Hook `beforeDispatch(frame, peer)` dans `JsonRpcPeer` (lit metadata `@IsGranted`) — **livré 2026-05-28 (`b3a5890`)** : gate SYNC sur request+notification, `false` → audit `denied` + (request) `-32001 unauthorized` / (notification) drop silencieux, bypass 0-coût quand `undefined`. 10 tests vitest nouveaux verrouillent les 2 seams + le bypass.
 >
 > Coût total seams : ~1,2 ses. Sans eux = refonte garantie en P6.
 >
