@@ -19,6 +19,7 @@ dans `CLAUDE.md` racine et observées sur les modules existants (`@nodefony/http
 ## Quand l'utiliser
 
 Dès que l'user dit :
+
 - "crée un module X", "nouveau module nodefony X"
 - "scaffold @nodefony/Y"
 - "bootstrap un module Z"
@@ -44,10 +45,10 @@ En cas de doute : assumer **package @nodefony/** (le cas le plus fréquent).
 
 ### Q2 — Catégorie (si ambigu)
 
-| Option | Emplacement | Quand |
-| ------ | ----------- | ----- |
+| Option                          | Emplacement                      | Quand                                               |
+| ------------------------------- | -------------------------------- | --------------------------------------------------- |
 | Package framework `@nodefony/*` | `src/packages/@nodefony/{name}/` | Composant réutilisable, faisant partie du framework |
-| Module applicatif | `src/modules/{name}/` | Module d'app, démo, test, non publié séparément |
+| Module applicatif               | `src/modules/{name}/`            | Module d'app, démo, test, non publié séparément     |
 
 ### Q3 — Options à activer (multiSelect)
 
@@ -73,8 +74,9 @@ Si oui : éditer `/Users/cci/repository/nodefony-core/index.ts` pour ajouter le 
 ### 2. Création arborescence
 
 ```bash
-# Package framework
+# Package framework (TOUJOURS — `docs/` inclus, surfacé dans Studio /nodefony/modules/{name})
 mkdir -p src/packages/@nodefony/{name}/nodefony/{config,interfaces,service,src/errors}
+mkdir -p src/packages/@nodefony/{name}/docs
 
 # Avec commands CLI
 mkdir -p src/packages/@nodefony/{name}/nodefony/command
@@ -92,13 +94,31 @@ mkdir -p src/packages/@nodefony/{name}/frontend/src
 ### 3. Génération des fichiers (utiliser Write tool — templates dans `reference/templates.md`)
 
 Variables à remplacer dans tous les templates :
+
 - `{{name}}` → nom court (ex: `foo`)
 - `{{NameClass}}` → PascalCase (ex: `Foo`)
 - `{{NAME_UPPER}}` → upper (ex: `FOO`) — utilisé seulement dans error codes
 - `{{description}}` → 1 ligne fournie par l'user (fallback : `"Nodefony {{name}} module"`)
 - `{{path_dir}}` → `src/packages/@nodefony/{{name}}` ou `src/modules/{{name}}`
 - `{{peer_deps}}` → JSON object selon options activées
-- `{{peer_dev_types}}` → liste @types/* devDependencies selon options
+- `{{peer_dev_types}}` → liste @types/\* devDependencies selon options
+
+**Fichiers générés TOUJOURS** : `package.json`, `tsconfig.json`, `rollup.config.ts`,
+`vitest.config.ts`, `index.ts` (Module class + exports), `nodefony/config/config.ts`,
+`nodefony/interfaces/I{{NameClass}}Service.ts` + `index.ts` barrel,
+`nodefony/service/{{NameClass}}Service.ts`, `nodefony/src/errors/{{NameClass}}Error.ts`,
+`CLAUDE.md`, `MEMORY.md`, `README.md`, **`docs/index.md`, `docs/architecture.md`** ⭐.
+
+**Fichiers générés SI OPTIONS** : `nodefony/command/{{name}}-command.ts` (Q3 commands),
+`nodefony/controller/{{NameClass}}Controller.ts` (Q3 controllers), `nodefony/entity/...` (Q3 entities),
+`frontend/...` (Q3 frontend — délégué au skill `nodefony-create-frontend-module`).
+
+> ⭐ **`docs/` est OBLIGATOIRE depuis 2026-05-28** (convention figée — cf
+> [[feedback_module_docs_scaffold]]). Tout module naît avec sa structure doc minimale pour
+> être visible dans Studio `/nodefony/modules/{{name}}` (onglet « Docs ») dès le 1er commit.
+> Le `README.md` reste séparé (cible npm/GitHub, court) ; `docs/*.md` = doc dev/utilisateur
+> étendue (frontmatter Studio-friendly figé : `slug`, `title`, `section`, `audience`,
+> `version`, `status`, `updated`, `source`).
 
 ### 4. Build du module
 
@@ -142,6 +162,7 @@ Si OK, mentionner à l'user que le module est utilisable. ⚠️ Ne PAS se fier 
 ### 6. Reporter à l'user
 
 Format court :
+
 ```
 Module @nodefony/{{name}} créé.
   - {{path_dir}}/
@@ -173,21 +194,21 @@ Après génération :
 
 ## Pièges connus à éviter
 
-| Piège | Symptôme | Fix |
-| ----- | -------- | --- |
-| `options: Config` redéclaré dans Service | TS2565 "Property 'options' is used before being assigned" | Utiliser `private readonly cfg: Config` field |
-| `declarationDir` sans `declaration` | TS5069 | Soit garder les 2, soit retirer les 2 |
-| `external: ["nodefony"]` non exact-match | "nodefony" matche tous chunks `nodefony/...` | `id === e \|\| (e !== "nodefony" && id.startsWith(e + "/"))` |
-| Service `name` ≠ className | `container.get("ClassName")` retourne undefined | Utiliser le name passé à super() |
-| ANSI dans stdout child | regex match foire | strip via `/\x1b\[[0-9;]*m/g` |
-| `npx command &` meurt SIGHUP | process detached die | spawn `detached: true` + `child.unref()` |
-| `path.resolve(root, "./frontend/src/main.tsx")` quand root déjà absolu | `frontend/frontend/...` doublé | Stocker entryFile relatif au root (`path.relative(root, abs)`) |
-| Activation `@modules` dans le mauvais ordre | service non trouvé au consumer | Frontend AVANT son consumer ; framework/http AVANT modules qui les utilisent |
-| Forgot `/// <reference types="node" />` | TS errors sur globals Node | Première ligne des fichiers test |
-| **Nouveau workspace sans `npm install`** | **boot crash `Cannot find package '.../node_modules/@nodefony/<mod>/dist/index.js'`** | **`npm install` racine APRÈS création** → crée le symlink `node_modules/@nodefony/<mod>` (glob workspaces `src/modules/*` / `src/packages/@nodefony/*`) |
-| **Dist RACINE périmé après `@modules()`** | 1er boot rate le module (même si le module est bâti) | **rebuild dist racine** (`npx rollup -c` à la racine) — `start.sh` ne build QUE le module test ; cf mémoire `feedback_root_dist_stale_modules` |
-| **Turbo sert des types périmés d'une lib partagée** | `TS2353 '<champ>' n'existe pas sur <IInterface>` alors que la source l'a (ex. champ ajouté à `IEntity` dans orm-core) | **builder la dép EN DIRECT** (`cd <dep> && npm run build`), PAS via turbo (cache stale) ; cf `feedback_turbo_cache_stale_logs` |
-| **`created dist` menteur** | build « réussi » mais `dist/index.js` **absent** — les erreurs de type `@rollup/plugin-typescript` sont des **WARNINGS**, le JS s'émet (ou pas) sans faire échouer | **TOUJOURS `ls dist/index.js`** après build, ne pas se fier au message « created dist » |
+| Piège                                                                  | Symptôme                                                                                                                                                           | Fix                                                                                                                                                     |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `options: Config` redéclaré dans Service                               | TS2565 "Property 'options' is used before being assigned"                                                                                                          | Utiliser `private readonly cfg: Config` field                                                                                                           |
+| `declarationDir` sans `declaration`                                    | TS5069                                                                                                                                                             | Soit garder les 2, soit retirer les 2                                                                                                                   |
+| `external: ["nodefony"]` non exact-match                               | "nodefony" matche tous chunks `nodefony/...`                                                                                                                       | `id === e \|\| (e !== "nodefony" && id.startsWith(e + "/"))`                                                                                            |
+| Service `name` ≠ className                                             | `container.get("ClassName")` retourne undefined                                                                                                                    | Utiliser le name passé à super()                                                                                                                        |
+| ANSI dans stdout child                                                 | regex match foire                                                                                                                                                  | strip via `/\x1b\[[0-9;]*m/g`                                                                                                                           |
+| `npx command &` meurt SIGHUP                                           | process detached die                                                                                                                                               | spawn `detached: true` + `child.unref()`                                                                                                                |
+| `path.resolve(root, "./frontend/src/main.tsx")` quand root déjà absolu | `frontend/frontend/...` doublé                                                                                                                                     | Stocker entryFile relatif au root (`path.relative(root, abs)`)                                                                                          |
+| Activation `@modules` dans le mauvais ordre                            | service non trouvé au consumer                                                                                                                                     | Frontend AVANT son consumer ; framework/http AVANT modules qui les utilisent                                                                            |
+| Forgot `/// <reference types="node" />`                                | TS errors sur globals Node                                                                                                                                         | Première ligne des fichiers test                                                                                                                        |
+| **Nouveau workspace sans `npm install`**                               | **boot crash `Cannot find package '.../node_modules/@nodefony/<mod>/dist/index.js'`**                                                                              | **`npm install` racine APRÈS création** → crée le symlink `node_modules/@nodefony/<mod>` (glob workspaces `src/modules/*` / `src/packages/@nodefony/*`) |
+| **Dist RACINE périmé après `@modules()`**                              | 1er boot rate le module (même si le module est bâti)                                                                                                               | **rebuild dist racine** (`npx rollup -c` à la racine) — `start.sh` ne build QUE le module test ; cf mémoire `feedback_root_dist_stale_modules`          |
+| **Turbo sert des types périmés d'une lib partagée**                    | `TS2353 '<champ>' n'existe pas sur <IInterface>` alors que la source l'a (ex. champ ajouté à `IEntity` dans orm-core)                                              | **builder la dép EN DIRECT** (`cd <dep> && npm run build`), PAS via turbo (cache stale) ; cf `feedback_turbo_cache_stale_logs`                          |
+| **`created dist` menteur**                                             | build « réussi » mais `dist/index.js` **absent** — les erreurs de type `@rollup/plugin-typescript` sont des **WARNINGS**, le JS s'émet (ou pas) sans faire échouer | **TOUJOURS `ls dist/index.js`** après build, ne pas se fier au message « created dist »                                                                 |
 
 ## Exemples concrets de modules créés
 

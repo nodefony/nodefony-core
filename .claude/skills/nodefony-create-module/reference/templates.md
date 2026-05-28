@@ -54,6 +54,7 @@
 ```
 
 **peer_deps selon options activées** :
+
 ```json
 {
   "nodefony": "*",
@@ -72,6 +73,7 @@
 Tout module utilise **`vitest` + `@vitest/coverage-v8`** (ESM-natif ; **jamais c8** KO ESM/Node, et **pas monocart+mocha+tsx** qui casse dès qu'un test importe un dist Rollup — `mcr --require` bascule en CJS, cf [[feedback_coverage_modules]]). Studio lit `.coverage/coverage-summary.json` (onglet Coverage).
 
 devDeps (déjà dans le `package.json` ci-dessus) : `vitest` + `@vitest/coverage-v8`. Scripts :
+
 ```jsonc
 "test": "vitest run",
 "coverage": "vitest run --coverage",
@@ -80,6 +82,7 @@ devDeps (déjà dans le `package.json` ci-dessus) : `vitest` + `@vitest/coverage
 ```
 
 **Tests fraîchement scaffoldés** = `node:assert` + `describe`/`it` en **globals** (aucun import mocha) → la config MINIMALE ci-dessous suffit (réf. réelles : `@nodefony/orm-core`, `@nodefony/user`) :
+
 ```ts
 import { defineConfig } from "vitest/config";
 export default defineConfig({
@@ -90,7 +93,12 @@ export default defineConfig({
       provider: "v8",
       include: ["index.ts", "nodefony/**/*.ts"],
       // interfaces/contracts = type-only (effacés à la compil) → hors métrique
-      exclude: ["nodefony/interfaces/**", "nodefony/contracts/**", "**/*.d.ts", "**/dist/**"],
+      exclude: [
+        "nodefony/interfaces/**",
+        "nodefony/contracts/**",
+        "**/*.d.ts",
+        "**/dist/**",
+      ],
       reporter: ["text", "text-summary", "json-summary", "lcov"],
       reportsDirectory: ".coverage",
     },
@@ -99,6 +107,7 @@ export default defineConfig({
 ```
 
 **Ajouts CONDITIONNELS** (ne PAS mettre par défaut — réservés au portage de modules type framework/http) :
+
 - **décorateurs** (DI reflect) → `setupFiles: [r("./.../vitest.setup.ts")]` avec `import "reflect-metadata"` (+ `g.before ??= beforeAll` pour compat mocha). _orm-core n'en a PAS besoin (décorateurs WeakMap, sans reflect)._
 - **tests mocha existants** `import "mocha"` → `resolve.alias.mocha = r("./.../vitest-mocha-shim.mjs")` (`export {};`).
 - **import d'un ORM hors kernel** qui crashe → `resolve.alias["@nodefony/sequelize"|"mongoose"]` vers des stubs.
@@ -530,40 +539,40 @@ export default {{NameClass}}Controller;
 
 \`\`\`
 src/packages/@nodefony/{{name}}/
-├── index.ts                            ← class {{NameClass}} (Module) + exports publics
+├── index.ts ← class {{NameClass}} (Module) + exports publics
 ├── package.json
-├── rollup.config.ts                    ← bundler — NE PAS MODIFIER sans accord
-├── tsconfig.json                       ← NE PAS MODIFIER sans accord
+├── rollup.config.ts ← bundler — NE PAS MODIFIER sans accord
+├── tsconfig.json ← NE PAS MODIFIER sans accord
 ├── CLAUDE.md / MEMORY.md / README.md
 └── nodefony/
-    ├── config/config.ts                ← config DEFAULT (commentée en français)
-    ├── interfaces/I{{NameClass}}Service.ts
-    ├── service/{{NameClass}}Service.ts ← @injectable, name="{{name}}"
-    ├── (command/ / controller/ / entity/ selon options)
-    └── src/errors/{{NameClass}}Error.ts
+├── config/config.ts ← config DEFAULT (commentée en français)
+├── interfaces/I{{NameClass}}Service.ts
+├── service/{{NameClass}}Service.ts ← @injectable, name="{{name}}"
+├── (command/ / controller/ / entity/ selon options)
+└── src/errors/{{NameClass}}Error.ts
 \`\`\`
 
 ## Décisions techniques figées
 
-| Sujet              | Décision                                       |
-| ------------------ | ---------------------------------------------- |
-| Service name DI    | `"{{name}}"` (container.get("{{name}}"))       |
-| Errors             | extends `{{NameClass}}Error` (code + context)  |
-| Config             | typée via `{{NameClass}}Config` (cfg field)    |
-| Logs               | via `this.log(msg, "INFO|DEBUG|WARNING|ERROR|CRITIC")` |
+| Sujet           | Décision                                      |
+| --------------- | --------------------------------------------- | ----- | ------- | ----- | --------- |
+| Service name DI | `"{{name}}"` (container.get("{{name}}"))      |
+| Errors          | extends `{{NameClass}}Error` (code + context) |
+| Config          | typée via `{{NameClass}}Config` (cfg field)   |
+| Logs            | via `this.log(msg, "INFO                      | DEBUG | WARNING | ERROR | CRITIC")` |
 
 ## Pipeline (cycle de vie)
 
 \`\`\`
 constructor(module)
-  └─ extend(defaults, module.options) → cfg
-  └─ super("{{name}}", container, event, merged)
+└─ extend(defaults, module.options) → cfg
+└─ super("{{name}}", container, event, merged)
 
 initialize()
-  └─ kernel.once("onReady", ...) → setup listeners
+└─ kernel.once("onReady", ...) → setup listeners
 
 onKernelTerminate
-  └─ cleanup (close handles, kill children, etc.)
+└─ cleanup (close handles, kill children, etc.)
 \`\`\`
 
 ## Gotchas
@@ -581,10 +590,10 @@ onKernelTerminate
 
 ## Roadmap
 
-| Étape | Statut | Description |
-| ----- | ------ | ----------- |
+| Étape | Statut | Description                                  |
+| ----- | ------ | -------------------------------------------- |
 | MVP   | ⏳     | Squelette + service basique + erreurs typées |
-| ...   | ⏳     | À compléter |
+| ...   | ⏳     | À compléter                                  |
 ```
 
 ### `MEMORY.md`
@@ -604,7 +613,7 @@ Purpose: {{description}}
 
 \`\`\`ts
 {
-  enabled: true,
+enabled: true,
 }
 \`\`\`
 
@@ -626,7 +635,7 @@ Purpose: {{description}}
 - `declarationDir` requiert `declaration: true` (TS5069).
 - ANSI codes dans logs externes : strip via `/\x1b\[[0-9;]*m/g`.
 
-## API Studio (route /nodefony/{{name}}/* — Phase 10)
+## API Studio (route /nodefony/{{name}}/\* — Phase 10)
 
 - GET /nodefony/{{name}}/api/status → JSON status
 - (à étendre)
@@ -646,8 +655,8 @@ votre `index.ts` racine pour l'activer :
 
 \`\`\`typescript
 @modules([
-  // ...
-  "@nodefony/{{name}}",
+// ...
+"@nodefony/{{name}}",
 ])
 \`\`\`
 
@@ -667,20 +676,166 @@ Surcharger les defaults via la clé `module-{{name}}` dans le config racine :
 
 \`\`\`typescript
 const config = {
-  // ...
-  "module-{{name}}": {
-    enabled: true,
-  },
+// ...
+"module-{{name}}": {
+enabled: true,
+},
 };
 \`\`\`
 
 ## API
 
-| Méthode | Description |
-| ------- | ----------- |
+| Méthode    | Description                        |
+| ---------- | ---------------------------------- |
 | `status()` | Snapshot lecture — état du service |
 
 ## License
 
 CECILL-B
+```
+
+### `docs/index.md` — vue d'ensemble (surfacée dans Studio /nodefony/modules/{{name}})
+
+> **Pourquoi un `docs/` en plus du `README.md`** : le `README.md` cible humain/npm/GitHub
+> (court). `docs/` cible la doc dev/utilisateur étendue, **lue directement dans Studio**
+> via `/nodefony/modules/{{name}}` (onglet « Docs » alimenté par
+> `/nodefony/kernel/api/module/{{name}}/docs`). Convention figée : 2 fichiers minimum à la
+> création (`index.md` + `architecture.md`) pour que tout module naisse avec sa structure
+> doc et soit visible dans Studio dès le 1er commit. Voir le pattern complet sur
+> `@nodefony/realtime/docs/` (session 2026-05-28).
+>
+> **Frontmatter Studio-friendly OBLIGATOIRE** (extrait par `docsReader.ts` + filtre persona
+> Studio via bitmask rôles) :
+>
+> - `slug` — unique dans le module, format `{{name}}/<page>` ;
+> - `title` — affiché dans la sidebar Studio ;
+> - `section` — groupe (les pages d'un même `section` apparaissent ensemble) ;
+> - `audience` — CSV des personas Studio (`developer,architect,devops,supervisor,admin`).
+>   **Mettre les 5 par défaut** : la pédagogie ne se réserve pas, et le bitmask permet de
+>   switcher (cf [[feedback_studio_layout_rigor]]) ;
+> - `version` — bump à chaque grosse révision (`v0.1` à la création) ;
+> - `status` — `draft` à la création, → `stable` quand contenu complet ;
+> - `updated` — date ISO `YYYY-MM-DD` (à mettre à jour à chaque edit) ;
+> - `source` — chemin relatif au repo, pour le futur lien « Edit on GitHub ».
+
+````markdown
+---
+slug: {{name}}/index
+title: "@nodefony/{{name}} — vue d'ensemble dev"
+section: {{name}}
+audience: developer,architect,devops,supervisor,admin
+version: v0.1
+status: draft
+updated: YYYY-MM-DD
+source: src/packages/@nodefony/{{name}}/docs/index.md
+module: "@nodefony/{{name}}"
+topic: overview
+tags: [nodefony, {{name}}]
+---
+
+# @nodefony/{{name}} — vue d'ensemble dev
+
+> {{description}}
+>
+> Cette page est la **doc dev étendue**, lue dans Studio
+> (`/nodefony/modules/{{name}}` → onglet « Docs »). Le `README.md` à côté est volontairement
+> plus court et cible npm/GitHub.
+
+## Table des matières
+
+| Page                                   | Quoi                              |
+| -------------------------------------- | --------------------------------- |
+| [`index.md`](./index.md) (cette page)  | Vue d'ensemble + cible DX         |
+| [`architecture.md`](./architecture.md) | Architecture, contrats, internals |
+
+## Promesse en 1 phrase
+
+> _<à remplir — quelle est la cible DX de ce module ? que voit l'utilisateur qui l'importe ?>_
+
+## Ce que tu écris dans ton app (cible)
+
+```typescript
+// _<exemple minimal d'usage — server + client si pertinent>_
+```
+````
+
+## Ce que tu n'écris JAMAIS
+
+- _<choses cachées par l'abstraction du module>_
+
+## État actuel
+
+| Couche        | État         | Notes    |
+| ------------- | ------------ | -------- |
+| _<composant>_ | ✅ / 🔶 / ⬜ | _<note>_ |
+
+## Liens
+
+- 📐 **Décisions d'archi figées** : [`../CLAUDE.md`](../CLAUDE.md)
+- 🤖 **Internals IA** : [`../MEMORY.md`](../MEMORY.md)
+- 📦 **Doc humain courte** : [`../README.md`](../README.md)
+- 🏛️ **Architecture détaillée** : [`./architecture.md`](./architecture.md)
+
+````
+
+### `docs/architecture.md` — squelette d'architecture
+
+```markdown
+---
+slug: {{name}}/architecture
+title: "Architecture — @nodefony/{{name}}"
+section: {{name}}
+audience: developer,architect,devops,supervisor,admin
+version: v0.1
+status: draft
+updated: YYYY-MM-DD
+source: src/packages/@nodefony/{{name}}/docs/architecture.md
+module: "@nodefony/{{name}}"
+topic: architecture
+tags: [nodefony, {{name}}, architecture]
+---
+
+# Architecture — @nodefony/{{name}}
+
+> Cette page décrit **comment le module est construit à l'intérieur** : les briques, leurs
+> responsabilités, ce qui les sépare. À lire avant de toucher au code source.
+
+## Vue d'oiseau
+
+````
+
+_<schéma ASCII ou mermaid de la structure interne — qui appelle qui>_
+
+```
+
+## Briques principales
+
+| Brique | Rôle | Fichier |
+|--------|------|---------|
+| `{{NameClass}}` | Module class (entry point) | `index.ts` |
+| `{{NameClass}}Service` | Service injectable principal | `nodefony/service/{{NameClass}}Service.ts` |
+| `{{NameClass}}Error` | Erreur typée (code + context) | `nodefony/src/errors/{{NameClass}}Error.ts` |
+
+## Cycle de vie
+
+1. **constructor(module)** : merge defaults + `module.options` → `cfg`.
+2. **initialize()** : enregistre les listeners kernel (`onReady`, `onTerminate`).
+3. **(méthodes métier)** : appelées par les consumers via `container.get("{{name}}")`.
+4. **onTerminate** : cleanup (close handles, kill children).
+
+## Contrats publics
+
+- _<lister les interfaces exposées dans `nodefony/interfaces/`>_
+
+## Décisions figées
+
+| Sujet | Décision | Pourquoi |
+|-------|----------|----------|
+| _<sujet>_ | _<décision>_ | _<raison>_ |
+
+## Liens
+
+- [`./index.md`](./index.md) — vue d'ensemble dev
+- [`../CLAUDE.md`](../CLAUDE.md) — décisions d'archi figées
+- [`../MEMORY.md`](../MEMORY.md) — internals IA
 ```
