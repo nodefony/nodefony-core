@@ -10,7 +10,11 @@ import {
   Text,
   Tooltip,
 } from "@mantine/core";
-import { IconMaximize } from "@tabler/icons-react";
+import {
+  IconLayoutSidebarRightCollapse,
+  IconLayoutSidebarRightExpand,
+  IconMaximize,
+} from "@tabler/icons-react";
 import { DocToc, extractHeadings } from "./DocToc";
 import {
   CONTENT_STICKY_TOP,
@@ -71,16 +75,19 @@ export function DocLayout({
   enableFullscreen = true,
 }: DocLayoutProps) {
   const [fullscreen, setFullscreen] = useState(false);
+  // Le sommaire est visible par défaut. L'utilisateur peut le masquer pour
+  // gagner de la largeur de lecture, soit via le bouton « masquer » DANS la
+  // colonne TOC elle-même (à côté de « Sur cette page »), soit en passant en
+  // plein écran. En modal fullscreen, on force `true` pour ne pas hériter
+  // d'un état masqué de la vue page.
+  const [tocVisible, setTocVisible] = useState(true);
   const readerViewport = useRef<HTMLDivElement>(null);
 
   const hasToc = !!tocMarkdown && extractHeadings(tocMarkdown).length > 0;
 
   /** Rend les 3 colonnes pour un mode/hauteur donnés. */
   const renderGrid = (m: "page" | "container", h: string, isModal: boolean) => {
-    // Le sommaire est TOUJOURS visible s'il existe — pas de toggle (pattern
-    // des docs-site modernes : MDN, Mantine docs, Docusaurus). L'utilisateur
-    // qui veut plus de largeur de lecture passe en plein écran.
-    const showToc = hasToc;
+    const showToc = hasToc && (isModal ? true : tocVisible);
     const panelHeight = m === "page" ? SIDEBAR_MAX_HEIGHT : h;
     const centerSpan = showToc ? { base: 12, md: 6 } : { base: 12, md: 9 };
 
@@ -135,6 +142,11 @@ export function DocLayout({
             paddingBottom: "var(--mantine-spacing-xs, 8px)",
           }
         : {};
+    // Quand le sommaire est MASQUÉ, on rapatrie le bouton « afficher » à
+    // droite du titre (sinon il n'y a plus aucun moyen de le rouvrir). Quand
+    // le sommaire est VISIBLE, le bouton « masquer » vit DANS la card TOC
+    // elle-même, à côté de « Sur cette page » (emplacement légitime — on agit
+    // sur la TOC depuis la TOC).
     const headerBar = (
       <Group
         gap="xs"
@@ -143,6 +155,19 @@ export function DocLayout({
         style={{ flexShrink: 0, ...headerStickyStyle }}
       >
         <Box style={{ flex: 1, minWidth: 0 }}>{title}</Box>
+        {hasToc && !showToc && !isModal && (
+          <Tooltip label="Afficher le sommaire" position="left">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              onClick={() => setTocVisible(true)}
+              aria-label="Afficher le sommaire"
+            >
+              <IconLayoutSidebarRightExpand size={16} />
+            </ActionIcon>
+          </Tooltip>
+        )}
         {enableFullscreen && !isModal && (
           <Tooltip label="Plein écran" position="left">
             <ActionIcon
@@ -195,6 +220,21 @@ export function DocLayout({
               markdown={tocMarkdown}
               scrollRootRef={m === "container" ? readerViewport : undefined}
               maxHeight={panelHeight}
+              actions={
+                !isModal ? (
+                  <Tooltip label="Masquer le sommaire">
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      size="xs"
+                      onClick={() => setTocVisible(false)}
+                      aria-label="Masquer le sommaire"
+                    >
+                      <IconLayoutSidebarRightCollapse size={14} />
+                    </ActionIcon>
+                  </Tooltip>
+                ) : undefined
+              }
             />
           </Paper>
         </Box>

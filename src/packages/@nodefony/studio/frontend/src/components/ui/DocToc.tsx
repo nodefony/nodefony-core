@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   Box,
   Group,
@@ -75,6 +82,11 @@ export interface DocTocProps {
    * Sinon → en-tête + liste en flux (le parent gère le scroll).
    */
   maxHeight?: string;
+  /**
+   * Actions à droite du titre « Sur cette page » (ex bouton « masquer le
+   * sommaire » fourni par le parent qui contrôle l'affichage de la colonne).
+   */
+  actions?: ReactNode;
 }
 
 export function DocToc({
@@ -83,6 +95,7 @@ export function DocToc({
   minLevel = 2,
   maxLevel = 3,
   maxHeight,
+  actions,
 }: DocTocProps) {
   const headings = useMemo(
     () => extractHeadings(markdown, minLevel, maxLevel),
@@ -131,22 +144,23 @@ export function DocToc({
     const reduce =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    document
-      .getElementById(id)
-      ?.scrollIntoView({
-        behavior: reduce ? "auto" : "smooth",
-        block: "start",
-      });
+    document.getElementById(id)?.scrollIntoView({
+      behavior: reduce ? "auto" : "smooth",
+      block: "start",
+    });
     setActiveId(id);
   };
 
   const header = (
     <Box style={{ flexShrink: 0 }}>
-      <Group gap={6} mb={6} px="xs">
-        <IconList size={14} />
-        <Text size="xs" fw={700} tt="uppercase" c="dimmed">
-          Sur cette page
-        </Text>
+      <Group gap={6} mb={6} px="xs" justify="space-between" wrap="nowrap">
+        <Group gap={6} wrap="nowrap">
+          <IconList size={14} />
+          <Text size="xs" fw={700} tt="uppercase" c="dimmed">
+            Sur cette page
+          </Text>
+        </Group>
+        {actions}
       </Group>
       {headings.length > 8 && (
         <TextInput
