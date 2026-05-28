@@ -173,8 +173,9 @@ pensé**, pas une série de correctifs. Source de vérité = `components/ui/layo
 
 1. **0 magic number.** Tout offset vient de `layout.ts`, qui dérive des vars CSS du shell :
    - `STICKY_TOP` = `var(--app-shell-header-height)` — top d'un élément collé sous le header global.
-   - `CONTENT_STICKY_TOP` = header + hauteur PageHeader — pour un panneau sticky SOUS un PageHeader
-     lui-même sticky (sinon il passe DERRIÈRE le PageHeader opaque).
+   - `CONTENT_STICKY_TOP` = header + hauteur PageHeader **RÉELLE** (= `var(--nf-pageheader-height, 76px)`,
+     publiée par `<PageHeader sticky>` via `ResizeObserver` — pixel-perfect, suit le subtitle/actions ;
+     fallback `76px` quand pas de PageHeader sticky monté). **JAMAIS** retomber sur la constante en dur.
    - `SIDEBAR_MAX_HEIGHT` = `calc(100vh - header - pageHeader - debugbar - 2*gap)` — hauteur max
      d'une sidebar sticky. **Soustraire `--nodefony-debugbar-height`** sinon la debug bar recouvre.
    - `HEADING_SCROLL_MARGIN` — marge d'ancre : un titre cible ne passe pas sous l'en-tête sticky au saut.

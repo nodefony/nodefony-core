@@ -13,8 +13,17 @@
 const HEADER = "var(--app-shell-header-height, 56px)";
 const DEBUGBAR = "var(--nodefony-debugbar-height, 0px)";
 const GAP = "var(--mantine-spacing-md, 16px)";
-/** Hauteur approx. d'un PageHeader sticky (titre + sous-titre + actions). */
-const PAGE_HEADER = "76px";
+/**
+ * Hauteur RÉELLE du PageHeader sticky — publiée par `<PageHeader sticky>` via
+ * `ResizeObserver` dans `--nf-pageheader-height`. Fallback `76px` quand pas de
+ * PageHeader sticky monté (ex. mode container, page sans PageHeader).
+ *
+ * Pourquoi DYNAMIQUE : le PageHeader peut faire 76 / 88 / 100 px selon son
+ * subtitle (texte court vs Group complexe avec Code + Badge). Une constante
+ * fixe laisse un trou visible (quelques px de contenu glisse SOUS le
+ * PageHeader avant que les sticky en aval ne coupent). Calc en var = pixel-perfect.
+ */
+const PAGE_HEADER = "var(--nf-pageheader-height, 76px)";
 /** Hauteur typique d'une bande de toolbar / filtres ou d'un strip Tabs.List sticky. */
 const BAND = "48px";
 /** Hauteur de la topbar d'un Modal Mantine fullScreen (titre + paddings). */
