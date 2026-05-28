@@ -10,11 +10,7 @@ import {
   Text,
   Tooltip,
 } from "@mantine/core";
-import {
-  IconLayoutSidebarRightCollapse,
-  IconLayoutSidebarRightExpand,
-  IconMaximize,
-} from "@tabler/icons-react";
+import { IconMaximize } from "@tabler/icons-react";
 import { DocToc, extractHeadings } from "./DocToc";
 import {
   CONTENT_STICKY_TOP,
@@ -74,7 +70,6 @@ export function DocLayout({
   height = "70vh",
   enableFullscreen = true,
 }: DocLayoutProps) {
-  const [tocVisible, setTocVisible] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const readerViewport = useRef<HTMLDivElement>(null);
 
@@ -82,7 +77,10 @@ export function DocLayout({
 
   /** Rend les 3 colonnes pour un mode/hauteur donnés. */
   const renderGrid = (m: "page" | "container", h: string, isModal: boolean) => {
-    const showToc = hasToc && (isModal ? true : tocVisible);
+    // Le sommaire est TOUJOURS visible s'il existe — pas de toggle (pattern
+    // des docs-site modernes : MDN, Mantine docs, Docusaurus). L'utilisateur
+    // qui veut plus de largeur de lecture passe en plein écran.
+    const showToc = hasToc;
     const panelHeight = m === "page" ? SIDEBAR_MAX_HEIGHT : h;
     const centerSpan = showToc ? { base: 12, md: 6 } : { base: 12, md: 9 };
 
@@ -145,38 +143,16 @@ export function DocLayout({
         style={{ flexShrink: 0, ...headerStickyStyle }}
       >
         <Box style={{ flex: 1, minWidth: 0 }}>{title}</Box>
-        {hasToc && !isModal && (
-          <Tooltip
-            label={tocVisible ? "Masquer le sommaire" : "Afficher le sommaire"}
-          >
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={() => setTocVisible((v) => !v)}
-              aria-label={
-                tocVisible ? "Masquer le sommaire" : "Afficher le sommaire"
-              }
-            >
-              {tocVisible ? (
-                <IconLayoutSidebarRightCollapse size={18} />
-              ) : (
-                <IconLayoutSidebarRightExpand size={18} />
-              )}
-            </ActionIcon>
-          </Tooltip>
-        )}
         {enableFullscreen && !isModal && (
-          <Tooltip label="Plein écran">
+          <Tooltip label="Plein écran" position="left">
             <ActionIcon
               variant="subtle"
               color="gray"
-              onClick={() => {
-                setTocVisible(true);
-                setFullscreen(true);
-              }}
+              size="sm"
+              onClick={() => setFullscreen(true)}
               aria-label="Plein écran"
             >
-              <IconMaximize size={18} />
+              <IconMaximize size={16} />
             </ActionIcon>
           </Tooltip>
         )}

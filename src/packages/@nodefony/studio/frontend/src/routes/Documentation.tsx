@@ -13,7 +13,6 @@ import {
   Badge,
   Box,
   Code,
-  Collapse,
   Grid,
   Group,
   NavLink,
@@ -28,15 +27,12 @@ import {
   ThemeIcon,
   Title,
   Tooltip,
-  UnstyledButton,
 } from "@mantine/core";
 import {
   IconAffiliate,
   IconBrandReact,
   IconBroadcast,
   IconBuildingBroadcastTower,
-  IconChevronDown,
-  IconChevronRight,
   IconChevronsDown,
   IconChevronsUp,
   IconCircuitResistor,
@@ -45,8 +41,6 @@ import {
   IconDeviceDesktop,
   IconFileText,
   IconHeartbeat,
-  IconLayoutSidebarRightCollapse,
-  IconLayoutSidebarRightExpand,
   IconPlugConnected,
   IconRadar2,
   IconRouteSquare,
@@ -574,54 +568,67 @@ export const Documentation = observer(() => {
             onRetry={tree.reload}
             minHeight={120}
           >
-            <Stack gap={4}>
+            <Stack gap={2}>
               {navSections.map((s) => {
                 // En recherche → toujours déplié ; sinon tout plié par défaut.
                 const isCollapsed = navQ ? false : (collapsed[s.id] ?? true);
                 return (
-                  <Box key={s.id}>
-                    <UnstyledButton
-                      onClick={() =>
-                        setCollapsed((c) => ({ ...c, [s.id]: !isCollapsed }))
-                      }
-                      aria-expanded={!isCollapsed}
-                      style={{ width: "100%", borderRadius: rem(4) }}
-                    >
-                      <Group gap={4} wrap="nowrap" px="xs" py={3}>
-                        {isCollapsed ? (
-                          <IconChevronRight size={13} />
-                        ) : (
-                          <IconChevronDown size={13} />
-                        )}
-                        <Text size="xs" fw={700} c="dimmed" style={{ flex: 1 }}>
+                  <NavLink
+                    key={s.id}
+                    // Mantine NavLink hiérarchique : chevron auto-animé,
+                    // children = NavLink imbriqués (cohérent avec le reste du
+                    // shell Studio, plus propre que UnstyledButton + Collapse
+                    // hand-rolled).
+                    label={
+                      <Group
+                        gap={6}
+                        wrap="nowrap"
+                        justify="space-between"
+                        style={{ width: "100%" }}
+                      >
+                        <Text
+                          size="xs"
+                          fw={700}
+                          tt="uppercase"
+                          c="dimmed"
+                          style={{ letterSpacing: "0.04em" }}
+                        >
                           {s.label}
                         </Text>
                         <Badge size="xs" variant="default" radius="sm">
                           {s.pages.length}
                         </Badge>
                       </Group>
-                    </UnstyledButton>
-                    <Collapse in={!isCollapsed}>
-                      {s.pages.map((p) => (
-                        <NavLink
-                          key={p.slug}
-                          active={p.slug === activeSlug}
-                          label={p.title}
-                          leftSection={<IconFileText size={15} />}
-                          rightSection={
-                            p.wip ? (
-                              <Badge size="xs" variant="light" color="gray">
-                                à venir
-                              </Badge>
-                            ) : undefined
-                          }
-                          disabled={p.wip}
-                          onClick={() => !p.wip && setActiveSlug(p.slug)}
-                          styles={{ label: { fontSize: rem(12.5) } }}
-                        />
-                      ))}
-                    </Collapse>
-                  </Box>
+                    }
+                    opened={!isCollapsed}
+                    onChange={(o) =>
+                      setCollapsed((c) => ({ ...c, [s.id]: !o }))
+                    }
+                    childrenOffset={14}
+                    styles={{ root: { borderRadius: rem(6) } }}
+                  >
+                    {s.pages.map((p) => (
+                      <NavLink
+                        key={p.slug}
+                        active={p.slug === activeSlug}
+                        label={p.title}
+                        leftSection={<IconFileText size={14} />}
+                        rightSection={
+                          p.wip ? (
+                            <Badge size="xs" variant="light" color="gray">
+                              à venir
+                            </Badge>
+                          ) : undefined
+                        }
+                        disabled={p.wip}
+                        onClick={() => !p.wip && setActiveSlug(p.slug)}
+                        styles={{
+                          root: { borderRadius: rem(6) },
+                          label: { fontSize: rem(12.5) },
+                        }}
+                      />
+                    ))}
+                  </NavLink>
                 );
               })}
               {!navSections.length && (
