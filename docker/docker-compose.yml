@@ -1,0 +1,94 @@
+# Nodefony — infra de développement (P13 Bloc B Realtime distribué)
+#
+# Pourquoi ce fichier : la « Socket Nodefony » distribuée (RedisBackplane, KafkaBackplane)
+# a besoin d'un Redis (fan-out pub/sub cross-host) et, plus tard, d'un Kafka (bus events
+# persistant, Bloc C). Ce compose démarre cette infra en local pour tester les drivers.
+#
+# Usage :
+#   docker compose -f docker/docker-compose.yml up -d              # Redis seul (Bloc B)
+#   docker compose -f docker/docker-compose.yml --profile kafka up -d   # + Kafka (Bloc C)
+#   docker compose -f docker/docker-compose.yml --profile tools up -d   # + RedisInsight (debug UI)
+#   docker compose -f docker/docker-compose.yml down                # arrêt (volumes conservés)
+#   docker compose -f docker/docker-compose.yml down -v             # arrêt + purge données
+#
+# Les valeurs sensibles (mots de passe) viennent de docker/.env (copier .env.example).
+
+name: nodefony-dev
+
+services:
+  # --- Redis (Bloc B — fan-out pub/sub du RealtimeHub distribué) ---
+  # Single instance volontaire : le backplane utilise PUB/SUB, qui fonctionne en standalone.
+  # Le « cluster » Nodefony = N process Node (pods), PAS du sharding Redis Cluster 6-nodes.
+  redis:
+    image: redis:7-alpine
+    container_name: nodefony-redis
+    restart: unless-stopped
+    # requirepass : auth obligatoire (Zero Trust, même en dev). appendonly : persistance AOF
+    # (survit au restart du conteneur) sans le coût d'un RDB snapshot bloquant.
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-nodefony-dev}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+    ports:
+      # Exposé sur localhost uniquement (pas 0.0.0.0) — surface réseau minimale en dev.
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      # -a : redis-cli s'authentifie sinon PING renvoie NOAUTH. Le conteneur est « healthy »
+      # seulement quand Redis répond PONG → les dépendants peuvent attendre dessus.
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli -a ${REDIS_PASSWORD:-nodefony-dev} ping | grep -q PONG",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # --- RedisInsight (profile tools — UI de debug, jamais en prod) ---
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: nodefony-redisinsight
+    restart: unless-stopped
+    profiles: ["tools"]
+    ports:
+      - "127.0.0.1:${REDISINSIGHT_PORT:-5540}:5540"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # --- Kafka (profile kafka — Bloc C, bus events IA-ready) ---
+  # KRaft mode (PAS de Zookeeper) : Zookeeper est déprécié depuis Kafka 3.5 et retiré en 4.0.
+  # KRaft = 1 conteneur self-managed au lieu de 2 → moins de surface, démarrage plus rapide.
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: nodefony-kafka
+    restart: unless-stopped
+    profiles: ["kafka"]
+    ports:
+      - "127.0.0.1:${KAFKA_PORT:-9092}:9092"
+    environment:
+      # Node combiné broker + controller (single-node KRaft pour le dev).
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Single-node : pas de réplication possible → tout à 1.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+volumes:
+  redis-data:
+  kafka-data:
