@@ -162,6 +162,14 @@ export {
 export { RealtimeError } from "./nodefony/src/errors/RealtimeError";
 export type { RealtimeConfig } from "./nodefony/config/config";
 
+// Décorateurs realtime (style déclaratif, NestJS-like) — P13 Bloc A étape 3.
+export {
+  RealtimeAction,
+  RealtimeChannel,
+  RealtimeInbound,
+} from "./nodefony/decorators/realtimeDecorators";
+export type { RealtimeChannelFactory } from "./nodefony/decorators/realtimeDecorators";
+
 // Types publics
 export type {
   IRealtimeController,

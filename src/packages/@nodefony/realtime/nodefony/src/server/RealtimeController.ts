@@ -11,6 +11,12 @@ import type {
   RealtimePublish,
   RealtimeInboundHandler,
 } from "../../interfaces/IRealtimeController";
+import {
+  getRealtimeActions,
+  getRealtimeChannels,
+  getRealtimeInbound,
+  type RealtimeChannelFactory,
+} from "../../decorators/realtimeDecorators";
 
 /** État realtime PAR connexion ws, stocké sur le contexte (persiste entre messages). */
 interface RealtimeConnState {
@@ -54,13 +60,31 @@ export abstract class RealtimeController
   implements IRealtimeController
 {
   /**
-   * Crée le provider d'un canal (listener/ticker → `publish`) et renvoie son `dispose`.
-   * `null` si le canal est inconnu. C'est le SEUL point que doit fournir un endpoint.
+   * Map des factories de canaux EXACT, lue depuis les décorateurs `@RealtimeChannel`
+   * au handshake (cold-path) et mémoïsée par instance. `null` = pas de décorateur
+   * sur cette classe → la base court-circuite la lecture metadata par frame.
    */
-  abstract createRealtimeChannel(
-    channel: string,
-    publish: RealtimePublish,
-  ): (() => void) | null;
+  private _decoratedChannels: Record<string, RealtimeChannelFactory> | null =
+    null;
+
+  /**
+   * Crée le provider d'un canal (listener/ticker → `publish`) et renvoie son `dispose`.
+   * `null` si le canal est inconnu — la base ne souscrit pas.
+   *
+   * **Deux façons de déclarer un canal** (coexistent sans casse) :
+   *  1. **Décorateur `@RealtimeChannel(name)`** sur une méthode (match EXACT, déclaratif).
+   *  2. **Override de cette méthode** (pattern/regex, suffixe `:<ms>`, drill `@<pid>`).
+   *
+   * La base CONSULTE D'ABORD les décorateurs ; si aucun match, elle appelle
+   * cette méthode (fallback). Défaut : `null`. Un controller qui n'utilise QUE
+   * des décorateurs peut donc se passer d'override.
+   */
+  createRealtimeChannel(
+    _channel: string,
+    _publish: RealtimePublish,
+  ): (() => void) | null {
+    return null;
+  }
 
   /** Actions RPC exposées (requête→réponse). À surcharger ; défaut : aucune. */
   protected realtimeActions(): Record<string, RpcActionHandler> {
@@ -136,9 +160,21 @@ export abstract class RealtimeController
       }
       peer.receive(parsed);
     });
-    for (const [name, handler] of Object.entries(this.realtimeActions())) {
+    // Actions = décorateurs `@RealtimeAction` + override `realtimeActions()`. L'override
+    // gagne en cas de conflit (un user peut volontairement écraser un décorateur hérité).
+    const decoratedActions = getRealtimeActions(this);
+    const allActions: Record<string, RpcActionHandler> = {
+      ...(decoratedActions ?? {}),
+      ...this.realtimeActions(),
+    };
+    for (const [name, handler] of Object.entries(allActions)) {
       peer.register(name, handler);
     }
+
+    // Map des canaux décorés (cold-path) — mémoïsé sur l'instance pour que les
+    // `subscribe` ultérieurs (chaque frame entrante) lookup en O(1) sans toucher
+    // au reflect-metadata.
+    this._decoratedChannels = getRealtimeChannels(this);
 
     // Sonde socket : la connexion (= ce transport) entre au registre du hub. La
     // backpressure (`bufferedAmount`) vit sur la connexion brute → seul le transport
@@ -153,9 +189,14 @@ export abstract class RealtimeController
       hub.markBroadcastChannel(broadcast[i]!);
     }
 
-    // Canaux full-duplex déclarés (entrée client). `null` si aucun → 0 lookup sur le
-    // chemin notification (cas par défaut, ex. Studio).
-    const inboundMap = this.realtimeInbound();
+    // Canaux full-duplex = décorateurs `@RealtimeInbound` + override `realtimeInbound()`.
+    // `null` si AUCUN des deux n'en déclare → 0 lookup sur le chemin notification.
+    const decoratedInbound = getRealtimeInbound(this);
+    const overrideInbound = this.realtimeInbound();
+    const inboundMap: Record<string, RealtimeInboundHandler> = {
+      ...(decoratedInbound ?? {}),
+      ...overrideInbound,
+    };
     const inbound = Object.keys(inboundMap).length > 0 ? inboundMap : null;
 
     const state: RealtimeConnState = {
@@ -181,11 +222,15 @@ export abstract class RealtimeController
       this.log("WS realtime client disconnected — cleanup done", "INFO");
     });
 
-    // `realtime:welcome` annonce canaux + actions découvrables.
+    // `realtime:welcome` annonce canaux + actions découvrables (décorateurs + override).
+    const announcedChannels = [
+      ...(this._decoratedChannels ? Object.keys(this._decoratedChannels) : []),
+      ...this.realtimeChannels(),
+    ];
     peer.notify("realtime:welcome", {
       ts: Date.now(),
       protocol: "jsonrpc-2.0",
-      channels: this.realtimeChannels(),
+      channels: announcedChannels,
       methods: peer.methods,
     });
     this.log("WS realtime client connected", "INFO");
@@ -234,9 +279,15 @@ export abstract class RealtimeController
     const sink: ChannelSink = (payload) => state.peer.notify(channel, payload);
     // Le hub PARTAGE le provider entre connexions (1 ticker/canal/pod) ; la factory
     // (appelée au 1ᵉʳ abonné) doit capturer des deps long-lived — cf createRealtimeChannel.
-    const ok = getRealtimeHub().subscribe(channel, sink, (ch, publish) =>
-      this.createRealtimeChannel(ch, publish),
-    );
+    //
+    // Ordre de résolution : décorateur `@RealtimeChannel` (match EXACT, O(1)) d'abord,
+    // sinon fallback sur l'override classique `createRealtimeChannel` (regex, suffixes,
+    // drill cluster). Coexistence sans casse pour les controllers historiques.
+    const ok = getRealtimeHub().subscribe(channel, sink, (ch, publish) => {
+      const decFactory = this._decoratedChannels?.[ch];
+      if (decFactory) return decFactory(ch, publish);
+      return this.createRealtimeChannel(ch, publish);
+    });
     if (ok) {
       state.channels.set(channel, sink);
       this.log(`WS subscribe → ${channel}`, "DEBUG");

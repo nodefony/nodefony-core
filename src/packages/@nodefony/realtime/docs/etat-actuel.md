@@ -41,14 +41,14 @@ branche en plug ensuite (sinon = refonte garantie). Détail des seams : [`../CLA
 
 ### Étage 5 — Code applicatif (interface utilisateur)
 
-| Composant                                                       | État     | Faisable dans une app tierce aujourd'hui ?             |
-| --------------------------------------------------------------- | -------- | ------------------------------------------------------ |
-| Client `RealtimeClient` (subscribe/on/publish/request)          | ✅ 100 % | OUI                                                    |
-| Client `RealtimeClient.shared({url})` singleton par URL         | ✅ 100 % | OUI                                                    |
-| Client `adaptiveChannel()` (AIMD opt-in)                        | ✅ 100 % | OUI                                                    |
-| Hooks React `useNodefonyChannel` / `useNodefonyAdaptiveChannel` | ✅ 100 % | OUI                                                    |
-| Server : étendre `RealtimeController` (sans décorateurs)        | 🔶 70 %  | OUI (mais syntaxe verbose, sans `@RealtimeController`) |
-| Server : `@RealtimeController` / `@RealtimeEvent` décorateurs   | ⬜ P13.8 | NON (Bloc A étape 3)                                   |
+| Composant                                                                        | État     | Faisable dans une app tierce aujourd'hui ?                                                                                      |
+| -------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Client `RealtimeClient` (subscribe/on/publish/request)                           | ✅ 100 % | OUI                                                                                                                             |
+| Client `RealtimeClient.shared({url})` singleton par URL                          | ✅ 100 % | OUI                                                                                                                             |
+| Client `adaptiveChannel()` (AIMD opt-in)                                         | ✅ 100 % | OUI                                                                                                                             |
+| Hooks React `useNodefonyChannel` / `useNodefonyAdaptiveChannel`                  | ✅ 100 % | OUI                                                                                                                             |
+| Server : étendre `RealtimeController` (sans décorateurs)                         | ✅ 100 % | OUI                                                                                                                             |
+| Server : décorateurs `@RealtimeAction` / `@RealtimeChannel` / `@RealtimeInbound` | ✅ 90 %  | OUI (Bloc A étape 3 livré 2026-05-28 ; reste : `@RealtimeChannel({ pattern: RegExp })` pour les canaux à regex/suffixe `:<ms>`) |
 
 ### Étage 4 — Protocole (JsonRpcPeer)
 
@@ -56,8 +56,8 @@ branche en plug ensuite (sinon = refonte garantie). Détail des seams : [`../CLA
 | ---------------------------------------------------------------- | -------------- | -------------------------------------- |
 | `JsonRpcPeer` + frames JSON-RPC 2.0                              | ✅ 80 %        | core, isomorphe                        |
 | RPC bidirectionnel (`socket.request()` → Promise)                | ✅ 100 %       | `kernel:ping`, `kernel:gc` déjà câblés |
-| Seam #1 `beforeDispatch(frame, peer)`                            | ⬜ P13.8a      | Bloc A étape 2 (avec décorateurs)      |
-| Seam #5 `onFrameAudit(reason, frame)`                            | ⬜ P13.7a      | Bloc A étape 2                         |
+| Seam #1 `beforeDispatch(frame, peer)`                            | ✅ P13.8a      | Bloc A étape 2 livré (`b3a5890`)       |
+| Seam #5 `onFrameAudit(reason, frame)`                            | ✅ P13.7a      | Bloc A étape 2 livré (`b3a5890`)       |
 | Types end-to-end `ServerToClientEvents` / `ClientToServerEvents` | ⬜ P13.7 reste | Bloc A étape 4                         |
 
 ### Étage 3 — Transport

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-28T12:58:31.668Z",
+  "generated": "2026-05-28T13:12:31.876Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 759,
-    "symbols": 1378,
+    "files": 760,
+    "symbols": 1385,
     "classes": 230,
     "interfaces": 333,
-    "types": 165,
+    "types": 166,
     "enums": 2,
-    "functions": 195,
+    "functions": 201,
     "constants": 453
   },
   "symbols": {
@@ -5301,6 +5301,62 @@
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "Schéma Zod de la configuration de"
+    },
+    "RealtimeChannelFactory": {
+      "name": "RealtimeChannelFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Factory d'un provider de canal — appelée par la base au 1ᵉʳ `subscribe`. Signature alignée sur {@link RealtimeController.createRealtimeChannel} (la méthode override historique) pour qu'une migratio…"
+    },
+    "RealtimeAction": {
+      "name": "RealtimeAction",
+      "kind": "decorator-fn",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Décorateur **méthode** — expose une **action RPC** request→response du controller realtime sous le nom `method` (ex. `\"kernel:ping\"`, `\"chat:send\"`). La méthode décorée devient le handler appelé su…"
+    },
+    "RealtimeChannel": {
+      "name": "RealtimeChannel",
+      "kind": "decorator-fn",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Décorateur **méthode** — expose un **canal pub/sub** sous le nom `channel` (match EXACT, sans préfixe `:<ms>` ni regex). La méthode décorée DOIT renvoyer un `dispose: () => void` (la base le mémori…"
+    },
+    "RealtimeInbound": {
+      "name": "RealtimeInbound",
+      "kind": "decorator-fn",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Décorateur **méthode** — déclare un **canal FULL-DUPLEX entrant** (méthode WS inverse : le client pousse via une notification `method: <name>`, params libres, sans `id`). La méthode décorée reçoit …"
+    },
+    "getRealtimeActions": {
+      "name": "getRealtimeActions",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Lecture (lazy, au handshake) du registre des actions décorées."
+    },
+    "getRealtimeChannels": {
+      "name": "getRealtimeChannels",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Lecture (lazy, au handshake) du registre des canaux décorés."
+    },
+    "getRealtimeInbound": {
+      "name": "getRealtimeInbound",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Lecture (lazy, au handshake) du registre des canaux inbound décorés."
     },
     "IBackplaneMessage": {
       "name": "IBackplaneMessage",
@@ -12700,6 +12756,23 @@
       "RealtimeConfig": [
         "src/packages/@nodefony/realtime/nodefony/config/config.ts"
       ],
+      "RpcActionHandler": [
+        "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "RealtimePublish": [
+        "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterOrm.ts",
+        "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+      ],
+      "RealtimeInboundHandler": [
+        "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
       "IProcessHealth": [
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeProbe.ts"
       ],
@@ -12781,17 +12854,6 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
-      ],
-      "RealtimePublish": [
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
-        "src/packages/@nodefony/studio/nodefony/realtime/clusterOrm.ts",
-        "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
-      ],
-      "RpcActionHandler": [
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "RateBounds": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
@@ -14278,7 +14340,16 @@
       "IRealtimeController": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
-      "RealtimeInboundHandler": [
+      "getRealtimeActions": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "getRealtimeChannels": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "getRealtimeInbound": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "RealtimeChannelFactory": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "IRealtimeConnProbe": [
