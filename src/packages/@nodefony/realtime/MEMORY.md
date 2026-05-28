@@ -88,7 +88,7 @@ Alice/Bob ne savent PAS qu'ils sont sur des pods différents. Seul `IBackplane` 
 - **NORMALISER `http(s)→ws(s)`** dans la clé `shared()` ET dans `new WebSocket(...)` : une URL relative hérite du scheme `https` → si non normalisée, 2 instances + `WebSocket("https://…")` throw.
 - **Init depuis `client.state`** côté consommateur de socket partagée : la socket peut être DÉJÀ ouverte (event "connected" déjà passé) → sinon hub affiche "disconnected" à tort.
 - **Frame ring lazy** : `__frame__` n'est émis que si un listener écoute → 0 surcoût hors console ouverte. Secrets redactés via `redactFrame`.
-- **Tests cluster sans infra** : utiliser `ClusterBackplane` + `node:cluster` natif → 2+ workers, validation fan-out cross-process sans Redis.
+- **Tests cluster sans infra (livré Bloc A étape 7)** : `tests/integration/clusterIpc.e2e.test.ts` (5 tests, suite 138/138) — `child_process.fork` 2-3 workers `tsx` qui câblent leur `getRealtimeHub()` singleton + `ClusterBackplane(processIpcTransport)`. Test joue le master : `ClusterRelay` in-process attaché aux `IRelayWorker` (adapter sur `worker.send`/`worker.on('message')`). Prouve fan-out cross-process, fan-out N>2, anti-écho strict (compteur per-worker), duplex, canal non-broadcast instance-local. Pattern réutilisable pour Bloc B/C.
 - **Tests cluster Redis/Kafka** : `testcontainers-node` (peerDep dev à ajouter en Bloc B).
 
 ## API Studio (cible — surfacée dans `/nodefony/documentation`)

@@ -11,7 +11,13 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
-    include: ["nodefony/tests/unit/**/*.test.ts"],
+    include: [
+      "nodefony/tests/unit/**/*.test.ts",
+      "nodefony/tests/integration/**/*.test.ts",
+    ],
+    // Les tests e2e cluster IPC fork des process enfants via tsx + IPC : laisser
+    // une marge confortable (defaut 5s trop court avec setTimeout 150ms × N).
+    testTimeout: 15000,
     coverage: {
       provider: "v8",
       include: ["index.ts", "nodefony/**/*.ts"],
