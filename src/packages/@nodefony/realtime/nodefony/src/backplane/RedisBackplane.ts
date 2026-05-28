@@ -140,6 +140,9 @@ function isMessage(m: unknown): m is IBackplaneMessage {
  * (tickers/fan-out), PAS sur le hot path HTTP. SERVEUR uniquement (`process.pid`).
  */
 export class RedisBackplane implements IBackplane {
+  /** Nom du driver — source unique du littéral (registre + config). */
+  static readonly driver = "redis";
+
   readonly originId: string;
   readonly #transport: IRedisBackplaneTransport;
   readonly #redisChannel: string;

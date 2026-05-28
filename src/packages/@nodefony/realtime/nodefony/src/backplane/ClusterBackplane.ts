@@ -85,6 +85,9 @@ function isEnvelope(m: unknown): m is ClusterBackplaneEnvelope {
  * PAS sur le hot path du request HTTP. SERVEUR uniquement (`process`).
  */
 export class ClusterBackplane implements IBackplane {
+  /** Nom du driver — source unique du littéral (registre + config). */
+  static readonly driver = "cluster";
+
   readonly originId: string;
   readonly #transport: IClusterBackplaneTransport;
   #handler: BackplaneHandler | null = null;

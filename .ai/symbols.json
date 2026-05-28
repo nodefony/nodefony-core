@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-28T18:45:51.960Z",
+  "generated": "2026-05-28T19:26:53.304Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 774,
-    "symbols": 1430,
+    "files": 775,
+    "symbols": 1435,
     "classes": 232,
-    "interfaces": 344,
-    "types": 181,
+    "interfaces": 345,
+    "types": 182,
     "enums": 2,
-    "functions": 215,
+    "functions": 218,
     "constants": 456
   },
   "symbols": {
@@ -9900,6 +9900,47 @@
       "module": "@nodefony/orm-core",
       "description": "Décore une classe comme repository d'une entité (tag métadonnée pur). Stocke le lien repo↔entity dans un `WeakMap` (cf. `metadataStore`, sans `reflect-metadata`). N'enregistre RIEN dans un registre…"
     },
+    "IBackplaneFactoryContext": {
+      "name": "IBackplaneFactoryContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Registre de **drivers backplane** — résout `config.backplane.driver` (une chaîne) vers une fabrique d'`IBackplane`, SANS que le code de wiring connaisse le moindre nom de driver en dur. Pourquoi : …"
+    },
+    "BackplaneFactory": {
+      "name": "BackplaneFactory",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Fabrique d'un backplane pour un driver donné. Retourne l'instance à brancher, ou `null` si le driver est inactif dans ce contexte (mono-process, mauvais rôle, infra absente — le wiring laisse alors…"
+    },
+    "registerBackplaneDriver": {
+      "name": "registerBackplaneDriver",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Enregistre (ou remplace) la fabrique d'un driver backplane. Appelé par les drivers natifs au chargement du module, et par l'utilisateur pour ses drivers custom (NATS, Pulsar, RabbitMQ…)."
+    },
+    "getBackplaneDriver": {
+      "name": "getBackplaneDriver",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Fabrique d'un driver par nom, ou `undefined` si inconnu."
+    },
+    "listBackplaneDrivers": {
+      "name": "listBackplaneDrivers",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Noms des drivers enregistrés (introspection / Studio / tests)."
+    },
     "ClusterBackplane": {
       "name": "ClusterBackplane",
       "kind": "class",
@@ -11380,6 +11421,7 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "controllers": [
@@ -11825,6 +11867,7 @@
       ],
       "IRealtimeConfig": [
         "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "IRealtimeConfigInput": [
@@ -11862,10 +11905,25 @@
       "REDIS_RT_CHANNEL": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
+      "IRedisPublisher": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "IRedisSubscriber": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
       "ClusterBackplane": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
       "processIpcTransport": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "registerBackplaneDriver": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "getBackplaneDriver": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "listBackplaneDrivers": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
       "ClusterProbeClient": [
@@ -13175,6 +13233,7 @@
       ],
       "IBackplane": [
         "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",

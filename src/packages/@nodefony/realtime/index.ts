@@ -41,10 +41,17 @@ import LoopbackBackplane from "./nodefony/src/backplane/LoopbackBackplane";
 import RedisBackplane, {
   createRedisServiceTransport,
   REDIS_RT_CHANNEL,
+  type IRedisPublisher,
+  type IRedisSubscriber,
 } from "./nodefony/src/backplane/RedisBackplane";
 import ClusterBackplane, {
   processIpcTransport,
 } from "./nodefony/src/backplane/ClusterBackplane";
+import {
+  registerBackplaneDriver,
+  getBackplaneDriver,
+  listBackplaneDrivers,
+} from "./nodefony/src/backplane/backplaneRegistry";
 import ClusterProbeClient, {
   setClusterProbeClient,
   clusterProbeHealth,
@@ -61,17 +68,73 @@ import {
 } from "./nodefony/src/server/RealtimeAdminApi";
 import type { IAdminBroker } from "@nodefony/framework";
 
+// ── Drivers backplane natifs ──────────────────────────────────────────────
+//
+// Enregistrés UNE fois au chargement du module (index = entry, jamais
+// tree-shaké). Chaque driver porte son propre nom (`X.driver`) → aucun littéral
+// de driver dupliqué, aucune chaîne de `if` côté wiring. Un utilisateur ajoute
+// le sien via `registerBackplaneDriver("nats", factory)` sans toucher au cœur.
+// Une fabrique renvoie `null` quand le driver est inactif dans le contexte (le
+// hub reste local, 0 overhead).
+
+// `loopback` : mono-process — le hub fan-out localement, aucun backplane objet.
+registerBackplaneDriver(LoopbackBackplane.driver, () => null);
+
+// `cluster` : IPC entre workers d'un même pod (actif seulement en worker de
+// `nodefony cluster`, repéré par NODEFONY_CLUSTER=1).
+registerBackplaneDriver(ClusterBackplane.driver, (ctx) =>
+  ctx.role === "WORKER" && process.env.NODEFONY_CLUSTER === "1"
+    ? new ClusterBackplane(processIpcTransport, ctx.originId)
+    : null,
+);
+
+// `redis` : fan-out cross-pod multi-host via pub/sub. Consomme les connexions
+// `publish`/`subscribe` de `@nodefony/redis` (RedisService) — couplage structurel
+// par l'adaptateur, aucune dépendance directe. Fail-soft si redis absent.
+registerBackplaneDriver(RedisBackplane.driver, (ctx) => {
+  const redisService = ctx.module.kernel?.container?.get("redis") as
+    | { getClient(name: string): unknown }
+    | undefined;
+  if (!redisService) {
+    ctx.module.log(
+      `driver "${RedisBackplane.driver}" : module @nodefony/redis absent (non listé dans @modules) — RealtimeHub reste local`,
+      "WARNING",
+    );
+    return null;
+  }
+  const publisher = redisService.getClient("publish") as IRedisPublisher | null;
+  const subscriber = redisService.getClient(
+    "subscribe",
+  ) as IRedisSubscriber | null;
+  if (!publisher || !subscriber) {
+    ctx.module.log(
+      `driver "${RedisBackplane.driver}" : connexions Redis publish/subscribe indisponibles — RealtimeHub reste local`,
+      "WARNING",
+    );
+    return null;
+  }
+  return new RedisBackplane(
+    createRedisServiceTransport(publisher, subscriber),
+    ctx.originId,
+  );
+});
+
 @services([RealtimeService])
 class Realtime extends Module {
+  /** Rôle topologique du process, capté à `onCluster` (défaut mono-process). */
+  #clusterRole: "MASTER" | "WORKER" | "MONO" = "MONO";
+
   constructor(kernel: Kernel) {
     super("realtime", kernel, import.meta.url, defaultConfig);
-    // Backplane cross-process : le kernel annonce le rôle cluster via `onCluster`
-    // (émis en preRegister, avant onRegister). `once` = 1 seul fire / process, listener
-    // boot-time (pas de coût par requête). En worker de cluster → branche le
-    // ClusterBackplane IPC sur le hub ; sinon no-op (mono-process reste Loopback).
-    kernel.once("onCluster", (role: "MASTER" | "WORKER") =>
-      this.#wireCluster(role),
-    );
+    // Le kernel annonce le rôle cluster via `onCluster` (émis en preRegister,
+    // avant onRegister). `once` = 1 fire / process, listener boot-time (0 coût
+    // par requête). On capte le rôle (consommé par la sélection de backplane à
+    // `onKernelBoot`) et on branche la sonde pod. Le backplane lui-même est
+    // résolu via le registre de drivers (cf #wireBackplane) — pas ici.
+    kernel.once("onCluster", (role: "MASTER" | "WORKER") => {
+      this.#clusterRole = role;
+      this.#wireClusterProbe(role);
+    });
   }
 
   /**
@@ -122,7 +185,55 @@ class Realtime extends Module {
     if (broker && !broker.has("realtime")) {
       broker.register(createRealtimeAdminApi());
     }
+    await this.#wireBackplane();
     return this;
+  }
+
+  /**
+   * Sélectionne et branche le backplane via le **registre de drivers** — résout
+   * `config.backplane.driver` (chaîne) → fabrique, SANS connaître aucun nom de
+   * driver en dur (pas de chaîne de `if`). La fabrique construit l'instance (ou
+   * renvoie `null` = inactif dans ce contexte → hub local).
+   *
+   * Phase `onKernelBoot` : après l'`initialize` des services (`onPreBoot`, donc
+   * un éventuel `RedisService` a ouvert ses connexions) et avant le trafic
+   * (`onReady` → `mountAll`). On `await start()` AVANT `setBackplane` pour
+   * garantir l'abonnement effectif (le `start()` interne de `setBackplane` est
+   * alors un no-op idempotent) — un driver async (Redis) perdrait sinon les
+   * premiers messages (setBackplane appelle start en fire-and-forget).
+   *
+   * No-op si un backplane custom est déjà posé (instance config / service DI
+   * `realtimeBackplane`, branché par `RealtimeService.initialize`). Warn fail-soft
+   * si le driver déclaré est inconnu du registre.
+   */
+  async #wireBackplane(): Promise<void> {
+    const config = this.get("realtimeConfig") as IRealtimeConfig | undefined;
+    if (!config) return;
+    const hub = getRealtimeHub();
+    if (hub.backplane !== null) return; // custom (instance/DI) déjà branché
+
+    const driverName = config.backplane.driver;
+    const factory = getBackplaneDriver(driverName);
+    if (!factory) {
+      this.log(
+        `backplane driver "${driverName}" inconnu du registre (disponibles : ${listBackplaneDrivers().join(", ")}) — RealtimeHub reste local`,
+        "WARNING",
+      );
+      return;
+    }
+    const backplane = await factory({
+      module: this,
+      originId: String(process.pid),
+      role: this.#clusterRole,
+      config,
+    });
+    if (!backplane) return; // driver inactif ici (loopback, cluster hors worker…)
+    await backplane.start();
+    hub.setBackplane(backplane);
+    this.log(
+      `RealtimeHub: backplane "${driverName}" branché (${backplane.constructor.name})`,
+      "INFO",
+    );
   }
 
   /**
@@ -137,19 +248,11 @@ class Realtime extends Module {
    * sert la vue per-instance. Le backplane (realtime) reste indépendant de la sonde.
    * Idempotent.
    */
-  #wireCluster(role: "MASTER" | "WORKER"): void {
+  #wireClusterProbe(role: "MASTER" | "WORKER"): void {
     if (role !== "WORKER" || process.env.NODEFONY_CLUSTER !== "1") return;
-    const hub = getRealtimeHub();
-    if (hub.backplane === null) {
-      hub.setBackplane(
-        new ClusterBackplane(processIpcTransport, String(process.pid)),
-      );
-      this.log(
-        "RealtimeHub: ClusterBackplane IPC branché (worker cluster)",
-        "INFO",
-      );
-    }
-    // Sonde agrégée pod (Phase 4c) — opt-in, désactivable → bypass total.
+    // Sonde agrégée pod (Phase 4c) — opt-in, désactivable → bypass total
+    // (0 client / 0 timer / 0 IPC quand off). Indépendante du backplane realtime,
+    // qui est résolu par le registre de drivers à `onKernelBoot`.
     if (process.env.NODEFONY_CLUSTER_PROBE !== "0") {
       setClusterProbeClient(new ClusterProbeClient()).start(buildOwnHealth);
       this.log("RealtimeHub: ClusterProbeClient branché (sonde pod)", "INFO");
@@ -171,6 +274,9 @@ export {
   RedisBackplane,
   createRedisServiceTransport,
   REDIS_RT_CHANNEL,
+  registerBackplaneDriver,
+  getBackplaneDriver,
+  listBackplaneDrivers,
   processIpcTransport,
   ClusterProbeClient,
   setClusterProbeClient,
@@ -234,6 +340,10 @@ export type {
   IRedisPublisher,
   IRedisSubscriber,
 } from "./nodefony/src/backplane/RedisBackplane";
+export type {
+  BackplaneFactory,
+  IBackplaneFactoryContext,
+} from "./nodefony/src/backplane/backplaneRegistry";
 export type { IClusterProbeTransport } from "./nodefony/src/cluster/ClusterProbeClient";
 export type { RawWsConnection } from "./nodefony/src/transport/WsConnectionTransport";
 export type {

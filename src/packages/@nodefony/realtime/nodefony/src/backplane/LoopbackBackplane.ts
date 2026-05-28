@@ -20,6 +20,9 @@ import type {
  * SERVEUR uniquement (`process.pid`) — pas isomorphe.
  */
 export class LoopbackBackplane implements IBackplane {
+  /** Nom du driver — source unique du littéral (registre + config). */
+  static readonly driver = "loopback";
+
   readonly originId: string;
 
   constructor(originId: string = String(process.pid)) {

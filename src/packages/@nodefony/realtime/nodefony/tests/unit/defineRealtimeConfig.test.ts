@@ -43,13 +43,12 @@ describe("defineRealtimeConfig — builder + Zod", () => {
       expect(c.cluster.probe.enabled).to.equal(true);
     });
 
-    it("rejette une config invalide (driver inconnu)", () => {
-      expect(() =>
-        defineRealtimeConfig({
-          // @ts-expect-error driver inconnu — vérif Zod runtime
-          backplane: { driver: "nats" },
-        }),
-      ).to.throw();
+    it("accepte un driver arbitraire (registre OUVERT — driver custom)", () => {
+      // Le driver n'est plus un enum fermé : un nom custom (`nats`, `pulsar`…)
+      // est valide à la config. La résolution réelle se fait dans le registre au
+      // boot (warn fail-soft si inconnu) — pas de rejet Zod ici, par design.
+      const cfg = defineRealtimeConfig({ backplane: { driver: "nats" } });
+      expect(cfg.backplane.driver).to.equal("nats");
     });
 
     it("rejette un slowConsumer.bytes ≤ 0", () => {

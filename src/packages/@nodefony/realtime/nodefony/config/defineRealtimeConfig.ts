@@ -15,6 +15,12 @@ import type { IBackplane } from "../interfaces/IBackplane";
  *   faire dans un JSON Schema Studio). L'instance, si fournie, prend précédence
  *   sur `driver` côté service ; ce dernier reste source d'introspection/UI.
  *
+ * **Layering d'environnement** (convention-frère avec `REDIS_*` de
+ * `@nodefony/redis`) : `NODEFONY_REALTIME_DRIVER` surcharge le driver backplane
+ * APRÈS le parse (schéma pur, déterministe). Indispensable en déploiement
+ * (k8s/Docker : `NODEFONY_REALTIME_DRIVER=redis`) et fiable quel que soit le
+ * timing du merge `module-realtime` côté app (cf chantier ordering config).
+ *
  * @param config - configuration brute (sections omises = défauts sûrs).
  * @param options.backplane - instance `IBackplane` custom (override le driver à
  *   l'init du `RealtimeService`). Non sérialisable → exclue du JSON Schema.
@@ -26,9 +32,12 @@ export function defineRealtimeConfig(
   options: { backplane?: IBackplane } = {},
 ): IRealtimeConfig {
   const parsed = realtimeConfigSchema.parse(config);
+  // Env layering (après parse → schéma reste pur). Précédence max.
+  const driver =
+    process.env.NODEFONY_REALTIME_DRIVER || parsed.backplane.driver;
   const out: IRealtimeConfig = {
     ...parsed,
-    backplane: { ...parsed.backplane, instance: options.backplane },
+    backplane: { ...parsed.backplane, driver, instance: options.backplane },
   };
   return Object.freeze(out);
 }

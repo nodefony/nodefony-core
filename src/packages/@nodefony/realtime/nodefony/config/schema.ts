@@ -34,14 +34,16 @@ const probeSchema = z
 const backplaneSchema = z
   .object({
     driver: z
-      .enum(["loopback", "cluster", "redis", "kafka"])
+      .string()
       .default("loopback")
       .describe(
-        "Driver IBackplane. `loopback` = mono-process (défaut, le hub fan-out " +
-          "directement sans IPC). `cluster` = IPC entre workers `nodefony cluster` " +
-          "(auto-branché si NODEFONY_CLUSTER=1, sinon ignoré). `redis` (P13.5) et " +
-          "`kafka` (P13.6) = multi-host. Pluggable utilisateur via instance " +
-          "`IBackplane` passée au builder (P13.4).",
+        "Nom du driver IBackplane, résolu dans le registre de drivers " +
+          "(`listBackplaneDrivers()`) — PAS d'enum en dur ici : la liste réelle " +
+          "est la source de vérité du registre, ouverte aux drivers custom " +
+          "utilisateur (`registerBackplaneDriver(name, factory)`). Natifs : " +
+          "`loopback` (mono, hub local sans IPC), `cluster` (IPC workers " +
+          "`nodefony cluster`, actif si NODEFONY_CLUSTER=1), `redis` (multi-host " +
+          "pub/sub). Driver inconnu au boot → warn fail-soft, le hub reste local.",
       ),
   })
   .describe("Driver IBackplane (fan-out cluster realtime cross-process).");
