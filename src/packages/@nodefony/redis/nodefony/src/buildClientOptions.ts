@@ -5,7 +5,7 @@ import type {
 } from "../interfaces/IRedisConfig";
 
 /**
- * Construit la fonction `reconnectStrategy` de redis v5 à partir de la politique
+ * Construit la fonction `reconnectStrategy` de redis v6 à partir de la politique
  * déclarative (`baseMs`/`maxMs`/`maxRetries`) — back-off linéaire borné.
  *
  * @returns une fonction `(retries) => délai ms | Error` consommée par le socket.
@@ -25,12 +25,18 @@ function buildReconnectStrategy(
 }
 
 /**
- * Assemble les options `createClient` (redis v5) d'une connexion nommée à partir
+ * Assemble les options `createClient` (redis v6) d'une connexion nommée à partir
  * de la config validée : `globalOptions` fusionné avec la surcharge de connexion.
  *
  * Précédence : `url` (si présent) > socket de connexion > `globalOptions.socket`.
  * Quand `url` est fourni, host/port/auth en sont extraits par redis lui-même —
  * on ne pose alors PAS de `socket.host/port` (ils seraient ignorés/conflictuels).
+ *
+ * redis v6 : RESP3 est le protocole par défaut (on l'assume — set/get/pub/sub
+ * inchangés côté API) mais `maintNotifications` y bascule à `"auto"` (souscrit aux
+ * push frames de maintenance Redis Enterprise + relâche les timeouts socket). On
+ * cible Redis OSS → on force `"disabled"` pour un comportement déterministe et
+ * zéro listener/frame superflu (règle perf-mémoire).
  *
  * @param config - config racine validée et gelée.
  * @param connection - définition de la connexion (name/database/socket override).
@@ -48,7 +54,8 @@ export function buildClientOptions(
   const options: RedisClientOptions = {
     name: connection.name,
     database: connection.database,
-    reconnectStrategy,
+    // redis v6 OSS : pas de notifications de maintenance Enterprise (déterministe).
+    maintNotifications: "disabled",
   } as RedisClientOptions;
 
   if (global.username) {

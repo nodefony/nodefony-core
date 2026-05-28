@@ -6,11 +6,15 @@ import {
   type Msgid,
   type Message,
 } from "nodefony";
-import { createClient, type RedisClientType, type RedisClientOptions } from "redis";
+import {
+  createClient,
+  type RedisClientType,
+  type RedisClientOptions,
+} from "redis";
 import type RedisService from "../service/redis";
 
 /**
- * Une connexion Redis nommée — enveloppe un client `redis` v5 et gère son cycle
+ * Une connexion Redis nommée — enveloppe un client `redis` v6 et gère son cycle
  * de vie (création, écoute des événements, fermeture propre).
  *
  * Perf/mémoire : les handlers d'événements sont conservés en propriété et
@@ -18,7 +22,7 @@ import type RedisService from "../service/redis";
  * fuite si la connexion est recréée — règle absolue perf-mémoire du framework.
  */
 export default class Connection extends Service {
-  /** Client redis v5 — `null` tant que `create()` n'a pas réussi. */
+  /** Client redis v6 — `null` tant que `create()` n'a pas réussi. */
   client: RedisClientType | null = null;
   /** Service Redis parent (accès container / kernel / événements). */
   service: RedisService;
@@ -49,7 +53,12 @@ export default class Connection extends Service {
     this.options = options;
   }
 
-  override log(pci: unknown, severity?: Severity, msgid?: Msgid, msg?: Message) {
+  override log(
+    pci: unknown,
+    severity?: Severity,
+    msgid?: Msgid,
+    msg?: Message,
+  ) {
     if (!msgid) {
       // eslint-disable-next-line no-param-reassign
       msgid = `\x1b[36mREDIS CONNECTION ${this.name} \x1b[0m`;
@@ -127,14 +136,20 @@ export default class Connection extends Service {
     this.#onReconnecting = null;
   }
 
-  /** Ferme proprement la connexion (`QUIT`) et nettoie les listeners. */
+  /**
+   * Ferme proprement la connexion et nettoie les listeners.
+   *
+   * redis v6 : `client.close()` remplace `quit()` (déprécié, envoyait `QUIT` —
+   * lui-même déprécié côté Redis 7.2). Fermeture gracieuse : draine les commandes
+   * en vol puis ferme le socket. (`destroy()` = fermeture forcée, non souhaitée ici.)
+   */
   async close(): Promise<void> {
     if (!this.client) {
       return;
     }
     try {
       if (this.client.isOpen) {
-        await this.client.quit();
+        await this.client.close();
       }
     } finally {
       this.#removeListeners();

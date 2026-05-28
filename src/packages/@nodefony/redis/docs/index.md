@@ -27,13 +27,13 @@ puis vous tend le **client Redis brut**. Ce que vous écrivez dessus, c'est votr
 
 ## Ce que fait le module (et ce qu'il ne fait pas)
 
-| Fait                                                              | Ne fait PAS                                              |
-| ----------------------------------------------------------------- | ------------------------------------------------------- |
-| Ouvre N connexions nommées (lib `redis` v5)                       | N'impose pas un usage (cache ? sessions ? à vous)       |
-| Valide la config au boot (Zod) — plante propre si invalide        | Ne fournit pas de couche storage/ORM par-dessus         |
-| Gère le cycle de vie (reconnexion bornée, fermeture propre)       | N'est PAS le `RedisBackplane` realtime (ça, c'est P13.5)|
-| Expose le client brut via `RedisService.getClient(name)`          | N'est PAS le `RedisSessionStorage` (ça, c'est P5.12)    |
-| Surcharge par environnement (`REDIS_URL`, `REDIS_HOST`…)          | Ne stocke aucun secret en dur                           |
+| Fait                                                        | Ne fait PAS                                              |
+| ----------------------------------------------------------- | -------------------------------------------------------- |
+| Ouvre N connexions nommées (lib `redis` v6)                 | N'impose pas un usage (cache ? sessions ? à vous)        |
+| Valide la config au boot (Zod) — plante propre si invalide  | Ne fournit pas de couche storage/ORM par-dessus          |
+| Gère le cycle de vie (reconnexion bornée, fermeture propre) | N'est PAS le `RedisBackplane` realtime (ça, c'est P13.5) |
+| Expose le client brut via `RedisService.getClient(name)`    | N'est PAS le `RedisSessionStorage` (ça, c'est P5.12)     |
+| Surcharge par environnement (`REDIS_URL`, `REDIS_HOST`…)    | Ne stocke aucun secret en dur                            |
 
 ## Trois connexions par défaut — pourquoi
 

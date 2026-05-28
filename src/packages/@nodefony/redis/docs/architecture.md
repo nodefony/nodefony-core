@@ -33,13 +33,13 @@ tags: [redis, architecture, connection, service, lifecycle, reconnect]
                 │ 1..N
 ┌───────────────▼───────────────────────────────────────────┐
 │ Connection                 nodefony/src/Connection.ts       │
-│  • createClient(options) (redis v5)                         │
+│  • createClient(options) (redis v6)                         │
 │  • écoute error/connect/ready/end/reconnecting              │
 │  • removeListener explicite à la fermeture (anti-fuite)     │
 └───────────────┬───────────────────────────────────────────┘
                 │ enveloppe
 ┌───────────────▼───────────────────────────────────────────┐
-│ RedisClientType (lib `redis` v5)                            │
+│ RedisClientType (lib `redis` v6)                            │
 └───────────────────────────────────────────────────────────┘
 ```
 
@@ -58,7 +58,7 @@ tags: [redis, architecture, connection, service, lifecycle, reconnect]
 ## Reconnexion — back-off linéaire borné
 
 La politique est **déclarative** dans la config (`baseMs`/`maxMs`/`maxRetries`) ; elle est
-convertie en fonction `socket.reconnectStrategy` de redis v5 au runtime
+convertie en fonction `socket.reconnectStrategy` de redis v6 au runtime
 (`buildClientOptions`). Délai = `min((tentative+1) × baseMs, maxMs)` ; au-delà de
 `maxRetries` (si > 0) → abandon (retourne une `Error`, le client cesse de retenter).
 `maxRetries: 0` (défaut) = reconnexion illimitée (résilience prod).

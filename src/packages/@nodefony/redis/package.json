@@ -28,7 +28,7 @@
     "javascript"
   ],
   "dependencies": {
-    "redis": "5.12.1"
+    "redis": "6.0.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "29.0.2",

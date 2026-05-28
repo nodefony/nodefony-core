@@ -1,7 +1,7 @@
 # @nodefony/redis
 
 Accès **Redis générique** pour Nodefony. Gère N connexions Redis nommées (lib
-[`redis`](https://github.com/redis/node-redis) v5) à partir d'une configuration validée par
+[`redis`](https://github.com/redis/node-redis) v6) à partir d'une configuration validée par
 Zod, et expose le **client Redis brut** par connexion. Le module n'impose aucun usage : cache,
 sessions, files d'attente, compteurs, verrous, pub/sub — c'est vous qui décidez.
 
@@ -53,20 +53,20 @@ export default {
 
 ### Variables d'environnement
 
-| Variable         | Effet                                                  |
-| ---------------- | ------------------------------------------------------ |
-| `REDIS_URL`      | URL complète `redis[s]://…` (prioritaire)              |
-| `REDIS_HOST`     | hôte du serveur                                        |
-| `REDIS_PORT`     | port (validé)                                          |
-| `REDIS_PASSWORD` | mot de passe (jamais committé)                         |
+| Variable         | Effet                                     |
+| ---------------- | ----------------------------------------- |
+| `REDIS_URL`      | URL complète `redis[s]://…` (prioritaire) |
+| `REDIS_HOST`     | hôte du serveur                           |
+| `REDIS_PORT`     | port (validé)                             |
+| `REDIS_PASSWORD` | mot de passe (jamais committé)            |
 
 ### Connexions par défaut
 
-| Nom         | Rôle                                  |
-| ----------- | ------------------------------------- |
-| `main`      | commandes clé-valeur / storage        |
-| `publish`   | `PUBLISH` (émission pub/sub)          |
-| `subscribe` | `SUBSCRIBE` (écoute pub/sub)          |
+| Nom         | Rôle                           |
+| ----------- | ------------------------------ |
+| `main`      | commandes clé-valeur / storage |
+| `publish`   | `PUBLISH` (émission pub/sub)   |
+| `subscribe` | `SUBSCRIBE` (écoute pub/sub)   |
 
 Trois connexions car un client Redis abonné ne peut plus émettre de commandes normales
 (contrainte du protocole). Ajoutez-en autant que nécessaire dans `connections`.
@@ -78,13 +78,13 @@ Politique déclarative : `{ baseMs: 100, maxMs: 10000, maxRetries: 0 }`. Délai 
 
 ## API
 
-| Méthode (`RedisService`)       | Retour                       | Description                          |
-| ------------------------------ | ---------------------------- | ------------------------------------ |
-| `getClient(name)`              | `RedisClientType \| null`    | client redis brut d'une connexion    |
-| `getConnection(name)`          | `Connection \| undefined`    | wrapper (état `connected`, options)  |
-| `createConnection(name)`       | `Promise<Connection>`        | ouvre une connexion déclarée         |
-| `closeConnections()`           | `Promise<void>`              | ferme tout (auto au `onTerminate`)   |
-| `connections`                  | `Record<string, Connection>` | connexions ouvertes                  |
+| Méthode (`RedisService`) | Retour                       | Description                         |
+| ------------------------ | ---------------------------- | ----------------------------------- |
+| `getClient(name)`        | `RedisClientType \| null`    | client redis brut d'une connexion   |
+| `getConnection(name)`    | `Connection \| undefined`    | wrapper (état `connected`, options) |
+| `createConnection(name)` | `Promise<Connection>`        | ouvre une connexion déclarée        |
+| `closeConnections()`     | `Promise<void>`              | ferme tout (auto au `onTerminate`)  |
+| `connections`            | `Record<string, Connection>` | connexions ouvertes                 |
 
 ## Tests
 

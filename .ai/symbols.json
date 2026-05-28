@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-28T19:39:31.128Z",
+  "generated": "2026-05-28T20:49:23.976Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -5702,7 +5702,7 @@
       "file": "src/packages/@nodefony/redis/nodefony/src/buildClientOptions.ts",
       "exported": true,
       "module": "@nodefony/redis",
-      "description": "Assemble les options `createClient` (redis v5) d'une connexion nommée à partir de la config validée : `globalOptions` fusionné avec la surcharge de connexion. Précédence : `url` (si présent) > sock…"
+      "description": "Assemble les options `createClient` (redis v6) d'une connexion nommée à partir de la config validée : `globalOptions` fusionné avec la surcharge de connexion. Précédence : `url` (si présent) > sock…"
     },
     "Connection": {
       "name": "Connection",
@@ -5713,7 +5713,7 @@
       "extends": "Service",
       "implements": [],
       "decorators": [],
-      "description": "Une connexion Redis nommée — enveloppe un client `redis` v5 et gère son cycle de vie (création, écoute des événements, fermeture propre). Perf/mémoire : les handlers d'événements sont conservés en …"
+      "description": "Une connexion Redis nommée — enveloppe un client `redis` v6 et gère son cycle de vie (création, écoute des événements, fermeture propre). Perf/mémoire : les handlers d'événements sont conservés en …"
     },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
