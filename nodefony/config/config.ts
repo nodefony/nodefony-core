@@ -234,6 +234,13 @@ const config = {
   "module-sequelize": sequelize,
   "module-mongoose": mongoose,
   "module-security": security,
+  // Backplane realtime = driver `redis` (registre) → fan-out cross-pod via Redis
+  // pub/sub en cluster. Connexion Redis depuis `@nodefony/redis` (défaut
+  // localhost:6379 ; password/host par env REDIS_PASSWORD/REDIS_HOST au lancement).
+  // ⚠️ Lever EFFECTIF aujourd'hui = env `NODEFONY_REALTIME_DRIVER=redis` : cet
+  // override `module-realtime` est appliqué à onPreBoot, APRÈS la validation Zod
+  // de realtime (onRegister) → ignoré (chantier ordering config à corriger).
+  "module-realtime": { backplane: { driver: "redis" } },
 };
 
 export default config;

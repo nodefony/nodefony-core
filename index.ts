@@ -23,6 +23,9 @@ import "./nodefony/entity/user";
   "@nodefony/drizzle",
   "@nodefony/http",
   "@nodefony/framework",
+  // Accès Redis générique — chargé AVANT realtime pour que le driver backplane
+  // `redis` (registre) trouve RedisService au boot (fan-out cross-pod cluster).
+  "@nodefony/redis",
   // Couche realtime serveur — Module class minimale aujourd'hui (P13.0 :
   // rapatriement RealtimeHub/RealtimeController/IBackplane depuis framework).
   // Doit être après framework (peerDep) et avant security qui s'y greffera (P6).
