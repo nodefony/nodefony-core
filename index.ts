@@ -23,6 +23,10 @@ import "./nodefony/entity/user";
   "@nodefony/drizzle",
   "@nodefony/http",
   "@nodefony/framework",
+  // Couche realtime serveur — Module class minimale aujourd'hui (P13.0 :
+  // rapatriement RealtimeHub/RealtimeController/IBackplane depuis framework).
+  // Doit être après framework (peerDep) et avant security qui s'y greffera (P6).
+  "@nodefony/realtime",
   "@nodefony/security",
   "@nodefony/test",
   // POC `poc/frontend-child` — ordre important : frontend AVANT son consumer.

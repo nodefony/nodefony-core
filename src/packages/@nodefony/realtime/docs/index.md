@@ -30,14 +30,14 @@ tags: [realtime, websocket, json-rpc, cluster, hub, backplane, socket, overview]
 > Les 2 corpus se renvoient l'un à l'autre. Démarre par la vitrine si tu veux **voir avant
 > de lire** ; reste ici si tu veux **construire**.
 
-> [!WARNING]
-> **Pas encore visible dans Studio `/nodefony/documentation`**. Le `DocumentationController`
-> scanne aujourd'hui uniquement `docs/` racine (cf [[project_doc_portal_faisabilite]]).
-> Pour que les docs des modules `src/packages/@nodefony/*/docs/` apparaissent dans le menu
-> Studio, il faut étendre `#listRootDocSections()` (ou ajouter `#listModuleDocs()`) — c'est
-> une dette **ADR-0001** (emplacement hybride : doc d'un module vit DANS le module). À faire
-> en P13.0 (rapatriement) ou plus tôt si besoin. En attendant, lis les fichiers directement
-> sur disque (`src/packages/@nodefony/realtime/docs/*.md`) ou sur GitHub.
+> [!TIP]
+> **Lire dans Studio** : ouvre [`https://127.0.0.1:5152/nodefony/modules/realtime`](https://127.0.0.1:5152/nodefony/modules/realtime)
+> — page `ModuleDetail` qui liste automatiquement les `docs/*.md` du module (onglet « Docs »).
+> La vitrine pédagogique avec live graphs reste séparément accessible dans
+> [`/nodefony/documentation`](https://127.0.0.1:5152/nodefony/documentation) → section
+> « Realtime / La Socket Nodefony » (les 7 pages `docs/realtime/socket/*.md` racine).
+> Les 2 vues cohabitent intentionnellement (cf [[project_doc_portal_faisabilite]] +
+> ADR-0001 emplacement hybride).
 
 > [!NOTE]
 > **Audience cible & switch persona Studio**. Cette doc est **vulgarisée pour le `user`

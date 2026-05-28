@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-28T11:27:53.522Z",
+  "generated": "2026-05-28T11:34:58.282Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 757,
-    "symbols": 1374,
-    "classes": 229,
+    "files": 758,
+    "symbols": 1376,
+    "classes": 230,
     "interfaces": 333,
-    "types": 163,
+    "types": 164,
     "enums": 2,
     "functions": 195,
     "constants": 452
@@ -312,6 +312,16 @@
         "services",
         "entities"
       ]
+    },
+    "Realtime": {
+      "name": "Realtime",
+      "kind": "class",
+      "file": "src/packages/@nodefony/realtime/index.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": "Module",
+      "implements": [],
+      "decorators": []
     },
     "Redis": {
       "name": "Redis",
@@ -5587,6 +5597,13 @@
       ],
       "decorators": []
     },
+    "RealtimeConfig": {
+      "name": "RealtimeConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/realtime"
+    },
     "@nodefony/redis:Redis": {
       "name": "Redis",
       "kind": "class",
@@ -10120,6 +10137,7 @@
         "Frontend",
         "Http",
         "Mongoose",
+        "Realtime",
         "Redis",
         "Security",
         "Sequelize",
@@ -10721,6 +10739,7 @@
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/mongoose/index.ts",
+        "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/sequelize/index.ts",
@@ -10930,6 +10949,7 @@
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/mongoose/index.ts",
+        "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/sequelize/index.ts",

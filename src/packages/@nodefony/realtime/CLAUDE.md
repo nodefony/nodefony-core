@@ -87,20 +87,19 @@ src/packages/@nodefony/realtime/
 - **Dupliquer le client realtime** dans ce module — c'est un subpath du core, point
 - **Dupliquer le contrat `IRealtimeSocket`** — il est dans le core (isomorphe). Le module serveur l'IMPLÉMENTE côté serveur, ne le redéclare pas
 
-## TODO — surfaçage Studio des docs/
+## Visibilité Studio
 
-Aujourd'hui le `DocumentationController` de `@nodefony/studio` scanne uniquement `docs/` racine
-(`#listRootDocSections()`). Les docs de ce module (`src/packages/@nodefony/realtime/docs/*.md`)
-ne sont **pas encore visibles dans `/nodefony/documentation`**. À faire (dette ADR-0001
-emplacement hybride) :
+✅ **Page module** : [`/nodefony/modules/realtime`](https://127.0.0.1:5152/nodefony/modules/realtime)
+— onglets Docs / Routes / Symbols / Coverage / Tests / Config alimentés par
+`/nodefony/kernel/api/module/realtime/*` (cf `framework/.../KernelAdminApi.ts`).
+Le scan des `docs/*.md` du module est fait par le helper `docsReader.ts`.
 
-1. Étendre `DocumentationController.#listRootDocSections()` ou ajouter `#listModuleDocs()`
-   pour scanner `src/packages/@nodefony/*/docs/` et grouper en sections par module.
-2. Ajouter un mapping label : `"realtime-module" → "Realtime / Doc dev du module"`.
-3. Tester que les 6 pages apparaissent à côté de la vitrine vivante.
+✅ **Vitrine pédagogique** (séparée) : `/nodefony/documentation` → section « Realtime / La
+Socket Nodefony » qui surface les 7 fichiers `docs/realtime/socket/*.md` racine avec
+live graphs (FanOut/Protocole/Sondes/Backplane/Actions).
 
-Cohérent avec [[project_doc_portal_faisabilite]] (faisabilité portail doc). À faire en P13.0
-ou dans une session courte dédiée (~0,5 ses, juste l'extension du scan).
+Les 2 vues cohabitent intentionnellement (cf [[project_doc_portal_faisabilite]] + ADR-0001
+emplacement hybride). Migration éventuelle des 7 fichiers racine vers le module = P13.0.
 
 ## Roadmap (P13)
 
