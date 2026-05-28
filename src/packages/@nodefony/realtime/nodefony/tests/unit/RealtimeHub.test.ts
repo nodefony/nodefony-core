@@ -10,6 +10,7 @@ import type {
   IBackplane,
   IBackplaneMessage,
   BackplaneHandler,
+  IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
 
 /**
@@ -37,6 +38,14 @@ class FakeBackplane implements IBackplane {
   /** Simule un message reçu d'un autre pair (echo déjà filtré par l'impl réelle). */
   deliver(msg: IBackplaneMessage): void {
     this.handler?.(msg);
+  }
+  describe(): IBackplaneInfo {
+    return {
+      driver: "fake",
+      kind: "fake",
+      originId: this.originId,
+      crossPod: false,
+    };
   }
 }
 
