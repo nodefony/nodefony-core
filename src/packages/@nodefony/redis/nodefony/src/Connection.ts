@@ -2,38 +2,54 @@ import {
   Service,
   Container,
   Event,
-  extend,
-  Severity,
-  Msgid,
-  Message,
+  type Severity,
+  type Msgid,
+  type Message,
 } from "nodefony";
-import redisService from "../service/redis";
-import {
-  RedisClientOptions,
-  RedisClientType,
-  createClient,
-  RedisModules,
-} from "redis";
+import { createClient, type RedisClientType, type RedisClientOptions } from "redis";
+import type RedisService from "../service/redis";
 
+/**
+ * Une connexion Redis nommée — enveloppe un client `redis` v5 et gère son cycle
+ * de vie (création, écoute des événements, fermeture propre).
+ *
+ * Perf/mémoire : les handlers d'événements sont conservés en propriété et
+ * **explicitement retirés** à la fermeture (`removeListener`) pour éviter toute
+ * fuite si la connexion est recréée — règle absolue perf-mémoire du framework.
+ */
 export default class Connection extends Service {
+  /** Client redis v5 — `null` tant que `create()` n'a pas réussi. */
   client: RedisClientType | null = null;
-  service: redisService;
+  /** Service Redis parent (accès container / kernel / événements). */
+  service: RedisService;
+  /** true entre les événements `connect` et `end`. */
   connected: boolean = false;
-  //override options: RedisClientOptions ={}
+  /** Options `createClient` assemblées (par `buildClientOptions`). */
+  override options: RedisClientOptions;
+
+  // Handlers stockés pour cleanup explicite (anti-fuite listener).
+  #onError: ((error: Error) => void) | null = null;
+  #onConnect: (() => void) | null = null;
+  #onReady: (() => void) | null = null;
+  #onEnd: (() => void) | null = null;
+  #onReconnecting: (() => void) | null = null;
+
   constructor(
     name: string,
-    options: Record<string, any>,
-    redisService: redisService
+    options: RedisClientOptions,
+    redisService: RedisService,
   ) {
     super(
       name,
       redisService.container as Container,
       redisService.notificationsCenter as Event,
-      options
+      options as Record<string, unknown>,
     );
     this.service = redisService;
+    this.options = options;
   }
-  log(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message) {
+
+  override log(pci: unknown, severity?: Severity, msgid?: Msgid, msg?: Message) {
     if (!msgid) {
       // eslint-disable-next-line no-param-reassign
       msgid = `\x1b[36mREDIS CONNECTION ${this.name} \x1b[0m`;
@@ -41,174 +57,89 @@ export default class Connection extends Service {
     return super.log(pci, severity, msgid, msg);
   }
 
-  create(): Promise<RedisClientType> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        this.client = createClient(
-          this.options as RedisClientOptions<Record<string, never>>
-        ) as RedisClientType;
-        if (!this.client) {
-          throw new Error("Redis client is not defined");
-        }
-
-        this.client.on("error", (error: Error) => {
-          this.log(error, "ERROR");
-          this.fire("onError", error, this);
-        });
-        this.client.on("warning", (warning: Error) => {
-          this.log(warning, "WARNING");
-          this.fire("onWarning", warning, this);
-        });
-        this.client.on("end", () => {
-          this.connected = false;
-          this.log(
-            `END CONNECT   ${this.options.socket.host} : ${this.options.socket.port} `,
-            "INFO"
-          );
-          this.fire("onEnd", this);
-        });
-        this.client.on("ready", () => {
-          this.fire("onReady", this);
-        });
-        this.client.on("connect", () => {
-          this.connected = true;
-          this.log(
-            `CONNECT  ${this.options.socket.host} : ${this.options.socket.port} `,
-            "INFO"
-          );
-          this.displayTable();
-          this.fire("onConnect", this);
-        });
-        this.client.on("reconnecting", () => {
-          this.fire("onReady", this);
-          this.log(
-            `RECONNECTING  ${this.options.socket.host} : ${this.options.socket.port} `,
-            "INFO"
-          );
-          this.fire("onReconnecting", this);
-        });
-        // this.client.on("subscribe", (channel: string, count: number) => {
-        //   this.log(
-        //     `SUBSCRIBE  ${this.options.socket.host}:${this.options.socket.port} channel : ${channel} `,
-        //     "INFO"
-        //   );
-        //   this.fire("onSubscribe", channel, count, this);
-        // });
-        // this.client.on("unsubscribe", (channel: string, count: number) => {
-        //   this.log(
-        //     `UNSUBSCRIBE  ${this.options.socket.host}:${this.options.socket.port} channel : ${channel} `,
-        //     "INFO"
-        //   );
-        //   this.fire("onUnsubscribe", channel, count, this);
-        // });
-        // this.client.on("psubscribe", (pattern: string, count: number) => {
-        //   this.log(
-        //     `PSUBSCRIBE  ${this.options.socket.host}:${this.options.socket.port} pattern : ${pattern} `,
-        //     "INFO"
-        //   );
-        //   this.fire("onPsubscribe", pattern, count, this);
-        // });
-        // this.client.on("punsubscribe", (pattern: string, count: number) => {
-        //   this.log(
-        //     `PUNSUBSCRIBE  ${this.options.socket.host}:${this.options.socket.port} pattern : ${pattern} `,
-        //     "INFO"
-        //   );
-        //   this.fire("onPunsubscribe", pattern, count, this);
-        // });
-        // this.client.on("message", (channel: string, message: string) => {
-        //   this.log(
-        //     `MESSAGE  ${this.options.socket.host}:${this.options.socket.port} channel : ${channel} `,
-        //     "DEBUG"
-        //   );
-        //   this.log(message, "DEBUG");
-        //   this.fire("onMessage", channel, message, this);
-        // });
-        // this.client.on("message_buffer", (channel: string, message: string) => {
-        //   this.log(
-        //     `MESSAGE BUFFER  ${this.options.socket.host}:${this.options.socket.port} channel : ${channel} `,
-        //     "DEBUG"
-        //   );
-        //   this.log(message, "DEBUG");
-        //   this.fire("onMessage_buffer", channel, message, this);
-        // });
-        // this.client.on(
-        //   "pmessage",
-        //   (pattern: string, channel: string, message: string) => {
-        //     this.log(
-        //       `PMESSAGE  ${this.options.socket.host}:${this.options.socket.port} pattern : ${pattern} channel : ${channel} `,
-        //       "DEBUG"
-        //     );
-        //     this.log(message, "DEBUG");
-        //     this.fire("onPmessage", pattern, channel, message, this);
-        //   }
-        // );
-        // this.client.on(
-        //   "pmessage_buffer",
-        //   (pattern: string, channel: string, message: string) => {
-        //     this.log(
-        //       `PMESSAGE BUFFER  ${this.options.socket.host}:${this.options.socket.port} pattern : ${pattern} channel : ${channel} `,
-        //       "DEBUG"
-        //     );
-        //     this.log(message, "DEBUG");
-        //     this.fire("onPmessage_buffer", pattern, channel, message, this);
-        //   }
-        // );
-        await this.client.connect();
-        if (this.options.password) {
-          if (this.options.username) {
-            await this.client.auth({
-              username: this.options.username,
-              password: this.options.password,
-            });
-          } else {
-            await this.client.auth({
-              password: this.options.password,
-            });
-          }
-          this.log(
-            `AUTHENTICATED READY ${this.options.socket.host} : ${this.options.socket.port} `,
-            "INFO"
-          );
-        }
-
-        return resolve(this.client);
-      } catch (e) {
-        console.trace(e);
-        return reject(e);
-      }
-    });
-  }
-
-  async close() {
-    if (this.client) {
-      await this.client.quit();
-      this.log("REDIS client close");
+  /** Hôte:port lisible pour les logs (gère le cas `url`). */
+  #endpoint(): string {
+    if (this.options.url) {
+      return this.options.url.replace(/:[^:@/]*@/, ":***@");
     }
+    const socket = this.options.socket as
+      | { host?: string; port?: number }
+      | undefined;
+    return `${socket?.host ?? "?"}:${socket?.port ?? "?"}`;
   }
 
-  displayTable(severity: Severity = "DEBUG") {
-    const options = {
-      head: [
-        `${this.name.toUpperCase()} CONNECTIONS NAME`,
-        "HOSTS",
-        "CONNECTED",
-      ],
+  /**
+   * Crée le client, attache les listeners, ouvre la connexion.
+   *
+   * @returns le client connecté.
+   * @throws si la connexion échoue (propagé au service, qui logue).
+   */
+  async create(): Promise<RedisClientType> {
+    this.client = createClient(this.options) as RedisClientType;
+
+    this.#onError = (error: Error): void => {
+      this.log(error, "ERROR");
+      this.fire("onError", error, this);
     };
+    this.#onConnect = (): void => {
+      this.connected = true;
+      this.log(`CONNECT ${this.#endpoint()}`, "INFO");
+      this.fire("onConnect", this);
+    };
+    this.#onReady = (): void => {
+      this.fire("onReady", this);
+    };
+    this.#onEnd = (): void => {
+      this.connected = false;
+      this.log(`END ${this.#endpoint()}`, "INFO");
+      this.fire("onEnd", this);
+    };
+    this.#onReconnecting = (): void => {
+      this.log(`RECONNECTING ${this.#endpoint()}`, "WARNING");
+      this.fire("onReconnecting", this);
+    };
+
+    this.client.on("error", this.#onError);
+    this.client.on("connect", this.#onConnect);
+    this.client.on("ready", this.#onReady);
+    this.client.on("end", this.#onEnd);
+    this.client.on("reconnecting", this.#onReconnecting);
+
+    await this.client.connect();
+    return this.client;
+  }
+
+  /** Retire tous les listeners attachés dans `create()` (anti-fuite). */
+  #removeListeners(): void {
+    if (!this.client) {
+      return;
+    }
+    if (this.#onError) this.client.removeListener("error", this.#onError);
+    if (this.#onConnect) this.client.removeListener("connect", this.#onConnect);
+    if (this.#onReady) this.client.removeListener("ready", this.#onReady);
+    if (this.#onEnd) this.client.removeListener("end", this.#onEnd);
+    if (this.#onReconnecting)
+      this.client.removeListener("reconnecting", this.#onReconnecting);
+    this.#onError = null;
+    this.#onConnect = null;
+    this.#onReady = null;
+    this.#onEnd = null;
+    this.#onReconnecting = null;
+  }
+
+  /** Ferme proprement la connexion (`QUIT`) et nettoie les listeners. */
+  async close(): Promise<void> {
+    if (!this.client) {
+      return;
+    }
     try {
-      type CLITable = unknown[] & { push(row: unknown[]): void; toString(): string };
-      type CLIKernel = { displayTable(rows: unknown[], opts: { head: string[] }): CLITable };
-      const table = (this.kernel?.cli as CLIKernel | null)?.displayTable([], options);
-      if (table && this.client) {
-        const data = [];
-        data.push(this.name || "");
-        let ele: string = (this.client.options?.socket as { host?: string } | undefined)?.host || "";
-        data.push(ele);
-        data.push(this.connected || "");
-        table.push(data);
-        this.log(` ${this.name} : \n${table.toString()}`, severity);
+      if (this.client.isOpen) {
+        await this.client.quit();
       }
-    } catch (e) {
-      throw e;
+    } finally {
+      this.#removeListeners();
+      this.connected = false;
+      this.log("REDIS client close", "INFO");
     }
   }
 }

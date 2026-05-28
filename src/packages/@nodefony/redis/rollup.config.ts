@@ -24,6 +24,7 @@ const external: string[] = [
   "@nodefony/sequelize",
   "@nodefony/security",
   "redis",
+  "zod",
   "tslib",
 ];
 

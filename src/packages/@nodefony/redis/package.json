@@ -18,7 +18,9 @@
     "clean": "rimraf dist",
     "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
-    "test": "node -e \"console.log('test')\""
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
   },
   "private": false,
   "keywords": [
@@ -40,9 +42,16 @@
     "@typescript-eslint/parser": "8.59.3",
     "rimraf": "6.1.3",
     "rollup": "4.60.3",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.7",
+    "@vitest/coverage-v8": "4.1.7"
   },
-  "peerDependencies": {},
+  "peerDependencies": {
+    "nodefony": "*",
+    "@nodefony/framework": "*",
+    "@nodefony/http": "*",
+    "zod": "^4.4.3"
+  },
   "repository": {
     "type": "git",
     "url": "git://github.com/nodefony/nodefony.git",
