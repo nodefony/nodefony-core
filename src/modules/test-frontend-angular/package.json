@@ -12,7 +12,12 @@
     "frontend:vite-only": "vite --config frontend/vite.config.generated.mjs"
   },
   "private": true,
-  "keywords": ["nodefony", "poc", "angular", "vite"],
+  "keywords": [
+    "nodefony",
+    "poc",
+    "angular",
+    "vite"
+  ],
   "dependencies": {
     "@angular/common": "^21.0.0",
     "@angular/compiler": "^21.0.0",
@@ -35,7 +40,7 @@
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",
     "@rollup/plugin-typescript": "12.3.0",
-    "@types/node": "25.8.0",
+    "@types/node": "25.9.1",
     "rimraf": "6.1.3",
     "rollup": "4.60.4",
     "rollup-sourcemap-path-transform": "1.2.0",

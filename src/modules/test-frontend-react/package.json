@@ -12,7 +12,12 @@
     "frontend:vite-only": "vite --config frontend/vite.config.generated.mjs"
   },
   "private": true,
-  "keywords": ["nodefony", "poc", "react", "vite"],
+  "keywords": [
+    "nodefony",
+    "poc",
+    "react",
+    "vite"
+  ],
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -29,7 +34,7 @@
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",
     "@rollup/plugin-typescript": "12.3.0",
-    "@types/node": "25.8.0",
+    "@types/node": "25.9.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
