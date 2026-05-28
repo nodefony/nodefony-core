@@ -1968,7 +1968,7 @@ export const DashboardSupervision = observer(() => {
                 </Group>
                 {/* Plein écran : détail chiffré (pics sur la fenêtre + sondes). */}
                 {fullscreen && (
-                  <Grid mt="lg" gutter="lg">
+                  <Grid mt="lg" gap="lg">
                     <Grid.Col span={{ base: 6, sm: 4, md: 3 }}>
                       <Row k="CPU actuel" v={`${cpu}%`} />
                     </Grid.Col>

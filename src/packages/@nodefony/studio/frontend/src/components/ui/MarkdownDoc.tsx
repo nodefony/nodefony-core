@@ -17,7 +17,7 @@ import {
   Paper,
   Text,
   Tooltip,
-  TypographyStylesProvider,
+  Typography,
   rem,
   useMantineColorScheme,
 } from "@mantine/core";
@@ -449,7 +449,7 @@ export function MarkdownDoc({
     },
   };
   return (
-    <TypographyStylesProvider>
+    <Typography>
       <Box
         style={{ maxWidth: rem(maxWidth), fontSize: rem(15), lineHeight: 1.75 }}
       >
@@ -457,7 +457,7 @@ export function MarkdownDoc({
           {markdown}
         </ReactMarkdown>
       </Box>
-    </TypographyStylesProvider>
+    </Typography>
   );
 }
 

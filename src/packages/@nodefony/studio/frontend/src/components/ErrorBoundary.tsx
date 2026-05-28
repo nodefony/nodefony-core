@@ -91,14 +91,19 @@ export class ErrorBoundary extends Component<Props, State> {
               Une erreur est survenue
             </Text>
             <Text size="sm" c="dimmed" ta="center">
-              Le rendu de cette vue a échoué. Le reste du Studio reste utilisable.
+              Le rendu de cette vue a échoué. Le reste du Studio reste
+              utilisable.
             </Text>
           </Stack>
 
           <Code
             block
             color="red"
-            style={{ width: "100%", whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+            style={{
+              width: "100%",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
           >
             {error.name}: {error.message}
           </Code>
@@ -140,7 +145,7 @@ export class ErrorBoundary extends Component<Props, State> {
               >
                 {showStack ? "Masquer" : "Détails techniques"}
               </Button>
-              <Collapse in={showStack}>
+              <Collapse expanded={showStack}>
                 <Code
                   block
                   style={{
@@ -151,7 +156,9 @@ export class ErrorBoundary extends Component<Props, State> {
                   }}
                 >
                   {error.stack}
-                  {componentStack ? `\n\nComponent stack:${componentStack}` : ""}
+                  {componentStack
+                    ? `\n\nComponent stack:${componentStack}`
+                    : ""}
                 </Code>
               </Collapse>
             </Stack>

@@ -412,7 +412,7 @@ export const AdminLayout = observer(() => {
                     </Group>
                   </UnstyledButton>
                 )}
-                <Collapse in={!collapsed}>
+                <Collapse expanded={!collapsed}>
                   {items.map((item) => (
                     <NavEntry
                       key={item.to}
@@ -475,7 +475,7 @@ export const AdminLayout = observer(() => {
                     </Group>
                   </UnstyledButton>
                 )}
-                <Collapse in={!collapsed}>
+                <Collapse expanded={!collapsed}>
                   {items.map((p) => {
                     const ItemIcon =
                       (p.icon && PRODUCER_ICONS[p.icon]) || IconApi;

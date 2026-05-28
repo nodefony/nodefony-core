@@ -242,7 +242,7 @@ export function DocLayout({
     );
 
     return (
-      <Grid gutter="xl">
+      <Grid gap="xl">
         <Grid.Col span={{ base: 12, md: 3 }}>{sidebar}</Grid.Col>
         <Grid.Col span={centerSpan}>{center}</Grid.Col>
         {tocCol}
