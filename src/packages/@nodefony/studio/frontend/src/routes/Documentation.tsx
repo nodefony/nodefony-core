@@ -1,5 +1,11 @@
 import { observer } from "mobx-react-lite";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   ActionIcon,
@@ -490,6 +496,17 @@ export const Documentation = observer(() => {
   const breadcrumbs = activeSection
     ? ["Documentation", activeSection.label]
     : ["Documentation"];
+
+  // À l'arrivée OU au changement de page active, déplie automatiquement la
+  // section qui la contient → l'utilisateur voit immédiatement le surlignage
+  // de la page courante (sinon la section est repliée par défaut et le
+  // NavLink actif reste invisible).
+  useEffect(() => {
+    if (!activeSection) return;
+    setCollapsed((c) =>
+      c[activeSection.id] === false ? c : { ...c, [activeSection.id]: false },
+    );
+  }, [activeSection]);
   const expandAll = () =>
     setCollapsed(Object.fromEntries(sections.map((s) => [s.id, false])));
   const collapseAll = () =>
