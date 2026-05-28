@@ -31,7 +31,8 @@
   ],
   "peerDependencies": {
     "nodefony": "*",
-    "@nodefony/framework": "*"
+    "@nodefony/framework": "*",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@rollup/plugin-json": "6.1.0",

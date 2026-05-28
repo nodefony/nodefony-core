@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-28T11:34:58.282Z",
+  "generated": "2026-05-28T11:59:58.468Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 758,
-    "symbols": 1376,
+    "files": 759,
+    "symbols": 1377,
     "classes": 230,
     "interfaces": 333,
     "types": 164,
     "enums": 2,
     "functions": 195,
-    "constants": 452
+    "constants": 453
   },
   "symbols": {
     "Cli": {
@@ -5600,9 +5600,17 @@
     "RealtimeConfig": {
       "name": "RealtimeConfig",
       "kind": "type",
-      "file": "src/packages/@nodefony/realtime/nodefony/config/config.ts",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/schema.ts",
       "exported": true,
       "module": "@nodefony/realtime"
+    },
+    "realtimeConfigSchema": {
+      "name": "realtimeConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Schéma Zod de la configuration de"
     },
     "@nodefony/redis:Redis": {
       "name": "Redis",
@@ -11489,6 +11497,10 @@
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/sequelize/index.ts"
       ],
+      "realtimeConfigSchema": [
+        "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/config/config.ts"
+      ],
       "Firewall": [
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
@@ -12757,6 +12769,9 @@
       ],
       "SentenceChunker": [
         "src/packages/@nodefony/rag/src/services/RagService.ts"
+      ],
+      "RealtimeConfig": [
+        "src/packages/@nodefony/realtime/nodefony/config/config.ts"
       ],
       "Connection": [
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
