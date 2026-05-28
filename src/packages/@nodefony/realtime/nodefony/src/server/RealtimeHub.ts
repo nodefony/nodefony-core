@@ -1,9 +1,9 @@
-import type { RealtimePublish } from "../interfaces/IRealtimeController";
+import type { RealtimePublish } from "../../interfaces/IRealtimeController";
 import type {
   IRealtimeConnProbe,
   IRealtimeProbe,
-} from "../interfaces/IRealtimeProbe";
-import type { IBackplane } from "../interfaces/IBackplane";
+} from "../../interfaces/IRealtimeProbe";
+import type { IBackplane } from "../../interfaces/IBackplane";
 
 /**
  * Seuil d'alerte slow-consumer (octets de `bufferedAmount`). Au-delà, la connexion

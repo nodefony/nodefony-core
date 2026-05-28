@@ -1,4 +1,7 @@
-import type { IBackplane, BackplaneHandler } from "../interfaces/IBackplane.js";
+import type {
+  IBackplane,
+  BackplaneHandler,
+} from "../../interfaces/IBackplane.js";
 
 /**
  * Backplane **mono-process no-op** — implémentation de RÉFÉRENCE du port

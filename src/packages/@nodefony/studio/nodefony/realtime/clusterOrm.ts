@@ -2,7 +2,7 @@ import {
   clusterProbeRequestEnrich,
   clusterProbeInstance,
   type RealtimePublish,
-} from "@nodefony/framework";
+} from "@nodefony/realtime";
 
 /**
  * Provider du canal **drill ORM cluster** `orm:rich@<pid>` — diagnostic ORM RICHE

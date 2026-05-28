@@ -3,7 +3,7 @@ import {
   clusterProbeInstance,
   type RealtimePublish,
   type IRealtimeHealth,
-} from "@nodefony/framework";
+} from "@nodefony/realtime";
 import type { AppMeta } from "./providers";
 
 /**

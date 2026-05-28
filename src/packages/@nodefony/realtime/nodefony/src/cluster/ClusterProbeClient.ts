@@ -11,7 +11,7 @@ import type { ClusterProbeFacet } from "nodefony";
 import type {
   IRealtimeHealth,
   IRealtimeClusterHealth,
-} from "../interfaces/IRealtimeProbe.js";
+} from "../../interfaces/IRealtimeProbe.js";
 
 /**
  * Transport IPC de la sonde cluster côté worker — abstrait `process.send` / la réception

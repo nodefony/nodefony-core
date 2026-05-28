@@ -1,10 +1,9 @@
-import { expect } from "chai";
-import "mocha";
+import { describe, it, expect } from "vitest";
 import {
   ClusterBackplane,
   type IClusterBackplaneTransport,
   type ClusterBackplaneEnvelope,
-} from "../../src/ClusterBackplane.js";
+} from "../../src/backplane/ClusterBackplane.js";
 import { CLUSTER_RT_KIND } from "nodefony";
 import type { IBackplaneMessage } from "../../interfaces/IBackplane.js";
 

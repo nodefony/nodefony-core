@@ -1,8 +1,7 @@
-import { expect } from "chai";
-import "mocha";
+import { describe, it, expect } from "vitest";
 import "reflect-metadata";
-import { RealtimeController } from "../../src/RealtimeController.js";
-import { getRealtimeHub } from "../../src/RealtimeHub.js";
+import { RealtimeController } from "../../src/server/RealtimeController.js";
+import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
 import type {
   RealtimePublish,
   RealtimeInboundHandler,

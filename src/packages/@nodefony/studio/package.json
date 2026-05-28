@@ -51,6 +51,7 @@
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
+    "@nodefony/realtime": "*",
     "@vitejs/plugin-react": ">=4.0.0",
     "nodefony": "*",
     "vite": ">=5.0.0"

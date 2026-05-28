@@ -19,6 +19,7 @@ const external: string[] = [
   "@nodefony/http",
   "@nodefony/framework",
   "@nodefony/frontend",
+  "@nodefony/realtime",
   "tslib",
 ];
 

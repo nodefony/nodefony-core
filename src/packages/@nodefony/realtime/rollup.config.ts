@@ -13,7 +13,13 @@ const sourcemapPathTransform = createPathTransform({
   },
 });
 
-const external: string[] = ["nodefony", "@nodefony/framework", "tslib"];
+const external: string[] = [
+  "nodefony",
+  "@nodefony/framework",
+  "@nodefony/http",
+  "zod",
+  "tslib",
+];
 
 const nodefonyFiles = globSync("nodefony/**/*.ts", {
   ignore: ["**/*.d.ts", "**/*.spec.ts", "**/*.test.ts", "**/tests/**"],

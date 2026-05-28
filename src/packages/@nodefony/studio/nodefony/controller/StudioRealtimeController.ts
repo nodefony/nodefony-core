@@ -1,6 +1,8 @@
 /// <reference types="node" />
-import { RealtimeController, route, controller } from "@nodefony/framework";
-import type { IAdminBroker, RealtimePublish } from "@nodefony/framework";
+import { route, controller } from "@nodefony/framework";
+import type { IAdminBroker } from "@nodefony/framework";
+import { RealtimeController } from "@nodefony/realtime";
+import type { RealtimePublish } from "@nodefony/realtime";
 import { Context } from "@nodefony/http";
 import type { IAdminRequest, RpcActionHandler, RateBounds } from "nodefony";
 import { parseRate } from "nodefony";

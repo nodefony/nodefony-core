@@ -6,11 +6,11 @@ import type {
 } from "nodefony";
 import { ProcessProbe, Nodefony, readOrmHealth } from "nodefony";
 import { getRealtimeHub } from "./RealtimeHub";
-import { clusterProbeHealth } from "./ClusterProbeClient";
+import { clusterProbeHealth } from "../cluster/ClusterProbeClient";
 import type {
   IRealtimeHealth,
   IRealtimeClusterHealth,
-} from "../interfaces/IRealtimeProbe";
+} from "../../interfaces/IRealtimeProbe";
 
 // Sonde process du worker (CPU/mém/event-loop) — 1 instance/process (deltas par
 // intervalle). Lue dans buildOwnHealth → voyage dans le report de sonde (cluster) puis le

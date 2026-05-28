@@ -1,6 +1,5 @@
-import { expect } from "chai";
-import "mocha";
-import { WsConnectionTransport } from "../../src/WsConnectionTransport.js";
+import { describe, it, expect } from "vitest";
+import { WsConnectionTransport } from "../../src/transport/WsConnectionTransport.js";
 import { TransportState } from "nodefony";
 
 /** Mock d'une connexion `ws` brute (send/close/readyState). */

@@ -2,7 +2,7 @@ import type {
   IBackplane,
   BackplaneHandler,
   IBackplaneMessage,
-} from "../interfaces/IBackplane.js";
+} from "../../interfaces/IBackplane.js";
 import { CLUSTER_RT_KIND } from "nodefony";
 
 /**

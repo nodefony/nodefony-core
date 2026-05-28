@@ -1,5 +1,5 @@
 import { TransportState, type IRealtimeTransport } from "nodefony";
-import type { IRealtimeConnProbe } from "../interfaces/IRealtimeProbe";
+import type { IRealtimeConnProbe } from "../../interfaces/IRealtimeProbe";
 
 /**
  * Connexion ws brute, typée structurellement (évite d'importer le package `ws`).

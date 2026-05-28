@@ -1,16 +1,16 @@
 import { JsonRpcPeer, type RpcActionHandler } from "nodefony";
 import type { WebsocketContext } from "@nodefony/http";
-import Controller from "./Controller";
+import { Controller } from "@nodefony/framework";
 import {
   WsConnectionTransport,
   type RawWsConnection,
-} from "./WsConnectionTransport";
+} from "../transport/WsConnectionTransport";
 import { getRealtimeHub, type ChannelSink } from "./RealtimeHub";
 import type {
   IRealtimeController,
   RealtimePublish,
   RealtimeInboundHandler,
-} from "../interfaces/IRealtimeController";
+} from "../../interfaces/IRealtimeController";
 
 /** État realtime PAR connexion ws, stocké sur le contexte (persiste entre messages). */
 interface RealtimeConnState {

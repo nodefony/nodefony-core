@@ -1,7 +1,9 @@
-import { expect } from "chai";
-import "mocha";
-import { RealtimeHub, SLOW_CONSUMER_BYTES } from "../../src/RealtimeHub.js";
-import { LoopbackBackplane } from "../../src/LoopbackBackplane.js";
+import { describe, it, expect } from "vitest";
+import {
+  RealtimeHub,
+  SLOW_CONSUMER_BYTES,
+} from "../../src/server/RealtimeHub.js";
+import { LoopbackBackplane } from "../../src/backplane/LoopbackBackplane.js";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
 import type { IRealtimeConnProbe } from "../../interfaces/IRealtimeProbe.js";
 import type {

@@ -1,6 +1,4 @@
-import { expect } from "chai";
-import "mocha";
-import { vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   ClusterProbeClient,
   mergeClusterHealth,
@@ -9,7 +7,7 @@ import {
   clusterProbeRequestEnrich,
   setClusterProbeClient,
   type IClusterProbeTransport,
-} from "../../src/ClusterProbeClient.js";
+} from "../../src/cluster/ClusterProbeClient.js";
 import {
   CLUSTER_PROBE_KIND,
   CLUSTER_PROBE_SNAPSHOT_KIND,
