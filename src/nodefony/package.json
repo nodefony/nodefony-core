@@ -75,7 +75,7 @@
     "@rollup/plugin-replace": "^6.0.3",
     "@rollup/plugin-terser": "1.0.0",
     "@rollup/plugin-typescript": "12.3.0",
-    "chokidar": "4.0.3",
+    "chokidar": "5.0.0",
     "cli-color": "2.0.4",
     "cli-table3": "0.6.5",
     "clui": "0.3.6",
