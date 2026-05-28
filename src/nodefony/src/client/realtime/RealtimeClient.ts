@@ -25,6 +25,17 @@ import type {
   IChannelStats,
   RealtimeHandler,
 } from "../../realtime/IRealtimeSocket";
+import type {
+  ActionNames,
+  ActionParams,
+  ActionResult,
+  ActionsMap,
+  DefaultActionsMap,
+  DefaultEventsMap,
+  EventNames,
+  EventPayload,
+  EventsMap,
+} from "../../realtime/RealtimeEventMap";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 import {
   bindAdaptiveChannel,
@@ -147,7 +158,11 @@ export interface KernelPingResult {
   version?: string;
 }
 
-export class RealtimeClient implements IRealtimeSocket {
+export class RealtimeClient<
+  Emit extends EventsMap = DefaultEventsMap,
+  Listen extends EventsMap = DefaultEventsMap,
+  Actions extends ActionsMap = DefaultActionsMap,
+> implements IRealtimeSocket<Emit, Listen, Actions> {
   // Transport courant ({@link IRealtimeTransport}) — recréé à chaque (re)connexion.
   // L'orchestration (reconnect/heartbeat/state) vit ici ; le transport reste « bête ».
   private transport: IRealtimeTransport | null = null;
@@ -284,14 +299,24 @@ export class RealtimeClient implements IRealtimeSocket {
   }
 
   /** Pub/sub local — handler sur un event server-pushed (notification JSON-RPC). */
-  on(event: string, handler: EventHandler): () => void {
+  on<K extends string>(
+    event: K,
+    handler: K extends EventNames<Listen>
+      ? (payload: EventPayload<Listen, K>) => void
+      : RealtimeHandler,
+  ): () => void {
     if (!this.handlers.has(event)) this.handlers.set(event, new Set());
-    this.handlers.get(event)!.add(handler);
+    this.handlers.get(event)!.add(handler as EventHandler);
     return () => this.off(event, handler);
   }
 
-  off(event: string, handler: EventHandler): void {
-    this.handlers.get(event)?.delete(handler);
+  off<K extends string>(
+    event: K,
+    handler: K extends EventNames<Listen>
+      ? (payload: EventPayload<Listen, K>) => void
+      : RealtimeHandler,
+  ): void {
+    this.handlers.get(event)?.delete(handler as EventHandler);
   }
 
   /**
@@ -305,11 +330,27 @@ export class RealtimeClient implements IRealtimeSocket {
    * @returns dispose (désabonnement).
    */
   onNotice(handler: (notice: NodefonyNotice) => void): () => void {
-    return this.on("__notice__", handler as EventHandler);
+    // `__notice__` est un event LOCAL (jamais réseau) hors map `Listen` user.
+    // Le type conditionnel de `on` ne se résout pas car `Listen` est générique
+    // → cast pour bypasser. Aucun impact runtime, sécurité préservée par le type
+    // du paramètre `handler` ci-dessus.
+    return this.on("__notice__", handler as never);
   }
 
   /** Notification one-way client → server (pas de réponse attendue). */
-  emit(method: string, params?: unknown): void {
+  emit<K extends string>(
+    method: K,
+    params?: K extends EventNames<Emit> ? EventPayload<Emit, K> : unknown,
+  ): void {
+    this._emitRaw(method, params);
+  }
+
+  /**
+   * Émission interne sans typage strict — utilisée pour les notifications système
+   * (`subscribe`, `unsubscribe`, `ping`) qui ne figurent pas dans la map `Emit`
+   * utilisateur. Bypasse les types conditionnels de {@link emit}.
+   */
+  private _emitRaw(method: string, params?: unknown): void {
     const msg: JsonRpcNotification = { jsonrpc: "2.0", method, params };
     this.send(msg);
   }
@@ -318,8 +359,11 @@ export class RealtimeClient implements IRealtimeSocket {
    * Émet sur un canal — verbe socket de {@link IRealtimeSocket.publish}. Côté client =
    * notification au serveur (alias clair de {@link emit}).
    */
-  publish(channel: string, payload?: unknown): void {
-    this.emit(channel, payload);
+  publish<K extends string>(
+    channel: K,
+    payload?: K extends EventNames<Emit> ? EventPayload<Emit, K> : unknown,
+  ): void {
+    this.emit(channel, payload as never);
   }
 
   /**
@@ -332,24 +376,26 @@ export class RealtimeClient implements IRealtimeSocket {
    * Autorité unique partagée par le binding `nodefony/react` ET le store Studio →
    * deux consommateurs du même canal ne se coupent plus l'un l'autre.
    */
-  subscribe(channel: string): void {
-    const n = (this._subscriptions.get(channel) ?? 0) + 1;
-    this._subscriptions.set(channel, n);
-    if (n === 1) this.emit("subscribe", { channel });
+  subscribe(channel: EventNames<Listen> | (string & {})): void {
+    const c = channel as string;
+    const n = (this._subscriptions.get(c) ?? 0) + 1;
+    this._subscriptions.set(c, n);
+    if (n === 1) this._emitRaw("subscribe", { channel: c });
   }
 
   /**
    * Désabonne un consommateur d'un canal (ref-compté) : émet `unsubscribe` au
    * serveur seulement au **dernier** consommateur. No-op si le canal n'est pas suivi.
    */
-  unsubscribe(channel: string): void {
-    const cur = this._subscriptions.get(channel);
+  unsubscribe(channel: EventNames<Listen> | (string & {})): void {
+    const c = channel as string;
+    const cur = this._subscriptions.get(c);
     if (!cur) return;
     if (cur <= 1) {
-      this._subscriptions.delete(channel);
-      this.emit("unsubscribe", { channel });
+      this._subscriptions.delete(c);
+      this._emitRaw("unsubscribe", { channel: c });
     } else {
-      this._subscriptions.set(channel, cur - 1);
+      this._subscriptions.set(c, cur - 1);
     }
   }
 
@@ -371,7 +417,10 @@ export class RealtimeClient implements IRealtimeSocket {
     return {
       name,
       on(handler: RealtimeHandler): () => void {
-        const dispose = hub.on(name, handler);
+        // `name` est dynamique (`string`) → le type conditionnel de `hub.on`
+        // ne se résout pas en présence d'un `Listen` générique. Cast nécessaire
+        // (l'IRealtimeChannel reste non paramétré par choix).
+        const dispose = hub.on(name, handler as never);
         disposers.add(dispose);
         return () => {
           dispose();
@@ -379,7 +428,7 @@ export class RealtimeClient implements IRealtimeSocket {
         };
       },
       send(payload?: unknown): void {
-        hub.publish(name, payload);
+        hub.publish(name, payload as never);
       },
       open(): void {
         hub.subscribe(name);
@@ -408,10 +457,31 @@ export class RealtimeClient implements IRealtimeSocket {
     handler: RealtimeHandler,
     options: BindAdaptiveOptions,
   ): AdaptiveChannelBinding {
-    return bindAdaptiveChannel(this, base, handler, options);
+    // `bindAdaptiveChannel` accepte un `IRealtimeSocket` non paramétré
+    // (= defaults permissifs) ; les méthodes typées de cette classe n'ont
+    // pas la covariance requise vers les defaults dans le sens classe→interface.
+    // Cast minimal au point d'appel.
+    return bindAdaptiveChannel(
+      this as unknown as IRealtimeSocket,
+      base,
+      handler,
+      options,
+    );
   }
 
   /** Request/response JSON-RPC 2.0 — Promise resolved with `result`. */
+  async request<K extends string, T = unknown>(
+    method: K,
+    params?: K extends ActionNames<Actions>
+      ? ActionParams<Actions, K>
+      : unknown,
+    timeoutMs?: number,
+  ): Promise<K extends ActionNames<Actions> ? ActionResult<Actions, K> : T>;
+  async request<T = unknown>(
+    method: string,
+    params?: unknown,
+    timeoutMs?: number,
+  ): Promise<T>;
   async request<T = unknown>(
     method: string,
     params?: unknown,
@@ -616,7 +686,7 @@ export class RealtimeClient implements IRealtimeSocket {
         // vide après une (re)connexion ; couvre aussi un `subscribe` appelé avant
         // l'ouverture du socket (l'`emit` avait alors été droppé par `send`).
         for (const channel of this._subscriptions.keys()) {
-          this.emit("subscribe", { channel });
+          this._emitRaw("subscribe", { channel });
         }
         // Notice de rétablissement : seulement après une vraie perte (pas au 1er
         // connect) → l'UI confirme le retour du temps réel.
@@ -680,7 +750,7 @@ export class RealtimeClient implements IRealtimeSocket {
     const interval = this.opts.heartbeatInterval ?? 30000;
     this.heartbeatTimer = setInterval(() => {
       if (this.transport?.readyState === TransportState.OPEN) {
-        this.emit("ping", { ts: Date.now() });
+        this._emitRaw("ping", { ts: Date.now() });
       }
     }, interval);
   }

@@ -42,6 +42,18 @@
  * @see {@link IRealtimeTransport} — la couche octets (le seul maillon client/serveur).
  */
 
+import type {
+  ActionNames,
+  ActionParams,
+  ActionResult,
+  ActionsMap,
+  DefaultActionsMap,
+  DefaultEventsMap,
+  EventNames,
+  EventPayload,
+  EventsMap,
+} from "./RealtimeEventMap";
+
 /** Handler d'un canal pub/sub — reçoit le `params` de la notification (ou `(method, params)` sur `"*"`). */
 export type RealtimeHandler = (...args: unknown[]) => void;
 
@@ -93,39 +105,71 @@ export interface IRealtimeChannel {
 /**
  * Contrat de « la socket Nodefony » — voir le bloc de tête du fichier. Implémenté par
  * {@link RealtimeClient} (front) et, à terme, par une façade serveur au-dessus du hub.
+ *
+ * @typeParam Emit    — canaux pub/sub SORTANTS (typage de `publish`).
+ * @typeParam Listen  — canaux pub/sub RÉCEPTIONNÉS (typage de `subscribe`/`on`/`off`).
+ * @typeParam Actions — contrat RPC bidirectionnel (typage de `request`).
+ *
+ * Défauts permissifs sur les 3 → rétro-compat 100% pour le code non paramétré.
+ *
+ * **Pattern « type conditionnel inline »** : chaque méthode a UNE signature unique
+ * paramétrée par un `K extends string`. Si `K` matche la map (`EventNames<Listen>`,
+ * `EventNames<Emit>`, `ActionNames<Actions>`) → typage strict ; sinon → fallback
+ * permissif (`unknown`/`RealtimeHandler`). Permet les noms système (`__notice__`,
+ * `*`, `subscribe`/`unsubscribe` internes) à côté du contrat applicatif typé sans
+ * 2 overloads incompatibles en variance.
  */
-export interface IRealtimeSocket {
+export interface IRealtimeSocket<
+  Emit extends EventsMap = DefaultEventsMap,
+  Listen extends EventsMap = DefaultEventsMap,
+  Actions extends ActionsMap = DefaultActionsMap,
+> {
   /**
    * S'abonne à un canal (ref-compté) : émet la demande au pair UNIQUEMENT au 1ᵉʳ
    * consommateur ; ré-émise automatiquement à chaque (re)connexion. Ne REÇOIT pas —
    * brancher {@link IRealtimeSocket.on} pour ça.
    */
-  subscribe(channel: string): void;
+  subscribe(channel: EventNames<Listen> | (string & {})): void;
 
   /** Désabonne un consommateur (ref-compté) : coupe le flux réseau au DERNIER. No-op si non suivi. */
-  unsubscribe(channel: string): void;
+  unsubscribe(channel: EventNames<Listen> | (string & {})): void;
 
   /**
    * Branche un handler sur un canal (réception). Renvoie un `dispose` (désabonnement
    * local). Plusieurs handlers par canal autorisés.
    */
-  on(channel: string, handler: RealtimeHandler): () => void;
+  on<K extends string>(
+    channel: K,
+    handler: K extends EventNames<Listen>
+      ? (payload: EventPayload<Listen, K>) => void
+      : RealtimeHandler,
+  ): () => void;
 
   /** Retire un handler d'un canal. */
-  off(channel: string, handler: RealtimeHandler): void;
+  off<K extends string>(
+    channel: K,
+    handler: K extends EventNames<Listen>
+      ? (payload: EventPayload<Listen, K>) => void
+      : RealtimeHandler,
+  ): void;
 
   /**
    * Émet sur un canal (one-way, pas de réponse). Côté client → notification au serveur ;
    * côté serveur → fan-out aux abonnés via le hub (+ backplane). No-op si non connecté.
    */
-  publish(channel: string, payload?: unknown): void;
+  publish<K extends string>(
+    channel: K,
+    payload?: K extends EventNames<Emit> ? EventPayload<Emit, K> : unknown,
+  ): void;
 
   /** RPC corrélé — `Promise` résolue avec le `result` (rejette sur `error`/timeout). */
-  request<T = unknown>(
-    method: string,
-    params?: unknown,
+  request<K extends string, T = unknown>(
+    method: K,
+    params?: K extends ActionNames<Actions>
+      ? ActionParams<Actions, K>
+      : unknown,
     timeoutMs?: number,
-  ): Promise<T>;
+  ): Promise<K extends ActionNames<Actions> ? ActionResult<Actions, K> : T>;
 
   /**
    * Vue par-canal — voir {@link IRealtimeChannel}. Fine liaison sur les primitives

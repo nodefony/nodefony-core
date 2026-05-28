@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-28T13:58:02.812Z",
+  "generated": "2026-05-28T14:15:12.966Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -704,7 +704,7 @@
       "file": "src/nodefony/src/realtime/IRealtimeSocket.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "IRealtimeSocket — « la socket Nodefony » : la prise temps réel **ISOMORPHE** client↔back. C'est LA brique du realtime Nodefony (cf vision « la socket Nodefony ») : un seul lien, qui a une **existen…"
+      "description": "Handler d'un canal pub/sub — reçoit le `params` de la notification (ou `(method, params)` sur `\"*\"`)."
     },
     "IRealtimeTransport": {
       "name": "IRealtimeTransport",
@@ -11882,31 +11882,49 @@
         "src/nodefony/src/kernel/Module.ts"
       ],
       "ActionNames": [
-        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "ActionParams": [
-        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "ActionResult": [
-        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "ActionsMap": [
-        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "DefaultActionsMap": [
-        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "DefaultEventsMap": [
-        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "EventNames": [
-        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "EventPayload": [
-        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "EventsMap": [
-        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+        "src/nodefony/src/realtime/IRealtimeSocket.ts",
+        "src/nodefony/src/realtime/JsonRpcPeer.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "TypedRpcActionHandler": [
         "src/nodefony/src/realtime/JsonRpcPeer.ts"
