@@ -1068,6 +1068,44 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
 - **PAS de bump lockstep** : front-only (briques UI kit + 1 page + cleanup layout) → la version commune
   reste 1.15.0. Bumper si une future passe touche le contrat front+back (canal, action, type isomorphe).
 
+**Migration POC → vitrine officielle (2026-05-28, session 2, front-only — pas de bump lockstep)**
+
+> Pattern à appliquer chaque fois qu'un POC HMR (route dédiée, page React qui rend en dur) est mûr et
+> doit fusionner dans la vitrine officielle (ici : portail doc backend `/nodefony/documentation` scanné
+> sur FS). Vécu sur `/socket-poc` → `Documentation.tsx` : 842L → 352L (-58 %), -132L de page POC supprimée,
+> 0 doublon dans le menu.
+
+- **Registry isomorphe + helper de mapping** : la liste des graphes live vit dans **UNE seule source**
+  (ici `frontend/src/realtime/socket/pages.ts → LIVE_GRAPHS`, clé courte = `vue-ensemble`, `fan-out`…)
+  consommée par 2 mondes : (a) le POC HMR (slugs courts) et (b) le portail backend (slugs longs
+  hiérarchiques `root~realtime~socket~04-fan-out`). On expose un **helper** `findSocketLiveGraph(slug)`
+  qui accepte les 2 formes, **JAMAIS deux registries**. Le 1ᵉʳ truc qui diverge si on duplique.
+- **Extraction « feuille » d'un slug long** = regex `(?:^|~)(?:\d+[-_])?([a-z][\w-]*)$` (tolère le préfixe
+  numérique `04-`). À l'inverse, **préfixe « dossier »** d'un slug long = `slug.replace(/[^~]+$/, "")` →
+  utile pour le **rewrite des liens internes** `./xx.md` → slug portail correspondant.
+- **`MarkdownDoc.onInternalLink` au niveau page consommatrice**, pas dans `MarkdownDoc` : la logique de
+  routing connaît la page qui consomme (préfixe dossier ici, structure flat ailleurs) → `MarkdownDoc`
+  reste générique. Idiome : la callback reçoit le href brut (`./04-fan-out.md`), renvoie le slug portail.
+- **Supprimer le POC** quand la vitrine couvre 100 % des cas : route (`App.tsx`), page (`SocketPocPage.tsx`),
+  entrée nav (`navConfig.ts`) — pas de « je garde l'outil HMR rédacteur au cas où ». Si la HMR Vite
+  n'apporte rien de plus que la lecture via le portail backend (le `.md` est rechargé par scan FS), 132L
+  à maintenir = déchet. **Si** la HMR apporte un vrai gain rédacteur (preview live d'un graphe en cours
+  d'édition non versionné), garder en `frontend-only` derrière une option claire.
+- **Purger les hardcodes du controller** une fois le scan FS opérationnel : `DocumentationController.ts`
+  portait `slug:"socket"` + une **section hardcodée `realtime`** + une constante `SOCKET_MD` 50L → tout
+  ça duplique ce que le scan FS fait déjà → **doublon dans le menu** (« 2× Realtime »). Quand on migre
+  POC → vitrine, l'étape **2** est obligatoirement « virer les anciens fallbacks hardcodés ». Le scan FS
+  est la source unique, le controller ne fait que le servir.
+- **Suppression de la branche `if (isSocket)` géante** = la marque d'un POC bien fait : tout le rendu
+  spécifique au POC vivait dans une branche JSX (Alert + SectionTitle + FlowGraph statiques +
+  SocketLiveBlock + FeasibilityTable, ~200L). La migrer = la **dissoudre dans le rendu générique** (ici
+  via les briques génériques `MarkdownDoc` + `LiveGraphSection` + `findSocketLiveGraph(slug)`). Si la
+  branche `if (isXxx)` ne peut PAS être dissoute, c'est que la vitrine officielle manque une brique
+  → ajouter la brique générique avant de supprimer le POC.
+- **PAS de bump lockstep** (commit `ce38d53`, suite de la session 1) : refactor front-only + suppression
+  d'une route Studio + nettoyage controller back (qui ne sert qu'au frontend Studio = pas un contrat
+  externe). Lockstep reste 1.15.0. La leçon va dans ce retex, pas dans le changelog.
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
