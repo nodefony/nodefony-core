@@ -104,7 +104,9 @@ Variables à remplacer dans tous les templates :
 - `{{peer_dev_types}}` → liste @types/\* devDependencies selon options
 
 **Fichiers générés TOUJOURS** : `package.json`, `tsconfig.json`, `rollup.config.ts`,
-`vitest.config.ts`, `index.ts` (Module class + exports), `nodefony/config/config.ts`,
+`vitest.config.ts`, `index.ts` (Module class + exports + validation Zod au boot),
+**`nodefony/config/schema.ts`** ⭐ (Zod schema source de vérité),
+`nodefony/config/config.ts` (défauts dérivés via `schema.parse({})`),
 `nodefony/interfaces/I{{NameClass}}Service.ts` + `index.ts` barrel,
 `nodefony/service/{{NameClass}}Service.ts`, `nodefony/src/errors/{{NameClass}}Error.ts`,
 `CLAUDE.md`, `MEMORY.md`, `README.md`, **`docs/index.md`, `docs/architecture.md`** ⭐.
@@ -119,6 +121,15 @@ Variables à remplacer dans tous les templates :
 > Le `README.md` reste séparé (cible npm/GitHub, court) ; `docs/*.md` = doc dev/utilisateur
 > étendue (frontmatter Studio-friendly figé : `slug`, `title`, `section`, `audience`,
 > `version`, `status`, `updated`, `source`).
+
+> ⭐ **`schema.ts` Zod est OBLIGATOIRE depuis 2026-05-28** (convention figée — cf
+> [[feedback_config_validation_zod]]). Tout module qui expose une config DOIT avoir un
+> schéma Zod (validé au boot via `onKernelRegister` du Module class) → plante propre avec
+> messages clairs, pas de `undefined.x` silencieux en runtime. `config.ts` n'écrit JAMAIS
+> les défauts à la main : il les dérive du schéma via `{{name}}ConfigSchema.parse({})`.
+> Pattern de référence : `@nodefony/security/nodefony/config/defineSecurityConfig.ts`
+> (12 sections groupées, chaque champ avec `.describe()` → JSON Schema introspectable par
+> Studio pour form auto-généré). Zod 4.4.3 = peerDep TOUJOURS (alignée avec security).
 
 ### 4. Build du module
 

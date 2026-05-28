@@ -34,7 +34,7 @@
     "lint": "tsc --noEmit"
   },
   "keywords": ["nodefony", "typescript"],
-  "peerDependencies": {{peer_deps}},
+  "peerDependencies": {{peer_deps_with_zod}},
   "devDependencies": {
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",
@@ -53,11 +53,14 @@
 }
 ```
 
-**peer_deps selon options activées** :
+**peer_deps_with_zod selon options activées** :
 
 ```json
 {
   "nodefony": "*",
+  // ⭐ TOUJOURS : zod = validation runtime du schéma de config au boot (convention figée
+  // 2026-05-28, cf [[feedback_config_validation_zod]]). Version alignée avec security 4.4.3.
+  "zod": "^4.4.3",
   // si controllers :
   "@nodefony/http": "*",
   "@nodefony/framework": "*",
@@ -274,6 +277,7 @@ TOUS les chunks `nodefony/foo/bar.js` produits par `preserveModules`.
  */
 import { Kernel, Module, services } from "nodefony";
 import config from "./nodefony/config/config";
+import { {{name}}ConfigSchema } from "./nodefony/config/schema";
 import {{NameClass}}Service from "./nodefony/service/{{NameClass}}Service";
 // ↓ si commands :
 // import {{NameClass}}Command from "./nodefony/command/{{name}}-command";
@@ -289,6 +293,23 @@ class {{NameClass}} extends Module {
     super("{{name}}", kernel, import.meta.url, config);
     // ↓ si commands :
     // this.addCommand({{NameClass}}Command);
+  }
+
+  /**
+   * Validation Zod de la config racine merge au boot (convention figée 2026-05-28,
+   * cf [[feedback_config_validation_zod]]). Plante propre avec messages clairs si
+   * la config (defaults + module.options) n'est pas conforme au schéma — évite tous
+   * les `undefined.x` silencieux en runtime.
+   */
+  override async onKernelRegister(): Promise<this> {
+    const parsed = {{name}}ConfigSchema.safeParse(this.options ?? {});
+    if (!parsed.success) {
+      const issues = parsed.error.issues
+        .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+        .join(" · ");
+      throw new Error(`[@nodefony/{{name}}] Invalid config: ${issues}`);
+    }
+    return this;
   }
 
   override async onKernelReady(): Promise<this> {
@@ -312,29 +333,74 @@ export {
 } from "./nodefony/src/errors/{{NameClass}}Error";
 ```
 
-### `nodefony/config/config.ts`
+### `nodefony/config/schema.ts` — schéma Zod (source de vérité)
+
+> Convention figée 2026-05-28 (cf [[feedback_config_validation_zod]]) : tout module Nodefony
+> qui expose une config DOIT avoir un schéma Zod. Validé au boot du Module class (hook
+> `onKernelRegister`) → plante propre avec messages clairs si la config racine est invalide.
+> Pas de `undefined.x` silencieux en runtime. Source de vérité = schéma (TS type dérivé via
+> `z.infer<>`, pas l'inverse). Pattern de référence : `defineSecurityConfig.ts`.
+
+```typescript
+import { z } from "zod";
+
+/**
+ * Schéma Zod de la configuration de @nodefony/{{name}}.
+ *
+ * Chaque champ porte `.describe()` pour :
+ *  - messages d'erreur explicites au boot,
+ *  - introspection Studio (futur form auto-généré via `{{name}}ConfigJsonSchema()`).
+ *
+ * Pattern enrichi à terme : voir `defineSecurityConfig.ts` (12 sections groupées par
+ * préoccupation, chaque défense `enabled` togglable, défauts SÛRS).
+ */
+export const {{name}}ConfigSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Active le module {{name}} au boot. Recommandation prod : true. " +
+          "false = module chargé mais inerte (logs, registry, mais aucun listener actif).",
+      ),
+  })
+  .describe("Configuration de @nodefony/{{name}}.");
+
+export type {{NameClass}}Config = z.infer<typeof {{name}}ConfigSchema>;
+
+/**
+ * (Optionnel — à coder quand Studio aura besoin du form auto-généré.) Renvoie le JSON
+ * Schema dérivé du schéma Zod pour qu'un consommateur (Studio) génère une UI d'édition.
+ * Voir `securityConfigJsonSchema()` pour le pattern complet (z.toJSONSchema).
+ */
+// export function {{name}}ConfigJsonSchema(): Record<string, unknown> {
+//   return z.toJSONSchema({{name}}ConfigSchema);
+// }
+```
+
+### `nodefony/config/config.ts` — défauts dérivés du schéma
 
 ```typescript
 /**
  * NODEFONY FRAMEWORK — Configuration DEFAULT de `@nodefony/{{name}}`.
  *
- * Toutes les valeurs ici sont des DEFAULTS. Pour surcharger côté app, utiliser
- * la clé `module-{{name}}` dans le `config.ts` racine, ou la prop `module.options`
- * du module consumer dans son propre `config.ts`.
+ * Source de vérité = `./schema.ts` (Zod). Ce fichier expose les défauts dérivés
+ * via `{{name}}ConfigSchema.parse({})` — utile pour le `super(..., config)` du
+ * Module class (toujours valide par construction).
  *
- * Documente chaque option en français avec valeur défaut + reco prod + exemple
- * de surcharge (voir `@nodefony/http/nodefony/config/config.ts` comme référence).
+ * Surcharge côté app : clé `module-{{name}}` dans le `config.ts` racine, ou prop
+ * `module.options` du module consumer. La fusion + validation finale est faite
+ * dans `index.ts` au hook `onKernelRegister` (plante propre si invalide).
+ *
+ * ⚠️ NE PAS éditer les valeurs ici à la main : modifier les `.default(...)` du
+ * schéma, pas ce fichier.
  */
-const config = {
-  /**
-   * Active le service principal au boot.
-   * Recommandation prod : `true`.
-   */
-  enabled: true,
-};
+import { {{name}}ConfigSchema, type {{NameClass}}Config } from "./schema";
+
+const config: {{NameClass}}Config = {{name}}ConfigSchema.parse({});
 
 export default config;
-export type {{NameClass}}Config = typeof config;
+export type { {{NameClass}}Config };
 ```
 
 ### `nodefony/interfaces/I{{NameClass}}Service.ts`
