@@ -39,8 +39,7 @@ import {
 //import { ServerHttp2Stream } from "node:http2";
 import fs, { createReadStream, ReadStream } from "node:fs";
 import { promisify } from "util";
-import Twig from "../service/Twig";
-import Ejs from "../service/Ejs";
+import Eta from "../service/Eta";
 const fsClose = promisify(fs.close);
 
 interface ReadStreamWithFD extends ReadStream {
@@ -75,8 +74,7 @@ class Controller extends Service implements IController {
   queryPost: Record<string, any> = {};
   //metaData: Data;
   module?: Module;
-  twig?: Twig | null;
-  ejs?: Ejs | null;
+  template?: Eta | null;
   constructor(
     name: string,
     context: ContextType,
@@ -87,8 +85,7 @@ class Controller extends Service implements IController {
       context.container as Container,
       context.notificationsCenter as Event,
     );
-    this.twig = this.get<Twig>("twig");
-    this.ejs = this.get<Ejs>("ejs");
+    this.template = this.get<Eta>("template");
     this.setContext(context);
   }
 
@@ -153,27 +150,29 @@ class Controller extends Service implements IController {
   }
 
   async renderView(
-    path: string,
+    path: string | FileClass,
     param: Record<string, any> = {},
     status?: string | number,
     headers?: Record<string, string | number>,
   ): Promise<Http2Response | HttpResponse | WebsocketResponse> {
-    const file = await FileClass.from(path);
-    //console.log("renderView", file);
-    const extension = file.extention || file.ext.slice(1);
-    switch (extension) {
-      case "twig":
-        return this.renderTwig(file, param, status, headers);
-      case "ejs":
-        return this.renderEjs(file, param, status, headers);
-      default:
-        throw new Error(`Bad template `);
+    let data: string | undefined;
+    try {
+      const file = typeof path === "string" ? await FileClass.from(path) : path;
+      data = await this.template?.render(
+        (await file.readAsync()).toString(),
+        this.withFrontendLocals(param),
+      );
+      this.setContextHtml();
+      return this.renderResponse(data, "utf8", status, headers);
+    } catch (e) {
+      this.log(e, "ERROR");
+      throw e;
     }
   }
 
   /**
    * Injecte les helpers frontend (`frontendTags`/`frontendDocument`) dans les
-   * locals EJS — EJS n'a pas de registre global (≠ Twig `extendFunction`).
+   * locals du template (passés en data, pas de registre global de fonctions).
    * Service `frontend` résolu par nom (pas d'import `@nodefony/frontend`). Les
    * valeurs fournies par l'action priment (spread `param` en dernier).
    */
@@ -188,56 +187,6 @@ class Controller extends Service implements IController {
       frontendDocument: (entry: string) => fe.renderDocument!(entry),
       ...param,
     };
-  }
-
-  async renderEjs(
-    path: string | FileClass,
-    param: Record<string, any> = {},
-    status?: string | number,
-    headers?: Record<string, string | number>,
-  ): Promise<Http2Response | HttpResponse | WebsocketResponse> {
-    let data: string | undefined;
-    try {
-      let file = null;
-      if (path instanceof FileClass) {
-        file = path;
-      } else {
-        file = await FileClass.from(path);
-      }
-      data = await this.ejs?.render(
-        (await file.readAsync()).toString(),
-        this.withFrontendLocals(param),
-      );
-      this.setContextHtml();
-      return this.renderResponse(data, "utf8", status, headers);
-    } catch (e) {
-      this.log(e, "ERROR");
-      throw e;
-    }
-  }
-
-  async renderTwig(
-    path: string | FileClass,
-    param: Record<string, any> = {},
-    status?: string | number,
-    headers?: Record<string, string | number>,
-  ): Promise<Http2Response | HttpResponse | WebsocketResponse> {
-    // "app:ejs:index"
-    let data: string | undefined;
-    try {
-      let file = null;
-      if (path instanceof FileClass) {
-        file = path;
-      } else {
-        file = await FileClass.from(path);
-      }
-      data = await this.twig?.render(file, param);
-      this.setContextHtml();
-      return this.renderResponse(data, "utf8", status, headers);
-    } catch (e) {
-      this.log(e, "ERROR");
-      throw e;
-    }
   }
 
   async renderJson(

@@ -27,8 +27,6 @@ const external: string[] = [
   "cookie",
   "formidable",
   "bluebird",
-  "twig",
-  "ejs",
   "memcached",
   "mime",
   "ms",

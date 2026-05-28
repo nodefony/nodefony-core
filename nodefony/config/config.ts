@@ -190,12 +190,12 @@ const config = {
   },
 
   /**
-   * MOTEUR DE TEMPLATES utilisé par les vues controllers (render()).
-   *   "twig" → https://github.com/justjohn/twig.js
-   *   futur  → "ejs", "handlebars", "vue3-sfc" (Phase 14 frontend)
-   * Recommandation : laisser "twig" tant que pas migré vers @nodefony/frontend.
+   * MOTEUR DE TEMPLATES des vues controllers (`renderView()`).
+   * Moteur unique = **Eta** (https://eta.js.org) — TypeScript natif, ESM,
+   * autoescape, délimiteurs `<% %>`/`<%= %>` sûrs pour HTML comme codegen.
+   * Vues `.eta` (remplace l'historique Twig/EJS, retiré 2026-05-29).
    */
-  templating: "twig",
+  templating: "eta",
 
   /**
    * ORM PAR DÉFAUT — utilisé par les commandes CLI (orm:migrate, etc.)

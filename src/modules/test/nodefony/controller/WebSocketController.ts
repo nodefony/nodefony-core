@@ -43,9 +43,9 @@ class WebsocketController extends Controller {
       this.module?.path as string,
       "nodefony",
       "views",
-      "websocket.json.ejs"
+      "websocket.json.eta",
     );
-    return this.renderEjs(view, {
+    return this.renderView(view, {
       name: this.kernel?.name,
       query: this.query,
       ...this.context?.metaData,
@@ -131,7 +131,10 @@ class WebsocketController extends Controller {
     if (!message) {
       return this.renderJson({ handshake: true, acceptedProtocol: protocol });
     }
-    return this.renderJson({ echo: message.toString(), acceptedProtocol: protocol });
+    return this.renderJson({
+      echo: message.toString(),
+      acceptedProtocol: protocol,
+    });
   }
 
   @route("route-websocket-proto-json", {
@@ -145,7 +148,10 @@ class WebsocketController extends Controller {
     try {
       return this.renderJson(JSON.parse(message.toString()));
     } catch {
-      return this.renderJson({ error: "invalid json", raw: message.toString() });
+      return this.renderJson({
+        error: "invalid json",
+        raw: message.toString(),
+      });
     }
   }
 
@@ -157,7 +163,9 @@ class WebsocketController extends Controller {
     if (!message) {
       return this.renderJson({ handshake: true, binary: true });
     }
-    const buf = Buffer.isBuffer(message) ? message : Buffer.from(message as string);
+    const buf = Buffer.isBuffer(message)
+      ? message
+      : Buffer.from(message as string);
     return this.ws?.send(buf, "binary");
   }
 

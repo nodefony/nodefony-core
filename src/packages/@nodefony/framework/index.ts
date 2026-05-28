@@ -10,8 +10,7 @@ import AdminApiController from "./nodefony/src/AdminApiController";
 import { createKernelAdminApi } from "./nodefony/src/KernelAdminApi";
 import { createFrameworkAdminApi } from "./nodefony/src/FrameworkAdminApi";
 import { createSyslogAdminApi } from "./nodefony/src/SyslogAdminApi";
-import Twig from "./nodefony/service/Twig";
-import Ejs from "./nodefony/service/Ejs";
+import Eta from "./nodefony/service/Eta";
 //import mygraphql from "graphql";
 //console.log(mygraphql);
 import { mergeResolvers, mergeTypeDefs } from "@graphql-tools/merge";
@@ -37,7 +36,7 @@ import {
   Query,
 } from "./nodefony/decorators/routerDecorators";
 
-@services([Router, Twig, Ejs, AdminBroker])
+@services([Router, Eta, AdminBroker])
 class Framework extends Module {
   constructor(kernel: Kernel) {
     super("framework", kernel, import.meta.url, config);
@@ -100,8 +99,7 @@ export {
   createKernelAdminApi,
   createFrameworkAdminApi,
   createSyslogAdminApi,
-  Twig,
-  Ejs,
+  Eta,
   route,
   controller,
   controllers,

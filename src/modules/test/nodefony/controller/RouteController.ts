@@ -37,12 +37,12 @@ class RouteController extends Controller {
       this.module?.path as string,
       "nodefony",
       "views",
-      "index.ejs"
+      "index.eta",
     );
-    return this.renderEjs(view, { name, ...this.context?.metaData }).catch(
+    return this.renderView(view, { name, ...this.context?.metaData }).catch(
       (e) => {
         throw e;
-      }
+      },
     );
   }
 
@@ -74,9 +74,9 @@ class RouteController extends Controller {
       this.module?.path as string,
       "nodefony",
       "views",
-      "index.twig"
+      "routing.eta",
     );
-    return this.renderTwig(view, {
+    return this.renderView(view, {
       routing: {
         metier,
         format,

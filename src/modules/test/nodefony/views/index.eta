@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="<%=  nodefony.locale %>">
+<html lang="<%= nodefony.locale %>">
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
@@ -19,6 +19,13 @@
   </head>
 
   <body>
-    <h1><%= nodefony.name %> EJS</h1>
+    <h1><%= nodefony.name %> Eta</h1>
+    <h1><%= name %></h1>
+
+    <!-- Debug bar Nodefony — page rendue serveur (Eta), hors Vite : bundle
+         standalone AUTO-MONTANT servi par /nodefony/test/debugbar.js. Script
+         EXTERNE (pas inline) → passe la CSP `script-src 'self'`. Realtime + env
+         + branche git fonctionnent (pas de carte HMR : pas de frontend builder). -->
+    <script type="module" src="/nodefony/test/debugbar.js"></script>
   </body>
 </html>

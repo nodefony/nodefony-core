@@ -11,7 +11,7 @@ import { extend, typeOf } from "../Tools";
 import FileClass from "../FileClass";
 import File from "../finder/File";
 import Cli from "../Cli";
-import twig from "twig";
+import { Eta } from "eta";
 
 interface SymlinkParams {
   source: string;
@@ -39,12 +39,14 @@ interface BuilderObject {
   childs?: BuilderObject[];
 }
 
-const twigOptions = {
+// Codegen : `autoEscape: false` — on génère du code (TS/JSON), pas du HTML ;
+// échapper casserait `<`, `&`, `'` dans les sources produites.
+// `useWith: true` = variables nues dans les skeletons (`<%= name %>`).
+const etaOptions = {
   views: process.cwd(),
-  "twig options": {
-    async: false,
-    cache: false,
-  },
+  autoEscape: false,
+  useWith: true,
+  cache: false,
 };
 
 class Builder extends Service {
@@ -55,7 +57,7 @@ class Builder extends Service {
   public debug: boolean = false;
   public interactive: boolean = false;
   public location: string = process.cwd();
-  private twig: typeof twig = twig;
+  private eta: Eta = new Eta(etaOptions);
 
   constructor(command: Command) {
     super(
@@ -118,13 +120,8 @@ class Builder extends Service {
     }
     const skelPath = skelete.path as string;
     if (parse) {
-      data.settings = twigOptions;
-      return new Promise<string>((resolve, reject) => {
-        this.twig.renderFile(skelPath, data, (error, result) => {
-          if (error) return reject(error);
-          resolve(result);
-        });
-      });
+      const src = await fsp.readFile(skelPath, { encoding: "utf8" });
+      return this.eta.renderStringAsync(src, data);
     }
     return fsp.readFile(skelPath, { encoding: "utf8" });
   }
@@ -167,9 +164,7 @@ class Builder extends Service {
     let child: FileClass | File | null = null;
     try {
       if (!(parent instanceof File)) {
-        parent = new File(
-          parent instanceof FileClass ? parent.path : parent,
-        );
+        parent = new File(parent instanceof FileClass ? parent.path : parent);
       }
 
       if (typeOf(obj) === "array") {

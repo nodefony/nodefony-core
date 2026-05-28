@@ -43,11 +43,6 @@ interface IStaticMountService {
   hasMounts(): boolean;
 }
 
-/** Vue minimale du service `twig` (résolu par nom — pas d'import framework). */
-interface ITwigFunctions {
-  extendFunction(name: string, def: (...params: unknown[]) => string): void;
-}
-
 /**
  * Normalise un préfixe public : garantit un `/` en tête et en queue.
  * `"_assets/x"` → `"/_assets/x/"`, `"/"` → `"/"`.
@@ -111,9 +106,9 @@ class FrontendService extends Service implements IFrontendService {
     // les 4 serveurs Nodefony (HTTP/HTTPS/WS/WSS) écoutent, sinon le proxy Vite
     // tape un backend qui n'est pas encore prêt et les premiers fetch échouent.
     this.kernel?.once("onServersReady", async () => {
-      // Helpers de template (Twig `frontend_tags`/`frontend_document`) — quel que
-      // soit l'env, dès que le moteur est dispo. EJS = injecté côté Controller.
-      this.registerTemplateHelpers();
+      // Helpers de template `frontendTags`/`frontendDocument` : injectés par
+      // render dans les locals Eta (`Controller.withFrontendLocals`) — pas de
+      // registre global de moteur à amorcer ici.
       const env = this.kernel?.environment;
       if (env === "development" && this.cfg.autoStartInDevelopment) {
         if (this.entries.length === 0) {
@@ -548,23 +543,6 @@ class FrontendService extends Service implements IFrontendService {
       return `<!-- @nodefony/frontend: helper not initialized for "${entryName}" -->`;
     }
     return helper.renderDocument(entryName);
-  }
-
-  /**
-   * Enregistre les fonctions de template Twig `frontend_tags(entry)` et
-   * `frontend_document(entry)` (style Symfony `encore_entry_script_tags`).
-   * Source unique = `renderTags`/`renderDocument`. Idempotent, no-op si pas de
-   * moteur Twig. EJS n'a pas de registre global → injecté côté `Controller`.
-   */
-  private registerTemplateHelpers(): void {
-    const twig = this.container?.get?.("twig") as ITwigFunctions | undefined;
-    if (!twig?.extendFunction) return;
-    twig.extendFunction("frontend_tags", (...p) =>
-      this.renderTags(String(p[0] ?? "")),
-    );
-    twig.extendFunction("frontend_document", (...p) =>
-      this.renderDocument(String(p[0] ?? "")),
-    );
   }
 
   renderTags(entryName: string): string {

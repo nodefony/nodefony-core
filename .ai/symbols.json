@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-28T21:28:09.612Z",
+  "generated": "2026-05-28T23:25:57.070Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 775,
-    "symbols": 1436,
-    "classes": 232,
-    "interfaces": 346,
+    "files": 774,
+    "symbols": 1434,
+    "classes": 231,
+    "interfaces": 345,
     "types": 182,
     "enums": 2,
     "functions": 218,
@@ -3330,10 +3330,10 @@
       ],
       "description": "Implémentation du data plane admin (Studio) — collecte les {@link IAdminApi} et monte `/nodefony/<namespace>/api/*` via le Router. Vit dans `@nodefony/framework` : seul niveau qui possède le Router…"
     },
-    "Ejs": {
-      "name": "Ejs",
+    "Eta": {
+      "name": "Eta",
       "kind": "class",
-      "file": "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
+      "file": "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
       "exported": true,
       "module": "@nodefony/framework",
       "extends": "Template",
@@ -3358,16 +3358,6 @@
       "file": "src/packages/@nodefony/framework/nodefony/service/router.ts",
       "exported": true,
       "module": "@nodefony/framework"
-    },
-    "Twig": {
-      "name": "Twig",
-      "kind": "class",
-      "file": "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
-      "exported": true,
-      "module": "@nodefony/framework",
-      "extends": "Template",
-      "implements": [],
-      "decorators": []
     },
     "AdminApiController": {
       "name": "AdminApiController",
@@ -10662,8 +10652,7 @@
         "IAdminBroker"
       ],
       "Template": [
-        "Ejs",
-        "Twig"
+        "Eta"
       ],
       "IContext": [
         "IHttpContext",
@@ -11115,7 +11104,6 @@
         "src/nodefony/src/types/IKernel.ts",
         "src/nodefony/src/service/babel/babylon.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
-        "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
@@ -11406,9 +11394,8 @@
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
+        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
-        "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Template.ts",
@@ -11635,12 +11622,10 @@
       "createSyslogAdminApi": [
         "src/packages/@nodefony/framework/index.ts"
       ],
-      "Twig": [
+      "Eta": [
         "src/packages/@nodefony/framework/index.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
-      ],
-      "Ejs": [
-        "src/packages/@nodefony/framework/index.ts",
+        "src/nodefony/src/command/Builder.ts",
+        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
       ],
       "route": [
@@ -12713,9 +12698,8 @@
       ],
       "injectable": [
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
+        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
-        "src/packages/@nodefony/framework/nodefony/service/Twig.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
@@ -12736,8 +12720,7 @@
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts"
       ],
       "Template": [
-        "src/packages/@nodefony/framework/nodefony/service/Ejs.ts",
-        "src/packages/@nodefony/framework/nodefony/service/Twig.ts"
+        "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
       ],
       "IAdminRequest": [
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
