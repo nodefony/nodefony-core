@@ -79,20 +79,16 @@ export function PageHeader({
         sticky
           ? {
               position: "sticky",
-              top: "var(--app-shell-header-height, 56px)",
+              // Le scroll est désormais sur AppShell.Main (cf AdminLayout) qui
+              // commence sous l'AppShell.Header → `top: 0` colle le PageHeader
+              // pile à la frontière, sans gap.
+              top: 0,
               zIndex: 2,
               background: "var(--mantine-color-body)",
               marginInline: "calc(var(--mantine-spacing-md) * -1)",
               paddingInline: "var(--mantine-spacing-md)",
               paddingBlock: "var(--mantine-spacing-sm)",
               borderBottom: "1px solid var(--mantine-color-default-border)",
-              // `padding="md"` de AppShell.Main = 16px de padding-top → le
-              // contenu remontait 16px SOUS l'AppShell.Header avant que le
-              // PageHeader sticky ne le coupe. La box-shadow opaque vers le
-              // HAUT étend le fond du PageHeader pour couvrir ce padding-top
-              // (visuel seulement, ne change pas le layout).
-              boxShadow:
-                "0 calc(var(--mantine-spacing-md) * -1) 0 var(--mantine-color-body)",
             }
           : undefined
       }

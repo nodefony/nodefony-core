@@ -29,20 +29,29 @@ const BAND = "48px";
 /** Hauteur de la topbar d'un Modal Mantine fullScreen (titre + paddings). */
 const MODAL_HEADER = "60px";
 
-/** Top d'un élément collé sous le header global. */
-export const STICKY_TOP = HEADER;
+/**
+ * Top d'un élément collé sous le header global. Avec le scroll INTERNE à
+ * `AppShell.Main` (cf AdminLayout 2026-05-28), le scroll-ancestor commence
+ * SOUS l'AppShell.Header → `top: 0` colle pile à la frontière, pas besoin
+ * d'ajouter `HEADER`.
+ */
+export const STICKY_TOP = "0px";
 
 /**
- * Top d'un panneau sticky placé SOUS un PageHeader lui-même sticky (sinon le
- * panneau se colle au même niveau et passe DERRIÈRE le PageHeader opaque).
+ * Top d'un panneau sticky placé SOUS un PageHeader lui-même sticky. Le
+ * PageHeader occupe les premiers `PAGE_HEADER` px du Main scrollable.
  */
-export const CONTENT_STICKY_TOP = `calc(${HEADER} + ${PAGE_HEADER})`;
+export const CONTENT_STICKY_TOP = PAGE_HEADER;
 
 /** Hauteur max d'un panneau latéral sticky (sidebar nav / sommaire). */
-export const SIDEBAR_MAX_HEIGHT = `calc(100vh - ${HEADER} - ${PAGE_HEADER} - ${DEBUGBAR} - ${GAP} * 2)`;
+export const SIDEBAR_MAX_HEIGHT = `calc(100dvh - ${HEADER} - ${PAGE_HEADER} - ${DEBUGBAR} - ${GAP} * 2)`;
 
-/** Marge d'ancre : un titre cible ne passe pas sous l'en-tête sticky au saut. */
-export const HEADING_SCROLL_MARGIN = `calc(${HEADER} + ${GAP} * 3)`;
+/**
+ * Marge d'ancre : un titre cible ne passe pas sous l'en-tête sticky au saut.
+ * Suffit de couvrir le PageHeader (le scroll-ancestor commence déjà sous le
+ * Header global).
+ */
+export const HEADING_SCROLL_MARGIN = `calc(${PAGE_HEADER} + ${GAP} * 2)`;
 
 /**
  * Contenu plein viewport sous un PageHeader sticky (Card mih, panel principal).
@@ -55,13 +64,13 @@ export const PAGE_CONTENT_HEIGHT = SIDEBAR_MAX_HEIGHT;
  * Contenu plein viewport sous PageHeader + UNE bande supplémentaire (toolbar
  * de recherche d'un DataGrid, bande de filtres modules d'un ERD…).
  */
-export const PAGE_CONTENT_HEIGHT_WITH_BAND = `calc(100vh - ${HEADER} - ${PAGE_HEADER} - ${BAND} - ${DEBUGBAR} - ${GAP} * 2)`;
+export const PAGE_CONTENT_HEIGHT_WITH_BAND = `calc(100dvh - ${HEADER} - ${PAGE_HEADER} - ${BAND} - ${DEBUGBAR} - ${GAP} * 2)`;
 
 /**
  * Contenu sous PageHeader + Tabs.List sticky DANS une Card paddée (Tabs.Panel
  * à scroll interne). Comprend les paddings supplémentaires de la Card.
  */
-export const TABS_PANEL_HEIGHT = `calc(100vh - ${HEADER} - ${PAGE_HEADER} - ${BAND} - ${DEBUGBAR} - ${GAP} * 4)`;
+export const TABS_PANEL_HEIGHT = `calc(100dvh - ${HEADER} - ${PAGE_HEADER} - ${BAND} - ${DEBUGBAR} - ${GAP} * 4)`;
 
 /** Body d'un Modal Mantine fullScreen (sous la topbar du Modal). */
 export const MODAL_FULLSCREEN_BODY = `calc(100vh - ${MODAL_HEADER})`;

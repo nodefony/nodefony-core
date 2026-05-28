@@ -506,9 +506,19 @@ export const AdminLayout = observer(() => {
       </AppShell.Navbar>
 
       <AppShell.Main
-        // Réserve la hauteur de la debug bar (var publiée par `nodefony/debugbar`)
-        // → le contenu n'est jamais masqué par la barre. 0 si barre absente/masquée.
+        // 1. Réserve la hauteur de la debug bar (var publiée par `nodefony/debugbar`)
+        //    → le contenu n'est jamais masqué par la barre. 0 si barre absente/masquée.
+        // 2. Scroll INTERNE au Main : la scrollbar verticale commence SOUS l'AppShell.Header
+        //    (au lieu de courir sur tout le viewport en traversant le Header). `height = 100dvh
+        //    - header` + `overflow-y: auto` ; `padding-top: 0` annule le padding Mantine
+        //    par défaut (qui se cale par-dessus le Header), `margin-top` le remplace pour
+        //    pousser le Main sous le Header. Les `PageHeader sticky` enfants sont à `top: 0`
+        //    (relatif au nouveau scroll-ancestor Main).
         style={{
+          paddingTop: 0,
+          marginTop: "var(--app-shell-header-height, 56px)",
+          height: "calc(100dvh - var(--app-shell-header-height, 56px))",
+          overflowY: "auto",
           paddingBottom:
             "calc(var(--mantine-spacing-md) + var(--nodefony-debugbar-height, 0px))",
         }}
