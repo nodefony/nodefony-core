@@ -4,6 +4,8 @@ Purpose: couche realtime serveur Nodefony (hub WS, JSON-RPC 2.0, backplane clust
 
 ## Core Components (cible après rapatriement P13.0)
 
+- **`RealtimeService`** (façade DI publique) — wrapper du singleton hub, expose `publish`/`subscribe`/`unsubscribe`/`probe`/`markBroadcastChannel`/`getConfig`/`getHub`/`getBackplane`. Branche au `initialize` le backplane custom (`config.backplane.instance` OU service DI `realtimeBackplane`). ✅ livré (Bloc A étape 5).
+- **`defineRealtimeConfig(config?, { backplane? })`** — builder Zod gelé + `realtimeConfigJsonSchema()` (introspection Studio, exclut `instance`). ✅ livré.
 - **`RealtimeHub`** (server) — broker fan-out canaux PARTAGÉS, 1 par pod. Sonde `probe()`.
 - **`RealtimeController`** (server, base class) — controllers WS extends ceci. Décorateurs `@RealtimeController`/`@RealtimeEvent` à coder (P13.8).
 - **`RealtimeAdminApi`** (server) — endpoint `/nodefony/realtime/api/health` + canal `realtime:health`.
@@ -26,19 +28,32 @@ Purpose: couche realtime serveur Nodefony (hub WS, JSON-RPC 2.0, backplane clust
 - **Sonde** = oscilloscope = `IRealtimeProbe.probe()`
 - **Seam** = point de greffe = hook pour couche supérieure (security)
 
-## Config DEFAULTS (cible, builder P13.4)
+## Config DEFAULTS (builder ✅ livré Bloc A étape 5)
 
 ```ts
+// Forme nominale — defaults sûrs si toute section omise
 defineRealtimeConfig({
-  backplane: "loopback", // "loopback" | "cluster-ipc" | "redis" | "kafka" | IBackplane custom
-  hub: {
-    maxBufferedAmount: 1_048_576, // 1MB par peer (backpressure)
-    pingIntervalMs: 30_000,
-    adaptiveCadence: true, // AIMD ON
-  },
-  probe: { enabled: true, sampleEveryMs: 5_000 },
+  enabled: true,
+  backplane: { driver: "loopback" }, // "loopback" | "cluster" | "redis" | "kafka"
+  cluster: { probe: { enabled: true } }, // sonde agrégée pod (Phase 4c)
+  slowConsumer: { bytes: 1 << 20 }, // 1 MiB — seuil backpressure WS
 });
+
+// Backplane custom userland (NATS, Pulsar…) — hors schéma sérialisable
+import { MyBackplane } from "./my-backplane";
+defineRealtimeConfig(
+  { backplane: { driver: "loopback" } },
+  { backplane: new MyBackplane() },
+);
+// OU via DI : `module.container.set("realtimeBackplane", instance)` — service le picks up
+
+// JSON Schema (Studio, exclut backplane.instance)
+realtimeConfigJsonSchema();
 ```
+
+**Piège Zod 4** : `.default({})` plat NE déclenche PAS les sous-défauts internes
+→ pattern obligatoire `.default(() => subSchema.parse({}))` partout dans `schema.ts`.
+Cf [[feedback_config_validation_zod]].
 
 ## Pipeline (cycle de vie d'une frame en cluster — cas 2 pods)
 

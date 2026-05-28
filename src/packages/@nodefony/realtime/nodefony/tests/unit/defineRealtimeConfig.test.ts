@@ -1,0 +1,117 @@
+import { describe, it, expect } from "vitest";
+import {
+  defineRealtimeConfig,
+  realtimeConfigJsonSchema,
+  type IRealtimeConfig,
+} from "../../config/defineRealtimeConfig.js";
+import type {
+  IBackplane,
+  BackplaneHandler,
+} from "../../interfaces/IBackplane.js";
+
+class NoopBackplane implements IBackplane {
+  readonly originId = "test";
+  start(): void {}
+  stop(): void {}
+  publish(_c: string, _p: unknown): void {}
+  onMessage(_h: BackplaneHandler): void {}
+}
+
+describe("defineRealtimeConfig — builder + Zod", () => {
+  describe("validation + defaults", () => {
+    it("retourne les défauts sûrs sans config", () => {
+      const c = defineRealtimeConfig();
+      expect(c.enabled).to.equal(true);
+      expect(c.backplane.driver).to.equal("loopback");
+      expect(c.cluster.probe.enabled).to.equal(true);
+      expect(c.slowConsumer.bytes).to.equal(1 << 20);
+    });
+
+    it("merge les overrides partiels avec les défauts", () => {
+      const c = defineRealtimeConfig({
+        backplane: { driver: "redis" },
+        slowConsumer: { bytes: 2048 },
+      });
+      expect(c.backplane.driver).to.equal("redis");
+      expect(c.slowConsumer.bytes).to.equal(2048);
+      // valeurs non fournies → défauts préservés
+      expect(c.enabled).to.equal(true);
+      expect(c.cluster.probe.enabled).to.equal(true);
+    });
+
+    it("rejette une config invalide (driver inconnu)", () => {
+      expect(() =>
+        defineRealtimeConfig({
+          // @ts-expect-error driver inconnu — vérif Zod runtime
+          backplane: { driver: "nats" },
+        }),
+      ).to.throw();
+    });
+
+    it("rejette un slowConsumer.bytes ≤ 0", () => {
+      expect(() =>
+        defineRealtimeConfig({ slowConsumer: { bytes: 0 } }),
+      ).to.throw();
+    });
+  });
+
+  describe("backplane instance custom (2ᵉ argument)", () => {
+    it("rattache une instance IBackplane sans toucher au driver déclaré", () => {
+      const bp = new NoopBackplane();
+      const c = defineRealtimeConfig({}, { backplane: bp });
+      expect(c.backplane.driver).to.equal("loopback");
+      expect(c.backplane.instance).to.equal(bp);
+    });
+
+    it("instance custom + driver déclaré cohabitent (driver pour introspection)", () => {
+      const bp = new NoopBackplane();
+      const c = defineRealtimeConfig(
+        { backplane: { driver: "kafka" } },
+        { backplane: bp },
+      );
+      expect(c.backplane.driver).to.equal("kafka");
+      expect(c.backplane.instance).to.equal(bp);
+    });
+
+    it("instance absente → backplane.instance vaut undefined", () => {
+      const c = defineRealtimeConfig();
+      expect(c.backplane.instance).to.equal(undefined);
+    });
+  });
+
+  describe("output gelé", () => {
+    it("freeze le niveau racine (mutation interdite)", () => {
+      const c = defineRealtimeConfig();
+      expect(Object.isFrozen(c)).to.equal(true);
+      expect(() => {
+        (c as { enabled: boolean }).enabled = false;
+      }).to.throw();
+    });
+  });
+
+  describe("realtimeConfigJsonSchema", () => {
+    it("retourne un JSON Schema introspectable (Studio-friendly)", () => {
+      const schema = realtimeConfigJsonSchema() as Record<string, unknown>;
+      expect(schema).to.be.an("object");
+      // descriptions des champs Zod surfacées (consommées par Studio pour les labels)
+      expect(JSON.stringify(schema)).to.match(/backplane/i);
+      expect(JSON.stringify(schema)).to.match(/slowConsumer/i);
+    });
+
+    it("n'expose PAS backplane.instance (non-sérialisable)", () => {
+      // backplane.instance vit hors schéma — passé en 2ᵉ argument du builder,
+      // exclu du JSON Schema destiné au formulaire d'édition Studio.
+      const schema = JSON.stringify(realtimeConfigJsonSchema());
+      expect(schema).to.not.match(/"instance"/);
+    });
+  });
+
+  describe("types — z.input vs z.output", () => {
+    it("IRealtimeConfig (output) = champs résolus + backplane.instance optionnel", () => {
+      const c: IRealtimeConfig = defineRealtimeConfig();
+      // Test de présence runtime — la couverture de types est validée par tsc.
+      expect(typeof c.enabled).to.equal("boolean");
+      expect(typeof c.backplane.driver).to.equal("string");
+    });
+  });
+});

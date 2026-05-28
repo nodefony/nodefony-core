@@ -1,0 +1,156 @@
+import { Service, Container, Event, Module } from "nodefony";
+
+import {
+  getRealtimeHub,
+  type RealtimeHub,
+  type ChannelFactory,
+  type ChannelSink,
+} from "../server/RealtimeHub";
+import type { IBackplane } from "../../interfaces/IBackplane";
+import type { IRealtimeProbe } from "../../interfaces/IRealtimeProbe";
+import type { IRealtimeConfig } from "../../config/defineRealtimeConfig";
+
+const serviceName = "realtimeService";
+
+/**
+ * Façade DI publique de la **socket Nodefony** côté serveur.
+ *
+ * Wrapper mince autour du singleton {@link RealtimeHub} : expose
+ * `publish`/`subscribe`/`probe` à travers le container DI, applique au boot le
+ * backplane custom éventuel (config `backplane.instance` OU service DI nommé
+ * `realtimeBackplane`), expose la config gelée pour Studio / introspection.
+ *
+ * Ce service ne **remplace pas** le hub singleton (consommé par les
+ * controllers, l'admin API et les WS handlers via `getRealtimeHub()`) ; il en
+ * est l'API stable consommable côté userland. La Module class garde la main
+ * sur le wiring `ClusterBackplane` (lié au lifecycle `onCluster` kernel,
+ * pré-`onPreBoot`) — orthogonal au backplane custom userland.
+ *
+ * @example
+ * ```ts
+ * class MyService extends Service {
+ *   constructor(public module: Module) {
+ *     super(...);
+ *     this.realtime = this.get<RealtimeService>("realtimeService");
+ *   }
+ *   notify(payload: unknown) {
+ *     this.realtime?.publish("my-app:event", payload);
+ *   }
+ * }
+ * ```
+ */
+class RealtimeService extends Service {
+  #config: IRealtimeConfig | null = null;
+  // Hub résolu lazy : importer le module ne doit pas alloer le singleton.
+  #hub: RealtimeHub | null = null;
+
+  constructor(public module: Module) {
+    super(
+      serviceName,
+      module.container as Container,
+      module.notificationsCenter as Event,
+      module.options,
+    );
+  }
+
+  /**
+   * Initialise le service au moment où le Module l'enregistre via `addService`
+   * (phase `onPreBoot`). Pose la config validée + applique l'éventuel backplane
+   * custom userland. Idempotent.
+   *
+   * Source du backplane custom (priorité décroissante) :
+   *  1. `realtimeConfig.backplane.instance` posée par la Module class via le
+   *     container (mode "config typée" : `defineRealtimeConfig({}, { backplane })`)
+   *  2. Service DI nommé `realtimeBackplane` (mode "userland enregistre une
+   *     instance dans son module via container.set")
+   *
+   * Si aucun n'est fourni → le hub reste avec son backplane par défaut (null =
+   * Loopback implicite, ou ClusterBackplane si le worker IPC a déjà été câblé
+   * par la Module class). Aucun warn — c'est le cas commun.
+   */
+  async initialize(_module: Module): Promise<this> {
+    this.#config = this.get<IRealtimeConfig>("realtimeConfig");
+    if (!this.#config) {
+      throw new Error(
+        `${serviceName}: realtimeConfig manquant dans le container (la Module class doit la poser à onKernelRegister)`,
+      );
+    }
+    const hub = this.getHub();
+    const custom =
+      this.#config.backplane.instance ??
+      this.get<IBackplane>("realtimeBackplane");
+    if (custom && hub.backplane === null) {
+      hub.setBackplane(custom);
+      this.log(
+        `Backplane custom branché (driver déclaré=${this.#config.backplane.driver})`,
+        "INFO",
+      );
+    }
+    return this;
+  }
+
+  /** Configuration realtime gelée (lue par Studio / introspection). */
+  getConfig(): IRealtimeConfig {
+    if (!this.#config) {
+      throw new Error(`${serviceName}: not initialized`);
+    }
+    return this.#config;
+  }
+
+  /** Hub singleton (broker fan-out canaux PARTAGÉS du process courant). */
+  getHub(): RealtimeHub {
+    return (this.#hub ??= getRealtimeHub());
+  }
+
+  /** Backplane actuellement branché sur le hub (ou null = Loopback implicite). */
+  getBackplane(): IBackplane | null {
+    return this.getHub().backplane;
+  }
+
+  /**
+   * Publie une charge sur un canal — fan-out local + propagation backplane si
+   * canal broadcast. Délégué à `RealtimeHub.publish`.
+   */
+  publish(channel: string, payload: unknown): void {
+    this.getHub().publish(channel, payload);
+  }
+
+  /**
+   * Abonne un sink à un canal partagé — factory invoquée au 1ᵉʳ abonné, dispose
+   * appelé au dernier désabonné. Délégué à `RealtimeHub.subscribe`.
+   *
+   * @returns `true` si abonné, `false` si la factory a refusé (canal inconnu).
+   */
+  subscribe(
+    channel: string,
+    sink: ChannelSink,
+    factory: ChannelFactory,
+  ): boolean {
+    return this.getHub().subscribe(channel, sink, factory);
+  }
+
+  /**
+   * Désabonne un sink — appelle `dispose` du provider partagé au dernier abonné.
+   * Délégué à `RealtimeHub.unsubscribe`. No-op si non abonné.
+   */
+  unsubscribe(channel: string, sink: ChannelSink): void {
+    this.getHub().unsubscribe(channel, sink);
+  }
+
+  /** Snapshot d'observabilité du hub local (consommé par `/nodefony/realtime/api/health`). */
+  probe(): IRealtimeProbe {
+    return this.getHub().probe();
+  }
+
+  /**
+   * Marque un préfixe de canal comme **broadcast** (cross-process via le
+   * backplane). Sans appel, tout canal reste instance-local. Délégué à
+   * `RealtimeHub.markBroadcastChannel`.
+   */
+  markBroadcastChannel(prefix: string): void {
+    this.getHub().markBroadcastChannel(prefix);
+  }
+}
+
+export default RealtimeService;
+export { RealtimeService };

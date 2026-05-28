@@ -22,9 +22,14 @@
  *  - README.md  — usage humain
  *  - docs/      — doc dev vulgarisée (6 pages)
  */
-import { Kernel, Module } from "nodefony";
+import { Kernel, Module, services } from "nodefony";
 import defaultConfig from "./nodefony/config/config";
-import { realtimeConfigSchema } from "./nodefony/config/schema";
+import {
+  defineRealtimeConfig,
+  type IRealtimeConfig,
+  type IRealtimeConfigInput,
+} from "./nodefony/config/defineRealtimeConfig";
+import RealtimeService from "./nodefony/src/service/RealtimeService";
 
 // Symboles serveur exportés (les surfaces consommateurs userland).
 import RealtimeController from "./nodefony/src/server/RealtimeController";
@@ -52,6 +57,7 @@ import {
 } from "./nodefony/src/server/RealtimeAdminApi";
 import type { IAdminBroker } from "@nodefony/framework";
 
+@services([RealtimeService])
 class Realtime extends Module {
   constructor(kernel: Kernel) {
     super("realtime", kernel, import.meta.url, defaultConfig);
@@ -66,18 +72,31 @@ class Realtime extends Module {
 
   /**
    * Validation Zod de la config racine merge au boot (convention figée 2026-05-28,
-   * cf [[feedback_config_validation_zod]]). Plante propre avec messages clairs si
-   * la config (defaults + module.options) n'est pas conforme au schéma — évite tous
-   * les `undefined.x` silencieux en runtime.
+   * cf [[feedback_config_validation_zod]]) — via le builder `defineRealtimeConfig`
+   * (source unique `nodefony/config/schema.ts`). Plante propre avec messages clairs
+   * si la config (defaults + `module.options`) n'est pas conforme au schéma — évite
+   * tous les `undefined.x` silencieux en runtime.
+   *
+   * La config validée + gelée est exposée au container sous `realtimeConfig` pour
+   * que le `RealtimeService` (instancié à `onPreBoot` via `@services`) la consomme
+   * sans dupliquer la validation.
    */
   override async onKernelRegister(): Promise<this> {
-    const parsed = realtimeConfigSchema.safeParse(this.options ?? {});
-    if (!parsed.success) {
-      const issues = parsed.error.issues
-        .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
-        .join(" · ");
+    let validated: IRealtimeConfig;
+    try {
+      validated = defineRealtimeConfig(
+        (this.options ?? {}) as IRealtimeConfigInput,
+      );
+    } catch (e) {
+      const issues =
+        e instanceof Error && "issues" in e && Array.isArray(e.issues)
+          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
+              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+              .join(" · ")
+          : (e as Error).message;
       throw new Error(`[@nodefony/realtime] Invalid config: ${issues}`);
     }
+    this.set("realtimeConfig", validated);
     return this;
   }
 
@@ -157,10 +176,21 @@ export {
   createRealtimeAdminApi,
   buildRealtimeHealth,
   buildOwnHealth,
+  RealtimeService,
 };
 
 export { RealtimeError } from "./nodefony/src/errors/RealtimeError";
 export type { RealtimeConfig } from "./nodefony/config/config";
+
+// Builder type-safe + JSON Schema (Bloc A étape 5).
+export {
+  defineRealtimeConfig,
+  realtimeConfigJsonSchema,
+} from "./nodefony/config/defineRealtimeConfig";
+export type {
+  IRealtimeConfig,
+  IRealtimeConfigInput,
+} from "./nodefony/config/defineRealtimeConfig";
 
 // Décorateurs realtime (style déclaratif, NestJS-like) — P13 Bloc A étape 3.
 export {

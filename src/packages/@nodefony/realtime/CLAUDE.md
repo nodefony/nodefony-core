@@ -25,18 +25,18 @@ du core, pour rester importable depuis un navigateur sans dépendre du framework
 
 ## Décisions techniques figées
 
-| Sujet                 | Décision                                                                                                                                                                         |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Client navigateur** | Subpath `nodefony/realtime` du core — **PAS** dans ce module (raison isomorphisme, décision figée 2026-05-21)                                                                    |
-| **Vocabulaire**       | `socket` = la prise (`IRealtimeSocket`, handle), `hub` = broker serveur (`RealtimeHub`), `backplane` = fond de panier cluster (`IBackplane`), `peer` = `JsonRpcPeer` (isomorphe) |
-| **Protocole**         | JSON-RPC 2.0 maison + RPC bidirectionnel (Promise) + types partagés `ServerToClientEvents`/`ClientToServerEvents`                                                                |
-| **Backplane**         | Contrat `IBackplane` interchangeable. 4 drivers : `LoopbackBackplane` (mono, livré), `ClusterBackplane` (IPC, livré), `RedisBackplane` (P13.5), `KafkaBackplane` (P13.6)         |
-| **Pluggable user**    | Un utilisateur peut écrire son `MyXxxBackplane implements IBackplane` (NATS, Pulsar, RabbitMQ…) et le passer à `defineRealtimeConfig({ backplane: instance })`                   |
-| **Config**            | `defineRealtimeConfig()` builder + Zod (style `defineSecurityConfig`) — P13.4 reste                                                                                              |
-| **Cadence client**    | AIMD (Additive Increase Multiplicative Decrease) auto-ajustée par canal — livré (P13.10)                                                                                         |
-| **Observabilité**     | Sonde `RealtimeHub.probe()` → canal `realtime:health` + endpoint `/nodefony/realtime/api/health` — livré (P13.11)                                                                |
-| **Tests**             | Vitest + coverage v8 (convention universelle Nodefony, cf `feedback_test_framework_vitest`). Pas Mocha.                                                                          |
-| **Sécurité**          | 5 seams obligatoires DANS le module (cf section ci-dessous) pour que P6 se branche en plug                                                                                       |
+| Sujet                 | Décision                                                                                                                                                                                                  |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Client navigateur** | Subpath `nodefony/realtime` du core — **PAS** dans ce module (raison isomorphisme, décision figée 2026-05-21)                                                                                             |
+| **Vocabulaire**       | `socket` = la prise (`IRealtimeSocket`, handle), `hub` = broker serveur (`RealtimeHub`), `backplane` = fond de panier cluster (`IBackplane`), `peer` = `JsonRpcPeer` (isomorphe)                          |
+| **Protocole**         | JSON-RPC 2.0 maison + RPC bidirectionnel (Promise) + types partagés `ServerToClientEvents`/`ClientToServerEvents`                                                                                         |
+| **Backplane**         | Contrat `IBackplane` interchangeable. 4 drivers : `LoopbackBackplane` (mono, livré), `ClusterBackplane` (IPC, livré), `RedisBackplane` (P13.5), `KafkaBackplane` (P13.6)                                  |
+| **Pluggable user**    | Un utilisateur peut écrire son `MyXxxBackplane implements IBackplane` (NATS, Pulsar, RabbitMQ…) et le passer à `defineRealtimeConfig({ backplane: instance })`                                            |
+| **Config**            | `defineRealtimeConfig()` builder + Zod (style `defineSecurityConfig`) — ✅ livré (Bloc A étape 5, 2026-05-28). Backplane custom userland passé en 2ᵉ arg du builder OU via service DI `realtimeBackplane` |
+| **Cadence client**    | AIMD (Additive Increase Multiplicative Decrease) auto-ajustée par canal — livré (P13.10)                                                                                                                  |
+| **Observabilité**     | Sonde `RealtimeHub.probe()` → canal `realtime:health` + endpoint `/nodefony/realtime/api/health` — livré (P13.11)                                                                                         |
+| **Tests**             | Vitest + coverage v8 (convention universelle Nodefony, cf `feedback_test_framework_vitest`). Pas Mocha.                                                                                                   |
+| **Sécurité**          | 5 seams obligatoires DANS le module (cf section ci-dessous) pour que P6 se branche en plug                                                                                                                |
 
 ## 🪡 5 seams sécurité à coder DANS P13 (avant que P6 démarre)
 
@@ -109,8 +109,8 @@ emplacement hybride). Migration éventuelle des 7 fichiers racine vers le module
 | **P13.0** Rapatriement framework→realtime                                                   | ⬜ Bloc A étape 1       | 8 fichiers `src/` + 3 tests à déplacer via git mv                  |
 | **Seams** sécurité (5 hooks)                                                                | ⬜ Bloc A étapes 2 et 6 | 1,2 ses au total                                                   |
 | **P13.8** Décorateurs `@RealtimeController` / `@RealtimeEvent`                              | ⬜ Bloc A étape 3       | 2 ses                                                              |
-| **P13.7 reste** Long-polling fallback + types `ServerToClientEvents`/`ClientToServerEvents` | ⬜ Bloc A étape 4       | 1,5 ses                                                            |
-| **P13.4 reste** Façade `RealtimeService` + `defineRealtimeConfig()` builder                 | ⬜ Bloc A étape 5       | 1 ses                                                              |
+| **P13.7 reste** Long-polling fallback + types `ServerToClientEvents`/`ClientToServerEvents` | ✅ 2026-05-28 (étape 4) | Types Socket.IO-style + long-polling droppé (frame retry suffit)   |
+| **P13.4 reste** Façade `RealtimeService` + `defineRealtimeConfig()` builder                 | ✅ 2026-05-28 (étape 5) | Builder Zod + service DI + JSON Schema, fix `.default(() => …)`    |
 | **P13.9** Tests cluster IPC (sans infra)                                                    | ⬜ Bloc A étape 7       | 2 ses                                                              |
 | **P13.2** Refacto `@nodefony/redis`                                                         | ⬜ Bloc B               | 8 ses                                                              |
 | **P13.5** `RedisBackplane` driver                                                           | ⬜ Bloc B               | 1 ses (réduit grâce au contrat existant)                           |

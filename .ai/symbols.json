@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-28T14:15:12.966Z",
+  "generated": "2026-05-28T14:45:14.422Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 761,
-    "symbols": 1396,
-    "classes": 230,
+    "files": 763,
+    "symbols": 1401,
+    "classes": 231,
     "interfaces": 335,
-    "types": 174,
+    "types": 176,
     "enums": 2,
-    "functions": 202,
+    "functions": 204,
     "constants": 453
   },
   "symbols": {
@@ -321,7 +321,9 @@
       "module": "@nodefony/realtime",
       "extends": "Module",
       "implements": [],
-      "decorators": []
+      "decorators": [
+        "services"
+      ]
     },
     "Redis": {
       "name": "Redis",
@@ -5377,6 +5379,38 @@
       ],
       "decorators": []
     },
+    "IRealtimeConfigInput": {
+      "name": "IRealtimeConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Entrée du builder (champs avec défaut optionnels)."
+    },
+    "IRealtimeConfig": {
+      "name": "IRealtimeConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Config normalisée et gelée (sortie du builder, lue par `RealtimeService`)."
+    },
+    "defineRealtimeConfig": {
+      "name": "defineRealtimeConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Builder type-safe de la configuration de `@nodefony/realtime`. Principes (alignés sur `defineSecurityConfig`) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE + GÈLE, ne dévie pas. - …"
+    },
+    "realtimeConfigJsonSchema": {
+      "name": "realtimeConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "JSON Schema introspectable de la config realtime — destiné au formulaire d'édition Studio (futur). N'inclut PAS `backplane.instance` (non sérialisable)."
+    },
     "RealtimeConfig": {
       "name": "RealtimeConfig",
       "kind": "type",
@@ -5389,8 +5423,7 @@
       "kind": "const",
       "file": "src/packages/@nodefony/realtime/nodefony/config/schema.ts",
       "exported": true,
-      "module": "@nodefony/realtime",
-      "description": "Schéma Zod de la configuration de"
+      "module": "@nodefony/realtime"
     },
     "RealtimeChannelFactory": {
       "name": "RealtimeChannelFactory",
@@ -9968,6 +10001,17 @@
       "module": "@nodefony/realtime",
       "description": "Seuil d'alerte slow-consumer (octets de `bufferedAmount`). Au-delà, la connexion est comptée comme « lente » par la sonde (PAS encore de drop/close — la sonde MESURE avant qu'on optimise : stringif…"
     },
+    "RealtimeService": {
+      "name": "RealtimeService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "Façade DI publique de la **socket Nodefony** côté serveur. Wrapper mince autour du singleton {@link RealtimeHub} : expose `publish`/`subscribe`/`probe` à travers le container DI, applique au boot l…"
+    },
     "WsConnectionTransport": {
       "name": "WsConnectionTransport",
       "kind": "class",
@@ -10264,7 +10308,8 @@
         "Websocket",
         "SessionsService",
         "upload",
-        "Context"
+        "Context",
+        "RealtimeService"
       ],
       "DefaultOptionsService": [
         "CliDefaultOptions",
@@ -10667,6 +10712,7 @@
         "Frontend",
         "Http",
         "Mongoose",
+        "Realtime",
         "Redis",
         "Security",
         "Sequelize"
@@ -10771,7 +10817,8 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "DefaultOptionsService": [
         "src/nodefony/src/Cli.ts",
@@ -10825,6 +10872,7 @@
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "FileClass": [
@@ -10874,7 +10922,8 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "Syslog": [
         "src/nodefony/src/Cli.ts",
@@ -11150,7 +11199,8 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "controllers": [
         "src/modules/mediasoup/index.ts",
@@ -11196,6 +11246,7 @@
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/mongoose/index.ts",
+        "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/sequelize/index.ts"
@@ -11589,21 +11640,32 @@
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/sequelize/index.ts"
       ],
-      "realtimeConfigSchema": [
+      "defineRealtimeConfig": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "IRealtimeConfig": [
         "src/packages/@nodefony/realtime/index.ts",
-        "src/packages/@nodefony/realtime/nodefony/config/config.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+      ],
+      "IRealtimeConfigInput": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "RealtimeService": [
+        "src/packages/@nodefony/realtime/index.ts"
       ],
       "RealtimeController": [
         "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "RealtimeHub": [
-        "src/packages/@nodefony/realtime/index.ts"
+        "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "getRealtimeHub": [
         "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "SLOW_CONSUMER_BYTES": [
         "src/packages/@nodefony/realtime/index.ts"
@@ -12891,8 +12953,20 @@
       "SentenceChunker": [
         "src/packages/@nodefony/rag/src/services/RagService.ts"
       ],
+      "realtimeConfigSchema": [
+        "src/packages/@nodefony/realtime/nodefony/config/config.ts",
+        "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts"
+      ],
       "RealtimeConfig": [
-        "src/packages/@nodefony/realtime/nodefony/config/config.ts"
+        "src/packages/@nodefony/realtime/nodefony/config/config.ts",
+        "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts"
+      ],
+      "IBackplane": [
+        "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "RpcActionHandler": [
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
@@ -14432,11 +14506,6 @@
       "setRepositoryMeta": [
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/repositoryDecorator.ts"
       ],
-      "IBackplane": [
-        "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
-      ],
       "BackplaneHandler": [
         "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts"
@@ -14473,7 +14542,8 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "ChannelSink": [
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "IRealtimeController": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
@@ -14495,7 +14565,11 @@
         "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts"
       ],
       "IRealtimeProbe": [
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+      ],
+      "ChannelFactory": [
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "anonymousUser": [
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts"
