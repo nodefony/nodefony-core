@@ -19,6 +19,7 @@ import type {
   IOrmLeanHealth,
   IInstanceErrorHealth,
 } from "nodefony";
+import type { IBackplaneInfo } from "./IBackplane";
 
 /** Vue d'UNE connexion realtime pour la sonde (backpressure = risque #1). */
 export interface IRealtimeConnProbe {
@@ -79,6 +80,13 @@ export interface IRealtimeProbe {
     /** Connexions au-dessus du seuil d'alerte slow-consumer. */
     slowConsumers: number;
   };
+  /**
+   * Carte d'identité du backplane effectif (driver, transport, cross-pod, canal).
+   * Reflète l'état RÉEL : `local` si le hub n'a aucun backplane (mono-process ou
+   * fallback fail-soft), sinon le descripteur du driver branché. Optionnel pour
+   * rétrocompat des consommateurs qui construisent un probe partiel.
+   */
+  backplane?: IBackplaneInfo;
 }
 
 /** Snapshot enrichi de l'identité d'instance — santé per-instance d'un worker/pod. */

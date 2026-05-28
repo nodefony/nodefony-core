@@ -1,6 +1,7 @@
 import type {
   IBackplane,
   BackplaneHandler,
+  IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
 
 /**
@@ -43,6 +44,15 @@ export class LoopbackBackplane implements IBackplane {
 
   stop(): void {
     /* no-op */
+  }
+
+  describe(): IBackplaneInfo {
+    return {
+      driver: LoopbackBackplane.driver,
+      kind: "local",
+      originId: this.originId,
+      crossPod: false,
+    };
   }
 }
 

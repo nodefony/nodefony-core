@@ -2,6 +2,7 @@ import type {
   IBackplane,
   BackplaneHandler,
   IBackplaneMessage,
+  IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
 import { CLUSTER_RT_KIND } from "nodefony";
 
@@ -141,6 +142,16 @@ export class ClusterBackplane implements IBackplane {
   stop(): void {
     this.#handler = null;
     this.#started = false;
+  }
+
+  describe(): IBackplaneInfo {
+    return {
+      driver: ClusterBackplane.driver,
+      kind: "ipc",
+      originId: this.originId,
+      // IPC = fan-out entre workers d'un MÊME pod, pas multi-host.
+      crossPod: false,
+    };
   }
 }
 

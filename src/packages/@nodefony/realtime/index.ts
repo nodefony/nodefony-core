@@ -227,11 +227,22 @@ class Realtime extends Module {
       role: this.#clusterRole,
       config,
     });
-    if (!backplane) return; // driver inactif ici (loopback, cluster hors worker…)
+    if (!backplane) {
+      // Driver inactif ici (loopback, cluster hors worker, fallback fail-soft) →
+      // hub local. Une ligne claire au boot quand même (carte d'identité).
+      this.log(
+        `realtime backplane  driver=${driverName} kind=local cross-pod=no (hub local)`,
+        "INFO",
+      );
+      return;
+    }
     await backplane.start();
     hub.setBackplane(backplane);
+    const info = backplane.describe();
     this.log(
-      `RealtimeHub: backplane "${driverName}" branché (${backplane.constructor.name})`,
+      `realtime backplane  driver=${info.driver} kind=${info.kind} ` +
+        `origin=${info.originId} cross-pod=${info.crossPod ? "yes" : "no"}` +
+        (info.channel ? ` channel=${info.channel}` : ""),
       "INFO",
     );
   }
@@ -330,6 +341,7 @@ export type {
   IBackplane,
   IBackplaneMessage,
   BackplaneHandler,
+  IBackplaneInfo,
 } from "./nodefony/interfaces/IBackplane";
 export type {
   IClusterBackplaneTransport,

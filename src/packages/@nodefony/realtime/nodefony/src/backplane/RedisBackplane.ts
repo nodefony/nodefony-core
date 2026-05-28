@@ -2,6 +2,7 @@ import type {
   IBackplane,
   BackplaneHandler,
   IBackplaneMessage,
+  IBackplaneInfo,
 } from "../../interfaces/IBackplane.js";
 
 /**
@@ -212,6 +213,16 @@ export class RedisBackplane implements IBackplane {
     if (!this.#started) return;
     this.#started = false;
     await this.#transport.unsubscribe(this.#redisChannel);
+  }
+
+  describe(): IBackplaneInfo {
+    return {
+      driver: RedisBackplane.driver,
+      kind: "redis-pubsub",
+      originId: this.originId,
+      crossPod: true,
+      channel: this.#redisChannel,
+    };
   }
 }
 

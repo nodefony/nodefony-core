@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-28T19:26:53.304Z",
+  "generated": "2026-05-28T19:39:31.128Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 775,
-    "symbols": 1435,
+    "symbols": 1436,
     "classes": 232,
-    "interfaces": 345,
+    "interfaces": 346,
     "types": 182,
     "enums": 2,
     "functions": 218,
@@ -5489,6 +5489,15 @@
       "module": "@nodefony/realtime",
       "extends": null,
       "description": "Port du **backplane** de la socket Nodefony — l'abstraction de fan-out **CROSS-PROCESS** du {@link RealtimeHub}. Le hub fait le fan-out **local** (aux connexions du process courant). Le backplane p…"
+    },
+    "IBackplaneInfo": {
+      "name": "IBackplaneInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/interfaces/IBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "**Carte d'identité** d'un backplane — descripteur de DONNÉE (pas un log) décrivant l'état du fond de panier. Source unique alimentant trois sorties cohérentes : la ligne stdout au boot, le champ `b…"
     },
     "IBackplane": {
       "name": "IBackplane",
@@ -11894,7 +11903,8 @@
         "src/packages/@nodefony/realtime/index.ts"
       ],
       "LoopbackBackplane": [
-        "src/packages/@nodefony/realtime/index.ts"
+        "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
       ],
       "RedisBackplane": [
         "src/packages/@nodefony/realtime/index.ts"
@@ -13279,6 +13289,12 @@
       "IInstanceErrorHealth": [
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeProbe.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
+      ],
+      "IBackplaneInfo": [
+        "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeProbe.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts"
       ],
       "redisConfigSchema": [
         "src/packages/@nodefony/redis/nodefony/config/config.ts",

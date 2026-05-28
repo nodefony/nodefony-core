@@ -86,6 +86,33 @@ describe("backplaneRegistry (résolution driver SANS if en dur)", () => {
     expect(getBackplaneDriver("does-not-exist")).to.equal(undefined);
   });
 
+  it("describe() : carte d'identité par driver (driver/kind/originId/crossPod/channel)", () => {
+    expect(new LoopbackBackplane("p").describe()).to.deep.equal({
+      driver: "loopback",
+      kind: "local",
+      originId: "p",
+      crossPod: false,
+    });
+    expect(new ClusterBackplane(undefined, "p").describe()).to.deep.equal({
+      driver: "cluster",
+      kind: "ipc",
+      originId: "p",
+      crossPod: false,
+    });
+    const redis = new RedisBackplane(
+      { publish() {}, subscribe() {}, unsubscribe() {} },
+      "p",
+      "app:rt",
+    ).describe();
+    expect(redis).to.deep.equal({
+      driver: "redis",
+      kind: "redis-pubsub",
+      originId: "p",
+      crossPod: true,
+      channel: "app:rt",
+    });
+  });
+
   it("registre OUVERT : un driver custom s'enregistre et se résout", async () => {
     const sentinel = { originId: "x" } as never;
     registerBackplaneDriver("nats-test", () => sentinel);

@@ -151,6 +151,28 @@ describe("RealtimeHub.probe — auto-observabilité (fan-out + backpressure)", (
     expect(p.ts).to.be.a("number");
   });
 
+  it("backplane : descripteur `local` quand aucun backplane branché", () => {
+    const p = new RealtimeHub().probe();
+    expect(p.backplane).to.deep.include({
+      driver: "loopback",
+      kind: "local",
+      crossPod: false,
+    });
+    expect(p.backplane?.originId).to.be.a("string");
+  });
+
+  it("backplane : reflète le driver branché (carte d'identité)", () => {
+    const hub = new RealtimeHub();
+    hub.setBackplane(new LoopbackBackplane("pid-Z"));
+    const info = hub.probe().backplane!;
+    expect(info).to.deep.equal({
+      driver: "loopback",
+      kind: "local",
+      originId: "pid-Z",
+      crossPod: false,
+    });
+  });
+
   it("canaux : abonnés + publications cumulées par canal", () => {
     const hub = new RealtimeHub();
     let pub: RealtimePublish | null = null;

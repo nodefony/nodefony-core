@@ -48,6 +48,26 @@ export interface IBackplaneMessage {
 export type BackplaneHandler = (msg: IBackplaneMessage) => void;
 
 /**
+ * **Carte d'identité** d'un backplane — descripteur de DONNÉE (pas un log) décrivant
+ * l'état du fond de panier. Source unique alimentant trois sorties cohérentes : la
+ * ligne stdout au boot, le champ `backplane` de la sonde (`/api/health`) et la vue
+ * Studio. Réutilisable par les tests / un agent IA sans dupliquer la connaissance
+ * « c'est quoi ce backplane ».
+ */
+export interface IBackplaneInfo {
+  /** Nom du driver (clé du registre). Ex. `redis`, `cluster`, `loopback`. */
+  driver: string;
+  /** Nature du transport. Ex. `redis-pubsub`, `ipc`, `local`. */
+  kind: string;
+  /** Identité de CE pair (process/pod). Ex. `String(process.pid)`. */
+  originId: string;
+  /** `true` si le fan-out franchit les frontières de pod (multi-host). */
+  crossPod: boolean;
+  /** Canal/topic de transport, si applicable (canal Redis, topic Kafka). */
+  channel?: string;
+}
+
+/**
  * Contrat d'un backplane realtime. Implémentation **stateless du point de vue métier**
  * (l'état des canaux vit dans le hub) ; le backplane ne porte que le transport vers les
  * pairs + son identité.
@@ -76,6 +96,12 @@ export interface IBackplane {
 
   /** Arrête le transport et libère les ressources (connexions, listeners). Idempotent. */
   stop(): void | Promise<void>;
+
+  /**
+   * Carte d'identité du backplane (driver, transport, origine, cross-pod, canal).
+   * Donnée pure — consommée par le log de boot, la sonde santé et Studio.
+   */
+  describe(): IBackplaneInfo;
 }
 
 export default IBackplane;

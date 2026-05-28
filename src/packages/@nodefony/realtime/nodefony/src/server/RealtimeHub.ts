@@ -5,6 +5,7 @@ import type {
   IRealtimeProbe,
 } from "../../interfaces/IRealtimeProbe";
 import type { IBackplane } from "../../interfaces/IBackplane";
+import LoopbackBackplane from "../backplane/LoopbackBackplane";
 import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator";
 import type {
   ICompiledRealtimeMatcher,
@@ -386,6 +387,14 @@ export class RealtimeHub {
         maxBufferedAmount,
         totalBufferedAmount,
         slowConsumers,
+      },
+      // Carte d'identité du backplane effectif. `null` (mono-process / fallback)
+      // → descripteur `local` (driver loopback), sinon celui du driver branché.
+      backplane: this.#backplane?.describe() ?? {
+        driver: LoopbackBackplane.driver,
+        kind: "local",
+        originId: String(process.pid),
+        crossPod: false,
       },
     };
   }
