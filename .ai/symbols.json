@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-28T10:23:12.364Z",
+  "generated": "2026-05-28T11:27:53.522Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 754,
-    "symbols": 1373,
-    "classes": 228,
+    "files": 757,
+    "symbols": 1374,
+    "classes": 229,
     "interfaces": 333,
     "types": 163,
     "enums": 2,
@@ -9801,6 +9801,17 @@
       "module": "@nodefony/orm-core",
       "description": "Décore une classe comme repository d'une entité (tag métadonnée pur). Stocke le lien repo↔entity dans un `WeakMap` (cf. `metadataStore`, sans `reflect-metadata`). N'enregistre RIEN dans un registre…"
     },
+    "RealtimeError": {
+      "name": "RealtimeError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/errors/RealtimeError.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur de base pour"
+    },
     "AnonymousToken": {
       "name": "AnonymousToken",
       "kind": "class",
@@ -10092,7 +10103,8 @@
         "MemoryError",
         "RagError",
         "VectorError",
-        "FrontendError"
+        "FrontendError",
+        "RealtimeError"
       ],
       "EventEmitter": [
         "Event"
