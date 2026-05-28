@@ -30,7 +30,7 @@ du core, pour rester importable depuis un navigateur sans dépendre du framework
 | **Client navigateur** | Subpath `nodefony/realtime` du core — **PAS** dans ce module (raison isomorphisme, décision figée 2026-05-21)                                                                                             |
 | **Vocabulaire**       | `socket` = la prise (`IRealtimeSocket`, handle), `hub` = broker serveur (`RealtimeHub`), `backplane` = fond de panier cluster (`IBackplane`), `peer` = `JsonRpcPeer` (isomorphe)                          |
 | **Protocole**         | JSON-RPC 2.0 maison + RPC bidirectionnel (Promise) + types partagés `ServerToClientEvents`/`ClientToServerEvents`                                                                                         |
-| **Backplane**         | Contrat `IBackplane` interchangeable. 4 drivers : `LoopbackBackplane` (mono, livré), `ClusterBackplane` (IPC, livré), `RedisBackplane` (P13.5), `KafkaBackplane` (P13.6)                                  |
+| **Backplane**         | Contrat `IBackplane` interchangeable. 4 drivers : `LoopbackBackplane` (mono, livré), `ClusterBackplane` (IPC, livré), `RedisBackplane` (pub/sub cross-pod, ✅ P13.5), `KafkaBackplane` (P13.6)            |
 | **Pluggable user**    | Un utilisateur peut écrire son `MyXxxBackplane implements IBackplane` (NATS, Pulsar, RabbitMQ…) et le passer à `defineRealtimeConfig({ backplane: instance })`                                            |
 | **Config**            | `defineRealtimeConfig()` builder + Zod (style `defineSecurityConfig`) — ✅ livré (Bloc A étape 5, 2026-05-28). Backplane custom userland passé en 2ᵉ arg du builder OU via service DI `realtimeBackplane` |
 | **Cadence client**    | AIMD (Additive Increase Multiplicative Decrease) auto-ajustée par canal — livré (P13.10)                                                                                                                  |
@@ -115,6 +115,6 @@ emplacement hybride). Migration éventuelle des 7 fichiers racine vers le module
 | **P13.4 reste** Façade `RealtimeService` + `defineRealtimeConfig()` builder                 | ✅ 2026-05-28 (étape 5) | Builder Zod + service DI + JSON Schema, fix `.default(() => …)`    |
 | **P13.9** Tests cluster IPC (sans infra)                                                    | ⬜ Bloc A étape 7       | 2 ses                                                              |
 | **P13.2** Refacto `@nodefony/redis`                                                         | ⬜ Bloc B               | 8 ses                                                              |
-| **P13.5** `RedisBackplane` driver                                                           | ⬜ Bloc B               | 1 ses (réduit grâce au contrat existant)                           |
+| **P13.5** `RedisBackplane` driver                                                           | ✅ 2026-05-28 Bloc B    | pub/sub cross-pod, seam transport découplé, 10 unit + 2 intégr.    |
 | **P13.6** `KafkaBackplane` driver                                                           | ⬜ Bloc C               | 3 ses                                                              |
 | **P13.1** TCP / UDP / Unix sockets                                                          | ⬜ Bloc D (différable)  | 7 ses                                                              |

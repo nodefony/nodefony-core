@@ -10,7 +10,8 @@ Purpose: couche realtime serveur Nodefony (hub WS, JSON-RPC 2.0, backplane clust
 - **`RealtimeHub`** (server) — broker fan-out canaux PARTAGÉS, 1 par pod. Sonde `probe()`.
 - **`RealtimeController`** (server, base class) — controllers WS extends ceci. Décorateurs `@RealtimeController`/`@RealtimeEvent` à coder (P13.8).
 - **`RealtimeAdminApi`** (server) — endpoint `/nodefony/realtime/api/health` + canal `realtime:health`.
-- **`IBackplane`** (contrat) — 4 impls : `LoopbackBackplane` (mono), `ClusterBackplane` (IPC), `RedisBackplane` (P13.5), `KafkaBackplane` (P13.6).
+- **`IBackplane`** (contrat) — impls : `LoopbackBackplane` (mono), `ClusterBackplane` (IPC), `RedisBackplane` (✅ P13.5, pub/sub cross-pod), `KafkaBackplane` (P13.6).
+- **`RedisBackplane`** (✅ P13.5) — fan-out cross-**pod** via pub/sub Redis. Découplé : seam `IRedisBackplaneTransport` injectable (testable sans infra) + adaptateur `createRedisServiceTransport(publisher, subscriber)` (SEUL point couplé à `redis`, couplage **structurel** — 0 dépendance ajoutée à realtime). Canal Redis dédié `REDIS_RT_CHANNEL="nodefony:realtime"` (surchargeable) portant l'enveloppe JSON `{channel,payload,originId}`. Anti-echo par `originId` (Redis renvoie au pod émetteur → filtré sinon double fan-out). Branchement : `redis.getClient("publish"/"subscribe")` → adaptateur → `defineRealtimeConfig({backplane:{driver:"redis"}}, {backplane: bp})` OU service DI `realtimeBackplane`. Tests : 10 unit (bus mémoire) + 2 intégration (Redis docker réel, auto-skip).
 - **`RealtimeError`** — base error (code + context). ✅ livré.
 - **`JsonRpcPeer`** = reste dans **core** (isomorphe). Le serveur le consomme via subpath `nodefony/realtime`.
 

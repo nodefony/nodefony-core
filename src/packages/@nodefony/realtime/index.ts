@@ -38,6 +38,10 @@ import RealtimeHub, {
   SLOW_CONSUMER_BYTES,
 } from "./nodefony/src/server/RealtimeHub";
 import LoopbackBackplane from "./nodefony/src/backplane/LoopbackBackplane";
+import RedisBackplane, {
+  createRedisServiceTransport,
+  REDIS_RT_CHANNEL,
+} from "./nodefony/src/backplane/RedisBackplane";
 import ClusterBackplane, {
   processIpcTransport,
 } from "./nodefony/src/backplane/ClusterBackplane";
@@ -164,6 +168,9 @@ export {
   SLOW_CONSUMER_BYTES,
   LoopbackBackplane,
   ClusterBackplane,
+  RedisBackplane,
+  createRedisServiceTransport,
+  REDIS_RT_CHANNEL,
   processIpcTransport,
   ClusterProbeClient,
   setClusterProbeClient,
@@ -222,6 +229,11 @@ export type {
   IClusterBackplaneTransport,
   ClusterBackplaneEnvelope,
 } from "./nodefony/src/backplane/ClusterBackplane";
+export type {
+  IRedisBackplaneTransport,
+  IRedisPublisher,
+  IRedisSubscriber,
+} from "./nodefony/src/backplane/RedisBackplane";
 export type { IClusterProbeTransport } from "./nodefony/src/cluster/ClusterProbeClient";
 export type { RawWsConnection } from "./nodefony/src/transport/WsConnectionTransport";
 export type {

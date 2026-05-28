@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-28T15:32:44.990Z",
+  "generated": "2026-05-28T18:45:51.960Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 768,
-    "symbols": 1413,
-    "classes": 231,
-    "interfaces": 341,
-    "types": 177,
+    "files": 774,
+    "symbols": 1430,
+    "classes": 232,
+    "interfaces": 344,
+    "types": 181,
     "enums": 2,
-    "functions": 208,
-    "constants": 454
+    "functions": 215,
+    "constants": 456
   },
   "symbols": {
     "Cli": {
@@ -5622,15 +5622,78 @@
       "extends": null,
       "description": "Jeton realtime — surface MINIMALE de l'identité d'une connexion WebSocket. Sous-ensemble STRICT de `@nodefony/security`'s `IToken` (TypeScript structural typing → toute classe `Token` security l'im…"
     },
-    "@nodefony/redis:Redis": {
-      "name": "Redis",
+    "defineRedisConfig": {
+      "name": "defineRedisConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/redis/nodefony/config/defineRedisConfig.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Builder type-safe de la configuration de `@nodefony/redis`. Principes (alignés sur `defineRealtimeConfig` / `defineSecurityConfig`) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE, a…"
+    },
+    "redisConfigJsonSchema": {
+      "name": "redisConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/redis/nodefony/config/defineRedisConfig.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "JSON Schema introspectable de la config Redis — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
+    },
+    "RedisConfig": {
+      "name": "RedisConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/redis/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/redis"
+    },
+    "redisConfigSchema": {
+      "name": "redisConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/redis/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/redis"
+    },
+    "IRedisConfig": {
+      "name": "IRedisConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/redis/nodefony/interfaces/IRedisConfig.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Configuration normalisée et gelée de `@nodefony/redis` (sortie du builder {@link defineRedisConfig}, lue par le `RedisService`). Type dérivé du schéma Zod — NE PAS redéclarer les champs à la main (…"
+    },
+    "IRedisConfigInput": {
+      "name": "IRedisConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/redis/nodefony/interfaces/IRedisConfig.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Entrée du builder `defineRedisConfig` — tous les champs portant un défaut sont optionnels (l'app ne fournit que ce qu'elle surcharge)."
+    },
+    "IRedisConnectionConfig": {
+      "name": "IRedisConnectionConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/redis/nodefony/interfaces/IRedisConfig.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Définition d'une connexion Redis nommée (sous-objet de `connections`)."
+    },
+    "RedisService": {
+      "name": "RedisService",
       "kind": "class",
       "file": "src/packages/@nodefony/redis/nodefony/service/redis.ts",
       "exported": true,
       "module": "@nodefony/redis",
       "extends": "Service",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Service Redis Nodefony — orchestre N connexions nommées (par défaut `main`, `publish`, `subscribe`) à partir de la config validée par Zod. La config est validée + gelée au boot du Module class (`on…"
+    },
+    "buildClientOptions": {
+      "name": "buildClientOptions",
+      "kind": "function",
+      "file": "src/packages/@nodefony/redis/nodefony/src/buildClientOptions.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Assemble les options `createClient` (redis v5) d'une connexion nommée à partir de la config validée : `globalOptions` fusionné avec la surcharge de connexion. Précédence : `url` (si présent) > sock…"
     },
     "Connection": {
       "name": "Connection",
@@ -5640,7 +5703,8 @@
       "module": "@nodefony/redis",
       "extends": "Service",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Une connexion Redis nommée — enveloppe un client `redis` v5 et gère son cycle de vie (création, écoute des événements, fermeture propre). Perf/mémoire : les handlers d'événements sont conservés en …"
     },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
@@ -9888,6 +9952,62 @@
       "decorators": [],
       "description": "Backplane **mono-process no-op** — implémentation de RÉFÉRENCE du port {@link IBackplane} quand il n'existe **aucun pair** (1 process = 1 pod). `publish` ne sort rien (pas de pair à qui propager), …"
     },
+    "RedisBackplane": {
+      "name": "RedisBackplane",
+      "kind": "class",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "implements": [
+        "IBackplane"
+      ],
+      "decorators": [],
+      "description": "Backplane **Redis pub/sub** (P13.5) — implémentation du port {@link IBackplane} pour le fan-out realtime **cross-pod** (multi-host), là où le {@link ClusterBackplane} ne couvrait que les workers d'…"
+    },
+    "IRedisBackplaneTransport": {
+      "name": "IRedisBackplaneTransport",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Transport pub/sub du backplane Redis — abstrait `PUBLISH` / `SUBSCRIBE` derrière un seam **injectable** (même pattern que `IClusterBackplaneTransport`). Permet de prouver le routage + l'anti-echo *…"
+    },
+    "IRedisPublisher": {
+      "name": "IRedisPublisher",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Client Redis **publisher** — surface structurelle minimale (compatible `RedisClientType` v5). Typage structurel volontaire : évite d'ajouter `redis` en dépendance de `@nodefony/realtime`."
+    },
+    "IRedisSubscriber": {
+      "name": "IRedisSubscriber",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Client Redis **subscriber** dédié — surface structurelle minimale (compatible `RedisClientType` v5). Un client abonné ne peut plus émettre de commandes normales (protocole Redis) → publisher et sub…"
+    },
+    "createRedisServiceTransport": {
+      "name": "createRedisServiceTransport",
+      "kind": "function",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Adapte deux clients Redis (publisher + subscriber dédié) au seam {@link IRedisBackplaneTransport}. SEUL point de contact avec la lib `redis` — et même ici le couplage est **structurel** (aucun impo…"
+    },
+    "REDIS_RT_CHANNEL": {
+      "name": "REDIS_RT_CHANNEL",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Canal Redis **dédié** transportant toutes les enveloppes realtime entre pods. Un seul canal pub/sub par défaut (les canaux logiques voyagent DANS l'enveloppe, comme le `channel` IPC du {@link Clust…"
+    },
     "ClusterProbeClient": {
       "name": "ClusterProbeClient",
       "kind": "class",
@@ -10357,7 +10477,7 @@
         "HttpKernel",
         "AbstractCrudService",
         "Orm",
-        "Redis",
+        "RedisService",
         "Connection",
         "Firewall",
         "SequelizeService",
@@ -10732,7 +10852,8 @@
       ],
       "IBackplane": [
         "ClusterBackplane",
-        "LoopbackBackplane"
+        "LoopbackBackplane",
+        "RedisBackplane"
       ],
       "IRealtimeController": [
         "RealtimeController"
@@ -11027,7 +11148,6 @@
         "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
-        "src/packages/@nodefony/redis/nodefony/config/config.ts",
         "src/packages/@nodefony/sequelize/nodefony/config/config.ts"
       ],
       "Message": [
@@ -11733,6 +11853,15 @@
       "LoopbackBackplane": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
+      "RedisBackplane": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "createRedisServiceTransport": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "REDIS_RT_CHANNEL": [
+        "src/packages/@nodefony/realtime/index.ts"
+      ],
       "ClusterBackplane": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
@@ -11777,6 +11906,27 @@
       ],
       "buildOwnHealth": [
         "src/packages/@nodefony/realtime/index.ts"
+      ],
+      "RedisService": [
+        "src/packages/@nodefony/redis/index.ts",
+        "src/packages/@nodefony/redis/nodefony/src/Connection.ts"
+      ],
+      "defineRedisConfig": [
+        "src/packages/@nodefony/redis/index.ts",
+        "src/packages/@nodefony/redis/nodefony/service/redis.ts"
+      ],
+      "redisConfigJsonSchema": [
+        "src/packages/@nodefony/redis/index.ts"
+      ],
+      "IRedisConfig": [
+        "src/packages/@nodefony/redis/index.ts",
+        "src/packages/@nodefony/redis/nodefony/config/defineRedisConfig.ts",
+        "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+        "src/packages/@nodefony/redis/nodefony/src/buildClientOptions.ts"
+      ],
+      "IRedisConfigInput": [
+        "src/packages/@nodefony/redis/index.ts",
+        "src/packages/@nodefony/redis/nodefony/config/defineRedisConfig.ts"
       ],
       "Firewall": [
         "src/packages/@nodefony/security/index.ts",
@@ -13027,6 +13177,7 @@
         "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
         "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
@@ -13070,9 +13221,23 @@
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeProbe.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
       ],
+      "redisConfigSchema": [
+        "src/packages/@nodefony/redis/nodefony/config/config.ts",
+        "src/packages/@nodefony/redis/nodefony/config/defineRedisConfig.ts",
+        "src/packages/@nodefony/redis/nodefony/interfaces/IRedisConfig.ts"
+      ],
+      "RedisConfig": [
+        "src/packages/@nodefony/redis/nodefony/config/config.ts"
+      ],
       "Connection": [
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "buildClientOptions": [
+        "src/packages/@nodefony/redis/nodefony/service/redis.ts"
+      ],
+      "IRedisConnectionConfig": [
+        "src/packages/@nodefony/redis/nodefony/src/buildClientOptions.ts"
       ],
       "defineSecurityConfig": [
         "src/packages/@nodefony/security/nodefony/config/config.ts"
@@ -14583,10 +14748,12 @@
       ],
       "BackplaneHandler": [
         "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts"
       ],
       "IBackplaneMessage": [
-        "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts"
       ],
       "CLUSTER_PROBE_CTL_KIND": [
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts"
