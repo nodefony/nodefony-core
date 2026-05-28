@@ -17,7 +17,26 @@
  *   - `id` sans `method`     → **réponse**           → résout/rejette un `pending` sortant
  *  `id` autorisé string OU number (JSON-RPC 2.0 §id). Méthode inconnue → `-32601` ;
  *  handler qui throw → `-32603` (message GÉNÉRIQUE au pair, détail via `onError` = Zero Trust).
+ *
+ * ── Types partagés (pattern Socket.IO) ────────────────────────────────────
+ *  3 génériques (`Emit`, `Listen`, `Actions`) avec **défauts permissifs**
+ *  ({@link DefaultEventsMap}, {@link DefaultActionsMap}) : code non paramétré
+ *  → comportement pré-types inchangé (rétro-compat 100%). Cf {@link EventsMap},
+ *  {@link ActionsMap} et le détail dans `RealtimeEventMap.ts`.
  */
+
+import type {
+  ActionNames,
+  ActionParams,
+  ActionResult,
+  ActionsMap,
+  DefaultActionsMap,
+  DefaultEventsMap,
+  EventNames,
+  EventPayload,
+  EventsMap,
+  TypedRpcActionHandler,
+} from "./RealtimeEventMap";
 
 /** Erreur JSON-RPC 2.0 (objet `error` d'une réponse). */
 export interface JsonRpcErrorObject {
@@ -29,8 +48,17 @@ export interface JsonRpcErrorObject {
 /** Handler d'une action (requête→réponse). Sync ou async ; throw → `-32603`. */
 export type RpcActionHandler = (params: unknown) => unknown | Promise<unknown>;
 
-/** Handler des notifications entrantes (pas de réponse). */
-export type RpcNotificationHandler = (method: string, params: unknown) => void;
+/**
+ * Handler des notifications entrantes (pas de réponse). Paramétrable par `Listen`
+ * (map des notifications REÇUES par ce peer). Défaut permissif → comportement
+ * pré-types-partagés inchangé.
+ */
+export type RpcNotificationHandler<
+  Listen extends EventsMap = DefaultEventsMap,
+> = <K extends EventNames<Listen>>(
+  method: K,
+  params: EventPayload<Listen, K>,
+) => void;
 
 /** Nature d'une frame entrante (renvoyée par {@link JsonRpcPeer.handleFrame}). */
 export type JsonRpcFrameKind =
@@ -52,11 +80,15 @@ export type FrameAuditReason =
   | "method_not_found"
   | "internal_error";
 
-export interface JsonRpcPeerOptions {
+export interface JsonRpcPeerOptions<
+  Emit extends EventsMap = DefaultEventsMap,
+  Listen extends EventsMap = DefaultEventsMap,
+  Actions extends ActionsMap = DefaultActionsMap,
+> {
   /** Envoie une frame sérialisable sur le transport (le peer ignore le transport). */
   send: (frame: unknown) => void;
   /** Notifications entrantes (`method` sans `id`) : pub/sub côté client, subscribe/unsubscribe côté serveur. */
-  onNotification?: RpcNotificationHandler;
+  onNotification?: RpcNotificationHandler<Listen>;
   /** Erreur interne d'un handler — détail JAMAIS renvoyé au pair (loggé ici). */
   onError?: (context: string, err: unknown) => void;
   /**
@@ -74,7 +106,10 @@ export interface JsonRpcPeerOptions {
    *
    * Branchement P6 : reading metadata `@IsGranted` du handler + voters → `boolean`.
    */
-  beforeDispatch?: (frame: unknown, peer: IRealtimePeer) => boolean;
+  beforeDispatch?: (
+    frame: unknown,
+    peer: IRealtimePeer<Emit, Actions>,
+  ) => boolean;
   /**
    * **Seam audit 5/5 (P13 → P6.14)** — fire-and-forget sur évènements
    * protocolaires notables (cf {@link FrameAuditReason}). Sync (pas de
@@ -96,26 +131,42 @@ export interface JsonRpcPeerOptions {
  * Sortant : `request` (attend une réponse), `notify` (fire-and-forget).
  * Entrant : `receive` (le transport y pousse chaque frame). Callee : `register`.
  */
-export interface IRealtimePeer {
+/**
+ * @typeParam Emit    — notifications SORTANTES (typage de `notify`).
+ * @typeParam Actions — contrat RPC bidirectionnel (typage de `request`/`register`).
+ *
+ * Note : `Listen` (notifications ENTRANTES) n'est PAS sur cette interface raw —
+ * il est consommé par `JsonRpcPeerOptions.onNotification` et par `RealtimeClient.on()`.
+ */
+export interface IRealtimePeer<
+  Emit extends EventsMap = DefaultEventsMap,
+  Actions extends ActionsMap = DefaultActionsMap,
+> {
   /** Requête sortante → `Promise` du `result` (rejette sur `error`/timeout). */
-  request<T = unknown>(
-    method: string,
-    params?: unknown,
+  request<K extends ActionNames<Actions>>(
+    method: K,
+    params?: ActionParams<Actions, K>,
     timeoutMs?: number,
-  ): Promise<T>;
+  ): Promise<ActionResult<Actions, K>>;
   /** Requête sortante en streaming (chunks → `onChunk`, `Promise` au `done`). */
-  requestStream<T = unknown>(
-    method: string,
-    params: unknown,
+  requestStream<K extends ActionNames<Actions>>(
+    method: K,
+    params: ActionParams<Actions, K>,
     onChunk: (chunk: unknown) => void,
     timeoutMs?: number,
-  ): Promise<T[]>;
+  ): Promise<ActionResult<Actions, K>[]>;
   /** Notification sortante (pas de réponse). */
-  notify(method: string, params?: unknown): void;
+  notify<K extends EventNames<Emit>>(
+    method: K,
+    params?: EventPayload<Emit, K>,
+  ): void;
   /** Expose une action appelable par le pair (requête entrante → `result`). */
-  register(method: string, handler: RpcActionHandler): void;
+  register<K extends ActionNames<Actions>>(
+    method: K,
+    handler: TypedRpcActionHandler<Actions, K>,
+  ): void;
   /** Retire une action. */
-  unregister(method: string): void;
+  unregister<K extends ActionNames<Actions>>(method: K): void;
   /** Ingestion d'une frame ENTRANTE (déjà parsée) → classe + route. */
   receive(frame: unknown): JsonRpcFrameKind;
   /** Actions exposées (découverte). */
@@ -141,7 +192,11 @@ interface JsonRpcInboundResponse {
   stream?: { chunk: unknown; done: boolean };
 }
 
-export class JsonRpcPeer implements IRealtimePeer {
+export class JsonRpcPeer<
+  Emit extends EventsMap = DefaultEventsMap,
+  Listen extends EventsMap = DefaultEventsMap,
+  Actions extends ActionsMap = DefaultActionsMap,
+> implements IRealtimePeer<Emit, Actions> {
   private nextId = 1;
   // `pending` = NOS requêtes sortantes en attente de réponse (lazy : alloué au 1ᵉʳ
   // `request`). Les actions entrantes ne touchent pas cette map.
@@ -150,15 +205,23 @@ export class JsonRpcPeer implements IRealtimePeer {
   // (ex. client) n'exposent aucune action → pas d'alloc « au cas où ».
   private actions: Map<string, RpcActionHandler> | null = null;
 
-  constructor(private readonly opts: JsonRpcPeerOptions) {}
+  constructor(
+    private readonly opts: JsonRpcPeerOptions<Emit, Listen, Actions>,
+  ) {}
 
   /** Expose une action (requête entrante `method`+`id` → `result`). Idempotent. */
-  register(method: string, handler: RpcActionHandler): void {
-    (this.actions ??= new Map<string, RpcActionHandler>()).set(method, handler);
+  register<K extends ActionNames<Actions>>(
+    method: K,
+    handler: TypedRpcActionHandler<Actions, K>,
+  ): void {
+    (this.actions ??= new Map<string, RpcActionHandler>()).set(
+      method,
+      handler as RpcActionHandler,
+    );
   }
 
   /** Retire une action. */
-  unregister(method: string): void {
+  unregister<K extends ActionNames<Actions>>(method: K): void {
     this.actions?.delete(method);
   }
 
@@ -168,29 +231,37 @@ export class JsonRpcPeer implements IRealtimePeer {
   }
 
   /** Requête SORTANTE — `Promise` résolue avec le `result` (rejette sur `error`/timeout). */
-  request<T = unknown>(
-    method: string,
-    params?: unknown,
+  request<K extends ActionNames<Actions>>(
+    method: K,
+    params?: ActionParams<Actions, K>,
     timeoutMs = 30000,
-  ): Promise<T> {
-    return this.startCall<T>(method, params, timeoutMs);
+  ): Promise<ActionResult<Actions, K>> {
+    return this.startCall<ActionResult<Actions, K>>(method, params, timeoutMs);
   }
 
   /**
    * Requête SORTANTE en streaming — chunks émis avec le même `id`, `Promise`
    * résolue (avec tous les chunks) au `done`. Pour les réponses token-by-token (LLM).
    */
-  requestStream<T = unknown>(
-    method: string,
-    params: unknown,
+  requestStream<K extends ActionNames<Actions>>(
+    method: K,
+    params: ActionParams<Actions, K>,
     onChunk: (chunk: unknown) => void,
     timeoutMs = 60000,
-  ): Promise<T[]> {
-    return this.startCall<T[]>(method, params, timeoutMs, onChunk);
+  ): Promise<ActionResult<Actions, K>[]> {
+    return this.startCall<ActionResult<Actions, K>[]>(
+      method,
+      params,
+      timeoutMs,
+      onChunk,
+    );
   }
 
   /** Notification SORTANTE (pas de réponse attendue). */
-  notify(method: string, params?: unknown): void {
+  notify<K extends EventNames<Emit>>(
+    method: K,
+    params?: EventPayload<Emit, K>,
+  ): void {
     this.opts.send({ jsonrpc: "2.0", method, params });
   }
 
@@ -240,7 +311,14 @@ export class JsonRpcPeer implements IRealtimePeer {
         this.handleRequest(id as number | string, method, params, msg);
         return "request";
       }
-      this.opts.onNotification?.(method, params);
+      // Le handler typé `RpcNotificationHandler<Listen>` ne peut pas être appelé
+      // avec un `unknown` dynamique — TS n'a pas la corrélation `method ↔ params`
+      // au runtime. Cast vers la signature permissive (équivalente à l'API d'avant
+      // les types partagés) : c'est ce que voient les consommateurs non paramétrés.
+      (this.opts.onNotification as RpcNotificationHandler | undefined)?.(
+        method,
+        params,
+      );
       return "notification";
     }
 

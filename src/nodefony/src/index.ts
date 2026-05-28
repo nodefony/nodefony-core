@@ -52,6 +52,19 @@ export type {
 } from "./realtime/IRealtimeSocket";
 export { rateChannel, parseRate, isRateChannel } from "./realtime/channelRate";
 export type { RateBounds } from "./realtime/channelRate";
+export { expectType } from "./realtime/RealtimeEventMap";
+export type {
+  EventsMap,
+  ActionsMap,
+  DefaultEventsMap,
+  DefaultActionsMap,
+  EventNames,
+  EventPayload,
+  ActionNames,
+  ActionParams,
+  ActionResult,
+  TypedRpcActionHandler,
+} from "./realtime/RealtimeEventMap";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 export { default as nodefonyError } from "./Error";

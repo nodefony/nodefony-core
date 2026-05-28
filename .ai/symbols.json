@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-28T13:12:31.876Z",
+  "generated": "2026-05-28T13:58:02.812Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 760,
-    "symbols": 1385,
+    "files": 761,
+    "symbols": 1396,
     "classes": 230,
-    "interfaces": 333,
-    "types": 166,
+    "interfaces": 335,
+    "types": 174,
     "enums": 2,
-    "functions": 201,
+    "functions": 202,
     "constants": 453
   },
   "symbols": {
@@ -756,7 +756,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "JsonRpcPeer — moteur protocole **JSON-RPC 2.0 ISOMORPHE** (client ET serveur). Client et serveur sont des **pairs** : le protocole (classer une frame, router, corréler les réponses) est identique d…"
+      "description": "Erreur JSON-RPC 2.0 (objet `error` d'une réponse)."
     },
     "JsonRpcPeerOptions": {
       "name": "JsonRpcPeerOptions",
@@ -789,7 +789,7 @@
       "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Handler des notifications entrantes (pas de réponse)."
+      "description": "Handler des notifications entrantes (pas de réponse). Paramétrable par `Listen` (map des notifications REÇUES par ce peer). Défaut permissif → comportement pré-types-partagés inchangé."
     },
     "JsonRpcFrameKind": {
       "name": "JsonRpcFrameKind",
@@ -806,6 +806,96 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Motif d'un évènement audit protocolaire (consommé par P6.14 `AuditEventEntity`) : - `invalid` : frame non conforme JSON-RPC 2.0 (pas d'objet, `jsonrpc`≠\"2.0\", `method` non string sans `id` valide).…"
+    },
+    "DefaultEventsMap": {
+      "name": "DefaultEventsMap",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Défaut **permissif** pour `EventsMap` — toute clé `string`, payload `unknown`. Code instancié sans paramétrage (`new JsonRpcPeer(opts)`) → comportement pré-types-partagés inchangé. **Sécurité rétro…"
+    },
+    "DefaultActionsMap": {
+      "name": "DefaultActionsMap",
+      "kind": "interface",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Défaut **permissif** pour `ActionsMap` (rétro-compat)."
+    },
+    "EventsMap": {
+      "name": "EventsMap",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Types partagés pour le contrat **realtime** Nodefony — pattern « typed events » (Socket.IO §emitter-typing) appliqué à JSON-RPC 2.0. Le contrat (canaux pub/sub + RPC) est déclaré UNE fois côté part…"
+    },
+    "ActionsMap": {
+      "name": "ActionsMap",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Map des RPC — nom de méthode → `{ in: paramètres, out: résultat }`. Utilisée par `request()` (sortant) ET `register()` (entrant) : les 2 pairs respectent le même contrat (JSON-RPC 2.0 est symétrique)."
+    },
+    "EventNames": {
+      "name": "EventNames",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom valide dans une `EventsMap` (clé `string`)."
+    },
+    "EventPayload": {
+      "name": "EventPayload",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Payload typé d'un canal."
+    },
+    "ActionNames": {
+      "name": "ActionNames",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom valide dans une `ActionsMap`."
+    },
+    "ActionParams": {
+      "name": "ActionParams",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Paramètres entrants d'une RPC. Si la déclaration est `{ in: void }` ou que `in` est absent, le paramètre devient optionnel/`void`."
+    },
+    "ActionResult": {
+      "name": "ActionResult",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résultat attendu d'une RPC (`out`)."
+    },
+    "TypedRpcActionHandler": {
+      "name": "TypedRpcActionHandler",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Handler typé pour une RPC entrante (côté qui expose via `register`). Sync ou async — JSON-RPC 2.0 §5.1 : throw → réponse `-32603 internal_error`."
+    },
+    "expectType": {
+      "name": "expectType",
+      "kind": "function",
+      "file": "src/nodefony/src/realtime/RealtimeEventMap.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Assertion type **compile-time** : `expectType<T>(value)` échoue à la compilation si `value` n'est pas assignable à `T`. **0 coût runtime** (fonction vide)."
     },
     "redactSecrets": {
       "name": "redactSecrets",
@@ -11790,6 +11880,36 @@
       ],
       "PackageJson": [
         "src/nodefony/src/kernel/Module.ts"
+      ],
+      "ActionNames": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+      ],
+      "ActionParams": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+      ],
+      "ActionResult": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+      ],
+      "ActionsMap": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+      ],
+      "DefaultActionsMap": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+      ],
+      "DefaultEventsMap": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+      ],
+      "EventNames": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+      ],
+      "EventPayload": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+      ],
+      "EventsMap": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts"
+      ],
+      "TypedRpcActionHandler": [
+        "src/nodefony/src/realtime/JsonRpcPeer.ts"
       ],
       "ModuleName": [
         "src/nodefony/src/syslog/Syslog.ts"
