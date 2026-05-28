@@ -57,27 +57,9 @@ class DocumentationController extends Controller {
         },
       ],
       sections: [
-        {
-          id: "realtime",
-          label: "Realtime — la Socket Nodefony",
-          pages: [
-            {
-              slug: "socket",
-              title: "Nodefony Socket — hub + backplane IPC cluster",
-              audience: ["developer", "devops", "supervisor"],
-              version: "0.1-démo",
-              status: "draft",
-            },
-            {
-              slug: "client",
-              title: "Client navigateur (RealtimeClient isomorphe)",
-              audience: ["developer"],
-              version: "0.1-démo",
-              status: "draft",
-              wip: true,
-            },
-          ],
-        },
+        // La doc Realtime / Socket vient du scan FS (`docs/realtime/socket/*.md`)
+        // → section `root-realtime~socket` ajoutée par `#listRootDocSections`.
+        // Plus de section hardcodée `realtime` ici (évite le doublon dans le menu).
         {
           id: "http",
           label: "HTTP — pipeline & serveurs",
@@ -310,86 +292,14 @@ class DocumentationController extends Controller {
       }
     }
 
-    if (slug !== "socket") {
-      return this.renderJson({
-        slug,
-        wip: true,
-        error:
-          "Page de démo non rédigée (le module final lira <module>/docs/*.md).",
-      });
-    }
-    // Le « registre de providers » : valeurs résolues à la lecture, côté serveur.
-    // SÛRES uniquement (aucun chemin FS, aucun secret). Le vrai module y branchera
-    // symbols.json / package.json / git.
-    const vars = {
-      generatedAt: new Date().toISOString(),
-      node: process.version,
-      env: String(this.kernel?.environment ?? "—"),
-      pid: process.pid,
-      framework: "@nodefony/http",
-    };
+    // Fallback : page hardcodée non rédigée (wip côté tree) → réponse propre.
     return this.renderJson({
       slug,
-      title: "Nodefony Socket — hub + backplane IPC cluster",
-      audience: ["developer", "devops", "supervisor"],
-      version: "0.1-démo",
-      status: "draft",
-      vars,
-      markdown: SOCKET_MD,
+      wip: true,
+      error:
+        "Page de démo non rédigée (le module final lira <module>/docs/*.md).",
     });
   }
 }
-
-/**
- * Contenu markdown de démo (la « source » qu'écrira l'auteur). Inclut :
- *  - des `{{ var }}` résolus côté serveur (providers dynamiques) ;
- *  - un bloc ```mermaid``` (convention d'authoring : schéma écrit dans le texte).
- */
-const SOCKET_MD = `## La Socket Nodefony, en une phrase
-
-Une **seule prise** (\`IRealtimeSocket\`) côté client et serveur qui multiplexe *N* canaux
-en duplex, quel que soit le transport dessous (pub/sub, IPC cluster, Redis, SIP…).
-
-> 🔌 **Analogie — le fond de panier (backplane).** Dans un serveur rackable, le *backplane*
-> est la carte au fond du châssis où **toutes les cartes se branchent** : elles communiquent
-> sans se câbler une à une. Le **\`IBackplane\`** de Nodefony joue ce rôle entre les *workers* :
-> un message publié sur un worker ressort sur **tous** les autres, sans que le code applicatif
-> sache s'il y a 1 ou 50 process. Loopback (mono-process) → IPC (cluster) → Redis (multi-pod) :
-> **même prise, on change juste le fond de panier.**
-
-## Les couches (de haut en bas)
-
-1. **RealtimeClient** *(navigateur, isomorphe)* — \`subscribe / on / publish / request\`.
-2. **Transport** \`IRealtimeTransport\` — WSS aujourd'hui ; seul point qui connaît le réseau.
-3. **JsonRpcPeer** — protocole **JSON-RPC 2.0** (le même des deux côtés, isomorphe).
-4. **RealtimeHub** *(broker serveur)* — pub/sub par canal, **fan-out** vers les abonnés.
-5. **IBackplane** *(fond de panier)* — propage les publications **entre workers**.
-6. **Workers / pods** — chaque process se branche sur le backplane.
-
-## Flux subscribe → publish en cluster
-
-\`\`\`mermaid
-sequenceDiagram
-  participant B as Navigateur
-  participant W1 as Worker A (Hub)
-  participant BP as IBackplane (IPC)
-  participant W2 as Worker B (Hub)
-  B->>W1: subscribe("orm:health")
-  Note over W2: une requête tombe sur Worker B
-  W2->>BP: publish("orm:health", payload)
-  BP-->>W1: fan-out cross-process
-  W1-->>B: push("orm:health", payload)
-\`\`\`
-
-Le navigateur est abonné sur **Worker A** mais l'événement naît sur **Worker B** : le
-backplane (ici l'**IPC du cluster Node**) fait traverser le message — l'abonné le reçoit
-quand même. C'est l'invariant « *même prise, peu importe le worker* ».
-
----
-
-*Page générée le **{{generatedAt}}** · Node **{{node}}** · env **{{env}}** · pid **{{pid}}** ·
-brique **{{framework}}**. Ces valeurs sont **résolues côté serveur** (registre de providers
-\`{{ }}\`) — la doc cite l'état réel, elle n'est pas figée.*
-`;
 
 export default DocumentationController;

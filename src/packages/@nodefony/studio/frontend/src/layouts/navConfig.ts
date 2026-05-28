@@ -112,11 +112,6 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Documentation",
         icon: IconBooks,
       },
-      {
-        to: "/nodefony/socket-poc",
-        label: "POC Socket (WYSIWYG)",
-        icon: IconBooks,
-      },
     ],
   },
   {

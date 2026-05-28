@@ -1,5 +1,10 @@
 import type { ComponentType } from "react";
+import { ActionsLiveGraph } from "./ActionsLiveGraph";
 import { ArchitectureLiveGraph } from "./ArchitectureLiveGraph";
+import { BackplaneLiveGraph } from "./BackplaneLiveGraph";
+import { FanOutLiveGraph } from "./FanOutLiveGraph";
+import { ProtocoleLiveGraph } from "./ProtocoleLiveGraph";
+import { SondesLiveGraph } from "./SondesLiveGraph";
 
 /* ════════════════════════════════════════════════════════════════════════
  * pages.ts — REGISTRY des sous-pages de la doc Socket.
@@ -40,7 +45,12 @@ const LIVE_GRAPHS: Record<
   ComponentType<{ live?: boolean; height?: number }> | undefined
 > = {
   "vue-ensemble": ArchitectureLiveGraph,
-  // Phase D : "architecture": ArchitectureLiveGraph, "fan-out": FanOutLiveGraph, etc.
+  architecture: ArchitectureLiveGraph,
+  "fan-out": FanOutLiveGraph,
+  protocole: ProtocoleLiveGraph,
+  sondes: SondesLiveGraph,
+  backplane: BackplaneLiveGraph,
+  actions: ActionsLiveGraph,
 };
 
 export interface SocketPage {
@@ -88,7 +98,7 @@ function humanize(slug: string): string {
   return slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-/** Liste triée des sous-pages — source unique consommée par `SocketPocPage`. */
+/** Liste triée des sous-pages — source unique du registry Vite glob. */
 export const socketPages: SocketPage[] = Object.entries(RAW_MAP)
   .map(([path, raw]) => {
     const { slug, order } = parseFilename(path);
@@ -111,4 +121,27 @@ export const socketPages: SocketPage[] = Object.entries(RAW_MAP)
 /** Trouve une page par slug ; fallback = première page de la liste. */
 export function findSocketPage(slug?: string | null): SocketPage {
   return socketPages.find((p) => p.slug === slug) ?? socketPages[0];
+}
+
+/**
+ * Trouve le composant graphe live associé à un slug, en acceptant les DEUX
+ * formats qui peuvent arriver :
+ *  - format court : `vue-ensemble`, `fan-out`, `protocole`, …
+ *    (slug du registry Vite, utile pour tests / appels directs).
+ *  - format portail backend : `root~realtime~socket~04-fan-out`, …
+ *    (slug produit par `DocumentationController.list()` scan FS — c'est ce
+ *    que reçoit `Documentation.tsx`).
+ *
+ * Retourne `undefined` si rien ne matche (la page rendra alors juste le
+ * markdown, pas de bloc « Schéma live » sous le contenu).
+ */
+export function findSocketLiveGraph(
+  slug: string,
+): ComponentType<{ live?: boolean; height?: number }> | undefined {
+  if (LIVE_GRAPHS[slug]) return LIVE_GRAPHS[slug];
+  // Format backend : "root~realtime~socket~04-fan-out" → "fan-out".
+  // On retire les segments séparés par `~` et le préfixe numérique optionnel.
+  const m = /(?:^|~)(?:\d+[-_])?([a-z][\w-]*)$/.exec(slug);
+  if (m) return LIVE_GRAPHS[m[1]];
+  return undefined;
 }
