@@ -62,7 +62,11 @@
       "Bash(head *)",
       "Read(//tmp/**)",
       "Skill(nodefony-start-server)",
-      "Skill(nodefony-session)"
+      "Skill(nodefony-session)",
+      "Bash(docker ps:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker logs:*)"
     ]
   }
 }
