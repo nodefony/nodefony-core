@@ -1,14 +1,18 @@
-import { Service, Container, Event, Module } from "nodefony";
+import { Service, Container, Event, Module, type JsonRpcPeer } from "nodefony";
 
 import {
   getRealtimeHub,
   type RealtimeHub,
   type ChannelFactory,
   type ChannelSink,
+  type OriginGuard,
 } from "../server/RealtimeHub";
 import type { IBackplane } from "../../interfaces/IBackplane";
 import type { IRealtimeProbe } from "../../interfaces/IRealtimeProbe";
 import type { IRealtimeConfig } from "../../config/defineRealtimeConfig";
+import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator";
+import type { IRealtimeAuthenticatorMatcher } from "../../interfaces/IRealtimeAuthenticatorMatcher";
+import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
 
 const serviceName = "realtimeService";
 
@@ -86,6 +90,9 @@ class RealtimeService extends Service {
         "INFO",
       );
     }
+    // Seam #4 — pose la politique Origin (CSRF defense RFC 6455 §10.2) sur le
+    // hub. `enabled: false` (défaut) → guard `null` (rétrocompat). Cold path.
+    hub.setOriginGuard(buildOriginGuard(this.#config));
     return this;
   }
 
@@ -150,6 +157,62 @@ class RealtimeService extends Service {
   markBroadcastChannel(prefix: string): void {
     this.getHub().markBroadcastChannel(prefix);
   }
+
+  /**
+   * **Seam #2/#3 (P13 → P6)** — enregistre un authenticator pour les
+   * handshakes WS dont l'URL matche `matcher`. Ordre d'enregistrement
+   * préservé (1ʳᵉ match capture). Cold path (boot via P6/userland).
+   *
+   * @example
+   * ```ts
+   * // À brancher par @nodefony/security (P6) au boot, depuis les areas
+   * // de `defineSecurityConfig()` filtrées sur `realtime: true`.
+   * realtimeService.useAuthenticator(
+   *   { pattern: "/admin/", host: "admin.example.com" },
+   *   jwtRealtimeAuthenticator,
+   * );
+   * ```
+   */
+  useAuthenticator(
+    matcher: IRealtimeAuthenticatorMatcher,
+    authenticator: IRealtimeAuthenticator,
+  ): void {
+    this.getHub().useAuthenticator(matcher, authenticator);
+  }
+
+  /**
+   * Renvoie le token associé à un peer (posé au handshake par le hub). Jamais
+   * `null` (Zero Trust : `ANONYMOUS_REALTIME_TOKEN` si aucun authenticator n'a
+   * capturé la connexion). Lookup O(1) via WeakMap interne. Branchement P6 :
+   * voters / `@IsGranted` realtime lisent l'identité par cette méthode.
+   */
+  getTokenForPeer(peer: JsonRpcPeer): IRealtimeToken {
+    return this.getHub().getTokenForPeer(peer);
+  }
+}
+
+/**
+ * Construit la fonction de garde Origin (RFC 6455 §10.2) depuis la config CSRF.
+ * `null` quand le check est désactivé → hub bypass total (rétrocompat). Cold
+ * path (1× par boot).
+ *
+ * Politique fail-closed :
+ *  - `enabled: false`                 → `null` (toutes origines acceptées).
+ *  - `enabled: true`, Origin absent   → accepté si `allowMissingOrigin: true`,
+ *                                       sinon refusé.
+ *  - `enabled: true`, Origin présent  → accepté **uniquement** si exact dans
+ *                                       `allowList` (pas de wildcard).
+ */
+function buildOriginGuard(config: IRealtimeConfig): OriginGuard | null {
+  const c = config.csrf?.checkOrigin;
+  if (!c || c.enabled !== true) return null;
+  // Capture les valeurs à la résolution → pas de relecture config par upgrade.
+  const allowSet = new Set<string>(c.allowList ?? []);
+  const allowMissing = c.allowMissingOrigin === true;
+  return (origin: string | undefined): boolean => {
+    if (origin === undefined || origin === "") return allowMissing;
+    return allowSet.has(origin);
+  };
 }
 
 export default RealtimeService;

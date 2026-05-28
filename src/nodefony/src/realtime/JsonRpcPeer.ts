@@ -116,10 +116,19 @@ export interface JsonRpcPeerOptions<
    * back-pressure : un audit lent ne doit pas ralentir le pipeline RPC).
    * `undefined` (cas client par défaut) → bypass 0-coût.
    *
+   * Le `peer` est passé pour permettre au consommateur (typiquement
+   * `RealtimeHub` côté serveur) de retrouver l'**actor** associé à la
+   * connexion via son mapping `peer → IRealtimeToken` (slot #6 forward-audit
+   * P6 : « qui a été refusé » exige l'identité, pas juste l'IP du paquet).
+   *
    * Branchement P6.14 : alimente le journal `AuditEventEntity` (qui agit, qui a
    * été refusé, qui appelle une méthode inconnue — traçabilité Zero Trust).
    */
-  onFrameAudit?: (reason: FrameAuditReason, frame: unknown) => void;
+  onFrameAudit?: (
+    reason: FrameAuditReason,
+    frame: unknown,
+    peer: IRealtimePeer<Emit, Actions>,
+  ) => void;
 }
 
 /**
@@ -276,7 +285,7 @@ export class JsonRpcPeer<
       typeof msg !== "object" ||
       (msg as { jsonrpc?: unknown }).jsonrpc !== "2.0"
     ) {
-      this.opts.onFrameAudit?.("invalid", msg);
+      this.opts.onFrameAudit?.("invalid", msg, this);
       return "invalid";
     }
 
@@ -291,7 +300,7 @@ export class JsonRpcPeer<
       // Seam sécu 1/5 : gate AVANT le dispatch (request ET notification). Hot-path
       // sync — `undefined` → bypass 0-coût. Cf JsonRpcPeerOptions.beforeDispatch.
       if (this.opts.beforeDispatch && !this.opts.beforeDispatch(msg, this)) {
-        this.opts.onFrameAudit?.("denied", msg);
+        this.opts.onFrameAudit?.("denied", msg, this);
         if (hasId) {
           // Requête refusée : -32001 dans la plage `Server error` (-32000 à -32099)
           // réservée par JSON-RPC 2.0 §5.1 pour les erreurs serveur applicatives.
@@ -328,7 +337,7 @@ export class JsonRpcPeer<
       return "response";
     }
 
-    this.opts.onFrameAudit?.("invalid", msg);
+    this.opts.onFrameAudit?.("invalid", msg, this);
     return "invalid";
   }
 
@@ -382,7 +391,7 @@ export class JsonRpcPeer<
   ): void {
     const handler = this.actions?.get(method);
     if (!handler) {
-      this.opts.onFrameAudit?.("method_not_found", rawFrame);
+      this.opts.onFrameAudit?.("method_not_found", rawFrame, this);
       this.opts.send({
         jsonrpc: "2.0",
         id,
@@ -396,7 +405,7 @@ export class JsonRpcPeer<
         (result) => this.opts.send({ jsonrpc: "2.0", id, result }),
         (err: unknown) => {
           this.opts.onError?.(`rpc ${method}`, err);
-          this.opts.onFrameAudit?.("internal_error", rawFrame);
+          this.opts.onFrameAudit?.("internal_error", rawFrame, this);
           this.opts.send({
             jsonrpc: "2.0",
             id,

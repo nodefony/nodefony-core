@@ -25,6 +25,10 @@ describe("defineRealtimeConfig — builder + Zod", () => {
       expect(c.backplane.driver).to.equal("loopback");
       expect(c.cluster.probe.enabled).to.equal(true);
       expect(c.slowConsumer.bytes).to.equal(1 << 20);
+      // Seam #4 — défauts sûrs CSRF (origin check désactivé pour rétrocompat)
+      expect(c.csrf.checkOrigin.enabled).to.equal(false);
+      expect(c.csrf.checkOrigin.allowList).to.deep.equal([]);
+      expect(c.csrf.checkOrigin.allowMissingOrigin).to.equal(false);
     });
 
     it("merge les overrides partiels avec les défauts", () => {
@@ -94,8 +98,12 @@ describe("defineRealtimeConfig — builder + Zod", () => {
       const schema = realtimeConfigJsonSchema() as Record<string, unknown>;
       expect(schema).to.be.an("object");
       // descriptions des champs Zod surfacées (consommées par Studio pour les labels)
-      expect(JSON.stringify(schema)).to.match(/backplane/i);
-      expect(JSON.stringify(schema)).to.match(/slowConsumer/i);
+      const dump = JSON.stringify(schema);
+      expect(dump).to.match(/backplane/i);
+      expect(dump).to.match(/slowConsumer/i);
+      // Seam #4 — la section CSRF est aussi exposée (formulaire Studio)
+      expect(dump).to.match(/checkOrigin/);
+      expect(dump).to.match(/allowList/);
     });
 
     it("n'expose PAS backplane.instance (non-sérialisable)", () => {

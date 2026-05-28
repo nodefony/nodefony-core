@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-28T14:45:14.422Z",
+  "generated": "2026-05-28T15:32:44.990Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 763,
-    "symbols": 1401,
+    "files": 768,
+    "symbols": 1413,
     "classes": 231,
-    "interfaces": 335,
-    "types": 176,
+    "interfaces": 341,
+    "types": 177,
     "enums": 2,
-    "functions": 204,
-    "constants": 453
+    "functions": 208,
+    "constants": 454
   },
   "symbols": {
     "Cli": {
@@ -5507,6 +5507,33 @@
       "module": "@nodefony/realtime",
       "description": "Handler d'ingress : reçoit un message publié par un **autre** pair. L'echo du pair courant a déjà été filtré par l'implémentation → le handler peut réinjecter sans condition (mais en fan-out **loca…"
     },
+    "IRealtimeAuthenticator": {
+      "name": "IRealtimeAuthenticator",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticator.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Stratégie d'authentification au handshake WebSocket — équivalent realtime du pattern `IAuthenticator` (Symfony 6) côté HTTP de `@nodefony/security`. Plusieurs authenticators sont enregistrés sur le…"
+    },
+    "IRealtimeAuthenticatorMatcher": {
+      "name": "IRealtimeAuthenticatorMatcher",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticatorMatcher.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Sélecteur d'une zone WS protégée — équivalent realtime de `ISecuredArea` côté HTTP de `@nodefony/security` (pattern URL + vhost optionnel). Le hub stocke les matchers dans l'ordre d'enregistrement …"
+    },
+    "ICompiledRealtimeMatcher": {
+      "name": "ICompiledRealtimeMatcher",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticatorMatcher.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Forme compilée d'un matcher — utilisé en interne par le hub (cache de la RegExp compilée + host lowercase). Pas destiné à l'API publique."
+    },
     "IRealtimeController": {
       "name": "IRealtimeController",
       "kind": "interface",
@@ -5531,6 +5558,15 @@
       "exported": true,
       "module": "@nodefony/realtime",
       "description": "Handler d'un message ENTRANT sur un canal full-duplex (client → serveur). C'est le seam des backings entrants (SIP, bridge) : le client `publish(channel, payload)` ; si le contrôleur a déclaré ce c…"
+    },
+    "IRealtimeHandshake": {
+      "name": "IRealtimeHandshake",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeHandshake.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Données de handshake WebSocket — DTO minimal passé à un {@link IRealtimeAuthenticator} pour qu'il extraie un credential et valide l'identité, SANS coupler ce module à `@nodefony/http` runtime. Cons…"
     },
     "IRealtimeConnProbe": {
       "name": "IRealtimeConnProbe",
@@ -5576,6 +5612,15 @@
       "module": "@nodefony/realtime",
       "extends": null,
       "description": "Vue **POD agrégée** de la socket (Phase 4c, mode cluster) — la santé de TOUS les workers du pod consolidée. Servie par n'importe quel worker via l'endpoint santé quand le master pousse le snapshot …"
+    },
+    "IRealtimeToken": {
+      "name": "IRealtimeToken",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeToken.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "extends": null,
+      "description": "Jeton realtime — surface MINIMALE de l'identité d'une connexion WebSocket. Sous-ensemble STRICT de `@nodefony/security`'s `IToken` (TypeScript structural typing → toute classe `Token` security l'im…"
     },
     "@nodefony/redis:Redis": {
       "name": "Redis",
@@ -9922,6 +9967,13 @@
       "decorators": [],
       "description": "Erreur de base pour"
     },
+    "ANONYMOUS_REALTIME_TOKEN": {
+      "name": "ANONYMOUS_REALTIME_TOKEN",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/AnonymousRealtimeToken.ts",
+      "exported": true,
+      "module": "@nodefony/realtime"
+    },
     "buildOwnHealth": {
       "name": "buildOwnHealth",
       "kind": "function",
@@ -9968,6 +10020,14 @@
       "implements": [],
       "decorators": [],
       "description": "RealtimeHub — broker temps réel **PAR INSTANCE** (1 pod = 1 process = 1 hub local). Élève le realtime serveur du modèle **per-connexion** (chaque connexion son propre ticker/listener = N fois le mê…"
+    },
+    "OriginGuard": {
+      "name": "OriginGuard",
+      "kind": "type",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Fonction de filtrage Origin — `true` = upgrade autorisée. Posée par `RealtimeService.initialize()` depuis `defineRealtimeConfig().csrf.checkOrigin`. `null` = aucune politique (rétrocompat : tout pa…"
     },
     "ChannelSink": {
       "name": "ChannelSink",
@@ -11773,7 +11833,9 @@
       ],
       "JsonRpcPeer": [
         "src/nodefony/src/client/index.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "TransportState": [
         "src/nodefony/src/client/index.ts",
@@ -12984,6 +13046,19 @@
       "RealtimeInboundHandler": [
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "IRealtimeHandshake": [
+        "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticator.ts",
+        "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticatorMatcher.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+      ],
+      "IRealtimeToken": [
+        "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeAuthenticator.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/AnonymousRealtimeToken.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "IProcessHealth": [
         "src/packages/@nodefony/realtime/nodefony/interfaces/IRealtimeProbe.ts"
@@ -14545,6 +14620,10 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
+      "ANONYMOUS_REALTIME_TOKEN": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+      ],
       "IRealtimeController": [
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
@@ -14568,7 +14647,21 @@
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
+      "IRealtimeAuthenticator": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+      ],
+      "ICompiledRealtimeMatcher": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts"
+      ],
+      "IRealtimeAuthenticatorMatcher": [
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+      ],
       "ChannelFactory": [
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+      ],
+      "OriginGuard": [
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "anonymousUser": [

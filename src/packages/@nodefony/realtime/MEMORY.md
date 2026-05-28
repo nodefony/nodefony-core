@@ -4,7 +4,8 @@ Purpose: couche realtime serveur Nodefony (hub WS, JSON-RPC 2.0, backplane clust
 
 ## Core Components (cible après rapatriement P13.0)
 
-- **`RealtimeService`** (façade DI publique) — wrapper du singleton hub, expose `publish`/`subscribe`/`unsubscribe`/`probe`/`markBroadcastChannel`/`getConfig`/`getHub`/`getBackplane`. Branche au `initialize` le backplane custom (`config.backplane.instance` OU service DI `realtimeBackplane`). ✅ livré (Bloc A étape 5).
+- **`RealtimeService`** (façade DI publique) — wrapper du singleton hub, expose `publish`/`subscribe`/`unsubscribe`/`probe`/`markBroadcastChannel`/`getConfig`/`getHub`/`getBackplane` + (étape 6) `useAuthenticator(matcher, authenticator)` / `getTokenForPeer(peer)`. Branche au `initialize` le backplane custom (`config.backplane.instance` OU service DI `realtimeBackplane`) ET le guard Origin (`csrf.checkOrigin`). ✅ livré (Bloc A étape 5 + 6).
+- **`IRealtimeAuthenticator`** + `IRealtimeToken` + `IRealtimeHandshake` + `IRealtimeAuthenticatorMatcher` (✅ Bloc A étape 6) — 4 contrats du seam #2 dans `nodefony/interfaces/`. Pattern Symfony 6 (`supports/authenticate/onSuccess/onFailure`). 0 dep `@nodefony/security` (structural typing). `ANONYMOUS_REALTIME_TOKEN` = singleton gelé fallback Zero Trust.
 - **`defineRealtimeConfig(config?, { backplane? })`** — builder Zod gelé + `realtimeConfigJsonSchema()` (introspection Studio, exclut `instance`). ✅ livré.
 - **`RealtimeHub`** (server) — broker fan-out canaux PARTAGÉS, 1 par pod. Sonde `probe()`.
 - **`RealtimeController`** (server, base class) — controllers WS extends ceci. Décorateurs `@RealtimeController`/`@RealtimeEvent` à coder (P13.8).
@@ -79,6 +80,10 @@ Alice/Bob ne savent PAS qu'ils sont sur des pods différents. Seul `IBackplane` 
 
 ## Gotchas
 
+- **Handshake async (étape 6)** : `RealtimeController.handleRealtime(null)` lance le handshake **fire-and-forget** (`void onHandshake(ctx)`). Frames texte arrivant pendant l'auth async sont **droppées silencieusement** (transport pas encore branché — `state?.transport.feed`). Comportement attendu : le client doit attendre `realtime:welcome` avant de pousser (ce que `RealtimeClient` fait nativement).
+- **Codes close applicatifs** (RFC 6455 §7.4.2) : `4001 unauthorized` (auth fail), `4003 forbidden` (Origin reject). Plage 4000-4999.
+- **`getTokenForPeer(peer)`** ne renvoie JAMAIS `null` — fallback `ANONYMOUS_REALTIME_TOKEN`. Code consumer simplifié (voters n'ont pas à guarder le null).
+- **Matcher string** → compilé en RegExp **préfixe ancré** (`^<escaped>`) — pas EXACT. `{ pattern: "/admin/" }` matche `/admin/`, `/admin/users`, etc. Pour EXACT, passer une RegExp avec `$` (ex. `/^\/admin\/$/`).
 - **NE PAS** créer 2 instances de `RealtimeClient` sur la même URL côté navigateur — utiliser `RealtimeClient.shared({url})` (singleton par URL sur `globalThis`).
 - **NORMALISER `http(s)→ws(s)`** dans la clé `shared()` ET dans `new WebSocket(...)` : une URL relative hérite du scheme `https` → si non normalisée, 2 instances + `WebSocket("https://…")` throw.
 - **Init depuis `client.state`** côté consommateur de socket partagée : la socket peut être DÉJÀ ouverte (event "connected" déjà passé) → sinon hub affiche "disconnected" à tort.

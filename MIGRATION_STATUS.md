@@ -245,11 +245,13 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 >
 > **🪡 5 SEAMS sécurité OBLIGATOIRES** (à coder DANS P13 pour que P6 se branche sans refondre) :
 >
-> - **P13.4a** — `IRealtimeAuthenticator` sur handshake WS (façade `RealtimeService`)
-> - **P13.4b** — Areas WS dans `defineSecurityConfig()` (pattern `{pattern:"kernel:*", authenticator:"jwt"}`)
-> - **P13.4c** — Origin check natif sur upgrade WS (CSRF defense, absence de SameSite côté WS)
-> - ✅ **P13.7a** — Hook `onFrameAudit(reason, frame)` dans `JsonRpcPeer` (event audit → P6.14) — **livré 2026-05-28 (`b3a5890`)** : 4 raisons (`invalid` / `denied` / `method_not_found` / `internal_error`), sync fire-and-forget, bypass 0-coût quand `undefined`. Type `FrameAuditReason` exporté depuis `nodefony`.
+> - ✅ **P13.4a** — `IRealtimeAuthenticator` sur handshake WS (façade `RealtimeService`) — **livré 2026-05-28 (Bloc A étape 6)** : contrats `IRealtimeToken` / `IRealtimeHandshake` / `IRealtimeAuthenticator` + `IRealtimeAuthenticatorMatcher` posés dans `@nodefony/realtime/nodefony/interfaces/` (0 dep `@nodefony/security`, TS structural-compat `IToken`). `RealtimeService.useAuthenticator(matcher, authenticator)` + `RealtimeService.getTokenForPeer(peer)` (WeakMap interne O(1) hub). Branchement `RealtimeController.onHandshake` async : `supports`/`authenticate`/`onSuccess`/`onFailure` Symfony 6. Échec auth → close 4001 `unauthorized`. Fallback Zero Trust = `ANONYMOUS_REALTIME_TOKEN` gelé.
+> - ✅ **P13.4b** — Areas WS via API neutre `useAuthenticator(matcher, authenticator)` — **livré 2026-05-28 (Bloc A étape 6)** : matchers ordonnés (1ʳᵉ match capture), `pattern: string | RegExp` (string → préfixe `^<escaped>`), `host?` (parité `ISecuredArea` HTTP, insensible casse). Query string ignorée du match. `@nodefony/security` (P6) appellera `useAuthenticator()` au boot depuis `defineSecurityConfig().areas` filtrées sur `realtime: true` — pas de couplage realtime → security.
+> - ✅ **P13.4c** — Origin check natif sur upgrade WS (CSRF defense, RFC 6455 §10.2) — **livré 2026-05-28 (Bloc A étape 6)** : section `csrf.checkOrigin` Zod (`enabled` / `allowList` exact / `allowMissingOrigin`). Politique **fail-closed** : `enabled=true` + `allowList=[]` → tout refusé. `RealtimeService.initialize()` pose le guard sur le hub. Reject upgrade → close 4003 `forbidden`. Défaut désactivé (rétrocompat).
+> - ✅ **P13.7a** — Hook `onFrameAudit(reason, frame)` dans `JsonRpcPeer` (event audit → P6.14) — **livré 2026-05-28 (`b3a5890`)**, **élargi 2026-05-28 (Bloc A étape 6)** : signature passée à `(reason, frame, peer)` — slot #6 forward-audit P6.14 (actor lookup via `hub.getTokenForPeer(peer)`). 4 raisons (`invalid` / `denied` / `method_not_found` / `internal_error`), sync fire-and-forget, bypass 0-coût quand `undefined`. Type `FrameAuditReason` exporté depuis `nodefony`.
 > - ✅ **P13.8a** — Hook `beforeDispatch(frame, peer)` dans `JsonRpcPeer` (lit metadata `@IsGranted`) — **livré 2026-05-28 (`b3a5890`)** : gate SYNC sur request+notification, `false` → audit `denied` + (request) `-32001 unauthorized` / (notification) drop silencieux, bypass 0-coût quand `undefined`. 10 tests vitest nouveaux verrouillent les 2 seams + le bypass.
+>
+> **✅ Les 5 seams sont livrés (Bloc A étape 6 — 2026-05-28). P6 pourra se brancher sans refonte.**
 >
 > Coût total seams : ~1,2 ses. Sans eux = refonte garantie en P6.
 >

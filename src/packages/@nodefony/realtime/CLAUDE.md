@@ -38,17 +38,19 @@ du core, pour rester importable depuis un navigateur sans dépendre du framework
 | **Tests**             | Vitest + coverage v8 (convention universelle Nodefony, cf `feedback_test_framework_vitest`). Pas Mocha.                                                                                                   |
 | **Sécurité**          | 5 seams obligatoires DANS le module (cf section ci-dessous) pour que P6 se branche en plug                                                                                                                |
 
-## 🪡 5 seams sécurité à coder DANS P13 (avant que P6 démarre)
+## 🪡 5 seams sécurité — TOUS LIVRÉS (Bloc A étapes 2+6, 2026-05-28)
 
-Sans eux = refonte garantie en P6. Coût total ~1,2 ses.
+P6 pourra se brancher sans refonte. Vue d'ensemble vulgarisée → [`docs/securite.md`](./docs/securite.md).
 
-| #   | Seam                                                                     | Étage        | Branchement P6                               |
-| --- | ------------------------------------------------------------------------ | ------------ | -------------------------------------------- |
-| 1   | **`beforeDispatch(frame, peer)`** dans `JsonRpcPeer`                     | Protocole    | Lecture metadata `@IsGranted` + voters       |
-| 2   | **`IRealtimeAuthenticator`** sur handshake WS (façade `RealtimeService`) | Hub          | JwtAuthenticator / UserPasswordAuthenticator |
-| 3   | **Areas WS** dans `defineSecurityConfig()`                               | Hub + config | Bind par P6.3 firewall                       |
-| 4   | **Origin check natif** sur upgrade WS                                    | Hub          | Configurable par P6.7 csrf                   |
-| 5   | **`onFrameAudit(reason, frame)`** dans `JsonRpcPeer`                     | Protocole    | Consommé par `AuditEventEntity` (P6.14)      |
+| #    | Seam                                                                                            | Étage     | Branchement P6                                                                                          |
+| ---- | ----------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------- |
+| ✅ 1 | **`beforeDispatch(frame, peer)`** dans `JsonRpcPeer`                                            | Protocole | Lecture metadata `@IsGranted` + voters                                                                  |
+| ✅ 2 | **`IRealtimeAuthenticator`** sur handshake WS (`RealtimeService.useAuthenticator`)              | Hub       | `JwtRealtimeAuthenticator` / `ApiKey...`                                                                |
+| ✅ 3 | **Matchers WS** `{ pattern, host? }` (API neutre côté realtime, pas de dep security)            | Hub       | P6 appelle `useAuthenticator()` au boot depuis `defineSecurityConfig().areas` filtrées `realtime: true` |
+| ✅ 4 | **Origin check natif** sur upgrade WS (`csrf.checkOrigin` Zod, RFC 6455 §10.2)                  | Hub       | Configurable, fail-closed                                                                               |
+| ✅ 5 | **`onFrameAudit(reason, frame, peer)`** dans `JsonRpcPeer` (3ᵉ arg `peer` slot #6 actor lookup) | Protocole | Consommé par `AuditEventEntity` (P6.14)                                                                 |
+
+**Contrats publics du seam #2** : `IRealtimeToken` (structural-compat `IToken` security), `IRealtimeHandshake` (DTO neutre — headers/cookies/url/origin/protocols), `IRealtimeAuthenticator` (Symfony 6 `supports/authenticate/onSuccess/onFailure`), `IRealtimeAuthenticatorMatcher` (pattern URL + vhost). `ANONYMOUS_REALTIME_TOKEN` = singleton gelé fallback Zero Trust.
 
 ## Structure des fichiers (cible — après rapatriement P13.0)
 

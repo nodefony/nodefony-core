@@ -1,15 +1,39 @@
 /**
  * Interfaces publiques de @nodefony/realtime.
  *
- * Vide pour ce premier scaffold. Sera peuplé en P13.0 par les interfaces
- * rapatriées depuis @nodefony/framework :
- *  - IBackplane           — contrat cluster (4 drivers)
- *  - IRealtimeController  — contrat controller serveur
- *  - IRealtimeProbe       — contrat sonde de santé
- *  - IRealtimeAuthenticator (P13.4a — seam sécurité)
+ * Contrats partagés du module realtime — toutes ces interfaces sont aussi
+ * exportées depuis le barrel racine `@nodefony/realtime` pour DX.
  *
- * Le contrat client `IRealtimeSocket` reste dans le core (subpath
- * `nodefony/realtime`) — il est isomorphe et ne doit pas dépendre du serveur.
+ * Sécurité : `IRealtimeToken` / `IRealtimeHandshake` / `IRealtimeAuthenticator`
+ * (+ matcher) sont les 3 contrats du **seam sécurité #2** (P13 Bloc A étape 6) —
+ * `@nodefony/security` (P6) les implémente sans coupler ce module au security.
  */
 
-export {};
+export type {
+  IBackplane,
+  IBackplaneMessage,
+  BackplaneHandler,
+} from "./IBackplane";
+
+export type {
+  IRealtimeController,
+  RealtimePublish,
+  RealtimeInboundHandler,
+} from "./IRealtimeController";
+
+export type {
+  IRealtimeProbe,
+  IRealtimeHealth,
+  IRealtimeClusterHealth,
+  IRealtimeChannelStat,
+  IRealtimeConnProbe,
+} from "./IRealtimeProbe";
+
+// Seam sécurité #2 — handshake authenticators (P13 Bloc A étape 6).
+export type { IRealtimeToken } from "./IRealtimeToken";
+export type { IRealtimeHandshake } from "./IRealtimeHandshake";
+export type { IRealtimeAuthenticator } from "./IRealtimeAuthenticator";
+export type {
+  IRealtimeAuthenticatorMatcher,
+  ICompiledRealtimeMatcher,
+} from "./IRealtimeAuthenticatorMatcher";

@@ -326,6 +326,18 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       );
     });
 
+    it("passe le `peer` en 3ᵉ argument (slot #6 forward-audit P6.14 — actor lookup)", () => {
+      const audits: { reason: string; peer: unknown }[] = [];
+      const peer = new JsonRpcPeer({
+        send: () => {},
+        onFrameAudit: (reason, _frame, p) => audits.push({ reason, peer: p }),
+      });
+      peer.receive({ jsonrpc: "2.0", id: 7, method: "ghost" });
+      expect(audits).to.have.length(1);
+      expect(audits[0]!.reason).to.equal("method_not_found");
+      expect(audits[0]!.peer).to.equal(peer);
+    });
+
     it("fire 'internal_error' quand un handler throw", async () => {
       const sent: unknown[] = [];
       const audits: string[] = [];

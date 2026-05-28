@@ -1,9 +1,31 @@
+import { JsonRpcPeer } from "nodefony";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController";
 import type {
   IRealtimeConnProbe,
   IRealtimeProbe,
 } from "../../interfaces/IRealtimeProbe";
 import type { IBackplane } from "../../interfaces/IBackplane";
+import type { IRealtimeAuthenticator } from "../../interfaces/IRealtimeAuthenticator";
+import type {
+  ICompiledRealtimeMatcher,
+  IRealtimeAuthenticatorMatcher,
+} from "../../interfaces/IRealtimeAuthenticatorMatcher";
+import type { IRealtimeHandshake } from "../../interfaces/IRealtimeHandshake";
+import type { IRealtimeToken } from "../../interfaces/IRealtimeToken";
+import { ANONYMOUS_REALTIME_TOKEN } from "./AnonymousRealtimeToken";
+
+/**
+ * Fonction de filtrage Origin — `true` = upgrade autorisée. Posée par
+ * `RealtimeService.initialize()` depuis `defineRealtimeConfig().csrf.checkOrigin`.
+ * `null` = aucune politique (rétrocompat : tout passe — équivalent
+ * `enabled: false`).
+ */
+export type OriginGuard = (origin: string | undefined) => boolean;
+
+interface RegisteredAuthenticator {
+  readonly matcher: ICompiledRealtimeMatcher;
+  readonly authenticator: IRealtimeAuthenticator;
+}
 
 /**
  * Seuil d'alerte slow-consumer (octets de `bufferedAmount`). Au-delà, la connexion
@@ -94,6 +116,24 @@ export class RealtimeHub {
   // un mode multi-process est détecté (cluster IPC → ClusterBackplane ; pods → Redis).
   // Cf {@link setBackplane} + IBackplane.
   #backplane: IBackplane | null = null;
+
+  // ── Seam sécurité (P13 Bloc A étape 6) ────────────────────────────────────
+  //
+  // Authenticators réseau enregistrés (1ʳᵉ matcher capture). Lazy : `null` tant
+  // qu'aucun `useAuthenticator` n'est appelé → 0 alloc + bypass total côté
+  // RealtimeController au handshake (token anonyme gelé direct).
+  #authenticators: RegisteredAuthenticator[] | null = null;
+
+  // Mapping `peer → token` (cold path : posé au handshake, lu sur hot path par
+  // `beforeDispatch` / `onFrameAudit` consumers — voters P6 lookup `getTokenForPeer`).
+  // WeakMap : 0 fuite mémoire quand le peer est GC à la fermeture connexion.
+  // Lazy : `null` tant qu'aucun token posé (cas mono-process non sécurisé).
+  #peerTokens: WeakMap<JsonRpcPeer, IRealtimeToken> | null = null;
+
+  // Garde Origin RFC 6455 §10.2 (CSRF defense). `null` = pas de politique
+  // (rétrocompat). Posée par `RealtimeService.initialize()` depuis
+  // `defineRealtimeConfig().csrf.checkOrigin`. Cold path (1× par upgrade).
+  #originGuard: OriginGuard | null = null;
 
   // Politique de forward PAR CANAL (Phase 4). Préfixes des canaux **broadcast**
   // (cross-process). Lazy : `null` tant qu'aucun canal broadcast n'est déclaré →
@@ -355,6 +395,94 @@ export class RealtimeHub {
     return this.#channels ? [...this.#channels.keys()] : [];
   }
 
+  // ─── Seams sécurité (P13 Bloc A étape 6 → P6) ─────────────────────────────
+
+  /**
+   * **Seam #2 (P13 → P6)** — enregistre un authenticator pour les handshakes
+   * WS dont l'URL matche `matcher`. Ordre d'enregistrement préservé : le
+   * **1ʳᵉ** matcher qui capture la connexion gagne. Convention : enregistrer
+   * les patterns les plus spécifiques en premier.
+   *
+   * Idempotent par couple `(matcher, authenticator)` — appel multiple = même
+   * effet (push si pas déjà présent). Cold-path (boot via P6/userland).
+   *
+   * @param matcher        sélecteur (pattern URL + vhost optionnel)
+   * @param authenticator  stratégie d'auth réseau (handshake → IRealtimeToken)
+   */
+  useAuthenticator(
+    matcher: IRealtimeAuthenticatorMatcher,
+    authenticator: IRealtimeAuthenticator,
+  ): void {
+    const list = (this.#authenticators ??= []);
+    const compiled = compileMatcher(matcher);
+    // Dédup ref-identity (push idempotent quand P6 appelle au boot N fois).
+    for (let i = 0; i < list.length; i++) {
+      if (list[i]!.authenticator === authenticator) return;
+    }
+    list.push({ matcher: compiled, authenticator });
+  }
+
+  /**
+   * Résout l'authenticator capturant ce handshake (1ʳᵉ matcher qui matche),
+   * ou `null` si aucun (le RealtimeController posera un token anonyme).
+   * Cold path (1× par upgrade) — lecture array.
+   */
+  resolveAuthenticator(
+    handshake: IRealtimeHandshake,
+  ): IRealtimeAuthenticator | null {
+    const list = this.#authenticators;
+    if (list === null) return null;
+    for (let i = 0; i < list.length; i++) {
+      const entry = list[i]!;
+      if (entry.matcher.match(handshake)) return entry.authenticator;
+    }
+    return null;
+  }
+
+  /**
+   * **Seam #4 (P13 → P6)** — pose la politique Origin (RFC 6455 §10.2).
+   * `null` = aucune politique (toutes origines acceptées). Posée 1× par
+   * `RealtimeService.initialize()` depuis `defineRealtimeConfig().csrf.checkOrigin`.
+   */
+  setOriginGuard(guard: OriginGuard | null): void {
+    this.#originGuard = guard;
+  }
+
+  /**
+   * Vérifie qu'une origin est autorisée (politique CSRF). `true` si aucune
+   * politique posée (rétrocompat). Cold path (1× par upgrade).
+   */
+  checkOrigin(origin: string | undefined): boolean {
+    return this.#originGuard === null ? true : this.#originGuard(origin);
+  }
+
+  /**
+   * Associe un token au peer (posé par `RealtimeController.onHandshake()` après
+   * succès `authenticator.authenticate()` ou fallback anonyme). Lazy alloc de
+   * la `WeakMap` au 1ᵉʳ appel (0 coût si aucun authenticator enregistré).
+   */
+  setTokenForPeer(peer: JsonRpcPeer, token: IRealtimeToken): void {
+    (this.#peerTokens ??= new WeakMap<JsonRpcPeer, IRealtimeToken>()).set(
+      peer,
+      token,
+    );
+  }
+
+  /**
+   * Renvoie le token associé au peer, ou `ANONYMOUS_REALTIME_TOKEN` si aucun
+   * (cas Zero Trust : la lecture ne renvoie JAMAIS `null` — slot #6 audit
+   * lookup garanti, voters P6 ne se posent jamais la question « actor ? »).
+   */
+  getTokenForPeer(peer: JsonRpcPeer): IRealtimeToken {
+    return this.#peerTokens?.get(peer) ?? ANONYMOUS_REALTIME_TOKEN;
+  }
+
+  /** Authenticators enregistrés (debug / tests). Lecture seule. */
+  get registeredAuthenticators(): ReadonlyArray<IRealtimeAuthenticator> {
+    if (this.#authenticators === null) return EMPTY_AUTH_LIST;
+    return this.#authenticators.map((e) => e.authenticator);
+  }
+
   /** Dispose tous les providers et vide le hub (arrêt process / reset de test). */
   clear(): void {
     if (this.#channels) {
@@ -371,6 +499,9 @@ export class RealtimeHub {
     this.#connections?.clear();
     this.#connections = null;
     this.#broadcastPrefixes = null;
+    this.#authenticators = null;
+    this.#peerTokens = null;
+    this.#originGuard = null;
     // Détache le backplane (reset). On ne `stop()` PAS ici : le hub n'en est pas
     // l'owner (créé/détruit par le module qui l'a branché) — il le libère lui-même.
     this.#backplane = null;
@@ -378,6 +509,56 @@ export class RealtimeHub {
     this.#fanoutTotal = 0;
     this.#inboundTotal = 0;
   }
+}
+
+// Constante partagée pour `registeredAuthenticators` quand aucun n'est posé
+// (évite d'allouer un Array vide à chaque lecture du getter en mode "secure off").
+const EMPTY_AUTH_LIST: ReadonlyArray<IRealtimeAuthenticator> = Object.freeze(
+  [],
+);
+
+// Échappe les méta-caractères RegExp d'une string brute (utile pour le pattern
+// matcher en mode "string exact / préfixe"). RFC PCRE — caractères à escape :
+// `. * + ? ^ $ { } ( ) | [ ] \`.
+function escapeRegExpLiteral(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Compile un matcher utilisateur en forme efficace (RegExp précompilée + host
+ * lowercase). Cold path (1× par `useAuthenticator`).
+ *
+ * - `pattern` RegExp : utilisée telle quelle (l'utilisateur sait ce qu'il fait).
+ * - `pattern` string : compilée en RegExp **préfixe** ancrée (`^<escaped>`).
+ *   Compromis sûr : `"/admin/"` matche `/admin/` ET `/admin/foo` SANS escape
+ *   à la main (90 % des cas userland), tout en restant déterministe pour les
+ *   tests.
+ */
+function compileMatcher(
+  m: IRealtimeAuthenticatorMatcher,
+): ICompiledRealtimeMatcher {
+  const pattern =
+    m.pattern instanceof RegExp
+      ? m.pattern
+      : new RegExp("^" + escapeRegExpLiteral(m.pattern));
+  const host = m.host?.toLowerCase();
+  return {
+    pattern,
+    host,
+    match(handshake): boolean {
+      if (host !== undefined) {
+        // Le host est dans l'en-tête `host:` (RFC 7230 §5.4) — déjà lowercasé
+        // côté http natif Node.js. Comparaison stricte (vhost exact, pas de wildcard).
+        const raw = handshake.headers["host"];
+        const got = Array.isArray(raw) ? raw[0] : raw;
+        if ((got ?? "").toLowerCase() !== host) return false;
+      }
+      // Path sans query string (split sur "?", index 0).
+      const qi = handshake.url.indexOf("?");
+      const path = qi === -1 ? handshake.url : handshake.url.slice(0, qi);
+      return pattern.test(path);
+    },
+  };
 }
 
 // Hub partagé du process (1 pod = 1 hub). Lazy : pas d'instance tant qu'inutilisé.

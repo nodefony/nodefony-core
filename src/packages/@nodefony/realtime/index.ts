@@ -182,6 +182,9 @@ export {
 export { RealtimeError } from "./nodefony/src/errors/RealtimeError";
 export type { RealtimeConfig } from "./nodefony/config/config";
 
+// Token anonyme (singleton gelé) — fallback Zero Trust quand aucun matcher capture.
+export { ANONYMOUS_REALTIME_TOKEN } from "./nodefony/src/server/AnonymousRealtimeToken";
+
 // Builder type-safe + JSON Schema (Bloc A étape 5).
 export {
   defineRealtimeConfig,
@@ -228,3 +231,12 @@ export type {
   IRealtimeChannelStat,
   IRealtimeConnProbe,
 } from "./nodefony/interfaces/IRealtimeProbe";
+
+// Seam sécurité #2 — contrats handshake authenticators (P13 Bloc A étape 6).
+export type { IRealtimeToken } from "./nodefony/interfaces/IRealtimeToken";
+export type { IRealtimeHandshake } from "./nodefony/interfaces/IRealtimeHandshake";
+export type { IRealtimeAuthenticator } from "./nodefony/interfaces/IRealtimeAuthenticator";
+export type {
+  IRealtimeAuthenticatorMatcher,
+  ICompiledRealtimeMatcher,
+} from "./nodefony/interfaces/IRealtimeAuthenticatorMatcher";

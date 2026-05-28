@@ -69,6 +69,50 @@ const slowConsumerSchema = z
   })
   .describe("Détection des consommateurs lents (back-pressure WS).");
 
+// Seam sécurité #4 — Origin check natif sur upgrade WS (P13 Bloc A étape 6).
+const checkOriginSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Active le contrôle de l'en-tête `Origin` (RFC 6455 §10.2) à l'upgrade " +
+          "WebSocket. Défense CSRF native (les cookies sont envoyés en cross-origin " +
+          "même avec `SameSite=Lax`/`Strict` selon le contexte). Défaut : false " +
+          "(rétro-compat). Activation recommandée dès qu'un authenticator pose un " +
+          "cookie de session/JWT. Si `allowList` est vide quand `enabled=true`, " +
+          "TOUTE origin est refusée (échec fermé).",
+      ),
+    allowList: z
+      .array(z.string())
+      .default([])
+      .describe(
+        "Liste des origines acceptées (match EXACT, scheme+host+port, ex. " +
+          "`https://app.example.com`). Wildcards NON supportés (durcissement vs " +
+          "CORS `Access-Control-Allow-Origin: *`). Inclure les origines de dev si " +
+          "nécessaire (`http://localhost:5151`). Origines absentes (clients " +
+          "non-browser, mobile natif) → traitées selon `allowMissingOrigin`.",
+      ),
+    allowMissingOrigin: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Accepter une upgrade sans en-tête `Origin` (clients non-browser, " +
+          "ex. mobile natif, tests). `false` (défaut) = refus, `true` = accepte. " +
+          "À `true` UNIQUEMENT si l'authenticator vérifie un credential fort " +
+          "(JWT signé, API key) — sans Origin ET sans authenticator = brèche CSRF.",
+      ),
+  })
+  .describe(
+    "Contrôle Origin RFC 6455 §10.2 (défense CSRF native à l'upgrade WS).",
+  );
+
+const csrfSchema = z
+  .object({
+    checkOrigin: checkOriginSchema.default(() => checkOriginSchema.parse({})),
+  })
+  .describe("Protections CSRF natives realtime (origin check upgrade WS).");
+
 export const realtimeConfigSchema = z
   .object({
     enabled: z
@@ -83,6 +127,7 @@ export const realtimeConfigSchema = z
     slowConsumer: slowConsumerSchema.default(() =>
       slowConsumerSchema.parse({}),
     ),
+    csrf: csrfSchema.default(() => csrfSchema.parse({})),
   })
   .describe("Configuration de @nodefony/realtime.");
 
