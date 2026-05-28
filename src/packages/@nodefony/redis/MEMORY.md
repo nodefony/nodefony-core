@@ -41,4 +41,8 @@ Aucune pour l'instant (à exposer en Phase 11 si besoin : `redis:info`, `redis:f
 
 ## Tests
 
-`npx vitest run` — 10 tests unitaires (schema défauts, env layering, buildClientOptions merge/url/reconnect). Pas de serveur requis. Intégration (connexion réelle) = TODO `tests/integration/` + docker.
+`npx vitest run` — 15 tests :
+- **unit/config.test.ts** (10) : schema défauts, env layering, buildClientOptions merge/url/reconnect. Sans serveur. **Purge REDIS_* env au chargement** (isolation, sinon `REDIS_PASSWORD=... vitest` casse le test password).
+- **integration/connection.test.ts** (5) : Redis RÉEL (3 connexions, set/get main, pub/sub publish↔subscribe, close idempotent, enabled=false). **Auto-skip** (`describe.skipIf`) si Redis injoignable (probe PING au chargement). Module factice (`{container, kernel:null, options, get}`) suffit à instancier RedisService — pas de kernel requis.
+
+Infra : `docker compose -f docker/docker-compose.yml up -d` (password `nodefony-dev`). Lancer : `REDIS_PASSWORD=nodefony-dev npx vitest run` (ou défaut nodefony-dev si env absent).

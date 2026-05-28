@@ -3,6 +3,14 @@ import { redisConfigSchema } from "../../config/schema";
 import { defineRedisConfig } from "../../config/defineRedisConfig";
 import { buildClientOptions } from "../../src/buildClientOptions";
 
+// Isolation : ces tests unitaires doivent être déterministes quelle que soit la
+// façon dont vitest est lancé (ex. `REDIS_PASSWORD=... vitest run` pour
+// l'intégration). On purge les variables d'env Redis ambiantes au chargement ;
+// le bloc « env layering » les pose lui-même et restaure ensuite.
+for (const k of ["REDIS_URL", "REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD"]) {
+  delete process.env[k];
+}
+
 describe("@nodefony/redis — schema (Zod)", () => {
   it("applique les défauts sûrs (localhost, 3 connexions)", () => {
     const c = redisConfigSchema.parse({});

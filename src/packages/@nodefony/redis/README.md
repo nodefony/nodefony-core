@@ -89,8 +89,16 @@ Politique déclarative : `{ baseMs: 100, maxMs: 10000, maxRetries: 0 }`. Délai 
 ## Tests
 
 ```bash
-npx vitest run            # unitaires (schéma, env, options) — sans serveur
+npx vitest run            # 15 tests (10 unitaires sans serveur + 5 intégration)
 npx vitest run --coverage
+```
+
+Les tests d'intégration ouvrent une connexion Redis réelle ; ils sont **automatiquement
+sautés** si Redis est injoignable. Pour les exécuter :
+
+```bash
+docker compose -f docker/docker-compose.yml up -d
+REDIS_PASSWORD=nodefony-dev npx vitest run
 ```
 
 ## Licence
