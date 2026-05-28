@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-28T12:43:01.304Z",
+  "generated": "2026-05-28T12:58:31.668Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 759,
-    "symbols": 1377,
+    "symbols": 1378,
     "classes": 230,
     "interfaces": 333,
-    "types": 164,
+    "types": 165,
     "enums": 2,
     "functions": 195,
     "constants": 453
@@ -798,6 +798,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Nature d'une frame entrante (renvoyée par {@link JsonRpcPeer.handleFrame})."
+    },
+    "FrameAuditReason": {
+      "name": "FrameAuditReason",
+      "kind": "type",
+      "file": "src/nodefony/src/realtime/JsonRpcPeer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Motif d'un évènement audit protocolaire (consommé par P6.14 `AuditEventEntity`) : - `invalid` : frame non conforme JSON-RPC 2.0 (pas d'objet, `jsonrpc`≠\"2.0\", `method` non string sans `id` valide).…"
     },
     "redactSecrets": {
       "name": "redactSecrets",

@@ -39,6 +39,19 @@ export type JsonRpcFrameKind =
   | "response"
   | "invalid";
 
+/**
+ * Motif d'un évènement audit protocolaire (consommé par P6.14 `AuditEventEntity`) :
+ *  - `invalid`           : frame non conforme JSON-RPC 2.0 (pas d'objet, `jsonrpc`≠"2.0", `method` non string sans `id` valide).
+ *  - `denied`            : frame entrante refusée par `beforeDispatch` (Zero Trust realtime — voter P6 a dit non).
+ *  - `method_not_found`  : requête entrante pour une action non enregistrée (`-32601` envoyée).
+ *  - `internal_error`    : handler d'action a throw (`-32603` envoyée, détail loggé via `onError` — Zero Trust : pas renvoyé au pair).
+ */
+export type FrameAuditReason =
+  | "invalid"
+  | "denied"
+  | "method_not_found"
+  | "internal_error";
+
 export interface JsonRpcPeerOptions {
   /** Envoie une frame sérialisable sur le transport (le peer ignore le transport). */
   send: (frame: unknown) => void;
@@ -46,6 +59,32 @@ export interface JsonRpcPeerOptions {
   onNotification?: RpcNotificationHandler;
   /** Erreur interne d'un handler — détail JAMAIS renvoyé au pair (loggé ici). */
   onError?: (context: string, err: unknown) => void;
+  /**
+   * **Seam sécurité 1/5 (P13 → P6)** — gate `beforeDispatch` appelé AVANT le
+   * dispatch d'une frame entrante (request ET notification — pas les responses,
+   * passives). `false` → frame BLOQUÉE (audit `denied`, et pour une requête,
+   * réponse `-32001 unauthorized` ; notification = drop silencieux). `true` →
+   * dispatch normal. `undefined` (cas client par défaut) → bypass 0-coût.
+   *
+   * SYNC uniquement (voters P6 = lecture metadata + jeton décodé en cache = ~µs).
+   * L'async serait une fausse économie : ajouter `await` sur le hot-path d'une WS
+   * coûte une microtask PAR FRAME (~50 ns) y compris quand non-async (Promise.resolve)
+   * + sérialise les frames per-peer. Si un voter doit attendre une lookup distante,
+   * pré-cacher la décision côté authenticator au handshake.
+   *
+   * Branchement P6 : reading metadata `@IsGranted` du handler + voters → `boolean`.
+   */
+  beforeDispatch?: (frame: unknown, peer: IRealtimePeer) => boolean;
+  /**
+   * **Seam audit 5/5 (P13 → P6.14)** — fire-and-forget sur évènements
+   * protocolaires notables (cf {@link FrameAuditReason}). Sync (pas de
+   * back-pressure : un audit lent ne doit pas ralentir le pipeline RPC).
+   * `undefined` (cas client par défaut) → bypass 0-coût.
+   *
+   * Branchement P6.14 : alimente le journal `AuditEventEntity` (qui agit, qui a
+   * été refusé, qui appelle une méthode inconnue — traçabilité Zero Trust).
+   */
+  onFrameAudit?: (reason: FrameAuditReason, frame: unknown) => void;
 }
 
 /**
@@ -165,8 +204,10 @@ export class JsonRpcPeer implements IRealtimePeer {
       !msg ||
       typeof msg !== "object" ||
       (msg as { jsonrpc?: unknown }).jsonrpc !== "2.0"
-    )
+    ) {
+      this.opts.onFrameAudit?.("invalid", msg);
       return "invalid";
+    }
 
     const id = (msg as { id?: unknown }).id;
     const hasId = typeof id === "number" || typeof id === "string";
@@ -176,8 +217,27 @@ export class JsonRpcPeer implements IRealtimePeer {
 
     // Frame AVEC `method` = appel entrant (le pair nous appelle).
     if (method !== undefined) {
+      // Seam sécu 1/5 : gate AVANT le dispatch (request ET notification). Hot-path
+      // sync — `undefined` → bypass 0-coût. Cf JsonRpcPeerOptions.beforeDispatch.
+      if (this.opts.beforeDispatch && !this.opts.beforeDispatch(msg, this)) {
+        this.opts.onFrameAudit?.("denied", msg);
+        if (hasId) {
+          // Requête refusée : -32001 dans la plage `Server error` (-32000 à -32099)
+          // réservée par JSON-RPC 2.0 §5.1 pour les erreurs serveur applicatives.
+          // Message GÉNÉRIQUE (Zero Trust : ne révèle pas pourquoi).
+          this.opts.send({
+            jsonrpc: "2.0",
+            id,
+            error: { code: -32001, message: "unauthorized" },
+          });
+          return "request";
+        }
+        // Notification refusée : drop silencieux (pas de canal de réponse).
+        return "notification";
+      }
+
       if (hasId) {
-        this.handleRequest(id as number | string, method, params);
+        this.handleRequest(id as number | string, method, params, msg);
         return "request";
       }
       this.opts.onNotification?.(method, params);
@@ -190,6 +250,7 @@ export class JsonRpcPeer implements IRealtimePeer {
       return "response";
     }
 
+    this.opts.onFrameAudit?.("invalid", msg);
     return "invalid";
   }
 
@@ -239,9 +300,11 @@ export class JsonRpcPeer implements IRealtimePeer {
     id: number | string,
     method: string,
     params: unknown,
+    rawFrame: unknown,
   ): void {
     const handler = this.actions?.get(method);
     if (!handler) {
+      this.opts.onFrameAudit?.("method_not_found", rawFrame);
       this.opts.send({
         jsonrpc: "2.0",
         id,
@@ -255,6 +318,7 @@ export class JsonRpcPeer implements IRealtimePeer {
         (result) => this.opts.send({ jsonrpc: "2.0", id, result }),
         (err: unknown) => {
           this.opts.onError?.(`rpc ${method}`, err);
+          this.opts.onFrameAudit?.("internal_error", rawFrame);
           this.opts.send({
             jsonrpc: "2.0",
             id,

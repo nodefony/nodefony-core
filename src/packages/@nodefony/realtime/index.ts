@@ -82,11 +82,17 @@ class Realtime extends Module {
   }
 
   /**
-   * Phase `onReady` (après le boot de tous les modules) : enregistre le producteur
-   * admin de la **socket Nodefony** (`/nodefony/realtime/api/*`) si le broker
-   * `framework/AdminBroker` est dispo. Auto-observabilité du `RealtimeHub`.
+   * Phase `onBoot` (avant le `mountAll` de framework dans `onReady`) — enregistre
+   * le producteur admin de la **socket Nodefony** (`/nodefony/realtime/api/*`)
+   * sur le broker `framework/AdminBroker`. Auto-observabilité du `RealtimeHub`.
+   *
+   * ⚠️ Ne PAS déplacer dans `onKernelReady` : framework fait `broker.mountAll()`
+   * dans SON `onKernelReady` ; les modules listés APRÈS framework dans `@modules()`
+   * (cas de @nodefony/realtime) verraient leur `register` rejeté avec
+   * « AdminBroker: register("realtime") après mountAll — routes figées ».
+   * `onKernelBoot` court donc avant et garantit l'ordre.
    */
-  override async onKernelReady(): Promise<this> {
+  override async onKernelBoot(): Promise<this> {
     const broker = this.kernel?.container?.get("adminBroker") as
       | IAdminBroker
       | undefined;

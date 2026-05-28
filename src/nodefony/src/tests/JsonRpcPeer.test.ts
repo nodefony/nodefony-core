@@ -205,4 +205,171 @@ describe("JsonRpcPeer — moteur protocole isomorphe", () => {
       expect(msg).to.equal("socket closed");
     });
   });
+
+  // ─── Seams sécurité (P13 Bloc A étape 2 → P6) ───────────────────────────────
+  describe("seam sécu beforeDispatch (1/5)", () => {
+    it("refuse une REQUÊTE → -32001 'unauthorized' + audit 'denied', handler NON appelé", () => {
+      const sent: unknown[] = [];
+      const audits: { reason: string; frame: unknown }[] = [];
+      let handlerCalled = 0;
+      const peer = new JsonRpcPeer({
+        send: (f) => sent.push(f),
+        beforeDispatch: () => false,
+        onFrameAudit: (reason, frame) => audits.push({ reason, frame }),
+      });
+      peer.register("kernel:ping", () => {
+        handlerCalled++;
+        return { pong: true };
+      });
+      const kind = peer.receive({
+        jsonrpc: "2.0",
+        id: 42,
+        method: "kernel:ping",
+      });
+      expect(kind).to.equal("request");
+      expect(handlerCalled).to.equal(0);
+      expect(sent).to.deep.equal([
+        {
+          jsonrpc: "2.0",
+          id: 42,
+          error: { code: -32001, message: "unauthorized" },
+        },
+      ]);
+      expect(audits).to.have.length(1);
+      expect(audits[0]!.reason).to.equal("denied");
+    });
+
+    it("refuse une NOTIFICATION → drop silencieux + audit 'denied', onNotification NON appelé", () => {
+      const sent: unknown[] = [];
+      const notes: { method: string; params: unknown }[] = [];
+      const audits: string[] = [];
+      const peer = new JsonRpcPeer({
+        send: (f) => sent.push(f),
+        onNotification: (method, params) => notes.push({ method, params }),
+        beforeDispatch: () => false,
+        onFrameAudit: (reason) => audits.push(reason),
+      });
+      const kind = peer.receive({
+        jsonrpc: "2.0",
+        method: "subscribe",
+        params: { channel: "ch" },
+      });
+      expect(kind).to.equal("notification");
+      expect(sent).to.deep.equal([]); // pas de réponse pour une notification
+      expect(notes).to.deep.equal([]); // handler de notif NON appelé
+      expect(audits).to.deep.equal(["denied"]);
+    });
+
+    it("autorise (true) → dispatch normal, AUCUN audit", async () => {
+      const sent: unknown[] = [];
+      const audits: string[] = [];
+      const peer = new JsonRpcPeer({
+        send: (f) => sent.push(f),
+        beforeDispatch: () => true,
+        onFrameAudit: (reason) => audits.push(reason),
+      });
+      peer.register("ping", () => ({ pong: true }));
+      peer.receive({ jsonrpc: "2.0", id: 1, method: "ping" });
+      await flush();
+      expect(sent).to.deep.equal([
+        { jsonrpc: "2.0", id: 1, result: { pong: true } },
+      ]);
+      expect(audits).to.deep.equal([]); // path heureux n'audit pas
+    });
+
+    it("le hook reçoit la frame complète + une réf du peer (pour voters P6)", () => {
+      let seenFrame: unknown = null;
+      let seenPeer: unknown = null;
+      const peer = new JsonRpcPeer({
+        send: () => {},
+        beforeDispatch: (frame, p) => {
+          seenFrame = frame;
+          seenPeer = p;
+          return true;
+        },
+      });
+      const frame = { jsonrpc: "2.0", method: "ping", params: { x: 1 } };
+      peer.receive(frame);
+      expect(seenFrame).to.equal(frame);
+      expect(seenPeer).to.equal(peer);
+    });
+  });
+
+  describe("seam audit onFrameAudit (5/5)", () => {
+    it("fire 'invalid' sur frame non conforme JSON-RPC 2.0", () => {
+      const audits: { reason: string; frame: unknown }[] = [];
+      const peer = new JsonRpcPeer({
+        send: () => {},
+        onFrameAudit: (reason, frame) => audits.push({ reason, frame }),
+      });
+      peer.receive({ jsonrpc: "1.0", method: "ping" }); // mauvaise version
+      peer.receive(null);
+      peer.receive("not-an-object");
+      expect(audits.map((a) => a.reason)).to.deep.equal([
+        "invalid",
+        "invalid",
+        "invalid",
+      ]);
+    });
+
+    it("fire 'method_not_found' avant d'envoyer -32601", () => {
+      const sent: unknown[] = [];
+      const audits: string[] = [];
+      const peer = new JsonRpcPeer({
+        send: (f) => sent.push(f),
+        onFrameAudit: (reason) => audits.push(reason),
+      });
+      peer.receive({ jsonrpc: "2.0", id: 7, method: "ghost" });
+      expect(audits).to.deep.equal(["method_not_found"]);
+      expect((sent[0] as { error: { code: number } }).error.code).to.equal(
+        -32601,
+      );
+    });
+
+    it("fire 'internal_error' quand un handler throw", async () => {
+      const sent: unknown[] = [];
+      const audits: string[] = [];
+      const peer = new JsonRpcPeer({
+        send: (f) => sent.push(f),
+        onError: () => {},
+        onFrameAudit: (reason) => audits.push(reason),
+      });
+      peer.register("boom", () => {
+        throw new Error("kaboom");
+      });
+      peer.receive({ jsonrpc: "2.0", id: 8, method: "boom" });
+      await flush();
+      expect(audits).to.deep.equal(["internal_error"]);
+      expect((sent[0] as { error: { code: number } }).error.code).to.equal(
+        -32603,
+      );
+    });
+  });
+
+  describe("bypass 0-coût quand les hooks sont absents", () => {
+    it("sans beforeDispatch ni onFrameAudit → comportement identique à avant les seams", async () => {
+      const sent: unknown[] = [];
+      const peer = new JsonRpcPeer({ send: (f) => sent.push(f) });
+      peer.register("ping", () => ({ pong: true }));
+      // chemin heureux : request → result (dispatch via microtask → arrive après les sends sync)
+      peer.receive({ jsonrpc: "2.0", id: 1, method: "ping" });
+      // chemin erreur : method not found → -32601 SYNC immédiat → ce send arrive en 1ᵉʳ
+      peer.receive({ jsonrpc: "2.0", id: 2, method: "ghost" });
+      // chemin invalide : silencieux
+      const k = peer.receive({ jsonrpc: "1.0" });
+      await flush();
+      expect(k).to.equal("invalid");
+      expect(sent).to.have.length(2);
+      // Le -32601 (sync) précède le result (microtask). Vérifie les deux par id.
+      const byId = new Map(
+        sent.map((f) => [(f as { id: number | string }).id, f]),
+      );
+      expect((byId.get(2) as { error: { code: number } }).error.code).to.equal(
+        -32601,
+      );
+      expect((byId.get(1) as { result: unknown }).result).to.deep.equal({
+        pong: true,
+      });
+    });
+  });
 });

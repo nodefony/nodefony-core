@@ -36,6 +36,7 @@ export type {
   JsonRpcFrameKind,
   JsonRpcErrorObject,
   JsonRpcPeerOptions,
+  FrameAuditReason,
 } from "./realtime/JsonRpcPeer";
 export { TransportState } from "./realtime/IRealtimeTransport";
 export type {
