@@ -82,7 +82,7 @@ describe("Drizzle adapter — jointure très complexe via trappe native (P7.4)",
   let memberB: Member; // age 25, 1 channel, 1 message
   let memberC: Member; // age 17 (mineur), rien
 
-  before(async () => {
+  beforeAll(async () => {
     orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
     members = orm.getRepository<Member>("Member");
@@ -99,14 +99,30 @@ describe("Drizzle adapter — jointure très complexe via trappe native (P7.4)",
 
     let ts = 1_000;
     // A : 2 messages dans ch1 + 1 dans ch2 = 3
-    await messages.create({ channelId: ch1.id, authorId: memberA.id, createdAt: ts++ });
-    await messages.create({ channelId: ch1.id, authorId: memberA.id, createdAt: ts++ });
-    await messages.create({ channelId: ch2.id, authorId: memberA.id, createdAt: ts++ });
+    await messages.create({
+      channelId: ch1.id,
+      authorId: memberA.id,
+      createdAt: ts++,
+    });
+    await messages.create({
+      channelId: ch1.id,
+      authorId: memberA.id,
+      createdAt: ts++,
+    });
+    await messages.create({
+      channelId: ch2.id,
+      authorId: memberA.id,
+      createdAt: ts++,
+    });
     // B : 1 message dans ch1 (ch1 atteint 3 messages → "busy")
-    await messages.create({ channelId: ch1.id, authorId: memberB.id, createdAt: ts++ });
+    await messages.create({
+      channelId: ch1.id,
+      authorId: memberB.id,
+      createdAt: ts++,
+    });
   });
 
-  after(async () => {
+  afterAll(async () => {
     await orm.disconnect();
     entityRegistry.unregister("Member");
     entityRegistry.unregister("Channel");

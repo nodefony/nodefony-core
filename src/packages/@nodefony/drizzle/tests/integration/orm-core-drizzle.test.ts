@@ -59,14 +59,14 @@ describe("orm-core ↔ Drizzle adapter (P7.4)", () => {
   let users: IRepository<User>;
   let rooms: IRepository<Room>;
 
-  before(async () => {
+  beforeAll(async () => {
     orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
     users = orm.getRepository<User>("User");
     rooms = orm.getRepository<Room>("Room");
   });
 
-  after(async () => {
+  afterAll(async () => {
     await orm.disconnect();
     entityRegistry.unregister("User");
     entityRegistry.unregister("Room");

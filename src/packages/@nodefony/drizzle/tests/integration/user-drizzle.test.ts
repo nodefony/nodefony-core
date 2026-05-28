@@ -13,14 +13,14 @@ describe("@nodefony/user ↔ Drizzle adapter (P5.9)", () => {
   let orm: DrizzleOrm;
   let users: DrizzleUserRepository;
 
-  before(async () => {
+  beforeAll(async () => {
     registerUserEntity(ORM); // AVANT connect (l'adapter crée la table au connect)
     orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
     users = DrizzleUserRepository.from(orm);
   });
 
-  after(async () => {
+  afterAll(async () => {
     await orm.disconnect();
     // Scoper à NOTRE orm : `unregister("User")` sans orm efface le bucket entier
     // (toutes ORMs) → contaminerait le banc P7.4 (User@db_test).

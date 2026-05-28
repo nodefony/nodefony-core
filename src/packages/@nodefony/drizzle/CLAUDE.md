@@ -57,8 +57,9 @@ Deux usages :
   sans schéma (`BetterSQLite3Database<Record<string, never>>`), eager-load manuel.
 - Colonne d'une table : `(table as unknown as Record<string,SQLiteColumn>)[name]`.
 - `OFFSET` SQLite exige un `LIMIT` → `limit(-1)` si seul l'offset est posé.
-- `mocha`/`tsx` viennent de la **racine** (ne pas les remettre en devDeps locales,
-  sinon résolution CJS du test → `ERR_PACKAGE_PATH_NOT_EXPORTED` sur orm-core).
+- **Runner = Vitest** (migré de Mocha le 2026-05-28, cf `feedback_test_framework_vitest`).
+  `vitest` vient de la **racine** ; tests en `globals:true` + `node:assert` (aucun import
+  vitest ni chai). Ne pas réintroduire mocha/`.mocharc`.
 - **`SessionStorage` tolère le shutdown** (fix 2026-05-22, commit `ce181ba`) : `#repo()`
   renvoie `null` si `!orm.isConnected()` (l'ORM se déconnecte au `onTerminate` avant le
   drain des serveurs http → requête Twig en vol qui retouchait l'ORM mort = `unhandledRejection`
@@ -69,10 +70,10 @@ Deux usages :
 
 - `npm run build` (rollup preserveModules) → `dist/` + `dist/types/` + `exports`
   (standard conforme, pas de `.d.ts` manuel).
-- `npm test` (`.mocharc.json`) → `tests/integration/` : banc orm-core (8) +
-  jointure très complexe (2 : CTE+window+sous-requêtes corrélées via trappe native,
-  - LEFT JOIN typé). **10 tests**.
-- `npm run test:load` (`.mocharc.load.json`, `expose-gc`) → `tests/load/` :
+- `npm test` (`vitest.config.ts`) → `tests/integration/` : banc orm-core,
+  jointure très complexe (CTE+window+sous-requêtes corrélées via trappe native,
+  LEFT JOIN typé), user-drizzle, session-storage. **27 tests**.
+- `npm run test:load` (`vitest.config.load.ts`, pool forks `--expose-gc`) → `tests/load/` :
   charge/limites/mémoire (8 tests). Mesures 2026-05-21 (Node 26, :memory:) :
   insert 20k ≈ 15k ops/s, scan 20k ≈ 1M ops/s, $in(5000) 23ms, 30k cycles
   create/find/delete heapΔ 0.3MB, 300 connexions heapΔ 0.1MB (**0 fuite**).

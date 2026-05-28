@@ -62,7 +62,7 @@ describe("orm-core ↔ Sequelize adapter (P5.4)", () => {
   let users: IRepository<User>;
   let rooms: IRepository<Room>;
 
-  before(async () => {
+  beforeAll(async () => {
     orm = new SequelizeOrm(ORM, {
       dialect: "sqlite",
       storage: ":memory:",
@@ -73,7 +73,7 @@ describe("orm-core ↔ Sequelize adapter (P5.4)", () => {
     rooms = orm.getRepository<Room>("Room");
   });
 
-  after(async () => {
+  afterAll(async () => {
     await orm.disconnect();
     entityRegistry.unregister("User");
     entityRegistry.unregister("Room");

@@ -51,8 +51,8 @@ void RoomEntity;
 
 /** Heap utilisé (MB) après GC forcé (`--expose-gc`). */
 function heapMB(): number {
-  if (global.gc) {
-    global.gc();
+  if (globalThis.gc) {
+    globalThis.gc();
   }
   return process.memoryUsage().heapUsed / 1_048_576;
 }
@@ -68,22 +68,20 @@ function rate(count: number, ms: number): string {
   return `${Math.round((count / ms) * 1000).toLocaleString()} ops/s`;
 }
 
-describe("Drizzle adapter — charge / limites / mémoire (P7.4)", function () {
-  this.timeout(180_000);
-
+describe("Drizzle adapter — charge / limites / mémoire (P7.4)", () => {
   let orm: DrizzleOrm;
   let users: IRepository<User>;
   let rooms: IRepository<Room>;
   const ids: string[] = [];
 
-  before(async () => {
+  beforeAll(async () => {
     orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
     users = orm.getRepository<User>("User");
     rooms = orm.getRepository<Room>("Room");
   });
 
-  after(async () => {
+  afterAll(async () => {
     await orm.disconnect();
     entityRegistry.unregister("User");
     entityRegistry.unregister("Room");
@@ -212,7 +210,9 @@ describe("Drizzle adapter — charge / limites / mémoire (P7.4)", function () {
     }
     const heap1 = heapMB();
     const delta = heap1 - heap0;
-    console.log(`      ↳ 300 connexions éphémères, heapΔ ${delta.toFixed(1)}MB`);
+    console.log(
+      `      ↳ 300 connexions éphémères, heapΔ ${delta.toFixed(1)}MB`,
+    );
     assert.equal(ormRegistry.list().length, baseSize); // pas de fuite de registre
     assert.ok(
       delta < 40,
