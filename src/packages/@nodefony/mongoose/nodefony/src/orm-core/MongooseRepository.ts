@@ -1,4 +1,4 @@
-import type { ClientSession, FilterQuery, Model } from "mongoose";
+import type { ClientSession, QueryFilter, Model } from "mongoose";
 import { isFieldOperators } from "@nodefony/orm-core";
 import type {
   Criteria,
@@ -68,7 +68,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   /**
    * Traduit le critère portable : `id` → `_id` (PK MongoDB) + opérateurs riches.
    */
-  #filter(criteria?: Criteria<T>): FilterQuery<Record<string, unknown>> {
+  #filter(criteria?: Criteria<T>): QueryFilter<Record<string, unknown>> {
     if (!criteria) {
       return {};
     }
@@ -77,7 +77,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       const key = field === "id" ? "_id" : field;
       out[key] = isFieldOperators(value) ? this.#mongoOps(value) : value;
     }
-    return out as FilterQuery<Record<string, unknown>>;
+    return out as QueryFilter<Record<string, unknown>>;
   }
 
   /** Sérialise un document en objet plat (virtuels inclus → `id`, populates). */
@@ -105,10 +105,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     if (options?.order?.length) {
       query = query.sort(
         Object.fromEntries(
-          options.order.map(([field, dir]) => [
-            field,
-            dir === "DESC" ? -1 : 1,
-          ]),
+          options.order.map(([field, dir]) => [field, dir === "DESC" ? -1 : 1]),
         ),
       );
     }
@@ -161,6 +158,9 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   }
 
   withTransaction(tx: ITransaction): IRepository<T> {
-    return new MongooseRepository<T>(this.#model, tx.getNative<ClientSession>());
+    return new MongooseRepository<T>(
+      this.#model,
+      tx.getNative<ClientSession>(),
+    );
   }
 }

@@ -8,9 +8,9 @@ import Mongoose from "../service/orm";
 const finderGC = function finderGC(
   this: SessionStorage,
   msMaxlifetime: number,
-  contextSession: string
+  contextSession: string,
 ) {
-  const where: mongoose.FilterQuery<any> = {
+  const where: mongoose.QueryFilter<any> = {
     context: contextSession,
     updatedAt: {
       $lt: new Date(new Date().getDate() - msMaxlifetime),
@@ -28,7 +28,7 @@ const finderGC = function finderGC(
           severity = "INFO";
           this.manager.log(
             `Context : ${contextSession || "default"} GARBADGE COLLECTOR ==> ${results.deletedCount}  DELETED`,
-            "INFO"
+            "INFO",
           );
         }
         return results;
@@ -79,7 +79,7 @@ class SessionStorage {
           .then((sessionCount: number) => {
             this.manager.log(
               `CONTEXT ${contextSession ? contextSession : "default"} MONGODB SESSIONS STORAGE  ==>  ${this.manager.options.handler.toUpperCase()} COUNT SESSIONS : ${sessionCount}`,
-              "INFO"
+              "INFO",
             );
           });
     }
@@ -106,14 +106,14 @@ class SessionStorage {
               .then((session) => {
                 this.manager.log(
                   `DB DESTROY SESSION context : ${result.context} ID : ${result.session_id} DELETED`,
-                  "DEBUG"
+                  "DEBUG",
                 );
                 return session;
               })
               .catch((error) => {
                 this.manager.log(
                   `DB DESTROY SESSION context : ${contextSession} ID : ${id}`,
-                  "ERROR"
+                  "ERROR",
                 );
                 throw error;
               });
@@ -122,7 +122,7 @@ class SessionStorage {
         .catch((error) => {
           this.manager.log(
             `DB DESTROY SESSION context : ${contextSession} ID : ${id}`,
-            "ERROR"
+            "ERROR",
           );
           throw error;
         });
@@ -140,7 +140,7 @@ class SessionStorage {
   }
 
   read(id: string, contextSession: string) {
-    let where: mongoose.FilterQuery<SessionEntity> | null = null;
+    let where: mongoose.QueryFilter<any> | null = null;
     if (contextSession) {
       where = {
         session_id: id,
@@ -194,7 +194,7 @@ class SessionStorage {
           data,
           {
             upsert: true,
-          }
+          },
         )
         .then((result) => {
           if (result.modifiedCount) {

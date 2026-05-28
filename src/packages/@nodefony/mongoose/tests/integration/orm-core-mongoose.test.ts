@@ -46,7 +46,7 @@ describe("orm-core ↔ Mongoose adapter (P5.4, store hétérogène)", () => {
   let users: IRepository<User>;
   let rooms: IRepository<Room>;
 
-  before(async () => {
+  beforeAll(async () => {
     // Replica set en mémoire : indispensable pour les transactions MongoDB.
     replset = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
     orm = new MongooseOrm(ORM, replset.getUri());
@@ -55,7 +55,7 @@ describe("orm-core ↔ Mongoose adapter (P5.4, store hétérogène)", () => {
     rooms = orm.getRepository<Room>("Room");
   });
 
-  after(async () => {
+  afterAll(async () => {
     await orm.disconnect();
     await replset.stop();
     entityRegistry.unregister("User");
