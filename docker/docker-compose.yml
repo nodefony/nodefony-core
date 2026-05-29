@@ -11,7 +11,10 @@
 #   docker compose -f docker/docker-compose.yml down                # arrêt (volumes conservés)
 #   docker compose -f docker/docker-compose.yml down -v             # arrêt + purge données
 #
-# Les valeurs sensibles (mots de passe) viennent de docker/.env (copier .env.example).
+# Config : chaque valeur (ports, mot de passe dev) a un défaut inline `${VAR:-défaut}`
+# ci-dessous → AUCUN fichier .env requis en dev. Pour surcharger (vrai secret, autre
+# port) : `export REDIS_PASSWORD=…` avant le `up`, ou déposer un `docker/.env` (lu
+# automatiquement par compose, ignoré par git). Le défaut dev `nodefony-dev` est public.
 
 name: nodefony-dev
 

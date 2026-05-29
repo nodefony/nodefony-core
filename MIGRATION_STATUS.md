@@ -261,7 +261,7 @@ Deux discussions architecturales ont changé le cap pour les phases P5/P6/P7/P13
 > docker compose. P13 client dépend aussi de **P14.11 (Core isomorphe, 🔶 partiel)**.
 > ✅ **Setup infra livré 2026-05-28 (Bloc B étape 8)** : `docker/docker-compose.yml` (Redis 7-alpine
 > auth+AOF healthy, validé `up`+`PING`+`SET/GET`+`pubsub`) + Kafka KRaft profile `kafka` (Bloc C, sans
-> Zookeeper) + RedisInsight profile `tools`. `docker/.env.example` + `docker/README.md`. **Débloque
+> Zookeeper) + RedisInsight profile `tools`. Valeurs en défaut inline `${VAR:-…}` (plus de `.env`) + `docker/README.md`. **Débloque
 > P13.2/P13.5/P5.12.**
 >
 > **P13.3 SUPPRIMÉE** — Core devient isomorphe, intégré dans P14.

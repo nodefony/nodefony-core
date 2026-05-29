@@ -13,16 +13,17 @@ Conteneurs nécessaires pour développer et tester la **Socket Nodefony distribu
 
 ## Démarrage rapide
 
-```bash
-# 1. Config (une fois) — copie les valeurs par défaut
-cp docker/.env.example docker/.env
+Aucune config préalable : les valeurs (mot de passe dev `nodefony-dev`, port 6379)
+sont en défaut inline dans le compose. Pour surcharger : `export REDIS_PASSWORD=…`
+avant le `up`, ou créer un `docker/.env` (lu automatiquement par compose, ignoré par git).
 
-# 2. Démarrer Redis (Bloc B — fan-out pub/sub)
+```bash
+# 1. Démarrer Redis (Bloc B — fan-out pub/sub)
 docker compose -f docker/docker-compose.yml up -d
 
-# 3. Vérifier
+# 2. Vérifier
 docker compose -f docker/docker-compose.yml ps
-docker exec -it nodefony-redis redis-cli -a "$REDIS_PASSWORD" ping   # → PONG
+docker exec -it nodefony-redis redis-cli -a "${REDIS_PASSWORD:-nodefony-dev}" ping   # → PONG
 ```
 
 ## Services
@@ -51,7 +52,8 @@ docker compose -f docker/docker-compose.yml down -v    # arrêt + purge des donn
   fonctionne en standalone. Le « cluster » Nodefony désigne **N process Node** (pods derrière un
   orchestrateur), pas du sharding Redis 6-nodes — ce serait de l'over-engineering pour le dev.
 - **Auth Redis obligatoire** (`--requirepass`) même en dev : on ne prend pas l'habitude d'un Redis
-  ouvert (Zero Trust). Le mot de passe vit dans `docker/.env` (ignoré par git).
+  ouvert (Zero Trust). Mot de passe dev par défaut `nodefony-dev` (inline dans le compose,
+  public) ; surchargeable par `export REDIS_PASSWORD=…` ou un `docker/.env` (ignoré par git).
 - **Persistance AOF** (`--appendonly yes`) : les données survivent au restart du conteneur, sans le
   coût d'un snapshot RDB bloquant.
 - **Kafka en KRaft mode** (pas de Zookeeper) : Zookeeper est déprécié depuis Kafka 3.5 et retiré en
