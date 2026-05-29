@@ -19,8 +19,10 @@ nodefony/databases/*
 # Rapports de couverture monocart-coverage-reports (tous modules)
 .coverage/
 
-# Ignore les fichiers d'environnement
+# Ignore les fichiers d'environnement (secrets locaux). Les .env.<env>
+# versionnés ne contiennent que des défauts non-secrets.
 .env
+*.local
 
 # Ignore les fichiers de sauvegarde
 *.swp

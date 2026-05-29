@@ -1,4 +1,4 @@
-import { CliKernel } from "nodefony";
+import { CliKernel, loadEnv } from "nodefony";
 import type { EnvironmentType } from "nodefony";
 import { exit } from "process";
 
@@ -27,6 +27,10 @@ function detectEnvironmentFromArgv(
 }
 
 const env = detectEnvironmentFromArgv(process.argv.slice(2));
+
+// Peuple process.env depuis les .env du projet AVANT le boot : les configs de
+// modules (REDIS_*, etc.) les lisent au moment de la construction du kernel.
+loadEnv(env);
 
 const kernel = new CliKernel(env).start().catch((e) => {
   exit(e.code || 1);

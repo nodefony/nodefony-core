@@ -157,6 +157,7 @@ export type {
   IProfilerQuery,
 } from "./runtime/RequestContext";
 export { redactSecrets } from "./runtime/redact";
+export { loadEnv } from "./runtime/loadEnv";
 
 // ─── ORM ──────────────────────────────────────────────────────────────────────
 export { default as Orm } from "./kernel/orm/Orm";

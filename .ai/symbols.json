@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-28T23:25:57.070Z",
+  "generated": "2026-05-29T09:37:57.745Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 774,
-    "symbols": 1434,
+    "files": 775,
+    "symbols": 1436,
     "classes": 231,
     "interfaces": 345,
     "types": 182,
     "enums": 2,
-    "functions": 218,
+    "functions": 220,
     "constants": 456
   },
   "symbols": {
@@ -898,6 +898,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Assertion type **compile-time** : `expectType<T>(value)` échoue à la compilation si `value` n'est pas assignable à `T`. **0 coût runtime** (fonction vide)."
+    },
+    "loadEnv": {
+      "name": "loadEnv",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/loadEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Charge les fichiers `.env` du projet dans `process.env`, en cascade et SANS jamais écraser une variable déjà présente. Précédence (du plus fort au plus faible) : ``` process.env (shell / orchestrat…"
     },
     "redactSecrets": {
       "name": "redactSecrets",
@@ -11960,6 +11968,16 @@
       "buildOwnHealth": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
+      "IBackplane": [
+        "src/packages/@nodefony/realtime/index.ts",
+        "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+      ],
       "RedisService": [
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts"
@@ -12017,6 +12035,9 @@
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
         "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
+      ],
+      "loadEnv": [
+        "src/nodefony/src/bin/nodefony.ts"
       ],
       "Websocket": [
         "src/nodefony/src/client/index.ts",
@@ -13223,15 +13244,6 @@
       "RealtimeConfig": [
         "src/packages/@nodefony/realtime/nodefony/config/config.ts",
         "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts"
-      ],
-      "IBackplane": [
-        "src/packages/@nodefony/realtime/nodefony/config/defineRealtimeConfig.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/backplane/backplaneRegistry.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/backplane/ClusterBackplane.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/backplane/LoopbackBackplane.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/backplane/RedisBackplane.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
       ],
       "RpcActionHandler": [
         "src/packages/@nodefony/realtime/nodefony/decorators/realtimeDecorators.ts",
