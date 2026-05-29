@@ -139,7 +139,6 @@ class Http2Response extends HttpResponse {
     return new Promise((resolve, reject) => {
       try {
         if (this.stream) {
-          this.ended = true;
           // Stream déjà fermé/détruit : ne pas re-appeler end().
           if (this.stream.destroyed || this.stream.closed) {
             return resolve(this.stream);

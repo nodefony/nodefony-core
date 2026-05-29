@@ -23,7 +23,6 @@ class HttpResponse {
   response: http.ServerResponse | http2.Http2ServerResponse | null;
   statusCode: number = 200;
   statusMessage: string = "";
-  ended: boolean = false;
   flushing: boolean = false;
   encoding: BufferEncoding = "utf-8";
   body: Buffer | null = null;
@@ -455,7 +454,6 @@ class HttpResponse {
   ): Promise<http.ServerResponse | http2.ServerHttp2Stream> {
     return new Promise((resolve, reject) => {
       if (this.response) {
-        this.ended = true;
         return resolve(
           (this.response as http.ServerResponse).end(
             chunk,

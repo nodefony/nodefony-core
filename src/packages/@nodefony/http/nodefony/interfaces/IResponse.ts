@@ -8,16 +8,21 @@ export interface IResponse {
   cookies: Record<string, ICookie>;
 
   addCookie(cookie: ICookie): ICookie;
-  send(data?: Buffer | string | null, encoding?: BufferEncoding): Promise<unknown>;
+  send(
+    data?: Buffer | string | null,
+    encoding?: BufferEncoding,
+  ): Promise<unknown>;
   clean(): void;
 }
 
 export interface IHttpResponse extends IResponse {
-  ended: boolean;
   headers: Record<string, unknown>;
   contentType: string;
 
-  setStatusCode(code: number | string, message?: string): { code: number; message: string };
+  setStatusCode(
+    code: number | string,
+    message?: string,
+  ): { code: number; message: string };
   getStatusCode(): number;
   getStatusMessage(): string;
   isHeaderSent(): boolean;
