@@ -26,8 +26,8 @@
     "@nodefony/http": "*",
     "@nodefony/framework": "*",
     "@nodefony/frontend": "*",
-    "vite": ">=5.0.0",
-    "@vitejs/plugin-vue": ">=5.0.0"
+    "vite": ">=8.0.0",
+    "@vitejs/plugin-vue": ">=6.0.0"
   },
   "devDependencies": {
     "@rollup/plugin-json": "6.1.0",
