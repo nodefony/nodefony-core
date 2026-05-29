@@ -5,7 +5,11 @@ import "mocha";
 import Injector from "../kernel/injector/injector";
 import Service from "../Service";
 import Container from "../Container";
-import { injectable, inject, Inject } from "../kernel/decorators/kernelDecorator";
+import {
+  injectable,
+  inject,
+  Inject,
+} from "../kernel/decorators/kernelDecorator";
 import { Nodefony } from "../Nodefony";
 import type { DIScope } from "../kernel/injector/injector";
 
@@ -978,8 +982,14 @@ describe("@Inject — property injection", () => {
       }
     }
     (Inject("PropDepA") as Function)(TargetProto.prototype, "dep");
-    const metas = Reflect.getMetadata("inject:properties", TargetProto.prototype) || [];
-    assert.ok(metas.some((m: { key: string | symbol; name: string }) => m.key === "dep" && m.name === "PropDepA"));
+    const metas =
+      Reflect.getMetadata("inject:properties", TargetProto.prototype) || [];
+    assert.ok(
+      metas.some(
+        (m: { key: string | symbol; name: string }) =>
+          m.key === "dep" && m.name === "PropDepA",
+      ),
+    );
   });
 
   it("Inject() sans nom ET sans design:type → throw", () => {
@@ -1040,7 +1050,11 @@ describe("@Inject — property injection", () => {
       }
       (Inject("PropDepA") as Function)(WithSingleton.prototype, "dep");
       const inst = Injector.instantiate(WithSingleton as any) as WithSingleton;
-      assert.strictEqual(inst.dep, shared, "singleton réutilise l'instance du container");
+      assert.strictEqual(
+        inst.dep,
+        shared,
+        "singleton réutilise l'instance du container",
+      );
     } finally {
       (Nodefony as any).getKernel = orig;
     }
@@ -1055,7 +1069,10 @@ describe("@Inject — property injection", () => {
       }
     }
     (Inject("PropDepB") as Function)(PlainWithProp.prototype, "injected");
-    const inst = Injector.instantiate(PlainWithProp as any, "hello") as PlainWithProp;
+    const inst = Injector.instantiate(
+      PlainWithProp as any,
+      "hello",
+    ) as PlainWithProp;
     assert.ok(inst instanceof PlainWithProp);
     assert.ok(inst.injected instanceof PropDepB);
   });
@@ -1167,5 +1184,98 @@ describe("Circular dependency detection", () => {
     }
     assert.doesNotThrow(() => Injector.instantiate(IndepX as any));
     assert.doesNotThrow(() => Injector.instantiate(IndepX as any));
+  });
+
+  // Durcissement C1 (2026-05-29) : verrouille la détection sur TOUS les chemins
+  // d'injection (property + mixte) et l'absence de faux positif sur graphe en
+  // diamant — cas réalistes que P6 (authenticators/voters + userProvider partagé)
+  // va déclencher.
+  it("cycle via property injection (@Inject) A → B → A → throw", () => {
+    @injectable()
+    class CycPropA extends Service {
+      public b!: Service;
+      constructor() {
+        super("CycPropA", new Container());
+      }
+    }
+    @injectable()
+    class CycPropB extends Service {
+      public a!: Service;
+      constructor() {
+        super("CycPropB", new Container());
+      }
+    }
+    (Inject("CycPropB") as Function)(CycPropA.prototype, "b");
+    (Inject("CycPropA") as Function)(CycPropB.prototype, "a");
+    assert.throws(
+      () => Injector.instantiate(CycPropA as any),
+      /Circular dependency detected/,
+    );
+  });
+
+  it("cycle mixte ctor → property → ctor → throw", () => {
+    @injectable()
+    class MixA extends Service {
+      constructor(dep: unknown) {
+        super("MixA", new Container());
+        void dep;
+      }
+    }
+    @injectable()
+    class MixB extends Service {
+      public a!: Service;
+      constructor() {
+        super("MixB", new Container());
+      }
+    }
+    (inject("MixB") as Function)(MixA, undefined, 0); // A ctor ← B
+    (Inject("MixA") as Function)(MixB.prototype, "a"); // B prop ← A
+    assert.throws(
+      () => Injector.instantiate(MixA as any),
+      /Circular dependency detected/,
+    );
+  });
+
+  it("graphe en diamant (A→B, A→C, B→D, C→D) sans cycle → pas de faux positif", () => {
+    @injectable()
+    class DiaD extends Service {
+      constructor() {
+        super("DiaD", new Container());
+      }
+    }
+    @injectable()
+    class DiaB extends Service {
+      constructor(d: unknown) {
+        super("DiaB", new Container());
+        void d;
+      }
+    }
+    @injectable()
+    class DiaC extends Service {
+      constructor(d: unknown) {
+        super("DiaC", new Container());
+        void d;
+      }
+    }
+    @injectable()
+    class DiaA extends Service {
+      constructor(b: unknown, c: unknown) {
+        super("DiaA", new Container());
+        void b;
+        void c;
+      }
+    }
+    (inject("DiaD") as Function)(DiaB, undefined, 0);
+    (inject("DiaD") as Function)(DiaC, undefined, 0);
+    (inject("DiaB") as Function)(DiaA, undefined, 0);
+    (inject("DiaC") as Function)(DiaA, undefined, 1);
+    // D est atteint par 2 chemins distincts ([A,B] et [A,C]) mais jamais dans sa
+    // propre lignée → stack-par-valeur ne doit PAS produire de faux positif.
+    assert.doesNotThrow(() => Injector.instantiate(DiaA as any));
+    const inst = Injector.instantiate(DiaA as any) as DiaA;
+    assert.ok(
+      inst instanceof DiaA,
+      "diamant résolu sans faux positif circulaire",
+    );
   });
 });

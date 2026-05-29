@@ -7,17 +7,17 @@
 
 ## État actuel ✅ (implémenté)
 
-| Feature | Fichier | Statut |
-|---|---|---|
-| `@injectable(name?)` | `kernelDecorator.ts` | ✅ |
-| `@injectable({ name?, scope? })` | `kernelDecorator.ts` | ✅ |
-| `@inject("name")` parameter decorator | `kernelDecorator.ts` | ✅ |
-| Auto-injection via `design:paramtypes` | `injector.ts` | ✅ |
-| Scope `singleton` (défaut) | `injector.ts` | ✅ |
-| Scope `transient` (toujours new) | `injector.ts` | ✅ |
-| `Injector.getScope(name)` | `injector.ts` | ✅ |
-| Résolution depuis container kernel | `injector.ts` | ✅ |
-| `@modules / @services / @entities` | `kernelDecorator.ts` | ✅ |
+| Feature                                | Fichier              | Statut |
+| -------------------------------------- | -------------------- | ------ |
+| `@injectable(name?)`                   | `kernelDecorator.ts` | ✅     |
+| `@injectable({ name?, scope? })`       | `kernelDecorator.ts` | ✅     |
+| `@inject("name")` parameter decorator  | `kernelDecorator.ts` | ✅     |
+| Auto-injection via `design:paramtypes` | `injector.ts`        | ✅     |
+| Scope `singleton` (défaut)             | `injector.ts`        | ✅     |
+| Scope `transient` (toujours new)       | `injector.ts`        | ✅     |
+| `Injector.getScope(name)`              | `injector.ts`        | ✅     |
+| Résolution depuis container kernel     | `injector.ts`        | ✅     |
+| `@modules / @services / @entities`     | `kernelDecorator.ts` | ✅     |
 
 ---
 
@@ -30,10 +30,10 @@ Permettre l'injection sur les propriétés d'une classe, pas seulement dans le c
 ```typescript
 class MyController extends Service {
   @Inject("AuthService")
-  private auth!: AuthService;   // injecté après construction
+  private auth!: AuthService; // injecté après construction
 
   @Inject()
-  private logger!: Syslog;     // nom déduit du type
+  private logger!: Syslog; // nom déduit du type
 }
 ```
 
@@ -49,7 +49,8 @@ function Inject(name?: string): PropertyDecorator {
   return (target, propertyKey) => {
     const type = Reflect.getMetadata("design:type", target, propertyKey);
     const resolvedName = name || type?.name;
-    if (!resolvedName) throw new Error(`@Inject requires a name on ${String(propertyKey)}`);
+    if (!resolvedName)
+      throw new Error(`@Inject requires a name on ${String(propertyKey)}`);
     const existing = Reflect.getMetadata("inject:properties", target) || [];
     existing.push({ key: propertyKey, name: resolvedName });
     Reflect.defineMetadata("inject:properties", existing, target);
@@ -67,6 +68,7 @@ for (const { key, name } of propMetas) {
 ```
 
 ### Gotchas
+
 - `design:type` nécessite `emitDecoratorMetadata: true` (OK en prod rollup, pas en tests tsx).
 - Les champs `!` (definite assignment) ne posent pas problème — on assigne post-construction.
 - Cast `Record<string, unknown>` obligatoire sur `instance` — TS strict refuse l'assignation dynamique sans.
@@ -115,6 +117,7 @@ if (scope === "scoped") {
 ```
 
 ### Gotchas
+
 - `AsyncLocalStorage` disponible depuis Node.js 16.4 — OK pour notre target.
 - Pas de scope storage → comportement transient (safe fallback).
 - **`Container` n'a pas de méthode `enterScope()`** — à ajouter en début de session B. Peut utiliser `new Scope(container)` directement (Scope étend Container).
@@ -123,6 +126,12 @@ if (scope === "scoped") {
 ---
 
 ## Phase C — Détection de dépendances circulaires
+
+> ✅ **LIVRÉE** (vérif 2026-05-29) — implémentée dans `injector.ts`
+> (`_instantiateWithStack`, stack passée **par valeur** `[...stack, ctorName]` async-safe,
+> l.157-170). Durcie par 6 tests `Injector.test.ts` § « Circular dependency detection » :
+> direct (A→A), indirect (A→B→A), **property injection** (`@Inject` A↔B), **mixte** ctor↔property,
+> message de chemin avec `→`, et **diamant** (A→B, A→C, B→D, C→D = anti-faux-positif).
 
 ### Objectif
 
@@ -161,6 +170,7 @@ private static _instantiateWithStack(
 ```
 
 ### Gotchas
+
 - **Ne jamais utiliser un tableau module-level** — partagé entre tous les appels async concurrents → faux positifs.
 - La stack est un tableau passé par valeur (`[...stack, name]`) — chaque branche a sa propre copie.
 - Les singletons déjà résolus ne déclenchent pas de circular (`kernel.get()` retourne l'instance directement, avant `_instantiateWithStack`).
@@ -202,6 +212,7 @@ static get(name, module = "global") {
 ```
 
 ### Gotchas
+
 - Rétro-incompatible sur `Injector.injectables` (accès direct dans les tests). Migrer.
 - `module` context doit être propagé à `_resolve` → signature change.
 - À faire APRÈS Phase A et B — impact architectural élevé.
@@ -217,7 +228,7 @@ Injecter un provider plutôt qu'une instance — l'instance est créée à la pr
 ```typescript
 class MyService extends Service {
   @InjectLazy("HeavyService")
-  private heavy!: () => HeavyService;  // factory
+  private heavy!: () => HeavyService; // factory
 
   doWork() {
     this.heavy().compute(); // HeavyService créé ici, pas au boot
