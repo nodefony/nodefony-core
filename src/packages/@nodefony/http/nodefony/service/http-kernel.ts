@@ -604,7 +604,6 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // if (this.firewall) {
           //   this.firewall.getSessionToken(context, session);
           // }
-          //console.log(session);
           return session;
         })
         .catch((e) => {

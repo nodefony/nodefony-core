@@ -273,7 +273,7 @@ class HttpRequest {
                   return resolve((await this.parser.parse()) as Parser);
                   break;
                 default:
-                  console.error(err);
+                  this.log(err, "ERROR");
                   error.code = error.httpCode;
                   return reject(err);
               }

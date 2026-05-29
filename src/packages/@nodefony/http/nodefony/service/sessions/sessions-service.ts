@@ -273,7 +273,6 @@ class SessionsService extends Service {
           }
         })
         .catch((err) => {
-          //console.error(err);
           if (context.cleaned) {
             return reject(err);
           }
@@ -284,7 +283,6 @@ class SessionsService extends Service {
   }
 
   saveSession(context: ContextType): Promise<Session | null> {
-    //console.log(`SERVICE SESSION : SAVED : ${context.session?.saved}`);
     if (context.session) {
       if (!context.session.saved) {
         return context.session.save(

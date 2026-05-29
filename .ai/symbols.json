@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-29T16:54:15.912Z",
+  "generated": "2026-05-29T17:05:06.692Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -11340,7 +11340,8 @@
       ],
       "inspect": [
         "src/nodefony/src/Error.ts",
-        "src/nodefony/src/syslog/Syslog.ts"
+        "src/nodefony/src/syslog/Syslog.ts",
+        "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
       ],
       "EventEmitter": [
         "src/nodefony/src/Event.ts"

@@ -20,7 +20,7 @@ const finderGC = function (
   this: FileSessionStorage,
   path: string,
   msMaxlifetime: number,
-  context: string
+  context: string,
 ) {
   let nbSessionsDelete = 0;
   return new Finder().in(path, {
@@ -29,14 +29,14 @@ const finderGC = function (
       if (mtime + msMaxlifetime < new Date().getTime()) {
         file.unlink();
         this.manager.log(
-          `FILES SESSIONS STORAGE GARBADGE COLLECTOR SESSION context : ${context} ID : ${file.name} DELETED`
+          `FILES SESSIONS STORAGE GARBADGE COLLECTOR SESSION context : ${context} ID : ${file.name} DELETED`,
         );
         nbSessionsDelete++;
       }
     },
     onFinish: (/* error, result*/) => {
       this.manager.log(
-        `FILES SESSIONS STORAGE context : ${context || "default"} GARBADGE COLLECTOR ==> ${nbSessionsDelete} DELETED`
+        `FILES SESSIONS STORAGE context : ${context || "default"} GARBADGE COLLECTOR ==> ${nbSessionsDelete} DELETED`,
       );
     },
   });
@@ -56,7 +56,7 @@ class FileSessionStorage implements sessionStorageInterface {
 
   async start(
     id: string,
-    contextSession: string
+    contextSession: string,
   ): Promise<SerializeSessionType> {
     let fileSession: FileClass;
     let Path: string = "";
@@ -68,7 +68,7 @@ class FileSessionStorage implements sessionStorageInterface {
         try {
           fs.mkdirSync(dir, { recursive: true });
         } catch (e) {
-          console.warn(e);
+          this.manager.log(e, "WARNING");
           return Promise.reject(e);
         }
       }
@@ -79,7 +79,7 @@ class FileSessionStorage implements sessionStorageInterface {
     try {
       fileSession = new FileClass(Path);
     } catch (e) {
-      console.trace("start storage", e);
+      this.manager.log(`start storage: ${e}`, "ERROR");
       return Promise.resolve({} as SerializeSessionType);
     }
     try {
@@ -117,7 +117,7 @@ class FileSessionStorage implements sessionStorageInterface {
               total = result[0].childrens.length;
             }
             this.manager.log(
-              `CONTEXT ${contextSession ? contextSession : "GLOBAL"} SESSIONS STORAGE  ==>  ${this.manager.options.handler.toUpperCase()} COUNT SESSIONS : ${total}`
+              `CONTEXT ${contextSession ? contextSession : "GLOBAL"} SESSIONS STORAGE  ==>  ${this.manager.options.handler.toUpperCase()} COUNT SESSIONS : ${total}`,
             );
 
             return resolve(total);
@@ -150,7 +150,7 @@ class FileSessionStorage implements sessionStorageInterface {
     return new Promise((resolve, reject) => {
       try {
         this.manager.log(
-          `FILES SESSIONS STORAGE DESTROY SESSION context : ${contextSession} ID : ${fileDestroy.name} DELETED`
+          `FILES SESSIONS STORAGE DESTROY SESSION context : ${contextSession} ID : ${fileDestroy.name} DELETED`,
         );
         fileDestroy.unlink();
         return resolve(true);
@@ -171,7 +171,7 @@ class FileSessionStorage implements sessionStorageInterface {
           this,
           `${this.path}/${this.contextSessions[i]}`,
           msMaxlifetime,
-          this.contextSessions[i]
+          this.contextSessions[i],
         );
       }
     }
@@ -197,7 +197,7 @@ class FileSessionStorage implements sessionStorageInterface {
   write(
     fileName: string,
     serialize: SerializeSessionType,
-    contextSession: string
+    contextSession: string,
   ): Promise<SerializeSessionType> {
     let Path: string = "";
     if (contextSession) {

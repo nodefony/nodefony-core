@@ -73,7 +73,6 @@ class Http2Response extends HttpResponse {
         const traceparent = (this.context as { traceparent?: string | null })
           .traceparent;
         if (traceparent) this.headers["traceparent"] = traceparent;
-        //console.log("HTTH2 respond", this.headers);
         this.stream.respond(this.headers, {
           endStream: false,
         });

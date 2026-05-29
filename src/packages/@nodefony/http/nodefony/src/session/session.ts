@@ -192,9 +192,7 @@ class Session extends Container {
               );
               this.migrated = true;
               this.contextSession = contextSession;
-              //console.log("before create : ", this.id);
               let session = this.create(this.lifetime as number);
-              //console.log("after create : ", this.id);
               return session;
             })
             .catch((error: Error) => {
@@ -321,23 +319,17 @@ class Session extends Container {
         hash = createHash("md5");
     }
     const res = hash.update(concat).digest("hex");
-    //console.log(`setId : ${res}:${this.contextSession}`);
     return this.encrypt(`${res}:${this.contextSession}`);
   }
 
   getId(value: string) {
     const res = this.decrypt(value);
-    //console.log(res);
     // eslint-disable-next-line prefer-destructuring
     this.contextSession = res.split(":")[1];
     return value;
   }
 
   async getSession(contextSession: string): Promise<this> {
-    // console.log(
-    //   `getSession : ${contextSession} current : ${this.contextSession}`,
-    //   this.options
-    // );
     if (this.options.use_cookies) {
       if (this.context?.cookieSession) {
         this.id = this.getId(this.context.cookieSession.value);
@@ -356,9 +348,6 @@ class Session extends Container {
         }
       }
     }
-    // console.log(
-    //   `getSession after getId : ${contextSession} current : ${this.contextSession}`
-    // );
     if (this.id) {
       return this.checkChangeContext(contextSession).catch((e) => {
         throw e;
@@ -385,7 +374,6 @@ class Session extends Container {
         return false;
       }
     }
-    // console.log( this.updated , new Date(this.updated) )
     const lastUsed = new Date(this.updated as Date).getTime();
     // let lastUsed = new Date(this.getMetaBag("lastUsed")).getTime();
     const now = new Date().getTime();
@@ -433,12 +421,10 @@ class Session extends Container {
   }
 
   async removeSession(cookieDelete: boolean = false): Promise<boolean> {
-    //console.log(`removeSession ${this.saved}`);
     //if (this.saved === true) {
     return this.storage
       .destroy(this.id, this.contextSession)
       .then(() => {
-        //console.log(`DELETE session from storage`);
         if (cookieDelete) {
           this.deleteCookieSession();
         }
@@ -503,7 +489,6 @@ class Session extends Container {
   }
 
   encrypt(text: string): string {
-    //console.log("encrypt", text);
     const cipher = createCipheriv(
       "aes-256-ctr",
       this.manager.secret as Buffer,
@@ -515,7 +500,6 @@ class Session extends Container {
   }
 
   decrypt(text: string): string {
-    //console.log("decrypt", text);
     const decipher = createDecipheriv(
       "aes-256-ctr",
       this.manager.secret as Buffer,
@@ -523,9 +507,7 @@ class Session extends Container {
     );
 
     let decrypted = decipher.update(text, "hex", "utf8");
-    //console.log(decipher, decrypted);
     decrypted += decipher.final("utf8");
-    //console.log(decrypted.toString());
     return decrypted;
   }
 
@@ -564,7 +546,6 @@ class Session extends Container {
     return this.storage
       .write(this.id, this.serialize(user), contextSession)
       .then(async (session: any) => {
-        //console.log("SAVE SESSION :", this.id);
         this.created = session.createdAt;
         this.updated = session.updatedAt;
         if (!this.context) {
@@ -578,7 +559,6 @@ class Session extends Container {
         }
       })
       .catch((error: Error) => {
-        // console.trace(error);
         // this.log(error, "ERROR");
         this.saved = false;
         throw error;
@@ -700,7 +680,6 @@ class Session extends Container {
       this.set(attr, obj.Attributes[attr]);
     }
     for (const meta in obj.metaBag) {
-      // console.log(meta + " : " + obj.metaBag[meta])
       this.setMetaBag(meta, obj.metaBag[meta]);
     }
     for (const flash in obj.flashBag) {
