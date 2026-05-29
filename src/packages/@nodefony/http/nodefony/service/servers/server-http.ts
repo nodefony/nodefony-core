@@ -18,6 +18,7 @@ import HttpKernel, {
 import http from "node:http";
 import http2 from "node:http2";
 import { AddressInfo } from "node:net";
+import { handleClientError } from "./clientError";
 
 class ServerHttp extends Service {
   module: Module;
@@ -35,14 +36,14 @@ class ServerHttp extends Service {
 
   constructor(
     module: Module,
-    @inject("HttpKernel") private httpKernel: HttpKernel
+    @inject("HttpKernel") private httpKernel: HttpKernel,
   ) {
     module: Module;
     super(
       "server-http",
       module.container as Container,
       module.notificationsCenter as Event,
-      module.options.http
+      module.options.http,
     );
     this.module = module;
     this.active = !!module.kernel?.options.servers.http;
@@ -91,7 +92,7 @@ class ServerHttp extends Service {
             ?.onHttpRequest(request, response, this.type)
             .catch(() => {
               return;
-            })
+            }),
         );
         // LISTEN ON PORT
         this.server.listen(this.port, this.domain, () => {
@@ -114,14 +115,14 @@ class ServerHttp extends Service {
             case "ENOTFOUND":
               this.log(
                 `CHECK DOMAIN IN /etc/hosts or config unable to connect to : ${this.domain}`,
-                "ERROR"
+                "ERROR",
               );
               this.log(myError, "CRITIC");
               break;
             case "EADDRINUSE":
               this.log(
                 `Domain : ${this.domain} Port : ${this.port} ==> ALREADY USE `,
-                "ERROR"
+                "ERROR",
               );
               this.log(myError, "CRITIC");
               this.server?.close();
@@ -138,7 +139,7 @@ class ServerHttp extends Service {
               return this.server.close(() => {
                 this.log(
                   `${this.type} SHUTDOWN Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
-                  "INFO"
+                  "INFO",
                 );
                 return resolve(true);
               });
@@ -149,6 +150,9 @@ class ServerHttp extends Service {
 
         this.server.on("clientError", (e, socket) => {
           this.fire("onClientError", e, socket);
+          // Node désactive la fermeture auto dès qu'un listener existe → on
+          // répond + ferme nous-mêmes (sinon fuite de socket/FD = DoS).
+          handleClientError(e as NodeJS.ErrnoException, socket);
         });
       } catch (e) {
         this.log(e, "CRITIC");
@@ -160,7 +164,7 @@ class ServerHttp extends Service {
   showBanner(): void {
     if (this.infos) {
       this.log(
-        `Server Listen on ${this.scheme}://${this.infos.address}:${this.infos.port} Family: ${this.infos.family} Protocol : ${this.protocol}`
+        `Server Listen on ${this.scheme}://${this.infos.address}:${this.infos.port} Family: ${this.infos.family} Protocol : ${this.protocol}`,
       );
     }
   }

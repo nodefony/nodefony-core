@@ -23,6 +23,7 @@ import { createHttpTerminator, HttpTerminator } from "http-terminator";
 //import net from "node:net";
 import { AddressInfo } from "node:net";
 import { TLSSocket } from "node:tls";
+import { handleClientError } from "./clientError";
 
 class ServerHttps extends Service {
   //httpKernel: HttpKernel | null = null;
@@ -42,14 +43,14 @@ class ServerHttps extends Service {
 
   constructor(
     module: Module,
-    @inject("HttpKernel") private httpKernel: HttpKernel
+    @inject("HttpKernel") private httpKernel: HttpKernel,
   ) {
     module: Module;
     super(
       "server-https",
       module.container as Container,
       module.notificationsCenter as Event,
-      module.options.https
+      module.options.https,
     );
     this.module = module;
     this.active = !!this.kernel?.options.servers.https;
@@ -137,7 +138,7 @@ class ServerHttps extends Service {
               .catch(() => {
                 return;
               });
-          }
+          },
         );
 
         this.server.on("error", (error) => {
@@ -148,14 +149,14 @@ class ServerHttps extends Service {
             case "ENOTFOUND":
               this.log(
                 `CHECK DOMAIN IN /etc/hosts or config unable to connect to : ${this.domain}`,
-                "ERROR"
+                "ERROR",
               );
               this.log(myError, "CRITIC");
               break;
             case "EADDRINUSE":
               this.log(
                 `Domain : ${this.domain} Port : ${this.port} ==> ALREADY USE `,
-                "ERROR"
+                "ERROR",
               );
               this.log(myError, "CRITIC");
               this.server?.close();
@@ -173,7 +174,7 @@ class ServerHttps extends Service {
               return this.server.close(() => {
                 this.log(
                   `${this.type} SHUTDOWN Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
-                  "INFO"
+                  "INFO",
                 );
                 return resolve(true);
               });
@@ -183,6 +184,9 @@ class ServerHttps extends Service {
         });
         this.server.on("clientError", (e, socket) => {
           this.fire("onClientError", e, socket);
+          // Node désactive la fermeture auto dès qu'un listener existe → on
+          // répond + ferme nous-mêmes (sinon fuite de socket/FD = DoS).
+          handleClientError(e as NodeJS.ErrnoException, socket);
         });
       } catch (e) {
         this.log(e, "CRITIC");
@@ -194,6 +198,15 @@ class ServerHttps extends Service {
   createServerH2(): Promise<http2.Http2SecureServer> {
     return new Promise((resolve, reject) => {
       try {
+        const h2Cfg =
+          (
+            this.module?.options as {
+              http2?: {
+                maxConcurrentStreams?: number;
+                maxSessionMemory?: number;
+              };
+            }
+          )?.http2 ?? {};
         const opt: http2.SecureServerOptions = extend({
           allowHTTP1: true,
           rejectUnauthorized: this.options.rejectUnauthorized,
@@ -203,8 +216,27 @@ class ServerHttps extends Service {
             ? this.httpKernel?.serviceCerticats?.ca
             : undefined,
         });
+        // Limites anti-DoS HTTP/2 (cf config http2). Appliquées seulement si
+        // définies → sinon défauts Node conservés (pas de régression).
+        if (h2Cfg.maxSessionMemory) {
+          opt.maxSessionMemory = h2Cfg.maxSessionMemory;
+        }
+        if (h2Cfg.maxConcurrentStreams) {
+          opt.settings = {
+            ...opt.settings,
+            maxConcurrentStreams: h2Cfg.maxConcurrentStreams,
+          };
+        }
         this.server = http2.createSecureServer(opt);
         this.httpTerminator = this.terminator();
+        // Timeout HTTP/2 — sur Http2Server le timeout d'inactivité par défaut
+        // est 0 (désactivé) → sessions lentes/idle non bornées. setTimeout()
+        // borne l'inactivité de session (keepAliveTimeout est un concept HTTP/1).
+        if (this.options.timeout) {
+          this.server.setTimeout(this.options.timeout, () => {
+            this.fire("onTimeout", this);
+          });
+        }
         // const buf = http2.getPackedSettings(this.options);
         // const defaultSetting2 = extend(
         //   {},
@@ -253,14 +285,14 @@ class ServerHttps extends Service {
             case "ENOTFOUND":
               this.log(
                 `CHECK DOMAIN IN /etc/hosts or config unable to connect to : ${this.domain}`,
-                "ERROR"
+                "ERROR",
               );
               this.log(myError, "CRITIC");
               break;
             case "EADDRINUSE":
               this.log(
                 `Domain : ${this.domain} Port : ${this.port} ==> ALREADY USE `,
-                "ERROR"
+                "ERROR",
               );
               this.log(myError, "CRITIC");
               this.server?.close();
@@ -278,7 +310,7 @@ class ServerHttps extends Service {
               return this.server.close(() => {
                 this.log(
                   `${this.type} SHUTDOWN Server is listening on DOMAIN : ${this.domain}    PORT : ${this.port}`,
-                  "INFO"
+                  "INFO",
                 );
                 return resolve(true);
               });
@@ -302,7 +334,7 @@ class ServerHttps extends Service {
   showBanner(): void {
     if (this.infos) {
       this.log(
-        `Server Listen on ${this.scheme}://${this.infos.address}:${this.infos.port} Family: ${this.infos.family} Protocol : ${this.protocol}`
+        `Server Listen on ${this.scheme}://${this.infos.address}:${this.infos.port} Family: ${this.infos.family} Protocol : ${this.protocol}`,
       );
     }
   }

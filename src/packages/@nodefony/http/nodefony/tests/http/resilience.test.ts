@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import https from "node:https";
 import tls from "node:tls";
+import net from "node:net";
 import "mocha";
 
 // ── helpers ──────────────────────────────────────────────────────
@@ -16,17 +17,22 @@ function get(path: string, headers: Record<string, string> = {}): Promise<Res> {
 function post(
   path: string,
   body: string | Buffer = "",
-  headers: Record<string, string> = {}
+  headers: Record<string, string> = {},
 ): Promise<Res> {
   const len = Buffer.isBuffer(body) ? body.length : Buffer.byteLength(body);
-  return httpReq("POST", path, { "Content-Length": String(len), ...headers }, body);
+  return httpReq(
+    "POST",
+    path,
+    { "Content-Length": String(len), ...headers },
+    body,
+  );
 }
 
 function httpReq(
   method: string,
   path: string,
   headers: Record<string, string> = {},
-  body?: string | Buffer
+  body?: string | Buffer,
 ): Promise<Res> {
   return new Promise((resolve, reject) => {
     const req = https.request({ ...BASE, path, method, headers }, (res) => {
@@ -35,9 +41,17 @@ function httpReq(
       res.on("end", () => {
         const raw = Buffer.concat(chunks).toString();
         try {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: JSON.parse(raw) });
+          resolve({
+            status: res.statusCode!,
+            headers: res.headers as Record<string, unknown>,
+            body: JSON.parse(raw),
+          });
         } catch {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: raw });
+          resolve({
+            status: res.statusCode!,
+            headers: res.headers as Record<string, unknown>,
+            body: raw,
+          });
         }
       });
     });
@@ -59,7 +73,7 @@ function abruptDisconnect(path: string): Promise<void> {
           socket.destroy();
           resolve();
         }, 80);
-      }
+      },
     );
     socket.on("error", () => resolve());
   });
@@ -92,22 +106,18 @@ describe("Resilience — server must never crash (requires server)", () => {
   describe("Oversized payloads", () => {
     it("POST with 3 MB body to non-upload route — server responds (no crash)", async () => {
       const bigBody = Buffer.alloc(3 * 1024 * 1024, "x");
-      const { status } = await post(
-        "/nodefony/test/rest",
-        bigBody,
-        { "Content-Type": "application/x-www-form-urlencoded" }
-      );
+      const { status } = await post("/nodefony/test/rest", bigBody, {
+        "Content-Type": "application/x-www-form-urlencoded",
+      });
       // server may return 413, 400, or 200 depending on config — must NOT crash
       expect(status).to.be.within(200, 599);
     });
 
     it("POST with 5 MB form field — server responds (no crash)", async () => {
       const bigField = "field=" + "A".repeat(5 * 1024 * 1024);
-      const { status } = await post(
-        "/nodefony/test/html/upload",
-        bigField,
-        { "Content-Type": "application/x-www-form-urlencoded" }
-      );
+      const { status } = await post("/nodefony/test/html/upload", bigField, {
+        "Content-Type": "application/x-www-form-urlencoded",
+      });
       expect(status).to.be.within(200, 599);
     });
   });
@@ -132,12 +142,47 @@ describe("Resilience — server must never crash (requires server)", () => {
       const { status } = await httpReq("FAKEMETHOD", "/nodefony/test/index");
       expect(status).to.be.within(400, 499);
     });
+
+    it("malformed header (clientError) → 400 + socket closed (no FD leak)", (done) => {
+      // Socket brut sur le port HTTP clair (5151) : nom d'en-tête contenant un
+      // caractère de contrôle → llhttp rejette → event 'clientError'. Le serveur
+      // DOIT répondre 400 et fermer (sinon fuite de socket). Cf handleClientError.
+      const socket = net.connect(5151, "localhost", () => {
+        socket.write(
+          "GET /nodefony/test/index HTTP/1.1\r\nHost: localhost\r\nX\x01Y: 1\r\n\r\n",
+        );
+      });
+      let data = "";
+      let settled = false;
+      const finish = (err?: Error) => {
+        if (settled) return;
+        settled = true;
+        socket.destroy();
+        done(err);
+      };
+      socket.setTimeout(4000);
+      socket.on("data", (c: Buffer) => (data += c.toString()));
+      socket.on("close", () => {
+        try {
+          expect(data).to.match(/400 Bad Request/u);
+          finish();
+        } catch (e) {
+          finish(e as Error);
+        }
+      });
+      socket.on("timeout", () =>
+        finish(new Error("no 400 response / socket left open")),
+      );
+      socket.on("error", () => {
+        /* ECONNRESET possible après fermeture serveur — toléré */
+      });
+    });
   });
 
   describe("Burst / sustained load", () => {
     it("50 concurrent GET requests — all receive valid status", async () => {
       const results = await Promise.all(
-        Array.from({ length: 50 }, () => get("/nodefony/test/index"))
+        Array.from({ length: 50 }, () => get("/nodefony/test/index")),
       );
       for (const r of results) {
         expect(r.status).to.be.within(200, 599);
@@ -146,7 +191,7 @@ describe("Resilience — server must never crash (requires server)", () => {
 
     it("50 concurrent crash requests — server alive after", async () => {
       await Promise.allSettled(
-        Array.from({ length: 50 }, () => get("/nodefony/test/crash/sync"))
+        Array.from({ length: 50 }, () => get("/nodefony/test/crash/sync")),
       );
       const { status } = await get("/nodefony/test/index");
       expect(status).to.equal(200);

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-29T18:21:05.489Z",
+  "generated": "2026-05-29T18:32:14.907Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 775,
-    "symbols": 1447,
+    "files": 776,
+    "symbols": 1448,
     "classes": 228,
     "interfaces": 352,
     "types": 182,
     "enums": 2,
-    "functions": 226,
+    "functions": 227,
     "constants": 457
   },
   "symbols": {
@@ -9514,6 +9514,14 @@
       "decorators": [],
       "description": "Génère les balises HTML à injecter dans la page rendue côté serveur pour brancher le frontend Vite. Dev : `<script type=\"module\" src=\"http://host:port/@vite/client\">` + entry. Prod : lira `manifest…"
     },
+    "handleClientError": {
+      "name": "handleClientError",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/clientError.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Gère l'event `clientError` d'un `http.Server` / `https.Server`. ⚠️ Doc Node (`http.Server` event `'clientError'`) : dès qu'un listener `clientError` est attaché, Node **cesse de fermer le socket au…"
+    },
     "ServerHttp": {
       "name": "ServerHttp",
       "kind": "class",
@@ -14807,6 +14815,10 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
+      ],
+      "handleClientError": [
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
       ],
       "ProtoService": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",

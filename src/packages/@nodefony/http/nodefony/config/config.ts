@@ -240,6 +240,21 @@ export default {
      * Désactiver si le reverse proxy (nginx, Caddy) gère le push lui-même.
      */
     enablePush: true,
+
+    /**
+     * Nombre maximal de flux (streams) concurrents par session HTTP/2.
+     * Défense en profondeur contre l'abus de multiplexage (cf CVE-2023-44487
+     * « HTTP/2 Rapid Reset »). Envoyé dans les SETTINGS au client. 100 = défaut
+     * raisonnable (le défaut Node est bien plus élevé).
+     */
+    maxConcurrentStreams: 100,
+
+    /**
+     * Mémoire maximale (Mo) qu'une session HTTP/2 peut consommer (buffers de
+     * flux + état). Borne l'amplification mémoire d'une session malveillante.
+     * 10 = défaut Node, explicité ici pour rendre la limite visible.
+     */
+    maxSessionMemory: 10,
   },
 
   /**
