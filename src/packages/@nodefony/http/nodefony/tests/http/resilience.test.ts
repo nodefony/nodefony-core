@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import https from "node:https";
+import http2 from "node:http2";
 import tls from "node:tls";
 import net from "node:net";
 import "mocha";
@@ -227,5 +228,58 @@ describe("Resilience — server must never crash (requires server)", () => {
       const { headers } = await get("/nodefony/test/does-not-exist");
       expect(headers["content-type"]).to.be.a("string");
     });
+  });
+});
+
+// Régression — abort client PENDANT une réponse STREAMÉE (streamFile/pipe).
+// Différent de l'abort mid-requête (ECONNRESET ci-dessus) : ici le serveur écrit
+// déjà le corps. Sur HTTP/2 un write sur stream détruit = ERR_HTTP2_INVALID_STREAM
+// / ERR_STREAM_WRITE_AFTER_END (CRITIC) si non gardé. Vérifie : pas de crash
+// (serveur sert encore 200) — gardes Http2Response + sémantique pipe Node.
+// Sert le media 14 Mo (/nodefony/test/html/media) → abort après quelques Ko.
+function abortMediaStreamHttp2(killAfterBytes: number): Promise<void> {
+  return new Promise((resolve) => {
+    const session = http2.connect("https://localhost:5152", {
+      rejectUnauthorized: false,
+    });
+    session.on("error", () => resolve());
+    const req = session.request({
+      ":path": "/nodefony/test/html/media",
+      ":method": "GET",
+    });
+    let received = 0;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      req.destroy();
+      session.destroy();
+      resolve();
+    };
+    req.on("data", (chunk: Buffer) => {
+      received += chunk.length;
+      if (received >= killAfterBytes) finish(); // abort mid-stream
+    });
+    req.on("error", finish);
+    req.on("end", finish);
+    req.end();
+  });
+}
+
+describe("Resilience — abort pendant une réponse streamée (HTTP/2)", () => {
+  it("abort mid media-stream → serveur reste vivant (pas de write-after-end crash)", async () => {
+    await abortMediaStreamHttp2(16 * 1024);
+    await new Promise((r) => setTimeout(r, 300));
+    const health = await get("/nodefony/test/index");
+    expect(health.status).to.equal(200);
+  });
+
+  it("8 aborts mid-stream consécutifs → serveur sert toujours 200", async () => {
+    for (let i = 0; i < 8; i++) {
+      await abortMediaStreamHttp2(8 * 1024);
+    }
+    await new Promise((r) => setTimeout(r, 300));
+    const health = await get("/nodefony/test/index");
+    expect(health.status).to.equal(200);
   });
 });
