@@ -59,7 +59,6 @@ class HttpContext extends Context implements IHttpContextInterface {
   isRedirect: boolean = false;
   sended: boolean = false;
   timeoutid: number | null = null;
-  timeoutExpired: boolean = false;
   //isHtml: boolean = false;
   override request: HttpRequestType;
   override response: HttpRsponseType;
@@ -195,7 +194,6 @@ class HttpContext extends Context implements IHttpContextInterface {
     if (this.response.response) {
       this.response.response.setTimeout(this.response.timeout as number, () => {
         if (!this.response?.response?.writableEnded) {
-          this.timeoutExpired = true;
           this.fire("onTimeout", this);
         }
       });

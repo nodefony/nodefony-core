@@ -303,7 +303,6 @@ class DefaultController extends Controller {
     ).response;
     // Same mechanism as production HttpContext.setTimeout(), just faster.
     raw?.setTimeout?.(250, () => {
-      ctx.timeoutExpired = true;
       ctx.fire("onTimeout", ctx);
     });
     await new Promise<void>((resolve) => {
