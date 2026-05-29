@@ -67,6 +67,14 @@ import {
   buildOwnHealth,
 } from "./nodefony/src/server/RealtimeAdminApi";
 import type { IAdminBroker } from "@nodefony/framework";
+import type { IBackplane } from "./nodefony/interfaces/IBackplane";
+
+/**
+ * Délai max (ms) d'attente du `backplane.start()` au boot avant de basculer en
+ * hub local (fail-soft). Garde anti-gel : un transport réseau qui pend ne doit
+ * pas bloquer la montée des serveurs. Cf `Realtime.#startWithTimeout`.
+ */
+const BACKPLANE_START_TIMEOUT_MS = 5_000;
 
 // ── Drivers backplane natifs ──────────────────────────────────────────────
 //
@@ -236,7 +244,22 @@ class Realtime extends Module {
       );
       return;
     }
-    await backplane.start();
+    try {
+      await this.#startWithTimeout(backplane, BACKPLANE_START_TIMEOUT_MS);
+    } catch (e) {
+      // Échec / timeout du transport (Redis injoignable, file offline qui pend,
+      // Kafka down…) → on NE branche PAS le backplane : le hub reste LOCAL et le
+      // boot continue (fail-soft). Sans cette garde, un `await start()` qui pend
+      // gèle `onKernelBoot` → `onReady`/`initServers` ne fire jamais → les 4
+      // serveurs ne montent pas (cf KIT résilience de boot, Phase 2).
+      this.log(
+        `realtime backplane driver=${driverName} indisponible ` +
+          `(${(e as Error).message}) — fallback hub LOCAL, boot poursuivi ` +
+          `(pas de fan-out cross-pod)`,
+        "WARNING",
+      );
+      return;
+    }
     hub.setBackplane(backplane);
     const info = backplane.describe();
     this.log(
@@ -245,6 +268,48 @@ class Realtime extends Module {
         (info.channel ? ` channel=${info.channel}` : ""),
       "INFO",
     );
+  }
+
+  /**
+   * `backplane.start()` borné par un **timeout** — un driver réseau (Redis/Kafka)
+   * dont la connexion pend (serveur injoignable, file offline node-redis) ne doit
+   * jamais geler le boot.
+   *
+   * Détails perf/robustesse :
+   * - le timer est `unref` (ne maintient pas l'event loop vivant) et **nettoyé**
+   *   dans tous les cas (`finally`) → aucun handle qui fuit ;
+   * - un filet `.catch()` est posé sur la promesse `start()` : si elle rejette
+   *   APRÈS qu'on a perdu la course (timeout gagné), la rejection ne remonte pas
+   *   en `unhandledRejection` ;
+   * - au timeout on tente un `stop()` best-effort pour ne pas laisser une
+   *   connexion à demi-ouverte derrière.
+   *
+   * @param backplane - driver à démarrer.
+   * @param ms - délai max avant de considérer le `start()` en échec.
+   * @throws si `start()` rejette ou dépasse `ms`.
+   */
+  async #startWithTimeout(backplane: IBackplane, ms: number): Promise<void> {
+    const startP = Promise.resolve(backplane.start());
+    startP.catch(() => {}); // anti-unhandledRejection si rejet post-timeout
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        startP,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`start() timeout ${ms}ms`)),
+            ms,
+          );
+          timer.unref?.();
+        }),
+      ]);
+    } catch (e) {
+      void Promise.resolve(backplane.stop()).catch(() => {});
+      throw e;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   /**

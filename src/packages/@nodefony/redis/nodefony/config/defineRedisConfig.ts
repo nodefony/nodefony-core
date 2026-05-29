@@ -36,6 +36,41 @@ function applyEnvOverrides(config: IRedisConfig): IRedisConfig {
   return config;
 }
 
+/** Plafond de reconnexions appliqué hors production quand l'app n'en fixe pas. */
+const DEV_DEFAULT_MAX_RETRIES = 5;
+
+/**
+ * Hors production, borne les reconnexions Redis à un nombre **fini** quand l'app
+ * ne l'a PAS surchargé.
+ *
+ * Pourquoi : le défaut du schéma est `0` = illimité (résilience prod légitime,
+ * un orchestrateur relèvera Redis). Mais en dev avec Redis absent, node-redis
+ * retente sans fin et sa **file offline fait pendre** tout `await client.subscribe()`
+ * au boot → le backplane realtime ne rend jamais la main → les serveurs ne montent
+ * pas. Un plafond fini fait que `reconnectStrategy` finit par renvoyer une `Error`
+ * → node-redis abandonne → la file offline **rejette** au lieu de pendre.
+ *
+ * Détection « non surchargé » : on inspecte l'**input brut** (le défaut `0` du
+ * schéma est indistinguable d'un `0` explicite après le parse). Prod = inchangé.
+ *
+ * @param config - config déjà parsée (mutée en place avant le `freeze`).
+ * @param input - config brute fournie par l'app, pour détecter une surcharge.
+ * @returns la même config.
+ */
+function applyResilienceDefaults(
+  config: IRedisConfig,
+  input: IRedisConfigInput,
+): IRedisConfig {
+  if (process.env.NODE_ENV === "production") return config;
+  const userMaxRetries =
+    input.globalOptions?.socket?.reconnectStrategy?.maxRetries;
+  if (userMaxRetries === undefined) {
+    config.globalOptions.socket.reconnectStrategy.maxRetries =
+      DEV_DEFAULT_MAX_RETRIES;
+  }
+  return config;
+}
+
 /**
  * Builder type-safe de la configuration de `@nodefony/redis`.
  *
@@ -54,6 +89,7 @@ export function defineRedisConfig(
   config: IRedisConfigInput = {},
 ): IRedisConfig {
   const parsed = redisConfigSchema.parse(config);
+  applyResilienceDefaults(parsed, config);
   return Object.freeze(applyEnvOverrides(parsed));
 }
 

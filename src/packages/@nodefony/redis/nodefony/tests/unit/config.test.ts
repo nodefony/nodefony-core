@@ -18,10 +18,11 @@ describe("@nodefony/redis — schema (Zod)", () => {
     assert.equal(c.globalOptions.socket.host, "localhost");
     assert.equal(c.globalOptions.socket.port, 6379);
     assert.equal(c.globalOptions.socket.tls, false);
-    assert.deepEqual(
-      Object.keys(c.connections).sort(),
-      ["main", "publish", "subscribe"],
-    );
+    assert.deepEqual(Object.keys(c.connections).sort(), [
+      "main",
+      "publish",
+      "subscribe",
+    ]);
     assert.equal(c.connections.main.database, 0);
   });
 
@@ -75,6 +76,33 @@ describe("@nodefony/redis — defineRedisConfig (env layering)", () => {
   });
 });
 
+describe("@nodefony/redis — defineRedisConfig (résilience boot)", () => {
+  const saved = { ...process.env };
+  afterEach(() => {
+    process.env = { ...saved };
+  });
+
+  it("hors prod, maxRetries non surchargé → borné (5, pas illimité)", () => {
+    delete process.env.NODE_ENV; // !== production
+    const c = defineRedisConfig({});
+    assert.equal(c.globalOptions.socket.reconnectStrategy.maxRetries, 5);
+  });
+
+  it("hors prod, maxRetries explicite de l'app est respecté", () => {
+    process.env.NODE_ENV = "development";
+    const c = defineRedisConfig({
+      globalOptions: { socket: { reconnectStrategy: { maxRetries: 0 } } },
+    });
+    assert.equal(c.globalOptions.socket.reconnectStrategy.maxRetries, 0);
+  });
+
+  it("en production, maxRetries reste illimité (0) par défaut", () => {
+    process.env.NODE_ENV = "production";
+    const c = defineRedisConfig({});
+    assert.equal(c.globalOptions.socket.reconnectStrategy.maxRetries, 0);
+  });
+});
+
 describe("@nodefony/redis — buildClientOptions", () => {
   it("assemble socket depuis globalOptions + override connexion", () => {
     const config = defineRedisConfig({
@@ -107,13 +135,16 @@ describe("@nodefony/redis — buildClientOptions", () => {
   it("reconnectStrategy : back-off borné + abandon sur maxRetries", () => {
     const config = defineRedisConfig({
       globalOptions: {
-        socket: { reconnectStrategy: { baseMs: 100, maxMs: 250, maxRetries: 3 } },
+        socket: {
+          reconnectStrategy: { baseMs: 100, maxMs: 250, maxRetries: 3 },
+        },
       },
       connections: { main: { name: "main" } },
     });
     const opts = buildClientOptions(config, config.connections.main);
-    const strat = (opts.socket as { reconnectStrategy: (n: number) => number | Error })
-      .reconnectStrategy;
+    const strat = (
+      opts.socket as { reconnectStrategy: (n: number) => number | Error }
+    ).reconnectStrategy;
     assert.equal(strat(0), 100);
     assert.equal(strat(1), 200);
     assert.equal(strat(2), 250); // borné à maxMs
