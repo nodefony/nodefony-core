@@ -246,25 +246,28 @@ Extension de l'`AuditErrorEntry` :
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 452 intégration + 128 unit = 580 (2026-05-16)
+## Tests — 621 intégration (+1 pending) / 254 unit (2026-05-29)
 
-Runner: mocha + ts-node ESM. Prérequis: `npx nodefony development` sur 5151/5152.
+2 runners (les `unit/` tournent sous les DEUX) :
+
+- `npm test` = **vitest** → `tests/unit/**` = **254** (composants purs, pas de serveur).
+- `npm run test:integration` = **mocha** + ts-node ESM → `tests/**` sauf load+memory = **621 +1 pending** (serveur `npx nodefony development` 5151/5152 requis). Inclut les 254 unit → NE PAS sommer. Suite non-régression = celle-ci.
 
 ```
-unit/    : Cookie, Session, HttpError, Response          — 76 tests
-http/    : http, http1, https, errors, decorators,
-           fileStream, upload, httpKernel, static,
-           session, security, memory, resilience         — 182 tests
-routing/ : Router                                        — 11 tests
-ws/      : websocket, limits, perf, binary-broadcast,
-           protocol, session, w3c                        — 50 tests (+ broadcast=22)
-           ─────────────────────────────────────────────────────────
-TOTAL    :                                               336 passing
+unit/      : Cookie, Session, HttpError, Response, parser,
+             trace, … (16 fichiers vitest)            — 254 tests
+http/      : http(1/2), https, errors, decorators, fileStream,
+             upload, httpKernel, static, session, security,
+             traceparent, resilience
+routing/   : Router
+websockets/: websocket, limits, perf, binary-broadcast,
+             protocol, session, w3c
+                                                      mocha TOTAL : 621 (+1 pending)
 ```
 
-`memory.test.ts` — "1000 sequential GET < 35 MB" : flaky en full suite (GC pressure). Passe en isolation. Pas de fuite.
+`memory.test.ts` (suite load, `.mocharc.load.json`) — "1000 GET < 35 MB" flaky en full suite (GC pressure). Passe en isolation. Pas de fuite. "100 native crashes" idem (le test qui fail varie).
 
-Config ts-node: `tsconfig.tests.json` + hook `fix-reflect.mjs` (corrige `_virtual/Reflect.js` CJS/ESM).
+Config ts-node intég: `tsconfig.tests.json` + hook `fix-reflect.mjs` (corrige `_virtual/Reflect.js` CJS/ESM). Vitest: `vitest.config.ts` (setup `vitest.setup.ts`, shim mocha→`describe/it`).
 
 ## Admin data plane — `IAdminApi` (P10.3, 2026-05-20)
 

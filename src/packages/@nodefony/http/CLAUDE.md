@@ -96,42 +96,63 @@ Fix : `WebsocketContext` étend `request` avec `IWsRequestExtension { url: URL; 
 
 Chaque contexte (HTTP + WS) reçoit un `requestId` UUID v4 à la construction (`randomUUID()`).
 
-| Comportement | Détail |
-| --- | --- |
-| Génération | `Context.requestId = randomUUID()` — dans le constructeur de base |
-| Corrélation | Si le client envoie `X-Request-Id`, il remplace le UUID généré (HTTP + WS) |
-| Réponse HTTP | `Response.writeHead()` injecte `X-Request-Id: <uuid>` dans chaque réponse |
-| Logs | `logRequest()` affiche `ID : <uuid>` dans chaque log de fin de requête |
-| MetaData | Disponible dans `context.metaData.nodefony.requestId` |
-| Interface | `IContext.requestId: string` |
+| Comportement | Détail                                                                     |
+| ------------ | -------------------------------------------------------------------------- |
+| Génération   | `Context.requestId = randomUUID()` — dans le constructeur de base          |
+| Corrélation  | Si le client envoie `X-Request-Id`, il remplace le UUID généré (HTTP + WS) |
+| Réponse HTTP | `Response.writeHead()` injecte `X-Request-Id: <uuid>` dans chaque réponse  |
+| Logs         | `logRequest()` affiche `ID : <uuid>` dans chaque log de fin de requête     |
+| MetaData     | Disponible dans `context.metaData.nodefony.requestId`                      |
+| Interface    | `IContext.requestId: string`                                               |
 
 ---
 
 ## Décisions techniques figées
 
-| Sujet         | Décision                                                                                    |
-| ------------- | ------------------------------------------------------------------------------------------- |
-| WS lib        | `ws@8` — `import { WebSocketServer } from 'ws'` — jamais `Ws.Server` (undefined en ESM)    |
-| Serveurs      | `node:http`, `node:http2`, `ws` uniquement — jamais Bun.serve                               |
-| Protocol WS   | Exact string match — array `['a','b']` → header `"a, b"` → ne match pas `"a"` → 1002        |
-| Binary frames | `context.send(buf, "binary")` côté serveur, `ws.send(Buffer)` côté client                   |
-| Broadcast     | `Response.broadcast()` → `wss.clients.forEach(send)` — inclut l'émetteur                    |
+| Sujet         | Décision                                                                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| WS lib        | `ws@8` — `import { WebSocketServer } from 'ws'` — jamais `Ws.Server` (undefined en ESM)                                                                            |
+| Serveurs      | `node:http`, `node:http2`, `ws` uniquement — jamais Bun.serve                                                                                                      |
+| Protocol WS   | Exact string match — array `['a','b']` → header `"a, b"` → ne match pas `"a"` → 1002                                                                               |
+| Binary frames | `context.send(buf, "binary")` côté serveur, `ws.send(Buffer)` côté client                                                                                          |
+| Broadcast     | `Response.broadcast()` → `wss.clients.forEach(send)` — inclut l'émetteur                                                                                           |
 | statusMessage | Sanitiser avec `replace(/[^\x20-\x7E]/g, "")` juste avant `ServerResponse.writeHead()` — Node.js set le natif AVANT validation → ERR_INVALID_CHAR en cascade sinon |
-| url.parse     | Interdit — utiliser `new URL(str, "http://localhost")` partout                               |
+| url.parse     | Interdit — utiliser `new URL(str, "http://localhost")` partout                                                                                                     |
 
 ---
 
-## Tests — état complet (336/336 — 2026-05-16)
+## Tests — état complet (621 intégration +1 pending / 254 unit — 2026-05-29)
 
-Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
-**Prérequis** : serveur Nodefony actif (`npx nodefony development`) sur ports 5151/5152.
+**Deux runners** (les `unit/` tournent sous les DEUX — voulu) :
+
+| Commande                   | Runner | Spec                          | Compte (2026-05-29)   | Serveur requis                             |
+| -------------------------- | ------ | ----------------------------- | --------------------- | ------------------------------------------ |
+| `npm test`                 | vitest | `tests/unit/**/*.test.ts`     | **254** (16 fichiers) | non (composants purs)                      |
+| `npm run test:integration` | mocha  | `tests/**` sauf load + memory | **621 + 1 pending**   | oui (`npx nodefony development` 5151/5152) |
+
+> Le compte mocha (621) **inclut** les 254 unit (double exécution voulue : vitest = dev rapide + coverage, mocha = suite complète). Ne PAS sommer. Suite de non-régression = mocha (621).
+> Compte réel à jour : `npm test 2>&1 | tail -2` (unit) · `npm run test:integration 2>&1 | grep -E "passing|pending"` (intég).
+
+Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs au 2026-05-16** — la colonne sujet reste valide, le total a évolué) :
 
 | Fichier                                         | Sujet                                           | Tests | État |
 | ----------------------------------------------- | ----------------------------------------------- | ----- | ---- |
-| `unit/Cookie.test.ts`                           | Cookie serialize/parse/options                  | 18    | ✅   |
-| `unit/Session.test.ts`                          | Session CRUD, flash, meta, serialize            | 38    | ✅   |
-| `unit/HttpError.test.ts`                        | HttpError wrapping, code, stack                 | 12    | ✅   |
-| `unit/Response.test.ts`                         | HttpResponse setBody/setStatus/setLength        | 8     | ✅   |
+| `unit/Cookie.test.ts`                           | Cookie serialize/parse/options + signé HMAC     | 41    | ✅   |
+| `unit/Session.test.ts`                          | Session CRUD, flash, meta, serialize            | 36    | ✅   |
+| `unit/Response.test.ts`                         | HttpResponse setBody/setStatus/setLength        | 24    | ✅   |
+| `unit/AuditLogger.test.ts`                      | Audit JSON shape, redaction, severity           | 24    | ✅   |
+| `unit/parser.test.ts`                           | body/charset parsers (QS/XML/multipart)         | 17    | ✅   |
+| `unit/HttpError.test.ts`                        | HttpError wrapping, code, stack                 | 16    | ✅   |
+| `unit/trace.test.ts`                            | traceparent W3C parse/format                    | 14    | ✅   |
+| `unit/trustProxy.test.ts`                       | trustProxy CIDR/presets/BlockList               | 11    | ✅   |
+| `unit/RequestLogger.test.ts`                    | logger requête                                  | 11    | ✅   |
+| `unit/Profiler.test.ts`                         | Profiler ring buffer + admin api                | 11    | ✅   |
+| `unit/requestId.test.ts`                        | sanitizeRequestId Zero Trust                    | 10    | ✅   |
+| `unit/PrettyRequestLogger.test.ts`              | pretty logger                                   | 10    | ✅   |
+| `unit/wsCloseCode.test.ts`                      | codes close WS RFC 6455                         | 9     | ✅   |
+| `unit/ErrorRenderer.test.ts`                    | rendu erreur HTML/JSON                          | 9     | ✅   |
+| `unit/UploadedFile.test.ts`                     | UploadedFile (taille, temp, cleanup)            | 7     | ✅   |
+| `unit/clientError.test.ts`                      | clientError ferme socket 400/431                | 4     | ✅   |
 | `http/http.test.ts`                             | HTTP basique                                    | 12    | ✅   |
 | `http/http1.test.ts`                            | HTTP port 5151 GET/POST/PUT/DELETE + headers    | 12    | ✅   |
 | `http/https.test.ts`                            | TLS handshake + cipher + HSTS                   | 8     | ✅   |
@@ -155,6 +176,8 @@ Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
 | `websockets/websocket-w3c.test.ts`              | W3C compat                                      | 2     | ✅   |
 
 > ¹ `memory.test.ts` — test "1000 sequential GET < 35 MB" flaky en full suite (GC pressure après 249 tests). Passe toujours en isolation. Pas de fuite réelle.
+>
+> ² Tableau **non exhaustif** (focus unit + cas emblématiques). Non listés mais verts : `http/{auto-json,headers,forward,abort-cleanup,traceparent}.test.ts` + tout `integration/` (ALS, after-response, timing, request-context, security-hooks, http-rfc-errors). Inventaire réel = `ls nodefony/tests/**/*.test.ts` ; compte = commandes ci-dessus.
 
 ### Suites séparées — charge vs non-régression
 
@@ -170,13 +193,13 @@ Tests dans `nodefony/tests/` — lancés via `npm test` (mocha + ts-node ESM).
 
 ## Bugs corrigés (historique)
 
-| Bug | Fichier | Fix |
-| --- | ------- | --- |
-| `ERR_INVALID_CHAR` sur statusMessage | `Response.ts:writeHead()` | `safeMsg.replace(/[^\x20-\x7E]/g,"")` avant `ServerResponse.writeHead()` — Node.js poison le natif avant de throw |
-| `url.parse()` deprecation | `sessions-service.ts` | Remplacé par `new URL(context.url, "http://localhost")` |
-| `HttpError.controller/action/jsonResponse` undefined | `httpError.ts` | Extraits de `(context as any)?.resolver` dans le constructeur |
-| Cookie `Expires` overflow | `cookie.ts` | `maxAge * 1000` → `maxAge` déjà en ms |
-| `maxAge=0` session cookie | `cookie.ts` | Cas 0 traité séparément |
+| Bug                                                  | Fichier                   | Fix                                                                                                               |
+| ---------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `ERR_INVALID_CHAR` sur statusMessage                 | `Response.ts:writeHead()` | `safeMsg.replace(/[^\x20-\x7E]/g,"")` avant `ServerResponse.writeHead()` — Node.js poison le natif avant de throw |
+| `url.parse()` deprecation                            | `sessions-service.ts`     | Remplacé par `new URL(context.url, "http://localhost")`                                                           |
+| `HttpError.controller/action/jsonResponse` undefined | `httpError.ts`            | Extraits de `(context as any)?.resolver` dans le constructeur                                                     |
+| Cookie `Expires` overflow                            | `cookie.ts`               | `maxAge * 1000` → `maxAge` déjà en ms                                                                             |
+| `maxAge=0` session cookie                            | `cookie.ts`               | Cas 0 traité séparément                                                                                           |
 
 ---
 
