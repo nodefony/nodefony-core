@@ -209,6 +209,15 @@ describe("HttpContext — properties (requires server)", () => {
     expect(addr).to.be.a("string").with.length.greaterThan(0);
   });
 
+  it("spoofed X-Forwarded-For is ignored when trustProxy=false (default) — real socket IP", async () => {
+    const { body } = await get("/nodefony/test/context", {
+      "x-forwarded-for": "1.2.3.4",
+    });
+    const addr = String((body as Record<string, unknown>).remoteAddress);
+    expect(addr).to.not.equal("1.2.3.4");
+    expect(addr).to.match(/127\.0\.0\.1|::1|::ffff:127\.0\.0\.1/u);
+  });
+
   it("sessionId is set (initialize() starts session)", async () => {
     const { body } = await get("/nodefony/test/context");
     expect((body as Record<string, unknown>).sessionId).to.be.a("string");

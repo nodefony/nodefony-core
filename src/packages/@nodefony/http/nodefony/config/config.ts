@@ -36,6 +36,29 @@ export default {
   headerServer: "nodefony",
 
   /**
+   * CONFIANCE ENVERS LE REVERSE-PROXY — en-têtes `X-Forwarded-*`.
+   *
+   * Détermine si Nodefony fait confiance aux en-têtes `X-Forwarded-For`
+   * (IP cliente réelle), `X-Forwarded-Proto` (scheme) et `X-Forwarded-Host`.
+   *
+   * ⚠️ SÉCURITÉ : ces en-têtes sont triviaux à forger par n'importe quel client.
+   * S'y fier sans restriction permet l'IP spoofing (contournement de rate-limit
+   * / d'allow-list IP, falsification des logs d'audit) et le scheme spoofing.
+   *
+   * Valeurs :
+   *   - `false` (DÉFAUT, secure) : ignore les `X-Forwarded-*` → IP = socket réel,
+   *     scheme = connexion réelle. Correct si l'app est exposée DIRECTEMENT.
+   *   - `true` : confiance totale. À n'utiliser QUE si un reverse-proxy de
+   *     confiance est l'UNIQUE point d'entrée (aucun accès direct possible).
+   *   - IP / CIDR / liste : ne faire confiance que si la connexion (socket)
+   *     provient de ces adresses. Ex : `["10.0.0.0/8", "::1"]`.
+   *   - presets : `"loopback"`, `"linklocal"`, `"uniquelocal"`.
+   *
+   * @see RFC 7239 — Forwarded HTTP Extension
+   */
+  trustProxy: false,
+
+  /**
    * EN-TÊTES DE SÉCURITÉ HTTP — defaults OWASP secure-by-default.
    * Posés en amont (http-kernel.onHttpRequest) sur HTTP/HTTPS/HTTP2 — couvre
    * aussi les statics. Mettre une valeur à `null` pour désactiver le header.

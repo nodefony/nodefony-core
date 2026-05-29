@@ -16,6 +16,21 @@ import { HttpError } from "@nodefony/http";
 
 const reg = /(.*)[\[][\]]$/u;
 
+// Hoisted hors de getCharset() — évite de réallouer l'objet d'alias + la regex
+// à CHAQUE requête (getCharset tourne dans le ctor de Request, hot path).
+const CHARSET_ALIASES: Record<string, BufferEncoding> = {
+  "utf-8": "utf8",
+  utf8: "utf8",
+  "iso-8859-1": "latin1",
+  latin1: "latin1",
+  "us-ascii": "ascii",
+  ascii: "ascii",
+  "ucs-2": "ucs2",
+  "utf-16le": "utf16le",
+};
+// `replace()` ignore/réinitialise lastIndex → partage sûr d'une regex /g.
+const QUOTE_TRIM = /^["']|["']$/gu;
+
 const parse = {
   POST: true,
   PUT: true,
@@ -80,6 +95,9 @@ class HttpRequest {
   accept: ReturnType<typeof acceptParser> = [];
   acceptHtml: boolean = false;
   origin: string | undefined;
+  // La connexion (socket) provient-elle d'un reverse-proxy de confiance ?
+  // Décide si les en-têtes X-Forwarded-* sont honorés (cf config trustProxy).
+  trustedProxy: boolean = false;
   constructor(
     request: http.IncomingMessage | http2.Http2ServerRequest,
     context: HttpContext,
@@ -92,6 +110,11 @@ class HttpRequest {
     this.origin = this.headers.origin;
     this.request.body = null;
     this.headers = request.headers;
+    // Calculé AVANT getFullUrl/getRemoteAddress (qui lisent X-Forwarded-*) :
+    // n'honorer ces en-têtes que si le socket vient d'un proxy de confiance.
+    this.trustedProxy = !!this.context?.httpKernel
+      ?.getTrustProxyChecker()
+      .isTrusted(this.request.socket?.remoteAddress);
     this.method = this.getMethod();
     this.host = this.getHost();
     this.hostname = this.getHostName(this.host);
@@ -418,21 +441,8 @@ class HttpRequest {
     if (!raw) {
       return "utf8";
     }
-    const normalized = raw
-      .trim()
-      .toLowerCase()
-      .replace(/^["']|["']$/gu, "");
-    const alias: Record<string, BufferEncoding> = {
-      "utf-8": "utf8",
-      utf8: "utf8",
-      "iso-8859-1": "latin1",
-      latin1: "latin1",
-      "us-ascii": "ascii",
-      ascii: "ascii",
-      "ucs-2": "ucs2",
-      "utf-16le": "utf16le",
-    };
-    const enc = alias[normalized] ?? (normalized as BufferEncoding);
+    const normalized = raw.trim().toLowerCase().replace(QUOTE_TRIM, "");
+    const enc = CHARSET_ALIASES[normalized] ?? (normalized as BufferEncoding);
     return Buffer.isEncoding(enc) ? enc : "utf8";
   }
 
@@ -462,9 +472,15 @@ class HttpRequest {
   }
 
   getRemoteAddress(): string | null {
-    // proxy mode
-    if (this.headers && this.headers["x-forwarded-for"]) {
-      return this.headers["x-forwarded-for"] as string;
+    // Proxy de confiance uniquement : X-Forwarded-For = "client, proxy1, …" →
+    // l'IP cliente d'origine est le PREMIER élément (pas la liste brute).
+    if (this.trustedProxy && this.headers?.["x-forwarded-for"]) {
+      const first = (this.headers["x-forwarded-for"] as string)
+        .split(",")[0]
+        ?.trim();
+      if (first) {
+        return first;
+      }
     }
     if (this.request.socket && this.request.socket.remoteAddress) {
       return this.request.socket.remoteAddress;
@@ -474,8 +490,8 @@ class HttpRequest {
 
   getFullUrl(request: http.IncomingMessage | http2.Http2ServerRequest) {
     const myurl = `://${this.host}${request.url}`;
-    // proxy mode
-    if (this.headers && this.headers["x-forwarded-for"]) {
+    // Scheme proxifié honoré seulement derrière un proxy de confiance.
+    if (this.trustedProxy && this.headers?.["x-forwarded-proto"]) {
       return `${this.headers["x-forwarded-proto"]}${myurl}`;
     }
     if ("encrypted" in request.socket && request.socket.encrypted) {

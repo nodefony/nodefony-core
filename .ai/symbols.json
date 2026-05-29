@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-29T18:03:45.396Z",
+  "generated": "2026-05-29T18:21:05.489Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 774,
-    "symbols": 1443,
+    "files": 775,
+    "symbols": 1447,
     "classes": 228,
-    "interfaces": 351,
-    "types": 181,
+    "interfaces": 352,
+    "types": 182,
     "enums": 2,
-    "functions": 224,
+    "functions": 226,
     "constants": 457
   },
   "symbols": {
@@ -9711,6 +9711,31 @@
       "module": "@nodefony/http",
       "description": "Validation de l'identifiant de corrélation `X-Request-Id` fourni par le client, avant qu'il ne soit adopté comme `Context.requestId`. Le `requestId` finit (1) réfléchi dans la réponse (`X-Request-I…"
     },
+    "TrustProxyChecker": {
+      "name": "TrustProxyChecker",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/trustProxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Décide si l'adresse distante (socket réel) est un proxy de confiance."
+    },
+    "TrustProxyConfig": {
+      "name": "TrustProxyConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/trustProxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Politique de confiance envers les en-têtes `X-Forwarded-*` (et le scheme proxifié), pour décider si la connexion entrante provient d'un reverse-proxy légitime. Sans cette barrière, n'importe quel c…"
+    },
+    "buildTrustProxy": {
+      "name": "buildTrustProxy",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/trustProxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Compile une config `trustProxy` en un {@link TrustProxyChecker} (une fois, au boot — pas par requête). Les entrées invalides lèvent à la compilation (fail fast) plutôt que silencieusement par requête."
+    },
     "Cookie": {
       "name": "Cookie",
       "kind": "class",
@@ -13030,6 +13055,15 @@
       ],
       "IErrorWebsocketResult": [
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
+      ],
+      "buildTrustProxy": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "TrustProxyChecker": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "TrustProxyConfig": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "Statics": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"

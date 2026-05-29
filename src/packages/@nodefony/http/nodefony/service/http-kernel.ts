@@ -16,6 +16,11 @@ import {
 import { Resolver, Router } from "@nodefony/framework";
 import { Controller } from "@nodefony/framework";
 import HttpError from "../src/errors/httpError";
+import {
+  buildTrustProxy,
+  type TrustProxyChecker,
+  type TrustProxyConfig,
+} from "../src/context/trustProxy";
 import type { Profiler } from "../src/profiler/Profiler";
 import http from "node:http";
 //import https from "node:https";
@@ -149,6 +154,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // Dev-only request profiler — null in prod (module ne l'enregistre qu'hors
   // prod). Résolu une fois à onReady → 1 simple null-check per-request.
   private profiler: Profiler | null = null;
+  // Checker de confiance reverse-proxy, compilé une seule fois (lazy) depuis
+  // options.trustProxy — pas de BlockList par requête.
+  private _trustProxyChecker: TrustProxyChecker | null = null;
   constructor(module: Module) {
     super(
       serviceName,
@@ -206,6 +214,23 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.firewall = this.get<Firewall>("firewall");
     });
     return this;
+  }
+
+  /**
+   * Checker de confiance reverse-proxy, compilé une seule fois depuis
+   * `options.trustProxy` (lazy — pas de `BlockList` allouée par requête).
+   * Consommé par `HttpRequest`/`HttpContext` pour décider de l'adoption des
+   * en-têtes `X-Forwarded-*`.
+   *
+   * @returns le {@link TrustProxyChecker} partagé.
+   */
+  getTrustProxyChecker(): TrustProxyChecker {
+    if (this._trustProxyChecker === null) {
+      this._trustProxyChecker = buildTrustProxy(
+        (this.options as { trustProxy?: TrustProxyConfig })?.trustProxy,
+      );
+    }
+    return this._trustProxyChecker;
   }
 
   /**

@@ -93,9 +93,10 @@ class HttpContext extends Context implements IHttpContextInterface {
     this.method = this.request.getMethod();
     this.remoteAddress = this.request.remoteAddress;
     this.originUrl = new URL(this.request.origin || this.url);
-    // case proxy
+    // case proxy — uniquement si la connexion vient d'un proxy de confiance
+    // (sinon X-Forwarded-* sont forgeables → scheme/IP spoofing). Cf trustProxy.
     this.proxy = null;
-    if (request.headers["x-forwarded-for"]) {
+    if (this.request.trustedProxy && request.headers["x-forwarded-for"]) {
       if (request.headers["x-forwarded-proto"]) {
         this.type = (
           request.headers["x-forwarded-proto"] as string
