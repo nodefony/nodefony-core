@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-29T14:09:27.429Z",
+  "generated": "2026-05-29T14:54:32.891Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -609,7 +609,8 @@
       "file": "src/nodefony/src/kernel/Kernel.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "extends": "Service"
+      "extends": "Service",
+      "description": "Interface-marqueur du **hook de cycle de vie async de boot** (pattern NestJS `OnModuleInit`). Un service qui implémente `initialize` est initialisé une fois au démarrage — par {@link Kernel.addKern…"
     },
     "ServiceConstructor": {
       "name": "ServiceConstructor",
@@ -3688,7 +3689,8 @@
       "file": "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "extends": null
+      "extends": null,
+      "description": "Interface-marqueur du hook **per-request** d'un {@link Controller} : `initialize` est appelé par le {@link Resolver} à CHAQUE requête, avant l'action (hot path — jamais gardé/borné, contrairement a…"
     },
     "Route": {
       "name": "Route",

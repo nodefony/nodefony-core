@@ -103,8 +103,24 @@ export interface FilterInterface {
   condition?: "&&" | "||" | "==";
 }
 
+/**
+ * Interface-marqueur du **hook de cycle de vie async de boot** (pattern NestJS
+ * `OnModuleInit`). Un service qui implémente `initialize` est initialisé une fois
+ * au démarrage — par {@link Kernel.addKernelService} (service kernel) ou
+ * {@link Module.addService} (service de module) — sous garde de boot
+ * ({@link Kernel.guardInitialize} : timeout + politique de criticité).
+ *
+ * C'est LE hook standard : ne pas réinventer `boot()`/`connect()`/`onConnect()`.
+ * Hook **optionnel** (pas de méthode no-op forcée sur {@link Service} : éviterait
+ * une microtask par service sans init — règle perf). Distinct du hook
+ * **per-request** des controllers (`ControllerWithInitialize`, hot path, non gardé).
+ *
+ * @remarks `owner` = le {@link Module} (service de module) ou le {@link Kernel}
+ *   (service kernel) propriétaire. Retour `Promise<this>` — l'implémenteur renvoie
+ *   son instance typée.
+ */
 export interface ServiceWithInitialize extends Service {
-  initialize?(module?: Module | Kernel): Promise<Service>;
+  initialize?(owner?: Module | Kernel): Promise<this>;
 }
 
 export interface ServiceConstructor {

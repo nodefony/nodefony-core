@@ -37,8 +37,17 @@ import {
 //import { ServiceWithInitialize } from "nodefony";
 //import { ServiceConstructor } from "nodefony";
 
+/**
+ * Interface-marqueur du hook **per-request** d'un {@link Controller} : `initialize`
+ * est appelé par le {@link Resolver} à CHAQUE requête, avant l'action (hot path —
+ * jamais gardé/borné, contrairement au boot des services). Distinct du hook de boot
+ * `ServiceWithInitialize` (singleton, 1× au démarrage).
+ *
+ * @remarks Signature alignée sur l'appel réel `controller.initialize()` (sans arg) ;
+ *   retour `Promise<this>` — le controller renvoie son instance.
+ */
 export interface ControllerWithInitialize {
-  initialize(controler: Controller): Promise<Controller>;
+  initialize(): Promise<this>;
 }
 
 class Resolver extends Service implements IResolver {
