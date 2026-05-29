@@ -20,16 +20,16 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 
 ## Core Components
 
-| Classe              | Fichier                                     | Rôle                                                                                                                                                                 |
-| ------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Http`              | `index.ts`                                  | Module racine. `@services([HttpKernel, Certificate, SessionsService, StaticServer, HttpServer, HttpsServer, WebsocketServer, WebsocketSecureServer, UploadService])` |
-| `HttpKernel`        | `service/http-kernel.ts`                    | Orchestrateur. `handle()` → pipeline HTTP. `handleWebsocket()` → pipeline WS. `handleFrontController()` → router+firewall+controller. `onError()` → 1002/1011 WS     |
-| `Context`           | `src/context/Context.ts`                    | Base extends `Service`. Props: `type`, `scheme`, `request`, `response`, `method`, `webSocketState`, `metaData`, `session`, `cookies`, `resolver`, **`requestId`**    |
-| `HttpContext`       | `src/context/http/HttpContext.ts`           | Extends Context. Honor `X-Request-Id` header entrant. Pipeline HTTP/HTTPS/HTTP2.                                                                                    |
+| Classe              | Fichier                                     | Rôle                                                                                                                                                                    |
+| ------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Http`              | `index.ts`                                  | Module racine. `@services([HttpKernel, Certificate, SessionsService, StaticServer, HttpServer, HttpsServer, WebsocketServer, WebsocketSecureServer, UploadService])`    |
+| `HttpKernel`        | `service/http-kernel.ts`                    | Orchestrateur. `handle()` → pipeline HTTP. `handleWebsocket()` → pipeline WS. `handleFrontController()` → router+firewall+controller. `onError()` → 1002/1011 WS        |
+| `Context`           | `src/context/Context.ts`                    | Base extends `Service`. Props: `type`, `scheme`, `request`, `response`, `method`, `webSocketState`, `metaData`, `session`, `cookies`, `resolver`, **`requestId`**       |
+| `HttpContext`       | `src/context/http/HttpContext.ts`           | Extends Context. Honor `X-Request-Id` header entrant. Pipeline HTTP/HTTPS/HTTP2.                                                                                        |
 | `WebsocketContext`  | `src/context/websocket/WebsocketContext.ts` | Extends Context. Honor `X-Request-Id` header entrant. Props extra: `acceptedProtocol`, `connection` (Ws), `wsUrl`, `rejected`. Override `request` → `WsIncomingMessage` |
-| `HttpResponse`      | `src/context/http/Response.ts`              | `writeHead()` : sanitize statusMessage ASCII + injecte `X-Request-Id`. `setBody()`, `setLength()`, `redirect()`.                                                    |
-| `WebsocketResponse` | `src/context/websocket/Response.ts`         | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)`                                                       |
-| `HttpError`         | `src/errors/httpError.ts`                   | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `(context as any)?.resolver` (évite import circulaire avec `@nodefony/framework`) |
+| `HttpResponse`      | `src/context/http/Response.ts`              | `writeHead()` : sanitize statusMessage ASCII + injecte `X-Request-Id`. `setBody()`, `setLength()`, `redirect()`.                                                        |
+| `WebsocketResponse` | `src/context/websocket/Response.ts`         | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)`                                                          |
+| `HttpError`         | `src/errors/httpError.ts`                   | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `(context as any)?.resolver` (évite import circulaire avec `@nodefony/framework`)  |
 
 ## Servers
 
@@ -61,6 +61,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - `Context.logRequest()` : affiche `ID : <uuid>` dans chaque log de fin de requête
 - `Context.setMetaData()` : inclut `requestId` dans `metaData.nodefony`
 - `IContext.requestId: string` — exporté dans `nodefony/interfaces/IContext.ts`
+- **wsId = `requestId` du `WebsocketContext`** (P3.9, 2026-05-29) : pas de champ distinct (alloc 0). Stable sur toute la socket (ctor → ALS → handshake/messages/close) → corrèle les events d'une même connexion WS. Présent dans les **3 logs de cycle de vie WS** : handshake (`renderWebsocket` → `ID : <uuid>`), `onClose`, `onConnectionError`. **Per-message NON loggé** (bruit + hot path 33-38k msg/s) — extensible via logger custom opt-in si besoin debug.
 - ⚠️ **HTTP/2 GOTCHA (fix 2026-05-21)** : `http2/Response.writeHead` chemin `stream.respond()` **bypasse** `super.writeHead` → pose `x-request-id` + `traceparent` ICI aussi. Sinon réponses HTTP/2 (port 5152, dont Studio) **sans header** → corrélation profiler/debug bar impossible (symptôme : clic requête = « no requestId »).
 
 ## Profiler — dev-only (2026-05-21)
@@ -85,6 +86,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 ## JsonAuditLogger error enrichi — P3.5 (2026-05-16)
 
 Extension de l'`AuditErrorEntry` :
+
 - `{ name, message, code?, errorType?, stack?, cause? }` — récursif
 - **stack** conditionnel : par défaut activé si `NODE_ENV !== "production"`, override via `new JsonAuditLogger({ includeStack: true|false })`
 - **cause chain** : sérialise `error.cause` récursivement (Error{cause:Error{cause:...}}})
@@ -136,10 +138,10 @@ Extension de l'`AuditErrorEntry` :
 
 3 hooks `fireAsync` au niveau `HttpKernel` (cohérent avec `onServerRequest`/`onCreateContext`) :
 
-| Hook            | Quand fire                                                 | Payload                       |
-| --------------- | ---------------------------------------------------------- | ----------------------------- |
-| `beforeResolve` | AVANT `handleFrontController` (HTTP + WS)                  | `(context)`                   |
-| `afterAuth`     | APRÈS `firewall.handleSecurity()` SUCCESS (HTTP + WS)      | `(context)`                   |
+| Hook            | Quand fire                                                                                                | Payload                |
+| --------------- | --------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `beforeResolve` | AVANT `handleFrontController` (HTTP + WS)                                                                 | `(context)`            |
+| `afterAuth`     | APRÈS `firewall.handleSecurity()` SUCCESS (HTTP + WS)                                                     | `(context)`            |
 | `onAuthFailure` | APRÈS `firewall.handleSecurity()` THROW (HTTP + WS) — log-only erreurs, n'arrête pas le throw du firewall | `(context, authError)` |
 
 - Listeners s'enregistrent via `httpKernel.on("beforeResolve", fn)` au `onKernelReady` du module security
@@ -286,13 +288,13 @@ http = **2ᵉ producteur** du data plane admin Studio (1er = kernel). `createHtt
 
 `nodefony/interfaces/` — tous dans `index.ts` barrel :
 
-| Interface        | Fichier           | Contenu clé                                    |
-| ---------------- | ----------------- | ---------------------------------------------- |
-| `IContext`       | `IContext.ts`     | `requestId`, `type`, `scheme`, `method`, `url` |
-| `IHttpContext`   | `IContext.ts`     | `handle()`, `render()`, `redirect()`           |
-| `IWebsocketContext` | `IContext.ts`  | `connect()`, `send()`, `broadcast()`           |
-| `IHttpKernel`    | `IHttpKernel.ts`  | `handle()`, `onError()`, `isValidDomain()`     |
-| `IRequest`       | `IRequest.ts`     | HTTP + WS request shapes                       |
-| `IResponse`      | `IResponse.ts`    | HTTP + WS response shapes                      |
-| `ICookie`        | `ICookie.ts`      | Cookie options + serialize                     |
-| `ISession`       | `ISession.ts`     | Session CRUD + flash + meta                    |
+| Interface           | Fichier          | Contenu clé                                    |
+| ------------------- | ---------------- | ---------------------------------------------- |
+| `IContext`          | `IContext.ts`    | `requestId`, `type`, `scheme`, `method`, `url` |
+| `IHttpContext`      | `IContext.ts`    | `handle()`, `render()`, `redirect()`           |
+| `IWebsocketContext` | `IContext.ts`    | `connect()`, `send()`, `broadcast()`           |
+| `IHttpKernel`       | `IHttpKernel.ts` | `handle()`, `onError()`, `isValidDomain()`     |
+| `IRequest`          | `IRequest.ts`    | HTTP + WS request shapes                       |
+| `IResponse`         | `IResponse.ts`   | HTTP + WS response shapes                      |
+| `ICookie`           | `ICookie.ts`     | Cookie options + serialize                     |
+| `ISession`          | `ISession.ts`    | Session CRUD + flash + meta                    |

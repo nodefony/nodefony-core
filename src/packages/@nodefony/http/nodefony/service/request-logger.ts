@@ -59,10 +59,14 @@ class DefaultRequestLogger implements IRequestLogger {
       url: string;
       remoteAddress: string | null;
       originUrl: { host?: string } | null | undefined;
+      requestId: string;
       method: string | null;
       type: string;
       response: { statusCode?: number } | null;
     };
+    // `ID` = wsId : le requestId du contexte WS, stable sur toute la durée de
+    // la socket (handshake → messages → close), corrèle les logs de la même
+    // connexion. Parité avec renderHttp qui expose déjà `ID : <uuid>`.
     if (error) {
       const errCode =
         (error as { code?: number }).code ?? ctx.response?.statusCode ?? 500;
@@ -70,7 +74,8 @@ class DefaultRequestLogger implements IRequestLogger {
       const text =
         `${clc.cyan("URL")} : ${ctx.url}  ` +
         `${clc.cyan("FROM")} : ${ctx.remoteAddress} ` +
-        `${clc.cyan("ORIGIN")} : ${ctx.originUrl?.host}\n        ` +
+        `${clc.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
+        `${clc.cyan("ID")} : ${ctx.requestId}\n        ` +
         error.toString();
       return { text, severity: "ERROR" as Severity, msgid };
     }
@@ -79,7 +84,8 @@ class DefaultRequestLogger implements IRequestLogger {
       `${clc.cyan("URL")} : ${ctx.url} ` +
       `${clc.cyan("Accept-Protocol")} : ${acceptedProtocol || "*"} ` +
       `${clc.cyan("FROM")} : ${ctx.remoteAddress} ` +
-      `${clc.cyan("ORIGIN")} : ${ctx.originUrl?.host}`;
+      `${clc.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
+      `${clc.cyan("ID")} : ${ctx.requestId}`;
     return { text, severity: "INFO" as Severity, msgid };
   }
 }

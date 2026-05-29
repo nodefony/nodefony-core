@@ -3,13 +3,15 @@ import { expect } from "chai";
 import "mocha";
 import DefaultRequestLogger from "../../service/request-logger.js";
 
-function fakeHttpContext(opts: {
-  status?: number;
-  env?: string;
-  url?: string;
-  method?: string;
-  error?: Error | null;
-} = {}): unknown {
+function fakeHttpContext(
+  opts: {
+    status?: number;
+    env?: string;
+    url?: string;
+    method?: string;
+    error?: Error | null;
+  } = {},
+): unknown {
   return {
     url: opts.url ?? "/test",
     remoteAddress: "127.0.0.1",
@@ -23,11 +25,14 @@ function fakeHttpContext(opts: {
   };
 }
 
-function fakeWsContext(opts: { status?: number; method?: string; url?: string } = {}): unknown {
+function fakeWsContext(
+  opts: { status?: number; method?: string; url?: string } = {},
+): unknown {
   return {
     url: opts.url ?? "/ws",
     remoteAddress: "127.0.0.1",
     originUrl: { host: "localhost:5152" },
+    requestId: "ws-uuid-9876",
     method: opts.method ?? "WEBSOCKET",
     type: "websocket",
     response: { statusCode: opts.status ?? 101 },
@@ -91,10 +96,32 @@ describe("DefaultRequestLogger — unit tests (P1.6)", () => {
 
   describe("renderWebsocket", () => {
     it("success → INFO + Accept-Protocol in text", () => {
-      const e = logger.renderWebsocket(fakeWsContext() as never, null, "echo-protocol");
+      const e = logger.renderWebsocket(
+        fakeWsContext() as never,
+        null,
+        "echo-protocol",
+      );
       expect(e.severity).to.equal("INFO");
       expect(e.text).to.include("Accept-Protocol");
       expect(e.text).to.include("echo-protocol");
+    });
+
+    it("success → wsId (requestId) in text, for correlation (P3.9)", () => {
+      const e = logger.renderWebsocket(
+        fakeWsContext() as never,
+        null,
+        "echo-protocol",
+      );
+      expect(e.text).to.match(/ID.*ws-uuid-9876/);
+    });
+
+    it("error → wsId (requestId) in text (P3.9)", () => {
+      const e = logger.renderWebsocket(
+        fakeWsContext() as never,
+        new Error("ws-fail"),
+        null,
+      );
+      expect(e.text).to.match(/ID.*ws-uuid-9876/);
     });
 
     it("success without protocol → '*' placeholder", () => {

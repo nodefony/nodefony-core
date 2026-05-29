@@ -367,7 +367,7 @@ export default class WebsocketContext
   onClose(code: number, reason: Buffer) {
     const description = reason.toString();
     this.log(
-      `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host} ${clc.cyan("Description")} : ${description}`,
+      `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host} ${clc.cyan("ID")} : ${this.requestId} ${clc.cyan("Description")} : ${description}`,
       "INFO",
       `${this.type} ${clc.magenta(code)} CLOSE ${this.method}`,
     );
@@ -376,7 +376,7 @@ export default class WebsocketContext
         this.response?.drop(code, description);
       } catch (e) {
         this.log(
-          `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host} ${clc.cyan("error")} : ${(e as Error).message}`,
+          `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host} ${clc.cyan("ID")} : ${this.requestId} ${clc.cyan("error")} : ${(e as Error).message}`,
           "ERROR",
           `${this.type} CLOSE ${clc.red(this.method)}`,
         );
@@ -400,7 +400,7 @@ export default class WebsocketContext
   onConnectionError(error: Error): void {
     this.webSocketState = "error";
     this.log(
-      `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("error")} : ${error?.message}`,
+      `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ID")} : ${this.requestId} ${clc.cyan("error")} : ${error?.message}`,
       "ERROR",
       `${this.type} ${clc.red("SOCKET ERROR")} ${this.method}`,
     );
