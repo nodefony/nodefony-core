@@ -87,7 +87,7 @@ class InitModule extends Module {
   constructor(kernel: Kernel) {
     super("InitModule", kernel, "/tmp/init", {});
   }
-  async initialize(kernel: unknown): Promise<this> {
+  async init(kernel: unknown): Promise<this> {
     this.initCalled = true;
     this.initArg = kernel;
     return this;
@@ -349,7 +349,7 @@ describe("Kernel lifecycle — module hooks", () => {
     assert.strictEqual(m2.registerCalled, true);
   });
 
-  it("initialize() appelé par addModule avec le kernel", async () => {
+  it("init() appelé par addModule avec le kernel", async () => {
     const k = mkKernel();
     const mod = (await k.addModule(InitModule as any)) as InitModule;
     patchGetPackageJson(mod);
@@ -480,7 +480,7 @@ describe("Kernel lifecycle — addKernelService", () => {
     constructor(kernel: Kernel) {
       super("KSvcWithInit", kernel.container as Container);
     }
-    async initialize(_kernel: unknown): Promise<this> {
+    async init(_kernel: unknown): Promise<this> {
       this.initCalled = true;
       return this;
     }
@@ -494,7 +494,7 @@ describe("Kernel lifecycle — addKernelService", () => {
     assert.strictEqual(inst?._marker, "ksvc");
   });
 
-  it("addKernelService avec initialize → initialize(kernel) appelé", async () => {
+  it("addKernelService avec init → init(kernel) appelé", async () => {
     const k = mkKernel();
     const inst = (await k.addKernelService(
       KSvcWithInit as any,

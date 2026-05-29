@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-29T15:16:08.588Z",
+  "generated": "2026-05-29T15:37:08.833Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -603,14 +603,14 @@
       "module": "@nodefony/core",
       "extends": null
     },
-    "ServiceWithInitialize": {
-      "name": "ServiceWithInitialize",
+    "ServiceWithInit": {
+      "name": "ServiceWithInit",
       "kind": "interface",
       "file": "src/nodefony/src/kernel/Kernel.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": "Service",
-      "description": "Interface-marqueur du **hook de cycle de vie async de boot** (pattern NestJS `OnModuleInit`). Un service qui implémente `initialize` est initialisé une fois au démarrage — par {@link Kernel.addKern…"
+      "description": "Interface-marqueur du **hook de cycle de vie async de boot** (pattern NestJS `OnModuleInit`). Un service qui implémente `init` est initialisé une fois au démarrage — par {@link Kernel.addKernelServ…"
     },
     "ServiceConstructor": {
       "name": "ServiceConstructor",
@@ -10267,7 +10267,7 @@
       "file": "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeHub.ts",
       "exported": true,
       "module": "@nodefony/realtime",
-      "description": "Fonction de filtrage Origin — `true` = upgrade autorisée. Posée par `RealtimeService.initialize()` depuis `defineRealtimeConfig().csrf.checkOrigin`. `null` = aucune politique (rétrocompat : tout pa…"
+      "description": "Fonction de filtrage Origin — `true` = upgrade autorisée. Posée par `RealtimeService.init()` depuis `defineRealtimeConfig().csrf.checkOrigin`. `null` = aucune politique (rétrocompat : tout passe — …"
     },
     "ChannelSink": {
       "name": "ChannelSink",
@@ -10575,7 +10575,7 @@
         "Builder",
         "Command",
         "Kernel",
-        "ServiceWithInitialize",
+        "ServiceWithInit",
         "Module",
         "Fetch",
         "Pm2",
@@ -12301,7 +12301,7 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/injector.ts"
       ],
-      "ServiceWithInitialize": [
+      "ServiceWithInit": [
         "src/nodefony/src/kernel/Module.ts"
       ],
       "EntityConstructor": [

@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 import { fileURLToPath } from "url";
 import Kernel, {
   ServiceConstructor,
-  ServiceWithInitialize,
+  ServiceWithInit,
   EntityConstructor,
 } from "./Kernel";
 import type { IModule, PackageJson } from "../types/IModule";
@@ -42,7 +42,7 @@ const controllers: Record<string, TypeController<Controller>> = {};
  * - `onKernelRegister()` — phase `onRegister` (modules s'auto-déclarent)
  * - `onKernelBoot()` — phase `onBoot` (services bootés, connexions ouvertes)
  * - `onKernelReady()` — phase `onReady` (cross-wiring inter-modules)
- * - `initialize(kernel?)` — appelé par {@link Kernel.addModule}, équivalent constructeur async
+ * - `init(kernel?)` — appelé par {@link Kernel.addModule}, équivalent constructeur async
  *
  * @example
  * ```ts
@@ -93,7 +93,7 @@ class Module extends Service implements IModule {
   public onKernelRegister?(): Promise<this>;
   public onKernelBoot?(): Promise<this>;
   public onKernelReady?(): Promise<this>;
-  public initialize?(kernel?: IKernel): Promise<this>;
+  public init?(kernel?: IKernel): Promise<this>;
   /**
    * Initialise le module — appelé par {@link Kernel.addModule}.
    *
@@ -296,7 +296,7 @@ class Module extends Service implements IModule {
   /**
    * Instancie un service via l'{@link Injector} et l'enregistre dans le container du module.
    *
-   * Si le service expose une méthode `initialize(module)`, elle est appelée après
+   * Si le service expose une méthode `init(module)`, elle est appelée après
    * instanciation (équivalent constructeur async). Warn si un service du même nom existe
    * déjà (override).
    *
@@ -317,20 +317,20 @@ class Module extends Service implements IModule {
       );
     }
     this.log(`SERVICE ADD : ${inst.name}`, "DEBUG");
-    const serviceInit: ServiceWithInitialize = inst;
+    const serviceInit: ServiceWithInit = inst;
     const kernel = this.kernel as Kernel | null;
     if (kernel) {
       // Init SOUS GARDE (timeout + criticité du module porteur), comme les
-      // services kernel : un `initialize` qui pend ne gèle plus le boot.
+      // services kernel : un `init` qui pend ne gèle plus le boot.
       await kernel.guardServiceInitialize(
         serviceInit,
         this,
         (this.constructor as typeof Module).critical,
       );
-    } else if (serviceInit.initialize) {
+    } else if (serviceInit.init) {
       // Pas de kernel (test isolé / module orphelin) → init direct non gardé.
       this.log(`SERVICE INITIALIZE : ${inst.name}`, "DEBUG");
-      await serviceInit.initialize(this);
+      await serviceInit.init(this);
     }
     this.set(inst.name, inst);
     (this._serviceNames ??= []).push(inst.name);
@@ -351,7 +351,7 @@ class Module extends Service implements IModule {
    *
    * @param service - chemin/spécifier du module à importer (URL, npm package, path relatif).
    * @param args - arguments additionnels passés au constructeur.
-   * @returns instance du service après instanciation + `initialize()`.
+   * @returns instance du service après instanciation + `init()`.
    */
   async loadService(
     service: string,

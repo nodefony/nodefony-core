@@ -67,10 +67,10 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       expect(svc.getName()).to.equal("realtimeService");
     });
 
-    it("initialize plante si realtimeConfig manque dans le container", async () => {
+    it("init plante si realtimeConfig manque dans le container", async () => {
       const { module } = buildModuleMock();
       const svc = new RealtimeService(module);
-      await expect(svc.initialize(module)).rejects.toThrow(/realtimeConfig/);
+      await expect(svc.init(module)).rejects.toThrow(/realtimeConfig/);
     });
   });
 
@@ -83,7 +83,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
         defineRealtimeConfig({}, { backplane: bp }),
       );
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       expect(svc.getBackplane()).to.equal(bp);
       expect(bp.started).to.equal(1);
     });
@@ -94,7 +94,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       container.set("realtimeConfig", defineRealtimeConfig());
       container.set("realtimeBackplane", bp);
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       expect(svc.getBackplane()).to.equal(bp);
     });
 
@@ -102,7 +102,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       const { module, container } = buildModuleMock();
       container.set("realtimeConfig", defineRealtimeConfig());
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       // null = Loopback implicite (hot-path teste `=== null`)
       expect(svc.getBackplane()).to.equal(null);
     });
@@ -114,7 +114,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       const cfg = defineRealtimeConfig({ slowConsumer: { bytes: 4096 } });
       container.set("realtimeConfig", cfg);
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       expect(svc.getConfig()).to.equal(cfg);
       expect(svc.getConfig().slowConsumer.bytes).to.equal(4096);
     });
@@ -123,7 +123,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       const { module, container } = buildModuleMock();
       container.set("realtimeConfig", defineRealtimeConfig());
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       expect(svc.getHub()).to.be.instanceOf(RealtimeHub);
       expect(svc.getHub()).to.equal(getRealtimeHub());
     });
@@ -132,7 +132,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       const { module, container } = buildModuleMock();
       container.set("realtimeConfig", defineRealtimeConfig());
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
 
       const received: unknown[] = [];
       const sink = (p: unknown) => received.push(p);
@@ -157,7 +157,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       const { module, container } = buildModuleMock();
       container.set("realtimeConfig", defineRealtimeConfig());
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
 
       const bp = new FakeBackplane();
       svc.getHub().setBackplane(bp);
@@ -173,7 +173,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       const { module, container } = buildModuleMock();
       container.set("realtimeConfig", defineRealtimeConfig());
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       expect(svc.getHub().checkOrigin("https://evil.com")).to.equal(true);
       expect(svc.getHub().checkOrigin(undefined)).to.equal(true);
     });
@@ -193,7 +193,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
         }),
       );
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       const hub = svc.getHub();
       expect(hub.checkOrigin("https://app.example.com")).to.equal(true);
       expect(hub.checkOrigin("https://evil.com")).to.equal(false);
@@ -213,7 +213,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
         }),
       );
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       expect(svc.getHub().checkOrigin(undefined)).to.equal(false);
       expect(svc.getHub().checkOrigin("")).to.equal(false);
     });
@@ -233,7 +233,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
         }),
       );
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       expect(svc.getHub().checkOrigin(undefined)).to.equal(true);
       expect(svc.getHub().checkOrigin("https://app.example.com")).to.equal(
         true,
@@ -256,7 +256,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
         }),
       );
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       expect(svc.getHub().checkOrigin("https://anywhere.com")).to.equal(false);
       expect(svc.getHub().checkOrigin(undefined)).to.equal(false);
     });
@@ -275,7 +275,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       const { module, container } = buildModuleMock();
       container.set("realtimeConfig", defineRealtimeConfig());
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       const auth = makeAuth("jwt");
       svc.useAuthenticator({ pattern: "/admin/" }, auth);
       expect(svc.getHub().registeredAuthenticators).to.deep.equal([auth]);
@@ -285,7 +285,7 @@ describe("RealtimeService — façade DI du hub realtime", () => {
       const { module, container } = buildModuleMock();
       container.set("realtimeConfig", defineRealtimeConfig());
       const svc = new RealtimeService(module);
-      await svc.initialize(module);
+      await svc.init(module);
       const peer = new JsonRpcPeer({ send: () => {} });
       expect(svc.getTokenForPeer(peer)).to.equal(ANONYMOUS_REALTIME_TOKEN);
     });

@@ -111,14 +111,14 @@ class PlainService extends Service {
   }
 }
 
-// Service avec initialize()
+// Service avec init()
 @injectable()
 class InitService extends Service {
   public initialized: boolean = false;
   constructor(container?: Container) {
     super("InitService", container ?? new Container());
   }
-  async initialize(): Promise<this> {
+  async init(): Promise<this> {
     this.initialized = true;
     return this;
   }
@@ -589,7 +589,7 @@ describe("Injector — cas limites", () => {
     assert.strictEqual(inst.val, "first");
   });
 
-  it("InitService.initialize() non appelé par instantiate (c'est addService qui le fait)", () => {
+  it("InitService.init() non appelé par instantiate (c'est addService qui le fait)", () => {
     const inst = Injector.instantiate(InitService as any) as InitService;
     assert.ok(inst instanceof InitService);
     assert.strictEqual(inst.initialized, false);

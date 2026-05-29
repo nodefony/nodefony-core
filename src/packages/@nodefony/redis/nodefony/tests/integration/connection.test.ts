@@ -20,7 +20,12 @@ const PORT = Number.parseInt(process.env.REDIS_PORT ?? "6379", 10);
 /** Probe : Redis répond-il à un PING authentifié ? */
 async function redisReachable(): Promise<boolean> {
   const probe = createClient({
-    socket: { host: HOST, port: PORT, connectTimeout: 1500, reconnectStrategy: false },
+    socket: {
+      host: HOST,
+      port: PORT,
+      connectTimeout: 1500,
+      reconnectStrategy: false,
+    },
     password: PASSWORD,
   });
   probe.on("error", () => {});
@@ -59,12 +64,13 @@ describe.skipIf(!REDIS_UP)("@nodefony/redis — intégration (Redis réel)", () 
 
   it("ouvre les 3 connexions par défaut (main/publish/subscribe)", async () => {
     const service = new RedisService(fakeModule(config));
-    await service.initialize();
+    await service.init();
     try {
-      assert.deepEqual(
-        Object.keys(service.connections).sort(),
-        ["main", "publish", "subscribe"],
-      );
+      assert.deepEqual(Object.keys(service.connections).sort(), [
+        "main",
+        "publish",
+        "subscribe",
+      ]);
       assert.equal(service.getConnection("main")?.connected, true);
       assert.ok(service.getClient("main")?.isOpen);
     } finally {
@@ -74,7 +80,7 @@ describe.skipIf(!REDIS_UP)("@nodefony/redis — intégration (Redis réel)", () 
 
   it("set/get sur la connexion main", async () => {
     const service = new RedisService(fakeModule(config));
-    await service.initialize();
+    await service.init();
     try {
       const client = service.getClient("main");
       assert.ok(client);
@@ -89,7 +95,7 @@ describe.skipIf(!REDIS_UP)("@nodefony/redis — intégration (Redis réel)", () 
 
   it("pub/sub : publish (publish) → subscribe (subscribe)", async () => {
     const service = new RedisService(fakeModule(config));
-    await service.initialize();
+    await service.init();
     try {
       const pub = service.getClient("publish");
       const sub = service.getClient("subscribe");
@@ -118,7 +124,7 @@ describe.skipIf(!REDIS_UP)("@nodefony/redis — intégration (Redis réel)", () 
 
   it("closeConnections est idempotent et libère les clients", async () => {
     const service = new RedisService(fakeModule(config));
-    await service.initialize();
+    await service.init();
     await service.closeConnections();
     await service.closeConnections(); // 2ᵉ appel = no-op
     assert.deepEqual(Object.keys(service.connections), []);
@@ -126,10 +132,8 @@ describe.skipIf(!REDIS_UP)("@nodefony/redis — intégration (Redis réel)", () 
   });
 
   it("enabled=false → aucune connexion ouverte", async () => {
-    const service = new RedisService(
-      fakeModule({ ...config, enabled: false }),
-    );
-    await service.initialize();
+    const service = new RedisService(fakeModule({ ...config, enabled: false }));
+    await service.init();
     assert.deepEqual(Object.keys(service.connections), []);
   });
 });

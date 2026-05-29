@@ -234,7 +234,7 @@ export type {
   KernelEventsType,
   NetworkInterface,
   FilterInterface,
-  ServiceWithInitialize,
+  ServiceWithInit,
   ServiceConstructor,
   EntityConstructor,
   TypeKernelOptions,

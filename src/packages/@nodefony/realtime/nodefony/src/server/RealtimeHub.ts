@@ -17,7 +17,7 @@ import { ANONYMOUS_REALTIME_TOKEN } from "./AnonymousRealtimeToken";
 
 /**
  * Fonction de filtrage Origin — `true` = upgrade autorisée. Posée par
- * `RealtimeService.initialize()` depuis `defineRealtimeConfig().csrf.checkOrigin`.
+ * `RealtimeService.init()` depuis `defineRealtimeConfig().csrf.checkOrigin`.
  * `null` = aucune politique (rétrocompat : tout passe — équivalent
  * `enabled: false`).
  */
@@ -132,7 +132,7 @@ export class RealtimeHub {
   #peerTokens: WeakMap<JsonRpcPeer, IRealtimeToken> | null = null;
 
   // Garde Origin RFC 6455 §10.2 (CSRF defense). `null` = pas de politique
-  // (rétrocompat). Posée par `RealtimeService.initialize()` depuis
+  // (rétrocompat). Posée par `RealtimeService.init()` depuis
   // `defineRealtimeConfig().csrf.checkOrigin`. Cold path (1× par upgrade).
   #originGuard: OriginGuard | null = null;
 
@@ -451,7 +451,7 @@ export class RealtimeHub {
   /**
    * **Seam #4 (P13 → P6)** — pose la politique Origin (RFC 6455 §10.2).
    * `null` = aucune politique (toutes origines acceptées). Posée 1× par
-   * `RealtimeService.initialize()` depuis `defineRealtimeConfig().csrf.checkOrigin`.
+   * `RealtimeService.init()` depuis `defineRealtimeConfig().csrf.checkOrigin`.
    */
   setOriginGuard(guard: OriginGuard | null): void {
     this.#originGuard = guard;

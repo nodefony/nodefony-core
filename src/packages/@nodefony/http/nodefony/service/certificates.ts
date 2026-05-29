@@ -101,8 +101,8 @@ class Certificate extends Service {
       extend(
         true,
         defaultOptions,
-        module.options.certificates || {}
-      ) as CertificateOptions
+        module.options.certificates || {},
+      ) as CertificateOptions,
     );
     this.module = module;
   }
@@ -117,13 +117,13 @@ class Certificate extends Service {
     return this.kernel?.environment === "development";
   }
 
-  async initialize(): Promise<this> {
+  async init(): Promise<this> {
     this.options.openssl.serialNumber = Certificate.generateSerial();
     this.kernel?.once("onBoot", async () => {
       this.options = extend(
         true,
         this.options,
-        this.module.options.certificates || {}
+        this.module.options.certificates || {},
       ) as CertificateOptions;
       this.setFiles();
       await this.generateServerCertificates();
@@ -242,7 +242,7 @@ class Certificate extends Service {
       this.log(
         "mkcert introuvable — fallback certificat auto-signé node-forge (non trusté). " +
           "`brew install mkcert nss && mkcert -install` pour un HTTPS dev sans erreur (HMR cross-origin/WSS).",
-        "WARNING"
+        "WARNING",
       );
     }
     return "forge";
@@ -301,19 +301,19 @@ class Certificate extends Service {
     ]);
     const rootCaPem = await fs.readFile(
       path.join(caRoot, "rootCA.pem"),
-      "utf8"
+      "utf8",
     );
     const certPem = await fs.readFile(this.certPath, "utf8");
     // Clé publique dérivée du certificat (mkcert ne l'émet pas séparément).
     const publicKeyPem = pki.publicKeyToPem(
-      pki.certificateFromPem(certPem).publicKey
+      pki.certificateFromPem(certPem).publicKey,
     );
     await fs.writeFile(this.publicKeyPath, publicKeyPem, "utf8");
     await fs.writeFile(this.fullchainPath, `${certPem}${rootCaPem}`, "utf8");
     await fs.writeFile(this.caPath, rootCaPem, "utf8");
     this.log(
       `Certificat dev généré via mkcert (CA trustée) — ${names.join(", ")}`,
-      "INFO"
+      "INFO",
     );
   }
 
@@ -353,7 +353,7 @@ class Certificate extends Service {
 
   /** Résout un matériel TLS : Buffer renvoyé tel quel, string lue comme chemin. */
   private async resolveMaterial(
-    value: string | Buffer | undefined
+    value: string | Buffer | undefined,
   ): Promise<Buffer> {
     if (!value) {
       throw new Error("certificate material is empty");
@@ -381,7 +381,7 @@ class Certificate extends Service {
           }
           if (file.path === this.publicKeyPath) {
             this.publicKeyPem = Buffer.from(
-              await fs.readFile(file.path, "utf8")
+              await fs.readFile(file.path, "utf8"),
             );
           }
           if (file.path === this.caPath) {
@@ -392,7 +392,7 @@ class Certificate extends Service {
           }
           if (file.path === this.fullchainPath) {
             this.fullchainPem = Buffer.from(
-              await fs.readFile(file.path, "utf8")
+              await fs.readFile(file.path, "utf8"),
             );
           }
           this.log(`Read Certificat file ${file.path}`, "DEBUG");
@@ -425,7 +425,7 @@ class Certificate extends Service {
           await fs.writeFile(file.path, file.variable.toString(), "utf8");
           this.log(
             `Certificate file ${file.path} written successfully.`,
-            "INFO"
+            "INFO",
           );
         }
       } catch (err) {
@@ -468,7 +468,7 @@ class Certificate extends Service {
       cert.validity.notBefore = new Date();
       // Valide pour un an
       cert.validity.notAfter.setFullYear(
-        cert.validity.notBefore.getFullYear() + 1
+        cert.validity.notBefore.getFullYear() + 1,
       );
       cert.setSubject(this.certOptions.openssl.attrs);
       cert.setIssuer(this.certOptions.openssl.attrs);

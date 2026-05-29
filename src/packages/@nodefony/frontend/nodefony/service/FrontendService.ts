@@ -99,7 +99,7 @@ class FrontendService extends Service implements IFrontendService {
     this.cfg = merged;
   }
 
-  async initialize(): Promise<this> {
+  async init(): Promise<this> {
     this.log(`MODULE frontend service init`, "DEBUG");
 
     // Hook `onServersReady` (pas `onReady`) — Vite ne doit spawner qu'APRÈS que

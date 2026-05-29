@@ -135,7 +135,7 @@ class SessionsService extends Service {
     });
   }
 
-  async initialize(): Promise<this> {
+  async init(): Promise<this> {
     this.secret = this.createSecret();
     this.iv = this.createIv();
     this.initializeStorage();

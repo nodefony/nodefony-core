@@ -105,7 +105,7 @@ export interface FilterInterface {
 
 /**
  * Interface-marqueur du **hook de cycle de vie async de boot** (pattern NestJS
- * `OnModuleInit`). Un service qui implémente `initialize` est initialisé une fois
+ * `OnModuleInit`). Un service qui implémente `init` est initialisé une fois
  * au démarrage — par {@link Kernel.addKernelService} (service kernel) ou
  * {@link Module.addService} (service de module) — sous garde de boot
  * ({@link Kernel.guardInitialize} : timeout + politique de criticité).
@@ -113,19 +113,22 @@ export interface FilterInterface {
  * C'est LE hook standard : ne pas réinventer `boot()`/`connect()`/`onConnect()`.
  * Hook **optionnel** (pas de méthode no-op forcée sur {@link Service} : éviterait
  * une microtask par service sans init — règle perf). Distinct du hook
- * **per-request** des controllers (`ControllerWithInitialize`, hot path, non gardé).
+ * **per-request** des controllers (`ControllerWithInitialize.initialize`, hot
+ * path, non gardé) : les deux noms restent volontairement disjoints (`init` =
+ * boot une fois ; `initialize` = par requête) — pas de collision sur un
+ * Controller qui est aussi un Service.
  *
  * @remarks `owner` = le {@link Module} (service de module) ou le {@link Kernel}
  *   (service kernel) propriétaire. Retour `Promise<this>` — l'implémenteur renvoie
  *   son instance typée.
  */
-export interface ServiceWithInitialize extends Service {
-  initialize?(owner?: Module | Kernel): Promise<this>;
+export interface ServiceWithInit extends Service {
+  init?(owner?: Module | Kernel): Promise<this>;
 }
 
 export interface ServiceConstructor {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  new (...args: any[]): ServiceWithInitialize;
+  new (...args: any[]): ServiceWithInit;
   _inject?: { [key: number]: string };
 }
 
@@ -634,8 +637,8 @@ class Kernel extends Service implements IKernel {
       );
     }
     this.log(`SERVICE ADD : ${inst.name}`, "DEBUG");
-    const serviceInit: ServiceWithInitialize = inst;
-    // Service kernel = critique (true) : un `initialize` figé/échoué ne gèle
+    const serviceInit: ServiceWithInit = inst;
+    // Service kernel = critique (true) : un `init` figé/échoué ne gèle
     // plus le boot — borné par timeout, fatal en prod, fail-soft en dev.
     await this.guardServiceInitialize(serviceInit, this, true);
     this.set<Service>(inst.name, inst);
@@ -684,10 +687,10 @@ class Kernel extends Service implements IKernel {
     } else {
       this.log(`MODULE ADD : ${mod.name}`, "INFO");
     }
-    if (mod.initialize) {
+    if (mod.init) {
       this.log(`MODULE INITIALIZE : ${mod.name}`, "DEBUG");
       // Garde de boot : timeout + politique selon la criticité du module.
-      const init = mod.initialize.bind(mod);
+      const init = mod.init.bind(mod);
       await this.guardInitialize(
         () => init(this),
         mod.name,
@@ -1112,29 +1115,29 @@ class Kernel extends Service implements IKernel {
 
   /**
    * Initialise un service **sous garde de boot** (timeout + politique de criticité
-   * via {@link guardInitialize}) si le service expose le hook `initialize`. Point
+   * via {@link guardInitialize}) si le service expose le hook `init`. Point
    * d'entrée commun à {@link addKernelService} (service kernel, `critical=true`) et
    * à {@link Module.addService} (service de module, criticité = celle du module
    * porteur), pour que les deux chemins d'init partagent la même résilience.
    *
    * @remarks Avant 2026-05-29 les services de module passaient par un `await` NU
-   *   (aucun timeout) : un `initialize` qui pend (ex. `redis` = connexion réseau)
+   *   (aucun timeout) : un `init` qui pend (ex. `redis` = connexion réseau)
    *   gelait le boot indéfiniment. Désormais borné comme les services kernel.
    *
-   * @param serviceInit - instance du service ; ne fait rien si `initialize` absent.
+   * @param serviceInit - instance du service ; ne fait rien si `init` absent.
    * @param owner - propriétaire passé au hook : le {@link Module} ou ce {@link Kernel}.
    * @param critical - criticité transmise à {@link isBootErrorFatal}.
    */
   async guardServiceInitialize(
-    serviceInit: ServiceWithInitialize,
+    serviceInit: ServiceWithInit,
     owner: Module | Kernel,
     critical: boolean,
   ): Promise<void> {
-    if (!serviceInit.initialize) {
+    if (!serviceInit.init) {
       return;
     }
     this.log(`SERVICE INITIALIZE : ${serviceInit.name}`, "DEBUG");
-    const init = serviceInit.initialize.bind(serviceInit);
+    const init = serviceInit.init.bind(serviceInit);
     await this.guardInitialize(() => init(owner), serviceInit.name, critical);
   }
 

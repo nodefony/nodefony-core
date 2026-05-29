@@ -72,7 +72,7 @@ class RealtimeService extends Service {
    * Loopback implicite, ou ClusterBackplane si le worker IPC a déjà été câblé
    * par la Module class). Aucun warn — c'est le cas commun.
    */
-  async initialize(_module: Module): Promise<this> {
+  async init(_module: Module): Promise<this> {
     this.#config = this.get<IRealtimeConfig>("realtimeConfig");
     if (!this.#config) {
       throw new Error(

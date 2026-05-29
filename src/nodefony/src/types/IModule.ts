@@ -50,7 +50,7 @@ export interface IModule extends IService {
   onKernelBoot?(): Promise<this>;
   onKernelReady?(): Promise<this>;
   // Typé IKernel au lieu de Kernel concret pour éviter l'import circulaire
-  initialize?(kernel?: IKernel): Promise<this>;
+  init?(kernel?: IKernel): Promise<this>;
 
   // ─── Services ──────────────────────────────────────────────────────────────
   // ServiceConstructor non importable ici → unknown + cast côté appelant

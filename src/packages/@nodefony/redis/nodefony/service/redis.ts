@@ -80,7 +80,7 @@ class RedisService extends Service {
    * Appelé par le cycle de vie du Module. Une connexion en échec est loguée
    * sans bloquer les autres (résilience boot).
    */
-  async initialize(): Promise<this> {
+  async init(): Promise<this> {
     const config = this.#resolveConfig();
     if (!config.enabled) {
       this.log("Module Redis désactivé (enabled=false) — 0 connexion", "INFO");

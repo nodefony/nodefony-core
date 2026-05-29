@@ -185,7 +185,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
   }
 
-  async initialize(): Promise<this> {
+  async init(): Promise<this> {
     // Apply config-driven request logger (P3.x). Done synchronously here so
     // logger is set before the first request — env override stays simple.
     this.applyRequestLoggerFromConfig();

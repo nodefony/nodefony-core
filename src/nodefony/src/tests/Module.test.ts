@@ -317,7 +317,7 @@ describe("Module — addService()", () => {
     constructor(module: Module) {
       super("InitService", module.container, undefined, {});
     }
-    async initialize(_module?: Module): Promise<this> {
+    async init(_module?: Module): Promise<this> {
       this.initialized = true;
       return this;
     }
@@ -337,7 +337,7 @@ describe("Module — addService()", () => {
     assert.strictEqual(svc.name, "SimpleService");
   });
 
-  it("service avec initialize() → initialize() appelé", async () => {
+  it("service avec init() → init() appelé", async () => {
     const { mod } = makeModuleWithKernel("init-svc-mod");
     const svc = await mod.addService(InitService as any);
     assert.ok((svc as InitService).initialized === true);
