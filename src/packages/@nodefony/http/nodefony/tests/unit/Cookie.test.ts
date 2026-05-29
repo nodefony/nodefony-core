@@ -18,7 +18,11 @@ describe("Cookie — unit tests", () => {
     });
 
     it("merges custom options", () => {
-      const c = new Cookie("foo", "bar", { httpOnly: true, secure: true, path: "/api" });
+      const c = new Cookie("foo", "bar", {
+        httpOnly: true,
+        secure: true,
+        path: "/api",
+      });
       expect(c.httpOnly).to.equal(true);
       expect(c.secure).to.equal(true);
       expect(c.path).to.equal("/api");
@@ -31,7 +35,11 @@ describe("Cookie — unit tests", () => {
 
   describe("constructor(cookie) — copy", () => {
     it("copies all properties from an existing Cookie", () => {
-      const original = new Cookie("orig", "val", { path: "/", httpOnly: true, secure: true });
+      const original = new Cookie("orig", "val", {
+        path: "/",
+        httpOnly: true,
+        secure: true,
+      });
       const copy = new Cookie(original);
       expect(copy.name).to.equal("orig");
       expect(copy.value).to.equal("val");
@@ -140,7 +148,9 @@ describe("Cookie — unit tests", () => {
 
     it("different secrets produce different outputs", () => {
       const c = new Cookie("foo", "bar");
-      expect(c.sign("hello", "secret1")).to.not.equal(c.sign("hello", "secret2"));
+      expect(c.sign("hello", "secret1")).to.not.equal(
+        c.sign("hello", "secret2"),
+      );
     });
 
     it("different values produce different outputs", () => {
@@ -150,12 +160,81 @@ describe("Cookie — unit tests", () => {
 
     it("throws TypeError if val is not a string", () => {
       const c = new Cookie("foo", "bar");
-      expect(() => c.sign(42 as unknown as string, "secret")).to.throw(TypeError);
+      expect(() => c.sign(42 as unknown as string, "secret")).to.throw(
+        TypeError,
+      );
     });
 
     it("throws TypeError if secret is not a string", () => {
       const c = new Cookie("foo", "bar");
-      expect(() => c.sign("hello", 42 as unknown as string)).to.throw(TypeError);
+      expect(() => c.sign("hello", 42 as unknown as string)).to.throw(
+        TypeError,
+      );
+    });
+
+    it("throws TypeError if secret is empty", () => {
+      const c = new Cookie("foo", "bar");
+      expect(() => c.sign("hello", "")).to.throw(TypeError);
+    });
+
+    it("preserves the value — format value.signature", () => {
+      const c = new Cookie("foo", "bar");
+      const signed = c.sign("hello", "mysecret");
+      expect(signed.startsWith("hello.")).to.equal(true);
+    });
+  });
+
+  describe("unsign() — vérification de signature", () => {
+    it("round-trip — recovers the original value", () => {
+      const c = new Cookie("foo", "bar");
+      const signed = c.sign("hello", "mysecret");
+      expect(c.unsign(signed, "mysecret")).to.equal("hello");
+    });
+
+    it("tolerates the s: prefix (signed cookie marker)", () => {
+      const c = new Cookie("foo", "bar");
+      const signed = `s:${c.sign("hello", "mysecret")}`;
+      expect(c.unsign(signed, "mysecret")).to.equal("hello");
+    });
+
+    it("rejects a tampered value → false", () => {
+      const c = new Cookie("foo", "bar");
+      const signed = c.sign("hello", "mysecret");
+      const tampered = signed.replace("hello", "hELLo");
+      expect(c.unsign(tampered, "mysecret")).to.equal(false);
+    });
+
+    it("rejects a wrong secret → false", () => {
+      const c = new Cookie("foo", "bar");
+      const signed = c.sign("hello", "mysecret");
+      expect(c.unsign(signed, "othersecret")).to.equal(false);
+    });
+
+    it("rejects an unsigned value (no signature) → false", () => {
+      const c = new Cookie("foo", "bar");
+      expect(c.unsign("plain", "mysecret")).to.equal(false);
+    });
+
+    it("throws if secret is empty", () => {
+      const c = new Cookie("foo", "bar");
+      expect(() => c.unsign("hello.sig", "")).to.throw(TypeError);
+    });
+  });
+
+  describe("signed cookie — end-to-end (setValue)", () => {
+    it("signs the value with a configured secret (s: prefix) and round-trips", () => {
+      const c = new Cookie("sid", "v123", {
+        signed: true,
+        secret: "topsecret",
+      });
+      expect((c.value as string).startsWith("s:")).to.equal(true);
+      expect(c.unsign(c.value as string, "topsecret")).to.equal("v123");
+    });
+
+    it("refuses the default/predictable secret (fail-closed)", () => {
+      expect(() => new Cookie("sid", "v123", { signed: true })).to.throw(
+        /secret/,
+      );
     });
   });
 
@@ -167,42 +246,42 @@ describe("Cookie — unit tests", () => {
       expect(obj).to.have.property("value", "token");
     });
 
-  describe("setExpires() — regression maxAge overflow", () => {
-    it("maxAge=0 (session cookie) → expires is undefined", () => {
-      const c = new Cookie("sid", "abc", { maxAge: 0 });
-      c.setExpires(undefined);
-      expect(c.expires).to.equal(undefined);
-    });
+    describe("setExpires() — regression maxAge overflow", () => {
+      it("maxAge=0 (session cookie) → expires is undefined", () => {
+        const c = new Cookie("sid", "abc", { maxAge: 0 });
+        c.setExpires(undefined);
+        expect(c.expires).to.equal(undefined);
+      });
 
-    it("maxAge=3600 → expires ~1h in the future (not year 58339)", () => {
-      const before = Date.now();
-      const c = new Cookie("sid", "abc", { maxAge: 3600 });
-      c.setExpires(undefined);
-      const after = Date.now();
-      expect(c.expires).to.be.instanceof(Date);
-      const ms = c.expires!.getTime();
-      expect(ms).to.be.above(before + 3599 * 1000);
-      expect(ms).to.be.below(after + 3601 * 1000);
-      // ne doit pas être dans un futur pathologique (> +1 an)
-      expect(ms).to.be.below(Date.now() + 366 * 24 * 3600 * 1000);
-    });
+      it("maxAge=3600 → expires ~1h in the future (not year 58339)", () => {
+        const before = Date.now();
+        const c = new Cookie("sid", "abc", { maxAge: 3600 });
+        c.setExpires(undefined);
+        const after = Date.now();
+        expect(c.expires).to.be.instanceof(Date);
+        const ms = c.expires!.getTime();
+        expect(ms).to.be.above(before + 3599 * 1000);
+        expect(ms).to.be.below(after + 3601 * 1000);
+        // ne doit pas être dans un futur pathologique (> +1 an)
+        expect(ms).to.be.below(Date.now() + 366 * 24 * 3600 * 1000);
+      });
 
-    it("maxAge=86400 → expires ~24h in the future", () => {
-      const before = Date.now();
-      const c = new Cookie("sid", "abc", { maxAge: 86400 });
-      c.setExpires(undefined);
-      expect(c.expires).to.be.instanceof(Date);
-      const ms = c.expires!.getTime();
-      expect(ms).to.be.above(before + 86399 * 1000);
-      expect(ms).to.be.below(Date.now() + 86401 * 1000);
-    });
+      it("maxAge=86400 → expires ~24h in the future", () => {
+        const before = Date.now();
+        const c = new Cookie("sid", "abc", { maxAge: 86400 });
+        c.setExpires(undefined);
+        expect(c.expires).to.be.instanceof(Date);
+        const ms = c.expires!.getTime();
+        expect(ms).to.be.above(before + 86399 * 1000);
+        expect(ms).to.be.below(Date.now() + 86401 * 1000);
+      });
 
-    it("maxAge=undefined → no expires (session cookie)", () => {
-      const c = new Cookie("sid", "abc");
-      c.setExpires(undefined);
-      expect(c.expires).to.equal(undefined);
+      it("maxAge=undefined → no expires (session cookie)", () => {
+        const c = new Cookie("sid", "abc");
+        c.setExpires(undefined);
+        expect(c.expires).to.equal(undefined);
+      });
     });
-  });
 
     it("includes optional fields when set", () => {
       const c = new Cookie("ws", "token", { path: "/", httpOnly: true });

@@ -150,7 +150,7 @@ class Cookie implements ICookieInterface {
   constructor(
     cookiesOrName: Cookie | string,
     value?: any,
-    options?: CookieOptionsType
+    options?: CookieOptionsType,
   ) {
     this.options = extend({}, cookieDefaultSettings, options || {});
     if (!cookiesOrName) {
@@ -204,7 +204,16 @@ class Cookie implements ICookieInterface {
       value = decode(value);
     }
     if (this.signed) {
-      this.value = this.sign(value, this.options.secret as string);
+      const secret = this.options.secret as string;
+      // Zero Trust : refuser de signer avec le secret par défaut prévisible —
+      // une signature avec un secret public ne protège rien (fail-closed).
+      if (!secret || secret === cookieDefaultSettings.secret) {
+        throw new Error(
+          "signed cookie requires a configured secret (refusing the default/predictable secret)",
+        );
+      }
+      // Préfixe `s:` = marqueur de cookie signé (déballé par unsign()).
+      this.value = `s:${this.sign(value, secret)}`;
     } else {
       this.value = value;
     }
@@ -288,34 +297,66 @@ class Cookie implements ICookieInterface {
     return `${this.name}=${encode(this.value)}`;
   }
 
+  /**
+   * Signe une valeur de cookie : `HMAC-SHA256(value)` clé = `secret`, encodé en
+   * base64url (sûr en cookie, pas de `=`/`+`/`/`). Retourne `value.signature`
+   * → la valeur d'origine est PRÉSERVÉE (récupérable via {@link unsign}).
+   *
+   * @param val - valeur en clair à signer.
+   * @param secret - clé HMAC (le secret, JAMAIS la valeur).
+   * @returns `value.base64url(hmac)`.
+   * @throws {TypeError} si `val` n'est pas une string ou `secret` est vide.
+   */
   sign(val: string, secret: string): string {
     if (typeof val !== "string") {
-      throw new TypeError("cookie required");
+      throw new TypeError("cookie value required (string)");
     }
-    if (typeof secret !== "string") {
-      throw new TypeError("secret required");
+    if (typeof secret !== "string" || !secret) {
+      throw new TypeError("cookie secret required (non-empty string)");
     }
-    return crypto
-      .createHmac("sha256", `${val}.${secret}`)
+    const mac = crypto
+      .createHmac("sha256", secret)
       .update(val)
-      .digest("base64")
-      .replace(/[=]+$/u, "");
+      .digest("base64url");
+    return `${val}.${mac}`;
   }
 
-  unsign(val: string, secret: string): string | boolean {
-    if (val && typeof val !== "string") {
-      throw new Error("unsign cookie value bad type !! ");
+  /**
+   * Vérifie et déballe une valeur signée par {@link sign} (tolère le préfixe
+   * `s:`). Comparaison **timing-safe** (`crypto.timingSafeEqual`).
+   *
+   * @param val - valeur signée (`value.signature`, éventuellement préfixée `s:`).
+   *   Défaut : `this.value`.
+   * @param secret - clé HMAC. Défaut : `this.options.secret`.
+   * @returns la valeur en clair si la signature est valide, sinon `false`.
+   * @throws {TypeError} si les types sont invalides ou le secret est vide.
+   */
+  unsign(val?: string, secret?: string): string | false {
+    let input = val ?? (this.value as string);
+    const key = secret ?? (this.options.secret as string);
+    if (typeof input !== "string") {
+      throw new TypeError("unsign cookie value bad type");
     }
-    if (secret && typeof secret !== "string") {
-      throw new Error("unsign cookie secret bad type");
+    if (typeof key !== "string" || !key) {
+      throw new TypeError("unsign cookie secret required (non-empty string)");
     }
-    if (!val) {
-      val = this.value;
+    if (input.startsWith("s:")) {
+      input = input.slice(2);
     }
-    if (!secret) {
-      secret = this.options.secret as string;
+    const idx = input.lastIndexOf(".");
+    if (idx <= 0) {
+      return false;
     }
-    return this.sign(val, secret) === val ? val : false;
+    const plain = input.slice(0, idx);
+    const expected = this.sign(plain, key);
+    const a = Buffer.from(input);
+    const b = Buffer.from(expected);
+    // Longueur d'abord : timingSafeEqual throw si tailles ≠ ; la longueur seule
+    // ne révèle pas le secret.
+    if (a.length !== b.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(a, b) ? plain : false;
   }
 
   serialize(): string {
