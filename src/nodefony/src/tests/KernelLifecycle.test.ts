@@ -690,6 +690,56 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
   });
 });
 
+// ─── 7bis. Ordering config — override module-<name> AVANT validation ──────────
+
+describe("Kernel — ordering config : override module-<name> avant validation", () => {
+  it("l'override est appliqué AVANT onKernelRegister (la validation Zod le voit)", async () => {
+    const k = mkKernel("development");
+    class Target extends Module {
+      seenFoo: unknown = null;
+      constructor(kernel: Kernel) {
+        super("target", kernel, "/tmp/target", { foo: "default" });
+      }
+      async onKernelRegister(): Promise<this> {
+        // simule defineXxxConfig(this.options) : lit la config AU MOMENT de onRegister
+        this.seenFoo = (this.options as any).foo;
+        return this;
+      }
+    }
+    class HostApp extends Module {
+      constructor(kernel: Kernel) {
+        super("host", kernel, "/tmp/host", {
+          "Module-target": { foo: "overridden" },
+        });
+      }
+    }
+    // addModule (comme @modules) enregistre dans kernel.modules — requis pour
+    // que applyModuleConfigOverrides les voie.
+    const target = (await k.addModule(Target)) as Target;
+    await k.addModule(HostApp);
+    // ce que fait le kernel entre onPreRegister et onRegister :
+    (k as any).applyModuleConfigOverrides();
+    // puis la phase de validation (onKernelRegister tagué via setEvents)
+    await k.fireLifecycle("onRegister", k);
+    assert.strictEqual(
+      target.seenFoo,
+      "overridden",
+      "onKernelRegister doit voir la config overridée",
+    );
+  });
+
+  it("override ciblant un module absent → log, pas de throw (continue)", async () => {
+    const k = mkKernel("development");
+    class HostApp extends Module {
+      constructor(kernel: Kernel) {
+        super("host2", kernel, "/tmp/host2", { "Module-absent": { foo: 1 } });
+      }
+    }
+    await k.addModule(HostApp);
+    assert.doesNotThrow(() => (k as any).applyModuleConfigOverrides());
+  });
+});
+
 // ─── 8. onReady() direct ──────────────────────────────────────────────────────
 
 describe("Kernel lifecycle — onReady()", () => {

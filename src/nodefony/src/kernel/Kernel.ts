@@ -381,6 +381,10 @@ class Kernel extends Service implements IKernel {
     this.setNodeEnv(this.environment);
     // Clusters
     this.initCluster();
+    // Overrides `Module-<name>` APRÈS l'enregistrement de tous les modules, AVANT
+    // la validation Zod (`onKernelRegister`) → l'override est pris en compte
+    // (fix dette d'ordering config, cf applyModuleConfigOverrides + Module.setEvents).
+    this.applyModuleConfigOverrides();
     return this.fireLifecycle("onRegister", this)
       .then(() => {
         this.registered = true;
@@ -692,6 +696,27 @@ class Kernel extends Service implements IKernel {
   }
   getModules(): Record<string, Module> {
     return this.modules;
+  }
+
+  /**
+   * Applique les overrides de config inter-modules (clés `Module-<name>` /
+   * `module-<name>` dans les options d'un module — typiquement l'app qui
+   * reconfigure un autre module) en itérant TOUS les modules enregistrés.
+   *
+   * Appelé par {@link preRegister} ENTRE `onPreRegister` (tous les modules sont
+   * alors enregistrés via `@modules`/`loadApp`) et `onRegister` (où les modules
+   * valident + gèlent leur config Zod dans `onKernelRegister`). Corrige la dette
+   * d'ordering : l'override était auparavant posé à `onPreBoot` (après la
+   * validation) → silencieusement ignoré par tout module qui fige sa config tôt
+   * (redis, realtime…). Désormais il précède la validation, qui le voit.
+   *
+   * Ordre d'application = ordre d'insertion dans `this.modules` (app chargée en
+   * premier → configure les modules avant qu'ils ne se valident). Idempotent.
+   */
+  private applyModuleConfigOverrides(): void {
+    for (const name in this.modules) {
+      this.modules[name].readOverrideModuleConfig();
+    }
   }
 
   private async loadApp(config?: TypeKernelOptions): Promise<Module> {

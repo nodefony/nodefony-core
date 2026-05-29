@@ -223,12 +223,17 @@ class Module extends Service implements IModule {
         tagListener(this.onKernelReady.bind(this), owner, critical),
       );
     }
+    // `readOverrideModuleConfig` N'EST PLUS appelé ici : il l'était à `onPreBoot`
+    // (bitmask 32), donc APRÈS la validation Zod des modules (`onKernelRegister`,
+    // bitmask 16) → l'override `Module-<name>` était silencieusement ignoré pour
+    // tout module qui fige sa config tôt (redis, realtime…). Il est désormais
+    // appliqué par `Kernel.applyModuleConfigOverrides()` ENTRE `onPreRegister` et
+    // `onRegister` (tous les modules enregistrés, validation pas encore faite).
     this.kernel?.prependOnceListener(
       "onPreBoot",
       tagListener(
         async () => {
           this.package = await this.getPackageJson();
-          this.readOverrideModuleConfig();
         },
         owner,
         critical,
@@ -256,9 +261,13 @@ class Module extends Service implements IModule {
           | Module
           | undefined;
         if (!mod) {
+          // Les overrides sont désormais appliqués à `preRegister` (tous les
+          // modules @modules + l'app sont enregistrés) : un module introuvable ICI
+          // est réellement ABSENT (non chargé), pas « pas encore enregistré ».
+          // Avertissement de config (boot non bloqué), pas une erreur framework.
           this.log(
-            `Can't Override Configuration Module : ${index[1]} is not ready, Register module before`,
-            "ERROR",
+            `Override de config ignoré : module "${index[1]}" introuvable (absent de @modules) — retirer la clé "${ele}" ou charger le module`,
+            "WARNING",
           );
           continue;
         }

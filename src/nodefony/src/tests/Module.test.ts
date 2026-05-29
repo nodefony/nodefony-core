@@ -275,7 +275,7 @@ describe("Module — readOverrideModuleConfig()", () => {
     assert.strictEqual((targetMod.options as any).extra, "added");
   });
 
-  it("Module-target non trouvé → log ERROR, continue sans throw", () => {
+  it("Module-target non trouvé → log WARNING, continue sans throw", () => {
     const kernel = makeKernelReal();
     const hostMod = new Module("err-host", kernel, PATH_FOR_NODEFONY_DIR, {
       "Module-ghost": { x: 1 },
@@ -1002,7 +1002,7 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     assert.strictEqual(warns.length, 2, "un WARNING par module overridé");
   });
 
-  it("ERROR log 'Can't Override' quand le module n'est pas enregistré", () => {
+  it("WARNING log 'Override de config ignoré' quand le module cible est absent", () => {
     const kernel = makeKernelReal();
     const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
       "Module-ghost": { x: 1 },
@@ -1010,19 +1010,19 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
 
     const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
 
-    const errPdu = pdus.find(
+    const warnPdu = pdus.find(
       (p) =>
-        p.severityName === "ERROR" &&
-        String(p.payload).includes("Can't Override Configuration Module") &&
+        p.severityName === "WARNING" &&
+        String(p.payload).includes("Override de config ignoré") &&
         String(p.payload).includes("ghost"),
     );
     assert.ok(
-      errPdu,
-      "log ERROR doit être émis si le module cible n'est pas enregistré",
+      warnPdu,
+      "log WARNING doit être émis si le module cible est absent (non chargé)",
     );
   });
 
-  it("ERROR log — continue sans throw (autres clés traitées)", () => {
+  it("WARNING log — continue sans throw (autres clés traitées)", () => {
     const kernel = makeKernelReal();
     const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
       port: 80,
@@ -1030,7 +1030,7 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     kernel.modules["http"] = httpMod;
 
     const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
-      "Module-ghost": { x: 1 }, // module inexistant → ERROR + continue
+      "Module-ghost": { x: 1 }, // module absent → WARNING + continue
       "Module-http": { port: 9090 }, // module existant → doit quand même être traité
     });
 
@@ -1038,7 +1038,7 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     assert.strictEqual(
       (httpMod.options as any).port,
       9090,
-      "http doit être overridé même après un ERROR précédent",
+      "http doit être overridé même après un WARNING précédent",
     );
   });
 

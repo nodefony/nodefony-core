@@ -33,7 +33,7 @@ import { Nodefony } from "nodefony";
 const kernel = Nodefony.getKernel();
 import http from "./modules/http-config";
 import sequelize from "./modules/sequelize-config";
-import mongoose from "./modules/mongoose-config";
+// import mongoose from "./modules/mongoose-config"; // décommenter avec @nodefony/mongoose (index.ts)
 import pm2 from "./pm2/pm2.config";
 import cluster from "./cluster/cluster.config";
 import security from "./modules/security-config";
@@ -232,7 +232,9 @@ const config = {
    */
   "module-http": http,
   "module-sequelize": sequelize,
-  "module-mongoose": mongoose,
+  // "module-mongoose" retiré : @nodefony/mongoose n'est pas chargé (cf @modules
+  // dans index.ts). Décommenter ICI ET dans index.ts pour réactiver mongoose.
+  // "module-mongoose": mongoose,
   "module-security": security,
   // Backplane realtime = driver `redis` (registre) → fan-out cross-pod via Redis
   // pub/sub en cluster. Connexion Redis depuis `@nodefony/redis` (défaut
