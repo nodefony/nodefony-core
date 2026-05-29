@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.15.0
+version: 1.16.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -48,10 +48,10 @@ Quand le front commence à consommer un **canal/action/endpoint/type** nouveau �
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.15.0**
-(full-stack : **drill ORM riche @pid EXACT en cluster** — `OrmWorker` consomme le canal combiné
-`orm:rich@<pid>` (`OrmRichLive`) → supprime l'alerte « fourni par un autre worker » ; back
-`nodefony-framework-dev` 1.15.0 = facette enrich `"orm"` + seam `setOrmRichProvider` + relais master→worker).
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.16.0**
+(session BACKEND `nodefony-framework-dev` 1.16.0 : **résilience de boot Ph.3** — garde lifecycle
+`emitAsyncGuarded`/`fireLifecycle` + gain perf `emitAsync` +14→30 % + dette config ordering RÉSOLUE.
+**Aucun contrat front touché** → studio-dev suit en lockstep **back-only**, pas de changement de page/canal/type).
 
 ## API exacte — UI kit (`import { … } from "../components/ui"`)
 
@@ -1125,6 +1125,10 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.16.0** (2026-05-29) — **Lockstep back-only** (session BACKEND `nodefony-framework-dev` 1.16.0 :
+  résilience de boot Ph.3 — `Event.emitAsyncGuarded`/`Kernel.fireLifecycle`, `Module.critical`, `withTimeout` ;
+  gain perf `emitAsync` +14→30 % ; dette config ordering RÉSOLUE). **Aucun contrat front touché** (page/canal/
+  endpoint/type isomorphe inchangés) → bump de cohérence uniquement, rien à coder côté Studio.
 - **1.15.0** (2026-05-25) — **Drill ORM riche @pid EXACT en cluster** (full-stack ; relais backend = framework-dev 1.15.0).
   Front : `OrmWorker.tsx` consomme le **canal combiné `orm:rich@<pid>`** via un nouveau composant **`OrmRichLive`**
   (`ConnectorCard.tsx`, `useNodefonyAdaptiveChannel`) → `{health, flow, richPending}` splitté vers `setLiveHealth`/`onFlow` ;

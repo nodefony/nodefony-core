@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.15.0
+version: 1.16.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.15.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.16.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -48,10 +48,10 @@ correspondante de `nodefony-studio-dev` (et inversement). Ouvrir le skill jumeau
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.15.0**
-(session FULL-STACK : **relais ORM riche @pid** — drill `/nodefony/orm/<pid>` exact en cluster via
-facette d'enrich `"orm"` + seam `setOrmRichProvider` + canal combiné `orm:rich@<pid>` ; supprime
-l'alerte « fourni par un autre worker »).
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.16.0**
+(session BACKEND : **résilience de boot Ph.3** — garde du cycle de boot `Event.emitAsyncGuarded` ⟂
+`Kernel.fireLifecycle` + **gain perf `emitAsync` +14→30 %** + **dette config ordering RÉSOLUE** ; aucun
+contrat front touché → `studio-dev` suit en lockstep **back-only**).
 
 ## 1. Quand l'utiliser / quand passer la main
 
@@ -1368,6 +1368,31 @@ no entity table registered under "session"`, code 401, au Ctrl+C) : `DrizzleServ
   rare). Tests : core 4 (facette guards + seam rich + aggregator forward) / framework 4 (ctl orm + report ormRich on/off +
   facette n'active pas process) / **e2e cross-process `cluster-orm-rich-e2e.mjs`** (A drille pidB → ormRich marqué "B" +
   health/flow → stop = absent). memory.test 7/8 (sync-crashes = flake GC connu, vert isolé ; mon code cluster-only).
+- _(2026-05-29, RÉSILIENCE BOOT Ph.3 + GAIN emitAsync + DETTE CONFIG ordering)_ **Séparer MÉCANIQUE (Event) de
+  POLITIQUE (Kernel) → hot path nu CONSERVÉ et même accéléré.** `Event.emitAsyncGuarded(event, options, …args)`
+  (série + try/catch + timeout/listener + `{results,errors,stopped}` + callbacks `onListenerError`/`onListenerSlow`)
+  = mécanique pure ; `Kernel.fireLifecycle` = politique (tags owner/critical via `kernel/lifecycleTags`, fatal si
+  `critical&&prod` sinon fail-soft+WARNING) ; migrée sur `onPreRegister→onPostReady` SEULEMENT (pas onPreStart/
+  onStart = flux commander/--help). `Module.static critical` (false : studio/redis/realtime/mediasoup/test-frontend-\*).
+  `withTimeout`/`TimeoutError` (`runtime/`) + `guardInitialize` (timeout autour de addModule/addKernelService.initialize).
+  Env `NODEFONY_BOOT_TIMEOUT_MS` (dev 20s/prod 60s) / `_WARN_MS` (5s). **Leçons** : (1) **`Service` COMPOSE `Event`
+  (`this.nc`), n'étend PAS EventEmitter** → toute nouvelle méthode event = ajout à Event ET re-export Service
+  (délégation miroir) ; `super.emitAsyncGuarded` depuis Kernel échoue (TS2339) tant que Service ne la déclare pas.
+  (2) **`once()` wrappe le listener** → `rawListeners` rend le wrapper, pas la fn taguée → `readListenerTags` DÉBALLE
+  `.listener`. (3) **GAIN `emitAsync` sans risque** : `if (listenerCount===0) return false` AVANT `rawListeners`
+  (évite l'alloc array du cas dominant 0-listener) + `await` conditionnel (skip microtask si retour non-thenable)
+  → microbench **A/B inline hors repo** (vieux vs neuf côte à côte, PAS git stash) = **+14→30 %**. (4) **isomorphe** :
+  guarded AUTONOME dans Event (0 import — `runtime/withTimeout` node-only, absent du build client ; timeout via
+  sentinelle Symbol locale + `Date.now`). (5) **`Module.critical` = STATIC** (lue au ctor via `(this.constructor as
+typeof Module).critical`, AVANT les initializers de sous-classe → `critical=false` en property d'instance serait
+  trop tard). (6) **DETTE CONFIG ordering RÉSOLUE** : l'override `module-<name>` ne peut PAS être un listener
+  `onPreRegister` (les modules sont construits PENDANT ce fire → un listener ajouté en cours d'emit n'est jamais
+  rappelé) → `Kernel.applyModuleConfigOverrides()` centralisé APRÈS le fire onPreRegister, AVANT onRegister
+  (validation Zod) ; prouvé runtime (backplane realtime `driver=redis` enfin pris en compte). (7) tests encodant
+  l'ANCIEN contrat (throw en dev fait rejeter le boot) → réécrits sur le nouveau (fail-soft dev / fatal prod).
+  Commits `f3b749d` + `55b7202`. memory.test 8/8 (async-crashes = flake isolé). Diagnostic dette CLI
+  commander↔kernel + changelog commander 15 ESM-only → [[project_cli_module_command_dispatch]] ·
+  [[project_config_ordering_chantier]] RÉSOLU.
 
 ## 12. Fin de session (OBLIGATOIRE) + auto-audit de complétude
 
@@ -1435,6 +1460,18 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.16.0** (2026-05-29) — **Résilience de boot Ph.3 (garde du cycle de boot) + GAIN perf `emitAsync` +
+  dette config ordering RÉSOLUE** (commits `f3b749d` / `55b7202`). MÉCANIQUE `Event.emitAsyncGuarded` ⟂
+  POLITIQUE `Kernel.fireLifecycle` (tags owner/critical `kernel/lifecycleTags`, fatal si critique+prod sinon
+  fail-soft+WARNING, migrée `onPreRegister→onPostReady`) ; `Module.static critical` ; `withTimeout`/`TimeoutError`
+  (`runtime/`, node-only) ; `guardInitialize` ; env `NODEFONY_BOOT_TIMEOUT_MS`/`_WARN_MS`. **OPTIM hot path
+  `emitAsync`** (court-circuit `listenerCount` 0-alloc + await conditionnel sync) = **+14→30 %** (microbench A/B
+  inline). **Dette config** : `Kernel.applyModuleConfigOverrides()` en `preRegister` AVANT validation Zod —
+  prouvé runtime (backplane realtime `driver=redis` pris en compte). RETEX §11 (Service compose Event ; `once()`
+  unwrap ; guarded isomorphe autonome ; `Module.critical` static ; bench A/B inline ; tests ancien contrat
+  réécrits). Diagnostic dette CLI (2 effets de bord commander↔kernel + changelog commander 15 **ESM-only**) →
+  [[project_cli_module_command_dispatch]]. Tests : core **1449** / memory.test **8/8** / realtime **155**.
+  Lockstep **studio-dev 1.16.0** (back-only — aucun contrat front touché).
 - **1.15.0** (2026-05-25) — **Relais backend ORM riche @pid** (drill `/nodefony/orm/<pid>` exact en cluster, full-stack).
   §5.F : nouvelle lecture **rich @pid** (`{health:buildConnectionHealth(), flow:buildOrmFlow()}`), calquée
   `dashboard:supervision@<pid>` (voie B1). **Core** : `ClusterProbeFacet` (`"process"|"orm"`) + champ `facet?` sur
