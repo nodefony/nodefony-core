@@ -36,6 +36,9 @@ class ParserQs extends Parser {
   constructor(request: HttpRequest | Http2Request) {
     super(request);
     this.parserOptions = this.request.queryStringOptions || {};
+    // Honore le charset détecté sur la requête (Content-Type charset=…) au lieu
+    // d'un "utf8" hardcodé — sinon le corps latin1/etc. était mal décodé.
+    this.charset = this.request.charset;
   }
 
   override async parse() {
@@ -43,12 +46,12 @@ class ParserQs extends Parser {
       await super.parse();
       this.request.queryPost = QS.parse(
         this.request.data.toString(this.charset),
-        this.parserOptions
+        this.parserOptions,
       );
       this.request.query = extend(
         {},
         this.request.query,
-        this.request.queryPost
+        this.request.queryPost,
       );
       this.request.context.requestEnded = true;
       return this;
@@ -63,10 +66,12 @@ class ParserXml extends Parser {
   charset: BufferEncoding = "utf8";
   constructor(
     request: HttpRequest | Http2Request,
-    settingsXml?: xml2js.ParserOptions
+    settingsXml?: xml2js.ParserOptions,
   ) {
     super(request);
     this.xmlParser = new xml2js.Parser(settingsXml);
+    // Honore le charset de la requête (cf ParserQs) plutôt qu'un "utf8" figé.
+    this.charset = this.request.charset;
   }
 
   override async parse(): Promise<any> {
@@ -81,7 +86,7 @@ class ParserXml extends Parser {
           this.request.queryPost = result;
           this.request.context.requestEnded = true;
           return resolve(this);
-        }
+        },
       );
     });
   }
@@ -151,7 +156,7 @@ class ParserXml extends Parser {
 // };
 
 const acceptParser = function (
-  acc?: string
+  acc?: string,
 ): { type: RegExp; subtype: RegExp; [key: string]: any }[] {
   if (!acc) {
     return [

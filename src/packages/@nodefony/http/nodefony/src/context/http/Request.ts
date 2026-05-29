@@ -1,5 +1,6 @@
 import http from "node:http";
 import http2 from "node:http2";
+import fsp from "node:fs/promises";
 import HttpContext from "../http/HttpContext";
 import { URL } from "node:url";
 import { HTTPMethod, Cookies } from "../Context";
@@ -108,10 +109,17 @@ class HttpRequest {
     } else {
       this.url.query = {};
     }
+    // ALIASING : `queryGet` et `query` pointent d'abord le MÊME objet
+    // (`url.query` = GET). Sur POST/PUT/DELETE, `query` est RÉASSIGNÉ par
+    // `extend({}, query, queryPost)` (nouvel objet) — `queryGet` reste le GET
+    // seul. `request.body` est ensuite aliasé sur `query` final (onRequestEnd).
     this.queryGet = this.url.query;
     this.query = this.url.query;
-    this.charset = this.getCharset();
+    // ORDRE CRITIQUE : getContentType() remplit this.rawContentType (dont
+    // charset=…) ; getCharset() le lit. L'inverse laissait charset toujours
+    // "utf8" → le `charset=` du Content-Type n'était jamais honoré.
     this.contentType = this.getContentType(this.request);
+    this.charset = this.getCharset();
     this.domain = this.getDomain();
     this.remoteAddress = this.getRemoteAddress();
     try {
@@ -177,112 +185,135 @@ class HttpRequest {
       });
   }
 
+  // Pipeline d'entrée du corps de requête. Async PUR (plus de
+  // `new Promise(async …)`) : un throw du constructeur de parser remonte
+  // proprement au lieu de laisser la promesse pendante.
   async parseRequest(): Promise<ParserType | null> {
-    return new Promise(async (resolve, reject) => {
-      if (this.method in parse) {
-        switch (this.contentType) {
-          case "application/xml":
-          case "text/xml":
-            this.parser = new ParserXml(this);
-            return resolve(this.parser as ParserXml);
-          case "application/x-www-form-urlencoded":
-            try {
-              this.parser = new ParserQs(this);
-            } catch (e) {
-              return reject(e);
-            }
-            return resolve(this.parser as ParserQs);
-          default:
-            const parserInst = new Parser(this);
-            const opt: formidable.Options = extend(this.formidableOption, {
-              encoding: this.charset === "utf8" ? "utf-8" : this.charset,
-            });
-            try {
-              this.parser = formidable(opt);
-              let fields;
-              let files;
-              [fields, files] = await this.parser.parse(
-                this.request as http.IncomingMessage,
-              );
-              try {
-                await parserInst.parse();
-                this.queryPost = fields;
-                this.query = extend({}, this.query, this.queryPost);
-                if (files && Object.keys(files).length) {
-                  for (const file in files) {
-                    if (!files[file]) {
-                      continue;
-                    }
-                    const ele:
-                      | formidable.File[]
-                      | undefined
-                      | formidable.Files = files[file];
-                    try {
-                      if (reg.exec(file)) {
-                        if (Array.isArray(ele)) {
-                          let tab: formidable.File[] = ele as formidable.File[];
-                          for (const multifiles in tab) {
-                            let ele = tab[multifiles];
-                            await this.createFileUpload(
-                              multifiles,
-                              ele,
-                              opt.maxFileSize,
-                            );
-                          }
-                        }
-                        //else if (ele && ele.filepath) {
-                        //   this.createFileUpload(file, ele, opt.maxFileSize);
-                        // }
-                      } else if (Array.isArray(ele)) {
-                        for (const multifiles in ele) {
-                          await this.createFileUpload(
-                            multifiles,
-                            ele[multifiles],
-                            opt.maxFileSize,
-                          );
-                        }
-                      } else {
-                        await this.createFileUpload(
-                          file,
-                          ele as formidable.File | undefined,
-                          opt.maxFileSize,
-                        );
-                      }
-                    } catch (err) {
-                      return reject(err);
-                    }
-                  }
-                }
-              } catch (err) {
-                return reject(err);
-              }
-              this.context.requestEnded = true;
-              await this.context.fireAsync("onRequestEnd", this);
-              return resolve(this.parser as InstanceType<typeof IncomingForm>);
-            } catch (err) {
-              let error = err as HttpError;
-              this.log(`${error.message} use Simple parser`, "WARNING");
-              switch (error.code) {
-                case 1003:
-                case 1011:
-                  try {
-                    this.parser = parserInst as Parser;
-                  } catch (e) {
-                    return reject(e);
-                  }
-                  return resolve((await this.parser.parse()) as Parser);
-                  break;
-                default:
-                  this.log(err, "ERROR");
-                  error.code = error.httpCode;
-                  return reject(err);
-              }
-            }
-        }
-      } else {
-        return resolve(this.parser);
-      }
+    if (!(this.method in parse)) {
+      return this.parser;
+    }
+    switch (this.contentType) {
+      case "application/xml":
+      case "text/xml":
+        this.parser = new ParserXml(this);
+        return this.parser;
+      case "application/x-www-form-urlencoded":
+        this.parser = new ParserQs(this);
+        return this.parser;
+      default:
+        return this.parseMultipart();
+    }
+  }
+
+  /**
+   * Parse un corps `multipart/form-data` via formidable, hydrate
+   * `queryPost`/`query`/`queryFile`, puis fire `onRequestEnd`.
+   *
+   * Robustesse :
+   * - SEUL un échec de `formidable.parse()` (corps malformé, code 1003/1011)
+   *   bascule sur le `Parser` de secours ; une erreur survenant APRÈS (limite
+   *   `maxFileSize`, hook `onRequestEnd`) est propagée telle quelle.
+   * - En cas d'erreur après écriture, les fichiers temporaires déjà posés sur
+   *   disque par formidable sont supprimés (best-effort) → pas d'orphelins
+   *   (vecteur de saturation disque sur endpoint d'upload public).
+   *
+   * @returns le parser formidable, ou le `Parser` de secours.
+   * @throws {HttpError} 413 si un fichier dépasse `maxFileSize`.
+   */
+  async parseMultipart(): Promise<ParserType> {
+    const parserInst = new Parser(this);
+    const opt: formidable.Options = extend(this.formidableOption, {
+      encoding: this.charset === "utf8" ? "utf-8" : this.charset,
     });
+    const form = formidable(opt);
+    this.parser = form;
+
+    let fields: formidable.Fields;
+    let files: formidable.Files;
+    try {
+      [fields, files] = await form.parse(this.request as http.IncomingMessage);
+    } catch (err) {
+      // Échec du parsing multipart lui-même → fallback simple parser.
+      const error = err as HttpError;
+      this.log(`${error.message} use Simple parser`, "WARNING");
+      switch (error.code) {
+        case 1003:
+        case 1011:
+          this.parser = parserInst;
+          return (await parserInst.parse()) as Parser;
+        default:
+          this.log(error, "ERROR");
+          error.code = error.httpCode;
+          throw err;
+      }
+    }
+
+    // Parsing OK : les fichiers sont écrits sur disque. Toute erreur à partir
+    // d'ici doit nettoyer les temporaires avant de remonter.
+    try {
+      await parserInst.parse();
+      this.queryPost = fields;
+      this.query = extend({}, this.query, this.queryPost);
+      await this.processUploadedFiles(files, opt.maxFileSize);
+      this.context.requestEnded = true;
+      await this.context.fireAsync("onRequestEnd", this);
+      return form;
+    } catch (err) {
+      await this.cleanupTempFiles(files);
+      throw err;
+    }
+  }
+
+  /**
+   * Hydrate `queryFile` depuis la map formidable. Le nom de champ `foo[]` est
+   * normalisé en `foo` (correctif : on passait l'index numérique `"0"/"1"`).
+   */
+  private async processUploadedFiles(
+    files: formidable.Files | undefined,
+    maxSize?: number,
+  ): Promise<void> {
+    if (!files || !Object.keys(files).length) {
+      return;
+    }
+    for (const field in files) {
+      const ele = files[field];
+      if (!ele) {
+        continue;
+      }
+      const match = reg.exec(field);
+      const name = match ? match[1] : field;
+      const list = Array.isArray(ele) ? ele : [ele as formidable.File];
+      for (const file of list) {
+        await this.createFileUpload(name, file, maxSize);
+      }
+    }
+  }
+
+  /** Supprime (best-effort) les fichiers temporaires posés par formidable. */
+  private async cleanupTempFiles(
+    files: formidable.Files | undefined,
+  ): Promise<void> {
+    if (!files) {
+      return;
+    }
+    for (const field in files) {
+      const ele = files[field];
+      if (!ele) {
+        continue;
+      }
+      const list = Array.isArray(ele) ? ele : [ele as formidable.File];
+      for (const file of list) {
+        const fp = file?.filepath;
+        if (!fp) {
+          continue;
+        }
+        try {
+          await fsp.unlink(fp);
+        } catch {
+          /* déjà supprimé / inaccessible — best-effort */
+        }
+      }
+    }
   }
 
   accepts(Type: string) {
@@ -328,10 +359,12 @@ class HttpRequest {
     maxSize?: number,
   ): Promise<UploadedFile | undefined> {
     if (file && maxSize && file.size > maxSize) {
-      throw new Error(
-        `maxFileSize exceeded, received ${file.size} bytes of file data for : ${file.originalFilename}` ||
-          name ||
-          file.newFilename,
+      throw new HttpError(
+        `maxFileSize exceeded, received ${file.size} bytes of file data for : ${
+          file.originalFilename || name || file.newFilename
+        }`,
+        413,
+        this.context,
       );
     }
     const fileUpload = await this.context.uploadService?.createUploadFile(
@@ -373,11 +406,34 @@ class HttpRequest {
     return null;
   }
 
+  /**
+   * Charset du corps déduit du `Content-Type` (`charset=…`), normalisé en un
+   * `BufferEncoding` Node valide. Les alias IANA courants sont mappés
+   * (`iso-8859-1` → `latin1`, `us-ascii` → `ascii`…) ; tout charset inconnu ou
+   * non supporté par Node retombe sur `utf8` — JAMAIS de throw `.toString()`
+   * sur un encoding invalide (erreur propre, pas de 500 sur charset exotique).
+   */
   getCharset(): BufferEncoding {
-    if (this.rawContentType.charset) {
-      return this.rawContentType.charset as BufferEncoding;
+    const raw = this.rawContentType.charset;
+    if (!raw) {
+      return "utf8";
     }
-    return "utf8";
+    const normalized = raw
+      .trim()
+      .toLowerCase()
+      .replace(/^["']|["']$/gu, "");
+    const alias: Record<string, BufferEncoding> = {
+      "utf-8": "utf8",
+      utf8: "utf8",
+      "iso-8859-1": "latin1",
+      latin1: "latin1",
+      "us-ascii": "ascii",
+      ascii: "ascii",
+      "ucs-2": "ucs2",
+      "utf-16le": "utf16le",
+    };
+    const enc = alias[normalized] ?? (normalized as BufferEncoding);
+    return Buffer.isEncoding(enc) ? enc : "utf8";
   }
 
   getDomain(): string {

@@ -92,6 +92,15 @@ export default {
      */
     maxFileSize: 524288000,
 
+    /**
+     * Taille maximale CUMULÉE de tous les fichiers d'une même requête (octets).
+     * Borne le volume écrit sur disque temporaire par requête → protège contre
+     * la saturation disque (avec `multiples: true`, plusieurs fichiers sont
+     * cumulables). Explicite ici (défaut formidable = `maxFileSize`) pour rendre
+     * l'intention de cap disque visible. 524288000 = 500 MB / requête.
+     */
+    maxTotalFileSize: 524288000,
+
     /** Autoriser plusieurs fichiers dans un même formulaire. */
     multiples: true,
 

@@ -113,6 +113,23 @@ describe("ParserQs — corps application/x-www-form-urlencoded", () => {
       user: { name: "bob", age: "3" },
     });
   });
+
+  it("hérite du charset de la requête (honoré, pas figé utf8)", () => {
+    const { req } = makeReq();
+    (req as unknown as { charset: string }).charset = "latin1";
+    const p = new ParserQs(req);
+    expect(p.charset).to.equal("latin1");
+  });
+
+  it("décode le corps selon le charset (latin1)", async () => {
+    const { req, stream } = makeReq();
+    (req as unknown as { charset: string }).charset = "latin1";
+    const p = new ParserQs(req);
+    // "name=" + 0xE9 (é en latin1) — en utf8 ce serait un caractère de remplacement.
+    stream.emit("data", Buffer.from([0x6e, 0x61, 0x6d, 0x65, 0x3d, 0xe9]));
+    await p.parse();
+    expect((req.queryPost as { name?: string }).name).to.equal("é");
+  });
 });
 
 describe("ParserXml — corps application/xml", () => {
@@ -136,5 +153,12 @@ describe("ParserXml — corps application/xml", () => {
       threw = true;
     }
     expect(threw).to.equal(true);
+  });
+
+  it("hérite du charset de la requête (honoré, pas figé utf8)", () => {
+    const { req } = makeReq();
+    (req as unknown as { charset: string }).charset = "latin1";
+    const p = new ParserXml(req);
+    expect(p.charset).to.equal("latin1");
   });
 });
