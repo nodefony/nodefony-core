@@ -27,7 +27,6 @@ const external: string[] = [
   "cookie",
   "@fastify/busboy",
   "bluebird",
-  "memcached",
   "mime",
   "ms",
   "qs",
@@ -39,6 +38,7 @@ const external: string[] = [
   "uuid",
   "xml2js",
   "tslib",
+  "zod",
 ];
 
 // Génère dynamiquement les entrées avec glob

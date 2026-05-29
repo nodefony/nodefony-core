@@ -1,6 +1,8 @@
 import { Kernel, Module, services } from "nodefony";
 import type { IAdminRegistry } from "nodefony";
 import config from "./nodefony/config/config";
+import { defineHttpConfig } from "./nodefony/config/defineHttpConfig";
+import type { IHttpConfigInput } from "./nodefony/interfaces/IHttpConfig";
 import { createHttpAdminApi } from "./nodefony/service/HttpAdminApi";
 import { createProfilerAdminApi } from "./nodefony/service/ProfilerAdminApi";
 import { Profiler } from "./nodefony/src/profiler/Profiler";
@@ -46,6 +48,33 @@ class Http extends Module {
   constructor(kernel: Kernel) {
     super("http", kernel, import.meta.url, config);
     this.addCommand(networkCommand);
+  }
+
+  /**
+   * Phase `onRegister` : valide la config (défauts + override `module-http` +
+   * défauts kernel) via `defineHttpConfig`, puis la ré-assigne à `this.options`
+   * AVANT l'instanciation des `@services` (phase `onBoot`). Plante propre avec
+   * messages clairs si la config est invalide (convention Zod figée 2026-05-28).
+   *
+   * Config NON gelée : les services mutent `module.options` (upload `uploadDir`,
+   * certificats `serialNumber`) — cf `defineHttpConfig`.
+   */
+  override async onKernelRegister(): Promise<this> {
+    try {
+      this.options = defineHttpConfig(
+        (this.options as IHttpConfigInput) ?? {},
+        this.kernel,
+      );
+    } catch (e) {
+      const issues =
+        e instanceof Error && "issues" in e && Array.isArray(e.issues)
+          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
+              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+              .join(" · ")
+          : (e as Error).message;
+      throw new Error(`[@nodefony/http] Invalid config: ${issues}`);
+    }
+    return this;
   }
 
   /**
@@ -102,6 +131,23 @@ class Http extends Module {
 }
 
 export default Http;
+
+// Config — schéma Zod (source de vérité), builder, introspection JSON Schema
+export {
+  defineHttpConfig,
+  httpConfigJsonSchema,
+} from "./nodefony/config/defineHttpConfig";
+export {
+  httpConfigSchema,
+  type HttpConfig,
+  type HttpConfigInput,
+} from "./nodefony/config/schema";
+export type {
+  IHttpConfig,
+  IHttpConfigInput,
+} from "./nodefony/interfaces/IHttpConfig";
+export { meta } from "./nodefony/config/configMeta";
+export type { INodefonyFieldMeta } from "./nodefony/config/configMeta";
 
 export {
   Context,

@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-29T22:01:38.655Z",
+  "generated": "2026-05-29T22:49:42.878Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 777,
-    "symbols": 1456,
+    "files": 781,
+    "symbols": 1467,
     "classes": 231,
-    "interfaces": 355,
-    "types": 182,
+    "interfaces": 357,
+    "types": 186,
     "enums": 2,
-    "functions": 229,
-    "constants": 457
+    "functions": 233,
+    "constants": 458
   },
   "symbols": {
     "Cli": {
@@ -4040,6 +4040,69 @@
       "implements": [],
       "decorators": []
     },
+    "INodefonyFieldMeta": {
+      "name": "INodefonyFieldMeta",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/config/configMeta.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Métadonnées Nodefony attachées à un champ de config Zod (au-delà de la `description`). Écrites dans le **global registry** de Zod via {@link meta} → recopiées telles quelles par `z.toJSONSchema()`,…"
+    },
+    "meta": {
+      "name": "meta",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/config/configMeta.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Attache une `description` + des {@link INodefonyFieldMeta} à un schéma Zod, de façon typée et chaînable. Remplace `.describe(text)` quand un champ porte une sémantique Nodefony (réservé / éditable …"
+    },
+    "IKernelConfigDefaults": {
+      "name": "IKernelConfigDefaults",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Sous-ensemble structurel du kernel nécessaire aux défauts dérivés — découple le builder du type `Kernel`/`IKernel` (testable sans kernel complet). Tous les champs sont optionnels : un kernel absent…"
+    },
+    "defineHttpConfig": {
+      "name": "defineHttpConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Builder type-safe de la configuration de `@nodefony/http`. Aligné sur `defineRedisConfig` / `defineSecurityConfig` : source unique = `./schema.ts` (Zod) ; le builder VALIDE puis complète les défaut…"
+    },
+    "httpConfigJsonSchema": {
+      "name": "httpConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "JSON Schema introspectable de la config HTTP — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
+    },
+    "HttpConfig": {
+      "name": "HttpConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    "HttpConfigInput": {
+      "name": "HttpConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    "httpConfigSchema": {
+      "name": "httpConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
     "PhaseTiming": {
       "name": "PhaseTiming",
       "kind": "interface",
@@ -4178,6 +4241,22 @@
       "module": "@nodefony/http",
       "extends": null,
       "description": "Unified error rendering contract — HTTP + WebSocket. The default implementation preserves the legacy Nodefony JSON error shape: { code, message, error: HttpError.toJSON(), nodefony: { requestId, sc…"
+    },
+    "IHttpConfig": {
+      "name": "IHttpConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Configuration validée de `@nodefony/http` (sortie du parse Zod + défauts kernel appliqués par le builder). Source de vérité = `../config/schema.ts`."
+    },
+    "IHttpConfigInput": {
+      "name": "IHttpConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Configuration brute fournie par l'application (toutes sections optionnelles — les sections omises reçoivent leurs défauts). Entrée du builder {@link import(\"../config/defineHttpConfig\").defineHttpC…"
     },
     "IHttpKernel": {
       "name": "IHttpKernel",
@@ -11449,7 +11528,6 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
-        "src/packages/@nodefony/http/nodefony/config/config.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/sequelize/nodefony/config/config.ts",
@@ -11886,6 +11964,13 @@
       ],
       "FrontendStatus": [
         "src/packages/@nodefony/frontend/index.ts"
+      ],
+      "defineHttpConfig": [
+        "src/packages/@nodefony/http/index.ts"
+      ],
+      "IHttpConfigInput": [
+        "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts"
       ],
       "createHttpAdminApi": [
         "src/packages/@nodefony/http/index.ts"
@@ -13108,6 +13193,20 @@
       "NetworkInterface": [
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
       ],
+      "httpConfigSchema": [
+        "src/packages/@nodefony/http/nodefony/config/config.ts",
+        "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts"
+      ],
+      "HttpConfig": [
+        "src/packages/@nodefony/http/nodefony/config/config.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts"
+      ],
+      "IHttpConfig": [
+        "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts"
+      ],
+      "meta": [
+        "src/packages/@nodefony/http/nodefony/config/schema.ts"
+      ],
       "HTTPMethodType": [
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts"
       ],
@@ -13128,6 +13227,9 @@
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "HttpConfigInput": [
+        "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts"
       ],
       "ServerType": [
         "src/packages/@nodefony/http/nodefony/interfaces/IHttpKernel.ts",

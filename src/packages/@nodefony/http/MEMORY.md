@@ -18,6 +18,19 @@ metadata:
 
 Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Différenciateur : HTTP et WS dans le même pipeline Controller.
 
+## Config Zod — schema.ts source de vérité (2026-05-30)
+
+`nodefony/config/{schema.ts, defineHttpConfig.ts, configMeta.ts, config.ts}` + interface `interfaces/IHttpConfig.ts`. Convention [[feedback_config_validation_zod]].
+
+- **`config.ts` = `httpConfigSchema.parse({})`** (dérivé, plus de défauts à la main). **PAS de freeze** (≠ redis) : les services mutent `module.options` (`upload.uploadDir`, cert `serialNumber`).
+- **Validation au boot** : `index.ts` `onKernelRegister` → `defineHttpConfig(this.options, this.kernel)` → **ré-assigne `this.options`** (sûr : `onRegister` AVANT instanciation `@services` à `onBoot`). Throw `[@nodefony/http] Invalid config: ...` si invalide.
+- **strict (strip) vs loose (passthrough)** — décision clé : sections transmises à une **lib tierce** (`http`/`https`/`http2`/`websocket(s)`/`queryString`/`statics.*.options`) = **`z.looseObject`** (sinon Zod stripperait une option lib légitime — ex. `http.insecureHTTPParser`). Sections **notre code** (`securityHeaders`/`trustProxy`/`certificates`/`session`/`upload`) = **`z.object` strict** (strip = attrape les typos).
+- **Schéma PUR** (pas de deref kernel/env) → `defineHttpConfig` injecte les défauts kernel APRÈS parse : `upload.uploadDir` vide ← `kernel.tmpDir` (sinon `/tmp`) ; `certificates.openssl.attrs` vide ← `commonName=kernel.domain`.
+- **Piège Zod 4** : `.default(() => sub.parse({}))` par section (un `.default({})` plat ne ré-applique PAS les sous-défauts).
+- **Métadonnées de champ** (`configMeta.ts` helper `meta()` typé `INodefonyFieldMeta`) : flags `reserved`/`runtimeMutable`/`kernelDerived`/`secret` écrits dans le global registry Zod → recopiés par `httpConfigJsonSchema()` (`z.toJSONSchema`) pour Studio/doc. Posés : `watch`+`http3`=reserved, `headerServer`=runtimeMutable, `uploadDir`+`openssl.attrs`=kernelDerived. ⚠️ poser le `.meta()` sur le **nœud final** présent dans `.shape` (sinon non lu : http3 a fallu wrapper le `.default()` racine).
+- **Clés RETIRÉES** (mortes, 0 usage repo-wide, accord user) : `sockjs`, `requestClient`, `session.memcached`, `http2.enablePush`. `memcached` retiré de `dependencies` + rollup `external`. `zod` ajouté en peerDep + rollup `external`.
+- Tests : `tests/unit/httpConfig.test.ts` (25, vitest+mocha). Exports publics : `httpConfigSchema`, `defineHttpConfig`, `httpConfigJsonSchema`, `meta`, types `IHttpConfig`/`HttpConfig`.
+
 ## Core Components
 
 | Classe              | Fichier                                     | Rôle                                                                                                                                                                    |
