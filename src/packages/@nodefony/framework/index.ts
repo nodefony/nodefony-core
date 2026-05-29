@@ -34,6 +34,13 @@ import {
   Param,
   Body,
   Query,
+  Headers,
+  Cookie,
+  Session,
+  Req,
+  Res,
+  UploadedFile,
+  UploadedFiles,
 } from "./nodefony/decorators/routerDecorators";
 
 @services([Router, Eta, AdminBroker])
@@ -117,6 +124,13 @@ export {
   Param,
   Body,
   Query,
+  Headers,
+  Cookie,
+  Session,
+  Req,
+  Res,
+  UploadedFile,
+  UploadedFiles,
   graphql,
 };
 export type {

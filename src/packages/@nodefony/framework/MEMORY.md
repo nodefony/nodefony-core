@@ -125,15 +125,24 @@ Auto-name : `ClassName::methodName` — déterministe, unique par (classe, méth
 ### Parameter decorators
 
 ```typescript
-@Param("id")   // route path variable — this.variables[i] (captures sans full-match)
-@Param()       // tous les params nommés comme Record<string, unknown>
-@Body("field") // champ du body parsé (queryPost)
-@Body()        // body complet
-@Query("q")    // paramètre query string (queryGet)
-@Query()       // query string complet
+@Param("id")        // route path variable — this.variables[i] (captures sans full-match)
+@Param()            // tous les params nommés comme Record<string, unknown>
+@Body("field")      // champ du body parsé (queryPost)
+@Body()             // body complet
+@Query("q")         // paramètre query string (queryGet)
+@Query()            // query string complet
+@Headers("x-foo")   // header requête (lookup lowercase — Node) ; @Headers() = objet complet
+@Cookie("sid")      // cookie requête → objet Cookie (.value) ; @Cookie() = map (ctx.getRequestCookies)
+@Session("user")    // ctx.session.get("user") ; @Session() = l'objet Session live
+@Req()              // ctx.request ; @Res() = ctx.response
+@UploadedFile()     // ctx.request.queryFile[0] (1er/unique) ; @UploadedFiles() = tableau complet
 ```
 
 **Activation** : dès qu'au moins 1 décorateur est présent sur la méthode → `Resolver._buildParamArgs()` remplace les args positionnels.
+
+**Résolution = fonction pure testable** : `buildParamArgs(metas, ctx)` + `resolveParamArg(meta, ctx)` (exportées de `routerDecorators`) prennent un `IParamArgContext` structurel (forme minimale `{paramsMap, request, response, session, getRequestCookies}`). Le `Resolver` passe le vrai `Context` (le satisfait par forme) ; les tests unit passent un faux. → la logique de résolution est couverte SANS serveur (`paramDecorators.test.ts`), l'intégration ne valide que le câblage runtime (`http/integration/decorators-param.test.ts`).
+
+**`@UploadedFile` sans clé** : `UploadedFile` ne conserve pas le `fieldname` du formulaire (busboy le passe juste en fallback de `filename`) → pas de matching par champ possible sans toucher le pipeline upload. D'où `@UploadedFile()` = 1er fichier, `@UploadedFiles()` = tous. Dette : tracker `fieldname` si matching par champ requis.
 
 **Gotcha `@Param`** : `route.match()` retourne `map = res.slice(1)` (captures SANS le full-match). Donc `this.variables[0]` = 1ère capture. Index `i`, pas `i+1`.
 

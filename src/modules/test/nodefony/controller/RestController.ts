@@ -1,5 +1,12 @@
-import { Controller, route, controller } from "@nodefony/framework";
+import {
+  Controller,
+  route,
+  controller,
+  Get,
+  Session,
+} from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
+import type { ISession } from "@nodefony/http";
 
 @controller("/nodefony/test/rest")
 class RestController extends Controller {
@@ -94,6 +101,21 @@ class RestController extends Controller {
       key,
       value: session.getFlashBag(key),
     });
+  }
+
+  // @Session() → l'objet Session live injecté (preuve : id présent après start).
+  @Get("/session/deco")
+  sessionDeco(@Session() session: ISession | null) {
+    return this.renderJson({
+      hasSession: session != null,
+      id: session?.id ?? null,
+    });
+  }
+
+  // @Session("foo") → session.get("foo") (set via /session/set/foo/<v> au préalable).
+  @Get("/session/deco-key")
+  sessionDecoKey(@Session("foo") foo: unknown) {
+    return this.renderJson({ foo: foo ?? null });
   }
 
   @route("rest-session-destroy", {

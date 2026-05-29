@@ -30,8 +30,10 @@ import {
   HEADERS_METADATA,
   REDIRECT_METADATA,
   PARAM_ARGS_METADATA,
+  buildParamArgs,
   type RedirectMeta,
   type ParamMeta,
+  type IParamArgContext,
 } from "../decorators/routerDecorators.js";
 
 //import { ServiceWithInit } from "nodefony";
@@ -210,27 +212,24 @@ class Resolver extends Service implements IResolver {
   }
 
   private _buildParamArgs(metas: ParamMeta[]): unknown[] {
-    const result: unknown[] = [];
     const httpCtx = this.context as HttpContext;
     const varNames: string[] = this.route?.variables ?? [];
     const paramsMap: Record<string, unknown> = {};
     for (let i = 0; i < varNames.length; i++) {
       paramsMap[varNames[i]] = this.variables[i];
     }
-    for (const meta of metas) {
-      let val: unknown;
-      if (meta.source === "param") {
-        val = meta.key !== undefined ? paramsMap[meta.key] : paramsMap;
-      } else if (meta.source === "query") {
-        const qg = httpCtx?.request?.queryGet;
-        val = meta.key !== undefined ? qg?.[meta.key] : qg;
-      } else {
-        const qp = httpCtx?.request?.queryPost;
-        val = meta.key !== undefined ? qp?.[meta.key] : qp;
-      }
-      result[meta.index] = val;
-    }
-    return result;
+    // Le `Context` (HTTP comme WS) satisfait la forme `IParamArgContext`
+    // (request/response/session/getRequestCookies). La résolution elle-même est
+    // une fonction pure testée en unit (voir paramDecorators.test.ts).
+    const ctx = this.context as unknown as IParamArgContext;
+    return buildParamArgs(metas, {
+      paramsMap,
+      request: httpCtx?.request as IParamArgContext["request"],
+      response: httpCtx?.response,
+      session: ctx?.session,
+      getRequestCookies: (name?: string) =>
+        ctx?.getRequestCookies ? ctx.getRequestCookies(name) : undefined,
+    });
   }
 
   private _applyResponseDecorators(

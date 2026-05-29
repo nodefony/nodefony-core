@@ -13,7 +13,7 @@ type Constructor<T = {}> = new (...args: any[]) => T;
 const metadataKey = "routes:definitions";
 
 function controllers(
-  controller: TypeController<Controller>[] | TypeController<Controller>
+  controller: TypeController<Controller>[] | TypeController<Controller>,
 ): <T extends Constructor<Module>>(constructor: T) => T {
   return function <T extends Constructor<Module>>(constructor: T): T {
     class NewConstructorControllers extends constructor {
@@ -122,7 +122,7 @@ function route(name: string, options: RouteOptions) {
   return function (
     target: any,
     propertyKey: string,
-    descriptor: PropertyDescriptor
+    descriptor: PropertyDescriptor,
   ) {
     const className = target.constructor.name;
     const classMethod = propertyKey;
@@ -138,7 +138,7 @@ function route(name: string, options: RouteOptions) {
       const controllerFilePath = extractControllerFilePath(stackTrace);
       if (!controllerFilePath) {
         throw new Error(
-          "Fichier de contrôleur non trouvé dans la pile d'appels."
+          "Fichier de contrôleur non trouvé dans la pile d'appels.",
         );
       }
       // Utilisez le chemin du fichier de contrôleur pour le reste du traitement
@@ -182,7 +182,17 @@ export const HEADERS_METADATA = "route:responseHeaders";
 export const REDIRECT_METADATA = "route:redirect";
 export const PARAM_ARGS_METADATA = "route:paramArgs";
 
-export type ParamSource = "param" | "body" | "query";
+export type ParamSource =
+  | "param"
+  | "body"
+  | "query"
+  | "headers"
+  | "cookie"
+  | "session"
+  | "req"
+  | "res"
+  | "file"
+  | "files";
 export interface ParamMeta {
   source: ParamSource;
   key?: string;
@@ -202,7 +212,7 @@ function httpMethodDecorator(methods: HTTPMethod[]) {
     return function (
       target: object,
       propertyKey: string,
-      descriptor: PropertyDescriptor
+      descriptor: PropertyDescriptor,
     ): PropertyDescriptor {
       const proto = target as Record<string, unknown>;
       const name = `${(proto.constructor as { name: string }).name}::${propertyKey}`;
@@ -235,7 +245,7 @@ function All(path: string = "", options: MethodDecoratorOptions = {}) {
   return function (
     target: object,
     propertyKey: string,
-    descriptor: PropertyDescriptor
+    descriptor: PropertyDescriptor,
   ): PropertyDescriptor {
     const proto = target as Record<string, unknown>;
     const name = `${(proto.constructor as { name: string }).name}::${propertyKey}`;
@@ -248,7 +258,7 @@ function HttpCode(statusCode: number) {
   return function (
     target: object,
     propertyKey: string,
-    descriptor: PropertyDescriptor
+    descriptor: PropertyDescriptor,
   ): PropertyDescriptor {
     Reflect.defineMetadata(HTTP_CODE_METADATA, statusCode, target, propertyKey);
     return descriptor;
@@ -259,7 +269,7 @@ function Header(key: string, value: string) {
   return function (
     target: object,
     propertyKey: string,
-    descriptor: PropertyDescriptor
+    descriptor: PropertyDescriptor,
   ): PropertyDescriptor {
     const existing: Record<string, string> =
       Reflect.getMetadata(HEADERS_METADATA, target, propertyKey) || {};
@@ -273,7 +283,7 @@ function Redirect(url: string, statusCode: number = 302) {
   return function (
     target: object,
     propertyKey: string,
-    descriptor: PropertyDescriptor
+    descriptor: PropertyDescriptor,
   ): PropertyDescriptor {
     const meta: RedirectMeta = { url, statusCode };
     Reflect.defineMetadata(REDIRECT_METADATA, meta, target, propertyKey);
@@ -287,7 +297,7 @@ function paramDecoratorFactory(source: ParamSource) {
     return function (
       target: object,
       propertyKey: string,
-      parameterIndex: number
+      parameterIndex: number,
     ): void {
       const existing: ParamMeta[] =
         Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) || [];
@@ -296,7 +306,7 @@ function paramDecoratorFactory(source: ParamSource) {
         PARAM_ARGS_METADATA,
         existing,
         target,
-        propertyKey
+        propertyKey,
       );
     };
   };
@@ -305,6 +315,93 @@ function paramDecoratorFactory(source: ParamSource) {
 const Param = paramDecoratorFactory("param");
 const Body = paramDecoratorFactory("body");
 const Query = paramDecoratorFactory("query");
+const Headers = paramDecoratorFactory("headers");
+const Cookie = paramDecoratorFactory("cookie");
+const Session = paramDecoratorFactory("session");
+const Req = paramDecoratorFactory("req");
+const Res = paramDecoratorFactory("res");
+const UploadedFile = paramDecoratorFactory("file");
+const UploadedFiles = paramDecoratorFactory("files");
+
+// ── Parameter resolution (pure — testable unit hors pipeline HTTP) ───────────
+/**
+ * Contexte structurel minimal nécessaire pour résoudre les arguments injectés
+ * par les décorateurs de paramètre. Volontairement découplé de `HttpContext`
+ * (typage par forme) → la résolution est une fonction pure, testable en unit
+ * avec un faux contexte, sans démarrer de serveur. Le `Resolver` lui passe le
+ * vrai `Context`, qui satisfait cette forme.
+ */
+export interface IParamArgContext {
+  /** Variables de route extraites du path (`{name}` → valeur). */
+  paramsMap: Record<string, unknown>;
+  request?: {
+    queryGet?: Record<string, unknown>;
+    queryPost?: Record<string, unknown>;
+    queryFile?: unknown[];
+    headers?: Record<string, unknown>;
+  } | null;
+  response?: unknown;
+  session?: { get(key: string): unknown } | null;
+  getRequestCookies(name?: string): unknown;
+}
+
+/**
+ * Résout la valeur d'un unique paramètre décoré depuis le contexte de requête.
+ *
+ * @param meta - métadonnée posée par le décorateur (source + clé optionnelle)
+ * @param ctx - contexte de requête (forme structurelle minimale)
+ * @returns la valeur à injecter dans l'argument `meta.index` de l'action
+ */
+function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
+  switch (meta.source) {
+    case "param":
+      return meta.key !== undefined ? ctx.paramsMap[meta.key] : ctx.paramsMap;
+    case "query": {
+      const qg = ctx.request?.queryGet;
+      return meta.key !== undefined ? qg?.[meta.key] : qg;
+    }
+    case "body": {
+      const qp = ctx.request?.queryPost;
+      return meta.key !== undefined ? qp?.[meta.key] : qp;
+    }
+    case "headers": {
+      // Node lowercase les clés de IncomingHttpHeaders → normaliser la lookup.
+      const h = ctx.request?.headers;
+      return meta.key !== undefined ? h?.[meta.key.toLowerCase()] : h;
+    }
+    case "cookie":
+      return ctx.getRequestCookies(meta.key);
+    case "session":
+      return meta.key !== undefined ? ctx.session?.get(meta.key) : ctx.session;
+    case "req":
+      return ctx.request;
+    case "res":
+      return ctx.response;
+    case "file":
+      return ctx.request?.queryFile?.[0];
+    case "files":
+      return ctx.request?.queryFile;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Construit le tableau d'arguments d'une action à partir des métadonnées de
+ * paramètres décorés. Chaque valeur est placée à son `index` déclaré (les trous
+ * restent `undefined`). Fonction pure — aucun effet de bord, aucune I/O.
+ *
+ * @param metas - métadonnées de tous les paramètres décorés de l'action
+ * @param ctx - contexte de requête (forme structurelle minimale)
+ * @returns arguments positionnels à spread dans l'action
+ */
+function buildParamArgs(metas: ParamMeta[], ctx: IParamArgContext): unknown[] {
+  const result: unknown[] = [];
+  for (const meta of metas) {
+    result[meta.index] = resolveParamArg(meta, ctx);
+  }
+  return result;
+}
 
 export {
   route,
@@ -324,4 +421,13 @@ export {
   Param,
   Body,
   Query,
+  Headers,
+  Cookie,
+  Session,
+  Req,
+  Res,
+  UploadedFile,
+  UploadedFiles,
+  resolveParamArg,
+  buildParamArgs,
 };

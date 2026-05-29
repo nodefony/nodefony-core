@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-29T20:56:10.732Z",
+  "generated": "2026-05-29T21:54:48.191Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 777,
-    "symbols": 1453,
+    "symbols": 1456,
     "classes": 231,
-    "interfaces": 354,
+    "interfaces": 355,
     "types": 182,
     "enums": 2,
-    "functions": 227,
+    "functions": 229,
     "constants": 457
   },
   "symbols": {
@@ -3257,6 +3257,15 @@
       "module": "@nodefony/framework",
       "extends": null
     },
+    "IParamArgContext": {
+      "name": "IParamArgContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Contexte structurel minimal nécessaire pour résoudre les arguments injectés par les décorateurs de paramètre. Volontairement découplé de `HttpContext` (typage par forme) → la résolution est une fon…"
+    },
     "ParamSource": {
       "name": "ParamSource",
       "kind": "type",
@@ -3315,6 +3324,22 @@
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
       "module": "@nodefony/framework"
+    },
+    "resolveParamArg": {
+      "name": "resolveParamArg",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Résout la valeur d'un unique paramètre décoré depuis le contexte de requête."
+    },
+    "buildParamArgs": {
+      "name": "buildParamArgs",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Construit le tableau d'arguments d'une action à partir des métadonnées de paramètres décorés. Chaque valeur est placée à son `index` déclaré (les trous restent `undefined`). Fonction pure — aucun e…"
     },
     "HTTP_CODE_METADATA": {
       "name": "HTTP_CODE_METADATA",
@@ -11822,6 +11847,34 @@
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts"
       ],
+      "Cookie": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/http/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+      ],
+      "Session": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/http/index.ts",
+        "src/modules/test/nodefony/controller/RestController.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "UploadedFile": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
       "createFrontendAdminApi": [
         "src/packages/@nodefony/frontend/index.ts"
       ],
@@ -11881,17 +11934,6 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
-      "Session": [
-        "src/packages/@nodefony/http/index.ts",
-        "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
-      ],
       "HttpError": [
         "src/packages/@nodefony/http/index.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
@@ -11918,14 +11960,6 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
-      ],
-      "Cookie": [
-        "src/packages/@nodefony/http/index.ts",
-        "src/modules/test/nodefony/controller/WebSocketController.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
       ],
       "DefaultErrorRenderer": [
         "src/packages/@nodefony/http/index.ts",
@@ -11993,6 +12027,7 @@
       ],
       "ISession": [
         "src/packages/@nodefony/mongoose/index.ts",
+        "src/modules/test/nodefony/controller/RestController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
@@ -12696,6 +12731,29 @@
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
+      "IHttpRequest": [
+        "src/modules/test/nodefony/controller/DecoratorController.ts"
+      ],
+      "HttpResponse": [
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts"
+      ],
+      "ICookie": [
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IRequest.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IResponse.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+        "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
+      ],
+      "IUploadedFile": [
+        "src/modules/test/nodefony/controller/DecoratorController.ts"
+      ],
       "inject": [
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
@@ -12819,14 +12877,6 @@
       "contextRequest": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
-      ],
-      "HttpResponse": [
-        "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts"
       ],
       "WebsocketResponse": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -12963,10 +13013,16 @@
       "PARAM_ARGS_METADATA": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
+      "buildParamArgs": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
       "RedirectMeta": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "ParamMeta": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "IParamArgContext": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "redactSecrets": [
@@ -13051,13 +13107,6 @@
       ],
       "NetworkInterface": [
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
-      ],
-      "ICookie": [
-        "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
-        "src/packages/@nodefony/http/nodefony/interfaces/IRequest.ts",
-        "src/packages/@nodefony/http/nodefony/interfaces/IResponse.ts",
-        "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
-        "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
       ],
       "HTTPMethodType": [
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts"
@@ -15089,9 +15138,6 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "Parser": [
-        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
-      ],
-      "UploadedFile": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "IUploadOptions": [

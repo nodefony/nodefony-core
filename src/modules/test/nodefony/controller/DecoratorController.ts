@@ -9,8 +9,20 @@ import {
   HttpCode,
   Header,
   Redirect,
+  Headers,
+  Cookie,
+  Req,
+  Res,
+  UploadedFile,
+  UploadedFiles,
 } from "@nodefony/framework";
-import type { ContextType } from "@nodefony/http";
+import type {
+  ContextType,
+  IHttpRequest,
+  HttpResponse,
+  ICookie,
+  IUploadedFile,
+} from "@nodefony/http";
 
 @controller("/nodefony/test/decorators")
 class DecoratorController extends Controller {
@@ -80,6 +92,63 @@ class DecoratorController extends Controller {
   @Redirect("/unused", 301)
   redirectWithParam(@Param("slug") slug: string) {
     return { url: `/nodefony/test/${slug}` };
+  }
+
+  // ── Décorateurs param étendus — câblage runtime (Context réel) ───────────────
+  // Valide que le vrai HttpContext satisfait IParamArgContext : les noms
+  // request.headers / getRequestCookies / request / response résolvent bien.
+
+  // @Headers(name) → valeur d'un header ; @Headers() → objet complet.
+  @Get("/headers")
+  getHeaders(
+    @Headers("user-agent") ua: string,
+    @Headers() all: Record<string, unknown>,
+  ) {
+    // `host` n'existe pas en HTTP/2 (pseudo-header `:authority`) → on teste
+    // `user-agent`, présent quel que soit le transport.
+    return this.renderJson({
+      ua: ua ?? null,
+      hasUa: typeof all === "object" && all !== null && "user-agent" in all,
+    });
+  }
+
+  // @Cookie(name) → objet Cookie (a `.value`) ; @Cookie() → map des cookies.
+  @Get("/cookie")
+  getCookie(@Cookie("sid") sid: ICookie | null, @Cookie() all: unknown) {
+    return this.renderJson({
+      sid: sid ? sid.value : null,
+      count:
+        all && typeof all === "object" ? Object.keys(all as object).length : 0,
+    });
+  }
+
+  // @Req() → la requête injectée (preuve : on lit method/pathname depuis l'objet).
+  @Get("/req")
+  getReq(@Req() req: IHttpRequest) {
+    return this.renderJson({
+      method: req?.method ?? null,
+      hasUrl: req?.url != null,
+    });
+  }
+
+  // @Res() → la réponse injectée (preuve : on la mute, le header doit sortir).
+  @Get("/res")
+  getRes(@Res() res: HttpResponse) {
+    res?.setHeader("x-from-res", "ok");
+    return this.renderJson({ injected: res != null });
+  }
+
+  // @UploadedFile() → 1er fichier ; @UploadedFiles() → tableau complet.
+  @Post("/upload")
+  uploadDeco(
+    @UploadedFile() file: IUploadedFile | undefined,
+    @UploadedFiles() files: IUploadedFile[] | undefined,
+  ) {
+    return this.renderJson({
+      has: file != null,
+      name: file?.filename ?? null,
+      count: files?.length ?? 0,
+    });
   }
 }
 
