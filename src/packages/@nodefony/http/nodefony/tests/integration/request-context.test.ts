@@ -14,28 +14,37 @@ import "mocha";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 
-function get(path: string, headers: Record<string, string> = {}): Promise<{
+function get(
+  path: string,
+  headers: Record<string, string> = {},
+): Promise<{
   status: number;
   body: Record<string, unknown>;
   headers: Record<string, string | string[] | undefined>;
 }> {
   return new Promise((resolve, reject) => {
-    const r = https.request({ ...BASE, method: "GET", path, headers }, (res) => {
-      const chunks: Buffer[] = [];
-      res.on("data", (c: Buffer) => chunks.push(c));
-      res.on("end", () => {
-        const raw = Buffer.concat(chunks).toString("utf-8");
-        try {
-          resolve({
-            status: res.statusCode!,
-            body: raw ? JSON.parse(raw) : {},
-            headers: res.headers as Record<string, string | string[] | undefined>,
-          });
-        } catch {
-          resolve({ status: res.statusCode!, body: { raw }, headers: {} });
-        }
-      });
-    });
+    const r = https.request(
+      { ...BASE, method: "GET", path, headers },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => {
+          const raw = Buffer.concat(chunks).toString("utf-8");
+          try {
+            resolve({
+              status: res.statusCode!,
+              body: raw ? JSON.parse(raw) : {},
+              headers: res.headers as Record<
+                string,
+                string | string[] | undefined
+              >,
+            });
+          } catch {
+            resolve({ status: res.statusCode!, body: { raw }, headers: {} });
+          }
+        });
+      },
+    );
     r.on("error", reject);
     r.end();
   });
@@ -75,15 +84,16 @@ describe("P1.4 — RequestContext (AsyncLocalStorage)", () => {
     expect(r.body.beforeAwait).to.equal(r.body.contextRequestId);
   });
 
-  it("isolation: 10 concurrent requests each see their own requestId", async () => {
+  it("isolation: 100 concurrent requests each see their own requestId", async () => {
+    const N = 100;
     const results = await Promise.all(
-      Array.from({ length: 10 }, () => get("/nodefony/test/als/async")),
+      Array.from({ length: N }, () => get("/nodefony/test/als/async")),
     );
     // All requests must succeed
     results.forEach((r) => expect(r.status).to.equal(200));
     // All ids unique (no cross-talk in ALS)
     const ids = results.map((r) => r.body.afterAwait as string);
-    expect(new Set(ids).size).to.equal(10, "expected 10 distinct requestIds");
+    expect(new Set(ids).size).to.equal(N, `expected ${N} distinct requestIds`);
     // For each request, before == after (preserved through await)
     results.forEach((r) => {
       expect(r.body.sameAcrossAwait).to.equal(true);
