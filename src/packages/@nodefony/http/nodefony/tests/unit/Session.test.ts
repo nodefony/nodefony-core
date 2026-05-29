@@ -10,13 +10,15 @@ import type {
 // ── minimal mocks ────────────────────────────────────────────────
 
 const secret = Buffer.from(
-  createHash("sha512").update("test-secret").digest().buffer.slice(0, 32)
+  createHash("sha512").update("test-secret").digest().buffer.slice(0, 32),
 );
 const iv = Buffer.from(
-  createHash("sha512").update("test-iv").digest().buffer.slice(0, 16)
+  createHash("sha512").update("test-iv").digest().buffer.slice(0, 16),
 );
 
-function makeStorage(initial: Record<string, SerializeSessionType> = {}): sessionStorageInterface {
+function makeStorage(
+  initial: Record<string, SerializeSessionType> = {},
+): sessionStorageInterface {
   const store: Record<string, SerializeSessionType> = { ...initial };
   return {
     read: (id) => Promise.resolve(store[id] ?? ({} as SerializeSessionType)),
@@ -47,10 +49,20 @@ function makeManager(strategy = "migrate", storage?: sessionStorageInterface) {
   };
 }
 
-const defaultOpts: OptionsSessionType = { use_strict_mode: true, referer_check: false };
+const defaultOpts: OptionsSessionType = {
+  use_strict_mode: true,
+  referer_check: false,
+};
 
-function makeSession(opts: Partial<OptionsSessionType> = {}, strategy = "migrate"): Session {
-  return new Session("testsession", { ...defaultOpts, ...opts }, makeManager(strategy) as any);
+function makeSession(
+  opts: Partial<OptionsSessionType> = {},
+  strategy = "migrate",
+): Session {
+  return new Session(
+    "testsession",
+    { ...defaultOpts, ...opts },
+    makeManager(strategy) as any,
+  );
 }
 
 // ── tests ────────────────────────────────────────────────────────
@@ -63,7 +75,11 @@ describe("Session — unit tests", () => {
     });
 
     it("uses options.name as fallback", () => {
-      const s = new Session("", { ...defaultOpts, name: "fallback" }, makeManager() as any);
+      const s = new Session(
+        "",
+        { ...defaultOpts, name: "fallback" },
+        makeManager() as any,
+      );
       expect(s.name).to.equal("fallback");
     });
 
@@ -226,6 +242,113 @@ describe("Session — unit tests", () => {
 
     it("returns true when status is 'none'", () => {
       expect(makeSession().checkStatus()).to.equal(true);
+    });
+  });
+
+  describe("randomValueHex", () => {
+    it("retourne une chaîne hex de la longueur demandée", () => {
+      const h = makeSession().randomValueHex(16);
+      expect(h).to.have.length(16);
+      expect(h).to.match(/^[0-9a-f]+$/);
+    });
+
+    it("deux appels produisent des valeurs distinctes", () => {
+      const s = makeSession();
+      expect(s.randomValueHex(32)).to.not.equal(s.randomValueHex(32));
+    });
+  });
+
+  describe("setId / getId — round-trip chiffré + contextSession", () => {
+    it("setId encode le contextSession ; getId le restaure", () => {
+      const s = makeSession();
+      s.contextSession = "tenantA";
+      const id = s.setId();
+      expect(id).to.be.a("string");
+      expect(id.length).to.be.greaterThan(0);
+      // brouille puis restaure via getId
+      s.contextSession = "xxx";
+      const returned = s.getId(id);
+      expect(returned).to.equal(id);
+      expect(s.contextSession).to.equal("tenantA");
+    });
+
+    it("deux setId successifs produisent des id différents", () => {
+      const s = makeSession();
+      expect(s.setId()).to.not.equal(s.setId());
+    });
+  });
+
+  describe("isValidSession", () => {
+    it("true par défaut (referer_check off, pas d'expiration)", () => {
+      const s = makeSession();
+      expect(
+        s.isValidSession({} as unknown as SerializeSessionType, {} as never),
+      ).to.equal(true);
+    });
+
+    it("true si lifetime = 0 (jamais expiré par durée)", () => {
+      const s = makeSession();
+      s.lifetime = 0;
+      s.updated = new Date(0);
+      expect(
+        s.isValidSession({} as unknown as SerializeSessionType, {} as never),
+      ).to.equal(true);
+    });
+
+    it("false si lifetime dépassé", () => {
+      const s = makeSession();
+      s.lifetime = 1; // 1 s
+      s.updated = new Date(Date.now() - 10_000); // il y a 10 s
+      expect(
+        s.isValidSession({} as unknown as SerializeSessionType, {} as never),
+      ).to.equal(false);
+    });
+
+    it("referer_check on : host == meta → true", () => {
+      const s = makeSession({ referer_check: true });
+      s.setMetaBag("host", "good.example");
+      const ctx = { getHost: () => "good.example" } as never;
+      expect(
+        s.isValidSession({} as unknown as SerializeSessionType, ctx),
+      ).to.equal(true);
+    });
+
+    it("referer_check on : host != meta → false (exception attrapée)", () => {
+      const s = makeSession({ referer_check: true });
+      s.setMetaBag("host", "good.example");
+      const ctx = { getHost: () => "evil.example" } as never;
+      expect(
+        s.isValidSession({} as unknown as SerializeSessionType, ctx),
+      ).to.equal(false);
+    });
+  });
+
+  describe("checkSecureReferer", () => {
+    it("true si host == meta 'host'", () => {
+      const s = makeSession();
+      s.setMetaBag("host", "h.example");
+      expect(
+        s.checkSecureReferer({ getHost: () => "h.example" } as never),
+      ).to.equal(true);
+    });
+
+    it("throw si host != meta", () => {
+      const s = makeSession();
+      s.setMetaBag("host", "h.example");
+      let threw = false;
+      try {
+        s.checkSecureReferer({ getHost: () => "other" } as never);
+      } catch {
+        threw = true;
+      }
+      expect(threw).to.equal(true);
+    });
+  });
+
+  describe("attributes", () => {
+    it("getAttributes() délègue à attributes()", () => {
+      const s = makeSession();
+      expect(s.getAttributes()).to.equal(s.attributes());
     });
   });
 });
