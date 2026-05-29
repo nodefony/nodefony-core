@@ -4,14 +4,28 @@ import http from "node:http";
 import HttpResponse from "../../src/context/http/Response.js";
 import type HttpContext from "../../src/context/http/HttpContext.js";
 
+// Mock minimal : un store de headers en mémoire (insensible à la casse, comme
+// Node) + un contexte stub avec `log` no-op et `type`. Suffit pour exercer
+// toute la logique PURE de HttpResponse sans serveur réel.
 function makeResponse(): HttpResponse {
+  const headers: Record<string, number | string | string[]> = {};
   const mockServerResponse = {
     headersSent: false,
-    setHeader: () => {},
-    getHeaders: () => ({}),
-    removeHeader: () => {},
+    setHeader: (name: string, value: number | string | string[]) => {
+      headers[name.toLowerCase()] = value;
+    },
+    getHeader: (name: string) => headers[name.toLowerCase()],
+    getHeaders: () => ({ ...headers }),
+    removeHeader: (name: string) => {
+      delete headers[name.toLowerCase()];
+    },
+    addTrailers: () => {},
   } as unknown as http.ServerResponse;
-  return new HttpResponse(mockServerResponse, {} as HttpContext);
+  const ctx = {
+    type: "http",
+    log: () => undefined,
+  } as unknown as HttpContext;
+  return new HttpResponse(mockServerResponse, ctx);
 }
 
 describe("HttpResponse — unit tests", () => {
@@ -47,5 +61,138 @@ describe("HttpResponse — unit tests", () => {
       expect(r.statusMessage).to.equal("Not Found");
     });
 
+    it("coerce une chaîne numérique en code (et NaN → 500)", () => {
+      const r = makeResponse();
+      expect(r.setStatusCode("418").code).to.equal(418);
+      expect(r.setStatusCode("abc").code).to.equal(500);
+    });
+  });
+
+  describe("setContentType() — politique charset RFC 8259", () => {
+    it("application/json : AUCUN paramètre charset (JSON est UTF-8 par spec)", () => {
+      const r = makeResponse();
+      r.setContentType("application/json", "utf-8");
+      expect(r.getHeader("Content-Type")).to.equal("application/json");
+      expect(r.contentType).to.equal("application/json");
+    });
+
+    it("text/html : charset explicite ajouté", () => {
+      const r = makeResponse();
+      r.setContentType("text/html", "utf-8");
+      expect(r.getHeader("Content-Type")).to.equal("text/html; charset=utf-8");
+    });
+
+    it("sans type → reprend contentType courant + charset", () => {
+      const r = makeResponse();
+      r.setContentType();
+      expect(String(r.getHeader("Content-Type"))).to.match(/charset=/);
+    });
+  });
+
+  describe("setBody() — coercition vers Buffer", () => {
+    it("string → Buffer du texte", () => {
+      const r = makeResponse();
+      const b = r.setBody("hello");
+      expect(Buffer.isBuffer(b)).to.equal(true);
+      expect(b.toString()).to.equal("hello");
+    });
+
+    it("objet → Buffer JSON", () => {
+      const r = makeResponse();
+      const b = r.setBody({ a: 1 });
+      expect(b.toString()).to.equal('{"a":1}');
+    });
+
+    it("Buffer (ArrayBufferView) → copie", () => {
+      const r = makeResponse();
+      const b = r.setBody(Buffer.from("buf"));
+      expect(b.toString()).to.equal("buf");
+    });
+
+    it("ArrayBuffer → Buffer", () => {
+      const r = makeResponse();
+      const ab = new Uint8Array([65, 66, 67]).buffer; // "ABC"
+      const b = r.setBody(ab);
+      expect(b.length).to.equal(3);
+    });
+  });
+
+  describe("setLength() — Content-Length", () => {
+    it("corps non vide → byteLength + header posé", () => {
+      const r = makeResponse();
+      expect(r.setLength("hello")).to.equal(5);
+      expect(r.getHeader("Content-Length")).to.equal("5");
+    });
+
+    it("status 204 (No Content) → aucune longueur, retourne 0", () => {
+      const r = makeResponse();
+      r.setStatusCode(204);
+      expect(r.setLength("hello")).to.equal(0);
+      expect(r.getHeader("Content-Length")).to.equal(undefined);
+    });
+  });
+
+  describe("getStatusMessage()", () => {
+    it("résout le texte standard depuis un code", () => {
+      const r = makeResponse();
+      expect(r.getStatusMessage(404)).to.equal("Not Found");
+    });
+
+    it("retourne le message déjà posé", () => {
+      const r = makeResponse();
+      r.setStatusCode(403, "Denied");
+      expect(r.getStatusMessage()).to.equal("Denied");
+    });
+  });
+
+  describe("redirect()", () => {
+    it("défaut → 301 + Location + isRedirect", () => {
+      const r = makeResponse();
+      r.redirect("/login");
+      expect(r.getStatusCode()).to.equal(301);
+      expect(r.getHeader("Location")).to.equal("/login");
+      expect(
+        (r.context as unknown as { isRedirect: boolean }).isRedirect,
+      ).to.equal(true);
+    });
+
+    it("302 explicite (number)", () => {
+      const r = makeResponse();
+      r.redirect("/x", 302);
+      expect(r.getStatusCode()).to.equal(302);
+    });
+
+    it("302 en chaîne → coercé en number", () => {
+      const r = makeResponse();
+      r.redirect("/x", "302");
+      expect(r.getStatusCode()).to.equal(302);
+    });
+
+    it("retourne this (chaînable)", () => {
+      const r = makeResponse();
+      expect(r.redirect("/x")).to.equal(r);
+    });
+  });
+
+  describe("isHtml() / setters", () => {
+    it("isHtml true après Content-Type text/html", () => {
+      const r = makeResponse();
+      r.setContentType("text/html", "utf-8");
+      expect(r.isHtml()).to.equal(true);
+    });
+
+    it("isHtml false pour application/json", () => {
+      const r = makeResponse();
+      r.setContentType("application/json", "utf-8");
+      expect(r.isHtml()).to.equal(false);
+    });
+
+    it("setEncoding / setTimeout posent les champs", () => {
+      const r = makeResponse();
+      r.setEncoding("latin1");
+      r.setTimeout(5000);
+      expect(r.encoding).to.equal("latin1");
+      expect(r.timeout).to.equal(5000);
+    });
   });
 });

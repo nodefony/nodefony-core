@@ -275,7 +275,11 @@ class HttpResponse {
     } else if (ele instanceof ArrayBuffer || ele instanceof SharedArrayBuffer) {
       this.body = Buffer.from(ele);
     } else if (ArrayBuffer.isView(ele) && ele.buffer instanceof ArrayBuffer) {
-      this.body = Buffer.from(ele.buffer);
+      // Respecter byteOffset/byteLength : un Buffer issu du pool Node partage un
+      // ArrayBuffer bien plus grand → Buffer.from(ele.buffer) copierait TOUT le
+      // pool (octets adjacents d'autres buffers = fuite mémoire dans la réponse).
+      // On ne prend que la fenêtre de la vue.
+      this.body = Buffer.from(ele.buffer, ele.byteOffset, ele.byteLength);
     } else {
       try {
         this.body = Buffer.from(JSON.stringify(ele));
