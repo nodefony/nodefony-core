@@ -4,6 +4,7 @@ import {
   Severity,
   Msgid,
   Message,
+  Pci,
   Pdu,
   KernelEventsType,
   nodefonyError,
@@ -49,7 +50,9 @@ import WebsocketSecure from "../../service/servers/server-websocket-secure";
 const colorLogEvent = clc.cyan.bgBlack("EVENT CONTEXT");
 
 // Shared frozen array used when timing is disabled — zero per-request alloc.
-const EMPTY_PHASES: PhaseTiming[] = Object.freeze([] as PhaseTiming[]) as unknown as PhaseTiming[];
+const EMPTY_PHASES: PhaseTiming[] = Object.freeze(
+  [] as PhaseTiming[],
+) as unknown as PhaseTiming[];
 
 export type WebSocketState =
   | "handshake"
@@ -123,7 +126,7 @@ class Context extends Service implements IContextInterface {
   sessionService?: SessionsService | null;
   session: Session | null | undefined = null;
   cookieSession: Cookie | null | undefined = null;
-  user: any = null;
+  user: unknown = null;
   waitAsync: boolean = false;
   isJson: boolean = false;
   isHtml: boolean = false;
@@ -169,7 +172,9 @@ class Context extends Service implements IContextInterface {
     this.setMetaData();
     // Resolve timing flag once per request. Explicit kernel option wins;
     // otherwise default = enabled in dev / development, disabled in prod.
-    const explicit = (this.kernel as any)?.options?.timing?.enabled;
+    const explicit = (
+      this.kernel?.options as { timing?: { enabled?: boolean } } | undefined
+    )?.timing?.enabled;
     if (typeof explicit === "boolean") {
       this._timingEnabled = explicit;
     } else {
@@ -196,7 +201,10 @@ class Context extends Service implements IContextInterface {
       }
       case "http3": {
         this.scheme = "https";
-        this.server = this.get<any>("server-http3").server;
+        const server = this.get<{ server?: http2.Http2SecureServer }>(
+          "server-http3",
+        );
+        this.server = server?.server ?? null;
         break;
       }
       case "websocket": {
@@ -218,7 +226,7 @@ class Context extends Service implements IContextInterface {
     // });
   }
 
-  setMetaData(obj: Record<string, any> = {}): Data {
+  setMetaData(obj: Record<string, unknown> = {}): Data {
     let ele = {
       nodefony: {
         name: this.kernel?.projectName,
@@ -332,10 +340,10 @@ class Context extends Service implements IContextInterface {
   }
 
   override log(
-    pci: any,
+    pci: Pci,
     severity?: Severity,
     msgid?: Msgid,
-    msg?: Message
+    msg?: Message,
   ): Pdu {
     if (!msgid) {
       msgid = this.type;
@@ -349,26 +357,28 @@ class Context extends Service implements IContextInterface {
     return super.clean();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override fire(event: KernelEventsType, ...args: any[]): boolean {
+  override fire(event: KernelEventsType, ...args: unknown[]): boolean {
     this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
     return super.fire(event, ...args);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override emit(event: KernelEventsType, ...args: any[]): boolean {
+  override emit(event: KernelEventsType, ...args: unknown[]): boolean {
     this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
     return super.emit(event, ...args);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override emitAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
+  override emitAsync(
+    event: KernelEventsType,
+    ...args: unknown[]
+  ): Promise<unknown> {
     this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override fireAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
+  override fireAsync(
+    event: KernelEventsType,
+    ...args: unknown[]
+  ): Promise<unknown> {
     this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }

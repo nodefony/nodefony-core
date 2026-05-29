@@ -125,7 +125,10 @@ class HttpRequest {
     });
   }
 
-  async initialize(): Promise<ParserType | null> {
+  // Valeur de résolution non consommée (awaited pour le séquençage dans
+  // http-kernel) : les branches renvoient soit le parser, soit le résultat de
+  // `fireAsync("onRequestEnd")` (unknown) → type honnête = Promise<unknown>.
+  async initialize(): Promise<unknown> {
     return this.parseRequest()
       .then((parser) => {
         switch (true) {

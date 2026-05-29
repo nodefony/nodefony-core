@@ -288,7 +288,10 @@ class SessionsService extends Service {
     if (context.session) {
       if (!context.session.saved) {
         return context.session.save(
-          context.user ? context.user : null,
+          // `context.user` = principal authentifié (unknown jusqu'à P6 security) ;
+          // `save()` attend un identifiant string. serialize() fait `user || ""`
+          // → null/undefined équivalents. Cast transitoire (câblage user→session = P6).
+          context.user ? (context.user as string) : undefined,
           context.session.contextSession,
         );
       }
