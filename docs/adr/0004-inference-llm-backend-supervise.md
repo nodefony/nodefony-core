@@ -77,4 +77,4 @@ provisionner/superviser. Mitigé par la supervision automatique (patron `ViteSup
 
 - Patron de supervision : `@nodefony/frontend` → `ViteSupervisor`.
 - Modèle de process cloud-native : ADR / mémoire « 1 pod = 1 process », dépréciation PM2.
-- Pitch couche IA : [`docs/ia/pitch-couche-ia.md`](../ia/pitch-couche-ia.md).
+- Livre blanc couche IA : [`docs/ia/livre-blanc-couche-ia.md`](../ia/livre-blanc-couche-ia.md).
