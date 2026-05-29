@@ -176,7 +176,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 
 **terminate(code?)**: avec kernel → `kernel.terminate(code)`. Sans → `super.terminate(code, quiet)`.
 
-**start(options?)**: crée `Kernel`, ajoute 10 commandes (Start/Dev/Build/Prod/Staging/**Cluster**/Install/Outdated/Pm2/Kill), configure Commander, `parseAsync()` + `kernel.start()`.
+**start(options?)**: crée `Kernel`, ajoute 7 commandes (Start/Dev/Build/Prod/**Cluster**/Install/Outdated), configure Commander, `parseAsync()` + `kernel.start()`. (Pm2/Kill retirées 2026-05-29 — C6 retrait PM2 ; staging retirée 2026-05-25.)
 
 ## Cluster (mode multi-process sans PM2 — Phases 2+3)
 

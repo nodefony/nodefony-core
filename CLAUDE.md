@@ -178,9 +178,9 @@ Nodefony est une **plateforme générique** pour construire :
 ## 🛠 Commandes CLI par module
 
 > Chaque module Nodefony peut enregistrer des commandes CLI via `module.addCommand(Ctor)`.
-> Pattern legacy : `nodefony <command> [args]` (ex : `nodefony pm2:start`, `nodefony users:add`).
+> Pattern legacy : `nodefony <command> [args]` (ex : `nodefony orm:migrate`, `nodefony users:add`).
 
-**État actuel** : commandes implémentées (`Start/Dev/Build/Prod/Cluster/Install/Outdated/Pm2/Kill`) mais **pas testées en intégration** — voir Phase 11 dans `MIGRATION_STATUS.md`. (`staging`/`preprod` retirée 2026-05-25 — alias mort de `production` ; l'env `staging` reste via `NODE_ENV`.)
+**État actuel** : commandes implémentées (`Start/Dev/Build/Prod/Cluster/Install/Outdated`) mais **pas testées en intégration** — voir Phase 11 dans `MIGRATION_STATUS.md`. (`staging`/`preprod` retirée 2026-05-25 — alias mort de `production` ; l'env `staging` reste via `NODE_ENV`. `Pm2`/`Kill` retirées 2026-05-29 — C6 retrait PM2.)
 
 **Règle** : tout module migré qui expose une commande CLI doit :
 
@@ -334,7 +334,7 @@ Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 
 **Exports** : named exports uniquement — `import { Nodefony } from "nodefony"`. Pas de default export.
 
-**Process model en prod** : **cloud-native, pas PM2**. 1 process Node = 1 pod / container. Scaling horizontal géré par l'orchestrateur (k8s HPA, Docker Swarm, Nomad, Cloud Run, Fargate). Process supervision déléguée (k8s liveness/readiness, systemd, Docker restart-policy). Logs → stdout/stderr → collecteur centralisé. **PM2 est `@deprecated` depuis Nodefony 10**, retrait effectif en Phase 16. Voir mémoire `project_pm2_deprecation.md`. Le module `pm2Service` + commande `nodefony pm2:*` restent fonctionnels pour les déploiements bare-metal/VPS legacy.
+**Process model en prod** : **cloud-native, pas PM2**. 1 process Node = 1 pod / container. Scaling horizontal géré par l'orchestrateur (k8s HPA, Docker Swarm, Nomad, Cloud Run, Fargate). Process supervision déléguée (k8s liveness/readiness, systemd, Docker restart-policy). Logs → stdout/stderr → collecteur centralisé. **PM2 RETIRÉ du framework (C6, 2026-05-29)** : `pm2Service`, commande `nodefony pm2:*`, commande `nodefony kill` (artefact PM2) et la dep npm `pm2` supprimés. Voir mémoire `project_pm2_deprecation.md`. Multi-process bare-metal/VPS = `nodefony cluster -w N` (cgroup-aware, sans PM2).
 
 **Terminologie** (renommage JS → TS) :
 
@@ -583,7 +583,7 @@ Utiliser le skill **`nodefony-start-server`** (versionné dans `.claude/skills/n
 
 Le skill gère : kill ports 5151/5152, rebuild `src/modules/test`, spawn `detached` (évite SIGHUP), attente boot avec progression, health check, diagnostic crash. Détails complets (signaux d'alarme, parsing logs, symptômes 404, watch Rollup runtime piège) dans le `SKILL.md`.
 
-> Toujours `development` — pas `dev`, pas `start`, pas `production` (mode prod daemonise via PM2 [DEPRECATED, retrait Phase 16] ou foreground avec `--no-daemon`).
+> Toujours `development` — pas `dev`, pas `start`, pas `production` (`production` = foreground cloud-native, topologie via `--workers` ; plus aucune daemonisation PM2).
 
 ### Erreurs critiques import nodefony
 

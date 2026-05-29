@@ -40,14 +40,14 @@ import Kernel from "../Kernel";
 
 const options: OptionsCommandInterface = {
   showBanner: true,
-  kernelEvent: "onPostReady",  // attend cette phase avant generate()
+  kernelEvent: "onPostReady", // attend cette phase avant generate()
 };
 
 class DevCommand extends Command {
   constructor(cli: CliKernel) {
     super(
-      "development",                       // name
-      "Start dev server (Rollup watch)",   // description
+      "development", // name
+      "Start dev server (Rollup watch)", // description
       cli,
       options,
     );
@@ -96,17 +96,18 @@ class DevCommand extends Command {
 
 ```typescript
 interface OptionsCommandInterface {
-  showBanner?: boolean;           // affiche le banner ASCII au boot
-  kernelEvent?: KernelEventKey;   // phase à attendre avant generate()
-                                  // défaut "onPostReady"
-                                  // valeurs: onInit | onPreStart | onStart |
-                                  //          onPreRegister | onRegister |
-                                  //          onPreBoot | onBoot | onReady |
-                                  //          onServersReady | onPostReady
+  showBanner?: boolean; // affiche le banner ASCII au boot
+  kernelEvent?: KernelEventKey; // phase à attendre avant generate()
+  // défaut "onPostReady"
+  // valeurs: onInit | onPreStart | onStart |
+  //          onPreRegister | onRegister |
+  //          onPreBoot | onBoot | onReady |
+  //          onServersReady | onPostReady
 }
 ```
 
 **Choix de `kernelEvent`** :
+
 - `"onPostReady"` (défaut) — serveurs HTTP/WS prêts. Pour les commands qui veulent les utiliser.
 - `"onReady"` — services bootés mais serveurs pas démarrés. Pour les commands utilitaires (build, test).
 - `"onBoot"` — modules instanciés. Pour debug/inspection précoce.
@@ -134,10 +135,10 @@ npx nodefony frontend:create my-component
 
 ```typescript
 import { Cli } from "nodefony";
-Cli.niceBytes(0);          // "0 B"
-Cli.niceBytes(1024);       // "1.0 KB"
-Cli.niceBytes(10240);      // "10 KB"
-Cli.niceBytes(1048576);    // "1.0 MB"
+Cli.niceBytes(0); // "0 B"
+Cli.niceBytes(1024); // "1.0 KB"
+Cli.niceBytes(10240); // "10 KB"
+Cli.niceBytes(1048576); // "1.0 MB"
 Cli.niceBytes(1073741824); // "1.0 GB"
 ```
 
@@ -149,27 +150,25 @@ Utilisé dans Kernel.memoryUsage() pour afficher RSS/heap.
 
 Toutes ces commandes sont **déjà migrées** en TS mais **non testées en intégration** (Phase 11).
 
-| Command | Alias | Fichier | Statut |
-|---------|-------|---------|--------|
-| `Start` | — | `StartCommand.ts` | ✅ |
-| `Dev` | `dev` | `DevCommand.ts` | ✅ |
-| `Build` | — | `BuildCommand.ts` | ✅ |
-| `Prod` | `prod` | `ProdCommand.ts` | 🪦 mention PM2 deprecated |
-| `Staging` | — | `StagingCommand.ts` | ✅ |
-| `Install` | — | `InstallCommand.ts` | ✅ |
-| `Outdated` | — | `OutdatedCommand.ts` | ✅ |
-| `Pm2` | — | `pm2/Pm2Command.ts` | 🪦 DEPRECATED Phase 16 |
-| `Kill` | — | `KillCommnand.ts` | ✅ (typo conservée) |
+| Command    | Alias  | Fichier              | Statut                         |
+| ---------- | ------ | -------------------- | ------------------------------ |
+| `Start`    | —      | `StartCommand.ts`    | ✅                             |
+| `Dev`      | `dev`  | `DevCommand.ts`      | ✅                             |
+| `Build`    | —      | `BuildCommand.ts`    | ✅                             |
+| `Prod`     | `prod` | `ProdCommand.ts`     | ✅ foreground cloud-native     |
+| `Cluster`  | —      | `ClusterCommand.ts`  | ✅ (remplace l'ancien staging) |
+| `Install`  | —      | `InstallCommand.ts`  | ✅                             |
+| `Outdated` | —      | `OutdatedCommand.ts` | ✅                             |
 
 ⚠️ **Bug pré-existant** : les commands par module (`http:*`, `framework:*`, `security:*`, `user:*`) sont cassées sur claude-ts (cf mémoire `project_cli_commands_broken_claude_ts`). À traiter dans une branche dédiée hors POC.
 
 ## Hooks Command
 
-| Hook | Quand | Use case |
-|------|-------|----------|
-| `onKernelStart()` | AVANT `Kernel.start()` | Config env, type, packageManager |
-| `generate(opts)` | APRÈS phase `kernelEvent` | Exécution principale |
-| `register()` | Au moment de `addCommand` | Setup commander (options, args) |
+| Hook              | Quand                     | Use case                         |
+| ----------------- | ------------------------- | -------------------------------- |
+| `onKernelStart()` | AVANT `Kernel.start()`    | Config env, type, packageManager |
+| `generate(opts)`  | APRÈS phase `kernelEvent` | Exécution principale             |
+| `register()`      | Au moment de `addCommand` | Setup commander (options, args)  |
 
 ## Settings ProtoService cas spécial
 
@@ -180,19 +179,20 @@ Toutes ces commandes sont **déjà migrées** en TS mais **non testées en inté
 Cf mémoire `project_cli_commands_broken_claude_ts`. À résoudre dans une branche dédiée. Symptôme : `npx nodefony http:routes:list` → "command not found" ou crash boot.
 
 Hypothèses :
+
 - Module.addCommand() pas appelé au bon moment dans le lifecycle
 - `kernel.cli` est `null` quand le module tente d'enregistrer
 - Commander parsing fait avant que les commands modules soient registered
 
 ## ⚠️ Gotchas
 
-| Symptôme | Cause | Fix |
-|----------|-------|-----|
-| `Cannot add option '-v, --version'` | `setCommandVersion()` appelé 2× | Constructor `Cli` le fait déjà |
-| Command pas matched par Commander | `addCommand()` appelé après `parseCommand()` | Ordre : add → parse |
-| `onKernelStart` pas appelé | Override sans `super` ? Vérifier signature | Doit être `async onKernelStart(): Promise<void>` |
-| `generate()` pas appelé | Mauvaise phase `kernelEvent` | Vérifier que le kernel fire bien cet event |
-| 2× registered listeners sur Command | `setEvents()` appelé 2× | Guard `eventsRegistered` ajouté 2026-05-14 — idempotent |
+| Symptôme                            | Cause                                        | Fix                                                     |
+| ----------------------------------- | -------------------------------------------- | ------------------------------------------------------- |
+| `Cannot add option '-v, --version'` | `setCommandVersion()` appelé 2×              | Constructor `Cli` le fait déjà                          |
+| Command pas matched par Commander   | `addCommand()` appelé après `parseCommand()` | Ordre : add → parse                                     |
+| `onKernelStart` pas appelé          | Override sans `super` ? Vérifier signature   | Doit être `async onKernelStart(): Promise<void>`        |
+| `generate()` pas appelé             | Mauvaise phase `kernelEvent`                 | Vérifier que le kernel fire bien cet event              |
+| 2× registered listeners sur Command | `setEvents()` appelé 2×                      | Guard `eventsRegistered` ajouté 2026-05-14 — idempotent |
 
 ## Lancer des tests
 

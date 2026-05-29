@@ -6,11 +6,11 @@ Orchestrateur principal du framework Nodefony. Gère le lifecycle complet, le DI
 
 ## Fichiers
 
-| Fichier | Rôle |
-|---------|------|
-| `Kernel.ts` | Kernel principal — lifecycle, modules, réseau, config |
-| `Module.ts` | Unité fonctionnelle (ex-Bundle) — services, hooks, path, controllers |
-| `CliKernel.ts` | CLI — Commander, commandes, package manager, syslog |
+| Fichier        | Rôle                                                                 |
+| -------------- | -------------------------------------------------------------------- |
+| `Kernel.ts`    | Kernel principal — lifecycle, modules, réseau, config                |
+| `Module.ts`    | Unité fonctionnelle (ex-Bundle) — services, hooks, path, controllers |
+| `CliKernel.ts` | CLI — Commander, commandes, package manager, syslog                  |
 
 ---
 
@@ -27,12 +27,14 @@ onInit → onPreStart → onStart → onPreRegister → onRegister
 ```
 
 **Flags de progression** (booléens, jamais régressifs) :
+
 - `started` — après `onStart`
 - `booted` — après `onBoot`
 - `ready` — après `onReady`
 - `postReady` — après `onPostReady`
 
 **Bitmask Events** (frozen, exporté) :
+
 ```typescript
 import { Events } from "@nodefony/core";
 // onInit=1, onPreStart=2, onStart=4, ..., onTerminate=1024
@@ -54,7 +56,7 @@ const kernel = new Kernel("development", cliKernel, {
 ### Environnement
 
 ```typescript
-kernel.setEnv("development");   // this.environment = "development"
+kernel.setEnv("development"); // this.environment = "development"
 kernel.setNodeEnv("production"); // process.env.NODE_ENV = "production"
 ```
 
@@ -88,7 +90,11 @@ const svc = await kernel.addKernelService(MyService, optionalArg);
 kernel.interfaces; // { lo: [...], eth0: [...] }
 
 // Filtres
-const ext = kernel.interfacesFilter({ type: "external", family: "IPv4", condition: "&&" });
+const ext = kernel.interfacesFilter({
+  type: "external",
+  family: "IPv4",
+  condition: "&&",
+});
 const loc = kernel.interfacesFilter({ type: "local" });
 
 // Première IP externe
@@ -127,14 +133,14 @@ kernel.readConfig({ log: { debug: true } });
 ### Utilitaires
 
 ```typescript
-kernel.checkPath("./relative")     // → path absolu ou null si vide
-kernel.isConsole()                 // type === "CONSOLE"
-kernel.isModule(MyModule)          // isSubclassOf check — throws si null
-kernel.clusterIsMaster()           // cluster.isPrimary
-kernel.stats()                     // { memory: process.memoryUsage() }
-kernel.memoryUsage("POST BOOT")    // log RSS/heap avec niceBytes
-kernel.setDomain()                 // "selectAuto" → 1ère IP externe, sinon options.domain
-kernel.logEnv()                    // string coloré type/cluster/env/debug
+kernel.checkPath("./relative"); // → path absolu ou null si vide
+kernel.isConsole(); // type === "CONSOLE"
+kernel.isModule(MyModule); // isSubclassOf check — throws si null
+kernel.clusterIsMaster(); // cluster.isPrimary
+kernel.stats(); // { memory: process.memoryUsage() }
+kernel.memoryUsage("POST BOOT"); // log RSS/heap avec niceBytes
+kernel.setDomain(); // "selectAuto" → 1ère IP externe, sinon options.domain
+kernel.logEnv(); // string coloré type/cluster/env/debug
 ```
 
 ### Terminate
@@ -186,11 +192,11 @@ export default AppModule;
 
 `setPath()` résout le répertoire du module à partir du path fourni au constructeur.
 
-| Path fourni | Résultat |
-|-------------|----------|
+| Path fourni                              | Résultat                               |
+| ---------------------------------------- | -------------------------------------- |
 | `import.meta.url` (fichier dans `dist/`) | `dirname(dirname(fileURLToPath(url)))` |
-| `/path/to/module/package.json` | `/path/to/module` |
-| `/path/to/module` | `/path/to` |
+| `/path/to/module/package.json`           | `/path/to/module`                      |
+| `/path/to/module`                        | `/path/to`                             |
 
 ### Services
 
@@ -236,9 +242,9 @@ module.addCommand(MyCommand); // kernel.cli requis
 ### Package manager
 
 ```typescript
-await module.install();         // npm/pnpm/yarn install
-await module.install(true);     // install --force
-await module.outdated();        // check outdated
+await module.install(); // npm/pnpm/yarn install
+await module.install(true); // install --force
+await module.outdated(); // check outdated
 ```
 
 ### Charger du JSON
@@ -284,20 +290,21 @@ cli.parseCommand(process.argv);
 await cli.parseCommandAsync(process.argv);
 ```
 
-**9 commandes enregistrées par `start()`** : `start`, `dev`, `build`, `prod`, `staging`, `install`, `outdated`, `pm2`, `kill`.
+**7 commandes enregistrées par `start()`** : `start`, `dev`, `build`, `prod`, `cluster`, `install`, `outdated`.
 
 ### niceBytes (static)
 
 ```typescript
-CliKernel.niceBytes(1024)    // "1.0 KB"
-CliKernel.niceBytes(10240)   // "10 KB"
-CliKernel.niceBytes(1048576) // "1.0 MB"
-CliKernel.niceBytes(0)       // "0 Bytes"
+CliKernel.niceBytes(1024); // "1.0 KB"
+CliKernel.niceBytes(10240); // "10 KB"
+CliKernel.niceBytes(1048576); // "1.0 MB"
+CliKernel.niceBytes(0); // "0 Bytes"
 ```
 
 ### initSyslog
 
 Filtre de sévérité :
+
 - Par défaut : niveaux 0–6 (EMERGENCY → INFO)
 - `debug=true` : ajoute 7 (DEBUG)
 - `kernel.type === "SERVER"` + `env === "dev"` : ajoute 4 (WARNING) et 5 (NOTICE)
@@ -317,38 +324,38 @@ await cli.terminate(0);
 
 ### Kernel
 
-| Méthode | Signature | Notes |
-|---------|-----------|-------|
-| `start()` | `async (): Promise<this>` | Lance le lifecycle complet |
-| `terminate(code?)` | `async (code?: number): Promise<this>` | Fire onTerminate + quit |
-| `addModule(Ctor)` | `async (...): Promise<Module>` | Instancie + enregistre |
-| `getModule(name)` | `(name: string): Module` | Lookup dans `this.modules` |
-| `addKernelService(Ctor)` | `async (...): Promise<Service\|null>` | Service sur container kernel |
-| `interfacesFilter(f?)` | `(filters?: FilterInterface): NetworkInterface` | Filtre réseau |
-| `checkPath(p)` | `(p: string): string \| null` | Absolu/relatif/null |
-| `setEnv(env)` | `(env: EnvironmentType): void` | Normalise environment |
-| `setNodeEnv(env)` | `(env: EnvironmentType): void` | Side-effect process.env |
-| `isConsole()` | `(): boolean` | type === "CONSOLE" |
-| `isModule(cls)` | `(cls: any): boolean` | Throws si null |
-| `stats()` | `(): Stats` | { memory: MemoryStats } |
-| `memoryUsage(msg?)` | `(msg?, sev?): void` | Log RSS/heap |
-| `readConfig(cfg?)` | `(cfg?: TypeKernelOptions): TypeKernelOptions` | Merge ou retourne options |
-| `setCommandComplete(p)` | `(p: number): boolean` | Bitmask + check commande |
+| Méthode                  | Signature                                       | Notes                        |
+| ------------------------ | ----------------------------------------------- | ---------------------------- |
+| `start()`                | `async (): Promise<this>`                       | Lance le lifecycle complet   |
+| `terminate(code?)`       | `async (code?: number): Promise<this>`          | Fire onTerminate + quit      |
+| `addModule(Ctor)`        | `async (...): Promise<Module>`                  | Instancie + enregistre       |
+| `getModule(name)`        | `(name: string): Module`                        | Lookup dans `this.modules`   |
+| `addKernelService(Ctor)` | `async (...): Promise<Service\|null>`           | Service sur container kernel |
+| `interfacesFilter(f?)`   | `(filters?: FilterInterface): NetworkInterface` | Filtre réseau                |
+| `checkPath(p)`           | `(p: string): string \| null`                   | Absolu/relatif/null          |
+| `setEnv(env)`            | `(env: EnvironmentType): void`                  | Normalise environment        |
+| `setNodeEnv(env)`        | `(env: EnvironmentType): void`                  | Side-effect process.env      |
+| `isConsole()`            | `(): boolean`                                   | type === "CONSOLE"           |
+| `isModule(cls)`          | `(cls: any): boolean`                           | Throws si null               |
+| `stats()`                | `(): Stats`                                     | { memory: MemoryStats }      |
+| `memoryUsage(msg?)`      | `(msg?, sev?): void`                            | Log RSS/heap                 |
+| `readConfig(cfg?)`       | `(cfg?: TypeKernelOptions): TypeKernelOptions`  | Merge ou retourne options    |
+| `setCommandComplete(p)`  | `(p: number): boolean`                          | Bitmask + check commande     |
 
 ### Module
 
-| Méthode | Notes |
-|---------|-------|
-| `setPath(p)` | Résout répertoire du module |
-| `setEvents()` | Wire hooks lifecycle — appelé en constructor |
-| `addService(Ctor, ...args)` | Instancie + initialize |
-| `getPackageJson()` | Lit package.json async |
-| `getDependencies()` | deps + peerDeps (pas devDeps) |
-| `loadJson(url, cwd?)` | Parse JSON absolu ou relatif |
-| `addCommand(Ctor)` | Nécessite kernel.cli |
-| `readOverrideModuleConfig()` | Parse keys Module-<name> |
-| `install(force?)` | Via packageManager |
-| `getController(name)` | Registre static controllers |
+| Méthode                      | Notes                                        |
+| ---------------------------- | -------------------------------------------- |
+| `setPath(p)`                 | Résout répertoire du module                  |
+| `setEvents()`                | Wire hooks lifecycle — appelé en constructor |
+| `addService(Ctor, ...args)`  | Instancie + initialize                       |
+| `getPackageJson()`           | Lit package.json async                       |
+| `getDependencies()`          | deps + peerDeps (pas devDeps)                |
+| `loadJson(url, cwd?)`        | Parse JSON absolu ou relatif                 |
+| `addCommand(Ctor)`           | Nécessite kernel.cli                         |
+| `readOverrideModuleConfig()` | Parse keys Module-<name>                     |
+| `install(force?)`            | Via packageManager                           |
+| `getController(name)`        | Registre static controllers                  |
 
 ---
 
