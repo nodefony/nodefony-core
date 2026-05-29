@@ -30,7 +30,6 @@ import type { IKernel } from "../types/IKernel";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { readListenerTags } from "./lifecycleTags";
-//import Babylon from "../service/babel/babylon";
 //import { StartOptions } from "pm2";
 
 const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
@@ -201,7 +200,6 @@ class Kernel extends Service implements IKernel {
   // flushé par `initCluster()` après le banner. Tant qu'il n'est pas null
   // les logs sont différés ; passé à `null`, addModule() log immédiatement.
   private pendingModuleAddLogs: string[] | null = [];
-  //babel?: Babylon;
   /**
    * Construit le Kernel. **Side effect critique** : appelle `Nodefony.setKernel(this)` →
    * écrase le singleton global. Isoler les tests avec un mock minimal pour éviter de
@@ -300,8 +298,6 @@ class Kernel extends Service implements IKernel {
     const tmpPath = path.resolve(process.cwd(), "tmp");
     fs.mkdirSync(tmpPath, { recursive: true });
     this.tmpDir = new FileClass(tmpPath);
-    //TODO don't instancce on prod
-    //this.babel = (await this.addKernelService(Babylon)) as Babylon;
     await this.addKernelService(Rollup);
 
     if (!this.started) {

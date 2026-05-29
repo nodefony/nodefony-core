@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-29T11:47:31.645Z",
+  "generated": "2026-05-29T12:25:42.438Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 777,
-    "symbols": 1446,
-    "classes": 232,
+    "files": 776,
+    "symbols": 1444,
+    "classes": 231,
     "interfaces": 351,
-    "types": 182,
+    "types": 181,
     "enums": 2,
     "functions": 223,
     "constants": 456
@@ -2269,16 +2269,6 @@
       "name": "Orm",
       "kind": "class",
       "file": "src/nodefony/src/kernel/orm/Orm.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Service",
-      "implements": [],
-      "decorators": []
-    },
-    "Babylon": {
-      "name": "Babylon",
-      "kind": "class",
-      "file": "src/nodefony/src/service/babel/babylon.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": "Service",
@@ -10592,7 +10582,6 @@
         "Injector",
         "Entity",
         "Orm",
-        "Babylon",
         "Rollup",
         "DrizzleService",
         "AdminBroker",
@@ -11100,7 +11089,6 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
-        "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -11154,7 +11142,6 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
-        "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -11191,7 +11178,6 @@
         "src/nodefony/src/finder/Finder.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/types/IKernel.ts",
-        "src/nodefony/src/service/babel/babylon.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
@@ -11207,7 +11193,6 @@
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
-        "src/nodefony/src/service/babel/babylon.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
@@ -11272,7 +11257,6 @@
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
-        "src/nodefony/src/service/babel/babylon.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
         "src/packages/@nodefony/sequelize/nodefony/config/config.ts"
@@ -12184,8 +12168,7 @@
       "File": [
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/finder/FileResult.ts",
-        "src/nodefony/src/finder/Finder.ts",
-        "src/nodefony/src/service/babel/babylon.ts"
+        "src/nodefony/src/finder/Finder.ts"
       ],
       "Cli": [
         "src/nodefony/src/command/Builder.ts",
