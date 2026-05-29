@@ -101,7 +101,6 @@ class Context extends Service implements IContextInterface {
   isControlledAccess: boolean = false;
   validDomain: boolean = false;
   finished: boolean = false;
-  contentLength: boolean = false;
   pushAllowed: boolean = false;
   requestEnded: boolean = false;
   requested: boolean = false;

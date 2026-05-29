@@ -58,7 +58,6 @@ class HttpContext extends Context implements IHttpContextInterface {
   proxy: ProxyType | null = null;
   isRedirect: boolean = false;
   sended: boolean = false;
-  timeoutid: number | null = null;
   //isHtml: boolean = false;
   override request: HttpRequestType;
   override response: HttpRsponseType;

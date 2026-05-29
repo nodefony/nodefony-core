@@ -90,7 +90,6 @@ class HttpRequest {
   method: HTTPMethod;
   contentType: string | null;
   rawContentType: Record<string, string> = {};
-  extentionContentType: string = "";
   domain: string;
   remoteAddress: string | null | undefined = "";
   hostname: string;
@@ -580,7 +579,6 @@ class HttpRequest {
           }
         }
       }
-      this.extentionContentType = request.headers["content-type"];
       return tab[0];
     }
     return null;

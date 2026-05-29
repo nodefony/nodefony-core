@@ -36,15 +36,25 @@ class Parser {
       readableEnded?: boolean;
       complete?: boolean;
       once(ev: string, cb: (...args: unknown[]) => void): unknown;
+      removeListener(ev: string, cb: (...args: unknown[]) => void): unknown;
     };
     return new Promise((resolve, reject) => {
       if (req.readableEnded || req.complete) {
         return resolve();
       }
-      req.once("end", () => resolve());
-      req.once("error", (e: unknown) =>
-        reject(e instanceof Error ? e : new Error(String(e))),
-      );
+      // Listeners JUMEAUX (end/error) : `once` n'auto-détache QUE celui qui fire ;
+      // l'autre resterait attaché au flux jusqu'au GC (1 listener fantôme/requête).
+      // → détacher explicitement le jumeau quand l'un se déclenche (règle perf).
+      const onEnd = () => {
+        req.removeListener("error", onError);
+        resolve();
+      };
+      const onError = (e: unknown) => {
+        req.removeListener("end", onEnd);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      };
+      req.once("end", onEnd);
+      req.once("error", onError);
     });
   }
 
