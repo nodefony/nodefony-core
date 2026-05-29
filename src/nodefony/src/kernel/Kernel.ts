@@ -635,13 +635,9 @@ class Kernel extends Service implements IKernel {
     }
     this.log(`SERVICE ADD : ${inst.name}`, "DEBUG");
     const serviceInit: ServiceWithInitialize = inst;
-    if (serviceInit.initialize) {
-      this.log(`SERVICE INITIALIZE : ${inst.name}`, "DEBUG");
-      // Service kernel = critique (true) : un `initialize` figé/échoué ne gèle
-      // plus le boot — borné par timeout, fatal en prod, fail-soft en dev.
-      const init = serviceInit.initialize.bind(serviceInit);
-      await this.guardInitialize(() => init(this), inst.name, true);
-    }
+    // Service kernel = critique (true) : un `initialize` figé/échoué ne gèle
+    // plus le boot — borné par timeout, fatal en prod, fail-soft en dev.
+    await this.guardServiceInitialize(serviceInit, this, true);
     this.set<Service>(inst.name, inst);
     return this.get<Service>(inst.name);
   }
@@ -1112,6 +1108,34 @@ class Kernel extends Service implements IKernel {
         : new Error(String(fatalError));
     }
     return result;
+  }
+
+  /**
+   * Initialise un service **sous garde de boot** (timeout + politique de criticité
+   * via {@link guardInitialize}) si le service expose le hook `initialize`. Point
+   * d'entrée commun à {@link addKernelService} (service kernel, `critical=true`) et
+   * à {@link Module.addService} (service de module, criticité = celle du module
+   * porteur), pour que les deux chemins d'init partagent la même résilience.
+   *
+   * @remarks Avant 2026-05-29 les services de module passaient par un `await` NU
+   *   (aucun timeout) : un `initialize` qui pend (ex. `redis` = connexion réseau)
+   *   gelait le boot indéfiniment. Désormais borné comme les services kernel.
+   *
+   * @param serviceInit - instance du service ; ne fait rien si `initialize` absent.
+   * @param owner - propriétaire passé au hook : le {@link Module} ou ce {@link Kernel}.
+   * @param critical - criticité transmise à {@link isBootErrorFatal}.
+   */
+  async guardServiceInitialize(
+    serviceInit: ServiceWithInitialize,
+    owner: Module | Kernel,
+    critical: boolean,
+  ): Promise<void> {
+    if (!serviceInit.initialize) {
+      return;
+    }
+    this.log(`SERVICE INITIALIZE : ${serviceInit.name}`, "DEBUG");
+    const init = serviceInit.initialize.bind(serviceInit);
+    await this.guardInitialize(() => init(owner), serviceInit.name, critical);
   }
 
   /**

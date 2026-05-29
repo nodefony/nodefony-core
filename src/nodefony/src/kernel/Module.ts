@@ -318,7 +318,17 @@ class Module extends Service implements IModule {
     }
     this.log(`SERVICE ADD : ${inst.name}`, "DEBUG");
     const serviceInit: ServiceWithInitialize = inst;
-    if (serviceInit.initialize) {
+    const kernel = this.kernel as Kernel | null;
+    if (kernel) {
+      // Init SOUS GARDE (timeout + criticité du module porteur), comme les
+      // services kernel : un `initialize` qui pend ne gèle plus le boot.
+      await kernel.guardServiceInitialize(
+        serviceInit,
+        this,
+        (this.constructor as typeof Module).critical,
+      );
+    } else if (serviceInit.initialize) {
+      // Pas de kernel (test isolé / module orphelin) → init direct non gardé.
       this.log(`SERVICE INITIALIZE : ${inst.name}`, "DEBUG");
       await serviceInit.initialize(this);
     }
