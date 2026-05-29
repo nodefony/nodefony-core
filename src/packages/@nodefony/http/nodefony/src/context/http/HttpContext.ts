@@ -5,6 +5,7 @@ import {
   SchemeType,
 } from "../../../service/http-kernel";
 import HttpError from "../../errors/httpError";
+import { sanitizeRequestId } from "../requestId";
 import Context, {
   //contextRequest,
   //contextResponse,
@@ -69,18 +70,18 @@ class HttpContext extends Context implements IHttpContextInterface {
     container: Container | Scope,
     request: http.IncomingMessage | http2.Http2ServerRequest,
     response: http.ServerResponse | http2.Http2ServerResponse,
-    type: ServerType
+    type: ServerType,
   ) {
     super(container, type);
     this.uploadService = this.get<uploadService>("upload");
     if (this.type === "http2") {
       this.request = new Http2Request(
         request as http2.Http2ServerRequest,
-        this
+        this,
       );
       this.response = new Http2Response(
         response as http2.Http2ServerResponse,
-        this
+        this,
       );
     } else {
       this.request = new HttpRequest(request as http.IncomingMessage, this);
@@ -113,11 +114,15 @@ class HttpContext extends Context implements IHttpContextInterface {
       };
       this.log(
         `PROXY REQUEST x-forwarded VIA : ${this.proxy.proxyVia}`,
-        "DEBUG"
+        "DEBUG",
       );
     }
     this.isHtml = this.request.acceptHtml;
-    const incomingId = request.headers["x-request-id"] as string | undefined;
+    // Zero Trust : le X-Request-Id client est réfléchi en réponse + logué + en
+    // ALS → on n'adopte que s'il est sûr, sinon on garde l'UUID serveur.
+    const incomingId = sanitizeRequestId(
+      request.headers["x-request-id"] as string | undefined,
+    );
     if (incomingId) {
       this.requestId = incomingId;
     }
@@ -126,7 +131,7 @@ class HttpContext extends Context implements IHttpContextInterface {
     this.validDomain = this.isValidDomain();
     this.parseCookies();
     this.cookieSession = this.getCookieSession(
-      this.sessionService?.defaultSessionName as string
+      this.sessionService?.defaultSessionName as string,
     );
 
     this.once("onTimeout", () => {
@@ -166,9 +171,11 @@ class HttpContext extends Context implements IHttpContextInterface {
         }
         if (this.resolver && this.resolver.resolve) {
           this.setMetaData();
-          const ret = await this.resolver.callController().catch((e: unknown) => {
-            return reject(e);
-          });
+          const ret = await this.resolver
+            .callController()
+            .catch((e: unknown) => {
+              return reject(e);
+            });
           return resolve(ret as this);
         }
         return reject(new HttpError("", 404, this));
@@ -193,7 +200,7 @@ class HttpContext extends Context implements IHttpContextInterface {
     chunk: any,
     encoding?: BufferEncoding,
     status?: string | number,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ): Promise<
     //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
     Http2Response | HttpResponse
@@ -244,7 +251,7 @@ class HttpContext extends Context implements IHttpContextInterface {
 
   async send(
     chunk?: any,
-    encoding?: BufferEncoding
+    encoding?: BufferEncoding,
   ): Promise<
     //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
     Http2Response | HttpResponse
@@ -305,7 +312,7 @@ class HttpContext extends Context implements IHttpContextInterface {
 
   writeHead(
     statusCode?: number,
-    headers?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[]
+    headers?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[],
   ) {
     // cookies
     if (this.response) {
@@ -317,7 +324,7 @@ class HttpContext extends Context implements IHttpContextInterface {
   async write(
     chunk: any,
     encoding?: BufferEncoding,
-    _flush: boolean = false
+    _flush: boolean = false,
   ): Promise<
     //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
     Http2Response | HttpResponse
@@ -357,7 +364,7 @@ class HttpContext extends Context implements IHttpContextInterface {
   redirect(
     Url: string,
     status?: number | string,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ) {
     if (typeof Url === "object") {
       return this.response.redirect(url.format(Url), status, headers);
@@ -367,7 +374,7 @@ class HttpContext extends Context implements IHttpContextInterface {
 
   redirectHttps(
     status?: number | string,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ) {
     if (this.session) {
       //this.session.setFlashBag("redirect", "HTTPS");
@@ -394,7 +401,7 @@ class HttpContext extends Context implements IHttpContextInterface {
 
   redirectHttp(
     status?: number | string,
-    headers?: Record<string, string | number>
+    headers?: Record<string, string | number>,
   ) {
     if (this.session) {
       //this.session.setFlashBag("redirect", "HTTP");

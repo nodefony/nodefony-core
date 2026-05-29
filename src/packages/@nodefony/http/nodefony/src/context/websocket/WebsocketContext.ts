@@ -11,6 +11,7 @@ import { Resolver, Route } from "@nodefony/framework";
 import { URL } from "node:url";
 import { HTTPMethod } from "../Context.js";
 import HttpError from "../../errors/httpError.js";
+import { sanitizeRequestId } from "../requestId.js";
 import { ProxyType } from "../http/HttpContext.js";
 
 export interface IWsRequestExtension {
@@ -95,7 +96,10 @@ export default class WebsocketContext
       | undefined;
     this.scheme = type === "websocket-secure" ? "wss" : "ws";
 
-    const incomingId = req.headers["x-request-id"] as string | undefined;
+    // Zero Trust : même validation que HttpContext (réflexion + logs + ALS).
+    const incomingId = sanitizeRequestId(
+      req.headers["x-request-id"] as string | undefined,
+    );
     if (incomingId) {
       this.requestId = incomingId;
     }

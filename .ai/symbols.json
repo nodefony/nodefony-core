@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-29T17:45:48.492Z",
+  "generated": "2026-05-29T17:52:51.110Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 773,
-    "symbols": 1441,
+    "files": 774,
+    "symbols": 1443,
     "classes": 228,
     "interfaces": 351,
     "types": 181,
     "enums": 2,
-    "functions": 223,
-    "constants": 456
+    "functions": 224,
+    "constants": 457
   },
   "symbols": {
     "Cli": {
@@ -9695,6 +9695,22 @@
       "exported": true,
       "module": "@nodefony/http"
     },
+    "sanitizeRequestId": {
+      "name": "sanitizeRequestId",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/requestId.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Valide un `X-Request-Id` entrant. Retourne la valeur si elle est sûre, sinon `null` (l'appelant conserve alors l'UUID généré côté serveur). On REJETTE (plutôt que tronquer/nettoyer) une valeur inva…"
+    },
+    "MAX_REQUEST_ID_LENGTH": {
+      "name": "MAX_REQUEST_ID_LENGTH",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/requestId.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Validation de l'identifiant de corrélation `X-Request-Id` fourni par le client, avant qu'il ne soit adopté comme `Context.requestId`. Le `requestId` finit (1) réfléchi dans la réponse (`X-Request-I…"
+    },
     "Cookie": {
       "name": "Cookie",
       "kind": "class",
@@ -14947,6 +14963,10 @@
       ],
       "SequelizeTransaction": [
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+      ],
+      "sanitizeRequestId": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "Csrf": [
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"

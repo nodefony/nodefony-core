@@ -7,24 +7,37 @@ import "mocha";
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 
-type Response = { status: number; headers: Record<string, unknown>; body: unknown };
+type Response = {
+  status: number;
+  headers: Record<string, unknown>;
+  body: unknown;
+};
 
 function get(
   path: string,
-  headers: Record<string, string> = {}
+  headers: Record<string, string> = {},
 ): Promise<Response> {
   return req("GET", path, headers);
 }
 
-function post(path: string, body = "", headers: Record<string, string> = {}): Promise<Response> {
-  return req("POST", path, { "Content-Length": String(Buffer.byteLength(body)), ...headers }, body);
+function post(
+  path: string,
+  body = "",
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  return req(
+    "POST",
+    path,
+    { "Content-Length": String(Buffer.byteLength(body)), ...headers },
+    body,
+  );
 }
 
 function req(
   method: string,
   path: string,
   headers: Record<string, string> = {},
-  body?: string
+  body?: string,
 ): Promise<Response> {
   return new Promise((resolve, reject) => {
     const request = https.request({ ...BASE, path, method, headers }, (res) => {
@@ -38,7 +51,11 @@ function req(
             body: JSON.parse(raw),
           });
         } catch {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: raw });
+          resolve({
+            status: res.statusCode!,
+            headers: res.headers as Record<string, unknown>,
+            body: raw,
+          });
         }
       });
     });
@@ -63,7 +80,9 @@ describe("HttpKernel — pipeline (requires server)", () => {
     });
 
     it("route with path param — GET /route/ele/dev/json/add", async () => {
-      const { status, body } = await get("/nodefony/test/route/ele/dev/json/add");
+      const { status, body } = await get(
+        "/nodefony/test/route/ele/dev/json/add",
+      );
       expect(status).to.equal(200);
       const b = body as Record<string, unknown>;
       expect(b).to.have.property("metier", "dev");
@@ -132,7 +151,7 @@ describe("HttpKernel — pipeline (requires server)", () => {
   describe("Parallel requests — no context leakage", () => {
     it("10 concurrent GET requests all return 200", async () => {
       const results = await Promise.all(
-        Array.from({ length: 10 }, () => get("/nodefony/test/index"))
+        Array.from({ length: 10 }, () => get("/nodefony/test/index")),
       );
       for (const r of results) {
         expect(r.status).to.equal(200);
@@ -157,7 +176,9 @@ describe("HttpKernel — pipeline (requires server)", () => {
 describe("HttpContext — properties (requires server)", () => {
   it("type is a non-empty string", async () => {
     const { body } = await get("/nodefony/test/context");
-    expect((body as Record<string, unknown>).type).to.be.a("string").with.length.greaterThan(0);
+    expect((body as Record<string, unknown>).type)
+      .to.be.a("string")
+      .with.length.greaterThan(0);
   });
 
   it("scheme is 'https' for HTTPS port", async () => {
@@ -177,7 +198,9 @@ describe("HttpContext — properties (requires server)", () => {
 
   it("host is 'localhost'", async () => {
     const { body } = await get("/nodefony/test/context");
-    expect(String((body as Record<string, unknown>).host)).to.include("localhost");
+    expect(String((body as Record<string, unknown>).host)).to.include(
+      "localhost",
+    );
   });
 
   it("remoteAddress is populated", async () => {
@@ -198,15 +221,15 @@ describe("HttpContext — properties (requires server)", () => {
   });
 
   it("context properties are independent across concurrent requests", async () => {
-    const results = await Promise.all(
-      [
-        get("/nodefony/test/context"),
-        post("/nodefony/test/context"),
-        get("/nodefony/test/context"),
-      ]
-    );
+    const results = await Promise.all([
+      get("/nodefony/test/context"),
+      post("/nodefony/test/context"),
+      get("/nodefony/test/context"),
+    ]);
     expect((results[0].body as Record<string, unknown>).method).to.equal("GET");
-    expect((results[1].body as Record<string, unknown>).method).to.equal("POST");
+    expect((results[1].body as Record<string, unknown>).method).to.equal(
+      "POST",
+    );
     expect((results[2].body as Record<string, unknown>).method).to.equal("GET");
   });
 });
@@ -214,11 +237,14 @@ describe("HttpContext — properties (requires server)", () => {
 // ── Request Tracing (requestId) ──────────────────────────────────
 
 describe("Request Tracing — X-Request-Id (requires server)", () => {
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   it("200 response includes X-Request-Id header", async () => {
     const { headers } = await get("/nodefony/test/index");
-    expect(headers["x-request-id"]).to.be.a("string").with.length.greaterThan(0);
+    expect(headers["x-request-id"])
+      .to.be.a("string")
+      .with.length.greaterThan(0);
   });
 
   it("X-Request-Id is a valid UUID v4", async () => {
@@ -236,25 +262,51 @@ describe("Request Tracing — X-Request-Id (requires server)", () => {
 
   it("incoming X-Request-Id is honored (correlation propagation)", async () => {
     const custom = "my-trace-abc-123";
-    const { headers } = await get("/nodefony/test/index", { "x-request-id": custom });
+    const { headers } = await get("/nodefony/test/index", {
+      "x-request-id": custom,
+    });
     expect(headers["x-request-id"]).to.equal(custom);
+  });
+
+  it("rejects an X-Request-Id with a space — falls back to server UUID (no reflection, no 500)", async () => {
+    const evil = "evil value";
+    const { status, headers } = await get("/nodefony/test/index", {
+      "x-request-id": evil,
+    });
+    expect(status).to.equal(200);
+    expect(headers["x-request-id"]).to.not.equal(evil);
+    expect(headers["x-request-id"]).to.match(UUID_RE);
+  });
+
+  it("rejects an oversized X-Request-Id (>128) — falls back to server UUID", async () => {
+    const tooLong = "a".repeat(200);
+    const { status, headers } = await get("/nodefony/test/index", {
+      "x-request-id": tooLong,
+    });
+    expect(status).to.equal(200);
+    expect(headers["x-request-id"]).to.not.equal(tooLong);
+    expect(headers["x-request-id"]).to.match(UUID_RE);
   });
 
   it("error response (500) also includes X-Request-Id", async () => {
     const { headers, status } = await get("/nodefony/test/crash/sync");
     expect(status).to.equal(500);
-    expect(headers["x-request-id"]).to.be.a("string").with.length.greaterThan(0);
+    expect(headers["x-request-id"])
+      .to.be.a("string")
+      .with.length.greaterThan(0);
   });
 
   it("404 response includes X-Request-Id", async () => {
     const { headers, status } = await get("/nodefony/test/this-does-not-exist");
     expect(status).to.equal(404);
-    expect(headers["x-request-id"]).to.be.a("string").with.length.greaterThan(0);
+    expect(headers["x-request-id"])
+      .to.be.a("string")
+      .with.length.greaterThan(0);
   });
 
   it("concurrent requests each get distinct X-Request-Id", async () => {
     const results = await Promise.all(
-      Array.from({ length: 5 }, () => get("/nodefony/test/index"))
+      Array.from({ length: 5 }, () => get("/nodefony/test/index")),
     );
     const ids = results.map((r) => r.headers["x-request-id"] as string);
     const unique = new Set(ids);
