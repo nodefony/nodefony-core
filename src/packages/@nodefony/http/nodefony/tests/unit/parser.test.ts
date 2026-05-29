@@ -1,6 +1,29 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import { acceptParser } from "../../src/context/http/parser.js";
+import { EventEmitter } from "node:events";
+import {
+  Parser,
+  ParserQs,
+  ParserXml,
+  acceptParser,
+} from "../../src/context/http/parser.js";
+import type HttpRequest from "../../src/context/http/Request.js";
+
+// Stub minimal d'une HttpRequest : le flux `request.request` est un EventEmitter
+// (le Parser y attache .on("data")), + les champs lus par les parsers concrets.
+function makeReq(): { req: HttpRequest; stream: EventEmitter } {
+  const stream = new EventEmitter();
+  const req = {
+    request: stream,
+    data: Buffer.alloc(0),
+    query: {},
+    queryPost: {},
+    queryStringOptions: {},
+    charset: "utf8",
+    context: { requestEnded: false },
+  } as unknown as HttpRequest;
+  return { req, stream };
+}
 
 // Négociation de contenu — parsing du header `Accept` (RFC 9110 §12.5.1).
 // acceptParser(str) → tableau d'entrées { type: RegExp, subtype: RegExp, q?, … }
@@ -56,5 +79,62 @@ describe("acceptParser — négociation de contenu (Accept header)", () => {
 
   it("throw si un type est vide (media-range manquant)", () => {
     expect(() => acceptParser(";q=1")).to.throw();
+  });
+});
+
+describe("Parser — accumulation des chunks de corps", () => {
+  it("concatène les chunks 'data' dans request.data", async () => {
+    const { req, stream } = makeReq();
+    const p = new Parser(req);
+    stream.emit("data", Buffer.from("hel"));
+    stream.emit("data", Buffer.from("lo"));
+    await p.parse();
+    expect(req.data.toString()).to.equal("hello");
+  });
+});
+
+describe("ParserQs — corps application/x-www-form-urlencoded", () => {
+  it("parse le corps urlencoded dans queryPost + fusionne dans query", async () => {
+    const { req, stream } = makeReq();
+    const p = new ParserQs(req);
+    stream.emit("data", Buffer.from("a=1&b=2"));
+    await p.parse();
+    expect(req.queryPost).to.deep.equal({ a: "1", b: "2" });
+    expect(req.query).to.deep.equal({ a: "1", b: "2" });
+    expect(req.context.requestEnded).to.equal(true);
+  });
+
+  it("supporte les structures imbriquées (qs)", async () => {
+    const { req, stream } = makeReq();
+    const p = new ParserQs(req);
+    stream.emit("data", Buffer.from("user[name]=bob&user[age]=3"));
+    await p.parse();
+    expect(req.queryPost).to.deep.equal({
+      user: { name: "bob", age: "3" },
+    });
+  });
+});
+
+describe("ParserXml — corps application/xml", () => {
+  it("parse le XML dans queryPost", async () => {
+    const { req, stream } = makeReq();
+    const p = new ParserXml(req);
+    stream.emit("data", Buffer.from("<root><a>1</a></root>"));
+    await p.parse();
+    expect(req.queryPost).to.have.property("root");
+    expect(req.context.requestEnded).to.equal(true);
+  });
+
+  it("rejette un XML malformé", async () => {
+    const { req, stream } = makeReq();
+    const p = new ParserXml(req);
+    stream.emit("data", Buffer.from("<root><a>1</root>"));
+    let threw = false;
+    try {
+      await p.parse();
+    } catch {
+      threw = true;
+    }
+    expect(threw).to.equal(true);
   });
 });
