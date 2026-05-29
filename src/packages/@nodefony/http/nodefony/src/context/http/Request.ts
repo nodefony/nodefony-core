@@ -1,20 +1,41 @@
 import http from "node:http";
 import http2 from "node:http2";
+import fs from "node:fs";
 import fsp from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { randomUUID, createHash } from "node:crypto";
 import HttpContext from "../http/HttpContext";
 import { URL } from "node:url";
 import { HTTPMethod, Cookies } from "../Context";
 import QS from "qs";
-//import Http2Request from "../http2/Request";
-import formidable, { IncomingForm } from "formidable";
-//import { Container } from "nodefony";
-import { ParserXml, ParserQs, Parser, acceptParser } from "./parser";
+import { Busboy } from "@fastify/busboy";
+import type { BusboyFileStream, BusboyHeaders } from "@fastify/busboy";
+import {
+  ParserXml,
+  ParserQs,
+  ParserJson,
+  Parser,
+  acceptParser,
+} from "./parser";
 import { UploadedFile } from "../../../service/upload/upload-service";
+import type {
+  IParsedUploadFile,
+  IUploadOptions,
+} from "../../../interfaces/IUpload";
 import { extend, Pci, Pdu, Message, Severity, Msgid } from "nodefony";
 import Session from "../../session/session";
 import { HttpError } from "@nodefony/http";
 
 const reg = /(.*)[\[][\]]$/u;
+
+// Sentinelle (singleton, 0 alloc/req) renvoyée quand le corps a été ENTIÈREMENT
+// consommé + onRequestEnd émis DANS parseRequest (multipart busboy en streaming,
+// ou JSON drainé+parsé). `initialize()` la voit comme « déjà traité » (n'est ni
+// ParserXml/Qs/Parser → branche default noop) → ne refait RIEN (pas de double
+// parse ni de double onRequestEnd).
+class BodyHandled {}
+const BODY_DONE = new BodyHandled();
 
 // Hoisted hors de getCharset() — évite de réallouer l'objet d'alias + la regex
 // à CHAQUE requête (getCharset tourne dans le ctor de Request, hot path).
@@ -58,11 +79,7 @@ declare module "http2" {
   }
 }
 
-type ParserType =
-  | ParserXml
-  | ParserQs
-  | Parser
-  | InstanceType<typeof IncomingForm>;
+type ParserType = ParserXml | ParserQs | Parser | BodyHandled;
 
 class HttpRequest {
   context: HttpContext;
@@ -89,7 +106,7 @@ class HttpRequest {
       })
     | undefined;
   charset: BufferEncoding = "utf8";
-  formidableOption: formidable.Options = {};
+  uploadOption: IUploadOptions = {};
   data: Buffer = Buffer.alloc(0);
   dataSize: number = 0;
   accept: ReturnType<typeof acceptParser> = [];
@@ -122,8 +139,7 @@ class HttpRequest {
     this.url = this.getUrl(this.sUrl);
     this.queryStringOptions =
       this.context?.httpKernel?.module.options.queryString || {};
-    this.formidableOption =
-      this.context?.httpKernel?.module.options.formidable || {};
+    this.uploadOption = this.context?.httpKernel?.module.options.upload || {};
     if (this.url.search) {
       this.url.query = QS.parse(
         this.url.search.slice(1),
@@ -223,119 +239,271 @@ class HttpRequest {
       case "application/x-www-form-urlencoded":
         this.parser = new ParserQs(this);
         return this.parser;
-      default:
+      case "multipart/form-data":
+        // SEUL le multipart passe par busboy (streaming → disque).
         return this.parseMultipart();
+      default:
+        // formidable parsait le JSON via son plugin `json` interne ; busboy ne
+        // gère QUE le multipart → on parse le JSON nous-mêmes (→ queryPost, lu
+        // par @Body). `*+json` (ex: application/vnd.api+json) inclus.
+        // AWAIT ici (comme l'ancien `await form.parse()`) : ParserJson draine le
+        // corps puis remplit queryPost AVANT que initialize ne résolve, donc
+        // avant que le controller ne lise @Body. On fire onRequestEnd ici et on
+        // renvoie la sentinelle → initialize ne re-parse pas.
+        if (
+          this.contentType === "application/json" ||
+          this.contentType?.endsWith("+json")
+        ) {
+          const jsonParser = new ParserJson(this);
+          this.parser = jsonParser;
+          await jsonParser.parse();
+          await this.context.fireAsync("onRequestEnd", this);
+          return BODY_DONE;
+        }
+        // text/plain, octet-stream, inconnu, ou sans corps : bufferise le brut
+        // dans request.data (le framework décidera) ; pas de queryPost.
+        this.parser = new Parser(this);
+        return this.parser;
     }
   }
 
   /**
-   * Parse un corps `multipart/form-data` via formidable, hydrate
-   * `queryPost`/`query`/`queryFile`, puis fire `onRequestEnd`.
+   * Parse un corps `multipart/form-data` via **busboy** (streaming pur).
    *
-   * Robustesse :
-   * - SEUL un échec de `formidable.parse()` (corps malformé, code 1003/1011)
-   *   bascule sur le `Parser` de secours ; une erreur survenant APRÈS (limite
-   *   `maxFileSize`, hook `onRequestEnd`) est propagée telle quelle.
-   * - En cas d'erreur après écriture, les fichiers temporaires déjà posés sur
-   *   disque par formidable sont supprimés (best-effort) → pas d'orphelins
-   *   (vecteur de saturation disque sur endpoint d'upload public).
+   * Contrairement à l'ancien chemin formidable, le corps brut n'est **jamais**
+   * bufferisé en RAM : busboy lit le flux, les fichiers sont écrits au fil de
+   * l'eau dans le répertoire temp (`UploadService.path`), seuls les champs
+   * texte (petits) restent en mémoire → fin de la double-bufferisation
+   * (`Parser.chunks` + parser de fichiers) qui doublait la RAM par upload.
    *
-   * @returns le parser formidable, ou le `Parser` de secours.
-   * @throws {HttpError} 413 si un fichier dépasse `maxFileSize`.
+   * Robustesse / sécurité :
+   * - `new Busboy()` lève **synchroniquement** si le Content-Type n'est pas un
+   *   multipart exploitable (boundary manquant, en-tête absent) → le flux n'a
+   *   pas encore été consommé → bascule sur le `Parser` de secours.
+   * - `limits.fileSize` borne CHAQUE fichier ; `maxTotalFileSize` borne le
+   *   CUMUL par requête (compteur Nodefony) ; `files`/`fields`/`parts` bornent
+   *   la quantité → 413. Toute erreur nettoie les temporaires déjà posés
+   *   (anti-orphelins / saturation disque sur endpoint d'upload public).
+   * - nom temp = `randomUUID()` + extension d'origine → jamais le nom client
+   *   dans le chemin (anti path-traversal).
+   *
+   * @returns la sentinelle `BODY_DONE` (corps déjà traité), ou le `Parser`
+   *   de secours quand le corps n'est pas un multipart.
+   * @throws {HttpError} 413 si une limite de taille/quantité est dépassée.
    */
   async parseMultipart(): Promise<ParserType> {
-    const parserInst = new Parser(this);
-    const opt: formidable.Options = extend(this.formidableOption, {
-      encoding: this.charset === "utf8" ? "utf-8" : this.charset,
-    });
-    const form = formidable(opt);
-    this.parser = form;
-
-    let fields: formidable.Fields;
-    let files: formidable.Files;
+    let bb: Busboy;
     try {
-      [fields, files] = await form.parse(this.request as http.IncomingMessage);
-    } catch (err) {
-      // Échec du parsing multipart lui-même → fallback simple parser.
-      const error = err as HttpError;
-      this.log(`${error.message} use Simple parser`, "WARNING");
-      switch (error.code) {
-        case 1003:
-        case 1011:
-          this.parser = parserInst;
-          return (await parserInst.parse()) as Parser;
-        default:
-          this.log(error, "ERROR");
-          error.code = error.httpCode;
-          throw err;
-      }
+      bb = new Busboy({
+        headers: this.request.headers as BusboyHeaders,
+        defCharset: this.uploadOption.encoding || "utf8",
+        limits: {
+          fileSize: this.uploadOption.maxFileSize,
+          files: this.uploadOption.maxFiles,
+          fields: this.uploadOption.maxFields,
+          fieldSize: this.uploadOption.maxFieldsSize,
+        },
+      });
+    } catch (e) {
+      // multipart sans boundary exploitable → parser de secours (flux non
+      // consommé par busboy). initialize() fera parse() + onRequestEnd.
+      this.log(`${(e as Error).message} : fallback simple parser`, "WARNING");
+      this.parser = new Parser(this);
+      return this.parser;
     }
 
-    // Parsing OK : les fichiers sont écrits sur disque. Toute erreur à partir
-    // d'ici doit nettoyer les temporaires avant de remonter.
-    try {
-      await parserInst.parse();
-      this.queryPost = fields;
-      this.query = extend({}, this.query, this.queryPost);
-      await this.processUploadedFiles(files, opt.maxFileSize);
-      this.context.requestEnded = true;
-      await this.context.fireAsync("onRequestEnd", this);
-      return form;
-    } catch (err) {
-      await this.cleanupTempFiles(files);
-      throw err;
+    const { fields, files } = await this.streamMultipart(bb);
+    this.queryPost = fields;
+    this.query = extend({}, this.query, this.queryPost);
+    for (const pf of files) {
+      await this.createFileUpload(pf.field, pf.file);
     }
+    this.context.requestEnded = true;
+    await this.context.fireAsync("onRequestEnd", this);
+    return BODY_DONE;
   }
 
   /**
-   * Hydrate `queryFile` depuis la map formidable. Le nom de champ `foo[]` est
-   * normalisé en `foo` (correctif : on passait l'index numérique `"0"/"1"`).
+   * Pilote busboy : pipe le flux requête, écrit chaque fichier dans un temp au
+   * fil de l'eau, accumule les champs texte. Résout `{ fields, files }` à
+   * `finish` (après flush de tous les writes), rejette — avec cleanup des temp
+   * déjà posés — à la moindre erreur ou dépassement de limite.
    */
-  private async processUploadedFiles(
-    files: formidable.Files | undefined,
-    maxSize?: number,
-  ): Promise<void> {
-    if (!files || !Object.keys(files).length) {
-      return;
-    }
-    for (const field in files) {
-      const ele = files[field];
-      if (!ele) {
-        continue;
-      }
-      const match = reg.exec(field);
-      const name = match ? match[1] : field;
-      const list = Array.isArray(ele) ? ele : [ele as formidable.File];
-      for (const file of list) {
-        await this.createFileUpload(name, file, maxSize);
-      }
-    }
+  private streamMultipart(bb: Busboy): Promise<{
+    fields: Record<string, unknown>;
+    files: { field: string; file: IParsedUploadFile }[];
+  }> {
+    const dir =
+      (this.context.uploadService?.path as string) ||
+      this.uploadOption.uploadDir ||
+      os.tmpdir();
+    const maxTotal = this.uploadOption.maxTotalFileSize;
+    const algo = this.uploadOption.hashAlgorithm || false;
+
+    return new Promise((resolve, reject) => {
+      const fields: Record<string, unknown> = {};
+      const files: { field: string; file: IParsedUploadFile }[] = [];
+      const pending: Promise<void>[] = [];
+      const tempPaths: string[] = [];
+      const openStreams = new Set<fs.WriteStream>();
+      let totalBytes = 0;
+      let aborted = false;
+
+      const abort = (err: Error): void => {
+        if (aborted) {
+          return;
+        }
+        aborted = true;
+        this.request.unpipe(bb);
+        this.request.resume(); // draine la source → libère le socket
+        for (const ws of openStreams) {
+          ws.destroy();
+        }
+        Promise.all(
+          tempPaths.map((p) => fsp.unlink(p).catch(() => undefined)),
+        ).finally(() => reject(err));
+      };
+
+      bb.on("field", (name: string, value: string) => {
+        if (aborted) {
+          return;
+        }
+        this.assignField(fields, name, value);
+      });
+
+      bb.on(
+        "file",
+        (
+          fieldname: string,
+          stream: BusboyFileStream,
+          filename: string,
+          _enc: string,
+          mimeType: string,
+        ) => {
+          if (aborted) {
+            stream.resume(); // discard obligatoire sinon 'finish' ne fire jamais
+            return;
+          }
+          const match = reg.exec(fieldname);
+          const field = match ? match[1] : fieldname;
+          const ext = filename ? path.extname(filename) : "";
+          const newFilename = `${randomUUID()}${ext}`;
+          const filepath = path.join(dir, newFilename);
+          tempPaths.push(filepath);
+          const hasher = algo ? createHash(algo) : null;
+          const ws = fs.createWriteStream(filepath);
+          openStreams.add(ws);
+          let size = 0;
+
+          stream.on("data", (chunk: Buffer) => {
+            size += chunk.length;
+            totalBytes += chunk.length;
+            hasher?.update(chunk);
+            if (maxTotal && totalBytes > maxTotal) {
+              abort(
+                new HttpError(
+                  `maxTotalFileSize exceeded (${maxTotal} bytes)`,
+                  413,
+                  this.context,
+                ),
+              );
+            }
+          });
+          // busboy a atteint limits.fileSize sur CE fichier.
+          stream.on("limit", () => {
+            abort(
+              new HttpError(
+                `maxFileSize exceeded for ${filename || field}`,
+                413,
+                this.context,
+              ),
+            );
+          });
+
+          const done = new Promise<void>((res, rej) => {
+            stream.on("error", rej);
+            ws.on("error", rej);
+            ws.on("close", () => {
+              openStreams.delete(ws);
+              if (aborted) {
+                return res();
+              }
+              files.push({
+                field,
+                file: {
+                  filepath,
+                  newFilename,
+                  originalFilename: filename || null,
+                  mimetype: mimeType || null,
+                  size,
+                  mtime: new Date(),
+                  hashAlgorithm: algo,
+                  hash: hasher ? hasher.digest("hex") : null,
+                },
+              });
+              res();
+            });
+          });
+          // .catch → abort (jamais de rejet pendant non-géré).
+          pending.push(
+            done.catch((e) =>
+              abort(e instanceof Error ? e : new Error(String(e))),
+            ),
+          );
+          stream.pipe(ws);
+        },
+      );
+
+      // Limites de QUANTITÉ (anti-DoS) → 413 plutôt qu'ignorer silencieusement.
+      bb.on("filesLimit", () =>
+        abort(new HttpError("too many files", 413, this.context)),
+      );
+      bb.on("fieldsLimit", () =>
+        abort(new HttpError("too many fields", 413, this.context)),
+      );
+      bb.on("partsLimit", () =>
+        abort(new HttpError("too many parts", 413, this.context)),
+      );
+      bb.on("error", (e: unknown) =>
+        abort(e instanceof Error ? e : new Error(String(e))),
+      );
+      bb.on("finish", () => {
+        if (aborted) {
+          return;
+        }
+        Promise.all(pending)
+          .then(() => {
+            if (!aborted) {
+              resolve({ fields, files });
+            }
+          })
+          .catch(abort);
+      });
+
+      this.request.pipe(bb);
+    });
   }
 
-  /** Supprime (best-effort) les fichiers temporaires posés par formidable. */
-  private async cleanupTempFiles(
-    files: formidable.Files | undefined,
-  ): Promise<void> {
-    if (!files) {
-      return;
-    }
-    for (const field in files) {
-      const ele = files[field];
-      if (!ele) {
-        continue;
+  /**
+   * Accumule un champ texte multipart. `foo[]` (ou répétition de `foo`) →
+   * tableau ; sinon valeur scalaire. (Anciennement délégué à formidable.)
+   */
+  private assignField(
+    fields: Record<string, unknown>,
+    name: string,
+    value: string,
+  ): void {
+    const match = reg.exec(name);
+    const key = match ? match[1] : name;
+    if (key in fields) {
+      const cur = fields[key];
+      if (Array.isArray(cur)) {
+        cur.push(value);
+      } else {
+        fields[key] = [cur, value];
       }
-      const list = Array.isArray(ele) ? ele : [ele as formidable.File];
-      for (const file of list) {
-        const fp = file?.filepath;
-        if (!fp) {
-          continue;
-        }
-        try {
-          await fsp.unlink(fp);
-        } catch {
-          /* déjà supprimé / inaccessible — best-effort */
-        }
-      }
+    } else {
+      fields[key] = match ? [value] : value;
     }
   }
 
@@ -376,30 +544,20 @@ class HttpRequest {
     }
   }
 
+  // La limite de taille par fichier (`maxFileSize`) et le cumul
+  // (`maxTotalFileSize`) sont désormais appliqués PENDANT le streaming busboy
+  // (events 'limit' / compteur cumulé) → plus de check post-hoc ici.
   async createFileUpload(
     name: string,
-    file?: formidable.File,
-    maxSize?: number,
+    file: IParsedUploadFile,
   ): Promise<UploadedFile | undefined> {
-    if (file && maxSize && file.size > maxSize) {
-      throw new HttpError(
-        `maxFileSize exceeded, received ${file.size} bytes of file data for : ${
-          file.originalFilename || name || file.newFilename
-        }`,
-        413,
-        this.context,
-      );
-    }
     const fileUpload = await this.context.uploadService?.createUploadFile(
-      file as formidable.File,
+      file,
       name,
     );
-    /*const index =*/
     if (fileUpload) {
       this.queryFile.push(fileUpload);
     }
-
-    //this.queryFile[fileUpload.filename] = this.queryFile[index - 1];
     return fileUpload;
   }
 

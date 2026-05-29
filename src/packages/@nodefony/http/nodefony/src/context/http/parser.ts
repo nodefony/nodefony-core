@@ -24,8 +24,37 @@ class Parser {
     return buffer;
   }
 
+  /**
+   * Résout quand le flux requête est **entièrement reçu** (`end`). No-op si déjà
+   * terminé (corps vide / déjà drainé) → pas de hang d'un `once("end")` tardif.
+   * Indispensable avant de concaténer les chunks pour un corps à décoder
+   * (JSON…) : sinon on lit un buffer encore incomplet. (formidable drainait via
+   * son `await form.parse()` ; ses remplaçants doivent drainer explicitement.)
+   */
+  protected ended(): Promise<void> {
+    const req = this.request.request as {
+      readableEnded?: boolean;
+      complete?: boolean;
+      once(ev: string, cb: (...args: unknown[]) => void): unknown;
+    };
+    return new Promise((resolve, reject) => {
+      if (req.readableEnded || req.complete) {
+        return resolve();
+      }
+      req.once("end", () => resolve());
+      req.once("error", (e: unknown) =>
+        reject(e instanceof Error ? e : new Error(String(e))),
+      );
+    });
+  }
+
   async parse() {
     this.request.data = Buffer.concat(this.chunks);
+    // Corps reçu : signale la fin de réception (comme ParserQs/Xml/Json). Gate
+    // le démarrage synchrone de session (Controller.startSession) — sans ça, un
+    // corps passant par le Parser brut (ex: DELETE sans Content-Type) laissait
+    // requestEnded=false → session en auto-start différé → getSession() null.
+    this.request.context.requestEnded = true;
     return this;
   }
 }
@@ -89,6 +118,43 @@ class ParserXml extends Parser {
         },
       );
     });
+  }
+}
+
+/**
+ * Parse un corps `application/json` (ou `*+json`) en objet → `queryPost`
+ * (source lue par le décorateur `@Body`). Reprend le rôle de l'ancien plugin
+ * `json` de formidable, supprimé avec le passage à busboy (multipart seul).
+ * Lenient : un corps JSON malformé est ignoré (pas de throw — `parse()` est
+ * invoqué non-awaité par `initialize`, un rejet serait non géré) ; le brut
+ * reste disponible dans `request.data`.
+ */
+class ParserJson extends Parser {
+  charset: BufferEncoding = "utf8";
+  constructor(request: HttpRequest | Http2Request) {
+    super(request);
+    // Honore le charset de la requête (cf ParserQs/ParserXml).
+    this.charset = this.request.charset;
+  }
+
+  override async parse() {
+    await this.ended(); // attend le corps complet AVANT de concaténer/parser
+    await super.parse();
+    const text = this.request.data.toString(this.charset).trim();
+    if (text) {
+      try {
+        this.request.queryPost = JSON.parse(text) as Record<string, unknown>;
+        this.request.query = extend(
+          {},
+          this.request.query,
+          this.request.queryPost,
+        );
+      } catch {
+        /* JSON malformé : ignoré (brut conservé dans request.data) */
+      }
+    }
+    this.request.context.requestEnded = true;
+    return this;
   }
 }
 
@@ -204,4 +270,4 @@ const acceptParser = function (
   }
 };
 
-export { Parser, ParserXml, ParserQs, acceptParser };
+export { Parser, ParserXml, ParserQs, ParserJson, acceptParser };

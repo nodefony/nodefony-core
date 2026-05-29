@@ -1,12 +1,12 @@
 {
-  "generated": "2026-05-29T18:32:14.907Z",
+  "generated": "2026-05-29T19:36:47.773Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 776,
-    "symbols": 1448,
-    "classes": 228,
-    "interfaces": 352,
+    "symbols": 1452,
+    "classes": 230,
+    "interfaces": 354,
     "types": 182,
     "enums": 2,
     "functions": 227,
@@ -4273,6 +4273,24 @@
       "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
       "exported": true,
       "module": "@nodefony/http"
+    },
+    "IParsedUploadFile": {
+      "name": "IParsedUploadFile",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IUpload.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Forme neutre d'un fichier multipart parsé (temp écrit sur disque), découplée du parser sous-jacent. Remplace l'ex-couplage à `formidable.File` : le moteur de parsing (busboy) n'apparaît plus dans l…"
+    },
+    "IUploadOptions": {
+      "name": "IUploadOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IUpload.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Options du sous-système d'upload (clé de config `upload`). Mappées sur les `limits` de busboy + la gestion temp/hash propre à Nodefony."
     },
     "IUploadedFile": {
       "name": "IUploadedFile",
@@ -10479,6 +10497,17 @@
       "implements": [],
       "decorators": []
     },
+    "ParserJson": {
+      "name": "ParserJson",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Parser",
+      "implements": [],
+      "decorators": [],
+      "description": "Parse un corps `application/json` (ou `*+json`) en objet → `queryPost` (source lue par le décorateur `@Body`). Reprend le rôle de l'ancien plugin `json` de formidable, supprimé avec le passage à bu…"
+    },
     "HttpRequest": {
       "name": "HttpRequest",
       "kind": "class",
@@ -10846,7 +10875,8 @@
       ],
       "Parser": [
         "ParserQs",
-        "ParserXml"
+        "ParserXml",
+        "ParserJson"
       ],
       "HttpRequest": [
         "Http2Request"
@@ -14834,6 +14864,10 @@
       "FileSessionStorage": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
+      "IParsedUploadFile": [
+        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
       "KernelEventsType": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
@@ -15026,10 +15060,16 @@
       "ParserQs": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
+      "ParserJson": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
       "Parser": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "UploadedFile": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "IUploadOptions": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "responseTimeoutType": [

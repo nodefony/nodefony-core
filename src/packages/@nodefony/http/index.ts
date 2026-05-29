@@ -168,7 +168,12 @@ export type {
   IWebsocketResponse,
 } from "./nodefony/interfaces/IResponse";
 export type { IHttpKernel } from "./nodefony/interfaces/IHttpKernel";
-export type { IUploadedFile, IUploadService } from "./nodefony/interfaces/IUpload";
+export type {
+  IUploadedFile,
+  IUploadService,
+  IParsedUploadFile,
+  IUploadOptions,
+} from "./nodefony/interfaces/IUpload";
 export type {
   IErrorRenderer,
   IErrorHttpResult,

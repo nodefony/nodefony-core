@@ -25,7 +25,7 @@ const external: string[] = [
   "@nodefony/framework",
   "cli-color",
   "cookie",
-  "formidable",
+  "@fastify/busboy",
   "bluebird",
   "memcached",
   "mime",

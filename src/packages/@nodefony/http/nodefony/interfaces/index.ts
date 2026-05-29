@@ -18,6 +18,8 @@ export type {
 export type {
   IUploadedFile,
   IUploadService,
+  IParsedUploadFile,
+  IUploadOptions,
 } from "./IUpload";
 
 export type {
@@ -28,11 +30,7 @@ export type {
   HTTPMethodType,
 } from "./IRequest";
 
-export type {
-  IResponse,
-  IHttpResponse,
-  IWebsocketResponse,
-} from "./IResponse";
+export type { IResponse, IHttpResponse, IWebsocketResponse } from "./IResponse";
 
 export type {
   IContext,

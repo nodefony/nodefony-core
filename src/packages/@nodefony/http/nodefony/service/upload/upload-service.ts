@@ -15,7 +15,7 @@ import HttpKernel from "../http-kernel";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import formidable from "formidable";
+import type { IParsedUploadFile } from "../../interfaces/IUpload";
 
 /** Test d'existence non bloquant (`fsp.access`) — remplace `existsSync`. */
 const existsAsync = async (p: string): Promise<boolean> => {
@@ -42,12 +42,12 @@ export class upload extends Service {
     this.module = module;
     this.kernel?.once("onBoot", async () => {
       this.options = this.httpKernel.options;
-      const abs = path.isAbsolute(this.options.formidable.uploadDir);
+      const abs = path.isAbsolute(this.options.upload.uploadDir);
       if (abs) {
-        this.path = this.options.formidable.uploadDir;
+        this.path = this.options.upload.uploadDir;
       } else {
         this.path = path.resolve(
-          `${this.kernel?.path}/${this.options.formidable.uploadDir}`,
+          `${this.kernel?.path}/${this.options.upload.uploadDir}`,
         );
       }
       // mkdir recursive idempotent (async, non bloquant) — plus de existsSync
@@ -56,22 +56,23 @@ export class upload extends Service {
         await fsp.mkdir(this.path as string, { recursive: true });
       } catch (e) {
         this.path = "/tmp";
-        this.options.formidable.uploadDir = this.path;
+        this.options.upload.uploadDir = this.path;
         this.log(e, "DEBUG");
       }
     });
   }
 
   /**
-   * Construit un `UploadedFile` à partir d'un fichier formidable — **async, non
-   * bloquant** (stat via `fsp.lstat`, plus de `lstatSync` par fichier uploadé).
+   * Construit un `UploadedFile` à partir d'un fichier multipart parsé —
+   * **async, non bloquant** (stat via `fsp.lstat`, plus de `lstatSync` par
+   * fichier uploadé).
    *
-   * @param file - fichier parsé par formidable.
+   * @param file - fichier parsé (forme neutre `IParsedUploadFile`, busboy).
    * @param name - nom de champ (fallback si pas de `originalFilename`).
    * @returns le `UploadedFile` hydraté.
    */
   async createUploadFile(
-    file: formidable.File,
+    file: IParsedUploadFile,
     name: string,
   ): Promise<UploadedFile> {
     return UploadedFile.create(file, name);
@@ -93,7 +94,7 @@ export class upload extends Service {
 }
 
 class UploadedFile extends FileClass {
-  fomiFile: formidable.File;
+  parsedFile: IParsedUploadFile;
   size: number;
   prettySize: string;
   filename: string;
@@ -101,55 +102,57 @@ class UploadedFile extends FileClass {
   hashAlgorithm: false | "sha1" | "md5" | "sha256";
   hash: string | null | undefined;
   constructor(
-    fomiFile: formidable.File,
+    parsedFile: IParsedUploadFile,
     name: string,
     options?: { defer?: boolean },
   ) {
-    super(fomiFile.filepath, options);
-    this.fomiFile = fomiFile;
+    super(parsedFile.filepath, options);
+    this.parsedFile = parsedFile;
     this.size = this.getSize();
     this.prettySize = this.getPrettySize();
     this.filename = this.realName(name);
     this.mimeType = this.getMimeType();
-    this.lastModifiedDate = this.fomiFile.mtime;
-    this.hashAlgorithm = this.fomiFile.hashAlgorithm;
-    this.hash = this.fomiFile.hash;
+    this.lastModifiedDate = this.parsedFile.mtime;
+    this.hashAlgorithm = this.parsedFile.hashAlgorithm;
+    this.hash = this.parsedFile.hash;
   }
 
   /**
    * Construit un `UploadedFile` SANS `lstatSync` bloquant — stat résolu en async
    * (`FileClass.stat`). À utiliser dans le pipeline d'upload (per-request).
    *
-   * @param fomiFile - fichier parsé par formidable.
+   * @param parsedFile - fichier multipart parsé (forme neutre busboy).
    * @param name - nom de champ (fallback de nom).
    * @returns le `UploadedFile` hydraté (stats async).
    * @remarks Nommée `create` (pas `from`) pour ne pas entrer en conflit avec la
    *   signature statique de `FileClass.from(path)` (TS2417).
    */
   static async create(
-    fomiFile: formidable.File,
+    parsedFile: IParsedUploadFile,
     name: string,
   ): Promise<UploadedFile> {
-    const file = new UploadedFile(fomiFile, name, { defer: true });
+    const file = new UploadedFile(parsedFile, name, { defer: true });
     await file.stat();
     return file;
   }
 
   getSize() {
-    return this.fomiFile.size;
+    return this.parsedFile.size;
   }
 
   getPrettySize() {
-    return Cli.niceBytes(this.fomiFile.size);
+    return Cli.niceBytes(this.parsedFile.size);
   }
 
   realName(name?: string) {
-    return this.fomiFile.originalFilename || name || this.fomiFile.newFilename;
+    return (
+      this.parsedFile.originalFilename || name || this.parsedFile.newFilename
+    );
   }
 
   override getMimeType() {
-    if (this.fomiFile) {
-      return this.fomiFile.mimetype || super.getMimeType(this.filename);
+    if (this.parsedFile) {
+      return this.parsedFile.mimetype || super.getMimeType(this.filename);
     }
     return super.getMimeType();
   }

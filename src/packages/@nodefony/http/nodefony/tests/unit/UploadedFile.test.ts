@@ -4,18 +4,18 @@ import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
-import type formidable from "formidable";
+import type { IParsedUploadFile } from "../../interfaces/IUpload.js";
 import { UploadedFile } from "../../service/upload/upload-service.js";
 
 /**
- * Construit un faux fichier formidable pointant vers un vrai fichier temporaire
- * (pour que `stat()` fonctionne). `size`/`mimetype`/`hash` proviennent de
- * formidable (pas du disque) — comme en prod.
+ * Construit un faux fichier parsé pointant vers un vrai fichier temporaire
+ * (pour que `stat()` fonctionne). `size`/`mimetype`/`hash` proviennent du
+ * parser (pas du disque) — comme en prod (busboy).
  */
-function fakeFormidable(
+function fakeParsed(
   filepath: string,
-  opts: Partial<formidable.File> = {},
-): formidable.File {
+  opts: Partial<IParsedUploadFile> = {},
+): IParsedUploadFile {
   return {
     filepath,
     newFilename: path.basename(filepath),
@@ -25,7 +25,7 @@ function fakeFormidable(
     mtime: opts.mtime ?? new Date(),
     hashAlgorithm: false,
     hash: opts.hash ?? null,
-  } as unknown as formidable.File;
+  };
 }
 
 describe("UploadedFile — unit (async, non bloquant)", () => {
@@ -49,7 +49,7 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
     it("hydrate l'instance sans lstatSync bloquant", async () => {
       const src = await mkTmp("hello");
       const f = await UploadedFile.create(
-        fakeFormidable(src, { originalFilename: "photo.png", size: 5 }),
+        fakeParsed(src, { originalFilename: "photo.png", size: 5 }),
         "field",
       );
       expect(f).to.be.instanceOf(UploadedFile);
@@ -60,10 +60,10 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
       expect(f.prettySize).to.be.a("string");
     });
 
-    it("mimeType : priorité au type détecté par formidable", async () => {
+    it("mimeType : priorité au type détecté par le parser (busboy)", async () => {
       const src = await mkTmp("x");
       const f = await UploadedFile.create(
-        fakeFormidable(src, { mimetype: "image/jpeg", size: 1 }),
+        fakeParsed(src, { mimetype: "image/jpeg", size: 1 }),
         "field",
       );
       expect(f.mimeType).to.equal("image/jpeg");
@@ -72,7 +72,7 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
     it("realName : fallback sur le nom de champ puis newFilename", async () => {
       const src = await mkTmp("x");
       const f = await UploadedFile.create(
-        fakeFormidable(src, { originalFilename: "", size: 1 }),
+        fakeParsed(src, { originalFilename: "", size: 1 }),
         "champ",
       );
       expect(f.filename).to.equal("champ");
@@ -84,7 +84,7 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
       const src = await mkTmp("payload");
       const dst = path.join(os.tmpdir(), `nf-moved-${Date.now()}.txt`);
       tmp.push(dst);
-      const f = await UploadedFile.create(fakeFormidable(src), "field");
+      const f = await UploadedFile.create(fakeParsed(src), "field");
       const moved = await f.moveAsync(dst);
       expect(moved.path).to.equal(fs.realpathSync(dst));
       expect(await fsp.readFile(dst, "utf8")).to.equal("payload");
@@ -95,7 +95,7 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
       const src = await mkTmp("data");
       const dir = await fsp.mkdtemp(path.join(os.tmpdir(), "nf-updir-"));
       const f = await UploadedFile.create(
-        fakeFormidable(src, { originalFilename: "doc.bin" }),
+        fakeParsed(src, { originalFilename: "doc.bin" }),
         "field",
       );
       const moved = await f.moveAsync(dir);
@@ -107,7 +107,7 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
 
     it("rejette si le dossier cible n'existe pas (pas de throw sync)", async () => {
       const src = await mkTmp("x");
-      const f = await UploadedFile.create(fakeFormidable(src), "field");
+      const f = await UploadedFile.create(fakeParsed(src), "field");
       let rejected = false;
       try {
         await f.moveAsync("/no/such/dir/xyz/file.txt");
@@ -123,7 +123,7 @@ describe("UploadedFile — unit (async, non bloquant)", () => {
       const src = await mkTmp("legacy");
       const dst = path.join(os.tmpdir(), `nf-syncmoved-${Date.now()}.txt`);
       tmp.push(dst);
-      const f = await UploadedFile.create(fakeFormidable(src), "field");
+      const f = await UploadedFile.create(fakeParsed(src), "field");
       const moved = f.move(dst);
       expect(moved.path).to.equal(fs.realpathSync(dst));
       expect(fs.readFileSync(dst, "utf8")).to.equal("legacy");

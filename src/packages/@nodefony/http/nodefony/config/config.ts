@@ -99,45 +99,51 @@ export default {
   },
 
   /**
-   * PARSEUR DE FORMULAIRES ET UPLOADS — formidable
-   * @see https://github.com/felixge/node-formidable
+   * SOUS-SYSTÈME D'UPLOAD — busboy (streaming pur)
+   * @see https://github.com/fastify/busboy
    *
-   * Utilisé pour parser les corps multipart/form-data et application/x-www-form-urlencoded.
+   * Parse les corps `multipart/form-data` EN STREAMING : les fichiers sont
+   * écrits au fil de l'eau dans `uploadDir`, seuls les champs texte restent en
+   * mémoire. Le corps brut n'est jamais bufferisé en RAM (≠ ancien formidable).
    * Toutes ces valeurs peuvent être surchargées par le module app.
    */
-  formidable: {
+  upload: {
     /** Répertoire temporaire de dépôt des fichiers uploadés. */
     uploadDir: tmpDir,
 
     /**
-     * Taille maximale d'un fichier uploadé en octets.
-     * 524288000 = 500 MB. Réduire en production selon les besoins.
+     * Taille maximale d'UN fichier uploadé en octets (busboy `limits.fileSize`).
+     * 524288000 = 500 MB. Dépassement → 413. Réduire en production.
      */
     maxFileSize: 524288000,
 
     /**
      * Taille maximale CUMULÉE de tous les fichiers d'une même requête (octets).
      * Borne le volume écrit sur disque temporaire par requête → protège contre
-     * la saturation disque (avec `multiples: true`, plusieurs fichiers sont
-     * cumulables). Explicite ici (défaut formidable = `maxFileSize`) pour rendre
-     * l'intention de cap disque visible. 524288000 = 500 MB / requête.
+     * la saturation disque. Appliquée par Nodefony (busboy n'a pas de cumul
+     * natif). Dépassement → 413. 524288000 = 500 MB / requête.
      */
     maxTotalFileSize: 524288000,
 
-    /** Autoriser plusieurs fichiers dans un même formulaire. */
-    multiples: true,
+    /** Nombre maximal de fichiers par requête (busboy `limits.files`) — anti-DoS. */
+    maxFiles: 1000,
+
+    /** Nombre maximal de champs texte (busboy `limits.fields`) — anti-abus. */
+    maxFields: 1000,
 
     /**
-     * Taille maximale cumulée de tous les champs texte (hors fichiers).
-     * 2097152 = 2 MB. Un corps > cette limite → erreur (actuellement mappée en 500,
-     * futur: 413 Payload Too Large).
+     * Taille maximale d'UN champ texte en octets (busboy `limits.fieldSize`).
+     * 2097152 = 2 MB. Dépassement → champ tronqué / 413.
      */
     maxFieldsSize: 2097152,
 
-    /** Nombre maximal de champs dans un formulaire (protection contre les abus). */
-    maxFields: 1000,
+    /**
+     * Algorithme de hash calculé pendant le stream du fichier (intégrité).
+     * `false` = aucun (défaut, 0 coût CPU). Sinon "sha256" | "sha1" | "md5".
+     */
+    hashAlgorithm: false,
 
-    /** Encodage des champs texte. */
+    /** Encodage par défaut des champs texte (busboy `defCharset`). */
     encoding: "utf-8",
   },
 
