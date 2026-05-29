@@ -1,3 +1,7 @@
+// `any` ASSUMÉ ici (pas une dette à purger) : les types de mixin TS
+// (`new (...args: any[]) => X`) et les constructeurs `class extends ctor`
+// EXIGENT `...args: any[]` — `unknown[]` déclenche TS2545 (« A mixin class must
+// have a constructor with a single rest parameter of type 'any[]' »).
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import "reflect-metadata";
 import Module from "../Module";

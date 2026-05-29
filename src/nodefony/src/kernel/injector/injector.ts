@@ -1,9 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import "reflect-metadata";
 import Service from "../../Service";
 import Container from "../../Container";
 import Event from "../../Event";
-import Kernel, { ServiceConstructor, ServiceWithInitialize } from "../Kernel";
+import Kernel, { ServiceConstructor } from "../Kernel";
 import { Nodefony } from "../../Nodefony";
 import Fetch from "../../service/fetchService";
 
@@ -61,26 +60,26 @@ class Injector extends Service {
     return service;
   }
 
-  static inject(
+  static inject<T extends Service = Service>(
     service: ServiceConstructor,
-    ...args: any[]
-  ): Service | ServiceWithInitialize | any {
-    return Injector.instantiate(service, ...args);
+    ...args: unknown[]
+  ): T {
+    return Injector.instantiate<T>(service, ...args);
   }
 
-  instantiate(
+  instantiate<T extends Service = Service>(
     constructor: ServiceConstructor,
-    ...args: any[]
-  ): Service | ServiceWithInitialize | any {
-    return Injector.instantiate(constructor, ...args);
+    ...args: unknown[]
+  ): T {
+    return Injector.instantiate<T>(constructor, ...args);
   }
 
   // ─── API publique ─────────────────────────────────────────────────────────────
-  static instantiate(
+  static instantiate<T extends Service = Service>(
     constructor: ServiceConstructor,
-    ...argsClass: any[]
-  ): Service | ServiceWithInitialize | any {
-    return Injector._instantiateWithStack(constructor, [], argsClass);
+    ...argsClass: unknown[]
+  ): T {
+    return Injector._instantiateWithStack(constructor, [], argsClass) as T;
   }
 
   // ─── Résolution par nom avec stack circulaire ─────────────────────────────────
@@ -93,9 +92,9 @@ class Injector extends Service {
   //   3. Sinon → throw
   private static _resolveWithStack(
     serviceName: string,
-    argsClass: any[],
+    argsClass: unknown[],
     stack: string[],
-  ): any {
+  ): unknown {
     if (Injector.isRegistered(serviceName)) {
       const Ctor = Injector.get(serviceName);
       const scope: DIScope =
@@ -157,8 +156,8 @@ class Injector extends Service {
   private static _instantiateWithStack(
     constructor: ServiceConstructor,
     stack: string[],
-    argsClass: any[],
-  ): any {
+    argsClass: unknown[],
+  ): Service {
     const ctorName = constructor.name;
 
     // ── Détection circulaire ────────────────────────────────────────────────────
@@ -179,11 +178,15 @@ class Injector extends Service {
 
     if (!hasInjectInfo) {
       const instance = Reflect.construct(constructor, argsClass);
-      return Injector._applyPropertyInjection(constructor, instance, nextStack);
+      return Injector._applyPropertyInjection(
+        constructor,
+        instance,
+        nextStack,
+      ) as Service;
     }
 
     const totalParams = Math.max(paramTypes.length, injectExplicit.length);
-    const resolvedArgs: any[] = [];
+    const resolvedArgs: unknown[] = [];
     let explicitIdx = 0;
 
     for (let i = 0; i < totalParams; i++) {
@@ -212,17 +215,22 @@ class Injector extends Service {
     }
 
     const instance = Reflect.construct(constructor, resolvedArgs);
-    return Injector._applyPropertyInjection(constructor, instance, nextStack);
+    return Injector._applyPropertyInjection(
+      constructor,
+      instance,
+      nextStack,
+    ) as Service;
   }
 
-  reflect(
+  reflect<T extends Service = Service>(
     constructor: ServiceConstructor,
-    ...args: any[]
-  ): Service | ServiceWithInitialize | any {
+    ...args: unknown[]
+  ): T {
     try {
-      return Reflect.construct(constructor, args);
-    } catch (e: any) {
-      this.log(`ERROR SERVICE CLASS ${this.name} ${e.message}`, "ERROR");
+      return Reflect.construct(constructor, args) as T;
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      this.log(`ERROR SERVICE CLASS ${this.name} ${message}`, "ERROR");
       throw e;
     }
   }

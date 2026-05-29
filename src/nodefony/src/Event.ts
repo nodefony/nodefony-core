@@ -1,16 +1,30 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { EventEmitter } from "node:events";
 
+/**
+ * Listener générique — args et retour non contraints. Volontairement basé sur
+ * `unknown` (pas `any`) : reste assignable aux signatures `EventEmitter`
+ * (`(...args: any[]) => void`) tout en forçant le narrowing côté appelant.
+ */
+type Listener = (...args: unknown[]) => unknown;
+
 interface EventDefaultInterface {
+  // Sac de config plat hérité (chaque Service étend ce contrat via
+  // DefaultOptionsService) : les clés `onXxx` sont des listeners, le reste est
+  // de la config arbitraire. `any` assumé ici — passer à `unknown` forcerait un
+  // cast sur chaque lecture `options[k]` dans TOUS les modules consommateurs.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
 interface EventOptionInterface {
   nbListeners?: number;
+  // cf EventDefaultInterface — sac de config arbitraire assumé `any`.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
-type ContextType = any;
+/** `this` bindé sur les listeners auto-enregistrés (non contraint). */
+type ContextType = unknown;
 
 const regListenOn = /^on(.*)$/;
 const defaultNbListeners = 20;
@@ -140,10 +154,10 @@ class Event extends EventEmitter {
         continue;
       }
       if (context) {
-        this.listen(context, res[0], localSettings[i]);
+        this.listen(context, res[0], localSettings[i] as Listener);
         continue;
       }
-      this.on(res[0], localSettings[i]);
+      this.on(res[0], localSettings[i] as Listener);
     }
   }
 
@@ -157,19 +171,19 @@ class Event extends EventEmitter {
   listen(
     context: ContextType,
     eventName: string | symbol,
-    listener: (...args: any[]) => void,
-  ): (...args: any[]) => boolean {
+    listener: Listener,
+  ): (...args: unknown[]) => boolean {
     if (typeof listener === "function") {
       this.addListener(eventName, listener.bind(context));
     }
-    return (...args: any[]): boolean => {
+    return (...args: unknown[]): boolean => {
       args.unshift(eventName);
       return this.emit(eventName, ...args);
     };
   }
 
   /** Alias `emit` — émission synchrone (API EventEmitter standard). */
-  fire(eventName: string | symbol, ...args: any[]): boolean {
+  fire(eventName: string | symbol, ...args: unknown[]): boolean {
     return super.emit(eventName, ...args);
   }
 
@@ -185,8 +199,8 @@ class Event extends EventEmitter {
    */
   async emitAsync(
     eventName: string | symbol,
-    ...args: any[]
-  ): Promise<false | any[]> {
+    ...args: unknown[]
+  ): Promise<false | unknown[]> {
     // `listenerCount` ne fait AUCUNE allocation, là où `rawListeners` COPIE le
     // tableau interne à chaque appel. Dans le hot path HTTP/WS, la plupart des
     // phases (`onCreateContext`, `beforeResolve`, `afterAuth`, `onFinish`…) n'ont
@@ -195,13 +209,13 @@ class Event extends EventEmitter {
       return false;
     }
     const handlers = this.rawListeners(eventName);
-    const result: any[] = [];
+    const result: unknown[] = [];
     for (const handler of handlers) {
       // N'`await` que si le listener retourne réellement un thenable : un hook
       // SYNCHRONE (cas fréquent des contextes) ne paie alors aucune microtask.
       // Ordre séquentiel préservé (un thenable est attendu avant le suivant).
       // `typeof .then` inline — pas d'import (Event est isomorphe client/serveur).
-      const r = Reflect.apply(handler as (...a: any[]) => any, this, args);
+      const r: unknown = Reflect.apply(handler as Listener, this, args);
       result.push(
         r != null && typeof (r as { then?: unknown }).then === "function"
           ? await r
@@ -214,8 +228,8 @@ class Event extends EventEmitter {
   /** Alias `emitAsync`. */
   async fireAsync(
     eventName: string | symbol,
-    ...args: any[]
-  ): Promise<false | any[]> {
+    ...args: unknown[]
+  ): Promise<false | unknown[]> {
     return this.emitAsync(eventName, ...args);
   }
 
@@ -243,7 +257,7 @@ class Event extends EventEmitter {
   async emitAsyncGuarded(
     eventName: string | symbol,
     options: IGuardedEmitOptions = {},
-    ...args: any[]
+    ...args: unknown[]
   ): Promise<IGuardedEmitResult> {
     const results: unknown[] = [];
     const errors: IGuardedEmitError[] = [];
@@ -255,7 +269,7 @@ class Event extends EventEmitter {
     const warnMs = options.warnMs ?? 0;
     const measure = warnMs > 0;
     for (let index = 0; index < handlers.length; index += 1) {
-      const handler = handlers[index] as (...a: any[]) => unknown;
+      const handler = handlers[index] as Listener;
       const startedAt = measure ? Date.now() : 0;
       let timedOut = false;
       try {

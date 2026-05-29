@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-29T12:25:42.438Z",
+  "generated": "2026-05-29T14:09:27.429Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 776,
-    "symbols": 1444,
+    "symbols": 1445,
     "classes": 231,
     "interfaces": 351,
-    "types": 181,
+    "types": 182,
     "enums": 2,
     "functions": 223,
     "constants": 456
@@ -12300,8 +12300,7 @@
         "src/nodefony/src/kernel/injector/injector.ts"
       ],
       "ServiceWithInitialize": [
-        "src/nodefony/src/kernel/Module.ts",
-        "src/nodefony/src/kernel/injector/injector.ts"
+        "src/nodefony/src/kernel/Module.ts"
       ],
       "EntityConstructor": [
         "src/nodefony/src/kernel/Module.ts"

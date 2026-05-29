@@ -132,7 +132,7 @@ class Resolver extends Service implements IResolver {
 
   async newController(context?: ContextType): Promise<Controller> {
     if (this.controller) {
-      const controller = this.injector?.instantiate(
+      const controller = this.injector?.instantiate<Controller>(
         this.controller,
         context || this.context,
       );
