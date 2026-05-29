@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-29T23:22:01.212Z",
+  "generated": "2026-05-29T23:56:16.775Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 782,
-    "symbols": 1470,
+    "symbols": 1474,
     "classes": 231,
     "interfaces": 357,
-    "types": 187,
+    "types": 185,
     "enums": 2,
-    "functions": 235,
-    "constants": 458
+    "functions": 239,
+    "constants": 460
   },
   "symbols": {
     "Cli": {
@@ -3325,6 +3325,14 @@
       "exported": true,
       "module": "@nodefony/framework"
     },
+    "Domain": {
+      "name": "Domain",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Restreint une route (décorateur de **méthode**) ou tout un contrôleur (décorateur de **classe**) à un ou plusieurs vhosts. Source de vérité du domaine de routing — le `host` posé ici alimente `Rout…"
+    },
     "resolveParamArg": {
       "name": "resolveParamArg",
       "kind": "function",
@@ -3364,6 +3372,20 @@
     },
     "PARAM_ARGS_METADATA": {
       "name": "PARAM_ARGS_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "DOMAIN_CLASS_METADATA": {
+      "name": "DOMAIN_CLASS_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "DOMAIN_METHOD_METADATA": {
+      "name": "DOMAIN_METHOD_METADATA",
       "kind": "const",
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
@@ -9838,21 +9860,45 @@
       "exported": true,
       "module": "@nodefony/http"
     },
-    "DomainAlias": {
-      "name": "DomainAlias",
+    "DomainPattern": {
+      "name": "DomainPattern",
       "kind": "type",
       "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Validation du `Host` entrant contre les domaines que CE serveur accepte de servir (vhosts). Pendant « domaine » du `trustProxy` (qui, lui, filtre par IP). Deux notions distinctes dans Nodefony — ne…"
+      "description": "Matching de domaine (`Host`) — fonctions PURES, politique UNIQUE partagée par les deux étages de Nodefony : - **`trustedHosts` (kernel, sécu)** : barrière testée AVANT le routing. Quels `Host` ce s…"
     },
-    "compileDomainAlias": {
-      "name": "compileDomainAlias",
+    "TrustedHostsConfig": {
+      "name": "TrustedHostsConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Valeur de configuration `http.trustedHosts` (barrière sécu avant routing) : - `false` / absent : défaut (domaine canonique + loopback en dev). - `true` : bypass total — tout `Host` passe (déploieme…"
+    },
+    "compileDomainPattern": {
+      "name": "compileDomainPattern",
       "kind": "function",
       "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Compile le domaine principal + ses alias en une liste de `RegExp`. Le domaine principal est TOUJOURS ancré (`^domain$`) : seul un Host exactement égal passe. Les alias string sont compilés via `new…"
+      "description": "Compile UN pattern de domaine en `RegExp` selon la politique sûre."
+    },
+    "compileDomainPatterns": {
+      "name": "compileDomainPatterns",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Compile une liste de patterns. Les string vides sont ignorées (un `^$` ne sert à rien et masque une coquille de config)."
+    },
+    "compileTrustedHosts": {
+      "name": "compileTrustedHosts",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Construit la liste `RegExp` de la barrière `trustedHosts` (kernel, avant routing). Toujours : le domaine canonique (`kernel.domain`). En development : + loopback (`localhost`/`127.0.0.1`/`[::1]`) p…"
     },
     "isDomainAllowed": {
       "name": "isDomainAllowed",
@@ -9860,7 +9906,7 @@
       "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "description": "Teste un `Host` entrant contre la liste de `RegExp` pré-compilée."
+      "description": "Teste un `Host` entrant contre une liste de `RegExp` pré-compilée."
     },
     "sanitizeRequestId": {
       "name": "sanitizeRequestId",
@@ -11934,6 +11980,9 @@
       "All": [
         "src/packages/@nodefony/framework/index.ts"
       ],
+      "Domain": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
       "HttpCode": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
@@ -13134,6 +13183,13 @@
       "IParamArgContext": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
+      "compileDomainPatterns": [
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts"
+      ],
+      "isDomainAllowed": [
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
       "redactSecrets": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
@@ -13303,10 +13359,10 @@
       "TrustProxyConfig": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
-      "compileDomainAlias": [
+      "compileTrustedHosts": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
-      "isDomainAllowed": [
+      "TrustedHostsConfig": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "Statics": [

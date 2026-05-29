@@ -598,6 +598,19 @@ export const httpConfigSchema = z
           "reverse-proxy unique point d'entrée). IP/CIDR/liste/preset " +
           "(`loopback`/`linklocal`/`uniquelocal`) = confiance conditionnelle au socket.",
       ),
+    trustedHosts: z
+      .union([z.boolean(), z.string(), z.array(z.string())])
+      .default(false)
+      .describe(
+        "Barrière `Host` testée AVANT le routing (anti Host-header injection). " +
+          "Le domaine canonique (`kernel.domain`) est TOUJOURS accepté, + le " +
+          "loopback (`localhost`/`127.0.0.1`/`[::1]`) en development. `false` " +
+          "(DÉFAUT) = ce socle seul. `true` = bypass (tout `Host` passe — quand un " +
+          "reverse-proxy filtre déjà le `Host`, cf cloud-native). string/liste = " +
+          "vhosts additionnels : exact (`marseille.fr`) ou wildcard un-label " +
+          "(`*.cdn.example.com`). N.B. : ce n'est PAS la liste des vhosts servis " +
+          "(ça, c'est `@Domain` sur les contrôleurs) — juste la barrière sécu.",
+      ),
     securityHeaders: securityHeadersSchema.default(() =>
       securityHeadersSchema.parse({}),
     ),

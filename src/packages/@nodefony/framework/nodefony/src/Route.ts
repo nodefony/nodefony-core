@@ -5,6 +5,8 @@ import {
   HttpError,
   WebsocketContext,
   ContextType,
+  compileDomainPatterns,
+  isDomainAllowed,
 } from "@nodefony/http";
 import type { IRoute } from "../interfaces/index.js";
 import { createHash } from "node:crypto";
@@ -61,7 +63,7 @@ function replaceCallback(
   key: string,
   capture: string,
   opt: string,
-  _offset: number
+  _offset: number,
 ) {
   if (this.path) {
     this.variables.push(key);
@@ -93,7 +95,7 @@ export interface RouteOptions {
   prefix?: string;
   method?: HTTPMethod | HTTPMethod[];
   className?: string;
-  host?: string;
+  host?: string | string[];
   pattern?: string;
   defaults?: Record<string, any>;
   requirements?: RouteRequirements;
@@ -120,7 +122,14 @@ class Route implements IRoute {
   defaults: Partial<Record<string, any>> = {};
   requirements: Partial<RouteRequirements> = {};
   hash?: string;
-  host?: string;
+  host?: string | string[];
+  /**
+   * Patterns de domaine pré-compilés (host + `requirements.domain`), RegExp
+   * ancrées/wildcard. Compilé UNE fois dans {@link compile} ; testé par requête
+   * via {@link isDomainAllowed} (zéro alloc hot-path). `undefined` = route servie
+   * sur tous les vhosts.
+   */
+  hostRegexp?: RegExp[];
   bypassFirewall: boolean = false;
   filePath?: string;
   variablesMap: Record<string, any> = {};
@@ -152,7 +161,7 @@ class Route implements IRoute {
     if (context.request && context.request.url && this.pattern) {
       const url = (context.request.url as URL).pathname.replace(
         REG_REPLACE_END_SLASH,
-        ""
+        "",
       );
       res = url.match(this.pattern as RegExp);
     }
@@ -236,6 +245,7 @@ class Route implements IRoute {
       pattern = pattern.replace(REG_REPLACE, "\\$1");
     }
     this.pattern = new RegExp(`^${pattern}$`, "i");
+    this.compileHost();
     return this.pattern;
   }
 
@@ -335,17 +345,39 @@ class Route implements IRoute {
       .replace(REG_REPLACE_END_SLASH, ""));
   }
 
-  setHostname(hostname?: string) {
+  setHostname(hostname?: string | string[]) {
     this.host = hostname;
   }
 
-  matchHostname(context: ContextType) {
+  /**
+   * Pré-compile les patterns de domaine de la route (`host` + `requirements.domain`)
+   * en `RegExp[]` ancrées, via le matcher partagé `@nodefony/http`. Appelé par
+   * {@link compile} (kernel ↔ route = même politique). `undefined` si aucun
+   * domaine → route servie sur tous les vhosts.
+   */
+  compileHost() {
+    const patterns: (string | string[])[] = [];
     if (this.host) {
-      if (this.host === context.domain) {
+      patterns.push(this.host);
+    }
+    const reqDomain = this.requirements?.domain;
+    if (reqDomain) {
+      patterns.push(reqDomain);
+    }
+    this.hostRegexp = patterns.length
+      ? compileDomainPatterns(patterns.flat())
+      : undefined;
+  }
+
+  matchHostname(context: ContextType) {
+    if (this.hostRegexp) {
+      if (isDomainAllowed(this.hostRegexp, context.domain)) {
         return true;
       }
+      // Le serveur sert ce domaine (passé la barrière trustedHosts kernel), mais
+      // cette route est restreinte à un autre vhost → 403 Forbidden (RFC 9110).
       const error = new HttpError(`Domain ${context.domain} Unauthorized`);
-      error.code = 401;
+      error.code = 403;
       error.type = "domain";
       throw error;
     }
@@ -359,7 +391,7 @@ class Route implements IRoute {
 
   addRequirement<K extends keyof RouteRequirements>(
     key: K,
-    value: RouteRequirements[K]
+    value: RouteRequirements[K],
   ): RouteRequirements[K] | undefined {
     if (key && value) {
       return (this.requirements[key] = value);
@@ -367,7 +399,7 @@ class Route implements IRoute {
   }
 
   getRequirement<K extends keyof RouteRequirements>(
-    key: K
+    key: K,
   ): RouteRequirements[K] | undefined {
     if (key in this.requirements) {
       return this.requirements[key] as RouteRequirements[K];
@@ -393,7 +425,7 @@ class Route implements IRoute {
                   req.split(",").lastIndexOf(context.method as HTTPMethod) < 0
                 ) {
                   const error = new HttpError(
-                    `Method ${context.method} Unauthorized`
+                    `Method ${context.method} Unauthorized`,
                   );
                   error.code = 405;
                   error.type = "method";
@@ -410,7 +442,7 @@ class Route implements IRoute {
                   !allowedMethods.includes(methodLower)
                 ) {
                   const error = new HttpError(
-                    `Method ${context.method} Unauthorized`
+                    `Method ${context.method} Unauthorized`,
                   );
                   error.code = 405;
                   error.type = "method";
@@ -420,19 +452,13 @@ class Route implements IRoute {
                 break;
               default:
                 throw new Error(
-                  `Bad config route method : ${this.requirements[i]}`
+                  `Bad config route method : ${this.requirements[i]}`,
                 );
             }
             break;
           case "domain":
-            if (context.domain !== this.requirements[i]) {
-              const error = new HttpError(
-                `Domain ${context.domain} Unauthorized`
-              );
-              error.code = 403;
-              error.type = "domain";
-              throw error;
-            }
+            // Géré par matchHostname (hostRegexp pré-compile host +
+            // requirements.domain via le matcher partagé). No-op ici.
             break;
           case "protocol":
             switch (context.method) {
@@ -447,7 +473,7 @@ class Route implements IRoute {
                     requirement
                   ) {
                     const error = new HttpError(
-                      `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`
+                      `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`,
                     );
                     error.code = 1002;
                     error.type = "protocol";
@@ -455,7 +481,7 @@ class Route implements IRoute {
                   }
                 } else {
                   const error = new HttpError(
-                    `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`
+                    `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`,
                   );
                   error.code = 1002;
                   error.type = "protocol";

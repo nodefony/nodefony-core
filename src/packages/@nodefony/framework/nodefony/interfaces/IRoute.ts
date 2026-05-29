@@ -1,8 +1,4 @@
-import type {
-  HTTPMethod,
-  SchemeType,
-  ContextType,
-} from "@nodefony/http";
+import type { HTTPMethod, SchemeType, ContextType } from "@nodefony/http";
 import type { ControllerConstructor, RouteRequirements } from "../src/Route.js";
 
 export interface IRoute {
@@ -18,7 +14,8 @@ export interface IRoute {
   defaults: Partial<Record<string, unknown>>;
   requirements: Partial<RouteRequirements>;
   hash?: string;
-  host?: string;
+  host?: string | string[];
+  hostRegexp?: RegExp[];
   bypassFirewall: boolean;
   filePath?: string;
   variablesMap: Record<string, unknown>;
@@ -32,10 +29,10 @@ export interface IRoute {
   generateId(): string;
   addRequirement<K extends keyof RouteRequirements>(
     key: K,
-    value: RouteRequirements[K]
+    value: RouteRequirements[K],
   ): RouteRequirements[K] | undefined;
   getRequirement<K extends keyof RouteRequirements>(
-    key: K
+    key: K,
   ): RouteRequirements[K] | undefined;
   hasRequirements(): number;
   matchRequirements(context: ContextType): boolean;

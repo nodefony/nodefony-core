@@ -83,6 +83,22 @@ function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
       for (const name in metadata) {
         const options = metadata[name];
         options.prefix = prefix;
+        // @Domain : précédence @route({host}) > @Domain méthode > @Domain classe.
+        if (options.host === undefined) {
+          const methodDomain = Reflect.getMetadata(
+            DOMAIN_METHOD_METADATA,
+            mycontroller,
+            options.classMethod,
+          );
+          const classDomain = Reflect.getMetadata(
+            DOMAIN_CLASS_METADATA,
+            mycontroller,
+          );
+          const domain = methodDomain ?? classDomain;
+          if (domain) {
+            options.host = domain;
+          }
+        }
         if (options.path == "*") {
           hasMagic = { options, name };
           continue;
@@ -181,6 +197,8 @@ export const HTTP_CODE_METADATA = "route:httpCode";
 export const HEADERS_METADATA = "route:responseHeaders";
 export const REDIRECT_METADATA = "route:redirect";
 export const PARAM_ARGS_METADATA = "route:paramArgs";
+export const DOMAIN_CLASS_METADATA = "route:domainClass";
+export const DOMAIN_METHOD_METADATA = "route:domainMethod";
 
 export type ParamSource =
   | "param"
@@ -287,6 +305,53 @@ function Redirect(url: string, statusCode: number = 302) {
   ): PropertyDescriptor {
     const meta: RedirectMeta = { url, statusCode };
     Reflect.defineMetadata(REDIRECT_METADATA, meta, target, propertyKey);
+    return descriptor;
+  };
+}
+
+// ── Domain decorator (classe + méthode) ─────────────────────────────────────
+
+/**
+ * Restreint une route (décorateur de **méthode**) ou tout un contrôleur
+ * (décorateur de **classe**) à un ou plusieurs vhosts. Source de vérité du
+ * domaine de routing — le `host` posé ici alimente `Route.host`, compilé en
+ * RegExp ancrée/wildcard (matcher partagé `@nodefony/http`). Domaine non servi
+ * par la route → 403.
+ *
+ * Précédence : `@route({ host })` > `@Domain` méthode > `@Domain` classe.
+ *
+ * Pattern : exact (`"marseille.fr"`) ou wildcard un-label (`"*.cdn.nodefony.com"`).
+ *
+ * ⚠️ En décorateur de **classe**, placer `@Domain` SOUS `@controller` : les
+ * décorateurs de classe s'appliquent de bas en haut, et `@controller` construit
+ * les routes — il doit voir le domaine de classe déjà posé.
+ *
+ * @example
+ * \@controller("/")
+ * \@Domain("marseille.fr")
+ * class MarseilleController extends Controller {
+ *   \@Get("/") home() {} // marseille.fr/ → OK ; nodefony.com/ → 403
+ * }
+ */
+function Domain(patterns: string | string[]) {
+  const list = Array.isArray(patterns) ? patterns : [patterns];
+  return function (
+    target: any,
+    propertyKey?: string,
+    descriptor?: PropertyDescriptor,
+  ): any {
+    if (propertyKey === undefined) {
+      // Décorateur de classe → constructeur.
+      Reflect.defineMetadata(DOMAIN_CLASS_METADATA, list, target);
+      return target;
+    }
+    // Décorateur de méthode → clé (constructeur, propertyKey).
+    Reflect.defineMetadata(
+      DOMAIN_METHOD_METADATA,
+      list,
+      target.constructor,
+      propertyKey,
+    );
     return descriptor;
   };
 }
@@ -415,6 +480,7 @@ export {
   Options,
   Head,
   All,
+  Domain,
   HttpCode,
   Header,
   Redirect,

@@ -1,80 +1,124 @@
 /**
- * Validation du `Host` entrant contre les domaines que CE serveur accepte de
- * servir (vhosts). Pendant « domaine » du `trustProxy` (qui, lui, filtre par IP).
+ * Matching de domaine (`Host`) — fonctions PURES, politique UNIQUE partagée par
+ * les deux étages de Nodefony :
  *
- * Deux notions distinctes dans Nodefony — ne pas confondre :
- * - **kernel-level (`domainAlias`)** : quels vhosts le serveur sert. Host inconnu
- *   → 401 (cf `HttpKernel.checkValidDomain`). C'est ce module.
- * - **route-level (`@Domain`)** : restreindre UNE route à un sous-ensemble de
- *   vhosts déjà servis. Match → 403 (cf `Route.matchHostname`).
+ * - **`trustedHosts` (kernel, sécu)** : barrière testée AVANT le routing. Quels
+ *   `Host` ce serveur accepte de traiter (anti Host-header injection). Host non
+ *   trusté → 401 (`HttpKernel.checkValidDomain`). Grossier, optionnel (en prod,
+ *   typiquement délégué au reverse-proxy via `trustedHosts: true`).
+ * - **`@Domain` (route, routing)** : restreint une route / un contrôleur à un
+ *   vhost. Source de vérité du « qui sert quoi ». Testé PENDANT le routing
+ *   (`Route.matchHostname`) → 403 si la route ne sert pas ce domaine.
  *
- * Fonctions PURES (config → `RegExp[]`, puis `RegExp[]` + host → booléen) :
- * compilation faite UNE fois au boot, le test par requête est un simple
- * `RegExp.test` sur des regexps pré-compilées (zéro allocation hot-path).
+ * Politique de compilation (sûre, ancrée, ReDoS-free) :
+ * - string sans `*` → match EXACT ancré (`^...$`, le `.` est littéral).
+ * - string avec `*` → wildcard UN label (`*.example.com` → `^[^.]+\.example\.com$`,
+ *   RFC 6125 TLS-wildcard : matche `img.example.com`, pas `a.b.example.com` ni `example.com`).
+ * - `RegExp` → reprise telle quelle (l'auteur assume l'ancrage).
+ *
+ * Compilation faite UNE fois (boot / enregistrement de route) ; le test par
+ * requête est un simple `RegExp.test` sur une liste pré-compilée (zéro alloc hot-path).
  */
 
-/**
- * Valeur de configuration `kernel.domainAlias` :
- * - `string` : un ou plusieurs patterns séparés par espace ou virgule
- *   (`"app.example.com, *.cdn.example.com"`).
- * - `(string | RegExp)[]` : liste de patterns (string compilée, `RegExp` reprise telle quelle).
- * - `Record<string, string | RegExp>` : map nommée (la clé est ignorée, seule la valeur compte).
- */
-export type DomainAlias =
-  | string
-  | (string | RegExp)[]
-  | Record<string, string | RegExp>;
+/** Un pattern de domaine : string (exact ou `*`-wildcard) ou `RegExp` (libre). */
+export type DomainPattern = string | RegExp;
 
 /**
- * Compile le domaine principal + ses alias en une liste de `RegExp`.
+ * Valeur de configuration `http.trustedHosts` (barrière sécu avant routing) :
+ * - `false` / absent : défaut (domaine canonique + loopback en dev).
+ * - `true` : bypass total — tout `Host` passe (déploiement où un reverse-proxy
+ *   filtre déjà le `Host`, cf doctrine cloud-native).
+ * - `string` / `string[]` : patterns additionnels (exact ou `*`-wildcard).
+ */
+export type TrustedHostsConfig = boolean | DomainPattern | DomainPattern[];
+
+// Loopback ajouté au défaut en development (les 3 formes que `url.hostname`
+// produit : Node sérialise toute IPv6 loopback en `[::1]` canonique — WHATWG URL).
+const DEV_LOOPBACK: readonly string[] = ["localhost", "127.0.0.1", "[::1]"];
+
+// Échappe les métacaractères RegExp d'un segment littéral (le `*` est traité en
+// amont par `compileDomainPattern`, donc absent ici).
+function escapeRegExp(segment: string): string {
+  return segment.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+/**
+ * Compile UN pattern de domaine en `RegExp` selon la politique sûre.
  *
- * Le domaine principal est TOUJOURS ancré (`^domain$`) : seul un Host
- * exactement égal passe. Les alias string sont compilés via `new RegExp(pattern, "u")`
- * (le pattern est fourni par la config serveur, pas par le client — pas une
- * entrée non fiable). Les `RegExp` déjà construites sont reprises telles quelles.
+ * @param pattern - string (exact / `*`-wildcard) ou `RegExp` (reprise telle quelle).
+ * @returns une `RegExp` ancrée (pour les string) ou le `RegExp` fourni.
+ */
+export function compileDomainPattern(pattern: DomainPattern): RegExp {
+  if (pattern instanceof RegExp) {
+    return pattern;
+  }
+  // Split sur `*` AVANT d'échapper → le wildcard n'est pas échappé ; chaque
+  // segment littéral l'est ; `*` devient `[^.]+` (un label DNS).
+  const body = pattern.split("*").map(escapeRegExp).join("[^.]+");
+  return new RegExp(`^${body}$`, "u");
+}
+
+/**
+ * Compile une liste de patterns. Les string vides sont ignorées (un `^$` ne
+ * sert à rien et masque une coquille de config).
  *
- * @param domain - domaine principal du serveur (`kernel.domain`), ancré exact.
- * @param alias - alias additionnels (`kernel.domainAlias`), optionnel.
+ * @param patterns - un pattern ou un tableau de patterns.
  * @returns liste de `RegExp` à tester contre le `Host` entrant.
  */
-export function compileDomainAlias(
-  domain: string,
-  alias?: DomainAlias,
+export function compileDomainPatterns(
+  patterns: DomainPattern | DomainPattern[],
 ): RegExp[] {
-  const out: RegExp[] = [new RegExp(`^${domain}$`, "u")];
-  if (!alias) {
-    return out;
-  }
-  if (typeof alias === "string") {
-    // Patterns séparés par espace ou virgule. Les tokens vides sont ignorés :
-    // `new RegExp("")` = /(?:)/ matche TOUT → trou de sécurité (vhost wildcard
-    // implicite). Garde explicite.
-    for (const part of alias.split(/[ ,]+/u)) {
-      if (part) {
-        out.push(new RegExp(part, "u"));
-      }
-    }
-    return out;
-  }
-  // Array ou objet : on ne s'intéresse qu'aux valeurs.
-  const values = Array.isArray(alias) ? alias : Object.values(alias);
-  for (const ele of values) {
-    if (typeof ele === "string") {
-      if (ele) {
-        out.push(new RegExp(ele, "u"));
-      }
-    } else if (ele instanceof RegExp) {
-      out.push(ele);
+  const list = Array.isArray(patterns) ? patterns : [patterns];
+  const out: RegExp[] = [];
+  for (const p of list) {
+    if (p instanceof RegExp) {
+      out.push(p);
+    } else if (typeof p === "string" && p) {
+      out.push(compileDomainPattern(p));
     }
   }
   return out;
 }
 
 /**
- * Teste un `Host` entrant contre la liste de `RegExp` pré-compilée.
+ * Construit la liste `RegExp` de la barrière `trustedHosts` (kernel, avant routing).
  *
- * @param regAlias - sortie de {@link compileDomainAlias}.
- * @param domain - `Host` de la requête (`context.domain`).
+ * Toujours : le domaine canonique (`kernel.domain`). En development : + loopback
+ * (`localhost`/`127.0.0.1`/`[::1]`) pour que l'URL tapée (nom OU IP) passe.
+ * `trustedHosts: true` → bypass total (un seul `/^.*$/`).
+ *
+ * @param domain - domaine canonique du serveur (`kernel.domain`).
+ * @param trusted - config `http.trustedHosts` (optionnelle).
+ * @param isDev - vrai en environnement `development` (ajoute le loopback).
+ * @returns liste de `RegExp` pour {@link isDomainAllowed}.
+ */
+export function compileTrustedHosts(
+  domain: string,
+  trusted: TrustedHostsConfig | undefined,
+  isDev: boolean,
+): RegExp[] {
+  if (trusted === true) {
+    return [/^.*$/u]; // bypass — Host filtré en amont par le reverse-proxy
+  }
+  const patterns: DomainPattern[] = [domain];
+  if (isDev) {
+    patterns.push(...DEV_LOOPBACK);
+  }
+  if (trusted) {
+    if (Array.isArray(trusted)) {
+      patterns.push(...trusted);
+    } else {
+      patterns.push(trusted);
+    }
+  }
+  return compileDomainPatterns(patterns);
+}
+
+/**
+ * Teste un `Host` entrant contre une liste de `RegExp` pré-compilée.
+ *
+ * @param regAlias - sortie de {@link compileTrustedHosts} ou {@link compileDomainPatterns}.
+ * @param domain - `Host` de la requête (`context.domain`, port déjà strippé).
  * @returns `true` dès le premier match (court-circuit), `false` sinon.
  */
 export function isDomainAllowed(regAlias: RegExp[], domain: string): boolean {

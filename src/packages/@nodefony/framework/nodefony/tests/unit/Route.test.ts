@@ -7,7 +7,7 @@ import type { ContextType } from "@nodefony/http";
 function makeCtx(
   pathname: string,
   method = "GET",
-  domain = "localhost"
+  domain = "localhost",
 ): ContextType {
   return {
     request: { url: new URL(`http://${domain}${pathname}`) },
@@ -89,21 +89,24 @@ describe("Route — match()", () => {
 
   it("extracts path variable", () => {
     const r = new Route("r", { path: "/user/{id}" });
-    const result = r.match(makeCtx("/user/42")) as string[] & Record<string, string>;
+    const result = r.match(makeCtx("/user/42")) as string[] &
+      Record<string, string>;
     expect(result).to.be.an("array");
     expect(result["id"]).to.equal("42");
   });
 
   it("extracts multiple variables", () => {
     const r = new Route("r", { path: "/user/{id}/post/{pid}" });
-    const result = r.match(makeCtx("/user/7/post/99")) as string[] & Record<string, string>;
+    const result = r.match(makeCtx("/user/7/post/99")) as string[] &
+      Record<string, string>;
     expect(result["id"]).to.equal("7");
     expect(result["pid"]).to.equal("99");
   });
 
   it("URL-decodes variable values", () => {
     const r = new Route("r", { path: "/tag/{name}" });
-    const result = r.match(makeCtx("/tag/hello%20world")) as string[] & Record<string, string>;
+    const result = r.match(makeCtx("/tag/hello%20world")) as string[] &
+      Record<string, string>;
     expect(result["name"]).to.equal("hello world");
   });
 
@@ -112,7 +115,8 @@ describe("Route — match()", () => {
       path: "/page/{slug}",
       defaults: { slug: "home" },
     });
-    const result = r.match(makeCtx("/page/home")) as string[] & Record<string, string>;
+    const result = r.match(makeCtx("/page/home")) as string[] &
+      Record<string, string>;
     expect(result["slug"]).to.equal("home");
   });
 });
@@ -131,7 +135,8 @@ describe("Route — strictness mono-segment des variables", () => {
 
   it("/{section}/{page} matche EXACTEMENT 2 segments", () => {
     const r = new Route("r", { path: "/{section}/{page}" });
-    const m = r.match(makeCtx("/modules/core")) as string[] & Record<string, string>;
+    const m = r.match(makeCtx("/modules/core")) as string[] &
+      Record<string, string>;
     expect(m).to.be.an("array");
     expect(m["section"]).to.equal("modules");
     expect(m["page"]).to.equal("core");
@@ -273,5 +278,69 @@ describe("Route — requirements", () => {
 
   it("getRequirement on absent key → undefined", () => {
     expect(new Route("r").getRequirement("domain")).to.be.undefined;
+  });
+});
+
+// ─── matchHostname() — host (regexp / wildcard / array) ──────────────────────
+
+describe("Route — host matching (regexp, 403)", () => {
+  it("host exact → matche le bon vhost", () => {
+    const r = new Route("r", { path: "/x", host: "marseille.fr" });
+    expect(() => r.match(makeCtx("/x", "GET", "marseille.fr"))).to.not.throw();
+  });
+
+  it("host exact → 403 sur un autre vhost", () => {
+    const r = new Route("r", { path: "/x", host: "marseille.fr" });
+    let err: HttpError | undefined;
+    try {
+      r.match(makeCtx("/x", "GET", "nodefony.com"));
+    } catch (e) {
+      err = e as HttpError;
+    }
+    expect(err).to.exist;
+    expect((err as HttpError).code).to.equal(403);
+  });
+
+  it("host exact ancré → pas d'usurpation par suffixe (sécurité)", () => {
+    const r = new Route("r", { path: "/x", host: "marseille.fr" });
+    expect(() =>
+      r.match(makeCtx("/x", "GET", "marseille.fr.evil.com")),
+    ).to.throw();
+  });
+
+  it("host wildcard `*.cdn.x` → un label", () => {
+    const r = new Route("r", { path: "/x", host: "*.cdn.nodefony.com" });
+    expect(() =>
+      r.match(makeCtx("/x", "GET", "img.cdn.nodefony.com")),
+    ).to.not.throw();
+    expect(() =>
+      r.match(makeCtx("/x", "GET", "a.b.cdn.nodefony.com")),
+    ).to.throw();
+  });
+
+  it("host array → plusieurs vhosts acceptés", () => {
+    const r = new Route("r", {
+      path: "/x",
+      host: ["marseille.fr", "nodefony.com"],
+    });
+    expect(() => r.match(makeCtx("/x", "GET", "marseille.fr"))).to.not.throw();
+    expect(() => r.match(makeCtx("/x", "GET", "nodefony.com"))).to.not.throw();
+    expect(() => r.match(makeCtx("/x", "GET", "autre.com"))).to.throw();
+  });
+
+  it("requirements.domain en array → géré (régression : `!==` ne gérait pas string[])", () => {
+    const r = new Route("r", {
+      path: "/x",
+      requirements: { domain: ["a.com", "b.com"] },
+    });
+    expect(() => r.match(makeCtx("/x", "GET", "a.com"))).to.not.throw();
+    expect(() => r.match(makeCtx("/x", "GET", "b.com"))).to.not.throw();
+    expect(() => r.match(makeCtx("/x", "GET", "c.com"))).to.throw();
+  });
+
+  it("sans host → servie sur tous les vhosts", () => {
+    const r = new Route("r", { path: "/x" });
+    expect(() => r.match(makeCtx("/x", "GET", "n-importe.com"))).to.not.throw();
+    expect(r.hostRegexp).to.be.undefined;
   });
 });

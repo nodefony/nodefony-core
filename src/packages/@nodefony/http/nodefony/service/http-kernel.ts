@@ -21,8 +21,9 @@ import {
   type TrustProxyConfig,
 } from "../src/context/trustProxy";
 import {
-  compileDomainAlias,
+  compileTrustedHosts,
   isDomainAllowed,
+  type TrustedHostsConfig,
 } from "../src/context/domainMatcher";
 import type { Profiler } from "../src/profiler/Profiler";
 import http from "node:http";
@@ -78,9 +79,6 @@ export type ServerType =
   | "websocket"
   | "websocket-secure";
 
-type AliasObject = Record<string, string | RegExp>;
-type AliasArray = (string | RegExp)[];
-type DomainAliasType = AliasObject | AliasArray | string;
 export type responseTimeoutType = "http" | "https" | "http2" | "http3";
 export type SchemeType = "http" | "https" | "ws" | "wss";
 
@@ -125,7 +123,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ca: string = "";
   serverStatic: Statics | null = null;
   domain: string = "";
-  domainAlias: DomainAliasType = [];
+  trustedHosts?: TrustedHostsConfig;
   domainCheck: boolean = false;
   regAlias: RegExp[] = [];
   module: Module;
@@ -204,7 +202,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.serviceCerticats = this.get("certificates");
       this.serverStatic = this.get("server-static");
       this.domain = this.kernel?.domain as string;
-      this.domainAlias = this.kernel?.options?.domainAlias;
+      this.trustedHosts = (
+        this.options as { trustedHosts?: TrustedHostsConfig }
+      )?.trustedHosts;
       this.regAlias = this.compileAlias();
       this.sessionService = this.get<SessionsService>("sessions");
       this.sessionAutoStart = this.sessionService?.sessionAutoStart as boolean;
@@ -485,7 +485,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   compileAlias(): RegExp[] {
-    return compileDomainAlias(this.domain, this.domainAlias);
+    return compileTrustedHosts(
+      this.domain,
+      this.trustedHosts,
+      this.kernel?.environment === "development",
+    );
   }
 
   async onHttpRequest(
