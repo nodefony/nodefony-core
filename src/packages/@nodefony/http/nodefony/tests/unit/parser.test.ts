@@ -99,6 +99,58 @@ describe("Parser — accumulation des chunks de corps", () => {
   });
 });
 
+// Régression — `ended()` attache des listeners JUMEAUX once("end")+once("error").
+// Bug : `once` n'auto-détache QUE celui qui fire → l'autre fuyait (1 listener
+// fantôme par requête à corps). Le fix retire explicitement le jumeau.
+describe("Parser.ended() — cleanup des listeners jumeaux end/error", () => {
+  // Mock SANS readableEnded/complete → ended() attache les jumeaux et attend.
+  function makePendingReq(): { req: HttpRequest; stream: EventEmitter } {
+    const stream = new EventEmitter();
+    const req = {
+      request: stream,
+      data: Buffer.alloc(0),
+      query: {},
+      queryPost: {},
+      queryStringOptions: {},
+      charset: "utf8",
+      context: { requestEnded: false },
+    } as unknown as HttpRequest;
+    return { req, stream };
+  }
+
+  it("'end' résout parse() ET détache le listener 'error' jumeau", async () => {
+    const { req, stream } = makePendingReq();
+    const p = new Parser(req);
+    const done = p.parse();
+    expect(stream.listenerCount("end")).to.equal(1);
+    expect(stream.listenerCount("error")).to.equal(1);
+    stream.emit("data", Buffer.from("x"));
+    stream.emit("end");
+    await done;
+    expect(stream.listenerCount("end")).to.equal(0);
+    expect(stream.listenerCount("error")).to.equal(0); // jumeau retiré (fix)
+  });
+
+  it("'error' rejette parse() ET détache le listener 'end' jumeau", async () => {
+    const { req, stream } = makePendingReq();
+    const p = new Parser(req);
+    const done = p.parse();
+    expect(stream.listenerCount("end")).to.equal(1);
+    expect(stream.listenerCount("error")).to.equal(1);
+    const boom = new Error("stream boom");
+    let threw = false;
+    stream.emit("error", boom);
+    try {
+      await done;
+    } catch (e) {
+      threw = (e as Error).message === "stream boom";
+    }
+    expect(threw).to.equal(true);
+    expect(stream.listenerCount("end")).to.equal(0); // jumeau retiré (fix)
+    expect(stream.listenerCount("error")).to.equal(0);
+  });
+});
+
 describe("ParserQs — corps application/x-www-form-urlencoded", () => {
   it("parse le corps urlencoded dans queryPost + fusionne dans query", async () => {
     const { req, stream } = makeReq();
