@@ -17,17 +17,13 @@ import Container from "../Container";
 import * as fs from "fs/promises";
 import CliKernel from "./CliKernel";
 import { extend } from "../Tools";
+import { tagListener } from "./lifecycleTags";
 import cluster from "node:cluster";
 import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
 import RollupService from "../service/rollup/rollupService";
 //import vm from "node:vm";
 const regModuleName: RegExp = /^[Mm]odule-([\w-]+)/u;
-import {
-  RollupOptions,
-  rollup,
-  RollupOutput,
-  OutputOptions,
-} from "rollup";
+import { RollupOptions, rollup, RollupOutput, OutputOptions } from "rollup";
 import { createRequire } from "node:module";
 import Entity from "./orm/Entity";
 import { Controller } from "@nodefony/framework";
@@ -69,6 +65,20 @@ const controllers: Record<string, TypeController<Controller>> = {};
 class Module extends Service implements IModule {
   commands: Record<string, Command> = {};
   static controllers = controllers;
+  /**
+   * Criticité du module pour la **résilience de boot** (Phase 3). `true` (défaut)
+   * = un échec/timeout d'un de ses hooks lifecycle interrompt le boot **en
+   * production** (le pod crashe → l'orchestrateur le redémarre, cloud-native) et
+   * émet un WARNING **en développement** (le serveur démarre quand même). `false`
+   * = fail-soft partout (le module est optionnel : un échec n'empêche jamais le
+   * boot — ex. studio, fronts de démo, mediasoup, realtime, redis).
+   *
+   * ⚠️ **Statique** (pas une propriété d'instance) : lue dans le constructeur via
+   * `Module.setEvents()`, donc AVANT que les initializers de la sous-classe ne
+   * tournent — une `critical = false` en propriété d'instance arriverait trop
+   * tard. Override déclaratif : `static override critical = false;`.
+   */
+  static critical: boolean = true;
   package?: PackageJson;
   path: string = "";
   isApp: boolean = false;
@@ -190,19 +200,40 @@ class Module extends Service implements IModule {
    * `package.json` + appliquer les overrides de config.
    */
   setEvents(): void {
+    // Tags de politique de boot (Phase 3) : owner + criticité (statique → lisible
+    // ici, avant les initializers de la sous-classe). Relus par
+    // `Kernel.fireLifecycle()` pour décider propagation (critique+prod) vs fail-soft.
+    const owner = this.name;
+    const critical = (this.constructor as typeof Module).critical;
     if (this.onKernelRegister) {
-      this.kernel?.once("onRegister", this.onKernelRegister.bind(this));
+      this.kernel?.once(
+        "onRegister",
+        tagListener(this.onKernelRegister.bind(this), owner, critical),
+      );
     }
     if (this.onKernelBoot) {
-      this.kernel?.once("onBoot", this.onKernelBoot.bind(this));
+      this.kernel?.once(
+        "onBoot",
+        tagListener(this.onKernelBoot.bind(this), owner, critical),
+      );
     }
     if (this.onKernelReady) {
-      this.kernel?.once("onReady", this.onKernelReady.bind(this));
+      this.kernel?.once(
+        "onReady",
+        tagListener(this.onKernelReady.bind(this), owner, critical),
+      );
     }
-    this.kernel?.prependOnceListener("onPreBoot", async () => {
-      this.package = await this.getPackageJson();
-      this.readOverrideModuleConfig();
-    });
+    this.kernel?.prependOnceListener(
+      "onPreBoot",
+      tagListener(
+        async () => {
+          this.package = await this.getPackageJson();
+          this.readOverrideModuleConfig();
+        },
+        owner,
+        critical,
+      ),
+    );
   }
 
   /**

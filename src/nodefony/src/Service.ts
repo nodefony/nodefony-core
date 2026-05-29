@@ -7,6 +7,7 @@ import type {
 import type { IKernel } from "./types/IKernel";
 import Container, { DynamicParam } from "./Container";
 import Event, { EventDefaultInterface } from "./Event";
+import type { IGuardedEmitOptions, IGuardedEmitResult } from "./Event";
 import Pdu, { Severity, Msgid, Message, Pci } from "./syslog/Pdu";
 import Syslog, {
   SyslogDefaultSettings,
@@ -285,6 +286,19 @@ class Service implements IService {
   /** Émet et attend les listeners async — équivalent de {@link fireAsync}. */
   emitAsync(eventName: string | symbol, ...args: unknown[]): Promise<unknown> {
     return this.nc.emitAsync(eventName, ...args);
+  }
+
+  /**
+   * Variante **gardée** de {@link emitAsync} (cf `Event.emitAsyncGuarded`) : isole
+   * chaque listener par try/catch + timeout et collecte les échecs. Réservé au
+   * **boot / lifecycle / jobs** (cf `Kernel.fireLifecycle`) — JAMAIS le hot path.
+   */
+  emitAsyncGuarded(
+    eventName: string | symbol,
+    options?: IGuardedEmitOptions,
+    ...args: unknown[]
+  ): Promise<IGuardedEmitResult> {
+    return this.nc.emitAsyncGuarded(eventName, options, ...args);
   }
 
   /** Enregistre un listener (tracké pour cleanup). Voir aussi {@link on}. */

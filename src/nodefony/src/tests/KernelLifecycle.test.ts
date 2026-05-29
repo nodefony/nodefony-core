@@ -7,6 +7,7 @@ import Service from "../Service";
 import Container from "../Container";
 import CliKernel from "../kernel/CliKernel";
 import type { PackageJson } from "../types/IModule";
+import { readListenerTags } from "../kernel/lifecycleTags";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -587,52 +588,105 @@ describe("Kernel lifecycle — arrêt par command", () => {
 
 // ─── 7. Propagation d'erreurs dans la chaîne ─────────────────────────────────
 
-describe("Kernel lifecycle — propagation d'erreurs", () => {
-  it("listener onBoot qui throw → boot() rejette", async () => {
-    const k = mkKernel();
-    k.on("onBoot", () => {
-      throw new Error("boom in onBoot");
-    });
-    await assert.rejects(() => k.boot(), /boom in onBoot/);
-  });
-
-  it("listener onPreBoot qui throw → boot() rejette avant onBoot", async () => {
-    const k = mkKernel();
-    let bootFired = false;
-    k.on("onPreBoot", () => {
-      throw new Error("boom in onPreBoot");
-    });
-    k.on("onBoot", () => {
-      bootFired = true;
-    });
-    await assert.rejects(() => k.boot(), /boom in onPreBoot/);
-    assert.strictEqual(
-      bootFired,
-      false,
-      "onBoot ne doit pas avoir été déclenché",
+describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", () => {
+  // ── Module.critical (statique) propagé en tag sur les hooks par setEvents() ──
+  it("Module.critical: défaut true ; override static false → tag posé sur les hooks", () => {
+    const k = mkKernel("development");
+    class CriticalMod extends Module {
+      constructor(kernel: Kernel) {
+        super("crit", kernel, "/tmp/crit", {});
+      }
+      async onKernelBoot(): Promise<this> {
+        return this;
+      }
+    }
+    class OptionalMod extends Module {
+      static override critical = false;
+      constructor(kernel: Kernel) {
+        super("opt", kernel, "/tmp/opt", {});
+      }
+      async onKernelBoot(): Promise<this> {
+        return this;
+      }
+    }
+    assert.strictEqual((CriticalMod as any).critical, true);
+    assert.strictEqual((OptionalMod as any).critical, false);
+    new CriticalMod(k);
+    new OptionalMod(k);
+    const tags = (k as any).nc
+      .rawListeners("onBoot")
+      .map((l: unknown) => readListenerTags(l));
+    assert.ok(
+      tags.some((t: any) => t.owner === "crit" && t.critical === true),
+      "hook du module critique tagué critical=true",
+    );
+    assert.ok(
+      tags.some((t: any) => t.owner === "opt" && t.critical === false),
+      "hook du module optionnel tagué critical=false",
     );
   });
 
-  it("listener onPreRegister qui throw → preRegister() rejette", async () => {
-    const k = mkKernel();
-    k.on("onPreRegister", () => {
-      throw new Error("boom in onPreRegister");
+  // ── DEV : fail-soft — un hook qui échoue/se fige ne gèle/ne tue plus le boot ──
+  it("dev: un hook qui throw → fireLifecycle NE rejette PAS et collecte l'erreur", async () => {
+    const k = mkKernel("development");
+    k.on("onBoot", () => {
+      throw new Error("boom in onBoot");
     });
-    await assert.rejects(() => k.preRegister(), /boom in onPreRegister/);
-    assert.strictEqual(k.registered, false, "registered ne doit pas être true");
+    const r = await k.fireLifecycle("onBoot", k);
+    assert.strictEqual(r.errors.length, 1);
+    assert.strictEqual(r.stopped, false);
+    assert.match((r.errors[0].error as Error).message, /boom in onBoot/);
   });
 
-  it("listener onRegister qui throw → boot() pas atteint", async () => {
-    const k = mkKernel();
-    let bootFired = false;
-    k.on("onRegister", () => {
-      throw new Error("boom in onRegister");
+  it("dev: un hook qui throw n'empêche pas les hooks suivants (fail-soft)", async () => {
+    const k = mkKernel("development");
+    let secondFired = false;
+    k.on("onPreBoot", () => {
+      throw new Error("boom");
     });
+    k.on("onPreBoot", () => {
+      secondFired = true;
+    });
+    const r = await k.fireLifecycle("onPreBoot", k);
+    assert.strictEqual(secondFired, true, "le 2e hook doit tourner");
+    assert.strictEqual(r.errors.length, 1);
+  });
+
+  it("dev: un hook FIGÉ est borné par le timeout (NODEFONY_BOOT_TIMEOUT_MS)", async () => {
+    const prev = process.env.NODEFONY_BOOT_TIMEOUT_MS;
+    process.env.NODEFONY_BOOT_TIMEOUT_MS = "30";
+    try {
+      const k = mkKernel("development");
+      k.on("onBoot", () => new Promise(() => {})); // ne se résout jamais
+      const r = await k.fireLifecycle("onBoot", k);
+      assert.strictEqual(r.errors.length, 1);
+      assert.strictEqual(r.errors[0].timedOut, true);
+    } finally {
+      if (prev === undefined) delete process.env.NODEFONY_BOOT_TIMEOUT_MS;
+      else process.env.NODEFONY_BOOT_TIMEOUT_MS = prev;
+    }
+  });
+
+  // ── PRODUCTION : un module CRITIQUE qui échoue propage (pod crashe → restart) ──
+  it("prod: un hook critique (non tagué) qui throw → fireLifecycle rejette", async () => {
+    const k = mkKernel("production");
     k.on("onBoot", () => {
-      bootFired = true;
+      throw new Error("boom prod");
     });
-    await assert.rejects(() => k.preRegister(), /boom in onRegister/);
-    assert.strictEqual(bootFired, false);
+    await assert.rejects(() => k.fireLifecycle("onBoot", k), /boom prod/);
+  });
+
+  it("prod: un hook NON critique (tag critical=false) qui throw → fail-soft", async () => {
+    const k = mkKernel("production");
+    const hook = (): void => {
+      throw new Error("module optionnel");
+    };
+    (hook as any).__nodefony_owner = "studio";
+    (hook as any).__nodefony_critical = false;
+    k.on("onBoot", hook);
+    const r = await k.fireLifecycle("onBoot", k);
+    assert.strictEqual(r.errors.length, 1);
+    assert.strictEqual(r.stopped, false); // optionnel → pas fatal, le boot continue
   });
 });
 

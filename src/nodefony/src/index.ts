@@ -9,6 +9,12 @@ export { default as CliKernel } from "./kernel/CliKernel";
 export { default as Service } from "./Service";
 export { default as Container } from "./Container";
 export { default as Event } from "./Event";
+export type {
+  IGuardedEmitOptions,
+  IGuardedEmitResult,
+  IGuardedEmitError,
+  IGuardedListenerInfo,
+} from "./Event";
 export { default as Cli } from "./Cli";
 export { default as Command } from "./command/Command";
 export { default as Builder } from "./command/Builder";
@@ -158,6 +164,7 @@ export type {
 } from "./runtime/RequestContext";
 export { redactSecrets } from "./runtime/redact";
 export { loadEnv } from "./runtime/loadEnv";
+export { withTimeout, TimeoutError } from "./runtime/withTimeout";
 
 // ─── ORM ──────────────────────────────────────────────────────────────────────
 export { default as Orm } from "./kernel/orm/Orm";

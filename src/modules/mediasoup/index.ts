@@ -21,6 +21,9 @@ const ORM = "mediasoup";
 
 @controllers([MediasoupController])
 class Mediasoup extends Module {
+  /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
+  static override critical = false;
+
   /** Connecteur Drizzle dédié, fermé à `onTerminate`. */
   #orm: DrizzleOrm | null = null;
 
@@ -60,7 +63,10 @@ class Mediasoup extends Module {
     const orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
     this.#orm = orm;
-    this.log(`Drizzle ORM "${ORM}" connecté (banc mediasoup, :memory:)`, "INFO");
+    this.log(
+      `Drizzle ORM "${ORM}" connecté (banc mediasoup, :memory:)`,
+      "INFO",
+    );
 
     this.kernel?.once("onTerminate", async () => {
       await this.#orm?.disconnect().catch(() => undefined);

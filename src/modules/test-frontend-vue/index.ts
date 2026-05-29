@@ -13,6 +13,9 @@ import VueController from "./nodefony/controller/VueController";
 
 @controllers([VueController])
 class TestFrontendVue extends Module {
+  /** Module de démo optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
+  static override critical = false;
+
   constructor(kernel: Kernel) {
     super("test-frontend-vue", kernel, import.meta.url, config);
   }

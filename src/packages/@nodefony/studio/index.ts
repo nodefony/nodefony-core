@@ -25,6 +25,9 @@ import DocumentationController from "./nodefony/controller/DocumentationControll
   DocumentationController,
 ])
 class Studio extends Module {
+  /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
+  static override critical = false;
+
   constructor(kernel: Kernel) {
     super("studio", kernel, import.meta.url, config);
   }

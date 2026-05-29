@@ -27,6 +27,9 @@ import {
   CLUSTER_PROBE_SNAPSHOT_KIND,
 } from "../service/cluster/clusterMessage";
 import type { IKernel } from "../types/IKernel";
+import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
+import { withTimeout, TimeoutError } from "../runtime/withTimeout";
+import { readListenerTags } from "./lifecycleTags";
 //import Babylon from "../service/babel/babylon";
 //import { StartOptions } from "pm2";
 
@@ -359,10 +362,9 @@ class Kernel extends Service implements IKernel {
    * @returns `this` ou chaîne sur `boot()`.
    */
   async preRegister(): Promise<this> {
-    await this.fireAsync("onPreRegister", this).catch((e) => {
-      this.log(e, "CRITIC");
-      throw e;
-    });
+    // GARDÉ (Phase 3) : un module qui throw/se fige en pré-registration ne gèle
+    // plus le boot ; fireLifecycle logge + propage selon criticité (prod).
+    await this.fireLifecycle("onPreRegister", this);
 
     if (this.setCommandComplete(Events.onPreRegister)) {
       return this.terminate(0);
@@ -379,7 +381,7 @@ class Kernel extends Service implements IKernel {
     this.setNodeEnv(this.environment);
     // Clusters
     this.initCluster();
-    return this.fireAsync("onRegister", this)
+    return this.fireLifecycle("onRegister", this)
       .then(() => {
         this.registered = true;
         if (this.setCommandComplete(Events.onRegister)) {
@@ -440,15 +442,15 @@ class Kernel extends Service implements IKernel {
    * @returns `this` ou chaîne sur `onReady()`.
    */
   async boot(): Promise<this> {
-    await this.fireAsync("onPreBoot", this).catch((e) => {
-      this.log(e, "CRITIC");
-      throw e;
-    });
+    // GARDÉ (Phase 3) — c'est ICI que bootent les @services + les hooks
+    // onKernelBoot (ex. realtime/redis) : le cas vécu « backplane qui pend gèle
+    // le boot » est borné par le timeout par-listener de fireLifecycle.
+    await this.fireLifecycle("onPreBoot", this);
     if (this.setCommandComplete(Events.onPreBoot)) {
       return this.terminate(0);
     }
     //return;
-    return this.fireAsync("onBoot", this)
+    return this.fireLifecycle("onBoot", this)
       .then(() => {
         this.booted = true;
         if (this.setCommandComplete(Events.onBoot)) {
@@ -473,7 +475,7 @@ class Kernel extends Service implements IKernel {
    * @returns `this` après tout le pipeline post-ready.
    */
   async onReady(): Promise<this> {
-    return this.fireAsync("onReady", this)
+    return this.fireLifecycle("onReady", this)
       .then(async () => {
         this.ready = true;
         if (this.setCommandComplete(Events.onReady)) {
@@ -510,7 +512,7 @@ class Kernel extends Service implements IKernel {
           } else {
             this.memoryUsage("MEMORY POST READY ");
           }
-          return this.fireAsync("onPostReady", this)
+          return this.fireLifecycle("onPostReady", this)
             .then(() => {
               this.postReady = true;
               servers.map((server) => {
@@ -619,7 +621,10 @@ class Kernel extends Service implements IKernel {
     const serviceInit: ServiceWithInitialize = inst;
     if (serviceInit.initialize) {
       this.log(`SERVICE INITIALIZE : ${inst.name}`, "DEBUG");
-      await serviceInit.initialize(this);
+      // Service kernel = critique (true) : un `initialize` figé/échoué ne gèle
+      // plus le boot — borné par timeout, fatal en prod, fail-soft en dev.
+      const init = serviceInit.initialize.bind(serviceInit);
+      await this.guardInitialize(() => init(this), inst.name, true);
     }
     this.set<Service>(inst.name, inst);
     return this.get<Service>(inst.name);
@@ -669,7 +674,13 @@ class Kernel extends Service implements IKernel {
     }
     if (mod.initialize) {
       this.log(`MODULE INITIALIZE : ${mod.name}`, "DEBUG");
-      await mod.initialize(this);
+      // Garde de boot : timeout + politique selon la criticité du module.
+      const init = mod.initialize.bind(mod);
+      await this.guardInitialize(
+        () => init(this),
+        mod.name,
+        (mod.constructor as typeof Module).critical,
+      );
       //await this.fireAsync("onInitialize", mod);
     }
 
@@ -948,6 +959,150 @@ class Kernel extends Service implements IKernel {
   override fireAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
     this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
     return super.emitAsync(event, ...args);
+  }
+
+  /**
+   * Timeout par listener appliqué au boot (résilience Phase 3). Précédence :
+   * `NODEFONY_BOOT_TIMEOUT_MS` (env, orchestrateur) > défaut par env (dev 20 s,
+   * prod 60 s). Large à dessein : il borne la PENDAISON infinie (ex. file Redis
+   * offline qui ne rejette jamais), pas la lenteur normale d'un hook.
+   */
+  private bootTimeoutMs(): number {
+    const env = Number(process.env.NODEFONY_BOOT_TIMEOUT_MS);
+    if (Number.isFinite(env) && env > 0) {
+      return env;
+    }
+    return this.environment === "production" ? 60_000 : 20_000;
+  }
+
+  /**
+   * Seuil d'alerte de lenteur d'un hook de boot (NOTICE, sans le tuer). Précédence :
+   * `NODEFONY_BOOT_WARN_MS` (env) > défaut 5 s. `0` désactive la mesure.
+   */
+  private bootWarnMs(): number {
+    const env = Number(process.env.NODEFONY_BOOT_WARN_MS);
+    if (Number.isFinite(env) && env >= 0) {
+      return env;
+    }
+    return 5_000;
+  }
+
+  /**
+   * Politique d'échec de boot commune (lifecycle + `initialize`). Log + verdict
+   * de propagation. **Fatal** = module critique (tag `critical !== false`) ET
+   * `production` → on interrompt le boot (le pod crashe, l'orchestrateur le
+   * redémarre — cloud-native). Sinon **fail-soft** : WARNING, le boot continue.
+   *
+   * @param error - erreur/timeout capturé.
+   * @param owner - module propriétaire (tag), ou `undefined` (listener interne).
+   * @param critical - criticité (tag) ; `undefined` → traité comme critique.
+   * @param timedOut - `true` si l'échec est un dépassement de timeout.
+   * @returns `true` si l'échec doit interrompre le boot.
+   */
+  private isBootErrorFatal(
+    error: unknown,
+    owner: string | undefined,
+    critical: boolean | undefined,
+    timedOut: boolean,
+  ): boolean {
+    const who = owner ?? "(anonyme)";
+    const fatal = critical !== false && this.environment === "production";
+    const msg = error instanceof Error ? error.message : String(error);
+    const tag = timedOut ? " [timeout]" : "";
+    this.log(
+      `boot lifecycle: ${fatal ? "échec critique" : "échec non bloquant (fail-soft)"} ` +
+        `de "${who}"${tag} — ${msg}`,
+      fatal ? "ERROR" : "WARNING",
+    );
+    if (this.debug && error instanceof Error && error.stack) {
+      this.log(error.stack, "DEBUG");
+    }
+    return fatal;
+  }
+
+  /**
+   * Émet une phase de **lifecycle de boot** de façon GARDÉE (cf
+   * `Event.emitAsyncGuarded`) : chaque hook de module est isolé par try/catch +
+   * timeout ; un module qui throw ou se fige ne gèle/ne tue plus tout le boot. La
+   * politique (propager vs fail-soft) est tranchée par {@link isBootErrorFatal}
+   * d'après les tags `owner`/`critical` posés par `Module.setEvents()`.
+   *
+   * Remplace `fireAsync` **uniquement** dans la chaîne boot (`onPreRegister` →
+   * `onPostReady`). Le hot path HTTP/WS garde `emitAsync` nu (aucun timer/alloc).
+   *
+   * @param event - phase lifecycle à émettre.
+   * @param args - arguments passés aux hooks (typiquement `this`).
+   * @returns le {@link IGuardedEmitResult} (results / errors / stopped).
+   * @throws l'erreur d'un module critique en production (interrompt le boot).
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async fireLifecycle(
+    event: KernelEventsType,
+    ...args: any[]
+  ): Promise<IGuardedEmitResult> {
+    this.log(`${colorLogEvent} ${event as string} [guarded]`, "DEBUG");
+    const warnMs = this.bootWarnMs();
+    let fatalError: unknown = null;
+    let hasFatal = false;
+    const result = await super.emitAsyncGuarded(
+      event,
+      {
+        timeoutMs: this.bootTimeoutMs(),
+        warnMs,
+        onListenerError: (error: unknown, info: IGuardedListenerInfo) => {
+          const { owner, critical } = readListenerTags(info.listener);
+          if (this.isBootErrorFatal(error, owner, critical, info.timedOut)) {
+            fatalError = error;
+            hasFatal = true;
+            return true; // stoppe la chaîne lifecycle (le reste ne boote pas)
+          }
+          return; // fail-soft : on continue les autres modules
+        },
+        onListenerSlow: (info: IGuardedListenerInfo) => {
+          const { owner } = readListenerTags(info.listener);
+          this.log(
+            `boot lifecycle: hook "${owner ?? "(anonyme)"}" lent ` +
+              `(${Math.round(info.durationMs)}ms ≥ ${warnMs}ms) sur ${event as string}`,
+            "NOTICE",
+          );
+        },
+      },
+      ...args,
+    );
+    if (hasFatal) {
+      throw fatalError instanceof Error
+        ? fatalError
+        : new Error(String(fatalError));
+    }
+    return result;
+  }
+
+  /**
+   * Exécute un `initialize()` (module ou service kernel) sous garde de boot :
+   * borné par {@link bootTimeoutMs} et soumis à {@link isBootErrorFatal}. Un
+   * `initialize` qui se fige (connexion réseau qui pend) ne gèle plus le boot.
+   *
+   * @param run - thunk qui lance l'`initialize` (déjà lié à son instance).
+   * @param owner - nom du module/service (pour le log).
+   * @param critical - criticité (module → `Module.critical` ; service kernel → `true`).
+   */
+  private async guardInitialize(
+    run: () => Promise<unknown>,
+    owner: string,
+    critical: boolean,
+  ): Promise<void> {
+    try {
+      await withTimeout(
+        Promise.resolve(run()),
+        this.bootTimeoutMs(),
+        `initialize ${owner}`,
+      );
+    } catch (error) {
+      const timedOut = error instanceof TimeoutError;
+      if (this.isBootErrorFatal(error, owner, critical, timedOut)) {
+        throw error;
+      }
+    }
   }
 
   checkPath(myPath: string): string | null {

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-29T09:38:36.274Z",
+  "generated": "2026-05-29T10:39:18.166Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 775,
-    "symbols": 1436,
-    "classes": 231,
-    "interfaces": 345,
+    "files": 777,
+    "symbols": 1446,
+    "classes": 232,
+    "interfaces": 351,
     "types": 182,
     "enums": 2,
-    "functions": 220,
+    "functions": 223,
     "constants": 456
   },
   "symbols": {
@@ -147,6 +147,42 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null
+    },
+    "IGuardedListenerInfo": {
+      "name": "IGuardedListenerInfo",
+      "kind": "interface",
+      "file": "src/nodefony/src/Event.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Information sur un listener pendant une émission gardée ({@link Event.emitAsyncGuarded})."
+    },
+    "IGuardedEmitError": {
+      "name": "IGuardedEmitError",
+      "kind": "interface",
+      "file": "src/nodefony/src/Event.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Erreur collectée pour un listener pendant {@link Event.emitAsyncGuarded}."
+    },
+    "IGuardedEmitOptions": {
+      "name": "IGuardedEmitOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/Event.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options de {@link Event.emitAsyncGuarded} — purement MÉCANIQUES : aucune notion de module / criticité / log (ça, c'est la POLITIQUE, décidée par l'appelant via les callbacks). Sépare le « comment o…"
+    },
+    "IGuardedEmitResult": {
+      "name": "IGuardedEmitResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/Event.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat de {@link Event.emitAsyncGuarded}."
     },
     "FileClass": {
       "name": "FileClass",
@@ -620,6 +656,31 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "IListenerTags": {
+      "name": "IListenerTags",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/lifecycleTags.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Tags relus depuis un listener (valeurs `undefined` si non tagué)."
+    },
+    "tagListener": {
+      "name": "tagListener",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/lifecycleTags.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose `owner` + `critical` sur une fonction listener, **en place**, et la renvoie."
+    },
+    "readListenerTags": {
+      "name": "readListenerTags",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/lifecycleTags.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Relit les tags d'un listener. **Déballe le wrapper `once`** : `rawListeners()` renvoie le wrapper interne d'`EventEmitter.once` (qui porte `.listener` = fonction d'origine) — les hooks de module ét…"
+    },
     "Module": {
       "name": "Module",
       "kind": "class",
@@ -943,6 +1004,25 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Per-request state propagated transparently across the async pipeline. Set by HttpKernel at request entry (`handleHttp` / `handleWebsocket`) and accessible from any downstream service (logs, ORM, se…"
+    },
+    "TimeoutError": {
+      "name": "TimeoutError",
+      "kind": "class",
+      "file": "src/nodefony/src/runtime/withTimeout.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Borne une promesse par un délai maximum — utilitaire de **résilience de boot** (et de tout `await` susceptible de pendre indéfiniment). Motivation : un `await` sur une opération réseau dont le pair…"
+    },
+    "withTimeout": {
+      "name": "withTimeout",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/withTimeout.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout avec la valeur de `promise` si elle se règle avant `timeoutMs`, sinon rejette avec une {@link TimeoutError}. Robustesse : - le timer est `unref` (ne maintient pas l'event-loop vivant) et **t…"
     },
     "Fetch": {
       "name": "Fetch",
@@ -10550,6 +10630,7 @@
       ],
       "Error": [
         "nodefonyError",
+        "TimeoutError",
         "AgentError",
         "LLMError",
         "MemoryError",
@@ -11343,6 +11424,13 @@
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/types/IService.ts"
       ],
+      "IGuardedEmitOptions": [
+        "src/nodefony/src/Service.ts"
+      ],
+      "IGuardedEmitResult": [
+        "src/nodefony/src/Service.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "Pdu": [
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/client/index.ts",
@@ -11864,6 +11952,10 @@
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/sequelize/index.ts"
       ],
+      "withTimeout": [
+        "src/packages/@nodefony/realtime/index.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "defineRealtimeConfig": [
         "src/packages/@nodefony/realtime/index.ts"
       ],
@@ -12210,6 +12302,15 @@
         "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts"
       ],
+      "IGuardedListenerInfo": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "TimeoutError": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "readListenerTags": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "ServiceConstructor": [
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
@@ -12227,6 +12328,9 @@
         "src/nodefony/src/types/IKernel.ts"
       ],
       "PackageJson": [
+        "src/nodefony/src/kernel/Module.ts"
+      ],
+      "tagListener": [
         "src/nodefony/src/kernel/Module.ts"
       ],
       "ActionNames": [

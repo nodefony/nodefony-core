@@ -31,6 +31,9 @@ import type {
 
 @services([RedisService])
 class Redis extends Module {
+  /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
+  static override critical = false;
+
   constructor(kernel: Kernel) {
     super("redis", kernel, import.meta.url, defaultConfig);
   }

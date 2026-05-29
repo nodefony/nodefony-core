@@ -22,7 +22,7 @@
  *  - README.md  — usage humain
  *  - docs/      — doc dev vulgarisée (6 pages)
  */
-import { Kernel, Module, services } from "nodefony";
+import { Kernel, Module, services, withTimeout } from "nodefony";
 import defaultConfig from "./nodefony/config/config";
 import {
   defineRealtimeConfig,
@@ -129,6 +129,9 @@ registerBackplaneDriver(RedisBackplane.driver, (ctx) => {
 
 @services([RealtimeService])
 class Realtime extends Module {
+  /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
+  static override critical = false;
+
   /** Rôle topologique du process, capté à `onCluster` (défaut mono-process). */
   #clusterRole: "MASTER" | "WORKER" | "MONO" = "MONO";
 
@@ -275,40 +278,26 @@ class Realtime extends Module {
    * dont la connexion pend (serveur injoignable, file offline node-redis) ne doit
    * jamais geler le boot.
    *
-   * Détails perf/robustesse :
-   * - le timer est `unref` (ne maintient pas l'event loop vivant) et **nettoyé**
-   *   dans tous les cas (`finally`) → aucun handle qui fuit ;
-   * - un filet `.catch()` est posé sur la promesse `start()` : si elle rejette
-   *   APRÈS qu'on a perdu la course (timeout gagné), la rejection ne remonte pas
-   *   en `unhandledRejection` ;
-   * - au timeout on tente un `stop()` best-effort pour ne pas laisser une
-   *   connexion à demi-ouverte derrière.
+   * Délègue la garde au util générique du core {@link withTimeout} (timer `unref`
+   * + cleanup `finally` + filet anti-`unhandledRejection` si `start()` rejette
+   * après que le timeout a gagné la course). Spécificité realtime conservée ici :
+   * au timeout/échec, un `stop()` **best-effort** pour ne pas laisser une
+   * connexion à demi-ouverte derrière.
    *
    * @param backplane - driver à démarrer.
    * @param ms - délai max avant de considérer le `start()` en échec.
    * @throws si `start()` rejette ou dépasse `ms`.
    */
   async #startWithTimeout(backplane: IBackplane, ms: number): Promise<void> {
-    const startP = Promise.resolve(backplane.start());
-    startP.catch(() => {}); // anti-unhandledRejection si rejet post-timeout
-
-    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await Promise.race([
-        startP,
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error(`start() timeout ${ms}ms`)),
-            ms,
-          );
-          timer.unref?.();
-        }),
-      ]);
+      await withTimeout(
+        Promise.resolve(backplane.start()),
+        ms,
+        "realtime backplane start",
+      );
     } catch (e) {
       void Promise.resolve(backplane.stop()).catch(() => {});
       throw e;
-    } finally {
-      if (timer) clearTimeout(timer);
     }
   }
 

@@ -12,6 +12,9 @@ import PocController from "./nodefony/controller/PocController";
 
 @controllers([PocController])
 class TestFrontendReact extends Module {
+  /** Module de démo optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
+  static override critical = false;
+
   constructor(kernel: Kernel) {
     super("test-frontend-react", kernel, import.meta.url, config);
   }

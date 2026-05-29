@@ -12,6 +12,9 @@ import AngularController from "./nodefony/controller/AngularController";
 
 @controllers([AngularController])
 class TestFrontendAngular extends Module {
+  /** Module de démo optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
+  static override critical = false;
+
   constructor(kernel: Kernel) {
     super("test-frontend-angular", kernel, import.meta.url, config);
   }
