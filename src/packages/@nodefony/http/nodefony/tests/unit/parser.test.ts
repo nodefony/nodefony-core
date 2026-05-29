@@ -13,6 +13,12 @@ import type HttpRequest from "../../src/context/http/Request.js";
 // (le Parser y attache .on("data")), + les champs lus par les parsers concrets.
 function makeReq(): { req: HttpRequest; stream: EventEmitter } {
   const stream = new EventEmitter();
+  // Les tests livrent le corps en synchrone (stream.emit("data", …)) AVANT
+  // d'appeler parse(). `Parser.parse()` attend désormais la fin du flux via
+  // `ended()` → on marque le stub « déjà terminé » pour que `ended()` résolve
+  // immédiatement sur les chunks accumulés (sinon parse() attendrait un "end"
+  // jamais émis). Reflète une requête entièrement reçue.
+  (stream as unknown as { readableEnded: boolean }).readableEnded = true;
   const req = {
     request: stream,
     data: Buffer.alloc(0),

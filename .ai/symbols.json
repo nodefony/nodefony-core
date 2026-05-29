@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-29T20:13:43.336Z",
+  "generated": "2026-05-29T20:37:48.838Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -11809,14 +11809,17 @@
       ],
       "HttpCode": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts"
       ],
       "Header": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts"
       ],
       "Redirect": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts"
       ],
       "createFrontendAdminApi": [

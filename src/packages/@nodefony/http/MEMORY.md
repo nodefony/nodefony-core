@@ -225,6 +225,15 @@ Extension de l'`AuditErrorEntry` :
 - Préalable : P2.1 (audit log timing), P3.7 (mode trace verbose)
 - WS hérite via classe de base — phases dispos sur `WebsocketContext`
 
+## Body parsing — drain OBLIGATOIRE avant lecture (fix 2026-05-29)
+
+- `@Body`/`@Query`(POST) lisent `request.queryPost`, rempli par les parsers (`ParserJson`/`ParserQs`/`ParserXml`).
+- **Le corps DOIT être entièrement reçu avant de parser** : `Parser.parse()` (base) fait `await this.ended()` (attend `end`) PUIS `Buffer.concat(chunks)`. `initialize()` fait `await parser.parse()` AVANT de fire `onRequestEnd` → le controller lit un `queryPost` complet.
+- 🐛 **2 bugs corrigés** (révélés par `decorators-response.test.ts`/`body-content-types.test.ts`) :
+  1. **`Request` ctor attachait `on("data")` (compteur `dataSize` MORT, jamais lu)** → flux en flowing mode dès la construction → les chunks s'écoulaient AVANT que le parser (attaché tard dans `parseRequest`) ne les voie → `queryPost` vide. **Listener + champ supprimés.**
+  2. **base `Parser.parse()` ne drainait pas + `initialize` n'`await`ait pas `parser.parse()`** → Qs/Xml lisaient des chunks partiels/vides (JSON marchait déjà : drain+await présents). Drain mutualisé dans la base + `await` ajouté.
+- ⚠️ **Couvert par les UNIT tests** (`unit/parser.test.ts`) ET intégration — l'intégration seule ne voyait pas le bug Qs/Xml (aucun test n'envoyait d'urlencoded). Le mock unit marque `stream.readableEnded=true` (corps livré en synchrone).
+
 ## WS Flow (critique)
 
 1. `server-websocket` reçoit `connection` event (ws@8)

@@ -49,6 +49,13 @@ class Parser {
   }
 
   async parse() {
+    // DRAIN OBLIGATOIRE avant de concaténer : attendre `end` garantit que TOUS
+    // les chunks sont arrivés (le listener `on("data")` du constructeur les
+    // accumule). Sans ça, `Buffer.concat(this.chunks)` lisait un corps partiel/
+    // vide (les Parser Qs/Xml/brut étaient invoqués sans attendre la fin du flux)
+    // → `queryPost` vide pour urlencoded/xml. (ParserJson drainait déjà ; le
+    // drain est désormais mutualisé ici pour tous les parsers.)
+    await this.ended();
     this.request.data = Buffer.concat(this.chunks);
     // Corps reçu : signale la fin de réception (comme ParserQs/Xml/Json). Gate
     // le démarrage synchrone de session (Controller.startSession) — sans ça, un
@@ -138,8 +145,7 @@ class ParserJson extends Parser {
   }
 
   override async parse() {
-    await this.ended(); // attend le corps complet AVANT de concaténer/parser
-    await super.parse();
+    await super.parse(); // base draine (ended()) puis concatène avant de parser
     const text = this.request.data.toString(this.charset).trim();
     if (text) {
       try {

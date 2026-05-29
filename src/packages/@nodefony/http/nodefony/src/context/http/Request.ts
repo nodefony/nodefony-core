@@ -108,7 +108,6 @@ class HttpRequest {
   charset: BufferEncoding = "utf8";
   uploadOption: IUploadOptions = {};
   data: Buffer = Buffer.alloc(0);
-  dataSize: number = 0;
   accept: ReturnType<typeof acceptParser> = [];
   acceptHtml: boolean = false;
   origin: string | undefined;
@@ -120,9 +119,6 @@ class HttpRequest {
     context: HttpContext,
   ) {
     this.request = request;
-    this.request.on("data", (data) => {
-      this.dataSize += data.length;
-    });
     this.context = context;
     this.origin = this.headers.origin;
     this.request.body = null;
@@ -177,7 +173,7 @@ class HttpRequest {
   // `fireAsync("onRequestEnd")` (unknown) → type honnête = Promise<unknown>.
   async initialize(): Promise<unknown> {
     return this.parseRequest()
-      .then((parser) => {
+      .then(async (parser) => {
         switch (true) {
           case parser instanceof ParserXml:
           case parser instanceof ParserQs:
@@ -187,7 +183,10 @@ class HttpRequest {
               if (this.context.finished) {
                 return;
               }
-              parser.parse();
+              // AWAIT : le corps doit être ENTIÈREMENT parsé (queryPost rempli)
+              // AVANT onRequestEnd → avant que le controller ne lise @Body. Sans
+              // await, onRequestEnd partait sur un parse encore en cours → body vide.
+              await parser.parse();
               return this.context.fireAsync("onRequestEnd", this);
             } catch (error) {
               return this.context?.httpKernel?.onError(
