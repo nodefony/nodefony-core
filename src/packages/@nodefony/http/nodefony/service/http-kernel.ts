@@ -689,6 +689,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         // Close without prior finish = client disconnected before full response.
         if (!didFinish) {
           context._abortIfPending("Connection closed before response finished");
+          // P2.3 — record an internal 499 ("client closed request", nginx-style)
+          // when the client vanished before ANY response byte was produced.
+          // NEVER written to the wire (socket already dead) — observability only
+          // (request log + profiler). If the controller already started sending
+          // (`sended`) or an error set a code, the logger prefers those, so 499
+          // surfaces solely on a genuine pre-response client abort.
+          if (!context.sended) {
+            context.response.statusCode = 499;
+          }
         }
         void teardown();
       };

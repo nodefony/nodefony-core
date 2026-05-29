@@ -136,6 +136,11 @@ class HttpContext extends Context implements IHttpContextInterface {
     );
 
     this.once("onTimeout", () => {
+      // P2.5 — abort in-flight async work (DB queries, fetches honoring
+      // `ctx.signal`) BEFORE rendering the timeout error, so a slow/hung
+      // controller stops producing a response the client will never receive.
+      // No-op if nobody read `signal` (cold path, zero overhead otherwise).
+      this._abortIfPending("Request timeout");
       let error = null;
       if ((this.response as Http2Response).stream) {
         // traff 408 reload page htpp2 loop

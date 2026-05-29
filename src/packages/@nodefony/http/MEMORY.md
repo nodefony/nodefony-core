@@ -176,7 +176,23 @@ Extension de l'`AuditErrorEntry` :
 - Reason propagée via `signal.reason` (Error message lisible)
 - Routes test : `/nodefony/test/abort/{wait,state,reset}` — counters singleton
 - Tests : `nodefony/tests/integration/abort-signal.test.ts` (5 tests)
-- Préalable : P2.3 (aborted cleanup + 499), P2.5 (request timeout 408)
+
+## Aborted requests + 499 interne — P2.3 (2026-05-29)
+
+- Client part avant TOUT envoi → `http-kernel.onClose` (`!didFinish`) : `_abortIfPending` + si `!sended` → `response.statusCode = 499` (nginx-style "client closed request").
+- **499 = observabilité PURE** : reflété dans request-log + profiler, **JAMAIS écrit sur le socket** (déjà mort). Le logger préfère `error.code` → 499 ne surface que sur un abort sans erreur ni envoi.
+- Test : `nodefony/tests/http/client-abort-499.test.ts` (assert via log `GET  499 …/abort/wait`).
+
+## Request timeout — 2 couches distinctes — P2.5 (2026-05-29)
+
+- **Couche réseau** : `requestTimeout` natif Node (config `http/https`, défaut 30s) = délai de réception headers+body → anti-slowloris. Node renvoie un 408 brut + ferme. **Hors pipeline volontairement** (aucun Context/controller à ce stade).
+- **Couche pipeline** : `responseTimeout` (Nodefony) armé via `HttpContext.setTimeout()` → socket idle → `onTimeout` event → **`_abortIfPending("Request timeout")` (annule `ctx.signal`)** PUIS `httpKernel.onError(408 | 504 si HTTP/2 stream)` → errorRenderer.
+- Sondes test : `/nodefony/test/timeout/{probe,state,reset}` (la sonde re-arme un socket timeout court via `ctx.response.response.setTimeout(ms, cb)` + `fire("onTimeout")`). Test : `nodefony/tests/http/timeout-abort.test.ts`.
+
+## Controller initialize() error boundary — P2.4 (2026-05-29)
+
+- `Resolver.newController` → `await controller.initialize()` ; un throw remonte `HttpContext.handle()` reject → `handleHttp` catch → `onError` → 500 JSON cohérent, serveur sain (pas de hang).
+- Verrou : `LifecycleController` (module test) dont `initialize()` throw toujours, route `/nodefony/test/lifecycle/init-crash`. Test : `nodefony/tests/http/lifecycle-init-crash.test.ts`.
 
 ## Post-response hook — Context.onAfterResponse (P1.2, 2026-05-16)
 

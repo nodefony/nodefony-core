@@ -41,6 +41,13 @@ const abortState = {
   lastAbortReason: "",
 };
 
+// P2.5 — request-timeout → AbortSignal observation state. Records that the
+// timeout pipeline (onTimeout → onError) also aborts `ctx.signal`.
+const timeoutState = {
+  signalAbortedCount: 0,
+  lastReason: "",
+};
+
 // P1.7 — security hooks observation state (populated by Test module
 // listeners registered in src/modules/test/index.ts).
 export const securityHooksState = {
@@ -277,6 +284,62 @@ class DefaultController extends Controller {
     abortState.abortedCount = 0;
     abortState.completedCount = 0;
     abortState.lastAbortReason = "";
+    return this.renderJson({ ok: true });
+  }
+
+  // ── P2.5 request-timeout → AbortSignal probes ───────────────────
+  // Re-arms a SHORT socket idle timeout for THIS request only (global
+  // responseTimeout is 30s — too long for a test), then hangs. When it fires
+  // → Nodefony onTimeout → _abortIfPending → this signal listener runs
+  // (proves the timeout aborts in-flight work) AND the kernel renders 408.
+  @route("timeout-probe", { path: "/timeout/probe" })
+  async timeoutProbe() {
+    const ctx = this.context as HttpContext;
+    const signal = ctx.signal;
+    const raw = (
+      ctx.response as unknown as {
+        response?: { setTimeout?: (ms: number, cb: () => void) => void };
+      }
+    ).response;
+    // Same mechanism as production HttpContext.setTimeout(), just faster.
+    raw?.setTimeout?.(250, () => {
+      ctx.timeoutExpired = true;
+      ctx.fire("onTimeout", ctx);
+    });
+    await new Promise<void>((resolve) => {
+      if (signal.aborted) {
+        timeoutState.signalAbortedCount++;
+        return resolve();
+      }
+      signal.addEventListener(
+        "abort",
+        () => {
+          timeoutState.signalAbortedCount++;
+          timeoutState.lastReason =
+            (signal.reason as Error)?.message ??
+            String(signal.reason ?? "aborted");
+          resolve();
+        },
+        { once: true },
+      );
+    });
+    // The 408 was already rendered by onTimeout → onError. Return without
+    // sending again — onError guards on finished/sended.
+    return;
+  }
+
+  @route("timeout-state", { path: "/timeout/state" })
+  timeoutStateRoute() {
+    return this.renderJson({
+      signalAbortedCount: timeoutState.signalAbortedCount,
+      lastReason: timeoutState.lastReason,
+    });
+  }
+
+  @route("timeout-reset", { path: "/timeout/reset" })
+  timeoutReset() {
+    timeoutState.signalAbortedCount = 0;
+    timeoutState.lastReason = "";
     return this.renderJson({ ok: true });
   }
 

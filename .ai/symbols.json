@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-29T19:36:47.773Z",
+  "generated": "2026-05-29T20:04:21.601Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 776,
-    "symbols": 1452,
-    "classes": 230,
+    "files": 777,
+    "symbols": 1453,
+    "classes": 231,
     "interfaces": 354,
     "types": 182,
     "enums": 2,
@@ -2933,6 +2933,19 @@
       "decorators": [
         "controller"
       ]
+    },
+    "LifecycleController": {
+      "name": "LifecycleController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/LifecycleController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "P2.4 — controller `initialize()` error boundary probe. This controller's `initialize()` ALWAYS throws, so any route on it exercises the controller-initialize crash path: Resolver.newController → `a…"
     },
     "OpenApiController": {
       "name": "OpenApiController",
@@ -10751,6 +10764,7 @@
         "FrameworkController",
         "GraphQlController",
         "HtmlController",
+        "LifecycleController",
         "OpenApiController",
         "RestController",
         "RouteController",
@@ -11072,6 +11086,7 @@
         "FrameworkController",
         "GraphQlController",
         "HtmlController",
+        "LifecycleController",
         "OpenApiController",
         "RestController",
         "RouteController",
@@ -11628,6 +11643,9 @@
       "AlsController": [
         "src/modules/test/index.ts"
       ],
+      "LifecycleController": [
+        "src/modules/test/index.ts"
+      ],
       "registerDolibarrEntities": [
         "src/modules/test/index.ts"
       ],
@@ -11704,6 +11722,7 @@
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
+        "src/modules/test/nodefony/controller/LifecycleController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
@@ -11757,6 +11776,7 @@
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
+        "src/modules/test/nodefony/controller/LifecycleController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
@@ -11772,6 +11792,7 @@
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
+        "src/modules/test/nodefony/controller/LifecycleController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
@@ -11842,6 +11863,7 @@
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
+        "src/modules/test/nodefony/controller/LifecycleController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
