@@ -9,6 +9,7 @@ import type { IModule } from "../types/IModule";
 import Container from "../Container";
 import Service from "../Service";
 import Kernel from "../kernel/Kernel";
+import Injector from "../kernel/injector/injector";
 import type { DefaultOptionsService } from "../Service";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1240,5 +1241,55 @@ describe("Module — edge cases", () => {
     const mod = new Module("abs-json", makeKernelStub(), process.cwd(), {});
     const json = await mod.loadJson(NODEFONY_PKG);
     assert.ok(json);
+  });
+});
+
+// ─── Durcissement C3 (2026-05-29) : contrats du registre de services ──────────
+//
+// Couvre les fonctions du module consommées par un module métier (P6 security :
+// enregistrer des authenticators/voters). Étaient non couvertes (Funcs Module 70 %).
+
+describe("Module — registre de services (contrats DI)", () => {
+  it("getServiceNames() — module neuf → [] (lazy, aucune allocation)", () => {
+    const mod = new Module(
+      "svc-names-empty",
+      makeKernelStub(),
+      process.cwd(),
+      {},
+    );
+    assert.deepStrictEqual(mod.getServiceNames(), []);
+  });
+
+  it("getServiceNames() — retourne une COPIE défensive (mutation externe sans effet)", () => {
+    const mod = new Module(
+      "svc-names-copy",
+      makeKernelStub(),
+      process.cwd(),
+      {},
+    );
+    const names = mod.getServiceNames();
+    names.push("intrus");
+    assert.deepStrictEqual(
+      mod.getServiceNames(),
+      [],
+      "l'état interne ne doit pas être muté par le retour",
+    );
+  });
+
+  it("registerService(Ctor, name) — enregistre le constructeur dans l'Injector sous `name`", () => {
+    const mod = new Module("svc-register", makeKernelStub(), process.cwd(), {});
+    class RegDemoService extends Service {
+      constructor(c?: Container) {
+        super("RegDemoService", c ?? new Container());
+      }
+    }
+    const ret = mod.registerService(RegDemoService as never, "regDemoService");
+    assert.strictEqual(Injector.isRegistered("regDemoService"), true);
+    assert.strictEqual(Injector.get("regDemoService"), RegDemoService);
+    assert.strictEqual(
+      ret,
+      RegDemoService,
+      "registerService retourne le constructeur enregistré",
+    );
   });
 });
