@@ -80,7 +80,7 @@ class Session extends Container {
   constructor(
     name: string,
     options: OptionsSessionType,
-    manager: sessionService
+    manager: sessionService,
   ) {
     super();
     this.options = extend({}, defaultSessionOptions, options);
@@ -97,7 +97,7 @@ class Session extends Container {
     pci: any,
     severity?: Severity,
     msgid?: Msgid,
-    msg?: Message
+    msg?: Message,
   ): Pdu {
     if (!msgid) {
       msgid = `SESSION ${this.name}`;
@@ -139,7 +139,7 @@ class Session extends Container {
   create(
     lifetime: number,
     id?: string,
-    settingsCookie: CookieOptionsType = {}
+    settingsCookie: CookieOptionsType = {},
   ): this {
     this.id = id || this.setId();
     const defaultSetting = extend({}, this.options.cookie);
@@ -161,7 +161,7 @@ class Session extends Container {
     // change context session
     if (contextSession && this.contextSession !== contextSession) {
       this.log(
-        `SESSION CONTEXT CHANGE : ${this.contextSession} ==> ${contextSession}`
+        `SESSION CONTEXT CHANGE : ${this.contextSession} ==> ${contextSession}`,
       );
       switch (this.strategy) {
         case "migrate":
@@ -172,12 +172,12 @@ class Session extends Container {
               if (
                 !this.isValidSession(
                   result,
-                  this.context as HttpContext | WebsocketContext
+                  this.context as HttpContext | WebsocketContext,
                 )
               ) {
                 this.log(
                   `INVALID SESSION ==> ${this.name} : ${this.id}`,
-                  "WARNING"
+                  "WARNING",
                 );
                 await this.destroy().catch((e) => {
                   throw e;
@@ -188,7 +188,7 @@ class Session extends Container {
               await this.removeSession();
               this.log(
                 `STRATEGY MIGRATE SESSION  ==> ${this.name} : ${this.id}`,
-                "DEBUG"
+                "DEBUG",
               );
               this.migrated = true;
               this.contextSession = contextSession;
@@ -203,7 +203,7 @@ class Session extends Container {
         case "invalidate":
           this.log(
             `STRATEGY INVALIDATE SESSION ==> ${this.name} : ${this.id}`,
-            "DEBUG"
+            "DEBUG",
           );
           await this.destroy().catch((e) => {
             throw e;
@@ -234,12 +234,12 @@ class Session extends Container {
             if (
               !this.isValidSession(
                 result,
-                this.context as HttpContext | WebsocketContext
+                this.context as HttpContext | WebsocketContext,
               )
             ) {
               this.log(
                 `SESSION ==> ${this.name} : ${this.id}  session invalid `,
-                "ERROR"
+                "ERROR",
               );
               await this.invalidate().catch((e) => {
                 throw e;
@@ -249,7 +249,7 @@ class Session extends Container {
             if (!this.strategyNone) {
               this.log(
                 `SESSION ==> ${this.name} : ${this.id} use_strict_mode `,
-                "ERROR"
+                "ERROR",
               );
               await this.invalidate().catch((e) => {
                 throw e;
@@ -283,7 +283,7 @@ class Session extends Container {
   async invalidate(
     lifetime: number = this.lifetime as number,
     id?: string,
-    settingsCookie: CookieOptionsType = {}
+    settingsCookie: CookieOptionsType = {},
   ) {
     this.log(`INVALIDATE SESSION ==>${this.name} : ${this.id}`, "DEBUG");
     this.saved = true;
@@ -348,7 +348,12 @@ class Session extends Container {
     if (!this.options.use_only_cookies && !this.id) {
       const request = this.context?.request as HttpRequest;
       if (request && this.name in request.query) {
-        this.id = this.getId(request.query[this.name]);
+        // request.query[name] est `unknown` (input client) : un id de session
+        // n'est valide que sous forme de string — ignorer string[]/objets.
+        const raw = request.query[this.name];
+        if (typeof raw === "string") {
+          this.id = this.getId(raw);
+        }
       }
     }
     // console.log(
@@ -375,7 +380,7 @@ class Session extends Container {
       } catch (e) {
         this.log(
           `SESSION REFERER ERROR SESSION  ==> ${this.name} : ${this.id}`,
-          "WARNING"
+          "WARNING",
         );
         return false;
       }
@@ -395,7 +400,7 @@ class Session extends Container {
     if (lastUsed && lastUsed + (this.lifetime as number) * 1000 < now) {
       this.log(
         `SESSION INVALIDE lifetime   ==> ${this.name} : ${this.id}`,
-        "WARNING"
+        "WARNING",
       );
       return false;
     }
@@ -410,7 +415,7 @@ class Session extends Container {
     }
     this.log(
       `SESSION START WARNING REFERRER NOT SAME, HOST : ${host} ,META STORAGE :${meta}`,
-      "WARNING"
+      "WARNING",
     );
     throw {
       meta,
@@ -502,7 +507,7 @@ class Session extends Container {
     const cipher = createCipheriv(
       "aes-256-ctr",
       this.manager.secret as Buffer,
-      this.manager.iv as Buffer
+      this.manager.iv as Buffer,
     );
     let encrypted = cipher.update(text, "utf8", "hex");
     encrypted += cipher.final("hex");
@@ -514,7 +519,7 @@ class Session extends Container {
     const decipher = createDecipheriv(
       "aes-256-ctr",
       this.manager.secret as Buffer,
-      this.manager.iv as Buffer
+      this.manager.iv as Buffer,
     );
 
     let decrypted = decipher.update(text, "hex", "utf8");
@@ -529,7 +534,7 @@ class Session extends Container {
       case "active":
         this.log(
           `SESSION ALLREADY STARTED ==> ${this.name} : ${this.id}`,
-          "WARNING"
+          "WARNING",
         );
         return false;
       case "disabled":
@@ -585,7 +590,7 @@ class Session extends Container {
     //let ua = null;
     this.setMetaBag(
       "lifetime",
-      cookieSetting.maxAge || this.options?.cookie?.maxAge
+      cookieSetting.maxAge || this.options?.cookie?.maxAge,
     );
     this.setMetaBag("context", this.contextSession || null);
     const type = (this.context as HttpContext | WebsocketContext)

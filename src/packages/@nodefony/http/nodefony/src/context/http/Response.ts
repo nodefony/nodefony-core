@@ -1,7 +1,7 @@
-import http, { OutgoingHttpHeaders } from "node:http";
+import http, { OutgoingHttpHeaders, OutgoingHttpHeader } from "node:http";
 import http2 from "node:http2";
 import HttpContext from "../http/HttpContext";
-import { typeOf, Pdu, Message, Severity, Msgid } from "nodefony";
+import { typeOf, Pci, Pdu, Message, Severity, Msgid } from "nodefony";
 import mime from "mime-types";
 import { responseTimeoutType } from "../../../service/http-kernel";
 import Cookie from "../../cookies/cookie";
@@ -14,7 +14,7 @@ const ansiRegex = function ({ onlyFirst = false } = {}) {
   return new RegExp(pattern, onlyFirst ? undefined : "g");
 };
 
-const stripAinsi = function (val: any) {
+const stripAinsi = function (val: string): string {
   return typeof val === "string" ? val.replace(ansiRegex(), "") : val;
 };
 
@@ -111,7 +111,7 @@ class HttpResponse {
     if (this.response) {
       if (this.flushing) {
         const obj: OutgoingHttpHeaders = {};
-        obj[name] = value as any;
+        obj[name] = value as OutgoingHttpHeader;
         return this.addTrailers(obj);
       }
       if (!this.response.headersSent) {
@@ -124,8 +124,12 @@ class HttpResponse {
     if (!this.response?.headersSent) {
       if (obj instanceof Object) {
         for (const head in obj) {
-          let value = obj[head];
-          this.setHeader(head, value as any);
+          const value = obj[head];
+          // OutgoingHttpHeaders peut contenir des valeurs `undefined` (type Node) :
+          // ne pas écrire de header undefined (setHeader natif throw / pollue).
+          if (value !== undefined) {
+            this.setHeader(head, value);
+          }
         }
       }
       return (this.headers =
@@ -265,21 +269,18 @@ class HttpResponse {
     return this.statusMessage || (http.STATUS_CODES[this.statusCode] as string);
   }
 
-  setBody(
-    ele: string | NodeJS.ArrayBufferView | ArrayBuffer | SharedArrayBuffer,
-    encoding?: BufferEncoding | undefined,
-  ) {
+  setBody(ele: unknown, encoding?: BufferEncoding | undefined): Buffer {
     if (typeof ele === "string") {
       this.body = Buffer.from(ele, encoding || this.encoding);
     } else if (ele instanceof ArrayBuffer || ele instanceof SharedArrayBuffer) {
       this.body = Buffer.from(ele);
-    } else if ("buffer" in ele && ele.buffer instanceof ArrayBuffer) {
+    } else if (ArrayBuffer.isView(ele) && ele.buffer instanceof ArrayBuffer) {
       this.body = Buffer.from(ele.buffer);
     } else {
       try {
         this.body = Buffer.from(JSON.stringify(ele));
       } catch (e) {
-        this.body = Buffer.from(ele.toString());
+        this.body = Buffer.from(String(ele));
       }
     }
     return this.body;
@@ -349,19 +350,13 @@ class HttpResponse {
         }
       }
       this.statusMessage = this.getStatusMessage();
-      if ((this.context as any).requestId && !this.response.headersSent) {
-        this.response.setHeader(
-          "x-request-id",
-          (this.context as any).requestId,
-        );
+      if (this.context.requestId && !this.response.headersSent) {
+        this.response.setHeader("x-request-id", this.context.requestId);
       }
       // P2.7 — echo W3C traceparent so downstream services and clients can
       // continue the trace. Header name is lower-case per the spec.
-      if ((this.context as any).traceparent && !this.response.headersSent) {
-        this.response.setHeader(
-          "traceparent",
-          (this.context as any).traceparent,
-        );
+      if (this.context.traceparent && !this.response.headersSent) {
+        this.response.setHeader("traceparent", this.context.traceparent);
       }
       this.setLength();
       // RFC 7230 §3.1.2 — status-message must be printable US-ASCII
@@ -391,14 +386,14 @@ class HttpResponse {
     return this.response?.addTrailers(headers);
   }
 
-  flush(chunk: any, encoding: BufferEncoding) {
+  flush(chunk: unknown, encoding: BufferEncoding) {
     this.flushing = true;
     this.setHeader("Transfer-Encoding", "chunked");
     return this.send(chunk, encoding, true);
   }
 
   async send(
-    chunk: any,
+    chunk?: unknown,
     encoding?: BufferEncoding,
     flush: boolean = false,
   ): Promise<HttpResponse> {
@@ -439,7 +434,10 @@ class HttpResponse {
     });
   }
 
-  async write(chunk?: any, encoding?: BufferEncoding): Promise<HttpResponse> {
+  async write(
+    chunk?: unknown,
+    encoding?: BufferEncoding,
+  ): Promise<HttpResponse> {
     return await this.send(chunk, encoding || this.encoding);
   }
 
@@ -448,7 +446,7 @@ class HttpResponse {
   }
 
   async end(
-    chunk?: any,
+    chunk?: string | Buffer,
     encoding?: BufferEncoding,
   ): Promise<http.ServerResponse | http2.ServerHttp2Stream> {
     return new Promise((resolve, reject) => {
@@ -515,7 +513,7 @@ class HttpResponse {
     return this;
   }
 
-  log(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
+  log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
     if (!msgid) {
       msgid = `${this.context.type} RESPONSE `;
     }

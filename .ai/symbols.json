@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-29T16:31:40.734Z",
+  "generated": "2026-05-29T16:54:15.912Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -11276,6 +11276,8 @@
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
       ],
       "Severity": [

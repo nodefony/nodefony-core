@@ -87,7 +87,7 @@ class Http2Response extends HttpResponse {
   }
 
   override async send(
-    chunk: any,
+    chunk?: unknown,
     encoding?: BufferEncoding,
     flush: boolean = false,
   ): Promise<Http2Response> {
@@ -134,7 +134,7 @@ class Http2Response extends HttpResponse {
   }
 
   override end(
-    chunk?: any,
+    chunk?: string | Buffer,
     encoding?: BufferEncoding,
   ): Promise<http.ServerResponse | http2.ServerHttp2Stream> {
     return new Promise((resolve, reject) => {

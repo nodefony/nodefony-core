@@ -9,7 +9,7 @@ import formidable, { IncomingForm } from "formidable";
 //import { Container } from "nodefony";
 import { ParserXml, ParserQs, Parser, acceptParser } from "./parser";
 import { UploadedFile } from "../../../service/upload/upload-service";
-import { extend, Pdu, Message, Severity, Msgid } from "nodefony";
+import { extend, Pci, Pdu, Message, Severity, Msgid } from "nodefony";
 import Session from "../../session/session";
 import { HttpError } from "@nodefony/http";
 
@@ -29,7 +29,7 @@ declare module "url" {
 
 declare module "http" {
   interface IncomingMessage {
-    body: any;
+    body: unknown;
     session: Session;
     cookie: Cookies;
   }
@@ -37,7 +37,7 @@ declare module "http" {
 
 declare module "http2" {
   interface Http2ServerRequest {
-    body: any;
+    body: unknown;
     session: Session;
   }
 }
@@ -63,10 +63,10 @@ class HttpRequest {
   hostname: string;
   sUrl: string;
   parser: ParserType | null = null;
-  queryPost: Record<string, any> = {};
-  queryGet: Record<string, any> = {};
+  queryPost: Record<string, unknown> = {};
+  queryGet: Record<string, unknown> = {};
   queryFile: UploadedFile[] = [];
-  query: Record<string, any> = {};
+  query: Record<string, unknown> = {};
   queryStringOptions:
     | (QS.IParseOptions & {
         decoder?: undefined;
@@ -76,7 +76,7 @@ class HttpRequest {
   formidableOption: formidable.Options = {};
   data: Buffer = Buffer.alloc(0);
   dataSize: number = 0;
-  accept: any[] = [];
+  accept: ReturnType<typeof acceptParser> = [];
   acceptHtml: boolean = false;
   origin: string | undefined;
   constructor(
@@ -244,7 +244,7 @@ class HttpRequest {
                       } else {
                         await this.createFileUpload(
                           file,
-                          ele as any,
+                          ele as formidable.File | undefined,
                           opt.maxFileSize,
                         );
                       }
@@ -326,7 +326,7 @@ class HttpRequest {
     name: string,
     file?: formidable.File,
     maxSize?: number,
-  ): Promise<any> {
+  ): Promise<UploadedFile | undefined> {
     if (file && maxSize && file.size > maxSize) {
       throw new Error(
         `maxFileSize exceeded, received ${file.size} bytes of file data for : ${file.originalFilename}` ||
@@ -443,7 +443,7 @@ class HttpRequest {
     return new URL(sUrl, baseUrl);
   }
 
-  log(pci: any, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
+  log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message): Pdu {
     if (!msgid) {
       msgid = `${this.context.type} REQUEST `;
     }

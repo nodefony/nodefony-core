@@ -99,9 +99,9 @@ export interface MetaData {
 export interface Data {
   error?: Error;
   nodefony: MetaData;
-  message?: any;
+  message?: unknown;
   code?: number;
-  result: any;
+  result: unknown;
   //stack?: string;
 }
 
@@ -110,7 +110,7 @@ import type { IHttpKernel as IHttpKernelInterface } from "../interfaces/IHttpKer
 
 @injectable()
 class HttpKernel extends Service implements IHttpKernelInterface {
-  certificates: any;
+  certificates: unknown;
   serviceCerticats: Certicates | null = null;
   key: string = "";
   cert: string = "";
@@ -265,7 +265,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     request: httpRequest,
     response: httpResponse | null,
     type: ServerType,
-  ): Promise<any> {
+  ): Promise<HttpContext> {
     const scope = this.container?.enterScope("request");
     const log = clc.cyan.bgBlue(`${request.url}`);
     this.log(`${log}`, "DEBUG", `${type}`);
@@ -485,7 +485,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       case "array": {
         const tab = this.domainAlias as AliasArray;
         for (let i = 0; i < tab.length; i++) {
-          const ele: string | RegExp | any = tab[i];
+          const ele: string | RegExp = tab[i];
           if (typeof ele === "string") {
             alias.push(new RegExp(tab[i], "u"));
           }
@@ -503,7 +503,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     request: httpRequest,
     response: httpResponse,
     type: ServerType,
-  ): Promise<http.ServerResponse | http2.Http2ServerResponse> {
+  ): Promise<unknown> {
     response.setHeader("Server", this.options.headerServer);
     // Security headers OWASP — defaults secure-by-default (cf config.securityHeaders).
     // HSTS gated TLS-only : poser sur HTTP plain n'a aucun effet RFC 6797 et pollue.
@@ -557,8 +557,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     });
   }
 
-  async initServers(): Promise<any[]> {
-    let servers = [];
+  async initServers(): Promise<
+    (httpServer | httpsServer | websocketServer | websocketSecureServer)[]
+  > {
+    const servers: (
+      | httpServer
+      | httpsServer
+      | websocketServer
+      | websocketSecureServer
+    )[] = [];
     const serverHttp = this.get<httpServer>("server-http");
     if (serverHttp) {
       await serverHttp.createServer();
@@ -860,7 +867,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     ws: Ws,
     req: IncomingMessage,
     type: ServerType,
-  ): Promise<any> {
+  ): Promise<unknown> {
     await this.fireAsync("onServerRequest", req, null, type).catch((e) => {
       throw e;
     });
@@ -875,7 +882,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     ws: Ws,
     req: IncomingMessage,
     type: ServerType,
-  ): Promise<any> {
+  ): Promise<unknown> {
     let context: WebsocketContext | null = null;
     let error: Error | null | unknown = null;
     try {
@@ -996,8 +1003,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         if (ret === 204) {
           return ret;
         }
-      } catch (e: any) {
-        context.logRequest(e);
+      } catch (e: unknown) {
+        context.logRequest(e as Error);
         throw e;
       }
       if (context.secure || context.isControlledAccess) {
