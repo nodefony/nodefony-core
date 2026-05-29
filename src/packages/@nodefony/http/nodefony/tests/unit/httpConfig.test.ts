@@ -200,6 +200,30 @@ describe("@nodefony/http — defineHttpConfig (défauts kernel)", () => {
   });
 });
 
+describe("@nodefony/http — statics.enabled (toggle reverse-proxy)", () => {
+  it("activé par défaut", () => {
+    expect(httpConfigSchema.parse({}).statics.enabled).to.equal(true);
+  });
+
+  it("désactivable (nginx/CDN sert les statiques)", () => {
+    const c = httpConfigSchema.parse({ statics: { enabled: false } });
+    expect(c.statics.enabled).to.equal(false);
+    // web reste présent dans la config (le gate runtime server-static skippe
+    // initStaticFiles ; enabled n'est PAS une racine statique).
+    expect(c.statics.web.path).to.equal("public");
+  });
+
+  it("enabled coexiste avec une entrée additionnelle (loose)", () => {
+    const c = httpConfigSchema.parse({
+      statics: { enabled: false, assets: { path: "dist/assets" } },
+    });
+    expect(c.statics.enabled).to.equal(false);
+    expect((c.statics as Record<string, unknown>).assets).to.deep.equal({
+      path: "dist/assets",
+    });
+  });
+});
+
 describe("@nodefony/http — métadonnées de champ (JSON Schema)", () => {
   it("schema.shape porte les flags Nodefony", () => {
     expect(httpConfigSchema.shape.watch.meta()?.reserved).to.equal(true);

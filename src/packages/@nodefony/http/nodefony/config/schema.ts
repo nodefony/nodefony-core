@@ -423,6 +423,16 @@ const staticEntrySchema = z
 
 const staticsSchema = z
   .looseObject({
+    enabled: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Active le serveur de fichiers statiques intégré. `false` = AUCUN " +
+          "montage config-driven (`web`/`assets`…) → 0 listener, 0 résolution de " +
+          "chemin au boot. À mettre en production quand un reverse-proxy/CDN " +
+          "(nginx, Caddy, Varnish) sert les statiques. N.B. : ne gate PAS les " +
+          "montages programmatiques addMount() (assets Vite via @nodefony/frontend).",
+      ),
     defaultOptions: staticOptionsSchema
       .default(() => ({ cacheControl: true, maxAge: 96 * 60 * 60 }))
       .describe(

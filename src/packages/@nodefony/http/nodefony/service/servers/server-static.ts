@@ -38,6 +38,12 @@ class Statics extends Service {
   servers: ServersStatic;
   /** Montages préfixés (prod frontend). Lazy : `[]` rempli à `addMount`. */
   mounts: StaticMount[] = [];
+  /**
+   * Serveur statique config-driven actif. `false` (config `statics.enabled`) =
+   * aucun montage `web`/`assets`, 0 listener — quand un reverse-proxy/CDN sert
+   * les statiques. Ne gate PAS les `addMount()` programmatiques (frontend prod).
+   */
+  enabled: boolean = true;
   defaultOptions: serveStatic.ServeStaticOptions = defaultOptions;
   constructor(
     module: Module,
@@ -53,12 +59,26 @@ class Statics extends Service {
     super("server-static", container, event, options);
     this.module = module;
     this.servers = {};
+    // `enabled` lu PUIS supprimé des options AVANT le `for...in` de
+    // initStaticFiles (sinon traité comme une racine statique → `.path` sur un
+    // booléen). Même contrat que `defaultOptions` : ce n'est pas une entrée
+    // servable. Le `delete` exige une config NON gelée (cf defineHttpConfig).
+    this.enabled = this.options.enabled !== false;
+    if (typeof this.options.enabled !== "undefined")
+      delete this.options.enabled;
     this.defaultOptions = extend(
       defaultOptions,
       this.options.defaultOptions || {},
     );
     if (this.options.defaultOptions) delete this.options.defaultOptions;
-    this.initStaticFiles();
+    if (this.enabled) {
+      this.initStaticFiles();
+    } else {
+      this.log(
+        "Static file server DISABLED (statics.enabled=false) — reverse-proxy/CDN attendu",
+        "INFO",
+      );
+    }
     this.kernel?.on("onPostReady", () => {
       for (const ele in this.servers) {
         this.log(`Server Listen on ${ele}`, "INFO");
@@ -177,6 +197,11 @@ class Statics extends Service {
     request: http.IncomingMessage | http2.Http2ServerRequest,
     response: http.ServerResponse | http2.Http2ServerResponse,
   ): Promise<http.ServerResponse | http2.Http2ServerResponse> {
+    // Rien à servir (statics désactivé + aucun mount programmatique) → no-op
+    // immédiat, sans parser l'URL. Le routing prend le relais.
+    if (!this.enabled && this.mounts.length === 0) {
+      return Promise.resolve(response);
+    }
     const baseURL = this.getUrl(request);
     const { pathname } = new URL(request.url as string, baseURL);
     if (!pathname) {
