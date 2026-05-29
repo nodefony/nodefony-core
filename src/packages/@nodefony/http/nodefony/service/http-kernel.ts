@@ -5,7 +5,6 @@ import {
   Event,
   Scope,
   //Kernel,
-  typeOf,
   injectable,
   EnvironmentType,
   DebugType,
@@ -21,6 +20,10 @@ import {
   type TrustProxyChecker,
   type TrustProxyConfig,
 } from "../src/context/trustProxy";
+import {
+  compileDomainAlias,
+  isDomainAllowed,
+} from "../src/context/domainMatcher";
 import type { Profiler } from "../src/profiler/Profiler";
 import http from "node:http";
 //import https from "node:https";
@@ -482,46 +485,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   compileAlias(): RegExp[] {
-    const alias: RegExp[] = [];
-    alias.push(new RegExp(`^${this.domain}$`, "u"));
-    switch (typeOf(this.domainAlias)) {
-      case "string": {
-        if (this.domainAlias) {
-          const tab = (this.domainAlias as string).split(/ |,/u);
-          for (const myAlias in tab) {
-            alias.push(new RegExp(tab[myAlias], "u"));
-          }
-        }
-        break;
-      }
-      case "object": {
-        const obj = this.domainAlias as AliasObject;
-        for (const myAlias in obj) {
-          const ele: string | RegExp = obj[myAlias];
-          if (ele instanceof String) {
-            alias.push(new RegExp(obj[myAlias], "u"));
-          }
-          if (ele instanceof RegExp) {
-            alias.push(obj[myAlias] as RegExp);
-          }
-        }
-        break;
-      }
-      case "array": {
-        const tab = this.domainAlias as AliasArray;
-        for (let i = 0; i < tab.length; i++) {
-          const ele: string | RegExp = tab[i];
-          if (typeof ele === "string") {
-            alias.push(new RegExp(tab[i], "u"));
-          }
-          if (ele instanceof RegExp) {
-            alias.push(tab[i] as RegExp);
-          }
-        }
-        break;
-      }
-    }
-    return alias;
+    return compileDomainAlias(this.domain, this.domainAlias);
   }
 
   async onHttpRequest(
@@ -1082,14 +1046,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   isValidDomain(context: ContextType): boolean {
-    let result: boolean = false;
-    for (const reg of this.regAlias) {
-      result = reg.test(context.domain);
-      if (result) {
-        break;
-      }
-    }
-    return result;
+    return isDomainAllowed(this.regAlias, context.domain);
   }
 }
 

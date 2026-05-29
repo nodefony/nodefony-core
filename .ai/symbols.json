@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-29T22:59:05.963Z",
+  "generated": "2026-05-29T23:22:01.212Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 781,
-    "symbols": 1467,
+    "files": 782,
+    "symbols": 1470,
     "classes": 231,
     "interfaces": 357,
-    "types": 186,
+    "types": 187,
     "enums": 2,
-    "functions": 233,
+    "functions": 235,
     "constants": 458
   },
   "symbols": {
@@ -9838,6 +9838,30 @@
       "exported": true,
       "module": "@nodefony/http"
     },
+    "DomainAlias": {
+      "name": "DomainAlias",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Validation du `Host` entrant contre les domaines que CE serveur accepte de servir (vhosts). Pendant « domaine » du `trustProxy` (qui, lui, filtre par IP). Deux notions distinctes dans Nodefony — ne…"
+    },
+    "compileDomainAlias": {
+      "name": "compileDomainAlias",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Compile le domaine principal + ses alias en une liste de `RegExp`. Le domaine principal est TOUJOURS ancré (`^domain$`) : seul un Host exactement égal passe. Les alias string sont compilés via `new…"
+    },
+    "isDomainAllowed": {
+      "name": "isDomainAllowed",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Teste un `Host` entrant contre la liste de `RegExp` pré-compilée."
+    },
     "sanitizeRequestId": {
       "name": "sanitizeRequestId",
       "kind": "function",
@@ -13277,6 +13301,12 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "TrustProxyConfig": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "compileDomainAlias": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "isDomainAllowed": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "Statics": [
