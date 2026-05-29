@@ -26,6 +26,7 @@ Successeur de `monitoring-bundle` Vue 2 legacy. Application web d'administration
 ### Conséquence pour chaque module migré
 
 Si le module expose une API d'introspection/admin :
+
 - `@nodefony/http` → stats serveurs
 - `@nodefony/framework` → liste routes
 - `@nodefony/security` → users connectés
@@ -49,26 +50,26 @@ Si le module expose une API d'introspection/admin :
 
 ### Différenciateur
 
-| Concurrent  | Serveur | IA native | Gouvernance |
-| ----------- | ------- | --------- | ----------- |
-| NestJS      | ✅      | ❌        | ❌          |
-| LangChain   | ❌      | ✅        | ❌          |
+| Concurrent   | Serveur | IA native | Gouvernance |
+| ------------ | ------- | --------- | ----------- |
+| NestJS       | ✅      | ❌        | ❌          |
+| LangChain    | ❌      | ✅        | ❌          |
 | **Nodefony** | ✅      | ✅        | ✅          |
 
 **Pilier technique** : WS natif `@nodefony/http` = transport streaming LLM. DI Container = orchestration sous-agents. Multi-ORM = persistence audit/coûts.
 
 ### 8 modules IA
 
-| Module                  | Rôle                                                         | État       | Sous-phase |
-| ----------------------- | ------------------------------------------------------------ | ---------- | ---------- |
-| `@nodefony/llm`         | Multi-LLM (Claude, Gemini, OpenAI, Ollama, Mistral, Groq)    | 🔶         | P12.1      |
-| `@nodefony/vector`      | Adapters (pgvector, Qdrant, Chroma)                          | 🔶         | P12.1      |
-| `@nodefony/rag`         | Pipeline RAG (ingestion/chunking/embedding/recherche)        | 🔶         | P12.1      |
-| `@nodefony/memory`      | Mémoire agents (court/long/épisodique)                       | 🔶         | P12.1      |
-| `@nodefony/agent`       | Orchestrateur + sous-agents (`@Agent`, `@Tool`)              | 🔶 partiel | P12.2      |
-| `@nodefony/mcp`         | MCP server + client (Model Context Protocol Anthropic)       | ⬜         | P12.3      |
-| `@nodefony/agent-guard` | **Différenciateur** — zones, PII, audit, approval, coûts     | ⬜         | P12.4      |
-| `@nodefony/studio`      | Panels IA intégrés dans `@nodefony/studio` (pas séparé)      | ⬜         | P12.5      |
+| Module                  | Rôle                                                      | État       | Sous-phase |
+| ----------------------- | --------------------------------------------------------- | ---------- | ---------- |
+| `@nodefony/llm`         | Multi-LLM (Claude, Gemini, OpenAI, Ollama, Mistral, Groq) | 🔶         | P12.1      |
+| `@nodefony/vector`      | Adapters (pgvector, Qdrant, Chroma)                       | 🔶         | P12.1      |
+| `@nodefony/rag`         | Pipeline RAG (ingestion/chunking/embedding/recherche)     | 🔶         | P12.1      |
+| `@nodefony/memory`      | Mémoire agents (court/long/épisodique)                    | 🔶         | P12.1      |
+| `@nodefony/agent`       | Orchestrateur + sous-agents (`@Agent`, `@Tool`)           | 🔶 partiel | P12.2      |
+| `@nodefony/mcp`         | MCP server + client (Model Context Protocol Anthropic)    | ⬜         | P12.3      |
+| `@nodefony/agent-guard` | **Différenciateur** — zones, PII, audit, approval, coûts  | ⬜         | P12.4      |
+| `@nodefony/studio`      | Panels IA intégrés dans `@nodefony/studio` (pas séparé)   | ⬜         | P12.5      |
 
 ### Principes invariants (ne pas dévier)
 
@@ -87,13 +88,14 @@ Si le module expose une API d'introspection/admin :
 - `@nodefony/studio` **intègre les panels IA** (agents, costs, audit, approvals). NB : ce module a été renommé `vision` → `studio` (2026-05-18) — il n'y a plus qu'un seul module Studio.
 - **Ne pas démarrer de session sur les modules IA** pendant P0-P11 sauf demande explicite.
 
-### Fichiers IA contexte (lire en session IA, pas en session framework)
+### Vision IA — SOURCE UNIQUE (lire en session IA, pas en session framework)
 
-- `VISION.md` (section "🔁 Auto-développement")
-- `VISION_IA.md`
-- `IA_STATUS.md`
-- `CLAUDE_IA.md`
-- `PLAN_AGENTIC.md`
+- **`docs/ia/livre-blanc-couche-ia.md`** — source unique de la vision IA depuis 2026-05-29.
+  Consolide et remplace les anciens docs épars (`VISION.md`, `VISION_IA.md`, `IA_STATUS.md`,
+  `CLAUDE_IA.md`, `PLAN_AGENTIC.md`, `CONTINUE_WITH_CLAUDE_CODE.md` — SUPPRIMÉS). Couvre :
+  mission, cas d'usage, capacités, invariants, gouvernance/AI Act, décisions (ADR-0004
+  inférence supervisée), état réel, feuille de route (standards agentiques, auto-développement).
+- Décision figée associée : `docs/adr/0004-inference-llm-backend-supervise.md`.
 
 ---
 
@@ -101,11 +103,11 @@ Si le module expose une API d'introspection/admin :
 
 3 modules interconnectés avec d'autres phases.
 
-| Module                | Rôle                                                         | Bloque             | Réf JS legacy                                |
-| --------------------- | ------------------------------------------------------------ | ------------------ | -------------------------------------------- |
-| `@nodefony/redis`     | Cluster + pub/sub + storage (cache, session, lock distribué) | P5.12 + apps prod  | `bundles/redis-bundle/` (166 L)              |
-| `@nodefony/client`    | Lib navigateur — HTTP/WS/auth/streaming LLM browser          | **P10.7 Studio**   | N/A — à créer                                |
-| `@nodefony/realtime`  | Serveurs TCP/UDP/Unix sockets (IoT, IPC, protos binaires)    | indépendant        | `bundles/realtime-bundle/` (689 L + sockets) |
+| Module               | Rôle                                                         | Bloque            | Réf JS legacy                                |
+| -------------------- | ------------------------------------------------------------ | ----------------- | -------------------------------------------- |
+| `@nodefony/redis`    | Cluster + pub/sub + storage (cache, session, lock distribué) | P5.12 + apps prod | `bundles/redis-bundle/` (166 L)              |
+| `@nodefony/client`   | Lib navigateur — HTTP/WS/auth/streaming LLM browser          | **P10.7 Studio**  | N/A — à créer                                |
+| `@nodefony/realtime` | Serveurs TCP/UDP/Unix sockets (IoT, IPC, protos binaires)    | indépendant       | `bundles/realtime-bundle/` (689 L + sockets) |
 
 ### Règles transverses
 
@@ -130,12 +132,12 @@ Si le module expose une API d'introspection/admin :
 // nodefony/config/config.ts
 export default {
   frontend: {
-    type: "vue3",              // ou "react19", "angular", "svelte5", "solid"
+    type: "vue3", // ou "react19", "angular", "svelte5", "solid"
     entry: "./frontend/src/main.ts",
     outDir: "./public/dist",
-    integrate: true            // true = middleware HMR dans @nodefony/http | false = proxy Vite externe
-  }
-}
+    integrate: true, // true = middleware HMR dans @nodefony/http | false = proxy Vite externe
+  },
+};
 ```
 
 ### Lifecycle
@@ -147,10 +149,10 @@ export default {
 
 `@nodefony/frontend` ≠ `@nodefony/client` — ne pas confondre :
 
-| Module                | Rôle                                                                              |
-| --------------------- | --------------------------------------------------------------------------------- |
-| `@nodefony/frontend`  | **Builder** : transpile/bundle les frontends des modules (React/Vue/Angular)      |
-| `@nodefony/client`    | **Lib JS bas niveau** : HTTP/WS/auth/streaming clients, importée DANS le code UI  |
+| Module               | Rôle                                                                             |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `@nodefony/frontend` | **Builder** : transpile/bundle les frontends des modules (React/Vue/Angular)     |
+| `@nodefony/client`   | **Lib JS bas niveau** : HTTP/WS/auth/streaming clients, importée DANS le code UI |
 
 Studio = consommateur des deux : `@nodefony/frontend` (Vite, multi-framework) pour bundler son frontend, qui importe `@nodefony/client` pour les appels backend.
 

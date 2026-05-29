@@ -589,7 +589,7 @@ Le reste (Drizzle, OAuth/LDAP/OIDC, monitoring local DebugBar, polish, multi-ORM
 
 ## Phase 0 — Refactorisation Build ✅ TERMINÉE
 
-> Spec de référence : `BUILDER.md` (brainstorming — pas une spec exhaustive).
+> Spec de référence : [`docs/architecture/BUILDER.md`](docs/architecture/BUILDER.md) (brainstorming — pas une spec exhaustive).
 > Objectif : `npm install` installe + build + génère l'exécutable `nodefony`.
 
 ### Problèmes actuels
@@ -599,7 +599,7 @@ Le reste (Drizzle, OAuth/LDAP/OIDC, monitoring local DebugBar, polish, multi-ORM
 - Root `rollup.config.ts` monolithique : difficile à maintenir.
 - `@ts-ignore` sur `rollup-sourcemap-path-transform` dans `src/nodefony/rollup.config.ts`.
 
-### Tâches (ordre strict — voir BUILDER.md pour le détail)
+### Tâches (ordre strict — voir docs/architecture/BUILDER.md pour le détail)
 
 | #   | Tâche                                                                  | Fichier(s)                                        | Statut | Complexité |
 | --- | ---------------------------------------------------------------------- | ------------------------------------------------- | ------ | ---------- |
@@ -1474,7 +1474,7 @@ export default {
 
 > **Démarrage uniquement après P10 (Studio MVP) validée.**
 > Les modules existants (`llm`, `vector`, `rag`, `memory`, `agent`) ont été créés pendant la première phase exploratoire — ils sont **incomplets, non figés**, et doivent être audités/refondus pour s'intégrer proprement à la nouvelle architecture framework (multi-ORM, security, Studio, ALS requestId, logs structurés).
-> Voir `VISION_IA.md` pour la mission, `CLAUDE_IA.md` pour les conventions techniques, `IA_STATUS.md` pour l'état précédent (à reseter en début de P12).
+> **Vision IA — source unique** : [`docs/ia/livre-blanc-couche-ia.md`](docs/ia/livre-blanc-couche-ia.md) (mission, cas d'usage, capacités, gouvernance/AI Act, décisions, feuille de route). Décision inférence : [`docs/adr/0004-inference-llm-backend-supervise.md`](docs/adr/0004-inference-llm-backend-supervise.md). Les anciens docs racine (`VISION_IA.md`, `CLAUDE_IA.md`, `IA_STATUS.md`, `VISION.md`, `PLAN_AGENTIC.md`, `CONTINUE_WITH_CLAUDE_CODE.md`) ont été consolidés puis supprimés le 2026-05-29.
 
 ### 12.1 Audit + refonte des 4 modules existants
 

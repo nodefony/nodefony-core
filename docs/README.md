@@ -4,7 +4,7 @@ topic: docs-index
 audience: [human, ai]
 tags: [documentation, conventions, rag]
 status: stable
-last-updated: 2026-05-17
+last-updated: 2026-05-29
 ---
 
 # Documentation Nodefony
@@ -23,13 +23,22 @@ last-updated: 2026-05-17
 
 ```
 docs/
-├── README.md             ← ce fichier (index + conventions)
-├── architecture/         ← concepts transverses : kernel, container, DI, pipeline, lifecycle
-├── packages/             ← une page par @nodefony/* — API publique + cas d'usage
-└── guides/               ← how-to : routing, sessions, decorators, écrire un module
+├── README.md          ← ce fichier (index + conventions)
+├── adr/               ← Architecture Decision Records (décisions figées, immuables)
+├── architecture/      ← concepts transverses : kernel, DI, build (BUILDER.md), realtime-socket
+├── audits/            ← audits & POC datés (perf frontend, isomorphisme) — trace de décision
+├── brainstorming/     ← notes exploratoires (cloud-native, security)
+├── guides/            ← how-to : frontend React, session storage…
+├── ia/                ← vision IA : livre-blanc-couche-ia.md (source unique) + résumé Anthropic + retex POC MCP
+├── realtime/socket/   ← doc « la socket Nodefony » (01-vue-ensemble … 07-actions)
+├── release/           ← notes de version (nodefony-10)
+├── session-retros/    ← retex de session datés (matière première des CONSOLIDATION-*)
+└── archives/          ← docs périmés conservés pour l'historique (PROGRESS.md…)
 ```
 
-Pas de numérotation préfixée (ex `01_architecture/`) : l'ordre est imposé par le `README.md` de chaque sous-dossier.
+Pas de numérotation préfixée des dossiers : l'ordre est imposé par le `README.md` de chaque sous-dossier (sauf `realtime/socket/` où la lecture est séquentielle 01→07).
+
+> **Vision IA** : toute la vision de la couche IA repose désormais sur un document unique — [`ia/livre-blanc-couche-ia.md`](ia/livre-blanc-couche-ia.md). Les anciens docs racine (`VISION_IA.md`, `PLAN_AGENTIC.md`, `IA_STATUS.md`, `CLAUDE_IA.md`, `VISION.md`) ont été consolidés dedans puis supprimés (2026-05-29).
 
 ## Conventions Markdown
 
@@ -126,7 +135,7 @@ le technique suit).
 
 - **Vers une autre page docs/** : chemin relatif `./architecture/kernel.md`.
 - **Vers le code source** : chemin absolu depuis la racine, sans backtick : `src/nodefony/src/Container.ts:73`.
-- **Vers un symbole** : `[Container](../packages/core.md#container)`.
+- **Vers un symbole** : `[Container](../../src/nodefony/docs/container.md)` (doc colocalisée au module, ADR-0001).
 
 ## TSDoc — source de vérité pour l'API
 
@@ -150,7 +159,7 @@ Toute classe/interface/méthode publique migrée en TypeScript **doit** porter u
 
 - La **première phrase** (jusqu'au point final) est extraite automatiquement par `npm run generate-symbols` dans le champ `symbols.<Name>.description`. Garder cette phrase auto-suffisante.
 - Pas de paraphrase de la signature : décrire **l'intention** et les **invariants**.
-- Lier au markdown via `@see ../../docs/packages/core.md#container` quand pertinent.
+- Lier au markdown via `@see ../../src/nodefony/docs/container.md` (doc colocalisée, ADR-0001) quand pertinent.
 
 ## Workflow
 

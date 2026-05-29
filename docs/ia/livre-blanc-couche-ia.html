@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Nodefony — couche IA agentic</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 18mm 16mm;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font:
+          15px/1.65 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+        color: #1a1f2b;
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 32px 24px;
+      }
+      h1 {
+        font-size: 30px;
+        line-height: 1.2;
+        margin: 0.2em 0 0.4em;
+        color: #0b1020;
+        border-bottom: 3px solid #2d6cdf;
+        padding-bottom: 0.3em;
+      }
+      h2 {
+        font-size: 22px;
+        margin: 1.8em 0 0.5em;
+        color: #0b1020;
+        border-bottom: 1px solid #e2e6ee;
+        padding-bottom: 0.2em;
+        page-break-after: avoid;
+      }
+      h3 {
+        font-size: 17px;
+        margin: 1.4em 0 0.4em;
+        color: #243049;
+        page-break-after: avoid;
+      }
+      p {
+        margin: 0.6em 0;
+      }
+      a {
+        color: #2d6cdf;
+        text-decoration: none;
+      }
+      strong {
+        color: #0b1020;
+      }
+      blockquote {
+        margin: 1em 0;
+        padding: 0.6em 1em;
+        border-left: 4px solid #2d6cdf;
+        background: #f4f7fd;
+        border-radius: 0 6px 6px 0;
+      }
+      blockquote p {
+        margin: 0.3em 0;
+      }
+      code {
+        font-family:
+          "SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+        font-size: 0.86em;
+        background: #eef1f6;
+        padding: 0.12em 0.35em;
+        border-radius: 4px;
+      }
+      pre {
+        background: #0e1320;
+        color: #e6edf7;
+        padding: 16px 18px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 12px;
+        line-height: 1.45;
+        page-break-inside: avoid;
+      }
+      pre code {
+        background: none;
+        color: inherit;
+        padding: 0;
+        white-space: pre;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1em 0;
+        font-size: 13.5px;
+        page-break-inside: avoid;
+      }
+      th,
+      td {
+        border: 1px solid #d7dce6;
+        padding: 7px 10px;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #f4f7fd;
+      }
+      tr:nth-child(even) td {
+        background: #fafbfe;
+      }
+      hr {
+        border: none;
+        border-top: 1px solid #e2e6ee;
+        margin: 2em 0;
+      }
+      ul,
+      ol {
+        padding-left: 1.4em;
+      }
+      li {
+        margin: 0.25em 0;
+      }
+      @media print {
+        a {
+          color: #1a1f2b;
+        }
+        body {
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      Livre blanc — Nodefony : une couche IA agentique souveraine, par
+      construction
+    </h1>
+    <hr />
+    <h2>Résumé exécutif</h2>
+    <p>
+      Mettre une IA générative en production suppose aujourd&#39;hui
+      d&#39;assembler à la main trois mondes qui ne se parlent pas : un
+      <strong>serveur</strong> web (NestJS, Express), une
+      <strong>bibliothèque IA</strong> (LangChain, LlamaIndex) et une couche de
+      <strong>gouvernance</strong> bricolée par-dessus. Chaque couture est une
+      dette technique et un risque de conformité.
+    </p>
+    <p>
+      Nodefony pose le principe inverse :
+      <strong
+        >serveur, orchestration IA et gouvernance des données sont le même
+        framework</strong
+      >, dans le même runtime. Le différenciateur tient en trois propriétés
+      natives : HTTP et WebSocket co-citoyens (transport idéal du streaming
+      LLM), un conteneur d&#39;injection de dépendances (orchestration des
+      agents comme services testables), et une
+      <strong>observabilité IA-first</strong> où l&#39;agent consomme les mêmes
+      sondes que le tableau de bord d&#39;administration.
+    </p>
+    <p>
+      Ce document décrit une <strong>architecture cible</strong> et les
+      <strong>décisions structurantes</strong> déjà prises. Il est honnête sur
+      l&#39;état réel :
+      <strong
+        >le socle (serveur, transport, injection, sécurité, observabilité) est
+        opérationnel et testé ; la couche IA proprement dite est à l&#39;état
+        d&#39;esquisses.</strong
+      >
+      C&#39;est une vision d&#39;architecture posée sur des fondations mûres —
+      pas un état produit. La conformité (souveraineté, AI Act, RGPD) y est
+      traitée <strong>par construction</strong>, non en option.
+    </p>
+    <hr />
+    <h2>1. Contexte et problème</h2>
+    <p>
+      Un pipeline RAG qui fonctionne dans un notebook ne fait pas un produit. Le
+      porter en production exige trois couches que les écosystèmes actuels
+      fournissent séparément :
+    </p>
+    <ol>
+      <li>
+        <strong>Un serveur</strong> capable de streamer la réponse du modèle en
+        temps réel — sans quoi l&#39;utilisateur attend plusieurs secondes
+        devant un écran figé.
+      </li>
+      <li>
+        <strong>Une orchestration</strong> des sous-agents, des outils
+        (<em>tools</em>) et des appels de fonction, qui soit testable,
+        injectable et observable.
+      </li>
+      <li>
+        <strong>Une gouvernance</strong> : d&#39;où vient cette réponse ?
+        quelles sources ? quelles données personnelles ont transité ? qui valide
+        l&#39;action que l&#39;agent veut exécuter ? le modèle tourne-t-il en
+        interne ou chez un cloud étranger ?
+      </li>
+    </ol>
+    <p>
+      Ces trois couches proviennent d&#39;écosystèmes distincts assemblés
+      manuellement.
+      <strong
+        >Chaque point de jonction est une dette et un angle mort de
+        conformité.</strong
+      >
+      Nodefony les traite comme un seul framework.
+    </p>
+    <h3>1.1 Mission</h3>
+    <p>
+      Nodefony vise à devenir une
+      <strong
+        >plateforme Node.js générique pour construire des agents IA
+        métier</strong
+      >. Le framework fournit des briques réutilisables (accès modèle,
+      retrieval, mémoire, orchestration, gouvernance) ; le développeur apporte
+      la logique métier. Le framework prend en charge la gouvernance, la
+      sécurité, le monitoring et la conformité.
+      <strong>Aucun composant du cœur ne connaît le métier</strong> : c&#39;est
+      un invariant.
+    </p>
+    <h3>1.2 Cas d&#39;usage cibles</h3>
+    <p>
+      Tous reposent sur les mêmes briques — seuls le corpus et les règles métier
+      changent :
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Domaine</th>
+          <th>Usage type</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Juridique (avocat, notaire)</td>
+          <td>Retrieval sur corpus juridique + agents spécialisés</td>
+        </tr>
+        <tr>
+          <td>Gestion de patrimoine</td>
+          <td>Retrieval sur rapports financiers + simulateurs</td>
+        </tr>
+        <tr>
+          <td>Support client</td>
+          <td>Retrieval documentaire + agent conversationnel</td>
+        </tr>
+        <tr>
+          <td>Médical</td>
+          <td>
+            <strong>Mode souverain obligatoire</strong> (données de santé)
+          </td>
+        </tr>
+        <tr>
+          <td>Défense</td>
+          <td><strong>Air-gap + modèle local + audit signé</strong></td>
+        </tr>
+      </tbody>
+    </table>
+    <h3>1.3 Deux niveaux</h3>
+    <p>Nodefony s&#39;articule en deux niveaux superposés :</p>
+    <ul>
+      <li>
+        <strong>Niveau 1 — framework web temps réel</strong>
+        <em>(migré, opérationnel)</em> : Kernel, conteneur DI,
+        <em>module system</em>, serveurs HTTP/HTTPS/HTTP2/WS/WSS natifs Node.js,
+        router unifié HTTP+WS via un contexte unique, sécurité, sessions,
+        adaptateurs ORM.
+      </li>
+      <li>
+        <strong>Niveau 2 — plateforme agentique</strong>
+        <em>(à construire)</em> : la couche IA décrite dans ce document, qui
+        s&#39;appuie intégralement sur le niveau 1.
+      </li>
+    </ul>
+    <p>
+      La migration TypeScript du niveau 1 n&#39;est pas une fin en soi :
+      c&#39;est la <strong>fondation typée</strong> (interfaces génériques
+      <code>I*</code>, DI typé, streaming WS natif, modules publiables
+      indépendamment via Rollup <code>preserveModules</code>) sans laquelle le
+      niveau 2 ne pourrait être générique et réutilisable. Chaque interface du
+      niveau 1 est pensée pour être étendue par l&#39;agentique (un contexte qui
+      sait s&#39;il est WebSocket, une session qui portera la mémoire
+      d&#39;agent, un <code>@Module</code> qui vaut pour le HTTP comme pour un
+      agent).
+    </p>
+    <hr />
+    <h2>2. Architecture de la couche IA</h2>
+    <h3>2.1 Des capacités, pas une liste de modules figée</h3>
+    <p>
+      La couche IA se raisonne en <strong>capacités</strong> (le <em>quoi</em>),
+      pas en découpage figé. La première version du plan IA (un module par
+      couche, dont un module « RAG » monolithique) date de l&#39;ère
+      pré-agentique et est explicitement remise à plat. La pensée agentique
+      moderne change la donne : le
+      <strong>retrieval n&#39;est pas nécessairement un module</strong> —
+      c&#39;est souvent un
+      <strong
+        >outil (<em>tool</em>) que l&#39;agent appelle dynamiquement</strong
+      >
+      (il décide quand chercher, quoi chercher, s&#39;il relance une recherche),
+      et non un pipeline « chunk → embed → top-K → prompt » figé d&#39;avance.
+      Le découpage de ces capacités en modules est une
+      <strong>décision d&#39;architecture ouverte</strong> (cf. §4.2).
+    </p>
+    <p>Capacités de la couche IA (le <em>quoi</em>, stable) :</p>
+    <pre><code>┌─────────────────────────────────────────────────────────────┐
+│  CAPACITÉS IA (le QUOI — stable)        Découpage en modules  │
+│                                          = QUESTION OUVERTE   │
+│                                                               │
+│  • Orchestration         agent dirige son process, tools,    │
+│                          sous-agents, streaming, abort        │
+│  • Gouvernance ★         zones, PII, audit signé, circuit     │
+│                          breaker, validation humaine          │
+│  • Mémoire               court / long / épisodique            │
+│  • Grounding/retrieval   ← tool(s) appelé(s) par l&#39;agent,     │
+│                            PAS forcément un module « RAG »    │
+│  • Index vectoriel       pgvector / Qdrant / Chroma           │
+│  • Accès modèle          1 interface, N back-ends             │
+│                          (Anthropic, OpenAI, Mistral, Ollama) │
+├═════════════════════════════════════════════════════════════┤
+│  CŒUR NODEFONY (le COMMENT — déjà migré, opérationnel)        │
+│  • HTTP + WebSocket co-citoyens  → transport du streaming LLM │
+│  • DI Container (@injectable/@inject) → orchestration         │
+│  • ALS requestId → corrélation log ↔ requête ↔ appel modèle   │
+│  • syslog transports → audit IA tracé                         │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+    <p>
+      Seul le bloc « cœur » du bas existe aujourd&#39;hui ; tous les étages IA
+      au-dessus sont à construire (cf. §5).
+    </p>
+    <h3>2.2 Invariants de conception</h3>
+    <ul>
+      <li>
+        <strong>Streaming natif</strong> : <code>AsyncGenerator</code> côté
+        serveur, WebSocket Nodefony côté client. Le WebSocket n&#39;est pas un
+        module additionnel : c&#39;est un citoyen de première classe du même
+        contexte <em>controller</em> que le HTTP. Le streaming LLM est le cas
+        d&#39;usage <strong>idéal</strong> de cette dualité — c&#39;est ce qui a
+        motivé le design dès l&#39;origine.
+      </li>
+      <li>
+        <strong>Tout injectable</strong> : un agent, un <em>retriever</em>, un
+        fournisseur de modèle sont des services du conteneur DI. Donc mockables,
+        testables, interchangeables. L&#39;orchestration de sous-agents devient
+        un graphe de services, pas un enchevêtrement de <em>callbacks</em>.
+      </li>
+      <li>
+        <strong>Mode souverain de bout en bout</strong> : la pile doit pouvoir
+        tourner <strong>en local, air-gap</strong> (Ollama + pgvector, zéro
+        appel sortant). La souveraineté est une contrainte de conception, pas un
+        mode de déploiement particulier.
+      </li>
+      <li>
+        <strong>Gestion mémoire stricte</strong> : tout service IA expose un
+        <code>shutdown()</code> qui libère ses ressources (annulation des
+        <code>AbortController</code>, <code>releaseLock()</code> des
+        <em>readers</em>, <code>clearTimeout</code>, fermeture des connexions).
+        Le streaming et les appels longue durée sont les premiers candidats aux
+        fuites — le cycle de vie est donc explicite, pas implicite. C&#39;est la
+        déclinaison IA de la règle perf/mémoire du framework.
+      </li>
+      <li>
+        <strong>Validation par contrat</strong> : toute entrée externe et tout
+        <em>tool</em> sont validés par schéma (Zod) — bornes strictes, listes
+        blanches, pas de chaîne libre. La même discipline qui sécurise les
+        contrôleurs HTTP s&#39;applique aux <em>tools</em> d&#39;agent.
+      </li>
+    </ul>
+    <h3>2.3 Le différenciateur</h3>
+    <blockquote>
+      <p>
+        NestJS fait le serveur. LangChain fait l&#39;IA. Aucun ne fait la
+        gouvernance nativement. Nodefony fait les trois — dans le même runtime,
+        avec introspection de son propre modèle.
+      </p>
+    </blockquote>
+    <p>Ce que ce positionnement rend possible nativement :</p>
+    <ul>
+      <li>
+        <strong>Observabilité IA-first.</strong> Les sondes du framework (débit,
+        latence, requêtes lentes avec SQL <strong>paramétré et expurgé</strong>,
+        graphe d&#39;entités, <em>event-loop</em>) sortent en JSON structuré sur
+        un <em>data plane</em> unique. Un agent IA consomme
+        <strong>exactement les mêmes points d&#39;accès</strong> que le tableau
+        de bord d&#39;administration. Il peut donc lire l&#39;état du système,
+        corréler, expliquer en langage naturel et suggérer des actions (créer un
+        index, réécrire une requête) — parce qu&#39;il dispose à la fois du SQL
+        et du schéma. Le framework devient capable de se documenter et de se
+        diagnostiquer lui-même.
+      </li>
+      <li>
+        <strong>Introspection vivante.</strong> Nodefony connaît son propre
+        modèle (entités, relations, services DI, routes, métriques runtime).
+        Croiser cette introspection avec un modèle de langage produit un
+        assistant qui explique à l&#39;utilisateur ce qu&#39;il observe,
+        toujours à jour, jamais codé en dur.
+      </li>
+    </ul>
+    <hr />
+    <h2>3. Gouvernance des données et conformité</h2>
+    <p>
+      Un agent IA d&#39;entreprise est d&#39;abord un
+      <strong>problème de gouvernance</strong>. Nodefony l&#39;adresse sur cinq
+      axes, tous pensés dès l&#39;architecture.
+    </p>
+    <h3>3.1 Souveraineté — la donnée ne sort pas sans décision explicite</h3>
+    <ul>
+      <li>
+        <strong>Mode local / air-gap</strong> comme contrainte de premier ordre
+        : Ollama pour l&#39;inférence, pgvector pour les embeddings,
+        <strong>zéro dépendance à un cloud étranger</strong>. Décisif pour la
+        défense, la santé et le secteur public.
+      </li>
+      <li>
+        Le choix du fournisseur (<code>ILLMProvider</code>) est une
+        <strong>frontière explicite</strong> : la configuration détermine
+        quelles données partent vers quel modèle, chez quel hébergeur. Les
+        fournisseurs européens (Mistral) et locaux (Ollama) sont des citoyens de
+        première classe.
+      </li>
+    </ul>
+    <h3>3.2 Conformité AI Act (en vigueur depuis 2025)</h3>
+    <ul>
+      <li>
+        <strong>Traçabilité des sources</strong> : le grounding cite ses sources
+        par construction. Une réponse d&#39;agent est rattachable aux documents
+        qui l&#39;ont produite — exigence directe de l&#39;AI Act en matière de
+        transparence.
+      </li>
+      <li>
+        <strong>Contrôle humain obligatoire</strong> en zones sensibles : une
+        action en zone <code>restricted</code> exige une validation humaine
+        avant exécution (mécanisme d&#39;<em>approval</em>).
+      </li>
+      <li>
+        <strong>Audit signé</strong> : chaque décision, chaque appel de modèle,
+        chaque action d&#39;agent est journalisée via les transports syslog du
+        cœur, corrélée par <code>requestId</code> (ALS). Traçabilité de bout en
+        bout, non répudiable.
+      </li>
+    </ul>
+    <h3>3.3 Protection des données personnelles (RGPD)</h3>
+    <ul>
+      <li>
+        <strong>Détection et filtrage des données personnelles (PII)</strong> au
+        niveau de la couche de gouvernance : les PII sont identifiées et
+        maîtrisées <strong>avant</strong> tout transit vers un modèle.
+      </li>
+      <li>
+        <strong>SQL paramétré et expurgé</strong> dans toutes les sondes : les
+        requêtes exposées à l&#39;observabilité (et donc potentiellement à un
+        modèle d&#39;analyse) ne contiennent jamais de valeur ni de secret —
+        uniquement des paramètres substitués. C&#39;est une règle de conception
+        du <em>data plane</em>.
+      </li>
+    </ul>
+    <h3>3.4 Garde-fous d&#39;exécution</h3>
+    <p>
+      Le module de gouvernance transforme « un agent qui répond » en « un agent
+      déployable en entreprise » :
+    </p>
+    <ul>
+      <li>
+        <strong>Zones de confiance</strong> (<code>public</code> /
+        <code>restricted</code> / …) conditionnant les droits d&#39;un agent.
+      </li>
+      <li>
+        <strong>Disjoncteur (<em>circuit breaker</em>)</strong> : coupe
+        automatiquement un agent qui dérive (boucle, coût qui explose,
+        comportement anormal).
+      </li>
+      <li>
+        <strong>Workflow d&#39;approbation</strong> : validation humaine en
+        boucle pour les actions à fort impact.
+      </li>
+      <li>
+        <strong>Audit signé</strong> des décisions, adossé au RBAC du module de
+        sécurité.
+      </li>
+      <li>
+        <strong>Garde-fous chiffrés par défaut</strong> (valeurs prudentes,
+        surchargeables) : <code>maxTokens</code> 4096, file d&#39;attente max
+        500, <em>timeout</em> par tâche 30 s, 2 tentatives max, 100 connexions
+        concurrentes max. Ces bornes plafonnent le coût et l&#39;impact d&#39;un
+        agent qui dérive, en amont même du disjoncteur.
+      </li>
+    </ul>
+    <h3>3.5 Zero Trust hérité du cœur</h3>
+    <p>
+      La couche IA ne réinvente pas la sécurité : elle hérite du firewall
+      applicatif, du JWT <em>stateless</em>, du RBAC et des décorateurs de
+      sécurité (<code>@IsGranted</code>, <code>@CurrentUser()</code>, …) du
+      module <code>@nodefony/security</code>. Un <em>tool</em> d&#39;agent est
+      soumis aux <strong>mêmes</strong> règles d&#39;autorisation qu&#39;un
+      point d&#39;accès HTTP. Aucune porte dérobée par l&#39;IA.
+    </p>
+    <hr />
+    <h2>4. Décisions d&#39;architecture</h2>
+    <h3>
+      4.1 L&#39;inférence : orchestrée, jamais exécutée par le cœur (ADR-0004)
+    </h3>
+    <p>
+      Ollama fait tourner un modèle local et l&#39;expose ; la question se pose
+      donc de savoir si Nodefony devrait exécuter le modèle
+      <strong>lui-même</strong>, dans son process. C&#39;est techniquement
+      possible (<code>node-llama-cpp</code>, <code>transformers.js</code>).
+      <strong>La décision est tranchée : non, jamais dans le cœur.</strong>
+      Trois raisons non négociables :
+    </p>
+    <ul>
+      <li>
+        <strong>Les deux plans ne scalent pas de la même manière.</strong> Le
+        serveur HTTP/WS est léger et scale horizontalement (1 <em>pod</em> = 1
+        process). L&#39;inférence est lourde, liée au GPU, et ne se duplique pas
+        (la VRAM coûte cher). Embarquer le modèle reviendrait à dupliquer 4 à 30
+        Go de poids à chaque réplique du serveur. Les deux plans doivent scaler
+        <strong>séparément</strong>.
+      </li>
+      <li>
+        <strong>Cela saturerait l&#39;<em>event-loop</em>.</strong> Une
+        inférence monopolise le CPU/GPU plusieurs secondes ; dans le pipeline
+        <em>request</em> mono-thread de Node, elle bloquerait toutes les autres
+        requêtes (latence p99 dégradée).
+      </li>
+      <li>
+        <strong>Faire tourner un modèle est un métier à plein temps</strong>
+        (quantization, gestion VRAM, <em>KV-cache</em>, <em>batching</em>,
+        runtimes ML en évolution constante) — hors du périmètre d&#39;un
+        framework applicatif. Node ne fait de toute façon que piloter du code
+        natif.
+      </li>
+    </ul>
+    <p>
+      Le design retenu, <strong>déjà éprouvé pour le frontend</strong> (<code
+        >ViteSupervisor</code
+      >
+      ne réimplémente pas Vite, il le supervise) : un
+      <strong>backend d&#39;inférence supervisé</strong> derrière
+      l&#39;interface <code>ILLMProvider</code> /
+      <code>IInferenceBackend</code>. Nodefony peut lancer Ollama en
+      sous-process, télécharger le modèle si absent, attendre sa disponibilité
+      et l&#39;exposer — via <strong>une ligne de configuration</strong>, sans
+      commande manuelle. Le modèle vit dans <strong>son</strong> process,
+      supervisé, et le backend est interchangeable par configuration (Ollama
+      local ↔ vLLM GPU ↔ API distante).
+    </p>
+    <blockquote>
+      <p>
+        Nodefony <strong>orchestre</strong> l&#39;inférence (cycle de vie,
+        interchangeabilité, gouvernance), il ne l&#39;<strong>exécute</strong>
+        pas — comme un orchestrateur ne calcule pas : il place et supervise.
+      </p>
+    </blockquote>
+    <p>
+      <em
+        >Décision détaillée :
+        <a href="../adr/0004-inference-llm-backend-supervise.md"
+          ><code>docs/adr/0004-inference-llm-backend-supervise.md</code></a
+        >.</em
+      >
+    </p>
+    <h3>4.2 Découpage en capacités, le retrieval comme outil</h3>
+    <p>
+      Le découpage des capacités (§2.1) en modules n&#39;est pas figé. En
+      particulier, le <strong>grounding/retrieval</strong> est conçu comme un ou
+      plusieurs
+      <strong>outils appelés dynamiquement par l&#39;agent</strong> (<em
+        >agentic RAG</em
+      >), et non comme un pipeline monolithique imposé. Cette ouverture préserve
+      la rigueur (qualité du <em>retrieval</em>, métriques d&#39;évaluation)
+      tout en gardant le framework générique : la frontière exacte entre module,
+      service et simple <em>tool</em> reste un choix d&#39;architecture à
+      arbitrer.
+    </p>
+    <hr />
+    <h2>5. État d&#39;avancement</h2>
+    <p>L&#39;état terrain au 29/05/2026, sans enrobage :</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Composant</th>
+          <th>État</th>
+          <th>Reste à concevoir/construire (P12)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Cœur Nodefony</strong></td>
+          <td>✅ opérationnel, testé</td>
+          <td>
+            base HTTP/WS/DI/syslog/sécurité —
+            <strong>le seul socle réel</strong>
+          </td>
+        </tr>
+        <tr>
+          <td>Accès modèle (<code>llm</code>)</td>
+          <td>✏️ esquisse</td>
+          <td>
+            concevoir
+            <code>ILLMProvider</code> (Anthropic/OpenAI/Mistral/Ollama)
+          </td>
+        </tr>
+        <tr>
+          <td>Index vectoriel</td>
+          <td>✏️ esquisse</td>
+          <td>pgvector via l&#39;ORM (pas de client SQL direct)</td>
+        </tr>
+        <tr>
+          <td>Grounding/retrieval</td>
+          <td>✏️ esquisse</td>
+          <td>tool(s) + citation des sources (AI Act) — cf. §4.2</td>
+        </tr>
+        <tr>
+          <td>Mémoire</td>
+          <td>✏️ esquisse</td>
+          <td>storage ORM ; stratégies court / long / épisodique</td>
+        </tr>
+        <tr>
+          <td>Orchestration (<code>agent</code>)</td>
+          <td>✏️ esquisse</td>
+          <td>
+            orchestrateur, <code>@Agent</code>/<code>@Tool</code>, streaming,
+            abort
+          </td>
+        </tr>
+        <tr>
+          <td>Interop (MCP)</td>
+          <td>⬜ à faire</td>
+          <td>serveur + client JSON-RPC 2.0 (standard Anthropic MCP)</td>
+        </tr>
+        <tr>
+          <td>Gouvernance</td>
+          <td>⬜ à faire</td>
+          <td>
+            <strong>le différenciateur</strong> : zones, PII, audit, approbation
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <blockquote>
+      <p>
+        Les intitulés correspondent aux esquisses existantes, non à une
+        architecture arrêtée — leur périmètre, et jusqu&#39;à leur existence en
+        tant que modules, reste ouvert.
+      </p>
+    </blockquote>
+    <p>
+      <strong>En clair</strong> : le serveur, le transport, l&#39;injection, la
+      sécurité et l&#39;observabilité sont
+      <strong>faits, testés et solides</strong> ; la pile IA est une
+      <strong>page blanche posée sur des fondations mûres</strong>. Un terrain
+      de conception propre, pas un héritage à réparer.
+    </p>
+    <hr />
+    <h2>6. Feuille de route et vision à long terme</h2>
+    <blockquote>
+      <p>
+        Cette section décrit la <strong>destination</strong>, pas l&#39;état
+        présent (cf. §5). Elle guide les choix de conception dès aujourd&#39;hui
+        : toute décision prise pendant la migration doit rester découvrable,
+        testable et pilotable, pour servir cette cible.
+      </p>
+    </blockquote>
+    <h3>6.1 Standards agentiques à supporter</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Standard</th>
+          <th>Ce que cela apporte</th>
+          <th>Priorité</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>MCP</strong> (Anthropic)</td>
+          <td>
+            Exposer Nodefony comme serveur MCP + consommer des serveurs externes
+          </td>
+          <td>Critique</td>
+        </tr>
+        <tr>
+          <td><strong>Tool Use</strong></td>
+          <td>
+            Contrôleurs et services exposés comme <em>tools</em> typés (Zod)
+          </td>
+          <td>Critique</td>
+        </tr>
+        <tr>
+          <td><strong>Streaming</strong></td>
+          <td>SSE + WebSocket natif pour les tokens du modèle</td>
+          <td>Critique</td>
+        </tr>
+        <tr>
+          <td><strong>RAG</strong></td>
+          <td>Indexation + recherche vectorielle (comme capacité, cf. §4.2)</td>
+          <td>Critique</td>
+        </tr>
+        <tr>
+          <td><strong>Mémoire</strong></td>
+          <td>Court terme (session WS) + long terme (base vectorielle)</td>
+          <td>Important</td>
+        </tr>
+        <tr>
+          <td><strong>A2A</strong> (Google)</td>
+          <td>Protocole <em>agent-to-agent</em></td>
+          <td>Important</td>
+        </tr>
+      </tbody>
+    </table>
+    <h3>6.2 Un Studio qui se documente lui-même</h3>
+    <p>
+      L&#39;aide contextuelle (bulles d&#39;information ⓘ) aujourd&#39;hui
+      rédigée à la main sera <strong>générée par IA</strong> à partir de
+      l&#39;introspection vivante du framework (modèle ORM canonique, graphe
+      symbolique <code>.ai/symbols.json</code>, configuration, routes, métriques
+      runtime). Le Studio expliquerait alors automatiquement chaque écran et
+      chaque contrôle, avec une documentation toujours à jour. Aucun framework
+      concurrent ne combine nativement serveur, IA et introspection de son
+      propre modèle.
+    </p>
+    <h3>6.3 De l&#39;observabilité aux <em>insights</em></h3>
+    <p>
+      Parce que les sondes et le tableau de bord partagent le même
+      <em>data plane</em> (§2.3), un agent peut consommer l&#39;état du système,
+      <strong>détecter les dérives</strong> (débit anormal, latence qui monte,
+      requêtes lentes récurrentes), <strong>corréler</strong> (par exemple
+      distinguer une saturation de l&#39;<em>event-loop</em> d&#39;un problème
+      de base), <strong>expliquer</strong> en langage naturel et
+      <strong>suggérer</strong> des optimisations (création d&#39;index,
+      réécriture de requête) — puisqu&#39;il dispose à la fois du SQL paramétré
+      et du schéma. Restitution dans un panneau « Insights » du Studio ; les
+      actions correctives restent réservées au mode développement et soumises au
+      RBAC.
+    </p>
+    <h3>6.4 Génération de modules assistée par IA</h3>
+    <p>
+      Depuis le tableau de bord, l&#39;agent analyse le projet existant, produit
+      une <code>ModuleSpec</code> <strong>validée par schéma (Zod)</strong>,
+      présente un <em>diff</em>, et n&#39;écrit les fichiers qu&#39;<strong
+        >après validation humaine</strong
+      >. Jamais d&#39;écriture automatique sans confirmation. Cette voie
+      remplace à terme le <em>scaffolding</em> CLI déterministe par une
+      génération contextuelle et contrôlée.
+    </p>
+    <h3>6.5 Agent vocal temps réel (Phase 15)</h3>
+    <p>
+      Sur le transport temps réel natif, une chaîne PSTN → Asterisk → mediasoup
+      → STT → modèle de langage → TTS → retour permet de bâtir un
+      <strong>agent IA vocal téléphonique</strong>. Les flux média binaires
+      transitent par les transports dédiés (pod-à-pod), sans surcharger le plan
+      de messages.
+    </p>
+    <h3>6.6 Auto-développement — Nodefony se code lui-même</h3>
+    <p>
+      C&#39;est l&#39;aboutissement de la démarche. Un module dédié (nom de
+      travail <code>@nodefony/agent-core</code>) exposerait le Kernel et ses
+      outils d&#39;introspection via un <strong>serveur MCP</strong>.
+      L&#39;agent disposerait alors de tout ce dont il a besoin pour intervenir
+      sur le framework lui-même :
+    </p>
+    <ul>
+      <li>
+        un <strong>graphe symbolique</strong> interrogeable en O(1) (relations
+        inverses : qui étend, qui implémente, qui utilise) plutôt qu&#39;un
+        <em>grep</em> du dépôt ;
+      </li>
+      <li>
+        une <strong>suite mémoire/CPU déterministe</strong> donnant un signal
+        binaire (conforme / régression) ;
+      </li>
+      <li>
+        un <strong>démarrage fiable et des logs filtrables</strong> pour une
+        boucle exécutable sans humain ;
+      </li>
+      <li>
+        une <strong>documentation structurée</strong> (TSDoc +
+        <code>docs/</code>) que le retrieval exploite pour éviter les
+        hallucinations.
+      </li>
+    </ul>
+    <p>
+      La boucle de travail est un <strong>Red-Green-Refactor</strong> :
+      l&#39;agent édite, lance le banc mémoire/CPU,
+      <strong>rejette son propre code si un seuil régresse</strong>, puis
+      présente une <em>pull request</em> avec un rapport avant/après. Garde-fous
+      non négociables :
+      <strong>aucun <em>merge</em> sans relecture humaine</strong> ; le
+      framework reste conçu et architecturé par un humain (licence CeCILL-B). À
+      noter : la majorité de ces outils existent déjà sous forme de
+      <em>skills</em> — la Phase 12 consiste à les exposer en MCP, non à les
+      inventer.
+    </p>
+    <blockquote>
+      <p>
+        Aboutissement :
+        <strong
+          >Nodefony comme référence du développement classique et
+          agentique</strong
+        >
+        — un framework capable d&#39;expliquer, de diagnostiquer et de maintenir
+        le framework qui le porte, sur des bases ouvertes et souveraines.
+      </p>
+    </blockquote>
+    <hr />
+    <h2>7. Conclusion</h2>
+    <p>
+      Nodefony ne cherche pas à concurrencer les producteurs de modèles ni les
+      bibliothèques d&#39;IA : il fournit le
+      <strong>framework runtime</strong> qui les met au travail dans une
+      application réelle — avec le streaming, l&#39;orchestration et la
+      <strong>gouvernance des données</strong> dans l&#39;ADN, et un
+      <strong>mode souverain</strong> atteignable de bout en bout. Le socle est
+      mûr ; la couche IA est à concevoir. C&#39;est une invitation à le faire
+      avec rigueur, sur des bases saines.
+    </p>
+    <p>
+      <em
+        >Projet open source sous licence CeCILL-B —
+        <a href="https://github.com/nodefony/nodefony-core"
+          >github.com/nodefony/nodefony-core</a
+        >. Contributions et échanges bienvenus :
+        <a href="mailto:ccamensuli@gmail.com">ccamensuli@gmail.com</a>.</em
+      >
+    </p>
+  </body>
+</html>
