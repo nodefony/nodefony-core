@@ -26,6 +26,10 @@ nodefony/databases/*
 *.swp
 *.swo
 
+# Artefacts runtime locaux de Claude Code (verrou du planificateur de tâches, etc.)
+# — les skills/settings de .claude/ restent versionnés, on n'ignore que les locks.
+.claude/*.lock
+
 # Ignore les fichiers système et cachés
 .DS_Store
 Thumbs.db
