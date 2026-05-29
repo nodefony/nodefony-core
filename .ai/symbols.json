@@ -1,13 +1,13 @@
 {
-  "generated": "2026-05-29T15:37:08.833Z",
+  "generated": "2026-05-29T16:11:43.333Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 776,
-    "symbols": 1445,
-    "classes": 231,
+    "files": 773,
+    "symbols": 1441,
+    "classes": 228,
     "interfaces": 351,
-    "types": 182,
+    "types": 181,
     "enums": 2,
     "functions": 223,
     "constants": 456
@@ -1055,17 +1055,6 @@
       "extends": null,
       "description": "Identité git du dépôt courant. Champs `\"\"` si indéterminés (hors dépôt)."
     },
-    "Pm2": {
-      "name": "Pm2",
-      "kind": "class",
-      "file": "src/nodefony/src/service/pm2Service.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Service",
-      "implements": [],
-      "decorators": [],
-      "description": "Service de daemonisation via PM2."
-    },
     "Pdu": {
       "name": "Pdu",
       "kind": "class",
@@ -2098,16 +2087,6 @@
       "name": "Install",
       "kind": "class",
       "file": "src/nodefony/src/kernel/commands/InstallCommand.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Command",
-      "implements": [],
-      "decorators": []
-    },
-    "Kill": {
-      "name": "Kill",
-      "kind": "class",
-      "file": "src/nodefony/src/kernel/commands/KillCommnand.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": "Command",
@@ -6437,17 +6416,6 @@
       "module": "@nodefony/vector",
       "extends": null
     },
-    "@nodefony/core:Pm2": {
-      "name": "Pm2",
-      "kind": "class",
-      "file": "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Command",
-      "implements": [],
-      "decorators": [],
-      "description": "Commande CLI `nodefony pm2:*` — outils PM2 (status, logs, restart, etc.)."
-    },
     "dolibarrDomain": {
       "name": "dolibarrDomain",
       "kind": "function",
@@ -10578,7 +10546,6 @@
         "ServiceWithInit",
         "Module",
         "Fetch",
-        "Pm2",
         "Storage",
         "Websocket",
         "Injector",
@@ -10685,7 +10652,6 @@
         "Cluster",
         "Dev",
         "Install",
-        "Kill",
         "Outdated",
         "Prod",
         "Start",
@@ -10693,8 +10659,7 @@
         "FrontendDev",
         "FrontendStatus",
         "Network",
-        "SequelizeCommand",
-        "Pm2"
+        "SequelizeCommand"
       ],
       "IClusterMessage": [
         "IClusterProbeCtl",
@@ -11065,7 +11030,6 @@
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
-        "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
@@ -11073,8 +11037,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
-        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
-        "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
+        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
       "Service": [
         "src/nodefony/src/Cli.ts",
@@ -11084,7 +11047,6 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
-        "src/nodefony/src/service/pm2Service.ts",
         "src/nodefony/src/client/api/Storage.ts",
         "src/nodefony/src/client/transport/websocket.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
@@ -11139,7 +11101,6 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
-        "src/nodefony/src/service/pm2Service.ts",
         "src/nodefony/src/client/api/Storage.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
@@ -11190,7 +11151,6 @@
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/finder/Finder.ts",
-        "src/nodefony/src/service/pm2Service.ts",
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
@@ -11252,10 +11212,8 @@
         "src/packages/@nodefony/studio/index.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Module.ts",
-        "src/nodefony/src/service/pm2Service.ts",
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
-        "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
@@ -12102,7 +12060,6 @@
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
-        "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
@@ -12111,8 +12068,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
-        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
-        "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
+        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
       "loadEnv": [
         "src/nodefony/src/bin/nodefony.ts"
@@ -12176,7 +12132,6 @@
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/service/pm2Service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
       ],
       "Scope": [
@@ -12230,13 +12185,6 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Install": [
-        "src/nodefony/src/kernel/CliKernel.ts"
-      ],
-      "Pm2": [
-        "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "Kill": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Orm": [
@@ -12499,7 +12447,6 @@
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
-        "src/nodefony/src/kernel/commands/KillCommnand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
@@ -12508,8 +12455,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
-        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
-        "src/nodefony/src/kernel/commands/pm2/Pm2Command.ts"
+        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",

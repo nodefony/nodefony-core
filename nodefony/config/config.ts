@@ -34,7 +34,6 @@ const kernel = Nodefony.getKernel();
 import http from "./modules/http-config";
 import sequelize from "./modules/sequelize-config";
 // import mongoose from "./modules/mongoose-config"; // décommenter avec @nodefony/mongoose (index.ts)
-import pm2 from "./pm2/pm2.config";
 import cluster from "./cluster/cluster.config";
 import security from "./modules/security-config";
 
@@ -103,13 +102,6 @@ const config = {
    * Voir `./cluster/cluster.config.ts`.
    */
   cluster,
-
-  /**
-   * Configuration PM2 (production process manager).
-   * @deprecated cloud-native — retrait Phase 16. Préférer `cluster.workers` ci-dessus.
-   * Voir `./pm2/pm2.config.ts` pour la liste des options.
-   */
-  pm2,
 
   /**
    * Métadonnées de l'application — affichées dans les CLI et logs d'init.

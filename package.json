@@ -39,9 +39,7 @@
     "src/packages/@nodefony/*",
     "src/modules/*"
   ],
-  "dependencies": {
-    "pm2": "7.0.1"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@commitlint/cli": "21.0.1",
     "@commitlint/config-conventional": "21.0.1",

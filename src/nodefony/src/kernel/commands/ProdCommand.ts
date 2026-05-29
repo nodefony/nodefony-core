@@ -21,10 +21,9 @@ const options: OptionsCommandInterface = {
  * (1 process = 1 pod, scaling délégué à l'orchestrateur) ; `>= 2` = cluster (master +
  * workers), via le flow partagé {@link launchTopology} (même runtime que `cluster`).
  *
- * **Foreground par défaut** (P16.1) — pensé pour k8s / systemd / Docker.
- * @deprecated PM2 daemonisation RETIRÉE de cette commande (cible cloud-native). Pour
- * le legacy bare-metal/VPS, la commande dédiée `nodefony pm2` reste disponible (retrait
- * complet Phase 16). L'option `--no-daemon` est conservée en **no-op** (back-compat).
+ * **Foreground par défaut** — pensé pour k8s / systemd / Docker. Plus aucune
+ * daemonisation : 1 process Node = 1 pod/container, lifecycle (restart/health/logs)
+ * délégué à l'orchestrateur. (PM2 retiré du framework — cf project_pm2_deprecation.)
  */
 class Prod extends Command {
   constructor(cli: CliKernel) {
@@ -38,10 +37,6 @@ class Prod extends Command {
     this.addOption(
       "-w, --workers <number>",
       "Number of worker processes (default: config cluster.workers / NODEFONY_WORKERS / 1)",
-    );
-    this.addOption(
-      "--no-daemon",
-      "[DEPRECATED no-op] foreground est désormais le défaut ; PM2 daemonisation → commande `pm2`.",
     );
   }
 

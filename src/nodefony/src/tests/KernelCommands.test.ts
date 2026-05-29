@@ -13,11 +13,9 @@ import Command from "../command/Command";
 import BuildCommand from "../kernel/commands/BuildCommand";
 import DevCommand from "../kernel/commands/DevCommand";
 import InstallCommand from "../kernel/commands/InstallCommand";
-import KillCommand from "../kernel/commands/KillCommnand";
 import OutdatedCommand from "../kernel/commands/OutdatedCommand";
 import ProdCommand from "../kernel/commands/ProdCommand";
 import StartCommand from "../kernel/commands/StartCommand";
-import Pm2Command from "../kernel/commands/pm2/Pm2Command";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
@@ -153,44 +151,7 @@ describe("KernelCommand — InstallCommand", () => {
   });
 });
 
-// ─── 4. KillCommand ──────────────────────────────────────────────────────────
-
-describe("KernelCommand — KillCommand", () => {
-  let cli: CliKernel;
-  beforeEach(() => {
-    cli = makeCli();
-  });
-
-  it("instance Command", () => {
-    const cmd = new KillCommand(cli);
-    assert(cmd instanceof Command);
-  });
-
-  it("name = 'kill'", () => {
-    const cmd = new KillCommand(cli);
-    assert.strictEqual(cmd.name, "kill");
-  });
-
-  it("kernelEvent = 'onStart'", () => {
-    const cmd = new KillCommand(cli);
-    assert.strictEqual(cmd.kernelEvent, "onStart");
-  });
-
-  it("description contient 'kill' ou 'PM2'", () => {
-    const cmd = new KillCommand(cli);
-    const desc = cmd.description().toLowerCase();
-    expect(desc).to.satisfy(
-      (d: string) => d.includes("kill") || d.includes("pm2"),
-    );
-  });
-
-  it("onKernelStart est défini", () => {
-    const cmd = new KillCommand(cli);
-    expect(cmd.onKernelStart).to.be.a("function");
-  });
-});
-
-// ─── 5. OutdatedCommand ──────────────────────────────────────────────────────
+// ─── 4. OutdatedCommand ──────────────────────────────────────────────────────
 
 describe("KernelCommand — OutdatedCommand", () => {
   let cli: CliKernel;
@@ -220,7 +181,7 @@ describe("KernelCommand — OutdatedCommand", () => {
   });
 });
 
-// ─── 6. ProdCommand ──────────────────────────────────────────────────────────
+// ─── 5. ProdCommand ──────────────────────────────────────────────────────────
 
 describe("KernelCommand — ProdCommand", () => {
   let cli: CliKernel;
@@ -250,13 +211,6 @@ describe("KernelCommand — ProdCommand", () => {
     assert.strictEqual(cmd.kernelEvent, "onStart");
   });
 
-  it("option --no-daemon enregistrée (no-op déprécié, back-compat)", () => {
-    const cmd = new ProdCommand(cli);
-    const opts = cmd.command.options;
-    const noDaemon = opts.find((o: any) => o.long === "--no-daemon");
-    assert.ok(noDaemon, "option --no-daemon manquante");
-  });
-
   it("option --workers enregistrée (topologie)", () => {
     const cmd = new ProdCommand(cli);
     const opts = cmd.command.options;
@@ -270,7 +224,7 @@ describe("KernelCommand — ProdCommand", () => {
   });
 });
 
-// ─── 8. StartCommand ─────────────────────────────────────────────────────────
+// ─── 6. StartCommand ─────────────────────────────────────────────────────────
 
 describe("KernelCommand — StartCommand", () => {
   let cli: CliKernel;
@@ -309,52 +263,21 @@ describe("KernelCommand — StartCommand", () => {
   });
 });
 
-// ─── 9. Pm2Command ───────────────────────────────────────────────────────────
-
-describe("KernelCommand — Pm2Command", () => {
-  let cli: CliKernel;
-  beforeEach(() => {
-    cli = makeCli();
-  });
-
-  it("instance Command", () => {
-    const cmd = new Pm2Command(cli);
-    assert(cmd instanceof Command);
-  });
-
-  it("name = 'pm2'", () => {
-    const cmd = new Pm2Command(cli);
-    assert.strictEqual(cmd.name, "pm2");
-  });
-
-  it("kernelEvent = 'onStart'", () => {
-    const cmd = new Pm2Command(cli);
-    assert.strictEqual(cmd.kernelEvent, "onStart");
-  });
-
-  it("description non vide", () => {
-    const cmd = new Pm2Command(cli);
-    expect(cmd.description()).to.have.length.greaterThan(0);
-  });
-});
-
-// ─── 10. Registre complet — toutes les commandes enregistrables ───────────────
+// ─── 7. Registre complet — toutes les commandes enregistrables ────────────────
 
 describe("KernelCommands — registre complet", () => {
-  it("8 commandes kernel construites sans erreur", () => {
+  it("6 commandes kernel construites sans erreur", () => {
     const cli = makeCli();
     const commands: Command[] = [];
     assert.doesNotThrow(() => {
       commands.push(new BuildCommand(cli));
       commands.push(new DevCommand(cli));
       commands.push(new InstallCommand(cli));
-      commands.push(new KillCommand(cli));
       commands.push(new OutdatedCommand(cli));
       commands.push(new ProdCommand(cli));
       commands.push(new StartCommand(cli));
-      commands.push(new Pm2Command(cli));
     });
-    assert.strictEqual(commands.length, 8);
+    assert.strictEqual(commands.length, 6);
   });
 
   it("noms uniques", () => {
@@ -363,11 +286,9 @@ describe("KernelCommands — registre complet", () => {
       new BuildCommand(cli).name,
       new DevCommand(cli).name,
       new InstallCommand(cli).name,
-      new KillCommand(cli).name,
       new OutdatedCommand(cli).name,
       new ProdCommand(cli).name,
       new StartCommand(cli).name,
-      new Pm2Command(cli).name,
     ];
     const unique = new Set(names);
     assert.strictEqual(unique.size, names.length);
@@ -379,11 +300,9 @@ describe("KernelCommands — registre complet", () => {
       new BuildCommand(cli),
       new DevCommand(cli),
       new InstallCommand(cli),
-      new KillCommand(cli),
       new OutdatedCommand(cli),
       new ProdCommand(cli),
       new StartCommand(cli),
-      new Pm2Command(cli),
     ];
     for (const cmd of cmds) {
       assert(
@@ -394,7 +313,7 @@ describe("KernelCommands — registre complet", () => {
   });
 });
 
-// ─── 11. Performance ─────────────────────────────────────────────────────────
+// ─── 8. Performance ──────────────────────────────────────────────────────────
 
 describe("KernelCommands — performance", () => {
   it("construction de toutes les commandes × 10 < 1000ms", () => {
@@ -404,11 +323,9 @@ describe("KernelCommands — performance", () => {
       new BuildCommand(cli);
       new DevCommand(cli);
       new InstallCommand(cli);
-      new KillCommand(cli);
       new OutdatedCommand(cli);
       new ProdCommand(cli);
       new StartCommand(cli);
-      new Pm2Command(cli);
     }
     const elapsed = Date.now() - start;
     expect(elapsed).to.be.lessThan(1000);

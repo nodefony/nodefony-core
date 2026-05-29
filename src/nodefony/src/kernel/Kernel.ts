@@ -17,7 +17,6 @@ import CliKernel from "./CliKernel";
 import Module from "./Module";
 //import Fetch from "../service/fetchService";
 import { HttpKernel } from "@nodefony/http";
-import Pm2 from "../service/pm2Service";
 import Rollup from "../service/rollup/rollupService";
 import Injector from "./injector/injector";
 import Entity from "./orm/Entity";
@@ -30,7 +29,6 @@ import type { IKernel } from "../types/IKernel";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { readListenerTags } from "./lifecycleTags";
-//import { StartOptions } from "pm2";
 
 const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
 
@@ -62,7 +60,7 @@ const kernelDefaultOptions: TypeKernelOptions = {
 };
 
 type ClusterType = "master" | "worker";
-type NodefonyStartType = "PM2" | "CONSOLE" | "NODEFONY" | "NODEFONY_CONSOLE";
+type NodefonyStartType = "CONSOLE" | "NODEFONY" | "NODEFONY_CONSOLE";
 
 // type EventsType = {
 //   [key: string]: number;
@@ -211,7 +209,6 @@ class Kernel extends Service implements IKernel {
   interfaces: NetworkInterface;
   domain: string = "localhost";
   progress: number = Events.onInit;
-  pm2?: Pm2;
   injector: Injector;
   isDev: boolean = false;
   isProd: boolean = true;
@@ -266,7 +263,7 @@ class Kernel extends Service implements IKernel {
 
   /**
    * Point d'entrée du boot. Fire `"onPreStart"` puis `"onStart"`, charge l'application
-   * (`loadApp()`), instancie services kernel (Rollup, Pm2), puis enchaîne sur
+   * (`loadApp()`), instancie services kernel (Rollup), puis enchaîne sur
    * `preRegister()` → `boot()` → `onReady()` → `initServers()`.
    *
    * Si `command.kernelEvent` matche une phase déjà atteinte → terminate(0) immédiat (la
@@ -337,7 +334,6 @@ class Kernel extends Service implements IKernel {
       if (this.app) {
         this.projectName = this.app.getModuleName() as string;
       }
-      this.pm2 = (await this.addKernelService(Pm2, this.options.pm2)) as Pm2;
       //parse command
       // if (this.cli && !this.command) {
       //   this.cli.clear();
@@ -488,9 +484,6 @@ class Kernel extends Service implements IKernel {
    * Phase ready — fire `"onReady"`, démarre les serveurs HTTP/WS via `initServers()`, log
    * memoryUsage, puis fire `"onPostReady"`. C'est ici que les Server Listen apparaissent.
    *
-   * Si `command.name === "production"` ET pas PM2 → exécute `command.action()` (mode legacy
-   * daemonisation).
-   *
    * @returns `this` après tout le pipeline post-ready.
    */
   async onReady(): Promise<this> {
@@ -499,27 +492,6 @@ class Kernel extends Service implements IKernel {
         this.ready = true;
         if (this.setCommandComplete(Events.onReady)) {
           return this.terminate(0);
-        }
-        // Mode production : daemonisation PM2 (LEGACY) uniquement avec `--daemon`
-        // (le défaut). `--no-daemon` → boot foreground in-process : on tombe dans
-        // initServers() sans jamais solliciter PM2. C'est la cible cloud-native
-        // (1 process Node = 1 pod/container, supervision déléguée à l'orchestrateur)
-        // et le prérequis de la CI d'intégration. Cf project_pm2_deprecation (P16.1).
-        const prodOpts = this.commandArgs[0] as
-          | { daemon?: boolean }
-          | undefined;
-        const noDaemon =
-          typeof prodOpts === "object" &&
-          prodOpts !== null &&
-          prodOpts.daemon === false;
-        if (
-          this.command?.name === "production" &&
-          process.env.MODE_START !== "PM2" &&
-          !noDaemon
-        ) {
-          return this.command.action(...this.commandArgs).then(() => {
-            return this;
-          });
         }
         return this.initServers().then(async (servers) => {
           if (global && global.gc) {
@@ -618,7 +590,7 @@ class Kernel extends Service implements IKernel {
   /**
    * Instancie un service au niveau kernel (vs niveau module via `Module.addService`).
    *
-   * Utilisé pour les services partagés essentiels au boot (Rollup, Pm2, HttpKernel).
+   * Utilisé pour les services partagés essentiels au boot (Rollup, HttpKernel).
    * Stocke directement dans le container kernel.
    *
    * @param ctor - constructeur du service (typiquement décoré `@injectable`).

@@ -12,8 +12,6 @@ import Prod from "./commands/ProdCommand";
 import Cluster from "./commands/ClusterCommand";
 import Install from "./commands/InstallCommand";
 import Outated from "./commands/OutdatedCommand";
-import Pm2 from "./commands/pm2/Pm2Command";
-import Kill from "./commands/KillCommnand";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
 import { HelpContext, Command as commanderCommand } from "commander";
@@ -146,8 +144,6 @@ class CliKernel extends Cli {
         this.addCommand(Cluster);
         this.addCommand(Install);
         this.addCommand(Outated);
-        this.addCommand(Pm2);
-        this.addCommand(Kill);
         this.commander.exitOverride();
         this.commander.name(this.name);
         this.commander.showHelpAfterError(false);
@@ -416,7 +412,7 @@ class CliKernel extends Cli {
     }
     return syslog?.listenWithConditions(conditions, (pdu: Pdu) => {
       // En dev mono-process le pid pollue chaque ligne sans valeur ajoutée
-      // (process unique, déjà connu via `ps`). En prod cluster/PM2 il distingue
+      // (process unique, déjà connu via `ps`). En prod cluster il distingue
       // les workers — toujours préfixé.
       // `environment` est résolu dynamiquement : la sous-commande CLI le set
       // après `new CliKernel()`, donc figer au constructor ne marcherait pas.

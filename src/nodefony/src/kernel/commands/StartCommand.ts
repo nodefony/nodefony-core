@@ -23,7 +23,7 @@ const prompt = async function (command: Command): Promise<ConfigType> {
         value: "production",
         description:
           command.cli?.getCommand("production")?.description() ||
-          "Start Server in Production Mode (PM2 process manager)",
+          "Start Server in Production Mode",
       },
       new command.prompts.Separator(),
       {
@@ -40,14 +40,6 @@ const prompt = async function (command: Command): Promise<ConfigType> {
           command.cli?.getCommand("outdated")?.description() ||
           "List Project dependencies outdated",
       },
-      new command.prompts.Separator(),
-      {
-        name: "pm2",
-        value: "pm2",
-        description:
-          command.cli?.getCommand("pm2")?.description() ||
-          "PM2 Process Manager",
-      },
     ];
   } else {
     message = "Select Nodefony Command";
@@ -62,13 +54,6 @@ const prompt = async function (command: Command): Promise<ConfigType> {
         value: "createMicroservice",
         description: "Create Nodefony Microservice Project ",
       },
-      new command.prompts.Separator(),
-      {
-        name: "Show PM2 tools",
-        value: "pm2",
-        description: "PM2 Process Manager",
-      },
-      new command.prompts.Separator(),
     ];
   }
   return {
