@@ -31,9 +31,11 @@ Lancer Mocha sans filtre = des centaines de lignes d'output incluant tous les au
 ## Commande à exécuter
 
 ```bash
+# ⚠️ config = .mocharc.load.json : memory.test.ts est DANS la suite « load »,
+# PAS dans .mocharc.integration.json (qui l'exclut → faux « 0 passing »).
 cd /Users/cci/repository/nodefony-core/src/packages/@nodefony/http \
   && TS_NODE_PROJECT=tsconfig.tests.json \
-     npx mocha --config .mocharc.integration.json --grep "Memory" 2>&1 \
+     npx mocha --config .mocharc.load.json --grep "Memory" 2>&1 \
   | grep -E "passing|failing|✔|✘|Memory leaks|<" \
   | tail -20
 ```
@@ -57,17 +59,18 @@ Output attendu (8/8 verts) :
 
 ## Grille de seuils (règle dure Nodefony — `CLAUDE.md`)
 
-| Test                                      | Seuil critique         | Si dépassé → cause probable                                         |
-| ----------------------------------------- | ---------------------- | -------------------------------------------------------------------- |
-| 1000 sequential GET                       | < 35 MB                | Fuite dans le cycle de vie request (listeners non removed, scope non leaved) |
-| 100 sync crashes                          | < 10 MB                | Kernel ne nettoie pas les scopes après exception                     |
-| 100 async crashes                         | < 10 MB                | Idem + promesse non rejected                                         |
-| 100 native TypeError crashes              | < 15 MB                | Idem + cause chain pas attrappée                                     |
-| 500 mixed (index + context + session)     | < 20 MB                | Storage session qui accumule                                         |
-| 100 WS connections open/close             | < 30 MB                | WS listener non removed sur `close`                                  |
-| 50 WS echo round-trips                    | < 20 MB                | Buffer message non libéré                                            |
+| Test                                  | Seuil critique | Si dépassé → cause probable                                                  |
+| ------------------------------------- | -------------- | ---------------------------------------------------------------------------- |
+| 1000 sequential GET                   | < 35 MB        | Fuite dans le cycle de vie request (listeners non removed, scope non leaved) |
+| 100 sync crashes                      | < 10 MB        | Kernel ne nettoie pas les scopes après exception                             |
+| 100 async crashes                     | < 10 MB        | Idem + promesse non rejected                                                 |
+| 100 native TypeError crashes          | < 15 MB        | Idem + cause chain pas attrappée                                             |
+| 500 mixed (index + context + session) | < 20 MB        | Storage session qui accumule                                                 |
+| 100 WS connections open/close         | < 30 MB        | WS listener non removed sur `close`                                          |
+| 50 WS echo round-trips                | < 20 MB        | Buffer message non libéré                                                    |
 
 **Si un seuil saute** → c'est un **blocker**. NE PAS commit. Investiguer :
+
 1. `git diff -w src/` pour identifier les listeners attachés
 2. Vérifier `removeListener` / `once` complémentaire (CLAUDE.md règle perf)
 3. Vérifier `lazy alloc` (null par défaut → array au premier register → null après fire)
