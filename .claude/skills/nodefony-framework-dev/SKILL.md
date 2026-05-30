@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.16.0
+version: 1.16.1
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -48,10 +48,11 @@ correspondante de `nodefony-studio-dev` (et inversement). Ouvrir le skill jumeau
 
 **VERSION COMMUNE (lockstep)** : les deux skills partagent **UNE même version SemVer** (frontmatter) =
 snapshot cohérent du contrat full-stack. **Bumper LES DEUX au même numéro** à chaque co-évolution
-(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.16.0**
-(session BACKEND : **résilience de boot Ph.3** — garde du cycle de boot `Event.emitAsyncGuarded` ⟂
-`Kernel.fireLifecycle` + **gain perf `emitAsync` +14→30 %** + **dette config ordering RÉSOLUE** ; aucun
-contrat front touché → `studio-dev` suit en lockstep **back-only**).
+(même si un seul fichier change beaucoup, l'autre suit au minimum d'un patch + ligne changelog). Actuel : **1.16.1**
+(session BACKEND : **durcissement framework F1+F4** — purge des `any` de dette (Controller/Resolver/Route/
+décorateurs, idiomes mixins documentés) + couverture unit Controller 22→80 % / Resolver +newController ;
+doc du **hook `initialize()`** (per-request, opt-in) ajoutée ci-dessous ; aucun contrat front touché →
+`studio-dev` suit en lockstep **back-only**).
 
 ## 1. Quand l'utiliser / quand passer la main
 
@@ -255,6 +256,9 @@ INFO(6) DEBUG(7) SPINNER(-1)`. ⚠️ **`CRITIC`, jamais `CRITICAL`**. `pdu.seve
 - `msgid` = catégorie (`"HTTP-KERNEL"`, `"ROUTER"`, `"FIREWALL"`…). Format console : `HH:MM:SS.mmm SEV MSGID : payload`.
 - Ne **jamais** logger après `clean()` (syslog null → Pdu standalone perdu). Filtrage = AVANT `fire("onLog")` (CPU).
 - Greps : strip ANSI `sed 's/\x1b\[[0-9;]*m//g'` (ou skill `nodefony-tail-error-logs`).
+- **Sink = driver enfichable** (env `file`/`null`/`stdout-pipe`) : `FileSink` **async par défaut** (jamais bloquer
+  l'event-loop sur disque lent), `sync` opt-in. **Invariant** : un fatal (sévérité ≤ 3) part en `writeSync` immédiat
+  → jamais perdu au `SIGKILL`. Levier perf = coalescence (ring+tick), pas le fd-par-worker.
 
 ### Module (hooks lifecycle)
 
@@ -378,10 +382,16 @@ export class ThingsController extends Controller {
   ⚠️ **`this.context.body` est VIDE/non parsé** → un POST lu ainsi tombe sur le défaut en silence.
 - En-têtes bruts : `this.context.request.headers.authorization` (clé **minuscule**, peut être `string|string[]`).
 - `@Redirect("/url", 302)` (sinon `redirect()` défaut = **301**). Réponses : `renderJson` / `renderView`/`renderTwig`/`renderEjs` / `forward("mod:ctrl:action")`.
+- **Vhosting** : `@Domain("regexp"|["a","b"])` (classe ou méthode, précédence `@route({host})` > méthode > classe) → **403** si l'`Host` ne matche pas (`domainMatcher` pur, conforme). Hosts de confiance = config **`trustedHosts`** (ex-`domainAlias`, renommé pour la sécu). ⚠️ ordre des checks : un **405** ne doit pas masquer un **403** (Router corrigé).
 - **Ne jamais nommer une action** `session`/`request`/`response`/`context`/`method` (collision prop Controller → « Action not found »).
 - **WS** : même controller. Handshake = `execute(null)` (⚠️ l'action reçoit `undefined`, **pas** `null` →
   tester `message == null`, ne jamais `.toString()` un message absent), puis `execute(message)`. Protocol =
   match exact string (mismatch → close 1002). Route résolue AVANT `connect()`.
+- **Hook `initialize()`** (per-request, **opt-in**) : si le controller le définit, `Resolver.newController()`
+  l'`await` **juste APRÈS l'instanciation DI (`Injector.instantiate`) et AVANT l'action** (HTTP **et** WS).
+  Async, doit `return this`. Le `Controller` de base ne le déclare PAS (interface-marqueur `IInitializable`
+  côté Resolver) → c'est un opt-in userland. Place idéale pour `this.startSession(...)`, précharger des
+  données communes à toutes les actions, vérifs pré-action. Une exception levée ici **annule l'action**.
 - **Session** : `this.startSession("name")` dans `initialize()` (HTTP **et** WS) ; accès direct via
   `@inject("session")`. Sessions = IoC (`SessionsService` registre statique, http n'importe aucun ORM ;
   handler config `session.handler`, défaut reco `drizzle`).
@@ -1001,6 +1011,8 @@ RPC bidirectionnel typé + streaming + **fallback HTTP long-polling** auto (rés
 - **Pub/sub par canal on-demand** (pattern Studio) : client `subscribe`/`unsubscribe {channel}` → serveur démarre/
   arrête un **provider** transport-agnostique (`createXxx(publish)`). État `Map<channel,dispose>` sur le ctx,
   `dispose()` garanti `ctx.once("onFinish")`, câblage 1× au handshake (flag), `setInterval` **unref**.
+- **Back-pressure (S2)** : push borné par `bufferedAmount` → consommateur lent = **drop latest-wins** puis close
+  **1013** (Try Again Later) si le buffer reste saturé. Superviser ≠ tomber la prod : budget borné + dégradable.
 - Stress mesuré : ~16k connexions (plafond ports éphémères loopback) / ~40k msg/s fan-out propre / ~120k =
   saturation. Lag Studio résolu par **coalescing** (ring buffer + flush). Bench → skill `nodefony-load-test`.
 
@@ -1191,26 +1203,27 @@ npm run generate-symbols
 
 ## 9. Gotchas (table condensée)
 
-| Symptôme                                                      | Cause                                                   | Fix                                                                                                |
-| ------------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `Cannot read … of null` à l'import d'un module                | `Nodefony.getKernel()` au top-level                     | getter lazy / guard `?.`                                                                           |
-| Hook lifecycle jamais appelé                                  | hook en arrow/property                                  | méthode **prototype** `async onKernelBoot() {}`                                                    |
-| `RequestContext.get()` = undefined dans message/close/finish  | listener non bindé                                      | `AsyncResource.bind(fn)` au bind                                                                   |
-| `Cannot read 'environment'` (CliKernel ctor)                  | env `undefined` au ctor                                 | set dans `onKernelStart()`                                                                         |
-| `@inject()` sans nom ne résout pas                            | tsx n'émet pas `design:paramtypes`                      | `@inject("nom")` explicite                                                                         |
-| `does not provide an export named 'default'/'Error'/'kernel'` | ancienne API                                            | `import { Nodefony }`/`nodefonyError`/`getKernel()`                                                |
-| TS18036 / build vert mais CI rouge                            | rollup avertit, tsc rejette                             | `npm run typecheck` avant push                                                                     |
-| 404 sur route pourtant définie                                | dist périmé (test module)                               | rebuild test + restart (`nodefony-start-server`)                                                   |
-| `Cannot add option '-v, --version'`                           | `setCommandVersion()` 2×                                | le ctor `Cli` le fait déjà                                                                         |
-| Turbo rejoue de vieux logs/tests                              | fix dans dep non déclarée n'invalide pas le cache       | `--force` ou build direct du module                                                                |
-| `ERR_INVALID_CHAR` statusMessage                              | Node poison le natif avant validation                   | `replace(/[^\x20-\x7E]/g,"")` avant `writeHead`                                                    |
-| WS array protocol ne matche pas                               | `['a','b']`→header `"a, b"`≠`"a"`                       | string exacte ou `""` (accepte tout)                                                               |
-| HTTP/2 réponse sans `x-request-id`                            | `stream.respond()` bypasse `super.writeHead`            | poser le header dans le chemin http2 aussi                                                         |
-| Superviseur dev orphelins saturent la machine                 | spawn detached sans garde                               | pidfile + SIGHUP + group-kill (déjà en place) ; ne JAMAIS spawn serveur en background sans cleanup |
-| SSE/long-polling : cleanup ne fire pas (HTTP/2)               | `request.on("close")` fire dès la fin du stream request | écouter `rawRes.once("close")` (la RESPONSE)                                                       |
-| `pdu.severity === "INFO"` faux                                | severity = number                                       | comparer `pdu.severityName === "INFO"` ; nom = `CRITIC` pas `CRITICAL`                             |
-| `url.parse()` deprecated                                      | API legacy                                              | `new URL(str, "http://localhost")` partout                                                         |
-| `@controllers` absents avant boot                             | enregistrés sur `onBoot`                                | accéder aux controllers après le boot kernel                                                       |
+| Symptôme                                                      | Cause                                                                 | Fix                                                                                                |
+| ------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `Cannot read … of null` à l'import d'un module                | `Nodefony.getKernel()` au top-level                                   | getter lazy / guard `?.`                                                                           |
+| Hook lifecycle jamais appelé                                  | hook en arrow/property                                                | méthode **prototype** `async onKernelBoot() {}`                                                    |
+| `RequestContext.get()` = undefined dans message/close/finish  | listener non bindé                                                    | `AsyncResource.bind(fn)` au bind                                                                   |
+| `Cannot read 'environment'` (CliKernel ctor)                  | env `undefined` au ctor                                               | set dans `onKernelStart()`                                                                         |
+| `@inject()` sans nom ne résout pas                            | tsx n'émet pas `design:paramtypes`                                    | `@inject("nom")` explicite                                                                         |
+| `does not provide an export named 'default'/'Error'/'kernel'` | ancienne API                                                          | `import { Nodefony }`/`nodefonyError`/`getKernel()`                                                |
+| TS18036 / build vert mais CI rouge                            | rollup avertit, tsc rejette                                           | `npm run typecheck` avant push                                                                     |
+| 404 sur route pourtant définie                                | dist périmé (test module)                                             | rebuild test + restart (`nodefony-start-server`)                                                   |
+| `Cannot add option '-v, --version'`                           | `setCommandVersion()` 2×                                              | le ctor `Cli` le fait déjà                                                                         |
+| Turbo rejoue de vieux logs/tests                              | fix dans dep non déclarée n'invalide pas le cache                     | `--force` ou build direct du module                                                                |
+| `ERR_INVALID_CHAR` statusMessage                              | Node poison le natif avant validation                                 | `replace(/[^\x20-\x7E]/g,"")` avant `writeHead`                                                    |
+| WS array protocol ne matche pas                               | `['a','b']`→header `"a, b"`≠`"a"`                                     | string exacte ou `""` (accepte tout)                                                               |
+| HTTP/2 réponse sans `x-request-id`                            | `stream.respond()` bypasse `super.writeHead`                          | poser le header dans le chemin http2 aussi                                                         |
+| Superviseur dev orphelins saturent la machine                 | spawn detached sans garde                                             | pidfile + SIGHUP + group-kill (déjà en place) ; ne JAMAIS spawn serveur en background sans cleanup |
+| SSE/long-polling : cleanup ne fire pas (HTTP/2)               | `request.on("close")` fire dès la fin du stream request               | écouter `rawRes.once("close")` (la RESPONSE)                                                       |
+| `pdu.severity === "INFO"` faux                                | severity = number                                                     | comparer `pdu.severityName === "INFO"` ; nom = `CRITIC` pas `CRITICAL`                             |
+| `url.parse()` deprecated                                      | API legacy                                                            | `new URL(str, "http://localhost")` partout                                                         |
+| `@controllers` absents avant boot                             | enregistrés sur `onBoot`                                              | accéder aux controllers après le boot kernel                                                       |
+| Params de route mélangés entre requêtes concurrentes          | `Route.variablesMap` vivait sur l'instance Route **statique** (bleed) | lire via `Resolver.getMatchedParams()` (snapshot per-requête), jamais d'état requête sur la Route  |
 
 ## 10. Sécurité & conformité (PRIORITÉ MAX — directive permanente)
 
@@ -1460,6 +1473,11 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.16.1** (2026-05-30) — **Durcissement framework F1+F4** (commit `18cd612` F1). F1 : purge des `any` de
+  dette → `unknown` + narrowing dans `Controller`/`Resolver`/`Route`/`router`/décorateurs ; 6 `any`
+  idiomatiques (mixins ctor + décorateur dual `@Domain`) **conservés & documentés inline**. F4 : tests unit
+  via proxy `Object.create` + vrai Controller (Container+Event) → couverture **Controller 22→80 %**, Resolver +`returnController` HTTP **et** WS + `getMatchedParams` + `newController`. **Nouveau** : doc du hook
+  **`initialize()`** (per-request, opt-in, `await` après instanciation DI / avant action — §4 Controller).
 - **1.16.0** (2026-05-29) — **Résilience de boot Ph.3 (garde du cycle de boot) + GAIN perf `emitAsync` +
   dette config ordering RÉSOLUE** (commits `f3b749d` / `55b7202`). MÉCANIQUE `Event.emitAsyncGuarded` ⟂
   POLITIQUE `Kernel.fireLifecycle` (tags owner/critical `kernel/lifecycleTags`, fatal si critique+prod sinon
