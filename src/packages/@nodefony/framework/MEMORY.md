@@ -259,3 +259,19 @@ Lancer : `npm test` (unit) — `npm run test:integration` (unit + intégration, 
 | `Resolver.ts`         | 41    | `variables: any[]`   |
 | `Route.ts`            | 118   | `variables: any[]`   |
 | `routerDecorators.ts` | 65    | `mycontroller: any`  |
+
+## @Domain + routing par vhost (cf `Route.ts`, `routerDecorators.ts`, `router.ts`)
+
+- **`@Domain(pattern|patterns)`** : décorateur CLASSE (contrôleur entier) + MÉTHODE. Alimente
+  `route.host`. Précédence `@route({host})` > `@Domain` méthode > `@Domain` classe. ⚠️ en CLASSE,
+  placer SOUS `@controller` (décorateurs classe = bas en haut ; `@controller` construit les routes).
+- **`Route.host`** : `string|string[]`. Pré-compilé en `hostRegexp: RegExp[]` dans `compile()`
+  (host + `requirements.domain`) via `compileDomainPatterns` (@nodefony/http). `matchHostname` →
+  `isDomainAllowed` → **403** (RFC 9110 ; ex-401). `undefined` = servie sur tous les vhosts (0 ns).
+- **Virtual hosting** (même path, vhost ≠) : `Router.resolve` boucle + `catch → continue` (fallthrough)
+  → la route du bon vhost est choisie. Preuve e2e : `domain-routing.test.ts` (module test, DomainController).
+- **Router Pass 2 (405 Allow) host-aware** : une route restreinte à un autre vhost est exclue du
+  calcul du `Allow` (`isDomainAllowed(route.hostRegexp, domain)`) — sinon un 403 domaine serait
+  masqué par un 405 trompeur. Bug trouvé via l'e2e.
+- `domainAlias` kernel SUPPRIMÉ → barrière sécu = `http.trustedHosts` (cf http MEMORY). `@Domain` =
+  source unique des vhosts servis (plus de double déclaration / "concordance" kernel↔route).

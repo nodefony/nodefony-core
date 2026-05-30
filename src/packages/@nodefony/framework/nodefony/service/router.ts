@@ -7,7 +7,7 @@ import {
   injectable,
 } from "nodefony";
 import Route, { RouteOptions } from "../src/Route";
-import { ContextType, HttpError } from "@nodefony/http";
+import { ContextType, HttpError, isDomainAllowed } from "@nodefony/http";
 import Resolver from "../src/Resolver";
 import Controller from "../src/Controller";
 
@@ -17,7 +17,10 @@ function collectSupportedMethods(route: Route): Set<string> {
   const set = new Set<string>();
   const m = route.requirements?.methods as RouteRequirementMethods;
   if (typeof m === "string") {
-    m.split(",").map((s) => s.trim().toUpperCase()).filter(Boolean).forEach((x) => set.add(x));
+    m.split(",")
+      .map((s) => s.trim().toUpperCase())
+      .filter(Boolean)
+      .forEach((x) => set.add(x));
   } else if (Array.isArray(m)) {
     m.map((s) => String(s).toUpperCase()).forEach((x) => set.add(x));
   }
@@ -35,14 +38,14 @@ class Router extends Service {
   static routes = routes;
   routes: Route[] = Router.routes;
   constructor(
-    module: Module
+    module: Module,
     //@inject("HttpKernel") private httpKernel: HttpKernel
   ) {
     super(
       serviceName,
       module.container as Container,
       module.notificationsCenter as Event,
-      module.options.router
+      module.options.router,
     );
   }
 
@@ -70,17 +73,29 @@ class Router extends Service {
       context.request?.url &&
       (!resolver.exception || resolver.exception.code !== 405)
     ) {
-      const path = ((context.request.url as URL).pathname || "").replace(/\/+$/, "") || "/";
+      const path =
+        ((context.request.url as URL).pathname || "").replace(/\/+$/, "") ||
+        "/";
       const allowed = new Set<string>();
       for (const route of routes) {
-        if (route.pattern && route.pattern.test(path)) {
+        // Une route restreinte à un autre vhost (@Domain) ne SERT pas cette
+        // requête → invisible pour le calcul du Allow (sinon un 403 domaine
+        // serait masqué par un 405 trompeur). Cf domain-routing.test.ts.
+        const servesDomain =
+          !route.hostRegexp ||
+          isDomainAllowed(route.hostRegexp, context.domain);
+        if (route.pattern && route.pattern.test(path) && servesDomain) {
           const m = collectSupportedMethods(route);
           m.forEach((x) => allowed.add(x));
         }
       }
       if (allowed.size > 0) {
         const allowHeader = Array.from(allowed).join(", ");
-        const err = new HttpError(`Method ${context.method} Not Allowed`, 405, context);
+        const err = new HttpError(
+          `Method ${context.method} Not Allowed`,
+          405,
+          context,
+        );
         (err as any).allow = allowHeader;
         (err as any).type = "method";
         context.response?.setHeaders({ Allow: allowHeader });
@@ -151,7 +166,7 @@ class Router extends Service {
   }
   static setController(
     myconstructor: TypeController<Controller>,
-    module: Module
+    module: Module,
   ): TypeController<Controller> {
     Object.defineProperty(myconstructor.prototype, "module", {
       value: module,
@@ -160,7 +175,7 @@ class Router extends Service {
     if (Module.controllers[myconstructor.name]) {
       module.log(
         new Error(`Controller already exist ${myconstructor.name}`),
-        "WARNING"
+        "WARNING",
       );
     }
     // Propage le module sur les routes déjà créées par les décorateurs
@@ -183,7 +198,7 @@ class Router extends Service {
    * propriétaire (msgid `MODULE <name>` au lieu de `KERNEL`).
    */
   static getRoutesForController(
-    myconstructor: TypeController<Controller>
+    myconstructor: TypeController<Controller>,
   ): Route[] {
     return routes.filter((r) => r.controller === myconstructor);
   }

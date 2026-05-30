@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-29T23:56:16.775Z",
+  "generated": "2026-05-30T00:16:03.988Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 782,
-    "symbols": 1474,
-    "classes": 231,
+    "files": 784,
+    "symbols": 1476,
+    "classes": 233,
     "interfaces": 357,
     "types": 185,
     "enums": 2,
@@ -2897,6 +2897,33 @@
       "file": "src/modules/test/nodefony/controller/DefaultController.ts",
       "exported": true,
       "module": "modules/test"
+    },
+    "DomainClassController": {
+      "name": "DomainClassController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/DomainClassController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller",
+        "Domain"
+      ],
+      "description": "Démo"
+    },
+    "DomainController": {
+      "name": "DomainController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/DomainController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Démo"
     },
     "FrameworkController": {
       "name": "FrameworkController",
@@ -10935,6 +10962,8 @@
         "AlsController",
         "DecoratorController",
         "DefaultController",
+        "DomainClassController",
+        "DomainController",
         "FrameworkController",
         "GraphQlController",
         "HtmlController",
@@ -11257,6 +11286,8 @@
         "AlsController",
         "DecoratorController",
         "DefaultController",
+        "DomainClassController",
+        "DomainController",
         "FrameworkController",
         "GraphQlController",
         "HtmlController",
@@ -11271,6 +11302,9 @@
         "DocumentationController",
         "StudioController",
         "StudioRealtimeController"
+      ],
+      "Domain": [
+        "DomainClassController"
       ],
       "entity": [
         "SessionEntity"
@@ -11819,6 +11853,12 @@
       "LifecycleController": [
         "src/modules/test/index.ts"
       ],
+      "DomainController": [
+        "src/modules/test/index.ts"
+      ],
+      "DomainClassController": [
+        "src/modules/test/index.ts"
+      ],
       "registerDolibarrEntities": [
         "src/modules/test/index.ts"
       ],
@@ -11892,6 +11932,8 @@
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/DomainClassController.ts",
+        "src/modules/test/nodefony/controller/DomainController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
@@ -11962,6 +12004,8 @@
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/DomainClassController.ts",
+        "src/modules/test/nodefony/controller/DomainController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
@@ -11981,7 +12025,9 @@
         "src/packages/@nodefony/framework/index.ts"
       ],
       "Domain": [
-        "src/packages/@nodefony/framework/index.ts"
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DomainClassController.ts",
+        "src/modules/test/nodefony/controller/DomainController.ts"
       ],
       "HttpCode": [
         "src/packages/@nodefony/framework/index.ts",
@@ -12074,6 +12120,8 @@
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/DomainClassController.ts",
+        "src/modules/test/nodefony/controller/DomainController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
@@ -13093,6 +13141,11 @@
       "Template": [
         "src/packages/@nodefony/framework/nodefony/service/Eta.ts"
       ],
+      "isDomainAllowed": [
+        "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
       "IAdminRequest": [
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
@@ -13185,10 +13238,6 @@
       ],
       "compileDomainPatterns": [
         "src/packages/@nodefony/framework/nodefony/src/Route.ts"
-      ],
-      "isDomainAllowed": [
-        "src/packages/@nodefony/framework/nodefony/src/Route.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "redactSecrets": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",

@@ -340,3 +340,17 @@ http = **2ᵉ producteur** du data plane admin Studio (1er = kernel). `createHtt
 | `IResponse`         | `IResponse.ts`   | HTTP + WS response shapes                      |
 | `ICookie`           | `ICookie.ts`     | Cookie options + serialize                     |
 | `ISession`          | `ISession.ts`    | Session CRUD + flash + meta                    |
+
+## Domain matching (Host) — 2 étages (cf `src/context/domainMatcher.ts`)
+
+- **`trustedHosts` (kernel, sécu AVANT routing)** : barrière Host anti-injection. Config Zod
+  `http.trustedHosts` : `false`=domaine canonique + loopback (dev) · `true`=bypass (proxy
+  cloud-native) · `string|string[]`=vhosts add. `compileTrustedHosts()` → `regAlias` ;
+  `isValidDomain()`/`checkValidDomain()` → 401 si Host non trusté. Loopback dev =
+  `localhost`/`127.0.0.1`/`[::1]` (IPv6 sérialisé canonique `[::1]` — WHATWG URL).
+- **`domainAlias` SUPPRIMÉ** (ex-liste vhosts fine kernel) → remplacé par `trustedHosts`. La
+  liste des vhosts SERVIS = `@Domain` côté framework (source unique), pas le kernel.
+- **Politique de pattern UNIQUE** (partagée avec `@Domain`) : string exact ancré (`.` littéral) /
+  `*` wildcard un-label (RFC 6125) / `RegExp` libre. ReDoS-safe (`[^.]+`, ancré). ~40 ns/req, 0 alloc.
+- Exports publics : `compileDomainPattern(s)`, `compileTrustedHosts`, `isDomainAllowed`, types
+  `DomainPattern`/`TrustedHostsConfig` (réutilisés par `@nodefony/framework`).

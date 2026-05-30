@@ -14,6 +14,8 @@ import FrameworkController from "./nodefony/controller/FrameworkController";
 import DecoratorController from "./nodefony/controller/DecoratorController";
 import AlsController from "./nodefony/controller/AlsController";
 import LifecycleController from "./nodefony/controller/LifecycleController";
+import DomainController from "./nodefony/controller/DomainController";
+import DomainClassController from "./nodefony/controller/DomainClassController";
 import { controllers } from "@nodefony/framework";
 // Entité de démo Sequelize (orm-core) — enregistrée au top-level (side-effect).
 import "./nodefony/entity/auditEntity";
@@ -36,6 +38,8 @@ registerDolibarrEntities("default");
   DecoratorController,
   AlsController,
   LifecycleController,
+  DomainController,
+  DomainClassController,
 ])
 class Test extends Module {
   constructor(kernel: Kernel) {
