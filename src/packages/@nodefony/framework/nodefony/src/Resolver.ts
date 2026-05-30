@@ -60,7 +60,7 @@ class Resolver extends Service implements IResolver {
   context: ContextType;
   route: Route | null = null;
   resolve: boolean = false;
-  variables: any[] = [];
+  variables: unknown[] = [];
   exception?: HttpError | Error | null;
   acceptedProtocol: string | null = null;
   bypassFirewall: boolean = false;
@@ -186,7 +186,7 @@ class Resolver extends Service implements IResolver {
     throw new Error(`Route Controller not found`);
   }
 
-  async callController(data?: any[], reload: boolean = false) {
+  async callController(data?: unknown[], reload: boolean = false) {
     let controller = this.get("controller") as Controller;
     if (!controller || reload) {
       controller = await this.newController();
@@ -198,7 +198,7 @@ class Resolver extends Service implements IResolver {
     this.set("route", this.route);
     controller.setRoute(this.route!);
     const methodKey = this.actionName as keyof typeof controller;
-    let args: any[];
+    let args: unknown[];
     if (data) {
       args = [...this.variables, ...data];
     } else {
@@ -314,7 +314,7 @@ class Resolver extends Service implements IResolver {
     return this.returnController(resolved);
   }
 
-  async returnController(result: any) {
+  async returnController(result: unknown): Promise<unknown> {
     const type = typeOf(result);
     switch (true) {
       case result instanceof Promise:
@@ -322,12 +322,15 @@ class Resolver extends Service implements IResolver {
       case isPromise(result):
         // Unwrap puis re-dispatch. Pas de `.catch(e => throw e)` (no-op qui
         // ajoute une microtask par requête) — le rejet se propage seul.
-        return result.then((myresult: unknown) =>
+        // `switch(true)` ne narrow pas `result` → cast localisé sur le thenable.
+        return (result as PromiseLike<unknown>).then((myresult: unknown) =>
           this.returnController(myresult),
         );
       case type === "string":
       case result instanceof String:
-        return (this.context as HttpContext | WebsocketContext).send(result);
+        return (this.context as HttpContext | WebsocketContext).send(
+          result as string,
+        );
       case result instanceof Http2Response:
       case result instanceof HttpResponse:
       case result instanceof WebsocketResponse:

@@ -68,10 +68,10 @@ class Controller extends Service implements IController {
   session?: Session | null;
   sessionAutoStart: string | false = false;
   method?: HTTPMethod;
-  queryGet: Record<string, any> = {};
-  query: Record<string, any> = {};
-  queryFile: any[] = [];
-  queryPost: Record<string, any> = {};
+  queryGet: Record<string, unknown> = {};
+  query: Record<string, unknown> = {};
+  queryFile: unknown[] = [];
+  queryPost: Record<string, unknown> = {};
   //metaData: Data;
   module?: Module;
   template?: Eta | null;
@@ -118,7 +118,7 @@ class Controller extends Service implements IController {
   }
 
   async render(
-    data: any,
+    data: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
     headers?: Record<string, string | number>,
@@ -135,7 +135,7 @@ class Controller extends Service implements IController {
   }
 
   renderResponse(
-    data: any,
+    data: unknown,
     encoding?: BufferEncoding,
     status?: string | number,
     headers?: OutgoingHttpHeaders,
@@ -146,12 +146,15 @@ class Controller extends Service implements IController {
     if (status) {
       this.response?.setStatusCode(status);
     }
-    return (<HttpContext | WebsocketContext>this.context)?.send(data, encoding);
+    return (<HttpContext | WebsocketContext>this.context)?.send(
+      data as Buffer | string | null,
+      encoding,
+    );
   }
 
   async renderView(
     path: string | FileClass,
-    param: Record<string, any> = {},
+    param: Record<string, unknown> = {},
     status?: string | number,
     headers?: Record<string, string | number>,
   ): Promise<Http2Response | HttpResponse | WebsocketResponse> {
@@ -176,7 +179,9 @@ class Controller extends Service implements IController {
    * Service `frontend` résolu par nom (pas d'import `@nodefony/frontend`). Les
    * valeurs fournies par l'action priment (spread `param` en dernier).
    */
-  private withFrontendLocals(param: Record<string, any>): Record<string, any> {
+  private withFrontendLocals(
+    param: Record<string, unknown>,
+  ): Record<string, unknown> {
     const fe = this.get<{
       renderTags?: (entry: string) => string;
       renderDocument?: (entry: string) => string;
@@ -190,7 +195,7 @@ class Controller extends Service implements IController {
   }
 
   async renderJson(
-    obj: any,
+    obj: unknown,
     status?: string | number,
     headers?: OutgoingHttpHeaders,
   ) {
@@ -245,7 +250,7 @@ class Controller extends Service implements IController {
     this.log("getFlashBag session not started !", "ERROR");
     return null;
   }
-  setFlashBag(key: string, value: any) {
+  setFlashBag(key: string, value: unknown) {
     const session = this.getSession();
     if (session) {
       return session.setFlashBag(key, value);
@@ -253,11 +258,11 @@ class Controller extends Service implements IController {
     return null;
   }
 
-  addFlash(key: string, value: any) {
+  addFlash(key: string, value: unknown) {
     return this.setFlashBag(key, value);
   }
 
-  forward(name: string, param?: any) {
+  forward(name: string, param?: unknown[]) {
     const resolver = (this.get("router") as Router).resolveController(
       this.context as ContextType,
       name,
@@ -315,8 +320,8 @@ class Controller extends Service implements IController {
   }
 
   async renderFileDownload(
-    file: any,
-    options?: any,
+    file: FileClass | string,
+    options?: ReadStreamOptions,
     headers: OutgoingHttpHeaders = {},
   ): Promise<ReadStream> {
     const File = await this.getFileAsync(file);

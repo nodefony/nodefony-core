@@ -27,6 +27,8 @@ const decode = function (str: string): string {
 };
 
 export interface ControllerConstructor {
+  // Idiome TS officiel des signatures de constructeur (mixins/DI) — `any[]`
+  // requis ; `unknown[]` casse l'instanciation via `Injector`. Pas de la dette.
   new (...args: any[]): Controller;
 }
 
@@ -97,7 +99,7 @@ export interface RouteOptions {
   className?: string;
   host?: string | string[];
   pattern?: string;
-  defaults?: Record<string, any>;
+  defaults?: Record<string, unknown>;
   requirements?: RouteRequirements;
   filePath?: string;
 }
@@ -118,8 +120,8 @@ class Route implements IRoute {
   method?: HTTPMethod;
   schemes?: SchemeType;
   pattern?: RegExp;
-  variables: any[] = [];
-  defaults: Partial<Record<string, any>> = {};
+  variables: string[] = [];
+  defaults: Partial<Record<string, unknown>> = {};
   requirements: Partial<RouteRequirements> = {};
   hash?: string;
   host?: string | string[];
@@ -205,39 +207,40 @@ class Route implements IRoute {
     } catch (e) {
       throw e;
     }
-    //const map: any[] = [];
-    const map: any[] & { [key: string]: any } = [] as any;
+    // Tableau hybride array+dict (legacy) : valeurs positionnelles `push`ées +
+    // accès par nom de variable (`map[k]`, `map.wildcard`, `map["*"]`). Le double
+    // cast est requis : un array n'a pas d'index signature string implicite.
+    const map = [] as unknown as (string | null)[] & Record<string, unknown>;
     try {
       res.slice(1).forEach((param: string | null, i: number) => {
         const k = this.variables[i] || "wildcard";
         param &&= decode(param);
-        const req = this.getRequirement(k);
+        // Requirement par variable de route = RegExp | string (au-delà des clés
+        // typées de RouteRequirements) → `unknown` + narrowing instanceof/typeof.
+        const req: unknown = this.getRequirement(k as keyof RouteRequirements);
         let result = null;
         if (req) {
-          switch (typeOf(req)) {
-            case "RegExp":
-              result = req.test(param ?? "");
-              break;
-            case "string":
-              result = new RegExp(req).test(param ?? "");
-              break;
-            default:
-              throw {
-                BreakException: `Requirement Routing config Exception variable : ${k} must be RegExp or string : ${typeOf(req)}`,
-              };
+          if (req instanceof RegExp) {
+            result = req.test(param ?? "");
+          } else if (typeof req === "string") {
+            result = new RegExp(req).test(param ?? "");
+          } else {
+            throw {
+              BreakException: `Requirement Routing config Exception variable : ${k} must be RegExp or string : ${typeOf(req)}`,
+            };
           }
           if (!result) {
             throw {
-              BreakException: `Requirement Exception variable : ${k} ==> ${param} doesn't match with ${req}`,
+              BreakException: `Requirement Exception variable : ${k} ==> ${param} doesn't match with ${String(req)}`,
             };
           }
         }
         const index = map.push(param);
         map[k] = map[index - 1];
       });
-    } catch (e: any) {
-      if (e.BreakException) {
-        throw e.BreakException;
+    } catch (e: unknown) {
+      if (e && typeof e === "object" && "BreakException" in e) {
+        throw (e as { BreakException: unknown }).BreakException;
       }
       throw e;
     }
@@ -271,7 +274,8 @@ class Route implements IRoute {
       for (let i = 0; i < this.variables.length; i++) {
         if (this.defaults[this.variables[i]]) {
           if (res[i + 1] === "") {
-            res[i + 1] = this.defaults[this.variables[i]];
+            // valeur par défaut d'un paramètre de route = string (cf @route defaults)
+            res[i + 1] = this.defaults[this.variables[i]] as string;
           }
         }
       }
@@ -281,7 +285,7 @@ class Route implements IRoute {
           case "controller":
             continue;
           default:
-            res.push(this.defaults[def]);
+            res.push(this.defaults[def] as string);
         }
       }
     }
@@ -331,14 +335,14 @@ class Route implements IRoute {
       bypassFirewall: this.bypassFirewall,
     };
   }
-  setDefaults(arg: any) {
+  setDefaults(arg?: Record<string, unknown>) {
     if (arg) {
       for (const ob in arg) {
         this.addDefault(ob, arg[ob]);
       }
     }
   }
-  addDefault(key: string, value: any) {
+  addDefault(key: string, value: unknown) {
     this.defaults[key] = value;
   }
 

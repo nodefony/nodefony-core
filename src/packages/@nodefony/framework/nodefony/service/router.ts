@@ -13,6 +13,15 @@ import Controller from "../src/Controller";
 
 type RouteRequirementMethods = string | string[] | undefined;
 
+/**
+ * Décore une erreur 405 avec l'en-tête `Allow` (RFC 9110 §15.5.6) et le type de
+ * rejet. Champs ajoutés dynamiquement sur l'`HttpError` au moment du throw.
+ */
+interface MethodNotAllowedError extends Error {
+  allow?: string;
+  type?: string;
+}
+
 function collectSupportedMethods(route: Route): Set<string> {
   const set = new Set<string>();
   const m = route.requirements?.methods as RouteRequirementMethods;
@@ -26,6 +35,8 @@ function collectSupportedMethods(route: Route): Set<string> {
   }
   return set;
 }
+// Idiome TS officiel des mixins/factories de constructeur — `unknown[]` y casse
+// la contravariance des args ; `any[]` gardé volontairement (pas de la dette).
 export type TypeController<T> = new (...args: any[]) => T;
 
 const routes: Route[] = [];
@@ -99,8 +110,9 @@ class Router extends Service {
           405,
           context,
         );
-        (err as any).allow = allowHeader;
-        (err as any).type = "method";
+        const methodErr = err as HttpError & MethodNotAllowedError;
+        methodErr.allow = allowHeader;
+        methodErr.type = "method";
         context.response?.setHeaders({ Allow: allowHeader });
         throw err;
       }
@@ -109,7 +121,7 @@ class Router extends Service {
       switch (resolver.exception.code) {
         case 405:
           context.response?.setHeaders({
-            Allow: (resolver.exception as any).allow,
+            Allow: (resolver.exception as MethodNotAllowedError).allow,
           });
           break;
       }

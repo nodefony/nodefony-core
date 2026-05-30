@@ -59,12 +59,12 @@ Router.resolve(ctx)
 
 ## Décisions figées
 
-| Sujet              | Décision                                                                |
-| ------------------ | ----------------------------------------------------------------------- |
-| Routes storage     | `const routes: Route[]` module-level statique — une seule liste globale |
-| Template engines   | Twig (twig@1) + EJS (ejs@3) — jamais remplacer sans accord              |
-| DI                 | `Injector.instantiate()` — jamais `new Controller()` direct             |
-| Decorators         | `reflect-metadata` — `experimentalDecorators: true` requis              |
+| Sujet            | Décision                                                                |
+| ---------------- | ----------------------------------------------------------------------- |
+| Routes storage   | `const routes: Route[]` module-level statique — une seule liste globale |
+| Template engines | Twig (twig@1) + EJS (ejs@3) — jamais remplacer sans accord              |
+| DI               | `Injector.instantiate()` — jamais `new Controller()` direct             |
+| Decorators       | `reflect-metadata` — `experimentalDecorators: true` requis              |
 
 ---
 
@@ -80,13 +80,13 @@ Router.resolve(ctx)
 
 ## État actuel
 
-| Aspect         | État                        |
-| -------------- | --------------------------- |
-| Types exports  | ✅ `exports.types` → `./index.ts` (source, comme http/frontend) — évite la race TS2307 quand http type-check framework avant son build. Top-level `types` reste `dist/types/`. |
-| Interfaces     | ✅ `IController`/`IRoute`/`IResolver`/`IAdminBroker` (`nodefony/interfaces/`) |
-| Tests          | ✅ 136 (92 unit + 44 intégration), 0 failing (2026-05-20) |
-| Admin data plane | ✅ `IAdminApi`/`AdminBroker`/`AdminApiController` + producteurs kernel/http/framework/syslog (P10.2/P10.3) — cf MEMORY.md |
-| `any` restants | 4 emplacements (voir MEMORY.md) |
+| Aspect           | État                                                                                                                                                                                                                                                                                                              |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Types exports    | ✅ `exports.types` → `./index.ts` (source, comme http/frontend) — évite la race TS2307 quand http type-check framework avant son build. Top-level `types` reste `dist/types/`.                                                                                                                                    |
+| Interfaces       | ✅ `IController`/`IRoute`/`IResolver`/`IAdminBroker` (`nodefony/interfaces/`)                                                                                                                                                                                                                                     |
+| Tests            | ✅ 118 vitest (6 fichiers), 0 failing (2026-05-30)                                                                                                                                                                                                                                                                |
+| Admin data plane | ✅ `IAdminApi`/`AdminBroker`/`AdminApiController` + producteurs kernel/http/framework/syslog (P10.2/P10.3) — cf MEMORY.md                                                                                                                                                                                         |
+| `any` restants   | ✅ F1 fait (2026-05-30) : 0 `any` de dette. 6 `any` idiomatiques **documentés inline** : 3 signatures de constructeur mixin/DI (`Constructor`, `TypeController`, `ControllerConstructor`), le `constructor(...args)` du mixin `@controllers`, et le décorateur **dual** classe+méthode `@Domain` (target+retour). |
 
 ---
 

@@ -5,15 +5,15 @@ class Template extends Service {
   cache: boolean = true;
   constructor(
     name: string,
-    engine: any,
+    engine: unknown,
     module: Module,
-    options: Record<string, any> = {}
+    options: Record<string, unknown> = {},
   ) {
     super(
       name,
       module.container as Container,
       module.notificationsCenter as Event,
-      options
+      options,
     );
     this.engine = engine;
     this.module = module;

@@ -8,6 +8,8 @@ import { Module } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
 import type { HTTPMethod } from "@nodefony/http";
 
+// Idiome TS officiel des mixins de constructeur — `any[]` requis (un `unknown[]`
+// casse l'`extends constructor` du mixin `controllers`). Pas de la dette.
 type Constructor<T = {}> = new (...args: any[]) => T;
 
 const metadataKey = "routes:definitions";
@@ -72,14 +74,16 @@ function controllers(
  *    }
  *  }
  */
-function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
-  return function (mycontroller: any) {
+function controller(prefix: string) {
+  return function <T extends ControllerConstructor & { prefix?: string }>(
+    mycontroller: T,
+  ): T {
     //const constructor = mycontroller.constructor;
     //const className = mycontroller.name;
     mycontroller.prefix = prefix;
     const metadata = Reflect.getMetadata(metadataKey, mycontroller) || {};
     if (metadata && Object.keys(metadata).length !== 0) {
-      let hasMagic: boolean | any = false;
+      let hasMagic: false | { name: string; options: RouteOptions } = false;
       for (const name in metadata) {
         const options = metadata[name];
         options.prefix = prefix;
@@ -136,7 +140,7 @@ function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
  */
 function route(name: string, options: RouteOptions) {
   return function (
-    target: any,
+    target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
@@ -335,6 +339,10 @@ function Redirect(url: string, statusCode: number = 302) {
  */
 function Domain(patterns: string | string[]) {
   const list = Array.isArray(patterns) ? patterns : [patterns];
+  // Décorateur DUAL classe+méthode : `target` est soit le constructeur (classe),
+  // soit le prototype (méthode), et le retour soit la classe soit le descriptor.
+  // `any` est l'idiome TS sanctionné pour un décorateur polymorphe (un type
+  // concret casse l'assignabilité au générique `ClassDecorator`). Pas de la dette.
   return function (
     target: any,
     propertyKey?: string,
