@@ -132,7 +132,6 @@ class Route implements IRoute {
   hostRegexp?: RegExp[];
   bypassFirewall: boolean = false;
   filePath?: string;
-  variablesMap: Record<string, any> = {};
   /**
    * Module propriétaire de la route — set par `Router.setController()` à
    * `onBoot`, donc PAS disponible à la création de la route (via `@controller`)
@@ -215,7 +214,6 @@ class Route implements IRoute {
         }
         const index = map.push(param);
         map[k] = map[index - 1];
-        this.variablesMap[k] = param;
       });
     } catch (e: any) {
       if (e.BreakException) {
@@ -225,7 +223,6 @@ class Route implements IRoute {
     }
     if (map && map.wildcard) {
       map["*"] = map.wildcard;
-      this.variablesMap["*"] = map.wildcard;
     }
     return map;
   }

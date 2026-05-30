@@ -18,7 +18,6 @@ export interface IRoute {
   hostRegexp?: RegExp[];
   bypassFirewall: boolean;
   filePath?: string;
-  variablesMap: Record<string, unknown>;
 
   match(context: ContextType): unknown[] | null | undefined;
   compile(): RegExp;

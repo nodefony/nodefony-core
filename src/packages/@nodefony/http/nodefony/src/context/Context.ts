@@ -226,6 +226,25 @@ class Context extends Service implements IContextInterface {
   }
 
   setMetaData(obj: Record<string, unknown> = {}): Data {
+    const resolver = this.resolver;
+    // Snapshot MINIMAL per-requête. Deux raisons :
+    //  1. Correction — on ne diffuse JAMAIS l'instance `Route` partagée
+    //     (statique) : ses variables matchées seraient écrasées par toute
+    //     requête/connexion WS concurrente sur la même route (bleed).
+    //  2. Perf — `extend(true, …)` deep-clone TOUT ce qu'on lui passe. L'ancien
+    //     code clonait l'objet Route entier (RegExp `pattern`, `hostRegexp[]`,
+    //     constructeur `controller`, `defaults`, `requirements`, `hash`…) à
+    //     CHAQUE réponse JSON et CHAQUE frame WS — alors qu'aucun consommateur
+    //     (client prod inclus) ne lit ces champs. On clone 3 scalaires.
+    // `getMatchedParams()` lit les valeurs de CETTE requête.
+    const route =
+      resolver && resolver.route
+        ? {
+            name: resolver.route.name,
+            path: resolver.route.path,
+            variablesMap: resolver.getMatchedParams(),
+          }
+        : undefined;
     let ele = {
       nodefony: {
         name: this.kernel?.projectName,
@@ -235,7 +254,7 @@ class Context extends Service implements IContextInterface {
         debug: this.kernel?.debug,
         scheme: this.scheme,
         requestId: this.requestId,
-        route: this.resolver?.route,
+        route,
       },
     };
     return (this.metaData = extend(true, this.metaData, ele, obj));

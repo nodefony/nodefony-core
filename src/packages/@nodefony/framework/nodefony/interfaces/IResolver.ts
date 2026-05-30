@@ -18,6 +18,7 @@ export interface IResolver {
   bypassFirewall: boolean;
 
   match(route: IRoute, context: ContextType): unknown;
+  getMatchedParams(): Record<string, unknown>;
   parsePathernController(name: string): void;
   getAction(name: string): ((...args: unknown[]) => unknown) | null;
   newController(context?: ContextType): Promise<IController | object>;

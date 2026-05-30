@@ -94,6 +94,30 @@ class Resolver extends Service implements IResolver {
     }
   }
 
+  /**
+   * Snapshot per-requête des variables de route matchées (`{name}` → valeur,
+   * + wildcard `*` éventuel). Construit depuis les valeurs de CETTE requête
+   * (`this.variables`, posées par `match()`) zippées avec les noms de
+   * `route.variables`. Remplace l'ancien `Route.variablesMap` qui vivait sur
+   * l'instance `Route` partagée (statique) → écrasé par toute requête/connexion
+   * concurrente sur la même route (bleed inter-requêtes). Lu par
+   * `Context.setMetaData()` pour exposer `msg.nodefony.route.variablesMap`.
+   */
+  getMatchedParams(): Record<string, unknown> {
+    const names = (this.route?.variables ?? []) as string[];
+    const params: Record<string, unknown> = {};
+    for (let i = 0; i < names.length; i++) {
+      params[names[i]] = this.variables[i];
+    }
+    const wildcard = (this.variables as unknown as Record<string, unknown>)[
+      "*"
+    ];
+    if (wildcard !== undefined) {
+      params["*"] = wildcard;
+    }
+    return params;
+  }
+
   parsePathernController(name: string) {
     let module: Module | undefined;
     let tab: string[] = [];

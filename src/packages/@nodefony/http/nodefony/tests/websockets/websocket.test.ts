@@ -190,3 +190,74 @@ describe("WEBSOCKETS ROUTER ", () => {
     });
   });
 });
+
+// Test DURCI — régression du bleed inter-requêtes.
+// `variablesMap` vivait sur l'instance `Route` partagée (statique, 1/route dans
+// tout le process). `match()` y écrivait les params de CHAQUE requête → 2+
+// connexions concurrentes sur la même route paramétrée s'écrasaient mutuellement
+// les variables. Les tests "Routage variables" ci-dessus sont SÉQUENTIELS → ils
+// ne pouvaient pas attraper la course. Ici N connexions ouvertes ~simultanément,
+// valeurs toutes distinctes : chacune DOIT relire SA valeur. Avec le fix
+// (snapshot per-requête via `Resolver.getMatchedParams()`) → déterministe vert ;
+// sans le fix → quasi-certainement rouge (≥1 bleed).
+describe("WEBSOCKETS ROUTER — isolation per-requête (test durci)", () => {
+  const sockets = new Set<WebSocket>();
+
+  afterEach(() => {
+    for (const s of sockets) {
+      if (s.readyState !== WebSocket.CLOSED) s.terminate();
+    }
+    sockets.clear();
+  });
+
+  it("N connexions concurrentes sur la même route ne se bleedent pas les variables", function (done) {
+    this.timeout(15000);
+    const N = 16;
+    const expected = Array.from({ length: N }, (_, i) => `concval${i}`);
+    const results: Array<{ exp: string; got: unknown }> = [];
+    let settled = false;
+    const finish = (err?: Error) => {
+      if (settled) return;
+      settled = true;
+      done(err);
+    };
+
+    for (const val of expected) {
+      const ws = new WebSocket(
+        `wss://localhost:5152/nodefony/test/ws/routes/${val}`,
+        wsOpts,
+      );
+      sockets.add(ws);
+      let captured = false;
+      ws.on("message", (data) => {
+        if (captured) return;
+        let msg: any;
+        try {
+          msg = JSON.parse(data.toString());
+        } catch {
+          return;
+        }
+        // Ignorer le frame handshake "connected" sans variables matchées.
+        const got = msg?.nodefony?.route?.variablesMap?.ele;
+        if (got === undefined) return;
+        captured = true;
+        results.push({ exp: val, got });
+        if (results.length === N) {
+          const bleed = results.filter((r) => r.got !== r.exp);
+          if (bleed.length) {
+            finish(
+              new Error(
+                `bleed inter-connexions (${bleed.length}/${N}) : ${bleed
+                  .map((b) => `attendu '${b.exp}', reçu '${b.got}'`)
+                  .join(" | ")}`,
+              ),
+            );
+          } else {
+            finish();
+          }
+        }
+      });
+      ws.on("error", (e) => finish(e as Error));
+    }
+  });
+});
