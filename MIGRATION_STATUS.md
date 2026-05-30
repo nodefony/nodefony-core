@@ -21,6 +21,18 @@ Raison : **P6 se greffe SUR ces couches** (firewall sur http/framework, JWT sur 
 realtime/orm) — durcir d'abord évite que la sécurité hérite de la dette. Cf mémoire
 `project_hardening_before_p6`.
 
+#### 🛡️ Suivi durcissement fondations (effort transverse — pas de lignes P dédiées)
+
+| Couche                | État | Détail                                                                                                                                                                                     |
+| --------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nodefony` (core)     | ✅   | Kit C1→C6 clos (2026-05-29) — retrait PM2 inclus. Réf `project_hardening_core_kit`                                                                                                         |
+| `@nodefony/http`      | ✅   | Kit H1→H6 (2026-05-29) + **config Zod** `schema.ts` (2026-05-30, `2fef678`) + **domain matching** (`trustedHosts` + `@Domain` regexp/403 + vhosting e2e, 2026-05-30, `93dd7d6`→`5a8eefc`)  |
+| `@nodefony/framework` | 🔶   | Touché par domain matching (`Route.host` regexp, `@Domain`, fix Router 405-masque-403) ; audit dédié restant                                                                               |
+| `@nodefony/realtime`  | ⬜   | **PROCHAIN** — audit tests/dette/perf AVANT de coder. Motivé par stress 2026-05-30 (event-loop starvé → realtime meurt 1er). Suite = cadence AIMD `project_realtime_granularity_clientlib` |
+| `@nodefony/orm-*`     | ⬜   | Après realtime. Footgun `counts` synchrone (stress) → async/worker-thread + timeout/circuit-breaker                                                                                        |
+
+> Infra : **fix turbo poisoning** racine (`ed62d35`, 2026-05-30) — `turbo.json inputs` couvre désormais `nodefony/**` + `index.ts`. Cf `feedback_turbo_cache_stale_logs`.
+
 **Log Backplane queryable** (driver de logs `write`↔`read` pluggable : memory/file/loki/elastic ;
 `ITransport` = sink déjà là, manque `query(criteria)`) — **cadré + mémorisé**
 (`project_log_backplane_vision`, phases LB.0→LB.5) et **DIFFÉRÉ** après le durcissement. **Absorbe
