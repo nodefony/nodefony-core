@@ -32,6 +32,7 @@ const external: string[] = [
   "@graphql-tools/merge",
   "@graphql-tools/schema",
   "tslib",
+  "zod",
 ];
 
 // Génère dynamiquement les entrées avec glob

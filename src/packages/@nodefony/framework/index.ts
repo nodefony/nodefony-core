@@ -1,6 +1,11 @@
 import { Kernel, Module, services } from "nodefony";
 import type { IAdminBroker } from "./nodefony/interfaces/IAdminBroker";
 import config from "./nodefony/config/config";
+import {
+  frameworkConfigSchema,
+  frameworkConfigJsonSchema,
+  type FrameworkConfigInput,
+} from "./nodefony/config/schema";
 import Router from "./nodefony/service/router";
 import Route from "./nodefony/src/Route";
 import Controller from "./nodefony/src/Controller";
@@ -48,6 +53,32 @@ import {
 class Framework extends Module {
   constructor(kernel: Kernel) {
     super("framework", kernel, import.meta.url, config);
+  }
+
+  /**
+   * Phase `onRegister` : valide la config du module contre le schéma Zod
+   * ({@link frameworkConfigSchema}) AVANT que les `@services` (Router,
+   * AdminBroker — qui lisent `module.options.router`/`.adminBroker`) ne soient
+   * instanciés à `onBoot`. Une config invalide plante proprement ici avec un
+   * message clair, plutôt qu'un `undefined.x` silencieux en runtime
+   * (cf `feedback_config_validation_zod`). La config validée est ré-assignée à
+   * `this.options` (matérialise les défauts, préserve `router`/`adminBroker`).
+   */
+  override async onKernelRegister(): Promise<this> {
+    try {
+      this.options = frameworkConfigSchema.parse(
+        (this.options as FrameworkConfigInput) ?? {},
+      );
+    } catch (e) {
+      const issues =
+        e instanceof Error && "issues" in e && Array.isArray(e.issues)
+          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
+              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+              .join(" · ")
+          : (e as Error).message;
+      throw new Error(`[@nodefony/framework] Invalid config: ${issues}`);
+    }
+    return this;
   }
 
   /**
@@ -134,7 +165,13 @@ export {
   UploadedFile,
   UploadedFiles,
   graphql,
+  frameworkConfigSchema,
+  frameworkConfigJsonSchema,
 };
+export type {
+  FrameworkConfig,
+  FrameworkConfigInput,
+} from "./nodefony/config/schema";
 export type {
   IController,
   IRoute,

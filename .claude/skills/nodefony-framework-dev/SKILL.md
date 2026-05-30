@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.16.2
+version: 1.16.3
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -1487,6 +1487,15 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.16.3** (2026-05-30) — **Durcissement framework F7 — config Zod validée au boot.** `nodefony/config/schema.ts`
+  (Zod, source unique) + `config.ts` dérivé `parse({})` + hook `onKernelRegister` (parse + try/catch message clair +
+  réassigne `this.options`, AVANT instanciation `@services`). peerDep `zod ^4.4.3` + `"zod"` ajouté à `rollup.config.ts`
+  external. `meta` (flag `reserved`) **importé de `@nodefony/http`** (0 duplication, sens framework→http légal).
+  Audit étape 0 : `watch` réservé HMR + `router`/`adminBroker` = bags d'options Service → `z.looseObject().optional()`
+  (ne RIEN stripper, car le hook réassigne `this.options`). `frameworkConfigJsonSchema()` exposé (Studio). Tests
+  `schema.test.ts` +8 (176 unit). Gate : tsc 0 · boot OK · memory 8/8 (1000 GET flake vert isolé) · intég framework
+  59 + http 719 (flake abort vert isolé). [[feedback_config_validation_zod]] (audit → framework ✅). Lockstep
+  **studio-dev 1.16.3** (back-only — config framework n'est pas un contrat front). Cf §4 « Config de module » (Zod).
 - **1.16.2** (2026-05-30) — **Durcissement framework F5 — gotchas décorateurs confirmés terrain** (commit à venir).
   Audit des 5 gotchas [[project_framework_decorators]] : #5 `queryGet ?name` **déjà résolu** (`Request.ts` `slice(1)`),
   #2 voulu, #4 OK, #1 collision noms = doc juste (pas de garde) ; **#3 redirect = BUG RFC corrigé** (`@nodefony/http`

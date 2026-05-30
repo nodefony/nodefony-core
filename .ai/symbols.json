@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-30T20:51:38.760Z",
+  "generated": "2026-05-30T21:09:32.889Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 786,
-    "symbols": 1490,
+    "files": 787,
+    "symbols": 1494,
     "classes": 234,
     "interfaces": 364,
-    "types": 186,
+    "types": 188,
     "enums": 2,
-    "functions": 241,
-    "constants": 463
+    "functions": 242,
+    "constants": 464
   },
   "symbols": {
     "Cli": {
@@ -3304,6 +3304,35 @@
       ],
       "decorators": [],
       "description": "Stockage de session **Drizzle** (driver `better-sqlite3`), branché sur `@nodefony/orm-core`. Implémente le contrat {@link ISessionStorage} consommé par le `SessionsService` de `@nodefony/http` — al…"
+    },
+    "FrameworkConfig": {
+      "name": "FrameworkConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "FrameworkConfigInput": {
+      "name": "FrameworkConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "frameworkConfigJsonSchema": {
+      "name": "frameworkConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "JSON Schema introspectable de la config framework — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
+    },
+    "frameworkConfigSchema": {
+      "name": "frameworkConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
     },
     "ParamMeta": {
       "name": "ParamMeta",
@@ -11998,6 +12027,16 @@
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
+      "frameworkConfigSchema": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/config/config.ts"
+      ],
+      "frameworkConfigJsonSchema": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
+      "FrameworkConfigInput": [
+        "src/packages/@nodefony/framework/index.ts"
+      ],
       "Router": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
@@ -13141,6 +13180,10 @@
       "SessionRow": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts"
       ],
+      "meta": [
+        "src/packages/@nodefony/framework/nodefony/config/schema.ts",
+        "src/packages/@nodefony/http/nodefony/config/schema.ts"
+      ],
       "TypeController": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"
       ],
@@ -13431,9 +13474,6 @@
       ],
       "IHttpConfig": [
         "src/packages/@nodefony/http/nodefony/config/defineHttpConfig.ts"
-      ],
-      "meta": [
-        "src/packages/@nodefony/http/nodefony/config/schema.ts"
       ],
       "HTTPMethodType": [
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts"
