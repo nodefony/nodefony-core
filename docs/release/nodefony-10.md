@@ -39,7 +39,7 @@ audience: Lead Architect / mainteneur
 
 | Catégorie                   | Packages                                                        | `private`   | Version            | Verdict                        |
 | --------------------------- | --------------------------------------------------------------- | ----------- | ------------------ | ------------------------------ |
-| **Cœur** (DOIT sortir)      | http, framework, security, frontend                             | **true** ❌ | 10.0.0             | bloqués à tort                 |
+| **Cœur** (DOIT sortir)      | http, framework, security, frontend, **realtime**               | **true** ❌ | 10.0.0             | bloqués à tort                 |
 | **ORM/data**                | orm-core, drizzle (défaut), user, redis, mongoose, sequelize 🪦 | false       | 10.0.0             | OK (sauf legacy à arbitrer)    |
 | **IA** (Phase 12 PAS faite) | agent, llm, rag, vector, memory                                 | false ⚠️    | 10.0.0-**alpha.1** | sortiraient prématurément      |
 | **Studio**                  | studio                                                          | true        | 10.0.0-**poc.1**   | POC — sortir en 10.0.0 ?       |
@@ -211,15 +211,16 @@ discussion → relire ce fichier d'abord.
 
 ## Journal des décisions
 
-| Date       | Décision                                                                                                                    | Statut                  |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| 2026-05-24 | Périmètre = `src/nodefony` + `src/packages/@nodefony/*` (modules/\* + racine exclus)                                        | ✅ acté                 |
-| 2026-05-24 | **Version UNIQUE** + build embarque les dist (fini les N packages indépendants)                                             | ✅ acté (vision)        |
-| 2026-05-24 | App utilisateur = **repo dev-ready** (DX du repo de dev, sans source framework)                                             | ✅ acté (vision)        |
-| 2026-05-24 | Modèle mono-package subpaths + deps lourdes optionnelles                                                                    | 🔶 proposé, à confirmer |
-| 2026-05-24 | Résolution types par `exports[...].types` par subpath + attw + tsc témoin                                                   | 🔶 proposé              |
-| 2026-05-24 | **Pipeline = script Node** (logique, runnable local) + **GH Action mince** (wrapper)                                        | ✅ acté (vision)        |
-| 2026-05-24 | Déclencheur tag `v10.*`/`workflow_dispatch` ; assemblage N→1 = MAISON ; version via commitlint                              | 🔶 proposé              |
-| 2026-05-24 | **DoD 10.0.0** = P6 sécu + ORM(core+Drizzle) + cloud-native BASELINE (Dockerfile + env), tout SAUF IA(P12) + média/SIP(P15) | ✅ acté                 |
-| 2026-05-24 | Cloud-native gate = **Dockerfile + config par env** seulement (PAS tout P16)                                                | ✅ acté                 |
-| 2026-05-24 | **Couche client SIP exclue** de 10.0.0 (avec mediasoup + IA) → 10.x                                                         | ✅ acté                 |
+| Date       | Décision                                                                                                                                                                                                 | Statut                  |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| 2026-05-24 | Périmètre = `src/nodefony` + `src/packages/@nodefony/*` (modules/\* + racine exclus)                                                                                                                     | ✅ acté                 |
+| 2026-05-24 | **Version UNIQUE** + build embarque les dist (fini les N packages indépendants)                                                                                                                          | ✅ acté (vision)        |
+| 2026-05-24 | App utilisateur = **repo dev-ready** (DX du repo de dev, sans source framework)                                                                                                                          | ✅ acté (vision)        |
+| 2026-05-24 | Modèle mono-package subpaths + deps lourdes optionnelles                                                                                                                                                 | 🔶 proposé, à confirmer |
+| 2026-05-24 | Résolution types par `exports[...].types` par subpath + attw + tsc témoin                                                                                                                                | 🔶 proposé              |
+| 2026-05-24 | **Pipeline = script Node** (logique, runnable local) + **GH Action mince** (wrapper)                                                                                                                     | ✅ acté (vision)        |
+| 2026-05-24 | Déclencheur tag `v10.*`/`workflow_dispatch` ; assemblage N→1 = MAISON ; version via commitlint                                                                                                           | 🔶 proposé              |
+| 2026-05-24 | **DoD 10.0.0** = P6 sécu + ORM(core+Drizzle) + cloud-native BASELINE (Dockerfile + env), tout SAUF IA(P12) + média/SIP(P15)                                                                              | ✅ acté                 |
+| 2026-05-24 | Cloud-native gate = **Dockerfile + config par env** seulement (PAS tout P16)                                                                                                                             | ✅ acté                 |
+| 2026-05-24 | **Couche client SIP exclue** de 10.0.0 (avec mediasoup + IA) → 10.x                                                                                                                                      | ✅ acté                 |
+| 2026-05-30 | Audit `private` vérifié terrain : **6** packages `private:true` = http, framework, security, frontend, **realtime**, studio (realtime manquait §3). IA (agent/llm/rag/vector/memory) = `private` absent. | ✅ constaté             |
