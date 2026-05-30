@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.16.1
+version: 1.16.2
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -381,7 +381,7 @@ export class ThingsController extends Controller {
 - **Lire la requête par décorateurs** : `@Body()`/`@Body("f")`, `@Param("x")`, `@Query("x")`, `@Header("x")`.
   ⚠️ **`this.context.body` est VIDE/non parsé** → un POST lu ainsi tombe sur le défaut en silence.
 - En-têtes bruts : `this.context.request.headers.authorization` (clé **minuscule**, peut être `string|string[]`).
-- `@Redirect("/url", 302)` (sinon `redirect()` défaut = **301**). Réponses : `renderJson` / `renderView`/`renderTwig`/`renderEjs` / `forward("mod:ctrl:action")`.
+- `@Redirect("/url", 302)`. `redirect()` : whitelist RFC 9110 §15.4 `{301,302,303,307,308}`, **défaut = 302** (Found) ; code hors liste → fallback 302 + WARNING. 307/308 **préservent** méthode+corps, 303 force GET ; 301/302 peuvent muter POST→GET. (F5 2026-05-30 : avant, tout ≠ 302 était écrasé en 301 = bug fonctionnel.) Réponses : `renderJson` / `renderView`/`renderTwig`/`renderEjs` / `forward("mod:ctrl:action")`.
 - **Vhosting** : `@Domain("regexp"|["a","b"])` (classe ou méthode, précédence `@route({host})` > méthode > classe) → **403** si l'`Host` ne matche pas (`domainMatcher` pur, conforme). Hosts de confiance = config **`trustedHosts`** (ex-`domainAlias`, renommé pour la sécu). ⚠️ ordre des checks : un **405** ne doit pas masquer un **403** (Router corrigé).
 - **Ne jamais nommer une action** `session`/`request`/`response`/`context`/`method` (collision prop Controller → « Action not found »).
 - **WS** : même controller. Handshake = `execute(null)` (⚠️ l'action reçoit `undefined`, **pas** `null` →
@@ -1406,6 +1406,20 @@ typeof Module).critical`, AVANT les initializers de sous-classe → `critical=fa
   Commits `f3b749d` + `55b7202`. memory.test 8/8 (async-crashes = flake isolé). Diagnostic dette CLI
   commander↔kernel + changelog commander 15 ESM-only → [[project_cli_module_command_dispatch]] ·
   [[project_config_ordering_chantier]] RÉSOLU.
+- _(2026-05-30, F5 GOTCHAS DÉCORATEURS — confirmer terrain AVANT de coder)_ **Un « gotcha » daté peut être
+  déjà résolu OU un vrai bug RFC.** Audit des 5 gotchas [[project_framework_decorators]] : #5 `queryGet ?name`
+  **déjà corrigé** (`Request.ts` `QS.parse(search.slice(1))` — le `.slice(1)` retire le `?`) → ne pas « re-fixer »
+  un truc résolu ; #3 `redirect()` **vrai bug** : `if (status===302){…}else{status=301}` forçait TOUT code ≠ 302
+  → 301 → un `redirect(url, 307|308)` perdait **silencieusement** la préservation de méthode (POST→GET) = faille
+  fonctionnelle, et 301 par défaut = cache permanent navigateur quasi irréversible. Fix : whitelist RFC 9110 §15.4
+  `{301,302,303,307,308}` (Set module-level **0 alloc/appel**), **défaut 302** (aligné Express/Symfony), invalide
+  → fallback 302 + WARNING. **Leçons** : (1) **confirmer chaque gotcha contre le SOURCE** avant de coder (la moitié
+  étaient périmés/voulus, un seul réel) ; (2) un `else { force }` au lieu d'une **whitelist** est le motif récurrent
+  du bug « valeur valide écrasée » — chercher ce pattern ; (3) **citer la RFC** (skill `nodefony-rfc`, ici §15.4 :
+  307/308 préservent méthode+corps, 303 force GET) plutôt que trancher « 302 c'est raisonnable » ; (4) impact
+  back-compat = 0 (défaut 301 = bug, pas contrat ; les 301 EXPLICITES restent dans la whitelist → intég 59 fw +
+  720 http verts). #1 collision noms d'action (`session`/`request`/…) = TOUJOURS présent mais **doc juste** → pas
+  de garde au boot (sur-ingénierie hors scope F5). Tests `Response.test.ts` +7. memory 8/8 (native-crash vert isolé).
 
 ## 12. Fin de session (OBLIGATOIRE) + auto-audit de complétude
 
@@ -1473,6 +1487,15 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.16.2** (2026-05-30) — **Durcissement framework F5 — gotchas décorateurs confirmés terrain** (commit à venir).
+  Audit des 5 gotchas [[project_framework_decorators]] : #5 `queryGet ?name` **déjà résolu** (`Request.ts` `slice(1)`),
+  #2 voulu, #4 OK, #1 collision noms = doc juste (pas de garde) ; **#3 redirect = BUG RFC corrigé** (`@nodefony/http`
+  `Response.ts`) : whitelist RFC 9110 §15.4 `{301,302,303,307,308}` (Set module-level 0 alloc) + **défaut 302** (était
+  301, écrasait 307/308 = perte préservation méthode) + fallback 302/WARNING sur code invalide. §4 Controller MAJ
+  (`redirect()` whitelist/302). Tests `Response.test.ts` +7. Gate : tsc 0 · unit http 321 · memory 8/8 (native-crash
+  vert isolé) · intég framework 59 + http 720 (301/302 explicites conservés). RETEX §11 (confirmer un gotcha daté
+  contre le source ; `else{force}` = motif du bug « valeur valide écrasée » → préférer whitelist ; citer la RFC).
+  Lockstep **studio-dev 1.16.2** (back-only — `redirect()` n'est pas un contrat front).
 - **1.16.1** (2026-05-30) — **Durcissement framework F1+F4** (commit `18cd612` F1). F1 : purge des `any` de
   dette → `unknown` + narrowing dans `Controller`/`Resolver`/`Route`/`router`/décorateurs ; 6 `any`
   idiomatiques (mixins ctor + décorateur dual `@Domain`) **conservés & documentés inline**. F4 : tests unit

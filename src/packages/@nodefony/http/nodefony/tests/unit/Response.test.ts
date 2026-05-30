@@ -146,10 +146,10 @@ describe("HttpResponse — unit tests", () => {
   });
 
   describe("redirect()", () => {
-    it("défaut → 301 + Location + isRedirect", () => {
+    it("défaut → 302 (Found) + Location + isRedirect", () => {
       const r = makeResponse();
       r.redirect("/login");
-      expect(r.getStatusCode()).to.equal(301);
+      expect(r.getStatusCode()).to.equal(302);
       expect(r.getHeader("Location")).to.equal("/login");
       expect(
         (r.context as unknown as { isRedirect: boolean }).isRedirect,
@@ -165,6 +165,34 @@ describe("HttpResponse — unit tests", () => {
     it("302 en chaîne → coercé en number", () => {
       const r = makeResponse();
       r.redirect("/x", "302");
+      expect(r.getStatusCode()).to.equal(302);
+    });
+
+    // RFC 9110 §15.4 — tous les codes de redirection valides sont conservés
+    // (avant : tout sauf 302 était écrasé en 301).
+    for (const code of [301, 303, 307, 308]) {
+      it(`${code} explicite conservé (RFC 9110 §15.4)`, () => {
+        const r = makeResponse();
+        r.redirect("/x", code);
+        expect(r.getStatusCode()).to.equal(code);
+      });
+    }
+
+    it("308 en chaîne → coercé + conservé (préserve la méthode)", () => {
+      const r = makeResponse();
+      r.redirect("/x", "308");
+      expect(r.getStatusCode()).to.equal(308);
+    });
+
+    it("code hors whitelist (200) → fallback 302", () => {
+      const r = makeResponse();
+      r.redirect("/x", 200);
+      expect(r.getStatusCode()).to.equal(302);
+    });
+
+    it("code non numérique → fallback 302", () => {
+      const r = makeResponse();
+      r.redirect("/x", "abc");
       expect(r.getStatusCode()).to.equal(302);
     });
 

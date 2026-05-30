@@ -18,6 +18,14 @@ const stripAinsi = function (val: string): string {
   return typeof val === "string" ? val.replace(ansiRegex(), "") : val;
 };
 
+// Codes de redirection RFC 9110 §15.4 qui posent un `Location` pour rediriger
+// l'agent utilisateur. 301 (Moved Permanently) / 302 (Found) PEUVENT muter
+// POST→GET (raisons historiques) ; 303 (See Other) force un GET ; 307 (Temporary
+// Redirect) / 308 (Permanent Redirect) PRÉSERVENT méthode + corps. Tout autre
+// code passé à `redirect()` retombe sur 302 (cf `redirect()`). Set module-level
+// (0 alloc par appel).
+const REDIRECT_STATUS_CODES = new Set<number>([301, 302, 303, 307, 308]);
+
 class HttpResponse {
   context: HttpContext;
   response: http.ServerResponse | http2.Http2ServerResponse | null;
@@ -491,12 +499,21 @@ class HttpResponse {
   ) {
     this.context.isRedirect = true;
     if (typeof status === "string") status = parseInt(status, 10);
-    if (status === 302) {
-      this.setStatusCode(status);
-    } else {
-      status = 301;
-      this.setStatusCode(301);
+    // Whitelist RFC 9110 §15.4 — un code de redirection non valide (ou absent)
+    // retombe sur 302 (Found), le défaut sûr universel (Express/Symfony). On ne
+    // force PLUS 301 : 301 par défaut piégeait (cache permanent navigateur quasi
+    // irréversible) et un 307/308 explicite était silencieusement réécrit en 301
+    // (perte de la préservation de méthode → faille fonctionnelle).
+    if (typeof status !== "number" || !REDIRECT_STATUS_CODES.has(status)) {
+      if (status !== undefined && !Number.isNaN(status)) {
+        this.log(
+          `Invalid redirect status ${status} → fallback 302 (RFC 9110 §15.4)`,
+          "WARNING",
+        );
+      }
+      status = 302;
     }
+    this.setStatusCode(status);
     if (headers) {
       switch (typeOf(headers)) {
         case "object":

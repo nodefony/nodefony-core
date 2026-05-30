@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.16.1
+version: 1.16.2
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1126,6 +1126,10 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.16.2** (2026-05-30) — **Lockstep back-only** (session BACKEND `nodefony-framework-dev` 1.16.2 :
+  durcissement framework F5 — gotchas décorateurs ; `Response.redirect()` corrigé = whitelist RFC 9110 §15.4
+  `{301,302,303,307,308}` + défaut 302 au lieu de 301). **Aucun contrat front touché** — `redirect()` est une
+  API serveur (le front ne la consomme pas), pas de changement de page/canal/type.
 - **1.16.1** (2026-05-30) — **Lockstep back-only** (session BACKEND `nodefony-framework-dev` 1.16.1 :
   durcissement framework F1 purge `any` + F4 couverture unit Controller 22→80 % / Resolver + doc hook
   `initialize()`). **Aucun contrat front touché** — pas de changement de page/canal/type.
