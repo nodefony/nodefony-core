@@ -277,6 +277,8 @@ Extension de l'`AuditErrorEntry` :
 
 **Protocol WS** : `requirements.protocol: "echo-protocol"` → exact string match. Array `['a','b']` → header `"a, b"` → ne matche pas `"a"` → 1002. `requirements.protocol: ""` → accepte tout.
 
+**Pipeline = async plates, JAMAIS `new Promise(async executor)`** (L4, 2026-05-30) : `handle`/`handleFrontController`/`handleHttp`/`onRequestEnd` sont des `async function` plates (`throw`/`return` directs, `try/catch`). NE PAS réintroduire `return new Promise(async (resolve,reject)=>…)` : une fn async retourne déjà une Promise → wrapper = 2ᵉ Promise + microtasks + closures/req, et les `throw` hors `resolve/reject` sont **avalés** (la Promise externe reste pending à jamais). `RequestContext.run<T>(payload, fn)` **propage** le retour de `fn` → `return await RequestContext.run(...)`. Seul `.catch` volontaire conservé = `onAuthFailure` (log + avale pour ne pas masquer `authError`).
+
 **Binary WS** : `context?.send(buf, "binary")` server-side ; `ws.send(Buffer)` client-side. Envois séquentiels : utiliser `wsCollectBinary(ws, n)` côté test (collect all then assert) — pattern `await` frame par frame timeout.
 
 **Broadcast** : `context.broadcast(str)` → `wss.clients.forEach(send)` — inclut l'émetteur.

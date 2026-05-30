@@ -329,66 +329,51 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       request,
       response as httpResponse,
       type,
-    ).catch(async (e) => {
-      throw e;
-    });
+    );
   }
 
   async handleFrontController(
     context: ContextType,
     checkFirewall: boolean = true,
   ): Promise<Controller | number> {
-    return new Promise(async (resolve, reject) => {
-      if (!this.router) {
-        return reject(new Error("kernel HTTP not ready"));
-      }
-      if (this.firewall && checkFirewall) {
-        context.secure = this.firewall.isSecure(context);
-      }
-      if (context.security) {
-        //const res = this.firewall.handleCrossDomain(context);
-        const res = null;
-        if (context.crossDomain && context.method === "OPTIONS") {
-          if (res === 204) {
-            return resolve(res);
-          }
+    if (!this.router) {
+      throw new Error("kernel HTTP not ready");
+    }
+    if (this.firewall && checkFirewall) {
+      context.secure = this.firewall.isSecure(context);
+    }
+    if (context.security) {
+      //const res = this.firewall.handleCrossDomain(context);
+      const res: number | null = null;
+      if (context.crossDomain && context.method === "OPTIONS") {
+        if (res === 204) {
+          return res;
         }
       }
-      // FRONT ROUTER
-      let controller: Controller;
-      let resolver: Resolver | undefined = undefined;
-      try {
-        context.phaseStart("resolve");
-        try {
-          resolver = this.router.resolve(context);
-        } finally {
-          context.phaseEnd("resolve");
-        }
-        if (resolver.resolve && !resolver.exception) {
-          context.resolver = resolver;
-          controller = await resolver.newController(context);
-          if (controller.sessionAutoStart) {
-            context.sessionAutoStart = controller.sessionAutoStart;
-          }
-          context.once("onSessionStart", (session) => {
-            controller.session = session;
-          });
-          return resolve(controller);
-        }
-        if (resolver.exception) {
-          return reject(resolver.exception);
-        }
-        const error = new HttpError("Not Found", 404, context);
-        return reject(error);
-      } catch (e) {
-        // if (e instanceof Resolver && e.exception) {
-        //   return reject(e.exception);
-        // }
-        return reject(e);
+    }
+    // FRONT ROUTER
+    context.phaseStart("resolve");
+    let resolver: Resolver;
+    try {
+      resolver = this.router.resolve(context);
+    } finally {
+      context.phaseEnd("resolve");
+    }
+    if (resolver.resolve && !resolver.exception) {
+      context.resolver = resolver;
+      const controller = await resolver.newController(context);
+      if (controller.sessionAutoStart) {
+        context.sessionAutoStart = controller.sessionAutoStart;
       }
-    });
-
-    return 0;
+      context.once("onSessionStart", (session) => {
+        controller.session = session;
+      });
+      return controller;
+    }
+    if (resolver.exception) {
+      throw resolver.exception;
+    }
+    throw new HttpError("Not Found", 404, context);
   }
 
   /**
@@ -712,144 +697,124 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     response: httpResponse,
     type: ServerType,
   ): Promise<HttpContext> {
-    return new Promise(async (resolve, reject) => {
-      let context: HttpContext | null = null;
-      try {
-        context = this.createHttpContext(scope, request, response, type);
-        await this.fireAsync("onCreateContext", context).catch((e) => {
-          throw e;
-        });
-        // P2.7 — W3C traceparent: honor incoming valid header, generate a
-        // fresh one otherwise. Resolved BEFORE entering the ALS scope so
-        // it propagates with `requestId` to every downstream hop.
-        context.traceparent = resolveTraceparent(
-          (request.headers as Record<string, string | string[] | undefined>)
-            ?.traceparent as string | undefined,
-        );
-        // Dev-only — allocate the ORM query buffer when the profiler is active
-        // (null in prod → 0 alloc). Threaded into the ALS payload so ORM
-        // adapters push transparently, and onto the context so `collect()`
-        // reads the same array at teardown (outside the ALS bubble).
-        const profilerQueries = this.profiler ? [] : null;
-        context.profilerQueries = profilerQueries;
-        // P1.4 — enter ALS scope so requestId is propagated to every
-        // downstream async hop (logs, ORM, security decorators, etc.).
-        return await RequestContext.run(
-          {
-            requestId: context.requestId,
-            scheme: context.scheme,
-            traceparent: context.traceparent,
-            queries: profilerQueries ?? undefined,
-          },
-          async () => {
-            context!.phaseStart("parse");
+    let context: HttpContext | null = null;
+    try {
+      context = this.createHttpContext(scope, request, response, type);
+      await this.fireAsync("onCreateContext", context);
+      // P2.7 — W3C traceparent: honor incoming valid header, generate a
+      // fresh one otherwise. Resolved BEFORE entering the ALS scope so
+      // it propagates with `requestId` to every downstream hop.
+      context.traceparent = resolveTraceparent(
+        (request.headers as Record<string, string | string[] | undefined>)
+          ?.traceparent as string | undefined,
+      );
+      // Dev-only — allocate the ORM query buffer when the profiler is active
+      // (null in prod → 0 alloc). Threaded into the ALS payload so ORM
+      // adapters push transparently, and onto the context so `collect()`
+      // reads the same array at teardown (outside the ALS bubble).
+      const profilerQueries = this.profiler ? [] : null;
+      context.profilerQueries = profilerQueries;
+      // P1.4 — enter ALS scope so requestId is propagated to every
+      // downstream async hop (logs, ORM, security decorators, etc.).
+      return await RequestContext.run(
+        {
+          requestId: context.requestId,
+          scheme: context.scheme,
+          traceparent: context.traceparent,
+          queries: profilerQueries ?? undefined,
+        },
+        async (): Promise<HttpContext> => {
+          context!.phaseStart("parse");
+          try {
+            await context!.request.initialize();
+          } finally {
+            context!.phaseEnd("parse");
+          }
+          const ctx = await this.onRequestEnd(context!);
+          if (ctx instanceof Context) {
+            ctx.phaseStart("action");
             try {
-              await context!.request.initialize();
+              return await ctx.handle();
             } finally {
-              context!.phaseEnd("parse");
+              ctx.phaseEnd("action");
             }
-            const ctx = await this.onRequestEnd(context!).catch((e) => {
-              throw e;
-            });
-            if (ctx instanceof Context) {
-              ctx.phaseStart("action");
-              try {
-                const result = await ctx.handle().catch((e) => {
-                  throw e;
-                });
-                return resolve(result);
-              } finally {
-                ctx.phaseEnd("action");
-              }
-            }
-            return resolve(context!);
-          },
-        );
-      } catch (e) {
-        return this.onError(e as Error, context as ContextType).catch((e) => {
-          return reject(e);
-        });
-      }
-    });
+          }
+          return context!;
+        },
+      );
+    } catch (e) {
+      return (await this.onError(
+        e as Error,
+        context as ContextType,
+      )) as HttpContext;
+    }
   }
 
   async onRequestEnd(
     context: HttpContext,
     error?: Error | null | undefined,
   ): Promise<HttpContext | number> {
-    return new Promise(async (resolve, reject) => {
-      // EVENT
-      if (!context) {
-        return reject(new nodefonyError("Bad context", 500));
-      }
-      if (error) {
-        throw error;
-      }
+    // EVENT
+    if (!context) {
+      throw new nodefonyError("Bad context", 500);
+    }
+    if (error) {
+      throw error;
+    }
+    // ADD HEADERS CONFIG
+    if (this.options[context.scheme].headers) {
+      context.response.setHeaders(this.options[context.scheme].headers);
+    }
+    // DOMAIN VALID
+    if (this.kernel?.options.domainCheck) {
+      this.checkValidDomain(context);
+    }
+    // SECURITY HOOK — beforeResolve (P1.7)
+    // Fires before route is resolved. Security can pre-load session/token here.
+    await this.fireAsync("beforeResolve", context);
+    // FRONT CONTROLLER
+    const ret = await this.handleFrontController(context);
+    if (ret === 204) {
+      return ret;
+    }
+    // FIREWALL
+    if (context.secure || context.isControlledAccess) {
+      context.phaseStart("firewall");
       try {
-        // ADD HEADERS CONFIG
-        if (this.options[context.scheme].headers) {
-          context.response.setHeaders(this.options[context.scheme].headers);
+        try {
+          await this.firewall?.handleSecurity(context);
+          // SECURITY HOOK — afterAuth (P1.7) — only on success
+          await this.fireAsync("afterAuth", context);
+        } catch (authError) {
+          // SECURITY HOOK — onAuthFailure (P1.7)
+          await this.fireAsync("onAuthFailure", context, authError).catch((e) =>
+            this.log(e, "ERROR", "onAuthFailure"),
+          );
+          throw authError;
         }
-        // DOMAIN VALID
-        if (this.kernel?.options.domainCheck) {
-          this.checkValidDomain(context);
-        }
-        // SECURITY HOOK — beforeResolve (P1.7)
-        // Fires before route is resolved. Security can pre-load session/token here.
-        await this.fireAsync("beforeResolve", context).catch((e) => {
-          throw e;
-        });
-        // FRONT CONTROLLER
-        const ret = await this.handleFrontController(context).catch((e) => {
-          throw e;
-        });
-        if (ret === 204) {
-          return resolve(ret);
-        }
-        // FIREWALL
-        if (context.secure || context.isControlledAccess) {
-          context.phaseStart("firewall");
-          try {
-            try {
-              await this.firewall?.handleSecurity(context);
-              // SECURITY HOOK — afterAuth (P1.7) — only on success
-              await this.fireAsync("afterAuth", context);
-            } catch (authError) {
-              // SECURITY HOOK — onAuthFailure (P1.7)
-              await this.fireAsync("onAuthFailure", context, authError).catch(
-                (e) => this.log(e, "ERROR", "onAuthFailure"),
-              );
-              throw authError;
-            }
-          } finally {
-            context.phaseEnd("firewall");
-          }
-          // CSRF TOKEN
-          // if (context.csrf) {
-          //   const token = await this.csrfService.handle(context);
-          //   if (token) {
-          //     this.log("CSRF TOKEN OK", "DEBUG");
-          //   }
-          // }
-          return resolve(context);
-        }
-
-        // SESSIONS
-        await this.startSession(context).catch((e) => {
-          throw e;
-        });
-        // CSRF TOKEN
-        // if (context.csrf) {
-        //   const token = await this.csrfService.handle(context);
-        //   if (token) {
-        //     this.log("CSRF TOKEN OK", "DEBUG");
-        //   }
-        // }
-        return resolve(context);
-      } catch (e) {
-        return reject(e);
+      } finally {
+        context.phaseEnd("firewall");
       }
-    });
+      // CSRF TOKEN
+      // if (context.csrf) {
+      //   const token = await this.csrfService.handle(context);
+      //   if (token) {
+      //     this.log("CSRF TOKEN OK", "DEBUG");
+      //   }
+      // }
+      return context;
+    }
+
+    // SESSIONS
+    await this.startSession(context);
+    // CSRF TOKEN
+    // if (context.csrf) {
+    //   const token = await this.csrfService.handle(context);
+    //   if (token) {
+    //     this.log("CSRF TOKEN OK", "DEBUG");
+    //   }
+    // }
+    return context;
   }
 
   // WEBSOCKET
