@@ -84,8 +84,8 @@ function replaceCallback(
  *   method: ["GET", "POST"],
  *   defaults: { name: "john" },
  * })
- * method() {
- *   console.log("call method");
+ * method(name: string) {
+ *   return this.renderJson({ name });
  * }
  */
 export interface RouteOptions {

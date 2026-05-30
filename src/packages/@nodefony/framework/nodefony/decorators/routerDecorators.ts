@@ -130,8 +130,8 @@ function controller(prefix: string /*, settings: Record<string, any> = {}*/) {
  *   method: ["GET", "POST"],
  *   defaults: { name: "john" },
  * })
- * method() {
- *   console.log("call method");
+ * method(name: string) {
+ *   return this.renderJson({ name });
  * }
  */
 function route(name: string, options: RouteOptions) {

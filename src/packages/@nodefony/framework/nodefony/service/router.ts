@@ -134,7 +134,6 @@ class Router extends Service {
       let res = route.pattern?.exec(path);
       if (res) {
         result.push(res);
-        //console.log(` ${route.name} ${route.path} => Match : ${path}`);
       }
     }
     return result;
