@@ -30,6 +30,7 @@
       "Bash(for *)",
       "Bash(while *)",
       "Bash(ps *)",
+      "Bash(top *)",
       "Bash(kill -9 *)",
       "Bash(kill *)",
       "Bash(pgrep *)",
