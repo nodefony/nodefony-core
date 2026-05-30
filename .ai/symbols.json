@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-30T14:10:50.134Z",
+  "generated": "2026-05-30T14:26:58.468Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 785,
-    "symbols": 1483,
+    "symbols": 1485,
     "classes": 233,
     "interfaces": 361,
     "types": 186,
     "enums": 2,
     "functions": 241,
-    "constants": 460
+    "constants": 462
   },
   "symbols": {
     "Cli": {
@@ -10618,6 +10618,21 @@
       "module": "@nodefony/realtime",
       "extends": null,
       "description": "Connexion ws brute, typée structurellement (évite d'importer le package `ws`). `ctx.connection` (WebsocketContext) la fournit."
+    },
+    "BACKPRESSURE_DROP_BYTES": {
+      "name": "BACKPRESSURE_DROP_BYTES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts",
+      "exported": true,
+      "module": "@nodefony/realtime",
+      "description": "Back-pressure WS — seuils de `bufferedAmount` (octets en file `ws` non drainée). - **DROP** (1 MiB, = `SLOW_CONSUMER_BYTES` de la sonde) : au-delà, la frame est JETÉE (canaux d'ÉTAT latest-wins : l…"
+    },
+    "BACKPRESSURE_CLOSE_BYTES": {
+      "name": "BACKPRESSURE_CLOSE_BYTES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/realtime/nodefony/src/transport/WsConnectionTransport.ts",
+      "exported": true,
+      "module": "@nodefony/realtime"
     },
     "AnonymousToken": {
       "name": "AnonymousToken",

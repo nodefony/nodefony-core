@@ -18,6 +18,21 @@ export interface RawWsConnection {
 }
 
 /**
+ * Back-pressure WS — seuils de `bufferedAmount` (octets en file `ws` non drainée).
+ * - **DROP** (1 MiB, = `SLOW_CONSUMER_BYTES` de la sonde) : au-delà, la frame est
+ *   JETÉE (canaux d'ÉTAT latest-wins : le prochain snapshot la remplace) → borne la
+ *   file sans couper la connexion.
+ * - **CLOSE** (8 MiB) : file irrécupérable → `close(1013)` (RFC 6455 « Try Again
+ *   Later ») ; le client se reconnecte et resync. Protège la mémoire process
+ *   (file non bornée × M clients = OOM, blocker #1 du multiplexing N canaux / 1 WS).
+ *
+ * Overridables PAR CONNEXION via le 2ᵉ arg du constructeur (câblage config realtime
+ * `slowConsumer.*`). Défauts sûrs → la protection est active sans câblage.
+ */
+export const BACKPRESSURE_DROP_BYTES = 1 << 20; // 1 MiB
+export const BACKPRESSURE_CLOSE_BYTES = 8 << 20; // 8 MiB
+
+/**
  * WsConnectionTransport — transport {@link IRealtimeTransport} CÔTÉ SERVEUR :
  * wrap d'une connexion `ws` (1 par client connecté). Pendant serveur du
  * `BrowserWsTransport` → la connexion serveur compose le MÊME `JsonRpcPeer` que
@@ -39,23 +54,51 @@ export class WsConnectionTransport
   // qui chronométrait CHAQUE requête → gaté). Lus par {@link RealtimeHub.probe}.
   private _bytesSent = 0;
   private _messagesSent = 0;
+  // Frames jetées par back-pressure (drop latest-wins + close slow-consumer).
+  private _dropped = 0;
+  // Seuils résolus à la construction (overridables par la config realtime via le
+  // 2ᵉ arg ; défauts = constantes module, protection active sans câblage).
+  private readonly _dropBytes: number;
+  private readonly _closeBytes: number;
 
-  constructor(private readonly conn: RawWsConnection) {}
+  constructor(
+    private readonly conn: RawWsConnection,
+    limits?: { dropBytes?: number; closeBytes?: number },
+  ) {
+    this._dropBytes = limits?.dropBytes ?? BACKPRESSURE_DROP_BYTES;
+    this._closeBytes = limits?.closeBytes ?? BACKPRESSURE_CLOSE_BYTES;
+  }
 
   connect(): void {
     /* déjà ouverte par le serveur — no-op */
   }
 
   send(raw: string): void {
-    if (this.conn.readyState === TransportState.OPEN) {
-      // `raw.length` (≈ octets pour l'ASCII/JSON ; O(1) en V8) compté AVANT l'envoi :
-      // un échec d'envoi reste rare et la file `ws` retient quand même la frame.
-      this._bytesSent += raw.length;
-      this._messagesSent += 1;
-      this.conn.send(raw, () => {
-        /* socket fermée pendant l'envoi — ignoré */
-      });
+    if (this.conn.readyState !== TransportState.OPEN) return;
+    // Back-pressure (blocker mémoire #1) — la file `ws` non drainée (`bufferedAmount`)
+    // grossit sans borne pour un slow-consumer (onglet throttlé, mobile, fenêtre TCP
+    // pleine) ; × M clients = OOM, et le multiplexing concentre (1 WS lente bloque
+    // TOUS ses canaux). Politique 2 seuils (cf BACKPRESSURE_*_BYTES) :
+    //  - ≥ CLOSE : file irrécupérable → `close(1013)`, le client se reconnecte/resync.
+    //  - ≥ DROP  : on JETTE la frame (canaux d'ÉTAT = latest-wins) → borne la file.
+    // Mock de test sans `bufferedAmount` → `?? 0` → jamais de drop (0 régression).
+    const buffered = this.conn.bufferedAmount ?? 0;
+    if (buffered >= this._closeBytes) {
+      this._dropped += 1;
+      this.conn.close(1013, "slow consumer");
+      return;
     }
+    if (buffered >= this._dropBytes) {
+      this._dropped += 1;
+      return;
+    }
+    // `raw.length` (≈ octets pour l'ASCII/JSON ; O(1) en V8) compté AVANT l'envoi :
+    // un échec d'envoi reste rare et la file `ws` retient quand même la frame.
+    this._bytesSent += raw.length;
+    this._messagesSent += 1;
+    this.conn.send(raw, () => {
+      /* socket fermée pendant l'envoi — ignoré */
+    });
   }
 
   close(code?: number, reason?: string): void {
@@ -79,6 +122,11 @@ export class WsConnectionTransport
   /** Cumul de frames envoyées sur cette connexion (monotone). */
   get messagesSent(): number {
     return this._messagesSent;
+  }
+
+  /** Cumul de frames jetées par back-pressure (drop + close slow-consumer) — monotone. */
+  get dropped(): number {
+    return this._dropped;
   }
 
   onOpen(): void {

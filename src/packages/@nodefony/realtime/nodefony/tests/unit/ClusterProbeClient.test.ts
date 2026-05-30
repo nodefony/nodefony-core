@@ -34,6 +34,7 @@ function health(over: Partial<IRealtimeHealth> = {}): IRealtimeHealth {
       maxBufferedAmount: 0,
       totalBufferedAmount: 0,
       slowConsumers: 0,
+      drops: 0,
     },
     ...over,
   };

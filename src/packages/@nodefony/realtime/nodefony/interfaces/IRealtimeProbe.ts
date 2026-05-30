@@ -35,6 +35,12 @@ export interface IRealtimeConnProbe {
   readonly bytesSent: number;
   /** Cumul de frames envoyées à cette connexion (monotone). */
   readonly messagesSent: number;
+  /**
+   * Cumul de frames JETÉES par back-pressure sur cette connexion (monotone) :
+   * drop latest-wins (`bufferedAmount ≥` seuil DROP) + la frame en cours quand on
+   * coupe un slow-consumer (`close 1013`). `> 0` = ce client n'absorbe pas le flux.
+   */
+  readonly dropped: number;
 }
 
 /** Stat per-canal du hub (fan-out). */
@@ -79,6 +85,13 @@ export interface IRealtimeProbe {
     totalBufferedAmount: number;
     /** Connexions au-dessus du seuil d'alerte slow-consumer. */
     slowConsumers: number;
+    /**
+     * Cumul de frames jetées par back-pressure (drop latest-wins + close
+     * slow-consumer), toutes connexions (monotone) → taux de perte dérivé côté
+     * lecteur. `0` en régime sain ; croît = des clients lents sont contenus pour
+     * protéger la mémoire process (sinon file `ws` non bornée → OOM).
+     */
+    drops: number;
   };
   /**
    * Carte d'identité du backplane effectif (driver, transport, cross-pod, canal).
@@ -164,6 +177,8 @@ export interface IRealtimeClusterHealth {
       totalBufferedAmount: number;
       /** Total des slow-consumers du pod. */
       slowConsumers: number;
+      /** Total des frames jetées par back-pressure (drop + close), tous workers. */
+      drops: number;
     };
     /**
      * Santé ORM agrégée du pod (sommes ; `maxEwmaMs` = pire worker). Présent si ≥ 1 worker

@@ -59,6 +59,7 @@ export function mergeClusterHealth(
       maxBufferedAmount: 0,
       totalBufferedAmount: 0,
       slowConsumers: 0,
+      drops: 0,
     },
   };
   // Sondes ORM/erreurs (additives) : agrégées seulement si ≥ 1 worker les remonte.
@@ -78,6 +79,7 @@ export function mergeClusterHealth(
     }
     totals.backpressure.totalBufferedAmount += bp.totalBufferedAmount;
     totals.backpressure.slowConsumers += bp.slowConsumers;
+    totals.backpressure.drops += bp.drops;
     if (h.orm) {
       orm ??= {
         connectors: 0,

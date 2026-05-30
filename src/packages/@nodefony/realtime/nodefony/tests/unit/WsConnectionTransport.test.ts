@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { WsConnectionTransport } from "../../src/transport/WsConnectionTransport.js";
+import {
+  WsConnectionTransport,
+  BACKPRESSURE_DROP_BYTES,
+  BACKPRESSURE_CLOSE_BYTES,
+} from "../../src/transport/WsConnectionTransport.js";
 import { TransportState } from "nodefony";
 
 /** Mock d'une connexion `ws` brute (send/close/readyState). */
@@ -73,5 +77,76 @@ describe("WsConnectionTransport — transport serveur (wrap connexion ws)", () =
       t.onOpen();
       t.onError();
     }).to.not.throw();
+  });
+});
+
+/** Mock connexion `ws` avec `bufferedAmount` mutable (simule la back-pressure). */
+function mockBpConn(
+  bufferedAmount = 0,
+  readyState: number = TransportState.OPEN,
+) {
+  const sent: string[] = [];
+  let closed: { code?: number; reason?: string } | null = null;
+  const conn = {
+    readyState,
+    bufferedAmount,
+    send: (data: string, cb?: (err?: Error) => void) => {
+      sent.push(data);
+      cb?.();
+    },
+    close: (code?: number, reason?: string) => {
+      closed = { code, reason };
+    },
+  };
+  return { conn, sent, getClosed: () => closed };
+}
+
+describe("WsConnectionTransport — back-pressure (drop latest-wins / close 1013)", () => {
+  it("sous le seuil DROP → envoi normal, dropped=0", () => {
+    const { conn, sent } = mockBpConn(0);
+    const t = new WsConnectionTransport(conn);
+    t.send("hello");
+    expect(sent).to.deep.equal(["hello"]);
+    expect(t.bytesSent).to.equal(5);
+    expect(t.dropped).to.equal(0);
+  });
+
+  it("≥ DROP (< CLOSE) → JETTE la frame (latest-wins), sans couper", () => {
+    const { conn, sent, getClosed } = mockBpConn(BACKPRESSURE_DROP_BYTES);
+    const t = new WsConnectionTransport(conn);
+    t.send("dropme");
+    expect(sent).to.have.length(0);
+    expect(t.dropped).to.equal(1);
+    expect(t.bytesSent).to.equal(0); // non comptée comme envoyée
+    expect(getClosed()).to.equal(null); // la file peut redescendre → on ne coupe pas
+  });
+
+  it("≥ CLOSE → close(1013) slow-consumer + frame comptée droppée", () => {
+    const { conn, sent, getClosed } = mockBpConn(BACKPRESSURE_CLOSE_BYTES);
+    const t = new WsConnectionTransport(conn);
+    t.send("toolate");
+    expect(sent).to.have.length(0);
+    expect(t.dropped).to.equal(1);
+    expect(getClosed()).to.deep.equal({ code: 1013, reason: "slow consumer" });
+  });
+
+  it("connexion sans `bufferedAmount` (mock legacy) → jamais de drop", () => {
+    const { conn, sent } = mockConn(TransportState.OPEN); // pas de bufferedAmount
+    const t = new WsConnectionTransport(conn);
+    t.send("a");
+    t.send("b");
+    expect(sent).to.deep.equal(["a", "b"]);
+    expect(t.dropped).to.equal(0);
+  });
+
+  it("seuils surchargés par le constructeur (config realtime)", () => {
+    const { conn, sent } = mockBpConn(100);
+    const t = new WsConnectionTransport(conn, {
+      dropBytes: 50,
+      closeBytes: 200,
+    });
+    t.send("x"); // 100 ≥ 50 → drop, < 200 → pas de close
+    expect(sent).to.have.length(0);
+    expect(t.dropped).to.equal(1);
   });
 });

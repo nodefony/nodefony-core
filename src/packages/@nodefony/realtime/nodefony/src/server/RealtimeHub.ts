@@ -362,11 +362,13 @@ export class RealtimeHub {
     let maxBufferedAmount = 0;
     let totalBufferedAmount = 0;
     let slowConsumers = 0;
+    let drops = 0;
     if (this.#connections) {
       for (const c of this.#connections) {
         connectionCount += 1;
         bytesSentTotal += c.bytesSent;
         messagesSentTotal += c.messagesSent;
+        drops += c.dropped;
         const buf = c.bufferedAmount;
         if (buf > maxBufferedAmount) maxBufferedAmount = buf;
         totalBufferedAmount += buf;
@@ -387,6 +389,7 @@ export class RealtimeHub {
         maxBufferedAmount,
         totalBufferedAmount,
         slowConsumers,
+        drops,
       },
       // Carte d'identité du backplane effectif. `null` (mono-process / fallback)
       // → descripteur `local` (driver loopback), sinon celui du driver branché.

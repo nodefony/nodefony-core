@@ -56,6 +56,7 @@ function fakeConn(over: Partial<IRealtimeConnProbe> = {}): IRealtimeConnProbe {
     bufferedAmount: 0,
     bytesSent: 0,
     messagesSent: 0,
+    dropped: 0,
     ...over,
   };
 }
