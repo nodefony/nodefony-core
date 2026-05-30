@@ -51,10 +51,13 @@ class Router extends Service {
 
   resolve(context: ContextType): Resolver {
     const resolver = new Resolver(context);
+    // L5a perf : pathname normalisé UNE fois (constant pour la requête) — évite
+    // que chaque Route.match du scan O(N) recalcule URL.pathname + regex + alloc.
+    const cleanPath = Route.cleanPathname(context);
     // Pass 1 : match path + method
     for (let i = 0; i < routes.length; i++) {
       try {
-        if (resolver.match(routes[i], context)) {
+        if (resolver.match(routes[i], context, cleanPath)) {
           this.log(`Match route : ${routes[i].name}`, "DEBUG");
           resolver.exception = undefined;
           return resolver;
@@ -73,9 +76,9 @@ class Router extends Service {
       context.request?.url &&
       (!resolver.exception || resolver.exception.code !== 405)
     ) {
-      const path =
-        ((context.request.url as URL).pathname || "").replace(/\/+$/, "") ||
-        "/";
+      // Réutilise le pathname déjà normalisé (cleanPath) — défini ici car le
+      // garde `context.request?.url` ci-dessus implique une URL présente.
+      const path = (cleanPath ?? "") || "/";
       const allowed = new Set<string>();
       for (const route of routes) {
         // Une route restreinte à un autre vhost (@Domain) ne SERT pas cette

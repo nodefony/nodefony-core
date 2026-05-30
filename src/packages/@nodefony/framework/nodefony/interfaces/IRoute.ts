@@ -19,7 +19,7 @@ export interface IRoute {
   bypassFirewall: boolean;
   filePath?: string;
 
-  match(context: ContextType): unknown[] | null | undefined;
+  match(context: ContextType, cleanPath?: string): unknown[] | null | undefined;
   compile(): RegExp;
   toString(): string;
   toObject(): object;

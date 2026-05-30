@@ -155,14 +155,34 @@ class Route implements IRoute {
     this.generateId();
   }
 
-  match(context: ContextType) {
+  /**
+   * Normalise le pathname de la requête pour le matching : retire le(s)
+   * slash(es) final(aux) via {@link REG_REPLACE_END_SLASH}. À calculer UNE fois
+   * par requête dans `Router.resolve`, puis à passer à chaque {@link Route.match}
+   * scannée — sinon le getter `URL.pathname` + la regex + l'alloc string sont
+   * refaits pour CHAQUE route du scan O(N) (hot path, ~N routes/req).
+   *
+   * @param context - contexte HTTP/WS courant.
+   * @returns le pathname sans slash final, ou `undefined` si la requête n'a pas d'URL.
+   */
+  static cleanPathname(context: ContextType): string | undefined {
+    const reqUrl = context.request?.url;
+    if (!reqUrl) {
+      return undefined;
+    }
+    return (reqUrl as URL).pathname.replace(REG_REPLACE_END_SLASH, "");
+  }
+
+  match(context: ContextType, cleanPath?: string) {
     let res;
     if (context.request && context.request.url && this.pattern) {
-      const url = (context.request.url as URL).pathname.replace(
-        REG_REPLACE_END_SLASH,
-        "",
-      );
-      res = url.match(this.pattern as RegExp);
+      // L5a perf : réutilise le pathname normalisé UNE fois par requête
+      // (Router.resolve) au lieu de le recalculer pour CHAQUE route scannée.
+      const url =
+        cleanPath !== undefined ? cleanPath : Route.cleanPathname(context);
+      if (url !== undefined) {
+        res = url.match(this.pattern as RegExp);
+      }
     }
     if (!res) {
       return res;

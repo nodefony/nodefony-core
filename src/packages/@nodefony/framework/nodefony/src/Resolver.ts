@@ -74,9 +74,9 @@ class Resolver extends Service implements IResolver {
     this.injector = this.get<Injector>("injector");
   }
 
-  match(route: Route, context: ContextType) {
+  match(route: Route, context: ContextType, cleanPath?: string) {
     try {
-      const match = route.match(context);
+      const match = route.match(context, cleanPath);
       if (match) {
         this.variables = match;
         this.route = route;
