@@ -13,6 +13,13 @@ export interface FileSinkOptions {
   path: string;
   /** Octets max en attente avant DROP borné (anti-OOM). Défaut 4 MiB. */
   maxPendingBytes?: number;
+  /**
+   * Écriture SYNCHRONE directe (`writeSync`) au lieu du buffer async. Sur un fd
+   * PAR worker (pas de fd partagé), le write sync local est µs et SANS contention
+   * d'inode → capte le gain cluster sans l'overhead du threadpool async (qui, sur
+   * un fichier local rapide, l'annule). Défaut `false` (async, pour sinks lents).
+   */
+  sync?: boolean;
 }
 
 /**
@@ -26,6 +33,7 @@ export class FileSink implements ILogSink {
   readonly name = "file";
   readonly #fd: number;
   readonly #maxPendingBytes: number;
+  readonly #sync: boolean;
   #pending: string[] = [];
   #pendingBytes = 0;
   #writing = false;
@@ -40,6 +48,7 @@ export class FileSink implements ILogSink {
     // entre un write async en vol et le flushSync de secours.
     this.#fd = openSync(options.path, "a");
     this.#maxPendingBytes = options.maxPendingBytes ?? 4 * 1024 * 1024;
+    this.#sync = options.sync ?? false;
   }
 
   /** Lignes droppées (buffer saturé) — lu par une sonde, JAMAIS reloggé (récursion). */
@@ -49,6 +58,16 @@ export class FileSink implements ILogSink {
 
   writeOut(s: string): void {
     if (this.#closed) return;
+    if (this.#sync) {
+      // Mode sync : write direct sur le fd (par worker → 0 contention d'inode).
+      // Pas de buffer/threadpool — le write local est µs. Best-effort sur erreur.
+      try {
+        writeSync(this.#fd, s);
+      } catch {
+        // I/O — ne pas throw dans un logger.
+      }
+      return;
+    }
     if (this.#pendingBytes >= this.#maxPendingBytes) {
       this.#dropped++; // drop borné — jamais OOM, jamais bloquer le hot path
       return;

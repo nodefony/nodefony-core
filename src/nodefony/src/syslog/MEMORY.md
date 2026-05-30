@@ -146,7 +146,10 @@ utilise **`rawLog`**. Couleurs via `Syslog.wrapper(pdu)`.
 
 - Le sink FINAL (où partent les lignes APRÈS coalescing) est un `ILogSink { name, writeOut, writeErr, flushSync, close }`. Le ring/coalescing par tick (`writeOut`) reste DEVANT, inchangé.
 - 3 drivers : `stdout` (défaut, isomorphe = comportement HISTORIQUE exact, 0 régression), `null` (`NULL_LOG_SINK`, noop = bench /dev/null), `file` (`FileSink`, **Node-only** `sinks/FileSink.ts`).
-- **`FileSink`** : `fs.write` async sur fd persistant ouvert en `"a"` (append) — **un fd PAR worker** → 0 lock d'inode partagé = le goulet cluster prouvé (logs fichier 3758 → /dev/null 4814 = **+28 % RPS**) disparaît. Buffer borné + drop anti-OOM (`get dropped`) + `#inFlight` (chunk passé à fsWrite mais pas confirmé) ré-écrit SYNC au flush.
+- **`FileSink`** : fd persistant ouvert en `"a"` (append), **un fd PAR worker** → 0 lock d'inode partagé (le goulet cluster). 2 modes :
+  - **async** (défaut) : `fs.write` threadpool + buffer borné + drop anti-OOM (`get dropped`) + `#inFlight` (chunk non confirmé) ré-écrit SYNC au flush. Ne bloque jamais l'event loop (bon pour disque lent).
+  - **`sync: true`** : `writeSync` direct (pas de buffer/threadpool/drop). Sur fd/worker le write local est µs ; durable (0 perte buffer).
+- ⚠️ **A/B 2026-05-30 (cluster -w8 LOCAL, NON concluant — variance boot ±30% > effet)** : l'écriture **async ne bat PAS stdout** (overhead threadpool sur fichier local rapide) ; **sync fd/worker** = meilleur run unique (3599 vs ~2500 baseline) mais dans le bruit. Insight : **W2 (fd/worker) > W1 (async)** ; l'axe « write async » du cadrage initial était faux pour fichier local. À reprouver sur **infra dédiée** (1 worker/cœur, load-gen séparé). Défaut async conservé (non prouvé), `sync` recommandé pour fichier local.
 - Câblé par `Kernel.initializeLog` ← `config.log.driver` (`stdout`|`file`|`null`) + `config.log.file.path` (défaut `logs/nodefony-<pid>.log`). Défaut `stdout` → `setLogSink(null)` (no-op, 0 impact).
 - **Flush de secours** : `exit`/`beforeExit` → `_flushOut()` + `_sink.flushSync()`. PAS de handler `SIGTERM`/`SIGINT`/`uncaughtException` (casserait Ctrl+C, masquerait les crashes) — le shutdown kernel sort via `process.exit` → `exit`.
 - ⚠️ `_sink` = **process-global** (1/process) → en test, `Syslog.setLogSink(null)` en `afterEach` (anti-contamination, libère le fd).

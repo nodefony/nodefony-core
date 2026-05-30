@@ -75,6 +75,47 @@ describe("Log sink driver (LB.W)", () => {
     });
   });
 
+  describe("FileSink (mode sync)", () => {
+    let tmpFile: string;
+    beforeEach(() => {
+      tmpFile = path.join(
+        os.tmpdir(),
+        `nf-filesink-sync-${Date.now()}-${Math.random().toString(36).slice(2)}.log`,
+      );
+    });
+    afterEach(() => {
+      try {
+        fs.unlinkSync(tmpFile);
+      } catch {
+        /* fichier absent */
+      }
+    });
+
+    it("writeSync direct : contenu présent SANS attente async (FIFO)", () => {
+      const sink = new FileSink({ path: tmpFile, sync: true });
+      sink.writeOut("a\n");
+      sink.writeOut("b\n");
+      // Pas de `await` : en mode sync le write atterrit immédiatement sur le fd.
+      assert.strictEqual(fs.readFileSync(tmpFile, "utf8"), "a\nb\n");
+      sink.close();
+    });
+
+    it("writeErr partage le fd (ordre causal) + close idempotent", () => {
+      const sink = new FileSink({ path: tmpFile, sync: true });
+      sink.writeOut("out\n");
+      sink.writeErr("err\n");
+      sink.close();
+      sink.close(); // idempotent
+      assert.strictEqual(fs.readFileSync(tmpFile, "utf8"), "out\nerr\n");
+    });
+
+    it("writeOut après close() = noop", () => {
+      const sink = new FileSink({ path: tmpFile, sync: true });
+      sink.close();
+      assert.doesNotThrow(() => sink.writeOut("late\n"));
+    });
+  });
+
   describe("NULL_LOG_SINK", () => {
     it("name='null' et toutes les ops sont noop", () => {
       assert.strictEqual(NULL_LOG_SINK.name, "null");

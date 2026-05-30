@@ -43,8 +43,8 @@ export interface TypeKernelOptions extends DefaultOptionsService {
     buffered?: boolean | "auto";
     /** Driver de sink (LB.W) : "stdout" (défaut) | "file" (fd async/worker) | "null" (bench). */
     driver?: "stdout" | "file" | "null";
-    /** Options du driver "file" (chemin du log ; défaut logs/nodefony-<pid>.log). */
-    file?: { path?: string };
+    /** Options du driver "file" (chemin du log ; défaut logs/nodefony-<pid>.log ; sync=write direct). */
+    file?: { path?: string; sync?: boolean };
   };
 }
 
@@ -817,7 +817,9 @@ class Kernel extends Service implements IKernel {
       const logPath =
         logCfg?.file?.path ??
         path.resolve(process.cwd(), "logs", `nodefony-${process.pid}.log`);
-      Syslog.setLogSink(new FileSink({ path: logPath }));
+      Syslog.setLogSink(
+        new FileSink({ path: logPath, sync: logCfg?.file?.sync }),
+      );
     } else if (logDriver === "null") {
       Syslog.setLogSink(NULL_LOG_SINK);
     } else {

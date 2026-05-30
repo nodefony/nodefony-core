@@ -189,6 +189,19 @@ const config = {
     debug: "*",
     requestFormat: "auto" as "auto" | "default" | "pretty" | "json",
     buffered: "auto" as boolean | "auto",
+    // Driver de sink (LB.W) : où partent les lignes après coalescing.
+    //   "stdout" (DÉFAUT, cloud-native pipe non-bloquant) | "file" (fd async PAR
+    //   worker → 0 lock d'inode partagé en cluster, anti-goulet +28%) | "null" (bench).
+    // Piloté par env NF_LOG_DRIVER (A/B perf) ; sans `file.path`, le Kernel ouvre
+    // `logs/nodefony-<pid>.log` (1 fd par worker).
+    driver: (process.env.NF_LOG_DRIVER ?? "stdout") as
+      | "stdout"
+      | "file"
+      | "null",
+    // `file.sync` (env NF_LOG_FILE_SYNC=1) : writeSync direct par worker au lieu
+    // du buffer async — recommandé pour fichier local rapide (cf insight A/B LB.W,
+    // axe W2 fd/worker). Défaut async (ne bloque jamais l'event loop, disque lent).
+    file: { sync: process.env.NF_LOG_FILE_SYNC === "1" },
   },
 
   /**
