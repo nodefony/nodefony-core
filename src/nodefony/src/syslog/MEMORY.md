@@ -142,6 +142,16 @@ utilise **`rawLog`**. Couleurs via `Syslog.wrapper(pdu)`.
   2026-05-30 : logging ON≈OFF≈bufférisé (~3550 RPS @C=20). Le bénéfice réel = sink **lent/backpressuré**
   (pipe prod → collecteur). Reste un nettoyage structurel (`rawLog` sans `util.format`/ligne).
 
+**Driver de sink (LB.W — write enfichable)** — `Syslog.setLogSink(sink)` / `Syslog.logSinkName`
+
+- Le sink FINAL (où partent les lignes APRÈS coalescing) est un `ILogSink { name, writeOut, writeErr, flushSync, close }`. Le ring/coalescing par tick (`writeOut`) reste DEVANT, inchangé.
+- 3 drivers : `stdout` (défaut, isomorphe = comportement HISTORIQUE exact, 0 régression), `null` (`NULL_LOG_SINK`, noop = bench /dev/null), `file` (`FileSink`, **Node-only** `sinks/FileSink.ts`).
+- **`FileSink`** : `fs.write` async sur fd persistant ouvert en `"a"` (append) — **un fd PAR worker** → 0 lock d'inode partagé = le goulet cluster prouvé (logs fichier 3758 → /dev/null 4814 = **+28 % RPS**) disparaît. Buffer borné + drop anti-OOM (`get dropped`) + `#inFlight` (chunk passé à fsWrite mais pas confirmé) ré-écrit SYNC au flush.
+- Câblé par `Kernel.initializeLog` ← `config.log.driver` (`stdout`|`file`|`null`) + `config.log.file.path` (défaut `logs/nodefony-<pid>.log`). Défaut `stdout` → `setLogSink(null)` (no-op, 0 impact).
+- **Flush de secours** : `exit`/`beforeExit` → `_flushOut()` + `_sink.flushSync()`. PAS de handler `SIGTERM`/`SIGINT`/`uncaughtException` (casserait Ctrl+C, masquerait les crashes) — le shutdown kernel sort via `process.exit` → `exit`.
+- ⚠️ `_sink` = **process-global** (1/process) → en test, `Syslog.setLogSink(null)` en `afterEach` (anti-contamination, libère le fd).
+- ⚠️ **Durabilité** : `writeOut` lance un write async ; un `close()`/`exit` AVANT le callback ré-écrit `#inFlight` en sync (sinon perte du chunk en vol — bug attrapé par `LogSink.test.ts`). Append → pas de corruption (doublon best-effort au pire). Plan [[project_log_backplane_vision]] phase LB.W.
+
 **Cycle de vie**
 
 - `reset()` / `clean()` → vide le ring + retire tous les listeners

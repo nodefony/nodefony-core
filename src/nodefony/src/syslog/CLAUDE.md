@@ -14,6 +14,8 @@ src/nodefony/src/syslog/
 ├── Syslog.ts            ← hub central (buffer + filtres + dispatch)
 ├── Pdu.ts               ← classe d'entrée de log
 ├── CircularBuffer.ts    ← ring buffer O(1)
+├── sinks/               ← drivers de sink (LB.W — où partent les lignes, write enfichable)
+│   └── FileSink.ts      ← fd async PAR worker, anti-goulet cluster +28% (Node-only)
 ├── transports/          ← formatters + sinks
 │   ├── console.ts
 │   ├── file.ts

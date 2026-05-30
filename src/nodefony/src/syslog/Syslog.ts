@@ -70,17 +70,56 @@ const _resolveBufferOn = (): boolean => {
   return _bufferOn;
 };
 
-// Sink BRUT (écriture immédiate) — Node : write direct ; navigateur : console.*
-// + ANSI strip. Utilisé hors buffer, par le flush, et par le SPINNER (animation
-// `\r` : jamais bufférisée, sinon les frames s'empilent au lieu de s'écraser).
-const _writeStdoutNow = (s: string): void => {
-  if (_proc?.stdout) _proc.stdout.write(s);
-  else console.log(_stripAnsi(s).replace(/\n$/, ""));
+// ── Driver de sink (LB.W — write enfichable) ─────────────────────────────────
+// Le sink FINAL (où partent les lignes après coalescing) est un DRIVER
+// enfichable. Défaut = stdout (comportement historique EXACT, isomorphe). Un
+// worker cluster peut basculer sur `file` (fd async PAR worker → 0 lock d'inode
+// partagé = le goulet prouvé +28% RPS) ou `null` (bench). Le ring/coalescing par
+// tick (writeOut ci-dessous) reste DEVANT, inchangé. Câblé par Kernel.initializeLog
+// ← config.log.driver. Voir le plan « Log Backplane » phase LB.W.
+export interface ILogSink {
+  readonly name: string;
+  /** Chunk classe-stdout (déjà coalescé par tick). NON bloquant si possible. */
+  writeOut(s: string): void;
+  /** Chunk classe-stderr (sévérité ≤ 3 — durable). */
+  writeErr(s: string): void;
+  /** Flush SYNCHRONE de secours (process `exit`). Best-effort, JAMAIS async. */
+  flushSync(): void;
+  /** Libère les ressources (fd…). Idempotent. */
+  close(): void;
+}
+
+// Sink par défaut : stdout/stderr direct (isomorphe — navigateur : console.* +
+// ANSI strip). = comportement HISTORIQUE EXACT → 0 régression quand non configuré.
+// Utilisé hors buffer, par le flush, et par le SPINNER (animation `\r`).
+const _stdoutSink: ILogSink = {
+  name: "stdout",
+  writeOut(s: string): void {
+    if (_proc?.stdout) _proc.stdout.write(s);
+    else console.log(_stripAnsi(s).replace(/\n$/, ""));
+  },
+  writeErr(s: string): void {
+    if (_proc?.stderr) _proc.stderr.write(s);
+    else console.error(_stripAnsi(s).replace(/\n$/, ""));
+  },
+  flushSync(): void {},
+  close(): void {},
 };
-const _writeStderrNow = (s: string): void => {
-  if (_proc?.stderr) _proc.stderr.write(s);
-  else console.error(_stripAnsi(s).replace(/\n$/, ""));
+
+/** Sink `/dev/null` : noop total (bench — mesure du plafond sans I/O de log). */
+export const NULL_LOG_SINK: ILogSink = {
+  name: "null",
+  writeOut(): void {},
+  writeErr(): void {},
+  flushSync(): void {},
+  close(): void {},
 };
+
+let _sink: ILogSink = _stdoutSink;
+
+// Écriture immédiate (hors buffer / flush / SPINNER) — route vers le driver actif.
+const _writeStdoutNow = (s: string): void => _sink.writeOut(s);
+const _writeStderrNow = (s: string): void => _sink.writeErr(s);
 
 const _flushOut = (): void => {
   _flushScheduled = false;
@@ -95,6 +134,16 @@ const _setBufferMode = (mode: boolean | "auto"): void => {
   _flushOut(); // ne pas abandonner de lignes en attente lors d'un switch
   _bufferMode = mode === true ? "on" : mode === false ? "off" : "auto";
   _bufferOn = null; // forcer la ré-résolution (override/isTTY)
+};
+
+// Bascule du driver de sink. Flush les lignes en attente PUIS close l'ancien
+// driver (libère le fd d'un FileSink) avant de switcher. `null` → stdout.
+const _setLogSink = (sink: ILogSink | null): void => {
+  _flushOut();
+  if (_sink !== sink && _sink !== _stdoutSink && _sink !== NULL_LOG_SINK) {
+    _sink.close();
+  }
+  _sink = sink ?? _stdoutSink;
 };
 
 const writeOut = (s: string): void => {
@@ -121,12 +170,19 @@ const writeErr = (s: string): void => {
   _writeStderrNow(s);
 };
 
-// Filet anti-perte : vide le buffer en sortie de process (exit normal,
-// process.exit, boucle d'events vide). SIGKILL/OOM = non-interceptable →
-// perte bornée ≤ 1 tick, inhérente à tout logger bufférisé.
+// Filet anti-perte : vide le buffer tick PUIS flush SYNC le driver en sortie de
+// process (exit normal, process.exit, boucle vide, ou après un crash non géré —
+// Node imprime la stack puis émet `exit`). On NE pose PAS de handler SIGTERM/
+// SIGINT/uncaughtException ici (core chargé partout → casserait Ctrl+C et
+// masquerait les crashes) : le shutdown kernel sort via process.exit → `exit`.
+// SIGKILL/OOM = non-interceptable → perte bornée ≤ 1 tick, inhérente.
 if (_proc?.on) {
-  _proc.on("exit", _flushOut);
-  _proc.on("beforeExit", _flushOut);
+  const _onExit = (): void => {
+    _flushOut();
+    _sink.flushSync();
+  };
+  _proc.on("exit", _onExit);
+  _proc.on("beforeExit", _onExit);
 }
 
 type Operator = "<" | ">" | "<=" | ">=" | "==" | "===" | "!=" | "RegExp";
@@ -1083,6 +1139,22 @@ class Syslog extends Event implements ISyslog {
   /** Vide immédiatement (synchrone) le buffer stdout en attente. Idempotent. */
   static flushOutput(): void {
     _flushOut();
+  }
+
+  /**
+   * Bascule le DRIVER de sink (LB.W — où partent les lignes après coalescing).
+   * `null` → stdout (défaut isomorphe). Câblé par {@link Kernel.initializeLog}
+   * depuis `config.log.driver`. Flush + close l'ancien driver avant de switcher.
+   *
+   * @param sink - driver `ILogSink` (ex. `FileSink`, `NULL_LOG_SINK`) ou `null`.
+   */
+  static setLogSink(sink: ILogSink | null): void {
+    _setLogSink(sink);
+  }
+
+  /** Nom du driver de sink actif (`"stdout"` | `"null"` | `"file"` | custom). */
+  static get logSinkName(): string {
+    return _sink.name;
   }
 
   /**

@@ -12,7 +12,8 @@ import Service, { DefaultOptionsService } from "../Service";
 import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
 import { Severity } from "../syslog/Pdu";
-import Syslog from "../syslog/Syslog";
+import Syslog, { NULL_LOG_SINK } from "../syslog/Syslog";
+import { FileSink } from "../syslog/sinks/FileSink";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
@@ -38,6 +39,12 @@ export interface TypeKernelOptions extends DefaultOptionsService {
   log?: {
     active?: boolean;
     debug?: DebugType;
+    /** Coalescing des writes stdout par tick : "auto" (hors TTY) | true | false. */
+    buffered?: boolean | "auto";
+    /** Driver de sink (LB.W) : "stdout" (défaut) | "file" (fd async/worker) | "null" (bench). */
+    driver?: "stdout" | "file" | "null";
+    /** Options du driver "file" (chemin du log ; défaut logs/nodefony-<pid>.log). */
+    file?: { path?: string };
   };
 }
 
@@ -800,10 +807,22 @@ class Kernel extends Service implements IKernel {
     // d'un même tick en 1 syscall sous forte concurrence. "auto" (défaut) =
     // bufférise hors TTY (pipe/fichier = prod/collecteur), immédiat sur TTY
     // (dev). Cf Syslog.setOutputBuffering + config.log.buffered.
-    const logCfg = this.options.log as
-      | { buffered?: boolean | "auto" }
-      | undefined;
+    const logCfg = this.options.log as TypeKernelOptions["log"];
     Syslog.setOutputBuffering(logCfg?.buffered ?? "auto");
+    // Driver de sink (LB.W) : stdout (défaut, cloud-native pipe non-bloquant) |
+    // file (fd async PAR worker → 0 lock d'inode partagé en cluster, le goulet
+    // prouvé +28%) | null (bench). FileSink Node-only ; Syslog reste isomorphe.
+    const logDriver = logCfg?.driver ?? "stdout";
+    if (logDriver === "file") {
+      const logPath =
+        logCfg?.file?.path ??
+        path.resolve(process.cwd(), "logs", `nodefony-${process.pid}.log`);
+      Syslog.setLogSink(new FileSink({ path: logPath }));
+    } else if (logDriver === "null") {
+      Syslog.setLogSink(NULL_LOG_SINK);
+    } else {
+      Syslog.setLogSink(null); // stdout (défaut isomorphe)
+    }
     // CLI prend la priorité absolue sur la config.
     // La config log.debug n'est utilisée qu'en mode programmatique (sans CLI).
     if (!this.cli && !this.debug && this.options.log?.debug) {

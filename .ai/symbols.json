@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-30T16:05:23.163Z",
+  "generated": "2026-05-30T17:47:53.385Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 785,
-    "symbols": 1485,
-    "classes": 233,
-    "interfaces": 361,
+    "files": 786,
+    "symbols": 1489,
+    "classes": 234,
+    "interfaces": 363,
     "types": 186,
     "enums": 2,
     "functions": 241,
-    "constants": 462
+    "constants": 463
   },
   "symbols": {
     "Cli": {
@@ -1127,6 +1127,14 @@
       "decorators": [],
       "description": "Hub central de logs structurés de Nodefony — conforme RFC 5424. Reçoit des {@link Pdu} via {@link log}, les pousse dans un ring buffer (`CircularBuffer`, O(1)), applique les filtres ({@link listenW…"
     },
+    "ILogSink": {
+      "name": "ILogSink",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/Syslog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
     "ConditionSetting": {
       "name": "ConditionSetting",
       "kind": "interface",
@@ -1165,6 +1173,14 @@
       "file": "src/nodefony/src/syslog/Syslog.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "NULL_LOG_SINK": {
+      "name": "NULL_LOG_SINK",
+      "kind": "const",
+      "file": "src/nodefony/src/syslog/Syslog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sink `/dev/null` : noop total (bench — mesure du plafond sans I/O de log)."
     },
     "IAdminRequest": {
       "name": "IAdminRequest",
@@ -2704,6 +2720,27 @@
       "implements": [],
       "decorators": [],
       "description": "Service Rollup runtime — fournit la config Rollup par défaut et le **build one-shot** des modules (`nodefony build` via {@link Module.build}). Le watch « write-only » (re-bundle dist/ sans recharge…"
+    },
+    "FileSink": {
+      "name": "FileSink",
+      "kind": "class",
+      "file": "src/nodefony/src/syslog/sinks/FileSink.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "ILogSink"
+      ],
+      "decorators": [],
+      "description": "Driver de sink fichier NON bloquant (LB.W). Écrit via `fs.write` async sur un fd persistant ouvert en append (`\"a\"`) — **un fd PAR worker** (≠ stdout partagé hérité du master) → 0 lock d'inode = le…"
+    },
+    "FileSinkOptions": {
+      "name": "FileSinkOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/sinks/FileSink.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
     },
     "ConsoleTransport": {
       "name": "ConsoleTransport",
@@ -11181,6 +11218,9 @@
       "IRealtimeSocket": [
         "RealtimeClient"
       ],
+      "ILogSink": [
+        "FileSink"
+      ],
       "ITransport": [
         "ConsoleTransport",
         "FileTransport",
@@ -12598,6 +12638,12 @@
       "CommandArgs": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "NULL_LOG_SINK": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "FileSink": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "Rollup": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
@@ -12929,6 +12975,9 @@
       ],
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "ILogSink": [
+        "src/nodefony/src/syslog/sinks/FileSink.ts"
       ],
       "entityRegistry": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",

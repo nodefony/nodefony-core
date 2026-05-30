@@ -21,7 +21,11 @@ export { default as Builder } from "./command/Builder";
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 export { default as Syslog } from "./syslog/Syslog";
+export { NULL_LOG_SINK } from "./syslog/Syslog";
+export type { ILogSink } from "./syslog/Syslog";
 export { default as Pdu } from "./syslog/Pdu";
+export { FileSink } from "./syslog/sinks/FileSink";
+export type { FileSinkOptions } from "./syslog/sinks/FileSink";
 export {
   ConsoleTransport,
   FileTransport,
