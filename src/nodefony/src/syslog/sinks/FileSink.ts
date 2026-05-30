@@ -77,9 +77,31 @@ export class FileSink implements ILogSink {
     if (!this.#writing) this.#drain();
   }
 
-  // stderr (sévérité ≤ 3) → même fd, même file FIFO → ordre causal préservé.
+  /**
+   * stderr (sévérité ≤ 3 — ERROR/CRITIC/ALERT/EMERGENCY) → DURABLE même crash.
+   * Écrit en `writeSync` IMMÉDIAT hors buffer : un fatal n'est jamais perdu si le
+   * process est tué (SIGKILL/OOM) avant le drain async. En mode `sync`, `writeOut`
+   * fait déjà le `writeSync`. fd PAR worker + O_APPEND → write atomique ; best-effort
+   * sur erreur I/O (un logger ne throw jamais).
+   *
+   * ⚠️ Ordre : on NE ré-écrit PAS un chunk stdout async en vol (`#inFlight`, déjà
+   * soumis à `fs.write` → le ré-écrire = doublon kernel inévitable, non annulable).
+   * Conséquence assumée : un fatal peut atterrir juste AVANT un stdout encore en
+   * vol/bufferisé. Les timestamps par ligne (`HH:MM:SS.mmm`) font foi pour relire
+   * l'ordre causal. La durabilité du fatal prime sur l'ordre strict avec des stdout
+   * non-durables (perdus de toute façon au SIGKILL en mode async).
+   */
   writeErr(s: string): void {
-    this.writeOut(s);
+    if (this.#closed) return;
+    if (this.#sync) {
+      this.writeOut(s); // mode sync → writeOut écrit déjà en writeSync
+      return;
+    }
+    try {
+      writeSync(this.#fd, s); // durable immédiat, hors buffer async
+    } catch {
+      // I/O — ne jamais throw dans un logger.
+    }
   }
 
   #drain(): void {

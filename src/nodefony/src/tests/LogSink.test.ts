@@ -48,11 +48,24 @@ describe("Log sink driver (LB.W)", () => {
       assert.ok(fs.readFileSync(tmpFile, "utf8").includes("x\n"));
     });
 
-    it("writeErr partage le même fd → ordre causal préservé", async () => {
+    it("writeErr (fatal) est DURABLE immédiatement — sync hors buffer, jamais perdu au crash", () => {
+      const sink = new FileSink({ path: tmpFile });
+      sink.writeErr("FATAL\n");
+      // PAS de await ni close : en mode async, writeOut ne serait pas encore drainé,
+      // mais writeErr (sévérité ≤ 3) doit être SUR DISQUE tout de suite (durable même
+      // si SIGKILL/OOM avant le drain async).
+      assert.ok(
+        fs.readFileSync(tmpFile, "utf8").includes("FATAL\n"),
+        "le fatal doit être écrit en sync immédiat",
+      );
+      sink.close();
+    });
+
+    it("writeErr après un stdout drainé → ordre causal out→err préservé", async () => {
       const sink = new FileSink({ path: tmpFile });
       sink.writeOut("out\n");
-      sink.writeErr("err\n");
-      await wait();
+      await wait(); // laisse le stdout async se drainer (plus de write en vol)
+      sink.writeErr("err\n"); // pending vide → writeSync direct, ordonné après "out"
       sink.close();
       assert.strictEqual(fs.readFileSync(tmpFile, "utf8"), "out\nerr\n");
     });
