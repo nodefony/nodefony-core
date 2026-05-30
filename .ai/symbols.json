@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-30T10:45:11.135Z",
+  "generated": "2026-05-30T11:08:38.628Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 784,
-    "symbols": 1476,
+    "files": 785,
+    "symbols": 1480,
     "classes": 233,
-    "interfaces": 357,
+    "interfaces": 360,
     "types": 185,
     "enums": 2,
-    "functions": 239,
+    "functions": 240,
     "constants": 460
   },
   "symbols": {
@@ -4590,6 +4590,15 @@
       "exported": true,
       "module": "@nodefony/http",
       "extends": null
+    },
+    "RouteMetaData": {
+      "name": "RouteMetaData",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Vue minimale d'une route exposée dans l'enveloppe `nodefony.route` (frame WS + réponse JSON). Volontairement découplée de la classe `Route` de `@nodefony/framework` : on ne diffuse PAS l'instance p…"
     },
     "MetaData": {
       "name": "MetaData",
@@ -9935,6 +9944,32 @@
       "module": "@nodefony/http",
       "description": "Teste un `Host` entrant contre une liste de `RegExp` pré-compilée."
     },
+    "IMetaDataRouteSource": {
+      "name": "IMetaDataRouteSource",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/metaData.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Forme structurelle minimale d'une route nécessaire pour bâtir l'enveloppe `nodefony.route`. Découplée de la classe `Route` de `@nodefony/framework` (pas d'import, pas de cycle, pas de fuite d'insta…"
+    },
+    "IMetaDataSource": {
+      "name": "IMetaDataSource",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/metaData.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Contexte structurel minimal nécessaire pour assembler `Context.metaData`. Volontairement découplé de `Context` (typage par forme, comme `IParamArgContext`) → {@link buildMetaData} est une fonction …"
+    },
+    "buildMetaData": {
+      "name": "buildMetaData",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/metaData.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Assemble l'enveloppe `metaData` d'une requête EN PLACE (builder monomorphe) : met à jour les champs de `target.nodefony` dans un ordre fixe → V8 garde une hidden class stable et inline les écriture…"
+    },
     "sanitizeRequestId": {
       "name": "sanitizeRequestId",
       "kind": "function",
@@ -11922,7 +11957,6 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "Controller": [
@@ -13415,6 +13449,9 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "Statics": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "WebSocketState": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "resolveTraceparent": [
@@ -15186,8 +15223,15 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
-      "Data": [
+      "buildMetaData": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+      ],
+      "IMetaDataSource": [
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+      ],
+      "Data": [
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/metaData.ts"
       ],
       "cookiesParser": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
@@ -15209,6 +15253,9 @@
       ],
       "AfterResponseHandler": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+      ],
+      "MetaData": [
+        "src/packages/@nodefony/http/nodefony/src/context/metaData.ts"
       ],
       "IWsCookie": [
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"

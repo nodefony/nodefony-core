@@ -10,11 +10,12 @@ import {
   nodefonyError,
   //EnvironmentType,
   //DebugType,
-  extend,
   Scope,
 } from "nodefony";
 import type { IProfilerQuery } from "nodefony";
 import type { Resolver, Router } from "@nodefony/framework";
+import { buildMetaData } from "./metaData.js";
+import type { IMetaDataSource } from "./metaData.js";
 import { WebSocketServer } from "ws";
 import http2 from "node:http2";
 import http from "node:http";
@@ -225,39 +226,20 @@ class Context extends Service implements IContextInterface {
     // });
   }
 
+  /**
+   * Assemble l'enveloppe `metaData` de la requête (`nodefony.*` + `route`
+   * snapshot per-requête + overrides appelant). Délègue au builder monomorphe
+   * pur {@link buildMetaData} — pas de `extend(true, …)` (deep-clone + dispatch
+   * polymorphe inutiles : `this.metaData` est per-requête, jamais partagé). `this`
+   * satisfait structurellement {@link IMetaDataSource} (kernel/request/scheme/
+   * requestId/resolver) → zéro alloc d'objet intermédiaire.
+   */
   setMetaData(obj: Record<string, unknown> = {}): Data {
-    const resolver = this.resolver;
-    // Snapshot MINIMAL per-requête. Deux raisons :
-    //  1. Correction — on ne diffuse JAMAIS l'instance `Route` partagée
-    //     (statique) : ses variables matchées seraient écrasées par toute
-    //     requête/connexion WS concurrente sur la même route (bleed).
-    //  2. Perf — `extend(true, …)` deep-clone TOUT ce qu'on lui passe. L'ancien
-    //     code clonait l'objet Route entier (RegExp `pattern`, `hostRegexp[]`,
-    //     constructeur `controller`, `defaults`, `requirements`, `hash`…) à
-    //     CHAQUE réponse JSON et CHAQUE frame WS — alors qu'aucun consommateur
-    //     (client prod inclus) ne lit ces champs. On clone 3 scalaires.
-    // `getMatchedParams()` lit les valeurs de CETTE requête.
-    const route =
-      resolver && resolver.route
-        ? {
-            name: resolver.route.name,
-            path: resolver.route.path,
-            variablesMap: resolver.getMatchedParams(),
-          }
-        : undefined;
-    let ele = {
-      nodefony: {
-        name: this.kernel?.projectName,
-        version: this.kernel?.version,
-        url: this.request?.url,
-        environment: this.kernel?.environment,
-        debug: this.kernel?.debug,
-        scheme: this.scheme,
-        requestId: this.requestId,
-        route,
-      },
-    };
-    return (this.metaData = extend(true, this.metaData, ele, obj));
+    return buildMetaData(
+      this.metaData,
+      this as unknown as IMetaDataSource,
+      obj,
+    );
   }
 
   setScheme(): SchemeType {

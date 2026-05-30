@@ -38,12 +38,11 @@ import websocketSecureServer from "../service/servers/server-websocket-secure";
 import Statics from "./servers/server-static";
 import WebsocketContext from "../src/context/websocket/WebsocketContext";
 import HttpContext from "../src/context/http/HttpContext";
-import Context, { HTTPMethod } from "../src/context/Context";
+import Context, { HTTPMethod, WebSocketState } from "../src/context/Context";
 import clc from "cli-color";
 import Certicates from "./certificates";
 import SessionsService from "./sessions/sessions-service";
 import Session from "../src/session/session";
-import { Route } from "@nodefony/framework";
 import { Firewall } from "@nodefony/security";
 import DefaultErrorRenderer from "./error-renderer";
 import type { IErrorRenderer } from "../interfaces/IErrorRenderer";
@@ -83,10 +82,24 @@ export type responseTimeoutType = "http" | "https" | "http2" | "http3";
 export type SchemeType = "http" | "https" | "ws" | "wss";
 
 export interface WsMetaData {
-  type: "message" | "handshake";
+  type?: "message" | "handshake";
+  state?: WebSocketState;
   messageType?: "utf8" | "binary";
-  protocol?: string;
+  protocol?: string | null;
   id?: string;
+}
+
+/**
+ * Vue minimale d'une route exposée dans l'enveloppe `nodefony.route` (frame WS
+ * + réponse JSON). Volontairement découplée de la classe `Route` de
+ * `@nodefony/framework` : on ne diffuse PAS l'instance partagée (statique) —
+ * seulement un snapshot per-requête. Casse aussi l'import valeur runtime
+ * `http → framework` (cycle).
+ */
+export interface RouteMetaData {
+  name: string;
+  path?: string;
+  variablesMap: Record<string, unknown>;
 }
 
 export interface MetaData {
@@ -98,8 +111,9 @@ export interface MetaData {
   token?: string;
   method?: HTTPMethod;
   scheme?: SchemeType;
+  requestId?: string;
   websocket?: WsMetaData;
-  route?: Route;
+  route?: RouteMetaData;
 }
 
 export interface Data {
