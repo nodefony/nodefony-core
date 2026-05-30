@@ -17,6 +17,10 @@ export interface ISyslog {
   missed: number;
   invalid: number;
   valid: number;
+  /** Cumul monotone des logs de sévérité 0–3 (ERROR/CRITIC/ALERT/EMERGENCY). */
+  errorTotal: number;
+  /** Sous-ensemble CRITIQUE (sévérité 0–2 : CRITIC/ALERT/EMERGENCY). */
+  criticTotal: number;
   start: number;
   async: boolean;
 

@@ -26,6 +26,23 @@ export type { ILogSink } from "./syslog/Syslog";
 export { default as Pdu } from "./syslog/Pdu";
 export { FileSink } from "./syslog/sinks/FileSink";
 export type { FileSinkOptions } from "./syslog/sinks/FileSink";
+// Log Backplane (LB.0/LB.1) — axe DESTINATION queryable (≠ ILogSink write texte).
+export { pduToRecord } from "./syslog/drivers/ILogDriver";
+export type {
+  ILogDriver,
+  ILogDriverCapabilities,
+  ILogQueryCriteria,
+  ILogQueryResult,
+  ILogRecord,
+} from "./syslog/drivers/ILogDriver";
+export { filterPdus } from "./syslog/drivers/filterPdus";
+export { createMemoryLogDriver } from "./syslog/drivers/MemoryLogDriver";
+export {
+  registerLogDriver,
+  setActiveLogDriver,
+  getActiveLogDriver,
+  listLogDrivers,
+} from "./syslog/drivers/logDriverRegistry";
 export {
   ConsoleTransport,
   FileTransport,

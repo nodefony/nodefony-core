@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-30T21:09:32.889Z",
+  "generated": "2026-05-30T21:48:45.840Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 787,
-    "symbols": 1494,
+    "files": 791,
+    "symbols": 1506,
     "classes": 234,
-    "interfaces": 364,
-    "types": 188,
+    "interfaces": 369,
+    "types": 187,
     "enums": 2,
-    "functions": 242,
+    "functions": 250,
     "constants": 464
   },
   "symbols": {
@@ -2720,6 +2720,115 @@
       "implements": [],
       "decorators": [],
       "description": "Service Rollup runtime — fournit la config Rollup par défaut et le **build one-shot** des modules (`nodefony build` via {@link Module.build}). Le watch « write-only » (re-bundle dist/ sans recharge…"
+    },
+    "filterPdus": {
+      "name": "filterPdus",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/filterPdus.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Filtre PUR d'un tableau de Pdu selon des critères — **0 I/O, 0 état, testable sans serveur**. C'est LA logique de filtrage du Log Backplane, réutilisée par le driver `memory` (sur `syslog.ringStack…"
+    },
+    "ILogDriver": {
+      "name": "ILogDriver",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/ILogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Contrat du **Log Backplane** (axe DESTINATION queryable, LB.0). À NE PAS confondre avec {@link ILogSink} (LB.W) : `ILogSink` écrit la **ligne texte** déjà coalescée (`writeOut(s: string)`) vers std…"
+    },
+    "ILogDriverCapabilities": {
+      "name": "ILogDriverCapabilities",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/ILogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Capacités déclarées d'un driver (introspection Studio + garde-fous endpoint)."
+    },
+    "ILogQueryCriteria": {
+      "name": "ILogQueryCriteria",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/ILogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Critères de requête — tous optionnels, combinés en **AND**. Vide = tout (borné par `limit`). Les comparaisons string sont insensibles à la casse. `requestId` matche **exactement** (trace full-stack…"
+    },
+    "ILogRecord": {
+      "name": "ILogRecord",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/ILogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Forme **wire** d'un Pdu (isomorphe) — sérialisation stable partagée par TOUTES les façades (endpoint data-plane, canal `syslog:stream`, drivers). Le front réhydrate via `Object.assign(new Pdu(\"\"), …"
+    },
+    "ILogQueryResult": {
+      "name": "ILogQueryResult",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/ILogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat d'une requête : enregistrements (récents d'abord) + méta de pagination."
+    },
+    "pduToRecord": {
+      "name": "pduToRecord",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/ILogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sérialise un Pdu en {@link ILogRecord} (forme wire). Source unique de la projection Pdu→wire : réutilisée par {@link filterPdus} (driver memory) ET par le producteur data-plane `syslog` (framework)…"
+    },
+    "registerLogDriver": {
+      "name": "registerLogDriver",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Enregistre (ou remplace) un driver par son nom. Si aucun driver actif n'est encore défini, le premier enregistré devient actif (défaut sain)."
+    },
+    "setActiveLogDriver": {
+      "name": "setActiveLogDriver",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Sélectionne le driver actif par nom (relecture des logs)."
+    },
+    "getActiveLogDriver": {
+      "name": "getActiveLogDriver",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Driver actif (relecture), ou `null` si aucun n'est encore enregistré/câblé."
+    },
+    "listLogDrivers": {
+      "name": "listLogDrivers",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Liste des drivers enregistrés (introspection Studio / tests / data-plane)."
+    },
+    "_resetLogDriverRegistry": {
+      "name": "_resetLogDriverRegistry",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Réinitialise le registre (tests uniquement — isole l'état module-level entre cas). Hors tests, le registre vit pour la durée du process."
+    },
+    "createMemoryLogDriver": {
+      "name": "createMemoryLogDriver",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Driver `memory` (LB.1) — le **ring buffer du Syslog EST le stockage**. Aucun write dédié : le ring est alimenté par `Syslog.pushStack` sur le hot path. Le driver n'ajoute que la **relecture** (`que…"
     },
     "FileSink": {
       "name": "FileSink",
@@ -11612,6 +11721,7 @@
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
         "src/nodefony/src/syslog/transports/SyslogTransport.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
       ],
       "Kernel": [
@@ -11810,6 +11920,9 @@
         "src/nodefony/src/types/ISyslog.ts",
         "src/nodefony/src/types/ITransport.ts",
         "src/nodefony/src/client/debugbar/model.ts",
+        "src/nodefony/src/syslog/drivers/filterPdus.ts",
+        "src/nodefony/src/syslog/drivers/ILogDriver.ts",
+        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
         "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
         "src/nodefony/src/syslog/transports/FileTransport.ts",
         "src/nodefony/src/syslog/transports/HttpTransport.ts",
@@ -12683,6 +12796,16 @@
       "FileSink": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "createMemoryLogDriver": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "registerLogDriver": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "setActiveLogDriver": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
       "Rollup": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
@@ -13014,6 +13137,24 @@
       ],
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "pduToRecord": [
+        "src/nodefony/src/syslog/drivers/filterPdus.ts"
+      ],
+      "ILogQueryCriteria": [
+        "src/nodefony/src/syslog/drivers/filterPdus.ts",
+        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
+      "ILogQueryResult": [
+        "src/nodefony/src/syslog/drivers/filterPdus.ts"
+      ],
+      "ILogDriver": [
+        "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts"
+      ],
+      "filterPdus": [
+        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts"
       ],
       "ILogSink": [
         "src/nodefony/src/syslog/sinks/FileSink.ts"
@@ -13385,6 +13526,12 @@
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
+      "getActiveLogDriver": [
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
+      "listLogDrivers": [
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "IFrontPreset": [
         "src/packages/@nodefony/frontend/nodefony/interfaces/IFrontBuilder.ts",

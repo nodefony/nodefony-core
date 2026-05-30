@@ -14,6 +14,11 @@ import Command, { CommandArgs } from "../command/Command";
 import { Severity } from "../syslog/Pdu";
 import Syslog, { NULL_LOG_SINK } from "../syslog/Syslog";
 import { FileSink } from "../syslog/sinks/FileSink";
+import { createMemoryLogDriver } from "../syslog/drivers/MemoryLogDriver";
+import {
+  registerLogDriver,
+  setActiveLogDriver,
+} from "../syslog/drivers/logDriverRegistry";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
@@ -45,6 +50,14 @@ export interface TypeKernelOptions extends DefaultOptionsService {
     driver?: "stdout" | "file" | "null";
     /** Options du driver "file" (chemin du log ; défaut logs/nodefony-<pid>.log ; sync=write direct). */
     file?: { path?: string; sync?: boolean };
+    /**
+     * Driver du **Log Backplane** (axe DESTINATION queryable, LB.0+) — où l'on
+     * RELIT les logs : "memory" (défaut, ring buffer ; dev) | "file"/"elastic"/
+     * "loki" (LB.2+, si le driver est enregistré). Orthogonal à `driver` (sink
+     * write texte) et au bus temps réel `syslog:stream`. En prod = figé ici/env
+     * (12-factor) ; le switch à la volée est une action de contrôle dev-only.
+     */
+    queryDriver?: string;
   };
 }
 
@@ -824,6 +837,27 @@ class Kernel extends Service implements IKernel {
       Syslog.setLogSink(NULL_LOG_SINK);
     } else {
       Syslog.setLogSink(null); // stdout (défaut isomorphe)
+    }
+    // ── Log Backplane (LB.1) — axe DESTINATION queryable (≠ sink write ci-dessus,
+    //    ≠ bus temps réel syslog:stream). Le driver `memory` relit le ring buffer
+    //    du syslog (source injectée lazy → lit le syslog courant à la query).
+    //    Défaut dev ; `file`-JSONL / `elastic`-`loki` (Node-only, LB.2+) = drivers
+    //    enregistrés à part. Switch à la volée = action de contrôle dev-only (Studio).
+    registerLogDriver(
+      createMemoryLogDriver(() => this.syslog?.ringStack ?? []),
+    );
+    const queryDriver = logCfg?.queryDriver ?? "memory";
+    try {
+      setActiveLogDriver(queryDriver);
+    } catch {
+      // Driver configuré non enregistré (ex. "elastic" sans son module) → fallback
+      // "memory" (toujours présent) + avertissement. Jamais de crash au boot.
+      this.syslog?.log(
+        `Log query driver "${queryDriver}" introuvable — fallback "memory".`,
+        "WARNING",
+        "SYSLOG",
+      );
+      setActiveLogDriver("memory");
     }
     // CLI prend la priorité absolue sur la config.
     // La config log.debug n'est utilisée qu'en mode programmatique (sans CLI).
