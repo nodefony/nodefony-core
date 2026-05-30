@@ -309,8 +309,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     type: ServerType,
   ): Promise<HttpContext> {
     const scope = this.container?.enterScope("request");
-    const log = clc.cyan.bgBlue(`${request.url}`);
-    this.log(`${log}`, "DEBUG", `${type}`);
+    // Perf (L1) — debug off (prod / dev sans -d) : ne RIEN allouer par requête.
+    // `this.log(...)` construit TOUJOURS un Pdu et `clc.cyan.bgBlue(url)` une
+    // string ANSI + 2 templates — tous jetés si DEBUG n'est pas affiché. Guard
+    // sur `kernel.debug` (même flag que http-kernel.ts:456) → 0 alloc en prod.
+    if (this.kernel?.debug) {
+      this.log(clc.cyan.bgBlue(`${request.url}`), "DEBUG", `${type}`);
+    }
     return this.handleHttp(
       scope as Scope,
       request,
