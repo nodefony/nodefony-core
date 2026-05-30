@@ -7,7 +7,7 @@ import { Severity, Msgid, Message, nodefonyError, Scope } from "nodefony";
 import Ws from "ws";
 import type { IncomingMessage } from "node:http";
 import WebsocketResponse from "./Response.js";
-import { Resolver, Route } from "@nodefony/framework";
+import type { Resolver, Route } from "@nodefony/framework";
 import { URL } from "node:url";
 import { HTTPMethod } from "../Context.js";
 import HttpError from "../../errors/httpError.js";

@@ -14,7 +14,7 @@ import {
   Scope,
 } from "nodefony";
 import type { IProfilerQuery } from "nodefony";
-import { Resolver, Router } from "@nodefony/framework";
+import type { Resolver, Router } from "@nodefony/framework";
 import { WebSocketServer } from "ws";
 import http2 from "node:http2";
 import http from "node:http";

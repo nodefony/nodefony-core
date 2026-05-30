@@ -12,8 +12,8 @@ import {
   nodefonyError,
   RequestContext,
 } from "nodefony";
-import { Resolver, Router } from "@nodefony/framework";
-import { Controller } from "@nodefony/framework";
+import type { Resolver, Router } from "@nodefony/framework";
+import type { Controller } from "@nodefony/framework";
 import HttpError from "../src/errors/httpError";
 import {
   buildTrustProxy,
