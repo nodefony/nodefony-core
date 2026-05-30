@@ -23,9 +23,12 @@ import "./nodefony/entity/user";
   "@nodefony/drizzle",
   "@nodefony/http",
   "@nodefony/framework",
-  // Accès Redis générique — chargé AVANT realtime pour que le driver backplane
-  // `redis` (registre) trouve RedisService au boot (fan-out cross-pod cluster).
-  "@nodefony/redis",
+  // Accès Redis générique — REQUIS UNIQUEMENT pour le backplane realtime driver
+  // `redis` (fan-out CROSS-pod multi-host). Avec le défaut IPC (`driver:"cluster"`,
+  // intra-pod), il est inutile → commenté : son auto-connexion au boot (3 conns
+  // main/publish/subscribe) provoquait un storm NOAUTH qui BLOQUAIT le boot cluster.
+  // Décommenter + lancer avec REDIS_PASSWORD=… pour le fan-out cross-pod (Phase 16).
+  // "@nodefony/redis",
   // Couche realtime serveur — Module class minimale aujourd'hui (P13.0 :
   // rapatriement RealtimeHub/RealtimeController/IBackplane depuis framework).
   // Doit être après framework (peerDep) et avant security qui s'y greffera (P6).

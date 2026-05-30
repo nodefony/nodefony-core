@@ -228,13 +228,14 @@ const config = {
   // dans index.ts). Décommenter ICI ET dans index.ts pour réactiver mongoose.
   // "module-mongoose": mongoose,
   "module-security": security,
-  // Backplane realtime = driver `redis` (registre) → fan-out cross-pod via Redis
-  // pub/sub en cluster. Connexion Redis depuis `@nodefony/redis` (défaut
-  // localhost:6379 ; password/host par env REDIS_PASSWORD/REDIS_HOST au lancement).
-  // ⚠️ Lever EFFECTIF aujourd'hui = env `NODEFONY_REALTIME_DRIVER=redis` : cet
-  // override `module-realtime` est appliqué à onPreBoot, APRÈS la validation Zod
-  // de realtime (onRegister) → ignoré (chantier ordering config à corriger).
-  "module-realtime": { backplane: { driver: "redis" } },
+  // Backplane realtime = driver `cluster` (IPC intra-pod, master relay) par DÉFAUT :
+  // ZÉRO dépendance externe. Mono-process → hub local (factory → null) ; cluster
+  // (`--workers N`) → fan-out IPC entre workers du même pod. Redis (`driver:"redis"`
+  // + REDIS_PASSWORD) = OPT-IN pour le fan-out CROSS-pod multi-host (Phase 16).
+  // Pourquoi pas redis par défaut : exiger Redis faisait planter le boot cluster en
+  // storm NOAUTH (RedisService lazy → 0 connexion tant que personne ne demande un
+  // client ; avec driver redis, le backplane en demandait un → storm si Redis KO).
+  "module-realtime": { backplane: { driver: "cluster" } },
 };
 
 export default config;

@@ -36,12 +36,12 @@ switch (kernel?.environment) {
     certificates.privateKeyPath = path.resolve(
       certificates.path,
       "server",
-      "privkey.pem"
+      "privkey.pem",
     );
     certificates.certPath = path.resolve(
       certificates.path,
       "server",
-      "cert.pem"
+      "cert.pem",
     );
     certificates.caPath = "";
 }
@@ -49,6 +49,13 @@ switch (kernel?.environment) {
 export default {
   rejectUnauthorized,
   certificates,
+  // Barrière Host (anti Host-header injection) — lue par `compileTrustedHosts`.
+  // Le domaine canonique (`kernel.domain` = 127.0.0.1) est TOUJOURS accepté ; en
+  // `development` le loopback (localhost/127/::1) est ajouté auto, mais PAS en prod.
+  // On liste donc localhost + 127.0.0.1 pour pouvoir taper le serveur en prod/cluster
+  // local via les deux noms. NB : `domainAlias` (niveau kernel, config.ts) est LEGACY
+  // et n'est plus consommé — `trustedHosts` est le champ vivant du matcher domaine.
+  trustedHosts: ["localhost", "127.0.0.1"],
   session: {
     // Stockage de session via @nodefony/drizzle (orm-core). Sequelize reste
     // chargé pour les tests multi-ORM, mais n'héberge plus les sessions.

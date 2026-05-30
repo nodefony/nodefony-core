@@ -88,8 +88,24 @@ fi
 
 # ── 3. SPAWN detached (rm log d'abord pour éviter faux positif READY) ────────
 if [ "$MODE" = "cluster" ]; then
-  echo ">>> SPAWN nodefony ${DEBUG_FLAG:+-d }cluster --workers $WORKERS (detached, prod front — pas de Vite)"
-  echo ">>> NB cluster : env=production → front non servi tant que renderProdTags() (14.2) ; API/observabilité OK. Si boot KO → 'npm run build' racine (dist prod périmé)."
+  # ⚠️ Le runtime cluster (prod) lit la config + `@modules()` depuis le DIST root
+  # (`dist/index.js`), PAS la source → toute modif de `nodefony/config/**` ou
+  # `index.ts` DOIT être recompilée AVANT le boot, sinon STALE (vécu douloureux :
+  # backplane redis fantôme bloquant le boot, trustedHosts/localhost périmés,
+  # @modules d'hier absents). `start.sh` ne rebuildait QUE le module test → on
+  # rebuild le ROOT ici (turbo + `rollup -c`). cf [[feedback_root_dist_stale_modules]].
+  echo ">>> BUILD root (turbo + rollup -c) — config/@modules prod lus depuis dist/"
+  (cd "$ROOT" && npm run build 2>&1 | grep -iE "Tasks:" | tail -1)
+  # Front PROD (P14.5) : en prod le front n'est PAS servi par Vite mais en STATIQUE
+  # depuis les bundles Vite COMPILÉS — renderProdTags lit outDir/.vite/manifest.json.
+  # SANS ce build → /nodefony rend un shell sans <script> et /_assets/* en 404
+  # (= le "Studio 404 en prod"). Idempotent : skip les entries au manifest frais.
+  echo ">>> BUILD front prod (vite build par entry, idempotent)"
+  (cd "$ROOT" && npm run build:front 2>&1 | grep -iE "built:|skipped|failed" | tail -2)
+  # Backplane realtime = IPC intra-pod (driver "cluster", DÉFAUT de la config app) →
+  # ZÉRO dépendance Redis. Redis (fan-out CROSS-pod) = opt-in : décommenter
+  # `@nodefony/redis` dans index.ts + `driver:"redis"` (config) + REDIS_PASSWORD.
+  echo ">>> SPAWN nodefony ${DEBUG_FLAG:+-d }cluster --workers $WORKERS (detached, front prod compilé, backplane IPC)"
   ARGS="['nodefony'${DEBUG_FLAG:+, '-d'}, 'cluster', '--workers', '$WORKERS']"
 else
   echo ">>> SPAWN nodefony ${DEBUG_FLAG:+-d }development (detached, 1 process)"
@@ -160,6 +176,8 @@ probe(1);
 
 if [ "$MODE" = "cluster" ]; then
   echo ">>> UP (cluster $WORKERS workers) — https://127.0.0.1:5152 | master PID=$(cat "$PIDFILE" 2>/dev/null)"
+  echo ">>> Studio prod (front compilé) : https://127.0.0.1:5152/nodefony"
+  echo ">>>   ⚠️ via 127.0.0.1 — PAS 'localhost' (→ 401 DOMAIN Unauthorized, trustedHosts strict en prod)"
   echo ">>> Vue pod : curl -k https://127.0.0.1:5152/nodefony/realtime/api/health  → cluster:true, instanceCount:$WORKERS"
 else
   echo ">>> UP — http://127.0.0.1:5151 | https://127.0.0.1:5152 | PID=$(cat "$PIDFILE" 2>/dev/null)"
