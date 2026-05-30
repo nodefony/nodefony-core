@@ -94,6 +94,22 @@ Alice/Bob ne savent PAS qu'ils sont sur des pods différents. Seul `IBackplane` 
 - **Tests cluster sans infra (livré Bloc A étape 7)** : `tests/integration/clusterIpc.e2e.test.ts` (5 tests, suite 138/138) — `child_process.fork` 2-3 workers `tsx` qui câblent leur `getRealtimeHub()` singleton + `ClusterBackplane(processIpcTransport)`. Test joue le master : `ClusterRelay` in-process attaché aux `IRelayWorker` (adapter sur `worker.send`/`worker.on('message')`). Prouve fan-out cross-process, fan-out N>2, anti-écho strict (compteur per-worker), duplex, canal non-broadcast instance-local. Pattern réutilisable pour Bloc B/C.
 - **Tests cluster Redis/Kafka** : `testcontainers-node` (peerDep dev à ajouter en Bloc B).
 
+## Perf — plan S1 : mutualiser le `JSON.stringify` du fan-out (FUTUR, déclencheur = grand fan-out)
+
+> **Statut : REPORTÉ** (analysé + mesuré 2026-05-30). Le kit perf `project_request_cycle_perf_plan_kit` §3 l'annonçait « gratuit / 0 risque » — **FAUX**. À faire **le jour où un canal à grand fan-out existe** (chat/notif 100+ abonnés). Tant que les broadcasts sont santé/stats/syslog (basse cadence coalescée 200 ms + 1-10 abonnés Studio) → gain négligeable, **ne pas faire**.
+
+**Constat (chaîne réelle)** : `RealtimeHub.#fanout` (`server/RealtimeHub.ts:247`) appelle `sink(payload)` **N×** (1 par abonné). Chaque `sink = (payload) => peer.notify(channel, payload)` (`server/RealtimeController.ts:346`) → `peer.send` = `(frame) => transport.send(JSON.stringify(frame))` (`:209`). Pour un broadcast, la frame `{jsonrpc:"2.0", method:channel, params:payload}` est **IDENTIQUE** pour tous → le `JSON.stringify` est répété **N fois** pour un résultat unique. Le hub est **agnostique** (ne connaît pas le JSON-RPC) → la mutualisation doit lui fournir un sérialiseur.
+
+**Plan d'exécution (RÉTRO-COMPATIBLE — 0 casse)** :
+
+1. `ChannelSink = (payload: unknown, serialized?: string) => void` — 2ᵉ arg **optionnel** ; les sinks existants `(payload) => …` l'ignorent (canaux non-broadcast inchangés).
+2. `JsonRpcPeer` : extraire un helper **source unique** `buildNotification(method, params): JsonRpcNotification`, utilisé par `notify()` ET par le serialize (évite la divergence de format).
+3. Hub `subscribe(channel, sink, factory, serialize?)` : `serialize?: (payload) => string` optionnel, mémorisé dans `ChannelState.serialize`.
+4. `#fanout(st, payload)` : si `st.sinks.size > 1 && st.serialize` → `const raw = st.serialize(payload)` **1×**, puis `for (sink of sinks) sink(payload, raw)`. Sinon comportement actuel (`sink(payload)`).
+5. `RealtimeController` : `sink = (p, raw) => raw !== undefined ? transport.send(raw) : peer.notify(channel, p)` ; passer `serialize = (p) => JSON.stringify(JsonRpcPeer.buildNotification(channel, p))` à `subscribe`. ⚠️ `transport.send(raw)` doit reproduire EXACTEMENT `peer.send` (notification sans id → aucun tracking sauté).
+
+**Gain** : N `JSON.stringify` → **1 par publish** (à fan-out N). **Gates** : vitest realtime + `nodefony-check-memory-health` (WS) + bench dédié **grand fan-out** (1 canal, 100+ sockets) — surtout PAS `/als-test/state` (HTTP, hors sujet). Cf `project_request_cycle_perf_plan_kit` §3 (S1) + `feedback_observability_no_prod_impact`.
+
 ## API Studio (cible — surfacée dans `/nodefony/documentation`)
 
 - `GET /nodefony/realtime/api/health` → IRealtimeHealth (snapshot)
