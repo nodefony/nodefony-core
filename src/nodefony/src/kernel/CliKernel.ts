@@ -418,7 +418,10 @@ class CliKernel extends Cli {
       // après `new CliKernel()`, donc figer au constructor ne marcherait pas.
       const pid =
         this.environment === "development" ? "" : this.pid?.toString();
-      Syslog.normalizeLog(pdu, pid);
+      // rawLog = write direct sur process.stdout/stderr (1 write, sans overhead
+      // console) → passe par le sink bufférisable (cf Syslog.setOutputBuffering).
+      // normalizeLog passait par console.* → 1 syscall non coalescible/log.
+      Syslog.rawLog(pdu, pid);
     });
   }
 

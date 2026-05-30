@@ -125,7 +125,22 @@ syslog.logMultiple("ERROR", a, b) // → Pdu, payload=[a,b] si >1 arg, sévérit
 - `conditionOptions("development", true)` → severity <= 7 (DEBUG)
 - `conditionOptions(other, debug)` → severity <= 6 ou <= 7 selon debug
 
-**Sortie console** : `Syslog.normalizeLog(pdu)` via `Syslog.wrapper(pdu)` → couleurs cli-color
+**Sortie console** : `Syslog.normalizeLog(pdu)` (via `console.*`) OU `Syslog.rawLog(pdu)`
+(write direct `process.stdout/stderr`, 0 overhead console). Le listener serveur (`CliKernel.initSyslog`)
+utilise **`rawLog`**. Couleurs via `Syslog.wrapper(pdu)`.
+
+**Bufférisation sortie (process-global, sink stdout)** — `Syslog.setOutputBuffering(mode)` / `flushOutput()`
+
+- `mode` : `"auto"` (défaut, câblé par `Kernel.initializeLog` ← `config.log.buffered`) | `true` | `false`.
+  `"auto"` = bufférise si stdout **n'est pas un TTY** (pipe/fichier) ; immédiat sur TTY.
+- Bufférisé = coalesce les writes d'un même tick en 1 `write()` via `setImmediate` (+ cap 64 KB) ;
+  flush sur `process.on("exit"/"beforeExit")`.
+- **stderr (sévérité ≤ 3) TOUJOURS immédiat** (+ flush stdout d'abord → ordre causal `2>&1`).
+- **SPINNER (-1) jamais bufférisé** (`_writeStdoutNow`, animation `\r`).
+- **Isomorphe** : `setImmediate`/`process` via `globalThis` → navigateur = pas de scheduler ⇒ `_resolveBufferOn()=false` ⇒ jamais bufférisé (retombe sur `console.*`).
+- ⚠️ **Perf** : sur un sink **local rapide (fichier)** le gain RPS est ~nul (writes cheap) — mesuré
+  2026-05-30 : logging ON≈OFF≈bufférisé (~3550 RPS @C=20). Le bénéfice réel = sink **lent/backpressuré**
+  (pipe prod → collecteur). Reste un nettoyage structurel (`rawLog` sans `util.format`/ligne).
 
 **Cycle de vie**
 

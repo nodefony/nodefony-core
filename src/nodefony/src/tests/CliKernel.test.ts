@@ -11,17 +11,19 @@ import Pdu from "../syslog/Pdu";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function interceptNormalizeLog(): { received: Pdu[]; restore: () => void } {
+// Le listener console de CliKernel.initSyslog appelle Syslog.rawLog (sink direct
+// bufférisable), plus normalizeLog (console.*) — on intercepte donc rawLog.
+function interceptRawLog(): { received: Pdu[]; restore: () => void } {
   const received: Pdu[] = [];
-  const orig = Syslog.normalizeLog;
-  Syslog.normalizeLog = (p: Pdu) => {
+  const orig = Syslog.rawLog;
+  Syslog.rawLog = (p: Pdu) => {
     received.push(p);
     return p;
   };
   return {
     received,
     restore: () => {
-      Syslog.normalizeLog = orig;
+      Syslog.rawLog = orig;
     },
   };
 }
@@ -296,7 +298,7 @@ describe("CliKernel — initSyslog()", () => {
 
     cli.initSyslog("development", false);
 
-    const { received, restore } = interceptNormalizeLog();
+    const { received, restore } = interceptRawLog();
     cli.syslog?.log("debug msg", "DEBUG");
     cli.syslog?.log("info msg", "INFO");
     restore();
@@ -318,7 +320,7 @@ describe("CliKernel — initSyslog()", () => {
 
     cli.initSyslog("development", true);
 
-    const { received, restore } = interceptNormalizeLog();
+    const { received, restore } = interceptRawLog();
     cli.syslog?.log("debug msg", "DEBUG");
     cli.syslog?.log("info msg", "INFO");
     restore();
@@ -338,7 +340,7 @@ describe("CliKernel — initSyslog()", () => {
 
     cli.initSyslog("development"); // pas de debug arg, utilise this.debug
 
-    const { received, restore } = interceptNormalizeLog();
+    const { received, restore } = interceptRawLog();
     cli.syslog?.log("debug msg", "DEBUG");
     restore();
 
@@ -355,7 +357,7 @@ describe("CliKernel — initSyslog()", () => {
 
     cli.initSyslog("development", ["ROUTER"]);
 
-    const { received, restore } = interceptNormalizeLog();
+    const { received, restore } = interceptRawLog();
     cli.syslog?.log("router debug", "DEBUG", "ROUTER");
     cli.syslog?.log("service debug", "DEBUG", "SERVICE");
     restore();
@@ -377,7 +379,7 @@ describe("CliKernel — initSyslog()", () => {
 
     cli.initSyslog("development", "*");
 
-    const { received, restore } = interceptNormalizeLog();
+    const { received, restore } = interceptRawLog();
     cli.syslog?.log("any debug", "DEBUG", "ANYTHING");
     restore();
 

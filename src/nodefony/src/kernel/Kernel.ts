@@ -12,6 +12,7 @@ import Service, { DefaultOptionsService } from "../Service";
 import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
 import { Severity } from "../syslog/Pdu";
+import Syslog from "../syslog/Syslog";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
@@ -795,6 +796,14 @@ class Kernel extends Service implements IKernel {
     if (this.options.log && !this.options.log.active) {
       return;
     }
+    // Bufférisation de la sortie console (process-global) — coalesce les writes
+    // d'un même tick en 1 syscall sous forte concurrence. "auto" (défaut) =
+    // bufférise hors TTY (pipe/fichier = prod/collecteur), immédiat sur TTY
+    // (dev). Cf Syslog.setOutputBuffering + config.log.buffered.
+    const logCfg = this.options.log as
+      | { buffered?: boolean | "auto" }
+      | undefined;
+    Syslog.setOutputBuffering(logCfg?.buffered ?? "auto");
     // CLI prend la priorité absolue sur la config.
     // La config log.debug n'est utilisée qu'en mode programmatique (sans CLI).
     if (!this.cli && !this.debug && this.options.log?.debug) {

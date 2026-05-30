@@ -21,22 +21,113 @@ const green = clc ? clc.green : (ele: string) => ele;
 // tsconfigClient `types: []`. `_proc` résolu 1× au load → coût/log négligeable.
 interface ProcStream {
   write(s: string): void;
+  isTTY?: boolean;
 }
-const _proc = (
-  globalThis as {
-    process?: { stdout?: ProcStream; stderr?: ProcStream };
-  }
-).process;
+interface ProcLike {
+  stdout?: ProcStream;
+  stderr?: ProcStream;
+  on?(event: string, cb: (...args: unknown[]) => void): void;
+}
+const _proc = (globalThis as { process?: ProcLike }).process;
 // eslint-disable-next-line no-control-regex
 const _stripAnsi = (s: string): string => s.replace(/\x1b\[[0-9;]*m/g, "");
-const writeOut = (s: string): void => {
+
+// ── Bufférisation de la sortie (process-global — un seul stdout) ─────────────
+// PROBLÈME : 1 log/requête → 1 write() stdout SYNCHRONE/requête. À 2000+ RPS,
+// ça sature l'event-loop (le pipeline lui-même fait 0.66 ms/req — le goulet
+// est l'observabilité synchrone). FIX : en mode bufférisé, on accumule les
+// lignes d'un même tick et on les écrit en 1 SEUL write() (1 syscall) au tick
+// suivant via `setImmediate`. Lossless (flush chaque tick), 0 sampling.
+//
+// `"auto"` (défaut) bufférise si stdout N'EST PAS un TTY : un humain qui regarde
+// un terminal veut chaque ligne maintenant (+ spinner) ; un pipe/fichier
+// (prod/container/collecteur) veut le débit. `isTTY` = LE signal « interactif ».
+// stderr (ERROR+) reste TOUJOURS immédiat (rare, critique, durable même crash).
+type BufferMode = "auto" | "on" | "off";
+let _bufferMode: BufferMode = "auto";
+let _bufferOn: boolean | null = null; // cache résolu (null = à recalculer)
+let _outChunks: string[] | null = null; // lazy alloc au 1er log bufférisé
+let _outBytes = 0;
+let _flushScheduled = false;
+const FLUSH_BYTES = 64 * 1024; // cap : flush anticipé si un tick logue beaucoup
+// setImmediate via globalThis (Node-only) — isomorphe : compile sous
+// tsconfigClient `types: []` et reste `undefined` au navigateur. Pas de
+// scheduler ⇒ jamais bufférisé (cf _resolveBufferOn) → le client retombe sur
+// le write direct / console.*, exactement comme avant.
+const _setImmediate = (
+  globalThis as { setImmediate?: (cb: () => void) => void }
+).setImmediate;
+
+const _resolveBufferOn = (): boolean => {
+  if (_bufferOn !== null) return _bufferOn;
+  _bufferOn = !_setImmediate
+    ? false // navigateur / pas de scheduler → jamais bufférisé (isomorphe)
+    : _bufferMode === "on"
+      ? true
+      : _bufferMode === "off"
+        ? false
+        : !_proc?.stdout?.isTTY; // "auto" → bufférise hors TTY
+  return _bufferOn;
+};
+
+// Sink BRUT (écriture immédiate) — Node : write direct ; navigateur : console.*
+// + ANSI strip. Utilisé hors buffer, par le flush, et par le SPINNER (animation
+// `\r` : jamais bufférisée, sinon les frames s'empilent au lieu de s'écraser).
+const _writeStdoutNow = (s: string): void => {
   if (_proc?.stdout) _proc.stdout.write(s);
   else console.log(_stripAnsi(s).replace(/\n$/, ""));
 };
-const writeErr = (s: string): void => {
+const _writeStderrNow = (s: string): void => {
   if (_proc?.stderr) _proc.stderr.write(s);
   else console.error(_stripAnsi(s).replace(/\n$/, ""));
 };
+
+const _flushOut = (): void => {
+  _flushScheduled = false;
+  if (_outChunks && _outChunks.length > 0) {
+    _writeStdoutNow(_outChunks.join("")); // N lignes → 1 write
+    _outChunks.length = 0;
+    _outBytes = 0;
+  }
+};
+
+const _setBufferMode = (mode: boolean | "auto"): void => {
+  _flushOut(); // ne pas abandonner de lignes en attente lors d'un switch
+  _bufferMode = mode === true ? "on" : mode === false ? "off" : "auto";
+  _bufferOn = null; // forcer la ré-résolution (override/isTTY)
+};
+
+const writeOut = (s: string): void => {
+  if (!_resolveBufferOn()) {
+    _writeStdoutNow(s);
+    return;
+  }
+  if (_outChunks === null) _outChunks = [];
+  _outChunks.push(s);
+  _outBytes += s.length;
+  if (_outBytes >= FLUSH_BYTES) {
+    _flushOut(); // cap atteint → borne la rétention mémoire d'un tick
+    return;
+  }
+  if (!_flushScheduled && _setImmediate) {
+    _flushScheduled = true;
+    _setImmediate(_flushOut); // 1 seul setImmediate/tick quel que soit le nb de logs
+  }
+};
+
+const writeErr = (s: string): void => {
+  // Flush stdout d'abord → ordre causal préservé en sortie mergée (`2>&1`).
+  if (_outChunks && _outChunks.length > 0) _flushOut();
+  _writeStderrNow(s);
+};
+
+// Filet anti-perte : vide le buffer en sortie de process (exit normal,
+// process.exit, boucle d'events vide). SIGKILL/OOM = non-interceptable →
+// perte bornée ≤ 1 tick, inhérente à tout logger bufférisé.
+if (_proc?.on) {
+  _proc.on("exit", _flushOut);
+  _proc.on("beforeExit", _flushOut);
+}
 
 type Operator = "<" | ">" | "<=" | ">=" | "==" | "===" | "!=" | "RegExp";
 type Condition = "&&" | "||";
@@ -933,9 +1024,9 @@ class Syslog extends Event implements ISyslog {
     }
     const message = pdu.payload;
     if (pdu.severity === -1) {
-      writeOut("[0G");
-      writeOut(`${green(pdu.msgid)} : ${String(message)}`);
-      writeOut("[90m[0m");
+      _writeStdoutNow("[0G");
+      _writeStdoutNow(`${green(pdu.msgid)} : ${String(message)}`);
+      _writeStdoutNow("[90m[0m");
       return pdu;
     }
     const wrap = Syslog.wrapper(pdu);
@@ -950,7 +1041,7 @@ class Syslog extends Event implements ISyslog {
   static rawLog(pdu: Pdu, pid: string = ""): Pdu {
     if (pdu.payload === "" || pdu.payload === undefined) return pdu;
     if (pdu.severity === -1) {
-      writeOut(
+      _writeStdoutNow(
         `\r${green(pdu.msgid)} : ${String(pdu.payload)}\x1b[90m\x1b[0m`,
       );
       return pdu;
@@ -969,6 +1060,29 @@ class Syslog extends Event implements ISyslog {
     const prefix = pid ? `${pid} ` : "";
     write(`${prefix}${text}${msg}\n`);
     return pdu;
+  }
+
+  /**
+   * Mode de bufférisation de la sortie console — **process-global** (un seul
+   * `process.stdout`). Câblé par {@link Kernel.initializeLog} depuis `config.log.buffered`.
+   *
+   * - `"auto"` (défaut) : bufférise si stdout n'est PAS un TTY (pipe/fichier =
+   *   prod/collecteur → débit) ; immédiat sur TTY (dev interactif → feedback + spinner).
+   * - `true` : toujours bufférisé (ex. bench dans un terminal).
+   * - `false` : jamais (ex. `tail -f` non bufférisé en debug prod).
+   *
+   * Bufférisé = coalesce les écritures d'un même tick en 1 `write()` (1 syscall).
+   * stderr (ERROR+) reste TOUJOURS immédiat. Flush les lignes en attente avant de switcher.
+   *
+   * @param mode - `true` | `false` | `"auto"`.
+   */
+  static setOutputBuffering(mode: boolean | "auto"): void {
+    _setBufferMode(mode);
+  }
+
+  /** Vide immédiatement (synchrone) le buffer stdout en attente. Idempotent. */
+  static flushOutput(): void {
+    _flushOut();
   }
 
   /**

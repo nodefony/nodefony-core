@@ -174,11 +174,21 @@ const config = {
    *
    * Override programmatique possible (custom logger, RFC 7807, NCSA, etc.) :
    *   httpKernel.setRequestLogger(new MyLogger())
+   *
+   * - `buffered` : bufférisation de la sortie console (perf débit sous forte
+   *   concurrence — coalesce les écritures d'un même tick en 1 seul syscall).
+   *     "auto" (DÉFAUT) : bufférise si stdout N'EST PAS un TTY (pipe/fichier =
+   *                       prod/container/collecteur → débit) ; immédiat sur un
+   *                       terminal (dev interactif → feedback ligne à ligne + spinner).
+   *     true            : toujours bufférisé (ex. bench dans un terminal).
+   *     false           : jamais (ex. `tail -f` non bufférisé en debug prod).
+   *   stderr (ERROR+) reste TOUJOURS immédiat (durable même crash imminent).
    */
   log: {
     active: true,
     debug: "*",
     requestFormat: "auto" as "auto" | "default" | "pretty" | "json",
+    buffered: "auto" as boolean | "auto",
   },
 
   /**

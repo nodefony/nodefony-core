@@ -671,6 +671,11 @@ describe("NODEFONY SYSLOG", () => {
   });
 
   describe("rawLog (process.stdout/stderr)", () => {
+    // En test stdout n'est pas un TTY → `auto` bufériserait writeOut et les
+    // assertions stdout synchrones échoueraient. On force le mode immédiat ici.
+    beforeEach(() => Syslog.setOutputBuffering(false));
+    afterEach(() => Syslog.setOutputBuffering("auto"));
+
     it("string payload → stdout", (done) => {
       const chunks: string[] = [];
       const orig = process.stdout.write.bind(process.stdout);
@@ -731,6 +736,95 @@ describe("NODEFONY SYSLOG", () => {
       process.stderr.write = origErr;
       assert.strict.equal(written, false);
       done();
+    });
+  });
+
+  describe("output buffering (setOutputBuffering / flushOutput)", () => {
+    afterEach(() => Syslog.setOutputBuffering("auto"));
+
+    it("buffered: coalesce N writes into a single flush", () => {
+      const chunks: string[] = [];
+      const orig = process.stdout.write.bind(process.stdout);
+      process.stdout.write = (c: unknown) => {
+        chunks.push(String(c));
+        return true;
+      };
+      try {
+        Syslog.setOutputBuffering(true);
+        Syslog.rawLog(new Pdu("buf-a", "INFO"));
+        Syslog.rawLog(new Pdu("buf-b", "INFO"));
+        // bufférisé : rien sur stdout tant qu'on n'a pas flush
+        assert.strictEqual(chunks.length, 0);
+        Syslog.flushOutput();
+        // 1 seul write coalescé contenant les 2 lignes
+        assert.strictEqual(chunks.length, 1);
+        assert.ok(chunks[0].includes("buf-a") && chunks[0].includes("buf-b"));
+      } finally {
+        process.stdout.write = orig;
+      }
+    });
+
+    it("immediate (false): chaque write part direct sur stdout", () => {
+      const chunks: string[] = [];
+      const orig = process.stdout.write.bind(process.stdout);
+      process.stdout.write = (c: unknown) => {
+        chunks.push(String(c));
+        return true;
+      };
+      try {
+        Syslog.setOutputBuffering(false);
+        Syslog.rawLog(new Pdu("imm-a", "INFO"));
+        assert.strictEqual(chunks.length, 1);
+        assert.ok(chunks[0].includes("imm-a"));
+      } finally {
+        process.stdout.write = orig;
+      }
+    });
+
+    it("stderr (ERROR) immédiat + flush du stdout en attente (ordre causal 2>&1)", () => {
+      const out: string[] = [];
+      const err: string[] = [];
+      const oOut = process.stdout.write.bind(process.stdout);
+      const oErr = process.stderr.write.bind(process.stderr);
+      process.stdout.write = (c: unknown) => {
+        out.push(String(c));
+        return true;
+      };
+      process.stderr.write = (c: unknown) => {
+        err.push(String(c));
+        return true;
+      };
+      try {
+        Syslog.setOutputBuffering(true);
+        Syslog.rawLog(new Pdu("info-pending", "INFO")); // bufférisé
+        assert.strictEqual(out.length, 0);
+        Syslog.rawLog(new Pdu("boom", "ERROR")); // stderr immédiat
+        assert.strictEqual(err.length, 1);
+        assert.ok(err[0].includes("boom"));
+        // le stdout en attente est flushé AVANT l'erreur (ordre préservé en 2>&1)
+        assert.strictEqual(out.length, 1);
+        assert.ok(out[0].includes("info-pending"));
+      } finally {
+        process.stdout.write = oOut;
+        process.stderr.write = oErr;
+      }
+    });
+
+    it("flushOutput est idempotent (no-op si buffer vide)", () => {
+      const chunks: string[] = [];
+      const orig = process.stdout.write.bind(process.stdout);
+      process.stdout.write = (c: unknown) => {
+        chunks.push(String(c));
+        return true;
+      };
+      try {
+        Syslog.setOutputBuffering(true);
+        Syslog.flushOutput();
+        Syslog.flushOutput();
+        assert.strictEqual(chunks.length, 0);
+      } finally {
+        process.stdout.write = orig;
+      }
     });
   });
 
