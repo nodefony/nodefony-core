@@ -1,16 +1,25 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import "mocha";
-import JsonAuditLogger, { severityFromStatus } from "../../service/audit-logger.js";
+import JsonAuditLogger, {
+  severityFromStatus,
+} from "../../service/audit-logger.js";
 
-function fakeHttpContext(opts: {
-  status?: number;
-  url?: string;
-  method?: string;
-  headers?: Record<string, string | string[] | undefined>;
-  error?: Error | null;
-  phases?: { name: string; startMs: number; endMs?: number; durationMs?: number }[];
-} = {}): unknown {
+function fakeHttpContext(
+  opts: {
+    status?: number;
+    url?: string;
+    method?: string;
+    headers?: Record<string, string | string[] | undefined>;
+    error?: Error | null;
+    phases?: {
+      name: string;
+      startMs: number;
+      endMs?: number;
+      durationMs?: number;
+    }[];
+  } = {},
+): unknown {
   return {
     url: opts.url ?? "/api/test",
     remoteAddress: "127.0.0.1",
@@ -30,8 +39,10 @@ function fakeHttpContext(opts: {
 describe("severityFromStatus — unit tests (P3.3)", () => {
   it("200 → INFO", () => expect(severityFromStatus(200)).to.equal("INFO"));
   it("301 → INFO", () => expect(severityFromStatus(301)).to.equal("INFO"));
-  it("404 → WARNING", () => expect(severityFromStatus(404)).to.equal("WARNING"));
-  it("405 → WARNING", () => expect(severityFromStatus(405)).to.equal("WARNING"));
+  it("404 → WARNING", () =>
+    expect(severityFromStatus(404)).to.equal("WARNING"));
+  it("405 → WARNING", () =>
+    expect(severityFromStatus(405)).to.equal("WARNING"));
   it("500 → ERROR", () => expect(severityFromStatus(500)).to.equal("ERROR"));
   it("502 → ERROR", () => expect(severityFromStatus(502)).to.equal("ERROR"));
   it("null → INFO", () => expect(severityFromStatus(null)).to.equal("INFO"));
@@ -52,7 +63,9 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
     });
 
     it("canonical fields present", () => {
-      const e = logger.renderHttp(fakeHttpContext({ status: 200, method: "POST", url: "/x" }) as never);
+      const e = logger.renderHttp(
+        fakeHttpContext({ status: 200, method: "POST", url: "/x" }) as never,
+      );
       const j = JSON.parse(e.text);
       expect(j.requestId).to.equal("audit-req-id");
       expect(j.type).to.equal("http");
@@ -68,12 +81,14 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
     });
 
     it("redacts Authorization / Cookie — presence flags only, no values", () => {
-      const e = logger.renderHttp(fakeHttpContext({
-        headers: {
-          authorization: "Bearer SECRET_TOKEN_DO_NOT_LOG",
-          cookie: "session=do-not-log; foo=bar",
-        },
-      }) as never);
+      const e = logger.renderHttp(
+        fakeHttpContext({
+          headers: {
+            authorization: "Bearer SECRET_TOKEN_DO_NOT_LOG",
+            cookie: "session=do-not-log; foo=bar",
+          },
+        }) as never,
+      );
       expect(e.text).to.not.include("SECRET_TOKEN_DO_NOT_LOG");
       expect(e.text).to.not.include("do-not-log");
       const j = JSON.parse(e.text);
@@ -89,18 +104,26 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
     });
 
     it("severity follows status (P3.3)", () => {
-      expect(logger.renderHttp(fakeHttpContext({ status: 200 }) as never).severity).to.equal("INFO");
-      expect(logger.renderHttp(fakeHttpContext({ status: 404 }) as never).severity).to.equal("WARNING");
-      expect(logger.renderHttp(fakeHttpContext({ status: 500 }) as never).severity).to.equal("ERROR");
+      expect(
+        logger.renderHttp(fakeHttpContext({ status: 200 }) as never).severity,
+      ).to.equal("INFO");
+      expect(
+        logger.renderHttp(fakeHttpContext({ status: 404 }) as never).severity,
+      ).to.equal("WARNING");
+      expect(
+        logger.renderHttp(fakeHttpContext({ status: 500 }) as never).severity,
+      ).to.equal("ERROR");
     });
 
     it("includes phases when present", () => {
-      const e = logger.renderHttp(fakeHttpContext({
-        phases: [
-          { name: "parse", startMs: 100, endMs: 101, durationMs: 1 },
-          { name: "resolve", startMs: 101, endMs: 102, durationMs: 1 },
-        ],
-      }) as never);
+      const e = logger.renderHttp(
+        fakeHttpContext({
+          phases: [
+            { name: "parse", startMs: 100, endMs: 101, durationMs: 1 },
+            { name: "resolve", startMs: 101, endMs: 102, durationMs: 1 },
+          ],
+        }) as never,
+      );
       const j = JSON.parse(e.text);
       expect(j.phases).to.be.an("array").with.lengthOf(2);
       expect(j.phases[0].name).to.equal("parse");
@@ -115,7 +138,10 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
 
     it("includes error object on exception", () => {
       const err = new TypeError("boom");
-      const e = logger.renderHttp(fakeHttpContext({ status: 500 }) as never, err);
+      const e = logger.renderHttp(
+        fakeHttpContext({ status: 500 }) as never,
+        err,
+      );
       const j = JSON.parse(e.text);
       expect(j.error).to.deep.include({ name: "TypeError", message: "boom" });
     });
@@ -123,14 +149,22 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
 
   describe("renderWebsocket", () => {
     it("type is 'ws' and includes protocol", () => {
-      const e = logger.renderWebsocket(fakeHttpContext() as never, null, "echo-protocol");
+      const e = logger.renderWebsocket(
+        fakeHttpContext() as never,
+        null,
+        "echo-protocol",
+      );
       const j = JSON.parse(e.text);
       expect(j.type).to.equal("ws");
       expect(j.protocol).to.equal("echo-protocol");
     });
 
     it("error severity ERROR", () => {
-      const e = logger.renderWebsocket(fakeHttpContext() as never, new Error("close"), null);
+      const e = logger.renderWebsocket(
+        fakeHttpContext() as never,
+        new Error("close"),
+        null,
+      );
       expect(e.severity).to.equal("ERROR");
     });
   });
@@ -139,7 +173,10 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
     it("includes stack by default in non-prod", () => {
       const devLogger = new JsonAuditLogger({ includeStack: true });
       const err = new Error("with-stack");
-      const e = devLogger.renderHttp(fakeHttpContext({ status: 500 }) as never, err);
+      const e = devLogger.renderHttp(
+        fakeHttpContext({ status: 500 }) as never,
+        err,
+      );
       const j = JSON.parse(e.text);
       expect(j.error.stack).to.be.a("string").with.length.greaterThan(0);
     });
@@ -147,7 +184,10 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
     it("omits stack when includeStack: false", () => {
       const prodLogger = new JsonAuditLogger({ includeStack: false });
       const err = new Error("no-stack");
-      const e = prodLogger.renderHttp(fakeHttpContext({ status: 500 }) as never, err);
+      const e = prodLogger.renderHttp(
+        fakeHttpContext({ status: 500 }) as never,
+        err,
+      );
       const j = JSON.parse(e.text);
       expect(j.error.stack).to.equal(undefined);
     });
@@ -156,7 +196,10 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
       const root = new Error("root cause");
       const middle = new Error("middle", { cause: root });
       const top = new Error("top", { cause: middle });
-      const e = logger.renderHttp(fakeHttpContext({ status: 500 }) as never, top);
+      const e = logger.renderHttp(
+        fakeHttpContext({ status: 500 }) as never,
+        top,
+      );
       const j = JSON.parse(e.text);
       expect(j.error.message).to.equal("top");
       expect(j.error.cause.message).to.equal("middle");
@@ -177,8 +220,13 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
     });
 
     it("includes errorType when nodefonyError-like field is present", () => {
-      const err = Object.assign(new Error("typed"), { errorType: "SecurityError" });
-      const e = logger.renderHttp(fakeHttpContext({ status: 403 }) as never, err);
+      const err = Object.assign(new Error("typed"), {
+        errorType: "SecurityError",
+      });
+      const e = logger.renderHttp(
+        fakeHttpContext({ status: 403 }) as never,
+        err,
+      );
       const j = JSON.parse(e.text);
       expect(j.error.errorType).to.equal("SecurityError");
     });
@@ -188,7 +236,83 @@ describe("JsonAuditLogger — unit tests (P3.1)", () => {
       const b = new Error("circ-b");
       (a as { cause?: unknown }).cause = b;
       (b as { cause?: unknown }).cause = a;
-      expect(() => logger.renderHttp(fakeHttpContext({ status: 500 }) as never, a)).to.not.throw();
+      expect(() =>
+        logger.renderHttp(fakeHttpContext({ status: 500 }) as never, a),
+      ).to.not.throw();
     });
+  });
+});
+
+describe("JsonAuditLogger — audit sampling (L3)", () => {
+  it("default (sampleRate=1) logs every request", () => {
+    const l = new JsonAuditLogger();
+    for (let i = 0; i < 5; i++) {
+      expect(
+        l.shouldSample(fakeHttpContext({ status: 200 }) as never),
+      ).to.equal(true);
+    }
+  });
+
+  it("sampleRate=3 keeps exactly 1 of every 3 nominal (2xx) requests", () => {
+    const l = new JsonAuditLogger({ sampleRate: 3 });
+    let logged = 0;
+    for (let i = 0; i < 9; i++) {
+      if (l.shouldSample(fakeHttpContext({ status: 200 }) as never)) logged++;
+    }
+    expect(logged).to.equal(3);
+  });
+
+  it("always logs status >= 400 regardless of sampleRate", () => {
+    const l = new JsonAuditLogger({ sampleRate: 100 });
+    expect(l.shouldSample(fakeHttpContext({ status: 404 }) as never)).to.equal(
+      true,
+    );
+    expect(l.shouldSample(fakeHttpContext({ status: 500 }) as never)).to.equal(
+      true,
+    );
+  });
+
+  it("always logs errored requests regardless of sampleRate", () => {
+    const l = new JsonAuditLogger({ sampleRate: 100 });
+    expect(
+      l.shouldSample(
+        fakeHttpContext({ status: 200 }) as never,
+        new Error("boom"),
+      ),
+    ).to.equal(true);
+    // error carried on the context (not passed explicitly) is honored too
+    expect(
+      l.shouldSample(
+        fakeHttpContext({ status: 200, error: new Error("ctx") }) as never,
+      ),
+    ).to.equal(true);
+  });
+
+  it("errors/4xx do not shift the 2xx sampling cadence (counter untouched)", () => {
+    const l = new JsonAuditLogger({ sampleRate: 3 });
+    const seq: boolean[] = [];
+    seq.push(l.shouldSample(fakeHttpContext({ status: 200 }) as never)); // counter 1 → false
+    seq.push(l.shouldSample(fakeHttpContext({ status: 500 }) as never)); // forced true, counter kept
+    seq.push(l.shouldSample(fakeHttpContext({ status: 200 }) as never)); // counter 2 → false
+    seq.push(l.shouldSample(fakeHttpContext({ status: 200 }) as never)); // counter 0 → true
+    expect(seq).to.deep.equal([false, true, false, true]);
+  });
+
+  it("clamps invalid sampleRate (< 1 / NaN) to log-all", () => {
+    for (const bad of [0, -5, Number.NaN]) {
+      const l = new JsonAuditLogger({ sampleRate: bad });
+      expect(
+        l.shouldSample(fakeHttpContext({ status: 200 }) as never),
+      ).to.equal(true);
+    }
+  });
+
+  it("logged entry shape is unchanged under sampling", () => {
+    const l = new JsonAuditLogger({ sampleRate: 1 });
+    const e = l.renderHttp(fakeHttpContext({ status: 200 }) as never);
+    const j = JSON.parse(e.text);
+    expect(j.ts).to.match(/^\d{4}-\d{2}-\d{2}T/);
+    expect(j.status).to.equal(200);
+    expect(e.msgid).to.equal("audit");
   });
 });

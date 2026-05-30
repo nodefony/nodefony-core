@@ -271,6 +271,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       requestLogger?: {
         includeStack?: boolean | null;
         maxCauseDepth?: number;
+        sampleRate?: number;
       };
     };
     let format = kernelLog.requestFormat ?? "auto";
@@ -288,7 +289,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.requestLogger = new PrettyRequestLogger();
     } else if (format === "json") {
       const advanced = kernelLog.requestLogger ?? {};
-      const opts: { includeStack?: boolean; maxCauseDepth?: number } = {};
+      const opts: {
+        includeStack?: boolean;
+        maxCauseDepth?: number;
+        sampleRate?: number;
+      } = {};
       if (
         advanced.includeStack !== null &&
         advanced.includeStack !== undefined
@@ -297,6 +302,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       }
       if (typeof advanced.maxCauseDepth === "number") {
         opts.maxCauseDepth = advanced.maxCauseDepth;
+      }
+      if (typeof advanced.sampleRate === "number") {
+        opts.sampleRate = advanced.sampleRate;
       }
       this.requestLogger = new JsonAuditLogger(opts);
     }

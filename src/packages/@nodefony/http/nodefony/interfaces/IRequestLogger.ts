@@ -29,4 +29,10 @@ export interface IRequestLogger {
     error?: Error | null,
     acceptedProtocol?: string | null,
   ): IRequestLogEntry;
+  /**
+   * Optional audit-sampling gate, evaluated by `Context.logRequest()` BEFORE
+   * `renderHttp`. Return `false` to skip the log entirely (no object alloc, no
+   * `JSON.stringify`). Absent ⇒ always log (loggers without sampling).
+   */
+  shouldSample?(context: IHttpContext, error?: Error | null): boolean;
 }

@@ -87,6 +87,18 @@ export interface JsonAuditLoggerOptions {
    * Default `5`. Prevents pathological cycles and oversized log entries.
    */
   maxCauseDepth?: number;
+  /**
+   * Sampling rate for nominal (2xx/3xx) audit logs — perf lever on the hot
+   * path (L3). `1` (default) logs every request. `N > 1` logs only 1 in N of
+   * the 2xx/3xx requests, **but always logs `status >= 400` and errored
+   * requests** (you never lose a failure). Counted with a deterministic
+   * counter — no RNG (consistent with the L2 entropy amortisation).
+   *
+   * Skipped requests never reach `renderHttp`, so they cost **zero** object
+   * allocation and zero `JSON.stringify`. Configure via
+   * `kernel.options.log.requestLogger.sampleRate`.
+   */
+  sampleRate?: number;
 }
 
 /**
@@ -99,11 +111,46 @@ export interface JsonAuditLoggerOptions {
 class JsonAuditLogger implements IRequestLogger {
   private readonly includeStack: boolean;
   private readonly maxCauseDepth: number;
+  /** Sampling divisor for 2xx/3xx logs (`1` = log all). Always ≥ 1. */
+  private readonly sampleRate: number;
+  /** Deterministic 0-based counter for `1/sampleRate` selection (no RNG). */
+  private sampleCounter = 0;
 
   constructor(opts: JsonAuditLoggerOptions = {}) {
     this.includeStack =
       opts.includeStack ?? process.env.NODE_ENV !== "production";
     this.maxCauseDepth = opts.maxCauseDepth ?? 5;
+    const rate = opts.sampleRate ?? 1;
+    // Guard: a rate < 1 (or NaN) would disable logging — clamp to 1 (log all).
+    this.sampleRate = Number.isFinite(rate) && rate >= 1 ? Math.floor(rate) : 1;
+  }
+
+  /**
+   * Decide whether the current HTTP request must be logged (audit sampling).
+   *
+   * Always `true` when `sampleRate <= 1`, on errors, and for `status >= 400`
+   * (failures are never sampled out). Otherwise selects 1 in `sampleRate` of
+   * the 2xx/3xx requests with a deterministic counter.
+   *
+   * Called by `Context.logRequest()` **before** `renderHttp`, so a sampled-out
+   * request allocates nothing and runs no `JSON.stringify`.
+   *
+   * @param context - the HTTP context being finalised
+   * @param error - error captured for this request, if any
+   * @returns `true` to render+log the entry, `false` to skip it
+   */
+  shouldSample(context: IHttpContext, error?: Error | null): boolean {
+    if (this.sampleRate <= 1) return true;
+    const ctx = context as unknown as {
+      response: { statusCode?: number } | null;
+      error?: Error | null;
+    };
+    if (error ?? ctx.error) return true;
+    const status = ctx.response?.statusCode ?? null;
+    if (status !== null && status >= 400) return true;
+    // 2xx/3xx nominal path → keep 1 every `sampleRate` (deterministic).
+    this.sampleCounter = (this.sampleCounter + 1) % this.sampleRate;
+    return this.sampleCounter === 0;
   }
 
   renderHttp(context: IHttpContext, error?: Error | null): IRequestLogEntry {
@@ -115,7 +162,9 @@ class JsonAuditLogger implements IRequestLogger {
       type: string;
       scheme: string;
       response: { statusCode?: number } | null;
-      request: { headers?: Record<string, string | string[] | undefined> } | null;
+      request: {
+        headers?: Record<string, string | string[] | undefined>;
+      } | null;
       error?: Error | null;
       phases: PhaseTiming[];
       getHost?: () => string | undefined;
@@ -166,7 +215,9 @@ class JsonAuditLogger implements IRequestLogger {
       method: string | null;
       scheme: string;
       response: { statusCode?: number } | null;
-      request: { headers?: Record<string, string | string[] | undefined> } | null;
+      request: {
+        headers?: Record<string, string | string[] | undefined>;
+      } | null;
       phases: PhaseTiming[];
       getHost?: () => string | undefined;
       getUserAgent?: () => string | undefined;

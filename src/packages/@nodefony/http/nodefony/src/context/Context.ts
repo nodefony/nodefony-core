@@ -389,6 +389,13 @@ class Context extends Service implements IContextInterface {
       if (err) this.error = err;
       const logger = this.httpKernel?.getRequestLogger();
       if (!logger) return;
+      // Audit sampling (L3): skip BEFORE renderHttp → 0 alloc, 0 stringify.
+      if (
+        logger.shouldSample &&
+        !logger.shouldSample(this as never, err as Error | null)
+      ) {
+        return;
+      }
       const entry = logger.renderHttp(this as never, err as Error | null);
       return this.log(entry.text, entry.severity, entry.msgid);
     } catch {}

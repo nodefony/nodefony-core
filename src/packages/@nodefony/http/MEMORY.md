@@ -123,6 +123,14 @@ Extension de l'`AuditErrorEntry` :
 - Tests unit : `nodefony/tests/unit/AuditLogger.test.ts` (18 tests : shape JSON, redaction, severity, phases, error)
 - **Débloque** : P3.2 pretty formatter, P3.5 erreur enrichie, P10.9 Studio logs streaming SSE/WS
 
+### Audit sampling — L3 perf (2026-05-30)
+
+- Opt-in `log.requestLogger.sampleRate` (défaut `1` = tout loguer). `N>1` = 1 req 2xx/3xx sur N, **toujours** ≥400 + erreurs.
+- Gate = `JsonAuditLogger.shouldSample(ctx, err)` (méthode optionnelle de `IRequestLogger`), appelée par `Context.logRequest()` **AVANT** `renderHttp` → skip = 0 objet/0 `JSON.stringify`.
+- Compteur **déterministe** modulo (pas de RNG — cohérent L2) ; les ≥400/erreurs n'avancent PAS le compteur (cadence 2xx stable). Clamp `<1`/NaN→1.
+- Câblé via `applyRequestLoggerFromConfig` (passe `sampleRate` à `JsonAuditLoggerOptions`). Pretty/Default loggers = pas de `shouldSample` ⇒ toujours loguer.
+- Micro-bench dist : `renderHttp` ~1365 ns/req vs `shouldSample` ~10 ns ; sampleRate=20 → poste audit 1365→78 ns/req (-94%). Défaut **iso-perf**. +7 tests sampling.
+
 ## RequestContext (ALS) — P1.4 (2026-05-16)
 
 - `RequestContext` exporté depuis `nodefony` core (`src/runtime/RequestContext.ts`)
