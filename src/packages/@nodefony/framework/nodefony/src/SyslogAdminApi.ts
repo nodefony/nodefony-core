@@ -1,6 +1,12 @@
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { redactSecrets } from "nodefony";
+import {
+  redactSecrets,
+  Syslog,
+  getActiveLogDriver,
+  setActiveLogDriver,
+  listLogDrivers,
+} from "nodefony";
 import type {
   ISyslog,
   IAdminApi,
@@ -8,6 +14,7 @@ import type {
   IAdminDescriptor,
   IAdminRequest,
   IAdminResponse,
+  ILogQueryCriteria,
 } from "nodefony";
 
 /** Options du producteur syslog — viewer de fichiers (DEV only). */
@@ -24,6 +31,12 @@ export interface SyslogAdminApiOptions {
    * remplace `tail -f` localement.
    */
   enableFiles?: boolean;
+  /**
+   * Environnement du kernel (`"development"` | `"production"` | …). Garde la
+   * **switch du driver de relecture** (`POST backplane/driver`) en **dev-only**
+   * (403 hors `development`) — action de contrôle runtime, jamais en prod.
+   */
+  environment?: string;
 }
 
 /** Plafond d'octets lus en queue de fichier (tail / fenêtre incrémentale). */
@@ -55,9 +68,6 @@ interface LogTailResult {
   lines: string[];
 }
 
-/** Élément du ring buffer Syslog (Pdu), sans importer la classe concrète. */
-type PduLike = ISyslog["ringStack"][number];
-
 /**
  * Producteur `IAdminApi` du **syslog** (core) — exposé sous
  * `/nodefony/syslog/api/*`. 4ᵉ et dernier producteur de P10.3.
@@ -81,20 +91,6 @@ export function createSyslogAdminApi(
     options.enableFiles && options.logDir
       ? path.resolve(options.logDir)
       : undefined;
-  // Mêmes noms de champs que la classe Pdu (pas `module` mais `moduleName`) :
-  // le front hydrate via `Object.assign(new Pdu(), data)` pour le snapshot REST
-  // ET le stream WS → un seul shape, une seule logique de rendu.
-  const serialize = (pdu: PduLike) => ({
-    uid: pdu.uid,
-    severity: pdu.severity,
-    severityName: pdu.severityName,
-    moduleName: pdu.moduleName,
-    msgid: pdu.msgid,
-    msg: pdu.msg,
-    timeStamp: pdu.timeStamp,
-    payload: pdu.payload,
-  });
-
   /** Lit un entier de query (`?limit=50`), borné, avec défaut. */
   const intParam = (
     req: IAdminRequest,
@@ -113,6 +109,42 @@ export function createSyslogAdminApi(
   const oneParam = (req: IAdminRequest, key: string): string | undefined => {
     const raw = req.query[key];
     return Array.isArray(raw) ? raw[0] : raw;
+  };
+
+  /** Param entier positif optionnel (epoch ms, offset…) — `undefined` si absent/invalide. */
+  const intOpt = (req: IAdminRequest, key: string): number | undefined => {
+    const v = oneParam(req, key);
+    if (v === undefined || !/^\d+$/.test(v)) return undefined;
+    return Number(v);
+  };
+
+  /**
+   * Construit un {@link ILogQueryCriteria} depuis la query string — la traduction
+   * HTTP→backplane partagée par `logs` (array, rétrocompat) et `logs/search`
+   * (paginé). `severity` accepte multi-valeurs (`?severity=ERROR&severity=CRITIC`).
+   * `text` alias `q`. Bornes `from`/`to` = epoch ms.
+   */
+  const buildCriteria = (req: IAdminRequest): ILogQueryCriteria => {
+    const criteria: ILogQueryCriteria = {
+      limit: intParam(req, "limit", 200, 1000),
+    };
+    const sev = req.query.severity;
+    if (sev !== undefined) criteria.severity = sev as string | string[];
+    const requestId = oneParam(req, "requestId");
+    if (requestId) criteria.requestId = requestId;
+    const module = oneParam(req, "module");
+    if (module) criteria.module = module;
+    const msgid = oneParam(req, "msgid");
+    if (msgid) criteria.msgid = msgid;
+    const text = oneParam(req, "text") ?? oneParam(req, "q");
+    if (text) criteria.text = text;
+    const from = intOpt(req, "from");
+    if (from !== undefined) criteria.from = from;
+    const to = intOpt(req, "to");
+    if (to !== undefined) criteria.to = to;
+    const offset = intOpt(req, "offset");
+    if (offset !== undefined) criteria.offset = offset;
+    return criteria;
   };
 
   /**
@@ -164,19 +196,93 @@ export function createSyslogAdminApi(
   const endpoints: IAdminEndpoint[] = [
     {
       path: "logs",
-      summary: "Recent log entries (Pdu ring buffer) — ?severity=ERROR&limit=N",
-      handler: (request) => {
-        // ringStack = FIFO (ancien→récent). On filtre éventuellement par
-        // sévérité, puis on garde les N plus récents (fin du tableau).
-        let entries = syslog.ringStack;
-        const sev = request.query.severity;
-        const sevName = Array.isArray(sev) ? sev[0] : sev;
-        if (sevName) {
-          const up = sevName.toUpperCase();
-          entries = entries.filter((p) => p.severityName === up);
+      summary:
+        "Logs récents via le driver backplane actif — ?severity=&module=&requestId=&text=&limit=N (renvoie un ARRAY, rétrocompat).",
+      handler: async (request) => {
+        // Délègue au driver de relecture ACTIF (memory par défaut). Renvoie un
+        // tableau (récents d'abord) — forme rétrocompatible attendue par le front.
+        // Driver non-queryable (ex. console) → tableau vide.
+        const driver = getActiveLogDriver();
+        if (!driver?.query) return [];
+        const res = await driver.query(buildCriteria(request));
+        return res.rows;
+      },
+    },
+    {
+      path: "logs/search",
+      summary:
+        "Query paginée du backplane → { rows, total, truncated } (DataGrid Studio). Mêmes critères que logs + offset.",
+      handler: async (
+        request,
+      ): Promise<
+        unknown | IAdminResponse<{ queryable: false; driver: string | null }>
+      > => {
+        const driver = getActiveLogDriver();
+        if (!driver?.query) {
+          return {
+            status: 409,
+            body: { queryable: false, driver: driver?.name ?? null },
+          };
         }
-        const limit = intParam(request, "limit", 200, 1000);
-        return entries.slice(-limit).map(serialize);
+        return await driver.query(buildCriteria(request));
+      },
+    },
+    {
+      path: "backplane",
+      summary:
+        "Méta du Log Backplane — driver de relecture actif, drivers dispo, sink write (LB.W), compteurs syslog.",
+      handler: () => {
+        const driver = getActiveLogDriver();
+        return {
+          // Axe DESTINATION queryable (où l'on RELIT).
+          activeDriver: driver
+            ? { name: driver.name, capabilities: driver.capabilities }
+            : null,
+          drivers: listLogDrivers(),
+          // Axe WRITE (LB.W — où la ligne texte est écrite). Orthogonal.
+          write: { sink: Syslog.logSinkName },
+          // Santé du flux (cumuls monotones → débit dérivé côté lecteur).
+          counters: {
+            valid: syslog.valid,
+            invalid: syslog.invalid,
+            missed: syslog.missed,
+            errorTotal: syslog.errorTotal,
+            criticTotal: syslog.criticTotal,
+            buffered: syslog.ringStack.length,
+          },
+          environment: options.environment ?? null,
+        };
+      },
+    },
+    {
+      path: "backplane/driver",
+      method: "POST",
+      summary:
+        "Switch du driver de relecture (DEV-only) — body { name }. Action de contrôle runtime.",
+      handler: (request): IAdminResponse<{ error: string }> | unknown => {
+        // 🔒 Action de contrôle runtime → DEV-only STRICT. En prod, le driver est
+        // figé par config/env (12-factor). Le RBAC (ROLE_NODEFONY_ADMIN) est
+        // appliqué en plus par le broker via `role`.
+        if (options.environment !== "development") {
+          return {
+            status: 403,
+            body: { error: "log driver switch is development-only" },
+          };
+        }
+        const body = (request.body ?? {}) as { name?: unknown };
+        const name = typeof body.name === "string" ? body.name : "";
+        if (!name) {
+          return { status: 400, body: { error: "missing driver name" } };
+        }
+        try {
+          const d = setActiveLogDriver(name);
+          return { active: d.name, capabilities: d.capabilities };
+        } catch {
+          return {
+            status: 404,
+            body: { error: `unknown log driver "${name}"` },
+          };
+        }
       },
     },
     {
@@ -203,7 +309,8 @@ export function createSyslogAdminApi(
         if (!logDir) {
           return {
             enabled: false,
-            reason: "Production : logs → stdout/stderr → collecteur (pas de fichiers).",
+            reason:
+              "Production : logs → stdout/stderr → collecteur (pas de fichiers).",
             files: [],
           };
         }
@@ -278,7 +385,15 @@ export function createSyslogAdminApi(
         const raw = oneParam(request, "raw") === "1";
         if (!raw) out = out.map(redactSecrets);
 
-        return { name, size, from: start, to, reset, redacted: !raw, lines: out };
+        return {
+          name,
+          size,
+          from: start,
+          to,
+          reset,
+          redacted: !raw,
+          lines: out,
+        };
       },
     },
   ];

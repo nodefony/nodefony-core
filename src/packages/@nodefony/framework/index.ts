@@ -110,6 +110,8 @@ class Framework extends Module {
             // dev) → on se fie à `environment` (vaut "development" au runtime).
             logDir: typeof tmp === "string" ? tmp : undefined,
             enableFiles: this.kernel.environment !== "production",
+            // Garde le switch de driver (backplane/driver POST) en dev-only.
+            environment: this.kernel.environment,
           }),
         );
       }
