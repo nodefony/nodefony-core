@@ -5,16 +5,19 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "bin/nodefony"],
       "inputs": [
-        "src/**/*.ts",
+        "index.ts",
+        "src/**",
+        "nodefony/**",
         "rollup.config.ts",
-        "tsconfig.json",
+        "vite.config.*",
+        "tsconfig*.json",
         "package.json"
       ]
     },
     "test": {
       "dependsOn": ["build"],
       "outputs": [],
-      "inputs": ["src/**/*.ts"]
+      "inputs": ["index.ts", "src/**", "nodefony/**", "tsconfig*.json"]
     },
     "test:integration": {
       "dependsOn": ["build"],
@@ -30,11 +33,11 @@
       "cache": false
     },
     "lint": {
-      "inputs": ["src/**/*.ts"]
+      "inputs": ["index.ts", "src/**", "nodefony/**"]
     },
     "typecheck": {
       "dependsOn": ["^build"],
-      "inputs": ["src/**/*.ts", "tsconfig.json"]
+      "inputs": ["index.ts", "src/**", "nodefony/**", "tsconfig*.json"]
     }
   }
 }
