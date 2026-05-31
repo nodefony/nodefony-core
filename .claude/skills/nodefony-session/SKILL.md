@@ -196,11 +196,16 @@ jq --arg m "@nodefony/$ARG" '.symbols | to_entries
 RETEX = RETour d'EXpérience. **But réel** : amélioration continue de l'IA sur Nodefony — PAS un log
 de tokens. Cf `feedback_session_retros_purpose`.
 
-## ⚡ END courant = 4 étapes LÉGÈRES (ne PAS faire les stats lourdes)
+## ⚡ END courant = 5 étapes LÉGÈRES (ne PAS faire les stats lourdes)
 
 Le END par défaut doit être **rapide** (reproche user 2026-05-31 : END trop lourd/pénible). Il fait
 SEULEMENT :
 
+0. **MAJ `MIGRATION_STATUS.md` SI la session a fait avancer une phase / un chantier** (feature livrée,
+   sous-tâche `LB.x`/`Px.y` cochée, statut changé) → mettre à jour la **ligne concernée** (1ʳᵉ cellule
+   - journal) avec le hash de commit, **AVANT** le commit repo (`docs(migration)` ou inclus dans le
+     commit feature). Si la session est un chore/fix/doc qui ne touche aucune phase → **sauter**. Règle
+     gravée dans [[feedback_migration_status_uptodate]] (la garder ICI pour ne pas l'oublier au END).
 1. **MAJ `docs/session-retros/RETEX.md`** (le SAS, lu au START/RESUME) : ajouter **3-5 bullets** des
    frictions/leçons du jour, **rangées par thème** (créer le thème s'il manque), format
    `[1× — <date courte>]`. Si une friction y figure déjà → **incrémenter le compteur** `[2× — …]` +
@@ -208,7 +213,7 @@ SEULEMENT :
 2. **Retex brut court** `docs/session-retros/<date>-<id>.md` : focus + Fait + frictions + commits.
    **SANS les tableaux de stats** (tool_use/coût € → déplacés en CONSOLIDATE). ~30 lignes.
 3. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
-4. **Commit + push mémoire IA** (§11).
+4. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
 
 > **DÉPLACÉ en CONSOLIDATE** (ne PAS l'exécuter au END courant) : comptage tool_use, top fichiers,
 > coût €, balayage allowlist, détection candidats skill. Analyses coûteuses utiles 1×/10-20 retex

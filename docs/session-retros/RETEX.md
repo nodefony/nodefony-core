@@ -56,6 +56,19 @@
   routes ET que les shapes back↔front sont compatibles (champs optionnels en trop/absents = dégradation
   propre), la session se réduit à un **diff de shapes + curl runtime, 0 edit**. Ne pas présumer qu'il faut
   coder ni invoquer `nodefony-studio-dev`. Reste = confirmation visuelle user (hard-reload, pas de headless).
+- `[1× — 2026-05-31]` **un test ne doit JAMAIS laisser de résidu** (`upload.test.ts` accumulait des
+  `<uuid>.{ts,png,txt}` dans le dossier d'upload, jamais nettoyés). Le service persiste les fichiers reçus,
+  le test ne les supprimait pas. → `before` snapshot du dossier + `after` qui supprime **uniquement le diff**
+  (fichiers créés par la suite), sans toucher au préexistant. Vérifier net-0 (avant N / après N).
+- `[1× — 2026-05-31]` **couleurs ANSI bakées dans le payload de log → fichier JSON pollué** : `clc.xxx("EVENT
+KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-color/bare` colore AUSSI
+  (vérifié — pas d'interrupteur global). Stripper l'ANSI **par log** dans le transport = coût hot path (refusé
+  user, à juste titre). Le fix propre = **décision boot-time** (gate couleur résolu 1× selon isTTY/non-fichier),
+  PAS un `.replace()` au runtime. TODO ciblé. → un défaut « cosmétique » peut cacher un vrai sujet perf.
+- `[1× — 2026-05-31]` **config « source unique » pour un chemin partagé** : le dir de logs était hardcodé
+  `logs/` (Kernel) côté écriture mais le viewer Studio lisait `tmpDir` → la tab Fichiers ne montrait jamais les
+  vrais logs. → un chemin utilisé par N composants = **UNE** config (`config.log.dir`), lue partout. Vaut pour
+  tout couple write↔read (cf le pattern write↔read cohérent du Log Backplane).
 
 ## 🧭 État projet / git / terminologie (frictions du jour)
 
@@ -68,14 +81,22 @@
   `LB.5` agrégation cluster ⬜ PAS FAIT). Même « .5 », même mot « cluster » → le user a cru LB.5 fait en voyant
   P13.5. → **toujours désambiguïser explicitement** « backplane realtime » vs « backplane logs » (et le n° de
   sous-tâche) dès qu'on parle cluster/backplane. Capté dans [[project_log_backplane_vision]].
+- `[2× — 2026-05-31]` **vérifier le CODE avant d'annoncer « il reste X »** : au RESUME j'ai listé « reste LB.3c
+  (page Studio) » d'après le `_state`/ma mémoire — mais LB.3c était DÉJÀ commité (`3d6158e`/`c48858b`). Le user
+  a relancé dessus → temps perdu. → avant toute liste de « reste à faire », `git log`/grep le code (garde-fou
+  RESUME = la vérité = les commits, pas le journal). Idem « échec pré-existant » sans vérif [[feedback_spa_fallback_literal]].
+- `[1× — 2026-05-31]` **pre-push `npm run typecheck` global casse sur dist/types croisé périmé** : TS2307
+  `@nodefony/user → @nodefony/orm-core` (modules NON touchés par mon diff) → push refusé. → avant un push qui
+  déclenche le typecheck turbo, `npm run build` (régénère tous les `dist/types`) si on a buildé des modules à la
+  main. Variante stale-dist [[feedback_root_dist_stale_modules]]/[[feedback_turbo_cache_stale_logs]].
 
 ---
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
+- `2026-05-31-c7578918` — LB.5 cluster-file + console Logs cluster-honnête + chip runtime/backplanes topbar + dir logs configurable + fix test upload (5 commits).
 - `2026-05-31-41ca4a89` — commit module doc + CONSOLIDATE (verdict rien à graduer) + Session A (docs+tests) + Session B (front déjà compatible, 0 edit).
 - `2026-05-31-a5a0cf2d` — création back module `@nodefony/documentation` (data plane doc transverse) + activation runtime.
-- `2026-05-31-3d9b015f` — LB.2 driver file JSONL queryable + candidats logs (Loki).
 
 > ✅ **CONSOLIDATE audité le 2026-05-31** (`CONSOLIDATION-2026-05-31.md`) : les 57 bruts (05-25→05-31)
 > ont été balayés. **Verdict : rien à graduer.** Tous les thèmes récurrents (lock/lint-staged,
