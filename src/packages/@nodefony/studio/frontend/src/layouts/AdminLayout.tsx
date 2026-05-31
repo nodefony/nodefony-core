@@ -24,6 +24,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { RealtimeHubContent } from "../components/RealtimeHubContent";
+import { RuntimeModeChip } from "../components/RuntimeModeChip";
 import { ConnectionOverlay } from "../components/ConnectionOverlay";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import {
@@ -218,6 +219,8 @@ export const AdminLayout = observer(() => {
                 </Text>
               </Group>
             </RouterNavLink>
+            {/* Mode runtime (env + mono/cluster) + popover infos — à côté du titre. */}
+            <RuntimeModeChip />
           </Group>
           <Group gap="xs">
             {/* Hover = aperçu du hub (abonnements de la PAGE COURANTE, en live —
