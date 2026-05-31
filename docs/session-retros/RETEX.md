@@ -57,6 +57,18 @@
   propre), la session se réduit à un **diff de shapes + curl runtime, 0 edit**. Ne pas présumer qu'il faut
   coder ni invoquer `nodefony-studio-dev`. Reste = confirmation visuelle user (hard-reload, pas de headless).
 
+## 🧭 État projet / git / terminologie (frictions du jour)
+
+- `[1× — 2026-05-31]` **commits locaux non pushés = user perdu** : 19 commits sur `claude-ts` jamais
+  poussés (« où est la partie git, j'ai pas compris »). Je committe en local mais ne `push` que sur demande
+  → l'écart local↔remote n'est pas visible. → **annoncer proactivement l'état push en clôture** (`git status -sb`
+  = `ahead N`) et proposer le push. Le repo mémoire IA, lui, est poussé à chaque END (backup).
+- `[1× — 2026-05-31]` **deux « backplanes » homonymes prêtent à confusion** : **Realtime Backplane**
+  (P13.x, `IBackplane` Redis/IPC — `P13.5 RedisBackplane` ✅ FAIT) vs **Log Backplane** (P3.11, `ILogDriver` —
+  `LB.5` agrégation cluster ⬜ PAS FAIT). Même « .5 », même mot « cluster » → le user a cru LB.5 fait en voyant
+  P13.5. → **toujours désambiguïser explicitement** « backplane realtime » vs « backplane logs » (et le n° de
+  sous-tâche) dès qu'on parle cluster/backplane. Capté dans [[project_log_backplane_vision]].
+
 ---
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
