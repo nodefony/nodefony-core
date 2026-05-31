@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.16.3
+version: 1.17.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1107,6 +1107,28 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   d'une route Studio + nettoyage controller back (qui ne sert qu'au frontend Studio = pas un contrat
   externe). Lockstep reste 1.15.0. La leçon va dans ce retex, pas dans le changelog.
 
+**Console du Log Backplane — page Logs full-stack (2026-05-31, full-stack — bump lockstep 1.17.0)**
+
+> Refonte complète de `routes/Logs.tsx` (478→~105L, le reste éclaté en sous-composants `routes/logs/*`)
+> en console du Log Backplane : onglets Live / Explorer / Fichiers / Backplane. Lockstep back =
+> `nodefony-framework-dev` 1.17.0 (trace full-stack + `ILogDriver`/`filterPdus`).
+
+- **Une page « auto-explicative » se paie en itérations de COMPRÉHENSION, pas de code** : la valeur n'est
+  pas le rendu mais le fait que l'utilisateur COMPRENNE le flux (live vs explorer vs backplane). Budgéter du
+  temps de vulgarisation (libellés, bandeau `BackplaneBanner` qui explique les 3 axes write/query/bus AVANT
+  les données) — pas juste « afficher la donnée ».
+- **Drawer de détail à 2 sources via `localRecords`** : `PduDetailDrawer` doit afficher un Pdu venant SOIT du
+  live SOIT d'un fichier rejoué — garder une copie locale (`localRecords`) pour que le rejeu (`FileReplay`) ne
+  dépende pas du flux live courant. Ne pas coupler le drawer à une source unique.
+- **« Magnétoscope » de rejeu = deltas RÉELS bornés** (`FileReplay`) : rejouer un fichier à la cadence
+  d'origine = `Δt` entre uid/timestamps consécutifs, **borné** (clamp max) pour ne pas figer l'UI sur un trou
+  de 10 min. Le delta vient de la donnée, pas d'un `setInterval` fixe.
+- **Collision de nom local** : un identifiant réutilisé entre `Logs.tsx` et un sous-composant `routes/logs/*`
+  → renommer ; le transform Vite ne le signale pas toujours, le bundle final si.
+- **`Table` (Mantine) à importer = `TS2304` attrapé par `npm run typecheck`, PAS par le transform Vite** :
+  esbuild compile fichier par fichier et ignore les symboles manquants cross-fichier → un composant non importé
+  passe le `curl` Vite mais casse au typecheck. **Gate = `tsc`, toujours** (cf `nodefony-frontend-verify`).
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
@@ -1126,6 +1148,14 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.17.0** (2026-05-31) — **Console du Log Backplane — refonte page Logs** (commit `3d6158e` front +
+  `c48858b` back). **Contrat front+back touché** → bump MINOR partagé (≠ lockstep back-only). Page `/nodefony/logs`
+  refondue en console du Log Backplane : `Logs.tsx` éclaté en sous-composants `routes/logs/*` — onglets **Live**
+  (`LiveLogs`) / **Explorer** (`LogExplorer`, query unifiée + search paginé sur `filterPdus`) / **Fichiers**
+  (`FilesTab` + `FileReplay` magnétoscope) / **Backplane** (`BackplanePanel` + `BackplaneBanner` 3 axes
+  write/query/bus). `PduDetailDrawer` à 2 sources via `localRecords` (live + rejeu). Gate : tsc 0. RETEX
+  (page auto-explicative = itérations de compréhension ; drawer 2 sources ; magnétoscope = deltas bornés ;
+  TS2304 attrapé par typecheck pas par le transform Vite). Lockstep back = framework-dev 1.17.0.
 - **1.16.3** (2026-05-30) — **Lockstep back-only** (session BACKEND `nodefony-framework-dev` 1.16.3 :
   durcissement framework F7 — config Zod validée au boot dans `@nodefony/framework`, `frameworkConfigJsonSchema()`
   exposé pour un futur formulaire d'édition Studio). **Aucun contrat front touché** — pas de changement de

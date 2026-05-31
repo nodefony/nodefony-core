@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.16.3
+version: 1.17.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.16.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.17.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -1282,6 +1282,18 @@ npm outdated                     # versions en retard (ou commande `npx nodefony
 
 > Format : symptôme → cause → fix. Compléter à CHAQUE fin de session touchant le cœur.
 
+- _(2026-05-31)_ **Trace full-stack du Log Backplane** (commit `c48858b` back). 4 leçons : (a) un log de
+  **FIN** de cycle émis APRÈS le teardown ALS (hors bulle `AsyncLocalStorage`) perd son `requestId` → ne
+  JAMAIS compter sur l'ALS pour la corrélation en SORTIE de pipeline : attacher le `requestId` **depuis le
+  `context`** (qui le porte explicitement) au moment du log teardown (`Context.ts` / `WebsocketContext.ts`).
+  (b) **L'ordre chronologique d'un flux de logs = l'`uid` monotone du Pdu, PAS `Date.now()`** : deux Pdu de
+  la même ms se départagent par uid (l'horloge n'a pas la résolution). (c) **`maxStack` est un produit de
+  config**, pas une constante magique — exposé/bornable (un trace full-stack non borné = DoS mémoire sur
+  burst d'erreurs). (d) **Le driver de démo (console queryable) vit dans le MODULE TEST** (`DbController`),
+  JAMAIS dans le core : le core expose `ILogDriver`/`filterPdus`, l'app branche son driver. **Méta-leçon** :
+  toute corrélation (requestId, traceId) qui dépend d'un contexte async DOIT survivre au teardown → la porter
+  sur un objet explicite, jamais sur l'ALS qui se vide.
+
 - _(amorce 2026-05-22)_ **TS18036** (`static #storages` + décorateur de classe `sessions-service.ts`) :
   build rollup vert mais `tsc --noEmit` rouge → CI cassée (job build rouge ⇒ tests jamais lancés).
   Fix : `private static` au lieu de `static #`. **Leçon** : typecheck = gate distinct, désormais hook pre-push.
@@ -1487,6 +1499,13 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.17.0** (2026-05-31) — **Trace full-stack du Log Backplane** (commit `c48858b` back + `3d6158e` front ;
+  lockstep avec studio-dev 1.17.0 — un contrat front+back EST touché → bump MINOR partagé). BACK (`@nodefony/core`) :
+  `Kernel.ts` émet une trace de cycle ; `Syslog.ts` `maxStack` configurable ; `Context.ts`/`WebsocketContext.ts`
+  attachent le `requestId` **depuis le context** au log teardown (survit à la sortie de bulle ALS) ; `ILogDriver`
+  + `filterPdus` (data plane) ; driver console queryable de DÉMO posé dans le **module test** (`DbController`),
+  pas dans le core. Ordre chrono = `uid` du Pdu (pas l'horloge). Gate : tsc 0 · boot OK · memory 8/8.
+  RETEX §11 (corrélation async survit au teardown ; uid > horloge ; maxStack = config ; driver de démo hors core).
 - **1.16.3** (2026-05-30) — **Durcissement framework F7 — config Zod validée au boot.** `nodefony/config/schema.ts`
   (Zod, source unique) + `config.ts` dérivé `parse({})` + hook `onKernelRegister` (parse + try/catch message clair +
   réassigne `this.options`, AVANT instanciation `@services`). peerDep `zod ^4.4.3` + `"zod"` ajouté à `rollup.config.ts`
