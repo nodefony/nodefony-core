@@ -1,374 +1,152 @@
+/**
+ * **Logs** — console du **Log Backplane** Nodefony (page `/nodefony/logs`).
+ *
+ * Bien plus qu'un viewer : un poste de pilotage des logs structuré autour des
+ * **3 axes orthogonaux** du backplane (écriture / destination queryable / bus
+ * temps réel). Structure :
+ *
+ *  - **Bandeau Backplane** (toujours visible) : sur quel driver on joue, ses
+ *    capacités, la santé, et — en dev — le **switch de driver**.
+ *  - **Onglet Live** : flux temps réel (WS `syslog:stream`), tail intelligent.
+ *  - **Onglet Explorer** : requête froide paginée du driver actif + **trace
+ *    full-stack** par `requestId`.
+ *  - **Onglet Fichiers** : viewer des fichiers `*.log` (confort DEV).
+ *  - **Onglet Backplane** : architecture (3 axes), registry des drivers, santé.
+ *
+ * Un seul fetch de la méta backplane (partagé), un drawer de détail Pdu partagé
+ * Live ↔ Explorer, et la trace qui bascule de Live vers l'Explorer filtré.
+ */
 import { observer } from "mobx-react-lite";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useState } from "react";
+import { Button, Stack, Tabs } from "@mantine/core";
 import {
-  Group,
-  Title,
-  Badge,
-  ScrollArea,
-  Stack,
-  TextInput,
-  MultiSelect,
-  Switch,
-  ActionIcon,
-  Tooltip,
-  Code,
-  Text,
-  Paper,
-  Alert,
-  SegmentedControl,
-} from "@mantine/core";
-import { LogFiles } from "./LogFiles";
-import {
-  IconPlayerPause,
-  IconPlayerPlay,
-  IconTrash,
-  IconFilter,
-  IconInfoCircle,
+  IconBroadcast,
+  IconFile,
+  IconFileText,
+  IconRefresh,
+  IconSearch,
+  IconStack2,
 } from "@tabler/icons-react";
-import { Pdu } from "nodefony";
-import { useConnection, useStore } from "../stores";
-import { ansiToReact } from "../utils/ansiToReact";
+import { useStore } from "../stores";
+import { useResource } from "../hooks";
+import { PageHeader } from "../components/ui";
+import { FilesTab } from "./logs/FilesTab";
+import { BackplaneBanner } from "./logs/BackplaneBanner";
+import { LiveLogs } from "./logs/LiveLogs";
+import { LogExplorer } from "./logs/LogExplorer";
+import { BackplanePanel } from "./logs/BackplanePanel";
+import { PduDetailDrawer } from "./logs/PduDetailDrawer";
+import type { BackplaneMeta, LogRecord } from "./logs/logsTypes";
 
-const SEVERITIES = [
-  "DEBUG",
-  "INFO",
-  "NOTICE",
-  "WARNING",
-  "ERROR",
-  "CRITIC",
-  "ALERT",
-  "EMERGENCY",
-] as const;
-type Severity = (typeof SEVERITIES)[number];
+type TabId = "live" | "explorer" | "files" | "backplane";
 
-const SEVERITY_COLOR: Record<string, string> = {
-  DEBUG: "gray",
-  INFO: "blue",
-  NOTICE: "cyan",
-  WARNING: "yellow",
-  ERROR: "red",
-  CRITIC: "red",
-  ALERT: "red",
-  EMERGENCY: "red",
-};
-
-const MAX_ENTRIES = 500;
-
-interface PduView {
-  /** Pdu instance hydratée côté browser via le Core isomorphe. */
-  pdu: Pdu;
-  /** id local pour React key (uid Pdu peut collisionner sur reconnect). */
-  key: string;
-}
-
-/**
- * Logs streaming — page beta-testeur de l'archi realtime P14.11.
- *
- * Vision isomorphe :
- *  - Backend (StudioRealtimeController) attache un listener `kernel.syslog.on("onLog", pdu)`
- *    et publie chaque Pdu sur le canal WS `syslog:stream` (JSON-RPC 2.0 notification).
- *  - Frontend s'abonne via le hub `conn.subscribe("syslog:stream", handler)` (WebSocket
- *    permanent `RealtimeClient`) et rehydrate chaque event en `new Pdu()` via le Core isomorphe
- *    (`import { Pdu } from "nodefony"` → exports.browser).
- *  - La même classe Pdu est utilisée des deux côtés — 1 seule source de vérité.
- *
- * Le hub `ConnectionStore` track la subscription (chip topbar "1 sub").
- * Canal figé `syslog:stream` → migrera vers RealtimeService pub/sub en P13.4 sans toucher au front.
- */
-const LiveLogs = observer(() => {
-  const conn = useConnection();
-  const store = useStore();
-  const [entries, setEntries] = useState<PduView[]>([]);
-  const [paused, setPaused] = useState(false);
-  const [severityFilter, setSeverityFilter] = useState<Severity[]>([]);
-  const [moduleFilter, setModuleFilter] = useState("");
-  const [requestIdFilter, setRequestIdFilter] = useState("");
-  const [autoscroll, setAutoscroll] = useState(true);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const pausedRef = useRef(paused);
-  pausedRef.current = paused;
-  const keyCounter = useRef(0);
-  // logs omis côté serveur sous surcharge (coalescing syslog:stream).
-  const [dropped, setDropped] = useState(0);
-
-  // ── Snapshot initial : ring buffer réel via /nodefony/syslog/api/logs ──
-  // Amorce la liste avec l'historique présent au chargement (le WS ne pousse
-  // QUE les nouveaux Pdu). Même shape que le stream → même hydratation Pdu.
-  useEffect(() => {
-    let cancelled = false;
-    store.api
-      .getAbsolute<Array<Record<string, unknown>>>(
-        "/nodefony/syslog/api/logs?limit=200",
-      )
-      .then((rows) => {
-        if (cancelled || !Array.isArray(rows)) return;
-        const views: PduView[] = rows.map((d) => ({
-          pdu: Object.assign(new Pdu(""), d) as Pdu,
-          key: `snap-${keyCounter.current++}`,
-        }));
-        // Seed uniquement si rien n'est encore arrivé par le WS (évite d'écraser
-        // des logs live déjà reçus pendant le fetch).
-        setEntries((prev) => (prev.length === 0 ? views : prev));
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [store]);
-
-  // ── Stream live : nouveaux Pdu via le hub realtime (canal syslog:stream) ──
-  useEffect(() => {
-    const handler = (data: unknown) => {
-      if (pausedRef.current) return;
-      if (!data || typeof data !== "object") return;
-      // Canal coalescé : { logs: Pdu[], dropped }. Back-compat : Pdu unique.
-      const rec = data as { logs?: unknown[]; dropped?: number };
-      const rows = Array.isArray(rec.logs) ? rec.logs : [data];
-      if (rec.dropped) setDropped((n) => n + rec.dropped!);
-      if (rows.length === 0) return;
-      // Hydratation isomorphe : new Pdu() vide + Object.assign — la même
-      // classe Pdu est utilisée côté serveur pour sérialiser.
-      const views: PduView[] = rows.map((d) => {
-        const pdu = Object.assign(new Pdu(""), d) as Pdu;
-        return { pdu, key: `${pdu.uid}-${keyCounter.current++}` };
-      });
-      setEntries((prev) => {
-        const next = [...prev, ...views];
-        return next.length > MAX_ENTRIES ? next.slice(-MAX_ENTRIES) : next;
-      });
-    };
-    const dispose = conn.subscribe("syslog:stream", handler);
-    return () => dispose();
-  }, [conn]);
-
-  // ── Autoscroll ──────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!autoscroll || !viewportRef.current) return;
-    viewportRef.current.scrollTo({ top: viewportRef.current.scrollHeight });
-  }, [entries, autoscroll]);
-
-  // ── Filters ─────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    return entries.filter((e) => {
-      const sev = e.pdu.severityName as Severity;
-      if (severityFilter.length > 0 && !severityFilter.includes(sev))
-        return false;
-      if (
-        moduleFilter &&
-        !e.pdu.moduleName.toLowerCase().includes(moduleFilter.toLowerCase())
-      )
-        return false;
-      if (requestIdFilter) {
-        const msgid = String(e.pdu.msgid ?? "");
-        if (!msgid.toLowerCase().includes(requestIdFilter.toLowerCase()))
-          return false;
-      }
-      return true;
-    });
-  }, [entries, severityFilter, moduleFilter, requestIdFilter]);
-
-  return (
-    <Stack gap="md">
-      <Group justify="space-between">
-        <Group gap="xs">
-          <Title order={2}>Logs streaming</Title>
-          <Badge size="md" variant="light" color="brand">
-            P14.11 beta
-          </Badge>
-          <Badge size="sm" variant="dot" color={paused ? "yellow" : "teal"}>
-            {paused ? "Pause" : "Live"}
-          </Badge>
-          <Text size="sm" c="dimmed">
-            {filtered.length} / {entries.length} entrées
-          </Text>
-        </Group>
-        <Group gap={4}>
-          <Tooltip label={paused ? "Reprendre" : "Pause"}>
-            <ActionIcon
-              variant="default"
-              onClick={() => setPaused((p) => !p)}
-              aria-label="toggle pause"
-            >
-              {paused ? <IconPlayerPlay size={16} /> : <IconPlayerPause size={16} />}
-            </ActionIcon>
-          </Tooltip>
-          <Tooltip label="Effacer">
-            <ActionIcon
-              variant="default"
-              onClick={() => {
-                setEntries([]);
-                setDropped(0);
-              }}
-              aria-label="clear"
-            >
-              <IconTrash size={16} />
-            </ActionIcon>
-          </Tooltip>
-          {dropped > 0 && (
-            <Tooltip label="Logs omis côté serveur sous surcharge (coalescing syslog:stream)">
-              <Badge size="sm" variant="light" color="orange">
-                {dropped} omis
-              </Badge>
-            </Tooltip>
-          )}
-        </Group>
-      </Group>
-
-      <Alert
-        color="teal"
-        icon={<IconInfoCircle size={16} />}
-        variant="light"
-        title="Streaming réel — Pdu du syslog kernel (snapshot REST + WebSocket)"
-      >
-        Snapshot initial via <Code>/nodefony/syslog/api/logs</Code> (ring buffer),
-        puis vrais logs du <Code>kernel.syslog</Code> serveur, publiés sur le canal WS{" "}
-        <Code>syslog:stream</Code> (JSON-RPC 2.0) via le WebSocket permanent{" "}
-        <Code>RealtimeClient</Code>, et rehydratés en <Code>new Pdu()</Code> côté
-        browser via le Core isomorphe
-        (<Code>import &#123; Pdu &#125; from &quot;nodefony&quot;</Code>).
-        Canal figé → migration RealtimeService P13.4 transparente.
-      </Alert>
-
-      <Paper p="xs" withBorder>
-        <Group gap="xs" wrap="wrap">
-          <IconFilter size={16} />
-          <MultiSelect
-            data={SEVERITIES}
-            value={severityFilter}
-            onChange={(v) => setSeverityFilter(v as Severity[])}
-            placeholder="Sévérités"
-            clearable
-            size="xs"
-            style={{ minWidth: 240 }}
-          />
-          <TextInput
-            placeholder="module..."
-            value={moduleFilter}
-            onChange={(e) => setModuleFilter(e.currentTarget.value)}
-            size="xs"
-            style={{ width: 160 }}
-          />
-          <TextInput
-            placeholder="requestId..."
-            value={requestIdFilter}
-            onChange={(e) => setRequestIdFilter(e.currentTarget.value)}
-            size="xs"
-            style={{ width: 200 }}
-          />
-          <Switch
-            label="Autoscroll"
-            checked={autoscroll}
-            onChange={(e) => setAutoscroll(e.currentTarget.checked)}
-            size="xs"
-          />
-        </Group>
-      </Paper>
-
-      <Paper withBorder>
-        <ScrollArea
-          h={500}
-          viewportRef={viewportRef}
-          type="auto"
-          styles={{
-            viewport: {
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              fontSize: 12,
-              lineHeight: 1.5,
-            },
-          }}
-        >
-          {filtered.length === 0 ? (
-            <Text size="sm" c="dimmed" ta="center" py="xl">
-              En attente de logs…
-            </Text>
-          ) : (
-            <Stack gap={0} p="xs">
-              {filtered.map(({ pdu, key }) => {
-                const time = new Date(pdu.timeStamp);
-                const hh = time.toTimeString().slice(0, 8);
-                const ms = String(time.getMilliseconds()).padStart(3, "0");
-                const sev = pdu.severityName;
-                const msg =
-                  typeof pdu.payload === "string"
-                    ? pdu.payload
-                    : pdu.msg ||
-                      (() => {
-                        try {
-                          return JSON.stringify(pdu.payload);
-                        } catch {
-                          return String(pdu.payload);
-                        }
-                      })();
-                return (
-                  <Group key={key} gap={6} wrap="nowrap" align="flex-start">
-                    <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                      {hh}.{ms}
-                    </Text>
-                    <Badge
-                      size="xs"
-                      color={SEVERITY_COLOR[sev] ?? "gray"}
-                      variant={
-                        sev === "CRITIC" ||
-                        sev === "ALERT" ||
-                        sev === "EMERGENCY"
-                          ? "filled"
-                          : "light"
-                      }
-                      style={{
-                        flexShrink: 0,
-                        minWidth: 70,
-                        textAlign: "center",
-                      }}
-                    >
-                      {sev}
-                    </Badge>
-                    <Text
-                      size="xs"
-                      c="dimmed"
-                      style={{ flexShrink: 0, minWidth: 80 }}
-                    >
-                      {pdu.moduleName}
-                    </Text>
-                    {pdu.msgid && (
-                      <Code style={{ flexShrink: 0, fontSize: 10 }}>
-                        {String(pdu.msgid)}
-                      </Code>
-                    )}
-                    <Text size="xs" style={{ wordBreak: "break-word" }}>
-                      {ansiToReact(msg)}
-                    </Text>
-                  </Group>
-                );
-              })}
-            </Stack>
-          )}
-        </ScrollArea>
-      </Paper>
-    </Stack>
-  );
-});
-
-/**
- * Page Logs — deux modes via segmented control :
- *  - **Live** : stream temps réel des Pdu du syslog kernel (WS `syslog:stream`).
- *  - **Fichiers** : viewer des fichiers `*.log` du `tmpDir` (DEV) — remplace
- *    `tail -f`, polling incrémental par offset (cf {@link LogFiles}).
- */
 export const Logs = observer(() => {
-  const [mode, setMode] = useState<"live" | "files">("live");
+  const store = useStore();
+
+  // Méta backplane — fetch UNIQUE partagé par le bandeau, l'Explorer (garde
+  // capability) et l'onglet Backplane.
+  const fetcher = useCallback(
+    () =>
+      store.api.getAbsolute<BackplaneMeta>("/nodefony/syslog/api/backplane"),
+    [store],
+  );
+  const { data: meta, loading, error, reload } = useResource(fetcher);
+
+  const [tab, setTab] = useState<TabId>("live");
+  const [selected, setSelected] = useState<LogRecord | null>(null);
+  const [traceRequestId, setTraceRequestId] = useState<string>("");
+  // Bumpé à chaque switch de driver → force l'Explorer à recharger.
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Trace full-stack : depuis le drawer → bascule sur l'Explorer filtré.
+  const onTrace = useCallback((requestId: string) => {
+    setTraceRequestId(requestId);
+    setSelected(null);
+    setTab("explorer");
+  }, []);
+
+  const capabilities = meta?.activeDriver?.capabilities ?? null;
+  const driverName = meta?.activeDriver?.name ?? null;
+
   return (
     <Stack gap="md">
-      <SegmentedControl
-        value={mode}
-        onChange={(v) => setMode(v as "live" | "files")}
-        data={[
-          { value: "live", label: "Live" },
-          { value: "files", label: "Fichiers" },
-        ]}
-        size="xs"
-        style={{ alignSelf: "flex-start" }}
+      <PageHeader
+        icon={<IconFileText size={24} />}
+        title="Logs"
+        subtitle="Console du Log Backplane — flux live, exploration froide, contrôle du driver"
+        sticky
+        actions={
+          <Button.Group>
+            <Button
+              variant="default"
+              leftSection={<IconRefresh size={16} />}
+              loading={loading}
+              onClick={reload}
+            >
+              Rafraîchir
+            </Button>
+          </Button.Group>
+        }
       />
-      {mode === "live" ? <LiveLogs /> : <LogFiles />}
+
+      {/* En-tête conceptuel : ce qu'est le Log Backplane (auto-explicatif). */}
+      <BackplaneBanner
+        meta={meta}
+        loading={loading}
+        error={error}
+        reload={reload}
+        onSwitched={() => setRefreshKey((k) => k + 1)}
+      />
+
+      <Tabs value={tab} onChange={(v) => v && setTab(v as TabId)} keepMounted={false}>
+        <Tabs.List>
+          <Tabs.Tab value="live" leftSection={<IconBroadcast size={16} />}>
+            Live
+          </Tabs.Tab>
+          <Tabs.Tab value="explorer" leftSection={<IconSearch size={16} />}>
+            Explorer
+          </Tabs.Tab>
+          <Tabs.Tab value="files" leftSection={<IconFile size={16} />}>
+            Fichiers
+          </Tabs.Tab>
+          <Tabs.Tab value="backplane" leftSection={<IconStack2 size={16} />}>
+            Backplane
+          </Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="live" pt="md">
+          <LiveLogs onSelect={setSelected} />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="explorer" pt="md">
+          <LogExplorer
+            capabilities={capabilities}
+            driverName={driverName}
+            traceRequestId={traceRequestId}
+            onSelect={setSelected}
+            refreshKey={refreshKey}
+          />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="files" pt="md">
+          <FilesTab />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="backplane" pt="md">
+          <BackplanePanel
+            meta={meta}
+            loading={loading}
+            error={error}
+            reload={reload}
+          />
+        </Tabs.Panel>
+      </Tabs>
+
+      <PduDetailDrawer
+        record={selected}
+        onClose={() => setSelected(null)}
+        onTrace={onTrace}
+      />
     </Stack>
   );
 });

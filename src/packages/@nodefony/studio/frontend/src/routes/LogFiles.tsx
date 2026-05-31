@@ -26,6 +26,7 @@ import {
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 import { ansiToReact } from "../utils/ansiToReact";
+import { SeverityBadge } from "./logs/LogVisuals";
 
 /** Métadonnée d'un fichier de log (réponse `/nodefony/syslog/api/files`). */
 interface LogFileMeta {
@@ -50,17 +51,6 @@ interface TailResponse {
   redacted: boolean;
   lines: string[];
 }
-
-const SEVERITY_COLOR: Record<string, string> = {
-  DEBUG: "gray",
-  INFO: "blue",
-  NOTICE: "cyan",
-  WARNING: "yellow",
-  ERROR: "red",
-  CRITIC: "red",
-  ALERT: "red",
-  EMERGENCY: "red",
-};
 
 /** Intervalle de polling « follow » (replace tail -f). */
 const POLL_MS = 1500;
@@ -128,18 +118,7 @@ function LogLine({ line }: { line: string }) {
           {hhmmss}.{ms}
         </Text>
       )}
-      <Badge
-        size="xs"
-        color={SEVERITY_COLOR[sev] ?? "gray"}
-        variant={
-          sev === "CRITIC" || sev === "ALERT" || sev === "EMERGENCY"
-            ? "filled"
-            : "light"
-        }
-        style={{ flexShrink: 0, minWidth: 70, textAlign: "center" }}
-      >
-        {sev}
-      </Badge>
+      <SeverityBadge severity={sev} />
       <Text size="xs" c="dimmed" style={{ flexShrink: 0, minWidth: 80 }}>
         {moduleName}
       </Text>
