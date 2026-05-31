@@ -129,8 +129,8 @@ export function findSocketPage(slug?: string | null): SocketPage {
  *  - format court : `vue-ensemble`, `fan-out`, `protocole`, …
  *    (slug du registry Vite, utile pour tests / appels directs).
  *  - format portail backend : `root~realtime~socket~04-fan-out`, …
- *    (slug produit par `DocumentationController.list()` scan FS — c'est ce
- *    que reçoit `Documentation.tsx`).
+ *    (slug produit par le module `@nodefony/documentation`,
+ *    `DocumentationService.getTree()` scan FS — c'est ce que reçoit `Documentation.tsx`).
  *
  * Retourne `undefined` si rien ne matche (la page rendra alors juste le
  * markdown, pas de bloc « Schéma live » sous le contenu).
