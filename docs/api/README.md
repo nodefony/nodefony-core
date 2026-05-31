@@ -170,6 +170,40 @@ Le handshake **authentifie** (qui) + **déclare les droits** (quoi). Ensuite, ap
   au JWT sans changer le code).
 - Le POC **pose les seams** ; **P6 branche** la vraie sécu après (d'où : POC avant P6).
 
+### 7.1 Sécurité des DONNÉES — classification & cloisonnement (CRUCIAL, métiers régulés)
+
+Le RBAC (« peux-tu faire l'action ? ») **ne suffit jamais** pour les métiers régulés (défense, santé,
+banque/assurance, gestion de patrimoine). **4 questions distinctes** :
+
+| Question | Modèle | Exemple |
+|----------|--------|---------|
+| Peux-tu faire l'**action** ? | RBAC (rôles) | seul un `médecin` crée un dossier |
+| Quelles **lignes** voir ? | row-level / **ABAC** (appartenance) | le conseiller voit **ses** clients ; le médecin **ses** patients |
+| Jusqu'à quel **niveau** ? | **MAC / classification** (MLS, Bell-LaPadula) | habilitation C2 → C1/C2 oui, **C3/C4 non** ; + compartiments need-to-know |
+| Quels **champs** ? | field-level (PII) | n° de sécu visible que par le médecin traitant |
+
+**LE principe à ne pas rater** : la sécu des données vit au niveau **SERVICE / donnée**, **jamais** au niveau
+porte/transport. Sinon une porte (WS, GraphQL, tool IA) **contourne** le filtre REST → fuite. La seule couche
+traversée par les 4 portes = le service/repository.
+
+```
+find(criteria)  →  find( criteria ET scopeSécurité(user ALS) )
+   scope = appartenance(owner/tenant) · classification(niveau_donnée <= habilitation) · compartiment(need-to-know)
+```
+
+- **Deny by default** (Zero Trust) : pas de scope → **rien**, pas tout.
+- **Projection** : champs au-dessus de l'habilitation retirés **avant** la réponse (field-level).
+- **Audit** non-répudiable : qui a vu quoi, corrélé `requestId` (exigence défense/santé).
+- **Souveraineté** (livre blanc §3.1) : santé/défense → air-gap, **pas de LLM externe** ; la classification décide
+  aussi *ce qui a le droit de sortir* (le filtre PII bloque le transit vers un modèle).
+
+**Existe** : `@IsGranted` (RBAC), Voters `IAccessVoter` (ABAC, différé P6.8), zones de confiance (§3.4 livre blanc),
+PII (§3.3), ALS, `Criteria<T>` (point d'injection du scope), audit syslog `requestId`.
+**À concevoir 🎯** : modèle classification multi-niveaux (C1–C4 + compartiments), row-level **systématique**
+(scope auto service), field-level (projection par habilitation). **Pas** dans le design figé actuel.
+
+**Cadres** : RGPD art. 9 (santé) · secret médical/bancaire · classification défense (IGI 1300 FR) · AI Act.
+
 ---
 
 ## 8. Observabilité unifiée (cohérent livre blanc IA §2.3 / §6.3)
@@ -229,6 +263,10 @@ Le **« Google Sheets complet »** (édition concurrente + offline sans conflit)
 6. **Sécurité** : la garde « au niveau intention » tient-elle pour les 3 transports d'un coup ? (à prouver P6).
 7. **Offline/CRDT** : faisabilité réelle, coût mémoire, périmètre. Très incertain.
 8. **Perf** : le multi-transport ne doit pas alourdir le hot path REST/WS (budget borné, lazy, 0 alloc/req).
+9. **Classification & cloisonnement** (§7.1) : modèle de classification multi-niveaux (C1–C4 + compartiments),
+   row-level systématique (scope auto dans le service), field-level (projection). Où exactement s'injecte le
+   scope (`Criteria` repository ? Voter qui réécrit la requête ?) ? Coût perf du scope sur le hot path lecture ?
+   Comment l'agent IA hérite du même cloisonnement sans fuite ? **Crucial pour défense/santé/banque — non tranché.**
 
 ---
 
