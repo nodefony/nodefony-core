@@ -43,6 +43,18 @@ realtime/orm) — durcir d'abord évite que la sécurité hérite de la dette. C
   - **LB.0 ✅** `ILogDriver` queryable + `filterPdus` + `logDriverRegistry` (`50e9d7f`) ; **LB.1 ✅** `MemoryLogDriver` + data-plane `query`/`search` paginé + switch driver dev-only (`378ac44`) ; **trace full-stack** requestId teardown + ordre chrono `uid` + `maxStack` config + driver console (`c48858b`) ; **console Studio** page Logs refondue Live/Explorer/Fichiers/Backplane (`3d6158e`) = **panneau Logs P10 de facto livré**.
   - **Reste ⬜ LB.2→LB.5** : drivers queryables `file`/`loki`/`elastic`/`logstash` + switch prod (RBAC P6). **Absorbe P3.6** (filtre requestId = `query({requestId})`) **+ P3.10**.
 
+### 🆕 Chantier « API souveraine » (POC en branche) — APRÈS ORM, AVANT P6
+
+> **Direction validée 2026-05-31 (PAS figée — un POC tranchera).** Doc draft complète :
+> [`docs/api/README.md`](docs/api/README.md). Cadrage IA : `project_api_souveraine_poc`.
+
+1 service → N surfaces (REST + WS + GraphQL) via **`ResourceController<T,S> extends Controller`** (CRUD multi-porte) ;
+**1 action = N transports** (params normalisés via enveloppe, 0 info HTTP dans l'action) ; data plane **duplex**
+(snapshot REST ≡ `subscribe` WS) ; sécu **Zero Trust au niveau intention** (P6 vient brancher). **POC** :
+`ResourceController` + migration data plane Studio AJAX→WS + test grandeur nature **tables mediasoup** + test **GraphQL**
+(`buildCrudResolvers` qui manque). « Google » (collaboratif/offline = CRDT) = **exploratoire, HORS POC v1**.
+Séquencement : durcissement ORM → (Realtime reste S1) → **POC** → P6.
+
 ### Sécurité (P6)
 
 - ❌ **Passport.js ABANDONNÉ** totalement (incompatible TS strict + ALS, ère Express callbacks)
