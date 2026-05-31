@@ -43,13 +43,27 @@
   bullets de frictions ici + `_state` + commit. Les **stats lourdes + graduation + archivage** sont
   déplacées dans **CONSOLIDATE** (rare, tous les 10-20 retex). Implémenté dans le skill 2026-05-31.
 
+## 🧩 Modules / docs / front (frictions du jour)
+
+- `[1× — 2026-05-31]` **commitlint refuse un sujet en Majuscule** (`docs(retro): CONSOLIDATE …` rejeté,
+  règle subject-case). → header de commit **en minuscule** ; corps avec apostrophes/accents OK via
+  `git ci -F` (cf [[feedback_commit_fr_apostrophes]]).
+- `[1× — 2026-05-31]` **`{{ }}` dans les `docs/*.md` d'un module sont résolus par `@nodefony/documentation`
+  lui-même** (le module se scanne → effet miroir) : documenter la feature `{{ }}` mange ses propres
+  exemples. → neutraliser les exemples : `{{ maVar }}` (provider inconnu = laissé littéral) ou `{{ … }}`
+  (hors charset `[\w.-]` = non matché par le résolveur).
+- `[1× — 2026-05-31]` **« Session front » ≠ forcément du dev** : quand le composant cible déjà les bonnes
+  routes ET que les shapes back↔front sont compatibles (champs optionnels en trop/absents = dégradation
+  propre), la session se réduit à un **diff de shapes + curl runtime, 0 edit**. Ne pas présumer qu'il faut
+  coder ni invoquer `nodefony-studio-dev`. Reste = confirmation visuelle user (hard-reload, pas de headless).
+
 ---
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
+- `2026-05-31-41ca4a89` — commit module doc + CONSOLIDATE (verdict rien à graduer) + Session A (docs+tests) + Session B (front déjà compatible, 0 edit).
 - `2026-05-31-a5a0cf2d` — création back module `@nodefony/documentation` (data plane doc transverse) + activation runtime.
 - `2026-05-31-3d9b015f` — LB.2 driver file JSONL queryable + candidats logs (Loki).
-- `2026-05-31-2399c6e8` — design API souveraine + MAJ migration.
 
 > ✅ **CONSOLIDATE audité le 2026-05-31** (`CONSOLIDATION-2026-05-31.md`) : les 57 bruts (05-25→05-31)
 > ont été balayés. **Verdict : rien à graduer.** Tous les thèmes récurrents (lock/lint-staged,
