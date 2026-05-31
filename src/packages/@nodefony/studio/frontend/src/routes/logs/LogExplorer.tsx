@@ -22,6 +22,7 @@ import {
   Group,
   Paper,
   SegmentedControl,
+  Stack,
   Text,
   TextInput,
   Tooltip,
@@ -43,13 +44,14 @@ import {
 } from "../../components/ui";
 import { ansiToReact } from "../../utils/ansiToReact";
 import type {
+  ClusterTopology,
   LogDriverCapabilities,
   LogQueryResult,
   LogRecord,
 } from "./logsTypes";
 import { SEVERITIES } from "./logsTypes";
 import { LOGS_DOC, fmtClock, fmtMillis, recordMessage } from "./logFormat";
-import { SeverityBadge } from "./LogVisuals";
+import { ClusterScopeNotice, SeverityBadge } from "./LogVisuals";
 import { describeFlow } from "./eventFlow";
 
 export interface LogExplorerProps {
@@ -63,6 +65,8 @@ export interface LogExplorerProps {
   onSelect: (rec: LogRecord) => void;
   /** Incrémenté à chaque switch de driver → force un rechargement. */
   refreshKey?: number;
+  /** Topologie cluster (méta backplane) → avertissement de vue partielle. */
+  cluster?: ClusterTopology | null;
 }
 
 export const LogExplorer = observer(
@@ -72,6 +76,7 @@ export const LogExplorer = observer(
     traceRequestId,
     onSelect,
     refreshKey = 0,
+    cluster,
   }: LogExplorerProps) => {
     const store = useStore();
     const [requestId, setRequestId] = useState(traceRequestId ?? "");
@@ -274,15 +279,23 @@ export const LogExplorer = observer(
           transmet les logs (ici, vers la console) sans les conserver d'une façon
           interrogeable. Seul l'onglet <b>Live</b> reste disponible. Pour explorer
           le passé, choisis un driver avec la capacité <b>Recherche</b>
-          (<Code>mémoire</Code>, ou <Code>fichier</Code>/<Code>Elasticsearch</Code>
-          à venir) dans le sélecteur du bandeau.
+          (<Code>mémoire</Code>, <Code>fichier</Code>/<Code>cluster-file</Code>, ou{" "}
+          <Code>Loki</Code>/<Code>OpenSearch</Code> à venir) dans le sélecteur du
+          bandeau.
         </Alert>
       );
     }
 
     return (
-      <Paper withBorder radius="md" p="sm">
-        {/* Barre de trace full-stack. */}
+      <Stack gap="sm">
+        {/* Honnêteté cluster : la query froide ne voit qu'un worker sauf driver agrégateur. */}
+        <ClusterScopeNotice
+          cluster={cluster}
+          driverName={driverName}
+          context="query"
+        />
+        <Paper withBorder radius="md" p="sm">
+          {/* Barre de trace full-stack. */}
         <Group gap="xs" mb="xs" wrap="nowrap">
           <TextInput
             size="xs"
@@ -392,7 +405,8 @@ export const LogExplorer = observer(
           emptyMessage="Aucun log ne correspond aux critères."
           persist={{ key: "studio.logs.explorer", storage: "session" }}
         />
-      </Paper>
+        </Paper>
+      </Stack>
     );
   },
 );

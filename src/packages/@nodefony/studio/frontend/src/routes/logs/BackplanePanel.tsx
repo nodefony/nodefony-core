@@ -33,7 +33,11 @@ import {
 } from "../../components/ui";
 import type { BackplaneMeta } from "./logsTypes";
 import { LOGS_DOC, UPCOMING_DRIVERS, driverMeta } from "./logFormat";
-import { CapabilityBadges, DriverIcon } from "./LogVisuals";
+import {
+  CapabilityBadges,
+  ClusterScopeNotice,
+  DriverIcon,
+} from "./LogVisuals";
 import { FLOW_LEGEND } from "./eventFlow";
 
 export interface BackplanePanelProps {
@@ -89,6 +93,13 @@ export function BackplanePanel({
     <DataState loading={loading && !meta} error={error} onRetry={reload} minHeight={200}>
       {meta && (
         <Stack gap="lg">
+          {/* Honnêteté cluster : la relecture est partielle sauf driver agrégateur. */}
+          <ClusterScopeNotice
+            cluster={meta.cluster}
+            driverName={activeName}
+            context="query"
+          />
+
           {/* Les 3 axes. */}
           <Stack gap="xs">
             <Group gap={6}>
@@ -217,42 +228,59 @@ export function BackplanePanel({
             </SimpleGrid>
           </Stack>
 
-          {/* Vision — drivers à venir. */}
+          {/* Autres destinations : codées (activables par config) ou à venir (LB.4). */}
           {upcoming.length > 0 && (
             <Stack gap="xs">
               <Group gap={6}>
                 <Title order={5} c="dimmed">
-                  À venir
+                  Autres destinations
                 </Title>
                 <DocHint
-                  title="Drivers à venir"
+                  title="Destinations configurables / à venir"
                   version={LOGS_DOC}
-                  summary="Le contrat ILogDriver + le registry accueilleront ces destinations SANS changer cet écran ni l'Explorer (même endpoint, mêmes critères)."
+                  summary="Drivers connus non actifs. « Configurable » = déjà codé, activable par config (log.queryDriver) — dont cluster-file pour la vue cluster. « À venir » = contrat prêt, implémentation LB.4. Le registry les accueille SANS changer cet écran ni l'Explorer."
                 />
               </Group>
               <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
                 {upcoming.map((name) => {
                   const dm = driverMeta(name);
+                  const isFuture = dm.upcoming === true;
                   return (
                     <Card
                       key={name}
                       withBorder
                       radius="md"
                       p="md"
-                      style={{ opacity: 0.6, borderStyle: "dashed" }}
+                      style={{
+                        opacity: isFuture ? 0.6 : 0.85,
+                        borderStyle: "dashed",
+                      }}
                     >
-                      <Group gap="sm" wrap="nowrap" mb="xs">
-                        <ThemeIcon variant="light" color="gray" size={32} radius="md">
-                          <IconPlugConnected size={18} />
-                        </ThemeIcon>
-                        <div style={{ minWidth: 0 }}>
-                          <Text fw={700} truncate>
-                            {dm.label}
-                          </Text>
-                          <Text size="xs" c="dimmed" ff="monospace">
-                            {name}
-                          </Text>
-                        </div>
+                      <Group justify="space-between" wrap="nowrap" mb="xs">
+                        <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                          {isFuture ? (
+                            <ThemeIcon variant="light" color="gray" size={32} radius="md">
+                              <IconPlugConnected size={18} />
+                            </ThemeIcon>
+                          ) : (
+                            <DriverIcon name={name} color="gray" />
+                          )}
+                          <div style={{ minWidth: 0 }}>
+                            <Text fw={700} truncate>
+                              {dm.label}
+                            </Text>
+                            <Text size="xs" c="dimmed" ff="monospace">
+                              {name}
+                            </Text>
+                          </div>
+                        </Group>
+                        <Badge
+                          size="xs"
+                          variant="light"
+                          color={isFuture ? "gray" : "teal"}
+                        >
+                          {isFuture ? "à venir" : "configurable"}
+                        </Badge>
                       </Group>
                       <Text size="xs" c="dimmed">
                         {dm.description}

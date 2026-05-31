@@ -28,11 +28,10 @@ import {
   DataState,
   DocHint,
   FlashValue,
-  WarnHint,
   ensureLiveStyles,
 } from "../../components/ui";
 import type { BackplaneMeta } from "./logsTypes";
-import { LOGS_DOC, driverMeta } from "./logFormat";
+import { LOGS_DOC, UPCOMING_DRIVERS, driverMeta } from "./logFormat";
 import { CapabilityBadges, DriverIcon } from "./LogVisuals";
 
 export interface BackplaneBannerProps {
@@ -94,7 +93,21 @@ export function BackplaneBanner({
   const active = meta?.activeDriver ?? null;
   const isDev = meta?.environment === "development";
   const drivers = meta?.drivers ?? [];
-  const onlyOne = drivers.length <= 1;
+  const registeredNames = new Set(drivers.map((d) => d.name));
+  // Tous les modes connus dans le select : enregistrés (memory/console + file/
+  // cluster-file en dev) = sélectionnables ; connus mais pas encore implémentés
+  // (Loki/OpenSearch, LB.4) = grisés avec la raison. Visibilité complète, 0 404.
+  const driverOptions = [
+    ...drivers.map((d) => ({ value: d.name, label: driverMeta(d.name).label })),
+    ...UPCOMING_DRIVERS.filter((n) => !registeredNames.has(n)).map((n) => {
+      const dm = driverMeta(n);
+      return {
+        value: n,
+        label: `${dm.label} — ${dm.upcoming ? "à venir" : "via config"}`,
+        disabled: true,
+      };
+    }),
+  ];
 
   const switchDriver = async (name: string) => {
     if (!name || name === active?.name) return;
@@ -199,39 +212,35 @@ export function BackplaneBanner({
                   <Group gap={6} wrap="nowrap">
                     <Select
                       size="xs"
-                      w={170}
+                      w={220}
                       value={active?.name ?? null}
-                      data={drivers.map((d) => d.name)}
+                      data={driverOptions}
                       onChange={(v) => v && switchDriver(v)}
-                      disabled={switching || onlyOne}
+                      disabled={switching}
                       allowDeselect={false}
                       comboboxProps={{ withinPortal: true }}
                       aria-label="changer de driver de relecture"
                       leftSection={<IconCircleDot size={14} />}
                     />
-                    {onlyOne ? (
-                      <WarnHint
-                        title="Un seul driver enregistré"
-                        version={LOGS_DOC}
-                        summary="Le registry ne contient que « memory ». Enregistre file/elastic/loki (LB.2+) pour pouvoir switcher."
-                      />
-                    ) : (
-                      <DocHint
-                        title="Changer de driver (dev uniquement)"
-                        version={LOGS_DOC}
-                        summary="Bascule la destination des logs à chaud (vide + ferme l'ancienne, active la nouvelle — opération atomique)."
-                        sections={[
-                          {
-                            label: "Pourquoi seulement en dev",
-                            body: "En production, la destination est figée par la config/les variables d'env (12-factor) : un serveur qui change de cible en plein vol casserait la traçabilité. Le bouton est donc masqué hors développement.",
-                          },
-                          {
-                            label: "Essaie",
-                            body: "Bascule sur « console » (sans Recherche) → l'onglet Explorer t'expliquera qu'on ne peut plus fouiller ; reviens sur « mémoire » pour réactiver la recherche.",
-                          },
-                        ]}
-                      />
-                    )}
+                    <DocHint
+                      title="Changer de driver (dev uniquement)"
+                      version={LOGS_DOC}
+                      summary="Bascule la destination des logs à chaud (vide + ferme l'ancienne, active la nouvelle — opération atomique). Le défaut reste « mémoire »."
+                      sections={[
+                        {
+                          label: "Pourquoi seulement en dev",
+                          body: "En production, la destination est figée par la config/les variables d'env (12-factor) : un serveur qui change de cible en plein vol casserait la traçabilité. Le sélecteur est donc masqué hors développement.",
+                        },
+                        {
+                          label: "Modes grisés",
+                          body: "« à venir » = driver pas encore implémenté (Loki/OpenSearch, LB.4). En dev, memory/console/file/cluster-file sont tous montés et switchables ; en prod, seul le driver configuré l'est.",
+                        },
+                        {
+                          label: "Essaie",
+                          body: "Bascule sur « Fichier JSONL » → l'Explorer relit les logs persistés sur disque ; « console » (sans Recherche) → l'Explorer explique qu'on ne peut plus fouiller ; reviens sur « Mémoire ».",
+                        },
+                      ]}
+                    />
                   </Group>
                 )}
               </Group>

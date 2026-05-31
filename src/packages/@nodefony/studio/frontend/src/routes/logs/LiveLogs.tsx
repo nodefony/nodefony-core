@@ -38,7 +38,7 @@ import {
 import { useConnection, useStore } from "../../stores";
 import { ansiToReact } from "../../utils/ansiToReact";
 import { DocHint } from "../../components/ui";
-import type { LogRecord, Severity } from "./logsTypes";
+import type { ClusterTopology, LogRecord, Severity } from "./logsTypes";
 import {
   LOGS_DOC,
   countBySeverity,
@@ -48,7 +48,11 @@ import {
   recordMessage,
   toRecord,
 } from "./logFormat";
-import { SeverityBadge, SeverityCountChips } from "./LogVisuals";
+import {
+  ClusterScopeNotice,
+  SeverityBadge,
+  SeverityCountChips,
+} from "./LogVisuals";
 
 /** Plafond d'entrées conservées côté client (croissance bornée). */
 const MAX_ENTRIES = 500;
@@ -64,9 +68,11 @@ interface Entry {
 export interface LiveLogsProps {
   /** Clic sur une ligne → détail (drawer géré par l'orchestrateur). */
   onSelect: (rec: LogRecord) => void;
+  /** Topologie cluster (méta backplane) → note « flux d'un seul worker ». */
+  cluster?: ClusterTopology | null;
 }
 
-export const LiveLogs = observer(({ onSelect }: LiveLogsProps) => {
+export const LiveLogs = observer(({ onSelect, cluster }: LiveLogsProps) => {
   const conn = useConnection();
   const store = useStore();
 
@@ -194,6 +200,8 @@ export const LiveLogs = observer(({ onSelect }: LiveLogsProps) => {
 
   return (
     <Stack gap="sm">
+      {/* Honnêteté cluster : le live ne provient que du worker portant la socket WS. */}
+      <ClusterScopeNotice cluster={cluster} driverName={null} context="live" />
       {/* Barre d'état + contrôles. */}
       <Paper p="xs" withBorder radius="md">
         <Group justify="space-between" wrap="wrap" gap="sm">

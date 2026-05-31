@@ -3,7 +3,7 @@
  * état, sûres (rendu en TEXTE, jamais d'HTML injecté), accessibles. Partagées
  * par les onglets Live / Explorer / Fichiers / Backplane et le drawer de détail.
  */
-import { Badge, Group, Text, ThemeIcon, Tooltip } from "@mantine/core";
+import { Alert, Badge, Code, Group, Text, ThemeIcon, Tooltip } from "@mantine/core";
 import {
   IconStack2,
   IconFileText,
@@ -11,11 +11,18 @@ import {
   IconDatabase,
   IconDeviceFloppy,
   IconBroadcast,
+  IconAffiliate,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import type { FC } from "react";
-import type { LogDriverCapabilities, Severity } from "./logsTypes";
+import type {
+  ClusterTopology,
+  LogDriverCapabilities,
+  Severity,
+} from "./logsTypes";
 import {
   driverMeta,
+  isClusterAware,
   severityColor,
   severityVariant,
   type DriverIconKind,
@@ -25,6 +32,7 @@ import {
 const DRIVER_ICONS: Record<DriverIconKind, FC<{ size?: number }>> = {
   memory: IconStack2,
   file: IconFileText,
+  cluster: IconAffiliate,
   search: IconSearch,
   generic: IconDatabase,
 };
@@ -47,6 +55,82 @@ export function DriverIcon({
     <ThemeIcon variant="light" color={color} size={size + 14} radius="md">
       <Icon size={size} />
     </ThemeIcon>
+  );
+}
+
+/**
+ * **ClusterScopeNotice** — avertissement d'honnêteté sur la portée de la
+ * relecture en **cluster**. Rendu uniquement si `cluster.isCluster`. En cluster,
+ * le data plane HTTP est servi par UN worker (round-robin) et la socket WS du
+ * Live est portée par UN worker → la vue est partielle sauf driver agrégateur.
+ * Trois cas (cf {@link isClusterAware}) :
+ *
+ *  - `context="query"` + driver agrégateur (`cluster-file`/elastic/loki) → note
+ *    verte rassurante (vue cluster unifiée) ;
+ *  - `context="query"` + driver local (`memory`/`file`) → **alerte orange** : la
+ *    relecture ne voit que ce worker, résultats incohérents au refresh → bascule
+ *    `cluster-file` (config) ;
+ *  - `context="live"` → note bleue informative : le flux ne vient que d'un worker.
+ *
+ * Mono-process → rien (0 bruit). Pattern « honnêteté » du dashboard ORM (« fourni
+ * par un autre worker »).
+ */
+export function ClusterScopeNotice({
+  cluster,
+  driverName,
+  context,
+}: {
+  cluster: ClusterTopology | null | undefined;
+  driverName: string | null;
+  context: "query" | "live";
+}) {
+  if (!cluster?.isCluster) return null;
+  const label = driverName ? driverMeta(driverName).label : "—";
+
+  if (context === "live") {
+    return (
+      <Alert
+        variant="light"
+        color="blue"
+        icon={<IconAffiliate size={16} />}
+        title="Cluster — flux d'un seul worker"
+      >
+        En cluster, le flux temps réel ne provient que du worker portant la
+        socket WebSocket (le PID est en tête de chaque ligne). Pour une vue de{" "}
+        <b>tout</b> le cluster, va dans l'onglet <b>Explorer</b> avec le driver{" "}
+        <Code>cluster-file</Code>.
+      </Alert>
+    );
+  }
+
+  if (isClusterAware(driverName)) {
+    return (
+      <Alert
+        variant="light"
+        color="teal"
+        icon={<IconAffiliate size={16} />}
+        title="Vue cluster unifiée"
+      >
+        Driver « {label} » : la relecture agrège les logs de <b>tous</b> les
+        workers du cluster — résultats cohérents quel que soit le worker qui
+        répond.
+      </Alert>
+    );
+  }
+
+  return (
+    <Alert
+      variant="light"
+      color="orange"
+      icon={<IconAlertTriangle size={16} />}
+      title="Vue partielle — un seul worker"
+    >
+      Cluster détecté (worker PID {cluster.pid}). Le driver actif « {label} » ne
+      relit que <b>ce</b> worker → les requêtes peuvent renvoyer des résultats
+      incohérents d'un rafraîchissement à l'autre (round-robin entre workers).
+      Configure <Code>log.queryDriver: "cluster-file"</Code> pour une vue unifiée
+      du cluster.
+    </Alert>
   );
 }
 
@@ -87,22 +171,33 @@ export function SeverityBadge({
  */
 const CAPABILITY_META: Record<
   keyof LogDriverCapabilities,
-  { label: string; tech: string; icon: FC<{ size?: number }>; help: string }
+  {
+    label: string;
+    /** Libellé NÉGATIF affiché quand la capacité est absente (≠ label grisé,
+     *  déstabilisant : « Non persistant » dit clairement ce qui manque). */
+    labelOff: string;
+    tech: string;
+    icon: FC<{ size?: number }>;
+    help: string;
+  }
 > = {
   write: {
     label: "Persistant",
+    labelOff: "Non persistant",
     tech: "write",
     icon: IconDeviceFloppy,
     help: "Conserve les logs dans la durée : ils survivent à un redémarrage. Driver « en mémoire » = volatil (tout est perdu au reboot).",
   },
   query: {
     label: "Recherche",
+    labelOff: "Sans recherche",
     tech: "query",
     icon: IconSearch,
     help: "Permet de FOUILLER l'historique : filtres, recherche plein-texte, suivi d'une requête (onglet Explorer). Sans elle, on ne peut que regarder le flux en direct, pas chercher dans le passé.",
   },
   stream: {
     label: "Temps réel",
+    labelOff: "Sans temps réel",
     tech: "stream",
     icon: IconBroadcast,
     help: "Alimente le flux direct des logs au fil de l'eau (onglet Live).",
@@ -132,19 +227,20 @@ export function CapabilityBadges({
           return (
             <Tooltip
               key={cap}
-              label={`${meta.label} (${meta.tech}) — ${on ? meta.help : "non disponible sur ce driver."}`}
+              label={`${on ? meta.label : meta.labelOff} (${meta.tech}) — ${on ? meta.help : "non disponible sur ce driver."}`}
               multiline
               w={260}
               withArrow
             >
+              {/* Présent = vert ; absent = libellé NÉGATIF explicite en gris neutre
+                  (pas le label affirmatif grisé, qui laissait croire « persistant »). */}
               <Badge
                 size={size}
-                variant={on ? "light" : "outline"}
+                variant="light"
                 color={on ? "teal" : "gray"}
                 leftSection={<Icon size={11} />}
-                styles={on ? undefined : { root: { opacity: 0.5 } }}
               >
-                {meta.label}
+                {on ? meta.label : meta.labelOff}
               </Badge>
             </Tooltip>
           );

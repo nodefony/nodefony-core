@@ -106,6 +106,21 @@ export interface BackplaneMeta {
   counters: BackplaneCounters;
   /** Environnement kernel — gouverne la visibilité du switch (dev-only). */
   environment: string | null;
+  /**
+   * Topologie process (optionnel = robustesse si dist back périmé → supposé
+   * mono). En cluster, le data plane est servi par UN worker round-robin → la
+   * relecture est partielle sauf si le driver actif agrège le cluster
+   * (`cluster-file`). `pid` = worker qui a répondu à CETTE requête.
+   */
+  cluster?: ClusterTopology;
+}
+
+/** Topologie process renvoyée par `backplane` — gouverne l'avertissement de vue partielle. */
+export interface ClusterTopology {
+  /** `true` si le kernel tourne en cluster multi-worker (`NODEFONY_CLUSTER=1`). */
+  isCluster: boolean;
+  /** PID du worker ayant servi la requête `backplane` (round-robin en cluster). */
+  pid: number;
 }
 
 /** Résultat paginé de `GET /nodefony/syslog/api/logs/search`. */

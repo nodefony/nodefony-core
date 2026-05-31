@@ -98,7 +98,11 @@ export const Logs = observer(() => {
         onSwitched={() => setRefreshKey((k) => k + 1)}
       />
 
-      <Tabs value={tab} onChange={(v) => v && setTab(v as TabId)} keepMounted={false}>
+      <Tabs
+        value={tab}
+        onChange={(v) => v && setTab(v as TabId)}
+        keepMounted={false}
+      >
         <Tabs.List>
           <Tabs.Tab value="live" leftSection={<IconBroadcast size={16} />}>
             Live
@@ -115,7 +119,7 @@ export const Logs = observer(() => {
         </Tabs.List>
 
         <Tabs.Panel value="live" pt="md">
-          <LiveLogs onSelect={setSelected} />
+          <LiveLogs onSelect={setSelected} cluster={meta?.cluster} />
         </Tabs.Panel>
 
         <Tabs.Panel value="explorer" pt="md">
@@ -125,6 +129,7 @@ export const Logs = observer(() => {
             traceRequestId={traceRequestId}
             onSelect={setSelected}
             refreshKey={refreshKey}
+            cluster={meta?.cluster}
           />
         </Tabs.Panel>
 

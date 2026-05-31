@@ -89,7 +89,12 @@ export function fmtDateTime(ts: number): string {
 }
 
 /** Type d'icône d'un driver (mappé vers un composant dans `LogVisuals.tsx`). */
-export type DriverIconKind = "memory" | "file" | "search" | "generic";
+export type DriverIconKind =
+  | "memory"
+  | "file"
+  | "cluster"
+  | "search"
+  | "generic";
 
 /** Métadonnée d'affichage d'un driver de relecture. */
 export interface DriverMeta {
@@ -115,21 +120,31 @@ const DRIVER_META: Record<string, DriverMeta> = {
   file: {
     label: "Fichier JSONL",
     description:
-      "Pdu persistés en JSON Lines sur disque, relus par scan. Node-only. (LB.2 — à venir)",
+      "Pdu persistés en JSON Lines sur disque (1 fichier par worker, nodefony-<pid>.jsonl), " +
+      "relus par scan borné. Node-only (LB.2). Activé par config (log.queryDriver: \"file\").",
     icon: "file",
-    upcoming: true,
   },
-  elastic: {
-    label: "Elasticsearch",
+  "cluster-file": {
+    label: "Cluster (fichiers agrégés)",
     description:
-      "Indexation + recherche plein-texte distribuée, rétention longue. (LB.4 — à venir)",
-    icon: "search",
-    upcoming: true,
+      "Vue UNIFIÉE du cluster : agrège les nodefony-<pid>.jsonl de TOUS les workers, " +
+      "fusionnés par horodatage. C'est LE driver de relecture à utiliser en cluster " +
+      "(les autres ne voient que le worker courant). Node-only (LB.5).",
+    icon: "cluster",
   },
   loki: {
     label: "Grafana Loki",
     description:
-      "Agrégation de logs cloud-native (labels + LogQL). (LB.4 — à venir)",
+      "Agrégation de logs cloud-native (labels + LogQL), légère (indexe les labels, " +
+      "pas un index full-text). Candidat #1 LB.4 : push HTTP du JSONL, vue cluster native. (à venir)",
+    icon: "search",
+    upcoming: true,
+  },
+  opensearch: {
+    label: "OpenSearch",
+    description:
+      "Recherche plein-texte distribuée, rétention longue (fork Apache 2.0 d'Elasticsearch — " +
+      "OSI, choisi face à Elasticsearch dont la licence SSPL est non-OSI). Candidat #2 LB.4. (à venir)",
     icon: "search",
     upcoming: true,
   },
@@ -146,8 +161,35 @@ export function driverMeta(name: string): DriverMeta {
   );
 }
 
-/** Drivers « vision » à présenter en placeholder s'ils ne sont pas encore enregistrés. */
-export const UPCOMING_DRIVERS: readonly string[] = ["file", "elastic", "loki"];
+/**
+ * Drivers connus à présenter en placeholder quand ils ne sont pas enregistrés
+ * (le registry ne contient que le driver configuré). `file`/`cluster-file` sont
+ * **codés** (activables par config) ; `elastic`/`loki` sont **à venir** (LB.4) —
+ * la distinction est portée par `driverMeta(name).upcoming`.
+ */
+export const UPCOMING_DRIVERS: readonly string[] = [
+  "file",
+  "cluster-file",
+  "loki",
+  "opensearch",
+];
+
+/**
+ * Drivers dont la relecture est **cohérente en cluster** (vue de TOUS les
+ * workers) : `cluster-file` agrège les fichiers ; `elastic`/`loki` centralisent
+ * côté backend. Les autres (`memory`, `file`) ne voient que le worker courant →
+ * en cluster, l'UI avertit d'une vue partielle. Source unique de ce verdict.
+ */
+const CLUSTER_AWARE_DRIVERS: ReadonlySet<string> = new Set([
+  "cluster-file",
+  "loki",
+  "opensearch",
+]);
+
+/** `true` si la relecture du driver est unifiée en cluster (pas de vue partielle). */
+export function isClusterAware(name: string | null | undefined): boolean {
+  return name != null && CLUSTER_AWARE_DRIVERS.has(name);
+}
 
 /**
  * Normalise un objet wire (snapshot REST ou frame `syslog:stream`) en
