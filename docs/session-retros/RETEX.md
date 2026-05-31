@@ -51,7 +51,11 @@
 - `2026-05-31-3d9b015f` — LB.2 driver file JSONL queryable + candidats logs (Loki).
 - `2026-05-31-2399c6e8` — design API souveraine + MAJ migration.
 
-> ⚠️ **57 retex accumulés (2026-05-29→05-31), JAMAIS consolidés** → CONSOLIDATE est **largement dû**.
-> Ce `RETEX.md` n'est seedé QUE des 3 derniers + des frictions confirmées déjà en `feedback_*`. Un
-> CONSOLIDATE en session dédiée doit : balayer les ~57 bruts, grader les patterns ≥3× en `feedback_*`,
-> archiver les bruts vers `archive/`, et enrichir ce sas par thème. Dire « consolide les retex ».
+> ✅ **CONSOLIDATE audité le 2026-05-31** (`CONSOLIDATION-2026-05-31.md`) : les 57 bruts (05-25→05-31)
+> ont été balayés. **Verdict : rien à graduer.** Tous les thèmes récurrents (lock/lint-staged,
+> clear/cache, dist/rebuild, restart, memory-test, HMR) sont **déjà** en `feedback_*` (60 mémoires).
+> La seule friction non graduée — « shell instable sous charge » — n'a **1 seule date** (1×) → reste
+> dans le sas. **Leçon : la graduation se fait EN CONTINU dans les sessions, pas en batch** ; l'alarme
+> « N retex jamais consolidés » était un faux positif. Ne pas re-déclencher CONSOLIDATE sur le seul
+> critère du nombre de bruts — le déclencher si une friction du sas atteint 3× ou si le dossier doit
+> être archivé pour sa taille.
