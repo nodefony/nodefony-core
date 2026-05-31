@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { GitService } from "nodefony";
-import type { IKernel, IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
+import { GitService, getActiveLogDriver, Syslog } from "nodefony";
+import type {
+  IKernel,
+  IAdminApi,
+  IAdminEndpoint,
+  IAdminDescriptor,
+} from "nodefony";
 import type { TestRunResult } from "./docsReader";
 import {
   listModuleDocs,
@@ -35,7 +40,11 @@ function stripAbs(s: string): string {
  * contenir des fonctions/refs circulaires (vers le kernel) → JSON.stringify
  * direct planterait.
  */
-function safeConfig(value: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
+function safeConfig(
+  value: unknown,
+  depth = 0,
+  seen = new WeakSet<object>(),
+): unknown {
   if (typeof value === "function") return "[Function]";
   if (typeof value === "bigint") return value.toString();
   if (typeof value === "string") return stripAbs(value);
@@ -51,7 +60,11 @@ function safeConfig(value: unknown, depth = 0, seen = new WeakSet<object>()): un
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(value as Record<string, unknown>).slice(0, 200)) {
     try {
-      out[k] = safeConfig((value as Record<string, unknown>)[k], depth + 1, seen);
+      out[k] = safeConfig(
+        (value as Record<string, unknown>)[k],
+        depth + 1,
+        seen,
+      );
     } catch {
       out[k] = "[unreadable]";
     }
@@ -106,7 +119,9 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   // On renvoie les `path` relatifs à la racine projet (`process.cwd()`).
   const repoRoot = process.cwd();
   const relPath = (p: string | null | undefined): string | null =>
-    p && p.startsWith(repoRoot) ? p.slice(repoRoot.length).replace(/^[/\\]+/, "") || "." : (p ?? null);
+    p && p.startsWith(repoRoot)
+      ? p.slice(repoRoot.length).replace(/^[/\\]+/, "") || "."
+      : (p ?? null);
 
   const endpoints: IAdminEndpoint[] = [
     {
@@ -132,6 +147,22 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         platform: process.platform,
         uptime: process.uptime(),
         modules: Object.keys(kernel.getModules()).length,
+        // Topologie process (cloud-native, per-instance). `NODEFONY_CLUSTER=1`
+        // posé par le master, hérité au fork → `true` dans chaque worker. Le
+        // décompte des workers est agrégé ailleurs (master → realtime:health) :
+        // ici on ne rapporte QUE ce process (pas d'agrégation dans le data plane).
+        cluster: { isCluster: process.env.NODEFONY_CLUSTER === "1" },
+        // Fonds de panier (« backplanes ») — info rapide pour la topbar Studio.
+        // LOG Backplane : driver de relecture actif (axe DESTINATION queryable)
+        // + sink d'écriture (axe WRITE). Le Realtime Backplane vit dans son
+        // module (cycle interdit framework→realtime) → lu côté Studio depuis
+        // `/nodefony/realtime/api/health`.
+        backplanes: {
+          log: {
+            driver: getActiveLogDriver()?.name ?? null,
+            sink: Syslog.logSinkName,
+          },
+        },
         // Identité git (branche + commit court) — lecture `.git`, sans spawn.
         git: GitService.read(),
       }),
@@ -231,9 +262,15 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       handler: async (request) => {
         const target = resolveTarget(request.params.name);
         if (!target) {
-          return { status: 404, body: { error: "Module not found", key: request.params.name } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key: request.params.name },
+          };
         }
-        return { key: request.params.name, deps: await readDependencies(target.path) };
+        return {
+          key: request.params.name,
+          deps: await readDependencies(target.path),
+        };
       },
     },
     {
@@ -243,10 +280,16 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       handler: async (request) => {
         const target = resolveTarget(request.params.name);
         if (!target) {
-          return { status: 404, body: { error: "Module not found", key: request.params.name } };
+          return {
+            status: 404,
+            body: { error: "Module not found", key: request.params.name },
+          };
         }
         const deps = await readDependencies(target.path);
-        return { key: request.params.name, outdated: await checkOutdated(deps) };
+        return {
+          key: request.params.name,
+          outdated: await checkOutdated(deps),
+        };
       },
     },
     {
@@ -327,7 +370,8 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         }
         return {
           key,
-          devMode: kernel.environment === "development" || Boolean(kernel.debug),
+          devMode:
+            kernel.environment === "development" || Boolean(kernel.debug),
           files: await listTestFiles(target.path),
         };
       },
@@ -340,7 +384,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       summary: "Start a test run (dev only) — 1 file or whole suite → jobId",
       handler: (request) => {
         if (!devGuard()) {
-          return { status: 403, body: { error: "Test runner disabled outside development" } };
+          return {
+            status: 403,
+            body: { error: "Test runner disabled outside development" },
+          };
         }
         const key = request.params.name;
         const target = resolveTarget(key);
@@ -351,7 +398,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         let file: string | undefined;
         if (typeof body.file === "string" && body.file) {
           if (body.file.includes("..") || !body.file.endsWith(".test.ts")) {
-            return { status: 400, body: { error: "Invalid test file", file: body.file } };
+            return {
+              status: 400,
+              body: { error: "Invalid test file", file: body.file },
+            };
           }
           file = body.file;
         }
@@ -359,17 +409,32 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         testJobs.set(jobId, { status: "running", startedAt: Date.now() });
         // borne la map (16 derniers jobs)
         if (testJobs.size > 16) {
-          const oldest = [...testJobs.entries()].sort((a, b) => a[1].startedAt - b[1].startedAt)[0];
+          const oldest = [...testJobs.entries()].sort(
+            (a, b) => a[1].startedAt - b[1].startedAt,
+          )[0];
           if (oldest) testJobs.delete(oldest[0]);
         }
         // fire-and-forget : ne PAS await (le client poll via GET ?jobId)
         runModuleTests(target.path, file).then(
-          (result) => testJobs.set(jobId, { status: "done", startedAt: Date.now(), result }),
+          (result) =>
+            testJobs.set(jobId, {
+              status: "done",
+              startedAt: Date.now(),
+              result,
+            }),
           (e) =>
             testJobs.set(jobId, {
               status: "done",
               startedAt: Date.now(),
-              result: { ok: false, code: null, passed: 0, failed: 0, durationMs: 0, output: String(e), mode: "" },
+              result: {
+                ok: false,
+                code: null,
+                passed: 0,
+                failed: 0,
+                durationMs: 0,
+                output: String(e),
+                mode: "",
+              },
             }),
         );
         return { key, jobId, running: true };
@@ -383,7 +448,8 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
       handler: (request) => {
         const jobId = String(request.query.jobId ?? "");
         const job = jobId ? testJobs.get(jobId) : undefined;
-        if (!job) return { status: 404, body: { error: "Unknown jobId", jobId } };
+        if (!job)
+          return { status: 404, body: { error: "Unknown jobId", jobId } };
         return { jobId, done: job.status === "done", ...(job.result ?? {}) };
       },
     },

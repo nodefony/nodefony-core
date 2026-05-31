@@ -1,5 +1,5 @@
 {
-  "generated": "2026-05-31T19:52:51.989Z",
+  "generated": "2026-05-31T21:07:32.803Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -12043,6 +12043,7 @@
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
         "src/nodefony/src/syslog/transports/SyslogTransport.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
       ],
@@ -13904,6 +13905,10 @@
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
       ],
+      "getActiveLogDriver": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
       "TestRunResult": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
@@ -13977,9 +13982,6 @@
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
-      ],
-      "getActiveLogDriver": [
-        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "listLogDrivers": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"

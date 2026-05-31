@@ -41,8 +41,12 @@ export interface SyslogAdminApiOptions {
 
 /** Plafond d'octets lus en queue de fichier (tail / fenêtre incrémentale). */
 const MAX_TAIL_BYTES = 256 * 1024;
-/** Nom de fichier de log autorisé : basename simple terminant par `.log`. */
-const LOG_NAME = /^[A-Za-z0-9._-]+\.log$/;
+/**
+ * Nom de fichier de log autorisé : basename simple terminant par `.log` (sink
+ * texte LB.W) OU `.jsonl` (queryable LB.2/5). Anti path-traversal (pas de `/`,
+ * pas de `..`). Couvre les deux familles écrites dans le répertoire des logs.
+ */
+const LOG_NAME = /^[A-Za-z0-9._-]+\.(log|jsonl)$/;
 
 /** Métadonnée d'un fichier de log listé. */
 interface LogFileMeta {
@@ -243,6 +247,15 @@ export function createSyslogAdminApi(
           drivers: listLogDrivers(),
           // Axe WRITE (LB.W — où la ligne texte est écrite). Orthogonal.
           write: { sink: Syslog.logSinkName },
+          // Topologie process. En cluster (`NODEFONY_CLUSTER=1`, posé par le
+          // master et hérité au fork), le data plane est servi par UN worker
+          // round-robin → le front avertit que la relecture est partielle si le
+          // driver actif n'agrège pas le cluster (≠ `cluster-file`). `pid` = ce
+          // worker. Per-instance (cloud-native) — pas d'agrégation ici.
+          cluster: {
+            isCluster: process.env.NODEFONY_CLUSTER === "1",
+            pid: process.pid,
+          },
           // Santé du flux (cumuls monotones → débit dérivé côté lecteur).
           counters: {
             valid: syslog.valid,

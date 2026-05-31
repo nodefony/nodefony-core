@@ -52,6 +52,15 @@ export interface TypeKernelOptions extends DefaultOptionsService {
   node_start?: NodefonyStartType;
   log?: {
     active?: boolean;
+    /**
+     * Répertoire des fichiers de log (relatif au cwd, défaut `"logs"`) — où sont
+     * écrits le sink texte `nodefony-<pid>.log` (LB.W) ET le JSONL queryable
+     * `nodefony-<pid>.jsonl` (LB.2/5). Source UNIQUE : le Kernel y écrit, et le
+     * viewer de fichiers Studio (`/nodefony/syslog/api/files`) y lit → cohérent.
+     * Remplace l'ancien pointage sur `tmpDir`. Un chemin absolu dans `file.path`/
+     * `queryFile.path` reste prioritaire (override par fichier).
+     */
+    dir?: string;
     debug?: DebugType;
     /** Coalescing des writes stdout par tick : "auto" (hors TTY) | true | false. */
     buffered?: boolean | "auto";
@@ -851,6 +860,9 @@ class Kernel extends Service implements IKernel {
     // (dev). Cf Syslog.setOutputBuffering + config.log.buffered.
     const logCfg = this.options.log as TypeKernelOptions["log"];
     Syslog.setOutputBuffering(logCfg?.buffered ?? "auto");
+    // Répertoire des logs — SOURCE UNIQUE : sink `.log` (LB.W) + JSONL queryable
+    // (LB.2/5) + viewer Studio. Configurable `log.dir` (défaut "logs"), sous cwd.
+    const logDirAbs = path.resolve(process.cwd(), logCfg?.dir ?? "logs");
     // Driver de sink (LB.W) : stdout (défaut, cloud-native pipe non-bloquant) |
     // file (fd async PAR worker → 0 lock d'inode partagé en cluster, le goulet
     // prouvé +28%) | null (bench). FileSink Node-only ; Syslog reste isomorphe.
@@ -858,7 +870,7 @@ class Kernel extends Service implements IKernel {
     if (logDriver === "file") {
       const logPath =
         logCfg?.file?.path ??
-        path.resolve(process.cwd(), "logs", `nodefony-${process.pid}.log`);
+        path.join(logDirAbs, `nodefony-${process.pid}.log`);
       Syslog.setLogSink(
         new FileSink({ path: logPath, sync: logCfg?.file?.sync }),
       );
@@ -882,35 +894,36 @@ class Kernel extends Service implements IKernel {
       createMemoryLogDriver(() => this.syslog?.ringStack ?? []),
     );
     const queryDriver = logCfg?.queryDriver ?? "memory";
-    // Drivers `file` (LB.2) et `cluster-file` (LB.5) — JSONL queryable, dev/VPS.
-    // Opt-in (jamais le défaut). WRITE↔READ cohérents : chaque worker ÉCRIT son
-    // `nodefony-<pid>.jsonl` (transport file `format:"json"`, 1 Pdu/ligne, commun
-    // aux deux). La LECTURE diffère : `file` relit SON fichier (worker courant) ;
-    // `cluster-file` globbe le DOSSIER (vue unifiée de tous les workers, merge trié
-    // par timeStamp). Le hot path cloud-native reste stdout→collecteur (Loki) ; le
-    // sink texte (LB.W) est indépendant.
-    if (queryDriver === "file" || queryDriver === "cluster-file") {
+    // Drivers `file` (LB.2) et `cluster-file` (LB.5) — JSONL queryable. Montés si
+    // demandés par config (`queryDriver`) OU, en DÉVELOPPEMENT, systématiquement :
+    // ils deviennent alors **switchables à chaud** depuis Studio (on ne fait que
+    // les ENREGISTRER en plus — le driver ACTIF par défaut reste `memory`). En
+    // PROD c'est opt-in strict (12-factor : destination figée par config/env ;
+    // pas d'I/O fichier « au cas où »). WRITE↔READ cohérents : chaque worker ÉCRIT
+    // son `nodefony-<pid>.jsonl` (transport file `format:"json"`, 1 Pdu/ligne,
+    // commun aux deux) → `file` relit SON fichier, `cluster-file` globbe le DOSSIER
+    // (vue cluster, merge trié par timeStamp). Hot path cloud-native = stdout→Loki.
+    const mountFileDrivers =
+      queryDriver === "file" ||
+      queryDriver === "cluster-file" ||
+      this.environment === "development";
+    if (mountFileDrivers) {
       const jsonPath =
         logCfg?.queryFile?.path ??
-        path.resolve(process.cwd(), "logs", `nodefony-${process.pid}.jsonl`);
+        path.join(logDirAbs, `nodefony-${process.pid}.jsonl`);
+      // Écriture commune (1 JSONL par worker) → alimente `file` ET `cluster-file`.
       this.syslog?.addTransport(
         new FileTransport({ path: jsonPath, format: "json" }),
       );
-      if (queryDriver === "cluster-file") {
-        const clusterOpts: ClusterFileLogDriverOptions = {
-          dir: path.dirname(jsonPath),
-        };
-        if (logCfg?.queryFile?.maxScanBytes !== undefined) {
-          clusterOpts.maxScanBytes = logCfg.queryFile.maxScanBytes;
-        }
-        registerLogDriver(createClusterFileLogDriver(clusterOpts));
-      } else {
-        const fileOpts: FileLogDriverOptions = { path: jsonPath };
-        if (logCfg?.queryFile?.maxScanBytes !== undefined) {
-          fileOpts.maxScanBytes = logCfg.queryFile.maxScanBytes;
-        }
-        registerLogDriver(createFileLogDriver(fileOpts));
-      }
+      const scan = logCfg?.queryFile?.maxScanBytes;
+      const fileOpts: FileLogDriverOptions = { path: jsonPath };
+      if (scan !== undefined) fileOpts.maxScanBytes = scan;
+      registerLogDriver(createFileLogDriver(fileOpts));
+      const clusterOpts: ClusterFileLogDriverOptions = {
+        dir: path.dirname(jsonPath),
+      };
+      if (scan !== undefined) clusterOpts.maxScanBytes = scan;
+      registerLogDriver(createClusterFileLogDriver(clusterOpts));
     }
     try {
       setActiveLogDriver(queryDriver);

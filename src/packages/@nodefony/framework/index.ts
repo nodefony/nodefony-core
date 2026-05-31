@@ -1,3 +1,4 @@
+import path from "node:path";
 import { Kernel, Module, services } from "nodefony";
 import type { IAdminBroker } from "./nodefony/interfaces/IAdminBroker";
 import config from "./nodefony/config/config";
@@ -103,12 +104,18 @@ class Framework extends Module {
       if (this.kernel.syslog && !broker.has("syslog")) {
         // Viewer de fichiers = confort DEV (remplace `tail -f`). En prod, les
         // logs vont sur stdout/stderr → collecteur : pas de fichiers exposés.
-        const tmp = this.kernel.tmpDir?.path;
+        // Pointe sur le RÉPERTOIRE DES LOGS (où le Kernel écrit `.log` + `.jsonl`),
+        // PAS sur `tmpDir` (ex-bug : la tab Fichiers listait `tmp/`, jamais les
+        // vrais logs). Source unique = `config.log.dir` (défaut "logs"), sous cwd.
+        const logDir = path.resolve(
+          process.cwd(),
+          this.kernel.options?.log?.dir ?? "logs",
+        );
         broker.register(
           createSyslogAdminApi(this.kernel.syslog, {
             // `isProd` n'est pas fiable (défaut `true`, jamais remis à false en
             // dev) → on se fie à `environment` (vaut "development" au runtime).
-            logDir: typeof tmp === "string" ? tmp : undefined,
+            logDir,
             enableFiles: this.kernel.environment !== "production",
             // Garde le switch de driver (backplane/driver POST) en dev-only.
             environment: this.kernel.environment,
