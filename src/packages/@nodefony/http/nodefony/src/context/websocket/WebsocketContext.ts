@@ -175,7 +175,12 @@ export default class WebsocketContext
         (httpError ?? null) as Error | null,
         acceptedProtocol ?? null,
       );
-      return this.log(entry.text, entry.severity, entry.msgid);
+      const pdu = this.log(entry.text, entry.severity, entry.msgid);
+      // Idem HTTP (cf Context.logRequest) : log de fin émis hors bulle ALS →
+      // on attache le requestId du contexte WS (stable handshake→messages→close)
+      // pour corréler la ligne récapitulative avec les logs de la connexion.
+      if (pdu && pdu.requestId === undefined) pdu.requestId = this.requestId;
+      return pdu;
     } catch {}
   }
 

@@ -1,11 +1,11 @@
 {
-  "generated": "2026-05-30T21:49:36.705Z",
+  "generated": "2026-05-31T00:16:40.093Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 791,
-    "symbols": 1506,
-    "classes": 234,
+    "files": 792,
+    "symbols": 1507,
+    "classes": 235,
     "interfaces": 369,
     "types": 187,
     "enums": 2,
@@ -3012,6 +3012,19 @@
       "exported": true,
       "module": "modules/test",
       "description": "Shared observation state for the ALS propagation integration tests (BUG-001 WS messages, BUG-002 onAfterResponse). Module-level singleton — controllers are scoped per request, so the captured value…"
+    },
+    "DbController": {
+      "name": "DbController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/DbController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Controller de **démonstration de la trace full-stack** du Log Backplane. Une requête sur `/nodefony/test/db/trace` émet plusieurs logs **corrélés par le même `requestId`** (propagé par l'ALS `Reque…"
     },
     "DecoratorController": {
       "name": "DecoratorController",
@@ -11185,6 +11198,7 @@
       "Controller": [
         "MediasoupController",
         "AlsController",
+        "DbController",
         "DecoratorController",
         "DefaultController",
         "DomainClassController",
@@ -11512,6 +11526,7 @@
       "controller": [
         "MediasoupController",
         "AlsController",
+        "DbController",
         "DecoratorController",
         "DefaultController",
         "DomainClassController",
@@ -12047,6 +12062,10 @@
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/sequelize/index.ts"
       ],
+      "registerLogDriver": [
+        "src/modules/test/index.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "HttpKernel": [
         "src/modules/test/index.ts",
         "src/packages/@nodefony/http/index.ts",
@@ -12090,6 +12109,9 @@
         "src/modules/test/index.ts"
       ],
       "DomainClassController": [
+        "src/modules/test/index.ts"
+      ],
+      "DbController": [
         "src/modules/test/index.ts"
       ],
       "registerDolibarrEntities": [
@@ -12172,6 +12194,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
@@ -12244,6 +12267,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
@@ -12361,6 +12385,7 @@
         "src/packages/@nodefony/http/index.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts",
@@ -12799,9 +12824,6 @@
       "createMemoryLogDriver": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
-      "registerLogDriver": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
       "setActiveLogDriver": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
@@ -13196,6 +13218,13 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
+      "ormRegistry": [
+        "src/modules/test/nodefony/controller/DbController.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+      ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -13294,12 +13323,6 @@
       ],
       "ISessionStorage": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts"
-      ],
-      "ormRegistry": [
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",

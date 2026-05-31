@@ -397,7 +397,15 @@ class Context extends Service implements IContextInterface {
         return;
       }
       const entry = logger.renderHttp(this as never, err as Error | null);
-      return this.log(entry.text, entry.severity, entry.msgid);
+      const pdu = this.log(entry.text, entry.severity, entry.msgid);
+      // Le log RÉCAPITULATIF de fin de requête (msgid "req") est émis dans le
+      // teardown, HORS de la bulle `RequestContext.run` (déjà refermée) → le Pdu
+      // n'a PAS capturé le requestId via `Pdu.requestIdProvider` (ALS vide ici).
+      // On l'attache depuis le context qui le détient → cette ligne devient
+      // corrélable (trace full-stack par requestId). Mutation synchrone : le ring
+      // (query) ET le bus `syslog:stream` (coalescé au tick suivant) la voient.
+      if (pdu && pdu.requestId === undefined) pdu.requestId = this.requestId;
+      return pdu;
     } catch {}
   }
 

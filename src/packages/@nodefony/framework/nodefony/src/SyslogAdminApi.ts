@@ -144,6 +144,8 @@ export function createSyslogAdminApi(
     if (to !== undefined) criteria.to = to;
     const offset = intOpt(req, "offset");
     if (offset !== undefined) criteria.offset = offset;
+    const order = oneParam(req, "order");
+    if (order === "asc" || order === "desc") criteria.order = order;
     return criteria;
   };
 

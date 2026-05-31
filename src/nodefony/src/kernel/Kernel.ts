@@ -58,6 +58,14 @@ export interface TypeKernelOptions extends DefaultOptionsService {
      * (12-factor) ; le switch à la volée est une action de contrôle dev-only.
      */
     queryDriver?: string;
+    /**
+     * Taille du **ring buffer** de logs en mémoire (nombre de Pdu conservés pour
+     * la relecture par le driver `memory` + le snapshot Studio). Défaut **100**
+     * (prod-safe) ; **2000 en développement** si non précisé → assez profond pour
+     * tracer une requête complète (appel DB inclus) sans que le bruit de fond ne
+     * l'évince. Borné en RAM : c'est une fenêtre glissante, pas une persistance.
+     */
+    maxStack?: number;
   };
 }
 
@@ -843,6 +851,12 @@ class Kernel extends Service implements IKernel {
     //    du syslog (source injectée lazy → lit le syslog courant à la query).
     //    Défaut dev ; `file`-JSONL / `elastic`-`loki` (Node-only, LB.2+) = drivers
     //    enregistrés à part. Switch à la volée = action de contrôle dev-only (Studio).
+    // Profondeur du ring de relecture : config explicite, sinon 2000 en dev
+    // (trace d'une requête lisible malgré le bruit), 100 ailleurs (prod-safe).
+    const maxStack =
+      logCfg?.maxStack ??
+      (this.environment === "development" ? 2000 : undefined);
+    if (maxStack) this.syslog?.setMaxStack(maxStack);
     registerLogDriver(
       createMemoryLogDriver(() => this.syslog?.ringStack ?? []),
     );

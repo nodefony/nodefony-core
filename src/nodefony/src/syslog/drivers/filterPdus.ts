@@ -85,6 +85,11 @@ export function filterPdus(
     matched.push(pdu);
   }
 
+  // `matched` est collecté du plus RÉCENT au plus ancien (itération fin→début du
+  // ring = ordre `uid` décroissant). C'est le défaut `"desc"`. Pour `"asc"`
+  // (chronologique), on renverse AVANT de paginer → l'`uid` croît dans `rows`.
+  if (criteria.order === "asc") matched.reverse();
+
   const total = matched.length;
   const offset = criteria.offset && criteria.offset > 0 ? criteria.offset : 0;
   const limit = Math.min(

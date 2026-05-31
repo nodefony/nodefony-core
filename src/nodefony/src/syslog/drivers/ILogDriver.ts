@@ -70,6 +70,15 @@ export interface ILogQueryCriteria {
   limit?: number;
   /** Décalage de pagination (depuis le plus récent). */
   offset?: number;
+  /**
+   * Ordre chronologique des `rows` :
+   *  - `"desc"` (DÉFAUT) : du plus RÉCENT au plus ancien (entrée naturelle d'un viewer) ;
+   *  - `"asc"` : du plus ANCIEN au plus récent (lecture chronologique d'une trace).
+   *
+   * L'ordre s'appuie sur l'`uid` du Pdu (compteur monotone d'émission) → garantit
+   * la **chronologie exacte même à `timeStamp` égal** (plusieurs logs dans la même ms).
+   */
+  order?: "asc" | "desc";
 }
 
 /**

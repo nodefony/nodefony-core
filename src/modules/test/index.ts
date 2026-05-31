@@ -1,4 +1,4 @@
-import { Kernel, Module, services } from "nodefony";
+import { Kernel, Module, services, registerLogDriver } from "nodefony";
 import type { HttpKernel } from "@nodefony/http";
 import config from "./nodefony/config/config";
 import DefaultController, {
@@ -16,6 +16,7 @@ import AlsController from "./nodefony/controller/AlsController";
 import LifecycleController from "./nodefony/controller/LifecycleController";
 import DomainController from "./nodefony/controller/DomainController";
 import DomainClassController from "./nodefony/controller/DomainClassController";
+import DbController from "./nodefony/controller/DbController";
 import { controllers } from "@nodefony/framework";
 // Entité de démo Sequelize (orm-core) — enregistrée au top-level (side-effect).
 import "./nodefony/entity/auditEntity";
@@ -40,6 +41,7 @@ registerDolibarrEntities("default");
   LifecycleController,
   DomainController,
   DomainClassController,
+  DbController,
 ])
 class Test extends Module {
   constructor(kernel: Kernel) {
@@ -47,6 +49,18 @@ class Test extends Module {
   }
   // P1.7 — register security hooks listeners for integration tests.
   override async onKernelReady(): Promise<this> {
+    // Démo Log Backplane — 2ᵉ driver de relecture `console` (DEV uniquement) pour
+    // exercer le SWITCH dev-only depuis la page Logs. `query:false` → non
+    // interrogeable : basculer dessus prouve (a) que le switch marche, (b) que
+    // l'UI s'adapte aux capacités (Explorer affiche une alerte au lieu de requêter
+    // dans le vide), (c) que le flux Live continue (`stream:true`, indépendant du
+    // driver). Re-basculer sur `memory` réactive l'exploration. Jamais hors dev.
+    if (this.kernel?.environment === "development") {
+      registerLogDriver({
+        name: "console",
+        capabilities: { write: false, query: false, stream: true },
+      });
+    }
     const httpKernel = this.kernel?.get<HttpKernel>("HttpKernel");
     if (httpKernel) {
       httpKernel.on("beforeResolve", () => {

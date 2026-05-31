@@ -660,6 +660,25 @@ class Syslog extends Event implements ISyslog {
     return this._ring.toArray();
   }
 
+  /**
+   * Redimensionne le ring buffer (capacité de relecture en mémoire) en
+   * **préservant** les Pdu déjà présents (tronqués aux `max` plus récents si on
+   * rétrécit). Destiné au **boot uniquement** (lu depuis `config.log.maxStack`) —
+   * recrée le buffer, donc à ne pas appeler dans le hot path. No-op si `max`
+   * invalide ou inchangé.
+   *
+   * @param max - nouvelle capacité (> 0).
+   */
+  setMaxStack(max: number): void {
+    if (!Number.isFinite(max) || max <= 0 || max === this.settings.maxStack) {
+      return;
+    }
+    const kept = this._ring.toArray().slice(-max);
+    this.settings.maxStack = max;
+    this._ring = new CircularBuffer<Pdu>(max);
+    for (const pdu of kept) this._ring.push(pdu);
+  }
+
   static formatDebug(debug: DebugType): DebugType {
     return formatDebug(debug);
   }
