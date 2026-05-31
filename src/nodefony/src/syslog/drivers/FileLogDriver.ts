@@ -3,7 +3,7 @@ import type { ILogDriver, ILogQueryCriteria, IPduLike } from "./ILogDriver";
 import { filterPdus } from "./filterPdus";
 
 /** Octets max relus depuis la FIN du fichier à chaque query (anti-OOM). Défaut 8 MiB. */
-const DEFAULT_MAX_SCAN_BYTES = 8 * 1024 * 1024;
+export const DEFAULT_MAX_SCAN_BYTES = 8 * 1024 * 1024;
 
 export interface FileLogDriverOptions {
   /** Chemin du fichier JSONL (1 enregistrement Pdu sérialisé — forme wire — par ligne). */
@@ -46,17 +46,38 @@ export function createFileLogDriver(options: FileLogDriverOptions): ILogDriver {
     // syslog:stream reste indépendant du driver de relecture).
     capabilities: { write: true, query: true, stream: false },
     query: async (criteria: ILogQueryCriteria) => {
-      const text = await readTail(path, maxScanBytes);
-      if (text.length === 0) return { rows: [], total: 0, truncated: false };
-      const records: IPduLike[] = [];
-      for (const line of text.split("\n")) {
-        if (line.length === 0) continue;
-        const rec = parseLine(line);
-        if (rec) records.push(rec);
-      }
+      const records = await scanJsonlTail(path, maxScanBytes);
       return filterPdus(records, criteria);
     },
   };
+}
+
+/**
+ * Relit la QUEUE d'un fichier JSONL (bornée à `maxScanBytes` octets depuis la
+ * FIN, anti-OOM) et la réhydrate en {@link IPduLike}[] — SANS instancier de
+ * `Pdu` (0 effet de bord uid/provider). Brique de scan **PARTAGÉE** par le
+ * driver `file` (LB.2, un seul fichier) et le driver `cluster-file` (LB.5, qui
+ * scanne les `nodefony-<pid>.jsonl` de tous les workers). Fichier absent /
+ * illisible → tableau vide (jamais throw). Lignes vides ou JSON corrompu (write
+ * tronqué par un crash) → ignorées.
+ *
+ * @param path - chemin du fichier JSONL.
+ * @param maxScanBytes - plafond d'octets relus depuis la fin du fichier.
+ * @returns enregistrements dans l'ordre du fichier (FIFO, ancien → récent).
+ */
+export async function scanJsonlTail(
+  path: string,
+  maxScanBytes: number,
+): Promise<IPduLike[]> {
+  const text = await readTail(path, maxScanBytes);
+  if (text.length === 0) return [];
+  const records: IPduLike[] = [];
+  for (const line of text.split("\n")) {
+    if (line.length === 0) continue;
+    const rec = parseLine(line);
+    if (rec) records.push(rec);
+  }
+  return records;
 }
 
 /**

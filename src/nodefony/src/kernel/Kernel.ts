@@ -21,6 +21,10 @@ import {
   type FileLogDriverOptions,
 } from "../syslog/drivers/FileLogDriver";
 import {
+  createClusterFileLogDriver,
+  type ClusterFileLogDriverOptions,
+} from "../syslog/drivers/ClusterFileLogDriver";
+import {
   registerLogDriver,
   setActiveLogDriver,
 } from "../syslog/drivers/logDriverRegistry";
@@ -57,10 +61,12 @@ export interface TypeKernelOptions extends DefaultOptionsService {
     file?: { path?: string; sync?: boolean };
     /**
      * Driver du **Log Backplane** (axe DESTINATION queryable, LB.0+) — où l'on
-     * RELIT les logs : "memory" (défaut, ring buffer ; dev) | "file"/"elastic"/
-     * "loki" (LB.2+, si le driver est enregistré). Orthogonal à `driver` (sink
-     * write texte) et au bus temps réel `syslog:stream`. En prod = figé ici/env
-     * (12-factor) ; le switch à la volée est une action de contrôle dev-only.
+     * RELIT les logs : "memory" (défaut, ring buffer ; dev) | "file" (LB.2, JSONL
+     * du worker courant) | "cluster-file" (LB.5, agrège les `nodefony-*.jsonl` de
+     * TOUS les workers = vue cluster) | "elastic"/"loki" (LB.4, si enregistré).
+     * Orthogonal à `driver` (sink write texte) et au bus temps réel `syslog:stream`.
+     * En prod = figé ici/env (12-factor) ; le switch à la volée est une action de
+     * contrôle dev-only.
      */
     queryDriver?: string;
     /**
@@ -72,11 +78,13 @@ export interface TypeKernelOptions extends DefaultOptionsService {
      */
     maxStack?: number;
     /**
-     * Options du driver de relecture `file` (LB.2, JSONL queryable) — actif
-     * UNIQUEMENT si `queryDriver: "file"`. `path` = fichier JSONL relu (défaut
-     * `logs/nodefony-<pid>.jsonl`) ; `maxScanBytes` = plafond d'octets relus depuis
-     * la FIN à chaque query (anti-OOM, défaut 8 MiB). Quand actif, un transport file
-     * `format:"json"` est branché pour ÉCRIRE ce JSONL (cohérence write↔read).
+     * Options du driver de relecture `file` (LB.2) / `cluster-file` (LB.5) — actif
+     * UNIQUEMENT si `queryDriver` vaut l'un des deux. `path` = fichier JSONL ÉCRIT
+     * par ce worker (défaut `logs/nodefony-<pid>.jsonl`) ; `maxScanBytes` = plafond
+     * d'octets relus depuis la FIN à chaque query (anti-OOM, défaut 8 MiB, appliqué
+     * PAR fichier en mode cluster). Quand actif, un transport file `format:"json"`
+     * est branché pour ÉCRIRE ce JSONL (cohérence write↔read). En `cluster-file`,
+     * la lecture agrège le DOSSIER de `path` (tous les `nodefony-*.jsonl`).
      */
     queryFile?: { path?: string; maxScanBytes?: number };
   };
@@ -874,23 +882,35 @@ class Kernel extends Service implements IKernel {
       createMemoryLogDriver(() => this.syslog?.ringStack ?? []),
     );
     const queryDriver = logCfg?.queryDriver ?? "memory";
-    // Driver `file` (LB.2 — JSONL queryable, dev/VPS). Opt-in (queryDriver="file",
-    // jamais le défaut). WRITE↔READ cohérents : le driver RELIT du JSONL → on branche
-    // un transport file `format:"json"` (1 Pdu/ligne) sur ce MÊME path pour l'ÉCRIRE.
-    // L'appendFile/log est assumé par celui qui choisit `file` (dev/VPS) ; le hot path
-    // cloud-native reste stdout→collecteur (Loki). Le sink texte (LB.W) est indépendant.
-    if (queryDriver === "file") {
+    // Drivers `file` (LB.2) et `cluster-file` (LB.5) — JSONL queryable, dev/VPS.
+    // Opt-in (jamais le défaut). WRITE↔READ cohérents : chaque worker ÉCRIT son
+    // `nodefony-<pid>.jsonl` (transport file `format:"json"`, 1 Pdu/ligne, commun
+    // aux deux). La LECTURE diffère : `file` relit SON fichier (worker courant) ;
+    // `cluster-file` globbe le DOSSIER (vue unifiée de tous les workers, merge trié
+    // par timeStamp). Le hot path cloud-native reste stdout→collecteur (Loki) ; le
+    // sink texte (LB.W) est indépendant.
+    if (queryDriver === "file" || queryDriver === "cluster-file") {
       const jsonPath =
         logCfg?.queryFile?.path ??
         path.resolve(process.cwd(), "logs", `nodefony-${process.pid}.jsonl`);
-      const fileOpts: FileLogDriverOptions = { path: jsonPath };
-      if (logCfg?.queryFile?.maxScanBytes !== undefined) {
-        fileOpts.maxScanBytes = logCfg.queryFile.maxScanBytes;
-      }
-      registerLogDriver(createFileLogDriver(fileOpts));
       this.syslog?.addTransport(
         new FileTransport({ path: jsonPath, format: "json" }),
       );
+      if (queryDriver === "cluster-file") {
+        const clusterOpts: ClusterFileLogDriverOptions = {
+          dir: path.dirname(jsonPath),
+        };
+        if (logCfg?.queryFile?.maxScanBytes !== undefined) {
+          clusterOpts.maxScanBytes = logCfg.queryFile.maxScanBytes;
+        }
+        registerLogDriver(createClusterFileLogDriver(clusterOpts));
+      } else {
+        const fileOpts: FileLogDriverOptions = { path: jsonPath };
+        if (logCfg?.queryFile?.maxScanBytes !== undefined) {
+          fileOpts.maxScanBytes = logCfg.queryFile.maxScanBytes;
+        }
+        registerLogDriver(createFileLogDriver(fileOpts));
+      }
     }
     try {
       setActiveLogDriver(queryDriver);

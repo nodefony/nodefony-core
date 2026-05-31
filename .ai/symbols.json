@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-31T18:52:09.714Z",
+  "generated": "2026-05-31T19:52:51.989Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 805,
-    "symbols": 1549,
-    "classes": 241,
-    "interfaces": 380,
+    "symbols": 1554,
+    "classes": 240,
+    "interfaces": 381,
     "types": 193,
     "enums": 2,
-    "functions": 268,
-    "constants": 465
+    "functions": 272,
+    "constants": 466
   },
   "symbols": {
     "Cli": {
@@ -2734,6 +2734,22 @@
       "decorators": [],
       "description": "Service Rollup runtime — fournit la config Rollup par défaut et le **build one-shot** des modules (`nodefony build` via {@link Module.build}). Le watch « write-only » (re-bundle dist/ sans recharge…"
     },
+    "ClusterFileLogDriverOptions": {
+      "name": "ClusterFileLogDriverOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "createClusterFileLogDriver": {
+      "name": "createClusterFileLogDriver",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Driver `cluster-file` du Log Backplane (LB.5) — **vue cluster unifiée** des logs. En cluster, chaque worker écrit SON propre `nodefony-<pid>.jsonl` (fd par worker = pas de lock d'inode partagé, cf …"
+    },
     "FileLogDriverOptions": {
       "name": "FileLogDriverOptions",
       "kind": "interface",
@@ -2749,6 +2765,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Driver `file` du Log Backplane (LB.2) — destination de logs **JSONL queryable** (persistante, dev/VPS). Chaque ligne est un Pdu sérialisé en forme wire plate (`JSON.stringify`), produit côté WRITE …"
+    },
+    "scanJsonlTail": {
+      "name": "scanJsonlTail",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Relit la QUEUE d'un fichier JSONL (bornée à `maxScanBytes` octets depuis la FIN, anti-OOM) et la réhydrate en {@link IPduLike}[] — SANS instancier de `Pdu` (0 effet de bord uid/provider). Brique de…"
+    },
+    "DEFAULT_MAX_SCAN_BYTES": {
+      "name": "DEFAULT_MAX_SCAN_BYTES",
+      "kind": "const",
+      "file": "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Octets max relus depuis la FIN du fichier à chaque query (anti-OOM). Défaut 8 MiB."
     },
     "filterPdus": {
       "name": "filterPdus",
@@ -6626,19 +6658,6 @@
       "extends": null,
       "implements": [],
       "decorators": []
-    },
-    "@nodefony/studio:DocumentationController": {
-      "name": "DocumentationController",
-      "kind": "class",
-      "file": "src/packages/@nodefony/studio/nodefony/controller/DocumentationController.ts",
-      "exported": true,
-      "module": "@nodefony/studio",
-      "extends": "Controller",
-      "implements": [],
-      "decorators": [
-        "controller"
-      ],
-      "description": "Controller Documentation — **DÉMO / POC** (pour décider de l'archi du futur module `@nodefony/documentation`, cf étude de faisabilité 2026-05-25). Démontre le **data plane** d'un portail de doc uni…"
     },
     "StudioController": {
       "name": "StudioController",
@@ -11495,7 +11514,6 @@
         "VueController",
         "DocumentationController",
         "AdminApiController",
-        "DocumentationController",
         "StudioController",
         "RealtimeController"
       ],
@@ -11829,7 +11847,6 @@
         "AngularController",
         "PocController",
         "VueController",
-        "DocumentationController",
         "DocumentationController",
         "StudioController",
         "StudioRealtimeController"
@@ -12529,7 +12546,6 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
@@ -12596,7 +12612,6 @@
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
@@ -12715,7 +12730,6 @@
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
         "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
@@ -13144,6 +13158,12 @@
       "FileLogDriverOptions": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "createClusterFileLogDriver": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "ClusterFileLogDriverOptions": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "setActiveLogDriver": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
@@ -13481,23 +13501,33 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "ILogDriver": [
+        "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
         "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts"
       ],
       "ILogQueryCriteria": [
+        "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/filterPdus.ts",
         "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "IPduLike": [
+        "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/filterPdus.ts"
       ],
       "filterPdus": [
+        "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts"
+      ],
+      "DEFAULT_MAX_SCAN_BYTES": [
+        "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts"
+      ],
+      "scanJsonlTail": [
+        "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts"
       ],
       "pduToRecord": [
         "src/nodefony/src/syslog/drivers/filterPdus.ts"

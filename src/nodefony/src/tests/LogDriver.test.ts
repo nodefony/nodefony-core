@@ -16,6 +16,7 @@ import { filterPdus } from "../syslog/drivers/filterPdus";
 import { pduToRecord } from "../syslog/drivers/ILogDriver";
 import { createMemoryLogDriver } from "../syslog/drivers/MemoryLogDriver";
 import { createFileLogDriver } from "../syslog/drivers/FileLogDriver";
+import { createClusterFileLogDriver } from "../syslog/drivers/ClusterFileLogDriver";
 import {
   registerLogDriver,
   setActiveLogDriver,
@@ -336,5 +337,174 @@ describe("Log Backplane (LB.2) — driver file JSONL queryable", () => {
       `attendu une fenêtre tronquée, reçu total=${r.total}`,
     );
     assert.strictEqual(r.rows[0]!.payload, "p50"); // le + récent présent, fragment partiel jeté
+  });
+});
+
+describe("Log Backplane (LB.5) — agrégation cluster (cluster-file)", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "nf-lb5-"));
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  type Rec = {
+    uid: number;
+    timeStamp: number;
+    pid: number;
+    payload: string;
+    severityName?: string;
+    severity?: number;
+    moduleName?: string;
+    msgid?: string;
+    requestId?: string;
+  };
+
+  /** Écrit le JSONL `nodefony-<pid>.jsonl` d'UN worker (forme wire plate). */
+  const writeWorker = (pid: number, recs: Rec[], name?: string): void => {
+    const lines = recs.map((r) =>
+      JSON.stringify({
+        uid: r.uid,
+        severity: r.severity ?? 6,
+        severityName: r.severityName ?? "INFO",
+        moduleName: r.moduleName ?? "MOD",
+        msgid: r.msgid ?? "",
+        msg: "",
+        timeStamp: r.timeStamp,
+        pid,
+        payload: r.payload,
+        ...(r.requestId !== undefined ? { requestId: r.requestId } : {}),
+      }),
+    );
+    writeFileSync(
+      join(dir, name ?? `nodefony-${pid}.jsonl`),
+      lines.join("\n") + "\n",
+    );
+  };
+
+  it("capabilities cluster-file (persistant, queryable, pas de stream)", () => {
+    const d = createClusterFileLogDriver({ dir });
+    assert.deepStrictEqual(d.capabilities, {
+      write: true,
+      query: true,
+      stream: false,
+    });
+  });
+
+  it("dossier absent / vide → résultat vide, jamais de throw", async () => {
+    const d1 = createClusterFileLogDriver({ dir: join(dir, "nope") });
+    assert.deepStrictEqual(await d1.query!({}), {
+      rows: [],
+      total: 0,
+      truncated: false,
+    });
+    const d2 = createClusterFileLogDriver({ dir });
+    assert.deepStrictEqual(await d2.query!({}), {
+      rows: [],
+      total: 0,
+      truncated: false,
+    });
+  });
+
+  it("fusionne 2 workers en ordre CHRONOLOGIQUE global (timeStamp entrelacés)", async () => {
+    // Worker A et B émettent en alternance : a1<b1<a2<b2<a3 par timeStamp.
+    writeWorker(100, [
+      { uid: 1, timeStamp: 1000, payload: "a1" },
+      { uid: 2, timeStamp: 3000, payload: "a2" },
+      { uid: 3, timeStamp: 5000, payload: "a3" },
+    ]);
+    writeWorker(200, [
+      { uid: 1, timeStamp: 2000, payload: "b1" },
+      { uid: 2, timeStamp: 4000, payload: "b2" },
+    ]);
+    const d = createClusterFileLogDriver({ dir });
+    const r = await d.query!({});
+    assert.strictEqual(r.total, 5);
+    // récent d'abord (desc) : a3(5000) b2(4000) a2(3000) b1(2000) a1(1000)
+    assert.deepStrictEqual(
+      r.rows.map((x) => x.payload),
+      ["a3", "b2", "a2", "b1", "a1"],
+    );
+    // ordre asc (chronologique) = l'inverse
+    const asc = await d.query!({ order: "asc" });
+    assert.deepStrictEqual(
+      asc.rows.map((x) => x.payload),
+      ["a1", "b1", "a2", "b2", "a3"],
+    );
+  });
+
+  it("filtre (requestId/severity) à travers TOUS les workers", async () => {
+    writeWorker(100, [
+      { uid: 1, timeStamp: 1000, payload: "a-info", requestId: "req-1" },
+      {
+        uid: 2,
+        timeStamp: 3000,
+        payload: "a-err",
+        severityName: "ERROR",
+        severity: 3,
+        requestId: "req-9",
+      },
+    ]);
+    writeWorker(200, [
+      { uid: 1, timeStamp: 2000, payload: "b-info", requestId: "req-1" },
+      {
+        uid: 2,
+        timeStamp: 4000,
+        payload: "b-err",
+        severityName: "ERROR",
+        severity: 3,
+        requestId: "req-1",
+      },
+    ]);
+    const d = createClusterFileLogDriver({ dir });
+    // requestId présent dans les 2 workers → agrégation correcte
+    const byReq = await d.query!({ requestId: "req-1" });
+    assert.strictEqual(byReq.total, 3);
+    assert.deepStrictEqual(
+      byReq.rows.map((x) => x.payload),
+      ["b-err", "b-info", "a-info"], // récent d'abord (4000, 2000, 1000)
+    );
+    const byErr = await d.query!({ severity: "ERROR" });
+    assert.strictEqual(byErr.total, 2);
+  });
+
+  it("tie-break à timeStamp égal : pid puis uid (chronologie intra-worker)", async () => {
+    // Même timeStamp partout → départage par pid (100 avant 200), uid intra-worker.
+    writeWorker(100, [
+      { uid: 1, timeStamp: 1000, payload: "a1" },
+      { uid: 2, timeStamp: 1000, payload: "a2" },
+    ]);
+    writeWorker(200, [{ uid: 1, timeStamp: 1000, payload: "b1" }]);
+    const d = createClusterFileLogDriver({ dir });
+    const asc = await d.query!({ order: "asc" });
+    // chrono : pid100(uid1,uid2) puis pid200(uid1)
+    assert.deepStrictEqual(
+      asc.rows.map((x) => x.payload),
+      ["a1", "a2", "b1"],
+    );
+  });
+
+  it("ignore les fichiers hors motif (préfixe/suffixe)", async () => {
+    writeWorker(100, [{ uid: 1, timeStamp: 1000, payload: "ok" }]);
+    writeWorker(0, [{ uid: 1, timeStamp: 9000, payload: "other" }], "app.log");
+    writeWorker(0, [{ uid: 1, timeStamp: 9000, payload: "txt" }], "notes.txt");
+    const d = createClusterFileLogDriver({ dir });
+    const r = await d.query!({});
+    assert.strictEqual(r.total, 1);
+    assert.strictEqual(r.rows[0]!.payload, "ok");
+  });
+
+  it("maxFiles borne le nombre de fichiers scannés (anti-OOM)", async () => {
+    // 4 workers, 1 Pdu chacun, timeStamps croissants → on en garde 2 (les récents).
+    for (let i = 1; i <= 4; i++) {
+      writeWorker(i * 10, [{ uid: 1, timeStamp: i * 1000, payload: `w${i}` }]);
+    }
+    const d = createClusterFileLogDriver({ dir, maxFiles: 2 });
+    const r = await d.query!({});
+    assert.strictEqual(
+      r.total,
+      2,
+      `maxFiles=2 → 2 fichiers scannés, reçu total=${r.total}`,
+    );
   });
 });
