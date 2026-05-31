@@ -2,7 +2,19 @@ import { expect } from "chai";
 import path from "node:path";
 import https from "node:https";
 import fs from "node:fs";
+import fsp from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import "mocha";
+
+// Dossier où le service d'upload dépose les fichiers reçus (uploadDir défaut =
+// « tmp » résolu sous la racine projet). Les tests d'upload y créent des fichiers
+// temporaires `<uuid>.<ext>` ; un test ne doit JAMAIS laisser de résidu → on les
+// nettoie en fin de suite (diff de snapshot, sans toucher au préexistant).
+const REPO_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../../../../..",
+);
+const UPLOAD_DIR = path.join(REPO_ROOT, "tmp");
 
 function postMultipart(
   urlPath: string,
@@ -138,6 +150,24 @@ function postEmpty(urlPath: string): Promise<{ statusCode: number }> {
 }
 
 describe("File Upload Tests", () => {
+  // Hygiène : un test ne laisse JAMAIS de résidu. On photographie le dossier
+  // d'upload avant la suite et on supprime UNIQUEMENT les fichiers qu'elle a
+  // créés (diff de snapshot) — sans toucher au préexistant.
+  let preexisting: Set<string>;
+  before(async () => {
+    preexisting = new Set(await fsp.readdir(UPLOAD_DIR).catch(() => []));
+  });
+  after(async () => {
+    const entries = await fsp
+      .readdir(UPLOAD_DIR, { withFileTypes: true })
+      .catch(() => [] as import("node:fs").Dirent[]);
+    await Promise.all(
+      entries
+        .filter((d) => d.isFile() && !preexisting.has(d.name))
+        .map((d) => fsp.unlink(path.join(UPLOAD_DIR, d.name)).catch(() => {})),
+    );
+  });
+
   it("should upload a file successfully", async () => {
     const filePath = path.resolve("nodefony", "config", "config.ts");
     const { statusCode, body } = await postMultipart(
