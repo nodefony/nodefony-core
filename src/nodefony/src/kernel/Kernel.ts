@@ -14,7 +14,12 @@ import Command, { CommandArgs } from "../command/Command";
 import { Severity } from "../syslog/Pdu";
 import Syslog, { NULL_LOG_SINK } from "../syslog/Syslog";
 import { FileSink } from "../syslog/sinks/FileSink";
+import { FileTransport } from "../syslog/transports/FileTransport";
 import { createMemoryLogDriver } from "../syslog/drivers/MemoryLogDriver";
+import {
+  createFileLogDriver,
+  type FileLogDriverOptions,
+} from "../syslog/drivers/FileLogDriver";
 import {
   registerLogDriver,
   setActiveLogDriver,
@@ -66,6 +71,14 @@ export interface TypeKernelOptions extends DefaultOptionsService {
      * l'évince. Borné en RAM : c'est une fenêtre glissante, pas une persistance.
      */
     maxStack?: number;
+    /**
+     * Options du driver de relecture `file` (LB.2, JSONL queryable) — actif
+     * UNIQUEMENT si `queryDriver: "file"`. `path` = fichier JSONL relu (défaut
+     * `logs/nodefony-<pid>.jsonl`) ; `maxScanBytes` = plafond d'octets relus depuis
+     * la FIN à chaque query (anti-OOM, défaut 8 MiB). Quand actif, un transport file
+     * `format:"json"` est branché pour ÉCRIRE ce JSONL (cohérence write↔read).
+     */
+    queryFile?: { path?: string; maxScanBytes?: number };
   };
 }
 
@@ -861,6 +874,24 @@ class Kernel extends Service implements IKernel {
       createMemoryLogDriver(() => this.syslog?.ringStack ?? []),
     );
     const queryDriver = logCfg?.queryDriver ?? "memory";
+    // Driver `file` (LB.2 — JSONL queryable, dev/VPS). Opt-in (queryDriver="file",
+    // jamais le défaut). WRITE↔READ cohérents : le driver RELIT du JSONL → on branche
+    // un transport file `format:"json"` (1 Pdu/ligne) sur ce MÊME path pour l'ÉCRIRE.
+    // L'appendFile/log est assumé par celui qui choisit `file` (dev/VPS) ; le hot path
+    // cloud-native reste stdout→collecteur (Loki). Le sink texte (LB.W) est indépendant.
+    if (queryDriver === "file") {
+      const jsonPath =
+        logCfg?.queryFile?.path ??
+        path.resolve(process.cwd(), "logs", `nodefony-${process.pid}.jsonl`);
+      const fileOpts: FileLogDriverOptions = { path: jsonPath };
+      if (logCfg?.queryFile?.maxScanBytes !== undefined) {
+        fileOpts.maxScanBytes = logCfg.queryFile.maxScanBytes;
+      }
+      registerLogDriver(createFileLogDriver(fileOpts));
+      this.syslog?.addTransport(
+        new FileTransport({ path: jsonPath, format: "json" }),
+      );
+    }
     try {
       setActiveLogDriver(queryDriver);
     } catch {

@@ -1,8 +1,8 @@
-import type Pdu from "../Pdu";
 import {
   pduToRecord,
   type ILogQueryCriteria,
   type ILogQueryResult,
+  type IPduLike,
 } from "./ILogDriver";
 
 /** Plafond dur d'enregistrements renvoyés (anti-DoS mémoire/réseau). */
@@ -11,7 +11,7 @@ const MAX_LIMIT = 1000;
 const DEFAULT_LIMIT = 200;
 
 /** Extrait le texte indexable d'un payload Pdu (string directe, sinon `msg`). */
-const payloadText = (pdu: Pdu): string => {
+const payloadText = (pdu: IPduLike): string => {
   if (typeof pdu.payload === "string") return pdu.payload;
   if (typeof pdu.payload === "number" || typeof pdu.payload === "boolean") {
     return String(pdu.payload);
@@ -41,7 +41,7 @@ const payloadText = (pdu: Pdu): string => {
  * @returns enregistrements récents d'abord + total + flag de troncature.
  */
 export function filterPdus(
-  pdus: Pdu[],
+  pdus: IPduLike[],
   criteria: ILogQueryCriteria = {},
 ): ILogQueryResult {
   const { requestId, module, msgid, from, to, text } = criteria;
@@ -60,7 +60,7 @@ export function filterPdus(
 
   // Match (AND). Itère du plus récent au plus ancien pour collecter directement
   // dans l'ordre d'affichage et s'arrêter dès que la fenêtre est pleine.
-  const matched: Pdu[] = [];
+  const matched: IPduLike[] = [];
   for (let i = pdus.length - 1; i >= 0; i--) {
     const pdu = pdus[i]!;
     if (requestId !== undefined && pdu.requestId !== requestId) continue;

@@ -1,5 +1,3 @@
-import type Pdu from "../Pdu";
-
 /**
  * Contrat du **Log Backplane** (axe DESTINATION queryable, LB.0).
  *
@@ -114,14 +112,35 @@ export interface ILogQueryResult {
 }
 
 /**
+ * Sous-ensemble des champs d'un `Pdu` lus par {@link filterPdus} et
+ * {@link pduToRecord}. Permet de filtrer/projeter SANS instancier un `Pdu` — son
+ * constructeur incrémente un compteur d'`uid` et lit le `requestIdProvider`, donc
+ * effets de bord à proscrire lors d'une simple RELECTURE. Un `Pdu` le satisfait
+ * structurellement ; un enregistrement relu d'un fichier JSONL (driver `file`,
+ * LB.2) aussi → une SEULE logique de filtrage pour memory, file et le futur CLI.
+ */
+export interface IPduLike {
+  uid: number;
+  severity: number;
+  severityName: string;
+  moduleName: string;
+  msgid: string;
+  msg: string;
+  timeStamp: number;
+  pid: number;
+  payload: unknown;
+  requestId?: string;
+}
+
+/**
  * Sérialise un Pdu en {@link ILogRecord} (forme wire). Source unique de la
  * projection Pdu→wire : réutilisée par {@link filterPdus} (driver memory) ET par
  * le producteur data-plane `syslog` (framework) — pas de shape dupliqué qui dérive.
  *
- * @param pdu - Pdu (instance ou objet structurellement compatible).
+ * @param pdu - Pdu (instance ou objet structurellement compatible — {@link IPduLike}).
  * @returns enregistrement plat sérialisable. `requestId` omis si absent.
  */
-export function pduToRecord(pdu: Pdu): ILogRecord {
+export function pduToRecord(pdu: IPduLike): ILogRecord {
   const rec: ILogRecord = {
     uid: pdu.uid,
     severity: pdu.severity,

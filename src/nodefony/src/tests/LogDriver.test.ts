@@ -8,10 +8,14 @@
  *   - pduToRecord (projection Pdu → forme wire)
  */
 import assert from "node:assert";
+import { tmpdir } from "node:os";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import Pdu from "../syslog/Pdu";
 import { filterPdus } from "../syslog/drivers/filterPdus";
 import { pduToRecord } from "../syslog/drivers/ILogDriver";
 import { createMemoryLogDriver } from "../syslog/drivers/MemoryLogDriver";
+import { createFileLogDriver } from "../syslog/drivers/FileLogDriver";
 import {
   registerLogDriver,
   setActiveLogDriver,
@@ -186,5 +190,151 @@ describe("Log Backplane (LB.0/LB.1)", () => {
       assert.strictEqual(r.total, 1);
       assert.strictEqual(r.rows[0]!.payload, "b");
     });
+  });
+});
+
+describe("Log Backplane (LB.2) — driver file JSONL queryable", () => {
+  let dir: string;
+  let file: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "nf-lb2-"));
+    file = join(dir, "logs.jsonl");
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  /** Écrit 3 enregistrements JSONL (forme wire plate), timestamps croissants. */
+  const writeSample = (): void => {
+    const rows = [
+      {
+        uid: 1,
+        severity: 6,
+        severityName: "INFO",
+        moduleName: "AUTH",
+        msgid: "LOGIN",
+        msg: "",
+        timeStamp: 1000,
+        pid: 1,
+        payload: "alpha login",
+        requestId: "req-1",
+      },
+      {
+        uid: 2,
+        severity: 4,
+        severityName: "WARNING",
+        moduleName: "ORM",
+        msgid: "QUERY",
+        msg: "",
+        timeStamp: 2000,
+        pid: 1,
+        payload: "db slow query",
+        requestId: "req-1",
+      },
+      {
+        uid: 3,
+        severity: 3,
+        severityName: "ERROR",
+        moduleName: "HTTP",
+        msgid: "KERNEL",
+        msg: "",
+        timeStamp: 3000,
+        pid: 1,
+        payload: "boom",
+        requestId: "req-2",
+      },
+    ];
+    writeFileSync(file, rows.map((r) => JSON.stringify(r)).join("\n") + "\n");
+  };
+
+  it("capabilities file (persistant, queryable, pas de stream)", () => {
+    const d = createFileLogDriver({ path: file });
+    assert.deepStrictEqual(d.capabilities, {
+      write: true,
+      query: true,
+      stream: false,
+    });
+  });
+
+  it("fichier absent → résultat vide, jamais de throw", async () => {
+    const d = createFileLogDriver({ path: join(dir, "nope.jsonl") });
+    const r = await d.query!({});
+    assert.deepStrictEqual(r, { rows: [], total: 0, truncated: false });
+  });
+
+  it("relit le JSONL et filtre (severity ; récent d'abord ; même logique que memory)", async () => {
+    writeSample();
+    const d = createFileLogDriver({ path: file });
+    const all = await d.query!({});
+    assert.strictEqual(all.total, 3);
+    assert.strictEqual(all.rows[0]!.payload, "boom"); // le + récent d'abord
+    assert.strictEqual(all.rows[2]!.payload, "alpha login");
+    const err = await d.query!({ severity: "ERROR" });
+    assert.strictEqual(err.total, 1);
+    assert.strictEqual(err.rows[0]!.moduleName, "HTTP");
+  });
+
+  it("requestId EXACT + plage from/to + pagination", async () => {
+    writeSample();
+    const d = createFileLogDriver({ path: file });
+    assert.strictEqual((await d.query!({ requestId: "req-1" })).total, 2);
+    assert.strictEqual((await d.query!({ requestId: "req-" })).total, 0); // exact, pas inclusion
+    assert.strictEqual((await d.query!({ from: 2000, to: 3000 })).total, 2);
+    const p = await d.query!({ limit: 1 });
+    assert.strictEqual(p.rows.length, 1);
+    assert.strictEqual(p.total, 3);
+    assert.strictEqual(p.truncated, true);
+  });
+
+  it("lignes vides / JSON corrompu / non-Pdu → ignorées (write tronqué par crash)", async () => {
+    writeFileSync(
+      file,
+      JSON.stringify({
+        uid: 1,
+        severity: 6,
+        severityName: "INFO",
+        moduleName: "M",
+        msgid: "",
+        msg: "",
+        timeStamp: 1000,
+        pid: 1,
+        payload: "ok",
+      }) +
+        "\n" +
+        "{ ceci n'est pas du json\n" + // corrompu
+        "\n" + // ligne vide
+        JSON.stringify({ nope: true }) + // objet sans champs discriminants → coerce null
+        "\n",
+    );
+    const d = createFileLogDriver({ path: file });
+    const r = await d.query!({});
+    assert.strictEqual(r.total, 1);
+    assert.strictEqual(r.rows[0]!.payload, "ok");
+  });
+
+  it("maxScanBytes borne la lecture à la QUEUE du fichier (anti-OOM)", async () => {
+    const rows: string[] = [];
+    for (let i = 1; i <= 50; i++) {
+      rows.push(
+        JSON.stringify({
+          uid: i,
+          severity: 6,
+          severityName: "INFO",
+          moduleName: "M",
+          msgid: "",
+          msg: "",
+          timeStamp: i * 1000,
+          pid: 1,
+          payload: `p${i}`,
+        }),
+      );
+    }
+    writeFileSync(file, rows.join("\n") + "\n");
+    const d = createFileLogDriver({ path: file, maxScanBytes: 300 });
+    const r = await d.query!({});
+    assert.ok(
+      r.total > 0 && r.total < 50,
+      `attendu une fenêtre tronquée, reçu total=${r.total}`,
+    );
+    assert.strictEqual(r.rows[0]!.payload, "p50"); // le + récent présent, fragment partiel jeté
   });
 });

@@ -1,15 +1,15 @@
 {
-  "generated": "2026-05-31T00:16:40.093Z",
+  "generated": "2026-05-31T13:40:15.122Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 792,
-    "symbols": 1507,
+    "files": 793,
+    "symbols": 1513,
     "classes": 235,
-    "interfaces": 369,
+    "interfaces": 371,
     "types": 187,
     "enums": 2,
-    "functions": 250,
+    "functions": 254,
     "constants": 464
   },
   "symbols": {
@@ -2721,6 +2721,22 @@
       "decorators": [],
       "description": "Service Rollup runtime — fournit la config Rollup par défaut et le **build one-shot** des modules (`nodefony build` via {@link Module.build}). Le watch « write-only » (re-bundle dist/ sans recharge…"
     },
+    "FileLogDriverOptions": {
+      "name": "FileLogDriverOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "createFileLogDriver": {
+      "name": "createFileLogDriver",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Driver `file` du Log Backplane (LB.2) — destination de logs **JSONL queryable** (persistante, dev/VPS). Chaque ligne est un Pdu sérialisé en forme wire plate (`JSON.stringify`), produit côté WRITE …"
+    },
     "filterPdus": {
       "name": "filterPdus",
       "kind": "function",
@@ -2773,6 +2789,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Résultat d'une requête : enregistrements (récents d'abord) + méta de pagination."
+    },
+    "IPduLike": {
+      "name": "IPduLike",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/ILogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Sous-ensemble des champs d'un `Pdu` lus par {@link filterPdus} et {@link pduToRecord}. Permet de filtrer/projeter SANS instancier un `Pdu` — son constructeur incrémente un compteur d'`uid` et lit l…"
     },
     "pduToRecord": {
       "name": "pduToRecord",
@@ -11935,8 +11960,6 @@
         "src/nodefony/src/types/ISyslog.ts",
         "src/nodefony/src/types/ITransport.ts",
         "src/nodefony/src/client/debugbar/model.ts",
-        "src/nodefony/src/syslog/drivers/filterPdus.ts",
-        "src/nodefony/src/syslog/drivers/ILogDriver.ts",
         "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
         "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
         "src/nodefony/src/syslog/transports/FileTransport.ts",
@@ -12821,7 +12844,16 @@
       "FileSink": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "FileTransport": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "createMemoryLogDriver": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "createFileLogDriver": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "FileLogDriverOptions": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "setActiveLogDriver": [
@@ -13160,23 +13192,30 @@
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
-      "pduToRecord": [
-        "src/nodefony/src/syslog/drivers/filterPdus.ts"
+      "ILogDriver": [
+        "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts"
       ],
       "ILogQueryCriteria": [
+        "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/filterPdus.ts",
         "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
-      "ILogQueryResult": [
+      "IPduLike": [
+        "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/filterPdus.ts"
       ],
-      "ILogDriver": [
-        "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "filterPdus": [
+        "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts"
       ],
-      "filterPdus": [
-        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts"
+      "pduToRecord": [
+        "src/nodefony/src/syslog/drivers/filterPdus.ts"
+      ],
+      "ILogQueryResult": [
+        "src/nodefony/src/syslog/drivers/filterPdus.ts"
       ],
       "ILogSink": [
         "src/nodefony/src/syslog/sinks/FileSink.ts"

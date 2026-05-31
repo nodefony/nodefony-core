@@ -34,9 +34,12 @@ export type {
   ILogQueryCriteria,
   ILogQueryResult,
   ILogRecord,
+  IPduLike,
 } from "./syslog/drivers/ILogDriver";
 export { filterPdus } from "./syslog/drivers/filterPdus";
 export { createMemoryLogDriver } from "./syslog/drivers/MemoryLogDriver";
+export { createFileLogDriver } from "./syslog/drivers/FileLogDriver";
+export type { FileLogDriverOptions } from "./syslog/drivers/FileLogDriver";
 export {
   registerLogDriver,
   setActiveLogDriver,
