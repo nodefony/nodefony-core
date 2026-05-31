@@ -17,13 +17,12 @@ import type { FrontendService } from "@nodefony/frontend";
 import config from "./nodefony/config/config";
 import StudioController from "./nodefony/controller/StudioController";
 import StudioRealtimeController from "./nodefony/controller/StudioRealtimeController";
-import DocumentationController from "./nodefony/controller/DocumentationController";
 
-@controllers([
-  StudioController,
-  StudioRealtimeController,
-  DocumentationController,
-])
+// Le data plane de documentation est désormais porté par le module dédié
+// @nodefony/documentation (`/nodefony/documentation/api/*`). L'ancien
+// DocumentationController POC du Studio a été retiré (suppression franche) —
+// Studio n'en garde que le FRONTEND (page React consommant ce data plane).
+@controllers([StudioController, StudioRealtimeController])
 class Studio extends Module {
   /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
   static override critical = false;

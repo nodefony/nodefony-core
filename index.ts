@@ -46,6 +46,10 @@ import "./nodefony/entity/user";
   "@nodefony/test-frontend-angular",
   // Banc test ORM : modèle mediasoup (Drizzle, connecteur dédié) + build Vue (front à venir).
   "@nodefony/mediasoup",
+  // Data plane de documentation transverse — scanne docs/ racine + <module>/docs/.
+  // Après framework (peerDep @controllers) ; avant studio (son front consomme
+  // /nodefony/documentation/api/*).
+  "@nodefony/documentation",
   "@nodefony/studio",
   //Test,
   //"@nodefony/redis",

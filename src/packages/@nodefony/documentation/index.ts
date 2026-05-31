@@ -1,0 +1,109 @@
+/**
+ * @nodefony/documentation — Data plane de documentation transverse de Nodefony.
+ *
+ * Module **headless** (back pur) : il indexe la documentation co-localisée
+ * (`docs/` racine transverse + `<module>/docs/*.md`, ADR-0001), résout les
+ * variables dynamiques `{{ }}` côté serveur, et expose le tout sous
+ * `/nodefony/documentation/api/*`. Il ne rend AUCUN HTML — le front Studio (et,
+ * demain, un générateur de site statique ou le RAG P12) consomme ce data plane.
+ *
+ * Pourquoi un module dédié (et pas un simple controller Studio) : la doc porte
+ * de l'**état** (index scanné, cache TTL, registre de providers `{{ }}`) → un
+ * cycle de vie propre, hors hot path request (tout lazy). Cf
+ * [[project_doc_portal_faisabilite]].
+ *
+ * Voir aussi : CLAUDE.md (décisions figées), MEMORY.md (internals IA),
+ * README.md (usage humain), docs/ (doc vulgarisée surfacée dans Studio).
+ */
+import { GitService, Kernel, Module, services } from "nodefony";
+import { controllers } from "@nodefony/framework";
+import config from "./nodefony/config/config";
+import { defineDocumentationConfig } from "./nodefony/config/defineDocumentationConfig";
+import DocumentationService from "./nodefony/service/DocumentationService";
+import DocumentationController from "./nodefony/controller/DocumentationController";
+
+@services([DocumentationService])
+@controllers([DocumentationController])
+class Documentation extends Module {
+  /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
+  static override critical = false;
+
+  constructor(kernel: Kernel) {
+    super("documentation", kernel, import.meta.url, config);
+  }
+
+  /**
+   * Phase `onRegister` : valide la config (défauts + override `module-documentation`
+   * + env) via `defineDocumentationConfig`, puis la ré-assigne à `this.options`
+   * AVANT l'instanciation du `@services` (phase `onBoot`). Plante propre avec
+   * messages clairs si la config est invalide (convention Zod figée 2026-05-28).
+   */
+  override async onKernelRegister(): Promise<this> {
+    try {
+      this.options = defineDocumentationConfig(this.options);
+    } catch (e) {
+      const issues =
+        e instanceof Error && "issues" in e && Array.isArray(e.issues)
+          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
+              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+              .join(" · ")
+          : (e as Error).message;
+      throw new Error(`[@nodefony/documentation] Invalid config: ${issues}`);
+    }
+    return this;
+  }
+
+  /**
+   * Phase `onReady` : enregistre les fournisseurs de variables `{{ }}` built-in
+   * sur le service (tous les modules sont alors bootés). Sources SÛRES seulement
+   * (version, identité git) — jamais de secret ni de chemin FS absolu.
+   */
+  override async onKernelReady(): Promise<this> {
+    const svc = this.get<DocumentationService>("documentation");
+    if (!svc) return this;
+    const root = this.kernel?.path;
+    svc.registerVar("version", () => this.kernel?.version ?? "");
+    svc.registerVar("branch", () => GitService.branch(root));
+    svc.registerVar("commit", () => GitService.read(root).commit);
+    return this;
+  }
+}
+
+export default Documentation;
+export { DocumentationService, DocumentationController };
+
+// Config — schéma Zod (source de vérité) + builder
+export { defineDocumentationConfig } from "./nodefony/config/defineDocumentationConfig";
+export {
+  documentationConfigSchema,
+  type DocumentationConfig,
+} from "./nodefony/config/schema";
+
+// Briques pures réutilisables (RAG / SSG futurs)
+export {
+  parseFrontmatter,
+  metaString,
+  metaList,
+  type Frontmatter,
+  type ParsedDoc,
+} from "./nodefony/src/frontmatter";
+export { scanDocsDir, type ScannedDoc } from "./nodefony/src/docScanner";
+export { isSafeSlug, pathToSlug, type DocSource } from "./nodefony/src/slug";
+export {
+  DocumentationError,
+  DocNotFoundError,
+  DocUnsafeSlugError,
+} from "./nodefony/src/errors/DocumentationError";
+
+// Interfaces publiques
+export type {
+  DocAudience,
+  DocStatus,
+  DocVarProvider,
+  IDocAudienceInfo,
+  IDocPageRef,
+  IDocSection,
+  IDocTree,
+  IDocPage,
+  IDocumentationService,
+} from "./nodefony/interfaces/IDocumentation";

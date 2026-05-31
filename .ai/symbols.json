@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-31T13:40:15.122Z",
+  "generated": "2026-05-31T18:52:09.714Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 793,
-    "symbols": 1513,
-    "classes": 235,
-    "interfaces": 371,
-    "types": 187,
+    "files": 805,
+    "symbols": 1549,
+    "classes": 241,
+    "interfaces": 380,
+    "types": 193,
     "enums": 2,
-    "functions": 254,
-    "constants": 464
+    "functions": 268,
+    "constants": 465
   },
   "symbols": {
     "Cli": {
@@ -285,6 +285,19 @@
       "extends": "Module",
       "implements": [],
       "decorators": [
+        "controllers"
+      ]
+    },
+    "Documentation": {
+      "name": "Documentation",
+      "kind": "class",
+      "file": "src/packages/@nodefony/documentation/index.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": "Module",
+      "implements": [],
+      "decorators": [
+        "services",
         "controllers"
       ]
     },
@@ -3372,6 +3385,212 @@
       "implements": [],
       "decorators": []
     },
+    "defineDocumentationConfig": {
+      "name": "defineDocumentationConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/config/defineDocumentationConfig.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Valide une config partielle (défauts du schéma) PUIS applique la surcharge par variables d'environnement (précédence max)."
+    },
+    "DocumentationConfig": {
+      "name": "DocumentationConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/documentation/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/documentation"
+    },
+    "documentationConfigSchema": {
+      "name": "documentationConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/documentation/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/documentation"
+    },
+    "DocumentationController": {
+      "name": "DocumentationController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Data plane HTTP de la documentation Nodefony. Expose l'index transverse et le contenu des pages sous `/nodefony/documentation/api/*` (convention figée : un module admin sert toujours `/nodefony/<mo…"
+    },
+    "IDocAudienceInfo": {
+      "name": "IDocAudienceInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/documentation/nodefony/interfaces/IDocumentation.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": null,
+      "description": "Une persona décrite dans l'index (clé + libellé + description courte)."
+    },
+    "IDocPageRef": {
+      "name": "IDocPageRef",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/documentation/nodefony/interfaces/IDocumentation.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": null,
+      "description": "Entrée d'une page dans l'arbre (métadonnées seules, sans le markdown)."
+    },
+    "IDocSection": {
+      "name": "IDocSection",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/documentation/nodefony/interfaces/IDocumentation.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": null,
+      "description": "Une section de l'index transverse : un groupe ordonné de pages."
+    },
+    "IDocTree": {
+      "name": "IDocTree",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/documentation/nodefony/interfaces/IDocumentation.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": null,
+      "description": "Index transverse complet renvoyé par `GET …/api/tree`."
+    },
+    "IDocPage": {
+      "name": "IDocPage",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/documentation/nodefony/interfaces/IDocumentation.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": null,
+      "description": "Contenu complet d'une page renvoyé par `GET …/api/page/{slug}`."
+    },
+    "IDocumentationService": {
+      "name": "IDocumentationService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/documentation/nodefony/interfaces/IDocumentation.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": null,
+      "description": "Service public du module documentation (consommé par le controller)."
+    },
+    "DocAudience": {
+      "name": "DocAudience",
+      "kind": "type",
+      "file": "src/packages/@nodefony/documentation/nodefony/interfaces/IDocumentation.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Interfaces publiques du data plane de documentation. Contrat exposé par `/nodefony/documentation/api/*` et consommé par le front Studio (et, demain, par un générateur de site statique ou le RAG P12…"
+    },
+    "DocStatus": {
+      "name": "DocStatus",
+      "kind": "type",
+      "file": "src/packages/@nodefony/documentation/nodefony/interfaces/IDocumentation.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Statut de maturité d'une page (issu du frontmatter `status`)."
+    },
+    "DocVarProvider": {
+      "name": "DocVarProvider",
+      "kind": "type",
+      "file": "src/packages/@nodefony/documentation/nodefony/interfaces/IDocumentation.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Fournisseur d'une variable dynamique `{{ name }}` résolue côté serveur. Doit retourner une valeur **sûre** (publique, dérivée) : version, compteur, nom de symbole — JAMAIS un secret ni un chemin FS…"
+    },
+    "DocumentationService": {
+      "name": "DocumentationService",
+      "kind": "class",
+      "file": "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [],
+      "description": "Service de documentation Nodefony — **headless** : produit l'index transverse et le contenu résolu des pages, sans rendre aucun HTML (le front Studio, un générateur statique ou le RAG le consomment…"
+    },
+    "ScannedDoc": {
+      "name": "ScannedDoc",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": null,
+      "description": "Un fichier `.md` découvert par le scan, avec son chemin RÉEL et ses métadonnées. Le `absPath` est la seule source de vérité pour lire le fichier (jamais reconstruit depuis le slug → 0 traversée de …"
+    },
+    "scanDocsDir": {
+      "name": "scanDocsDir",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Scanne récursivement un dossier de docs et retourne les fichiers `.md` trouvés, frontmatter lu, triés par chemin relatif. Best-effort : un dossier absent (`ENOENT`) renvoie `[]` (pas d'erreur) ; un…"
+    },
+    "ParsedDoc": {
+      "name": "ParsedDoc",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/frontmatter.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": null,
+      "description": "Résultat du parse : `meta` (frontmatter) + `body` (markdown sans le bloc)."
+    },
+    "Frontmatter": {
+      "name": "Frontmatter",
+      "kind": "type",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/frontmatter.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Parseur de frontmatter YAML minimal — **sans dépendance**. Un fichier de doc Nodefony commence (optionnellement) par un bloc encadré de `---` qui porte des métadonnées (`title`, `audience`, `sectio…"
+    },
+    "parseFrontmatter": {
+      "name": "parseFrontmatter",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/frontmatter.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Sépare le bloc frontmatter du corps markdown et parse les métadonnées."
+    },
+    "metaString": {
+      "name": "metaString",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/frontmatter.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Lit une clé de frontmatter en string (1er élément si liste), ou `undefined`."
+    },
+    "metaList": {
+      "name": "metaList",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/frontmatter.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Lit une clé de frontmatter en string[] (wrappe un scalaire), ou `[]`."
+    },
+    "DocSource": {
+      "name": "DocSource",
+      "kind": "type",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/slug.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Source d'un fichier de doc : racine du projet ou un module."
+    },
+    "isSafeSlug": {
+      "name": "isSafeSlug",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/slug.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Valide qu'un slug est sûr à manipuler (avant toute recherche/lecture). Rejette : chaîne vide, trop longue, segment `..`, présence de `/` `\\` `\\0`, tout caractère hors charset autorisé."
+    },
+    "pathToSlug": {
+      "name": "pathToSlug",
+      "kind": "function",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/slug.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "description": "Construit le slug d'un fichier à partir de sa source et de son chemin relatif (POSIX, sans `.md`). Inverse jamais utilisé (slug = clé, pas chemin)."
+    },
     "DrizzleConnectorConfig": {
       "name": "DrizzleConnectorConfig",
       "kind": "interface",
@@ -3830,7 +4049,7 @@
       "extends": null,
       "description": "Descripteur du pseudo-module `core` pour la carte/détail Studio."
     },
-    "parseFrontmatter": {
+    "@nodefony/framework:parseFrontmatter": {
       "name": "parseFrontmatter",
       "kind": "function",
       "file": "src/packages/@nodefony/framework/nodefony/src/docsReader.ts",
@@ -6408,7 +6627,7 @@
       "implements": [],
       "decorators": []
     },
-    "DocumentationController": {
+    "@nodefony/studio:DocumentationController": {
       "name": "DocumentationController",
       "kind": "class",
       "file": "src/packages/@nodefony/studio/nodefony/controller/DocumentationController.ts",
@@ -9732,6 +9951,39 @@
       "exported": true,
       "module": "modules/test"
     },
+    "DocumentationError": {
+      "name": "DocumentationError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": "nodefonyError",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreur typée du module `@nodefony/documentation`. Étend `nodefonyError` (le wrapper d'erreur du core, renommé pour ne pas entrer en collision avec `globalThis.Error`). Porte un `code` machine stabl…"
+    },
+    "DocNotFoundError": {
+      "name": "DocNotFoundError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": "DocumentationError",
+      "implements": [],
+      "decorators": [],
+      "description": "Slug demandé absent de l'allowlist construite par le scan (404 logique)."
+    },
+    "DocUnsafeSlugError": {
+      "name": "DocUnsafeSlugError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
+      "exported": true,
+      "module": "@nodefony/documentation",
+      "extends": "DocumentationError",
+      "implements": [],
+      "decorators": [],
+      "description": "Slug rejeté car potentiellement dangereux (traversée de répertoire, segment `..`, caractère hors charset). Sécurité : on ne touche JAMAIS au FS avec un tel slug."
+    },
     "DrizzleOrm": {
       "name": "DrizzleOrm",
       "kind": "class",
@@ -11107,6 +11359,7 @@
         "Entity",
         "Orm",
         "Rollup",
+        "DocumentationService",
         "DrizzleService",
         "AdminBroker",
         "Router",
@@ -11161,6 +11414,7 @@
         "TestFrontendAngular",
         "TestFrontendReact",
         "TestFrontendVue",
+        "Documentation",
         "Drizzle",
         "Framework",
         "Frontend",
@@ -11239,6 +11493,7 @@
         "AngularController",
         "PocController",
         "VueController",
+        "DocumentationController",
         "AdminApiController",
         "DocumentationController",
         "StudioController",
@@ -11313,7 +11568,8 @@
       ],
       "nodefonyError": [
         "AccessDeniedError",
-        "AuthenticationError"
+        "AuthenticationError",
+        "DocumentationError"
       ],
       "Connector": [
         "ConnectorSequelise"
@@ -11337,6 +11593,10 @@
         "VectorDimensionError",
         "VectorConnectionError",
         "VectorNotInitializedError"
+      ],
+      "DocumentationError": [
+        "DocNotFoundError",
+        "DocUnsafeSlugError"
       ],
       "FrontendError": [
         "FrontendPresetUnknownError",
@@ -11531,10 +11791,12 @@
         "TestFrontendAngular",
         "TestFrontendReact",
         "TestFrontendVue",
+        "Documentation",
         "Studio"
       ],
       "services": [
         "Test",
+        "Documentation",
         "Drizzle",
         "Framework",
         "Frontend",
@@ -11567,6 +11829,7 @@
         "AngularController",
         "PocController",
         "VueController",
+        "DocumentationController",
         "DocumentationController",
         "StudioController",
         "StudioRealtimeController"
@@ -11624,6 +11887,7 @@
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
@@ -11676,6 +11940,7 @@
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
@@ -11772,6 +12037,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
@@ -11804,6 +12070,7 @@
         "src/nodefony/src/types/ISyslog.ts",
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -11826,6 +12093,7 @@
         "src/nodefony/src/types/ISyslog.ts",
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -11846,6 +12114,7 @@
         "src/nodefony/src/types/ISyslog.ts",
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
@@ -11871,6 +12140,7 @@
         "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
         "src/nodefony/src/service/cluster/ClusterRelay.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
@@ -11989,6 +12259,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
@@ -12006,6 +12277,7 @@
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
@@ -12042,6 +12314,7 @@
         "src/modules/test-frontend-angular/index.ts",
         "src/modules/test-frontend-react/index.ts",
         "src/modules/test-frontend-vue/index.ts",
+        "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/studio/index.ts"
       ],
@@ -12075,6 +12348,7 @@
       ],
       "services": [
         "src/modules/test/index.ts",
+        "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
@@ -12148,6 +12422,20 @@
       ],
       "VueController": [
         "src/modules/test-frontend-vue/index.ts"
+      ],
+      "GitService": [
+        "src/packages/@nodefony/documentation/index.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "defineDocumentationConfig": [
+        "src/packages/@nodefony/documentation/index.ts"
+      ],
+      "DocumentationService": [
+        "src/packages/@nodefony/documentation/index.ts"
+      ],
+      "DocumentationController": [
+        "src/packages/@nodefony/documentation/index.ts"
       ],
       "setOrmHealthProvider": [
         "src/packages/@nodefony/drizzle/index.ts"
@@ -12233,6 +12521,7 @@
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
@@ -12306,6 +12595,7 @@
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
@@ -12423,6 +12713,7 @@
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/studio/nodefony/controller/DocumentationController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
@@ -12685,9 +12976,6 @@
         "src/packages/@nodefony/studio/index.ts"
       ],
       "StudioRealtimeController": [
-        "src/packages/@nodefony/studio/index.ts"
-      ],
-      "DocumentationController": [
         "src/packages/@nodefony/studio/index.ts"
       ],
       "CliKernel": [
@@ -13327,6 +13615,7 @@
         "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
         "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
         "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+        "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
@@ -13344,6 +13633,79 @@
       ],
       "ToolExecutionError": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
+      ],
+      "documentationConfigSchema": [
+        "src/packages/@nodefony/documentation/nodefony/config/config.ts",
+        "src/packages/@nodefony/documentation/nodefony/config/defineDocumentationConfig.ts"
+      ],
+      "DocumentationConfig": [
+        "src/packages/@nodefony/documentation/nodefony/config/config.ts",
+        "src/packages/@nodefony/documentation/nodefony/config/defineDocumentationConfig.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "DocNotFoundError": [
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "DocUnsafeSlugError": [
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts",
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "IDocumentationService": [
+        "src/packages/@nodefony/documentation/nodefony/controller/DocumentationController.ts"
+      ],
+      "scanDocsDir": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "ScannedDoc": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "parseFrontmatter": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+        "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
+      ],
+      "metaList": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "metaString": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
+        "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
+      ],
+      "isSafeSlug": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "DocAudience": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "DocStatus": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "DocVarProvider": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "IDocAudienceInfo": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "IDocPage": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "IDocPageRef": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "IDocSection": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "IDocTree": [
+        "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
+      ],
+      "Frontmatter": [
+        "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
+      ],
+      "pathToSlug": [
+        "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
+      ],
+      "DocSource": [
+        "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
       ],
       "entity": [
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts"
@@ -13511,9 +13873,6 @@
         "src/packages/@nodefony/http/nodefony/service/ProfilerAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
-      ],
-      "GitService": [
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "TestRunResult": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
