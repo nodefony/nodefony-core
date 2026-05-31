@@ -45,6 +45,10 @@ grep -rl "LIRE EN PREMIER" "$MEM"/*_kit.md 2>/dev/null
 Lire le `_state.md` le plus récent (sections **Fait / Décisions / Reste**). S'il y a un kit
 « LIRE EN PREMIER », le lire aussi (priorité sur le \_state générique).
 
+**LIRE AUSSI `docs/session-retros/RETEX.md`** (le SAS des leçons récentes par thème) — c'est ce qui
+rend les retex utiles : frictions chaudes pas encore graduées en `feedback_*`. Les appliquer
+proactivement cette session (ex. « shell instable → 1 cmd à la fois », pièges build/dist après clean).
+
 ## 2. Phase active + git + 🚨 GARDE-FOU cohérence `_state` ↔ commits
 
 ```bash
@@ -176,7 +180,8 @@ jq --arg m "@nodefony/$ARG" '.symbols | to_entries
 3. **Git** : branche + N fichiers non commités + dernier commit
 4. **Symboles exportés clés** : 5-10 noms
 5. **Top gotchas MEMORY.md** : 3-5 bullets critiques
-6. **Question** : "Sur quoi on bosse ?"
+6. **Frictions `RETEX.md` applicables** : 1-3 si pertinentes pour ce module
+7. **Question** : "Sur quoi on bosse ?"
 
 ## Anti-patterns START
 
@@ -186,17 +191,41 @@ jq --arg m "@nodefony/$ARG" '.symbols | to_entries
 
 ---
 
-# MODE END — clôture de session (RETEX)
+# MODE END — clôture de session (RETEX) — ⚡ CHEMIN RAPIDE par défaut
 
-RETEX = RETour d'EXpérience. Audit post-session : compter les tool_use, repérer les coûts,
-proposer skills/mémoires. **Toujours sauvegardé** dans `docs/session-retros/`.
+RETEX = RETour d'EXpérience. **But réel** : amélioration continue de l'IA sur Nodefony — PAS un log
+de tokens. Cf `feedback_session_retros_purpose`.
 
-## But réel (lire en premier)
+## ⚡ END courant = 4 étapes LÉGÈRES (ne PAS faire les stats lourdes)
 
-Les retex ne sont PAS de simples logs de tokens. Finalité = **amélioration continue de la qualité
-de travail de l'IA sur Nodefony** : chaque session → 1 retex (auto-save) ; tous les 10-20 retex →
-mode CONSOLIDATE → plan d'action (skills, MAJ CLAUDE.md, mémoires, conventions). Objectif : que l'IA
-apprenne à développer Nodefony parfaitement, puis s'auto-développe. Cf mémoire `feedback_session_retros_purpose`.
+Le END par défaut doit être **rapide** (reproche user 2026-05-31 : END trop lourd/pénible). Il fait
+SEULEMENT :
+
+1. **MAJ `docs/session-retros/RETEX.md`** (le SAS, lu au START/RESUME) : ajouter **3-5 bullets** des
+   frictions/leçons du jour, **rangées par thème** (créer le thème s'il manque), format
+   `[1× — <date courte>]`. Si une friction y figure déjà → **incrémenter le compteur** `[2× — …]` +
+   re-dater. NE PAS redupliquer ce qui est déjà gradué en `feedback_*` (juste pointer si utile).
+2. **Retex brut court** `docs/session-retros/<date>-<id>.md` : focus + Fait + frictions + commits.
+   **SANS les tableaux de stats** (tool_use/coût € → déplacés en CONSOLIDATE). ~30 lignes.
+3. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
+4. **Commit + push mémoire IA** (§11).
+
+> **DÉPLACÉ en CONSOLIDATE** (ne PAS l'exécuter au END courant) : comptage tool_use, top fichiers,
+> coût €, balayage allowlist, détection candidats skill. Analyses coûteuses utiles 1×/10-20 retex
+> seulement. Les sections numérotées 1-8 ci-dessous = **boîte à outils de CONSOLIDATE**, gardées ici
+> pour référence (NE PAS les dérouler à chaque clôture).
+
+## Modèle SAS (pourquoi RETEX.md existe)
+
+3 canaux, 1 seul relu à chaque session : `CLAUDE.md`/skills + `MEMORY.md` (✅ relus) vs
+`session-retros/<id>.md` bruts (❌ jamais relus seuls → inertes). **`RETEX.md` comble le trou** :
+digest par thème, lu au START/RESUME. Cycle de vie d'une leçon : **friction (RETEX.md, sas)** → vue
+**≥3×** → **graduée en `feedback_*`** (durable) + **retirée de RETEX.md**. Règle anti-doublon : une
+leçon est dans RETEX.md **OU** `feedback_*`, **jamais les deux** (sinon dérive, cf l'anti-pattern
+« liste dupliquée » de `nodefony-check-externals`). CONSOLIDATE gère graduation + archivage pour
+borner la taille de RETEX.md (~1 écran).
+
+## Boîte à outils CONSOLIDATE (référence — PAS exécutée au END courant)
 
 ## Quand
 
@@ -445,9 +474,22 @@ git -C "$MEM" log --oneline -1
 
 ---
 
-# MODE CONSOLIDATE — plan d'amélioration IA (tous les 10-20 retex)
+# MODE CONSOLIDATE — plan d'amélioration IA + maintenance du SAS (tous les 10-20 retex)
 
 Déclencheurs : "consolide les retex", "plan d'amélioration IA".
+
+> **CONSOLIDATE porte les tâches LOURDES déplacées du END** (stats tool_use / coût € / allowlist via
+> la « boîte à outils » du mode END §1-8) **+ la maintenance du SAS `RETEX.md`** qui borne sa taille :
+>
+> 1. **Graduer** : toute friction de `RETEX.md` atteignant **≥3×** → la promouvoir en **mémoire
+>    `feedback_*`** (durable, indexée dans `MEMORY.md`) PUIS **la retirer de `RETEX.md`** (règle
+>    anti-doublon : jamais dans les deux). Une friction vue 1-2× reste dans le sas.
+> 2. **Archiver** : déplacer les retex bruts consolidés vers `docs/session-retros/archive/`, et dans
+>    `RETEX.md` remplacer leurs lignes d'index par 1 résumé par thème (pointeur). `RETEX.md` reste ~1 écran.
+> 3. **Nettoyer** : retirer de `RETEX.md` les frictions devenues obsolètes (corrigées dans le code/skill).
+>
+> ⚠️ **57 retex accumulés au 2026-05-31, jamais consolidés** → CONSOLIDATE est LARGEMENT dû. À lancer
+> en session dédiée (gros lot : grader les patterns ≥3× récurrents sur 2 mois, archiver, seeder RETEX.md).
 
 ## 1. Compter les retex
 
