@@ -1,7 +1,7 @@
 import Context from "../Context.js";
 import url from "node:url";
 import { AsyncResource } from "node:async_hooks";
-import clc from "cli-color";
+import { logColor } from "nodefony";
 import { ServerType, SchemeType } from "../../../service/http-kernel.js";
 import { Severity, Msgid, Message, nodefonyError, Scope } from "nodefony";
 import Ws from "ws";
@@ -376,18 +376,18 @@ export default class WebsocketContext
   onClose(code: number, reason: Buffer) {
     const description = reason.toString();
     this.log(
-      `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host} ${clc.cyan("ID")} : ${this.requestId} ${clc.cyan("Description")} : ${description}`,
+      `${logColor.cyan("URL")} : ${this.url}  ${logColor.cyan("FROM")} : ${this.remoteAddress} ${logColor.cyan("ORIGIN")} : ${this.originUrl?.host} ${logColor.cyan("ID")} : ${this.requestId} ${logColor.cyan("Description")} : ${description}`,
       "INFO",
-      `${this.type} ${clc.magenta(code)} CLOSE ${this.method}`,
+      `${this.type} ${logColor.magenta(code)} CLOSE ${this.method}`,
     );
     if (this.connection?.readyState !== Ws.CLOSED) {
       try {
         this.response?.drop(code, description);
       } catch (e) {
         this.log(
-          `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ORIGIN")} : ${this.originUrl?.host} ${clc.cyan("ID")} : ${this.requestId} ${clc.cyan("error")} : ${(e as Error).message}`,
+          `${logColor.cyan("URL")} : ${this.url}  ${logColor.cyan("FROM")} : ${this.remoteAddress} ${logColor.cyan("ORIGIN")} : ${this.originUrl?.host} ${logColor.cyan("ID")} : ${this.requestId} ${logColor.cyan("error")} : ${(e as Error).message}`,
           "ERROR",
-          `${this.type} CLOSE ${clc.red(this.method)}`,
+          `${this.type} CLOSE ${logColor.red(this.method ?? "")}`,
         );
       }
       this.fire("onClose", code, description, this.connection);
@@ -409,9 +409,9 @@ export default class WebsocketContext
   onConnectionError(error: Error): void {
     this.webSocketState = "error";
     this.log(
-      `${clc.cyan("URL")} : ${this.url}  ${clc.cyan("FROM")} : ${this.remoteAddress} ${clc.cyan("ID")} : ${this.requestId} ${clc.cyan("error")} : ${error?.message}`,
+      `${logColor.cyan("URL")} : ${this.url}  ${logColor.cyan("FROM")} : ${this.remoteAddress} ${logColor.cyan("ID")} : ${this.requestId} ${logColor.cyan("error")} : ${error?.message}`,
       "ERROR",
-      `${this.type} ${clc.red("SOCKET ERROR")} ${this.method}`,
+      `${this.type} ${logColor.red("SOCKET ERROR")} ${this.method}`,
     );
     this.fire("onError", error, this);
   }

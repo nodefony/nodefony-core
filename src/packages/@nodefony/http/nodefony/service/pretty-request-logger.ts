@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import type { Severity } from "nodefony";
-import clc from "cli-color";
+import { logColor } from "nodefony";
 import { performance } from "node:perf_hooks";
 import type {
   IRequestLogger,
@@ -48,13 +48,13 @@ class PrettyRequestLogger implements IRequestLogger {
     const duration = computeDurationMs(ctx.phases);
 
     const text =
-      `${clc.cyan(method.padEnd(4))} ` +
+      `${logColor.cyan(method.padEnd(4))} ` +
       `${colorizeStatus(status)} ` +
       `${ctx.url} ` +
-      `${clc.blackBright(formatDuration(duration))} ` +
-      `${clc.blackBright(ctx.remoteAddress ?? "-")} ` +
-      `${clc.magenta(`[${shortId(ctx.requestId)}]`)}` +
-      (err ? ` ${clc.red(err.message)}` : "");
+      `${logColor.blackBright(formatDuration(duration))} ` +
+      `${logColor.blackBright(ctx.remoteAddress ?? "-")} ` +
+      `${logColor.magenta(`[${shortId(ctx.requestId)}]`)}` +
+      (err ? ` ${logColor.red(err.message)}` : "");
 
     return {
       text,
@@ -81,13 +81,13 @@ class PrettyRequestLogger implements IRequestLogger {
     const proto = acceptedProtocol ? `[${acceptedProtocol}]` : "";
 
     const text =
-      `${clc.cyan("WS  ")} ` +
+      `${logColor.cyan("WS  ")} ` +
       `${colorizeStatus(status)} ` +
-      `${ctx.url} ${clc.blackBright(proto)} ` +
-      `${clc.blackBright(formatDuration(duration))} ` +
-      `${clc.blackBright(ctx.remoteAddress ?? "-")} ` +
-      `${clc.magenta(`[${shortId(ctx.requestId)}]`)}` +
-      (error ? ` ${clc.red(error.message)}` : "");
+      `${ctx.url} ${logColor.blackBright(proto)} ` +
+      `${logColor.blackBright(formatDuration(duration))} ` +
+      `${logColor.blackBright(ctx.remoteAddress ?? "-")} ` +
+      `${logColor.magenta(`[${shortId(ctx.requestId)}]`)}` +
+      (error ? ` ${logColor.red(error.message)}` : "");
 
     return {
       text,
@@ -98,12 +98,12 @@ class PrettyRequestLogger implements IRequestLogger {
 }
 
 function colorizeStatus(status: number | null): string {
-  if (status === null) return clc.blackBright("---");
+  if (status === null) return logColor.blackBright("---");
   const s = String(status);
-  if (status >= 500) return clc.red(s);
-  if (status >= 400) return clc.yellow.bold(s);
-  if (status >= 300) return clc.yellow(s);
-  return clc.green(s);
+  if (status >= 500) return logColor.red(s);
+  if (status >= 400) return logColor.yellowBold(s);
+  if (status >= 300) return logColor.yellow(s);
+  return logColor.green(s);
 }
 
 function formatDuration(ms: number | null): string {

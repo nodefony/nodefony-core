@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-31T21:07:32.803Z",
+  "generated": "2026-05-31T22:09:19.379Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 805,
-    "symbols": 1554,
+    "files": 806,
+    "symbols": 1560,
     "classes": 240,
     "interfaces": 381,
-    "types": 193,
+    "types": 196,
     "enums": 2,
-    "functions": 272,
-    "constants": 466
+    "functions": 274,
+    "constants": 467
   },
   "symbols": {
     "Cli": {
@@ -1067,6 +1067,30 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Identité git du dépôt courant. Champs `\"\"` si indéterminés (hors dépôt)."
+    },
+    "setLogColor": {
+      "name": "setLogColor",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/logColor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Active/désactive la couleur ANSI des logs — à appeler **une fois au boot**. Swap les fonctions des slots ; aucun coût par log ensuite."
+    },
+    "isLogColorEnabled": {
+      "name": "isLogColorEnabled",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/logColor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`true` si la couleur ANSI est active (gate boot-time)."
+    },
+    "logColor": {
+      "name": "logColor",
+      "kind": "const",
+      "file": "src/nodefony/src/syslog/logColor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Helper de couleur partagé — référence STABLE, propriétés mutées par {@link setLogColor}. Les call-sites font `logColor.cyan(\"URL\")`."
     },
     "Pdu": {
       "name": "Pdu",
@@ -13129,6 +13153,19 @@
       "Install": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
+      "logColor": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/syslog/Syslog.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
+        "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "setLogColor": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "Orm": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/orm/Connector.ts",
@@ -13297,6 +13334,9 @@
         "src/nodefony/src/syslog/transports/FileTransport.ts",
         "src/nodefony/src/syslog/transports/HttpTransport.ts",
         "src/nodefony/src/syslog/transports/SyslogTransport.ts"
+      ],
+      "isLogColorEnabled": [
+        "src/nodefony/src/syslog/Syslog.ts"
       ],
       "ICliKernel": [
         "src/nodefony/src/types/IKernel.ts"

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import clc from "cli-color";
+import { logColor, setLogColor } from "../syslog/logColor";
 import cluster from "node:cluster";
 import fs from "node:fs";
 import os from "node:os";
@@ -46,7 +46,8 @@ import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { readListenerTags } from "./lifecycleTags";
 
-const colorLogEvent = clc.cyan.bgBlue("EVENT KERNEL");
+// Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
+const colorLogEvent = (): string => logColor.cyanBgBlue("EVENT KERNEL");
 
 export interface TypeKernelOptions extends DefaultOptionsService {
   node_start?: NodefonyStartType;
@@ -860,6 +861,11 @@ class Kernel extends Service implements IKernel {
     // (dev). Cf Syslog.setOutputBuffering + config.log.buffered.
     const logCfg = this.options.log as TypeKernelOptions["log"];
     Syslog.setOutputBuffering(logCfg?.buffered ?? "auto");
+    // Couleur ANSI des logs — résolue UNE fois ici (boot). Un TTY = humain
+    // (couleur) ; pipe/fichier/redirection (prod, collecteur) = brut → 0 ANSI
+    // baké dans les payloads (stdout pipe + .jsonl queryable propres). Les
+    // helpers `logColor` swappent leurs fonctions ici → 0 test par log.
+    setLogColor(process.stdout?.isTTY === true);
     // Répertoire des logs — SOURCE UNIQUE : sink `.log` (LB.W) + JSONL queryable
     // (LB.2/5) + viewer Studio. Configurable `log.dir` (défaut "logs"), sous cwd.
     const logDirAbs = path.resolve(process.cwd(), logCfg?.dir ?? "logs");
@@ -1003,15 +1009,15 @@ class Kernel extends Service implements IKernel {
     if (this.cli) {
       this.type = this.cli.type;
     }
-    let txt = `      \x1b ${clc.blue(this.type)} `;
-    txt += ` ${clc.magenta("Cluster")} : ${this.typeCluster} `;
-    txt += ` ${clc.magenta("Nodefony Environment")} : ${this.environment}  `;
+    let txt = `      \x1b ${logColor.blue(this.type)} `;
+    txt += ` ${logColor.magenta("Cluster")} : ${this.typeCluster} `;
+    txt += ` ${logColor.magenta("Nodefony Environment")} : ${this.environment}  `;
     if (this.appEnvironment) {
-      txt += ` ${clc.magenta("App Environment")} : ${
+      txt += ` ${logColor.magenta("App Environment")} : ${
         this.appEnvironment.environment
       }  `;
     }
-    txt += ` ${clc.magenta("Debug")} : ${this.debug}\n`;
+    txt += ` ${logColor.magenta("Debug")} : ${this.debug}\n`;
     return txt;
   }
 
@@ -1089,25 +1095,25 @@ class Kernel extends Service implements IKernel {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override fire(event: KernelEventsType, ...args: any[]): boolean {
-    this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
     return super.fire(event, ...args);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override emit(event: KernelEventsType, ...args: any[]): boolean {
-    this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
     return super.emit(event, ...args);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override emitAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
-    this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override fireAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
-    this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
 
@@ -1190,7 +1196,7 @@ class Kernel extends Service implements IKernel {
     event: KernelEventsType,
     ...args: any[]
   ): Promise<IGuardedEmitResult> {
-    this.log(`${colorLogEvent} ${event as string} [guarded]`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event as string} [guarded]`, "DEBUG");
     const warnMs = this.bootWarnMs();
     let fatalError: unknown = null;
     let hasFatal = false;

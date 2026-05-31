@@ -1,4 +1,3 @@
-import clc from "cli-color";
 import { inspect } from "node:util";
 
 import { extend } from "../Tools";
@@ -7,12 +6,16 @@ import { DebugType, EnvironmentType } from "../types/globals";
 import Event from "../Event";
 import { ISyslog } from "../types/ISyslog";
 import type { ITransport } from "../types/ITransport";
+import { logColor, isLogColorEnabled } from "./logColor";
 
-const yellow = clc ? clc.yellow.bold : (ele: string) => ele;
-const red = clc ? clc.red.bold : (ele: string) => ele;
-const cyan = clc ? clc.cyan.bold : (ele: string) => ele;
-const blue = clc ? clc.blueBright.bold : (ele: string) => ele;
-const green = clc ? clc.green : (ele: string) => ele;
+// Couleurs du préfixe console (timestamp/severity/msgid) — gatées au boot par
+// logColor (OFF hors TTY → stdout pipe/fichier propre). Indirection minime hors
+// hot path d'affichage ; le rendu console n'est appelé que par ligne écrite.
+const yellow = (s: string): string => logColor.yellowBold(s);
+const red = (s: string): string => logColor.redBold(s);
+const cyan = (s: string): string => logColor.cyanBold(s);
+const blue = (s: string): string => logColor.blueBrightBold(s);
+const green = (s: string): string => logColor.green(s);
 
 // ── Sink stdout/stderr isomorphe ────────────────────────────────────────────
 // Node : écrit direct sur process.stdout/stderr (perf, pas d'overhead console).
@@ -1128,7 +1131,7 @@ class Syslog extends Event implements ISyslog {
         ? String(pdu.payload)
         : inspect(pdu.payload, {
             depth: 3,
-            colors: true,
+            colors: isLogColorEnabled(),
             breakLength: Infinity,
           });
     // Préfixe pid seulement si fourni — voir commentaire normalizeLog.

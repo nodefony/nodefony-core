@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import type { Severity } from "nodefony";
-import clc from "cli-color";
+import { logColor } from "nodefony";
 import type {
   IRequestLogger,
   IRequestLogEntry,
@@ -32,21 +32,21 @@ class DefaultRequestLogger implements IRequestLogger {
       error?: unknown;
     };
     const txt =
-      `${clc.cyan("URL")} : ${ctx.url} ` +
-      `${clc.cyan("FROM")} : ${ctx.remoteAddress} ` +
-      `${clc.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
-      `${clc.cyan("ID")} : ${ctx.requestId}`;
+      `${logColor.cyan("URL")} : ${ctx.url} ` +
+      `${logColor.cyan("FROM")} : ${ctx.remoteAddress} ` +
+      `${logColor.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
+      `${logColor.cyan("ID")} : ${ctx.requestId}`;
 
     const err = error ?? (ctx.error as Error | null | undefined);
     if (err) {
       const errCode =
         (err as { code?: number }).code ?? ctx.response?.statusCode ?? 500;
-      const msgid = `${ctx.type} ${clc.magenta(errCode)} ${clc.red(ctx.method ?? "")}`;
+      const msgid = `${ctx.type} ${logColor.magenta(errCode)} ${logColor.red(ctx.method ?? "")}`;
       const isProd = ctx.kernel?.environment === "prod";
       const text = isProd ? `${txt} ${err}` : `${txt}\n          ${err}`;
       return { text, severity: "ERROR" as Severity, msgid };
     }
-    const msgid = `${ctx.type} ${clc.magenta(ctx.response?.statusCode)} ${ctx.method}`;
+    const msgid = `${ctx.type} ${logColor.magenta(ctx.response?.statusCode ?? "")} ${ctx.method}`;
     return { text: txt, severity: "INFO" as Severity, msgid };
   }
 
@@ -70,22 +70,22 @@ class DefaultRequestLogger implements IRequestLogger {
     if (error) {
       const errCode =
         (error as { code?: number }).code ?? ctx.response?.statusCode ?? 500;
-      const msgid = `${ctx.type} ${clc.magenta(errCode)} ${clc.red(ctx.method ?? "")}`;
+      const msgid = `${ctx.type} ${logColor.magenta(errCode)} ${logColor.red(ctx.method ?? "")}`;
       const text =
-        `${clc.cyan("URL")} : ${ctx.url}  ` +
-        `${clc.cyan("FROM")} : ${ctx.remoteAddress} ` +
-        `${clc.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
-        `${clc.cyan("ID")} : ${ctx.requestId}\n        ` +
+        `${logColor.cyan("URL")} : ${ctx.url}  ` +
+        `${logColor.cyan("FROM")} : ${ctx.remoteAddress} ` +
+        `${logColor.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
+        `${logColor.cyan("ID")} : ${ctx.requestId}\n        ` +
         error.toString();
       return { text, severity: "ERROR" as Severity, msgid };
     }
-    const msgid = `${ctx.type} ${clc.magenta(ctx.response?.statusCode)} ${ctx.method}`;
+    const msgid = `${ctx.type} ${logColor.magenta(ctx.response?.statusCode ?? "")} ${ctx.method}`;
     const text =
-      `${clc.cyan("URL")} : ${ctx.url} ` +
-      `${clc.cyan("Accept-Protocol")} : ${acceptedProtocol || "*"} ` +
-      `${clc.cyan("FROM")} : ${ctx.remoteAddress} ` +
-      `${clc.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
-      `${clc.cyan("ID")} : ${ctx.requestId}`;
+      `${logColor.cyan("URL")} : ${ctx.url} ` +
+      `${logColor.cyan("Accept-Protocol")} : ${acceptedProtocol || "*"} ` +
+      `${logColor.cyan("FROM")} : ${ctx.remoteAddress} ` +
+      `${logColor.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
+      `${logColor.cyan("ID")} : ${ctx.requestId}`;
     return { text, severity: "INFO" as Severity, msgid };
   }
 }

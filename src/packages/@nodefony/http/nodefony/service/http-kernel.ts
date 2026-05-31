@@ -39,7 +39,7 @@ import Statics from "./servers/server-static";
 import WebsocketContext from "../src/context/websocket/WebsocketContext";
 import HttpContext from "../src/context/http/HttpContext";
 import Context, { HTTPMethod, WebSocketState } from "../src/context/Context";
-import clc from "cli-color";
+import { logColor } from "nodefony";
 import Certicates from "./certificates";
 import SessionsService from "./sessions/sessions-service";
 import Session from "../src/session/session";
@@ -318,11 +318,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ): Promise<HttpContext> {
     const scope = this.container?.enterScope("request");
     // Perf (L1) — debug off (prod / dev sans -d) : ne RIEN allouer par requête.
-    // `this.log(...)` construit TOUJOURS un Pdu et `clc.cyan.bgBlue(url)` une
-    // string ANSI + 2 templates — tous jetés si DEBUG n'est pas affiché. Guard
-    // sur `kernel.debug` (même flag que http-kernel.ts:456) → 0 alloc en prod.
+    // `this.log(...)` construit TOUJOURS un Pdu et `logColor.cyanBgBlue(url)` une
+    // string + 2 templates — tous jetés si DEBUG n'est pas affiché. Guard sur
+    // `kernel.debug` (même flag que http-kernel.ts:456) → 0 alloc en prod.
     if (this.kernel?.debug) {
-      this.log(clc.cyan.bgBlue(`${request.url}`), "DEBUG", `${type}`);
+      this.log(logColor.cyanBgBlue(`${request.url}`), "DEBUG", `${type}`);
     }
     return this.handleHttp(
       scope as Scope,

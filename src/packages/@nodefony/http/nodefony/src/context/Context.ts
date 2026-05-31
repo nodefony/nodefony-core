@@ -35,7 +35,7 @@ import WebsocketResponse from "./websocket/Response";
 import HttpRequest from "./http/Request";
 import Http2Request from "./http2/Request";
 import SessionsService from "../../service/sessions/sessions-service";
-import clc from "cli-color";
+import { logColor } from "nodefony";
 //import http from "node:http";
 //import http2 from "node:http2";
 import { URL } from "node:url";
@@ -48,7 +48,8 @@ import ServerHttps from "../../service/servers/server-https";
 import Websocket from "../../service/servers/server-websocket";
 import WebsocketSecure from "../../service/servers/server-websocket-secure";
 
-const colorLogEvent = clc.cyan.bgBlack("EVENT CONTEXT");
+// Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
+const colorLogEvent = (): string => logColor.cyanBgBlack("EVENT CONTEXT");
 
 // Shared frozen array used when timing is disabled — zero per-request alloc.
 const EMPTY_PHASES: PhaseTiming[] = Object.freeze(
@@ -358,12 +359,12 @@ class Context extends Service implements IContextInterface {
   }
 
   override fire(event: KernelEventsType, ...args: unknown[]): boolean {
-    this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
     return super.fire(event, ...args);
   }
 
   override emit(event: KernelEventsType, ...args: unknown[]): boolean {
-    this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
     return super.emit(event, ...args);
   }
 
@@ -371,7 +372,7 @@ class Context extends Service implements IContextInterface {
     event: KernelEventsType,
     ...args: unknown[]
   ): Promise<unknown> {
-    this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
 
@@ -379,7 +380,7 @@ class Context extends Service implements IContextInterface {
     event: KernelEventsType,
     ...args: unknown[]
   ): Promise<unknown> {
-    this.log(`${colorLogEvent} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
 

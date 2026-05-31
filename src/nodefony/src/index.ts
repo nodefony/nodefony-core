@@ -24,6 +24,8 @@ export { default as Syslog } from "./syslog/Syslog";
 export { NULL_LOG_SINK } from "./syslog/Syslog";
 export type { ILogSink } from "./syslog/Syslog";
 export { default as Pdu } from "./syslog/Pdu";
+// Gate couleur ANSI des logs (résolue au boot) — payloads bruts hors TTY.
+export { logColor, setLogColor, isLogColorEnabled } from "./syslog/logColor";
 export { FileSink } from "./syslog/sinks/FileSink";
 export type { FileSinkOptions } from "./syslog/sinks/FileSink";
 // Log Backplane (LB.0/LB.1) — axe DESTINATION queryable (≠ ILogSink write texte).

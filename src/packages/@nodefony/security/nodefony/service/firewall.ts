@@ -8,6 +8,7 @@ import {
   Msgid,
   Message,
   Pdu,
+  logColor,
 } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 
@@ -163,7 +164,9 @@ class Firewall extends Service implements IFirewall {
     msg?: Message,
   ): Pdu {
     if (!msgid) {
-      msgid = "\x1b[36mFIREWALL\x1b[0m";
+      // Couleur gatée au boot (logColor) → msgid brut "FIREWALL" hors TTY (JSONL
+      // queryable + pipe prod propres) ; cyan sur terminal interactif.
+      msgid = logColor.cyan("FIREWALL");
     }
     return super.log(pci, severity, msgid, msg);
   }
