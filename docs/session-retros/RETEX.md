@@ -80,10 +80,12 @@
   routes ET que les shapes back↔front sont compatibles (champs optionnels en trop/absents = dégradation
   propre), la session se réduit à un **diff de shapes + curl runtime, 0 edit**. Ne pas présumer qu'il faut
   coder ni invoquer `nodefony-studio-dev`. Reste = confirmation visuelle user (hard-reload, pas de headless).
-- `[1× — 2026-05-31]` **un test ne doit JAMAIS laisser de résidu** (`upload.test.ts` accumulait des
-  `<uuid>.{ts,png,txt}` dans le dossier d'upload, jamais nettoyés). Le service persiste les fichiers reçus,
-  le test ne les supprimait pas. → `before` snapshot du dossier + `after` qui supprime **uniquement le diff**
-  (fichiers créés par la suite), sans toucher au préexistant. Vérifier net-0 (avant N / après N).
+- `[2× — 2026-05-31, 2026-06-01]` **un test ne doit JAMAIS laisser de résidu** : `upload.test.ts` ET
+  `memory.test.ts` (« 200 multipart uploads ») accumulent des `<uuid>.txt` dans le dossier d'upload / `./tmp`,
+  jamais nettoyés (1200 fichiers constatés le 06-01 — le skill `check-memory-health` relance → accumulation,
+  user agacé). Le service persiste les fichiers reçus, le test ne les supprime pas. → `before` snapshot du
+  dossier + `after` qui supprime **uniquement le diff** (fichiers créés), sans toucher au préexistant ; net-0.
+  ⚠️ `memory.test` PAS encore corrigé (TODO `project_session_2026-06-01_state`). À 3× → graduer en `feedback_*`.
 - `[1× — 2026-05-31]` **couleurs ANSI bakées dans le payload de log → fichier JSON pollué** : `clc.xxx("EVENT
 KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-color/bare` colore AUSSI
   (vérifié — pas d'interrupteur global). Stripper l'ANSI **par log** dans le transport = coût hot path (refusé
@@ -146,6 +148,14 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   produit de l'ANSI même en pipe → si c'était l'ancien code, le payload serait coloré ; il est brut →
   c'est le nouveau). Idem memory-test flake sous charge cumulée (720 intég PUIS memory même serveur =
   échec rotatif) → isolation + serveur frais = vérité (déjà gradué, cf skill `nodefony-debug`).
+- `[1× — 2026-06-01]` **tester un agrégateur cluster = asserter `total == unique`, PAS « je vois mes N
+  workers »** : mon « test ultime » du driver `cluster-file` comptait les `pid` distincts dans une relecture
+  (agrégation OK) → a RATÉ un doublon de lignes (ratio 2.0, chaque log écrit 2×). Compter les pids uniques
+  MASQUE mécaniquement un doublon. Pour un agrégateur/merge, vérifier l'INTÉGRITÉ (unicité), pas la couverture.
+- `[1× — 2026-06-01]` **instrumenter (stderr + rebuild) tranche là où la lecture de code spécule** : la
+  mémoire `project_cli_module_command_dispatch` disait kernel #1 « orphelin jamais booté » → l'instrumentation
+  a PROUVÉ qu'il boote COMPLÈTEMENT en development (4 `initializeLog`/worker = 2 boots dev+prod). Une note
+  mémoire écrite depuis une lecture partielle ment ; re-prouver empiriquement AVANT le fix (renforce ci-dessous).
 - `[1× — 2026-06-01]` **⚠️ CORRECTION d'une note RETEX précédente = la cause supposée était FAUSSE** : la
   session passée avait noté ici « doublon JSONL = `setActiveLogDriver` ré-attache le tap sans removeListener
   (après des switchs) » → cette hypothèse a migré dans le `_state` comme prochaine tâche. **La vraie cause
