@@ -127,11 +127,15 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   produit de l'ANSI même en pipe → si c'était l'ancien code, le payload serait coloré ; il est brut →
   c'est le nouveau). Idem memory-test flake sous charge cumulée (720 intég PUIS memory même serveur =
   échec rotatif) → isolation + serveur frais = vérité (déjà gradué, cf skill `nodefony-debug`).
-- `[1× — 2026-06-01]` **Tester un driver de query après des SWITCHS pollue la preuve** : `setActiveLogDriver`
-  ré-attache le tap d'écriture sans `removeListener` l'ancien → après memory→file→memory→file, chaque log
-  est écrit 2× dans le JSONL → **doublons** à la lecture (vus dans TraceView). Le bug n'existe PAS en usage
-  normal (1 driver). → pour prouver un comportement de driver : **restart serveur frais, 0 switch**, sinon
-  on diagnostique un artefact de ses propres curl. (Vrai bug à fixer : cleanup du write tap au switch.)
+- `[1× — 2026-06-01]` **⚠️ CORRECTION d'une note RETEX précédente = la cause supposée était FAUSSE** : la
+  session passée avait noté ici « doublon JSONL = `setActiveLogDriver` ré-attache le tap sans removeListener
+  (après des switchs) » → cette hypothèse a migré dans le `_state` comme prochaine tâche. **La vraie cause
+  (trouvée en lisant le code + repro live `1335 l/669 uid`) : `initializeLog()` est appelé 2× au boot**
+  (logger précoce dans `start()` + re-init post-config dans `loadApp()`) et re-monte un 2ᵉ `FileTransport`
+  sans retirer le 1er ; `addTransport` dédup par RÉFÉRENCE → 2 instances distinctes passent. **Rien à voir
+  avec un switch** — le doublon naît dès le boot, 0 switch. Fix `Kernel._mountedLogTransports` idempotent
+  (`6814c05`). → **Leçon méta : une note RETEX/\_state écrite depuis une HYPOTHÈSE non vérifiée ment ; au
+  RESUME, re-prouver la cause (code + empirique) AVANT de coder, ne pas copier le diagnostic du `_state`.**
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
@@ -154,15 +158,21 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   par une majuscule (ex. `docs(adr): ADR-0005 …`) est **rejeté** par le hook `commit-msg`. Les 4 sujets de
   la session passaient sauf celui-là → reformulé en minuscule (`docs(adr): observabilité prod …`). Réflexe :
   type(scope): **minuscule** d'abord.
+- `[1× — 2026-06-01]` **`routes/logs/` est gitignoré (pattern `logs`) → nouveaux fichiers invisibles + lint-staged
+  « git error »** : créer `routes/logs/profileVisuals.tsx`/`ProfilingTab.tsx` → `git add` les ignore (les fichiers
+  EXISTANTS du dossier restent trackés, mais les NOUVEAUX non) → besoin `git add -f`. Et le 1er `git commit` a
+  échoué « lint-staged failed due to a git error » (stash/lock transitoire) sans rien perdre → **retry après
+  `pkill -f lint-staged` + `rm -f .git/index.lock`** a réussi. Combine [[feedback_git_index_lock]] : sur ce repo,
+  toujours `pkill lint-staged/generate-symbols` + `rm index.lock` AVANT un retry de commit raté.
 
 ---
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
+- `2026-06-01-690029d6` — fix doublon JSONL (double `initializeLog` re-monte FileTransport, `6814c05`) + fusion Profiler → Suivi de requête (onglets Timing/ORM + onglet Profiling Logs, page autonome supprimée, `1d4ed01`).
 - `2026-06-01-961eb178` — gate couleur ANSI boot-time (helper `logColor` gaté `isTTY`, core/http/security) → JSONL/pipe propres hors TTY ; allocation-neutre (1 commit `7e68b05`).
 - `2026-05-31-c7578918` — LB.5 cluster-file + console Logs cluster-honnête + chip runtime/backplanes topbar + dir logs configurable + fix test upload (5 commits).
 - `2026-05-31-41ca4a89` — commit module doc + CONSOLIDATE (verdict rien à graduer) + Session A (docs+tests) + Session B (front déjà compatible, 0 edit).
-- `2026-05-31-a5a0cf2d` — création back module `@nodefony/documentation` (data plane doc transverse) + activation runtime.
 
 > ✅ **CONSOLIDATE audité le 2026-05-31** (`CONSOLIDATION-2026-05-31.md`) : les 57 bruts (05-25→05-31)
 > ont été balayés. **Verdict : rien à graduer.** Tous les thèmes récurrents (lock/lint-staged,
