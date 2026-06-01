@@ -76,6 +76,16 @@ export interface DriverInfo {
 }
 
 /**
+ * Transport d'écriture (axe WRITE — `ITransport.name`). Polymorphe : `console`
+ * (stdout), `file`, `loki`, `opensearch`, `syslog` (RFC 5424), `http`. `enabled`
+ * = reçoit réellement les écritures (togglable à chaud en dev).
+ */
+export interface TransportInfo {
+  name: string;
+  enabled: boolean;
+}
+
+/**
  * Compteurs du syslog (cumuls monotones → débit dérivé côté lecteur).
  * `buffered` = nombre de Pdu actuellement dans le ring (≠ cumul).
  */
@@ -86,6 +96,8 @@ export interface BackplaneCounters {
   errorTotal: number;
   criticTotal: number;
   buffered: number;
+  /** Plafond du ring (`maxStack`) → l'UI montre « buffered / bufferCapacity ». */
+  bufferCapacity?: number;
 }
 
 /**
@@ -100,8 +112,25 @@ export interface BackplaneMeta {
   activeDriver: DriverInfo | null;
   /** Tous les drivers enregistrés (switchables en dev). */
   drivers: DriverInfo[];
-  /** Axe WRITE (orthogonal) : sink où partent les lignes texte. */
-  write: { sink: string };
+  /**
+   * Axe WRITE (orthogonal au READ). L'écriture est un **fan-out** : 1 log → N
+   * transports. `sink` = sink LB.W (où part la ligne texte : fd file / stdout) ;
+   * `transports` = vraies destinations montées (`ITransport.name` : `console`,
+   * `file`, `loki`, `syslog`…). `transports` optionnel = robustesse si dist back
+   * périmé (fallback : inférer depuis les drivers, ancien comportement).
+   */
+  write: {
+    sink: string;
+    /** Sink texte écrit-il ? `false` = muté à chaud (console/fichier coupé). */
+    sinkEnabled?: boolean;
+    transports?: TransportInfo[];
+    /** Stockage mémoire (ring) actif ? `false` = Explorer « mémoire » à 0. */
+    ringEnabled?: boolean;
+    /** Diffusion temps réel (syslog:stream) active ? `false` = onglet Live grisé. */
+    streamEnabled?: boolean;
+    /** Dossier des fichiers JSONL (driver file/cluster-file) — `null` en prod. */
+    logDir?: string | null;
+  };
   /** Santé du flux. */
   counters: BackplaneCounters;
   /** Environnement kernel — gouverne la visibilité du switch (dev-only). */

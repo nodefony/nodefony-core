@@ -99,6 +99,17 @@ export function createSyslogAdminApi(
     options.enableFiles && options.logDir
       ? path.resolve(options.logDir)
       : undefined;
+  // Version SÛRE pour l'UI (anti info-leak FS — RÈGLE sécu : un chemin ABSOLU
+  // exposé révèle l'arborescence + le compte système). On expose le chemin
+  // RELATIF au cwd (ex. « logs ») ; s'il s'échappe du cwd → seulement le basename.
+  // L'absolu (`logDir`) reste INTERNE aux opérations fichiers (lecture/tail).
+  const logDirPublic = ((): string | null => {
+    if (!logDir) return null;
+    const rel = path.relative(process.cwd(), logDir);
+    return rel && !rel.startsWith("..") && !path.isAbsolute(rel)
+      ? rel
+      : path.basename(logDir);
+  })();
   /** Lit un entier de query (`?limit=50`), borné, avec défaut. */
   const intParam = (
     req: IAdminRequest,
@@ -260,8 +271,24 @@ export function createSyslogAdminApi(
             ? { name: driver.name, capabilities: driver.capabilities }
             : null,
           drivers: listLogDrivers(),
-          // Axe WRITE (LB.W — où la ligne texte est écrite). Orthogonal.
-          write: { sink: Syslog.logSinkName },
+          // Axe WRITE (LB.W). Orthogonal au READ : l'écriture est un **fan-out**
+          // (1 log → N transports). `sink` = où part la ligne texte (fd file/stdout) ;
+          // `transports` = la VRAIE liste des destinations montées (`ITransport.name`),
+          // pour que Studio ne les infère plus des drivers de relecture (ce qui
+          // masquait les transports write-only console/syslog/http).
+          write: {
+            sink: Syslog.logSinkName,
+            // Sink texte muté à chaud (console/fichier coupé sans changer la config).
+            sinkEnabled: Syslog.sinkEnabled,
+            transports: syslog.listTransports(),
+            // Stockage mémoire (ring) actif — coupé = Explorer « mémoire » à 0.
+            ringEnabled: syslog.ringEnabled,
+            // Diffusion temps réel (bus syslog:stream) active — coupé = Live grisé.
+            streamEnabled: syslog.streamEnabled,
+            // Dossier des fichiers JSONL — chemin RELATIF/SÛR (jamais l'absolu :
+            // info-leak FS). null en prod ou si le viewer de fichiers est désactivé.
+            logDir: logDirPublic,
+          },
           // Topologie process. En cluster (`NODEFONY_CLUSTER=1`, posé par le
           // master et hérité au fork), le data plane est servi par UN worker
           // round-robin → le front avertit que la relecture est partielle si le
@@ -279,6 +306,8 @@ export function createSyslogAdminApi(
             errorTotal: syslog.errorTotal,
             criticTotal: syslog.criticTotal,
             buffered: syslog.ringStack.length,
+            // Plafond du ring (maxStack) → l'UI montre « X / Y » + taux de remplissage.
+            bufferCapacity: syslog.bufferCapacity,
           },
           environment: options.environment ?? null,
         };
@@ -347,6 +376,133 @@ export function createSyslogAdminApi(
             body: { error: `unknown log driver "${name}"` },
           };
         }
+      },
+    },
+    {
+      path: "backplane/transport",
+      method: "POST",
+      summary:
+        "Active/désactive un transport d'écriture à chaud (DEV-only) — body { name, enabled }. Axe WRITE (fan-out).",
+      handler: (request): IAdminResponse<{ error: string }> | unknown => {
+        // 🔒 Action de contrôle runtime → DEV-only STRICT (comme le switch de
+        // driver). En prod, le fan-out d'écriture est figé par config/env
+        // (12-factor). RBAC (ROLE_NODEFONY_ADMIN) appliqué en plus par le broker.
+        if (options.environment !== "development") {
+          return {
+            status: 403,
+            body: { error: "transport toggle is development-only" },
+          };
+        }
+        const body = (request.body ?? {}) as {
+          name?: unknown;
+          enabled?: unknown;
+        };
+        const name = typeof body.name === "string" ? body.name : "";
+        if (!name) {
+          return { status: 400, body: { error: "missing transport name" } };
+        }
+        if (typeof body.enabled !== "boolean") {
+          return { status: 400, body: { error: "missing enabled (boolean)" } };
+        }
+        const changed = syslog.setTransportEnabled(name, body.enabled);
+        // Trace de l'action sur le bus (ring + `syslog:stream`, indépendants des
+        // transports) → visible dans l'onglet Live = confirmation « pris en compte ».
+        if (changed) {
+          syslog.log(
+            `transport d'écriture « ${name} » ${body.enabled ? "activé" : "désactivé"}`,
+            "NOTICE",
+            "LOG-BACKPLANE",
+          );
+        }
+        // `changed:false` = déjà dans l'état voulu ou transport non remontable
+        // (jamais monté → exige sa config, pas ce toggle). Pas une erreur.
+        return { name, enabled: body.enabled, changed };
+      },
+    },
+    {
+      path: "backplane/sink",
+      method: "POST",
+      summary:
+        "Mute/démute le sink texte (console/fichier) à chaud (DEV-only) — body { enabled }.",
+      handler: (request): IAdminResponse<{ error: string }> | unknown => {
+        if (options.environment !== "development") {
+          return {
+            status: 403,
+            body: { error: "sink toggle is development-only" },
+          };
+        }
+        const body = (request.body ?? {}) as { enabled?: unknown };
+        if (typeof body.enabled !== "boolean") {
+          return { status: 400, body: { error: "missing enabled (boolean)" } };
+        }
+        // Tracer AVANT de couper (sinon le « désactivé » ne sortirait pas en console).
+        if (body.enabled === false) {
+          syslog.log(
+            `sink texte « ${Syslog.logSinkName} » coupé (console/fichier)`,
+            "NOTICE",
+            "LOG-BACKPLANE",
+          );
+        }
+        const changed = Syslog.setSinkEnabled(body.enabled);
+        if (changed && body.enabled) {
+          syslog.log("sink texte rétabli", "NOTICE", "LOG-BACKPLANE");
+        }
+        return { enabled: body.enabled, sink: Syslog.logSinkName, changed };
+      },
+    },
+    {
+      path: "backplane/ring",
+      method: "POST",
+      summary:
+        "Active/désactive le stockage mémoire (ring) à chaud (DEV-only) — body { enabled }.",
+      handler: (request): IAdminResponse<{ error: string }> | unknown => {
+        if (options.environment !== "development") {
+          return {
+            status: 403,
+            body: { error: "ring toggle is development-only" },
+          };
+        }
+        const body = (request.body ?? {}) as { enabled?: unknown };
+        if (typeof body.enabled !== "boolean") {
+          return { status: 400, body: { error: "missing enabled (boolean)" } };
+        }
+        const changed = syslog.setRingEnabled(body.enabled);
+        if (changed) {
+          syslog.log(
+            `stockage mémoire (ring) ${body.enabled ? "activé" : "désactivé"}`,
+            "NOTICE",
+            "LOG-BACKPLANE",
+          );
+        }
+        return { enabled: body.enabled, changed };
+      },
+    },
+    {
+      path: "backplane/stream",
+      method: "POST",
+      summary:
+        "Active/désactive la diffusion temps réel (syslog:stream / Live) à chaud (DEV-only) — body { enabled }.",
+      handler: (request): IAdminResponse<{ error: string }> | unknown => {
+        if (options.environment !== "development") {
+          return {
+            status: 403,
+            body: { error: "stream toggle is development-only" },
+          };
+        }
+        const body = (request.body ?? {}) as { enabled?: unknown };
+        if (typeof body.enabled !== "boolean") {
+          return { status: 400, body: { error: "missing enabled (boolean)" } };
+        }
+        const changed = syslog.setStreamEnabled(body.enabled);
+        if (changed) {
+          // Tracer (ring + transports) : visible dans l'Explorer même si le Live est coupé.
+          syslog.log(
+            `diffusion temps réel ${body.enabled ? "activée" : "coupée"}`,
+            "NOTICE",
+            "LOG-BACKPLANE",
+          );
+        }
+        return { enabled: body.enabled, changed };
       },
     },
     {

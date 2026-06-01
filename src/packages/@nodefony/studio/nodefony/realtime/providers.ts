@@ -89,6 +89,9 @@ interface SyslogLike {
   on(event: string, fn: (...a: unknown[]) => void): unknown;
   off?(event: string, fn: (...a: unknown[]) => void): unknown;
   removeListener?(event: string, fn: (...a: unknown[]) => void): unknown;
+  /** Diffusion temps réel active ? `false` (coupé à chaud) → le pont n'accumule
+   *  ni ne publie rien. `undefined` (par défaut / tests) = diffuser (historique). */
+  streamEnabled?: boolean;
 }
 
 /** Canaux temps réel FIGÉS (deviendront des canaux RealtimeService en P13.4). */
@@ -168,6 +171,8 @@ export function createSyslogBridge(
   };
 
   const onLog = (pdu: unknown): void => {
+    // Diffusion coupée à chaud (tuile « Temps réel ») → on n'accumule rien.
+    if (syslog.streamEnabled === false) return;
     if (ring === null) ring = new Array(maxBatch);
     if (count === maxBatch) {
       ring[head] = pdu; // ring plein → écrase le plus ancien

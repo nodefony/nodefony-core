@@ -13,7 +13,7 @@
  * panneaux fournis par la page consommatrice.
  */
 import type { ReactNode } from "react";
-import { Stack, Tabs } from "@mantine/core";
+import { Stack, Tabs, Tooltip } from "@mantine/core";
 import { PageHeader } from "./PageHeader";
 
 /** Un onglet du layout (le `panel` est fourni par la page consommatrice). */
@@ -28,6 +28,14 @@ export interface TabbedPageTab {
   badge?: ReactNode;
   /** Contenu du panneau. */
   panel: ReactNode;
+  /**
+   * Onglet grisé/non-cliquable : sa source de données est indisponible (ex.
+   * driver non-queryable, ring coupé, pas de fichiers en prod). La cohérence
+   * « capacité absente → onglet grisé » suit le contrat back (capabilities/état).
+   */
+  disabled?: boolean;
+  /** Raison affichée au survol d'un onglet `disabled` (tooltip). */
+  disabledReason?: string;
 }
 
 export interface TabbedPageProps {
@@ -88,16 +96,34 @@ export function TabbedPage({
         keepMounted={keepMounted}
       >
         <Tabs.List>
-          {tabs.map((t) => (
-            <Tabs.Tab
-              key={t.value}
-              value={t.value}
-              leftSection={t.icon}
-              rightSection={t.badge}
-            >
-              {t.label}
-            </Tabs.Tab>
-          ))}
+          {tabs.map((t) => {
+            const tab = (
+              <Tabs.Tab
+                key={t.value}
+                value={t.value}
+                leftSection={t.icon}
+                rightSection={t.badge}
+                disabled={t.disabled}
+              >
+                {t.label}
+              </Tabs.Tab>
+            );
+            // Tooltip de raison sur un onglet grisé (wrap pour capter le survol
+            // malgré `disabled` qui coupe les events natifs).
+            return t.disabled && t.disabledReason ? (
+              <Tooltip
+                key={t.value}
+                label={t.disabledReason}
+                withArrow
+                position="bottom"
+                events={{ hover: true, focus: true, touch: true }}
+              >
+                <span>{tab}</span>
+              </Tooltip>
+            ) : (
+              tab
+            );
+          })}
         </Tabs.List>
         {tabs.map((t) => (
           <Tabs.Panel key={t.value} value={t.value} pt="md">

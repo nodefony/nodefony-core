@@ -231,39 +231,139 @@ export interface WriteDestination {
   kind: "ring" | "sink" | "transport";
   /** Pour les transports : nom de driver (icône / méta). */
   driverName?: string;
+  /**
+   * `true` = transport `ITransport` togglable à chaud (dev) — un `Switch` peut
+   * l'activer/désactiver via `POST backplane/transport`. Faux pour ring/sink et
+   * pour les transports jamais montés (ex. `loki` sans URL → exige sa config).
+   */
+  togglable?: boolean;
+  /** Quel mécanisme couper : ring (mémoire), sink (texte) ou un transport. */
+  toggleKind?: "ring" | "sink" | "transport";
+  /** `ITransport.name` réel (clé du toggle `setTransportEnabled`). */
+  transportName?: string;
+  /** Ring uniquement : capacité max (plafond `maxStack`). */
+  capacity?: number;
+  /** Ring uniquement : remplissage courant. */
+  used?: number;
+}
+
+/**
+ * Destinations d'écriture CONNUES à proposer si NON montées (fan-out possible).
+ * Volontairement SANS `console` (= le sink stdout `write.sink`, pas un `ITransport`)
+ * ni `http` (classe de base interne de Loki/OpenSearch) : ne lister que les vraies
+ * destinations « produit » configurables.
+ */
+const KNOWN_TRANSPORTS = ["file", "loki", "opensearch", "syslog"] as const;
+
+/**
+ * Méta d'affichage d'un transport d'écriture (`ITransport.name`). `driverName`
+ * (si présent) pointe vers un driver de relecture homonyme (icône / méta).
+ */
+function transportMeta(
+  name: string,
+  logDir?: string | null,
+): {
+  label: string;
+  on: string;
+  off: string;
+  driverName?: string;
+} {
+  switch (name) {
+    case "console":
+      return {
+        label: "Console (stdout)",
+        on: "Logs formatés sur la sortie standard — destination #1 cloud-native (1 pod → stdout → collecteur).",
+        off: "Transport console non monté.",
+      };
+    case "file":
+      return {
+        label: "Fichier JSONL",
+        on: logDir
+          ? `Pdu structurés en JSON Lines (1 « nodefony-<pid>.jsonl » par worker) dans ${logDir} — relus par les drivers « fichier » / « cluster ». Liste exacte : onglet Fichiers.`
+          : "Pdu structurés en JSON Lines (1 .jsonl par worker), relus par les drivers « fichier » / « cluster ». En prod : logs → collecteur (pas de fichiers).",
+        off: "Non activé (log.queryDriver: « file » ou « cluster-file »).",
+        driverName: "file",
+      };
+    case "loki":
+      return {
+        label: "Grafana Loki",
+        on: "Push HTTP batché (streams LogQL) vers Loki.",
+        off: "Non configuré (LOKI_URL absent).",
+        driverName: "loki",
+      };
+    case "opensearch":
+      return {
+        label: "OpenSearch",
+        on: "Indexation _bulk batchée vers OpenSearch.",
+        off: "Non configuré (OPENSEARCH_URL absent).",
+        driverName: "opensearch",
+      };
+    case "syslog":
+      return {
+        label: "Syslog (RFC 5424)",
+        on: "Émission vers un serveur syslog distant (rsyslog / journald, UDP/TCP).",
+        off: "Transport syslog non monté.",
+      };
+    case "http":
+      return {
+        label: "HTTP générique",
+        on: "POST batché des logs vers un endpoint HTTP custom.",
+        off: "Transport HTTP non monté.",
+      };
+    default:
+      return {
+        label: name,
+        on: "Transport d'écriture personnalisé monté.",
+        off: "Transport personnalisé non monté.",
+      };
+  }
 }
 
 /**
  * Dérive le **fan-out d'écriture** depuis la méta backplane — la vérité de « où
- * part chaque log ». Dérivé front (pas de seam back dédié) mais honnête :
+ * part chaque log ». L'écriture est un fan-out (1 `log()` → N destinations `on`),
+ * orthogonal à la LECTURE (un seul driver).
  *
  *  1. **Mémoire (ring)** — toujours alimenté (le `CircularBuffer` du Syslog).
  *  2. **Sink texte LB.W** — `write.sink` (stdout / fichier .log / null).
- *  3. **Fichier JSONL** — actif dès que `file` OU `cluster-file` est monté ; les
- *     deux partagent le MÊME `.jsonl` par worker (writeKey dédupliqué côté kernel)
- *     → une seule destination d'écriture (≠ deux drivers de relecture).
- *  4. **Loki** / **OpenSearch** — transports HTTP batchés distincts, actifs si le
- *     driver est monté (URL configurée), décochés sinon.
+ *  3. **Transports `ITransport` montés** — `write.transports` est la **source de
+ *     vérité** (les vraies destinations : console, file, loki, opensearch, syslog,
+ *     http). On n'infère PLUS depuis les drivers de relecture → les transports
+ *     write-only (console/syslog/http) deviennent visibles. Les transports connus
+ *     non montés restent listés `on:false` (le fan-out possible).
  *
- * Les destinations `on:false` restent listées (« connu mais non configuré ») pour
- * que l'écran montre TOUT le fan-out possible, pas seulement l'actif.
+ * Fallback (`write.transports` absent = dist back périmé) : ancienne inférence
+ * depuis les drivers `capabilities.write` (masque console/syslog/http).
  */
 export function writeDestinations(meta: BackplaneMeta): WriteDestination[] {
-  const writable = new Set(
-    meta.drivers.filter((d) => d.capabilities.write).map((d) => d.name),
-  );
-  const has = (n: string) => writable.has(n);
   const sink = meta.write.sink;
-  const sinkOn = sink !== "null" && sink !== "none";
-  const jsonlOn = has("file") || has("cluster-file");
-  return [
+  // Sink configuré (≠ null) ET non muté à chaud.
+  const sinkConfigured = sink !== "null" && sink !== "none";
+  const sinkEnabled = meta.write.sinkEnabled !== false;
+  const sinkOn = sinkConfigured && sinkEnabled;
+  const ringEnabled = meta.write.ringEnabled !== false;
+  const logDir = meta.write.logDir;
+  const { buffered, bufferCapacity } = meta.counters;
+  // Taille du ring : « X / Y entrées (Z% plein) » si la capacité est connue.
+  const ringDetail = bufferCapacity
+    ? `Pile tournante (ring buffer) : les ${bufferCapacity} derniers logs gardés en mémoire — ${buffered} / ${bufferCapacity} occupés (${Math.round(
+        (buffered / bufferCapacity) * 100,
+      )} % plein). Une fois plein, chaque nouveau log écrase le plus ancien (FIFO borné, O(1)). Relu par l'Explorer « mémoire » ; perdu au redémarrage.`
+    : "Pile tournante (ring buffer) : les N derniers logs en mémoire ; le plus ancien dégage quand c'est plein. Relu par l'Explorer « mémoire » ; perdu au redémarrage.";
+  const dests: WriteDestination[] = [
     {
       id: "ring",
       label: "Mémoire (ring)",
-      detail:
-        "Buffer volatile des N derniers logs — alimente le Live et l'Explorer « mémoire ». Toujours actif, perdu au redémarrage.",
-      on: true,
+      detail: ringEnabled
+        ? ringDetail
+        : "Stockage mémoire COUPÉ — l'Explorer « mémoire » est vide. Les compteurs santé restent comptés. Réactiver pour relire en RAM.",
+      on: ringEnabled,
       kind: "ring",
+      togglable: true,
+      toggleKind: "ring",
+      // Capacité exposée à l'UI pour un badge « X / Y » dans la tuile.
+      capacity: bufferCapacity,
+      used: buffered,
     },
     {
       id: "sink",
@@ -273,21 +373,62 @@ export function writeDestinations(meta: BackplaneMeta): WriteDestination[] {
           : sink === "stdout"
             ? "stdout (console)"
             : `sink « ${sink} »`,
-      detail: sinkOn
-        ? sink === "file"
-          ? "La ligne texte de chaque log est ajoutée à un fichier .log."
-          : "La ligne texte part sur la sortie standard (console / collecteur)."
-        : "Sink texte désactivé (null) — aucune ligne texte écrite (bench).",
+      detail: !sinkConfigured
+        ? "Sink texte désactivé par config (null) — aucune ligne texte écrite (bench)."
+        : sinkEnabled
+          ? sink === "file"
+            ? "La ligne texte de chaque log est ajoutée à un fichier .log."
+            : "La ligne texte part sur la sortie standard (console / collecteur)."
+          : "Sink texte COUPÉ à chaud — plus aucune ligne en console/fichier. Réactiver pour rétablir.",
       on: sinkOn,
       kind: "sink",
+      // Togglable seulement si configuré (sinon c'est un choix de config, pas un toggle).
+      togglable: sinkConfigured,
+      toggleKind: "sink",
     },
+  ];
+
+  const mounted = meta.write.transports;
+  if (mounted) {
+    const seen = new Set<string>();
+    // `togglable` = transport connu du Syslog (monté OU désactivé à chaud) →
+    // ré-activable par switch. Les KNOWN jamais montés ne le sont pas (config requise).
+    const push = (name: string, on: boolean, togglable: boolean) => {
+      if (seen.has(name)) return;
+      seen.add(name);
+      const m = transportMeta(name, logDir);
+      const dest: WriteDestination = {
+        id: `transport:${name}`,
+        label: m.label,
+        detail: on ? m.on : m.off,
+        on,
+        kind: "transport",
+        togglable,
+        toggleKind: "transport",
+        transportName: name,
+      };
+      if (m.driverName) dest.driverName = m.driverName;
+      dests.push(dest);
+    };
+    for (const t of mounted) push(t.name, t.enabled, true);
+    for (const name of KNOWN_TRANSPORTS) push(name, false, false);
+    return dests;
+  }
+
+  // Fallback : inférence depuis les drivers de relecture (ancien comportement).
+  const writable = new Set(
+    meta.drivers.filter((d) => d.capabilities.write).map((d) => d.name),
+  );
+  const has = (n: string) => writable.has(n);
+  dests.push(
     {
       id: "jsonl",
       label: "Fichier JSONL",
-      detail: jsonlOn
-        ? "Pdu structurés en JSON Lines (1 .jsonl par worker), relus par les drivers « fichier » / « cluster »."
-        : "Non activé (log.queryDriver: « file » ou « cluster-file »).",
-      on: jsonlOn,
+      detail:
+        has("file") || has("cluster-file")
+          ? "Pdu structurés en JSON Lines (1 .jsonl par worker), relus par les drivers « fichier » / « cluster »."
+          : "Non activé (log.queryDriver: « file » ou « cluster-file »).",
+      on: has("file") || has("cluster-file"),
       kind: "transport",
       driverName: has("cluster-file") ? "cluster-file" : "file",
     },
@@ -311,7 +452,8 @@ export function writeDestinations(meta: BackplaneMeta): WriteDestination[] {
       kind: "transport",
       driverName: "opensearch",
     },
-  ];
+  );
+  return dests;
 }
 
 /** État de la connexion temps réel → libellé + couleur (point d'état du bus). */

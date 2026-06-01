@@ -120,9 +120,19 @@ export const NULL_LOG_SINK: ILogSink = {
 
 let _sink: ILogSink = _stdoutSink;
 
+// Mute à chaud du sink texte (toggle dev/diagnostic — ex. couper la console sans
+// redémarrer ni changer la config). Préserve le NOM du sink (≠ bascule vers NULL) :
+// `logSinkName` reste « stdout »/« file », seul `sinkEnabled` passe à false. Défaut
+// false → 0 surcoût (un test booléen par ligne, le sink écrit normalement).
+let _sinkMuted = false;
+
 // Écriture immédiate (hors buffer / flush / SPINNER) — route vers le driver actif.
-const _writeStdoutNow = (s: string): void => _sink.writeOut(s);
-const _writeStderrNow = (s: string): void => _sink.writeErr(s);
+const _writeStdoutNow = (s: string): void => {
+  if (!_sinkMuted) _sink.writeOut(s);
+};
+const _writeStderrNow = (s: string): void => {
+  if (!_sinkMuted) _sink.writeErr(s);
+};
 
 const _flushOut = (): void => {
   _flushScheduled = false;
@@ -634,6 +644,27 @@ class Syslog extends Event implements ISyslog {
   public start: number;
   private _async: boolean = false;
   private _transports: ITransport[] = [];
+  /**
+   * Transports désactivés à chaud (par `setTransportEnabled`) — **lazy** (`null`
+   * tant qu'aucun toggle). Garde la réf hors de `_transports` pour pouvoir la
+   * remonter. Un transport désactivé est PHYSIQUEMENT retiré de la boucle de fire
+   * → **0 surcoût hot path** (pas de test `enabled` par log). Outil dev/diagnostic.
+   */
+  private _disabledTransports: Map<string, ITransport> | null = null;
+  /**
+   * Stockage des Pdu dans le ring buffer (relecture mémoire). `false` = on ne
+   * garde plus rien en mémoire (l'Explorer « mémoire » et `buffered` tombent à 0)
+   * — outil avancé perf/mémoire (très haut débit). Les compteurs (valid/error)
+   * restent comptés. Coût hot path : un test booléen par log.
+   */
+  private _ringEnabled: boolean = true;
+  /**
+   * Diffusion temps réel active (bus `syslog:stream` Studio). `false` = le pont de
+   * diffusion (`createSyslogBridge`) n'accumule ni ne publie rien → l'onglet Live se
+   * grise. N'affecte NI l'écriture (transports/sink) NI la relecture. Coupé = on
+   * cesse juste de POUSSER en live ; les logs continuent d'être générés et écrits.
+   */
+  private _streamEnabled: boolean = true;
 
   /**
    * Construit le Syslog avec settings (merge default + override user).
@@ -661,6 +692,55 @@ class Syslog extends Event implements ISyslog {
   // ringStack returns elements in FIFO order (oldest first, newest last)
   get ringStack(): Pdu[] {
     return this._ring.toArray();
+  }
+
+  /**
+   * Capacité MAX du ring buffer (`settings.maxStack`) — nombre de Pdu que la
+   * mémoire peut relire. `ringStack.length` = remplissage courant ; ce getter =
+   * le plafond. Lecture seule, 0 allocation (introspection data plane Studio).
+   */
+  get bufferCapacity(): number {
+    return this._ring.capacity;
+  }
+
+  /** `true` si les Pdu sont stockés dans le ring (relecture mémoire active). */
+  get ringEnabled(): boolean {
+    return this._ringEnabled;
+  }
+
+  /**
+   * Active/désactive le stockage mémoire (ring) à chaud — outil avancé perf/mémoire.
+   * Désactiver = l'Explorer « mémoire » et `buffered` retombent à 0 (les logs ne
+   * sont plus gardés en RAM) ; les compteurs santé restent comptés. Vide le ring
+   * quand on coupe (libère la RAM tout de suite). Idempotent.
+   *
+   * @param enabled - `true` = stocker dans le ring ; `false` = ne plus stocker.
+   * @returns `true` si l'état a changé.
+   */
+  setRingEnabled(enabled: boolean): boolean {
+    if (this._ringEnabled === enabled) return false;
+    this._ringEnabled = enabled;
+    if (!enabled) this._ring.clear();
+    return true;
+  }
+
+  /** `true` si la diffusion temps réel (`syslog:stream`) est active. */
+  get streamEnabled(): boolean {
+    return this._streamEnabled;
+  }
+
+  /**
+   * Active/désactive la diffusion temps réel (bus `syslog:stream`) à chaud. Coupé =
+   * le pont Studio cesse de pousser des frames (onglet Live grisé) ; l'écriture et la
+   * relecture froide ne sont PAS touchées. Idempotent.
+   *
+   * @param enabled - `true` = diffuser ; `false` = couper la diffusion live.
+   * @returns `true` si l'état a changé.
+   */
+  setStreamEnabled(enabled: boolean): boolean {
+    if (this._streamEnabled === enabled) return false;
+    this._streamEnabled = enabled;
+    return true;
   }
 
   /**
@@ -748,7 +828,7 @@ class Syslog extends Event implements ISyslog {
    * @returns nouvelle taille du ring buffer après push.
    */
   pushStack(pdu: Pdu): number {
-    this._ring.push(pdu);
+    if (this._ringEnabled) this._ring.push(pdu);
     this.valid++;
     // Sonde « erreurs par worker » : 2 incréments entiers gardés (hors SPINNER `-1`).
     // 0–3 = ERROR/CRITIC/ALERT/EMERGENCY ; 0–2 = sous-ensemble CRITIQUE. 0 alloc, hot path.
@@ -1007,6 +1087,60 @@ class Syslog extends Event implements ISyslog {
     return this._transports.length;
   }
 
+  /**
+   * Liste polymorphe des transports d'écriture — chaque entrée porte le `name` de
+   * l'`ITransport` (`console`, `file`, `loki`, `syslog`…) et son état `enabled`.
+   * C'est l'axe **WRITE** du Log Backplane : l'écriture est un **fan-out** (1 log →
+   * N transports actifs), orthogonal à l'axe READ (1 driver queryable). Sert au data
+   * plane Studio pour afficher les vraies destinations (et non les inférer des drivers
+   * de relecture, ce qui masquait les transports write-only console/syslog/http).
+   *
+   * Inclut les transports désactivés à chaud (`enabled:false`) pour que l'UI puisse
+   * les ré-activer. Chemin FROID (introspection admin) : alloue à l'appel, jamais
+   * dans le hot path du log.
+   *
+   * @returns un tableau `{ name, enabled }` (montés `true` d'abord, puis désactivés).
+   */
+  listTransports(): { name: string; enabled: boolean }[] {
+    const out = this._transports.map((t) => ({ name: t.name, enabled: true }));
+    if (this._disabledTransports) {
+      for (const name of this._disabledTransports.keys()) {
+        out.push({ name, enabled: false });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Active/désactive un transport d'écriture **à chaud, par nom** (outil dev /
+   * diagnostic — ex. couper la console pour un bench, ou remonter un transport).
+   * Désactiver = retirer le transport de la boucle de fire (réf gardée dans
+   * {@link _disabledTransports}) → **0 surcoût hot path**. Activer = le remonter.
+   *
+   * Réversible et idempotent : un toggle vers l'état déjà courant renvoie `false`.
+   * N'instancie RIEN : ne peut réactiver qu'un transport préalablement désactivé
+   * (un transport jamais monté — ex. `loki` sans URL — exige sa config, pas ce toggle).
+   *
+   * @param name - `ITransport.name` ciblé.
+   * @param enabled - `true` = remonter, `false` = retirer.
+   * @returns `true` si l'état a changé, `false` sinon (déjà dans l'état / introuvable).
+   */
+  setTransportEnabled(name: string, enabled: boolean): boolean {
+    if (enabled) {
+      const t = this._disabledTransports?.get(name);
+      if (!t) return false;
+      this._disabledTransports!.delete(name);
+      if (this._disabledTransports!.size === 0) this._disabledTransports = null;
+      this.addTransport(t);
+      return true;
+    }
+    const idx = this._transports.findIndex((t) => t.name === name);
+    if (idx === -1) return false;
+    const [t] = this._transports.splice(idx, 1);
+    (this._disabledTransports ??= new Map()).set(name, t);
+    return true;
+  }
+
   private _fireTransports(pdu: Pdu): void {
     for (const t of this._transports) {
       t.send(pdu).catch((err: unknown) =>
@@ -1185,6 +1319,27 @@ class Syslog extends Event implements ISyslog {
   /** Nom du driver de sink actif (`"stdout"` | `"null"` | `"file"` | custom). */
   static get logSinkName(): string {
     return _sink.name;
+  }
+
+  /** `true` si le sink texte écrit (non muté). Coupé = plus de console/fichier .log. */
+  static get sinkEnabled(): boolean {
+    return !_sinkMuted;
+  }
+
+  /**
+   * Mute/démute le sink texte **à chaud, sans changer la config ni le driver**
+   * (outil dev/diagnostic — ex. couper la console en `npx nodefony dev`). Le nom
+   * du sink est préservé ; seul {@link sinkEnabled} bascule. Process-global (un seul
+   * sink texte par process). Idempotent.
+   *
+   * @param enabled - `true` = le sink écrit ; `false` = mute (rien n'est écrit).
+   * @returns `true` si l'état a changé.
+   */
+  static setSinkEnabled(enabled: boolean): boolean {
+    const muted = !enabled;
+    if (_sinkMuted === muted) return false;
+    _sinkMuted = muted;
+    return true;
   }
 
   /**

@@ -20,20 +20,26 @@ import {
   Button,
   Card,
   Code,
+  Collapse,
   Group,
+  MultiSelect,
   Select,
   SimpleGrid,
   Stack,
+  Switch,
   Table,
   Text,
   ThemeIcon,
   Title,
+  UnstyledButton,
 } from "@mantine/core";
 import {
   IconActivity,
   IconAlertTriangle,
   IconBroadcast,
   IconCheck,
+  IconChevronDown,
+  IconChevronRight,
   IconCircleDot,
   IconPencil,
   IconPlugConnected,
@@ -185,7 +191,63 @@ function DriverSwitch({
   );
 }
 
-/** Carte d'une destination d'**ÉCRITURE** (fan-out) — actif/inactif + détail. */
+/**
+ * Carte d'une destination d'**ÉCRITURE** (fan-out) — actif/inactif + détail.
+ * Si le transport est togglable et qu'on est en dev, un `Switch` active/désactive
+ * l'écriture à chaud (`POST backplane/transport`) ; sinon un badge d'état.
+ */
+/**
+ * Sélecteur MULTIPLE des destinations d'**écriture** actives (« fan-out ») — dev-only.
+ * Symétrique du `DriverSwitch` de la lecture (un seul) : l'écriture vise PLUSIEURS
+ * destinations → MultiSelect. Posé dans la tuile cliquable → `stopPropagation` pour
+ * ne pas (dé)sélectionner l'axe. Cocher/décocher = activer/désactiver le transport.
+ */
+function WriteMultiSelect({
+  options,
+  value,
+  disabled,
+  onApply,
+  width = 230,
+}: {
+  options: { value: string; label: string }[];
+  value: string[];
+  disabled: boolean;
+  onApply: (values: string[]) => void;
+  width?: number;
+}) {
+  return (
+    <Group
+      gap={6}
+      wrap="nowrap"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      <Text size="xs" fw={600} c="dimmed" style={{ whiteSpace: "nowrap" }}>
+        Destinations
+      </Text>
+      <MultiSelect
+        size="xs"
+        w={width}
+        data={options}
+        value={value}
+        onChange={onApply}
+        disabled={disabled}
+        comboboxProps={{ withinPortal: true }}
+        aria-label="destinations d'écriture actives (fan-out)"
+        leftSection={<IconPencil size={14} />}
+        clearable={false}
+        hidePickedOptions={false}
+      />
+    </Group>
+  );
+}
+
+/**
+ * Carte d'une destination d'**ÉCRITURE** — informative (état + détail). Le CONTRÔLE
+ * d'activation est centralisé dans le MultiSelect de la tuile « Écriture » (dev),
+ * pas par carte (évite deux mécanismes pour la même action). Le ring affiche son
+ * remplissage « used / capacity » à la place du badge actif/inactif.
+ */
 function WriteCard({ dest }: { dest: WriteDestination }) {
   const color = dest.on ? "teal" : "gray";
   const icon =
@@ -199,6 +261,21 @@ function WriteCard({ dest }: { dest: WriteDestination }) {
           <IconPencil size={18} />
         )}
       </ThemeIcon>
+    );
+  const badge =
+    dest.kind === "ring" && dest.capacity !== undefined ? (
+      <Badge size="xs" variant="light" color="teal" tt="none">
+        {dest.used ?? 0} / {dest.capacity}
+      </Badge>
+    ) : (
+      <Badge
+        size="xs"
+        variant={dest.on ? "light" : "outline"}
+        color={color}
+        tt="none"
+      >
+        {dest.on ? "actif" : "inactif"}
+      </Badge>
     );
   return (
     <Card
@@ -221,14 +298,7 @@ function WriteCard({ dest }: { dest: WriteDestination }) {
             {dest.label}
           </Text>
         </Group>
-        <Badge
-          size="xs"
-          variant={dest.on ? "light" : "outline"}
-          color={color}
-          tt="none"
-        >
-          {dest.on ? "actif" : "inactif"}
-        </Badge>
+        {badge}
       </Group>
       <Text size="xs" c="dimmed">
         {dest.detail}
@@ -250,6 +320,13 @@ export function BackplanePanel({
   const [switching, setSwitching] = useState(false);
   // Axe affiché — Lecture par défaut (jamais tout d'un coup).
   const [axis, setAxis] = useState<Axis>("read");
+  // Destinations connues mais non montées : repliées par défaut (divulgation
+  // progressive — on montre l'actif, le reste se révèle à la demande).
+  const [showOffWrites, setShowOffWrites] = useState(false);
+  // Destination d'écriture en cours de toggle (par `id`) — fige le MultiSelect le temps du POST.
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  // Diffusion temps réel en cours de bascule (fige le Switch le temps du POST).
+  const [togglingStream, setTogglingStream] = useState(false);
 
   const activeName = meta?.activeDriver?.name ?? null;
   const registered = meta?.drivers ?? [];
@@ -259,7 +336,36 @@ export function BackplanePanel({
   const isDev = meta?.environment === "development";
   const writes = meta ? writeDestinations(meta) : [];
   const writesOn = writes.filter((w) => w.on).length;
+  // Grille du détail = destinations TOUJOURS visibles : actives + transports
+  // togglables même éteints (sinon désactiver un transport le ferait « disparaître »
+  // dans le repli). Le repli ne garde QUE le non configuré (config requise).
+  const writesPrimary = writes.filter((w) => w.on || w.togglable === true);
+  const writesUnconfigured = writes.filter(
+    (w) => !w.on && w.togglable !== true,
+  );
+  // MultiSelect d'écriture (dev) : options = TOUTES les destinations togglables
+  // (mémoire/ring, sink/console, transports) ; valeur = celles actives. Clé = `id`.
+  const togglableWrites = writes.filter((w) => w.togglable === true);
+  const writeOptions = togglableWrites.map((w) => ({
+    value: w.id,
+    label: w.label,
+  }));
+  const writeValues = togglableWrites.filter((w) => w.on).map((w) => w.id);
   const rt = realtimeState ? realtimeStateLabel(realtimeState) : null;
+  // Diffusion temps réel (bus syslog:stream) — coupable à chaud en dev.
+  const streamEnabled = meta?.write.streamEnabled !== false;
+
+  // Lien visuel tuile → détail : le panneau de détail reprend la couleur, l'icône
+  // et le titre de l'axe actif (même code couleur que la tuile sélectionnée).
+  const axisMeta = {
+    read: { color: "brand", title: "Lecture", icon: <IconSearch size={18} /> },
+    write: { color: "gray", title: "Écriture", icon: <IconPencil size={18} /> },
+    stream: {
+      color: "teal",
+      title: "Temps réel",
+      icon: <IconBroadcast size={18} />,
+    },
+  }[axis];
 
   // Modes du select : enregistrés = sélectionnables ; connus non montés = grisés.
   const driverOptions = [
@@ -296,6 +402,76 @@ export function BackplanePanel({
       );
     } finally {
       setSwitching(false);
+    }
+  };
+
+  // Toggle d'UNE destination d'écriture à chaud (dev-only). Route selon le
+  // mécanisme : ring (mémoire), sink (texte) ou transport (fan-out structuré).
+  const toggleOutput = async (dest: WriteDestination, enabled: boolean) => {
+    setTogglingId(dest.id);
+    try {
+      const base = "/nodefony/syslog/api/backplane";
+      if (dest.toggleKind === "ring") {
+        await store.api.postAbsolute(`${base}/ring`, { enabled });
+      } else if (dest.toggleKind === "sink") {
+        await store.api.postAbsolute(`${base}/sink`, { enabled });
+      } else {
+        await store.api.postAbsolute(`${base}/transport`, {
+          name: dest.transportName,
+          enabled,
+        });
+      }
+      notifications.notify(
+        "success",
+        `« ${dest.label} » ${enabled ? "activée" : "désactivée"}`,
+        { title: "Log Backplane", source: "api" },
+      );
+      reload();
+      onSwitched?.();
+    } catch (e) {
+      notifications.notify(
+        "error",
+        e instanceof Error ? e.message : "toggle refusé",
+        { title: "Log Backplane", source: "api" },
+      );
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  // Toggle de la diffusion temps réel (bus syslog:stream) — dev-only.
+  const toggleStream = async (enabled: boolean) => {
+    setTogglingStream(true);
+    try {
+      await store.api.postAbsolute("/nodefony/syslog/api/backplane/stream", {
+        enabled,
+      });
+      notifications.notify(
+        "success",
+        `Diffusion temps réel ${enabled ? "activée" : "coupée"}`,
+        { title: "Log Backplane", source: "api" },
+      );
+      reload();
+      onSwitched?.();
+    } catch (e) {
+      notifications.notify(
+        "error",
+        e instanceof Error ? e.message : "toggle refusé",
+        { title: "Log Backplane", source: "api" },
+      );
+    } finally {
+      setTogglingStream(false);
+    }
+  };
+
+  // MultiSelect d'écriture → applique le diff (la seule destination changée est toggle).
+  const applyWriteSelection = (values: string[]) => {
+    for (const w of togglableWrites) {
+      const shouldBeOn = values.includes(w.id);
+      if (shouldBeOn !== w.on) {
+        void toggleOutput(w, shouldBeOn);
+        break; // un seul changement par interaction (anti double POST)
+      }
     }
   };
 
@@ -377,6 +553,16 @@ export function BackplanePanel({
                     ))}
                 </Group>
               }
+              action={
+                isDev && writeOptions.length > 0 ? (
+                  <WriteMultiSelect
+                    options={writeOptions}
+                    value={writeValues}
+                    disabled={togglingId !== null}
+                    onApply={applyWriteSelection}
+                  />
+                ) : undefined
+              }
             />
             <AxisTile
               active={axis === "stream"}
@@ -386,15 +572,68 @@ export function BackplanePanel({
               title="Temps réel"
               subtitle="diffusion live"
               value={
-                <Text size="sm" fw={600} truncate>
-                  {rt ? rt.label : "syslog:stream"}
+                <Text size="sm" fw={600} truncate c={streamEnabled ? undefined : "dimmed"}>
+                  {!streamEnabled
+                    ? "diffusion coupée"
+                    : rt
+                      ? rt.label
+                      : "syslog:stream"}
                 </Text>
+              }
+              action={
+                isDev ? (
+                  <Group
+                    gap={6}
+                    wrap="nowrap"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
+                    <Text size="xs" fw={600} c="dimmed">
+                      Diffusion
+                    </Text>
+                    <Switch
+                      size="sm"
+                      checked={streamEnabled}
+                      disabled={togglingStream}
+                      onChange={(e) => toggleStream(e.currentTarget.checked)}
+                      aria-label={
+                        streamEnabled
+                          ? "Couper la diffusion temps réel"
+                          : "Activer la diffusion temps réel"
+                      }
+                    />
+                  </Group>
+                ) : undefined
               }
             />
           </SimpleGrid>
 
-          {/* DÉTAIL — un seul axe affiché. */}
-          {axis === "read" && (
+          {/* DÉTAIL — un seul axe affiché, encadré à la couleur de la tuile
+              active (lien visuel tuile → contenu). */}
+          <Card
+            withBorder
+            radius="md"
+            p="md"
+            style={{
+              borderColor: `var(--mantine-color-${axisMeta.color}-filled)`,
+              borderWidth: 2,
+            }}
+          >
+            <Group gap="xs" mb="sm">
+              <ThemeIcon
+                variant="light"
+                color={axisMeta.color}
+                size="md"
+                radius="md"
+              >
+                {axisMeta.icon}
+              </ThemeIcon>
+              <Text fw={700}>{axisMeta.title}</Text>
+              <Badge variant="light" color={axisMeta.color} size="xs" tt="none">
+                axe sélectionné
+              </Badge>
+            </Group>
+            {axis === "read" && (
             <Stack gap="xs">
               <Text size="sm" c="dimmed">
                 L'Explorer fouille <b>une</b> destination à la fois — celle-ci.
@@ -562,10 +801,40 @@ export function BackplanePanel({
                 destinations actives.
               </Text>
               <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-                {writes.map((w) => (
+                {writesPrimary.map((w) => (
                   <WriteCard key={w.id} dest={w} />
                 ))}
               </SimpleGrid>
+              {writesUnconfigured.length > 0 && (
+                <>
+                  <UnstyledButton
+                    onClick={() => setShowOffWrites((v) => !v)}
+                    aria-expanded={showOffWrites}
+                  >
+                    <Group gap={6}>
+                      {showOffWrites ? (
+                        <IconChevronDown size={14} />
+                      ) : (
+                        <IconChevronRight size={14} />
+                      )}
+                      <Text size="xs" c="dimmed">
+                        {writesUnconfigured.length} destination
+                        {writesUnconfigured.length > 1 ? "s" : ""} disponible
+                        {writesUnconfigured.length > 1 ? "s" : ""}, non configurée
+                        {writesUnconfigured.length > 1 ? "s" : ""} (requiert une
+                        config)
+                      </Text>
+                    </Group>
+                  </UnstyledButton>
+                  <Collapse expanded={showOffWrites}>
+                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+                      {writesUnconfigured.map((w) => (
+                        <WriteCard key={w.id} dest={w} />
+                      ))}
+                    </SimpleGrid>
+                  </Collapse>
+                </>
+              )}
             </Stack>
           )}
 
@@ -598,6 +867,7 @@ export function BackplanePanel({
               </Card>
             </Stack>
           )}
+          </Card>
         </Stack>
       )}
     </DataState>
@@ -796,8 +1066,23 @@ export function SyslogHealthPanel({ meta }: { meta: BackplaneMeta | null }) {
               mono
             />
             <KeyValue
-              k="En mémoire (ring)"
-              v={meta.counters.buffered.toLocaleString("fr-FR")}
+              k="Mémoire (ring)"
+              v={
+                meta.write.ringEnabled === false
+                  ? "coupé"
+                  : meta.counters.bufferCapacity
+                    ? `${meta.counters.buffered.toLocaleString("fr-FR")} / ${meta.counters.bufferCapacity.toLocaleString("fr-FR")} (${Math.round(
+                        (meta.counters.buffered /
+                          meta.counters.bufferCapacity) *
+                          100,
+                      )} %)`
+                    : meta.counters.buffered.toLocaleString("fr-FR")
+              }
+              mono
+            />
+            <KeyValue
+              k="Dossier des fichiers"
+              v={meta.write.logDir ?? "— (prod : stdout → collecteur)"}
               mono
             />
           </DefinitionList>

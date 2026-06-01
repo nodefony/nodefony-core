@@ -13,6 +13,16 @@ export interface ISyslog {
   // ─── État ──────────────────────────────────────────────────────────────────
   settings: SyslogDefaultSettings;
   readonly ringStack: Pdu[];
+  /** Capacité MAX du ring buffer (plafond `maxStack`). */
+  readonly bufferCapacity: number;
+  /** `true` si les Pdu sont stockés dans le ring (relecture mémoire active). */
+  readonly ringEnabled: boolean;
+  /** Active/désactive le stockage mémoire (ring) à chaud — outil avancé. */
+  setRingEnabled(enabled: boolean): boolean;
+  /** `true` si la diffusion temps réel (`syslog:stream`) est active. */
+  readonly streamEnabled: boolean;
+  /** Active/désactive la diffusion temps réel à chaud (onglet Live). */
+  setStreamEnabled(enabled: boolean): boolean;
   burstPrinted: number;
   missed: number;
   invalid: number;
@@ -69,6 +79,10 @@ export interface ISyslog {
   // ─── Transports ────────────────────────────────────────────────────────────
   addTransport(transport: ITransport): this;
   removeTransport(transport: ITransport): this;
+  /** Liste polymorphe des transports d'écriture (axe WRITE) + état `enabled`. */
+  listTransports(): { name: string; enabled: boolean }[];
+  /** Active/désactive un transport d'écriture à chaud, par nom (dev/diagnostic). */
+  setTransportEnabled(name: string, enabled: boolean): boolean;
 }
 
 export type { WrapperResult };

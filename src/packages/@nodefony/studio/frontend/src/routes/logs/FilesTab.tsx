@@ -7,18 +7,34 @@
  * (endpoint `/files`, peu coûteux) → 0 couplage, on bascule l'un/l'autre.
  */
 import { useState } from "react";
-import { Group, SegmentedControl, Stack } from "@mantine/core";
-import { IconClockPlay, IconPlayerPlay } from "@tabler/icons-react";
+import { Code, Group, SegmentedControl, Stack, Text } from "@mantine/core";
+import { IconClockPlay, IconFolder, IconPlayerPlay } from "@tabler/icons-react";
 import { LogFiles } from "../LogFiles";
 import { FileReplay } from "./FileReplay";
 import { InfoHint } from "../../components/ui";
 
 type FilesMode = "follow" | "replay";
 
-export function FilesTab() {
+/** @param logDir - dossier des fichiers JSONL/.log (`null` en prod cloud-native). */
+export function FilesTab({ logDir }: { logDir?: string | null }) {
   const [mode, setMode] = useState<FilesMode>("follow");
   return (
     <Stack gap="sm">
+      {/* Où sont les fichiers — répond à « les logs sortent où ? ». */}
+      <Group gap={6} wrap="nowrap">
+        <IconFolder size={15} />
+        <Text size="xs" c="dimmed">
+          Dossier&nbsp;:
+        </Text>
+        {logDir ? (
+          <Code>{logDir}</Code>
+        ) : (
+          <Text size="xs" c="dimmed">
+            aucun — production cloud-native : logs → stdout → collecteur (pas de
+            fichiers locaux)
+          </Text>
+        )}
+      </Group>
       <Group gap="xs">
         <SegmentedControl
           size="xs"

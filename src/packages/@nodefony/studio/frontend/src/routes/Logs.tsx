@@ -18,7 +18,7 @@
  * Live ↔ Explorer, et la trace qui bascule de Live vers l'Explorer filtré.
  */
 import { observer } from "mobx-react-lite";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@mantine/core";
 import {
   IconActivity,
@@ -119,6 +119,33 @@ export const Logs = observer(() => {
   const capabilities = meta?.activeDriver?.capabilities ?? null;
   const driverName = meta?.activeDriver?.name ?? null;
 
+  // Cohérence « capacité absente → onglet grisé ».
+  const ringOff = meta?.write.ringEnabled === false;
+  // Explorer : driver non-queryable (ex. console) OU lecture « mémoire » alors que
+  // le ring est coupé (plus rien à relire en RAM).
+  const explorerDisabled = capabilities
+    ? !capabilities.query || (driverName === "memory" && ringOff)
+    : false;
+  const explorerReason = !capabilities?.query
+    ? `Le driver « ${driverName ?? "?"} » ne sait pas relire (pas de requête froide).`
+    : "Stockage mémoire coupé — rien à explorer via « mémoire ». Réactive le ring ou change de source.";
+  // Fichiers : pas de dossier de logs (prod cloud-native = stdout → collecteur).
+  const filesDisabled = !meta?.write.logDir;
+  // Live : diffusion temps réel coupée à chaud (tuile « Temps réel »).
+  const liveDisabled = meta?.write.streamEnabled === false;
+
+  // Si l'onglet ACTIF devient indisponible (ring coupé en plein Explorer mémoire,
+  // diffusion coupée en plein Live, etc.) → repli sur la Vue d'ensemble.
+  useEffect(() => {
+    if (
+      (tab === "explorer" && explorerDisabled) ||
+      (tab === "files" && filesDisabled) ||
+      (tab === "live" && liveDisabled)
+    ) {
+      changeTab("overview");
+    }
+  }, [tab, explorerDisabled, filesDisabled, liveDisabled, changeTab]);
+
   return (
     <>
       <TabbedPage
@@ -166,12 +193,17 @@ export const Logs = observer(() => {
             value: "live",
             label: "Live",
             icon: <IconBroadcast size={16} />,
+            disabled: liveDisabled,
+            disabledReason:
+              "Diffusion temps réel coupée — réactive-la dans la Vue d'ensemble (tuile « Temps réel »).",
             panel: <LiveLogs onSelect={setSelected} cluster={meta?.cluster} />,
           },
           {
             value: "explorer",
             label: "Explorer",
             icon: <IconSearch size={16} />,
+            disabled: explorerDisabled,
+            disabledReason: explorerReason,
             panel: (
               <LogExplorer
                 capabilities={capabilities}
@@ -193,7 +225,10 @@ export const Logs = observer(() => {
             value: "files",
             label: "Fichiers",
             icon: <IconFile size={16} />,
-            panel: <FilesTab />,
+            disabled: filesDisabled,
+            disabledReason:
+              "Pas de dossier de logs (production cloud-native : logs → stdout → collecteur, aucun fichier local).",
+            panel: <FilesTab logDir={meta?.write.logDir ?? null} />,
           },
           {
             value: "doc",
