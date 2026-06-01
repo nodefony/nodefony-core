@@ -218,6 +218,28 @@ describe("Log Backplane (LB.0/LB.1)", () => {
         "ws-close",
       );
     });
+    it("frames WS du seam http (msgid `WS RECEIVE|SEND|BROADCAST`) → ws-message", () => {
+      // Le contenu d'une frame ne porte pas de marqueur d'event → classer par msgid.
+      assert.strictEqual(
+        pduFlowStep(mk('{"jsonrpc":"2.0"}', "DEBUG", "@http", "WS RECEIVE")),
+        "ws-message",
+      );
+      assert.strictEqual(
+        pduFlowStep(mk("pong", "DEBUG", "@http", "WS SEND")),
+        "ws-message",
+      );
+      assert.strictEqual(
+        pduFlowStep(mk("[binary 12 B]", "DEBUG", "@http", "WS BROADCAST")),
+        "ws-message",
+      );
+    });
+    it("msgid commençant par WS mais hors direction connue → pas ws-message", () => {
+      // Garde-fou : seules RECEIVE/SEND/BROADCAST matchent (pas « WS FOO »).
+      assert.strictEqual(
+        pduFlowStep(mk("payload neutre", "DEBUG", "@http", "WS FOO")),
+        null,
+      );
+    });
     it("log applicatif libre → null", () => {
       assert.strictEqual(
         pduFlowStep(mk("DB demo result", "INFO", "app", "DB-DEMO")),

@@ -110,6 +110,9 @@ export function pduFlowStep(pdu: FlowClassifiable): FlowStepId | null {
   if (/ADD COOKIE/i.test(msg)) return "response";
   if (/\bsubscribe\b/i.test(msg)) return "ws-message";
   if (/client connected/i.test(msg)) return "ws-open";
+  // Frame WS au fil de l'eau loggée par le seam http (msgid `WS RECEIVE|SEND|
+  // BROADCAST`) — le contenu ne porte pas de marqueur d'event → classer par msgid.
+  if (/^WS (RECEIVE|SEND|BROADCAST)\b/.test(pdu.msgid)) return "ws-message";
   if (pdu.msgid === "req") return "request-end"; // bilan (HTTP) / fin de handshake (WS)
 
   // Nom d'event générique (`onXxx`).

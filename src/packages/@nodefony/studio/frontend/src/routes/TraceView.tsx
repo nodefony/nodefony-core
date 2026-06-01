@@ -68,6 +68,7 @@ import {
   recordMessage,
 } from "./logs/logFormat";
 import { SeverityBadge } from "./logs/LogVisuals";
+import { WsTracePanel } from "./logs/wsTrace";
 import {
   PhaseWaterfall,
   ProfileMeta,
@@ -274,6 +275,13 @@ export const TraceView = observer(() => {
           `${l.moduleName} ${l.msgid} ${recordMessage(l)}`,
         ),
       ),
+    [logs],
+  );
+  // Messages WS au fil de l'eau (loggés par le seam http en dev) — pour le badge.
+  const wsMessageCount = useMemo(
+    () =>
+      logs.filter((l) => /\bWS (RECEIVE|SEND|BROADCAST)\b/.test(l.msgid))
+        .length,
     [logs],
   );
 
@@ -599,6 +607,23 @@ export const TraceView = observer(() => {
       icon: <IconHome size={15} />,
       panel: accueil,
     },
+    ...(summary?.isWs
+      ? [
+          {
+            value: "ws",
+            label: "WebSocket",
+            icon: <IconArrowsLeftRight size={15} />,
+            badge: wsMessageCount ? (
+              <Badge size="xs" variant="light" color="cyan">
+                {wsMessageCount}
+              </Badge>
+            ) : undefined,
+            panel: summary ? (
+              <WsTracePanel logs={logs} baseTs={summary.baseTs} />
+            ) : null,
+          },
+        ]
+      : []),
     {
       value: "chrono",
       label: "Chronologie",

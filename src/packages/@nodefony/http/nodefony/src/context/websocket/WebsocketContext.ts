@@ -13,6 +13,7 @@ import { HTTPMethod } from "../Context.js";
 import HttpError from "../../errors/httpError.js";
 import { sanitizeRequestId } from "../requestId.js";
 import { ProxyType } from "../http/HttpContext.js";
+import { formatWsLogContent } from "./wsLogContent.js";
 
 export interface IWsRequestExtension {
   url: URL;
@@ -59,6 +60,14 @@ export function toWsCloseCode(code: number | undefined | null): number {
   if (code >= 400 && code < 500) return 4004; // autre 4xx (404…) → privé app unique
   return 1011; // inconnu / hors plage / invalide → internal error
 }
+
+/**
+ * Drapeau « logger le CONTENU des messages WS » — résolu **une seule fois** au
+ * premier message (kernel présent). `true` hors production : le Suivi de requête
+ * (Studio) affiche alors les frames RECEIVE/SEND/BROADCAST. En prod → `false` →
+ * le gate court-circuite AVANT toute allocation/concat (0 surcoût hot path).
+ */
+let wsContentLogging: boolean | null = null;
 
 export default class WebsocketContext
   extends Context
@@ -308,6 +317,7 @@ export default class WebsocketContext
   async send(data?: string | Buffer | null, encoding?: BufferEncoding) {
     if (this.response) {
       const payload = data ?? this.response.body;
+      this.logMessageContent("SEND", payload);
       this.fire("onMessage", payload, this, "SEND");
       this.fire("onSend", payload, this);
       return this.response.send(payload as string | Buffer | null, encoding);
@@ -319,6 +329,7 @@ export default class WebsocketContext
     if (this.response) {
       const payload = data ?? this.response.body;
       if (payload) {
+        this.logMessageContent("BROADCAST", payload);
         this.fire("onMessage", payload, this, "BROADCAST");
         this.fire("onBroadcast", payload, this);
         return this.response.broadcast(
@@ -330,9 +341,31 @@ export default class WebsocketContext
     return null;
   }
 
+  /**
+   * Logge le CONTENU d'un message WS (corrélé `requestId` via l'override `log`),
+   * gaté hors prod et borné — le Suivi de requête (Studio) le surface alors par
+   * direction. Hot path : le gate booléen court-circuite en prod AVANT toute
+   * construction de chaîne (0 allocation / 0 concat).
+   *
+   * @param dir - sens du message du point de vue serveur.
+   * @param data - charge utile (string, Buffer binaire, objet, ou null).
+   */
+  private logMessageContent(
+    dir: "RECEIVE" | "SEND" | "BROADCAST",
+    data: unknown,
+  ): void {
+    if (wsContentLogging === null) {
+      const env = this.kernel?.environment;
+      wsContentLogging = env !== "production" && env !== "prod";
+    }
+    if (!wsContentLogging) return;
+    this.log(formatWsLogContent(data), "DEBUG", `WS ${dir}`);
+  }
+
   async handleMessage(data: Buffer | string, isBinary: boolean) {
     this.webSocketState = "message";
     const message = isBinary ? data : data.toString();
+    this.logMessageContent("RECEIVE", message);
     if (this.response) {
       this.response.body = Buffer.isBuffer(data)
         ? data

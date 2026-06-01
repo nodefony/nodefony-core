@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-01T12:47:52.697Z",
+  "generated": "2026-06-01T15:30:09.486Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 816,
-    "symbols": 1606,
+    "files": 817,
+    "symbols": 1609,
     "classes": 243,
     "interfaces": 394,
     "types": 202,
     "enums": 2,
-    "functions": 296,
-    "constants": 469
+    "functions": 298,
+    "constants": 470
   },
   "symbols": {
     "Cli": {
@@ -11680,6 +11680,30 @@
       "module": "@nodefony/http",
       "description": "Coerce un code (applicatif / HTTP / WS) en code de fermeture WebSocket VALIDE et conforme RFC 6455 §7.4, en PRÉFÉRANT les codes standard §7.4.1 quand le sens existe : - code déjà valide émissible (…"
     },
+    "binaryByteLength": {
+      "name": "binaryByteLength",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsLogContent.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Taille en octets d'une charge **binaire** reconnue, ou `-1` si la valeur n'est pas binaire (→ à traiter en JSON/texte). Couvre tous les types binaires que `ws` accepte/livre : `Buffer`, `ArrayBuffe…"
+    },
+    "formatWsLogContent": {
+      "name": "formatWsLogContent",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsLogContent.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Formate une charge utile WS en chaîne **bornée** et **sûre** pour le log : - `string` → tronquée à `cap` (+ ellipse) ; - binaire (cf {@link binaryByteLength}) → `[binary N B]` (jamais de dump) ; - …"
+    },
+    "WS_LOG_CONTENT_CAP": {
+      "name": "WS_LOG_CONTENT_CAP",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsLogContent.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Formatage **pur** (0 état, 0 dépendance) du CONTENU d'un message WebSocket pour le log de trace (Suivi de requête Studio). Séparé de `WebsocketContext` pour être testable aux limites sans serveur. …"
+    },
     "FileSessionStorage": {
       "name": "FileSessionStorage",
       "kind": "class",
@@ -16605,6 +16629,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
       ],
       "ProxyType": [
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "formatWsLogContent": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "Finder": [
