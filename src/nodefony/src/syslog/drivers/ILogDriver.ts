@@ -31,6 +31,31 @@ export interface ILogDriver {
    * @returns enregistrements (récents d'abord) + total avant pagination.
    */
   query?(criteria: ILogQueryCriteria): Promise<ILogQueryResult>;
+  /**
+   * Sonde de SANTÉ de la destination (chemin FROID, admin) — « est-ce que la cible
+   * répond, en combien de temps, et quelques infos utiles ? ». Présent surtout sur
+   * les drivers DISTANTS (loki/opensearch) où la joignabilité n'est pas acquise ;
+   * absent sur les drivers locaux triviaux (memory). Ne `throw` JAMAIS : un échec se
+   * traduit par `{ ok:false, detail }` (l'admin doit voir la panne, pas un crash).
+   *
+   * @returns joignabilité + latence + infos (version, statut, nb d'entrées…).
+   */
+  probe?(): Promise<ILogDriverProbe>;
+}
+
+/**
+ * Résultat d'une {@link ILogDriver.probe} — santé d'une destination de logs.
+ * Affiché par Studio (badge joignable/latence + infos) ; jamais de credential.
+ */
+export interface ILogDriverProbe {
+  /** `true` si la destination répond correctement. */
+  ok: boolean;
+  /** Latence aller-retour de la sonde (ms). */
+  latencyMs: number;
+  /** Message d'erreur si `ok === false` (jamais de secret). */
+  detail?: string;
+  /** Infos utiles à afficher (version, statut cluster, nb d'entrées, endpoint…). */
+  info?: Record<string, string | number>;
 }
 
 /** Capacités déclarées d'un driver (introspection Studio + garde-fous endpoint). */

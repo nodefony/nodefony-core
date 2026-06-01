@@ -136,17 +136,17 @@ const DRIVER_META: Record<string, DriverMeta> = {
     label: "Grafana Loki",
     description:
       "Agrégation de logs cloud-native (labels + LogQL), légère (indexe les labels, " +
-      "pas un index full-text). Candidat #1 LB.4 : push HTTP du JSONL, vue cluster native. (à venir)",
+      "pas un index full-text). Push HTTP batché + relecture LogQL, vue cluster native (LB.4). " +
+      'Activer : log.queryDriver="loki" + LOKI_URL (docker --profile loki).',
     icon: "search",
-    upcoming: true,
   },
   opensearch: {
     label: "OpenSearch",
     description:
       "Recherche plein-texte distribuée, rétention longue (fork Apache 2.0 d'Elasticsearch — " +
-      "OSI, choisi face à Elasticsearch dont la licence SSPL est non-OSI). Candidat #2 LB.4. (à venir)",
+      "OSI, licence non-SSPL). Indexation _bulk + recherche _search (LB.4). " +
+      'Activer : log.queryDriver="opensearch" + OPENSEARCH_URL (docker --profile opensearch).',
     icon: "search",
-    upcoming: true,
   },
 };
 
@@ -162,12 +162,13 @@ export function driverMeta(name: string): DriverMeta {
 }
 
 /**
- * Drivers connus à présenter en placeholder quand ils ne sont pas enregistrés
- * (le registry ne contient que le driver configuré). `file`/`cluster-file` sont
- * **codés** (activables par config) ; `elastic`/`loki` sont **à venir** (LB.4) —
- * la distinction est portée par `driverMeta(name).upcoming`.
+ * Drivers connus à présenter en **placeholder grisé** quand ils ne sont pas
+ * enregistrés (le registry ne contient que les drivers montés — en prod, seul le
+ * driver configuré). TOUS sont implémentés (LB.2/5/4) → activables par config
+ * (`log.queryDriver` + URL pour loki/opensearch). Le `driverMeta(name).upcoming`
+ * resterait pour un futur driver réellement « à venir ».
  */
-export const UPCOMING_DRIVERS: readonly string[] = [
+export const PLACEHOLDER_DRIVERS: readonly string[] = [
   "file",
   "cluster-file",
   "loki",

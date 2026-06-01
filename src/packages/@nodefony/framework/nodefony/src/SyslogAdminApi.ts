@@ -4,6 +4,7 @@ import {
   redactSecrets,
   Syslog,
   getActiveLogDriver,
+  getLogDriver,
   setActiveLogDriver,
   listLogDrivers,
 } from "nodefony";
@@ -15,6 +16,7 @@ import type {
   IAdminRequest,
   IAdminResponse,
   ILogQueryCriteria,
+  ILogDriverProbe,
 } from "nodefony";
 
 /** Options du producteur syslog — viewer de fichiers (DEV only). */
@@ -267,6 +269,40 @@ export function createSyslogAdminApi(
           },
           environment: options.environment ?? null,
         };
+      },
+    },
+    {
+      path: "backplane/ping",
+      summary:
+        "Sonde de santé de la destination — ?driver=<name> (défaut = actif). Renvoie { ok, latencyMs, detail?, info? }. Chemin FROID (réseau pour loki/opensearch).",
+      handler: async (
+        request,
+      ): Promise<ILogDriverProbe | IAdminResponse<{ error: string }>> => {
+        const name = oneParam(request, "driver");
+        const driver = name ? getLogDriver(name) : getActiveLogDriver();
+        if (!driver) {
+          return {
+            status: 404,
+            body: {
+              error: name
+                ? `unknown log driver "${name}"`
+                : "no active log driver",
+            },
+          };
+        }
+        // Drivers locaux (memory/file/cluster-file) = pas de `probe` → toujours
+        // joignables (aucune destination distante à sonder).
+        if (!driver.probe) {
+          return {
+            ok: true,
+            latencyMs: 0,
+            info: {
+              driver: driver.name,
+              local: "destination locale (pas de réseau)",
+            },
+          };
+        }
+        return await driver.probe();
       },
     },
     {

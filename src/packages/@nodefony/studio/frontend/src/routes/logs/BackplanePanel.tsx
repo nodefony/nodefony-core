@@ -32,7 +32,7 @@ import {
   KeyValue,
 } from "../../components/ui";
 import type { BackplaneMeta } from "./logsTypes";
-import { LOGS_DOC, UPCOMING_DRIVERS, driverMeta } from "./logFormat";
+import { LOGS_DOC, PLACEHOLDER_DRIVERS, driverMeta } from "./logFormat";
 import {
   CapabilityBadges,
   ClusterScopeNotice,
@@ -86,8 +86,10 @@ export function BackplanePanel({
   const activeName = meta?.activeDriver?.name ?? null;
   const registered = meta?.drivers ?? [];
   const registeredNames = new Set(registered.map((d) => d.name));
-  // Drivers « vision » non encore enregistrés (placeholder forward-looking).
-  const upcoming = UPCOMING_DRIVERS.filter((n) => !registeredNames.has(n));
+  // Drivers connus non montés ici (placeholder : URL absente, ou prod).
+  const placeholders = PLACEHOLDER_DRIVERS.filter(
+    (n) => !registeredNames.has(n),
+  );
 
   return (
     <DataState loading={loading && !meta} error={error} onRetry={reload} minHeight={200}>
@@ -228,21 +230,21 @@ export function BackplanePanel({
             </SimpleGrid>
           </Stack>
 
-          {/* Autres destinations : codées (activables par config) ou à venir (LB.4). */}
-          {upcoming.length > 0 && (
+          {/* Autres destinations connues : activables par config (non montées ici). */}
+          {placeholders.length > 0 && (
             <Stack gap="xs">
               <Group gap={6}>
                 <Title order={5} c="dimmed">
                   Autres destinations
                 </Title>
                 <DocHint
-                  title="Destinations configurables / à venir"
+                  title="Destinations configurables (non montées ici)"
                   version={LOGS_DOC}
-                  summary="Drivers connus non actifs. « Configurable » = déjà codé, activable par config (log.queryDriver) — dont cluster-file pour la vue cluster. « À venir » = contrat prêt, implémentation LB.4. Le registry les accueille SANS changer cet écran ni l'Explorer."
+                  summary="Drivers connus mais non enregistrés dans CE process : activables par config (log.queryDriver + URL pour loki/opensearch). Tous implémentés (LB.2/5/4) — en dev ils se montent dès que leur config est présente ; en prod seul le driver configuré est monté. Le registry les accueille SANS changer cet écran ni l'Explorer."
                 />
               </Group>
               <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-                {upcoming.map((name) => {
+                {placeholders.map((name) => {
                   const dm = driverMeta(name);
                   const isFuture = dm.upcoming === true;
                   return (

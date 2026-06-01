@@ -1,5 +1,4 @@
-import type Pdu from "../Pdu";
-import type { ILogDriver, ILogQueryCriteria } from "./ILogDriver";
+import type { ILogDriver, ILogQueryCriteria, IPduLike } from "./ILogDriver";
 import { filterPdus } from "./filterPdus";
 
 /**
@@ -13,14 +12,14 @@ import { filterPdus } from "./filterPdus";
  * tard pour un Log Backplane front). Pour persister/agréger en prod → drivers
  * `file` (LB.2) / `elastic`-`loki` (LB.4).
  *
- * La **source** est injectée (provider `() => Pdu[]`, comme `Pdu.requestIdProvider`)
+ * La **source** est injectée (provider `() => IPduLike[]`, comme `Pdu.requestIdProvider`)
  * → le driver ne dépend pas de `Syslog` ni du `Kernel` (le wiring fournit
  * `() => kernel.syslog.ringStack`). Découplé + testable avec un tableau en dur.
  *
  * @param source - fournit le snapshot courant des Pdu (ex. `() => syslog.ringStack`).
  * @returns un `ILogDriver` `memory` queryable.
  */
-export function createMemoryLogDriver(source: () => Pdu[]): ILogDriver {
+export function createMemoryLogDriver(source: () => IPduLike[]): ILogDriver {
   return {
     name: "memory",
     // write:false = volatile (le ring n'est pas une persistance) ; query:true =

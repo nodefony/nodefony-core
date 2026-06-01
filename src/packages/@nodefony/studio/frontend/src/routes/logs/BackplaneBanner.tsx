@@ -11,10 +11,11 @@
  * changement (`FlashValue`, one-shot) et sont en `tabular-nums` (0 jitter) ; le
  * style ne bat jamais en boucle.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Badge,
   Box,
+  Button,
   Group,
   Paper,
   Select,
@@ -22,7 +23,13 @@ import {
   Text,
   Tooltip,
 } from "@mantine/core";
-import { IconPencil, IconCircleDot } from "@tabler/icons-react";
+import {
+  IconPencil,
+  IconCircleDot,
+  IconActivity,
+  IconCheck,
+  IconAlertTriangle,
+} from "@tabler/icons-react";
 import { useNotifications, useStore } from "../../stores";
 import {
   DataState,
@@ -31,7 +38,7 @@ import {
   ensureLiveStyles,
 } from "../../components/ui";
 import type { BackplaneMeta } from "./logsTypes";
-import { LOGS_DOC, UPCOMING_DRIVERS, driverMeta } from "./logFormat";
+import { LOGS_DOC, PLACEHOLDER_DRIVERS, driverMeta } from "./logFormat";
 import { CapabilityBadges, DriverIcon } from "./LogVisuals";
 
 export interface BackplaneBannerProps {
@@ -95,11 +102,11 @@ export function BackplaneBanner({
   const drivers = meta?.drivers ?? [];
   const registeredNames = new Set(drivers.map((d) => d.name));
   // Tous les modes connus dans le select : enregistrés (memory/console + file/
-  // cluster-file en dev) = sélectionnables ; connus mais pas encore implémentés
-  // (Loki/OpenSearch, LB.4) = grisés avec la raison. Visibilité complète, 0 404.
+  // cluster-file + loki/opensearch montés en dev) = sélectionnables ; connus mais
+  // non montés (URL absente, ou prod) = grisés « via config ». Visibilité complète, 0 404.
   const driverOptions = [
     ...drivers.map((d) => ({ value: d.name, label: driverMeta(d.name).label })),
-    ...UPCOMING_DRIVERS.filter((n) => !registeredNames.has(n)).map((n) => {
+    ...PLACEHOLDER_DRIVERS.filter((n) => !registeredNames.has(n)).map((n) => {
       const dm = driverMeta(n);
       return {
         value: n,
@@ -232,8 +239,8 @@ export function BackplaneBanner({
                           body: "En production, la destination est figée par la config/les variables d'env (12-factor) : un serveur qui change de cible en plein vol casserait la traçabilité. Le sélecteur est donc masqué hors développement.",
                         },
                         {
-                          label: "Modes grisés",
-                          body: "« à venir » = driver pas encore implémenté (Loki/OpenSearch, LB.4). En dev, memory/console/file/cluster-file sont tous montés et switchables ; en prod, seul le driver configuré l'est.",
+                          label: "Modes grisés « via config »",
+                          body: "Driver implémenté mais non monté ici (URL absente, ou prod). En dev, memory/console/file/cluster-file sont montés d'office ; loki/opensearch dès que LOKI_URL/OPENSEARCH_URL sont définis. En prod, seul le driver configuré est monté.",
                         },
                         {
                           label: "Essaie",
@@ -282,9 +289,120 @@ export function BackplaneBanner({
                 hint="Pdu actuellement dans le ring buffer (≠ cumul). Borné : c'est ce que « memory » peut relire."
               />
             </Group>
+
+            {/* Ligne 3 — sonde de la destination (joignabilité + latence + infos). */}
+            <DestinationPing driverName={active?.name ?? null} />
           </Stack>
         )}
       </DataState>
     </Paper>
+  );
+}
+
+/** Résultat de la sonde `/backplane/ping` (miroir de `ILogDriverProbe` core). */
+interface DriverProbe {
+  ok: boolean;
+  latencyMs: number;
+  detail?: string;
+  info?: Record<string, string | number>;
+}
+
+/**
+ * Sonde la DESTINATION du driver actif : « répond-elle, en combien de temps, et
+ * quelles infos utiles ? ». Auto-sonde au changement de driver + bouton « Tester ».
+ * Pour memory/file/cluster-file = local (toujours joignable, latence 0) ; pour
+ * loki/opensearch = vraie requête réseau (`/ready`, `GET /`, `_count`).
+ */
+function DestinationPing({ driverName }: { driverName: string | null }) {
+  const store = useStore();
+  const [probe, setProbe] = useState<DriverProbe | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const ping = useCallback(async () => {
+    if (!driverName) return;
+    setLoading(true);
+    try {
+      const r = await store.api.getAbsolute<DriverProbe>(
+        `/nodefony/syslog/api/backplane/ping?driver=${encodeURIComponent(driverName)}`,
+      );
+      setProbe(r);
+    } catch (e) {
+      setProbe({
+        ok: false,
+        latencyMs: 0,
+        detail: e instanceof Error ? e.message : "échec de la sonde",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [store, driverName]);
+
+  // Auto-sonde au montage ET à chaque changement de driver actif.
+  useEffect(() => {
+    setProbe(null);
+    void ping();
+  }, [ping]);
+
+  return (
+    <Group gap="sm" wrap="wrap">
+      <Button
+        size="xs"
+        variant="light"
+        leftSection={<IconActivity size={14} />}
+        loading={loading}
+        onClick={() => void ping()}
+      >
+        Tester la destination
+      </Button>
+      {probe && (
+        <>
+          <Badge
+            color={probe.ok ? "teal" : "red"}
+            variant="light"
+            leftSection={
+              probe.ok ? (
+                <IconCheck size={12} />
+              ) : (
+                <IconAlertTriangle size={12} />
+              )
+            }
+            tt="none"
+          >
+            {probe.ok ? "joignable" : "injoignable"}
+          </Badge>
+          <Text
+            size="xs"
+            c="dimmed"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {probe.latencyMs} ms
+          </Text>
+          {probe.info &&
+            Object.entries(probe.info)
+              .filter(([k]) => k !== "endpoint")
+              .map(([k, v]) => (
+                <Badge key={k} size="xs" variant="default" tt="none">
+                  {k}: {String(v)}
+                </Badge>
+              ))}
+          {probe.detail && (
+            <Text size="xs" c="red" truncate maw={360}>
+              {probe.detail}
+            </Text>
+          )}
+        </>
+      )}
+      <DocHint
+        title="Sonde de destination"
+        version={LOGS_DOC}
+        summary="Vérifie que la destination des logs répond (ping), mesure la latence et remonte des infos utiles (version, statut, nombre d'entrées)."
+        sections={[
+          {
+            label: "Local vs distant",
+            body: "memory/file/cluster-file = local (toujours joignable, 0 ms). loki/opensearch = sonde réseau réelle (/ready pour Loki ; GET / + _count pour OpenSearch).",
+          },
+        ]}
+      />
+    </Group>
   );
 }

@@ -14,20 +14,14 @@ import Command, { CommandArgs } from "../command/Command";
 import { Severity } from "../syslog/Pdu";
 import Syslog, { NULL_LOG_SINK } from "../syslog/Syslog";
 import { FileSink } from "../syslog/sinks/FileSink";
-import { FileTransport } from "../syslog/transports/FileTransport";
-import { createMemoryLogDriver } from "../syslog/drivers/MemoryLogDriver";
-import {
-  createFileLogDriver,
-  type FileLogDriverOptions,
-} from "../syslog/drivers/FileLogDriver";
-import {
-  createClusterFileLogDriver,
-  type ClusterFileLogDriverOptions,
-} from "../syslog/drivers/ClusterFileLogDriver";
 import {
   registerLogDriver,
   setActiveLogDriver,
+  getLogDriverFactory,
+  listLogDriverFactories,
+  type ILogDriverContext,
 } from "../syslog/drivers/logDriverRegistry";
+import { registerBuiltinLogDrivers } from "../syslog/drivers/builtinLogDrivers";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
@@ -97,6 +91,38 @@ export interface TypeKernelOptions extends DefaultOptionsService {
      * la lecture agrège le DOSSIER de `path` (tous les `nodefony-*.jsonl`).
      */
     queryFile?: { path?: string; maxScanBytes?: number };
+    /**
+     * Options du driver de relecture `loki` (LB.4) — actif UNIQUEMENT si
+     * `queryDriver === "loki"`. `url` = base Loki (ex. `http://127.0.0.1:3100`).
+     * Quand actif, un {@link LokiTransport} batché est branché pour POUSSER les logs
+     * (`/loki/api/v1/push`) et le driver les RELIT en LogQL (write↔read cohérents).
+     * Opt-in strict (jamais en dev « au cas où ») ; figé par config/env en prod.
+     */
+    loki?: {
+      url: string;
+      labels?: Record<string, string>;
+      tenantId?: string;
+      batchSize?: number;
+      flushIntervalMs?: number;
+      maxQueue?: number;
+      maxScanLines?: number;
+    };
+    /**
+     * Options du driver de relecture `opensearch` (LB.4) — actif UNIQUEMENT si
+     * `queryDriver === "opensearch"`. `url` = base OpenSearch (ex. `http://127.0.0.1:9200`),
+     * `index` (défaut `nodefony-logs`), `username`/`password` (auth basic prod). Write
+     * via `/_bulk`, read via `/_search`. Opt-in strict ; figé par config/env en prod.
+     */
+    opensearch?: {
+      url: string;
+      index?: string;
+      username?: string;
+      password?: string;
+      batchSize?: number;
+      flushIntervalMs?: number;
+      maxQueue?: number;
+      maxHits?: number;
+    };
   };
 }
 
@@ -896,40 +922,48 @@ class Kernel extends Service implements IKernel {
       logCfg?.maxStack ??
       (this.environment === "development" ? 2000 : undefined);
     if (maxStack) this.syslog?.setMaxStack(maxStack);
-    registerLogDriver(
-      createMemoryLogDriver(() => this.syslog?.ringStack ?? []),
-    );
     const queryDriver = logCfg?.queryDriver ?? "memory";
-    // Drivers `file` (LB.2) et `cluster-file` (LB.5) — JSONL queryable. Montés si
-    // demandés par config (`queryDriver`) OU, en DÉVELOPPEMENT, systématiquement :
-    // ils deviennent alors **switchables à chaud** depuis Studio (on ne fait que
-    // les ENREGISTRER en plus — le driver ACTIF par défaut reste `memory`). En
-    // PROD c'est opt-in strict (12-factor : destination figée par config/env ;
-    // pas d'I/O fichier « au cas où »). WRITE↔READ cohérents : chaque worker ÉCRIT
-    // son `nodefony-<pid>.jsonl` (transport file `format:"json"`, 1 Pdu/ligne,
-    // commun aux deux) → `file` relit SON fichier, `cluster-file` globbe le DOSSIER
-    // (vue cluster, merge trié par timeStamp). Hot path cloud-native = stdout→Loki.
-    const mountFileDrivers =
-      queryDriver === "file" ||
-      queryDriver === "cluster-file" ||
-      this.environment === "development";
-    if (mountFileDrivers) {
-      const jsonPath =
-        logCfg?.queryFile?.path ??
-        path.join(logDirAbs, `nodefony-${process.pid}.jsonl`);
-      // Écriture commune (1 JSONL par worker) → alimente `file` ET `cluster-file`.
-      this.syslog?.addTransport(
-        new FileTransport({ path: jsonPath, format: "json" }),
-      );
-      const scan = logCfg?.queryFile?.maxScanBytes;
-      const fileOpts: FileLogDriverOptions = { path: jsonPath };
-      if (scan !== undefined) fileOpts.maxScanBytes = scan;
-      registerLogDriver(createFileLogDriver(fileOpts));
-      const clusterOpts: ClusterFileLogDriverOptions = {
-        dir: path.dirname(jsonPath),
-      };
-      if (scan !== undefined) clusterOpts.maxScanBytes = scan;
-      registerLogDriver(createClusterFileLogDriver(clusterOpts));
+    // Résolution des drivers par FABRIQUES (logDriverRegistry) — AUCUN `if (name === …)`
+    // dans le Kernel : les drivers natifs (memory/file/cluster-file/loki/opensearch)
+    // s'enregistrent dans `builtinLogDrivers` (idempotent), un userland ajoute le sien
+    // via `registerLogDriverFactory`. Le Kernel ne fait que RÉSOUDRE + BRANCHER.
+    registerBuiltinLogDrivers();
+    const driverCtx: ILogDriverContext = {
+      logCfg,
+      environment: this.environment ?? "production",
+      logDir: logDirAbs,
+      pid: process.pid,
+      getRingStack: () => this.syslog?.ringStack ?? [],
+    };
+    // Drivers à monter : l'ACTIF demandé + `memory` (toujours présent = fallback sûr) +
+    // en DÉVELOPPEMENT les drivers fichier (switchables à chaud depuis Studio — on les
+    // ENREGISTRE en plus, l'actif reste `queryDriver`). En prod = opt-in strict (12-factor :
+    // destination figée, pas d'I/O « au cas où »). `writeKey` déduplique le transport
+    // d'écriture partagé (file ↔ cluster-file = même JSONL par worker → branché 1×).
+    const toMount = new Set<string>(["memory", queryDriver]);
+    if (this.environment === "development") {
+      // En dev : tenter de monter TOUS les drivers ENREGISTRÉS (registre de fabriques) →
+      // switch à chaud (Studio) entre eux sans reboot, SANS liste codée en dur dans le
+      // Kernel. Chaque fabrique s'auto-skippe (`null`) si sa config manque (ex. loki/
+      // opensearch sans URL) → 0 I/O « au cas où ». En PROD = opt-in strict (`queryDriver`).
+      // Conséquence assumée en dev : double-push si plusieurs destinations sont configurées
+      // (volume dev faible) — c'est le prix du switch instantané.
+      for (const name of listLogDriverFactories()) toMount.add(name);
+    }
+    const addedWrites = new Set<string>();
+    for (const name of toMount) {
+      const factory = getLogDriverFactory(name);
+      if (factory === undefined) continue;
+      const mount = factory(driverCtx);
+      if (mount === null) continue;
+      registerLogDriver(mount.driver);
+      if (mount.transport !== undefined) {
+        const key = mount.writeKey;
+        if (key === undefined || !addedWrites.has(key)) {
+          this.syslog?.addTransport(mount.transport);
+          if (key !== undefined) addedWrites.add(key);
+        }
+      }
     }
     try {
       setActiveLogDriver(queryDriver);

@@ -1,20 +1,32 @@
-# Nodefony — infra de développement (P13 Bloc B Realtime distribué)
+# Nodefony — infra de développement (Realtime distribué P13 + Log Backplane prod LB.4)
 #
-# Pourquoi ce fichier : la « Socket Nodefony » distribuée (RedisBackplane, KafkaBackplane)
-# a besoin d'un Redis (fan-out pub/sub cross-host) et, plus tard, d'un Kafka (bus events
-# persistant, Bloc C). Ce compose démarre cette infra en local pour tester les drivers.
+# Pourquoi ce fichier : deux besoins d'infra externe se rejoignent ici.
+#   1. La « Socket Nodefony » distribuée (RedisBackplane, KafkaBackplane) a besoin d'un
+#      Redis (fan-out pub/sub cross-host) et plus tard d'un Kafka (bus events persistant).
+#   2. Le Log Backplane (LB.4) sait pousser/relire les logs dans des destinations prod :
+#      Loki (push HTTP + LogQL, léger) et OpenSearch (recherche full-text). On les démarre
+#      en local pour développer et tester les drivers `loki` / `opensearch`.
 #
-# Usage :
-#   docker compose -f docker/docker-compose.yml up -d              # Redis seul (Bloc B)
-#   docker compose -f docker/docker-compose.yml --profile kafka up -d   # + Kafka (Bloc C)
-#   docker compose -f docker/docker-compose.yml --profile tools up -d   # + RedisInsight (debug UI)
-#   docker compose -f docker/docker-compose.yml down                # arrêt (volumes conservés)
-#   docker compose -f docker/docker-compose.yml down -v             # arrêt + purge données
+# Réseau : à partir de 2 services, tout vit sur UN bridge nommé `nodefony-net` (section
+# `networks` en bas). Les conteneurs se résolvent entre eux par leur NOM de service via le
+# DNS interne Docker (`grafana` → `http://loki:3100`, `dashboards` → `http://opensearch:9200`)
+# — JAMAIS `localhost` côté conteneur. Les ports ne sont publiés que sur `127.0.0.1` : l'app
+# Nodefony tourne sur l'HÔTE (hors Docker pour l'instant) et accède via `127.0.0.1:<port>`.
 #
-# Config : chaque valeur (ports, mot de passe dev) a un défaut inline `${VAR:-défaut}`
-# ci-dessous → AUCUN fichier .env requis en dev. Pour surcharger (vrai secret, autre
-# port) : `export REDIS_PASSWORD=…` avant le `up`, ou déposer un `docker/.env` (lu
-# automatiquement par compose, ignoré par git). Le défaut dev `nodefony-dev` est public.
+# Usage (activation progressive par profils — rien n'est lancé « au cas où ») :
+#   docker compose -f docker/docker-compose.yml up -d                     # Redis seul (défaut)
+#   docker compose -f docker/docker-compose.yml --profile kafka up -d     # + Kafka
+#   docker compose -f docker/docker-compose.yml --profile tools up -d     # + RedisInsight (UI)
+#   docker compose -f docker/docker-compose.yml --profile loki up -d      # + Loki + Grafana (logs)
+#   docker compose -f docker/docker-compose.yml --profile opensearch up -d# + OpenSearch + Dashboards
+#   docker compose -f docker/docker-compose.yml --profile loki --profile opensearch up -d
+#   docker compose -f docker/docker-compose.yml down                      # arrêt (volumes conservés)
+#   docker compose -f docker/docker-compose.yml down -v                   # arrêt + purge données
+#
+# Config : chaque valeur (ports, mot de passe dev) a un défaut inline `${VAR:-défaut}` →
+# AUCUN fichier .env requis en dev. Pour surcharger (vrai secret, autre port) : `export VAR=…`
+# avant le `up`, ou déposer un `docker/.env` (lu automatiquement par compose, ignoré par git).
+# Les défauts dev (`nodefony-dev`, `Nodefony-dev-2026!`) sont publics — JAMAIS en prod.
 
 name: nodefony-dev
 
@@ -26,6 +38,7 @@ services:
     image: redis:7-alpine
     container_name: nodefony-redis
     restart: unless-stopped
+    networks: [nodefony]
     # requirepass : auth obligatoire (Zero Trust, même en dev). appendonly : persistance AOF
     # (survit au restart du conteneur) sans le coût d'un RDB snapshot bloquant.
     command: >
@@ -58,6 +71,7 @@ services:
     container_name: nodefony-redisinsight
     restart: unless-stopped
     profiles: ["tools"]
+    networks: [nodefony]
     ports:
       - "127.0.0.1:${REDISINSIGHT_PORT:-5540}:5540"
     depends_on:
@@ -72,6 +86,7 @@ services:
     container_name: nodefony-kafka
     restart: unless-stopped
     profiles: ["kafka"]
+    networks: [nodefony]
     ports:
       - "127.0.0.1:${KAFKA_PORT:-9092}:9092"
     environment:
@@ -92,6 +107,124 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
 
+  # --- Loki (profile loki — destination de logs LB.4, driver `loki`) ---
+  # Léger : Loki indexe les LABELS (basse cardinalité), pas le contenu full-text → peu de RAM.
+  # L'image embarque /etc/loki/local-config.yaml (single-binary, stockage filesystem boltdb) →
+  # démarre sans config externe. Le driver Nodefony pousse sur /loki/api/v1/push (JSON, ts en ns)
+  # et relit via LogQL sur /loki/api/v1/query_range. requestId = champ de la ligne JSON (PAS un
+  # label → on n'explose pas l'index), filtré côté driver après rapatriement.
+  loki:
+    image: grafana/loki:3.7.2
+    container_name: nodefony-loki
+    restart: unless-stopped
+    profiles: ["loki"]
+    networks: [nodefony]
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
+    volumes:
+      - loki-data:/loki
+    # PAS de healthcheck : l'image grafana/loki est DISTROLESS (aucun /bin/sh, ni wget,
+    # ni curl) → un healthcheck Docker (qui exec DANS le conteneur) échouerait à vie et
+    # marquerait Loki « unhealthy » à tort. Sondage de santé = côté HÔTE
+    # (`curl http://127.0.0.1:3100/ready`) ou via le driver Nodefony (ping backplane).
+
+  # --- Grafana (profile loki — UI de visualisation des logs Loki, dev-only) ---
+  # Datasource Loki auto-provisionnée (docker/grafana/provisioning) → ouvre sur Loki prêt,
+  # 0 setup manuel. Anonyme + rôle Admin pour un dev sans friction (JAMAIS en prod).
+  grafana:
+    image: grafana/grafana:latest
+    container_name: nodefony-grafana
+    restart: unless-stopped
+    profiles: ["loki"]
+    networks: [nodefony]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-nodefony-dev}
+      # Pas de télémétrie ni de check de mise à jour en dev local.
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      # Provisioning en lecture seule (DNS interne : la datasource pointe http://loki:3100).
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      # service_started (pas service_healthy) : Loki est distroless = pas de healthcheck
+      # (cf service loki). Grafana retente sa datasource seul jusqu'à ce que Loki réponde.
+      loki:
+        condition: service_started
+
+  # --- OpenSearch (profile opensearch — destination de logs LB.4, driver `opensearch`) ---
+  # Single-node. Plugin de sécurité DÉSACTIVÉ en dev (DISABLE_SECURITY_PLUGIN=true) → HTTP simple
+  # sur :9200 sans TLS ni auth = driver trivial à brancher. En PROD on réactive (TLS + admin pwd).
+  # Heap bridé à 512m (défaut 1g trop lourd pour une station de dev). memory_lock évite le swap.
+  opensearch:
+    image: opensearchproject/opensearch:3.5.0
+    container_name: nodefony-opensearch
+    restart: unless-stopped
+    profiles: ["opensearch"]
+    networks: [nodefony]
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - DISABLE_SECURITY_PLUGIN=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      # Requis 2.12+ même si le plugin est désactivé (validé au boot avant le disable).
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_PASSWORD:-Nodefony-dev-2026!}
+    ulimits:
+      # memory_lock nécessite des ulimits memlock illimités côté conteneur.
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "127.0.0.1:${OPENSEARCH_PORT:-9200}:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      # Sécurité désactivée → HTTP simple, pas d'auth. L'image fournit curl.
+      test:
+        ["CMD-SHELL", "curl -fsS http://localhost:9200 >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  # --- OpenSearch Dashboards (profile opensearch — UI Kibana-like, dev-only) ---
+  # Version ALIGNÉE sur opensearch (3.5.0). Sécurité désactivée pour matcher le cluster HTTP.
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:3.5.0
+    container_name: nodefony-opensearch-dashboards
+    restart: unless-stopped
+    profiles: ["opensearch"]
+    networks: [nodefony]
+    environment:
+      # DNS interne : cible le service `opensearch`, pas localhost.
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "127.0.0.1:${OPENSEARCH_DASHBOARDS_PORT:-5601}:5601"
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+# Réseau unique de l'infra dev. Bridge nommé explicitement (`nodefony-net`) → résolution DNS
+# par nom de service entre conteneurs, isolation vis-à-vis du bridge `default` de Docker, et
+# nettoyage propre au `down`. Pas de sous-réseau IPAM figé volontairement : laisser Docker
+# allouer la plage évite les collisions avec d'autres projets Compose sur la même machine.
+networks:
+  nodefony:
+    name: nodefony-net
+    driver: bridge
+
 volumes:
   redis-data:
   kafka-data:
+  loki-data:
+  grafana-data:
+  opensearch-data:

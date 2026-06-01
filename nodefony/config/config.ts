@@ -202,6 +202,23 @@ const config = {
     // du buffer async — recommandé pour fichier local rapide (cf insight A/B LB.W,
     // axe W2 fd/worker). Défaut async (ne bloque jamais l'event loop, disque lent).
     file: { sync: process.env.NF_LOG_FILE_SYNC === "1" },
+    // Driver du LOG BACKPLANE (LB.0+) — le « fond de panier » de RELECTURE des logs
+    // (≠ `driver` ci-dessus = sink d'ÉCRITURE). Où l'on REQUÊTE les logs (CLI / endpoint
+    // Studio / panneau) :
+    //   "memory" (DÉFAUT, ring volatile ; dev) | "file" / "cluster-file" (JSONL persistant,
+    //   vue worker / vue cluster) | "loki" / "opensearch" (destinations PROD, LB.4).
+    // Piloté par env (12-factor) → en prod l'orchestrateur fige la destination sans
+    // toucher au code. En dev, file/cluster-file restent montés en plus (switch à chaud Studio).
+    queryDriver: process.env.NF_LOG_QUERY_DRIVER ?? "memory",
+    // Destinations PROD (LB.4) — actives seulement si `queryDriver` vaut leur nom ET l'URL
+    // est fournie (sinon fallback "memory" au boot, jamais de crash). On POUSSE (transport
+    // batché, 1 POST/lot) ET on RELIT (driver query) la MÊME destination → cohérence
+    // write↔read. URLs par défaut = celles du `docker/docker-compose.yml` (--profile loki /
+    // --profile opensearch). Activer : `NF_LOG_QUERY_DRIVER=loki LOKI_URL=http://127.0.0.1:3100`.
+    ...(process.env.LOKI_URL ? { loki: { url: process.env.LOKI_URL } } : {}),
+    ...(process.env.OPENSEARCH_URL
+      ? { opensearch: { url: process.env.OPENSEARCH_URL } }
+      : {}),
   },
 
   /**

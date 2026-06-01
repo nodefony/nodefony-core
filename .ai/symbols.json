@@ -1,16 +1,16 @@
 {
-  "generated": "2026-05-31T22:09:19.379Z",
+  "generated": "2026-06-01T00:26:36.953Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 806,
-    "symbols": 1560,
-    "classes": 240,
-    "interfaces": 381,
-    "types": 196,
+    "files": 814,
+    "symbols": 1597,
+    "classes": 243,
+    "interfaces": 393,
+    "types": 199,
     "enums": 2,
-    "functions": 274,
-    "constants": 467
+    "functions": 292,
+    "constants": 468
   },
   "symbols": {
     "Cli": {
@@ -1067,6 +1067,48 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Identité git du dépôt courant. Champs `\"\"` si indéterminés (hors dépôt)."
+    },
+    "FetchResponseLike": {
+      "name": "FetchResponseLike",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/httpFetch.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Petit contrat `fetch` minimal et INJECTABLE, partagé par les destinations HTTP du Log Backplane (drivers `loki`/`opensearch` côté query, transports côté write). Pourquoi un type local plutôt que le…"
+    },
+    "FetchInitLike": {
+      "name": "FetchInitLike",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/httpFetch.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Sous-ensemble des options `RequestInit` réellement utilisées."
+    },
+    "FetchLike": {
+      "name": "FetchLike",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/httpFetch.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Signature compatible `globalThis.fetch` (surface réduite)."
+    },
+    "resolveFetch": {
+      "name": "resolveFetch",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/httpFetch.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Résout l'implémentation `fetch` à utiliser : celle passée explicitement (tests, proxy custom), sinon le `fetch` global (Node ≥ 18). Lève si aucune n'est dispo (jamais d'échec silencieux d'un driver…"
+    },
+    "fetchWithTimeout": {
+      "name": "fetchWithTimeout",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/httpFetch.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`fetch` borné par un timeout (via `AbortController`) — un push/lecture de logs ne doit JAMAIS bloquer indéfiniment sur une destination injoignable. `timeoutMs ≤ 0` = pas de timeout."
     },
     "setLogColor": {
       "name": "setLogColor",
@@ -2758,6 +2800,14 @@
       "decorators": [],
       "description": "Service Rollup runtime — fournit la config Rollup par défaut et le **build one-shot** des modules (`nodefony build` via {@link Module.build}). Le watch « write-only » (re-bundle dist/ sans recharge…"
     },
+    "registerBuiltinLogDrivers": {
+      "name": "registerBuiltinLogDrivers",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Enregistre les fabriques des drivers NATIFS du Log Backplane dans le {@link registerLogDriverFactory registre de fabriques}. Idempotent (appelé à chaque `initializeLog`, court-circuité après la 1ʳᵉ…"
+    },
     "ClusterFileLogDriverOptions": {
       "name": "ClusterFileLogDriverOptions",
       "kind": "interface",
@@ -2798,6 +2848,14 @@
       "module": "@nodefony/core",
       "description": "Relit la QUEUE d'un fichier JSONL (bornée à `maxScanBytes` octets depuis la FIN, anti-OOM) et la réhydrate en {@link IPduLike}[] — SANS instancier de `Pdu` (0 effet de bord uid/provider). Brique de…"
     },
+    "coerceRecord": {
+      "name": "coerceRecord",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Narrowing SÛR d'un objet JSON relu (entrée externe = disque) vers {@link IPduLike}. Rejette ce qui n'est pas un enregistrement de log (les 3 champs discriminants `severityName`/`moduleName`/`timeSt…"
+    },
     "DEFAULT_MAX_SCAN_BYTES": {
       "name": "DEFAULT_MAX_SCAN_BYTES",
       "kind": "const",
@@ -2822,6 +2880,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Contrat du **Log Backplane** (axe DESTINATION queryable, LB.0). À NE PAS confondre avec {@link ILogSink} (LB.W) : `ILogSink` écrit la **ligne texte** déjà coalescée (`writeOut(s: string)`) vers std…"
+    },
+    "ILogDriverProbe": {
+      "name": "ILogDriverProbe",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/ILogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Résultat d'une {@link ILogDriver.probe} — santé d'une destination de logs. Affiché par Studio (badge joignable/latence + infos) ; jamais de credential."
     },
     "ILogDriverCapabilities": {
       "name": "ILogDriverCapabilities",
@@ -2876,6 +2943,41 @@
       "module": "@nodefony/core",
       "description": "Sérialise un Pdu en {@link ILogRecord} (forme wire). Source unique de la projection Pdu→wire : réutilisée par {@link filterPdus} (driver memory) ET par le producteur data-plane `syslog` (framework)…"
     },
+    "ILogConfigLike": {
+      "name": "ILogConfigLike",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Sous-ensemble de `config.log` lu par les fabriques — évite une dépendance des drivers au type complet du Kernel (qui, lui, importe les drivers)."
+    },
+    "ILogDriverContext": {
+      "name": "ILogDriverContext",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Contexte passé à une fabrique de driver (tout ce qu'il faut pour se construire)."
+    },
+    "ILogDriverMount": {
+      "name": "ILogDriverMount",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'une fabrique retourne : le driver de RELECTURE + (optionnel) le transport d'ÉCRITURE à brancher. `writeKey` déduplique le transport quand plusieurs drivers partagent la même destination d'écr…"
+    },
+    "ILogDriverFactory": {
+      "name": "ILogDriverFactory",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Fabrique d'un driver. Retourne `null` si la config est insuffisante (ex. URL absente)."
+    },
     "registerLogDriver": {
       "name": "registerLogDriver",
       "kind": "function",
@@ -2900,6 +3002,14 @@
       "module": "@nodefony/core",
       "description": "Driver actif (relecture), ou `null` si aucun n'est encore enregistré/câblé."
     },
+    "getLogDriver": {
+      "name": "getLogDriver",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Récupère un driver ENREGISTRÉ par son nom SANS l'activer — pour le sonder (`probe`) ou l'introspecter avant un switch. `undefined` si non enregistré."
+    },
     "listLogDrivers": {
       "name": "listLogDrivers",
       "kind": "function",
@@ -2908,13 +3018,53 @@
       "module": "@nodefony/core",
       "description": "Liste des drivers enregistrés (introspection Studio / tests / data-plane)."
     },
+    "registerLogDriverFactory": {
+      "name": "registerLogDriverFactory",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Enregistre (ou remplace) la fabrique d'un driver par son nom."
+    },
+    "getLogDriverFactory": {
+      "name": "getLogDriverFactory",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Récupère la fabrique d'un driver, ou `undefined` si non enregistrée."
+    },
+    "listLogDriverFactories": {
+      "name": "listLogDriverFactories",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Liste les noms de drivers ayant une fabrique (introspection Studio / CLI)."
+    },
     "_resetLogDriverRegistry": {
       "name": "_resetLogDriverRegistry",
       "kind": "function",
       "file": "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Réinitialise le registre (tests uniquement — isole l'état module-level entre cas). Hors tests, le registre vit pour la durée du process."
+      "description": "Réinitialise le registre (tests uniquement — isole l'état module-level entre cas). Hors tests, le registre vit pour la durée du process. Les FABRIQUES ne sont PAS effacées (elles sont enregistrées …"
+    },
+    "LokiLogDriverOptions": {
+      "name": "LokiLogDriverOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "createLokiLogDriver": {
+      "name": "createLokiLogDriver",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Driver `loki` du Log Backplane (LB.4) — relit les logs dans **Grafana Loki** via LogQL (`GET /loki/api/v1/query_range`). **Adaptateur, pas moteur** : Loki BORNE le rapatriement (sélecteur de labels…"
     },
     "createMemoryLogDriver": {
       "name": "createMemoryLogDriver",
@@ -2923,6 +3073,38 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Driver `memory` (LB.1) — le **ring buffer du Syslog EST le stockage**. Aucun write dédié : le ring est alimenté par `Syslog.pushStack` sur le hot path. Le driver n'ajoute que la **relecture** (`que…"
+    },
+    "OpenSearchLogDriverOptions": {
+      "name": "OpenSearchLogDriverOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "createOpenSearchLogDriver": {
+      "name": "createOpenSearchLogDriver",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Driver `opensearch` du Log Backplane (LB.4) — relit les logs dans **OpenSearch** via `POST /{index}/_search` (Query DSL). **Adaptateur, pas moteur** : OpenSearch borne le rapatriement (range sur `t…"
+    },
+    "basicAuthHeader": {
+      "name": "basicAuthHeader",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/opensearchShared.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit l'en-tête `Authorization: Basic …` si un utilisateur est fourni — sinon objet vide (dev = plugin sécurité désactivé, HTTP sans auth). Node-only (`Buffer`)."
+    },
+    "DEFAULT_OPENSEARCH_INDEX": {
+      "name": "DEFAULT_OPENSEARCH_INDEX",
+      "kind": "const",
+      "file": "src/nodefony/src/syslog/drivers/opensearchShared.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Index OpenSearch par défaut des logs Nodefony (write transport ↔ read driver)."
     },
     "FileSink": {
       "name": "FileSink",
@@ -2941,6 +3123,36 @@
       "name": "FileSinkOptions",
       "kind": "interface",
       "file": "src/nodefony/src/syslog/sinks/FileSink.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
+    },
+    "BatchingHttpTransport": {
+      "name": "BatchingHttpTransport",
+      "kind": "class",
+      "file": "src/nodefony/src/syslog/transports/BatchingHttpTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [
+        "ITransport"
+      ],
+      "decorators": [],
+      "description": "Base d'un transport de logs HTTP **batché** — généralise le pattern LB.W (ring borné → drain coalescé → drop borné) à une destination réseau (Loki, OpenSearch). Mutualise toute la mécanique de file…"
+    },
+    "BatchTransportStats": {
+      "name": "BatchTransportStats",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/transports/BatchingHttpTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Compteurs d'observabilité d'un transport batché (introspection / debug)."
+    },
+    "BatchTransportOptions": {
+      "name": "BatchTransportOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/transports/BatchingHttpTransport.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": null
@@ -2996,6 +3208,44 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null
+    },
+    "LokiTransport": {
+      "name": "LokiTransport",
+      "kind": "class",
+      "file": "src/nodefony/src/syslog/transports/LokiTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "BatchingHttpTransport",
+      "implements": [],
+      "decorators": [],
+      "description": "Transport de logs vers **Grafana Loki** (LB.4) — push HTTP **batché** sur `POST /loki/api/v1/push`. Étend {@link BatchingHttpTransport} : la queue/flush/ drop/cleanup sont mutualisés ; ici on ne fa…"
+    },
+    "LokiTransportOptions": {
+      "name": "LokiTransportOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/transports/LokiTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "BatchTransportOptions"
+    },
+    "OpenSearchTransport": {
+      "name": "OpenSearchTransport",
+      "kind": "class",
+      "file": "src/nodefony/src/syslog/transports/OpenSearchTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "BatchingHttpTransport",
+      "implements": [],
+      "decorators": [],
+      "description": "Transport de logs vers **OpenSearch** (LB.4) — indexation **batchée** via l'API `POST /_bulk` (NDJSON). Étend {@link BatchingHttpTransport} (queue/flush/drop mutualisés) ; ici on formate le lot au …"
+    },
+    "OpenSearchTransportOptions": {
+      "name": "OpenSearchTransportOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/transports/OpenSearchTransport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "BatchTransportOptions"
     },
     "SyslogTransport": {
       "name": "SyslogTransport",
@@ -11517,6 +11767,14 @@
         "IClusterProbeCtl",
         "IClusterProbeEnrich"
       ],
+      "BatchingHttpTransport": [
+        "LokiTransport",
+        "OpenSearchTransport"
+      ],
+      "BatchTransportOptions": [
+        "LokiTransportOptions",
+        "OpenSearchTransportOptions"
+      ],
       "Controller": [
         "MediasoupController",
         "AlsController",
@@ -11701,6 +11959,7 @@
         "FileSink"
       ],
       "ITransport": [
+        "BatchingHttpTransport",
         "ConsoleTransport",
         "FileTransport",
         "HttpTransport",
@@ -12272,10 +12531,12 @@
         "src/nodefony/src/types/ISyslog.ts",
         "src/nodefony/src/types/ITransport.ts",
         "src/nodefony/src/client/debugbar/model.ts",
-        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
+        "src/nodefony/src/syslog/transports/BatchingHttpTransport.ts",
         "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
         "src/nodefony/src/syslog/transports/FileTransport.ts",
         "src/nodefony/src/syslog/transports/HttpTransport.ts",
+        "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts",
         "src/nodefony/src/syslog/transports/SyslogTransport.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
@@ -13184,27 +13445,22 @@
       "FileSink": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
-      "FileTransport": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "createMemoryLogDriver": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "createFileLogDriver": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "FileLogDriverOptions": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "createClusterFileLogDriver": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "ClusterFileLogDriverOptions": [
-        "src/nodefony/src/kernel/Kernel.ts"
-      ],
       "setActiveLogDriver": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
+      "getLogDriverFactory": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "listLogDriverFactories": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "ILogDriverContext": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "registerBuiltinLogDrivers": [
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "Rollup": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -13330,6 +13586,8 @@
       "ITransport": [
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/ISyslog.ts",
+        "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+        "src/nodefony/src/syslog/transports/BatchingHttpTransport.ts",
         "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
         "src/nodefony/src/syslog/transports/FileTransport.ts",
         "src/nodefony/src/syslog/transports/HttpTransport.ts",
@@ -13541,28 +13799,71 @@
       "Stats": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "FileTransport": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "LokiTransport": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "OpenSearchTransport": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "createMemoryLogDriver": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "createFileLogDriver": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "FileLogDriverOptions": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "createClusterFileLogDriver": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "ClusterFileLogDriverOptions": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "createLokiLogDriver": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "createOpenSearchLogDriver": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
+      "registerLogDriverFactory": [
+        "src/nodefony/src/syslog/drivers/builtinLogDrivers.ts"
+      ],
       "ILogDriver": [
         "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
-        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts"
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts"
       ],
       "ILogQueryCriteria": [
         "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/filterPdus.ts",
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
         "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "IPduLike": [
         "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
-        "src/nodefony/src/syslog/drivers/filterPdus.ts"
+        "src/nodefony/src/syslog/drivers/filterPdus.ts",
+        "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts"
       ],
       "filterPdus": [
         "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
         "src/nodefony/src/syslog/drivers/FileLogDriver.ts",
-        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts"
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts"
       ],
       "DEFAULT_MAX_SCAN_BYTES": [
         "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts"
@@ -13571,13 +13872,58 @@
         "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts"
       ],
       "pduToRecord": [
-        "src/nodefony/src/syslog/drivers/filterPdus.ts"
+        "src/nodefony/src/syslog/drivers/filterPdus.ts",
+        "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
       ],
       "ILogQueryResult": [
         "src/nodefony/src/syslog/drivers/filterPdus.ts"
       ],
+      "ILogDriverProbe": [
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
+      "coerceRecord": [
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts"
+      ],
+      "resolveFetch": [
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+        "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "fetchWithTimeout": [
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+        "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "FetchLike": [
+        "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+        "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "basicAuthHeader": [
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "DEFAULT_OPENSEARCH_INDEX": [
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
       "ILogSink": [
         "src/nodefony/src/syslog/sinks/FileSink.ts"
+      ],
+      "BatchingHttpTransport": [
+        "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "BatchTransportOptions": [
+        "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
       ],
       "entityRegistry": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
@@ -14022,6 +14368,9 @@
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+      ],
+      "getLogDriver": [
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "listLogDrivers": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"

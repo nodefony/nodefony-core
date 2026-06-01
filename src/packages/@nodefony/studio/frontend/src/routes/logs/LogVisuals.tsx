@@ -179,6 +179,8 @@ const CAPABILITY_META: Record<
     tech: string;
     icon: FC<{ size?: number }>;
     help: string;
+    /** Aide spécifique à l'état ABSENT (sinon « non disponible sur ce driver »). */
+    helpOff?: string;
   }
 > = {
   write: {
@@ -197,10 +199,12 @@ const CAPABILITY_META: Record<
   },
   stream: {
     label: "Temps réel",
-    labelOff: "Sans temps réel",
+    labelOff: "Pas de tap natif",
     tech: "stream",
     icon: IconBroadcast,
-    help: "Alimente le flux direct des logs au fil de l'eau (onglet Live).",
+    help: "Ce driver alimente LUI-MÊME un tap des logs au fil de l'eau (seul « memory » le fait : il EST le ring buffer).",
+    helpOff:
+      "Ce driver ne fait QUE de la relecture froide (onglet Explorer). ⚠️ Tu ne perds PAS le direct : l'onglet Live reste TOUJOURS disponible — il vient du bus « syslog:stream », qui écoute les logs à la source, indépendamment du driver de relecture.",
   },
 };
 
@@ -227,7 +231,7 @@ export function CapabilityBadges({
           return (
             <Tooltip
               key={cap}
-              label={`${on ? meta.label : meta.labelOff} (${meta.tech}) — ${on ? meta.help : "non disponible sur ce driver."}`}
+              label={`${on ? meta.label : meta.labelOff} (${meta.tech}) — ${on ? meta.help : (meta.helpOff ?? "non disponible sur ce driver.")}`}
               multiline
               w={260}
               withArrow

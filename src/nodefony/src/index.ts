@@ -33,6 +33,7 @@ export { pduToRecord } from "./syslog/drivers/ILogDriver";
 export type {
   ILogDriver,
   ILogDriverCapabilities,
+  ILogDriverProbe,
   ILogQueryCriteria,
   ILogQueryResult,
   ILogRecord,
@@ -42,21 +43,44 @@ export { filterPdus } from "./syslog/drivers/filterPdus";
 export { createMemoryLogDriver } from "./syslog/drivers/MemoryLogDriver";
 export { createFileLogDriver } from "./syslog/drivers/FileLogDriver";
 export type { FileLogDriverOptions } from "./syslog/drivers/FileLogDriver";
+export { createLokiLogDriver } from "./syslog/drivers/LokiLogDriver";
+export type { LokiLogDriverOptions } from "./syslog/drivers/LokiLogDriver";
+export { createOpenSearchLogDriver } from "./syslog/drivers/OpenSearchLogDriver";
+export type { OpenSearchLogDriverOptions } from "./syslog/drivers/OpenSearchLogDriver";
+export type { FetchLike } from "./syslog/httpFetch";
 export {
   registerLogDriver,
   setActiveLogDriver,
   getActiveLogDriver,
+  getLogDriver,
   listLogDrivers,
+  registerLogDriverFactory,
+  getLogDriverFactory,
+  listLogDriverFactories,
 } from "./syslog/drivers/logDriverRegistry";
+export type {
+  ILogDriverFactory,
+  ILogDriverContext,
+  ILogDriverMount,
+  ILogConfigLike,
+} from "./syslog/drivers/logDriverRegistry";
+export { registerBuiltinLogDrivers } from "./syslog/drivers/builtinLogDrivers";
 export {
   ConsoleTransport,
   FileTransport,
   HttpTransport,
   SyslogTransport,
+  BatchingHttpTransport,
+  LokiTransport,
+  OpenSearchTransport,
 } from "./syslog/transports/index";
 export type {
   FileTransportOptions,
   HttpTransportOptions,
+  BatchTransportOptions,
+  BatchTransportStats,
+  LokiTransportOptions,
+  OpenSearchTransportOptions,
 } from "./syslog/transports/index";
 
 // ─── Realtime (protocole JSON-RPC 2.0 isomorphe) ───────────────────────────────

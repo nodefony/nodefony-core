@@ -128,7 +128,7 @@ function parseLine(line: string): IPduLike | null {
  * `severityName`/`moduleName`/`timeStamp` manquent ou de mauvais type) ; complète
  * les champs accessoires avec des défauts sûrs. 0 `any`, 0 instanciation de Pdu.
  */
-function coerceRecord(raw: unknown): IPduLike | null {
+export function coerceRecord(raw: unknown): IPduLike | null {
   if (typeof raw !== "object" || raw === null) return null;
   const o = raw as Record<string, unknown>;
   if (
