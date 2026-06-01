@@ -35,6 +35,11 @@
   lancé en background n'avait pas régénéré tous les dist (drizzle/studio manquants) → 2 boots ratés.
   → build complet **foreground** et vérifier `ls dist/index.js` des modules clés avant start. (variante
   du pattern « created dist menteur » — à fusionner si revu.)
+- `[2× — 2026-06-01]` **orm-core `dist/types` manque au pre-push typecheck (turbo cache)** : `@nodefony/user`
+  importe `@nodefony/orm-core` dans ses `.d.ts` → si `orm-core/dist/types/index.d.ts` absent (après un `clean`
+  - builds incrémentaux turbo), le typecheck `nodefony` casse (TS2307 « Cannot find module @nodefony/orm-core »)
+    et **bloque `git push`** (hook pre-push). Vu 2× cette session (mêmes 3 erreurs). → rebuild ciblé
+    `npx turbo run build --filter=@nodefony/orm-core --force` (~3s) AVANT le push. Variante de [[feedback_turbo_cache_stale_logs]].
 
 ## 🔄 Cycle de session (END/RETEX) — méta
 
@@ -69,6 +74,25 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   `logs/` (Kernel) côté écriture mais le viewer Studio lisait `tmpDir` → la tab Fichiers ne montrait jamais les
   vrais logs. → un chemin utilisé par N composants = **UNE** config (`config.log.dir`), lue partout. Vaut pour
   tout couple write↔read (cf le pattern write↔read cohérent du Log Backplane).
+- `[2× — 2026-06-01]` **hardcode `if(name===…)` dans le Kernel rejeté par le user** (LB.4) : choisir une impl
+  par son nom EN DUR dans le Kernel (`if queryDriver==="loki" …`) = anti-pattern. Bonne réponse = **registre de
+  FABRIQUES** (`name → factory(ctx)→{driver,transport?}`, builtins s'auto-enregistrent, Kernel résout+branche,
+  boucle `listLogDriverFactories()` en dev). Convention-frère de `backplaneRegistry`/`ormRegistry`. Le user
+  traque ce pattern (réagi 2×) → l'appliquer d'EMBLÉE pour tout « choisir une impl par nom ».
+- `[1× — 2026-06-01]` **Log Backplane = 2 axes orthogonaux, l'UI DOIT les séparer** (le user a buté dessus) :
+  le **select** Studio change la **LECTURE** (un seul « fond de panier » qu'on RELIT/cherche) — PAS l'écriture.
+  L'écriture est un **fan-out** (1 log → console+fichier+Loki+OpenSearch en même temps). → toute UI de backplane
+  doit montrer **ÉCRITURE = cases à cocher (multi)** ≠ **LECTURE = select (un seul)** explicitement. Vulgariser :
+  « déposer une copie dans N boîtes aux lettres » (écrire) vs « ouvrir UN classeur pour fouiller » (lire). TODO page Logs.
+- `[1× — 2026-06-01]` **image Docker distroless = AUCUN healthcheck interne** (`grafana/loki:3.7.2` n'a ni
+  `/bin/sh` ni `wget`/`curl`) : un `healthcheck: CMD-SHELL` échoue à vie → conteneur « unhealthy » à tort →
+  un `depends_on: condition: service_healthy` (Grafana) reste **bloqué en « Created »** (jamais démarré). →
+  PAS de healthcheck sur un distroless (sonder côté HÔTE `curl :port/ready`), et `depends_on: service_started`.
+- `[1× — 2026-06-01]` **memory.test FLAKE sous charge + « requires server »** : (a) la suite « (requires server) »
+  a 3 fails au hook `before all` car j'avais STOPPÉ le serveur dev → ces suites se CONNECTENT au serveur externe
+  (1ʳᵉ hypothèse = serveur down, [[nodefony-debug]]) ; (b) sous charge machine (JVM OpenSearch + Grafana + 4 Vite),
+  un test DIFFÉRENT déborde de peu à chaque run (29.6→19.4→18.3 MB), tous les tests cœur verts = **bruit GC, pas un
+  leak**. → isolation = vérité : tester la **config par défaut** (sans transports opt-in) ⇒ 500-mixed < 20MB ⇒ pipeline propre.
 
 ## 🧭 État projet / git / terminologie (frictions du jour)
 

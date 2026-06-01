@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.17.0
+version: 1.18.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1148,6 +1148,16 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.18.0** (2026-06-01) — **LB.4 — destinations prod Loki/OpenSearch (front : ping + clarté lecture/écriture)**.
+  Full-stack (back = framework-dev 1.18.0 ; commit `6d8e17f`). Page Logs/panneau Backplane : bouton **« Tester la
+  destination »** (`DestinationPing` dans `BackplaneBanner`, ping/latence/infos via `GET /nodefony/syslog/api/backplane/ping`,
+  auto-sondé au changement de driver) ; loki/opensearch **sélectionnables** (`UPCOMING_DRIVERS`→`PLACEHOLDER_DRIVERS`,
+  `driverMeta.upcoming` retiré de loki/opensearch) ; badge **« temps réel » clarifié** (`labelOff` « Pas de tap natif »
+  - `helpOff` : l'onglet **Live reste TOUJOURS dispo** via le bus `syslog:stream`, **indépendant** du driver de relecture).
+    **RETEX** : (a) **select Studio = LECTURE** (un seul « fond de panier ») ≠ **écriture = fan-out** (1 log →
+    console+fichier+Loki+OpenSearch) → **l'UI doit séparer les 2 axes** : TODO **cases à cocher écriture + select lecture**
+    (le user a buté dessus). (b) page Dashboards (iframe Grafana/OpenSearch) = design figé à faire (mixed-content 127.0.0.1
+    OK + fallback deep-link + `GF_SECURITY_ALLOW_EMBEDDING` + CSP `frame-src`). Lockstep back = **framework-dev 1.18.0**. [[project_log_backplane_vision]].
 - **1.17.0** (2026-05-31) — **Console du Log Backplane — refonte page Logs** (commit `3d6158e` front +
   `c48858b` back). **Contrat front+back touché** → bump MINOR partagé (≠ lockstep back-only). Page `/nodefony/logs`
   refondue en console du Log Backplane : `Logs.tsx` éclaté en sous-composants `routes/logs/*` — onglets **Live**
