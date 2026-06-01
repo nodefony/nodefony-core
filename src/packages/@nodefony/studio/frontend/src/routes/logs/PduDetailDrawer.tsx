@@ -164,7 +164,15 @@ export const PduDetailDrawer = observer(
         opened={open}
         onClose={onClose}
         position="right"
-        size="xl"
+        size="lg"
+        // Inspecteur NON-MODAL (façon DevTools) : pas d'overlay grisé, le reste de
+        // la page reste lisible ET cliquable → cliquer une autre ligne met à jour
+        // le détail sans fermer le tiroir. Fermeture explicite (✕ / Échap).
+        withOverlay={false}
+        closeOnClickOutside={false}
+        trapFocus={false}
+        lockScroll={false}
+        shadow="xl"
         title={
           record ? (
             <Group gap="xs" wrap="nowrap">

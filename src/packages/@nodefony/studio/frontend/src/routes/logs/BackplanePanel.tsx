@@ -7,11 +7,14 @@
  * à venir (file/elastic/loki — que le registry accueillera sans changer le front),
  * et la **santé** détaillée (compteurs).
  */
-import type { ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Badge,
+  Box,
+  Button,
   Card,
   Group,
+  Select,
   SimpleGrid,
   Stack,
   Table,
@@ -24,6 +27,10 @@ import {
   IconStack2,
   IconBroadcast,
   IconPlugConnected,
+  IconCircleDot,
+  IconActivity,
+  IconCheck,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import {
   DataState,
@@ -31,8 +38,14 @@ import {
   DocHint,
   KeyValue,
 } from "../../components/ui";
+import { useNotifications, useStore } from "../../stores";
 import type { BackplaneMeta } from "./logsTypes";
-import { LOGS_DOC, PLACEHOLDER_DRIVERS, driverMeta } from "./logFormat";
+import {
+  LOGS_DOC,
+  PLACEHOLDER_DRIVERS,
+  driverMeta,
+  realtimeStateLabel,
+} from "./logFormat";
 import {
   CapabilityBadges,
   ClusterScopeNotice,
@@ -45,6 +58,10 @@ export interface BackplanePanelProps {
   loading: boolean;
   error: string | null;
   reload: () => void;
+  /** Notifie l'orchestrateur qu'un switch de driver a eu lieu (rafraîchit les onglets). */
+  onSwitched?: () => void;
+  /** État de la connexion temps réel (pour l'axe BUS). */
+  realtimeState?: string;
 }
 
 /** Carte d'explication d'un des 3 axes (valeur courante + texte). */
@@ -82,7 +99,13 @@ export function BackplanePanel({
   loading,
   error,
   reload,
+  onSwitched,
+  realtimeState,
 }: BackplanePanelProps) {
+  const store = useStore();
+  const notifications = useNotifications();
+  const [switching, setSwitching] = useState(false);
+
   const activeName = meta?.activeDriver?.name ?? null;
   const registered = meta?.drivers ?? [];
   const registeredNames = new Set(registered.map((d) => d.name));
@@ -90,6 +113,45 @@ export function BackplanePanel({
   const placeholders = PLACEHOLDER_DRIVERS.filter(
     (n) => !registeredNames.has(n),
   );
+  const isDev = meta?.environment === "development";
+
+  // Modes du select : enregistrés = sélectionnables ; connus non montés = grisés.
+  const driverOptions = [
+    ...registered.map((d) => ({ value: d.name, label: driverMeta(d.name).label })),
+    ...placeholders.map((n) => {
+      const dm = driverMeta(n);
+      return {
+        value: n,
+        label: `${dm.label} — ${dm.upcoming ? "à venir" : "via config"}`,
+        disabled: true,
+      };
+    }),
+  ];
+
+  // Switch du driver de RELECTURE (dev-only, POST backplane/driver atomique).
+  const switchDriver = async (name: string) => {
+    if (!name || name === activeName) return;
+    setSwitching(true);
+    try {
+      await store.api.postAbsolute("/nodefony/syslog/api/backplane/driver", {
+        name,
+      });
+      notifications.notify("success", `Lecture → « ${name} »`, {
+        title: "Log Backplane",
+        source: "api",
+      });
+      reload();
+      onSwitched?.();
+    } catch (e) {
+      notifications.notify(
+        "error",
+        e instanceof Error ? e.message : "switch refusé",
+        { title: "Log Backplane", source: "api" },
+      );
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   return (
     <DataState loading={loading && !meta} error={error} onRetry={reload} minHeight={200}>
@@ -161,9 +223,20 @@ export function BackplanePanel({
                 color="teal"
                 title="BUS — temps réel"
                 current={
-                  <Badge variant="light" color="teal" tt="none">
-                    syslog:stream
-                  </Badge>
+                  <Group gap={6} wrap="nowrap">
+                    <Badge variant="light" color="teal" tt="none">
+                      syslog:stream
+                    </Badge>
+                    {realtimeState && (
+                      <Badge
+                        variant="dot"
+                        color={realtimeStateLabel(realtimeState).color}
+                        tt="none"
+                      >
+                        {realtimeStateLabel(realtimeState).label}
+                      </Badge>
+                    )}
+                  </Group>
                 }
               >
                 Diffusion <b>live</b> des Pdu (onglet Live, WebSocket).
@@ -172,6 +245,79 @@ export function BackplanePanel({
               </AxisCard>
             </SimpleGrid>
           </Stack>
+
+          {/* Contrôle de la LECTURE — destination relue + switch (dev) + sonde. */}
+          <Card withBorder radius="md" p="md">
+            <Stack gap="sm">
+              <Group justify="space-between" wrap="wrap" gap="md">
+                <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                  <DriverIcon name={activeName ?? "generic"} />
+                  <Box style={{ minWidth: 0 }}>
+                    <Group gap={6} wrap="nowrap">
+                      <Text fw={700} truncate>
+                        {activeName
+                          ? driverMeta(activeName).label
+                          : "Aucune destination"}
+                      </Text>
+                      {meta.activeDriver && (
+                        <Badge size="xs" variant="default" tt="none">
+                          {meta.activeDriver.name}
+                        </Badge>
+                      )}
+                      <DocHint
+                        title="Destination de lecture (le fond de panier)"
+                        version={LOGS_DOC}
+                        summary="La source qu'on RELIT et qu'on fouille dans l'Explorer — le « seau » qu'on inspecte. Indépendante de l'écriture : on peut en changer à chaud en développement."
+                        sections={[
+                          {
+                            label: "Effet du changement",
+                            body: "Bascule UNIQUEMENT ce que montre l'Explorer (recherche froide). N'affecte ni l'écriture (fan-out) ni le Live.",
+                          },
+                        ]}
+                      />
+                    </Group>
+                    {meta.activeDriver && (
+                      <Group gap="xs" mt={4} wrap="nowrap">
+                        <CapabilityBadges
+                          capabilities={meta.activeDriver.capabilities}
+                        />
+                      </Group>
+                    )}
+                  </Box>
+                </Group>
+
+                {isDev && (
+                  <Group gap={6} wrap="nowrap">
+                    <Select
+                      size="xs"
+                      w={240}
+                      value={activeName}
+                      data={driverOptions}
+                      onChange={(v) => v && switchDriver(v)}
+                      disabled={switching}
+                      allowDeselect={false}
+                      comboboxProps={{ withinPortal: true }}
+                      aria-label="changer de destination de lecture"
+                      leftSection={<IconCircleDot size={14} />}
+                    />
+                    <DocHint
+                      title="Changer de destination (dev uniquement)"
+                      version={LOGS_DOC}
+                      summary="Bascule la lecture à chaud (vide + ferme l'ancienne, active la nouvelle — atomique). Le défaut reste « mémoire »."
+                      sections={[
+                        {
+                          label: "Pourquoi seulement en dev",
+                          body: "En production, la destination est figée par la config / les variables d'env (12-factor) : un serveur qui change de cible en plein vol casserait la traçabilité.",
+                        },
+                      ]}
+                    />
+                  </Group>
+                )}
+              </Group>
+
+              <DestinationPing driverName={activeName} />
+            </Stack>
+          </Card>
 
           {/* Registry des drivers. */}
           <Stack gap="xs">
@@ -393,5 +539,113 @@ export function BackplanePanel({
         </Stack>
       )}
     </DataState>
+  );
+}
+
+/** Résultat de la sonde `/backplane/ping` (miroir de `ILogDriverProbe` core). */
+interface DriverProbe {
+  ok: boolean;
+  latencyMs: number;
+  detail?: string;
+  info?: Record<string, string | number>;
+}
+
+/**
+ * Sonde la DESTINATION de lecture active : « répond-elle, en combien de temps,
+ * quelles infos ? ». Auto-sonde au changement de driver + bouton « Tester ».
+ * memory/file/cluster-file = local (toujours joignable, latence 0) ; loki/
+ * opensearch = vraie requête réseau (`/ready`, `GET /`, `_count`).
+ */
+function DestinationPing({ driverName }: { driverName: string | null }) {
+  const store = useStore();
+  const [probe, setProbe] = useState<DriverProbe | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const ping = useCallback(async () => {
+    if (!driverName) return;
+    setLoading(true);
+    try {
+      const r = await store.api.getAbsolute<DriverProbe>(
+        `/nodefony/syslog/api/backplane/ping?driver=${encodeURIComponent(driverName)}`,
+      );
+      setProbe(r);
+    } catch (e) {
+      setProbe({
+        ok: false,
+        latencyMs: 0,
+        detail: e instanceof Error ? e.message : "échec de la sonde",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [store, driverName]);
+
+  // Auto-sonde au montage ET à chaque changement de driver actif.
+  useEffect(() => {
+    setProbe(null);
+    void ping();
+  }, [ping]);
+
+  return (
+    <Group gap="sm" wrap="wrap">
+      <Button
+        size="xs"
+        variant="light"
+        leftSection={<IconActivity size={14} />}
+        loading={loading}
+        onClick={() => void ping()}
+      >
+        Tester la destination
+      </Button>
+      {probe && (
+        <>
+          <Badge
+            color={probe.ok ? "teal" : "red"}
+            variant="light"
+            leftSection={
+              probe.ok ? (
+                <IconCheck size={12} />
+              ) : (
+                <IconAlertTriangle size={12} />
+              )
+            }
+            tt="none"
+          >
+            {probe.ok ? "joignable" : "injoignable"}
+          </Badge>
+          <Text
+            size="xs"
+            c="dimmed"
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {probe.latencyMs} ms
+          </Text>
+          {probe.info &&
+            Object.entries(probe.info)
+              .filter(([k]) => k !== "endpoint")
+              .map(([k, v]) => (
+                <Badge key={k} size="xs" variant="default" tt="none">
+                  {k}: {String(v)}
+                </Badge>
+              ))}
+          {probe.detail && (
+            <Text size="xs" c="red" truncate maw={360}>
+              {probe.detail}
+            </Text>
+          )}
+        </>
+      )}
+      <DocHint
+        title="Sonde de destination"
+        version={LOGS_DOC}
+        summary="Vérifie que la destination de lecture répond (ping), mesure la latence et remonte des infos utiles (version, statut, nombre d'entrées)."
+        sections={[
+          {
+            label: "Local vs distant",
+            body: "memory/file/cluster-file = local (toujours joignable, 0 ms). loki/opensearch = sonde réseau réelle (/ready pour Loki ; GET / + _count pour OpenSearch).",
+          },
+        ]}
+      />
+    </Group>
   );
 }

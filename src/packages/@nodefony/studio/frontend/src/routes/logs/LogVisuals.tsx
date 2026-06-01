@@ -3,7 +3,7 @@
  * état, sûres (rendu en TEXTE, jamais d'HTML injecté), accessibles. Partagées
  * par les onglets Live / Explorer / Fichiers / Backplane et le drawer de détail.
  */
-import { Alert, Badge, Code, Group, Text, ThemeIcon, Tooltip } from "@mantine/core";
+import { Alert, Badge, Code, Group, Text, ThemeIcon } from "@mantine/core";
 import {
   IconStack2,
   IconFileText,
@@ -27,6 +27,7 @@ import {
   severityVariant,
   type DriverIconKind,
 } from "./logFormat";
+import { DocHint } from "../../components/ui";
 
 /** Icône d'un type de driver. */
 const DRIVER_ICONS: Record<DriverIconKind, FC<{ size?: number }>> = {
@@ -199,12 +200,12 @@ const CAPABILITY_META: Record<
   },
   stream: {
     label: "Temps réel",
-    labelOff: "Pas de tap natif",
+    labelOff: "Live via le bus",
     tech: "stream",
     icon: IconBroadcast,
-    help: "Ce driver alimente LUI-MÊME un tap des logs au fil de l'eau (seul « memory » le fait : il EST le ring buffer).",
+    help: "Ce driver EST lui-même la source du flux temps réel (seul « mémoire » l'est : il EST le ring buffer alimenté en direct).",
     helpOff:
-      "Ce driver ne fait QUE de la relecture froide (onglet Explorer). ⚠️ Tu ne perds PAS le direct : l'onglet Live reste TOUJOURS disponible — il vient du bus « syslog:stream », qui écoute les logs à la source, indépendamment du driver de relecture.",
+      "Le temps réel ne vient pas de ce driver mais du bus « syslog:stream » (toujours actif). Tu ne perds donc PAS le direct : l'onglet Live fonctionne quel que soit le driver de relecture.",
   },
 };
 
@@ -228,25 +229,37 @@ export function CapabilityBadges({
           const meta = CAPABILITY_META[cap];
           const on = capabilities[cap];
           const Icon = meta.icon;
+          // Design de popover UNIQUE = la fiche DocHint (même partout). Le chip
+          // EST le déclencheur (survol/focus) ; présent = vert, absent = gris +
+          // libellé négatif explicite.
           return (
-            <Tooltip
+            <DocHint
               key={cap}
-              label={`${on ? meta.label : meta.labelOff} (${meta.tech}) — ${on ? meta.help : (meta.helpOff ?? "non disponible sur ce driver.")}`}
-              multiline
-              w={260}
-              withArrow
+              title={on ? meta.label : meta.labelOff}
+              summary={
+                on ? meta.help : (meta.helpOff ?? "Non disponible sur ce driver.")
+              }
+              width={300}
+              sections={[
+                {
+                  label: "Contrat technique",
+                  body: (
+                    <Code style={{ fontSize: 11 }}>capabilities.{meta.tech}</Code>
+                  ),
+                },
+              ]}
             >
-              {/* Présent = vert ; absent = libellé NÉGATIF explicite en gris neutre
-                  (pas le label affirmatif grisé, qui laissait croire « persistant »). */}
               <Badge
                 size={size}
                 variant="light"
                 color={on ? "teal" : "gray"}
                 leftSection={<Icon size={11} />}
+                tabIndex={0}
+                style={{ cursor: "help" }}
               >
                 {on ? meta.label : meta.labelOff}
               </Badge>
-            </Tooltip>
+            </DocHint>
           );
         },
       )}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Button,
   Checkbox,
@@ -140,6 +140,14 @@ interface BaseProps<T> {
   loadingMessage?: string;
   /** Sauvegarde/restaure l'état dans le storage navigateur (+ bouton « effacer »). */
   persist?: DataGridPersist;
+  /**
+   * Mode SERVEUR : signal de filtres EXTERNES (barre de filtres pilotée par la
+   * page, hors `columnFilters` natifs). Quand sa valeur change, la pagination
+   * repart à la page 1 (comme le fait le filtre natif) → évite de requêter une
+   * page inexistante après un nouveau filtrage. Mémoïser une valeur stable
+   * (ex. une string dérivée des filtres).
+   */
+  resetPageSignal?: unknown;
 }
 
 /** Mode CLIENT : `data` complet → TanStack trie/filtre/pagine en mémoire. */
@@ -528,6 +536,25 @@ export function DataGrid<T>(props: DataGridProps<T>) {
   useEffect(() => {
     setPagination((p) => (p.pageIndex === 0 ? p : { ...p, pageIndex: 0 }));
   }, [sorting, columnFilters, globalFilter]);
+
+  // Idem pour les filtres EXTERNES (mode serveur) : un changement de signal
+  // ramène page 1 ET PURGE les lignes affichées. On saute le 1ᵉʳ rendu (sinon on
+  // annulerait une page restaurée du storage au montage).
+  //
+  // 🔑 La purge est cruciale : sans elle, pendant le refetch (event-loop chargé →
+  // réponse lente), la grille continue d'afficher l'ANCIEN résultat (non filtré,
+  // ex. des DEBUG) → on croit que le filtre « ne marche pas ». Vider d'abord =
+  // on ne voit jamais un résultat périmé sous un filtre actif.
+  const firstResetSignal = useRef(true);
+  useEffect(() => {
+    if (firstResetSignal.current) {
+      firstResetSignal.current = false;
+      return;
+    }
+    setPagination((p) => (p.pageIndex === 0 ? p : { ...p, pageIndex: 0 }));
+    setServerRows([]);
+    setServerTotal(0);
+  }, [props.resetPageSignal]);
 
   const data = isServer
     ? serverRows

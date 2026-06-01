@@ -1,50 +1,55 @@
 /**
  * **Logs** — console du **Log Backplane** Nodefony (page `/nodefony/logs`).
  *
- * Bien plus qu'un viewer : un poste de pilotage des logs structuré autour des
- * **3 axes orthogonaux** du backplane (écriture / destination queryable / bus
- * temps réel). Structure :
+ * Bâtie sur le layout réutilisable `TabbedPage` (en-tête + `StatusBar` de mode
+ * sticky + onglets) → on arrive sur la page et la logique est **identique** aux
+ * autres consoles Studio. La barre de mode (`SyslogStatusBar`) dit en permanence,
+ * quel que soit l'onglet, les 3 axes du backplane : **Écriture** (fan-out) /
+ * **Lecture** (destination relue) / **Live** (bus temps réel).
  *
- *  - **Bandeau Backplane** (toujours visible) : sur quel driver on joue, ses
- *    capacités, la santé, et — en dev — le **switch de driver**.
- *  - **Onglet Live** : flux temps réel (WS `syslog:stream`), tail intelligent.
- *  - **Onglet Explorer** : requête froide paginée du driver actif + **trace
- *    full-stack** par `requestId`.
- *  - **Onglet Fichiers** : viewer des fichiers `*.log` (confort DEV).
- *  - **Onglet Backplane** : architecture (3 axes), registry des drivers, santé.
+ * Onglets :
+ *  - **Vue d'ensemble** (défaut) : comprendre — le « fond de panier », les 3 axes,
+ *    le registry des drivers, la santé, le switch de lecture (dev).
+ *  - **Live** : flux temps réel (WS `syslog:stream`), tail intelligent.
+ *  - **Explorer** : requête froide paginée + **trace full-stack** par `requestId`.
+ *  - **Fichiers** : viewer des fichiers de log (confort DEV).
  *
  * Un seul fetch de la méta backplane (partagé), un drawer de détail Pdu partagé
  * Live ↔ Explorer, et la trace qui bascule de Live vers l'Explorer filtré.
  */
 import { observer } from "mobx-react-lite";
 import { useCallback, useState } from "react";
-import { Button, Stack, Tabs } from "@mantine/core";
+import { Button } from "@mantine/core";
 import {
+  IconAdjustments,
   IconBroadcast,
   IconFile,
   IconFileText,
+  IconLayoutDashboard,
   IconRefresh,
   IconSearch,
-  IconStack2,
 } from "@tabler/icons-react";
+import { useNodefonyState } from "nodefony/react";
 import { useStore } from "../stores";
 import { useResource } from "../hooks";
-import { PageHeader } from "../components/ui";
+import { TabbedPage } from "../components/ui";
 import { FilesTab } from "./logs/FilesTab";
-import { BackplaneBanner } from "./logs/BackplaneBanner";
+import { SyslogStatusBar } from "./logs/SyslogStatusBar";
 import { LiveLogs } from "./logs/LiveLogs";
 import { LogExplorer } from "./logs/LogExplorer";
 import { BackplanePanel } from "./logs/BackplanePanel";
+import { SyslogConfigPanel } from "./logs/SyslogConfigPanel";
 import { PduDetailDrawer } from "./logs/PduDetailDrawer";
 import type { BackplaneMeta, LogRecord } from "./logs/logsTypes";
 
-type TabId = "live" | "explorer" | "files" | "backplane";
+type TabId = "overview" | "live" | "explorer" | "files" | "config";
 
 export const Logs = observer(() => {
   const store = useStore();
+  const realtimeState = useNodefonyState();
 
-  // Méta backplane — fetch UNIQUE partagé par le bandeau, l'Explorer (garde
-  // capability) et l'onglet Backplane.
+  // Méta backplane — fetch UNIQUE partagé par la barre de mode, l'onglet Vue
+  // d'ensemble, et l'Explorer (garde capability).
   const fetcher = useCallback(
     () =>
       store.api.getAbsolute<BackplaneMeta>("/nodefony/syslog/api/backplane"),
@@ -52,7 +57,7 @@ export const Logs = observer(() => {
   );
   const { data: meta, loading, error, reload } = useResource(fetcher);
 
-  const [tab, setTab] = useState<TabId>("live");
+  const [tab, setTab] = useState<TabId>("overview");
   const [selected, setSelected] = useState<LogRecord | null>(null);
   const [traceRequestId, setTraceRequestId] = useState<string>("");
   // Bumpé à chaque switch de driver → force l'Explorer à recharger.
@@ -69,89 +74,83 @@ export const Logs = observer(() => {
   const driverName = meta?.activeDriver?.name ?? null;
 
   return (
-    <Stack gap="md">
-      <PageHeader
+    <>
+      <TabbedPage
         icon={<IconFileText size={24} />}
         title="Logs"
-        subtitle="Console du Log Backplane — flux live, exploration froide, contrôle du driver"
-        sticky
+        subtitle="Console du Log Backplane — flux live, exploration froide, contrôle de la destination"
         actions={
-          <Button.Group>
-            <Button
-              variant="default"
-              leftSection={<IconRefresh size={16} />}
-              loading={loading}
-              onClick={reload}
-            >
-              Rafraîchir
-            </Button>
-          </Button.Group>
-        }
-      />
-
-      {/* En-tête conceptuel : ce qu'est le Log Backplane (auto-explicatif). */}
-      <BackplaneBanner
-        meta={meta}
-        loading={loading}
-        error={error}
-        reload={reload}
-        onSwitched={() => setRefreshKey((k) => k + 1)}
-      />
-
-      <Tabs
-        value={tab}
-        onChange={(v) => v && setTab(v as TabId)}
-        keepMounted={false}
-      >
-        <Tabs.List>
-          <Tabs.Tab value="live" leftSection={<IconBroadcast size={16} />}>
-            Live
-          </Tabs.Tab>
-          <Tabs.Tab value="explorer" leftSection={<IconSearch size={16} />}>
-            Explorer
-          </Tabs.Tab>
-          <Tabs.Tab value="files" leftSection={<IconFile size={16} />}>
-            Fichiers
-          </Tabs.Tab>
-          <Tabs.Tab value="backplane" leftSection={<IconStack2 size={16} />}>
-            Backplane
-          </Tabs.Tab>
-        </Tabs.List>
-
-        <Tabs.Panel value="live" pt="md">
-          <LiveLogs onSelect={setSelected} cluster={meta?.cluster} />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="explorer" pt="md">
-          <LogExplorer
-            capabilities={capabilities}
-            driverName={driverName}
-            traceRequestId={traceRequestId}
-            onSelect={setSelected}
-            refreshKey={refreshKey}
-            cluster={meta?.cluster}
-          />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="files" pt="md">
-          <FilesTab />
-        </Tabs.Panel>
-
-        <Tabs.Panel value="backplane" pt="md">
-          <BackplanePanel
-            meta={meta}
+          <Button
+            variant="default"
+            leftSection={<IconRefresh size={16} />}
             loading={loading}
-            error={error}
-            reload={reload}
-          />
-        </Tabs.Panel>
-      </Tabs>
+            onClick={reload}
+          >
+            Rafraîchir
+          </Button>
+        }
+        statusBar={
+          <SyslogStatusBar meta={meta} realtimeState={realtimeState} />
+        }
+        value={tab}
+        onChange={(v) => setTab(v as TabId)}
+        tabs={[
+          {
+            value: "overview",
+            label: "Vue d'ensemble",
+            icon: <IconLayoutDashboard size={16} />,
+            panel: (
+              <BackplanePanel
+                meta={meta}
+                loading={loading}
+                error={error}
+                reload={reload}
+                onSwitched={() => setRefreshKey((k) => k + 1)}
+                realtimeState={realtimeState}
+              />
+            ),
+          },
+          {
+            value: "live",
+            label: "Live",
+            icon: <IconBroadcast size={16} />,
+            panel: <LiveLogs onSelect={setSelected} cluster={meta?.cluster} />,
+          },
+          {
+            value: "explorer",
+            label: "Explorer",
+            icon: <IconSearch size={16} />,
+            panel: (
+              <LogExplorer
+                capabilities={capabilities}
+                driverName={driverName}
+                traceRequestId={traceRequestId}
+                onSelect={setSelected}
+                refreshKey={refreshKey}
+                cluster={meta?.cluster}
+              />
+            ),
+          },
+          {
+            value: "files",
+            label: "Fichiers",
+            icon: <IconFile size={16} />,
+            panel: <FilesTab />,
+          },
+          {
+            value: "config",
+            label: "Config",
+            icon: <IconAdjustments size={16} />,
+            panel: <SyslogConfigPanel meta={meta} />,
+          },
+        ]}
+      />
 
       <PduDetailDrawer
         record={selected}
         onClose={() => setSelected(null)}
         onTrace={onTrace}
       />
-    </Stack>
+    </>
   );
 });

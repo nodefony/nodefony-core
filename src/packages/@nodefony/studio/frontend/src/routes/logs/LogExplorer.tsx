@@ -18,6 +18,9 @@ import {
   ActionIcon,
   Alert,
   Badge,
+  Box,
+  Button,
+  Chip,
   Code,
   Group,
   Paper,
@@ -28,6 +31,8 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
+  IconFilter,
+  IconFilterOff,
   IconInfoCircle,
   IconRoute2,
   IconSortAscending,
@@ -48,10 +53,23 @@ import type {
   LogDriverCapabilities,
   LogQueryResult,
   LogRecord,
+  Severity,
 } from "./logsTypes";
 import { SEVERITIES } from "./logsTypes";
-import { LOGS_DOC, fmtClock, fmtMillis, recordMessage } from "./logFormat";
-import { ClusterScopeNotice, SeverityBadge } from "./LogVisuals";
+import {
+  LOGS_DOC,
+  driverMeta,
+  fmtClock,
+  fmtMillis,
+  recordMessage,
+  severityColor,
+} from "./logFormat";
+import {
+  CapabilityBadges,
+  ClusterScopeNotice,
+  DriverIcon,
+  SeverityBadge,
+} from "./LogVisuals";
 import { describeFlow } from "./eventFlow";
 
 export interface LogExplorerProps {
@@ -89,6 +107,24 @@ export const LogExplorer = observer(
       traceRequestId ? "asc" : "desc",
     );
 
+    // Filtres EXPLICITES (barre dédiée, ≠ filtres colonne jugés peu lisibles).
+    // Appliqués CÔTÉ SERVEUR via le loader. Sévérité = multi-sélection.
+    // NB : pas de filtre « étape » ici — l'étape est dérivée du contenu (front,
+    // describeFlow), pas un critère back ; la filtrer par texte est trompeur
+    // (matche les logs de requêtes contenant le marqueur). → critère back `flow` à faire.
+    const [severities, setSeverities] = useState<Set<Severity>>(new Set());
+    const [moduleF, setModuleF] = useState("");
+    const [msgidF, setMsgidF] = useState("");
+    const filtersActive =
+      severities.size > 0 || moduleF.trim() !== "" || msgidF.trim() !== "";
+    // Signal stable → le DataGrid repart page 1 quand un filtre change.
+    const filterSignal = `${[...severities].sort().join(",")}|${moduleF.trim()}|${msgidF.trim()}`;
+    const clearFilters = () => {
+      setSeverities(new Set());
+      setModuleF("");
+      setMsgidF("");
+    };
+
     // L'orchestrateur peut pousser un requestId à tracer (depuis Live ou le
     // drawer) → on synchronise le champ ET on passe en lecture chronologique
     // (suivre une requête = la lire du début à la fin).
@@ -107,23 +143,19 @@ export const LogExplorer = observer(
         params.set("order", order);
         if (q.search) params.set("q", q.search);
         if (requestId.trim()) params.set("requestId", requestId.trim());
-        // Filtres par colonne → critères backplane (le back fait l'inclusion ;
-        // l'opérateur du DataGrid est ignoré côté serveur, sémantique fixe).
-        for (const f of q.columnFilters) {
-          if (!f.value) continue;
-          if (f.key === "severity") params.append("severity", f.value);
-          else if (f.key === "module") params.set("module", f.value);
-          else if (f.key === "msgid") params.set("msgid", f.value);
-          else if (f.key === "requestId") params.set("requestId", f.value);
-        }
+        // Filtres EXPLICITES de la barre dédiée (le back applique l'inclusion via
+        // filterPdus : severity = OU entre niveaux, module/msgid = égalité).
+        for (const s of severities) params.append("severity", s);
+        if (moduleF.trim()) params.set("module", moduleF.trim());
+        if (msgidF.trim()) params.set("msgid", msgidF.trim());
         const res = await store.api.getAbsolute<LogQueryResult>(
           `/nodefony/syslog/api/logs/search?${params.toString()}`,
         );
         return { rows: res.rows, total: res.total };
       },
       // refreshKey force la régénération du loader (→ refetch) après un switch ;
-      // order → refetch au changement de sens chronologique.
-      [store, requestId, order, refreshKey],
+      // order/filtres → refetch au changement.
+      [store, requestId, order, refreshKey, severities, moduleF, msgidF],
     );
 
     const columns = useMemo<DataGridColumn<LogRecord>[]>(
@@ -164,9 +196,6 @@ export const LogExplorer = observer(
           key: "severity",
           header: "Sévérité",
           size: 120,
-          filterable: true,
-          filterType: "select",
-          filterOptions: [...SEVERITIES],
           value: (r) => r.severityName,
           render: (r) => <SeverityBadge severity={r.severityName} />,
         },
@@ -174,8 +203,6 @@ export const LogExplorer = observer(
           key: "module",
           header: "Module",
           size: 130,
-          filterable: true,
-          filterType: "text",
           value: (r) => r.moduleName,
           render: (r) => (
             <Text size="xs" c="dimmed" truncate>
@@ -187,8 +214,6 @@ export const LogExplorer = observer(
           key: "msgid",
           header: "msgid",
           size: 120,
-          filterable: true,
-          filterType: "text",
           value: (r) => r.msgid,
           render: (r) =>
             r.msgid ? (
@@ -286,8 +311,62 @@ export const LogExplorer = observer(
       );
     }
 
+    const sourceLabel = driverName ? driverMeta(driverName).label : "—";
     return (
       <Stack gap="sm">
+        {/* CE QUE J'EXPLORE — la destination de lecture active (recherche froide). */}
+        <Paper withBorder radius="md" p="sm" bg="var(--mantine-color-default-hover)">
+          <Group justify="space-between" wrap="wrap" gap="sm">
+            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+              <DriverIcon name={driverName ?? "generic"} />
+              <Box style={{ minWidth: 0 }}>
+                <Text
+                  fz={10}
+                  fw={700}
+                  tt="uppercase"
+                  c="dimmed"
+                  style={{ letterSpacing: 0.4, lineHeight: 1.2 }}
+                >
+                  Tu explores
+                </Text>
+                <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
+                  <Text fw={700} truncate>
+                    {sourceLabel}
+                  </Text>
+                  {driverName && (
+                    <Badge size="xs" variant="default" tt="none">
+                      {driverName}
+                    </Badge>
+                  )}
+                  <Badge size="xs" variant="light" color="blue" tt="none">
+                    recherche froide
+                  </Badge>
+                </Group>
+              </Box>
+            </Group>
+            <Group gap="xs" wrap="nowrap">
+              {capabilities && (
+                <CapabilityBadges capabilities={capabilities} size="xs" />
+              )}
+              <DocHint
+                title="Ce que tu explores"
+                version={LOGS_DOC}
+                summary="L'Explorer fouille la DESTINATION DE LECTURE active (le « fond de panier » sélectionné) — une recherche FROIDE dans l'historique déjà stocké, paginée côté serveur."
+                sections={[
+                  {
+                    label: "Quelle source ?",
+                    body: `Ici : « ${sourceLabel} »${driverName ? ` (${driverName})` : ""}. On la change dans l'onglet « Vue d'ensemble » (en dev). Ce choix n'affecte QUE l'Explorer — ni l'écriture (fan-out), ni le Live.`,
+                  },
+                  {
+                    label: "Froide ≠ live",
+                    body: "« Froide » = on interroge le passé déjà rangé dans cette source (≠ le flux temps réel de l'onglet Live, qui écoute à la source).",
+                  },
+                ]}
+              />
+            </Group>
+          </Group>
+        </Paper>
+
         {/* Honnêteté cluster : la query froide ne voit qu'un worker sauf driver agrégateur. */}
         <ClusterScopeNotice
           cluster={cluster}
@@ -376,6 +455,67 @@ export const LogExplorer = observer(
           />
         </Group>
 
+        {/* Barre de FILTRES explicites — clairs, au-dessus de la grille. */}
+        <Group gap="sm" wrap="wrap" align="center">
+          <Group gap={6} wrap="nowrap">
+            <IconFilter size={14} />
+            <Text size="xs" fw={600} c="dimmed">
+              Sévérité
+            </Text>
+          </Group>
+          <Chip.Group
+            multiple
+            value={[...severities]}
+            onChange={(vals) => setSeverities(new Set(vals as Severity[]))}
+          >
+            <Group gap={4} wrap="wrap">
+              {SEVERITIES.map((s) => (
+                <Chip key={s} value={s} size="xs" color={severityColor(s)}>
+                  {s}
+                </Chip>
+              ))}
+            </Group>
+          </Chip.Group>
+          <TextInput
+            size="xs"
+            w={150}
+            placeholder="Module…"
+            value={moduleF}
+            onChange={(e) => setModuleF(e.currentTarget.value)}
+            aria-label="filtrer par module"
+          />
+          <TextInput
+            size="xs"
+            w={150}
+            placeholder="msgid…"
+            value={msgidF}
+            onChange={(e) => setMsgidF(e.currentTarget.value)}
+            aria-label="filtrer par msgid"
+          />
+          {filtersActive && (
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="gray"
+              leftSection={<IconFilterOff size={14} />}
+              onClick={clearFilters}
+            >
+              Effacer
+            </Button>
+          )}
+          <DocHint
+            title="Filtres"
+            version={LOGS_DOC}
+            summary="Filtres appliqués CÔTÉ SERVEUR (sur TOUT l'historique du driver, pas seulement la page affichée). La sévérité est multi-sélection : coche plusieurs niveaux pour les cumuler."
+            sections={[
+              {
+                label: "Comment ils se combinent",
+                body: "Sévérité (OU entre les niveaux cochés) ET module ET msgid ET recherche plein-texte — tout se cumule. La page repart à 1 à chaque changement.",
+              },
+            ]}
+          />
+        </Group>
+
         {/* Sens de lecture explicite — répond à « je comprends pas la chronologie ». */}
         <Text size="xs" c="dimmed" mb="xs">
           {order === "asc" ? (
@@ -401,9 +541,10 @@ export const LogExplorer = observer(
           onRowClick={onSelect}
           pageSize={50}
           height={540}
+          resetPageSignal={filterSignal}
           searchPlaceholder="Recherche plein-texte (payload, msg, module, msgid)…"
           emptyMessage="Aucun log ne correspond aux critères."
-          persist={{ key: "studio.logs.explorer", storage: "session" }}
+          persist={{ key: "studio.logs.explorer.v2", storage: "session" }}
         />
         </Paper>
       </Stack>

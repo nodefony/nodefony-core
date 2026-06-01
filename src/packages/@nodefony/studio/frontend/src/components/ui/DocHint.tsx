@@ -89,6 +89,13 @@ export interface HintProps {
   links?: HintLink[];
   /** Largeur du dropdown (px). Défaut 360. */
   width?: number;
+  /**
+   * Déclencheur **custom** (ex. un `Badge`/chip) : remplace l'icône ⓘ par
+   * défaut → le contenu lui-même ouvre la fiche au survol. L'élément doit
+   * accepter une `ref` (composant Mantine OK) ; le rendre focusable
+   * (`tabIndex={0}`) pour l'ouverture au clavier (a11y).
+   */
+  children?: ReactNode;
 }
 
 /**
@@ -110,6 +117,7 @@ export function Hint({
   sections = [],
   links = [],
   width = 360,
+  children,
 }: HintProps) {
   const cfg = HINT_KINDS[kind];
   const Trigger = cfg.trigger;
@@ -126,15 +134,17 @@ export function Hint({
       withinPortal
     >
       <HoverCard.Target>
-        <ActionIcon
-          variant="subtle"
-          color={kind === "doc" ? "gray" : cfg.accent}
-          size="sm"
-          radius="xl"
-          aria-label={`${cfg.badge} : ${title}`}
-        >
-          <Trigger size={15} stroke={1.6} />
-        </ActionIcon>
+        {children ?? (
+          <ActionIcon
+            variant="subtle"
+            color={kind === "doc" ? "gray" : cfg.accent}
+            size="sm"
+            radius="xl"
+            aria-label={`${cfg.badge} : ${title}`}
+          >
+            <Trigger size={15} stroke={1.6} />
+          </ActionIcon>
+        )}
       </HoverCard.Target>
       <HoverCard.Dropdown p={0}>
         {/* En-tête : impression de fiche (icône typée + titre + badge). */}

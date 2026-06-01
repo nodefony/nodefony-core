@@ -1,6 +1,7 @@
 import { observer } from "mobx-react-lite";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { resolveModuleConfig } from "./config/moduleConfigPanels";
 import dayjs from "dayjs";
 import {
   ActionIcon,
@@ -55,6 +56,8 @@ import {
 } from "@tabler/icons-react";
 import { useStore } from "../stores";
 import {
+  ConfigLayout,
+  ConfigSummaryCard,
   ConfigView,
   DocLayout,
   KeyValue,
@@ -285,7 +288,11 @@ export const ModuleDetail = observer(() => {
   const hasDeps = data.dependencies.length > 0;
   const hasRoutes = routes.length > 0;
   const hasServices = data.services.length > 0;
-  const hasConfig = !!data.config && Object.keys(data.config).length > 0;
+  // Config RICHE (ConfigLayout + card synthèse) si le module est enregistré ;
+  // sinon fallback dump ConfigView. http (migré Zod) = 1er cas riche.
+  const cfg = resolveModuleConfig(name, data.key, data.name);
+  const hasConfig =
+    !!cfg || (!!data.config && Object.keys(data.config).length > 0);
 
   return (
     <Stack gap="md">
@@ -349,7 +356,7 @@ export const ModuleDetail = observer(() => {
         // CLIPPE le Tabs.List sticky (haut du contenu coupé + sticky cassé).
         style={{ overflow: "visible" }}
       >
-        <Tabs value={tab ?? (hasDocs ? "docs" : "overview")} onChange={setTab}>
+        <Tabs value={tab ?? "overview"} onChange={setTab}>
           <Tabs.List
             style={{
               position: "sticky",
@@ -535,24 +542,33 @@ export const ModuleDetail = observer(() => {
                   </Grid.Col>
                   {hasConfig && (
                     <Grid.Col span={{ base: 12, md: 6 }}>
-                      <Card withBorder radius="md" p="lg" h="100%">
-                        <Group justify="space-between" mb="sm">
-                          <Group gap={6}>
-                            <IconSettings size={18} />
-                            <Title order={5}>Configuration</Title>
+                      {cfg ? (
+                        <ConfigSummaryCard
+                          module={cfg.module}
+                          schema={cfg.schema}
+                          sections={cfg.sections}
+                          onOpen={() => setTab("config")}
+                        />
+                      ) : (
+                        <Card withBorder radius="md" p="lg" h="100%">
+                          <Group justify="space-between" mb="sm">
+                            <Group gap={6}>
+                              <IconSettings size={18} />
+                              <Title order={5}>Configuration</Title>
+                            </Group>
+                            <Button
+                              variant="light"
+                              size="xs"
+                              onClick={() => setTab("config")}
+                            >
+                              Tout voir
+                            </Button>
                           </Group>
-                          <Button
-                            variant="light"
-                            size="xs"
-                            onClick={() => setTab("config")}
-                          >
-                            Tout voir
-                          </Button>
-                        </Group>
-                        <ScrollArea h={260} type="auto" offsetScrollbars>
-                          <ConfigView value={data.config} />
-                        </ScrollArea>
-                      </Card>
+                          <ScrollArea h={260} type="auto" offsetScrollbars>
+                            <ConfigView value={data.config} />
+                          </ScrollArea>
+                        </Card>
+                      )}
                     </Grid.Col>
                   )}
                 </Grid>
@@ -681,9 +697,17 @@ export const ModuleDetail = observer(() => {
 
             {hasConfig && (
               <Tabs.Panel value="config">
-                <ScrollArea h={520} type="auto" offsetScrollbars>
-                  <ConfigView value={data.config} />
-                </ScrollArea>
+                {cfg ? (
+                  <ConfigLayout
+                    module={cfg.module}
+                    schema={cfg.schema}
+                    sections={cfg.sections}
+                  />
+                ) : (
+                  <ScrollArea h={520} type="auto" offsetScrollbars>
+                    <ConfigView value={data.config} />
+                  </ScrollArea>
+                )}
               </Tabs.Panel>
             )}
           </Box>

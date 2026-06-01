@@ -62,6 +62,30 @@ export {
 } from "./FlashValue";
 export { KpiCard, type KpiCardProps } from "./KpiCard";
 export {
+  StatusBar,
+  type StatusBarProps,
+  type StatusSegment,
+  type StatusTone,
+} from "./StatusBar";
+export {
+  TabbedPage,
+  type TabbedPageProps,
+  type TabbedPageTab,
+} from "./TabbedPage";
+export {
+  ConfigLayout,
+  type ConfigLayoutProps,
+  type ConfigField,
+  type ConfigSection,
+  type ConfigSource,
+  type ConfigMutability,
+  type ConfigSchemaStatus,
+} from "./ConfigLayout";
+export {
+  ConfigSummaryCard,
+  type ConfigSummaryCardProps,
+} from "./ConfigSummaryCard";
+export {
   MiniChart,
   ChartCard,
   Legend,

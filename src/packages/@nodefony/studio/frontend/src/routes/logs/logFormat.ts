@@ -5,11 +5,11 @@
  * pour être testables et partagés sans tirer de rendu.
  */
 import type { MantineColor } from "@mantine/core";
-import type { LogRecord, Severity } from "./logsTypes";
+import type { BackplaneMeta, LogRecord, Severity } from "./logsTypes";
 import { SEVERITIES } from "./logsTypes";
 
 /** Version de la documentation embarquée (badges des fiches `DocHint`). */
-export const LOGS_DOC = "v1.0";
+export const LOGS_DOC = "v2.0";
 
 /**
  * Couleur Mantine par sévérité RFC 5424. Les 4 sévérités « hautes »
@@ -213,6 +213,125 @@ export function toRecord(d: unknown): LogRecord | null {
     payload: o.payload,
     requestId: typeof o.requestId === "string" ? o.requestId : undefined,
   };
+}
+
+/**
+ * Une **destination d'écriture** du fan-out (axe WRITE). 1 `log()` est copié vers
+ * TOUTES les destinations `on` en même temps (≠ la LECTURE = une seule).
+ */
+export interface WriteDestination {
+  id: string;
+  /** Libellé lisible. */
+  label: string;
+  /** Détail : où / comment / pourquoi (ou raison du « non configuré »). */
+  detail: string;
+  /** `true` = reçoit réellement les écritures (montée / configurée ici). */
+  on: boolean;
+  /** Famille : ring volatil · sink texte LB.W · transport structuré. */
+  kind: "ring" | "sink" | "transport";
+  /** Pour les transports : nom de driver (icône / méta). */
+  driverName?: string;
+}
+
+/**
+ * Dérive le **fan-out d'écriture** depuis la méta backplane — la vérité de « où
+ * part chaque log ». Dérivé front (pas de seam back dédié) mais honnête :
+ *
+ *  1. **Mémoire (ring)** — toujours alimenté (le `CircularBuffer` du Syslog).
+ *  2. **Sink texte LB.W** — `write.sink` (stdout / fichier .log / null).
+ *  3. **Fichier JSONL** — actif dès que `file` OU `cluster-file` est monté ; les
+ *     deux partagent le MÊME `.jsonl` par worker (writeKey dédupliqué côté kernel)
+ *     → une seule destination d'écriture (≠ deux drivers de relecture).
+ *  4. **Loki** / **OpenSearch** — transports HTTP batchés distincts, actifs si le
+ *     driver est monté (URL configurée), décochés sinon.
+ *
+ * Les destinations `on:false` restent listées (« connu mais non configuré ») pour
+ * que l'écran montre TOUT le fan-out possible, pas seulement l'actif.
+ */
+export function writeDestinations(meta: BackplaneMeta): WriteDestination[] {
+  const writable = new Set(
+    meta.drivers.filter((d) => d.capabilities.write).map((d) => d.name),
+  );
+  const has = (n: string) => writable.has(n);
+  const sink = meta.write.sink;
+  const sinkOn = sink !== "null" && sink !== "none";
+  const jsonlOn = has("file") || has("cluster-file");
+  return [
+    {
+      id: "ring",
+      label: "Mémoire (ring)",
+      detail:
+        "Buffer volatile des N derniers logs — alimente le Live et l'Explorer « mémoire ». Toujours actif, perdu au redémarrage.",
+      on: true,
+      kind: "ring",
+    },
+    {
+      id: "sink",
+      label:
+        sink === "file"
+          ? "Fichier texte (.log)"
+          : sink === "stdout"
+            ? "stdout (console)"
+            : `sink « ${sink} »`,
+      detail: sinkOn
+        ? sink === "file"
+          ? "La ligne texte de chaque log est ajoutée à un fichier .log."
+          : "La ligne texte part sur la sortie standard (console / collecteur)."
+        : "Sink texte désactivé (null) — aucune ligne texte écrite (bench).",
+      on: sinkOn,
+      kind: "sink",
+    },
+    {
+      id: "jsonl",
+      label: "Fichier JSONL",
+      detail: jsonlOn
+        ? "Pdu structurés en JSON Lines (1 .jsonl par worker), relus par les drivers « fichier » / « cluster »."
+        : "Non activé (log.queryDriver: « file » ou « cluster-file »).",
+      on: jsonlOn,
+      kind: "transport",
+      driverName: has("cluster-file") ? "cluster-file" : "file",
+    },
+    {
+      id: "loki",
+      label: "Grafana Loki",
+      detail: has("loki")
+        ? "Push HTTP batché (streams LogQL) vers Loki."
+        : "Non configuré (LOKI_URL absent).",
+      on: has("loki"),
+      kind: "transport",
+      driverName: "loki",
+    },
+    {
+      id: "opensearch",
+      label: "OpenSearch",
+      detail: has("opensearch")
+        ? "Indexation _bulk batchée vers OpenSearch."
+        : "Non configuré (OPENSEARCH_URL absent).",
+      on: has("opensearch"),
+      kind: "transport",
+      driverName: "opensearch",
+    },
+  ];
+}
+
+/** État de la connexion temps réel → libellé + couleur (point d'état du bus). */
+export function realtimeStateLabel(state: string): {
+  label: string;
+  color: MantineColor;
+  live: boolean;
+} {
+  switch (state) {
+    case "connected":
+      return { label: "connecté", color: "teal", live: true };
+    case "connecting":
+      return { label: "connexion…", color: "yellow", live: false };
+    case "reconnecting":
+      return { label: "reconnexion…", color: "orange", live: false };
+    case "error":
+      return { label: "erreur", color: "red", live: false };
+    default:
+      return { label: "hors ligne", color: "gray", live: false };
+  }
 }
 
 /**
