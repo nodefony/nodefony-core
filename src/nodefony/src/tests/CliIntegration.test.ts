@@ -18,6 +18,7 @@
 import assert from "node:assert";
 import { spawn, ChildProcess } from "node:child_process";
 import { connect } from "node:net";
+import https from "node:https";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -31,8 +32,10 @@ const BIN = path.join(CORE_ROOT, "bin", "nodefony");
 const DIST = path.join(CORE_ROOT, "dist", "node", "index.js"); // entrée `import` (cf package.json exports)
 
 const HTTP_PORT = 5151; // port http principal de l'app dev — sert au garde-fou EADDRINUSE
+const HTTPS_PORT = 5152; // port https/http2 (probe d'intégrité, cert auto-signé)
 const READY_RE = /Server Listen on/i; // marqueur readiness (server-static.ts)
 const SERVER_NET_RE = /Server Listen on http/i; // serveur RÉSEAU (exclut les statics)
+const FAILSOFT_RE = /Cannot find package/i; // module physiquement introuvable → fail-soft
 const RUN_BOOT = process.env.RUN_CLI_BOOT === "1";
 
 /** Résultat d'un spawn d'une commande terminante. */
@@ -93,6 +96,30 @@ function countKernelBoots(traceFile: string): number {
     .readFileSync(traceFile, "utf8")
     .split("\n")
     .filter((l) => l.trim().length > 0).length;
+}
+
+/** GET https://127.0.0.1:5152<path> (cert auto-signé accepté) → status code. */
+function httpsGetStatus(p: string, timeoutMs = 6000): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      {
+        host: "127.0.0.1",
+        port: HTTPS_PORT,
+        path: p,
+        rejectUnauthorized: false,
+        timeout: timeoutMs,
+      },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode ?? 0);
+      },
+    );
+    req.once("error", reject);
+    req.once("timeout", () => {
+      req.destroy();
+      reject(new Error(`https GET timeout ${p}`));
+    });
+  });
 }
 
 /** Tue un child et attend sa sortie (SIGTERM puis SIGKILL de secours). */
@@ -254,6 +281,66 @@ describe("CLI integration — boot réel (RUN_CLI_BOOT=1)", function () {
       1,
       `cluster -w1 doit créer 1 seul Kernel, observé ${boots} (double-boot)\n${out.slice(-2000)}`,
     );
+  });
+
+  // ─── Intégrité du chargement des modules (anti fail-soft silencieux) ───────
+  // Mon filet initial ne vérifiait QUE « Server Listen » → un module en fail-soft
+  // (Cannot find package) cassait la chaîne sans rien faire échouer (serveur up mais
+  // module absent → routes 404). Ce test attrape ce cas : modules chargés + route servie.
+  it("production -w1 → intégrité des modules (0 fail-soft, route module servie)", async () => {
+    const child = spawn(
+      process.execPath,
+      [BIN, "production", "--workers", "1"],
+      {
+        cwd: REPO_ROOT,
+        env: { ...process.env },
+      },
+    );
+    let out = "";
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error(`readiness timeout:\n${out.slice(-1500)}`)),
+          45000,
+        );
+        const onData = (d: Buffer) => {
+          out += d.toString();
+          if (SERVER_NET_RE.test(out)) {
+            clearTimeout(timer);
+            resolve();
+          }
+        };
+        child.stdout.on("data", onData);
+        child.stderr.on("data", onData);
+        child.once("exit", (c, s) => {
+          clearTimeout(timer);
+          reject(
+            new Error(
+              `exited before ready (code=${c} sig=${s}):\n${out.slice(-1500)}`,
+            ),
+          );
+        });
+      });
+      // 1) Aucun module en fail-soft (Cannot find package) → chaîne de modules intègre.
+      assert.ok(
+        !FAILSOFT_RE.test(out),
+        `aucun module ne doit échouer au chargement (fail-soft)\n${out.slice(-2500)}`,
+      );
+      // 2) Le module test a bien été enregistré.
+      assert.ok(
+        /MODULE ADD\s*:\s*test/i.test(out),
+        `le module "test" doit être chargé\n${out.slice(-2500)}`,
+      );
+      // 3) Preuve ultime : une route du module répond réellement (pas juste "Server Listen").
+      const status = await httpsGetStatus("/nodefony/test/index");
+      assert.strictEqual(
+        status,
+        200,
+        `GET /nodefony/test/index doit répondre 200 (module servi), reçu ${status}`,
+      );
+    } finally {
+      await killAndWait(child);
+    }
   });
 
   // ─── Mode BATCH one-shot (CONSOLE, 0 serveur, terminate) ───────────────────
