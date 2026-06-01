@@ -35,11 +35,12 @@
   lancé en background n'avait pas régénéré tous les dist (drizzle/studio manquants) → 2 boots ratés.
   → build complet **foreground** et vérifier `ls dist/index.js` des modules clés avant start. (variante
   du pattern « created dist menteur » — à fusionner si revu.)
-- `[2× — 2026-06-01]` **orm-core `dist/types` manque au pre-push typecheck (turbo cache)** : `@nodefony/user`
-  importe `@nodefony/orm-core` dans ses `.d.ts` → si `orm-core/dist/types/index.d.ts` absent (après un `clean`
-  - builds incrémentaux turbo), le typecheck `nodefony` casse (TS2307 « Cannot find module @nodefony/orm-core »)
-    et **bloque `git push`** (hook pre-push). Vu 2× cette session (mêmes 3 erreurs). → rebuild ciblé
-    `npx turbo run build --filter=@nodefony/orm-core --force` (~3s) AVANT le push. Variante de [[feedback_turbo_cache_stale_logs]].
+- ✅ **CORRIGÉ 2026-06-01** — `dist/types` des packages manquants au pre-push typecheck (vu 3× : orm-core ×2,
+  user ×1) **bloquait `git push`** (TS2307). **Cause racine** : le core `nodefony` importe http/framework/
+  security/user/orm-core (cycle inversé — ces packages ne sont PAS des deps turbo du core) → `turbo run
+typecheck` lançait le typecheck du core EN PARALLÈLE du build de ces packages → RACE (types pas encore là).
+  **Fix** : hook `pre-push` = `npx turbo run build && npm run typecheck` (build TOUT avant le typecheck →
+  plus de race ; turbo caché → ~qq s). Fini le rebuild manuel `--force`. Cf [[feedback_turbo_cache_stale_logs]].
 
 ## 🔄 Cycle de session (END/RETEX) — méta
 
