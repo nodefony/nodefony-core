@@ -873,6 +873,26 @@ describe("Kernel — initializeLog", () => {
     assert.strictEqual(k.syslog?.listenerCount("onLog"), 1);
   });
 
+  it("initializeLog appelé 2x → transports d'écriture NON dédoublés (anti-doublon JSONL)", () => {
+    // En dev, initializeLog monte les FileTransport des drivers du Log Backplane.
+    // Appelé 2× (logger précoce dans start(), puis re-init post-config dans loadApp()),
+    // il doit RETIRER les transports du 1er passage avant de remonter — sinon chaque
+    // log est écrit N× dans le JSONL (dédup addTransport par référence inopérante car
+    // chaque passage crée une nouvelle instance FileTransport).
+    const k = new Kernel("development", null, {
+      log: { active: true, debug: "*" },
+    });
+    k.initializeLog();
+    const after1 = k.syslog?.transportCount ?? 0;
+    k.initializeLog();
+    const after2 = k.syslog?.transportCount ?? 0;
+    assert.strictEqual(
+      after2,
+      after1,
+      "transports stables après 2e initializeLog",
+    );
+  });
+
   it("environment production — log.debug = '*' → DEBUG activé", () => {
     const k = new Kernel("production", null, {
       log: { active: true, debug: "*" },

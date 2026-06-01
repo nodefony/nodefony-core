@@ -22,6 +22,7 @@ import {
   type ILogDriverContext,
 } from "../syslog/drivers/logDriverRegistry";
 import { registerBuiltinLogDrivers } from "../syslog/drivers/builtinLogDrivers";
+import type { ITransport } from "../types/ITransport";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
@@ -296,6 +297,15 @@ class Kernel extends Service implements IKernel {
   domain: string = "localhost";
   progress: number = Events.onInit;
   injector: Injector;
+  /**
+   * Transports d'ÉCRITURE montés par {@link initializeLog} (drivers du Log
+   * Backplane). `initializeLog` est ré-entrant (logger précoce dans `start()`,
+   * puis re-init avec la config app dans `loadApp()`) : on retire ces transports
+   * AVANT d'en monter de nouveaux, sinon chaque `FileTransport` (nouvelle instance
+   * → dédup `addTransport` par référence inopérante) s'accumule et chaque log est
+   * écrit N× dans le JSONL. Lazy (`null` tant qu'aucun transport monté).
+   */
+  private _mountedLogTransports: ITransport[] | null = null;
   isDev: boolean = false;
   isProd: boolean = true;
   // Buffer FIFO des `MODULE ADD` émis avant l'en-tête `SERVER` (logEnv) —
@@ -877,6 +887,15 @@ class Kernel extends Service implements IKernel {
 
   initializeLog(): void | null {
     this.syslog?.removeAllListeners();
+    // Idempotence des transports d'écriture : `removeAllListeners` ne touche QUE
+    // les listeners EventEmitter, PAS le tableau `_transports`. Retirer ceux que
+    // ce même `initializeLog` a montés au passage précédent (cf champ doc).
+    if (this._mountedLogTransports !== null) {
+      for (const t of this._mountedLogTransports) {
+        this.syslog?.removeTransport(t);
+      }
+      this._mountedLogTransports = null;
+    }
 
     if (this.options.log && !this.options.log.active) {
       return;
@@ -961,6 +980,7 @@ class Kernel extends Service implements IKernel {
         const key = mount.writeKey;
         if (key === undefined || !addedWrites.has(key)) {
           this.syslog?.addTransport(mount.transport);
+          (this._mountedLogTransports ??= []).push(mount.transport);
           if (key !== undefined) addedWrites.add(key);
         }
       }

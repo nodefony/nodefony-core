@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-01T12:15:32.322Z",
+  "generated": "2026-06-01T12:47:52.697Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -13531,6 +13531,17 @@
       "registerBuiltinLogDrivers": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "ITransport": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/syslog/Syslog.ts",
+        "src/nodefony/src/types/ISyslog.ts",
+        "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
+        "src/nodefony/src/syslog/transports/BatchingHttpTransport.ts",
+        "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
+        "src/nodefony/src/syslog/transports/FileTransport.ts",
+        "src/nodefony/src/syslog/transports/HttpTransport.ts",
+        "src/nodefony/src/syslog/transports/SyslogTransport.ts"
+      ],
       "Rollup": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
@@ -13651,16 +13662,6 @@
       "ISyslog": [
         "src/nodefony/src/syslog/Syslog.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
-      ],
-      "ITransport": [
-        "src/nodefony/src/syslog/Syslog.ts",
-        "src/nodefony/src/types/ISyslog.ts",
-        "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
-        "src/nodefony/src/syslog/transports/BatchingHttpTransport.ts",
-        "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
-        "src/nodefony/src/syslog/transports/FileTransport.ts",
-        "src/nodefony/src/syslog/transports/HttpTransport.ts",
-        "src/nodefony/src/syslog/transports/SyslogTransport.ts"
       ],
       "isLogColorEnabled": [
         "src/nodefony/src/syslog/Syslog.ts"

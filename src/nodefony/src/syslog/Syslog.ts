@@ -999,6 +999,14 @@ class Syslog extends Event implements ISyslog {
     return this;
   }
 
+  /**
+   * Nombre de transports d'écriture branchés (introspection — data plane Studio,
+   * tests d'idempotence). Lecture seule, 0 allocation.
+   */
+  get transportCount(): number {
+    return this._transports.length;
+  }
+
   private _fireTransports(pdu: Pdu): void {
     for (const t of this._transports) {
       t.send(pdu).catch((err: unknown) =>
