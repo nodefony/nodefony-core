@@ -8,6 +8,7 @@ import {
   Pdu,
   KernelEventsType,
   nodefonyError,
+  RequestContext,
   //EnvironmentType,
   //DebugType,
   Scope,
@@ -48,8 +49,27 @@ import ServerHttps from "../../service/servers/server-https";
 import Websocket from "../../service/servers/server-websocket";
 import WebsocketSecure from "../../service/servers/server-websocket-secure";
 
-// Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
+// Tag d'event — couleur gatée au boot (gratuit hors TTY).
 const colorLogEvent = (): string => logColor.cyanBgBlack("EVENT CONTEXT");
+
+// Sévérité de log par **jalon notable** du cycle de vie. Les events techniques
+// (tout le reste) restent DEBUG ; les jalons de session — requête entrante,
+// réponse envoyée, connexion WS ouverte/fermée — montent à INFO pour être
+// visibles SANS activer DEBUG (symétrie avec le bilan `req`). Table figée
+// module-level → lookup O(1), 0 alloc/req.
+const EVENT_SEVERITY: Record<string, Severity> = {
+  onRequest: "INFO", // requête entrante (contexte) — HTTP
+  onSend: "INFO", // réponse envoyée — HTTP
+  onConnect: "INFO", // connexion WebSocket ouverte
+  onClose: "INFO", // connexion WebSocket fermée
+};
+
+// 🚦 PERF : la promotion DEBUG→INFO des jalons n'a lieu QU'HORS production. En
+// prod, tout reste DEBUG → **0 log INFO supplémentaire par requête** (volume +
+// pression GC identiques à avant ; règle perf ABSOLUE respectée). Hors prod, les
+// jalons montent à INFO pour l'observabilité Studio. Résolu **1×** (1er event,
+// kernel présent) puis caché → coût après = simple lookup O(1).
+let lifecyclePromoted: boolean | null = null;
 
 // Shared frozen array used when timing is disabled — zero per-request alloc.
 const EMPTY_PHASES: PhaseTiming[] = Object.freeze(
@@ -349,6 +369,19 @@ class Context extends Service implements IContextInterface {
     if (!msgid) {
       msgid = this.type;
     }
+    // Les logs émis au TEARDOWN (onFinish « Requête terminée », onClose, bilan
+    // `req`) sont HORS de la bulle `RequestContext.run` (déjà refermée) → un Pdu
+    // créé là ne capturerait PAS le requestId (provider ALS vide) → NON corrélable
+    // (trace full-stack cassée). Si l'ALS est vide mais que le context tient un
+    // requestId, on rouvre une micro-bulle → le Pdu le capture À LA CRÉATION, donc
+    // AVANT le dispatch (ring + écriture driver JSONL/Loki + bus) : correct pour
+    // TOUS les drivers, pas seulement le ring `memory`. Cas courant (dans la
+    // bulle) : ALS pleine → run direct ; surcoût = 1 lecture ALS (~ns).
+    if (this.requestId && RequestContext.getRequestId() === undefined) {
+      return RequestContext.run({ requestId: this.requestId }, () =>
+        super.log(pci, severity, msgid, msg),
+      );
+    }
     return super.log(pci, severity, msgid, msg);
   }
 
@@ -358,13 +391,32 @@ class Context extends Service implements IContextInterface {
     return super.clean();
   }
 
+  /**
+   * Sévérité du log d'un event : jalon notable → INFO **hors production**,
+   * DEBUG sinon (et toujours DEBUG en prod → 0 surcoût de volume). Le drapeau
+   * d'env est résolu une seule fois (kernel présent au 1ᵉʳ event).
+   */
+  private eventSeverity(event: KernelEventsType): Severity {
+    if (lifecyclePromoted === null) {
+      const env = this.kernel?.environment;
+      lifecyclePromoted = env !== "production" && env !== "prod";
+    }
+    return (lifecyclePromoted && EVENT_SEVERITY[event as string]) || "DEBUG";
+  }
+
   override fire(event: KernelEventsType, ...args: unknown[]): boolean {
-    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
+    this.log(
+      `${colorLogEvent()} ${event as string}`,
+      this.eventSeverity(event),
+    );
     return super.fire(event, ...args);
   }
 
   override emit(event: KernelEventsType, ...args: unknown[]): boolean {
-    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
+    this.log(
+      `${colorLogEvent()} ${event as string}`,
+      this.eventSeverity(event),
+    );
     return super.emit(event, ...args);
   }
 
@@ -372,7 +424,10 @@ class Context extends Service implements IContextInterface {
     event: KernelEventsType,
     ...args: unknown[]
   ): Promise<unknown> {
-    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
+    this.log(
+      `${colorLogEvent()} ${event as string}`,
+      this.eventSeverity(event),
+    );
     return super.emitAsync(event, ...args);
   }
 
@@ -380,7 +435,10 @@ class Context extends Service implements IContextInterface {
     event: KernelEventsType,
     ...args: unknown[]
   ): Promise<unknown> {
-    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
+    this.log(
+      `${colorLogEvent()} ${event as string}`,
+      this.eventSeverity(event),
+    );
     return super.emitAsync(event, ...args);
   }
 
@@ -398,15 +456,10 @@ class Context extends Service implements IContextInterface {
         return;
       }
       const entry = logger.renderHttp(this as never, err as Error | null);
-      const pdu = this.log(entry.text, entry.severity, entry.msgid);
-      // Le log RÉCAPITULATIF de fin de requête (msgid "req") est émis dans le
-      // teardown, HORS de la bulle `RequestContext.run` (déjà refermée) → le Pdu
-      // n'a PAS capturé le requestId via `Pdu.requestIdProvider` (ALS vide ici).
-      // On l'attache depuis le context qui le détient → cette ligne devient
-      // corrélable (trace full-stack par requestId). Mutation synchrone : le ring
-      // (query) ET le bus `syslog:stream` (coalescé au tick suivant) la voient.
-      if (pdu && pdu.requestId === undefined) pdu.requestId = this.requestId;
-      return pdu;
+      // Le bilan `req` (LE point d'entrée d'une trace) est émis au teardown, hors
+      // bulle ALS → la corrélation requestId est assurée par l'override `log()`
+      // ci-dessus (micro-bulle si l'ALS est vide), commun à tous les logs de fin.
+      return this.log(entry.text, entry.severity, entry.msgid);
     } catch {}
   }
 

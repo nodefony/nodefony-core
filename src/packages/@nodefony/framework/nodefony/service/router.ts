@@ -13,6 +13,11 @@ import Controller from "../src/Controller";
 
 type RouteRequirementMethods = string | string[] | undefined;
 
+// 🚦 PERF : « route trouvée » monte à NOTICE (jalon visible sans DEBUG) HORS
+// production seulement. En prod → DEBUG → 0 log de routage supplémentaire émis
+// par requête. Résolu 1× (1ʳᵉ requête, kernel présent), puis caché.
+let routeNoticePromoted: boolean | null = null;
+
 /**
  * Décore une erreur 405 avec l'en-tête `Allow` (RFC 9110 §15.5.6) et le type de
  * rejet. Champs ajoutés dynamiquement sur l'`HttpError` au moment du throw.
@@ -69,7 +74,15 @@ class Router extends Service {
     for (let i = 0; i < routes.length; i++) {
       try {
         if (resolver.match(routes[i], context, cleanPath)) {
-          this.log(`Match route : ${routes[i].name}`, "DEBUG");
+          // « route trouvée » = jalon notable (NOTICE hors prod, DEBUG en prod).
+          if (routeNoticePromoted === null) {
+            const env = this.kernel?.environment;
+            routeNoticePromoted = env !== "production" && env !== "prod";
+          }
+          this.log(
+            `Match route : ${routes[i].name}`,
+            routeNoticePromoted ? "NOTICE" : "DEBUG",
+          );
           resolver.exception = undefined;
           return resolver;
         }
