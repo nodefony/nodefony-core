@@ -308,6 +308,13 @@ class Kernel extends Service implements IKernel {
   private _mountedLogTransports: ITransport[] | null = null;
   isDev: boolean = false;
   isProd: boolean = true;
+  /**
+   * En dev, `BootReporter` (checklist animée) prend la main sur l'en-tête de boot
+   * (splash + banner `SERVER`). Quand `true`, `initCluster()` ne ré-imprime PAS le
+   * banner `logEnv()` (le reporter le place lui-même, dans le bon ordre). Dev-only,
+   * boot-only — 0 impact runtime/requête.
+   */
+  reporterOwnsHeader: boolean = false;
   // Buffer FIFO des `MODULE ADD` émis avant l'en-tête `SERVER` (logEnv) —
   // flushé par `initCluster()` après le banner. Tant qu'il n'est pas null
   // les logs sont différés ; passé à `null`, addModule() log immédiatement.
@@ -420,8 +427,12 @@ class Kernel extends Service implements IKernel {
       await this.cli.showAsciify(this.projectName).catch((e) => {
         this.log(e, "WARNING");
       });
-      this.cli.showBanner();
-      this.cli.blankLine();
+      // Header consolidé (version + env + meta) juste SOUS l'ASCII, AVANT tout log de
+      // boot → ordre stable dans tous les modes dev (animé / debug / non-TTY). Couleurs
+      // gatées TTY par logColor. initCluster() ne ré-imprime PAS logEnv (reporterOwnsHeader),
+      // ni la ligne « Version … ». Le BootReporter ne pose que la checklist (✓/spinner).
+      this.printDevHeader();
+      this.reporterOwnsHeader = true;
     }
 
     // `tmp/` est gitignored (jamais commité) → absent sur un checkout frais (CI),
@@ -1081,6 +1092,37 @@ class Kernel extends Service implements IKernel {
     }
   }
 
+  /**
+   * Header de boot dev consolidé, imprimé juste sous l'ASCII (dev-only) : nom +
+   * version + environnement + meta (`cluster · platform · node · pid`). Remplace la
+   * ligne « Version … » et le banner « SERVER … » bruts. Couleurs gatées TTY (logColor).
+   */
+  private printDevHeader(): void {
+    let version = "";
+    try {
+      const v: unknown = this.cli?.commander?.version();
+      if (typeof v === "string") version = v;
+    } catch {
+      /* commander sans version définie — ignore */
+    }
+    const meta = [
+      String(this.typeCluster ?? ""),
+      process.platform,
+      `node ${process.version}`,
+      `pid ${process.pid}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    const tag = version ? ` ${logColor.blackBright(`v${version}`)}` : "";
+    const env = this.environment
+      ? `   ${logColor.green(String(this.environment))}`
+      : "";
+    console.log(
+      `  ${logColor.cyan("⬢")} ${logColor.cyanBold("Nodefony")}${tag}${env}`,
+    );
+    console.log(`  ${logColor.blackBright(meta)}\n`);
+  }
+
   logEnv(): string {
     if (this.cli) {
       this.type = this.cli.type;
@@ -1127,11 +1169,11 @@ class Kernel extends Service implements IKernel {
       return;
     }
     if (cluster.isPrimary) {
-      console.log(this.logEnv());
+      if (!this.reporterOwnsHeader) console.log(this.logEnv());
       this.flushPendingModuleAddLogs();
       this.fire("onCluster", "MASTER", this, process);
     } else if (cluster.isWorker) {
-      console.log(this.logEnv());
+      if (!this.reporterOwnsHeader) console.log(this.logEnv());
       this.flushPendingModuleAddLogs();
       this.workerId = cluster.worker?.id;
       this.worker = cluster.worker;

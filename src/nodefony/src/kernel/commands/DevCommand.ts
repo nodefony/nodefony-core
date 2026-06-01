@@ -2,6 +2,7 @@ import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
 import DevSupervisor from "../../service/dev/DevSupervisor";
+import BootReporter from "../../service/dev/BootReporter";
 
 const options: OptionsCommandInterface = {
   showBanner: false,
@@ -24,6 +25,8 @@ const CHILD_ENV = "NODEFONY_DEV_CHILD";
  * (auto-restart au changement de source backend) — ce n'est PAS du cluster.
  */
 class Dev extends Command {
+  #reporter: BootReporter | null = null;
+
   constructor(cli: CliKernel) {
     super(
       "development",
@@ -32,6 +35,24 @@ class Dev extends Command {
       options,
     );
     this.alias("dev");
+  }
+
+  /**
+   * Boot de rêve dev : checklist animée par phase (spinner + ✓/✗) à la place du mur
+   * de logs. Branché AVANT `loadApp` (gros import) pour couvrir le gap de feedback.
+   * **Enfant supervisé uniquement** (`NODEFONY_DEV_CHILD=1`) : le superviseur parent
+   * ne boote pas de serveur → aucun affichage. Animation TTY non-debug ; debug/non-TTY
+   * → marqueurs statiques + logs bruts (cf {@link BootReporter}).
+   */
+  override async onKernelPreStart(): Promise<void> {
+    if (process.env[CHILD_ENV] !== "1") return;
+    const kernel = this.kernel as Kernel | null;
+    if (!kernel) return;
+    this.#reporter = new BootReporter(kernel, {
+      debug: Boolean(kernel.debug),
+      tty: process.stdout.isTTY === true,
+    });
+    this.#reporter.attach();
   }
 
   override async onKernelStart(): Promise<void> {
