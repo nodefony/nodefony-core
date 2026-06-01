@@ -197,9 +197,12 @@ class CliKernel extends Cli {
             return (this.kernel as Kernel).start();
           })
           .catch(async (e: unknown) => {
-            // Sorties normales Commander (--help, --version) → terminer proprement
+            // Sorties normales Commander (help affiché, --help, --version) → terminer
+            // proprement (exit 0). `commander.help` = invocation nue `nodefony` (aucune
+            // commande → commander affiche le help) ; `commander.helpDisplayed` = `--help`.
             const code = (e as { code?: string })?.code;
             if (
+              code === "commander.help" ||
               code === "commander.helpDisplayed" ||
               code === "commander.version"
             ) {
