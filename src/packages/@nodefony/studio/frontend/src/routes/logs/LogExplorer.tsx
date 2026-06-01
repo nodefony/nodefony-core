@@ -83,6 +83,20 @@ import {
   type FlowStepId,
 } from "./eventFlow";
 
+/** Clé de persistance (sessionStorage) des filtres explicites de l'Explorer. */
+const FILTERS_KEY = "nf.logs.explorer.filters.v1";
+
+/** Forme persistée des filtres explicites (sérialisable — Set → tableau). */
+interface SavedFilters {
+  requestId?: string;
+  order?: "asc" | "desc";
+  protocol?: "all" | "ws" | "http";
+  flows?: FlowStepId[];
+  severities?: Severity[];
+  moduleF?: string;
+  msgidF?: string;
+}
+
 export interface LogExplorerProps {
   /** Capacités du driver actif (garde `query`). `null` = méta pas encore chargée. */
   capabilities: LogDriverCapabilities | null;
@@ -108,14 +122,30 @@ export const LogExplorer = observer(
     cluster,
   }: LogExplorerProps) => {
     const store = useStore();
-    const [requestId, setRequestId] = useState(traceRequestId ?? "");
+
+    // Filtres explicites PERSISTÉS (sessionStorage) → naviguer vers le Suivi de
+    // requête puis revenir ne perd ni les filtres ni le requestId tracé. Lu une
+    // fois (lazy) au montage ; ré-écrit à chaque changement (effet plus bas).
+    const saved = useMemo<SavedFilters>(() => {
+      try {
+        return JSON.parse(
+          sessionStorage.getItem(FILTERS_KEY) ?? "{}",
+        ) as SavedFilters;
+      } catch {
+        return {};
+      }
+    }, []);
+
+    const [requestId, setRequestId] = useState(
+      traceRequestId || saved.requestId || "",
+    );
     // Sens de lecture. "desc" = plus RÉCENT en haut (défaut d'un viewer de logs) ;
     // "asc" = plus ANCIEN en haut = lecture du DÉBUT à la FIN (le bon sens pour
     // SUIVRE une requête). L'ordre s'appuie sur l'uid (#), pas l'horloge (ms) →
     // exact même quand plusieurs logs tombent dans la même milliseconde.
     // Tracer une requête démarre en "asc" : on veut la lire dans l'ordre.
     const [order, setOrder] = useState<"asc" | "desc">(
-      traceRequestId ? "asc" : "desc",
+      traceRequestId ? "asc" : (saved.order ?? "desc"),
     );
 
     // Filtres EXPLICITES (barre dédiée, ≠ filtres colonne jugés peu lisibles).
@@ -124,12 +154,36 @@ export const LogExplorer = observer(
     // msgid "WEBSOCKET CONTEXT", HTTP = le reste) → fiable, ≠ l'ancien filtre
     // « étape » par texte (trompeur, retiré : l'étape reste dérivée front via
     // describeFlow, pour la colonne seulement).
-    const [protocol, setProtocol] = useState<"all" | "ws" | "http">("all");
+    const [protocol, setProtocol] = useState<"all" | "ws" | "http">(
+      saved.protocol ?? "all",
+    );
     // Étapes du cycle de vie — critère back STRUCTURÉ (pduFlowStep), multi-sélection.
-    const [flows, setFlows] = useState<FlowStepId[]>([]);
-    const [severities, setSeverities] = useState<Set<Severity>>(new Set());
-    const [moduleF, setModuleF] = useState("");
-    const [msgidF, setMsgidF] = useState("");
+    const [flows, setFlows] = useState<FlowStepId[]>(saved.flows ?? []);
+    const [severities, setSeverities] = useState<Set<Severity>>(
+      new Set(saved.severities ?? []),
+    );
+    const [moduleF, setModuleF] = useState(saved.moduleF ?? "");
+    const [msgidF, setMsgidF] = useState(saved.msgidF ?? "");
+
+    // Ré-écriture des filtres à chaque changement (source unique = sessionStorage).
+    useEffect(() => {
+      try {
+        sessionStorage.setItem(
+          FILTERS_KEY,
+          JSON.stringify({
+            requestId,
+            order,
+            protocol,
+            flows,
+            severities: [...severities],
+            moduleF,
+            msgidF,
+          } satisfies SavedFilters),
+        );
+      } catch {
+        /* quota / mode privé — non bloquant */
+      }
+    }, [requestId, order, protocol, flows, severities, moduleF, msgidF]);
     const filtersActive =
       protocol !== "all" ||
       flows.length > 0 ||
@@ -159,10 +213,13 @@ export const LogExplorer = observer(
     // L'orchestrateur peut pousser un requestId à tracer (depuis Live ou le
     // drawer) → on synchronise le champ ET on passe en lecture chronologique
     // (suivre une requête = la lire du début à la fin).
+    // Ne s'applique QUE pour un requestId non vide (poussé par le drawer) : sur un
+    // simple remontage, le prop revient à "" et NE DOIT PAS écraser le requestId
+    // restauré depuis sessionStorage.
     useEffect(() => {
-      if (traceRequestId !== undefined) {
+      if (traceRequestId) {
         setRequestId(traceRequestId);
-        if (traceRequestId) setOrder("asc");
+        setOrder("asc");
       }
     }, [traceRequestId]);
 

@@ -1,37 +1,37 @@
 /**
  * **ProfilingTab** — onglet « Profiling » de la console Logs : liste des dernières
- * requêtes profilées (data plane `/nodefony/profiler/api/recent`, dev-only). Un
- * clic ouvre le **Suivi de requête** (`/nodefony/logs/trace/:requestId`) où le
- * profil (phases, requêtes SQL) est fusionné avec les logs corrélés.
+ * requêtes profilées (data plane `/nodefony/profiler/api/recent`, dev-only) dans
+ * une **`DataGrid`** (pagination, tri, recherche, filtre Protocole HTTP/WS,
+ * colonnes enrichies, persistance). Un clic ouvre le **Suivi de requête**
+ * (`/nodefony/logs/trace/:requestId`) — profil + logs corrélés au même requestId.
  *
  * Remplace l'ancienne page Profiler autonome : la liste vit ici (point d'entrée
- * par requête), le détail vit dans le Suivi de requête (1 axe unique = le
- * `requestId`). SPA-first comme la debug bar : on profile les appels (AJAX/WS).
+ * par requête), le détail vit dans le Suivi de requête (1 axe = le `requestId`).
  */
 import { observer } from "mobx-react-lite";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Alert,
-  Badge,
-  Button,
-  Group,
-  ScrollArea,
-  Stack,
-  Switch,
-  Table,
-  Text,
-  Tooltip,
-} from "@mantine/core";
+import { Alert, Badge, Button, Code, Group, Switch, Text, Tooltip } from "@mantine/core";
 import {
   IconAlertTriangle,
-  IconChevronRight,
+  IconArrowsLeftRight,
   IconRefresh,
   IconTrash,
+  IconWorld,
 } from "@tabler/icons-react";
 import { useProfiler } from "../../stores";
-import { DataState, DocHint } from "../../components/ui";
+import type { ProfileSummary } from "../../stores/ProfilerStore";
+import { DataGrid, DocHint, type DataGridColumn } from "../../components/ui";
 import { METHOD_COLORS, ago, fmtMs, statusColor } from "./profileVisuals";
+
+/** Chemin (pathname) d'une URL, ou l'URL brute si non parsable. */
+function pathOf(url: string): string {
+  try {
+    return new URL(url, "http://x").pathname;
+  } catch {
+    return url;
+  }
+}
 
 export const ProfilingTab = observer(() => {
   const store = useProfiler();
@@ -42,9 +42,135 @@ export const ProfilingTab = observer(() => {
     return () => store.dispose();
   }, [store]);
 
+  const columns = useMemo<DataGridColumn<ProfileSummary>[]>(
+    () => [
+      {
+        key: "kind",
+        header: "Protocole",
+        size: 116,
+        sortable: true,
+        filterable: true,
+        filterType: "select",
+        filterOptions: ["http", "ws"],
+        value: (r) => r.kind,
+        render: (r) => (
+          <Badge
+            size="sm"
+            variant="light"
+            color={r.kind === "ws" ? "cyan" : "blue"}
+            leftSection={
+              r.kind === "ws" ? (
+                <IconArrowsLeftRight size={11} />
+              ) : (
+                <IconWorld size={11} />
+              )
+            }
+          >
+            {r.kind === "ws" ? "WS" : "HTTP"}
+          </Badge>
+        ),
+      },
+      {
+        key: "method",
+        header: "Méthode",
+        size: 96,
+        sortable: true,
+        value: (r) => r.method ?? r.kind,
+        render: (r) => (
+          <Badge
+            size="sm"
+            variant="filled"
+            color={METHOD_COLORS[r.method ?? ""] ?? "grape"}
+          >
+            {r.method ?? r.kind}
+          </Badge>
+        ),
+      },
+      {
+        key: "path",
+        header: "Chemin",
+        size: 300,
+        sortable: true,
+        value: (r) => pathOf(r.url),
+        render: (r) => (
+          <Tooltip label={r.url} openDelay={400} multiline maw={460}>
+            <Text size="xs" lineClamp={1}>
+              {pathOf(r.url)}
+            </Text>
+          </Tooltip>
+        ),
+      },
+      {
+        key: "route",
+        header: "Route",
+        size: 180,
+        sortable: true,
+        value: (r) => r.route ?? "",
+        render: (r) =>
+          r.route ? (
+            <Text size="xs" c="dimmed" lineClamp={1}>
+              {r.route}
+            </Text>
+          ) : (
+            <Text size="xs" c="dimmed">
+              —
+            </Text>
+          ),
+      },
+      {
+        key: "status",
+        header: "Statut",
+        size: 92,
+        sortable: true,
+        value: (r) => (r.error ? -1 : (r.status ?? 0)),
+        render: (r) => (
+          <Badge size="sm" variant="light" color={statusColor(r.status)}>
+            {r.error ? "ERR" : (r.status ?? "—")}
+          </Badge>
+        ),
+      },
+      {
+        key: "duration",
+        header: "Durée",
+        size: 92,
+        align: "right",
+        sortable: true,
+        value: (r) => r.durationMs ?? -1,
+        render: (r) => (
+          <Text size="xs" style={{ fontVariantNumeric: "tabular-nums" }}>
+            {fmtMs(r.durationMs)}
+          </Text>
+        ),
+      },
+      {
+        key: "age",
+        header: "Âge",
+        size: 92,
+        align: "right",
+        sortable: true,
+        value: (r) => r.ts,
+        render: (r) => (
+          <Text size="xs" c="dimmed">
+            {ago(r.ts)}
+          </Text>
+        ),
+      },
+      {
+        key: "requestId",
+        header: "requestId",
+        size: 118,
+        value: (r) => r.requestId,
+        render: (r) => (
+          <Code style={{ fontSize: 11 }}>{r.requestId.slice(0, 8)}</Code>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
-    <Stack gap="sm">
-      <Group justify="space-between" align="center">
+    <>
+      <Group justify="space-between" align="center" mb="sm">
         <Group gap="xs">
           <Badge variant="light" color="brand">
             {store.count} profil{store.count > 1 ? "s" : ""}
@@ -55,12 +181,16 @@ export const ProfilingTab = observer(() => {
           </Text>
           <DocHint
             title="Profiling par requête"
-            version="v1.0"
-            summary="Chaque appel HTTP/WS profilé apparaît ici. Clique une ligne pour ouvrir son Suivi de requête : waterfall des phases serveur, requêtes ORM mesurées et logs corrélés au même requestId."
+            version="v1.1"
+            summary="Chaque appel HTTP/WS profilé apparaît ici. Trie, filtre (Protocole, recherche), pagine ; clique une ligne pour ouvrir son Suivi de requête : waterfall des phases serveur, requêtes ORM mesurées et logs corrélés au même requestId."
             sections={[
               {
                 label: "Source",
                 body: "Profiler ALS (AsyncLocalStorage), dev-only. Les profils sont gardés dans un ring buffer borné (les plus anciens sont évincés).",
+              },
+              {
+                label: "Colonnes & filtres",
+                body: "Protocole (HTTP/WS, filtrable), Méthode, Chemin, Route, Statut, Durée, Âge, requestId. La recherche porte sur le chemin/route. Tri sur toutes les colonnes ; l'état est mémorisé.",
               },
               {
                 label: "Si vide",
@@ -98,104 +228,27 @@ export const ProfilingTab = observer(() => {
       </Group>
 
       {store.error && (
-        <Alert color="red" icon={<IconAlertTriangle size={16} />}>
+        <Alert color="red" icon={<IconAlertTriangle size={16} />} mb="sm">
           {store.error}
         </Alert>
       )}
 
-      <DataState
-        loading={store.loading && store.recent.length === 0}
-        empty={!store.loading && store.recent.length === 0}
+      <DataGrid
+        mode="client"
+        data={store.recent}
+        columns={columns}
+        getRowId={(r) => r.requestId}
+        onRowClick={(r) =>
+          navigate(`/nodefony/logs/trace/${encodeURIComponent(r.requestId)}`)
+        }
+        initialSort={{ key: "age", dir: "desc" }}
+        pageSize={25}
+        height={560}
+        searchable
+        searchPlaceholder="Recherche : chemin / route…"
         emptyMessage="Aucun profil. Fais des appels AJAX/HTTP — ils apparaissent ici en temps quasi-réel (active l'auto-refresh)."
-      >
-        <ScrollArea.Autosize mah={560}>
-          <Table highlightOnHover stickyHeader verticalSpacing={4}>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Méth.</Table.Th>
-                <Table.Th>Chemin</Table.Th>
-                <Table.Th>Statut</Table.Th>
-                <Table.Th ta="right">Durée</Table.Th>
-                <Table.Th ta="right">Âge</Table.Th>
-                <Table.Th />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {store.recent.map((r) => {
-                let path = r.url;
-                try {
-                  path = new URL(r.url, "http://x").pathname;
-                } catch {
-                  /* garde l'url brute */
-                }
-                return (
-                  <Table.Tr
-                    key={r.requestId}
-                    onClick={() =>
-                      navigate(
-                        `/nodefony/logs/trace/${encodeURIComponent(
-                          r.requestId,
-                        )}`,
-                      )
-                    }
-                    style={{ cursor: "pointer" }}
-                  >
-                    <Table.Td>
-                      <Badge
-                        size="sm"
-                        variant="filled"
-                        color={METHOD_COLORS[r.method ?? ""] ?? "grape"}
-                      >
-                        {r.method ?? r.kind}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Tooltip label={r.url} openDelay={400}>
-                        <Text size="xs" lineClamp={1}>
-                          {path}
-                        </Text>
-                      </Tooltip>
-                      {r.route && (
-                        <Text size="9px" c="dimmed">
-                          {r.route}
-                        </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge
-                        size="sm"
-                        variant="light"
-                        color={statusColor(r.status)}
-                      >
-                        {r.error ? "ERR" : (r.status ?? "—")}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td ta="right">
-                      <Text
-                        size="xs"
-                        style={{ fontVariantNumeric: "tabular-nums" }}
-                      >
-                        {fmtMs(r.durationMs)}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td ta="right">
-                      <Text size="xs" c="dimmed">
-                        {ago(r.ts)}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <IconChevronRight
-                        size={14}
-                        style={{ opacity: 0.4 }}
-                      />
-                    </Table.Td>
-                  </Table.Tr>
-                );
-              })}
-            </Table.Tbody>
-          </Table>
-        </ScrollArea.Autosize>
-      </DataState>
-    </Stack>
+        persist={{ key: "studio.logs.profiling", storage: "session" }}
+      />
+    </>
   );
 });
