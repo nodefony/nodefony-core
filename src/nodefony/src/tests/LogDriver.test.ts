@@ -13,6 +13,8 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import Pdu from "../syslog/Pdu";
 import { filterPdus } from "../syslog/drivers/filterPdus";
+import { pduProtocol } from "../syslog/drivers/pduProtocol";
+import { pduFlowStep, FLOW_STEPS } from "../syslog/drivers/pduFlow";
 import { pduToRecord } from "../syslog/drivers/ILogDriver";
 import { createMemoryLogDriver } from "../syslog/drivers/MemoryLogDriver";
 import { createFileLogDriver } from "../syslog/drivers/FileLogDriver";
@@ -124,6 +126,152 @@ describe("Log Backplane (LB.0/LB.1)", () => {
       const r = filterPdus(sample(), { module: "NOPE" });
       assert.strictEqual(r.total, 0);
       assert.strictEqual(r.rows.length, 0);
+    });
+  });
+
+  describe("filterPdus — protocole WS/HTTP", () => {
+    // 2 logs WS (msgid "WEBSOCKET CONTEXT") + 3 logs HTTP (req/router/applicatif).
+    const proto = (): Pdu[] => [
+      mk("client connected", "INFO", "@http", "WEBSOCKET CONTEXT", 1000),
+      mk("GET / 200", "INFO", "@http", "req", 2000),
+      mk("onMessage RECEIVE", "DEBUG", "@http", "WEBSOCKET CONTEXT", 3000),
+      mk("Match route", "DEBUG", "ROUTER", "MATCH", 4000),
+      mk("db demo", "INFO", "app", "DB-DEMO", 5000),
+    ];
+
+    it("protocol ws → uniquement les logs WEBSOCKET CONTEXT", () => {
+      const r = filterPdus(proto(), { protocol: "ws" });
+      assert.strictEqual(r.total, 2);
+      assert.ok(r.rows.every((x) => x.msgid === "WEBSOCKET CONTEXT"));
+    });
+
+    it("protocol http → tout SAUF les logs WS", () => {
+      const r = filterPdus(proto(), { protocol: "http" });
+      assert.strictEqual(r.total, 3);
+      assert.ok(r.rows.every((x) => x.msgid !== "WEBSOCKET CONTEXT"));
+    });
+
+    it("protocol + severity combinés en AND", () => {
+      const r = filterPdus(proto(), { protocol: "ws", severity: "DEBUG" });
+      assert.strictEqual(r.total, 1);
+      assert.strictEqual(r.rows[0]!.payload, "onMessage RECEIVE");
+    });
+  });
+
+  describe("pduProtocol — classification pure", () => {
+    it("WEBSOCKET CONTEXT → ws", () => {
+      assert.strictEqual(
+        pduProtocol(mk("x", "INFO", "@http", "WEBSOCKET CONTEXT")),
+        "ws",
+      );
+    });
+    it("tout autre msgid → http", () => {
+      assert.strictEqual(pduProtocol(mk("x", "INFO", "@http", "req")), "http");
+      assert.strictEqual(pduProtocol(mk("x", "INFO", "MOD", "")), "http");
+    });
+  });
+
+  describe("pduFlowStep — classification d'étape", () => {
+    it("events HTTP → étapes structurées", () => {
+      assert.strictEqual(
+        pduFlowStep(mk("EVENT CONTEXT onRequest", "DEBUG", "@http", "http2")),
+        "request-in",
+      );
+      assert.strictEqual(
+        pduFlowStep(
+          mk("EVENT CONTEXT onRequestEnd", "DEBUG", "@http", "http2"),
+        ),
+        "body-received",
+      );
+      assert.strictEqual(
+        pduFlowStep(mk("Match route : GET /", "DEBUG", "ROUTER", "router")),
+        "route-matched",
+      );
+      assert.strictEqual(
+        pduFlowStep(
+          mk("EVENT KERNEL onRequest", "DEBUG", "NODEFONY", "KERNEL"),
+        ),
+        "kernel-dispatch",
+      );
+      assert.strictEqual(
+        pduFlowStep(mk("GET / 200", "INFO", "@http", "req")),
+        "request-end",
+      );
+    });
+    it("events WS → sous-étapes", () => {
+      assert.strictEqual(
+        pduFlowStep(
+          mk("EVENT CONTEXT onConnect", "DEBUG", "@http", "WEBSOCKET CONTEXT"),
+        ),
+        "ws-open",
+      );
+      assert.strictEqual(
+        pduFlowStep(
+          mk("EVENT CONTEXT onMessage", "DEBUG", "@http", "WEBSOCKET CONTEXT"),
+        ),
+        "ws-message",
+      );
+      assert.strictEqual(
+        pduFlowStep(
+          mk("EVENT CONTEXT onClose", "DEBUG", "@http", "WEBSOCKET CONTEXT"),
+        ),
+        "ws-close",
+      );
+    });
+    it("log applicatif libre → null", () => {
+      assert.strictEqual(
+        pduFlowStep(mk("DB demo result", "INFO", "app", "DB-DEMO")),
+        null,
+      );
+    });
+    it("toutes les étapes sont dans FLOW_STEPS", () => {
+      // garde-fou : pas d'id renvoyé hors table (sinon select front incohérent)
+      for (const sample of [
+        mk("onRequest", "DEBUG", "@http", "http2"),
+        mk("onConnect", "DEBUG", "@http", "WEBSOCKET CONTEXT"),
+        mk("SAVE SESSION", "DEBUG", "session", "session"),
+      ]) {
+        const id = pduFlowStep(sample);
+        if (id !== null)
+          assert.ok(id in FLOW_STEPS, `${id} absent de FLOW_STEPS`);
+      }
+    });
+  });
+
+  describe("filterPdus — critère flow (étape)", () => {
+    const flowSample = (): Pdu[] => [
+      mk(
+        "EVENT CONTEXT onConnect",
+        "DEBUG",
+        "@http",
+        "WEBSOCKET CONTEXT",
+        1000,
+      ),
+      mk(
+        "EVENT CONTEXT onMessage",
+        "DEBUG",
+        "@http",
+        "WEBSOCKET CONTEXT",
+        2000,
+      ),
+      mk("Match route : GET /", "DEBUG", "ROUTER", "router", 3000),
+      mk("GET / 200", "INFO", "@http", "req", 4000),
+    ];
+    it("flow unique → uniquement l'étape", () => {
+      const r = filterPdus(flowSample(), { flow: "ws-open" });
+      assert.strictEqual(r.total, 1);
+      assert.strictEqual(r.rows[0]!.payload, "EVENT CONTEXT onConnect");
+    });
+    it("flow multiple (OU) → union des étapes", () => {
+      const r = filterPdus(flowSample(), { flow: ["ws-open", "ws-message"] });
+      assert.strictEqual(r.total, 2);
+    });
+    it("flow + protocol combinés en AND", () => {
+      const r = filterPdus(flowSample(), {
+        protocol: "ws",
+        flow: "route-matched",
+      });
+      assert.strictEqual(r.total, 0); // route-matched est HTTP, pas WS
     });
   });
 

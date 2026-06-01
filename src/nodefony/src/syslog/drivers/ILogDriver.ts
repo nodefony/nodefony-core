@@ -1,3 +1,5 @@
+import type { FlowStepId } from "./pduFlow";
+
 /**
  * Contrat du **Log Backplane** (axe DESTINATION queryable, LB.0).
  *
@@ -89,6 +91,21 @@ export interface ILogQueryCriteria {
   to?: number;
   /** Recherche plein-texte (payload string + msg + module + msgid). Insensible casse. */
   text?: string;
+  /**
+   * Protocole d'origine du log :
+   *  - `"ws"` : logs émis dans un contexte WebSocket (`msgid === "WEBSOCKET CONTEXT"`) ;
+   *  - `"http"` : tout le reste du pipeline (requête HTTP, router, firewall, applicatif).
+   *
+   * Absent = les deux protocoles. Classification PURE, cf `pduProtocol`.
+   */
+  protocol?: "ws" | "http";
+  /**
+   * Étape(s) du cycle de vie d'une requête/connexion — classification STRUCTURÉE
+   * (cf `pduFlowStep`), pas une recherche texte. Ex. `"ws-open"` ou
+   * `["request-in","route-matched"]`. Tableau = OU entre étapes ; combiné en AND
+   * avec les autres critères. Absent = toutes les étapes.
+   */
+  flow?: FlowStepId | FlowStepId[];
   /** Nombre max d'enregistrements renvoyés (le driver borne à un plafond sûr). */
   limit?: number;
   /** Décalage de pagination (depuis le plus récent). */

@@ -40,6 +40,10 @@ export type {
   IPduLike,
 } from "./syslog/drivers/ILogDriver";
 export { filterPdus } from "./syslog/drivers/filterPdus";
+export { pduProtocol } from "./syslog/drivers/pduProtocol";
+export type { LogProtocol } from "./syslog/drivers/pduProtocol";
+export { pduFlowStep, FLOW_STEPS } from "./syslog/drivers/pduFlow";
+export type { FlowStepId, FlowStepMeta } from "./syslog/drivers/pduFlow";
 export { createMemoryLogDriver } from "./syslog/drivers/MemoryLogDriver";
 export { createFileLogDriver } from "./syslog/drivers/FileLogDriver";
 export type { FileLogDriverOptions } from "./syslog/drivers/FileLogDriver";

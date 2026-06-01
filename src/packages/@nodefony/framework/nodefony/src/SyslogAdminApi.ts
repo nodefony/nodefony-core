@@ -7,6 +7,7 @@ import {
   getLogDriver,
   setActiveLogDriver,
   listLogDrivers,
+  FLOW_STEPS,
 } from "nodefony";
 import type {
   ISyslog,
@@ -17,6 +18,7 @@ import type {
   IAdminResponse,
   ILogQueryCriteria,
   ILogDriverProbe,
+  FlowStepId,
 } from "nodefony";
 
 /** Options du producteur syslog — viewer de fichiers (DEV only). */
@@ -144,6 +146,17 @@ export function createSyslogAdminApi(
     if (msgid) criteria.msgid = msgid;
     const text = oneParam(req, "text") ?? oneParam(req, "q");
     if (text) criteria.text = text;
+    const protocol = oneParam(req, "protocol");
+    if (protocol === "ws" || protocol === "http") criteria.protocol = protocol;
+    // Étape(s) du cycle de vie — multi-valeurs (`?flow=ws-open&flow=ws-message`).
+    // Validées contre la table des étapes (pas de critère arbitraire injecté).
+    const flowRaw = req.query.flow;
+    if (flowRaw !== undefined) {
+      const flows = (Array.isArray(flowRaw) ? flowRaw : [flowRaw]).filter(
+        (f): f is FlowStepId => typeof f === "string" && f in FLOW_STEPS,
+      );
+      if (flows.length) criteria.flow = flows;
+    }
     const from = intOpt(req, "from");
     if (from !== undefined) criteria.from = from;
     const to = intOpt(req, "to");

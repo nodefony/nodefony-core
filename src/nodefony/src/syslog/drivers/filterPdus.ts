@@ -4,6 +4,8 @@ import {
   type ILogQueryResult,
   type IPduLike,
 } from "./ILogDriver";
+import { pduProtocol } from "./pduProtocol";
+import { pduFlowStep } from "./pduFlow";
 
 /** Plafond dur d'enregistrements renvoyés (anti-DoS mémoire/réseau). */
 const MAX_LIMIT = 1000;
@@ -44,7 +46,7 @@ export function filterPdus(
   pdus: IPduLike[],
   criteria: ILogQueryCriteria = {},
 ): ILogQueryResult {
-  const { requestId, module, msgid, from, to, text } = criteria;
+  const { requestId, module, msgid, from, to, text, protocol } = criteria;
 
   // Normalisation des critères string (1× hors boucle).
   const severities =
@@ -57,6 +59,12 @@ export function filterPdus(
   const moduleLc = module ? module.toLowerCase() : null;
   const msgidLc = msgid ? msgid.toLowerCase() : null;
   const textLc = text ? text.toLowerCase() : null;
+  // Étapes en Set (OU) — null si critère absent. La classification (regex) n'est
+  // évaluée par Pdu QUE si ce critère est posé (chemin froid admin).
+  const flowSet =
+    criteria.flow === undefined
+      ? null
+      : new Set(Array.isArray(criteria.flow) ? criteria.flow : [criteria.flow]);
 
   // Match (AND). Itère du plus récent au plus ancien pour collecter directement
   // dans l'ordre d'affichage et s'arrêter dès que la fenêtre est pleine.
@@ -64,12 +72,17 @@ export function filterPdus(
   for (let i = pdus.length - 1; i >= 0; i--) {
     const pdu = pdus[i]!;
     if (requestId !== undefined && pdu.requestId !== requestId) continue;
+    if (protocol && pduProtocol(pdu) !== protocol) continue;
     if (severities && !severities.includes(pdu.severityName.toUpperCase()))
       continue;
     if (moduleLc && !pdu.moduleName.toLowerCase().includes(moduleLc)) continue;
     if (msgidLc && !String(pdu.msgid).toLowerCase().includes(msgidLc)) continue;
     if (from !== undefined && pdu.timeStamp < from) continue;
     if (to !== undefined && pdu.timeStamp > to) continue;
+    if (flowSet) {
+      const step = pduFlowStep(pdu);
+      if (step === null || !flowSet.has(step)) continue;
+    }
     if (textLc) {
       const hay = (
         payloadText(pdu) +

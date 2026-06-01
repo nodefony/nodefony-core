@@ -25,6 +25,8 @@ import { TransportState } from "../realtime/IRealtimeTransport";
 import { BrowserWsTransport } from "./realtime/BrowserWsTransport";
 import { rateChannel, parseRate, isRateChannel } from "../realtime/channelRate";
 import { AdaptiveRate, bindAdaptiveChannel } from "./realtime/AdaptiveRate";
+import { pduProtocol } from "../syslog/drivers/pduProtocol";
+import { pduFlowStep, FLOW_STEPS } from "../syslog/drivers/pduFlow";
 export type {
   RealtimeState,
   RealtimeOptions,
@@ -104,7 +106,12 @@ export {
   isRateChannel,
   AdaptiveRate,
   bindAdaptiveChannel,
+  pduProtocol,
+  pduFlowStep,
+  FLOW_STEPS,
 };
+export type { LogProtocol } from "../syslog/drivers/pduProtocol";
+export type { FlowStepId, FlowStepMeta } from "../syslog/drivers/pduFlow";
 export type { RateBounds } from "../realtime/channelRate";
 export type {
   RateChangeReason,

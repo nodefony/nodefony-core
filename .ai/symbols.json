@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-01T00:26:36.953Z",
+  "generated": "2026-06-01T12:14:31.335Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 814,
-    "symbols": 1597,
+    "files": 816,
+    "symbols": 1606,
     "classes": 243,
-    "interfaces": 393,
-    "types": 199,
+    "interfaces": 394,
+    "types": 202,
     "enums": 2,
-    "functions": 292,
-    "constants": 468
+    "functions": 296,
+    "constants": 469
   },
   "symbols": {
     "Cli": {
@@ -3105,6 +3105,63 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Index OpenSearch par défaut des logs Nodefony (write transport ↔ read driver)."
+    },
+    "FlowStepMeta": {
+      "name": "FlowStepMeta",
+      "kind": "interface",
+      "file": "src/nodefony/src/syslog/drivers/pduFlow.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Métadonnée **structurelle** d'une étape (jamais de présentation : libellé FR et couleur vivent côté front, qui mappe l'`id`). `order` = rang logique dans le cycle de SON protocole ; `protocol` = où…"
+    },
+    "FlowStepId": {
+      "name": "FlowStepId",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/drivers/pduFlow.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "**Étape logique du cycle de vie d'une requête / connexion** — identifiant STABLE (clé de filtre côté back ET clé de mapping libellé/couleur côté front). Les logs DEBUG du pipeline portent des noms …"
+    },
+    "FlowClassifiable": {
+      "name": "FlowClassifiable",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/drivers/pduFlow.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Entrée minimale pour classer une étape — seuls `msgid`, `payload` et `msg` comptent. Un `Pdu`, un {@link IPduLike} (msg requis) ET un record wire relu (`ILogRecord` / miroir front, `msg` optionnel)…"
+    },
+    "pduFlowStep": {
+      "name": "pduFlowStep",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/pduFlow.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Classe un Pdu en **étape de cycle de vie** (id stable) ou `null` si la ligne n'est pas un jalon (log applicatif libre, ex. `DB-DEMO`). PUR, isomorphe, 0 état — réutilisé par le filtre back ({@link …"
+    },
+    "FLOW_STEPS": {
+      "name": "FLOW_STEPS",
+      "kind": "const",
+      "file": "src/nodefony/src/syslog/drivers/pduFlow.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Table des étapes — **source unique** de l'ordre et de l'appartenance protocole, partagée back (filtre) et front (sélecteur groupé HTTP / WebSocket / Commun)."
+    },
+    "LogProtocol": {
+      "name": "LogProtocol",
+      "kind": "type",
+      "file": "src/nodefony/src/syslog/drivers/pduProtocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Protocole d'origine d'un enregistrement de log."
+    },
+    "pduProtocol": {
+      "name": "pduProtocol",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/pduProtocol.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Classe un Pdu par **protocole** d'origine — `\"ws\"` ou `\"http\"` — de façon PURE, isomorphe et 0-alloc (une seule comparaison de `msgid`). Critère FIABLE : tout log émis dans un contexte WebSocket po…"
     },
     "FileSink": {
       "name": "FileSink",
@@ -13350,6 +13407,18 @@
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
+      "pduProtocol": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/syslog/drivers/filterPdus.ts"
+      ],
+      "pduFlowStep": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/syslog/drivers/filterPdus.ts"
+      ],
+      "FLOW_STEPS": [
+        "src/nodefony/src/client/index.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
+      ],
       "File": [
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/finder/FileResult.ts",
@@ -13856,7 +13925,9 @@
         "src/nodefony/src/syslog/drivers/logDriverRegistry.ts",
         "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
         "src/nodefony/src/syslog/drivers/MemoryLogDriver.ts",
-        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts"
+        "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
+        "src/nodefony/src/syslog/drivers/pduFlow.ts",
+        "src/nodefony/src/syslog/drivers/pduProtocol.ts"
       ],
       "filterPdus": [
         "src/nodefony/src/syslog/drivers/ClusterFileLogDriver.ts",
@@ -13878,6 +13949,10 @@
       ],
       "ILogQueryResult": [
         "src/nodefony/src/syslog/drivers/filterPdus.ts"
+      ],
+      "FlowStepId": [
+        "src/nodefony/src/syslog/drivers/ILogDriver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
       ],
       "ILogDriverProbe": [
         "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
@@ -13913,6 +13988,9 @@
       "DEFAULT_OPENSEARCH_INDEX": [
         "src/nodefony/src/syslog/drivers/OpenSearchLogDriver.ts",
         "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "LogProtocol": [
+        "src/nodefony/src/syslog/drivers/pduFlow.ts"
       ],
       "ILogSink": [
         "src/nodefony/src/syslog/sinks/FileSink.ts"
@@ -13960,6 +14038,7 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
       ],
       "ormRegistry": [
