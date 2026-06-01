@@ -89,11 +89,15 @@ Notes :
 
 ## Kubernetes — probes & timeouts
 
+⚠️ Le framework n'expose **pas** d'endpoint santé générique par défaut
+(`/nodefony/studio/api/health` existe mais dépend de Studio, non garanti monté en prod).
+**Exposez une route santé applicative** (un controller qui renvoie 200) et pointez les probes
+dessus :
+
 ```yaml
 livenessProbe:
-  { httpGet: { path: /nodefony/health, port: 5151 }, initialDelaySeconds: 10 }
-readinessProbe:
-  { httpGet: { path: /nodefony/health, port: 5151 }, periodSeconds: 5 }
+  { httpGet: { path: /health, port: 5151 }, initialDelaySeconds: 10 }
+readinessProbe: { httpGet: { path: /health, port: 5151 }, periodSeconds: 5 }
 terminationGracePeriodSeconds: 30 # > durée du graceful shutdown (~mesurée < 1 s)
 ```
 
@@ -101,3 +105,7 @@ terminationGracePeriodSeconds: 30 # > durée du graceful shutdown (~mesurée < 1
 - Le boot de l'app est dominé par l'import/instanciation des modules (cf
   `docs/audits/boot-performance-2026-06-01.md`) : un **pod réel** (app minimale) boote
   nettement plus vite que l'app de dev de démo. Ajuster `initialDelaySeconds` en conséquence.
+
+> **Reco framework** (backlog cloud-native) : exposer un endpoint santé standard dans le core
+> HTTP — `/nodefony/health` (liveness) + `/nodefony/ready` (readiness, vrai après
+> `onServersReady`) — pour éviter à chaque app de le réécrire. Cf `project_cloud_native_plan`.
