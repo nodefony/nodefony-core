@@ -403,12 +403,20 @@ class Kernel extends Service implements IKernel {
         });
     }
 
-    // Splash en TÊTE du boot — affiché AVANT `SERVICE ADD`, `MODULE ADD` et les
-    // events kernel. Le nom utilisé est `projectName` (="NODEFONY" jusqu'à ce
-    // que loadApp() le remplace par le nom de l'app). Précédemment l'ASCII art
-    // arrivait dans `preRegister()`, donc après plusieurs lignes de logs —
-    // l'UX boot était confuse, le banner servait de séparateur en plein milieu.
-    if (this.cli) {
+    // Splash ASCII (banner figlet + version) — affiché en TÊTE du boot, AVANT
+    // `SERVICE ADD`, `MODULE ADD` et les events kernel.
+    //
+    // Gaté pour rester un confort de DEV interactif uniquement :
+    // - **PRODUCTION / CLUSTER** → JAMAIS de splash. Cloud-native = logs structurés
+    //   (collecteur JSON) : un art ASCII multi-ligne est du bruit ; en cluster, N workers
+    //   produiraient N splash. L'info de boot vit dans les logs (`MODULE ADD`, `Server Listen`).
+    // - **DEV** → un SEUL splash, dans le process qui boote réellement le serveur (l'enfant
+    //   du DevSupervisor, `NODEFONY_DEV_CHILD=1`), PAS le superviseur parent CONSOLE
+    //   (sinon double splash : parent + enfant — cf 2 ASCII art observés).
+    const devSplash =
+      this.environment === "development" &&
+      process.env.NODEFONY_DEV_CHILD === "1";
+    if (this.cli && devSplash) {
       await this.cli.showAsciify(this.projectName).catch((e) => {
         this.log(e, "WARNING");
       });
