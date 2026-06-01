@@ -1067,8 +1067,21 @@ class Syslog extends Event implements ISyslog {
   }
 
   addTransport(transport: ITransport): this {
-    if (!this._transports.includes(transport)) {
+    // Dédup par NAME (identité du transport dans le système : `listTransports` et
+    // `setTransportEnabled` indexent par name → l'invariante est « 1 transport par
+    // name »). La dédup par référence seule NE SUFFIT PAS : deux `FileTransport`
+    // DISTINCTS vers le même fichier ont `name === "file"` et doublonnaient
+    // l'écriture quand un même syslog (ressource partagée) est ré-initialisé par
+    // DEUX Kernels — cas cluster : le worker boote 2 cycles development→production,
+    // et `_mountedLogTransports` (état du Kernel) ne traque pas les transports
+    // montés par un Kernel précédent → ils s'accumulaient (ratio JSONL ~2.0). On
+    // REMPLACE l'existant → destination la plus récente, jamais de doublon.
+    // Boot-only (hors hot path : le dispatch `_fireTransports` est inchangé).
+    const idx = this._transports.findIndex((t) => t.name === transport.name);
+    if (idx === -1) {
       this._transports.push(transport);
+    } else if (this._transports[idx] !== transport) {
+      this._transports[idx] = transport;
     }
     return this;
   }

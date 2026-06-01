@@ -976,6 +976,37 @@ describe("NODEFONY SYSLOG", () => {
       });
     });
 
+    it("addTransport dédup par NAME — 2 instances DISTINCTES de même name ⇒ send appelé 1× (régression doublon JSONL cluster-file)", (done) => {
+      let a = 0;
+      let b = 0;
+      // Deux transports DISTINCTS mais de même `name` : cas d'un FileTransport vers
+      // le même fichier monté par DEUX Kernels qui partagent le syslog (cluster,
+      // worker booté 2 cycles dev→prod). Avant le fix, la dédup par référence les
+      // laissait tous deux dans `_transports` → chaque log écrit 2× (ratio 2.0).
+      const tA: ITransport = {
+        name: "file",
+        send: async () => {
+          a++;
+        },
+      };
+      const tB: ITransport = {
+        name: "file",
+        send: async () => {
+          b++;
+        },
+      };
+      syslog.addTransport(tA);
+      syslog.addTransport(tB); // même name → REMPLACE tA (pas d'ajout en double)
+      assert.strict.equal(syslog.transportCount, 1);
+      syslog.log("test", "INFO");
+      setImmediate(() => {
+        // tB a remplacé tA → un seul send, côté destination la plus récente.
+        assert.strict.equal(a + b, 1);
+        assert.strict.equal(b, 1);
+        done();
+      });
+    });
+
     it("removeTransport stops further calls", (done) => {
       let called = 0;
       const t: ITransport = {
