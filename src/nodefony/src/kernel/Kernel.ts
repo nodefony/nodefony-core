@@ -342,6 +342,20 @@ class Kernel extends Service implements IKernel {
       mergedOptions,
     );
     this.environment = environment;
+    // Trace boot-count diagnostique : 1 ligne par `new Kernel()`. Gardée par une env
+    // absente en prod → 0 coût (cohérent avec NODEFONY_BOOT_TIMEOUT_MS/WARN_MS). Sert au
+    // filet d'intégration CLI à prouver l'invariant « 1 seul Kernel par process »
+    // (avant refacto registry : prod/cluster en créaient 2). Boot-only, hors hot path.
+    if (process.env.NODEFONY_KERNEL_TRACE_FILE) {
+      try {
+        fs.appendFileSync(
+          process.env.NODEFONY_KERNEL_TRACE_FILE,
+          `${process.pid}:${environment}\n`,
+        );
+      } catch {
+        /* diagnostic best-effort — ne jamais faire échouer le boot */
+      }
+    }
     // Limite de listeners alignée sur la config (`events.nbListeners`, défaut 60) :
     // chaque module/service attache ≥1 listener lifecycle (onBoot/onTerminate/…),
     // un `30` en dur sautait dès ~15 modules (MaxListenersExceededWarning au boot).
