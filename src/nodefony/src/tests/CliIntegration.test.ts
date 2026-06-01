@@ -32,6 +32,7 @@ const DIST = path.join(CORE_ROOT, "dist", "node", "index.js"); // entrée `impor
 
 const HTTP_PORT = 5151; // port http principal de l'app dev — sert au garde-fou EADDRINUSE
 const READY_RE = /Server Listen on/i; // marqueur readiness (server-static.ts)
+const SERVER_NET_RE = /Server Listen on http/i; // serveur RÉSEAU (exclut les statics)
 const RUN_BOOT = process.env.RUN_CLI_BOOT === "1";
 
 /** Résultat d'un spawn d'une commande terminante. */
@@ -252,6 +253,79 @@ describe("CLI integration — boot réel (RUN_CLI_BOOT=1)", function () {
       boots,
       1,
       `cluster -w1 doit créer 1 seul Kernel, observé ${boots} (double-boot)\n${out.slice(-2000)}`,
+    );
+  });
+
+  // ─── Mode BATCH one-shot (CONSOLE, 0 serveur, terminate) ───────────────────
+  it("test:batch → mode BATCH : exit 0, AUCUN serveur, terminaison propre", async () => {
+    const r = await runCli(["test:batch"], 60000);
+    assert.strictEqual(
+      r.code,
+      0,
+      `batch doit terminer proprement (exit 0)\n${r.stderr}`,
+    );
+    const txt = r.stdout + r.stderr;
+    assert.ok(
+      /BATCH MODE OK/i.test(txt),
+      `le job batch doit s'exécuter\n${txt.slice(-1500)}`,
+    );
+    assert.ok(
+      !SERVER_NET_RE.test(txt),
+      `un batch CONSOLE ne démarre AUCUN serveur réseau\n${txt.slice(-1500)}`,
+    );
+    // Le hook onKernelTerminate (cleanup, tous modes) doit fire au terminate.
+    assert.ok(
+      /BATCH cleanup/i.test(txt),
+      "onKernelTerminate doit fire (cleanup)",
+    );
+  });
+
+  // ─── Mode DAEMON (CONSOLE long-running, 0 serveur, SIGTERM → graceful) ─────
+  it("test:daemon → mode DAEMON : reste vivant sans serveur, SIGTERM = graceful", async () => {
+    const child = spawn(process.execPath, [BIN, "test:daemon"], {
+      cwd: REPO_ROOT,
+      env: { ...process.env },
+    });
+    let out = "";
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error(`daemon n'a pas atteint son ready:\n${out}`)),
+          45000,
+        );
+        const onData = (d: Buffer) => {
+          out += d.toString();
+          if (/DAEMON MODE OK/i.test(out)) {
+            clearTimeout(timer);
+            resolve();
+          }
+        };
+        child.stdout.on("data", onData);
+        child.stderr.on("data", onData);
+        child.once("exit", () => {
+          clearTimeout(timer);
+          reject(
+            new Error(
+              `le daemon a quitté avant son ready (devrait park)\n${out}`,
+            ),
+          );
+        });
+      });
+      assert.ok(
+        !SERVER_NET_RE.test(out),
+        `un daemon CONSOLE ne démarre AUCUN serveur réseau\n${out.slice(-1500)}`,
+      );
+      assert.strictEqual(
+        child.exitCode,
+        null,
+        "le daemon doit rester VIVANT (park), pas terminer seul",
+      );
+    } finally {
+      await killAndWait(child); // SIGTERM = docker stop / k8s
+    }
+    assert.ok(
+      /DAEMON graceful shutdown/i.test(out),
+      `SIGTERM doit déclencher le graceful shutdown (onKernelTerminate)\n${out.slice(-1500)}`,
     );
   });
 });

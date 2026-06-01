@@ -18,6 +18,10 @@ import DomainController from "./nodefony/controller/DomainController";
 import DomainClassController from "./nodefony/controller/DomainClassController";
 import DbController from "./nodefony/controller/DbController";
 import { controllers } from "@nodefony/framework";
+// Commandes CLI de démo — bancs pour les 3 modes de boot (server/batch/daemon) et le
+// dispatch d'une commande de module (namespace `test:<action>`).
+import BatchTestCommand from "./nodefony/command/BatchTestCommand";
+import DaemonTestCommand from "./nodefony/command/DaemonTestCommand";
 // Entité de démo Sequelize (orm-core) — enregistrée au top-level (side-effect).
 import "./nodefony/entity/auditEntity";
 // Fixture "gros schéma" Dolibarr (410 tables, GPLv3, .gitignore) sur l'ORM Drizzle
@@ -46,6 +50,13 @@ registerDolibarrEntities("default");
 class Test extends Module {
   constructor(kernel: Kernel) {
     super("test", kernel, import.meta.url, config);
+    // Enregistre les commandes de module dans commander DÈS la construction du module
+    // (à onPreRegister, avant le parse différé du CliKernel) → `nodefony test:batch` /
+    // `nodefony test:daemon` deviennent dispatchables. Le kernel.cli est présent ici.
+    if (kernel.cli) {
+      this.addCommand(BatchTestCommand);
+      this.addCommand(DaemonTestCommand);
+    }
   }
   // P1.7 — register security hooks listeners for integration tests.
   override async onKernelReady(): Promise<this> {
