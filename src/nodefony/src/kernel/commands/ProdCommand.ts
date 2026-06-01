@@ -1,3 +1,4 @@
+import cluster from "node:cluster";
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
@@ -9,7 +10,10 @@ import { launchTopology } from "./runtimeLauncher";
 
 const options: OptionsCommandInterface = {
   showBanner: true,
-  kernelEvent: "onStart",
+  // onPostReady (comme `development`) : l'UNIQUE Kernel boote complètement (serveurs
+  // inclus) puis cette commande conclut. La décision mono/cluster est prise plus tôt,
+  // dans onKernelStart (phase onStart, avant initServers). Plus de second Kernel.
+  kernelEvent: "onPostReady",
 };
 
 /**
@@ -20,6 +24,11 @@ const options: OptionsCommandInterface = {
  * `NODEFONY_WORKERS` > config `cluster.workers` > défaut 1). `workers:1` = mono-process
  * (1 process = 1 pod, scaling délégué à l'orchestrateur) ; `>= 2` = cluster (master +
  * workers), via le flow partagé {@link launchTopology} (même runtime que `cluster`).
+ *
+ * **Un seul Kernel par process** : la commande suit la recette `development` (kernelEvent
+ * `onPostReady` + `setType("SERVER")` dans `onKernelStart`) — l'unique Kernel du CLI
+ * démarre lui-même les serveurs. Le double-boot historique (kernel CLI + kernel runtime)
+ * est supprimé.
  *
  * **Foreground par défaut** — pensé pour k8s / systemd / Docker. Plus aucune
  * daemonisation : 1 process Node = 1 pod/container, lifecycle (restart/health/logs)
@@ -40,26 +49,32 @@ class Prod extends Command {
     );
   }
 
-  override async onKernelStart(): Promise<void> {
-    (this.cli as CliKernel).setType("SERVER");
+  override async onKernelStart(opts?: { workers?: string }): Promise<void> {
     this.cli.environment = "production";
     process.env.MODE_START = "production";
-  }
-
-  override async generate(opts: { workers?: string }): Promise<void | Kernel> {
     // Topologie = source unique : CLI `--workers` > env NODEFONY_WORKERS > config app
-    // `cluster.workers` (lue standalone, sans kernel) > défaut 1.
+    // `cluster.workers` (lue standalone, sans kernel) > défaut 1. Résolue AVANT
+    // initServers : master → superviseur (0 serveur) ; mono/worker → ce Kernel sert.
     const cfgWorkers = await loadClusterConfig();
     const topo = resolveTopology({
       flag: opts?.workers,
       config: cfgWorkers ?? undefined,
     });
-    return launchTopology({
+    await launchTopology({
       cli: this.cli as CliKernel,
-      options,
       topo,
       log: (msg, severity) => this.log(msg, severity),
     });
+  }
+
+  override async generate(): Promise<void | Kernel> {
+    // Atteint uniquement en mono/worker (le master parke dans onKernelStart). Les
+    // serveurs sont déjà montés → on nomme le process pour `ps`/Activity Monitor et on
+    // rend le Kernel. Pas de park : les serveurs gardent le process vivant.
+    process.title = cluster.isWorker
+      ? `nodefony worker ${cluster.worker?.id ?? "?"} [cluster]`
+      : "nodefony server";
+    return this.cli?.kernel as Kernel;
   }
 }
 

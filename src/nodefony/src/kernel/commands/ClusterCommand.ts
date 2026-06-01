@@ -1,3 +1,4 @@
+import cluster from "node:cluster";
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 import Kernel from "../Kernel";
@@ -9,7 +10,9 @@ import { launchTopology } from "./runtimeLauncher";
 
 const options: OptionsCommandInterface = {
   showBanner: false,
-  kernelEvent: "onStart",
+  // onPostReady (comme `development`/`production`) : l'UNIQUE Kernel boote complètement.
+  // Décision master/worker prise dans onKernelStart (avant initServers). Plus de double-boot.
+  kernelEvent: "onPostReady",
 };
 
 /**
@@ -24,7 +27,8 @@ const options: OptionsCommandInterface = {
  *
  * Topologie = source unique {@link resolveTopology} : `--workers` > `NODEFONY_WORKERS`
  * > config app `cluster.workers` > défaut 1. **`workers:1` = VRAI mono-process** (zéro
- * machinerie cluster) ; `>= 2` → master (superviseur + gateway IPC) + N workers.
+ * machinerie cluster, un seul Kernel) ; `>= 2` → master (superviseur + gateway IPC) +
+ * N workers (chacun un seul Kernel).
  *
  * Régime de déploiement : ON pour container multi-cœurs / VPS / bare-metal ; OFF
  * (1 process/pod) pour petit pod k8s + HPA. Cf `project_cluster_backplane_vision`.
@@ -43,26 +47,28 @@ class Cluster extends Command {
     );
   }
 
-  override async onKernelStart(): Promise<void> {
-    (this.cli as CliKernel).setType("SERVER");
+  override async onKernelStart(opts?: { workers?: string }): Promise<void> {
     this.cli.environment = "production";
     process.env.MODE_START = "cluster";
-  }
-
-  override async generate(opts: { workers?: string }): Promise<void | Kernel> {
-    // Topologie = source unique : CLI `--workers` > env NODEFONY_WORKERS > config app
-    // `cluster.workers` (lue standalone, sans kernel) > défaut 1.
     const cfgWorkers = await loadClusterConfig();
     const topo = resolveTopology({
       flag: opts?.workers,
       config: cfgWorkers ?? undefined,
     });
-    return launchTopology({
+    await launchTopology({
       cli: this.cli as CliKernel,
-      options,
       topo,
       log: (msg, severity) => this.log(msg, severity),
     });
+  }
+
+  override async generate(): Promise<void | Kernel> {
+    // Mono-process ou worker forké (le master parke dans onKernelStart). Serveurs déjà
+    // montés → nommage process + retour du Kernel, sans park ni second Kernel.
+    process.title = cluster.isWorker
+      ? `nodefony worker ${cluster.worker?.id ?? "?"} [cluster]`
+      : "nodefony server";
+    return this.cli?.kernel as Kernel;
   }
 }
 

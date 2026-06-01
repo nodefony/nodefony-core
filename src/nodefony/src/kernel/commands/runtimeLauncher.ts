@@ -1,7 +1,5 @@
 import cluster from "node:cluster";
-import Kernel from "../Kernel";
 import CliKernel from "../CliKernel";
-import { OptionsCommandInterface } from "../../command/Command";
 import {
   startClusterMaster,
   ClusterLog,
@@ -10,10 +8,8 @@ import { Topology } from "../../service/cluster/topology";
 
 /** Arguments de {@link launchTopology}. */
 export interface LaunchTopologyOptions {
-  /** CliKernel courant (environnement + logger de secours). */
+  /** CliKernel courant (porte l'unique Kernel en cours de boot + l'environnement). */
   cli: CliKernel;
-  /** Options de la commande (transmises au Kernel des workers / du mono-process). */
-  options: OptionsCommandInterface;
   /** Topologie déjà résolue (cf `resolveTopology`). */
   topo: Topology;
   /** Logger (msg + sévérité). */
@@ -21,38 +17,40 @@ export interface LaunchTopologyOptions {
 }
 
 /**
- * Lance le runtime serveur selon la topologie résolue — flow **PARTAGÉ** par toutes
- * les commandes de lancement (`cluster`, `production`). C'est la
- * source unique de la décision « mono-process vs cluster » :
+ * Applique la topologie résolue — flow **PARTAGÉ** par les commandes de lancement
+ * (`cluster`, `production`). Appelé depuis leur `onKernelStart` (phase `onStart`),
+ * donc AVANT que l'unique Kernel ne démarre ses serveurs (`onReady → initServers`).
  *
- * - `workers >= 2` && process primaire → process **MASTER** : {@link startClusterMaster}
- *   (fork N workers + relay IPC + sonde pod). Ne boote AUCUN serveur, reste vivant
- *   (superviseur + gateway). Les handles restent vivants via les listeners cluster +
- *   les timers de la sonde → pas de GC, pas besoin de les retenir.
- * - sinon (mono-process `workers:1` OU process **worker** forké) → boote un Kernel
- *   complet (serveurs HTTP/WS).
+ * **Un seul Kernel par process** (fin du double-boot historique) :
+ * - `workers >= 2` && process primaire → **MASTER** : {@link startClusterMaster}
+ *   (fork N workers + relay IPC + sonde pod). Ne boote AUCUN serveur HTTP ; le Kernel
+ *   courant reste en `CONSOLE` et on **park** le flow (le master est un superviseur
+ *   pur, gardé vivant par les listeners cluster + les timers de la sonde).
+ * - sinon (mono-process `workers:1` OU process **worker** forké) → on bascule le Kernel
+ *   courant en `SERVER` et on **rend la main** : son pipeline de boot continue de
+ *   lui-même (`onReady → initServers → onPostReady`), les serveurs HTTP/WS montent et
+ *   le process reste vivant via leurs handles. Plus aucun `new Kernel` ici.
  *
  * Vit dans `kernel/commands/` (et non `service/cluster/`) pour garder le service
- * cluster **kernel-free** : seul ce maillon connaît `Kernel`.
- *
- * @returns le Kernel booté (mono/worker), ou `void` (process master).
+ * cluster **kernel-free**.
  */
 export async function launchTopology(
   opts: LaunchTopologyOptions,
-): Promise<void | Kernel> {
-  const { cli, options, topo, log } = opts;
+): Promise<void> {
+  const { cli, topo, log } = opts;
 
   if (cluster.isPrimary && topo.workers >= 2) {
     log(
       `Cluster topology: ${topo.workers} workers (source: ${topo.source})`,
       "INFO",
     );
-    // Master = superviseur + gateway IPC (relay realtime + sonde pod) ; pas de Kernel HTTP.
+    // Master = superviseur + gateway IPC (relay realtime + sonde pod) ; pas de Kernel
+    // HTTP. Le Kernel courant reste CONSOLE (on ne bascule pas en SERVER) → son
+    // pipeline n'initialisera aucun serveur. On parke le flow : sans ça, `onKernelStart`
+    // rendrait la main, le Kernel finirait son boot CONSOLE puis le CLI terminerait le
+    // process → le master meurt → les workers échouent leur handshake IPC au fork.
+    // L'arrêt passe par les signal handlers du ClusterManager (graceful shutdown).
     startClusterMaster({ workers: topo.workers, log });
-    // Parke le flow CLI (comme DevCommand). SANS ça : generate() retourne à `onStart`
-    // → le CLI termine le process → le master meurt → les workers échouent leur
-    // handshake IPC (write EPIPE) au fork. Le master reste vivant (superviseur) ;
-    // l'arrêt passe par les signal handlers du ClusterManager (graceful shutdown).
     await new Promise<void>(() => {});
     return;
   }
@@ -63,22 +61,9 @@ export async function launchTopology(
       "INFO",
     );
   }
-  // Mono-process OU worker forké : boot d'un Kernel complet (serveurs HTTP/WS).
-  const kernel = new Kernel(cli.environment, cli, options);
-  await kernel.start().catch((e) => {
-    cli.log(e, "ERROR");
-    throw e;
-  });
-  // Nom de process LISIBLE dans Activity Monitor / `ps` (worker N vs mono server) —
-  // cf master dans clusterMaster.ts. ⚠️ APRÈS start() : Kernel.setProcessTitle() pose
-  // `projectName` pendant le boot (Kernel.ts) → on doit avoir le dernier mot. Le pid
-  // (= instanceId de la sonde) reste le lien avec les logs / la vue pod.
-  process.title = cluster.isWorker
-    ? `nodefony worker ${cluster.worker?.id ?? "?"} [cluster]`
-    : "nodefony server";
-  // Parke le flow CLI (comme DevCommand). À `onStart`, une fois l'action terminée la
-  // chaîne de boot du kernel CLI s'arrête → le CLI ferait `terminate` (les serveurs
-  // sont portés par le Kernel ci-dessus, pas par le kernel CLI). Sans ce park, le
-  // worker bootait ses 4 serveurs PUIS terminait aussitôt (crash-loop respawn master).
-  await new Promise<void>(() => {});
+  // Mono-process OU worker forké : CE Kernel (déjà en cours de boot via le pipeline
+  // CLI) démarre les serveurs. On bascule juste son type ; `onKernelStart` rend ensuite
+  // la main et le boot se poursuit tout seul. Aucun park (les serveurs gardent le
+  // process vivant), aucun second Kernel.
+  cli.setType("SERVER");
 }

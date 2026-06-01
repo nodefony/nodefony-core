@@ -22,6 +22,10 @@ function detectEnvironmentFromArgv(
   for (const a of argv) {
     if (a === "development" || a === "dev") return "development";
     if (a === "production" || a === "prod") return "production";
+    // `cluster` est un runtime PROD (master + workers). Sans cette détection,
+    // l'unique Kernel naissait en `development` (env non résolu au constructeur)
+    // alors que les workers tournent en production → env incohérent.
+    if (a === "cluster") return "production";
   }
   return undefined;
 }

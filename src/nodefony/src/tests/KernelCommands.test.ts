@@ -204,11 +204,13 @@ describe("KernelCommand — ProdCommand", () => {
     assert.strictEqual(cmd.command.alias(), "prod");
   });
 
-  // onStart (et non plus onPostReady) : la topologie doit être décidée AVANT le boot
-  // des serveurs (le master cluster ne doit pas binder les ports). Cf launchTopology.
-  it("kernelEvent = 'onStart'", () => {
+  // onPostReady (recette `development`) : l'UNIQUE Kernel boote complètement, serveurs
+  // inclus, puis la commande conclut. La topologie (master vs mono) est décidée plus tôt,
+  // dans onKernelStart (phase onStart, avant initServers) — le master parke alors et ne
+  // binde aucun port. Plus de second Kernel runtime. Cf launchTopology + runtimeLauncher.
+  it("kernelEvent = 'onPostReady'", () => {
     const cmd = new ProdCommand(cli);
-    assert.strictEqual(cmd.kernelEvent, "onStart");
+    assert.strictEqual(cmd.kernelEvent, "onPostReady");
   });
 
   it("option --workers enregistrée (topologie)", () => {

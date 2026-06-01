@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-01T20:28:16.244Z",
+  "generated": "2026-06-01T20:51:44.891Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -2224,7 +2224,7 @@
       "file": "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Lance le runtime serveur selon la topologie résolue — flow **PARTAGÉ** par toutes les commandes de lancement (`cluster`, `production`). C'est la source unique de la décision « mono-process vs clust…"
+      "description": "Applique la topologie résolue — flow **PARTAGÉ** par les commandes de lancement (`cluster`, `production`). Appelé depuis leur `onKernelStart` (phase `onStart`), donc AVANT que l'unique Kernel ne dé…"
     },
     "Start": {
       "name": "Start",
@@ -12435,7 +12435,6 @@
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
@@ -13811,7 +13810,6 @@
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
-        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/commands/StartCommand.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",

@@ -103,10 +103,22 @@ class Command extends Service {
   public progress: number = 0;
   public response: Record<string, any> = {};
   public kernelEvent: KernelEventKey = "onRegister";
+  // Hooks lifecycle optionnels — un par phase du Kernel (cf Events bitmask). Câblés
+  // LAZY dans setEvents() : un `kernel.once(...)` n'est posé QUE si la commande définit
+  // le hook → 0 listener / 0 coût pour les commandes qui ne l'utilisent pas (règle perf).
+  // Disponibles pour TOUS les modes (serveur / batch one-shot / daemon CONSOLE). `onInit`
+  // n'est pas exposé : il fire dans le constructeur du Kernel, avant que la commande y soit liée.
+  public onKernelPreStart?(...args: any[]): Promise<void>;
   public onKernelStart?(...args: any[]): Promise<void>;
+  public onKernelPreRegister?(...args: any[]): Promise<void>;
   public onKernelRegister?(...args: any[]): Promise<void>;
+  public onKernelPreBoot?(...args: any[]): Promise<void>;
   public onKernelBoot?(...args: any[]): Promise<void>;
   public onKernelReady?(...args: any[]): Promise<void>;
+  public onKernelServersReady?(...args: any[]): Promise<void>;
+  public onKernelPostReady?(...args: any[]): Promise<void>;
+  /** Cleanup / graceful shutdown — fire à `terminate()` (reçoit le code en dernier arg). */
+  public onKernelTerminate?(...args: any[]): Promise<void>;
   public currentCommand?: Cmd;
   private eventsRegistered: boolean = false;
   /**
@@ -154,8 +166,23 @@ class Command extends Service {
   setEvents(...args: any[]): void {
     if (this.kernel && !this.eventsRegistered) {
       this.eventsRegistered = true;
+      // Câblage LAZY phase par phase (ordre chronologique du boot) : un listener
+      // n'est posé que si le hook est défini → aucun coût pour les commandes qui ne
+      // l'utilisent pas. Couvre tous les modes (serveur / batch / daemon).
+      if (this.onKernelPreStart) {
+        this.kernel.once(
+          "onPreStart",
+          this.onKernelPreStart.bind(this, ...args),
+        );
+      }
       if (this.onKernelStart) {
         this.kernel.once("onStart", this.onKernelStart.bind(this, ...args));
+      }
+      if (this.onKernelPreRegister) {
+        this.kernel.once(
+          "onPreRegister",
+          this.onKernelPreRegister.bind(this, ...args),
+        );
       }
       if (this.onKernelRegister) {
         this.kernel.once(
@@ -163,11 +190,33 @@ class Command extends Service {
           this.onKernelRegister.bind(this, ...args),
         );
       }
+      if (this.onKernelPreBoot) {
+        this.kernel.once("onPreBoot", this.onKernelPreBoot.bind(this, ...args));
+      }
       if (this.onKernelBoot) {
         this.kernel.once("onBoot", this.onKernelBoot.bind(this, ...args));
       }
       if (this.onKernelReady) {
         this.kernel.once("onReady", this.onKernelReady.bind(this, ...args));
+      }
+      if (this.onKernelServersReady) {
+        this.kernel.once(
+          "onServersReady",
+          this.onKernelServersReady.bind(this, ...args),
+        );
+      }
+      if (this.onKernelPostReady) {
+        this.kernel.once(
+          "onPostReady",
+          this.onKernelPostReady.bind(this, ...args),
+        );
+      }
+      if (this.onKernelTerminate) {
+        // onTerminate fire avec (kernel, code) → le hook les reçoit après ...args.
+        this.kernel.once(
+          "onTerminate",
+          this.onKernelTerminate.bind(this, ...args),
+        );
       }
       this.kernel.once(
         this.kernelEvent as string,

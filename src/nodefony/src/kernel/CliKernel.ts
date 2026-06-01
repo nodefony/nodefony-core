@@ -126,7 +126,9 @@ class CliKernel extends Cli {
    *
    * Comportement Commander :
    * - `--help` / `--version` → terminate(0) propre
-   * - Erreur Commander (option inconnue) → kernel start en fallback (legacy)
+   * - Erreur Commander (option/commande inconnue) → terminate(1) + re-throw —
+   *   **JAMAIS de fallback serveur** (legacy supprimé : une erreur de parse ne doit
+   *   pas démarrer un runtime).
    * - Exception kernel → terminate(1) puis re-throw
    *
    * @param options - options surchargées pour le `new Kernel(env, this, options)`.
@@ -191,13 +193,8 @@ class CliKernel extends Cli {
         return this.commander
           ?.parseAsync()
           .then(async () => {
-            if (this.kernel) {
-              return (this.kernel as Kernel).start().catch(async (e) => {
-                await this.kernel?.terminate();
-                throw e;
-              });
-            }
-            throw new Error(`Kernel not found`);
+            if (!this.kernel) throw new Error(`Kernel not found`);
+            return (this.kernel as Kernel).start();
           })
           .catch(async (e: unknown) => {
             // Sorties normales Commander (--help, --version) → terminer proprement
@@ -208,15 +205,12 @@ class CliKernel extends Cli {
             ) {
               return this.kernel?.terminate(0) as Promise<Kernel>;
             }
-            // Autre erreur Commander (option inconnue, commande non trouvée…)
-            // → démarrer le kernel en mode fallback (comportement existant)
-            if (this.kernel) {
-              return (this.kernel as Kernel).start().catch(async (startErr) => {
-                await this.kernel?.terminate(1);
-                throw startErr;
-              });
-            }
-            throw new Error(`Kernel not found`);
+            // Toute autre erreur (option/commande inconnue OU échec de boot) → on
+            // termine en erreur et on propage. PLUS de fallback « relancer un kernel
+            // serveur » (legacy retiré) : un parse qui échoue ne démarre jamais de runtime.
+            this.log(e, "ERROR");
+            await this.kernel?.terminate(1);
+            throw e;
           });
       }
 
