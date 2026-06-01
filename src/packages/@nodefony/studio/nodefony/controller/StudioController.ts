@@ -139,6 +139,16 @@ class StudioController extends Controller {
     return this.renderStudio();
   }
 
+  /**
+   * SPA fallback profondeur 3 — deep-link / refresh sur le suivi d'une requête :
+   * `logs/trace/:requestId` (ex `/nodefony/logs/trace/<uuid>`). Préfixe littéral
+   * `logs/trace` (PAS de générique) — même règle que `modules/:name`.
+   */
+  @Get("/logs/trace/{requestId}")
+  renderSpaFallbackTrace(): unknown {
+    return this.renderStudio();
+  }
+
   @Get("/studio/api/health")
   apiHealth() {
     return this.renderJson({

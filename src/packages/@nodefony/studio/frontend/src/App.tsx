@@ -48,6 +48,9 @@ const Chat = lazy(() =>
 const Logs = lazy(() =>
   import("./routes/Logs").then((m) => ({ default: m.Logs })),
 );
+const TraceView = lazy(() =>
+  import("./routes/TraceView").then((m) => ({ default: m.TraceView })),
+);
 const System = lazy(() =>
   import("./routes/System").then((m) => ({ default: m.System })),
 );
@@ -173,6 +176,7 @@ const router = createBrowserRouter([
           { path: "audit", element: <Audit /> },
           { path: "routes", element: <RoutesView /> },
           { path: "logs", element: <Logs /> },
+          { path: "logs/trace/:requestId", element: <TraceView /> },
           { path: "system", element: <System /> },
           { path: "firewall", element: <Firewall /> },
           { path: "orm", element: <OrmOverview /> },

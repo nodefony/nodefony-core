@@ -23,6 +23,7 @@ import {
   Chip,
   Code,
   Group,
+  MultiSelect,
   Paper,
   SegmentedControl,
   Stack,
@@ -31,18 +32,23 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
+  IconArrowsLeftRight,
   IconFilter,
   IconFilterOff,
   IconInfoCircle,
+  IconPlugConnected,
   IconRoute2,
   IconSortAscending,
   IconSortDescending,
+  IconTimeline,
+  IconWorld,
   IconX,
 } from "@tabler/icons-react";
 import { useStore } from "../../stores";
 import {
   DataGrid,
   DocHint,
+  InfoHint,
   type DataGridColumn,
   type DataGridServerQuery,
   type DataGridServerResult,
@@ -70,7 +76,12 @@ import {
   DriverIcon,
   SeverityBadge,
 } from "./LogVisuals";
-import { describeFlow } from "./eventFlow";
+import {
+  describeFlow,
+  flowSelectGroups,
+  flowStepsForProtocol,
+  type FlowStepId,
+} from "./eventFlow";
 
 export interface LogExplorerProps {
   /** Capacités du driver actif (garde `query`). `null` = méta pas encore chargée. */
@@ -109,21 +120,41 @@ export const LogExplorer = observer(
 
     // Filtres EXPLICITES (barre dédiée, ≠ filtres colonne jugés peu lisibles).
     // Appliqués CÔTÉ SERVEUR via le loader. Sévérité = multi-sélection.
-    // NB : pas de filtre « étape » ici — l'étape est dérivée du contenu (front,
-    // describeFlow), pas un critère back ; la filtrer par texte est trompeur
-    // (matche les logs de requêtes contenant le marqueur). → critère back `flow` à faire.
+    // Le PROTOCOLE (WS/HTTP) est un VRAI critère back (`pduProtocol` : WS ⟺
+    // msgid "WEBSOCKET CONTEXT", HTTP = le reste) → fiable, ≠ l'ancien filtre
+    // « étape » par texte (trompeur, retiré : l'étape reste dérivée front via
+    // describeFlow, pour la colonne seulement).
+    const [protocol, setProtocol] = useState<"all" | "ws" | "http">("all");
+    // Étapes du cycle de vie — critère back STRUCTURÉ (pduFlowStep), multi-sélection.
+    const [flows, setFlows] = useState<FlowStepId[]>([]);
     const [severities, setSeverities] = useState<Set<Severity>>(new Set());
     const [moduleF, setModuleF] = useState("");
     const [msgidF, setMsgidF] = useState("");
     const filtersActive =
-      severities.size > 0 || moduleF.trim() !== "" || msgidF.trim() !== "";
+      protocol !== "all" ||
+      flows.length > 0 ||
+      severities.size > 0 ||
+      moduleF.trim() !== "" ||
+      msgidF.trim() !== "";
     // Signal stable → le DataGrid repart page 1 quand un filtre change.
-    const filterSignal = `${[...severities].sort().join(",")}|${moduleF.trim()}|${msgidF.trim()}`;
+    const filterSignal = `${protocol}|${[...flows].sort().join(",")}|${[...severities].sort().join(",")}|${moduleF.trim()}|${msgidF.trim()}`;
     const clearFilters = () => {
+      setProtocol("all");
+      setFlows([]);
       setSeverities(new Set());
       setModuleF("");
       setMsgidF("");
     };
+
+    // Le sélecteur d'étapes s'ADAPTE au protocole (WS → étapes WS + communes ;
+    // HTTP → étapes HTTP + communes ; Tous → l'union, groupées).
+    const flowData = useMemo(() => flowSelectGroups(protocol), [protocol]);
+    // Changer de protocole peut invalider des étapes sélectionnées → on purge
+    // celles qui ne sont plus proposées (sinon un AND impossible = 0 résultat).
+    useEffect(() => {
+      const valid = new Set(flowStepsForProtocol(protocol));
+      setFlows((prev) => prev.filter((f) => valid.has(f)));
+    }, [protocol]);
 
     // L'orchestrateur peut pousser un requestId à tracer (depuis Live ou le
     // drawer) → on synchronise le champ ET on passe en lecture chronologique
@@ -144,7 +175,10 @@ export const LogExplorer = observer(
         if (q.search) params.set("q", q.search);
         if (requestId.trim()) params.set("requestId", requestId.trim());
         // Filtres EXPLICITES de la barre dédiée (le back applique l'inclusion via
-        // filterPdus : severity = OU entre niveaux, module/msgid = égalité).
+        // filterPdus : severity = OU entre niveaux, module/msgid = égalité,
+        // protocol = classification pduProtocol côté core).
+        if (protocol !== "all") params.set("protocol", protocol);
+        for (const f of flows) params.append("flow", f);
         for (const s of severities) params.append("severity", s);
         if (moduleF.trim()) params.set("module", moduleF.trim());
         if (msgidF.trim()) params.set("msgid", msgidF.trim());
@@ -155,7 +189,7 @@ export const LogExplorer = observer(
       },
       // refreshKey force la régénération du loader (→ refetch) après un switch ;
       // order/filtres → refetch au changement.
-      [store, requestId, order, refreshKey, severities, moduleF, msgidF],
+      [store, requestId, order, refreshKey, protocol, flows, severities, moduleF, msgidF],
     );
 
     const columns = useMemo<DataGridColumn<LogRecord>[]>(
@@ -448,6 +482,10 @@ export const LogExplorer = observer(
                 body: "Un requestId corrèle tous les logs d'UNE requête (ALS) — appel base de données inclus. Clique un badge requestId ou colle-en un ici pour suivre une requête de bout en bout. Essaie GET /nodefony/test/db/trace.",
               },
               {
+                label: "Trouver une requête par URL",
+                body: "Tape l'URL ou la route dans la barre de RECHERCHE (ex. « GET /api/users ») : tu retrouves le bilan de la/les requête(s) correspondante(s) ; clique alors son requestId pour dérouler toute sa trace.",
+              },
+              {
                 label: "Ordre & chronologie",
                 body: "Bascule récent↔chrono. L'ordre s'appuie sur le # (uid, séquence d'émission monotone), pas sur l'horloge ms — donc l'ordre reste exact même quand plusieurs logs tombent dans la même milliseconde.",
               },
@@ -455,8 +493,64 @@ export const LogExplorer = observer(
           />
         </Group>
 
-        {/* Barre de FILTRES explicites — clairs, au-dessus de la grille. */}
+        {/* Barre de FILTRES explicites — clairs, au-dessus de la grille.
+            Protocole EN TÊTE (vision « protocole d'abord, puis cycle de vie »). */}
         <Group gap="sm" wrap="wrap" align="center">
+          <Group gap={6} wrap="nowrap">
+            <IconPlugConnected size={14} />
+            <Text size="xs" fw={600} c="dimmed">
+              Protocole
+            </Text>
+            <InfoHint text="WS = logs des connexions WebSocket (msgid « WEBSOCKET CONTEXT » : handshake, messages, fermeture). HTTP = tout le reste du pipeline (requête, routage, firewall, applicatif). Critère appliqué côté serveur (pduProtocol)." />
+          </Group>
+          <SegmentedControl
+            size="xs"
+            value={protocol}
+            onChange={(v) => setProtocol(v as "all" | "ws" | "http")}
+            data={[
+              { value: "all", label: "Tous" },
+              {
+                value: "http",
+                label: (
+                  <Group gap={4} wrap="nowrap">
+                    <IconWorld size={13} />
+                    <Text size="xs">HTTP</Text>
+                  </Group>
+                ),
+              },
+              {
+                value: "ws",
+                label: (
+                  <Group gap={4} wrap="nowrap">
+                    <IconArrowsLeftRight size={13} />
+                    <Text size="xs">WS</Text>
+                  </Group>
+                ),
+              },
+            ]}
+            aria-label="filtrer par protocole"
+          />
+          {/* Étape du cycle de vie — s'adapte au protocole (« protocole d'abord »). */}
+          <Group gap={6} wrap="nowrap">
+            <IconTimeline size={14} />
+            <Text size="xs" fw={600} c="dimmed">
+              Étape
+            </Text>
+            <InfoHint text="Étape du cycle de vie de la requête/connexion — critère structuré (≠ recherche texte). Les options s'adaptent au protocole choisi. Les jalons notables sont en INFO/NOTICE (requête entrante, route trouvée, réponse, ouverture/fermeture WS) ; les étapes techniques (message reçu, corps reçu, dispatch, fin) restent en DEBUG → si tu les filtres en cochant INFO+, elles seront masquées." />
+          </Group>
+          <MultiSelect
+            size="xs"
+            w={250}
+            data={flowData}
+            value={flows}
+            onChange={(v) => setFlows(v as FlowStepId[])}
+            placeholder={flows.length ? undefined : "Toutes les étapes"}
+            clearable
+            searchable
+            nothingFoundMessage="Aucune étape"
+            comboboxProps={{ withinPortal: true }}
+            aria-label="filtrer par étape du cycle de vie"
+          />
           <Group gap={6} wrap="nowrap">
             <IconFilter size={14} />
             <Text size="xs" fw={600} c="dimmed">
@@ -510,7 +604,15 @@ export const LogExplorer = observer(
             sections={[
               {
                 label: "Comment ils se combinent",
-                body: "Sévérité (OU entre les niveaux cochés) ET module ET msgid ET recherche plein-texte — tout se cumule. La page repart à 1 à chaque changement.",
+                body: "Protocole (WS ou HTTP) ET étape(s) du cycle de vie (OU entre étapes) ET sévérité (OU entre les niveaux cochés) ET module ET msgid ET recherche plein-texte — tout se cumule. La page repart à 1 à chaque changement.",
+              },
+              {
+                label: "Protocole, puis cycle de vie",
+                body: "1) Sépare WS / HTTP à la source (WS = contexte socket : ouverture, messages, fermeture ; HTTP = le reste). 2) Le sélecteur Étape s'adapte alors au protocole et cible un jalon précis (requête entrante, route trouvée, réponse… ou ouverture/message/fermeture en WS).",
+              },
+              {
+                label: "Étapes & sévérité",
+                body: "Les jalons notables sont en INFO/NOTICE (requête entrante, route trouvée, réponse envoyée, ouverture/fermeture WebSocket) → visibles sans DEBUG. Les étapes techniques (message reçu, corps reçu, dispatch kernel, fin) restent en DEBUG : si tu les filtres en cochant INFO+, elles seront masquées. Pour les suivre, laisse la sévérité libre ou inclus DEBUG.",
               },
             ]}
           />
@@ -542,7 +644,7 @@ export const LogExplorer = observer(
           pageSize={50}
           height={540}
           resetPageSignal={filterSignal}
-          searchPlaceholder="Recherche plein-texte (payload, msg, module, msgid)…"
+          searchPlaceholder="Recherche : URL/route (ex. GET /api/x), payload, module, msgid…"
           emptyMessage="Aucun log ne correspond aux critères."
           persist={{ key: "studio.logs.explorer.v2", storage: "session" }}
         />

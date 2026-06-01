@@ -11,6 +11,7 @@
  */
 import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   ActionIcon,
   Alert,
@@ -298,15 +299,24 @@ export const PduDetailDrawer = observer(
                         <IconRefresh size={15} />
                       </ActionIcon>
                     </Tooltip>
+                    <Button
+                      component={Link}
+                      to={`/nodefony/logs/trace/${encodeURIComponent(requestId)}`}
+                      size="compact-xs"
+                      variant="light"
+                      color="brand"
+                      leftSection={<IconRoute2 size={14} />}
+                    >
+                      Suivi (pleine page)
+                    </Button>
                     {onTrace && (
                       <Button
                         size="compact-xs"
-                        variant="light"
-                        color="brand"
-                        leftSection={<IconRoute2 size={14} />}
+                        variant="subtle"
+                        color="gray"
                         onClick={() => onTrace(requestId)}
                       >
-                        Ouvrir dans l'Explorer
+                        Explorer
                       </Button>
                     )}
                   </Group>
