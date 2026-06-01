@@ -41,6 +41,7 @@ import {
   IconRefresh,
   IconRoute2,
   IconShieldLock,
+  IconTimeline,
   IconWorld,
 } from "@tabler/icons-react";
 import { pduProtocol } from "nodefony";
@@ -67,6 +68,13 @@ import {
   recordMessage,
 } from "./logs/logFormat";
 import { SeverityBadge } from "./logs/LogVisuals";
+import {
+  PhaseWaterfall,
+  ProfileMeta,
+  QueryTable,
+  fmtMs,
+} from "./logs/profileVisuals";
+import type { ProfileEntry } from "../stores/ProfilerStore";
 
 const TRACE_DOC = "v1.0";
 
@@ -216,6 +224,19 @@ export const TraceView = observer(() => {
   );
   const { data, loading, error, reload } = useResource(fetcher);
   const logs = useMemo(() => data?.rows ?? [], [data]);
+
+  // Profil serveur corrélé (phases + requêtes SQL mesurées par le profiler ALS).
+  // BEST-EFFORT : 404 si la requête n'a pas été profilée (prod) ou a été évincée
+  // du ring buffer → on ignore l'erreur, les onglets dégradent proprement.
+  const profileFetcher = useCallback(
+    () =>
+      store.api.getAbsolute<ProfileEntry>(
+        `/nodefony/profiler/api/${encodeURIComponent(requestId)}`,
+      ),
+    [store, requestId],
+  );
+  const { data: profile, reload: reloadProfile } = useResource(profileFetcher);
+  const queries = useMemo(() => profile?.queries ?? [], [profile]);
 
   // ── Synthèse dérivée de la trace ──
   const summary = useMemo(() => {
@@ -400,6 +421,17 @@ export const TraceView = observer(() => {
         {summary && (
           <KeyValue k="Début" v={`${fmtDateTime(summary.baseTs)}`} mono />
         )}
+        {profile?.route && <KeyValue k="Route" v={profile.route} mono />}
+        {profile?.controller && (
+          <KeyValue
+            k="Controller"
+            v={`${profile.controller}.${profile.action ?? "?"}`}
+            mono
+          />
+        )}
+        {profile && (
+          <KeyValue k="Durée serveur" v={fmtMs(profile.durationMs)} mono />
+        )}
       </DefinitionList>
 
       {/* Timeline verticale des JALONS du cycle de vie. */}
@@ -514,6 +546,52 @@ export const TraceView = observer(() => {
     );
   };
 
+  // ── Onglet TIMING (profil serveur : phases mesurées par le profiler ALS) ──
+  const timingPanel = profile ? (
+    <Stack gap="md">
+      <ProfileMeta profile={profile} />
+      <Stack gap={6}>
+        <Group gap="xs">
+          <Text size="sm" fw={600}>
+            Timeline des phases (serveur)
+          </Text>
+          <DocHint
+            title="Timing serveur (waterfall des phases)"
+            version={TRACE_DOC}
+            summary="Décomposition du temps passé côté serveur pour traiter la requête : parse du corps, résolution de route, firewall, action du controller, rendu, envoi."
+            sections={[
+              {
+                label: "Source",
+                body: "Mesuré par le profiler (AsyncLocalStorage) — les mêmes phases que la debug bar par-page. Plus précis que la durée déduite des logs.",
+              },
+              {
+                label: "Si vide",
+                body: "Requête non profilée (profiler dev-only) ou profil évincé du ring buffer.",
+              },
+            ]}
+          />
+        </Group>
+        <PhaseWaterfall profile={profile} />
+      </Stack>
+    </Stack>
+  ) : (
+    <Alert color="grape" variant="light" icon={<IconInfoCircle size={16} />}>
+      <Text size="xs">
+        Aucun profil serveur pour cette requête — elle n'a pas été{" "}
+        <b>profilée</b> (le profiler est dev-only) ou son profil a été évincé du
+        ring buffer.
+      </Text>
+    </Alert>
+  );
+
+  // ── Onglet ORM : vraies requêtes SQL du profiler si dispo, sinon logs corrélés ──
+  const ormPanel =
+    queries.length > 0 ? (
+      <QueryTable queries={queries} />
+    ) : (
+      visionTab("orm", ormLogs)
+    );
+
   const tabs = [
     {
       value: "accueil",
@@ -533,15 +611,30 @@ export const TraceView = observer(() => {
       panel: summary ? <LogList rows={logs} baseTs={summary.baseTs} /> : null,
     },
     {
+      value: "timing",
+      label: "Timing",
+      icon: <IconTimeline size={15} />,
+      badge: profile ? (
+        <Badge size="xs" variant="light" color="blue">
+          {fmtMs(profile.durationMs)}
+        </Badge>
+      ) : undefined,
+      panel: timingPanel,
+    },
+    {
       value: "orm",
       label: "ORM",
       icon: <IconDatabase size={15} />,
-      badge: ormLogs.length ? (
+      badge: queries.length ? (
         <Badge size="xs" variant="light" color="grape">
+          {queries.length}
+        </Badge>
+      ) : ormLogs.length ? (
+        <Badge size="xs" variant="light" color="gray">
           {ormLogs.length}
         </Badge>
       ) : undefined,
-      panel: visionTab("orm", ormLogs),
+      panel: ormPanel,
     },
     {
       value: "security",
@@ -595,7 +688,10 @@ export const TraceView = observer(() => {
               size="xs"
               leftSection={<IconRefresh size={15} />}
               loading={loading}
-              onClick={reload}
+              onClick={() => {
+                reload();
+                reloadProfile();
+              }}
             >
               Rafraîchir
             </Button>

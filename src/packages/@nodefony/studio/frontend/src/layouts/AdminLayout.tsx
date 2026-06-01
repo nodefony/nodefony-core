@@ -52,13 +52,7 @@ import {
   type Icon,
 } from "@tabler/icons-react";
 import { hasAnyRole } from "nodefony/roles";
-import {
-  useAdmin,
-  useAuth,
-  useConnection,
-  useProfiler,
-  useUi,
-} from "../stores";
+import { useAdmin, useAuth, useConnection, useUi } from "../stores";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { NAV_GROUPS, PRODUCER_ICONS } from "./navConfig";
 
@@ -120,7 +114,6 @@ export const AdminLayout = observer(() => {
   const conn = useConnection();
   const ui = useUi();
   const admin = useAdmin();
-  const profiler = useProfiler();
   const navigate = useNavigate();
   const loc = useLocation();
   const [params] = useSearchParams();
@@ -137,24 +130,20 @@ export const AdminLayout = observer(() => {
   }, [admin]);
 
   // Sync debug bar → Studio : un clic sur une requête dans la barre (event
-  // window dispatché par le widget Core `nodefony/debugbar`) navigue vers la
-  // page Profiler et y sélectionne le requestId. Découplé via CustomEvent (la
-  // barre est vanilla/Shadow DOM, Studio est React).
+  // window dispatché par le widget Core `nodefony/debugbar`) ouvre le **Suivi de
+  // requête** (`/nodefony/logs/trace/:requestId`) — la vue unifiée par requestId
+  // (logs corrélés + profil serveur : phases, requêtes SQL). Découplé via
+  // CustomEvent (la barre est vanilla/Shadow DOM, Studio est React).
   useEffect(() => {
     const onSelect = (ev: Event): void => {
       const rid = (ev as CustomEvent<{ requestId?: string }>).detail?.requestId;
       if (!rid) return;
-      // Navigue avec le requestId en query → la page Profiler lit `?req=` et
-      // sélectionne (robuste au timing : pas besoin que le store soit prêt
-      // avant le montage de la page). `select` direct en plus pour l'immédiat
-      // si on est déjà sur la page.
-      navigate(`/nodefony/profiling?req=${encodeURIComponent(rid)}`);
-      void profiler.select(rid);
+      navigate(`/nodefony/logs/trace/${encodeURIComponent(rid)}`);
     };
     window.addEventListener("nodefony:debugbar:select", onSelect);
     return () =>
       window.removeEventListener("nodefony:debugbar:select", onSelect);
-  }, [navigate, profiler]);
+  }, [navigate]);
 
   const rail = ui.rail;
   const q = ui.navQuery.trim().toLowerCase();

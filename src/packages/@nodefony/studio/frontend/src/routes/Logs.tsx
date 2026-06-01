@@ -23,6 +23,7 @@ import { Button } from "@mantine/core";
 import {
   IconAdjustments,
   IconBroadcast,
+  IconBug,
   IconFile,
   IconFileText,
   IconLayoutDashboard,
@@ -40,9 +41,16 @@ import { LogExplorer } from "./logs/LogExplorer";
 import { BackplanePanel } from "./logs/BackplanePanel";
 import { SyslogConfigPanel } from "./logs/SyslogConfigPanel";
 import { PduDetailDrawer } from "./logs/PduDetailDrawer";
+import { ProfilingTab } from "./logs/ProfilingTab";
 import type { BackplaneMeta, LogRecord } from "./logs/logsTypes";
 
-type TabId = "overview" | "live" | "explorer" | "files" | "config";
+type TabId =
+  | "overview"
+  | "live"
+  | "explorer"
+  | "profiling"
+  | "files"
+  | "config";
 
 export const Logs = observer(() => {
   const store = useStore();
@@ -130,6 +138,12 @@ export const Logs = observer(() => {
                 cluster={meta?.cluster}
               />
             ),
+          },
+          {
+            value: "profiling",
+            label: "Profiling",
+            icon: <IconBug size={16} />,
+            panel: <ProfilingTab />,
           },
           {
             value: "files",

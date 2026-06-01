@@ -63,9 +63,6 @@ const ModuleDetail = lazy(() =>
 const RoutesView = lazy(() =>
   import("./routes/RoutesView").then((m) => ({ default: m.RoutesView })),
 );
-const Profiler = lazy(() =>
-  import("./routes/Profiler").then((m) => ({ default: m.Profiler })),
-);
 const Database = lazy(() =>
   import("./routes/Database").then((m) => ({ default: m.Database })),
 );
@@ -189,7 +186,6 @@ const router = createBrowserRouter([
           { path: "modules/:name", element: <ModuleDetail /> },
           { path: "documentation", element: <Documentation /> },
           { path: "npm", element: <Npm /> },
-          { path: "profiling", element: <Profiler /> },
           { path: "settings", element: <Settings /> },
           { path: "*", element: <NotFound /> },
         ],

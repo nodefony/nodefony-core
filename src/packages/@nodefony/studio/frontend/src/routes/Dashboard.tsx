@@ -19,7 +19,6 @@ import {
   IconBox,
   IconRoute,
   IconAffiliate,
-  IconChartBar,
   IconFileText,
   IconBug,
   IconBrandNodejs,
@@ -258,15 +257,6 @@ export const Dashboard = observer(() => {
             leftSection={<IconDatabase size={15} />}
           >
             Database
-          </Button>
-          <Button
-            component={Link}
-            to="/nodefony/profiling"
-            variant="light"
-            size="xs"
-            leftSection={<IconChartBar size={15} />}
-          >
-            Profiling
           </Button>
           <Button
             component={Link}
