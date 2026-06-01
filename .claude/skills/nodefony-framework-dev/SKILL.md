@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.18.0
+version: 1.19.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.17.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.19.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -1499,6 +1499,16 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.19.0** (2026-06-01) — **Trace des messages WebSocket dans le Suivi de requête (back).** Full-stack (front =
+  studio-dev 1.19.0 ; commit `e44cbd5`). `@nodefony/http` : **seam de trace des frames WS gaté hors prod** (0 coût).
+  `WebsocketContext` logge le **CONTENU** de RECEIVE/SEND/BROADCAST corrélé `requestId` via **`wsLogContent.ts`**
+  (`formatWsLogContent` **PUR**, borné 4 Ko ; **binaire robuste** Buffer/ArrayBuffer/TypedArray/DataView/Buffer[]/Blob
+  → `[binary N B]`, **JAMAIS sérialisé** — `binaryByteLength`, piège `byteLength≠length`). Gate `wsContentLogging`
+  résolue **1×** (calquée `lifecyclePromoted`, pas par message). Core `pduFlow` : msgid `WS RECEIVE|SEND|BROADCAST`
+  → `ws-message`. **+27 tests verts** (http unit `wsLogContent` 16 + intégration `websocket-trace-logging` end-to-end
+  - core `pduFlow` +2 + studio `jsonFormat` 10) ; non-régr **737/0** ; **memory WS 6/6** (BUG-001 1000 msgs).
+    RETEX : `Buffer.isBuffer` seul insuffisant (ws.send accepte ArrayBuffer/TypedArray/Blob/Buffer[]) → couvrir tout
+    via `binaryByteLength`. Lockstep front = **studio-dev 1.19.0**. [[project_request_tracking_page_vision]].
 - **1.18.0** (2026-06-01) — **LB.4 — drivers prod Loki + OpenSearch (back).** Full-stack (front = studio-dev 1.18.0 ;
   commit `6d8e17f`). Core `nodefony` : `createLokiLogDriver`/`createOpenSearchLogDriver` (query LogQL / `_search` DSL,
   **adaptateurs** → `filterPdus` autorité) ; `LokiTransport`/`OpenSearchTransport` sur **`BatchingHttpTransport`**

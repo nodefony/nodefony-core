@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.18.0
+version: 1.19.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -18,7 +18,7 @@ description: >
 
 Playbook **déterministe** : produis un écran Studio (page / dashboard / panneau / onglet)
 **cohérent, accessible, perf** sans explorer le code. Toutes les signatures et tous les chemins
-nécessaires sont ici. Studio = `src/packages/@nodefony/studio/frontend` (React 19 + Mantine v8 +
+nécessaires sont ici. Studio = `src/packages/@nodefony/studio/frontend` (React 19 + Mantine **v9** +
 MobX + React Router 7). Racine module : `src/packages/@nodefony/studio`.
 
 > Page de RÉFÉRENCE (pattern complet) : `frontend/src/routes/RoutesView.tsx`.
@@ -88,7 +88,7 @@ useResource<T>(fetcher: () => Promise<T>): { data: T|null; loading: boolean; err
 <DataGrid
   mode="client" data={rows[]}                       // CLIENT : tout en mémoire
   // OU mode="server" loader={(q)=>Promise<{rows,total}>}  // SERVEUR : q={page,pageSize,sort,search,columnFilters} ; loader DOIT être useCallback
-  columns={DataGridColumn<T>[]}                      // {key,header,align?,sortable?,filterable?,filterType?:"text"|"number"|"select",filterOptions?,hint?,render?(row),value?(row)}
+  columns={DataGridColumn<T>[]}                      // {key,header,align?:"left"|"right",sortable?,filterable?,filterType?:"text"|"number"|"select",filterOptions?:string[],hint?,render?(row),value?(row)}
   getRowId={(r)=>string} onRowClick?={(r)=>void}
   initialSort?={{key,dir}} pageSize?={25} height?="100%"
   searchable?={true} searchPlaceholder?
@@ -474,7 +474,7 @@ purger…) sur le même canal/data-plane (DEV-ONLY + RBAC P6).
   1. **UI kit Studio** (`components/ui/` : `DataGrid`, `DataState`, `StatCard`, `JsonViewer`, `MiniChart`, `KeyValue`, `ConfigView`, `InfoHint`…).
   2. **`@mantine/core`** (le composant Mantine natif).
   3. **deps DÉJÀ installées** (`package.json`) — ex. **`@tanstack/react-table`** (déjà là !) = tableau headless standard : filtres à opérateurs (`filterFn`), faceting (valeurs distinctes), tri, pagination **client + serveur** (`manualPagination`/`manualFiltering`). MUI DataGrid Pro & mantine-react-table ne sont QUE des UI par-dessus ça.
-  4. Sinon, peser une dep éprouvée (⚠ compat : Mantine **v8** + React **19** — `mantine-react-table` est conçu pour v7 = risqué).
+  4. Sinon, peser une dep éprouvée (⚠ compat : Mantine **v9** + React **19** — `mantine-react-table` est conçu pour v7 = risqué).
      Ne hand-roll **qu'en dernier recours**, en réutilisant les primitives Mantine. **Coût vécu** :
      un popover de filtre maison = bug de focus (input intypable) + plusieurs cycles perdus, **alors que
      TanStack Table était déjà installé**. Réutiliser > réinventer. **Toujours `grep` le `package.json` +
@@ -608,6 +608,43 @@ statique domine, le mouvement est RARE et porteur de sens.** À appliquer sur TO
 - WCAG 2.2 SC 2.2.2 Pause, Stop, Hide : `https://r.jina.ai/https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html`
 - NN/g — Animation & motion (vision périphérique, restraint) : `https://r.jina.ai/https://www.nngroup.com/articles/animation-purpose-ux/`
 - MDN — `prefers-reduced-motion` : `https://r.jina.ai/https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-reduced-motion`
+
+## 🧭 Ergonomie — divulgation progressive (directive user 2026-06-01 — appliquer EN CONSTRUISANT)
+
+**Studio est une console PRO, JAMAIS un « clickodrome ».** Sur **tout** écran : **ne jamais tout
+montrer d'un coup** — afficher d'abord le **formel/établi et l'important**, le reste se **révèle à la
+demande**. Une vision dense se **découpe en sous-rubriques**. La directive « CALME » ci-dessus régit
+le **mouvement** ; celle-ci régit la **densité** (complémentaires — cf [[feedback_studio_realtime_calm]]).
+
+**Why** : un écran qui empile tout = bruit ; l'utilisateur ne comprend pas au 1ᵉʳ regard. Le
+différenciateur Studio est la **lisibilité pro**, pas la densité.
+
+**Boîte à outils de divulgation (du + visible au + caché)** :
+
+| Besoin                                        | Brique                                                                                                         |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Facettes d'UN sujet (1 seul détail à la fois) | **Tuiles d'axe** master cliquable, défaut = la + importante (ex. `BackplanePanel` Lecture/Écriture/Temps réel) |
+| Sections sœurs de même niveau                 | **Onglets PREMIER niveau** (`<Tabs>`) — **JAMAIS 2 niveaux imbriqués**                                         |
+| Détail secondaire                             | **`Collapse` replié** (prop Mantine v9 = **`expanded`**, pas `in`)                                             |
+| Aperçu → détail au survol                     | **Pophover** `JsonPeek` / `DocHint` (lazy au survol)                                                           |
+| Beaucoup de lignes                            | **`DataGrid` paginé** (tri/recherche/filtre)                                                                   |
+| Explication / métaphore                       | **PAS sur l'écran factuel** → onglet/rubrique **Doc** + fiches `DocHint`                                       |
+
+**Anti-clickodrome (checklist)** :
+
+- **Factuel d'abord, pédagogie ailleurs** : l'écran porte l'état établi ; les explications vont en
+  onglet/rubrique **Doc** + `DocHint`.
+- **Préserver l'état au retour** : onglet actif + filtres persistés en `sessionStorage` (piège vécu :
+  un effet qui réécrit l'URL clobbe le `requestId` deep-link → garder le param existant).
+- **Défaut sur l'important** ; **contrôle PRÈS de ce qu'il pilote** (le select « Changer la source »
+  vit dans la tuile ET la card qu'il modifie, pas dans une barre lointaine).
+- **Terme explicite FR + tech en second** (« Source consultée · relecture », pas « relu » seul) ;
+  **chips** pour « où / combien » (destinations actives surlignées). Cf [[feedback_terminology_forage]].
+- **Test du 1ᵉʳ regard** : « je vois SEULEMENT l'essentiel ET je comprends sans pavé ? » sinon découpe.
+
+**Vécu (refonte console Logs, commit `a19a471`)** : Profiling → `DataGrid` paginé ; onglets 1er niveau
+Santé/Doc ; Vue d'ensemble « fond de panier » = 3 tuiles d'axe (un seul détail ouvert). Détails :
+[[feedback_studio_ergonomie_progressive]].
 
 ## 🔒 Sécurité — PRIORITÉ MAX (directive permanente)
 
@@ -864,7 +901,7 @@ Serveur dev : `bash .claude/skills/nodefony-start-server/start.sh`. Modif backen
   payées) :
   1. **NE PAS hand-roller** un tableau/filtre/tri/pagination → `@tanstack/react-table` est déjà en
      deps (cf règle #1 « vérifier l'existant »). MUI DataGrid Pro / mantine-react-table = juste des UI
-     dessus, et MRT cible Mantine v7 (risqué sur notre v8/React19).
+     dessus, et MRT cible Mantine v7 (risqué sur notre v9/React19).
   2. **Filtres = INLINE (ligne sous l'en-tête), PAS un Popover** : un Popover Mantine autour d'un input
      vole le focus → input intypable (3 cycles perdus). Inline = typable.
   3. Un `Select`/combobox **inline dans une table** doit être **`comboboxProps={{withinPortal:true}}`**
@@ -1148,6 +1185,21 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.19.0** (2026-06-01) — **Messages WS dans le Suivi de requête + famille vue JSON + UX console Logs**.
+  Full-stack (back = framework-dev 1.19.0 ; commits `e44cbd5`, `a19a471`). **Contrat front+back touché** (le seam
+  http `wsLogContent` émet un nouveau `msgid` `ws-message` corrélé requestId) → bump MINOR partagé.
+  - **Famille vue JSON** `components/ui/json` : **`JsonView`** (arbre repliable + brut + copier), **`JsonCard`**
+    (carte autonome), **`JsonPeek`** (pophover aperçu→carte au survol, lazy) ; `JsonViewer` = wrapper. `TraceView`
+    onglet **WebSocket** (handshake→messages→close, **messages repliés par défaut**).
+  - **UX console Logs** (commit `a19a471`) : Profiling → **`DataGrid` paginé** ; **persistance** onglet + filtres
+    Explorer (`sessionStorage`, fix clobber `requestId`) ; onglets **1er niveau** Santé/Doc ; Vue d'ensemble
+    **« fond de panier »** = 3 **tuiles d'axe** (Lecture défaut/Écriture/Temps réel, un seul détail ouvert).
+  - **RETEX** : (a) **ergonomie « pas de clickodrome »** gravée → nouvelle section « 🧭 Ergonomie — divulgation
+    progressive » (cf [[feedback_studio_ergonomie_progressive]]). (b) **Mantine = v9** (le skill disait v8 = FAUX) :
+    `Collapse` prop **`expanded`** (pas `in`) ; `DataGridColumn.align ∈ {left,right}`, `filterOptions: string[]`.
+    (c) **binaire WS** : `Buffer.isBuffer` seul insuffisant (ws.send accepte ArrayBuffer/TypedArray/Blob/Buffer[])
+    → `binaryByteLength` couvre tout → `[binary N B]`, jamais sérialisé. +27 tests verts (737/0, memory WS 6/6).
+    Lockstep back = **framework-dev 1.19.0**. [[project_request_tracking_page_vision]].
 - **1.18.0** (2026-06-01) — **LB.4 — destinations prod Loki/OpenSearch (front : ping + clarté lecture/écriture)**.
   Full-stack (back = framework-dev 1.18.0 ; commit `6d8e17f`). Page Logs/panneau Backplane : bouton **« Tester la
   destination »** (`DestinationPing` dans `BackplaneBanner`, ping/latence/infos via `GET /nodefony/syslog/api/backplane/ping`,
