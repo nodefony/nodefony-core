@@ -11,3 +11,4 @@ alternatives écartées / conséquences).
 | [0002](0002-schema-conference-webrtc-mediasoup.md)        | Schéma DB conférence WebRTC (mediasoup) — banc de test ORM + cible P15                 | accepted | 2026-05-21 |
 | [0003](0003-orm-core-abstraction-repository-multi-orm.md) | Architecture orm-core — abstraction Repository multi-ORM (3 risques + garde-fous P5.4) | accepted | 2026-05-21 |
 | [0004](0004-inference-llm-backend-supervise.md)           | Inférence LLM — backend supervisé, jamais embarquée dans le cœur                       | accepted | 2026-05-29 |
+| [0005](0005-observabilite-prod-gate-env-audit-window.md)  | Observabilité prod — gate env des sévérités du cycle de vie + fenêtre d'audit à chaud  | accepted | 2026-06-01 |
