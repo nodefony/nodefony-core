@@ -23,7 +23,6 @@ import moment from "moment";
 import semver from "semver";
 import figlet from "figlet";
 import Table, { TableConstructorOptions } from "cli-table3";
-import { get, random } from "node-emoji";
 import clc from "cli-color";
 import Service, { DefaultOptionsService } from "./Service";
 import { extend } from "./Tools";
@@ -33,12 +32,7 @@ import Event from "./Event";
 import Command from "./command/Command";
 import { DebugType, EnvironmentType } from "./types/globals";
 import bare from "cli-color/bare";
-import clui from "clui";
 import Syslog from "./syslog/Syslog";
-//import Rx from 'rxjs'
-import Rx from "rxjs";
-//import   {rm, ls, cd ,mkdir, ln, cp ,chmod, ShellString, ShellArray } from 'shelljs'
-import shelljs from "shelljs";
 import Kernel from "./kernel/Kernel";
 
 interface CliDefaultOptions extends DefaultOptionsService {
@@ -114,15 +108,11 @@ class Cli extends Service {
   protected commands: Record<string, Command> = {};
   public pid: number | null = null;
   public interactive: boolean = false;
-  public prompt: Rx.Subject<unknown> | any | null = null;
   public unhandledRejections: Map<Promise<unknown>, string> = new Map();
   public response: Record<string, any> = {};
   public timers: Record<string, string> = {};
-  public wrapperLog: (...data: any[]) => void = console.log;
   public version: string = "";
-  public clui = clui;
   public clc: typeof clc = clc;
-  public spinner: clui.Spinner | null = null;
   public blankLine: () => void = () => {};
   public columns: number = 0;
   public rows: number = 0;
@@ -224,7 +214,6 @@ class Cli extends Service {
       if (this.blankLine) {
         this.blankLine();
       }
-      this.wrapperLog = console.log;
       this.log(signal, "CRITIC");
       this.fire("onSignal", signal, this);
       process.nextTick(() => {
@@ -404,17 +393,9 @@ class Cli extends Service {
   }
 
   initUi(): void {
-    this.blankLine = function (this: Cli): () => void {
-      if (this.clui) {
-        const myLine = new this.clui.Line().fill();
-        return () => {
-          myLine.output();
-        };
-      }
-      return () => {
-        console.log();
-      };
-    }.call(this);
+    this.blankLine = () => {
+      process.stdout.write("\n");
+    };
     if (this.options.resize) {
       this.resize();
     }
@@ -563,49 +544,6 @@ class Cli extends Service {
     return this.commander.outputHelp(context);
   }
 
-  createProgress(size: number) {
-    return new this.clui.Progress(size);
-  }
-
-  createSparkline(values: number[], suffix: string): string {
-    if (values) {
-      try {
-        return this.clui.Sparkline(values, suffix || "");
-      } catch (e) {
-        this.log(e, "ERROR");
-        throw e;
-      }
-    }
-    throw new Error(`Bad vlue : ${values}`);
-  }
-
-  getSpinner(message: string, design?: string[]) {
-    return new this.clui.Spinner(message, design);
-  }
-
-  startSpinner(message: string, design?: string[]): clui.Spinner | null {
-    try {
-      this.spinner = this.getSpinner(message, design);
-      this.wrapperLog = this.spinner.message;
-      this.spinner.start();
-      return this.spinner;
-    } catch (e) {
-      this.log(e, "ERROR");
-      throw e;
-    }
-  }
-
-  stopSpinner(/* message, options*/) {
-    if (this.spinner) {
-      this.spinner.stop();
-      this.wrapperLog = console.log;
-      this.spinner = null;
-      return true;
-    }
-    this.log(new Error("Spinner is not started "), "ERROR");
-    return false;
-  }
-
   displayTable(
     datas: any[],
     options: TableConstructorOptions,
@@ -656,20 +594,8 @@ class Cli extends Service {
     return moment(date).format(format);
   }
 
-  getEmoji(name: string): string | undefined {
-    if (name) {
-      return get(name);
-    }
-    return random().emoji;
-  }
-
   clear() {
-    if (this.clui) {
-      //@ts-ignore
-      this.clui.Clear();
-    } else {
-      console.clear();
-    }
+    console.clear();
   }
 
   reset() {
@@ -682,55 +608,6 @@ class Cli extends Service {
       this.rows = process.stdout.rows;
       this.fire("onResize", this.columns, this.rows, this);
     });
-  }
-
-  rm(...files: string[]): shelljs.ShellString {
-    return shelljs.rm(...files);
-  }
-
-  cp(
-    options: string,
-    source: string | string[],
-    dest: string,
-  ): shelljs.ShellString {
-    return shelljs.cp(options, source, dest);
-  }
-
-  cd(dir?: string | undefined): shelljs.ShellString {
-    return shelljs.cd(dir);
-  }
-
-  ln(options: string, source: string, dest: string): shelljs.ShellString {
-    return shelljs.ln(options, source, dest);
-  }
-
-  mkdir(...dir: string[]): shelljs.ShellString {
-    return shelljs.mkdir(...dir);
-  }
-
-  // chmod(options: string, mode: string | number, file: string): shelljs.ShellString {
-  //    return shelljs.chmod(options, mode, file);
-  // }
-
-  chmod(
-    options: string,
-    mode: string | number,
-    file: string,
-  ): shelljs.ShellString;
-  chmod(mode: string | number, file: string): shelljs.ShellString;
-  chmod(...args: any[]): shelljs.ShellString {
-    if (args.length === 3) {
-      return shelljs.chmod(args[0], args[1], args[2]);
-    } else if (args.length === 2) {
-      return shelljs.chmod(args[0], args[1]);
-    } else {
-      // Gérer l'erreur ou lancer une exception si nécessaire
-      throw new Error("Nombre d'arguments invalide pour la méthode chmod.");
-    }
-  }
-
-  ls(...paths: string[]): shelljs.ShellArray {
-    return shelljs.ls(...paths);
   }
 
   async createDirectory(

@@ -62,11 +62,6 @@ describe("Command — construction", () => {
     assert.strictEqual(cmd.interactive, false);
   });
 
-  it("progress = 0 par défaut", () => {
-    const cmd = new Command("pg-cmd", "", cli);
-    assert.strictEqual(cmd.progress, 0);
-  });
-
   it("builder = null par défaut", () => {
     const cmd = new Command("b-cmd", "", cli);
     assert.strictEqual(cmd.builder, null);
@@ -221,44 +216,6 @@ describe("Command — run() / action() / generate() pipeline", () => {
     } catch (e: any) {
       assert.strictEqual(e.message, "generate-failed");
     }
-  });
-});
-
-// ─── 6. progress ──────────────────────────────────────────────────────────────
-
-describe("Command — progress / events", () => {
-  let cli: Cli;
-  before(async () => {
-    cli = await makeStartedCli();
-  });
-
-  it("fire('onProgress') déclenche les listeners", () => {
-    const cmd = new Command("pg-ev", "test", cli);
-    const steps: number[] = [];
-    cmd.on("onProgress", (step?: number) => steps.push(step ?? 0));
-    cmd.fire("onProgress", 10);
-    cmd.fire("onProgress", 20);
-    assert.deepEqual(steps, [10, 20]);
-  });
-
-  it("fire('onProgressEnd') déclenche les listeners", () => {
-    const cmd = new Command("pg-end", "test", cli);
-    let ended = false;
-    cmd.on("onProgressEnd", () => (ended = true));
-    cmd.fire("onProgressEnd");
-    assert.strictEqual(ended, true);
-  });
-
-  it("options.progress=true — setProgress() retourne une Promise", async () => {
-    const cmd = new Command("pg-set", "test", cli, {
-      progress: true,
-      sizeProgress: 10,
-      showBanner: false,
-    });
-    cmd.json = true;
-    const p = cmd.setProgress(10);
-    assert.ok(p instanceof Promise);
-    await p;
   });
 });
 

@@ -294,7 +294,7 @@ export type {
   TypeKernelOptions,
 } from "./kernel/Kernel";
 
-export type { OptionsCommandInterface, CommandEvents } from "./command/Command";
+export type { OptionsCommandInterface } from "./command/Command";
 
 // ─── Branchement Node-only : ALS → Pdu.requestId (corrélation log↔requête) ────
 // Le bundle browser/client (src/client/index.ts) NE RÉ-EXPORTE PAS ce fichier

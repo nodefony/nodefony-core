@@ -1,11 +1,11 @@
 {
-  "generated": "2026-06-01T21:36:05.883Z",
+  "generated": "2026-06-01T23:22:37.239Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 819,
-    "symbols": 1611,
-    "classes": 245,
+    "files": 820,
+    "symbols": 1612,
+    "classes": 246,
     "interfaces": 394,
     "types": 202,
     "enums": 2,
@@ -474,14 +474,6 @@
       "implements": [],
       "decorators": [],
       "description": "Classe Command représente une commande dans l'application."
-    },
-    "CommandEvents": {
-      "name": "CommandEvents",
-      "kind": "interface",
-      "file": "src/nodefony/src/command/Command.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": null
     },
     "OptionsCommandInterface": {
       "name": "OptionsCommandInterface",
@@ -2768,6 +2760,17 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit le bloc `cluster` de la config app de façon **standalone** (best-effort), sans booter de Kernel — c'est tout ce dont le master a besoin pour décider du fork. Importe le fichier compilé `dist/no…"
+    },
+    "BootReporter": {
+      "name": "BootReporter",
+      "kind": "class",
+      "file": "src/nodefony/src/service/dev/BootReporter.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "implements": [],
+      "decorators": [],
+      "description": "Affichage « boot de rêve » du serveur en développement : une checklist animée (spinner + `✓`/`✗` par phase de boot) à la place du mur de logs `INFO`/`MODULE ADD`. **Dev-only** : instancié uniquemen…"
     },
     "DevSupervisor": {
       "name": "DevSupervisor",
@@ -12431,6 +12434,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/types/IContainer.ts",
         "src/nodefony/src/types/IService.ts",
+        "src/nodefony/src/service/dev/BootReporter.ts",
         "src/nodefony/src/syslog/transports/ConsoleTransport.ts",
         "src/nodefony/src/syslog/transports/SyslogTransport.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
@@ -12462,6 +12466,7 @@
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
+        "src/nodefony/src/service/dev/BootReporter.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
         "src/packages/@nodefony/sequelize/nodefony/config/config.ts"
@@ -13860,6 +13865,9 @@
         "src/nodefony/src/kernel/commands/ProdCommand.ts"
       ],
       "DevSupervisor": [
+        "src/nodefony/src/kernel/commands/DevCommand.ts"
+      ],
+      "BootReporter": [
         "src/nodefony/src/kernel/commands/DevCommand.ts"
       ],
       "startClusterMaster": [

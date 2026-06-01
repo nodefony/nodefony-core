@@ -15,32 +15,9 @@ import {
 import Builder from "./Builder";
 import * as prompts from "@inquirer/prompts";
 import { extend } from "../Tools";
-import clui from "clui";
 import type { KernelEventKey } from "../types/ICommand";
 
-interface CommandEvents {
-  on(
-    event: "onProgress",
-    listener: (step: number) => void,
-  ): NodeJS.EventEmitter;
-  on(event: "onProgressEnd", listener: (pg: Cmd) => void): NodeJS.EventEmitter;
-  once(
-    event: "onProgress",
-    listener: (step: number) => void,
-  ): NodeJS.EventEmitter;
-  once(
-    event: "onProgressEnd",
-    listener: (pg: Cmd) => void,
-  ): NodeJS.EventEmitter;
-  fire(event: "onProgress", step: number): boolean;
-  fire(event: "onProgressEnd", pg?: clui.Progress): boolean;
-  emit(event: "onProgress", step: number): boolean;
-  emit(event: "onProgressEnd", pg?: clui.Progress): boolean;
-}
-
 interface OptionsCommandInterface extends DefaultOptionsService {
-  progress?: boolean;
-  sizeProgress?: number;
   showBanner?: boolean;
   kernelEvent?: KernelEventKey;
 }
@@ -48,8 +25,6 @@ interface OptionsCommandInterface extends DefaultOptionsService {
 export type CommandArgs = any[];
 
 const defaultCommandOptions: OptionsCommandInterface = {
-  progress: false,
-  sizeProgress: 100,
   showBanner: true,
   kernelEvent: "onRegister",
 };
@@ -59,38 +34,9 @@ const defaultCommandOptions: OptionsCommandInterface = {
  *
  * @class
  * @extends Service
- * @implements {CommandEvents}
  */
 
 class Command extends Service {
-  // EVENTS
-  override on(event: "onProgress", listener: (step?: number) => void): this;
-  override on(
-    event: "onProgressEnd",
-    listener: (pg?: clui.Progress) => void,
-  ): this;
-  override on(event: string, listener: (...args: any[]) => void): this {
-    return super.on(event, listener);
-  }
-  override once(event: "onProgress", listener: (step?: number) => void): this;
-  override once(
-    event: "onProgressEnd",
-    listener: (pg?: clui.Progress) => void,
-  ): this;
-  override once(event: string, listener: (...args: any[]) => void): this {
-    return super.once(event, listener);
-  }
-  override fire(event: "onProgress", step?: number): boolean;
-  override fire(event: "onProgressEnd", pg?: clui.Progress): boolean;
-  override fire(event: string, ...args: any[]): boolean {
-    return super.fire(event, ...args);
-  }
-  override emit(event: "onProgress", step?: number): boolean;
-  override emit(event: "onProgressEnd", pg?: clui.Progress): boolean;
-  override emit(event: string, ...args: any[]): boolean {
-    return super.emit(event, ...args);
-  }
-  //end Events
   public cli: Cli | CliKernel;
   public command: Cmd;
   public program: typeof program;
@@ -100,7 +46,6 @@ class Command extends Service {
   private forceInteractive: boolean = false;
   public builder: Builder | null = null;
   public prompts = prompts;
-  public progress: number = 0;
   public response: Record<string, any> = {};
   public kernelEvent: KernelEventKey = "onRegister";
   // Hooks lifecycle optionnels — un par phase du Kernel (cf Events bitmask). Câblés
@@ -250,22 +195,10 @@ class Command extends Service {
     if (this.options.showBanner) {
       await this.showBanner();
     }
-    if (this.options.progress) {
-      this.progress = 0;
-      this.setProgress();
-    }
     if (this.builder) {
       await this.builder.run(...args);
     }
-    const res = await this.run(...args).catch((e) => {
-      if (this.options.progress) {
-        this.fire("onProgress", this.options.sizeProgress);
-      }
-      throw e;
-    });
-    if (this.options.progress) {
-      this.fire("onProgress", this.options.sizeProgress);
-    }
+    const res = await this.run(...args);
     this.currentCommand = current;
     return res;
   }
@@ -386,54 +319,6 @@ class Command extends Service {
     return this.parseAsync(process.argv.concat(args));
   }
   /**
-   * Méthode pour mettre en place une barre de progression.
-   *
-   * @public
-   * @param {number} [size=this.options.sizeProgress] - Taille de la barre de progression.
-   * @returns {Promise<clui.Progress|null|undefined>} Promise résolue avec la barre de progression.
-   */
-  public setProgress(
-    size: number = this.options.sizeProgress,
-  ): Promise<clui.Progress | null | undefined> {
-    if (!this.cli || this.json) {
-      return Promise.resolve(null);
-    }
-    return new Promise((resolve, reject) => {
-      try {
-        this.log(`START PROGRESS : ${this.cli?.getEmoji("clapper")}`);
-        const pg = this.cli?.createProgress(size);
-        this.on("onProgress", (step?: number) => {
-          let res = null;
-          if (step) {
-            this.progress += step;
-            res = pg?.update(this.progress, this.options.sizeProgress);
-          } else {
-            res = pg?.update(++this.progress, this.options.sizeProgress);
-          }
-          this.log(res, "SPINNER");
-          if (
-            this.progress === this.options.sizeProgress ||
-            this.progress > this.options.sizeProgress
-          ) {
-            this.progress = this.options.sizeProgress;
-            this.fire("onProgressEnd", pg);
-          }
-        });
-        this.on("onProgressEnd", () => {
-          this.cli?.blankLine();
-          this.log(
-            `\u001b[13pEND PROGRESS : ${this.cli?.getEmoji("checkered_flag")}`,
-          );
-          this.removeAllListeners("onProgress");
-          this.removeAllListeners("onProgressEnd");
-        });
-        return resolve(pg);
-      } catch (e) {
-        return reject(e);
-      }
-    });
-  }
-  /**
    * Méthode pour ajouter une option à la commande.
    *
    * @public
@@ -520,4 +405,4 @@ class Command extends Service {
 }
 
 export default Command;
-export { OptionsCommandInterface, CommandEvents };
+export { OptionsCommandInterface };

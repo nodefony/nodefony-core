@@ -776,43 +776,11 @@ describe("Cli — méthodes statiques", () => {
 
 // ─── 10. UI ──────────────────────────────────────────────────────────────────
 
-describe("Cli — UI (Progress / Spinner / Sparkline / Table)", () => {
+describe("Cli — UI (Table)", () => {
   let cli: Cli;
 
   before(() => {
     cli = makeCli("ui-test");
-  });
-
-  it("createProgress(50) → objet Progress non-null", () => {
-    const pg = cli.createProgress(50);
-    assert.ok(pg !== null && pg !== undefined);
-  });
-
-  it("createProgress(50) → a une méthode update", () => {
-    const pg = cli.createProgress(50);
-    assert.ok(typeof (pg as any).update === "function");
-  });
-
-  it("getSpinner('Loading...') → objet Spinner non-null", () => {
-    const spinner = cli.getSpinner("Loading...");
-    assert.ok(spinner !== null && spinner !== undefined);
-  });
-
-  it("getSpinner → a start() et stop()", () => {
-    const spinner = cli.getSpinner("Waiting...");
-    assert.ok(typeof (spinner as any).start === "function");
-    assert.ok(typeof (spinner as any).stop === "function");
-  });
-
-  it("createSparkline([1,2,3,4,5], 'ms') → string non vide", () => {
-    const result = cli.createSparkline([1, 2, 3, 4, 5], "ms");
-    assert.ok(typeof result === "string");
-    assert.ok(result.length > 0);
-  });
-
-  it("createSparkline([]) → ne throw pas (tableau vide truthy → Sparkline accepte)", () => {
-    // [] est truthy → branche `if (values)` passe → Sparkline([], "") → ne throw pas
-    assert.doesNotThrow(() => cli.createSparkline([], "ms"));
   });
 
   it("displayTable([['a','b']], {}) → objet Table", () => {
@@ -894,9 +862,9 @@ describe("Cli — existsSync / getCommandManager", () => {
   });
 });
 
-// ─── 12. setPid / getEmoji ───────────────────────────────────────────────────
+// ─── 12. setPid ──────────────────────────────────────────────────────────────
 
-describe("Cli — setPid / getEmoji", () => {
+describe("Cli — setPid", () => {
   it("setPid() → retourne process.pid", () => {
     const cli = makeCli("pid-set");
     const pid = cli.setPid();
@@ -907,19 +875,5 @@ describe("Cli — setPid / getEmoji", () => {
     const cli = makeCli("pid-store");
     cli.setPid();
     assert.strictEqual(cli.pid, process.pid);
-  });
-
-  it("getEmoji('smile') → string non vide", () => {
-    const cli = makeCli("emoji-test");
-    const emoji = cli.getEmoji("smile");
-    assert.ok(typeof emoji === "string" || emoji === undefined);
-    // node-emoji peut retourner undefined si le nom n'existe pas — accepter les deux
-  });
-
-  it("getEmoji(undefined) → emoji aléatoire (string)", () => {
-    const cli = makeCli("emoji-rand");
-    const emoji = cli.getEmoji(undefined as any);
-    assert.ok(typeof emoji === "string");
-    assert.ok(emoji.length > 0);
   });
 });
