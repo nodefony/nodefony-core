@@ -127,6 +127,33 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   produit de l'ANSI même en pipe → si c'était l'ancien code, le payload serait coloré ; il est brut →
   c'est le nouveau). Idem memory-test flake sous charge cumulée (720 intég PUIS memory même serveur =
   échec rotatif) → isolation + serveur frais = vérité (déjà gradué, cf skill `nodefony-debug`).
+- `[1× — 2026-06-01]` **Tester un driver de query après des SWITCHS pollue la preuve** : `setActiveLogDriver`
+  ré-attache le tap d'écriture sans `removeListener` l'ancien → après memory→file→memory→file, chaque log
+  est écrit 2× dans le JSONL → **doublons** à la lecture (vus dans TraceView). Le bug n'existe PAS en usage
+  normal (1 driver). → pour prouver un comportement de driver : **restart serveur frais, 0 switch**, sinon
+  on diagnostique un artefact de ses propres curl. (Vrai bug à fixer : cleanup du write tap au switch.)
+
+## 🧱 Core / pipeline / perf (frictions du jour)
+
+- `[1× — 2026-06-01]` **Mutation d'un Pdu APRÈS `log()` ne corrige QUE le ring `memory`** : les drivers qui
+  **sérialisent au write** (`file`/`cluster-file`/`loki`/`opensearch` = la PROD) figent le JSONL au moment
+  du `log()`, AVANT toute mutation tardive. Vécu : le bilan `req`/`onFinish` (émis au teardown, hors bulle
+  ALS) avait `requestId` vide sur `file` mais OK sur `memory` → trace cassée en prod. **Fix générique** :
+  attacher la valeur **À LA CRÉATION** du Pdu — rouvrir une micro-bulle `RequestContext.run({requestId},
+() => super.log(...))` quand l'ALS est vide (override `Context.log`). Vaut pour TOUT champ ALS sur un log
+  de teardown. Toujours **vérifier sur le driver `file`/distant, pas seulement `memory`**.
+- `[1× — 2026-06-01]` **Arbitrage perf↔observabilité = `AskUserQuestion` légitime, et la 3ᵉ voie** : le user
+  a tranché « audit complet sévérités » puis s'est alarmé perf (« +volume prod »). La bonne réponse n'était
+  NI son choix NI le contraire mais une **3ᵉ voie** : gate par env (INFO hors prod, DEBUG en prod) → 0
+  surcoût prod + observabilité dev. Quand un choix produit a un coût hot-path, proposer le **gate
+  conditionnel** (résolu 1×, lookup O(1)) plutôt qu'un comportement figé.
+
+## 🔧 Git / commit (friction du jour)
+
+- `[1× — 2026-06-01]` **commitlint `subject-case` = sujet en MINUSCULE** : un commit dont le sujet commence
+  par une majuscule (ex. `docs(adr): ADR-0005 …`) est **rejeté** par le hook `commit-msg`. Les 4 sujets de
+  la session passaient sauf celui-là → reformulé en minuscule (`docs(adr): observabilité prod …`). Réflexe :
+  type(scope): **minuscule** d'abord.
 
 ---
 
