@@ -187,6 +187,17 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   coins »). Même famille que « agrégateur = total==unique » ci-dessus : vérifier l'INTÉGRITÉ, pas la couverture.
   → asserter que les modules CHARGENT (`MODULE ADD: X` + une route du module → 200), pas seulement le listen.
   Filet durci (`b05e381`).
+- `[1× — 2026-06-02]` **tester `BootReporter`/le boot dev sans TTY = lancer le DevSupervisor, PAS `start.sh`** :
+  `BootReporter` n'est instancié QUE par `DevCommand` côté enfant supervisé (`NODEFONY_DEV_CHILD=1`) → `start.sh`
+  (boot direct, sans DevSupervisor) ne le déclenche pas. Pour le valider j'ai lancé `npx nodefony development`
+  detached non-TTY → mode statique (`#animated=false`) : pas de spinner mais l'ORDRE est prouvé (phases →
+  bannières → `✓ Frontend (Vite)` → `✓ Prêt`). Le rendu ANIMÉ (TTY) reste à valider par le user (pas testable
+  hors terminal interactif).
+- `[1× — 2026-06-02]` **`npm exec nodefony development` AVALE le SIGINT → orphelins Vite** : un `kill -INT` sur le
+  PID du wrapper `npm exec …` ne propage PAS au DevSupervisor → enfant + instances Vite survivent (ports 5151/5152/
+  5173/5177 squattés). En Ctrl+C TTY réel le group-kill marche (le DevSupervisor est leader de groupe). Pour un
+  arrêt fiable d'un lancement background : `pkill -INT -f NODEFONY_DEV_CHILD` + `pkill -f nodefony-vite` +
+  `lsof -ti:5151,5152,5173,5177 | xargs kill -9`. NE PAS compter sur le SIGINT au wrapper npm.
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
@@ -217,10 +228,10 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔧 Git / commit (friction du jour)
 
-- `[1× — 2026-06-01]` **commitlint `subject-case` = sujet en MINUSCULE** : un commit dont le sujet commence
-  par une majuscule (ex. `docs(adr): ADR-0005 …`) est **rejeté** par le hook `commit-msg`. Les 4 sujets de
-  la session passaient sauf celui-là → reformulé en minuscule (`docs(adr): observabilité prod …`). Réflexe :
-  type(scope): **minuscule** d'abord.
+- `[2× — 2026-06-02]` **commitlint `subject-case` = sujet en MINUSCULE** : un commit dont le sujet commence
+  par une majuscule (ex. `docs(adr): ADR-0005 …`, ou `feat(dev): Vite dans la checklist …`) est **rejeté** par
+  le hook `commit-msg`. Reformulé en minuscule (`feat(dev): affiche Vite dans la checklist …`). Réflexe :
+  type(scope): **minuscule** d'abord (attention aux noms propres en tête de sujet — `Vite`, `ADR`, etc.).
 - `[1× — 2026-06-01]` **`routes/logs/` est gitignoré (pattern `logs`) → nouveaux fichiers invisibles + lint-staged
   « git error »** : créer `routes/logs/profileVisuals.tsx`/`ProfilingTab.tsx` → `git add` les ignore (les fichiers
   EXISTANTS du dossier restent trackés, mais les NOUVEAUX non) → besoin `git add -f`. Et le 1er `git commit` a
