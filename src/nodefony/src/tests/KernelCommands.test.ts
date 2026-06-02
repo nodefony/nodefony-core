@@ -263,6 +263,16 @@ describe("KernelCommand — StartCommand", () => {
     const cmd = new StartCommand(cli);
     expect(cmd.generate).to.be.a("function");
   });
+
+  it("prompts est LAZY : undefined avant loadPrompts, peuplé après", async () => {
+    const cmd = new StartCommand(cli);
+    // @inquirer/prompts n'est PAS importé eager (gain boot non-interactif).
+    expect(cmd.prompts).to.equal(undefined);
+    await cmd.loadPrompts();
+    expect(cmd.prompts.select).to.be.a("function");
+    expect(cmd.prompts.confirm).to.be.a("function");
+    expect(cmd.prompts.Separator).to.be.a("function");
+  });
 });
 
 // ─── 7. Registre complet — toutes les commandes enregistrables ────────────────

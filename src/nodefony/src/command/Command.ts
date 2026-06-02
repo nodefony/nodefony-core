@@ -13,7 +13,6 @@ import {
   ParseOptions,
 } from "commander";
 import Builder from "./Builder";
-import * as prompts from "@inquirer/prompts";
 import { extend } from "../Tools";
 import type { KernelEventKey, RunLifetime } from "../types/ICommand";
 
@@ -53,7 +52,13 @@ class Command extends Service {
   public interactive: boolean = false;
   private forceInteractive: boolean = false;
   public builder: Builder | null = null;
-  public prompts = prompts;
+  /**
+   * Namespace `@inquirer/prompts` — chargé LAZY via {@link loadPrompts} (import
+   * dynamique) uniquement pour les commandes interactives. Évite ~39 ms + ~7 MB
+   * d'import eager sur CHAQUE boot non-interactif (la quasi-totalité). Garanti peuplé
+   * avant tout usage (action() le charge si interactif ; Builder le charge défensivement).
+   */
+  public prompts!: typeof import("@inquirer/prompts");
   public response: Record<string, any> = {};
   public kernelEvent: KernelEventKey = "onRegister";
   /** Durée de vie déclarée (cf {@link OptionsCommandInterface.lifetime}). */
@@ -193,6 +198,17 @@ class Command extends Service {
   description(): string {
     return this.command.description();
   }
+
+  /**
+   * Charge `@inquirer/prompts` à la demande (import dynamique, idempotent) et le pose
+   * sur {@link prompts}. Appelé pour les commandes interactives — garde l'import lourd
+   * (~39 ms / ~7 MB) HORS du boot des commandes non-interactives.
+   */
+  public async loadPrompts(): Promise<void> {
+    if (!this.prompts) {
+      this.prompts = await import("@inquirer/prompts");
+    }
+  }
   /**
    * Méthode d'action de la commande.
    *
@@ -203,6 +219,11 @@ class Command extends Service {
   public async action(...args: any[]): Promise<any> {
     const current = args[args.length - 1];
     this.getCliOptions();
+    // Charge les prompts AVANT builder + interaction (qui les consomment), seulement
+    // si interactif → 0 import @inquirer pour les commandes non-interactives.
+    if (this.interactive || this.forceInteractive) {
+      await this.loadPrompts();
+    }
     if (this.options.showBanner) {
       await this.showBanner();
     }
