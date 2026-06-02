@@ -153,6 +153,17 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-02]` **`memory.test` exige un serveur LANCÉ (connecte `localhost:5152`) → ECONNREFUSED
+  sinon, PAS une fuite.** Le 1ᵉʳ run de la session passait via un serveur résiduel ; sans serveur →
+  `internalConnectMultiple` (ECONNREFUSED) dans le `before all`. **Toujours `start.sh` AVANT** le memory
+  test. ET **NE PAS l'enchaîner avec le filet CLI** (`RUN_CLI_BOOT=1` spawn `production`/`cluster` sur
+  5151/5152 → conflit de ports avec le serveur du memory test). Séquencer : (filet CLI seul) PUIS (start.sh
+  - memory test). Diagnostic « before all hook » KO = serveur down/port pris, jamais le heap.
+- `[1× — 2026-06-02]` **`tsx` transpile-only laisse PASSER un test qui lit un field supprimé** : après avoir
+  retiré le field `type`, un test `assert.strictEqual(k.type, "CONSOLE")` lit `undefined` → devrait échouer,
+  mais affichait « 0 failing » à un instant (transpile-only ignore le TS2339). → après un rename/suppression
+  de field, **grep les refs au field dans les tests** et migrer manuellement (le build les flag, le runner non).
+
 - `[1× — 2026-06-01]` **`grep $'\x1b'` ne trouve RIEN dans un `.jsonl`** : `JSON.stringify` encode
   l'octet ESC (0x1b) en **texte ``** (6 chars), pas l'octet brut → chercher l'ANSI baké dans un
   log JSON = `grep 'u001b'` (ou `\\u001b`), JAMAIS le byte ESC. Vécu : conclu à tort « 0 ANSI » sur la
@@ -226,12 +237,26 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   surcoût prod + observabilité dev. Quand un choix produit a un coût hot-path, proposer le **gate
   conditionnel** (résolu 1×, lookup O(1)) plutôt qu'un comportement figé.
 
+- `[1× — 2026-06-02]` **Refondre un field largement consommé : le BUILD TS est le filet ultime, pas le
+  grep.** Le grep initial des consommateurs de `kernel.type` a RATÉ plusieurs formes (copies
+  `this.type = cli.type` dans `setCli`/`logEnv` ; `?.type !== "CONSOLE"` dans 3 SessionStorage + Orm ;
+  `kernel?.type === "SERVER"` cross-module mongoose/sequelize). `npm run build` (rollup plugin-typescript
+  `TS2339: Property 'type' does not exist`) les a tous révélés **un par un**. → pour un rename de field :
+  grep = 1ʳᵉ passe, **build = vérité** (itérer build→fix jusqu'à 0 TS2339). Et `?.field` défensif pour
+  préserver le no-crash quand l'ancien `x === "Y"` tolérait `undefined` (cf `?? true`, `runProfile?.servers`).
+- `[1× — 2026-06-02]` **Avant de refondre un flag, VÉRIFIER ce qu'il pilote vraiment.** `KernelType`
+  SERVER/CONSOLE était réputé piloter le démarrage serveur → lecture des consommateurs : **quasi-inerte**
+  (montage serveur = `kernelEvent` + présence `HttpKernel` ; rester-en-vie = park ; `type` = 4 gates de log
+  cosmétiques). A transformé un « gros refacto risqué » en **nettoyage de modèle 0-comportement** (scope A
+  validable sous filet). Lire les consommateurs AVANT de présumer l'impact/risque.
+
 ## 🔧 Git / commit (friction du jour)
 
-- `[2× — 2026-06-02]` **commitlint `subject-case` = sujet en MINUSCULE** : un commit dont le sujet commence
-  par une majuscule (ex. `docs(adr): ADR-0005 …`, ou `feat(dev): Vite dans la checklist …`) est **rejeté** par
-  le hook `commit-msg`. Reformulé en minuscule (`feat(dev): affiche Vite dans la checklist …`). Réflexe :
-  type(scope): **minuscule** d'abord (attention aux noms propres en tête de sujet — `Vite`, `ADR`, etc.).
+- `[3× — 2026-06-02]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
+  à promouvoir dans [[feedback_commit_fr_apostrophes]] au prochain CONSOLIDATE). Un commit dont le sujet
+  commence par une majuscule/nom propre (ex. `refactor(core): KernelType …`, `feat(dev): Vite …`) est
+  **rejeté** par le hook `commit-msg`. Réflexe : `type(scope): ` puis **minuscule** (reformuler « remplace
+  le binaire KernelType … » au lieu de « KernelType … »).
 - `[1× — 2026-06-01]` **`routes/logs/` est gitignoré (pattern `logs`) → nouveaux fichiers invisibles + lint-staged
   « git error »** : créer `routes/logs/profileVisuals.tsx`/`ProfilingTab.tsx` → `git add` les ignore (les fichiers
   EXISTANTS du dossier restent trackés, mais les NOUVEAUX non) → besoin `git add -f`. Et le 1er `git commit` a
