@@ -22,12 +22,21 @@ class Build extends Command {
       options,
     );
     this.alias("compile");
+    this.addOption(
+      "-f, --force",
+      "Ignore le cache turbo et reconstruit tout (--force)",
+    );
   }
 
-  override async generate(/*options: any*/): Promise<this> {
-    this.log("build : npx turbo run build", "INFO");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  override async generate(...args: any[]): Promise<this> {
+    // commander passe l'objet d'options en 1er arg de l'action.
+    const force = Boolean((args[0] as { force?: boolean })?.force);
+    const turboArgs = ["turbo", "run", "build"];
+    if (force) turboArgs.push("--force");
+    this.log(`build : npx ${turboArgs.join(" ")}`, "INFO");
     const code = await new Promise<number>((res) => {
-      const p = spawn("npx", ["turbo", "run", "build"], {
+      const p = spawn("npx", turboArgs, {
         cwd: process.cwd(),
         stdio: "inherit",
         shell: process.platform === "win32",
