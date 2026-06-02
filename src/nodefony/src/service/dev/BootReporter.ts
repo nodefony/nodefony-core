@@ -17,6 +17,17 @@ interface BootPhase {
 }
 
 /**
+ * Charge utile de l'event pont `onFrontendReady` (émis par `FrontendService`).
+ * `ready` = nombre d'instances Vite (familles) réellement en état `ready` :
+ * 0 → échec total (`✗`), ≥ 1 → bundles servis (`✓`).
+ */
+interface IFrontendReadyPayload {
+  bundles: number;
+  names: string[];
+  ready: number;
+}
+
+/**
  * Phases du boot dans l'ordre chronologique. Chaque phase se ferme quand son
  * event Kernel fire (le spinner se fige en `✓` + durée, puis la suivante démarre).
  * `onStart` clôt « Application » → couvre `loadApp()` (le gros import des modules,
@@ -58,6 +69,14 @@ class BootReporter {
   #phaseStart = 0;
   #timer: NodeJS.Timeout | null = null;
   #done = false;
+  /** Vite compile encore (event pont `onFrontendStart` reçu, `onFrontendReady` pas encore). */
+  #frontendPending = false;
+  /** `performance.now()` au démarrage de la compilation Vite (pour la durée affichée). */
+  #frontendStart = 0;
+  /** Libellé dynamique de la phase Vite (override `#label()` tant que Vite tourne). */
+  #frontendLabel: string | null = null;
+  /** `onPostReady` est arrivé pendant la compilation Vite → « ✓ Prêt » en attente. */
+  #finishDeferred = false;
 
   constructor(kernel: Kernel, opts: { debug: boolean; tty: boolean }) {
     this.#kernel = kernel;
@@ -86,10 +105,19 @@ class BootReporter {
     this.#kernel.once("onTerminate", (_k: unknown, code?: number) =>
       this.#abort(typeof code === "number" ? code : 0),
     );
+    // Pont frontend (dev-only) : la compilation Vite vit HORS du cycle Kernel
+    // (spawn async qui finit après `onPostReady`). `FrontendService` émet ces
+    // deux events pour insérer la ligne Vite dans la checklist. Sans frontend,
+    // ils ne fire jamais → comportement strictement inchangé. cf idée (a).
+    this.#kernel.once("onFrontendStart", () => this.#frontendBegin());
+    this.#kernel.once("onFrontendReady", (payload?: unknown) =>
+      this.#frontendEnd(payload as IFrontendReadyPayload),
+    );
   }
 
   /** Libellé de la phase courante (ou « Finalisation » au-delà des phases connues). */
   #label(): string {
+    if (this.#frontendLabel) return this.#frontendLabel;
     return PHASES[this.#phaseIndex]?.label ?? "Finalisation";
   }
 
@@ -123,8 +151,34 @@ class BootReporter {
     this.#phaseIndex++;
   }
 
-  /** Boot complet (`onPostReady`) : récap + rend la main au Syslog. */
+  /**
+   * Boot complet (`onPostReady`). Si Vite compile encore (`#frontendPending`), on
+   * DIFFÈRE le récap final jusqu'à `onFrontendReady` : sinon « ✓ Prêt » s'afficherait
+   * avant la ligne Vite. On rend tout de même la main au Syslog (et on fige le
+   * spinner) pour que les bannières serveurs (`Server Listen…`) défilent normalement.
+   */
   #finish(): void {
+    if (this.#done) return;
+    if (this.#frontendPending) {
+      this.#finishDeferred = true;
+      if (this.#animated) {
+        // Le spinner ne peut pas cohabiter avec les logs (mêmes `\r`) : on le fige
+        // en marqueur statique, on referme sa ligne (`\n`) puis on réactive le sink.
+        this.#stopTimer();
+        readline.clearLine(process.stdout, 0);
+        readline.cursorTo(process.stdout, 0);
+        process.stdout.write(
+          `  ${CYAN}⠿${RESET} Frontend (Vite)${DIM} — compilation…${RESET}\n`,
+        );
+        Syslog.setSinkEnabled(true);
+      }
+      return;
+    }
+    this.#doFinish();
+  }
+
+  /** Récap final + rend la main au Syslog (idempotent sur le sink). */
+  #doFinish(): void {
     if (this.#done) return;
     this.#done = true;
     this.#stopTimer();
@@ -133,6 +187,45 @@ class BootReporter {
     process.stdout.write(
       `\n  ${GREEN}✓ Prêt${RESET} ${DIM}en ${dt}s${RESET}\n\n`,
     );
+  }
+
+  /** Vite a commencé à compiler (`onFrontendStart`) — ouvre la phase Vite dynamique. */
+  #frontendBegin(): void {
+    if (this.#done) return;
+    this.#frontendPending = true;
+    this.#frontendStart = performance.now();
+    // En animé, le spinner courant (« Finalisation… ») bascule sur ce libellé.
+    this.#frontendLabel = "Frontend (Vite)";
+  }
+
+  /**
+   * Vite a fini ou échoué (`onFrontendReady`) : fige la ligne Vite (`✓`/`✗` + durée
+   * + bundles servis), puis débloque le « ✓ Prêt » si `onPostReady` l'attendait.
+   */
+  #frontendEnd(payload: IFrontendReadyPayload): void {
+    if (this.#done || !this.#frontendPending) return;
+    this.#frontendPending = false;
+    this.#frontendLabel = null; // libère le spinner s'il anime encore
+    const ms = performance.now() - this.#frontendStart;
+    const n = payload?.bundles ?? 0;
+    if ((payload?.ready ?? 0) > 0) {
+      const plural = n > 1 ? "s" : "";
+      const names = payload?.names?.length
+        ? ` ${DIM}(${payload.names.join(", ")})${RESET}`
+        : "";
+      this.#freeze(
+        `${GREEN}✓${RESET}`,
+        `Frontend (Vite) — ${n} bundle${plural} servi${plural}${names}`,
+        ms,
+      );
+    } else {
+      this.#freeze(
+        `${RED}✗${RESET}`,
+        `Frontend (Vite) — échec ${DIM}(voir logs)${RESET}`,
+        ms,
+      );
+    }
+    if (this.#finishDeferred) this.#doFinish();
   }
 
   /** Boot interrompu (`onTerminate`) : marque `✗`, rend la main, déverse les erreurs. */

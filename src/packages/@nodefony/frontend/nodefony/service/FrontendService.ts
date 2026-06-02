@@ -118,10 +118,28 @@ class FrontendService extends Service implements IFrontendService {
           );
           return;
         }
+        // Pont UI de boot (core `BootReporter`) : la compilation Vite vit HORS du
+        // cycle Kernel (spawn async qui finit après `onPostReady`). On émet deux
+        // events Kernel pour que la checklist de boot dev affiche la ligne Vite
+        // AVANT le « ✓ Prêt ». `onFrontendStart` est SYNCHRONE (avant le `await`
+        // ci-dessous → donc avant `onPostReady`) ; `onFrontendReady` en `finally`
+        // débloque toujours le récap (succès comme échec). Dev-only (autre env →
+        // branche prod). Aucun listener (boot direct/prod) → `fire` no-op.
+        const names = this.entries.map((e) => e.entryName);
+        this.kernel?.fire("onFrontendStart", { bundles: names.length });
         try {
           await this.startDev();
         } catch (e) {
           this.log(e, "ERROR");
+        } finally {
+          const ready = [...this.supervisors.values()].filter(
+            (s) => s.status().state === "ready",
+          ).length;
+          this.kernel?.fire("onFrontendReady", {
+            bundles: names.length,
+            names,
+            ready,
+          });
         }
       } else if (env !== "development") {
         // Prod / cluster / staging : pas de Vite. Servir les assets buildés
