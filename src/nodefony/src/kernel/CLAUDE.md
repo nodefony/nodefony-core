@@ -132,7 +132,8 @@ class DevCommand extends Command {
 
 - `this.runProfile = { servers, lifetime, interactive }` (défaut console : `{false,"oneshot",false}`) — remplace l'ancien binaire `type` (`KernelType`, double casing) qui écrasait 3 axes.
 - `setRunProfile(profile)` côté CliKernel → recopié dans `kernel.runProfile` à `onStart`.
-- `isConsole()` = `!runProfile.servers` (dérivé). ⚠️ Ne PILOTE PAS le montage serveur (= `kernelEvent` + présence `HttpKernel`) ni le rester-en-vie (= park) — `runProfile` DÉCRIT le run ; le pilotage par `lifetime` (park centralisé) viendra. Cf `project_kernel_runmodes_introspection`.
+- `isConsole()` = `!runProfile.servers` (dérivé). Le montage serveur reste piloté par `kernelEvent` + présence `HttpKernel`. **`lifetime` est EFFECTIF** (Phase B, 2026-06-02) : `Kernel.finishOrPark(code)` parke (daemon `longrunning` + `!servers`) au lieu de terminer, via `Kernel.park({keepAlive})` = **source unique** du park (remplace les `new Promise(()=>{})` inline de DevSupervisor parent / master cluster / daemon). `keepAlive:true` ref un timer (daemon sans handle) ; superviseurs = `false` (handles propres). Cf `project_kernel_runmodes_introspection`.
+- `isTTY` (champ résolu 1× au boot, `process.stdout.isTTY`, surchargeable `NO_TTY`) : volet ENVIRONNEMENT complétant `runProfile.interactive` → interactif possible SSI `interactive && isTTY`. Affiché dans le banner dev (`tty yes/no`). Cloud-native → `false`.
 
 ### Package manager
 

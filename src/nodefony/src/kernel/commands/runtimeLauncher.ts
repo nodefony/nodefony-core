@@ -1,5 +1,6 @@
 import cluster from "node:cluster";
 import CliKernel from "../CliKernel";
+import type Kernel from "../Kernel";
 import {
   startClusterMaster,
   ClusterLog,
@@ -45,13 +46,20 @@ export async function launchTopology(
       "INFO",
     );
     // Master = superviseur + gateway IPC (relay realtime + sonde pod) ; pas de Kernel
-    // HTTP. Le Kernel courant reste CONSOLE (on ne bascule pas en SERVER) → son
-    // pipeline n'initialisera aucun serveur. On parke le flow : sans ça, `onKernelStart`
-    // rendrait la main, le Kernel finirait son boot CONSOLE puis le CLI terminerait le
-    // process → le master meurt → les workers échouent leur handshake IPC au fork.
+    // HTTP. Le Kernel courant reste CONSOLE (servers:false) → son pipeline n'initialisera
+    // aucun serveur. Profil long-running déclaré (introspection). On parke le flow : sans
+    // ça, `onKernelStart` rendrait la main, le Kernel finirait son boot CONSOLE puis le
+    // CLI terminerait le process → le master meurt → les workers échouent leur handshake
+    // IPC. keepAlive INUTILE (le master est gardé vivant par les canaux IPC workers + les
+    // timers de la sonde) → park sans timer, pour ne pas bloquer la sortie au shutdown.
     // L'arrêt passe par les signal handlers du ClusterManager (graceful shutdown).
+    cli.setRunProfile({
+      servers: false,
+      lifetime: "longrunning",
+      interactive: false,
+    });
     startClusterMaster({ workers: topo.workers, log });
-    await new Promise<void>(() => {});
+    await (cli.kernel as Kernel).park();
     return;
   }
 

@@ -3,9 +3,12 @@ import type { CliKernel, OptionsCommandInterface } from "nodefony";
 
 const options: OptionsCommandInterface = {
   showBanner: false,
-  // CONSOLE long-running : aucun serveur HTTP/WS. generate parke le flow → le process
-  // reste vivant comme un daemon (worker de queue, consumer, agent…), sans binder de port.
+  // CONSOLE long-running : aucun serveur HTTP/WS. `lifetime:"longrunning"` DÉCLARE le
+  // mode daemon → le Kernel parke LUI-MÊME à `onReady` (cf Kernel.finishOrPark), gardant
+  // le process vivant comme un worker de queue/consumer/agent, sans binder de port. La
+  // commande n'a plus à inliner son park ni son keep-alive timer.
   kernelEvent: "onReady",
+  lifetime: "longrunning",
 };
 
 /**
@@ -15,22 +18,15 @@ const options: OptionsCommandInterface = {
  * cluster en est un autre exemple). Banc pour le filet d'intégration (3 modes de boot).
  */
 class DaemonTest extends Command {
-  #beat: NodeJS.Timeout | null = null;
-
   override async generate(): Promise<void> {
-    // Marqueur de readiness daemon (pas de "Server Listen on").
+    // Marqueur de readiness daemon (pas de "Server Listen on"). Le park + le keep-alive
+    // sont désormais posés par le Kernel (lifetime:"longrunning" + servers:false), pas ici.
     this.log("DAEMON MODE OK — running without HTTP server", "INFO");
-    // ⚠️ Un daemon CONSOLE n'a pas de socket serveur pour garder l'event loop vivant.
-    // Une Promise pending NE garde PAS Node en vie (Node sort dès l'event loop vide).
-    // Un vrai daemon tient un handle (consumer, socket, timer). On simule par un timer
-    // heartbeat ref'd. (DevCommand/master survivent, eux, via leurs propres handles.)
-    this.#beat = setInterval(() => {}, 1 << 30);
-    await new Promise<void>(() => {});
   }
 
   override async onKernelTerminate(): Promise<void> {
     // Graceful shutdown du daemon — fermerait ici les ressources (consumer, sockets…).
-    if (this.#beat) clearInterval(this.#beat);
+    // Le timer de park est libéré par Kernel.terminate (centralisé) — rien à nettoyer ici.
     this.log("DAEMON graceful shutdown (onKernelTerminate)", "INFO");
   }
 

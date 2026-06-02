@@ -70,16 +70,23 @@ class Dev extends Command {
     }
 
     // Parent → superviseur auto-restart. Il NE boote PAS le kernel applicatif
-    // (profil reste console / servers:false → aucun serveur dans le parent, pas de
-    // collision de port) : le serveur vit dans le process enfant, redémarré à chaque
-    // changement backend. Le HMR frontend (Vite) est préservé (frontend/ exclu).
+    // (servers:false → aucun serveur dans le parent, pas de collision de port) : le
+    // serveur vit dans le process enfant, redémarré à chaque changement backend. Le HMR
+    // frontend (Vite) est préservé (frontend/ exclu). Profil long-running (superviseur)
+    // déclaré pour l'introspection — il parke en restant CONSOLE (abort du boot ici).
+    (this.cli as CliKernel).setRunProfile({
+      servers: false,
+      lifetime: "longrunning",
+      interactive: false,
+    });
     const supervisor = new DevSupervisor({
       cwd: process.cwd(),
       childEnvKey: CHILD_ENV,
     });
     await supervisor.start();
-    // Parke le flow CLI : le superviseur gère désormais le cycle de vie + Ctrl+C.
-    await new Promise<void>(() => {});
+    // Parke le flow CLI (le superviseur gère le cycle de vie + Ctrl+C via ses watchers
+    // fs → keepAlive inutile). Mécanisme centralisé : cf Kernel.park().
+    await (this.kernel as Kernel).park();
   }
 
   override async generate(/*options: any*/): Promise<Kernel> {

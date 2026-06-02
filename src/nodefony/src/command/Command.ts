@@ -15,11 +15,18 @@ import {
 import Builder from "./Builder";
 import * as prompts from "@inquirer/prompts";
 import { extend } from "../Tools";
-import type { KernelEventKey } from "../types/ICommand";
+import type { KernelEventKey, RunLifetime } from "../types/ICommand";
 
 interface OptionsCommandInterface extends DefaultOptionsService {
   showBanner?: boolean;
   kernelEvent?: KernelEventKey;
+  /**
+   * Durée de vie du run (capability déclarative). `"oneshot"` (défaut) = terminate une
+   * fois `kernelEvent` atteint ; `"longrunning"` = daemon CONSOLE → le Kernel parke au
+   * lieu de terminer (cf `Kernel.finishOrPark`). Les serveurs n'ont pas besoin de ce flag
+   * (leurs sockets gardent le process vivant) ; il vise les daemons sans serveur.
+   */
+  lifetime?: RunLifetime;
 }
 
 export type CommandArgs = any[];
@@ -27,6 +34,7 @@ export type CommandArgs = any[];
 const defaultCommandOptions: OptionsCommandInterface = {
   showBanner: true,
   kernelEvent: "onRegister",
+  lifetime: "oneshot",
 };
 
 /**
@@ -48,6 +56,8 @@ class Command extends Service {
   public prompts = prompts;
   public response: Record<string, any> = {};
   public kernelEvent: KernelEventKey = "onRegister";
+  /** Durée de vie déclarée (cf {@link OptionsCommandInterface.lifetime}). */
+  public lifetime: RunLifetime = "oneshot";
   // Hooks lifecycle optionnels — un par phase du Kernel (cf Events bitmask). Câblés
   // LAZY dans setEvents() : un `kernel.once(...)` n'est posé QUE si la commande définit
   // le hook → 0 listener / 0 coût pour les commandes qui ne l'utilisent pas (règle perf).
@@ -97,6 +107,7 @@ class Command extends Service {
     this.cli = cli;
     this.program = this.cli.commander as Cmd;
     this.kernelEvent = this.options.kernelEvent;
+    this.lifetime = this.options.lifetime ?? "oneshot";
     this.command = this.createCommand(name, description);
     this.command?.action((...args: any[]) => {
       if (this.kernel) {

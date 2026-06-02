@@ -1,13 +1,13 @@
 {
-  "generated": "2026-06-02T20:43:42.144Z",
+  "generated": "2026-06-02T21:14:09.450Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 820,
-    "symbols": 1617,
+    "symbols": 1618,
     "classes": 246,
     "interfaces": 398,
-    "types": 202,
+    "types": 203,
     "enums": 2,
     "functions": 298,
     "constants": 471
@@ -1359,6 +1359,13 @@
     },
     "KernelEventKey": {
       "name": "KernelEventKey",
+      "kind": "type",
+      "file": "src/nodefony/src/types/ICommand.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "@nodefony/core:RunLifetime": {
+      "name": "RunLifetime",
       "kind": "type",
       "file": "src/nodefony/src/types/ICommand.ts",
       "exported": true,
@@ -12483,6 +12490,7 @@
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
+        "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
         "src/nodefony/src/service/rollup/rollupService.ts",
@@ -13516,6 +13524,9 @@
         "src/nodefony/src/command/Command.ts"
       ],
       "KernelEventKey": [
+        "src/nodefony/src/command/Command.ts"
+      ],
+      "RunLifetime": [
         "src/nodefony/src/command/Command.ts"
       ],
       "FileClassInterface": [

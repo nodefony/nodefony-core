@@ -186,9 +186,10 @@ export type RunLifetime = "oneshot" | "longrunning";
  * - `lifetime` — voir {@link RunLifetime}.
  * - `interactive` — a besoin d'un TTY (REPL, menu). Consommé au câblage REPL (différé).
  *
- * Note : ces drapeaux DÉCRIVENT le run ; le démarrage réel des serveurs reste piloté par
- * `kernelEvent` + la présence du `HttpKernel`, et le rester-en-vie par le park (cf
- * `initServers`/runtimeLauncher). Le pilotage par `lifetime` (park centralisé) viendra.
+ * Note : le démarrage réel des serveurs reste piloté par `kernelEvent` + la présence du
+ * `HttpKernel`. En revanche `lifetime` est désormais EFFECTIF : à la fin d'un run sans
+ * serveur, le Kernel parke (daemon) ou terminate (one-shot) — cf {@link Kernel.finishOrPark}
+ * et {@link Kernel.park} (source unique du park, ex-`new Promise(()=>{})` inline).
  */
 export interface IRunProfile {
   servers: boolean;
@@ -318,6 +319,17 @@ class Kernel extends Service implements IKernel {
   workerId: number | undefined = cluster.worker?.id;
   worker = cluster.worker;
   console: boolean = this.isConsole();
+  /**
+   * Vrai terminal disponible ? Résolu UNE fois dans le constructor (volet
+   * « environnement », cf {@link IKernel.isTTY}). Surchargeable via `NO_TTY` (test/CI).
+   */
+  isTTY: boolean = process.env.NO_TTY ? false : process.stdout?.isTTY === true;
+  /**
+   * Timer no-op ref'd gardant l'event loop vivant pendant un {@link park} `keepAlive`
+   * (daemon CONSOLE sans socket). `null` tant qu'aucun park alive — lazy. Nettoyé par
+   * {@link terminate}.
+   */
+  private parkTimer: NodeJS.Timeout | null = null;
   node_start: NodefonyStartType =
     process.env.NODEFONY_START || this.options.node_start;
   platform: NodeJS.Platform = process.platform;
@@ -653,7 +665,9 @@ class Kernel extends Service implements IKernel {
       .then(async () => {
         this.ready = true;
         if (this.setCommandComplete(Events.onReady)) {
-          return this.terminate(0);
+          // Phase cible atteinte sans serveur : terminate (one-shot) OU park (daemon
+          // long-running). C'est la phase de readiness d'un daemon CONSOLE.
+          return this.finishOrPark(0);
         }
         return this.initServers().then(async (servers) => {
           if (global && global.gc) {
@@ -714,6 +728,57 @@ class Kernel extends Service implements IKernel {
           throw e;
         });
     return [];
+  }
+
+  /**
+   * Parke le flow : retourne une Promise qui ne se résout JAMAIS (met en pause le
+   * pipeline async appelant). **Source UNIQUE** du « rester vivant jusqu'à un signal »
+   * — remplace les `new Promise(() => {})` inline disséminés (DevSupervisor parent,
+   * master cluster, daemon).
+   *
+   * ⚠️ Une Promise pending ne garde PAS Node en vie (le process sort dès l'event loop
+   * vide). Pour un daemon CONSOLE qui n'a aucun socket/handle → `keepAlive: true` ref un
+   * timer no-op (réveil ~tous les 12 j, coût nul). Les superviseurs ont DÉJÀ leurs propres
+   * handles (watchers fs du DevSupervisor / canaux IPC workers + timers de sonde du
+   * master) → `keepAlive` défaut `false` : aucun handle en trop qui empêcherait leur
+   * sortie naturelle au shutdown. Le timer alive est nettoyé par {@link terminate}.
+   *
+   * Signal handling : déjà fourni globalement par `Cli.handleSignals` → `terminate()`.
+   *
+   * @param opts.keepAlive - ref un timer no-op pour garder l'event loop vivant.
+   * @returns Promise jamais résolue.
+   */
+  park(opts: { keepAlive?: boolean } = {}): Promise<never> {
+    if (opts.keepAlive && this.parkTimer === null) {
+      this.parkTimer = setInterval(() => {}, 1 << 30);
+    }
+    return new Promise<never>(() => {});
+  }
+
+  /**
+   * Fin de cycle d'une commande ayant atteint sa phase cible : `terminate(code)` pour un
+   * run one-shot (build, install, batch, help), MAIS **park** pour un run long-running
+   * sans serveur (daemon CONSOLE : worker de queue, consumer, agent IA, cron daemon).
+   *
+   * C'est ICI que `lifetime` devient effectif : avant, chaque commande daemon inlinait
+   * son propre park ; désormais le Kernel décide à partir de la `lifetime` DÉCLARÉE par
+   * la commande (`command.lifetime`, fallback `runProfile.lifetime`) croisée avec
+   * `runProfile.servers` (les serveurs gardent déjà le process vivant → jamais de park).
+   *
+   * @param code - exit code si run one-shot.
+   * @returns Promise du terminate (one-shot) ou park (daemon, jamais résolue).
+   */
+  private finishOrPark(code: number): Promise<this> {
+    const longrunning =
+      (this.command?.lifetime ?? this.runProfile.lifetime) === "longrunning";
+    if (longrunning && !this.runProfile.servers) {
+      this.log(
+        "CONSOLE long-running — park (no server, until signal)",
+        "DEBUG",
+      );
+      return this.park({ keepAlive: true });
+    }
+    return this.terminate(code);
   }
 
   override clean() {
@@ -1145,6 +1210,8 @@ class Kernel extends Service implements IKernel {
       process.platform,
       `node ${process.version}`,
       `pid ${process.pid}`,
+      // Rappel du volet TTY (découvrabilité) : interactif possible SSI interactive && tty.
+      `tty ${this.isTTY ? "yes" : "no"}`,
     ]
       .filter(Boolean)
       .join(" · ");
@@ -1630,6 +1697,12 @@ class Kernel extends Service implements IKernel {
   async terminate(code?: number): Promise<this> {
     if (code === undefined) {
       code = 0;
+    }
+    // Libère le timer de park (daemon) : sinon il garderait l'event loop vivant après
+    // le shutdown. Idempotent (no-op si jamais parké).
+    if (this.parkTimer) {
+      clearInterval(this.parkTimer);
+      this.parkTimer = null;
     }
     this.log(`terminate : ${code}`);
     try {
