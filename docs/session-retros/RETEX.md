@@ -69,6 +69,21 @@ typecheck` lançait le typecheck du core EN PARALLÈLE du build de ces packages 
 - `[1× — 2026-06-01]` **routes/logs/ est gitignoré (pattern `logs`)** → NOUVEAU fichier (`wsTrace.tsx`)
   = `git add -f` ; les fichiers déjà trackés du dossier s'`add` aussi avec `-f` quand git refuse.
   Et **header de commit ≤ 100 car** (commitlint header-max-length) : un sujet riche dépasse vite.
+- `[1× — 2026-06-02]` **purge de dep « morte » : le grep `from "x"` ment** — il rate (a) les imports
+  **side-effect** (`import "reflect-metadata"`), (b) l'usage **hors `src/`** (`scripts/`, `rollup.config.ts`),
+  (c) les usages indirects (Tools/Pdu). Vécu : reflect-metadata/lodash/terser faux-classés morts par l'audit
+  auto. → AVANT de virer une dep : re-vérif ciblée `import "x"` + `scripts/` + `rollup.config` ; ne supprimer
+  que les **vraiment 0-import partout**. (clui/node-emoji/rxjs/shelljs/pug/@babel/plugin-replace = OK, 57 pkgs purgés.)
+- `[1× — 2026-06-02]` **header/banner CLI sort via `console.log`, PAS le sink syslog** → `Syslog.setSinkEnabled`
+  ne le mute pas ; et un afficheur branché à `onStart`/hook tardif arrive **après** les logs DEBUG (`-d`) →
+  « pas dans l'ordre ». Pour un ordre stable tous modes : imprimer le header **au plus tôt** (Kernel devSplash,
+  juste sous l'ASCII), pas via le composant qui fire plus tard. Flag `reporterOwnsHeader` pour éviter le doublon.
+- `[1× — 2026-06-02]` **itération UX TTY = ne JAMAIS killer le serveur du user** : il teste l'animation dans
+  son terminal (animation invisible côté agent, non-TTY) ; `start.sh` pkill `nodefony development` → tuerait sa
+  session. → build seul + « relance pour voir » ; jamais de boot agent pendant qu'il a un TTY live.
+- `[1× — 2026-06-02]` **audit sync : la MIGRATION peut être juste, la MÉMOIRE en retard** — `dev_boot_spinner_ux`
+  disait « PROCHAINE » alors que livré ; `pm2_deprecation` disait « Phase 16 » alors que retiré C6 (MIGRATION
+  l.117 correcte). → réflexe END : MAJ la **mémoire de la feature livrée** (desc + corps), pas seulement le `_state`.
 
 - `[1× — 2026-05-31]` **commitlint refuse un sujet en Majuscule** (`docs(retro): CONSOLIDATE …` rejeté,
   règle subject-case). → header de commit **en minuscule** ; corps avec apostrophes/accents OK via
