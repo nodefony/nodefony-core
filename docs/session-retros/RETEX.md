@@ -266,8 +266,24 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ---
 
+## 🔌 Ports / orphelins serveur (boot resilience)
+
+- `[1× — 2026-06-03]` **orphelin serveur au titre RENOMMÉ → `pkill -f bin/nodefony` LE RATE.** Un
+  enfant dev/prod survit à son parent (PPID 1) en gardant 5151/5152, mais son titre est `nodefony
+server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill -f "bin/nodefony"` ne
+  le voit pas. **Toujours tuer par PORT : `lsof -ti :5151,:5152 | xargs -r kill -9`** (fiable, indépendant
+  du nom). Vécu : EADDRINUSE en dev (superviseur mort sans group-kill) ET entre runs du boot-bench. →
+  renforce [[project_boot_resilience_plan_kit]] : sur EADDRINUSE au boot, identifier+tuer le squatteur
+  par port plutôt qu'« attendre un changement ».
+- `[1× — 2026-06-03]` **A/B de boot via un mode SERVEUR = flaky** (shutdown gracieux libère le socket
+  ~1 s après SIGTERM → run N+1 = EADDRINUSE). Pour un gain de boot propre : mode **sans port**
+  (`test:daemon`) OU **mesure d'import isolée** (`node --input-type=module -e`, process frais, **cwd =
+  racine** sinon les bare specifiers `@nodefony/*` ne résolvent pas). `timeout` absent sur macOS
+  (boucle `kill -0` ou `gtimeout`).
+
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
+- `2026-06-03-695bc070` — **Phase B (park centralisé via `lifetime`) + isTTY**, puis ménage piloté par audit : **retrait service rollup runtime** (−378 ms/−23 MB boot, A/B mesuré) + `nodefony build --force` (wrapper turbo) + **`@inquirer` lazy**. Audit poids d'import boot (imports ~1130 ms/94 MB, drizzle domine 423 ms/43 MB). 4 commits `b55c753`/`6a1dcd4`/`a71d004`/`68dd86e`.
 - `2026-06-01-8b47ba7d` — **chantier CLI** : filet intégration + commander 15 + **1 seul Kernel** (double-boot tué) + hooks lifecycle tous modes + audit boot (91 % = imports) + banc 3 modes server/batch/daemon + guide Docker + **splash dev-only** + durcissement filet (intégrité modules). 8 commits `…b05e381`.
 - `2026-06-01-690029d6` — fix doublon JSONL (double `initializeLog` re-monte FileTransport, `6814c05`) + fusion Profiler → Suivi de requête (onglets Timing/ORM + onglet Profiling Logs, page autonome supprimée, `1d4ed01`).
 - `2026-06-01-961eb178` — gate couleur ANSI boot-time (helper `logColor` gaté `isTTY`, core/http/security) → JSONL/pipe propres hors TTY ; allocation-neutre (1 commit `7e68b05`).
