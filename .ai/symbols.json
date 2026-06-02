@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-02T19:42:27.580Z",
+  "generated": "2026-06-02T20:43:42.144Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 820,
-    "symbols": 1613,
+    "symbols": 1617,
     "classes": 246,
-    "interfaces": 395,
+    "interfaces": 398,
     "types": 202,
     "enums": 2,
     "functions": 298,
-    "constants": 470
+    "constants": 471
   },
   "symbols": {
     "Cli": {
@@ -592,6 +592,15 @@
       "module": "@nodefony/core",
       "extends": "DefaultOptionsService"
     },
+    "IRunProfile": {
+      "name": "IRunProfile",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Profil d'exécution d'un run — remplace l'ancien binaire `KernelType` (SERVER/CONSOLE) qui écrasait 3 axes orthogonaux en un seul drapeau. Déclaré par chaque commande. - `servers` — monte des serveu…"
+    },
     "NetworkInterface": {
       "name": "NetworkInterface",
       "kind": "interface",
@@ -648,12 +657,13 @@
       "exported": true,
       "module": "@nodefony/core"
     },
-    "KernelType": {
-      "name": "KernelType",
+    "RunLifetime": {
+      "name": "RunLifetime",
       "kind": "type",
       "file": "src/nodefony/src/kernel/Kernel.ts",
       "exported": true,
-      "module": "@nodefony/core"
+      "module": "@nodefony/core",
+      "description": "Durée de vie d'un run : `\"oneshot\"` = fait sa tâche puis le process sort (build, install, help) ; `\"longrunning\"` = reste vivant jusqu'à un signal (serveur, daemon, REPL) — maintenu soit par un soc…"
     },
     "FamilyType": {
       "name": "FamilyType",
@@ -661,6 +671,14 @@
       "file": "src/nodefony/src/kernel/Kernel.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "CONSOLE_RUN_PROFILE": {
+      "name": "CONSOLE_RUN_PROFILE",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/Kernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Profil par défaut — équivaut à l'ancien `type = \"CONSOLE\"` (one-shot, sans serveur)."
     },
     "IListenerTags": {
       "name": "IListenerTags",
@@ -13518,7 +13536,10 @@
       "PackageManagerName": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
-      "KernelType": [
+      "IRunProfile": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "CONSOLE_RUN_PROFILE": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "TypeKernelOptions": [

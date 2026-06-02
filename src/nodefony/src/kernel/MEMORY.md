@@ -66,7 +66,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 - `condition` : `"&&"` (défaut), `"||"`. `"=="` → traité comme `"&&"`.
 - Filtre vide `{}` → tous tableaux vides (matchType=false && matchFamily=false → false).
 
-**isConsole()**: `type === "CONSOLE" || type === "console"`.
+**isConsole()**: `!runProfile.servers` (défensif : `false` si `runProfile` indéfini).
 **isModule(cls)**: `isSubclassOf(cls, Module)`. **Throws TypeError** si `cls === null`.
 **clusterIsMaster()**: `cluster.isPrimary`.
 **stats()**: `{ memory: process.memoryUsage() }`.
@@ -154,12 +154,12 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 
 - `super("NODEFONY", cliOptions)` → enregistre `-v/--version` automatiquement.
 - **Ne pas appeler** `setCommandVersion()` à nouveau → throws "Cannot add option '-v, --version'".
-- `this.type = "CONSOLE"` (prop directe).
+- `this.runProfile = {servers:false,lifetime:"oneshot",interactive:false}` (défaut console).
 - `this.packageManager = this.pnpm` (défaut).
 
 **setPackageManager(mgr?)**: `"yarn"` → yarn, `"pnpm"` → pnpm, `undefined`/autre → npm.
 
-**setType(type)**: `toLocaleUpperCase()` → KernelType.
+**setRunProfile(profile)**: pose `IRunProfile {servers,lifetime,interactive}` (ex `setType`, refondu 2026-06-02) ; recopié dans `kernel.runProfile` à `onStart`. `isConsole()`=`!servers`. Ne pilote PAS le montage serveur (= `kernelEvent`+`HttpKernel`) ni le park. Cf `project_kernel_runmodes_introspection`.
 
 **addCommand(Ctor)**: instancie, stocke `commands[name]`, enregistre dans commander.
 
@@ -182,7 +182,7 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 
 > `service/cluster/` (core). Refonte « beaucoup mieux » de `StagingCommand` (legacy `os.cpus()` + 0 respawn). Vision : mémoire IA `project_cluster_backplane_vision`.
 
-**`ClusterCommand`** (`nodefony cluster`, alias aucun, `kernelEvent:"onStart"`, `--workers N`) : master (`cluster.isPrimary`) → pose `process.env.NODEFONY_CLUSTER="1"` (héritage au fork) + crée le **`ClusterRelay`** (gateway) + `cluster.on("fork"→attach / "exit"→detach)` (couvre forks initiaux ET respawns, attaché AVANT `manager.start()`) + `ClusterManager.start()+installSignalHandlers()` (0 HTTP) ; worker → `new Kernel().start()`. `onKernelStart` : setType SERVER + env production + `MODE_START="cluster"`.
+**`ClusterCommand`** (`nodefony cluster`, alias aucun, `kernelEvent:"onStart"`, `--workers N`) : master (`cluster.isPrimary`) → pose `process.env.NODEFONY_CLUSTER="1"` (héritage au fork) + crée le **`ClusterRelay`** (gateway) + `cluster.on("fork"→attach / "exit"→detach)` (couvre forks initiaux ET respawns, attaché AVANT `manager.start()`) + `ClusterManager.start()+installSignalHandlers()` (0 HTTP) ; worker → `new Kernel().start()`. `onKernelStart` (via `launchTopology`) : mono/worker → profil serveur `setRunProfile({servers:true,lifetime:"longrunning"})` ; **master reste console** (park) ; env production + `MODE_START="cluster"`.
 
 **Backplane IPC (Phase 3 — master-gateway).** Protocole de fil `clusterMessage.ts` (core) : `CLUSTER_RT_KIND="nf:rt"` + `isClusterMessage()` (UNE source du tag, le framework l'importe via `"nodefony"` → 0 magic-string dupliqué). **`ClusterRelay`** (core, master) : routeur de messages OPAQUES — reçoit une publication realtime d'un worker, la rebroadcast aux AUTRES (`#route` exclut la source = anti-echo de routage) ; ignore les autres kinds (sondes Phase 4 = agrégées ailleurs) + malformés ; seam `IRelayWorker`{id,send,onMessage} → routage testé sans forker (11 tests `ClusterRelay.test.ts`). 0 dépendance `@nodefony/framework` (respect framework→core). Côté worker : `ClusterBackplane` (framework) branché sur le hub par le module `Framework` à `onCluster("WORKER")` (gardé `NODEFONY_CLUSTER`). `Kernel.initCluster` worker : `process.on("message")` **filtre les rt** (consommés par le backplane → ni log ni re-fire, anti-flood) ; ne re-fire `onMessage` que pour les messages de contrôle. **Bench fil IPC** : `.claude/skills/nodefony-load-test/scripts/cluster-ipc.mjs` (fork réel, mesuré 2026-05-24 : ~300k publishes/s @256B, fan-out sature le master @4KB×7sub ~176 MB/s, RTT 4-sauts p50 0.40 ms).
 

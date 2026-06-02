@@ -62,8 +62,13 @@ export async function launchTopology(
     );
   }
   // Mono-process OU worker forké : CE Kernel (déjà en cours de boot via le pipeline
-  // CLI) démarre les serveurs. On bascule juste son type ; `onKernelStart` rend ensuite
-  // la main et le boot se poursuit tout seul. Aucun park (les serveurs gardent le
-  // process vivant), aucun second Kernel.
-  cli.setType("SERVER");
+  // CLI) démarre les serveurs. On adopte juste son profil serveur ; `onKernelStart` rend
+  // ensuite la main et le boot se poursuit tout seul. Aucun park (les serveurs gardent le
+  // process vivant), aucun second Kernel. Le MASTER (branche park ci-dessus) ne passe pas
+  // ici → il reste sur le profil console par défaut (superviseur, 0 HTTP).
+  cli.setRunProfile({
+    servers: true,
+    lifetime: "longrunning",
+    interactive: false,
+  });
 }

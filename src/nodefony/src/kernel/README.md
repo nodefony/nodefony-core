@@ -307,7 +307,7 @@ Filtre de sévérité :
 
 - Par défaut : niveaux 0–6 (EMERGENCY → INFO)
 - `debug=true` : ajoute 7 (DEBUG)
-- `kernel.type === "SERVER"` + `env === "dev"` : ajoute 4 (WARNING) et 5 (NOTICE)
+- `kernel.runProfile.servers` + `env === "dev"` : ajoute 4 (WARNING) et 5 (NOTICE)
 - `--json` : silencieux
 
 ### terminate

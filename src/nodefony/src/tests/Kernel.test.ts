@@ -63,9 +63,10 @@ describe("Kernel — constructor & defaults", () => {
     assert.strictEqual(k.environment, "production");
   });
 
-  it("type = CONSOLE par défaut (sans CLI)", () => {
+  it("profil console par défaut (servers:false, sans CLI)", () => {
     const k = mkKernel();
-    assert.strictEqual(k.type, "CONSOLE");
+    assert.strictEqual(k.runProfile.servers, false);
+    assert.strictEqual(k.runProfile.lifetime, "oneshot");
   });
 
   it("cli = null sans CLI passé", () => {
@@ -237,26 +238,24 @@ describe("Kernel — Events bitmask", () => {
 // ─── 3. isConsole ────────────────────────────────────────────────────────────
 
 describe("Kernel — isConsole", () => {
-  it("type CONSOLE (défaut) → true", () => {
+  it("profil console par défaut (servers:false) → true", () => {
     const k = mkKernel();
     assert.strictEqual(k.isConsole(), true);
   });
 
-  it("type console (minuscule) → true", () => {
+  it("runProfile.servers = false → true", () => {
     const k = mkKernel();
-    k.type = "console";
+    k.runProfile = { servers: false, lifetime: "oneshot", interactive: false };
     assert.strictEqual(k.isConsole(), true);
   });
 
-  it("type SERVER → false", () => {
+  it("runProfile.servers = true → false", () => {
     const k = mkKernel();
-    k.type = "SERVER";
-    assert.strictEqual(k.isConsole(), false);
-  });
-
-  it("type server → false", () => {
-    const k = mkKernel();
-    k.type = "server";
+    k.runProfile = {
+      servers: true,
+      lifetime: "longrunning",
+      interactive: false,
+    };
     assert.strictEqual(k.isConsole(), false);
   });
 });

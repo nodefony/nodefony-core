@@ -56,8 +56,12 @@ class DevCommand extends Command {
   }
 
   override async onKernelStart(): Promise<void> {
-    // Hook AVANT Kernel.boot() — config env, type, etc.
-    (this.cli as CliKernel).setType("SERVER");
+    // Hook AVANT Kernel.boot() — config env, profil d'exécution, etc.
+    (this.cli as CliKernel).setRunProfile({
+      servers: true,
+      lifetime: "longrunning",
+      interactive: false,
+    });
     this.cli.environment = "development";
   }
 

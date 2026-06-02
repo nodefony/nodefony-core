@@ -85,10 +85,19 @@ Séquencement : durcissement ORM → (Realtime reste S1) → **POC** → P6.
 
 ### ORM (P7)
 
-- ⭐ **Drizzle** = choix #1 SQL moderne
+> 🔀 **VIRAGE ORM — décidé 2026-06-02** (graine session durcissement ORM, mémoire `project_orm_hardening_kit`) :
+> **Sequelize = SUPPRESSION COMPLÈTE** (plus aucun support : package + consommateurs + tests retirés).
+> **Mongoose = REFAIT NEUF** sur le modèle Drizzle (`class MongooseService extends Service`, service
+> injectable autonome — PLUS `extends Orm` core). **Conséquence : le Orm core
+> `src/nodefony/src/kernel/orm/{Orm,Connector,Entity}` devient MORT → à RETIRER du core** (le core ne
+> doit pas connaître l'ORM ; smell révélé par le refacto `KernelType → IRunProfile` : `DrizzleService
+extends Service` alors que seuls Sequelize/Mongoose étendaient le `Orm` core). Drizzle = référence.
+
+- ⭐ **Drizzle** = choix #1 SQL moderne + **modèle de référence** (`extends Service`)
 - 🆕 **MikroORM AJOUTÉ** comme 4ème driver (Data Mapper + Unit of Work pour apps complexes) — nouvelle ligne P7.x
-- ✅ Mongoose = standard NoSQL
-- 🪦 Sequelize = legacy maintenance descendante uniquement, plus de nouveaux dev
+- 🔨 **Mongoose = à REFAIRE NEUF** (NoSQL) sur le modèle Drizzle — `extends Service`, pas `extends Orm` core
+- 🗑️ **Sequelize = SUPPRESSION COMPLÈTE** (plus de support ; était « legacy maintenance descendante »)
+- 🪦 **Orm core `kernel/orm/{Orm,Connector,Entity}` → à RETIRER** (mort une fois Sequelize supprimé + Mongoose rebasé ; retirer export `index.ts` + import `Kernel.ts`)
 - ➕ **`IOrmManager.getNativeConnection()`** obligatoire dans P5.1 (trappe SQL brut anti-blocage)
 
 ### Realtime + Core isomorphe (P13/P14)

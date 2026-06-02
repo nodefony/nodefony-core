@@ -171,7 +171,37 @@ const Events: Readonly<EventsType> = Object.freeze({
 
 export type KernelEventsType = keyof typeof Events;
 
-export type KernelType = "console" | "server" | "CONSOLE" | "SERVER";
+/**
+ * Durée de vie d'un run : `"oneshot"` = fait sa tâche puis le process sort (build,
+ * install, help) ; `"longrunning"` = reste vivant jusqu'à un signal (serveur, daemon,
+ * REPL) — maintenu soit par un socket en écoute, soit par un park explicite.
+ */
+export type RunLifetime = "oneshot" | "longrunning";
+
+/**
+ * Profil d'exécution d'un run — remplace l'ancien binaire `KernelType` (SERVER/CONSOLE)
+ * qui écrasait 3 axes orthogonaux en un seul drapeau. Déclaré par chaque commande.
+ *
+ * - `servers` — monte des serveurs réseau HTTP/WS.
+ * - `lifetime` — voir {@link RunLifetime}.
+ * - `interactive` — a besoin d'un TTY (REPL, menu). Consommé au câblage REPL (différé).
+ *
+ * Note : ces drapeaux DÉCRIVENT le run ; le démarrage réel des serveurs reste piloté par
+ * `kernelEvent` + la présence du `HttpKernel`, et le rester-en-vie par le park (cf
+ * `initServers`/runtimeLauncher). Le pilotage par `lifetime` (park centralisé) viendra.
+ */
+export interface IRunProfile {
+  servers: boolean;
+  lifetime: RunLifetime;
+  interactive: boolean;
+}
+
+/** Profil par défaut — équivaut à l'ancien `type = "CONSOLE"` (one-shot, sans serveur). */
+export const CONSOLE_RUN_PROFILE: Readonly<IRunProfile> = Object.freeze({
+  servers: false,
+  lifetime: "oneshot" as RunLifetime,
+  interactive: false,
+});
 
 interface AppEnvironmentType {
   environment: EnvironmentType | string;
@@ -259,7 +289,10 @@ type trunkType = "javascript" | "typescript" | null;
  */
 class Kernel extends Service implements IKernel {
   Events: Readonly<EventsType> = Events;
-  type: KernelType;
+  // Assigné dans le constructor (pas d'initializer) pour préserver la valeur figée de
+  // `console` (ci-dessous) : `isConsole()` retourne `false` tant que `runProfile` est
+  // indéfini, comme l'ancien `type` undefined au moment de l'init des fields.
+  runProfile!: IRunProfile;
   version: string = "1.0.0";
   started: boolean = false;
   booted: boolean = false;
@@ -370,7 +403,7 @@ class Kernel extends Service implements IKernel {
     Nodefony.setKernel(this);
     this.kernel = this;
     this.set("kernel", this);
-    this.type = "CONSOLE";
+    this.runProfile = { ...CONSOLE_RUN_PROFILE };
     this.cli = this.setCli(cli);
     this.interfaces = this.getNetworkInterfaces();
     this.injector = new Injector(this);
@@ -479,7 +512,7 @@ class Kernel extends Service implements IKernel {
           //   this.projectName = this.app.getModuleName();
           // }
           this.started = true;
-          if (this.cli) this.type = this.cli?.type;
+          if (this.cli) this.runProfile = this.cli.runProfile;
           if (this.setCommandComplete(Events.onStart)) {
             return this.terminate(0);
           }
@@ -1044,7 +1077,7 @@ class Kernel extends Service implements IKernel {
 
   setCli(cli?: CliKernel | null): CliKernel | null {
     if (cli) {
-      this.type = cli.type;
+      this.runProfile = cli.runProfile;
       this.debug = Boolean(cli?.commander?.opts().debug) || false;
       if (this.typeCluster === "worker") {
         cli.setPid();
@@ -1056,7 +1089,9 @@ class Kernel extends Service implements IKernel {
   }
 
   isConsole(): boolean {
-    return this.type === "CONSOLE" || this.type === "console";
+    // Défensif : `runProfile` peut être indéfini au moment de l'init du field `console`
+    // (avant le constructor) → `false`, préservant la valeur figée historique.
+    return this.runProfile ? !this.runProfile.servers : false;
   }
 
   setNodeEnv(environment: EnvironmentType): void {
@@ -1125,9 +1160,10 @@ class Kernel extends Service implements IKernel {
 
   logEnv(): string {
     if (this.cli) {
-      this.type = this.cli.type;
+      this.runProfile = this.cli.runProfile;
     }
-    let txt = `      \x1b ${logColor.blue(this.type)} `;
+    const profileLabel = this.runProfile.servers ? "server" : "console";
+    let txt = `      \x1b ${logColor.blue(profileLabel)} `;
     txt += ` ${logColor.magenta("Cluster")} : ${this.typeCluster} `;
     txt += ` ${logColor.magenta("Nodefony Environment")} : ${this.environment}  `;
     if (this.appEnvironment) {

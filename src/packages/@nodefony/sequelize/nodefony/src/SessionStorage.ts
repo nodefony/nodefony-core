@@ -26,7 +26,7 @@ class SessionStorage {
     this.entity = {} as ModelStatic<any>;
     this.orm?.once("onOrmReady", () => {
       this.entity = this.orm?.getEntity(
-        "session"
+        "session",
       ) as unknown as ModelStatic<any>;
       if (!this.entity) {
         throw new Error("Entity session not ready");
@@ -38,7 +38,7 @@ class SessionStorage {
         this.applyTransaction = this.dialect !== "sqlite";
       }
       this.userEntity = this.orm?.getEntity(
-        "user"
+        "user",
       ) as unknown as ModelStatic<any>;
     });
     this.gc_maxlifetime = this.manager.options.gc_maxlifetime;
@@ -83,7 +83,7 @@ class SessionStorage {
         // }
         this.manager.log(
           `Context : ${contextSession || "default"} GARBAGE COLLECTOR ==> ${results}  DELETED`,
-          severity
+          severity,
         );
         return results;
       })
@@ -105,7 +105,8 @@ class SessionStorage {
   }
 
   async open(contextSession: string) {
-    if (this.orm?.kernel?.type !== "CONSOLE") {
+    // « pas console » ≡ serveur ; profil/kernel absent → on exécute (ancien `!== "CONSOLE"`).
+    if (this.orm?.kernel?.runProfile?.servers ?? true) {
       await this.gc(this.gc_maxlifetime, contextSession);
       if (!this.entity) {
         return Promise.resolve(0);
@@ -177,7 +178,7 @@ class SessionStorage {
               }
               this.manager.log(
                 `DB DESTROY SESSION context : ${session.context} ID : ${session.session_id} DELETED`,
-                "DEBUG"
+                "DEBUG",
               );
             })
             .catch(async (error: Error) => {
@@ -187,7 +188,7 @@ class SessionStorage {
               }
               this.manager.log(
                 `DB DESTROY SESSION context : ${contextSession} ID : ${id}`,
-                "ERROR"
+                "ERROR",
               );
               throw error;
             });
@@ -337,7 +338,7 @@ class SessionStorage {
             }
             this.manager.log(
               `ADD SESSION : ${session.session_id}${session.username ? ` username :${session.username}` : ""}`,
-              "DEBUG"
+              "DEBUG",
             );
             return session;
           })

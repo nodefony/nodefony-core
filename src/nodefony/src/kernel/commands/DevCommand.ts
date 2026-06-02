@@ -61,13 +61,17 @@ class Dev extends Command {
 
     // Enfant supervisé → boot serveur normal (HTTP/WS).
     if (process.env[CHILD_ENV] === "1") {
-      (this.cli as CliKernel).setType("SERVER");
+      (this.cli as CliKernel).setRunProfile({
+        servers: true,
+        lifetime: "longrunning",
+        interactive: false,
+      });
       return;
     }
 
     // Parent → superviseur auto-restart. Il NE boote PAS le kernel applicatif
-    // (type reste CONSOLE → aucun serveur dans le parent, pas de collision de
-    // port) : le serveur vit dans le process enfant, redémarré à chaque
+    // (profil reste console / servers:false → aucun serveur dans le parent, pas de
+    // collision de port) : le serveur vit dans le process enfant, redémarré à chaque
     // changement backend. Le HMR frontend (Vite) est préservé (frontend/ exclu).
     const supervisor = new DevSupervisor({
       cwd: process.cwd(),

@@ -59,8 +59,9 @@ describe("CliKernel — constructor", () => {
     cli = makeCliKernel("development");
   });
 
-  it("type = 'CONSOLE' par défaut", () => {
-    assert.strictEqual(cli.type, "CONSOLE");
+  it("profil console par défaut (servers:false)", () => {
+    assert.strictEqual(cli.runProfile.servers, false);
+    assert.strictEqual(cli.runProfile.lifetime, "oneshot");
   });
 
   it("app = null à la construction", () => {
@@ -114,34 +115,56 @@ describe("CliKernel — constructor", () => {
   });
 });
 
-// ─── 2. setType() ────────────────────────────────────────────────────────────
+// ─── 2. setRunProfile() ──────────────────────────────────────────────────────
 
-describe("CliKernel — setType()", () => {
+describe("CliKernel — setRunProfile()", () => {
   let cli: CliKernel;
   before(() => {
     cli = makeCliKernel();
   });
 
-  it("'server' → type = 'SERVER' (toLocaleUpperCase)", () => {
-    cli.setType("SERVER");
-    assert.strictEqual(cli.type, "SERVER");
+  it("profil serveur → runProfile.servers = true", () => {
+    cli.setRunProfile({
+      servers: true,
+      lifetime: "longrunning",
+      interactive: false,
+    });
+    assert.strictEqual(cli.runProfile.servers, true);
+    assert.strictEqual(cli.runProfile.lifetime, "longrunning");
   });
 
-  it("'CONSOLE' → type = 'CONSOLE'", () => {
-    cli.setType("CONSOLE");
-    assert.strictEqual(cli.type, "CONSOLE");
+  it("profil console → runProfile.servers = false", () => {
+    cli.setRunProfile({
+      servers: false,
+      lifetime: "oneshot",
+      interactive: false,
+    });
+    assert.strictEqual(cli.runProfile.servers, false);
   });
 
-  it("retourne la valeur uppercase", () => {
-    const result = cli.setType("SERVER");
-    assert.strictEqual(result, "SERVER");
+  it("retourne le profil appliqué", () => {
+    const p = {
+      servers: true,
+      lifetime: "longrunning" as const,
+      interactive: false,
+    };
+    const result = cli.setRunProfile(p);
+    assert.deepStrictEqual(result, p);
   });
 
-  it("setType modifie this.type", () => {
-    cli.setType("CONSOLE");
-    assert.strictEqual(cli.type, "CONSOLE");
-    cli.setType("SERVER");
-    assert.strictEqual(cli.type, "SERVER");
+  it("setRunProfile modifie this.runProfile", () => {
+    cli.setRunProfile({
+      servers: false,
+      lifetime: "oneshot",
+      interactive: false,
+    });
+    assert.strictEqual(cli.runProfile.servers, false);
+    cli.setRunProfile({
+      servers: true,
+      lifetime: "longrunning",
+      interactive: false,
+    });
+    assert.strictEqual(cli.runProfile.servers, true);
   });
 });
 
@@ -627,12 +650,20 @@ describe("CliKernel — edge cases", () => {
     assert.strictEqual(cli.kernel, null);
   });
 
-  it("setType → cli.type reflète le changement", () => {
+  it("setRunProfile → cli.runProfile reflète le changement", () => {
     const cli = makeCliKernel();
-    cli.setType("CONSOLE");
-    assert.strictEqual(cli.type, "CONSOLE");
-    cli.setType("SERVER");
-    assert.strictEqual(cli.type, "SERVER");
+    cli.setRunProfile({
+      servers: false,
+      lifetime: "oneshot",
+      interactive: false,
+    });
+    assert.strictEqual(cli.runProfile.servers, false);
+    cli.setRunProfile({
+      servers: true,
+      lifetime: "longrunning",
+      interactive: false,
+    });
+    assert.strictEqual(cli.runProfile.servers, true);
   });
 
   it("commands record vide à la construction", () => {

@@ -26,7 +26,7 @@ const options: OptionsCommandInterface = {
  * workers), via le flow partagé {@link launchTopology} (même runtime que `cluster`).
  *
  * **Un seul Kernel par process** : la commande suit la recette `development` (kernelEvent
- * `onPostReady` + `setType("SERVER")` dans `onKernelStart`) — l'unique Kernel du CLI
+ * `onPostReady` + profil serveur via `setRunProfile` dans `onKernelStart`) — l'unique Kernel du CLI
  * démarre lui-même les serveurs. Le double-boot historique (kernel CLI + kernel runtime)
  * est supprimé.
  *

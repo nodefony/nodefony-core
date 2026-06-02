@@ -2,12 +2,18 @@ import type { Command as CommanderCommand } from "commander";
 import type { EnvironmentType, DebugType } from "./globals";
 
 // Redéfinis localement — import circulaire impossible (IKernel → ICliKernel → CliKernel → Kernel → Service → IService → IKernel)
-type KernelType = "console" | "server" | "CONSOLE" | "SERVER";
+// Miroir de IRunProfile/RunLifetime de Kernel.ts.
+type RunLifetime = "oneshot" | "longrunning";
+interface IRunProfile {
+  servers: boolean;
+  lifetime: RunLifetime;
+  interactive: boolean;
+}
 
 export interface ICliKernel {
   commander: CommanderCommand | null;
   environment: EnvironmentType;
-  type: KernelType;
+  runProfile: IRunProfile;
   debug: DebugType;
   pid: number | null;
   setProcessTitle(name?: string): void;

@@ -120,16 +120,19 @@ class CliKernel {
 // ✅ JUSTE — déléguer à la sous-commande
 class DevCommand extends Command {
   override async onKernelStart(): Promise<void> {
-    (this.cli as CliKernel).setType("SERVER");
+    (this.cli as CliKernel).setRunProfile({
+      servers: true, lifetime: "longrunning", interactive: false,
+    });
     this.cli.environment = "development";  // ← set ici
   }
 }
 ```
 
-### Type CLI
+### Profil d'exécution (`runProfile` — ex `type` SERVER/CONSOLE, refondu 2026-06-02)
 
-- `this.type = "CONSOLE"` (défaut) — propriété directe, PAS méthode `isConsole()` côté CliKernel
-- `setType("SERVER")` → déclenche le démarrage des serveurs HTTP/WS via `@nodefony/http`
+- `this.runProfile = { servers, lifetime, interactive }` (défaut console : `{false,"oneshot",false}`) — remplace l'ancien binaire `type` (`KernelType`, double casing) qui écrasait 3 axes.
+- `setRunProfile(profile)` côté CliKernel → recopié dans `kernel.runProfile` à `onStart`.
+- `isConsole()` = `!runProfile.servers` (dérivé). ⚠️ Ne PILOTE PAS le montage serveur (= `kernelEvent` + présence `HttpKernel`) ni le rester-en-vie (= park) — `runProfile` DÉCRIT le run ; le pilotage par `lifetime` (park centralisé) viendra. Cf `project_kernel_runmodes_introspection`.
 
 ### Package manager
 

@@ -3,7 +3,11 @@ import path from "node:path";
 import Syslog, { conditionsInterface } from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
 import Cli, { CliDefaultOptions, PackageManagerName } from "../Cli";
-import Kernel, { KernelType, TypeKernelOptions } from "./Kernel";
+import Kernel, {
+  IRunProfile,
+  CONSOLE_RUN_PROFILE,
+  TypeKernelOptions,
+} from "./Kernel";
 import Command from "../command/Command";
 import Start from "./commands/StartCommand";
 import Dev from "./commands/DevCommand";
@@ -56,7 +60,7 @@ export type PackageManager = (
  * ```
  */
 class CliKernel extends Cli {
-  public type: KernelType = "CONSOLE";
+  public runProfile: IRunProfile = { ...CONSOLE_RUN_PROFILE };
   public app: Module | null = null;
   public packageManager: PackageManager = this.pnpm;
   /**
@@ -372,14 +376,18 @@ class CliKernel extends Cli {
   }
 
   /**
-   * Définit le type de kernel — `"CONSOLE"` (commands pures) vs `"SERVER"` (démarre HTTP/WS).
+   * Définit le profil d'exécution du run (cf {@link IRunProfile}) — déclaré par les
+   * commandes serveur/daemon. Le Kernel le recopie depuis `cli.runProfile` à `onStart`.
    *
-   * @param type - `"CONSOLE"` | `"SERVER"`. Auto-uppercase.
-   * @returns le type définitif (uppercase).
+   * @param profile - profil à appliquer (`servers`/`lifetime`/`interactive`).
+   * @returns le profil appliqué.
    */
-  setType(type: KernelType): string {
-    const ele = type.toLocaleUpperCase() as KernelType;
-    return (this.type = ele);
+  setRunProfile(profile: IRunProfile): IRunProfile {
+    this.runProfile = profile;
+    if (this.kernel) {
+      this.kernel.runProfile = profile;
+    }
+    return this.runProfile;
   }
 
   /**
@@ -457,7 +465,7 @@ class CliKernel extends Cli {
       data.push(7);
     }
     if (
-      this.kernel.type === "SERVER" &&
+      this.kernel.runProfile?.servers &&
       this.kernel.environment === "development"
     ) {
       // EMERGENCY ALERT CRITIC ERROR INFO WARNING

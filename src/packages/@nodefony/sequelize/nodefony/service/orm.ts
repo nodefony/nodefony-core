@@ -81,7 +81,7 @@ class ConnectorSequelise extends Connector {
 
   override async connect(
     type: string,
-    config: Config
+    config: Config,
   ): Promise<NativeSequelize> {
     try {
       let logging;
@@ -169,7 +169,7 @@ class Sequelize extends Orm {
     this.module = module;
     module.kernel?.once(
       "onTerminate",
-      async () => await this.closeConnections()
+      async () => await this.closeConnections(),
     );
     module.kernel?.once("onBoot", async () => {
       await this.boot().catch((e: Error) => {
@@ -188,7 +188,7 @@ class Sequelize extends Orm {
         for (const name in this.options.connectors) {
           await this.createConnection(
             name,
-            this.options.connectors[name]
+            this.options.connectors[name],
           ).catch((e) => {
             return reject(e);
           });
@@ -213,18 +213,18 @@ class Sequelize extends Orm {
           //@ts-ignore
           if (model && model.associate) {
             await this.entities[entity].model.associate(
-              this.entities[entity].db.models
+              this.entities[entity].db.models,
             );
             this.log(
               `ASSOCIATE model : ${this.entities[entity].model.name}`,
-              "DEBUG"
+              "DEBUG",
             );
           }
         }
         this.isAssociated = true;
       });
       this.kernel?.once("onReady", () => {
-        if (this.kernel?.type === "SERVER") {
+        if (this.kernel?.runProfile?.servers) {
           this.displayTable("INFO");
         } else {
           this.displayTable();
@@ -244,7 +244,7 @@ class Sequelize extends Orm {
         name,
         config.driver,
         config,
-        this
+        this,
       );
     } catch (e) {
       throw e;
@@ -322,8 +322,13 @@ class Sequelize extends Orm {
       head: ["CONNECTOR NAME", "DRIVER", "NAME DATABASE", "HOST", "status"],
     };
     type CLITable = unknown[] & { toString(): string };
-    type CLIKernel = { displayTable(rows: unknown[], opts: { head: string[] }): CLITable };
-    const table = (this.kernel?.cli as CLIKernel | null)?.displayTable([], options);
+    type CLIKernel = {
+      displayTable(rows: unknown[], opts: { head: string[] }): CLITable;
+    };
+    const table = (this.kernel?.cli as CLIKernel | null)?.displayTable(
+      [],
+      options,
+    );
     if (table) {
       this.getConnectorSettings(table);
 

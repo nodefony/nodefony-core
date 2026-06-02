@@ -36,7 +36,7 @@ class Mongoose extends Orm {
     this.module = module;
     module.kernel?.once(
       "onTerminate",
-      async () => await this.closeConnections()
+      async () => await this.closeConnections(),
     );
     module.kernel?.once("onBoot", async () => {
       await this.boot().catch((e: Error) => {
@@ -70,7 +70,7 @@ class Mongoose extends Orm {
       }
 
       this.kernel?.once("onReady", async () => {
-        if (this.kernel?.type === "SERVER") {
+        if (this.kernel?.runProfile?.servers) {
           this.displayTable("INFO");
         } else {
           this.displayTable();
@@ -151,7 +151,7 @@ class Mongoose extends Orm {
         db.on("reconnectFailed", (error) => {
           this.log(
             `Error on mongodb database reconnect Failed ${name}`,
-            "ERROR"
+            "ERROR",
           );
           this.log(error, "ERROR");
         });
@@ -165,14 +165,14 @@ class Mongoose extends Orm {
       DataBase: ${name}
       URL:  ${url}`,
           "INFO",
-          `CONNECTOR mongoose ${name}`
+          `CONNECTOR mongoose ${name}`,
         );
         return db;
       })
       .catch((error: Error) => {
         this.log(
           `Cannot connect to mongodb ( ${host}:${port}/${config.dbname} )`,
-          "ERROR"
+          "ERROR",
         );
         this.fire("onErrorConnection", null, error);
         // this.log(error, "ERROR");
@@ -210,8 +210,13 @@ class Mongoose extends Orm {
       ],
     };
     type CLITable = unknown[] & { toString(): string };
-    type CLIKernel = { displayTable(rows: unknown[], opts: { head: string[] }): CLITable };
-    const table = (this.kernel?.cli as CLIKernel | null)?.displayTable([], options);
+    type CLIKernel = {
+      displayTable(rows: unknown[], opts: { head: string[] }): CLITable;
+    };
+    const table = (this.kernel?.cli as CLIKernel | null)?.displayTable(
+      [],
+      options,
+    );
     if (table) {
       for (const dbname in this.options.connectors) {
         const conn = ["", "", "mongodb", "", ""];
@@ -232,7 +237,7 @@ class Mongoose extends Orm {
         conn[4] =
           this.connections[dbname].states[this.connections[dbname]._readyState];
         table.push(conn);
-        if (this.kernel && this.kernel.type === "CONSOLE") {
+        if (this.kernel && !this.kernel.runProfile.servers) {
           severity = "DEBUG";
         }
         this.log(`ORM CONNECTORS LIST  : \n${table.toString()}`, severity);

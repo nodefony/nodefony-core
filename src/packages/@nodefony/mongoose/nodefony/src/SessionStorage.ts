@@ -69,7 +69,8 @@ class SessionStorage {
   }
 
   open(contextSession: string) {
-    if (this.orm?.kernel?.type !== "CONSOLE") {
+    // « pas console » ≡ serveur ; profil/kernel absent → on exécute (ancien `!== "CONSOLE"`).
+    if (this.orm?.kernel?.runProfile?.servers ?? true) {
       this.gc(this.gc_maxlifetime, contextSession);
       if (this.entity)
         return this.entity

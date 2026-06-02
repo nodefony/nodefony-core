@@ -40,7 +40,7 @@ class Orm extends Service {
           async () =>
             await this.emitAsync("onOrmReady", this)
               .then(() => {
-                if (this.kernel?.type !== "CONSOLE") {
+                if (this.kernel?.runProfile?.servers ?? true) {
                   this.log("onOrmReady", "INFO", `EVENTS ${this.name} ORM`);
                 }
                 this.connectionNotification = 0;
@@ -75,7 +75,7 @@ class Orm extends Service {
       );
     }
     this.entities[entity.name] = entity;
-    if (this.kernel?.type === "SERVER") {
+    if (this.kernel?.runProfile?.servers) {
       this.log(`ENTITY ADD : ${entity.name}`, "INFO");
     }
   }

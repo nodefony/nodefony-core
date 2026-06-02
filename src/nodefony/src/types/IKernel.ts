@@ -7,7 +7,13 @@ import type { ICommand } from "./ICommand";
 import type os from "node:os";
 
 // Redéfinis localement — import circulaire impossible (Kernel.ts → Service.ts → IService.ts → IKernel.ts)
-type KernelType = "console" | "server" | "CONSOLE" | "SERVER";
+// Miroir de IRunProfile/RunLifetime de Kernel.ts (profil d'exécution : serveurs ? durée de vie ? interactif ?).
+type RunLifetime = "oneshot" | "longrunning";
+interface IRunProfile {
+  servers: boolean;
+  lifetime: RunLifetime;
+  interactive: boolean;
+}
 type EventsType = Record<string, number>;
 // Redéfini depuis Kernel.ts (trunkType)
 type TrunkType = "javascript" | "typescript" | null;
@@ -31,7 +37,7 @@ export interface KernelNetworkResult {
  */
 export interface IKernel extends IService {
   // ─── Identité & environnement ───────────────────────────────────────────────
-  type: KernelType;
+  runProfile: IRunProfile;
   readonly version: string;
   readonly environment: EnvironmentType;
   readonly debug: DebugType;
