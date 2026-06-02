@@ -60,6 +60,5 @@ export * from "../Cli";
 export * from "../Nodefony";
 export * from "../kernel/Kernel";
 export * from "../kernel/Module";
-export * from "../service/rollup/rollupService";
 
 //export * from "../index";

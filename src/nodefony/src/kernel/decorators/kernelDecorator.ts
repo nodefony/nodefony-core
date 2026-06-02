@@ -35,12 +35,12 @@ function modules(
             if (this.kernel?.isModule(path)) {
               await this.kernel?.addModule(path as ModuleConstructor);
             } else {
-              await this.kernel?.loadModule(path as string, false);
+              await this.kernel?.loadModule(path as string);
             }
           }
         } else {
           if (typeof nameOrPath === "string") {
-            return await this.kernel?.loadModule(nameOrPath, false);
+            return await this.kernel?.loadModule(nameOrPath);
           }
           if (this.kernel?.isModule(nameOrPath)) {
             return await this.kernel?.addModule(nameOrPath);

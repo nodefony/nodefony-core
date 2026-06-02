@@ -1,5 +1,4 @@
 import { dirname, resolve, basename, isAbsolute } from "node:path";
-import { readFile } from "fs/promises";
 import { fileURLToPath } from "url";
 import Kernel, {
   ServiceConstructor,
@@ -20,10 +19,8 @@ import { extend } from "../Tools";
 import { tagListener } from "./lifecycleTags";
 import cluster from "node:cluster";
 import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
-import RollupService from "../service/rollup/rollupService";
 //import vm from "node:vm";
 const regModuleName: RegExp = /^[Mm]odule-([\w-]+)/u;
-import { RollupOptions, rollup, RollupOutput, OutputOptions } from "rollup";
 import { createRequire } from "node:module";
 import Entity from "./orm/Entity";
 import { Controller } from "@nodefony/framework";
@@ -89,7 +86,6 @@ class Module extends Service implements IModule {
    * partagé seul. Cf {@link getServiceNames}.
    */
   private _serviceNames: string[] | null = null;
-  rollup?: RollupService | null;
   public onKernelRegister?(): Promise<this>;
   public onKernelBoot?(): Promise<this>;
   public onKernelReady?(): Promise<this>;
@@ -112,41 +108,11 @@ class Module extends Service implements IModule {
     this.setParameters(`modules.${this.name}`, this.options);
     this.path = this.setPath(path);
     this.setEvents();
-    this.kernel?.once("onBoot", async () => {
-      this.rollup = this.get<RollupService>("rollup");
-    });
-    // ⚠️ Le watch Rollup runtime "write-only" (re-bundle dist/ sans recharger le
-    // process) est RETIRÉ : il ne reloadait rien (Node ne réimporte pas les
-    // modules déjà chargés), coûtait un re-bundle complet par save et écrasait le
-    // dist ~12s après le boot (race + config external divergente). En dev, le
-    // rechargement backend est assuré par le DevSupervisor (auto-restart du
-    // process). Le HMR frontend reste géré par Vite. `Module.watch()` est conservé
-    // pour un usage explicite/legacy mais n'est plus déclenché automatiquement.
-  }
-
-  /**
-   * Build one-shot du module via Rollup (mode prod ou test).
-   *
-   * Lit `package.json` du module, applique la config Rollup par défaut, écrit dans
-   * `dist/`. À ne pas confondre avec {@link watch} (mode continu dev).
-   *
-   * @returns objet `RollupOutput` contenant les bundles produits.
-   */
-  async build(): Promise<RollupOutput> {
-    const pck = await readFile(resolve(this.path, "package.json"), "utf8");
-    const jsonPck = JSON.parse(pck) as PackageJson;
-    const ele = {
-      path: this.path,
-      package: jsonPck,
-      getDependencies: () => {
-        return Module.getPackageDependencies(jsonPck);
-      },
-    } as Module;
-    const options = RollupService.setDefaultConfig(ele);
-    const bundle = await rollup(options);
-    const res = await bundle.write(options.output as OutputOptions);
-    await bundle.close();
-    return res;
+    // Aucun build runtime : le build des modules passe par la toolchain CLI
+    // (`npm run build` / `nodefony build` → turbo + rollup.config.ts par module),
+    // PAS par un service rollup embarqué dans le process serveur (retiré 2026-06-02 :
+    // doublon de config + coût d'import de la toolchain à chaque boot). En dev, le
+    // rechargement backend = DevSupervisor (restart process) ; le HMR front = Vite.
   }
 
   /**
@@ -280,10 +246,6 @@ class Module extends Service implements IModule {
       }
     }
     return this.options;
-  }
-
-  async getRollupConfig(): Promise<RollupOptions> {
-    return (await this.rollup?.getRollupConfigTs(this)) as RollupOptions;
   }
 
   registerService(

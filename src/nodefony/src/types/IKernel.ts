@@ -93,7 +93,7 @@ export interface IKernel extends IService {
   isTrunk(): Promise<TrunkType>;
   isModule(subclass: unknown): boolean;
   addModule(Mod: unknown, ...args: unknown[]): Promise<IModule>;
-  loadModule(nameOrPath: string, build?: boolean): Promise<IModule>;
+  loadModule(nameOrPath: string): Promise<IModule>;
   getModule(name: string): IModule;
   getModules(): Record<string, IModule>;
   getNetwork(): KernelNetworkResult;

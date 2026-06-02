@@ -62,16 +62,16 @@ describe("KernelCommand — BuildCommand", () => {
     assert.strictEqual((cmd.options as any).showBanner, false);
   });
 
-  it("onKernelStart est défini (override async)", () => {
+  it("lifetime = 'oneshot' (build = one-shot, pas de park)", () => {
     const cmd = new BuildCommand(cli);
-    expect(cmd.onKernelStart).to.be.a("function");
+    assert.strictEqual(cmd.lifetime, "oneshot");
   });
 
-  it("generate() sans kernel retourne Promise", async () => {
+  // generate() délègue à `npx turbo run build` (process externe) → on vérifie le
+  // contrat (fonction), sans l'invoquer : un test unitaire ne doit pas builder le repo.
+  it("generate est une fonction (délègue à turbo)", () => {
     const cmd = new BuildCommand(cli);
-    const p = cmd.generate();
-    assert.ok(p instanceof Promise);
-    await p;
+    expect(cmd.generate).to.be.a("function");
   });
 });
 

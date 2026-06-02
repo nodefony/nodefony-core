@@ -1,11 +1,11 @@
 {
-  "generated": "2026-06-02T21:14:09.450Z",
+  "generated": "2026-06-02T21:45:51.760Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 820,
-    "symbols": 1618,
-    "classes": 246,
+    "files": 819,
+    "symbols": 1617,
+    "classes": 245,
     "interfaces": 398,
     "types": 203,
     "enums": 2,
@@ -2163,15 +2163,16 @@
       "implements": [],
       "decorators": []
     },
-    "Dev": {
-      "name": "Dev",
+    "Build": {
+      "name": "Build",
       "kind": "class",
       "file": "src/nodefony/src/kernel/commands/BuildCommand.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": "Command",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Commande `nodefony build` (alias `compile`) — délègue à la **toolchain CLI** (`turbo run build` → chaque `rollup.config.ts` de workspace), source UNIQUE du build. Ne build PLUS via un service rollu…"
     },
     "Cluster": {
       "name": "Cluster",
@@ -2184,7 +2185,7 @@
       "decorators": [],
       "description": "Commande `nodefony cluster` — démarre le serveur en mode cluster sans PM2. Remplace l'ancien `nodefony staging`/`preprod` (retiré 2026-05-25 — fusionné dans le runtime prod « 2 molettes » : topolog…"
     },
-    "@nodefony/core:Dev": {
+    "Dev": {
       "name": "Dev",
       "kind": "class",
       "file": "src/nodefony/src/kernel/commands/DevCommand.ts",
@@ -2816,17 +2817,6 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Options du superviseur de dev."
-    },
-    "Rollup": {
-      "name": "Rollup",
-      "kind": "class",
-      "file": "src/nodefony/src/service/rollup/rollupService.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Service",
-      "implements": [],
-      "decorators": [],
-      "description": "Service Rollup runtime — fournit la config Rollup par défaut et le **build one-shot** des modules (`nodefony build` via {@link Module.build}). Le watch « write-only » (re-bundle dist/ sans recharge…"
     },
     "registerBuiltinLogDrivers": {
       "name": "registerBuiltinLogDrivers",
@@ -11782,7 +11772,6 @@
         "Injector",
         "Entity",
         "Orm",
-        "Rollup",
         "DocumentationService",
         "DrizzleService",
         "AdminBroker",
@@ -11881,7 +11870,7 @@
         "BindAdaptiveOptions"
       ],
       "Command": [
-        "Dev",
+        "Build",
         "Cluster",
         "Dev",
         "Install",
@@ -12321,7 +12310,6 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
-        "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -12374,7 +12362,6 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
-        "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -12493,7 +12480,6 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
-        "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
         "src/packages/@nodefony/sequelize/nodefony/config/config.ts"
       ],
@@ -12577,7 +12563,6 @@
         "src/nodefony/src/service/cluster/clusterMaster.ts",
         "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
         "src/nodefony/src/service/cluster/ClusterRelay.ts",
-        "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
@@ -12716,7 +12701,6 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
-        "src/nodefony/src/service/rollup/rollupService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
@@ -13562,6 +13546,9 @@
       "Dev": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
+      "Build": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
       "Prod": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
@@ -13629,9 +13616,6 @@
         "src/nodefony/src/syslog/transports/FileTransport.ts",
         "src/nodefony/src/syslog/transports/HttpTransport.ts",
         "src/nodefony/src/syslog/transports/SyslogTransport.ts"
-      ],
-      "Rollup": [
-        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "Injector": [
         "src/nodefony/src/kernel/Kernel.ts",

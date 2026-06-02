@@ -58,9 +58,6 @@ export interface IModule extends IService {
   addService(service: unknown, ...args: any[]): Promise<IService>;
   loadService(service: string, ...args: unknown[]): Promise<IService>;
 
-  // ─── Build ─────────────────────────────────────────────────────────────────
-  // RollupOutput non importable ici → unknown
-  build(): Promise<unknown>;
   getDependencies(): string[];
 
   // ─── Controllers ───────────────────────────────────────────────────────────

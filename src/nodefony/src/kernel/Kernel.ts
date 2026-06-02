@@ -28,7 +28,6 @@ import CliKernel from "./CliKernel";
 import Module from "./Module";
 //import Fetch from "../service/fetchService";
 import { HttpKernel } from "@nodefony/http";
-import Rollup from "../service/rollup/rollupService";
 import Injector from "./injector/injector";
 import Entity from "./orm/Entity";
 import {
@@ -488,7 +487,6 @@ class Kernel extends Service implements IKernel {
     const tmpPath = path.resolve(process.cwd(), "tmp");
     fs.mkdirSync(tmpPath, { recursive: true });
     this.tmpDir = new FileClass(tmpPath);
-    await this.addKernelService(Rollup);
 
     if (!this.started) {
       await this.fireAsync("onPreStart", this).catch((e) => {
@@ -857,16 +855,9 @@ class Kernel extends Service implements IKernel {
     return this.addService(res.default, module, ...args);
   }
 
-  async loadModule(
-    moduleName: string,
-    build: boolean = false,
-  ): Promise<Module> {
+  async loadModule(moduleName: string): Promise<Module> {
     const moduleClass = await import(moduleName);
-    const module = await this.addModule(moduleClass.default);
-    if (build) {
-      await module.build();
-    }
-    return module;
+    return await this.addModule(moduleClass.default);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
