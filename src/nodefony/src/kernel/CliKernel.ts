@@ -174,6 +174,17 @@ class CliKernel extends Cli {
         // // @ts-expect-error: overloaded  _hasHelpOption
         //this.commander._hasHelpOption = false;
 
+        // ─── HELP GLOBAL enrichi : modules chargés AVANT l'affichage ──────────
+        // `nodefony`, `nodefony --help`, `nodefony -h` → on veut lister AUSSI les
+        // commandes de module (`frontend:build`, `network`, …), pas seulement les
+        // built-ins. Or les modules ne posent leurs commandes qu'à `onPreRegister`.
+        // On boote donc le kernel jusqu'à cette phase (mode CONSOLE, 0 serveur),
+        // PUIS on affiche le help complet et on `terminate(0)`. `--version` n'est
+        // PAS concerné (résolu par commander sans boot, cf le `.catch` plus bas).
+        if (this.isGlobalHelpRequested()) {
+          return this.dispatchGlobalHelp();
+        }
+
         // ─── Commandes de MODULE : dispatch DIFFÉRÉ ──────────────────────────
         // Les built-ins ci-dessus sont les seules commandes connues de commander
         // à ce stade. Les commandes de module (`frontend:build`, `network`, …) ne
@@ -242,6 +253,30 @@ class CliKernel extends Cli {
   }
 
   /**
+   * `true` si l'invocation demande le **help global** : `nodefony` nu,
+   * `nodefony --help` ou `nodefony -h` (que des options, aucun positionnel).
+   *
+   * Exclut volontairement `--version` (résolu par commander sans booter les
+   * modules) et `nodefony <cmd> --help` (help d'une sous-commande, laissé à
+   * commander / au dispatch de module — il y a un positionnel).
+   *
+   * @returns `true` si le help global est demandé.
+   */
+  private isGlobalHelpRequested(): boolean {
+    const args = process.argv.slice(2);
+    if (args.length === 0) {
+      return true;
+    }
+    // Un positionnel présent → c'est une commande (ou son help) : pas le help global.
+    for (const arg of args) {
+      if (!arg.startsWith("-")) {
+        return false;
+      }
+    }
+    return args.includes("-h") || args.includes("--help");
+  }
+
+  /**
    * Noms + alias des commandes built-in déjà enregistrées dans commander.
    *
    * Dérivé de commander (pas de liste en dur → suit l'ajout/retrait de built-ins).
@@ -301,6 +336,39 @@ class CliKernel extends Cli {
       await this.kernel?.terminate(1);
       throw e;
     });
+  }
+
+  /**
+   * Boote le kernel jusqu'à `onPreRegister` (modules instanciés → leurs commandes
+   * sont posées dans commander), affiche le help COMPLET puis `terminate(0)`.
+   *
+   * Même mécanique de timing que {@link dispatchModuleCommand} : le listener
+   * `onPreRegister` est posé depuis `onStart` pour passer APRÈS `@modules`
+   * (`emitAsync` séquentiel). Le kernel reste CONSOLE (aucune commande → 0 serveur)
+   * et `terminate(0)` stoppe le boot avant `onRegister` (process.exit au nextTick).
+   *
+   * Boot KO (hors d'une app, config invalide) → fallback : help built-in seul
+   * (déjà enregistré dans commander) + `terminate(0)`. L'utilisateur a toujours un help.
+   *
+   * @returns le Kernel (terminé après affichage du help).
+   */
+  private dispatchGlobalHelp(): Promise<Kernel> {
+    const kernel = this.kernel as Kernel;
+    let shown = false;
+    const render = async (): Promise<void> => {
+      if (!shown) {
+        shown = true;
+        this.showHelp(false, undefined);
+      }
+      await this.kernel?.terminate(0);
+    };
+    kernel.once("onStart", () => {
+      kernel.once("onPreRegister", render);
+    });
+    return kernel.start().catch(async () => {
+      await render();
+      return kernel;
+    }) as Promise<Kernel>;
   }
 
   /**

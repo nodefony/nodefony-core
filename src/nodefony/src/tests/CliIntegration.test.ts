@@ -220,6 +220,47 @@ describe("CLI integration — commandes terminantes (--help / --version)", funct
     }
   });
 
+  it("--help → liste AUSSI les commandes de module (boot CONSOLE jusqu'à onPreRegister)", async () => {
+    const r = await runCli(["--help"]);
+    assert.strictEqual(
+      r.code,
+      0,
+      `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
+    );
+    const txt = r.stdout + r.stderr;
+    // Commandes posées par les modules (@nodefony/http, frontend, modules/test) —
+    // absentes du help tant que les modules ne sont pas chargés.
+    for (const name of ["network", "frontend:build", "test:batch"]) {
+      assert.ok(
+        txt.includes(name),
+        `--help doit lister la commande de module "${name}"\n${txt}`,
+      );
+    }
+    // Help-only : aucun serveur ne doit démarrer.
+    assert.ok(
+      !READY_RE.test(txt),
+      `--help ne doit JAMAIS démarrer un serveur\n${txt}`,
+    );
+  });
+
+  it("invocation nue `nodefony` → même help complet (built-ins + modules), exit 0", async () => {
+    const r = await runCli([]);
+    assert.strictEqual(
+      r.code,
+      0,
+      `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
+    );
+    const txt = r.stdout + r.stderr;
+    assert.ok(
+      txt.includes("development"),
+      `nu doit lister un built-in\n${txt}`,
+    );
+    assert.ok(
+      txt.includes("network"),
+      `nu doit lister une commande de module\n${txt}`,
+    );
+  });
+
   it("--version → exit 0 et imprime un numéro de version", async () => {
     const r = await runCli(["--version"]);
     assert.strictEqual(

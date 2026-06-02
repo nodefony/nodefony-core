@@ -185,7 +185,9 @@ Les built-ins ci-dessus sont enregistrés dans commander par `CliKernel.start()`
 
 Fix : `CliKernel` classe la commande demandée (helper `getRequestedCommandName` vs `getBuiltinCommandNames`, dérivé de commander — 0 hardcode). Si ce n'est pas un built-in → **dispatch différé** (`dispatchModuleCommand`) : un listener `onPreRegister` (posé via `onStart` pour passer APRÈS `@modules`, `emitAsync` séquentiel) parse argv une fois les modules enregistrés. Kernel reste **CONSOLE** (0 serveur) ; commande introuvable → `terminate(1)`, jamais de fallback serveur.
 
-> Limite connue : `nodefony --help` ne liste **que** les built-ins (les modules ne sont pas chargés au moment du help). Contrainte serveur : une commande de module ne peut pas être de type SERVER (son `onKernelStart` ne fire pas — `onStart` déjà passé). Le câblage propre (parse pur + registry + `type`/`kernelEvent` déclaratifs) est noté comme dette d'archi (`project_cli_module_command_dispatch`).
+**Help global enrichi (2026-06-02)** : `nodefony`, `nodefony --help`, `nodefony -h` listent désormais **AUSSI les commandes de module** (`network`, `frontend:build`, `test:batch`…), plus seulement les built-ins. Helpers `isGlobalHelpRequested()` (nu OU que des options dont `-h`/`--help` ; exclut `--version` et `nodefony <cmd> --help`) + `dispatchGlobalHelp()` : même mécanique de timing que `dispatchModuleCommand` — boot CONSOLE jusqu'à `onPreRegister` (modules instanciés → leurs commandes posées dans commander), `showHelp(false)` puis `terminate(0)`. Boot KO (hors d'une app) → fallback help built-in seul. `--version` reste résolu par commander **sans** booter les modules.
+
+> Limite restante (dette `project_cli_module_command_dispatch`) : une commande de module ne peut pas être de type SERVER (son `onKernelStart` ne fire pas — `onStart` déjà passé). Le câblage propre (parse pur + registry + `type`/`kernelEvent` déclaratifs) reste la cible.
 
 ## Pollution singleton
 
