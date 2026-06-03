@@ -10,10 +10,10 @@
  *
  * SURCHARGE PAR ENVIRONNEMENT :
  *   Les valeurs ci-dessous sont des DEFAULTS. Pour différencier
- *   `development` / `production` / autres, utiliser :
- *     switch (kernel?.environment) { ... }
- *   ou créer des fichiers `config.production.ts` / `config.development.ts`
- *   à côté de celui-ci (chargés automatiquement par le Kernel).
+ *   `development` / `production` / un environnement de déploiement (`staging`…),
+ *   créer des fichiers `config.production.ts` / `config.staging.ts` à côté de
+ *   celui-ci, ou utiliser des getters lazy. NE JAMAIS déréférencer le kernel
+ *   (`Nodefony.getKernel()`) au top-level de ce fichier (crash à l'import).
  *
  * EXEMPLE DOMAIN :
  *   "0.0.0.0"      → toutes interfaces réseau (production cluster)
@@ -29,8 +29,6 @@
  *   ]
  */
 //import path from "node:path";
-import { Nodefony } from "nodefony";
-const kernel = Nodefony.getKernel();
 import http from "./modules/http-config";
 import sequelize from "./modules/sequelize-config";
 // import mongoose from "./modules/mongoose-config"; // décommenter avec @nodefony/mongoose (index.ts)
@@ -38,25 +36,12 @@ import cluster from "./cluster/cluster.config";
 import security from "./modules/security-config";
 import modules from "./modules";
 
-let statics = true;
-//let monitoring = true;
-//let documentation = true;
-//let unitTest = true;
-let domainCheck = false;
-
-switch (kernel?.environment) {
-  case "production":
-  case "development":
-  default:
-    // Note : `CDN = null;` retiré 2026-05-17 — variable globale jamais
-    // déclarée (ReferenceError au boot). Legacy mort du chantier `chore(dev): clean`.
-    statics = true;
-    //documentation = true;
-    //monitoring = true;
-    //unitTest = true;
-    domainCheck = true;
-}
-//console.log(sequelize.connectors.nodefony.options);
+// Différenciation par environnement : passer par des fichiers `config.<appEnv>.ts`
+// (chargés APRÈS résolution du kernel) ou des getters lazy. JAMAIS un deref kernel
+// (`Nodefony.getKernel()`) au top-level : le kernel n'existe pas encore au moment de
+// l'import du module → crash `Cannot read properties of null` + module non testable.
+const statics = true;
+const domainCheck = true;
 
 const config = {
   /**
