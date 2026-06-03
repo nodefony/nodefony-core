@@ -252,6 +252,11 @@ export {
 // ─── Types & Interfaces ───────────────────────────────────────────────────────
 export type { IKernel, KernelNetworkResult } from "./types/IKernel";
 export type {
+  IModuleManifest,
+  IModuleManifestEntry,
+  ModulePolicy,
+} from "./types/IModuleManifest";
+export type {
   IService,
   DefaultOptionsService,
   EventListener,

@@ -36,6 +36,7 @@ import {
   CLUSTER_PROBE_SNAPSHOT_KIND,
 } from "../service/cluster/clusterMessage";
 import type { IKernel } from "../types/IKernel";
+import type { IModuleManifest } from "../types/IModuleManifest";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { readListenerTags } from "./lifecycleTags";
@@ -45,6 +46,13 @@ const colorLogEvent = (): string => logColor.cyanBgBlue("EVENT KERNEL");
 
 export interface TypeKernelOptions extends DefaultOptionsService {
   node_start?: NodefonyStartType;
+  /**
+   * Manifeste déclaratif des modules de l'app (liste ordonnée, gatable par
+   * `policy`/`when`/environnement). Lu et orchestré par le Kernel à
+   * `onPreRegister`. Remplace l'usage du décorateur `@modules` côté app.
+   * Cf `project_module_loading_architecture` (mémoire IA).
+   */
+  modules?: IModuleManifest;
   log?: {
     active?: boolean;
     /**
@@ -860,6 +868,54 @@ class Kernel extends Service implements IKernel {
     return await this.addModule(moduleClass.default);
   }
 
+  /**
+   * Résout la liste ORDONNÉE des modules à charger depuis le manifeste
+   * `config.modules`. L'ordre du tableau est conservé (= priorité de chargement) ;
+   * `policy`/`when` ne font que FILTRER, jamais réordonner.
+   *
+   * - `policy:"dev"` → ignoré en production (gain mémoire = non-chargement ; en
+   *   ESM un module importé n'est jamais déchargé).
+   * - `when(config)` faux → ignoré.
+   * - string nue → policy `optional`, toujours chargée.
+   *
+   * @returns noms de modules à charger, dans l'ordre.
+   */
+  private resolveModules(): string[] {
+    const manifest = this.options.modules;
+    if (!Array.isArray(manifest)) {
+      return [];
+    }
+    const env = this.cli?.environment ?? this.environment;
+    const isProd = env !== "dev" && env !== "development";
+    const result: string[] = [];
+    for (const item of manifest) {
+      const entry = typeof item === "string" ? { name: item } : item;
+      if (!entry?.name) {
+        continue;
+      }
+      if (entry.policy === "dev" && isProd) {
+        continue;
+      }
+      if (typeof entry.when === "function" && !entry.when(this.options)) {
+        continue;
+      }
+      result.push(entry.name);
+    }
+    return result;
+  }
+
+  /**
+   * Charge en série les modules résolus par {@link resolveModules} via
+   * `loadModule` (import dynamique → lazy : un module hors liste n'est jamais
+   * importé). Branché à `onPreRegister` par {@link loadApp} si un manifeste
+   * `config.modules` est présent. Seul orchestrateur du chargement de modules.
+   */
+  private async loadModulesFromManifest(): Promise<void> {
+    for (const name of this.resolveModules()) {
+      await this.loadModule(name);
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   /**
    * Instancie un module et l'enregistre dans `kernel.modules[name]`. Appelle `initialize(this)`
@@ -924,6 +980,17 @@ class Kernel extends Service implements IKernel {
     this.app = await this.loadModule(`${this.path}/dist/index.js`);
     this.app.isApp = true;
     this.options = this.readConfig(extend(this.app.options, config));
+    // Chargement de modules piloté par CONFIG (manifeste `config.modules`). Branché
+    // au MÊME instant que l'ancien décorateur @modules (listener `onPreRegister`)
+    // → comportement identique, mais la liste est une DONNÉE gatable et le Kernel
+    // en est le seul orchestrateur. Compat : sans manifeste, le décorateur @modules
+    // (s'il est encore utilisé par une app/test) garde la main.
+    // Cf project_module_loading_architecture (mémoire IA).
+    if (Array.isArray(this.options.modules) && this.options.modules.length) {
+      this.once("onPreRegister", async () => {
+        await this.loadModulesFromManifest();
+      });
+    }
     this.initializeLog();
     this.cli?.setPackageManager(this.options.packageManager);
     this.core = await this.isCore();

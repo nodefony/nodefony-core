@@ -1,13 +1,13 @@
 {
-  "generated": "2026-06-02T22:13:21.659Z",
+  "generated": "2026-06-03T20:01:34.698Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 819,
-    "symbols": 1617,
+    "files": 820,
+    "symbols": 1620,
     "classes": 245,
-    "interfaces": 398,
-    "types": 203,
+    "interfaces": 399,
+    "types": 205,
     "enums": 2,
     "functions": 298,
     "constants": 471
@@ -1430,6 +1430,31 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Constructeur générique de controller — équivalent au type historique `TypeController<T>` mais exposé via le contract public IModule. Permet aux consommateurs (framework, http, security) de typer le…"
+    },
+    "IModuleManifestEntry": {
+      "name": "IModuleManifestEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IModuleManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Entrée détaillée d'un manifeste de modules."
+    },
+    "ModulePolicy": {
+      "name": "ModulePolicy",
+      "kind": "type",
+      "file": "src/nodefony/src/types/IModuleManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Politique de chargement d'un module. - `mandatory` : socle — toujours chargé, non gatable (ex. http, framework, security, studio). - `optional` : chargé sauf si une condition `when` le filtre (vale…"
+    },
+    "IModuleManifest": {
+      "name": "IModuleManifest",
+      "kind": "type",
+      "file": "src/nodefony/src/types/IModuleManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Manifeste déclaratif des modules d'une application Nodefony, exposé via `config.modules`. Le Kernel en est le **seul orchestrateur** : il lit cette liste, la filtre (policy + `when` + environnement…"
     },
     "DefaultOptionsService": {
       "name": "DefaultOptionsService",
@@ -13538,7 +13563,8 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "TypeKernelOptions": [
-        "src/nodefony/src/kernel/CliKernel.ts"
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/types/IModuleManifest.ts"
       ],
       "Start": [
         "src/nodefony/src/kernel/CliKernel.ts"
@@ -13649,6 +13675,9 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts"
+      ],
+      "IModuleManifest": [
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "IGuardedListenerInfo": [
         "src/nodefony/src/kernel/Kernel.ts"

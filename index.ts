@@ -1,12 +1,6 @@
-//import { resolve } from "node:path";
-import { Kernel, Module, modules } from "nodefony";
+import { Kernel, Module } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import config from "./nodefony/config/config";
-//import http from "@nodefony/http";
-//import security from "@nodefony/security";
-//import framework from "@nodefony/framework";
-//import sequelize from "@nodefony/sequelize";
-//import Test from "@nodefony/test";
 import AppController from "./nodefony/controllers/AppController";
 import indexController from "./nodefony/controllers/indexController";
 // Entités de démo (User 1-N Post) sur l'ORM Drizzle par défaut : enregistrées au
@@ -14,119 +8,22 @@ import indexController from "./nodefony/controllers/indexController";
 import "./nodefony/entity/user";
 
 /**
- * The App class extends the Module class and represents an application  entry point.
+ * Point d'entrée de l'application Nodefony.
+ *
+ * Les MODULES ne sont plus listés ici : la liste vit dans la config
+ * (`nodefony/config/modules.ts`, exposée via `config.modules`). Le Kernel la
+ * résout selon l'environnement + le profil d'exécution, puis charge les modules
+ * en un seul endroit (cf mémoire IA `project_module_loading_architecture`).
+ * `index.ts` ne déclare que ce qui est INTRINSÈQUE à l'app : ses controllers et
+ * ses entités.
  */
-@modules([
-  "@nodefony/sequelize",
-  //"@nodefony/mongoose",
-  // ORM SQL par défaut recommandé (orm-core) — bootable, connecte au boot.
-  "@nodefony/drizzle",
-  "@nodefony/http",
-  "@nodefony/framework",
-  // Accès Redis générique — REQUIS UNIQUEMENT pour le backplane realtime driver
-  // `redis` (fan-out CROSS-pod multi-host). Avec le défaut IPC (`driver:"cluster"`,
-  // intra-pod), il est inutile → commenté : son auto-connexion au boot (3 conns
-  // main/publish/subscribe) provoquait un storm NOAUTH qui BLOQUAIT le boot cluster.
-  // Décommenter + lancer avec REDIS_PASSWORD=… pour le fan-out cross-pod (Phase 16).
-  // "@nodefony/redis",
-  // Couche realtime serveur — Module class minimale aujourd'hui (P13.0 :
-  // rapatriement RealtimeHub/RealtimeController/IBackplane depuis framework).
-  // Doit être après framework (peerDep) et avant security qui s'y greffera (P6).
-  "@nodefony/realtime",
-  "@nodefony/security",
-  "@nodefony/test",
-  // POC `poc/frontend-child` — ordre important : frontend AVANT son consumer.
-  "@nodefony/frontend",
-  // Multi-bundle fix P14.6 : URL via /@fs/<abs> + server.fs.allow → 2 consumers
-  // peuvent désormais cohabiter (chacun garde son main.tsx distinct).
-  "@nodefony/test-frontend-react",
-  // Multi-framework Vite : bundle Vue 3 à côté des bundles React, même supervisor.
-  "@nodefony/test-frontend-vue",
-  // Multi-framework Vite : bundle Angular 21 (standalone, via @analogjs/vite-plugin-angular).
-  "@nodefony/test-frontend-angular",
-  // Banc test ORM : modèle mediasoup (Drizzle, connecteur dédié) + build Vue (front à venir).
-  "@nodefony/mediasoup",
-  // Data plane de documentation transverse — scanne docs/ racine + <module>/docs/.
-  // Après framework (peerDep @controllers) ; avant studio (son front consomme
-  // /nodefony/documentation/api/*).
-  "@nodefony/documentation",
-  "@nodefony/studio",
-  //Test,
-  //"@nodefony/redis",
-])
 @controllers([AppController, indexController])
 class App extends Module {
   /**
-   * Constructs an instance of the App class.
-   * Usefull for adding commands cli
-   * @param kernel - An instance of the Kernel class.
+   * @param kernel - instance du Kernel.
    */
   constructor(kernel: Kernel) {
     super("app", kernel, import.meta.url, config);
-  }
-
-  /**
-   * Initializes the module by loading the http and security modules.
-   *  Usefull for adding modules or services
-   * @param kernel - An instance of the Kernel class.
-   * @returns A promise that resolves to the instance of the App class.
-   */
-  async initialize(_kernel: Kernel): Promise<this> {
-    //   if (
-    //     this.kernel?.environment === "production" ||
-    //     this.kernel?.environment === "staging"
-    //   ) {
-    //     //await this.kernel?.addModule(http);
-    //     //await this.kernel?.addModule(security);
-    //     //await this.kernel?.addModule(framework);
-    //     //await this.kernel?.addModule(sequelize);
-    //   } else {
-    //     //await this.kernel?.loadModule("@nodefony/http", false);
-    //     //await this.kernel?.loadModule("@nodefony/security", false);
-    //     //await this.kernel?.loadModule("@nodefony/framework", false);
-    //     //await this.kernel?.loadModule("@nodefony/sequelize", false);
-    //   }
-    return this;
-  }
-
-  /**
-   * Action of modulewhen kernel emit event onStart.
-   * Usefull for adding modules or services
-   * @returns A promise that resolves to the instance of the App class.
-   */
-  async onKernelStart(): Promise<this> {
-    this.log(`MODULE ${this.name} START`, "DEBUG");
-    return this;
-  }
-
-  /**
-   * Action of module when kernel emit event onRegister .
-   *  Usefull for adding modules or services
-   * @returns A promise that resolves to the instance of the App class.
-   */
-  async onKernelRegister(): Promise<this> {
-    this.log(`MODULE ${this.name} REGISTER`, "DEBUG");
-    return this;
-  }
-
-  /**
-   * Action of module when kernel emit event onBoot .
-   *  Usefull for adding modules or services
-   * @returns A promise that resolves to the instance of the App class.
-   */
-  async onKernelBoot(): Promise<this> {
-    this.log(`MODULE ${this.name} BOOT`, "DEBUG");
-    return this;
-  }
-
-  /**
-   * Action of module when kernel emit event onReady .
-   *  Usefull for adding modules or services
-   * @returns A promise that resolves to the instance of the App class.
-   */
-  async onKernelReady(): Promise<this> {
-    this.log(`MODULE ${this.name} READY`, "DEBUG");
-    return this;
   }
 }
 

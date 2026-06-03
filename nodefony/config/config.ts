@@ -36,6 +36,7 @@ import sequelize from "./modules/sequelize-config";
 // import mongoose from "./modules/mongoose-config"; // décommenter avec @nodefony/mongoose (index.ts)
 import cluster from "./cluster/cluster.config";
 import security from "./modules/security-config";
+import modules from "./modules";
 
 let statics = true;
 //let monitoring = true;
@@ -58,6 +59,14 @@ switch (kernel?.environment) {
 //console.log(sequelize.connectors.nodefony.options);
 
 const config = {
+  /**
+   * Manifeste des modules de l'app (liste ordonnée + policy + gating). Résolu et
+   * chargé par le Kernel à `onPreRegister`. Défini dans `./modules.ts` — seule
+   * source de vérité du chargement de modules (remplace le décorateur `@modules`
+   * d'`index.ts`). Cf mémoire IA `project_module_loading_architecture`.
+   */
+  modules,
+
   /**
    * Recharge automatique des fichiers sources en mode dev (watch Rollup).
    * Recommandation prod : `false` pour éviter l'overhead Rollup en runtime.
