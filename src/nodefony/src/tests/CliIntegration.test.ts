@@ -47,11 +47,15 @@ interface CliResult {
 }
 
 /** Spawn `node bin/nodefony <args>` et attend la sortie du process (commandes terminantes). */
-function runCli(args: string[], timeoutMs = 30000): Promise<CliResult> {
+function runCli(
+  args: string[],
+  timeoutMs = 30000,
+  extraEnv?: Record<string, string>,
+): Promise<CliResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [BIN, ...args], {
       cwd: REPO_ROOT,
-      env: { ...process.env },
+      env: { ...process.env, ...extraEnv },
     });
     let stdout = "";
     let stderr = "";
@@ -220,23 +224,52 @@ describe("CLI integration — commandes terminantes (--help / --version)", funct
     }
   });
 
-  it("--help → liste AUSSI les commandes de module (boot CONSOLE jusqu'à onPreRegister)", async () => {
-    const r = await runCli(["--help"]);
+  it("--help (production) liste les commandes des modules MANDATORY, pas les dev-only", async () => {
+    // Sans commande d'env, le bin résout le mode runtime au défaut PRODUCTION
+    // (12-factor safe — cf Kernel.resolveRuntimeEnv). On le force ici pour un test
+    // déterministe quel que soit le NODE_ENV de la suite mocha.
+    const r = await runCli(["--help"], 30000, { NODE_ENV: "production" });
     assert.strictEqual(
       r.code,
       0,
       `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
     );
     const txt = r.stdout + r.stderr;
-    // Commandes posées par les modules (@nodefony/http, frontend, modules/test) —
-    // absentes du help tant que les modules ne sont pas chargés.
-    for (const name of ["network", "frontend:build", "test:batch"]) {
+    // Commandes posées par des modules MANDATORY (@nodefony/http → network,
+    // @nodefony/frontend → frontend:build) : présentes même en production.
+    for (const name of ["network", "frontend:build"]) {
       assert.ok(
         txt.includes(name),
         `--help doit lister la commande de module "${name}"\n${txt}`,
       );
     }
+    // Les commandes des modules `policy:"dev"` (ex. test:batch du module
+    // @nodefony/test) sont légitimement ABSENTES du help en production (gating).
+    assert.ok(
+      !txt.includes("test:batch"),
+      `--help en production ne doit PAS lister une commande dev-only\n${txt}`,
+    );
     // Help-only : aucun serveur ne doit démarrer.
+    assert.ok(
+      !READY_RE.test(txt),
+      `--help ne doit JAMAIS démarrer un serveur\n${txt}`,
+    );
+  });
+
+  it("--help en development liste AUSSI les commandes des modules dev (test:batch)", async () => {
+    // En mode development, les modules `policy:"dev"` sont chargés → leurs commandes
+    // apparaissent dans le help (gating dev reflété dans la surface CLI).
+    const r = await runCli(["--help"], 30000, { NODE_ENV: "development" });
+    assert.strictEqual(
+      r.code,
+      0,
+      `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
+    );
+    const txt = r.stdout + r.stderr;
+    assert.ok(
+      txt.includes("test:batch"),
+      `--help (development) doit lister la commande dev "test:batch"\n${txt}`,
+    );
     assert.ok(
       !READY_RE.test(txt),
       `--help ne doit JAMAIS démarrer un serveur\n${txt}`,

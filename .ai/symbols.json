@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-03T21:27:51.036Z",
+  "generated": "2026-06-03T22:04:22.768Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 1621,
+    "symbols": 1623,
     "classes": 245,
-    "interfaces": 399,
+    "interfaces": 400,
     "types": 205,
     "enums": 3,
-    "functions": 298,
+    "functions": 299,
     "constants": 471
   },
   "symbols": {
@@ -992,13 +992,22 @@
       "module": "@nodefony/core",
       "description": "Assertion type **compile-time** : `expectType<T>(value)` échoue à la compilation si `value` n'est pas assignable à `T`. **0 coût runtime** (fonction vide)."
     },
+    "ILoadEnvOptions": {
+      "name": "ILoadEnvOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/loadEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options de {@link loadEnv} — les deux axes d'environnement Nodefony (12-factor)."
+    },
     "loadEnv": {
       "name": "loadEnv",
       "kind": "function",
       "file": "src/nodefony/src/runtime/loadEnv.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Charge les fichiers `.env` du projet dans `process.env`, en cascade et SANS jamais écraser une variable déjà présente. Précédence (du plus fort au plus faible) : ``` process.env (shell / orchestrat…"
+      "description": "Charge les fichiers `.env` du projet dans `process.env`, en cascade et SANS jamais écraser une variable déjà présente. **Convention B (Vite / Next.js)** — règle : les fichiers `*.local` (gitignorés…"
     },
     "redactSecrets": {
       "name": "redactSecrets",

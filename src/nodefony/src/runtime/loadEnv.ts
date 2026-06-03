@@ -3,22 +3,48 @@ import { parseEnv } from "node:util";
 import { resolve } from "node:path";
 
 /**
+ * Options de {@link loadEnv} — les deux axes d'environnement Nodefony (12-factor).
+ */
+export interface ILoadEnvOptions {
+  /**
+   * Mode RUNTIME (`"development"` | `"production"`) = NODE_ENV. Sélectionne
+   * `.env.<runtimeEnv>` (+ `.env.<runtimeEnv>.local`). Omis → ces niveaux sont sautés.
+   */
+  runtimeEnv?: string;
+  /**
+   * Environnement de DÉPLOIEMENT (string libre : `staging` / `canary` / `prod-eu`…) =
+   * APP_ENV / NODEFONY_ENV. Sélectionne `.env.<appEnv>` (+ `.env.<appEnv>.local`),
+   * PLUS prioritaire que le mode runtime (plus spécifique). Omis ou égal à
+   * `runtimeEnv` → ces niveaux sont sautés (pas de doublon).
+   */
+  appEnv?: string;
+  /** Racine du projet où chercher les fichiers (défaut `process.cwd()`). */
+  cwd?: string;
+}
+
+/**
  * Charge les fichiers `.env` du projet dans `process.env`, en cascade et SANS
  * jamais écraser une variable déjà présente.
  *
- * Précédence (du plus fort au plus faible) :
+ * **Convention B (Vite / Next.js)** — règle : les fichiers `*.local` (gitignorés,
+ * secrets/machine) priment TOUJOURS sur les committés ; à rang égal, le plus
+ * spécifique gagne. Nodefony ajoute un 2ᵉ axe : `appEnv` (déploiement) est plus
+ * spécifique que `runtimeEnv` (mode). Précédence, du PLUS fort au PLUS faible :
  *
  * ```
- *   process.env       (shell / orchestrateur k8s) ── gagne TOUJOURS
- *   > .env            (gitignoré — secrets locaux)
- *   > .env.local      (gitignoré — overrides machine)
- *   > .env.<env>      (versionné, non-secret — défauts par environment)
+ *   process.env              ← shell / orchestrateur k8s (gagne TOUJOURS)
+ *   > .env.<appEnv>.local     ┐ gitignorés (*.local)       ┐ si appEnv défini
+ *   > .env.<runtimeEnv>.local │                            │ & ≠ runtimeEnv
+ *   > .env.local              ┘                            │
+ *   > .env.<appEnv>           ┐ committés (non-secrets)    ┘
+ *   > .env.<runtimeEnv>       │
+ *   > .env                    ┘ défauts communs (le + faible)
  * ```
  *
- * Mécanique : on lit les fichiers du **plus** prioritaire au **moins** prioritaire
- * et on n'assigne QUE les clés encore absentes de `process.env`. Une variable déjà
- * posée — par le shell, l'orchestrateur, ou un fichier plus prioritaire déjà
- * traité — n'est jamais réécrite → la précédence ci-dessus en découle naturellement.
+ * Mécanique : on lit du **plus** prioritaire au **moins** prioritaire et on
+ * n'assigne QUE les clés encore absentes de `process.env`. Une variable déjà
+ * posée — shell, orchestrateur, ou fichier plus prioritaire déjà traité — n'est
+ * jamais réécrite → la précédence ci-dessus en découle naturellement.
  *
  * Parse natif `node:util.parseEnv` (Node ≥ 21) → **zéro dépendance**. Un fichier
  * absent ou illisible est ignoré silencieusement (tout `.env` est optionnel).
@@ -27,19 +53,23 @@ import { resolve } from "node:path";
  * configs de modules lisent `process.env` au boot (ex. `REDIS_*` dans
  * `defineRedisConfig`), l'env doit donc être peuplé en amont.
  *
- * @param environment - environment détecté (`development` / `production` / …) ;
- *   sélectionne le fichier `.env.<environment>`. Omis → ce niveau est sauté.
- * @param cwd - racine du projet où chercher les fichiers (défaut `process.cwd()`).
+ * @param opts - {@link ILoadEnvOptions} (runtimeEnv / appEnv / cwd).
  * @returns le nombre de variables effectivement injectées (diagnostic / tests).
  */
-export function loadEnv(
-  environment?: string,
-  cwd: string = process.cwd(),
-): number {
+export function loadEnv(opts: ILoadEnvOptions = {}): number {
+  const { runtimeEnv, appEnv, cwd = process.cwd() } = opts;
+  // `appEnv` n'est un niveau distinct que s'il diffère du mode runtime.
+  const deployEnv = appEnv && appEnv !== runtimeEnv ? appEnv : undefined;
+
   // Du PLUS prioritaire au MOINS prioritaire : le premier fichier qui définit une
-  // clé gagne (après le shell, déjà présent dans process.env).
-  const files = [".env", ".env.local"];
-  if (environment) files.push(`.env.${environment}`);
+  // clé gagne (après le shell, déjà présent dans process.env). `*.local` d'abord.
+  const files: string[] = [];
+  if (deployEnv) files.push(`.env.${deployEnv}.local`);
+  if (runtimeEnv) files.push(`.env.${runtimeEnv}.local`);
+  files.push(".env.local");
+  if (deployEnv) files.push(`.env.${deployEnv}`);
+  if (runtimeEnv) files.push(`.env.${runtimeEnv}`);
+  files.push(".env");
 
   let injected = 0;
   for (const file of files) {

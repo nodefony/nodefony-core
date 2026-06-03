@@ -219,6 +219,7 @@ export type {
 } from "./runtime/RequestContext";
 export { redactSecrets } from "./runtime/redact";
 export { loadEnv } from "./runtime/loadEnv";
+export type { ILoadEnvOptions } from "./runtime/loadEnv";
 export { withTimeout, TimeoutError } from "./runtime/withTimeout";
 
 // ─── ORM ──────────────────────────────────────────────────────────────────────

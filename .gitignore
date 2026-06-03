@@ -20,9 +20,10 @@ nodefony/databases/*
 # Rapports de couverture monocart-coverage-reports (tous modules)
 .coverage/
 
-# Ignore les fichiers d'environnement (secrets locaux). Les .env.<env>
-# versionnés ne contiennent que des défauts non-secrets.
-.env
+# Fichiers d'environnement — Convention B (Vite/Next).
+#   Committés (défauts NON-secrets) : .env, .env.<env>, .env.example
+#   Gitignorés (secrets / machine)  : *.local → .env.local, .env.<env>.local
+# Précédence (cf src/nodefony/src/runtime/loadEnv.ts) : les *.local priment.
 *.local
 
 # Ignore les fichiers de sauvegarde

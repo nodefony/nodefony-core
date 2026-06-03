@@ -30,13 +30,35 @@ function detectEnvironmentFromArgv(
   return undefined;
 }
 
-const env = detectEnvironmentFromArgv(process.argv.slice(2));
+/**
+ * Résout le **mode runtime** (dev/prod) AVANT le kernel, façon 12-factor : `NODE_ENV`
+ * (ambient, posé par l'orchestrateur cloud) PRIME sur l'intention de la commande
+ * (argv). Miroir pur de `Kernel.resolveRuntimeEnv`, mais sans instance (le bin tourne
+ * avant `new CliKernel()`) et autorisé à rendre `undefined` (aucun `.env.<env>` chargé
+ * si ni NODE_ENV ni commande connue — ex. `nodefony frontend:build` hors contexte env).
+ */
+function resolveRuntimeEnv(argv: string[]): EnvironmentType | undefined {
+  const node = process.env.NODE_ENV;
+  if (node === "dev" || node === "development") return "development";
+  if (node === "prod" || node === "production") return "production";
+  return detectEnvironmentFromArgv(argv);
+}
+
+const runtimeEnv = resolveRuntimeEnv(process.argv.slice(2));
+// Axe DÉPLOIEMENT (string libre : staging/canary/prod-eu…) — distinct du mode runtime.
+const appEnv = process.env.APP_ENV ?? process.env.NODEFONY_ENV;
+
+// Canonise NODE_ENV tôt (idempotent si l'orchestrateur l'a déjà posé) : le mode
+// runtime ne vit PLUS dans un `.env` committé (conv B + piège Next : un déploiement
+// sans NODE_ENV ne doit pas hériter d'un `development` figé en dur). Les configs de
+// modules lues au boot (qui lisent `process.env.NODE_ENV`) le voient ainsi résolu.
+if (runtimeEnv) process.env.NODE_ENV = runtimeEnv;
 
 // Peuple process.env depuis les .env du projet AVANT le boot : les configs de
 // modules (REDIS_*, etc.) les lisent au moment de la construction du kernel.
-loadEnv(env);
+loadEnv({ runtimeEnv, appEnv });
 
-const kernel = new CliKernel(env).start().catch((e) => {
+const kernel = new CliKernel(runtimeEnv).start().catch((e) => {
   exit(e.code || 1);
 });
 export default kernel;
