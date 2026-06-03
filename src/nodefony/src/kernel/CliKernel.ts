@@ -64,6 +64,14 @@ class CliKernel extends Cli {
   public app: Module | null = null;
   public packageManager: PackageManager = this.pnpm;
   /**
+   * Boot SILENCIEUX : pour les commandes CLI utilitaires (help global, commandes
+   * de module type `frontend:status`) dont la sortie doit être propre — les logs
+   * de cycle de vie (NOTICE/INFO/DEBUG) sont coupés, seuls EMERGENCY..ERROR
+   * surfacent (cf {@link initSyslog}). Mis à `true` par {@link dispatchGlobalHelp}
+   * et {@link dispatchModuleCommand}. `-d/--debug` rétablit le détail.
+   */
+  public quietBoot: boolean = false;
+  /**
    * @param environment - environnement initial (`"development"` / `"production"` / `"test"`).
    *   Peut être `undefined` — sera set par la sous-commande dans `onKernelStart()`.
    */
@@ -192,8 +200,8 @@ class CliKernel extends Cli {
         // ─── Commandes de MODULE : dispatch DIFFÉRÉ ──────────────────────────
         // Les built-ins ci-dessus sont les seules commandes connues de commander
         // à ce stade. Les commandes de module (`frontend:build`, `network`, …) ne
-        // sont posées qu'à `onPreRegister` (par les modules via le décorateur
-        // @modules). Si la commande demandée n'est pas un built-in, parser argv
+        // sont posées qu'à `onPreRegister` (par les modules, chargés depuis le
+        // manifeste `config.modules`). Si la commande demandée n'est pas un built-in, parser argv
         // MAINTENANT échouerait (`unknown command`) → fallback qui boote un serveur.
         // On diffère donc son dispatch jusqu'à ce que les modules l'aient
         // enregistrée. Cf project_cli_commands_broken_claude_ts.
@@ -303,11 +311,12 @@ class CliKernel extends Cli {
   /**
    * Dispatch DIFFÉRÉ d'une commande de module.
    *
-   * commander ignore la commande au boot (posée par le module à `onPreRegister`
-   * via @modules). On parse donc argv depuis un listener `onPreRegister` lui-même
-   * posé via `onStart` : `loadApp()` (qui pose le listener @modules) précède
-   * `onStart`, et `emitAsync` est séquentiel → notre listener tourne APRÈS celui
-   * de @modules, donc quand toutes les commandes de module sont connues, mais
+   * commander ignore la commande au boot (posée par le module à `onPreRegister`,
+   * chargé depuis `config.modules`). On parse donc argv depuis un listener
+   * `onPreRegister` lui-même posé via `onStart` : `loadApp()` (qui pose le listener
+   * `loadModulesFromManifest`) précède `onStart`, et `emitAsync` est séquentiel →
+   * notre listener tourne APRÈS le chargement des modules, donc quand toutes les
+   * commandes de module sont connues, mais
    * AVANT les phases qu'elles ciblent (`onRegister`/`onReady`/…) → leur
    * `kernel.once(kernelEvent)` fire normalement. Le kernel reste en mode CONSOLE
    * (aucune commande serveur ne fixe `type=SERVER`) → 0 serveur démarré. Commande
@@ -318,6 +327,8 @@ class CliKernel extends Cli {
    */
   private dispatchModuleCommand(requested: string): Promise<Kernel> {
     const kernel = this.kernel as Kernel;
+    // Commande CLI utilitaire → boot silencieux (sortie propre, cf quietBoot).
+    this.quietBoot = true;
     kernel.once("onStart", () => {
       kernel.once("onPreRegister", async () => {
         try {
@@ -347,7 +358,7 @@ class CliKernel extends Cli {
    * sont posées dans commander), affiche le help COMPLET puis `terminate(0)`.
    *
    * Même mécanique de timing que {@link dispatchModuleCommand} : le listener
-   * `onPreRegister` est posé depuis `onStart` pour passer APRÈS `@modules`
+   * `onPreRegister` est posé depuis `onStart` pour passer APRÈS le chargement des modules
    * (`emitAsync` séquentiel). Le kernel reste CONSOLE (aucune commande → 0 serveur)
    * et `terminate(0)` stoppe le boot avant `onRegister` (process.exit au nextTick).
    *
@@ -358,6 +369,8 @@ class CliKernel extends Cli {
    */
   private dispatchGlobalHelp(): Promise<Kernel> {
     const kernel = this.kernel as Kernel;
+    // Help global → boot silencieux (aucun log de cycle de vie ne pollue le help).
+    this.quietBoot = true;
     let shown = false;
     const render = async (): Promise<void> => {
       if (!shown) {
@@ -459,7 +472,18 @@ class CliKernel extends Cli {
     }
 
     const { syslog } = this;
-    const data = [0, 1, 2, 3, 4, 5, 6];
+    // Boot SILENCIEUX (commande CLI utilitaire, cf quietBoot) : on coupe
+    // NOTICE(5)/INFO(6) — le bruit de cycle de vie (MODULE ADD, ORM connected,
+    // sessions…) — pour que la sortie de la commande (console.log) reste propre.
+    // Seuls EMERGENCY..ERROR (0..3) surfacent. `-d/--debug` rétablit tout.
+    // `debug` est résolu plus tard (preRegister) → on scanne argv ici (comme le bin
+    // pour l'env) pour que `-d` lève le silence dès `loadApp`/initSyslog.
+    const argvDebug =
+      process.argv.includes("-d") || process.argv.includes("--debug");
+    const data =
+      this.quietBoot && !(debug || this.debug || argvDebug)
+        ? [0, 1, 2, 3]
+        : [0, 1, 2, 3, 4, 5, 6];
     if (debug || this.debug) {
       // INFO , DEBUG , WARNING
       data.push(7);

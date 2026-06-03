@@ -14,6 +14,8 @@ export interface ICliKernel {
   commander: CommanderCommand | null;
   environment: EnvironmentType;
   runProfile: IRunProfile;
+  /** Boot silencieux d'une commande CLI utilitaire (cf CliKernel.quietBoot). */
+  quietBoot?: boolean;
   debug: DebugType;
   pid: number | null;
   setProcessTitle(name?: string): void;

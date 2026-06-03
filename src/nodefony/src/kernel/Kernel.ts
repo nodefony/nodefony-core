@@ -1359,11 +1359,13 @@ class Kernel extends Service implements IKernel {
       return;
     }
     if (cluster.isPrimary) {
-      if (!this.reporterOwnsHeader) console.log(this.logEnv());
+      if (!this.reporterOwnsHeader && !this.cli?.quietBoot)
+        console.log(this.logEnv());
       this.flushPendingModuleAddLogs();
       this.fire("onCluster", "MASTER", this, process);
     } else if (cluster.isWorker) {
-      if (!this.reporterOwnsHeader) console.log(this.logEnv());
+      if (!this.reporterOwnsHeader && !this.cli?.quietBoot)
+        console.log(this.logEnv());
       this.flushPendingModuleAddLogs();
       this.workerId = cluster.worker?.id;
       this.worker = cluster.worker;
