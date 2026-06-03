@@ -2,6 +2,8 @@ import path from "node:path";
 
 import Syslog, { conditionsInterface } from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
+import { logColor } from "../syslog/logColor";
+import { SysExit } from "../cli/sysexits";
 import Cli, { CliDefaultOptions, PackageManagerName } from "../Cli";
 import Kernel, {
   IRunProfile,
@@ -151,13 +153,15 @@ class CliKernel extends Cli {
     this.kernel = new Kernel(this.environment, this, options);
     try {
       if (this.commander) {
-        this.addCommand(Start);
+        // Ordre = ordre des groupes dans le help (Commander rend les groupes dans
+        // l'ordre de 1ʳᵉ rencontre) : Serveur → Build → Projet → Console/jobs.
         this.addCommand(Dev);
-        this.addCommand(Build);
         this.addCommand(Prod);
         this.addCommand(Cluster);
+        this.addCommand(Build);
         this.addCommand(Install);
         this.addCommand(Outated);
+        this.addCommand(Start);
         this.commander.exitOverride();
         this.commander.name(this.name);
         this.commander.showHelpAfterError(false);
@@ -339,16 +343,18 @@ class CliKernel extends Cli {
             code === "commander.helpDisplayed" ||
             code === "commander.version"
           ) {
-            await this.kernel?.terminate(0);
+            await this.kernel?.terminate(SysExit.OK);
             return;
           }
+          // Commande inconnue / mauvais usage → EX_USAGE (sysexits.h).
           this.log(`command not found: ${requested}`, "ERROR");
-          await this.kernel?.terminate(1);
+          await this.kernel?.terminate(SysExit.USAGE);
         }
       });
     });
     return kernel.start().catch(async (e) => {
-      await this.kernel?.terminate(1);
+      // Échec de boot (exception interne) → EX_SOFTWARE (sysexits.h).
+      await this.kernel?.terminate(SysExit.SOFTWARE);
       throw e;
     });
   }
@@ -375,9 +381,12 @@ class CliKernel extends Cli {
     const render = async (): Promise<void> => {
       if (!shown) {
         shown = true;
+        this.printHelpHeader();
+        this.assignHelpGroups();
         this.showHelp(false, undefined);
+        this.printHelpFooter();
       }
-      await this.kernel?.terminate(0);
+      await this.kernel?.terminate(SysExit.OK);
     };
     kernel.once("onStart", () => {
       kernel.once("onPreRegister", render);
@@ -386,6 +395,86 @@ class CliKernel extends Cli {
       await render();
       return kernel;
     }) as Promise<Kernel>;
+  }
+
+  /**
+   * En-tête brandé du help global (1ʳᵉ ligne, pas de ligne vide en tête — norme
+   * sortie CLI). Couleur gatée par `logColor` (isTTY + NO_COLOR/FORCE_COLOR).
+   */
+  private printHelpHeader(): void {
+    let version = "";
+    try {
+      const v: unknown = this.commander?.version();
+      if (typeof v === "string") version = v;
+    } catch {
+      /* commander sans version — ignore */
+    }
+    const tag = version ? ` ${logColor.blackBright(`v${version}`)}` : "";
+    console.log(
+      `  ${logColor.cyan("⬢")} ${logColor.cyanBold("Nodefony")}${tag}   ` +
+        `${logColor.blackBright("framework fullstack Node.js — HTTP · WS · ORM · IA")}\n`,
+    );
+  }
+
+  /**
+   * Affecte un groupe d'aide (`helpGroup`) à chaque commande pour un help
+   * sectionné (Commander 15) : built-ins par catégorie statique ; commandes de
+   * module regroupées sous leur module propriétaire (résolu via `module.commands`).
+   */
+  private assignHelpGroups(): void {
+    const c = this.commander;
+    if (!c) {
+      return;
+    }
+    const builtin: Record<string, string> = {
+      development: "Serveur",
+      production: "Serveur",
+      cluster: "Serveur",
+      build: "Build & frontend",
+      start: "Console / jobs",
+      install: "Projet",
+      outdated: "Projet",
+    };
+    // commande → module propriétaire (chaque Module garde ses commandes).
+    const owner: Record<string, string> = {};
+    const modules = this.kernel?.getModules?.() ?? {};
+    for (const name in modules) {
+      const cmds = (modules[name] as { commands?: Record<string, unknown> })
+        .commands;
+      if (cmds) {
+        for (const cn in cmds) {
+          owner[cn] = name;
+        }
+      }
+    }
+    for (const cmd of c.commands) {
+      const n = cmd.name();
+      const group = builtin[n] ?? (owner[n] ? `Module ${owner[n]}` : undefined);
+      const hg = (cmd as { helpGroup?: (h: string) => unknown }).helpGroup;
+      if (group && typeof hg === "function") {
+        hg.call(cmd, group);
+      }
+    }
+  }
+
+  /**
+   * Pied du help global : modules chargés (introspection — tous, y compris ceux
+   * sans commande) + lien docs. Se termine par un seul `\n` (norme sortie CLI).
+   */
+  private printHelpFooter(): void {
+    const modules = Object.keys(this.kernel?.getModules?.() ?? {}).filter(
+      (m) => m !== "app",
+    );
+    if (modules.length) {
+      console.log(
+        `\n  ${logColor.cyanBold(`Modules chargés (${modules.length})`)}`,
+      );
+      console.log(`  ${logColor.blackBright(modules.join(" · "))}`);
+    }
+    console.log(
+      `\n  ${logColor.blackBright("Docs :")} github.com/nodefony/nodefony-core` +
+        `   ${logColor.blackBright("·")}   nodefony <cmd> -h\n`,
+    );
   }
 
   /**

@@ -93,9 +93,47 @@ export function isLogColorEnabled(): boolean {
   return _enabled;
 }
 
-// Défaut au chargement : couleur si stdout est un TTY. Lu via `globalThis` pour
-// rester isomorphe (navigateur : pas de `process` → OFF). Re-confirmé au boot
-// par Kernel.initializeLog (et override programmatique possible via setLogColor).
-const _proc = (globalThis as { process?: { stdout?: { isTTY?: boolean } } })
-  .process;
-setLogColor(_proc?.stdout?.isTTY === true);
+/**
+ * Applique les conventions d'environnement couleur PAR-DESSUS un signal `isTTY`
+ * **déjà résolu** — au boot on passe `Kernel.isTTY` (qui honore déjà `NO_TTY`),
+ * sans re-lire `process.stdout`. Conventions :
+ *
+ * - **`NO_COLOR`** (no-color.org) : présent **et non vide** → couleur OFF, quelle
+ *   que soit sa valeur. Priorité absolue (refus explicite de l'utilisateur).
+ * - **`FORCE_COLOR`** : non vide et ≠ `"0"` → couleur ON (override pipe/non-TTY,
+ *   ex. CI qui veut des logs colorés capturés).
+ * - sinon → couleur = `isTTY`.
+ *
+ * Isomorphe : `env` lu via `globalThis.process` (navigateur : pas de `process`).
+ *
+ * @param isTTY - signal TTY déjà résolu (ex. `Kernel.isTTY`, NO_TTY-aware).
+ */
+export function resolveColorEnabled(isTTY: boolean): boolean {
+  const env =
+    (globalThis as { process?: { env?: Record<string, string | undefined> } })
+      .process?.env ?? {};
+  if (typeof env.NO_COLOR === "string" && env.NO_COLOR !== "") return false;
+  if (
+    typeof env.FORCE_COLOR === "string" &&
+    env.FORCE_COLOR !== "" &&
+    env.FORCE_COLOR !== "0"
+  )
+    return true;
+  return isTTY;
+}
+
+// Défaut à l'IMPORT (le kernel n'existe pas encore → on lit process une fois, en
+// honorant NO_TTY comme le fait Kernel.isTTY). Re-confirmé au boot par
+// Kernel.initializeLog avec `this.isTTY` (cf resolveColorEnabled).
+const _importProc = (
+  globalThis as {
+    process?: {
+      stdout?: { isTTY?: boolean };
+      env?: Record<string, string | undefined>;
+    };
+  }
+).process;
+const _importIsTTY = _importProc?.env?.NO_TTY
+  ? false
+  : _importProc?.stdout?.isTTY === true;
+setLogColor(resolveColorEnabled(_importIsTTY));

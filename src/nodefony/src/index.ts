@@ -16,6 +16,7 @@ export type {
   IGuardedListenerInfo,
 } from "./Event";
 export { default as Cli } from "./Cli";
+export { SysExit } from "./cli/sysexits";
 export { default as Command } from "./command/Command";
 export { default as Builder } from "./command/Builder";
 

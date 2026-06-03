@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-03T21:14:01.498Z",
+  "generated": "2026-06-03T21:27:51.036Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 820,
-    "symbols": 1619,
+    "files": 821,
+    "symbols": 1621,
     "classes": 245,
     "interfaces": 399,
     "types": 205,
-    "enums": 2,
-    "functions": 297,
+    "enums": 3,
+    "functions": 298,
     "constants": 471
   },
   "symbols": {
@@ -422,6 +422,14 @@
       "decorators": [
         "controllers"
       ]
+    },
+    "SysExit": {
+      "name": "SysExit",
+      "kind": "enum",
+      "file": "src/nodefony/src/cli/sysexits.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Codes de sortie standardisés — convention BSD `sysexits.h` (FreeBSD `sysexits(3)`). Ce n'est PAS un RFC, mais le standard de facto Unix pour des exit codes porteurs de sens, au-delà du binaire POSI…"
     },
     "Builder": {
       "name": "Builder",
@@ -1135,6 +1143,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "`true` si la couleur ANSI est active (gate boot-time)."
+    },
+    "resolveColorEnabled": {
+      "name": "resolveColorEnabled",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/logColor.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Applique les conventions d'environnement couleur PAR-DESSUS un signal `isTTY` **déjà résolu** — au boot on passe `Kernel.isTTY` (qui honore déjà `NO_TTY`), sans re-lire `process.stdout`. Convention…"
     },
     "logColor": {
       "name": "logColor",
@@ -13543,6 +13559,20 @@
         "src/nodefony/src/finder/Finder.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
       ],
+      "logColor": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/syslog/Syslog.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
+        "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "SysExit": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
       "CliDefaultOptions": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
@@ -13577,17 +13607,10 @@
       "Install": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
-      "logColor": [
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/syslog/Syslog.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
-        "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
       "setLogColor": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "resolveColorEnabled": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "Orm": [

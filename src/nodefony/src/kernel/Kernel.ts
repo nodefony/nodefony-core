@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import { logColor, setLogColor } from "../syslog/logColor";
+import { logColor, setLogColor, resolveColorEnabled } from "../syslog/logColor";
 import cluster from "node:cluster";
 import fs from "node:fs";
 import os from "node:os";
@@ -1098,11 +1098,11 @@ class Kernel extends Service implements IKernel {
     // (dev). Cf Syslog.setOutputBuffering + config.log.buffered.
     const logCfg = this.options.log as TypeKernelOptions["log"];
     Syslog.setOutputBuffering(logCfg?.buffered ?? "auto");
-    // Couleur ANSI des logs — résolue UNE fois ici (boot). Un TTY = humain
-    // (couleur) ; pipe/fichier/redirection (prod, collecteur) = brut → 0 ANSI
-    // baké dans les payloads (stdout pipe + .jsonl queryable propres). Les
-    // helpers `logColor` swappent leurs fonctions ici → 0 test par log.
-    setLogColor(process.stdout?.isTTY === true);
+    // Couleur ANSI des logs — résolue UNE fois ici (boot) à partir de `this.isTTY`
+    // (déjà résolu, NO_TTY-aware — PAS de re-lecture de process.stdout), augmenté
+    // des conventions NO_COLOR (no-color.org) + FORCE_COLOR. pipe/fichier = brut →
+    // 0 ANSI baké (stdout pipe + .jsonl propres). 0 test par log ensuite.
+    setLogColor(resolveColorEnabled(this.isTTY));
     // Répertoire des logs — SOURCE UNIQUE : sink `.log` (LB.W) + JSONL queryable
     // (LB.2/5) + viewer Studio. Configurable `log.dir` (défaut "logs"), sous cwd.
     const logDirAbs = path.resolve(process.cwd(), logCfg?.dir ?? "logs");
