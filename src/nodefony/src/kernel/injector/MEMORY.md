@@ -13,10 +13,10 @@
 
 ## Fichiers
 
-| Fichier | Rôle |
-|---|---|
-| `injector/injector.ts` | Moteur DI — registre, résolution, circular detection |
-| `kernel/decorators/kernelDecorator.ts` | Decorators — `@injectable`, `@inject`, `@Inject`, `@modules`, `@services`, `@entities` |
+| Fichier                                | Rôle                                                                                                                         |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `injector/injector.ts`                 | Moteur DI — registre, résolution, circular detection                                                                         |
+| `kernel/decorators/kernelDecorator.ts` | Decorators — `@injectable`, `@inject`, `@Inject`, `@services`, `@entities` (`@modules` RETIRÉ 2026-06-03 → `config.modules`) |
 
 ---
 
@@ -40,18 +40,19 @@ Injector.inject(Ctor, ...args)                    ← alias instantiate
 "singleton"  défaut — réutilise kernel.get(name) si présent, sinon new
 "transient"  toujours new — ignore container kernel
 ```
+
 Stocké : `Reflect.defineMetadata("di:scope", scope, Ctor)` par `@injectable`.
 
 ---
 
 ## Metadata keys (Reflect)
 
-| Clé | Cible | Contenu | Posé par |
-|---|---|---|---|
-| `"inject:services"` | constructeur (class-level) | `(string\|undefined)[]` sparse par paramIndex | `@inject` |
-| `"inject:properties"` | **prototype** (pas constructeur) | `PropertyInjectMeta[]` | `@Inject` |
-| `"design:paramtypes"` | constructeur | `unknown[]` types TS | TypeScript (`emitDecoratorMetadata`) |
-| `"di:scope"` | constructeur | `DIScope` | `@injectable` |
+| Clé                   | Cible                            | Contenu                                       | Posé par                             |
+| --------------------- | -------------------------------- | --------------------------------------------- | ------------------------------------ |
+| `"inject:services"`   | constructeur (class-level)       | `(string\|undefined)[]` sparse par paramIndex | `@inject`                            |
+| `"inject:properties"` | **prototype** (pas constructeur) | `PropertyInjectMeta[]`                        | `@Inject`                            |
+| `"design:paramtypes"` | constructeur                     | `unknown[]` types TS                          | TypeScript (`emitDecoratorMetadata`) |
+| `"di:scope"`          | constructeur                     | `DIScope`                                     | `@injectable`                        |
 
 `PropertyInjectMeta = { key: string | symbol; name: string }`
 
@@ -113,6 +114,7 @@ pour { key, name } in metas:
 @injectable("MonNom")                  // name explicite
 @injectable({ name?, scope? })         // objet
 ```
+
 → `Injector.register(name, Ctor)` + `Reflect.defineMetadata("di:scope", scope, Ctor)`
 
 ### `@inject("name")` — paramètre constructeur (minuscule)
@@ -122,6 +124,7 @@ constructor(@inject("AuthService") auth: AuthService) {}
 // ou en test tsx :
 (inject("AuthService") as Function)(MyClass, undefined, 0);
 ```
+
 → stocke sur **constructeur** (class-level, pas propertyKey) :
 `inject:services[paramIndex] = "name"`
 
@@ -132,15 +135,18 @@ constructor(@inject("AuthService") auth: AuthService) {}
 // ou en test tsx :
 (Inject("AuthService") as Function)(MyClass.prototype, "auth");
 ```
+
 → stocke sur **prototype** : `inject:properties.push({ key: "auth", name: "AuthService" })`
 → appliqué POST-construction (this.auth === undefined pendant super())
 
-### `@modules` / `@services` / `@entities` — sur Module
+### `@services` / `@entities` — sur Module
+
+> `@modules` RETIRÉ 2026-06-03 → chargement de modules via `config.modules` (manifeste,
+> orchestré par le Kernel à `onPreRegister`). Cf `project_module_loading_architecture`.
 
 ```
-@modules(path|Ctor|array)  → kernel.once("onPreRegister") → loadModule|addModule
-@services(path|Ctor|array) → kernel.once("onPreBoot")     → addService|loadService
-@entities(path|Ctor|array) → kernel.once("onBoot")        → addEntity|loadEntity
+@services(path|Ctor|array) → kernel.once("onPreBoot") → addService|loadService
+@entities(path|Ctor|array) → kernel.once("onBoot")    → addEntity|loadEntity
 ```
 
 ---
@@ -152,6 +158,7 @@ constructor(@inject("AuthService") auth: AuthService) {}
 2. Auto-injection design:paramtypes[i]        ← si type enregistré
 3. Arg explicite argsClass[explicitIdx++]     ← fallback
 ```
+
 Property injection : toujours après construction, indépendante des paramètres.
 
 ---

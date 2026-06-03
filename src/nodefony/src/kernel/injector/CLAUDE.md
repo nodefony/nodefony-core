@@ -18,7 +18,7 @@ import { injectable, inject } from "nodefony";
 export class UserService {
   constructor(
     @inject("database") private db: Database,
-    @inject("syslog")   private log: Syslog,
+    @inject("syslog") private log: Syslog,
   ) {}
 }
 ```
@@ -28,8 +28,8 @@ export class UserService {
 ```typescript
 @injectable()
 export class ReportService {
-  @Inject("database") private db!: Database;   // ! definite assignment
-  @Inject("syslog")   private log!: Syslog;
+  @Inject("database") private db!: Database; // ! definite assignment
+  @Inject("syslog") private log!: Syslog;
 }
 ```
 
@@ -38,33 +38,35 @@ export class ReportService {
 ### Module-level (auto-discovery)
 
 ```typescript
-import { modules, services, entities } from "nodefony";
+import { services, entities } from "nodefony";
 
-@modules([HttpModule, SecurityModule, MyModule])      // → onPreRegister
-class App {}
+// Chargement de MODULES : plus de @modules (RETIRÉ 2026-06-03). La liste vit dans
+// config.modules (manifeste ordonné), orchestrée par le Kernel à onPreRegister.
+// Cf mémoire IA project_module_loading_architecture.
 
-@services([UserService, DatabaseService])             // → onPreBoot
+@services([UserService, DatabaseService]) // → onPreBoot
 class MyModule extends Module {}
 
-@entities([UserEntity, OrderEntity])                  // → onBoot
-class MyModule extends Module {}
+@entities([UserEntity, OrderEntity]) // → onBoot
+class MyOrmModule extends Module {}
 ```
 
 ## Métadonnées stockées (`Reflect.metadata`)
 
-| Clé | Cible | Posée par | Contenu |
-|-----|-------|-----------|---------|
-| `inject:services` | Constructeur classe | `@inject(name)` paramètre | `[{ index, name }]` |
-| `inject:properties` | Prototype classe | `@Inject(name)` propriété | `{ key: name }` |
-| `injectable:options` | Classe | `@injectable(opts)` | `{ singleton, name, scope }` |
+| Clé                  | Cible               | Posée par                 | Contenu                      |
+| -------------------- | ------------------- | ------------------------- | ---------------------------- |
+| `inject:services`    | Constructeur classe | `@inject(name)` paramètre | `[{ index, name }]`          |
+| `inject:properties`  | Prototype classe    | `@Inject(name)` propriété | `{ key: name }`              |
+| `injectable:options` | Classe              | `@injectable(opts)`       | `{ singleton, name, scope }` |
 
 ⚠️ **CRITIQUE** : `inject:services` sur le **constructeur**, `inject:properties` sur le **prototype**. Confondre = bug silencieux (résolution échoue, classe instanciée avec `undefined`).
 
 ## Résolution au boot
 
 ```
-1. Kernel boot → décorateurs lifecycle (@modules, @services, @entities) firent
-   les hooks correspondants (onPreRegister, onPreBoot, onBoot)
+1. Kernel boot → décorateurs lifecycle (@services, @entities) firent les hooks
+   correspondants (onPreBoot, onBoot) ; les MODULES sont chargés depuis
+   config.modules par le Kernel à onPreRegister (manifeste, plus de @modules)
 
 2. Injector.instantiate(Ctor, parent, ...args)
    ├── _instantiateWithStack(Ctor, [], args)
@@ -102,6 +104,7 @@ Si `@injectable({ singleton: true })` (défaut) ET déjà présent dans `kernel.
 ⚠️ Quand on tourne avec `tsx` (ts-node alternative), TypeScript émet PAS `design:paramtypes` (metadata auto sur types des params). Donc le pattern habituel `@inject()` sans nom (auto-discovery par type) NE MARCHE PAS sous tsx.
 
 **Workaround** : toujours passer le nom explicite :
+
 ```typescript
 constructor(@inject("database") db: Database) {}    // ✅ marche partout
 constructor(@inject() db: Database) {}              // ❌ ne marche pas sous tsx
@@ -113,7 +116,7 @@ C'est un appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)` côté
 
 ```typescript
 // Module.setEvents() ordre des listeners :
-//   index 0 (prepend) : decorator @modules/@services/@entities handler
+//   index 0 (prepend) : decorator @services/@entities handler
 //   index 1+          : hooks user (onKernelRegister, onKernelBoot, onKernelReady)
 ```
 
@@ -121,11 +124,10 @@ C'est un appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)` côté
 
 ## Catches d'erreur par décorateur
 
-| Décorateur | Phase | Erreur catch ? | Note |
-|-----------|-------|----------------|------|
-| `@modules` | onPreRegister | ❌ Propagé | Si module manquant → throw au boot |
+| Décorateur  | Phase     | Erreur catch ?        | Note                                            |
+| ----------- | --------- | --------------------- | ----------------------------------------------- |
 | `@services` | onPreBoot | ✅ Catché + log ERROR | Service brisé → service skip mais boot continue |
-| `@entities` | onBoot | ✅ Catché + log ERROR | Idem |
+| `@entities` | onBoot    | ✅ Catché + log ERROR | Idem                                            |
 
 → Conséquence : si un service crash dans `@services`, le boot continue mais le service est absent du container. Détection via `container.has("foo")` après boot, ou via les logs ERROR au démarrage.
 
@@ -133,35 +135,35 @@ C'est un appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)` côté
 
 Cf [`../../INJECTION_PLAN.md`](../../INJECTION_PLAN.md) workspace racine pour détail.
 
-| Phase | Sujet | État |
-|-------|-------|------|
-| **A** | `@Inject` property | ✅ partial (à confirmer) |
-| **C** | Circular detection (stack-based) | ✅ done |
-| **B** | Scoped via AsyncLocalStorage officiel | ⬜ Planned |
-| **D** | Registry par module (namespace) | ⬜ Planned |
-| **E** | Lazy injection (Promise-wrapped) | ⬜ Planned |
+| Phase | Sujet                                 | État                     |
+| ----- | ------------------------------------- | ------------------------ |
+| **A** | `@Inject` property                    | ✅ partial (à confirmer) |
+| **C** | Circular detection (stack-based)      | ✅ done                  |
+| **B** | Scoped via AsyncLocalStorage officiel | ⬜ Planned               |
+| **D** | Registry par module (namespace)       | ⬜ Planned               |
+| **E** | Lazy injection (Promise-wrapped)      | ⬜ Planned               |
 
 ## Options `@injectable`
 
-| Option | Type | Défaut | Effet |
-|--------|------|--------|-------|
-| `singleton` | `boolean` | `true` | 1 instance partagée OR new par injection |
-| `name` | `string` | nom de classe (lowercase ?) | Identifiant Container |
-| `scope` | `string` | `"global"` | `"global"` / `"request"` / `"transient"` |
+| Option      | Type      | Défaut                      | Effet                                    |
+| ----------- | --------- | --------------------------- | ---------------------------------------- |
+| `singleton` | `boolean` | `true`                      | 1 instance partagée OR new par injection |
+| `name`      | `string`  | nom de classe (lowercase ?) | Identifiant Container                    |
+| `scope`     | `string`  | `"global"`                  | `"global"` / `"request"` / `"transient"` |
 
 ⚠️ **TODO: vérifier** le naming exact (camelCase ? kebab-case ?) et le default pour `scope` dans le code actuel.
 
 ## ⚠️ Gotchas
 
-| Symptôme | Cause | Fix |
-|----------|-------|-----|
-| `Service not found in container` | `@injectable` oublié OR nom incorrect | Vérifier metadata + Container.has() |
-| `Cannot read 'X' of undefined` au boot | Cycle non détecté (avant Phase C) | Avec Phase C → erreur explicite avec stack |
-| `@inject()` sans nom ne marche pas | Sous tsx — pas de `design:paramtypes` | Toujours passer le nom explicite |
-| Property `@Inject` reste `undefined` | Phase A partielle, init post-construct pas appliqué | Utiliser constructor injection pour l'instant |
-| Service tiré dans le mauvais scope | Container hiérarchique remonte au parent | Vérifier que le scope est ouvert avant injection |
-| @services silencieux | Erreur catchée dans Module.setEvents | Lire les logs ERROR au boot |
-| Decorator handler appelé 2× | `setEvents()` appelé 2× | Guard `eventsRegistered` ajouté 2026-05-14 |
+| Symptôme                               | Cause                                               | Fix                                              |
+| -------------------------------------- | --------------------------------------------------- | ------------------------------------------------ |
+| `Service not found in container`       | `@injectable` oublié OR nom incorrect               | Vérifier metadata + Container.has()              |
+| `Cannot read 'X' of undefined` au boot | Cycle non détecté (avant Phase C)                   | Avec Phase C → erreur explicite avec stack       |
+| `@inject()` sans nom ne marche pas     | Sous tsx — pas de `design:paramtypes`               | Toujours passer le nom explicite                 |
+| Property `@Inject` reste `undefined`   | Phase A partielle, init post-construct pas appliqué | Utiliser constructor injection pour l'instant    |
+| Service tiré dans le mauvais scope     | Container hiérarchique remonte au parent            | Vérifier que le scope est ouvert avant injection |
+| @services silencieux                   | Erreur catchée dans Module.setEvents                | Lire les logs ERROR au boot                      |
+| Decorator handler appelé 2×            | `setEvents()` appelé 2×                             | Guard `eventsRegistered` ajouté 2026-05-14       |
 
 ## Pattern type — service avec dépendances
 
@@ -172,7 +174,7 @@ import { injectable, inject } from "nodefony";
 export class UserService {
   constructor(
     @inject("database") private db: Database,
-    @inject("syslog")   private log: Syslog,
+    @inject("syslog") private log: Syslog,
   ) {}
 
   async findById(id: string): Promise<User | null> {

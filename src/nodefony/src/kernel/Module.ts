@@ -31,8 +31,9 @@ const controllers: Record<string, TypeController<Controller>> = {};
  * Unité fonctionnelle de Nodefony — successeur direct du concept "Bundle" (Symfony / Nodefony JS).
  *
  * Un Module encapsule un domaine : routes, controllers, services, entités ORM, config, commandes
- * CLI. Il est instancié par le {@link Kernel} au boot via le décorateur `@modules([...])` côté
- * application. Hérite de {@link Service} → bénéficie du DI Container, EventEmitter, Syslog.
+ * CLI. Il est instancié par le {@link Kernel} au boot depuis le manifeste `config.modules`
+ * (résolu/chargé à `onPreRegister`). Hérite de {@link Service} → bénéficie du DI Container,
+ * EventEmitter, Syslog.
  *
  * Hooks lifecycle disponibles (méthodes prototype obligatoires, jamais arrow ni property init —
  * `super()` tourne AVANT les initializers) :

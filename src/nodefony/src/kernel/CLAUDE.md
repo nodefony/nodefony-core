@@ -187,7 +187,7 @@ class MyCommand extends Command {
 
 Les built-ins ci-dessus sont enregistrés dans commander par `CliKernel.start()` **avant** le parse argv. Les **commandes de module** (`frontend:build`, `network`, …, posées par les modules à `onPreRegister` via `addCommand`) ne sont pas encore connues à cet instant → un parse immédiat échouait (`unknown command`) et tombait dans le fallback qui **bootait un serveur** (bug `project_cli_commands_broken_claude_ts`).
 
-Fix : `CliKernel` classe la commande demandée (helper `getRequestedCommandName` vs `getBuiltinCommandNames`, dérivé de commander — 0 hardcode). Si ce n'est pas un built-in → **dispatch différé** (`dispatchModuleCommand`) : un listener `onPreRegister` (posé via `onStart` pour passer APRÈS `@modules`, `emitAsync` séquentiel) parse argv une fois les modules enregistrés. Kernel reste **CONSOLE** (0 serveur) ; commande introuvable → `terminate(1)`, jamais de fallback serveur.
+Fix : `CliKernel` classe la commande demandée (helper `getRequestedCommandName` vs `getBuiltinCommandNames`, dérivé de commander — 0 hardcode). Si ce n'est pas un built-in → **dispatch différé** (`dispatchModuleCommand`) : un listener `onPreRegister` (posé via `onStart` pour passer APRÈS le chargement des modules du manifeste `config.modules`, `emitAsync` séquentiel) parse argv une fois les modules enregistrés. Kernel reste **CONSOLE** (0 serveur) ; commande introuvable → `terminate(1)`, jamais de fallback serveur.
 
 **Help global enrichi (2026-06-02)** : `nodefony`, `nodefony --help`, `nodefony -h` listent désormais **AUSSI les commandes de module** (`network`, `frontend:build`, `test:batch`…), plus seulement les built-ins. Helpers `isGlobalHelpRequested()` (nu OU que des options dont `-h`/`--help` ; exclut `--version` et `nodefony <cmd> --help`) + `dispatchGlobalHelp()` : même mécanique de timing que `dispatchModuleCommand` — boot CONSOLE jusqu'à `onPreRegister` (modules instanciés → leurs commandes posées dans commander), `showHelp(false)` puis `terminate(0)`. Boot KO (hors d'une app) → fallback help built-in seul. `--version` reste résolu par commander **sans** booter les modules.
 
@@ -201,9 +201,10 @@ Fix : `CliKernel` classe la commande demandée (helper `getRequestedCommandName`
 
 Cf [`injector/CLAUDE.md`](injector/CLAUDE.md) pour le détail.
 
+> **Chargement de modules** : plus de décorateur `@modules` (RETIRÉ 2026-06-03). La liste vit dans `config.modules` (manifeste ordonné, policy/`when`/env) ; le Kernel la résout + charge à `onPreRegister` (`resolveModules`/`loadModulesFromManifest`). Cf mémoire IA `project_module_loading_architecture`.
+
 | Décorateur         | Phase déclenchée | Rôle                                    |
 | ------------------ | ---------------- | --------------------------------------- |
-| `@modules([...])`  | `onPreRegister`  | Liste des modules à charger             |
 | `@services([...])` | `onPreBoot`      | Services à enregistrer dans le module   |
 | `@entities([...])` | `onBoot`         | Entités ORM à enregistrer               |
 | `@injectable()`    | runtime          | Marque classe injectable                |

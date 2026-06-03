@@ -547,8 +547,8 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
-   * Phase pré-registration — fire `"onPreRegister"` puis `"onRegister"`. Les décorateurs
-   * `@modules([...])` sont consommés ici (handler attaché en `prependOnceListener`).
+   * Phase pré-registration — fire `"onPreRegister"` puis `"onRegister"`. Le manifeste
+   * `config.modules` est consommé ici (chargement via {@link loadModulesFromManifest}).
    *
    * @returns `this` ou chaîne sur `boot()`.
    */

@@ -9,36 +9,36 @@
 
 Il fournit :
 
-| Brique | Fichier source | Rôle |
-|--------|---------------|------|
-| **`Service`** | `src/Service.ts` | Classe de base de tout composant Nodefony (Kernel/Module/Controller/adapters ORM/etc.) — DI + EventEmitter + Logging |
-| **`Container`** | `src/Container.ts` | DI Container hiérarchique — services nommés, paramètres dot-notation, scopes par requête |
-| **`Kernel`** | `src/kernel/Kernel.ts` | Orchestre boot, modules, lifecycle events |
-| **`Module`** | `src/kernel/Module.ts` | Classe de base d'un module Nodefony (suit le pattern `@Module` decorator) |
-| **`CliKernel`** | `src/kernel/CliKernel.ts` | Kernel spécialisé pour les commandes CLI (`nodefony development`, `nodefony build`, etc.) |
-| **`Syslog` / `Pdu`** | `src/syslog/` | Logger structuré RFC 5424 — ring buffer O(1), transports pluggables |
-| **`Cli` / `Command`** | `src/cli/` + `src/command/` | Framework de commandes CLI (Commander wrapper + lifecycle hooks) |
-| **`Nodefony`** | `src/Nodefony.ts` | Façade statique (singleton) — `Nodefony.getKernel()`, `Nodefony.version`, `Nodefony.generateId()` |
-| **`Event`** | `src/Event.ts` | Étend `EventEmitter` Node.js — ajoute `fire()`, `fireAsync()`, `listen()`, `settingsToListen()` |
-| **`FileClass` / `Finder`** | `src/finder/` + `src/FileClass.ts` | Wrapper fs + recherche de fichiers avec filtres |
-| **`Tools`** | `src/Tools.ts` | Helpers utilitaires (`extend`, `typeOf`, `isArray`, `isPromise`, `isPlainObject`, `isFunction`, `isContainer`) |
-| **`nodefonyError`** | `src/Error.ts` | Classe d'erreur étendue (anciennement `Error` — renommée pour éviter collision avec `globalThis.Error`) |
-| **`RequestContext`** | `src/runtime/RequestContext.ts` | Façade `AsyncLocalStorage` — propagation `requestId`/`user`/`traceparent` per-request (P1.4 ✅) |
+| Brique                     | Fichier source                     | Rôle                                                                                                                 |
+| -------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **`Service`**              | `src/Service.ts`                   | Classe de base de tout composant Nodefony (Kernel/Module/Controller/adapters ORM/etc.) — DI + EventEmitter + Logging |
+| **`Container`**            | `src/Container.ts`                 | DI Container hiérarchique — services nommés, paramètres dot-notation, scopes par requête                             |
+| **`Kernel`**               | `src/kernel/Kernel.ts`             | Orchestre boot, modules, lifecycle events                                                                            |
+| **`Module`**               | `src/kernel/Module.ts`             | Classe de base d'un module Nodefony (suit le pattern `@Module` decorator)                                            |
+| **`CliKernel`**            | `src/kernel/CliKernel.ts`          | Kernel spécialisé pour les commandes CLI (`nodefony development`, `nodefony build`, etc.)                            |
+| **`Syslog` / `Pdu`**       | `src/syslog/`                      | Logger structuré RFC 5424 — ring buffer O(1), transports pluggables                                                  |
+| **`Cli` / `Command`**      | `src/cli/` + `src/command/`        | Framework de commandes CLI (Commander wrapper + lifecycle hooks)                                                     |
+| **`Nodefony`**             | `src/Nodefony.ts`                  | Façade statique (singleton) — `Nodefony.getKernel()`, `Nodefony.version`, `Nodefony.generateId()`                    |
+| **`Event`**                | `src/Event.ts`                     | Étend `EventEmitter` Node.js — ajoute `fire()`, `fireAsync()`, `listen()`, `settingsToListen()`                      |
+| **`FileClass` / `Finder`** | `src/finder/` + `src/FileClass.ts` | Wrapper fs + recherche de fichiers avec filtres                                                                      |
+| **`Tools`**                | `src/Tools.ts`                     | Helpers utilitaires (`extend`, `typeOf`, `isArray`, `isPromise`, `isPlainObject`, `isFunction`, `isContainer`)       |
+| **`nodefonyError`**        | `src/Error.ts`                     | Classe d'erreur étendue (anciennement `Error` — renommée pour éviter collision avec `globalThis.Error`)              |
+| **`RequestContext`**       | `src/runtime/RequestContext.ts`    | Façade `AsyncLocalStorage` — propagation `requestId`/`user`/`traceparent` per-request (P1.4 ✅)                      |
 
 ## Décisions techniques figées
 
-| Sujet | Décision | Pourquoi |
-|-------|----------|----------|
-| Nom npm du package | **`nodefony`** (pas `@nodefony/core`) | Héritage JS — renommage cassant non envisagé |
-| Module ESM | **ESM only** — `import { X } from "nodefony"` | Modern Node.js, tree-shaking |
-| Exports | **Named only** — pas de `default` export | Compatibilité avec Rollup `preserveModules` + DX |
-| Erreur | **`nodefonyError`** (pas `Error`) | Collision avec `globalThis.Error` cassait les imports |
-| Singleton | **`Nodefony.getKernel()`** (statique) | L'ancien export `kernel` direct cassait à l'init |
-| Préfixe interfaces | **`I`** — `IService`, `IContainer`, `IKernel`, `IScope` | Convention universelle pour ne pas confondre interface vs classe |
-| Imports Node | **Préfixe `node:`** obligatoire — `import fs from "node:fs"` | Standard ESM, dé-ambiguïse npm packages |
-| TypeScript | **Strict, zéro `any`, zéro `@ts-ignore`** | Sécurité du compilateur |
-| Tests | **`mocha` + `ts-node`** | Stable en CI, héritage projet |
-| Bundler | **`rollup`** (`preserveModules: true`) | Per-module `.d.ts`, tree-shakeable |
+| Sujet              | Décision                                                     | Pourquoi                                                         |
+| ------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Nom npm du package | **`nodefony`** (pas `@nodefony/core`)                        | Héritage JS — renommage cassant non envisagé                     |
+| Module ESM         | **ESM only** — `import { X } from "nodefony"`                | Modern Node.js, tree-shaking                                     |
+| Exports            | **Named only** — pas de `default` export                     | Compatibilité avec Rollup `preserveModules` + DX                 |
+| Erreur             | **`nodefonyError`** (pas `Error`)                            | Collision avec `globalThis.Error` cassait les imports            |
+| Singleton          | **`Nodefony.getKernel()`** (statique)                        | L'ancien export `kernel` direct cassait à l'init                 |
+| Préfixe interfaces | **`I`** — `IService`, `IContainer`, `IKernel`, `IScope`      | Convention universelle pour ne pas confondre interface vs classe |
+| Imports Node       | **Préfixe `node:`** obligatoire — `import fs from "node:fs"` | Standard ESM, dé-ambiguïse npm packages                          |
+| TypeScript         | **Strict, zéro `any`, zéro `@ts-ignore`**                    | Sécurité du compilateur                                          |
+| Tests              | **`mocha` + `ts-node`**                                      | Stable en CI, héritage projet                                    |
+| Bundler            | **`rollup`** (`preserveModules: true`)                       | Per-module `.d.ts`, tree-shakeable                               |
 
 ## Ce qui est INTERDIT sans accord explicite (CLAUDE.md racine)
 
@@ -119,7 +119,7 @@ src/nodefony/
 5. Command.onKernelStart() — hook pré-boot
 6. Kernel.boot()
    ├── Charge config (config/dev|prod|test/*.ts)
-   ├── Module discovery (@modules() decorator)
+   ├── Module discovery (manifeste config.modules, orchestré par le Kernel)
    ├── Service discovery (@injectable, @Service)
    ├── fire("onPreBoot") | fire("onBoot") | fire("onReady")
    └── Activate modules
@@ -130,13 +130,13 @@ src/nodefony/
 
 ## Sous-modules — index docs IA
 
-| Sous-module | CLAUDE.md | MEMORY.md | README.md | Focus |
-|-------------|-----------|-----------|-----------|-------|
-| `src/syslog/` | ⬜ | ✅ | ✅ | Syslog/Pdu, ring buffer, transports |
-| `src/kernel/` | ⬜ | ✅ | ✅ | Kernel lifecycle, Module hooks, CliKernel |
-| `src/kernel/injector/` | ⬜ | ✅ | ✅ | `@injectable`, `@inject`, scopes, circular detection |
-| `src/cli/` | ⬜ | ✅ | ✅ | Cli, Command, Commander, niceBytes, timers |
-| `src/finder/` | ⬜ | ✅ | ✅ | FileClass, File, FileResult, Result, Finder |
+| Sous-module            | CLAUDE.md | MEMORY.md | README.md | Focus                                                |
+| ---------------------- | --------- | --------- | --------- | ---------------------------------------------------- |
+| `src/syslog/`          | ⬜        | ✅        | ✅        | Syslog/Pdu, ring buffer, transports                  |
+| `src/kernel/`          | ⬜        | ✅        | ✅        | Kernel lifecycle, Module hooks, CliKernel            |
+| `src/kernel/injector/` | ⬜        | ✅        | ✅        | `@injectable`, `@inject`, scopes, circular detection |
+| `src/cli/`             | ⬜        | ✅        | ✅        | Cli, Command, Commander, niceBytes, timers           |
+| `src/finder/`          | ⬜        | ✅        | ✅        | FileClass, File, FileResult, Result, Finder          |
 
 > Les CLAUDE.md de sous-modules pourront être créés au besoin. Pour l'instant, les `MEMORY.md` couvrent l'essentiel pour l'IA.
 
@@ -147,6 +147,7 @@ src/nodefony/
 Vit dans `src/runtime/RequestContext.ts`. Façade statique au-dessus de `AsyncLocalStorage` Node.js. Utilisé par `@nodefony/http` (`HttpKernel.handleHttp` + `handleWebsocket`) pour propager `requestId`/`user`/`scheme`/`traceparent` à travers tout le pipeline async sans threader manuellement.
 
 **API** :
+
 ```typescript
 RequestContext.run({ requestId, user, scheme }, async () => { /* code */ });
 RequestContext.get();              // payload entier ou undefined
@@ -160,6 +161,7 @@ RequestContext.pushQuery({ sql, durationMs, rows?, connector? }); // no-op si !i
 **Seam profiler ORM (`queries`)** : `HttpKernel.handleHttp` alloue `payload.queries: IProfilerQuery[]` **uniquement en dev** (profiler actif) ; les adapters ORM y poussent via `pushQuery()` (gratuit en prod = buffer absent). ⚠️ Ne PAS lire l'ALS depuis un callback détaché (pool ORM, listener) → `isProfiling()` y est faux ; capturer la réf du buffer dans le contexte valide (cf adapter Sequelize `#prof`).
 
 **✅ BUGS résolus** (2026-05-20, cf [`../../BUG_REPORT.md`](../../BUG_REPORT.md)) :
+
 - **BUG-001** : ALS WS messages — `AsyncResource.bind` sur `close`/`message` dans `WebsocketContext.connect()`
 - **BUG-002** : ALS dans `onAfterResponse` HTTP+WS — `AsyncResource.bind(fn)` au register dans `Context.onAfterResponse`
 
@@ -172,6 +174,7 @@ au moment du bind. P6 (security décorateurs isomorphes) débloqué.
 Décorateurs dans `src/kernel/injector/`. Cf [`src/kernel/injector/MEMORY.md`](src/kernel/injector/MEMORY.md) pour internals (algorithme topologique, détection de cycles, scopes).
 
 Phases d'évolution prévues (cf [INJECTION_PLAN.md](./INJECTION_PLAN.md) workspace racine) :
+
 - Phase A : `@Inject` propriété ✅ partial
 - Phase B : scoped/`AsyncLocalStorage` officiel ⬜
 - Phase C : circular detection ⬜
@@ -182,29 +185,29 @@ Phases d'évolution prévues (cf [INJECTION_PLAN.md](./INJECTION_PLAN.md) worksp
 
 `Pdu` = unité de log (Process Data Unit, RFC 5424). Stocké dans `Syslog.buffer` (CircularBuffer O(1)). Severités :
 
-| # | Nom | Usage |
-|---|-----|-------|
-| 0 | EMERGENCY | Système inutilisable |
-| 1 | ALERT | Action immédiate requise |
-| 2 | **CRITIC** (pas CRITICAL) | Conditions critiques |
-| 3 | ERROR | Erreurs |
-| 4 | WARNING | Conditions d'alerte |
-| 5 | NOTICE | Normal mais important |
-| 6 | INFO | Informationnel |
-| 7 | DEBUG | Debug |
-| -1 | SPINNER | Animation CLI (non RFC) |
+| #   | Nom                       | Usage                    |
+| --- | ------------------------- | ------------------------ |
+| 0   | EMERGENCY                 | Système inutilisable     |
+| 1   | ALERT                     | Action immédiate requise |
+| 2   | **CRITIC** (pas CRITICAL) | Conditions critiques     |
+| 3   | ERROR                     | Erreurs                  |
+| 4   | WARNING                   | Conditions d'alerte      |
+| 5   | NOTICE                    | Normal mais important    |
+| 6   | INFO                      | Informationnel           |
+| 7   | DEBUG                     | Debug                    |
+| -1  | SPINNER                   | Animation CLI (non RFC)  |
 
 ⚠️ **"CRITIC" pas "CRITICAL"** — c'est le nom dans `SysLogSeverity`.
 
 ## Erreurs critiques à reconnaître
 
-| Erreur | Cause | Fix |
-|--------|-------|-----|
-| `does not provide an export named 'default'` | `import nodefony from "nodefony"` | `import { Nodefony } from "nodefony"` |
-| `does not provide an export named 'Error'` | `import { Error } from "nodefony"` | `import { nodefonyError } from "nodefony"` |
-| `does not provide an export named 'kernel'` | Ancien singleton supprimé | `Nodefony.getKernel()` |
-| `Container bad argument name` après `clean()` | `set()` appelé après clean | Vérifier l'ordre lifecycle |
-| `notificationsCenter not initialized` | `nc=false` ou après `clean()` | Ne pas appeler events après clean |
+| Erreur                                        | Cause                              | Fix                                        |
+| --------------------------------------------- | ---------------------------------- | ------------------------------------------ |
+| `does not provide an export named 'default'`  | `import nodefony from "nodefony"`  | `import { Nodefony } from "nodefony"`      |
+| `does not provide an export named 'Error'`    | `import { Error } from "nodefony"` | `import { nodefonyError } from "nodefony"` |
+| `does not provide an export named 'kernel'`   | Ancien singleton supprimé          | `Nodefony.getKernel()`                     |
+| `Container bad argument name` après `clean()` | `set()` appelé après clean         | Vérifier l'ordre lifecycle                 |
+| `notificationsCenter not initialized`         | `nc=false` ou après `clean()`      | Ne pas appeler events après clean          |
 
 ## Lancer les tests du core
 

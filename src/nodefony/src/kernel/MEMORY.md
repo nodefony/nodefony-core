@@ -211,9 +211,10 @@ async initialize?(kernel?: IKernel): Promise<this> { ... }
 - `inject:services` sur **constructeur**. `inject:properties` sur **prototype**. Confusion = bug silencieux.
 - tsx : pas de `design:paramtypes` → appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)`.
 
-**Decorators module** (`@modules`/`@services`/`@entities`) :
+**Chargement modules** : `config.modules` (manifeste ordonné) → Kernel `resolveModules()`/`loadModulesFromManifest()` à `onPreRegister` (décorateur `@modules` RETIRÉ 2026-06-03). Cf `project_module_loading_architecture`.
 
-- `@modules` → `onPreRegister` → loadModule|addModule
+**Decorators module** (`@services`/`@entities`) :
+
 - `@services` → `onPreBoot` → addService|loadService (erreurs catchées)
 - `@entities` → `onBoot` → addEntity|loadEntity
 - `prependOnceListener` (setEvents) toujours index 0 avant `once` (@services/@entities)
