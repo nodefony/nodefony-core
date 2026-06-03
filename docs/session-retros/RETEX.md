@@ -249,6 +249,19 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   (montage serveur = `kernelEvent` + présence `HttpKernel` ; rester-en-vie = park ; `type` = 4 gates de log
   cosmétiques). A transformé un « gros refacto risqué » en **nettoyage de modèle 0-comportement** (scope A
   validable sous filet). Lire les consommateurs AVANT de présumer l'impact/risque.
+- `[1× — 2026-06-03]` **Boot : `debug`/`environment` ne sont résolus qu'à `preRegister` — APRÈS
+  `initSyslog`/`loadApp`.** Pour gater quelque chose TÔT (sévérité de log, sélection de module), lire
+  `process.argv` directement (comme `bin/nodefony.ts` pour l'env) plutôt que `this.debug`/`this.environment`
+  (encore au défaut à `loadApp`). Vécu : `-d` ne relevait pas le silence d'une commande CLI tant que le gate
+  lisait `this.debug` (faux à `loadApp`) → fix = `process.argv.includes("-d"|"--debug")`.
+- `[1× — 2026-06-03]` **Sortie CLI propre = plancher de sévérité syslog (pas toucher chaque log).** Une
+  commande console (`frontend:status`, help global) boote tout le manifeste → ~30 lignes de bruit (MODULE ADD,
+  overrides config, ORM connected, banner env, terminate). Fix sans chirurgie : un flag `quietBoot` (posé au
+  dispatch help/module) → `initSyslog` plancher la sévérité à `[0..3]`. La sortie de la commande via
+  `console.log` (stdout direct, hors syslog) **survit** ; le bruit syslog est coupé ; `-d` rétablit. Le VRAI
+  fix (ne pas booter/connecter tout le manifeste pour une commande console) = couches 2-3 [[project_module_loading_architecture]]
+  (Phase 11). + **réutiliser `Kernel.isTTY`** (déjà résolu, NO_TTY-aware) au lieu de re-lire `process.stdout`
+  (gate couleur boot — rappel user).
 
 ## 🔧 Git / commit (friction du jour)
 
