@@ -5,7 +5,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import "reflect-metadata";
 import Module from "../Module";
-import { ModuleConstructor, ServiceConstructor } from "../Kernel";
+import { ServiceConstructor } from "../Kernel";
 import Service from "../../Service";
 import Injector, {
   DIScope,
@@ -17,40 +17,6 @@ import Entity, { TypeEntity } from "../orm/Entity";
 
 type Constructor = new (...args: any[]) => Module;
 type Injectable<T = { service: Service }> = new (...args: any[]) => T;
-
-function modules(
-  nameOrPath: string | (string | ModuleConstructor)[] | ModuleConstructor,
-): <T extends Constructor>(constructor: T) => T {
-  return function <T extends Constructor>(constructor: T): T {
-    class NewModuleConstructor extends constructor {
-      constructor(...args: any[]) {
-        super(...args);
-        this.kernel?.once("onPreRegister", async () => {
-          return await this.initDecoratorModules();
-        });
-      }
-      private async initDecoratorModules() {
-        if (Array.isArray(nameOrPath)) {
-          for (const path of nameOrPath) {
-            if (this.kernel?.isModule(path)) {
-              await this.kernel?.addModule(path as ModuleConstructor);
-            } else {
-              await this.kernel?.loadModule(path as string);
-            }
-          }
-        } else {
-          if (typeof nameOrPath === "string") {
-            return await this.kernel?.loadModule(nameOrPath);
-          }
-          if (this.kernel?.isModule(nameOrPath)) {
-            return await this.kernel?.addModule(nameOrPath);
-          }
-        }
-      }
-    }
-    return NewModuleConstructor;
-  };
-}
 
 function services(
   nameOrPath: string | (string | ServiceConstructor)[] | ServiceConstructor,
@@ -211,4 +177,4 @@ function Inject(name?: string): PropertyDecorator {
   };
 }
 
-export { modules, injectable, inject, Inject, services, entities };
+export { injectable, inject, Inject, services, entities };

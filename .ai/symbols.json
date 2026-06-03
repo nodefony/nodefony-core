@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-03T20:01:34.698Z",
+  "generated": "2026-06-03T20:06:09.360Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 820,
-    "symbols": 1620,
+    "symbols": 1619,
     "classes": 245,
     "interfaces": 399,
     "types": 205,
     "enums": 2,
-    "functions": 298,
+    "functions": 297,
     "constants": 471
   },
   "symbols": {
@@ -2278,13 +2278,6 @@
       "extends": "Command",
       "implements": [],
       "decorators": []
-    },
-    "modules": {
-      "name": "modules",
-      "kind": "function",
-      "file": "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
-      "exported": true,
-      "module": "@nodefony/core"
     },
     "services": {
       "name": "services",
@@ -13923,9 +13916,6 @@
       ],
       "Topology": [
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts"
-      ],
-      "ModuleConstructor": [
-        "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
       ],
       "DIScope": [
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
