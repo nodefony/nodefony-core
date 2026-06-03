@@ -306,6 +306,74 @@ describe("Kernel — setEnv", () => {
   });
 });
 
+// ─── 5b. setEnv — 12-factor (NODE_ENV / APP_ENV : deux axes) ─────────────────
+
+describe("Kernel — setEnv 12-factor (NODE_ENV / APP_ENV)", () => {
+  let savedNodeEnv: string | undefined;
+  let savedAppEnv: string | undefined;
+  let savedNodefonyEnv: string | undefined;
+
+  beforeEach(() => {
+    savedNodeEnv = process.env.NODE_ENV;
+    savedAppEnv = process.env.APP_ENV;
+    savedNodefonyEnv = process.env.NODEFONY_ENV;
+    delete process.env.NODE_ENV;
+    delete process.env.APP_ENV;
+    delete process.env.NODEFONY_ENV;
+  });
+
+  afterEach(() => {
+    if (savedNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = savedNodeEnv;
+    if (savedAppEnv === undefined) delete process.env.APP_ENV;
+    else process.env.APP_ENV = savedAppEnv;
+    if (savedNodefonyEnv === undefined) delete process.env.NODEFONY_ENV;
+    else process.env.NODEFONY_ENV = savedNodefonyEnv;
+  });
+
+  it("NODE_ENV prime sur l'intention de commande (ambient cloud > local)", () => {
+    process.env.NODE_ENV = "production";
+    const k = mkKernel("development");
+    k.setEnv("development"); // commande dev, mais NODE_ENV=production
+    assert.strictEqual(k.environment, "production");
+  });
+
+  it("sans NODE_ENV → l'argument de commande décide", () => {
+    const k = mkKernel("production");
+    k.setEnv("development");
+    assert.strictEqual(k.environment, "development");
+  });
+
+  it("APP_ENV ravive l'axe déploiement, indépendant du mode runtime", () => {
+    process.env.NODE_ENV = "production";
+    process.env.APP_ENV = "staging";
+    const k = mkKernel("production");
+    k.setEnv("production");
+    assert.strictEqual(k.environment, "production"); // mode runtime
+    assert.strictEqual(k.appEnvironment.environment, "staging"); // déploiement
+  });
+
+  it("NODEFONY_ENV = fallback de APP_ENV", () => {
+    process.env.NODEFONY_ENV = "preprod";
+    const k = mkKernel("production");
+    k.setEnv("production");
+    assert.strictEqual(k.appEnvironment.environment, "preprod");
+  });
+
+  it("sans APP_ENV → appEnvironment suit le mode runtime (inchangé)", () => {
+    const k = mkKernel("production");
+    k.setEnv("development");
+    assert.strictEqual(k.appEnvironment.environment, "development");
+  });
+
+  it("resolveRuntimeEnv normalise dev/development → development, autre → production", () => {
+    const k = mkKernel("production");
+    assert.strictEqual(k.resolveRuntimeEnv("dev"), "development");
+    assert.strictEqual(k.resolveRuntimeEnv("development"), "development");
+    assert.strictEqual(k.resolveRuntimeEnv("staging" as any), "production");
+  });
+});
+
 // ─── 6. setNodeEnv ───────────────────────────────────────────────────────────
 
 describe("Kernel — setNodeEnv", () => {
@@ -331,6 +399,7 @@ describe("Kernel — setNodeEnv", () => {
     assert.strictEqual(process.env.NODE_ENV, "development");
     assert.strictEqual(process.env.BABEL_ENV, "development");
     assert.strictEqual(k.isDev, true);
+    assert.strictEqual(k.isProd, false); // complémentaires
   });
 
   it("'dev' → même effet que 'development'", () => {
@@ -346,6 +415,7 @@ describe("Kernel — setNodeEnv", () => {
     assert.strictEqual(process.env.NODE_ENV, "production");
     assert.strictEqual(process.env.BABEL_ENV, "production");
     assert.strictEqual(k.isProd, true);
+    assert.strictEqual(k.isDev, false); // complémentaires
   });
 
   it("valeur inconnue → branch default → production", () => {

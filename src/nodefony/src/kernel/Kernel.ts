@@ -885,8 +885,11 @@ class Kernel extends Service implements IKernel {
     if (!Array.isArray(manifest)) {
       return [];
     }
-    const env = this.cli?.environment ?? this.environment;
-    const isProd = env !== "dev" && env !== "development";
+    // Gating `policy:"dev"` sur le MODE RUNTIME (NODE_ENV-aware) — un conteneur
+    // staging (NODE_ENV=production) droppe bien les modules dev. Le gating fin par
+    // environnement de déploiement passe par `when(config)` (axe appEnvironment).
+    const isProd =
+      this.resolveRuntimeEnv(this.cli?.environment) === "production";
     const result: string[] = [];
     for (const item of manifest) {
       const entry = typeof item === "string" ? { name: item } : item;
@@ -1225,29 +1228,47 @@ class Kernel extends Service implements IKernel {
           process.env.NODE_ENV = "development";
           process.env.BABEL_ENV = "development";
           this.isDev = true;
+          this.isProd = false;
           break;
         default:
           process.env.NODE_ENV = "production";
           process.env.BABEL_ENV = "production";
           this.isProd = true;
+          this.isDev = false;
       }
     }
     process.env.NODE_DEBUG = this.debug ? "true" : "false";
   }
 
-  setEnv(environment: EnvironmentType) {
-    if (environment) {
-      switch (environment) {
-        case "dev":
-        case "development":
-          this.environment = "development";
-          this.appEnvironment.environment = "development";
-          break;
-        default:
-          this.environment = "production";
-          this.appEnvironment.environment = "production";
-      }
-    }
+  /**
+   * Résout le **mode runtime** (dev/prod) selon le 12-factor : `NODE_ENV`
+   * (ambient, posé par l'orchestrateur en cloud) PRIME sur l'intention de la
+   * commande locale, qui prime sur la valeur courante. Normalise en
+   * `"development" | "production"`. Pur (lit `process.env`, n'écrit rien) → sûr à
+   * appeler avant que `setNodeEnv` n'ait posé `NODE_ENV` (ex. gating de modules à
+   * `onPreRegister`). Cf project_app_config_refonte_chantier (deux axes d'env).
+   */
+  resolveRuntimeEnv(
+    fromCommand?: EnvironmentType,
+  ): "development" | "production" {
+    const raw =
+      process.env.NODE_ENV || fromCommand || this.environment || "production";
+    return raw === "dev" || raw === "development"
+      ? "development"
+      : "production";
+  }
+
+  setEnv(environment?: EnvironmentType) {
+    // MODE RUNTIME (dev/prod) — source 12-factor : NODE_ENV > commande > courant.
+    const runtime = this.resolveRuntimeEnv(environment);
+    this.environment = runtime;
+    // ENVIRONNEMENT DE DÉPLOIEMENT (axe DISTINCT du mode runtime) — string libre
+    // via APP_ENV / NODEFONY_ENV (staging/preprod/prod/canary/prod-eu…) ; pilote la
+    // config/secrets, PAS le moteur. Défaut = le mode runtime si non posé →
+    // comportement inchangé hors cloud. Un staging tourne en mode `production`
+    // (optimisé) mais reste l'env `staging`. Cf project_app_config_refonte_chantier.
+    this.appEnvironment.environment =
+      process.env.APP_ENV || process.env.NODEFONY_ENV || runtime;
   }
 
   /**
@@ -1277,8 +1298,16 @@ class Kernel extends Service implements IKernel {
     const env = this.environment
       ? `   ${logColor.green(String(this.environment))}`
       : "";
+    // Axe DÉPLOIEMENT (APP_ENV / NODEFONY_ENV) affiché seulement s'il DIFFÈRE du
+    // mode runtime — sinon redondant. Lu DIRECTEMENT depuis l'env (ambient) car le
+    // header s'imprime avant que `setEnv` n'ait résolu `appEnvironment`. Cf deux axes.
+    const appEnv = process.env.APP_ENV || process.env.NODEFONY_ENV;
+    const deploy =
+      appEnv && appEnv !== String(this.environment)
+        ? ` ${logColor.blackBright("·")} ${logColor.magenta(appEnv)}`
+        : "";
     console.log(
-      `  ${logColor.cyan("⬢")} ${logColor.cyanBold("Nodefony")}${tag}${env}`,
+      `  ${logColor.cyan("⬢")} ${logColor.cyanBold("Nodefony")}${tag}${env}${deploy}`,
     );
     console.log(`  ${logColor.blackBright(meta)}\n`);
   }
