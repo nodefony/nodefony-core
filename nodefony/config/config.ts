@@ -35,6 +35,9 @@ import sequelize from "./modules/sequelize-config";
 import cluster from "./cluster/cluster.config";
 import security from "./modules/security-config";
 import modules from "./modules";
+// Catalogue typé des variables d'environnement lues par la config (point unique —
+// plus de `process.env.X` épars ici). Voir `./env` pour la doc de chaque variable.
+import { env } from "./env";
 
 // Différenciation par environnement : passer par des fichiers `config.<appEnv>.ts`
 // (chargés APRÈS résolution du kernel) ou des getters lazy. JAMAIS un deref kernel
@@ -183,36 +186,19 @@ const config = {
     debug: "*",
     requestFormat: "auto" as "auto" | "default" | "pretty" | "json",
     buffered: "auto" as boolean | "auto",
-    // Driver de sink (LB.W) : où partent les lignes après coalescing.
-    //   "stdout" (DÉFAUT, cloud-native pipe non-bloquant) | "file" (fd async PAR
-    //   worker → 0 lock d'inode partagé en cluster, anti-goulet +28%) | "null" (bench).
-    // Piloté par env NF_LOG_DRIVER (A/B perf) ; sans `file.path`, le Kernel ouvre
-    // `logs/nodefony-<pid>.log` (1 fd par worker).
-    driver: (process.env.NF_LOG_DRIVER ?? "stdout") as
-      | "stdout"
-      | "file"
-      | "null",
-    // `file.sync` (env NF_LOG_FILE_SYNC=1) : writeSync direct par worker au lieu
-    // du buffer async — recommandé pour fichier local rapide (cf insight A/B LB.W,
-    // axe W2 fd/worker). Défaut async (ne bloque jamais l'event loop, disque lent).
-    file: { sync: process.env.NF_LOG_FILE_SYNC === "1" },
-    // Driver du LOG BACKPLANE (LB.0+) — le « fond de panier » de RELECTURE des logs
-    // (≠ `driver` ci-dessus = sink d'ÉCRITURE). Où l'on REQUÊTE les logs (CLI / endpoint
-    // Studio / panneau) :
-    //   "memory" (DÉFAUT, ring volatile ; dev) | "file" / "cluster-file" (JSONL persistant,
-    //   vue worker / vue cluster) | "loki" / "opensearch" (destinations PROD, LB.4).
-    // Piloté par env (12-factor) → en prod l'orchestrateur fige la destination sans
-    // toucher au code. En dev, file/cluster-file restent montés en plus (switch à chaud Studio).
-    queryDriver: process.env.NF_LOG_QUERY_DRIVER ?? "memory",
-    // Destinations PROD (LB.4) — actives seulement si `queryDriver` vaut leur nom ET l'URL
-    // est fournie (sinon fallback "memory" au boot, jamais de crash). On POUSSE (transport
-    // batché, 1 POST/lot) ET on RELIT (driver query) la MÊME destination → cohérence
-    // write↔read. URLs par défaut = celles du `docker/docker-compose.yml` (--profile loki /
-    // --profile opensearch). Activer : `NF_LOG_QUERY_DRIVER=loki LOKI_URL=http://127.0.0.1:3100`.
-    ...(process.env.LOKI_URL ? { loki: { url: process.env.LOKI_URL } } : {}),
-    ...(process.env.OPENSEARCH_URL
-      ? { opensearch: { url: process.env.OPENSEARCH_URL } }
-      : {}),
+    // Sink d'ÉCRITURE (LB.W) + relecture du BACKPLANE (LB.0+) : sources 12-factor
+    // centralisées dans `./env` (NF_LOG_DRIVER / NF_LOG_FILE_SYNC / NF_LOG_QUERY_DRIVER
+    // / LOKI_URL / OPENSEARCH_URL — doc + valeurs admises sur chaque champ de env.ts).
+    // Sans `file.path`, le Kernel ouvre `logs/nodefony-<pid>.log` (1 fd par worker).
+    // En prod l'orchestrateur fige la destination sans toucher au code.
+    driver: env.logDriver,
+    file: { sync: env.logFileSync },
+    queryDriver: env.logQueryDriver,
+    // Destinations PROD (LB.4) — montées seulement si l'URL est fournie ET
+    // `queryDriver` vaut leur nom (sinon fallback "memory" au boot, jamais de crash).
+    // On POUSSE (transport batché) ET on RELIT la MÊME destination → cohérence write↔read.
+    ...(env.lokiUrl ? { loki: { url: env.lokiUrl } } : {}),
+    ...(env.opensearchUrl ? { opensearch: { url: env.opensearchUrl } } : {}),
   },
 
   /**
