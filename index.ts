@@ -17,6 +17,12 @@ import "./nodefony/entity/user";
  * `index.ts` ne déclare que ce qui est INTRINSÈQUE à l'app : ses controllers et
  * ses entités.
  */
+/**
+ * Validateur de la config app (schéma Zod) — résolu et exécuté par le Kernel au
+ * boot (`loadApp`, avant l'init du log). Voir `nodefony/config/schema.ts`.
+ */
+export { validateConfig } from "./nodefony/config/schema";
+
 @controllers([AppController, indexController])
 class App extends Module {
   /**

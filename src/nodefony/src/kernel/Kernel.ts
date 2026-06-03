@@ -979,10 +979,31 @@ class Kernel extends Service implements IKernel {
     }
   }
 
+  /**
+   * Valide la config de l'app au boot via le schéma fourni par l'app, si présent.
+   *
+   * Convention générique (le core ne dépend PAS de Zod) : si l'entrée de l'app
+   * (`dist/index.js`) exporte une fonction `validateConfig`, le Kernel l'exécute sur
+   * la config résolue de l'app (`app.options`) — l'app porte le schéma + la dépendance
+   * Zod. Absent → étape sautée (rétro-compatible avec une app sans schéma). L'import
+   * est déjà résolu par `loadModule` (cache ESM) → coût négligeable, hors hot path.
+   *
+   * @throws si le validateur de l'app rejette la config (message agrégé).
+   */
+  private async validateAppConfig(): Promise<void> {
+    const mod = (await import(`${this.path}/dist/index.js`)) as {
+      validateConfig?: (options: unknown) => void;
+    };
+    mod.validateConfig?.(this.app?.options);
+  }
+
   private async loadApp(config?: TypeKernelOptions): Promise<Module> {
     this.app = await this.loadModule(`${this.path}/dist/index.js`);
     this.app.isApp = true;
     this.options = this.readConfig(extend(this.app.options, config));
+    // Validation de la config app (fail-fast) AVANT initializeLog : une config
+    // malformée plante ICI avec un message clair, pas en runtime plus tard.
+    await this.validateAppConfig();
     // Chargement de modules piloté par CONFIG (manifeste `config.modules`). Branché
     // au MÊME instant que l'ancien décorateur @modules (listener `onPreRegister`)
     // → comportement identique, mais la liste est une DONNÉE gatable et le Kernel
