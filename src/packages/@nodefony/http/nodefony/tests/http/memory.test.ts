@@ -1,11 +1,24 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
+import fsp from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import "mocha";
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
+
+// Dossier où le service d'upload dépose les fichiers reçus (uploadDir défaut =
+// « tmp » sous la racine projet). Le test « 200 multipart uploads » y crée des
+// `<uuid>.txt` → un test ne doit JAMAIS laisser de résidu : on les nettoie en
+// fin de suite (diff de snapshot, sans toucher au préexistant). Cf upload.test.ts.
+const UPLOAD_DIR = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../../../../..",
+  "tmp",
+);
 
 type MemStats = {
   rss: number;
@@ -85,6 +98,24 @@ describe("Memory leaks — HTTP (requires server)", function () {
   this.timeout(60_000);
 
   before(() => warmup());
+
+  // Hygiène : le test d'upload ne doit JAMAIS laisser de résidu dans tmp/.
+  // Snapshot avant la suite, diff après → supprime UNIQUEMENT ce qu'elle a créé
+  // (sans toucher au préexistant). Même pattern que upload.test.ts.
+  let preexisting: Set<string>;
+  before(async () => {
+    preexisting = new Set(await fsp.readdir(UPLOAD_DIR).catch(() => []));
+  });
+  after(async () => {
+    const entries = await fsp
+      .readdir(UPLOAD_DIR, { withFileTypes: true })
+      .catch(() => [] as import("node:fs").Dirent[]);
+    await Promise.all(
+      entries
+        .filter((d) => d.isFile() && !preexisting.has(d.name))
+        .map((d) => fsp.unlink(path.join(UPLOAD_DIR, d.name)).catch(() => {})),
+    );
+  });
 
   it("1000 sequential GET requests — server heap delta < 35 MB", async () => {
     const before = await serverHeap();
