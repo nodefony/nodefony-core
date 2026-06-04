@@ -41,6 +41,12 @@
 typecheck` lançait le typecheck du core EN PARALLÈLE du build de ces packages → RACE (types pas encore là).
   **Fix** : hook `pre-push` = `npx turbo run build && npm run typecheck` (build TOUT avant le typecheck →
   plus de race ; turbo caché → ~qq s). Fini le rebuild manuel `--force`. Cf [[feedback_turbo_cache_stale_logs]].
+- `[1× — 2026-06-04]` **un bare import non listé dans `external` (rollup root) n'est PAS forcément bundlé** :
+  ajouté `import { z } from "zod"` dans la config app (zod absent de l'array `external` de `rollup.config.ts`).
+  Présumé « zod va gonfler le dist » → FAUX : `dist/.../schema.js` faisait 3.5 KB avec `import 'zod'` conservé
+  (node-resolve a laissé le bare specifier externe, résolu au runtime via le hoisting npm). → **vérifier le
+  dist** (taille + `grep import 'zod'`) plutôt que présumer un bundle ; pas besoin de toucher `rollup.config.ts`
+  (interdit) pour un peerDep hoisté résolvable au runtime.
 
 ## 🔄 Cycle de session (END/RETEX) — méta
 
@@ -153,12 +159,20 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
-- `[1× — 2026-06-02]` **`memory.test` exige un serveur LANCÉ (connecte `localhost:5152`) → ECONNREFUSED
+- `[2× — 2026-06-04]` **`memory.test` exige un serveur LANCÉ (connecte `localhost:5152`) → ECONNREFUSED
   sinon, PAS une fuite.** Le 1ᵉʳ run de la session passait via un serveur résiduel ; sans serveur →
   `internalConnectMultiple` (ECONNREFUSED) dans le `before all`. **Toujours `start.sh` AVANT** le memory
   test. ET **NE PAS l'enchaîner avec le filet CLI** (`RUN_CLI_BOOT=1` spawn `production`/`cluster` sur
   5151/5152 → conflit de ports avec le serveur du memory test). Séquencer : (filet CLI seul) PUIS (start.sh
-  - memory test). Diagnostic « before all hook » KO = serveur down/port pris, jamais le heap.
+  - memory test). Diagnostic « before all hook » KO = serveur down/port pris, jamais le heap. **Revu
+    2026-06-04** : j'ai STOPPÉ le serveur dev « pour éviter un conflit de ports » AVANT le memory test →
+    3 fails `before all` (les tests TAPENT le serveur dev, ils ne le spinnent pas). Réflexe inverse =
+    serveur UP requis. → proche d'une graduation (3ᵉ vue = `feedback_*`).
+- `[1× — 2026-06-04]` **`memory.test` 1000-GET marginal dans la suite, vert en isolation** : 36.4 MB vs
+  seuil 35 quand lancé APRÈS les autres cas (crashes/uploads/WS) ; relancé seul → vert 2/2. Contamination
+  GC/ordre, pas une vraie fuite. Confirme le pattern `nodefony-debug` « memory flake = isolation = vérité » :
+  un seuil marginal dans la suite complète → re-run isolé AVANT de qualifier de régression (surtout si le
+  diff est boot-only, donc 0 impact per-requête).
 - `[1× — 2026-06-02]` **`tsx` transpile-only laisse PASSER un test qui lit un field supprimé** : après avoir
   retiré le field `type`, un test `assert.strictEqual(k.type, "CONSOLE")` lit `undefined` → devrait échouer,
   mais affichait « 0 failing » à un instant (transpile-only ignore le TS2339). → après un rename/suppression
