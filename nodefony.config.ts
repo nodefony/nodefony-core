@@ -1,0 +1,197 @@
+/**
+ * ┌──────────────────────────────────────────────────────────────────────────┐
+ * │  nodefony.config.ts — CONFIGURATION DE L'APPLICATION (fichier unique)       │
+ * └──────────────────────────────────────────────────────────────────────────┘
+ *
+ * Tout ce qui n'est PAS écrit ici prend le défaut du framework (`defaultAppConfig`,
+ * deep-mergé au boot). Commencer minuscule, grandir par composition — jamais subir
+ * le découpage. Forme fonction `(ctx) => …` pour différencier par environnement.
+ *
+ * `ctx` = { env, appEnv, runtimeEnv, isProd, isDev, isTest } — `ctx.env` est le
+ * catalogue typé de `./env.ts`.
+ *
+ * ── 6 RECETTES (pour faire grandir cette config) ──────────────────────────────
+ *  1. Ajouter un module        → ajouter son nom dans `modules`.
+ *  2. Configurer un module      → `use("@nodefony/security", { firewalls: {…} })`.
+ *  3. Module dev/conditionnel   → `{ name, policy: "dev" }` ou `use(n, c, { when })`.
+ *  4. Réglage par-env           → tester `ctx.isProd` / `ctx.isDev` (déjà utilisé ci-dessous).
+ *  5. Lire une var d'env        → la déclarer dans `./env.ts`, lire `ctx.env.X` (jamais `process.env`).
+ *  6. Extraire un domaine       → quand un bloc grossit : `import { servers } from "./config/servers"` (choix, pas obligation).
+ *
+ * Voir toutes les options + défauts : `nodefony config:show` / onglet Configuration de Studio.
+ */
+import path from "node:path";
+import { Nodefony, defineConfig, use, type Kernel } from "nodefony";
+import type { env } from "./env";
+
+/** Type du catalogue d'env → `ctx.env` typé + auto-complété dans la fonction de config. */
+type Env = typeof env;
+
+export default defineConfig<Env>((ctx) => ({
+  // ── Identité de l'application (affichée dans la CLI et les logs d'init) ──────
+  App: {
+    projectYear: "2024",
+    authorName: "Camensuli Christophe",
+    authorMail: "ccamensuli@gmail.com",
+  },
+
+  // ── Réseau ──────────────────────────────────────────────────────────────────
+  // Domaine d'écoute (un seul, pas de vhost). Prod = toutes interfaces (0.0.0.0,
+  // derrière l'ingress) ; dev = loopback. Ports/serveurs = défauts framework
+  // (HTTP 5151, HTTPS 5152 en HTTP/2, statics on) ; pour changer : `servers: { http: { port: 8080 } }`.
+  domain: ctx.isProd ? "0.0.0.0" : "127.0.0.1",
+  // Active la barrière Host kernel-level (anti Host-header injection) : un Host
+  // entrant doit matcher la liste `trustedHosts` du module http. (`domainAlias`
+  // legacy retiré — `trustedHosts` est l'unique allowlist consommée.)
+  domainCheck: true,
+
+  // ── Observabilité ─────────────────────────────────────────────────────────
+  log: {
+    // dev : tout en DEBUG ; prod : aucun DEBUG (INFO+ seulement).
+    debug: ctx.isProd ? [] : "*",
+    // Sink d'écriture + relecture du backplane — pilotés par l'environnement (./env).
+    driver: ctx.env.NF_LOG_DRIVER,
+    file: { sync: ctx.env.NF_LOG_FILE_SYNC },
+    queryDriver: ctx.env.NF_LOG_QUERY_DRIVER,
+    // Destinations PROD (LB.4) : montées seulement si l'URL est fournie ET que
+    // `queryDriver` vaut leur nom (sinon fallback "memory" au boot, jamais de crash).
+    ...(ctx.env.LOKI_URL ? { loki: { url: ctx.env.LOKI_URL } } : {}),
+    ...(ctx.env.OPENSEARCH_URL
+      ? { opensearch: { url: ctx.env.OPENSEARCH_URL } }
+      : {}),
+  },
+
+  // ── Topologie / cluster (cloud-native, sans PM2) ────────────────────────────
+  // La topologie (nombre de workers) vit dans `nodefony/config/cluster/cluster.config.ts`
+  // (fichier kernel-free) : le process MASTER le lit STANDALONE, AVANT de booter le
+  // moindre Kernel, pour décider du fork. Le Kernel booté ne lit pas ce champ → inutile
+  // de le dupliquer ici. Override runtime : CLI `--workers` > `NODEFONY_WORKERS` > ce fichier.
+
+  // ── Modules de l'application ────────────────────────────────────────────────
+  // ⚠️ L'ORDRE = ordre (priorité) de chargement. Invariants réels — ne pas réordonner :
+  //   - realtime APRÈS framework (se greffe via AdminBroker avant mountAll)
+  //   - frontend AVANT ses consumers (mediasoup, test-frontend-*)
+  //   - documentation AVANT studio (le front Studio consomme /nodefony/documentation/api/*)
+  // Policies : `mandatory` (socle, jamais gaté) · `optional` (défaut, gaté par `when`)
+  //          · `dev` (chargé hors production). `use(name, config, opts)` colocalise
+  // la config d'un module avec son chargement (typage par module via le registre).
+  modules: [
+    // ── ORM — le gating par driver (when c.orm?.driver) arrivera avec le virage ORM ;
+    //    pour l'instant les deux adapters montent (comportement existant préservé).
+    use("@nodefony/sequelize", {
+      connectors: {
+        sequelize: {
+          dialect: "sqlite",
+          logging: false,
+          // Lazy : résolu au boot (kernel présent), jamais à l'import du module.
+          get storage(): string {
+            return path.resolve(
+              (Nodefony.getKernel() as Kernel).path,
+              "nodefony",
+              "databases",
+              "nodefony-sequelize.db",
+            );
+          },
+          // Pour basculer en serveur : dialect "mysql"/"postgres" + host/port/database/
+          // username/password (le mot de passe est rédacté dans le dashboard Studio).
+        },
+      },
+    }),
+    "@nodefony/drizzle",
+
+    // ── Socle serveur — toujours présent (web + routing + sécurité).
+    use(
+      "@nodefony/http",
+      {
+        // En dev, accepte les certificats auto-signés (mkcert). Prod : true.
+        rejectUnauthorized: !ctx.isDev,
+        // Attributs du certificat auto-signé généré au boot (dev). En prod, fournir
+        // de vrais certificats (le service les lit dans nodefony/config/certificates).
+        certificates: {
+          openssl: {
+            size: 2048,
+            attrs: [
+              {
+                name: "commonName",
+                value: ctx.isProd ? "nodefony.com" : "localhost",
+              },
+              { name: "organizationName", value: "Nodefony Signing Authority" },
+              { name: "organizationalUnitName", value: "Development" },
+              { name: "countryName", value: "FR" },
+              { name: "stateOrProvinceName", value: "BDR" },
+              { name: "localityName", value: "Marseille" },
+            ],
+          },
+        },
+        // Barrière Host (consommée si `domainCheck: true` ci-dessus) : le domaine
+        // canonique est toujours accepté ; on liste localhost + 127.0.0.1 pour taper
+        // le serveur via les deux noms en dev/cluster local.
+        trustedHosts: ["localhost", "127.0.0.1"],
+        // Stockage de session via @nodefony/drizzle (orm-core).
+        session: { handler: "drizzle" },
+        formidable: { uploadDir: "./tmp/upload" },
+      },
+      { policy: "mandatory" },
+    ),
+    { name: "@nodefony/framework", policy: "mandatory" },
+
+    // Realtime APRÈS framework. Backplane `cluster` (IPC intra-pod, master relay) par
+    // DÉFAUT : 0 dépendance externe. Mono-process → hub local ; cluster (`--workers N`)
+    // → fan-out IPC entre workers du même pod. Redis = OPT-IN cross-pod (voir plus bas).
+    use("@nodefony/realtime", { backplane: { driver: "cluster" } }),
+
+    // Sécurité applicative (P6) — requise dès qu'on sert du trafic.
+    use(
+      "@nodefony/security",
+      {
+        firewalls: {
+          main: {
+            path: new RegExp("/.*", "u"),
+            helmet: {},
+            cors: {},
+          },
+        },
+      },
+      { policy: "mandatory" },
+    ),
+
+    // ── Démo / tests d'intégration — hors production.
+    { name: "@nodefony/test", policy: "dev" },
+
+    // Frontend AVANT ses consumers.
+    "@nodefony/frontend",
+    { name: "@nodefony/test-frontend-react", policy: "dev" },
+    { name: "@nodefony/test-frontend-vue", policy: "dev" },
+    { name: "@nodefony/test-frontend-angular", policy: "dev" },
+    { name: "@nodefony/mediasoup", policy: "dev" },
+
+    // ── Doc transverse AVANT Studio.
+    "@nodefony/documentation",
+
+    // Studio admin — console d'administration du framework.
+    { name: "@nodefony/studio", policy: "mandatory" },
+
+    // ── Accès Redis générique — requis UNIQUEMENT pour le backplane realtime `redis`
+    //    (fan-out cross-pod). Avec le défaut IPC (intra-pod) il est inutile.
+    //    Décommenter + REDIS_PASSWORD pour le fan-out cross-pod (Phase 16) :
+    // use("@nodefony/redis", undefined, {
+    //   when: (c) => (c.modules ?? []).some(
+    //     (m) => typeof m === "object" && m.name === "@nodefony/realtime",
+    //   ),
+    // }),
+
+    // ── Exemple : module NoSQL Mongoose (non chargé par défaut). Décommenter ICI
+    //    pour l'activer, avec sa config colocalisée :
+    // use("@nodefony/mongoose", {
+    //   debug: true,
+    //   connectors: {
+    //     nodefony: {
+    //       host: "localhost",
+    //       port: 27017,
+    //       dbname: "nodefony",
+    //       options: { user: "nodefony", pass: "nodefony", maxPoolSize: 50 },
+    //     },
+    //   },
+    // }),
+  ],
+}));
