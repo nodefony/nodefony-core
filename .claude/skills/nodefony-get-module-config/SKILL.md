@@ -21,7 +21,7 @@ Cible directement les fichiers de structure d'un module (`config/`, `services.ts
 
 ## Pourquoi ça économise des tokens
 
-Lire un controller ou un service complet pour comprendre comment il est *enregistré* est 10× plus coûteux que de lire les 30 lignes de `config.ts`. Ce skill force le ciblage sur les métadonnées.
+Lire un controller ou un service complet pour comprendre comment il est _enregistré_ est 10× plus coûteux que de lire les 30 lignes de `config.ts`. Ce skill force le ciblage sur les métadonnées.
 
 ## Commandes à exécuter
 
@@ -65,4 +65,6 @@ find src -type f -name "config.ts" -path "*/nodefony/config/*" 2>/dev/null
 
 - Pour comprendre **ce que fait** un controller → lire le source du controller
 - Pour les configs JSON `package.json` → utiliser `jq` directement
-- Pour la config kernel globale (`nodefony/config/config.ts` à la racine) → lire ce fichier dédié
+- Pour la config de l'**application** (racine) → lire **`nodefony.config.ts`** (descripteur `defineConfig`,
+  manifeste `modules` via `use()`) + **`env.ts`** (catalogue `defineEnv`). ⚠️ Plus de `nodefony/config/config.ts`
+  (supprimé Lot 5) ; les défauts framework vivent dans le core (`src/nodefony/src/config/defaults.ts`).

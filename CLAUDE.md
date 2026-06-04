@@ -399,6 +399,71 @@ const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
 > `http`/`mongoose` étaient déjà sûrs (guardés `?.`). Vaut pour TOUT accès kernel au top-level d'un
 > fichier chargé à l'import du module (pas que `config.ts`).
 
+### Configuration de l'APPLICATION — `defineConfig` (modèle figé 2026-06-05, Lot 5)
+
+La config de l'app vit dans **`nodefony.config.ts`** (racine) + **`env.ts`** (racine). Plus de
+dossier `nodefony/config/{config,app,servers,log,schema,modules}.ts` (supprimés). Le core porte les
+**défauts** (`defaultAppConfig`) ; l'app n'écrit QUE ses écarts (deep-merge au boot).
+
+```typescript
+// nodefony.config.ts — UN fichier, l'orchestrateur
+import { defineConfig, use } from "nodefony";
+import type { env } from "./env";
+export default defineConfig<typeof env>((ctx) => ({
+  domain: ctx.isProd ? "0.0.0.0" : "127.0.0.1", // par-env via ctx (PAS de config.prod.ts)
+  log: { debug: ctx.isProd ? [] : "*", driver: ctx.env.NF_LOG_DRIVER },
+  modules: [
+    // manifeste ordonné (remplace @modules)
+    use(
+      "@nodefony/http",
+      { trustedHosts: ["localhost"] },
+      { policy: "mandatory" },
+    ), // config colocalisée
+    "@nodefony/framework",
+    { name: "@nodefony/test", policy: "dev" }, // gating policy/when
+  ],
+}));
+```
+
+```typescript
+// env.ts — SEUL lecteur de process.env (catalogue typé + validé au boot)
+import { defineEnv, envEnum, envString } from "nodefony";
+export const env = defineEnv({
+  NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
+    default: "stdout",
+  }),
+  LOKI_URL: envString({ optional: true }),
+});
+```
+
+`index.ts` racine : `import config from "./nodefony.config"` (passé à `super(...)`) + `export { env }`
+(lu par le Kernel pour `ctx.env`). **Plus de `export { validateConfig }`** (la validation Zod est
+intégrée au `resolve()` du descripteur, dans le core).
+
+**Règles** :
+
+- `ctx = { env, appEnv, runtimeEnv, isProd, isDev, isTest }`. Par-env = **fonction `(ctx) => …`**, jamais un fichier parallèle.
+- `use(name, config, opts?)` colocalise la config d'un module avec son chargement (remplace les clés `module-<name>` à la racine). `opts = { policy, when }`.
+- ⚠️ `as const` sur les valeurs d'`envEnum([...])` (sinon l'union littérale est élargie en `string` → erreur de type sur le champ ciblé).
+- `enverrouiller le kernel au top-level` reste interdit ; avec `(ctx) => …` + getters lazy, le deref devient inutile (cf section ci-dessus).
+- Cluster : `nodefony/config/cluster/cluster.config.ts` reste un fichier **séparé kernel-free** (le master le lit standalone AVANT boot) — ne PAS le mettre dans `nodefony.config.ts`.
+
+**Convention module (OBLIGATOIRE pour le typage de `use()`)** : tout module qui expose une config doit
+(1) publier son interface `IXConfig`, et (2) **augmenter le registre** pour que `use("@nodefony/x", …)`
+propose ses clés typées :
+
+```typescript
+// dans @nodefony/x (ex. index.ts)
+declare module "nodefony" {
+  interface NodefonyModuleConfig {
+    "@nodefony/x": IXConfig;
+  }
+}
+```
+
+Sans augmentation, `use()` accepte quand même la config (`Record<string, unknown>`) — jamais bloquant,
+juste moins d'auto-complétion. Détails + recettes : [`docs/guides/configuration.md`](docs/guides/configuration.md).
+
 ---
 
 ## Workflow de session Claude Code

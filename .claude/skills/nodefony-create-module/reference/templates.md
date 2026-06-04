@@ -276,7 +276,7 @@ TOUS les chunks `nodefony/foo/bar.js` produits par `preserveModules`.
  * et `MEMORY.md` pour les internals IA.
  */
 import { Kernel, Module, services } from "nodefony";
-import config from "./nodefony/config/config";
+import config, { type {{NameClass}}Config } from "./nodefony/config/config";
 import { {{name}}ConfigSchema } from "./nodefony/config/schema";
 import {{NameClass}}Service from "./nodefony/service/{{NameClass}}Service";
 // ↓ si commands :
@@ -326,6 +326,15 @@ export { {{NameClass}}Service };
 // Interfaces publiques.
 export type { I{{NameClass}}Service } from "./nodefony/interfaces/I{{NameClass}}Service";
 export type { {{NameClass}}Config } from "./nodefony/config/config";
+
+// Typage de `use("@nodefony/{{name}}", …)` dans `nodefony.config.ts` (convention figée
+// 2026-06-05) : on augmente le registre du core par declaration merging (pattern Nuxt/Pinia)
+// → l'app obtient l'auto-complétion + le hover TSDoc des clés de config de CE module.
+declare module "nodefony" {
+  interface NodefonyModuleConfig {
+    "@nodefony/{{name}}": {{NameClass}}Config;
+  }
+}
 
 // Erreurs.
 export {
@@ -388,8 +397,9 @@ export type {{NameClass}}Config = z.infer<typeof {{name}}ConfigSchema>;
  * via `{{name}}ConfigSchema.parse({})` — utile pour le `super(..., config)` du
  * Module class (toujours valide par construction).
  *
- * Surcharge côté app : clé `module-{{name}}` dans le `config.ts` racine, ou prop
- * `module.options` du module consumer. La fusion + validation finale est faite
+ * Surcharge côté app : `use("@nodefony/{{name}}", { …config })` dans le manifeste
+ * `modules` de `nodefony.config.ts` (remplace l'ancienne clé `module-{{name}}`), ou
+ * prop `module.options` du module consumer. La fusion + validation finale est faite
  * dans `index.ts` au hook `onKernelRegister` (plante propre si invalide).
  *
  * ⚠️ NE PAS éditer les valeurs ici à la main : modifier les `.default(...)` du
@@ -716,14 +726,16 @@ enabled: true,
 
 ## Installation
 
-Workspace npm — déjà inclus dans nodefony-core. Ajouter au `@modules([])` de
-votre `index.ts` racine pour l'activer :
+Workspace npm — déjà inclus dans nodefony-core. Ajouter au tableau `modules` du
+descripteur `defineConfig` de votre `nodefony.config.ts` racine pour l'activer :
 
 \`\`\`typescript
-@modules([
+export default defineConfig((ctx) => ({
+modules: [
 // ...
 "@nodefony/{{name}}",
-])
+],
+}));
 \`\`\`
 
 ## Usage
@@ -738,15 +750,17 @@ console.log(svc.status());
 
 ## Configuration
 
-Surcharger les defaults via la clé `module-{{name}}` dans le config racine :
+Surcharger les defaults via `use()` dans le manifeste `modules` de `nodefony.config.ts` :
 
 \`\`\`typescript
-const config = {
+import { defineConfig, use } from "nodefony";
+
+export default defineConfig((ctx) => ({
+modules: [
 // ...
-"module-{{name}}": {
-enabled: true,
-},
-};
+use("@nodefony/{{name}}", { enabled: true }),
+],
+}));
 \`\`\`
 
 ## API

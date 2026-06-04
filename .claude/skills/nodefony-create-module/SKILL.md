@@ -4,7 +4,7 @@ description: >
   Scaffold complet d'un nouveau module Nodefony — package.json, tsconfig, rollup, structure
   nodefony/{interfaces,service,command,src,config}/, index.ts (Module + @services + exports),
   CLAUDE.md, MEMORY.md, README.md. Détecte le pattern (package @nodefony/* vs module applicatif
-  src/modules/), pré-configure peerDeps et options (CLI, controllers, frontend), met à jour @modules() racine.
+  src/modules/), pré-configure peerDeps et options (CLI, controllers, frontend), met à jour le manifeste `modules` de nodefony.config.ts.
   Déclencheurs : "crée un module", "scaffold module", "nouveau module nodefony", "génère un module",
   "create module", "bootstrap module", "module @nodefony/...".
 ---
@@ -58,11 +58,15 @@ En cas de doute : assumer **package @nodefony/** (le cas le plus fréquent).
 - `Entities ORM` — ajoute `nodefony/entity/` + peer `@nodefony/sequelize` (ou mongoose selon config)
 - `Frontend Vite` — ajoute `frontend/`, peer `@nodefony/frontend`, déclaration `registerEntry` dans `onKernelBoot`
 
-### Q4 — Ajouter au `@modules([...])` racine ?
+### Q4 — Ajouter au manifeste `modules` de `nodefony.config.ts` ?
 
-> "Activer le module dans index.ts racine maintenant ? (oui = ajouté tout de suite et utilisable au prochain build)"
+> "Activer le module dans la config maintenant ? (oui = ajouté tout de suite et utilisable au prochain build)"
 
-Si oui : éditer `/Users/cci/repository/nodefony-core/index.ts` pour ajouter le nom du module dans le décorateur `@modules([...])` (ordre important : packages framework AVANT modules applicatifs ; un consumer DOIT être après le module qu'il consomme).
+Si oui : éditer **`/Users/cci/repository/nodefony-core/nodefony.config.ts`** pour ajouter le module au
+tableau **`modules`** du descripteur `defineConfig` (⚠️ plus de décorateur `@modules` — RETIRÉ 2026-06-03).
+Forme : `"@nodefony/<name>"` (string nue = optional), `{ name, policy: "dev"|"mandatory", when }`, ou
+**`use("@nodefony/<name>", { …config }, { policy })`** pour colocaliser une config. Ordre important :
+packages framework AVANT modules applicatifs ; un consumer DOIT être après le module qu'il consomme.
 
 ## Étapes d'exécution
 
@@ -139,21 +143,26 @@ npm run build --workspace={{path_dir}} 2>&1 | tail -5
 
 Vérifier qu'il n'y a PAS de `error TS[0-9]+` (les warnings TS7016 sur `rollup-sourcemap-path-transform` sont attendus et acceptables).
 
-### 5. Optionnel — activation dans @modules racine
+### 5. Optionnel — activation dans le manifeste `modules` de `nodefony.config.ts`
 
-Si l'user a dit oui à Q4 :
+Si l'user a dit oui à Q4 (⚠️ **plus de décorateur `@modules`** — RETIRÉ 2026-06-03 ; la liste vit dans
+la config) :
 
 ```typescript
-// index.ts racine — éditer la liste @modules([...])
-@modules([
+// nodefony.config.ts racine — éditer le tableau `modules` du descripteur defineConfig
+modules: [
   "@nodefony/sequelize",
-  "@nodefony/http",
-  "@nodefony/framework",
-  "@nodefony/security",
-  "@nodefony/test",
-  "@nodefony/{{name}}",  // ← ajouté ici
-])
+  use("@nodefony/http", { /* … */ }, { policy: "mandatory" }),
+  { name: "@nodefony/framework", policy: "mandatory" },
+  { name: "@nodefony/security", policy: "mandatory" },
+  { name: "@nodefony/test", policy: "dev" },
+  "@nodefony/{{name}}",  // ← ajouté ici (ou use("@nodefony/{{name}}", { …config }) pour colocaliser)
+],
 ```
+
+> **Typage de `use()`** : pour que `use("@nodefony/{{name}}", …)` propose les clés de config du module,
+> le module augmente le registre (cf template `index.ts` ci-dessous) :
+> `declare module "nodefony" { interface NodefonyModuleConfig { "@nodefony/{{name}}": {{NameClass}}Config } }`.
 
 **Séquence post-scaffold FIABLE** (ordre vécu 2026-05-22 sur `mediasoup` — chaque étape évite un crash) :
 
@@ -178,7 +187,7 @@ Format court :
 Module @nodefony/{{name}} créé.
   - {{path_dir}}/
   - Build OK (X.Xs)
-  - Activé dans @modules racine : oui/non
+  - Activé dans le manifeste `modules` (nodefony.config.ts) : oui/non
   - Services : [...], Commands : [...], Controllers : [...]
 ```
 
@@ -200,7 +209,7 @@ Après génération :
 
 1. **Build du module** : `npm run build --workspace={{path_dir}}`
 2. **Vérifier 0 erreur TS** (warnings TS7016 rollup-sourcemap acceptables)
-3. **Si activé dans @modules racine** : `npm run build` full + check qu'aucun workspace ne casse
+3. **Si activé dans le manifeste `modules`** : `npm run build` full + check qu'aucun workspace ne casse
 4. **Reporter à l'user** le statut + chemins créés
 
 ## Pièges connus à éviter
@@ -214,10 +223,10 @@ Après génération :
 | ANSI dans stdout child                                                 | regex match foire                                                                                                                                                  | strip via `/\x1b\[[0-9;]*m/g`                                                                                                                           |
 | `npx command &` meurt SIGHUP                                           | process detached die                                                                                                                                               | spawn `detached: true` + `child.unref()`                                                                                                                |
 | `path.resolve(root, "./frontend/src/main.tsx")` quand root déjà absolu | `frontend/frontend/...` doublé                                                                                                                                     | Stocker entryFile relatif au root (`path.relative(root, abs)`)                                                                                          |
-| Activation `@modules` dans le mauvais ordre                            | service non trouvé au consumer                                                                                                                                     | Frontend AVANT son consumer ; framework/http AVANT modules qui les utilisent                                                                            |
+| Activation `modules` (nodefony.config.ts) dans le mauvais ordre        | service non trouvé au consumer                                                                                                                                     | Frontend AVANT son consumer ; framework/http AVANT modules qui les utilisent                                                                            |
 | Forgot `/// <reference types="node" />`                                | TS errors sur globals Node                                                                                                                                         | Première ligne des fichiers test                                                                                                                        |
 | **Nouveau workspace sans `npm install`**                               | **boot crash `Cannot find package '.../node_modules/@nodefony/<mod>/dist/index.js'`**                                                                              | **`npm install` racine APRÈS création** → crée le symlink `node_modules/@nodefony/<mod>` (glob workspaces `src/modules/*` / `src/packages/@nodefony/*`) |
-| **Dist RACINE périmé après `@modules()`**                              | 1er boot rate le module (même si le module est bâti)                                                                                                               | **rebuild dist racine** (`npx rollup -c` à la racine) — `start.sh` ne build QUE le module test ; cf mémoire `feedback_root_dist_stale_modules`          |
+| **Dist RACINE périmé après ajout au manifeste `modules`**              | 1er boot rate le module (même si le module est bâti)                                                                                                               | **rebuild dist racine** (`npx rollup -c` à la racine) — `start.sh` ne build QUE le module test ; cf mémoire `feedback_root_dist_stale_modules`          |
 | **Turbo sert des types périmés d'une lib partagée**                    | `TS2353 '<champ>' n'existe pas sur <IInterface>` alors que la source l'a (ex. champ ajouté à `IEntity` dans orm-core)                                              | **builder la dép EN DIRECT** (`cd <dep> && npm run build`), PAS via turbo (cache stale) ; cf `feedback_turbo_cache_stale_logs`                          |
 | **`created dist` menteur**                                             | build « réussi » mais `dist/index.js` **absent** — les erreurs de type `@rollup/plugin-typescript` sont des **WARNINGS**, le JS s'émet (ou pas) sans faire échouer | **TOUJOURS `ls dist/index.js`** après build, ne pas se fier au message « created dist »                                                                 |
 

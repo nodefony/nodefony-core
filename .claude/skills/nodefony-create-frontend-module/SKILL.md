@@ -34,16 +34,16 @@ le spécifique par framework est dans **[`reference/frameworks.md`](reference/fr
 
 ## Table de paramètres par framework (LE cœur)
 
-| Aspect | `react` | `vue` | `angular` |
-| --- | --- | --- | --- |
-| `type` registerEntry | `react19` | `vue3` | `angular` |
-| `entry` | `./frontend/src/main.tsx` | `./frontend/src/main.ts` | `./frontend/src/main.ts` |
-| Nœud de montage (HTML) | `<div id="root"></div>` | `<div id="app"></div>` | `<app-root></app-root>` |
-| Plugin Vite | `@vitejs/plugin-react` | `@vitejs/plugin-vue` | `@analogjs/vite-plugin-angular` |
-| peerDeps à ajouter | `react`, `react-dom` | `vue`, `@vitejs/plugin-vue` | *(voir reference — devDeps)* |
-| Fichiers frontend | `main.tsx` + `App.tsx` | `main.ts` + `App.vue` | `main.ts` + `app/app.component.ts` + `tsconfig.app.json` |
-| Preamble HMR injecté | **oui** (auto via `renderTags`) | non | non (HMR = reload) |
-| Module de référence | `src/modules/test-frontend-react` | `src/modules/test-frontend-vue` | `src/modules/test-frontend-angular` |
+| Aspect                 | `react`                           | `vue`                           | `angular`                                                |
+| ---------------------- | --------------------------------- | ------------------------------- | -------------------------------------------------------- |
+| `type` registerEntry   | `react19`                         | `vue3`                          | `angular`                                                |
+| `entry`                | `./frontend/src/main.tsx`         | `./frontend/src/main.ts`        | `./frontend/src/main.ts`                                 |
+| Nœud de montage (HTML) | `<div id="root"></div>`           | `<div id="app"></div>`          | `<app-root></app-root>`                                  |
+| Plugin Vite            | `@vitejs/plugin-react`            | `@vitejs/plugin-vue`            | `@analogjs/vite-plugin-angular`                          |
+| peerDeps à ajouter     | `react`, `react-dom`              | `vue`, `@vitejs/plugin-vue`     | _(voir reference — devDeps)_                             |
+| Fichiers frontend      | `main.tsx` + `App.tsx`            | `main.ts` + `App.vue`           | `main.ts` + `app/app.component.ts` + `tsconfig.app.json` |
+| Preamble HMR injecté   | **oui** (auto via `renderTags`)   | non                             | non (HMR = reload)                                       |
+| Module de référence    | `src/modules/test-frontend-react` | `src/modules/test-frontend-vue` | `src/modules/test-frontend-angular`                      |
 
 > Détails (templates entry/App, tsconfig Angular, gotchas Angular) → **[`reference/frameworks.md`](reference/frameworks.md)**.
 > Les 3 modules de référence sont **canoniques** : toujours s'en inspirer pour le résultat attendu.
@@ -64,38 +64,41 @@ le spécifique par framework est dans **[`reference/frameworks.md`](reference/fr
 
 Appeler le skill avec ce preset (fixer ces réponses) :
 
-| Question `nodefony-create-module` | Réponse forcée |
-| --- | --- |
-| Q1 Nom | demander (kebab-case, **sans** préfixe `@nodefony/`) |
-| Q2 Catégorie | **Module applicatif** (`src/modules/{nom}/`) — toujours |
-| Q3 Options | **`Controllers HTTP` + `Frontend Vite`** (pas de Service/CLI/Entities sauf demande explicite) |
-| Q4 `@modules` racine | **Oui** (sinon la page n'est pas servie) |
+| Question `nodefony-create-module`           | Réponse forcée                                                                                |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Q1 Nom                                      | demander (kebab-case, **sans** préfixe `@nodefony/`)                                          |
+| Q2 Catégorie                                | **Module applicatif** (`src/modules/{nom}/`) — toujours                                       |
+| Q3 Options                                  | **`Controllers HTTP` + `Frontend Vite`** (pas de Service/CLI/Entities sauf demande explicite) |
+| Q4 manifeste `modules` (nodefony.config.ts) | **Oui** (sinon la page n'est pas servie)                                                      |
 
 Génère : `package.json` (peers `@nodefony/frontend|framework|http`), `tsconfig.json`, `rollup.config.ts`,
 `index.ts` (avec `@controllers` + `onKernelBoot` → `registerEntry`), `frontend/`, controller stub, config stub,
-activation `index.ts` racine.
+activation dans le manifeste `modules` de `nodefony.config.ts`.
 
 ## Phase 2 — Enrichissements (POST-`nodefony-create-module`)
 
 Vérifier puis surcharger/compléter (skip si déjà correct).
 
 ### 2.1 peerDeps du framework
+
 Edit `src/modules/{MOD}/package.json` → ajouter les peerDeps de la colonne framework (table). Angular : cf reference.
 
 ### 2.2 Config HTTPS — `nodefony/config/config.ts`
+
 ```typescript
 /** Config du module {MOD}. Surcharge `module-frontend` (@nodefony/frontend). */
 const config = {
-  "module-frontend": { https: {HTTPS_VITE} }, // true si HTTPS Vite
+  "module-frontend": { https: { HTTPS_VITE } }, // true si HTTPS Vite
 };
 export default config;
 ```
 
 ### 2.3 `registerEntry` + `apiProxyPaths` (dans `index.ts`, `onKernelBoot`)
+
 ```typescript
 svc.registerEntry(this, {
-  type: "{TYPE}",            // react19 | vue3 | angular  (table)
-  entry: "{ENTRY}",          // main.tsx | main.ts        (table)
+  type: "{TYPE}", // react19 | vue3 | angular  (table)
+  entry: "{ENTRY}", // main.tsx | main.ts        (table)
   root: "./frontend",
   outDir: "./public/dist",
   name: "{MOD}",
@@ -104,7 +107,9 @@ svc.registerEntry(this, {
 ```
 
 ### 2.4 Controller HTML + CSP — `nodefony/controller/{MOD_PASCAL}Controller.ts`
+
 Commun aux 3 frameworks ; seul **le nœud de montage** change (table).
+
 ```typescript
 import { Controller, route, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
@@ -149,38 +154,43 @@ export default {MOD_PASCAL}Controller;
 ```
 
 ### 2.5 Fichiers frontend (entry + App)
+
 Templates par framework dans **[`reference/frameworks.md`](reference/frameworks.md)**.
 Pour un résultat riche, copier/adapter depuis le module de référence (`src/modules/test-frontend-{fw}/frontend/`).
 
 ## Phase 3 — Build + validation
+
 ```bash
 # (a) Nouveau workspace → symlink (SINON boot crash "Cannot find package .../dist/index.js")
 cd /Users/cci/repository/nodefony-core && npm install
 # (b) Build module EN DIRECT + VÉRIFIER l'émission (ne pas se fier au message "created dist")
 cd /Users/cci/repository/nodefony-core/src/modules/{MOD} && npm run build && ls dist/index.js
-# (c) Dist RACINE rebuild après ajout @modules (start.sh ne build QUE le module test)
+# (c) Dist RACINE rebuild après ajout au manifeste `modules` de nodefony.config.ts (start.sh ne build QUE le module test)
 cd /Users/cci/repository/nodefony-core && npx rollup -c
 cd /Users/cci/repository/nodefony-core && npx tsc --noEmit | head -20
 ```
+
 > ⚠️ Si le module **consomme une lib partagée modifiée** (champ ajouté à `@nodefony/orm-core`…),
 > builder cette dép **EN DIRECT** (`cd <dep> && npm run build`) avant le module — turbo sert des
 > **types périmés** (`TS2353 '<champ>' n'existe pas`). Tableau complet : skill `nodefony-create-module` (Pièges).
-Lancer le serveur (skill `nodefony-start-server`) puis naviguer :
-`http://127.0.0.1:5151{ROUTE}/` · `https://127.0.0.1:5152{ROUTE}/` (si HTTPS).
-**Pas de Chrome headless** (bloque la machine) → vérif `curl -sk` transform Vite + hard-reload user.
+> Lancer le serveur (skill `nodefony-start-server`) puis naviguer :
+> `http://127.0.0.1:5151{ROUTE}/` · `https://127.0.0.1:5152{ROUTE}/` (si HTTPS).
+> **Pas de Chrome headless** (bloque la machine) → vérif `curl -sk` transform Vite + hard-reload user.
 
 ## Checklist finale
+
 - [ ] `index.ts` : `apiProxyPaths` présent dans `registerEntry`
 - [ ] Controller : `setHeader("Content-Security-Policy", svc.getCspDirectives())` AVANT `render`
 - [ ] Nœud de montage HTML = celui du framework (table)
 - [ ] `module-frontend.https` = choix user
-- [ ] `@modules` racine : `@nodefony/frontend` AVANT `@nodefony/{MOD}` (ordre boot critique)
-- [ ] peerDeps du framework présents (react+react-dom / vue / @angular*)
+- [ ] manifeste `modules` (nodefony.config.ts) : `@nodefony/frontend` AVANT `@nodefony/{MOD}` (ordre boot critique)
+- [ ] peerDeps du framework présents (react+react-dom / vue / @angular\*)
 - [ ] `npx tsc --noEmit` 0 erreur + `npm run build` du module OK
 - [ ] `npm install` lancé (symlink workspace) + `ls dist/index.js` vérifié + `rollup -c` racine (dist racine à jour)
 
 ## Pièges communs (les 3 frameworks)
-1. **Ordre `@modules`** : frontend AVANT le module → sinon `@nodefony/frontend service unavailable` au boot.
+
+1. **Ordre du manifeste `modules`** : frontend AVANT le module → sinon `@nodefony/frontend service unavailable` au boot.
 2. **`apiProxyPaths` manquant** : `Unexpected token '<'` sur `fetch("{ROUTE}/api/...")` (Vite renvoie le SPA-fallback HTML).
 3. **CSP** : page blanche + `blocked:csp` → controller doit poser `svc.getCspDirectives()`.
 4. **Cache navigateur HMR** : après changement CSP/manifest → **Cmd+Shift+R**.
@@ -191,6 +201,7 @@ Lancer le serveur (skill `nodefony-start-server`) puis naviguer :
 > `useDefineForClassFields:false`, HMR=reload) → **[`reference/frameworks.md`](reference/frameworks.md)**.
 
 ## Skills & références liés
+
 - `nodefony-create-module` — délégué Phase 1 (squelette)
 - `nodefony-start-server` — lancer après scaffold
 - `src/packages/@nodefony/frontend/README.md` — doc complète

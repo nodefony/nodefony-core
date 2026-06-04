@@ -1,6 +1,6 @@
 ---
 name: nodefony-framework-dev
-version: 1.19.0
+version: 1.20.0
 description: >
   Kit de dev du CŒUR (backend) de Nodefony : core (nodefony), @nodefony/http (pipeline/serveurs/WS/
   sessions/certifs), @nodefony/framework (Router/Controller/décorateurs) ; créer service, module,
@@ -20,7 +20,7 @@ description: >
 
 # nodefony-framework-dev — kit de dev du cœur (backend) pour agent IA
 
-> **v1.19.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
+> **v1.20.0** · kit **VIVANT & VERSIONNÉ** — enrichi à CHAQUE session cœur (boucle d'auto-amélioration : cf §12).
 > Versionné par git (history du fichier) + changelog interne (fin du doc) + SemVer en frontmatter.
 
 Playbook **déterministe** pour développer le **cœur** de Nodefony : `nodefony` (core), `@nodefony/http`,
@@ -574,8 +574,42 @@ export default {
   `@nodefony/http/nodefony/config/config.ts`.
 - ⚠️ **JAMAIS dérefencer le kernel au top-level** (config évaluée à l'import) → **getter lazy** (résolu
   au boot/merge) ou **guard** `Nodefony.getKernel()?.tmpDir?.path ?? "/tmp"`. Sinon module non-importable/testable.
-- **Surcharge** : l'app pose `config/modules/<module>-config.ts` ; un module pose `Module-<name>` dans ses
-  options → `readOverrideModuleConfig()` merge (`extend(mod.options, override)`).
+- **Surcharge** : l'app colocalise la config d'un module via **`use("@nodefony/x", { … })`** dans le
+  manifeste `modules` de `nodefony.config.ts` (deep-merge sous la config DEFAULT du module avant sa
+  validation Zod) ; un module pose `Module-<name>` dans ses options → `readOverrideModuleConfig()` merge
+  (`extend(mod.options, override)`). Les clés legacy `module-<name>` à la racine sont remplacées par `use()`.
+- **Typage `use()` (OBLIGATOIRE)** : pour que `use("@nodefony/x", …)` propose les clés du module, le module
+  **augmente le registre** : `declare module "nodefony" { interface NodefonyModuleConfig { "@nodefony/x": IXConfig } }`
+  (declaration merging, pattern Nuxt). Sans ça → `Record<string, unknown>` (accepté, mais 0 auto-complétion).
+
+### Config de l'APPLICATION (`nodefony.config.ts` + `env.ts`) — descripteur `defineConfig`
+
+L'app **n'est plus** un dossier `nodefony/config/*` : **`nodefony.config.ts`** (racine) =
+`defineConfig((ctx) => ({ … modules: [ use(…) ] }))` + **`env.ts`** (racine) = `defineEnv` (SEUL lecteur
+de `process.env`). Le core porte les défauts (`defaultAppConfig`) ; l'app écrit ses écarts (deep-merge).
+`index.ts` racine : `import config from "./nodefony.config"` + `export { env }` (lu par le Kernel pour
+`ctx.env`). Validation Zod intégrée au `resolve()` (core) → **plus de `export { validateConfig }`**.
+
+```typescript
+import { defineConfig, use } from "nodefony";
+import type { env } from "./env";
+export default defineConfig<typeof env>((ctx) => ({
+  domain: ctx.isProd ? "0.0.0.0" : "127.0.0.1", // par-env via ctx (jamais config.prod.ts)
+  log: { debug: ctx.isProd ? [] : "*", driver: ctx.env.NF_LOG_DRIVER },
+  modules: [
+    use(
+      "@nodefony/http",
+      { trustedHosts: ["localhost"] },
+      { policy: "mandatory" },
+    ),
+  ],
+}));
+```
+
+- `ctx = { env, appEnv, runtimeEnv, isProd, isDev, isTest }`. ⚠️ `as const` sur `envEnum([...])`.
+- Config cassée au boot → diagnostic clair + `EX_CONFIG` (78) via `Kernel.bootConfigError`.
+- Cluster = fichier séparé kernel-free (`nodefony/config/cluster/cluster.config.ts`, lu standalone par le master).
+- Guide complet : `docs/guides/configuration.md`. Règles figées : CLAUDE.md racine § « Configuration de l'APPLICATION ».
 
 ### Certificats TLS (HTTPS 5152 / WSS — auto-générés, service `Certificate`)
 
@@ -1499,6 +1533,15 @@ Mémoires IA : `feedback_perf_memory_rule`, `feedback_security_rfc_rigor`, `proj
 
 ## Changelog (SemVer — cf §12)
 
+- **1.20.0** (2026-06-05) — **Config app → `defineConfig` (chantier config Lot 5+7).** L'app dev passe au
+  descripteur `nodefony.config.ts` racine + `env.ts` (`defineEnv`) ; ajout de la section « Config de
+  l'APPLICATION » + MAJ « Surcharge » (clés `module-<name>` → **`use(name, config)`** dans le manifeste
+  `modules`) + convention **registre `NodefonyModuleConfig`** (`declare module "nodefony"`) pour le typage
+  de `use()`. Règles figées : CLAUDE.md racine § « Configuration de l'APPLICATION » ; guide humain
+  `docs/guides/configuration.md`. Skills alignés : `nodefony-create-module`/`-frontend-module` (registration
+  via manifeste, plus `@modules`), `nodefony-get-module-config`, `nodefony-start-server` (rebuild root après
+  édit config). Lockstep front = **studio-dev 1.20.0** (suit, pas de contrat front touché).
+  [[project_config_chantier_defineconfig_kit]].
 - **1.19.0** (2026-06-01) — **Trace des messages WebSocket dans le Suivi de requête (back).** Full-stack (front =
   studio-dev 1.19.0 ; commit `e44cbd5`). `@nodefony/http` : **seam de trace des frames WS gaté hors prod** (0 coût).
   `WebsocketContext` logge le **CONTENU** de RECEIVE/SEND/BROADCAST corrélé `requestId` via **`wsLogContent.ts`**

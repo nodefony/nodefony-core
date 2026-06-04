@@ -49,6 +49,13 @@ Le script gère **tout** : kill watch+rollup+ports → build conditionnel module
 → wait boot (fail-fast) → verify 4 servers réseau → health check. Sortie : marqueurs `>>>` sur stdout.
 Exit 0 = UP, exit 1 = crash/timeout. Log : `/tmp/nodefony-server.log`, PID : `/tmp/srv.pid`.
 
+> ⚠️ **Édit de la config app** (`nodefony.config.ts` / `env.ts` racine) : en `development`, `start.sh`
+> ne rebuilde QUE le module test → le DIST root reste périmé et la modif de config N'EST PAS prise en
+> compte. Rebuilder le root AVANT le restart : `npx rollup -c` à la racine (ou `start.sh --cluster` qui
+> rebuilde le root). Le boot lit la config depuis `dist/{index,nodefony.config,env}.js`, pas la source.
+> cf [[feedback_root_dist_stale_modules]]. (Le DevSupervisor auto-restart ne surveille pas encore ces
+> fichiers racine — régression Lot 5 à corriger côté `DevSupervisor.#paths`.)
+
 ## Pourquoi un script (et pas des commandes inline)
 
 - **1 approbation au lieu de 8** — fini les prompts de permission à chaque étape.

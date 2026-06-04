@@ -88,13 +88,14 @@ fi
 
 # ── 3. SPAWN detached (rm log d'abord pour éviter faux positif READY) ────────
 if [ "$MODE" = "cluster" ]; then
-  # ⚠️ Le runtime cluster (prod) lit la config + `@modules()` depuis le DIST root
-  # (`dist/index.js`), PAS la source → toute modif de `nodefony/config/**` ou
-  # `index.ts` DOIT être recompilée AVANT le boot, sinon STALE (vécu douloureux :
-  # backplane redis fantôme bloquant le boot, trustedHosts/localhost périmés,
-  # @modules d'hier absents). `start.sh` ne rebuildait QUE le module test → on
-  # rebuild le ROOT ici (turbo + `rollup -c`). cf [[feedback_root_dist_stale_modules]].
-  echo ">>> BUILD root (turbo + rollup -c) — config/@modules prod lus depuis dist/"
+  # ⚠️ Le runtime cluster (prod) lit la config depuis le DIST root (`dist/index.js`,
+  # `dist/nodefony.config.js`, `dist/env.js`), PAS la source → toute modif de
+  # `nodefony.config.ts` / `env.ts` / `index.ts` DOIT être recompilée AVANT le boot,
+  # sinon STALE (vécu douloureux : backplane redis fantôme bloquant le boot,
+  # trustedHosts/localhost périmés, manifeste `modules` d'hier absent). `start.sh` ne
+  # rebuildait QUE le module test → on rebuild le ROOT ici (turbo + `rollup -c`).
+  # cf [[feedback_root_dist_stale_modules]].
+  echo ">>> BUILD root (turbo + rollup -c) — config prod (nodefony.config.ts) lue depuis dist/"
   (cd "$ROOT" && npm run build 2>&1 | grep -iE "Tasks:" | tail -1)
   # Front PROD (P14.5) : en prod le front n'est PAS servi par Vite mais en STATIQUE
   # depuis les bundles Vite COMPILÉS — renderProdTags lit outDir/.vite/manifest.json.

@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.19.0
+version: 1.20.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
