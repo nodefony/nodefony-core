@@ -45,6 +45,33 @@ realtime/orm) — durcir d'abord évite que la sécurité hérite de la dette. C
   - **LB.5 ✅ LIVRÉ 2026-05-31** (`ea834db` + `bd7270b`/`6ea92e5`/`bf8efed`) : driver `cluster-file` (`createClusterFileLogDriver`) globbe `nodefony-*.jsonl` de TOUS les workers, merge trié par `timeStamp` (uid non comparable cross-process) ; `scanJsonlTail` partagé (0 dup) ; anti-OOM double (maxScanBytes/fichier + maxFiles). `file`+`cluster-file` **montés en dev** (switchables Studio) ; **dir de logs configurable** (`config.log.dir`, viewer Studio aligné) ; **honnêteté cluster** côté console (avertissement vue partielle → cluster-file) ; **chip mode runtime + fonds de panier** topbar ; cluster/backplanes au data plane. 7 tests LB.5. **Validation runtime cluster réel ✅ 2026-06-01** (test ultime Docker/charge : mono dev toggles 200, cluster -w4 toggles 403 + agrégation 4 workers ; fan-out Loki réel ; perf stable 1249 RPS ; memory 9/9). 🐛 **Fix doublon JSONL cluster-file** (`0fb1046`) : cause racine = **double boot complet dev+prod par worker** (cf `project_cli_module_command_dispatch`) → `Syslog.addTransport` dédup par `name`. Gate couleur ANSI boot-time ✅ 2026-06-01 (`7e68b05`, helper `logColor` gaté `isTTY` core/http/security → JSONL/pipe propres hors TTY).
   - **LB.4 ✅ LIVRÉ 2026-06-01** : drivers prod **loki** (push HTTP batché + LogQL) + **OpenSearch** (`_bulk` + `_search`) via registre de **fabriques** (0 hardcode Kernel) + `BatchingHttpTransport` + sonde `probe()`/`backplane/ping` + switch dev Studio + docker-compose (réseau `nodefony-net`, profils loki/opensearch + Grafana/Dashboards). **Validé runtime**. **Reste ⬜ LB.3b** : CLI `syslog:filter` (dette dispatch CLI). **Absorbe P3.6** (filtre requestId = `query({requestId})`) **+ P3.10**.
 
+### 🆕 Chantier CONFIGURATION (`defineConfig`) — 🥇 PRIORITÉ IMMÉDIATE (validé 2026-06-04)
+
+> Boussole : `project_config_chantier_defineconfig_kit` (**LIRE EN PREMIER**). Successeur du chantier config
+> app CLOS (.env conv B + découpage domaine + Zod boot, `…5df006c`) — qui n'était que **l'étape 1 (subie)**.
+
+**Cible DX** : `nodefony create app` → UN `nodefony.config.ts` racine **minuscule auto-documenté**. Scalabilité
+par composition (`modules: []`) + extraction CHOISIE (`config/<domaine>.ts` quand gros). API `defineConfig` /
+`defineEnv` / `use(...)` exportées de `nodefony`. **Typage impeccable** (autocomplete + hover TSDoc, 4 niveaux,
+dont config par module via registre augmentable) + **réactivité déclarée hot/boot** + **12-factor** vérifié
+(Docker/k8s : `process.env` gagne, 2 axes runtime/appEnv). Vision futur : config = donnée introspectable (Studio
+`z.toJSONSchema`, multi-source, audit à chaud). Inspiration Vite/Nuxt/Astro/Adonis — **pas un clone**.
+
+**Décisions figées** : D1 ✅ **zod en peerDep core** (reverse «core zod-free» LOT 5) · helper **`use(...)`** (PAS
+`withModule` — « module dans module » rejeté user) · **defaults framework À CRÉER** (n'existent PAS centralisés
+aujourd'hui = vrai gros morceau Lot 1, golden test anti-drift obligatoire).
+
+| Lot | Contenu                                                                                  | État            |
+| --- | ---------------------------------------------------------------------------------------- | --------------- |
+| 0   | Cadrage : mapping `app.options`, chaîne env 12-factor, inventaire defaults/vars env      | ✅ 2026-06-04   |
+| 1   | Moteur `defineConfig` + `defaultAppConfig` + typage 4 niveaux + schéma Zod + golden test | ⬜ **prochain** |
+| 2   | `defineEnv` (catalogue env typé/validé, infère `ctx.env`)                                | ⬜              |
+| 3   | `use()` + registre de types par module + manifeste                                       | ⬜              |
+| 4   | Câblage Kernel boot (résout `ctx`→descripteur→merge) — **memory.test**                   | ⬜              |
+| 5   | Migration app dev (référence) + TLS→`var/` + fix 3 derefs + purge mort                   | ⬜              |
+| 6   | Scaffold `create app` (starter auto-documenté) + `create-module`                         | ⬜              |
+| 7   | Docs + CLAUDE.md + MEMORY.md                                                             | ⬜              |
+
 ### 🆕 Chantier « API souveraine » (POC en branche) — APRÈS ORM, AVANT P6
 
 > **Direction validée 2026-05-31 (PAS figée — un POC tranchera).** Doc draft complète :
@@ -55,7 +82,7 @@ realtime/orm) — durcir d'abord évite que la sécurité hérite de la dette. C
 (snapshot REST ≡ `subscribe` WS) ; sécu **Zero Trust au niveau intention** (P6 vient brancher). **POC** :
 `ResourceController` + migration data plane Studio AJAX→WS + test grandeur nature **tables mediasoup** + test **GraphQL**
 (`buildCrudResolvers` qui manque). « Google » (collaboratif/offline = CRDT) = **exploratoire, HORS POC v1**.
-Séquencement : durcissement ORM → (Realtime reste S1) → **POC** → P6.
+Séquencement : **🥇 chantier CONFIG (`defineConfig`)** → durcissement ORM → (Realtime reste S1) → **POC** → P6.
 
 ### Sécurité (P6)
 
