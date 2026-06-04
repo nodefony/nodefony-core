@@ -54,6 +54,10 @@ typecheck` lançait le typecheck du core EN PARALLÈLE du build de ces packages 
   fichiers, coût €) à CHAQUE fin de session est coûteux et rarement actionné. → **END allégé** : 3-5
   bullets de frictions ici + `_state` + commit. Les **stats lourdes + graduation + archivage** sont
   déplacées dans **CONSOLIDATE** (rare, tous les 10-20 retex). Implémenté dans le skill 2026-05-31.
+- `[1× — 2026-06-04]` **capter les exigences ajoutées en cours de route DANS le kit, au fil de l'eau** : sur
+  une session de planif, le user a ajouté typage impeccable, hot/boot runtime, sémantique `use` APRÈS la vision
+  initiale → chaque ajout intégré immédiatement au kit (piliers/décisions), pas en fin. Évite de perdre une
+  exigence entre 2 messages + garde le kit comme source unique de la spec.
 
 ## 🧩 Modules / docs / front (frictions du jour)
 
@@ -139,6 +143,14 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧭 État projet / git / terminologie (frictions du jour)
 
+- `[1× — 2026-06-04]` **« chantier CLOS » en mémoire ≠ fini pour le user** : le chantier config app était marqué
+  CLOS (5 lots, `…5df006c`) ; le user : « le chantier config on a rien fait, juste la première étape ». Il le
+  voyait comme l'**étape 1** d'un chantier DX bien plus large (`defineConfig`). → quand le user rouvre un sujet
+  « clos », ne PAS opposer le statut mémoire : faire l'état des lieux factuel + **clarifier le PÉRIMÈTRE** qu'il a
+  en tête. Variante de « vérité = réalité, pas le journal ».
+- `[1× — 2026-06-04]` **user dit « c'est le foutoir » → ÉTAT DES LIEUX factuel AVANT toute proposition** : arbre du
+  répertoire + rôle de chaque fichier + sources de confusion classées, PUIS la cible. A débloqué la session (vision
+  validée juste après). Ne pas sauter directement à la solution.
 - `[1× — 2026-05-31]` **commits locaux non pushés = user perdu** : 19 commits sur `claude-ts` jamais
   poussés (« où est la partie git, j'ai pas compris »). Je committe en local mais ne `push` que sur demande
   → l'écart local↔remote n'est pas visible. → **annoncer proactivement l'état push en clôture** (`git status -sb`
@@ -310,11 +322,11 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
+- `2026-06-04-b32ebcd5` — **planification CHANTIER CONFIGURATION (`defineConfig`)** : état des lieux `nodefony/config/` + vision (1 fichier racine minuscule auto-doc, `defineConfig`/`defineEnv`/`use`) + plan 8 lots + Lot 0 bouclé (env 12-factor vérifié, defaults framework à CRÉER). Décisions D1 (zod core peerDep), `use` (pas withModule), typage 4 niveaux + hot/boot. 0 code (planif). `431f1e1` + kit boussole.
 - `2026-06-03-695bc070` — **Phase B (park centralisé via `lifetime`) + isTTY**, puis ménage piloté par audit : **retrait service rollup runtime** (−378 ms/−23 MB boot, A/B mesuré) + `nodefony build --force` (wrapper turbo) + **`@inquirer` lazy**. Audit poids d'import boot (imports ~1130 ms/94 MB, drizzle domine 423 ms/43 MB). 4 commits `b55c753`/`6a1dcd4`/`a71d004`/`68dd86e`.
 - `2026-06-01-8b47ba7d` — **chantier CLI** : filet intégration + commander 15 + **1 seul Kernel** (double-boot tué) + hooks lifecycle tous modes + audit boot (91 % = imports) + banc 3 modes server/batch/daemon + guide Docker + **splash dev-only** + durcissement filet (intégrité modules). 8 commits `…b05e381`.
 - `2026-06-01-690029d6` — fix doublon JSONL (double `initializeLog` re-monte FileTransport, `6814c05`) + fusion Profiler → Suivi de requête (onglets Timing/ORM + onglet Profiling Logs, page autonome supprimée, `1d4ed01`).
 - `2026-06-01-961eb178` — gate couleur ANSI boot-time (helper `logColor` gaté `isTTY`, core/http/security) → JSONL/pipe propres hors TTY ; allocation-neutre (1 commit `7e68b05`).
-- `2026-05-31-c7578918` — LB.5 cluster-file + console Logs cluster-honnête + chip runtime/backplanes topbar + dir logs configurable + fix test upload (5 commits).
 
 > ✅ **CONSOLIDATE audité le 2026-05-31** (`CONSOLIDATION-2026-05-31.md`) : les 57 bruts (05-25→05-31)
 > ont été balayés. **Verdict : rien à graduer.** Tous les thèmes récurrents (lock/lint-staged,
