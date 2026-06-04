@@ -238,15 +238,24 @@ class CliKernel extends Cli {
             // Toute autre erreur (option/commande inconnue OU échec de boot) → on
             // termine en erreur et on propage. PLUS de fallback « relancer un kernel
             // serveur » (legacy retiré) : un parse qui échoue ne démarre jamais de runtime.
-            this.log(e, "ERROR");
-            await this.kernel?.terminate(1);
+            // Erreur déjà PRÉSENTÉE (ex. config invalide via Kernel.bootConfigError) →
+            // ne pas re-logger une stack brute par-dessus le diagnostic clair ; le
+            // code de sortie est celui porté par l'erreur (EX_CONFIG) sinon 1.
+            const err = e as { presented?: boolean; exitCode?: number };
+            if (!err.presented) {
+              this.log(e, "ERROR");
+            }
+            await this.kernel?.terminate(err.exitCode ?? 1);
             throw e;
           });
       }
 
       throw new Error(`Commander not found`);
     } catch (e) {
-      this.log(e, "ERROR");
+      // Erreur déjà présentée (diagnostic clair émis en amont) → pas de re-log stack.
+      if (!(e as { presented?: boolean }).presented) {
+        this.log(e, "ERROR");
+      }
       throw e;
     }
   }
