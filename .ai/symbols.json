@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-04T19:34:12.260Z",
+  "generated": "2026-06-04T19:42:05.893Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 827,
-    "symbols": 1649,
+    "files": 828,
+    "symbols": 1661,
     "classes": 245,
-    "interfaces": 412,
+    "interfaces": 417,
     "types": 211,
     "enums": 3,
-    "functions": 304,
+    "functions": 311,
     "constants": 474
   },
   "symbols": {
@@ -530,6 +530,43 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Garde de type : `value` est-il un descripteur produit par {@link defineConfig} ? Utilisé par le Kernel (`loadApp`, Lot 4) pour distinguer une app moderne (`export default defineConfig(…)`) d'une co…"
+    },
+    "envString": {
+      "name": "envString",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "envNumber": {
+      "name": "envNumber",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "envBoolean": {
+      "name": "envBoolean",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Variable d'env BOOLEAN 12-factor : `1/true/yes/on` → true, `0/false/no/off` → false (insensible à la casse). Absente → `default` (défaut `false`). Valeur hors de ces ensembles → erreur au boot (typ…"
+    },
+    "envEnum": {
+      "name": "envEnum",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
+    "defineEnv": {
+      "name": "defineEnv",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit + valide un catalogue de variables d'environnement, une fois, au boot."
     },
     "Reactivity": {
       "name": "Reactivity",

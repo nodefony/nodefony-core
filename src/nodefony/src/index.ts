@@ -254,6 +254,13 @@ export {
 // Absent du barrel browser (src/client/index.ts) → 0 zod côté client.
 export { defineConfig, isConfigDescriptor } from "./config/defineConfig";
 export type { AppConfigDescriptor } from "./config/defineConfig";
+export {
+  defineEnv,
+  envString,
+  envNumber,
+  envBoolean,
+  envEnum,
+} from "./config/defineEnv";
 export { defaultAppConfig } from "./config/defaults";
 export { appConfigSchema, validateAppConfig } from "./config/schema";
 export type { AppConfig } from "./config/schema";

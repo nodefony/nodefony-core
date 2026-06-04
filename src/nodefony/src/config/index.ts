@@ -4,6 +4,13 @@
  */
 export { defineConfig, isConfigDescriptor } from "./defineConfig";
 export type { AppConfigDescriptor } from "./defineConfig";
+export {
+  defineEnv,
+  envString,
+  envNumber,
+  envBoolean,
+  envEnum,
+} from "./defineEnv";
 export { defaultAppConfig } from "./defaults";
 export { appConfigSchema, validateAppConfig } from "./schema";
 export type { AppConfig } from "./schema";
