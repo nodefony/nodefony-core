@@ -353,8 +353,11 @@ class CliKernel extends Cli {
       });
     });
     return kernel.start().catch(async (e) => {
-      // Échec de boot (exception interne) → EX_SOFTWARE (sysexits.h).
-      await this.kernel?.terminate(SysExit.SOFTWARE);
+      // Code de sortie porté par l'erreur si présent (ex. config invalide →
+      // EX_CONFIG=78, l'orchestrateur distingue « mauvaise config » d'un crash) ;
+      // sinon échec de boot générique → EX_SOFTWARE (sysexits.h).
+      const code = (e as { exitCode?: number }).exitCode ?? SysExit.SOFTWARE;
+      await this.kernel?.terminate(code);
       throw e;
     });
   }

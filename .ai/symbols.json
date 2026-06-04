@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-04T20:31:38.719Z",
+  "generated": "2026-06-04T21:11:14.699Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -13836,7 +13836,8 @@
         "src/nodefony/src/config/use.ts"
       ],
       "defaultAppConfig": [
-        "src/nodefony/src/config/defineConfig.ts"
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "validateAppConfig": [
         "src/nodefony/src/config/defineConfig.ts"
@@ -13845,7 +13846,8 @@
         "src/nodefony/src/config/defineConfig.ts"
       ],
       "ConfigContext": [
-        "src/nodefony/src/config/defineConfig.ts"
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "ConfigInput": [
         "src/nodefony/src/config/defineConfig.ts"
@@ -13884,7 +13886,8 @@
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "SysExit": [
-        "src/nodefony/src/kernel/CliKernel.ts"
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "CliDefaultOptions": [
         "src/nodefony/src/kernel/CliKernel.ts"
@@ -14010,6 +14013,26 @@
       ],
       "IModuleManifestEntry": [
         "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "isConfigDescriptor": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "nodefonyError": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/GraphqlController.ts",
+        "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
+        "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
+        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
+        "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "IGuardedListenerInfo": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -14536,22 +14559,6 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
-      ],
-      "nodefonyError": [
-        "src/modules/test/nodefony/controller/DefaultController.ts",
-        "src/modules/test/nodefony/controller/GraphqlController.ts",
-        "src/modules/test/nodefony/controller/RouteController.ts",
-        "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
-        "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-        "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"

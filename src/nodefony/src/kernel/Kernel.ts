@@ -40,6 +40,11 @@ import type {
   IModuleManifest,
   IModuleManifestEntry,
 } from "../types/IModuleManifest";
+import { isConfigDescriptor } from "../config/defineConfig";
+import { defaultAppConfig } from "../config/defaults";
+import type { ConfigContext } from "../config/types";
+import nodefonyError from "../Error";
+import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { readListenerTags } from "./lifecycleTags";
@@ -510,7 +515,11 @@ class Kernel extends Service implements IKernel {
 
       // load application
       await this.loadApp().catch((e) => {
-        this.log(e, "CRITIC");
+        // Erreur de config déjà présentée (bootConfigError) → ne pas re-logger une
+        // stack brute. Toute autre erreur de boot → log CRITIC complet.
+        if (!(e as { presented?: boolean }).presented) {
+          this.log(e, "CRITIC");
+        }
         throw e;
       });
       this.domain = this.setDomain();
@@ -1015,13 +1024,186 @@ class Kernel extends Service implements IKernel {
     mod.validateConfig?.(this.app?.options);
   }
 
+  /**
+   * Construit le contexte d'environnement (`ctx`) passé au descripteur
+   * {@link defineConfig} d'une app moderne. `runtimeEnv` = `NODE_ENV` normalisé
+   * (`dev`→`development`, conserve `test`/`production`) — granularité que le ctx
+   * expose (`isTest`), DISTINCTE du collapse dev/prod de {@link resolveRuntimeEnv}
+   * (gating moteur : un staging tourne « comme prod »). `appEnv` = axe déploiement
+   * libre (`APP_ENV`/`NODEFONY_ENV`). `process.env` est déjà peuplé par `loadEnv`
+   * (bin/nodefony) avant le boot → lecture sûre ici.
+   *
+   * @param env - catalogue env typé exposé par l'app (`export const env = defineEnv(…)`) ;
+   *   `undefined` (app legacy / pas de catalogue) → `process.env` brut.
+   * @returns contexte d'environnement pour `descriptor.resolve(ctx)`.
+   */
+  private buildConfigContext(env?: unknown): ConfigContext {
+    const raw = process.env.NODE_ENV || this.cli?.environment || "production";
+    const runtimeEnv = raw === "dev" ? "development" : raw;
+    const appEnv =
+      process.env.APP_ENV || process.env.NODEFONY_ENV || runtimeEnv;
+    return {
+      env: (env ?? process.env) as ConfigContext["env"],
+      appEnv,
+      runtimeEnv,
+      isProd: runtimeEnv === "production",
+      isDev: runtimeEnv === "development",
+      isTest: runtimeEnv === "test",
+    };
+  }
+
+  /**
+   * Résout les options brutes de l'app. App moderne (`export default defineConfig(…)`)
+   * → `raw` est un descripteur {@link AppConfigDescriptor} (le symbole de marque
+   * survit au spread d'options de `Service`) → résolu avec `ctx` (deep-merge des
+   * défauts framework + validation Zod intégrée à `resolve`). App legacy → objet de
+   * config retourné tel quel (validé séparément par son export `validateConfig`).
+   *
+   * @param raw - export par défaut de l'app (descripteur ou objet de config).
+   * @param ctx - contexte d'environnement ({@link buildConfigContext}).
+   * @returns options résolues + `wasDescriptor` (pilote le fallback de validation).
+   */
+  private resolveAppOptions(
+    raw: unknown,
+    ctx: ConfigContext,
+  ): { options: TypeKernelOptions; wasDescriptor: boolean } {
+    if (isConfigDescriptor(raw)) {
+      // Descripteur : merge défauts framework + validation Zod DANS resolve (Lot 1).
+      return {
+        options: raw.resolve(ctx) as TypeKernelOptions,
+        wasDescriptor: true,
+      };
+    }
+    // App legacy / config absente : merge SOUS les défauts framework (RÉSILIENCE — la
+    // config reste complète ; tout champ omis prend son défaut EXPLICITE) via la même
+    // recette `extend(true,{},…)` que le descripteur. La validation reste celle de
+    // l'app (export `validateConfig`). Une app vide boote ainsi sur defaultAppConfig.
+    const options = extend(
+      true,
+      {},
+      defaultAppConfig,
+      raw ?? {},
+    ) as TypeKernelOptions;
+    return { options, wasDescriptor: false };
+  }
+
+  /**
+   * Construit + PRÉSENTE une erreur de configuration de boot de façon
+   * EXCEPTIONNELLEMENT claire, et EXPLICITE sur la config PAR DÉFAUT du framework
+   * (ce qui s'applique pour tout champ omis). Une config cassée n'est pas
+   * récupérable (le framework ne peut pas deviner ports/modules) → fail-fast PROPRE :
+   * log lisible SANS stack brute (faute de config, pas bug framework), erreur marquée
+   * `presented` (le catch de boot ne re-loggue pas) + `exitCode` `EX_CONFIG`
+   * (l'orchestrateur distingue « mauvaise config » d'un crash logiciel).
+   *
+   * @param title - titre court de l'erreur.
+   * @param detail - phrase de contexte.
+   * @param cause - erreur d'origine (Zod, import, fonction de config).
+   * @param hints - correctifs actionnables.
+   * @returns nodefonyError marquée (`exitCode`/`presented`), à `throw`.
+   */
+  private bootConfigError(
+    title: string,
+    detail: string,
+    cause: unknown,
+    hints: string[],
+  ): nodefonyError {
+    const causeMsg = cause instanceof Error ? cause.message : String(cause);
+    const lines = [
+      "",
+      `  ✖ ${title}`,
+      `    ${detail}`,
+      `    Cause : ${causeMsg}`,
+      "",
+      "    Configuration PAR DÉFAUT du framework (appliquée à tout champ omis) :",
+      this.formatDefaults(),
+      "",
+      "    Pour corriger :",
+      ...hints.map((h) => `      → ${h}`),
+      "",
+    ];
+    this.log(lines.join("\n"), "CRITIC");
+    const err = new nodefonyError(`${title} : ${causeMsg}`);
+    err.exitCode = SysExit.CONFIG;
+    err.presented = true;
+    return err;
+  }
+
+  /** Rendu lisible (1 ligne/clé top-level) des valeurs par défaut du framework. */
+  private formatDefaults(): string {
+    return Object.entries(defaultAppConfig)
+      .map(([k, v]) => {
+        const val =
+          v !== null && typeof v === "object" ? JSON.stringify(v) : String(v);
+        return `      • ${k} = ${val}`;
+      })
+      .join("\n");
+  }
+
   private async loadApp(config?: TypeKernelOptions): Promise<Module> {
-    this.app = await this.loadModule(`${this.path}/dist/index.js`);
+    // ── Chargement + résolution de config = phase la plus fragile du boot →
+    //    blindée : toute défaillance produit un diagnostic clair + fail-fast propre
+    //    (cf bootConfigError), jamais une stack opaque.
+    try {
+      this.app = await this.loadModule(`${this.path}/dist/index.js`);
+    } catch (e) {
+      throw this.bootConfigError(
+        "Chargement de l'application impossible",
+        `Le point d'entrée \`${this.path}/dist/index.js\` n'a pas pu être importé/évalué.`,
+        e,
+        [
+          "Build périmé ou absent → `npm run clean && npm run build`.",
+          "Un fichier de config déréférence le kernel au top-level (résolu à l'import) → différer en getter/lazy.",
+        ],
+      );
+    }
     this.app.isApp = true;
+    // Catalogue env optionnel exposé par l'app (`export const env = defineEnv(…)`)
+    // → alimente `ctx.env` ; absent (app legacy) → `process.env`. Import en cache
+    // ESM (déjà résolu ci-dessus → ne peut plus échouer) → coût négligeable.
+    const appModule = (await import(`${this.path}/dist/index.js`)) as {
+      env?: unknown;
+    };
+    const ctx = this.buildConfigContext(appModule.env);
+    // App moderne (`export default defineConfig(…)`) : descripteur résolu avec `ctx`
+    // (merge défauts + validation Zod). App legacy / vide : merge sous les défauts
+    // framework (config toujours complète). Échec ici = config invalide → diagnostic
+    // explicite (incluant les valeurs par défaut) + fail-fast propre.
+    let wasDescriptor = false;
+    try {
+      const resolved = this.resolveAppOptions(this.app.options, ctx);
+      this.app.options = resolved.options;
+      wasDescriptor = resolved.wasDescriptor;
+    } catch (e) {
+      throw this.bootConfigError(
+        "Configuration de l'application invalide",
+        "La résolution de la configuration (`defineConfig`) a échoué.",
+        e,
+        [
+          "Vérifie les types/valeurs des champs signalés dans `nodefony.config.ts`.",
+          "Une fonction `defineConfig((ctx) => …)` qui lève → corrige la logique par-env.",
+        ],
+      );
+    }
     this.options = this.readConfig(extend(this.app.options, config));
-    // Validation de la config app (fail-fast) AVANT initializeLog : une config
-    // malformée plante ICI avec un message clair, pas en runtime plus tard.
-    await this.validateAppConfig();
+    // Validation fail-fast AVANT initializeLog. Inutile pour une app moderne (le
+    // descripteur valide déjà au resolve) → seulement pour le fallback legacy.
+    // Convention `validateConfig` retirée au Lot 5 (migration app self-hosted).
+    if (!wasDescriptor) {
+      try {
+        await this.validateAppConfig();
+      } catch (e) {
+        throw this.bootConfigError(
+          "Configuration de l'application invalide",
+          "Le schéma de validation de l'app a rejeté la configuration.",
+          e,
+          [
+            "Corrige les champs signalés ci-dessus.",
+            "Les valeurs par défaut du framework listées s'appliquent aux champs omis.",
+          ],
+        );
+      }
+    }
     // Chargement de modules piloté par CONFIG (manifeste `config.modules`). Branché
     // au MÊME instant que l'ancien décorateur @modules (listener `onPreRegister`)
     // → comportement identique, mais la liste est une DONNÉE gatable et le Kernel
