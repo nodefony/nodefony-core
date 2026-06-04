@@ -69,8 +69,8 @@ aujourd'hui = vrai gros morceau Lot 1, golden test anti-drift obligatoire).
 | 3   | `use()` + registre de types par module + manifeste                                           | ✅ 2026-06-04 (`6dc306b`)                          |
 | 4   | Câblage Kernel boot (ctx→descripteur→merge) + **résilience config** (diagnostic + EX_CONFIG) | ✅ 2026-06-04 (`60a7929`+`08ad3e5`)                |
 | 5   | Migration app dev (référence) + TLS→`var/` + fix 3 derefs + purge mort                       | ⬜ **prochain**                                    |
-| 6   | Scaffold `create app` (starter auto-documenté) + `create-module`                             | ⬜                                                 |
-| 7   | Docs + CLAUDE.md + MEMORY.md                                                                 | ⬜                                                 |
+| 6   | ~~Scaffold `create app` + `create-module`~~ → **déplacé au chantier CLI** (`project_cli_scaffold_design`) | ➡️ CLI                                |
+| 7   | Docs API + **convention « tout module augmente `NodefonyModuleConfig` »** (CLAUDE.md) + MEMORY.md | ⬜                                                 |
 
 ### 🆕 Chantier « API souveraine » (POC en branche) — APRÈS ORM, AVANT P6
 
