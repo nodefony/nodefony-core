@@ -45,7 +45,7 @@ realtime/orm) — durcir d'abord évite que la sécurité hérite de la dette. C
   - **LB.5 ✅ LIVRÉ 2026-05-31** (`ea834db` + `bd7270b`/`6ea92e5`/`bf8efed`) : driver `cluster-file` (`createClusterFileLogDriver`) globbe `nodefony-*.jsonl` de TOUS les workers, merge trié par `timeStamp` (uid non comparable cross-process) ; `scanJsonlTail` partagé (0 dup) ; anti-OOM double (maxScanBytes/fichier + maxFiles). `file`+`cluster-file` **montés en dev** (switchables Studio) ; **dir de logs configurable** (`config.log.dir`, viewer Studio aligné) ; **honnêteté cluster** côté console (avertissement vue partielle → cluster-file) ; **chip mode runtime + fonds de panier** topbar ; cluster/backplanes au data plane. 7 tests LB.5. **Validation runtime cluster réel ✅ 2026-06-01** (test ultime Docker/charge : mono dev toggles 200, cluster -w4 toggles 403 + agrégation 4 workers ; fan-out Loki réel ; perf stable 1249 RPS ; memory 9/9). 🐛 **Fix doublon JSONL cluster-file** (`0fb1046`) : cause racine = **double boot complet dev+prod par worker** (cf `project_cli_module_command_dispatch`) → `Syslog.addTransport` dédup par `name`. Gate couleur ANSI boot-time ✅ 2026-06-01 (`7e68b05`, helper `logColor` gaté `isTTY` core/http/security → JSONL/pipe propres hors TTY).
   - **LB.4 ✅ LIVRÉ 2026-06-01** : drivers prod **loki** (push HTTP batché + LogQL) + **OpenSearch** (`_bulk` + `_search`) via registre de **fabriques** (0 hardcode Kernel) + `BatchingHttpTransport` + sonde `probe()`/`backplane/ping` + switch dev Studio + docker-compose (réseau `nodefony-net`, profils loki/opensearch + Grafana/Dashboards). **Validé runtime**. **Reste ⬜ LB.3b** : CLI `syslog:filter` (dette dispatch CLI). **Absorbe P3.6** (filtre requestId = `query({requestId})`) **+ P3.10**.
 
-### 🆕 Chantier CONFIGURATION (`defineConfig`) — 🥇 PRIORITÉ IMMÉDIATE (validé 2026-06-04)
+### Chantier CONFIGURATION (`defineConfig`) — ✅ CLOS 2026-06-05 (next : 🥇 durcissement ORM)
 
 > Boussole : `project_config_chantier_defineconfig_kit` (**LIRE EN PREMIER**). Successeur du chantier config
 > app CLOS (.env conv B + découpage domaine + Zod boot, `…5df006c`) — qui n'était que **l'étape 1 (subie)**.
@@ -61,16 +61,20 @@ dont config par module via registre augmentable) + **réactivité déclarée hot
 `withModule` — « module dans module » rejeté user) · **defaults framework À CRÉER** (n'existent PAS centralisés
 aujourd'hui = vrai gros morceau Lot 1, golden test anti-drift obligatoire).
 
-| Lot | Contenu                                                                                      | État                                               |
-| --- | -------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| 0   | Cadrage : mapping `app.options`, chaîne env 12-factor, inventaire defaults/vars env          | ✅ 2026-06-04                                      |
-| 1   | Moteur `defineConfig` + `defaultAppConfig` + typage 4 niveaux + schéma Zod + golden test     | ✅ 2026-06-04 (`adaa916` + `4677dcf` purge legacy) |
-| 2   | `defineEnv` (catalogue env typé/validé, infère `ctx.env`)                                    | ✅ 2026-06-04 (`330c798`)                          |
-| 3   | `use()` + registre de types par module + manifeste                                           | ✅ 2026-06-04 (`6dc306b`)                          |
-| 4   | Câblage Kernel boot (ctx→descripteur→merge) + **résilience config** (diagnostic + EX_CONFIG) | ✅ 2026-06-04 (`60a7929`+`08ad3e5`)                |
-| 5   | Migration app dev (référence) + TLS→`var/` + fix 3 derefs + purge mort                       | ⬜ **prochain**                                    |
-| 6   | ~~Scaffold `create app` + `create-module`~~ → **déplacé au chantier CLI** (`project_cli_scaffold_design`) | ➡️ CLI                                |
-| 7   | Docs API + **convention « tout module augmente `NodefonyModuleConfig` »** (CLAUDE.md) + MEMORY.md | ⬜                                                 |
+| Lot | Contenu                                                                                                         | État                                                      |
+| --- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 0   | Cadrage : mapping `app.options`, chaîne env 12-factor, inventaire defaults/vars env                             | ✅ 2026-06-04                                             |
+| 1   | Moteur `defineConfig` + `defaultAppConfig` + typage 4 niveaux + schéma Zod + golden test                        | ✅ 2026-06-04 (`adaa916` + `4677dcf` purge legacy)        |
+| 2   | `defineEnv` (catalogue env typé/validé, infère `ctx.env`)                                                       | ✅ 2026-06-04 (`330c798`)                                 |
+| 3   | `use()` + registre de types par module + manifeste                                                              | ✅ 2026-06-04 (`6dc306b`)                                 |
+| 4   | Câblage Kernel boot (ctx→descripteur→merge) + **résilience config** (diagnostic + EX_CONFIG)                    | ✅ 2026-06-04 (`60a7929`+`08ad3e5`)                       |
+| 5   | Migration app dev (référence) + fix 3 derefs + purge mort (TLS→`var/` DIFFÉRÉ : http hardcode)                  | ✅ 2026-06-05 (`7135bd5`) + fix DevSupervisor (`71f9523`) |
+| 6   | ~~Scaffold `create app` + `create-module`~~ → **déplacé au chantier CLI** (`project_cli_scaffold_design`)       | ➡️ CLI                                                    |
+| 7   | Docs guide + **convention « tout module augmente `NodefonyModuleConfig` »** (CLAUDE.md) + skills de dev alignés | ✅ 2026-06-05 (`42cfc31`)                                 |
+
+> **Chantier config → ✅ CLOS 2026-06-05** (Lots 0-5 + 7 ; Lot 6 → chantier CLI). Suite : **durcissement ORM**
+> [[project_orm_hardening_kit]] (Sequelize suppression + Mongoose refait + Orm core retiré). Restes config hors
+> chantier : TLS→`var/` (follow-up http `certificates.ts`), adoption `defineEnv` par module, Studio config UI.
 
 ### 🆕 Chantier « API souveraine » (POC en branche) — APRÈS ORM, AVANT P6
 

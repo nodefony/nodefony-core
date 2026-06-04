@@ -55,13 +55,23 @@ typecheck` lançait le typecheck du core EN PARALLÈLE du build de ces packages 
   AVANT la résolution elle-même** : `Cannot find '.../zod/index.js'` à un test d'intégration venait d'un
   **build partiel** (watch rebuildant en plein edit), pas d'un vrai bug (zod/index.js existait). → `clean &&
 build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enquêter sur la résolution.
+- `[1× — 2026-06-05]` **le dist du CORE est sous `dist/node/`, pas `dist/`** (build isomorphe node/browser) :
+  vérifier qu'un `.ts` du core est compilé → `find dist -name X.js` (ex. `dist/node/service/dev/DevSupervisor.js`),
+  pas `dist/service/...` (faux négatif). Les packages `@nodefony/*` restent en `dist/` plat.
 
 ## 🧹 Refonte / consolidation (frictions du jour)
 
-- `[1× — 2026-06-04]` **consolider des « défauts » depuis un config.ts d'app existant = importer ses FOSSILES** :
-  recopié fidèlement → `defaultAppConfig` a hérité de `watch`/`devServer`/`orm:"sequelize"`/`domainCheck` morts.
-  → **grep les consommateurs CHAMP PAR CHAMP** (0 conso = mort) avant d'adopter une valeur comme défaut framework ;
-  ne pas enshriner du legacy. Le user a flairé (« il y a des reliquats legacy »).
+- `[2× — 2026-06-04, 2026-06-05]` **une option de config peut être un FOSSILE** : (a) consolider des « défauts »
+  depuis un config.ts existant → recopie de `watch`/`devServer`/`orm:"sequelize"`/`domainCheck` morts ; (b) Lot 5 :
+  le bloc `certificates.{path,privateKeyPath,certPath}` de l'app était **INERTE** (le service `certificates.ts`
+  hardcode ses chemins, ignore ces options). → **grep les consommateurs CHAMP PAR CHAMP** (0 conso OU option ignorée
+  par le service = mort) avant d'adopter/porter ; bonus : supprimer l'option inerte tue souvent un deref kernel
+  d'un coup. Le user a flairé 2× (« reliquats legacy »).
+- `[1× — 2026-06-05]` **déplacer un fichier HORS d'un dossier surveillé casse le watcher silencieusement** : Lot 5
+  a sorti la config de `nodefony/config/*` (dossier watché par DevSupervisor) vers des **fichiers racine**
+  (`nodefony.config.ts`/`env.ts`) → `#paths` (liste de dossiers + `index.ts`) ne les voyait plus → éditer la config
+  ne redémarrait plus en dev. → **quand un déplacement sort un fichier d'un dossier auto-traité** (watch, glob, include
+  tsconfig, scan), vérifier le mécanisme qui le ramassait. Fix = ajouter les fichiers à la watch-list (`71f9523`).
 - `[1× — 2026-06-04]` **« on a retiré X pour la perf » est SCOPÉ à son contexte** : `extend` retiré du pipeline
   était une optim **hot-path/per-requête** (`02c32c2`), pas « extend est lent ». Pour un merge **boot-only**
   (config), `extend(true,{},…)` est parfait. Ne pas sur-généraliser une optim perf à du code non-chaud.
@@ -113,9 +123,10 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   disait « PROCHAINE » alors que livré ; `pm2_deprecation` disait « Phase 16 » alors que retiré C6 (MIGRATION
   l.117 correcte). → réflexe END : MAJ la **mémoire de la feature livrée** (desc + corps), pas seulement le `_state`.
 
-- `[1× — 2026-05-31]` **commitlint refuse un sujet en Majuscule** (`docs(retro): CONSOLIDATE …` rejeté,
-  règle subject-case). → header de commit **en minuscule** ; corps avec apostrophes/accents OK via
-  `git ci -F` (cf [[feedback_commit_fr_apostrophes]]).
+- `[2× — 2026-05-31, 2026-06-05]` **commitlint refuse un sujet en Majuscule** (`docs(retro): CONSOLIDATE …`
+  ET `docs(config): Lot 7 …` rejetés, règle subject-case : le 1er mot du SUJET après `type(scope):` doit être
+  minuscule, peu importe le scope). → header de commit **en minuscule** ; corps avec apostrophes/accents OK via
+  `git ci -F` (cf [[feedback_commit_fr_apostrophes]]). **≈3× → candidat graduation.**
 - `[1× — 2026-05-31]` **`{{ }}` dans les `docs/*.md` d'un module sont résolus par `@nodefony/documentation`
   lui-même** (le module se scanne → effet miroir) : documenter la feature `{{ }}` mange ses propres
   exemples. → neutraliser les exemples : `{{ maVar }}` (provider inconnu = laissé littéral) ou `{{ … }}`
