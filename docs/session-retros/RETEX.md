@@ -47,6 +47,24 @@ typecheck` lançait le typecheck du core EN PARALLÈLE du build de ces packages 
   (node-resolve a laissé le bare specifier externe, résolu au runtime via le hoisting npm). → **vérifier le
   dist** (taille + `grep import 'zod'`) plutôt que présumer un bundle ; pas besoin de toucher `rollup.config.ts`
   (interdit) pour un peerDep hoisté résolvable au runtime.
+- `[1× — 2026-06-04]` **MAIS le rollup du CORE externalise par ALLOWLIST stricte** (`external.some(...)`,
+  ≠ app lenient) → un nouveau peerDep (`zod`) y est **bundlé** s'il n'est PAS ajouté à l'array `external`.
+  Conséquence directe de D1 = 1 ligne dans `rollup.config.ts` (protégé → demandé avant). Vérif post-build :
+  `schema.js` 3.4 KB + `grep "import 'zod'"` conservé. « peerDep auto-externe » DÉPEND du rollup du package.
+- `[1× — 2026-06-04]` **erreur ESM runtime juste après l'ajout d'un dep = suspecter un dist PARTIEL/racy
+  AVANT la résolution elle-même** : `Cannot find '.../zod/index.js'` à un test d'intégration venait d'un
+  **build partiel** (watch rebuildant en plein edit), pas d'un vrai bug (zod/index.js existait). → `clean &&
+build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enquêter sur la résolution.
+
+## 🧹 Refonte / consolidation (frictions du jour)
+
+- `[1× — 2026-06-04]` **consolider des « défauts » depuis un config.ts d'app existant = importer ses FOSSILES** :
+  recopié fidèlement → `defaultAppConfig` a hérité de `watch`/`devServer`/`orm:"sequelize"`/`domainCheck` morts.
+  → **grep les consommateurs CHAMP PAR CHAMP** (0 conso = mort) avant d'adopter une valeur comme défaut framework ;
+  ne pas enshriner du legacy. Le user a flairé (« il y a des reliquats legacy »).
+- `[1× — 2026-06-04]` **« on a retiré X pour la perf » est SCOPÉ à son contexte** : `extend` retiré du pipeline
+  était une optim **hot-path/per-requête** (`02c32c2`), pas « extend est lent ». Pour un merge **boot-only**
+  (config), `extend(true,{},…)` est parfait. Ne pas sur-généraliser une optim perf à du code non-chaud.
 
 ## 🔄 Cycle de session (END/RETEX) — méta
 

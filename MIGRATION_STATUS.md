@@ -61,16 +61,16 @@ dont config par module via registre augmentable) + **réactivité déclarée hot
 `withModule` — « module dans module » rejeté user) · **defaults framework À CRÉER** (n'existent PAS centralisés
 aujourd'hui = vrai gros morceau Lot 1, golden test anti-drift obligatoire).
 
-| Lot | Contenu                                                                                  | État            |
-| --- | ---------------------------------------------------------------------------------------- | --------------- |
-| 0   | Cadrage : mapping `app.options`, chaîne env 12-factor, inventaire defaults/vars env      | ✅ 2026-06-04   |
-| 1   | Moteur `defineConfig` + `defaultAppConfig` + typage 4 niveaux + schéma Zod + golden test | ⬜ **prochain** |
-| 2   | `defineEnv` (catalogue env typé/validé, infère `ctx.env`)                                | ⬜              |
-| 3   | `use()` + registre de types par module + manifeste                                       | ⬜              |
-| 4   | Câblage Kernel boot (résout `ctx`→descripteur→merge) — **memory.test**                   | ⬜              |
-| 5   | Migration app dev (référence) + TLS→`var/` + fix 3 derefs + purge mort                   | ⬜              |
-| 6   | Scaffold `create app` (starter auto-documenté) + `create-module`                         | ⬜              |
-| 7   | Docs + CLAUDE.md + MEMORY.md                                                             | ⬜              |
+| Lot | Contenu                                                                                  | État                                               |
+| --- | ---------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| 0   | Cadrage : mapping `app.options`, chaîne env 12-factor, inventaire defaults/vars env      | ✅ 2026-06-04                                      |
+| 1   | Moteur `defineConfig` + `defaultAppConfig` + typage 4 niveaux + schéma Zod + golden test | ✅ 2026-06-04 (`adaa916` + `4677dcf` purge legacy) |
+| 2   | `defineEnv` (catalogue env typé/validé, infère `ctx.env`)                                | ✅ 2026-06-04 (`330c798`)                          |
+| 3   | `use()` + registre de types par module + manifeste                                       | ⬜ **prochain**                                    |
+| 4   | Câblage Kernel boot (résout `ctx`→descripteur→merge) — **memory.test**                   | ⬜                                                 |
+| 5   | Migration app dev (référence) + TLS→`var/` + fix 3 derefs + purge mort                   | ⬜                                                 |
+| 6   | Scaffold `create app` (starter auto-documenté) + `create-module`                         | ⬜                                                 |
+| 7   | Docs + CLAUDE.md + MEMORY.md                                                             | ⬜                                                 |
 
 ### 🆕 Chantier « API souveraine » (POC en branche) — APRÈS ORM, AVANT P6
 
