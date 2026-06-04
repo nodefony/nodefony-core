@@ -256,6 +256,18 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-04]` **résilience de la phase config = à blinder SÉPARÉMENT du lifecycle** : `fireLifecycle`/
+  `guardInitialize` (Phase 3 du kit boot, DÉJÀ livrée — kit périmé) couvrent les hooks modules, PAS `loadApp`
+  (import app + résolution `defineConfig`). Une config invalide y throw une stack opaque. Fix = try/catch →
+  `bootConfigError` : diagnostic clair (titre + cause + **champ Zod nommé** + **valeurs PAR DÉFAUT explicites**)
+  - erreur marquée `presented` (les catch de boot ne re-loggent pas) + `exitCode` EX_CONFIG=78. **Piège** : le flag
+    `presented` doit être respecté par TOUS les catch de la chaîne (loadApp → Kernel.start → **CliKernel.start**),
+    sinon double-log stack. **Piège 2** : `nodefony development` (serveur) passe par le catch PRINCIPAL de
+    `CliKernel.start()`, PAS `dispatchModuleCommand` (2 catch distincts) → fixer le bon (sinon `terminate(1)` au lieu de 78).
+- `[1× — 2026-06-04]` **un descripteur (objet brandé par symbole) SURVIT au spread `{...options}` de Service** :
+  un symbole computed enumerable d'object literal EST copié par `{...x}` (≠ idée reçue) → on peut passer un
+  descripteur `defineConfig` via `super(name,kernel,url,descripteur)` et `isConfigDescriptor(this.options)` reste vrai.
+  Prouvé par test dédié (l'hypothèse de design la plus risquée → la tester explicitement).
 - `[1× — 2026-06-01]` **MESURER un gain perf AVANT de l'affirmer** : le « double-boot » prod/cluster (2
   `new Kernel`) était réputé doubler le boot → mesure avant/après (`scripts/boot-bench.mjs`, checkout du commit
   d'avant) : **2721 ms vs 2776 ms = identique** (kernel#1 s'arrêtait à `onStart`, ne bootait NI modules NI
@@ -338,8 +350,28 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
   racine** sinon les bare specifiers `@nodefony/*` ne résolvent pas). `timeout` absent sur macOS
   (boucle `kill -0` ou `gtimeout`).
 
+## 🧪 Tests / hygiène (frictions du jour)
+
+- `[1× — 2026-06-04]` **un test qui POST un upload DOIT nettoyer son résidu** : le serveur écrit l'upload dans
+  `uploadDir` (= `kernel.tmpDir` = `./tmp`) et ne nettoie QU'en **abort** (pas un upload réussi → l'app est censée
+  `move()`/`unlink()`). `memory.test` (200 uploads/run) avait laissé **1403 `<uuid>.txt`** dans `./tmp` (pollution
+  repo, signalée user). Fix = pattern **snapshot-diff** (before : `readdir` ; after : supprime UNIQUEMENT les
+  nouveaux) — déjà présent dans `upload.test.ts` (le copier). Vérifier `tmp/` après run = 0 résidu.
+- `[2× — 2026-06-04]` **`new Kernel()` dans un .test.ts au tri PRÉCOCE pollue le singleton `Nodefony.getKernel()`** :
+  mocha trie les fichiers **insensible à la casse** → `configBoot`/`configUse` (c) tournent AVANT `index`/`Injector`
+  (i) qui attendent un singleton propre → **faux échecs**. Le code était sain (prouvé par **baseline stash** : retirer
+  le fichier → 0 fail). Fix = `before`/`after` capturant/restaurant `Nodefony.getKernel()` autour du bloc. (Pattern
+  documenté CLAUDE.md kernel « Pollution singleton » — confirmé 2× ce jour.)
+- `[1× — 2026-06-04]` **`process.env.X = saved` quand `saved === undefined` écrit la string `"undefined"`** → pollue
+  les tests env suivants (faux `NODE_ENV`). Helper : `delete process.env.X` si la valeur sauvegardée est `undefined`
+  (jamais `= undefined`). Cf `withEnv` dans configBoot.test.
+
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
+- `2026-06-04-932ec78f` — **Lots 3+4 defineConfig + résilience config + hygiène tmp** : `use()` + registre typé
+  (niveau ③, pilier #1 = 4/4) `6dc306b` ; câblage Kernel boot (descripteur résolu via ctx, merge défauts tous chemins,
+  fallback legacy) `60a7929` ; **résilience config** (bootConfigError : diagnostic clair + défauts explicites + EX_CONFIG,
+  prouvé en réel `port="abc"`) `08ad3e5` ; **memory.test nettoie ses uploads** (1403 résidus purgés) `0915764`. ➡️ Lot 5.
 - `2026-06-04-b32ebcd5` — **planification CHANTIER CONFIGURATION (`defineConfig`)** : état des lieux `nodefony/config/` + vision (1 fichier racine minuscule auto-doc, `defineConfig`/`defineEnv`/`use`) + plan 8 lots + Lot 0 bouclé (env 12-factor vérifié, defaults framework à CRÉER). Décisions D1 (zod core peerDep), `use` (pas withModule), typage 4 niveaux + hot/boot. 0 code (planif). `431f1e1` + kit boussole.
 - `2026-06-03-695bc070` — **Phase B (park centralisé via `lifetime`) + isTTY**, puis ménage piloté par audit : **retrait service rollup runtime** (−378 ms/−23 MB boot, A/B mesuré) + `nodefony build --force` (wrapper turbo) + **`@inquirer` lazy**. Audit poids d'import boot (imports ~1130 ms/94 MB, drizzle domine 423 ms/43 MB). 4 commits `b55c753`/`6a1dcd4`/`a71d004`/`68dd86e`.
 - `2026-06-01-8b47ba7d` — **chantier CLI** : filet intégration + commander 15 + **1 seul Kernel** (double-boot tué) + hooks lifecycle tous modes + audit boot (91 % = imports) + banc 3 modes server/batch/daemon + guide Docker + **splash dev-only** + durcissement filet (intégrité modules). 8 commits `…b05e381`.
