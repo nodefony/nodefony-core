@@ -28,6 +28,12 @@ export interface IModuleManifestEntry {
    * `@nodefony/drizzle` que si `config.orm?.driver === "drizzle"`.
    */
   when?: (config: TypeKernelOptions) => boolean;
+  /**
+   * Config colocalisée du module (forme `use(name, config)`). Le Kernel la
+   * deep-merge sous la config DEFAULT du module à `onPreRegister`, avant la
+   * validation Zod du module. Remplace les clés legacy `module-<nom>`.
+   */
+  config?: Record<string, unknown>;
 }
 
 /**

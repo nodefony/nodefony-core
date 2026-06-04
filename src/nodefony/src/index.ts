@@ -254,6 +254,8 @@ export {
 // Absent du barrel browser (src/client/index.ts) → 0 zod côté client.
 export { defineConfig, isConfigDescriptor } from "./config/defineConfig";
 export type { AppConfigDescriptor } from "./config/defineConfig";
+export { use } from "./config/use";
+export type { NodefonyModuleConfig, ConfigOf, UseOptions } from "./config/use";
 export {
   defineEnv,
   envString,

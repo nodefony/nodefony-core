@@ -48,6 +48,13 @@ export interface ModuleEntryInput {
   policy?: ModulePolicy;
   /** Garde évaluée sur la config résolue ; `false` → module ignoré (0 coût). */
   when?: (config: ResolvedAppConfig) => boolean;
+  /**
+   * Config colocalisée du module (deep-mergée sous sa config DEFAULT au boot par
+   * le Kernel, avant la validation Zod du module). Remplace les clés legacy
+   * `module-<nom>` à la racine. À écrire via {@link use} pour un typage par module
+   * (les clés proposées sont celles du module ciblé).
+   */
+  config?: Record<string, unknown>;
 }
 
 /**

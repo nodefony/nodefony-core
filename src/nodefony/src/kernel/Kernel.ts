@@ -36,7 +36,10 @@ import {
   CLUSTER_PROBE_SNAPSHOT_KIND,
 } from "../service/cluster/clusterMessage";
 import type { IKernel } from "../types/IKernel";
-import type { IModuleManifest } from "../types/IModuleManifest";
+import type {
+  IModuleManifest,
+  IModuleManifestEntry,
+} from "../types/IModuleManifest";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { readListenerTags } from "./lifecycleTags";
@@ -869,18 +872,23 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
-   * Résout la liste ORDONNÉE des modules à charger depuis le manifeste
-   * `config.modules`. L'ordre du tableau est conservé (= priorité de chargement) ;
-   * `policy`/`when` ne font que FILTRER, jamais réordonner.
+   * Résout la liste ORDONNÉE des entrées de modules à charger depuis le manifeste
+   * `config.modules`, AVEC leur config colocalisée (`use(name, config)`). L'ordre
+   * du tableau est conservé (= priorité de chargement) ; `policy`/`when` ne font
+   * que FILTRER, jamais réordonner.
    *
    * - `policy:"dev"` → ignoré en production (gain mémoire = non-chargement ; en
    *   ESM un module importé n'est jamais déchargé).
-   * - `when(config)` faux → ignoré.
-   * - string nue → policy `optional`, toujours chargée.
+   * - `when(config)` faux → ignoré (sa config colocalisée l'est aussi → pas de
+   *   warning « module absent » sur un module volontairement gaté).
+   * - string nue → policy `optional`, toujours chargée, sans config.
    *
-   * @returns noms de modules à charger, dans l'ordre.
+   * @returns entrées `{ name, config? }` à charger, dans l'ordre.
    */
-  private resolveModules(): string[] {
+  private resolveModuleEntries(): {
+    name: string;
+    config?: Record<string, unknown>;
+  }[] {
     const manifest = this.options.modules;
     if (!Array.isArray(manifest)) {
       return [];
@@ -890,9 +898,10 @@ class Kernel extends Service implements IKernel {
     // environnement de déploiement passe par `when(config)` (axe appEnvironment).
     const isProd =
       this.resolveRuntimeEnv(this.cli?.environment) === "production";
-    const result: string[] = [];
+    const result: { name: string; config?: Record<string, unknown> }[] = [];
     for (const item of manifest) {
-      const entry = typeof item === "string" ? { name: item } : item;
+      const entry: IModuleManifestEntry =
+        typeof item === "string" ? { name: item } : item;
       if (!entry?.name) {
         continue;
       }
@@ -902,20 +911,29 @@ class Kernel extends Service implements IKernel {
       if (typeof entry.when === "function" && !entry.when(this.options)) {
         continue;
       }
-      result.push(entry.name);
+      result.push({ name: entry.name, config: entry.config });
     }
     return result;
   }
 
   /**
-   * Charge en série les modules résolus par {@link resolveModules} via
+   * Charge en série les modules résolus par {@link resolveModuleEntries} via
    * `loadModule` (import dynamique → lazy : un module hors liste n'est jamais
-   * importé). Branché à `onPreRegister` par {@link loadApp} si un manifeste
+   * importé), puis applique la config colocalisée (`use(name, config)`) de
+   * chaque entrée. Branché à `onPreRegister` par {@link loadApp} si un manifeste
    * `config.modules` est présent. Seul orchestrateur du chargement de modules.
    */
   private async loadModulesFromManifest(): Promise<void> {
-    for (const name of this.resolveModules()) {
-      await this.loadModule(name);
+    for (const entry of this.resolveModuleEntries()) {
+      const mod = await this.loadModule(entry.name);
+      if (entry.config) {
+        // Config colocalisée (`use(name, config)`) : deep-merge sous la config
+        // DEFAULT du module fraîchement chargé, AVANT sa validation Zod
+        // (`onKernelRegister`). Même sémantique de merge que les overrides legacy
+        // `module-<nom>` (`extend(true, {}, …)`) — 1 seule recette de merge.
+        mod.options = extend(true, {}, mod.options, entry.config);
+        this.log(`MODULE CONFIG (use) : ${entry.name}`, "DEBUG");
+      }
     }
   }
 

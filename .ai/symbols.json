@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-04T19:42:05.893Z",
+  "generated": "2026-06-04T20:31:38.719Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 828,
-    "symbols": 1661,
+    "files": 829,
+    "symbols": 1665,
     "classes": 245,
-    "interfaces": 417,
-    "types": 211,
+    "interfaces": 419,
+    "types": 212,
     "enums": 3,
-    "functions": 311,
+    "functions": 312,
     "constants": 474
   },
   "symbols": {
@@ -737,6 +737,40 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Entrée de `defineConfig` : soit un objet de config, soit une fonction `(ctx) => objet` pour différencier par environnement (D3)."
+    },
+    "NodefonyModuleConfig": {
+      "name": "NodefonyModuleConfig",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/use.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Registre AUGMENTABLE des configs par module — vide par défaut, enrichi par chaque module via *declaration merging* sur le package `nodefony` :"
+    },
+    "UseOptions": {
+      "name": "UseOptions",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/use.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Options de chargement passées à {@link use} (3ᵉ argument)."
+    },
+    "ConfigOf": {
+      "name": "ConfigOf",
+      "kind": "type",
+      "file": "src/nodefony/src/config/use.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type de la config d'un module `N` : sa forme enregistrée dans {@link NodefonyModuleConfig} si elle existe, sinon un objet libre (le module n'a pas (encore) publié son type de config — toujours util…"
+    },
+    "use": {
+      "name": "use",
+      "kind": "function",
+      "file": "src/nodefony/src/config/use.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Construit une entrée de manifeste `modules` avec config colocalisée + typée. Le générique `N` capture le nom du module au call-site → `config` est contraint à {@link ConfigOf}<N> (autocomplétion de…"
     },
     "File": {
       "name": "File",
@@ -13798,7 +13832,8 @@
       ],
       "ResolvedAppConfig": [
         "src/nodefony/src/config/defaults.ts",
-        "src/nodefony/src/config/defineConfig.ts"
+        "src/nodefony/src/config/defineConfig.ts",
+        "src/nodefony/src/config/use.ts"
       ],
       "defaultAppConfig": [
         "src/nodefony/src/config/defineConfig.ts"
@@ -13816,7 +13851,14 @@
         "src/nodefony/src/config/defineConfig.ts"
       ],
       "ModulePolicy": [
-        "src/nodefony/src/config/types.ts"
+        "src/nodefony/src/config/types.ts",
+        "src/nodefony/src/config/use.ts"
+      ],
+      "KnownModule": [
+        "src/nodefony/src/config/use.ts"
+      ],
+      "ModuleEntryInput": [
+        "src/nodefony/src/config/use.ts"
       ],
       "FileClassInterface": [
         "src/nodefony/src/finder/File.ts"
@@ -13964,6 +14006,9 @@
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts"
       ],
       "IModuleManifest": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "IModuleManifestEntry": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "IGuardedListenerInfo": [

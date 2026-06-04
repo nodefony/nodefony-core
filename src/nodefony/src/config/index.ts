@@ -4,6 +4,8 @@
  */
 export { defineConfig, isConfigDescriptor } from "./defineConfig";
 export type { AppConfigDescriptor } from "./defineConfig";
+export { use } from "./use";
+export type { NodefonyModuleConfig, ConfigOf, UseOptions } from "./use";
 export {
   defineEnv,
   envString,
