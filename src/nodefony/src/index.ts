@@ -250,6 +250,33 @@ export {
   isArray,
 } from "./Tools";
 
+// ─── Config (defineConfig — back-only, zod peerDep core, D1) ──────────────────
+// Absent du barrel browser (src/client/index.ts) → 0 zod côté client.
+export { defineConfig, isConfigDescriptor } from "./config/defineConfig";
+export type { AppConfigDescriptor } from "./config/defineConfig";
+export { defaultAppConfig } from "./config/defaults";
+export { appConfigSchema, validateAppConfig } from "./config/schema";
+export type { AppConfig } from "./config/schema";
+export { configReactivity, getConfigReactivity } from "./config/reactivity";
+export type { Reactivity } from "./config/reactivity";
+export type {
+  AppConfigInput,
+  ResolvedAppConfig,
+  ConfigInput,
+  ConfigContext,
+  KnownModule,
+  ModuleEntryInput,
+  ModuleManifestInput,
+  AppMeta,
+  ServersConfig,
+  HttpServerConfig,
+  HttpsServerConfig,
+  LogConfig,
+  LogFileConfig,
+  LogDestinationConfig,
+  DevServerConfig,
+} from "./config/types";
+
 // ─── Types & Interfaces ───────────────────────────────────────────────────────
 export type { IKernel, KernelNetworkResult } from "./types/IKernel";
 export type {

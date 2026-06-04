@@ -38,6 +38,7 @@ const external: string[] = [
   "@rollup/plugin-json",
   "@rollup/plugin-terser",
   "tslib",
+  "zod",
 ];
 
 const treeshakeOptions = defineConfig({

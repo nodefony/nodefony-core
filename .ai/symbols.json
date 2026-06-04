@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-03T22:30:26.615Z",
+  "generated": "2026-06-04T19:19:13.370Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 821,
-    "symbols": 1623,
+    "files": 827,
+    "symbols": 1650,
     "classes": 245,
-    "interfaces": 400,
-    "types": 205,
+    "interfaces": 413,
+    "types": 211,
     "enums": 3,
-    "functions": 299,
-    "constants": 471
+    "functions": 304,
+    "constants": 474
   },
   "symbols": {
     "Cli": {
@@ -497,6 +497,218 @@
       "file": "src/nodefony/src/command/Command.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "defaultAppConfig": {
+      "name": "defaultAppConfig",
+      "kind": "const",
+      "file": "src/nodefony/src/config/defaults.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Configuration framework par défaut, fusionnée sous la config de l'app au boot. Ne JAMAIS muter à l'exécution (le merge `extend(true, {}, defaultAppConfig, …)` clone ; l'invariant d'immutabilité est…"
+    },
+    "AppConfigDescriptor": {
+      "name": "AppConfigDescriptor",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/defineConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Descripteur de config retourné par {@link defineConfig}. Opaque : le Kernel appelle `resolve(ctx)` au boot pour obtenir la config fusionnée + validée."
+    },
+    "defineConfig": {
+      "name": "defineConfig",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Builder unique de la config d'application."
+    },
+    "isConfigDescriptor": {
+      "name": "isConfigDescriptor",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Garde de type : `value` est-il un descripteur produit par {@link defineConfig} ? Utilisé par le Kernel (`loadApp`, Lot 4) pour distinguer une app moderne (`export default defineConfig(…)`) d'une co…"
+    },
+    "Reactivity": {
+      "name": "Reactivity",
+      "kind": "type",
+      "file": "src/nodefony/src/config/reactivity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "RÉACTIVITÉ déclarée de chaque champ de config (pilier #2 du chantier). Certaines options s'appliquent À CHAUD (sans redémarrer — niveau de log, format de requête, sources debug) ; d'autres sont FIG…"
+    },
+    "getConfigReactivity": {
+      "name": "getConfigReactivity",
+      "kind": "function",
+      "file": "src/nodefony/src/config/reactivity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Réactivité d'un champ par son chemin dot-notation ; `boot` par défaut (sûr)."
+    },
+    "configReactivity": {
+      "name": "configReactivity",
+      "kind": "const",
+      "file": "src/nodefony/src/config/reactivity.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Champs applicables À CHAUD (chemin en dot-notation). Tout champ absent est `boot`. `log.active` / `log.debug` / `log.requestFormat` = exactement le cadre de la « fenêtre d'audit » (élever la verbos…"
+    },
+    "AppConfig": {
+      "name": "AppConfig",
+      "kind": "type",
+      "file": "src/nodefony/src/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type inféré de la config app (source unique TS ↔ runtime)."
+    },
+    "validateAppConfig": {
+      "name": "validateAppConfig",
+      "kind": "function",
+      "file": "src/nodefony/src/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Valide la config app résolue ; lève une erreur au message agrégé si invalide. Appelée par `defineConfig().resolve()` après le deep-merge avec les défauts."
+    },
+    "appConfigSchema": {
+      "name": "appConfigSchema",
+      "kind": "const",
+      "file": "src/nodefony/src/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Schéma de la config app résolue. Exposé pour l'introspection (Studio : `z.toJSONSchema(appConfigSchema)` → formulaire de config éditable)."
+    },
+    "ModuleEntryInput": {
+      "name": "ModuleEntryInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Entrée détaillée du manifeste `modules` (forme objet). Une `string` nue équivaut à `{ name, policy: \"optional\" }`."
+    },
+    "AppMeta": {
+      "name": "AppMeta",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Métadonnées d'identité de l'application (affichées dans la CLI et les logs d'init)."
+    },
+    "HttpServerConfig": {
+      "name": "HttpServerConfig",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Serveur HTTP plain."
+    },
+    "HttpsServerConfig": {
+      "name": "HttpsServerConfig",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Serveur HTTPS (+ WSS hérité)."
+    },
+    "ServersConfig": {
+      "name": "ServersConfig",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Serveurs réseau HTTP/HTTPS/WS/WSS (un seul domaine, pas de vhost)."
+    },
+    "LogFileConfig": {
+      "name": "LogFileConfig",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Sortie fichier du Syslog."
+    },
+    "LogDestinationConfig": {
+      "name": "LogDestinationConfig",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Destination prod queryable du log backplane (Loki / OpenSearch)."
+    },
+    "LogConfig": {
+      "name": "LogConfig",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Observabilité — Syslog Nodefony + log backplane."
+    },
+    "DevServerConfig": {
+      "name": "DevServerConfig",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Serveur de développement (Vite/Webpack legacy — Phase 14)."
+    },
+    "AppConfigInput": {
+      "name": "AppConfigInput",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Forme de la configuration d'une application Nodefony, telle qu'écrite par l'utilisateur dans `nodefony.config.ts`. Tous les champs sont optionnels : ce que l'app n'écrit pas vient de {@link default…"
+    },
+    "ConfigContext": {
+      "name": "ConfigContext",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Contexte passé à la forme fonction de `defineConfig` — permet de différencier la config par environnement SANS fichier `config.<env>.ts` parallèle (D3)."
+    },
+    "KnownModule": {
+      "name": "KnownModule",
+      "kind": "type",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Noms de modules connus du framework — proposés à l'autocomplétion tout en **acceptant n'importe quel module tiers** (astuce `string & {}` : conserve les littéraux connus dans la complétion sans fer…"
+    },
+    "ModuleManifestInput": {
+      "name": "ModuleManifestInput",
+      "kind": "type",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Manifeste ORDONNÉ des modules de l'application (position = ordre de chargement). `policy`/`when` filtrent, ne réordonnent jamais."
+    },
+    "ResolvedAppConfig": {
+      "name": "ResolvedAppConfig",
+      "kind": "type",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Configuration résolue : {@link AppConfigInput} après deep-merge avec les défauts framework et validation Zod. Même forme structurelle (le merge remplit les valeurs ; le Kernel lit défensivement ave…"
+    },
+    "ConfigInput": {
+      "name": "ConfigInput",
+      "kind": "type",
+      "file": "src/nodefony/src/config/types.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Entrée de `defineConfig` : soit un objet de config, soit une fonction `(ctx) => objet` pour différencier par environnement (D3)."
     },
     "File": {
       "name": "File",
@@ -1666,7 +1878,7 @@
       "implements": [],
       "decorators": []
     },
-    "AppMeta": {
+    "@nodefony/core:AppMeta": {
       "name": "AppMeta",
       "kind": "interface",
       "file": "src/nodefony/src/client/debugbar/model.ts",
@@ -13555,6 +13767,28 @@
       ],
       "RunLifetime": [
         "src/nodefony/src/command/Command.ts"
+      ],
+      "ResolvedAppConfig": [
+        "src/nodefony/src/config/defaults.ts",
+        "src/nodefony/src/config/defineConfig.ts"
+      ],
+      "defaultAppConfig": [
+        "src/nodefony/src/config/defineConfig.ts"
+      ],
+      "validateAppConfig": [
+        "src/nodefony/src/config/defineConfig.ts"
+      ],
+      "AppConfigInput": [
+        "src/nodefony/src/config/defineConfig.ts"
+      ],
+      "ConfigContext": [
+        "src/nodefony/src/config/defineConfig.ts"
+      ],
+      "ConfigInput": [
+        "src/nodefony/src/config/defineConfig.ts"
+      ],
+      "ModulePolicy": [
+        "src/nodefony/src/config/types.ts"
       ],
       "FileClassInterface": [
         "src/nodefony/src/finder/File.ts"

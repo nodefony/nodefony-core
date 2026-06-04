@@ -89,7 +89,8 @@
   },
   "peerDependencies": {
     "react": ">=18",
-    "react-dom": ">=18"
+    "react-dom": ">=18",
+    "zod": "^4.4.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -128,7 +129,8 @@
     "tsx": "4.22.3",
     "typedoc": "0.28.19",
     "typedoc-plugin-markdown": "4.11.0",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "zod": "4.4.3"
   },
   "repository": {
     "type": "git",
