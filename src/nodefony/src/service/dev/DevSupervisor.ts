@@ -101,7 +101,18 @@ export class DevSupervisor {
     this.#cwd = options.cwd;
     this.#debounceMs = options.debounceMs ?? 250;
     this.#childEnvKey = options.childEnvKey ?? "NODEFONY_DEV_CHILD";
-    const wanted = options.paths ?? ["src", "nodefony", "config", "index.ts"];
+    // Inclut les fichiers de config racine `nodefony.config.ts` + `env.ts` (modèle
+    // defineConfig, Lot 5) : un changement déclenche un rebuild root (`rollup -c` via
+    // resolveWorkspace → null) puis le restart → la config éditée est appliquée en dev.
+    // `config` = dossier d'extraction optionnel (recette « grandir », cf docs/guides/configuration.md).
+    const wanted = options.paths ?? [
+      "src",
+      "nodefony",
+      "config",
+      "index.ts",
+      "nodefony.config.ts",
+      "env.ts",
+    ];
     this.#paths = wanted.filter((p) => existsSync(path.resolve(this.#cwd, p)));
     this.#ports = options.ports ?? this.#defaultPorts();
     // Verrou par projet, sous node_modules/.cache (déjà gitignoré, pas de
@@ -440,8 +451,8 @@ export class DevSupervisor {
         if (dir !== root) {
           try {
             name =
-              (JSON.parse(readFileSync(pj, "utf8")) as { name?: string }).name ??
-              null;
+              (JSON.parse(readFileSync(pj, "utf8")) as { name?: string })
+                .name ?? null;
           } catch {
             name = null;
           }
