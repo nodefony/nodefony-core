@@ -27,27 +27,16 @@ function makeCtx(over: Partial<ConfigContext> = {}): ConfigContext {
  */
 const GOLDEN_DEFAULTS = {
   modules: [],
-  watch: false,
   locale: "en_en",
   templating: "eta",
-  orm: "sequelize",
   packageManager: "npm",
   domain: "localhost",
-  domainCheck: true,
   servers: {
     statics: true,
     http: { port: 5151 },
     https: { port: 5152, protocol: "2.0" },
     ws: {},
     wss: {},
-  },
-  devServer: {
-    hot: false,
-    overlay: true,
-    logging: "info",
-    progress: false,
-    protocol: "https",
-    websocket: true,
   },
   log: {
     active: true,

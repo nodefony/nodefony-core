@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-04T19:19:13.370Z",
+  "generated": "2026-06-04T19:34:12.260Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 827,
-    "symbols": 1650,
+    "symbols": 1649,
     "classes": 245,
-    "interfaces": 413,
+    "interfaces": 412,
     "types": 211,
     "enums": 3,
     "functions": 304,
@@ -650,15 +650,6 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Observabilité — Syslog Nodefony + log backplane."
-    },
-    "DevServerConfig": {
-      "name": "DevServerConfig",
-      "kind": "interface",
-      "file": "src/nodefony/src/config/types.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": null,
-      "description": "Serveur de développement (Vite/Webpack legacy — Phase 14)."
     },
     "AppConfigInput": {
       "name": "AppConfigInput",

@@ -50,7 +50,6 @@ const serversSchema = z.object({
 export const appConfigSchema = z.object({
   // Manifeste des modules : forme détaillée validée à la résolution (loadModulesFromManifest).
   modules: z.array(z.unknown()).optional(),
-  watch: z.boolean().optional(),
   locale: z.string().optional(),
   templating: z.string().optional(),
   orm: z.string().optional(),
@@ -59,7 +58,6 @@ export const appConfigSchema = z.object({
   domainAlias: z.array(z.string()).optional(),
   domainCheck: z.boolean().optional(),
   servers: serversSchema.optional(),
-  devServer: z.object({}).optional(),
   // Topologie cluster : forme détaillée portée par resolveTopology.
   cluster: z.unknown().optional(),
   log: logSchema.optional(),

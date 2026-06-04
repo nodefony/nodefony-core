@@ -11,13 +11,18 @@
  *  - **Statique uniquement** : aucune valeur dépendante de l'env ou du kernel ici.
  *    Les valeurs env-dépendantes (driver de log selon `NF_LOG_DRIVER`, URLs Loki…)
  *    sont superposées par le catalogue `defineEnv` (Lot 2) / par l'app.
- *  - **Prod-safe par défaut** (le runtime par défaut est `production`) : `watch:false`,
- *    `debug:[]`, `domain:"localhost"`, `domainCheck:true`.
+ *  - **Prod-safe par défaut** (le runtime par défaut est `production`) : `debug:[]`,
+ *    `domain:"localhost"`.
  *  - **AUCUN array non-vide** : le deep-merge (`extend(true, …)`) fusionne les arrays
  *    par index ; garder les defaults d'array vides garantit qu'un array user les
  *    REMPLACE proprement. Invariant vérifié par test (`defineConfig.test.ts`).
- *  - **Pas d'identité d'app** (`App`, auteur) ni de legacy (`domainAlias`) ni de
- *    topologie (`cluster`, résolue par `resolveTopology`) : fournis par l'app.
+ *  - **Pas de défaut pour les champs « propriété de l'app » ou pilotés ailleurs** :
+ *    `App`/identité (app), `orm` (chantier ORM : forme `{driver}` multi-ORM),
+ *    `domainCheck`/`domainAlias` (validation Host, off par défaut — opt-in app/sécu,
+ *    en cours de consolidation avec `http.trustedHosts`), `cluster` (`resolveTopology`).
+ *  - **Aucun fossile legacy** : pas de `watch` (watch Rollup runtime retiré, dev =
+ *    DevSupervisor) ni de `devServer` (config webpack legacy ; Phase 14 = Vite côté
+ *    module frontend).
  */
 import type { ResolvedAppConfig } from "./types";
 
@@ -31,29 +36,20 @@ export const defaultAppConfig: ResolvedAppConfig = {
   modules: [],
 
   // ── Application ──
-  watch: false,
   locale: "en_en",
   templating: "eta",
-  orm: "sequelize",
   packageManager: "npm",
 
   // ── Réseau ──
+  // `domain` = adresse d'écoute (Kernel.setDomain). La validation Host
+  // (`domainCheck`/`domainAlias` vs `http.trustedHosts`) est opt-in app/sécu.
   domain: "localhost",
-  domainCheck: true,
   servers: {
     statics: true,
     http: { port: 5151 },
     https: { port: 5152, protocol: "2.0" },
     ws: {},
     wss: {},
-  },
-  devServer: {
-    hot: false,
-    overlay: true,
-    logging: "info",
-    progress: false,
-    protocol: "https",
-    websocket: true,
   },
 
   // ── Observabilité (valeurs statiques ; env-dépendances superposées par defineEnv) ──

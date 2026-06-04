@@ -175,22 +175,6 @@ export interface LogConfig {
   opensearch?: LogDestinationConfig;
 }
 
-/** Serveur de développement (Vite/Webpack legacy — Phase 14). */
-export interface DevServerConfig {
-  /** Hot Module Replacement (`true` | `"only"` | `false`). @default false @reactivity boot */
-  hot?: boolean | "only";
-  /** Affiche les erreurs build en overlay navigateur. @default true @reactivity boot */
-  overlay?: boolean;
-  /** Verbosité du dev server. @default "info" @reactivity boot */
-  logging?: "none" | "error" | "warning" | "info";
-  /** Affiche la progression de build. @default false @reactivity boot */
-  progress?: boolean;
-  /** Protocole servi par le dev server. @default "https" @reactivity boot */
-  protocol?: "http" | "https";
-  /** Active le canal WebSocket HMR. @default true @reactivity boot */
-  websocket?: boolean;
-}
-
 /**
  * Forme de la configuration d'une application Nodefony, telle qu'écrite par
  * l'utilisateur dans `nodefony.config.ts`. Tous les champs sont optionnels : ce
@@ -203,12 +187,6 @@ export interface AppConfigInput {
    * @reactivity boot
    */
   modules?: ModuleManifestInput;
-  /**
-   * Recharge auto des sources en dev (watch Rollup). Prod : `false` (overhead).
-   * @default false
-   * @reactivity boot
-   */
-  watch?: boolean;
   /**
    * Locale par défaut de l'app (fallback translation/dates), override par requête.
    * @default "en_en"
@@ -224,8 +202,9 @@ export interface AppConfigInput {
    */
   templating?: string;
   /**
-   * ORM par défaut (commandes CLI + modules sans ORM explicite).
-   * @default "sequelize"
+   * ORM par défaut (commandes CLI + modules sans ORM explicite). Multi-ORM :
+   * la forme cible (`{ driver: "drizzle" }`) et le défaut sont définis par le
+   * chantier ORM — pas de défaut framework figé ici (Sequelize est retiré).
    * @reactivity boot
    */
   orm?: string;
@@ -242,21 +221,21 @@ export interface AppConfigInput {
    */
   domain?: string;
   /**
-   * Alias de domaines acceptés (regexps stringifiées), actif si `domainCheck`.
-   * @deprecated legacy — sera retiré (préférer `trustedHosts` côté http/security).
+   * Alias de domaines acceptés (regexps stringifiées), actif si `domainCheck` —
+   * validation Host kernel-level (compilée en RegExp). En cours de consolidation
+   * avec `http.trustedHosts` (deux barrières Host concurrentes à unifier).
    * @reactivity boot
    */
   domainAlias?: string[];
   /**
-   * Vérifie le Host entrant contre `domain` + alias (anti Host-injection).
-   * @default true
+   * Active la validation Host kernel-level (`domain` + `domainAlias`) avant le
+   * routing. Off par défaut (opt-in) ; en cours de consolidation avec
+   * `http.trustedHosts`.
    * @reactivity boot
    */
   domainCheck?: boolean;
   /** Serveurs HTTP/HTTPS/WS/WSS. */
   servers?: ServersConfig;
-  /** Serveur de développement (legacy Phase 14). */
-  devServer?: DevServerConfig;
   /**
    * Topologie cluster (cloud-native, sans PM2). Résolue par `resolveTopology`
    * (override runtime : CLI `--workers` > `NODEFONY_WORKERS` > ce champ).

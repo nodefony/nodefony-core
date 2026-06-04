@@ -274,7 +274,6 @@ export type {
   LogConfig,
   LogFileConfig,
   LogDestinationConfig,
-  DevServerConfig,
 } from "./config/types";
 
 // ─── Types & Interfaces ───────────────────────────────────────────────────────
