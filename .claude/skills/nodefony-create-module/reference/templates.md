@@ -80,9 +80,11 @@ devDeps (déjà dans le `package.json` ci-dessus) : `vitest` + `@vitest/coverage
 ```jsonc
 "test": "vitest run",
 "coverage": "vitest run --coverage",
-// intégration (si serveur requis) reste en ts-node mocha :
-"test:integration": "TS_NODE_PROJECT=tsconfig.tests.json mocha --config .mocharc.integration.json"
+// intégration (si serveur requis) = vitest aussi, config dédiée (PAS mocha) :
+"test:integration": "vitest run --config vitest.integration.config.ts"
 ```
+
+> **JAMAIS de `.mocharc.*` ni de dep `mocha` dans un nouveau module** (suppression totale en cours, cf [[feedback_test_framework_vitest]]). Une suite « lourde » (intégration/charge) = un second `vitest.*.config.ts`, pas un retour à mocha.
 
 **Tests fraîchement scaffoldés** = `node:assert` + `describe`/`it` en **globals** (aucun import mocha) → la config MINIMALE ci-dessous suffit (réf. réelles : `@nodefony/orm-core`, `@nodefony/user`) :
 
@@ -115,7 +117,7 @@ export default defineConfig({
 - **tests mocha existants** `import "mocha"` → `resolve.alias.mocha = r("./.../vitest-mocha-shim.mjs")` (`export {};`).
 - **import d'un ORM hors kernel** qui crashe → `resolve.alias["@nodefony/sequelize"|"mongoose"]` vers des stubs.
 
-> **JAMAIS c8** (KO ESM/Node) ni **monocart+mocha+tsx** (`mcr --require` → CJS, sous-mappe le TS, lignes faussées — cf [[feedback_coverage_modules]]). vitest mappe le source TS proprement. `.coverage/` est gitignored ; Studio lit `.coverage/coverage-summary.json` OU `lcov.info`. Seul le **core** (`src/nodefony`) reste sur monocart (source pur sans dist importé).
+> **JAMAIS c8** (KO ESM/Node) ni **monocart+mocha+tsx** (`mcr --require` → CJS, sous-mappe le TS, lignes faussées — cf [[feedback_coverage_modules]]). vitest mappe le source TS proprement. `.coverage/` est gitignored ; Studio lit `.coverage/coverage-summary.json` OU `lcov.info`. **Tous les workspaces sont sur `@vitest/coverage-v8`** — le core aussi depuis sa migration mocha→vitest (2026-06-05, `4106303`) ; **monocart est déprécié** (cf [[feedback_test_framework_vitest]]).
 
 ### `tsconfig.json`
 

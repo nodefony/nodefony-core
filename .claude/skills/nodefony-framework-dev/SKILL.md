@@ -1210,7 +1210,7 @@ npm run typecheck                                          # racine (turbo) — 
 npx tsc --noEmit                                           # ou direct dans le module ciblé
 
 # 3. TESTS unitaires
-#    core   : cd src/nodefony && npm run test              (tsx + mocha)  | coverage = npm run coverage (monocart)
+#    core   : cd src/nodefony && npm run test                  (vitest)  | coverage = npm run coverage (vitest v8) — migré 2026-06-05
 #    http/fw: cd src/packages/@nodefony/<mod> && npm run test   (vitest)  | coverage = npm run coverage (vitest)
 
 # 4. INTÉGRATION (serveur requis 5151/5152 — cf nodefony-start-server)

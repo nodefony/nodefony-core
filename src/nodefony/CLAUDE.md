@@ -37,7 +37,7 @@ Il fournit :
 | Préfixe interfaces | **`I`** — `IService`, `IContainer`, `IKernel`, `IScope`      | Convention universelle pour ne pas confondre interface vs classe |
 | Imports Node       | **Préfixe `node:`** obligatoire — `import fs from "node:fs"` | Standard ESM, dé-ambiguïse npm packages                          |
 | TypeScript         | **Strict, zéro `any`, zéro `@ts-ignore`**                    | Sécurité du compilateur                                          |
-| Tests              | **`mocha` + `ts-node`**                                      | Stable en CI, héritage projet                                    |
+| Tests              | **`vitest` 4 + `chai`** (migré 2026-06-05, ex-mocha)         | ESM-natif, esbuild, coverage v8 ; aligné sur tout le repo        |
 | Bundler            | **`rollup`** (`preserveModules: true`)                       | Per-module `.d.ts`, tree-shakeable                               |
 
 ## Ce qui est INTERDIT sans accord explicite (CLAUDE.md racine)
@@ -105,7 +105,7 @@ src/nodefony/
     ├── client/               ← browser-compat stubs (P14.11 futur)
     ├── syslog/               ← Syslog + Pdu (MEMORY.md, README.md)
     │   └── transports/       ← console, file, JSON, etc.
-    ├── tests/                ← tests mocha
+    ├── tests/                ← tests vitest (+ vitest.setup.ts, vitest-mocha-shim.mjs)
     └── types/                ← interfaces (IKernel, IService, IContainer, ...)
 ```
 
@@ -213,15 +213,17 @@ Phases d'évolution prévues (cf [INJECTION_PLAN.md](./INJECTION_PLAN.md) worksp
 
 ```bash
 cd src/nodefony
-npm run test           # mocha + tsx — ~1233 tests (2026-05-20)
-npm run coverage       # monocart-coverage-reports — % couverture core (2026-05-20 : Stmts 85.8% / Branches 95.5% / Funcs 77.7% / Lines 75.5%)
+npm run test           # vitest run — 1558 tests (perf opt-in skippés), 2026-06-05
+npm run test:perf      # RUN_PERF=1 vitest run — inclut les microbenchs à seuil (non-déterministes)
+npm run test:boot      # RUN_CLI_BOOT=1 vitest run — intégration CLI serveur réelle
+npm run coverage       # vitest run --coverage (provider v8) → .coverage/
 npm run build          # rollup build
 npm run clean          # supprime dist/
 ```
 
 > Test runtime intégration : se lance depuis la racine du repo via `npx nodefony development` (cf skill `start-nodefony-server`).
 
-> **Couverture** : outil = `monocart-coverage-reports` (config `mcr.config.js`, ESM-natif, basé V8). ⚠️ **`c8` ne marche PAS** ici (full-ESM + Node 26 → sa dépendance `yargs` casse). `npm run coverage` exclut les tests `performance` (faussés sous instrumentation). Rapport HTML : `.coverage/index.html` (gitignored).
+> **Couverture** : `@vitest/coverage-v8` (provider v8 natif, config dans `vitest.config.ts`). ⚠️ **`c8` ne marche PAS** ici (full-ESM + Node 26 → `yargs` casse) ; **monocart retiré** le 2026-06-05 (migration vitest). Les tests `performance` sont skippés par défaut (port du root hook mocha dans `vitest.setup.ts`, OPT-IN `RUN_PERF=1`). Rapports : `.coverage/coverage-summary.json` + `lcov.info` (gitignored).
 
 ## Workflow de session typique sur le core
 
