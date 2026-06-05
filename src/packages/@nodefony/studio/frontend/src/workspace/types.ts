@@ -8,6 +8,10 @@
 import type { ComponentType } from "react";
 import type { Icon } from "@tabler/icons-react";
 
+/** Géométrie de la grille du bureau : colonnes + hauteur d'une rangée (px). */
+export const GRID_COLS = 12;
+export const GRID_ROW = 64;
+
 /** Familles de widgets (pour le catalogue + le filtrage). */
 export type WidgetCategory =
   | "runtime"
@@ -102,13 +106,20 @@ export interface IWidgetDef<T = unknown> {
   defaultSpan: number;
   /** Colonnes minimales. */
   minSpan: number;
+  /** Rangées de hauteur par défaut (sinon 3). */
+  defaultH?: number;
+  /** Rangées minimales (sinon 2). */
+  minH?: number;
   render: ComponentType<WidgetRenderProps<T>>;
 }
 
 /** Instance d'un widget posée sur un bureau (clé = `widgetId`, 1 par bureau en v1). */
 export interface WidgetInstance {
   widgetId: string;
+  /** Largeur en colonnes (1-12). */
   span: number;
+  /** Hauteur en rangées de grille. */
+  h: number;
 }
 
 /** Un bureau = un layout ordonné de widgets. */

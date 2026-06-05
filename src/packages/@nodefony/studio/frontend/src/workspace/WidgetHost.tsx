@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   ActionIcon,
@@ -10,12 +10,7 @@ import {
   Text,
   ThemeIcon,
 } from "@mantine/core";
-import {
-  IconArrowsHorizontal,
-  IconDotsVertical,
-  IconGripVertical,
-  IconX,
-} from "@tabler/icons-react";
+import { IconDotsVertical, IconGripVertical, IconX } from "@tabler/icons-react";
 import { useStore, useWorkspace } from "../stores";
 import { useResource } from "../hooks";
 import { useNodefonyChannelData } from "nodefony/react";
@@ -49,22 +44,24 @@ export interface WidgetHostProps {
   ctx: WidgetRuntimeContext;
   /** Type MIME du drag interne — active la poignée de réorganisation si fourni. */
   dragMime?: string;
-  /** Notifie la grille du widget en cours de glisse (pour l'indicateur d'insertion). */
+  /** Notifie la grille du widget en cours de glisse (indicateur d'insertion). */
   onDragChange?: (id: string | null) => void;
 }
 
 /**
  * Cadre commun d'un widget — encode le PATTERN « sonde + hub » une seule fois :
- * snapshot HTTP au 1ᵉʳ paint, abonnement live CONDITIONNEL (monté ssi `ctx.live` →
- * unsubscribe auto), fallback, `DataState`, `contain`. Le widget = rendu pur.
+ * snapshot HTTP au 1ᵉʳ paint, abonnement live CONDITIONNEL (monté ssi `ctx.live`),
+ * fallback, `DataState`, `contain`. Le widget = rendu pur.
  *
- * Manipulation : **l'en-tête est la poignée de glisse** (réorganisation) ; le **bord
- * droit** est une poignée de **redimensionnement** (largeur en colonnes, en direct).
+ * Manipulation : l'**en-tête** est la poignée de glisse (fantôme = la carte) ; le
+ * **coin bas-droit** redimensionne (largeur ET hauteur, en direct). Le corps défile si
+ * le contenu dépasse la taille choisie.
  */
 export const WidgetHost = observer(
   ({ def, instance, ctx, dragMime, onDragChange }: WidgetHostProps) => {
     const store = useStore();
     const workspace = useWorkspace();
+    const cardRef = useRef<HTMLDivElement | null>(null);
 
     const endpoint = def.source.kind !== "live" ? def.source.endpoint : null;
     const channel = def.source.kind !== "snapshot" ? def.source.channel : null;
@@ -99,19 +96,22 @@ export const WidgetHost = observer(
     const isLiveSource = def.source.kind !== "snapshot";
     const liveOnlyOff = def.source.kind === "live" && !ctx.live;
 
-    // Redimensionnement en direct : on tire le bord droit, le delta en pixels est
-    // converti en colonnes (la largeur d'1 colonne = largeur carte / span courant).
+    // Redimensionnement par le coin : delta px → colonnes (largeur) + rangées (hauteur).
     const onResizeDown = (e: ReactPointerEvent<HTMLDivElement>) => {
       e.preventDefault();
-      const card = e.currentTarget.parentElement;
-      const rect = card?.getBoundingClientRect();
+      e.stopPropagation();
+      const rect = cardRef.current?.getBoundingClientRect();
       if (!rect) return;
       const colW = rect.width / Math.max(1, instance.span);
+      const rowH = rect.height / Math.max(1, instance.h);
       const startX = e.clientX;
-      const startSpan = instance.span;
+      const startY = e.clientY;
+      const startW = instance.span;
+      const startH = instance.h;
       const move = (ev: PointerEvent) => {
-        const delta = Math.round((ev.clientX - startX) / colW);
-        if (delta !== 0) workspace.setSpan(def.id, startSpan + delta);
+        const w = startW + Math.round((ev.clientX - startX) / colW);
+        const h = startH + Math.round((ev.clientY - startY) / rowH);
+        workspace.setSize(def.id, w, h);
       };
       const up = () => {
         window.removeEventListener("pointermove", move);
@@ -125,13 +125,25 @@ export const WidgetHost = observer(
 
     return (
       <Card
+        ref={cardRef}
         withBorder
         radius="md"
         p="sm"
         h="100%"
-        style={{ contain: "content", position: "relative" }}
+        style={{
+          contain: "content",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
       >
-        <Group justify="space-between" wrap="nowrap" mb="xs">
+        <Group
+          justify="space-between"
+          wrap="nowrap"
+          mb="xs"
+          style={{ flexShrink: 0 }}
+        >
           <Group
             gap="xs"
             wrap="nowrap"
@@ -142,6 +154,8 @@ export const WidgetHost = observer(
                 ? (e) => {
                     e.dataTransfer.setData(dragMime, def.id);
                     e.dataTransfer.effectAllowed = "move";
+                    if (cardRef.current)
+                      e.dataTransfer.setDragImage(cardRef.current, 24, 16);
                     onDragChange?.(def.id);
                   }
                 : undefined
@@ -189,18 +203,6 @@ export const WidgetHost = observer(
             <Menu.Dropdown>
               <Menu.Label>{WIDGET_CATEGORY_LABEL[def.category]}</Menu.Label>
               <Menu.Item
-                leftSection={<IconArrowsHorizontal size={14} />}
-                onClick={() =>
-                  workspace.setSpan(
-                    def.id,
-                    instance.span >= 12 ? def.minSpan : instance.span + 2,
-                  )
-                }
-              >
-                Largeur : {instance.span}/12
-              </Menu.Item>
-              <Menu.Divider />
-              <Menu.Item
                 color="red"
                 leftSection={<IconX size={14} />}
                 onClick={() => workspace.removeWidget(def.id)}
@@ -215,33 +217,38 @@ export const WidgetHost = observer(
           <LiveFeed channel={channel} onData={setLiveData} />
         ) : null}
 
-        <DataState
-          loading={source.loading}
-          error={source.error}
-          empty={liveOnlyOff || source.data == null}
-          emptyMessage={
-            liveOnlyOff
-              ? "Active le temps réel pour ce widget."
-              : "Aucune donnée."
-          }
-          onRetry={endpoint ? source.reload : undefined}
-          minHeight={70}
-        >
-          <Render source={source} ctx={ctx} span={instance.span} />
-        </DataState>
+        <Box style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          <DataState
+            loading={source.loading}
+            error={source.error}
+            empty={liveOnlyOff || source.data == null}
+            emptyMessage={
+              liveOnlyOff
+                ? "Active le temps réel pour ce widget."
+                : "Aucune donnée."
+            }
+            onRetry={endpoint ? source.reload : undefined}
+            minHeight={40}
+          >
+            <Render source={source} ctx={ctx} span={instance.span} />
+          </DataState>
+        </Box>
 
-        {/* Poignée de redimensionnement (largeur) — bord droit. */}
+        {/* Poignée de redimensionnement (coin bas-droit) — largeur + hauteur. */}
         <Box
           aria-hidden
           onPointerDown={onResizeDown}
           style={{
             position: "absolute",
-            top: 10,
-            right: 0,
-            bottom: 10,
-            width: 8,
-            cursor: "ew-resize",
-            borderRadius: 4,
+            right: 3,
+            bottom: 3,
+            width: 12,
+            height: 12,
+            cursor: "nwse-resize",
+            borderRight: "2px solid var(--mantine-color-dimmed)",
+            borderBottom: "2px solid var(--mantine-color-dimmed)",
+            borderBottomRightRadius: 4,
+            opacity: 0.5,
           }}
         />
       </Card>

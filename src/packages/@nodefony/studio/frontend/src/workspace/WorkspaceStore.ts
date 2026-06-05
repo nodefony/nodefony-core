@@ -13,6 +13,13 @@ function clampSpan(n: number): number {
   return Math.min(SPAN_MAX, Math.max(SPAN_MIN, Math.round(n)));
 }
 
+const H_MIN = 2;
+const H_MAX = 16;
+function clampH(n: number): number {
+  if (Number.isNaN(n)) return 3;
+  return Math.min(H_MAX, Math.max(H_MIN, Math.round(n)));
+}
+
 function clone(p: WorkspaceLayout): WorkspaceLayout {
   return { id: p.id, label: p.label, items: p.items.map((i) => ({ ...i })) };
 }
@@ -61,7 +68,11 @@ export class WorkspaceStore {
     const layout = this.layouts[this.activeId];
     if (!def || !layout || layout.items.some((i) => i.widgetId === widgetId))
       return;
-    layout.items.push({ widgetId, span: clampSpan(def.defaultSpan) });
+    layout.items.push({
+      widgetId,
+      span: clampSpan(def.defaultSpan),
+      h: clampH(def.defaultH ?? 3),
+    });
     this.persist();
   }
 
@@ -78,6 +89,17 @@ export class WorkspaceStore {
     );
     if (!it) return;
     it.span = clampSpan(span);
+    this.persist();
+  }
+
+  /** Redimensionne (drag du coin) : largeur en colonnes + hauteur en rangées. */
+  setSize(widgetId: string, span: number, h: number): void {
+    const it = this.layouts[this.activeId]?.items.find(
+      (i) => i.widgetId === widgetId,
+    );
+    if (!it) return;
+    it.span = clampSpan(span);
+    it.h = clampH(h);
     this.persist();
   }
 
@@ -134,7 +156,11 @@ export class WorkspaceStore {
         if (!layout || !Array.isArray(layout.items)) continue;
         const items: WidgetInstance[] = layout.items
           .filter((i) => i && typeof i.widgetId === "string")
-          .map((i) => ({ widgetId: i.widgetId, span: clampSpan(i.span) }));
+          .map((i) => ({
+            widgetId: i.widgetId,
+            span: clampSpan(i.span),
+            h: clampH(i.h ?? 3),
+          }));
         seeded[id] = {
           id,
           label: layout.label ?? seeded[id]?.label ?? id,
