@@ -305,10 +305,19 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   (title `nodefony-core`) survivent et **échappent à `pkill -f bin/nodefony`** → tuer par **PORT** (`lsof -ti tcp:5151,5152,5173,5177 | xargs kill -9`)
   - `pkill -f vite.js` + **vérifier `pgrep -c vite.js`=0**. (c) Toujours vérifier que `lsof -ti tcp:5151` == MON PID (sinon
     bench d'un fantôme). Méthode complète + baseline node nu + piège `node --prof` macOS (C++ faux symbole) → [[reference_perf_profiling_method]].
-- `[1× — 2026-06-05]` **mesurer un gain AVANT de refondre, et l'abandonner s'il est noyé** : #3 (fireAsync 0-listener)
-  semblait fondé mais gain RPS sous le bruit mono ±5% → abandonné après mesure (gardé car cohérent perf, mais 0 gain prouvé).
-  À l'inverse #1 router-first = +28% net mesuré par bypass toggle AVANT d'écrire le vrai fix. **A/B en MONO** (cluster co-localisé
-  = co-location-bound, ne montre pas le gain CPU). Discipline « pas de fait sans preuve » = a évité 1 refonte inutile.
+- `[3× — 2026-06-05]` **mesurer un gain AVANT de refondre, et l'abandonner s'il est noyé/négatif** : 3 hypothèses
+  « malignes » mesurées en A/B atomique mono → (a) #3 fireAsync 0-listener = bruit ; (b) **différer le `JSON.stringify`
+  de l'audit (passer l'OBJET au `Pdu` au lieu d'une string) = −5,3 % CONTRE-productif** — le ring buffer/Syslog RETIENT
+  - traite un objet plus cher qu'une string compacte ; stringifier TÔT = le moindre mal (le `Pdu.payload` est `unknown`,
+    les transports `JSON.stringify(pdu)` au write, mais le ring memory garde l'objet → pression GC) ; (c) saveSession-skip
+    quand pas de session = +0,4 % bruit (ça n'évite qu'1 microtask : `saveSession()` sans session = `Promise.resolve(null)`).
+    À l'inverse #1 router-first +28 % et **retrait `setParameters("query.*")` morts +3,2 %** = gains NETS. **Leçon clé : sur
+    un pipeline déjà optimisé (post router-first), pas de gros poisson — le seul gain franc = supprimer du travail MORT**
+    (les 4 `setParameters("query.*")` peuplaient le scope DI avec des clés que PERSONNE ne lit : @Query/@Param/@Body lisent
+    `ctx.request.queryGet` direct). Micro-optimiser l'async/alloc du cœur = ROI faible + risque `memory.test`. **A/B atomique =
+    paires ALTERNÉES** (old/new/old/new) en MONO (cluster co-localisé = co-location-bound) ; garder SSI les 2 new > les 2 old.
+    Banc versionné : `nodefony-load-test/scripts/bench-ab-mono.sh` (niveau 3). Le vrai prochain levier perf = « fast path »
+    (sauter par requête tout l'inutilisé) = chantier, PAS du grattage.
 - `[1× — 2026-06-04]` **résilience de la phase config = à blinder SÉPARÉMENT du lifecycle** : `fireLifecycle`/
   `guardInitialize` (Phase 3 du kit boot, DÉJÀ livrée — kit périmé) couvrent les hooks modules, PAS `loadApp`
   (import app + résolution `defineConfig`). Une config invalide y throw une stack opaque. Fix = try/catch →
