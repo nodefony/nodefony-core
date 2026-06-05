@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import { createHash } from "node:crypto";
 import Session, { OptionsSessionType } from "../../src/session/session.js";
 import type {

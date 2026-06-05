@@ -10,7 +10,6 @@
  */
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 

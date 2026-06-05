@@ -7,11 +7,10 @@
  * But : vérifier sous charge concurrente qu'il n'y a ni troncature de corps,
  * ni fuite (streams `fs` + listeners `finish`/`close`/`error` bien nettoyés —
  * cf RÈGLE perf+mémoire). Exclu de la non-régression (boucles réseau lourdes) →
- * lancé via `.mocharc.load.json`. Serveur live : 127.0.0.1:5152 (HTTPS).
+ * lancé via `vitest.load.config.ts` (npm run test:load). Serveur live : 127.0.0.1:5152 (HTTPS).
  */
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 interface StreamResult {
   status: number | undefined;
@@ -96,8 +95,6 @@ async function flood(
 }
 
 describe("STREAM LOAD — streamFile / download / media (charge)", function () {
-  this.timeout(60000);
-
   it("streamFile : 200 concurrents, corps complet (Content-Length == octets)", async () => {
     const ref = await fetchBytes("/nodefony/test/html/stream");
     expect(ref.status).to.equal(200);

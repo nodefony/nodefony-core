@@ -11,13 +11,14 @@
  */
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function get(path: string): Promise<{ status: number; body: Record<string, unknown> }> {
+function get(
+  path: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
     const r = https.request({ ...BASE, method: "GET", path }, (res) => {
       const chunks: Buffer[] = [];
@@ -25,7 +26,10 @@ function get(path: string): Promise<{ status: number; body: Record<string, unkno
       res.on("end", () => {
         const raw = Buffer.concat(chunks).toString("utf-8");
         try {
-          resolve({ status: res.statusCode!, body: raw ? JSON.parse(raw) : {} });
+          resolve({
+            status: res.statusCode!,
+            body: raw ? JSON.parse(raw) : {},
+          });
         } catch {
           resolve({ status: res.statusCode!, body: { raw } });
         }
@@ -67,7 +71,9 @@ describe("P1.7 — HttpKernel security hooks", () => {
     // /nodefony/test/hooks/reset and /nodefony/test/hooks/state and /index each fire beforeResolve.
     // We started counting AFTER reset, so before=already 1 (the reset hit).
     // Be tolerant: just verify the increment is at least 2 (index + state read).
-    expect(after.beforeResolveCount - before.beforeResolveCount).to.be.at.least(2);
+    expect(after.beforeResolveCount - before.beforeResolveCount).to.be.at.least(
+      2,
+    );
   });
 
   it("beforeResolve fires before route resolution (even for 404)", async () => {
@@ -76,7 +82,9 @@ describe("P1.7 — HttpKernel security hooks", () => {
     await wait(30);
     const after = await readState();
     // 404 went through beforeResolve before routing failed → counter incremented.
-    expect(after.beforeResolveCount).to.be.greaterThan(before.beforeResolveCount);
+    expect(after.beforeResolveCount).to.be.greaterThan(
+      before.beforeResolveCount,
+    );
   });
 
   it("afterAuthCount never exceeds beforeResolveCount", async () => {
@@ -102,7 +110,9 @@ describe("P1.7 — HttpKernel security hooks", () => {
     await get("/nodefony/test/index");
     await wait(30);
     const s = await readState();
-    expect(["beforeResolve", "afterAuth", "onAuthFailure"]).to.include(s.lastHook);
+    expect(["beforeResolve", "afterAuth", "onAuthFailure"]).to.include(
+      s.lastHook,
+    );
   });
 
   it("multiple sequential requests each fire beforeResolve", async () => {
@@ -113,6 +123,8 @@ describe("P1.7 — HttpKernel security hooks", () => {
     await wait(50);
     const after = await readState();
     // 5 index + 1 state read = +6 minimum.
-    expect(after.beforeResolveCount - before.beforeResolveCount).to.be.at.least(6);
+    expect(after.beforeResolveCount - before.beforeResolveCount).to.be.at.least(
+      6,
+    );
   });
 });

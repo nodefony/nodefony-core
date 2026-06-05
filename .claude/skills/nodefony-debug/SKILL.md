@@ -32,7 +32,7 @@ Je me charge quand un symptôme runtime arrive : crash boot, fuite mémoire, rac
 | Symptôme                                                             | Skill cible                                                               |
 | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Crash boot serveur, stack trace dans logs                            | `nodefony-tail-error-logs` (parse `/tmp/nodefony-server.log`)             |
-| Fuite mémoire suspectée (HTTP/WS heap delta)                         | `nodefony-check-memory-health` (run `.mocharc.load.json --grep Memory`)   |
+| Fuite mémoire suspectée (HTTP/WS heap delta)                         | `nodefony-check-memory-health` (run `npm run test:memory`, vitest)        |
 | Lenteur, charge, p99                                                 | `nodefony-load-test` (k6/autocannon orchestré)                            |
 | Modif front .tsx ne passe pas                                        | `nodefony-frontend-verify` (curl `/@fs/` + purge `.vite`)                 |
 | Debug runtime (boot child direct, hammer+SIGINT, repro pré-existant) | `nodefony-framework-dev` §4                                               |
@@ -43,14 +43,14 @@ Je me charge quand un symptôme runtime arrive : crash boot, fuite mémoire, rac
 
 ### Recette A — Memory test flake en suite full → isolation = vérité
 
-**Symptôme** : `npx mocha --config .mocharc.load.json --grep "Memory"` échoue sur un test memory (`100 sync crashes`, `100 async crashes`, `500 mixed`…) avec un delta heap > seuil (ex : 18.6 MB > 10 MB seuil). Le test **change à chaque run** (ce n'est pas localisé).
+**Symptôme** : `npm run test:memory` (vitest) échoue sur un test memory (`100 sync crashes`, `100 async crashes`, `500 mixed`…) avec un delta heap > seuil (ex : 18.6 MB > 10 MB seuil). Le test **change à chaque run** (ce n'est pas localisé).
 
-**Cause** : variance GC cumulée entre tests dans la même suite (pression heap V8 cumul N runs serveur + cumul tests précédents). PAS une fuite réelle.
+**Cause** : variance GC cumulée (pas de `--expose-gc` → un serveur très chauffé inflate le delta : async-crash vu à 10.4 MB sur un serveur tournant depuis longtemps, vert sur serveur frais). PAS une fuite réelle.
 
-**Diagnostic** (1 commande) :
+**Diagnostic** : **redémarrer le serveur frais** (`nodefony-start-server`) puis relancer le gate ; ou un test isolé :
 
 ```bash
-TS_NODE_PROJECT=tsconfig.tests.json npx mocha --config .mocharc.load.json --grep "<nom-exact-du-test>"
+cd src/packages/@nodefony/http && npx vitest run --config vitest.load.config.ts -t "<nom-exact-du-test>"
 ```
 
 Test isolé < 500ms et passe → c'est un **flake suite**, pas une fuite. Confirmer via baseline stash (recette B) si suspicion régression.
@@ -93,7 +93,7 @@ bash .claude/skills/nodefony-start-server/stop.sh    # 3. couper
 
 Avec serveur up → 59/59 verts.
 
-### Recette D — `vi.useFakeTimers()` plante en mocha (mélange runners)
+### Recette D — `vi.useFakeTimers()` plante en mocha (mélange runners) — ⚠️ HISTORIQUE (mocha SUPPRIMÉ 2026-06-05, runner unique = vitest ; gardé comme leçon)
 
 **Symptôme** : `Error: Vitest failed to access its internal state` lors de `npm run test:integration`. Stack trace pointe `getWorkerState()` → `useFakeTimers()`.
 

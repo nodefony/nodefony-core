@@ -10,7 +10,6 @@
  */
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 
@@ -21,14 +20,18 @@ type PhaseDto = {
   durationMs: number | null;
 };
 
-function getTiming(path = "/nodefony/test/timing"): Promise<{ status: number; phases: PhaseDto[] }> {
+function getTiming(
+  path = "/nodefony/test/timing",
+): Promise<{ status: number; phases: PhaseDto[] }> {
   return new Promise((resolve, reject) => {
     const r = https.request({ ...BASE, method: "GET", path }, (res) => {
       const chunks: Buffer[] = [];
       res.on("data", (c: Buffer) => chunks.push(c));
       res.on("end", () => {
         try {
-          const body = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as { phases: PhaseDto[] };
+          const body = JSON.parse(Buffer.concat(chunks).toString("utf-8")) as {
+            phases: PhaseDto[];
+          };
           resolve({ status: res.statusCode!, phases: body.phases });
         } catch (e) {
           reject(e);
@@ -70,9 +73,15 @@ describe("P1.1 — Context.phases (pipeline timing)", () => {
     const r = await getTiming();
     for (const p of r.phases) {
       if (p.endMs !== null) {
-        expect(p.endMs).to.be.at.least(p.startMs, `phase ${p.name}: endMs must be >= startMs`);
+        expect(p.endMs).to.be.at.least(
+          p.startMs,
+          `phase ${p.name}: endMs must be >= startMs`,
+        );
         expect(p.durationMs).to.be.a("number");
-        expect(p.durationMs!).to.be.at.least(0, `phase ${p.name}: durationMs must be >= 0`);
+        expect(p.durationMs!).to.be.at.least(
+          0,
+          `phase ${p.name}: durationMs must be >= 0`,
+        );
       }
     }
   });

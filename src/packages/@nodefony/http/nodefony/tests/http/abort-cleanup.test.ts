@@ -2,7 +2,6 @@
 import { expect } from "chai";
 import https from "node:https";
 import fs from "node:fs";
-import "mocha";
 
 // Regression coverage for the "Response Already sended" CRITIC noise that
 // fired on /abort/wait when the client closed the socket while the
@@ -54,7 +53,11 @@ function abortedGet(path: string, abortAfterMs: number): Promise<void> {
   });
 }
 
-function countCriticInLog(logPath: string, pattern: RegExp, since: number): number {
+function countCriticInLog(
+  logPath: string,
+  pattern: RegExp,
+  since: number,
+): number {
   try {
     const buf = fs.readFileSync(logPath, "utf8");
     // Strip ANSI color escapes that the Nodefony logger writes by default.
@@ -70,7 +73,7 @@ describe("Abort cleanup — no CRITIC on client disconnect (requires server)", (
   const LOG_PATH = "/tmp/nodefony-server.log";
   let logBaseline = 0;
 
-  before(async () => {
+  beforeAll(async () => {
     try {
       const stat = fs.statSync(LOG_PATH);
       logBaseline = fs.readFileSync(LOG_PATH, "utf8").split("\n").length;
@@ -86,7 +89,9 @@ describe("Abort cleanup — no CRITIC on client disconnect (requires server)", (
   it("10 client aborts mid-wait → server stays alive, no Response Already sended", async () => {
     const N = 10;
     await Promise.all(
-      Array.from({ length: N }, () => abortedGet("/nodefony/test/abort/wait", 100))
+      Array.from({ length: N }, () =>
+        abortedGet("/nodefony/test/abort/wait", 100),
+      ),
     );
     // Let teardown handlers and the controller's catch settle.
     await new Promise((r) => setTimeout(r, 500));
@@ -108,10 +113,13 @@ describe("Abort cleanup — no CRITIC on client disconnect (requires server)", (
       const count = countCriticInLog(
         LOG_PATH,
         /CRITIC HttpKernel\s*:.*Response Already sended/,
-        logBaseline
+        logBaseline,
       );
       if (count >= 0) {
-        expect(count, "expected 0 'Response Already sended' CRITIC lines").to.equal(0);
+        expect(
+          count,
+          "expected 0 'Response Already sended' CRITIC lines",
+        ).to.equal(0);
       }
     }
   });
@@ -120,7 +128,9 @@ describe("Abort cleanup — no CRITIC on client disconnect (requires server)", (
     await getJson("/nodefony/test/abort/reset");
     const N = 20;
     await Promise.all(
-      Array.from({ length: N }, () => abortedGet("/nodefony/test/abort/wait", 80))
+      Array.from({ length: N }, () =>
+        abortedGet("/nodefony/test/abort/wait", 80),
+      ),
     );
     await new Promise((r) => setTimeout(r, 500));
 

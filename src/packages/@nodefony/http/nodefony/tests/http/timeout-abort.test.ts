@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import http from "node:http";
-import "mocha";
 
 // P2.5 — request timeout integrated with the Nodefony pipeline + AbortSignal.
 //
@@ -47,7 +46,7 @@ function getJson(path: string): Promise<{ status: number; body: any }> {
 }
 
 describe("Request timeout → pipeline 408 + AbortSignal — P2.5 (requires server)", () => {
-  before(async () => {
+  beforeAll(async () => {
     await getJson("/nodefony/test/timeout/reset");
   });
 

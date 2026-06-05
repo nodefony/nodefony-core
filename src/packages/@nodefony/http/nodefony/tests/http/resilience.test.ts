@@ -3,7 +3,6 @@ import https from "node:https";
 import http2 from "node:http2";
 import tls from "node:tls";
 import net from "node:net";
-import "mocha";
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -144,40 +143,45 @@ describe("Resilience — server must never crash (requires server)", () => {
       expect(status).to.be.within(400, 499);
     });
 
-    it("malformed header (clientError) → 400 + socket closed (no FD leak)", (done) => {
-      // Socket brut sur le port HTTP clair (5151) : nom d'en-tête contenant un
-      // caractère de contrôle → llhttp rejette → event 'clientError'. Le serveur
-      // DOIT répondre 400 et fermer (sinon fuite de socket). Cf handleClientError.
-      const socket = net.connect(5151, "localhost", () => {
-        socket.write(
-          "GET /nodefony/test/index HTTP/1.1\r\nHost: localhost\r\nX\x01Y: 1\r\n\r\n",
+    it("malformed header (clientError) → 400 + socket closed (no FD leak)", () =>
+      new Promise<void>((resolve, reject) => {
+        const done = (err?: unknown): void => {
+          if (err) reject(err);
+          else resolve();
+        };
+        // Socket brut sur le port HTTP clair (5151) : nom d'en-tête contenant un
+        // caractère de contrôle → llhttp rejette → event 'clientError'. Le serveur
+        // DOIT répondre 400 et fermer (sinon fuite de socket). Cf handleClientError.
+        const socket = net.connect(5151, "localhost", () => {
+          socket.write(
+            "GET /nodefony/test/index HTTP/1.1\r\nHost: localhost\r\nX\x01Y: 1\r\n\r\n",
+          );
+        });
+        let data = "";
+        let settled = false;
+        const finish = (err?: Error) => {
+          if (settled) return;
+          settled = true;
+          socket.destroy();
+          done(err);
+        };
+        socket.setTimeout(4000);
+        socket.on("data", (c: Buffer) => (data += c.toString()));
+        socket.on("close", () => {
+          try {
+            expect(data).to.match(/400 Bad Request/u);
+            finish();
+          } catch (e) {
+            finish(e as Error);
+          }
+        });
+        socket.on("timeout", () =>
+          finish(new Error("no 400 response / socket left open")),
         );
-      });
-      let data = "";
-      let settled = false;
-      const finish = (err?: Error) => {
-        if (settled) return;
-        settled = true;
-        socket.destroy();
-        done(err);
-      };
-      socket.setTimeout(4000);
-      socket.on("data", (c: Buffer) => (data += c.toString()));
-      socket.on("close", () => {
-        try {
-          expect(data).to.match(/400 Bad Request/u);
-          finish();
-        } catch (e) {
-          finish(e as Error);
-        }
-      });
-      socket.on("timeout", () =>
-        finish(new Error("no 400 response / socket left open")),
-      );
-      socket.on("error", () => {
-        /* ECONNRESET possible après fermeture serveur — toléré */
-      });
-    });
+        socket.on("error", () => {
+          /* ECONNRESET possible après fermeture serveur — toléré */
+        });
+      }));
   });
 
   describe("Burst / sustained load", () => {

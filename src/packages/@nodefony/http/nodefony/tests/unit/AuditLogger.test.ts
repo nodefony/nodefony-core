@@ -1,6 +1,5 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import "mocha";
 import JsonAuditLogger, {
   severityFromStatus,
 } from "../../service/audit-logger.js";

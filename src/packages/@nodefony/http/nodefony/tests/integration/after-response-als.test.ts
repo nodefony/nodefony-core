@@ -15,7 +15,6 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
-import "mocha";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 const WSS = "wss://localhost:5152";
@@ -31,7 +30,10 @@ function get(path: string): Promise<{ status: number; body: Json }> {
       res.on("end", () => {
         const raw = Buffer.concat(chunks).toString("utf-8");
         try {
-          resolve({ status: res.statusCode!, body: raw ? JSON.parse(raw) : {} });
+          resolve({
+            status: res.statusCode!,
+            body: raw ? JSON.parse(raw) : {},
+          });
         } catch {
           resolve({ status: res.statusCode!, body: { raw } });
         }
@@ -62,7 +64,9 @@ describe("BUG-002 — RequestContext (ALS) inside onAfterResponse", () => {
     await wait(60);
     const s = await state();
     const byContext = s.byContext as Record<string, string | null>;
-    expect(byContext[ctxId], "hook must observe the ALS requestId").to.equal(ctxId);
+    expect(byContext[ctxId], "hook must observe the ALS requestId").to.equal(
+      ctxId,
+    );
   });
 
   it("HTTP hook sees a user set mid-request via RequestContext.set", async () => {
@@ -70,13 +74,17 @@ describe("BUG-002 — RequestContext (ALS) inside onAfterResponse", () => {
     expect(r.status).to.equal(200);
     await wait(60);
     const s = await state();
-    expect(s.hookUser, "hook must see the post-auth user").to.equal("http-user-7");
+    expect(s.hookUser, "hook must see the post-auth user").to.equal(
+      "http-user-7",
+    );
   });
 
   it("WS hook (onFinish) sees the handshake ALS requestId", async function () {
-    this.timeout(20_000);
     const handshakeId = await new Promise<string>((resolve, reject) => {
-      const ws = new WebSocket(`${WSS}/nodefony/test/als-test/ws/after`, wsOpts);
+      const ws = new WebSocket(
+        `${WSS}/nodefony/test/als-test/ws/after`,
+        wsOpts,
+      );
       ws.on("message", (data: WebSocket.RawData) => {
         const msg = JSON.parse(data.toString()) as Json;
         ws.send("bye");
@@ -89,7 +97,9 @@ describe("BUG-002 — RequestContext (ALS) inside onAfterResponse", () => {
     await wait(80);
     const s = await state();
     expect(s.wsHookHandshakeId).to.equal(handshakeId);
-    expect(s.wsHookRequestId, "WS after-hook must restore ALS").to.equal(handshakeId);
+    expect(s.wsHookRequestId, "WS after-hook must restore ALS").to.equal(
+      handshakeId,
+    );
   });
 
   it("isolation: 2 concurrent requests each hook sees its own requestId", async () => {

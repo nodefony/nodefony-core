@@ -2,7 +2,6 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
-import "mocha";
 
 // P2.7 — W3C Trace Context honored + generated end-to-end.
 // Spec: https://www.w3.org/TR/trace-context/
@@ -122,9 +121,7 @@ describe("P2.7 — W3C traceparent (requires server)", () => {
         traceparent: incoming,
       });
       const parsed = parseTrace(headers.traceparent as string)!;
-      expect(parsed.traceId).to.not.equal(
-        "00000000000000000000000000000000",
-      );
+      expect(parsed.traceId).to.not.equal("00000000000000000000000000000000");
     });
 
     it("reserved version `ff` → new traceparent generated", async () => {
@@ -136,9 +133,7 @@ describe("P2.7 — W3C traceparent (requires server)", () => {
       const parsed = parseTrace(headers.traceparent as string)!;
       expect(parsed.version).to.equal("00");
       // freshly generated traceId, not the rejected one
-      expect(parsed.traceId).to.not.equal(
-        "0af7651916cd43dd8448eb211c80319c",
-      );
+      expect(parsed.traceId).to.not.equal("0af7651916cd43dd8448eb211c80319c");
     });
   });
 
@@ -153,7 +148,10 @@ describe("P2.7 — W3C traceparent (requires server)", () => {
       headers: Record<string, string>,
     ): Promise<{ handshake: boolean; alsTraceparent: string | null }> {
       return new Promise((resolve, reject) => {
-        const ws = new WebSocket(WS_PROBE, { rejectUnauthorized: false, headers });
+        const ws = new WebSocket(WS_PROBE, {
+          rejectUnauthorized: false,
+          headers,
+        });
         let opened = false;
         ws.on("open", () => {
           opened = true;
@@ -176,37 +174,54 @@ describe("P2.7 — W3C traceparent (requires server)", () => {
     it("handshake completes when a valid traceparent is sent (regression)", async () => {
       const ws = new WebSocket("wss://localhost:5152/nodefony/test/ws/echo", {
         rejectUnauthorized: false,
-        headers: { traceparent: "00-deadbeefdeadbeefdeadbeefdeadbeef-cafebabecafebabe-01" },
+        headers: {
+          traceparent:
+            "00-deadbeefdeadbeefdeadbeefdeadbeef-cafebabecafebabe-01",
+        },
       });
       await new Promise<void>((resolve, reject) => {
-        ws.on("open", () => { ws.close(); resolve(); });
+        ws.on("open", () => {
+          ws.close();
+          resolve();
+        });
         ws.on("error", (err) => reject(err));
       });
     });
 
     it("incoming traceId survives into a WS message handler (via ALS)", async () => {
-      const incoming = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+      const incoming =
+        "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
       const { alsTraceparent } = await wsTrace({ traceparent: incoming });
-      expect(alsTraceparent, "traceparent readable in WS message via RequestContext").to.be.a("string");
+      expect(
+        alsTraceparent,
+        "traceparent readable in WS message via RequestContext",
+      ).to.be.a("string");
       const parsed = parseTrace(alsTraceparent!);
-      expect(parsed, "stored traceparent matches W3C grammar").to.not.equal(null);
-      expect(parsed!.traceId, "same trace, propagated across the upgrade").to.equal(
-        "0af7651916cd43dd8448eb211c80319c",
+      expect(parsed, "stored traceparent matches W3C grammar").to.not.equal(
+        null,
       );
+      expect(
+        parsed!.traceId,
+        "same trace, propagated across the upgrade",
+      ).to.equal("0af7651916cd43dd8448eb211c80319c");
       // child span on our side — parentId must have been re-minted
       expect(parsed!.parentId).to.not.equal("b7ad6b7169203331");
     });
 
     it("generates a fresh traceparent when none is sent on the upgrade", async () => {
       const { alsTraceparent } = await wsTrace({});
-      expect(alsTraceparent, "WS context always has a traceparent").to.be.a("string");
+      expect(alsTraceparent, "WS context always has a traceparent").to.be.a(
+        "string",
+      );
       const parsed = parseTrace(alsTraceparent!);
       expect(parsed, "generated header is W3C-valid").to.not.equal(null);
       expect(parsed!.traceId).to.not.match(/^0+$/);
     });
 
     it("rejects an invalid incoming traceparent and mints a new one", async () => {
-      const { alsTraceparent } = await wsTrace({ traceparent: "garbage-not-w3c" });
+      const { alsTraceparent } = await wsTrace({
+        traceparent: "garbage-not-w3c",
+      });
       const parsed = parseTrace(alsTraceparent!);
       expect(parsed, "fallback header is W3C-valid").to.not.equal(null);
       expect(parsed!.version).to.equal("00");

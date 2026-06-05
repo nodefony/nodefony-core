@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 // Conformité du retour AUTO-JSON des actions controller (Resolver.returnController)
 // + headers réponse. Un controller qui `return { ... }` / `return [ ... ]` (sans
@@ -36,8 +35,6 @@ function get(
 }
 
 describe("Auto-JSON controller return — RFC 8259 / 9110 (requires server)", function () {
-  this.timeout(10_000);
-
   describe("return { object } → auto-JSON", () => {
     it("status 200 (RFC 9110 défaut)", async () => {
       const { status } = await get("/nodefony/test/rest/auto/object");

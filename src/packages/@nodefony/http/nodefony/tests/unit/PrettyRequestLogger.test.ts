@@ -1,15 +1,21 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import "mocha";
 import PrettyRequestLogger from "../../service/pretty-request-logger.js";
 
-function fakeHttpContext(opts: {
-  status?: number;
-  url?: string;
-  method?: string;
-  error?: Error | null;
-  phases?: { name: string; startMs: number; endMs?: number; durationMs?: number }[];
-} = {}): unknown {
+function fakeHttpContext(
+  opts: {
+    status?: number;
+    url?: string;
+    method?: string;
+    error?: Error | null;
+    phases?: {
+      name: string;
+      startMs: number;
+      endMs?: number;
+      durationMs?: number;
+    }[];
+  } = {},
+): unknown {
   return {
     url: opts.url ?? "/api/test",
     remoteAddress: "127.0.0.1",
@@ -22,8 +28,7 @@ function fakeHttpContext(opts: {
 }
 
 // Strip ANSI color codes for assertion convenience.
-const noColor = (s: string) =>
-  s.replace(/\[\d+(;\d+)?m/g, "");
+const noColor = (s: string) => s.replace(/\[\d+(;\d+)?m/g, "");
 
 describe("PrettyRequestLogger — unit tests (P3.2)", () => {
   const logger = new PrettyRequestLogger();
@@ -35,13 +40,21 @@ describe("PrettyRequestLogger — unit tests (P3.2)", () => {
     });
 
     it("severity follows status (delegates to severityFromStatus)", () => {
-      expect(logger.renderHttp(fakeHttpContext({ status: 200 }) as never).severity).to.equal("INFO");
-      expect(logger.renderHttp(fakeHttpContext({ status: 404 }) as never).severity).to.equal("WARNING");
-      expect(logger.renderHttp(fakeHttpContext({ status: 500 }) as never).severity).to.equal("ERROR");
+      expect(
+        logger.renderHttp(fakeHttpContext({ status: 200 }) as never).severity,
+      ).to.equal("INFO");
+      expect(
+        logger.renderHttp(fakeHttpContext({ status: 404 }) as never).severity,
+      ).to.equal("WARNING");
+      expect(
+        logger.renderHttp(fakeHttpContext({ status: 500 }) as never).severity,
+      ).to.equal("ERROR");
     });
 
     it("includes method, status, url, remote, short requestId", () => {
-      const e = logger.renderHttp(fakeHttpContext({ method: "POST", status: 201, url: "/foo" }) as never);
+      const e = logger.renderHttp(
+        fakeHttpContext({ method: "POST", status: 201, url: "/foo" }) as never,
+      );
       const t = noColor(e.text);
       expect(t).to.include("POST");
       expect(t).to.include("201");
@@ -66,7 +79,9 @@ describe("PrettyRequestLogger — unit tests (P3.2)", () => {
       const start = performance.now() - 12.5;
       const e = logger.renderHttp(
         fakeHttpContext({
-          phases: [{ name: "parse", startMs: start, endMs: start + 1, durationMs: 1 }],
+          phases: [
+            { name: "parse", startMs: start, endMs: start + 1, durationMs: 1 },
+          ],
         }) as never,
       );
       const t = noColor(e.text);
@@ -98,12 +113,20 @@ describe("PrettyRequestLogger — unit tests (P3.2)", () => {
     });
 
     it("includes protocol when provided", () => {
-      const e = logger.renderWebsocket(fakeHttpContext() as never, null, "echo-protocol");
+      const e = logger.renderWebsocket(
+        fakeHttpContext() as never,
+        null,
+        "echo-protocol",
+      );
       expect(noColor(e.text)).to.include("[echo-protocol]");
     });
 
     it("error severity ERROR", () => {
-      const e = logger.renderWebsocket(fakeHttpContext() as never, new Error("ws-fail"), null);
+      const e = logger.renderWebsocket(
+        fakeHttpContext() as never,
+        new Error("ws-fail"),
+        null,
+      );
       expect(e.severity).to.equal("ERROR");
       expect(noColor(e.text)).to.include("ws-fail");
     });

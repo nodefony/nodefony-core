@@ -4,7 +4,6 @@ import WebSocket from "ws";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import "mocha";
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 const WSS = "wss://localhost:5152";
@@ -95,18 +94,16 @@ function uploadSmall(): Promise<void> {
 // ── suites ───────────────────────────────────────────────────────────────────
 
 describe("Memory leaks — HTTP (requires server)", function () {
-  this.timeout(60_000);
-
-  before(() => warmup());
+  beforeAll(() => warmup());
 
   // Hygiène : le test d'upload ne doit JAMAIS laisser de résidu dans tmp/.
   // Snapshot avant la suite, diff après → supprime UNIQUEMENT ce qu'elle a créé
   // (sans toucher au préexistant). Même pattern que upload.test.ts.
   let preexisting: Set<string>;
-  before(async () => {
+  beforeAll(async () => {
     preexisting = new Set(await fsp.readdir(UPLOAD_DIR).catch(() => []));
   });
-  after(async () => {
+  afterAll(async () => {
     const entries = await fsp
       .readdir(UPLOAD_DIR, { withFileTypes: true })
       .catch(() => [] as import("node:fs").Dirent[]);
@@ -204,8 +201,6 @@ describe("Memory leaks — HTTP (requires server)", function () {
 });
 
 describe("Memory leaks — WebSocket (requires server)", function () {
-  this.timeout(60_000);
-
   // Drain garbage left by the previous (heavy) test before measuring a
   // baseline. The server runs without --expose-gc, so heap deltas carry GC
   // noise; a short idle lets V8 reclaim before/after are taken on. NOTE: these

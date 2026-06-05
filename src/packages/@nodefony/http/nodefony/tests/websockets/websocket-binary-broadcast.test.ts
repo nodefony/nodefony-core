@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import WebSocket from "ws";
 
 const WSS = "wss://localhost:5152";
@@ -75,8 +74,6 @@ function wsCollectBinary(ws: WebSocket, n: number): Promise<Buffer[]> {
 // ─── BINARY ───────────────────────────────────────────────────────────────────
 
 describe("WEBSOCKETS BINARY", function () {
-  this.timeout(10000);
-
   it("Binary echo: 8 random bytes", async () => {
     const ws = openWs(BIN_URL);
     await wsHandshake(ws);
@@ -156,8 +153,6 @@ describe("WEBSOCKETS BINARY", function () {
 // ─── BINARY LIMITS ────────────────────────────────────────────────────────────
 
 describe("WEBSOCKETS BINARY LIMITS", function () {
-  this.timeout(20000);
-
   it("512KB binary echo — size preserved", async () => {
     const ws = openWs(BIN_URL);
     await wsHandshake(ws);
@@ -175,7 +170,9 @@ describe("WEBSOCKETS BINARY LIMITS", function () {
     const ws = openWs(BIN_URL);
     await wsHandshake(ws);
     const N = 10;
-    const bufs = Array.from({ length: N }, (_, i) => Buffer.alloc(1024, i % 256));
+    const bufs = Array.from({ length: N }, (_, i) =>
+      Buffer.alloc(1024, i % 256),
+    );
     const collecting = wsCollectBinary(ws, N);
     for (const buf of bufs) ws.send(buf);
     const replies = await collecting;
@@ -196,7 +193,7 @@ describe("WEBSOCKETS BINARY LIMITS", function () {
         ws.send(buf);
         const reply = await wsNextBinary(ws);
         expect(reply.equals(buf)).to.be.true;
-      })
+      }),
     );
     await Promise.all(sockets.map(wsClose));
   });
@@ -215,8 +212,6 @@ describe("WEBSOCKETS BINARY LIMITS", function () {
 // ─── BROADCAST ────────────────────────────────────────────────────────────────
 
 describe("WEBSOCKETS BROADCAST", function () {
-  this.timeout(15000);
-
   it("Sender receives its own broadcast", async () => {
     const wsA = openWs(BC_URL);
     await wsHandshake(wsA);
@@ -262,7 +257,7 @@ describe("WEBSOCKETS BROADCAST", function () {
     const wsA = openWs(BC_URL);
     const wsB = openWs(BC_URL);
     await Promise.all([wsHandshake(wsA), wsHandshake(wsB)]);
-    const payload = "héllo\twörld\n\"special\"";
+    const payload = 'héllo\twörld\n"special"';
     const [ra, rb] = await Promise.all([
       wsNextText(wsA),
       wsNextText(wsB),
@@ -278,7 +273,10 @@ describe("WEBSOCKETS BROADCAST", function () {
     const wsB = openWs(BC_URL);
     await Promise.all([wsHandshake(wsA), wsHandshake(wsB)]);
     const N = 5;
-    const payloads = Array.from({ length: N }, (_, i) => `bc-seq-${i}-${Date.now()}`);
+    const payloads = Array.from(
+      { length: N },
+      (_, i) => `bc-seq-${i}-${Date.now()}`,
+    );
 
     const bMessages: string[] = [];
     const bDone = new Promise<void>((resolve, reject) => {
@@ -318,8 +316,6 @@ describe("WEBSOCKETS BROADCAST", function () {
 // ─── BROADCAST LIMITS ─────────────────────────────────────────────────────────
 
 describe("WEBSOCKETS BROADCAST LIMITS", function () {
-  this.timeout(25000);
-
   it("10 clients all receive broadcast", async () => {
     const N = 10;
     const sockets = Array.from({ length: N }, () => openWs(BC_URL));
@@ -389,7 +385,7 @@ describe("WEBSOCKETS BROADCAST LIMITS", function () {
             got.add(data.toString());
             if (got.size === SENDERS) resolve();
           });
-        })
+        }),
     );
 
     // All senders broadcast simultaneously

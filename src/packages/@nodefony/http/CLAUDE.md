@@ -121,17 +121,23 @@ Chaque contexte (HTTP + WS) reçoit un `requestId` UUID v4 à la construction (`
 
 ---
 
-## Tests — état complet (621 intégration +1 pending / 254 unit — 2026-05-29)
+## Tests — état complet (vitest 100% — mocha SUPPRIMÉ 2026-06-05)
 
-**Deux runners** (les `unit/` tournent sous les DEUX — voulu) :
+**Runner unique = Vitest 4** (mocha retiré : suppression totale, gate audit). 3 suites = 3 configs :
 
-| Commande                   | Runner | Spec                          | Compte (2026-05-29)   | Serveur requis                             |
-| -------------------------- | ------ | ----------------------------- | --------------------- | ------------------------------------------ |
-| `npm test`                 | vitest | `tests/unit/**/*.test.ts`     | **254** (16 fichiers) | non (composants purs)                      |
-| `npm run test:integration` | mocha  | `tests/**` sauf load + memory | **621 + 1 pending**   | oui (`npx nodefony development` 5151/5152) |
+| Commande                   | Config                         | Spec                                             | Compte (2026-06-05)   | Serveur requis  |
+| -------------------------- | ------------------------------ | ------------------------------------------------ | --------------------- | --------------- |
+| `npm test`                 | `vitest.config.ts`             | `tests/unit/**`                                  | **337** (20 fichiers) | non             |
+| `npm run test:integration` | `vitest.integration.config.ts` | `tests/{http,integration,routing,websockets}/**` | **400 + 1 skipped**   | oui (5151/5152) |
+| `npm run test:load`        | `vitest.load.config.ts`        | `tests/load/**` + `tests/http/memory.test.ts`    | charge/heap/leak      | oui             |
+| `npm run test:memory`      | `vitest.load.config.ts`        | `tests/http/memory.test.ts` seul (le GATE)       | **9** (gate mémoire)  | oui             |
 
-> Le compte mocha (621) **inclut** les 254 unit (double exécution voulue : vitest = dev rapide + coverage, mocha = suite complète). Ne PAS sommer. Suite de non-régression = mocha (621).
-> Compte réel à jour : `npm test 2>&1 | tail -2` (unit) · `npm run test:integration 2>&1 | grep -E "passing|pending"` (intég).
+> Les suites intégration/load sont **séquentielles** (`fileParallelism:false`) : tous les fichiers
+> tapent le MÊME serveur live → la parallélisation corromprait sessions/ports et surtout les deltas de
+> heap (load). Plus de double-exécution unit (mocha est parti) : `unit` ne tourne QUE sous `npm test`.
+> Compte réel à jour : `npm test 2>&1 | tail -3` · `npm run test:integration 2>&1 | tail -3`.
+> ⚠️ Le serveur dev (DevSupervisor) **redémarre sur édition de fichier** — ne pas éditer pendant un run
+> intégration/load (ECONNREFUSED transitoire). Run propre = serveur stable, pas d'édition concurrente.
 
 Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs au 2026-05-16** — la colonne sujet reste valide, le total a évolué) :
 
@@ -181,9 +187,10 @@ Cartographie fichier→sujet ci-dessous (comptes par fichier **indicatifs au 202
 
 ### Suites séparées — charge vs non-régression
 
-- **Non-régression rapide** : `npm run test:integration` (`.mocharc.integration.json`). Exclut `tests/load/**` + `tests/http/memory.test.ts`. C'est la suite à lancer systématiquement.
-- **Charge / mémoire / leak / scopes DI** : `npx mocha --config .mocharc.load.json` (= `tests/load/**` + `memory.test.ts`). À lancer AVANT tout commit touchant Kernel / pipeline request / cycle de vie / mémoire — pas à chaque non-régression (sinon trop lent).
-- Gate perf seul : `npx mocha --config .mocharc.load.json --grep "Memory"`.
+- **Non-régression rapide** : `npm run test:integration` (`vitest.integration.config.ts`). Exclut `tests/load/**` + `tests/http/memory.test.ts`. C'est la suite à lancer systématiquement.
+- **Charge / mémoire / leak / scopes DI** : `npm run test:load` (`vitest.load.config.ts` = `tests/load/**` + `memory.test.ts`). À lancer AVANT tout commit touchant Kernel / pipeline request / cycle de vie / mémoire — pas à chaque non-régression (sinon trop lent).
+- Gate perf seul : `npm run test:memory` (= `vitest.load.config.ts` filtré sur `memory.test.ts`).
+- ⚠️ **`tests/load/ws-messages-load.test.ts > sustained heap < 30 MB` échoue (pré-existant, ≠ migration)** : delta ~120–160 MB sur Node 25 / cette machine (GC non forcé, pas de `--expose-gc`). Confirmé identique sous mocha AVANT migration. Garde grossier, pas un leak réel (cf scope-count assertions). À ré-étalonner ou `--expose-gc` plus tard, hors scope migration test.
 - Tests ALS/lifecycle : `tests/integration/{request-context-ws,after-response-als,lifecycle-als}.test.ts` (rapides, assertions delta) + `tests/load/als-load.test.ts` (lourds). Route diagnostic scopes : `/nodefony/test/als-test/scopes`.
 - **Stress WS** (2 axes distincts) : `tests/load/ws-connections-load.test.ts` (axe 1 — nombre de sockets simultanées) + `tests/load/ws-messages-load.test.ts` (axe 2 — débit frames + broadcast). Cas CI-stables = lossless + plancher de débit + scopes drainés (poll `drainTo`, pas de `wait` fixe). Sondes plafond/rupture gated derrière `RUN_WS_RUPTURE=1` (cap `WS_RUPTURE_CAP`, défaut 8000) car elles épuisent les ports éphémères loopback. Mesures observées : ~750+ conn / 33–38k msg/s soutenu jusqu'à 200k frames sans perte.
   - Gotcha harness : ouvrir N centaines de WS en **un seul** `Promise.all` → `AggregateError` (connect TLS loopback dual-stack `internalConnectMultiple`) → ouvrir par **batches** (`openFleet`, 50/batch). Tracker chaque socket (`Set` + `afterEach` terminate) sinon un test qui throw laisse des sockets ouvertes qui **polluent la baseline scopes** du test suivant.

@@ -13,7 +13,6 @@
  */
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 function get(
   host: "localhost" | "127.0.0.1",

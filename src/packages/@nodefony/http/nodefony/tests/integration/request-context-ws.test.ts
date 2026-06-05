@@ -17,7 +17,6 @@
  */
 import { expect } from "chai";
 import WebSocket from "ws";
-import "mocha";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -57,16 +56,19 @@ function wsSession(
 }
 
 describe("BUG-001 — RequestContext (ALS) across WebSocket messages", function () {
-  this.timeout(20_000);
-
   it("requestId survives handshake + 3 messages (all equal, all defined)", async () => {
     const msgs = await wsSession("/nodefony/test/als-test/ws", ["a", "b", "c"]);
     expect(msgs).to.have.length(4); // handshake + 3 responses
     const ids = msgs.map((m) => m.alsRequestId);
     // None must be null (the bug returns null on messages after the handshake)
-    ids.forEach((id) => expect(id, "alsRequestId must not be null").to.be.a("string"));
+    ids.forEach((id) =>
+      expect(id, "alsRequestId must not be null").to.be.a("string"),
+    );
     // All identical across the whole connection
-    expect(new Set(ids).size).to.equal(1, "all messages must share one requestId");
+    expect(new Set(ids).size).to.equal(
+      1,
+      "all messages must share one requestId",
+    );
     // ALS requestId equals the context's own requestId
     msgs.forEach((m) => expect(m.alsRequestId).to.equal(m.contextRequestId));
   });
@@ -83,16 +85,26 @@ describe("BUG-001 — RequestContext (ALS) across WebSocket messages", function 
       expect(new Set(ids).size).to.equal(1, "one requestId per socket");
       return ids[0];
     });
-    expect(new Set(perSocketIds).size).to.equal(10, "expected 10 distinct requestIds");
+    expect(new Set(perSocketIds).size).to.equal(
+      10,
+      "expected 10 distinct requestIds",
+    );
   });
 
   it("user set in one message is visible via ALS in the next message", async () => {
-    const msgs = await wsSession("/nodefony/test/als-test/ws/user", ["login", "check"]);
+    const msgs = await wsSession("/nodefony/test/als-test/ws/user", [
+      "login",
+      "check",
+    ]);
     // [handshake, login-response, check-response]
     expect(msgs).to.have.length(3);
     expect(msgs[0].alsUser, "no user at handshake").to.equal(null);
-    expect(msgs[1].alsUser, "user set during 'login' message").to.equal("ws-user-42");
-    expect(msgs[2].alsUser, "user persists to the next message").to.equal("ws-user-42");
+    expect(msgs[1].alsUser, "user set during 'login' message").to.equal(
+      "ws-user-42",
+    );
+    expect(msgs[2].alsUser, "user persists to the next message").to.equal(
+      "ws-user-42",
+    );
   });
 
   it("traceparent from the handshake header is visible on every message", async () => {
@@ -110,7 +122,10 @@ describe("BUG-001 — RequestContext (ALS) across WebSocket messages", function 
       expect(t.split("-")[1], "trace-id must be honored").to.equal(traceId);
     });
     // Same resolved traceparent across the whole connection (ALS propagation).
-    expect(new Set(traceparents).size).to.equal(1, "one traceparent per connection");
+    expect(new Set(traceparents).size).to.equal(
+      1,
+      "one traceparent per connection",
+    );
   });
 
   // NOTE: the heavy memory/leak version (100 conns x 10 msgs) lives in

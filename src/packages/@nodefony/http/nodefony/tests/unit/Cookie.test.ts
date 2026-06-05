@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import Cookie from "../../src/cookies/cookie.js";
 
 describe("Cookie — unit tests", () => {

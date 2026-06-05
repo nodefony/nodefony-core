@@ -14,13 +14,14 @@
  */
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function get(path: string): Promise<{ status: number; body: Record<string, unknown> }> {
+function get(
+  path: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
   return new Promise((resolve, reject) => {
     const r = https.request({ ...BASE, method: "GET", path }, (res) => {
       const chunks: Buffer[] = [];
@@ -28,7 +29,10 @@ function get(path: string): Promise<{ status: number; body: Record<string, unkno
       res.on("end", () => {
         const raw = Buffer.concat(chunks).toString("utf-8");
         try {
-          resolve({ status: res.statusCode!, body: raw ? JSON.parse(raw) : {} });
+          resolve({
+            status: res.statusCode!,
+            body: raw ? JSON.parse(raw) : {},
+          });
         } catch {
           resolve({ status: res.statusCode!, body: { raw } });
         }
@@ -55,9 +59,17 @@ function getAndAbort(path: string, abortAfterMs: number): Promise<void> {
   });
 }
 
-async function readState(): Promise<{ abortedCount: number; completedCount: number; lastAbortReason: string }> {
+async function readState(): Promise<{
+  abortedCount: number;
+  completedCount: number;
+  lastAbortReason: string;
+}> {
   const r = await get("/nodefony/test/abort/state");
-  return r.body as { abortedCount: number; completedCount: number; lastAbortReason: string };
+  return r.body as {
+    abortedCount: number;
+    completedCount: number;
+    lastAbortReason: string;
+  };
 }
 
 async function reset(): Promise<void> {
@@ -76,12 +88,17 @@ describe("P1.3 — Context.signal (AbortSignal)", () => {
     // Give the server a moment to observe the close and run the abort callback.
     await wait(200);
     const after = await readState();
-    expect(after.abortedCount - before.abortedCount).to.equal(1, "abortedCount must increment by 1");
-    expect(after.completedCount - before.completedCount).to.equal(0, "completedCount must NOT increment");
+    expect(after.abortedCount - before.abortedCount).to.equal(
+      1,
+      "abortedCount must increment by 1",
+    );
+    expect(after.completedCount - before.completedCount).to.equal(
+      0,
+      "completedCount must NOT increment",
+    );
   });
 
   it("normal completion → completedCount increments, abortedCount does not", async function () {
-    this.timeout(5000);
     const before = await readState();
     const r = await get("/nodefony/test/abort/wait");
     expect(r.status).to.equal(200);
@@ -96,11 +113,13 @@ describe("P1.3 — Context.signal (AbortSignal)", () => {
     await getAndAbort("/nodefony/test/abort/wait", 100);
     await wait(200);
     const s = await readState();
-    expect(s.lastAbortReason).to.match(/aborted|closed/i, `unexpected reason: "${s.lastAbortReason}"`);
+    expect(s.lastAbortReason).to.match(
+      /aborted|closed/i,
+      `unexpected reason: "${s.lastAbortReason}"`,
+    );
   });
 
   it("multiple sequential aborts each increment the counter", async function () {
-    this.timeout(5000);
     for (let i = 0; i < 3; i++) {
       await getAndAbort("/nodefony/test/abort/wait", 80);
       await wait(150);

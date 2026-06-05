@@ -1,6 +1,5 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import "mocha";
 import DefaultRequestLogger from "../../service/request-logger.js";
 
 function fakeHttpContext(

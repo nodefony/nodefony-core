@@ -14,7 +14,6 @@
  */
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 
@@ -28,7 +27,10 @@ function get(path: string): Promise<{ status: number; body: Json }> {
       res.on("end", () => {
         const raw = Buffer.concat(chunks).toString("utf-8");
         try {
-          resolve({ status: res.statusCode!, body: raw ? JSON.parse(raw) : {} });
+          resolve({
+            status: res.statusCode!,
+            body: raw ? JSON.parse(raw) : {},
+          });
         } catch {
           resolve({ status: res.statusCode!, body: { raw } });
         }
@@ -42,7 +44,11 @@ function get(path: string): Promise<{ status: number; body: Json }> {
 // Hooks may run on a microtask after "finish" — wait briefly to observe their effect.
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function readState(): Promise<{ count: number; multiCount: number; lastFiredAtMs: number }> {
+async function readState(): Promise<{
+  count: number;
+  multiCount: number;
+  lastFiredAtMs: number;
+}> {
   const r = await get("/nodefony/test/after/state");
   return r.body as { count: number; multiCount: number; lastFiredAtMs: number };
 }
@@ -70,7 +76,10 @@ describe("P1.2 — Context.onAfterResponse", () => {
     await get("/nodefony/test/after/incr");
     await wait(50);
     const s = await readState();
-    expect(s.count).to.equal(1, "single request must increment exactly once, not twice");
+    expect(s.count).to.equal(
+      1,
+      "single request must increment exactly once, not twice",
+    );
   });
 
   it("multiple successive requests each fire their own hook", async () => {

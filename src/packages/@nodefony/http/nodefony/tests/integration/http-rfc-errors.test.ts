@@ -10,7 +10,6 @@
  */
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 
@@ -22,7 +21,12 @@ type RawResponse = {
   bodyLen: number;
 };
 
-function req(method: string, path: string, headers: Record<string, string> = {}, body?: string): Promise<RawResponse> {
+function req(
+  method: string,
+  path: string,
+  headers: Record<string, string> = {},
+  body?: string,
+): Promise<RawResponse> {
   return new Promise((resolve, reject) => {
     const r = https.request({ ...BASE, method, path, headers }, (res) => {
       const chunks: Buffer[] = [];
@@ -52,7 +56,10 @@ describe("RFC 7230 §3.1.2 — Reason-phrase US-ASCII printable", () => {
   it("200 OK status-message is ASCII printable", async () => {
     const r = await req("GET", "/nodefony/test/index");
     expect(r.status).to.equal(200);
-    expect(isAsciiPrintable(r.statusMessage)).to.equal(true, `got: "${r.statusMessage}"`);
+    expect(isAsciiPrintable(r.statusMessage)).to.equal(
+      true,
+      `got: "${r.statusMessage}"`,
+    );
   });
 
   it("404 status-message is ASCII printable", async () => {
@@ -103,7 +110,10 @@ describe("RFC 9110 §9.3.2 — HEAD must not return body", () => {
 describe("RFC 9110 §15.5.6 — 405 Method Not Allowed MUST include Allow header", () => {
   it("DELETE on GET-only route returns 405 (not 200)", async () => {
     const r = await req("DELETE", "/nodefony/test/index");
-    expect(r.status).to.equal(405, `expected 405 Method Not Allowed, got ${r.status}`);
+    expect(r.status).to.equal(
+      405,
+      `expected 405 Method Not Allowed, got ${r.status}`,
+    );
   });
 
   it("PUT on GET-only route returns 405", async () => {
@@ -131,7 +141,9 @@ describe("RFC 9110 §6.4.1 — 204/304 MUST NOT have a body", () => {
     const r = await req("GET", "/nodefony/test/nocontent");
     expect(r.status).to.equal(204);
     expect(r.bodyLen).to.equal(0);
-    expect(r.headers["content-length"]).to.satisfy((v: string | undefined) => v === undefined || v === "0");
+    expect(r.headers["content-length"]).to.satisfy(
+      (v: string | undefined) => v === undefined || v === "0",
+    );
   });
 });
 
@@ -192,7 +204,9 @@ describe("Error JSON body — Nodefony contract (NOT RFC 7807)", () => {
   it("error body includes requestId (under nodefony.requestId)", async () => {
     const r = await req("GET", "/nodefony/test/crash/sync");
     const body = JSON.parse(r.body);
-    expect(body.nodefony?.requestId).to.be.a("string").with.length.greaterThan(0);
+    expect(body.nodefony?.requestId)
+      .to.be.a("string")
+      .with.length.greaterThan(0);
   });
 
   it("error body requestId matches X-Request-Id response header", async () => {
@@ -259,7 +273,9 @@ describe("X-Request-Id — propagation on every response code", () => {
 
   it("client-provided X-Request-Id is echoed back on error response", async () => {
     const id = "trace-rfc-test-9999";
-    const r = await req("GET", "/nodefony/test/crash/sync", { "x-request-id": id });
+    const r = await req("GET", "/nodefony/test/crash/sync", {
+      "x-request-id": id,
+    });
     expect(r.headers["x-request-id"]).to.equal(id);
   });
 });

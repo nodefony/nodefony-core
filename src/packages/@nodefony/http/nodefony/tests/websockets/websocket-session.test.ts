@@ -1,5 +1,4 @@
 import { assert } from "chai";
-import "mocha";
 import WebSocket from "ws";
 
 const wsOpts = { rejectUnauthorized: false };
@@ -39,12 +38,17 @@ describe("WEBSOCKETS SESSION ", () => {
     msg = null;
   });
 
-  it("Cookie ", (done) => {
-    doneCallback = done;
-    createWs("wss://localhost:5152/nodefony/test/ws/cookie");
-    ws!.on("message", () => {
-      assert.exists(msg);
-      ws!.close();
-    });
-  });
+  it("Cookie ", () =>
+    new Promise<void>((resolve, reject) => {
+      const done = (err?: unknown): void => {
+        if (err) reject(err);
+        else resolve();
+      };
+      doneCallback = done;
+      createWs("wss://localhost:5152/nodefony/test/ws/cookie");
+      ws!.on("message", () => {
+        assert.exists(msg);
+        ws!.close();
+      });
+    }));
 });

@@ -15,17 +15,19 @@ Deux niveaux complémentaires. **Toujours s'assurer que le serveur dev tourne d'
 
 - 5152 (https/wss). Les scripts ciblent **5152 (TLS, `rejectUnauthorized:false`)** par défaut.
 
-## Niveau 1 — Suites mocha versionnées (non-régression)
+## Niveau 1 — Suites vitest versionnées (non-régression)
 
 Le « vrai » filet de sécurité, committé dans `@nodefony/http`, lancé via la config
-**dédiée** `.mocharc.load.json` (séparée de la non-régression rapide). Cas CI-stables
+**dédiée** `vitest.load.config.ts` (séparée de la non-régression rapide ; mocha SUPPRIMÉ
+2026-06-05). Séquentielle (`fileParallelism:false`). Cas CI-stables
 
 - sondes plafond/rupture **gated** derrière `RUN_WS_RUPTURE=1` (épuisent les ports
   éphémères → disruptif, jamais en CI par défaut).
 
 ```bash
-bash .claude/skills/load-test/scripts/run.sh mocha             # WS load CI-stable
-bash .claude/skills/load-test/scripts/run.sh mocha --rupture   # + plafond/rupture
+bash .claude/skills/load-test/scripts/run.sh load             # WS load CI-stable
+bash .claude/skills/load-test/scripts/run.sh load --rupture   # + plafond/rupture
+# ou directement : cd src/packages/@nodefony/http && npm run test:load
 ```
 
 Fichiers couverts (cf `src/packages/@nodefony/http/CLAUDE.md` § « Suites séparées ») :
@@ -40,7 +42,7 @@ Fichiers couverts (cf `src/packages/@nodefony/http/CLAUDE.md` § « Suites sépa
 Gate perf seul (avant tout commit touchant Kernel/pipeline/mémoire) :
 
 ```bash
-cd src/packages/@nodefony/http && npx mocha --config .mocharc.load.json --grep "Memory"
+cd src/packages/@nodefony/http && npm run test:memory
 ```
 
 ## Niveau 2 — Scripts client standalone (exploration)

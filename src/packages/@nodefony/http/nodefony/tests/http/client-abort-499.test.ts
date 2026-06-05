@@ -2,7 +2,6 @@
 import { expect } from "chai";
 import https from "node:https";
 import fs from "node:fs";
-import "mocha";
 
 // P2.3 — internal 499 ("client closed request").
 //
@@ -57,7 +56,7 @@ function countInLog(pattern: RegExp, since: number): number {
 describe("Client abort → internal 499 — P2.3 (requires server)", () => {
   let logBaseline = 0;
 
-  before(() => {
+  beforeAll(() => {
     try {
       logBaseline = fs.readFileSync(LOG_PATH, "utf8").split("\n").length;
     } catch {

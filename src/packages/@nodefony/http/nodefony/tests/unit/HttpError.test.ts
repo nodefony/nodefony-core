@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import HttpError from "../../src/errors/httpError.js";
 
 describe("HttpError — unit tests", () => {

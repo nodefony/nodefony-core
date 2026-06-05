@@ -4,7 +4,7 @@
  * sockets a single process holds), distinct from message throughput (axis 2,
  * see ws-messages-load.test.ts).
  *
- * Excluded from non-regression — run via `.mocharc.load.json`.
+ * Excluded from non-regression — run via `vitest.load.config.ts` (npm run test:load).
  * Live server: wss://localhost:5152.
  *
  * The CI-stable case opens a bounded fleet of concurrent connections and
@@ -17,7 +17,6 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
-import "mocha";
 
 const WSS = "wss://localhost:5152";
 const ECHO = `${WSS}/nodefony/test/ws/echo`;
@@ -26,7 +25,13 @@ const wsOpts = { rejectUnauthorized: false };
 function getJson(path: string): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const r = https.request(
-      { hostname: "localhost", port: 5152, path, method: "GET", rejectUnauthorized: false },
+      {
+        hostname: "localhost",
+        port: 5152,
+        path,
+        method: "GET",
+        rejectUnauthorized: false,
+      },
       (res) => {
         const chunks: Buffer[] = [];
         res.on("data", (c: Buffer) => chunks.push(c));
@@ -44,15 +49,21 @@ function getJson(path: string): Promise<Record<string, unknown>> {
   });
 }
 
-const serverHeap = async () => (await getJson("/nodefony/test/memory")).heapUsed as number;
-const scopes = async () => (await getJson("/nodefony/test/als-test/scopes")).requestScopes as number;
+const serverHeap = async () =>
+  (await getJson("/nodefony/test/memory")).heapUsed as number;
+const scopes = async () =>
+  (await getJson("/nodefony/test/als-test/scopes")).requestScopes as number;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Server-side scope release lags the client "close" event (the kernel runs
 // leaveScope when IT processes the close). Poll for eventual drain — a real
 // leak never drains, mere lag drains within a couple of seconds. Returns the
 // last observed delta vs `base`.
-async function drainTo(base: number, target = 5, timeoutMs = 8000): Promise<number> {
+async function drainTo(
+  base: number,
+  target = 5,
+  timeoutMs = 8000,
+): Promise<number> {
   const t0 = Date.now();
   let delta = (await scopes()) - base;
   while (delta >= target && Date.now() - t0 < timeoutMs) {
@@ -75,8 +86,14 @@ function track(ws: WebSocket): WebSocket {
 function openHandshaked(): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
     const ws = track(new WebSocket(ECHO, wsOpts));
-    const onErr = (e: Error) => { cleanup(); reject(e); };
-    const onMsg = () => { cleanup(); resolve(ws); };
+    const onErr = (e: Error) => {
+      cleanup();
+      reject(e);
+    };
+    const onMsg = () => {
+      cleanup();
+      resolve(ws);
+    };
     const cleanup = () => {
       ws.removeListener("error", onErr);
       ws.removeListener("message", onMsg);
@@ -93,7 +110,9 @@ async function openFleet(n: number, batch = 50): Promise<WebSocket[]> {
   const out: WebSocket[] = [];
   while (out.length < n) {
     const size = Math.min(batch, n - out.length);
-    const opened = await Promise.all(Array.from({ length: size }, () => openHandshaked()));
+    const opened = await Promise.all(
+      Array.from({ length: size }, () => openHandshaked()),
+    );
     out.push(...opened);
     await wait(15);
   }
@@ -105,23 +124,36 @@ function closeAll(sockets: WebSocket[]): Promise<void> {
     let pending = sockets.length;
     if (pending === 0) return resolve();
     for (const ws of sockets) {
-      const done = () => { if (--pending === 0) resolve(); };
-      if (ws.readyState === WebSocket.CLOSED) { done(); continue; }
+      const done = () => {
+        if (--pending === 0) resolve();
+      };
+      if (ws.readyState === WebSocket.CLOSED) {
+        done();
+        continue;
+      }
       ws.once("close", done);
-      try { ws.close(); } catch { done(); }
+      try {
+        ws.close();
+      } catch {
+        done();
+      }
     }
     setTimeout(resolve, 5000); // hard backstop
   });
 }
 
 describe("LOAD — WS connections (axis 1: count)", function () {
-  this.timeout(120_000);
-
   // Reap any socket a failing test left open, so it can't poison the next
   // test's scope baseline (a thrown Promise.all leaves its peers dangling).
   afterEach(async () => {
     if (tracked.size === 0) return;
-    for (const ws of tracked) { try { ws.terminate(); } catch { /* ignore */ } }
+    for (const ws of tracked) {
+      try {
+        ws.terminate();
+      } catch {
+        /* ignore */
+      }
+    }
     tracked.clear();
     await wait(400);
   });
@@ -144,7 +176,10 @@ describe("LOAD — WS connections (axis 1: count)", function () {
     );
 
     await closeAll(sockets);
-    expect(await drainTo(scopesBefore), "all WS scopes released after close").to.be.below(5);
+    expect(
+      await drainTo(scopesBefore),
+      "all WS scopes released after close",
+    ).to.be.below(5);
   });
 
   it("churn — 5×200 open/close cycles leak zero scopes", async () => {
@@ -153,48 +188,61 @@ describe("LOAD — WS connections (axis 1: count)", function () {
       const batch = await openFleet(200);
       await closeAll(batch);
     }
-    expect(await drainTo(before), "churn must not accumulate scopes").to.be.below(5);
+    expect(
+      await drainTo(before),
+      "churn must not accumulate scopes",
+    ).to.be.below(5);
   });
 
   // Unbounded ceiling probe — disruptive (eats loopback ephemeral ports).
   const rupture = process.env.RUN_WS_RUPTURE === "1" ? it : it.skip;
-  rupture("RUPTURE — ramp connections until the first failure (reports ceiling)", async function () {
-    this.timeout(600_000);
-    // Default cap stays under the loopback ephemeral-port limit so a stray run is
-    // bounded; raise WS_RUPTURE_CAP (e.g. 20000) to reach the *real* ceiling
-    // (~16k on loopback = 49152–65535 port range). Validated 2026-05-21: 16372.
-    const CAP = Number(process.env.WS_RUPTURE_CAP ?? 8000);
-    const STEP = Number(process.env.WS_RUPTURE_STEP ?? 1000);
-    // Sub-batch the ramp: a single Promise.allSettled of hundreds of concurrent
-    // loopback TLS connects fails on the CLIENT (dual-stack internalConnectMultiple)
-    // — that under-reports the server ceiling (measured 4741 vs the real 16372).
-    // Open in small chunks like a real client to read true server capacity.
-    const BATCH = 50;
-    const live: WebSocket[] = [];
-    let ceiling = 0;
-    try {
-      while (live.length < CAP) {
-        const want = Math.min(STEP, CAP - live.length);
-        let openedInStep = 0;
-        for (let i = 0; i < want; i += BATCH) {
-          const size = Math.min(BATCH, want - i);
-          const res = await Promise.allSettled(
-            Array.from({ length: size }, () => openHandshaked()),
-          );
-          for (const r of res) {
-            if (r.status === "fulfilled") { live.push(r.value); openedInStep++; }
+  rupture(
+    "RUPTURE — ramp connections until the first failure (reports ceiling)",
+    async function () {
+      // Default cap stays under the loopback ephemeral-port limit so a stray run is
+      // bounded; raise WS_RUPTURE_CAP (e.g. 20000) to reach the *real* ceiling
+      // (~16k on loopback = 49152–65535 port range). Validated 2026-05-21: 16372.
+      const CAP = Number(process.env.WS_RUPTURE_CAP ?? 8000);
+      const STEP = Number(process.env.WS_RUPTURE_STEP ?? 1000);
+      // Sub-batch the ramp: a single Promise.allSettled of hundreds of concurrent
+      // loopback TLS connects fails on the CLIENT (dual-stack internalConnectMultiple)
+      // — that under-reports the server ceiling (measured 4741 vs the real 16372).
+      // Open in small chunks like a real client to read true server capacity.
+      const BATCH = 50;
+      const live: WebSocket[] = [];
+      let ceiling = 0;
+      try {
+        while (live.length < CAP) {
+          const want = Math.min(STEP, CAP - live.length);
+          let openedInStep = 0;
+          for (let i = 0; i < want; i += BATCH) {
+            const size = Math.min(BATCH, want - i);
+            const res = await Promise.allSettled(
+              Array.from({ length: size }, () => openHandshaked()),
+            );
+            for (const r of res) {
+              if (r.status === "fulfilled") {
+                live.push(r.value);
+                openedInStep++;
+              }
+            }
+            await wait(10);
           }
-          await wait(10);
+          ceiling = live.length;
+          if (openedInStep < want) break; // a full step couldn't open = real ceiling
         }
-        ceiling = live.length;
-        if (openedInStep < want) break; // a full step couldn't open = real ceiling
+      } finally {
+        // eslint-disable-next-line no-console
+        console.log(
+          `\n      ▶ WS connection ceiling reached: ${ceiling} simultaneous sockets`,
+        );
+        await closeAll(live);
+        await wait(1000);
       }
-    } finally {
-      // eslint-disable-next-line no-console
-      console.log(`\n      ▶ WS connection ceiling reached: ${ceiling} simultaneous sockets`);
-      await closeAll(live);
-      await wait(1000);
-    }
-    expect(ceiling, "should sustain at least a few hundred connections").to.be.above(300);
-  });
+      expect(
+        ceiling,
+        "should sustain at least a few hundred connections",
+      ).to.be.above(300);
+    },
+  );
 });

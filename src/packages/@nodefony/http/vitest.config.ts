@@ -5,9 +5,9 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 /**
  * vitest + coverage-v8 pour @nodefony/http (cf @nodefony/framework, même recette).
- * Tests mocha+chai inchangés : globals + shim `import "mocha"` + chai gardé +
- * reflect au setup + alias stubs ORM. vitest mappe le coverage là où monocart
- * échoue (--require CJS). Cf mémoire feedback_coverage_modules.
+ * Suite UNIT (composants purs, sans serveur). globals + chai + reflect au setup +
+ * alias stubs ORM. Intégration → vitest.integration.config.ts ; charge/mémoire →
+ * vitest.load.config.ts. Cf mémoire feedback_test_framework_vitest.
  */
 export default defineConfig({
   test: {
@@ -24,7 +24,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      mocha: r("./nodefony/tests/vitest-mocha-shim.mjs"),
       "@nodefony/sequelize": r("./nodefony/tests/stubs/sequelize.ts"),
       "@nodefony/mongoose": r("./nodefony/tests/stubs/mongoose.ts"),
     },

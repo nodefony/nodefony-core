@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import http from "node:http";
 import HttpResponse from "../../src/context/http/Response.js";
 import type HttpContext from "../../src/context/http/HttpContext.js";

@@ -1,7 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["node", "mocha", "chai"],
+    "types": ["node", "vitest/globals", "chai"],
     "noUnusedParameters": false,
     "paths": {
       "@nodefony/sequelize": ["./nodefony/tests/stubs/sequelize.ts"],

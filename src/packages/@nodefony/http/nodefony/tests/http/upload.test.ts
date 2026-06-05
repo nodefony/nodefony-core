@@ -4,7 +4,6 @@ import https from "node:https";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import "mocha";
 
 // Dossier où le service d'upload dépose les fichiers reçus (uploadDir défaut =
 // « tmp » résolu sous la racine projet). Les tests d'upload y créent des fichiers
@@ -154,10 +153,10 @@ describe("File Upload Tests", () => {
   // d'upload avant la suite et on supprime UNIQUEMENT les fichiers qu'elle a
   // créés (diff de snapshot) — sans toucher au préexistant.
   let preexisting: Set<string>;
-  before(async () => {
+  beforeAll(async () => {
     preexisting = new Set(await fsp.readdir(UPLOAD_DIR).catch(() => []));
   });
-  after(async () => {
+  afterAll(async () => {
     const entries = await fsp
       .readdir(UPLOAD_DIR, { withFileTypes: true })
       .catch(() => [] as import("node:fs").Dirent[]);

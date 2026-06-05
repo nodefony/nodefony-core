@@ -1,5 +1,4 @@
 import { expect, assert } from "chai";
-import "mocha";
 import WebSocket from "ws";
 
 const WSS = "wss://localhost:5152";
@@ -52,61 +51,84 @@ function wsFirstMessage(ws: WebSocket): Promise<Record<string, unknown>> {
 // ─── Basic Negotiation ────────────────────────────────────────────────────────
 
 describe("WEBSOCKETS PROTOCOL — Basic negotiation", function () {
-  this.timeout(8000);
+  it("Correct protocol → route matches, handshake received", () =>
+    new Promise<void>((resolve, reject) => {
+      const done = (err?: unknown): void => {
+        if (err) reject(err);
+        else resolve();
+      };
+      const ws = openWs(ECHO_PROTO_URL, "echo-protocol");
+      ws.on("message", (data) => {
+        const msg = JSON.parse(data.toString());
+        expect(msg.handshake).to.be.true;
+        expect(msg.nodefony?.websocket?.protocol).to.equal("echo-protocol");
+        ws.close();
+      });
+      ws.on("close", () => done());
+      ws.on("error", done);
+    }));
 
-  it("Correct protocol → route matches, handshake received", (done) => {
-    const ws = openWs(ECHO_PROTO_URL, "echo-protocol");
-    ws.on("message", (data) => {
-      const msg = JSON.parse(data.toString());
-      expect(msg.handshake).to.be.true;
-      expect(msg.nodefony?.websocket?.protocol).to.equal("echo-protocol");
-      ws.close();
-    });
-    ws.on("close", () => done());
-    ws.on("error", done);
-  });
+  it("Wrong protocol → close code 1002", () =>
+    new Promise<void>((resolve, reject) => {
+      const done = (err?: unknown): void => {
+        if (err) reject(err);
+        else resolve();
+      };
+      const ws = openWs(ECHO_PROTO_URL, "wrong-protocol");
+      ws.on("close", (code) => {
+        expect(code).to.equal(1002);
+        done();
+      });
+      ws.on("error", () => done());
+      ws.on("unexpected-response", () => done());
+    }));
 
-  it("Wrong protocol → close code 1002", (done) => {
-    const ws = openWs(ECHO_PROTO_URL, "wrong-protocol");
-    ws.on("close", (code) => {
-      expect(code).to.equal(1002);
-      done();
-    });
-    ws.on("error", () => done());
-    ws.on("unexpected-response", () => done());
-  });
+  it("No protocol when required → close code 1002", () =>
+    new Promise<void>((resolve, reject) => {
+      const done = (err?: unknown): void => {
+        if (err) reject(err);
+        else resolve();
+      };
+      const ws = openWs(ECHO_PROTO_URL); // no protocol
+      ws.on("close", (code) => {
+        expect(code).to.equal(1002);
+        done();
+      });
+      ws.on("error", () => done());
+      ws.on("unexpected-response", () => done());
+    }));
 
-  it("No protocol when required → close code 1002", (done) => {
-    const ws = openWs(ECHO_PROTO_URL); // no protocol
-    ws.on("close", (code) => {
-      expect(code).to.equal(1002);
-      done();
-    });
-    ws.on("error", () => done());
-    ws.on("unexpected-response", () => done());
-  });
+  it("No protocol requirement → accepts connection without protocol", () =>
+    new Promise<void>((resolve, reject) => {
+      const done = (err?: unknown): void => {
+        if (err) reject(err);
+        else resolve();
+      };
+      const ws = openWs(ECHO_URL);
+      ws.on("message", (data) => {
+        const msg = JSON.parse(data.toString());
+        expect(msg.handshake).to.be.true;
+        ws.close();
+      });
+      ws.on("close", () => done());
+      ws.on("error", done);
+    }));
 
-  it("No protocol requirement → accepts connection without protocol", (done) => {
-    const ws = openWs(ECHO_URL);
-    ws.on("message", (data) => {
-      const msg = JSON.parse(data.toString());
-      expect(msg.handshake).to.be.true;
-      ws.close();
-    });
-    ws.on("close", () => done());
-    ws.on("error", done);
-  });
-
-  it("No protocol requirement → accepts connection WITH unknown protocol", (done) => {
-    const ws = openWs(ECHO_URL, "some-custom-proto");
-    ws.on("message", (data) => {
-      const msg = JSON.parse(data.toString());
-      expect(msg.handshake).to.be.true;
-      ws.close();
-    });
-    ws.on("close", () => done());
-    ws.on("error", done);
-  });
+  it("No protocol requirement → accepts connection WITH unknown protocol", () =>
+    new Promise<void>((resolve, reject) => {
+      const done = (err?: unknown): void => {
+        if (err) reject(err);
+        else resolve();
+      };
+      const ws = openWs(ECHO_URL, "some-custom-proto");
+      ws.on("message", (data) => {
+        const msg = JSON.parse(data.toString());
+        expect(msg.handshake).to.be.true;
+        ws.close();
+      });
+      ws.on("close", () => done());
+      ws.on("error", done);
+    }));
 
   it("Protocol reflected in acceptedProtocol via /proto/reflect", async () => {
     const ws = openWs(REFLECT_URL, "my-proto");
@@ -136,44 +158,57 @@ describe("WEBSOCKETS PROTOCOL — Basic negotiation", function () {
 // ─── Array / Multi-protocol ───────────────────────────────────────────────────
 
 describe("WEBSOCKETS PROTOCOL — Array and multi-protocol", function () {
-  this.timeout(8000);
+  it("Single-element array ['echo-protocol'] matches required route", () =>
+    new Promise<void>((resolve, reject) => {
+      const done = (err?: unknown): void => {
+        if (err) reject(err);
+        else resolve();
+      };
+      const ws = new WebSocket(ECHO_PROTO_URL, ["echo-protocol"], wsOpts);
+      ws.on("message", (data) => {
+        const msg = JSON.parse(data.toString());
+        expect(msg.handshake).to.be.true;
+        ws.close();
+      });
+      ws.on("close", () => done());
+      ws.on("error", done);
+    }));
 
-  it("Single-element array ['echo-protocol'] matches required route", (done) => {
-    const ws = new WebSocket(ECHO_PROTO_URL, ["echo-protocol"], wsOpts);
-    ws.on("message", (data) => {
-      const msg = JSON.parse(data.toString());
-      expect(msg.handshake).to.be.true;
-      ws.close();
-    });
-    ws.on("close", () => done());
-    ws.on("error", done);
-  });
+  it("Multi-element array ['wrong', 'echo-protocol'] → header combined → 1002", () =>
+    new Promise<void>((resolve, reject) => {
+      const done = (err?: unknown): void => {
+        if (err) reject(err);
+        else resolve();
+      };
+      // ws sends "Sec-WebSocket-Protocol: wrong, echo-protocol"
+      // Framework does exact string match → "wrong, echo-protocol" ≠ "echo-protocol"
+      const ws = new WebSocket(
+        ECHO_PROTO_URL,
+        ["wrong", "echo-protocol"],
+        wsOpts,
+      );
+      ws.on("close", (code) => {
+        expect(code).to.equal(1002);
+        done();
+      });
+      ws.on("error", () => done());
+      ws.on("unexpected-response", () => done());
+    }));
 
-  it("Multi-element array ['wrong', 'echo-protocol'] → header combined → 1002", (done) => {
-    // ws sends "Sec-WebSocket-Protocol: wrong, echo-protocol"
-    // Framework does exact string match → "wrong, echo-protocol" ≠ "echo-protocol"
-    const ws = new WebSocket(
-      ECHO_PROTO_URL,
-      ["wrong", "echo-protocol"],
-      wsOpts,
-    );
-    ws.on("close", (code) => {
-      expect(code).to.equal(1002);
-      done();
-    });
-    ws.on("error", () => done());
-    ws.on("unexpected-response", () => done());
-  });
-
-  it("Two wrong protocols in array → 1002", (done) => {
-    const ws = new WebSocket(ECHO_PROTO_URL, ["proto-a", "proto-b"], wsOpts);
-    ws.on("close", (code) => {
-      expect(code).to.equal(1002);
-      done();
-    });
-    ws.on("error", () => done());
-    ws.on("unexpected-response", () => done());
-  });
+  it("Two wrong protocols in array → 1002", () =>
+    new Promise<void>((resolve, reject) => {
+      const done = (err?: unknown): void => {
+        if (err) reject(err);
+        else resolve();
+      };
+      const ws = new WebSocket(ECHO_PROTO_URL, ["proto-a", "proto-b"], wsOpts);
+      ws.on("close", (code) => {
+        expect(code).to.equal(1002);
+        done();
+      });
+      ws.on("error", () => done());
+      ws.on("unexpected-response", () => done());
+    }));
 
   it("Array stored as comma-separated string in acceptedProtocol", async () => {
     const ws = new WebSocket(REFLECT_URL, ["proto-x", "proto-y"], wsOpts);
@@ -187,8 +222,6 @@ describe("WEBSOCKETS PROTOCOL — Array and multi-protocol", function () {
 // ─── Two distinct protocol routes ─────────────────────────────────────────────
 
 describe("WEBSOCKETS PROTOCOL — Two distinct routes", function () {
-  this.timeout(10000);
-
   it("echo-protocol route accepts echo-protocol only", async () => {
     const ws = openWs(ECHO_PROTO_URL, "echo-protocol");
     const msg = await wsFirstMessage(ws);
@@ -243,8 +276,6 @@ describe("WEBSOCKETS PROTOCOL — Two distinct routes", function () {
 // ─── Protocol Limits ──────────────────────────────────────────────────────────
 
 describe("WEBSOCKETS PROTOCOL — Limits", function () {
-  this.timeout(8000);
-
   it("Long protocol name (64 chars) on required route → 1002", async () => {
     const longProto = "a".repeat(64);
     const ws = openWs(ECHO_PROTO_URL, longProto);
@@ -285,8 +316,6 @@ describe("WEBSOCKETS PROTOCOL — Limits", function () {
 // ─── Close codes and rapid reconnect ─────────────────────────────────────────
 
 describe("WEBSOCKETS PROTOCOL — Close codes and reconnect", function () {
-  this.timeout(15000);
-
   it("Protocol violation close code is exactly 1002", async () => {
     const ws = openWs(ECHO_PROTO_URL, "bad-proto");
     const code = await wsCloseCode(ws);

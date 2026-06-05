@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -9,7 +8,10 @@ const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 
 type Res = { status: number; headers: Record<string, unknown>; body: Buffer };
 
-function get(path: string, extraHeaders: Record<string, string> = {}): Promise<Res> {
+function get(
+  path: string,
+  extraHeaders: Record<string, string> = {},
+): Promise<Res> {
   return new Promise((resolve, reject) => {
     const req = https.request(
       { ...BASE, path, method: "GET", headers: extraHeaders },
@@ -21,9 +23,9 @@ function get(path: string, extraHeaders: Record<string, string> = {}): Promise<R
             status: res.statusCode!,
             headers: res.headers as Record<string, unknown>,
             body: Buffer.concat(chunks),
-          })
+          }),
         );
-      }
+      },
     );
     req.on("error", reject);
     req.end();
@@ -63,8 +65,7 @@ describe("Static files — serve-static (requires server)", () => {
     it("static file includes Last-Modified or ETag", async () => {
       const { headers } = await get("/test/chico_buarque.mp3");
       const hasCache =
-        headers["last-modified"] !== undefined ||
-        headers["etag"] !== undefined;
+        headers["last-modified"] !== undefined || headers["etag"] !== undefined;
       expect(hasCache).to.be.true;
     });
 

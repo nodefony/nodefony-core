@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -11,18 +10,29 @@ type Res = { status: number; headers: Record<string, unknown>; body: unknown };
 
 function get(path: string, headers: Record<string, string> = {}): Promise<Res> {
   return new Promise((resolve, reject) => {
-    const req = https.request({ ...BASE, path, method: "GET", headers }, (res) => {
-      const chunks: Buffer[] = [];
-      res.on("data", (c: Buffer) => chunks.push(c));
-      res.on("end", () => {
-        const raw = Buffer.concat(chunks).toString();
-        try {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: JSON.parse(raw) });
-        } catch {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: raw });
-        }
-      });
-    });
+    const req = https.request(
+      { ...BASE, path, method: "GET", headers },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => {
+          const raw = Buffer.concat(chunks).toString();
+          try {
+            resolve({
+              status: res.statusCode!,
+              headers: res.headers as Record<string, unknown>,
+              body: JSON.parse(raw),
+            });
+          } catch {
+            resolve({
+              status: res.statusCode!,
+              headers: res.headers as Record<string, unknown>,
+              body: raw,
+            });
+          }
+        });
+      },
+    );
     req.on("error", reject);
     req.end();
   });
@@ -61,7 +71,9 @@ describe("Security — path traversal (requires server)", () => {
 
 describe("Security — header injection (requires server)", () => {
   it("normal header echo works", async () => {
-    const { status, headers } = await get("/nodefony/test/header-echo?x-val=hello");
+    const { status, headers } = await get(
+      "/nodefony/test/header-echo?x-val=hello",
+    );
     expect(status).to.equal(200);
     expect(headers["x-echoed"]).to.equal("hello");
   });
@@ -69,7 +81,7 @@ describe("Security — header injection (requires server)", () => {
   it("CR/LF in query param does not inject new header", async () => {
     // %0d%0a = \r\n — classic response splitting attempt
     const { status, headers } = await get(
-      "/nodefony/test/header-echo?x-val=injected%0d%0aX-Injected%3a%20pwned"
+      "/nodefony/test/header-echo?x-val=injected%0d%0aX-Injected%3a%20pwned",
     );
     // Node.js throws ERR_INVALID_HTTP_TOKEN → server returns 500
     // OR the value is sanitized — either way X-Injected must NOT appear
@@ -78,14 +90,18 @@ describe("Security — header injection (requires server)", () => {
   });
 
   it("server is alive after header injection attempt", async () => {
-    await get("/nodefony/test/header-echo?x-val=test%0d%0aEvil%3a%20yes").catch(() => {});
+    await get("/nodefony/test/header-echo?x-val=test%0d%0aEvil%3a%20yes").catch(
+      () => {},
+    );
     const { status } = await get("/nodefony/test/index");
     expect(status).to.equal(200);
   });
 
   it("very long header value does not crash server", async () => {
     const longVal = "x".repeat(8192);
-    const { status } = await get("/nodefony/test/index", { "X-Long-Header": longVal });
+    const { status } = await get("/nodefony/test/index", {
+      "X-Long-Header": longVal,
+    });
     expect(status).to.be.within(200, 599);
   });
 
@@ -114,7 +130,9 @@ describe("Security — URL / request size (requires server)", () => {
   it("SQL injection pattern in URL does not crash", async () => {
     // URL-encode the segment so Node.js https.request() accepts it
     const segment = encodeURIComponent("'; DROP TABLE users; --");
-    const { status } = await get(`/nodefony/test/route/ele/${segment}/json/add`);
+    const { status } = await get(
+      `/nodefony/test/route/ele/${segment}/json/add`,
+    );
     expect(status).to.be.within(200, 599);
   });
 });
@@ -122,7 +140,9 @@ describe("Security — URL / request size (requires server)", () => {
 describe("Security — cookie (requires server)", () => {
   it("oversized Cookie header does not crash server", async () => {
     const bigCookie = "nodefony=" + "x".repeat(8192);
-    const { status } = await get("/nodefony/test/rest/session", { Cookie: bigCookie });
+    const { status } = await get("/nodefony/test/rest/session", {
+      Cookie: bigCookie,
+    });
     expect(status).to.be.within(200, 599);
   });
 

@@ -1,6 +1,5 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import "mocha";
 import DefaultErrorRenderer from "../../service/error-renderer.js";
 import HttpError from "../../src/errors/httpError.js";
 
@@ -28,7 +27,10 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
   describe("renderHttp", () => {
     it("preserves error code as status when valid", () => {
       const ctx = fakeHttpContext();
-      const r = renderer.renderHttp(new HttpError("Forbidden", 403), ctx as never);
+      const r = renderer.renderHttp(
+        new HttpError("Forbidden", 403),
+        ctx as never,
+      );
       expect(r.status).to.equal(403);
       expect(r.message).to.equal("Forbidden");
     });
@@ -47,9 +49,17 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
 
     it("body is the context.metaData (mutated with error/code/message)", () => {
       const ctx = fakeHttpContext();
-      const r = renderer.renderHttp(new HttpError("Not Found", 404), ctx as never);
+      const r = renderer.renderHttp(
+        new HttpError("Not Found", 404),
+        ctx as never,
+      );
       expect(r.body).to.equal(ctx.metaData);
-      const m = ctx.metaData as { code: number; message: string; error: unknown; nodefony: unknown };
+      const m = ctx.metaData as {
+        code: number;
+        message: string;
+        error: unknown;
+        nodefony: unknown;
+      };
       expect(m.code).to.equal(404);
       expect(m.message).to.equal("Not Found");
       expect(m.error).to.be.an("object");
@@ -68,25 +78,37 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
   describe("renderWebsocket", () => {
     it("clamps HTTP-style code in connected phase to 1011", () => {
       const ctx = fakeWsContext({ rejected: false });
-      const r = renderer.renderWebsocket(new HttpError("server fail", 500), ctx as never);
+      const r = renderer.renderWebsocket(
+        new HttpError("server fail", 500),
+        ctx as never,
+      );
       expect(r.code).to.equal(1011);
     });
 
     it("keeps valid WS code in connected phase", () => {
       const ctx = fakeWsContext({ rejected: false });
-      const r = renderer.renderWebsocket(new HttpError("policy", 1008), ctx as never);
+      const r = renderer.renderWebsocket(
+        new HttpError("policy", 1008),
+        ctx as never,
+      );
       expect(r.code).to.equal(1008);
     });
 
     it("clamps code > 599 to 500 in reject phase", () => {
       const ctx = fakeWsContext({ rejected: true });
-      const r = renderer.renderWebsocket(new HttpError("weird", 9999), ctx as never);
+      const r = renderer.renderWebsocket(
+        new HttpError("weird", 9999),
+        ctx as never,
+      );
       expect(r.code).to.equal(500);
     });
 
     it("reason carries the error message", () => {
       const ctx = fakeWsContext({ rejected: false });
-      const r = renderer.renderWebsocket(new HttpError("custom reason", 1002), ctx as never);
+      const r = renderer.renderWebsocket(
+        new HttpError("custom reason", 1002),
+        ctx as never,
+      );
       expect(r.reason).to.equal("custom reason");
     });
   });

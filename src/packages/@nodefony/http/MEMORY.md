@@ -30,7 +30,7 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - **Métadonnées de champ** (`configMeta.ts` helper `meta()` typé `INodefonyFieldMeta`) : flags `reserved`/`runtimeMutable`/`kernelDerived`/`secret` écrits dans le global registry Zod → recopiés par `httpConfigJsonSchema()` (`z.toJSONSchema`) pour Studio/doc. Posés : `watch`+`http3`=reserved, `headerServer`=runtimeMutable, `uploadDir`+`openssl.attrs`=kernelDerived. ⚠️ poser le `.meta()` sur le **nœud final** présent dans `.shape` (sinon non lu : http3 a fallu wrapper le `.default()` racine).
 - **Clés RETIRÉES** (mortes, 0 usage repo-wide, accord user) : `sockjs`, `requestClient`, `session.memcached`, `http2.enablePush`. `memcached` retiré de `dependencies` + rollup `external`. `zod` ajouté en peerDep + rollup `external`.
 - **`statics.enabled`** (défaut true, `6f82669`) : `false` = serveur statique intégré OFF (0 montage config-driven `web`/`assets`, 0 listener) pour la prod cloud-native (nginx/CDN sert). server-static lit `enabled` PUIS le `delete` AVANT le `for...in` (sinon traité comme racine statique → `.path` sur booléen — même contrat que `defaultOptions`). Ne gate PAS les `addMount()` programmatiques (frontend prod Vite). ⚠️ Le `delete this.options.{enabled,defaultOptions}` EXIGE la config NON gelée (raison #1 du non-freeze).
-- Tests : `tests/unit/httpConfig.test.ts` (25, vitest+mocha). Exports publics : `httpConfigSchema`, `defineHttpConfig`, `httpConfigJsonSchema`, `meta`, types `IHttpConfig`/`HttpConfig`.
+- Tests : `tests/unit/httpConfig.test.ts` (25, vitest). Exports publics : `httpConfigSchema`, `defineHttpConfig`, `httpConfigJsonSchema`, `meta`, types `IHttpConfig`/`HttpConfig`.
 
 ## Core Components
 
@@ -295,28 +295,24 @@ Extension de l'`AuditErrorEntry` :
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — 621 intégration (+1 pending) / 254 unit (2026-05-29)
+## Tests — vitest 100% (mocha SUPPRIMÉ 2026-06-05) — 337 unit / 400 intég / 9 gate
 
-2 runners (les `unit/` tournent sous les DEUX) :
+Runner unique = **Vitest 4**, 3 suites = 3 configs (séquentielles pour intég+load) :
 
-- `npm test` = **vitest** → `tests/unit/**` = **254** (composants purs, pas de serveur).
-- `npm run test:integration` = **mocha** + ts-node ESM → `tests/**` sauf load+memory = **621 +1 pending** (serveur `npx nodefony development` 5151/5152 requis). Inclut les 254 unit → NE PAS sommer. Suite non-régression = celle-ci.
+- `npm test` = `vitest.config.ts` → `tests/unit/**` = **337** (composants purs, pas de serveur).
+- `npm run test:integration` = `vitest.integration.config.ts` → `tests/{http,integration,routing,websockets}/**` = **400 +1 skipped** (serveur 5151/5152 requis). Plus de double-exécution unit (mocha parti).
+- `npm run test:load` = `vitest.load.config.ts` → `tests/load/**` + `memory.test.ts` (charge/heap/leak/scopes).
+- `npm run test:memory` = idem filtré sur `memory.test.ts` = **9** (le GATE).
 
 ```
-unit/      : Cookie, Session, HttpError, Response, parser,
-             trace, … (16 fichiers vitest)            — 254 tests
-http/      : http(1/2), https, errors, decorators, fileStream,
-             upload, httpKernel, static, session, security,
-             traceparent, resilience
-routing/   : Router
-websockets/: websocket, limits, perf, binary-broadcast,
-             protocol, session, w3c
-                                                      mocha TOTAL : 621 (+1 pending)
+unit/      : Cookie, Session, HttpError, Response, parser, trace, … (20 fichiers) — 337
+http/ + integration/ + routing/ + websockets/  (42 fichiers)        — 400 (+1 skipped)
+load/ + http/memory.test.ts  → npm run test:load (séquentiel)
 ```
 
-`memory.test.ts` (suite load, `.mocharc.load.json`) — "1000 GET < 35 MB" flaky en full suite (GC pressure). Passe en isolation. Pas de fuite. "100 native crashes" idem (le test qui fail varie).
+`memory.test.ts` (gate, `vitest.load.config.ts`) — 9 tests ; deltas heap GC-noisy → mesurer sur **serveur frais** (pas de `--expose-gc`). `ws-messages-load > sustained < 30 MB` = **pré-existant rouge** (~120-160 MB, identique sous mocha avant migration, ≠ leak).
 
-Config ts-node intég: `tsconfig.tests.json` + hook `fix-reflect.mjs` (corrige `_virtual/Reflect.js` CJS/ESM). Vitest: `vitest.config.ts` (setup `vitest.setup.ts`, shim mocha→`describe/it`).
+Configs vitest : `vitest.config.ts` (unit) / `vitest.integration.config.ts` / `vitest.load.config.ts` ; setup `vitest.setup.ts` (reflect + before/after). `fileParallelism:false` (serveur partagé). `import "mocha"` strippé partout, shim+fix-reflect+`.mocharc.*` supprimés.
 
 ## Admin data plane — `IAdminApi` (P10.3, 2026-05-20)
 

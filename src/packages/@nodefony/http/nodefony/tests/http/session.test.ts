@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -10,7 +9,7 @@ const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 function request(
   path: string,
   method: string = "GET",
-  headers: Record<string, string> = {}
+  headers: Record<string, string> = {},
 ): Promise<{ status: number; body: unknown; setCookie: string[] }> {
   return new Promise((resolve, reject) => {
     const req = https.request({ ...BASE, path, method, headers }, (res) => {
@@ -46,10 +45,15 @@ describe("Session — integration (requires server)", () => {
 
   describe("Session lifecycle", () => {
     it("GET /session creates a new session and returns Set-Cookie", async () => {
-      const { status, body, setCookie } = await request("/nodefony/test/rest/session");
+      const { status, body, setCookie } = await request(
+        "/nodefony/test/rest/session",
+      );
       expect(status).to.equal(200);
       const raw = body as Record<string, unknown>;
-      expect(raw).to.have.property("id").that.is.a("string").with.length.greaterThan(0);
+      expect(raw)
+        .to.have.property("id")
+        .that.is.a("string")
+        .with.length.greaterThan(0);
       expect(raw.status).to.equal("active");
       const c = extractSessionCookie(setCookie);
       expect(c).to.be.a("string");
@@ -58,9 +62,13 @@ describe("Session — integration (requires server)", () => {
     });
 
     it("second request with cookie reuses the same session id", async () => {
-      const { status, body } = await request("/nodefony/test/rest/session", "GET", {
-        Cookie: cookie,
-      });
+      const { status, body } = await request(
+        "/nodefony/test/rest/session",
+        "GET",
+        {
+          Cookie: cookie,
+        },
+      );
       expect(status).to.equal(200);
       expect((body as Record<string, unknown>).id).to.equal(sessionId);
     });
@@ -71,7 +79,7 @@ describe("Session — integration (requires server)", () => {
       const { status, body } = await request(
         "/nodefony/test/rest/session/set/username/alice",
         "GET",
-        { Cookie: cookie }
+        { Cookie: cookie },
       );
       expect(status).to.equal(200);
       const raw = body as Record<string, unknown>;
@@ -83,7 +91,7 @@ describe("Session — integration (requires server)", () => {
       const { status, body } = await request(
         "/nodefony/test/rest/session/get/username",
         "GET",
-        { Cookie: cookie }
+        { Cookie: cookie },
       );
       expect(status).to.equal(200);
       expect((body as Record<string, unknown>).value).to.equal("alice");
@@ -93,7 +101,7 @@ describe("Session — integration (requires server)", () => {
       const { status, body } = await request(
         "/nodefony/test/rest/session/get/nope",
         "GET",
-        { Cookie: cookie }
+        { Cookie: cookie },
       );
       expect(status).to.equal(200);
       expect((body as Record<string, unknown>).value).to.be.null;
@@ -105,7 +113,7 @@ describe("Session — integration (requires server)", () => {
       const { status, body } = await request(
         "/nodefony/test/rest/session/flash/notice/saved",
         "GET",
-        { Cookie: cookie }
+        { Cookie: cookie },
       );
       expect(status).to.equal(200);
       expect((body as Record<string, unknown>).value).to.equal("saved");
@@ -115,7 +123,7 @@ describe("Session — integration (requires server)", () => {
       const { status, body } = await request(
         "/nodefony/test/rest/session/flash/notice",
         "GET",
-        { Cookie: cookie }
+        { Cookie: cookie },
       );
       expect(status).to.equal(200);
       expect((body as Record<string, unknown>).value).to.equal("saved");
@@ -125,7 +133,7 @@ describe("Session — integration (requires server)", () => {
       const { status, body } = await request(
         "/nodefony/test/rest/session/flash/notice",
         "GET",
-        { Cookie: cookie }
+        { Cookie: cookie },
       );
       expect(status).to.equal(200);
       expect((body as Record<string, unknown>).value).to.be.null;
@@ -147,7 +155,7 @@ describe("Session — integration (requires server)", () => {
       const { status, body } = await request(
         "/nodefony/test/rest/session",
         "DELETE",
-        { Cookie: cookie }
+        { Cookie: cookie },
       );
       expect(status).to.equal(200);
       expect((body as Record<string, unknown>).destroyed).to.equal(sessionId);

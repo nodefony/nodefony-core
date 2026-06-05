@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 // Conformité RFC des en-têtes de réponse par défaut.
 // RFC 9110 : §8.3 Content-Type, §8.6 Content-Length, §6.6.1 Date.

@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 // P4.2 — response decorators (@HttpCode / @Header / @Redirect) combined with
 // param decorators (@Param / @Body / @Query) through the REAL HTTP pipeline.

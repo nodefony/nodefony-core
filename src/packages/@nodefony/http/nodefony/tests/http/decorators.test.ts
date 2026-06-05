@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import http from "node:http";
-import "mocha";
 
 const BASE = { hostname: "localhost", port: 5151 };
 
@@ -11,7 +10,7 @@ function req(
   method: string,
   path: string,
   body?: string,
-  extraHeaders: Record<string, string> = {}
+  extraHeaders: Record<string, string> = {},
 ): Promise<Res> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = { ...extraHeaders };
@@ -37,19 +36,23 @@ function req(
 }
 
 describe("@Param / @Body / @Query decorators — integration (requires server)", function () {
-  this.timeout(10_000);
-
   // ── @Param ──────────────────────────────────────────────────────────────────
 
   describe("@Param", () => {
     it("GET /param/{id} — @Param('id') injecte la valeur de route", async () => {
-      const { status, body } = await req("GET", "/nodefony/test/decorators/param/42");
+      const { status, body } = await req(
+        "GET",
+        "/nodefony/test/decorators/param/42",
+      );
       expect(status).to.equal(200);
       expect((body as Record<string, unknown>).id).to.equal("42");
     });
 
     it("GET /params/{name}/{age} — deux @Param nommés", async () => {
-      const { status, body } = await req("GET", "/nodefony/test/decorators/params/alice/30");
+      const { status, body } = await req(
+        "GET",
+        "/nodefony/test/decorators/params/alice/30",
+      );
       expect(status).to.equal(200);
       const b = body as Record<string, unknown>;
       expect(b.name).to.equal("alice");
@@ -57,7 +60,10 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
     });
 
     it("GET /params-all/{name}/{age} — @Param() sans clé retourne l'objet complet", async () => {
-      const { status, body } = await req("GET", "/nodefony/test/decorators/params-all/bob/25");
+      const { status, body } = await req(
+        "GET",
+        "/nodefony/test/decorators/params-all/bob/25",
+      );
       expect(status).to.equal(200);
       const b = body as Record<string, unknown>;
       expect(b.name).to.equal("bob");
@@ -69,7 +75,10 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
 
   describe("@Query", () => {
     it("GET /query?q=hello&page=2 — @Query extrait les paramètres", async () => {
-      const { status, body } = await req("GET", "/nodefony/test/decorators/query?q=hello&page=2");
+      const { status, body } = await req(
+        "GET",
+        "/nodefony/test/decorators/query?q=hello&page=2",
+      );
       expect(status).to.equal(200);
       const b = body as Record<string, unknown>;
       expect(b.q).to.equal("hello");
@@ -77,7 +86,10 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
     });
 
     it("GET /query sans paramètres — valeurs null", async () => {
-      const { status, body } = await req("GET", "/nodefony/test/decorators/query");
+      const { status, body } = await req(
+        "GET",
+        "/nodefony/test/decorators/query",
+      );
       expect(status).to.equal(200);
       const b = body as Record<string, unknown>;
       expect(b.q).to.be.null;
@@ -90,9 +102,14 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
   describe("@Body", () => {
     it("POST /body — @Body() injecte le body complet", async () => {
       const payload = JSON.stringify({ hello: "world", count: 1 });
-      const { status, body } = await req("POST", "/nodefony/test/decorators/body", payload, {
-        "Content-Type": "application/json",
-      });
+      const { status, body } = await req(
+        "POST",
+        "/nodefony/test/decorators/body",
+        payload,
+        {
+          "Content-Type": "application/json",
+        },
+      );
       expect(status).to.equal(200);
       const b = body as Record<string, unknown>;
       expect(b.hello).to.equal("world");
@@ -101,18 +118,28 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
 
     it("POST /body-field — @Body('name') extrait un champ", async () => {
       const payload = JSON.stringify({ name: "nodefony", other: "ignored" });
-      const { status, body } = await req("POST", "/nodefony/test/decorators/body-field", payload, {
-        "Content-Type": "application/json",
-      });
+      const { status, body } = await req(
+        "POST",
+        "/nodefony/test/decorators/body-field",
+        payload,
+        {
+          "Content-Type": "application/json",
+        },
+      );
       expect(status).to.equal(200);
       expect((body as Record<string, unknown>).name).to.equal("nodefony");
     });
 
     it("POST /body-field sans le champ — null", async () => {
       const payload = JSON.stringify({ other: "foo" });
-      const { status, body } = await req("POST", "/nodefony/test/decorators/body-field", payload, {
-        "Content-Type": "application/json",
-      });
+      const { status, body } = await req(
+        "POST",
+        "/nodefony/test/decorators/body-field",
+        payload,
+        {
+          "Content-Type": "application/json",
+        },
+      );
       expect(status).to.equal(200);
       expect((body as Record<string, unknown>).name).to.be.null;
     });
@@ -127,7 +154,7 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
         "POST",
         "/nodefony/test/decorators/mix/99?v=3",
         payload,
-        { "Content-Type": "application/json" }
+        { "Content-Type": "application/json" },
       );
       expect(status).to.equal(200);
       const b = body as Record<string, unknown>;
@@ -141,7 +168,7 @@ describe("@Param / @Body / @Query decorators — integration (requires server)",
         "POST",
         "/nodefony/test/decorators/mix/7",
         JSON.stringify({}),
-        { "Content-Type": "application/json" }
+        { "Content-Type": "application/json" },
       );
       expect(status).to.equal(200);
       const b = body as Record<string, unknown>;

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Wrapper unique du skill load-test. Route vers les suites mocha VERSIONNÉES
+# Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES
 # (non-régression de charge) ou vers les scripts client standalone (exploration).
 #
 # Prérequis : serveur Nodefony dev UP (bash .claude/skills/nodefony-start-server/start.sh).
 #
 # Usage (depuis n'importe où — la racine repo est dérivée) :
-#   run.sh mocha            # suites load WS versionnées (CI-stable)
-#   run.sh mocha --rupture  # + sondes plafond/rupture (RUN_WS_RUPTURE=1)
+#   run.sh load             # suites load WS versionnées (CI-stable) — alias: `mocha`
+#   run.sh load --rupture   # + sondes plafond/rupture (RUN_WS_RUPTURE=1)
 #   run.sh ws-conn          # script axe 1 — plafond connexions WS
 #   run.sh ws-msg           # script axe 2 — débit echo (MODE=broadcast pour fan-out)
 #   run.sh http             # script charge HTTP (RPS + percentiles)
@@ -29,12 +29,12 @@ HTTP_PKG="$REPO_ROOT/src/packages/@nodefony/http"
 cmd="${1:-help}"; shift || true
 
 case "$cmd" in
-  mocha)
+  load|mocha)   # `mocha` gardé comme alias (mocha SUPPRIMÉ 2026-06-05 → vitest)
     cd "$HTTP_PKG"
-    GREP="LOAD — WS"
-    if [[ "${1:-}" == "--rupture" ]]; then export RUN_WS_RUPTURE=1; GREP="LOAD — WS|RUPTURE"; fi
-    echo ">>> suites load WS (config .mocharc.load.json) — grep: $GREP"
-    exec npx mocha --config .mocharc.load.json --grep "$GREP"
+    PAT="LOAD — WS"
+    if [[ "${1:-}" == "--rupture" ]]; then export RUN_WS_RUPTURE=1; PAT="LOAD — WS|RUPTURE"; fi
+    echo ">>> suites load WS (vitest.load.config.ts) — pattern: $PAT"
+    exec npx vitest run --config vitest.load.config.ts -t "$PAT"
     ;;
   ws-conn)  cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ws-connections.mjs" ;;
   ws-msg)   cd "$REPO_ROOT"; exec node "$SCRIPT_DIR/ws-messages.mjs" ;;

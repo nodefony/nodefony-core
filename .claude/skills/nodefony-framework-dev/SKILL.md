@@ -137,11 +137,11 @@ doc du **hook `initialize()`** (per-request, opt-in) ajoutée ci-dessous ; aucun
 - Un **microbench à seuil temporel** (`expect(elapsed).lessThan(Nms)`) ne mesure RIEN de fiable **dans la
   suite** : CPU non déterministe + event-loop chargé par les ~1300 tests précédents (machine chaude + GC)
   → faux échec (vécu : `extend 50k deep 536 ms` > 500 ms en suite, **162 ms isolé**).
-- Le root-hook `src/tests/perf-skip.cjs` skippe donc les perfs **par défaut** (titres `… < Nms` ou describe
-  `performance`) ; elles sont **OPT-IN** : `RUN_PERF=1 npm test` (+ toujours skippées en CI). → `npm test`
-  est **déterministe** (0 faux failing). **Mesurer une perf = la lancer ISOLÉE** (`RUN_PERF=1 npx mocha
-src/tests/Tools.test.ts`), jamais sur la suite chaude. **Ne PAS desserrer un seuil** pour masquer la
-  contamination — corriger l'environnement de mesure, pas le seuil.
+- Le perf-skip (porté dans `vitest.setup.ts`, mocha SUPPRIMÉ) skippe les perfs **par défaut** (titres
+  `… < Nms` ou describe `performance`) ; elles sont **OPT-IN** : `RUN_PERF=1 npm test` (+ toujours
+  skippées en CI). → `npm test` est **déterministe** (0 faux failing). **Mesurer une perf = la lancer
+  ISOLÉE** (`RUN_PERF=1 npx vitest run src/tests/Tools.test.ts`), jamais sur la suite chaude. **Ne PAS
+  desserrer un seuil** pour masquer la contamination — corriger l'environnement de mesure, pas le seuil.
 
 ### TypeScript / ESM
 
@@ -1217,8 +1217,7 @@ npx tsc --noEmit                                           # ou direct dans le m
 cd src/packages/@nodefony/<mod> && npm run test:integration
 
 # 5. 🚨 SUITE LOURDE — si modif Kernel / pipeline request / cycle de vie / mémoire (OBLIGATOIRE)
-cd src/packages/@nodefony/http && TS_NODE_PROJECT=tsconfig.tests.json \
-  npx mocha --config .mocharc.load.json --grep "Memory"   # ou skill nodefony-check-memory-health
+cd src/packages/@nodefony/http && npm run test:memory   # vitest (mocha SUPPRIMÉ) — ou skill nodefony-check-memory-health
 
 # 6. Symboles (régénérés par le hook pre-commit, mais utile manuellement)
 npm run generate-symbols
@@ -1229,8 +1228,8 @@ npm run generate-symbols
 - **Filet local = hooks git** (posés 2026-05-22) : **pre-push** `tsc --noEmit`, **commit-msg** commitlint,
   **pre-commit** lint-staged (prettier-only) + pré-filtre symbols. eslint racine = `warn` (jamais
   bloquant au commit). Tout bypassable `--no-verify`.
-- **Tests perf à seuil temporel** : ne gatent PAS la CI (runners non déterministes) → skippés si `CI`
-  (root hook mocha `perf-skip.cjs`). Ne pas les « réparer » en CI, c'est voulu.
+- **Tests perf à seuil temporel** : ne gatent PAS la CI (runners non déterministes) → opt-in
+  `RUN_PERF=1` (perf-skip porté dans `vitest.setup.ts`, mocha SUPPRIMÉ). Ne pas les « réparer », c'est voulu.
 - `npm run build` (sans clean) ne recompile que les workspaces modifiés (cache turbo) → après
   pull/merge/changement d'`index.ts` public → `npm run clean && npm run build`.
 - Vérif dist à jour : `grep -E "^export\s*\{" src/packages/@nodefony/<mod>/dist/index.js | head -1`.

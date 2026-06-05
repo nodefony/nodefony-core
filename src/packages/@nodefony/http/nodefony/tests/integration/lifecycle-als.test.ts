@@ -17,7 +17,6 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
-import "mocha";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -27,7 +26,13 @@ type Json = Record<string, unknown>;
 function get(path: string): Promise<Json> {
   return new Promise((resolve, reject) => {
     const r = https.request(
-      { hostname: "127.0.0.1", port: 5152, method: "GET", path, rejectUnauthorized: false },
+      {
+        hostname: "127.0.0.1",
+        port: 5152,
+        method: "GET",
+        path,
+        rejectUnauthorized: false,
+      },
       (res) => {
         const chunks: Buffer[] = [];
         res.on("data", (c: Buffer) => chunks.push(c));
@@ -65,8 +70,22 @@ function badWs(path: string): Promise<void> {
   return new Promise((resolve) => {
     const ws = new WebSocket(`${WSS}${path}`, wsOpts);
     let done = false;
-    const fin = () => { if (!done) { done = true; resolve(); } };
-    ws.on("open", () => setTimeout(() => { try { ws.close(); } catch { /* ignore */ } fin(); }, 3));
+    const fin = () => {
+      if (!done) {
+        done = true;
+        resolve();
+      }
+    };
+    ws.on("open", () =>
+      setTimeout(() => {
+        try {
+          ws.close();
+        } catch {
+          /* ignore */
+        }
+        fin();
+      }, 3),
+    );
     ws.on("close", fin);
     ws.on("unexpected-response", fin);
     ws.on("error", fin);
@@ -88,8 +107,6 @@ const liveScopes = async () =>
   (await get("/nodefony/test/als-test/scopes")).requestScopes as number;
 
 describe("Context lifecycle — ALS tear-down (BUG-001/002)", function () {
-  this.timeout(60_000);
-
   beforeEach(async () => {
     await get("/nodefony/test/als-test/reset");
     await wait(30);
@@ -108,7 +125,10 @@ describe("Context lifecycle — ALS tear-down (BUG-001/002)", function () {
     for (let i = 0; i < 5; i++) await cycleWsAfter();
     await wait(150);
     const s = await get("/nodefony/test/als-test/state");
-    expect(s.wsHookFireCount, "5 connections => 5 fires, never doubled").to.equal(5);
+    expect(
+      s.wsHookFireCount,
+      "5 connections => 5 fires, never doubled",
+    ).to.equal(5);
   });
 
   it("BUG-003 — WS errors before connect() (404 + 1002) leak no request scope", async () => {
@@ -118,7 +138,10 @@ describe("Context lifecycle — ALS tear-down (BUG-001/002)", function () {
     for (let i = 0; i < 15; i++) await badWs("/nodefony/test/als-test/nope");
     for (let i = 0; i < 15; i++) await badWs("/nodefony/test/ws/echo/proto");
     await wait(150);
-    expect((await liveScopes()) - before, "error path must release every scope").to.be.below(3);
+    expect(
+      (await liveScopes()) - before,
+      "error path must release every scope",
+    ).to.be.below(3);
   });
 
   it("valid session-less WS connections leave no residual scope", async () => {
@@ -134,6 +157,9 @@ describe("Context lifecycle — ALS tear-down (BUG-001/002)", function () {
     const before = await liveScopes();
     for (let i = 0; i < 20; i++) await openCloseSessionWs();
     await wait(200);
-    expect((await liveScopes()) - before, "session WS teardown must release scope").to.be.below(3);
+    expect(
+      (await liveScopes()) - before,
+      "session WS teardown must release scope",
+    ).to.be.below(3);
   });
 });

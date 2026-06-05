@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 // Régression — parsing du corps selon le Content-Type, lu par @Body (queryPost).
 //

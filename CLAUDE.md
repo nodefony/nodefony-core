@@ -29,11 +29,10 @@ Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, 
 
 - **OBLIGATOIRE** lancer `memory.test.ts` (tests `Memory leaks — HTTP` + `Memory leaks — WebSocket`) AVANT de commit toute modif de `@nodefony/http`, `@nodefony/framework`, ou tout code dans le pipeline request.
   ```bash
-  # Tests de charge/mémoire SÉPARÉS de la non-régression (config dédiée .mocharc.load.json).
-  cd src/packages/@nodefony/http && TS_NODE_PROJECT=tsconfig.tests.json \
-    npx mocha --config .mocharc.load.json --grep "Memory"
+  # Gate mémoire SÉPARÉ de la non-régression (config dédiée vitest.load.config.ts).
+  cd src/packages/@nodefony/http && npm run test:memory
   ```
-  > **Séparation des suites** : non-régression rapide = `.mocharc.integration.json` (exclut `tests/load/**` + `memory.test.ts`). Suite lourde (charge, heap, leak, scopes DI) = `.mocharc.load.json` (= `tests/load/**` + `memory.test.ts`). Lancer la suite `load` AVANT tout commit touchant Kernel / pipeline / cycle de vie / mémoire — pas à chaque non-régression.
+  > **Séparation des suites (vitest)** : non-régression rapide = `npm run test:integration` (`vitest.integration.config.ts`, exclut `tests/load/**` + `memory.test.ts`). Suite lourde (charge, heap, leak, scopes DI) = `npm run test:load` (`vitest.load.config.ts` = `tests/load/**` + `memory.test.ts`). Gate mémoire seul = `npm run test:memory`. Lancer la suite `load` AVANT tout commit touchant Kernel / pipeline / cycle de vie / mémoire — pas à chaque non-régression.
 - **OBLIGATOIRE** quantifier l'impact : "1000 req: Xms avant / Yms après, heap delta Z MB" dans le commit message si l'écart est > 5 %.
 - **Si un seuil mémoire saute** (35 MB / 1000 req, 10 MB / 100 crashes, 30 MB / 100 WS) → c'est un blocker. NE PAS commit. Investiguer + lazy + cleanup avant de continuer.
 

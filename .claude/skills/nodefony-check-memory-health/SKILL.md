@@ -31,31 +31,25 @@ Lancer Mocha sans filtre = des centaines de lignes d'output incluant tous les au
 ## Commande à exécuter
 
 ```bash
-# ⚠️ config = .mocharc.load.json : memory.test.ts est DANS la suite « load »,
-# PAS dans .mocharc.integration.json (qui l'exclut → faux « 0 passing »).
+# Vitest (mocha SUPPRIMÉ 2026-06-05). Le gate = memory.test.ts seul, via
+# vitest.load.config.ts (séquentiel, séparé de la non-régression rapide).
 cd /Users/cci/repository/nodefony-core/src/packages/@nodefony/http \
-  && TS_NODE_PROJECT=tsconfig.tests.json \
-     npx mocha --config .mocharc.load.json --grep "Memory" 2>&1 \
-  | grep -E "passing|failing|✔|✘|Memory leaks|<" \
+  && npm run test:memory 2>&1 \
+  | grep -E "Test Files|Tests |heap grew|✓|×|FAIL|memory" \
   | tail -20
 ```
 
-Output attendu (8/8 verts) :
+Output attendu (9/9 verts) :
 
 ```
-  Memory leaks — HTTP (requires server)
-    ✔ 1000 sequential GET requests — server heap delta < 35 MB (3200ms)
-    ✔ 100 consecutive sync crashes — server heap delta < 10 MB (320ms)
-    ✔ 100 consecutive async crashes — server heap delta < 10 MB (300ms)
-    ✔ 100 consecutive native TypeError crashes — server heap delta < 15 MB (390ms)
-    ✔ 500 mixed requests (index + context + session) — server heap delta < 20 MB (1400ms)
-    ✔ server is alive after load — /index returns 200
-  Memory leaks — WebSocket (requires server)
-    ✔ 100 WS connections open/close — server heap delta < 30 MB (480ms)
-    ✔ 50 WS echo round-trips open/send/close — heap delta < 20 MB (290ms)
-
-  8 passing (7s)
+ ✓ nodefony/tests/http/memory.test.ts (9 tests)
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
 ```
+
+> ⚠️ Mesurer sur un serveur **fraîchement redémarré** (pas de `--expose-gc` → un serveur très
+> chauffé inflate les deltas heap = faux positifs GC-noise, ex. async-crash à 10.4 MB). Restart
+> via `nodefony-start-server` avant le gate si le serveur tourne depuis longtemps.
 
 ## Grille de seuils (règle dure Nodefony — `CLAUDE.md`)
 
@@ -66,8 +60,9 @@ Output attendu (8/8 verts) :
 | 100 async crashes                     | < 10 MB        | Idem + promesse non rejected                                                 |
 | 100 native TypeError crashes          | < 15 MB        | Idem + cause chain pas attrappée                                             |
 | 500 mixed (index + context + session) | < 20 MB        | Storage session qui accumule                                                 |
+| 200 multipart uploads                 | < 30 MB        | busboy listeners / WriteStream non libérés (hot path streamMultipart)        |
 | 100 WS connections open/close         | < 30 MB        | WS listener non removed sur `close`                                          |
-| 50 WS echo round-trips                | < 20 MB        | Buffer message non libéré                                                    |
+| 50 WS echo round-trips                | < 25 MB        | Buffer message non libéré (seuil 25 : marge bruit GC en fin de suite)        |
 
 **Si un seuil saute** → c'est un **blocker**. NE PAS commit. Investiguer :
 

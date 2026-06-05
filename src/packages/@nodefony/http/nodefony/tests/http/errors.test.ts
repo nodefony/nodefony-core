@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 // Tests for JSON error response format in development mode
 
@@ -64,8 +63,6 @@ function asError(body: unknown): ErrorBody {
 }
 
 describe("Error response format — development mode (requires server)", function () {
-  this.timeout(10_000);
-
   // ── Structure JSON ────────────────────────────────────────────────
 
   describe("Top-level structure", () => {

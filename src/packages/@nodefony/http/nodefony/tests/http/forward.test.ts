@@ -1,7 +1,6 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 // `Controller.forward()` = re-dispatch INTERNE vers un autre controller sur le
 // MÊME contexte (requête/méthode/corps inchangés). RFC 9110 : ce n'est PAS une

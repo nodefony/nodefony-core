@@ -15,7 +15,6 @@
 import { expect } from "chai";
 import WebSocket from "ws";
 import https from "node:https";
-import "mocha";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -94,8 +93,6 @@ function sendFrames(
 }
 
 describe("WS trace logging — frames loggées & corrélées (seam Suivi de requête)", function () {
-  this.timeout(20_000);
-
   it("RECEIVE/SEND corrélés par requestId : JSON capturé, oversized tronqué, binaire résumé", async () => {
     const rid = `trace-itest-${Math.random().toString(36).slice(2, 10)}`;
     await sendFrames(

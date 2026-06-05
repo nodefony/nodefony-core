@@ -1,6 +1,5 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import "mocha";
 import { Profiler } from "../../src/profiler/Profiler.js";
 
 /** Construit un Context-like minimal pour `collect`. */
@@ -59,7 +58,11 @@ describe("Profiler — unit", () => {
   it("falls back to 500 status when an error is present and no statusCode", () => {
     const p = new Profiler();
     p.collect(
-      ctx({ requestId: "err-1", response: null, error: { message: "boom" } }) as never,
+      ctx({
+        requestId: "err-1",
+        response: null,
+        error: { message: "boom" },
+      }) as never,
     );
     const e = p.get("err-1")!;
     expect(e.status).to.equal(500);
@@ -118,7 +121,12 @@ describe("Profiler — unit", () => {
         ctx({
           profilerQueries: [
             { sql: "SELECT 1", durationMs: 0.4, connector: "sequelize" },
-            { sql: "SELECT 2", durationMs: 1.2, rows: 3, connector: "sequelize" },
+            {
+              sql: "SELECT 2",
+              durationMs: 1.2,
+              rows: 3,
+              connector: "sequelize",
+            },
           ],
         }) as never,
       );
