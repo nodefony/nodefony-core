@@ -215,6 +215,42 @@ gateway → coalescer avant `publish` au-delà) ; RTT 4-sauts p50 ~0.40 / p99 ~0
 
 > Réfs : mémoires `project_cluster_backplane_vision`, `project_realtime_socket_probe`.
 
+## Niveau 3 — A/B perf MONO PROD (coût du pipeline par requête)
+
+Pour **chiffrer une optimisation du pipeline HTTP** (pas explorer une limite). Le RPS d'un
+**1 process `production`** sous `wrk` est CPU-bound (~119 % CPU) → il reflète directement le
+travail par requête. Le cluster est co-location-bound (ne montre PAS un gain CPU/req).
+
+```bash
+# A/B atomique — paires ALTERNÉES (annule la dérive thermique de la machine) :
+S=.claude/skills/nodefony-load-test/scripts/bench-ab-mono.sh
+bash $S old1 NF_BENCH_X=0 ; bash $S new1 NF_BENCH_X=1
+bash $S old2 NF_BENCH_X=0 ; bash $S new2 NF_BENCH_X=1
+# Comparer médianes old* vs new*. Garder le gain SSI il dépasse le bruit (±~3 %)
+# ET les deux new > les deux old (séparation nette). Sinon = bruit → jeter.
+```
+
+Le script (`bench-ab-mono.sh`) : banc propre (kill ports + Vite, attend la libération) →
+spawn mono `production` **detached** (`NODE_ENV=production` + `NF_LOG_DRIVER=null` FORCÉS) →
+attend le boot → 3× `wrk` → **médiane** → arrêt gracieux. Toggles A/B = env vars passées au
+serveur (`KEY=VAL`), à lire **1× au boot** côté code (jamais `process.env` dans le hot path).
+
+🚨 **Pré-requis banc** (sinon mesures fausses — vécu) :
+
+- **Module test en prod** : la route de réf `/nodefony/test/als-test/state` (session-free, 0 ORM)
+  vit dans `@nodefony/test`, gaté `policy:"dev"` → **404 en prod**. Pour bencher : passer à
+  `{ name:"@nodefony/test", policy:"optional" }` dans `nodefony.config.ts` + `npm run build`,
+  **puis REVERT en "dev"** avant tout commit.
+- `wrk` requis (`brew install wrk`) ; build à jour (`npm run build`) ; tuer les **Vite orphelins**
+  (le script le fait : `pkill -f vite.js`) sinon throttle fantôme.
+- Profilage CPU complémentaire (`node --prof` + `--prof-process`, piège macOS du faux symbole
+  `BlobSerializerDeserializer`) : méthode complète en mémoire IA `reference_perf_profiling_method`.
+
+Résultats engrangés avec ce banc (mono prod, route session-free) : **router-first +28 %**,
+**retrait `setParameters("query.*")` morts +3.2 %** ; **différer le `JSON.stringify` audit −5.3 %**
+(REJETÉ — le ring buffer paie un objet plus cher qu'une string → discipline A/B = ne garder que
+le mesuré). L'audit complet reste ON par défaut ; `log.requestLogger.sampleRate` = levier opt-in.
+
 ## Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
 
 - **Connexions** : rupture **16 372** simultanées (re-validé 2026-05-21, plage 49152–65535
