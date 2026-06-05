@@ -885,3 +885,75 @@ describe("Cli — setPid", () => {
     assert.strictEqual(cli.pid, process.pid);
   });
 });
+
+// ─── 13. signal handler idempotent (arrêt gracieux) ──────────────────────────
+
+describe("Cli — signal handler idempotent", () => {
+  const SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT"] as const;
+
+  it("2e signal → force process.exit(128+signum) sans relancer terminate", async () => {
+    const cli = makeCli("sig-idem", { signals: false });
+    const exits: number[] = [];
+    let terminateCalls = 0;
+    (cli as any).terminate = async () => {
+      terminateCalls += 1;
+    };
+
+    // Snapshot des listeners pré-existants (le runner en a peut-être) → on ne
+    // retirera QUE ceux ajoutés par ce cli, et on ne déclenchera QUE le nôtre
+    // (pas de process.emit global qui taperait les listeners du runner).
+    const before: Record<string, Set<unknown>> = {};
+    for (const s of SIGNALS) before[s] = new Set(process.listeners(s));
+
+    // process.exit ne RETOURNE jamais en réel (tue le process) → on simule cet
+    // arrêt par un throw sentinelle, sinon le mock laisserait le flux retomber
+    // dans le drain (faux 2ᵉ terminate).
+    class ExitCalled extends Error {
+      constructor(public code: number) {
+        super("exit");
+      }
+    }
+    const origExit = process.exit;
+    (process as unknown as { exit: (c?: number) => never }).exit = ((
+      code?: number,
+    ) => {
+      exits.push(code ?? 0);
+      throw new ExitCalled(code ?? 0);
+    }) as (c?: number) => never;
+
+    try {
+      (cli as any).handleSignals();
+      const ours = process
+        .listeners("SIGTERM")
+        .filter((l) => !before["SIGTERM"].has(l));
+      assert.lengthOf(ours, 1, "un seul listener SIGTERM ajouté");
+      const handler = ours[0] as () => void;
+
+      handler(); // 1ᵉʳ signal → drain gracieux (terminate au nextTick)
+      assert.isTrue(
+        (cli as any).shuttingDown,
+        "shuttingDown armé dès le 1ᵉʳ signal",
+      );
+      try {
+        handler(); // 2ᵉ signal → force exit immédiat (throw sentinelle)
+        assert.fail("le 2ᵉ signal aurait dû forcer process.exit");
+      } catch (e) {
+        if (!(e instanceof ExitCalled)) throw e;
+      }
+
+      // le nextTick du 1ᵉʳ signal a programmé terminate()
+      await new Promise((r) => setImmediate(r));
+
+      assert.deepEqual(exits, [143], "2ᵉ signal → exit 128+SIGTERM(15)=143");
+      assert.strictEqual(terminateCalls, 1, "terminate appelé une seule fois");
+    } finally {
+      (process as unknown as { exit: typeof origExit }).exit = origExit;
+      // retirer UNIQUEMENT les listeners ajoutés par ce cli
+      for (const s of SIGNALS) {
+        for (const l of process.listeners(s)) {
+          if (!before[s].has(l)) process.removeListener(s, l as never);
+        }
+      }
+    }
+  });
+});

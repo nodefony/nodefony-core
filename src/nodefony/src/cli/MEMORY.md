@@ -16,10 +16,12 @@
 **Purpose**: Base CLI sans kernel. `extends Service`. `CliKernel extends Cli` (pas l'inverse).
 
 **Deux modes d'exécution**:
+
 - **Standalone** (sans kernel): `Command.action()` appelé directement → `run()` → `generate()`
 - **Kernel mode**: `Command.setEvents()` → lifecycle hooks → `kernel.once(kernelEvent, action)`
 
 **Constructor** `new Cli(name?, options?)`:
+
 - Surcharges: `(name)` / `(name, opts)` / `(name, container, opts)` / `(name, container, event, opts)`
 - Merge `extend({}, defaultOptions, opts)` — dernier argument non-Container/Event = options
 - Si `pid: true` → `this.pid = process.pid`. Sinon `null`.
@@ -27,14 +29,27 @@
 - `initCommander()` ajoute `-i/--interactive`, `-d/--debug`, `-v/--version` automatiquement
 - `autostart` / `asciify` / `signals` / `autoLogger` / `promiseRejection` : désactiver dans les tests
 
+**Signaux idempotents (`handleSignals`, 2026-06-05)** : `signalHandler` arme `shuttingDown` au 1ᵉʳ signal (drain gracieux → `terminate()`) ; un 2ᵉ signal (Ctrl+C insistant, ou SIGTERM du DevSupervisor qui suit le SIGINT du terminal) → `process.exit(128 + SIGNUM[signal])` FORCÉ (SIGINT=2/SIGTERM=15/SIGHUP=1/SIGQUIT=3). Avant : handler non idempotent → 2ᵉ signal relançait un `terminate()` complet (double `onTerminate`, double SHUTDOWN serveurs). Pattern graceful standard : 1ᵉʳ draine, 2ᵉ tue.
+
 **Isolation tests** — makeCli():
+
 ```typescript
-new Cli(name, { autostart:false, asciify:false, signals:false, autoLogger:false,
-  promiseRejection:false, warning:false, clear:false, pid:false, version:"1.0.0" })
-cli.commander?.exitOverride()  // évite process.exit sur commande inconnue
+new Cli(name, {
+  autostart: false,
+  asciify: false,
+  signals: false,
+  autoLogger: false,
+  promiseRejection: false,
+  warning: false,
+  clear: false,
+  pid: false,
+  version: "1.0.0",
+});
+cli.commander?.exitOverride(); // évite process.exit sur commande inconnue
 ```
 
 **Commander**:
+
 - `initCommander()` → `new CommanderCommand()`, ajoute -i/-d/-v auto
 - `setCommandVersion(v)` → throw si `!this.commander`
 - `setCommandOption(flags, desc?, default?)` → throw si `!this.commander`
@@ -43,16 +58,19 @@ cli.commander?.exitOverride()  // évite process.exit sur commande inconnue
 - `parseAsync(argv?, opts?)` → throw si `!this.commander`
 
 **Commandes**:
+
 - `addCommand(Ctor)` → `new Ctor(this)`, stocke `commands[cmd.name]`, retourne l'instance
 - `hasCommand(name)` → bool
 - `getCommand(name)` → `Command | null`
 - Commander passe l'instance `Cmd` comme **dernier** argument à `generate()` → `args[0]` = arg utilisateur
 
 **checkVersion(v?)**:
+
 - Sans arg (ou null/undefined) → utilise `this.version`
 - `semver.valid(v)` → retourne string si OK, throw `Error("... semver ...")` sinon
 
 **Timers**:
+
 - `startTimer(name)` → throw si doublon (`in this.timers`)
 - `stopTimer(name)` → throw si inconnu; `!name` → arrête tous les timers en boucle
 - `this.timers: Record<string, string>` — clé = valeur = name
@@ -78,16 +96,22 @@ cli.commander?.exitOverride()  // évite process.exit sur commande inconnue
 **Purpose**: Commande CLI. `extends Service`. Enregistre son action dans Commander au constructor.
 
 **Constructor** `new Command(name, description, cli, options?)`:
+
 - `this.cli = cli` ; `this.program = cli.commander as Cmd` (alias Commander root)
 - `this.command = createCommand(name, desc)` → `new Cmd(name)` + `program.addCommand(cmd)`
 - Enregistre `this.command.action((...args) => { kernel ? setEvents : action })`
 
 **Mode standalone** (clé):
+
 ```typescript
 // Dans le constructeur Command — pas de kernel → direct
 this.command?.action((...args) => {
-  if (this.kernel) { this.kernel.command = this; this.setEvents(...args); }
-  else { this.action(...args); }  // DIRECT
+  if (this.kernel) {
+    this.kernel.command = this;
+    this.setEvents(...args);
+  } else {
+    this.action(...args);
+  } // DIRECT
 });
 ```
 
@@ -100,16 +124,19 @@ this.command?.action((...args) => {
 **generate(...args)**: méthode à override. Reçoit args utilisateur + **instance Cmd en dernier**.
 
 **Pattern done:Promise** (pour tests async, Commander ne retourne pas la Promise):
+
 ```typescript
 class MyCmd extends Command {
-  done = new Promise<void>(r => { this._resolve = r; });
+  done = new Promise<void>((r) => {
+    this._resolve = r;
+  });
   override async generate(arg: string): Promise<this> {
     // utiliser arg
     this._resolve();
     return this;
   }
 }
-cli.parse(["node","test","my-cmd","val"]);
+cli.parse(["node", "test", "my-cmd", "val"]);
 await cmd.done;
 ```
 

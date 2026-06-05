@@ -55,6 +55,8 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 | server-websocket-secure | 5152 | wss sur https               |
 | server-static           | —    | serve-static                |
 
+**Arrêt gracieux WS (2026-06-05)** : `terminate()` envoie le message applicatif `{nodefony:{state:shutDown}}` PUIS `client.close(1001,"Server shutting down")` (frame Close RFC 6455 §7.4.1 "Going Away") AVANT `server.close()`. Sans le `client.close(1001)`, couper la socket TCP fait voir **1006** au client (Abnormal Closure, réservé, jamais émis sur le fil) → indistinguable d'une coupure réseau. 1001 = reconnexion normale côté client (cf realtime close codes). Idem `server-websocket-secure`.
+
 ## Multi-process / scaling (post-PM2)
 
 - Serveurs bind via `server.listen(this.port, this.domain, cb)` **positionnel** (`server-http.ts:97`, `server-https.ts:120/237`).

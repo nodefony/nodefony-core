@@ -103,7 +103,13 @@ class WebsocketSecure extends Service {
         const shutdownMsg = JSON.stringify({ nodefony: { state: "shutDown" } });
         this.server.clients.forEach((client) => {
           if (client.readyState === Ws.OPEN) {
+            // Message applicatif (compat client qui écoute `state:shutDown`) PUIS
+            // frame Close RFC 6455 §7.4.1 code 1001 "Going Away" : sans elle, le
+            // `server.close()` coupe la socket TCP sans frame Close → le client voit
+            // 1006 (Abnormal Closure, réservé) et ne peut pas distinguer un arrêt
+            // propre (1001 → reconnexion normale) d'une coupure réseau (1006 → backoff).
             client.send(shutdownMsg);
+            client.close(1001, "Server shutting down");
           }
         });
         setTimeout(() => {

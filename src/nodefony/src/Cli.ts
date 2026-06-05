@@ -116,6 +116,19 @@ class Cli extends Service {
   public blankLine: () => void = () => {};
   public columns: number = 0;
   public rows: number = 0;
+  /**
+   * Vrai dès le 1ᵉʳ signal d'arrêt reçu. Empêche un 2ᵉ signal de relancer un
+   * `terminate()` gracieux complet (re-fire `onTerminate`, double SHUTDOWN des
+   * serveurs). Le 2ᵉ signal force la sortie immédiate — cf {@link handleSignals}.
+   */
+  protected shuttingDown: boolean = false;
+  /** Numéros POSIX → code de sortie forcé `128 + signum` au 2ᵉ signal. */
+  protected static readonly SIGNUM: Record<string, number> = {
+    SIGHUP: 1,
+    SIGINT: 2,
+    SIGQUIT: 3,
+    SIGTERM: 15,
+  };
 
   constructor(name?: string);
   constructor(name: string, options: CliDefaultOptions);
@@ -211,6 +224,16 @@ class Cli extends Service {
   //Méthode privée pour gérer les signaux
   protected handleSignals(): void {
     const signalHandler = (signal: string) => {
+      // 2ᵉ signal (Ctrl+C insistant, ou SIGTERM de l'orchestrateur/DevSupervisor
+      // qui suit le SIGINT du terminal) → arrêt FORCÉ immédiat. Pattern graceful
+      // shutdown standard : le 1ᵉʳ signal draine, le 2ᵉ tue. Sans ça, le handler
+      // n'étant pas idempotent, le 2ᵉ signal relançait un `terminate()` complet
+      // (double fire `onTerminate`, double "SHUTDOWN" des serveurs HTTP/WS).
+      if (this.shuttingDown) {
+        this.log(`${signal} received again — force exit`, "WARNING");
+        process.exit(128 + (Cli.SIGNUM[signal] ?? 0));
+      }
+      this.shuttingDown = true;
       if (this.blankLine) {
         this.blankLine();
       }
