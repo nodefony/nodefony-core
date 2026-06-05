@@ -45,8 +45,7 @@ describe("@nodefony/frontend — prod build + renderProdTags (P14.5)", () => {
     }
   });
 
-  it("vite build écrit un manifest fingerprinté dans outDir/.vite/ (base = publicPath)", async function () {
-    this.timeout(60_000);
+  it("vite build écrit un manifest fingerprinté dans outDir/.vite/ (base = publicPath)", async () => {
     const entry = makeEntry();
     const cfg = await new ViteBuilder().buildViteConfig([entry], "production");
     expect((cfg as { base?: string }).base).to.equal(PUBLIC_PATH);

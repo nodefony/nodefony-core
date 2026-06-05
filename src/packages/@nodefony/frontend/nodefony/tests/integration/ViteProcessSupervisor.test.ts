@@ -70,9 +70,7 @@ async function httpPing(host: string, port: number): Promise<number> {
   });
 }
 
-describe("ViteProcessSupervisor — intégration (real spawn)", function () {
-  this.timeout(45_000);
-
+describe("ViteProcessSupervisor — intégration (real spawn)", () => {
   it("start + stop golden path", async () => {
     const port = freePort();
     const sup = new ViteProcessSupervisor({
