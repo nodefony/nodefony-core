@@ -75,6 +75,14 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 - `[1× — 2026-06-04]` **« on a retiré X pour la perf » est SCOPÉ à son contexte** : `extend` retiré du pipeline
   était une optim **hot-path/per-requête** (`02c32c2`), pas « extend est lent ». Pour un merge **boot-only**
   (config), `extend(true,{},…)` est parfait. Ne pas sur-généraliser une optim perf à du code non-chaud.
+- `[1× — 2026-06-05]` **dégraisser un GROS fichier doc : `Write` court > N `Edit` chirurgicaux sur cellules géantes.**
+  `MIGRATION_STATUS.md` (278 KB) était plombé par des cellules de tableau de ~3 800 car. (journal de commits inline).
+  Matcher chaque cellule en `old_string` pour la raccourcir coûte PLUS de tokens que réécrire le fichier court d'un bloc
+  → quand > ~50 % d'un fichier est à condenser, **réécriture `Write`** (git garde l'historique détaillé), pas du chirurgical.
+  Localiser les lignes géantes : `awk '{print length"\t"NR}' f | sort -rn | head`. `Read` **échoue > 256 KB / 25000 tokens** → lire par tranches.
+- `[1× — 2026-06-05]` **gros chantier supervisé = PERSISTER les constats au fil de l'eau** (fichier de travail), pas tout
+  garder en contexte : l'audit P0→P16 a été écrit phase par phase dans `docs/migration/AUDIT-verite-2026-06.md` → survit aux
+  interruptions (`/clear`, coupure) ET devient le matériau du livrable. Le user a interrompu 2× du Bash + jalonné « go »/« continue ».
 
 ## 🔄 Cycle de session (END/RETEX) — méta
 
@@ -197,6 +205,11 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   `@nodefony/user → @nodefony/orm-core` (modules NON touchés par mon diff) → push refusé. → avant un push qui
   déclenche le typecheck turbo, `npm run build` (régénère tous les `dist/types`) si on a buildé des modules à la
   main. Variante stale-dist [[feedback_root_dist_stale_modules]]/[[feedback_turbo_cache_stale_logs]].
+- `[1× — 2026-06-05]` **hiérarchie de fraîcheur : Code > Mémoire IA > MD modules > `MIGRATION_STATUS.md`.** Le dashboard,
+  tenu à la main en fin de session, est STRUCTURELLEMENT le plus en retard (audit : `DETTE-CFG` marquée 🚧 alors que résolue
+  dans le code ; vision ORM pré-virage ; refs mortes PM2/mikroorm ; daté de 6 j). → au RESUME le dashboard ment plus que la
+  mémoire ; **confronter au code** (garde-fou « vérité = commits »). Le tenir EN CONTINU (cellule courte + détail ailleurs)
+  sinon refonte coûteuse imposée (278→32 KB en une passe). Variante de « vérité = réalité, pas le journal ».
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
@@ -218,6 +231,11 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   retiré le field `type`, un test `assert.strictEqual(k.type, "CONSOLE")` lit `undefined` → devrait échouer,
   mais affichait « 0 failing » à un instant (transpile-only ignore le TS2339). → après un rename/suppression
   de field, **grep les refs au field dans les tests** et migrer manuellement (le build les flag, le runner non).
+- `[1× — 2026-06-05]` **un écart « déclaré vs réel » fondé sur une métrique de SURFACE (présence de fichiers) peut être une
+  FAUSSE alerte** : à l'audit migration j'ai classé « P15 = 0 % CONTREDIT par `src/modules/mediasoup` (8 src + dist) » 🔴 →
+  le `package.json` disait `description: "banc test ORM"` (≠ implé télécom P15). → avant d'affirmer un écart, **sonder le
+  CONTENU** (description, fichiers réels, ce que ça FAIT), pas juste l'existence. L'audit exhaustif corrige ses propres
+  hypothèses de surface — d'où sa valeur (≠ audit de surface qui les fige).
 
 - `[1× — 2026-06-01]` **`grep $'\x1b'` ne trouve RIEN dans un `.jsonl`** : `JSON.stringify` encode
   l'octet ESC (0x1b) en **texte ``** (6 chars), pas l'octet brut → chercher l'ANSI baké dans un
@@ -379,6 +397,10 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
+- `2026-06-05-6c01bf49` — **audit vérité migration P0→P16 + assainissement `MIGRATION_STATUS.md`** : confronté au code
+  (déclaré ≈ réel partout, global 50 % — fond honnête). Dashboard **278→32 KB** (cellules-journal de 3 800 car. tuées, 117
+  tâches préservées) + audit complet `docs/migration/AUDIT-verite-2026-06.md`. Corrections : DETTE-CFG 🚧→✅, virage ORM
+  répercuté, refs mortes PM2/mikroorm, P15 clarifié (banc ORM ≠ télécom), prochaine étape → durcissement ORM. `9936683` poussé.
 - `2026-06-04-932ec78f` — **Lots 3+4 defineConfig + résilience config + hygiène tmp** : `use()` + registre typé
   (niveau ③, pilier #1 = 4/4) `6dc306b` ; câblage Kernel boot (descripteur résolu via ctx, merge défauts tous chemins,
   fallback legacy) `60a7929` ; **résilience config** (bootConfigError : diagnostic clair + défauts explicites + EX_CONFIG,
