@@ -336,23 +336,43 @@ class Module extends Service implements IModule {
   }
 
   /**
-   * Récupère un controller enregistré (registre statique partagé tous modules).
+   * Récupère un controller enregistré **dans ce module**.
    *
-   * @param name - nom du controller (généralement nom de classe).
+   * Le registre `Module.controllers` est process-global mais indexé par clé
+   * **module-scopée** `${module}:${ClassName}` (posée par `Router.setController`),
+   * exactement comme l'identité d'un `forward("module:controller:action")`. Deux
+   * modules peuvent donc porter un controller homonyme sans collision.
+   *
+   * @param name - nom de classe du controller (ex. `"DefaultController"`).
    * @returns constructeur typé du controller.
-   * @throws Si `name` est falsy ou si le controller n'est pas dans `Module.controllers`.
+   * @throws Si `name` est falsy ou si le controller n'est pas enregistré pour ce module.
    */
   getController<T = Controller>(name: string): TypeController<T> {
     if (!name) {
       throw new Error(`Module getController argument name is mandatory`);
     }
-    if (Module.controllers[name]) {
-      return Module.controllers[name] as TypeController<T>;
+    const key = `${this.name}:${name}`;
+    if (Module.controllers[key]) {
+      return Module.controllers[key] as TypeController<T>;
     }
-    throw new Error(`Controller ${name} not exist`);
+    throw new Error(`Controller ${key} not exist`);
   }
+
+  /**
+   * Retourne les controllers enregistrés **pour ce module** (clés = nom de classe
+   * nu, préfixe module retiré). Vue jetable filtrée depuis le registre global.
+   */
   getControllers<T = Controller>(): Record<string, TypeController<T>> {
-    return Module.controllers as Record<string, TypeController<T>>;
+    const prefix = `${this.name}:`;
+    const out: Record<string, TypeController<T>> = {};
+    for (const key in Module.controllers) {
+      if (key.startsWith(prefix)) {
+        out[key.slice(prefix.length)] = Module.controllers[
+          key
+        ] as TypeController<T>;
+      }
+    }
+    return out;
   }
 
   async loadEntity(entity: string) {

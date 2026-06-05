@@ -155,12 +155,13 @@ describe("Router — setController()", () => {
 
   it("registers the controller and propagates the module to its routes", () => {
     const ctor = class SetCtrl {} as unknown as TypeController<Controller>;
-    const key = (ctor as unknown as { name: string }).name;
     const logs: unknown[][] = [];
     const mod = {
       name: "test-mod",
       log: (...a: unknown[]) => logs.push(a),
     } as unknown as Module;
+    // clé module-scopée `${module}:${ClassName}` (cf Router.setController)
+    const key = `${mod.name}:${(ctor as unknown as { name: string }).name}`;
     const n = uniqueName("sc");
     const route = Router.createRoute(n, { path: "/sc" });
     route.controller = ctor as unknown as ControllerConstructor;
@@ -172,5 +173,44 @@ describe("Router — setController()", () => {
 
     delete registry[key];
     cleanup(n);
+  });
+
+  // Le contrat du fix « registre module-scopé » : deux modules tiers distincts
+  // peuvent porter un controller du MÊME nom de classe sans collision. Ce test
+  // ÉCHOUAIT avant le fix (clé = `constructor.name` nu → 2e setController logge
+  // `Controller already exist` + écrase le 1er dans le registre global).
+  it("deux modules distincts → controller homonyme sans collision", () => {
+    const makeCtrl = () =>
+      class Dup {} as unknown as TypeController<Controller>;
+    const ctorA = makeCtrl();
+    const ctorB = makeCtrl();
+    expect(ctorA).to.not.equal(ctorB);
+    expect((ctorA as unknown as { name: string }).name).to.equal(
+      (ctorB as unknown as { name: string }).name,
+    );
+    const logs: unknown[][] = [];
+    const modA = {
+      name: "mod-a",
+      log: (...a: unknown[]) => logs.push(a),
+    } as unknown as Module;
+    const modB = {
+      name: "mod-b",
+      log: (...a: unknown[]) => logs.push(a),
+    } as unknown as Module;
+    const className = (ctorA as unknown as { name: string }).name;
+    const keyA = `mod-a:${className}`;
+    const keyB = `mod-b:${className}`;
+    try {
+      Router.setController(ctorA, modA);
+      Router.setController(ctorB, modB);
+      // 2 clés distinctes → les 2 controllers coexistent, aucun écrasement
+      expect(registry[keyA]).to.equal(ctorA);
+      expect(registry[keyB]).to.equal(ctorB);
+      // aucun WARNING « Controller already exist » émis
+      expect(logs).to.have.lengthOf(0);
+    } finally {
+      delete registry[keyA];
+      delete registry[keyB];
+    }
   });
 });

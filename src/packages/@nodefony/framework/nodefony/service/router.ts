@@ -199,11 +199,12 @@ class Router extends Service {
       value: module,
       writable: false,
     });
-    if (Module.controllers[myconstructor.name]) {
-      module.log(
-        new Error(`Controller already exist ${myconstructor.name}`),
-        "WARNING",
-      );
+    // Clé module-scopée `${module}:${ClassName}` (cf Module.getController +
+    // forward "module:controller:action") → 2 modules tiers peuvent porter un
+    // controller homonyme sans collision dans le registre process-global.
+    const key = `${module.name}:${myconstructor.name}`;
+    if (Module.controllers[key]) {
+      module.log(new Error(`Controller already exist ${key}`), "WARNING");
     }
     // Propage le module sur les routes déjà créées par les décorateurs
     // `@route` + `@controller` (qui s'exécutent à l'import — donc avant ce
@@ -216,7 +217,7 @@ class Router extends Service {
         r.module = { name: module.name };
       }
     }
-    return (Module.controllers[myconstructor.name] = myconstructor);
+    return (Module.controllers[key] = myconstructor);
   }
 
   /**

@@ -177,19 +177,6 @@ class CliKernel extends Cli {
           // },
         });
 
-        // // @ts-expect-error: overloaded  _outputConfiguration
-        // this.commander._outputConfiguration = {
-        //   writeOut: (str: string) => this.log(str), //process.stdout.write(str),
-        //   writeErr: (str: string) => this.log(str, "ERROR"), // process.stderr.write(str),
-        //   getOutHelpWidth: () =>
-        //     process.stdout.isTTY ? process.stdout.columns : undefined,
-        //   getErrHelpWidth: () =>
-        //     process.stderr.isTTY ? process.stderr.columns : undefined,
-        //   outputError: (str: string, write: (str: string) => void) => write(str),
-        // };
-        // // @ts-expect-error: overloaded  _hasHelpOption
-        //this.commander._hasHelpOption = false;
-
         // ─── HELP GLOBAL enrichi : modules chargés AVANT l'affichage ──────────
         // `nodefony`, `nodefony --help`, `nodefony -h` → on veut lister AUSSI les
         // commandes de module (`frontend:build`, `network`, …), pas seulement les

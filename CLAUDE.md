@@ -295,31 +295,11 @@ Ces fichiers `.d.ts` manuels sont un **héritage de l'ère JS**. Ne plus en cré
 Ne pas les supprimer sans vérifier qu'aucun outil externe ne les référence encore.
 Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 
-### État par module (audit 2026-05-27 — vérifié terrain)
+### Deux patterns de `exports.types` (selon dépendance inter-modules)
 
-| Module                | État types                                               | Action requise                                       |
-| --------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
-| `nodefony` (core)     | ✅ isomorphe (`browser`/`import` conditions)             | —                                                    |
-| `@nodefony/llm`       | ✅ `dist/index.d.ts` + `exports.types`                   | —                                                    |
-| `@nodefony/http`      | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (pattern volontaire anti-race)                     |
-| `@nodefony/framework` | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (pattern volontaire anti-race)                     |
-| `@nodefony/security`  | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (corrigé en P6.S1, source TS)                      |
-| `@nodefony/frontend`  | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (pattern volontaire anti-race)                     |
-| `@nodefony/orm-core`  | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (anti-race : consommé en source par user/security) |
-| `@nodefony/drizzle`   | ✅ `dist/types` + `exports`                              | —                                                    |
-| `@nodefony/user`      | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (anti-race : consommé en source par security)      |
-| `@nodefony/mongoose`  | ✅ `dist/types` + `exports`                              | Fait (2026-05-27 — `.d.ts` legacy supprimé)          |
-| `@nodefony/redis`     | ✅ `dist/types` + `exports`                              | Fait (2026-05-27 — `.d.ts` legacy supprimé)          |
-| `@nodefony/sequelize` | ✅ `dist/types` + `exports`                              | Fait (2026-05-27 — `.d.ts` legacy supprimé)          |
-| `@nodefony/studio`    | ⓘ `private: true` + `declaration: false`                 | — (types publics inutiles, non importé hors Studio)  |
-| `@nodefony/agent`     | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12 (couche IA agentic)                  |
-| `@nodefony/memory`    | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12                                      |
-| `@nodefony/rag`       | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12                                      |
-| `@nodefony/vector`    | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12                                      |
-
-> **Pattern `exports.types: ./index.ts`** (sur 6 modules : http/framework/security/frontend + **orm-core/user** depuis 2026-06-05) : la condition `types` pointe vers la **source TS**, pas vers `dist/types/`. Voulu — évite la race d'ordre de build inter-modules (cf [[feedback_turbo_cache_stale_logs]]). Les consommateurs résolvent depuis le TS source via `customConditions:["browser"]` (Studio frontend) ou résolution standard (back). **CHAÎNE COMPLÈTE OBLIGATOIRE** : security (source) consomme user (source) qui consomme orm-core (source) qui consomme `nodefony` (core, buildé en 1er → dist prêt). Casser un maillon (un `dist/types` au milieu) = TS2307 « Cannot find module » sur les consommateurs en amont (build race). 2026-06-05 : user+orm-core convertis pour fermer la chaîne (warnings build de http/framework consommant security).
->
-> **Pattern `exports.types: ./dist/types/...`** (sur drizzle/mongoose/redis/sequelize) : standard CLAUDE.md classique — pointe vers le `.d.ts` généré par rollup. Ces modules ne sont PAS consommés en source par un module anti-race → pas de race.
+- **`"./index.ts"` (source TS, anti-race)** — modules consommés EN SOURCE par un autre module : `http`, `framework`, `security`, `frontend`, `orm-core`, `user`. **Chaîne obligatoire** : security → user → orm-core → `nodefony` (core buildé en 1er → `dist` prêt). Casser un maillon (un `dist/types` au milieu) = TS2307 « Cannot find module » sur les consommateurs amont (build race). Cf [[feedback_turbo_cache_stale_logs]].
+- **`"./dist/types/..."` (`.d.ts` généré, standard)** — modules NON consommés en source : `drizzle`, `mongoose`, `redis`, `sequelize`, `llm`. `nodefony` (core) = isomorphe (`browser`/`import`).
+- WIP P12 (pas encore câblés, pas de `rollup.config.ts`) : `agent`, `memory`, `rag`, `vector`. `studio` = `private: true` + `declaration: false` (types publics inutiles).
 
 ---
 
@@ -448,20 +428,10 @@ intégrée au `resolve()` du descripteur, dans le core).
 - Cluster : `nodefony/config/cluster/cluster.config.ts` reste un fichier **séparé kernel-free** (le master le lit standalone AVANT boot) — ne PAS le mettre dans `nodefony.config.ts`.
 
 **Convention module (OBLIGATOIRE pour le typage de `use()`)** : tout module qui expose une config doit
-(1) publier son interface `IXConfig`, et (2) **augmenter le registre** pour que `use("@nodefony/x", …)`
-propose ses clés typées :
-
-```typescript
-// dans @nodefony/x (ex. index.ts)
-declare module "nodefony" {
-  interface NodefonyModuleConfig {
-    "@nodefony/x": IXConfig;
-  }
-}
-```
-
-Sans augmentation, `use()` accepte quand même la config (`Record<string, unknown>`) — jamais bloquant,
-juste moins d'auto-complétion. Détails + recettes : [`docs/guides/configuration.md`](docs/guides/configuration.md).
+(1) publier son interface `IXConfig`, et (2) **augmenter le registre** `NodefonyModuleConfig` via
+`declare module "nodefony"` (clé = nom du module → `IXConfig`) pour que `use("@nodefony/x", …)` propose
+ses clés typées. Sans augmentation, `use()` accepte quand même la config (`Record<string, unknown>`) —
+jamais bloquant, juste moins d'auto-complétion. Recette complète : [`docs/guides/configuration.md`](docs/guides/configuration.md).
 
 ---
 
@@ -559,19 +529,9 @@ La **première phrase** doit être auto-suffisante — elle apparaîtra seule da
 
 Format v2.0 : `symbols` est une **map indexée par nom** (accès O(1)), `relations` contient les index inversés pré-calculés. Les agents IA doivent l'utiliser AVANT de grep le repo.
 
-**Patterns Zero-Token Lookup** :
+**Patterns Zero-Token Lookup** (`jq` sur `.ai/symbols.json`) : définition → `.symbols.X` · étend → `.relations.extendedBy.X` · implémente → `.relations.implementedBy.IX` · importe → `.relations.usedBy.X` · décoré → `.relations.decoratedBy.injectable` · description TSDoc → `.symbols.X.description`. **Homonymes** : 2e symbole sous `"Module:Name"`, lever via `.module`.
 
-- Définition d'un symbole → `jq '.symbols.Container' .ai/symbols.json`
-- « Qui étend `Service` ? » → `jq '.relations.extendedBy.Service' .ai/symbols.json`
-- « Qui implémente `IContainer` ? » → `jq '.relations.implementedBy.IContainer' .ai/symbols.json`
-- « Qui importe `Container` ? » → `jq '.relations.usedBy.Container' .ai/symbols.json`
-- « Classes décorées `@injectable` » → `jq '.relations.decoratedBy.injectable' .ai/symbols.json`
-- « Symboles exportés par `@nodefony/http` » → `jq '.symbols | to_entries | map(select(.value.module == "@nodefony/http")) | from_entries' .ai/symbols.json`
-- Description TSDoc → `jq '.symbols.Container.description' .ai/symbols.json` (si présente)
-
-**Homonymes** : un second symbole d'un même nom est stocké sous `"Module:Name"`. Lever l'ambiguïté via `.module`.
-
-Voir `.claude/skills/nodefony-generate-symbols/SKILL.md` pour le cheat-sheet complet.
+Cheat-sheet complet (filtres par module, etc.) : `.claude/skills/nodefony-generate-symbols/SKILL.md`.
 
 ---
 

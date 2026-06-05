@@ -618,8 +618,13 @@ class Kernel extends Service implements IKernel {
             }
           });
           if (index >= 0) {
-            // @ts-ignore
-            this.cli.commander?.options.splice(index, 1);
+            // `commander.options` est typé `readonly Option[]` → cast vers un
+            // tableau mutable pour le splice (commander n'expose pas d'API de
+            // suppression publique). commander non-null garanti par le guard l.608.
+            (this.cli.commander.options as unknown as unknown[]).splice(
+              index,
+              1,
+            );
           }
         }
       }
@@ -634,8 +639,13 @@ class Kernel extends Service implements IKernel {
             }
           });
           if (index >= 0) {
-            // @ts-ignore
-            this.cli.commander?.options.splice(index, 1);
+            // `commander.options` est typé `readonly Option[]` → cast vers un
+            // tableau mutable pour le splice (commander n'expose pas d'API de
+            // suppression publique). commander non-null garanti par le guard l.608.
+            (this.cli.commander.options as unknown as unknown[]).splice(
+              index,
+              1,
+            );
           }
         }
       }

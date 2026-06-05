@@ -620,25 +620,39 @@ describe("Module — getController()", () => {
     assert(ctrls !== null);
   });
 
-  it("getControllers() retourne la même référence (static partagé)", () => {
-    const mod2 = new Module("ctrl-test-2", makeKernelStub(), process.cwd(), {});
-    assert.strictEqual(
-      mod.getControllers(),
-      mod2.getControllers(),
-      "Module.controllers est une référence statique partagée entre instances",
-    );
+  it("getControllers() est module-scopé (clés sans préfixe, isolé par module)", () => {
+    const FakeCtrl = class FakeCtrl {};
+    const key = "ctrl-test:ScopedCtrl";
+    const saved = (Module as any).controllers[key];
+    try {
+      (Module as any).controllers[key] = FakeCtrl;
+      const ctrls = mod.getControllers();
+      assert.strictEqual(ctrls["ScopedCtrl"], FakeCtrl);
+      // un autre module ne voit pas ce controller (registre scopé par module)
+      const mod2 = new Module(
+        "ctrl-test-2",
+        makeKernelStub(),
+        process.cwd(),
+        {},
+      );
+      assert.strictEqual(mod2.getControllers()["ScopedCtrl"], undefined);
+    } finally {
+      if (saved === undefined) delete (Module as any).controllers[key];
+      else (Module as any).controllers[key] = saved;
+    }
   });
 
-  it("controller injecté dans Module.controllers → getController() le trouve", () => {
+  it("controller injecté (clé module-scopée) → getController() le trouve", () => {
     const FakeCtrl = class FakeCtrl {};
-    const saved = (Module as any).controllers["FakeCtrl"];
+    const key = "ctrl-test:FakeCtrl";
+    const saved = (Module as any).controllers[key];
     try {
-      (Module as any).controllers["FakeCtrl"] = FakeCtrl;
+      (Module as any).controllers[key] = FakeCtrl;
       const result = mod.getController("FakeCtrl");
       assert.strictEqual(result, FakeCtrl);
     } finally {
-      if (saved === undefined) delete (Module as any).controllers["FakeCtrl"];
-      else (Module as any).controllers["FakeCtrl"] = saved;
+      if (saved === undefined) delete (Module as any).controllers[key];
+      else (Module as any).controllers[key] = saved;
     }
   });
 });
