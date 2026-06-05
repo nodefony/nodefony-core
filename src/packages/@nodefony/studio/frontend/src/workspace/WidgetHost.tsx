@@ -1,5 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { useCallback, useEffect, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   ActionIcon,
   Box,
@@ -11,8 +12,6 @@ import {
 } from "@mantine/core";
 import {
   IconArrowsHorizontal,
-  IconChevronLeft,
-  IconChevronRight,
   IconDotsVertical,
   IconGripVertical,
   IconX,
@@ -50,16 +49,20 @@ export interface WidgetHostProps {
   ctx: WidgetRuntimeContext;
   /** Type MIME du drag interne — active la poignée de réorganisation si fourni. */
   dragMime?: string;
+  /** Notifie la grille du widget en cours de glisse (pour l'indicateur d'insertion). */
+  onDragChange?: (id: string | null) => void;
 }
 
 /**
  * Cadre commun d'un widget — encode le PATTERN « sonde + hub » une seule fois :
  * snapshot HTTP au 1ᵉʳ paint, abonnement live CONDITIONNEL (monté ssi `ctx.live` →
- * unsubscribe auto au démontage), fallback, `DataState`, `contain: content`. Le widget
- * lui-même = rendu pur (reçoit `source` + `ctx`).
+ * unsubscribe auto), fallback, `DataState`, `contain`. Le widget = rendu pur.
+ *
+ * Manipulation : **l'en-tête est la poignée de glisse** (réorganisation) ; le **bord
+ * droit** est une poignée de **redimensionnement** (largeur en colonnes, en direct).
  */
 export const WidgetHost = observer(
-  ({ def, instance, ctx, dragMime }: WidgetHostProps) => {
+  ({ def, instance, ctx, dragMime, onDragChange }: WidgetHostProps) => {
     const store = useStore();
     const workspace = useWorkspace();
 
@@ -94,8 +97,31 @@ export const WidgetHost = observer(
     const Render = def.render;
     const Icon = def.icon;
     const isLiveSource = def.source.kind !== "snapshot";
-    // Live-only sans snapshot et OFF → invite à activer le temps réel.
     const liveOnlyOff = def.source.kind === "live" && !ctx.live;
+
+    // Redimensionnement en direct : on tire le bord droit, le delta en pixels est
+    // converti en colonnes (la largeur d'1 colonne = largeur carte / span courant).
+    const onResizeDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const card = e.currentTarget.parentElement;
+      const rect = card?.getBoundingClientRect();
+      if (!rect) return;
+      const colW = rect.width / Math.max(1, instance.span);
+      const startX = e.clientX;
+      const startSpan = instance.span;
+      const move = (ev: PointerEvent) => {
+        const delta = Math.round((ev.clientX - startX) / colW);
+        if (delta !== 0) workspace.setSpan(def.id, startSpan + delta);
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        document.body.style.userSelect = "";
+      };
+      document.body.style.userSelect = "none";
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    };
 
     return (
       <Card
@@ -103,28 +129,30 @@ export const WidgetHost = observer(
         radius="md"
         p="sm"
         h="100%"
-        style={{ contain: "content" }}
+        style={{ contain: "content", position: "relative" }}
       >
         <Group justify="space-between" wrap="nowrap" mb="xs">
-          <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+          <Group
+            gap="xs"
+            wrap="nowrap"
+            style={{ minWidth: 0, cursor: dragMime ? "grab" : undefined }}
+            draggable={!!dragMime}
+            onDragStart={
+              dragMime
+                ? (e) => {
+                    e.dataTransfer.setData(dragMime, def.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    onDragChange?.(def.id);
+                  }
+                : undefined
+            }
+            onDragEnd={dragMime ? () => onDragChange?.(null) : undefined}
+          >
             {dragMime ? (
-              <Box
-                component="span"
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData(dragMime, def.id);
-                  e.dataTransfer.effectAllowed = "move";
-                }}
-                style={{
-                  cursor: "grab",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-                aria-label="Déplacer le widget"
-                title="Glisser pour réorganiser"
-              >
-                <IconGripVertical size={14} style={{ opacity: 0.45 }} />
-              </Box>
+              <IconGripVertical
+                size={14}
+                style={{ opacity: 0.45, flexShrink: 0 }}
+              />
             ) : null}
             <ThemeIcon variant="light" color="gray" size="sm" radius="md">
               <Icon size={15} />
@@ -171,18 +199,6 @@ export const WidgetHost = observer(
               >
                 Largeur : {instance.span}/12
               </Menu.Item>
-              <Menu.Item
-                leftSection={<IconChevronLeft size={14} />}
-                onClick={() => workspace.move(def.id, -1)}
-              >
-                Déplacer à gauche
-              </Menu.Item>
-              <Menu.Item
-                leftSection={<IconChevronRight size={14} />}
-                onClick={() => workspace.move(def.id, 1)}
-              >
-                Déplacer à droite
-              </Menu.Item>
               <Menu.Divider />
               <Menu.Item
                 color="red"
@@ -213,6 +229,21 @@ export const WidgetHost = observer(
         >
           <Render source={source} ctx={ctx} span={instance.span} />
         </DataState>
+
+        {/* Poignée de redimensionnement (largeur) — bord droit. */}
+        <Box
+          aria-hidden
+          onPointerDown={onResizeDown}
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 0,
+            bottom: 10,
+            width: 8,
+            cursor: "ew-resize",
+            borderRadius: 4,
+          }}
+        />
       </Card>
     );
   },

@@ -1,18 +1,21 @@
 /**
  * Presets de bureaux par métier — remplacent les dashboards codés en dur
- * (`auth/dashboards.ts`). Un preset = un layout de DÉPART ; l'utilisateur personnalise
- * ensuite (ses changements persistés l'emportent au chargement). Les `widgetId`
- * absents du registry sont ignorés au rendu (défensif).
+ * (`auth/dashboards.ts` + pages `Dashboard`/`DashboardSupervision`). Un preset = un
+ * layout de DÉPART ; l'utilisateur personnalise ensuite (ses changements persistés
+ * l'emportent). Les `widgetId` absents du registry sont ignorés au rendu (défensif).
  */
 import type { WorkspaceLayout } from "./types";
 
 export const WORKSPACE_PRESETS: readonly WorkspaceLayout[] = [
   {
+    // Reprend le Dashboard Dev : identité, git, config, ORM, logs + santé live.
     id: "dev",
     label: "Développeur",
     items: [
       { widgetId: "runtime.mode", span: 6 },
       { widgetId: "system.info", span: 6 },
+      { widgetId: "system.git", span: 4 },
+      { widgetId: "system.uptime", span: 4 },
       { widgetId: "system.cpu", span: 4 },
       { widgetId: "system.heap", span: 4 },
       { widgetId: "system.eventloop", span: 4 },
@@ -21,14 +24,17 @@ export const WORKSPACE_PRESETS: readonly WorkspaceLayout[] = [
     ],
   },
   {
+    // Reprend la Supervision : santé composite, alertes, charge, hub, cluster.
     id: "supervisor",
     label: "Superviseur",
     items: [
-      { widgetId: "system.health", span: 6 },
-      { widgetId: "realtime.hub", span: 6 },
+      { widgetId: "system.health", span: 5 },
+      { widgetId: "supervision.alerts", span: 7 },
       { widgetId: "system.cpu", span: 4 },
       { widgetId: "system.heap", span: 4 },
       { widgetId: "system.eventloop", span: 4 },
+      { widgetId: "realtime.hub", span: 6 },
+      { widgetId: "cluster.workers", span: 6 },
       { widgetId: "logs.live", span: 12 },
     ],
   },
@@ -37,9 +43,11 @@ export const WORKSPACE_PRESETS: readonly WorkspaceLayout[] = [
     label: "Admin",
     items: [
       { widgetId: "runtime.mode", span: 6 },
+      { widgetId: "runtime.modes", span: 6 },
       { widgetId: "system.health", span: 6 },
       { widgetId: "orm.health", span: 6 },
       { widgetId: "realtime.hub", span: 6 },
+      { widgetId: "realtime.channels", span: 6 },
     ],
   },
   { id: "blank", label: "Vierge", items: [] },

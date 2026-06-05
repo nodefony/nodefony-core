@@ -15,6 +15,7 @@ export type WidgetCategory =
   | "logs"
   | "orm"
   | "realtime"
+  | "cluster"
   | "security"
   | "ai";
 
@@ -25,6 +26,7 @@ export const WIDGET_CATEGORY_LABEL: Record<WidgetCategory, string> = {
   logs: "Logs",
   orm: "Données / ORM",
   realtime: "Temps réel",
+  cluster: "Cluster",
   security: "Sécurité",
   ai: "IA",
 };

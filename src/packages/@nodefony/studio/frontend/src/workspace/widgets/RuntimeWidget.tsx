@@ -8,6 +8,7 @@ import { Metric, fmtUptime } from "./_kit";
 export interface KernelInfo {
   version: string;
   environment: string;
+  debug?: boolean;
   node: string;
   uptime: number;
   modules: number;

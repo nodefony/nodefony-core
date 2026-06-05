@@ -8,3 +8,5 @@ import "./SystemWidgets";
 import "./OrmWidget";
 import "./LogsWidget";
 import "./RealtimeWidget";
+import "./ClusterWidget";
+import "./MoreWidgets";

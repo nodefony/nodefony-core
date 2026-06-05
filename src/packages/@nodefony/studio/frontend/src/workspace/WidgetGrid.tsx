@@ -17,21 +17,23 @@ function clampSpan(n: number): number {
 
 /**
  * Grille CSS 12 colonnes + **drag & drop** de réorganisation (HTML5 natif, 0 dep).
- * On glisse par la poignée du widget (`WidgetHost`), on dépose sur une tuile cible →
- * `workspace.reorder`. La taille reste réglable au menu du widget. Les `widgetId`
- * absents du registry sont filtrés (défensif).
+ * On glisse un widget par son **en-tête**, on dépose sur une tuile cible → insertion
+ * AVANT elle (barre d'accent à gauche = repère d'insertion). Largeur réglable au bord
+ * droit (poignée du `WidgetHost`). Les `widgetId` absents du registry sont filtrés.
  */
 export const WidgetGrid = observer(
   ({ layout, ctx }: { layout: WorkspaceLayout; ctx: WidgetRuntimeContext }) => {
     const workspace = useWorkspace();
+    const [dragId, setDragId] = useState<string | null>(null);
     const [overId, setOverId] = useState<string | null>(null);
     const items = layout.items.filter((i) => getWidget(i.widgetId));
 
     const handleDrop = (targetId: string) => (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
-      const dragId = e.dataTransfer.getData(DRAG_MIME);
-      if (dragId && dragId !== targetId) workspace.reorder(dragId, targetId);
+      const id = e.dataTransfer.getData(DRAG_MIME) || dragId;
+      if (id && id !== targetId) workspace.reorder(id, targetId);
       setOverId(null);
+      setDragId(null);
     };
 
     return (
@@ -46,7 +48,9 @@ export const WidgetGrid = observer(
         {items.map((it) => {
           const def = getWidget(it.widgetId);
           if (!def) return null;
-          const isOver = overId === it.widgetId;
+          const dragged = dragId === it.widgetId;
+          const isTarget =
+            overId === it.widgetId && !!dragId && dragId !== it.widgetId;
           return (
             <Box
               key={it.widgetId}
@@ -61,12 +65,12 @@ export const WidgetGrid = observer(
               onDrop={handleDrop(it.widgetId)}
               style={{
                 gridColumn: `span ${clampSpan(it.span)}`,
-                outline: isOver
-                  ? "2px dashed var(--mantine-color-brand-5)"
-                  : "2px dashed transparent",
-                outlineOffset: 2,
-                borderRadius: 10,
-                transition: "outline-color 120ms ease",
+                opacity: dragged ? 0.4 : 1,
+                boxShadow: isTarget
+                  ? "inset 4px 0 0 0 var(--mantine-color-brand-6)"
+                  : undefined,
+                borderRadius: 12,
+                transition: "opacity 120ms ease",
               }}
             >
               <WidgetHost
@@ -74,6 +78,7 @@ export const WidgetGrid = observer(
                 instance={it}
                 ctx={ctx}
                 dragMime={DRAG_MIME}
+                onDragChange={setDragId}
               />
             </Box>
           );
