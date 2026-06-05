@@ -111,6 +111,22 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🧩 Modules / docs / front (frictions du jour)
 
+- `[1× — 2026-06-06]` **react-grid-layout est INCOMPATIBLE React 19** (il utilise `ReactDOM.findDOMNode`,
+  **supprimé** en React 19) → pour une grille dashboard draggable/resizable NE PAS le proposer. Maison 0-dep :
+  **CSS grid `auto-flow: dense`** (span colonnes × rangées = tuilage sans trou) + **resize au coin** par pointer
+  events (delta px → unités via le `getBoundingClientRect` de la carte) + drag HTML5 `setDragImage(card)` (fantôme
+  = la carte). React-19-safe, contrôlé. (gridstack = alternative vanilla mais intégration React fiddly.)
+- `[1× — 2026-06-06]` **un canal realtime peut pousser des frames COALESCÉES, pas l'objet nu** : `syslog:stream`
+  émet `{ logs:[...], dropped }` (coalescing serveur), PAS un Pdu → un widget qui rend `source.data` comme un Pdu
+  affiche l'enveloppe (« ça ressemble à rien », vu par le user). → avant de rendre un flux, **vérifier la FORME
+  exacte de la frame** (lire le producteur ou un consommateur existant) et **réutiliser les vraies briques** au
+  lieu de deviner les champs : ici `toRecord`/`recordMessage`/`ansiToReact`/`SeverityBadge` de `routes/logs/`
+  (convention-frère) → même rendu que la page Logs du 1er coup. Les champs Pdu devinés passaient le typecheck mais le rendu était faux.
+- `[1× — 2026-06-06]` **valider l'esbuild des nouveaux fichiers front AVANT de faire recharger le user** : `tsc`
+  attrape les types, pas tout ; `curl -sk https://127.0.0.1:<viteStudio>/@fs/<abs>.tsx` (port Vite Studio = 5173 ici,
+  ≠ 5177 = autre bundle) → 200 + 0 « Transform failed » si le module compile. Boucler sur les N fichiers touchés →
+  0 page blanche au hard-reload. (cf skill `nodefony-frontend-verify`.)
+
 - `[1× — 2026-06-01]` **Studio = Mantine v9, PAS v8** (le skill `studio-dev` dit v8 → FAUX, à
   corriger) : `Collapse` prop = **`expanded`** (pas `in`) ; `DataGrid.filterOptions` = `string[]`
   (pas `{value,label}[]`), `align ∈ {left,right}` (pas `center`). Gate = `npm run typecheck` les
@@ -389,7 +405,7 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔧 Git / commit (friction du jour)
 
-- `[5× — 2026-06-05]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
+- `[6× — 2026-06-06]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
   à promouvoir dans [[feedback_commit_fr_apostrophes]] au prochain CONSOLIDATE). Un commit dont le sujet
   commence par une majuscule/nom propre (ex. `refactor(core): KernelType …`, `feat(dev): Vite …`) est
   **rejeté** par le hook `commit-msg`. Réflexe : `type(scope): ` puis **minuscule** (reformuler « remplace
