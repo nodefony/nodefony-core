@@ -1,4 +1,4 @@
-import { Badge, Group, Text } from "@mantine/core";
+import { Badge, Center, Group, RingProgress, Text } from "@mantine/core";
 import {
   IconActivityHeartbeat,
   IconCpu,
@@ -13,6 +13,7 @@ import {
   normalize,
   type HealthPayload,
   type InstanceHealth,
+  type NormalizedHealth,
 } from "../../utils/realtimeHealth";
 import {
   buildHealth,
@@ -20,7 +21,15 @@ import {
   type HealthResult,
 } from "../../utils/health";
 import { DefinitionList, KeyValue } from "../../components/ui";
-import { Metric, WorkerTile, fmtMB, fmtMs } from "./_kit";
+import {
+  BigMetric,
+  Metric,
+  WorkerTile,
+  fmtMB,
+  fmtMs,
+  levelColor,
+  useLiveSeries,
+} from "./_kit";
 import type { KernelInfo } from "./RuntimeWidget";
 
 // Source commune des widgets système cluster-aware : la sonde santé agrégée master.
@@ -31,30 +40,46 @@ const HEALTH_SOURCE = {
 } as const;
 
 // ─────────────────────────────── CPU ───────────────────────────────
-function CpuInstance({ inst }: { inst: InstanceHealth }) {
-  const cpu = inst.process?.cpuPercent;
-  return (
-    <WorkerTile pid={inst.process?.pid}>
-      <Metric label="CPU" value={cpu != null ? cpu.toFixed(0) : "—"} unit="%" />
-    </WorkerTile>
-  );
+function cpuRep(norm: NormalizedHealth | null): number | null {
+  if (!norm) return null;
+  const vals = norm.instances
+    .map((i) => i.process?.cpuPercent)
+    .filter((v): v is number => v != null);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
 }
 function CpuBody({ source }: WidgetRenderProps<HealthPayload>) {
+  const norm = normalize(source.data);
+  const rep = cpuRep(norm);
+  const series = useLiveSeries(rep);
+  const color = levelColor(rep, 60, 85);
   return (
     <ClusterView
-      normalized={normalize(source.data)}
-      renderInstance={(inst) => <CpuInstance inst={inst} />}
-      renderSummary={(_t, insts) => {
-        const vals = insts.map((i) => i.process?.cpuPercent ?? 0);
-        const avg = vals.length
-          ? vals.reduce((a, b) => a + b, 0) / vals.length
-          : 0;
-        const max = vals.length ? Math.max(...vals) : 0;
-        return (
-          <Group gap="xl">
-            <Metric label="CPU moyen" value={avg.toFixed(0)} unit="%" />
-            <Metric label="CPU max" value={max.toFixed(0)} unit="%" />
-          </Group>
+      normalized={norm}
+      renderSummary={(_t, insts) => (
+        <BigMetric
+          label="CPU moyen"
+          value={rep != null ? Math.round(rep) : null}
+          unit="%"
+          color={color}
+          series={series}
+          sub={`${insts.length} workers`}
+        />
+      )}
+      renderInstance={(inst, { grid }) => {
+        const v = inst.process?.cpuPercent;
+        const val = v != null ? Math.round(v) : null;
+        return grid ? (
+          <WorkerTile pid={inst.process?.pid}>
+            <BigMetric value={val} unit="%" color={levelColor(v, 60, 85)} />
+          </WorkerTile>
+        ) : (
+          <BigMetric
+            label="CPU"
+            value={val}
+            unit="%"
+            color={color}
+            series={series}
+          />
         );
       }}
       drillTo={() => "/nodefony/cluster"}
@@ -63,30 +88,54 @@ function CpuBody({ source }: WidgetRenderProps<HealthPayload>) {
 }
 
 // ─────────────────────────────── Heap ──────────────────────────────
-function HeapInstance({ inst }: { inst: InstanceHealth }) {
-  const p = inst.process;
-  return (
-    <WorkerTile pid={p?.pid}>
-      <Metric label="Heap" value={p ? fmtMB(p.heapUsed) : "—"} unit="Mo" />
-    </WorkerTile>
+function heapRep(norm: NormalizedHealth | null): number | null {
+  if (!norm || !norm.instances.some((i) => i.process)) return null;
+  return fmtMB(
+    norm.instances.reduce((s, i) => s + (i.process?.heapUsed ?? 0), 0),
   );
 }
 function HeapBody({ source }: WidgetRenderProps<HealthPayload>) {
+  const norm = normalize(source.data);
+  const rep = heapRep(norm);
+  const series = useLiveSeries(rep);
   return (
     <ClusterView
-      normalized={normalize(source.data)}
-      renderInstance={(inst) => <HeapInstance inst={inst} />}
+      normalized={norm}
       renderSummary={(_t, insts) => {
-        const used = insts.reduce((s, i) => s + (i.process?.heapUsed ?? 0), 0);
         const total = insts.reduce(
           (s, i) => s + (i.process?.heapTotal ?? 0),
           0,
         );
         return (
-          <Group gap="xl">
-            <Metric label="Heap pod" value={fmtMB(used)} unit="Mo" />
-            <Metric label="Réservé" value={fmtMB(total)} unit="Mo" />
-          </Group>
+          <BigMetric
+            label="Heap pod"
+            value={rep}
+            unit="Mo"
+            color="blue"
+            series={series}
+            sub={`réservé ${fmtMB(total)} Mo · ${insts.length} workers`}
+          />
+        );
+      }}
+      renderInstance={(inst, { grid }) => {
+        const p = inst.process;
+        return grid ? (
+          <WorkerTile pid={p?.pid}>
+            <BigMetric
+              value={p ? fmtMB(p.heapUsed) : null}
+              unit="Mo"
+              color="blue"
+            />
+          </WorkerTile>
+        ) : (
+          <BigMetric
+            label="Heap"
+            value={p ? fmtMB(p.heapUsed) : null}
+            unit="Mo"
+            color="blue"
+            series={series}
+            sub={p ? `réservé ${fmtMB(p.heapTotal)} Mo` : undefined}
+          />
         );
       }}
       drillTo={() => "/nodefony/cluster"}
@@ -95,29 +144,50 @@ function HeapBody({ source }: WidgetRenderProps<HealthPayload>) {
 }
 
 // ──────────────────────────── Event-loop ───────────────────────────
-function LoopInstance({ inst }: { inst: InstanceHealth }) {
-  const ms = inst.process?.eventLoopMs;
-  return (
-    <WorkerTile pid={inst.process?.pid}>
-      <Metric
-        label="Event-loop"
-        value={ms != null ? fmtMs(ms) : "—"}
-        unit="ms"
-      />
-    </WorkerTile>
-  );
+function loopRep(norm: NormalizedHealth | null): number | null {
+  if (!norm) return null;
+  const vals = norm.instances
+    .map((i) => i.process?.eventLoopMs)
+    .filter((v): v is number => v != null);
+  return vals.length ? Math.max(...vals) : null;
 }
 function LoopBody({ source }: WidgetRenderProps<HealthPayload>) {
+  const norm = normalize(source.data);
+  const rep = loopRep(norm);
+  const series = useLiveSeries(rep);
+  const color = levelColor(rep, 30, 80);
   return (
     <ClusterView
-      normalized={normalize(source.data)}
-      renderInstance={(inst) => <LoopInstance inst={inst} />}
-      renderSummary={(_t, insts) => {
-        const max = insts.reduce(
-          (m, i) => Math.max(m, i.process?.eventLoopMs ?? 0),
-          0,
+      normalized={norm}
+      renderSummary={(_t, insts) => (
+        <BigMetric
+          label="Event-loop max"
+          value={rep != null ? fmtMs(rep) : null}
+          unit="ms"
+          color={color}
+          series={series}
+          sub={`${insts.length} workers`}
+        />
+      )}
+      renderInstance={(inst, { grid }) => {
+        const ms = inst.process?.eventLoopMs;
+        return grid ? (
+          <WorkerTile pid={inst.process?.pid}>
+            <BigMetric
+              value={ms != null ? fmtMs(ms) : null}
+              unit="ms"
+              color={levelColor(ms, 30, 80)}
+            />
+          </WorkerTile>
+        ) : (
+          <BigMetric
+            label="Event-loop"
+            value={ms != null ? fmtMs(ms) : null}
+            unit="ms"
+            color={color}
+            series={series}
+          />
         );
-        return <Metric label="Event-loop max" value={fmtMs(max)} unit="ms" />;
       }}
       drillTo={() => "/nodefony/supervision"}
     />
@@ -166,39 +236,84 @@ function instHealth(inst: InstanceHealth): HealthResult {
     },
   ]);
 }
-function HealthChip({ r }: { r: HealthResult }) {
+function worstOf(insts: InstanceHealth[]): HealthResult {
+  let worst: HealthResult | null = null;
+  for (const inst of insts) {
+    const r = instHealth(inst);
+    if (!worst || (r.score ?? 101) < (worst.score ?? 101)) worst = r;
+  }
+  return worst ?? buildHealth([]);
+}
+function ScoreRing({ r }: { r: HealthResult }) {
   return (
-    <Badge color={r.color} variant="light" size="lg">
-      {r.label}
-      {r.score != null ? ` · ${r.score}` : ""}
-    </Badge>
+    <Group gap="md" wrap="nowrap">
+      <RingProgress
+        size={84}
+        thickness={9}
+        roundCaps
+        sections={[{ value: r.score ?? 0, color: r.color }]}
+        label={
+          <Center>
+            <Text
+              fw={800}
+              fz="lg"
+              c={r.color}
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {r.score ?? "—"}
+            </Text>
+          </Center>
+        }
+      />
+      <div>
+        <Badge color={r.color} variant="light" size="lg">
+          {r.label}
+        </Badge>
+        {r.worst ? (
+          <Text size="xs" c="dimmed" mt={6}>
+            facteur limitant : <b>{r.worst}</b>
+          </Text>
+        ) : null}
+      </div>
+    </Group>
+  );
+}
+function WorkerHealthLine({ inst }: { inst: InstanceHealth }) {
+  const r = instHealth(inst);
+  return (
+    <Group gap="xs">
+      <Badge color={r.color} variant="light">
+        {r.label}
+      </Badge>
+      <Text fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
+        {r.score ?? "—"}
+      </Text>
+    </Group>
   );
 }
 function HealthBody({ source }: WidgetRenderProps<HealthPayload>) {
   return (
     <ClusterView
       normalized={normalize(source.data)}
-      renderInstance={(inst) => (
-        <WorkerTile pid={inst.process?.pid}>
-          <HealthChip r={instHealth(inst)} />
-        </WorkerTile>
-      )}
-      renderSummary={(_t, insts) => {
-        // Rollup pod = PIRE worker (le maillon faible).
-        let worst: HealthResult | null = null;
-        for (const inst of insts) {
-          const r = instHealth(inst);
-          if (!worst || (r.score ?? 101) < (worst.score ?? 101)) worst = r;
-        }
-        return (
-          <Group gap="sm">
-            {worst ? <HealthChip r={worst} /> : null}
-            <Text size="sm" c="dimmed">
-              pire des {insts.length} workers
+      renderSummary={(_t, insts) => (
+        <div>
+          <ScoreRing r={worstOf(insts)} />
+          {insts.length > 1 ? (
+            <Text size="xs" c="dimmed" mt={6}>
+              pod = pire des {insts.length} workers
             </Text>
-          </Group>
-        );
-      }}
+          ) : null}
+        </div>
+      )}
+      renderInstance={(inst, { grid }) =>
+        grid ? (
+          <WorkerTile pid={inst.process?.pid}>
+            <WorkerHealthLine inst={inst} />
+          </WorkerTile>
+        ) : (
+          <ScoreRing r={instHealth(inst)} />
+        )
+      }
       drillTo={() => "/nodefony/supervision"}
     />
   );
@@ -227,7 +342,7 @@ function InfoBody({ source }: WidgetRenderProps<KernelInfo>) {
 registerWidget<HealthPayload>({
   id: "system.cpu",
   title: "CPU",
-  description: "Charge CPU du process (moyenne/max pod en cluster).",
+  description: "Charge CPU live + courbe (moyenne/max pod en cluster).",
   category: "system",
   icon: IconCpu,
   source: HEALTH_SOURCE,
@@ -240,7 +355,7 @@ registerWidget<HealthPayload>({
 registerWidget<HealthPayload>({
   id: "system.heap",
   title: "Mémoire (heap)",
-  description: "Heap utilisé / réservé (somme pod en cluster).",
+  description: "Heap utilisé live + courbe (somme pod en cluster).",
   category: "system",
   icon: IconStack2,
   source: HEALTH_SOURCE,
@@ -253,7 +368,8 @@ registerWidget<HealthPayload>({
 registerWidget<HealthPayload>({
   id: "system.eventloop",
   title: "Event-loop",
-  description: "Latence de la boucle d'événements (pire worker en cluster).",
+  description:
+    "Latence de la boucle d'événements live (pire worker en cluster).",
   category: "system",
   icon: IconActivityHeartbeat,
   source: HEALTH_SOURCE,

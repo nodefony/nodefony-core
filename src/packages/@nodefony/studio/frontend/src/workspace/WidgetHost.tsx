@@ -14,6 +14,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconDotsVertical,
+  IconGripVertical,
   IconX,
 } from "@tabler/icons-react";
 import { useStore, useWorkspace } from "../stores";
@@ -47,6 +48,8 @@ export interface WidgetHostProps {
   def: IWidgetDef;
   instance: WidgetInstance;
   ctx: WidgetRuntimeContext;
+  /** Type MIME du drag interne — active la poignée de réorganisation si fourni. */
+  dragMime?: string;
 }
 
 /**
@@ -56,7 +59,7 @@ export interface WidgetHostProps {
  * lui-même = rendu pur (reçoit `source` + `ctx`).
  */
 export const WidgetHost = observer(
-  ({ def, instance, ctx }: WidgetHostProps) => {
+  ({ def, instance, ctx, dragMime }: WidgetHostProps) => {
     const store = useStore();
     const workspace = useWorkspace();
 
@@ -104,6 +107,25 @@ export const WidgetHost = observer(
       >
         <Group justify="space-between" wrap="nowrap" mb="xs">
           <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+            {dragMime ? (
+              <Box
+                component="span"
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(dragMime, def.id);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                style={{
+                  cursor: "grab",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                aria-label="Déplacer le widget"
+                title="Glisser pour réorganiser"
+              >
+                <IconGripVertical size={14} style={{ opacity: 0.45 }} />
+              </Box>
+            ) : null}
             <ThemeIcon variant="light" color="gray" size="sm" radius="md">
               <Icon size={15} />
             </ThemeIcon>

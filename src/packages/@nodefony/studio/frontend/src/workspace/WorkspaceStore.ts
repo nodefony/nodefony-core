@@ -94,6 +94,18 @@ export class WorkspaceStore {
     this.persist();
   }
 
+  /** Réordonne (drag & drop) : déplace `fromId` à la position de `toId`. */
+  reorder(fromId: string, toId: string): void {
+    const items = this.layouts[this.activeId]?.items;
+    if (!items) return;
+    const from = items.findIndex((x) => x.widgetId === fromId);
+    const to = items.findIndex((x) => x.widgetId === toId);
+    if (from < 0 || to < 0 || from === to) return;
+    const [moved] = items.splice(from, 1);
+    items.splice(to, 0, moved);
+    this.persist();
+  }
+
   /** Réinitialise le bureau courant à son preset d'origine (perd les perso). */
   resetToPreset(): void {
     const preset = WORKSPACE_PRESETS.find((p) => p.id === this.activeId);

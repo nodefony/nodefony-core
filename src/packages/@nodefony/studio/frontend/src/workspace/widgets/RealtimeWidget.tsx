@@ -1,36 +1,59 @@
-import { SimpleGrid } from "@mantine/core";
+import { Badge, SimpleGrid, Stack, Text } from "@mantine/core";
 import { IconBroadcast } from "@tabler/icons-react";
 import { registerWidget } from "../registry";
 import type { WidgetRenderProps } from "../types";
 import { normalize, type HealthPayload } from "../../utils/realtimeHealth";
-import { Metric, fmtMB } from "./_kit";
+import { BigMetric, Metric, fmtMB, useLiveSeries, useRate } from "./_kit";
 
 /**
- * Widget « Socket Nodefony » — KPIs du hub realtime (totaux pod, valides mono ET
- * cluster via `normalize().totals`). Backpressure = risque mémoire #1 à surveiller.
+ * Widget « Socket Nodefony » — débit fan-out/s DÉRIVÉ du cumul + courbe, canaux,
+ * connexions et backpressure (risque mémoire #1). Totaux pod (valides mono ET cluster).
  */
 function HubBody({ source }: WidgetRenderProps<HealthPayload>) {
-  const n = normalize(source.data);
-  if (!n) return null;
-  const t = n.totals;
+  const norm = normalize(source.data);
+  const t = norm?.totals ?? null;
+  const rate = useRate(t?.fanoutTotal, norm?.ts);
+  const series = useLiveSeries(rate != null ? Math.round(rate) : null);
+  if (!t) return null;
+  const bp = t.backpressure;
   return (
-    <SimpleGrid cols={2} spacing="xs">
-      <Metric label="Canaux" value={t.channelCount} />
-      <Metric label="Connexions" value={t.connectionCount} />
-      <Metric label="Fan-out" value={t.fanoutTotal} />
-      <Metric
-        label="Backpressure"
-        value={fmtMB(t.backpressure.totalBufferedAmount)}
-        unit="Mo"
+    <Stack gap="xs">
+      <BigMetric
+        label="Fan-out / s"
+        value={rate != null ? Math.round(rate) : null}
+        unit="msg/s"
+        color="cyan"
+        series={series}
       />
-    </SimpleGrid>
+      <SimpleGrid cols={2} spacing="xs">
+        <Metric label="Canaux" value={t.channelCount} />
+        <Metric label="Connexions" value={t.connectionCount} />
+        <Metric
+          label="Backpressure"
+          value={fmtMB(bp.totalBufferedAmount)}
+          unit="Mo"
+        />
+        <div>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+            Consommateurs lents
+          </Text>
+          <Badge
+            color={bp.slowConsumers > 0 ? "orange" : "teal"}
+            variant="light"
+            size="lg"
+          >
+            {bp.slowConsumers}
+          </Badge>
+        </div>
+      </SimpleGrid>
+    </Stack>
   );
 }
 
 registerWidget<HealthPayload>({
   id: "realtime.hub",
   title: "Socket Nodefony",
-  description: "Canaux, connexions, fan-out et backpressure du hub temps réel.",
+  description: "Débit fan-out/s + courbe, canaux, connexions, backpressure.",
   category: "realtime",
   icon: IconBroadcast,
   source: {

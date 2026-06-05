@@ -13,8 +13,11 @@ export interface ClusterViewProps {
   normalized: NormalizedHealth | null;
   /** Résumé agrégé du POD — affiché par défaut (rollup adapté à la métrique). */
   renderSummary: (totals: PodTotals, instances: InstanceHealth[]) => ReactNode;
-  /** Détail d'UN worker — rendu seul en mono, et dans la grille dépliée en cluster. */
-  renderInstance: (inst: InstanceHealth) => ReactNode;
+  /**
+   * Détail d'UN worker. `opts.grid` = `false` en mono (rendu seul, peut être riche),
+   * `true` dans la grille cluster dépliée (rendu compact, pas de sparkline pod).
+   */
+  renderInstance: (inst: InstanceHealth, opts: { grid: boolean }) => ReactNode;
   /** Lien de forage optionnel par worker (URL). */
   drillTo?: (inst: InstanceHealth) => string;
 }
@@ -22,7 +25,7 @@ export interface ClusterViewProps {
 /**
  * Vue cluster-aware **partagée** par les widgets système — LA réponse au « cluster > 1 ».
  *
- * Source unique normalisée : en **mono** (`instances.length <= 1`) on rend la valeur
+ * Source unique normalisée. En **mono** (`instances.length <= 1`) on rend la valeur
  * simple, **zéro bruit**. En **cluster** on rend le **résumé pod** (1 tuile = 1 verdict)
  * + une **grille par worker dépliable** (détail à 1 clic), chaque worker linkable vers
  * son forage. L'agrégation reste dans les utils partagés (`normalize`, `buildHealth`).
@@ -39,7 +42,9 @@ export function ClusterView({
 
   // Mono : 1 worker → la valeur directe, aucune mécanique cluster.
   if (!cluster || instances.length <= 1) {
-    return <>{instances[0] ? renderInstance(instances[0]) : null}</>;
+    return (
+      <>{instances[0] ? renderInstance(instances[0], { grid: false }) : null}</>
+    );
   }
 
   // Cluster : résumé pod par défaut + grille par worker au dépliage.
@@ -62,7 +67,7 @@ export function ClusterView({
       <Collapse expanded={open}>
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xs" mt="xs">
           {instances.map((inst) => {
-            const body = renderInstance(inst);
+            const body = renderInstance(inst, { grid: true });
             const href = drillTo?.(inst);
             return href ? (
               <Box

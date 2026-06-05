@@ -1,11 +1,128 @@
 /**
- * Briques de rendu PARTAGÉES par les widgets — métriques calmes (tabular-nums), tuile
- * worker, formateurs. Volontairement minimal : un widget = du rendu pur.
+ * Briques de rendu PARTAGÉES par les widgets — grande valeur live (flash + sparkline),
+ * séries temps réel, tuile worker, formateurs. Respecte « temps réel calme » : flash
+ * one-shot bref, sparkline compositor (SVG), `tabular-nums`.
  */
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Group, Paper, Text } from "@mantine/core";
+import { Box, Group, Paper, Text } from "@mantine/core";
+import { FlashValue, MiniChart, ensureLiveStyles } from "../../components/ui";
 
-/** Métrique label → valeur (tabular-nums = pas de jitter de largeur au tick). */
+/** Bufferise la dernière valeur scalaire en série bornée (sparklines live). */
+export function useLiveSeries(value: number | null, max = 40): number[] {
+  const [series, setSeries] = useState<number[]>([]);
+  useEffect(() => {
+    if (value == null || Number.isNaN(value)) return;
+    setSeries((s) => {
+      const next = [...s, value];
+      return next.length > max ? next.slice(-max) : next;
+    });
+  }, [value, max]);
+  return series;
+}
+
+/** Débit/seconde dérivé d'un cumul monotone (`total`) + son horodatage (`ts`). */
+export function useRate(
+  total: number | null | undefined,
+  ts: number | null | undefined,
+): number | null {
+  const prev = useRef<{ total: number; ts: number } | null>(null);
+  const [rate, setRate] = useState<number | null>(null);
+  useEffect(() => {
+    if (total == null || ts == null) return;
+    const p = prev.current;
+    if (p && ts > p.ts) {
+      const dt = (ts - p.ts) / 1000;
+      if (dt > 0) setRate(Math.max(0, (total - p.total) / dt));
+    }
+    prev.current = { total, ts };
+  }, [total, ts]);
+  return rate;
+}
+
+/** Couleur Mantine selon des seuils « smaller is better » (vert→orange→rouge). */
+export function levelColor(
+  value: number | null | undefined,
+  warn: number,
+  crit: number,
+): string {
+  if (value == null) return "gray";
+  if (value >= crit) return "red";
+  if (value >= warn) return "orange";
+  return "teal";
+}
+
+/** Variable CSS de la couleur de tracé (MiniChart). */
+function chartColor(c: string): string {
+  return `var(--mantine-color-${c}-6)`;
+}
+
+/**
+ * Grande métrique live : valeur en gros (flash one-shot au changement) + unité +
+ * sparkline optionnelle. Le cœur visuel des widgets « système ».
+ */
+export function BigMetric({
+  label,
+  value,
+  unit,
+  color = "teal",
+  series,
+  sub,
+}: {
+  label?: string;
+  value: number | string | null | undefined;
+  unit?: string;
+  color?: string;
+  series?: number[];
+  sub?: string;
+}) {
+  useEffect(ensureLiveStyles, []);
+  const display = value == null ? "—" : value;
+  return (
+    <div>
+      {label ? (
+        <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+          {label}
+        </Text>
+      ) : null}
+      <Group gap={6} align="flex-end" wrap="nowrap">
+        <FlashValue value={display}>
+          <Text
+            fw={800}
+            fz={26}
+            lh={1.1}
+            c={color}
+            style={{ fontVariantNumeric: "tabular-nums" }}
+          >
+            {display}
+          </Text>
+        </FlashValue>
+        {unit ? (
+          <Text size="sm" c="dimmed" style={{ marginBottom: 3 }}>
+            {unit}
+          </Text>
+        ) : null}
+      </Group>
+      {sub ? (
+        <Text size="xs" c="dimmed" mt={2}>
+          {sub}
+        </Text>
+      ) : null}
+      {series && series.length >= 2 ? (
+        <Box mt={6}>
+          <MiniChart
+            series={[
+              { data: series, color: chartColor(color), label: label ?? "" },
+            ]}
+            height={46}
+          />
+        </Box>
+      ) : null}
+    </div>
+  );
+}
+
+/** Métrique compacte label → valeur (tabular-nums). */
 export function Metric({
   label,
   value,
