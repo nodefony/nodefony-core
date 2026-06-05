@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import assert from "node:assert";
 import { resolve } from "node:path";
-import "mocha";
 import "reflect-metadata";
 import Module from "../kernel/Module";
 import Service from "../Service";

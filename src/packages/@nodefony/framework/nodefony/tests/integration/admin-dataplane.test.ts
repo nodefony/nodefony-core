@@ -11,7 +11,6 @@
  */
 import { expect } from "chai";
 import https from "node:https";
-import "mocha";
 
 const HTTPS_BASE = {
   hostname: "localhost",

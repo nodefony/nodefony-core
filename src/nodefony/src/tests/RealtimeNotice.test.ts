@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import { closeCodeToNotice } from "../client/realtime/notice";
 
 describe("RealtimeClient — closeCodeToNotice (pendant client de toWsCloseCode)", () => {

@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import "reflect-metadata";
 import Router from "../../service/router.js";
 import Controller from "../../src/Controller.js";
@@ -40,13 +39,17 @@ function ctx(pathname: string, method: string): ContextType {
 // ─── HTTP method decorators ───────────────────────────────────────────────────
 
 describe("HTTP method decorators — route auto-naming", () => {
-  afterEach(() => { while (Router.routes.length) Router.routes.pop(); });
+  afterEach(() => {
+    while (Router.routes.length) Router.routes.pop();
+  });
 
   it("@Get registers route with name ClassName::method", () => {
     @controller("/users")
     class UsersCtrl extends StubCtrl {
       @Get()
-      index() { return null; }
+      index() {
+        return null;
+      }
     }
     void UsersCtrl;
     expect(Router.routes.some((r) => r.name === "UsersCtrl::index")).to.be.true;
@@ -56,7 +59,9 @@ describe("HTTP method decorators — route auto-naming", () => {
     @controller("/api")
     class GetCtrl extends StubCtrl {
       @Get("/list")
-      list() { return null; }
+      list() {
+        return null;
+      }
     }
     void GetCtrl;
     const r = Router.routes.find((r) => r.name === "GetCtrl::list");
@@ -67,7 +72,9 @@ describe("HTTP method decorators — route auto-naming", () => {
     @controller("/gm")
     class GetMethodCtrl extends StubCtrl {
       @Get("/x")
-      x() { return null; }
+      x() {
+        return null;
+      }
     }
     void GetMethodCtrl;
     const r = Router.routes.find((r) => r.name === "GetMethodCtrl::x");
@@ -78,7 +85,9 @@ describe("HTTP method decorators — route auto-naming", () => {
     @controller("/pm")
     class PostMethodCtrl extends StubCtrl {
       @Post("/create")
-      create() { return null; }
+      create() {
+        return null;
+      }
     }
     void PostMethodCtrl;
     const r = Router.routes.find((r) => r.name === "PostMethodCtrl::create");
@@ -89,7 +98,9 @@ describe("HTTP method decorators — route auto-naming", () => {
     @controller("/putm")
     class PutMethodCtrl extends StubCtrl {
       @Put("/:id")
-      update() { return null; }
+      update() {
+        return null;
+      }
     }
     void PutMethodCtrl;
     const r = Router.routes.find((r) => r.name === "PutMethodCtrl::update");
@@ -100,7 +111,9 @@ describe("HTTP method decorators — route auto-naming", () => {
     @controller("/delm")
     class DeleteMethodCtrl extends StubCtrl {
       @Delete("/:id")
-      del() { return null; }
+      del() {
+        return null;
+      }
     }
     void DeleteMethodCtrl;
     const r = Router.routes.find((r) => r.name === "DeleteMethodCtrl::del");
@@ -111,7 +124,9 @@ describe("HTTP method decorators — route auto-naming", () => {
     @controller("/patchm")
     class PatchMethodCtrl extends StubCtrl {
       @Patch("/:id")
-      patch() { return null; }
+      patch() {
+        return null;
+      }
     }
     void PatchMethodCtrl;
     const r = Router.routes.find((r) => r.name === "PatchMethodCtrl::patch");
@@ -122,23 +137,34 @@ describe("HTTP method decorators — route auto-naming", () => {
     @controller("/res")
     class ResourceCtrl extends StubCtrl {
       @Get()
-      index() { return null; }
+      index() {
+        return null;
+      }
       @Post()
-      create() { return null; }
+      create() {
+        return null;
+      }
       @Delete("/:id")
-      destroy() { return null; }
+      destroy() {
+        return null;
+      }
     }
     void ResourceCtrl;
-    expect(Router.routes.some((r) => r.name === "ResourceCtrl::index")).to.be.true;
-    expect(Router.routes.some((r) => r.name === "ResourceCtrl::create")).to.be.true;
-    expect(Router.routes.some((r) => r.name === "ResourceCtrl::destroy")).to.be.true;
+    expect(Router.routes.some((r) => r.name === "ResourceCtrl::index")).to.be
+      .true;
+    expect(Router.routes.some((r) => r.name === "ResourceCtrl::create")).to.be
+      .true;
+    expect(Router.routes.some((r) => r.name === "ResourceCtrl::destroy")).to.be
+      .true;
   });
 
   it("route has compiled RegExp pattern", () => {
     @controller("/compile")
     class CompileCtrl extends StubCtrl {
       @Get("/item/{id}")
-      show() { return null; }
+      show() {
+        return null;
+      }
     }
     void CompileCtrl;
     const r = Router.routes.find((r) => r.name === "CompileCtrl::show");
@@ -149,12 +175,16 @@ describe("HTTP method decorators — route auto-naming", () => {
 // ─── @Options / @Head / @All (+ limites) ─────────────────────────────────────
 
 describe("HTTP method decorators — @Options / @Head / @All (+ limites)", () => {
-  afterEach(() => { while (Router.routes.length) Router.routes.pop(); });
+  afterEach(() => {
+    while (Router.routes.length) Router.routes.pop();
+  });
 
   it("@Options restreint à OPTIONS", () => {
     @controller("/opt")
     class OptCtrl extends StubCtrl {
-      @Options("/x") x() { return null; }
+      @Options("/x") x() {
+        return null;
+      }
     }
     void OptCtrl;
     const r = Router.routes.find((r) => r.name === "OptCtrl::x");
@@ -164,7 +194,9 @@ describe("HTTP method decorators — @Options / @Head / @All (+ limites)", () =>
   it("@Head restreint à HEAD", () => {
     @controller("/hd")
     class HdCtrl extends StubCtrl {
-      @Head("/x") x() { return null; }
+      @Head("/x") x() {
+        return null;
+      }
     }
     void HdCtrl;
     const r = Router.routes.find((r) => r.name === "HdCtrl::x");
@@ -174,19 +206,26 @@ describe("HTTP method decorators — @Options / @Head / @All (+ limites)", () =>
   it("@All n'émet AUCUN requirement de méthode (matche toutes)", () => {
     @controller("/all")
     class AllCtrl extends StubCtrl {
-      @All("/x") x() { return null; }
+      @All("/x") x() {
+        return null;
+      }
     }
     void AllCtrl;
     const r = Router.routes.find((r) => r.name === "AllCtrl::x");
     expect(r, "route enregistrée").to.exist;
-    expect(r?.requirements?.methods, "pas de restriction de méthode").to.be.undefined;
+    expect(r?.requirements?.methods, "pas de restriction de méthode").to.be
+      .undefined;
   });
 
   // ── Limites : matching réel via Route.match (méthode autorisée vs 405) ──
 
   it("@Head — HEAD passe, GET → 405", () => {
     @controller("/hl")
-    class HlCtrl extends StubCtrl { @Head("/r") r() { return null; } }
+    class HlCtrl extends StubCtrl {
+      @Head("/r") r() {
+        return null;
+      }
+    }
     void HlCtrl;
     const r = Router.routes.find((x) => x.name === "HlCtrl::r")!;
     expect(() => r.match(ctx("/hl/r", "HEAD")), "HEAD autorisé").to.not.throw();
@@ -195,7 +234,11 @@ describe("HTTP method decorators — @Options / @Head / @All (+ limites)", () =>
 
   it("@Options — OPTIONS passe, POST → 405", () => {
     @controller("/ol")
-    class OlCtrl extends StubCtrl { @Options("/r") r() { return null; } }
+    class OlCtrl extends StubCtrl {
+      @Options("/r") r() {
+        return null;
+      }
+    }
     void OlCtrl;
     const r = Router.routes.find((x) => x.name === "OlCtrl::r")!;
     expect(() => r.match(ctx("/ol/r", "OPTIONS"))).to.not.throw();
@@ -204,10 +247,22 @@ describe("HTTP method decorators — @Options / @Head / @All (+ limites)", () =>
 
   it("@All — toutes les méthodes passent (aucun 405)", () => {
     @controller("/al")
-    class AlCtrl extends StubCtrl { @All("/r") r() { return null; } }
+    class AlCtrl extends StubCtrl {
+      @All("/r") r() {
+        return null;
+      }
+    }
     void AlCtrl;
     const r = Router.routes.find((x) => x.name === "AlCtrl::r")!;
-    for (const m of ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]) {
+    for (const m of [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "PATCH",
+      "OPTIONS",
+      "HEAD",
+    ]) {
       expect(() => r.match(ctx("/al/r", m)), m).to.not.throw();
       expect(r.match(ctx("/al/r", m)), m).to.be.an("array");
     }
@@ -215,7 +270,11 @@ describe("HTTP method decorators — @Options / @Head / @All (+ limites)", () =>
 
   it("@Head — ne matche pas un chemin différent (limite path)", () => {
     @controller("/hp")
-    class HpCtrl extends StubCtrl { @Head("/only") only() { return null; } }
+    class HpCtrl extends StubCtrl {
+      @Head("/only") only() {
+        return null;
+      }
+    }
     void HpCtrl;
     const r = Router.routes.find((x) => x.name === "HpCtrl::only")!;
     expect(r.match(ctx("/hp/other", "HEAD"))).to.not.be.ok;
@@ -228,28 +287,49 @@ describe("@HttpCode — metadata storage", () => {
   it("stores statusCode metadata on method", () => {
     class HttpCodeCtrl extends StubCtrl {
       @HttpCode(201)
-      create() { return null; }
+      create() {
+        return null;
+      }
     }
-    const code = Reflect.getMetadata(HTTP_CODE_METADATA, HttpCodeCtrl.prototype, "create");
+    const code = Reflect.getMetadata(
+      HTTP_CODE_METADATA,
+      HttpCodeCtrl.prototype,
+      "create",
+    );
     expect(code).to.equal(201);
   });
 
   it("different methods have independent metadata", () => {
     class MultiCodeCtrl extends StubCtrl {
       @HttpCode(201)
-      create() { return null; }
+      create() {
+        return null;
+      }
       @HttpCode(204)
-      del() { return null; }
+      del() {
+        return null;
+      }
     }
-    expect(Reflect.getMetadata(HTTP_CODE_METADATA, MultiCodeCtrl.prototype, "create")).to.equal(201);
-    expect(Reflect.getMetadata(HTTP_CODE_METADATA, MultiCodeCtrl.prototype, "del")).to.equal(204);
+    expect(
+      Reflect.getMetadata(
+        HTTP_CODE_METADATA,
+        MultiCodeCtrl.prototype,
+        "create",
+      ),
+    ).to.equal(201);
+    expect(
+      Reflect.getMetadata(HTTP_CODE_METADATA, MultiCodeCtrl.prototype, "del"),
+    ).to.equal(204);
   });
 
   it("method without @HttpCode has no metadata", () => {
     class NoneCtrl extends StubCtrl {
-      plain() { return null; }
+      plain() {
+        return null;
+      }
     }
-    expect(Reflect.getMetadata(HTTP_CODE_METADATA, NoneCtrl.prototype, "plain")).to.be.undefined;
+    expect(Reflect.getMetadata(HTTP_CODE_METADATA, NoneCtrl.prototype, "plain"))
+      .to.be.undefined;
   });
 });
 
@@ -259,9 +339,15 @@ describe("@Header — metadata storage", () => {
   it("stores single header", () => {
     class SingleHeaderCtrl extends StubCtrl {
       @Header("X-Cache", "HIT")
-      index() { return null; }
+      index() {
+        return null;
+      }
     }
-    const headers = Reflect.getMetadata(HEADERS_METADATA, SingleHeaderCtrl.prototype, "index");
+    const headers = Reflect.getMetadata(
+      HEADERS_METADATA,
+      SingleHeaderCtrl.prototype,
+      "index",
+    );
     expect(headers).to.deep.equal({ "X-Cache": "HIT" });
   });
 
@@ -269,21 +355,39 @@ describe("@Header — metadata storage", () => {
     class MultiHeaderCtrl extends StubCtrl {
       @Header("X-Custom-A", "alpha")
       @Header("X-Custom-B", "beta")
-      index() { return null; }
+      index() {
+        return null;
+      }
     }
-    const headers = Reflect.getMetadata(HEADERS_METADATA, MultiHeaderCtrl.prototype, "index");
+    const headers = Reflect.getMetadata(
+      HEADERS_METADATA,
+      MultiHeaderCtrl.prototype,
+      "index",
+    );
     expect(headers).to.include({ "X-Custom-A": "alpha", "X-Custom-B": "beta" });
   });
 
   it("different methods have independent header metadata", () => {
     class IndepHeaderCtrl extends StubCtrl {
       @Header("X-One", "1")
-      a() { return null; }
+      a() {
+        return null;
+      }
       @Header("X-Two", "2")
-      b() { return null; }
+      b() {
+        return null;
+      }
     }
-    const ha = Reflect.getMetadata(HEADERS_METADATA, IndepHeaderCtrl.prototype, "a");
-    const hb = Reflect.getMetadata(HEADERS_METADATA, IndepHeaderCtrl.prototype, "b");
+    const ha = Reflect.getMetadata(
+      HEADERS_METADATA,
+      IndepHeaderCtrl.prototype,
+      "a",
+    );
+    const hb = Reflect.getMetadata(
+      HEADERS_METADATA,
+      IndepHeaderCtrl.prototype,
+      "b",
+    );
     expect(ha).to.deep.equal({ "X-One": "1" });
     expect(hb).to.deep.equal({ "X-Two": "2" });
   });
@@ -295,52 +399,78 @@ describe("@Redirect — metadata storage", () => {
   it("stores redirect url and default 302 status", () => {
     class RedirectCtrl extends StubCtrl {
       @Redirect("/home")
-      old() { return null; }
+      old() {
+        return null;
+      }
     }
-    const meta = Reflect.getMetadata(REDIRECT_METADATA, RedirectCtrl.prototype, "old");
+    const meta = Reflect.getMetadata(
+      REDIRECT_METADATA,
+      RedirectCtrl.prototype,
+      "old",
+    );
     expect(meta).to.deep.equal({ url: "/home", statusCode: 302 });
   });
 
   it("stores custom statusCode", () => {
     class MovedCtrl extends StubCtrl {
       @Redirect("/new", 301)
-      moved() { return null; }
+      moved() {
+        return null;
+      }
     }
-    const meta = Reflect.getMetadata(REDIRECT_METADATA, MovedCtrl.prototype, "moved");
+    const meta = Reflect.getMetadata(
+      REDIRECT_METADATA,
+      MovedCtrl.prototype,
+      "moved",
+    );
     expect(meta).to.deep.equal({ url: "/new", statusCode: 301 });
   });
 
   it("different methods have independent redirect metadata", () => {
     class MultiRedirCtrl extends StubCtrl {
       @Redirect("/a")
-      toA() { return null; }
+      toA() {
+        return null;
+      }
       @Redirect("/b", 301)
-      toB() { return null; }
+      toB() {
+        return null;
+      }
     }
-    expect(Reflect.getMetadata(REDIRECT_METADATA, MultiRedirCtrl.prototype, "toA"))
-      .to.deep.equal({ url: "/a", statusCode: 302 });
-    expect(Reflect.getMetadata(REDIRECT_METADATA, MultiRedirCtrl.prototype, "toB"))
-      .to.deep.equal({ url: "/b", statusCode: 301 });
+    expect(
+      Reflect.getMetadata(REDIRECT_METADATA, MultiRedirCtrl.prototype, "toA"),
+    ).to.deep.equal({ url: "/a", statusCode: 302 });
+    expect(
+      Reflect.getMetadata(REDIRECT_METADATA, MultiRedirCtrl.prototype, "toB"),
+    ).to.deep.equal({ url: "/b", statusCode: 301 });
   });
 });
 
 // ─── Combined decorators ──────────────────────────────────────────────────────
 
 describe("Combined decorators — @Post + @HttpCode + @Header", () => {
-  afterEach(() => { while (Router.routes.length) Router.routes.pop(); });
+  afterEach(() => {
+    while (Router.routes.length) Router.routes.pop();
+  });
 
   it("@Post + @HttpCode — route registered, metadata correct", () => {
     @controller("/combo")
     class ComboCtrl extends StubCtrl {
       @HttpCode(201)
       @Post("/items")
-      create() { return null; }
+      create() {
+        return null;
+      }
     }
     void ComboCtrl;
     const r = Router.routes.find((r) => r.name === "ComboCtrl::create");
     expect(r).to.exist;
     expect(r?.requirements?.methods).to.deep.equal(["POST"]);
-    const code = Reflect.getMetadata(HTTP_CODE_METADATA, ComboCtrl.prototype, "create");
+    const code = Reflect.getMetadata(
+      HTTP_CODE_METADATA,
+      ComboCtrl.prototype,
+      "create",
+    );
     expect(code).to.equal(201);
   });
 
@@ -349,12 +479,18 @@ describe("Combined decorators — @Post + @HttpCode + @Header", () => {
     class HdrComboCtrl extends StubCtrl {
       @Header("Cache-Control", "no-cache")
       @Get("/data")
-      data() { return null; }
+      data() {
+        return null;
+      }
     }
     void HdrComboCtrl;
     const r = Router.routes.find((r) => r.name === "HdrComboCtrl::data");
     expect(r).to.exist;
-    const headers = Reflect.getMetadata(HEADERS_METADATA, HdrComboCtrl.prototype, "data");
+    const headers = Reflect.getMetadata(
+      HEADERS_METADATA,
+      HdrComboCtrl.prototype,
+      "data",
+    );
     expect(headers).to.deep.equal({ "Cache-Control": "no-cache" });
   });
 });

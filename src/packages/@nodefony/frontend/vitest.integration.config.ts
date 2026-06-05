@@ -21,8 +21,6 @@ export default defineConfig({
     setupFiles: [r("./nodefony/tests/vitest.setup.ts")],
   },
   resolve: {
-    alias: {
-      mocha: r("./nodefony/tests/vitest-mocha-shim.mjs"),
-    },
+    alias: {},
   },
 });

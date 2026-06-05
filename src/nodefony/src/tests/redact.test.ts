@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import { redactSecrets } from "../index";
 
 describe("redactSecrets — masquage défense-en-profondeur", () => {

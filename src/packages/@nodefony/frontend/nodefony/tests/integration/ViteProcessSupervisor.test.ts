@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import http from "node:http";

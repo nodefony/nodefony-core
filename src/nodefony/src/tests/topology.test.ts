@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import { resolveTopology } from "../service/cluster/topology";
 
 /**
@@ -11,10 +10,10 @@ import { resolveTopology } from "../service/cluster/topology";
 describe("cluster / resolveTopology (priorité flag > env > config > défaut)", () => {
   // Neutralise l'env réel pour les cas « rien fourni ».
   const saved = process.env.NODEFONY_WORKERS;
-  before(() => {
+  beforeAll(() => {
     delete process.env.NODEFONY_WORKERS;
   });
-  after(() => {
+  afterAll(() => {
     if (saved === undefined) {
       delete process.env.NODEFONY_WORKERS;
     } else {

@@ -281,7 +281,7 @@ describe("Event — emitAsync()", () => {
 
 describe("NODEFONY Notifications Center", () => {
   describe("namespace", () => {
-    before(() => {
+    beforeAll(() => {
       global.notificationsCenter = create();
     });
     it("register", () =>

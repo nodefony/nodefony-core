@@ -6,7 +6,6 @@
  */
 
 import assert from "node:assert";
-import "mocha";
 import CliKernel from "../kernel/CliKernel";
 import Build from "../kernel/commands/BuildCommand";
 import Dev from "../kernel/commands/DevCommand";

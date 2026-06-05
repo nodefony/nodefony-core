@@ -34,7 +34,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      mocha: r("./nodefony/tests/vitest-mocha-shim.mjs"),
       "@nodefony/sequelize": r("./nodefony/tests/stubs/sequelize.ts"),
       "@nodefony/mongoose": r("./nodefony/tests/stubs/mongoose.ts"),
     },

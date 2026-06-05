@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import ViteConfigGenerator from "../../service/ViteConfigGenerator.js";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
 

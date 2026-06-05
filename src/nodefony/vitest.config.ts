@@ -11,7 +11,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *
  * Compat des tests mocha+chai EXISTANTS sans réécriture de masse :
  *  - `globals: true` → `describe`/`it`/`beforeEach`/`afterEach` globaux (comme mocha).
- *  - `import "mocha"` (et `import { describe, it } from "mocha"`) aliasé vers le shim
+ *  - `import "mocha"` (et `import { describe, it } from "vitest"`) aliasé vers le shim
  *    `vitest-mocha-shim.mjs` (re-export des équivalents vitest).
  *  - `import { assert, expect } from "chai"` : chai (lib d'assertion) reste tel quel.
  *  - reflect-metadata (decorators), alias `before`/`after`→`beforeAll`/`afterAll` et
@@ -34,8 +34,6 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      mocha: r("./src/tests/vitest-mocha-shim.mjs"),
-    },
+    alias: {},
   },
 });

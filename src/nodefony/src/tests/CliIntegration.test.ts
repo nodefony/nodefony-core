@@ -23,7 +23,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import "mocha";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // src/nodefony/src/tests
 const CORE_ROOT = path.resolve(HERE, "../.."); // src/nodefony

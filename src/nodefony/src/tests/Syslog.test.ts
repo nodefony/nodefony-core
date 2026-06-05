@@ -50,7 +50,7 @@ const defaultOptions: conditionsInterface = {
 };
 
 describe("NODEFONY SYSLOG", () => {
-  before(() => {
+  beforeAll(() => {
     global.syslog = new Syslog();
 
     global.syslog.listenWithConditions(
@@ -135,7 +135,7 @@ describe("NODEFONY SYSLOG", () => {
     beforeEach(() => {
       // global.syslog.log(this.currentTest.title)
     });
-    before(() => {});
+    beforeAll(() => {});
     it("100 entries ", () =>
       new Promise<void>((done) => {
         for (let i = 0; i < 100; i++) {
@@ -275,7 +275,7 @@ describe("NODEFONY SYSLOG", () => {
   });
 
   describe("BASE", () => {
-    before(() => {
+    beforeAll(() => {
       global.syslog.reset();
     });
     it("LOG sevirity ", () =>
@@ -1750,7 +1750,7 @@ describe("Pdu.requestId — corrélation log↔requête (ALS)", () => {
   // après les tests qui la mutent.
   let originalProvider: (() => string | undefined) | null;
 
-  before(() => {
+  beforeAll(() => {
     originalProvider = Pdu.requestIdProvider;
     // Forcer le provider Node attendu pour les tests qui suivent (au cas où
     // l'ordre d'évaluation des fichiers de test laisserait Pdu.requestIdProvider
@@ -1758,7 +1758,7 @@ describe("Pdu.requestId — corrélation log↔requête (ALS)", () => {
     Pdu.requestIdProvider = () => RequestContext.getRequestId();
   });
 
-  after(() => {
+  afterAll(() => {
     Pdu.requestIdProvider = originalProvider;
   });
 

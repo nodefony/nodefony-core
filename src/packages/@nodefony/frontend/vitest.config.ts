@@ -32,8 +32,6 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      mocha: r("./nodefony/tests/vitest-mocha-shim.mjs"),
-    },
+    alias: {},
   },
 });

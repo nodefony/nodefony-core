@@ -2,7 +2,6 @@ import assert from "node:assert";
 import { resolve } from "node:path";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
-import "mocha";
 import Module from "../kernel/Module";
 import type { PackageJson } from "../types/IModule";
 import type { IModule } from "../types/IModule";
@@ -104,7 +103,7 @@ describe("Module — construction", () => {
 describe("Module — setPath()", () => {
   let mod: Module;
 
-  before(() => {
+  beforeAll(() => {
     mod = new Module("path-test", makeKernelStub(), process.cwd(), {});
   });
 
@@ -393,7 +392,7 @@ describe("Module — getPackageJson()", () => {
 describe("Module — loadJson()", () => {
   let mod: Module;
 
-  before(() => {
+  beforeAll(() => {
     mod = new Module("json-test", makeKernelStub(), process.cwd(), {});
   });
 
@@ -481,7 +480,7 @@ describe("Module — addCommand()", () => {
 describe("Module — métadonnées package", () => {
   let mod: Module;
 
-  before(() => {
+  beforeAll(() => {
     mod = new Module("meta-test", makeKernelStub(), process.cwd(), {});
   });
 
@@ -600,7 +599,7 @@ describe("Module — getPackageDependencies() (statique)", () => {
 describe("Module — getController()", () => {
   let mod: Module;
 
-  before(() => {
+  beforeAll(() => {
     mod = new Module("ctrl-test", makeKernelStub(), process.cwd(), {});
   });
 

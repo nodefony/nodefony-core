@@ -122,10 +122,10 @@ describe("config — use() (Lot 3 : colocation + registre typé)", () => {
     // index.test / Injector.test (qui attendent un singleton propre). On capture
     // l'état avant et on le restaure après le bloc.
     let prevKernel: Kernel | null;
-    before(() => {
+    beforeAll(() => {
       prevKernel = Nodefony.getKernel();
     });
-    after(() => {
+    afterAll(() => {
       Nodefony.setKernel(prevKernel as Kernel);
     });
 

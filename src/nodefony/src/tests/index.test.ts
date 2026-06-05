@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import { Container, Nodefony } from "../index";
 
 describe("Index", () => {

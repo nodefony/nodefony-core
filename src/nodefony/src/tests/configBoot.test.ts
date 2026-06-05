@@ -55,10 +55,10 @@ describe("config — câblage Kernel boot (Lot 4 : loadApp + defineConfig)", () 
   // `new Kernel()` écrase le singleton `Nodefony.getKernel()` → restauration pour
   // ne pas polluer les autres fichiers de la suite (piège connu).
   let prevKernel: Kernel | null;
-  before(() => {
+  beforeAll(() => {
     prevKernel = Nodefony.getKernel();
   });
-  after(() => {
+  afterAll(() => {
     Nodefony.setKernel(prevKernel as Kernel);
   });
 

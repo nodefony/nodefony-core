@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import assert from "node:assert";
 import { nodefonyError } from "../index";
 
@@ -33,15 +32,21 @@ describe("nodefonyError", () => {
 
   describe("détection de type", () => {
     it("wrappe une TypeError → errorType TypeError", () => {
-      expect(new nodefonyError(new TypeError("t")).errorType).to.equal("TypeError");
+      expect(new nodefonyError(new TypeError("t")).errorType).to.equal(
+        "TypeError",
+      );
     });
 
     it("wrappe une ReferenceError → errorType ReferenceError", () => {
-      expect(new nodefonyError(new ReferenceError("r")).errorType).to.equal("ReferenceError");
+      expect(new nodefonyError(new ReferenceError("r")).errorType).to.equal(
+        "ReferenceError",
+      );
     });
 
     it("wrappe une SyntaxError → errorType SyntaxError", () => {
-      expect(new nodefonyError(new SyntaxError("s")).errorType).to.equal("SyntaxError");
+      expect(new nodefonyError(new SyntaxError("s")).errorType).to.equal(
+        "SyntaxError",
+      );
     });
 
     it("wrappe une AssertionError → errorType + actual/expected/operator", () => {
@@ -62,7 +67,9 @@ describe("nodefonyError", () => {
       expect(nodefonyError.detectType(new TypeError())).to.equal("TypeError");
       expect(nodefonyError.detectType(new Error())).to.equal("Error");
       // non-Error → false
-      expect(nodefonyError.detectType("nope" as unknown as Error)).to.equal(false);
+      expect(nodefonyError.detectType("nope" as unknown as Error)).to.equal(
+        false,
+      );
     });
 
     it("static isError — type guard", () => {
@@ -75,7 +82,10 @@ describe("nodefonyError", () => {
 
   describe("parseMessage — argument objet", () => {
     it("objet {status, message} → code depuis status + message", () => {
-      const e = new nodefonyError({ status: 503, message: "down" } as unknown as Error);
+      const e = new nodefonyError({
+        status: 503,
+        message: "down",
+      } as unknown as Error);
       expect(e.code).to.equal(503);
       expect(e.message).to.equal("down");
     });
@@ -110,7 +120,9 @@ describe("nodefonyError", () => {
       e.container = {};
       e.secure = true;
       e.custom = "keep";
-      const json = (e as unknown as { toJSON(): Record<string, unknown> }).toJSON();
+      const json = (
+        e as unknown as { toJSON(): Record<string, unknown> }
+      ).toJSON();
       expect(json.context).to.equal(undefined);
       expect(json.resolver).to.equal(undefined);
       expect(json.container).to.equal(undefined);

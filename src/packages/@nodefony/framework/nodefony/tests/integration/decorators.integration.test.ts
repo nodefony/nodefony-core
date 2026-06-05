@@ -5,7 +5,6 @@
  */
 import { expect } from "chai";
 import http from "node:http";
-import "mocha";
 
 const BASE = { hostname: "localhost", port: 5151 };
 const TIMEOUT = 10_000;

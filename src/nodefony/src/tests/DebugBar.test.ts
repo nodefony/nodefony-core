@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import {
   formatBytes,
   formatUptime,
@@ -115,7 +114,12 @@ describe("DebugBar — DebugBarModel (pur)", () => {
 
   it("ingestSyslog : sévérité hors RFC 5424 ignorée (Pdu throw)", () => {
     const m = new DebugBarModel();
-    m.ingestSyslog({ logs: [{ severity: 99, payload: "x" }, { severity: 6, payload: "ok" }] });
+    m.ingestSyslog({
+      logs: [
+        { severity: 99, payload: "x" },
+        { severity: 6, payload: "ok" },
+      ],
+    });
     expect(m.view.logTotal).to.equal(1);
     expect(m.view.feed[0]?.text).to.equal("ok");
   });

@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import { Container } from "nodefony";
 import Resolver from "../../src/Resolver.js";
 import type Route from "../../src/Route.js";

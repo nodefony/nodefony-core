@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import assert from "node:assert";
 import { expect } from "chai";
-import "mocha";
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import Cli from "../../Cli";
 
@@ -21,7 +20,7 @@ async function makeStartedCli(): Promise<Cli> {
 
 describe("Command — construction", () => {
   let cli: Cli;
-  before(async () => {
+  beforeAll(async () => {
     cli = await makeStartedCli();
   });
 
@@ -72,7 +71,7 @@ describe("Command — construction", () => {
 
 describe("Command — alias()", () => {
   let cli: Cli;
-  before(async () => {
+  beforeAll(async () => {
     cli = await makeStartedCli();
   });
 
@@ -93,7 +92,7 @@ describe("Command — alias()", () => {
 
 describe("Command — addOption() + addArgument()", () => {
   let cli: Cli;
-  before(async () => {
+  beforeAll(async () => {
     cli = await makeStartedCli();
   });
 
@@ -128,7 +127,7 @@ describe("Command — addOption() + addArgument()", () => {
 
 describe("Command — forceInteractiveMode()", () => {
   let cli: Cli;
-  before(async () => {
+  beforeAll(async () => {
     cli = await makeStartedCli();
   });
 
@@ -165,7 +164,7 @@ describe("Command — forceInteractiveMode()", () => {
 
 describe("Command — run() / action() / generate() pipeline", () => {
   let cli: Cli;
-  before(async () => {
+  beforeAll(async () => {
     cli = await makeStartedCli();
   });
 
@@ -223,7 +222,7 @@ describe("Command — run() / action() / generate() pipeline", () => {
 
 describe("Command — parse() / parseAsync()", () => {
   let cli: Cli;
-  before(async () => {
+  beforeAll(async () => {
     cli = await makeStartedCli();
   });
 
@@ -259,7 +258,7 @@ describe("Command — parse() / parseAsync()", () => {
 
 describe("Command — runCommand()", () => {
   let cli: Cli;
-  before(async () => {
+  beforeAll(async () => {
     cli = await makeStartedCli();
   });
 
@@ -287,7 +286,7 @@ describe("Command — runCommand()", () => {
 
 describe("Command — terminate()", () => {
   let cli: Cli;
-  before(async () => {
+  beforeAll(async () => {
     cli = await makeStartedCli();
   });
 
@@ -312,7 +311,7 @@ describe("Command — terminate()", () => {
 
 describe("Command — performance", () => {
   let cli: Cli;
-  before(async () => {
+  beforeAll(async () => {
     cli = await makeStartedCli();
   });
 

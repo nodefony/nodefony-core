@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import {
   RealtimeClient,
   type KernelPingResult,

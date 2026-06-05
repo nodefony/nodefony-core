@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import { RequestContext } from "../index";
 
 const tick = () => new Promise((r) => setTimeout(r, 5));
@@ -53,13 +52,19 @@ describe("RequestContext (AsyncLocalStorage façade)", () => {
         await tick();
         RequestContext.set("user", { id: "userA" });
         await tick();
-        return { id: RequestContext.getRequestId(), user: RequestContext.getUser() };
+        return {
+          id: RequestContext.getRequestId(),
+          user: RequestContext.getUser(),
+        };
       }),
       RequestContext.run({ requestId: "B" }, async () => {
         await tick();
         RequestContext.set("user", { id: "userB" });
         await tick();
-        return { id: RequestContext.getRequestId(), user: RequestContext.getUser() };
+        return {
+          id: RequestContext.getRequestId(),
+          user: RequestContext.getUser(),
+        };
       }),
     ]);
     expect(results[0]).to.deep.equal({ id: "A", user: { id: "userA" } });

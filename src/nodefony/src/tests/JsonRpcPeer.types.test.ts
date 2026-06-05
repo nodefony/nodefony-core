@@ -11,7 +11,7 @@
  * Mocha lit le fichier pour le marqueur `describe/it` final ; rien d'autre ne tourne.
  */
 
-import { describe, it } from "mocha";
+import { describe, it } from "vitest";
 import {
   JsonRpcPeer,
   type IRealtimePeer,

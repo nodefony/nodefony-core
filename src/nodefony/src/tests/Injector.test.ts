@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import "reflect-metadata";
 import assert from "node:assert";
-import "mocha";
 import Injector from "../kernel/injector/injector";
 import Service from "../Service";
 import Container from "../Container";
@@ -319,7 +318,7 @@ describe("@inject — métadonnées Reflect", () => {
 // ce metadata est émis automatiquement.
 
 describe("Injector.instantiate — auto-injection via design:paramtypes", () => {
-  before(() => {
+  beforeAll(() => {
     // Simulation de ce que TypeScript émet avec emitDecoratorMetadata: true
     Reflect.defineMetadata("design:paramtypes", [AutoA, AutoB], AutoConsumer);
     Reflect.defineMetadata("design:paramtypes", [String, AutoA], MixedConsumer);

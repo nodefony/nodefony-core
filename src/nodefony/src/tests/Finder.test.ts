@@ -1,4 +1,3 @@
-import "mocha";
 import assert from "node:assert";
 import Finder, { TotalInterface } from "../finder/Finder";
 import path from "node:path";
@@ -18,7 +17,7 @@ declare let global: NodeJS.Global & {
 };
 
 describe("NODEFONY CORE FINDER", () => {
-  before(() => {
+  beforeAll(() => {
     try {
       global.bundlePath = path.resolve("src", "tests", "finder", "bundles");
       global.nodefonyPath = path.resolve("src", "tests", "finder", "nodefony");

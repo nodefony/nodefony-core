@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { expect } from "chai";
-import "mocha";
 import assert from "node:assert";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -51,7 +50,7 @@ describe("Builder — construction", () => {
 
 describe("Builder — build() directory", () => {
   let builder: Builder;
-  before(async () => {
+  beforeAll(async () => {
     builder = await makeBuilder();
     await fsp.mkdir(TMP, { recursive: true });
   });
@@ -86,7 +85,7 @@ describe("Builder — build() directory", () => {
 
 describe("Builder — build() file", () => {
   let builder: Builder;
-  before(async () => {
+  beforeAll(async () => {
     builder = await makeBuilder();
     await fsp.mkdir(TMP, { recursive: true });
   });
@@ -115,7 +114,7 @@ describe("Builder — build() file", () => {
 
 describe("Builder — build() symlink", () => {
   let builder: Builder;
-  before(async () => {
+  beforeAll(async () => {
     builder = await makeBuilder();
     await fsp.mkdir(TMP, { recursive: true });
     fs.writeFileSync(path.join(TMP, "symlinkSource"), "");
@@ -144,7 +143,7 @@ describe("Builder — build() symlink", () => {
 
 describe("Builder — build() arborescence récursive", () => {
   let builder: Builder;
-  before(async () => {
+  beforeAll(async () => {
     builder = await makeBuilder();
     await fsp.mkdir(TMP, { recursive: true });
   });
@@ -211,7 +210,7 @@ describe("Builder — build() arborescence récursive", () => {
 
 describe("Builder — build() copy", () => {
   let builder: Builder;
-  before(async () => {
+  beforeAll(async () => {
     builder = await makeBuilder();
     await fsp.mkdir(TMP, { recursive: true });
   });
@@ -236,12 +235,12 @@ describe("Builder — build() copy", () => {
 
 describe("Builder — performance", () => {
   let builder: Builder;
-  before(async () => {
+  beforeAll(async () => {
     builder = await makeBuilder();
     await fsp.mkdir(TMP, { recursive: true });
   });
 
-  after(async () => {
+  afterAll(async () => {
     for (let i = 0; i < 20; i++) {
       await cleanTmp(`perfDir_${i}`);
     }

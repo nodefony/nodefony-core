@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import Route from "../../src/Route.js";
 import { HttpError } from "@nodefony/http";
 import type { ContextType } from "@nodefony/http";

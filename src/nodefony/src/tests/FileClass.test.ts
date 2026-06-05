@@ -1,5 +1,4 @@
 import { assert, expect } from "chai";
-import "mocha";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -14,12 +13,12 @@ describe("NODEFONY CORE FileClass", () => {
   // temp file with actual content, shared across content/checkSum tests
   let contentFilePath: string;
 
-  before(async () => {
+  beforeAll(async () => {
     contentFilePath = path.join(os.tmpdir(), `fc-content-${Date.now()}.txt`);
     await fsp.writeFile(contentFilePath, "hello world\nsecond line\n");
   });
 
-  after(async () => {
+  afterAll(async () => {
     await fsp.rm(contentFilePath, { force: true });
   });
 

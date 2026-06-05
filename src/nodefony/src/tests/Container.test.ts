@@ -1,5 +1,4 @@
 import { expect, assert } from "chai";
-import "mocha";
 import Container, { Scope } from "../Container";
 
 class ServiceA {

@@ -7,7 +7,6 @@
  * Router.test.ts) pour tester la logique sans booter un kernel.
  */
 import { expect } from "chai";
-import "mocha";
 import AdminBroker from "../../service/AdminBroker.js";
 import Router from "../../service/router.js";
 import type { IAdminApi, IAdminEndpoint } from "nodefony";
@@ -15,7 +14,10 @@ import type { IAdminApi, IAdminEndpoint } from "nodefony";
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function makeBroker(): AdminBroker {
-  const b = Object.create(AdminBroker.prototype) as unknown as Record<string, unknown>;
+  const b = Object.create(AdminBroker.prototype) as unknown as Record<
+    string,
+    unknown
+  >;
   b.producers = new Map();
   b.byRouteName = new Map();
   b.mounted = false;
@@ -108,14 +110,21 @@ describe("AdminBroker — mountAll()", () => {
     const b = makeBroker();
     const ep: IAdminEndpoint[] = [
       { path: "ping", handler: () => ({ ok: true }) },
-      { path: "items/{id}", method: "POST", role: "ROLE_X", handler: () => null },
+      {
+        path: "items/{id}",
+        method: "POST",
+        role: "ROLE_X",
+        handler: () => null,
+      },
     ];
     b.register(fakeApi("demo", ep));
     b.mountAll();
 
     // routes créées dans le Router
     const ping = Router.routes.find((r) => r.name === "admin.demo.GET.ping");
-    const items = Router.routes.find((r) => r.name === "admin.demo.POST.items/{id}");
+    const items = Router.routes.find(
+      (r) => r.name === "admin.demo.POST.items/{id}",
+    );
     expect(ping?.path).to.equal("/nodefony/demo/api/ping");
     expect(items?.path).to.equal("/nodefony/demo/api/items/{id}");
 
@@ -131,7 +140,9 @@ describe("AdminBroker — mountAll()", () => {
 
     // idempotence — second mountAll = no-op (pas de doublon)
     b.mountAll();
-    expect(Router.routes.filter((r) => r.name.startsWith("admin.demo."))).to.have.length(2);
+    expect(
+      Router.routes.filter((r) => r.name.startsWith("admin.demo.")),
+    ).to.have.length(2);
   });
 
   it("register() after mountAll throws (routes figées)", () => {

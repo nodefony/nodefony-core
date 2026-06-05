@@ -14,7 +14,7 @@
  * Wrap `_typeOnly()` jamais appelé — `declare const` purement typage.
  */
 
-import { describe, it } from "mocha";
+import { describe, it } from "vitest";
 import { RealtimeClient } from "../client/realtime/RealtimeClient";
 import {
   expectType,

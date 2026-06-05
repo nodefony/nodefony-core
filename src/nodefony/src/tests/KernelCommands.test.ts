@@ -7,7 +7,6 @@
 
 import assert from "node:assert";
 import { expect } from "chai";
-import "mocha";
 import CliKernel from "../kernel/CliKernel";
 import Command from "../command/Command";
 import BuildCommand from "../kernel/commands/BuildCommand";

@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { assert } from "chai";
-import "mocha";
 import Cli, { CliDefaultOptions } from "../Cli";
 import Command from "../command/Command";
 
@@ -326,7 +325,7 @@ describe("Cli — commander options & version", () => {
 describe("Cli — commandes standalone — registre", () => {
   let cli: Cli;
 
-  before(() => {
+  beforeAll(() => {
     cli = makeCli("reg-test");
   });
 
@@ -788,7 +787,7 @@ describe("Cli — méthodes statiques", () => {
 describe("Cli — UI (Table)", () => {
   let cli: Cli;
 
-  before(() => {
+  beforeAll(() => {
     cli = makeCli("ui-test");
   });
 
@@ -820,7 +819,7 @@ describe("Cli — UI (Table)", () => {
 describe("Cli — existsSync / getCommandManager", () => {
   let cli: Cli;
 
-  before(() => {
+  beforeAll(() => {
     cli = makeCli("fs-test");
   });
 

@@ -1,14 +1,8 @@
 // Setup vitest du workspace core — porte ce que `.mocharc.cjs` faisait via mocha :
 //   1. reflect-metadata (decorators DI : @injectable / @inject).
-//   2. compat mocha : `before`/`after` → `beforeAll`/`afterAll` (vitest ne fournit
-//      que beforeAll/afterAll ; les tests core utilisent les hooks mocha before/after).
-//   3. perf-skip OPT-IN : port fidèle du root hook `perf-skip.cjs`.
+//   2. perf-skip OPT-IN : port fidèle du root hook `perf-skip.cjs`.
 import "reflect-metadata";
-import { beforeAll, afterAll, beforeEach } from "vitest";
-
-const g = globalThis as Record<string, unknown>;
-g.before ??= beforeAll;
-g.after ??= afterAll;
+import { beforeEach } from "vitest";
 
 // ── Perf-skip (port de src/tests/perf-skip.cjs) ────────────────────────────────
 // Les tests de perf (titre à seuil "< Nms" OU sous un describe `performance`) sont

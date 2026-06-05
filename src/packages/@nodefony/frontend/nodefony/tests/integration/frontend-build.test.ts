@@ -1,5 +1,4 @@
 import { expect } from "chai";
-import "mocha";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,7 +36,7 @@ function makeEntry(
 }
 
 describe("@nodefony/frontend — prod build + renderProdTags (P14.5)", () => {
-  after(() => {
+  afterAll(() => {
     try {
       fs.rmSync(OUT_DIR, { recursive: true, force: true });
     } catch {

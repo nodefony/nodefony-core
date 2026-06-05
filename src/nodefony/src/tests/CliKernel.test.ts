@@ -2,7 +2,6 @@ import assert from "node:assert";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
-import "mocha";
 import CliKernel from "../kernel/CliKernel";
 import Kernel from "../kernel/Kernel";
 import Command from "../command/Command";
@@ -55,7 +54,7 @@ class OtherCommand extends Command {
 describe("CliKernel — constructor", () => {
   let cli: CliKernel;
 
-  before(() => {
+  beforeAll(() => {
     cli = makeCliKernel("development");
   });
 
@@ -119,7 +118,7 @@ describe("CliKernel — constructor", () => {
 
 describe("CliKernel — setRunProfile()", () => {
   let cli: CliKernel;
-  before(() => {
+  beforeAll(() => {
     cli = makeCliKernel();
   });
 
@@ -172,7 +171,7 @@ describe("CliKernel — setRunProfile()", () => {
 
 describe("CliKernel — setPackageManager()", () => {
   let cli: CliKernel;
-  before(() => {
+  beforeAll(() => {
     cli = makeCliKernel();
   });
 
@@ -219,7 +218,7 @@ describe("CliKernel — setPackageManager()", () => {
 describe("CliKernel — addCommand()", () => {
   let cli: CliKernel;
 
-  before(() => {
+  beforeAll(() => {
     cli = makeCliKernel();
     cli.addCommand(TestCommand as any);
   });
@@ -274,7 +273,7 @@ describe("CliKernel — addCommand()", () => {
 
 describe("CliKernel — parseCommand() & parseCommandAsync()", () => {
   let cli: CliKernel;
-  before(() => {
+  beforeAll(() => {
     cli = makeCliKernel();
   });
 
@@ -450,7 +449,7 @@ describe("CliKernel — initSyslog()", () => {
 
 describe("CliKernel — loadLocalModule()", () => {
   let cli: CliKernel;
-  before(() => {
+  beforeAll(() => {
     cli = makeCliKernel();
   });
 
@@ -603,7 +602,7 @@ describe("CliKernel — Cli.niceBytes() (statique hérité)", () => {
 
 describe("CliKernel — showHelp()", () => {
   let cli: CliKernel;
-  before(() => {
+  beforeAll(() => {
     cli = makeCliKernel();
   });
 
@@ -617,7 +616,7 @@ describe("CliKernel — showHelp()", () => {
 
 describe("CliKernel — setCommandVersion() & setCommandOption()", () => {
   let cli: CliKernel;
-  before(() => {
+  beforeAll(() => {
     cli = makeCliKernel();
   });
 

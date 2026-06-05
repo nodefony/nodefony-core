@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import assert from "node:assert";
-import "mocha";
 import Kernel, { Events, TypeKernelOptions } from "../kernel/Kernel";
 import Module from "../kernel/Module";
 import Service from "../Service";
@@ -20,11 +19,11 @@ function mkKernel(
 
 // Silence console.log (initCluster l'appelle) pendant toute la suite
 let origConsoleLog: typeof console.log;
-before(() => {
+beforeAll(() => {
   origConsoleLog = console.log;
   console.log = () => {};
 });
-after(() => {
+afterAll(() => {
   console.log = origConsoleLog;
 });
 
