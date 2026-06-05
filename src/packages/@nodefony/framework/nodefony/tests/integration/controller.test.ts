@@ -11,8 +11,12 @@ import "mocha";
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
 
-const HTTP_BASE  = { hostname: "localhost", port: 5151 };
-const HTTPS_BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
+const HTTP_BASE = { hostname: "localhost", port: 5151 };
+const HTTPS_BASE = {
+  hostname: "localhost",
+  port: 5152,
+  rejectUnauthorized: false,
+};
 
 type Res = {
   status: number;
@@ -24,7 +28,7 @@ function httpReq(
   method: string,
   path: string,
   body?: string,
-  extraHeaders: Record<string, string> = {}
+  extraHeaders: Record<string, string> = {},
 ): Promise<Res> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = { ...extraHeaders };
@@ -38,9 +42,17 @@ function httpReq(
       res.on("end", () => {
         const raw = Buffer.concat(chunks).toString();
         try {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: JSON.parse(raw) });
+          resolve({
+            status: res.statusCode!,
+            headers: res.headers as Record<string, unknown>,
+            body: JSON.parse(raw),
+          });
         } catch {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: raw });
+          resolve({
+            status: res.statusCode!,
+            headers: res.headers as Record<string, unknown>,
+            body: raw,
+          });
         }
       });
     });
@@ -54,7 +66,7 @@ function httpsReq(
   method: string,
   path: string,
   body?: string,
-  extraHeaders: Record<string, string> = {}
+  extraHeaders: Record<string, string> = {},
 ): Promise<Res> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = { ...extraHeaders };
@@ -68,9 +80,17 @@ function httpsReq(
       res.on("end", () => {
         const raw = Buffer.concat(chunks).toString();
         try {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: JSON.parse(raw) });
+          resolve({
+            status: res.statusCode!,
+            headers: res.headers as Record<string, unknown>,
+            body: JSON.parse(raw),
+          });
         } catch {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: raw });
+          resolve({
+            status: res.statusCode!,
+            headers: res.headers as Record<string, unknown>,
+            body: raw,
+          });
         }
       });
     });
@@ -85,9 +105,7 @@ const TIMEOUT = 10_000;
 
 // ── renderJson ────────────────────────────────────────────────────────────────
 
-describe("Controller — renderJson (HTTP)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Controller — renderJson (HTTP)", () => {
   it("GET /fw/json → 200 application/json", async () => {
     const { status, headers, body } = await httpReq("GET", `${BASE}/json`);
     expect(status).to.equal(200);
@@ -103,9 +121,7 @@ describe("Controller — renderJson (HTTP)", function () {
 
 // ── @HttpCode ─────────────────────────────────────────────────────────────────
 
-describe("Controller — @HttpCode decorator (HTTP)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Controller — @HttpCode decorator (HTTP)", () => {
   it("POST /fw/created → 201 status", async () => {
     const { status, body } = await httpReq("POST", `${BASE}/created`, "{}");
     expect(status).to.equal(201);
@@ -120,9 +136,7 @@ describe("Controller — @HttpCode decorator (HTTP)", function () {
 
 // ── @Header ───────────────────────────────────────────────────────────────────
 
-describe("Controller — @Header decorator (HTTP)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Controller — @Header decorator (HTTP)", () => {
   it("GET /fw/with-header → X-Framework: nodefony header present", async () => {
     const { status, headers } = await httpReq("GET", `${BASE}/with-header`);
     expect(status).to.equal(200);
@@ -139,9 +153,7 @@ describe("Controller — @Header decorator (HTTP)", function () {
 
 // ── redirect() method ─────────────────────────────────────────────────────────
 
-describe("Controller — redirect() method (HTTP)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Controller — redirect() method (HTTP)", () => {
   it("GET /fw/redirect-302 → 302 Location: /nodefony/test/fw/json", async () => {
     const { status, headers } = await httpReq("GET", `${BASE}/redirect-302`);
     expect(status).to.equal(302);
@@ -157,9 +169,7 @@ describe("Controller — redirect() method (HTTP)", function () {
 
 // ── @Redirect decorator ───────────────────────────────────────────────────────
 
-describe("Controller — @Redirect decorator (HTTP)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Controller — @Redirect decorator (HTTP)", () => {
   it("GET /fw/deco-redirect → 302 Location: /nodefony/test/fw/json", async () => {
     const { status, headers } = await httpReq("GET", `${BASE}/deco-redirect`);
     expect(status).to.equal(302);
@@ -167,7 +177,10 @@ describe("Controller — @Redirect decorator (HTTP)", function () {
   });
 
   it("GET /fw/deco-redirect-301 → 301 Location: /nodefony/test/fw/json", async () => {
-    const { status, headers } = await httpReq("GET", `${BASE}/deco-redirect-301`);
+    const { status, headers } = await httpReq(
+      "GET",
+      `${BASE}/deco-redirect-301`,
+    );
     expect(status).to.equal(301);
     expect(headers["location"]).to.equal(`${BASE}/json`);
   });
@@ -175,9 +188,7 @@ describe("Controller — @Redirect decorator (HTTP)", function () {
 
 // ── error handling ────────────────────────────────────────────────────────────
 
-describe("Controller — error handling (HTTP)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Controller — error handling (HTTP)", () => {
   it("GET /fw/error/sync → 500 (sync throw)", async () => {
     const { status } = await httpReq("GET", `${BASE}/error/sync`);
     expect(status).to.equal(500);
@@ -198,11 +209,12 @@ describe("Controller — error handling (HTTP)", function () {
 
 // ── queryGet ─────────────────────────────────────────────────────────────────
 
-describe("Controller — queryGet params (HTTP)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Controller — queryGet params (HTTP)", () => {
   it("GET /fw/echo?name=foo&page=2 → les deux params correctement parsés (fix Request.ts slice(1))", async () => {
-    const { status, body } = await httpReq("GET", `${BASE}/echo?name=foo&page=2`);
+    const { status, body } = await httpReq(
+      "GET",
+      `${BASE}/echo?name=foo&page=2`,
+    );
     expect(status).to.equal(200);
     const b = body as Record<string, unknown>;
     expect(b.name).to.equal("foo");
@@ -220,9 +232,7 @@ describe("Controller — queryGet params (HTTP)", function () {
 
 // ── HTTP method constraints (@Post, @Put, @Delete, @Patch) ───────────────────
 
-describe("Controller — HTTP method decorators (HTTP)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Controller — HTTP method decorators (HTTP)", () => {
   it("POST /fw/post-only → 200", async () => {
     const { status, body } = await httpReq("POST", `${BASE}/post-only`, "{}");
     expect(status).to.equal(200);
@@ -255,9 +265,7 @@ describe("Controller — HTTP method decorators (HTTP)", function () {
 
 // ── context info ──────────────────────────────────────────────────────────────
 
-describe("Controller — context info (HTTP/HTTPS)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Controller — context info (HTTP/HTTPS)", () => {
   it("GET /fw/context over HTTP → scheme=http type=http", async () => {
     const { status, body } = await httpReq("GET", `${BASE}/context`);
     expect(status).to.equal(200);
@@ -277,9 +285,7 @@ describe("Controller — context info (HTTP/HTTPS)", function () {
 
 // ── session ───────────────────────────────────────────────────────────────────
 
-describe("Controller — session (HTTP)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Controller — session (HTTP)", () => {
   it("GET /fw/session → 200 sessionStarted true and Set-Cookie present", async () => {
     const { status, headers, body } = await httpReq("GET", `${BASE}/session`);
     expect(status).to.equal(200);

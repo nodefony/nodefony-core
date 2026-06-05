@@ -1,6 +1,0 @@
-{
-  "extension": ["ts"],
-  "spec": "nodefony/tests/unit/**/*.test.ts",
-  "recursive": true,
-  "exit": true
-}

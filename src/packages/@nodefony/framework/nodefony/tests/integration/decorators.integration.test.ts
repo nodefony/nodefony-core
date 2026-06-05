@@ -16,7 +16,7 @@ function req(
   method: string,
   path: string,
   body?: string,
-  extraHeaders: Record<string, string> = {}
+  extraHeaders: Record<string, string> = {},
 ): Promise<Res> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = { ...extraHeaders };
@@ -30,9 +30,17 @@ function req(
       res.on("end", () => {
         const raw = Buffer.concat(chunks).toString();
         try {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: JSON.parse(raw) });
+          resolve({
+            status: res.statusCode!,
+            headers: res.headers as Record<string, unknown>,
+            body: JSON.parse(raw),
+          });
         } catch {
-          resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body: raw });
+          resolve({
+            status: res.statusCode!,
+            headers: res.headers as Record<string, unknown>,
+            body: raw,
+          });
         }
       });
     });
@@ -46,9 +54,7 @@ const FW = "/nodefony/test/fw";
 
 // ── @Param ──────────────────────────────────────────────────────────────────
 
-describe("Framework — @Param (integration)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Framework — @Param (integration)", () => {
   it("GET /fw/item/{id} — @Param('id') injecte la valeur", async () => {
     const { status, body } = await req("GET", `${FW}/item/42`);
     expect(status).to.equal(200);
@@ -86,9 +92,7 @@ describe("Framework — @Param (integration)", function () {
 
 // ── @Query ───────────────────────────────────────────────────────────────────
 
-describe("Framework — @Query (integration)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Framework — @Query (integration)", () => {
   it("GET /fw/search?q=hello&page=2 — @Query extrait les deux params", async () => {
     const { status, body } = await req("GET", `${FW}/search?q=hello&page=2`);
     expect(status).to.equal(200);
@@ -116,9 +120,7 @@ describe("Framework — @Query (integration)", function () {
 
 // ── queryGet fix (url.search.slice(1)) ───────────────────────────────────────
 
-describe("Framework — queryGet premier param (fix Request.ts)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Framework — queryGet premier param (fix Request.ts)", () => {
   it("GET /fw/qs?first=aaa&second=bbb — premier param maintenant correct", async () => {
     const { status, body } = await req("GET", `${FW}/qs?first=aaa&second=bbb`);
     expect(status).to.equal(200);
@@ -145,9 +147,7 @@ describe("Framework — queryGet premier param (fix Request.ts)", function () {
 
 // ── @Body ────────────────────────────────────────────────────────────────────
 
-describe("Framework — @Body (integration)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Framework — @Body (integration)", () => {
   it("POST /fw/submit — @Body() injecte le body JSON complet", async () => {
     const payload = JSON.stringify({ hello: "world", n: 42 });
     const { status, body } = await req("POST", `${FW}/submit`, payload);
@@ -184,9 +184,7 @@ describe("Framework — @Body (integration)", function () {
 
 // ── @Param + @Body + @Query combinés ─────────────────────────────────────────
 
-describe("Framework — @Param + @Body + @Query combinés (DecoratorController)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Framework — @Param + @Body + @Query combinés (DecoratorController)", () => {
   const DC = "/nodefony/test/decorators";
 
   it("POST /mix/{id}?v=3 avec body — trois sources injectées", async () => {

@@ -13,7 +13,11 @@ import { expect } from "chai";
 import https from "node:https";
 import "mocha";
 
-const HTTPS_BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
+const HTTPS_BASE = {
+  hostname: "localhost",
+  port: 5152,
+  rejectUnauthorized: false,
+};
 const TIMEOUT = 10_000;
 
 type Res = { status: number; headers: Record<string, unknown>; body: unknown };
@@ -31,7 +35,11 @@ function req(method: string, path: string): Promise<Res> {
         } catch {
           /* keep raw */
         }
-        resolve({ status: res.statusCode!, headers: res.headers as Record<string, unknown>, body });
+        resolve({
+          status: res.statusCode!,
+          headers: res.headers as Record<string, unknown>,
+          body,
+        });
       });
     });
     r.on("error", reject);
@@ -41,9 +49,7 @@ function req(method: string, path: string): Promise<Res> {
 
 // ── kernel ───────────────────────────────────────────────────────────────────
 
-describe("Admin data plane — kernel", function () {
-  this.timeout(TIMEOUT);
-
+describe("Admin data plane — kernel", () => {
   it("GET /nodefony/kernel/api/health → 200 liveness", async () => {
     const r = await req("GET", "/nodefony/kernel/api/health");
     expect(r.status).to.equal(200);
@@ -106,14 +112,13 @@ describe("Admin data plane — kernel", function () {
 
 // ── http ─────────────────────────────────────────────────────────────────────
 
-describe("Admin data plane — http", function () {
-  this.timeout(TIMEOUT);
-
+describe("Admin data plane — http", () => {
   it("GET /nodefony/http/api/servers → liste serveurs + ports", async () => {
     const r = await req("GET", "/nodefony/http/api/servers");
     expect(r.status).to.equal(200);
     const servers = r.body as Array<Record<string, unknown>>;
-    expect(servers.some((s) => s.service === "server-http" && s.port === 5151)).to.be.true;
+    expect(servers.some((s) => s.service === "server-http" && s.port === 5151))
+      .to.be.true;
   });
 
   it("GET /nodefony/http/api/info → résumé serveurs prêts", async () => {
@@ -134,14 +139,13 @@ describe("Admin data plane — http", function () {
 
 // ── framework ──────────────────────────────────────────────────────────────
 
-describe("Admin data plane — framework", function () {
-  this.timeout(TIMEOUT);
-
+describe("Admin data plane — framework", () => {
   it("GET /nodefony/framework/api/routes → dump contient les routes admin", async () => {
     const r = await req("GET", "/nodefony/framework/api/routes");
     expect(r.status).to.equal(200);
     const routes = r.body as Array<Record<string, unknown>>;
-    expect(routes.some((x) => x.path === "/nodefony/kernel/api/health")).to.be.true;
+    expect(routes.some((x) => x.path === "/nodefony/kernel/api/health")).to.be
+      .true;
   });
 
   it("GET /nodefony/framework/api/info → routesTotal > 0", async () => {
@@ -153,15 +157,22 @@ describe("Admin data plane — framework", function () {
   it("GET /nodefony/framework/api/admin → catalogue des 4 producteurs", async () => {
     const r = await req("GET", "/nodefony/framework/api/admin");
     expect(r.status).to.equal(200);
-    const producers = (r.body as { producers: Array<Record<string, unknown>> }).producers;
+    const producers = (r.body as { producers: Array<Record<string, unknown>> })
+      .producers;
     const namespaces = producers.map((p) => p.namespace);
-    expect(namespaces).to.include.members(["kernel", "http", "framework", "syslog"]);
+    expect(namespaces).to.include.members([
+      "kernel",
+      "http",
+      "framework",
+      "syslog",
+    ]);
     // descriptors + endpoints exploitables par la nav Studio
     const kernel = producers.find((p) => p.namespace === "kernel")!;
     expect(kernel.label).to.equal("Kernel");
     expect(kernel.endpoints).to.be.an("array");
     const eps = kernel.endpoints as Array<Record<string, unknown>>;
-    expect(eps.some((e) => e.path === "/nodefony/kernel/api/health")).to.be.true;
+    expect(eps.some((e) => e.path === "/nodefony/kernel/api/health")).to.be
+      .true;
     // ordonné par descriptor.order croissant
     const orders = producers.map((p) => p.order as number);
     expect(orders).to.deep.equal([...orders].sort((a, b) => a - b));
@@ -170,9 +181,7 @@ describe("Admin data plane — framework", function () {
 
 // ── syslog ───────────────────────────────────────────────────────────────────
 
-describe("Admin data plane — syslog", function () {
-  this.timeout(TIMEOUT);
-
+describe("Admin data plane — syslog", () => {
   it("GET /nodefony/syslog/api/info → compteurs", async () => {
     const r = await req("GET", "/nodefony/syslog/api/info");
     expect(r.status).to.equal(200);
@@ -194,13 +203,13 @@ describe("Admin data plane — syslog", function () {
 // Régression vécue 2026-05-20 (fallback générique → 21 échecs http). Requiert
 // studio + module test chargés (app dev).
 
-describe("Admin data plane — SPA fallback vs vraies routes (non-shadow)", function () {
-  this.timeout(TIMEOUT);
-
+describe("Admin data plane — SPA fallback vs vraies routes (non-shadow)", () => {
   it("GET /nodefony/modules/core → 200 HTML (deep-link SPA, fallback littéral /modules/{name})", async () => {
     const r = await req("GET", "/nodefony/modules/core");
     expect(r.status).to.equal(200);
-    expect(r.body, "le SPA renvoie du HTML brut, pas du JSON").to.be.a("string");
+    expect(r.body, "le SPA renvoie du HTML brut, pas du JSON").to.be.a(
+      "string",
+    );
     expect(r.body as string).to.include("<!DOCTYPE");
   });
 
@@ -214,6 +223,8 @@ describe("Admin data plane — SPA fallback vs vraies routes (non-shadow)", func
   it("GET /nodefony/test/index → JSON (route 2-seg d'un AUTRE module NON masquée par le fallback)", async () => {
     const r = await req("GET", "/nodefony/test/index");
     expect(r.status).to.equal(200);
-    expect(r.body, "le module test gagne → JSON, pas le HTML du SPA").to.be.an("object");
+    expect(r.body, "le module test gagne → JSON, pas le HTML du SPA").to.be.an(
+      "object",
+    );
   });
 });
