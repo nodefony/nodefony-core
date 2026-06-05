@@ -68,8 +68,10 @@ describe("DefaultRequestLogger — unit tests (P1.6)", () => {
     });
 
     it("prod env → single-line error format (no leading newline)", () => {
+      // `environment` est normalisé en "production" (jamais "prod") — le test
+      // portait le même bug que le code (cf fix request-logger.ts).
       const e = logger.renderHttp(
-        fakeHttpContext({ status: 500, env: "prod" }) as never,
+        fakeHttpContext({ status: 500, env: "production" }) as never,
         new Error("prod-err"),
       );
       expect(e.text).to.not.include("\n");

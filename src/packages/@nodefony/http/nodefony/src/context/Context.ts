@@ -203,7 +203,11 @@ class Context extends Service implements IContextInterface {
     if (typeof explicit === "boolean") {
       this._timingEnabled = explicit;
     } else {
-      this._timingEnabled = this.kernel?.environment !== "prod";
+      // `environment` est normalisé "development"/"production"/"test" — JAMAIS
+      // "prod". Comparer à "prod" laissait le timing (alloc `phases`/req +
+      // performance.now() par phase) ACTIF en production. Doit rester actif en
+      // dev ET test → comparer à "production".
+      this._timingEnabled = this.kernel?.environment !== "production";
     }
     if (this._timingEnabled) {
       // Replace shared frozen empty array with a per-context one only when needed.

@@ -527,43 +527,17 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (this.secHsts !== null && (type === "https" || type === "http2")) {
       response.setHeader("Strict-Transport-Security", this.secHsts);
     }
-    if (
-      this.serverStatic &&
-      (this.kernel?.options.servers.statics ||
-        this.kernel?.options.statics ||
-        this.serverStatic.hasMounts())
-    ) {
-      return this.serverStatic
-        .handle(request, response)
-        .then(async (res) => {
-          if (res) {
-            await this.fireAsync(
-              "onServerRequest",
-              request,
-              response,
-              type,
-            ).catch((e) => {
-              throw e;
-            });
-            return await this.handle(request, response, type).catch((e) => {
-              throw e;
-            });
-          }
-          throw new Error("Bad request");
-        })
-        .catch((e) => {
-          // if (e) {
-          //   this.log(e, "ERROR", "STATICS SERVER");
-          // }
-          return e;
-        });
-    }
-    await this.fireAsync("onServerRequest", request, response, type).catch(
-      (e) => {
-        throw e;
-      },
-    );
-    return await this.handle(request, response, type).catch((e) => {
+    // ROUTER-FIRST (façon Express) : le static n'est PLUS tenté en amont — il est
+    // devenu un FALLBACK du 404 dans `handleHttp` (après le route-match). Le point
+    // d'entrée se limite au hook `onServerRequest` (guardé 0-listener) puis délègue
+    // au pipeline. Une requête qui matche une route ne touche plus le disque.
+    if (this.listenerCount("onServerRequest"))
+      await this.fireAsync("onServerRequest", request, response, type).catch(
+        (e) => {
+          throw e;
+        },
+      );
+    return this.handle(request, response, type).catch((e) => {
       throw e;
     });
   }
@@ -662,9 +636,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           context as unknown as Parameters<Profiler["collect"]>[0],
         );
         await context._runAfterResponse();
-        await context.fireAsync("onFinish", context).catch((e) => {
-          throw e;
-        });
+        // Guard 0-listener (cf onCreateContext) : `onFinish` du contexte n'a de
+        // listener que si un controller a posé un hook → 0 microtask sinon.
+        if (context.listenerCount("onFinish"))
+          await context.fireAsync("onFinish", context).catch((e) => {
+            throw e;
+          });
         context.finished = true;
         this.container?.leaveScope(scope);
         context.clean();
@@ -708,7 +685,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     let context: HttpContext | null = null;
     try {
       context = this.createHttpContext(scope, request, response, type);
-      await this.fireAsync("onCreateContext", context);
+      // Hot path : `fireAsync` est une fonction async → `await` crée 1 Promise +
+      // 1 microtask MÊME à 0 listener (emitAsync court-circuite l'alloc des
+      // listeners mais pas le wrapper async). En prod sans @nodefony/security ces
+      // seams (onCreateContext/beforeResolve/afterAuth) n'ont aucun listener →
+      // guard `listenerCount` (O(1), 0 alloc) pour ne RIEN scheduler.
+      if (this.listenerCount("onCreateContext"))
+        await this.fireAsync("onCreateContext", context);
       // P2.7 — W3C traceparent: honor incoming valid header, generate a
       // fresh one otherwise. Resolved BEFORE entering the ALS scope so
       // it propagates with `requestId` to every downstream hop.
@@ -745,6 +728,30 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             ? this.router.resolve(context! as ContextType)
             : null;
           context!.phaseEnd("resolve");
+          // ROUTER-FIRST (façon Express) : aucune route matchée → FALLBACK static.
+          // `serverStatic.handle` reste PENDING si un fichier est servi (court-circuit
+          // total — response.end → `onFinish` → teardown déjà wired par
+          // createHttpContext) ; il RESOLVE si aucun fichier → on poursuit le pipeline
+          // jusqu'au 404. Bénéfice : une requête qui matche une route ne paie plus le
+          // fs.stat/path.normalize de serve-static (≈ +26 % RPS sur les routes API).
+          if (
+            this.serverStatic &&
+            context!.resolver?.resolve !== true &&
+            !context!.resolver?.exception &&
+            (this.kernel?.options.servers.statics ||
+              this.kernel?.options.statics ||
+              this.serverStatic.hasMounts())
+          ) {
+            // Le Context a déjà posé le Content-Type par défaut
+            // (application/octet-stream) ; `serve-static` ne l'écrase PAS s'il
+            // existe → on le retire pour qu'il pose le vrai type du fichier
+            // (image/x-icon, video/webm…). En static-first aucun CT n'était
+            // pré-posé : on restaure ce comportement.
+            response.removeHeader("Content-Type");
+            await this.serverStatic
+              .handle(request, response)
+              .catch(() => undefined);
+          }
           const streamBody =
             context!.resolver?.resolve === true &&
             context!.resolver.route?.bodyStream === true;
@@ -798,7 +805,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
     // SECURITY HOOK — beforeResolve (P1.7)
     // Fires before route is resolved. Security can pre-load session/token here.
-    await this.fireAsync("beforeResolve", context);
+    // Guard 0-listener (cf onCreateContext) : 0 microtask sans security.
+    if (this.listenerCount("beforeResolve"))
+      await this.fireAsync("beforeResolve", context);
     // FRONT CONTROLLER
     const ret = await this.handleFrontController(context);
     if (ret === 204) {
@@ -811,7 +820,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         try {
           await this.firewall?.handleSecurity(context);
           // SECURITY HOOK — afterAuth (P1.7) — only on success
-          await this.fireAsync("afterAuth", context);
+          // Guard 0-listener (cf onCreateContext) : 0 microtask sans security.
+          if (this.listenerCount("afterAuth"))
+            await this.fireAsync("afterAuth", context);
         } catch (authError) {
           // SECURITY HOOK — onAuthFailure (P1.7)
           await this.fireAsync("onAuthFailure", context, authError).catch((e) =>

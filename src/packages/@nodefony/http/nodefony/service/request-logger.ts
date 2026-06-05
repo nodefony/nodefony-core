@@ -42,7 +42,7 @@ class DefaultRequestLogger implements IRequestLogger {
       const errCode =
         (err as { code?: number }).code ?? ctx.response?.statusCode ?? 500;
       const msgid = `${ctx.type} ${logColor.magenta(errCode)} ${logColor.red(ctx.method ?? "")}`;
-      const isProd = ctx.kernel?.environment === "prod";
+      const isProd = ctx.kernel?.environment === "production";
       const text = isProd ? `${txt} ${err}` : `${txt}\n          ${err}`;
       return { text, severity: "ERROR" as Severity, msgid };
     }

@@ -94,7 +94,9 @@ class Http extends Module {
     // Profiler par requête — dev-only (perf + fuite d'info en prod). Instancié
     // ici, partagé via le container (`http-kernel` le résout à onReady) et
     // exposé en data plane sous `/nodefony/profiler/api/*`.
-    if (this.kernel?.environment !== "prod") {
+    // ⚠️ `environment` est normalisé en "development"/"production"/"test" — JAMAIS
+    // "prod" : comparer à "prod" laissait le profiler actif en prod (gros overhead).
+    if (this.kernel?.environment !== "production") {
       const profiler = new Profiler();
       this.container?.set("profiler", profiler);
       if (registry && !registry.has("profiler")) {
