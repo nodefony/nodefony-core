@@ -317,6 +317,12 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   serveurs ; seul kernel#2 bootait). Gain réel du refacto = **mémoire** (1 container/injector/syslog → cause du
   doublon JSONL) + clarté, **PAS la vitesse**. Ne jamais survendre un refacto « perf » sans chiffre. Audit
   `docs/audits/boot-performance-2026-06-01.md` : 91 % du boot = import/instanciation de modules.
+- `[1× — 2026-06-05]` **A/B RPS maison = bruité → 3 runs/côté + comparer les PLAGES, jeter le warmup.** Bench
+  concurrent (50 conns, 3-4 s) sur la route réordonnée P2.9 : le 1er run = **warmup à JETER** (1622 vs médiane 1743) ;
+  variance ~15-25 % **> écart** baseline↔feature → un verdict sur 1 run est FAUX (le seuil auto « à investiguer » a
+  crié à tort). Conclusion correcte = **plages chevauchées = 0 régression** (baseline 1356-1813 vs feature 1622-1755).
+  Protocole : baseline = `git stash` + rebuild + restart, bencher les 2 côtés MÊME machine, comparer médianes +
+  chevauchement (jamais 1 vs 1). Complète « MESURER avant d'affirmer » ci-dessus.
 - `[1× — 2026-06-01]` **daemon CONSOLE : `await new Promise(()=>{})` NE garde PAS Node vivant** : une Promise
   pending n'est pas un handle d'event loop → Node sort dès l'event loop vide. DevCommand/master survivent via
   LEURS handles (child process / workers+IPC+timers), pas le park. Un daemon CONSOLE pur (worker queue, consumer,
@@ -364,7 +370,7 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔧 Git / commit (friction du jour)
 
-- `[3× — 2026-06-02]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
+- `[5× — 2026-06-05]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
   à promouvoir dans [[feedback_commit_fr_apostrophes]] au prochain CONSOLIDATE). Un commit dont le sujet
   commence par une majuscule/nom propre (ex. `refactor(core): KernelType …`, `feat(dev): Vite …`) est
   **rejeté** par le hook `commit-msg`. Réflexe : `type(scope): ` puis **minuscule** (reformuler « remplace
@@ -424,6 +430,11 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 - `[1× — 2026-06-05]` **`@types/mocha` retiré → `tsconfig.tests.json` `types:[…,"mocha",…]` casse tsc** (`Cannot find
 type 'mocha'`). Au retrait mocha d'un workspace : remplacer par `vitest/globals` dans CHAQUE `tsconfig*.json` qui le
   liste (sinon pre-push rouge). Pas attrapé par le run vitest (esbuild ignore tsc).
+
+- `[1× — 2026-06-05]` **ajouter un champ à un objet metadata PARTAGÉ casse les `deep.equal` existants** : étendre
+  `ParamMeta` avec `stream` posé TOUJOURS (même `false`) a cassé 2 tests `@Body` (forme `{source,key,index}` attendue
+  à l'identique). Fix = ne poser le champ optionnel **QUE s'il est truthy** (préserve la forme historique → rétro-compat).
+  Les 2 fails étaient MON diff (pas pré-existant) — suspecter son diff d'abord (la suite framework complète l'a prouvé).
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
