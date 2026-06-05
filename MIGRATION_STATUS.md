@@ -113,35 +113,35 @@ leaks scope DI sur erreur/session WS). Tests preuve présents (`http-rfc-errors`
 `Context.phases`, `onAfterResponse`, `signal` (AbortSignal lazy), **`RequestContext` ALS** (requestId/user), `errorRenderer`
 unifié HTTP+WS, `logRequest` pluggable, hooks security (`beforeResolve`/`afterAuth`/`onAuthFailure`), graphe symbolique `.ai/symbols.json`.
 
-### P2 — Cycle de vie Context (72 %)
+### P2 — Cycle de vie Context (83 %)
 
-| #       | Tâche                                  | État                                          |
-| ------- | -------------------------------------- | --------------------------------------------- |
-| ✅ P2.1 | Boundary timing phase-by-phase         | via P1.1 (`Context.phases`, lazy)             |
-| ✅ P2.2 | Tear-down déterministe (finish+close)  | via P1.2 (dedup race)                         |
-| ✅ P2.3 | Aborted cleanup + 499 interne          | `client-abort-499.test.ts`                    |
-| ✅ P2.4 | `initialize()` error boundary          | crash → onError → 500 JSON cohérent           |
-| ✅ P2.5 | Request timeout (408/504)              | 2 couches (Node natif + `onTimeout` Nodefony) |
-| ⬜ P2.6 | Idempotency keys (`X-Idempotency-Key`) | dédup via ALS                                 |
-| ✅ P2.7 | W3C `traceparent` honor + génère       | `service/trace.ts`                            |
-| ⬜ P2.8 | Backpressure doc + tests streaming     | indépendant                                   |
-| 🔶 P2.9 | Body streaming (`@Body({stream})`)     | multipart busboy OK ; reste option décorateur |
+| #       | Tâche                                  | État                                                                                  |
+| ------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
+| ✅ P2.1 | Boundary timing phase-by-phase         | via P1.1 (`Context.phases`, lazy)                                                     |
+| ✅ P2.2 | Tear-down déterministe (finish+close)  | via P1.2 (dedup race)                                                                 |
+| ✅ P2.3 | Aborted cleanup + 499 interne          | `client-abort-499.test.ts`                                                            |
+| ✅ P2.4 | `initialize()` error boundary          | crash → onError → 500 JSON cohérent                                                   |
+| ✅ P2.5 | Request timeout (408/504)              | 2 couches (Node natif + `onTimeout` Nodefony)                                         |
+| ⬜ P2.6 | Idempotency keys (`X-Idempotency-Key`) | dédup via ALS                                                                         |
+| ✅ P2.7 | W3C `traceparent` honor + génère       | `service/trace.ts`                                                                    |
+| ✅ P2.8 | Backpressure doc + tests streaming     | `write()===false` → attend `'drain'` (Node stream) ; CL⊥TE RFC 9112 §6.1 ; tests unit |
+| 🔶 P2.9 | Body streaming (`@Body({stream})`)     | multipart busboy OK ; reste option décorateur                                         |
 
 ### P3 — Logs structurés (68 %)
 
-| #        | Tâche                                    | État                                                      |
-| -------- | ---------------------------------------- | --------------------------------------------------------- |
-| ✅ P3.1  | Audit log canonique (1 PDU JSON/req)     | `JsonAuditLogger`                                         |
-| ✅ P3.2  | Pretty formatter dev                     | `PrettyRequestLogger`                                     |
-| ✅ P3.3  | Severity selon HTTP status               | `severityFromStatus()`                                    |
-| ✅ P3.4  | Header redaction (Authz/Cookie)          | flags booléens, valeurs jamais loggées                    |
-| ✅ P3.5  | Erreur enrichie (cause chain + stack)    | `AuditErrorEntry` récursif                                |
-| 🔶 P3.6  | Filtrage par requestId (CLI)             | `Pdu.requestId` livré ; reste le CLI tool (LB.3b)         |
-| ⬜ P3.7  | Mode trace verbose (phase DEBUG)         | utilise `context.timing[]`                                |
-| 🔶 P3.8  | Rate limit logs par requestId            | anti-flood livré ; reste clé par requestId                |
-| ✅ P3.9  | WS logs (handshake/close/error + wsId)   | per-message volontairement écarté (hot path)              |
-| ⏭️ P3.10 | Transport NCSA/Combined dédié            | absorbé par P3.11 (driver `file`)                         |
-| 🔶 P3.11 | **Log Backplane** (write↔read pluggable) | LB.W+LB.0→LB.5+LB.4 ✅ ; reste LB.3b CLI. Cf durcissement |
+| #        | Tâche                                    | État                                                                           |
+| -------- | ---------------------------------------- | ------------------------------------------------------------------------------ |
+| ✅ P3.1  | Audit log canonique (1 PDU JSON/req)     | `JsonAuditLogger`                                                              |
+| ✅ P3.2  | Pretty formatter dev                     | `PrettyRequestLogger`                                                          |
+| ✅ P3.3  | Severity selon HTTP status               | `severityFromStatus()`                                                         |
+| ✅ P3.4  | Header redaction (Authz/Cookie)          | flags booléens, valeurs jamais loggées                                         |
+| ✅ P3.5  | Erreur enrichie (cause chain + stack)    | `AuditErrorEntry` récursif                                                     |
+| 🔶 P3.6  | Filtrage par requestId (CLI)             | `Pdu.requestId` livré ; reste le CLI tool (LB.3b)                              |
+| ✅ P3.7  | Mode trace verbose (phase DEBUG)         | `logPhasesVerbose()` opt-in `timing.verbose`, perf-gate (0 coût off), teardown |
+| 🔶 P3.8  | Rate limit logs par requestId            | anti-flood livré ; reste clé par requestId                                     |
+| ✅ P3.9  | WS logs (handshake/close/error + wsId)   | per-message volontairement écarté (hot path)                                   |
+| ⏭️ P3.10 | Transport NCSA/Combined dédié            | absorbé par P3.11 (driver `file`)                                              |
+| 🔶 P3.11 | **Log Backplane** (write↔read pluggable) | LB.W+LB.0→LB.5+LB.4 ✅ ; reste LB.3b CLI. Cf durcissement                      |
 
 ### P4 — Tests symbiose ✅ (6/6)
 

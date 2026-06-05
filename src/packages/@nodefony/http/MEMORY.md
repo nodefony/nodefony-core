@@ -78,6 +78,11 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 - **wsId = `requestId` du `WebsocketContext`** (P3.9, 2026-05-29) : pas de champ distinct (alloc 0). Stable sur toute la socket (ctor → ALS → handshake/messages/close) → corrèle les events d'une même connexion WS. Présent dans les **3 logs de cycle de vie WS** : handshake (`renderWebsocket` → `ID : <uuid>`), `onClose`, `onConnectionError`. **Per-message NON loggé** (bruit + hot path 33-38k msg/s) — extensible via logger custom opt-in si besoin debug.
 - ⚠️ **HTTP/2 GOTCHA (fix 2026-05-21)** : `http2/Response.writeHead` chemin `stream.respond()` **bypasse** `super.writeHead` → pose `x-request-id` + `traceparent` ICI aussi. Sinon réponses HTTP/2 (port 5152, dont Studio) **sans header** → corrélation profiler/debug bar impossible (symptôme : clic requête = « no requestId »).
 
+## Streaming backpressure (P2.8) + trace verbose (P3.7) — 2026-06-05
+
+- **Backpressure** `Response.send` : `ServerResponse.write()===false` (buffer > highWaterMark) → resolve sur `once("drain")`, pas avant (contrat Node `stream.Writable`). `flush()` chunké (RFC 9112 §7.1) → producteur freiné, RAM bornée si client lent ; `ok===true` → resolve immédiat. Listener `drain` attaché QUE sous pression (`once` + `removeListener` si erreur d'écriture). Content-Length ⊥ Transfer-Encoding (RFC 9112 §6.1) déjà géré par `setLength` (skip si chunked).
+- **Trace verbose** `Context.logPhasesVerbose()` (teardown, après `logRequest`) : log DEBUG `TRACE phases [Σ Xms] parse=… · action=…`. Opt-in `kernel.options.timing.verbose` → triple gate (`_timingVerbose` résolu 1× au ctor → `_timingEnabled` → `phases.length>0`) ; **0 stringify/alloc hors verbose** (perf-first, gratuit prod). Tests unit : `Backpressure.test.ts`, `PhasesVerbose.test.ts`.
+
 ## Profiler — dev-only (2026-05-21)
 
 - `src/profiler/Profiler.ts` : ring buffer `Map<requestId, ProfileEntry>` (cap 500, éviction insertion-order), `collect(ctx)` = snapshot fin de requête (phases/route/controller/user/traceparent/status + **queries ORM**), `get`/`recent`/`clear`. **Borné** (pas de fuite, validé).

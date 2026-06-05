@@ -170,6 +170,10 @@ class Context extends Service implements IContextInterface {
   // kernel.options.timing.enabled. When disabled: `phases` is a shared frozen
   // empty array, `phaseStart`/`phaseEnd` are noops, no Map is allocated.
   private _timingEnabled: boolean = false;
+  // P3.7 — trace verbose opt-in (kernel.options.timing.verbose). Résolu 1× au
+  // constructeur, implique `_timingEnabled`. false par défaut → 0 stringify/alloc
+  // au teardown hors debug explicite (perf-first : gratuit en prod).
+  private _timingVerbose: boolean = false;
   readonly phases: PhaseTiming[] = EMPTY_PHASES;
   private _phaseIndex: Map<string, number> | null = null;
   // Lazy alloc — most requests never register an after-response hook.
@@ -204,6 +208,12 @@ class Context extends Service implements IContextInterface {
     if (this._timingEnabled) {
       // Replace shared frozen empty array with a per-context one only when needed.
       (this as { phases: PhaseTiming[] }).phases = [];
+      // P3.7 — trace verbose : résolu 1× ici (n'a de sens que si le timing est
+      // actif). Opt-in explicite → false en prod / par défaut.
+      const verbose = (
+        this.kernel?.options as { timing?: { verbose?: boolean } } | undefined
+      )?.timing?.verbose;
+      this._timingVerbose = verbose === true;
     }
     this.scheme = "https";
     switch (this.type) {
@@ -461,6 +471,40 @@ class Context extends Service implements IContextInterface {
       // ci-dessus (micro-bulle si l'ALS est vide), commun à tous les logs de fin.
       return this.log(entry.text, entry.severity, entry.msgid);
     } catch {}
+  }
+
+  /**
+   * P3.7 — Émet au teardown un log DEBUG détaillant la durée de chaque phase du
+   * pipeline (`parse · action · firewall · …` + total). Opt-in via
+   * `kernel.options.timing.verbose`. Triple gate perf-first : `_timingVerbose`
+   * résolu 1× (false en prod/par défaut) → timing actif → phases non vides ;
+   * hors mode verbose, early-return AVANT toute allocation/`toFixed` (coût nul).
+   */
+  logPhasesVerbose(): void {
+    if (!this._timingVerbose) return;
+    const phases = this.phases;
+    const n = phases.length;
+    if (n === 0) return;
+    let line = "";
+    let total = 0;
+    for (let i = 0; i < n; i++) {
+      const p = phases[i];
+      const d =
+        p.durationMs ??
+        (p.endMs !== undefined ? p.endMs - p.startMs : undefined);
+      if (i > 0) line += " · ";
+      if (d !== undefined) {
+        line += `${p.name}=${d.toFixed(2)}ms`;
+        total += d;
+      } else {
+        line += `${p.name}=…`;
+      }
+    }
+    this.log(
+      `TRACE phases [Σ ${total.toFixed(2)}ms] ${line}`,
+      "DEBUG",
+      `${this.type} TIMING`,
+    );
   }
 
   addRequestCookie(cookie: Cookie): Cookie {

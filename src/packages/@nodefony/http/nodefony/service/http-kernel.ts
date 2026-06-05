@@ -649,6 +649,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           );
         }
         context.logRequest();
+        // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
+        context.logPhasesVerbose();
         // Snapshot dev-only AVANT clean() (la donnée disparaît après).
         this.profiler?.collect(
           context as unknown as Parameters<Profiler["collect"]>[0],

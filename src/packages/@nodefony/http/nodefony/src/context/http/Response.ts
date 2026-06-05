@@ -426,17 +426,41 @@ class HttpResponse {
           //this.context.displayDebugBar();
         }
         if (this.response) {
-          return (this.response as http.ServerResponse).write(
+          // P2.8 — Backpressure (Node `stream.Writable.write()` : retourne `false`
+          // quand le buffer interne dépasse `highWaterMark` → le producteur DOIT
+          // attendre l'event `'drain'` avant de réécrire). En streaming chunké
+          // (flush, RFC 9112 §7.1 — 1 écriture = 1 chunk), résoudre sur `'drain'`
+          // borne la RAM serveur si le client est lent : un controller qui `flush()`
+          // en boucle est naturellement freiné par cet `await`. Cas réponse unique
+          // (non-flush) : `ok===true` quasi toujours → resolve immédiat (0 attente).
+          // Le listener `'drain'` n'est attaché QUE sous pression (rare) et est
+          // `once` (auto-détaché au fire) + retiré explicitement en cas d'erreur.
+          const res = this.response as http.ServerResponse;
+          let settled = false;
+          const done = () => {
+            if (!settled) {
+              settled = true;
+              resolve(this);
+            }
+          };
+          const onDrain = () => done();
+          const ok = res.write(
             this.body,
             encoding || this.encoding,
             (error: Error | null | undefined) => {
               if (error) {
                 this.log(error, "ERROR");
-                resolve(this);
+                res.removeListener("drain", onDrain);
+                done();
               }
-              resolve(this);
             },
           );
+          if (ok) {
+            done();
+          } else {
+            res.once("drain", onDrain);
+          }
+          return;
         }
         return reject(new Error(`Http Response not found`));
       } catch (e) {
