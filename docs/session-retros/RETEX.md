@@ -361,6 +361,10 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   échoué « lint-staged failed due to a git error » (stash/lock transitoire) sans rien perdre → **retry après
   `pkill -f lint-staged` + `rm -f .git/index.lock`** a réussi. Combine [[feedback_git_index_lock]] : sur ce repo,
   toujours `pkill lint-staged/generate-symbols` + `rm index.lock` AVANT un retry de commit raté.
+- `[2× — 2026-06-05]` **`git push` en background ne FINALISE pas (hook pre-push lourd)** : le commit se fait, mais la
+  branche reste « ahead 1 » sans erreur ni process actif → relancer en **foreground** (peut être rejeté « cannot lock
+  ref … is at X but expected Y » = race, le background avait fini par pousser). La vérité = `git log origin/<branche>`,
+  pas le « ahead » local. Vu 2× (frontend, framework). → push avec hook lourd = **foreground d'emblée**.
 
 ---
 
@@ -394,9 +398,25 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 - `[1× — 2026-06-04]` **`process.env.X = saved` quand `saved === undefined` écrit la string `"undefined"`** → pollue
   les tests env suivants (faux `NODE_ENV`). Helper : `delete process.env.X` si la valeur sauvegardée est `undefined`
   (jamais `= undefined`). Cf `withEnv` dans configBoot.test.
+- `[1× — 2026-06-05]` **migration mocha→vitest = compat par CONFIG, pas réécriture** : `globals:true` + shim
+  `import "mocha"` + chai conservé tel quel + setup (reflect + alias `before`/`after`→`beforeAll`/`afterAll` + port
+  perf-skip). Seuls les VRAIS mocha-ismes se réécrivent : `done`→`new Promise((done)=>…)` (codemod brace-matching,
+  sync ET async, 0 faux-pass), `this.timeout/skip`→`describe.skipIf`+`vi.setConfig`+`ctx.skip()`. Recette + 2 pièges
+  dans [[feedback_test_framework_vitest]]. Rodée 4× (core/mediasoup/frontend/framework).
+- `[1× — 2026-06-05]` **vitest PLUS STRICT que mocha → débusque de vrais bugs** : (a) ESM strict → `arguments.callee`
+  lève (mocha+tsx tolérait sloppy) ; (b) vitest pose `NODE_ENV='test'` (mocha l'absentait) → `resolveRuntimeEnv`
+  12-factor collapse en `production`. NE PAS « aligner sur mocha » pour faire taire — c'est mocha qui était laxiste.
+  Fix = corriger le bug (typeOf strict-safe) + tests env explicites (delete NODE_ENV scopé, cf `withEnv`).
+- `[1× — 2026-06-05]` **`@types/mocha` retiré → `tsconfig.tests.json` `types:[…,"mocha",…]` casse tsc** (`Cannot find
+type 'mocha'`). Au retrait mocha d'un workspace : remplacer par `vitest/globals` dans CHAQUE `tsconfig*.json` qui le
+  liste (sinon pre-push rouge). Pas attrapé par le run vitest (esbuild ignore tsc).
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
+- `2026-06-05-b8c2a82b` — **P14.11 core isomorphe CLOS** (shim `node:events` complété `rawListeners`/`prepend*` — bug
+  runtime browser masqué par tsc + test régression, `f41bb23`) **+ SUPPRESSION TOTALE mocha 5/6** : core (1558 tests,
+  2 bugs réels typeOf strict / NODE_ENV, `4106303`), mediasoup (22, `82cc83a`), frontend (42, `1a9b912`), framework (235,
+  `899924a`) + docs/skills/mémoire (`01e3a93`/`d3901b4`). Reste **http** (gate mémoire/charge → session dédiée) + maj deps outdated.
 - `2026-06-05-6c01bf49` — **audit vérité migration P0→P16 + assainissement `MIGRATION_STATUS.md`** : confronté au code
   (déclaré ≈ réel partout, global 50 % — fond honnête). Dashboard **278→32 KB** (cellules-journal de 3 800 car. tuées, 117
   tâches préservées) + audit complet `docs/migration/AUDIT-verite-2026-06.md`. Corrections : DETTE-CFG 🚧→✅, virage ORM
