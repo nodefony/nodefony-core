@@ -162,10 +162,11 @@ class HttpContext extends Context implements IHttpContextInterface {
           await this.send();
           return resolve(this);
         }
-        this.setParameters("query.get", this.request.queryGet || {});
-        this.setParameters("query.post", this.request.queryPost || {});
-        this.setParameters("query.files", this.request.queryFile || []);
-        this.setParameters("query.request", this.request.query || {});
+        // NB perf : pas de `setParameters("query.*")` ici. Les décorateurs
+        // @Query/@Param/@Body lisent `ctx.request.queryGet/queryPost/queryFile`
+        // DIRECTEMENT (cf framework routerDecorators) ; peupler le scope DI avec
+        // ces clés (4 parses + insertions/req) n'était lu par PERSONNE — héritage
+        // JS mort, retiré (~+3 % RPS sur route sans query). Cf metaData per-requête.
         //this.locale = this.translation.handle();
         // WARNING EVENT KERNEL
         this.fire("onRequest", this);
