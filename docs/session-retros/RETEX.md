@@ -58,6 +58,20 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 - `[1× — 2026-06-05]` **le dist du CORE est sous `dist/node/`, pas `dist/`** (build isomorphe node/browser) :
   vérifier qu'un `.ts` du core est compilé → `find dist -name X.js` (ex. `dist/node/service/dev/DevSupervisor.js`),
   pas `dist/service/...` (faux négatif). Les packages `@nodefony/*` restent en `dist/` plat.
+- `[1× — 2026-06-05]` **retirer les types d'un test-runner (`@types/mocha`) expose des milliers de warnings build** :
+  `@rollup/plugin-typescript` type-check TOUT le programme du `tsconfig.json` → un test laissé dans `include`
+  warne (describe/it non typés TS2593, `import "mocha"` TS2882, `before` TS2304). 2024 warnings d'un coup.
+  → **exclure les tests du build tsconfig** (`nodefony/tests/**`+`tests/**`+`**/*.test.ts`) ; convention déjà
+  chez core/frontend/drizzle/... ; les tests ont leur `tsconfig.tests.json` (`types:["node","vitest/globals","chai"]`).
+- `[1× — 2026-06-05]` **`tail -N` sur un build MASQUE les warnings** (un build « réussit » AVEC warnings) : j'ai loupé
+  2024 warnings http à la migration vitest car je ne regardais que `tail -15`. → juger un build propre par **comptage
+  explicite** : `grep -cE "@rollup/plugin-typescript TS[0-9]+|\(!\)"`, jamais au `tail`.
+- `[1× — 2026-06-05]` **`exports.types: ./index.ts` (anti-race) est une CHAÎNE** : security(source)→user→orm-core→core.
+  Convertir UN maillon en source-types fait **cascader** (ses deps doivent l'être aussi, sinon TS2307 « Cannot find
+  module » sur les consommateurs amont qui compilent la source). Vérifié 2026-06-05 : fixer user a révélé user→orm-core,
+  fixer orm-core a fermé (orm-core ne dépend que du core, buildé en 1er). Documenté table types `CLAUDE.md`.
+- `[1× — 2026-06-05]` **commitlint `subject-case` rejette un sujet commençant par un mot MAJUSCULE** (« README … »)
+  → sujet en minuscule après le type : `docs(x): readme …`. (macOS : pas de `timeout` → `gtimeout` ou background+kill.)
 
 ## 🧹 Refonte / consolidation (frictions du jour)
 
