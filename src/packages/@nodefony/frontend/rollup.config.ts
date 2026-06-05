@@ -59,6 +59,8 @@ const sharedNodeOptions = defineConfig({
     format: "es",
   },
   onwarn(warning, warn) {
+    // EMPTY_BUNDLE : fichier types-only (interfaces) sous preserveModules → chunk JS vide (bénin).
+    if (warning.code === "EMPTY_BUNDLE") return;
     if (warning.message.includes("Circular dependency")) return;
     if (warning.message.includes("TS5055")) return;
     warn(warning);
