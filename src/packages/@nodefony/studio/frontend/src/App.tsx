@@ -15,7 +15,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { buildStudioTheme } from "./theme";
 import { AuthGuard } from "./components/AuthGuard";
 import { RoleGuard } from "./components/RoleGuard";
-import { ROLE_DEV, ROLE_SUPERVISOR } from "./auth/dashboards";
+import { ROLE_SUPERVISOR } from "./auth/dashboards";
 import { AuthLayout } from "./layouts/AuthLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { Login } from "./routes/Login";
@@ -23,9 +23,6 @@ import { Login } from "./routes/Login";
 // Lazy-load des pages (code-splitting) : le bundle initial ne charge que le
 // shell + Login ; chaque page arrive à la demande. Exports nommés → on remappe
 // vers `default` (contrat React.lazy). Le fallback Suspense vit dans AdminLayout.
-const Dashboard = lazy(() =>
-  import("./routes/Dashboard").then((m) => ({ default: m.Dashboard })),
-);
 const DashboardSupervision = lazy(() =>
   import("./routes/DashboardSupervision").then((m) => ({
     default: m.DashboardSupervision,
@@ -143,11 +140,7 @@ const router = createBrowserRouter([
           { path: "workspace", element: <Workspace /> },
           {
             path: "dev",
-            element: (
-              <RoleGuard roles={[ROLE_DEV]}>
-                <Dashboard />
-              </RoleGuard>
-            ),
+            element: <Navigate to="/nodefony/workspace" replace />,
           },
           {
             path: "supervision",

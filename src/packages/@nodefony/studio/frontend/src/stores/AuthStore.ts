@@ -1,11 +1,20 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { hasRole } from "nodefony/roles";
-import type { AuthService, AuthUser, LoginCredentials } from "../services/AuthService";
+import type {
+  AuthService,
+  AuthUser,
+  LoginCredentials,
+} from "../services/AuthService";
 import { DASHBOARDS, type DashboardDef } from "../auth/dashboards";
 
 const TOKEN_KEY = "nodefony.studio.token";
 
-export type AuthStatus = "idle" | "loading" | "authenticated" | "unauthenticated" | "error";
+export type AuthStatus =
+  | "idle"
+  | "loading"
+  | "authenticated"
+  | "unauthenticated"
+  | "error";
 
 export class AuthStore {
   user: AuthUser | null = null;
@@ -42,7 +51,7 @@ export class AuthStore {
    * l'Admin API (toujours visible).
    */
   get homePath(): string {
-    return this.dashboards[0]?.path ?? "/nodefony/system";
+    return this.dashboards[0]?.path ?? "/nodefony/workspace";
   }
 
   /** Au mount de l'app : si token, tenter `/me`. */
@@ -110,7 +119,9 @@ export class AuthStore {
 
   private loadToken(): string | null {
     try {
-      return typeof localStorage !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+      return typeof localStorage !== "undefined"
+        ? localStorage.getItem(TOKEN_KEY)
+        : null;
     } catch {
       return null;
     }

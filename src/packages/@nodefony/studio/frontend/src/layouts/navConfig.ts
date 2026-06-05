@@ -22,7 +22,6 @@ import {
   IconNetwork,
   IconFileText,
   IconSettings,
-  IconCode,
   IconActivityHeartbeat,
   IconBroadcast,
   IconCpu,
@@ -41,7 +40,7 @@ import {
   IconBulb,
   type Icon,
 } from "@tabler/icons-react";
-import { ROLE_DEV, ROLE_SUPERVISOR } from "../auth/dashboards";
+import { ROLE_SUPERVISOR } from "../auth/dashboards";
 
 /** Une entrée de navigation (lien vers une page Studio). */
 export interface NavItem {
@@ -91,12 +90,6 @@ export const NAV_GROUPS: NavGroup[] = [
         to: "/nodefony/workspace",
         label: "Mon bureau",
         icon: IconLayoutDashboard,
-      },
-      {
-        to: "/nodefony/dev",
-        label: "Dashboard Dev",
-        icon: IconCode,
-        roles: [ROLE_DEV],
       },
       {
         to: "/nodefony/supervision",

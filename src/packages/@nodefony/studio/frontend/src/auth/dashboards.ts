@@ -1,4 +1,4 @@
-import { IconCode, IconActivityHeartbeat, type Icon } from "@tabler/icons-react";
+import { IconActivityHeartbeat, type Icon } from "@tabler/icons-react";
 
 /**
  * Rôles applicatifs Studio. Convention `ROLE_*` (Symfony).
@@ -28,13 +28,6 @@ export interface DashboardDef {
  * Ajouter un rôle = une ligne ici + sa page + sa route dans `App.tsx`.
  */
 export const DASHBOARDS: readonly DashboardDef[] = [
-  {
-    role: ROLE_DEV,
-    path: "/nodefony/dev",
-    label: "Dashboard Dev",
-    description: "Introspection runtime, routes, modules, profiling.",
-    icon: IconCode,
-  },
   {
     role: ROLE_SUPERVISOR,
     path: "/nodefony/supervision",
