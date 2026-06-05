@@ -273,6 +273,14 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P13.10 | Granularité + cadence AIMD                       | différenciateur, client-driven                      |
 | ✅ P13.11 | Sonde « socket Nodefony »                        | `RealtimeHub.probe()` + endpoint health             |
 
+> **Dettes backplane multi-pod / multi-app** (à corriger en P13 — détail : [`docs/realtime/socket/08-distribue.md`](docs/realtime/socket/08-distribue.md)) :
+>
+> - **#1 (moyenne)** Namespace de topic **non câblé** : `REDIS_RT_CHANNEL="nodefony:realtime"` en dur, factory de prod ne passe pas le 3e arg, schéma sans champ → **cross-talk multi-app** sur Redis/Kafka mutualisé. Fix : champ config OU dérivation auto `kernel.name`.
+> - **#2 (HAUTE)** `originId = String(process.pid)` **non unique en k8s** (namespace PID par conteneur → PID 1 fréquent) → anti-echo confond 2 pods → **fan-out cross-pod jeté silencieusement**. Fix : `POD_NAME` / `os.hostname()` / `randomUUID`.
+> - **#3 (moyenne)** Pas de **frontière dure inter-module** (hub = namespace de canaux plat ; `subscribe` sur canal déjà créé ne repasse par aucune factory → fuite cross-module). S'aligne sur P6. → audit isolation inter-module dédié.
+>
+> **À FAIRE — banc de conformité ventilation** (très important, prouve le drop-in `IBackplane` ET exerce les dettes #1/#2) : `RealtimeController` « chat » minimal dans `src/modules/test` (route WS) + suite de scénarios **paramétrée par driver** (loopback/cluster IPC/redis/kafka), comportement observable **identique**. Scénarios : broadcast à 1 / à N même process / à N sur K pods / DM à 1 personne / canal non-broadcast (ne traverse pas) / anti-echo (1× pas 2×) / RPC local-only / unsubscribe ref-counting / pod rejoint après / ordre par pair. Réutilise le harnais `clusterIpc.e2e` (P13.9) + `testcontainers` redis/kafka. Matrice + sous-cas anti-cross-talk / anti-echo collision : [`docs/audits/realtime-module-isolation-2026-06-05.md`](docs/audits/realtime-module-isolation-2026-06-05.md) § Banc de conformité.
+
 ### P14 — Frontend Vite + Core isomorphe (75 %)
 
 | #         | Tâche                                     | État                                                                                                                                                                          |
