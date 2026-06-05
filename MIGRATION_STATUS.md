@@ -73,8 +73,8 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 ━━━━━━ NODEFONY · MIGRATION ━━━━━━━━━━━━━━━━━━━ vérifié code 2026-06-05 ━━━━━━
  P0  Bugs bloquants        ██████████ 100%   6✅  0🔶  0⬜
  P1  Fondations symbiose   ██████████ 100%   8✅  0🔶  0⬜
- P2  Cycle de vie Context  ███████░░░  72%   6✅  1🔶  2⬜
- P3  Logs structurés       ███████░░░  68%   6✅  3🔶  2⬜
+ P2  Cycle de vie Context  █████████░  89%   8✅  0🔶  1⬜
+ P3  Logs structurés       ███████░░░  73%   7✅  3🔶  1⬜
  P4  Tests symbiose        ██████████ 100%   6✅  0🔶  0⬜
  P5  Session/User/ORM core ██████░░░░  58%   9✅  3🔶  6⬜   ◀ (virage ORM : P5.7/P5.8 à recadrer)
  P6  Security              █░░░░░░░░░  12%   0✅  4🔶 13⬜   ◀ bloqueur MVP (0 test = 0 tâche close)
@@ -113,19 +113,19 @@ leaks scope DI sur erreur/session WS). Tests preuve présents (`http-rfc-errors`
 `Context.phases`, `onAfterResponse`, `signal` (AbortSignal lazy), **`RequestContext` ALS** (requestId/user), `errorRenderer`
 unifié HTTP+WS, `logRequest` pluggable, hooks security (`beforeResolve`/`afterAuth`/`onAuthFailure`), graphe symbolique `.ai/symbols.json`.
 
-### P2 — Cycle de vie Context (83 %)
+### P2 — Cycle de vie Context (89 %)
 
-| #       | Tâche                                  | État                                                                                  |
-| ------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
-| ✅ P2.1 | Boundary timing phase-by-phase         | via P1.1 (`Context.phases`, lazy)                                                     |
-| ✅ P2.2 | Tear-down déterministe (finish+close)  | via P1.2 (dedup race)                                                                 |
-| ✅ P2.3 | Aborted cleanup + 499 interne          | `client-abort-499.test.ts`                                                            |
-| ✅ P2.4 | `initialize()` error boundary          | crash → onError → 500 JSON cohérent                                                   |
-| ✅ P2.5 | Request timeout (408/504)              | 2 couches (Node natif + `onTimeout` Nodefony)                                         |
-| ⬜ P2.6 | Idempotency keys (`X-Idempotency-Key`) | dédup via ALS                                                                         |
-| ✅ P2.7 | W3C `traceparent` honor + génère       | `service/trace.ts`                                                                    |
-| ✅ P2.8 | Backpressure doc + tests streaming     | `write()===false` → attend `'drain'` (Node stream) ; CL⊥TE RFC 9112 §6.1 ; tests unit |
-| 🔶 P2.9 | Body streaming (`@Body({stream})`)     | multipart busboy OK ; reste option décorateur                                         |
+| #       | Tâche                                  | État                                                                                        |
+| ------- | -------------------------------------- | ------------------------------------------------------------------------------------------- |
+| ✅ P2.1 | Boundary timing phase-by-phase         | via P1.1 (`Context.phases`, lazy)                                                           |
+| ✅ P2.2 | Tear-down déterministe (finish+close)  | via P1.2 (dedup race)                                                                       |
+| ✅ P2.3 | Aborted cleanup + 499 interne          | `client-abort-499.test.ts`                                                                  |
+| ✅ P2.4 | `initialize()` error boundary          | crash → onError → 500 JSON cohérent                                                         |
+| ✅ P2.5 | Request timeout (408/504)              | 2 couches (Node natif + `onTimeout` Nodefony)                                               |
+| ⬜ P2.6 | Idempotency keys (`X-Idempotency-Key`) | dédup via ALS                                                                               |
+| ✅ P2.7 | W3C `traceparent` honor + génère       | `service/trace.ts`                                                                          |
+| ✅ P2.8 | Backpressure doc + tests streaming     | `write()===false` → attend `'drain'` (Node stream) ; CL⊥TE RFC 9112 §6.1 ; tests unit       |
+| ✅ P2.9 | Body streaming (`@Body({stream})`)     | flux brut (`Readable`), parse sauté ; route-match avant parse (A/B 0 régression) ; HTTP/1+2 |
 
 ### P3 — Logs structurés (68 %)
 

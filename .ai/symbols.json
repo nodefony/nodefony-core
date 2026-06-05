@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-05T15:51:39.214Z",
+  "generated": "2026-06-05T16:26:13.323Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 829,
-    "symbols": 1665,
+    "symbols": 1667,
     "classes": 245,
     "interfaces": 419,
     "types": 212,
     "enums": 3,
-    "functions": 312,
+    "functions": 314,
     "constants": 474
   },
   "symbols": {
@@ -4512,6 +4512,14 @@
       "module": "@nodefony/framework",
       "description": "Restreint une route (décorateur de **méthode**) ou tout un contrôleur (décorateur de **classe**) à un ou plusieurs vhosts. Source de vérité du domaine de routing — le `host` posé ici alimente `Rout…"
     },
+    "Body": {
+      "name": "Body",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Décorateur de paramètre `@Body` : - `@Body()` → body parsé entier · `@Body(\"field\")` → un champ du body parsé. - `@Body({ stream: true })` → **flux brut** de la requête (`Readable`), sans parse en …"
+    },
     "resolveParamArg": {
       "name": "resolveParamArg",
       "kind": "function",
@@ -4527,6 +4535,14 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Construit le tableau d'arguments d'une action à partir des métadonnées de paramètres décorés. Chaque valeur est placée à son `index` déclaré (les trous restent `undefined`). Fonction pure — aucun e…"
+    },
+    "routeExpectsBodyStream": {
+      "name": "routeExpectsBodyStream",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "P2.9 — Indique si l'action d'une route attend le **flux brut** du body (un paramètre `@Body({ stream:true })`). Le résultat est **mémoïsé** sur `route.bodyStream` : lecture `Reflect` au 1er appel, …"
     },
     "HTTP_CODE_METADATA": {
       "name": "HTTP_CODE_METADATA",
@@ -13362,6 +13378,12 @@
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts"
       ],
+      "Body": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
+      ],
       "Cookie": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/http/index.ts",
@@ -13389,6 +13411,10 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "routeExpectsBodyStream": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/framework/nodefony/service/router.ts"
       ],
       "createFrontendAdminApi": [
         "src/packages/@nodefony/frontend/index.ts"

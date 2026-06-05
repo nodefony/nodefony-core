@@ -10,6 +10,7 @@ import Route, { RouteOptions } from "../src/Route";
 import { ContextType, HttpError, isDomainAllowed } from "@nodefony/http";
 import Resolver from "../src/Resolver";
 import Controller from "../src/Controller";
+import { routeExpectsBodyStream } from "../decorators/routerDecorators";
 
 type RouteRequirementMethods = string | string[] | undefined;
 
@@ -84,6 +85,10 @@ class Router extends Service {
             routeNoticePromoted ? "NOTICE" : "DEBUG",
           );
           resolver.exception = undefined;
+          // P2.9 — pré-calcule (memo) le flag body-stream sur la route matchée :
+          // O(1) après le 1er hit. http lit ensuite `resolver.route.bodyStream`
+          // (booléen) en amont du parse — sans importer ce helper (cycle interdit).
+          routeExpectsBodyStream(routes[i]);
           return resolver;
         }
       } catch (e) {

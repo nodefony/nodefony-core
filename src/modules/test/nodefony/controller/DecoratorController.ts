@@ -60,6 +60,28 @@ class DecoratorController extends Controller {
     return this.renderJson({ name: name ?? null });
   }
 
+  // P2.9 — `@Body({ stream:true })` : le pipeline saute le parse busboy/JSON et
+  // injecte le flux brut (Readable). On le consomme en comptant les octets, et on
+  // prouve que le body n'a PAS été parsé (`queryPost` vide).
+  @Post("/body-stream")
+  async postBodyStream(@Body({ stream: true }) body: NodeJS.ReadableStream) {
+    const isReadable =
+      body != null && typeof (body as { pipe?: unknown }).pipe === "function";
+    let bytes = 0;
+    if (isReadable) {
+      await new Promise<void>((resolve, reject) => {
+        body.on("data", (chunk: Buffer) => {
+          bytes += chunk.length;
+        });
+        body.once("end", () => resolve());
+        body.once("error", reject);
+      });
+    }
+    const req = this.context.request as { queryPost?: Record<string, unknown> };
+    const parsedKeys = Object.keys(req.queryPost ?? {}).length;
+    return this.renderJson({ isReadable, bytes, parsedKeys });
+  }
+
   @Post("/mix/{id}")
   mix(
     @Param("id") id: string,

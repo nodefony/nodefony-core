@@ -219,6 +219,14 @@ export interface ParamMeta {
   source: ParamSource;
   key?: string;
   index: number;
+  /**
+   * P2.9 — `@Body({ stream: true })` : injecte le **flux brut** de la requête
+   * (`IncomingMessage`, un `Readable`) au lieu du body parsé en mémoire. Permet
+   * de piper un gros upload (vidéo, backup) vers disque/S3 sans pic RAM. Le
+   * pipeline saute le parse busboy/JSON pour la route concernée (cf
+   * `routeExpectsBodyStream` + `handleHttp`).
+   */
+  stream?: boolean;
 }
 
 export interface RedirectMeta {
@@ -386,8 +394,38 @@ function paramDecoratorFactory(source: ParamSource) {
 }
 
 const Param = paramDecoratorFactory("param");
-const Body = paramDecoratorFactory("body");
 const Query = paramDecoratorFactory("query");
+
+/**
+ * Décorateur de paramètre `@Body` :
+ * - `@Body()` → body parsé entier · `@Body("field")` → un champ du body parsé.
+ * - `@Body({ stream: true })` → **flux brut** de la requête (`Readable`), sans
+ *   parse en mémoire (P2.9 — gros uploads sans pic RAM ; le pipeline saute le
+ *   parse busboy/JSON pour cette route).
+ */
+function Body(keyOrOptions?: string | { stream?: boolean }) {
+  const isOptions = typeof keyOrOptions === "object" && keyOrOptions !== null;
+  const key = isOptions ? undefined : (keyOrOptions as string | undefined);
+  const stream = isOptions
+    ? (keyOrOptions as { stream?: boolean }).stream === true
+    : false;
+  return function (
+    target: object,
+    propertyKey: string,
+    parameterIndex: number,
+  ): void {
+    const existing: ParamMeta[] =
+      Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) || [];
+    // `stream` n'est posé QUE s'il vaut true → `@Body()`/`@Body("k")` gardent
+    // exactement la forme historique `{source,key,index}` (rétro-compat tests).
+    const meta: ParamMeta = { source: "body", key, index: parameterIndex };
+    if (stream) {
+      meta.stream = true;
+    }
+    existing.push(meta);
+    Reflect.defineMetadata(PARAM_ARGS_METADATA, existing, target, propertyKey);
+  };
+}
 const Headers = paramDecoratorFactory("headers");
 const Cookie = paramDecoratorFactory("cookie");
 const Session = paramDecoratorFactory("session");
@@ -412,6 +450,12 @@ export interface IParamArgContext {
     queryPost?: Record<string, unknown>;
     queryFile?: unknown[];
     headers?: Record<string, unknown>;
+    /**
+     * P2.9 — `IncomingMessage` brut (un `Readable`) sous-jacent au wrapper
+     * `HttpRequest`. Injecté tel quel par `@Body({ stream: true })` (le pipeline
+     * n'a pas consommé/parsé ce flux). `undefined` pour les contextes WS.
+     */
+    request?: NodeJS.ReadableStream;
   } | null;
   response?: unknown;
   session?: { get(key: string): unknown } | null;
@@ -434,6 +478,12 @@ function resolveParamArg(meta: ParamMeta, ctx: IParamArgContext): unknown {
       return meta.key !== undefined ? qg?.[meta.key] : qg;
     }
     case "body": {
+      // P2.9 — `@Body({ stream:true })` → flux brut (Readable), jamais parsé.
+      // Le pipeline a sauté le parse pour cette route ; le controller pipe le
+      // flux lui-même (gros upload sans pic mémoire).
+      if (meta.stream) {
+        return ctx.request?.request;
+      }
       const qp = ctx.request?.queryPost;
       return meta.key !== undefined ? qp?.[meta.key] : qp;
     }
@@ -476,6 +526,35 @@ function buildParamArgs(metas: ParamMeta[], ctx: IParamArgContext): unknown[] {
   return result;
 }
 
+/**
+ * P2.9 — Indique si l'action d'une route attend le **flux brut** du body
+ * (un paramètre `@Body({ stream:true })`). Le résultat est **mémoïsé** sur
+ * `route.bodyStream` : lecture `Reflect` au 1er appel, O(1) ensuite → 0 coût
+ * hot-path. Lu **en amont** par `handleHttp` (avant le parse) pour décider de
+ * sauter le parse busboy/JSON. Typage structurel (pas d'import `Route` → 0 cycle).
+ *
+ * @param route - route résolue (porte `controller` + `classMethod` à `onBoot`).
+ * @returns `true` si l'action déclare un `@Body({ stream:true })`.
+ */
+function routeExpectsBodyStream(route: {
+  controller?: { prototype: object } | null;
+  classMethod?: string;
+  bodyStream?: boolean;
+}): boolean {
+  if (route.bodyStream === undefined) {
+    let flag = false;
+    const ctor = route.controller;
+    const method = route.classMethod;
+    if (ctor && method) {
+      const metas: ParamMeta[] =
+        Reflect.getMetadata(PARAM_ARGS_METADATA, ctor.prototype, method) || [];
+      flag = metas.some((m) => m.source === "body" && m.stream === true);
+    }
+    route.bodyStream = flag;
+  }
+  return route.bodyStream;
+}
+
 export {
   route,
   controller,
@@ -504,4 +583,5 @@ export {
   UploadedFiles,
   resolveParamArg,
   buildParamArgs,
+  routeExpectsBodyStream,
 };

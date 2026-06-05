@@ -133,6 +133,13 @@ class Route implements IRoute {
    */
   hostRegexp?: RegExp[];
   bypassFirewall: boolean = false;
+  /**
+   * P2.9 — Cache mémoïsé : l'action attend-elle le **flux brut** du body
+   * (`@Body({ stream:true })`) ? `undefined` = pas encore calculé (résolu au 1er
+   * `routeExpectsBodyStream(route)` via lecture `Reflect` des `ParamMeta`, O(1)
+   * ensuite). Lu en amont par `handleHttp` pour sauter le parse.
+   */
+  bodyStream?: boolean;
   filePath?: string;
   /**
    * Module propriétaire de la route — set par `Router.setController()` à

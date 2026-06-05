@@ -48,6 +48,7 @@ import {
   Res,
   UploadedFile,
   UploadedFiles,
+  routeExpectsBodyStream,
 } from "./nodefony/decorators/routerDecorators";
 
 @services([Router, Eta, AdminBroker])
@@ -173,6 +174,7 @@ export {
   Res,
   UploadedFile,
   UploadedFiles,
+  routeExpectsBodyStream,
   graphql,
   frameworkConfigSchema,
   frameworkConfigJsonSchema,

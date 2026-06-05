@@ -351,13 +351,19 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         }
       }
     }
-    // FRONT ROUTER
-    context.phaseStart("resolve");
+    // FRONT ROUTER — P2.9 : réutilise le résolveur si déjà matché EN AMONT
+    // (handleHttp hisse le match avant le parse pour décider du skip). Sinon
+    // (WebSocket, ou pas de pré-match), match ici comme avant. Pas de double match.
     let resolver: Resolver;
-    try {
-      resolver = this.router.resolve(context);
-    } finally {
-      context.phaseEnd("resolve");
+    if (context.resolver) {
+      resolver = context.resolver as Resolver;
+    } else {
+      context.phaseStart("resolve");
+      try {
+        resolver = this.router.resolve(context);
+      } finally {
+        context.phaseEnd("resolve");
+      }
     }
     if (resolver.resolve && !resolver.exception) {
       context.resolver = resolver;
@@ -726,9 +732,28 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           queries: profilerQueries ?? undefined,
         },
         async (): Promise<HttpContext> => {
+          // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
+          // n'utilise pas le body). Permet de SAUTER le parse busboy/JSON quand
+          // l'action attend le flux brut (`@Body({ stream:true })` → le controller
+          // pipe le Readable lui-même, sans pic mémoire). Le résolveur est RÉUTILISÉ
+          // par handleFrontController (pas de double match → net ~0 perf). resolve()
+          // ne throw jamais (pose `resolver.exception`) ; route non matchée → parse
+          // normal (comportement 404 inchangé). Isolé HTTP : handleWebsocket ne
+          // parse aucun body. Ordre des hooks P6 (beforeResolve/firewall) inchangé.
+          context!.phaseStart("resolve");
+          context!.resolver = this.router
+            ? this.router.resolve(context! as ContextType)
+            : null;
+          context!.phaseEnd("resolve");
+          const streamBody =
+            context!.resolver?.resolve === true &&
+            context!.resolver.route?.bodyStream === true;
           context!.phaseStart("parse");
           try {
-            await context!.request.initialize();
+            if (!streamBody) {
+              await context!.request.initialize();
+            }
+            // streamBody : body laissé en flux brut (Readable) pour @Body({stream})
           } finally {
             context!.phaseEnd("parse");
           }
