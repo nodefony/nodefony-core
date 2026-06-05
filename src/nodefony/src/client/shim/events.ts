@@ -1,10 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Shim browser de `node:events` — EventEmitter minimal mais complet pour
- * Event.ts (on/once/off/emit/setMaxListeners). Aucune dépendance npm.
+ * Event.ts (on/once/off/emit/setMaxListeners + raw/prepend). Aucune dépendance npm.
  *
- * Implémente l'API utilisée par Nodefony : pas d'event `error` spécial,
- * pas de `prependListener`/`prependOnceListener` ni `Symbol.for("nodejs.rejection")`.
+ * Couvre l'API EventEmitter réellement appelée par le core isomorphe (Service /
+ * Event / Syslog) : `rawListeners` (utilisé par `Event.emitAsync`/`emitAsyncGuarded`,
+ * le bus async `fireAsync`) et `prependListener`/`prependOnceListener` (Service.nc).
+ * Ce shim ne distingue PAS les wrappers `once` des listeners bruts (`rawListeners`
+ * ≡ `listeners`) — suffisant pour l'itération de `emitAsync`. Pas d'event `error`
+ * spécial ni `Symbol.for("nodejs.rejection")`.
  */
 type Listener = (...args: any[]) => void;
 
@@ -84,6 +88,32 @@ export class EventEmitter {
 
   getMaxListeners(): number {
     return this._maxListeners;
+  }
+
+  /**
+   * Copie des listeners — ce shim ne wrappe pas distinctement les `once`, donc
+   * `rawListeners` ≡ {@link listeners}. Appelé par `Event.emitAsync` (hot path
+   * du bus async `fireAsync`) pour itérer les handlers sans muter la liste.
+   */
+  rawListeners(event: string | symbol): Listener[] {
+    return (this._listeners.get(event) ?? []).slice();
+  }
+
+  /** Comme {@link on} mais inséré en TÊTE de la liste des listeners. */
+  prependListener(event: string | symbol, fn: Listener): this {
+    const arr = this._listeners.get(event) ?? [];
+    arr.unshift(fn);
+    this._listeners.set(event, arr);
+    return this;
+  }
+
+  /** Comme {@link once} mais inséré en TÊTE de la liste des listeners. */
+  prependOnceListener(event: string | symbol, fn: Listener): this {
+    const wrapper = (...args: any[]) => {
+      this.off(event, wrapper);
+      fn(...args);
+    };
+    return this.prependListener(event, wrapper);
   }
 }
 

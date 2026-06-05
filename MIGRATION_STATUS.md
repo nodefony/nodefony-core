@@ -85,7 +85,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P11 CLI par module        ███░░░░░░░  33%   1✅  2🔶  3⬜
  P12 Couche IA agentic     ██░░░░░░░░  17%   0✅  2🔶  4⬜   🧪 différé (squelettes brainstorming, non audité)
  P13 Realtime distribué    ████████░░  77%   7✅  3🔶  1⬜
- P14 Frontend Vite + iso   ███████░░░  72%  10✅  3🔶  3⬜
+ P14 Frontend Vite + iso   ████████░░  75%  11✅  2🔶  3⬜
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
  P16 Cloud-Native (8 axes) ███░░░░░░░  26%   8✅  1🔶 24⬜
 ────────────────────────────────────────────────────────────────────────
@@ -273,26 +273,26 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P13.10 | Granularité + cadence AIMD                       | différenciateur, client-driven                      |
 | ✅ P13.11 | Sonde « socket Nodefony »                        | `RealtimeHub.probe()` + endpoint health             |
 
-### P14 — Frontend Vite + Core isomorphe (72 %)
+### P14 — Frontend Vite + Core isomorphe (75 %)
 
-| #         | Tâche                                     | État                                                                   |
-| --------- | ----------------------------------------- | ---------------------------------------------------------------------- |
-| ✅ P14.1  | Interfaces + décision Vite                | —                                                                      |
-| ✅ P14.2  | Preset `vue3-vite`                        | + module test-frontend-vue                                             |
-| ✅ P14.3  | Preset `react19-vite`                     | + Fast Refresh                                                         |
-| ✅ P14.4  | `ViteProcessSupervisor`                   | child process isolé, résilience                                        |
-| ✅ P14.5  | Build prod (manifest) + statique          | page blanche prod/cluster résolue (`renderProdTags`)                   |
-| ✅ P14.6  | Multi-module frontend                     | N bundles cohabitent                                                   |
-| 🔶 P14.7  | CLI `frontend:create/build/dev`           | commands existent (bug CLI) ; skill scaffold ✓                         |
-| ✅ P14.8  | Tests intégration                         | 14 unit + 3 real spawn                                                 |
-| 🔶 P14.9  | Presets Svelte/Solid/**Angular**/Vue      | **Angular ✅** (instance isolée) ; reste Svelte/Solid                  |
-| ✅ P14.10 | Migration Studio sur `@nodefony/frontend` | 1er consommateur prod                                                  |
-| 🔶 P14.11 | **Core isomorphe**                        | `exports.browser` + RealtimeClient OK ; reste Container/Syslog/Service |
-| ⬜ P14.12 | Plugin Vite Nodefony (alias + env)        | zéro config dev                                                        |
-| ✅ P14.13 | Multi-instance Vite résilient             | familles d'isolation (default/angular)                                 |
-| ⬜ P14.14 | API CSP origines dynamiques               | remplace hack POC                                                      |
-| ✅ P14.15 | DevSupervisor auto-restart                | group-kill anti-orphelin, rebuild ciblé                                |
-| ⬜ P14.16 | Syslog isomorphe (logs front → back)      | traçabilité front                                                      |
+| #         | Tâche                                     | État                                                                                                                                                                          |
+| --------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ P14.1  | Interfaces + décision Vite                | —                                                                                                                                                                             |
+| ✅ P14.2  | Preset `vue3-vite`                        | + module test-frontend-vue                                                                                                                                                    |
+| ✅ P14.3  | Preset `react19-vite`                     | + Fast Refresh                                                                                                                                                                |
+| ✅ P14.4  | `ViteProcessSupervisor`                   | child process isolé, résilience                                                                                                                                               |
+| ✅ P14.5  | Build prod (manifest) + statique          | page blanche prod/cluster résolue (`renderProdTags`)                                                                                                                          |
+| ✅ P14.6  | Multi-module frontend                     | N bundles cohabitent                                                                                                                                                          |
+| 🔶 P14.7  | CLI `frontend:create/build/dev`           | commands existent (bug CLI) ; skill scaffold ✓                                                                                                                                |
+| ✅ P14.8  | Tests intégration                         | 14 unit + 3 real spawn                                                                                                                                                        |
+| 🔶 P14.9  | Presets Svelte/Solid/**Angular**/Vue      | **Angular ✅** (instance isolée) ; reste Svelte/Solid                                                                                                                         |
+| ✅ P14.10 | Migration Studio sur `@nodefony/frontend` | 1er consommateur prod                                                                                                                                                         |
+| ✅ P14.11 | **Core isomorphe**                        | Container/Service/Event/Syslog/Pdu runnable browser — shim `node:events` complété (`rawListeners`/`prepend*`, hot path `emitAsync`) ; 0 `node:` runtime dans le bundle client |
+| ⬜ P14.12 | Plugin Vite Nodefony (alias + env)        | zéro config dev                                                                                                                                                               |
+| ✅ P14.13 | Multi-instance Vite résilient             | familles d'isolation (default/angular)                                                                                                                                        |
+| ⬜ P14.14 | API CSP origines dynamiques               | remplace hack POC                                                                                                                                                             |
+| ✅ P14.15 | DevSupervisor auto-restart                | group-kill anti-orphelin, rebuild ciblé                                                                                                                                       |
+| ⬜ P14.16 | Syslog isomorphe (logs front → back)      | traçabilité front                                                                                                                                                             |
 
 ### P15 — Mediasoup + SIP/Asterisk (0 %)
 
