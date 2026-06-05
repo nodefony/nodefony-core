@@ -299,6 +299,16 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-05]` **profiler perf = banc PROPRE ou mesures FAUSSES (×3 dans la session)** : (a) `NODE_ENV=development`
+  hérité dans l'env du spawn → `nodefony production` boote en **dev+Vite+throttle** (~2000 RPS au lieu de 6000) car
+  `resolveRuntimeEnv` fait primer NODE_ENV ; **forcer `NODE_ENV=production`** dans le spawn. (b) Les **Vite orphelins**
+  (title `nodefony-core`) survivent et **échappent à `pkill -f bin/nodefony`** → tuer par **PORT** (`lsof -ti tcp:5151,5152,5173,5177 | xargs kill -9`)
+  - `pkill -f vite.js` + **vérifier `pgrep -c vite.js`=0**. (c) Toujours vérifier que `lsof -ti tcp:5151` == MON PID (sinon
+    bench d'un fantôme). Méthode complète + baseline node nu + piège `node --prof` macOS (C++ faux symbole) → [[reference_perf_profiling_method]].
+- `[1× — 2026-06-05]` **mesurer un gain AVANT de refondre, et l'abandonner s'il est noyé** : #3 (fireAsync 0-listener)
+  semblait fondé mais gain RPS sous le bruit mono ±5% → abandonné après mesure (gardé car cohérent perf, mais 0 gain prouvé).
+  À l'inverse #1 router-first = +28% net mesuré par bypass toggle AVANT d'écrire le vrai fix. **A/B en MONO** (cluster co-localisé
+  = co-location-bound, ne montre pas le gain CPU). Discipline « pas de fait sans preuve » = a évité 1 refonte inutile.
 - `[1× — 2026-06-04]` **résilience de la phase config = à blinder SÉPARÉMENT du lifecycle** : `fireLifecycle`/
   `guardInitialize` (Phase 3 du kit boot, DÉJÀ livrée — kit périmé) couvrent les hooks modules, PAS `loadApp`
   (import app + résolution `defineConfig`). Une config invalide y throw une stack opaque. Fix = try/catch →
