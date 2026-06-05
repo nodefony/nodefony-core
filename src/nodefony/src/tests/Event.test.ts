@@ -35,25 +35,26 @@ describe("Event — namespace", () => {
 // ─── 2. Construction avec settings (settingsToListen) ────────────────────────
 
 describe("Event — construction avec settings", () => {
-  it("settingsToListen via constructeur — déclenche l'écoute des clés onXxx", (done) => {
-    const received: string[] = [];
-    const settings = {
-      onFoo: () => {
-        received.push("foo");
-      },
-      onBar: () => {
-        received.push("bar");
-      },
-      ignoredKey: () => {
-        received.push("ignored");
-      },
-    };
-    const ev = new Event(settings);
-    ev.emit("onFoo");
-    ev.emit("onBar");
-    assert.deepEqual(received, ["foo", "bar"]);
-    done();
-  });
+  it("settingsToListen via constructeur — déclenche l'écoute des clés onXxx", () =>
+    new Promise<void>((done) => {
+      const received: string[] = [];
+      const settings = {
+        onFoo: () => {
+          received.push("foo");
+        },
+        onBar: () => {
+          received.push("bar");
+        },
+        ignoredKey: () => {
+          received.push("ignored");
+        },
+      };
+      const ev = new Event(settings);
+      ev.emit("onFoo");
+      ev.emit("onBar");
+      assert.deepEqual(received, ["foo", "bar"]);
+      done();
+    }));
 
   it("settingsToListen — ignores les clés sans préfixe on", () => {
     const called: string[] = [];
@@ -62,19 +63,20 @@ describe("Event — construction avec settings", () => {
     assert.deepEqual(called, []);
   });
 
-  it("settingsToListen avec context — bind correct", (done) => {
-    const ctx = { value: 42 };
-    let capturedThis: any = null;
-    const settings = {
-      onBound: function (this: any) {
-        capturedThis = this;
-      },
-    };
-    const ev = new Event(settings, ctx);
-    ev.emit("onBound");
-    assert.strictEqual(capturedThis, ctx);
-    done();
-  });
+  it("settingsToListen avec context — bind correct", () =>
+    new Promise<void>((done) => {
+      const ctx = { value: 42 };
+      let capturedThis: any = null;
+      const settings = {
+        onBound: function (this: any) {
+          capturedThis = this;
+        },
+      };
+      const ev = new Event(settings, ctx);
+      ev.emit("onBound");
+      assert.strictEqual(capturedThis, ctx);
+      done();
+    }));
 
   it("options.nbListeners — configure setMaxListeners", () => {
     const ev = new Event(undefined, undefined, { nbListeners: 50 });
@@ -112,21 +114,23 @@ describe("Event — listen()", () => {
     expect(fn).to.be.a("function");
   });
 
-  it("listener est appelé lors du emit", (done) => {
-    const ev = new Event();
-    ev.listen({}, "onPing", () => done());
-    ev.emit("onPing");
-  });
+  it("listener est appelé lors du emit", () =>
+    new Promise<void>((done) => {
+      const ev = new Event();
+      ev.listen({}, "onPing", () => done());
+      ev.emit("onPing");
+    }));
 
-  it("listener est bindé au context", (done) => {
-    const ctx = { tag: "ctx" };
-    const ev = new Event();
-    ev.listen(ctx, "onCtx", function (this: any) {
-      assert.strictEqual(this.tag, "ctx");
-      done();
-    });
-    ev.emit("onCtx");
-  });
+  it("listener est bindé au context", () =>
+    new Promise<void>((done) => {
+      const ctx = { tag: "ctx" };
+      const ev = new Event();
+      ev.listen(ctx, "onCtx", function (this: any) {
+        assert.strictEqual(this.tag, "ctx");
+        done();
+      });
+      ev.emit("onCtx");
+    }));
 
   it("listener non-function est ignoré (pas d'erreur)", () => {
     const ev = new Event();
@@ -280,34 +284,36 @@ describe("NODEFONY Notifications Center", () => {
     before(() => {
       global.notificationsCenter = create();
     });
-    it("register", (done) => {
-      assert(Event);
-      assert(notification);
-      assert(global.notificationsCenter instanceof Event);
-      assert(create);
-      done();
-    });
+    it("register", () =>
+      new Promise<void>((done) => {
+        assert(Event);
+        assert(notification);
+        assert(global.notificationsCenter instanceof Event);
+        assert(create);
+        done();
+      }));
   });
 
   describe("sync", () => {
-    it("sync fire + emit reçus dans l'ordre", (done) => {
-      if (!global.notificationsCenter) throw new Error("global not ready");
-      const obj = {};
-      global.notificationsCenter.on("myEvent", (count, args) => {
-        assert.strictEqual(args, obj);
-        if (count === 1) {
-          done();
-        } else {
-          assert.strictEqual(count, 0);
-        }
-      });
-      let i = 0;
-      setTimeout(() => {
+    it("sync fire + emit reçus dans l'ordre", () =>
+      new Promise<void>((done) => {
         if (!global.notificationsCenter) throw new Error("global not ready");
-        global.notificationsCenter.fire("myEvent", i, obj);
-        global.notificationsCenter.emit("myEvent", ++i, obj);
-      }, 100);
-    });
+        const obj = {};
+        global.notificationsCenter.on("myEvent", (count, args) => {
+          assert.strictEqual(args, obj);
+          if (count === 1) {
+            done();
+          } else {
+            assert.strictEqual(count, 0);
+          }
+        });
+        let i = 0;
+        setTimeout(() => {
+          if (!global.notificationsCenter) throw new Error("global not ready");
+          global.notificationsCenter.fire("myEvent", i, obj);
+          global.notificationsCenter.emit("myEvent", ++i, obj);
+        }, 100);
+      }));
   });
 
   describe("async", () => {
@@ -374,21 +380,18 @@ describe("NODEFONY Notifications Center", () => {
         throw new Error("myError");
       };
       global.notificationsCenter.on("myEvent", async (count, args) => args);
-      global.notificationsCenter.on(
-        "myEvent",
-        async () => await myFunc2(),
-      );
+      global.notificationsCenter.on("myEvent", async () => await myFunc2());
       const res = await global.notificationsCenter
         .fireAsync("myEvent", 0, {})
         .catch((e: Error) => {
           assert.strictEqual(e.message, "myError");
         });
       assert.strictEqual(res, undefined);
-      const p = global.notificationsCenter.fireAsync("myEvent", 0, {}).catch(
-        (e: Error) => {
+      const p = global.notificationsCenter
+        .fireAsync("myEvent", 0, {})
+        .catch((e: Error) => {
           assert.strictEqual(e.message, "myError");
-        },
-      );
+        });
       assert(isPromise(p));
     });
   });

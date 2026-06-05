@@ -272,6 +272,19 @@ describe("Kernel — clusterIsMaster", () => {
 // ─── 5. setEnv ───────────────────────────────────────────────────────────────
 
 describe("Kernel — setEnv", () => {
+  // `resolveRuntimeEnv` priorise NODE_ENV (12-factor). Vitest pose NODE_ENV='test'
+  // (≠ mocha qui le laissait absent) → il écraserait l'argument testé. Ces tests
+  // vérifient la branche `fromCommand`/`environment` : on neutralise NODE_ENV le
+  // temps du bloc (puis on restaure) pour tester la résolution sans l'ambient.
+  const savedNodeEnv = process.env.NODE_ENV;
+  beforeEach(() => {
+    delete process.env.NODE_ENV;
+  });
+  afterEach(() => {
+    if (savedNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = savedNodeEnv;
+  });
+
   it("'development' → environment='development'", () => {
     const k = mkKernel("production");
     k.setEnv("development");

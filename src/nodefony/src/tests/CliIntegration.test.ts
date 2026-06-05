@@ -201,292 +201,288 @@ async function spawnServerAndCountBoots(
   }
 }
 
-describe("CLI integration — commandes terminantes (--help / --version)", function () {
-  this.timeout(40000);
-  this.slow(8000);
+// Skip si le dist n'est pas bâti (le bin importe `nodefony` depuis dist).
+describe.skipIf(!fs.existsSync(DIST))(
+  "CLI integration — commandes terminantes (--help / --version)",
+  () => {
+    vi.setConfig({ testTimeout: 40000, hookTimeout: 40000 });
 
-  before(function () {
-    if (!fs.existsSync(DIST)) {
-      this.skip(); // bin importe `nodefony` (dist) → inutile sans build
-    }
-  });
-
-  it("--help → exit 0 et liste les commandes built-in", async () => {
-    const r = await runCli(["--help"]);
-    assert.strictEqual(
-      r.code,
-      0,
-      `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
-    );
-    const txt = r.stdout + r.stderr;
-    for (const name of ["production", "cluster", "build", "development"]) {
-      assert.ok(txt.includes(name), `--help doit lister "${name}"\n${txt}`);
-    }
-  });
-
-  it("--help (production) liste les commandes des modules MANDATORY, pas les dev-only", async () => {
-    // Sans commande d'env, le bin résout le mode runtime au défaut PRODUCTION
-    // (12-factor safe — cf Kernel.resolveRuntimeEnv). On le force ici pour un test
-    // déterministe quel que soit le NODE_ENV de la suite mocha.
-    const r = await runCli(["--help"], 30000, { NODE_ENV: "production" });
-    assert.strictEqual(
-      r.code,
-      0,
-      `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
-    );
-    const txt = r.stdout + r.stderr;
-    // Commandes posées par des modules MANDATORY (@nodefony/http → network,
-    // @nodefony/frontend → frontend:build) : présentes même en production.
-    for (const name of ["network", "frontend:build"]) {
-      assert.ok(
-        txt.includes(name),
-        `--help doit lister la commande de module "${name}"\n${txt}`,
+    it("--help → exit 0 et liste les commandes built-in", async () => {
+      const r = await runCli(["--help"]);
+      assert.strictEqual(
+        r.code,
+        0,
+        `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
       );
-    }
-    // Les commandes des modules `policy:"dev"` (ex. test:batch du module
-    // @nodefony/test) sont légitimement ABSENTES du help en production (gating).
-    assert.ok(
-      !txt.includes("test:batch"),
-      `--help en production ne doit PAS lister une commande dev-only\n${txt}`,
-    );
-    // Help-only : aucun serveur ne doit démarrer.
-    assert.ok(
-      !READY_RE.test(txt),
-      `--help ne doit JAMAIS démarrer un serveur\n${txt}`,
-    );
-  });
+      const txt = r.stdout + r.stderr;
+      for (const name of ["production", "cluster", "build", "development"]) {
+        assert.ok(txt.includes(name), `--help doit lister "${name}"\n${txt}`);
+      }
+    });
 
-  it("--help en development liste AUSSI les commandes des modules dev (test:batch)", async () => {
-    // En mode development, les modules `policy:"dev"` sont chargés → leurs commandes
-    // apparaissent dans le help (gating dev reflété dans la surface CLI).
-    const r = await runCli(["--help"], 30000, { NODE_ENV: "development" });
-    assert.strictEqual(
-      r.code,
-      0,
-      `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
-    );
-    const txt = r.stdout + r.stderr;
-    assert.ok(
-      txt.includes("test:batch"),
-      `--help (development) doit lister la commande dev "test:batch"\n${txt}`,
-    );
-    assert.ok(
-      !READY_RE.test(txt),
-      `--help ne doit JAMAIS démarrer un serveur\n${txt}`,
-    );
-  });
+    it("--help (production) liste les commandes des modules MANDATORY, pas les dev-only", async () => {
+      // Sans commande d'env, le bin résout le mode runtime au défaut PRODUCTION
+      // (12-factor safe — cf Kernel.resolveRuntimeEnv). On le force ici pour un test
+      // déterministe quel que soit le NODE_ENV de la suite mocha.
+      const r = await runCli(["--help"], 30000, { NODE_ENV: "production" });
+      assert.strictEqual(
+        r.code,
+        0,
+        `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
+      );
+      const txt = r.stdout + r.stderr;
+      // Commandes posées par des modules MANDATORY (@nodefony/http → network,
+      // @nodefony/frontend → frontend:build) : présentes même en production.
+      for (const name of ["network", "frontend:build"]) {
+        assert.ok(
+          txt.includes(name),
+          `--help doit lister la commande de module "${name}"\n${txt}`,
+        );
+      }
+      // Les commandes des modules `policy:"dev"` (ex. test:batch du module
+      // @nodefony/test) sont légitimement ABSENTES du help en production (gating).
+      assert.ok(
+        !txt.includes("test:batch"),
+        `--help en production ne doit PAS lister une commande dev-only\n${txt}`,
+      );
+      // Help-only : aucun serveur ne doit démarrer.
+      assert.ok(
+        !READY_RE.test(txt),
+        `--help ne doit JAMAIS démarrer un serveur\n${txt}`,
+      );
+    });
 
-  it("invocation nue `nodefony` → même help complet (built-ins + modules), exit 0", async () => {
-    const r = await runCli([]);
-    assert.strictEqual(
-      r.code,
-      0,
-      `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
-    );
-    const txt = r.stdout + r.stderr;
-    assert.ok(
-      txt.includes("development"),
-      `nu doit lister un built-in\n${txt}`,
-    );
-    assert.ok(
-      txt.includes("network"),
-      `nu doit lister une commande de module\n${txt}`,
-    );
-  });
+    it("--help en development liste AUSSI les commandes des modules dev (test:batch)", async () => {
+      // En mode development, les modules `policy:"dev"` sont chargés → leurs commandes
+      // apparaissent dans le help (gating dev reflété dans la surface CLI).
+      const r = await runCli(["--help"], 30000, { NODE_ENV: "development" });
+      assert.strictEqual(
+        r.code,
+        0,
+        `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
+      );
+      const txt = r.stdout + r.stderr;
+      assert.ok(
+        txt.includes("test:batch"),
+        `--help (development) doit lister la commande dev "test:batch"\n${txt}`,
+      );
+      assert.ok(
+        !READY_RE.test(txt),
+        `--help ne doit JAMAIS démarrer un serveur\n${txt}`,
+      );
+    });
 
-  it("--version → exit 0 et imprime un numéro de version", async () => {
-    const r = await runCli(["--version"]);
-    assert.strictEqual(
-      r.code,
-      0,
-      `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
-    );
-    assert.ok(
-      /\d+\.\d+\.\d+/.test(r.stdout + r.stderr),
-      `version semver attendue\n${r.stdout}${r.stderr}`,
-    );
-  });
-});
+    it("invocation nue `nodefony` → même help complet (built-ins + modules), exit 0", async () => {
+      const r = await runCli([]);
+      assert.strictEqual(
+        r.code,
+        0,
+        `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
+      );
+      const txt = r.stdout + r.stderr;
+      assert.ok(
+        txt.includes("development"),
+        `nu doit lister un built-in\n${txt}`,
+      );
+      assert.ok(
+        txt.includes("network"),
+        `nu doit lister une commande de module\n${txt}`,
+      );
+    });
 
-describe("CLI integration — boot réel (RUN_CLI_BOOT=1)", function () {
-  this.timeout(90000);
-  this.slow(20000);
+    it("--version → exit 0 et imprime un numéro de version", async () => {
+      const r = await runCli(["--version"]);
+      assert.strictEqual(
+        r.code,
+        0,
+        `exit code attendu 0, reçu ${r.code}\n${r.stderr}`,
+      );
+      assert.ok(
+        /\d+\.\d+\.\d+/.test(r.stdout + r.stderr),
+        `version semver attendue\n${r.stdout}${r.stderr}`,
+      );
+    });
+  },
+);
 
-  before(async function () {
-    if (!RUN_BOOT) this.skip();
-    if (!fs.existsSync(DIST)) this.skip();
-    if (await isPortOpen(HTTP_PORT)) {
-      // Un serveur tourne déjà (dev) → le child échouerait EADDRINUSE. On skip plutôt
-      // que de produire un faux négatif. Stopper le serveur avant de relancer le filet.
-      this.skip();
-    }
-  });
+// Skip hors RUN_CLI_BOOT ou sans dist (conditions sync). « Serveur déjà up » est
+// une condition ASYNC → vérifiée par beforeEach via ctx.skip().
+describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
+  "CLI integration — boot réel (RUN_CLI_BOOT=1)",
+  () => {
+    vi.setConfig({ testTimeout: 90000, hookTimeout: 90000 });
+    beforeEach(async (ctx) => {
+      // Un serveur tourne déjà (dev) → le child échouerait EADDRINUSE → skip soft.
+      if (await isPortOpen(HTTP_PORT)) ctx.skip();
+    });
 
-  it("commande inconnue (typo) → exit ≠ 0 et AUCUN serveur démarré", async () => {
-    const r = await runCli(["foobar:nope"], 60000);
-    assert.notStrictEqual(r.code, 0, "une typo doit échouer (exit ≠ 0)");
-    assert.ok(
-      !READY_RE.test(r.stdout + r.stderr),
-      `une typo ne doit JAMAIS démarrer un serveur (fallback serveur legacy)\n${r.stdout}`,
-    );
-  });
+    it("commande inconnue (typo) → exit ≠ 0 et AUCUN serveur démarré", async () => {
+      const r = await runCli(["foobar:nope"], 60000);
+      assert.notStrictEqual(r.code, 0, "une typo doit échouer (exit ≠ 0)");
+      assert.ok(
+        !READY_RE.test(r.stdout + r.stderr),
+        `une typo ne doit JAMAIS démarrer un serveur (fallback serveur legacy)\n${r.stdout}`,
+      );
+    });
 
-  it("production --workers 1 → UN SEUL Kernel par process", async () => {
-    const { boots, out } = await spawnServerAndCountBoots([
-      "production",
-      "--workers",
-      "1",
-    ]);
-    assert.strictEqual(
-      boots,
-      1,
-      `production -w1 doit créer 1 seul Kernel, observé ${boots} (double-boot)\n${out.slice(-2000)}`,
-    );
-  });
+    it("production --workers 1 → UN SEUL Kernel par process", async () => {
+      const { boots, out } = await spawnServerAndCountBoots([
+        "production",
+        "--workers",
+        "1",
+      ]);
+      assert.strictEqual(
+        boots,
+        1,
+        `production -w1 doit créer 1 seul Kernel, observé ${boots} (double-boot)\n${out.slice(-2000)}`,
+      );
+    });
 
-  it("cluster --workers 1 → UN SEUL Kernel par process (mono)", async () => {
-    const { boots, out } = await spawnServerAndCountBoots([
-      "cluster",
-      "--workers",
-      "1",
-    ]);
-    assert.strictEqual(
-      boots,
-      1,
-      `cluster -w1 doit créer 1 seul Kernel, observé ${boots} (double-boot)\n${out.slice(-2000)}`,
-    );
-  });
+    it("cluster --workers 1 → UN SEUL Kernel par process (mono)", async () => {
+      const { boots, out } = await spawnServerAndCountBoots([
+        "cluster",
+        "--workers",
+        "1",
+      ]);
+      assert.strictEqual(
+        boots,
+        1,
+        `cluster -w1 doit créer 1 seul Kernel, observé ${boots} (double-boot)\n${out.slice(-2000)}`,
+      );
+    });
 
-  // ─── Intégrité du chargement des modules (anti fail-soft silencieux) ───────
-  // Mon filet initial ne vérifiait QUE « Server Listen » → un module en fail-soft
-  // (Cannot find package) cassait la chaîne sans rien faire échouer (serveur up mais
-  // module absent → routes 404). Ce test attrape ce cas : modules chargés + route servie.
-  it("production -w1 → intégrité des modules (0 fail-soft, route module servie)", async () => {
-    const child = spawn(
-      process.execPath,
-      [BIN, "production", "--workers", "1"],
-      {
+    // ─── Intégrité du chargement des modules (anti fail-soft silencieux) ───────
+    // Mon filet initial ne vérifiait QUE « Server Listen » → un module en fail-soft
+    // (Cannot find package) cassait la chaîne sans rien faire échouer (serveur up mais
+    // module absent → routes 404). Ce test attrape ce cas : modules chargés + route servie.
+    it("production -w1 → intégrité des modules (0 fail-soft, route module servie)", async () => {
+      const child = spawn(
+        process.execPath,
+        [BIN, "production", "--workers", "1"],
+        {
+          cwd: REPO_ROOT,
+          env: { ...process.env },
+        },
+      );
+      let out = "";
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(
+            () => reject(new Error(`readiness timeout:\n${out.slice(-1500)}`)),
+            45000,
+          );
+          const onData = (d: Buffer) => {
+            out += d.toString();
+            if (SERVER_NET_RE.test(out)) {
+              clearTimeout(timer);
+              resolve();
+            }
+          };
+          child.stdout.on("data", onData);
+          child.stderr.on("data", onData);
+          child.once("exit", (c, s) => {
+            clearTimeout(timer);
+            reject(
+              new Error(
+                `exited before ready (code=${c} sig=${s}):\n${out.slice(-1500)}`,
+              ),
+            );
+          });
+        });
+        // 1) Aucun module en fail-soft (Cannot find package) → chaîne de modules intègre.
+        assert.ok(
+          !FAILSOFT_RE.test(out),
+          `aucun module ne doit échouer au chargement (fail-soft)\n${out.slice(-2500)}`,
+        );
+        // 2) Le module test a bien été enregistré.
+        assert.ok(
+          /MODULE ADD\s*:\s*test/i.test(out),
+          `le module "test" doit être chargé\n${out.slice(-2500)}`,
+        );
+        // 3) Preuve ultime : une route du module répond réellement (pas juste "Server Listen").
+        const status = await httpsGetStatus("/nodefony/test/index");
+        assert.strictEqual(
+          status,
+          200,
+          `GET /nodefony/test/index doit répondre 200 (module servi), reçu ${status}`,
+        );
+      } finally {
+        await killAndWait(child);
+      }
+    });
+
+    // ─── Mode BATCH one-shot (CONSOLE, 0 serveur, terminate) ───────────────────
+    it("test:batch → mode BATCH : exit 0, AUCUN serveur, terminaison propre", async () => {
+      const r = await runCli(["test:batch"], 60000);
+      assert.strictEqual(
+        r.code,
+        0,
+        `batch doit terminer proprement (exit 0)\n${r.stderr}`,
+      );
+      const txt = r.stdout + r.stderr;
+      assert.ok(
+        /BATCH MODE OK/i.test(txt),
+        `le job batch doit s'exécuter\n${txt.slice(-1500)}`,
+      );
+      assert.ok(
+        !SERVER_NET_RE.test(txt),
+        `un batch CONSOLE ne démarre AUCUN serveur réseau\n${txt.slice(-1500)}`,
+      );
+      // Le hook onKernelTerminate (cleanup, tous modes) doit fire au terminate.
+      assert.ok(
+        /BATCH cleanup/i.test(txt),
+        "onKernelTerminate doit fire (cleanup)",
+      );
+    });
+
+    // ─── Mode DAEMON (CONSOLE long-running, 0 serveur, SIGTERM → graceful) ─────
+    it("test:daemon → mode DAEMON : reste vivant sans serveur, SIGTERM = graceful", async () => {
+      const child = spawn(process.execPath, [BIN, "test:daemon"], {
         cwd: REPO_ROOT,
         env: { ...process.env },
-      },
-    );
-    let out = "";
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error(`readiness timeout:\n${out.slice(-1500)}`)),
-          45000,
-        );
-        const onData = (d: Buffer) => {
-          out += d.toString();
-          if (SERVER_NET_RE.test(out)) {
-            clearTimeout(timer);
-            resolve();
-          }
-        };
-        child.stdout.on("data", onData);
-        child.stderr.on("data", onData);
-        child.once("exit", (c, s) => {
-          clearTimeout(timer);
-          reject(
-            new Error(
-              `exited before ready (code=${c} sig=${s}):\n${out.slice(-1500)}`,
-            ),
-          );
-        });
       });
-      // 1) Aucun module en fail-soft (Cannot find package) → chaîne de modules intègre.
+      let out = "";
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(
+            () =>
+              reject(new Error(`daemon n'a pas atteint son ready:\n${out}`)),
+            45000,
+          );
+          const onData = (d: Buffer) => {
+            out += d.toString();
+            if (/DAEMON MODE OK/i.test(out)) {
+              clearTimeout(timer);
+              resolve();
+            }
+          };
+          child.stdout.on("data", onData);
+          child.stderr.on("data", onData);
+          child.once("exit", () => {
+            clearTimeout(timer);
+            reject(
+              new Error(
+                `le daemon a quitté avant son ready (devrait park)\n${out}`,
+              ),
+            );
+          });
+        });
+        assert.ok(
+          !SERVER_NET_RE.test(out),
+          `un daemon CONSOLE ne démarre AUCUN serveur réseau\n${out.slice(-1500)}`,
+        );
+        assert.strictEqual(
+          child.exitCode,
+          null,
+          "le daemon doit rester VIVANT (park), pas terminer seul",
+        );
+      } finally {
+        await killAndWait(child); // SIGTERM = docker stop / k8s
+      }
       assert.ok(
-        !FAILSOFT_RE.test(out),
-        `aucun module ne doit échouer au chargement (fail-soft)\n${out.slice(-2500)}`,
+        /DAEMON graceful shutdown/i.test(out),
+        `SIGTERM doit déclencher le graceful shutdown (onKernelTerminate)\n${out.slice(-1500)}`,
       );
-      // 2) Le module test a bien été enregistré.
-      assert.ok(
-        /MODULE ADD\s*:\s*test/i.test(out),
-        `le module "test" doit être chargé\n${out.slice(-2500)}`,
-      );
-      // 3) Preuve ultime : une route du module répond réellement (pas juste "Server Listen").
-      const status = await httpsGetStatus("/nodefony/test/index");
-      assert.strictEqual(
-        status,
-        200,
-        `GET /nodefony/test/index doit répondre 200 (module servi), reçu ${status}`,
-      );
-    } finally {
-      await killAndWait(child);
-    }
-  });
-
-  // ─── Mode BATCH one-shot (CONSOLE, 0 serveur, terminate) ───────────────────
-  it("test:batch → mode BATCH : exit 0, AUCUN serveur, terminaison propre", async () => {
-    const r = await runCli(["test:batch"], 60000);
-    assert.strictEqual(
-      r.code,
-      0,
-      `batch doit terminer proprement (exit 0)\n${r.stderr}`,
-    );
-    const txt = r.stdout + r.stderr;
-    assert.ok(
-      /BATCH MODE OK/i.test(txt),
-      `le job batch doit s'exécuter\n${txt.slice(-1500)}`,
-    );
-    assert.ok(
-      !SERVER_NET_RE.test(txt),
-      `un batch CONSOLE ne démarre AUCUN serveur réseau\n${txt.slice(-1500)}`,
-    );
-    // Le hook onKernelTerminate (cleanup, tous modes) doit fire au terminate.
-    assert.ok(
-      /BATCH cleanup/i.test(txt),
-      "onKernelTerminate doit fire (cleanup)",
-    );
-  });
-
-  // ─── Mode DAEMON (CONSOLE long-running, 0 serveur, SIGTERM → graceful) ─────
-  it("test:daemon → mode DAEMON : reste vivant sans serveur, SIGTERM = graceful", async () => {
-    const child = spawn(process.execPath, [BIN, "test:daemon"], {
-      cwd: REPO_ROOT,
-      env: { ...process.env },
     });
-    let out = "";
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error(`daemon n'a pas atteint son ready:\n${out}`)),
-          45000,
-        );
-        const onData = (d: Buffer) => {
-          out += d.toString();
-          if (/DAEMON MODE OK/i.test(out)) {
-            clearTimeout(timer);
-            resolve();
-          }
-        };
-        child.stdout.on("data", onData);
-        child.stderr.on("data", onData);
-        child.once("exit", () => {
-          clearTimeout(timer);
-          reject(
-            new Error(
-              `le daemon a quitté avant son ready (devrait park)\n${out}`,
-            ),
-          );
-        });
-      });
-      assert.ok(
-        !SERVER_NET_RE.test(out),
-        `un daemon CONSOLE ne démarre AUCUN serveur réseau\n${out.slice(-1500)}`,
-      );
-      assert.strictEqual(
-        child.exitCode,
-        null,
-        "le daemon doit rester VIVANT (park), pas terminer seul",
-      );
-    } finally {
-      await killAndWait(child); // SIGTERM = docker stop / k8s
-    }
-    assert.ok(
-      /DAEMON graceful shutdown/i.test(out),
-      `SIGTERM doit déclencher le graceful shutdown (onKernelTerminate)\n${out.slice(-1500)}`,
-    );
-  });
-});
+  },
+);

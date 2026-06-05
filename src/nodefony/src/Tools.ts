@@ -199,7 +199,11 @@ const typeOf = (value: any): string | null => {
     if (isArray(value)) return "array";
     if (value instanceof Date) return "date";
     if (isRegExp(value)) return "RegExp";
-    if (value.callee) return "arguments";
+    // `value.callee` est INTERDIT en strict mode (poison-pill sur un objet
+    // `arguments` non-mappé → TypeError). Détection strict-safe via la balise
+    // interne, qui ne touche aucune propriété piégée.
+    if (Object.prototype.toString.call(value) === "[object Arguments]")
+      return "arguments";
     if (value instanceof SyntaxError) return "SyntaxError";
     if (isError(value)) return "Error";
   } else if (t === "function" && typeof value.call === "undefined") {

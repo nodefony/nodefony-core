@@ -248,18 +248,20 @@ describe("Service — events", () => {
     service = new Service("event-test");
   });
 
-  it("on/emit fonctionne", (done) => {
-    service.on("test", (data: string) => {
-      assert.strictEqual(data, "hello");
-      done();
-    });
-    service.emit("test", "hello");
-  });
+  it("on/emit fonctionne", () =>
+    new Promise<void>((done) => {
+      service.on("test", (data: string) => {
+        assert.strictEqual(data, "hello");
+        done();
+      });
+      service.emit("test", "hello");
+    }));
 
-  it("fire() émet un event", (done) => {
-    service.on("ping", () => done());
-    service.fire("ping");
-  });
+  it("fire() émet un event", () =>
+    new Promise<void>((done) => {
+      service.on("ping", () => done());
+      service.fire("ping");
+    }));
 
   it("emitAsync() retourne une Promise (alias fireAsync)", async () => {
     let resolved: string | undefined;

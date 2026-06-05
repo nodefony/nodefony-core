@@ -72,47 +72,51 @@ describe("NODEFONY SYSLOG", () => {
   });
 
   describe("CONTRUSTROR ", () => {
-    it("Constructor ", (done) => {
-      const inst = new Syslog();
-      assert.strict.equal(inst.ringStack.length, 0);
-      done();
-    });
-    it("Check options moduleName ", (done) => {
-      const inst = new Syslog({
-        moduleName: "MYMODULE",
-      });
-      inst.listenWithConditions(defaultOptions, (pdu: Pdu) => {
-        assert.strict.equal(pdu.moduleName, "MYMODULE");
-        assert.strict.equal(pdu.severity, 7);
-        assert.strict.equal(pdu.payload, "test");
-      });
-      inst.log("test");
-      done();
-    });
-    it("Check options sevirity ", (done) => {
-      const inst = new Syslog({
-        moduleName: "MYMODULE2",
-        defaultSeverity: "ALERT",
-      });
-      inst.listenWithConditions(defaultOptions, (pdu: Pdu) => {
-        assert.strict.equal(pdu.moduleName, "MYMODULE2");
-        assert.strict.equal(pdu.severity, 1);
-        assert.strict.equal(pdu.payload, "test");
-      });
-      inst.log("test");
-      done();
-    });
+    it("Constructor ", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog();
+        assert.strict.equal(inst.ringStack.length, 0);
+        done();
+      }));
+    it("Check options moduleName ", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({
+          moduleName: "MYMODULE",
+        });
+        inst.listenWithConditions(defaultOptions, (pdu: Pdu) => {
+          assert.strict.equal(pdu.moduleName, "MYMODULE");
+          assert.strict.equal(pdu.severity, 7);
+          assert.strict.equal(pdu.payload, "test");
+        });
+        inst.log("test");
+        done();
+      }));
+    it("Check options sevirity ", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({
+          moduleName: "MYMODULE2",
+          defaultSeverity: "ALERT",
+        });
+        inst.listenWithConditions(defaultOptions, (pdu: Pdu) => {
+          assert.strict.equal(pdu.moduleName, "MYMODULE2");
+          assert.strict.equal(pdu.severity, 1);
+          assert.strict.equal(pdu.payload, "test");
+        });
+        inst.log("test");
+        done();
+      }));
 
-    it("Change stack size ", (done) => {
-      const inst = new Syslog({
-        maxStack: 500,
-      });
-      for (let i = 0; i < 1000; i++) {
-        inst.log(i);
-      }
-      assert.strict.equal(inst.ringStack.length, 500);
-      done();
-    });
+    it("Change stack size ", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({
+          maxStack: 500,
+        });
+        for (let i = 0; i < 1000; i++) {
+          inst.log(i);
+        }
+        assert.strict.equal(inst.ringStack.length, 500);
+        done();
+      }));
 
     it("Pdu porte le pid du process (procid RFC 5424)", () => {
       const pdu = new Pdu("test", "INFO");
@@ -132,206 +136,214 @@ describe("NODEFONY SYSLOG", () => {
       // global.syslog.log(this.currentTest.title)
     });
     before(() => {});
-    it("100 entries ", (done) => {
-      for (let i = 0; i < 100; i++) {
-        const pdu = global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
-        assert.strict.equal(pdu.payload, i);
-        // assert.strict.equal(pdu.uid, i + 1);
-        assert.strict.equal(pdu.severity, i % 2 ? 6 : 7);
-        assert.strict.equal(pdu.severityName, i % 2 ? "INFO" : "DEBUG");
-        assert.strict.equal(pdu.status, "ACCEPTED");
-        assert.strict.equal(pdu.moduleName, "SYSLOG");
-        assert.strict.equal(pdu.typePayload, "number");
-        assert.strict.equal(pdu.msgid, "");
-        assert.strict.equal(pdu.msg, "");
-      }
-      assert.strict.equal(global.syslog.ringStack[0].payload, 0);
-      assert.strict.equal(global.syslog.ringStack[99].payload, 99);
-      assert.strict.equal(global.syslog.missed, 0);
-      assert.strict.equal(global.syslog.invalid, 0);
-      assert.strict.equal(global.syslog.valid, 100);
-      assert.strict.equal(global.syslog._eventsCount, 1);
-      assert.strict.equal(global.syslog._events.onLog.length, 1);
-      done();
-    });
+    it("100 entries ", () =>
+      new Promise<void>((done) => {
+        for (let i = 0; i < 100; i++) {
+          const pdu = global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+          assert.strict.equal(pdu.payload, i);
+          // assert.strict.equal(pdu.uid, i + 1);
+          assert.strict.equal(pdu.severity, i % 2 ? 6 : 7);
+          assert.strict.equal(pdu.severityName, i % 2 ? "INFO" : "DEBUG");
+          assert.strict.equal(pdu.status, "ACCEPTED");
+          assert.strict.equal(pdu.moduleName, "SYSLOG");
+          assert.strict.equal(pdu.typePayload, "number");
+          assert.strict.equal(pdu.msgid, "");
+          assert.strict.equal(pdu.msg, "");
+        }
+        assert.strict.equal(global.syslog.ringStack[0].payload, 0);
+        assert.strict.equal(global.syslog.ringStack[99].payload, 99);
+        assert.strict.equal(global.syslog.missed, 0);
+        assert.strict.equal(global.syslog.invalid, 0);
+        assert.strict.equal(global.syslog.valid, 100);
+        assert.strict.equal(global.syslog._eventsCount, 1);
+        assert.strict.equal(global.syslog._events.onLog.length, 1);
+        done();
+      }));
 
-    it("1000  entries ", (done) => {
-      let i = 0;
-      global.syslog.on("onLog", (pdu) => i++);
-      for (let i = 0; i < 1000; i++) {
-        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
-      }
-      assert.strict.equal(global.syslog.ringStack.length, 100);
-      assert.strict.equal(global.syslog.ringStack[0].payload, 900);
-      assert.strict.equal(global.syslog.ringStack[99].payload, 999);
-      assert.strict.equal(global.syslog.missed, 0);
-      assert.strict.equal(global.syslog.invalid, 0);
-      assert.strict.equal(global.syslog.valid, 1100);
-      assert.strict.equal(global.syslog._events.onLog.length, 2);
-      assert.strict.equal(i, 1000);
-      done();
-    });
+    it("1000  entries ", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.on("onLog", (pdu) => i++);
+        for (let i = 0; i < 1000; i++) {
+          global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        }
+        assert.strict.equal(global.syslog.ringStack.length, 100);
+        assert.strict.equal(global.syslog.ringStack[0].payload, 900);
+        assert.strict.equal(global.syslog.ringStack[99].payload, 999);
+        assert.strict.equal(global.syslog.missed, 0);
+        assert.strict.equal(global.syslog.invalid, 0);
+        assert.strict.equal(global.syslog.valid, 1100);
+        assert.strict.equal(global.syslog._events.onLog.length, 2);
+        assert.strict.equal(i, 1000);
+        done();
+      }));
   });
 
   describe("getLogStack", () => {
-    it("reload 1000  entries ", (done) => {
-      let res: Pdu | Pdu[] = <Pdu>global.syslog.getLogStack();
-      assert.strict.equal(res.payload, 999);
-      res = global.syslog.getLogStack(0, 10);
-      //assert.strict.equal((res?[0] as Pdu[] ).payload, 900);
-      assert.strict.equal((res as Pdu[])[0]?.payload, 900);
-      assert.strict.equal((res as Pdu[])[9].payload, 909);
-      res = global.syslog.getLogStack(0);
-      assert.strict.equal((res as Pdu[])[0].payload, 900);
-      assert.strict.equal((res as Pdu[])[99].payload, 999);
-      res = global.syslog.getLogStack(50);
-      assert.strict.equal((res as Pdu[])[0].payload, 950);
-      assert.strict.equal((res as Pdu[])[49].payload, 999);
-      res = global.syslog.getLogStack(10, 10);
-      assert.strict.equal((res as Pdu).payload, 989);
-      done();
-    });
+    it("reload 1000  entries ", () =>
+      new Promise<void>((done) => {
+        let res: Pdu | Pdu[] = <Pdu>global.syslog.getLogStack();
+        assert.strict.equal(res.payload, 999);
+        res = global.syslog.getLogStack(0, 10);
+        //assert.strict.equal((res?[0] as Pdu[] ).payload, 900);
+        assert.strict.equal((res as Pdu[])[0]?.payload, 900);
+        assert.strict.equal((res as Pdu[])[9].payload, 909);
+        res = global.syslog.getLogStack(0);
+        assert.strict.equal((res as Pdu[])[0].payload, 900);
+        assert.strict.equal((res as Pdu[])[99].payload, 999);
+        res = global.syslog.getLogStack(50);
+        assert.strict.equal((res as Pdu[])[0].payload, 950);
+        assert.strict.equal((res as Pdu[])[49].payload, 999);
+        res = global.syslog.getLogStack(10, 10);
+        assert.strict.equal((res as Pdu).payload, 989);
+        done();
+      }));
   });
 
   describe("getLogs conditions ", () => {
-    it("getLogs 1000  entries ", (done) => {
-      const res: conditionsInterface = global.syslog.getLogs({
-        severity: {
-          data: "INFO",
-        },
-      });
-      assert.strict.equal(res.length, 50);
-      done();
-    });
+    it("getLogs 1000  entries ", () =>
+      new Promise<void>((done) => {
+        const res: conditionsInterface = global.syslog.getLogs({
+          severity: {
+            data: "INFO",
+          },
+        });
+        assert.strict.equal(res.length, 50);
+        done();
+      }));
   });
 
   describe("loadStack ", () => {
-    it("loadStack 1000  entries ", (done) => {
-      const inst = new Syslog({
-        maxStack: 100,
-      });
-      inst.loadStack(global.syslog.ringStack);
-      assert.strict.equal(inst.ringStack.length, 100);
-      done();
-    });
+    it("loadStack 1000  entries ", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({
+          maxStack: 100,
+        });
+        inst.loadStack(global.syslog.ringStack);
+        assert.strict.equal(inst.ringStack.length, 100);
+        done();
+      }));
 
-    it("loadStack 1000 events  ", (done) => {
-      const inst = new Syslog({
-        maxStack: 100,
-      });
-      let i = 0;
-      inst.listenWithConditions(
-        {
-          severity: {
-            data: "INFO",
+    it("loadStack 1000 events  ", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({
+          maxStack: 100,
+        });
+        let i = 0;
+        inst.listenWithConditions(
+          {
+            severity: {
+              data: "INFO",
+            },
           },
-        },
-        (pdu: Pdu) => {
-          i++;
-          // nodefony.Syslog.normalizeLog(pdu);
-        },
-      );
-      inst.loadStack(global.syslog.ringStack, true);
-      assert.strict.equal(inst.ringStack.length, 100);
-      assert.strict.equal(i, 50);
-      done();
-    });
+          (pdu: Pdu) => {
+            i++;
+            // nodefony.Syslog.normalizeLog(pdu);
+          },
+        );
+        inst.loadStack(global.syslog.ringStack, true);
+        assert.strict.equal(inst.ringStack.length, 100);
+        assert.strict.equal(i, 50);
+        done();
+      }));
 
-    it("loadStack 1000 events  ", (done) => {
-      const inst = new Syslog({
-        maxStack: 100,
-      });
-      let i = 0;
-      inst.listenWithConditions(
-        {
-          severity: {
-            data: "INFO",
+    it("loadStack 1000 events  ", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({
+          maxStack: 100,
+        });
+        let i = 0;
+        inst.listenWithConditions(
+          {
+            severity: {
+              data: "INFO",
+            },
           },
-        },
-        (pdu: Pdu) => {
-          i++;
-          // nodefony.Syslog.normalizeLog(pdu);
-        },
-      );
-      inst.loadStack(global.syslog.ringStack, true, (pdu: TestPdu) => {
-        (pdu as TestPdu).before = "add";
-      });
-      assert.strict.equal(inst.ringStack.length, 100);
-      assert.strict.equal(i, 50);
-      assert.strict.equal((inst.getLogStack() as TestPdu).before, "add");
-      done();
-    });
+          (pdu: Pdu) => {
+            i++;
+            // nodefony.Syslog.normalizeLog(pdu);
+          },
+        );
+        inst.loadStack(global.syslog.ringStack, true, (pdu: TestPdu) => {
+          (pdu as TestPdu).before = "add";
+        });
+        assert.strict.equal(inst.ringStack.length, 100);
+        assert.strict.equal(i, 50);
+        assert.strict.equal((inst.getLogStack() as TestPdu).before, "add");
+        done();
+      }));
   });
 
   describe("BASE", () => {
     before(() => {
       global.syslog.reset();
     });
-    it("LOG sevirity ", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(defaultOptions, (pdu: Pdu) => {
-        switch (pdu.severityName) {
-          case "EMERGENCY": {
-            assert.strict.equal(pdu.severity, 0);
-            assert.strict.equal(pdu.msgid, "MYMODULE0");
-            i++;
-            break;
+    it("LOG sevirity ", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(defaultOptions, (pdu: Pdu) => {
+          switch (pdu.severityName) {
+            case "EMERGENCY": {
+              assert.strict.equal(pdu.severity, 0);
+              assert.strict.equal(pdu.msgid, "MYMODULE0");
+              i++;
+              break;
+            }
+            case "ALERT": {
+              i++;
+              assert.strict.equal(pdu.severity, 1);
+              assert.strict.equal(pdu.msgid, "MYMODULE1");
+              break;
+            }
+            case "CRITIC": {
+              assert.strict.equal(pdu.severity, 2);
+              assert.strict.equal(pdu.msgid, "MYMODULE2");
+              i++;
+              break;
+            }
+            case "ERROR": {
+              assert.strict.equal(pdu.severity, 3);
+              assert.strict.equal(pdu.msgid, "MYMODULE3");
+              i++;
+              break;
+            }
+            case "WARNING": {
+              assert.strict.equal(pdu.severity, 4);
+              assert.strict.equal(pdu.msgid, "MYMODULE4");
+              i++;
+              break;
+            }
+            case "NOTICE": {
+              assert.strict.equal(pdu.severity, 5);
+              assert.strict.equal(pdu.msgid, "MYMODULE5");
+              i++;
+              break;
+            }
+            case "INFO": {
+              assert.strict.equal(pdu.severity, 6);
+              assert.strict.equal(pdu.msgid, "MYMODULE6");
+              i++;
+              break;
+            }
+            case "DEBUG": {
+              assert.strict.equal(pdu.severity, 7);
+              assert.strict.equal(pdu.msgid, "MYMODULE7");
+              i++;
+              break;
+            }
           }
-          case "ALERT": {
-            i++;
-            assert.strict.equal(pdu.severity, 1);
-            assert.strict.equal(pdu.msgid, "MYMODULE1");
-            break;
-          }
-          case "CRITIC": {
-            assert.strict.equal(pdu.severity, 2);
-            assert.strict.equal(pdu.msgid, "MYMODULE2");
-            i++;
-            break;
-          }
-          case "ERROR": {
-            assert.strict.equal(pdu.severity, 3);
-            assert.strict.equal(pdu.msgid, "MYMODULE3");
-            i++;
-            break;
-          }
-          case "WARNING": {
-            assert.strict.equal(pdu.severity, 4);
-            assert.strict.equal(pdu.msgid, "MYMODULE4");
-            i++;
-            break;
-          }
-          case "NOTICE": {
-            assert.strict.equal(pdu.severity, 5);
-            assert.strict.equal(pdu.msgid, "MYMODULE5");
-            i++;
-            break;
-          }
-          case "INFO": {
-            assert.strict.equal(pdu.severity, 6);
-            assert.strict.equal(pdu.msgid, "MYMODULE6");
-            i++;
-            break;
-          }
-          case "DEBUG": {
-            assert.strict.equal(pdu.severity, 7);
-            assert.strict.equal(pdu.msgid, "MYMODULE7");
-            i++;
-            break;
-          }
-        }
-      });
-      global.syslog.log("test", "EMERGENCY", "MYMODULE0");
-      global.syslog.log("test", "ALERT", "MYMODULE1");
-      global.syslog.log("test", "CRITIC", "MYMODULE2");
-      global.syslog.log("test", "ERROR", "MYMODULE3");
-      global.syslog.log("test", "WARNING", "MYMODULE4");
-      global.syslog.log("test", "NOTICE", "MYMODULE5");
-      global.syslog.log("test", "INFO", "MYMODULE6");
-      global.syslog.log("test", "DEBUG", "MYMODULE7");
-      assert.strict.equal(i, 8);
-      done();
-    });
+        });
+        global.syslog.log("test", "EMERGENCY", "MYMODULE0");
+        global.syslog.log("test", "ALERT", "MYMODULE1");
+        global.syslog.log("test", "CRITIC", "MYMODULE2");
+        global.syslog.log("test", "ERROR", "MYMODULE3");
+        global.syslog.log("test", "WARNING", "MYMODULE4");
+        global.syslog.log("test", "NOTICE", "MYMODULE5");
+        global.syslog.log("test", "INFO", "MYMODULE6");
+        global.syslog.log("test", "DEBUG", "MYMODULE7");
+        assert.strict.equal(i, 8);
+        done();
+      }));
   });
 
   describe("SEVERITY", () => {
@@ -340,238 +352,251 @@ describe("NODEFONY SYSLOG", () => {
       assert.strict.equal(global.syslog._eventsCount, 0);
     });
 
-    it("listener ", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(defaultOptions, (pdu: Pdu) => i++);
-      assert.strict.equal(global.syslog._eventsCount, 1);
-      for (let i = 0; i < 10; i++) {
-        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
-      }
-      assert.strict.equal(i, 10);
-      done();
-    });
+    it("listener ", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(defaultOptions, (pdu: Pdu) => i++);
+        assert.strict.equal(global.syslog._eventsCount, 1);
+        for (let i = 0; i < 10; i++) {
+          global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        }
+        assert.strict.equal(i, 10);
+        done();
+      }));
 
-    it("Other listener 2 ", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            operator: "<=",
-            data: "INFO",
+    it("Other listener 2 ", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              operator: "<=",
+              data: "INFO",
+            },
           },
-        },
-        (pdu: Pdu) => i++,
-      );
-      assert.strict.equal(global.syslog._eventsCount, 1);
-      for (let i = 0; i < 10; i++) {
-        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
-      }
-      assert.strict.equal(i, 5);
-      done();
-    });
+          (pdu: Pdu) => i++,
+        );
+        assert.strict.equal(global.syslog._eventsCount, 1);
+        for (let i = 0; i < 10; i++) {
+          global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        }
+        assert.strict.equal(i, 5);
+        done();
+      }));
 
-    it("Other listener 3 ", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            operator: "<=",
-            data: "INFO",
+    it("Other listener 3 ", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              operator: "<=",
+              data: "INFO",
+            },
           },
-        },
-        (pdu: Pdu) => {
-          assert.strict.equal(pdu.severity, 6);
-          assert.strict.equal(pdu.severityName, "INFO");
-          return i++;
-        },
-      );
-      assert.strict.equal(global.syslog._eventsCount, 1);
-      for (let i = 0; i < 10; i++) {
-        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
-      }
-      assert.strict.equal(i, 5);
-      done();
-    });
+          (pdu: Pdu) => {
+            assert.strict.equal(pdu.severity, 6);
+            assert.strict.equal(pdu.severityName, "INFO");
+            return i++;
+          },
+        );
+        assert.strict.equal(global.syslog._eventsCount, 1);
+        for (let i = 0; i < 10; i++) {
+          global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        }
+        assert.strict.equal(i, 5);
+        done();
+      }));
 
-    it("listener condition severity interger ", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            data: 6,
+    it("listener condition severity interger ", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              data: 6,
+            },
           },
-        },
-        (pdu: Pdu) => {
-          // nodefony.Syslog.normalizeLog(pdu);
-          assert.strict.equal(pdu.severity, 6);
-          assert.strict.equal(pdu.severityName, "INFO");
-          return i++;
-        },
-      );
-      for (let i = 0; i < 10; i++) {
-        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
-      }
-      assert.strict.equal(i, 5);
-      done();
-    });
+          (pdu: Pdu) => {
+            // nodefony.Syslog.normalizeLog(pdu);
+            assert.strict.equal(pdu.severity, 6);
+            assert.strict.equal(pdu.severityName, "INFO");
+            return i++;
+          },
+        );
+        for (let i = 0; i < 10; i++) {
+          global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        }
+        assert.strict.equal(i, 5);
+        done();
+      }));
 
-    it("listener condition severity operator == ", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            operator: "==",
-            data: "7",
+    it("listener condition severity operator == ", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              operator: "==",
+              data: "7",
+            },
           },
-        },
-        (pdu: Pdu) => {
-          // nodefony.Syslog.normalizeLog(pdu);
-          assert.strict.equal(pdu.severity, 7);
-          assert.strict.equal(pdu.severityName, "DEBUG");
-          return i++;
-        },
-      );
-      assert.strict.equal(global.syslog._eventsCount, 1);
-      for (let i = 0; i < 10; i++) {
-        global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
-      }
-      assert.strict.equal(i, 5);
-      done();
-    });
+          (pdu: Pdu) => {
+            // nodefony.Syslog.normalizeLog(pdu);
+            assert.strict.equal(pdu.severity, 7);
+            assert.strict.equal(pdu.severityName, "DEBUG");
+            return i++;
+          },
+        );
+        assert.strict.equal(global.syslog._eventsCount, 1);
+        for (let i = 0; i < 10; i++) {
+          global.syslog.log(i, i % 2 ? "INFO" : "DEBUG");
+        }
+        assert.strict.equal(i, 5);
+        done();
+      }));
 
-    it("listener condition severity listerner1 ", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            data: "INFO,DEBUG,WARNING",
+    it("listener condition severity listerner1 ", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              data: "INFO,DEBUG,WARNING",
+            },
           },
-        },
-        (pdu: Pdu) =>
-          // nodefony.Syslog.normalizeLog(pdu);
-          i++,
-      );
-      global.logger();
-      assert.strict.equal(i, 3);
-      done();
-    });
-    it("listener condition severity listerner tab", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            data: ["INFO", "WARNING", "DEBUG"],
+          (pdu: Pdu) =>
+            // nodefony.Syslog.normalizeLog(pdu);
+            i++,
+        );
+        global.logger();
+        assert.strict.equal(i, 3);
+        done();
+      }));
+    it("listener condition severity listerner tab", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              data: ["INFO", "WARNING", "DEBUG"],
+            },
           },
-        },
-        (pdu: Pdu) =>
-          // nodefony.Syslog.normalizeLog(pdu);
-          i++,
-      );
-      global.logger();
-      assert.strict.equal(i, 3);
-      done();
-    });
-    it("listener condition severity listerner tab string", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            data: ["6", "4", "7"],
+          (pdu: Pdu) =>
+            // nodefony.Syslog.normalizeLog(pdu);
+            i++,
+        );
+        global.logger();
+        assert.strict.equal(i, 3);
+        done();
+      }));
+    it("listener condition severity listerner tab string", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              data: ["6", "4", "7"],
+            },
           },
-        },
-        (pdu: Pdu) =>
-          // nodefony.Syslog.normalizeLog(pdu);
-          i++,
-      );
-      global.logger();
-      assert.strict.equal(i, 3);
-      done();
-    });
-    it("listener condition severity listerner tab integer", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            data: [6, 4, 7],
+          (pdu: Pdu) =>
+            // nodefony.Syslog.normalizeLog(pdu);
+            i++,
+        );
+        global.logger();
+        assert.strict.equal(i, 3);
+        done();
+      }));
+    it("listener condition severity listerner tab integer", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              data: [6, 4, 7],
+            },
           },
-        },
-        (pdu: Pdu) =>
-          // nodefony.Syslog.normalizeLog(pdu);
-          i++,
-      );
-      global.logger();
-      assert.strict.equal(i, 3);
-      done();
-    });
+          (pdu: Pdu) =>
+            // nodefony.Syslog.normalizeLog(pdu);
+            i++,
+        );
+        global.logger();
+        assert.strict.equal(i, 3);
+        done();
+      }));
 
-    it("listener condition severity listerner >=", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            operator: ">=",
-            data: 4,
+    it("listener condition severity listerner >=", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              operator: ">=",
+              data: 4,
+            },
           },
-        },
-        (pdu: Pdu) =>
-          // nodefony.Syslog.normalizeLog(pdu);
-          i++,
-      );
-      global.logger();
-      assert.strict.equal(i, 4);
-      done();
-    });
-    it("listener condition severity listerner >", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            operator: ">",
-            data: 4,
+          (pdu: Pdu) =>
+            // nodefony.Syslog.normalizeLog(pdu);
+            i++,
+        );
+        global.logger();
+        assert.strict.equal(i, 4);
+        done();
+      }));
+    it("listener condition severity listerner >", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              operator: ">",
+              data: 4,
+            },
           },
-        },
-        (pdu: Pdu) =>
-          // nodefony.Syslog.normalizeLog(pdu);
-          i++,
-      );
-      global.logger();
-      assert.strict.equal(i, 3);
-      done();
-    });
-    it("listener condition severity listerner <", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            operator: "<",
-            data: 4,
+          (pdu: Pdu) =>
+            // nodefony.Syslog.normalizeLog(pdu);
+            i++,
+        );
+        global.logger();
+        assert.strict.equal(i, 3);
+        done();
+      }));
+    it("listener condition severity listerner <", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              operator: "<",
+              data: 4,
+            },
           },
-        },
-        (pdu: Pdu) =>
-          // nodefony.Syslog.normalizeLog(pdu);
-          i++,
-      );
-      global.logger();
-      assert.strict.equal(i, 4);
-      done();
-    });
-    it("listener condition severity listerner < string", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          severity: {
-            operator: "<",
-            data: "WARNING",
+          (pdu: Pdu) =>
+            // nodefony.Syslog.normalizeLog(pdu);
+            i++,
+        );
+        global.logger();
+        assert.strict.equal(i, 4);
+        done();
+      }));
+    it("listener condition severity listerner < string", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            severity: {
+              operator: "<",
+              data: "WARNING",
+            },
           },
-        },
-        (pdu: Pdu) =>
-          // nodefony.Syslog.normalizeLog(pdu);
-          i++,
-      );
-      global.logger();
-      assert.strict.equal(i, 4);
-      done();
-    });
+          (pdu: Pdu) =>
+            // nodefony.Syslog.normalizeLog(pdu);
+            i++,
+        );
+        global.logger();
+        assert.strict.equal(i, 4);
+        done();
+      }));
   });
 
   describe("MSGID", () => {
@@ -606,25 +631,26 @@ describe("NODEFONY SYSLOG", () => {
         global.syslog.log("pass", "ERROR", "NODEFONY");
       }));
 
-    it("listener condition MSGID RegExp", (done) => {
-      let i = 0;
-      global.syslog.listenWithConditions(
-        {
-          msgid: {
-            data: /^NODEFONY/,
+    it("listener condition MSGID RegExp", () =>
+      new Promise<void>((done) => {
+        let i = 0;
+        global.syslog.listenWithConditions(
+          {
+            msgid: {
+              data: /^NODEFONY/,
+            },
           },
-        },
-        (pdu: Pdu) => {
-          i++;
-          assert.ok(pdu.msgid.startsWith("NODEFONY"));
-        },
-      );
-      global.syslog.log("pass", "INFO", "NODEFONY_SERVICE");
-      global.syslog.log("nopass", "INFO", "OTHER_MODULE");
-      global.syslog.log("pass", "INFO", "NODEFONY_KERNEL");
-      assert.strict.equal(i, 2);
-      done();
-    });
+          (pdu: Pdu) => {
+            i++;
+            assert.ok(pdu.msgid.startsWith("NODEFONY"));
+          },
+        );
+        global.syslog.log("pass", "INFO", "NODEFONY_SERVICE");
+        global.syslog.log("nopass", "INFO", "OTHER_MODULE");
+        global.syslog.log("pass", "INFO", "NODEFONY_KERNEL");
+        assert.strict.equal(i, 2);
+        done();
+      }));
   });
 
   describe("print / logMultiple", () => {
@@ -632,42 +658,47 @@ describe("NODEFONY SYSLOG", () => {
       global.syslog.reset();
     });
 
-    it("print single arg", (done) => {
-      const pdu = global.syslog.print("hello");
-      assert.strict.equal(pdu.payload, "hello");
-      assert.strict.equal(pdu.status, "ACCEPTED");
-      done();
-    });
+    it("print single arg", () =>
+      new Promise<void>((done) => {
+        const pdu = global.syslog.print("hello");
+        assert.strict.equal(pdu.payload, "hello");
+        assert.strict.equal(pdu.status, "ACCEPTED");
+        done();
+      }));
 
-    it("print multiple args → array payload", (done) => {
-      const pdu = global.syslog.print("a", { n: 1 }, 42);
-      assert.deepStrictEqual(pdu.payload, ["a", { n: 1 }, 42]);
-      assert.strict.equal(pdu.typePayload, "array");
-      assert.strict.equal(global.syslog.ringStack.length, 1);
-      done();
-    });
+    it("print multiple args → array payload", () =>
+      new Promise<void>((done) => {
+        const pdu = global.syslog.print("a", { n: 1 }, 42);
+        assert.deepStrictEqual(pdu.payload, ["a", { n: 1 }, 42]);
+        assert.strict.equal(pdu.typePayload, "array");
+        assert.strict.equal(global.syslog.ringStack.length, 1);
+        done();
+      }));
 
-    it("print uses defaultSeverity", (done) => {
-      const inst = new Syslog({ defaultSeverity: "ERROR" });
-      const pdu = inst.print("fail");
-      assert.strict.equal(pdu.severity, 3);
-      done();
-    });
+    it("print uses defaultSeverity", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ defaultSeverity: "ERROR" });
+        const pdu = inst.print("fail");
+        assert.strict.equal(pdu.severity, 3);
+        done();
+      }));
 
-    it("logMultiple single arg", (done) => {
-      const pdu = global.syslog.logMultiple("WARNING", "oops");
-      assert.strict.equal(pdu.payload, "oops");
-      assert.strict.equal(pdu.severity, 4);
-      done();
-    });
+    it("logMultiple single arg", () =>
+      new Promise<void>((done) => {
+        const pdu = global.syslog.logMultiple("WARNING", "oops");
+        assert.strict.equal(pdu.payload, "oops");
+        assert.strict.equal(pdu.severity, 4);
+        done();
+      }));
 
-    it("logMultiple multiple args → array payload with given severity", (done) => {
-      const err = new Error("boom");
-      const pdu = global.syslog.logMultiple("ERROR", "fail", err);
-      assert.deepStrictEqual(pdu.payload, ["fail", err]);
-      assert.strict.equal(pdu.severity, 3);
-      done();
-    });
+    it("logMultiple multiple args → array payload with given severity", () =>
+      new Promise<void>((done) => {
+        const err = new Error("boom");
+        const pdu = global.syslog.logMultiple("ERROR", "fail", err);
+        assert.deepStrictEqual(pdu.payload, ["fail", err]);
+        assert.strict.equal(pdu.severity, 3);
+        done();
+      }));
   });
 
   describe("rawLog (process.stdout/stderr)", () => {
@@ -676,67 +707,71 @@ describe("NODEFONY SYSLOG", () => {
     beforeEach(() => Syslog.setOutputBuffering(false));
     afterEach(() => Syslog.setOutputBuffering("auto"));
 
-    it("string payload → stdout", (done) => {
-      const chunks: string[] = [];
-      const orig = process.stdout.write.bind(process.stdout);
-      process.stdout.write = (chunk: unknown) => {
-        chunks.push(String(chunk));
-        return true;
-      };
-      const pdu = global.syslog.log("raw test", "INFO", "TEST");
-      Syslog.rawLog(pdu);
-      process.stdout.write = orig;
-      assert.ok(chunks.some((c) => c.includes("raw test")));
-      done();
-    });
+    it("string payload → stdout", () =>
+      new Promise<void>((done) => {
+        const chunks: string[] = [];
+        const orig = process.stdout.write.bind(process.stdout);
+        process.stdout.write = (chunk: unknown) => {
+          chunks.push(String(chunk));
+          return true;
+        };
+        const pdu = global.syslog.log("raw test", "INFO", "TEST");
+        Syslog.rawLog(pdu);
+        process.stdout.write = orig;
+        assert.ok(chunks.some((c) => c.includes("raw test")));
+        done();
+      }));
 
-    it("ERROR payload → stderr", (done) => {
-      const chunks: string[] = [];
-      const orig = process.stderr.write.bind(process.stderr);
-      process.stderr.write = (chunk: unknown) => {
-        chunks.push(String(chunk));
-        return true;
-      };
-      const pdu = global.syslog.log("error msg", "ERROR", "TEST");
-      Syslog.rawLog(pdu);
-      process.stderr.write = orig;
-      assert.ok(chunks.some((c) => c.includes("error msg")));
-      done();
-    });
+    it("ERROR payload → stderr", () =>
+      new Promise<void>((done) => {
+        const chunks: string[] = [];
+        const orig = process.stderr.write.bind(process.stderr);
+        process.stderr.write = (chunk: unknown) => {
+          chunks.push(String(chunk));
+          return true;
+        };
+        const pdu = global.syslog.log("error msg", "ERROR", "TEST");
+        Syslog.rawLog(pdu);
+        process.stderr.write = orig;
+        assert.ok(chunks.some((c) => c.includes("error msg")));
+        done();
+      }));
 
-    it("object payload → inspect output", (done) => {
-      const chunks: string[] = [];
-      const orig = process.stdout.write.bind(process.stdout);
-      process.stdout.write = (chunk: unknown) => {
-        chunks.push(String(chunk));
-        return true;
-      };
-      const pdu = global.syslog.log({ user: "alice" }, "DEBUG", "TEST");
-      Syslog.rawLog(pdu);
-      process.stdout.write = orig;
-      assert.ok(chunks.some((c) => c.includes("alice")));
-      done();
-    });
+    it("object payload → inspect output", () =>
+      new Promise<void>((done) => {
+        const chunks: string[] = [];
+        const orig = process.stdout.write.bind(process.stdout);
+        process.stdout.write = (chunk: unknown) => {
+          chunks.push(String(chunk));
+          return true;
+        };
+        const pdu = global.syslog.log({ user: "alice" }, "DEBUG", "TEST");
+        Syslog.rawLog(pdu);
+        process.stdout.write = orig;
+        assert.ok(chunks.some((c) => c.includes("alice")));
+        done();
+      }));
 
-    it("empty payload → no write", (done) => {
-      let written = false;
-      const origOut = process.stdout.write.bind(process.stdout);
-      const origErr = process.stderr.write.bind(process.stderr);
-      process.stdout.write = () => {
-        written = true;
-        return true;
-      };
-      process.stderr.write = () => {
-        written = true;
-        return true;
-      };
-      const pdu = new Pdu("", "INFO");
-      Syslog.rawLog(pdu);
-      process.stdout.write = origOut;
-      process.stderr.write = origErr;
-      assert.strict.equal(written, false);
-      done();
-    });
+    it("empty payload → no write", () =>
+      new Promise<void>((done) => {
+        let written = false;
+        const origOut = process.stdout.write.bind(process.stdout);
+        const origErr = process.stderr.write.bind(process.stderr);
+        process.stdout.write = () => {
+          written = true;
+          return true;
+        };
+        process.stderr.write = () => {
+          written = true;
+          return true;
+        };
+        const pdu = new Pdu("", "INFO");
+        Syslog.rawLog(pdu);
+        process.stdout.write = origOut;
+        process.stderr.write = origErr;
+        assert.strict.equal(written, false);
+        done();
+      }));
   });
 
   describe("output buffering (setOutputBuffering / flushOutput)", () => {
@@ -833,92 +868,103 @@ describe("NODEFONY SYSLOG", () => {
       Syslog.restoreConsole();
     });
 
-    it("overrideConsole + console.log → ring buffer", (done) => {
-      const inst = new Syslog({ maxStack: 10 });
-      Syslog.overrideConsole(inst);
-      console.log("test override");
-      assert.strict.equal(inst.ringStack.length, 1);
-      assert.strict.equal(inst.ringStack[0].payload, "test override");
-      done();
-    });
+    it("overrideConsole + console.log → ring buffer", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ maxStack: 10 });
+        Syslog.overrideConsole(inst);
+        console.log("test override");
+        assert.strict.equal(inst.ringStack.length, 1);
+        assert.strict.equal(inst.ringStack[0].payload, "test override");
+        done();
+      }));
 
-    it("console.error uses ERROR severity", (done) => {
-      const inst = new Syslog({ maxStack: 10 });
-      Syslog.overrideConsole(inst);
-      console.error("critical");
-      assert.strict.equal(inst.ringStack[0].severity, 3);
-      done();
-    });
+    it("console.error uses ERROR severity", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ maxStack: 10 });
+        Syslog.overrideConsole(inst);
+        console.error("critical");
+        assert.strict.equal(inst.ringStack[0].severity, 3);
+        done();
+      }));
 
-    it("console.warn uses WARNING severity", (done) => {
-      const inst = new Syslog({ maxStack: 10 });
-      Syslog.overrideConsole(inst);
-      console.warn("careful");
-      assert.strict.equal(inst.ringStack[0].severity, 4);
-      done();
-    });
+    it("console.warn uses WARNING severity", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ maxStack: 10 });
+        Syslog.overrideConsole(inst);
+        console.warn("careful");
+        assert.strict.equal(inst.ringStack[0].severity, 4);
+        done();
+      }));
 
-    it("console.info uses INFO severity", (done) => {
-      const inst = new Syslog({ maxStack: 10 });
-      Syslog.overrideConsole(inst);
-      console.info("fyi");
-      assert.strict.equal(inst.ringStack[0].severity, 6);
-      done();
-    });
+    it("console.info uses INFO severity", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ maxStack: 10 });
+        Syslog.overrideConsole(inst);
+        console.info("fyi");
+        assert.strict.equal(inst.ringStack[0].severity, 6);
+        done();
+      }));
 
-    it("double override emits WARNING pdu", (done) => {
-      const inst = new Syslog({ maxStack: 10 });
-      Syslog.overrideConsole(inst);
-      Syslog.overrideConsole(inst);
-      assert.strict.equal(inst.ringStack.length, 1);
-      assert.strict.equal(inst.ringStack[0].severity, 4); // WARNING
-      done();
-    });
+    it("double override emits WARNING pdu", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ maxStack: 10 });
+        Syslog.overrideConsole(inst);
+        Syslog.overrideConsole(inst);
+        assert.strict.equal(inst.ringStack.length, 1);
+        assert.strict.equal(inst.ringStack[0].severity, 4); // WARNING
+        done();
+      }));
 
-    it("restoreConsole is idempotent", (done) => {
-      Syslog.restoreConsole();
-      Syslog.restoreConsole();
-      done();
-    });
+    it("restoreConsole is idempotent", () =>
+      new Promise<void>((done) => {
+        Syslog.restoreConsole();
+        Syslog.restoreConsole();
+        done();
+      }));
 
-    it("overrideConsole option in settings", (done) => {
-      const inst = new Syslog({ maxStack: 10, overrideConsole: true });
-      console.log("via settings");
-      assert.strict.equal(inst.ringStack.length, 1);
-      assert.strict.equal(inst.ringStack[0].payload, "via settings");
-      done();
-    });
+    it("overrideConsole option in settings", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ maxStack: 10, overrideConsole: true });
+        console.log("via settings");
+        assert.strict.equal(inst.ringStack.length, 1);
+        assert.strict.equal(inst.ringStack[0].payload, "via settings");
+        done();
+      }));
 
-    it("console.log multiple args → array payload", (done) => {
-      const inst = new Syslog({ maxStack: 10 });
-      Syslog.overrideConsole(inst);
-      console.log("a", "b", 3);
-      assert.deepStrictEqual(inst.ringStack[0].payload, ["a", "b", 3]);
-      done();
-    });
+    it("console.log multiple args → array payload", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ maxStack: 10 });
+        Syslog.overrideConsole(inst);
+        console.log("a", "b", 3);
+        assert.deepStrictEqual(inst.ringStack[0].payload, ["a", "b", 3]);
+        done();
+      }));
   });
 
   describe("PDU SEVERITY NUMERIC", () => {
-    it("Pdu severity -1 numeric (SPINNER)", (done) => {
-      const pdu = new Pdu("spin", -1);
-      assert.strict.equal(pdu.severity, -1);
-      assert.strict.equal(pdu.severityName, "SPINNER");
-      assert.strict.equal(pdu.status, "NOTDEFINED");
-      done();
-    });
+    it("Pdu severity -1 numeric (SPINNER)", () =>
+      new Promise<void>((done) => {
+        const pdu = new Pdu("spin", -1);
+        assert.strict.equal(pdu.severity, -1);
+        assert.strict.equal(pdu.severityName, "SPINNER");
+        assert.strict.equal(pdu.status, "NOTDEFINED");
+        done();
+      }));
 
-    it("Pdu severity 0-7 numeric", (done) => {
-      for (let n = 0; n <= 7; n++) {
-        const pdu = new Pdu("test", n as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7);
-        assert.strict.equal(pdu.severity, n);
-      }
-      done();
-    });
+    it("Pdu severity 0-7 numeric", () =>
+      new Promise<void>((done) => {
+        for (let n = 0; n <= 7; n++) {
+          const pdu = new Pdu("test", n as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7);
+          assert.strict.equal(pdu.severity, n);
+        }
+        done();
+      }));
 
-    it("Pdu severity invalid numeric throws", (done) => {
-      assert.throws(() => new Pdu("test", 99 as never), /Not a valid/);
-      done();
-    });
+    it("Pdu severity invalid numeric throws", () =>
+      new Promise<void>((done) => {
+        assert.throws(() => new Pdu("test", 99 as never), /Not a valid/);
+        done();
+      }));
   });
 
   // ─── Transport Layer ────────────────────────────────────────────────────────
@@ -929,182 +975,194 @@ describe("NODEFONY SYSLOG", () => {
       syslog = new Syslog();
     });
 
-    it("addTransport returns this (chaining)", (done) => {
-      const t: ITransport = { name: "mock", send: async () => {} };
-      assert.strict.equal(syslog.addTransport(t), syslog);
-      done();
-    });
-
-    it("removeTransport returns this (chaining)", (done) => {
-      const t: ITransport = { name: "mock", send: async () => {} };
-      syslog.addTransport(t);
-      assert.strict.equal(syslog.removeTransport(t), syslog);
-      done();
-    });
-
-    it("transport.send is called on log()", (done) => {
-      let called = 0;
-      const t: ITransport = {
-        name: "spy",
-        send: async () => {
-          called++;
-        },
-      };
-      syslog.addTransport(t);
-      syslog.log("hello", "INFO");
-      // fire-and-forget — wait one microtask
-      setImmediate(() => {
-        assert.strict.equal(called, 1);
+    it("addTransport returns this (chaining)", () =>
+      new Promise<void>((done) => {
+        const t: ITransport = { name: "mock", send: async () => {} };
+        assert.strict.equal(syslog.addTransport(t), syslog);
         done();
-      });
-    });
+      }));
 
-    it("addTransport deduplication — same instance added twice calls send once", (done) => {
-      let called = 0;
-      const t: ITransport = {
-        name: "spy",
-        send: async () => {
-          called++;
-        },
-      };
-      syslog.addTransport(t);
-      syslog.addTransport(t); // duplicate — ignored
-      syslog.log("test", "INFO");
-      setImmediate(() => {
-        assert.strict.equal(called, 1);
+    it("removeTransport returns this (chaining)", () =>
+      new Promise<void>((done) => {
+        const t: ITransport = { name: "mock", send: async () => {} };
+        syslog.addTransport(t);
+        assert.strict.equal(syslog.removeTransport(t), syslog);
         done();
-      });
-    });
+      }));
 
-    it("addTransport dédup par NAME — 2 instances DISTINCTES de même name ⇒ send appelé 1× (régression doublon JSONL cluster-file)", (done) => {
-      let a = 0;
-      let b = 0;
-      // Deux transports DISTINCTS mais de même `name` : cas d'un FileTransport vers
-      // le même fichier monté par DEUX Kernels qui partagent le syslog (cluster,
-      // worker booté 2 cycles dev→prod). Avant le fix, la dédup par référence les
-      // laissait tous deux dans `_transports` → chaque log écrit 2× (ratio 2.0).
-      const tA: ITransport = {
-        name: "file",
-        send: async () => {
-          a++;
-        },
-      };
-      const tB: ITransport = {
-        name: "file",
-        send: async () => {
-          b++;
-        },
-      };
-      syslog.addTransport(tA);
-      syslog.addTransport(tB); // même name → REMPLACE tA (pas d'ajout en double)
-      assert.strict.equal(syslog.transportCount, 1);
-      syslog.log("test", "INFO");
-      setImmediate(() => {
-        // tB a remplacé tA → un seul send, côté destination la plus récente.
-        assert.strict.equal(a + b, 1);
-        assert.strict.equal(b, 1);
+    it("transport.send is called on log()", () =>
+      new Promise<void>((done) => {
+        let called = 0;
+        const t: ITransport = {
+          name: "spy",
+          send: async () => {
+            called++;
+          },
+        };
+        syslog.addTransport(t);
+        syslog.log("hello", "INFO");
+        // fire-and-forget — wait one microtask
+        setImmediate(() => {
+          assert.strict.equal(called, 1);
+          done();
+        });
+      }));
+
+    it("addTransport deduplication — same instance added twice calls send once", () =>
+      new Promise<void>((done) => {
+        let called = 0;
+        const t: ITransport = {
+          name: "spy",
+          send: async () => {
+            called++;
+          },
+        };
+        syslog.addTransport(t);
+        syslog.addTransport(t); // duplicate — ignored
+        syslog.log("test", "INFO");
+        setImmediate(() => {
+          assert.strict.equal(called, 1);
+          done();
+        });
+      }));
+
+    it("addTransport dédup par NAME — 2 instances DISTINCTES de même name ⇒ send appelé 1× (régression doublon JSONL cluster-file)", () =>
+      new Promise<void>((done) => {
+        let a = 0;
+        let b = 0;
+        // Deux transports DISTINCTS mais de même `name` : cas d'un FileTransport vers
+        // le même fichier monté par DEUX Kernels qui partagent le syslog (cluster,
+        // worker booté 2 cycles dev→prod). Avant le fix, la dédup par référence les
+        // laissait tous deux dans `_transports` → chaque log écrit 2× (ratio 2.0).
+        const tA: ITransport = {
+          name: "file",
+          send: async () => {
+            a++;
+          },
+        };
+        const tB: ITransport = {
+          name: "file",
+          send: async () => {
+            b++;
+          },
+        };
+        syslog.addTransport(tA);
+        syslog.addTransport(tB); // même name → REMPLACE tA (pas d'ajout en double)
+        assert.strict.equal(syslog.transportCount, 1);
+        syslog.log("test", "INFO");
+        setImmediate(() => {
+          // tB a remplacé tA → un seul send, côté destination la plus récente.
+          assert.strict.equal(a + b, 1);
+          assert.strict.equal(b, 1);
+          done();
+        });
+      }));
+
+    it("removeTransport stops further calls", () =>
+      new Promise<void>((done) => {
+        let called = 0;
+        const t: ITransport = {
+          name: "spy",
+          send: async () => {
+            called++;
+          },
+        };
+        syslog.addTransport(t);
+        syslog.removeTransport(t);
+        syslog.log("test", "INFO");
+        setImmediate(() => {
+          assert.strict.equal(called, 0);
+          done();
+        });
+      }));
+
+    it("removeTransport on unknown transport does nothing", () =>
+      new Promise<void>((done) => {
+        const t: ITransport = { name: "unknown", send: async () => {} };
+        assert.doesNotThrow(() => syslog.removeTransport(t));
         done();
-      });
-    });
+      }));
 
-    it("removeTransport stops further calls", (done) => {
-      let called = 0;
-      const t: ITransport = {
-        name: "spy",
-        send: async () => {
-          called++;
-        },
-      };
-      syslog.addTransport(t);
-      syslog.removeTransport(t);
-      syslog.log("test", "INFO");
-      setImmediate(() => {
-        assert.strict.equal(called, 0);
-        done();
-      });
-    });
+    it("multiple transports all receive each Pdu", () =>
+      new Promise<void>((done) => {
+        const calls: string[] = [];
+        const t1: ITransport = {
+          name: "t1",
+          send: async () => {
+            calls.push("t1");
+          },
+        };
+        const t2: ITransport = {
+          name: "t2",
+          send: async () => {
+            calls.push("t2");
+          },
+        };
+        syslog.addTransport(t1).addTransport(t2);
+        syslog.log("multi", "INFO");
+        setImmediate(() => {
+          assert.deepStrictEqual(calls, ["t1", "t2"]);
+          done();
+        });
+      }));
 
-    it("removeTransport on unknown transport does nothing", (done) => {
-      const t: ITransport = { name: "unknown", send: async () => {} };
-      assert.doesNotThrow(() => syslog.removeTransport(t));
-      done();
-    });
+    it("onTransportError fires when send() rejects", () =>
+      new Promise<void>((done) => {
+        const boom = new Error("send failed");
+        const t: ITransport = { name: "bad", send: () => Promise.reject(boom) };
+        syslog.addTransport(t);
+        syslog.on("onTransportError", (err: unknown) => {
+          assert.strict.equal(err, boom);
+          done();
+        });
+        syslog.log("trigger", "INFO");
+      }));
 
-    it("multiple transports all receive each Pdu", (done) => {
-      const calls: string[] = [];
-      const t1: ITransport = {
-        name: "t1",
-        send: async () => {
-          calls.push("t1");
-        },
-      };
-      const t2: ITransport = {
-        name: "t2",
-        send: async () => {
-          calls.push("t2");
-        },
-      };
-      syslog.addTransport(t1).addTransport(t2);
-      syslog.log("multi", "INFO");
-      setImmediate(() => {
-        assert.deepStrictEqual(calls, ["t1", "t2"]);
-        done();
-      });
-    });
-
-    it("onTransportError fires when send() rejects", (done) => {
-      const boom = new Error("send failed");
-      const t: ITransport = { name: "bad", send: () => Promise.reject(boom) };
-      syslog.addTransport(t);
-      syslog.on("onTransportError", (err: unknown) => {
-        assert.strict.equal(err, boom);
-        done();
-      });
-      syslog.log("trigger", "INFO");
-    });
-
-    it("DROPPED pdu — transport not called", (done) => {
-      const rl = new Syslog({ rateLimit: 10000, burstLimit: 1 });
-      let called = 0;
-      const t: ITransport = {
-        name: "spy",
-        send: async () => {
-          called++;
-        },
-      };
-      rl.addTransport(t);
-      rl.log("first", "INFO"); // ACCEPTED
-      rl.log("second", "INFO"); // DROPPED
-      setImmediate(() => {
-        assert.strict.equal(called, 1);
-        done();
-      });
-    });
+    it("DROPPED pdu — transport not called", () =>
+      new Promise<void>((done) => {
+        const rl = new Syslog({ rateLimit: 10000, burstLimit: 1 });
+        let called = 0;
+        const t: ITransport = {
+          name: "spy",
+          send: async () => {
+            called++;
+          },
+        };
+        rl.addTransport(t);
+        rl.log("first", "INFO"); // ACCEPTED
+        rl.log("second", "INFO"); // DROPPED
+        setImmediate(() => {
+          assert.strict.equal(called, 1);
+          done();
+        });
+      }));
   });
 
   describe("ConsoleTransport", () => {
-    it("implements ITransport with name=console", (done) => {
-      const t = new ConsoleTransport();
-      assert.strict.equal(t.name, "console");
-      done();
-    });
-
-    it("send() calls Syslog.normalizeLog", (done) => {
-      const pdu = new Pdu("hello", "INFO", "TEST");
-      pdu.status = "ACCEPTED";
-      let called = false;
-      const orig = Syslog.normalizeLog;
-      Syslog.normalizeLog = (p: Pdu) => {
-        called = true;
-        return p;
-      };
-      const t = new ConsoleTransport();
-      t.send(pdu).then(() => {
-        Syslog.normalizeLog = orig;
-        assert.strict.equal(called, true);
+    it("implements ITransport with name=console", () =>
+      new Promise<void>((done) => {
+        const t = new ConsoleTransport();
+        assert.strict.equal(t.name, "console");
         done();
-      });
-    });
+      }));
+
+    it("send() calls Syslog.normalizeLog", () =>
+      new Promise<void>((done) => {
+        const pdu = new Pdu("hello", "INFO", "TEST");
+        pdu.status = "ACCEPTED";
+        let called = false;
+        const orig = Syslog.normalizeLog;
+        Syslog.normalizeLog = (p: Pdu) => {
+          called = true;
+          return p;
+        };
+        const t = new ConsoleTransport();
+        t.send(pdu).then(() => {
+          Syslog.normalizeLog = orig;
+          assert.strict.equal(called, true);
+          done();
+        });
+      }));
   });
 
   describe("FileTransport", () => {
@@ -1118,11 +1176,12 @@ describe("NODEFONY SYSLOG", () => {
       } catch {}
     });
 
-    it("implements ITransport with name=file", (done) => {
-      const t = new FileTransport({ path: tmpFile });
-      assert.strict.equal(t.name, "file");
-      done();
-    });
+    it("implements ITransport with name=file", () =>
+      new Promise<void>((done) => {
+        const t = new FileTransport({ path: tmpFile });
+        assert.strict.equal(t.name, "file");
+        done();
+      }));
 
     it("json format writes valid JSON per line", async () => {
       const t = new FileTransport({ path: tmpFile, format: "json" });
@@ -1169,88 +1228,94 @@ describe("NODEFONY SYSLOG", () => {
       assert.strict.equal(JSON.parse(lines[1]).payload, "second");
     });
 
-    it("send() rejects on bad path (fire → onTransportError)", (done) => {
-      const syslog = new Syslog();
-      const t = new FileTransport({ path: "/no/such/dir/nope.log" });
-      syslog.addTransport(t);
-      syslog.on("onTransportError", (err: unknown) => {
-        assert.ok(err instanceof Error);
-        done();
-      });
-      syslog.log("trigger", "INFO");
-    });
+    it("send() rejects on bad path (fire → onTransportError)", () =>
+      new Promise<void>((done) => {
+        const syslog = new Syslog();
+        const t = new FileTransport({ path: "/no/such/dir/nope.log" });
+        syslog.addTransport(t);
+        syslog.on("onTransportError", (err: unknown) => {
+          assert.ok(err instanceof Error);
+          done();
+        });
+        syslog.log("trigger", "INFO");
+      }));
   });
 
   describe("HttpTransport", () => {
-    it("implements ITransport with name=http", (done) => {
-      const t = new HttpTransport({ url: "http://localhost:9999" });
-      assert.strict.equal(t.name, "http");
-      done();
-    });
+    it("implements ITransport with name=http", () =>
+      new Promise<void>((done) => {
+        const t = new HttpTransport({ url: "http://localhost:9999" });
+        assert.strict.equal(t.name, "http");
+        done();
+      }));
 
-    it("send() POSTs JSON to a local server", (done) => {
-      let body = "";
-      const server = http.createServer((req, res) => {
-        req.on("data", (chunk) => {
-          body += chunk;
+    it("send() POSTs JSON to a local server", () =>
+      new Promise<void>((done) => {
+        let body = "";
+        const server = http.createServer((req, res) => {
+          req.on("data", (chunk) => {
+            body += chunk;
+          });
+          req.on("end", () => {
+            res.writeHead(200);
+            res.end();
+          });
         });
-        req.on("end", () => {
-          res.writeHead(200);
+        server.listen(0, "127.0.0.1", () => {
+          const addr = server.address() as { port: number };
+          const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
+          const pdu = new Pdu("http test", "INFO", "HTTP");
+          pdu.status = "ACCEPTED";
+          t.send(pdu)
+            .then(() => {
+              server.close();
+              const parsed = JSON.parse(body);
+              assert.strict.equal(parsed.payload, "http test");
+              done();
+            })
+            .catch(done);
+        });
+      }));
+
+    it("send() rejects on HTTP 4xx", () =>
+      new Promise<void>((done) => {
+        const server = http.createServer((_req, res) => {
+          res.writeHead(400);
           res.end();
         });
-      });
-      server.listen(0, "127.0.0.1", () => {
-        const addr = server.address() as { port: number };
-        const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
-        const pdu = new Pdu("http test", "INFO", "HTTP");
-        pdu.status = "ACCEPTED";
-        t.send(pdu)
-          .then(() => {
+        server.listen(0, "127.0.0.1", () => {
+          const addr = server.address() as { port: number };
+          const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
+          const pdu = new Pdu("fail", "ERROR", "X");
+          pdu.status = "ACCEPTED";
+          t.send(pdu).catch((err: Error) => {
             server.close();
-            const parsed = JSON.parse(body);
-            assert.strict.equal(parsed.payload, "http test");
+            assert.ok(/HTTP 400/.test(err.message));
             done();
-          })
-          .catch(done);
-      });
-    });
+          });
+        });
+      }));
 
-    it("send() rejects on HTTP 4xx", (done) => {
-      const server = http.createServer((_req, res) => {
-        res.writeHead(400);
-        res.end();
-      });
-      server.listen(0, "127.0.0.1", () => {
-        const addr = server.address() as { port: number };
-        const t = new HttpTransport({ url: `http://127.0.0.1:${addr.port}` });
-        const pdu = new Pdu("fail", "ERROR", "X");
+    it("send() rejects on connection refused (no server)", () =>
+      new Promise<void>((done) => {
+        const t = new HttpTransport({ url: "http://127.0.0.1:1" });
+        const pdu = new Pdu("refused", "ERROR", "X");
         pdu.status = "ACCEPTED";
         t.send(pdu).catch((err: Error) => {
-          server.close();
-          assert.ok(/HTTP 400/.test(err.message));
+          assert.ok(err instanceof Error);
           done();
         });
-      });
-    });
-
-    it("send() rejects on connection refused (no server)", (done) => {
-      const t = new HttpTransport({ url: "http://127.0.0.1:1" });
-      const pdu = new Pdu("refused", "ERROR", "X");
-      pdu.status = "ACCEPTED";
-      t.send(pdu).catch((err: Error) => {
-        assert.ok(err instanceof Error);
-        done();
-      });
-    });
+      }));
   });
 
   describe("SyslogTransport", () => {
-    it("implements ITransport with name=syslog", (done) => {
-      const target = new Syslog();
-      const t = new SyslogTransport(target);
-      assert.strict.equal(t.name, "syslog");
-      done();
-    });
+    it("implements ITransport with name=syslog", () =>
+      new Promise<void>((done) => {
+        const target = new Syslog();
+        const t = new SyslogTransport(target);
+        assert.strict.equal(t.name, "syslog");
+        done();
+      }));
 
     it("send() forwards Pdu to target syslog", async () => {
       const child = new Syslog({ moduleName: "CHILD" });
@@ -1292,119 +1357,128 @@ describe("NODEFONY SYSLOG", () => {
       Syslog.restoreConsole();
     });
 
-    it("console.table(data) → INFO pdu with data as payload", (done) => {
-      const inst = new Syslog({ maxStack: 10 });
-      Syslog.overrideConsole(inst);
-      const data = [
-        { id: 1, name: "Alice" },
-        { id: 2, name: "Bob" },
-      ];
-      console.table(data);
-      assert.strict.equal(inst.ringStack.length, 1);
-      assert.strict.equal(inst.ringStack[0].severityName, "INFO");
-      assert.deepStrictEqual(inst.ringStack[0].payload, data);
-      done();
-    });
+    it("console.table(data) → INFO pdu with data as payload", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ maxStack: 10 });
+        Syslog.overrideConsole(inst);
+        const data = [
+          { id: 1, name: "Alice" },
+          { id: 2, name: "Bob" },
+        ];
+        console.table(data);
+        assert.strict.equal(inst.ringStack.length, 1);
+        assert.strict.equal(inst.ringStack[0].severityName, "INFO");
+        assert.deepStrictEqual(inst.ringStack[0].payload, data);
+        done();
+      }));
 
-    it("console.dir(obj) → DEBUG pdu with obj as payload", (done) => {
-      const inst = new Syslog({ maxStack: 10 });
-      Syslog.overrideConsole(inst);
-      const obj = { x: 42, nested: { y: true } };
-      console.dir(obj);
-      assert.strict.equal(inst.ringStack.length, 1);
-      assert.strict.equal(inst.ringStack[0].severityName, "DEBUG");
-      assert.deepStrictEqual(inst.ringStack[0].payload, obj);
-      done();
-    });
+    it("console.dir(obj) → DEBUG pdu with obj as payload", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ maxStack: 10 });
+        Syslog.overrideConsole(inst);
+        const obj = { x: 42, nested: { y: true } };
+        console.dir(obj);
+        assert.strict.equal(inst.ringStack.length, 1);
+        assert.strict.equal(inst.ringStack[0].severityName, "DEBUG");
+        assert.deepStrictEqual(inst.ringStack[0].payload, obj);
+        done();
+      }));
 
-    it("console.table and console.dir restored by restoreConsole", (done) => {
-      const inst = new Syslog({ maxStack: 10 });
-      Syslog.overrideConsole(inst);
-      Syslog.restoreConsole();
-      // After restore, console.table/dir should be native (no pdu added)
-      console.table([1, 2, 3]);
-      console.dir({ a: 1 });
-      assert.strict.equal(inst.ringStack.length, 0);
-      done();
-    });
+    it("console.table and console.dir restored by restoreConsole", () =>
+      new Promise<void>((done) => {
+        const inst = new Syslog({ maxStack: 10 });
+        Syslog.overrideConsole(inst);
+        Syslog.restoreConsole();
+        // After restore, console.table/dir should be native (no pdu added)
+        console.table([1, 2, 3]);
+        console.dir({ a: 1 });
+        assert.strict.equal(inst.ringStack.length, 0);
+        done();
+      }));
   });
 
   // ─── Limites CircularBuffer ─────────────────────────────────────────────────
 
   describe("CircularBuffer — limites", () => {
-    it("getLogStack() sur buffer vide → undefined", (done) => {
-      const s = new Syslog();
-      const res = s.getLogStack() as Pdu | undefined;
-      assert.strict.equal(res, undefined);
-      done();
-    });
+    it("getLogStack() sur buffer vide → undefined", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        const res = s.getLogStack() as Pdu | undefined;
+        assert.strict.equal(res, undefined);
+        done();
+      }));
 
-    it("FIFO order après overflow — le plus ancien écrasé", (done) => {
-      const s = new Syslog({ maxStack: 3 });
-      s.log("a", "INFO");
-      s.log("b", "INFO");
-      s.log("c", "INFO");
-      s.log("d", "INFO"); // écrase "a"
-      const stack = s.ringStack;
-      assert.strict.equal(stack.length, 3);
-      assert.strict.equal(stack[0].payload, "b");
-      assert.strict.equal(stack[2].payload, "d");
-      done();
-    });
+    it("FIFO order après overflow — le plus ancien écrasé", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog({ maxStack: 3 });
+        s.log("a", "INFO");
+        s.log("b", "INFO");
+        s.log("c", "INFO");
+        s.log("d", "INFO"); // écrase "a"
+        const stack = s.ringStack;
+        assert.strict.equal(stack.length, 3);
+        assert.strict.equal(stack[0].payload, "b");
+        assert.strict.equal(stack[2].payload, "d");
+        done();
+      }));
 
-    it("clearLogStack() vide le ring mais garde les listeners", (done) => {
-      const s = new Syslog();
-      let count = 0;
-      s.listenWithConditions(
-        { severity: { operator: "<=", data: 7 } },
-        () => count++,
-      );
-      s.log("x", "INFO");
-      s.clearLogStack();
-      assert.strict.equal(s.ringStack.length, 0);
-      s.log("y", "INFO"); // listener toujours actif
-      assert.strict.equal(count, 2);
-      done();
-    });
+    it("clearLogStack() vide le ring mais garde les listeners", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        let count = 0;
+        s.listenWithConditions(
+          { severity: { operator: "<=", data: 7 } },
+          () => count++,
+        );
+        s.log("x", "INFO");
+        s.clearLogStack();
+        assert.strict.equal(s.ringStack.length, 0);
+        s.log("y", "INFO"); // listener toujours actif
+        assert.strict.equal(count, 2);
+        done();
+      }));
 
-    it("reset() vide le ring ET retire tous les listeners", (done) => {
-      const s = new Syslog();
-      let count = 0;
-      s.listenWithConditions(
-        { severity: { operator: "<=", data: 7 } },
-        () => count++,
-      );
-      s.log("before reset", "INFO");
-      s.reset();
-      s.log("after reset", "INFO");
-      assert.strict.equal(s.ringStack.length, 1);
-      assert.strict.equal(count, 1); // le 2e log n'a pas déclenché le listener
-      done();
-    });
+    it("reset() vide le ring ET retire tous les listeners", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        let count = 0;
+        s.listenWithConditions(
+          { severity: { operator: "<=", data: 7 } },
+          () => count++,
+        );
+        s.log("before reset", "INFO");
+        s.reset();
+        s.log("after reset", "INFO");
+        assert.strict.equal(s.ringStack.length, 1);
+        assert.strict.equal(count, 1); // le 2e log n'a pas déclenché le listener
+        done();
+      }));
   });
 
   // ─── Rate limiting — edge cases ─────────────────────────────────────────────
 
   describe("Rate limiting — edge cases", () => {
-    it("exactement burstLimit accepted, le suivant DROPPED → missed++", (done) => {
-      const s = new Syslog({ rateLimit: 10000, burstLimit: 2 });
-      const p1 = s.log("a", "INFO");
-      const p2 = s.log("b", "INFO");
-      const p3 = s.log("c", "INFO"); // DROPPED
-      assert.strict.equal(p1.status, "ACCEPTED");
-      assert.strict.equal(p2.status, "ACCEPTED");
-      assert.strict.equal(p3.status, "DROPPED");
-      assert.strict.equal(s.missed, 1);
-      done();
-    });
+    it("exactement burstLimit accepted, le suivant DROPPED → missed++", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog({ rateLimit: 10000, burstLimit: 2 });
+        const p1 = s.log("a", "INFO");
+        const p2 = s.log("b", "INFO");
+        const p3 = s.log("c", "INFO"); // DROPPED
+        assert.strict.equal(p1.status, "ACCEPTED");
+        assert.strict.equal(p2.status, "ACCEPTED");
+        assert.strict.equal(p3.status, "DROPPED");
+        assert.strict.equal(s.missed, 1);
+        done();
+      }));
 
-    it("burstLimit=0 → tous DROPPED", (done) => {
-      const s = new Syslog({ rateLimit: 10000, burstLimit: 0 });
-      const p = s.log("x", "INFO");
-      assert.strict.equal(p.status, "DROPPED");
-      assert.strict.equal(s.missed, 1);
-      done();
-    });
+    it("burstLimit=0 → tous DROPPED", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog({ rateLimit: 10000, burstLimit: 0 });
+        const p = s.log("x", "INFO");
+        assert.strict.equal(p.status, "DROPPED");
+        assert.strict.equal(s.missed, 1);
+        done();
+      }));
 
     it("reset de fenêtre après rateLimit ms — accepte à nouveau", async () => {
       const s = new Syslog({ rateLimit: 30, burstLimit: 1 });
@@ -1422,200 +1496,218 @@ describe("NODEFONY SYSLOG", () => {
   // ─── Pdu — payloads limites ──────────────────────────────────────────────────
 
   describe("Pdu — payloads limites", () => {
-    it("payload=0 (falsy number) → ACCEPTED", (done) => {
-      const s = new Syslog();
-      const p = s.log(0, "INFO");
-      assert.strict.equal(p.status, "ACCEPTED");
-      assert.strict.equal(p.payload, 0);
-      assert.strict.equal(p.typePayload, "number");
-      done();
-    });
+    it("payload=0 (falsy number) → ACCEPTED", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        const p = s.log(0, "INFO");
+        assert.strict.equal(p.status, "ACCEPTED");
+        assert.strict.equal(p.payload, 0);
+        assert.strict.equal(p.typePayload, "number");
+        done();
+      }));
 
-    it("payload=false (falsy boolean) → ACCEPTED", (done) => {
-      const s = new Syslog();
-      const p = s.log(false as unknown as string, "INFO");
-      assert.strict.equal(p.status, "ACCEPTED");
-      assert.strict.equal(p.payload, false);
-      done();
-    });
+    it("payload=false (falsy boolean) → ACCEPTED", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        const p = s.log(false as unknown as string, "INFO");
+        assert.strict.equal(p.status, "ACCEPTED");
+        assert.strict.equal(p.payload, false);
+        done();
+      }));
 
-    it("payload=null → ACCEPTED", (done) => {
-      const s = new Syslog();
-      const p = s.log(null as unknown as string, "INFO");
-      assert.strict.equal(p.status, "ACCEPTED");
-      assert.strict.equal(p.payload, null);
-      done();
-    });
+    it("payload=null → ACCEPTED", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        const p = s.log(null as unknown as string, "INFO");
+        assert.strict.equal(p.status, "ACCEPTED");
+        assert.strict.equal(p.payload, null);
+        done();
+      }));
 
-    it("log(existingPdu) → passthrough sans recréation", (done) => {
-      const s = new Syslog();
-      const pdu = new Pdu("original", "ERROR", "MOD");
-      const returned = s.log(pdu);
-      assert.strict.equal(returned, pdu); // même objet
-      assert.strict.equal(s.ringStack[0], pdu);
-      done();
-    });
+    it("log(existingPdu) → passthrough sans recréation", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        const pdu = new Pdu("original", "ERROR", "MOD");
+        const returned = s.log(pdu);
+        assert.strict.equal(returned, pdu); // même objet
+        assert.strict.equal(s.ringStack[0], pdu);
+        done();
+      }));
 
-    it("typePayload: Error", (done) => {
-      const s = new Syslog();
-      const p = s.log(new Error("boom"), "ERROR");
-      assert.strict.equal(p.typePayload, "Error");
-      done();
-    });
+    it("typePayload: Error", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        const p = s.log(new Error("boom"), "ERROR");
+        assert.strict.equal(p.typePayload, "Error");
+        done();
+      }));
 
-    it("typePayload: Date → 'date' (fastTypeOf lowercase)", (done) => {
-      const s = new Syslog();
-      const p = s.log(new Date(), "INFO");
-      assert.strict.equal(p.typePayload, "date");
-      done();
-    });
+    it("typePayload: Date → 'date' (fastTypeOf lowercase)", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        const p = s.log(new Date(), "INFO");
+        assert.strict.equal(p.typePayload, "date");
+        done();
+      }));
 
-    it("typePayload: array", (done) => {
-      const s = new Syslog();
-      const p = s.log([1, 2, 3] as unknown as string, "INFO");
-      assert.strict.equal(p.typePayload, "array");
-      done();
-    });
+    it("typePayload: array", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        const p = s.log([1, 2, 3] as unknown as string, "INFO");
+        assert.strict.equal(p.typePayload, "array");
+        done();
+      }));
   });
 
   // ─── logToJson ───────────────────────────────────────────────────────────────
 
   describe("logToJson", () => {
-    it("retourne un JSON valide de tous les PDU", (done) => {
-      const s = new Syslog({ maxStack: 5 });
-      s.log("a", "INFO");
-      s.log("b", "ERROR");
-      const json = s.logToJson({ severity: { operator: "<=", data: 7 } });
-      const parsed = JSON.parse(json);
-      assert.ok(Array.isArray(parsed));
-      assert.strict.equal(parsed.length, 2);
-      assert.strict.equal(parsed[0].payload, "a");
-      assert.strict.equal(parsed[1].payload, "b");
-      done();
-    });
+    it("retourne un JSON valide de tous les PDU", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog({ maxStack: 5 });
+        s.log("a", "INFO");
+        s.log("b", "ERROR");
+        const json = s.logToJson({ severity: { operator: "<=", data: 7 } });
+        const parsed = JSON.parse(json);
+        assert.ok(Array.isArray(parsed));
+        assert.strict.equal(parsed.length, 2);
+        assert.strict.equal(parsed[0].payload, "a");
+        assert.strict.equal(parsed[1].payload, "b");
+        done();
+      }));
 
-    it("filtre par sévérité", (done) => {
-      const s = new Syslog({ maxStack: 10 });
-      s.log("err", "ERROR");
-      s.log("inf", "INFO");
-      s.log("dbg", "DEBUG");
-      const json = s.logToJson({ severity: { operator: "<=", data: "ERROR" } });
-      const parsed = JSON.parse(json);
-      assert.strict.equal(parsed.length, 1);
-      assert.strict.equal(parsed[0].payload, "err");
-      done();
-    });
+    it("filtre par sévérité", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog({ maxStack: 10 });
+        s.log("err", "ERROR");
+        s.log("inf", "INFO");
+        s.log("dbg", "DEBUG");
+        const json = s.logToJson({
+          severity: { operator: "<=", data: "ERROR" },
+        });
+        const parsed = JSON.parse(json);
+        assert.strict.equal(parsed.length, 1);
+        assert.strict.equal(parsed[0].payload, "err");
+        done();
+      }));
   });
 
   // ─── Conditions OR (checkConditions: "||") ───────────────────────────────────
 
   describe("checkConditions: || (logique OU)", () => {
-    it("|| — severity OU msgid — l'un ou l'autre suffit", (done) => {
-      const s = new Syslog();
-      let count = 0;
-      s.listenWithConditions(
-        {
-          severity: { operator: "==", data: "ERROR" },
-          msgid: { data: "SPECIAL" },
-          checkConditions: "||",
-        },
-        () => count++,
-      );
-      s.log("match severity", "ERROR", "OTHER"); // ERROR → match
-      s.log("match msgid", "INFO", "SPECIAL"); // SPECIAL → match
-      s.log("no match", "INFO", "OTHER"); // ni ERROR ni SPECIAL → no match
-      assert.strict.equal(count, 2);
-      done();
-    });
+    it("|| — severity OU msgid — l'un ou l'autre suffit", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        let count = 0;
+        s.listenWithConditions(
+          {
+            severity: { operator: "==", data: "ERROR" },
+            msgid: { data: "SPECIAL" },
+            checkConditions: "||",
+          },
+          () => count++,
+        );
+        s.log("match severity", "ERROR", "OTHER"); // ERROR → match
+        s.log("match msgid", "INFO", "SPECIAL"); // SPECIAL → match
+        s.log("no match", "INFO", "OTHER"); // ni ERROR ni SPECIAL → no match
+        assert.strict.equal(count, 2);
+        done();
+      }));
 
-    it("&& (défaut) — les deux conditions requises", (done) => {
-      const s = new Syslog();
-      let count = 0;
-      s.listenWithConditions(
-        {
-          severity: { operator: "==", data: "ERROR" },
-          msgid: { data: "SPECIAL" },
-        },
-        () => count++,
-      );
-      s.log("both", "ERROR", "SPECIAL"); // match
-      s.log("only sev", "ERROR", "OTHER"); // pas match
-      s.log("only msg", "INFO", "SPECIAL"); // pas match
-      assert.strict.equal(count, 1);
-      done();
-    });
+    it("&& (défaut) — les deux conditions requises", () =>
+      new Promise<void>((done) => {
+        const s = new Syslog();
+        let count = 0;
+        s.listenWithConditions(
+          {
+            severity: { operator: "==", data: "ERROR" },
+            msgid: { data: "SPECIAL" },
+          },
+          () => count++,
+        );
+        s.log("both", "ERROR", "SPECIAL"); // match
+        s.log("only sev", "ERROR", "OTHER"); // pas match
+        s.log("only msg", "INFO", "SPECIAL"); // pas match
+        assert.strict.equal(count, 1);
+        done();
+      }));
   });
 
   // ─── loadStack avec JSON string ──────────────────────────────────────────────
 
   describe("loadStack — JSON string", () => {
-    it("accepte une string JSON et charge les PDU", (done) => {
-      const source = new Syslog({ maxStack: 5 });
-      source.log("first", "INFO");
-      source.log("second", "ERROR");
-      const json = source.logToJson({ severity: { operator: "<=", data: 7 } });
-      const dest = new Syslog({ maxStack: 10 });
-      dest.loadStack(json);
-      assert.strict.equal(dest.ringStack.length, 2);
-      assert.strict.equal(dest.ringStack[0].payload, "first");
-      assert.strict.equal(dest.ringStack[1].payload, "second");
-      done();
-    });
+    it("accepte une string JSON et charge les PDU", () =>
+      new Promise<void>((done) => {
+        const source = new Syslog({ maxStack: 5 });
+        source.log("first", "INFO");
+        source.log("second", "ERROR");
+        const json = source.logToJson({
+          severity: { operator: "<=", data: 7 },
+        });
+        const dest = new Syslog({ maxStack: 10 });
+        dest.loadStack(json);
+        assert.strict.equal(dest.ringStack.length, 2);
+        assert.strict.equal(dest.ringStack[0].payload, "first");
+        assert.strict.equal(dest.ringStack[1].payload, "second");
+        done();
+      }));
   });
 
   // ─── rawLog SPINNER ──────────────────────────────────────────────────────────
 
   describe("rawLog — SPINNER (-1)", () => {
-    it("SPINNER → \\r prefix + stdout (pas stderr)", (done) => {
-      const chunks: string[] = [];
-      const origOut = process.stdout.write.bind(process.stdout);
-      process.stdout.write = (chunk: unknown) => {
-        chunks.push(String(chunk));
-        return true;
-      };
-      let errWritten = false;
-      const origErr = process.stderr.write.bind(process.stderr);
-      process.stderr.write = () => {
-        errWritten = true;
-        return true;
-      };
-      const pdu = new Pdu("loading…", -1);
-      Syslog.rawLog(pdu);
-      process.stdout.write = origOut;
-      process.stderr.write = origErr;
-      assert.ok(!errWritten, "SPINNER ne doit pas écrire sur stderr");
-      assert.ok(
-        chunks.some((c) => c.startsWith("\r")),
-        "doit commencer par \\r",
-      );
-      assert.ok(chunks.some((c) => c.includes("loading…")));
-      done();
-    });
+    it("SPINNER → \\r prefix + stdout (pas stderr)", () =>
+      new Promise<void>((done) => {
+        const chunks: string[] = [];
+        const origOut = process.stdout.write.bind(process.stdout);
+        process.stdout.write = (chunk: unknown) => {
+          chunks.push(String(chunk));
+          return true;
+        };
+        let errWritten = false;
+        const origErr = process.stderr.write.bind(process.stderr);
+        process.stderr.write = () => {
+          errWritten = true;
+          return true;
+        };
+        const pdu = new Pdu("loading…", -1);
+        Syslog.rawLog(pdu);
+        process.stdout.write = origOut;
+        process.stderr.write = origErr;
+        assert.ok(!errWritten, "SPINNER ne doit pas écrire sur stderr");
+        assert.ok(
+          chunks.some((c) => c.startsWith("\r")),
+          "doit commencer par \\r",
+        );
+        assert.ok(chunks.some((c) => c.includes("loading…")));
+        done();
+      }));
   });
 
   // ─── HttpTransport — timeout ─────────────────────────────────────────────────
 
   describe("HttpTransport — timeout", () => {
-    it("send() rejette si le serveur ne répond pas dans le délai", (done) => {
-      // Serveur qui ne répond jamais
-      const server = http.createServer((_req, _res) => {
-        /* silence */
-      });
-      server.listen(0, "127.0.0.1", () => {
-        const addr = server.address() as { port: number };
-        const t = new HttpTransport({
-          url: `http://127.0.0.1:${addr.port}`,
-          timeout: 50,
+    it("send() rejette si le serveur ne répond pas dans le délai", () =>
+      new Promise<void>((done) => {
+        // Serveur qui ne répond jamais
+        const server = http.createServer((_req, _res) => {
+          /* silence */
         });
-        const pdu = new Pdu("timeout test", "INFO", "X");
-        pdu.status = "ACCEPTED";
-        t.send(pdu).catch((err: Error) => {
-          server.close();
-          assert.ok(/timeout/.test(err.message));
-          done();
+        server.listen(0, "127.0.0.1", () => {
+          const addr = server.address() as { port: number };
+          const t = new HttpTransport({
+            url: `http://127.0.0.1:${addr.port}`,
+            timeout: 50,
+          });
+          const pdu = new Pdu("timeout test", "INFO", "X");
+          pdu.status = "ACCEPTED";
+          t.send(pdu).catch((err: Error) => {
+            server.close();
+            assert.ok(/timeout/.test(err.message));
+            done();
+          });
         });
-      });
-    });
+      }));
   });
 });
 

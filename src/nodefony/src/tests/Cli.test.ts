@@ -576,9 +576,18 @@ describe("Cli — showBanner / logEnv", () => {
   });
 
   it("logEnv() avec environment 'development'", () => {
-    const cli = makeCli("devenv", { environment: "development" });
-    const env = cli.logEnv();
-    assert.ok(env.includes("development"));
+    // NODE_ENV (vitest='test') primerait sur l'environment explicite via la
+    // résolution 12-factor → on le neutralise le temps du test pour vérifier que
+    // l'environment configuré est bien reflété.
+    const savedNodeEnv = process.env.NODE_ENV;
+    delete process.env.NODE_ENV;
+    try {
+      const cli = makeCli("devenv", { environment: "development" });
+      const env = cli.logEnv();
+      assert.ok(env.includes("development"));
+    } finally {
+      if (savedNodeEnv !== undefined) process.env.NODE_ENV = savedNodeEnv;
+    }
   });
 });
 
