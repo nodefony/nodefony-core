@@ -363,6 +363,13 @@ class SessionStorage {
 }
 
 // Auto-enregistrement dans le registre de session de @nodefony/http (IoC).
-SessionsService.registerStorage("sequelize", SessionStorage);
+// cast : dette de typage session (ISessionStorage vs sessionStorageInterface),
+// traitée par la refonte ORM (boussole durcissement ORM).
+SessionsService.registerStorage(
+  "sequelize",
+  SessionStorage as unknown as Parameters<
+    typeof SessionsService.registerStorage
+  >[1],
+);
 
 export default SessionStorage;

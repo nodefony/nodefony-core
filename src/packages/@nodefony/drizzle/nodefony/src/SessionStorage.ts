@@ -181,6 +181,13 @@ class SessionStorage implements ISessionStorage {
 
 // Auto-enregistrement dans le registre de session de @nodefony/http (IoC) :
 // http ne dépend pas de cet ORM, c'est l'ORM qui se déclare.
-SessionsService.registerStorage("drizzle", SessionStorage);
+// cast : dette de typage session (ISessionStorage vs sessionStorageInterface),
+// traitée par la refonte ORM (boussole durcissement ORM).
+SessionsService.registerStorage(
+  "drizzle",
+  SessionStorage as unknown as Parameters<
+    typeof SessionsService.registerStorage
+  >[1],
+);
 
 export default SessionStorage;

@@ -40,7 +40,10 @@ class AppController extends Controller {
       "views",
       "index.eta",
     );
-    return this.renderView(view, this.context?.metaData).catch((e) => {
+    return this.renderView(
+      view,
+      this.context?.metaData as Record<string, unknown> | undefined,
+    ).catch((e) => {
       throw e;
     });
   }

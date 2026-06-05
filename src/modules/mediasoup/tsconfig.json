@@ -18,5 +18,12 @@
     "types": ["node"]
   },
   "include": ["index.ts", "rollup.config.ts", "nodefony/**/*.ts"],
-  "exclude": ["node_modules", "dist", "frontend"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "frontend",
+    "nodefony/tests/**",
+    "tests/**",
+    "**/*.test.ts"
+  ]
 }

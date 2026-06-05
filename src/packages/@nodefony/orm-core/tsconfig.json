@@ -16,6 +16,17 @@
     "declarationDir": "./dist/types",
     "outDir": "./dist"
   },
-  "include": ["index.ts", "rollup.config.ts", "src/**/*.ts", "nodefony/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "index.ts",
+    "rollup.config.ts",
+    "src/**/*.ts",
+    "nodefony/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "nodefony/tests/**",
+    "tests/**",
+    "**/*.test.ts"
+  ]
 }

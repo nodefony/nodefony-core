@@ -297,29 +297,29 @@ Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 
 ### État par module (audit 2026-05-27 — vérifié terrain)
 
-| Module                | État types                                               | Action requise                                      |
-| --------------------- | -------------------------------------------------------- | --------------------------------------------------- |
-| `nodefony` (core)     | ✅ isomorphe (`browser`/`import` conditions)             | —                                                   |
-| `@nodefony/llm`       | ✅ `dist/index.d.ts` + `exports.types`                   | —                                                   |
-| `@nodefony/http`      | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (pattern volontaire anti-race)                    |
-| `@nodefony/framework` | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (pattern volontaire anti-race)                    |
-| `@nodefony/security`  | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (corrigé en P6.S1, source TS)                     |
-| `@nodefony/frontend`  | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (pattern volontaire anti-race)                    |
-| `@nodefony/orm-core`  | ✅ `dist/types` + `exports`                              | —                                                   |
-| `@nodefony/drizzle`   | ✅ `dist/types` + `exports`                              | —                                                   |
-| `@nodefony/user`      | ✅ `dist/types` + `exports`                              | —                                                   |
-| `@nodefony/mongoose`  | ✅ `dist/types` + `exports`                              | Fait (2026-05-27 — `.d.ts` legacy supprimé)         |
-| `@nodefony/redis`     | ✅ `dist/types` + `exports`                              | Fait (2026-05-27 — `.d.ts` legacy supprimé)         |
-| `@nodefony/sequelize` | ✅ `dist/types` + `exports`                              | Fait (2026-05-27 — `.d.ts` legacy supprimé)         |
-| `@nodefony/studio`    | ⓘ `private: true` + `declaration: false`                 | — (types publics inutiles, non importé hors Studio) |
-| `@nodefony/agent`     | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12 (couche IA agentic)                 |
-| `@nodefony/memory`    | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12                                     |
-| `@nodefony/rag`       | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12                                     |
-| `@nodefony/vector`    | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12                                     |
+| Module                | État types                                               | Action requise                                       |
+| --------------------- | -------------------------------------------------------- | ---------------------------------------------------- |
+| `nodefony` (core)     | ✅ isomorphe (`browser`/`import` conditions)             | —                                                    |
+| `@nodefony/llm`       | ✅ `dist/index.d.ts` + `exports.types`                   | —                                                    |
+| `@nodefony/http`      | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (pattern volontaire anti-race)                     |
+| `@nodefony/framework` | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (pattern volontaire anti-race)                     |
+| `@nodefony/security`  | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (corrigé en P6.S1, source TS)                      |
+| `@nodefony/frontend`  | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (pattern volontaire anti-race)                     |
+| `@nodefony/orm-core`  | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (anti-race : consommé en source par user/security) |
+| `@nodefony/drizzle`   | ✅ `dist/types` + `exports`                              | —                                                    |
+| `@nodefony/user`      | ✅ `dist/types` + `exports.types: ./index.ts` (source)   | — (anti-race : consommé en source par security)      |
+| `@nodefony/mongoose`  | ✅ `dist/types` + `exports`                              | Fait (2026-05-27 — `.d.ts` legacy supprimé)          |
+| `@nodefony/redis`     | ✅ `dist/types` + `exports`                              | Fait (2026-05-27 — `.d.ts` legacy supprimé)          |
+| `@nodefony/sequelize` | ✅ `dist/types` + `exports`                              | Fait (2026-05-27 — `.d.ts` legacy supprimé)          |
+| `@nodefony/studio`    | ⓘ `private: true` + `declaration: false`                 | — (types publics inutiles, non importé hors Studio)  |
+| `@nodefony/agent`     | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12 (couche IA agentic)                  |
+| `@nodefony/memory`    | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12                                      |
+| `@nodefony/rag`       | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12                                      |
+| `@nodefony/vector`    | 🚧 WIP P12 — squelette source, pas de `rollup.config.ts` | À câbler en P12                                      |
 
-> **Pattern `exports.types: ./index.ts`** (sur 4 modules : http/framework/security/frontend) : la condition `types` pointe vers la **source TS**, pas vers `dist/types/`. Voulu — évite la race d'ordre de build inter-modules (cf [[feedback_turbo_cache_stale_logs]]). Les consommateurs résolvent depuis le TS source via `customConditions:["browser"]` (Studio frontend) ou résolution standard (back).
+> **Pattern `exports.types: ./index.ts`** (sur 6 modules : http/framework/security/frontend + **orm-core/user** depuis 2026-06-05) : la condition `types` pointe vers la **source TS**, pas vers `dist/types/`. Voulu — évite la race d'ordre de build inter-modules (cf [[feedback_turbo_cache_stale_logs]]). Les consommateurs résolvent depuis le TS source via `customConditions:["browser"]` (Studio frontend) ou résolution standard (back). **CHAÎNE COMPLÈTE OBLIGATOIRE** : security (source) consomme user (source) qui consomme orm-core (source) qui consomme `nodefony` (core, buildé en 1er → dist prêt). Casser un maillon (un `dist/types` au milieu) = TS2307 « Cannot find module » sur les consommateurs en amont (build race). 2026-06-05 : user+orm-core convertis pour fermer la chaîne (warnings build de http/framework consommant security).
 >
-> **Pattern `exports.types: ./dist/types/...`** (sur orm-core/drizzle/user + les 3 modules legacy corrigés ce 2026-05-27) : standard CLAUDE.md classique — pointe vers le `.d.ts` généré par rollup.
+> **Pattern `exports.types: ./dist/types/...`** (sur drizzle/mongoose/redis/sequelize) : standard CLAUDE.md classique — pointe vers le `.d.ts` généré par rollup. Ces modules ne sont PAS consommés en source par un module anti-race → pas de race.
 
 ---
 

@@ -37,8 +37,9 @@ class PocController extends Controller {
         svc.getCspDirectives(),
       );
     }
-    const viteTags = svc?.renderTags("test-frontend-react")
-      ?? "<!-- @nodefony/frontend: service unavailable -->";
+    const viteTags =
+      svc?.renderTags("test-frontend-react") ??
+      "<!-- @nodefony/frontend: service unavailable -->";
     const html = `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -73,7 +74,7 @@ class PocController extends Controller {
    */
   @Get("/api/burn/{ms}")
   apiBurn() {
-    const ms = parseInt(this.queryGet?.ms ?? "100", 10);
+    const ms = parseInt(String(this.queryGet?.ms ?? "100"), 10);
     const start = Date.now();
     // Spin lock — bloque l'event-loop. Pour calibration uniquement.
     while (Date.now() - start < ms) {

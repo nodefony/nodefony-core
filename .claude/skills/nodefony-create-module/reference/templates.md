@@ -39,14 +39,14 @@
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",
     "@rollup/plugin-typescript": "12.3.0",
-    "@types/node": "25.8.0",
-    "@vitest/coverage-v8": "4.1.7",
+    "@types/node": "25.9.1",
+    "@vitest/coverage-v8": "4.1.8",
     "rimraf": "6.1.3",
-    "rollup": "4.60.4",
+    "rollup": "4.61.1",
     "rollup-sourcemap-path-transform": "1.2.0",
     "tslib": "2.8.1",
     "typescript": "6.0.3",
-    "vitest": "4.1.7"
+    "vitest": "4.1.8"
   },
   "private": true,
   "license": "CECILL-B"
@@ -144,9 +144,21 @@ export default defineConfig({
     "types": ["node"]
   },
   "include": ["index.ts", "rollup.config.ts", "nodefony/**/*.ts"],
-  "exclude": ["node_modules", "dist", "nodefony/tests"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "nodefony/tests/**",
+    "tests/**",
+    "**/*.test.ts"
+  ]
 }
 ```
+
+> ⚠️ **Exclure les tests du build est OBLIGATOIRE.** `@rollup/plugin-typescript` type-check
+> TOUT le programme du `tsconfig.json` : un test laissé dans `include` fait remonter `describe`/`it`
+> non typés (TS2593), `import`/globals de test (TS2882/TS2304) comme warnings de build. Les tests
+> ont leur propre `tsconfig.tests.json` (`types: ["node", "vitest/globals", "chai"]`). Couvrir les
+> deux emplacements (`nodefony/tests/**` ET `tests/**`) + `**/*.test.ts` en filet.
 
 ⚠️ **Piège TS7060** : si tu ajoutes `"jsx": "preserve"` dans `compilerOptions` (cas frontend),
 NE PAS retirer `"declaration": true` — sinon Rollup râle avec TS5069 sur `declarationDir`.

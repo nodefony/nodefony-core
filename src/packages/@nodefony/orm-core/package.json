@@ -5,10 +5,10 @@
   "contributors": [],
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/types/index.d.ts",
+  "types": "./index.ts",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
+      "types": "./index.ts",
       "import": "./dist/index.js"
     }
   },
