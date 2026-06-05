@@ -24,3 +24,4 @@ export const useChat = () => useStore().chat;
 export const useAdmin = () => useStore().admin;
 export const useProfiler = () => useStore().profiler;
 export const useNotifications = () => useStore().notifications;
+export const useWorkspace = () => useStore().workspace;

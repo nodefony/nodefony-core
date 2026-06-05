@@ -78,6 +78,9 @@ const OrmWorker = lazy(() =>
 const Documentation = lazy(() =>
   import("./routes/Documentation").then((m) => ({ default: m.Documentation })),
 );
+const Workspace = lazy(() =>
+  import("./routes/Workspace").then((m) => ({ default: m.Workspace })),
+);
 
 import {
   Sessions,
@@ -137,6 +140,7 @@ const router = createBrowserRouter([
           { path: "hub", element: <RealtimeConsole /> },
           { path: "cluster", element: <Cluster /> },
           { path: "runtime", element: <Runtime /> },
+          { path: "workspace", element: <Workspace /> },
           {
             path: "dev",
             element: (

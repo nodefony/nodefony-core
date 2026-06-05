@@ -9,6 +9,7 @@ import { ChatStore } from "./ChatStore";
 import { AdminStore } from "./AdminStore";
 import { ProfilerStore } from "./ProfilerStore";
 import { NotificationStore } from "./NotificationStore";
+import { WorkspaceStore } from "../workspace/WorkspaceStore";
 
 /**
  * URL de l'endpoint WS realtime de Studio (`StudioRealtimeController`, JSON-RPC 2.0).
@@ -37,12 +38,14 @@ export class RootStore {
   readonly admin: AdminStore;
   readonly profiler: ProfilerStore;
   readonly notifications: NotificationStore;
+  readonly workspace: WorkspaceStore;
 
   readonly api: ApiClient;
   readonly realtime: RealtimeClient;
 
   constructor() {
     this.ui = new UiStore();
+    this.workspace = new WorkspaceStore();
 
     // Connexion realtime PARTAGÉE par URL : la même socket sert Studio ET la
     // barre de debug (qui appelle aussi RealtimeClient.shared sur la même URL)
