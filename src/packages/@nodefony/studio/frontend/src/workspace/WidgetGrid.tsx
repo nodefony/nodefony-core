@@ -217,7 +217,16 @@ export const WidgetGrid = observer(
     return (
       <Box
         ref={containerRef}
-        style={{ position: "relative", minHeight, width: "100%" }}
+        style={{
+          position: "relative",
+          minHeight,
+          width: "100%",
+          // Stacking context PROPRE : confine les z-order des fenêtres (qui montent
+          // au fil des « passer devant ») → elles ne remontent JAMAIS au-dessus du
+          // bandeau sticky (z:3) ni de la top bar. Fix « topbar perdue / vignettes
+          // recouvertes ».
+          isolation: "isolate",
+        }}
       >
         {items.map((it) => {
           const def = getWidget(it.widgetId);

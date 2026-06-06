@@ -322,6 +322,7 @@ function AlertsBody({ source }: WidgetRenderProps<HealthPayload>) {
 // ─────────────────────────── registrations ─────────────────────────
 registerWidget<KernelInfo>({
   id: "runtime.modes",
+  tags: ["runtime", "config", "panneau"],
   title: "Modes de lancement",
   description: "Les 3 modes CLI (dev / prod / cluster), le courant surligné.",
   category: "runtime",
@@ -335,6 +336,7 @@ registerWidget<KernelInfo>({
 
 registerWidget<FrontendStatusView>({
   id: "runtime.vite",
+  tags: ["runtime", "config", "kpi"],
   title: "Vite / HMR",
   description: "État du serveur Vite (dev) ou bundle figé (prod/cluster).",
   category: "runtime",
@@ -347,6 +349,7 @@ registerWidget<FrontendStatusView>({
 
 registerWidget<KernelInfo>({
   id: "system.git",
+  tags: ["config", "identite", "kpi"],
   title: "Git",
   description: "Branche et commit courant (GitService core, sans spawn).",
   category: "system",
@@ -359,6 +362,7 @@ registerWidget<KernelInfo>({
 
 registerWidget<KernelInfo>({
   id: "system.uptime",
+  tags: ["systeme", "identite", "kpi"],
   title: "Uptime",
   description: "Durée de fonctionnement + environnement + mode debug.",
   category: "system",
@@ -371,6 +375,7 @@ registerWidget<KernelInfo>({
 
 registerWidget<HealthPayload>({
   id: "realtime.channels",
+  tags: ["realtime", "liste"],
   title: "Canaux temps réel",
   description: "Canaux actifs du hub : abonnés et messages (agrégé pod).",
   category: "realtime",
@@ -384,6 +389,7 @@ registerWidget<HealthPayload>({
 
 registerWidget<HealthPayload>({
   id: "supervision.alerts",
+  tags: ["systeme", "sante", "erreurs", "liste"],
   title: "Alertes",
   description: "Alertes santé live (CPU/event-loop/heap/ORM/backpressure).",
   category: "system",

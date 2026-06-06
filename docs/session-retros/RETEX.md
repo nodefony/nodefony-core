@@ -138,6 +138,23 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   attrape les types, pas tout ; `curl -sk https://127.0.0.1:<viteStudio>/@fs/<abs>.tsx` (port Vite Studio = 5173 ici,
   ≠ 5177 = autre bundle) → 200 + 0 « Transform failed » si le module compile. Boucler sur les N fichiers touchés →
   0 page blanche au hard-reload. (cf skill `nodefony-frontend-verify`.)
+- `[1× — 2026-06-06]` **sticky qui « défile quand même » = un `marginTop` négatif** sort l'élément de sa zone
+  sticky (quand le scroll-ancestor a `paddingTop:0`). Copier la recette du frère qui marche (`PageHeader sticky` :
+  `top:0` + plein-bleed `marginInline` SEUL). Deux sticky `top:0` frères se chevauchent → **un seul en-tête sticky
+  unifié** (wrapper parent). + lever l'ambiguïté de vocabulaire (« topbar » = PageHeader, pas le bandeau).
+- `[1× — 2026-06-06]` **z-index d'enfants qui « passe par-dessus » un voisin = stacking context manquant** : des
+  fenêtres `position:absolute; zIndex:N` (N croissant) remontent au-dessus d'un bandeau frère → **`isolation:isolate`**
+  sur LEUR conteneur confine les z (fix sans toucher chaque z). Réflexe pour tout canvas à z-order.
+- `[1× — 2026-06-06]` **`Menu` Mantine rend le focus à son trigger à la fermeture** → un input `autoFocus` ouvert
+  depuis un `Menu.Item` blur aussitôt → `onBlur` commit avant la frappe (« le renommage marche en double-clic, pas
+  dans le menu »). Fix = **`returnFocus={false}`** sur le Menu. + `userSelect:none` (double-clic = action, pas sélection).
+- `[1× — 2026-06-06]` **aperçu live d'un bloc dans un autre contenant = réutiliser le registre de blocs unifié**
+  (`useBlockSource`+`BlockBody`) monté dans un dropdown **lazy** (HoverCard) → 1 abonnement/fois ref-compté, 0 coût
+  hors survol. Ne PAS réécrire un mini-rendu. (catalogue Studio : aperçu au survol = le VRAI widget.)
+- `[1× — 2026-06-06]` **classer des blocs = tags SAISIS (domaine hiérarchique + nature) + capacités DÉRIVÉES** du
+  code (cluster-ready ← `clusterAware`, temps réel ← `source.kind`) — jamais saisir une capacité (= dérive garantie,
+  le piège « liste dupliquée »). **Template fidèle d'un bureau libre** = `WorkspacePreset.layout?` (positions exactes
+  exportées du `localStorage["nf.workspace.layouts.v2"]` que le user copie en console), bypass du pavage auto.
 
 - `[1× — 2026-06-01]` **Studio = Mantine v9, PAS v8** (le skill `studio-dev` dit v8 → FAUX, à
   corriger) : `Collapse` prop = **`expanded`** (pas `in`) ; `DataGrid.filterOptions` = `string[]`

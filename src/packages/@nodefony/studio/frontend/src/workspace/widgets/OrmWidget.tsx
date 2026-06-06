@@ -78,6 +78,7 @@ function OrmBody({ source }: WidgetRenderProps<HealthPayload>) {
 
 registerWidget<HealthPayload>({
   id: "orm.health",
+  tags: ["orm", "orm-debit", "kpi"],
   title: "ORM",
   description: "Débit requêtes/s + courbe, connecteurs, latence (agrégé pod).",
   category: "orm",

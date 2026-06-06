@@ -28,9 +28,6 @@ import type { WorkspaceLayout } from "./types";
 /* Dimensions de la vignette (mini-fenêtre fantôme). */
 const TW = 156;
 const TH = 88;
-/* Plein-bleed : annule le padding de AppShell.Main pour coller à la top bar. */
-const BLEED = "calc(var(--mantine-spacing-md) * -1)";
-const PAD = "var(--mantine-spacing-md)";
 
 /**
  * Aperçu « mini-fenêtres fantômes » d'un bureau : les fenêtres rendues à
@@ -157,18 +154,9 @@ export const WorkspaceSwitcher = observer(() => {
   );
 
   return (
-    <Box
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 3,
-        background: "var(--mantine-color-body)",
-        borderBottom: "1px solid var(--mantine-color-default-border)",
-        marginInline: BLEED,
-        marginTop: BLEED,
-        paddingInline: PAD,
-      }}
-    >
+    // La STICKY est portée par l'en-tête UNIFIÉ du parent (Workspace) — pas ici :
+    // deux sticky `top:0` (bandeau + PageHeader) se chevaucheraient.
+    <Box>
       {/* Barre compacte TOUJOURS visible (l'« ouverture » bascule le slider). */}
       <Group justify="space-between" wrap="nowrap" py={6}>
         <UnstyledButton
@@ -281,14 +269,16 @@ export const WorkspaceSwitcher = observer(() => {
                       fw={isActive ? 700 : 500}
                       c={isActive ? "brand" : undefined}
                       truncate
-                      style={{ flex: 1, cursor: "text" }}
+                      // `userSelect:none` → le double-clic déclenche le renommage au
+                      // lieu de sélectionner le mot.
+                      style={{ flex: 1, cursor: "text", userSelect: "none" }}
                       onDoubleClick={() => startRename(l.id, l.label)}
                       title="Double-clic pour renommer"
                     >
                       {l.label}
                     </Text>
                   )}
-                  <Menu position="bottom-end" withinPortal>
+                  <Menu position="bottom-end" withinPortal returnFocus={false}>
                     <Menu.Target>
                       <ActionIcon
                         variant="subtle"

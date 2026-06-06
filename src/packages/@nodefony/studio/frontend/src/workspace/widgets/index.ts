@@ -11,3 +11,5 @@ import "./LogsBackplaneWidget";
 import "./RealtimeWidget";
 import "./ClusterWidget";
 import "./MoreWidgets";
+import "./SupervisionWidgets";
+import "./SupervisionDetailWidgets";

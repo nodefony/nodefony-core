@@ -1,7 +1,7 @@
 import "../workspace/widgets"; // side-effect : peuple le registry de widgets
 import { observer } from "mobx-react-lite";
 import { useState } from "react";
-import { Badge, Button, Group, Stack, Switch, Text } from "@mantine/core";
+import { Badge, Box, Button, Group, Stack, Switch, Text } from "@mantine/core";
 import {
   IconApps,
   IconArrowsMinimize,
@@ -31,56 +31,71 @@ export const Workspace = observer(() => {
 
   return (
     <Stack gap="md">
-      <WorkspaceSwitcher />
+      {/* En-tête UNIFIÉ sticky : bandeau d'espaces + titre + actions restent figés
+          en haut quand le bureau défile (scroll sur AppShell.Main). z > WidgetGrid
+          (stacking context isolé) → jamais recouvert par les fenêtres. */}
+      <Box
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 5,
+          background: "var(--mantine-color-body)",
+          marginInline: "calc(var(--mantine-spacing-md) * -1)",
+          paddingInline: "var(--mantine-spacing-md)",
+          borderBottom: "1px solid var(--mantine-color-default-border)",
+        }}
+      >
+        <WorkspaceSwitcher />
 
-      <PageHeader
-        title={active.label}
-        subtitle="Composez votre espace : ajoutez, retirez et agencez vos widgets."
-        actions={
-          <Group gap="xs">
-            <Switch
-              size="sm"
-              checked={ui.realtimeLive}
-              onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
-              label="Temps réel"
-            />
-            <Button
-              size="xs"
-              variant="light"
-              leftSection={<IconApps size={14} />}
-              onClick={() => setCatalog(true)}
-            >
-              Ajouter
-            </Button>
-            <Button
-              size="xs"
-              variant="subtle"
-              color="gray"
-              leftSection={<IconArrowsMinimize size={14} />}
-              onClick={() => workspace.tidy()}
-            >
-              Ranger
-            </Button>
-            <Button
-              size="xs"
-              variant="subtle"
-              color="gray"
-              leftSection={<IconRefresh size={14} />}
-              onClick={reload}
-            >
-              Rafraîchir
-            </Button>
-            <Button
-              size="xs"
-              variant="subtle"
-              color="gray"
-              onClick={() => workspace.resetToPreset()}
-            >
-              Réinitialiser
-            </Button>
-          </Group>
-        }
-      />
+        <PageHeader
+          title={active.label}
+          subtitle="Composez votre espace : ajoutez, retirez et agencez vos widgets."
+          actions={
+            <Group gap="xs">
+              <Switch
+                size="sm"
+                checked={ui.realtimeLive}
+                onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
+                label="Temps réel"
+              />
+              <Button
+                size="xs"
+                variant="light"
+                leftSection={<IconApps size={14} />}
+                onClick={() => setCatalog(true)}
+              >
+                Ajouter
+              </Button>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="gray"
+                leftSection={<IconArrowsMinimize size={14} />}
+                onClick={() => workspace.tidy()}
+              >
+                Ranger
+              </Button>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="gray"
+                leftSection={<IconRefresh size={14} />}
+                onClick={reload}
+              >
+                Rafraîchir
+              </Button>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="gray"
+                onClick={() => workspace.resetToPreset()}
+              >
+                Réinitialiser
+              </Button>
+            </Group>
+          }
+        />
+      </Box>
 
       {ctx.cluster ? (
         <Group>

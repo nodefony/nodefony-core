@@ -21,6 +21,11 @@ function clampHpx(h: number): number {
 
 /** Convertit les graines d'un preset (colonnes/rangées) en fenêtres pavées (px/fraction). */
 function migratePreset(p: WorkspacePreset): WorkspaceLayout {
+  // Layout EXACT fourni (modèle exporté d'un bureau) → positions telles quelles,
+  // aucun pavage auto (reproduit l'agencement à l'identique).
+  if (p.layout && p.layout.length) {
+    return { id: p.id, label: p.label, items: p.layout.map(normInstance) };
+  }
   const tiles = autoTile(
     p.items.map((s) => ({
       id: s.widgetId,

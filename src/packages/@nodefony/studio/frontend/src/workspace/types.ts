@@ -126,6 +126,12 @@ export interface IWidgetDef<T = unknown> {
   icon: Icon;
   /** Visible seulement si l'utilisateur a ≥1 de ces rôles ; vide/absent = tous. */
   roles?: string[];
+  /**
+   * Étiquettes de classement (ids du registre `tags.ts`) : DOMAINE (thème →
+   * sous-thème) + NATURE (type de bloc). Les CAPACITÉS (cluster-ready, temps réel)
+   * sont DÉRIVÉES (`clusterAware` / `source.kind`), jamais saisies ici → 0 dérive.
+   */
+  tags?: string[];
   source: WidgetSource;
   /** Le rendu change en cluster (résumé pod + grille worker, cf `ClusterView`). */
   clusterAware?: boolean;
@@ -177,6 +183,12 @@ export interface WorkspacePreset {
   id: string;
   label: string;
   items: WidgetSeed[];
+  /**
+   * Layout EXACT optionnel — fenêtres positionnées (px/fraction + z) exportées d'un
+   * vrai bureau. Si présent, il est utilisé TEL QUEL (aucun pavage auto) → le modèle
+   * reproduit l'agencement à l'identique. Sinon `items` est pavé automatiquement.
+   */
+  layout?: WidgetInstance[];
 }
 
 /** Un bureau VIVANT = des fenêtres placées librement. */

@@ -1,4 +1,13 @@
-import { Badge, Center, Group, RingProgress, Text } from "@mantine/core";
+import { useEffect, useRef, useState } from "react";
+import {
+  Badge,
+  Center,
+  Group,
+  Progress,
+  RingProgress,
+  Stack,
+  Text,
+} from "@mantine/core";
 import {
   IconActivityHeartbeat,
   IconCpu,
@@ -195,38 +204,83 @@ function LoopBody({ source }: WidgetRenderProps<HealthPayload>) {
 }
 
 // ─────────────────────────── Santé (composite) ─────────────────────
-/** Indice composite d'UN worker (Derringer-Suich, brique partagée `buildHealth`). */
-function instHealth(inst: InstanceHealth): HealthResult {
+/**
+ * Taux d'erreurs/min PAR worker, dérivé du cumul monotone `errors.{errorTotal,
+ * criticTotal}` (delta entre 2 ticks `realtime:health`). Un cumul brut ne dit rien
+ * (un serveur ancien a un gros total) → seul le TAUX est une sonde de santé. Garde
+ * le dernier point par worker (Map pid → {ts,total}).
+ */
+function usePerWorkerErrRate(
+  instances: InstanceHealth[],
+  ts: number | null | undefined,
+): Record<string, number> {
+  const prev = useRef<Map<string, { ts: number; total: number }>>(new Map());
+  const [rates, setRates] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (ts == null) return;
+    const next: Record<string, number> = {};
+    for (const inst of instances) {
+      const e = inst.errors;
+      if (!e) continue;
+      const total = e.errorTotal + e.criticTotal;
+      const p = prev.current.get(inst.instanceId);
+      if (p && ts > p.ts) {
+        const dtMin = (ts - p.ts) / 60000;
+        if (dtMin > 0)
+          next[inst.instanceId] = Math.max(0, (total - p.total) / dtMin);
+      }
+      prev.current.set(inst.instanceId, { ts, total });
+    }
+    setRates(next);
+    // `ts` = horodatage du tick : 1 dérivation par tick (instances changent avec lui).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ts]);
+  return rates;
+}
+
+/**
+ * Indice composite COMPLET d'UN worker (Derringer-Suich, brique partagée `buildHealth`,
+ * MÊMES poids que la page Supervision via `loadHealthWeights`). 6 sondes disponibles dans
+ * la sonde cluster `realtime:health` : CPU, Saturation (ELU), Event-loop, Mémoire (heap),
+ * Connecteurs (ORM), Erreurs (taux/min). `errRate` = taux dérivé du worker (null tant que
+ * < 2 ticks → sonde exclue, pas de faux « critique »). GC overhead + Temps réel = absents
+ * de la sonde lean (≠ page mono qui lit `dashboard:supervision`) → non comptés ici.
+ */
+function instHealth(inst: InstanceHealth, errRate?: number): HealthResult {
   const p = inst.process;
   if (!p) return buildHealth([]);
   const w = loadHealthWeights();
   const heapPct = p.heapTotal ? (p.heapUsed / p.heapTotal) * 100 : null;
+  const orm = inst.orm;
   return buildHealth([
     {
       label: "CPU",
       value: p.cpuPercent,
-      good: 60,
-      crit: 95,
+      good: 70,
+      crit: 100,
       weight: w.CPU,
       floor: 0.2,
     },
     {
       label: "Saturation (ELU)",
       value: p.eluUtilization * 100,
-      good: 60,
-      crit: 95,
+      good: 70,
+      crit: 100,
       weight: w["Saturation (ELU)"],
       floor: 0.2,
     },
     {
+      // Seuils tolérants (dev : Vite partage l'event-loop) ; la page applique le
+      // strict par-env. Saturation → planché « Dégradé », jamais « Critique » seul.
       label: "Event-loop",
       value: p.eventLoopMs,
-      good: 20,
-      crit: 100,
+      good: 50,
+      crit: 120,
       weight: w["Event-loop"],
       floor: 0.2,
     },
     {
+      // Heap proche du plafond = risque OOM → PANNE (peut tirer l'indice à 0).
       label: "Mémoire (heap)",
       value: heapPct,
       good: 70,
@@ -234,16 +288,47 @@ function instHealth(inst: InstanceHealth): HealthResult {
       weight: w["Mémoire (heap)"],
       critical: true,
     },
+    {
+      // Connecteur ORM coupé = PANNE (DB down). `null` si aucun driver sondé (exclu).
+      label: "Connecteurs",
+      value: orm ? orm.connectors - orm.connected : null,
+      good: 0,
+      crit: orm ? Math.max(1, orm.connectors) : 1,
+      weight: w.Connecteurs,
+      critical: true,
+    },
+    {
+      // Erreurs = PANNE réelle (taux/min). `null` avant le 2e tick (taux indérivable).
+      label: "Erreurs",
+      value: errRate ?? null,
+      good: 0,
+      crit: 10,
+      weight: w.Erreurs,
+      critical: true,
+    },
   ]);
 }
-function worstOf(insts: InstanceHealth[]): HealthResult {
+function worstOf(
+  insts: InstanceHealth[],
+  rates: Record<string, number>,
+): HealthResult {
   let worst: HealthResult | null = null;
   for (const inst of insts) {
-    const r = instHealth(inst);
+    const r = instHealth(inst, rates[inst.instanceId]);
     if (!worst || (r.score ?? 101) < (worst.score ?? 101)) worst = r;
   }
   return worst ?? buildHealth([]);
 }
+
+/** Couleur d'un sous-score (mêmes paliers que le verdict global). */
+function partColor(score: number): string {
+  if (score >= 90) return "teal";
+  if (score >= 75) return "green";
+  if (score >= 50) return "yellow";
+  if (score >= 25) return "orange";
+  return "red";
+}
+
 function ScoreRing({ r }: { r: HealthResult }) {
   return (
     <Group gap="md" wrap="nowrap">
@@ -278,42 +363,95 @@ function ScoreRing({ r }: { r: HealthResult }) {
     </Group>
   );
 }
-function WorkerHealthLine({ inst }: { inst: InstanceHealth }) {
-  const r = instHealth(inst);
+
+/**
+ * Détail PAR sonde (sous-score en barre + part de pondération) — c'est ce qui rend
+ * l'indice « entier » : on voit quelle sonde tire le score, pas juste le total.
+ */
+function HealthBreakdown({ r }: { r: HealthResult }) {
+  if (!r.parts.length) return null;
+  const total = r.parts.reduce((a, p) => a + p.weight, 0) || 1;
   return (
-    <Group gap="xs">
-      <Badge color={r.color} variant="light">
-        {r.label}
-      </Badge>
-      <Text fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
-        {r.score ?? "—"}
-      </Text>
-    </Group>
+    <Stack gap={6}>
+      {r.parts.map((p) => (
+        <div key={p.label}>
+          <Group justify="space-between" gap="xs" wrap="nowrap">
+            <Text size="xs">
+              {p.label}
+              {p.kind === "fail" ? (
+                <Text span size="xs" c="dimmed">
+                  {" "}
+                  · panne
+                </Text>
+              ) : null}
+            </Text>
+            <Text
+              size="xs"
+              c="dimmed"
+              style={{ fontVariantNumeric: "tabular-nums" }}
+            >
+              {p.score} · {Math.round((p.weight / total) * 100)} %
+            </Text>
+          </Group>
+          <Progress value={p.score} color={partColor(p.score)} size="sm" />
+        </div>
+      ))}
+    </Stack>
   );
 }
+
+/** Sondes absentes de la sonde cluster lean (présentes seulement sur la page mono). */
+function HealthFootnote() {
+  return (
+    <Text size="xs" c="dimmed">
+      GC & Temps réel non remontés par la sonde cluster — détail complet sur la
+      page Supervision.
+    </Text>
+  );
+}
+
 function HealthBody({ source }: WidgetRenderProps<HealthPayload>) {
+  const norm = normalize(source.data);
+  const rates = usePerWorkerErrRate(norm?.instances ?? [], norm?.ts);
   return (
     <ClusterView
-      normalized={normalize(source.data)}
-      renderSummary={(_t, insts) => (
-        <div>
-          <ScoreRing r={worstOf(insts)} />
-          {insts.length > 1 ? (
-            <Text size="xs" c="dimmed" mt={6}>
-              pod = pire des {insts.length} workers
-            </Text>
-          ) : null}
-        </div>
-      )}
-      renderInstance={(inst, { grid }) =>
-        grid ? (
+      normalized={norm}
+      renderSummary={(_t, insts) => {
+        const r = worstOf(insts, rates);
+        return (
+          <Stack gap="sm">
+            <ScoreRing r={r} />
+            {insts.length > 1 ? (
+              <Text size="xs" c="dimmed">
+                pod = pire des {insts.length} workers
+              </Text>
+            ) : null}
+            <HealthBreakdown r={r} />
+            <HealthFootnote />
+          </Stack>
+        );
+      }}
+      renderInstance={(inst, { grid }) => {
+        const r = instHealth(inst, rates[inst.instanceId]);
+        return grid ? (
           <WorkerTile pid={inst.process?.pid}>
-            <WorkerHealthLine inst={inst} />
+            <Group gap="xs">
+              <Badge color={r.color} variant="light">
+                {r.label}
+              </Badge>
+              <Text fw={700} style={{ fontVariantNumeric: "tabular-nums" }}>
+                {r.score ?? "—"}
+              </Text>
+            </Group>
           </WorkerTile>
         ) : (
-          <ScoreRing r={instHealth(inst)} />
-        )
-      }
+          <Stack gap="sm">
+            <ScoreRing r={r} />
+            <HealthBreakdown r={r} />
+            <HealthFootnote />
+          </Stack>
+        );
+      }}
       drillTo={() => "/nodefony/supervision"}
     />
   );
@@ -341,6 +479,7 @@ function InfoBody({ source }: WidgetRenderProps<KernelInfo>) {
 
 registerWidget<HealthPayload>({
   id: "system.cpu",
+  tags: ["systeme", "cpu", "kpi"],
   title: "CPU",
   description: "Charge CPU live + courbe (moyenne/max pod en cluster).",
   category: "system",
@@ -354,6 +493,7 @@ registerWidget<HealthPayload>({
 
 registerWidget<HealthPayload>({
   id: "system.heap",
+  tags: ["systeme", "memoire", "kpi"],
   title: "Mémoire (heap)",
   description: "Heap utilisé live + courbe (somme pod en cluster).",
   category: "system",
@@ -367,6 +507,7 @@ registerWidget<HealthPayload>({
 
 registerWidget<HealthPayload>({
   id: "system.eventloop",
+  tags: ["systeme", "event-loop", "kpi"],
   title: "Event-loop",
   description:
     "Latence de la boucle d'événements live (pire worker en cluster).",
@@ -381,19 +522,24 @@ registerWidget<HealthPayload>({
 
 registerWidget<HealthPayload>({
   id: "system.health",
-  title: "Santé du framework",
-  description: "Indice composite 0-100 (CPU/ELU/loop/heap). Pod = pire worker.",
+  tags: ["systeme", "sante", "indice"],
+  title: "Santé du framework (cluster)",
+  description:
+    "Indice composite cluster-aware 0-100 (6 sondes : CPU/ELU/loop/heap/connecteurs/erreurs) — pod = pire worker. Version mono détaillée + GC : widget « Santé du framework ».",
   category: "system",
   icon: IconHeartRateMonitor,
   source: HEALTH_SOURCE,
   clusterAware: true,
   defaultSpan: 6,
   minSpan: 4,
+  defaultH: 7,
+  minH: 4,
   render: HealthBody,
 });
 
 registerWidget<KernelInfo>({
   id: "system.info",
+  tags: ["systeme", "identite", "config", "panneau"],
   title: "Identité du serveur",
   description: "Version, Node, plateforme, domaine, git (snapshot).",
   category: "system",

@@ -126,6 +126,7 @@ function BackplaneBody({ source }: WidgetRenderProps<BackplaneMeta>) {
 
 registerWidget<BackplaneMeta>({
   id: "logs.backplane",
+  tags: ["logs", "panneau"],
   title: "Log Backplane",
   description: "Lecture (source consultée) + écriture (fan-out) des logs.",
   category: "logs",

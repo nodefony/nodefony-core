@@ -63,6 +63,7 @@ function WorkersBody({ source }: WidgetRenderProps<HealthPayload>) {
 
 registerWidget<HealthPayload>({
   id: "cluster.workers",
+  tags: ["cluster", "panneau"],
   title: "Workers (cluster)",
   description: "Une tuile par worker (CPU/heap). Mono-process : 1 seule.",
   category: "cluster",

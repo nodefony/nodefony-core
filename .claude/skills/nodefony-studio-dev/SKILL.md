@@ -1280,6 +1280,44 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
 - **Algèbre pure testée** (`grid.ts` : `snap`/`clamp`/`autoTile`) — 7 tests vitest. **RESTE (prochaine session)** :
   **migrer la Supervision en bureau** (preset depuis les widgets actuels). [[project_studio_workspace_kit]].
 
+**Supervision en bureau + taxonomie de TAGS + catalogue à FACETTES (2026-06-06, session 3, front-only, bump 1.23.0)**
+
+- **Reproduire un panneau de page en widget = LIRE la source de vérité** : le bureau lit la sonde
+  **riche** `dashboard:supervision` (StatsPayload : `cpuPercent`/`eluUtilization`/`eventLoopMs`/`memory{heapLimit}`/
+  **`gc`**/`heapSpaces`/`handles`/`errCount`) → reproduction FIDÈLE de la page (mêmes seuils/couleurs/formats). La
+  sonde **lean** `realtime:health` (cluster-aware) n'a PAS `gc` (6 sondes). **Décision** : bureau **MONO d'abord**
+  (`dashboard:supervision` → GC sans toucher le back), **multi-cluster après**. `heapSpaces`/`handles`/`gc`/`errCount`
+  sont **live-only** (null en snapshot) → gérer le cas « active le temps réel ».
+- **2 widgets santé assumés** (pas un doublon) : `supervision.health` (MONO complet — 7 sondes incl. GC + Connecteurs
+  via abo `orm:health` gaté `ctx.live` + **sliders de poids** persistés, clé PARTAGÉE `nf.supervision.weights` avec la
+  page) vs `system.health` (cluster lean compact). **Vrai doublon = même métrique 2×** → supprimés `supervision.cpu`/
+  `supervision.loop` (doublaient les KPI `system.cpu`/`system.eventloop` qui ont déjà une sparkline).
+- **Sticky en-tête (PIÈGE)** : un **`marginTop` négatif** sort un élément de sa zone sticky (Main a `paddingTop:0`) →
+  il défile. La recette qui marche = celle du **`PageHeader sticky`** (`top:0`, plein-bleed `marginInline` only). Deux
+  sticky `top:0` (bandeau vignettes + PageHeader) **se chevauchent** → **UN SEUL en-tête sticky unifié** : wrapper
+  `<Box sticky>` dans `Workspace.tsx` enveloppant `WorkspaceSwitcher` + `PageHeader` ; le `WorkspaceSwitcher` n'est
+  **plus** sticky lui-même. ⚠️ « topbar » = le **PageHeader** (titre+actions), pas le bandeau — bien lever l'ambiguïté.
+- **z-index des fenêtres (PIÈGE)** : `WidgetGrid` pose `zIndex: it.z` (croît via `bringToFront`) → sans stacking
+  context isolé, les fenêtres **remontent au-dessus** du bandeau/topbar. Fix = **`isolation: "isolate"`** sur le
+  conteneur `WidgetGrid` → z des fenêtres **confinés** (corrige « topbar perdue / vignettes recouvertes »).
+- **Renommer via `Menu` Mantine (PIÈGE)** : à la fermeture le `Menu` **rend le focus à son trigger** → blur immédiat
+  de l'input `autoFocus` → `onBlur` commit **avant** la frappe → renommage « ne marche pas » (alors que le double-clic
+  marche). Fix = **`returnFocus={false}`** sur le Menu + `userSelect:none` sur le label (double-clic = renomme).
+- **Catalogue à facettes** : boîte **16/9** (`styles.content` `width/height` + toggle **`fullScreen`**), **aperçu LIVE
+  au survol** = réutiliser **`useBlockSource`+`BlockBody`** (registre de blocs unifié, le MÊME bloc qu'au bureau) monté
+  dans le `HoverCard.Dropdown` **lazy** → 1 abonnement/fois ref-compté. Recherche tolérante =
+  `normalize("NFD").replace(/\p{Diacritic}/gu,"")` + **multi-termes** (tous les mots) sur titre+desc+**labels de tags**.
+- **Taxonomie de TAGS (`workspace/tags.ts`)** : 2 axes **saisis** sur `IWidgetDef.tags` — **DOMAINE hiérarchique**
+  (thème → sous-thème via `parent` : `systeme`→`cpu`/`memoire`/`gc`/`handles`… ; `orm`→`orm-debit`/`orm-connecteurs`)
+  - **NATURE** (`kpi`/`graphe`/`indice`/`liste`/`panneau`) ; 1 axe **DÉRIVÉ** (jamais saisi → 0 dérive) = **CAPACITÉS**
+    (`cluster-ready` ← `clusterAware`, `temps réel` ← `source.kind !== snapshot`) via `widgetCapabilities(def)`. Helpers
+    `getTag`/`tagsOfGroup`. Le catalogue filtre par `Chip.Group` (domaine/sous/nature) + toggles capacités.
+- **Templates = modèles du « + »** : `WorkspacePreset.layout?: WidgetInstance[]` (positions/tailles EXACTES exportées
+  d'un vrai bureau, bypass `autoTile` dans `migratePreset`) **vs** `items: WidgetSeed[]` (graines span/h pavées auto).
+  Recette « template fidèle » : le user arrange son bureau → me donne le JSON `localStorage["nf.workspace.layouts.v2"]`
+  (`copy(...)` en console) → je fige le bureau en `preset.layout`. Thématiques livrés : Système/Config/Logs/Mémoire/Erreurs
+  (en `items` pavé, à re-exporter en `layout` après affinage) ; Supervision en `layout` exact. `Superviseur` supprimé (fusionné).
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
@@ -1299,6 +1337,16 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.23.0** (2026-06-06) — **Supervision en bureau + taxonomie de TAGS + catalogue à FACETTES** (front-only).
+  3 widgets de détail (`supervision.memory` espaces V8 / `supervision.handles` ressources actives / `supervision.errors`
+  erreurs/min ← `dashboard:supervision`). **`workspace/tags.ts`** : domaine hiérarchique + nature **saisis** (`IWidgetDef.tags`),
+  capacités cluster-ready/temps-réel **dérivées** (0 dérive) ; **24 blocs tagués**. **Catalogue refait** : 16/9 + plein écran,
+  **facettes** (Chip.Group domaine/sous-thème/nature + toggles capacités), recherche tolérante (accents + multi-termes + tags),
+  **aperçu LIVE au survol** (`useBlockSource`+`BlockBody` lazy). **`WorkspacePreset.layout?`** (positions exactes, bypass autoTile)
+  - templates thématiques **Système/Config/Logs/Mémoire/Erreurs** ; Supervision = layout exact ; `Superviseur` supprimé.
+    **Fixes** : en-tête **sticky UNIFIÉ** (1 wrapper bandeau+PageHeader ; `marginTop` négatif tuait le sticky), **`isolation:isolate`**
+    sur `WidgetGrid` (z des fenêtres confinés), **`returnFocus={false}`** sur le menu de renommage. RETEX complet (section
+    « Supervision en bureau + tags + facettes »). framework-dev inchangé (**1.19.0**, front-only). [[project_studio_workspace_kit]].
 - **1.22.0** (2026-06-06) — **Workspace = BUREAU LIBRE (fenêtres) + gestion des espaces + bandeau Mission
   Control** (front-only). Refonte `workspace/*` : grille figée → fenêtres flottantes px/fraction (chevauchement
   - z-order), drag/resize `setPointerCapture` (compositor, commit au drop), gouttière inset, « Ranger » =

@@ -122,6 +122,7 @@ function LogsBody({ source }: WidgetRenderProps<LogFrame>) {
 
 registerWidget<LogFrame>({
   id: "logs.live",
+  tags: ["logs", "liste"],
   title: "Logs (live)",
   description: "Flux des derniers logs du serveur (ANSI + sévérités colorées).",
   category: "logs",

@@ -63,6 +63,7 @@ function RuntimeModeBody({ source, ctx }: WidgetRenderProps<KernelInfo>) {
 
 registerWidget<KernelInfo>({
   id: "runtime.mode",
+  tags: ["runtime", "config", "kpi"],
   title: "Mode & lancement",
   description: "Comment ce serveur tourne : environnement, topologie, workers.",
   category: "runtime",

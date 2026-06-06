@@ -52,6 +52,7 @@ function HubBody({ source }: WidgetRenderProps<HealthPayload>) {
 
 registerWidget<HealthPayload>({
   id: "realtime.hub",
+  tags: ["realtime", "panneau"],
   title: "Socket Nodefony",
   description: "Débit fan-out/s + courbe, canaux, connexions, backpressure.",
   category: "realtime",
