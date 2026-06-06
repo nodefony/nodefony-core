@@ -8,8 +8,12 @@ import {
   IconDeviceDesktop,
   IconFileText,
   IconPlugConnected,
-  IconServer,
+  IconRoute,
+  IconRouter,
   IconSearch,
+  IconSend,
+  IconServer,
+  IconShieldLock,
   IconStack2,
 } from "@tabler/icons-react";
 import type { LiveNodeData } from "../../components/ui";
@@ -136,6 +140,7 @@ function rootSchema(connectors: ConnectorRow[]): TwinSchema {
         icon: <IconServer size={20} />,
         pos: { x: 35, y: 18 },
         info: true,
+        enter: "http-detail",
       },
       {
         id: "ws",
@@ -411,6 +416,73 @@ function kernelSchema(): TwinSchema {
   };
 }
 
+/**
+ * Détail de l'ENTRÉE HTTP — le voyage d'une requête à travers le pipeline,
+ * de haut en bas : Serveurs (http/https/h2) → Contexte → Firewall/Sécurité →
+ * Router → Controller → Réponse. Tout est INTERNE au process (0 frontière).
+ * Couche live légère : seuls les serveurs pulsent selon l'activité (logs/8s) ;
+ * le reste est structurel (charte « trop d'info tue l'info »).
+ */
+function httpSchema(): TwinSchema {
+  return {
+    id: "http-detail",
+    title: "Entrée HTTP",
+    boundaries: [],
+    bricks: [
+      {
+        id: "h-servers",
+        title: "Serveurs HTTP",
+        color: "blue",
+        icon: <IconServer size={20} />,
+        pos: { x: 50, y: 13 },
+        emphasis: true,
+      },
+      {
+        id: "h-context",
+        title: "Contexte · requestId",
+        color: "blue",
+        icon: <IconRoute size={18} />,
+        pos: { x: 50, y: 32 },
+      },
+      {
+        id: "h-firewall",
+        title: "Firewall · Sécurité",
+        color: "orange",
+        icon: <IconShieldLock size={18} />,
+        pos: { x: 50, y: 51 },
+      },
+      {
+        id: "h-router",
+        title: "Router",
+        color: "teal",
+        icon: <IconRouter size={18} />,
+        pos: { x: 50, y: 69 },
+      },
+      {
+        id: "h-controller",
+        title: "Controller",
+        color: "indigo",
+        icon: <IconAtom2 size={18} />,
+        pos: { x: 33, y: 87 },
+      },
+      {
+        id: "h-response",
+        title: "Réponse",
+        color: "cyan",
+        icon: <IconSend size={18} />,
+        pos: { x: 70, y: 87 },
+      },
+    ],
+    links: [
+      { from: "h-servers", to: "h-context" },
+      { from: "h-context", to: "h-firewall" },
+      { from: "h-firewall", to: "h-router" },
+      { from: "h-router", to: "h-controller" },
+      { from: "h-controller", to: "h-response" },
+    ],
+  };
+}
+
 /* ─── Couche LIVE par schéma ───────────────────────────────────────────────── */
 
 /** Surligne le driver ACTIF (config) parmi les backends d'un détail backplane. */
@@ -498,6 +570,19 @@ export function buildSchema(
       },
     };
   }
+  if (schemaId === "http-detail") {
+    const a = ctx.activity;
+    return {
+      schema: httpSchema(),
+      live: {
+        "h-servers": {
+          status: a > 0 ? "ok" : "idle",
+          pulse: a > 0,
+          metrics: [{ label: "événements/8s", value: String(a) }],
+        },
+      },
+    };
+  }
   // Racine : archi runtime, live = sonde santé + activité logs + connecteurs réels.
   const connLive: Record<string, LiveNodeData> = {};
   for (const conn of ctx.connectors.slice(0, 5)) {
@@ -520,6 +605,7 @@ export function schemaTitle(schemaId: string): string {
   if (schemaId === "bp-realtime-detail") return "Fond de panier · Realtime";
   if (schemaId === "bp-logs-detail") return "Fond de panier · Logs";
   if (schemaId === "kernel-detail") return "Kernel · Pipeline";
+  if (schemaId === "http-detail") return "Entrée HTTP";
   if (schemaId === "realtime-view") return "Realtime Hub";
   if (schemaId === "orm-view") return "Dashboard ORM";
   return "Architecture runtime";
