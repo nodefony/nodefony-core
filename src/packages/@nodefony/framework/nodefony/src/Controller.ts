@@ -25,7 +25,6 @@ import {
   WebsocketContext,
   Http2Response,
   WebsocketResponse,
-  SessionsService,
   //HttpKernel,
   HttpContext,
 } from "@nodefony/http";
@@ -65,8 +64,6 @@ class Controller extends Service implements IController {
   request: contextRequest = null;
   response: HttpResponse | Http2Response | WebsocketResponse | null = null;
   context?: ContextType;
-  session?: Session | null;
-  sessionAutoStart: string | false = false;
   method?: HTTPMethod;
   queryGet: Record<string, unknown> = {};
   query: Record<string, unknown> = {};
@@ -75,6 +72,17 @@ class Controller extends Service implements IController {
   //metaData: Data;
   module?: Module;
   template?: Eta | null;
+
+  /**
+   * Session courante, ou `null`. Getter direct sur `context.session` (peuplé au
+   * point d'activation unique du pipeline si la route déclare `@UseSession` /
+   * `@Session`, ou si un cookie de session est repris — L1). Remplace l'ancien
+   * pont via l'event `onSessionStart` : toujours à jour, zéro allocation.
+   */
+  get session(): Session | null {
+    return this.context?.session ?? null;
+  }
+
   constructor(
     name: string,
     context: ContextType,
@@ -99,14 +107,12 @@ class Controller extends Service implements IController {
     this.query = request?.query;
     this.queryFile = request?.queryFile;
     this.queryPost = request?.queryPost;
-    this.session = this.getSession();
+    // `session` est un getter sur `context.session` (plus d'event onSessionStart) :
+    // disponible dès que le point d'activation du pipeline l'a ouverte.
     this.once("onRequestEnd", () => {
       this.query = request?.query;
       this.queryFile = request?.queryFile;
       this.queryPost = request?.queryPost;
-    });
-    this.once("onSessionStart", (session) => {
-      this.session = session;
     });
   }
 
@@ -206,22 +212,6 @@ class Controller extends Service implements IController {
 
   setRoute(route: Route): Route {
     return (this.route = route);
-  }
-
-  startSession(sessionContext?: string) {
-    const sessionService = this.get<SessionsService>("sessions");
-    if (!sessionService) {
-      throw new Error(`Servcei session not defined`);
-    }
-    // is subRequest
-    // if (this.context.parent) {
-    //   return this.getSession();
-    // }
-    if (!this.context?.requestEnded || this.context?.security) {
-      return (this.sessionAutoStart =
-        sessionService.setAutoStart(sessionContext));
-    }
-    return sessionService.start(this.context, sessionContext);
   }
 
   getSession(): Session | undefined | null {

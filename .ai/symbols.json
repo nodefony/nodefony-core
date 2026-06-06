@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-06T19:53:08.468Z",
+  "generated": "2026-06-06T20:52:19.613Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 830,
-    "symbols": 1663,
-    "classes": 246,
-    "interfaces": 417,
-    "types": 209,
+    "files": 831,
+    "symbols": 1670,
+    "classes": 247,
+    "interfaces": 418,
+    "types": 210,
     "enums": 3,
-    "functions": 314,
-    "constants": 474
+    "functions": 316,
+    "constants": 476
   },
   "symbols": {
     "Cli": {
@@ -3805,7 +3805,8 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
     },
     "securityHooksState": {
@@ -3863,7 +3864,8 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
     },
     "HtmlController": {
@@ -3875,7 +3877,8 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
     },
     "LifecycleController": {
@@ -3900,7 +3903,8 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
     },
     "RestController": {
@@ -3912,7 +3916,8 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
     },
     "RouteController": {
@@ -3924,8 +3929,22 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
+    },
+    "SessionRuntimeController": {
+      "name": "SessionRuntimeController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Controller DÉDIÉ au cycle de vie de session (le « plug runtime » — chantier session étape 5). Volontairement **sans** `@UseSession` au niveau classe : chaque route exerce une facette précise de l'a…"
     },
     "WebsocketController": {
       "name": "WebsocketController",
@@ -4452,6 +4471,14 @@
       "exported": true,
       "module": "@nodefony/framework"
     },
+    "UseSessionOptions": {
+      "name": "UseSessionOptions",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Options déclaratives de `@UseSession` (= forme de l'intent runtime)."
+    },
     "controllers": {
       "name": "controllers",
       "kind": "function",
@@ -4511,6 +4538,22 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Restreint une route (décorateur de **méthode**) ou tout un contrôleur (décorateur de **classe**) à un ou plusieurs vhosts. Source de vérité du domaine de routing — le `host` posé ici alimente `Rout…"
+    },
+    "UseSession": {
+      "name": "UseSession",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Déclare qu'une route (décorateur de **méthode**) ou tout un contrôleur (décorateur de **classe**) a besoin d'une **session serveur**. C'est l'unique façon d'activer une session (avec la reprise aut…"
+    },
+    "resolveSessionIntent": {
+      "name": "resolveSessionIntent",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Résout l'intent de session effectif d'une action — lu par le `Resolver` au match, posé sur `context.sessionIntent`, consommé au point d'activation unique (`HttpKernel.startSession`). Combine `@UseS…"
     },
     "Body": {
       "name": "Body",
@@ -4581,6 +4624,20 @@
     },
     "DOMAIN_METHOD_METADATA": {
       "name": "DOMAIN_METHOD_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "USE_SESSION_CLASS_METADATA": {
+      "name": "USE_SESSION_CLASS_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "USE_SESSION_METHOD_METADATA": {
+      "name": "USE_SESSION_METHOD_METADATA",
       "kind": "const",
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
@@ -5563,6 +5620,15 @@
       "exported": true,
       "module": "@nodefony/http",
       "extends": "IResponse"
+    },
+    "SessionIntent": {
+      "name": "SessionIntent",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Intent d'activation de session déclaré par une route (décorateur `@UseSession` de `@nodefony/framework`, ou présence d'un paramètre `@Session`). Lu au point d'activation **unique** du pipeline (HTT…"
     },
     "ISerializedSession": {
       "name": "ISerializedSession",
@@ -12255,6 +12321,7 @@
         "OpenApiController",
         "RestController",
         "RouteController",
+        "SessionRuntimeController",
         "WebsocketController",
         "AngularController",
         "PocController",
@@ -12593,6 +12660,7 @@
         "OpenApiController",
         "RestController",
         "RouteController",
+        "SessionRuntimeController",
         "WebsocketController",
         "AngularController",
         "PocController",
@@ -12600,6 +12668,14 @@
         "DocumentationController",
         "StudioController",
         "StudioRealtimeController"
+      ],
+      "UseSession": [
+        "DefaultController",
+        "GraphQlController",
+        "HtmlController",
+        "OpenApiController",
+        "RestController",
+        "RouteController"
       ],
       "Domain": [
         "DomainClassController"
@@ -13157,6 +13233,9 @@
       "FrameworkController": [
         "src/modules/test/index.ts"
       ],
+      "SessionRuntimeController": [
+        "src/modules/test/index.ts"
+      ],
       "DecoratorController": [
         "src/modules/test/index.ts"
       ],
@@ -13281,6 +13360,7 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
@@ -13335,6 +13415,7 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
@@ -13354,6 +13435,7 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
@@ -13369,6 +13451,18 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts"
+      ],
+      "UseSession": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/GraphqlController.ts",
+        "src/modules/test/nodefony/controller/HtmlController.ts",
+        "src/modules/test/nodefony/controller/OpenapiController.ts",
+        "src/modules/test/nodefony/controller/RestController.ts",
+        "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+        "src/modules/test/nodefony/controller/WebSocketController.ts"
       ],
       "HttpCode": [
         "src/packages/@nodefony/framework/index.ts",
@@ -13405,6 +13499,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -13456,7 +13551,6 @@
       "SessionsService": [
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
@@ -13483,6 +13577,7 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
@@ -13501,6 +13596,7 @@
         "src/modules/test/nodefony/controller/HtmlController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
@@ -13553,6 +13649,7 @@
       ],
       "WebsocketContext": [
         "src/packages/@nodefony/http/index.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -13587,6 +13684,7 @@
       "ISession": [
         "src/packages/@nodefony/mongoose/index.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
@@ -14760,6 +14858,10 @@
         "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
+      "SessionIntent": [
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+      ],
       "IAdminEndpoint": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
@@ -14917,6 +15019,9 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "buildParamArgs": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
+      "resolveSessionIntent": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "RedirectMeta": [

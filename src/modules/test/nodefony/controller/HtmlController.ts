@@ -1,17 +1,13 @@
-import { Controller, route, controller } from "@nodefony/framework";
+import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
 import { resolve } from "node:path";
 //import { inject, Error } from "nodefony";
 
 @controller("/nodefony/test/html")
+@UseSession()
 class HtmlController extends Controller {
   constructor(context: Context) {
     super("HtmlController", context);
-  }
-
-  async initialize(): Promise<this> {
-    await this.startSession();
-    return this;
   }
 
   @route("index-html", { path: "" })
@@ -70,7 +66,7 @@ class HtmlController extends Controller {
       this.module?.path as string,
       "public",
       "test",
-      "oceans-clip.webm"
+      "oceans-clip.webm",
     );
     return this.renderMediaStream(file);
   }

@@ -31,6 +31,12 @@ export type OptionsSessionType = {
   use_strict_mode?: boolean;
   /** Lie la session à l'hôte (méta `host`) — rejette un changement d'origine. */
   referer_check?: boolean;
+  /**
+   * Absolute timeout (OWASP, secondes) : durée de vie MAX depuis la création,
+   * indépendante de l'activité. Borne la fenêtre d'exploitation d'un identifiant
+   * volé même sur session active. `0`/absent = désactivé (seul l'idle s'applique).
+   */
+  absolute_timeout?: number;
 };
 
 const defaultSessionOptions: OptionsSessionType = {
@@ -64,6 +70,13 @@ class Session implements ISession {
   manager: SessionsService;
   saved: boolean = false;
   migrated: boolean = false;
+  /**
+   * Lecture seule (intent `@UseSession({ readOnly })`) : la session est reprise et
+   * lue mais **jamais persistée** — {@link save} devient un no-op. Différenciateur
+   * perf : une route qui ne fait que LIRE la session (afficher le user…) ne paie
+   * aucune écriture storage.
+   */
+  readOnly: boolean = false;
   contextSession: string = "default";
   context?: ContextType;
   created?: Date;
@@ -248,6 +261,17 @@ class Session implements ISession {
     user?: string,
     contextSession: string = this.contextSession,
   ): Promise<this> {
+    if (this.readOnly) {
+      // Lecture seule : jamais de write storage. Une mutation tentée sur une
+      // session readOnly est une erreur d'usage → on la signale sans persister.
+      if (this.mutated) {
+        this.log(
+          `READONLY SESSION mutated — write skipped : ${this.name}`,
+          "WARNING",
+        );
+      }
+      return this;
+    }
     if (!this.mutated) {
       return this; // rien muté → aucune écriture storage (dirty-tracking)
     }
@@ -349,14 +373,28 @@ class Session implements ISession {
         return false;
       }
     }
+    const now = Date.now();
+    // Absolute timeout (OWASP) : âge max depuis la CRÉATION, indépendant de
+    // l'activité — un identifiant volé ne reste pas exploitable indéfiniment même
+    // si la session est maintenue active artificiellement.
+    if (this.options.absolute_timeout && this.created) {
+      const age = now - new Date(this.created).getTime();
+      if (age > this.options.absolute_timeout * 1000) {
+        this.log(
+          `SESSION EXPIRED (absolute) ==> ${this.name} : ${this.id}`,
+          "WARNING",
+        );
+        return false;
+      }
+    }
+    // Idle timeout : inactivité depuis le dernier accès (lastUsed = updated).
     if (this.lifetime === 0 || this.lifetime === undefined) {
       return true;
     }
     const lastUsed = new Date(this.updated as Date).getTime();
-    const now = Date.now();
     if (lastUsed && lastUsed + this.lifetime * 1000 < now) {
       this.log(
-        `SESSION EXPIRED (lifetime) ==> ${this.name} : ${this.id}`,
+        `SESSION EXPIRED (idle) ==> ${this.name} : ${this.id}`,
         "WARNING",
       );
       return false;

@@ -4,19 +4,16 @@ import {
   controller,
   Get,
   Session,
+  UseSession,
 } from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
 import type { ISession } from "@nodefony/http";
 
 @controller("/nodefony/test/rest")
+@UseSession()
 class RestController extends Controller {
   constructor(context: Context) {
     super("RestController", context);
-  }
-
-  async initialize(): Promise<this> {
-    await this.startSession();
-    return this;
   }
 
   @route("index-rest", { path: "" })

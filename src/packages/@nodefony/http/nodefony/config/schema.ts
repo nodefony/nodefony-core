@@ -485,13 +485,6 @@ const sessionSchema = z
       .describe(
         "Utilise les transactions pour le storage (handler `sequelize`/`drizzle`).",
       ),
-    start: z
-      .union([z.boolean(), z.string()])
-      .default(false)
-      .describe(
-        "Démarrage auto de la session. false (recommandé, explicite via " +
-          'startSession()) | true (contexte par défaut) | `"nom"` (contexte nommé).',
-      ),
     use_strict_mode: z
       .boolean()
       .default(true)
@@ -539,6 +532,15 @@ const sessionSchema = z
       .positive()
       .default(1440)
       .describe("Durée de vie max d'une session inactive (s). 1440 = 24 min."),
+    absolute_timeout: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(0)
+      .describe(
+        "Absolute timeout (OWASP, s) : âge MAX d'une session depuis sa création, " +
+          "indépendant de l'activité. 0 = désactivé (seul l'idle s'applique).",
+      ),
     hash_function: z
       .enum(["md5", "sha1"])
       .default("sha1")

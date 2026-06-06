@@ -115,6 +115,7 @@ import type {
   PhaseName,
   AfterResponseHandler,
 } from "../../interfaces/IContext";
+import type { SessionIntent } from "../../interfaces/ISession";
 
 class Context extends Service implements IContextInterface {
   secure: boolean = false;
@@ -154,7 +155,12 @@ class Context extends Service implements IContextInterface {
   crossDomain: boolean = false;
   router: Router | null = this.get("router");
   resolver: Resolver | null = null;
-  sessionAutoStart: string | null = null;
+  /**
+   * Intent de session de la route courante (posé par le Resolver depuis
+   * `@UseSession` / paramètre `@Session`). Pilote le point d'activation unique
+   * (HTTP + WS). `null` = aucune session sauf cookie existant (reprise L1).
+   */
+  sessionIntent: SessionIntent | null = null;
   requestId: string = randomUUID();
   // P2.7 — W3C Trace Context. Set by HttpKernel at request entry to the
   // resolved traceparent (honored incoming header or freshly generated).

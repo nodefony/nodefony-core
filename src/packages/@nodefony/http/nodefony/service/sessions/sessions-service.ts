@@ -87,7 +87,6 @@ class SessionsService extends Service {
   gc_divisor: number = 100;
   module: Module;
   defaultSessionName: string = "nodefony";
-  sessionAutoStart: string | boolean = false;
   secret?: Buffer;
   iv?: Buffer;
   certificates: Certificate | null;
@@ -109,7 +108,6 @@ class SessionsService extends Service {
         : this.options.gc_probability;
     this.gc_divisor = this.options.gc_divisor;
     this.defaultSessionName = this.options.name;
-    this.sessionAutoStart = this.setAutoStart(this.options.start);
     this.once("onTerminate", () => {
       if (this.storage) {
         this.storage.close();
@@ -164,26 +162,10 @@ class SessionsService extends Service {
     return Buffer.from(iv.buffer.slice(0, 16));
   }
 
-  setAutoStart(auto: string | null | undefined | boolean): string | false {
-    switch (auto) {
-      case true:
-      case "":
-      case undefined:
-        return "default";
-      case false:
-      case null:
-        return false;
-      default:
-        if (typeof auto === "string") {
-          return auto;
-        }
-        throw new Error(`Session start settings config error : ${auto}`);
-    }
-  }
-
   async start(
     context: ContextType,
     sessionContext?: string,
+    readOnly?: boolean,
   ): Promise<Session | null> {
     return new Promise((resolve, reject) => {
       if (context.sessionStarting) {
@@ -211,7 +193,9 @@ class SessionsService extends Service {
       let inst = null;
       try {
         context.sessionStarting = true;
-        sessionContext = this.setAutoStart(sessionContext) as string;
+        // Aire de session par défaut si l'intent n'en nomme pas (plus de
+        // `setAutoStart` : l'activation est pilotée par l'intent, pas un global).
+        sessionContext = sessionContext || "default";
         if (this.probaGarbage()) {
           // GC opportuniste (probabiliste) en arrière-plan : fire-and-forget
           // VOLONTAIRE — on ne bloque pas le démarrage de session pour ça. Mais
@@ -224,6 +208,9 @@ class SessionsService extends Service {
             .catch((e: Error) => this.log(e, "WARNING", "SESSION-GC"));
         }
         inst = this.createSession(this.defaultSessionName);
+        // Lecture seule (intent `@UseSession({ readOnly })`) : la session sera
+        // reprise/lue mais jamais persistée (cf Session.save).
+        inst.readOnly = readOnly === true;
       } catch (e) {
         context.fire("onSessionStart", null, e);
         reject(e);

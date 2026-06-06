@@ -204,6 +204,30 @@ describe("Session — unit tests", () => {
     });
   });
 
+  describe("readOnly", () => {
+    it("save() is a no-op on a readOnly session even when dirty (0 write)", async () => {
+      const storage = makeStorage();
+      let writes = 0;
+      const origWrite = storage.write.bind(storage);
+      storage.write = (id, data, ctx) => {
+        writes += 1;
+        return origWrite(id, data, ctx);
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const s = new Session(
+        "s",
+        defaultOpts,
+        makeManager("migrate", storage) as any,
+      );
+      s.readOnly = true;
+      s.set("k", "v"); // mutation → dirty
+      expect(s.dirty).to.equal(true);
+      await s.save();
+      expect(writes).to.equal(0); // readOnly : jamais persisté
+      expect(s.saved).to.equal(false);
+    });
+  });
+
   describe("FlashBag", () => {
     it("setFlashBag / getFlashBag returns value then deletes it", () => {
       const s = makeSession();
@@ -392,6 +416,33 @@ describe("Session — unit tests", () => {
       expect(
         s.isValidSession({} as unknown as ISerializedSession, ctx),
       ).to.equal(false);
+    });
+
+    it("absolute_timeout : false si l'âge depuis création dépasse (même sans idle)", () => {
+      const s = makeSession({ absolute_timeout: 1 }); // 1 s
+      s.lifetime = 0; // idle désactivé → seul l'absolu joue
+      s.created = new Date(Date.now() - 10_000); // créée il y a 10 s
+      expect(
+        s.isValidSession({} as unknown as ISerializedSession, {} as never),
+      ).to.equal(false);
+    });
+
+    it("absolute_timeout : true tant que l'âge reste sous le plafond", () => {
+      const s = makeSession({ absolute_timeout: 3600 });
+      s.lifetime = 0;
+      s.created = new Date(Date.now() - 10_000);
+      expect(
+        s.isValidSession({} as unknown as ISerializedSession, {} as never),
+      ).to.equal(true);
+    });
+
+    it("absolute_timeout = 0 (off) : une vieille session reste valide", () => {
+      const s = makeSession({ absolute_timeout: 0 });
+      s.lifetime = 0;
+      s.created = new Date(0); // 1970 → ignoré car désactivé
+      expect(
+        s.isValidSession({} as unknown as ISerializedSession, {} as never),
+      ).to.equal(true);
     });
   });
 

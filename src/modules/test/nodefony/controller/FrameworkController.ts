@@ -1,6 +1,7 @@
 import {
   Controller,
   controller,
+  UseSession,
   Get,
   Post,
   Put,
@@ -100,8 +101,8 @@ class FrameworkController extends Controller {
 
   // ── session ─────────────────────────────────────────────────────────────────
   @Get("/session")
+  @UseSession()
   sessionInfo() {
-    this.startSession();
     return this.renderJson({
       sessionStarted: true,
       sessionId: (this.context as HttpContext).session?.id ?? null,

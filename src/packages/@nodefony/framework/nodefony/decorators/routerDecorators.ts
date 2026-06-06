@@ -6,7 +6,7 @@ import Controller from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
 import { Module } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
-import type { HTTPMethod } from "@nodefony/http";
+import type { HTTPMethod, SessionIntent } from "@nodefony/http";
 
 // Idiome TS officiel des mixins de constructeur — `any[]` requis (un `unknown[]`
 // casse l'`extends constructor` du mixin `controllers`). Pas de la dette.
@@ -60,13 +60,10 @@ function controllers(
  *
  * @example
  * \@controller("/openapi")
+ * \@UseSession()
  *  class OpenApiController extends Controller {
  *    constructor(context: Context) {
  *       super("OpenApiController", context);
- *    }
- *    async initialize(): Promise<this> {
- *      await this.startSession();
- *      return this;
  *    }
  *    \@route("index-openapi", { path: "" })
  *     index() {
@@ -203,6 +200,8 @@ export const REDIRECT_METADATA = "route:redirect";
 export const PARAM_ARGS_METADATA = "route:paramArgs";
 export const DOMAIN_CLASS_METADATA = "route:domainClass";
 export const DOMAIN_METHOD_METADATA = "route:domainMethod";
+export const USE_SESSION_CLASS_METADATA = "session:useClass";
+export const USE_SESSION_METHOD_METADATA = "session:useMethod";
 
 export type ParamSource =
   | "param"
@@ -370,6 +369,95 @@ function Domain(patterns: string | string[]) {
     );
     return descriptor;
   };
+}
+
+// ── UseSession decorator (classe + méthode) ─────────────────────────────────
+
+/** Options déclaratives de `@UseSession` (= forme de l'intent runtime). */
+export type UseSessionOptions = SessionIntent;
+
+/**
+ * Déclare qu'une route (décorateur de **méthode**) ou tout un contrôleur
+ * (décorateur de **classe**) a besoin d'une **session serveur**. C'est l'unique
+ * façon d'activer une session (avec la reprise auto d'un cookie existant — L1) :
+ * il n'y a plus de `sessionAutoStart` global « démarre partout » (le moteur du
+ * ×23). Lazy par défaut — aucune session pour une route qui n'en déclare pas.
+ *
+ * Précédence : `@UseSession` méthode > `@UseSession` classe. La simple présence
+ * d'un paramètre `@Session` sur l'action suffit aussi (intent implicite).
+ *
+ * - `{ context }` : aire de session (firewall/route) ; défaut `"default"`.
+ * - `{ readOnly }` : session lue/reprise mais **jamais persistée** (0 write storage).
+ * - `{ eager }` : active tôt (seam P6 — régénération d'ID post-authentification).
+ *
+ * ⚠️ En décorateur de **classe**, placer `@UseSession` SOUS `@controller`.
+ *
+ * @example
+ * \@controller("/account")
+ * \@UseSession({ context: "account" })
+ * class AccountController extends Controller {
+ *   \@Get("/me") @UseSession({ readOnly: true }) me() {} // lecture seule → 0 write
+ * }
+ */
+function UseSession(options: UseSessionOptions = {}) {
+  // Décorateur DUAL classe+méthode : `any` est l'idiome TS sanctionné pour un
+  // décorateur polymorphe (cf @Domain) — un type concret casse l'assignabilité
+  // au générique `ClassDecorator`/`MethodDecorator`. Pas de la dette.
+  return function (
+    target: any,
+    propertyKey?: string,
+    descriptor?: PropertyDescriptor,
+  ): any {
+    if (propertyKey === undefined) {
+      // Décorateur de classe → constructeur.
+      Reflect.defineMetadata(USE_SESSION_CLASS_METADATA, options, target);
+      return target;
+    }
+    // Décorateur de méthode → clé (constructeur, propertyKey).
+    Reflect.defineMetadata(
+      USE_SESSION_METHOD_METADATA,
+      options,
+      target.constructor,
+      propertyKey,
+    );
+    return descriptor;
+  };
+}
+
+/**
+ * Résout l'intent de session effectif d'une action — lu par le `Resolver` au
+ * match, posé sur `context.sessionIntent`, consommé au point d'activation unique
+ * (`HttpKernel.startSession`). Combine `@UseSession` classe + méthode (méthode
+ * prioritaire) ; à défaut, un paramètre `@Session` déclare un intent implicite.
+ *
+ * @returns l'intent, ou `null` si la route ne requiert aucune session.
+ */
+function resolveSessionIntent(
+  ctor: ControllerConstructor,
+  actionName: string,
+): SessionIntent | null {
+  const classMeta = Reflect.getMetadata(USE_SESSION_CLASS_METADATA, ctor) as
+    | UseSessionOptions
+    | undefined;
+  const methodMeta = Reflect.getMetadata(
+    USE_SESSION_METHOD_METADATA,
+    ctor,
+    actionName,
+  ) as UseSessionOptions | undefined;
+  if (classMeta || methodMeta) {
+    // Précédence : @UseSession méthode > @UseSession classe.
+    return { ...(classMeta ?? {}), ...(methodMeta ?? {}) };
+  }
+  // Intent implicite : un paramètre @Session sur l'action déclare le besoin.
+  const params = Reflect.getMetadata(
+    PARAM_ARGS_METADATA,
+    ctor.prototype,
+    actionName,
+  ) as ParamMeta[] | undefined;
+  if (params?.some((p) => p.source === "session")) {
+    return {};
+  }
+  return null;
 }
 
 // ── Parameter decorators ────────────────────────────────────────────────────
@@ -568,6 +656,8 @@ export {
   Head,
   All,
   Domain,
+  UseSession,
+  resolveSessionIntent,
   HttpCode,
   Header,
   Redirect,

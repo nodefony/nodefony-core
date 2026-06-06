@@ -214,6 +214,7 @@ export type {
   ISession,
   ISessionStorage,
   ISerializedSession,
+  SessionIntent,
   SessionStatusType,
   SessionStrategyType,
   FlashBagType,

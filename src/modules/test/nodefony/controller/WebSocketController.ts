@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { Controller, route, controller } from "@nodefony/framework";
+import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
 import type { WebsocketContext } from "@nodefony/http";
 import { Cookie } from "@nodefony/http";
@@ -184,8 +184,8 @@ class WebsocketController extends Controller {
     path: "/cookie",
     requirements: { methods: ["WEBSOCKET"] },
   })
+  @UseSession() // seule route WS qui exerce la session
   async cookie(message: string | Buffer | null) {
-    await this.startSession(); // seule route WS qui exerce la session
     switch (this.ws?.webSocketState) {
       case "connected":
         return this.renderJson({

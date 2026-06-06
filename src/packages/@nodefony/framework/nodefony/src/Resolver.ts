@@ -31,6 +31,7 @@ import {
   REDIRECT_METADATA,
   PARAM_ARGS_METADATA,
   buildParamArgs,
+  resolveSessionIntent,
   type RedirectMeta,
   type ParamMeta,
   type IParamArgContext,
@@ -87,6 +88,12 @@ class Resolver extends Service implements IResolver {
         if (route.requirements.protocol) {
           this.acceptedProtocol = route.requirements.protocol.toLowerCase();
         }
+        // Intent de session de la route (depuis `@UseSession` / paramètre
+        // `@Session`) → pilote le point d'activation unique (HttpKernel.startSession).
+        this.context.sessionIntent = resolveSessionIntent(
+          this.controller,
+          this.actionName as string,
+        );
       }
       return match;
     } catch (e) {
@@ -147,6 +154,13 @@ class Resolver extends Service implements IResolver {
     }
     this.actionName = tab[2];
     this.resolve = true;
+    // Forward interne : même résolution d'intent de session que le match direct.
+    if (this.controller) {
+      this.context.sessionIntent = resolveSessionIntent(
+        this.controller as ControllerConstructor,
+        this.actionName,
+      );
+    }
   }
 
   getAction(name: string): ((...args: unknown[]) => unknown) | null {

@@ -245,35 +245,18 @@ describe("Controller — setRoute() / getSession()", () => {
   });
 });
 
-// ─── startSession ──────────────────────────────────────────────────────────────
+// ─── session (getter) ───────────────────────────────────────────────────────
 
-describe("Controller — startSession()", () => {
-  it("throws when the sessions service is missing", () => {
+describe("Controller — session getter", () => {
+  it("reflects context.session (activation pilotée par le pipeline)", () => {
+    const fake = { id: "sid-1" } as unknown;
     const { c } = makeController();
-    expect(() => c.startSession()).to.throw(/session/i);
-  });
-
-  it("defers via setAutoStart when the request is not yet ended", () => {
-    const { c } = makeController({
-      requestEnded: false,
-      sessions: {
-        setAutoStart: (ctxName?: string) => `auto:${ctxName ?? ""}`,
-        start: () => "started",
-      },
-    });
-    expect(c.startSession("ctx")).to.equal("auto:ctx");
-    expect(c.sessionAutoStart).to.equal("auto:ctx");
-  });
-
-  it("starts immediately when the request is already ended", () => {
-    const { c } = makeController({
-      requestEnded: true,
-      sessions: {
-        setAutoStart: () => "auto",
-        start: (_ctx: ContextType, name?: string) => `started:${name ?? ""}`,
-      },
-    });
-    expect(c.startSession("ctx")).to.equal("started:ctx");
+    // Pas d'activation → null (lazy : @UseSession / cookie pilotent au pipeline).
+    expect(c.session).to.equal(null);
+    // Le point d'activation du pipeline pose context.session → le getter suit.
+    (c.context as unknown as { session: unknown }).session = fake;
+    expect(c.session).to.equal(fake);
+    expect(c.getSession()).to.equal(fake);
   });
 });
 

@@ -159,7 +159,6 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   private secFrameOptions: string | null = null;
   private secHsts: string | null = null;
   sessionService?: SessionsService | null;
-  sessionAutoStart: boolean | string = false;
   router?: Router | null;
   firewall?: Firewall | null;
   // Singleton — zero per-request alloc. Swap via setErrorRenderer().
@@ -221,7 +220,6 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       )?.trustedHosts;
       this.regAlias = this.compileAlias();
       this.sessionService = this.get<SessionsService>("sessions");
-      this.sessionAutoStart = this.sessionService?.sessionAutoStart as boolean;
       // Profiler dev-only — null si non enregistré (prod). Container.get
       // renvoie null pour un service absent (pas de throw).
       this.profiler = this.get<Profiler>("profiler");
@@ -367,13 +365,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
     if (resolver.resolve && !resolver.exception) {
       context.resolver = resolver;
+      // Le Resolver a déjà posé `context.sessionIntent` (depuis `@UseSession` /
+      // paramètre `@Session`) au match — c'est lui qui pilote l'activation au
+      // point session unique. `controller.session` est un getter sur
+      // `context.session` (plus de pont via l'event `onSessionStart`).
       const controller = await resolver.newController(context);
-      if (controller.sessionAutoStart) {
-        context.sessionAutoStart = controller.sessionAutoStart;
-      }
-      context.once("onSessionStart", (session) => {
-        controller.session = session;
-      });
       return controller;
     }
     if (resolver.exception) {
@@ -576,26 +572,37 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     return servers;
   }
 
+  /**
+   * Point d'activation UNIQUE de session — symétrique HTTP **et** WS. Ouvre une
+   * session si, et seulement si, la route la déclare (`context.sessionIntent`,
+   * posé par le Resolver depuis `@UseSession` / un paramètre `@Session`) **ou**
+   * si un cookie de session entrant existe déjà (reprise — L1). Sinon : aucune
+   * session (lazy). Remplace l'ancien `sessionAutoStart` global « démarre sur
+   * toutes les routes » (le moteur du ×23).
+   *
+   * @param context - contexte HTTP/HTTP2/WS courant.
+   * @returns la session active, ou `null` si la requête n'en requiert aucune.
+   */
   async startSession(
     context: WebsocketContext | HttpContext,
   ): Promise<Session | null> {
-    if (
-      this.sessionService &&
-      this.sessionAutoStart /*|| context.hasSession()*/
-    ) {
-      return this.sessionService
-        .start(context, this.sessionAutoStart as string)
-        .then((session: Session | null) => {
-          // if (this.firewall) {
-          //   this.firewall.getSessionToken(context, session);
-          // }
-          return session;
-        })
-        .catch((e) => {
-          throw e;
-        });
+    if (!this.sessionService) {
+      return null;
     }
-    return Promise.resolve(null);
+    const intent = context.sessionIntent;
+    // Lazy : ni intent de route, ni cookie de session entrant → 0 session, 0 write.
+    if (!intent && !context.hasSession()) {
+      return null;
+    }
+    const session = await this.sessionService.start(
+      context,
+      intent?.context,
+      intent?.readOnly,
+    );
+    // SEAM P6 — lien identité↔session : la régénération d'ID post-authentification
+    // (anti session-fixation, OWASP) se branchera ici via
+    // `firewall.getSessionToken(context, session)` / `session.regenerateId()`.
+    return session;
   }
 
   createHttpContext(
@@ -1041,29 +1048,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (context.secure || context.isControlledAccess) {
         return await context.connect();
       }
-      // SESSIONS
-      if (
-        this.sessionService &&
-        !context.sessionStarting &&
-        (context.sessionAutoStart || context.hasSession())
-      ) {
-        try {
-          const session = await this.sessionService.start(
-            context,
-            context.sessionAutoStart as string,
-          );
-          if (!(session instanceof Session)) {
-            this.log(
-              new Error("SESSION START session storage ERROR"),
-              "WARNING",
-            );
-          }
-          // if (this.firewall) {
-          //   this.firewall.getSessionToken(context, session);
-          // }
-        } catch (e) {
-          throw e;
-        }
+      // SESSIONS — même point d'activation unique que le HTTP (co-citoyenneté
+      // HTTP/WS) : `startSession` décide via l'intent de route ou le cookie (L1).
+      if (!context.sessionStarting) {
+        await this.startSession(context);
       }
       return await context.connect();
     } catch (e) {

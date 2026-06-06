@@ -4,19 +4,18 @@ export interface IHttpKernel {
   domain: string;
   httpPort?: number;
   httpsPort?: number;
-  sessionAutoStart: boolean | string;
 
   // Public request pipeline (called by server-http / server-https)
   handle(
     request: unknown,
     response: unknown,
-    type: ServerType
+    type: ServerType,
   ): Promise<unknown>;
 
   // context typed as object: implementation uses ContextType (WebsocketContext | HttpContext | Context)
   handleFrontController(
     context: object,
-    checkFirewall?: boolean
+    checkFirewall?: boolean,
   ): Promise<unknown>;
 
   // error: unknown covers Error | HttpError | nodefonyError
@@ -25,7 +24,7 @@ export interface IHttpKernel {
   onError(
     error: unknown,
     context?: object,
-    extraHeaders?: object
+    extraHeaders?: object,
   ): Promise<object>;
 
   // context typed as object (same reason as handleFrontController)
