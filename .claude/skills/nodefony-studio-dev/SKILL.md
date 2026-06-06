@@ -450,6 +450,68 @@ NE PAS agréger dans le process.
 **« Contrôle total »** : à terme pas que de la lecture → aussi des **actions** (boutons : reconnecter, vacuum,
 purger…) sur le même canal/data-plane (DEV-ONLY + RBAC P6).
 
+## 🪞 Jumeau Vivant (Twin) — carte d'architecture runtime data-driven + forage
+
+> **`/nodefony/twin`** = explorateur de l'**architecture qui TOURNE**, multi-niveaux, vivant et cliquable.
+> PAS une topologie de modules npm (rejeté par le user : « les modules n'ont aucun intérêt »). **2 gestes
+> par brique** : **clic = creuser** (entre dans le sous-niveau, fil d'Ariane pour remonter) ; **ⓘ =
+> expliquer** (dialog Modal liens+docs). Fichiers : `realtime/twin/*`, `routes/Twin.tsx`, `blocks/*`.
+
+**Les 3 couches (séparation stricte présentation ⇄ données ⇄ nav)** :
+
+1. **LE MODÈLE — `realtime/twin/twinSchemas.tsx`** (data-driven). Un **`TwinSchema { id, title, bricks[],
+links[], boundaries[] }`** = des briques positionnées en **% fixe** (carte MAÎTRISÉE, pas dagre
+   « brouillon ») + des liens + des frontières de process (pointillés). `SchemaBrick { id, title, color,
+icon, pos{x,y}, emphasis?, external?, enter?, info? }` — **`enter`** = id du sous-schéma ouvert au clic
+   (forage) ; **`info`** = la brique a une fiche ⓘ ; **`external`** = nœud hors frontière (client/infra,
+   décoratif). **`buildSchema(schemaId, ctx) → { schema, live }`** = LE registre : un `if (schemaId === …)`
+   par schéma, retourne le `TwinSchema` + sa couche `live: Record<brickId, LiveNodeData>`. **`schemaTitle(id)`**
+   = libellé du fil d'Ariane. Schémas livrés : `root` (archi runtime + connecteurs réels), `kernel-detail`,
+   `bp-realtime-detail`, `bp-logs-detail` (drivers surlignés par config).
+2. **LE RENDU — `realtime/twin/TwinMap.tsx`** (PUR). `TwinMap` rend N'IMPORTE QUEL `TwinSchema` (SVG liens
+   en `viewBox 0..100`, briques HTML absolues en %, drag local, dot d'état + pulse, liens animés `live`-gated).
+   **`TwinMapView`** aiguille **statique/live** (`live ? <TwinMapLive/> : …`) — `TwinMapLive` s'abonne
+   (`useTwinLive` ← `realtime:health` + `useRecentLogActivity` ← `syslog:stream`) et appelle `buildSchema` ;
+   **« 0 ticker quand OFF »** = le sous-arbre live est DÉMONTÉ quand `live=false` (jamais `live={false}` qui
+   s'abonnerait quand même).
+3. **LA NAV — `routes/Twin.tsx`**. `stack: string[]` (`["root"]`) = pile de schemaId ; `current = stack.at(-1)` ;
+   `onEnter(id) → push` ; breadcrumb = `stack.map(schemaTitle)` ; `onInfo(brickId) → <TwinNodePanel>` (dialog ⓘ).
+   Switch « Temps réel » global (défaut ON) propagé en `live`.
+
+**Recette — AJOUTER UN FORAGE en sous-schéma `TwinSchema`** (cas homogène : kernel-detail, bp-\*) :
+
+1. sur la brique parente → `enter: "<x>-detail"` ;
+2. une fonction `<x>Schema(): TwinSchema` (hub central + briques satellites, cf `driverDetailSchema`/`kernelSchema`) ;
+3. un `if (schemaId === "<x>-detail")` dans **`buildSchema`** qui retourne `{ schema, live }` (couche live = surligne l'actif depuis `ctx.normalized`/`ctx.info`) ;
+4. un cas dans **`schemaTitle`**.
+
+**Recette — FORAGE vers une VUE SPÉCIALE non-`TwinSchema`** (ex. brancher des **graphes React Flow** comme
+les 6 vues `realtime/socket/`) : un `LiveGraph` n'est PAS un `TwinSchema` → **brancher dans `Twin.tsx`** :
+`enter: "<x>-view"` sur la brique → dans le rendu, `if (current === "<x>-view") return <MonExplorateur live={live} … />`
+**au lieu de** `<TwinMapView/>` (le breadcrumb + `schemaTitle("<x>-view")` marchent pareil). Réutiliser le
+**registry isomorphe** existant (ex. `socketPages.filter(p => p.LiveGraph)` — MÊME source que le portail doc,
+JAMAIS un 2ᵉ registre), graphes en **`<Tabs>` 1er niveau** (facettes sœurs d'un même sujet = divulgation
+progressive). Propager le `live` global du Twin aux graphes (`<LiveGraph live={live} height=…/>`) — PAS de
+switch par graphe ici (le Twin en a déjà un ; `LiveGraphSection` avec son switch local est réservé aux pages de doc).
+
+**Registre de BLOCS UNIFIÉ — `blocks/`** (un contenu écrit 1×, monté partout) : `IBlockDef = IWidgetDef`
+(le `render` est un composant pur). **`useBlockSource(source, live)`** = le CŒUR (snapshot HTTP + live
+conditionnel, patron sonde+hub, extrait de `WidgetHost`) ; **`BlockBody`** = live feed + `DataState` + render ;
+**`BlockView`** monte un bloc dans n'importe quel contenant (le point d'unification) ; **`BlockHost`** =
+`BlockDialog` (Modal) + `BlockPanel` (page Paper) ; **`registry.ts`** ré-exporte le registre widget
+(`registerBlock`/`getBlock`/`listBlocks`) — **1 SEULE Map**, pas de doublon. Le `WidgetHost` du bureau entoure
+désormais `BlockBody` (même cœur). **Preuve** : `TwinNodePanel` (dialog ⓘ de la brique Realtime) monte
+`getBlock("realtime.hub")` via `BlockView` = **le même bloc « Socket Nodefony » que le widget de bureau**.
+`import "../../workspace/widgets"` (side-effect) peuple le registre.
+
+**Conventions / gotchas Twin** : positions **%** (responsive, 0 magic px) · **charte CALME** obligatoire
+(liens animés `live`-gated, dot d'état à couleur STABLE, pulse = `opacity` only, `prefers-reduced-motion`,
+`contain: content`) · **jamais de drawer** (dialogs = **Modal centrés**, préférence user FERME) · route
+**mono-segment** `/nodefony/twin` → déjà couverte par le fallback SPA (0 ajout backend) · sources data toutes
+DÉJÀ servies (`realtime:health`, `kernel/api/info`+`/modules`, `orm/api/connection/health`, `syslog:stream`)
+→ **0 seam back** = pas de bump lockstep pour une évolution Twin front-only. Kit chantier : mémoire
+`project_studio_twin_kit` (LIRE EN PREMIER).
+
 ## Décision rapide (quel outil)
 
 | Besoin               | Outil                         | NE PAS                                  |
@@ -1185,6 +1247,17 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.20.0** (2026-06-06) — **Jumeau Vivant (Twin) + registre de blocs unifié + forage Realtime** (front-only ;
+  commits `57aa3ca` + ce commit). Nouvelle section **« 🪞 Jumeau Vivant (Twin) »** : modèle data-driven
+  (`twinSchemas` `TwinSchema{bricks,links,boundaries}` + `buildSchema`/`schemaTitle`), rendu pur (`TwinMap`/
+  `TwinMapView` aiguille statique/live, 0 ticker OFF), nav (`Twin.tsx` pile `stack` + breadcrumb + `enter`/ⓘ),
+  **2 recettes de forage** (sous-schéma `TwinSchema` homogène **vs** VUE SPÉCIALE non-schéma branchée dans
+  `Twin.tsx`), et le **registre de blocs unifié `blocks/`** (1 contenu = `IBlockDef` monté page/widget/dialog,
+  `useBlockSource` cœur, `BlockView`/`BlockHost`, 1 seule Map). **Exemple LIVE** = forage de la brique **Realtime
+  Hub** (`enter:"realtime-view"`) → `SocketExplorer` monte les **6 vues live de la Socket** (`realtime/socket/`)
+  en `<Tabs>`, **piloté par le registre `socketPages`** (MÊME source que le portail doc, dédoublonné par graphe),
+  `live` global propagé, 0 ticker hors onglet actif. **Front-only** (`realtime:health`/`kernel/api`/`syslog:stream`
+  déjà servis → 0 seam back) → **pas de bump back** (`nodefony-framework-dev` reste **1.19.0**). [[project_studio_twin_kit]].
 - **1.19.0** (2026-06-01) — **Messages WS dans le Suivi de requête + famille vue JSON + UX console Logs**.
   Full-stack (back = framework-dev 1.19.0 ; commits `e44cbd5`, `a19a471`). **Contrat front+back touché** (le seam
   http `wsLogContent` émet un nouveau `msgid` `ws-message` corrélé requestId) → bump MINOR partagé.

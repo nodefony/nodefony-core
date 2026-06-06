@@ -22,6 +22,7 @@ import { useTwinTopology } from "../realtime/twin/useTwinTopology";
 import { schemaTitle } from "../realtime/twin/twinSchemas";
 import { TwinMapView } from "../realtime/twin/TwinMap";
 import { TwinNodePanel } from "../realtime/twin/TwinNodePanel";
+import { SocketExplorer } from "../realtime/socket/SocketExplorer";
 
 /** Version de la doc des fiches d'aide (`DocHint`) de la page Jumeau. */
 const TWIN_DOC = "v1.2";
@@ -121,16 +122,22 @@ export const Twin = observer(() => {
         minHeight={420}
       >
         {data ? (
-          <TwinMapView
-            schemaId={current}
-            info={info}
-            connectors={connectors}
-            snapshot={snapshot}
-            live={live}
-            height={deep ? PAGE_CONTENT_HEIGHT_WITH_BAND : PAGE_CONTENT_HEIGHT}
-            onEnter={(schemaId) => setStack((s) => [...s, schemaId])}
-            onInfo={setSelected}
-          />
+          current === "realtime-view" ? (
+            <SocketExplorer live={live} />
+          ) : (
+            <TwinMapView
+              schemaId={current}
+              info={info}
+              connectors={connectors}
+              snapshot={snapshot}
+              live={live}
+              height={
+                deep ? PAGE_CONTENT_HEIGHT_WITH_BAND : PAGE_CONTENT_HEIGHT
+              }
+              onEnter={(schemaId) => setStack((s) => [...s, schemaId])}
+              onInfo={setSelected}
+            />
+          )
         ) : null}
       </DataState>
 

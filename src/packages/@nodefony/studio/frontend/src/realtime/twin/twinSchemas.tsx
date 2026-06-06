@@ -170,6 +170,7 @@ function rootSchema(connectors: ConnectorRow[]): TwinSchema {
         icon: <IconBroadcast size={20} />,
         pos: { x: 72, y: 55 },
         info: true,
+        enter: "realtime-view",
       },
       ...connBricks,
       {
@@ -518,5 +519,6 @@ export function schemaTitle(schemaId: string): string {
   if (schemaId === "bp-realtime-detail") return "Fond de panier · Realtime";
   if (schemaId === "bp-logs-detail") return "Fond de panier · Logs";
   if (schemaId === "kernel-detail") return "Kernel · Pipeline";
+  if (schemaId === "realtime-view") return "Realtime Hub";
   return "Architecture runtime";
 }
