@@ -1,11 +1,11 @@
 {
-  "generated": "2026-06-06T17:28:41.759Z",
+  "generated": "2026-06-06T17:48:26.874Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 829,
-    "symbols": 1667,
-    "classes": 245,
+    "files": 830,
+    "symbols": 1668,
+    "classes": 246,
     "interfaces": 417,
     "types": 214,
     "enums": 3,
@@ -7135,6 +7135,19 @@
       "decorators": [],
       "description": "Une connexion Redis nommée — enveloppe un client `redis` v6 et gère son cycle de vie (création, écoute des événements, fermeture propre). Perf/mémoire : les handlers d'événements sont conservés en …"
     },
+    "RedisSessionStorage": {
+      "name": "RedisSessionStorage",
+      "kind": "class",
+      "file": "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": null,
+      "implements": [
+        "ISessionStorage"
+      ],
+      "decorators": [],
+      "description": "Stockage de session **Redis** — branché sur la connexion `main` du {@link RedisService}. Implémente le contrat unifié {@link ISessionStorage} consommé par le `SessionsService` de `@nodefony/http`. …"
+    },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
       "kind": "type",
@@ -12429,7 +12442,8 @@
         "SyslogTransport"
       ],
       "ISessionStorage": [
-        "SessionStorage"
+        "SessionStorage",
+        "RedisSessionStorage"
       ],
       "IAdminBroker": [
         "AdminBroker"
@@ -13460,6 +13474,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
@@ -13718,7 +13733,8 @@
       ],
       "RedisService": [
         "src/packages/@nodefony/redis/index.ts",
-        "src/packages/@nodefony/redis/nodefony/src/Connection.ts"
+        "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
       "defineRedisConfig": [
         "src/packages/@nodefony/redis/index.ts",
@@ -14696,10 +14712,12 @@
       ],
       "ISessionStorage": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "ISerializedSession": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "IRepository": [

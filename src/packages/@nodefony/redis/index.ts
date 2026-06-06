@@ -67,6 +67,9 @@ class Redis extends Module {
 
 export default Redis;
 export { RedisService, redis };
+// Stockage de session Redis (consommé par @nodefony/http via le registre IoC).
+// L'export charge le fichier → son `registerStorage("redis", …)` s'exécute.
+export { default as RedisSessionStorage } from "./nodefony/src/SessionStorage";
 export { defineRedisConfig, redisConfigJsonSchema };
 export { redisConfigSchema, type RedisConfig } from "./nodefony/config/schema";
 export type {
