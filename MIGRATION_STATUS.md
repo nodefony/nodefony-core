@@ -81,7 +81,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P7  ORM drivers           █████░░░░░  50%   2✅  5🔶  2⬜   (% va bouger post-virage : sequelize/mikroorm sortent)
  P8  CLI + Monitoring      ██████░░░░  63%   2✅  1🔶  1⬜
  P9  Polish + clôture      ████░░░░░░  38%   1✅  1🔶  2⬜
- P10 Studio (admin web)    ██████░░░░  59%   3✅  7🔶  1⬜
+ P10 Studio (admin web)    ███████░░░  65%   5✅  7🔶  1⬜   (workspace + Jumeau, maj 2026-06-06)
  P11 CLI par module        ███░░░░░░░  33%   1✅  2🔶  3⬜
  P12 Couche IA agentic     ██░░░░░░░░  17%   0✅  2🔶  4⬜   🧪 différé (squelettes brainstorming, non audité)
  P13 Realtime distribué    ████████░░  77%   7✅  3🔶  1⬜
@@ -89,7 +89,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
  P16 Cloud-Native (8 axes) ███░░░░░░░  26%   8✅  1🔶 24⬜
 ────────────────────────────────────────────────────────────────────────
- GLOBAL                    █████░░░░░  50%  74✅ 35🔶 73⬜   (182 tâches)
+ GLOBAL                    █████░░░░░  51%  76✅ 35🔶 73⬜   (184 tâches)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -227,22 +227,24 @@ DI scopes (singleton/transient), lifecycle session.
 | 🔶 P9.3 | README publics                | security ✓ ; **http + framework absents**                         |
 | ⬜ P9.4 | Vulnérabilités npm            | **10** (0 crit/3 high/6 mod/1 low, 2026-05-25 — à re-`npm audit`) |
 
-### P10 — Studio admin web (59 %)
+### P10 — Studio admin web (65 %)
 
-| #         | Tâche                                       | État                                                                       |
-| --------- | ------------------------------------------- | -------------------------------------------------------------------------- |
-| ✅ P10.1  | Stack frontend (React 19) + Vite            | acté                                                                       |
-| ✅ P10.2  | `IAdminApi` + `AdminBroker`                 | contrat figé, inversion de dép                                             |
-| ✅ P10.3  | `IAdminApi` http/framework/syslog/frontend  | 5 producteurs, data plane `/nodefony/<m>/api/*`                            |
-| 🔶 P10.4  | `IAdminApi` user/orm-core/security          | orm ✓ ; user/security en attente P5/P6                                     |
-| 🔶 P10.5  | Backend Studio + WS realtime                | StudioController + JSON-RPC pub/sub ; reste IAdminApi                      |
-| ⬜ P10.6  | Auth admin (`ROLE_NODEFONY_ADMIN`)          | dépend P6                                                                  |
-| 🔶 P10.7  | Frontend bootstrap + router + layouts       | React 19 + Mantine + MobX + WS permanent ; reste auth réelle               |
-| 🔶 P10.8  | Vues prio (dashboard/routes/sessions/users) | Dashboard/Modules/Routes/Cluster/Runtime ✅ ; sessions/users attente P5/P6 |
-| ✅ P10.x  | Docs+API modules dans Studio                | onglets Docs/API + carte Core                                              |
-| 🔶 P10.9  | Vues firewall/logs/databases/migrate        | Logs ✅ (WS) + Databases ✅ ; firewall/migrate attente                     |
-| 🔶 P10.10 | Vues services/profiling                     | incrémental (~~pm2~~ retiré C6)                                            |
-| 🔶 P10.11 | Tests intégration studio                    | —                                                                          |
+| #         | Tâche                                       | État                                                                                                                                                                          |
+| --------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ P10.1  | Stack frontend (React 19) + Vite            | acté                                                                                                                                                                          |
+| ✅ P10.2  | `IAdminApi` + `AdminBroker`                 | contrat figé, inversion de dép                                                                                                                                                |
+| ✅ P10.3  | `IAdminApi` http/framework/syslog/frontend  | 5 producteurs, data plane `/nodefony/<m>/api/*`                                                                                                                               |
+| 🔶 P10.4  | `IAdminApi` user/orm-core/security          | orm ✓ ; user/security en attente P5/P6                                                                                                                                        |
+| 🔶 P10.5  | Backend Studio + WS realtime                | StudioController + JSON-RPC pub/sub ; reste IAdminApi                                                                                                                         |
+| ⬜ P10.6  | Auth admin (`ROLE_NODEFONY_ADMIN`)          | dépend P6                                                                                                                                                                     |
+| 🔶 P10.7  | Frontend bootstrap + router + layouts       | React 19 + Mantine + MobX + WS permanent ; reste auth réelle                                                                                                                  |
+| 🔶 P10.8  | Vues prio (dashboard/routes/sessions/users) | Dashboard/Modules/Routes/Cluster/Runtime ✅ ; sessions/users attente P5/P6                                                                                                    |
+| ✅ P10.x  | Docs+API modules dans Studio                | onglets Docs/API + carte Core                                                                                                                                                 |
+| 🔶 P10.9  | Vues firewall/logs/databases/migrate        | Logs ✅ (WS) + Databases ✅ ; firewall/migrate attente                                                                                                                        |
+| 🔶 P10.10 | Vues services/profiling                     | incrémental (~~pm2~~ retiré C6)                                                                                                                                               |
+| 🔶 P10.11 | Tests intégration studio                    | —                                                                                                                                                                             |
+| ✅ P10.12 | Workspace composable (bureau)               | fenêtres libres + espaces nommés + Mission Control + catalogue à facettes (taxonomie tags) + widgets supervision (mémoire/handles/erreurs/health/gc) ; remplace dashboard Dev |
+| ✅ P10.13 | Jumeau vivant (Twin)                        | explorateur archi runtime + registre de blocs unifié + forages Realtime/ORM/HTTP                                                                                              |
 
 ### P11 — CLI par module (33 %)
 
