@@ -1,4 +1,6 @@
-export type SameSiteType = boolean | "none" | "Lax" | "Strict";
+// RFC 6265bis §5.4.7 — 3 valeurs canoniques (title-case). `boolean` et `"none"`
+// (héritage lib `cookie`) retirés : `None` impose `Secure` → plus de drapeau.
+export type SameSiteType = "Strict" | "Lax" | "None";
 export type PriorityType = "High" | "Medium" | "Low" | undefined;
 
 export interface ICookieOptions {

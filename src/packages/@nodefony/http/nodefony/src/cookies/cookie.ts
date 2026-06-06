@@ -8,8 +8,11 @@ import crypto from "node:crypto";
 import HttpContext from "../context/http/HttpContext";
 import WebsocketContext from "../context/websocket/WebsocketContext.js";
 import { ContextType } from "../../service/http-kernel.js";
+import type {
+  ICookie as ICookieInterface,
+  SameSiteType,
+} from "../../interfaces/ICookie";
 
-type SameSiteType = boolean | "none" | "Lax" | "Strict";
 type PriorityType = "High" | "Medium" | "Low" | undefined;
 
 declare module "http" {
@@ -128,8 +131,6 @@ function cookiesParser(context: ContextType) {
   }
 }
 
-import type { ICookie as ICookieInterface } from "../../interfaces/ICookie";
-
 class Cookie implements ICookieInterface {
   options: CookieOptionsType = {};
   name: string;
@@ -236,8 +237,28 @@ class Cookie implements ICookieInterface {
     return val;
   }
 
+  /**
+   * Normalise l'attribut `SameSite` vers une valeur canonique RFC 6265bis.
+   *
+   * Fallback **`Lax`** (jamais `None`) : `None` désactive la protection CSRF et
+   * impose `Secure` — ce n'est jamais un défaut sûr. Toute entrée inconnue
+   * (ancien `boolean`, casse libre) retombe sur `Lax` (fail-safe).
+   *
+   * @param val - valeur souhaitée (`Strict` / `Lax` / `None`, casse libre).
+   * @returns la forme canonique title-case.
+   */
   setSameSite(val: SameSiteType | undefined): SameSiteType {
-    return val ? val : "none";
+    if (!val) {
+      return "Lax";
+    }
+    switch (String(val).toLowerCase()) {
+      case "strict":
+        return "Strict";
+      case "none":
+        return "None";
+      default:
+        return "Lax";
+    }
   }
 
   setExpires(date: Date | string | number | undefined): Date | undefined {
@@ -362,14 +383,26 @@ class Cookie implements ICookieInterface {
   serialize(): string {
     const tab = [];
     tab.push(this.toString());
+    // Préfixes RFC 6265bis §4.1.3 : `__Host-` lie le cookie à l'origine exacte
+    // (Secure + Path=/ + AUCUN Domain → anti session-fixation cross-subdomain) ;
+    // `__Secure-` impose seulement Secure. Le navigateur REJETTE le cookie si
+    // ces contraintes ne sont pas respectées → on les force ici.
+    const hostPrefix = this.name.startsWith("__Host-");
+    const securePrefix = this.name.startsWith("__Secure-");
+    // `SameSite=None` et les deux préfixes IMPOSENT `Secure` (RFC 6265bis).
+    const secure =
+      this.secure || this.sameSite === "None" || hostPrefix || securePrefix;
     if (this.maxAge) {
       tab.push(`Max-Age=${this.maxAge}`);
     }
-    if (this.domain) {
+    // `__Host-` interdit l'attribut Domain.
+    if (this.domain && !hostPrefix) {
       tab.push(`Domain=${this.domain}`);
     }
-    if (this.path) {
-      tab.push(`Path=${this.path}`);
+    // `__Host-` impose Path=/.
+    const path = hostPrefix ? "/" : this.path;
+    if (path) {
+      tab.push(`Path=${path}`);
     }
     if (this.sameSite) {
       tab.push(`SameSite=${this.sameSite}`);
@@ -380,7 +413,7 @@ class Cookie implements ICookieInterface {
     if (this.httpOnly) {
       tab.push("HttpOnly");
     }
-    if (this.secure) {
+    if (secure) {
       tab.push("Secure");
     }
     if (this.priority) {
@@ -390,16 +423,22 @@ class Cookie implements ICookieInterface {
   }
 
   serializeWebSocket(): IWsCookie {
+    const hostPrefix = this.name.startsWith("__Host-");
+    const securePrefix = this.name.startsWith("__Secure-");
+    const secure =
+      this.secure || this.sameSite === "None" || hostPrefix || securePrefix;
     const obj: IWsCookie = {
       name: this.name,
       value: this.value,
     };
     if (this.maxAge) obj.maxage = this.maxAge;
-    if (this.domain) obj.domain = this.domain;
-    if (this.path) obj.path = this.path;
+    // `__Host-` interdit Domain et impose Path=/ (cf serialize()).
+    if (this.domain && !hostPrefix) obj.domain = this.domain;
+    const path = hostPrefix ? "/" : this.path;
+    if (path) obj.path = path;
     if (this.expires) obj.expires = this.expires;
     if (this.httpOnly) obj.httponly = true;
-    if (this.secure) obj.secure = true;
+    if (secure) obj.secure = true;
     return obj;
   }
 }

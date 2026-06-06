@@ -1,13 +1,13 @@
 {
-  "generated": "2026-06-06T19:36:39.091Z",
+  "generated": "2026-06-06T19:53:08.468Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 830,
-    "symbols": 1664,
+    "symbols": 1663,
     "classes": 246,
     "interfaces": 417,
-    "types": 210,
+    "types": 209,
     "enums": 3,
     "functions": 314,
     "constants": 474
@@ -16911,6 +16911,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/metaData.ts"
       ],
       "IWsCookie": [
+        "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
+      ],
+      "SameSiteType": [
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
       ],
       "HttpRequestType": [

@@ -97,6 +97,64 @@ describe("Cookie — unit tests", () => {
     });
   });
 
+  describe("RFC 6265bis — SameSite / __Host- / None⇒Secure (étape 4)", () => {
+    it("defaults SameSite to Lax (jamais None)", () => {
+      const c = new Cookie("foo", "bar");
+      expect(c.sameSite).to.equal("Lax");
+      expect(c.serialize()).to.include("SameSite=Lax");
+    });
+
+    it("normalise la casse vers la forme canonique", () => {
+      const c = new Cookie("foo", "bar", {
+        sameSite: "none" as unknown as "None",
+      });
+      expect(c.sameSite).to.equal("None");
+    });
+
+    it("SameSite=None impose Secure même si secure:false", () => {
+      const c = new Cookie("foo", "bar", { sameSite: "None", secure: false });
+      expect(c.serialize()).to.include("SameSite=None");
+      expect(c.serialize()).to.include("Secure");
+    });
+
+    it("__Host- impose Secure, Path=/ et interdit Domain", () => {
+      const c = new Cookie("__Host-sid", "id", {
+        secure: false,
+        path: "/admin",
+        domain: "example.com",
+      });
+      const s = c.serialize();
+      expect(s).to.include("Secure");
+      expect(s).to.include("Path=/");
+      expect(s).to.not.include("Path=/admin");
+      expect(s).to.not.include("Domain=");
+    });
+
+    it("__Secure- impose Secure mais garde Path/Domain", () => {
+      const c = new Cookie("__Secure-sid", "id", {
+        secure: false,
+        path: "/app",
+        domain: "example.com",
+      });
+      const s = c.serialize();
+      expect(s).to.include("Secure");
+      expect(s).to.include("Path=/app");
+      expect(s).to.include("Domain=example.com");
+    });
+
+    it("serializeWebSocket applique aussi None⇒Secure et __Host-", () => {
+      const c = new Cookie("__Host-sid", "id", {
+        secure: false,
+        domain: "example.com",
+        path: "/x",
+      });
+      const obj = c.serializeWebSocket();
+      expect(obj.secure).to.equal(true);
+      expect(obj.path).to.equal("/");
+      expect(obj.domain).to.equal(undefined);
+    });
+  });
+
   describe("clearCookie()", () => {
     it("sets expires to epoch (1ms — expired)", () => {
       const c = new Cookie("foo", "bar");
