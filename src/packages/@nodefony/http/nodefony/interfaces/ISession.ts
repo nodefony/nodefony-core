@@ -5,10 +5,33 @@ export type SessionStrategyType = "none" | "migrate" | "invalidate";
 export type FlashBagType = Record<string, unknown>;
 export type MetaBagType = Record<string, unknown>;
 
+/**
+ * Données de session **sérialisées** échangées avec un {@link ISessionStorage}
+ * (blob opaque persisté/restauré). La forme métier riche (ProtoService/bags) est
+ * l'affaire de `Session` ; le storage ne manipule que cette projection JSON-safe.
+ */
+export interface ISerializedSession {
+  Attributes: Record<string, unknown>;
+  metaBag: Record<string, unknown>;
+  flashBag: Record<string, unknown>;
+  user: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+/**
+ * Contrat **unique** d'un backend de stockage de session (File, Redis, SQL/Drizzle…).
+ * Source de vérité unifiée — l'ex-doublon `sessionStorageInterface` (any) n'est plus
+ * qu'un alias transitionnel. Enregistré dans le registre IoC `SessionsService.registerStorage`.
+ */
 export interface ISessionStorage {
-  read(name: string): Promise<unknown>;
-  write(name: string, data: unknown, contextSession: string): Promise<unknown>;
-  start(id: string, contextSession: string): Promise<unknown>;
+  read(id: string, contextSession?: string): Promise<ISerializedSession>;
+  write(
+    id: string,
+    data: ISerializedSession,
+    contextSession: string,
+  ): Promise<ISerializedSession>;
+  start(id: string, contextSession: string): Promise<ISerializedSession>;
   open(contextSession: string): Promise<number>;
   close(): boolean;
   destroy(id: string, contextSession: string): Promise<boolean>;
@@ -34,7 +57,11 @@ export interface ISession {
   // Lifecycle
   start(context: unknown, contextSession: string): Promise<ISession>;
   save(user?: string, contextSession?: string): Promise<ISession>;
-  invalidate(lifetime?: number, id?: string, options?: ICookieOptions): Promise<ISession>;
+  invalidate(
+    lifetime?: number,
+    id?: string,
+    options?: ICookieOptions,
+  ): Promise<ISession>;
   destroy(cookieDelete?: boolean): Promise<boolean>;
   create(lifetime: number, id?: string, options?: ICookieOptions): ISession;
 

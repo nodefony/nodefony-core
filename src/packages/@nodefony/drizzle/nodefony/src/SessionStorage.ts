@@ -1,16 +1,8 @@
 import { SessionsService } from "@nodefony/http";
-import type { ISessionStorage } from "@nodefony/http";
+import type { ISessionStorage, ISerializedSession } from "@nodefony/http";
 import { ormRegistry } from "@nodefony/orm-core";
 import type { IRepository } from "@nodefony/orm-core";
 import { SESSION_ORM, type SessionRow } from "../entity/sessionEntity";
-
-/** Données de session sérialisées passées par le manager (`session.serialize()`). */
-interface SerializedSession {
-  Attributes: unknown;
-  metaBag: unknown;
-  flashBag: unknown;
-  user: string;
-}
 
 /**
  * Stockage de session **Drizzle** (driver `better-sqlite3`), branché sur
@@ -53,39 +45,39 @@ class SessionStorage implements ISessionStorage {
     return orm.getRepository<SessionRow>("session");
   }
 
-  async read(id: string, contextSession?: string): Promise<unknown> {
+  async read(id: string, contextSession?: string): Promise<ISerializedSession> {
     const criteria: Partial<SessionRow> = { session_id: id };
     if (contextSession) {
       criteria.context = contextSession;
     }
     const repo = this.#repo();
     if (!repo) {
-      return {} as SerializedSession;
+      return {} as ISerializedSession;
     }
     const row = await repo.findOne(criteria);
     if (!row) {
-      return {} as SerializedSession;
+      return {} as ISerializedSession;
     }
     return {
-      Attributes: row.Attributes ?? {},
-      metaBag: row.metaBag ?? {},
-      flashBag: row.flashBag ?? {},
+      Attributes: (row.Attributes ?? {}) as Record<string, unknown>,
+      metaBag: (row.metaBag ?? {}) as Record<string, unknown>,
+      flashBag: (row.flashBag ?? {}) as Record<string, unknown>,
       user: row.user ?? "",
       createdAt: new Date(row.createdAt),
       updatedAt: new Date(row.updatedAt),
     };
   }
 
-  async start(id: string, contextSession: string): Promise<unknown> {
+  async start(id: string, contextSession: string): Promise<ISerializedSession> {
     return this.read(id, contextSession);
   }
 
   async write(
     id: string,
-    data: unknown,
+    data: ISerializedSession,
     contextSession: string,
-  ): Promise<unknown> {
-    const serialize = data as SerializedSession;
+  ): Promise<ISerializedSession> {
+    const serialize = data;
     const now = Date.now();
     const repo = this.#repo();
     if (!repo) {
@@ -180,14 +172,8 @@ class SessionStorage implements ISessionStorage {
 }
 
 // Auto-enregistrement dans le registre de session de @nodefony/http (IoC) :
-// http ne dépend pas de cet ORM, c'est l'ORM qui se déclare.
-// cast : dette de typage session (ISessionStorage vs sessionStorageInterface),
-// traitée par la refonte ORM (boussole durcissement ORM).
-SessionsService.registerStorage(
-  "drizzle",
-  SessionStorage as unknown as Parameters<
-    typeof SessionsService.registerStorage
-  >[1],
-);
+// http ne dépend pas de cet ORM, c'est l'ORM qui se déclare. SessionStorage
+// implémente directement ISessionStorage (contrat unifié) → plus de cast.
+SessionsService.registerStorage("drizzle", SessionStorage);
 
 export default SessionStorage;

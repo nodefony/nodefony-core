@@ -1,13 +1,13 @@
 {
-  "generated": "2026-06-05T20:54:25.017Z",
+  "generated": "2026-06-06T17:28:41.759Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 829,
     "symbols": 1667,
     "classes": 245,
-    "interfaces": 419,
-    "types": 212,
+    "interfaces": 417,
+    "types": 214,
     "enums": 3,
     "functions": 314,
     "constants": 474
@@ -5564,13 +5564,23 @@
       "module": "@nodefony/http",
       "extends": "IResponse"
     },
+    "ISerializedSession": {
+      "name": "ISerializedSession",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Données de session **sérialisées** échangées avec un {@link ISessionStorage} (blob opaque persisté/restauré). La forme métier riche (ProtoService/bags) est l'affaire de `Session` ; le storage ne ma…"
+    },
     "ISessionStorage": {
       "name": "ISessionStorage",
       "kind": "interface",
       "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": null
+      "extends": null,
+      "description": "Contrat **unique** d'un backend de stockage de session (File, Redis, SQL/Drizzle…). Source de vérité unifiée — l'ex-doublon `sessionStorageInterface` (any) n'est plus qu'un alias transitionnel. Enr…"
     },
     "ISession": {
       "name": "ISession",
@@ -10965,22 +10975,6 @@
         "injectable"
       ]
     },
-    "SerializeSessionType": {
-      "name": "SerializeSessionType",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "extends": null
-    },
-    "sessionStorageInterface": {
-      "name": "sessionStorageInterface",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "extends": null
-    },
     "sessionStrategyType": {
       "name": "sessionStrategyType",
       "kind": "type",
@@ -11004,6 +10998,20 @@
     },
     "MetaBagSessionType": {
       "name": "MetaBagSessionType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    "SerializeSessionType": {
+      "name": "SerializeSessionType",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
+    "sessionStorageInterface": {
+      "name": "sessionStorageInterface",
       "kind": "type",
       "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
       "exported": true,
@@ -14687,7 +14695,12 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "ISessionStorage": [
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "ISerializedSession": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -16839,14 +16852,6 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
       ],
-      "ProtoService": [
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "ProtoParameters": [
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
       "OptionsSessionType": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
@@ -16906,6 +16911,12 @@
       ],
       "HttpRsponseType": [
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts"
+      ],
+      "ProtoService": [
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "ProtoParameters": [
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
       "sessionStrategyType": [
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"

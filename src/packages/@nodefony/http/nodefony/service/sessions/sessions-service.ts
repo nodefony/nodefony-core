@@ -8,11 +8,13 @@ import {
   Module,
   // FamilyType,
   //DynamicService,
-  ProtoService,
-  ProtoParameters,
   inject,
   injectable,
 } from "nodefony";
+import type {
+  ISessionStorage,
+  ISerializedSession,
+} from "../../interfaces/ISession";
 import HttpKernel, {
   //ProtocolType,
   //ServerType,
@@ -30,33 +32,21 @@ import FileSessionStorage from "../../src/session/storage/FileSessionStorage";
 export type sessionStrategyType = "none" | "migrate" | "invalidate";
 export type sessionStorageType = any; //  "orm" | "memcached" | "redis" | "fileSystem" | "memory";
 
-export type FlashBagSessionType = Record<string, any>;
-export type MetaBagSessionType = Record<string, any>;
-export interface SerializeSessionType {
-  Attributes: ProtoService;
-  metaBag: ProtoParameters;
-  flashBag: FlashBagSessionType;
-  user: string;
-}
+export type FlashBagSessionType = Record<string, unknown>;
+export type MetaBagSessionType = Record<string, unknown>;
 
-export interface sessionStorageInterface {
-  read: (name: string) => Promise<SerializeSessionType>;
-  write: (
-    name: string,
-    serialize: SerializeSessionType,
-    contextSession: string,
-  ) => Promise<SerializeSessionType>;
-  start: (id: string, contextSession: string) => Promise<SerializeSessionType>;
-  open: (contextSession: string) => Promise<number>;
-  close: () => boolean;
-  destroy: (id: string, contextSession: string) => Promise<boolean>;
-  gc: (maxlifetime: number, contextSession: string) => Promise<void>;
-}
+// Contrat de session UNIFIÉ : la source de vérité vit dans interfaces/ISession.
+// Ces deux noms = alias de TRANSITION (zéro définition dupliquée ici), gardés le
+// temps de la réécriture de session.ts + des storages (étape 3 du chantier session).
+/** @deprecated alias transitionnel → {@link ISerializedSession} (interfaces/ISession). */
+export type SerializeSessionType = ISerializedSession;
+/** @deprecated alias transitionnel → {@link ISessionStorage} (interfaces/ISession). */
+export type sessionStorageInterface = ISessionStorage;
 
 /** Constructeur d'un storage de session (enregistré dans le registre). */
 export type SessionStorageCtor = new (
   manager: SessionsService,
-) => sessionStorageInterface;
+) => ISessionStorage;
 
 @injectable()
 class SessionsService extends Service {

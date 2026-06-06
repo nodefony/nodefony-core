@@ -213,6 +213,7 @@ export type {
 export type {
   ISession,
   ISessionStorage,
+  ISerializedSession,
   SessionStatusType,
   SessionStrategyType,
   FlashBagType,
