@@ -43,6 +43,8 @@ export interface ISession {
   name: string;
   status: SessionStatusType;
   saved: boolean;
+  /** Vrai si la session a été mutée sans être encore persistée (dirty-tracking). */
+  dirty: boolean;
   migrated: boolean;
   contextSession: string;
   cookieSession: ICookie | null | undefined;
@@ -64,6 +66,8 @@ export interface ISession {
   ): Promise<ISession>;
   destroy(cookieDelete?: boolean): Promise<boolean>;
   create(lifetime: number, id?: string, options?: ICookieOptions): ISession;
+  /** Régénère un identifiant opaque CSPRNG en conservant l'état (anti session-fixation, seam P6). */
+  regenerateId(): void;
 
   // Key/value attributes (Container API)
   get(key: string): unknown;
@@ -85,8 +89,6 @@ export interface ISession {
   // Utils
   getName(): string;
   checkStatus(): "restart" | boolean;
-  encrypt(text: string): string;
-  decrypt(text: string): string;
-  serialize(user?: string): unknown;
-  deSerialize(data: Record<string, unknown>): void;
+  serialize(user?: string): ISerializedSession;
+  deSerialize(data: ISerializedSession): void;
 }

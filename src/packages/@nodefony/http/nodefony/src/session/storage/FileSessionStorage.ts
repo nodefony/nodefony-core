@@ -11,10 +11,11 @@ import {
   Finder,
   Result,
 } from "nodefony";
-import sessionService, {
-  sessionStorageInterface,
-  SerializeSessionType,
-} from "../../../service/sessions/sessions-service";
+import type sessionService from "../../../service/sessions/sessions-service";
+import type {
+  ISessionStorage,
+  ISerializedSession,
+} from "../../../interfaces/ISession";
 
 const finderGC = function (
   this: FileSessionStorage,
@@ -42,7 +43,7 @@ const finderGC = function (
   });
 };
 
-class FileSessionStorage implements sessionStorageInterface {
+class FileSessionStorage implements ISessionStorage {
   manager: sessionService;
   path: string;
   gc_maxlifetime: number;
@@ -54,10 +55,7 @@ class FileSessionStorage implements sessionStorageInterface {
     this.contextSessions = [];
   }
 
-  async start(
-    id: string,
-    contextSession: string,
-  ): Promise<SerializeSessionType> {
+  async start(id: string, contextSession: string): Promise<ISerializedSession> {
     let fileSession: FileClass;
     let Path: string = "";
     if (contextSession) {
@@ -80,7 +78,7 @@ class FileSessionStorage implements sessionStorageInterface {
       fileSession = new FileClass(Path);
     } catch (e) {
       this.manager.log(`start storage: ${e}`, "ERROR");
-      return Promise.resolve({} as SerializeSessionType);
+      return Promise.resolve({} as ISerializedSession);
     }
     try {
       return this.read(fileSession.path as string);
@@ -177,7 +175,7 @@ class FileSessionStorage implements sessionStorageInterface {
     }
   }
 
-  read(file: string): Promise<SerializeSessionType> {
+  read(file: string): Promise<ISerializedSession> {
     return new Promise((resolve, reject) => {
       // let id = file.name;
       try {
@@ -185,7 +183,7 @@ class FileSessionStorage implements sessionStorageInterface {
           if (err) {
             return reject(err);
           }
-          return resolve(JSON.parse(data) as SerializeSessionType);
+          return resolve(JSON.parse(data) as ISerializedSession);
         });
       } catch (e) {
         this.manager.log(`FILES SESSIONS STORAGE READ  ==> ${e}`, "ERROR");
@@ -196,9 +194,9 @@ class FileSessionStorage implements sessionStorageInterface {
 
   write(
     fileName: string,
-    serialize: SerializeSessionType,
+    serialize: ISerializedSession,
     contextSession: string,
-  ): Promise<SerializeSessionType> {
+  ): Promise<ISerializedSession> {
     let Path: string = "";
     if (contextSession) {
       Path = `${this.path}/${contextSession}/${fileName}`;

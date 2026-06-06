@@ -11,10 +11,7 @@ import {
   inject,
   injectable,
 } from "nodefony";
-import type {
-  ISessionStorage,
-  ISerializedSession,
-} from "../../interfaces/ISession";
+import type { ISessionStorage } from "../../interfaces/ISession";
 import HttpKernel, {
   //ProtocolType,
   //ServerType,
@@ -35,13 +32,8 @@ export type sessionStorageType = any; //  "orm" | "memcached" | "redis" | "fileS
 export type FlashBagSessionType = Record<string, unknown>;
 export type MetaBagSessionType = Record<string, unknown>;
 
-// Contrat de session UNIFIÉ : la source de vérité vit dans interfaces/ISession.
-// Ces deux noms = alias de TRANSITION (zéro définition dupliquée ici), gardés le
-// temps de la réécriture de session.ts + des storages (étape 3 du chantier session).
-/** @deprecated alias transitionnel → {@link ISerializedSession} (interfaces/ISession). */
-export type SerializeSessionType = ISerializedSession;
-/** @deprecated alias transitionnel → {@link ISessionStorage} (interfaces/ISession). */
-export type sessionStorageInterface = ISessionStorage;
+// Contrat de session UNIFIÉ — source de vérité : interfaces/ISession
+// (ISessionStorage + ISerializedSession). Alias de transition supprimés (étape 3).
 
 /** Constructeur d'un storage de session (enregistré dans le registre). */
 export type SessionStorageCtor = new (
@@ -132,7 +124,7 @@ class SessionsService extends Service {
     return this;
   }
 
-  initializeStorage(): sessionStorageInterface | null {
+  initializeStorage(): ISessionStorage | null {
     const Storage = SessionsService.getStorage(this.options.handler);
     if (!Storage) {
       this.storage = null;

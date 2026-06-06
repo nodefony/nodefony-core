@@ -1,31 +1,23 @@
 import { expect } from "chai";
-import { createHash } from "node:crypto";
 import Session, { OptionsSessionType } from "../../src/session/session.js";
 import type {
-  sessionStorageInterface,
-  SerializeSessionType,
-} from "../../service/sessions/sessions-service.js";
+  ISessionStorage,
+  ISerializedSession,
+} from "../../interfaces/ISession.js";
 
 // ── minimal mocks ────────────────────────────────────────────────
 
-const secret = Buffer.from(
-  createHash("sha512").update("test-secret").digest().buffer.slice(0, 32),
-);
-const iv = Buffer.from(
-  createHash("sha512").update("test-iv").digest().buffer.slice(0, 16),
-);
-
 function makeStorage(
-  initial: Record<string, SerializeSessionType> = {},
-): sessionStorageInterface {
-  const store: Record<string, SerializeSessionType> = { ...initial };
+  initial: Record<string, ISerializedSession> = {},
+): ISessionStorage {
+  const store: Record<string, ISerializedSession> = { ...initial };
   return {
-    read: (id) => Promise.resolve(store[id] ?? ({} as SerializeSessionType)),
+    read: (id) => Promise.resolve(store[id] ?? ({} as ISerializedSession)),
     write: (id, data) => {
       store[id] = { ...data };
       return Promise.resolve(store[id]);
     },
-    start: (id) => Promise.resolve(store[id] ?? ({} as SerializeSessionType)),
+    start: (id) => Promise.resolve(store[id] ?? ({} as ISerializedSession)),
     open: () => Promise.resolve(1),
     close: () => true,
     destroy: (id) => {
@@ -36,14 +28,12 @@ function makeStorage(
   };
 }
 
-function makeManager(strategy = "migrate", storage?: sessionStorageInterface) {
+function makeManager(strategy = "migrate", storage?: ISessionStorage) {
   const st = storage ?? makeStorage();
   return {
-    log: () => undefined as unknown as ReturnType<typeof makeManager>,
+    log: () => undefined,
     storage: st,
     sessionStrategy: strategy as "migrate" | "invalidate" | "none",
-    secret,
-    iv,
     initializeStorage: () => st,
   };
 }
@@ -60,6 +50,7 @@ function makeSession(
   return new Session(
     "testsession",
     { ...defaultOpts, ...opts },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     makeManager(strategy) as any,
   );
 }
@@ -69,14 +60,14 @@ function makeSession(
 describe("Session — unit tests", () => {
   describe("constructor", () => {
     it("sets name from argument", () => {
-      const s = makeSession();
-      expect(s.name).to.equal("testsession");
+      expect(makeSession().name).to.equal("testsession");
     });
 
     it("uses options.name as fallback", () => {
       const s = new Session(
         "",
         { ...defaultOpts, name: "fallback" },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         makeManager() as any,
       );
       expect(s.name).to.equal("fallback");
@@ -88,14 +79,19 @@ describe("Session — unit tests", () => {
 
     it("status is 'disabled' when no storage", () => {
       const mgr = makeManager("migrate");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (mgr as any).storage = null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = new Session("s", defaultOpts, mgr as any);
       expect(s.status).to.equal("disabled");
     });
 
     it("strategy comes from manager", () => {
-      const s = makeSession({}, "invalidate");
-      expect(s.strategy).to.equal("invalidate");
+      expect(makeSession({}, "invalidate").strategy).to.equal("invalidate");
+    });
+
+    it("starts NOT dirty (no mutation yet)", () => {
+      expect(makeSession().dirty).to.equal(false);
     });
   });
 
@@ -107,16 +103,104 @@ describe("Session — unit tests", () => {
     });
   });
 
-  describe("encrypt / decrypt", () => {
-    it("round-trips a string", () => {
+  describe("opaque id (CSPRNG)", () => {
+    it("create() generates an opaque base64url id", () => {
       const s = makeSession();
-      const plain = "hello:default";
-      expect(s.decrypt(s.encrypt(plain))).to.equal(plain);
+      s.create(0);
+      expect(s.id).to.match(/^[A-Za-z0-9_-]+$/);
+      expect(s.id.length).to.be.greaterThan(20);
     });
 
-    it("different inputs produce different ciphertext", () => {
+    it("two created sessions have distinct ids", () => {
+      const a = makeSession();
+      const b = makeSession();
+      a.create(0);
+      b.create(0);
+      expect(a.id).to.not.equal(b.id);
+    });
+
+    it("regenerateId() produces a new id and marks dirty", () => {
       const s = makeSession();
-      expect(s.encrypt("abc")).to.not.equal(s.encrypt("def"));
+      s.create(0);
+      const first = s.id;
+      s.regenerateId();
+      expect(s.id).to.not.equal(first);
+      expect(s.dirty).to.equal(true);
+    });
+  });
+
+  describe("dirty-tracking", () => {
+    it("set() marks the session dirty", () => {
+      const s = makeSession();
+      s.set("k", "v");
+      expect(s.dirty).to.equal(true);
+    });
+
+    it("setMetaBag() / setFlashBag() mark dirty", () => {
+      const s1 = makeSession();
+      s1.setMetaBag("a", 1);
+      expect(s1.dirty).to.equal(true);
+      const s2 = makeSession();
+      s2.setFlashBag("a", 1);
+      expect(s2.dirty).to.equal(true);
+    });
+
+    it("deSerialize() does NOT mark dirty (restauration)", () => {
+      const s = makeSession();
+      s.deSerialize({
+        Attributes: { x: 1 },
+        metaBag: {},
+        flashBag: {},
+        user: "",
+      });
+      expect(s.dirty).to.equal(false);
+    });
+
+    it("getFlashBag() consuming an entry marks dirty", () => {
+      const s = makeSession();
+      s.deSerialize({
+        Attributes: {},
+        metaBag: {},
+        flashBag: { notice: "hi" },
+        user: "",
+      });
+      expect(s.dirty).to.equal(false);
+      expect(s.getFlashBag("notice")).to.equal("hi");
+      expect(s.dirty).to.equal(true);
+    });
+
+    it("save() is a no-op when not dirty (no storage write)", async () => {
+      const storage = makeStorage();
+      let writes = 0;
+      const origWrite = storage.write.bind(storage);
+      storage.write = (id, data, ctx) => {
+        writes += 1;
+        return origWrite(id, data, ctx);
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const s = new Session(
+        "s",
+        defaultOpts,
+        makeManager("migrate", storage) as any,
+      );
+      await s.save();
+      expect(writes).to.equal(0);
+      expect(s.saved).to.equal(false);
+    });
+
+    it("save() writes when dirty, then clears dirty + sets saved", async () => {
+      const storage = makeStorage();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const s = new Session(
+        "s",
+        defaultOpts,
+        makeManager("migrate", storage) as any,
+      );
+      s.set("k", "v");
+      expect(s.dirty).to.equal(true);
+      await s.save();
+      expect(s.dirty).to.equal(false);
+      expect(s.saved).to.equal(true);
     });
   });
 
@@ -169,42 +253,40 @@ describe("Session — unit tests", () => {
       expect(makeSession().getMetaBag("nope")).to.be.null;
     });
 
-    it("metaBag() returns the meta container", () => {
+    it("getMetas() returns the meta object", () => {
       const s = makeSession();
       s.setMetaBag("env", "test");
-      expect(s.metaBag()).to.be.an("object");
+      expect(s.getMetas()).to.be.an("object");
+      expect((s.getMetas() as Record<string, unknown>).env).to.equal("test");
     });
   });
 
   describe("serialize / deSerialize", () => {
     it("serialize returns expected shape", () => {
-      const s = makeSession();
-      const data = s.serialize("alice");
+      const data = makeSession().serialize("alice");
       expect(data).to.have.keys(["Attributes", "metaBag", "flashBag", "user"]);
       expect(data.user).to.equal("alice");
     });
 
     it("deSerialize restores flashBag", () => {
       const s = makeSession();
-      const data = {
+      s.deSerialize({
         Attributes: {},
         metaBag: {},
         flashBag: { notice: "hello" },
         user: "",
-      } as unknown as SerializeSessionType;
-      s.deSerialize(data);
+      });
       expect(s.getFlashBag("notice")).to.equal("hello");
     });
 
-    it("deSerialize restores metaBag", () => {
+    it("deSerialize restores metaBag + user", () => {
       const s = makeSession();
-      const data = {
+      s.deSerialize({
         Attributes: {},
         metaBag: { host: "example.com" },
         flashBag: {},
         user: "bob",
-      } as unknown as SerializeSessionType;
-      s.deSerialize(data);
+      });
       expect(s.getMetaBag("host")).to.equal("example.com");
       expect(s.user).to.equal("bob");
     });
@@ -213,7 +295,7 @@ describe("Session — unit tests", () => {
       const s = makeSession();
       s.setFlashBag("k", "v");
       s.setMetaBag("env", "unit");
-      const data = s.serialize("carol") as unknown as SerializeSessionType;
+      const data = s.serialize("carol");
       const s2 = makeSession();
       s2.deSerialize(data);
       expect(s2.getFlashBag("k")).to.equal("v");
@@ -222,20 +304,42 @@ describe("Session — unit tests", () => {
     });
   });
 
+  describe("destroy", () => {
+    it("destroy() removes the stored session and returns true", async () => {
+      const storage = makeStorage();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const s = new Session(
+        "s",
+        defaultOpts,
+        makeManager("migrate", storage) as any,
+      );
+      s.create(0);
+      s.set("k", "v");
+      await s.save();
+      const ok = await s.destroy();
+      expect(ok).to.equal(true);
+      // l'entrée a disparu du storage → start renvoie un blob vide
+      const after = await storage.start(s.id, "default");
+      expect(Object.keys(after)).to.have.length(0);
+    });
+  });
+
   describe("clear", () => {
     it("clears attributes and flashBags", () => {
       const s = makeSession();
+      s.set("a", 1);
       s.setFlashBag("f", "v");
       s.setMetaBag("m", 1);
       s.clear();
       expect(Object.keys(s.flashBags())).to.have.length(0);
+      expect(Object.keys(s.getAttributes())).to.have.length(0);
     });
   });
 
   describe("checkStatus", () => {
     it("returns false when status is 'active'", () => {
       const s = makeSession();
-      (s as any).status = "active";
+      s.status = "active";
       expect(s.checkStatus()).to.equal(false);
     });
 
@@ -244,44 +348,13 @@ describe("Session — unit tests", () => {
     });
   });
 
-  describe("randomValueHex", () => {
-    it("retourne une chaîne hex de la longueur demandée", () => {
-      const h = makeSession().randomValueHex(16);
-      expect(h).to.have.length(16);
-      expect(h).to.match(/^[0-9a-f]+$/);
-    });
-
-    it("deux appels produisent des valeurs distinctes", () => {
-      const s = makeSession();
-      expect(s.randomValueHex(32)).to.not.equal(s.randomValueHex(32));
-    });
-  });
-
-  describe("setId / getId — round-trip chiffré + contextSession", () => {
-    it("setId encode le contextSession ; getId le restaure", () => {
-      const s = makeSession();
-      s.contextSession = "tenantA";
-      const id = s.setId();
-      expect(id).to.be.a("string");
-      expect(id.length).to.be.greaterThan(0);
-      // brouille puis restaure via getId
-      s.contextSession = "xxx";
-      const returned = s.getId(id);
-      expect(returned).to.equal(id);
-      expect(s.contextSession).to.equal("tenantA");
-    });
-
-    it("deux setId successifs produisent des id différents", () => {
-      const s = makeSession();
-      expect(s.setId()).to.not.equal(s.setId());
-    });
-  });
-
   describe("isValidSession", () => {
     it("true par défaut (referer_check off, pas d'expiration)", () => {
-      const s = makeSession();
       expect(
-        s.isValidSession({} as unknown as SerializeSessionType, {} as never),
+        makeSession().isValidSession(
+          {} as unknown as ISerializedSession,
+          {} as never,
+        ),
       ).to.equal(true);
     });
 
@@ -290,7 +363,7 @@ describe("Session — unit tests", () => {
       s.lifetime = 0;
       s.updated = new Date(0);
       expect(
-        s.isValidSession({} as unknown as SerializeSessionType, {} as never),
+        s.isValidSession({} as unknown as ISerializedSession, {} as never),
       ).to.equal(true);
     });
 
@@ -299,7 +372,7 @@ describe("Session — unit tests", () => {
       s.lifetime = 1; // 1 s
       s.updated = new Date(Date.now() - 10_000); // il y a 10 s
       expect(
-        s.isValidSession({} as unknown as SerializeSessionType, {} as never),
+        s.isValidSession({} as unknown as ISerializedSession, {} as never),
       ).to.equal(false);
     });
 
@@ -308,7 +381,7 @@ describe("Session — unit tests", () => {
       s.setMetaBag("host", "good.example");
       const ctx = { getHost: () => "good.example" } as never;
       expect(
-        s.isValidSession({} as unknown as SerializeSessionType, ctx),
+        s.isValidSession({} as unknown as ISerializedSession, ctx),
       ).to.equal(true);
     });
 
@@ -317,7 +390,7 @@ describe("Session — unit tests", () => {
       s.setMetaBag("host", "good.example");
       const ctx = { getHost: () => "evil.example" } as never;
       expect(
-        s.isValidSession({} as unknown as SerializeSessionType, ctx),
+        s.isValidSession({} as unknown as ISerializedSession, ctx),
       ).to.equal(false);
     });
   });
@@ -334,20 +407,21 @@ describe("Session — unit tests", () => {
     it("throw si host != meta", () => {
       const s = makeSession();
       s.setMetaBag("host", "h.example");
-      let threw = false;
-      try {
-        s.checkSecureReferer({ getHost: () => "other" } as never);
-      } catch {
-        threw = true;
-      }
-      expect(threw).to.equal(true);
+      expect(() =>
+        s.checkSecureReferer({ getHost: () => "other" } as never),
+      ).to.throw();
     });
   });
 
   describe("attributes", () => {
-    it("getAttributes() délègue à attributes()", () => {
+    it("getAttributes() reflects set()", () => {
       const s = makeSession();
-      expect(s.getAttributes()).to.equal(s.attributes());
+      s.set("x", 42);
+      expect((s.getAttributes() as Record<string, unknown>).x).to.equal(42);
+    });
+
+    it("get() returns null for an unknown key", () => {
+      expect(makeSession().get("nope")).to.be.null;
     });
   });
 });

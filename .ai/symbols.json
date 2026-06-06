@@ -1,13 +1,13 @@
 {
-  "generated": "2026-06-06T17:48:26.874Z",
+  "generated": "2026-06-06T19:36:39.091Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 830,
-    "symbols": 1668,
+    "symbols": 1664,
     "classes": 246,
     "interfaces": 417,
-    "types": 214,
+    "types": 210,
     "enums": 3,
     "functions": 314,
     "constants": 474
@@ -11016,20 +11016,6 @@
       "exported": true,
       "module": "@nodefony/http"
     },
-    "SerializeSessionType": {
-      "name": "SerializeSessionType",
-      "kind": "type",
-      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-      "exported": true,
-      "module": "@nodefony/http"
-    },
-    "sessionStorageInterface": {
-      "name": "sessionStorageInterface",
-      "kind": "type",
-      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-      "exported": true,
-      "module": "@nodefony/http"
-    },
     "SessionStorageCtor": {
       "name": "SessionStorageCtor",
       "kind": "type",
@@ -11316,16 +11302,20 @@
       "file": "src/packages/@nodefony/http/nodefony/src/session/session.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": "Container",
-      "implements": [],
-      "decorators": []
+      "extends": null,
+      "implements": [
+        "ISession"
+      ],
+      "decorators": [],
+      "description": "Session serveur Nodefony — état persistant lié à une identité, indexé par un identifiant **opaque** (porté par le cookie) dans un {@link ISessionStorage} pluggable (File / Redis / SQL). Modèle BFF …"
     },
     "OptionsSessionType": {
       "name": "OptionsSessionType",
       "kind": "type",
       "file": "src/packages/@nodefony/http/nodefony/src/session/session.ts",
       "exported": true,
-      "module": "@nodefony/http"
+      "module": "@nodefony/http",
+      "description": "Options d'une session (sous-ensemble de `module.options.session`). Cookie-only : plus de `use_trans_sid`/`use_only_cookies` — un identifiant de session ne voyage JAMAIS dans l'URL (OWASP Session Ma…"
     },
     "MongooseOrm": {
       "name": "MongooseOrm",
@@ -12106,7 +12096,7 @@
       "module": "@nodefony/http",
       "extends": null,
       "implements": [
-        "sessionStorageInterface"
+        "ISessionStorage"
       ],
       "decorators": []
     }
@@ -12158,8 +12148,7 @@
         "TypeKernelOptions"
       ],
       "Container": [
-        "Scope",
-        "Session"
+        "Scope"
       ],
       "Error": [
         "nodefonyError",
@@ -12443,7 +12432,8 @@
       ],
       "ISessionStorage": [
         "SessionStorage",
-        "RedisSessionStorage"
+        "RedisSessionStorage",
+        "FileSessionStorage"
       ],
       "IAdminBroker": [
         "AdminBroker"
@@ -12535,6 +12525,9 @@
       "ICookieInterface": [
         "Cookie"
       ],
+      "ISession": [
+        "Session"
+      ],
       "IBackplane": [
         "ClusterBackplane",
         "LoopbackBackplane",
@@ -12557,9 +12550,6 @@
       ],
       "IWebsocketContextInterface": [
         "WebsocketContext"
-      ],
-      "sessionStorageInterface": [
-        "FileSessionStorage"
       ]
     },
     "decoratedBy": {
@@ -12742,7 +12732,6 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
@@ -12855,7 +12844,6 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
@@ -12878,7 +12866,6 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
@@ -12984,8 +12971,7 @@
       "DynamicParam": [
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/types/IContainer.ts",
-        "src/nodefony/src/types/IService.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+        "src/nodefony/src/types/IService.ts"
       ],
       "EventDefaultInterface": [
         "src/nodefony/src/Service.ts",
@@ -13018,7 +13004,6 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
       ],
@@ -13476,7 +13461,8 @@
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
       "Certificate": [
         "src/packages/@nodefony/http/index.ts",
@@ -13582,7 +13568,6 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts"
@@ -13603,7 +13588,8 @@
         "src/packages/@nodefony/mongoose/index.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
       "SessionModel": [
         "src/packages/@nodefony/mongoose/index.ts",
@@ -14713,12 +14699,15 @@
       "ISessionStorage": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
       ],
       "ISerializedSession": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
       ],
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -16930,30 +16919,19 @@
       "HttpRsponseType": [
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts"
       ],
-      "ProtoService": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "ProtoParameters": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "sessionStrategyType": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "FlashBagSessionType": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "MetaBagSessionType": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "SerializeSessionType": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
-      ],
-      "sessionStorageInterface": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
-      ],
       "CookieOptionsType": [
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "SessionStatusType": [
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "SessionStrategyType": [
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "FlashBagType": [
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "MetaBagType": [
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
       "MongooseRepository": [
