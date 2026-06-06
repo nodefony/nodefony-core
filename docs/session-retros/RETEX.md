@@ -23,6 +23,10 @@
   → **1 commande Bash à la fois** (pas de parallèle), **`Read` plutôt que `cat`/`sed`/`tr`** pour lire
   un fichier, et si ça délire : arrêter de relancer 5 variantes (toutes annulées si une échoue).
   Suspect : machine saturée. Confirmer 1× de plus avant de graduer.
+- `[1× — 2026-06-06]` **daemon `claude daemon run --origin transient` zombie à ~96 % CPU pendant ~11 h** (le user
+  en voyait 4) : un daemon claude détaché peut rester hung et saturer le CPU. → `ps -Ao pid,%cpu,etime,command | grep
+claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung (`kill <pid>`) — ne pas tuer un
+  process claude depuis la session active. Le serveur dev (nodefony+vite) à 0 % CPU n'était PAS le coupable.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
@@ -75,6 +79,11 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🧹 Refonte / consolidation (frictions du jour)
 
+- `[1× — 2026-06-06]` **changer le TYPE d'un contrat (interface) casse les `implements`, PAS les casts** : unifier
+  `ISessionStorage` (retypé) a cassé `drizzle` (`class … implements ISessionStorage`, retours `Promise<unknown>` non
+  conformes) mais PAS `sequelize`/`mongoose` (pas d'`implements` → le cast `as unknown as` au register absorbe). →
+  après un changement de contrat, `tsc --noEmit -p <module>` par module localise les non-conformes ; un diff **type-only**
+  (aliases + types) n'impacte pas le runtime → gate mémoire reportable au 1er vrai changement runtime (réécriture cœur).
 - `[2× — 2026-06-04, 2026-06-05]` **une option de config peut être un FOSSILE** : (a) consolider des « défauts »
   depuis un config.ts existant → recopie de `watch`/`devServer`/`orm:"sequelize"`/`domainCheck` morts ; (b) Lot 5 :
   le bloc `certificates.{path,privateKeyPath,certPath}` de l'app était **INERTE** (le service `certificates.ts`
@@ -239,6 +248,12 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧭 État projet / git / terminologie (frictions du jour)
 
+- `[1× — 2026-06-06]` **une règle CLAUDE.md figée ANTÉRIEURE à une archi décidée récemment ne doit pas BLOQUER** :
+  j'ai posé un `AskUserQuestion` sur le foyer de `RedisSessionStorage` parce que le CLAUDE.md redis disait « redis
+  neutre, storage ailleurs » — alors que le **plan session du jour** (kit) primait. Le user a recadré (« le claude.md
+  de redis est fait avant notre nouvelle archi, le plan session prime »). → décision archi récente (kit/plan en cours)
+  prime sur une règle figée de module : **trancher + MAJ la règle obsolète**, ne pas se bloquer
+  ([[feedback_permission_autonomy]] : AskUserQuestion réservé au non-déductible ; ici c'était déductible du plan).
 - `[1× — 2026-06-04]` **« chantier CLOS » en mémoire ≠ fini pour le user** : le chantier config app était marqué
   CLOS (5 lots, `…5df006c`) ; le user : « le chantier config on a rien fait, juste la première étape ». Il le
   voyait comme l'**étape 1** d'un chantier DX bien plus large (`defineConfig`). → quand le user rouvre un sujet
@@ -434,11 +449,11 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔧 Git / commit (friction du jour)
 
-- `[6× — 2026-06-06]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
+- `[8× — 2026-06-06]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
   à promouvoir dans [[feedback_commit_fr_apostrophes]] au prochain CONSOLIDATE). Un commit dont le sujet
-  commence par une majuscule/nom propre (ex. `refactor(core): KernelType …`, `feat(dev): Vite …`) est
-  **rejeté** par le hook `commit-msg`. Réflexe : `type(scope): ` puis **minuscule** (reformuler « remplace
-  le binaire KernelType … » au lieu de « KernelType … »).
+  commence par une majuscule/nom propre (ex. `refactor(core): KernelType …`, `feat(dev): Vite …`, `docs: MAJ P10 …`
+  - `docs: P10 Studio …` ← 2 nouveaux échecs cette session) est **rejeté** par le hook `commit-msg`. Réflexe :
+    `type(scope): ` puis **minuscule** (reformuler « met à jour P10 … » au lieu de « MAJ P10 … »).
 - `[1× — 2026-06-01]` **`routes/logs/` est gitignoré (pattern `logs`) → nouveaux fichiers invisibles + lint-staged
   « git error »** : créer `routes/logs/profileVisuals.tsx`/`ProfilingTab.tsx` → `git add` les ignore (les fichiers
   EXISTANTS du dossier restent trackés, mais les NOUVEAUX non) → besoin `git add -f`. Et le 1er `git commit` a
