@@ -162,6 +162,7 @@ function rootSchema(connectors: ConnectorRow[]): TwinSchema {
         icon: <IconDatabase size={20} />,
         pos: { x: 24, y: 56 },
         info: true,
+        enter: "orm-view",
       },
       {
         id: "realtime",
@@ -520,5 +521,6 @@ export function schemaTitle(schemaId: string): string {
   if (schemaId === "bp-logs-detail") return "Fond de panier · Logs";
   if (schemaId === "kernel-detail") return "Kernel · Pipeline";
   if (schemaId === "realtime-view") return "Realtime Hub";
+  if (schemaId === "orm-view") return "Dashboard ORM";
   return "Architecture runtime";
 }

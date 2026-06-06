@@ -558,508 +558,645 @@ function ClusterOrmGrid({
  * plus lent) chargé séparément. Runtime cluster-aware = sonde lean pod
  * `realtime:health` (agrégée par le master → cohérente, ≠ `/orm/api/*` round-robin).
  */
-export const OrmOverview = observer(() => {
-  const store = useStore();
-  const ui = useUi();
-  const navigate = useNavigate();
+interface OrmOverviewProps {
+  /**
+   * Monté DANS un autre écran (forage du Jumeau) : pas de `PageHeader` sticky
+   * propre (le conteneur a déjà le sien) → seule la barre d'actions est rendue.
+   */
+  embedded?: boolean;
+}
 
-  const orms = useResource(
-    useCallback(
-      () => store.api.getAbsolute<OrmSummary[]>("/nodefony/orm/api/orms"),
-      [store],
-    ),
-  );
-  const graph = useResource(
-    useCallback(
-      () => store.api.getAbsolute<OrmGraph>("/nodefony/orm/api/graph"),
-      [store],
-    ),
-  );
-  // Volumes réels — endpoint séparé (1 COUNT(*) par table) : peut être lent sur
-  // un gros schéma → ne bloque pas le 1er rendu.
-  const counts = useResource(
-    useCallback(
+export const OrmOverview = observer(
+  ({ embedded = false }: OrmOverviewProps) => {
+    const store = useStore();
+    const ui = useUi();
+    const navigate = useNavigate();
+
+    const orms = useResource(
+      useCallback(
+        () => store.api.getAbsolute<OrmSummary[]>("/nodefony/orm/api/orms"),
+        [store],
+      ),
+    );
+    const graph = useResource(
+      useCallback(
+        () => store.api.getAbsolute<OrmGraph>("/nodefony/orm/api/graph"),
+        [store],
+      ),
+    );
+    // Volumes réels — endpoint séparé (1 COUNT(*) par table) : peut être lent sur
+    // un gros schéma → ne bloque pas le 1er rendu.
+    const counts = useResource(
+      useCallback(
+        () =>
+          store.api.getAbsolute<Record<string, number>>(
+            "/nodefony/orm/api/counts",
+          ),
+        [store],
+      ),
+    );
+
+    const list = orms.data ?? [];
+    const entities = useMemo(() => graph.data?.entities ?? [], [graph.data]);
+    const countMap = useMemo(() => counts.data ?? {}, [counts.data]);
+    const connected = list.filter((o) => o.connected).length;
+
+    // Onglet ORM actif ("*" = tous) → scope du compartiment « Modèle de données ».
+    const [activeOrm, setActiveOrm] = useState<string>("*");
+    const scopedEntities = useMemo(
       () =>
-        store.api.getAbsolute<Record<string, number>>(
-          "/nodefony/orm/api/counts",
-        ),
-      [store],
-    ),
-  );
+        activeOrm === "*"
+          ? entities
+          : entities.filter((e) => e.orm === activeOrm),
+      [entities, activeOrm],
+    );
+    // KPIs = projet entier ; panneaux = scope de l'onglet (~400 entités → mémo).
+    const globalAgg = useMemo(
+      () => analyzeModel(entities, countMap),
+      [entities, countMap],
+    );
+    const agg = useMemo(
+      () => analyzeModel(scopedEntities, countMap),
+      [scopedEntities, countMap],
+    );
+    // Suffixe d'aide selon l'onglet actif (rend les bulles ⓘ contextuelles).
+    const scopeLabel = activeOrm === "*" ? "tous connecteurs" : activeOrm;
 
-  const list = orms.data ?? [];
-  const entities = useMemo(() => graph.data?.entities ?? [], [graph.data]);
-  const countMap = useMemo(() => counts.data ?? {}, [counts.data]);
-  const connected = list.filter((o) => o.connected).length;
+    // Onglet de section actif (contrôlé) — les KPIs cliquables y naviguent.
+    const [section, setSection] = useState<"connecteurs" | "modele">(
+      "connecteurs",
+    );
 
-  // Onglet ORM actif ("*" = tous) → scope du compartiment « Modèle de données ».
-  const [activeOrm, setActiveOrm] = useState<string>("*");
-  const scopedEntities = useMemo(
-    () =>
-      activeOrm === "*"
-        ? entities
-        : entities.filter((e) => e.orm === activeOrm),
-    [entities, activeOrm],
-  );
-  // KPIs = projet entier ; panneaux = scope de l'onglet (~400 entités → mémo).
-  const globalAgg = useMemo(
-    () => analyzeModel(entities, countMap),
-    [entities, countMap],
-  );
-  const agg = useMemo(
-    () => analyzeModel(scopedEntities, countMap),
-    [scopedEntities, countMap],
-  );
-  // Suffixe d'aide selon l'onglet actif (rend les bulles ⓘ contextuelles).
-  const scopeLabel = activeOrm === "*" ? "tous connecteurs" : activeOrm;
+    useEffect(ensureLivePulseStyle, []);
 
-  // Onglet de section actif (contrôlé) — les KPIs cliquables y naviguent.
-  const [section, setSection] = useState<"connecteurs" | "modele">(
-    "connecteurs",
-  );
+    // Temps réel : interrupteur GLOBAL partagé (UiStore), OFF au (re)chargement
+    // (opt-in par session). ON → on s'abonne à `realtime:health` (sonde lean pod).
+    const live = ui.realtimeLive;
+    // Granularité (cadence du canal) — préférence persistée, défaut 5 s.
+    const [liveMs, setLiveMs] = useState<number>(
+      () => Number(lsGet("nf.orm.liveMs")) || 5000,
+    );
+    // Cadence ADAPTATIVE (AIMD) : politique GLOBALE de la socket (réglée dans le Hub).
+    const auto = ui.adaptiveCadence;
+    // Cadence réelle appliquée par l'AIMD (lecture seule) → badge feedback sur la page.
+    const [effectiveMs, setEffectiveMs] = useState<number>(liveMs);
 
-  useEffect(ensureLivePulseStyle, []);
+    // ── Sonde LEAN pod (canal `realtime:health`) — cluster-aware ──────────────
+    // 1ᵉʳ paint + détection cluster : snapshot pod one-shot (indépendant du toggle
+    // « Temps réel »). Le MASTER agrège en cluster → vue cohérente quel que soit le
+    // worker qui répond (≠ /orm/api/* en round-robin reusePort → 1 worker au hasard).
+    const realtime = useResource(
+      useCallback(
+        () =>
+          store.api.getAbsolute<HealthPayload>("/nodefony/realtime/api/health"),
+        [store],
+      ),
+    );
+    const [liveRt, setLiveRt] = useState<HealthPayload | null>(null);
+    const rt: HealthPayload | null = live
+      ? (liveRt ?? realtime.data)
+      : realtime.data;
+    const normRt = useMemo(() => normalize(rt), [rt]);
+    const isClusterMode = normRt?.cluster ?? false;
+    const workers = useMemo(() => normRt?.instances ?? [], [normRt]);
+    const podOrm = normRt?.totals.orm ?? null;
+    // Au moins un worker remonte la sonde ORM ? (sinon : grille vide → fallback).
+    const hasLean = useMemo(() => workers.some((w) => !!w.orm), [workers]);
 
-  // Temps réel : interrupteur GLOBAL partagé (UiStore), OFF au (re)chargement
-  // (opt-in par session). ON → on s'abonne à `realtime:health` (sonde lean pod).
-  const live = ui.realtimeLive;
-  // Granularité (cadence du canal) — préférence persistée, défaut 5 s.
-  const [liveMs, setLiveMs] = useState<number>(
-    () => Number(lsGet("nf.orm.liveMs")) || 5000,
-  );
-  // Cadence ADAPTATIVE (AIMD) : politique GLOBALE de la socket (réglée dans le Hub).
-  const auto = ui.adaptiveCadence;
-  // Cadence réelle appliquée par l'AIMD (lecture seule) → badge feedback sur la page.
-  const [effectiveMs, setEffectiveMs] = useState<number>(liveMs);
+    // Taux ORM par worker (delta des cumuls) + débit requêtes/s (sparkline) — 0 backend.
+    const { ratesByPid, qSeriesByPid } = useOrmRates(normRt, live);
 
-  // ── Sonde LEAN pod (canal `realtime:health`) — cluster-aware ──────────────
-  // 1ᵉʳ paint + détection cluster : snapshot pod one-shot (indépendant du toggle
-  // « Temps réel »). Le MASTER agrège en cluster → vue cohérente quel que soit le
-  // worker qui répond (≠ /orm/api/* en round-robin reusePort → 1 worker au hasard).
-  const realtime = useResource(
-    useCallback(
-      () =>
-        store.api.getAbsolute<HealthPayload>("/nodefony/realtime/api/health"),
-      [store],
-    ),
-  );
-  const [liveRt, setLiveRt] = useState<HealthPayload | null>(null);
-  const rt: HealthPayload | null = live
-    ? (liveRt ?? realtime.data)
-    : realtime.data;
-  const normRt = useMemo(() => normalize(rt), [rt]);
-  const isClusterMode = normRt?.cluster ?? false;
-  const workers = useMemo(() => normRt?.instances ?? [], [normRt]);
-  const podOrm = normRt?.totals.orm ?? null;
-  // Au moins un worker remonte la sonde ORM ? (sinon : grille vide → fallback).
-  const hasLean = useMemo(() => workers.some((w) => !!w.orm), [workers]);
-
-  // Taux ORM par worker (delta des cumuls) + débit requêtes/s (sparkline) — 0 backend.
-  const { ratesByPid, qSeriesByPid } = useOrmRates(normRt, live);
-
-  // Verdict « Santé ORM » 3 états — calculé PAR worker via buildHealth (même brique
-  // que la santé framework), pod = PIRE worker (rollup). Rouge réservé au critique.
-  const verdict = useMemo<{
-    result: HealthResult | null;
-    worstPid: string | null;
-  }>(() => {
-    let worst: HealthResult | null = null;
-    let worstPid: string | null = null;
-    for (const inst of workers) {
-      if (!inst.orm) continue;
-      const r = buildHealth(
-        ormHealthInputs(
-          inst.orm,
-          ratesByPid.get(inst.instanceId) ?? {
-            errPerMin: null,
-            reconPerMin: null,
-          },
-        ),
-      );
-      if (r.score == null) continue;
-      if (!worst || (r.score as number) < (worst.score as number)) {
-        worst = r;
-        worstPid = inst.instanceId;
-      }
-    }
-    return { result: worst, worstPid };
-  }, [workers, ratesByPid]);
-
-  useEffect(() => {
-    if (!live) setLiveRt(null);
-  }, [live]);
-  useEffect(() => lsSet("nf.orm.liveMs", String(liveMs)), [liveMs]);
-
-  // Volume global : plus grosse table + nb de tables peuplées (KPI « Lignes »).
-  const volume = useMemo(() => {
-    let populated = 0;
-    let topName = "";
-    let topRows = 0;
-    for (const e of entities) {
-      const c = countMap[e.name];
-      if (typeof c === "number" && c > 0) {
-        populated += 1;
-        if (c > topRows) {
-          topRows = c;
-          topName = e.name;
+    // Verdict « Santé ORM » 3 états — calculé PAR worker via buildHealth (même brique
+    // que la santé framework), pod = PIRE worker (rollup). Rouge réservé au critique.
+    const verdict = useMemo<{
+      result: HealthResult | null;
+      worstPid: string | null;
+    }>(() => {
+      let worst: HealthResult | null = null;
+      let worstPid: string | null = null;
+      for (const inst of workers) {
+        if (!inst.orm) continue;
+        const r = buildHealth(
+          ormHealthInputs(
+            inst.orm,
+            ratesByPid.get(inst.instanceId) ?? {
+              errPerMin: null,
+              reconPerMin: null,
+            },
+          ),
+        );
+        if (r.score == null) continue;
+        if (!worst || (r.score as number) < (worst.score as number)) {
+          worst = r;
+          worstPid = inst.instanceId;
         }
       }
-    }
-    return { populated, topName, topRows };
-  }, [entities, countMap]);
+      return { result: worst, worstPid };
+    }, [workers, ratesByPid]);
 
-  // Top 12 tables par volume (lignes), liées au détail de l'entité.
-  const topEntities = useMemo<RankItem[]>(
-    () =>
-      scopedEntities
-        .map((e) => ({
-          key: `${e.orm}:${e.name}`,
-          label: e.name,
-          value: countMap[e.name] ?? -1,
-          href: `/nodefony/orm-entity?name=${encodeURIComponent(
-            e.name,
-          )}&orm=${encodeURIComponent(e.orm)}`,
-        }))
-        .filter((x) => x.value > 0)
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 12),
-    [scopedEntities, countMap],
-  );
+    useEffect(() => {
+      if (!live) setLiveRt(null);
+    }, [live]);
+    useEffect(() => lsSet("nf.orm.liveMs", String(liveMs)), [liveMs]);
 
-  const topDomainsByEntities = useMemo<RankItem[]>(
-    () =>
-      Object.entries(agg.entitiesByDomain)
-        .map(([k, v]) => ({ key: k, label: k, value: v }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 12),
-    [agg.entitiesByDomain],
-  );
-
-  const topDomainsByRows = useMemo<RankItem[]>(
-    () =>
-      Object.entries(agg.rowsByDomain)
-        .map(([k, v]) => ({ key: k, label: k, value: v }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 12),
-    [agg.rowsByDomain],
-  );
-
-  const exportModel = useCallback(
-    async (format: "dbml" | "jsonschema") => {
-      const res = await store.api.getAbsolute<{
-        format: string;
-        content: string;
-      }>(`/nodefony/orm/api/export/${format}`);
-      const ext = format === "dbml" ? "dbml" : "json";
-      const blob = new Blob([res.content], {
-        type: "text/plain;charset=utf-8",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `nodefony-model.${ext}`;
-      a.click();
-      URL.revokeObjectURL(url);
-    },
-    [store],
-  );
-
-  const loadingCore = orms.loading && !list.length;
-
-  return (
-    <Stack gap="lg">
-      <PageHeader
-        sticky
-        title="Dashboard ORM"
-        subtitle={
-          isClusterMode
-            ? `Cluster — ${workers.length} worker(s) · schéma identique, runtime agrégé`
-            : "Connecteurs, modèle de données & volumes réels"
+    // Volume global : plus grosse table + nb de tables peuplées (KPI « Lignes »).
+    const volume = useMemo(() => {
+      let populated = 0;
+      let topName = "";
+      let topRows = 0;
+      for (const e of entities) {
+        const c = countMap[e.name];
+        if (typeof c === "number" && c > 0) {
+          populated += 1;
+          if (c > topRows) {
+            topRows = c;
+            topName = e.name;
+          }
         }
-        actions={
-          <Group gap="xs">
-            <OrmRealtimeControls
-              live={live}
-              onToggle={(v) => ui.setRealtimeLive(v)}
-              liveMs={liveMs}
-              setLiveMs={setLiveMs}
-              auto={auto}
-              effectiveMs={effectiveMs}
-              ariaLabel="abonnement temps réel (socket Nodefony) de la santé ORM par worker"
-            />
+      }
+      return { populated, topName, topRows };
+    }, [entities, countMap]);
+
+    // Top 12 tables par volume (lignes), liées au détail de l'entité.
+    const topEntities = useMemo<RankItem[]>(
+      () =>
+        scopedEntities
+          .map((e) => ({
+            key: `${e.orm}:${e.name}`,
+            label: e.name,
+            value: countMap[e.name] ?? -1,
+            href: `/nodefony/orm-entity?name=${encodeURIComponent(
+              e.name,
+            )}&orm=${encodeURIComponent(e.orm)}`,
+          }))
+          .filter((x) => x.value > 0)
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 12),
+      [scopedEntities, countMap],
+    );
+
+    const topDomainsByEntities = useMemo<RankItem[]>(
+      () =>
+        Object.entries(agg.entitiesByDomain)
+          .map(([k, v]) => ({ key: k, label: k, value: v }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 12),
+      [agg.entitiesByDomain],
+    );
+
+    const topDomainsByRows = useMemo<RankItem[]>(
+      () =>
+        Object.entries(agg.rowsByDomain)
+          .map(([k, v]) => ({ key: k, label: k, value: v }))
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 12),
+      [agg.rowsByDomain],
+    );
+
+    const exportModel = useCallback(
+      async (format: "dbml" | "jsonschema") => {
+        const res = await store.api.getAbsolute<{
+          format: string;
+          content: string;
+        }>(`/nodefony/orm/api/export/${format}`);
+        const ext = format === "dbml" ? "dbml" : "json";
+        const blob = new Blob([res.content], {
+          type: "text/plain;charset=utf-8",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `nodefony-model.${ext}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      [store],
+    );
+
+    const loadingCore = orms.loading && !list.length;
+
+    const headerActions = (
+      <Group gap="xs">
+        <OrmRealtimeControls
+          live={live}
+          onToggle={(v) => ui.setRealtimeLive(v)}
+          liveMs={liveMs}
+          setLiveMs={setLiveMs}
+          auto={auto}
+          effectiveMs={effectiveMs}
+          ariaLabel="abonnement temps réel (socket Nodefony) de la santé ORM par worker"
+        />
+        <Button
+          component={Link}
+          to="/nodefony/databases"
+          variant="light"
+          leftSection={<IconAffiliate size={16} />}
+        >
+          Schéma ERD
+        </Button>
+        <Menu shadow="md" position="bottom-end" withinPortal>
+          <Menu.Target>
             <Button
-              component={Link}
-              to="/nodefony/databases"
-              variant="light"
-              leftSection={<IconAffiliate size={16} />}
+              variant="subtle"
+              color="gray"
+              leftSection={<IconDownload size={16} />}
             >
-              Schéma ERD
+              Exporter
             </Button>
-            <Menu shadow="md" position="bottom-end" withinPortal>
-              <Menu.Target>
-                <Button
-                  variant="subtle"
-                  color="gray"
-                  leftSection={<IconDownload size={16} />}
-                >
-                  Exporter
-                </Button>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Label>Modèle de données</Menu.Label>
-                <Menu.Item onClick={() => void exportModel("dbml")}>
-                  DBML (dbdiagram.io)
-                </Menu.Item>
-                <Menu.Item onClick={() => void exportModel("jsonschema")}>
-                  JSON Schema (2020-12)
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          </Group>
-        }
-      />
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Label>Modèle de données</Menu.Label>
+            <Menu.Item onClick={() => void exportModel("dbml")}>
+              DBML (dbdiagram.io)
+            </Menu.Item>
+            <Menu.Item onClick={() => void exportModel("jsonschema")}>
+              JSON Schema (2020-12)
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      </Group>
+    );
 
-      {live && (
-        <RealtimeHealthLive
-          intervalMs={liveMs}
-          adaptive={auto}
-          onData={setLiveRt}
-          onRate={setEffectiveMs}
-        />
-      )}
+    return (
+      <Stack gap="lg">
+        {embedded ? (
+          <Group justify="flex-end">{headerActions}</Group>
+        ) : (
+          <PageHeader
+            sticky
+            title="Dashboard ORM"
+            subtitle={
+              isClusterMode
+                ? `Cluster — ${workers.length} worker(s) · schéma identique, runtime agrégé`
+                : "Connecteurs, modèle de données & volumes réels"
+            }
+            actions={headerActions}
+          />
+        )}
 
-      <Grid>
-        {/* Connecteurs — vendors présents + ratio up. Clic → onglet Connecteurs. */}
-        <KpiCard
-          label="Connecteurs"
-          accent="brand"
-          icon={<IconDatabase size={20} />}
-          hint="ORM enregistrés dans le registre process-wide. Clic → onglet Connecteurs."
-          value={list.length || "—"}
-          active={section === "connecteurs"}
-          onClick={() => setSection("connecteurs")}
-          footer={
-            <Group justify="space-between" wrap="nowrap" gap="xs">
-              <Group gap={4} wrap="nowrap">
-                {[...new Set(list.map((o) => o.vendor).filter(Boolean))].map(
-                  (v) =>
-                    hasDbLogo(v) ? (
-                      <DbLogo key={v} name={v} size={16} title={v} />
-                    ) : null,
-                )}
-              </Group>
-              <Badge
-                size="sm"
-                variant="light"
-                color={
-                  connected === list.length
-                    ? "teal"
-                    : connected === 0
-                      ? "red"
-                      : "orange"
-                }
-              >
-                {connected}/{list.length} up
-              </Badge>
-            </Group>
-          }
-        />
+        {live && (
+          <RealtimeHealthLive
+            intervalMs={liveMs}
+            adaptive={auto}
+            onData={setLiveRt}
+            onRate={setEffectiveMs}
+          />
+        )}
 
-        {/* Santé ORM — verdict 3 états (pod = pire worker). Clic → onglet Connecteurs. */}
-        <KpiCard
-          label="Santé ORM"
-          accent={(verdict.result?.color ?? "gray") as MantineColor}
-          icon={<IconHeartRateMonitor size={20} />}
-          value={
-            verdict.result ? (
-              <Text span inherit c={verdict.result.color}>
-                {verdict.result.score}
-              </Text>
-            ) : (
-              "—"
-            )
-          }
-          active={section === "connecteurs"}
-          pulse={live}
-          onClick={() => setSection("connecteurs")}
-          info={
-            <DocHint
-              title="Santé ORM"
-              version={ORM_DOC}
-              summary="Verdict 3 états (OK / à surveiller / dégradé) agrégé des sondes ORM par la méthode Derringer-Suich — même brique que la santé du framework."
-              sections={[
-                {
-                  label: "Signaux",
-                  body: "Connecteurs coupés & taux d'erreurs ORM = PANNE (peuvent tirer l'indice à 0). Latence EWMA, part de requêtes lentes & reconnexions = SATURATION (ralentit mais sert → « Dégradé » au pire, jamais « Critique » seul).",
-                },
-                {
-                  label: "Taux, pas cumul",
-                  body: "Erreurs & reconnexions lues en delta/minute (apparaissent après 2 mesures live) — un cumul ferait paraître un vieux pod malade.",
-                },
-                {
-                  label: isClusterMode ? "Cluster" : "Mono-process",
-                  body: isClusterMode
-                    ? `Pod = PIRE worker (rollup) sur ${workers.length} worker(s). Source = sonde lean agrégée par le master (cohérente, ≠ /orm/api/* en round-robin).`
-                    : "1 process : la latence EWMA & la part de requêtes lentes n'apparaissent que si le flux ORM est actif (NODEFONY_ORM_FLOW=1).",
-                },
-              ]}
-            />
-          }
-          footer={
-            <Group gap="xs" wrap="nowrap">
-              <Badge
-                size="sm"
-                variant="light"
-                color={(verdict.result?.color ?? "gray") as MantineColor}
-              >
-                {verdict.result?.label ?? "—"}
-              </Badge>
-              {podOrm && (
+        <Grid>
+          {/* Connecteurs — vendors présents + ratio up. Clic → onglet Connecteurs. */}
+          <KpiCard
+            label="Connecteurs"
+            accent="brand"
+            icon={<IconDatabase size={20} />}
+            hint="ORM enregistrés dans le registre process-wide. Clic → onglet Connecteurs."
+            value={list.length || "—"}
+            active={section === "connecteurs"}
+            onClick={() => setSection("connecteurs")}
+            footer={
+              <Group justify="space-between" wrap="nowrap" gap="xs">
+                <Group gap={4} wrap="nowrap">
+                  {[...new Set(list.map((o) => o.vendor).filter(Boolean))].map(
+                    (v) =>
+                      hasDbLogo(v) ? (
+                        <DbLogo key={v} name={v} size={16} title={v} />
+                      ) : null,
+                  )}
+                </Group>
                 <Badge
                   size="sm"
                   variant="light"
                   color={
-                    podOrm.connected < podOrm.connectors ? "orange" : "teal"
+                    connected === list.length
+                      ? "teal"
+                      : connected === 0
+                        ? "red"
+                        : "orange"
                   }
-                  leftSection={<IconPlugConnected size={11} />}
                 >
-                  {podOrm.connected}/{podOrm.connectors}
+                  {connected}/{list.length} up
                 </Badge>
-              )}
-              {verdict.result?.worst && (
-                <Text
-                  size="xs"
-                  c="dimmed"
-                  truncate
-                  title={`Facteur limitant : ${verdict.result.worst}`}
-                >
-                  ↓ {verdict.result.worst}
-                </Text>
-              )}
-              {isClusterMode && verdict.worstPid && (
-                <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
-                  pire : pid {verdict.worstPid}
-                </Text>
-              )}
-            </Group>
-          }
-        />
-
-        {/* Entités — relations + domaines. Clic → onglet Modèle. */}
-        <KpiCard
-          label="Entités"
-          accent="indigo"
-          icon={<IconTable size={20} />}
-          hint="Entités mappées tous connecteurs. Clic → onglet Modèle de données."
-          value={entities.length || "—"}
-          active={section === "modele"}
-          onClick={() => setSection("modele")}
-          footer={
-            <Group gap="xs" wrap="nowrap">
-              <Badge
-                size="sm"
-                variant="light"
-                color="indigo"
-                leftSection={<IconAffiliate size={11} />}
-              >
-                {globalAgg.relationTotal} rel.
-              </Badge>
-              <Badge
-                size="sm"
-                variant="light"
-                color="grape"
-                leftSection={<IconCategory size={11} />}
-              >
-                {globalAgg.domainCount} dom.
-              </Badge>
-            </Group>
-          }
-        />
-
-        {/* Lignes — volume réel + plus grosse table. Clic → onglet Modèle. */}
-        <KpiCard
-          label="Lignes (réelles)"
-          accent="teal"
-          icon={<IconChartBar size={20} />}
-          hint="Total des lignes en base (COUNT(*) par table) + table la plus volumineuse. Clic → onglet Modèle de données."
-          value={
-            counts.loading ? (
-              <Loader size="sm" />
-            ) : globalAgg.rowsTotal ? (
-              fmtNum(globalAgg.rowsTotal)
-            ) : (
-              "—"
-            )
-          }
-          active={section === "modele"}
-          onClick={() => setSection("modele")}
-          footer={
-            counts.loading ? (
-              <Text size="xs" c="dimmed">
-                comptage…
-              </Text>
-            ) : volume.topName ? (
-              <Group justify="space-between" wrap="nowrap" gap="xs">
-                <Text size="xs" c="dimmed" truncate title={volume.topName}>
-                  ↑ {volume.topName}
-                </Text>
-                <Text
-                  size="xs"
-                  c="dimmed"
-                  ff="monospace"
-                  style={{ flexShrink: 0 }}
-                >
-                  {fmtNum(volume.topRows)} · {volume.populated} tables
-                </Text>
               </Group>
-            ) : (
-              <Text size="xs" c="dimmed">
-                aucune table peuplée
-              </Text>
-            )
-          }
-        />
-      </Grid>
+            }
+          />
 
-      <DataState
-        loading={loadingCore}
-        error={orms.error ?? graph.error}
-        empty={!list.length}
-        onRetry={() => {
-          orms.reload();
-          graph.reload();
-        }}
-        emptyMessage="Aucun connecteur ORM enregistré au runtime."
-      >
-        <Tabs
-          value={section}
-          onChange={(v) =>
-            setSection((v as "connecteurs" | "modele") ?? "connecteurs")
-          }
-          keepMounted={false}
+          {/* Santé ORM — verdict 3 états (pod = pire worker). Clic → onglet Connecteurs. */}
+          <KpiCard
+            label="Santé ORM"
+            accent={(verdict.result?.color ?? "gray") as MantineColor}
+            icon={<IconHeartRateMonitor size={20} />}
+            value={
+              verdict.result ? (
+                <Text span inherit c={verdict.result.color}>
+                  {verdict.result.score}
+                </Text>
+              ) : (
+                "—"
+              )
+            }
+            active={section === "connecteurs"}
+            pulse={live}
+            onClick={() => setSection("connecteurs")}
+            info={
+              <DocHint
+                title="Santé ORM"
+                version={ORM_DOC}
+                summary="Verdict 3 états (OK / à surveiller / dégradé) agrégé des sondes ORM par la méthode Derringer-Suich — même brique que la santé du framework."
+                sections={[
+                  {
+                    label: "Signaux",
+                    body: "Connecteurs coupés & taux d'erreurs ORM = PANNE (peuvent tirer l'indice à 0). Latence EWMA, part de requêtes lentes & reconnexions = SATURATION (ralentit mais sert → « Dégradé » au pire, jamais « Critique » seul).",
+                  },
+                  {
+                    label: "Taux, pas cumul",
+                    body: "Erreurs & reconnexions lues en delta/minute (apparaissent après 2 mesures live) — un cumul ferait paraître un vieux pod malade.",
+                  },
+                  {
+                    label: isClusterMode ? "Cluster" : "Mono-process",
+                    body: isClusterMode
+                      ? `Pod = PIRE worker (rollup) sur ${workers.length} worker(s). Source = sonde lean agrégée par le master (cohérente, ≠ /orm/api/* en round-robin).`
+                      : "1 process : la latence EWMA & la part de requêtes lentes n'apparaissent que si le flux ORM est actif (NODEFONY_ORM_FLOW=1).",
+                  },
+                ]}
+              />
+            }
+            footer={
+              <Group gap="xs" wrap="nowrap">
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color={(verdict.result?.color ?? "gray") as MantineColor}
+                >
+                  {verdict.result?.label ?? "—"}
+                </Badge>
+                {podOrm && (
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color={
+                      podOrm.connected < podOrm.connectors ? "orange" : "teal"
+                    }
+                    leftSection={<IconPlugConnected size={11} />}
+                  >
+                    {podOrm.connected}/{podOrm.connectors}
+                  </Badge>
+                )}
+                {verdict.result?.worst && (
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                    truncate
+                    title={`Facteur limitant : ${verdict.result.worst}`}
+                  >
+                    ↓ {verdict.result.worst}
+                  </Text>
+                )}
+                {isClusterMode && verdict.worstPid && (
+                  <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>
+                    pire : pid {verdict.worstPid}
+                  </Text>
+                )}
+              </Group>
+            }
+          />
+
+          {/* Entités — relations + domaines. Clic → onglet Modèle. */}
+          <KpiCard
+            label="Entités"
+            accent="indigo"
+            icon={<IconTable size={20} />}
+            hint="Entités mappées tous connecteurs. Clic → onglet Modèle de données."
+            value={entities.length || "—"}
+            active={section === "modele"}
+            onClick={() => setSection("modele")}
+            footer={
+              <Group gap="xs" wrap="nowrap">
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color="indigo"
+                  leftSection={<IconAffiliate size={11} />}
+                >
+                  {globalAgg.relationTotal} rel.
+                </Badge>
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color="grape"
+                  leftSection={<IconCategory size={11} />}
+                >
+                  {globalAgg.domainCount} dom.
+                </Badge>
+              </Group>
+            }
+          />
+
+          {/* Lignes — volume réel + plus grosse table. Clic → onglet Modèle. */}
+          <KpiCard
+            label="Lignes (réelles)"
+            accent="teal"
+            icon={<IconChartBar size={20} />}
+            hint="Total des lignes en base (COUNT(*) par table) + table la plus volumineuse. Clic → onglet Modèle de données."
+            value={
+              counts.loading ? (
+                <Loader size="sm" />
+              ) : globalAgg.rowsTotal ? (
+                fmtNum(globalAgg.rowsTotal)
+              ) : (
+                "—"
+              )
+            }
+            active={section === "modele"}
+            onClick={() => setSection("modele")}
+            footer={
+              counts.loading ? (
+                <Text size="xs" c="dimmed">
+                  comptage…
+                </Text>
+              ) : volume.topName ? (
+                <Group justify="space-between" wrap="nowrap" gap="xs">
+                  <Text size="xs" c="dimmed" truncate title={volume.topName}>
+                    ↑ {volume.topName}
+                  </Text>
+                  <Text
+                    size="xs"
+                    c="dimmed"
+                    ff="monospace"
+                    style={{ flexShrink: 0 }}
+                  >
+                    {fmtNum(volume.topRows)} · {volume.populated} tables
+                  </Text>
+                </Group>
+              ) : (
+                <Text size="xs" c="dimmed">
+                  aucune table peuplée
+                </Text>
+              )
+            }
+          />
+        </Grid>
+
+        <DataState
+          loading={loadingCore}
+          error={orms.error ?? graph.error}
+          empty={!list.length}
+          onRetry={() => {
+            orms.reload();
+            graph.reload();
+          }}
+          emptyMessage="Aucun connecteur ORM enregistré au runtime."
         >
-          <Tabs.List mb="md">
-            <Tabs.Tab
-              value="connecteurs"
-              leftSection={<IconDatabase size={16} />}
-            >
-              Connecteurs ({list.length})
-            </Tabs.Tab>
-            <Tabs.Tab value="modele" leftSection={<IconAffiliate size={16} />}>
-              Modèle de données
-            </Tabs.Tab>
-          </Tabs.List>
+          <Tabs
+            value={section}
+            onChange={(v) =>
+              setSection((v as "connecteurs" | "modele") ?? "connecteurs")
+            }
+            keepMounted={false}
+          >
+            <Tabs.List mb="md">
+              <Tabs.Tab
+                value="connecteurs"
+                leftSection={<IconDatabase size={16} />}
+              >
+                Connecteurs ({list.length})
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="modele"
+                leftSection={<IconAffiliate size={16} />}
+              >
+                Modèle de données
+              </Tabs.Tab>
+            </Tabs.List>
 
-          <Tabs.Panel value="connecteurs">
-            <Stack gap="md">
-              {/* Identité des connecteurs (schéma INVARIANT — même sur tous les workers). */}
+            <Tabs.Panel value="connecteurs">
+              <Stack gap="md">
+                {/* Identité des connecteurs (schéma INVARIANT — même sur tous les workers). */}
+                <Card withBorder radius="md" p="md">
+                  <Group gap="xs" mb="sm">
+                    <IconDatabase size={18} />
+                    <Text fw={600}>Connecteurs</Text>
+                    <Badge variant="light" color="gray" size="sm">
+                      {list.length}
+                    </Badge>
+                    {isClusterMode && (
+                      <Badge
+                        variant="light"
+                        color="grape"
+                        size="sm"
+                        leftSection={<IconServer size={11} />}
+                      >
+                        schéma identique · {workers.length} workers
+                      </Badge>
+                    )}
+                    <DocHint
+                      title="Connecteurs"
+                      version={ORM_DOC}
+                      summary={`${list.length} connecteur(s) enregistré(s) · ${connected} connecté(s).`}
+                      sections={[
+                        {
+                          label: "Définition",
+                          body: "Un connecteur = une instance ORM (Drizzle, Sequelize, Mongoose…) reliée à une base, enregistrée dans le registre process-wide.",
+                        },
+                        {
+                          label: "Détail riche",
+                          body: "Ping, latence, pool, stockage, flux SQL : dans le drill par worker (clique une carte ci-dessous → /nodefony/orm/<pid>).",
+                        },
+                        ...(isClusterMode
+                          ? [
+                              {
+                                label: "Cluster",
+                                body: "Le schéma (entités, relations, base) est IDENTIQUE sur tous les workers (même code) — invariant. Seuls le runtime (santé, flux) varient par worker.",
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </Group>
+                  <Group gap="xs">
+                    {list.map((o) => (
+                      <Badge
+                        key={o.name}
+                        variant="default"
+                        size="lg"
+                        leftSection={
+                          hasDbLogo(o.connection?.driver ?? o.vendor) ? (
+                            <DbLogo
+                              name={o.connection?.driver ?? o.vendor ?? ""}
+                              size={14}
+                            />
+                          ) : (
+                            <IconDatabase size={13} />
+                          )
+                        }
+                        rightSection={
+                          o.connected ? (
+                            <IconPlugConnected size={12} color="teal" />
+                          ) : (
+                            <IconPlugX size={12} color="gray" />
+                          )
+                        }
+                      >
+                        {o.name}
+                        {o.default ? " ·" : ""}
+                      </Badge>
+                    ))}
+                  </Group>
+                </Card>
+
+                {/* Santé ORM par worker (orientée graphs) — carte → drill /nodefony/orm/<pid>. */}
+                {hasLean ? (
+                  <ClusterOrmGrid
+                    workers={workers}
+                    ratesByPid={ratesByPid}
+                    qSeriesByPid={qSeriesByPid}
+                    podOrm={podOrm}
+                    verdict={verdict}
+                    live={live}
+                    onSelect={(pid) => navigate(`/nodefony/orm/${pid}`)}
+                  />
+                ) : realtime.loading ? (
+                  <Group justify="center" p="xl">
+                    <Loader size="sm" />
+                    <Text size="sm" c="dimmed">
+                      Chargement de la santé ORM…
+                    </Text>
+                  </Group>
+                ) : (
+                  <Alert
+                    variant="light"
+                    color="gray"
+                    icon={<IconInfoCircle size={18} />}
+                    title="Santé ORM par worker indisponible"
+                  >
+                    La sonde lean ORM (`realtime:health`) n'est pas remontée par
+                    ce pod. Le diagnostic riche reste accessible par worker via
+                    le drill (clique un connecteur), ou active le flux ORM
+                    (`NODEFONY_ORM_FLOW=1`) pour animer débit & latence.
+                  </Alert>
+                )}
+
+                {isClusterMode && (
+                  <Alert
+                    variant="light"
+                    color="blue"
+                    icon={<IconInfoCircle size={18} />}
+                    title="Diagnostic détaillé = 1 worker"
+                  >
+                    Le diagnostic riche par connecteur (ping, latence, pool,
+                    stockage, flux SQL) est <b>per-worker</b> : ouvre une carte
+                    worker ci-dessus pour le détail de ce process (pid). La vue
+                    pod cohérente = la carte « Santé ORM » + la grille worker.
+                  </Alert>
+                )}
+              </Stack>
+            </Tabs.Panel>
+
+            <Tabs.Panel value="modele">
+              {/* Compartiment Modèle de données — sous-onglets par connecteur (filtre live) */}
               <Card withBorder radius="md" p="md">
                 <Group gap="xs" mb="sm">
-                  <IconDatabase size={18} />
-                  <Text fw={600}>Connecteurs</Text>
-                  <Badge variant="light" color="gray" size="sm">
-                    {list.length}
-                  </Badge>
+                  <IconAffiliate size={18} />
+                  <Text fw={600}>Modèle de données</Text>
                   {isClusterMode && (
                     <Badge
                       variant="light"
@@ -1067,309 +1204,194 @@ export const OrmOverview = observer(() => {
                       size="sm"
                       leftSection={<IconServer size={11} />}
                     >
-                      schéma identique · {workers.length} workers
+                      identique · {workers.length} workers
                     </Badge>
                   )}
                   <DocHint
-                    title="Connecteurs"
+                    title="Modèle de données"
                     version={ORM_DOC}
-                    summary={`${list.length} connecteur(s) enregistré(s) · ${connected} connecté(s).`}
+                    summary={`${entities.length} entité(s) · ${globalAgg.relationTotal} relation(s) · ${globalAgg.domainCount} domaine(s).`}
                     sections={[
                       {
-                        label: "Définition",
-                        body: "Un connecteur = une instance ORM (Drizzle, Sequelize, Mongoose…) reliée à une base, enregistrée dans le registre process-wide.",
-                      },
-                      {
-                        label: "Détail riche",
-                        body: "Ping, latence, pool, stockage, flux SQL : dans le drill par worker (clique une carte ci-dessous → /nodefony/orm/<pid>).",
+                        label: "Navigation",
+                        body: "Chaque sous-onglet filtre le modèle par connecteur.",
                       },
                       ...(isClusterMode
                         ? [
                             {
                               label: "Cluster",
-                              body: "Le schéma (entités, relations, base) est IDENTIQUE sur tous les workers (même code) — invariant. Seuls le runtime (santé, flux) varient par worker.",
+                              body: "Le modèle (schéma) est invariant : même code → mêmes tables sur les N workers. Aucun besoin de l'agréger.",
                             },
                           ]
                         : []),
                     ]}
                   />
                 </Group>
-                <Group gap="xs">
-                  {list.map((o) => (
-                    <Badge
-                      key={o.name}
-                      variant="default"
-                      size="lg"
-                      leftSection={
-                        hasDbLogo(o.connection?.driver ?? o.vendor) ? (
-                          <DbLogo
-                            name={o.connection?.driver ?? o.vendor ?? ""}
-                            size={14}
-                          />
-                        ) : (
-                          <IconDatabase size={13} />
-                        )
-                      }
-                      rightSection={
-                        o.connected ? (
-                          <IconPlugConnected size={12} color="teal" />
-                        ) : (
-                          <IconPlugX size={12} color="gray" />
-                        )
-                      }
-                    >
-                      {o.name}
-                      {o.default ? " ·" : ""}
-                    </Badge>
-                  ))}
-                </Group>
-              </Card>
-
-              {/* Santé ORM par worker (orientée graphs) — carte → drill /nodefony/orm/<pid>. */}
-              {hasLean ? (
-                <ClusterOrmGrid
-                  workers={workers}
-                  ratesByPid={ratesByPid}
-                  qSeriesByPid={qSeriesByPid}
-                  podOrm={podOrm}
-                  verdict={verdict}
-                  live={live}
-                  onSelect={(pid) => navigate(`/nodefony/orm/${pid}`)}
-                />
-              ) : realtime.loading ? (
-                <Group justify="center" p="xl">
-                  <Loader size="sm" />
-                  <Text size="sm" c="dimmed">
-                    Chargement de la santé ORM…
-                  </Text>
-                </Group>
-              ) : (
-                <Alert
-                  variant="light"
-                  color="gray"
-                  icon={<IconInfoCircle size={18} />}
-                  title="Santé ORM par worker indisponible"
+                <Tabs
+                  value={activeOrm}
+                  onChange={(v) => setActiveOrm(v ?? "*")}
+                  variant="pills"
                 >
-                  La sonde lean ORM (`realtime:health`) n'est pas remontée par
-                  ce pod. Le diagnostic riche reste accessible par worker via le
-                  drill (clique un connecteur), ou active le flux ORM
-                  (`NODEFONY_ORM_FLOW=1`) pour animer débit & latence.
-                </Alert>
-              )}
-
-              {isClusterMode && (
-                <Alert
-                  variant="light"
-                  color="blue"
-                  icon={<IconInfoCircle size={18} />}
-                  title="Diagnostic détaillé = 1 worker"
-                >
-                  Le diagnostic riche par connecteur (ping, latence, pool,
-                  stockage, flux SQL) est <b>per-worker</b> : ouvre une carte
-                  worker ci-dessus pour le détail de ce process (pid). La vue
-                  pod cohérente = la carte « Santé ORM » + la grille worker.
-                </Alert>
-              )}
-            </Stack>
-          </Tabs.Panel>
-
-          <Tabs.Panel value="modele">
-            {/* Compartiment Modèle de données — sous-onglets par connecteur (filtre live) */}
-            <Card withBorder radius="md" p="md">
-              <Group gap="xs" mb="sm">
-                <IconAffiliate size={18} />
-                <Text fw={600}>Modèle de données</Text>
-                {isClusterMode && (
-                  <Badge
-                    variant="light"
-                    color="grape"
-                    size="sm"
-                    leftSection={<IconServer size={11} />}
-                  >
-                    identique · {workers.length} workers
-                  </Badge>
-                )}
-                <DocHint
-                  title="Modèle de données"
-                  version={ORM_DOC}
-                  summary={`${entities.length} entité(s) · ${globalAgg.relationTotal} relation(s) · ${globalAgg.domainCount} domaine(s).`}
-                  sections={[
-                    {
-                      label: "Navigation",
-                      body: "Chaque sous-onglet filtre le modèle par connecteur.",
-                    },
-                    ...(isClusterMode
-                      ? [
-                          {
-                            label: "Cluster",
-                            body: "Le modèle (schéma) est invariant : même code → mêmes tables sur les N workers. Aucun besoin de l'agréger.",
-                          },
-                        ]
-                      : []),
-                  ]}
-                />
-              </Group>
-              <Tabs
-                value={activeOrm}
-                onChange={(v) => setActiveOrm(v ?? "*")}
-                variant="pills"
-              >
-                <Tabs.List mb="md">
-                  <Tabs.Tab value="*" leftSection={<IconStack2 size={14} />}>
-                    Tous
-                  </Tabs.Tab>
-                  {list.map((o) => (
-                    <Tabs.Tab
-                      key={o.name}
-                      value={o.name}
-                      leftSection={
-                        hasDbLogo(o.vendor) ? (
-                          <DbLogo name={o.vendor} size={14} />
-                        ) : (
-                          <IconDatabase size={14} />
-                        )
-                      }
-                    >
-                      {o.name}
+                  <Tabs.List mb="md">
+                    <Tabs.Tab value="*" leftSection={<IconStack2 size={14} />}>
+                      Tous
                     </Tabs.Tab>
-                  ))}
-                </Tabs.List>
-                <Tabs.Panel value={activeOrm}>
-                  <Grid>
-                    <Grid.Col span={{ base: 12, lg: 6 }}>
-                      <Panel
-                        title="Top tables par volume"
-                        icon={<IconChartBar size={18} />}
-                        hint={`${topEntities.length} table(s) peuplée(s) — top 12 par COUNT(*) · ${scopeLabel}.`}
-                        right={
-                          counts.loading ? (
-                            <Loader size="xs" />
+                    {list.map((o) => (
+                      <Tabs.Tab
+                        key={o.name}
+                        value={o.name}
+                        leftSection={
+                          hasDbLogo(o.vendor) ? (
+                            <DbLogo name={o.vendor} size={14} />
                           ) : (
-                            <Badge variant="light" color="gray" size="sm">
-                              COUNT(*)
-                            </Badge>
+                            <IconDatabase size={14} />
                           )
                         }
                       >
-                        <RankBars
-                          items={topEntities}
-                          color="brand"
-                          empty={
-                            counts.loading
-                              ? "Comptage en cours…"
-                              : "Aucune table peuplée."
+                        {o.name}
+                      </Tabs.Tab>
+                    ))}
+                  </Tabs.List>
+                  <Tabs.Panel value={activeOrm}>
+                    <Grid>
+                      <Grid.Col span={{ base: 12, lg: 6 }}>
+                        <Panel
+                          title="Top tables par volume"
+                          icon={<IconChartBar size={18} />}
+                          hint={`${topEntities.length} table(s) peuplée(s) — top 12 par COUNT(*) · ${scopeLabel}.`}
+                          right={
+                            counts.loading ? (
+                              <Loader size="xs" />
+                            ) : (
+                              <Badge variant="light" color="gray" size="sm">
+                                COUNT(*)
+                              </Badge>
+                            )
                           }
-                        />
-                      </Panel>
-                    </Grid.Col>
-
-                    <Grid.Col span={{ base: 12, lg: 6 }}>
-                      <Panel
-                        title="Entités par domaine"
-                        icon={<IconCategory size={18} />}
-                        hint={`${scopedEntities.length} entité(s) classée(s) sur ${agg.domainCount} domaine(s) · ${scopeLabel}.`}
-                        right={
-                          <Badge variant="light" color="gray" size="sm">
-                            {agg.domainCount}
-                          </Badge>
-                        }
-                      >
-                        <RankBars items={topDomainsByEntities} color="indigo" />
-                      </Panel>
-                    </Grid.Col>
-
-                    <Grid.Col span={{ base: 12, lg: 6 }}>
-                      <Panel
-                        title="Lignes par domaine"
-                        icon={<IconCategory size={18} />}
-                        hint={`${fmtNum(agg.rowsTotal)} ligne(s) réparties sur ${Object.keys(agg.rowsByDomain).length} domaine(s) peuplé(s) · ${scopeLabel}.`}
-                      >
-                        <RankBars
-                          items={topDomainsByRows}
-                          color="teal"
-                          empty={
-                            counts.loading
-                              ? "Comptage en cours…"
-                              : "Aucune donnée."
-                          }
-                        />
-                      </Panel>
-                    </Grid.Col>
-
-                    <Grid.Col span={{ base: 12, lg: 6 }}>
-                      <Panel
-                        title="Santé du modèle"
-                        icon={<IconActivity size={18} />}
-                        hint={`${agg.orphans} entité(s) sans relation · ${agg.relationTotal} relation(s) sur ${scopedEntities.length} entité(s) · ${scopeLabel}.`}
-                        right={
-                          <Button
-                            component={Link}
-                            to="/nodefony/databases"
-                            variant="subtle"
-                            size="compact-xs"
-                            leftSection={<IconListSearch size={14} />}
-                          >
-                            Explorer
-                          </Button>
-                        }
-                      >
-                        <Stack gap="sm">
-                          <Group justify="space-between" wrap="nowrap">
-                            <Text size="sm">
-                              Entités orphelines (0 relation)
-                            </Text>
-                            <Badge
-                              variant="light"
-                              color={agg.orphans ? "orange" : "teal"}
-                            >
-                              {agg.orphans}
-                            </Badge>
-                          </Group>
-                          <Group justify="space-between" wrap="nowrap">
-                            <Text size="sm">Colonnes non introspectées</Text>
-                            <Badge
-                              variant="light"
-                              color={agg.noColumns ? "yellow" : "teal"}
-                            >
-                              {agg.noColumns}
-                            </Badge>
-                          </Group>
-                          <Divider
-                            label="Relations par type"
-                            labelPosition="left"
+                        >
+                          <RankBars
+                            items={topEntities}
+                            color="brand"
+                            empty={
+                              counts.loading
+                                ? "Comptage en cours…"
+                                : "Aucune table peuplée."
+                            }
                           />
-                          {Object.keys(agg.relByType).length ? (
-                            <Group gap="xs">
-                              {Object.entries(agg.relByType)
-                                .sort((a, b) => b[1] - a[1])
-                                .map(([t, n]) => (
-                                  <Badge
-                                    key={t}
-                                    variant="light"
-                                    color="brand"
-                                    size="lg"
-                                  >
-                                    {REL_LABEL[t] ?? t} · {n}
-                                  </Badge>
-                                ))}
+                        </Panel>
+                      </Grid.Col>
+
+                      <Grid.Col span={{ base: 12, lg: 6 }}>
+                        <Panel
+                          title="Entités par domaine"
+                          icon={<IconCategory size={18} />}
+                          hint={`${scopedEntities.length} entité(s) classée(s) sur ${agg.domainCount} domaine(s) · ${scopeLabel}.`}
+                          right={
+                            <Badge variant="light" color="gray" size="sm">
+                              {agg.domainCount}
+                            </Badge>
+                          }
+                        >
+                          <RankBars
+                            items={topDomainsByEntities}
+                            color="indigo"
+                          />
+                        </Panel>
+                      </Grid.Col>
+
+                      <Grid.Col span={{ base: 12, lg: 6 }}>
+                        <Panel
+                          title="Lignes par domaine"
+                          icon={<IconCategory size={18} />}
+                          hint={`${fmtNum(agg.rowsTotal)} ligne(s) réparties sur ${Object.keys(agg.rowsByDomain).length} domaine(s) peuplé(s) · ${scopeLabel}.`}
+                        >
+                          <RankBars
+                            items={topDomainsByRows}
+                            color="teal"
+                            empty={
+                              counts.loading
+                                ? "Comptage en cours…"
+                                : "Aucune donnée."
+                            }
+                          />
+                        </Panel>
+                      </Grid.Col>
+
+                      <Grid.Col span={{ base: 12, lg: 6 }}>
+                        <Panel
+                          title="Santé du modèle"
+                          icon={<IconActivity size={18} />}
+                          hint={`${agg.orphans} entité(s) sans relation · ${agg.relationTotal} relation(s) sur ${scopedEntities.length} entité(s) · ${scopeLabel}.`}
+                          right={
+                            <Button
+                              component={Link}
+                              to="/nodefony/databases"
+                              variant="subtle"
+                              size="compact-xs"
+                              leftSection={<IconListSearch size={14} />}
+                            >
+                              Explorer
+                            </Button>
+                          }
+                        >
+                          <Stack gap="sm">
+                            <Group justify="space-between" wrap="nowrap">
+                              <Text size="sm">
+                                Entités orphelines (0 relation)
+                              </Text>
+                              <Badge
+                                variant="light"
+                                color={agg.orphans ? "orange" : "teal"}
+                              >
+                                {agg.orphans}
+                              </Badge>
                             </Group>
-                          ) : (
-                            <Text size="sm" c="dimmed">
-                              Aucune relation déclarée.
-                            </Text>
-                          )}
-                        </Stack>
-                      </Panel>
-                    </Grid.Col>
-                  </Grid>
-                </Tabs.Panel>
-              </Tabs>
-            </Card>
-          </Tabs.Panel>
-        </Tabs>
-      </DataState>
-    </Stack>
-  );
-});
+                            <Group justify="space-between" wrap="nowrap">
+                              <Text size="sm">Colonnes non introspectées</Text>
+                              <Badge
+                                variant="light"
+                                color={agg.noColumns ? "yellow" : "teal"}
+                              >
+                                {agg.noColumns}
+                              </Badge>
+                            </Group>
+                            <Divider
+                              label="Relations par type"
+                              labelPosition="left"
+                            />
+                            {Object.keys(agg.relByType).length ? (
+                              <Group gap="xs">
+                                {Object.entries(agg.relByType)
+                                  .sort((a, b) => b[1] - a[1])
+                                  .map(([t, n]) => (
+                                    <Badge
+                                      key={t}
+                                      variant="light"
+                                      color="brand"
+                                      size="lg"
+                                    >
+                                      {REL_LABEL[t] ?? t} · {n}
+                                    </Badge>
+                                  ))}
+                              </Group>
+                            ) : (
+                              <Text size="sm" c="dimmed">
+                                Aucune relation déclarée.
+                              </Text>
+                            )}
+                          </Stack>
+                        </Panel>
+                      </Grid.Col>
+                    </Grid>
+                  </Tabs.Panel>
+                </Tabs>
+              </Card>
+            </Tabs.Panel>
+          </Tabs>
+        </DataState>
+      </Stack>
+    );
+  },
+);
 
 export default OrmOverview;

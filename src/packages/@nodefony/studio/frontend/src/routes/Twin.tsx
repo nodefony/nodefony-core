@@ -1,5 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Anchor,
   Badge,
@@ -23,6 +23,7 @@ import { schemaTitle } from "../realtime/twin/twinSchemas";
 import { TwinMapView } from "../realtime/twin/TwinMap";
 import { TwinNodePanel } from "../realtime/twin/TwinNodePanel";
 import { SocketExplorer } from "../realtime/socket/SocketExplorer";
+import { OrmOverview } from "./OrmOverview";
 
 /** Version de la doc des fiches d'aide (`DocHint`) de la page Jumeau. */
 const TWIN_DOC = "v1.2";
@@ -51,6 +52,13 @@ export const Twin = observer(() => {
     !!data?.normalized?.cluster && data.normalized.instances.length > 1;
   const workers = data?.normalized?.instances.length ?? 0;
   const deep = stack.length > 1;
+
+  // Forages « vue spéciale » (non-TwinSchema) : un composant dédié réutilisé
+  // au lieu de la carte. Une entrée par brique forée vers un écran riche.
+  const specialViews: Record<string, ReactNode> = {
+    "realtime-view": <SocketExplorer live={live} />,
+    "orm-view": <OrmOverview embedded />,
+  };
 
   return (
     <Stack gap="md">
@@ -121,24 +129,22 @@ export const Twin = observer(() => {
         onRetry={reload}
         minHeight={420}
       >
-        {data ? (
-          current === "realtime-view" ? (
-            <SocketExplorer live={live} />
-          ) : (
-            <TwinMapView
-              schemaId={current}
-              info={info}
-              connectors={connectors}
-              snapshot={snapshot}
-              live={live}
-              height={
-                deep ? PAGE_CONTENT_HEIGHT_WITH_BAND : PAGE_CONTENT_HEIGHT
-              }
-              onEnter={(schemaId) => setStack((s) => [...s, schemaId])}
-              onInfo={setSelected}
-            />
-          )
-        ) : null}
+        {data
+          ? (specialViews[current] ?? (
+              <TwinMapView
+                schemaId={current}
+                info={info}
+                connectors={connectors}
+                snapshot={snapshot}
+                live={live}
+                height={
+                  deep ? PAGE_CONTENT_HEIGHT_WITH_BAND : PAGE_CONTENT_HEIGHT
+                }
+                onEnter={(schemaId) => setStack((s) => [...s, schemaId])}
+                onInfo={setSelected}
+              />
+            ))
+          : null}
       </DataState>
 
       <TwinNodePanel

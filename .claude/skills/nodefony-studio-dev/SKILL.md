@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.20.0
+version: 1.21.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -487,8 +487,11 @@ icon, pos{x,y}, emphasis?, external?, enter?, info? }` — **`enter`** = id du s
 
 **Recette — FORAGE vers une VUE SPÉCIALE non-`TwinSchema`** (ex. brancher des **graphes React Flow** comme
 les 6 vues `realtime/socket/`) : un `LiveGraph` n'est PAS un `TwinSchema` → **brancher dans `Twin.tsx`** :
-`enter: "<x>-view"` sur la brique → dans le rendu, `if (current === "<x>-view") return <MonExplorateur live={live} … />`
-**au lieu de** `<TwinMapView/>` (le breadcrumb + `schemaTitle("<x>-view")` marchent pareil). Réutiliser le
+`enter: "<x>-view"` sur la brique → dans le rendu, une **map `specialViews: Record<string, ReactNode>`**
+consultée AVANT la carte (`specialViews[current] ?? <TwinMapView/>`, 1 entrée par forage → extensible ; le
+breadcrumb + `schemaTitle("<x>-view")` marchent pareil). **Réutiliser une page route existante** (ex.
+`OrmOverview`) = lui ajouter une prop **`embedded`** qui skip son `PageHeader` **sticky** (sinon 2 en-têtes
+sticky se chevauchent) et ne rend que sa barre d'actions. Réutiliser le
 **registry isomorphe** existant (ex. `socketPages.filter(p => p.LiveGraph)` — MÊME source que le portail doc,
 JAMAIS un 2ᵉ registre), graphes en **`<Tabs>` 1er niveau** (facettes sœurs d'un même sujet = divulgation
 progressive). Propager le `live` global du Twin aux graphes (`<LiveGraph live={live} height=…/>`) — PAS de
@@ -1247,6 +1250,13 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.21.0** (2026-06-06) — **Forage ORM du Jumeau + `OrmOverview` mode `embedded` + map de vues spéciales**
+  (front-only). Brique `orm` → `enter:"orm-view"` + `schemaTitle` ; `Twin.tsx` passe à une **map
+  `specialViews[current] ?? <TwinMapView/>`** (`realtime-view`→`SocketExplorer`, `orm-view`→`<OrmOverview embedded/>`)
+  = recette « vue spéciale » généralisée à N forages (1 entrée/brique forée). **`OrmOverview` réutilisé tel quel**
+  via une prop **`embedded`** : skip son `PageHeader` sticky (le Jumeau a déjà le sien → sinon 2 en-têtes sticky se
+  chevauchent) et ne rend que sa **barre d'actions** (toggle live ORM + ERD + Export). 0 logique ORM dupliquée.
+  **Front-only** → `nodefony-framework-dev` reste **1.19.0**. [[project_studio_twin_kit]].
 - **1.20.0** (2026-06-06) — **Jumeau Vivant (Twin) + registre de blocs unifié + forage Realtime** (front-only ;
   commits `57aa3ca` + ce commit). Nouvelle section **« 🪞 Jumeau Vivant (Twin) »** : modèle data-driven
   (`twinSchemas` `TwinSchema{bricks,links,boundaries}` + `buildSchema`/`schemaTitle`), rendu pur (`TwinMap`/
