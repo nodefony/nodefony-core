@@ -359,6 +359,12 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-06]` **`Object.create(null)` casse la sérialisation drizzle-orm** : un objet SANS
+  prototype passé à un insert drizzle fait planter `is()` (drizzle-orm/entity.js) → `Object.getPrototypeOf(value).constructor`
+  → `getPrototypeOf` renvoie `null` → `null.constructor` throw. Pour TOUT objet sérialisé/inséré via un ORM
+  (sacs de session, payloads) utiliser `{}` (avec prototype), PAS `Object.create(null)` — la micro-optim
+  null-proto (CLAUDE.md) ne vaut QUE pour des maps internes JAMAIS sérialisées. Invisible en unit (storage
+  mocké) + typecheck ; révélé par la gate runtime (storage session dev = drizzle). → candidat `feedback_`.
 - `[1× — 2026-06-05]` **profiler perf = banc PROPRE ou mesures FAUSSES (×3 dans la session)** : (a) `NODE_ENV=development`
   hérité dans l'env du spawn → `nodefony production` boote en **dev+Vite+throttle** (~2000 RPS au lieu de 6000) car
   `resolveRuntimeEnv` fait primer NODE_ENV ; **forcer `NODE_ENV=production`** dans le spawn. (b) Les **Vite orphelins**
@@ -449,6 +455,10 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔧 Git / commit (friction du jour)
 
+- `[1× — 2026-06-06]` **commitlint `header-max-length` = 100** : un header conventional-commit FR
+  descriptif dépasse vite (vécu : 112 car. — « refactor(http): réécriture cœur session.ts — TS strict,
+  ID CSPRNG, dirty (étape 3) »). Header COURT (`type(scope): ` sujet bref), tout le détail dans le BODY
+  (lignes de body ≤100 aussi). Se combine avec subject-case (minuscule).
 - `[8× — 2026-06-06]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
   à promouvoir dans [[feedback_commit_fr_apostrophes]] au prochain CONSOLIDATE). Un commit dont le sujet
   commence par une majuscule/nom propre (ex. `refactor(core): KernelType …`, `feat(dev): Vite …`, `docs: MAJ P10 …`
@@ -484,6 +494,14 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-06]` **border TOUT run de test long avec un plafond** (sinon hang qui s'éternise) : un bug
+  session a fait HANG la gate mémoire **19 min** (chaque requête 500 après ~6 s × N). Garde à 2 niveaux :
+  (a) plafond DUR au lancement (param `timeout` de l'outil Bash, ou `gtimeout` — `timeout` absent macOS) ;
+  (b) `--testTimeout=Nms` vitest par run (échec PROPRE) — SANS toucher le `testTimeout:600_000` du fichier
+  (les bancs de charge en ont besoin). Le 600 s global du fichier ≠ plafond d'un run.
+- `[1× — 2026-06-06]` **le storage de session en DEV = drizzle, PAS File** : un bug de sérialisation ORM (cf
+  `Object.create(null)`↔drizzle, thème Core) est INVISIBLE en unit (storage mocké) + au typecheck ; SEULE la
+  gate intégration/mémoire (drizzle réel) l'attrape. Ne jamais croire un refactor session « bon » sans la gate runtime.
 - `[1× — 2026-06-04]` **un test qui POST un upload DOIT nettoyer son résidu** : le serveur écrit l'upload dans
   `uploadDir` (= `kernel.tmpDir` = `./tmp`) et ne nettoie QU'en **abort** (pas un upload réussi → l'app est censée
   `move()`/`unlink()`). `memory.test` (200 uploads/run) avait laissé **1403 `<uuid>.txt`** dans `./tmp` (pollution
@@ -517,6 +535,10 @@ type 'mocha'`). Au retrait mocha d'un workspace : remplacer par `vitest/globals`
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
+- `2026-06-06-d97fad67` — **chantier session ÉTAPE 3** : cœur `session.ts` réécrit (TS strict, ID CSPRNG
+  opaque `randomBytes(32)`, objet léger 3 sacs vs `Container` DI, dirty-tracking `save()` no-op, cookie-only,
+  contrat unifié alias supprimés, `get`/meta/flash → null cohérent). Bug `Object.create(null)`↔drizzle fixé.
+  Gates vertes (mémoire 9/9, intég 405/0). Direction décorateur étape 5 (`@UseSession` lazy + benchmark) figée. `248f235`.
 - `2026-06-05-b8c2a82b` — **P14.11 core isomorphe CLOS** (shim `node:events` complété `rawListeners`/`prepend*` — bug
   runtime browser masqué par tsc + test régression, `f41bb23`) **+ SUPPRESSION TOTALE mocha 5/6** : core (1558 tests,
   2 bugs réels typeOf strict / NODE_ENV, `4106303`), mediasoup (22, `82cc83a`), frontend (42, `1a9b912`), framework (235,
