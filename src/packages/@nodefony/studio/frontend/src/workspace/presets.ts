@@ -3,9 +3,9 @@
  * un layout de DÉPART ({ span = colonnes, h = rangées }) ; l'utilisateur personnalise
  * ensuite (changements persistés). `widgetId` absent du registry = ignoré au rendu.
  */
-import type { WorkspaceLayout } from "./types";
+import type { WorkspacePreset } from "./types";
 
-export const WORKSPACE_PRESETS: readonly WorkspaceLayout[] = [
+export const WORKSPACE_PRESETS: readonly WorkspacePreset[] = [
   {
     id: "dev",
     label: "Développeur",

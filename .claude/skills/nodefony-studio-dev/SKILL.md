@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.21.1
+version: 1.22.0
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -1244,6 +1244,42 @@ observedGap > liveMs*3` → badge orange « retard ~Xs » (KPI État) + alerte (
   esbuild compile fichier par fichier et ignore les symboles manquants cross-fichier → un composant non importé
   passe le `curl` Vite mais casse au typecheck. **Gate = `tsc`, toujours** (cf `nodefony-frontend-verify`).
 
+**Bureau composable (Workspace) — modèle BUREAU LIBRE (2026-06-06, front-only, bump 1.22.0)**
+
+> Refonte `frontend/src/workspace/*` : d'une grille figée (12 col + CSS `auto-flow`) à un **bureau
+> libre** type OS (fenêtres flottantes, chevauchement, z-order). Directive user : « c'est un bureau,
+> pas une grille ». Itéré en live (plusieurs recadrages) — pattern à réutiliser pour tout « canvas ».
+
+- **Modèle px/fraction, PAS de colonnes figées** : `WidgetInstance { x,w = fraction 0..1 de la largeur
+(responsive) ; y,h = px (défile) ; z = z-order }`. Migration presets (cols/rangées) → fraction/px via
+  `autoTile`. `span` (cols 1-12) reste **dérivé** (`round(w*12)`) pour `WidgetRenderProps.span`.
+- **« tout figé » après refonte d'un store = singleton MobX qui SURVIT au HMR** → l'ancienne instance
+  (sans `moveTo`/nouveau modèle) persiste, tuiles à `(0,0)`. **Hard-reload obligatoire** après tout
+  changement de modèle de store. (Bumper aussi la clé localStorage : `…layouts.v2`.)
+- **Drag/resize = `setPointerCapture`** sur la poignée (PAS de listeners `window`) → 0 event perdu. Suivi
+  curseur en **`transform`/taille DOM directe** (compositor, **0 render/frame**, throttle rAF) ; **commit au
+  `pointerup`** seulement (snap doux + bornes). ⚠️ piège perf trouvé : l'ancien resize appelait `setSize`
+  (→ `persist` localStorage) **à CHAQUE frame**.
+- **Placement LIBRE + « Ranger »** (validé user) : chevauchement permis (z-order, clic = `bringToFront`) ;
+  bouton **« Ranger »** = `autoTile` aligne tout sur la grille à la demande (= _Clean Up_ des OS). Pas de
+  reflow/anti-collision permanent (ça, c'était le modèle « tiling » rejeté).
+- **Gouttière entre fenêtres** : **inset** la fenêtre (`padding` sur le wrapper absolu), pas le modèle →
+  2 fenêtres adjacentes ne se touchent jamais, positions restent continues.
+- **Bandeau « Mission Control » docké** (`WorkspaceSwitcher`) : `position:sticky; top:0` (le scroll est sur
+  **`AppShell.Main`**, donc `top:0` colle au header — **PAS** `var(--app-shell-header-height)`) + **plein-bleed**
+  (marges négatives, recette `PageHeader`) = « lié à la top bar » ; z faible (3) → ne recouvre jamais le header
+  (région AppShell séparée). Slider de **vignettes fantômes** (mini-map des fenêtres à l'échelle, X×TW / Y ramené à
+  la hauteur de contenu) **repliable** (`Collapse` prop **`expanded`**, pas `in` — gotcha Mantine v9).
+- ⚠️ **`overflow-x: auto` force `overflow-y: auto`** (spec) → le haut des vignettes (bordure active) était
+  **rogné** → utiliser une **bordure** (dans la box) pas un `outline` (déborde) + `paddingTop` de respiration.
+- **Persistance autoritaire** (`nf.workspace.layouts.v2`) : si l'utilisateur a des bureaux, ils **font foi**
+  (création/suppression/renommage **collent**) ; les presets ne sont que des **modèles** pour le « + », semés au
+  **1er lancement seul** (≠ l'ancien « seed presets + overlay » qui ressuscitait les presets supprimés).
+- **Nom du bureau actif réactif** (2 endroits, `observer`) : titre `PageHeader` `title={active.label}` + badge
+  top bar (`AdminLayout`, gaté route). Un titre **statique** (« Mon bureau ») ne change pas → le **lier au store**.
+- **Algèbre pure testée** (`grid.ts` : `snap`/`clamp`/`autoTile`) — 7 tests vitest. **RESTE (prochaine session)** :
+  **migrer la Supervision en bureau** (preset depuis les widgets actuels). [[project_studio_workspace_kit]].
+
 ## Fin de session Studio (OBLIGATOIRE)
 
 À toute fin de session touchant Studio : **ajouter ICI** (section Retex) les problèmes rencontrés +
@@ -1263,6 +1299,14 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.22.0** (2026-06-06) — **Workspace = BUREAU LIBRE (fenêtres) + gestion des espaces + bandeau Mission
+  Control** (front-only). Refonte `workspace/*` : grille figée → fenêtres flottantes px/fraction (chevauchement
+  - z-order), drag/resize `setPointerCapture` (compositor, commit au drop), gouttière inset, « Ranger » =
+    `autoTile` (Clean Up). Gestion des bureaux (créer/renommer/dupliquer/supprimer, persistance autoritaire v2,
+    presets = modèles). `WorkspaceSwitcher` docké sous la top bar (sticky `top:0` plein-bleed, z<header) =
+    slider de **vignettes fantômes** repliable. Nom du bureau actif réactif (PageHeader + badge top bar). Algèbre
+    pure `grid.ts` testée (7 tests). RETEX complet (cf section « Bureau composable »). RESTE = migrer la
+    Supervision en bureau. framework-dev inchangé (1.19.0). [[project_studio_workspace_kit]].
 - **1.21.1** (2026-06-06) — **Règle « forage SANS ERREUR » + correction du pipeline HTTP** (front-only).
   Le forage HTTP avait été **improvisé** (Firewall avant Router, sans Parse ni Static fallback) = FAUX →
   relu sur `http/MEMORY.md` (`HttpKernel.handleHttp`) : Serveurs → Contexte → **Route match (hissé)** →

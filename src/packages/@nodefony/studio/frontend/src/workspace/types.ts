@@ -1,16 +1,43 @@
 /**
  * Contrat du **Nodefony Workspace** — bureau d'observabilité composable.
  *
- * Un widget = une sonde déjà écrite (CPU, santé, ORM, logs, hub…) rendue réutilisable.
- * Le shell (`WidgetHost`) encode UNE fois le pattern « sonde back + abonnement hub »
- * (snapshot 1er paint + live conditionnel ref-compté). Cf `docs/workspace.md`.
+ * Modèle **BUREAU LIBRE** (≠ grille figée) : chaque fenêtre flotte librement,
+ * peut **chevaucher** les autres, avec un **ordre de profondeur** (z-order, clic =
+ * au 1er plan). Coordonnées **responsives** : X + largeur en **fraction** de la
+ * largeur du bureau (0..1) → s'adapte à la taille de l'écran ; Y + hauteur en
+ * **pixels** → le bureau défile verticalement. Aimantation douce réglable (pas de
+ * colonnes imposées). Un widget = une sonde déjà écrite, rendue réutilisable ;
+ * le shell (`WidgetHost`) encode le pattern « sonde back + abonnement hub ».
  */
-import type { ComponentType } from "react";
+import type { ComponentType, PointerEvent as ReactPointerEvent } from "react";
 import type { Icon } from "@tabler/icons-react";
 
-/** Géométrie de la grille du bureau : colonnes + hauteur d'une rangée (px). */
-export const GRID_COLS = 12;
-export const GRID_ROW = 64;
+/* ─── Géométrie du bureau libre (références, PAS une grille figée) ─────────── */
+
+/** Référence migration : ancienne grille = 12 colonnes (1 col = 1/12 de large). */
+export const REF_COLS = 12;
+/** Référence migration : ancienne rangée = 64 px de haut. */
+export const ROW_PX = 64;
+/** Pas d'aimantation douce — bureau LIBRE (réglable, ~2 % de large / 8 px). */
+export const SNAP_X = 1 / 48;
+export const SNAP_Y = 8;
+/** Bornes de taille d'une fenêtre. */
+export const MIN_W = 1 / 6;
+export const MIN_H = 96;
+/** Gaps du pavage automatique (« Ranger ») : fraction (X) + px (Y). */
+export const TILE_GAP_X = 0.008;
+export const TILE_GAP_Y = 12;
+
+/**
+ * Poignée d'interaction pointeur (drag / resize) fournie par `WidgetGrid` à
+ * `WidgetHost` — branchée via `setPointerCapture` (tous les `pointermove`/`up`
+ * sont routés vers l'élément capteur → 0 event perdu, pas de listener `window`).
+ */
+export interface GridPointerHandlers {
+  onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => void;
+  onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => void;
+  onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => void;
+}
 
 /** Familles de widgets (pour le catalogue + le filtrage). */
 export type WidgetCategory =
@@ -86,7 +113,7 @@ export interface WidgetData<T> {
 export interface WidgetRenderProps<T = unknown> {
   source: WidgetData<T>;
   ctx: WidgetRuntimeContext;
-  /** Largeur courante de la tuile (colonnes 1-12). */
+  /** Largeur courante de la fenêtre (équivalent colonnes 1-12, dérivé). */
   span: number;
 }
 
@@ -102,27 +129,57 @@ export interface IWidgetDef<T = unknown> {
   source: WidgetSource;
   /** Le rendu change en cluster (résumé pod + grille worker, cf `ClusterView`). */
   clusterAware?: boolean;
-  /** Colonnes par défaut à l'ajout (1-12). */
+  /** Taille par défaut à l'ajout — équivalent colonnes (1-12), converti en fraction. */
   defaultSpan: number;
-  /** Colonnes minimales. */
+  /** Colonnes minimales (équivalent). */
   minSpan: number;
-  /** Rangées de hauteur par défaut (sinon 3). */
+  /** Hauteur par défaut — équivalent rangées (sinon 3), convertie en px. */
   defaultH?: number;
   /** Rangées minimales (sinon 2). */
   minH?: number;
   render: ComponentType<WidgetRenderProps<T>>;
 }
 
-/** Instance d'un widget posée sur un bureau (clé = `widgetId`, 1 par bureau en v1). */
+/**
+ * **Fenêtre** posée sur un bureau (clé = `widgetId`, 1 par bureau en v1).
+ * Coordonnées : X + largeur en **fraction** (0..1) de la largeur, Y + hauteur en
+ * **px**. `z` = ordre de profondeur (le plus grand est devant).
+ */
 export interface WidgetInstance {
   widgetId: string;
-  /** Largeur en colonnes (1-12). */
-  span: number;
-  /** Hauteur en rangées de grille. */
+  /** X — fraction 0..1 de la largeur du bureau (responsive). */
+  x: number;
+  /** Y — pixels depuis le haut (le bureau défile). */
+  y: number;
+  /** Largeur — fraction 0..1 de la largeur. */
+  w: number;
+  /** Hauteur — pixels. */
   h: number;
+  /** Ordre de profondeur (z-order). */
+  z: number;
 }
 
-/** Un bureau = un layout ordonné de widgets. */
+/**
+ * **Graine** d'un widget dans un preset — taille en équivalent colonnes/rangées
+ * (ancienne grille), convertie en fraction/px à la migration. Pas de position :
+ * le preset est **pavé automatiquement** au chargement.
+ */
+export interface WidgetSeed {
+  widgetId: string;
+  /** Largeur en colonnes (1-12). */
+  span?: number;
+  /** Hauteur en rangées. */
+  h?: number;
+}
+
+/** Un PRESET de bureau (graines, sans position — pavé au chargement). */
+export interface WorkspacePreset {
+  id: string;
+  label: string;
+  items: WidgetSeed[];
+}
+
+/** Un bureau VIVANT = des fenêtres placées librement. */
 export interface WorkspaceLayout {
   id: string;
   label: string;

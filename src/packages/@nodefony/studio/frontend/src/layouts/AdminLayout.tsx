@@ -52,7 +52,13 @@ import {
   type Icon,
 } from "@tabler/icons-react";
 import { hasAnyRole } from "nodefony/roles";
-import { useAdmin, useAuth, useConnection, useUi } from "../stores";
+import {
+  useAdmin,
+  useAuth,
+  useConnection,
+  useUi,
+  useWorkspace,
+} from "../stores";
 import { NodefonyLogo } from "../components/NodefonyLogo";
 import { NAV_GROUPS, PRODUCER_ICONS } from "./navConfig";
 
@@ -113,6 +119,7 @@ export const AdminLayout = observer(() => {
   const auth = useAuth();
   const conn = useConnection();
   const ui = useUi();
+  const workspace = useWorkspace();
   const admin = useAdmin();
   const navigate = useNavigate();
   const loc = useLocation();
@@ -210,6 +217,12 @@ export const AdminLayout = observer(() => {
             </RouterNavLink>
             {/* Mode runtime (env + mono/cluster) + popover infos — à côté du titre. */}
             <RuntimeModeChip />
+            {/* Nom du bureau actif (change au switch d'espace, route workspace). */}
+            {loc.pathname.startsWith("/nodefony/workspace") ? (
+              <Badge variant="light" color="gray" radius="sm" visibleFrom="sm">
+                {workspace.active.label}
+              </Badge>
+            ) : null}
           </Group>
           <Group gap="xs">
             {/* Hover = aperçu du hub (abonnements de la PAGE COURANTE, en live —

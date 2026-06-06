@@ -1,25 +1,18 @@
 import "../workspace/widgets"; // side-effect : peuple le registry de widgets
 import { observer } from "mobx-react-lite";
 import { useState } from "react";
-import {
-  Badge,
-  Button,
-  Group,
-  Select,
-  Stack,
-  Switch,
-  Text,
-} from "@mantine/core";
+import { Badge, Button, Group, Stack, Switch, Text } from "@mantine/core";
 import {
   IconApps,
+  IconArrowsMinimize,
   IconCpu,
-  IconLayoutGrid,
   IconRefresh,
 } from "@tabler/icons-react";
 import { useUi, useWorkspace } from "../stores";
 import { PageHeader } from "../components/ui";
 import { WidgetGrid } from "../workspace/WidgetGrid";
 import { WidgetCatalogDrawer } from "../workspace/WidgetCatalogDrawer";
+import { WorkspaceSwitcher } from "../workspace/WorkspaceSwitcher";
 import { useWidgetRuntime } from "../workspace/useWidgetRuntime";
 
 /**
@@ -38,9 +31,10 @@ export const Workspace = observer(() => {
 
   return (
     <Stack gap="md">
+      <WorkspaceSwitcher />
+
       <PageHeader
-        sticky
-        title="Mon bureau"
+        title={active.label}
         subtitle="Composez votre espace : ajoutez, retirez et agencez vos widgets."
         actions={
           <Group gap="xs">
@@ -50,18 +44,6 @@ export const Workspace = observer(() => {
               onChange={(e) => ui.setRealtimeLive(e.currentTarget.checked)}
               label="Temps réel"
             />
-            <Select
-              size="xs"
-              w={160}
-              aria-label="Bureau actif"
-              data={workspace.layoutList.map((l) => ({
-                value: l.id,
-                label: l.label,
-              }))}
-              value={active.id}
-              onChange={(v) => v && workspace.setActive(v)}
-              leftSection={<IconLayoutGrid size={14} />}
-            />
             <Button
               size="xs"
               variant="light"
@@ -69,6 +51,15 @@ export const Workspace = observer(() => {
               onClick={() => setCatalog(true)}
             >
               Ajouter
+            </Button>
+            <Button
+              size="xs"
+              variant="subtle"
+              color="gray"
+              leftSection={<IconArrowsMinimize size={14} />}
+              onClick={() => workspace.tidy()}
+            >
+              Ranger
             </Button>
             <Button
               size="xs"

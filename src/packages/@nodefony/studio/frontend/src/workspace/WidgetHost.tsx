@@ -1,6 +1,4 @@
 import { observer } from "mobx-react-lite";
-import { useRef } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   ActionIcon,
   Box,
@@ -13,64 +11,41 @@ import {
 import { IconDotsVertical, IconGripVertical, IconX } from "@tabler/icons-react";
 import { useWorkspace } from "../stores";
 import { BlockBody, useBlockSource } from "../blocks/useBlockSource";
-import type { IWidgetDef, WidgetInstance, WidgetRuntimeContext } from "./types";
-import { WIDGET_CATEGORY_LABEL } from "./types";
+import type {
+  GridPointerHandlers,
+  IWidgetDef,
+  WidgetInstance,
+  WidgetRuntimeContext,
+} from "./types";
+import { REF_COLS, WIDGET_CATEGORY_LABEL } from "./types";
 
 export interface WidgetHostProps {
   def: IWidgetDef;
   instance: WidgetInstance;
   ctx: WidgetRuntimeContext;
-  /** Type MIME du drag interne — active la poignée de réorganisation si fourni. */
-  dragMime?: string;
-  /** Notifie la grille du widget en cours de glisse (indicateur d'insertion). */
-  onDragChange?: (id: string | null) => void;
+  /** Poignée de DRAG (fournie par la grille) — spread sur l'en-tête. */
+  dragHandlers?: GridPointerHandlers;
+  /** Poignée de RESIZE (fournie par la grille) — spread sur le coin bas-droit. */
+  resizeHandlers?: GridPointerHandlers;
 }
 
 /**
- * Enveloppe WIDGET d'un bloc — la Card du bureau (en-tête poignée de glisse +
- * menu, coin de redimensionnement). Le CONTENU (données + rendu) est délégué au
- * cœur partagé `useBlockSource` + `BlockBody` : exactement le même que le dialog
- * du Jumeau et les panneaux de page. Un bloc écrit une fois, trois contenants.
+ * Enveloppe WIDGET d'un bloc — la Card du bureau (en-tête = poignée de glisse +
+ * menu, coin = poignée de redimensionnement). L'INTERACTION (drag/resize au
+ * pointeur, snap + anti-collision + commit) est orchestrée par `WidgetGrid` qui
+ * connaît la géométrie ; ici on n'expose que les **poignées**. Le CONTENU est
+ * délégué au cœur partagé `useBlockSource` + `BlockBody` (même bloc que le dialog
+ * du Jumeau et les panneaux de page). Un bloc écrit une fois, trois contenants.
  */
 export const WidgetHost = observer(
-  ({ def, instance, ctx, dragMime, onDragChange }: WidgetHostProps) => {
+  ({ def, instance, ctx, dragHandlers, resizeHandlers }: WidgetHostProps) => {
     const workspace = useWorkspace();
-    const cardRef = useRef<HTMLDivElement | null>(null);
-
     const state = useBlockSource(def.source, ctx.live);
     const Icon = def.icon;
     const isLiveSource = def.source.kind !== "snapshot";
 
-    // Redimensionnement par le coin : delta px → colonnes (largeur) + rangées (hauteur).
-    const onResizeDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const rect = cardRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const colW = rect.width / Math.max(1, instance.span);
-      const rowH = rect.height / Math.max(1, instance.h);
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const startW = instance.span;
-      const startH = instance.h;
-      const move = (ev: PointerEvent) => {
-        const w = startW + Math.round((ev.clientX - startX) / colW);
-        const h = startH + Math.round((ev.clientY - startY) / rowH);
-        workspace.setSize(def.id, w, h);
-      };
-      const up = () => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-        document.body.style.userSelect = "";
-      };
-      document.body.style.userSelect = "none";
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
-    };
-
     return (
       <Card
-        ref={cardRef}
         withBorder
         radius="md"
         p="sm"
@@ -92,22 +67,14 @@ export const WidgetHost = observer(
           <Group
             gap="xs"
             wrap="nowrap"
-            style={{ minWidth: 0, cursor: dragMime ? "grab" : undefined }}
-            draggable={!!dragMime}
-            onDragStart={
-              dragMime
-                ? (e) => {
-                    e.dataTransfer.setData(dragMime, def.id);
-                    e.dataTransfer.effectAllowed = "move";
-                    if (cardRef.current)
-                      e.dataTransfer.setDragImage(cardRef.current, 24, 16);
-                    onDragChange?.(def.id);
-                  }
-                : undefined
-            }
-            onDragEnd={dragMime ? () => onDragChange?.(null) : undefined}
+            style={{
+              minWidth: 0,
+              cursor: dragHandlers ? "grab" : undefined,
+              touchAction: "none",
+            }}
+            {...dragHandlers}
           >
-            {dragMime ? (
+            {dragHandlers ? (
               <IconGripVertical
                 size={14}
                 style={{ opacity: 0.45, flexShrink: 0 }}
@@ -163,28 +130,34 @@ export const WidgetHost = observer(
             def={def}
             state={state}
             ctx={ctx}
-            span={instance.span}
+            span={Math.max(
+              1,
+              Math.min(REF_COLS, Math.round(instance.w * REF_COLS)),
+            )}
             container="widget"
           />
         </Box>
 
         {/* Poignée de redimensionnement (coin bas-droit) — largeur + hauteur. */}
-        <Box
-          aria-hidden
-          onPointerDown={onResizeDown}
-          style={{
-            position: "absolute",
-            right: 3,
-            bottom: 3,
-            width: 12,
-            height: 12,
-            cursor: "nwse-resize",
-            borderRight: "2px solid var(--mantine-color-dimmed)",
-            borderBottom: "2px solid var(--mantine-color-dimmed)",
-            borderBottomRightRadius: 4,
-            opacity: 0.5,
-          }}
-        />
+        {resizeHandlers ? (
+          <Box
+            aria-hidden
+            {...resizeHandlers}
+            style={{
+              position: "absolute",
+              right: 3,
+              bottom: 3,
+              width: 14,
+              height: 14,
+              cursor: "nwse-resize",
+              touchAction: "none",
+              borderRight: "2px solid var(--mantine-color-dimmed)",
+              borderBottom: "2px solid var(--mantine-color-dimmed)",
+              borderBottomRightRadius: 4,
+              opacity: 0.5,
+            }}
+          />
+        ) : null}
       </Card>
     );
   },
