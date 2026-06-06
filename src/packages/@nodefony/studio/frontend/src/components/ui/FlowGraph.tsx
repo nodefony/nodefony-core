@@ -74,6 +74,8 @@ export interface FlowNodeData extends Record<string, unknown> {
   dir?: "TB" | "LR";
   /** Données live (injectées par FlowGraph depuis `liveNodeData[id]`). */
   live?: LiveNodeData;
+  /** Curseur « forable » (injecté par FlowGraph quand `onNodeClick` est fourni). */
+  clickable?: boolean;
 }
 export interface FlowGraphNode {
   id: string;
@@ -86,6 +88,13 @@ export interface FlowGraphEdge {
   /** Couleur Mantine de l'arête (défaut : gray). */
   color?: string;
   dashed?: boolean;
+  /**
+   * Flux animé (marching-ants) le long de l'arête. Par défaut une arête pleine
+   * est animée et une pointillée ne l'est pas — mais un graphe « calme »
+   * (topologie statique) veut des liens FIXES : passer `animated: false`. Le
+   * mouvement permanent vole l'attention (charte temps réel calme).
+   */
+  animated?: boolean;
 }
 type LayerNodeType = Node<FlowNodeData>;
 
@@ -151,6 +160,7 @@ function LayerNode({ data }: NodeProps<LayerNodeType>) {
           boxShadow: data.emphasis
             ? `0 0 0 3px color-mix(in srgb, ${mc(data.color, 6)} 22%, transparent)`
             : undefined,
+          cursor: data.clickable ? "pointer" : undefined,
           // Isole le repaint à la carte (perf temps réel sur graphe live).
           contain: "layout paint",
         }}
@@ -235,6 +245,7 @@ function useFlowLayout(
   rawEdges: FlowGraphEdge[],
   dir: "TB" | "LR",
   liveNodeData?: Record<string, LiveNodeData>,
+  clickable?: boolean,
 ) {
   return useMemo(() => {
     const W = 232;
@@ -262,7 +273,12 @@ function useFlowLayout(
         id: n.id,
         type: "layer",
         position: { x: p.x - W / 2, y: p.y - H / 2 },
-        data: { ...n.data, dir, live: liveNodeData?.[n.id] },
+        data: {
+          ...n.data,
+          dir,
+          live: liveNodeData?.[n.id],
+          clickable: clickable || n.data.clickable,
+        },
         draggable: true,
       };
     });
@@ -272,7 +288,7 @@ function useFlowLayout(
       target: e.target,
       label: e.label,
       type: "smoothstep",
-      animated: !e.dashed,
+      animated: e.animated ?? !e.dashed,
       style: {
         stroke: mc(e.color ?? "gray", 5),
         strokeWidth: 2,
@@ -287,20 +303,30 @@ function useFlowLayout(
       },
     }));
     return { nodes, edges };
-  }, [rawNodes, rawEdges, dir, liveNodeData]);
+  }, [rawNodes, rawEdges, dir, liveNodeData, clickable]);
 }
 
 export interface FlowGraphProps {
   nodes: FlowGraphNode[];
   edges: FlowGraphEdge[];
   dir?: "TB" | "LR";
-  height?: number;
+  /**
+   * Hauteur du canevas. `number` (px) OU chaîne CSS (`calc(...)`, token
+   * `PAGE_CONTENT_HEIGHT`) pour un graphe plein viewport — la fonction de rendu
+   * interne accepte déjà les deux (le Modal plein écran passe une chaîne).
+   */
+  height?: number | string;
   ariaLabel: string;
   /**
    * Données live par nodeId — bandeau métriques + dot d'état. Quand fournie,
    * la hauteur des nœuds augmente automatiquement (dagre re-layout).
    */
   liveNodeData?: Record<string, LiveNodeData>;
+  /**
+   * Forage : appelé avec l'id du nœud cliqué. Quand fourni, les nœuds prennent
+   * un curseur « pointer ». Le parent décide quoi ouvrir (popup, swap de schéma…).
+   */
+  onNodeClick?: (id: string) => void;
 }
 
 /** Schéma React Flow prêt à l'emploi (fond, contrôles, minimap, plein écran). */
@@ -311,6 +337,7 @@ export function FlowGraph({
   height = 440,
   ariaLabel,
   liveNodeData,
+  onNodeClick,
 }: FlowGraphProps) {
   useEffect(() => ensureFlowGraphLiveStyles(), []);
   const colorScheme =
@@ -319,7 +346,7 @@ export function FlowGraph({
       "light"
       ? "light"
       : "dark";
-  const laid = useFlowLayout(nodes, edges, dir, liveNodeData);
+  const laid = useFlowLayout(nodes, edges, dir, liveNodeData, !!onNodeClick);
   const [full, setFull] = useState(false);
 
   const flow = (h: number | string) => (
@@ -344,6 +371,7 @@ export function FlowGraph({
         proOptions={{ hideAttribution: true }}
         nodesConnectable={false}
         elementsSelectable={false}
+        onNodeClick={onNodeClick ? (_, n) => onNodeClick(n.id) : undefined}
         zoomOnScroll={false}
         panOnScroll
       >

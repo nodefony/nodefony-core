@@ -73,6 +73,8 @@ export interface InstanceHealth {
   orm?: OrmLeanHealth;
   /** Optionnel : absent si la sonde n'a pu lire le syslog du kernel. */
   errors?: InstanceErrorHealth;
+  /** Fond de panier realtime de l'instance (bus inter-process). */
+  backplane?: { driver?: string; kind?: string; crossPod?: boolean };
 }
 
 /** Totaux pod (miroir de `IRealtimeClusterHealth.totals`). */

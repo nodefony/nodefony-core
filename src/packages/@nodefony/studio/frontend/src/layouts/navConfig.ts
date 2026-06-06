@@ -1,6 +1,7 @@
 import {
   IconDashboard,
   IconLayoutDashboard,
+  IconTopologyStar3,
   IconUsers,
   IconUsersGroup,
   IconRoute,
@@ -86,6 +87,11 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Overview",
     icon: IconDashboard,
     items: [
+      {
+        to: "/nodefony/twin",
+        label: "Jumeau Vivant",
+        icon: IconTopologyStar3,
+      },
       {
         to: "/nodefony/workspace",
         label: "Mon bureau",

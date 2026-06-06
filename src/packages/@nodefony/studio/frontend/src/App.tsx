@@ -78,6 +78,9 @@ const Documentation = lazy(() =>
 const Workspace = lazy(() =>
   import("./routes/Workspace").then((m) => ({ default: m.Workspace })),
 );
+const Twin = lazy(() =>
+  import("./routes/Twin").then((m) => ({ default: m.Twin })),
+);
 
 import {
   Sessions,
@@ -138,6 +141,7 @@ const router = createBrowserRouter([
           { path: "cluster", element: <Cluster /> },
           { path: "runtime", element: <Runtime /> },
           { path: "workspace", element: <Workspace /> },
+          { path: "twin", element: <Twin /> },
           {
             path: "dev",
             element: <Navigate to="/nodefony/workspace" replace />,
