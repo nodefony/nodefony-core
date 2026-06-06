@@ -1,6 +1,6 @@
 ---
 name: nodefony-studio-dev
-version: 1.21.0
+version: 1.21.1
 description: >
   Aide au développement du frontend Studio (@nodefony/studio, React 19) : construire un écran —
   page, dashboard, panneau, onglet — vite et bien en réutilisant le UI kit (PageHeader, DataState,
@@ -496,6 +496,19 @@ sticky se chevauchent) et ne rend que sa barre d'actions. Réutiliser le
 JAMAIS un 2ᵉ registre), graphes en **`<Tabs>` 1er niveau** (facettes sœurs d'un même sujet = divulgation
 progressive). Propager le `live` global du Twin aux graphes (`<LiveGraph live={live} height=…/>`) — PAS de
 switch par graphe ici (le Twin en a déjà un ; `LiveGraphSection` avec son switch local est réservé aux pages de doc).
+
+**🚫 RÈGLE — un forage est EXACT, jamais improvisé** (vécu HTTP, a coûté 1 commit faux) : un
+sous-schéma / une vue forée décrit une **architecture RÉELLE** → AVANT de poser les briques, les
+étapes ou les liens, **lire la SOURCE DE VÉRITÉ du module** (code + `MEMORY.md`/`CLAUDE.md`), ne
+JAMAIS deviner l'ordre ni les noms. Le Jumeau se veut « vivant/honnête » → une brique inexacte est un
+**BUG**, pas un détail (une donnée fausse trompe plus qu'elle n'informe). Méthode : (1) ouvrir le
+`MEMORY.md` du module ciblé ; (2) y lire l'enchaînement réel (ex. `http/MEMORY.md` → `HttpKernel.handleHttp`)
+
+- (3) ne mettre dans le schéma QUE ce qui existe. **Contre-exemple corrigé (pipeline HTTP)** : improvisé =
+  « Firewall avant Router, sans Parse ni Static » (FAUX) ; réel = **Serveurs → Contexte (requestId/ALS) →
+  Route match (hissé) → Parse (sauté si `@Body stream`) → Firewall (`handleSecurity`) → Controller →
+  Réponse**, **+ Static en FALLBACK** après une route ratée (≠ static-first). Idem realtime (lire
+  `realtime/socket/`) et ORM (réutiliser `OrmOverview`, pas réécrire).
 
 **Registre de BLOCS UNIFIÉ — `blocks/`** (un contenu écrit 1×, monté partout) : `IBlockDef = IWidgetDef`
 (le `render` est un composant pur). **`useBlockSource(source, live)`** = le CŒUR (snapshot HTTP + live
@@ -1250,6 +1263,12 @@ module `CLAUDE.md`/`MEMORY.md`.
 
 > Les deux skills de dev partagent un même numéro (cf « Paire POLYMORPHE » en tête). Bumper ENSEMBLE.
 
+- **1.21.1** (2026-06-06) — **Règle « forage SANS ERREUR » + correction du pipeline HTTP** (front-only).
+  Le forage HTTP avait été **improvisé** (Firewall avant Router, sans Parse ni Static fallback) = FAUX →
+  relu sur `http/MEMORY.md` (`HttpKernel.handleHttp`) : Serveurs → Contexte → **Route match (hissé)** →
+  **Parse** → Firewall → Controller → Réponse, **+ Static en fallback** (≠ static-first). Règle gravée
+  (section Twin, recettes de forage) : un forage décrit une archi RÉELLE → **lire la source de vérité du
+  module AVANT de poser les briques, jamais deviner** ; une brique inexacte = un bug. framework-dev 1.19.0.
 - **1.21.0** (2026-06-06) — **Forage ORM du Jumeau + `OrmOverview` mode `embedded` + map de vues spéciales**
   (front-only). Brique `orm` → `enter:"orm-view"` + `schemaTitle` ; `Twin.tsx` passe à une **map
   `specialViews[current] ?? <TwinMapView/>`** (`realtime-view`→`SocketExplorer`, `orm-view`→`<OrmOverview embedded/>`)

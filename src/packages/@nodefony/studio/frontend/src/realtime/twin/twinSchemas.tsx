@@ -417,11 +417,16 @@ function kernelSchema(): TwinSchema {
 }
 
 /**
- * Détail de l'ENTRÉE HTTP — le voyage d'une requête à travers le pipeline,
- * de haut en bas : Serveurs (http/https/h2) → Contexte → Firewall/Sécurité →
- * Router → Controller → Réponse. Tout est INTERNE au process (0 frontière).
- * Couche live légère : seuls les serveurs pulsent selon l'activité (logs/8s) ;
- * le reste est structurel (charte « trop d'info tue l'info »).
+ * Détail de l'ENTRÉE HTTP — le voyage RÉEL d'une requête dans `HttpKernel`
+ * (`handleHttp` / `handleFrontController`), de haut en bas :
+ *   Serveurs (http/https/h2) → Contexte (requestId + scope ALS) → Route match
+ *   (method+URL, hissé avant le parse) → Parse du body (busboy/JSON, sauté si
+ *   `@Body({stream})`) → Firewall (`handleSecurity`) → Controller (resolver →
+ *   action) → Réponse.
+ * Branche FALLBACK : une route NON trouvée part vers le Static (sert un fichier,
+ * sinon 404) puis rejoint la Réponse — static en fallback APRÈS le route-match
+ * (≠ static-first → une route ne touche jamais le disque). Tout est INTERNE au
+ * process (0 frontière). Live léger : seuls les serveurs pulsent (activité/8s).
  */
 function httpSchema(): TwinSchema {
   return {
@@ -434,7 +439,7 @@ function httpSchema(): TwinSchema {
         title: "Serveurs HTTP",
         color: "blue",
         icon: <IconServer size={20} />,
-        pos: { x: 50, y: 13 },
+        pos: { x: 42, y: 9 },
         emphasis: true,
       },
       {
@@ -442,43 +447,60 @@ function httpSchema(): TwinSchema {
         title: "Contexte · requestId",
         color: "blue",
         icon: <IconRoute size={18} />,
-        pos: { x: 50, y: 32 },
+        pos: { x: 42, y: 24 },
+      },
+      {
+        id: "h-route",
+        title: "Route match",
+        color: "teal",
+        icon: <IconRouter size={18} />,
+        pos: { x: 42, y: 39 },
+      },
+      {
+        id: "h-parse",
+        title: "Parse du body",
+        color: "grape",
+        icon: <IconStack2 size={18} />,
+        pos: { x: 30, y: 55 },
       },
       {
         id: "h-firewall",
         title: "Firewall · Sécurité",
         color: "orange",
         icon: <IconShieldLock size={18} />,
-        pos: { x: 50, y: 51 },
-      },
-      {
-        id: "h-router",
-        title: "Router",
-        color: "teal",
-        icon: <IconRouter size={18} />,
-        pos: { x: 50, y: 69 },
+        pos: { x: 30, y: 70 },
       },
       {
         id: "h-controller",
         title: "Controller",
         color: "indigo",
         icon: <IconAtom2 size={18} />,
-        pos: { x: 33, y: 87 },
+        pos: { x: 30, y: 85 },
+      },
+      {
+        id: "h-static",
+        title: "Static · fallback",
+        color: "gray",
+        icon: <IconFileText size={18} />,
+        pos: { x: 75, y: 55 },
       },
       {
         id: "h-response",
         title: "Réponse",
         color: "cyan",
         icon: <IconSend size={18} />,
-        pos: { x: 70, y: 87 },
+        pos: { x: 58, y: 92 },
       },
     ],
     links: [
       { from: "h-servers", to: "h-context" },
-      { from: "h-context", to: "h-firewall" },
-      { from: "h-firewall", to: "h-router" },
-      { from: "h-router", to: "h-controller" },
+      { from: "h-context", to: "h-route" },
+      { from: "h-route", to: "h-parse" },
+      { from: "h-parse", to: "h-firewall" },
+      { from: "h-firewall", to: "h-controller" },
       { from: "h-controller", to: "h-response" },
+      { from: "h-route", to: "h-static" },
+      { from: "h-static", to: "h-response" },
     ],
   };
 }
