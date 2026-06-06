@@ -111,6 +111,18 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🧩 Modules / docs / front (frictions du jour)
 
+- `[1× — 2026-06-06]` **BUREAU ≠ GRILLE** : un « bureau » composable = fenêtres LIBRES (px/fraction,
+  chevauchement, z-order) + « Ranger » à la demande — PAS une grille à colonnes figées NI un tiling/reflow
+  (les deux rejetés par le user). Demander le PARADIGME (stacking OS vs tiling) avant de coder un « canvas ».
+- `[1× — 2026-06-06]` **« tout figé » après refonte d'un store MobX = le SINGLETON survit au HMR** → l'ancienne
+  instance n'a pas les nouvelles méthodes/modèle (tuiles à 0,0). **Hard-reload obligatoire** + bumper la clé
+  localStorage (`…v2`). Réflexe : changement de modèle de store → annoncer « hard-reload ».
+- `[1× — 2026-06-06]` **drag perf = `setPointerCapture` + transform/DOM direct + rAF, commit au `pointerup`**
+  (0 écriture store / 0 render par frame). Piège : l'ancien resize appelait `setSize`→`persist` localStorage À
+  CHAQUE frame. + `overflow-x:auto` force `overflow-y:auto` (rogne le haut → bordure pas `outline`) ; Mantine v9
+  `Collapse` = prop `expanded` (pas `in`).
+- `[2× — 2026-06-06]` **FORAGE / CONTENU EXACT, jamais improvisé** : un schéma (pipeline HTTP) inventé = FAUX
+  (commit corrigé) → lire la source de vérité du module (`MEMORY.md`/code) AVANT de poser les briques. Gravé skill studio-dev.
 - `[1× — 2026-06-06]` **react-grid-layout est INCOMPATIBLE React 19** (il utilise `ReactDOM.findDOMNode`,
   **supprimé** en React 19) → pour une grille dashboard draggable/resizable NE PAS le proposer. Maison 0-dep :
   **CSS grid `auto-flow: dense`** (span colonnes × rangées = tuilage sans trou) + **resize au coin** par pointer
