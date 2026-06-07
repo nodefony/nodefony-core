@@ -297,6 +297,16 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-07]` **prouver un parse côté serveur SANS toucher au banc = curl loopback (trusted) avec le header brut** :
+  pour valider le parse `Forwarded` RFC 7239 en runtime, `curl -H "Forwarded: for=…;proto=https" localhost:5151` +
+  lire le **log `req`** (`GET 200 <scheme>://<host>/… <ms> <IP>`) → le scheme/IP résolus sont visibles directement.
+  Plus rapide et discriminant que monter tout le banc Docker (ex. `Forwarded proto=https` + `X-Forwarded-Proto http`
+  → si le log montre `https`, la priorité Forwarded est prouvée).
+- `[1× — 2026-06-07]` **bind-mount macOS : `docker exec <c> nginx -t` JUSTE après un Edit lit une version en cours
+  d'écriture** (« unexpected end of file ») alors que le fichier disque est valide. Revalider sur le DISQUE
+  (`docker run --rm -v fichier nginx -t`) puis **recréer le conteneur** (`up -d --force-recreate <svc>`) pour qu'il
+  relise. Et `000` sur TOUS les ports du banc = souvent **le démon Docker tombé** (`docker ps` → « Cannot connect »),
+  PAS un bug du code — vérifier le daemon avant de suspecter le diff.
 - `[2× — 2026-06-04]` **`memory.test` exige un serveur LANCÉ (connecte `localhost:5152`) → ECONNREFUSED
   sinon, PAS une fuite.** Le 1ᵉʳ run de la session passait via un serveur résiduel ; sans serveur →
   `internalConnectMultiple` (ECONNREFUSED) dans le `before all`. **Toujours `start.sh` AVANT** le memory
@@ -369,6 +379,19 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-07]` **« hot path prod » = le chemin DERRIÈRE proxy, pas le cas sans proxy** (recadrage user :
+  « on passe dedans à tous les coups !! »). Un serveur de prod est TOUJOURS derrière un reverse-proxy → la
+  résolution forwarded s'exécute à CHAQUE requête. Optimiser CE chemin (cas avec en-têtes), pas seulement le
+  fast-exit « pas de proxy ». Leviers appliqués (forwarded.ts) : résolution LAZY (null hors proxy = 0 alloc),
+  **fast-path mono-proxy 0 array** (pas de `split`/`map` quand 1 seul maillon — cas dominant 1 ingress),
+  `firstToken` via `indexOf`/`slice` (pas `split`), `splitTopLevel` court-circuité sans quote, 1 SEULE passe
+  stockée sur l'objet (les getters lisent, plus de re-parse par appel).
+- `[1× — 2026-06-07]` **banc anti-spoof = faux positif si le proxy APPEND + le vrai client est dans la plage trusted** :
+  nginx `$proxy_add_x_forwarded_for` (append) + curl hôte vu comme la gateway Docker (trusted via `uniquelocal`)
+  → le from-right dépouille jusqu'à la valeur FORGÉE (6.6.6.6 ressortait). Pas un bug du code (22 tests unit + tests
+  directs `Forwarded:` le prouvent). Leçon SÉCU : un **edge ÉCRASE** le XFF entrant (`proxy_set_header X-Forwarded-For
+$remote_addr`, RFC 7239 §8.1), l'append est réservé aux proxies INTERNES d'une chaîne déjà fiable ; et `trustProxy`
+  doit être **aussi étroit que possible** (pas toute la plage privée si le vrai client y est aussi).
 - `[1× — 2026-06-06]` **`Object.create(null)` casse la sérialisation drizzle-orm** : un objet SANS
   prototype passé à un insert drizzle fait planter `is()` (drizzle-orm/entity.js) → `Object.getPrototypeOf(value).constructor`
   → `getPrototypeOf` renvoie `null` → `null.constructor` throw. Pour TOUT objet sérialisé/inséré via un ORM
@@ -542,6 +565,11 @@ type 'mocha'`). Au retrait mocha d'un workspace : remplacer par `vitest/globals`
   `ParamMeta` avec `stream` posé TOUJOURS (même `false`) a cassé 2 tests `@Body` (forme `{source,key,index}` attendue
   à l'identique). Fix = ne poser le champ optionnel **QUE s'il est truthy** (préserve la forme historique → rétro-compat).
   Les 2 fails étaient MON diff (pas pré-existant) — suspecter son diff d'abord (la suite framework complète l'a prouvé).
+- `[1× — 2026-06-07]` **tester les MÉTHODES finales, pas que les fonctions pures** (demande explicite user). J'avais
+  couvert `parseForwarded`/`forwardedNodeIp`/`resolveForwarded` (helpers purs) mais pas `getFullUrl`/`getRemoteAddress`
+  (HTTP/HTTP2/WS) qui les CONSOMMENT — c'est là que vit le câblage réel. Recette pour isoler une méthode d'instance
+  sans le ctor lourd : `Object.assign(Object.create(Cls.prototype), props)` + cast `as unknown as Cls` (cf
+  `forwardedWiring.test.ts`). Couvre aussi le cœur partagé direct (`resolveFromRight`), pas juste via ses wrappers.
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
