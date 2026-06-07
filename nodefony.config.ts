@@ -125,8 +125,11 @@ export default defineConfig<Env>((ctx) => ({
         },
         // Barrière Host (consommée si `domainCheck: true` ci-dessus) : le domaine
         // canonique est toujours accepté ; on liste localhost + 127.0.0.1 pour taper
-        // le serveur via les deux noms en dev/cluster local.
-        trustedHosts: ["localhost", "127.0.0.1"],
+        // le serveur via les deux noms en dev/cluster local. `nodefony.com` permet
+        // l'accès par NOM DE DOMAINE — en dev via `/etc/hosts` (nodefony.com →
+        // 127.0.0.1), en prod via le vrai DNS. Le port est strippé avant le match
+        // (cf domainMatcher) → `nodefony.com:5151` matche `nodefony.com`.
+        trustedHosts: ["localhost", "127.0.0.1", "nodefony.com"],
         // Stockage de session via @nodefony/drizzle (orm-core).
         session: { handler: "drizzle" },
         formidable: { uploadDir: "./tmp/upload" },
