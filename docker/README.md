@@ -33,11 +33,56 @@ docker exec -it nodefony-redis redis-cli -a "${REDIS_PASSWORD:-nodefony-dev}" pi
 | `redis`        | _(défaut)_ | `6379`           | Fan-out pub/sub du `RealtimeHub` distribué (Bloc B)       |
 | `redisinsight` | `tools`    | `5540`           | UI web de debug Redis (jamais en prod)                    |
 | `kafka`        | `kafka`    | `9092`           | Bus d'events persistant, IA-ready (Bloc C — KRaft, no ZK) |
+| `nginx`        | `proxy`    | `8080`           | Banc reverse-proxy `X-Forwarded-*` (test forwarded)       |
+| `haproxy`      | `proxy`    | `8081`           | Banc reverse-proxy `Forwarded` RFC 7239 (test forwarded)  |
 
 ```bash
 docker compose -f docker/docker-compose.yml --profile tools up -d   # + RedisInsight → http://localhost:5540
 docker compose -f docker/docker-compose.yml --profile kafka up -d   # + Kafka
 ```
+
+## Banc reverse-proxy — test des en-têtes forwarded (profile `proxy`)
+
+Valide la résolution de l'**IP cliente réelle** (anti-spoof `extractClientIp`,
+dépouillement `X-Forwarded-For` **de droite à gauche**) et le scheme effectif
+derrière un vrai reverse-proxy. `nginx` pose les `X-Forwarded-*` (de-facto),
+`haproxy` pose en plus le header **standard `Forwarded`** (RFC 7239).
+
+> Le serveur Nodefony tourne sur l'**hôte** (`npx nodefony development`, 5151) ;
+> les proxies (conteneurs) le joignent via `host.docker.internal`.
+
+```bash
+# 1. Démarrer les proxies
+docker compose -f docker/docker-compose.yml --profile proxy up -d
+#    nginx   → http://localhost:8080
+#    haproxy → http://localhost:8081
+```
+
+**Prérequis `trustProxy`** : le serveur n'honore les en-têtes forwarded que si le
+socket vient d'un proxy de confiance. L'IP source des conteneurs = la **gateway
+Docker** (variable selon la plateforme). La repérer dans le 1ᵉʳ log de requête
+(`FROM : …`), puis configurer dans `nodefony.config.ts` :
+
+```ts
+use("@nodefony/http", { trustProxy: ["loopback", "uniquelocal"] }); // couvre 172.16/12, 192.168/16…
+// ou, en DEV seulement, confiance totale : trustProxy: true
+```
+
+**Scénario anti-spoof (cœur du fix #1)** :
+
+```bash
+# Le client FORGE un X-Forwarded-For. nginx APPEND l'IP réelle → chaîne
+# "6.6.6.6, <gateway>". Le serveur (from-right) doit logger <gateway>, PAS 6.6.6.6.
+curl -s -H "X-Forwarded-For: 6.6.6.6" http://localhost:8080/nodefony/test/index >/dev/null
+
+# Vérifier l'IP retenue côté serveur (jamais 6.6.6.6) :
+grep "FROM" /tmp/nodefony-server.log | tail -3 | sed 's/\x1b\[[0-9;]*m//g'
+```
+
+> ⚠️ **Statiques non offloadés** par ce banc : Nodefony sert N répertoires
+> `public/` (racine + un par module) → un montage volume unique serait un trou.
+> L'offload correct (montages + `location` par module + domaines) relève du futur
+> générateur de config CLI (`nodefony proxy:generate`). Ici nginx proxifie tout.
 
 ## Arrêt
 
