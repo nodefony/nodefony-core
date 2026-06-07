@@ -119,7 +119,8 @@ export interface IContext {
 }
 
 export interface IHttpContext extends IContext {
-  // proxy: object | null to accommodate ProxyType (specific keys, no index signature)
+  // proxy: object | null to accommodate ProxyType (specific keys, no index signature).
+  // ⚠️ RFC 7239 §8.2 : topologie interne — JAMAIS recopiée en réponse / metaData (cf ProxyType).
   proxy: object | null;
   isRedirect: boolean;
 

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-07T06:56:53.088Z",
+  "generated": "2026-06-07T07:17:58.181Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -11988,7 +11988,8 @@
       "file": "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": null
+      "extends": null,
+      "description": "Métadonnées de topologie de proxy (en-têtes `X-Forwarded-*`), renseignées seulement derrière un proxy de confiance. ⚠️ RFC 7239 §8.2 (Information Leak) — DONNÉES INTERNES : ne JAMAIS recopier dans …"
     },
     "HttpRequestType": {
       "name": "HttpRequestType",

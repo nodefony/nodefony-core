@@ -147,8 +147,14 @@ export default class WebsocketContext
     this.validDomain = this.isValidDomain();
     this.rejected = false;
 
-    // Proxy detection
-    if (req.headers["x-forwarded-for"]) {
+    // Métadonnées proxy (X-Forwarded-*) — UNIQUEMENT derrière un proxy de
+    // confiance, symétrique au HTTP (avant : non gardé → on peuplait/loggait des
+    // métadonnées forgeables depuis un client direct).
+    // ⚠️ RFC 7239 §8.2 : topologie interne, JAMAIS recopiée en réponse (cf ProxyType).
+    const trustedProxy = !!this.httpKernel
+      ?.getTrustProxyChecker()
+      .isTrusted(req.socket?.remoteAddress);
+    if (trustedProxy && req.headers["x-forwarded-for"]) {
       this.proxy = {
         proxyServer: (req.headers["x-forwarded-server"] as string) ?? "unknown",
         proxyProto: req.headers["x-forwarded-proto"] as string,
