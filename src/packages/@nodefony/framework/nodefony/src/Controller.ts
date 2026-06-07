@@ -191,11 +191,14 @@ class Controller extends Service implements IController {
     const fe = this.get<{
       renderTags?: (entry: string) => string;
       renderDocument?: (entry: string) => string;
+      assetUrl?: (p: string) => string;
     }>("frontend");
     if (!fe?.renderTags) return param;
     return {
       frontendTags: (entry: string) => fe.renderTags!(entry),
       frontendDocument: (entry: string) => fe.renderDocument!(entry),
+      // `asset('/x')` → URL CDN (assetBaseUrl) en prod, sinon chemin relatif.
+      asset: (p: string) => (fe.assetUrl ? fe.assetUrl(p) : p),
       ...param,
     };
   }

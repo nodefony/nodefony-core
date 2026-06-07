@@ -99,6 +99,25 @@ class FrontendService extends Service implements IFrontendService {
     this.cfg = merged;
   }
 
+  /** Base CDN normalisée (sans slash final). `""` = origine Nodefony. */
+  private get assetBase(): string {
+    return (this.cfg.assetBaseUrl ?? "").replace(/\/+$/, "");
+  }
+
+  /**
+   * Résout l'URL publique d'un asset. Préfixe `p` par `assetBaseUrl` (CDN) si
+   * renseigné, sinon le renvoie tel quel (origine, chemin relatif). Les URLs
+   * absolues (`http(s)://…`) sont renvoyées inchangées. Helper template :
+   * `asset('/test/logo.png')` → `https://cdn.example.com/test/logo.png` ou
+   * `/test/logo.png` (assetBaseUrl vide).
+   */
+  assetUrl(p: string): string {
+    if (/^https?:\/\//i.test(p)) return p;
+    const base = this.assetBase;
+    if (!base) return p;
+    return base + (p.startsWith("/") ? p : `/${p}`);
+  }
+
   async init(): Promise<this> {
     this.log(`MODULE frontend service init`, "DEBUG");
 
@@ -435,7 +454,12 @@ class FrontendService extends Service implements IFrontendService {
         "WARNING",
       );
     }
-    this.prodHelper = new TemplateHelper(null, "production", this.entries);
+    this.prodHelper = new TemplateHelper(
+      null,
+      "production",
+      this.entries,
+      this.assetBase,
+    );
     this.fire("frontend:ready", this.status());
   }
 
@@ -483,7 +507,11 @@ class FrontendService extends Service implements IFrontendService {
         continue;
       }
       try {
-        const cfg = await this.builder.buildViteConfig([entry], "production");
+        const cfg = await this.builder.buildViteConfig(
+          [entry],
+          "production",
+          this.assetBase,
+        );
         await vite.build(cfg);
         result.built.push(entry.entryName);
         this.log(`build ok "${entry.entryName}" → ${entry.outDir}`, "INFO");

@@ -50,4 +50,10 @@ export interface IFrontendService {
    * `<head>` via son `index.html`).
    */
   renderDocument(entryName: string): string;
+  /**
+   * Résout l'URL publique d'un asset : préfixe `p` par `assetBaseUrl` (CDN) si
+   * configuré, sinon chemin relatif inchangé. URLs absolues renvoyées telles
+   * quelles. Helper template `asset('/x')`.
+   */
+  assetUrl(p: string): string;
 }

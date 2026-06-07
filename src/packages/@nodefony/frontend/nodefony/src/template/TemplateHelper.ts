@@ -47,11 +47,14 @@ export class TemplateHelper {
    * @param supervisor superviseur Vite (dev) — `null` en prod (Vite ne tourne pas).
    * @param mode bascule dev (URLs vers le dev server) / prod (manifest).
    * @param entries entrées résolues — requises en prod pour `outDir`/`publicPath`.
+   * @param assetBaseUrl base CDN normalisée (sans slash final) préfixant les URLs
+   *   prod émises ; `""` = origine Nodefony (chemins relatifs).
    */
   constructor(
     private readonly supervisor: IViteSupervisor | null,
     private readonly mode: "development" | "production",
     private readonly entries: ReadonlyArray<IResolvedFrontendEntry> = [],
+    private readonly assetBaseUrl: string = "",
   ) {}
 
   /**
@@ -290,7 +293,8 @@ mountDebugBar(${opts});
       return `<!-- @nodefony/frontend: entry chunk "${key}" not in manifest -->`;
     }
     // publicPath finit par `/`, les `file` du manifest ne commencent pas par `/`.
-    const base = entry.publicPath;
+    // `assetBaseUrl` (CDN, sans slash final) préfixe en prod si renseigné.
+    const base = this.assetBaseUrl + entry.publicPath;
     const tags: string[] = [];
     // CSS d'abord (évite le FOUC) — récursif sur les imports pour le CSS partagé.
     for (const href of this.collectCss(manifest, key)) {
