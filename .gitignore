@@ -10,7 +10,10 @@ dist/
 node_modules/
 tmp/
 logs/
-nodefony/config/certificates
+# Certificats TLS générés — JAMAIS commités (contiennent la clé privée). Motif
+# **/ pour couvrir aussi les sous-modules : le service écrit dans
+# <cwd>/nodefony/config/certificates → dossier du module si tests/CLI lancés là.
+**/nodefony/config/certificates/
 nodefony/databases/*
 
 # Ignore les fichiers générés par TypeScript

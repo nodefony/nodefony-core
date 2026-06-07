@@ -106,11 +106,21 @@ export default defineConfig<Env>((ctx) => ({
       {
         // En dev, accepte les certificats auto-signés (mkcert). Prod : true.
         rejectUnauthorized: !ctx.isDev,
-        // Attributs du certificat auto-signé généré au boot (dev). En prod, fournir
-        // de vrais certificats (le service les lit dans nodefony/config/certificates).
+        // Certificat TLS (HTTPS/WSS). DEV : génération auto — mkcert (CA locale
+        // trustée → 0 warning navigateur, HMR Vite) si dispo, sinon auto-signé
+        // node-forge (SHA-256). PROD : fournir un VRAI certificat (Let's Encrypt,
+        // ingress k8s, reverse-proxy edge) — Nodefony n'est PAS une autorité de
+        // certification ; la génération reste un confort de DÉVELOPPEMENT.
+        // (Re)génération / inspection manuelle : `nodefony certificates [--force]`.
         certificates: {
+          // PROD : décommenter pour fournir le vrai certificat (fail-fast si absent).
+          // strategy: "explicit",
+          // key: ctx.env.TLS_KEY, cert: ctx.env.TLS_CERT, ca: ctx.env.TLS_CA,
           openssl: {
             size: 2048,
+            // Hachage de signature — JAMAIS SHA-1 (interdit CA/B Forum, SHAttered 2017).
+            hash: "sha256",
+            validityDays: 365,
             attrs: [
               {
                 name: "commonName",
@@ -123,6 +133,14 @@ export default defineConfig<Env>((ctx) => ({
               { name: "localityName", value: "Marseille" },
             ],
           },
+          // Subject Alternative Name — fait foi pour la vérification d'hôte
+          // (RFC 6125 : le commonName est ignoré). Vide = dérivé du kernel
+          // (localhost + domain ; une IP va en iPAddress). Banc reverse-proxy
+          // par domaine (NF_BIND_ALL) : couvrir `nodefony.com` pour permettre à
+          // haproxy `verify required` + `sni` de valider le cert backend.
+          san: ctx.env.NF_BIND_ALL
+            ? { dns: ["nodefony.com", "localhost"], ip: ["127.0.0.1", "::1"] }
+            : { dns: [], ip: [] },
         },
         // Barrière Host (consommée si `domainCheck: true` ci-dessus) : le domaine
         // canonique est toujours accepté ; on liste localhost + 127.0.0.1 pour taper

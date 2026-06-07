@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-07T07:57:30.466Z",
+  "generated": "2026-06-07T18:16:12.000Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 832,
-    "symbols": 1683,
-    "classes": 247,
-    "interfaces": 420,
-    "types": 211,
+    "files": 833,
+    "symbols": 1690,
+    "classes": 248,
+    "interfaces": 422,
+    "types": 214,
     "enums": 3,
-    "functions": 326,
+    "functions": 327,
     "constants": 476
   },
   "symbols": {
@@ -5304,6 +5304,17 @@
       "module": "@nodefony/frontend",
       "description": "Famille servie sur le port de base (`devPort`). Les autres familles prennent les blocs de ports suivants. Garder `default` ici garantit que l'instance principale (React/Vue/Studio) reste sur le por…"
     },
+    "Certificates": {
+      "name": "Certificates",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande CLI `certificates` — (re)génère et inspecte le certificat TLS de DÉVELOPPEMENT. La génération reste un confort de dev : en production, fournir un vrai certificat (`certificates.strategy: \"…"
+    },
     "Network": {
       "name": "Network",
       "kind": "class",
@@ -5773,7 +5784,8 @@
       "module": "@nodefony/http",
       "extends": "Service",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Service de fourniture du certificat TLS du serveur HTTPS/WSS. Trois stratégies : `explicit` (certificat fourni en config — le cas de PRODUCTION), `mkcert` (CA locale trustée, confort de dev) et `se…"
     },
     "OpensslOptions": {
       "name": "OpensslOptions",
@@ -5792,6 +5804,15 @@
       "extends": null,
       "description": "Options de génération du certificat TLS en mode développement."
     },
+    "CertificateSanOptions": {
+      "name": "CertificateSanOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Subject Alternative Name explicite (sinon dérivé du kernel)."
+    },
     "CertificateOptions": {
       "name": "CertificateOptions",
       "kind": "interface",
@@ -5799,6 +5820,31 @@
       "exported": true,
       "module": "@nodefony/http",
       "extends": null
+    },
+    "CertificateInfo": {
+      "name": "CertificateInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Résumé introspectable du certificat serveur (CLI + futur endpoint Studio)."
+    },
+    "CertHash": {
+      "name": "CertHash",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Algorithmes de hachage de signature autorisés (SHA-1 banni)."
+    },
+    "CertStrategyConfig": {
+      "name": "CertStrategyConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Stratégie de fourniture du certificat exposée en configuration."
     },
     "DefaultErrorRenderer": {
       "name": "DefaultErrorRenderer",
@@ -12366,6 +12412,7 @@
         "FrontendBuild",
         "FrontendDev",
         "FrontendStatus",
+        "Certificates",
         "Network",
         "SequelizeCommand"
       ],
@@ -12789,6 +12836,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
@@ -13098,6 +13146,7 @@
       "inspect": [
         "src/nodefony/src/Error.ts",
         "src/nodefony/src/syslog/Syslog.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
       ],
       "EventEmitter": [
@@ -13635,6 +13684,7 @@
       ],
       "Certificate": [
         "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "Context": [
@@ -13943,6 +13993,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
@@ -14458,6 +14509,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],

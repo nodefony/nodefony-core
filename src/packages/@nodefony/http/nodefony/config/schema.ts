@@ -309,6 +309,30 @@ const opensslSchema = z
       .describe(
         "Taille de la clé RSA (bits). 2048 minimum, 4096 recommandé en prod.",
       ),
+    hash: z
+      .enum(["sha256", "sha384", "sha512"])
+      .default("sha256")
+      .describe(
+        "Algorithme de hachage de la signature. SHA-1 INTERDIT (collision " +
+          "SHAttered 2017 ; CA/Browser Forum depuis 2016).",
+      ),
+    validityDays: z
+      .number()
+      .int()
+      .positive()
+      .default(365)
+      .describe(
+        "Durée de validité du certificat (jours). ≤ 398 recommandé (CA/B Forum).",
+      ),
+    backdateMinutes: z
+      .number()
+      .int()
+      .min(0)
+      .default(5)
+      .describe(
+        "Recul de notBefore (minutes) — tolère le décalage d'horloge du client " +
+          "(évite « certificate not yet valid »).",
+      ),
     attrs: meta(z.array(opensslAttrSchema).default([]), {
       kernelDerived: true,
       description:
@@ -317,6 +341,24 @@ const opensslSchema = z
     }),
   })
   .describe("Options de génération du certificat auto-signé (node-forge).");
+
+const sanSchema = z
+  .object({
+    dns: meta(z.array(z.string()).default([]), {
+      kernelDerived: true,
+      description:
+        "Noms DNS du Subject Alternative Name (RFC 5280 §4.2.1.6). Vide = " +
+        "dérivé du kernel (localhost + domain).",
+    }),
+    ip: z
+      .array(z.string())
+      .default([])
+      .describe("Adresses IP du SAN. Vide = dérivé (127.0.0.1, ::1)."),
+  })
+  .describe(
+    "Subject Alternative Name explicite. Vide = dérivé (localhost + domaine " +
+      "kernel). Chrome ignore le commonName depuis RFC 2818 → le SAN fait foi.",
+  );
 
 const certDevSchema = z
   .object({
@@ -332,6 +374,16 @@ const certDevSchema = z
 
 const certificatesSchema = z
   .object({
+    strategy: z
+      .enum(["auto", "mkcert", "selfsigned", "explicit"])
+      .default("auto")
+      .describe(
+        "Stratégie de fourniture du certificat. `auto` (défaut) = mkcert si " +
+          "dispo en dev, sinon auto-signé. `explicit` = `key`/`cert` fournis " +
+          "(PROD : Let's Encrypt, ingress…). `mkcert`/`selfsigned` = forcer. " +
+          "La génération est un confort de DÉVELOPPEMENT — en prod, fournir un " +
+          "vrai certificat (Nodefony n'est pas une autorité de certification).",
+      ),
     ca: z
       .string()
       .default("")
@@ -344,6 +396,13 @@ const certificatesSchema = z
       .string()
       .default("")
       .describe("Chemin du certificat TLS. Vide = généré."),
+    privateKeyMode: meta(z.number().int().default(0o600), {
+      description:
+        "Permissions POSIX de la clé privée écrite sur disque (0600 = " +
+        "lecture/écriture owner uniquement). Une clé TLS ne doit JAMAIS être " +
+        "world-readable.",
+    }),
+    san: sanSchema.default(() => sanSchema.parse({})),
     dev: certDevSchema.default(() => certDevSchema.parse({})),
     openssl: opensslSchema.default(() => opensslSchema.parse({})),
   })

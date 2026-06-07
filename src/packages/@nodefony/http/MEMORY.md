@@ -45,6 +45,34 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
 | `WebsocketResponse` | `src/context/websocket/Response.ts`         | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)`                                                          |
 | `HttpError`         | `src/errors/httpError.ts`                   | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `(context as any)?.resolver` (évite import circulaire avec `@nodefony/framework`)  |
 
+## Certificates TLS — service + CLI (durci 2026-06-07)
+
+`service/certificates.ts` = fourniture du cert HTTPS/WSS. **Génération = DEV** (mkcert>auto-signé) ;
+**prod = `explicit`** (cert fourni, sinon WARNING fort — Nodefony ≠ CA de prod). `node-forge` chargé
+**lazy** (`loadForge`, `await import`) → JAMAIS importé en prod avec cert explicite.
+
+- **Stratégies** (`certificates.strategy`) : `auto` (défaut : mkcert si dispo en dev → CA trustée HMR,
+  sinon `selfsigned`) | `mkcert` | `selfsigned` | `explicit` (`key`/`cert`/`ca` fournis).
+- **Conformité auto-signé** : SHA-256 (jamais SHA-1 — node-forge `sign()` SANS digest = SHA-1 par
+  défaut, piège), serial **`crypto.randomBytes(16)`** 128 bits (RFC 5280 §4.1.2.2, ≠ `01` fixe),
+  privkey **0600** + dossier 0700, `notBefore` backdaté (`backdateMinutes`), **SKI** (RFC 5280 §4.2.1.2),
+  SAN = vérité d'hôte (RFC 6125 ; CN ignoré). IP littérale → `iPAddress` jamais `dNSName`.
+- **SAN** : `certificates.san {dns,ip}` ; vide = dérivé kernel (`localhost`+`domain`, `0.0.0.0` exclu).
+  Banc reverse-proxy : `nodefony.config.ts` met `nodefony.com` quand `NF_BIND_ALL`.
+- **Reload** : `isCertAdequate` régénère si expiré / SHA-1 / SAN incomplet.
+- **Déclenchement** : auto au boot (`init`→`onBoot`→`generateServerCertificates`, idempotent) **+**
+  commande CLI. `generateServerCertificates()` appelle `setFiles()` en tête (auto-suffisant).
+- **`describe()`** : résumé introspectable (CLI + futur endpoint Studio, source unique).
+- ⚠️ `extend(true, {}, defaultOptions, …)` (cible `{}`) — sinon mute la constante partagée.
+
+### Commande CLI
+
+`nodefony certificates [--force] [--json]` (`command/certificatesCommand.ts`, `kernelEvent:"onBoot"`
+
+- `lifetime:oneshot` → ne démarre pas les serveurs) : (re)génère + imprime `describe()`. Réutilise le
+  service enregistré (`getModules().http.get("certificates")`). PKI complète offline (root+intermediate+
+  client) = `bin/generateCertificates.sh` (`npm run certificates`), outil avancé hors service.
+
 ## Servers
 
 | Service                 | Port | Type                        |
