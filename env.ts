@@ -66,4 +66,17 @@ export const env = defineEnv({
     optional: true,
     description: "URL HTTP de la destination OpenSearch (poussée + relecture).",
   }),
+
+  /**
+   * DEV uniquement — expose le serveur sur TOUTES les interfaces (`domain` 0.0.0.0
+   * au lieu de 127.0.0.1) ET active `trustProxy` (loopback + uniquelocal) pour
+   * honorer les en-têtes forwarded. Sert le **banc reverse-proxy Docker**
+   * (`docker compose --profile proxy`, joignable depuis les conteneurs). Défaut
+   * `false` : le dev reste loopback-only + zéro confiance proxy (sûr). En prod le
+   * bind est déjà 0.0.0.0 et `trustProxy` se règle explicitement.
+   */
+  NF_BIND_ALL: envBoolean({
+    default: false,
+    description: "DEV : bind 0.0.0.0 + trustProxy (banc reverse-proxy Docker).",
+  }),
 });

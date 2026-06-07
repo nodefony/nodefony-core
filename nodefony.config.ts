@@ -37,9 +37,10 @@ export default defineConfig<Env>((ctx) => ({
 
   // ── Réseau ──────────────────────────────────────────────────────────────────
   // Domaine d'écoute (un seul, pas de vhost). Prod = toutes interfaces (0.0.0.0,
-  // derrière l'ingress) ; dev = loopback. Ports/serveurs = défauts framework
-  // (HTTP 5151, HTTPS 5152 en HTTP/2, statics on) ; pour changer : `servers: { http: { port: 8080 } }`.
-  domain: ctx.isProd ? "0.0.0.0" : "127.0.0.1",
+  // derrière l'ingress) ; dev = loopback. `NF_BIND_ALL=1` (dev) force 0.0.0.0 pour
+  // exposer le serveur au banc reverse-proxy Docker (conteneurs). Ports/serveurs =
+  // défauts framework (HTTP 5151, HTTPS 5152 HTTP/2) ; changer : `servers: { http: { port } }`.
+  domain: ctx.isProd || ctx.env.NF_BIND_ALL ? "0.0.0.0" : "127.0.0.1",
   // Active la barrière Host kernel-level (anti Host-header injection) : un Host
   // entrant doit matcher la liste `trustedHosts` du module http. (`domainAlias`
   // legacy retiré — `trustedHosts` est l'unique allowlist consommée.)
@@ -130,6 +131,11 @@ export default defineConfig<Env>((ctx) => ({
         // 127.0.0.1), en prod via le vrai DNS. Le port est strippé avant le match
         // (cf domainMatcher) → `nodefony.com:5151` matche `nodefony.com`.
         trustedHosts: ["localhost", "127.0.0.1", "nodefony.com"],
+        // trustProxy : n'honore les en-têtes forwarded que derrière un proxy de
+        // confiance. Activé via NF_BIND_ALL (banc reverse-proxy Docker : IP source
+        // des conteneurs = réseau privé 172.16/12, 192.168/16, 10/8). En prod,
+        // régler explicitement selon l'ingress. Défaut SÛR : false (0 confiance).
+        trustProxy: ctx.env.NF_BIND_ALL ? ["loopback", "uniquelocal"] : false,
         // Stockage de session via @nodefony/drizzle (orm-core).
         session: { handler: "drizzle" },
         formidable: { uploadDir: "./tmp/upload" },

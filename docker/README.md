@@ -54,27 +54,28 @@ derrière un vrai reverse-proxy. `nginx` pose les `X-Forwarded-*` (de-facto),
 > toujours ce vhost (qui doit être dans `http.trustedHosts` — déjà configuré).
 >
 > ⚠️ **Prérequis bind** : en dev, Nodefony écoute sur `127.0.0.1` (`domain`),
-> **injoignable depuis un conteneur**. Lancer le serveur en bindant une IP
-> joignable depuis Docker (`domain: "0.0.0.0"`), sinon les upstreams tombent.
+> **injoignable depuis un conteneur**. Lancer le serveur avec **`NF_BIND_ALL=1`**
+> → bind `0.0.0.0` + `trustProxy` (loopback + uniquelocal) activés pour le banc :
+>
+> ```bash
+> NF_BIND_ALL=1 bash .claude/skills/nodefony-start-server/start.sh
+> ```
+>
 > Côté **client**, `nodefony.com` doit pointer sur `127.0.0.1` dans `/etc/hosts`
 > de l'hôte (`127.0.0.1   nodefony.com`) pour taper `http://nodefony.com:8080`.
 
 ```bash
-# 1. Démarrer les proxies
+# 1. Démarrer les proxies (Docker Desktop doit tourner : `docker ps`)
 docker compose -f docker/docker-compose.yml --profile proxy up -d
 #    nginx   → http://nodefony.com:8080   (ou http://localhost:8080)
 #    haproxy → http://nodefony.com:8081   (ou http://localhost:8081)
 ```
 
-**Prérequis `trustProxy`** : le serveur n'honore les en-têtes forwarded que si le
-socket vient d'un proxy de confiance. L'IP source des conteneurs = la **gateway
-Docker** (variable selon la plateforme). La repérer dans le 1ᵉʳ log de requête
-(`FROM : …`), puis configurer dans `nodefony.config.ts` :
-
-```ts
-use("@nodefony/http", { trustProxy: ["loopback", "uniquelocal"] }); // couvre 172.16/12, 192.168/16…
-// ou, en DEV seulement, confiance totale : trustProxy: true
-```
+**`trustProxy`** : le serveur n'honore les en-têtes forwarded que si le socket
+vient d'un proxy de confiance. `NF_BIND_ALL=1` l'active automatiquement avec
+`["loopback", "uniquelocal"]` (couvre les réseaux Docker privés 172.16/12,
+192.168/16, 10/8 d'où viennent les conteneurs). Hors banc, `trustProxy` reste
+`false` (zéro confiance). En prod, le régler explicitement selon l'ingress.
 
 **Scénario anti-spoof (cœur du fix #1)** :
 
