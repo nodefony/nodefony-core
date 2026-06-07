@@ -66,6 +66,7 @@ describe("@nodefony/http — sous-défauts (piège Zod 4 .default({}))", () => {
     expect(c.session.cookie.httpOnly).to.equal(true);
     expect(c.session.cookie.secure).to.equal(true);
     expect(c.session.cookie.signed).to.equal(false);
+    expect(c.session.cookie.hostPrefix).to.equal("auto");
     expect(c.certificates.openssl.size).to.equal(2048);
     expect(c.certificates.dev.useMkcert).to.equal(true);
     expect(c.statics.web.path).to.equal("public");

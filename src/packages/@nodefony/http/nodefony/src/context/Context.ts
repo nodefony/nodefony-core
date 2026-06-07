@@ -583,9 +583,18 @@ class Context extends Service implements IContextInterface {
    */
   getSessionCookieName(): string {
     const base = this.sessionService?.defaultSessionName ?? "nodefony";
-    return this.scheme === "https" || this.scheme === "wss"
-      ? `__Host-${base}`
-      : base;
+    // `cookie.hostPrefix` : "auto" (défaut, préfixe sur TLS) | true (toujours) |
+    // false (jamais). `true` permet à l'opérateur qui garantit le TLS côté client
+    // (proxy terminant le TLS) de forcer `__Host-` même si le transport local est http.
+    const mode =
+      (
+        this.sessionService?.options?.cookie as
+          | { hostPrefix?: boolean | "auto" }
+          | undefined
+      )?.hostPrefix ?? "auto";
+    const tls = this.scheme === "https" || this.scheme === "wss";
+    const usePrefix = mode === true || (mode === "auto" && tls);
+    return usePrefix ? `__Host-${base}` : base;
   }
 
   parseCookies(): void {

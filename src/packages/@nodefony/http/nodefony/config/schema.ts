@@ -474,6 +474,15 @@ const sessionCookieSchema = z
       .boolean()
       .default(false)
       .describe("Signe le cookie avec le secret HMAC du kernel."),
+    hostPrefix: z
+      .union([z.boolean(), z.literal("auto")])
+      .default("auto")
+      .describe(
+        "Préfixe `__Host-` du cookie de session (RFC 6265bis / OWASP : " +
+          'anti session-fixation cross-subdomain). `"auto"` (défaut) = appliqué ' +
+          "sur transport TLS (https/wss) uniquement ; `true` = toujours (l'opérateur " +
+          "garantit le TLS côté client, ex. proxy terminant le TLS) ; `false` = jamais.",
+      ),
   })
   .describe("Options du cookie de session.");
 
