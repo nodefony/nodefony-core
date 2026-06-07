@@ -88,6 +88,10 @@ nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts pré
 À `onReady`, `server-static` auto-monte le `public/` de chaque module sous `/<basename(nom)>/` via `addMount` (`@nodefony/test`→`/test/`). **Skip** : app root (`isApp` → `./public` à `/` via `statics.web`, ex. favicon) ; modules frontend-managed (présents dans `frontend.listEntries()` → servis `/_assets/<name>/`, studio inclus) ; modules sans `public/` (http/framework/security skippés naturellement). Enregistré dans `.mounts` quel que soit `enabled` → introspectable par proxy:generate même statics OFF. `addMount` idempotent (remplace par préfixe). Fichiers à la RACINE de `public/` (pas de sous-dossier nom-de-module sinon `/test/test/`).
 **Config par module** `module.options.publicMount` (même pattern que `watch` — option top-level lue dans `mod.options`) : `false` = opt-out · `{ publicPath?, dir? }` = override (l'explicite PRIME sur le skip frontend) · absent = auto (`publicPath=/<basename>/`, `dir="public"`). `publicPath` = sémantique frontend.publicPath ; `dir` = dossier SOURCE (analogue entrée du `outDir` frontend). Validé runtime : override `{publicPath:"/medias"}` → `/medias/*` 200, `/test/*` 404.
 
+## Commande `assets:publish` (CDN-ready tree, provider-agnostic)
+
+`nodefony assets:publish [-o dir] [--clean] [--json]` (`command/assetsPublishCommand.ts`, planner PUR `src/assets/collectAssets.ts`, `kernelEvent:onReady`). Assemble TOUS les assets servables dans UN arbre `dist-assets/` miroir des préfixes + `manifest.json`. Sources = `server-static.mounts` (publics natifs, après `mountModulePublics()`) + `frontend.listEntries()` (`publicPath`→`outDir` buildé). `planAssetPublish(sources,outDir)` : dédup par préfixe (dernier gagne), `/x/y/`→`outDir/x/y`, `/`→outDir. **Nodefony ASSEMBLE, l'orchestrateur PUBLIE** (`aws s3 sync`/rsync/CI) — 0 dep cloud. Combine avec `frontend.assetBaseUrl` (URLs émises → CDN). Kernel console = modules PROD (dev-only absents = correct). Tests : `collectAssets.test.ts` (4). Validé : studio `/_assets/studio/` 127 fichiers + manifest.
+
 ## Servers
 
 | Service                 | Port | Type                        |

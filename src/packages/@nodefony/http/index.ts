@@ -15,6 +15,7 @@ import StaticServer from "./nodefony/service/servers/server-static";
 import networkCommand from "./nodefony/command/networkCommand";
 import certificatesCommand from "./nodefony/command/certificatesCommand";
 import proxyGenerateCommand from "./nodefony/command/proxyGenerateCommand";
+import assetsPublishCommand from "./nodefony/command/assetsPublishCommand";
 import SessionsService from "./nodefony/service/sessions/sessions-service";
 import Certificate from "./nodefony/service/certificates";
 import Context from "./nodefony/src/context/Context";
@@ -52,6 +53,7 @@ class Http extends Module {
     this.addCommand(networkCommand);
     this.addCommand(certificatesCommand);
     this.addCommand(proxyGenerateCommand);
+    this.addCommand(assetsPublishCommand);
   }
 
   /**

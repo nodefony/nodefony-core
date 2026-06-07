@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-07T20:37:22.127Z",
+  "generated": "2026-06-07T21:58:19.871Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 835,
-    "symbols": 1702,
-    "classes": 249,
-    "interfaces": 425,
+    "files": 837,
+    "symbols": 1709,
+    "classes": 250,
+    "interfaces": 429,
     "types": 215,
     "enums": 3,
-    "functions": 333,
+    "functions": 335,
     "constants": 477
   },
   "symbols": {
@@ -5303,6 +5303,17 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "Famille servie sur le port de base (`devPort`). Les autres familles prennent les blocs de ports suivants. Garder `default` ici garantit que l'instance principale (React/Vue/Studio) reste sur le por…"
+    },
+    "AssetsPublish": {
+      "name": "AssetsPublish",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande CLI `assets:publish` — assemble TOUS les assets statiques servables (publics de module montés sous `/<module>/` + bundles `@nodefony/frontend` sous `/_assets/<name>/`) dans UN arbre `dist-…"
     },
     "Certificates": {
       "name": "Certificates",
@@ -11167,6 +11178,32 @@
       "implements": [],
       "decorators": []
     },
+    "AssetSource": {
+      "name": "AssetSource",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/collectAssets.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Une source d'assets statiques : un dossier servi sous un préfixe d'URL. Provient soit des montages natifs `server-static.mounts` (publics de module), soit des bundles `@nodefony/frontend` (`publicP…"
+    },
+    "AssetPlanEntry": {
+      "name": "AssetPlanEntry",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/collectAssets.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Une entrée du plan de publication : copier `dir` → `target` (sous-arbre de `outDir` miroir du préfixe d'URL), servi à terme par le CDN sous `prefix`."
+    },
+    "planAssetPublish": {
+      "name": "planAssetPublish",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/collectAssets.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Construit le plan de publication des assets : pour chaque source unique (dédupliquée par préfixe — le DERNIER gagne, comme `addMount`), calcule le dossier cible `outDir/<préfixe-en-chemin>` miroir …"
+    },
     "Context": {
       "name": "Context",
       "kind": "class",
@@ -12465,6 +12502,7 @@
         "FrontendBuild",
         "FrontendDev",
         "FrontendStatus",
+        "AssetsPublish",
         "Certificates",
         "Network",
         "ProxyGenerate",
@@ -12890,6 +12928,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
@@ -14048,6 +14087,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
@@ -14565,6 +14605,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
@@ -15305,6 +15346,12 @@
       ],
       "ViteConfigGenerator": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
+      ],
+      "planAssetPublish": [
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts"
+      ],
+      "AssetSource": [
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts"
       ],
       "NetworkInterface": [
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
