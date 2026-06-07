@@ -488,6 +488,13 @@ $remote_addr`, RFC 7239 §8.1), l'append est réservé aux proxies INTERNES d'un
 
 ## 🔧 Git / commit (friction du jour)
 
+- `[1× — 2026-06-07]` **clé privée TLS commitée découverte (sécu)** : `git ls-files | grep -iE
+'certificates/.*\.(pem|key)'` a révélé `privkey.pem` (+ cert/fullchain/publickey) trackés dans
+  `src/packages/@nodefony/http/nodefony/config/certificates/` depuis **sept. 2024**. Cause : le pattern
+  `.gitignore` racine `nodefony/config/certificates` **contient un slash → ancré à la RACINE** (ne couvre
+  PAS le même chemin dans un sous-module). Fix : `git rm` + motif **`**/nodefony/config/certificates/`**
+  (le `**/` couvre tous les niveaux). → **Réflexe\*\* : à tout commit touchant des certs/secrets, `git
+ls-files | grep -iE '\.(pem|key|p12|pfx)$'` ; un motif gitignore avec slash n'est jamais récursif.
 - `[1× — 2026-06-06]` **commitlint `header-max-length` = 100** : un header conventional-commit FR
   descriptif dépasse vite (vécu : 112 car. — « refactor(http): réécriture cœur session.ts — TS strict,
   ID CSPRNG, dirty (étape 3) »). Header COURT (`type(scope): ` sujet bref), tout le détail dans le BODY

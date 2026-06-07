@@ -48,13 +48,13 @@ Passport ❌ · Sessions HTTP RAM ❌ (JWT cookie `HttpOnly;Secure;SameSite` onl
 
 ## 🛡️ Durcissement fondations (transverse — pas de lignes P dédiées)
 
-| Couche                | État | Résumé (détail → mémoire `project_hardening_*`)                                                                                                                                       |
-| --------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `nodefony` (core)     | ✅   | Kit C1→C6 clos (PM2 retiré, modes run `IRunProfile`, park, ménage boot −378 ms). `project_hardening_core_kit`                                                                         |
-| `@nodefony/http`      | ✅   | Kit H1→H6 + config Zod + domain matching + forwarded RFC 7239 COMPLET (IP from-right + `Forwarded` standard parsé #2/#5, §8.2) + banc proxy Docker E2E. `4dcd539`/`a7d3be7`/`1a2764e` |
-| `@nodefony/framework` | ✅   | F1→F7 (sauf F6 résolu via dette CLI) ; 176 tests unit ; 0 dette. `project_hardening_framework_kit`                                                                                    |
-| `@nodefony/realtime`  | 🔶   | **Déjà bien durci** : back-pressure WS, 0 dette, 14 tests, 5 seams sécu livrés. Reste S1 (mutualiser fan-out)                                                                         |
-| `@nodefony/orm-*`     | ⬜   | **🥇 PROCHAIN** — virage ORM (sequelize sort, mongoose refait, core orm retiré) + footgun `counts` sync                                                                               |
+| Couche                | État | Résumé (détail → mémoire `project_hardening_*`)                                                                                                                                                                                                                                                                                               |
+| --------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nodefony` (core)     | ✅   | Kit C1→C6 clos (PM2 retiré, modes run `IRunProfile`, park, ménage boot −378 ms). `project_hardening_core_kit`                                                                                                                                                                                                                                 |
+| `@nodefony/http`      | ✅   | Kit H1→H6 + config Zod + domain matching + forwarded RFC 7239 COMPLET + banc proxy Docker E2E + **service certificates durci** (RFC 5280/6125, SHA-256, serial 128b, 0600, lazy node-forge, CLI `certificates`) + **banc TLS re-encrypt validé** (verify required/verifyhost/sni) + `proxy:generate`. `1a2764e`/`65f7e41`/`0f302c3`/`6ac8562` |
+| `@nodefony/framework` | ✅   | F1→F7 (sauf F6 résolu via dette CLI) ; 176 tests unit ; 0 dette. `project_hardening_framework_kit`                                                                                                                                                                                                                                            |
+| `@nodefony/realtime`  | 🔶   | **Déjà bien durci** : back-pressure WS, 0 dette, 14 tests, 5 seams sécu livrés. Reste S1 (mutualiser fan-out)                                                                                                                                                                                                                                 |
+| `@nodefony/orm-*`     | ⬜   | **🥇 PROCHAIN** — virage ORM (sequelize sort, mongoose refait, core orm retiré) + footgun `counts` sync                                                                                                                                                                                                                                       |
 
 **Log Backplane** (`project_log_backplane_vision`) : axe WRITE (`LB.W`) ✅ + axe QUERY (`LB.0→LB.5`) ✅ — drivers
 `memory`/`file`/`cluster-file`/`loki`/`opensearch` queryables, validés runtime cluster + Loki/OpenSearch réels.
@@ -248,15 +248,15 @@ DI scopes (singleton/transient), lifecycle session.
 
 ### P11 — CLI par module (33 %)
 
-| #        | Tâche                                         | État                                                                                                                   |
-| -------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| 🔶 P11.1 | Tests intégration commandes existantes        | filet spawn livré (`RUN_CLI_BOOT=1`) ; reste commandes métier                                                          |
-| ⬜ P11.2 | Commandes `http:*`                            | couplée API admin Studio                                                                                               |
-| ⬜ P11.3 | Commandes `framework:*`/`security:*`/`user:*` | —                                                                                                                      |
-| ⬜ P11.4 | Commandes `orm:migrate/…`                     | délègue CLI ORM natifs (Drizzle/Mongoose)                                                                              |
-| ⬜ P11.5 | Commandes `logs:tail/filter` + bridge Studio  | LB.3b                                                                                                                  |
-| ✅ P11.6 | Boot UX dev — BootReporter                    | spinner/checklist dev-only + help modules + Vite checklist                                                             |
-| ⬜ P11.7 | Commande `proxy:generate nginx\|haproxy`      | dérive la conf reverse-proxy de l'introspection (public/, domaines, trustProxy) ; résout le trou statics multi-modules |
+| #        | Tâche                                                | État                                                                                                                                                                                                               |
+| -------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 🔶 P11.1 | Tests intégration commandes existantes               | filet spawn livré (`RUN_CLI_BOOT=1`) ; reste commandes métier                                                                                                                                                      |
+| ⬜ P11.2 | Commandes `http:*`                                   | couplée API admin Studio                                                                                                                                                                                           |
+| ⬜ P11.3 | Commandes `framework:*`/`security:*`/`user:*`        | —                                                                                                                                                                                                                  |
+| ⬜ P11.4 | Commandes `orm:migrate/…`                            | délègue CLI ORM natifs (Drizzle/Mongoose)                                                                                                                                                                          |
+| ⬜ P11.5 | Commandes `logs:tail/filter` + bridge Studio         | LB.3b                                                                                                                                                                                                              |
+| ✅ P11.6 | Boot UX dev — BootReporter                           | spinner/checklist dev-only + help modules + Vite checklist                                                                                                                                                         |
+| ✅ P11.7 | Commande `proxy:generate nginx\|haproxy` (`6ac8562`) | dérive la conf de l'introspection (statiques, domaines sans IP, ports) ; nginx résout le trou statics multi-modules (chaîne `try_files`) ; haproxy proxy + Forwarded + `--reencrypt` ; générateurs purs (12 tests) |
 
 ### P13 — Realtime distribué (77 %)
 
