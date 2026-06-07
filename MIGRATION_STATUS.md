@@ -48,13 +48,13 @@ Passport ❌ · Sessions HTTP RAM ❌ (JWT cookie `HttpOnly;Secure;SameSite` onl
 
 ## 🛡️ Durcissement fondations (transverse — pas de lignes P dédiées)
 
-| Couche                | État | Résumé (détail → mémoire `project_hardening_*`)                                                               |
-| --------------------- | ---- | ------------------------------------------------------------------------------------------------------------- |
-| `nodefony` (core)     | ✅   | Kit C1→C6 clos (PM2 retiré, modes run `IRunProfile`, park, ménage boot −378 ms). `project_hardening_core_kit` |
-| `@nodefony/http`      | ✅   | Kit H1→H6 + config Zod + domain matching (`trustedHosts` + `@Domain`). `project_hardening_http_kit`           |
-| `@nodefony/framework` | ✅   | F1→F7 (sauf F6 résolu via dette CLI) ; 176 tests unit ; 0 dette. `project_hardening_framework_kit`            |
-| `@nodefony/realtime`  | 🔶   | **Déjà bien durci** : back-pressure WS, 0 dette, 14 tests, 5 seams sécu livrés. Reste S1 (mutualiser fan-out) |
-| `@nodefony/orm-*`     | ⬜   | **🥇 PROCHAIN** — virage ORM (sequelize sort, mongoose refait, core orm retiré) + footgun `counts` sync       |
+| Couche                | État | Résumé (détail → mémoire `project_hardening_*`)                                                                     |
+| --------------------- | ---- | ------------------------------------------------------------------------------------------------------------------- |
+| `nodefony` (core)     | ✅   | Kit C1→C6 clos (PM2 retiré, modes run `IRunProfile`, park, ménage boot −378 ms). `project_hardening_core_kit`       |
+| `@nodefony/http`      | ✅   | Kit H1→H6 + config Zod + domain matching + forwarded RFC 7239 (IP from-right anti-spoof, §8.2). `4dcd539`/`a7d3be7` |
+| `@nodefony/framework` | ✅   | F1→F7 (sauf F6 résolu via dette CLI) ; 176 tests unit ; 0 dette. `project_hardening_framework_kit`                  |
+| `@nodefony/realtime`  | 🔶   | **Déjà bien durci** : back-pressure WS, 0 dette, 14 tests, 5 seams sécu livrés. Reste S1 (mutualiser fan-out)       |
+| `@nodefony/orm-*`     | ⬜   | **🥇 PROCHAIN** — virage ORM (sequelize sort, mongoose refait, core orm retiré) + footgun `counts` sync             |
 
 **Log Backplane** (`project_log_backplane_vision`) : axe WRITE (`LB.W`) ✅ + axe QUERY (`LB.0→LB.5`) ✅ — drivers
 `memory`/`file`/`cluster-file`/`loki`/`opensearch` queryables, validés runtime cluster + Loki/OpenSearch réels.

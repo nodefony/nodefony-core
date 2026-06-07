@@ -27,6 +27,11 @@
   en voyait 4) : un daemon claude détaché peut rester hung et saturer le CPU. → `ps -Ao pid,%cpu,etime,command | grep
 claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung (`kill <pid>`) — ne pas tuer un
   process claude depuis la session active. Le serveur dev (nodefony+vite) à 0 % CPU n'était PAS le coupable.
+- `[1× — 2026-06-07]` **le cwd PERSISTE entre appels Bash après un `npm run`/`cd <module>`** : après `cd
+src/packages/@nodefony/http` (implicite via les `npm run build/test`), un `git add src/packages/@nodefony/http/...`
+  depuis ce cwd cherche `…/http/src/packages/@nodefony/http/…` → `pathspec did not match`. → soit chemins
+  **relatifs au cwd courant** (`git add nodefony/src/...`), soit `git -C <racine>`. Variante de
+  [[feedback_cd_startsh_relative_path]] (ici = persistance du cwd, pas un `cd` inline).
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
@@ -76,6 +81,11 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   fixer orm-core a fermé (orm-core ne dépend que du core, buildé en 1er). Documenté table types `CLAUDE.md`.
 - `[1× — 2026-06-05]` **commitlint `subject-case` rejette un sujet commençant par un mot MAJUSCULE** (« README … »)
   → sujet en minuscule après le type : `docs(x): readme …`. (macOS : pas de `timeout` → `gtimeout` ou background+kill.)
+- `[1× — 2026-06-07]` **écrire dans un dossier d'infra PARTAGÉ (`docker/`) = `find` + Read l'existant AVANT** : le
+  `docker/docker-compose.yml` était déjà l'infra dev (Redis/Kafka/Loki/Grafana/OpenSearch, par PROFILS) → un `Write`
+  l'aurait écrasé, mais le tool a refusé (« file not read ») = garde-fou. → intégrer via le **pattern existant**
+  (nouveau `--profile proxy`), pas un fichier compose séparé (convention-frère). Vérifier `git ls-files docker/`
+  - `find docker -type f` quand on ajoute à un répertoire qu'on n'a pas créé.
 
 ## 🧹 Refonte / consolidation (frictions du jour)
 
