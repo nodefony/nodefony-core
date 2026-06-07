@@ -302,7 +302,7 @@ Extension de l'`AuditErrorEntry` :
 
 **onConnection** dans http-kernel : `catch` silencieux — erreurs WS avalées, vérifier logs DEBUG.
 
-**Sessions WS** : nécessitent `startSession()` dans `initialize()` du controller.
+**Activation session (refonte 2026-06-07, plug runtime)** : plus de `startSession()`. Une session s'ouvre via l'**intent** déclaré `@UseSession({context?,readOnly?,eager?})` (framework, classe/méthode) **OU** un paramètre `@Session` **OU** un cookie de session existant (reprise L1). Point d'activation UNIQUE `HttpKernel.startSession(context)` (HTTP **et** WS, symétrique), lit `context.sessionIntent` (posé par le Resolver). Lazy : 0 session/0 write sinon (fin du `sessionAutoStart` global = le ×23). `Session.readOnly` → `save()` no-op. `cookie.hostPrefix` (`auto`|`true`|`false`) → préfixe `__Host-` sur scheme **effectif** (TLS, honore X-Forwarded-Proto si trustProxy). Cookie nommé via `Context.getSessionCookieName()` (lecture=écriture). `regenerateId()` = seam P6 (anti-fixation). `absolute_timeout` (OWASP) en + de l'idle.
 
 **Session storage = IoC** : `SessionsService` tient un **registre statique** (`registerStorage/getStorage/storageHandlers`) ; http n'importe AUCUN ORM. Chaque backend s'auto-enregistre au chargement (`files` par http ; `drizzle`/`sequelize`/`mongoose` par leur module). Sélection via config `session.handler` (casse-insensible). Events kernel `onRegisterSessionStorage` / `onSessionStorageReady`. Défaut reco = `drizzle`. Guide : [[guide session-storage]] (`docs/guides/session-storage.md`). ⚠️ appeler `registerStorage` rend l'import http VALEUR → externaliser `@nodefony/http` dans le rollup du module fournisseur.
 

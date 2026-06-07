@@ -390,11 +390,21 @@ export class ThingsController extends Controller {
 - **Hook `initialize()`** (per-request, **opt-in**) : si le controller le définit, `Resolver.newController()`
   l'`await` **juste APRÈS l'instanciation DI (`Injector.instantiate`) et AVANT l'action** (HTTP **et** WS).
   Async, doit `return this`. Le `Controller` de base ne le déclare PAS (interface-marqueur `IInitializable`
-  côté Resolver) → c'est un opt-in userland. Place idéale pour `this.startSession(...)`, précharger des
-  données communes à toutes les actions, vérifs pré-action. Une exception levée ici **annule l'action**.
-- **Session** : `this.startSession("name")` dans `initialize()` (HTTP **et** WS) ; accès direct via
-  `@inject("session")`. Sessions = IoC (`SessionsService` registre statique, http n'importe aucun ORM ;
-  handler config `session.handler`, défaut reco `drizzle`).
+  côté Resolver) → c'est un opt-in userland. Place idéale pour précharger des données communes à toutes
+  les actions, vérifs pré-action. Une exception levée ici **annule l'action**. (⚠️ la session N'est PAS
+  encore active dans `initialize()` — l'activation est au point pipeline, avant l'action ; utiliser
+  `@UseSession({ eager: true })` si la session doit être prête dès `initialize()`.)
+- **Session (refonte 2026-06-07 — plug runtime, plus de `startSession()`)** : activation = décorateur
+  **`@UseSession({ context?, readOnly?, eager? })`** (classe/méthode, dual, patron `@Domain`) **OU** un
+  paramètre **`@Session`** (intent implicite) **OU** un cookie de session existant (reprise **L1**).
+  **Lazy** par défaut : 0 session / 0 write si rien déclaré (a tué le `sessionAutoStart` global = le ×23).
+  Point d'activation **UNIQUE** `HttpKernel.startSession(context)` (HTTP **et** WS, symétrique) lit
+  `context.sessionIntent` posé par `Resolver.match()` (`resolveSessionIntent`). Accès : `this.session`
+  (**getter** sur `context.session`) / `@Session()` (objet) / `@Session("k")` (= `session.get("k")`).
+  `Session.readOnly` → `save()` no-op. Cookie : `__Host-<name>` sur scheme **effectif** (TLS, honore
+  X-Forwarded-Proto si trustProxy) via `Context.getSessionCookieName()`, réglable `cookie.hostPrefix`
+  (`auto`|`true`|`false`). `regenerateId()` = seam P6 (anti-fixation). `absolute_timeout` (OWASP). Sessions =
+  IoC (`SessionsService` registre statique, http n'importe aucun ORM ; handler `session.handler`, défaut `drizzle`).
 - **Cookies** : `this.context.cookies` (`Cookies` map) — `getCookie(name)` / `setCookie(new Cookie(name, val, opts))`.
   Conformité RFC 6265 (SameSite/Secure/HttpOnly) → skill `nodefony-rfc`. Réponse : `HttpResponse`/`Http2Response`
   (`setBody`/`setStatus`/`redirect`) — le cas courant passe par `renderJson`/`render*`.
