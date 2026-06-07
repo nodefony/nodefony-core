@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-07T07:17:58.181Z",
+  "generated": "2026-06-07T07:57:30.466Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 831,
-    "symbols": 1671,
+    "files": 832,
+    "symbols": 1683,
     "classes": 247,
-    "interfaces": 418,
-    "types": 210,
+    "interfaces": 420,
+    "types": 211,
     "enums": 3,
-    "functions": 317,
+    "functions": 326,
     "constants": 476
   },
   "symbols": {
@@ -11205,6 +11205,64 @@
       "module": "@nodefony/http",
       "description": "Teste un `Host` entrant contre une liste de `RegExp` pré-compilée."
     },
+    "ForwardedElement": {
+      "name": "ForwardedElement",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Un `forwarded-element` parsé (RFC 7239 §4) : un saut de la chaîne de proxy. Les paramètres inconnus (extensibilité §5.4) sont ignorés silencieusement."
+    },
+    "ResolvedProxy": {
+      "name": "ResolvedProxy",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Résolution canonique unifiée des en-têtes forwarded."
+    },
+    "ForwardedHeaders": {
+      "name": "ForwardedHeaders",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Parsing et résolution **canonique** des en-têtes de transfert (forwarded), conforme **RFC 7239** (« Forwarded HTTP Extension ») et compatible avec les en-têtes `X-Forwarded-*` de-facto (non normali…"
+    },
+    "parseForwarded": {
+      "name": "parseForwarded",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Parse le header `Forwarded` (RFC 7239 §4) en liste de `forwarded-element`, dans l'ordre **gauche→droite** (le plus à gauche = le plus proche du client). Grammaire honorée : `Forwarded = 1#forwarded…"
+    },
+    "forwardedNodeIp": {
+      "name": "forwardedNodeIp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Extrait l'**IP nue** d'un node identifier RFC 7239 §6 (`node = nodename [ \":\" node-port ]`). - IPv6 entre crochets (`[2001:db8::1]`, éventuel `]:port`) → l'IPv6 sans crochets. - IPv4 (`192.0.2.43`,…"
+    },
+    "resolveForwarded": {
+      "name": "resolveForwarded",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Résout, en **une seule passe**, le scheme, le host et l'IP cliente effectifs à partir des en-têtes forwarded — header standard `Forwarded` (RFC 7239) **prioritaire**, repli sur les `X-Forwarded-*` …"
+    },
+    "hasForwardingHeaders": {
+      "name": "hasForwardingHeaders",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Au moins un en-tête forwarded (standard ou de-facto) est-il présent ? Permet à l'appelant de n'allouer la résolution que quand c'est utile (hot path : 0 alloc sur une requête directe sans proxy)."
+    },
     "IMetaDataRouteSource": {
       "name": "IMetaDataRouteSource",
       "kind": "interface",
@@ -11271,6 +11329,14 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Compile une config `trustProxy` en un {@link TrustProxyChecker} (une fois, au boot — pas par requête). Les entrées invalides lèvent à la compilation (fail fast) plutôt que silencieusement par requête."
+    },
+    "resolveFromRight": {
+      "name": "resolveFromRight",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/trustProxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Cœur de la résolution **from-right** (OWASP) partagé par `X-Forwarded-For` (de-facto) et le paramètre `for` du header `Forwarded` (RFC 7239 §5.2). `chain` = liste des maillons forwarded NORMALISÉS …"
     },
     "extractClientIp": {
       "name": "extractClientIp",
@@ -15212,7 +15278,8 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "TrustProxyChecker": [
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts"
       ],
       "TrustProxyConfig": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
@@ -17021,6 +17088,12 @@
       "AfterResponseHandler": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
+      "resolveFromRight": [
+        "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts"
+      ],
+      "extractClientIp": [
+        "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts"
+      ],
       "MetaData": [
         "src/packages/@nodefony/http/nodefony/src/context/metaData.ts"
       ],
@@ -17192,7 +17265,15 @@
       "IUploadOptions": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
-      "extractClientIp": [
+      "resolveForwarded": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "hasForwardingHeaders": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "ResolvedProxy": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],

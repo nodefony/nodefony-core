@@ -26,9 +26,10 @@ class Http2Request extends HttpRequest {
 
   override getFullUrl(): string {
     const myurl = `://${this.host}${this.headers[":path"]}`;
-    // Scheme proxifié honoré seulement derrière un proxy de confiance.
-    if (this.trustedProxy && this.headers?.["x-forwarded-proto"]) {
-      return `${this.headers["x-forwarded-proto"]}${myurl}`;
+    // Scheme effectif côté client : `Forwarded`/`X-Forwarded-*` résolu de façon
+    // canonique (this.forwarded, gated proxy de confiance) ; sinon le pseudo-header.
+    if (this.forwarded?.proto) {
+      return `${this.forwarded.proto}${myurl}`;
     }
     if (this.headers[":scheme"] === "https") {
       return `https${myurl}`;

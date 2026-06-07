@@ -124,6 +124,51 @@ export function buildTrustProxy(
 }
 
 /**
+ * Cœur de la résolution **from-right** (OWASP) partagé par `X-Forwarded-For`
+ * (de-facto) et le paramètre `for` du header `Forwarded` (RFC 7239 §5.2).
+ *
+ * `chain` = liste des maillons forwarded NORMALISÉS (IP nues, gauche→droite :
+ * `[client, proxy1, proxy2]`), telle qu'écrite par les proxies par **append à
+ * droite**. La partie gauche est forgeable par le client (cf {@link extractClientIp}).
+ * La résolution part de la **connexion réelle** (le socket, non forgeable) et
+ * remonte de DROITE à GAUCHE : tant que le maillon courant est un proxy de
+ * confiance, on passe au précédent ; le **premier maillon non fiable** est l'IP
+ * cliente réelle.
+ *
+ * Un maillon `null` (identifiant obfusqué `_secret`, `unknown`, ou node illisible
+ * — RFC 7239 §6.3/§8.3) est une **barrière non franchissable** : on ne peut pas
+ * en vérifier la confiance → on s'arrête et on retourne le dernier maillon de
+ * confiance connu (une vraie IP de l'infra), jamais `null` ni la valeur obfusquée.
+ *
+ * @param chain - maillons forwarded normalisés (IP ou `null` si obfusqué).
+ * @param socketAddress - `socket.remoteAddress` (connexion TCP réelle, fiable).
+ * @param checker - politique de confiance ({@link buildTrustProxy}).
+ * @returns l'IP cliente réelle résolue (toujours une valeur fiable).
+ */
+export function resolveFromRight(
+  chain: ReadonlyArray<string | null>,
+  socketAddress: string,
+  checker: TrustProxyChecker,
+): string {
+  let candidate = socketAddress;
+  for (let i = chain.length - 1; i >= 0; i -= 1) {
+    if (!checker.isTrusted(candidate)) {
+      return candidate; // 1ᵉʳ maillon non fiable = IP cliente réelle
+    }
+    const next = chain[i];
+    if (next === null) {
+      // Maillon obfusqué/illisible : on ne peut pas remonter plus loin de façon
+      // fiable → on garde le dernier proxy de confiance (vraie IP), pas null.
+      return candidate;
+    }
+    candidate = next;
+  }
+  // Toute la chaîne est de confiance → l'élément le plus à gauche est la
+  // meilleure approximation de l'origine.
+  return candidate;
+}
+
+/**
  * Résout l'adresse IP cliente RÉELLE à partir de la connexion socket et de la
  * chaîne `X-Forwarded-For`, en dépouillant les proxies de confiance **de droite
  * à gauche** (algorithme OWASP).
@@ -135,14 +180,9 @@ export function buildTrustProxy(
  * l'IP réelle après). Lire `XFF[0]` revient à lire la valeur du client →
  * **IP spoofing** (contournement de ban / rate-limit / allow-list / audit).
  *
- * La résolution sûre part de la **connexion réelle** (le socket, non forgeable)
- * et remonte la chaîne de DROITE à GAUCHE : tant que le maillon courant est un
- * proxy de confiance, on passe au précédent ; le **premier maillon non fiable**
- * rencontré est l'IP cliente réelle. Si toute la chaîne est de confiance (cas
- * LB interne maîtrisé), on retourne l'élément le plus à gauche.
- *
  * Hot path préservé : sans `X-Forwarded-For` (cas direct usuel) la fonction
- * retourne immédiatement le socket — 0 allocation (pas de split).
+ * retourne immédiatement le socket — 0 allocation (pas de split). Pour le header
+ * standard `Forwarded` (RFC 7239), voir `resolveForwarded` (module `forwarded`).
  *
  * @param xff - valeur brute de l'en-tête `X-Forwarded-For` (string, ou string[]
  *   si l'en-tête est répété), ou `undefined`.
@@ -164,19 +204,21 @@ export function extractClientIp(
   if (!xff) {
     return socketAddress;
   }
-  const list = (Array.isArray(xff) ? xff.join(",") : xff)
+  const s = Array.isArray(xff) ? xff.join(",") : xff;
+  // FAST PATH (cas prod dominant : 1 reverse-proxy) — un seul maillon, pas de
+  // virgule → 0 allocation (ni split, ni map, ni array). L'IP réelle = ce maillon
+  // si le socket (le proxy) est de confiance, sinon le socket lui-même.
+  if (s.indexOf(",") === -1) {
+    const ip = s.trim();
+    if (!ip) {
+      return socketAddress;
+    }
+    return checker.isTrusted(socketAddress) ? ip : socketAddress;
+  }
+  // Chaîne multi-proxy : résolution from-right complète.
+  const list = s
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
-  // On part du socket (connexion réelle) et on remonte XFF de droite à gauche.
-  let candidate = socketAddress;
-  for (let i = list.length - 1; i >= 0; i -= 1) {
-    if (!checker.isTrusted(candidate)) {
-      return candidate; // 1ᵉʳ maillon non fiable = IP cliente réelle
-    }
-    candidate = list[i];
-  }
-  // Toute la chaîne est de confiance → l'élément le plus à gauche est la
-  // meilleure approximation de l'origine.
-  return candidate;
+  return resolveFromRight(list, socketAddress, checker);
 }

@@ -1,6 +1,10 @@
 /// <reference types="node" />
 import { expect } from "chai";
-import { buildTrustProxy, extractClientIp } from "../../src/context/trustProxy";
+import {
+  buildTrustProxy,
+  extractClientIp,
+  resolveFromRight,
+} from "../../src/context/trustProxy";
 
 // Confiance envers les en-têtes X-Forwarded-* : ne faire confiance qu'aux
 // reverse-proxies déclarés. Fonction pure (config → checker isTrusted(addr)).
@@ -158,5 +162,46 @@ describe("extractClientIp — IP cliente from-right (anti-spoof)", () => {
     expect(
       extractClientIp("203.0.113.9", "::ffff:127.0.0.1", loopback),
     ).to.equal("203.0.113.9");
+  });
+});
+
+// Cœur from-right générique partagé par X-Forwarded-For et le `for` RFC 7239.
+// Opère sur une chaîne déjà normalisée (IP nues, `null` = maillon obfusqué).
+describe("resolveFromRight — cœur générique from-right", () => {
+  const loopback = buildTrustProxy("loopback");
+
+  it("chaîne vide → le socket lui-même", () => {
+    expect(resolveFromRight([], "203.0.113.9", loopback)).to.equal(
+      "203.0.113.9",
+    );
+  });
+
+  it("socket non fiable → socket (1er maillon non fiable)", () => {
+    expect(resolveFromRight(["1.2.3.4"], "203.0.113.9", loopback)).to.equal(
+      "203.0.113.9",
+    );
+  });
+
+  it("socket fiable → remonte au maillon le plus à droite (IP réelle)", () => {
+    expect(
+      resolveFromRight(["1.2.3.4", "203.0.113.9"], "127.0.0.1", loopback),
+    ).to.equal("203.0.113.9");
+  });
+
+  it("maillon null (obfusqué) = barrière → dernier proxy de confiance, jamais null", () => {
+    // socket fiable → on veut remonter mais le maillon de droite est obfusqué.
+    expect(resolveFromRight([null], "127.0.0.1", loopback)).to.equal(
+      "127.0.0.1",
+    );
+    expect(
+      resolveFromRight(["203.0.113.9", null], "127.0.0.1", loopback),
+    ).to.equal("127.0.0.1");
+  });
+
+  it("toute la chaîne de confiance → élément le plus à gauche", () => {
+    const t = buildTrustProxy(["loopback", "10.0.0.0/8"]);
+    expect(resolveFromRight(["10.0.0.1", "10.0.0.2"], "127.0.0.1", t)).to.equal(
+      "10.0.0.1",
+    );
   });
 });

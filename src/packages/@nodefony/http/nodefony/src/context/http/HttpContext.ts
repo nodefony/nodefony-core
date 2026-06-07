@@ -117,20 +117,26 @@ class HttpContext extends Context implements IHttpContextInterface {
     // pouvait casser les `switch (context.type)` (cookie/Resolver) sur une valeur
     // client arbitraire.
     this.proxy = null;
-    if (this.request.trustedProxy && request.headers["x-forwarded-for"]) {
+    // Résolution forwarded canonique calculée par Request (RFC 7239 `Forwarded`
+    // prioritaire, repli `X-Forwarded-*`) — déjà gated proxy de confiance.
+    // proto/for/host viennent de la résolution unifiée ; les champs de-facto
+    // (server/port/via/realIp/uri/scheme) restent lus bruts.
+    const fwd = this.request.forwarded;
+    if (fwd) {
       this.proxy = {
         proxyServer: <string>request.headers["x-forwarded-server"] || "unknown",
-        proxyProto: <string>request.headers["x-forwarded-proto"],
+        proxyProto: fwd.proto ?? <string>request.headers["x-forwarded-proto"],
         proxyScheme: <SchemeType>request.headers["x-forwarded-scheme"],
         proxyPort: <string>request.headers["x-forwarded-port"],
-        proxyFor: <string>request.headers["x-forwarded-for"],
-        proxyHost: <string>request.headers["x-forwarded-host"],
+        proxyFor:
+          fwd.forwardedFor ?? <string>request.headers["x-forwarded-for"],
+        proxyHost: fwd.host ?? <string>request.headers["x-forwarded-host"],
         proxyUri: <string>request.headers["x-original-uri"],
         proxyRealIp: <string>request.headers["x-real-ip"],
         proxyVia: <string>request.headers.via || "unknown",
       };
       this.log(
-        `PROXY REQUEST x-forwarded VIA : ${this.proxy.proxyVia}`,
+        `PROXY REQUEST ${fwd.fromStandard ? "Forwarded (RFC 7239)" : "x-forwarded"} VIA : ${this.proxy.proxyVia}`,
         "DEBUG",
       );
     }
