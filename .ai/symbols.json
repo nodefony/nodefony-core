@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-07T18:30:07.526Z",
+  "generated": "2026-06-07T18:47:27.986Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 833,
-    "symbols": 1690,
-    "classes": 248,
-    "interfaces": 422,
+    "files": 835,
+    "symbols": 1701,
+    "classes": 249,
+    "interfaces": 425,
     "types": 214,
     "enums": 3,
-    "functions": 327,
-    "constants": 476
+    "functions": 333,
+    "constants": 477
   },
   "symbols": {
     "Cli": {
@@ -5324,6 +5324,17 @@
       "extends": "Command",
       "implements": [],
       "decorators": []
+    },
+    "ProxyGenerate": {
+      "name": "ProxyGenerate",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande CLI `proxy:generate <nginx|haproxy>` — génère une configuration reverse-proxy DÉRIVÉE de l'introspection Nodefony (domaines de confiance, dossiers statiques servis, ports). Évite d'écrire …"
     },
     "INodefonyFieldMeta": {
       "name": "INodefonyFieldMeta",
@@ -11482,6 +11493,48 @@
       "extends": null,
       "description": "Résumé léger d'un profil pour la liste `recent` (sans les phases)."
     },
+    "ProxyStaticMount": {
+      "name": "ProxyStaticMount",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Générateurs de configuration reverse-proxy (nginx / haproxy) DÉRIVÉE de l'introspection Nodefony — fonctions PURES (aucun accès kernel/fs), testables et sérialisables. Le câblage (lecture des servi…"
+    },
+    "ProxyIntrospection": {
+      "name": "ProxyIntrospection",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Modèle d'introspection consommé par les générateurs."
+    },
+    "generateNginxConfig": {
+      "name": "generateNginxConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Génère une configuration nginx complète (reverse-proxy + offload statiques)."
+    },
+    "generateHaproxyConfig": {
+      "name": "generateHaproxyConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Génère une configuration haproxy (reverse-proxy + Forwarded RFC 7239). haproxy ne sert PAS de fichiers : les statiques sont proxifiés au backend (ou désactivés côté serveur via `statics.enabled: fa…"
+    },
+    "defaultIntrospection": {
+      "name": "defaultIntrospection",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Valeurs par défaut d'un modèle d'introspection (complété par la commande)."
+    },
     "@nodefony/http:Session": {
       "name": "Session",
       "kind": "class",
@@ -12414,6 +12467,7 @@
         "FrontendStatus",
         "Certificates",
         "Network",
+        "ProxyGenerate",
         "SequelizeCommand"
       ],
       "IClusterMessage": [
@@ -12838,6 +12892,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
       "Service": [
@@ -13995,6 +14050,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
       "loadEnv": [
@@ -14511,6 +14567,7 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
       "resolveTopology": [
@@ -15251,6 +15308,18 @@
       ],
       "NetworkInterface": [
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
+      ],
+      "generateNginxConfig": [
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
+      ],
+      "generateHaproxyConfig": [
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
+      ],
+      "defaultIntrospection": [
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
+      ],
+      "ProxyIntrospection": [
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
       ],
       "httpConfigSchema": [
         "src/packages/@nodefony/http/nodefony/config/config.ts",

@@ -73,6 +73,15 @@ Module Nodefony : tous les serveurs (HTTP/HTTPS/HTTP2/WS/WSS) + contextes. Diff�
   service enregistré (`getModules().http.get("certificates")`). PKI complète offline (root+intermediate+
   client) = `bin/generateCertificates.sh` (`npm run certificates`), outil avancé hors service.
 
+`nodefony proxy:generate <nginx|haproxy> [-o file] [-b host] [-l port] [--reencrypt]`
+(`command/proxyGenerateCommand.ts` + générateurs PURS `src/proxy/generateProxyConfig.ts`) : DÉRIVE la
+conf reverse-proxy de l'introspection (domaines=`trustedHosts` sans IP, ports `servers.{http,https}`,
+statiques = `server-static.servers` racines + `.mounts` préfixés, trustProxy). **nginx** résout le
+**trou statiques multi-modules** : N `public/` servis à `/` → **chaîne `try_files`** via locations
+nommées (`root d0`→`@r1`→…→`@nodefony`), fallback backend ; mounts préfixés → `location { alias }`.
+**haproxy** = proxy + Forwarded RFC 7239 (ne sert pas de fichiers) ; `--reencrypt` = backend HTTPS
+`verify required`+`verifyhost`+`sni`. Edge écrase XFF (`$remote_addr`). Tests : `generateProxyConfig.test.ts` (12).
+
 ## Servers
 
 | Service                 | Port | Type                        |

@@ -1,0 +1,235 @@
+/**
+ * Générateurs de configuration reverse-proxy (nginx / haproxy) DÉRIVÉE de
+ * l'introspection Nodefony — fonctions PURES (aucun accès kernel/fs), testables
+ * et sérialisables. Le câblage (lecture des services) vit dans la commande CLI
+ * `proxy:generate` ; ici on ne fait que transformer un modèle → texte de conf.
+ *
+ * Résout le « trou statiques multi-modules » : Nodefony sert N dossiers `public/`
+ * (racine + un par module) AU MÊME préfixe `/`. nginx ne sait pas servir N roots
+ * sous `/` → on génère une CHAÎNE de `try_files` via des locations nommées
+ * (root d0 → @r1 → root d1 → … → @nodefony), fallback final vers le backend.
+ */
+
+/** Un dossier statique servi sous un préfixe d'URL (mount préfixé). */
+export interface ProxyStaticMount {
+  /** Préfixe d'URL (ex. `/_assets/studio/`). */
+  prefix: string;
+  /** Dossier absolu servi. */
+  dir: string;
+}
+
+/** Modèle d'introspection consommé par les générateurs. */
+export interface ProxyIntrospection {
+  /** `server_name` (hôtes de confiance, IP exclues). Vide → `_` (catch-all). */
+  domains: string[];
+  /** Hôte du backend Nodefony à joindre (ex. `host.docker.internal`). */
+  backendHost: string;
+  /** Port HTTP du backend (clair). */
+  httpPort: number;
+  /** Port HTTPS/2 du backend (re-encrypt). */
+  httpsPort: number;
+  /** Dossiers statiques servis à la racine `/` (ordre = priorité). */
+  staticRoots: string[];
+  /** Montages statiques préfixés (servis tels quels). */
+  mounts: ProxyStaticMount[];
+  /** Port d'écoute du proxy généré (défaut 80). */
+  listen: number;
+  /** Re-chiffrer vers le backend HTTPS (true) ou forward en clair (false). */
+  reencrypt: boolean;
+}
+
+/** Valeurs par défaut d'un modèle d'introspection (complété par la commande). */
+export const defaultIntrospection: ProxyIntrospection = {
+  domains: [],
+  backendHost: "127.0.0.1",
+  httpPort: 5151,
+  httpsPort: 5152,
+  staticRoots: [],
+  mounts: [],
+  listen: 80,
+  reencrypt: false,
+};
+
+/** `server_name` nginx / hôte de comparaison — IP et `0.0.0.0` exclus. */
+function serverNames(domains: string[]): string {
+  const names = domains.filter((d) => d && d !== "0.0.0.0" && !isIpLiteral(d));
+  return names.length > 0 ? names.join(" ") : "_";
+}
+
+/** IP littérale (IPv4 ou IPv6) — ne va pas en `server_name`. */
+function isIpLiteral(host: string): boolean {
+  return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":");
+}
+
+/** En-têtes forwarded nginx (pattern EDGE : on ÉCRASE X-Forwarded-For). */
+const NGINX_FORWARD_HEADERS = `      # EDGE (face client) : on ÉCRASE X-Forwarded-For avec la SEULE IP vue par
+      # nginx → toute valeur forgée par le client est jetée (RFC 7239 §8.1).
+      proxy_set_header Host              $host;
+      proxy_set_header X-Real-IP         $remote_addr;
+      proxy_set_header X-Forwarded-For   $remote_addr;
+      proxy_set_header X-Forwarded-Proto $scheme;
+      proxy_set_header X-Forwarded-Host  $host;
+      proxy_set_header X-Forwarded-Port  $server_port;
+      # WebSocket (Nodefony co-héberge HTTP + WS sur le même port).
+      proxy_set_header Upgrade           $http_upgrade;
+      proxy_set_header Connection        $connection_upgrade;`;
+
+/**
+ * Génère une configuration nginx complète (reverse-proxy + offload statiques).
+ *
+ * @param intro - modèle d'introspection Nodefony.
+ * @returns le contenu d'un `nginx.conf`.
+ */
+export function generateNginxConfig(intro: ProxyIntrospection): string {
+  const scheme = intro.reencrypt ? "https" : "http";
+  const backendPort = intro.reencrypt ? intro.httpsPort : intro.httpPort;
+  const lines: string[] = [];
+
+  lines.push(
+    "# Généré par `nodefony proxy:generate nginx` — NE PAS éditer à la main.",
+    "# Reverse-proxy dérivé de l'introspection Nodefony (domaines, statiques, ports).",
+    "worker_processes auto;",
+    "events { worker_connections 1024; }",
+    "",
+    "http {",
+    "  # Upgrade WebSocket — HTTP et WS co-habitent sur le même port Nodefony.",
+    "  map $http_upgrade $connection_upgrade { default upgrade; '' close; }",
+    "",
+    `  upstream nodefony { server ${intro.backendHost}:${backendPort}; keepalive 32; }`,
+    "",
+    "  server {",
+    `    listen ${intro.listen};`,
+    `    server_name ${serverNames(intro.domains)};`,
+  );
+
+  if (intro.reencrypt) {
+    lines.push(
+      "    # Re-encrypt : valider le cert backend (cf docker/certs).",
+      "    # proxy_ssl_trusted_certificate /etc/nginx/certs/ca.pem;",
+      "    # proxy_ssl_verify on; proxy_ssl_name nodefony.com;",
+    );
+  }
+
+  // Montages préfixés : servis directement (alias), sans toucher au backend.
+  for (const m of intro.mounts) {
+    lines.push(
+      "",
+      `    location ${m.prefix} {`,
+      `      alias ${ensureTrailingSlash(m.dir)};`,
+      "      access_log off;",
+      "      expires 1h;",
+      "    }",
+    );
+  }
+
+  lines.push(
+    "",
+    `    location @nodefony {`,
+    `      proxy_pass ${scheme}://nodefony;`,
+    "      proxy_http_version 1.1;",
+    NGINX_FORWARD_HEADERS,
+    "    }",
+  );
+
+  if (intro.staticRoots.length === 0) {
+    // Aucun statique racine → tout va au backend.
+    lines.push(
+      "",
+      "    location / {",
+      `      proxy_pass ${scheme}://nodefony;`,
+      "      proxy_http_version 1.1;",
+      NGINX_FORWARD_HEADERS,
+      "    }",
+    );
+  } else {
+    // Chaîne de roots : essaie chaque dossier statique, fallback backend.
+    const roots = intro.staticRoots;
+    lines.push(
+      "",
+      "    # Statiques multi-dossiers (racine app + modules) : chaîne try_files,",
+      "    # fallback vers le backend Nodefony si aucun fichier ne matche.",
+      "    location / {",
+      `      root ${roots[0]};`,
+      `      try_files $uri ${roots.length > 1 ? "@r1" : "@nodefony"};`,
+      "    }",
+    );
+    for (let i = 1; i < roots.length; i++) {
+      const next = i + 1 < roots.length ? `@r${i + 1}` : "@nodefony";
+      lines.push(
+        `    location @r${i} {`,
+        `      root ${roots[i]};`,
+        `      try_files $uri ${next};`,
+        "    }",
+      );
+    }
+  }
+
+  lines.push("  }", "}", "");
+  return lines.join("\n");
+}
+
+/**
+ * Génère une configuration haproxy (reverse-proxy + Forwarded RFC 7239).
+ * haproxy ne sert PAS de fichiers : les statiques sont proxifiés au backend
+ * (ou désactivés côté serveur via `statics.enabled: false` + un nginx/CDN).
+ *
+ * @param intro - modèle d'introspection Nodefony.
+ * @returns le contenu d'un `haproxy.cfg`.
+ */
+export function generateHaproxyConfig(intro: ProxyIntrospection): string {
+  const backendPort = intro.reencrypt ? intro.httpsPort : intro.httpPort;
+  const proto = intro.reencrypt ? "https" : "http";
+  const serverSsl = intro.reencrypt
+    ? " ssl ca-file /etc/haproxy/certs/ca.pem verify required" +
+      ` verifyhost ${firstDomain(intro)} sni str(${firstDomain(intro)})`
+    : "";
+  const staticNote =
+    intro.staticRoots.length > 0 || intro.mounts.length > 0
+      ? "  # NB : haproxy ne sert pas de fichiers — les statiques sont proxifiés au\n" +
+        "  # backend. Pour les offloader, utiliser nginx (proxy:generate nginx) +\n" +
+        "  # `statics.enabled: false` côté Nodefony.\n"
+      : "";
+
+  return `# Généré par \`nodefony proxy:generate haproxy\` — NE PAS éditer à la main.
+# Reverse-proxy dérivé de l'introspection Nodefony.
+global
+  log stdout format raw local0 info
+
+defaults
+  mode http
+  log global
+  option httplog
+  timeout connect 5s
+  timeout client  30s
+  timeout server  30s
+
+frontend fe_nodefony
+  bind *:${intro.listen}
+
+  # SÉCU : effacer le Forwarded entrant (forgé) avant de poser le nôtre (§8.1).
+  http-request del-header Forwarded
+  option forwardfor
+  http-request set-header X-Forwarded-Proto ${proto}
+  http-request set-header X-Forwarded-Host  %[req.hdr(host)]
+  http-request set-header X-Real-IP         %[src]
+  http-request set-header Forwarded "for=%[src];proto=${proto};host=%[req.hdr(host)]"
+
+  default_backend be_nodefony
+
+backend be_nodefony
+${staticNote}  server nodefony ${intro.backendHost}:${backendPort} check${serverSsl}
+`;
+}
+
+/** Premier domaine non-IP (pour verifyhost/sni), défaut `localhost`. */
+function firstDomain(intro: ProxyIntrospection): string {
+  return (
+    intro.domains.find((d) => d && d !== "0.0.0.0" && !isIpLiteral(d)) ??
+    "localhost"
+  );
+}
+
+/** Garantit un `/` final (requis par `alias` nginx). */
+function ensureTrailingSlash(dir: string): string {
+  return dir.endsWith("/") ? dir : `${dir}/`;
+}
