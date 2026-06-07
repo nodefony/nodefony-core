@@ -232,6 +232,10 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      # Le banc parle de Nodefony par son NOM DE DOMAINE : `nodefony.com` résout
+      # vers l'hôte (= host-gateway) DANS le conteneur, comme `/etc/hosts` côté
+      # hôte le fait pour le client. Upstream + Host transmis = nodefony.com.
+      - "nodefony.com:host-gateway"
 
   # --- haproxy (profile proxy — banc reverse-proxy, Forwarded RFC 7239) ---
   # En plus des X-Forwarded-*, pose le header STANDARD `Forwarded` (RFC 7239)
@@ -248,6 +252,8 @@ services:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      # Idem nginx : Nodefony joignable par son nom de domaine dans le conteneur.
+      - "nodefony.com:host-gateway"
 
 # Réseau unique de l'infra dev. Bridge nommé explicitement (`nodefony-net`) → résolution DNS
 # par nom de service entre conteneurs, isolation vis-à-vis du bridge `default` de Docker, et

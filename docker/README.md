@@ -48,14 +48,22 @@ dépouillement `X-Forwarded-For` **de droite à gauche**) et le scheme effectif
 derrière un vrai reverse-proxy. `nginx` pose les `X-Forwarded-*` (de-facto),
 `haproxy` pose en plus le header **standard `Forwarded`** (RFC 7239).
 
-> Le serveur Nodefony tourne sur l'**hôte** (`npx nodefony development`, 5151) ;
-> les proxies (conteneurs) le joignent via `host.docker.internal`.
+> Le serveur Nodefony tourne sur l'**hôte** ; les proxies (conteneurs) le joignent
+> par son **nom de domaine** `nodefony.com` (→ host-gateway via `extra_hosts`).
+> Les proxies forcent `Host: nodefony.com` vers le backend → le banc teste
+> toujours ce vhost (qui doit être dans `http.trustedHosts` — déjà configuré).
+>
+> ⚠️ **Prérequis bind** : en dev, Nodefony écoute sur `127.0.0.1` (`domain`),
+> **injoignable depuis un conteneur**. Lancer le serveur en bindant une IP
+> joignable depuis Docker (`domain: "0.0.0.0"`), sinon les upstreams tombent.
+> Côté **client**, `nodefony.com` doit pointer sur `127.0.0.1` dans `/etc/hosts`
+> de l'hôte (`127.0.0.1   nodefony.com`) pour taper `http://nodefony.com:8080`.
 
 ```bash
 # 1. Démarrer les proxies
 docker compose -f docker/docker-compose.yml --profile proxy up -d
-#    nginx   → http://localhost:8080
-#    haproxy → http://localhost:8081
+#    nginx   → http://nodefony.com:8080   (ou http://localhost:8080)
+#    haproxy → http://nodefony.com:8081   (ou http://localhost:8081)
 ```
 
 **Prérequis `trustProxy`** : le serveur n'honore les en-têtes forwarded que si le
