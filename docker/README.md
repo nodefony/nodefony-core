@@ -87,6 +87,30 @@ curl -s -H "X-Forwarded-For: 6.6.6.6" http://localhost:8080/nodefony/test/index 
 grep "FROM" /tmp/nodefony-server.log | tail -3 | sed 's/\x1b\[[0-9;]*m//g'
 ```
 
+### TLS du lien de forward + chaîne de certification ⚠️ (à compléter plus tard)
+
+Les deux proxies illustrent volontairement **deux topologies de lien proxy↔backend** :
+
+| Proxy   | Lien de forward  | Cas réel illustré                                             |
+| ------- | ---------------- | ------------------------------------------------------------- |
+| nginx   | **HTTP** (5151)  | TLS terminé au proxy, lien interne **de confiance** (même DC) |
+| haproxy | **HTTPS** (5152) | **Re-encrypt** : proxy/PoP ailleurs → on protège le lien      |
+
+> `proto` (X-Forwarded-Proto / Forwarded) = scheme **côté client**, indépendant
+> du chiffrement du lien interne. Tester `proto=https` de bout en bout exigera un
+> **client en TLS vers le proxy** (cert côté proxy) — TODO du banc complet.
+
+**🔐 Chaîne de certification — À NE PAS OUBLIER.** Quand haproxy re-chiffre vers
+`nodefony.com:5152`, il doit valider le cert que Nodefony présente. Or le cert
+**auto-signé dev** a `CN=localhost` (cf `certificates` dans `nodefony.config.ts`)
+→ il ne matche ni `nodefony.com` ni une CA de confiance. Le banc utilise donc
+`ssl verify none` (**dev uniquement** : la protection re-encrypt est alors
+**illusoire**, MITM possible). Pour un banc/déploiement **réel** :
+
+1. générer un cert backend avec **SAN=`nodefony.com`** ;
+2. fournir la **CA** à haproxy (`ca-file …` + `verify required`) ;
+3. `sni str(nodefony.com)` pour que Nodefony présente le bon cert.
+
 > ⚠️ **Statiques non offloadés** par ce banc : Nodefony sert N répertoires
 > `public/` (racine + un par module) → un montage volume unique serait un trou.
 > L'offload correct (montages + `location` par module + domaines) relève du futur
