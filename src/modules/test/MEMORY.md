@@ -14,11 +14,13 @@ metadata:
 - [`../../packages/@nodefony/http/MEMORY.md`](../../packages/@nodefony/http/MEMORY.md) — Context, requestId, gotchas
 
 ## Purpose
+
 Module Nodefony d'intégration. Expose routes de test pour valider le pipeline HTTP/WS du framework. Pas de logique métier.
 
 ## Controllers + Routes clés
 
 **DefaultController** (`/nodefony/test`) :
+
 - `/index` → 200 `{}`
 - `/context` → type/scheme/method/host/remoteAddress/userAgent/sessionId
 - `/header-echo?x-val=X` → header `x-echoed: X` (test sanitisation CR/LF)
@@ -26,6 +28,7 @@ Module Nodefony d'intégration. Expose routes de test pour valider le pipeline H
 - `/index2` → 502 nodefonyError | `/index3` → 503 HttpError
 
 **RestController** (`/nodefony/test/rest`) :
+
 - `/session` GET/DELETE — info + destroy
 - `/session/set/{key}/{value}` GET — session.set()
 - `/session/get/{key}` GET — session.get()
@@ -33,24 +36,31 @@ Module Nodefony d'intégration. Expose routes de test pour valider le pipeline H
 - `/session/flash/{key}` GET — getFlashBag (consomme)
 
 **HtmlController** (`/nodefony/test/html`) :
+
 - `/stream` → stream JSON | `/download` → tsconfig.json attachment | `/media` → video/webm + Range
 - `/upload` GET form | `/upload` POST formidable
 
-## Statics
-Config surcharge `"module-http".statics.test` → `src/modules/test/public/`
-- `/test/chico_buarque.mp3` (audio/mpeg)
-- `/test/oceans-clip.webm` (video/webm)
-- `/favicon.ico`
+## Statics — préfixe natif `/test/`
+
+`public/` auto-monté sous `/test/` (server-static `mountModulePublics`, basename `@nodefony/test`). PLUS de `statics.test` ; fichiers à la RACINE de `public/` (pas `public/test/`).
+
+- `/test/chico_buarque.mp3` (audio/mpeg) ← `public/chico_buarque.mp3`
+- `/test/oceans-clip.webm` (video/webm) ← `public/oceans-clip.webm`
+- `/favicon.ico` = racine app (`statics.web`→`./public`), PAS ce module
+- ⚠️ `/media` lit `public/oceans-clip.webm` par chemin DIRECT (`module.path`), pas l'URL → bouger un fichier = MAJ HtmlController
 
 ## Debug bar sur page EJS (démo serveur-rendu)
+
 - `RouteController` `/nodefony/test/route/ejs/{name}` rend `views/index.ejs` (lu depuis la **source**, pas dist).
 - `DefaultController` `/nodefony/test/debugbar.js` sert le bundle **standalone** `nodefony/debugbar.js` (résolu+caché) + `mountDebugBar();` appended (auto-montant).
 - `index.ejs` charge `<script type="module" src="/nodefony/test/debugbar.js">` — **externe** (pas inline) car la page EJS a CSP `script-src 'self'` (un inline serait bloqué ; les pages React surchargent la CSP, pas l'EJS).
 - Pas de carte HMR (hors Vite) ; env/branche/realtime OK via WS studio même origine.
 
 ## Session
+
 DefaultController + RestController : `initialize()` → `this.startSession("test")`.
 RestController injecte `@inject("session")`.
 
 ## Dépendances
+
 `@nodefony/framework`, `@nodefony/http`, `nodefony` — pas de deps externes.

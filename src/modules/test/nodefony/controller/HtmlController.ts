@@ -56,16 +56,10 @@ class HtmlController extends Controller {
 
   @route("index-file-media", { path: "/media" })
   stream3() {
-    // const file = resolve(
-    //   this.module?.path as string,
-    //   "public",
-    //   "test",
-    //   "chico_buarque.mp3"
-    // );
+    // Fichiers à la racine de `public/` (auto-montés sous `/test/`).
     const file = resolve(
       this.module?.path as string,
       "public",
-      "test",
       "oceans-clip.webm",
     );
     return this.renderMediaStream(file);

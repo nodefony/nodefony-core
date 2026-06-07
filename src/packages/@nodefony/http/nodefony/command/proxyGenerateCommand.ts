@@ -9,14 +9,17 @@ import {
 
 const options: OptionsCommandInterface = {
   showBanner: false,
-  // `onBoot` : modules chargés + services statiques instanciés + domaines/ports
-  // résolus. `lifetime: oneshot` → ne démarre pas les serveurs.
-  kernelEvent: "onBoot",
+  // `onReady` : cross-wiring inter-modules terminé → les montages statiques
+  // natifs `/<module>/` (server-static.mountModulePublics, posés à onReady) sont
+  // dans `mounts`. `onBoot` serait trop tôt (mounts vides). `lifetime: oneshot`
+  // → ne démarre pas les serveurs (introspection pure, pas de listen réseau).
+  kernelEvent: "onReady",
 };
 
 interface StaticServiceShape {
   servers?: Record<string, unknown>;
   mounts?: { prefix: string; dir: string }[];
+  mountModulePublics?: () => void;
 }
 
 /**
@@ -90,6 +93,11 @@ class ProxyGenerate extends Command {
     const servers = (this.kernel?.options as { servers?: Record<string, any> })
       ?.servers;
     const staticSvc = module?.get<StaticServiceShape>("server-static");
+    // Garantit la carte des montages natifs `/<module>/` indépendamment de
+    // l'ordre des listeners `onReady` (le `generate()` de cette commande peut
+    // fire AVANT le listener de montage du service). Idempotent (addMount
+    // remplace par préfixe) → pas de double-montage côté runtime.
+    staticSvc?.mountModulePublics?.();
 
     const staticRoots = staticSvc?.servers
       ? Object.keys(staticSvc.servers)

@@ -1,5 +1,7 @@
 import serveStatic from "serve-static";
 import mime from "mime-types";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { URL } from "node:url";
 import {
   //ProtocolType,
@@ -32,6 +34,18 @@ const defaultOptions: serveStatic.ServeStaticOptions = {
 
 /** Un dossier monté sous un préfixe public (`/_assets/x/` → dir). */
 type StaticMount = { prefix: string; server: serveStaticType; dir: string };
+
+/**
+ * Config par module du montage statique natif (`module.options.publicMount`).
+ * - `false` → opt-out (le module ne sert pas de `public/`).
+ * - `{ publicPath?, dir? }` → override (l'override explicite prime sur le skip
+ *   automatique des modules frontend-managed).
+ * - `undefined` → auto : `publicPath = /<basename(nom)>/`, `dir = "public"`.
+ *
+ * `publicPath` partage la sémantique de `@nodefony/frontend.publicPath` ; `dir`
+ * est le dossier SOURCE servi (l'analogue en entrée du `outDir` frontend).
+ */
+type PublicMountOption = false | { publicPath?: string; dir?: string };
 
 class Statics extends Service {
   module: Module;
@@ -79,11 +93,65 @@ class Statics extends Service {
         "INFO",
       );
     }
+    // Préfixe natif `/<module>/` : à `onReady` (tous les modules enregistrés),
+    // auto-monte le `public/` de chaque module applicatif. Indépendant de
+    // `enabled` (la carte préfixe→dossier doit rester introspectable par
+    // `proxy:generate` même quand les statiques sont servis par un proxy/CDN).
+    this.kernel?.once("onReady", () => {
+      this.mountModulePublics();
+    });
     this.kernel?.on("onPostReady", () => {
       for (const ele in this.servers) {
         this.log(`Server Listen on ${ele}`, "INFO");
       }
     });
+  }
+
+  /**
+   * Auto-monte le `public/` de chaque module applicatif sous le préfixe natif
+   * `/<module>/` (basename du nom — `@nodefony/test` → `/test/`). Appelé une fois
+   * à `onReady`. Idempotent via {@link addMount} (un même préfixe est remplacé).
+   *
+   * Exclusions :
+   * - **app root** (`isApp`) — son `public/` est servi à la racine `/` par la
+   *   racine statique `web` (favicon…), sans préfixe.
+   * - **modules frontend-managed** (présents dans `frontend.listEntries()`) —
+   *   leurs assets buildés sont servis sous `/_assets/<name>/` par
+   *   `@nodefony/frontend` ; on ne double-sert pas leur `public/dist`.
+   * - **modules sans `public/`** — rien à monter (http, framework, security…).
+   *
+   * Enregistré dans {@link mounts} quel que soit `enabled` → la carte
+   * préfixe→dossier reste lisible par `proxy:generate` même statiques désactivés
+   * (reverse-proxy/CDN en prod).
+   */
+  mountModulePublics(): void {
+    const modules = this.kernel?.modules;
+    if (!modules) return;
+    // Modules dont les assets sont déjà servis par @nodefony/frontend.
+    const frontend = this.container?.get<{
+      listEntries?: () => ReadonlyArray<{ moduleName: string }>;
+    }>("frontend");
+    const frontManaged = frontend?.listEntries
+      ? new Set(frontend.listEntries().map((e) => e.moduleName))
+      : null;
+    for (const name in modules) {
+      const mod = modules[name];
+      if (!mod || mod.isApp) continue;
+      // Config par module (cf {@link PublicMountOption}). Même pattern que les
+      // autres options top-level d'un module (`watch`…) : lue dans `mod.options`.
+      const cfg = (mod.options as { publicMount?: PublicMountOption })
+        ?.publicMount;
+      if (cfg === false) continue; // opt-out explicite
+      // Auto (cfg absent) → skip les modules frontend-managed (servis sous
+      // /_assets/<name>/). Un override explicite `{…}` prime sur ce skip.
+      if (cfg == null && frontManaged?.has(mod.name)) continue;
+      const dir = join(mod.path, cfg?.dir || "public");
+      if (!existsSync(dir)) continue;
+      // Défaut = basename du nom (`@nodefony/test` → `/test/`), surchargeable
+      // par `publicMount.publicPath` (addMount normalise les `/`).
+      const prefix = cfg?.publicPath || `/${mod.name.split("/").pop()}/`;
+      this.addMount(prefix, dir);
+    }
   }
 
   initStaticFiles() {

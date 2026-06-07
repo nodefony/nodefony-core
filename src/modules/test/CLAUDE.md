@@ -89,13 +89,23 @@ Sondes ALS (AsyncLocalStorage) pour BUG-001 (WS messages) + BUG-002 (`onAfterRes
 | `/upload`   | GET     | Form HTML upload                                            |
 | `/upload`   | POST    | Upload fichier (formidable)                                 |
 
-### Fichiers statiques
+### Fichiers statiques — préfixe natif `/test/`
 
-Servis via `serve-static` depuis `src/modules/test/public/` (clé `test` dans statics) :
+Le `public/` du module est **auto-monté sous `/test/`** par `server-static`
+(`mountModulePublics`, préfixe = basename du nom `@nodefony/test`). Plus de clé
+`statics.test` dans `config.ts` ; les fichiers vivent **à la racine de `public/`**
+(pas `public/test/` — sinon double préfixe `/test/test/`).
 
-- `/test/chico_buarque.mp3` — audio/mpeg
-- `/test/oceans-clip.webm` — video/webm
-- `/favicon.ico` — image/x-icon
+> Surchargeable par module : `config.ts` top-level `publicMount: { publicPath, dir }`
+> (ou `false` pour opt-out) — défaut `{ publicPath: "/<basename>/", dir: "public" }`.
+
+- `/test/chico_buarque.mp3` — audio/mpeg (← `public/chico_buarque.mp3`)
+- `/test/oceans-clip.webm` — video/webm (← `public/oceans-clip.webm`)
+- `/favicon.ico` — servi par la **racine app** (`statics.web` → `./public`), pas par ce module
+
+> ⚠️ `HtmlController` `/media` lit `public/oceans-clip.webm` **par chemin direct**
+> (`resolve(module.path, "public", "oceans-clip.webm")`) — pas via l'URL. Déplacer
+> un fichier de `public/` = mettre à jour ce chemin.
 
 ---
 
