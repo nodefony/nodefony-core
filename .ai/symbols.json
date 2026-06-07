@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-07T06:20:36.394Z",
+  "generated": "2026-06-07T06:56:53.088Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 831,
-    "symbols": 1670,
+    "symbols": 1671,
     "classes": 247,
     "interfaces": 418,
     "types": 210,
     "enums": 3,
-    "functions": 316,
+    "functions": 317,
     "constants": 476
   },
   "symbols": {
@@ -11272,6 +11272,14 @@
       "module": "@nodefony/http",
       "description": "Compile une config `trustProxy` en un {@link TrustProxyChecker} (une fois, au boot — pas par requête). Les entrées invalides lèvent à la compilation (fail fast) plutôt que silencieusement par requête."
     },
+    "extractClientIp": {
+      "name": "extractClientIp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/trustProxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Résout l'adresse IP cliente RÉELLE à partir de la connexion socket et de la chaîne `X-Forwarded-For`, en dépouillant les proxies de confiance **de droite à gauche** (algorithme OWASP). `X-Forwarded…"
+    },
     "Cookie": {
       "name": "Cookie",
       "kind": "class",
@@ -17182,6 +17190,10 @@
       ],
       "IUploadOptions": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "extractClientIp": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "responseTimeoutType": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"

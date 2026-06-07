@@ -14,6 +14,7 @@ import HttpError from "../../errors/httpError.js";
 import { sanitizeRequestId } from "../requestId.js";
 import { ProxyType } from "../http/HttpContext.js";
 import { formatWsLogContent } from "./wsLogContent.js";
+import { extractClientIp } from "../trustProxy";
 
 export interface IWsRequestExtension {
   url: URL;
@@ -98,8 +99,10 @@ export default class WebsocketContext
     this.response = new WebsocketResponse(ws as Ws, this);
     this.method = this.getMethod();
     this.origin = (req.headers.origin as string) ?? "";
-    this.remoteAddress =
-      req.socket?.remoteAddress ?? (req.headers["x-forwarded-for"] as string);
+    // IP cliente réelle (anti-spoof) : même résolution from-right que HTTP — on
+    // dépouille X-Forwarded-For derrière les proxies de confiance. Avant : socket
+    // d'abord (jamais l'IP réelle derrière proxy), XFF BRUT en fallback.
+    this.remoteAddress = this.getRemoteAddress();
     this.acceptedProtocol = req.headers["sec-websocket-protocol"] as
       | string
       | undefined;
@@ -452,8 +455,19 @@ export default class WebsocketContext
     return this.wsUrl?.protocol.replace(":", "") as SchemeType;
   }
 
-  getRemoteAddress(): string | undefined {
-    return this.request?.socket?.remoteAddress;
+  getRemoteAddress(): string | null {
+    // Cf extractClientIp : derrière un proxy de confiance, l'IP réelle est
+    // résolue from-right depuis X-Forwarded-For ; sinon = socket.
+    const checker = this.httpKernel?.getTrustProxyChecker();
+    const socketAddr = this.request?.socket?.remoteAddress;
+    if (!checker) {
+      return socketAddr ?? null;
+    }
+    return extractClientIp(
+      this.request?.headers["x-forwarded-for"],
+      socketAddr,
+      checker,
+    );
   }
 
   getHost(): string | undefined {

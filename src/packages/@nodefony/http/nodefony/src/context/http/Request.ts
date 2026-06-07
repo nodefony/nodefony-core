@@ -26,6 +26,7 @@ import type {
 import { extend, Pci, Pdu, Message, Severity, Msgid } from "nodefony";
 import Session from "../../session/session";
 import { HttpError } from "@nodefony/http";
+import { extractClientIp } from "../trustProxy";
 
 const reg = /(.*)[\[][\]]$/u;
 
@@ -627,20 +628,19 @@ class HttpRequest {
   }
 
   getRemoteAddress(): string | null {
-    // Proxy de confiance uniquement : X-Forwarded-For = "client, proxy1, …" →
-    // l'IP cliente d'origine est le PREMIER élément (pas la liste brute).
-    if (this.trustedProxy && this.headers?.["x-forwarded-for"]) {
-      const first = (this.headers["x-forwarded-for"] as string)
-        .split(",")[0]
-        ?.trim();
-      if (first) {
-        return first;
-      }
+    // IP cliente réelle : derrière un ou plusieurs proxies de confiance, la
+    // chaîne X-Forwarded-For est dépouillée DE DROITE À GAUCHE (cf
+    // extractClientIp). Lire XFF[0] serait FORGEABLE — le client injecte un
+    // X-Forwarded-For, le proxy ne fait qu'append l'IP réelle → [0] = client.
+    const checker = this.context?.httpKernel?.getTrustProxyChecker();
+    if (!checker) {
+      return this.request.socket?.remoteAddress ?? null;
     }
-    if (this.request.socket && this.request.socket.remoteAddress) {
-      return this.request.socket.remoteAddress;
-    }
-    return null;
+    return extractClientIp(
+      this.headers?.["x-forwarded-for"],
+      this.request.socket?.remoteAddress,
+      checker,
+    );
   }
 
   getFullUrl(request: http.IncomingMessage | http2.Http2ServerRequest) {

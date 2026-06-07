@@ -122,3 +122,61 @@ export function buildTrustProxy(
     },
   };
 }
+
+/**
+ * Résout l'adresse IP cliente RÉELLE à partir de la connexion socket et de la
+ * chaîne `X-Forwarded-For`, en dépouillant les proxies de confiance **de droite
+ * à gauche** (algorithme OWASP).
+ *
+ * `X-Forwarded-For` (de-facto) est construit par **append de gauche à droite** :
+ * `XFF: client, proxy1, proxy2`. Chaque proxy ajoute À DROITE l'adresse qu'il a
+ * vue. La partie **gauche** est donc entièrement **forgeable** par le client
+ * (il peut envoyer `X-Forwarded-For: 1.2.3.4` ; le 1ᵉʳ proxy ne fait qu'append
+ * l'IP réelle après). Lire `XFF[0]` revient à lire la valeur du client →
+ * **IP spoofing** (contournement de ban / rate-limit / allow-list / audit).
+ *
+ * La résolution sûre part de la **connexion réelle** (le socket, non forgeable)
+ * et remonte la chaîne de DROITE à GAUCHE : tant que le maillon courant est un
+ * proxy de confiance, on passe au précédent ; le **premier maillon non fiable**
+ * rencontré est l'IP cliente réelle. Si toute la chaîne est de confiance (cas
+ * LB interne maîtrisé), on retourne l'élément le plus à gauche.
+ *
+ * Hot path préservé : sans `X-Forwarded-For` (cas direct usuel) la fonction
+ * retourne immédiatement le socket — 0 allocation (pas de split).
+ *
+ * @param xff - valeur brute de l'en-tête `X-Forwarded-For` (string, ou string[]
+ *   si l'en-tête est répété), ou `undefined`.
+ * @param socketAddress - `socket.remoteAddress` (la connexion TCP réelle).
+ * @param checker - politique de confiance ({@link buildTrustProxy}).
+ * @returns l'IP cliente réelle, ou `null` si aucune connexion socket fiable.
+ */
+export function extractClientIp(
+  xff: string | string[] | undefined,
+  socketAddress: string | undefined | null,
+  checker: TrustProxyChecker,
+): string | null {
+  // Pas de socket réel → rien de fiable. Ne JAMAIS retomber sur un XFF, qui est
+  // intégralement contrôlé par le client tant qu'aucun proxy fiable ne l'a réécrit.
+  if (!socketAddress) {
+    return null;
+  }
+  // Cas direct usuel : aucun forwarded → la connexion EST le client.
+  if (!xff) {
+    return socketAddress;
+  }
+  const list = (Array.isArray(xff) ? xff.join(",") : xff)
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  // On part du socket (connexion réelle) et on remonte XFF de droite à gauche.
+  let candidate = socketAddress;
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    if (!checker.isTrusted(candidate)) {
+      return candidate; // 1ᵉʳ maillon non fiable = IP cliente réelle
+    }
+    candidate = list[i];
+  }
+  // Toute la chaîne est de confiance → l'élément le plus à gauche est la
+  // meilleure approximation de l'origine.
+  return candidate;
+}
