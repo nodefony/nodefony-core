@@ -177,14 +177,12 @@ class Certificate extends Service {
   private forge: ForgeModule | null = null;
 
   path: string = resolve(".", "nodefony", "config", "certificates");
-  clientPath: string = resolve(this.path, "client");
   serverPath: string = resolve(this.path, "server");
   caPath: string = resolve(this.path, "ca", "nodefony-root-ca.crt.pem");
   publicKeyPath: string = resolve(this.path, "server", "publickey.pem");
   privateKeyPath: string = resolve(this.path, "server", "privkey.pem");
   certPath: string = resolve(this.path, "server", "cert.pem");
   fullchainPath: string = resolve(this.path, "server", "fullchain.pem");
-  intermediatePath: string = resolve(this.path, "ca_intermediate");
   constructor(module: Module) {
     super(
       "certificates",
@@ -282,13 +280,13 @@ class Certificate extends Service {
   }
 
   private async ensureDirectoriesExist(): Promise<void> {
+    // On ne crée QUE ce qu'on écrit : server/ (clé+cert) et ca/ (ancre de
+    // confiance). Les dossiers client/ et ca_intermediate/ relèvent de la PKI
+    // complète (bin/generateCertificates.sh) — ne pas créer de dossiers vides.
     const directories = [
       this.path,
-      this.clientPath,
-      this.intermediatePath,
       this.serverPath,
       path.dirname(this.privateKeyPath),
-      path.dirname(this.publicKeyPath),
       path.dirname(this.caPath),
       path.dirname(this.certPath),
       path.dirname(this.fullchainPath),

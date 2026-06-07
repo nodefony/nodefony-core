@@ -27,8 +27,6 @@ function makeCert(certOpts: Record<string, unknown> = {}): Certificate {
 function setPaths(c: Certificate, dir: string): void {
   c.path = dir;
   c.serverPath = path.join(dir, "server");
-  c.clientPath = path.join(dir, "client");
-  c.intermediatePath = path.join(dir, "ca_intermediate");
   c.caPath = path.join(dir, "ca", "nodefony-root-ca.crt.pem");
   c.publicKeyPath = path.join(dir, "server", "publickey.pem");
   c.privateKeyPath = path.join(dir, "server", "privkey.pem");
