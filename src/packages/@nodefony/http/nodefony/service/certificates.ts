@@ -524,8 +524,10 @@ class Certificate extends Service {
   /**
    * Vérifie que le certificat présent sur disque convient à la stratégie :
    * - expiration (RFC 5280 §4.1.2.5) : un cert expiré est inadéquat.
+   * - **SAN** couvrant les hostnames requis (les DEUX stratégies) : si le SAN
+   *   demandé change (ex. `nodefony.com` ajouté via NF_BIND_ALL), on régénère.
    * - `mkcert` : émis par la CA mkcert (issuer organisation contient "mkcert").
-   * - `selfsigned` : signature non SHA-1 + SAN couvrant les hostnames requis.
+   * - `selfsigned` : signature non SHA-1.
    * @returns false si absent, illisible ou inadéquat → déclenche la régénération.
    */
   private async isCertAdequate(strategy: CertStrategy): Promise<boolean> {
@@ -536,21 +538,20 @@ class Certificate extends Service {
       if (cert.validity.notAfter.getTime() <= Date.now()) {
         return false;
       }
+      // Le SAN doit couvrir les noms requis QUELLE QUE SOIT la stratégie — sinon
+      // un changement de SAN (NF_BIND_ALL → nodefony.com) ne régénérerait jamais.
+      const ext = cert.getExtension("subjectAltName") as
+        | { altNames?: AltName[] }
+        | undefined;
+      if (!ext || !this.sanCovers(ext.altNames ?? [])) {
+        return false;
+      }
       if (strategy === "mkcert") {
         const org = cert.issuer.getField("O");
         return Boolean(org && /mkcert/i.test(String(org.value)));
       }
       // selfsigned : un ancien cert SHA-1 doit être régénéré.
-      if (cert.signatureOid === pki.oids.sha1WithRSAEncryption) {
-        return false;
-      }
-      const ext = cert.getExtension("subjectAltName") as
-        | { altNames?: AltName[] }
-        | undefined;
-      if (!ext) {
-        return false;
-      }
-      return this.sanCovers(ext.altNames ?? []);
+      return cert.signatureOid !== pki.oids.sha1WithRSAEncryption;
     } catch {
       return false;
     }
