@@ -237,9 +237,12 @@ services:
       # hôte le fait pour le client. Upstream + Host transmis = nodefony.com.
       - "nodefony.com:host-gateway"
 
-  # --- haproxy (profile proxy — banc reverse-proxy, Forwarded RFC 7239) ---
-  # En plus des X-Forwarded-*, pose le header STANDARD `Forwarded` (RFC 7239)
-  # → exerce le parsing à venir (étape #2 du chantier forwarded/proxy).
+  # --- haproxy (profile proxy — banc reverse-proxy, Forwarded RFC 7239 + TLS) ---
+  # Pose le header STANDARD `Forwarded` (RFC 7239) + X-Forwarded-*, et re-chiffre
+  # vers le backend 5152 avec validation COMPLÈTE (verify required + verifyhost +
+  # sni). Frontend :8081 (clair, proto=http) + :8443 (TLS, proto=https E2E).
+  # ⚠️ Avant `up` : NF_BIND_ALL=1 (cert SAN=nodefony.com) puis
+  #    `bash docker/certs/build-haproxy-pem.sh` (génère certs/{ca,haproxy}.pem).
   haproxy:
     image: haproxy:3.0-alpine
     container_name: nodefony-haproxy
@@ -248,8 +251,12 @@ services:
     networks: [nodefony]
     ports:
       - "127.0.0.1:${HAPROXY_PORT:-8081}:8081"
+      - "127.0.0.1:${HAPROXY_TLS_PORT:-8443}:8443"
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      # ca.pem (verify required) + haproxy.pem (cert présenté au client). Générés
+      # par build-haproxy-pem.sh à partir des certs Nodefony (gitignorés).
+      - ./certs:/etc/haproxy/certs:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
       # Idem nginx : Nodefony joignable par son nom de domaine dans le conteneur.

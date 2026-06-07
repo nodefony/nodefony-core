@@ -34,7 +34,7 @@ docker exec -it nodefony-redis redis-cli -a "${REDIS_PASSWORD:-nodefony-dev}" pi
 | `redisinsight` | `tools`    | `5540`           | UI web de debug Redis (jamais en prod)                    |
 | `kafka`        | `kafka`    | `9092`           | Bus d'events persistant, IA-ready (Bloc C — KRaft, no ZK) |
 | `nginx`        | `proxy`    | `8080`           | Banc reverse-proxy `X-Forwarded-*` (test forwarded)       |
-| `haproxy`      | `proxy`    | `8081`           | Banc reverse-proxy `Forwarded` RFC 7239 (test forwarded)  |
+| `haproxy`      | `proxy`    | `8081` + `8443`  | Banc `Forwarded` RFC 7239 ; `8081` clair, `8443` TLS E2E  |
 
 ```bash
 docker compose -f docker/docker-compose.yml --profile tools up -d   # + RedisInsight → http://localhost:5540
@@ -88,29 +88,61 @@ curl -s -H "X-Forwarded-For: 6.6.6.6" http://localhost:8080/nodefony/test/index 
 grep "FROM" /tmp/nodefony-server.log | tail -3 | sed 's/\x1b\[[0-9;]*m//g'
 ```
 
-### TLS du lien de forward + chaîne de certification ⚠️ (à compléter plus tard)
+### TLS du lien de forward + chaîne de certification ✅
 
-Les deux proxies illustrent volontairement **deux topologies de lien proxy↔backend** :
+Les deux proxies illustrent **deux topologies de lien proxy↔backend** :
 
 | Proxy   | Lien de forward  | Cas réel illustré                                             |
 | ------- | ---------------- | ------------------------------------------------------------- |
 | nginx   | **HTTP** (5151)  | TLS terminé au proxy, lien interne **de confiance** (même DC) |
-| haproxy | **HTTPS** (5152) | **Re-encrypt** : proxy/PoP ailleurs → on protège le lien      |
+| haproxy | **HTTPS** (5152) | **Re-encrypt** VALIDÉ : proxy/PoP ailleurs → lien protégé     |
 
-> `proto` (X-Forwarded-Proto / Forwarded) = scheme **côté client**, indépendant
-> du chiffrement du lien interne. Tester `proto=https` de bout en bout exigera un
-> **client en TLS vers le proxy** (cert côté proxy) — TODO du banc complet.
+`proto` (X-Forwarded-Proto / Forwarded) = scheme **côté client**, indépendant du
+chiffrement du lien interne. haproxy expose **deux frontends** :
 
-**🔐 Chaîne de certification — À NE PAS OUBLIER.** Quand haproxy re-chiffre vers
-`nodefony.com:5152`, il doit valider le cert que Nodefony présente. Or le cert
-**auto-signé dev** a `CN=localhost` (cf `certificates` dans `nodefony.config.ts`)
-→ il ne matche ni `nodefony.com` ni une CA de confiance. Le banc utilise donc
-`ssl verify none` (**dev uniquement** : la protection re-encrypt est alors
-**illusoire**, MITM possible). Pour un banc/déploiement **réel** :
+| Frontend          | `proto` posé | Cas                                              |
+| ----------------- | ------------ | ------------------------------------------------ |
+| `:8081` (clair)   | `http`       | client en clair vers le proxy                    |
+| `:8443` (**TLS**) | `https`      | **client TLS vers le proxy** → `proto=https` E2E |
 
-1. générer un cert backend avec **SAN=`nodefony.com`** ;
-2. fournir la **CA** à haproxy (`ca-file …` + `verify required`) ;
-3. `sni str(nodefony.com)` pour que Nodefony présente le bon cert.
+**🔐 Chaîne de certification — VALIDÉE (plus de `verify none`).** Le re-encrypt
+haproxy→`nodefony.com:5152` valide désormais complètement le cert backend :
+
+```
+server nodefony nodefony.com:5152 check ssl \
+  ca-file /etc/haproxy/certs/ca.pem verify required \
+  verifyhost nodefony.com sni str(nodefony.com)
+```
+
+- `verify required` : refuse le forward si le cert n'est pas signé par la CA.
+- `verifyhost nodefony.com` : exige que le **SAN** couvre `nodefony.com` (sinon un
+  cert valide pour tout autre nom passerait).
+- `sni str(nodefony.com)` : SNI envoyé au backend.
+
+**Pré-requis** (le cert dev a SAN=`localhost` par défaut ; il faut `nodefony.com`) :
+
+```bash
+# 1) Nodefony génère un cert SAN=nodefony.com (config: san sous NF_BIND_ALL).
+NF_BIND_ALL=1 bash .claude/skills/nodefony-start-server/start.sh
+# 2) Dériver les PEM haproxy (ca.pem + haproxy.pem) des certs Nodefony.
+bash docker/certs/build-haproxy-pem.sh
+# 3) Lancer le banc.
+docker compose -f docker/docker-compose.yml --profile proxy up -d
+```
+
+Test **E2E `proto=https`** (TLS client→proxy, re-encrypt validé, **sans `-k`**) :
+
+```bash
+# scheme=https vu par le backend (vs http via :8081) ; edge cert validé par la CA.
+curl --cacert docker/certs/ca.pem --resolve nodefony.com:8443:127.0.0.1 \
+  https://nodefony.com:8443/nodefony/test/context
+# → {"scheme":"https", "host":"nodefony.com", "remoteAddress":"172.x.0.1", ...}
+```
+
+> `ca.pem` = la CA qui a signé le cert backend (mkcert rootCA). `haproxy.pem` =
+> cert + clé que haproxy présente au client. Les deux sont **gitignorés** (clé
+> privée) et régénérés par `build-haproxy-pem.sh`. La PKI offline complète
+> (root + intermediate + client mTLS) reste `bin/generateCertificates.sh`.
 
 > ⚠️ **Statiques non offloadés** par ce banc : Nodefony sert N répertoires
 > `public/` (racine + un par module) → un montage volume unique serait un trou.

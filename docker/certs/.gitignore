@@ -1,0 +1,3 @@
+# PEM dérivés des certs Nodefony par build-haproxy-pem.sh — JAMAIS commités
+# (haproxy.pem contient la clé privée). Seul le script est versionné.
+*.pem
