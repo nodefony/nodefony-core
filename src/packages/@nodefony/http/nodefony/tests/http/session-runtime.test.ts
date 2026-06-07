@@ -36,8 +36,9 @@ function request(
   });
 }
 
+// TLS (tests sur https/5152) → cookie de session préfixé `__Host-` (RFC 6265bis).
 function sessionCookie(setCookie: string[]): string | null {
-  const entry = setCookie.find((c) => c.startsWith("nodefony="));
+  const entry = setCookie.find((c) => c.startsWith("__Host-nodefony="));
   return entry ? entry.split(";")[0] : null;
 }
 
@@ -87,7 +88,7 @@ describe("Session runtime — plug (HTTP) [requires server]", () => {
       expect(body.hasSession).to.equal(true);
       expect(body.id).to.be.a("string").with.length.greaterThan(20);
       expect(body.status).to.equal("active");
-      expect(sessionCookie(setCookie)).to.match(/^nodefony=/);
+      expect(sessionCookie(setCookie)).to.match(/^__Host-nodefony=/);
     });
 
     it("@Session() param → intent implicite (session active)", async () => {
@@ -115,13 +116,15 @@ describe("Session runtime — plug (HTTP) [requires server]", () => {
   });
 
   describe("cookie (RFC 6265bis / OWASP)", () => {
-    it("Set-Cookie de session : HttpOnly + SameSite=Lax + Secure", async () => {
+    it("Set-Cookie de session sur TLS : __Host- + HttpOnly + SameSite=Lax + Secure + Path=/ + sans Domain", async () => {
       const { setCookie } = await request("/nodefony/test/session-rt/use");
-      const raw = setCookie.find((c) => c.startsWith("nodefony=")) ?? "";
+      const raw = setCookie.find((c) => c.startsWith("__Host-nodefony=")) ?? "";
+      expect(raw, "cookie de session présent").to.not.equal("");
       expect(raw).to.include("HttpOnly");
       expect(raw).to.include("SameSite=Lax");
-      expect(raw).to.include("Secure");
-      expect(raw).to.include("Path=/");
+      expect(raw).to.include("Secure"); // imposé par __Host-
+      expect(raw).to.include("Path=/"); // imposé par __Host-
+      expect(raw).to.not.match(/Domain=/i); // interdit par __Host-
     });
   });
 
@@ -151,7 +154,7 @@ describe("Session runtime — plug (HTTP) [requires server]", () => {
       });
       expect(info.body.id).to.equal(id1);
       expect(info.body.area).to.equal("default");
-      expect(info.body.cookieName).to.equal("nodefony");
+      expect(info.body.cookieName).to.equal("__Host-nodefony");
     });
   });
 

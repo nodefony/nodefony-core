@@ -112,6 +112,7 @@ export interface IContext {
   saveSession(): Promise<ISession | null>;
   hasSession(): boolean;
   getCookieSession(name: string): ICookie | null;
+  getSessionCookieName(): string;
 
   // Methods — Metadata
   setMetaData(obj?: Record<string, unknown>): object;
@@ -123,10 +124,19 @@ export interface IHttpContext extends IContext {
   isRedirect: boolean;
 
   handle(): Promise<object>;
-  render(chunk: unknown, encoding?: BufferEncoding, status?: string | number, headers?: Record<string, string | number>): Promise<object>;
+  render(
+    chunk: unknown,
+    encoding?: BufferEncoding,
+    status?: string | number,
+    headers?: Record<string, string | number>,
+  ): Promise<object>;
   send(chunk?: unknown, encoding?: BufferEncoding): Promise<object>;
   end(): Promise<object>;
-  redirect(url: string, status?: number | string, headers?: Record<string, string | number>): unknown;
+  redirect(
+    url: string,
+    status?: number | string,
+    headers?: Record<string, string | number>,
+  ): unknown;
   getHostName(): string | undefined;
   getRemoteAddress(): string | null | undefined;
   getHost(): string | undefined;
@@ -144,7 +154,10 @@ export interface IWebsocketContext extends IContext {
   connect(): Promise<unknown>;
   handle(data?: unknown[]): Promise<object>;
   close(reasonCode: number, description: string): unknown;
-  send(data?: Buffer | string | null, encoding?: BufferEncoding): Promise<object>;
+  send(
+    data?: Buffer | string | null,
+    encoding?: BufferEncoding,
+  ): Promise<object>;
   broadcast(data: Buffer | string): void;
   getRemoteAddress(): string | null | undefined;
   getHost(): string | undefined;

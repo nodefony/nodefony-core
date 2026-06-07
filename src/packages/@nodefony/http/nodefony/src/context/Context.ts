@@ -572,6 +572,22 @@ class Context extends Service implements IContextInterface {
     return null;
   }
 
+  /**
+   * Nom effectif du cookie de session pour CE transport. Sur TLS (https/wss) on
+   * applique le préfixe **`__Host-`** (RFC 6265bis §4.1.3 / OWASP : recommandé
+   * pour les identifiants de session — impose Secure + Path=/ + interdit Domain,
+   * anti session-fixation cross-subdomain). En clair (http/ws) le préfixe est
+   * omis (le navigateur le rejetterait sans Secure) → dégradation gracieuse,
+   * notamment derrière un proxy qui termine le TLS. Lecture **et** écriture du
+   * cookie passent par ce nom unique → cohérence de la reprise (L1).
+   */
+  getSessionCookieName(): string {
+    const base = this.sessionService?.defaultSessionName ?? "nodefony";
+    return this.scheme === "https" || this.scheme === "wss"
+      ? `__Host-${base}`
+      : base;
+  }
+
   parseCookies(): void {
     return cookiesParser(this);
   }

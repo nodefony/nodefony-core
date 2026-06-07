@@ -129,9 +129,9 @@ class HttpContext extends Context implements IHttpContextInterface {
     this.domain = this.getHostName();
     this.validDomain = this.isValidDomain();
     this.parseCookies();
-    this.cookieSession = this.getCookieSession(
-      this.sessionService?.defaultSessionName as string,
-    );
+    // Nom effectif selon le transport (`__Host-` sur TLS) — même calcul à
+    // l'écriture (session.setCookieSession) → reprise L1 cohérente.
+    this.cookieSession = this.getCookieSession(this.getSessionCookieName());
 
     this.once("onTimeout", () => {
       // P2.5 — abort in-flight async work (DB queries, fetches honoring

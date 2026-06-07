@@ -138,9 +138,8 @@ export default class WebsocketContext
     }
 
     this.parseCookies();
-    this.cookieSession = this.getCookieSession(
-      this.sessionService?.options.name,
-    );
+    // Nom effectif selon le transport (`__Host-` sur wss) — cohérent avec l'écriture.
+    this.cookieSession = this.getCookieSession(this.getSessionCookieName());
     this.domain = this.getHostName() as string;
     this.validDomain = this.isValidDomain();
     this.rejected = false;

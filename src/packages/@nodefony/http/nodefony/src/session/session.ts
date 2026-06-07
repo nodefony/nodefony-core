@@ -334,7 +334,13 @@ class Session implements ISession {
       if (leftTime) {
         settings.maxAge = leftTime;
       }
-      const cookie = new Cookie(this.name, this.id, settings);
+      // Nom effectif selon le transport (`__Host-` sur TLS) — même calcul qu'à
+      // la lecture (Context.getSessionCookieName) pour une reprise L1 cohérente.
+      const cookie = new Cookie(
+        this.context.getSessionCookieName(),
+        this.id,
+        settings,
+      );
       this.context.response.addCookie(cookie);
       this.cookieSession = cookie;
       this.context.cookieSession = cookie;
@@ -349,7 +355,9 @@ class Session implements ISession {
       if (cookie) {
         cookie.expires = new Date(0);
       } else {
-        cookie = new Cookie(this.name, "", { expires: new Date(0) });
+        cookie = new Cookie(this.context.getSessionCookieName(), "", {
+          expires: new Date(0),
+        });
       }
       this.context.response.setCookie(cookie);
       this.cookieSession = null;
