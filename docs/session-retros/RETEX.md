@@ -379,6 +379,13 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-08]` **ne JAMAIS se fier à l'ordre de N listeners sur le même event kernel** : `proxy:generate`
+  (son `generate()` enregistré tôt sur `onReady`) firait AVANT le listener de montage statique (server-static,
+  enregistré plus tard à `onReady`) → `mounts` vide. Fix robuste = rendre le consommateur **auto-suffisant** :
+  appel **idempotent explicite** (`mountModulePublics()`) au lieu d'attendre que l'autre listener ait tourné.
+- `[1× — 2026-06-08]` **un kernel console CLI ne charge PAS les modules `policy:"dev"`** (test, test-frontend-\*,
+  mediasoup). Une commande introspective (`proxy:generate`, `assets:publish`) ne voit que les modules PROD →
+  l'absence d'un asset dev (`/test/`) est CORRECTE, pas un bug. Ne pas debugger un « manque » qui est le bon comportement.
 - `[1× — 2026-06-07]` **« hot path prod » = le chemin DERRIÈRE proxy, pas le cas sans proxy** (recadrage user :
   « on passe dedans à tous les coups !! »). Un serveur de prod est TOUJOURS derrière un reverse-proxy → la
   résolution forwarded s'exécute à CHAQUE requête. Optimiser CE chemin (cas avec en-têtes), pas seulement le
@@ -534,6 +541,13 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-08]` **vérifier la convention de test DU MODULE avant d'écrire** : http/framework/frontend =
+  `import { expect } from "chai"` + `describe`/`it` globals (PAS `import { describe, it, expect } from "vitest"`
+  jest-style). J'ai écrit `.to.deep.equal` avec import vitest (faux) → corrigé en chai + import `.js`. Copier
+  l'en-tête d'un test voisin du module (convention-frère) au lieu de présumer le style.
+- `[1× — 2026-06-08]` **prouver une config runtime PUIS révoquer proprement** : override `publicMount:{publicPath}`
+  posé temporairement → curl `/medias/*` 200 + `/test/*` 404 (preuve), puis restore depuis backup + `git diff` = 0.
+  Bon réflexe « tests-first / suspecter son diff » sur une feature config-driven sans test d'intégration dédié.
 - `[1× — 2026-06-06]` **border TOUT run de test long avec un plafond** (sinon hang qui s'éternise) : un bug
   session a fait HANG la gate mémoire **19 min** (chaque requête 500 après ~6 s × N). Garde à 2 niveaux :
   (a) plafond DUR au lancement (param `timeout` de l'outil Bash, ou `gtimeout` — `timeout` absent macOS) ;
