@@ -264,7 +264,7 @@ matériau du resync). Squelette : `frontmatter` → **table synthèse des écart
 P0  Bugs bloquants     100%  6✅            🟢 fidèle
 P5  Session/User/ORM    58%  9✅ 3🔶 6⬜    🟢 fidèle   ⚠️ virage ORM à répercuter (P5.7 ⏭️ caduc)
 P6  Security            12%  0✅ 4🔶 13⬜   🟢 fidèle   (S1 présent · 0 test = 0 tâche close)
-P7  ORM drivers         50%  2✅ 5🔶 2⬜    🟡 vision périmée (mikroorm vaporware, sequelize sort)
+P7  ORM drivers         50%  2✅ 5🔶 2⬜    🟡 % à recadrer (mikroorm vaporware, sequelize SORTI Ph.1)
 P15 Mediasoup            0%  —— 8⬜         🟢 fidèle   (mod/mediasoup = banc ORM ≠ implé télécom)
 ```
 
@@ -352,7 +352,7 @@ ASSAINISSEMENT  ·  MIGRATION_STATUS.md
 - **Granularité ≠** : le résumé compte ~297 sous-items, la roadmap ~150 tâches → pas de mapping 1:1. Ne pas tenter un recompte total exact.
 - **Structures de module** : certains modules IA utilisent `src/` (pas `nodefony/`) → `find` large, pas seulement `nodefony/**`.
 - **Faux négatif `require(...package.json)`** : un paquet ESM avec `exports` peut bloquer `require` de sous-chemins → vérifier via `ls node_modules/...` ou `npm ls`.
-- **Modules « legacy en place »** : P6 security (Factory/Provider) et P7 ORM (sequelize/mongoose) **existent et tournent** même si la refonte est ⬜ → marquer 🔶, pas ⬜, et le noter.
+- **Modules « legacy en place »** : P6 security (Factory/Provider) et P7 ORM (drizzle/mongoose) **existent et tournent** même si la refonte est ⬜ → marquer 🔶, pas ⬜, et le noter. (Sequelize a été SUPPRIMÉ — virage ORM Ph.1.)
 - **Cause d'augmentation des vulns** : un `npm install --legacy-peer-deps` (Angular) peut faire grimper le compte → toujours re-`npm audit`.
 - **Métrique de SURFACE trompeuse** (2026-06-05) : « le module X existe (N fichiers + dist) donc la phase est entamée » = FAUX. Vécu : `src/modules/mediasoup` (8 src) ≠ implé P15 → son `package.json` dit `description: "banc test ORM"`. **Sonder le CONTENU** (description, ce que ça fait), pas l'existence des fichiers.
 - **`Read` échoue sur le dashboard obèse** (> 256 KB / 25000 tokens) : lire par tranches (`offset`/`limit`) ; `awk '{print length"\t"NR}' MIGRATION_STATUS.md | sort -rn | head` localise les cellules-journal géantes à tuer.

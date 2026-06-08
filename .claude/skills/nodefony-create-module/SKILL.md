@@ -55,7 +55,7 @@ En cas de doute : assumer **package @nodefony/** (le cas le plus fréquent).
 - `Commands CLI` (ex: `nodefony foo:start`) — ajoute `nodefony/command/` + addCommand
 - `Controllers HTTP` (ex: `@controller("/foo")`) — ajoute `nodefony/controller/` + `@controllers([...])` + peer `@nodefony/framework` et `@nodefony/http`
 - `Service injectable principal` (recommandé par défaut) — ajoute `nodefony/service/FooService.ts` + `@services([FooService])`
-- `Entities ORM` — ajoute `nodefony/entity/` + peer `@nodefony/sequelize` (ou mongoose selon config)
+- `Entities ORM` — ajoute `nodefony/entity/` + peer `@nodefony/drizzle` (défaut SQL) ou `@nodefony/mongoose` (NoSQL) selon config
 - `Frontend Vite` — ajoute `frontend/`, peer `@nodefony/frontend`, déclaration `registerEntry` dans `onKernelBoot`
 
 ### Q4 — Ajouter au manifeste `modules` de `nodefony.config.ts` ?
@@ -151,7 +151,6 @@ la config) :
 ```typescript
 // nodefony.config.ts racine — éditer le tableau `modules` du descripteur defineConfig
 modules: [
-  "@nodefony/sequelize",
   use("@nodefony/http", { /* … */ }, { policy: "mandatory" }),
   { name: "@nodefony/framework", policy: "mandatory" },
   { name: "@nodefony/security", policy: "mandatory" },

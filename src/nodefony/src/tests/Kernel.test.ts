@@ -897,16 +897,16 @@ describe("Kernel — initializeLog", () => {
     );
   });
 
-  it("log.debug = ['ROUTER','SEQUELIZE'] → les deux modules passent", () => {
+  it("log.debug = ['ROUTER','DRIZZLE'] → les deux modules passent", () => {
     const k = new Kernel("development", null, {
-      log: { active: true, debug: ["ROUTER", "SEQUELIZE"] },
+      log: { active: true, debug: ["ROUTER", "DRIZZLE"] },
     });
     k.initializeLog();
-    assert.deepStrictEqual(k.debug, ["ROUTER", "SEQUELIZE"]);
+    assert.deepStrictEqual(k.debug, ["ROUTER", "DRIZZLE"]);
 
     const { received, restore } = interceptNormalizeLog();
     k.syslog?.log("router debug", "DEBUG", "ROUTER");
-    k.syslog?.log("seq debug", "DEBUG", "SEQUELIZE");
+    k.syslog?.log("orm debug", "DEBUG", "DRIZZLE");
     k.syslog?.log("other debug", "DEBUG", "OTHER");
     restore();
 
@@ -915,8 +915,8 @@ describe("Kernel — initializeLog", () => {
       "ROUTER doit passer",
     );
     assert.ok(
-      received.some((p) => p.msgid === "SEQUELIZE"),
-      "SEQUELIZE doit passer",
+      received.some((p) => p.msgid === "DRIZZLE"),
+      "DRIZZLE doit passer",
     );
     assert.ok(
       !received.some((p) => p.msgid === "OTHER"),
