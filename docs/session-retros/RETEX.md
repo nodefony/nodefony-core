@@ -32,9 +32,17 @@ src/packages/@nodefony/http` (implicite via les `npm run build/test`), un `git a
   depuis ce cwd cherche `…/http/src/packages/@nodefony/http/…` → `pathspec did not match`. → soit chemins
   **relatifs au cwd courant** (`git add nodefony/src/...`), soit `git -C <racine>`. Variante de
   [[feedback_cd_startsh_relative_path]] (ici = persistance du cwd, pas un `cd` inline).
+- `[1× — 2026-06-08]` **tmpfs du harness sature (ENOSPC) ≠ disque plein** : rediriger les gros logs (build turbo ~1m24, suites
+  vitest 7000+ lignes) vers `/tmp/x.log` remplit le **filesystem temp dédié du harness** (`/private/tmp/claude-*/.../tasks`,
+  petit quota) alors que `df` du disque montre 3 To libres → les Bash suivants échouent « ENOSPC ». → rediriger vers `/dev/null`
+  - `grep` le résultat, ou `> /tmp/x.log` PUIS `rm` aussitôt après extraction. Ne pas accumuler les logs verbeux.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-08]` **`npm install` ne purge pas le bloc workspace orphelin du `package-lock`** après suppression d'un package :
+  l'arbre transitif est bien pruné (−2820 L, symlink `node_modules/@nodefony/X` retiré) mais l'entrée `"src/packages/@nodefony/X"`
+  reste, marquée `"extraneous": true` → un futur `npm ci` serait incohérent. → la **retirer à la main** (Edit du bloc), puis
+  `node -e JSON.parse` + `npm install --package-lock-only` pour confirmer que npm ne la réintroduit pas.
 - Ces frictions sont **déjà graduées** — ne pas les redupliquer ici, juste les rappeler :
   - `npm run clean` détruit le **dist racine** (app) → `npm run build` foreground + `npx rollup -c`
     racine avant tout start → [[feedback_root_dist_stale_modules]].
@@ -116,6 +124,17 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 - `[1× — 2026-06-05]` **gros chantier supervisé = PERSISTER les constats au fil de l'eau** (fichier de travail), pas tout
   garder en contexte : l'audit P0→P16 a été écrit phase par phase dans `docs/migration/AUDIT-verite-2026-06.md` → survit aux
   interruptions (`/clear`, coupure) ET devient le matériau du livrable. Le user a interrompu 2× du Bash + jalonné « go »/« continue ».
+- `[1× — 2026-06-08]` **suppression totale d'un package = cartographier AVANT de couper, en triant consommateurs-CODE vs mentions-DOC.**
+  Sequelize OUT : 1 grep cross-repo + `.ai/symbols` ont séparé (a) ce qui casse le build (manifeste, peerDep, external rollup,
+  alias vitest, stubs, branche `Error.ts`) de (b) le cosmétique (TSDoc, README, labels Studio). Couper (a) → gates → puis (b).
+  Studio ne dépendait PAS du package (que des labels/logos) → suppression sûre.
+- `[1× — 2026-06-08]` **balayage prose multi-fichiers = script Node `replace` exact-match > sed.** Pour purger un mot dans ~50
+  fichiers (UTF-8, accents, multiline, backticks, art ASCII) : un `.mjs` `{file:[[from,to]]}` qui **rapporte les introuvables**
+  est plus sûr que `sed -i` (multibyte `·`/`…`/`é` risqués) et plus économe que Read+Edit par fichier. Garder Read+Edit pour les
+  tableaux/box ASCII (alignement à recompter à la main).
+- `[1× — 2026-06-08]` **purge d'un legacy : nettoyer le VIVANT, préserver l'HISTORIQUE.** « Zéro résidu » s'applique aux docs qui
+  décrivent l'état ACTUEL (CLAUDE/MEMORY/README/docs/guides/MIGRATION_STATUS) ; **PAS** aux ADR, session-retros, `migration/journal`,
+  audits — réécrire un document daté falsifie l'historique (l'audit ORM cite Sequelize justement pour documenter sa suppression).
 
 ## 🔄 Cycle de session (END/RETEX) — méta
 
