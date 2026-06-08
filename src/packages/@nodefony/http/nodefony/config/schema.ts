@@ -445,10 +445,93 @@ const websocketSchema = z
         "Taille max (octets) d'un message WS entrant. Au-delà → close RFC 6455 " +
           "1009 « Message Too Big ». Défaut 1 MiB (secure-by-default anti DoS mémoire).",
       ),
+    // ── Options natives `ws@8` (ServerOptions) — câblées dans new WebSocketServer ──
+    // Défauts alignés sur ceux de `ws@8.21` (sauf maxPayload, durci ci-dessus à 1 MiB).
+    perMessageDeflate: z
+      .union([
+        z.boolean(),
+        z.looseObject({
+          serverNoContextTakeover: z
+            .boolean()
+            .optional()
+            .describe(
+              "Le serveur ne conserve PAS le contexte de compression entre messages " +
+                "(moins de RAM par connexion, ratio de compression plus faible).",
+            ),
+          clientNoContextTakeover: z
+            .boolean()
+            .optional()
+            .describe("Idem côté client (négocié dans le handshake)."),
+          serverMaxWindowBits: z
+            .number()
+            .int()
+            .min(8)
+            .max(15)
+            .optional()
+            .describe(
+              "Taille de la fenêtre LZ77 côté serveur (8-15) ; plus bas = moins de RAM.",
+            ),
+          clientMaxWindowBits: z
+            .number()
+            .int()
+            .min(8)
+            .max(15)
+            .optional()
+            .describe("Taille de la fenêtre LZ77 côté client (8-15)."),
+          threshold: z
+            .number()
+            .int()
+            .nonnegative()
+            .optional()
+            .describe(
+              "Taille min (octets) d'un message pour être compressé. Défaut `ws` 1024.",
+            ),
+          concurrencyLimit: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe(
+              "Nombre max d'opérations zlib concurrentes (back-pressure CPU). Défaut `ws` 10.",
+            ),
+        }),
+      ])
+      .default(false)
+      .describe(
+        "Compression permessage-deflate (RFC 7692). Défaut false : la compression coûte " +
+          "CPU + mémoire et expose au zip-bomb (un petit payload compressé se décompresse " +
+          "en message géant). `true` = options par défaut, ou objet pour régler fenêtres / " +
+          "seuil / concurrence. N'activer que si le gain réseau le justifie.",
+      ),
+    skipUTF8Validation: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Désactive la validation UTF-8 des frames texte (RFC 6455 §8.1). Gain CPU au prix " +
+          "de l'acceptation de frames texte invalides — laisser false sauf charge extrême maîtrisée.",
+      ),
+    autoPong: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Répond automatiquement par un pong à chaque ping entrant (RFC 6455 §5.5.2-5.5.3). " +
+          "Laisser true — requis par le protocole et par le heartbeat des pairs.",
+      ),
+    allowSynchronousEvents: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Émet les events ('message', 'ping'…) de plusieurs frames lues dans un même chunk " +
+          "réseau de façon synchrone (ws@8.18+). true = meilleur débit ; false = un event par " +
+          "tick d'event loop (latence plus régulière, plus équitable entre connexions).",
+      ),
   })
   .describe(
-    "Serveur WebSocket (`ws`). Loose : options `ws.ServerOptions` " +
-      "(perMessageDeflate, clientTracking…) transmises.",
+    "Serveur WebSocket (`ws@8`). Les options ci-dessus (+ loose : `verifyClient`, " +
+      "`handleProtocols`, `path`, `WebSocket`…) sont transmises à `ws`. GÉRÉ par Nodefony et " +
+      "donc NON exposé : `server`/`host`/`port` (attaché au serveur HTTP), `noServer` (forcé off), " +
+      "`clientTracking` (forcé true — requis par broadcast() + heartbeat), `backlog` (celui du " +
+      "serveur HTTP). `keepalive*`/`closeTimeout` sont des knobs Nodefony, pas des options `ws`.",
   );
 
 // ───────────────────────── statics (loose → serve-static) ───────────────────

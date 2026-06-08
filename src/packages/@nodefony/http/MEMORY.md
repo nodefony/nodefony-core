@@ -329,6 +329,16 @@ Extension de l'`AuditErrorEntry` :
 7. `Controller.execute(null)` → handshake handler
 8. `ws "message"` → `Controller.execute(message)`
 
+## WS keep-alive — heartbeat (G2, 2026-06-08)
+
+`ws@8` n'a **0 keep-alive natif** (≠ ancienne lib `websocket` theturtle32 qui pingait/droppait seule via **1-2 timers PAR connexion** = anti-pattern). Les knobs `keepaliveInterval`/`keepaliveGracePeriod` (Zod) étaient déclarés mais **non câblés** (config menteuse) → recâblés.
+
+- **Helper `service/servers/wsHeartbeat.ts`** : `startHeartbeat(server,opts)` = **1 SEUL `setInterval`/serveur** (jamais 1/conn), `unref` + `clearInterval` au `terminate()`. `trackPong(ws)` par conn = **1 listener `pong` + 2 `number`** (`_nfLastPong`/`_nfPingedAt`), **0 alloc/tick**. Tick = `max(250, min(interval,grace))`.
+- **Sémantique** : ping tous les `keepaliveInterval` (déf. 20s) ; `terminate()` (close abrupt, pas `close()` — pair mort, pas de handshake) si pas de pong sous `keepaliveGracePeriod` (déf. 10s). Half-open réclamé en ~`interval+grace`. RFC 6455 §5.5.2 (pair **MUST** pong) / §5.5.3 (pong non sollicité OK → `trackPong` rafraîchit sur **tout** pong). `keepaliveInterval<=0` → désactivé (`null`).
+- **Câblé ws + wss** : `createServer`→`startHeartbeat` ; `onConnection`→`trackPong` ; `terminate`→`clearInterval`. Coût = **2 timers fixes** (5151+5152), constant quel que soit N connexions.
+- **Options `ws@8` désormais TOUTES déclarées+câblées** (Zod) : `perMessageDeflate`(false, anti zip-bomb)/`skipUTF8Validation`(false, §8.1)/`autoPong`(true, §5.5.2)/`allowSynchronousEvents`(true)/`maxPayload`(1 MiB, durci vs 100 MiB ws). `new WebSocketServer({...this.options, server, clientTracking:true})` — `server`+`clientTracking` **forcés** (broadcast()+heartbeat en dépendent). `keepalive*`/`closeTimeout` = knobs Nodefony, **pas** options ws (ws les ignore).
+- **Trou restant G1** : backpressure **sortante** (`bufferedAmount` jamais lu → OOM si client lent à recevoir) → politique `drop` (déf.) / `close` 1013, réglable Zod. `coalesce` = couche canal (realtime), pas transport.
+
 ## Gotchas critiques
 
 **IWsRequestExtension** : `IncomingMessage.url` = string. `Route.match()` fait `.pathname`. Fix : `WsIncomingMessage = IncomingMessage & { url: URL; query; queryGet; path }` — assigné dans `WebsocketContext` constructor.
@@ -357,7 +367,7 @@ Extension de l'`AuditErrorEntry` :
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — vitest 100% (mocha SUPPRIMÉ 2026-06-05) — 337 unit / 400 intég / 9 gate
+## Tests — vitest 100% (mocha SUPPRIMÉ 2026-06-05) — 339 unit / 400 intég / 9 gate
 
 Runner unique = **Vitest 4**, 3 suites = 3 configs (séquentielles pour intég+load) :
 

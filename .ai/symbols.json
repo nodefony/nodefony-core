@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-08T13:46:20.181Z",
+  "generated": "2026-06-08T15:51:20.371Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 830,
-    "symbols": 1700,
+    "files": 831,
+    "symbols": 1704,
     "classes": 238,
-    "interfaces": 421,
+    "interfaces": 423,
     "types": 219,
     "enums": 3,
     "functions": 339,
-    "constants": 480
+    "constants": 482
   },
   "symbols": {
     "Cli": {
@@ -11073,6 +11073,31 @@
       "implements": [],
       "decorators": []
     },
+    "IWsHeartbeatOptions": {
+      "name": "IWsHeartbeatOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/wsHeartbeat.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Options keep-alive d'un serveur WebSocket. Héritées de l'ancienne lib `websocket` (theturtle32) qui les gérait nativement. `ws@8` n'a AUCUN keep-alive natif (il n'expose que `ping()`/`pong()` manue…"
+    },
+    "trackPong": {
+      "name": "trackPong",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/wsHeartbeat.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Arme le suivi keep-alive d'UNE connexion : initialise l'horodatage de vie et attache l'unique listener `pong` qui le rafraîchit. Le listener `pong` vit et meurt avec la socket (l'émetteur EST la so…"
+    },
+    "startHeartbeat": {
+      "name": "startHeartbeat",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/service/servers/wsHeartbeat.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Démarre le heartbeat keep-alive du serveur : détecte les connexions zombies (half-open — TCP encore ouvert mais le pair a disparu sans frame Close) et les `terminate()` pour libérer slot mémoire + …"
+    },
     "SessionsService": {
       "name": "SessionsService",
       "kind": "class",
@@ -17066,6 +17091,18 @@
       "handleClientError": [
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
+      ],
+      "startHeartbeat": [
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
+      ],
+      "trackPong": [
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
+      ],
+      "IWsHeartbeatOptions": [
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
       ],
       "OptionsSessionType": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
