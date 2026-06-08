@@ -161,6 +161,15 @@ class DefaultController extends Controller {
 
   @route("memory-stats", { path: "/memory" })
   memoryStats() {
+    // Force un GC si le serveur tourne avec `--expose-gc` → on mesure le heap
+    // RETENU, pas le garbage transitoire en attente de collecte. No-op sinon
+    // (comportement inchangé). C'est ce qui rend le gate mémoire fiable : sans
+    // ça, 5000 frames WS laissent ~180 MB de déchets non collectés qui passent
+    // pour une « fuite » alors que le GC les récupère (cf gate ws-messages-load).
+    const forceGc = (globalThis as { gc?: () => void }).gc;
+    if (forceGc) {
+      forceGc();
+    }
     const mem = process.memoryUsage();
     return this.renderJson({
       rss: mem.rss,
