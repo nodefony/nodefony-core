@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-08T08:20:34.775Z",
+  "generated": "2026-06-08T11:10:45.847Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 824,
-    "symbols": 1691,
+    "symbols": 1692,
     "classes": 240,
     "interfaces": 426,
     "types": 212,
     "enums": 3,
     "functions": 333,
-    "constants": 477
+    "constants": 478
   },
   "symbols": {
     "Cli": {
@@ -350,8 +350,7 @@
       "extends": "Module",
       "implements": [],
       "decorators": [
-        "services",
-        "entities"
+        "services"
       ]
     },
     "Realtime": {
@@ -6320,41 +6319,64 @@
       "module": "@nodefony/memory",
       "extends": null
     },
-    "Session": {
-      "name": "Session",
+    "MongooseConnectorConfig": {
+      "name": "MongooseConnectorConfig",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Config d'une connexion Mongoose. Soit une `uri` complète (`mongodb://…` / `mongodb+srv://…`), soit les composants `host`/`port`/`dbname` (assemblés en `mongodb://host:port/dbname`). Les credentials…"
+    },
+    "MongooseModuleConfig": {
+      "name": "MongooseModuleConfig",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Config du module `@nodefony/mongoose` : N connexions nommées."
+    },
+    "@nodefony/mongoose:SessionEntity": {
+      "name": "SessionEntity",
       "kind": "class",
       "file": "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "extends": "Entity",
+      "extends": null,
       "implements": [],
-      "decorators": []
+      "decorators": [
+        "entity"
+      ],
+      "description": "Entité session enregistrée dans le `entityRegistry` pour le connecteur `nodefony` — `MongooseOrm` compile le modèle à la connexion (au boot)."
     },
-    "@nodefony/mongoose:ISession": {
-      "name": "ISession",
+    "@nodefony/mongoose:SessionRow": {
+      "name": "SessionRow",
       "kind": "interface",
       "file": "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "extends": "Document"
+      "extends": null,
+      "description": "Forme plate d'une ligne de session telle que renvoyée par le repository."
     },
-    "SessionModel": {
-      "name": "SessionModel",
-      "kind": "interface",
+    "@nodefony/mongoose:SESSION_ORM": {
+      "name": "SESSION_ORM",
+      "kind": "const",
       "file": "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "extends": "Model"
+      "description": "ORM cible du stockage de session (connecteur par défaut du module)."
     },
-    "@nodefony/mongoose:Mongoose": {
-      "name": "Mongoose",
+    "MongooseService": {
+      "name": "MongooseService",
       "kind": "class",
-      "file": "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+      "file": "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "extends": "Orm",
+      "extends": "Service",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Service bootable du module `@nodefony/mongoose` (driver NoSQL). Au boot du kernel (`onBoot`), instancie un {@link MongooseOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le con…"
     },
     "@nodefony/mongoose:SessionStorage": {
       "name": "SessionStorage",
@@ -6363,8 +6385,11 @@
       "exported": true,
       "module": "@nodefony/mongoose",
       "extends": null,
-      "implements": [],
-      "decorators": []
+      "implements": [
+        "ISessionStorage"
+      ],
+      "decorators": [],
+      "description": "Stockage de session **Mongoose** (driver NoSQL), branché sur `@nodefony/orm-core`. Implémente le contrat {@link ISessionStorage} consommé par le `SessionsService` de `@nodefony/http` — store de ses…"
     },
     "IEntityRelation": {
       "name": "IEntityRelation",
@@ -11477,7 +11502,7 @@
       "module": "@nodefony/http",
       "description": "Valeurs par défaut d'un modèle d'introspection (complété par la commande)."
     },
-    "@nodefony/http:Session": {
+    "Session": {
       "name": "Session",
       "kind": "class",
       "file": "src/packages/@nodefony/http/nodefony/src/session/session.ts",
@@ -12271,6 +12296,7 @@
         "FrontendService",
         "Certificate",
         "HttpKernel",
+        "MongooseService",
         "AbstractCrudService",
         "Orm",
         "RedisService",
@@ -12453,20 +12479,6 @@
         "MemoryShutdownError",
         "MemoryInvalidInputError"
       ],
-      "Entity": [
-        "Session"
-      ],
-      "Document": [
-        "ISession"
-      ],
-      "Model": [
-        "SessionModel"
-      ],
-      "Orm": [
-        "Mongoose",
-        "DrizzleOrm",
-        "MongooseOrm"
-      ],
       "RagError": [
         "RagInvalidInputError",
         "RagShutdownError"
@@ -12502,6 +12514,10 @@
       "DocumentationError": [
         "DocNotFoundError",
         "DocUnsafeSlugError"
+      ],
+      "Orm": [
+        "DrizzleOrm",
+        "MongooseOrm"
       ],
       "FrontendError": [
         "FrontendPresetUnknownError",
@@ -12571,6 +12587,7 @@
         "SyslogTransport"
       ],
       "ISessionStorage": [
+        "SessionStorage",
         "SessionStorage",
         "RedisSessionStorage",
         "FileSessionStorage"
@@ -12712,9 +12729,6 @@
         "Redis",
         "Security"
       ],
-      "entities": [
-        "Mongoose"
-      ],
       "controller": [
         "MediasoupController",
         "AlsController",
@@ -12751,6 +12765,7 @@
         "DomainClassController"
       ],
       "entity": [
+        "SessionEntity",
         "SessionEntity"
       ],
       "injectable": [
@@ -12813,7 +12828,7 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
@@ -12863,7 +12878,7 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
@@ -12909,7 +12924,7 @@
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
@@ -13050,8 +13065,6 @@
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -13075,7 +13088,6 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
-        "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
@@ -13191,8 +13203,7 @@
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
@@ -13337,29 +13348,36 @@
         "src/packages/@nodefony/documentation/index.ts"
       ],
       "setOrmHealthProvider": [
-        "src/packages/@nodefony/drizzle/index.ts"
+        "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/mongoose/index.ts"
       ],
       "setOrmRichProvider": [
-        "src/packages/@nodefony/drizzle/index.ts"
+        "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/mongoose/index.ts"
       ],
       "IAdminRegistry": [
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "registerOrmAdminApi": [
-        "src/packages/@nodefony/drizzle/index.ts"
+        "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/mongoose/index.ts"
       ],
       "buildOrmLeanHealth": [
-        "src/packages/@nodefony/drizzle/index.ts"
+        "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/mongoose/index.ts"
       ],
       "buildConnectionHealth": [
-        "src/packages/@nodefony/drizzle/index.ts"
+        "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/mongoose/index.ts"
       ],
       "buildOrmFlow": [
-        "src/packages/@nodefony/drizzle/index.ts"
+        "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/mongoose/index.ts"
       ],
       "DrizzleService": [
         "src/packages/@nodefony/drizzle/index.ts"
@@ -13732,22 +13750,10 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts"
       ],
-      "entities": [
+      "registerMongooseAdapter": [
         "src/packages/@nodefony/mongoose/index.ts"
       ],
-      "ISession": [
-        "src/packages/@nodefony/mongoose/index.ts",
-        "src/modules/test/nodefony/controller/RestController.ts",
-        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
-        "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "SessionModel": [
-        "src/packages/@nodefony/mongoose/index.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
-      ],
-      "SessionStorage": [
+      "MongooseService": [
         "src/packages/@nodefony/mongoose/index.ts"
       ],
       "withTimeout": [
@@ -14118,7 +14124,6 @@
       "Orm": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/orm/Connector.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
@@ -14170,9 +14175,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
-        "src/nodefony/src/kernel/orm/Orm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts"
+        "src/nodefony/src/kernel/orm/Orm.ts"
       ],
       "isClusterMessage": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -14673,11 +14676,13 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "ormRegistry": [
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
@@ -14735,6 +14740,12 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts"
+      ],
+      "ISession": [
+        "src/modules/test/nodefony/controller/RestController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
@@ -14822,13 +14833,16 @@
         "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
       ],
       "entity": [
-        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts"
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts"
       ],
       "queryFlowMonitor": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "DrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
@@ -14838,6 +14852,7 @@
       ],
       "ISessionStorage": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
@@ -14845,12 +14860,14 @@
       ],
       "ISerializedSession": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
       ],
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
@@ -14862,10 +14879,12 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "SESSION_ORM": [
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
       "SessionRow": [
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
       "meta": [
         "src/packages/@nodefony/framework/nodefony/config/schema.ts",
@@ -15078,7 +15097,8 @@
       ],
       "redactSecrets": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "getLogDriver": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
@@ -15369,11 +15389,14 @@
       "IInMemoryStoreConfig": [
         "src/packages/@nodefony/memory/src/services/MemoryService.ts"
       ],
-      "SessionEntity": [
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+      "MongooseOrm": [
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
-      "Mongoose": [
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+      "MongooseConnectorConfig": [
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
+      ],
+      "MongooseModuleConfig": [
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
       "ITransaction": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
@@ -15396,7 +15419,8 @@
       "IConnectionInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
       "IOrmProbe": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",

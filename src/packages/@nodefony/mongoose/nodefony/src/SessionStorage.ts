@@ -1,225 +1,176 @@
-import { Severity, extend } from "nodefony";
 import { SessionsService } from "@nodefony/http";
-import mongoose, { Model } from "mongoose";
-import SessionEntity, { SessionModel, ISession } from "../entity/sessionEntity";
-import orm from "../service/orm";
-import Mongoose from "../service/orm";
+import type { ISessionStorage, ISerializedSession } from "@nodefony/http";
+import { ormRegistry } from "@nodefony/orm-core";
+import type { IRepository } from "@nodefony/orm-core";
+import { SESSION_ORM, type SessionRow } from "../entity/sessionEntity";
 
-const finderGC = function finderGC(
-  this: SessionStorage,
-  msMaxlifetime: number,
-  contextSession: string,
-) {
-  const where: mongoose.QueryFilter<any> = {
-    context: contextSession,
-    updatedAt: {
-      $lt: new Date(new Date().getDate() - msMaxlifetime),
-    },
-  };
-  if (this.entity)
-    return this.entity
-      .deleteMany(where)
-      .then((results) => {
-        let severity = "DEBUG";
-        if (!results) {
-          throw new Error("session.storage finderGC no result ");
-        }
-        if (results && results.deletedCount) {
-          severity = "INFO";
-          this.manager.log(
-            `Context : ${contextSession || "default"} GARBADGE COLLECTOR ==> ${results.deletedCount}  DELETED`,
-            "INFO",
-          );
-        }
-        return results;
-      })
-      .catch((error) => {
-        this.manager.log(error, "ERROR");
-        throw error;
-      });
-};
-
-class SessionStorage {
+/**
+ * Stockage de session **Mongoose** (driver NoSQL), branché sur `@nodefony/orm-core`.
+ *
+ * Implémente le contrat {@link ISessionStorage} consommé par le `SessionsService`
+ * de `@nodefony/http` — store de session portable. Persiste via le repository
+ * orm-core de l'entité `session` (connecteur `nodefony`, modèle compilé au boot
+ * par `MongooseOrm`). Logique **identique** au store Drizzle (timestamps en ms,
+ * GC via l'opérateur riche portable `$lt`) — la portabilité du contrat orm-core.
+ */
+class SessionStorage implements ISessionStorage {
   manager: SessionsService;
   gc_maxlifetime: number;
-  contextSessions: string[];
-  entity?: Model<ISession, SessionModel>;
-  userEntity?: Model<any>;
-  orm: Mongoose | null;
+  contextSessions: string[] = [];
+
   constructor(manager: SessionsService) {
     this.manager = manager;
-    this.orm = this.manager.get<Mongoose>("mongoose");
-    this.orm?.on("onOrmReady", () => {
-      this.entity = this.orm?.getEntity("session") as Model<
-        ISession,
-        SessionModel
-      >;
-      this.userEntity = this.orm?.getEntity("user") as Model<any>;
-    });
-    this.gc_maxlifetime = this.manager.options.gc_maxlifetime;
-    this.contextSessions = [];
+    this.gc_maxlifetime = manager.options.gc_maxlifetime;
   }
 
-  start(id: string, contextSession: string) {
-    try {
-      return this.read(id, contextSession);
-    } catch (e) {
-      throw e;
+  /**
+   * Repository de l'entité session, ou `null` si l'ORM n'est pas (ou plus)
+   * connecté.
+   *
+   * Pendant le shutdown du kernel, `MongooseService` déconnecte l'ORM alors que
+   * des requêtes peuvent encore être en vol (firewall → `startSession`). On
+   * renvoie `null` et chaque opération dégrade gracieusement (session non
+   * persistée le temps de l'arrêt) plutôt que de jeter (500 + `unhandledRejection`
+   * via le GC fire-and-forget). Une table absente sur un ORM **connecté** (vraie
+   * misconfig) jette toujours via `getRepository`.
+   */
+  #repo(): IRepository<SessionRow> | null {
+    const orm = ormRegistry.get(SESSION_ORM);
+    if (!orm.isConnected()) {
+      return null;
     }
+    return orm.getRepository<SessionRow>("session");
   }
 
-  open(contextSession: string) {
-    // « pas console » ≡ serveur ; profil/kernel absent → on exécute (ancien `!== "CONSOLE"`).
-    if (this.orm?.kernel?.runProfile?.servers ?? true) {
-      this.gc(this.gc_maxlifetime, contextSession);
-      if (this.entity)
-        return this.entity
-          .countDocuments({
-            context: contextSession,
-          })
-          .then((sessionCount: number) => {
-            this.manager.log(
-              `CONTEXT ${contextSession ? contextSession : "default"} MONGODB SESSIONS STORAGE  ==>  ${this.manager.options.handler.toUpperCase()} COUNT SESSIONS : ${sessionCount}`,
-              "INFO",
-            );
-          });
+  async read(id: string, contextSession?: string): Promise<ISerializedSession> {
+    const criteria: Partial<SessionRow> = { session_id: id };
+    if (contextSession) {
+      criteria.context = contextSession;
     }
+    const repo = this.#repo();
+    if (!repo) {
+      return {} as ISerializedSession;
+    }
+    const row = await repo.findOne(criteria);
+    if (!row) {
+      return {} as ISerializedSession;
+    }
+    return {
+      Attributes: (row.Attributes ?? {}) as Record<string, unknown>,
+      metaBag: (row.metaBag ?? {}) as Record<string, unknown>,
+      flashBag: (row.flashBag ?? {}) as Record<string, unknown>,
+      user: row.user ?? "",
+      createdAt: new Date(row.createdAt),
+      updatedAt: new Date(row.updatedAt),
+    };
   }
 
-  close() {
-    this.gc(this.gc_maxlifetime);
+  async start(id: string, contextSession: string): Promise<ISerializedSession> {
+    return this.read(id, contextSession);
+  }
+
+  async write(
+    id: string,
+    data: ISerializedSession,
+    contextSession: string,
+  ): Promise<ISerializedSession> {
+    const serialize = data;
+    const now = Date.now();
+    const repo = this.#repo();
+    if (!repo) {
+      // ORM indisponible (shutdown) — pas de persistance, on renvoie l'état courant.
+      return {
+        ...serialize,
+        createdAt: new Date(now),
+        updatedAt: new Date(now),
+      };
+    }
+    const fields = {
+      context: contextSession || "default",
+      Attributes: serialize.Attributes,
+      flashBag: serialize.flashBag,
+      metaBag: serialize.metaBag,
+      user: serialize.user || null,
+      updatedAt: now,
+    };
+    const existing = await repo.findOne({ session_id: id });
+    if (existing) {
+      await repo.update({ session_id: id }, fields as Partial<SessionRow>);
+    } else {
+      await repo.create({
+        session_id: id,
+        createdAt: now,
+        ...fields,
+      } as Partial<SessionRow>);
+    }
+    return {
+      ...serialize,
+      createdAt: new Date(existing?.createdAt ?? now),
+      updatedAt: new Date(now),
+    };
+  }
+
+  async open(contextSession: string): Promise<number> {
+    await this.gc(this.gc_maxlifetime, contextSession);
+    const repo = this.#repo();
+    if (!repo) {
+      return 0;
+    }
+    const count = await repo.count(
+      contextSession ? { context: contextSession } : undefined,
+    );
+    this.manager.log(
+      `CONTEXT ${contextSession || "default"} MONGOOSE SESSIONS STORAGE ==> COUNT SESSIONS : ${count}`,
+      "INFO",
+    );
+    return count;
+  }
+
+  close(): boolean {
+    void this.gc(this.gc_maxlifetime);
     return true;
   }
 
-  destroy(id: string, contextSession: string) {
-    if (this.entity)
-      return this.entity
-        .findOne({
-          session_id: id,
-          context: contextSession,
-        })
-        .then((result) => {
-          if (result) {
-            return result
-              .deleteOne({
-                force: true,
-              })
-              .then((session) => {
-                this.manager.log(
-                  `DB DESTROY SESSION context : ${result.context} ID : ${result.session_id} DELETED`,
-                  "DEBUG",
-                );
-                return session;
-              })
-              .catch((error) => {
-                this.manager.log(
-                  `DB DESTROY SESSION context : ${contextSession} ID : ${id}`,
-                  "ERROR",
-                );
-                throw error;
-              });
-          }
-        })
-        .catch((error) => {
-          this.manager.log(
-            `DB DESTROY SESSION context : ${contextSession} ID : ${id}`,
-            "ERROR",
-          );
-          throw error;
-        });
-  }
-
-  gc(maxlifetime: number, contextSession?: string) {
-    const msMaxlifetime = (maxlifetime || this.gc_maxlifetime) * 1000;
+  async destroy(id: string, contextSession: string): Promise<boolean> {
+    const criteria: Partial<SessionRow> = { session_id: id };
     if (contextSession) {
-      finderGC.call(this, msMaxlifetime, contextSession);
-    } else if (this.contextSessions.length) {
-      for (let i = 0; i < this.contextSessions.length; i++) {
-        finderGC.call(this, msMaxlifetime, this.contextSessions[i]);
-      }
+      criteria.context = contextSession;
     }
+    const repo = this.#repo();
+    if (!repo) {
+      return true;
+    }
+    await repo.delete(criteria);
+    this.manager.log(
+      `MONGOOSE DESTROY SESSION context : ${contextSession} ID : ${id}`,
+      "DEBUG",
+    );
+    return true;
   }
 
-  read(id: string, contextSession: string) {
-    let where: mongoose.QueryFilter<any> | null = null;
+  async gc(maxlifetime: number, contextSession?: string): Promise<void> {
+    const cutoff = Date.now() - (maxlifetime || this.gc_maxlifetime) * 1000;
+    const criteria: Record<string, unknown> = { updatedAt: { $lt: cutoff } };
     if (contextSession) {
-      where = {
-        session_id: id,
-        context: contextSession,
-      };
-    } else {
-      where = {
-        session_id: id,
-      };
+      criteria.context = contextSession;
     }
-    if (this.entity)
-      return this.entity
-        .findOne(where)
-        .populate([{ path: "user", strictPopulate: false }])
-        .then((session) => {
-          if (session) {
-            return {
-              id: session.session_id,
-              flashBag: session.flashBag,
-              metaBag: session.metaBag,
-              Attributes: session.Attributes,
-              //username: session.username,
-            };
-          }
-          return {};
-        })
-        .catch((error) => {
-          this.manager.log(error, "ERROR");
-          throw error;
-        });
-  }
-
-  async write(id: string, serialize: any, contextSession?: string) {
-    const data = extend({}, serialize, {
-      session_id: id,
-      context: contextSession || "default",
-    });
-    if (this.userEntity && data.username) {
-      const myuser = await this.userEntity.findOne({
-        username: data.username.username,
-      });
-      data.user = myuser._id;
+    const repo = this.#repo();
+    if (!repo) {
+      return;
     }
-    if (this.entity)
-      return this.entity
-        .updateOne(
-          {
-            session_id: id,
-            context: contextSession || "default",
-          },
-          data,
-          {
-            upsert: true,
-          },
-        )
-        .then((result) => {
-          if (result.modifiedCount) {
-            this.manager.log(`UPDATE SESSION : ${data.session_id}`, "DEBUG");
-          }
-          if (result.upsertedCount) {
-            this.manager.log(`ADD SESSION : ${data.session_id}`, "DEBUG");
-          }
-          return data;
-        })
-        .catch((error: Error) => {
-          throw error;
-        });
+    const deleted = await repo.delete(criteria as Partial<SessionRow>);
+    if (deleted > 0) {
+      this.manager.log(
+        `MONGOOSE SESSIONS GC context : ${contextSession || "default"} ==> ${deleted} DELETED`,
+        "DEBUG",
+      );
+    }
   }
 }
 
-// Auto-enregistrement dans le registre de session de @nodefony/http (IoC).
-// cast : dette de typage session (ISessionStorage vs sessionStorageInterface),
-// traitée par la refonte ORM (boussole durcissement ORM).
-SessionsService.registerStorage(
-  "mongoose",
-  SessionStorage as unknown as Parameters<
-    typeof SessionsService.registerStorage
-  >[1],
-);
+// Auto-enregistrement dans le registre de session de @nodefony/http (IoC) :
+// http ne dépend pas de cet ORM, c'est l'ORM qui se déclare. SessionStorage
+// implémente directement ISessionStorage (contrat unifié) → plus de cast.
+SessionsService.registerStorage("mongoose", SessionStorage);
 
 export default SessionStorage;

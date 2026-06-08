@@ -128,7 +128,7 @@ export type {
 } from "./realtime/RealtimeEventMap";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
-export { default as nodefonyError } from "./Error";
+export { default as nodefonyError, registerMongooseAdapter } from "./Error";
 
 // ─── Finder / Files ───────────────────────────────────────────────────────────
 export { default as Finder } from "./finder/Finder";

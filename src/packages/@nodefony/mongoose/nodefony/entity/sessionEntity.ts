@@ -1,75 +1,47 @@
-import nodefony, { Entity, Module } from "nodefony";
-import mongoose, { Schema, Document, Model, SchemaDefinition } from "mongoose";
+import type { SchemaDefinition } from "mongoose";
+import { entity } from "@nodefony/orm-core";
 
-interface ISession extends Document {
-  session_id: string;
-  context: string;
-  user?: string;
-  Attributes: JSON;
-  flashBag: JSON;
-  metaBag: JSON;
-}
+/** ORM cible du stockage de session (connecteur par défaut du module). */
+export const SESSION_ORM = "nodefony";
 
-interface SessionModel extends Model<ISession> {
-  fetchAll(
-    callback: (error: Error | null, result: Session[] | null) => void
-  ): void;
-}
-
+/**
+ * Schéma Mongoose de stockage des sessions (compilé par `MongooseOrm` au boot).
+ *
+ * Équivalent portable de l'entité session legacy : mêmes champs logiques
+ * (`session_id` PK applicative, `context`, sacs `Attributes`/`flashBag`/`metaBag`,
+ * `user`). Les horodatages sont des **nombres** (ms epoch), comme l'adapter
+ * Drizzle, pour que `SessionStorage` reste strictement portable entre les ORM
+ * (cutoff GC = `updatedAt < now - ttl`, opérateur riche `$lt` natif Mongo).
+ */
 const schema: SchemaDefinition = {
-  session_id: {
-    type: String,
-    index: true,
-    unique: true,
-  },
-  context: {
-    type: String,
-    default: "default",
-  },
-  // user: {
-  //   type: Schema.Types.ObjectId,
-  //   ref: "user",
-  // },
-  Attributes: {
-    type: Object,
-    default: {},
-  },
-  flashBag: {
-    type: Object,
-    default: {},
-  },
-  metaBag: {
-    type: Object,
-    default: {},
-  },
+  session_id: { type: String, index: true, unique: true },
+  context: { type: String, default: "default" },
+  Attributes: { type: Object, default: {} },
+  flashBag: { type: Object, default: {} },
+  metaBag: { type: Object, default: {} },
+  user: { type: String, default: null },
+  createdAt: { type: Number },
+  updatedAt: { type: Number },
 };
 
-class Session extends Entity {
-  constructor(module: Module) {
-    super(module, "session", "mongoose", "nodefony");
-  }
-
-  registerModel(db: mongoose.Connection) {
-    const mySchema: Schema = new Schema(schema, {
-      collection: "sessions",
-      timestamps: {
-        createdAt: "createdAt",
-        updatedAt: "updatedAt",
-      },
-    });
-
-    mySchema.statics.fetchAll = function fetchAll(callback) {
-      return this.find()
-        .then((result: ISession[]) => callback(null, result))
-        .catch((error: Error) => {
-          if (error) {
-            return callback(error, null);
-          }
-        });
-    };
-    return db.model<ISession, SessionModel>(this.name, mySchema);
-  }
+/** Forme plate d'une ligne de session telle que renvoyée par le repository. */
+export interface SessionRow {
+  session_id: string;
+  context: string;
+  Attributes: unknown;
+  flashBag: unknown;
+  metaBag: unknown;
+  user: string | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
-export default Session;
-export { SessionModel, ISession };
+/**
+ * Entité session enregistrée dans le `entityRegistry` pour le connecteur
+ * `nodefony` — `MongooseOrm` compile le modèle à la connexion (au boot).
+ */
+@entity({ orm: SESSION_ORM, name: "session", schema })
+class SessionEntity {}
+
+export default SessionEntity;
+export { schema as sessionSchema };
