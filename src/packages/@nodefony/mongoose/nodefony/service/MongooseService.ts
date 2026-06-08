@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import type { ConnectOptions } from "mongoose";
 import { Service } from "nodefony";
 import type { Container, Event, Module } from "nodefony";
-import { queryFlowMonitor } from "@nodefony/orm-core";
+import { queryFlowMonitor, resolveOrmFlowEnabled } from "@nodefony/orm-core";
 import { MongooseOrm } from "../src/orm-core/MongooseOrm";
 import type {
   IMongooseConfig,
@@ -39,14 +39,9 @@ class MongooseService extends Service {
 
     // Connexion au boot (après chargement des modules/entités), fermeture au shutdown.
     this.kernel?.once("onBoot", async () => {
-      // Sonde de flux ORM : ON hors production (observabilité Supervision), OFF
-      // en prod → coût nul sur le hot path. Override via NODEFONY_ORM_FLOW (1/0).
-      const flag = process.env.NODEFONY_ORM_FLOW;
-      queryFlowMonitor.setEnabled(
-        flag !== undefined
-          ? flag === "1" || flag === "true"
-          : this.kernel?.environment !== "production",
-      );
+      // Sonde de flux ORM : OFF en prod (coût nul hot path), ON sinon. Override
+      // NODEFONY_ORM_FLOW. Calcul factorisé en orm-core (C5).
+      queryFlowMonitor.setEnabled(resolveOrmFlowEnabled(this.kernel));
       await this.connectAll().catch((e: Error) => {
         this.log(e, "ERROR");
         throw e;

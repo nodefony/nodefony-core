@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-08T17:17:56.544Z",
+  "generated": "2026-06-08T17:32:49.705Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 832,
-    "symbols": 1711,
+    "files": 833,
+    "symbols": 1713,
     "classes": 238,
     "interfaces": 426,
     "types": 221,
     "enums": 3,
-    "functions": 339,
+    "functions": 341,
     "constants": 484
   },
   "symbols": {
@@ -6835,6 +6835,22 @@
       "module": "@nodefony/orm-core",
       "description": "Singleton process-wide partagé par tous les drivers et consommateurs ORM. Les modules ORM s'enregistrent ici ; la classe {@link OrmRegistry} reste instanciable séparément pour des registres isolés …"
     },
+    "wireOrmAdminPlane": {
+      "name": "wireOrmAdminPlane",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Branche le « plan d'administration » ORM dans le kernel — montage **idempotent** appelé par CHAQUE driver à son `onKernelBoot`. Factorise la dette C5 : le bloc était jusqu'ici recopié à l'identique…"
+    },
+    "resolveOrmFlowEnabled": {
+      "name": "resolveOrmFlowEnabled",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Détermine si la sonde de flux ORM (`queryFlowMonitor`) doit être active : **OFF en production** (coût nul sur le hot path des requêtes), **ON sinon** (observabilité dev / Supervision). Override exp…"
+    },
     "queryFlowMonitor": {
       "name": "queryFlowMonitor",
       "kind": "const",
@@ -13093,7 +13109,8 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
       ],
       "Message": [
         "src/nodefony/src/Container.ts",
@@ -13449,35 +13466,7 @@
       "DocumentationController": [
         "src/packages/@nodefony/documentation/index.ts"
       ],
-      "setOrmHealthProvider": [
-        "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/mongoose/index.ts"
-      ],
-      "setOrmRichProvider": [
-        "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/mongoose/index.ts"
-      ],
-      "IAdminRegistry": [
-        "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/frontend/index.ts",
-        "src/packages/@nodefony/http/index.ts",
-        "src/packages/@nodefony/mongoose/index.ts",
-        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
-      ],
-      "registerOrmAdminApi": [
-        "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/mongoose/index.ts"
-      ],
-      "buildOrmLeanHealth": [
-        "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/mongoose/index.ts"
-      ],
-      "buildConnectionHealth": [
-        "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/mongoose/index.ts"
-      ],
-      "buildOrmFlow": [
+      "wireOrmAdminPlane": [
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/mongoose/index.ts"
       ],
@@ -13707,6 +13696,13 @@
       "routeExpectsBodyStream": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts"
+      ],
+      "IAdminRegistry": [
+        "src/packages/@nodefony/frontend/index.ts",
+        "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
       ],
       "createFrontendAdminApi": [
         "src/packages/@nodefony/frontend/index.ts"
@@ -14963,6 +14959,10 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
+      "resolveOrmFlowEnabled": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
+      ],
       "IDrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
@@ -15617,6 +15617,24 @@
       ],
       "IOrmFlowReport": [
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+      ],
+      "setOrmHealthProvider": [
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
+      ],
+      "setOrmRichProvider": [
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
+      ],
+      "registerOrmAdminApi": [
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
+      ],
+      "buildConnectionHealth": [
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
+      ],
+      "buildOrmFlow": [
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
+      ],
+      "buildOrmLeanHealth": [
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
       ],
       "IQueryFlow": [
         "src/packages/@nodefony/orm-core/nodefony/src/QueryFlowMonitor.ts"

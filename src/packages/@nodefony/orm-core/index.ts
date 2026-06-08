@@ -48,6 +48,12 @@ export {
 } from "./nodefony/src/OrmAdminApi";
 export { queryFlowMonitor } from "./nodefony/src/QueryFlowMonitor";
 export { buildOrmLeanHealth } from "./nodefony/src/buildOrmLeanHealth";
+
+// ─── Câblage runtime d'un driver (factorise la dette C5 — appelé par chaque ORM) ─
+export {
+  wireOrmAdminPlane,
+  resolveOrmFlowEnabled,
+} from "./nodefony/src/ormWiring";
 export type {
   ISlowQuery,
   IQueryFlow,

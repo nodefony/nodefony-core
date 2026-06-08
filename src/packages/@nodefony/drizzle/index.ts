@@ -7,20 +7,8 @@
  * SQL recommandé). Expose aussi les **classes adapter** (orm-core) pour un usage
  * direct/banc-test. driver concret du socle multi-ORM (avec Mongoose) ; type-safe-first (a figé la forme des opérateurs riches, ADR-0003 #3).
  */
-import {
-  Kernel,
-  Module,
-  services,
-  setOrmHealthProvider,
-  setOrmRichProvider,
-} from "nodefony";
-import type { IAdminRegistry } from "nodefony";
-import {
-  registerOrmAdminApi,
-  buildOrmLeanHealth,
-  buildConnectionHealth,
-  buildOrmFlow,
-} from "@nodefony/orm-core";
+import { Kernel, Module, services } from "nodefony";
+import { wireOrmAdminPlane } from "@nodefony/orm-core";
 import config from "./nodefony/config/config";
 import {
   defineDrizzleConfig,
@@ -71,30 +59,14 @@ class Drizzle extends Module {
   }
 
   /**
-   * Monte le data plane ORM (`/nodefony/orm/api/*`) sur le broker admin.
-   * Idempotent + lit les registres GLOBAUX → couvre tous les ORM présents, pas
-   * seulement Drizzle. orm-core étant une lib pure, c'est un module driver qui
-   * déclenche l'enregistrement (avant le `mountAll` de framework à `onKernelReady`).
+   * Monte le data plane ORM (`/nodefony/orm/api/*` + providers santé/flux pour la
+   * sonde cluster et le drill Studio) via {@link wireOrmAdminPlane}. Branchement
+   * GLOBAL (couvre tous les ORM) et idempotent — factorisé en orm-core (C5), chaque
+   * driver l'invoque à l'identique. orm-core étant une lib pure, c'est un module
+   * driver qui le déclenche (avant le `mountAll` de framework à `onKernelReady`).
    */
   override async onKernelBoot(): Promise<this> {
-    const broker = this.kernel?.container?.get("adminBroker") as
-      | IAdminRegistry
-      | undefined;
-    if (broker) {
-      registerOrmAdminApi(broker);
-    }
-    // Branche la santé ORM lean dans le report de sonde cluster (« ORM par worker »).
-    // Fonction GLOBALE (itère `ormRegistry`) → couvre tous les ORM, pas seulement Drizzle ;
-    // idempotente (dernier gagne). Seam core → 0 dépendance framework→orm-core.
-    setOrmHealthProvider(buildOrmLeanHealth);
-    // Branche le diagnostic ORM RICHE pour le drill `/nodefony/orm/<pid>` en cluster :
-    // `connection/health` (ping/latence/stockage/pool, async) + `flow` (débit/EWMA/slow).
-    // Appelé UNIQUEMENT pendant un drill ORM (facette "orm") → 0 ping hors drill. Global
-    // (itère `ormRegistry`) → couvre tous les ORM. Seam core (0 dépendance framework→orm-core).
-    setOrmRichProvider(async () => ({
-      health: await buildConnectionHealth(),
-      flow: buildOrmFlow(),
-    }));
+    wireOrmAdminPlane(this.kernel);
     return this;
   }
 }

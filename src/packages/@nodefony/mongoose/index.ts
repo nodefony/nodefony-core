@@ -11,21 +11,8 @@
  * via {@link defineMongooseConfig} (style `@nodefony/redis`/`@nodefony/realtime`).
  */
 import mongoose from "mongoose";
-import {
-  Kernel,
-  Module,
-  services,
-  registerErrorAdapter,
-  setOrmHealthProvider,
-  setOrmRichProvider,
-} from "nodefony";
-import type { IAdminRegistry } from "nodefony";
-import {
-  registerOrmAdminApi,
-  buildOrmLeanHealth,
-  buildConnectionHealth,
-  buildOrmFlow,
-} from "@nodefony/orm-core";
+import { Kernel, Module, services, registerErrorAdapter } from "nodefony";
+import { wireOrmAdminPlane } from "@nodefony/orm-core";
 import config from "./nodefony/config/config";
 import {
   defineMongooseConfig,
@@ -85,29 +72,15 @@ class Mongoose extends Module {
   }
 
   /**
-   * Monte le data plane ORM (`/nodefony/orm/api/*`) + branche les providers de
-   * santé/diagnostic et l'adapter d'erreurs Mongoose dans le core.
-   *
-   * Idempotent + lit les registres GLOBAUX → couvre tous les ORM présents (pas
-   * seulement Mongoose) ; un app Mongoose-only n'a donc plus un Studio ORM muet
-   * (le wiring était jusqu'ici déclenché par le seul module Drizzle — dette C5).
-   * La factorisation en `wireOrmAdminPlane(kernel)` reste prévue en Ph.4.
+   * Monte le data plane ORM (`/nodefony/orm/api/*` + providers santé/flux) via
+   * {@link wireOrmAdminPlane} — branchement GLOBAL et idempotent factorisé en
+   * orm-core (C5), identique à Drizzle. Avant la factorisation, ce wiring était
+   * déclenché par le seul module Drizzle → une app Mongoose-only avait un Studio
+   * ORM muet ; chaque driver l'invoque désormais. En plus, enregistre l'adapter
+   * d'erreurs Mongoose (spécifique au driver, hors plan d'administration).
    */
   override async onKernelBoot(): Promise<this> {
-    const broker = this.kernel?.container?.get("adminBroker") as
-      | IAdminRegistry
-      | undefined;
-    if (broker) {
-      registerOrmAdminApi(broker);
-    }
-    // Santé ORM lean (report sonde cluster) + diagnostic riche (drill ORM).
-    // Fonctions GLOBALES (itèrent `ormRegistry`) → couvrent tous les ORM ;
-    // idempotentes. Seams core → 0 dépendance framework→orm-core.
-    setOrmHealthProvider(buildOrmLeanHealth);
-    setOrmRichProvider(async () => ({
-      health: await buildConnectionHealth(),
-      flow: buildOrmFlow(),
-    }));
+    wireOrmAdminPlane(this.kernel);
     // Détection/format des erreurs Mongoose dans `nodefonyError` (core découplé) :
     // s'enregistre sous la clé "mongoose" dans le registre générique d'adapters.
     registerErrorAdapter("mongoose", {
