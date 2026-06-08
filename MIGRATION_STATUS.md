@@ -15,20 +15,22 @@
 Les décisions complètes sont **persistées en mémoire IA** (survivent au `/clear`). Pointeurs :
 
 - `project_decisions_p5_p6_orm` — Sécurité + ORM + IUser · `project_decisions_realtime_isomorphic` — Realtime + Core isomorphe + Mediasoup
-- `project_orm_hardening_kit` — **virage ORM** · `project_hardening_before_p6` — durcir avant P6 · `project_api_souveraine_poc` — API souveraine
+- `project_orm_hardening_kit` — **virage ORM** (graine) · `project_orm_audit_state` — **audit ORM + plan** (boussole terrain) · `project_hardening_before_p6` — durcir avant P6 · `project_api_souveraine_poc` — API souveraine
 
 ### ⚡ Séquencement actuel (figé 2026-06-05)
 
 **Config (`defineConfig`) ✅ CLOS** → **🥇 durcissement ORM** → (Realtime reste S1) → **POC API souveraine** → **P6 Security**.
 Boussole : durcir les fondations (orm, realtime, core, http, framework) AVANT P6 — P6 se greffe dessus.
 
-### 🔀 Virage ORM (décidé 2026-06-02) — ⚠️ pas encore exécuté
+### 🔀 Virage ORM (décidé 2026-06-02) — ✅ audit pré-chantier livré 2026-06-08, exécution à venir
 
+- 📋 **Audit complet** : [`docs/audits/orm-state-and-hardening-2026-06.md`](docs/audits/orm-state-and-hardening-2026-06.md) + mémoire `project_orm_audit_state`. **Plan 5 phases** (~2080 L mortes, ~1250 à refaire) : Ph.1 Seq OUT ∥ Ph.2 Mongoose REFAIT → Ph.3 kernel/orm OUT → Ph.4 couplage (C2/C5) → API souveraine → P6.
 - **Sequelize = SUPPRESSION COMPLÈTE** (package + consommateurs + tests retirés). Lignes P5.7/P7.1/P7.3 → **caduques**.
-- **Mongoose = REFAIT NEUF** sur modèle Drizzle (`class …Service extends Service`, plus `extends Orm` core). Lignes P5.8/P7.2/P7.5 → **à refaire**.
-- **Orm core `src/nodefony/src/kernel/orm/{Orm,Connector,Entity}` → à RETIRER** (le core ne connaît pas l'ORM ; **encore présent**, 3 fichiers).
-- **MikroORM (P7.8/P7.9) = abandonné** (jamais commencé, module absent — était « 4ᵉ driver »). → ⏭️.
-- ⭐ **Drizzle = référence** (`extends Service`).
+- **Mongoose = REFAIT NEUF** sur modèle Drizzle (`class …Service extends Service`, plus `extends Orm` core) + réimplémenter 4 sondes Studio (`describeEntity`/`describeConnection`/`ping`/tap flux). Lignes P5.8/P7.2/P7.5 → **à refaire**.
+- **Orm core `src/nodefony/src/kernel/orm/{Orm,Connector,Entity}` → à RETIRER** (3 fichiers, 254 L). ⚠️ **Piège homonyme** : c'est le LEGACY du workspace `nodefony`, **PAS** `@nodefony/orm-core` (socle moderne validé ADR-0003, à **GARDER**). Maintenu vivant par les `service/orm.ts` legacy de Seq+Mongoose.
+- **Dette C5** (audit) : montage data plane ORM + sondes santé **déclenché par le module Drizzle** → app Mongoose-only = Studio ORM muet → factoriser `wireOrmAdminPlane(kernel)` appelé par chaque driver.
+- **MikroORM (P7.8/P7.9) = abandonné** (0 code, traces docs/types seulement). → ⏭️.
+- ⭐ **Drizzle = référence** (`extends Service`, 100 % propre). **Migrations** (absentes) : déléguer `drizzle-kit` (versioned) + façade `IMigrator` Studio — hors chemin critique.
 
 ### 🔐 Sécurité (P6) — décisions figées 2026-05-20
 
@@ -54,7 +56,7 @@ Passport ❌ · Sessions HTTP RAM ❌ (JWT cookie `HttpOnly;Secure;SameSite` onl
 | `@nodefony/http`      | ✅   | Kit H1→H6 + config Zod + domain matching + forwarded RFC 7239 COMPLET + banc proxy Docker E2E + **service certificates durci** (RFC 5280/6125, SHA-256, serial 128b, 0600, lazy node-forge, CLI `certificates`) + **banc TLS re-encrypt validé** (verify required/verifyhost/sni) + `proxy:generate` + **préfixe natif statique `/<module>/`** (`mountModulePublics`, configurable `publicMount`) + **`assets:publish`** (arbre CDN-ready provider-agnostic). `65f7e41`/`6ac8562`/`e735544`/`6918f89` |
 | `@nodefony/framework` | ✅   | F1→F7 (sauf F6 résolu via dette CLI) ; 176 tests unit ; 0 dette. `project_hardening_framework_kit`                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `@nodefony/realtime`  | 🔶   | **Déjà bien durci** : back-pressure WS, 0 dette, 14 tests, 5 seams sécu livrés. Reste S1 (mutualiser fan-out)                                                                                                                                                                                                                                                                                                                                                                                         |
-| `@nodefony/orm-*`     | ⬜   | **🥇 PROCHAIN** — virage ORM (sequelize sort, mongoose refait, core orm retiré) + footgun `counts` sync                                                                                                                                                                                                                                                                                                                                                                                               |
+| `@nodefony/orm-*`     | ⬜   | **🥇 PROCHAIN** — virage ORM ✅ **audité 2026-06-08** ([`docs/audits/orm-state-and-hardening-2026-06.md`](docs/audits/orm-state-and-hardening-2026-06.md), plan 5 phases) : Seq sort, Mongoose refait, kernel/orm legacy retiré, couplage C2/C5 nettoyé + footgun `counts` sync                                                                                                                                                                                                                       |
 
 **Log Backplane** (`project_log_backplane_vision`) : axe WRITE (`LB.W`) ✅ + axe QUERY (`LB.0→LB.5`) ✅ — drivers
 `memory`/`file`/`cluster-file`/`loki`/`opensearch` queryables, validés runtime cluster + Loki/OpenSearch réels.
