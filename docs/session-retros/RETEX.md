@@ -575,6 +575,11 @@ ls-files | grep -iE '\.(pem|key|p12|pfx)$'` ; un motif gitignore avec slash n'es
   branche reste « ahead 1 » sans erreur ni process actif → relancer en **foreground** (peut être rejeté « cannot lock
   ref … is at X but expected Y » = race, le background avait fini par pousser). La vérité = `git log origin/<branche>`,
   pas le « ahead » local. Vu 2× (frontend, framework). → push avec hook lourd = **foreground d'emblée**.
+- `[1× — 2026-06-08]` **nouveau chantier ≠ branche de reprise → BRANCHER d'abord** : repris sur `refactor/orm-hardening`
+  (ORM) puis committé + **poussé** tout le durcissement **WebSocket** (3 commits) dessus → signalé par le user (« les
+  commits WS n'ont rien à faire dans cette branche !! »). Le **START de session doit vérifier que le chantier correspond
+  au NOM de la branche** ; si le sujet diffère → `git switch -c hardening/<sujet>` AVANT le 1er commit. (Non réécrit ici :
+  déjà poussé + même cible de merge `claude-ts` → coût rewrite > bénéfice ; vigilance au prochain START.)
 
 ---
 
@@ -645,6 +650,20 @@ type 'mocha'`). Au retrait mocha d'un workspace : remplacer par `vitest/globals`
   (HTTP/HTTP2/WS) qui les CONSOMMENT — c'est là que vit le câblage réel. Recette pour isoler une méthode d'instance
   sans le ctor lourd : `Object.assign(Object.create(Cls.prototype), props)` + cast `as unknown as Cls` (cf
   `forwardedWiring.test.ts`). Couvre aussi le cœur partagé direct (`resolveFromRight`), pas juste via ses wrappers.
+- `[1× — 2026-06-08]` **fabriquer une frame WS brute dans un test** : `ws.Sender.frame(buf,{fin,opcode,mask:true,
+readOnly:false,rsv1:false})` MAIS `Sender` n'est PAS sur le default export ESM ni dans `@types/ws` → `import * as ws
+from "ws"` + cast `(ws as unknown as {Sender:{frame}}).Sender`. Écrire les buffers retournés sur
+  `(client as {_socket}).​_socket`. ⚠️ la route `/ws/echo` envoie d'abord `{handshake:true}` PUIS JSON-encode la
+  réponse → **consommer le handshake** (`once("message")`) AVANT, et fragmenter un **objet JSON** (assert
+  `JSON.parse(recv).x`), pas une string brute (revient quotée `"x"`).
+- `[1× — 2026-06-08]` **`vitest run` silence `console.log`** (intercept du setup) → impossible de récupérer une mesure
+  (p50/p99 d'un banc) par grep. Soit asserter une **borne** (`p99 < N`, CI-stable) en gardant les chiffres internes,
+  soit écrire la mesure dans un fichier depuis le test. Ne pas s'acharner à capturer le log.
+- `[1× — 2026-06-08]` **démo runtime « robustesse WS » = client réel + condition extrême** : half-open =
+  `client._autoPong=false` (sinon `ws` pong tout seul → jamais zombie) + attendre `interval+grace` ; backpressure =
+  `client._socket.pause()` (stoppe la lecture → `bufferedAmount` serveur gonfle) + flood. Observabilité sans sonde
+  dédiée = **WARNING 1×/conn** loggé côté serveur, grep le log. ⚠️ un flood (17 MiB) gonfle `/tmp/nodefony-server.log`
+  (→ 5 MiB) + peut saturer la capture stdout (ENOSPC transitoire) → `truncate -s 0` après.
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
