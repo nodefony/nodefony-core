@@ -7,7 +7,6 @@ import path from "node:path";
 import Container, { Scope } from "../Container";
 import FileClass from "../FileClass";
 import { Nodefony } from "../Nodefony";
-import Orm from "./orm/Orm";
 import Service, { DefaultOptionsService } from "../Service";
 import { extend, isSubclassOf } from "../Tools";
 import Command, { CommandArgs } from "../command/Command";
@@ -29,7 +28,6 @@ import Module from "./Module";
 //import Fetch from "../service/fetchService";
 import { HttpKernel } from "@nodefony/http";
 import Injector from "./injector/injector";
-import Entity from "./orm/Entity";
 import {
   isClusterMessage,
   CLUSTER_RT_KIND,
@@ -261,11 +259,6 @@ export interface ServiceConstructor {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   new (...args: any[]): ServiceWithInit;
   _inject?: { [key: number]: string };
-}
-
-export interface EntityConstructor {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  new (...args: any[]): Entity;
 }
 
 export interface ModuleConstructor {
@@ -1620,18 +1613,6 @@ class Kernel extends Service implements IKernel {
     // if (nodefony.warning) {
     //   this.log(nodefony.warning, "WARNING");
     // }
-  }
-
-  getOrm(): string {
-    return this.options.orm;
-  }
-
-  getOrmStrategy() {
-    return this.getORM()?.options.strategy;
-  }
-
-  getORM() {
-    return this.get<Orm>(this.getOrm());
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

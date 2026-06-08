@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-08T12:36:17.337Z",
+  "generated": "2026-06-08T13:34:34.684Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 833,
-    "symbols": 1706,
-    "classes": 241,
-    "interfaces": 422,
-    "types": 220,
+    "files": 830,
+    "symbols": 1700,
+    "classes": 238,
+    "interfaces": 421,
+    "types": 219,
     "enums": 3,
-    "functions": 340,
+    "functions": 339,
     "constants": 480
   },
   "symbols": {
@@ -889,14 +889,6 @@
     },
     "ServiceConstructor": {
       "name": "ServiceConstructor",
-      "kind": "interface",
-      "file": "src/nodefony/src/kernel/Kernel.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": null
-    },
-    "EntityConstructor": {
-      "name": "EntityConstructor",
       "kind": "interface",
       "file": "src/nodefony/src/kernel/Kernel.ts",
       "exported": true,
@@ -2564,13 +2556,6 @@
       "exported": true,
       "module": "@nodefony/core"
     },
-    "entities": {
-      "name": "entities",
-      "kind": "function",
-      "file": "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
-      "exported": true,
-      "module": "@nodefony/core"
-    },
     "injectable": {
       "name": "injectable",
       "kind": "function",
@@ -2626,43 +2611,6 @@
       "file": "src/nodefony/src/kernel/injector/injector.ts",
       "exported": true,
       "module": "@nodefony/core"
-    },
-    "Connector": {
-      "name": "Connector",
-      "kind": "class",
-      "file": "src/nodefony/src/kernel/orm/Connector.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": null,
-      "implements": [],
-      "decorators": []
-    },
-    "Entity": {
-      "name": "Entity",
-      "kind": "class",
-      "file": "src/nodefony/src/kernel/orm/Entity.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Service",
-      "implements": [],
-      "decorators": []
-    },
-    "TypeEntity": {
-      "name": "TypeEntity",
-      "kind": "type",
-      "file": "src/nodefony/src/kernel/orm/Entity.ts",
-      "exported": true,
-      "module": "@nodefony/core"
-    },
-    "Orm": {
-      "name": "Orm",
-      "kind": "class",
-      "file": "src/nodefony/src/kernel/orm/Orm.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Service",
-      "implements": [],
-      "decorators": []
     },
     "ClusterManager": {
       "name": "ClusterManager",
@@ -6747,7 +6695,7 @@
       "module": "@nodefony/orm-core",
       "description": "Liste figée des opérateurs riches reconnus dans un critère portable. Source de vérité unique partagée par tous les adapters : un objet de valeur de champ n'est traité comme {@link FieldOperators} q…"
     },
-    "@nodefony/orm-core:Entity": {
+    "Entity": {
       "name": "Entity",
       "kind": "class",
       "file": "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
@@ -6790,7 +6738,7 @@
       "decorators": [],
       "description": "Erreurs typées du socle ORM — **data-level uniquement** (aucun couplage à une couche API/transport : ces erreurs décrivent des fautes sur les données, pas sur une requête HTTP/GraphQL). Une surface…"
     },
-    "@nodefony/orm-core:Orm": {
+    "Orm": {
       "name": "Orm",
       "kind": "class",
       "file": "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
@@ -12369,8 +12317,6 @@
         "Storage",
         "Websocket",
         "Injector",
-        "Entity",
-        "Orm",
         "DocumentationService",
         "DrizzleService",
         "AdminBroker",
@@ -12902,8 +12848,6 @@
         "src/nodefony/src/client/transport/websocket.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
-        "src/nodefony/src/kernel/orm/Entity.ts",
-        "src/nodefony/src/kernel/orm/Orm.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -12936,7 +12880,6 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
-        "src/nodefony/src/kernel/orm/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts"
       ],
@@ -12952,8 +12895,6 @@
         "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/client/api/Storage.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
-        "src/nodefony/src/kernel/orm/Entity.ts",
-        "src/nodefony/src/kernel/orm/Orm.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
@@ -13000,7 +12941,6 @@
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
-        "src/nodefony/src/kernel/orm/Orm.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
@@ -13077,8 +13017,6 @@
         "src/nodefony/src/types/IContainer.ts",
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/types/ISyslog.ts",
-        "src/nodefony/src/kernel/orm/Connector.ts",
-        "src/nodefony/src/kernel/orm/Entity.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
@@ -13099,8 +13037,6 @@
         "src/nodefony/src/types/IContainer.ts",
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/types/ISyslog.ts",
-        "src/nodefony/src/kernel/orm/Connector.ts",
-        "src/nodefony/src/kernel/orm/Entity.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
@@ -13119,8 +13055,6 @@
         "src/nodefony/src/types/IContainer.ts",
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/types/ISyslog.ts",
-        "src/nodefony/src/kernel/orm/Connector.ts",
-        "src/nodefony/src/kernel/orm/Entity.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
@@ -13140,8 +13074,6 @@
         "src/nodefony/src/types/IService.ts",
         "src/nodefony/src/types/ISyslog.ts",
         "src/nodefony/src/client/debugbar/model.ts",
-        "src/nodefony/src/kernel/orm/Connector.ts",
-        "src/nodefony/src/kernel/orm/Entity.ts",
         "src/nodefony/src/service/cluster/ClusterManager.ts",
         "src/nodefony/src/service/cluster/clusterMaster.ts",
         "src/nodefony/src/service/cluster/ClusterProbeAggregator.ts",
@@ -13272,8 +13204,6 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
-        "src/nodefony/src/kernel/orm/Entity.ts",
-        "src/nodefony/src/kernel/orm/Orm.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
@@ -14236,12 +14166,6 @@
       "resolveColorEnabled": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
-      "Orm": [
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/kernel/orm/Connector.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
-      ],
       "CommandArgs": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
@@ -14285,12 +14209,6 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
-      "Entity": [
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/kernel/Module.ts",
-        "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
-        "src/nodefony/src/kernel/orm/Orm.ts"
       ],
       "isClusterMessage": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -14348,9 +14266,6 @@
         "src/nodefony/src/kernel/injector/injector.ts"
       ],
       "ServiceWithInit": [
-        "src/nodefony/src/kernel/Module.ts"
-      ],
-      "EntityConstructor": [
         "src/nodefony/src/kernel/Module.ts"
       ],
       "IModule": [
@@ -14589,16 +14504,10 @@
       "PropertyInjectMeta": [
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
       ],
-      "TypeEntity": [
-        "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
-      ],
       "Fetch": [
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts"
-      ],
-      "Connector": [
-        "src/nodefony/src/kernel/orm/Orm.ts"
       ],
       "ClusterManager": [
         "src/nodefony/src/service/cluster/clusterMaster.ts"
@@ -17106,6 +17015,10 @@
       ],
       "llx_zapier_hook": [
         "src/modules/test/nodefony/entity/dolibarr/index.ts"
+      ],
+      "Orm": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
       "DrizzleRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
