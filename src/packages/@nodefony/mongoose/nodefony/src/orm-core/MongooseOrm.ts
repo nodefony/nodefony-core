@@ -1,5 +1,9 @@
+import path from "node:path";
+import fs from "node:fs";
+import { createRequire } from "node:module";
 import mongoose from "mongoose";
 import type {
+  ConnectOptions,
   Connection,
   Model,
   Schema,
@@ -9,6 +13,7 @@ import type {
 import { Orm, entityRegistry } from "@nodefony/orm-core";
 import type {
   IColumnInfo,
+  IConnectionInfo,
   IEntity,
   IOrmProbe,
   IRepository,
@@ -41,14 +46,17 @@ export class MongooseOrm extends Orm {
   #models: Record<string, LooseModel> | null = null;
   #repositories: Record<string, IRepository> | null = null;
   readonly #uri: string;
+  readonly #options: ConnectOptions | undefined;
 
   /**
    * @param name - clé unique de l'ORM dans le `ormRegistry`.
    * @param uri - URI de connexion MongoDB (replica set requis pour les tx).
+   * @param options - options de connexion Mongoose (auth, pool, timeouts).
    */
-  constructor(name: string, uri: string) {
+  constructor(name: string, uri: string, options?: ConnectOptions) {
     super(name);
     this.#uri = uri;
+    this.#options = options;
   }
 
   /** Entités enregistrées ciblant cet ORM. */
@@ -62,7 +70,9 @@ export class MongooseOrm extends Orm {
   }
 
   protected async onConnect(): Promise<void> {
-    const connection = mongoose.createConnection(this.#uri);
+    const connection = this.#options
+      ? mongoose.createConnection(this.#uri, this.#options)
+      : mongoose.createConnection(this.#uri);
     await connection.asPromise();
     this.#connection = connection;
     this.#models = Object.create(null) as Record<string, LooseModel>;
@@ -176,7 +186,7 @@ export class MongooseOrm extends Orm {
     }
     let repository = this.#repositories[name];
     if (repository === undefined) {
-      repository = new MongooseRepository(model);
+      repository = new MongooseRepository(model, this.name);
       this.#repositories[name] = repository;
     }
     return repository as IRepository<T>;
@@ -271,5 +281,77 @@ export class MongooseOrm extends Orm {
       nullable: path === "_id" ? false : schemaType.isRequired !== true,
       unique: (schemaType.options as { unique?: unknown }).unique === true,
     }));
+  }
+
+  /**
+   * Décrit la connexion : driver `mongodb` + cible (hôte:port/base, **sans
+   * credentials**) + version de la lib `mongoose`. Aucun secret n'est exposé
+   * dans le data plane (l'URI est nettoyée de tout `user:pass@`).
+   *
+   * @returns driver + cible nettoyée + version de l'ORM.
+   */
+  override describeConnection(): IConnectionInfo {
+    return {
+      driver: "mongodb",
+      target: this.safeTarget(),
+      ormVersion: MongooseOrm.#ormVersion(),
+    };
+  }
+
+  /**
+   * Cible affichable de l'URI, **sans credentials** : `hôte:port/base`. Jamais
+   * de `user:pass@` (anti info-leak dans le data plane / les logs).
+   */
+  safeTarget(): string {
+    try {
+      const url = new URL(this.#uri);
+      url.username = "";
+      url.password = "";
+      return `${url.host}${url.pathname}`;
+    } catch {
+      // URI multi-hôtes (`mongodb://h1,h2/db`) non parsable par URL → regex.
+      return this.#uri
+        .replace(/^mongodb(\+srv)?:\/\//, "")
+        .replace(/^[^@/]*@/, "")
+        .replace(/\?.*$/, "");
+    }
+  }
+
+  /** Version de la lib `mongoose` (résolue + cachée une seule fois). */
+  static #cachedOrmVersion: string | null | undefined;
+  static #ormVersion(): string | undefined {
+    if (MongooseOrm.#cachedOrmVersion === undefined) {
+      MongooseOrm.#cachedOrmVersion =
+        MongooseOrm.#resolvePkgVersion("mongoose") ?? null;
+    }
+    return MongooseOrm.#cachedOrmVersion ?? undefined;
+  }
+
+  /**
+   * Version d'un package npm via son `package.json` (`createRequire` + remontée
+   * FS). `require("<pkg>/package.json")` direct échoue souvent : `exports` ne
+   * publie pas toujours `./package.json`.
+   */
+  static #resolvePkgVersion(name: string): string | undefined {
+    try {
+      const req = createRequire(import.meta.url);
+      let dir = path.dirname(req.resolve(name));
+      for (let i = 0; i < 8; i++) {
+        const pkgPath = path.join(dir, "package.json");
+        if (fs.existsSync(pkgPath)) {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as {
+            name?: string;
+            version?: string;
+          };
+          if (pkg.name === name) return pkg.version;
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
+      }
+    } catch {
+      /* package introuvable / illisible → version inconnue */
+    }
+    return undefined;
   }
 }

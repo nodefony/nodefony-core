@@ -48,7 +48,6 @@ export interface OrmGraph {
 /** Libellé long d'un vendor ORM. */
 export const VENDOR_LABEL: Record<string, string> = {
   drizzle: "Drizzle",
-  sequelize: "Sequelize",
   mongoose: "Mongoose",
   mikroorm: "MikroORM",
 };

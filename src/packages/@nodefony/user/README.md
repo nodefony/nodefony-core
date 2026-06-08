@@ -17,15 +17,15 @@ comme Symfony sépare `security-core` de `security-bundle`.
 
 ## Statut
 
-| Phase | Contenu | État |
-| ----- | ------- | ---- |
-| P5.5a | Workspace (package, tsconfig, rollup, arbo) | ✅ |
-| P5.5  | `IUser`, `IPasswordAuthenticatedUser`, `IUserProvider`, `IUserRepository`, `IPasswordEncoder`, `BaseUser`, `AnonymousUser` | ✅ |
-| —     | `IRole`, `IPermission` (RBAC dynamique) — **différés à P6.8** | ⏸ |
-| P5.6  | `UserService` (CRUD + `authenticate()`) + `BcryptEncoder` | ✅ |
-| P5.7–5.9 | Adapters User Sequelize / Mongoose / Drizzle | ⬜ |
-| P5.10 | Tests cross-ORM (même `IUser`, 3 adapters) | ⬜ |
-| P5.11 | Refactor session (`session.user: IUser`) | ⬜ |
+| Phase    | Contenu                                                                                                                    | État |
+| -------- | -------------------------------------------------------------------------------------------------------------------------- | ---- |
+| P5.5a    | Workspace (package, tsconfig, rollup, arbo)                                                                                | ✅   |
+| P5.5     | `IUser`, `IPasswordAuthenticatedUser`, `IUserProvider`, `IUserRepository`, `IPasswordEncoder`, `BaseUser`, `AnonymousUser` | ✅   |
+| —        | `IRole`, `IPermission` (RBAC dynamique) — **différés à P6.8**                                                              | ⏸    |
+| P5.6     | `UserService` (CRUD + `authenticate()`) + `BcryptEncoder`                                                                  | ✅   |
+| P5.8–5.9 | Adapters User Mongoose / Drizzle                                                                                           | ⬜   |
+| P5.10    | Tests cross-ORM (même `IUser`, 3 adapters)                                                                                 | ⬜   |
+| P5.11    | Refactor session (`session.user: IUser`)                                                                                   | ⬜   |
 
 ## API publique (cible)
 
@@ -39,7 +39,12 @@ import type {
   IPasswordEncoder,
 } from "@nodefony/user";
 
-import { BaseUser, AnonymousUser, BcryptEncoder, UserService } from "@nodefony/user";
+import {
+  BaseUser,
+  AnonymousUser,
+  BcryptEncoder,
+  UserService,
+} from "@nodefony/user";
 ```
 
 ### Contrat `IUser` (cible)
@@ -67,7 +72,10 @@ import { BcryptEncoder, UserService } from "@nodefony/user";
 const encoder = new BcryptEncoder(12); // coût bcrypt (défaut 12)
 const users = new UserService(userRepository, encoder); // repository injecté (DI)
 
-const u = await users.createUser({ identifier: "jane@x.io", plainPassword: "s3cret" });
+const u = await users.createUser({
+  identifier: "jane@x.io",
+  plainPassword: "s3cret",
+});
 const auth = await users.authenticate("jane@x.io", "s3cret"); // IUser | null
 await users.changePassword(u.id, "nouveau"); // seul chemin du credential
 ```

@@ -984,16 +984,16 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     const httpMod = new Module("http", kernel, PATH_FOR_NODEFONY_DIR, {
       port: 80,
     });
-    const dbMod = new Module("sequelize", kernel, PATH_FOR_NODEFONY_DIR, {
+    const dbMod = new Module("drizzle", kernel, PATH_FOR_NODEFONY_DIR, {
       dialect: "sqlite",
       pool: { min: 1, max: 5 },
     });
     kernel.modules["http"] = httpMod;
-    kernel.modules["sequelize"] = dbMod;
+    kernel.modules["drizzle"] = dbMod;
 
     const appMod = new Module("app", kernel, PATH_FOR_NODEFONY_DIR, {
       "Module-http": { port: 8443, ssl: true },
-      "Module-sequelize": { dialect: "postgres", pool: { max: 20 } },
+      "Module-drizzle": { dialect: "postgres", pool: { max: 20 } },
     });
 
     const pdus = captureLogs(appMod, () => appMod.readOverrideModuleConfig());
@@ -1002,7 +1002,7 @@ describe("Module — readOverrideModuleConfig() — override complet + WARNING l
     assert.strictEqual((httpMod.options as any).port, 8443);
     assert.strictEqual((httpMod.options as any).ssl, true);
 
-    // sequelize overridé en deep
+    // drizzle overridé en deep
     assert.strictEqual((dbMod.options as any).dialect, "postgres");
     assert.strictEqual((dbMod.options as any).pool.max, 20);
     assert.strictEqual((dbMod.options as any).pool.min, 1); // préservé deep

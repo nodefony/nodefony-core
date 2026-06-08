@@ -2,7 +2,7 @@
 module: "@nodefony/http"
 topic: session-storage-guide
 audience: [human, ai]
-tags: [session, storage, ioc, registry, drizzle, sequelize, mongoose, http, guide]
+tags: [session, storage, ioc, registry, drizzle, mongoose, http, guide]
 status: stable
 last-updated: 2026-05-21
 ---
@@ -25,17 +25,16 @@ La config `session.handler` du module http sélectionne le storage par son **nom
 // nodefony/config/modules/http-config.ts (override applicatif)
 export default {
   session: {
-    handler: "drizzle", // "files" | "drizzle" | "sequelize" | "mongoose"
+    handler: "drizzle", // "files" | "drizzle" | "mongoose"
   },
 };
 ```
 
-| Handler     | Fourni par            | Backend                                  |
-| ----------- | --------------------- | ---------------------------------------- |
-| `files`     | `@nodefony/http`      | Fichiers JSON sur disque (built-in)      |
-| `drizzle`   | `@nodefony/drizzle`   | Table `session` via orm-core (**défaut recommandé**) |
-| `sequelize` | `@nodefony/sequelize` | Entité session legacy (maintenance)      |
-| `mongoose`  | `@nodefony/mongoose`  | Collection MongoDB                       |
+| Handler    | Fourni par           | Backend                                              |
+| ---------- | -------------------- | ---------------------------------------------------- |
+| `files`    | `@nodefony/http`     | Fichiers JSON sur disque (built-in)                  |
+| `drizzle`  | `@nodefony/drizzle`  | Table `session` via orm-core (**défaut recommandé**) |
+| `mongoose` | `@nodefony/mongoose` | Collection MongoDB                                   |
 
 > Le backend n'est disponible que si **le module qui le fournit est chargé**
 > (`@modules()`). Ex. `handler: "drizzle"` exige `@nodefony/drizzle` dans `@modules()`.
@@ -48,7 +47,6 @@ export default {
 @nodefony/http : SessionsService.#storages : Map<name, StorageCtor>
    ▲ registerStorage("files", FileSessionStorage)   ← http lui-même (built-in)
    ▲ registerStorage("drizzle", DrizzleStorage)     ← @nodefony/drizzle au chargement
-   ▲ registerStorage("sequelize", SequelizeStorage) ← @nodefony/sequelize au chargement
    ▲ registerStorage("mongoose", MongooseStorage)   ← @nodefony/mongoose au chargement
 
 initializeStorage() → SessionsService.getStorage(handler) → new Storage(this)
@@ -63,18 +61,18 @@ Bénéfices : **pas de cycle** `http ↔ ORM`, et ajouter un driver **ne touche 
 import { SessionsService } from "@nodefony/http";
 
 SessionsService.registerStorage("mybackend", MyStorage); // enregistrer
-SessionsService.getStorage("drizzle");                    // ctor | undefined
-SessionsService.storageHandlers();                        // ["files","drizzle",…]
+SessionsService.getStorage("drizzle"); // ctor | undefined
+SessionsService.storageHandlers(); // ["files","drizzle",…]
 ```
 
 ### Événements (observabilité Studio)
 
 Émis sur le kernel :
 
-| Événement                   | Quand                                   | Args              |
-| --------------------------- | --------------------------------------- | ----------------- |
-| `onRegisterSessionStorage`  | un backend s'enregistre                 | `(name, ctor)`    |
-| `onSessionStorageReady`     | le storage actif est instancié          | `(handler, storage)` |
+| Événement                  | Quand                          | Args                 |
+| -------------------------- | ------------------------------ | -------------------- |
+| `onRegisterSessionStorage` | un backend s'enregistre        | `(name, ctor)`       |
+| `onSessionStorageReady`    | le storage actif est instancié | `(handler, storage)` |
 
 ```typescript
 kernel.on("onSessionStorageReady", (handler) => {
@@ -90,13 +88,27 @@ kernel.on("onSessionStorageReady", (handler) => {
 import type { ISessionStorage } from "@nodefony/http";
 
 class RedisSessionStorage implements ISessionStorage {
-  read(id: string): Promise<unknown> { /* … */ }
-  write(id: string, data: unknown, ctx: string): Promise<unknown> { /* … */ }
-  start(id: string, ctx: string): Promise<unknown> { /* … */ }
-  open(ctx: string): Promise<number> { /* … */ }
-  close(): boolean { /* … */ }
-  destroy(id: string, ctx: string): Promise<boolean> { /* … */ }
-  gc(maxlifetime: number, ctx: string): Promise<void> { /* … */ }
+  read(id: string): Promise<unknown> {
+    /* … */
+  }
+  write(id: string, data: unknown, ctx: string): Promise<unknown> {
+    /* … */
+  }
+  start(id: string, ctx: string): Promise<unknown> {
+    /* … */
+  }
+  open(ctx: string): Promise<number> {
+    /* … */
+  }
+  close(): boolean {
+    /* … */
+  }
+  destroy(id: string, ctx: string): Promise<boolean> {
+    /* … */
+  }
+  gc(maxlifetime: number, ctx: string): Promise<void> {
+    /* … */
+  }
 }
 ```
 

@@ -97,8 +97,27 @@ describe("orm-core ↔ Drizzle adapter (P7.4)", () => {
     assert.equal((await users.find()).length, 1);
     assert.equal(await users.count(), 1);
 
-    const updated = await users.update({ id: created.id }, { email: "x@y.z" });
+    const updated = await users.updateOne(
+      { id: created.id },
+      { email: "x@y.z" },
+    );
     assert.equal(updated?.email, "x@y.z");
+
+    // B1 (régression) : critère sur le champ MODIFIÉ → updateOne atomique renvoie
+    // la ligne mise à jour, pas null (l'ancien UPDATE + findOne renvoyait null car
+    // la relecture ne retrouvait plus la ligne sur l'ancienne valeur).
+    const flipped = await users.updateOne(
+      { email: "x@y.z" },
+      { email: "z@z.dev" },
+    );
+    assert.equal(flipped?.email, "z@z.dev");
+
+    // B2 (régression) : un champ de critère inconnu lève UnknownCriteriaField
+    // (au lieu d'ignorer le filtre et de renvoyer toute la table).
+    await assert.rejects(
+      () => users.find({ nope: 1 }),
+      /Unknown criteria field/,
+    );
 
     assert.equal(await users.delete({ id: created.id }), 1);
     assert.equal(await users.count(), 0);

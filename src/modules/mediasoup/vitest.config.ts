@@ -6,7 +6,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 /**
  * Vitest du banc de test ORM `mediasoup` — remplace mocha (`.mocharc.json`).
  * Tests d'intégration de l'abstraction `@nodefony/orm-core` sur un modèle métier
- * réaliste (Drizzle/Sequelize sur SQLite `:memory:`). `node:assert/strict` +
+ * réaliste (Drizzle sur SQLite `:memory:`). `node:assert/strict` +
  * globals (describe/it/before/after). `before`/`after` mocha aliasés dans le setup.
  */
 export default defineConfig({

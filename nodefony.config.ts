@@ -20,8 +20,7 @@
  *
  * Voir toutes les options + défauts : `nodefony config:show` / onglet Configuration de Studio.
  */
-import path from "node:path";
-import { Nodefony, defineConfig, use, type Kernel } from "nodefony";
+import { defineConfig, use } from "nodefony";
 import type { env } from "./env";
 
 /** Type du catalogue d'env → `ctx.env` typé + auto-complété dans la fonction de config. */
@@ -77,27 +76,8 @@ export default defineConfig<Env>((ctx) => ({
   //          · `dev` (chargé hors production). `use(name, config, opts)` colocalise
   // la config d'un module avec son chargement (typage par module via le registre).
   modules: [
-    // ── ORM — le gating par driver (when c.orm?.driver) arrivera avec le virage ORM ;
-    //    pour l'instant les deux adapters montent (comportement existant préservé).
-    use("@nodefony/sequelize", {
-      connectors: {
-        sequelize: {
-          dialect: "sqlite",
-          logging: false,
-          // Lazy : résolu au boot (kernel présent), jamais à l'import du module.
-          get storage(): string {
-            return path.resolve(
-              (Nodefony.getKernel() as Kernel).path,
-              "nodefony",
-              "databases",
-              "nodefony-sequelize.db",
-            );
-          },
-          // Pour basculer en serveur : dialect "mysql"/"postgres" + host/port/database/
-          // username/password (le mot de passe est rédacté dans le dashboard Studio).
-        },
-      },
-    }),
+    // ── ORM — Drizzle (SQL) par défaut. Le gating par driver (when c.orm?.driver)
+    //    arrivera avec la suite du virage ORM (Mongoose refait sur le modèle Service).
     "@nodefony/drizzle",
 
     // ── Socle serveur — toujours présent (web + routing + sécurité).

@@ -18,7 +18,7 @@ interface Room {
   name: string;
 }
 
-// ── Mêmes entités logiques que le banc Sequelize, store hétérogène ──────────
+// ── Entités logiques du banc ORM, store hétérogène ─────────────────────────
 @entity({
   orm: ORM,
   name: "User",
@@ -78,7 +78,10 @@ describe("orm-core ↔ Mongoose adapter (P5.4, store hétérogène)", () => {
 
     assert.equal(await users.count(), 1);
 
-    const updated = await users.update({ id: created.id }, { email: "x@y.z" });
+    const updated = await users.updateOne(
+      { id: created.id },
+      { email: "x@y.z" },
+    );
     assert.equal(updated?.email, "x@y.z");
 
     assert.equal(await users.delete({ id: created.id }), 1);
@@ -125,7 +128,7 @@ describe("orm-core ↔ Mongoose adapter (P5.4, store hétérogène)", () => {
       { relations: ["rooms"] },
     );
     assert.ok(owner);
-    assert.equal(owner.rooms?.length, 2); // virtual populate, même API que Sequelize
+    assert.equal(owner.rooms?.length, 2); // virtual populate, API portable
   });
 
   it("transaction (session/replset) : commit persiste (repo tx-aware)", async () => {

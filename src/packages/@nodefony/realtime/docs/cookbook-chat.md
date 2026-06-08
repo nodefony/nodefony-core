@@ -86,7 +86,7 @@ export class ChatService extends Service {
   /** Persiste un message (DB via ORM). Renvoie le message complet avec id/createdAt. */
   async save(input: Omit<ChatMsg, "createdAt">): Promise<ChatMsg> {
     const full: ChatMsg = { ...input, createdAt: Date.now() };
-    // … votre ORM (Drizzle / Sequelize / Mongoose) — délégué au repository
+    // … votre ORM (Drizzle / Mongoose) — délégué au repository
     // await this.repo.insert(full);
     return full;
   }

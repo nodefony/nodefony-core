@@ -3,6 +3,7 @@
 > **Statut : banc de test ORM** (aujourd'hui) → **module visioconférence / média temps réel** (futur, Phase 15).
 >
 > Ce module a **deux vies** :
+>
 > 1. **Maintenant** — il ne contient **que le modèle de données** (schémas Drizzle) et un **build Vue 3 prêt** (aucun front codé). Il sert de **banc d'essai réaliste pour l'abstraction ORM `@nodefony/orm-core`** et alimente l'**ERD de Studio** avec un vrai modèle métier.
 > 2. **Plus tard (P15)** — il portera la couche **mediasoup** (SFU WebRTC + RTP brut/SIP pour agent IA vocal). Le modèle persisté étant déjà conçu et testé, l'implémentation démarrera sur des fondations éprouvées.
 
@@ -25,30 +26,30 @@ durcir `@nodefony/orm-core` — puis le modèle servira tel quel à la vraie imp
 
 ### Legacy de référence (`/repository/nodefony-mediasoup`, JS)
 
-| Domaine | Techno legacy |
-| --- | --- |
-| SFU média | **mediasoup** (Worker / Router / **WebRtcTransport** + **PlainTransport** / Producer / Consumer) |
-| Signaling | **ws** (WebSocket) |
-| Enregistrement / diffusion | **ffmpeg** + **gstreamer** (workers via PlainTransport RTP) |
-| Persistance | **Sequelize** + **Mongoose** (dual ORM) |
-| API | **GraphQL** (+ REST) |
-| Frontend | **Vue** + **Element UI** (Options API), build **webpack** |
-| Process | **pm2** |
-| Client navigateur | **nodefony-client** |
-| Divers | i18n-iso-countries |
+| Domaine                    | Techno legacy                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| SFU média                  | **mediasoup** (Worker / Router / **WebRtcTransport** + **PlainTransport** / Producer / Consumer) |
+| Signaling                  | **ws** (WebSocket)                                                                               |
+| Enregistrement / diffusion | **ffmpeg** + **gstreamer** (workers via PlainTransport RTP)                                      |
+| Persistance                | **dual ORM** (SQL + Mongoose)                                                                    |
+| API                        | **GraphQL** (+ REST)                                                                             |
+| Frontend                   | **Vue** + **Element UI** (Options API), build **webpack**                                        |
+| Process                    | **pm2**                                                                                          |
+| Client navigateur          | **nodefony-client**                                                                              |
+| Divers                     | i18n-iso-countries                                                                               |
 
 ### Cible Nodefony TypeScript (ce module)
 
-| Domaine | Techno cible | Remplace |
-| --- | --- | --- |
-| Persistance | **`@nodefony/drizzle`** (ORM SQL par défaut) via **`@nodefony/orm-core`** ; portabilité testée sur Sequelize/Mongoose | Sequelize/Mongoose en dur |
-| Frontend | **`@nodefony/frontend`** (Vite) + **Vue 3** (Composition API) | webpack |
-| Signaling temps réel | **`@nodefony/realtime`** / Core isomorphe `nodefony` (JSON-RPC 2.0) | ws brut |
-| SFU média (P15) | **mediasoup** (Worker/Router/**PlainTransport RTP** + SIP/Asterisk pour agent IA vocal) | WebRtcTransport navigateur |
-| Enregistrement (P15) | **ffmpeg / gstreamer** workers | identique |
-| API admin | data plane `/nodefony/mediasoup/api/*` (Studio) | — |
-| Process | **cloud-native** (1 pod = 1 process) | pm2 (déprécié) |
-| Client | subpaths Core `nodefony/*` (isomorphe) | nodefony-client |
+| Domaine              | Techno cible                                                                                                | Remplace                   |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------- |
+| Persistance          | **`@nodefony/drizzle`** (ORM SQL par défaut) via **`@nodefony/orm-core`** ; portabilité testée sur Mongoose | ORM en dur                 |
+| Frontend             | **`@nodefony/frontend`** (Vite) + **Vue 3** (Composition API)                                               | webpack                    |
+| Signaling temps réel | **`@nodefony/realtime`** / Core isomorphe `nodefony` (JSON-RPC 2.0)                                         | ws brut                    |
+| SFU média (P15)      | **mediasoup** (Worker/Router/**PlainTransport RTP** + SIP/Asterisk pour agent IA vocal)                     | WebRtcTransport navigateur |
+| Enregistrement (P15) | **ffmpeg / gstreamer** workers                                                                              | identique                  |
+| API admin            | data plane `/nodefony/mediasoup/api/*` (Studio)                                                             | —                          |
+| Process              | **cloud-native** (1 pod = 1 process)                                                                        | pm2 (déprécié)             |
+| Client               | subpaths Core `nodefony/*` (isomorphe)                                                                      | nodefony-client            |
 
 > ⚠️ **Divergence de cas d'usage assumée** : le legacy = visio **WebRTC navigateur**. La cible roadmap P15
 > vise en plus le **RTP brut (PlainTransport) + SIP/Asterisk** pour un **agent IA vocal** (PSTN). L'archi
@@ -103,19 +104,19 @@ curl -sk "https://127.0.0.1:5152/nodefony/orm/api/export/jsonschema?orm=mediasou
                   └────────────┘
 ```
 
-| Entité | PK | Champs notables | Relations (FK) |
-| --- | --- | --- | --- |
-| **User** | `id` (uuid) | identifier, password, `roles` (json), enabled, locked… *(table `@nodefony/user`)* | cible de RoomMember, Calendar, Event |
-| **Room** | `name` (text) | `type` (ENUM WEBRTC), `access` (ENUM private/public), secure, locked, stickyCookie | cible de RoomMember, Event |
-| **RoomMember** | `id` (uuid) | role, joinedAt | **N-1 Room** (`roomId`) + **N-1 User** (`userId`) → **= jonction N-N** |
-| **Calendar** | `id` (uuid) | `etag` (uuid unique), summary, `conferenceProperties` (json), `defaultReminders` (json), isPrimary, hidden | **N-1 User** (`creatorId`) |
-| **Event** | `id` (uuid) | `start`/`end`/`recurrence`/`attendees`/`organizer` (json), status, visibility, timezone, `deletedAt` (soft-delete) | **N-1 Calendar** (`calendarId`) + **N-1 Room** (`roomId`, nullable) + **N-1 User** (`creatorId`) + **N-1 Event** (`parentEventId`, **auto-référence**) |
-| **Recording** | `id` (uuid) | kind/format/status (pseudo-ENUM), durationMs, sizeBytes, `metadata` (json), `deletedAt` (soft-delete) | **N-1 Room** (`roomId`) + **N-1 Event** (`eventId`, **nullable**) |
-| **Tag** | `id` (uuid) | `name` (**unique**), color | cible de EventTag |
-| **EventTag** | `id` (uuid) | — | **N-1 Event** (`eventId`) + **N-1 Tag** (`tagId`) → **= 2ᵉ jonction N-N** |
+| Entité         | PK            | Champs notables                                                                                                    | Relations (FK)                                                                                                                                         |
+| -------------- | ------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **User**       | `id` (uuid)   | identifier, password, `roles` (json), enabled, locked… _(table `@nodefony/user`)_                                  | cible de RoomMember, Calendar, Event                                                                                                                   |
+| **Room**       | `name` (text) | `type` (ENUM WEBRTC), `access` (ENUM private/public), secure, locked, stickyCookie                                 | cible de RoomMember, Event                                                                                                                             |
+| **RoomMember** | `id` (uuid)   | role, joinedAt                                                                                                     | **N-1 Room** (`roomId`) + **N-1 User** (`userId`) → **= jonction N-N**                                                                                 |
+| **Calendar**   | `id` (uuid)   | `etag` (uuid unique), summary, `conferenceProperties` (json), `defaultReminders` (json), isPrimary, hidden         | **N-1 User** (`creatorId`)                                                                                                                             |
+| **Event**      | `id` (uuid)   | `start`/`end`/`recurrence`/`attendees`/`organizer` (json), status, visibility, timezone, `deletedAt` (soft-delete) | **N-1 Calendar** (`calendarId`) + **N-1 Room** (`roomId`, nullable) + **N-1 User** (`creatorId`) + **N-1 Event** (`parentEventId`, **auto-référence**) |
+| **Recording**  | `id` (uuid)   | kind/format/status (pseudo-ENUM), durationMs, sizeBytes, `metadata` (json), `deletedAt` (soft-delete)              | **N-1 Room** (`roomId`) + **N-1 Event** (`eventId`, **nullable**)                                                                                      |
+| **Tag**        | `id` (uuid)   | `name` (**unique**), color                                                                                         | cible de EventTag                                                                                                                                      |
+| **EventTag**   | `id` (uuid)   | —                                                                                                                  | **N-1 Event** (`eventId`) + **N-1 Tag** (`tagId`) → **= 2ᵉ jonction N-N**                                                                              |
 
 > 🔸 **Les N-N sont explicites** (`RoomMember`, `EventTag`) : les adapters Nodefony
-> (Drizzle/Sequelize/Mongoose) **rejettent le `many-to-many` déclaratif** — la table de jonction est
+> (Drizzle/Mongoose) **rejettent le `many-to-many` déclaratif** — la table de jonction est
 > le pattern portable (et la bonne pratique SQL). C'est volontairement un cas de test.
 > 🔸 **8 entités** au total. Cas de test couverts : N-N (×2), **auto-référence** (`Event.parentEventId`),
 > **FK nullable** (`Recording.eventId`), **soft-delete** (`Event`/`Recording.deletedAt`), **unique** (`Tag.name`),
@@ -138,7 +139,7 @@ tests unitaires génériques restant dans `@nodefony/orm-core`) :
 - **Colonnes JSON** : round-trip `conferenceProperties`, `attendees`, `start/end` (objets/arrays).
 - **Opérateurs riches** (`$in`, `$like`, `$gte`…) sur events par date/statut.
 - **Transactions** : créer un `Event` + ses dépendances atomiquement (commit/rollback).
-- **Portabilité multi-ORM** : rejouer le **même** banc sur **Sequelize** et **Mongoose** (preuve « swap d'ORM »).
+- **Portabilité multi-ORM** : rejouer le **même** banc sur **Mongoose** (preuve « swap d'ORM »).
 - **Sémantique CASCADE** (suppression d'un `User` → ses `Calendar`/`Event`) — à valider par adapter.
 
 > Fixtures : le legacy fournit `nodefony-mediasoup/src/bundles/*/Fixtures/*` (rooms, calendar, events,
@@ -159,7 +160,7 @@ Restent (non implémentés) :
 
 - **Index/unicité composite** (ex. `RoomMember(roomId, userId)` unique) — ⚠️ l'adapter Drizzle ne génère pas encore d'index composite dans son DDL dérivé (`#createTableSQL` = colonnes + pk/unique par colonne) ; à traiter avec le support index.
 - **Volume** : générer N milliers de lignes (suite lourde) pour le stress ORM/perf.
-- ✅ **Portabilité Sequelize** faite (11 tests). Reste **Mongoose** (store documentaire : refs ObjectId + virtual populate).
+- ⬜ **Portabilité Mongoose** (store documentaire : refs ObjectId + virtual populate).
 
 ---
 
@@ -167,8 +168,8 @@ Restent (non implémentés) :
 
 - ✅ **Modèle ORM Drizzle** (8 entités) + connecteur dédié + ERD Studio (2026-05-22).
 - ✅ **Tests d'intégration ORM** (`tests/integration/orm-mediasoup.test.ts`, **11 tests** : N-N ×2, auto-réf, FK nullable, soft-delete, unique, JSON, eager-load, opérateurs, transactions) — `npm test`.
-- ✅ **Portabilité Sequelize** (`tests/integration/orm-mediasoup-sequelize.test.ts`, **11 tests**) : MÊME modèle logique + MÊME API repository, schéma réécrit en `DataTypes`. **22 tests verts au total** (Drizzle + Sequelize).
-- ⬜ Portabilité Sequelize / Mongoose (même modèle).
+- ✅ **Banc Drizzle** : MÊME modèle logique + MÊME API repository, **11 tests verts**.
+- ⬜ Portabilité Mongoose (même modèle).
 - ⬜ Fixtures portées du legacy.
 - ⬜ **P15** — couche mediasoup : `MediasoupService` (Workers), `RoomManager`/`PeersService`,
   signaling `@RealtimeController`, recorder/streamer ffmpeg-gstreamer, transport **PlainTransport RTP + SIP**.

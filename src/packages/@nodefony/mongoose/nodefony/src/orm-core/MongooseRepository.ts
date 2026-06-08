@@ -1,5 +1,10 @@
 import type { ClientSession, QueryFilter, Model } from "mongoose";
-import { isFieldOperators } from "@nodefony/orm-core";
+import { RequestContext, redactSecrets } from "nodefony";
+import {
+  isFieldOperators,
+  queryFlowMonitor,
+  UnknownCriteriaField,
+} from "@nodefony/orm-core";
 import type {
   Criteria,
   FieldOperators,
@@ -37,14 +42,71 @@ function sqlLikeToRegex(pattern: string): RegExp {
 export class MongooseRepository<T = unknown> implements IRepository<T> {
   readonly #model: LooseModel;
   readonly #session: ClientSession | null;
+  /** Connecteur ORM (clé du registre) — tag des métriques de flux. */
+  readonly #ormName: string;
 
   /**
    * @param model - modèle Mongoose compilé.
+   * @param ormName - nom du connecteur ORM (registre) — défaut `"nodefony"`.
    * @param session - session transactionnelle à laquelle lier les ops (ou `null`).
    */
-  constructor(model: LooseModel, session: ClientSession | null = null) {
+  constructor(
+    model: LooseModel,
+    ormName = "nodefony",
+    session: ClientSession | null = null,
+  ) {
     this.#model = model;
+    this.#ormName = ormName;
     this.#session = session;
+  }
+
+  /**
+   * Tap dev-only : mesure la durée d'une opération et alimente **deux** sondes
+   * complémentaires (sans surcoût quand les deux sont inactives — flags lus avant
+   * toute allocation, prod = coût nul) :
+   *  1. **profiler par-requête** (buffer de scope ALS, debug bar) — descripteur
+   *     de CHAQUE opération tracée ;
+   *  2. **flux ORM agrégé** ({@link queryFlowMonitor}, process-wide) — débit +
+   *     latence ; le descripteur n'est sérialisé que sur le chemin **lent** (rare).
+   *
+   * @param descr - fabrique du descripteur (collection.op + filtre redacté) —
+   *   thunk : jamais évalué hors observation.
+   * @param exec - exécution de l'opération.
+   * @param rowsOf - extraction du nombre de documents (optionnel).
+   */
+  async #prof<R>(
+    descr: () => string,
+    exec: () => Promise<R>,
+    rowsOf?: (r: R) => number | undefined,
+  ): Promise<R> {
+    const buf = RequestContext.get()?.queries;
+    const flow = queryFlowMonitor.enabled;
+    if (!buf && !flow) {
+      return exec();
+    }
+    const start = performance.now();
+    const result = await exec();
+    const durationMs = performance.now() - start;
+    if (flow) {
+      const q = durationMs >= queryFlowMonitor.slowMs ? descr() : undefined;
+      queryFlowMonitor.record(this.#ormName, durationMs, q);
+    }
+    if (buf) {
+      buf.push({
+        sql: descr(),
+        durationMs,
+        rows: rowsOf?.(result),
+        connector: "mongoose",
+      });
+    }
+    return result;
+  }
+
+  /** Descripteur compact `Model.op {filtre}` (redacté + tronqué) pour les sondes. */
+  #descr(op: string, filter?: unknown): string {
+    const tail = filter !== undefined ? ` ${JSON.stringify(filter)}` : "";
+    const s = `${this.#model.modelName}.${op}${tail}`;
+    return redactSecrets(s.length > 2000 ? `${s.slice(0, 2000)}…` : s);
   }
 
   /**
@@ -66,7 +128,37 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   }
 
   /**
+   * Valide qu'un champ de critère existe sur le schéma (strict B2, parité
+   * Drizzle) et renvoie sa clé Mongo (`id` → `_id`, PK). Un champ inconnu lève
+   * {@link UnknownCriteriaField} au lieu d'être passé tel quel à Mongo (qui
+   * donnait 0 résultat silencieux — et divergeait de Drizzle qui, lui, renvoyait
+   * tout). Échoue tôt et pareil sur les deux drivers.
+   *
+   * @param field - clé brute du critère.
+   * @returns la clé Mongo résolue.
+   * @throws UnknownCriteriaField si le champ n'existe pas sur le schéma.
+   */
+  #resolveField(field: string): string {
+    const key = field === "id" ? "_id" : field;
+    const paths = this.#model.schema.paths as Record<string, unknown>;
+    // `_id` toujours valide ; chemin direct ; ou chemin imbriqué (`a.b` → racine `a`).
+    if (
+      key === "_id" ||
+      paths[key] !== undefined ||
+      paths[key.split(".")[0]] !== undefined
+    ) {
+      return key;
+    }
+    throw new UnknownCriteriaField(
+      field,
+      this.#model.modelName,
+      Object.keys(paths),
+    );
+  }
+
+  /**
    * Traduit le critère portable : `id` → `_id` (PK MongoDB) + opérateurs riches.
+   * Chaque champ est validé contre le schéma (strict, cf {@link MongooseRepository.#resolveField}).
    */
   #filter(criteria?: Criteria<T>): QueryFilter<Record<string, unknown>> {
     if (!criteria) {
@@ -74,7 +166,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     }
     const out: Record<string, unknown> = {};
     for (const [field, value] of Object.entries(criteria)) {
-      const key = field === "id" ? "_id" : field;
+      const key = this.#resolveField(field);
       out[key] = isFieldOperators(value) ? this.#mongoOps(value) : value;
     }
     return out as QueryFilter<Record<string, unknown>>;
@@ -89,77 +181,143 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     criteria?: Criteria<T>,
     options?: RepositoryReadOptions,
   ): Promise<T[]> {
-    let query = this.#model.find(this.#filter(criteria));
-    if (this.#session) {
-      query = query.session(this.#session);
-    }
-    if (options?.relations?.length) {
-      query = query.populate(options.relations);
-    }
-    if (options?.offset !== undefined) {
-      query = query.skip(options.offset);
-    }
-    if (options?.limit !== undefined) {
-      query = query.limit(options.limit);
-    }
-    if (options?.order?.length) {
-      query = query.sort(
-        Object.fromEntries(
-          options.order.map(([field, dir]) => [field, dir === "DESC" ? -1 : 1]),
-        ),
-      );
-    }
-    const docs = await query.exec();
-    return docs.map((doc) => this.#plain(doc));
+    const filter = this.#filter(criteria);
+    return this.#prof(
+      () => this.#descr("find", filter),
+      async () => {
+        let query = this.#model.find(filter);
+        if (this.#session) {
+          query = query.session(this.#session);
+        }
+        if (options?.relations?.length) {
+          query = query.populate(options.relations);
+        }
+        if (options?.offset !== undefined) {
+          query = query.skip(options.offset);
+        }
+        if (options?.limit !== undefined) {
+          query = query.limit(options.limit);
+        }
+        if (options?.order?.length) {
+          query = query.sort(
+            Object.fromEntries(
+              options.order.map(([field, dir]) => [
+                field,
+                dir === "DESC" ? -1 : 1,
+              ]),
+            ),
+          );
+        }
+        const docs = await query.exec();
+        return docs.map((doc) => this.#plain(doc));
+      },
+      (docs) => docs.length,
+    );
   }
 
   async findOne(
     criteria: Criteria<T>,
     options?: RepositoryReadOptions,
   ): Promise<T | null> {
-    let query = this.#model.findOne(this.#filter(criteria));
-    if (this.#session) {
-      query = query.session(this.#session);
-    }
-    if (options?.relations?.length) {
-      query = query.populate(options.relations);
-    }
-    const doc = await query.exec();
-    return doc ? this.#plain(doc) : null;
+    const filter = this.#filter(criteria);
+    return this.#prof(
+      () => this.#descr("findOne", filter),
+      async () => {
+        let query = this.#model.findOne(filter);
+        if (this.#session) {
+          query = query.session(this.#session);
+        }
+        if (options?.relations?.length) {
+          query = query.populate(options.relations);
+        }
+        const doc = await query.exec();
+        return doc ? this.#plain(doc) : null;
+      },
+      (doc) => (doc ? 1 : 0),
+    );
   }
 
   async create(data: Partial<T>): Promise<T> {
-    const [doc] = await this.#model.create([data as Record<string, unknown>], {
-      session: this.#session ?? undefined,
-    });
-    return this.#plain(doc);
+    return this.#prof(
+      () => this.#descr("create"),
+      async () => {
+        const [doc] = await this.#model.create(
+          [data as Record<string, unknown>],
+          { session: this.#session ?? undefined },
+        );
+        return this.#plain(doc);
+      },
+      () => 1,
+    );
   }
 
-  async update(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
-    await this.#model.updateMany(
-      this.#filter(criteria),
-      data as Record<string, unknown>,
-      { session: this.#session ?? undefined },
+  async updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
+    const filter = this.#filter(criteria);
+    // Atomique : `findOneAndUpdate({ new: true })` → 1 round-trip, retourne le
+    // document RÉELLEMENT modifié (pas de relecture séparée qui renverrait null
+    // à tort si le critère portait sur un champ modifié — bug B1).
+    return this.#prof(
+      () => this.#descr("findOneAndUpdate", filter),
+      async () => {
+        const doc = await this.#model
+          .findOneAndUpdate(filter, data as Record<string, unknown>, {
+            // `returnDocument: "after"` = renvoie le doc APRÈS modif (forme non
+            // dépréciée de l'ancien `new: true` — Mongoose 9).
+            returnDocument: "after",
+            session: this.#session ?? undefined,
+          })
+          .exec();
+        return doc ? this.#plain(doc) : null;
+      },
+      (doc) => (doc ? 1 : 0),
     );
-    return this.findOne(criteria);
+  }
+
+  async updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number> {
+    const filter = this.#filter(criteria);
+    return this.#prof(
+      () => this.#descr("updateMany", filter),
+      async () => {
+        const res = await this.#model.updateMany(
+          filter,
+          data as Record<string, unknown>,
+          { session: this.#session ?? undefined },
+        );
+        return res.modifiedCount ?? 0;
+      },
+      (n) => n,
+    );
   }
 
   async delete(criteria: Criteria<T>): Promise<number> {
-    const res = await this.#model.deleteMany(this.#filter(criteria), {
-      session: this.#session ?? undefined,
-    });
-    return res.deletedCount ?? 0;
+    const filter = this.#filter(criteria);
+    return this.#prof(
+      () => this.#descr("deleteMany", filter),
+      async () => {
+        const res = await this.#model.deleteMany(filter, {
+          session: this.#session ?? undefined,
+        });
+        return res.deletedCount ?? 0;
+      },
+      (n) => n,
+    );
   }
 
   async count(criteria?: Criteria<T>): Promise<number> {
-    return this.#model.countDocuments(this.#filter(criteria), {
-      session: this.#session ?? undefined,
-    });
+    const filter = this.#filter(criteria);
+    return this.#prof(
+      () => this.#descr("countDocuments", filter),
+      () =>
+        this.#model.countDocuments(filter, {
+          session: this.#session ?? undefined,
+        }),
+    );
   }
 
   withTransaction(tx: ITransaction): IRepository<T> {
     return new MongooseRepository<T>(
       this.#model,
+      this.#ormName,
       tx.getNative<ClientSession>(),
     );
   }

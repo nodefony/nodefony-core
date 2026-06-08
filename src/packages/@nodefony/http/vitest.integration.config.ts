@@ -31,7 +31,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@nodefony/sequelize": r("./nodefony/tests/stubs/sequelize.ts"),
       "@nodefony/mongoose": r("./nodefony/tests/stubs/mongoose.ts"),
     },
   },

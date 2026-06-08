@@ -13,7 +13,7 @@ export interface IProfilerQuery {
   durationMs: number;
   /** Lignes affectées/retournées, si connu. */
   rows?: number;
-  /** Connecteur émetteur (`sequelize`, `drizzle`, `mongoose`…). */
+  /** Connecteur émetteur (`drizzle`, `mongoose`…). */
   connector?: string;
 }
 
@@ -45,7 +45,7 @@ export interface RequestContextPayload {
    * ⚠️ Contrat sécurité : un adapter qui pousse ici DOIT redacter le `sql`
    * via {@link redactSecrets} AVANT le push (le SQL interpolé peut contenir un
    * credential). Le SQL paramétré (placeholders `?`, ex. Drizzle) est déjà
-   * credential-free ; le SQL interpolé (ex. Sequelize `logging`) ne l'est pas.
+   * credential-free ; le SQL interpolé (ex. un ORM en mode `logging`) ne l'est pas.
    */
   queries?: IProfilerQuery[];
   [key: string]: unknown;

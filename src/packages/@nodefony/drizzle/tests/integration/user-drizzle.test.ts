@@ -63,7 +63,7 @@ describe("@nodefony/user ↔ Drizzle adapter (P5.9)", () => {
   });
 
   it("update() modifie les rôles (mapping conservé)", async () => {
-    const updated = await users.update(
+    const updated = await users.updateOne(
       { identifier: "alice@nodefony.dev" },
       { roles: ["ROLE_USER", "ROLE_ADMIN"] },
     );

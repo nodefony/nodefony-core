@@ -14,7 +14,7 @@ export interface IEntityRelation {
   /**
    * Clé étrangère explicite. Si omise, l'adapter en dérive une déterministe
    * (camelCase `<entité>Id`) — évite la divergence avec le défaut du driver
-   * (Sequelize génère du PascalCase `UserId`).
+   * (certains ORM génèrent du PascalCase `UserId`).
    */
   readonly foreignKey?: string;
 }
@@ -24,7 +24,7 @@ export interface IEntityRelation {
  *
  * Une même entité logique (ex. `User`) peut exister pour plusieurs ORM : `orm`
  * désigne l'ORM cible et `schema`/`model` portent la définition propre au driver
- * (schéma Mongoose, table Sequelize, schéma Drizzle...). `model` n'est disponible
+ * (schéma Mongoose, schéma Drizzle...). `model` n'est disponible
  * qu'après connexion de l'ORM (compilation du modèle).
  *
  * @typeParam S - type du schéma natif du driver.

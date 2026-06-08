@@ -2,15 +2,24 @@
 module: "@nodefony/drizzle"
 topic: drizzle
 audience: [human, ai]
-tags: [orm, drizzle, better-sqlite3, session, repository, schema-as-code, transaction]
+tags:
+  [
+    orm,
+    drizzle,
+    better-sqlite3,
+    session,
+    repository,
+    schema-as-code,
+    transaction,
+  ]
 status: stable
 last-updated: 2026-05-21
 ---
 
 # @nodefony/drizzle — ORM SQL type-safe (Drizzle)
 
-> 3ᵉ driver concret de [`@nodefony/orm-core`](../../orm-core/docs/index.md), après
-> Sequelize et Mongoose. **Type-safe-first**, choix SQL #1 moderne. Driver de
+> driver concret de [`@nodefony/orm-core`](../../orm-core/docs/index.md), avec
+> Mongoose. **Type-safe-first**, choix SQL #1 moderne. Driver de
 > référence : `better-sqlite3` (Postgres/MySQL = changer le client + le constructeur
 > de table). À la fois **module bootable** et **lib adapter**.
 
@@ -55,15 +64,15 @@ Opérateurs : `$eq $ne $gt $gte $lt $lte $in $nin $like` (cf
 [orm-core](../../orm-core/docs/index.md)). Eager-load : `find(criteria, { relations })`.
 Trappe brute : `orm.getNativeConnection()` → `db.all(sql\`… JOIN … CTE … window …\`)`.
 
-## Spécificités Drizzle (vs Sequelize/Mongoose)
+## Spécificités Drizzle (vs Mongoose)
 
-- **Schema-as-code** : `entity.schema` *est* une table Drizzle (`sqliteTable(...)`),
+- **Schema-as-code** : `entity.schema` _est_ une table Drizzle (`sqliteTable(...)`),
   pas de `define()`. L'adapter dérive le DDL via `getTableConfig()` (dev/test ;
   prod = `drizzle-kit`).
 - **Eager-load manuel** : une requête `IN (...)` par relation déclarée + regroupement
   mémoire (pas de couche `relations()` imposée).
 - **Transaction manuelle** `BEGIN`/`COMMIT`/`ROLLBACK` : `better-sqlite3` est
-  **synchrone**, son helper `db.transaction()` committe au `return` *avant* les
+  **synchrone**, son helper `db.transaction()` committe au `return` _avant_ les
   `await` du contrat async ; la connexion étant unique, encadrer le travail garantit
   l'atomicité. `withTransaction(tx)` réutilise le même db.
 

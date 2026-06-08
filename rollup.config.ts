@@ -11,7 +11,6 @@ const external: string[] = [
   "@nodefony/http",
   "@nodefony/security",
   "@nodefony/framework",
-  "@nodefony/sequelize",
   "@nodefony/mongoose",
   "@nodefony/redis",
   "@nodefony/test",

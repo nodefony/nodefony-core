@@ -29,7 +29,7 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 
 - **But** : 1 représentation canonique sérialisable du modèle (ORMs+entités+colonnes+relations) qui sert ERD Studio (**React Flow** choisi) + **contexte IA** (text-to-SQL/RAG) + interop. Le diagramme = projection ; la DONNÉE = la pièce maîtresse.
 - **Types** (`interfaces/IOrmGraph.ts`) : `IColumnInfo` (name/type/primaryKey/nullable/unique), `IRelationInfo`, `IEntityGraphNode` (name/orm/columns/relations), `IOrmSummary` (name/default/connected/entityCount), `IOrmGraph`.
-- **`IOrm.describeEntity?(name): IColumnInfo[]`** — OPTIONNEL ; base `Orm` retourne `[]` (relations seules), adapters surchargent. **Drizzle FAIT** (`getTableConfig`). Sequelize/Mongoose = TODO (`getAttributes`/`schema.paths`).
+- **`IOrm.describeEntity?(name): IColumnInfo[]`** — OPTIONNEL ; base `Orm` retourne `[]` (relations seules), adapters surchargent. **Drizzle FAIT** (`getTableConfig`). Mongoose = TODO (`schema.paths`).
 - **`buildOrmGraph(ormFilter?)`** lit `ormRegistry`+`entityRegistry`. **`toDbml(graph)`** = export DBML (Refs dérivés des relations, convention FK `<source>Id`/`<target>Id`). SQL DDL / JSON Schema = TODO.
 - **`createOrmAdminApi()`** : endpoints `orms`/`entities`/`entity/{name}`/`graph`/`export/{format}` (`?orm=` filtre). Succès=donnée brute ; 400(format)/404(entité) via `IAdminResponse`.
 - **`registerOrmAdminApi(broker)`** idempotent (`has("orm")`). orm-core=lib pure → monté par module driver (**Drizzle `onKernelBoot`**), lit registres globaux → couvre tous les ORM. Runtime OK : `/nodefony/orm/api/*`.
@@ -43,7 +43,7 @@ Fondation multi-ORM. Contrats + registre + base classes. Lib pure (pas Module, p
 - **`buildOrmFlow(filter?): IOrmFlowReport`** (`OrmAdminApi.ts`) : `{enabled, ts, instanceId, slowMs, connectors[]}`. Lecture pure (n'émet AUCUNE requête, ≠ `buildConnectionHealth` qui ping). Endpoint `GET /nodefony/orm/api/flow` (`?orm=`).
 - **Types** `interfaces/IOrmFlow.ts` : `ISlowQuery`/`IQueryFlow`/`IOrmFlowReport`. Exportés (+ `queryFlowMonitor`).
 - **Gating** = job du driver (orm-core ignore l'env) : Drizzle `DrizzleService.onBoot` → `setEnabled(env!==production)` (override `NODEFONY_ORM_FLOW=1/0`).
-- **Couverture** : seul **Drizzle** alimente le tap (`DrizzleRepository.#prof`). Sequelize=**deprecated** (pas câblé). Mongoose=TODO (pas de tap par-requête → middleware à créer). Connecteurs non câblés → snapshot neutre (0).
+- **Couverture** : seul **Drizzle** alimente le tap (`DrizzleRepository.#prof`). Mongoose=TODO (pas de tap par-requête → middleware à créer). Connecteurs non câblés → snapshot neutre (0).
 
 ## Gotchas
 

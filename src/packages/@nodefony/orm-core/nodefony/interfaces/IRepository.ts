@@ -15,7 +15,7 @@ export type OrmCriteria = Record<string, unknown>;
  * Forme tranchée en P7.4 (ADR-0003 risque #3) : objet d'opérateurs `$`-préfixés.
  * Raison : (1) familier (convention Mongo) ; (2) mappable par les **trois**
  * drivers — Mongoose en (quasi) identité (`$gt`/`$in` natifs, `$like`→`$regex`),
- * Sequelize via `Op.*`, Drizzle via `gt()`/`inArray()`/`like()`. Le sous-ensemble
+ * Drizzle via `gt()`/`inArray()`/`like()` (selon l'adapter). Le sous-ensemble
  * est volontairement minimal = intersection portable des 3 ORM.
  *
  * Plusieurs opérateurs sur le même champ se combinent en `AND`
@@ -71,7 +71,7 @@ export type Criteria<T> = {
  * Options de lecture (`find`/`findOne`) portables cross-ORM.
  *
  * `relations` charge des associations **déclarées** dans `@entity` (eager-load :
- * `include` Sequelize / `populate` Mongoose / `with` Drizzle) sans descendre au
+ * `populate` Mongoose / `with` Drizzle) sans descendre au
  * natif pour le cas commun. Les jointures arbitraires restent du ressort de
  * `IOrm.getNativeConnection()`.
  */
@@ -127,12 +127,33 @@ export interface IRepository<T = unknown> {
   create(data: Partial<T>): Promise<T>;
 
   /**
-   * Met à jour les entités correspondant au critère et retourne l'entité mise à jour, ou `null`.
+   * Met à jour **au plus une** entité correspondant au critère, de façon
+   * **atomique**, et retourne sa version persistée (ou `null` si aucune ne
+   * correspond).
    *
-   * @param criteria - filtre de sélection.
+   * Atomicité : une **seule** requête (`UPDATE … RETURNING` SQL /
+   * `findOneAndUpdate` Mongo), jamais un `UPDATE` suivi d'une relecture séparée
+   * — cette dernière renverrait `null` à tort dès que le critère porte sur un
+   * champ modifié (ex. `updateOne({ status: "pending" }, { status: "done" })`).
+   *
+   * @param criteria - filtre de sélection. Un champ inconnu de l'entité lève
+   *   `UnknownCriteriaField` (mêmes règles que `find`).
    * @param data - champs à modifier.
+   * @returns l'entité mise à jour, ou `null` si le critère ne matche rien.
    */
-  update(criteria: Criteria<T>, data: Partial<T>): Promise<T | null>;
+  updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null>;
+
+  /**
+   * Met à jour **toutes** les entités correspondant au critère et retourne le
+   * **nombre** de lignes modifiées (parité de signature avec
+   * {@link IRepository.delete}).
+   *
+   * @param criteria - filtre de sélection. Un champ inconnu lève
+   *   `UnknownCriteriaField`.
+   * @param data - champs à modifier.
+   * @returns le nombre d'entités mises à jour.
+   */
+  updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number>;
 
   /**
    * Supprime les entités correspondant au critère.

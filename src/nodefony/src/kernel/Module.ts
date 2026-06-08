@@ -1,10 +1,6 @@
 import { dirname, resolve, basename, isAbsolute } from "node:path";
 import { fileURLToPath } from "url";
-import Kernel, {
-  ServiceConstructor,
-  ServiceWithInit,
-  EntityConstructor,
-} from "./Kernel";
+import Kernel, { ServiceConstructor, ServiceWithInit } from "./Kernel";
 import type { IModule, PackageJson } from "../types/IModule";
 export type { PackageJson } from "../types/IModule";
 import type { IKernel } from "../types/IKernel";
@@ -22,7 +18,6 @@ import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
 //import vm from "node:vm";
 const regModuleName: RegExp = /^[Mm]odule-([\w-]+)/u;
 import { createRequire } from "node:module";
-import Entity from "./orm/Entity";
 import { Controller } from "@nodefony/framework";
 export type TypeController<T> = new (...args: any[]) => T;
 const controllers: Record<string, TypeController<Controller>> = {};
@@ -373,16 +368,6 @@ class Module extends Service implements IModule {
       }
     }
     return out;
-  }
-
-  async loadEntity(entity: string) {
-    const res = await import(entity);
-    return this.addEntity(res.default);
-  }
-
-  addEntity(entity: EntityConstructor): Entity {
-    const inst = new entity(this);
-    return inst;
   }
 
   /**

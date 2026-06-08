@@ -196,7 +196,7 @@ src/modules/test                     controllers d'intégration HTTP+WS
 
 @nodefony/orm-core (LIB PURE)        IOrm/IEntity/IRepository/ITransaction · ormRegistry/entityRegistry
    ↑                                 @entity/@repository · AbstractCrudService · Criteria/FieldOperators
-   └─ drivers (Modules) : @nodefony/drizzle (défaut SQL) · sequelize · mongoose  → auto-register au boot
+   └─ drivers (Modules) : @nodefony/drizzle (défaut SQL) · mongoose (NoSQL)  → auto-register au boot
       @nodefony/user (IUser/BaseUser/UserService) · session storage  consomment orm-core
 ```
 
@@ -676,7 +676,7 @@ try {
 ```
 
 - `nodefonyError` ajoute `code: number|null`, `errorType` auto-détecté (TypeError/SystemError/Assertion/
-  Sequelize/Mongoose/ClientError), `toJSON()` **filtré** (exclut `context`/`resolver`/`container`/`secure` =
+  Mongoose/ClientError), `toJSON()` **filtré** (exclut `context`/`resolver`/`container`/`secure` =
   réf circulaires + fuite). `getDefaultMessage()` remplit le message depuis `STATUS_CODES` si seul `code` fourni.
 - Pipeline HTTP/WS : **`HttpError`** (`@nodefony/http`) `extends nodefonyError`, ctor `(message?, code?, context?)` →
   extrait `controller`/`action`/`jsonResponse` de `(context as any)?.resolver` (⚠️ http **ne peut PAS** importer
@@ -860,7 +860,7 @@ l'archi multi-process AVANT toute infra (c'est le mode cluster sans PM2 : cf [[p
 **Archi = Repository multi-ORM (pas Active Record)** — ADR-0003. `@nodefony/orm-core` = **lib pure**
 (contrats + registres + base classes, JAMAIS un Module, jamais dans `@modules()`). Les **drivers** sont
 les Modules et s'auto-enregistrent dans `ormRegistry` à leur boot. **ORM par défaut = Drizzle** (SQL,
-schema-as-code) ; Sequelize/Mongoose = legacy/NoSQL. Un nouvel adapter → **commencer par Drizzle**.
+schema-as-code) ; Mongoose = NoSQL. Un nouvel adapter → **commencer par Drizzle**.
 Contrats (core) : `IOrm` · `IEntity<S,M>` (+`IEntityRelation`) · `IRepository<T>` (+`Criteria<T>`/`FieldOperators`) · `ITransaction`.
 
 ### A. Définir une entité — `@entity` schema-as-code (Drizzle, RECOMMANDÉ)
@@ -914,26 +914,6 @@ export default ArticleEntity;
   `DrizzleOrm` crée la table à la connexion. `module:` sert au regroupement ERD Studio.
 - **Binding ORM dynamique** (nom de connecteur dépend de la config, ex. User) → pas d'`@entity` figé :
   `createXxxEntity(orm)` + `registerXxxEntity(orm)` appelé **avant** `orm.connect()`.
-
-### B. Entité legacy — classe `Entity` (Sequelize)
-
-```typescript
-import { Entity, Module } from "nodefony";
-class Boat extends Entity {
-  constructor(module: Module) {
-    super(module, "boat", "sequelize", "myconnector");
-  } // (module, name, orm, connector)
-  getSchema() {
-    return {
-      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-      name: { type: DataTypes.STRING },
-    };
-  }
-  override registerModel(db: sequelize.Sequelize) {
-    /* Model.init(this.getSchema(), {sequelize: db, modelName: this.name}) */
-  }
-}
-```
 
 ### C. Repository — contrat portable (`IRepository<T>`)
 
@@ -1013,7 +993,7 @@ await orm.transaction(async (tx) => {
 
 - **profiler par-requête** (`RequestContext.queries`, debug bar) : SQL de CHAQUE requête tracée, dev-only, **coût nul hors requête tracée** (buffer ALS absent).
 - **santé** (`connection/health` + canal `orm:health`) : état/ping/latence-fenêtre/erreurs/reconnexions + sonde profonde `IOrm.probe()` (storage PRAGMA / pool). Générique (`buildConnectionHealth` itère `ormRegistry`, ping+probe), **émet une requête** (ping).
-- **flux** (`flow` + canal `orm:flow`, `queryFlowMonitor`, 2026-05-23) : DÉBIT (queries/s) + latence moy/EWMA + requêtes lentes. **Process-wide, indépendant de l'ALS**, **OFF par défaut** (gaté par le driver : `setEnabled(env!==production)`, override `NODEFONY_ORM_FLOW`). Lazy, ring slow borné 20, `toSQL()` **seulement sur le chemin lent**. **Per-connecteur** : `Map<connecteur>` (clé = nom registre, pas vendor) → le repo passe son `ormName` au tap. Débit/s **dérivé** (delta `total`/`ts`), **0 persistance** (RAM, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe). Câblé : **Drizzle** seul (Sequelize deprecated, Mongoose = TODO middleware). Ticker realtime = `createBrokerTicker` générique (réutilisé santé+flux).
+- **flux** (`flow` + canal `orm:flow`, `queryFlowMonitor`, 2026-05-23) : DÉBIT (queries/s) + latence moy/EWMA + requêtes lentes. **Process-wide, indépendant de l'ALS**, **OFF par défaut** (gaté par le driver : `setEnabled(env!==production)`, override `NODEFONY_ORM_FLOW`). Lazy, ring slow borné 20, `toSQL()` **seulement sur le chemin lent**. **Per-connecteur** : `Map<connecteur>` (clé = nom registre, pas vendor) → le repo passe son `ormName` au tap. Débit/s **dérivé** (delta `total`/`ts`), **0 persistance** (RAM, reset au restart — une sonde n'écrit jamais dans la base qu'elle observe). Câblé : **Drizzle** seul (Mongoose = TODO middleware). Ticker realtime = `createBrokerTicker` générique (réutilisé santé+flux).
 - **lean cluster** (`buildOrmLeanHealth()` orm-core, 2026-05-25) : agrégat **per-instance** de TOUS les connecteurs (registre + `queryFlowMonitor` + `connectionMonitor`) → `IOrmLeanHealth` (`connectors/connected/queryTotal/slowTotal/errorTotal/reconnectTotal/maxEwmaMs`). **0 ping / 0 toSQL**, O(N connecteurs). Branché dans le report de sonde cluster via le **seam core** `setOrmHealthProvider(buildOrmLeanHealth)` (driver Drizzle au boot) → **`framework` n'importe PAS `orm-core`**. Lu par `buildOwnHealth` (`IRealtimeHealth.orm`), agrégé pod dans `mergeClusterHealth.totals.orm`. Cf RETEX §11 + [[project_cluster_drilldown_kit]].
 - **rich @pid (drill cluster, 2026-05-25)** : diagnostic ORM COMPLET d'UN worker EXACT (`{ health: buildConnectionHealth(), flow: buildOrmFlow() }`) pour la page `/nodefony/orm/<pid>` en cluster. **Calqué `dashboard:supervision@<pid>`** (voie B1 : enrichir le colis broadcast, pas un 2ᵉ flux). Pièces : (1) **facette d'enrich** `ClusterProbeFacet` (`"process"|"orm"`, défaut process) sur `IClusterProbeCtl`/`IClusterProbeEnrich` (core) → 2 drills indépendants, « on paie ce qu'on regarde » par sonde ; (2) **seam core** `setOrmRichProvider(async ()=>blob)`/`readOrmRich()` (driver Drizzle, **async** car `connection/health` ping) — opaque côté core/framework ; (3) `ClusterProbeClient` : facette `"orm"` → **ticker de cache async** `#startOrmRich` (le report sync joint `payload.ormRich`, absent hors drill) ; (4) studio `orm:rich@<pid>` = **canal combiné** (1 canal = 1 enrich = **pas de ref-count**, le hub dédoublonne par nom) → local broker ticker si `pid===process.pid`, sinon `createClusterOrmTicker` (`requestEnrich(pid,true,"orm")` au sub, `false` au dispose). Prouvé e2e cross-process (`cluster-orm-rich-e2e.mjs`). Cf RETEX §11 + [[project_cluster_drilldown_kit]].
 
@@ -1195,7 +1175,7 @@ re-débattre l'acté**. Toujours charger les mémoires de design de la phase ava
 - **P1-P4 ✅ BUILT → recettes §4** : lifecycle/ALS/hooks (P1), Context teardown/abort/timing (P2), logs
   structurés/audit/error-renderer (P3), symbiose http↔framework (P4).
 - **P5 ✅** orm-core + `@nodefony/user` · **P6 ⬜** Security (design figé ci-dessus) · **P7 ⬜** drivers ORM
-  prod (Postgres/MySQL Drizzle, MikroORM) + User Sequelize/Mongoose (P5.7/5.8).
+  prod (Postgres/MySQL Drizzle) + User Mongoose (P5.8). (Sequelize/MikroORM abandonnés — virage ORM.)
 - **P8 / P11** CLI + monitoring + commandes par module (cf recette CLI §4 ; bug commandes-module à traiter) ·
   **P9** polish/clôture.
 - **P10** Studio admin (frontend → `nodefony-studio-dev`) · **P12** couche IA agentic
@@ -1709,7 +1689,7 @@ base,bounds)` (résolution+bornage serveur), `isRateChannel`, `RateBounds` ; fin
   `queryFlowMonitor` (orm-core) = débit/latence-EWMA/slow **process-wide, OFF par défaut** (gaté driver,
   per-connecteur via `ormName` au tap, ring slow 20, `toSQL` slow-only, débit dérivé delta `total`, **0
   persistance**) + endpoint `orm/api/flow` + canal `orm:flow` (ticker générique `createBrokerTicker`).
-  Câblé Drizzle seul (Sequelize deprecated, Mongoose TODO). Front : carte « Flux ORM » + tableau slow
+  Câblé Drizzle seul (Mongoose TODO). Front : carte « Flux ORM » + tableau slow
   intelligent (Studio). **0 régression load** (flux OFF hors kernel). RETEX : tap multi-sonde gardé.
 - **1.3.0** (2026-05-23) — §6.F **« Choix de runtime / langage — boussole stratégique »** : plafond =
   famine event-loop mono-thread (vu en charge : WS 1300 + 80k msg/s, 0 % err mais realtime figé) ;

@@ -34,7 +34,7 @@ export interface IBaseUserOptions {
  * anti-migration** : `socialProviders` (JSON, pas de colonnes par fournisseur),
  * `metadata` (extras libres typés `Record<string, unknown>`, jamais `any`),
  * `currentRole` (profil actif de session). Les entités persistées des adapters
- * (`SequelizeUser`, `MongooseUser`...) étendent cette classe ; Drizzle la mappe.
+ * (`MongooseUser`, `DrizzleUser`...) étendent cette classe ; Drizzle la mappe.
  *
  * Hors hot path requête (instanciée à l'authentification, pas par requête) : les
  * allocations de `roles`/`socialProviders`/`metadata` y sont acceptables. Pour un

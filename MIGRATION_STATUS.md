@@ -19,16 +19,19 @@ Les décisions complètes sont **persistées en mémoire IA** (survivent au `/cl
 
 ### ⚡ Séquencement actuel (figé 2026-06-05)
 
-**Config (`defineConfig`) ✅ CLOS** → **🥇 durcissement ORM** → (Realtime reste S1) → **POC API souveraine** → **P6 Security**.
+**Config ✅** → **durcissement ORM Ph.1/2/2.5/3 ✅** → **durcissement WebSocket ✅** → **ORM Ph.4 couplage C2/C5 ✅** (`58381df`/`7ac0bac`) + **couverture ORM 109→160 tests** (`953ccc2`) → **🥇 POC API souveraine** → **P6 Security**.
 Boussole : durcir les fondations (orm, realtime, core, http, framework) AVANT P6 — P6 se greffe dessus.
 
-### 🔀 Virage ORM (décidé 2026-06-02) — ✅ audit pré-chantier livré 2026-06-08, exécution à venir
+### 🔀 Virage ORM (décidé 2026-06-02) — ✅ audit 2026-06-08 · ✅ **Ph.1 Seq OUT** (`716fce6`) · ✅ **Ph.2 Mongoose REFAIT 2026-06-08** (`51d9ea8`)
 
-- 📋 **Audit complet** : [`docs/audits/orm-state-and-hardening-2026-06.md`](docs/audits/orm-state-and-hardening-2026-06.md) + mémoire `project_orm_audit_state`. **Plan 5 phases** (~2080 L mortes, ~1250 à refaire) : Ph.1 Seq OUT ∥ Ph.2 Mongoose REFAIT → Ph.3 kernel/orm OUT → Ph.4 couplage (C2/C5) → API souveraine → P6.
-- **Sequelize = SUPPRESSION COMPLÈTE** (package + consommateurs + tests retirés). Lignes P5.7/P7.1/P7.3 → **caduques**.
-- **Mongoose = REFAIT NEUF** sur modèle Drizzle (`class …Service extends Service`, plus `extends Orm` core) + réimplémenter 4 sondes Studio (`describeEntity`/`describeConnection`/`ping`/tap flux). Lignes P5.8/P7.2/P7.5 → **à refaire**.
-- **Orm core `src/nodefony/src/kernel/orm/{Orm,Connector,Entity}` → à RETIRER** (3 fichiers, 254 L). ⚠️ **Piège homonyme** : c'est le LEGACY du workspace `nodefony`, **PAS** `@nodefony/orm-core` (socle moderne validé ADR-0003, à **GARDER**). Maintenu vivant par les `service/orm.ts` legacy de Seq+Mongoose.
-- **Dette C5** (audit) : montage data plane ORM + sondes santé **déclenché par le module Drizzle** → app Mongoose-only = Studio ORM muet → factoriser `wireOrmAdminPlane(kernel)` appelé par chaque driver.
+- 📋 **Audit complet** : [`docs/audits/orm-state-and-hardening-2026-06.md`](docs/audits/orm-state-and-hardening-2026-06.md) + mémoire `project_orm_audit_state`. **Plan** : **Ph.1 Seq OUT ✅** ∥ **Ph.2 Mongoose REFAIT ✅** → **Ph.2.5 contrat CRUD durci ✅** (`updateOne`/`updateMany` atomiques + critère strict — audit `orm-solidity-2026-06`) → **Ph.3 kernel/orm OUT ✅** → **⏸️ durcissement WebSocket (PRIORITAIRE, avant la suite)** → Ph.4 couplage (C2/C5) → API souveraine → P6.
+- ✅ **Sequelize SUPPRIMÉ (Ph.1, `716fce6`)** : package + tous consommateurs + tests + ~2820 L de `package-lock` + mentions code/docs vivantes (0 résidu). Gates vertes (build 19/19, core 1559, http 436, fw 190, mémoire 9/9). Lignes P5.7/P7.1/P7.3 → **caduques**.
+- ✅ **Mongoose REFAIT (Ph.2)** : `MongooseService extends Service` (boote un `MongooseOrm`/connecteur au `onBoot`, plus `extends Orm` core) + `SessionStorage` portable (logique = Drizzle, timestamps ms, GC `$lt`) + 4 sondes Studio (`describeEntity` ✅P5.4 / **`describeConnection`** + **flow tap** `MongooseRepository`→`queryFlowMonitor` ajoutés / `ping` ✅) + `registerMongooseAdapter` (erreurs) + data plane câblé côté module (C5 atténuée). Legacy `service/orm.ts` supprimé. **17 tests verts** (banc orm-core ReplSet + session hybride `MONGO_TEST_URI`). → **P7.2/P7.5 ✅**. **Reste P5.8** (adapter Mongoose _User_, hors Ph.2).
+- ✅ **Config ORM unifiée Zod (2026-06-08)** — audit [`docs/audits/orm-config-pattern-2026-06.md`](docs/audits/orm-config-pattern-2026-06.md) : **drizzle ET mongoose** portent leur config en **Zod pur** (`schema.ts` → `defineXConfig` parse+env+freeze → validée `onKernelRegister` → `this.set("<orm>Config")`) + augmentent `NodefonyModuleConfig` (typage `use()`). Drizzle : `filename` optionnel, chemin SQLite résolu **au boot** dans `DrizzleService` (plus de deref kernel top-level). 🐞 **fix redis** : lisait `this.options?.redis` (namespace inexistant) → ignorait la config app via `use()` → corrigé en `this.options` (flat, conforme au merge Kernel). Tests : drizzle 33 / mongoose 24 / redis 13 verts.
+- ✅ **Ph.3 kernel/orm RETIRÉ (`5ba6bd1`)** : 3 fichiers (254 L) + chaîne morte `@entities`/`addEntity`/`loadEntity`/`EntityConstructor` + 3 méthodes Kernel (`getOrm`/`getORM`/`getOrmStrategy`) + exports `index.ts:226`. 0 réf pendante (grep). Build 19/19, core 1559/1559, mémoire HTTP 9/9, serveur boote. (`@nodefony/orm-core` = socle moderne GARDÉ.) `config.orm?:string` laissé pour Ph.4 (redesign gating).
+- ✅ **Ph.2.5 contrat CRUD durci (`220c00a`)** : audit [`docs/audits/orm-solidity-2026-06.md`](docs/audits/orm-solidity-2026-06.md). `IRepository.update`→`updateOne` (atomique RETURNING/`findOneAndUpdate`) + `updateMany` (number) ; **B2 critère strict** (`UnknownCriteriaField`, drizzle+mongoose) ; savepoint validé ; tx mongoose idempotente. Découplage ORM↔API (0 import API dans orm-core, testé).
+- ✅ **Ph.4 couplage core↔ORM FAIT (2026-06-08)** : **C2** (`58381df`) registre générique `IErrorAdapter` dans le core (`registerErrorAdapter(name, adapter)` + `findErrorAdapter`) → le core ne nomme plus aucun ORM (`registerMongooseAdapter`/`_sequelizeAdapter` supprimés, errorType `"OrmError"`). **C5** (`7ac0bac`) `wireOrmAdminPlane(kernel)` + `resolveOrmFlowEnabled(kernel)` dans orm-core → bloc data plane dupliqué (drizzle+mongoose) factorisé, 1 ligne/driver. **+ couverture ORM massivement renforcée** (`953ccc2`) : **109→160 tests** (socle orm-core Orm/monitors/Entity/errors +23, invariants avancés updateMany/savepoints/cardinalités/garde-fou m2m +14, transactions +4, Services +10) + garde-fou seuils v8 (orm-core 80,8 / drizzle 78,7 / mongoose 75,4 %).
+- **Dette C5 RÉSOLUE (Ph.4, `7ac0bac`)** : `wireOrmAdminPlane(kernel)` appelé par chaque driver (idempotent, global) — fin de la duplication du montage data plane.
 - **MikroORM (P7.8/P7.9) = abandonné** (0 code, traces docs/types seulement). → ⏭️.
 - ⭐ **Drizzle = référence** (`extends Service`, 100 % propre). **Migrations** (absentes) : déléguer `drizzle-kit` (versioned) + façade `IMigrator` Studio — hors chemin critique.
 
@@ -165,12 +168,12 @@ DI scopes (singleton/transient), lifecycle session.
 | ✅ P5.5  | Contrats `IUser`/`BaseUser`/`IUserProvider` | 11 tests, split credential                                                                                                                                                                                                                                                                                                                                              |
 | ✅ P5.6  | `UserService` + `BcryptEncoder`             | `@node-rs/bcrypt`, 32 tests                                                                                                                                                                                                                                                                                                                                             |
 | ⏭️ P5.7  | ~~Adapter Sequelize User~~                  | **caduc (virage ORM : sequelize supprimé)**                                                                                                                                                                                                                                                                                                                             |
-| 🔨 P5.8  | Adapter Mongoose User                       | **à refaire neuf** (virage ORM, modèle Drizzle)                                                                                                                                                                                                                                                                                                                         |
+| 🔨 P5.8  | Adapter Mongoose User                       | **à faire** (service Mongoose refait Ph.2 ✅ ; reste le repo `User` Mongoose, modèle `DrizzleUserRepository`)                                                                                                                                                                                                                                                           |
 | ✅ P5.9  | Adapter Drizzle User                        | ORM par défaut, 8 tests                                                                                                                                                                                                                                                                                                                                                 |
 | ⬜ P5.10 | Tests User cross-ORM                        | (recadrer : Drizzle + Mongoose refait)                                                                                                                                                                                                                                                                                                                                  |
 | ✅ P5.11 | **Refonte cœur + plug runtime session**     | TS strict, ID CSPRNG opaque, dirty-tracking, cookie-only, contrat `ISessionStorage` unifié ; **plug runtime** `@UseSession` opt-in + lazy + L1 + point unique HTTP/WS (tue le ×23) ; cookie RFC 6265bis `__Host-`/SameSite/None⇒Secure + `cookie.hostPrefix` ; `readOnly` + `absolute_timeout` (OWASP). Tests unit+intég+load+mémoire. (chantier session 2026-06-06/07) |
 | 🔶 P5.12 | `Redis` SessionStorage                      | File + **Redis livrés** (TTL natif IoC) ; reste câblage prod                                                                                                                                                                                                                                                                                                            |
-| 🔶 P5.13 | `OrmSessionStorage` générique               | Drizzle livré ; storages sequelize/mongoose à recadrer                                                                                                                                                                                                                                                                                                                  |
+| ✅ P5.13 | `OrmSessionStorage` générique               | Drizzle + **Mongoose livrés** (contrat `ISessionStorage` portable ; sequelize supprimé)                                                                                                                                                                                                                                                                                 |
 | ⬜ P5.14 | `session.user: IUser` + régén ID post-auth  | seam `regenerateId()` prêt ; câblage = P6 firewall                                                                                                                                                                                                                                                                                                                      |
 
 ### P6 — Security (12 %) ◀ bloqueur MVP
@@ -197,19 +200,19 @@ DI scopes (singleton/transient), lifecycle session.
 | ⬜ P6.14 | Audit events + stream WS                               | base auditeur                                                 |
 | ⬜ P6.15 | Studio — section Sécurité                              | consomme data plane P6.12-14                                  |
 
-### P7 — ORM Drivers (50 % — ⚠️ recadrage virage ORM)
+### P7 — ORM Drivers (≈80 % — virage ORM Ph.1+Ph.2 ✅)
 
-| #       | Tâche                                  | État                                                   |
-| ------- | -------------------------------------- | ------------------------------------------------------ |
-| ⏭️ P7.1 | ~~Sequelize (legacy)~~                 | **SUPPRESSION COMPLÈTE** (virage ORM)                  |
-| 🔨 P7.2 | Mongoose — adapter orm-core            | **à REFAIRE NEUF** (`extends Service`, modèle Drizzle) |
-| ⏭️ P7.3 | ~~Tests intégration Sequelize~~        | caduc                                                  |
-| ✅ P7.4 | ⭐ **`@nodefony/drizzle`** (référence) | `DrizzleOrm`/`DrizzleRepository`, 8 tests              |
-| 🔨 P7.5 | Tests Mongoose                         | à refaire avec le nouveau Mongoose                     |
-| ✅ P7.6 | Tests Drizzle (SQLite/PG)              | banc orm-core 8 tests                                  |
-| 🔶 P7.7 | `@nodefony/redis` refactor             | conventions/config Zod faites                          |
-| ⏭️ P7.8 | ~~`@nodefony/mikroorm`~~               | **abandonné** (jamais commencé, module absent)         |
-| ⏭️ P7.9 | ~~Tests MikroORM~~                     | caduc                                                  |
+| #       | Tâche                                  | État                                                                                  |
+| ------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
+| ⏭️ P7.1 | ~~Sequelize (legacy)~~                 | **SUPPRESSION COMPLÈTE** (virage ORM, `716fce6`)                                      |
+| ✅ P7.2 | Mongoose — adapter orm-core            | **refait (Ph.2)** : `MongooseService extends Service` + `describeConnection`/flow tap |
+| ⏭️ P7.3 | ~~Tests intégration Sequelize~~        | caduc                                                                                 |
+| ✅ P7.4 | ⭐ **`@nodefony/drizzle`** (référence) | `DrizzleOrm`/`DrizzleRepository`, 8 tests                                             |
+| ✅ P7.5 | Tests Mongoose                         | 17 verts (orm-core ReplSet + session hybride `MONGO_TEST_URI`)                        |
+| ✅ P7.6 | Tests Drizzle (SQLite/PG)              | banc orm-core 8 tests                                                                 |
+| 🔶 P7.7 | `@nodefony/redis` refactor             | conventions/config Zod faites                                                         |
+| ⏭️ P7.8 | ~~`@nodefony/mikroorm`~~               | **abandonné** (jamais commencé, module absent)                                        |
+| ⏭️ P7.9 | ~~Tests MikroORM~~                     | caduc                                                                                 |
 
 ### P8 — CLI + Monitoring (63 %)
 
@@ -352,13 +355,14 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║  🥇  DURCISSEMENT ORM   (project_orm_hardening_kit)               ║
+║  🥇  POC API SOUVERAINE   (project_api_souveraine_poc)            ║
 ╠══════════════════════════════════════════════════════════════════╣
-║  • Sequelize → SUPPRESSION COMPLÈTE (package + tests + conso)     ║
-║  • Mongoose → REFAIT NEUF (extends Service, modèle Drizzle)       ║
-║  • Orm core kernel/orm/{Orm,Connector,Entity} → RETIRER du core   ║
-║  • Drizzle = référence.                                           ║
-║  Séquencement : config ✅ → ORM → POC API souveraine → P6.        ║
+║  Durcissement ORM Ph.1-4 ✅ COMPLET : Seq OUT, Mongoose refait,   ║
+║  kernel/orm OUT, C2 IErrorAdapter, C5 wireOrmAdminPlane.          ║
+║  Couverture ORM 160 tests + garde-fou seuils v8.                  ║
+║  • 1 service → N surfaces (REST + WS + GraphQL) via ResourceCtrl  ║
+║  • contrat CRUD figé (Ph.2.5) → adaptateurs minces                ║
+║  PUIS → P6 Security (bloqueur MVP).                               ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 

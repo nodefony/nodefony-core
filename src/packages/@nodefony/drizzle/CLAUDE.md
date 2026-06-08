@@ -2,8 +2,7 @@
 
 ## Rôle
 
-3ᵉ **adapter concret** de `@nodefony/orm-core` (après `@nodefony/sequelize` et
-`@nodefony/mongoose`). Driver SQL **type-safe-first** (choix #1 SQL moderne 2026).
+**adapter concret** de `@nodefony/orm-core` (avec `@nodefony/mongoose`). Driver SQL **type-safe-first** (choix #1 SQL moderne 2026).
 Implémente `Orm`/`IOrm`, `IRepository<T>`, `ITransaction` au-dessus de Drizzle ORM
 
 - `better-sqlite3` (test) — Postgres/MySQL par simple changement de driver.
@@ -43,6 +42,13 @@ Deux usages :
   `await` du contrat async. Connexion unique → encadrer = atomique.
   `withTransaction(tx)` réutilise le **même** db.
 - **Trappe SQL brut** : `getNativeConnection()` renvoie le db Drizzle (tag `sql`).
+- **Config = Zod (2026-06-08, alignement famille ORM)** : `nodefony/config/schema.ts`
+  (source de vérité) → `defineDrizzleConfig` (parse + env `DRIZZLE_DB_FILE` + freeze)
+  → validée au `onKernelRegister`, exposée `this.set("drizzleConfig")`. Augmente
+  `NodefonyModuleConfig` (typage `use()`). ⚠️ `filename` **optionnel SANS défaut**
+  dans le schéma (pur) : le chemin SQLite (kernel-dépendant) est résolu **au boot**
+  par `DrizzleService` (`#defaultFilename`), jamais au top-level. Même pattern que
+  `@nodefony/mongoose`. Réf : [`docs/audits/orm-config-pattern-2026-06.md`](../../../../docs/audits/orm-config-pattern-2026-06.md).
 
 ## Interdits
 
@@ -101,5 +107,5 @@ Deux usages :
 ## Roadmap
 
 - ✅ P7.4 adapter orm-core + ADR-0003 risque #3 résolu.
-- ✅ **P5.9 entité `User` Drizzle** (8 tests : CRUD + finders + tx + défauts). ORM par défaut → fait EN PREMIER (avant Sequelize P5.7 / Mongoose P5.8).
+- ✅ **P5.9 entité `User` Drizzle** (8 tests : CRUD + finders + tx + défauts). ORM par défaut → fait EN PREMIER (avant Mongoose P5.8).
 - ⬜ Postgres/MySQL drivers (changer le client + le dialecte de table).

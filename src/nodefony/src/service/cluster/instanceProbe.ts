@@ -48,7 +48,7 @@ export interface IInstanceErrorHealth {
 
 /**
  * Seam ORM : fournisseur de la santé ORM lean du process. Branché par le **module driver**
- * (Drizzle/Sequelize/Mongoose) à son boot ; lu par l'assembleur du report (framework).
+ * (Drizzle/Mongoose) à son boot ; lu par l'assembleur du report (framework).
  * `null` par défaut → 0 coût et `readOrmHealth()` renvoie `null` (pas d'ORM → champ omis).
  */
 let _ormHealthProvider: (() => IOrmLeanHealth) | null = null;

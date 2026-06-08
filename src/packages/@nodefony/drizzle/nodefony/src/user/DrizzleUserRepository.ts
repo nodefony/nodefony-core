@@ -104,15 +104,25 @@ export class DrizzleUserRepository implements IUserRepository {
     return this.#toUser(row);
   }
 
-  async update(
+  async updateOne(
     criteria: Criteria<IPasswordAuthenticatedUser>,
     data: Partial<IPasswordAuthenticatedUser>,
   ): Promise<IPasswordAuthenticatedUser | null> {
-    const row = await this.#base.update(
+    const row = await this.#base.updateOne(
       criteria as unknown as UserCriteria,
       data as Partial<UserRow>,
     );
     return row ? this.#toUser(row) : null;
+  }
+
+  updateMany(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+    data: Partial<IPasswordAuthenticatedUser>,
+  ): Promise<number> {
+    return this.#base.updateMany(
+      criteria as unknown as UserCriteria,
+      data as Partial<UserRow>,
+    );
   }
 
   delete(criteria: Criteria<IPasswordAuthenticatedUser>): Promise<number> {

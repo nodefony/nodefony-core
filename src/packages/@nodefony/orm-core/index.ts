@@ -2,8 +2,8 @@
  * `@nodefony/orm-core` — fondation multi-ORM de Nodefony.
  *
  * Expose les contrats abstraits (`IOrm`, `IEntity`, `IRepository`,
- * `ITransaction`) consommés par les adapters (`@nodefony/sequelize`,
- * `@nodefony/mongoose`, `@nodefony/drizzle`...). Lib pure : aucun runtime
+ * `ITransaction`) consommés par les adapters (`@nodefony/mongoose`,
+ * `@nodefony/drizzle`...). Lib pure : aucun runtime
  * Module, pas d'enregistrement dans `@modules()`. Les drivers concrets sont les
  * Modules ; ils s'enregistrent eux-mêmes dans le `OrmRegistry` à leur boot.
  */
@@ -23,6 +23,9 @@ export type {
 // ─── Critères riches (P7.4) — helper de détection d'opérateurs (lib pure) ────
 export { OPERATOR_KEYS, isFieldOperators } from "./nodefony/src/criteria";
 export type { OperatorKey } from "./nodefony/src/criteria";
+
+// ─── Erreurs ORM data-level (aucun couplage API) ─────────────────────────────
+export { UnknownCriteriaField } from "./nodefony/src/errors";
 
 // ─── Runtime (P5.2) — registres singletons + classes de base ────────────────
 export { OrmRegistry, ormRegistry } from "./nodefony/src/OrmRegistry";
@@ -45,6 +48,12 @@ export {
 } from "./nodefony/src/OrmAdminApi";
 export { queryFlowMonitor } from "./nodefony/src/QueryFlowMonitor";
 export { buildOrmLeanHealth } from "./nodefony/src/buildOrmLeanHealth";
+
+// ─── Câblage runtime d'un driver (factorise la dette C5 — appelé par chaque ORM) ─
+export {
+  wireOrmAdminPlane,
+  resolveOrmFlowEnabled,
+} from "./nodefony/src/ormWiring";
 export type {
   ISlowQuery,
   IQueryFlow,

@@ -17,7 +17,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *  - `import { expect } from "chai"` : chai marche tel quel (alias global vitest
  *    expect non utilisé puisque l'expect chai est importé explicitement).
  *  - reflect-metadata chargé au setup (decorators).
- *  - @nodefony/sequelize|mongoose aliasés vers les stubs (crash kernel.path).
+ *  - @nodefony/mongoose aliasé vers le stub (crash kernel.path).
  */
 export default defineConfig({
   test: {
@@ -34,7 +34,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@nodefony/sequelize": r("./nodefony/tests/stubs/sequelize.ts"),
       "@nodefony/mongoose": r("./nodefony/tests/stubs/mongoose.ts"),
     },
   },

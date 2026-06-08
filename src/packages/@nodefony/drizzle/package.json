@@ -19,6 +19,7 @@
     "rollup": "rollup --config rollup.config.ts --configPlugin typescript",
     "dev": "rimraf dist && npm run rollup -- --watch",
     "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "test:load": "vitest run --config vitest.config.load.ts"
   },
   "private": false,
@@ -30,7 +31,8 @@
   ],
   "dependencies": {
     "better-sqlite3": "12.10.0",
-    "drizzle-orm": "0.45.2"
+    "drizzle-orm": "0.45.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "29.0.3",

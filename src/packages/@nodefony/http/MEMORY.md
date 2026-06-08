@@ -329,6 +329,17 @@ Extension de l'`AuditErrorEntry` :
 7. `Controller.execute(null)` → handshake handler
 8. `ws "message"` → `Controller.execute(message)`
 
+## Durcissement WS — heartbeat (G2) + backpressure (G1) + fragmentation/latence (G3) — 2026-06-08
+
+`ws@8` n'a **0 keep-alive natif** (≠ ancienne lib `websocket` theturtle32 qui pingait/droppait seule via **1-2 timers PAR connexion** = anti-pattern). Les knobs `keepaliveInterval`/`keepaliveGracePeriod` (Zod) étaient déclarés mais **non câblés** (config menteuse) → recâblés.
+
+- **Helper `service/servers/wsHeartbeat.ts`** : `startHeartbeat(server,opts)` = **1 SEUL `setInterval`/serveur** (jamais 1/conn), `unref` + `clearInterval` au `terminate()`. `trackPong(ws)` par conn = **1 listener `pong` + 2 `number`** (`_nfLastPong`/`_nfPingedAt`), **0 alloc/tick**. Tick = `max(250, min(interval,grace))`.
+- **Sémantique** : ping tous les `keepaliveInterval` (déf. 20s) ; `terminate()` (close abrupt, pas `close()` — pair mort, pas de handshake) si pas de pong sous `keepaliveGracePeriod` (déf. 10s). Half-open réclamé en ~`interval+grace`. RFC 6455 §5.5.2 (pair **MUST** pong) / §5.5.3 (pong non sollicité OK → `trackPong` rafraîchit sur **tout** pong). `keepaliveInterval<=0` → désactivé (`null`).
+- **Câblé ws + wss** : `createServer`→`startHeartbeat` ; `onConnection`→`trackPong` ; `terminate`→`clearInterval`. Coût = **2 timers fixes** (5151+5152), constant quel que soit N connexions.
+- **Options `ws@8` désormais TOUTES déclarées+câblées** (Zod) : `perMessageDeflate`(false, anti zip-bomb)/`skipUTF8Validation`(false, §8.1)/`autoPong`(true, §5.5.2)/`allowSynchronousEvents`(true)/`maxPayload`(1 MiB, durci vs 100 MiB ws). `new WebSocketServer({...this.options, server, clientTracking:true})` — `server`+`clientTracking` **forcés** (broadcast()+heartbeat en dépendent). `keepalive*`/`closeTimeout` = knobs Nodefony, **pas** options ws (ws les ignore).
+- **Backpressure SORTANTE (G1, LIVRÉ)** : `Response.send()`/`broadcast()` gatent via `decideSend(ws,max,policy)` (`src/context/websocket/wsBackpressure.ts`) **AVANT** `client.send()`. Lit `ws.bufferedAmount` (O(1)), **0 alloc sous le seuil** (nominal inchangé). Config Zod `maxBackpressure` (déf **4 MiB**, `0`=off) + `backpressurePolicy` `drop`(déf)|`close`. `drop` = saute la frame (client reste connecté, dégradable, idéal broadcast/télémétrie) ; `close` = `close(1013)` « Try Again Later ». Compteur `_nfDrops` lazy/socket (sonde) + **WARNING 1×/conn** au 1er drop. Seuil/politique relus depuis `wss.options` (ws conserve nos clés via le spread). `coalesce` = couche **canal realtime**, PAS transport. Démo live : flood 17.6 MiB à un lecteur `paused` → drop à 4 MiB, socket reste OPEN, 0 OOM.
+- **Fragmentation + latence + deflate (G3, LIVRÉ — 0 code prod, `ws` gère déjà)** : (b) **fragmentation RFC §5.4** testée (`tests/websockets/websocket-fragmentation.test.ts`) — `ws` réassemble ; message fragmenté → echo complet, **ping interjeté entre fragments** → pong (autoPong) **sans corrompre** le réassemblage (croise G2). Frames fabriquées via `ws.Sender.frame` (import namespace — pas dans `@types/ws` ni sur le default ESM). (a) **latence** : banc RTT p50/p95/p99 (`tests/load/ws-latency-load.test.ts`, 500 micro-frames séquentielles, lossless + p99 < 100 ms). (c) **audit `perMessageDeflate`** : `ws` borne la **décompression** par `maxPayload` (`RangeError 'Max payload size exceeded'` → close) → **zip-bomb mitigé** (notre 1 MiB) ; défaut `false` = 0 décompression ; `maxFragments` (ws, déf 128k) borne le **nombre** de fragments (anti-DoS). **Chantier WS = 3/3 trous fermés.**
+
 ## Gotchas critiques
 
 **IWsRequestExtension** : `IncomingMessage.url` = string. `Route.match()` fait `.pathname`. Fix : `WsIncomingMessage = IncomingMessage & { url: URL; query; queryGet; path }` — assigné dans `WebsocketContext` constructor.
@@ -351,13 +362,13 @@ Extension de l'`AuditErrorEntry` :
 
 **Activation session (refonte 2026-06-07, plug runtime)** : plus de `startSession()`. Une session s'ouvre via l'**intent** déclaré `@UseSession({context?,readOnly?,eager?})` (framework, classe/méthode) **OU** un paramètre `@Session` **OU** un cookie de session existant (reprise L1). Point d'activation UNIQUE `HttpKernel.startSession(context)` (HTTP **et** WS, symétrique), lit `context.sessionIntent` (posé par le Resolver). Lazy : 0 session/0 write sinon (fin du `sessionAutoStart` global = le ×23). `Session.readOnly` → `save()` no-op. `cookie.hostPrefix` (`auto`|`true`|`false`) → préfixe `__Host-` sur scheme **effectif** (TLS, honore X-Forwarded-Proto si trustProxy). Cookie nommé via `Context.getSessionCookieName()` (lecture=écriture). `regenerateId()` = seam P6 (anti-fixation). `absolute_timeout` (OWASP) en + de l'idle.
 
-**Session storage = IoC** : `SessionsService` tient un **registre statique** (`registerStorage/getStorage/storageHandlers`) ; http n'importe AUCUN ORM. Chaque backend s'auto-enregistre au chargement (`files` par http ; `drizzle`/`sequelize`/`mongoose` par leur module). Sélection via config `session.handler` (casse-insensible). Events kernel `onRegisterSessionStorage` / `onSessionStorageReady`. Défaut reco = `drizzle`. Guide : [[guide session-storage]] (`docs/guides/session-storage.md`). ⚠️ appeler `registerStorage` rend l'import http VALEUR → externaliser `@nodefony/http` dans le rollup du module fournisseur.
+**Session storage = IoC** : `SessionsService` tient un **registre statique** (`registerStorage/getStorage/storageHandlers`) ; http n'importe AUCUN ORM. Chaque backend s'auto-enregistre au chargement (`files` par http ; `drizzle`/`mongoose` par leur module). Sélection via config `session.handler` (casse-insensible). Events kernel `onRegisterSessionStorage` / `onSessionStorageReady`. Défaut reco = `drizzle`. Guide : [[guide session-storage]] (`docs/guides/session-storage.md`). ⚠️ appeler `registerStorage` rend l'import http VALEUR → externaliser `@nodefony/http` dans le rollup du module fournisseur.
 
 **HTTP/2 write-after-end** : sur réponse lente, le client abandonne / le stream se ferme → `stream.respond()`/`write()` sur stream détruit = `ERR_HTTP2_INVALID_STREAM` + `ERR_STREAM_WRITE_AFTER_END` (CRITIC). Fix : gardes `stream.destroyed/closed/writable` dans `Http2Response.writeHead/send/end` → skip DEBUG. (Relève de P2.3 aborted-requests.)
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — vitest 100% (mocha SUPPRIMÉ 2026-06-05) — 337 unit / 400 intég / 9 gate
+## Tests — vitest 100% (mocha SUPPRIMÉ 2026-06-05) — 346 unit / 402 intég / 9 gate
 
 Runner unique = **Vitest 4**, 3 suites = 3 configs (séquentielles pour intég+load) :
 

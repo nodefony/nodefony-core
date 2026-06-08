@@ -175,7 +175,7 @@ jq --arg m "@nodefony/$ARG" '.symbols | to_entries
 
 ## 7. Sortie finale (récap synthétique, ≤ 40 lignes)
 
-1. **Phase active** couvrant le module (ex : "P5.4 — adapter Sequelize orm-core")
+1. **Phase active** couvrant le module (ex : "P7.2 — adapter Mongoose orm-core")
 2. **État dist** : ✅/⚠️
 3. **Git** : branche + N fichiers non commités + dernier commit
 4. **Symboles exportés clés** : 5-10 noms

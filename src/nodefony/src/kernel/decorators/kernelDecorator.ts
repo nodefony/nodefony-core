@@ -12,7 +12,6 @@ import Injector, {
   InjectableOptions,
   PropertyInjectMeta,
 } from "../injector/injector";
-import Entity, { TypeEntity } from "../orm/Entity";
 // import nodefony from "nodefony";
 
 type Constructor = new (...args: any[]) => Module;
@@ -59,39 +58,6 @@ function services(
       }
     }
     return NewConstructorService;
-  };
-}
-
-function entities(
-  entity: string | (string | TypeEntity<Entity>)[] | TypeEntity<Entity>,
-): <T extends Constructor>(constructor: T) => T {
-  return function <T extends Constructor>(constructor: T): T {
-    class NewConstructorEntity extends constructor {
-      constructor(...args: any[]) {
-        super(...args);
-        this.kernel?.once("onBoot", async () => {
-          return this.initDecoratorEntity();
-        });
-      }
-      private async initDecoratorEntity() {
-        if (Array.isArray(entity)) {
-          for (const ent of entity) {
-            if (typeof ent === "string") {
-              await this.loadEntity(ent);
-            } else {
-              this.addEntity(ent);
-            }
-          }
-        } else {
-          if (typeof entity === "string") {
-            await this.loadEntity(entity);
-          } else {
-            this.addEntity(entity);
-          }
-        }
-      }
-    }
-    return NewConstructorEntity;
   };
 }
 
@@ -177,4 +143,4 @@ function Inject(name?: string): PropertyDecorator {
   };
 }
 
-export { injectable, inject, Inject, services, entities };
+export { injectable, inject, Inject, services };

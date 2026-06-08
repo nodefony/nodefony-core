@@ -1,43 +1,28 @@
-import { Nodefony } from "nodefony";
-
 /**
- *   OVERRIDE ORM BUNDLE MONGOOSE
+ * @nodefony/mongoose — Configuration par défaut du module.
  *
- *       @see MONGO BUNDLE config for more options
- *       @more options https://mongoosejs.com/docs/connections.html
- *              https://mongoosejs.com/docs/api.html#mongoose_Mongoose-createConnection
+ * Source de vérité = `./schema.ts` (Zod). Ce fichier expose les défauts dérivés
+ * via `mongooseConfigSchema.parse({})` — toujours valides par construction, passés
+ * au `super(..., config)` du Module class.
  *
- *       By default nodefony create connector name nodefony
- *       for manage Sessions / Users
+ * SURCHARGE PAR L'APPLICATION (manifeste `use()`, fusion récursive) :
+ *
+ *   // nodefony.config.ts
+ *   use("@nodefony/mongoose", {
+ *     debug: true,
+ *     connectors: { nodefony: { host: "mongo.internal", dbname: "app" } },
+ *   });
+ *
+ * SURCHARGE PAR ENVIRONNEMENT (précédence max, appliquée dans le builder) :
+ *   MONGODB_URI · MONGODB_DEBUG
+ *
+ * ⚠️ NE PAS éditer les valeurs ici à la main : modifier les `.default(...)` du
+ * schéma, pas ce fichier. La validation + le merge env finaux sont faits dans
+ * `index.ts` au hook `onKernelRegister` via `defineMongooseConfig`.
  */
+import { mongooseConfigSchema, type MongooseConfig } from "./schema";
 
-const connectors = {
-  nodefony: {},
-};
-
-switch (Nodefony.getKernel()?.appEnvironment.environment) {
-  case "production":
-  case "development":
-  default:
-    connectors.nodefony = {
-      host: "localhost",
-      port: 27017,
-      dbname: "nodefony",
-      // credentials: vault,
-      options: {
-        user: "nodefony",
-        pass: "nodefony",
-        maxPoolSize: 50,
-        serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 5000,
-        connectTimeoutMS: 5000,
-      },
-    };
-}
-
-const config = {
-  debug: true,
-  connectors,
-};
+const config: MongooseConfig = mongooseConfigSchema.parse({});
 
 export default config;
+export type { MongooseConfig };

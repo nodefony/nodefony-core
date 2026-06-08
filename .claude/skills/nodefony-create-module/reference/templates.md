@@ -65,7 +65,7 @@
   "@nodefony/http": "*",
   "@nodefony/framework": "*",
   // si entities :
-  "@nodefony/sequelize": "*",
+  "@nodefony/drizzle": "*",
   // si frontend :
   "@nodefony/frontend": "*"
 }
@@ -115,7 +115,7 @@ export default defineConfig({
 
 - **décorateurs** (DI reflect) → `setupFiles: [r("./.../vitest.setup.ts")]` avec `import "reflect-metadata"` (+ `g.before ??= beforeAll` pour compat mocha). _orm-core n'en a PAS besoin (décorateurs WeakMap, sans reflect)._
 - **tests mocha existants** `import "mocha"` → `resolve.alias.mocha = r("./.../vitest-mocha-shim.mjs")` (`export {};`).
-- **import d'un ORM hors kernel** qui crashe → `resolve.alias["@nodefony/sequelize"|"mongoose"]` vers des stubs.
+- **import d'un ORM hors kernel** qui crashe → `resolve.alias["@nodefony/drizzle"|"mongoose"]` vers des stubs.
 
 > **JAMAIS c8** (KO ESM/Node) ni **monocart+mocha+tsx** (`mcr --require` → CJS, sous-mappe le TS, lignes faussées — cf [[feedback_coverage_modules]]). vitest mappe le source TS proprement. `.coverage/` est gitignored ; Studio lit `.coverage/coverage-summary.json` OU `lcov.info`. **Tous les workspaces sont sur `@vitest/coverage-v8`** — le core aussi depuis sa migration mocha→vitest (2026-06-05, `4106303`) ; **monocart est déprécié** (cf [[feedback_test_framework_vitest]]).
 
@@ -195,7 +195,7 @@ const external: string[] = [
   // Ajouter selon peer_deps :
   // "@nodefony/http",
   // "@nodefony/framework",
-  // "@nodefony/sequelize",
+  // "@nodefony/drizzle",
   // "@nodefony/frontend",
   "tslib",
 ];

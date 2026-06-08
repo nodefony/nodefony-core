@@ -38,7 +38,7 @@ const PHASES = [
   ["onRegister", /\bonRegister\b/i],
   ["onPreBoot", /onPreBoot/i],
   ["onBoot", /\bonBoot\b/i],
-  ["CREATE TABLE", /CREATE TABLE|drizzle|sequelize/i],
+  ["CREATE TABLE", /CREATE TABLE|drizzle/i],
   ["onReady", /\bonReady\b/i],
   ["initServers", /initServers|onServersReady/i],
   ["Server Listen", READY_RE],

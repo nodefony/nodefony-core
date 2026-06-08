@@ -7,7 +7,7 @@ export const SESSION_ORM = "default";
 /**
  * Table Drizzle de stockage des sessions (schema-as-code).
  *
- * Équivalent portable de l'entité session legacy Sequelize : mêmes champs
+ * Équivalent portable de l'entité session legacy : mêmes champs
  * logiques (`session_id` PK, `context`, sacs `Attributes`/`flashBag`/`metaBag`
  * en JSON, `user`, horodatages). Les colonnes JSON utilisent le mode `json` de
  * Drizzle (sérialisation/désérialisation automatique).

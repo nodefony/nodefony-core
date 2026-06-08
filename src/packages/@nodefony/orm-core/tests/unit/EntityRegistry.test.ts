@@ -27,47 +27,47 @@ describe("EntityRegistry", () => {
   });
 
   it("lookup cross-ORM : même entité, 2 ORM", () => {
-    const seq = entity("User", "sequelize");
+    const seq = entity("User", "drizzle");
     const mongo = entity("User", "mongoose");
     reg.register(seq);
     reg.register(mongo);
-    assert.equal(reg.get("User", "sequelize"), seq);
+    assert.equal(reg.get("User", "drizzle"), seq);
     assert.equal(reg.get("User", "mongoose"), mongo);
     assert.equal(reg.list().length, 2);
   });
 
   it("get sans ORM est ambigu si plusieurs candidats", () => {
-    reg.register(entity("User", "sequelize"));
+    reg.register(entity("User", "drizzle"));
     reg.register(entity("User", "mongoose"));
     assert.throws(() => reg.get("User"), /multiple ORMs/);
   });
 
   it("throw sur doublon (même name + orm)", () => {
-    reg.register(entity("User", "sequelize"));
+    reg.register(entity("User", "drizzle"));
     assert.throws(
-      () => reg.register(entity("User", "sequelize")),
+      () => reg.register(entity("User", "drizzle")),
       /already registered/,
     );
   });
 
   it("throw sur entité inconnue / ORM absent", () => {
     assert.throws(() => reg.get("Ghost"), /no entity registered/);
-    reg.register(entity("User", "sequelize"));
+    reg.register(entity("User", "drizzle"));
     assert.throws(() => reg.get("User", "mongoose"), /not registered for ORM/);
   });
 
   it("unregister par ORM, puis bucket vidé", () => {
-    reg.register(entity("User", "sequelize"));
+    reg.register(entity("User", "drizzle"));
     reg.register(entity("User", "mongoose"));
-    assert.equal(reg.unregister("User", "sequelize"), true);
-    assert.equal(reg.has("User", "sequelize"), false);
+    assert.equal(reg.unregister("User", "drizzle"), true);
+    assert.equal(reg.has("User", "drizzle"), false);
     assert.equal(reg.has("User", "mongoose"), true);
     assert.equal(reg.unregister("User", "mongoose"), true);
     assert.equal(reg.has("User"), false);
   });
 
   it("unregister sans ORM retire toutes les variantes", () => {
-    reg.register(entity("User", "sequelize"));
+    reg.register(entity("User", "drizzle"));
     reg.register(entity("User", "mongoose"));
     assert.equal(reg.unregister("User"), true);
     assert.deepEqual(reg.list(), []);

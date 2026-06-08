@@ -37,13 +37,13 @@ audience: Lead Architect / mainteneur
 
 > Aujourd'hui un `npm publish` ferait **l'inverse** de ce qu'on veut : le cœur est bloqué, l'IA alpha sortirait.
 
-| Catégorie                   | Packages                                                        | `private`   | Version            | Verdict                        |
-| --------------------------- | --------------------------------------------------------------- | ----------- | ------------------ | ------------------------------ |
-| **Cœur** (DOIT sortir)      | http, framework, security, frontend, **realtime**               | **true** ❌ | 10.0.0             | bloqués à tort                 |
-| **ORM/data**                | orm-core, drizzle (défaut), user, redis, mongoose, sequelize 🪦 | false       | 10.0.0             | OK (sauf legacy à arbitrer)    |
-| **IA** (Phase 12 PAS faite) | agent, llm, rag, vector, memory                                 | false ⚠️    | 10.0.0-**alpha.1** | sortiraient prématurément      |
-| **Studio**                  | studio                                                          | true        | 10.0.0-**poc.1**   | POC — sortir en 10.0.0 ?       |
-| **Core**                    | nodefony                                                        | false       | 10.0.0             | OK (mais pas de champ `files`) |
+| Catégorie                   | Packages                                          | `private`   | Version            | Verdict                        |
+| --------------------------- | ------------------------------------------------- | ----------- | ------------------ | ------------------------------ |
+| **Cœur** (DOIT sortir)      | http, framework, security, frontend, **realtime** | **true** ❌ | 10.0.0             | bloqués à tort                 |
+| **ORM/data**                | orm-core, drizzle (défaut), user, redis, mongoose | false       | 10.0.0             | OK (sauf legacy à arbitrer)    |
+| **IA** (Phase 12 PAS faite) | agent, llm, rag, vector, memory                   | false ⚠️    | 10.0.0-**alpha.1** | sortiraient prématurément      |
+| **Studio**                  | studio                                            | true        | 10.0.0-**poc.1**   | POC — sortir en 10.0.0 ?       |
+| **Core**                    | nodefony                                          | false       | 10.0.0             | OK (mais pas de champ `files`) |
 
 Constats : (a) flags `private` à recadrer ; (b) **versions mélangées** (`10.0.0`/`alpha.1`/`poc.1`) →
 aucune stratégie de version ; (c) hygiène publish (`files`/`exports`) à cadrer.
@@ -68,7 +68,7 @@ HMR) mais **dépend de la mono-distribution** → app dev-ready out-of-the-box, 
 
 ### 4.3 Deps externes lourdes = **optionnelles**
 
-Le **code Nodefony** est embarqué ; les **libs tierces** (mongoose, sequelize, mediasoup, redis, SDK
+Le **code Nodefony** est embarqué ; les **libs tierces** (mongoose, mediasoup, redis, SDK
 LLM, mediasoup) restent `peer`/`optionalDependencies` → installées à la demande (sinon la distrib pèse
 des centaines de Mo).
 
@@ -107,7 +107,7 @@ des centaines de Mo).
 2. **Versioning** : lockstep strict (tout `10.0.0`) — acté comme objectif ; reste l'outillage (script de
    stamp unique vs changesets).
 3. **Ce qui sort en 10.0.0** : IA (agent/llm/rag/vector/memory, Phase 12 non faite) → **dehors** ?
-   Studio (POC) → dehors ou « preview » ? Sequelize 🪦 legacy → inclus mais déprécié ?
+   Studio (POC) → dehors ou « preview » ?
 4. **Assemblage du build** : comment le build de release collecte les `dist/` + `dist/types/` des 16
    packages en une distrib cohérente (script d'assemblage + ordre topologique des deps internes).
 5. **Hygiène publish** : `files`/`exports`/`.npmignore` (publier `dist/`+`dist/types/` only) ; `nodefony`
@@ -185,7 +185,7 @@ jobs:
 | Domaine          | Phase              | Gate précis                                                                                                                                                                |
 | ---------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Sécurité**     | P6                 | **Complète** (firewall, auth, JWT, RBAC `@IsGranted`). **Bloqueur #1, non négociable.**                                                                                    |
-| **ORM**          | P5/P7              | **Core stable + défaut Drizzle production-ready** (✅). Adapters User Sequelize/Mongoose + MikroORM = **acceptable en 10.x** (ne bloquent pas).                            |
+| **ORM**          | P5/P7              | **Core stable + défaut Drizzle production-ready** (✅). Adapters User Mongoose + MikroORM = **acceptable en 10.x** (ne bloquent pas).                                      |
 | **Cloud-native** | P16 (**baseline**) | **Dockerfile prêt** + **config 100 % par variables d'env** (12-factor). **PAS** le P16 complet (HPA, opérateurs k8s, secret managers, outillage multi-process = **10.x**). |
 | **Reste**        | P10/P11/P13/P14    | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend.                                                              |
 

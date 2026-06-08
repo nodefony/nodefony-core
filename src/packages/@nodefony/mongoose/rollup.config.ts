@@ -10,6 +10,7 @@ const external: string[] = [
   "@nodefony/orm-core",
   "mongodb",
   "mongoose",
+  "zod",
   "tslib",
 ];
 

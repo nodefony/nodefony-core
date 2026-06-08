@@ -1,4 +1,4 @@
-import Ws, { WebSocketServer } from "ws";
+import Ws, { WebSocketServer, ServerOptions } from "ws";
 import {
   Service,
   Container,
@@ -16,6 +16,11 @@ import { AddressInfo } from "node:net";
 import type { IncomingMessage } from "node:http";
 import http from "node:http";
 import httpServer from "./server-http";
+import {
+  startHeartbeat,
+  trackPong,
+  type IWsHeartbeatOptions,
+} from "./wsHeartbeat";
 
 class Websocket extends Service {
   module: Module;
@@ -29,6 +34,8 @@ class Websocket extends Service {
   address: string | null = null;
   type: ServerType = "websocket";
   infos: AddressInfo | null = null;
+  /** Timer keep-alive (UN par serveur). `null` si désactivé ou pas démarré. */
+  heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   constructor(
     module: Module,
     @inject("HttpKernel") private httpKernel: HttpKernel,
@@ -64,15 +71,23 @@ class Websocket extends Service {
           this.family = this.infos.family as FamilyType;
           this.protocol = serverHttp.protocol;
         }
-        // RFC 6455 §7.4.1 — `maxPayload` borne la taille des messages entrants ;
-        // au-delà `ws` ferme avec le code 1009 « Message Too Big ». Défaut sûr
-        // (1 MiB) défini en config (anti-DoS mémoire), surchargeable par l'app.
-        const maxPayload = (this.options as { maxPayload?: number }).maxPayload;
+        // Options `ws` issues de la config (perMessageDeflate, skipUTF8Validation,
+        // autoPong, allowSynchronousEvents, maxPayload…) transmises telles quelles ;
+        // `ws` ignore les knobs Nodefony (keepalive*/closeTimeout, qui ne sont PAS des
+        // options `ws`). On force ce que Nodefony gère : `server` (le serveur HTTP) +
+        // `clientTracking` (requis par broadcast() et le heartbeat).
+        // RFC 6455 §7.4.1 : `maxPayload` → close 1009 « Message Too Big ».
         this.server = new WebSocketServer({
+          ...((this.options ?? {}) as ServerOptions),
           server: serverHttp.server as http.Server,
-          maxPayload,
+          clientTracking: true,
         });
         this.server.on("connection", this.onConnection.bind(this));
+        // G2 — heartbeat keep-alive : UN seul interval/serveur, détecte les zombies.
+        this.heartbeatTimer = startHeartbeat(
+          this.server,
+          this.options as IWsHeartbeatOptions,
+        );
         this.kernel?.prependOnceListener(
           "onTerminate",
           this.terminate.bind(this),
@@ -90,6 +105,8 @@ class Websocket extends Service {
   }
 
   onConnection(ws: Ws, req: IncomingMessage): void {
+    // G2 — arme le suivi keep-alive (horodatage + listener `pong`) AVANT le pipeline.
+    trackPong(ws);
     this.httpKernel.onWebsocketRequest(ws, req, this.type).catch(() => {
       process.nextTick(() => {
         return;
@@ -99,6 +116,11 @@ class Websocket extends Service {
 
   terminate(): Promise<boolean> {
     return new Promise((resolve, reject) => {
+      // Toujours stopper le heartbeat (même si le serveur n'a jamais été ready).
+      if (this.heartbeatTimer) {
+        clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = null;
+      }
       if (this.server && this.ready) {
         const shutdownMsg = JSON.stringify({ nodefony: { state: "shutDown" } });
         this.server.clients.forEach((client) => {

@@ -4,9 +4,9 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 ## Module bootable (2026-05-21)
 
-- `index.ts` default export = `Drizzle extends Module` + `@services([DrizzleService])`. Ajouté à `@modules()` app (après sequelize). ORM SQL par défaut.
-- `nodefony/service/DrizzleService.ts` : ctor `super(name, module.container, module.notificationsCenter, module.options)` ; `kernel.once("onBoot")` → `connectAll()` (1 DrizzleOrm/connecteur, mkdir dossier db) ; `onTerminate` → disconnectAll. `getOrm(name="default")`.
-- `nodefony/config/config.ts` : `{ connectors: { default: { filename: <root>/nodefony/databases/nodefony-drizzle.db } } }`. Surcharge app possible via `config/modules/drizzle-config.ts`.
+- `index.ts` default export = `Drizzle extends Module` + `@services([DrizzleService])`. Ajouté à `@modules()` app. ORM SQL par défaut.
+- `nodefony/service/DrizzleService.ts` : ctor `super(name, module.container, module.notificationsCenter, module.options)` ; `kernel.once("onBoot")` → `connectAll()` lit la config VALIDÉE `this.module.get("drizzleConfig")` (1 DrizzleOrm/connecteur) ; `#defaultFilename(name)` résout le chemin SQLite **AU BOOT** (kernel présent) si `filename` omis : `<root>/nodefony/databases/nodefony-<x>.db` (default → `nodefony-drizzle.db`) ; `onTerminate` → disconnectAll. `getOrm(name="default")`.
+- **Config Zod (2026-06-08, alignement famille ORM)** : `nodefony/config/schema.ts` = source de vérité (`filename` **optionnel SANS défaut** — schéma pur, pas de deref kernel) → `defineDrizzleConfig` (parse + env `DRIZZLE_DB_FILE` + freeze) → validée au `onKernelRegister`, exposée `this.set("drizzleConfig")`. Augmente `NodefonyModuleConfig` → `use("@nodefony/drizzle", …)` typé. `config.ts` = `schema.parse({})`. Même pattern que `@nodefony/mongoose`. Cf audit `docs/audits/orm-config-pattern-2026-06.md`.
 - better-sqlite3 = **dependencies** (runtime), pas devDeps.
 - Boot vérifié : `MODULE ADD : drizzle` + `Drizzle ORM "default" connected` + db créée, 4 serveurs UP, health 200.
 
@@ -26,7 +26,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 ## Behaviors
 
-- **Profiler tap `#prof(builder)` (2026-05-22, étendu 2026-05-23)** : chaque exécution (find/create/update/delete/count + eager-load) passe par `#prof`. Alimente **2 sondes** indépendantes, gardées toutes deux par un drapeau (coût nul si les 2 OFF — `if (!buf && !flow) return builder`) : (1) **profiler par-requête** = `RequestContext.get()?.queries` (dev/ALS) → pousse `{sql,durationMs,rows,connector:"drizzle"}` ; (2) **flux agrégé** = `queryFlowMonitor.enabled` → `record(this.#ormName, durationMs, sql?)`. **Lecture ALS directe** (≠ closure Sequelize) : better-sqlite3 **synchrone** sans pool → ALS valide pendant `await builder`. **Sécu** : `builder.toSQL().sql` = SQL **paramétré** (`?`, jamais les valeurs) ; `redactSecrets` en plus (défense). ⚠️ les finders natifs `sql\`…\`` (`findBySocialProvider`) NE passent PAS par `#prof` (raw `db.all`).
+- **Profiler tap `#prof(builder)` (2026-05-22, étendu 2026-05-23)** : chaque exécution (find/create/update/delete/count + eager-load) passe par `#prof`. Alimente **2 sondes** indépendantes, gardées toutes deux par un drapeau (coût nul si les 2 OFF — `if (!buf && !flow) return builder`) : (1) **profiler par-requête** = `RequestContext.get()?.queries` (dev/ALS) → pousse `{sql,durationMs,rows,connector:"drizzle"}` ; (2) **flux agrégé** = `queryFlowMonitor.enabled` → `record(this.#ormName, durationMs, sql?)`. **Lecture ALS directe** (≠ closure d'un ORM async) : better-sqlite3 **synchrone** sans pool → ALS valide pendant `await builder`. **Sécu** : `builder.toSQL().sql` = SQL **paramétré** (`?`, jamais les valeurs) ; `redactSecrets` en plus (défense). ⚠️ les finders natifs `sql\`…\`` (`findBySocialProvider`) NE passent PAS par `#prof`(raw`db.all`).
 - **Sonde flux ORM (2026-05-23)** : le repo connaît son **connecteur** via le 4ᵉ arg ctor `ormName` (passé par `DrizzleOrm.getRepository(name)` = `this.name`, propagé dans `withTransaction`) → `record` tague par connecteur (≠ vendor). `toSQL()` appelé **UNIQUEMENT sur le chemin lent** (`durationMs >= queryFlowMonitor.slowMs`, défaut 50) via helper `#safeSql` → l'agrégat ne paie jamais la sérialisation au cas nominal. **Gating** : `DrizzleService.onBoot` → `queryFlowMonitor.setEnabled(env!==production)` (override `NODEFONY_ORM_FLOW=1/0`). Les bancs `test:load` instancient `DrizzleOrm` **hors kernel** → flux reste OFF → **0 régression** (vérifié : insert 16k ops/s, scan 1M ops/s inchangés). Détail moniteur → orm-core MEMORY.
 - Opérateurs riches: `FieldOperators` (orm-core) `$eq $ne $gt $gte $lt $lte $in $nin $like`. `isFieldOperators()` détecte. `$like`=SQL natif.
 - DDL dérivé: `col.name/getSQLType()/primary/notNull/isUnique`. CREATE TABLE IF NOT EXISTS.
@@ -43,7 +43,7 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 ## Config
 
-- peerDeps: nodefony, @nodefony/http, @nodefony/orm-core. deps: drizzle-orm. devDep: better-sqlite3.
-- Tests: `npm test` integration = banc orm-core (8) + jointure très complexe (2) + SessionStorage IoC/CRUD (8) + **User adapter P5.9 (8)** = 26. Banc ADR-0002 User↔Room + age.
+- peerDeps: nodefony, @nodefony/http, @nodefony/orm-core, @nodefony/user. deps: drizzle-orm, better-sqlite3, **zod** (^4.4.3, ajouté à `external` rollup 2026-06-08).
+- Tests (vitest) : `npm test` = `tests/unit/config` (Zod, 6) + intégration banc orm-core (8) + jointure complexe (2) + SessionStorage IoC/CRUD (8) + **User P5.9 (8)** = **33**. Banc ADR-0002 User↔Room + age.
 - Load: `npm run test:load` (.mocharc.load.json, expose-gc) = 8 (charge/limites/mémoire). Insert 20k ~15k ops/s, scan ~1M/s, 30k cycles heapΔ 0.3MB, 300 conn heapΔ 0.1MB (0 fuite).
 - Charge SESSION runtime (skill load-test, route `/nodefony/test/rest/session/set/k/v`, HTTP/2) : 3000/80 = 409 RPS p99 282ms ; 5000/150 = 408 RPS p99 562ms ; 100% 200, delta sessions EXACT (0 perte/doublon), 0 erreur. **Plafond ~408 RPS = better-sqlite3 SYNCHRONE mono-connexion** (writes sérialisés) — pas un bug, Postgres/MySQL paralléliserait. Concurrence ↑ = latence ↑, pas débit.

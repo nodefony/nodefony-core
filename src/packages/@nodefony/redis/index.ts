@@ -48,9 +48,10 @@ class Redis extends Module {
   override async onKernelRegister(): Promise<this> {
     let validated: IRedisConfig;
     try {
-      validated = defineRedisConfig(
-        (this.options?.redis as IRedisConfigInput) ?? {},
-      );
+      // `this.options` est FLAT : le Kernel deep-merge la config de `use("@nodefony/redis", …)`
+      // directement dans les options du module (Kernel.ts) — PAS sous une clé `.redis`. Lire
+      // `this.options.redis` ignorait silencieusement toute config app (cf audit config ORM 2026-06).
+      validated = defineRedisConfig((this.options as IRedisConfigInput) ?? {});
     } catch (e) {
       const issues =
         e instanceof Error && "issues" in e && Array.isArray(e.issues)

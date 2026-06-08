@@ -113,11 +113,17 @@ else
   ARGS="['nodefony'${DEBUG_FLAG:+, '-d'}, 'development']"
 fi
 rm -f "$LOG" "$PIDFILE"
+# --expose-gc : le serveur de test DOIT pouvoir forcer le GC pour que le gate
+# mémoire (sonde /nodefony/test/memory → global.gc()) mesure le heap RETENU et non
+# le garbage transitoire. Sans ça, 5000 frames WS laissent ~180 MB non collectés
+# qui passent pour une fuite (faux positif chronique de ws-messages-load « sustained »).
+# Coût nul en dev hors sonde ; hérité par le child DevSupervisor (env propagé au spawn).
 node -e "
 const { spawn } = require('child_process');
 const fs = require('fs');
 const out = fs.openSync('$LOG', 'w');
-const child = spawn('npx', $ARGS, { cwd: '$ROOT', stdio: ['ignore', out, out], detached: true });
+const env = Object.assign({}, process.env, { NODE_OPTIONS: ((process.env.NODE_OPTIONS || '') + ' --expose-gc').trim() });
+const child = spawn('npx', $ARGS, { cwd: '$ROOT', stdio: ['ignore', out, out], detached: true, env });
 child.unref();
 fs.writeFileSync('$PIDFILE', String(child.pid));
 console.log('SERVER PID=' + child.pid);

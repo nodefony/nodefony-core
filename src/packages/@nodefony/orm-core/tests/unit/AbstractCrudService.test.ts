@@ -42,11 +42,22 @@ class MemoryRepo implements IRepository<Widget> {
     return Promise.resolve(w);
   }
 
-  update(criteria: Criteria<Widget>, data: Partial<Widget>) {
+  updateOne(criteria: Criteria<Widget>, data: Partial<Widget>) {
     const w = [...this.store.values()].find((x) => this.match(x, criteria));
     if (!w) return Promise.resolve(null);
     Object.assign(w, data);
     return Promise.resolve(w);
+  }
+
+  updateMany(criteria: Criteria<Widget>, data: Partial<Widget>) {
+    let n = 0;
+    for (const w of this.store.values()) {
+      if (this.match(w, criteria)) {
+        Object.assign(w, data);
+        n += 1;
+      }
+    }
+    return Promise.resolve(n);
   }
 
   delete(criteria: Criteria<Widget>) {
@@ -147,7 +158,7 @@ describe("AbstractCrudService (générique CRUD)", () => {
       const w = await svc.create({ name: "a", qty: 1 });
       let fired = false;
       svc.on("onUpdated", () => (fired = true));
-      const updated = await svc.update({ id: w.id }, { qty: 9 });
+      const updated = await svc.updateOne({ id: w.id }, { qty: 9 });
       assert.equal(updated?.qty, 9);
       assert.equal(fired, true);
     });
@@ -156,7 +167,7 @@ describe("AbstractCrudService (générique CRUD)", () => {
       const svc = new WidgetService(new MemoryRepo());
       let fired = false;
       svc.on("onUpdated", () => (fired = true));
-      assert.equal(await svc.update({ id: "ghost" }, { qty: 9 }), null);
+      assert.equal(await svc.updateOne({ id: "ghost" }, { qty: 9 }), null);
       assert.equal(fired, false);
     });
   });

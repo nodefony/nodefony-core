@@ -7,7 +7,7 @@ import type { IPasswordAuthenticatedUser } from "./IUser";
  *
  * Étend le contrat CRUD portable de `@nodefony/orm-core` (`find`, `create`,
  * `withTransaction`...) avec les accès propres à l'authentification. Implémenté
- * une fois par adapter (Sequelize/Mongoose/Drizzle, P5.7–5.9) ; l'ORM concret
+ * une fois par adapter (Mongoose/Drizzle, P5.8–5.9) ; l'ORM concret
  * reste invisible des consommateurs (DI : `@Inject('repository.user')`).
  *
  * @remarks Type d'entité = {@link IPasswordAuthenticatedUser} (credential inclus),
@@ -17,8 +17,7 @@ import type { IPasswordAuthenticatedUser } from "./IUser";
  * consommateurs *en aval* (framework/authz reçoivent `IUser` via `IUserProvider`),
  * pas la couche de stockage qui, par nature, manipule le hash.
  */
-export interface IUserRepository
-  extends IRepository<IPasswordAuthenticatedUser> {
+export interface IUserRepository extends IRepository<IPasswordAuthenticatedUser> {
   /**
    * Retrouve un utilisateur par son identifiant fonctionnel (email, login...).
    *

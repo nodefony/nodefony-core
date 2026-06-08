@@ -3,6 +3,12 @@ import { Message, Msgid, Pci, Severity, Syslog } from "nodefony";
 import WebsocketContext from "./WebsocketContext.js";
 import Ws, { WebSocketServer } from "ws";
 import http from "node:http";
+import {
+  decideSend,
+  readBackpressureOptions,
+  type IBackpressureSocket,
+  type WsSendDecision,
+} from "./wsBackpressure.js";
 
 export interface IWsCookie {
   name: string;
@@ -43,7 +49,7 @@ class WebsocketResponse {
 
   constructor(
     connection: Ws | null,
-    private context: WebsocketContext
+    private context: WebsocketContext,
   ) {
     this.connection = connection;
   }
@@ -64,7 +70,7 @@ class WebsocketResponse {
 
   async send(
     data?: Buffer | string | null,
-    encoding?: BufferEncoding
+    encoding?: BufferEncoding,
   ): Promise<WebsocketResponse> {
     const payload = data ?? this.body;
     if (!payload) throw new Error("no data");
@@ -72,6 +78,17 @@ class WebsocketResponse {
     return new Promise((resolve, reject) => {
       if (!this.connection || this.connection.readyState !== Ws.OPEN) {
         return reject(new Error("WebSocket not open"));
+      }
+      // Backpressure SORTANTE (G1) : si le client est lent à recevoir, on ne gonfle
+      // pas la RAM d'envoi sans borne. Sous le seuil = chemin nominal (0 alloc).
+      const { max, policy } = readBackpressureOptions(
+        this.context?.server as WebSocketServer | null,
+      );
+      const decision = decideSend(this.connection, max, policy);
+      if (decision !== "send") {
+        this.logFirstDrop(this.connection, decision, max);
+        // Frame non émise (drop) ou socket fermée (close) — pas une erreur.
+        return resolve(this);
       }
       // ws.send handles both text and binary transparently
       const sendData =
@@ -101,16 +118,39 @@ class WebsocketResponse {
     const sendData =
       payload instanceof Buffer ? payload.toString(this.encoding) : payload;
 
+    // Seuil + politique lus UNE fois hors boucle (pas par client).
+    const { max, policy } = readBackpressureOptions(wss);
     wss.clients.forEach((client) => {
-      if (client.readyState === Ws.OPEN) {
-        client.send(sendData);
+      if (client.readyState !== Ws.OPEN) {
+        return;
       }
+      // Backpressure SORTANTE (G1) : un client lent ne doit pas plomber la
+      // diffusion ni gonfler la RAM serveur → on le saute (drop) / ferme (close).
+      const decision = decideSend(client, max, policy);
+      if (decision !== "send") {
+        this.logFirstDrop(client, decision, max);
+        return;
+      }
+      client.send(sendData);
     });
+  }
+
+  /**
+   * Logge UNE seule fois par connexion (au 1er drop) qu'un client subit la
+   * backpressure — observabilité opérateur sans bruit dans le hot path.
+   */
+  private logFirstDrop(ws: Ws, decision: WsSendDecision, max: number): void {
+    if ((ws as IBackpressureSocket)._nfDrops === 1) {
+      this.log(
+        `WS backpressure → ${decision} (bufferedAmount > ${max} o) — client lent à recevoir`,
+        "WARNING",
+      );
+    }
   }
 
   setBody(
     ele: string | NodeJS.ArrayBufferView | ArrayBuffer | SharedArrayBuffer,
-    encoding?: BufferEncoding
+    encoding?: BufferEncoding,
   ) {
     if (typeof ele === "string") {
       this.body = Buffer.from(ele, encoding ?? this.encoding);
@@ -131,7 +171,10 @@ class WebsocketResponse {
 
   close(reasonCode: number, description: string) {
     if (this.connection && this.connection.readyState === Ws.OPEN) {
-      return this.connection.close(reasonCode ?? this.statusCode, description ?? "closed");
+      return this.connection.close(
+        reasonCode ?? this.statusCode,
+        description ?? "closed",
+      );
     }
     throw new Error("Connection already closed");
   }

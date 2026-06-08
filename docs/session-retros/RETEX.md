@@ -32,9 +32,26 @@ src/packages/@nodefony/http` (implicite via les `npm run build/test`), un `git a
   depuis ce cwd cherche `…/http/src/packages/@nodefony/http/…` → `pathspec did not match`. → soit chemins
   **relatifs au cwd courant** (`git add nodefony/src/...`), soit `git -C <racine>`. Variante de
   [[feedback_cd_startsh_relative_path]] (ici = persistance du cwd, pas un `cd` inline).
+- `[1× — 2026-06-08]` **tmpfs du harness sature (ENOSPC) ≠ disque plein** : rediriger les gros logs (build turbo ~1m24, suites
+  vitest 7000+ lignes) vers `/tmp/x.log` remplit le **filesystem temp dédié du harness** (`/private/tmp/claude-*/.../tasks`,
+  petit quota) alors que `df` du disque montre 3 To libres → les Bash suivants échouent « ENOSPC ». → rediriger vers `/dev/null`
+  - `grep` le résultat, ou `> /tmp/x.log` PUIS `rm` aussitôt après extraction. Ne pas accumuler les logs verbeux.
+- `[3× — 2026-06-08]` **`cd X && cmd1 ; cmd2` → `cmd2` tourne dans X, pas dans Y** : frappé ≥4× en une session (mesures
+  coverage/test de drizzle PUIS mongoose). Le 2ᵉ `npm test`/`npm run coverage` après un `;` ou un `printf` **reste dans le
+  cwd du `cd` précédent** → on mesure 2× le même module (vu : « mongoose 47 » = en fait drizzle re-run). → **un `cd <Y> &&
+cmd` EXPLICITE par module**, jamais enchaîner `cmd2` en comptant sur un cwd implicite. Variante directe du cwd-persiste ci-dessus.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
+- `[1× — 2026-06-08]` **`npm install` ne purge pas le bloc workspace orphelin du `package-lock`** après suppression d'un package :
+  l'arbre transitif est bien pruné (−2820 L, symlink `node_modules/@nodefony/X` retiré) mais l'entrée `"src/packages/@nodefony/X"`
+  reste, marquée `"extraneous": true` → un futur `npm ci` serait incohérent. → la **retirer à la main** (Edit du bloc), puis
+  `node -e JSON.parse` + `npm install --package-lock-only` pour confirmer que npm ne la réintroduit pas.
+- `[1× — 2026-06-08]` **un script `test: "vitest run"` SANS `vitest` en devDep = latemment cassé** : drizzle ET mongoose
+  déclaraient le script mais pas la dep → binaire introuvable, et `npm install` dit « up to date » (il ne devine pas une dep
+  manquante non déclarée). → **déclarer la devDep** puis install. Diagnostiquer la résolution avec
+  **`node --input-type=module -e "await import.meta.resolve('x')"` (ESM)**, PAS `require.resolve` (trompeur : échoue sur un
+  package `exports` import-only comme `@nodefony/http` alors que l'`import` ESM marche → faux négatif).
 - Ces frictions sont **déjà graduées** — ne pas les redupliquer ici, juste les rappeler :
   - `npm run clean` détruit le **dist racine** (app) → `npm run build` foreground + `npx rollup -c`
     racine avant tout start → [[feedback_root_dist_stale_modules]].
@@ -116,6 +133,17 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 - `[1× — 2026-06-05]` **gros chantier supervisé = PERSISTER les constats au fil de l'eau** (fichier de travail), pas tout
   garder en contexte : l'audit P0→P16 a été écrit phase par phase dans `docs/migration/AUDIT-verite-2026-06.md` → survit aux
   interruptions (`/clear`, coupure) ET devient le matériau du livrable. Le user a interrompu 2× du Bash + jalonné « go »/« continue ».
+- `[1× — 2026-06-08]` **suppression totale d'un package = cartographier AVANT de couper, en triant consommateurs-CODE vs mentions-DOC.**
+  Sequelize OUT : 1 grep cross-repo + `.ai/symbols` ont séparé (a) ce qui casse le build (manifeste, peerDep, external rollup,
+  alias vitest, stubs, branche `Error.ts`) de (b) le cosmétique (TSDoc, README, labels Studio). Couper (a) → gates → puis (b).
+  Studio ne dépendait PAS du package (que des labels/logos) → suppression sûre.
+- `[1× — 2026-06-08]` **balayage prose multi-fichiers = script Node `replace` exact-match > sed.** Pour purger un mot dans ~50
+  fichiers (UTF-8, accents, multiline, backticks, art ASCII) : un `.mjs` `{file:[[from,to]]}` qui **rapporte les introuvables**
+  est plus sûr que `sed -i` (multibyte `·`/`…`/`é` risqués) et plus économe que Read+Edit par fichier. Garder Read+Edit pour les
+  tableaux/box ASCII (alignement à recompter à la main).
+- `[1× — 2026-06-08]` **purge d'un legacy : nettoyer le VIVANT, préserver l'HISTORIQUE.** « Zéro résidu » s'applique aux docs qui
+  décrivent l'état ACTUEL (CLAUDE/MEMORY/README/docs/guides/MIGRATION_STATUS) ; **PAS** aux ADR, session-retros, `migration/journal`,
+  audits — réécrire un document daté falsifie l'historique (l'audit ORM cite Sequelize justement pour documenter sa suppression).
 
 ## 🔄 Cycle de session (END/RETEX) — méta
 
@@ -130,6 +158,16 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🧩 Modules / docs / front (frictions du jour)
 
+- `[1× — 2026-06-08]` **« pattern module » = CHECKLIST COMPLÈTE, pas juste le code qui compile** : refonte mongoose
+  livrée « OK » (build vert), mais j'avais zappé (a) la **config Zod** (schema/define/interfaces/validate/augment
+  `NodefonyModuleConfig`), (b) les **artefacts module** `CLAUDE.md`/`README.md`/`docs/`, (c) le flag `critical`. Le user a
+  dû relancer 3× (« les config on les repense », « regarde les patterns module pour rien oublier »). → avant de dire « fait »,
+  **comparer à un module frère COMPLET** (drizzle/redis) artefact par artefact (config Zod + `declare module` + CLAUDE/README/docs
+  - `critical` + test config + zod en dep/external rollup). Le « fait » d'un module ≠ « ça build ».
+- `[1× — 2026-06-08]` **renouveau = 0 back-compat + séparer les FAMILLES de modules** : pour la config, ne pas garder
+  d'alias de types legacy (« on repense », pas « on migre en douceur ») ; et bien distinguer **infra** (redis = connexions
+  génériques) de **ORM** (drizzle/mongoose) — redis n'est PAS un ORM, juste une référence du _pattern_ config. Mélanger les
+  familles brouille la logique (le user : « redis est à part, il n'a pas lieu d'être un ORM »).
 - `[1× — 2026-06-06]` **BUREAU ≠ GRILLE** : un « bureau » composable = fenêtres LIBRES (px/fraction,
   chevauchement, z-order) + « Ranger » à la demande — PAS une grille à colonnes figées NI un tiling/reflow
   (les deux rejetés par le user). Demander le PARADIGME (stacking OS vs tiling) avant de coder un « canvas ».
@@ -295,8 +333,17 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
   mémoire ; **confronter au code** (garde-fou « vérité = commits »). Le tenir EN CONTINU (cellule courte + détail ailleurs)
   sinon refonte coûteuse imposée (278→32 KB en une passe). Variante de « vérité = réalité, pas le journal ».
 
+- `[1× — 2026-06-08]` **merger les `refactor/*` dans `claude-ts` AU FIL des chantiers, pas en lot tardif** : `refactor/session-runtime` avait accumulé **33 commits / 5 chantiers** (session runtime + forwarded/proxy + certificats + statics/CDN + audit ORM) avant merge. Le user : « ce merge aurait dû être avant ». Ici sans douleur (FF, 0 divergence) mais le risque de conflit croît avec la divergence. → proposer le merge dès qu'un chantier est CLOS+poussé, ne pas laisser une branche de travail diverger sur plusieurs sujets. Variante de [[feedback_commit_fr_apostrophes]]/commits-non-pushés.
+- `[1× — 2026-06-08]` **demande de merge + « ATTENTION aux branches !!! » → l'ÉTAT DES LIEUX git EST la réponse, pas l'exécution** : `fetch` + `merge-base` + `--is-ancestor` (FF ?) + divergence (`A..B` des deux côtés) + cible (`claude-ts` **≠** `main`) AVANT de proposer. Montrer « FF, 0 conflit, 0 divergence, main intouché » rassure l'expert anxieux mieux qu'un merge immédiat. `--no-ff` pour garder un repère d'intégration annulable d'un bloc.
+- `[1× — 2026-06-08]` **gros chantier de refonte → AUDIT exhaustif AVANT (pas juste relire le kit)** : avant le virage ORM, balayer code+mémoires+docs+**Studio**+**sondes realtime**+**externe** a débusqué des pièges invisibles depuis le kit : **2 `Orm` homonymes** (legacy core ≠ `@nodefony/orm-core` à garder → risque de supprimer la mauvaise cible) + **dette C5** (montage data plane ORM déclenché par Drizzle → app Mongoose-only muette). Le user a élargi le scope 2× (« tu as regardé Studio ? les sondes realtime aussi »). → pour une refonte, cartographier la **surface COMPLÈTE** (front + observabilité incluses) dès le départ ; le doc d'audit devient la boussole d'exécution.
+
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-08]` **gate mémoire sans GC forcé = on mesure le GARBAGE, pas une fuite** :
+  `ws-messages-load sustained` affichait ~180 MB / 5000 frames WS → transitoire non collecté (sonde
+  `/memory` lisait `heapUsed` sans `global.gc()`, serveur sans `--expose-gc`). GC forcé → < 30 MB. Règle :
+  **toute sonde/gate mémoire force le GC avant `heapUsed`**. Et **prouver « pré-existant » par ISOLATION**
+  (test sans import ORM + repro serveur frais), jamais par citation de doc (le user s'en méfie à raison).
 - `[1× — 2026-06-07]` **prouver un parse côté serveur SANS toucher au banc = curl loopback (trusted) avec le header brut** :
   pour valider le parse `Forwarded` RFC 7239 en runtime, `curl -H "Forwarded: for=…;proto=https" localhost:5151` +
   lire le **log `req`** (`GET 200 <scheme>://<host>/… <ms> <IP>`) → le scheme/IP résolus sont visibles directement.
@@ -379,6 +426,17 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-08]` **config knob DÉCLARÉ ≠ CÂBLÉ (config qui ment)** : `keepaliveInterval`/
+  `keepaliveGracePeriod` existent en Zod (`http/config/schema.ts`, desc « détecte les zombies ») mais
+  **0 consommateur** → aucun heartbeat WS implémenté. Auditer une config = **vérifier les CONSOMMATEURS**
+  d'un knob, pas sa seule déclaration. + committer une phase touchant le pipeline request (SessionStorage)
+  SANS `memory.test` = miss (le gate pipeline vaut aussi pour le storage de session) — rattrapé.
+- `[1× — 2026-06-08]` **`this.options` d'un module est FLAT (config `use()` deep-mergée par le Kernel)** : `Kernel.ts`
+  fait `mod.options = extend(true, {}, mod.options, entry.config)` → lire la config d'un module via `this.options.<clé>`
+  directement, JAMAIS sous un namespace `this.options?.<nomModule>`. **Bug réel** : `@nodefony/redis` lisait
+  `this.options?.redis` (clé inexistante) → toute config app via `use("@nodefony/redis", …)` **ignorée silencieusement**
+  (corrigé). → **vérifier le flux RÉEL (Kernel.ts) avant de copier un « frère »** : redis était un mauvais modèle sur ce
+  point (realtime/mongoose = flat = correct). Convention-frère ≠ copier le premier frère venu — copier le frère JUSTE.
 - `[1× — 2026-06-08]` **ne JAMAIS se fier à l'ordre de N listeners sur le même event kernel** : `proxy:generate`
   (son `generate()` enregistré tôt sur `onReady`) firait AVANT le listener de montage statique (server-static,
   enregistré plus tard à `onReady`) → `mounts` vide. Fix robuste = rendre le consommateur **auto-suffisant** :
@@ -521,6 +579,11 @@ ls-files | grep -iE '\.(pem|key|p12|pfx)$'` ; un motif gitignore avec slash n'es
   branche reste « ahead 1 » sans erreur ni process actif → relancer en **foreground** (peut être rejeté « cannot lock
   ref … is at X but expected Y » = race, le background avait fini par pousser). La vérité = `git log origin/<branche>`,
   pas le « ahead » local. Vu 2× (frontend, framework). → push avec hook lourd = **foreground d'emblée**.
+- `[1× — 2026-06-08]` **nouveau chantier ≠ branche de reprise → BRANCHER d'abord** : repris sur `refactor/orm-hardening`
+  (ORM) puis committé + **poussé** tout le durcissement **WebSocket** (3 commits) dessus → signalé par le user (« les
+  commits WS n'ont rien à faire dans cette branche !! »). Le **START de session doit vérifier que le chantier correspond
+  au NOM de la branche** ; si le sujet diffère → `git switch -c hardening/<sujet>` AVANT le 1er commit. (Non réécrit ici :
+  déjà poussé + même cible de merge `claude-ts` → coût rewrite > bénéfice ; vigilance au prochain START.)
 
 ---
 
@@ -541,6 +604,17 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-08]` **`@vitest/coverage-v8` doit vivre à la RACINE du mono-repo** (à côté de `vitest` hoisté) :
+  déclaré dans un seul workspace, il n'est PAS hoisté → `vitest` (racine) fait `ERR_MODULE_NOT_FOUND` au `--coverage`.
+  Source unique racine (anti-dérive de version aussi). `npm install` simple ne le hoiste pas s'il est déjà résolu local.
+- `[1× — 2026-06-08]` **les seuils `thresholds` se valident sur la CONFIG réelle, pas une mesure `--coverage.all` ad hoc** :
+  la config (qui inclut le barrel `index.ts`) donne des % **plus bas** qu'un `--coverage.include='nodefony/src/**'` lancé à
+  la main (vu : drizzle 80,9 ad hoc → 78,7 config ; mongoose 78,8 → 75,4). → toujours `npm run coverage` RÉEL + lire l'exit
+  code avant de figer un seuil ; plancher = mesure config **−3 pts** (marge anti-flottement, cliquet à relever ensuite).
+- `[1× — 2026-06-08]` **frontière de test framework-qui-wrappe-une-lib** : ne PAS retester drizzle-orm/mongoose/mongod
+  (testés en amont) → tester NOTRE traduction critère→natif, le contrat portable identique cross-ORM, et NOS invariants
+  (updateOne atomique, critère strict, savepoint anti-injection, garde-fou many-to-many). Le banc d'intégration sur le vrai
+  moteur (SQLite `:memory:`, `mongodb-memory-server`) = la bonne cible, pas un mock de la lib.
 - `[1× — 2026-06-08]` **vérifier la convention de test DU MODULE avant d'écrire** : http/framework/frontend =
   `import { expect } from "chai"` + `describe`/`it` globals (PAS `import { describe, it, expect } from "vitest"`
   jest-style). J'ai écrit `.to.deep.equal` avec import vitest (faux) → corrigé en chai + import `.js`. Copier
@@ -591,6 +665,20 @@ type 'mocha'`). Au retrait mocha d'un workspace : remplacer par `vitest/globals`
   (HTTP/HTTP2/WS) qui les CONSOMMENT — c'est là que vit le câblage réel. Recette pour isoler une méthode d'instance
   sans le ctor lourd : `Object.assign(Object.create(Cls.prototype), props)` + cast `as unknown as Cls` (cf
   `forwardedWiring.test.ts`). Couvre aussi le cœur partagé direct (`resolveFromRight`), pas juste via ses wrappers.
+- `[1× — 2026-06-08]` **fabriquer une frame WS brute dans un test** : `ws.Sender.frame(buf,{fin,opcode,mask:true,
+readOnly:false,rsv1:false})` MAIS `Sender` n'est PAS sur le default export ESM ni dans `@types/ws` → `import * as ws
+from "ws"` + cast `(ws as unknown as {Sender:{frame}}).Sender`. Écrire les buffers retournés sur
+  `(client as {_socket}).​_socket`. ⚠️ la route `/ws/echo` envoie d'abord `{handshake:true}` PUIS JSON-encode la
+  réponse → **consommer le handshake** (`once("message")`) AVANT, et fragmenter un **objet JSON** (assert
+  `JSON.parse(recv).x`), pas une string brute (revient quotée `"x"`).
+- `[1× — 2026-06-08]` **`vitest run` silence `console.log`** (intercept du setup) → impossible de récupérer une mesure
+  (p50/p99 d'un banc) par grep. Soit asserter une **borne** (`p99 < N`, CI-stable) en gardant les chiffres internes,
+  soit écrire la mesure dans un fichier depuis le test. Ne pas s'acharner à capturer le log.
+- `[1× — 2026-06-08]` **démo runtime « robustesse WS » = client réel + condition extrême** : half-open =
+  `client._autoPong=false` (sinon `ws` pong tout seul → jamais zombie) + attendre `interval+grace` ; backpressure =
+  `client._socket.pause()` (stoppe la lecture → `bufferedAmount` serveur gonfle) + flood. Observabilité sans sonde
+  dédiée = **WARNING 1×/conn** loggé côté serveur, grep le log. ⚠️ un flood (17 MiB) gonfle `/tmp/nodefony-server.log`
+  (→ 5 MiB) + peut saturer la capture stdout (ENOSPC transitoire) → `truncate -s 0` après.
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 

@@ -3,6 +3,22 @@ import type { ITransaction } from "@nodefony/orm-core";
 import type { DrizzleDb } from "./DrizzleRepository";
 
 /**
+ * Nom de savepoint sûr (S1) : un `SAVEPOINT` est un **identifiant** SQL, pas une
+ * valeur — il ne peut donc pas être *bindé* en paramètre. Pour éliminer toute
+ * injection via un nom non contrôlé (`a"; DROP …`), on impose un identifiant
+ * strictement alphanumérique. Un nom invalide échoue **tôt et clairement**.
+ */
+const SAVEPOINT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+function assertSavepointName(name: string): void {
+  if (!SAVEPOINT_NAME.test(name)) {
+    throw new Error(
+      `DrizzleTransaction: invalid savepoint name ${JSON.stringify(name)} — ` +
+        `expected /^[A-Za-z_][A-Za-z0-9_]*$/ (savepoint is an identifier, not a bindable value).`,
+    );
+  }
+}
+
+/**
  * Adapte une transaction `better-sqlite3` au contrat portable {@link ITransaction}.
  *
  * **Pourquoi une transaction manuelle (`BEGIN`/`COMMIT`/`ROLLBACK`) et pas le
@@ -55,13 +71,15 @@ export class DrizzleTransaction implements ITransaction {
     this.#done = true;
   }
 
-  /** Crée un savepoint nommé. */
+  /** Crée un savepoint nommé (nom validé — anti-injection, cf {@link assertSavepointName}). */
   async savepoint(name: string): Promise<void> {
+    assertSavepointName(name);
     this.#client.exec(`SAVEPOINT "${name}"`);
   }
 
-  /** Annule jusqu'au savepoint sans terminer la transaction. */
+  /** Annule jusqu'au savepoint sans terminer la transaction (nom validé). */
   async rollbackTo(name: string): Promise<void> {
+    assertSavepointName(name);
     this.#client.exec(`ROLLBACK TO SAVEPOINT "${name}"`);
   }
 

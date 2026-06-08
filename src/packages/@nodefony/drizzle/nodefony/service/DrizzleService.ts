@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { Service } from "nodefony";
-import type { Container, Event, Module } from "nodefony";
-import { queryFlowMonitor } from "@nodefony/orm-core";
+import type { Container, Event, Kernel, Module } from "nodefony";
+import { queryFlowMonitor, resolveOrmFlowEnabled } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../src/orm-core/index";
 import type {
-  DrizzleConnectorConfig,
-  DrizzleModuleConfig,
-} from "../config/config";
+  IDrizzleConfig,
+  IDrizzleConnectorConfig,
+} from "../interfaces/IDrizzleConfig";
 
 const serviceName = "drizzle";
 
@@ -39,15 +39,9 @@ class DrizzleService extends Service {
 
     // Connexion au boot (après chargement des modules/entités), fermeture au shutdown.
     this.kernel?.once("onBoot", async () => {
-      // Sonde de flux ORM : ON hors production (observabilité Supervision), OFF en
-      // prod → coût nul sur le hot path des requêtes. Override possible via
-      // NODEFONY_ORM_FLOW (1/0) pour activer l'observabilité en prod si besoin.
-      const flag = process.env.NODEFONY_ORM_FLOW;
-      queryFlowMonitor.setEnabled(
-        flag !== undefined
-          ? flag === "1" || flag === "true"
-          : this.kernel?.environment !== "production",
-      );
+      // Sonde de flux ORM : OFF en prod (coût nul hot path), ON sinon. Override
+      // NODEFONY_ORM_FLOW. Calcul factorisé en orm-core (C5).
+      queryFlowMonitor.setEnabled(resolveOrmFlowEnabled(this.kernel));
       await this.connectAll().catch((e: Error) => {
         this.log(e, "ERROR");
         throw e;
@@ -60,28 +54,41 @@ class DrizzleService extends Service {
     });
   }
 
-  /** Connecte tous les connecteurs déclarés en config. */
+  /** Config validée (Zod) exposée par le Module au `onKernelRegister`. */
+  #config(): IDrizzleConfig | undefined {
+    return this.module.get?.("drizzleConfig") as IDrizzleConfig | undefined;
+  }
+
+  /** Connecte tous les connecteurs déclarés en config (validée Zod). */
   async connectAll(): Promise<void> {
-    const connectors =
-      (this.options as unknown as DrizzleModuleConfig).connectors ?? {};
+    const connectors = this.#config()?.connectors ?? {};
     for (const [name, cfg] of Object.entries(connectors)) {
       await this.#connectOne(name, cfg);
     }
   }
 
+  /**
+   * Chemin SQLite par défaut d'un connecteur, résolu AU BOOT (kernel présent —
+   * jamais au top-level d'un import). `<app>/nodefony/databases/nodefony-<x>.db`.
+   */
+  #defaultFilename(name: string): string {
+    const root = (this.kernel as Kernel | null)?.path ?? process.cwd();
+    const file =
+      name === "default" ? "nodefony-drizzle.db" : `nodefony-${name}.db`;
+    return path.resolve(root, "nodefony", "databases", file);
+  }
+
   /** Connecte un connecteur (crée le dossier de la base si nécessaire). */
-  async #connectOne(name: string, cfg: DrizzleConnectorConfig): Promise<void> {
-    const filename = cfg.filename;
-    if (filename && filename !== ":memory:") {
+  async #connectOne(name: string, cfg: IDrizzleConnectorConfig): Promise<void> {
+    // `filename` optionnel (schéma pur) → résolu ici via le kernel si omis.
+    const filename = cfg.filename ?? this.#defaultFilename(name);
+    if (filename !== ":memory:") {
       fs.mkdirSync(path.dirname(filename), { recursive: true });
     }
     const orm = new DrizzleOrm(name, { filename });
     await orm.connect();
     this.#orms.set(name, orm);
-    this.log(
-      `Drizzle ORM "${name}" connected (${filename ?? ":memory:"})`,
-      "INFO",
-    );
+    this.log(`Drizzle ORM "${name}" connected (${filename})`, "INFO");
   }
 
   /** Ferme toutes les connexions. */

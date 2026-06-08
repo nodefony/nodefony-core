@@ -4,6 +4,8 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
+  getTableName,
   gt,
   gte,
   inArray,
@@ -12,12 +14,17 @@ import {
   lte,
   ne,
   notInArray,
+  sql,
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { RequestContext, redactSecrets } from "nodefony";
-import { isFieldOperators, queryFlowMonitor } from "@nodefony/orm-core";
+import {
+  isFieldOperators,
+  queryFlowMonitor,
+  UnknownCriteriaField,
+} from "@nodefony/orm-core";
 import type {
   Criteria,
   FieldOperators,
@@ -118,7 +125,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    *  2. **flux ORM agrégé** ({@link queryFlowMonitor}, process-wide) — compte le
    *     débit + la latence ; n'extrait le SQL que sur le chemin **lent** (rare).
    *
-   * POURQUOI lecture directe de l'ALS (≠ tap par-requête de Sequelize) :
+   * POURQUOI lecture directe de l'ALS (≠ tap par-requête d'un autre ORM) :
    * `better-sqlite3` est **synchrone**, sans pool → l'ALS reste valide pendant
    * `await builder`. Les deux drapeaux sont lus **avant toute allocation** →
    * coût nul quand rien n'observe (prod, bancs de charge hors kernel).
@@ -142,7 +149,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       // toSQL UNIQUEMENT sur le chemin lent (rare) — l'agrégat ne paie jamais
       // la sérialisation du texte au cas nominal.
       const sql =
-        durationMs >= queryFlowMonitor.slowMs ? this.#safeSql(builder) : undefined;
+        durationMs >= queryFlowMonitor.slowMs
+          ? this.#safeSql(builder)
+          : undefined;
       queryFlowMonitor.record(this.#ormName, durationMs, sql);
     }
     if (buf) {
@@ -182,7 +191,14 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     for (const [field, value] of Object.entries(criteria)) {
       const col = this.#col(this.#table, field);
       if (!col) {
-        continue; // champ inconnu (échappatoire OrmCriteria) — non traduisible
+        // Strict (B2) : champ inconnu = erreur, pas un skip silencieux (qui
+        // ferait disparaître la condition → fuite « renvoie tout »). Même
+        // contrat que Mongoose. Requêtes natives → getNativeConnection().
+        throw new UnknownCriteriaField(
+          field,
+          getTableName(this.#table),
+          Object.keys(getTableColumns(this.#table)),
+        );
       }
       if (isFieldOperators(value)) {
         this.#pushOperators(conds, col, value);
@@ -322,15 +338,38 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     return rows[0] as T;
   }
 
-  async update(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
+  async updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
+    // Atomique : UPDATE … WHERE rowid IN (SELECT rowid … LIMIT 1) RETURNING.
+    // - une SEULE requête → pas de relecture (qui renverrait null à tort si le
+    //   critère porte sur un champ modifié — bug B1) ;
+    // - `rowid IN (… LIMIT 1)` garantit « au plus une » ligne SANS supposer une
+    //   PK nommée `id` (tout table SQLite a un rowid) ;
+    // - RETURNING rend la ligne réellement persistée.
+    const where = this.#where(criteria);
+    const pick = where
+      ? sql`rowid in (select rowid from ${this.#table} where ${where} limit 1)`
+      : sql`rowid in (select rowid from ${this.#table} limit 1)`;
+    const rows = (await this.#prof(
+      this.#db
+        .update(this.#table)
+        .set(data as Record<string, unknown>)
+        .where(pick)
+        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
+    )) as Record<string, unknown>[];
+    return (rows[0] as T) ?? null;
+  }
+
+  async updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number> {
     const where = this.#where(criteria);
     const builder = this.#db
       .update(this.#table)
       .set(data as Record<string, unknown>);
-    await this.#prof(
-      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<unknown>,
-    );
-    return this.findOne(criteria);
+    const result = (await this.#prof(
+      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<{
+        changes?: number;
+      }>,
+    )) as { changes?: number };
+    return result.changes ?? 0;
   }
 
   async delete(criteria: Criteria<T>): Promise<number> {

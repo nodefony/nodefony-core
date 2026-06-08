@@ -128,7 +128,8 @@ export type {
 } from "./realtime/RealtimeEventMap";
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
-export { default as nodefonyError } from "./Error";
+export { default as nodefonyError, registerErrorAdapter } from "./Error";
+export type { IErrorAdapter } from "./Error";
 
 // ─── Finder / Files ───────────────────────────────────────────────────────────
 export { default as Finder } from "./finder/Finder";
@@ -222,17 +223,11 @@ export { loadEnv } from "./runtime/loadEnv";
 export type { ILoadEnvOptions } from "./runtime/loadEnv";
 export { withTimeout, TimeoutError } from "./runtime/withTimeout";
 
-// ─── ORM ──────────────────────────────────────────────────────────────────────
-export { default as Orm } from "./kernel/orm/Orm";
-export { default as Entity } from "./kernel/orm/Entity";
-export { default as Connector } from "./kernel/orm/Connector";
-
 // ─── Decorators ───────────────────────────────────────────────────────────────
 export {
   injectable,
   inject,
   services,
-  entities,
 } from "./kernel/decorators/kernelDecorator";
 export type { DIScope, InjectableOptions } from "./kernel/injector/injector";
 
@@ -331,7 +326,6 @@ export type {
   FilterInterface,
   ServiceWithInit,
   ServiceConstructor,
-  EntityConstructor,
   TypeKernelOptions,
 } from "./kernel/Kernel";
 

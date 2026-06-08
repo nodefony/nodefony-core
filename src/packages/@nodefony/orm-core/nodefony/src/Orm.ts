@@ -16,7 +16,7 @@ import { connectionMonitor } from "./ConnectionMonitor";
  * Syslog, bus d'événements) et le contrat {@link IOrm}, et s'auto-enregistre
  * dans le {@link ormRegistry} process-wide à la construction.
  *
- * Les drivers concrets (`@nodefony/sequelize`, `@nodefony/mongoose`...)
+ * Les drivers concrets (`@nodefony/mongoose`, `@nodefony/drizzle`...)
  * implémentent les opérations bas niveau ({@link Orm.onConnect}, `disconnect`,
  * `getRepository`, `transaction`, `getNativeConnection`). La connexion passe par
  * la template method {@link Orm.connect} qui émet l'événement `onOrmReady` une
@@ -99,7 +99,7 @@ export abstract class Orm extends Service implements IOrm {
   /**
    * Décrit les colonnes d'une entité pour le graphe canonique. Défaut : `[]`
    * (relations seules dans l'ERD). Les adapters surchargent avec l'introspection
-   * native (Drizzle `getTableConfig`, Sequelize `getAttributes`, Mongoose paths).
+   * native (Drizzle `getTableConfig`, Mongoose paths).
    *
    * @param _name - nom logique de l'entité.
    * @returns colonnes normalisées.

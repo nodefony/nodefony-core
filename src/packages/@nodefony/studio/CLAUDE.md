@@ -160,7 +160,7 @@ npm run coverage    # + rapport .coverage/ (affiché par l'onglet Coverage Studi
 - Harness = **miroir de `@nodefony/frontend`** : `vitest.config.ts` + `nodefony/tests/{vitest.setup.ts, vitest-mocha-shim.mjs}`. `expect` de **chai** (pas vitest), `vi` de vitest (fake timers + `vi.fn()`).
 - `nodefony/tests/unit/providers.test.ts` (11 tests, providers.ts 98.55% stmts / 100% lines) : verrouille le **coalescing `createSyslogBridge`** (le fix du lag Studio, f82b3de) + `createStatsTicker`. Déterministe via `vi.useFakeTimers()`.
 - **Split** (volontaire) : le WS endpoint (`StudioRealtimeController`) est de l'**intégration live-server** (subscribe/unsubscribe → frame JSON-RPC) → relève de la suite WS de `@nodefony/http`, pas du run vitest. Le frontend React (stores MobX, `ConnectionDrawer`) = instrumentation séparée non scaffoldée.
-- ⚠️ providers.ts n'importe que `node:os/v8/perf_hooks` → tests sur la **source pure**, pas le dist (pas d'alias sequelize/mongoose nécessaire, ≠ http/framework).
+- ⚠️ providers.ts n'importe que `node:os/v8/perf_hooks` → tests sur la **source pure**, pas le dist (pas d'alias ORM nécessaire, ≠ http/framework).
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
 

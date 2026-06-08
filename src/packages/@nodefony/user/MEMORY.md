@@ -3,7 +3,7 @@
 ## Purpose
 
 User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodefony/security
-(consommé par security/framework/orm-*/agent/studio sans tirer la security). ORM-agnostique.
+(consommé par security/framework/orm-\*/agent/studio sans tirer la security). ORM-agnostique.
 
 ## Core Components
 
@@ -38,4 +38,4 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 
 ## État
 
-✅ P5.5a (scaffold) + P5.5 (contracts + base users) + P5.6 (`BcryptEncoder` + `UserService extends AbstractCrudService`). **32 tests**. Suite = **P5.7** (adapter Sequelize : User entity + `IUserRepository` impl).
+✅ P5.5a (scaffold) + P5.5 (contracts + base users) + P5.6 (`BcryptEncoder` + `UserService extends AbstractCrudService`). **32 tests**. Suite = **P5.8** (adapter Mongoose : User entity + `IUserRepository` impl).

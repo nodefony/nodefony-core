@@ -1095,7 +1095,7 @@ export const OrmOverview = observer(
                       sections={[
                         {
                           label: "Définition",
-                          body: "Un connecteur = une instance ORM (Drizzle, Sequelize, Mongoose…) reliée à une base, enregistrée dans le registre process-wide.",
+                          body: "Un connecteur = une instance ORM (Drizzle, Mongoose…) reliée à une base, enregistrée dans le registre process-wide.",
                         },
                         {
                           label: "Détail riche",

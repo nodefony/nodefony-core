@@ -210,7 +210,8 @@ nodefony-core/
     │       ├── http/           ← serveurs HTTP/HTTPS/HTTP2/WS/WSS
     │       ├── framework/      ← Controller, Resolver, Route
     │       ├── security/       ← JWT, OAuth, Session, WAF
-    │       ├── sequelize/      ← ORM legacy
+    │       ├── orm-core/        ← abstraction IOrm / IRepository / IEntity
+    │       ├── drizzle/         ← ORM SQL (référence, défaut)
     │       ├── mongoose/       ← MongoDB
     │       ├── redis/
     │       ├── llm/            ← ILLMProvider + adapters
@@ -298,7 +299,7 @@ Ne JAMAIS les éditer : ils ne sont plus la source de vérité.
 ### Deux patterns de `exports.types` (selon dépendance inter-modules)
 
 - **`"./index.ts"` (source TS, anti-race)** — modules consommés EN SOURCE par un autre module : `http`, `framework`, `security`, `frontend`, `orm-core`, `user`. **Chaîne obligatoire** : security → user → orm-core → `nodefony` (core buildé en 1er → `dist` prêt). Casser un maillon (un `dist/types` au milieu) = TS2307 « Cannot find module » sur les consommateurs amont (build race). Cf [[feedback_turbo_cache_stale_logs]].
-- **`"./dist/types/..."` (`.d.ts` généré, standard)** — modules NON consommés en source : `drizzle`, `mongoose`, `redis`, `sequelize`, `llm`. `nodefony` (core) = isomorphe (`browser`/`import`).
+- **`"./dist/types/..."` (`.d.ts` généré, standard)** — modules NON consommés en source : `drizzle`, `mongoose`, `redis`, `llm`. `nodefony` (core) = isomorphe (`browser`/`import`).
 - WIP P12 (pas encore câblés, pas de `rollup.config.ts`) : `agent`, `memory`, `rag`, `vector`. `studio` = `private: true` + `declaration: false` (types publics inutiles).
 
 ---
@@ -374,7 +375,7 @@ export default {
 const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
 ```
 
-> Vérifié 2026-05-22 : `drizzle`/`sequelize`/module `test` portaient le bug (corrigés en getter) ;
+> Vérifié 2026-05-22 : `drizzle`/module `test` portaient le bug (corrigés en getter) ;
 > `http`/`mongoose` étaient déjà sûrs (guardés `?.`). Vaut pour TOUT accès kernel au top-level d'un
 > fichier chargé à l'import du module (pas que `config.ts`).
 

@@ -12,10 +12,9 @@ declare global {
     // errno is number in ErrnoException — keep compatible
     errno?: string | number;
     bytesParsed?: number;
-    // any to avoid conflict with Sequelize BulkRecordError.errors: Error
+    // any : forme libre selon la source de l'erreur (ORM, natif)
     errors?: any;
     parent?: Error;
-    // sql removed — conflicts with Sequelize DatabaseErrorParent TS2320
     actual?: any;
     expected?: any;
     operator?: any;
@@ -76,64 +75,75 @@ const jsonNodefony: JsonDescriptor = {
   },
 };
 
-// TODO(orm-session): remplacer par un registre IErrorAdapter — @nodefony/sequelize et @nodefony/mongoose
-// s'enregistrent eux-mêmes, le core ne doit pas connaître les ORMs
-let _sequelizeAdapter: {
+/**
+ * Adapter d'erreurs d'une bibliothèque tierce (driver ORM, client externe…).
+ *
+ * Permet au core de **reconnaître** (`isError`) et **formater** (`errorToString`)
+ * une famille d'erreurs sans dépendre de la bibliothèque : le module tiers fournit
+ * l'implémentation et s'enregistre via {@link registerErrorAdapter}. Le core reste
+ * agnostique — il ne nomme aucun driver.
+ */
+export interface IErrorAdapter {
+  /** Vrai si l'erreur relève de la famille gérée par cet adapter. */
   isError(e: Error): boolean;
+  /** Formate l'erreur en message lisible. */
   errorToString(e: unknown): string;
-} | null = null;
-let _mongooseAdapter: {
-  isError(e: Error): boolean;
-  errorToString(e: unknown): string;
-} | null = null;
+}
+
+// Registre lazy des adapters d'erreurs tiers (clé = nom du module, ex. "mongoose").
+// `null` tant qu'aucun adapter n'est enregistré → zéro allocation au boot (le core
+// n'alloue pas « au cas où »). Itéré uniquement quand une `Error` est classifiée.
+let _errorAdapters: Map<string, IErrorAdapter> | null = null;
 
 /**
- * Enregistre l'adapter Sequelize pour la détection et le formatage des erreurs ORM.
+ * Enregistre un adapter d'erreurs tiers sous une clé (ex. le nom du driver ORM
+ * `"mongoose"`). Inversion de dépendance : le module s'enregistre lui-même à son
+ * boot, le core ne connaît aucune bibliothèque. `null` retire l'adapter (teardown,
+ * tests).
  *
- * Appelé par `@nodefony/sequelize` au boot — le core ne dépend pas de l'ORM.
- *
- * @param adapter - implémentation `{ isError, errorToString }` ou `null` pour désactiver.
+ * @param name - clé unique de l'adapter (nom du module/driver).
+ * @param adapter - implémentation `{ isError, errorToString }`, ou `null` pour retirer.
  */
-export function registerSequelizeAdapter(
-  adapter: typeof _sequelizeAdapter,
+export function registerErrorAdapter(
+  name: string,
+  adapter: IErrorAdapter | null,
 ): void {
-  _sequelizeAdapter = adapter;
+  if (adapter === null) {
+    _errorAdapters?.delete(name);
+    return;
+  }
+  if (_errorAdapters === null) {
+    _errorAdapters = new Map();
+  }
+  _errorAdapters.set(name, adapter);
 }
 
 /**
- * Enregistre l'adapter Mongoose pour la détection et le formatage des erreurs ORM.
- *
- * Appelé par `@nodefony/mongoose` au boot — le core ne dépend pas de l'ORM.
- *
- * @param adapter - implémentation `{ isError, errorToString }` ou `null` pour désactiver.
+ * Premier adapter dont relève l'erreur, ou `null`. Gratuit tant qu'aucun adapter
+ * n'est enregistré (registre `null`). Un adapter qui throw est ignoré — il ne doit
+ * jamais casser la classification d'une erreur.
  */
-export function registerMongooseAdapter(
-  adapter: typeof _mongooseAdapter,
-): void {
-  _mongooseAdapter = adapter;
-}
-
-const isSequelizeError = function (error: Error) {
-  try {
-    return _sequelizeAdapter?.isError(error) ?? false;
-  } catch (e) {
-    return false;
+const findErrorAdapter = function (error: Error): IErrorAdapter | null {
+  if (_errorAdapters === null) {
+    return null;
   }
-};
-
-const isMongooseError = function (error: Error) {
-  try {
-    return _mongooseAdapter?.isError(error) ?? false;
-  } catch (e) {
-    return false;
+  for (const adapter of _errorAdapters.values()) {
+    try {
+      if (adapter.isError(error)) {
+        return adapter;
+      }
+    } catch {
+      /* un adapter défaillant ne doit pas casser la détection */
+    }
   }
+  return null;
 };
 
 /**
  * Erreur Nodefony — wrapper riche autour de `Error` natif qui ajoute :
  * - Un `code` numérique (HTTP status ou code custom — pas un string).
  * - Un `errorType` détecté automatiquement (TypeError, SystemError,
- *   AssertionError, SequelizeError, MongooseError, ClientError, etc.).
+ *   AssertionError, OrmError, ClientError, etc.).
  * - Une sérialisation `toJSON()` filtrée qui exclut `context`, `resolver`,
  *   `container`, `secure` (références circulaires).
  * - Un `toString()` coloré (cli-color) qui adapte le format selon
@@ -149,14 +159,17 @@ const isMongooseError = function (error: Error) {
  * throw new nodefonyError("user not found", 404);
  * ```
  *
- * @remarks Les adapters ORM (Sequelize, Mongoose) sont injectés via
- *   `registerSequelizeAdapter` / `registerMongooseAdapter` pour découpler
- *   le core des modules ORM. Sans adapter, ces types ne sont pas détectés.
+ * @remarks Les erreurs de bibliothèques tierces (drivers ORM…) sont reconnues
+ *   et formatées via un adapter injecté par `registerErrorAdapter` — le core
+ *   reste découplé des modules. Sans adapter enregistré, l'erreur retombe sur la
+ *   classification générique.
  */
 class nodefonyError extends Error {
   public override code: number | null;
   public error?: Error;
   public errorType: string;
+  /** Adapter d'erreur tiers résolu (erreur ORM…) quand `errorType === "OrmError"`. */
+  #errorAdapter: IErrorAdapter | null = null;
   //public actual : string
   [key: string]: any;
 
@@ -197,7 +210,7 @@ class nodefonyError extends Error {
   }
 
   /**
-   * Détecte la catégorie d'une erreur (TypeError, SystemError, SequelizeError, etc.).
+   * Détecte la catégorie d'une erreur (TypeError, SystemError, OrmError, etc.).
    *
    * Utilisée par `getType()` pour peupler `errorType` et copier les champs
    * spécifiques au type (errno, syscall, bytesParsed, etc.).
@@ -215,10 +228,8 @@ class nodefonyError extends Error {
         return "SyntaxError";
       case error instanceof assert.AssertionError:
         return "AssertionError";
-      case isSequelizeError(error):
-        return "SequelizeError";
-      case isMongooseError(error):
-        return "MongooseError";
+      case findErrorAdapter(error) !== null:
+        return "OrmError";
       case error instanceof Error:
         if (error.errno) {
           return "SystemError";
@@ -239,7 +250,7 @@ class nodefonyError extends Error {
    * Détecte le type d'erreur et copie ses champs spécifiques sur `this`.
    *
    * Côté SystemError → `errno/syscall/address/port` ; AssertionError →
-   * `actual/expected/operator` ; SequelizeError → `errors/fields/parent/sql`, etc.
+   * `actual/expected/operator` ; ClientError → `bytesParsed/rawPacket`, etc.
    *
    * @param error - erreur source à analyser.
    * @returns nom de la catégorie (jamais `false` — fallback `error.constructor.name` ou `"Error"`).
@@ -268,39 +279,10 @@ class nodefonyError extends Error {
           this.bytesParsed = error.bytesParsed;
           this.rawPacket = error.rawPacket;
           return errorType;
-        case "SequelizeError":
-          this.name = error.name;
-          this.message = error.message;
-          if (error.errors) {
-            this.errors = error.errors || [];
-          }
-          if (error.fields) {
-            this.fields = error.fields;
-          }
-          if (error.parent) {
-            this.parent = error.parent;
-            if (this.parent.errno) {
-              this.errno = this.parent.errno;
-            }
-            if (this.parent.code) {
-              this.code = this.parent.code;
-            }
-          }
-          if ((error as unknown as Record<string, unknown>).sql) {
-            this.sql = (error as unknown as Record<string, unknown>).sql;
-          }
-          if (error.index) {
-            this.index = error.index;
-          }
-          if (error.value) {
-            this.value = error.value;
-          }
-          if (error.table) {
-            this.table = error.table;
-          }
-          if (error.constraint) {
-            this.constraint = error.constraint;
-          }
+        case "OrmError":
+          // Mémorise l'adapter résolu (sur l'erreur native originale) pour que
+          // `toString()` délègue son rendu sans re-détecter sur le wrapper.
+          this.#errorAdapter = findErrorAdapter(error);
           return errorType;
         default:
           return error.constructor.name;
@@ -373,10 +355,8 @@ class nodefonyError extends Error {
       ${clc.white("BytesParsed :")} ${this.bytesParsed}
       ${clc.white("RawPacket :")} ${this.rawPacket}`;
         break;
-      case "SequelizeError":
-        return _sequelizeAdapter?.errorToString(this) ?? this.message;
-      case "MongooseError":
-        return _mongooseAdapter?.errorToString(this) ?? this.message;
+      case "OrmError":
+        return this.#errorAdapter?.errorToString(this) ?? this.message;
       default:
         if (Nodefony.getKernel()?.environment === "prod") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(
@@ -407,9 +387,6 @@ class nodefonyError extends Error {
     this.errorType = this.getType(message);
     switch (typeOf(message)) {
       case "Error":
-        if (this.errorType === "SequelizeError") {
-          break;
-        }
         this.message = message.message;
         if (message.code) {
           this.code = message.code;
