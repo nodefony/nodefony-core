@@ -1,17 +1,13 @@
 import { resolve } from "node:path";
-import { Controller, route, controller } from "@nodefony/framework";
+import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
 import { inject, Fetch, nodefonyError as Error } from "nodefony";
 
 @controller("/nodefony/test/route")
+@UseSession()
 class RouteController extends Controller {
   constructor(context: Context) {
     super("RouteController", context);
-  }
-
-  async initialize(): Promise<this> {
-    await this.startSession();
-    return this;
   }
 
   @route("route-test-1", {

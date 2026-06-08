@@ -2,14 +2,9 @@ export default {
   watch: true,
 
   "module-http": {
-    statics: {
-      test: {
-        path: "src/modules/test/public",
-        options: {
-          maxAge: 30 * 24 * 60 * 60 * 1000,
-        },
-      },
-    },
+    // Plus de racine statique `test` : le `public/` du module est auto-monté
+    // sous le préfixe natif `/test/` par server-static (`mountModulePublics`).
+    // Les fichiers vivent désormais à la racine de `public/` (pas `public/test/`).
     // Fixture de test : seuils d'upload BAS pour exercer les 413 (maxFileSize /
     // maxTotalFileSize) sans envoyer 500 MB. Les uploads réels des tests
     // (config.ts ~quelques Ko) restent largement sous ces limites.

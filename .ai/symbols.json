@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-05T20:54:25.017Z",
+  "generated": "2026-06-07T21:58:19.871Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 829,
-    "symbols": 1667,
-    "classes": 245,
-    "interfaces": 419,
-    "types": 212,
+    "files": 837,
+    "symbols": 1709,
+    "classes": 250,
+    "interfaces": 429,
+    "types": 215,
     "enums": 3,
-    "functions": 314,
-    "constants": 474
+    "functions": 335,
+    "constants": 477
   },
   "symbols": {
     "Cli": {
@@ -3805,7 +3805,8 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
     },
     "securityHooksState": {
@@ -3863,7 +3864,8 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
     },
     "HtmlController": {
@@ -3875,7 +3877,8 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
     },
     "LifecycleController": {
@@ -3900,7 +3903,8 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
     },
     "RestController": {
@@ -3912,7 +3916,8 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
     },
     "RouteController": {
@@ -3924,8 +3929,22 @@
       "extends": "Controller",
       "implements": [],
       "decorators": [
-        "controller"
+        "controller",
+        "UseSession"
       ]
+    },
+    "SessionRuntimeController": {
+      "name": "SessionRuntimeController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Controller DÉDIÉ au cycle de vie de session (le « plug runtime » — chantier session étape 5). Volontairement **sans** `@UseSession` au niveau classe : chaque route exerce une facette précise de l'a…"
     },
     "WebsocketController": {
       "name": "WebsocketController",
@@ -4452,6 +4471,14 @@
       "exported": true,
       "module": "@nodefony/framework"
     },
+    "UseSessionOptions": {
+      "name": "UseSessionOptions",
+      "kind": "type",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Options déclaratives de `@UseSession` (= forme de l'intent runtime)."
+    },
     "controllers": {
       "name": "controllers",
       "kind": "function",
@@ -4511,6 +4538,22 @@
       "exported": true,
       "module": "@nodefony/framework",
       "description": "Restreint une route (décorateur de **méthode**) ou tout un contrôleur (décorateur de **classe**) à un ou plusieurs vhosts. Source de vérité du domaine de routing — le `host` posé ici alimente `Rout…"
+    },
+    "UseSession": {
+      "name": "UseSession",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Déclare qu'une route (décorateur de **méthode**) ou tout un contrôleur (décorateur de **classe**) a besoin d'une **session serveur**. C'est l'unique façon d'activer une session (avec la reprise aut…"
+    },
+    "resolveSessionIntent": {
+      "name": "resolveSessionIntent",
+      "kind": "function",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "description": "Résout l'intent de session effectif d'une action — lu par le `Resolver` au match, posé sur `context.sessionIntent`, consommé au point d'activation unique (`HttpKernel.startSession`). Combine `@UseS…"
     },
     "Body": {
       "name": "Body",
@@ -4581,6 +4624,20 @@
     },
     "DOMAIN_METHOD_METADATA": {
       "name": "DOMAIN_METHOD_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "USE_SESSION_CLASS_METADATA": {
+      "name": "USE_SESSION_CLASS_METADATA",
+      "kind": "const",
+      "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+      "exported": true,
+      "module": "@nodefony/framework"
+    },
+    "USE_SESSION_METHOD_METADATA": {
+      "name": "USE_SESSION_METHOD_METADATA",
       "kind": "const",
       "file": "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
       "exported": true,
@@ -5247,6 +5304,28 @@
       "module": "@nodefony/frontend",
       "description": "Famille servie sur le port de base (`devPort`). Les autres familles prennent les blocs de ports suivants. Garder `default` ici garantit que l'instance principale (React/Vue/Studio) reste sur le por…"
     },
+    "AssetsPublish": {
+      "name": "AssetsPublish",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande CLI `assets:publish` — assemble TOUS les assets statiques servables (publics de module montés sous `/<module>/` + bundles `@nodefony/frontend` sous `/_assets/<name>/`) dans UN arbre `dist-…"
+    },
+    "Certificates": {
+      "name": "Certificates",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande CLI `certificates` — (re)génère et inspecte le certificat TLS de DÉVELOPPEMENT. La génération reste un confort de dev : en production, fournir un vrai certificat (`certificates.strategy: \"…"
+    },
     "Network": {
       "name": "Network",
       "kind": "class",
@@ -5256,6 +5335,17 @@
       "extends": "Command",
       "implements": [],
       "decorators": []
+    },
+    "ProxyGenerate": {
+      "name": "ProxyGenerate",
+      "kind": "class",
+      "file": "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande CLI `proxy:generate <nginx|haproxy>` — génère une configuration reverse-proxy DÉRIVÉE de l'introspection Nodefony (domaines de confiance, dossiers statiques servis, ports). Évite d'écrire …"
     },
     "INodefonyFieldMeta": {
       "name": "INodefonyFieldMeta",
@@ -5564,13 +5654,32 @@
       "module": "@nodefony/http",
       "extends": "IResponse"
     },
+    "SessionIntent": {
+      "name": "SessionIntent",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Intent d'activation de session déclaré par une route (décorateur `@UseSession` de `@nodefony/framework`, ou présence d'un paramètre `@Session`). Lu au point d'activation **unique** du pipeline (HTT…"
+    },
+    "ISerializedSession": {
+      "name": "ISerializedSession",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Données de session **sérialisées** échangées avec un {@link ISessionStorage} (blob opaque persisté/restauré). La forme métier riche (ProtoService/bags) est l'affaire de `Session` ; le storage ne ma…"
+    },
     "ISessionStorage": {
       "name": "ISessionStorage",
       "kind": "interface",
       "file": "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": null
+      "extends": null,
+      "description": "Contrat **unique** d'un backend de stockage de session (File, Redis, SQL/Drizzle…). Source de vérité unifiée — l'ex-doublon `sessionStorageInterface` (any) n'est plus qu'un alias transitionnel. Enr…"
     },
     "ISession": {
       "name": "ISession",
@@ -5697,7 +5806,8 @@
       "module": "@nodefony/http",
       "extends": "Service",
       "implements": [],
-      "decorators": []
+      "decorators": [],
+      "description": "Service de fourniture du certificat TLS du serveur HTTPS/WSS. Trois stratégies : `explicit` (certificat fourni en config — le cas de PRODUCTION), `mkcert` (CA locale trustée, confort de dev) et `se…"
     },
     "OpensslOptions": {
       "name": "OpensslOptions",
@@ -5716,6 +5826,15 @@
       "extends": null,
       "description": "Options de génération du certificat TLS en mode développement."
     },
+    "CertificateSanOptions": {
+      "name": "CertificateSanOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Subject Alternative Name explicite (sinon dérivé du kernel)."
+    },
     "CertificateOptions": {
       "name": "CertificateOptions",
       "kind": "interface",
@@ -5723,6 +5842,31 @@
       "exported": true,
       "module": "@nodefony/http",
       "extends": null
+    },
+    "CertificateInfo": {
+      "name": "CertificateInfo",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Résumé introspectable du certificat serveur (CLI + futur endpoint Studio)."
+    },
+    "CertHash": {
+      "name": "CertHash",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Algorithmes de hachage de signature autorisés (SHA-1 banni)."
+    },
+    "CertStrategyConfig": {
+      "name": "CertStrategyConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Stratégie de fourniture du certificat exposée en configuration."
     },
     "DefaultErrorRenderer": {
       "name": "DefaultErrorRenderer",
@@ -7124,6 +7268,19 @@
       "implements": [],
       "decorators": [],
       "description": "Une connexion Redis nommée — enveloppe un client `redis` v6 et gère son cycle de vie (création, écoute des événements, fermeture propre). Perf/mémoire : les handlers d'événements sont conservés en …"
+    },
+    "RedisSessionStorage": {
+      "name": "RedisSessionStorage",
+      "kind": "class",
+      "file": "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "extends": null,
+      "implements": [
+        "ISessionStorage"
+      ],
+      "decorators": [],
+      "description": "Stockage de session **Redis** — branché sur la connexion `main` du {@link RedisService}. Implémente le contrat unifié {@link ISessionStorage} consommé par le `SessionsService` de `@nodefony/http`. …"
     },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
@@ -10965,22 +11122,6 @@
         "injectable"
       ]
     },
-    "SerializeSessionType": {
-      "name": "SerializeSessionType",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "extends": null
-    },
-    "sessionStorageInterface": {
-      "name": "sessionStorageInterface",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "extends": null
-    },
     "sessionStrategyType": {
       "name": "sessionStrategyType",
       "kind": "type",
@@ -11036,6 +11177,32 @@
       "extends": "FileClass",
       "implements": [],
       "decorators": []
+    },
+    "AssetSource": {
+      "name": "AssetSource",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/collectAssets.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Une source d'assets statiques : un dossier servi sous un préfixe d'URL. Provient soit des montages natifs `server-static.mounts` (publics de module), soit des bundles `@nodefony/frontend` (`publicP…"
+    },
+    "AssetPlanEntry": {
+      "name": "AssetPlanEntry",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/collectAssets.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Une entrée du plan de publication : copier `dir` → `target` (sous-arbre de `outDir` miroir du préfixe d'URL), servi à terme par le CDN sous `prefix`."
+    },
+    "planAssetPublish": {
+      "name": "planAssetPublish",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/assets/collectAssets.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Construit le plan de publication des assets : pour chaque source unique (dédupliquée par préfixe — le DERNIER gagne, comme `addMount`), calcule le dossier cible `outDir/<préfixe-en-chemin>` miroir …"
     },
     "Context": {
       "name": "Context",
@@ -11132,6 +11299,64 @@
       "module": "@nodefony/http",
       "description": "Teste un `Host` entrant contre une liste de `RegExp` pré-compilée."
     },
+    "ForwardedElement": {
+      "name": "ForwardedElement",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Un `forwarded-element` parsé (RFC 7239 §4) : un saut de la chaîne de proxy. Les paramètres inconnus (extensibilité §5.4) sont ignorés silencieusement."
+    },
+    "ResolvedProxy": {
+      "name": "ResolvedProxy",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Résolution canonique unifiée des en-têtes forwarded."
+    },
+    "ForwardedHeaders": {
+      "name": "ForwardedHeaders",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Parsing et résolution **canonique** des en-têtes de transfert (forwarded), conforme **RFC 7239** (« Forwarded HTTP Extension ») et compatible avec les en-têtes `X-Forwarded-*` de-facto (non normali…"
+    },
+    "parseForwarded": {
+      "name": "parseForwarded",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Parse le header `Forwarded` (RFC 7239 §4) en liste de `forwarded-element`, dans l'ordre **gauche→droite** (le plus à gauche = le plus proche du client). Grammaire honorée : `Forwarded = 1#forwarded…"
+    },
+    "forwardedNodeIp": {
+      "name": "forwardedNodeIp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Extrait l'**IP nue** d'un node identifier RFC 7239 §6 (`node = nodename [ \":\" node-port ]`). - IPv6 entre crochets (`[2001:db8::1]`, éventuel `]:port`) → l'IPv6 sans crochets. - IPv4 (`192.0.2.43`,…"
+    },
+    "resolveForwarded": {
+      "name": "resolveForwarded",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Résout, en **une seule passe**, le scheme, le host et l'IP cliente effectifs à partir des en-têtes forwarded — header standard `Forwarded` (RFC 7239) **prioritaire**, repli sur les `X-Forwarded-*` …"
+    },
+    "hasForwardingHeaders": {
+      "name": "hasForwardingHeaders",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Au moins un en-tête forwarded (standard ou de-facto) est-il présent ? Permet à l'appelant de n'allouer la résolution que quand c'est utile (hot path : 0 alloc sur une requête directe sans proxy)."
+    },
     "IMetaDataRouteSource": {
       "name": "IMetaDataRouteSource",
       "kind": "interface",
@@ -11198,6 +11423,22 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Compile une config `trustProxy` en un {@link TrustProxyChecker} (une fois, au boot — pas par requête). Les entrées invalides lèvent à la compilation (fail fast) plutôt que silencieusement par requête."
+    },
+    "resolveFromRight": {
+      "name": "resolveFromRight",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/trustProxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Cœur de la résolution **from-right** (OWASP) partagé par `X-Forwarded-For` (de-facto) et le paramètre `for` du header `Forwarded` (RFC 7239 §5.2). `chain` = liste des maillons forwarded NORMALISÉS …"
+    },
+    "extractClientIp": {
+      "name": "extractClientIp",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/trustProxy.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Résout l'adresse IP cliente RÉELLE à partir de la connexion socket et de la chaîne `X-Forwarded-For`, en dépouillant les proxies de confiance **de droite à gauche** (algorithme OWASP). `X-Forwarded…"
     },
     "Cookie": {
       "name": "Cookie",
@@ -11289,22 +11530,68 @@
       "extends": null,
       "description": "Résumé léger d'un profil pour la liste `recent` (sans les phases)."
     },
+    "ProxyStaticMount": {
+      "name": "ProxyStaticMount",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Générateurs de configuration reverse-proxy (nginx / haproxy) DÉRIVÉE de l'introspection Nodefony — fonctions PURES (aucun accès kernel/fs), testables et sérialisables. Le câblage (lecture des servi…"
+    },
+    "ProxyIntrospection": {
+      "name": "ProxyIntrospection",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Modèle d'introspection consommé par les générateurs."
+    },
+    "generateNginxConfig": {
+      "name": "generateNginxConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Génère une configuration nginx complète (reverse-proxy + offload statiques)."
+    },
+    "generateHaproxyConfig": {
+      "name": "generateHaproxyConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Génère une configuration haproxy (reverse-proxy + Forwarded RFC 7239). haproxy ne sert PAS de fichiers : les statiques sont proxifiés au backend (ou désactivés côté serveur via `statics.enabled: fa…"
+    },
+    "defaultIntrospection": {
+      "name": "defaultIntrospection",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Valeurs par défaut d'un modèle d'introspection (complété par la commande)."
+    },
     "@nodefony/http:Session": {
       "name": "Session",
       "kind": "class",
       "file": "src/packages/@nodefony/http/nodefony/src/session/session.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": "Container",
-      "implements": [],
-      "decorators": []
+      "extends": null,
+      "implements": [
+        "ISession"
+      ],
+      "decorators": [],
+      "description": "Session serveur Nodefony — état persistant lié à une identité, indexé par un identifiant **opaque** (porté par le cookie) dans un {@link ISessionStorage} pluggable (File / Redis / SQL). Modèle BFF …"
     },
     "OptionsSessionType": {
       "name": "OptionsSessionType",
       "kind": "type",
       "file": "src/packages/@nodefony/http/nodefony/src/session/session.ts",
       "exported": true,
-      "module": "@nodefony/http"
+      "module": "@nodefony/http",
+      "description": "Options d'une session (sous-ensemble de `module.options.session`). Cookie-only : plus de `use_trans_sid`/`use_only_cookies` — un identifiant de session ne voyage JAMAIS dans l'URL (OWASP Session Ma…"
     },
     "MongooseOrm": {
       "name": "MongooseOrm",
@@ -11903,7 +12190,8 @@
       "file": "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": null
+      "extends": null,
+      "description": "Métadonnées de topologie de proxy (en-têtes `X-Forwarded-*`), renseignées seulement derrière un proxy de confiance. ⚠️ RFC 7239 §8.2 (Information Leak) — DONNÉES INTERNES : ne JAMAIS recopier dans …"
     },
     "HttpRequestType": {
       "name": "HttpRequestType",
@@ -12085,7 +12373,7 @@
       "module": "@nodefony/http",
       "extends": null,
       "implements": [
-        "sessionStorageInterface"
+        "ISessionStorage"
       ],
       "decorators": []
     }
@@ -12137,8 +12425,7 @@
         "TypeKernelOptions"
       ],
       "Container": [
-        "Scope",
-        "Session"
+        "Scope"
       ],
       "Error": [
         "nodefonyError",
@@ -12215,7 +12502,10 @@
         "FrontendBuild",
         "FrontendDev",
         "FrontendStatus",
+        "AssetsPublish",
+        "Certificates",
         "Network",
+        "ProxyGenerate",
         "SequelizeCommand"
       ],
       "IClusterMessage": [
@@ -12245,6 +12535,7 @@
         "OpenApiController",
         "RestController",
         "RouteController",
+        "SessionRuntimeController",
         "WebsocketController",
         "AngularController",
         "PocController",
@@ -12421,7 +12712,9 @@
         "SyslogTransport"
       ],
       "ISessionStorage": [
-        "SessionStorage"
+        "SessionStorage",
+        "RedisSessionStorage",
+        "FileSessionStorage"
       ],
       "IAdminBroker": [
         "AdminBroker"
@@ -12513,6 +12806,9 @@
       "ICookieInterface": [
         "Cookie"
       ],
+      "ISession": [
+        "Session"
+      ],
       "IBackplane": [
         "ClusterBackplane",
         "LoopbackBackplane",
@@ -12535,9 +12831,6 @@
       ],
       "IWebsocketContextInterface": [
         "WebsocketContext"
-      ],
-      "sessionStorageInterface": [
-        "FileSessionStorage"
       ]
     },
     "decoratedBy": {
@@ -12581,6 +12874,7 @@
         "OpenApiController",
         "RestController",
         "RouteController",
+        "SessionRuntimeController",
         "WebsocketController",
         "AngularController",
         "PocController",
@@ -12588,6 +12882,14 @@
         "DocumentationController",
         "StudioController",
         "StudioRealtimeController"
+      ],
+      "UseSession": [
+        "DefaultController",
+        "GraphQlController",
+        "HtmlController",
+        "OpenApiController",
+        "RestController",
+        "RouteController"
       ],
       "Domain": [
         "DomainClassController"
@@ -12626,7 +12928,10 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
       "Service": [
@@ -12720,7 +13025,6 @@
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
@@ -12833,7 +13137,6 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
@@ -12856,7 +13159,6 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts",
@@ -12938,6 +13240,7 @@
       "inspect": [
         "src/nodefony/src/Error.ts",
         "src/nodefony/src/syslog/Syslog.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
       ],
       "EventEmitter": [
@@ -12962,8 +13265,7 @@
       "DynamicParam": [
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/types/IContainer.ts",
-        "src/nodefony/src/types/IService.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+        "src/nodefony/src/types/IService.ts"
       ],
       "EventDefaultInterface": [
         "src/nodefony/src/Service.ts",
@@ -12996,7 +13298,6 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
       ],
@@ -13150,6 +13451,9 @@
       "FrameworkController": [
         "src/modules/test/index.ts"
       ],
+      "SessionRuntimeController": [
+        "src/modules/test/index.ts"
+      ],
       "DecoratorController": [
         "src/modules/test/index.ts"
       ],
@@ -13274,6 +13578,7 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
@@ -13328,6 +13633,7 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
@@ -13347,6 +13653,7 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
@@ -13362,6 +13669,18 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts"
+      ],
+      "UseSession": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/FrameworkController.ts",
+        "src/modules/test/nodefony/controller/GraphqlController.ts",
+        "src/modules/test/nodefony/controller/HtmlController.ts",
+        "src/modules/test/nodefony/controller/OpenapiController.ts",
+        "src/modules/test/nodefony/controller/RestController.ts",
+        "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
+        "src/modules/test/nodefony/controller/WebSocketController.ts"
       ],
       "HttpCode": [
         "src/packages/@nodefony/framework/index.ts",
@@ -13398,6 +13717,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/http/index.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -13449,14 +13769,16 @@
       "SessionsService": [
         "src/packages/@nodefony/http/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
       "Certificate": [
         "src/packages/@nodefony/http/index.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "Context": [
@@ -13474,6 +13796,7 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
@@ -13492,6 +13815,7 @@
         "src/modules/test/nodefony/controller/HtmlController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
@@ -13544,6 +13868,7 @@
       ],
       "WebsocketContext": [
         "src/packages/@nodefony/http/index.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
@@ -13559,7 +13884,6 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts"
@@ -13579,8 +13903,10 @@
       "ISession": [
         "src/packages/@nodefony/mongoose/index.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
+        "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
       "SessionModel": [
         "src/packages/@nodefony/mongoose/index.ts",
@@ -13710,7 +14036,8 @@
       ],
       "RedisService": [
         "src/packages/@nodefony/redis/index.ts",
-        "src/packages/@nodefony/redis/nodefony/src/Connection.ts"
+        "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts"
       ],
       "defineRedisConfig": [
         "src/packages/@nodefony/redis/index.ts",
@@ -13760,7 +14087,10 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
       "loadEnv": [
@@ -14275,7 +14605,10 @@
         "src/packages/@nodefony/frontend/nodefony/command/frontend-build.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-dev.ts",
         "src/packages/@nodefony/frontend/nodefony/command/frontend-status.ts",
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
       ],
       "resolveTopology": [
@@ -14687,7 +15020,17 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "ISessionStorage": [
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
+      ],
+      "ISerializedSession": [
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
       ],
       "IRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -14739,6 +15082,10 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http2/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "SessionIntent": [
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "IAdminEndpoint": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IAdminBroker.ts",
@@ -14899,6 +15246,9 @@
       "buildParamArgs": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
+      "resolveSessionIntent": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
       "RedirectMeta": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
@@ -14997,8 +15347,26 @@
       "ViteConfigGenerator": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
+      "planAssetPublish": [
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts"
+      ],
+      "AssetSource": [
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts"
+      ],
       "NetworkInterface": [
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
+      ],
+      "generateNginxConfig": [
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
+      ],
+      "generateHaproxyConfig": [
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
+      ],
+      "defaultIntrospection": [
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
+      ],
+      "ProxyIntrospection": [
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
       ],
       "httpConfigSchema": [
         "src/packages/@nodefony/http/nodefony/config/config.ts",
@@ -15078,7 +15446,8 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "TrustProxyChecker": [
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts"
       ],
       "TrustProxyConfig": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
@@ -16839,14 +17208,6 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts"
       ],
-      "ProtoService": [
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "ProtoParameters": [
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
       "OptionsSessionType": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
@@ -16895,10 +17256,19 @@
       "AfterResponseHandler": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
+      "resolveFromRight": [
+        "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts"
+      ],
+      "extractClientIp": [
+        "src/packages/@nodefony/http/nodefony/src/context/forwarded.ts"
+      ],
       "MetaData": [
         "src/packages/@nodefony/http/nodefony/src/context/metaData.ts"
       ],
       "IWsCookie": [
+        "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
+      ],
+      "SameSiteType": [
         "src/packages/@nodefony/http/nodefony/src/cookies/cookie.ts"
       ],
       "HttpRequestType": [
@@ -16907,24 +17277,19 @@
       "HttpRsponseType": [
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts"
       ],
-      "sessionStrategyType": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "FlashBagSessionType": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "MetaBagSessionType": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
-      ],
-      "SerializeSessionType": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
-      ],
-      "sessionStorageInterface": [
-        "src/packages/@nodefony/http/nodefony/src/session/session.ts",
-        "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
-      ],
       "CookieOptionsType": [
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "SessionStatusType": [
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "SessionStrategyType": [
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "FlashBagType": [
+        "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "MetaBagType": [
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
       "MongooseRepository": [
@@ -17067,6 +17432,18 @@
       ],
       "IUploadOptions": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "resolveForwarded": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "hasForwardingHeaders": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "ResolvedProxy": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "responseTimeoutType": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"

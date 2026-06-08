@@ -15,20 +15,22 @@
 Les décisions complètes sont **persistées en mémoire IA** (survivent au `/clear`). Pointeurs :
 
 - `project_decisions_p5_p6_orm` — Sécurité + ORM + IUser · `project_decisions_realtime_isomorphic` — Realtime + Core isomorphe + Mediasoup
-- `project_orm_hardening_kit` — **virage ORM** · `project_hardening_before_p6` — durcir avant P6 · `project_api_souveraine_poc` — API souveraine
+- `project_orm_hardening_kit` — **virage ORM** (graine) · `project_orm_audit_state` — **audit ORM + plan** (boussole terrain) · `project_hardening_before_p6` — durcir avant P6 · `project_api_souveraine_poc` — API souveraine
 
 ### ⚡ Séquencement actuel (figé 2026-06-05)
 
 **Config (`defineConfig`) ✅ CLOS** → **🥇 durcissement ORM** → (Realtime reste S1) → **POC API souveraine** → **P6 Security**.
 Boussole : durcir les fondations (orm, realtime, core, http, framework) AVANT P6 — P6 se greffe dessus.
 
-### 🔀 Virage ORM (décidé 2026-06-02) — ⚠️ pas encore exécuté
+### 🔀 Virage ORM (décidé 2026-06-02) — ✅ audit pré-chantier livré 2026-06-08, exécution à venir
 
+- 📋 **Audit complet** : [`docs/audits/orm-state-and-hardening-2026-06.md`](docs/audits/orm-state-and-hardening-2026-06.md) + mémoire `project_orm_audit_state`. **Plan 5 phases** (~2080 L mortes, ~1250 à refaire) : Ph.1 Seq OUT ∥ Ph.2 Mongoose REFAIT → Ph.3 kernel/orm OUT → Ph.4 couplage (C2/C5) → API souveraine → P6.
 - **Sequelize = SUPPRESSION COMPLÈTE** (package + consommateurs + tests retirés). Lignes P5.7/P7.1/P7.3 → **caduques**.
-- **Mongoose = REFAIT NEUF** sur modèle Drizzle (`class …Service extends Service`, plus `extends Orm` core). Lignes P5.8/P7.2/P7.5 → **à refaire**.
-- **Orm core `src/nodefony/src/kernel/orm/{Orm,Connector,Entity}` → à RETIRER** (le core ne connaît pas l'ORM ; **encore présent**, 3 fichiers).
-- **MikroORM (P7.8/P7.9) = abandonné** (jamais commencé, module absent — était « 4ᵉ driver »). → ⏭️.
-- ⭐ **Drizzle = référence** (`extends Service`).
+- **Mongoose = REFAIT NEUF** sur modèle Drizzle (`class …Service extends Service`, plus `extends Orm` core) + réimplémenter 4 sondes Studio (`describeEntity`/`describeConnection`/`ping`/tap flux). Lignes P5.8/P7.2/P7.5 → **à refaire**.
+- **Orm core `src/nodefony/src/kernel/orm/{Orm,Connector,Entity}` → à RETIRER** (3 fichiers, 254 L). ⚠️ **Piège homonyme** : c'est le LEGACY du workspace `nodefony`, **PAS** `@nodefony/orm-core` (socle moderne validé ADR-0003, à **GARDER**). Maintenu vivant par les `service/orm.ts` legacy de Seq+Mongoose.
+- **Dette C5** (audit) : montage data plane ORM + sondes santé **déclenché par le module Drizzle** → app Mongoose-only = Studio ORM muet → factoriser `wireOrmAdminPlane(kernel)` appelé par chaque driver.
+- **MikroORM (P7.8/P7.9) = abandonné** (0 code, traces docs/types seulement). → ⏭️.
+- ⭐ **Drizzle = référence** (`extends Service`, 100 % propre). **Migrations** (absentes) : déléguer `drizzle-kit` (versioned) + façade `IMigrator` Studio — hors chemin critique.
 
 ### 🔐 Sécurité (P6) — décisions figées 2026-05-20
 
@@ -48,13 +50,13 @@ Passport ❌ · Sessions HTTP RAM ❌ (JWT cookie `HttpOnly;Secure;SameSite` onl
 
 ## 🛡️ Durcissement fondations (transverse — pas de lignes P dédiées)
 
-| Couche                | État | Résumé (détail → mémoire `project_hardening_*`)                                                               |
-| --------------------- | ---- | ------------------------------------------------------------------------------------------------------------- |
-| `nodefony` (core)     | ✅   | Kit C1→C6 clos (PM2 retiré, modes run `IRunProfile`, park, ménage boot −378 ms). `project_hardening_core_kit` |
-| `@nodefony/http`      | ✅   | Kit H1→H6 + config Zod + domain matching (`trustedHosts` + `@Domain`). `project_hardening_http_kit`           |
-| `@nodefony/framework` | ✅   | F1→F7 (sauf F6 résolu via dette CLI) ; 176 tests unit ; 0 dette. `project_hardening_framework_kit`            |
-| `@nodefony/realtime`  | 🔶   | **Déjà bien durci** : back-pressure WS, 0 dette, 14 tests, 5 seams sécu livrés. Reste S1 (mutualiser fan-out) |
-| `@nodefony/orm-*`     | ⬜   | **🥇 PROCHAIN** — virage ORM (sequelize sort, mongoose refait, core orm retiré) + footgun `counts` sync       |
+| Couche                | État | Résumé (détail → mémoire `project_hardening_*`)                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nodefony` (core)     | ✅   | Kit C1→C6 clos (PM2 retiré, modes run `IRunProfile`, park, ménage boot −378 ms). `project_hardening_core_kit`                                                                                                                                                                                                                                                                                                                                                                                         |
+| `@nodefony/http`      | ✅   | Kit H1→H6 + config Zod + domain matching + forwarded RFC 7239 COMPLET + banc proxy Docker E2E + **service certificates durci** (RFC 5280/6125, SHA-256, serial 128b, 0600, lazy node-forge, CLI `certificates`) + **banc TLS re-encrypt validé** (verify required/verifyhost/sni) + `proxy:generate` + **préfixe natif statique `/<module>/`** (`mountModulePublics`, configurable `publicMount`) + **`assets:publish`** (arbre CDN-ready provider-agnostic). `65f7e41`/`6ac8562`/`e735544`/`6918f89` |
+| `@nodefony/framework` | ✅   | F1→F7 (sauf F6 résolu via dette CLI) ; 176 tests unit ; 0 dette. `project_hardening_framework_kit`                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `@nodefony/realtime`  | 🔶   | **Déjà bien durci** : back-pressure WS, 0 dette, 14 tests, 5 seams sécu livrés. Reste S1 (mutualiser fan-out)                                                                                                                                                                                                                                                                                                                                                                                         |
+| `@nodefony/orm-*`     | ⬜   | **🥇 PROCHAIN** — virage ORM ✅ **audité 2026-06-08** ([`docs/audits/orm-state-and-hardening-2026-06.md`](docs/audits/orm-state-and-hardening-2026-06.md), plan 5 phases) : Seq sort, Mongoose refait, kernel/orm legacy retiré, couplage C2/C5 nettoyé + footgun `counts` sync                                                                                                                                                                                                                       |
 
 **Log Backplane** (`project_log_backplane_vision`) : axe WRITE (`LB.W`) ✅ + axe QUERY (`LB.0→LB.5`) ✅ — drivers
 `memory`/`file`/`cluster-file`/`loki`/`opensearch` queryables, validés runtime cluster + Loki/OpenSearch réels.
@@ -81,7 +83,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P7  ORM drivers           █████░░░░░  50%   2✅  5🔶  2⬜   (% va bouger post-virage : sequelize/mikroorm sortent)
  P8  CLI + Monitoring      ██████░░░░  63%   2✅  1🔶  1⬜
  P9  Polish + clôture      ████░░░░░░  38%   1✅  1🔶  2⬜
- P10 Studio (admin web)    ██████░░░░  59%   3✅  7🔶  1⬜
+ P10 Studio (admin web)    ███████░░░  65%   5✅  7🔶  1⬜   (workspace + Jumeau, maj 2026-06-06)
  P11 CLI par module        ███░░░░░░░  33%   1✅  2🔶  3⬜
  P12 Couche IA agentic     ██░░░░░░░░  17%   0✅  2🔶  4⬜   🧪 différé (squelettes brainstorming, non audité)
  P13 Realtime distribué    ████████░░  77%   7✅  3🔶  1⬜
@@ -89,7 +91,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
  P16 Cloud-Native (8 axes) ███░░░░░░░  26%   8✅  1🔶 24⬜
 ────────────────────────────────────────────────────────────────────────
- GLOBAL                    █████░░░░░  50%  74✅ 35🔶 73⬜   (182 tâches)
+ GLOBAL                    █████░░░░░  51%  76✅ 35🔶 73⬜   (184 tâches)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -150,26 +152,26 @@ DI scopes (singleton/transient), lifecycle session.
 
 ### P5 — Session + User + ORM Core (58 %) ◀ chemin critique
 
-| #        | Tâche                                       | État                                                         |
-| -------- | ------------------------------------------- | ------------------------------------------------------------ |
-| 🔶 P5.0  | Gate batch/console (`initServers` par type) | `isConsole()` + dispatch 0-serveur OK ; reste `BatchCommand` |
-| ⬜ P5.0b | Service Cron/Worker (worker dédié)          | décision : gardé, découplé serveur                           |
-| ✅ P5.1  | `@nodefony/orm-core` + interfaces           | `IOrm/IRepository/IEntity` + trappe SQL brut                 |
-| ✅ P5.2  | `OrmRegistry`/`EntityRegistry` + base class | 15 tests                                                     |
-| ✅ P5.3  | `@entity`/`@repository` decorators          | WeakMap, sans reflect-metadata                               |
-| ✅ P5.3b | `AbstractCrudService<T,R>`                  | socle CRUD générique (hooks template)                        |
-| ✅ P5.4  | Tests orm-core + adapter réel               | portabilité prouvée (orm-core 22 tests)                      |
-| ✅ P5.5a | Workspace `@nodefony/user`                  | lib pure, peerDeps                                           |
-| ✅ P5.5  | Contrats `IUser`/`BaseUser`/`IUserProvider` | 11 tests, split credential                                   |
-| ✅ P5.6  | `UserService` + `BcryptEncoder`             | `@node-rs/bcrypt`, 32 tests                                  |
-| ⏭️ P5.7  | ~~Adapter Sequelize User~~                  | **caduc (virage ORM : sequelize supprimé)**                  |
-| 🔨 P5.8  | Adapter Mongoose User                       | **à refaire neuf** (virage ORM, modèle Drizzle)              |
-| ✅ P5.9  | Adapter Drizzle User                        | ORM par défaut, 8 tests                                      |
-| ⬜ P5.10 | Tests User cross-ORM                        | (recadrer : Drizzle + Mongoose refait)                       |
-| ⬜ P5.11 | Session refactor (`session.user: IUser`)    | étendre `session.ts`                                         |
-| 🔶 P5.12 | `Memory`/`Redis` SessionStorage             | File livré ; Redis en P13.2                                  |
-| 🔶 P5.13 | `OrmSessionStorage` générique               | Drizzle livré ; storages sequelize/mongoose à recadrer       |
-| ⬜ P5.14 | Tests sessions cross-request + expiry       | —                                                            |
+| #        | Tâche                                       | État                                                                                                                                                                                                                                                                                                                                                                    |
+| -------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔶 P5.0  | Gate batch/console (`initServers` par type) | `isConsole()` + dispatch 0-serveur OK ; reste `BatchCommand`                                                                                                                                                                                                                                                                                                            |
+| ⬜ P5.0b | Service Cron/Worker (worker dédié)          | décision : gardé, découplé serveur                                                                                                                                                                                                                                                                                                                                      |
+| ✅ P5.1  | `@nodefony/orm-core` + interfaces           | `IOrm/IRepository/IEntity` + trappe SQL brut                                                                                                                                                                                                                                                                                                                            |
+| ✅ P5.2  | `OrmRegistry`/`EntityRegistry` + base class | 15 tests                                                                                                                                                                                                                                                                                                                                                                |
+| ✅ P5.3  | `@entity`/`@repository` decorators          | WeakMap, sans reflect-metadata                                                                                                                                                                                                                                                                                                                                          |
+| ✅ P5.3b | `AbstractCrudService<T,R>`                  | socle CRUD générique (hooks template)                                                                                                                                                                                                                                                                                                                                   |
+| ✅ P5.4  | Tests orm-core + adapter réel               | portabilité prouvée (orm-core 22 tests)                                                                                                                                                                                                                                                                                                                                 |
+| ✅ P5.5a | Workspace `@nodefony/user`                  | lib pure, peerDeps                                                                                                                                                                                                                                                                                                                                                      |
+| ✅ P5.5  | Contrats `IUser`/`BaseUser`/`IUserProvider` | 11 tests, split credential                                                                                                                                                                                                                                                                                                                                              |
+| ✅ P5.6  | `UserService` + `BcryptEncoder`             | `@node-rs/bcrypt`, 32 tests                                                                                                                                                                                                                                                                                                                                             |
+| ⏭️ P5.7  | ~~Adapter Sequelize User~~                  | **caduc (virage ORM : sequelize supprimé)**                                                                                                                                                                                                                                                                                                                             |
+| 🔨 P5.8  | Adapter Mongoose User                       | **à refaire neuf** (virage ORM, modèle Drizzle)                                                                                                                                                                                                                                                                                                                         |
+| ✅ P5.9  | Adapter Drizzle User                        | ORM par défaut, 8 tests                                                                                                                                                                                                                                                                                                                                                 |
+| ⬜ P5.10 | Tests User cross-ORM                        | (recadrer : Drizzle + Mongoose refait)                                                                                                                                                                                                                                                                                                                                  |
+| ✅ P5.11 | **Refonte cœur + plug runtime session**     | TS strict, ID CSPRNG opaque, dirty-tracking, cookie-only, contrat `ISessionStorage` unifié ; **plug runtime** `@UseSession` opt-in + lazy + L1 + point unique HTTP/WS (tue le ×23) ; cookie RFC 6265bis `__Host-`/SameSite/None⇒Secure + `cookie.hostPrefix` ; `readOnly` + `absolute_timeout` (OWASP). Tests unit+intég+load+mémoire. (chantier session 2026-06-06/07) |
+| 🔶 P5.12 | `Redis` SessionStorage                      | File + **Redis livrés** (TTL natif IoC) ; reste câblage prod                                                                                                                                                                                                                                                                                                            |
+| 🔶 P5.13 | `OrmSessionStorage` générique               | Drizzle livré ; storages sequelize/mongoose à recadrer                                                                                                                                                                                                                                                                                                                  |
+| ⬜ P5.14 | `session.user: IUser` + régén ID post-auth  | seam `regenerateId()` prêt ; câblage = P6 firewall                                                                                                                                                                                                                                                                                                                      |
 
 ### P6 — Security (12 %) ◀ bloqueur MVP
 
@@ -227,33 +229,37 @@ DI scopes (singleton/transient), lifecycle session.
 | 🔶 P9.3 | README publics                | security ✓ ; **http + framework absents**                         |
 | ⬜ P9.4 | Vulnérabilités npm            | **10** (0 crit/3 high/6 mod/1 low, 2026-05-25 — à re-`npm audit`) |
 
-### P10 — Studio admin web (59 %)
+### P10 — Studio admin web (65 %)
 
-| #         | Tâche                                       | État                                                                       |
-| --------- | ------------------------------------------- | -------------------------------------------------------------------------- |
-| ✅ P10.1  | Stack frontend (React 19) + Vite            | acté                                                                       |
-| ✅ P10.2  | `IAdminApi` + `AdminBroker`                 | contrat figé, inversion de dép                                             |
-| ✅ P10.3  | `IAdminApi` http/framework/syslog/frontend  | 5 producteurs, data plane `/nodefony/<m>/api/*`                            |
-| 🔶 P10.4  | `IAdminApi` user/orm-core/security          | orm ✓ ; user/security en attente P5/P6                                     |
-| 🔶 P10.5  | Backend Studio + WS realtime                | StudioController + JSON-RPC pub/sub ; reste IAdminApi                      |
-| ⬜ P10.6  | Auth admin (`ROLE_NODEFONY_ADMIN`)          | dépend P6                                                                  |
-| 🔶 P10.7  | Frontend bootstrap + router + layouts       | React 19 + Mantine + MobX + WS permanent ; reste auth réelle               |
-| 🔶 P10.8  | Vues prio (dashboard/routes/sessions/users) | Dashboard/Modules/Routes/Cluster/Runtime ✅ ; sessions/users attente P5/P6 |
-| ✅ P10.x  | Docs+API modules dans Studio                | onglets Docs/API + carte Core                                              |
-| 🔶 P10.9  | Vues firewall/logs/databases/migrate        | Logs ✅ (WS) + Databases ✅ ; firewall/migrate attente                     |
-| 🔶 P10.10 | Vues services/profiling                     | incrémental (~~pm2~~ retiré C6)                                            |
-| 🔶 P10.11 | Tests intégration studio                    | —                                                                          |
+| #         | Tâche                                       | État                                                                                                                                                                          |
+| --------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ P10.1  | Stack frontend (React 19) + Vite            | acté                                                                                                                                                                          |
+| ✅ P10.2  | `IAdminApi` + `AdminBroker`                 | contrat figé, inversion de dép                                                                                                                                                |
+| ✅ P10.3  | `IAdminApi` http/framework/syslog/frontend  | 5 producteurs, data plane `/nodefony/<m>/api/*`                                                                                                                               |
+| 🔶 P10.4  | `IAdminApi` user/orm-core/security          | orm ✓ ; user/security en attente P5/P6                                                                                                                                        |
+| 🔶 P10.5  | Backend Studio + WS realtime                | StudioController + JSON-RPC pub/sub ; reste IAdminApi                                                                                                                         |
+| ⬜ P10.6  | Auth admin (`ROLE_NODEFONY_ADMIN`)          | dépend P6                                                                                                                                                                     |
+| 🔶 P10.7  | Frontend bootstrap + router + layouts       | React 19 + Mantine + MobX + WS permanent ; reste auth réelle                                                                                                                  |
+| 🔶 P10.8  | Vues prio (dashboard/routes/sessions/users) | Dashboard/Modules/Routes/Cluster/Runtime ✅ ; sessions/users attente P5/P6                                                                                                    |
+| ✅ P10.x  | Docs+API modules dans Studio                | onglets Docs/API + carte Core                                                                                                                                                 |
+| 🔶 P10.9  | Vues firewall/logs/databases/migrate        | Logs ✅ (WS) + Databases ✅ ; firewall/migrate attente                                                                                                                        |
+| 🔶 P10.10 | Vues services/profiling                     | incrémental (~~pm2~~ retiré C6)                                                                                                                                               |
+| 🔶 P10.11 | Tests intégration studio                    | —                                                                                                                                                                             |
+| ✅ P10.12 | Workspace composable (bureau)               | fenêtres libres + espaces nommés + Mission Control + catalogue à facettes (taxonomie tags) + widgets supervision (mémoire/handles/erreurs/health/gc) ; remplace dashboard Dev |
+| ✅ P10.13 | Jumeau vivant (Twin)                        | explorateur archi runtime + registre de blocs unifié + forages Realtime/ORM/HTTP                                                                                              |
 
 ### P11 — CLI par module (33 %)
 
-| #        | Tâche                                         | État                                                          |
-| -------- | --------------------------------------------- | ------------------------------------------------------------- |
-| 🔶 P11.1 | Tests intégration commandes existantes        | filet spawn livré (`RUN_CLI_BOOT=1`) ; reste commandes métier |
-| ⬜ P11.2 | Commandes `http:*`                            | couplée API admin Studio                                      |
-| ⬜ P11.3 | Commandes `framework:*`/`security:*`/`user:*` | —                                                             |
-| ⬜ P11.4 | Commandes `orm:migrate/…`                     | délègue CLI ORM natifs (Drizzle/Mongoose)                     |
-| ⬜ P11.5 | Commandes `logs:tail/filter` + bridge Studio  | LB.3b                                                         |
-| ✅ P11.6 | Boot UX dev — BootReporter                    | spinner/checklist dev-only + help modules + Vite checklist    |
+| #        | Tâche                                                        | État                                                                                                                                                                                                                                                                                                                                                     |
+| -------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔶 P11.1 | Tests intégration commandes existantes                       | filet spawn livré (`RUN_CLI_BOOT=1`) ; reste commandes métier                                                                                                                                                                                                                                                                                            |
+| ⬜ P11.2 | Commandes `http:*`                                           | couplée API admin Studio                                                                                                                                                                                                                                                                                                                                 |
+| ⬜ P11.3 | Commandes `framework:*`/`security:*`/`user:*`                | —                                                                                                                                                                                                                                                                                                                                                        |
+| ⬜ P11.4 | Commandes `orm:migrate/…`                                    | délègue CLI ORM natifs (Drizzle/Mongoose)                                                                                                                                                                                                                                                                                                                |
+| ⬜ P11.5 | Commandes `logs:tail/filter` + bridge Studio                 | LB.3b                                                                                                                                                                                                                                                                                                                                                    |
+| ✅ P11.6 | Boot UX dev — BootReporter                                   | spinner/checklist dev-only + help modules + Vite checklist                                                                                                                                                                                                                                                                                               |
+| ✅ P11.7 | Commande `proxy:generate nginx\|haproxy` (`6ac8562`)         | dérive la conf de l'introspection (statiques, domaines sans IP, ports) ; nginx résout le trou statics multi-modules (chaîne `try_files`) ; haproxy proxy + Forwarded + `--reencrypt` ; générateurs purs (12 tests)                                                                                                                                       |
+| ✅ P11.8 | Préfixe natif statique + CDN (`e735544`/`29203c1`/`6918f89`) | `server-static.mountModulePublics` monte `public/` de chaque module sous `/<module>/` (configurable `publicMount`, défaut basename) ; `frontend.assetBaseUrl` + helper `asset()` préfixent les URLs prod (CDN) sans toucher au mount ; commande `assets:publish` assemble l'arbre `dist-assets/` (carte préfixe→dossier, provider-agnostic, 0 dep cloud) |
 
 ### P13 — Realtime distribué (77 %)
 

@@ -6,7 +6,6 @@ import type { IAdminApi, IAdminEndpoint, IAdminDescriptor } from "nodefony";
 /** Forme minimale lue sur le service `sessions` (lecture défensive). */
 interface SessionsLike {
   sessionStrategy?: string;
-  sessionAutoStart?: string | false;
   defaultSessionName?: string;
   options?: { save_path?: string; gc_maxlifetime?: number };
   storage?: { constructor?: { name?: string } } | null;
@@ -63,7 +62,9 @@ export function createHttpAdminApi(module: Module): IAdminApi {
     ready?: boolean;
   }
 
-  const readServer = (name: string): (ServerLike & { service: string }) | null => {
+  const readServer = (
+    name: string,
+  ): (ServerLike & { service: string }) | null => {
     const svc = module.get(name) as ServerLike | undefined;
     if (!svc) return null;
     return {
@@ -92,7 +93,8 @@ export function createHttpAdminApi(module: Module): IAdminApi {
   const endpoints: IAdminEndpoint[] = [
     {
       path: "servers",
-      summary: "Network servers (http/https/ws/wss/static) with listening state",
+      summary:
+        "Network servers (http/https/ws/wss/static) with listening state",
       handler: () => listServers(),
     },
     {
@@ -116,7 +118,8 @@ export function createHttpAdminApi(module: Module): IAdminApi {
       // actifs (storage fichier par défaut) pour le KPI Studio, avec le flag
       // `deprecated` pour ne pas induire en erreur.
       path: "sessions",
-      summary: "Session subsystem status + active count (DEPRECATED — stateless JWT)",
+      summary:
+        "Session subsystem status + active count (DEPRECATED — stateless JWT)",
       handler: async () => {
         const svc = module.get("sessions") as SessionsLike | undefined;
         if (!svc) return { enabled: false, deprecated: true, active: 0 };
@@ -130,7 +133,9 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         return {
           enabled: true,
           strategy: svc.sessionStrategy ?? null,
-          autoStart: svc.sessionAutoStart ?? false,
+          // Activation pilotée par l'intent `@UseSession` / cookie (plus de
+          // démarrage global) — l'aire est déclarée par route, pas globalement.
+          activation: "intent",
           name: svc.defaultSessionName ?? null,
           storage,
           gcMaxlifetime: svc.options?.gc_maxlifetime ?? null,

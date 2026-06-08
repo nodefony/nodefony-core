@@ -33,7 +33,9 @@ function request(
 }
 
 function extractSessionCookie(setCookie: string[]): string | null {
-  const entry = setCookie.find((c) => c.startsWith("nodefony="));
+  // Sur TLS (les tests tapent https/5152) le cookie de session porte le préfixe
+  // `__Host-` (RFC 6265bis / OWASP).
+  const entry = setCookie.find((c) => c.startsWith("__Host-nodefony="));
   return entry ? entry.split(";")[0] : null;
 }
 

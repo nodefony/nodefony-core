@@ -11,6 +11,7 @@ import HtmlController from "./nodefony/controller/HtmlController";
 import RouterController from "./nodefony/controller/RouteController";
 import WebsocketController from "./nodefony/controller/WebSocketController";
 import FrameworkController from "./nodefony/controller/FrameworkController";
+import SessionRuntimeController from "./nodefony/controller/SessionRuntimeController";
 import DecoratorController from "./nodefony/controller/DecoratorController";
 import AlsController from "./nodefony/controller/AlsController";
 import LifecycleController from "./nodefony/controller/LifecycleController";
@@ -40,6 +41,7 @@ registerDolibarrEntities("default");
   RouterController,
   WebsocketController,
   FrameworkController,
+  SessionRuntimeController,
   DecoratorController,
   AlsController,
   LifecycleController,

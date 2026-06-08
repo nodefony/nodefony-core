@@ -14,6 +14,11 @@ import HttpError from "../../errors/httpError.js";
 import { sanitizeRequestId } from "../requestId.js";
 import { ProxyType } from "../http/HttpContext.js";
 import { formatWsLogContent } from "./wsLogContent.js";
+import {
+  resolveForwarded,
+  hasForwardingHeaders,
+  type ResolvedProxy,
+} from "../forwarded";
 
 export interface IWsRequestExtension {
   url: URL;
@@ -85,6 +90,9 @@ export default class WebsocketContext
   connection: Ws | null = null;
   origin: string;
   proxy: ProxyType | null = null;
+  // Résolution canonique forwarded (RFC 7239 prioritaire, repli X-Forwarded-*).
+  // `null` = connexion directe / proxy non fiable (0 allocation hot path).
+  forwarded: ResolvedProxy | null = null;
   wsUrl: URL | null = null;
   queryGet: Record<string, string> = {};
   queryRequest: Record<string, string> = {};
@@ -98,8 +106,21 @@ export default class WebsocketContext
     this.response = new WebsocketResponse(ws as Ws, this);
     this.method = this.getMethod();
     this.origin = (req.headers.origin as string) ?? "";
-    this.remoteAddress =
-      req.socket?.remoteAddress ?? (req.headers["x-forwarded-for"] as string);
+    // Résolution forwarded UNIFIÉE (RFC 7239 prioritaire, repli X-Forwarded-*),
+    // une seule passe, gated proxy de confiance + en-tête présent → connexion
+    // directe = hot path, 0 allocation. Lue ensuite par getRemoteAddress + proxy.
+    const checker = this.httpKernel?.getTrustProxyChecker();
+    const socketAddress = req.socket?.remoteAddress;
+    if (
+      checker &&
+      checker.isTrusted(socketAddress) &&
+      hasForwardingHeaders(req.headers)
+    ) {
+      this.forwarded = resolveForwarded(req.headers, socketAddress, checker);
+    }
+    // IP cliente réelle (anti-spoof) : même résolution from-right que HTTP — on
+    // dépouille la chaîne forwarded derrière les proxies de confiance.
+    this.remoteAddress = this.getRemoteAddress();
     this.acceptedProtocol = req.headers["sec-websocket-protocol"] as
       | string
       | undefined;
@@ -138,25 +159,29 @@ export default class WebsocketContext
     }
 
     this.parseCookies();
-    this.cookieSession = this.getCookieSession(
-      this.sessionService?.options.name,
-    );
+    // Nom effectif selon le transport (`__Host-` sur wss) — cohérent avec l'écriture.
+    this.cookieSession = this.getCookieSession(this.getSessionCookieName());
     this.domain = this.getHostName() as string;
     this.validDomain = this.isValidDomain();
     this.rejected = false;
 
-    // Proxy detection
-    if (req.headers["x-forwarded-for"]) {
+    // Métadonnées proxy — UNIQUEMENT derrière un proxy de confiance (this.forwarded
+    // n'est résolu que dans ce cas), symétrique au HTTP. proto/for/host viennent de
+    // la résolution canonique (RFC 7239 prioritaire) ; champs de-facto lus bruts.
+    // ⚠️ RFC 7239 §8.2 : topologie interne, JAMAIS recopiée en réponse (cf ProxyType).
+    const fwd = this.forwarded;
+    if (fwd) {
       this.proxy = {
         proxyServer: (req.headers["x-forwarded-server"] as string) ?? "unknown",
-        proxyProto: req.headers["x-forwarded-proto"] as string,
+        proxyProto: fwd.proto ?? (req.headers["x-forwarded-proto"] as string),
         proxyPort: req.headers["x-forwarded-port"] as string,
-        proxyFor: req.headers["x-forwarded-for"] as string,
-        proxyHost: req.headers["x-forwarded-host"] as string,
+        proxyFor:
+          fwd.forwardedFor ?? (req.headers["x-forwarded-for"] as string),
+        proxyHost: fwd.host ?? (req.headers["x-forwarded-host"] as string),
         proxyVia: req.headers.via as string,
       };
       this.log(
-        `PROXY WEBSOCKET REQUEST x-forwarded VIA : ${this.proxy?.proxyVia}`,
+        `PROXY WEBSOCKET REQUEST ${fwd.fromStandard ? "Forwarded (RFC 7239)" : "x-forwarded"} VIA : ${this.proxy?.proxyVia}`,
         "DEBUG",
       );
     }
@@ -453,8 +478,14 @@ export default class WebsocketContext
     return this.wsUrl?.protocol.replace(":", "") as SchemeType;
   }
 
-  getRemoteAddress(): string | undefined {
-    return this.request?.socket?.remoteAddress;
+  getRemoteAddress(): string | null {
+    // IP cliente résolue une seule fois au ctor (this.forwarded / resolveForwarded) :
+    // derrière un proxy de confiance, la chaîne forwarded est dépouillée from-right
+    // (anti-spoof) ; sinon = socket réel.
+    if (this.forwarded) {
+      return this.forwarded.clientIp;
+    }
+    return this.request?.socket?.remoteAddress ?? null;
   }
 
   getHost(): string | undefined {

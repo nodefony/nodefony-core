@@ -26,6 +26,11 @@ import type {
 import { extend, Pci, Pdu, Message, Severity, Msgid } from "nodefony";
 import Session from "../../session/session";
 import { HttpError } from "@nodefony/http";
+import {
+  resolveForwarded,
+  hasForwardingHeaders,
+  type ResolvedProxy,
+} from "../forwarded";
 
 const reg = /(.*)[\[][\]]$/u;
 
@@ -113,6 +118,10 @@ class HttpRequest {
   // La connexion (socket) provient-elle d'un reverse-proxy de confiance ?
   // Décide si les en-têtes X-Forwarded-* sont honorés (cf config trustProxy).
   trustedProxy: boolean = false;
+  // Résolution canonique des en-têtes forwarded (RFC 7239 `Forwarded` prioritaire,
+  // repli `X-Forwarded-*`). `null` = requête directe / proxy non fiable (hot path,
+  // 0 allocation) ; sinon scheme/host/IP cliente effectifs résolus une seule fois.
+  forwarded: ResolvedProxy | null = null;
   constructor(
     request: http.IncomingMessage | http2.Http2ServerRequest,
     context: HttpContext,
@@ -122,11 +131,17 @@ class HttpRequest {
     this.origin = this.headers.origin;
     this.request.body = null;
     this.headers = request.headers;
-    // Calculé AVANT getFullUrl/getRemoteAddress (qui lisent X-Forwarded-*) :
+    // Calculé AVANT getFullUrl/getRemoteAddress (qui lisent le forwarded) :
     // n'honorer ces en-têtes que si le socket vient d'un proxy de confiance.
-    this.trustedProxy = !!this.context?.httpKernel
-      ?.getTrustProxyChecker()
-      .isTrusted(this.request.socket?.remoteAddress);
+    const checker = this.context?.httpKernel?.getTrustProxyChecker();
+    const socketAddress = this.request.socket?.remoteAddress;
+    this.trustedProxy = !!checker?.isTrusted(socketAddress);
+    // Résolution forwarded UNIFIÉE (RFC 7239 `Forwarded` prioritaire, repli
+    // `X-Forwarded-*`), une seule passe. Seulement derrière un proxy de confiance
+    // ET si un en-tête forwarded existe → requête directe = hot path, 0 allocation.
+    if (this.trustedProxy && checker && hasForwardingHeaders(this.headers)) {
+      this.forwarded = resolveForwarded(this.headers, socketAddress, checker);
+    }
     this.method = this.getMethod();
     this.host = this.getHost();
     this.hostname = this.getHostName(this.host);
@@ -627,27 +642,22 @@ class HttpRequest {
   }
 
   getRemoteAddress(): string | null {
-    // Proxy de confiance uniquement : X-Forwarded-For = "client, proxy1, …" →
-    // l'IP cliente d'origine est le PREMIER élément (pas la liste brute).
-    if (this.trustedProxy && this.headers?.["x-forwarded-for"]) {
-      const first = (this.headers["x-forwarded-for"] as string)
-        .split(",")[0]
-        ?.trim();
-      if (first) {
-        return first;
-      }
+    // IP cliente réelle résolue une seule fois au ctor (cf this.forwarded /
+    // resolveForwarded) : derrière un proxy de confiance, la chaîne forwarded est
+    // dépouillée DE DROITE À GAUCHE. Lire la valeur la plus à gauche serait
+    // FORGEABLE — le client l'injecte, le proxy ne fait qu'append l'IP réelle.
+    if (this.forwarded) {
+      return this.forwarded.clientIp;
     }
-    if (this.request.socket && this.request.socket.remoteAddress) {
-      return this.request.socket.remoteAddress;
-    }
-    return null;
+    return this.request.socket?.remoteAddress ?? null;
   }
 
   getFullUrl(request: http.IncomingMessage | http2.Http2ServerRequest) {
     const myurl = `://${this.host}${request.url}`;
-    // Scheme proxifié honoré seulement derrière un proxy de confiance.
-    if (this.trustedProxy && this.headers?.["x-forwarded-proto"]) {
-      return `${this.headers["x-forwarded-proto"]}${myurl}`;
+    // Scheme effectif côté client : `Forwarded`/`X-Forwarded-*` résolu de façon
+    // canonique (this.forwarded, gated proxy de confiance) ; sinon le transport réel.
+    if (this.forwarded?.proto) {
+      return `${this.forwarded.proto}${myurl}`;
     }
     if ("encrypted" in request.socket && request.socket.encrypted) {
       return `https${myurl}`;

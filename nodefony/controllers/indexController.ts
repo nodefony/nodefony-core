@@ -1,15 +1,11 @@
-import { route, controller, Controller } from "@nodefony/framework";
+import { route, controller, Controller, UseSession } from "@nodefony/framework";
 import { ContextType } from "@nodefony/http";
 
 @controller("")
+@UseSession({ context: "app" })
 class IndexController extends Controller {
   constructor(context: ContextType) {
     super("index", context);
-  }
-
-  async initialize() {
-    await this.startSession("app");
-    return this;
   }
 
   @route("route-index-default", { path: "", method: "GET" })

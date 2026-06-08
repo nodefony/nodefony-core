@@ -41,7 +41,9 @@ describe("@nodefony/http — httpConfigSchema (défauts)", () => {
   it("session : handler files + hash_function sha1 (harmonisé)", () => {
     expect(c.session.handler).to.equal("files");
     expect(c.session.hash_function).to.equal("sha1");
-    expect(c.session.start).to.equal(false);
+    // `start` retiré (plus de démarrage global) : activation pilotée par
+    // l'intent @UseSession / cookie. `absolute_timeout` désactivé par défaut.
+    expect(c.session.absolute_timeout).to.equal(0);
   });
 });
 
@@ -64,6 +66,7 @@ describe("@nodefony/http — sous-défauts (piège Zod 4 .default({}))", () => {
     expect(c.session.cookie.httpOnly).to.equal(true);
     expect(c.session.cookie.secure).to.equal(true);
     expect(c.session.cookie.signed).to.equal(false);
+    expect(c.session.cookie.hostPrefix).to.equal("auto");
     expect(c.certificates.openssl.size).to.equal(2048);
     expect(c.certificates.dev.useMkcert).to.equal(true);
     expect(c.statics.web.path).to.equal("public");

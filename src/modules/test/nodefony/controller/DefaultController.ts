@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import fs from "node:fs";
-import { Controller, route, controller } from "@nodefony/framework";
+import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context, HttpContext, HttpError } from "@nodefony/http";
 import {
   inject,
@@ -59,17 +59,13 @@ export const securityHooksState = {
 };
 
 @controller("/nodefony/test")
+@UseSession({ context: "test" })
 class DefaultController extends Controller {
   constructor(
     context: Context,
     @inject("Fetch") private fetchService: Fetch,
   ) {
     super("DefaultController", context);
-  }
-
-  async initialize(): Promise<this> {
-    await this.startSession("test");
-    return this;
   }
 
   @route("index", {

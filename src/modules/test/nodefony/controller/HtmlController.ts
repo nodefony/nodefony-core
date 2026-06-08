@@ -1,17 +1,13 @@
-import { Controller, route, controller } from "@nodefony/framework";
+import { Controller, route, controller, UseSession } from "@nodefony/framework";
 import { Context, HttpError } from "@nodefony/http";
 import { resolve } from "node:path";
 //import { inject, Error } from "nodefony";
 
 @controller("/nodefony/test/html")
+@UseSession()
 class HtmlController extends Controller {
   constructor(context: Context) {
     super("HtmlController", context);
-  }
-
-  async initialize(): Promise<this> {
-    await this.startSession();
-    return this;
   }
 
   @route("index-html", { path: "" })
@@ -60,17 +56,11 @@ class HtmlController extends Controller {
 
   @route("index-file-media", { path: "/media" })
   stream3() {
-    // const file = resolve(
-    //   this.module?.path as string,
-    //   "public",
-    //   "test",
-    //   "chico_buarque.mp3"
-    // );
+    // Fichiers à la racine de `public/` (auto-montés sous `/test/`).
     const file = resolve(
       this.module?.path as string,
       "public",
-      "test",
-      "oceans-clip.webm"
+      "oceans-clip.webm",
     );
     return this.renderMediaStream(file);
   }

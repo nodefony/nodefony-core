@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { createRequire } from "node:module";
 import fs from "node:fs";
-import { route, controller, Controller } from "@nodefony/framework";
+import { route, controller, Controller, UseSession } from "@nodefony/framework";
 import { ContextType, HttpError } from "@nodefony/http";
 
 /**
@@ -22,14 +22,10 @@ function loadDebugbarBundle(): string | false {
 }
 
 @controller("/app")
+@UseSession({ context: "app" })
 class AppController extends Controller {
   constructor(context: ContextType) {
     super("app", context);
-  }
-
-  async initialize() {
-    await this.startSession("app");
-    return this;
   }
 
   @route("route-app-index", { path: "", method: "GET" })

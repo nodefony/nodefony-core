@@ -61,6 +61,20 @@ const config = {
   defaultRoot: "./frontend",
 
   /**
+   * Base URL des assets servis en PRODUCTION (CDN / object storage / edge).
+   * Vide (défaut) = assets servis depuis l'origine Nodefony en chemins relatifs
+   * (`/_assets/<name>/...`, `/test/...`) — comportement historique. Renseignée
+   * (ex. `https://cdn.example.com`), elle PRÉFIXE :
+   *   - le `base` Vite au build (imports/CSS internes → CDN),
+   *   - les URLs de `renderProdTags` (`<script>`/`<link>` → CDN),
+   *   - le helper template `asset('/x')` (statiques à la main → CDN).
+   * Le slash final est normalisé. N'affecte JAMAIS le mount `Statics` (qui reste
+   * relatif à l'origine) : seules les URLs ÉMISES changent. Cf `assets:publish`.
+   * Recommandation prod cloud-native : pointer le CDN devant l'object storage.
+   */
+  assetBaseUrl: "",
+
+  /**
    * Timeout (ms) d'attente du "Local: http://…" dans le stdout Vite avant
    * de considérer le démarrage comme cassé.
    * Recommandation prod : N/A. Dev : 30s suffisent pour cold-start Vite.

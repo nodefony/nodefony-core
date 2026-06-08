@@ -115,6 +115,7 @@ import type {
   PhaseName,
   AfterResponseHandler,
 } from "../../interfaces/IContext";
+import type { SessionIntent } from "../../interfaces/ISession";
 
 class Context extends Service implements IContextInterface {
   secure: boolean = false;
@@ -154,7 +155,12 @@ class Context extends Service implements IContextInterface {
   crossDomain: boolean = false;
   router: Router | null = this.get("router");
   resolver: Resolver | null = null;
-  sessionAutoStart: string | null = null;
+  /**
+   * Intent de session de la route courante (posé par le Resolver depuis
+   * `@UseSession` / paramètre `@Session`). Pilote le point d'activation unique
+   * (HTTP + WS). `null` = aucune session sauf cookie existant (reprise L1).
+   */
+  sessionIntent: SessionIntent | null = null;
   requestId: string = randomUUID();
   // P2.7 — W3C Trace Context. Set by HttpKernel at request entry to the
   // resolved traceparent (honored incoming header or freshly generated).
@@ -564,6 +570,31 @@ class Context extends Service implements IContextInterface {
       return this.cookies[name];
     }
     return null;
+  }
+
+  /**
+   * Nom effectif du cookie de session pour CE transport. Sur TLS (https/wss) on
+   * applique le préfixe **`__Host-`** (RFC 6265bis §4.1.3 / OWASP : recommandé
+   * pour les identifiants de session — impose Secure + Path=/ + interdit Domain,
+   * anti session-fixation cross-subdomain). En clair (http/ws) le préfixe est
+   * omis (le navigateur le rejetterait sans Secure) → dégradation gracieuse,
+   * notamment derrière un proxy qui termine le TLS. Lecture **et** écriture du
+   * cookie passent par ce nom unique → cohérence de la reprise (L1).
+   */
+  getSessionCookieName(): string {
+    const base = this.sessionService?.defaultSessionName ?? "nodefony";
+    // `cookie.hostPrefix` : "auto" (défaut, préfixe sur TLS) | true (toujours) |
+    // false (jamais). `true` permet à l'opérateur qui garantit le TLS côté client
+    // (proxy terminant le TLS) de forcer `__Host-` même si le transport local est http.
+    const mode =
+      (
+        this.sessionService?.options?.cookie as
+          | { hostPrefix?: boolean | "auto" }
+          | undefined
+      )?.hostPrefix ?? "auto";
+    const tls = this.scheme === "https" || this.scheme === "wss";
+    const usePrefix = mode === true || (mode === "auto" && tls);
+    return usePrefix ? `__Host-${base}` : base;
   }
 
   parseCookies(): void {

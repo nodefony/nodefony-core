@@ -37,9 +37,10 @@ export default defineConfig<Env>((ctx) => ({
 
   // ── Réseau ──────────────────────────────────────────────────────────────────
   // Domaine d'écoute (un seul, pas de vhost). Prod = toutes interfaces (0.0.0.0,
-  // derrière l'ingress) ; dev = loopback. Ports/serveurs = défauts framework
-  // (HTTP 5151, HTTPS 5152 en HTTP/2, statics on) ; pour changer : `servers: { http: { port: 8080 } }`.
-  domain: ctx.isProd ? "0.0.0.0" : "127.0.0.1",
+  // derrière l'ingress) ; dev = loopback. `NF_BIND_ALL=1` (dev) force 0.0.0.0 pour
+  // exposer le serveur au banc reverse-proxy Docker (conteneurs). Ports/serveurs =
+  // défauts framework (HTTP 5151, HTTPS 5152 HTTP/2) ; changer : `servers: { http: { port } }`.
+  domain: ctx.isProd || ctx.env.NF_BIND_ALL ? "0.0.0.0" : "127.0.0.1",
   // Active la barrière Host kernel-level (anti Host-header injection) : un Host
   // entrant doit matcher la liste `trustedHosts` du module http. (`domainAlias`
   // legacy retiré — `trustedHosts` est l'unique allowlist consommée.)
@@ -105,11 +106,21 @@ export default defineConfig<Env>((ctx) => ({
       {
         // En dev, accepte les certificats auto-signés (mkcert). Prod : true.
         rejectUnauthorized: !ctx.isDev,
-        // Attributs du certificat auto-signé généré au boot (dev). En prod, fournir
-        // de vrais certificats (le service les lit dans nodefony/config/certificates).
+        // Certificat TLS (HTTPS/WSS). DEV : génération auto — mkcert (CA locale
+        // trustée → 0 warning navigateur, HMR Vite) si dispo, sinon auto-signé
+        // node-forge (SHA-256). PROD : fournir un VRAI certificat (Let's Encrypt,
+        // ingress k8s, reverse-proxy edge) — Nodefony n'est PAS une autorité de
+        // certification ; la génération reste un confort de DÉVELOPPEMENT.
+        // (Re)génération / inspection manuelle : `nodefony certificates [--force]`.
         certificates: {
+          // PROD : décommenter pour fournir le vrai certificat (fail-fast si absent).
+          // strategy: "explicit",
+          // key: ctx.env.TLS_KEY, cert: ctx.env.TLS_CERT, ca: ctx.env.TLS_CA,
           openssl: {
             size: 2048,
+            // Hachage de signature — JAMAIS SHA-1 (interdit CA/B Forum, SHAttered 2017).
+            hash: "sha256",
+            validityDays: 365,
             attrs: [
               {
                 name: "commonName",
@@ -122,11 +133,27 @@ export default defineConfig<Env>((ctx) => ({
               { name: "localityName", value: "Marseille" },
             ],
           },
+          // Subject Alternative Name — fait foi pour la vérification d'hôte
+          // (RFC 6125 : le commonName est ignoré). Vide = dérivé du kernel
+          // (localhost + domain ; une IP va en iPAddress). Banc reverse-proxy
+          // par domaine (NF_BIND_ALL) : couvrir `nodefony.com` pour permettre à
+          // haproxy `verify required` + `sni` de valider le cert backend.
+          san: ctx.env.NF_BIND_ALL
+            ? { dns: ["nodefony.com", "localhost"], ip: ["127.0.0.1", "::1"] }
+            : { dns: [], ip: [] },
         },
         // Barrière Host (consommée si `domainCheck: true` ci-dessus) : le domaine
         // canonique est toujours accepté ; on liste localhost + 127.0.0.1 pour taper
-        // le serveur via les deux noms en dev/cluster local.
-        trustedHosts: ["localhost", "127.0.0.1"],
+        // le serveur via les deux noms en dev/cluster local. `nodefony.com` permet
+        // l'accès par NOM DE DOMAINE — en dev via `/etc/hosts` (nodefony.com →
+        // 127.0.0.1), en prod via le vrai DNS. Le port est strippé avant le match
+        // (cf domainMatcher) → `nodefony.com:5151` matche `nodefony.com`.
+        trustedHosts: ["localhost", "127.0.0.1", "nodefony.com"],
+        // trustProxy : n'honore les en-têtes forwarded que derrière un proxy de
+        // confiance. Activé via NF_BIND_ALL (banc reverse-proxy Docker : IP source
+        // des conteneurs = réseau privé 172.16/12, 192.168/16, 10/8). En prod,
+        // régler explicitement selon l'ingress. Défaut SÛR : false (0 confiance).
+        trustProxy: ctx.env.NF_BIND_ALL ? ["loopback", "uniquelocal"] : false,
         // Stockage de session via @nodefony/drizzle (orm-core).
         session: { handler: "drizzle" },
         formidable: { uploadDir: "./tmp/upload" },

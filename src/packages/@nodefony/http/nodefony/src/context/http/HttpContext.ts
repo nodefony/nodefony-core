@@ -36,6 +36,15 @@ import Session from "../../../src/session/session";
 //import { Resolver } from "@nodefony/framework";
 import uploadService from "../../../service/upload/upload-service";
 
+/**
+ * Métadonnées de topologie de proxy (en-têtes `X-Forwarded-*`), renseignées
+ * seulement derrière un proxy de confiance.
+ *
+ * ⚠️ RFC 7239 §8.2 (Information Leak) — DONNÉES INTERNES : ne JAMAIS recopier
+ * dans une réponse HTTP ni sérialiser en metaData exposée au client (révélerait
+ * la chaîne de proxy et les hôtes/IP internes). Lecture interne uniquement
+ * (logs, prédicat « derrière un proxy »).
+ */
 export interface ProxyType {
   proxyServer?: string;
   proxyProto?: string;
@@ -91,28 +100,43 @@ class HttpContext extends Context implements IHttpContextInterface {
     this.method = this.request.getMethod();
     this.remoteAddress = this.request.remoteAddress;
     this.originUrl = new URL(this.request.origin || this.url);
-    // case proxy — uniquement si la connexion vient d'un proxy de confiance
-    // (sinon X-Forwarded-* sont forgeables → scheme/IP spoofing). Cf trustProxy.
+    // Détection proxy — uniquement derrière un proxy de CONFIANCE (sinon les
+    // X-Forwarded-* sont forgeables → IP/scheme spoofing ; cf trustProxy).
+    // `this.proxy` = métadonnées de topologie INTERNE (noms/IP de serveurs
+    // internes, port, chaîne `via`…).
+    //
+    // ⚠️ RFC 7239 §8.2 (Information Leak) : ces données ne doivent JAMAIS être
+    // recopiées dans une réponse (révéleraient toute la chaîne de proxy au
+    // client) ni exposées en metaData. Usage INTERNE seul : log DEBUG + prédicat
+    // « derrière un proxy ? » (redirectHttp/redirectHttps).
+    //
+    // On ne détourne PAS `this.type` (le TRANSPORT réel) avec X-Forwarded-Proto :
+    // le scheme client effectif est déjà porté par `this.scheme` (setScheme ←
+    // request.url.protocol ← getFullUrl, qui honore X-Forwarded-Proto si trusted).
+    // L'écraser corrompait l'identité du transport (this.type ≠ this.server) et
+    // pouvait casser les `switch (context.type)` (cookie/Resolver) sur une valeur
+    // client arbitraire.
     this.proxy = null;
-    if (this.request.trustedProxy && request.headers["x-forwarded-for"]) {
-      if (request.headers["x-forwarded-proto"]) {
-        this.type = (
-          request.headers["x-forwarded-proto"] as string
-        ).toLowerCase() as ServerType;
-      }
+    // Résolution forwarded canonique calculée par Request (RFC 7239 `Forwarded`
+    // prioritaire, repli `X-Forwarded-*`) — déjà gated proxy de confiance.
+    // proto/for/host viennent de la résolution unifiée ; les champs de-facto
+    // (server/port/via/realIp/uri/scheme) restent lus bruts.
+    const fwd = this.request.forwarded;
+    if (fwd) {
       this.proxy = {
         proxyServer: <string>request.headers["x-forwarded-server"] || "unknown",
-        proxyProto: <string>request.headers["x-forwarded-proto"],
+        proxyProto: fwd.proto ?? <string>request.headers["x-forwarded-proto"],
         proxyScheme: <SchemeType>request.headers["x-forwarded-scheme"],
         proxyPort: <string>request.headers["x-forwarded-port"],
-        proxyFor: <string>request.headers["x-forwarded-for"],
-        proxyHost: <string>request.headers["x-forwarded-host"],
+        proxyFor:
+          fwd.forwardedFor ?? <string>request.headers["x-forwarded-for"],
+        proxyHost: fwd.host ?? <string>request.headers["x-forwarded-host"],
         proxyUri: <string>request.headers["x-original-uri"],
         proxyRealIp: <string>request.headers["x-real-ip"],
         proxyVia: <string>request.headers.via || "unknown",
       };
       this.log(
-        `PROXY REQUEST x-forwarded VIA : ${this.proxy.proxyVia}`,
+        `PROXY REQUEST ${fwd.fromStandard ? "Forwarded (RFC 7239)" : "x-forwarded"} VIA : ${this.proxy.proxyVia}`,
         "DEBUG",
       );
     }
@@ -129,9 +153,9 @@ class HttpContext extends Context implements IHttpContextInterface {
     this.domain = this.getHostName();
     this.validDomain = this.isValidDomain();
     this.parseCookies();
-    this.cookieSession = this.getCookieSession(
-      this.sessionService?.defaultSessionName as string,
-    );
+    // Nom effectif selon le transport (`__Host-` sur TLS) — même calcul à
+    // l'écriture (session.setCookieSession) → reprise L1 cohérente.
+    this.cookieSession = this.getCookieSession(this.getSessionCookieName());
 
     this.once("onTimeout", () => {
       // P2.5 — abort in-flight async work (DB queries, fetches honoring

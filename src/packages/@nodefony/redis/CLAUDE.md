@@ -58,15 +58,19 @@ d'autres couches — il ne contient aucune logique métier.
 
 - Modifier `rollup.config.ts` ou `tsconfig.json` (zod ajouté à `external` + tests exclus le 2026-05-28).
 - Lire `process.env` dans `schema.ts` (le schéma doit rester pur → env dans le builder).
-- Coder le `RedisBackplane` (P13.5) ou `RedisSessionStorage` (P5.12) DANS ce module — ce sont
-  des **consommateurs** (realtime / security) qui importent `RedisService`.
+- Coder le `RedisBackplane` (P13.5) DANS ce module — c'est un **consommateur** (realtime) qui
+  importe `RedisService` (il vit dans `@nodefony/realtime`).
+  > ⚠️ `RedisSessionStorage` **EST désormais ici** (`nodefony/src/SessionStorage.ts`) — décision
+  > archi session du 2026-06-06 : le plan session prime sur l'ancienne règle « redis neutre » ;
+  > chaque backend porte son storage et s'auto-déclare (comme drizzle/mongoose), http ne dépend
+  > d'aucun backend. Voir mémoire IA `project_session_chantier_kit`.
 - Hardcoder un hôte ou un secret.
 
 ## Roadmap
 
-| Étape                                    | Statut          | Note                                                   |
-| ---------------------------------------- | --------------- | ------------------------------------------------------ |
-| **P13.2** Refonte config/doc/conventions | ✅ 2026-05-28   | Zod + env + 3 connexions propres + reconnect + cleanup |
-| Tests d'intégration (connexion réelle)   | ⬜              | `tests/integration/` avec docker compose Redis         |
-| **P13.5** `RedisBackplane` (realtime)    | ⬜ Bloc B       | Consomme ce module (pub/sub) derrière `IBackplane`     |
-| **P5.12** `RedisSessionStorage`          | ⬜ bonus Bloc B | Consomme la connexion `main`                           |
+| Étape                                    | Statut        | Note                                                                                           |
+| ---------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------- |
+| **P13.2** Refonte config/doc/conventions | ✅ 2026-05-28 | Zod + env + 3 connexions propres + reconnect + cleanup                                         |
+| Tests d'intégration (connexion réelle)   | ⬜            | `tests/integration/` avec docker compose Redis                                                 |
+| **P13.5** `RedisBackplane` (realtime)    | ⬜ Bloc B     | Consomme ce module (pub/sub) derrière `IBackplane`                                             |
+| **P5.12** `RedisSessionStorage`          | ✅ 2026-06-06 | `nodefony/src/SessionStorage.ts` — connexion `main`, TTL natif (`SET … EX`), `gc()` no-op, IoC |

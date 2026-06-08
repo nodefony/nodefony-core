@@ -41,6 +41,7 @@ export class ViteBuilder implements IFrontBuilder {
   async buildViteConfig(
     entries: ReadonlyArray<IResolvedFrontendEntry>,
     mode: "development" | "production",
+    assetBaseUrl: string = "",
   ): Promise<Record<string, unknown>> {
     if (entries.length === 0) {
       return { mode };
@@ -70,10 +71,13 @@ export class ViteBuilder implements IFrontBuilder {
     const root = entries[0]!.root;
     const outDir = entries[0]!.outDir;
 
-    // Prod : `base` = publicPath → Vite préfixe les imports/assets internes avec
-    // le même chemin que celui servi par `Statics`. Dev : base par défaut "/"
-    // (le port Vite est l'origine). Multi-entry partage le base de la 1ʳᵉ entrée.
-    const base = mode === "production" ? entries[0]!.publicPath : undefined;
+    // Prod : `base` = (assetBaseUrl +) publicPath → Vite préfixe les imports/assets
+    // internes avec le même chemin que celui servi par `Statics`, éventuellement
+    // précédé du CDN (`assetBaseUrl`). Dev : base par défaut "/" (le port Vite est
+    // l'origine). Multi-entry partage le base de la 1ʳᵉ entrée. `assetBaseUrl` est
+    // déjà normalisé sans slash final ; `publicPath` a ses `/` → pas de `//`.
+    const base =
+      mode === "production" ? assetBaseUrl + entries[0]!.publicPath : undefined;
 
     return {
       mode,

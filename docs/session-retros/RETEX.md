@@ -23,6 +23,15 @@
   → **1 commande Bash à la fois** (pas de parallèle), **`Read` plutôt que `cat`/`sed`/`tr`** pour lire
   un fichier, et si ça délire : arrêter de relancer 5 variantes (toutes annulées si une échoue).
   Suspect : machine saturée. Confirmer 1× de plus avant de graduer.
+- `[1× — 2026-06-06]` **daemon `claude daemon run --origin transient` zombie à ~96 % CPU pendant ~11 h** (le user
+  en voyait 4) : un daemon claude détaché peut rester hung et saturer le CPU. → `ps -Ao pid,%cpu,etime,command | grep
+claude` au moindre doute perf machine ; **le USER tue** le daemon transient hung (`kill <pid>`) — ne pas tuer un
+  process claude depuis la session active. Le serveur dev (nodefony+vite) à 0 % CPU n'était PAS le coupable.
+- `[1× — 2026-06-07]` **le cwd PERSISTE entre appels Bash après un `npm run`/`cd <module>`** : après `cd
+src/packages/@nodefony/http` (implicite via les `npm run build/test`), un `git add src/packages/@nodefony/http/...`
+  depuis ce cwd cherche `…/http/src/packages/@nodefony/http/…` → `pathspec did not match`. → soit chemins
+  **relatifs au cwd courant** (`git add nodefony/src/...`), soit `git -C <racine>`. Variante de
+  [[feedback_cd_startsh_relative_path]] (ici = persistance du cwd, pas un `cd` inline).
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
@@ -72,9 +81,19 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   fixer orm-core a fermé (orm-core ne dépend que du core, buildé en 1er). Documenté table types `CLAUDE.md`.
 - `[1× — 2026-06-05]` **commitlint `subject-case` rejette un sujet commençant par un mot MAJUSCULE** (« README … »)
   → sujet en minuscule après le type : `docs(x): readme …`. (macOS : pas de `timeout` → `gtimeout` ou background+kill.)
+- `[1× — 2026-06-07]` **écrire dans un dossier d'infra PARTAGÉ (`docker/`) = `find` + Read l'existant AVANT** : le
+  `docker/docker-compose.yml` était déjà l'infra dev (Redis/Kafka/Loki/Grafana/OpenSearch, par PROFILS) → un `Write`
+  l'aurait écrasé, mais le tool a refusé (« file not read ») = garde-fou. → intégrer via le **pattern existant**
+  (nouveau `--profile proxy`), pas un fichier compose séparé (convention-frère). Vérifier `git ls-files docker/`
+  - `find docker -type f` quand on ajoute à un répertoire qu'on n'a pas créé.
 
 ## 🧹 Refonte / consolidation (frictions du jour)
 
+- `[1× — 2026-06-06]` **changer le TYPE d'un contrat (interface) casse les `implements`, PAS les casts** : unifier
+  `ISessionStorage` (retypé) a cassé `drizzle` (`class … implements ISessionStorage`, retours `Promise<unknown>` non
+  conformes) mais PAS `sequelize`/`mongoose` (pas d'`implements` → le cast `as unknown as` au register absorbe). →
+  après un changement de contrat, `tsc --noEmit -p <module>` par module localise les non-conformes ; un diff **type-only**
+  (aliases + types) n'impacte pas le runtime → gate mémoire reportable au 1er vrai changement runtime (réécriture cœur).
 - `[2× — 2026-06-04, 2026-06-05]` **une option de config peut être un FOSSILE** : (a) consolider des « défauts »
   depuis un config.ts existant → recopie de `watch`/`devServer`/`orm:"sequelize"`/`domainCheck` morts ; (b) Lot 5 :
   le bloc `certificates.{path,privateKeyPath,certPath}` de l'app était **INERTE** (le service `certificates.ts`
@@ -239,6 +258,12 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧭 État projet / git / terminologie (frictions du jour)
 
+- `[1× — 2026-06-06]` **une règle CLAUDE.md figée ANTÉRIEURE à une archi décidée récemment ne doit pas BLOQUER** :
+  j'ai posé un `AskUserQuestion` sur le foyer de `RedisSessionStorage` parce que le CLAUDE.md redis disait « redis
+  neutre, storage ailleurs » — alors que le **plan session du jour** (kit) primait. Le user a recadré (« le claude.md
+  de redis est fait avant notre nouvelle archi, le plan session prime »). → décision archi récente (kit/plan en cours)
+  prime sur une règle figée de module : **trancher + MAJ la règle obsolète**, ne pas se bloquer
+  ([[feedback_permission_autonomy]] : AskUserQuestion réservé au non-déductible ; ici c'était déductible du plan).
 - `[1× — 2026-06-04]` **« chantier CLOS » en mémoire ≠ fini pour le user** : le chantier config app était marqué
   CLOS (5 lots, `…5df006c`) ; le user : « le chantier config on a rien fait, juste la première étape ». Il le
   voyait comme l'**étape 1** d'un chantier DX bien plus large (`defineConfig`). → quand le user rouvre un sujet
@@ -272,6 +297,16 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-07]` **prouver un parse côté serveur SANS toucher au banc = curl loopback (trusted) avec le header brut** :
+  pour valider le parse `Forwarded` RFC 7239 en runtime, `curl -H "Forwarded: for=…;proto=https" localhost:5151` +
+  lire le **log `req`** (`GET 200 <scheme>://<host>/… <ms> <IP>`) → le scheme/IP résolus sont visibles directement.
+  Plus rapide et discriminant que monter tout le banc Docker (ex. `Forwarded proto=https` + `X-Forwarded-Proto http`
+  → si le log montre `https`, la priorité Forwarded est prouvée).
+- `[1× — 2026-06-07]` **bind-mount macOS : `docker exec <c> nginx -t` JUSTE après un Edit lit une version en cours
+  d'écriture** (« unexpected end of file ») alors que le fichier disque est valide. Revalider sur le DISQUE
+  (`docker run --rm -v fichier nginx -t`) puis **recréer le conteneur** (`up -d --force-recreate <svc>`) pour qu'il
+  relise. Et `000` sur TOUS les ports du banc = souvent **le démon Docker tombé** (`docker ps` → « Cannot connect »),
+  PAS un bug du code — vérifier le daemon avant de suspecter le diff.
 - `[2× — 2026-06-04]` **`memory.test` exige un serveur LANCÉ (connecte `localhost:5152`) → ECONNREFUSED
   sinon, PAS une fuite.** Le 1ᵉʳ run de la session passait via un serveur résiduel ; sans serveur →
   `internalConnectMultiple` (ECONNREFUSED) dans le `before all`. **Toujours `start.sh` AVANT** le memory
@@ -344,6 +379,32 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-08]` **ne JAMAIS se fier à l'ordre de N listeners sur le même event kernel** : `proxy:generate`
+  (son `generate()` enregistré tôt sur `onReady`) firait AVANT le listener de montage statique (server-static,
+  enregistré plus tard à `onReady`) → `mounts` vide. Fix robuste = rendre le consommateur **auto-suffisant** :
+  appel **idempotent explicite** (`mountModulePublics()`) au lieu d'attendre que l'autre listener ait tourné.
+- `[1× — 2026-06-08]` **un kernel console CLI ne charge PAS les modules `policy:"dev"`** (test, test-frontend-\*,
+  mediasoup). Une commande introspective (`proxy:generate`, `assets:publish`) ne voit que les modules PROD →
+  l'absence d'un asset dev (`/test/`) est CORRECTE, pas un bug. Ne pas debugger un « manque » qui est le bon comportement.
+- `[1× — 2026-06-07]` **« hot path prod » = le chemin DERRIÈRE proxy, pas le cas sans proxy** (recadrage user :
+  « on passe dedans à tous les coups !! »). Un serveur de prod est TOUJOURS derrière un reverse-proxy → la
+  résolution forwarded s'exécute à CHAQUE requête. Optimiser CE chemin (cas avec en-têtes), pas seulement le
+  fast-exit « pas de proxy ». Leviers appliqués (forwarded.ts) : résolution LAZY (null hors proxy = 0 alloc),
+  **fast-path mono-proxy 0 array** (pas de `split`/`map` quand 1 seul maillon — cas dominant 1 ingress),
+  `firstToken` via `indexOf`/`slice` (pas `split`), `splitTopLevel` court-circuité sans quote, 1 SEULE passe
+  stockée sur l'objet (les getters lisent, plus de re-parse par appel).
+- `[1× — 2026-06-07]` **banc anti-spoof = faux positif si le proxy APPEND + le vrai client est dans la plage trusted** :
+  nginx `$proxy_add_x_forwarded_for` (append) + curl hôte vu comme la gateway Docker (trusted via `uniquelocal`)
+  → le from-right dépouille jusqu'à la valeur FORGÉE (6.6.6.6 ressortait). Pas un bug du code (22 tests unit + tests
+  directs `Forwarded:` le prouvent). Leçon SÉCU : un **edge ÉCRASE** le XFF entrant (`proxy_set_header X-Forwarded-For
+$remote_addr`, RFC 7239 §8.1), l'append est réservé aux proxies INTERNES d'une chaîne déjà fiable ; et `trustProxy`
+  doit être **aussi étroit que possible** (pas toute la plage privée si le vrai client y est aussi).
+- `[1× — 2026-06-06]` **`Object.create(null)` casse la sérialisation drizzle-orm** : un objet SANS
+  prototype passé à un insert drizzle fait planter `is()` (drizzle-orm/entity.js) → `Object.getPrototypeOf(value).constructor`
+  → `getPrototypeOf` renvoie `null` → `null.constructor` throw. Pour TOUT objet sérialisé/inséré via un ORM
+  (sacs de session, payloads) utiliser `{}` (avec prototype), PAS `Object.create(null)` — la micro-optim
+  null-proto (CLAUDE.md) ne vaut QUE pour des maps internes JAMAIS sérialisées. Invisible en unit (storage
+  mocké) + typecheck ; révélé par la gate runtime (storage session dev = drizzle). → candidat `feedback_`.
 - `[1× — 2026-06-05]` **profiler perf = banc PROPRE ou mesures FAUSSES (×3 dans la session)** : (a) `NODE_ENV=development`
   hérité dans l'env du spawn → `nodefony production` boote en **dev+Vite+throttle** (~2000 RPS au lieu de 6000) car
   `resolveRuntimeEnv` fait primer NODE_ENV ; **forcer `NODE_ENV=production`** dans le spawn. (b) Les **Vite orphelins**
@@ -434,11 +495,22 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔧 Git / commit (friction du jour)
 
-- `[6× — 2026-06-06]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
+- `[1× — 2026-06-07]` **clé privée TLS commitée découverte (sécu)** : `git ls-files | grep -iE
+'certificates/.*\.(pem|key)'` a révélé `privkey.pem` (+ cert/fullchain/publickey) trackés dans
+  `src/packages/@nodefony/http/nodefony/config/certificates/` depuis **sept. 2024**. Cause : le pattern
+  `.gitignore` racine `nodefony/config/certificates` **contient un slash → ancré à la RACINE** (ne couvre
+  PAS le même chemin dans un sous-module). Fix : `git rm` + motif **`**/nodefony/config/certificates/`**
+  (le `**/` couvre tous les niveaux). → **Réflexe\*\* : à tout commit touchant des certs/secrets, `git
+ls-files | grep -iE '\.(pem|key|p12|pfx)$'` ; un motif gitignore avec slash n'est jamais récursif.
+- `[1× — 2026-06-06]` **commitlint `header-max-length` = 100** : un header conventional-commit FR
+  descriptif dépasse vite (vécu : 112 car. — « refactor(http): réécriture cœur session.ts — TS strict,
+  ID CSPRNG, dirty (étape 3) »). Header COURT (`type(scope): ` sujet bref), tout le détail dans le BODY
+  (lignes de body ≤100 aussi). Se combine avec subject-case (minuscule).
+- `[8× — 2026-06-06]` **commitlint `subject-case` = sujet en MINUSCULE** → ⏫ **DÛ POUR GRADUATION** (≥3×,
   à promouvoir dans [[feedback_commit_fr_apostrophes]] au prochain CONSOLIDATE). Un commit dont le sujet
-  commence par une majuscule/nom propre (ex. `refactor(core): KernelType …`, `feat(dev): Vite …`) est
-  **rejeté** par le hook `commit-msg`. Réflexe : `type(scope): ` puis **minuscule** (reformuler « remplace
-  le binaire KernelType … » au lieu de « KernelType … »).
+  commence par une majuscule/nom propre (ex. `refactor(core): KernelType …`, `feat(dev): Vite …`, `docs: MAJ P10 …`
+  - `docs: P10 Studio …` ← 2 nouveaux échecs cette session) est **rejeté** par le hook `commit-msg`. Réflexe :
+    `type(scope): ` puis **minuscule** (reformuler « met à jour P10 … » au lieu de « MAJ P10 … »).
 - `[1× — 2026-06-01]` **`routes/logs/` est gitignoré (pattern `logs`) → nouveaux fichiers invisibles + lint-staged
   « git error »** : créer `routes/logs/profileVisuals.tsx`/`ProfilingTab.tsx` → `git add` les ignore (les fichiers
   EXISTANTS du dossier restent trackés, mais les NOUVEAUX non) → besoin `git add -f`. Et le 1er `git commit` a
@@ -469,6 +541,21 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-08]` **vérifier la convention de test DU MODULE avant d'écrire** : http/framework/frontend =
+  `import { expect } from "chai"` + `describe`/`it` globals (PAS `import { describe, it, expect } from "vitest"`
+  jest-style). J'ai écrit `.to.deep.equal` avec import vitest (faux) → corrigé en chai + import `.js`. Copier
+  l'en-tête d'un test voisin du module (convention-frère) au lieu de présumer le style.
+- `[1× — 2026-06-08]` **prouver une config runtime PUIS révoquer proprement** : override `publicMount:{publicPath}`
+  posé temporairement → curl `/medias/*` 200 + `/test/*` 404 (preuve), puis restore depuis backup + `git diff` = 0.
+  Bon réflexe « tests-first / suspecter son diff » sur une feature config-driven sans test d'intégration dédié.
+- `[1× — 2026-06-06]` **border TOUT run de test long avec un plafond** (sinon hang qui s'éternise) : un bug
+  session a fait HANG la gate mémoire **19 min** (chaque requête 500 après ~6 s × N). Garde à 2 niveaux :
+  (a) plafond DUR au lancement (param `timeout` de l'outil Bash, ou `gtimeout` — `timeout` absent macOS) ;
+  (b) `--testTimeout=Nms` vitest par run (échec PROPRE) — SANS toucher le `testTimeout:600_000` du fichier
+  (les bancs de charge en ont besoin). Le 600 s global du fichier ≠ plafond d'un run.
+- `[1× — 2026-06-06]` **le storage de session en DEV = drizzle, PAS File** : un bug de sérialisation ORM (cf
+  `Object.create(null)`↔drizzle, thème Core) est INVISIBLE en unit (storage mocké) + au typecheck ; SEULE la
+  gate intégration/mémoire (drizzle réel) l'attrape. Ne jamais croire un refactor session « bon » sans la gate runtime.
 - `[1× — 2026-06-04]` **un test qui POST un upload DOIT nettoyer son résidu** : le serveur écrit l'upload dans
   `uploadDir` (= `kernel.tmpDir` = `./tmp`) et ne nettoie QU'en **abort** (pas un upload réussi → l'app est censée
   `move()`/`unlink()`). `memory.test` (200 uploads/run) avait laissé **1403 `<uuid>.txt`** dans `./tmp` (pollution
@@ -499,9 +586,18 @@ type 'mocha'`). Au retrait mocha d'un workspace : remplacer par `vitest/globals`
   `ParamMeta` avec `stream` posé TOUJOURS (même `false`) a cassé 2 tests `@Body` (forme `{source,key,index}` attendue
   à l'identique). Fix = ne poser le champ optionnel **QUE s'il est truthy** (préserve la forme historique → rétro-compat).
   Les 2 fails étaient MON diff (pas pré-existant) — suspecter son diff d'abord (la suite framework complète l'a prouvé).
+- `[1× — 2026-06-07]` **tester les MÉTHODES finales, pas que les fonctions pures** (demande explicite user). J'avais
+  couvert `parseForwarded`/`forwardedNodeIp`/`resolveForwarded` (helpers purs) mais pas `getFullUrl`/`getRemoteAddress`
+  (HTTP/HTTP2/WS) qui les CONSOMMENT — c'est là que vit le câblage réel. Recette pour isoler une méthode d'instance
+  sans le ctor lourd : `Object.assign(Object.create(Cls.prototype), props)` + cast `as unknown as Cls` (cf
+  `forwardedWiring.test.ts`). Couvre aussi le cœur partagé direct (`resolveFromRight`), pas juste via ses wrappers.
 
 ## Derniers retex bruts (les 3 plus récents — historique complet dans `docs/session-retros/`)
 
+- `2026-06-06-d97fad67` — **chantier session ÉTAPE 3** : cœur `session.ts` réécrit (TS strict, ID CSPRNG
+  opaque `randomBytes(32)`, objet léger 3 sacs vs `Container` DI, dirty-tracking `save()` no-op, cookie-only,
+  contrat unifié alias supprimés, `get`/meta/flash → null cohérent). Bug `Object.create(null)`↔drizzle fixé.
+  Gates vertes (mémoire 9/9, intég 405/0). Direction décorateur étape 5 (`@UseSession` lazy + benchmark) figée. `248f235`.
 - `2026-06-05-b8c2a82b` — **P14.11 core isomorphe CLOS** (shim `node:events` complété `rawListeners`/`prepend*` — bug
   runtime browser masqué par tsc + test régression, `f41bb23`) **+ SUPPRESSION TOTALE mocha 5/6** : core (1558 tests,
   2 bugs réels typeOf strict / NODE_ENV, `4106303`), mediasoup (22, `82cc83a`), frontend (42, `1a9b912`), framework (235,

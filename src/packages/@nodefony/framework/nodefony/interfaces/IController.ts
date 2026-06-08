@@ -18,7 +18,6 @@ export interface IController {
   response: HttpResponse | Http2Response | WebsocketResponse | null;
   context?: ContextType;
   session?: Session | null;
-  sessionAutoStart: string | false;
   method?: HTTPMethod;
   queryGet: Record<string, unknown>;
   query: Record<string, unknown>;
@@ -53,7 +52,6 @@ export interface IController {
     headers?: OutgoingHttpHeaders,
   ): Promise<unknown>;
   setRoute(route: IRoute): IRoute;
-  startSession(sessionContext?: string): unknown;
   getSession(): Session | undefined | null;
   redirect(
     url: string,
