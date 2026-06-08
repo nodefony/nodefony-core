@@ -36,6 +36,10 @@ src/packages/@nodefony/http` (implicite via les `npm run build/test`), un `git a
   vitest 7000+ lignes) vers `/tmp/x.log` remplit le **filesystem temp dédié du harness** (`/private/tmp/claude-*/.../tasks`,
   petit quota) alors que `df` du disque montre 3 To libres → les Bash suivants échouent « ENOSPC ». → rediriger vers `/dev/null`
   - `grep` le résultat, ou `> /tmp/x.log` PUIS `rm` aussitôt après extraction. Ne pas accumuler les logs verbeux.
+- `[3× — 2026-06-08]` **`cd X && cmd1 ; cmd2` → `cmd2` tourne dans X, pas dans Y** : frappé ≥4× en une session (mesures
+  coverage/test de drizzle PUIS mongoose). Le 2ᵉ `npm test`/`npm run coverage` après un `;` ou un `printf` **reste dans le
+  cwd du `cd` précédent** → on mesure 2× le même module (vu : « mongoose 47 » = en fait drizzle re-run). → **un `cd <Y> &&
+cmd` EXPLICITE par module**, jamais enchaîner `cmd2` en comptant sur un cwd implicite. Variante directe du cwd-persiste ci-dessus.
 
 ## ⚙️ Build / dist / boot (frictions confirmées → voir mémoires)
 
@@ -600,6 +604,17 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-08]` **`@vitest/coverage-v8` doit vivre à la RACINE du mono-repo** (à côté de `vitest` hoisté) :
+  déclaré dans un seul workspace, il n'est PAS hoisté → `vitest` (racine) fait `ERR_MODULE_NOT_FOUND` au `--coverage`.
+  Source unique racine (anti-dérive de version aussi). `npm install` simple ne le hoiste pas s'il est déjà résolu local.
+- `[1× — 2026-06-08]` **les seuils `thresholds` se valident sur la CONFIG réelle, pas une mesure `--coverage.all` ad hoc** :
+  la config (qui inclut le barrel `index.ts`) donne des % **plus bas** qu'un `--coverage.include='nodefony/src/**'` lancé à
+  la main (vu : drizzle 80,9 ad hoc → 78,7 config ; mongoose 78,8 → 75,4). → toujours `npm run coverage` RÉEL + lire l'exit
+  code avant de figer un seuil ; plancher = mesure config **−3 pts** (marge anti-flottement, cliquet à relever ensuite).
+- `[1× — 2026-06-08]` **frontière de test framework-qui-wrappe-une-lib** : ne PAS retester drizzle-orm/mongoose/mongod
+  (testés en amont) → tester NOTRE traduction critère→natif, le contrat portable identique cross-ORM, et NOS invariants
+  (updateOne atomique, critère strict, savepoint anti-injection, garde-fou many-to-many). Le banc d'intégration sur le vrai
+  moteur (SQLite `:memory:`, `mongodb-memory-server`) = la bonne cible, pas un mock de la lib.
 - `[1× — 2026-06-08]` **vérifier la convention de test DU MODULE avant d'écrire** : http/framework/frontend =
   `import { expect } from "chai"` + `describe`/`it` globals (PAS `import { describe, it, expect } from "vitest"`
   jest-style). J'ai écrit `.to.deep.equal` avec import vitest (faux) → corrigé en chai + import `.js`. Copier
