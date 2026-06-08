@@ -12,6 +12,9 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 - **`MongooseTransaction`** : wrap `ClientSession`. savepoint/rollbackTo = no-op (Mongo n'a pas de savepoints).
 - **`SessionStorage implements ISessionStorage`** (`nodefony/src/SessionStorage.ts`) : store de session portable via `ormRegistry.get(SESSION_ORM).getRepository("session")`. **Logique identique au store Drizzle** (timestamps ms, GC `$lt`). `#repo()`→`null` si ORM déconnecté (dégradation gracieuse au shutdown). Auto-register `SessionsService.registerStorage("mongoose", …)`.
 - **`sessionEntity`** : `@entity({ orm: SESSION_ORM, name:"session", schema })`. `SESSION_ORM = "nodefony"` (≠ `"default"` de Drizzle → 0 collision `entityRegistry` si les 2 modules cohabitent). Horodatages = `Number`.
+- **Adapter User (P5.8)** — `entity/userEntity.ts` (`userSchema` + `UserRow` + `createUserEntity`/`registerUserEntity`, binding ORM **dynamique**, `timestamps:true`) + `src/MongooseUserRepository.ts` (`implements IUserRepository`, décore `IRepository<UserRow>` + model natif ; `findBySocialProvider` via `$elemMatch` ; `findByIdentifier` ; `withTransaction`). 8 tests (ReplSet).
+- **Convention structure (figée 2026-06-08)** : `nodefony/entity/` = **schémas** (sessionEntity, userEntity) · `nodefony/src/` = **couche d'accès** (SessionStorage, MongooseUserRepository) · `src/orm-core/` = **moteur générique**. Séparation données ↔ comportement (idem `@nodefony/drizzle`).
+- **`IEntity.timestamps?: boolean`** (orm-core) : Mongoose l'applique en option Schema (`createdAt`/`updatedAt` auto). Drizzle l'exprime en colonnes (schema-as-code) → flag sans effet côté SQL.
 - **`index.ts`** `@services([MongooseService])` + `onKernelBoot` : monte le data plane ORM (`registerOrmAdminApi`) + `setOrmHealthProvider`/`setOrmRichProvider` (GLOBAUX, couvrent tous les ORM → **app Mongoose-only n'a plus un Studio ORM muet**, dette C5 atténuée ; factorisation `wireOrmAdminPlane` = Ph.4) + `registerMongooseAdapter` (détection erreurs Mongoose dans `nodefonyError`, jusqu'ici dormante).
 
 ## Config / Build / Test
@@ -19,7 +22,7 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 - deps : `mongoose` 9.6.3, `mongodb` 7.2.0. peerDeps : `@nodefony/http`/`@nodefony/orm-core`/`nodefony`. devDep test : `mongodb-memory-server` 11.x + **`vitest` 4.1.8**.
 - Config (`nodefony/config/config.ts`) : `MongooseModuleConfig { debug?, connectors }` + `MongooseConnectorConfig { uri? | host/port/dbname, options? }`. Défaut : connecteur `nodefony` → `localhost:27017/nodefony`.
 - Manifeste app : **opt-in** (commenté dans `nodefony.config.ts` ; Drizzle = ORM SQL par défaut).
-- **Test = `vitest run`** (`tests/integration/`, `globals:true`, timeout 120s — 1ᵉʳ run télécharge le binaire mongod). **2 bancs, 17 tests** : `orm-core-mongoose` (CRUD/relations/tx via `MongoMemoryReplSet`) + `session-storage` (IoC + CRUD + GC + sondes, **hybride**).
+- **Test = `vitest run`** (`globals:true`, timeout 120s — 1ᵉʳ run télécharge mongod). **46 tests, 6 fichiers** : `orm-core-mongoose` (CRUD/relations/tx `MongoMemoryReplSet`) + `advanced` + `session-storage` (hybride) + `MongooseService` + **`user-mongoose` (P5.8, 8)** + `config` (unit).
 - **Mongo de test portable (`MONGO_TEST_URI`)** : si défini → on tape ce serveur (conteneur de service CI GitHub/GitLab, ou `docker run -p 27017:27017 mongo:7`) = **0 download** ; sinon → `mongodb-memory-server` in-process (dev local). ⚠️ Le banc orm-core exige un **replica set** (transactions) → reste sur `MongoMemoryReplSet` (un service standalone ne suffit pas).
 
 ## Gotchas (vs SQL)

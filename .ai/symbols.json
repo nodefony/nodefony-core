@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-08T17:32:49.705Z",
+  "generated": "2026-06-08T21:20:01.779Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 833,
-    "symbols": 1713,
-    "classes": 238,
-    "interfaces": 426,
-    "types": 221,
+    "files": 834,
+    "symbols": 1720,
+    "classes": 239,
+    "interfaces": 427,
+    "types": 223,
     "enums": 3,
-    "functions": 341,
-    "constants": 484
+    "functions": 343,
+    "constants": 485
   },
   "symbols": {
     "Cli": {
@@ -4335,6 +4335,39 @@
       "module": "@nodefony/drizzle",
       "description": "Table Drizzle de stockage des sessions (schema-as-code). Équivalent portable de l'entité session legacy : mêmes champs logiques (`session_id` PK, `context`, sacs `Attributes`/`flashBag`/`metaBag` e…"
     },
+    "UserRow": {
+      "name": "UserRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Forme plate d'une ligne `User` renvoyée par le repository de base (colonnes JSON déjà désérialisées + booléens + dates par le `mode` Drizzle). Mappée en `BaseUser`."
+    },
+    "createUserEntity": {
+      "name": "createUserEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Construit le descripteur d'entité `User` Drizzle pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM dépend d…"
+    },
+    "registerUserEntity": {
+      "name": "registerUserEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Enregistre l'entité `User` Drizzle dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter compile/crée les tables au connect)."
+    },
+    "userTable": {
+      "name": "userTable",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Table Drizzle de l'utilisateur Nodefony (schema-as-code) — implémentation SQL **par défaut** du contrat `@nodefony/user` (P5.9, ORM recommandé #1). Colonnes calquées sur `BaseUser` : identité (`id`…"
+    },
     "IDrizzleConfig": {
       "name": "IDrizzleConfig",
       "kind": "type",
@@ -4369,6 +4402,19 @@
       "implements": [],
       "decorators": [],
       "description": "Service bootable du module `@nodefony/drizzle`. Au boot du kernel (`onBoot`), instancie un {@link DrizzleOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le connecte ; chaque OR…"
+    },
+    "DrizzleUserRepository": {
+      "name": "DrizzleUserRepository",
+      "kind": "class",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "implements": [
+        "IUserRepository"
+      ],
+      "decorators": [],
+      "description": "Adapter Drizzle du contrat {@link IUserRepository} — implémentation SQL **par défaut** de la persistance utilisateur (P5.9). Décore le repository portable générique (`IRepository<UserRow>` de {@lin…"
     },
     "SessionStorage": {
       "name": "SessionStorage",
@@ -6374,6 +6420,39 @@
       "module": "@nodefony/mongoose",
       "description": "ORM cible du stockage de session (connecteur par défaut du module)."
     },
+    "@nodefony/mongoose:UserRow": {
+      "name": "UserRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Forme plate d'une ligne `User` (virtuel `id` + horodatages inclus) renvoyée par le repository. Mappée en `BaseUser` par `MongooseUserRepository`."
+    },
+    "@nodefony/mongoose:createUserEntity": {
+      "name": "createUserEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Construit le descripteur d'entité `User` Mongoose pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaison à un ORM dépen…"
+    },
+    "@nodefony/mongoose:registerUserEntity": {
+      "name": "registerUserEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Enregistre l'entité `User` Mongoose dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (le modèle est compilé au connect)."
+    },
+    "userSchema": {
+      "name": "userSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Schéma Mongoose de l'utilisateur Nodefony — implémentation NoSQL du contrat `@nodefony/user` (P5.8), pendant documentaire de `userTable` (Drizzle, P5.9). Champs calqués sur `BaseUser` : identité (`…"
+    },
     "IMongooseConfig": {
       "name": "IMongooseConfig",
       "kind": "type",
@@ -6408,6 +6487,19 @@
       "implements": [],
       "decorators": [],
       "description": "Service bootable du module `@nodefony/mongoose` (driver NoSQL). Au boot du kernel (`onBoot`), instancie un {@link MongooseOrm} (adapter orm-core) **par connecteur** déclaré dans la config et le con…"
+    },
+    "MongooseUserRepository": {
+      "name": "MongooseUserRepository",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "implements": [
+        "IUserRepository"
+      ],
+      "decorators": [],
+      "description": "Adapter Mongoose du contrat {@link IUserRepository} — persistance NoSQL de l'utilisateur (P5.8), pendant documentaire de `DrizzleUserRepository` (P5.9). Décore le repository portable (`IRepository<…"
     },
     "@nodefony/mongoose:SessionStorage": {
       "name": "SessionStorage",
@@ -10915,52 +11007,6 @@
       "decorators": [],
       "description": "Adapte une transaction `better-sqlite3` au contrat portable {@link ITransaction}. **Pourquoi une transaction manuelle (`BEGIN`/`COMMIT`/`ROLLBACK`) et pas le helper `db.transaction()` de Drizzle** …"
     },
-    "DrizzleUserRepository": {
-      "name": "DrizzleUserRepository",
-      "kind": "class",
-      "file": "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "extends": null,
-      "implements": [
-        "IUserRepository"
-      ],
-      "decorators": [],
-      "description": "Adapter Drizzle du contrat {@link IUserRepository} — implémentation SQL **par défaut** de la persistance utilisateur (P5.9). Décore le repository portable générique (`IRepository<UserRow>` de {@lin…"
-    },
-    "UserRow": {
-      "name": "UserRow",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "extends": null,
-      "description": "Forme plate d'une ligne `User` renvoyée par le repository de base (colonnes JSON déjà désérialisées + booléens par le `mode` Drizzle). Mappée en `BaseUser`."
-    },
-    "createUserEntity": {
-      "name": "createUserEntity",
-      "kind": "function",
-      "file": "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Construit le descripteur d'entité `User` Drizzle pour un ORM nommé. L'`orm` est **dynamique** (nom du connecteur de l'app, ex. `\"default\"`) : la table est statique mais sa liaison à un ORM dépend d…"
-    },
-    "registerUserEntity": {
-      "name": "registerUserEntity",
-      "kind": "function",
-      "file": "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Enregistre l'entité `User` Drizzle dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter compile/crée les tables au connect)."
-    },
-    "userTable": {
-      "name": "userTable",
-      "kind": "const",
-      "file": "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Table Drizzle de l'utilisateur Nodefony (schema-as-code) — implémentation SQL **par défaut** du contrat `@nodefony/user` (P5.9, ORM recommandé #1). Colonnes calquées sur {@link BaseUser} : identité…"
-    },
     "ViteBuilder": {
       "name": "ViteBuilder",
       "kind": "class",
@@ -12721,6 +12767,10 @@
         "HttpTransport",
         "SyslogTransport"
       ],
+      "IUserRepository": [
+        "DrizzleUserRepository",
+        "MongooseUserRepository"
+      ],
       "ISessionStorage": [
         "SessionStorage",
         "SessionStorage",
@@ -12802,9 +12852,6 @@
       "ITransaction": [
         "DrizzleTransaction",
         "MongooseTransaction"
-      ],
-      "IUserRepository": [
-        "DrizzleUserRepository"
       ],
       "IFrontBuilder": [
         "ViteBuilder"
@@ -13365,7 +13412,7 @@
       "DrizzleOrm": [
         "src/modules/mediasoup/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts"
       ],
       "MediasoupController": [
         "src/modules/mediasoup/index.ts"
@@ -14754,21 +14801,23 @@
       ],
       "entityRegistry": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/modules/test/nodefony/entity/dolibarr/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
       ],
       "IEntity": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
         "src/modules/test/nodefony/entity/dolibarr/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
       ],
@@ -14951,6 +15000,11 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts"
       ],
+      "ISocialProvider": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
+      ],
       "queryFlowMonitor": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
@@ -14966,6 +15020,73 @@
       "IDrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
+      "Criteria": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "IRepository": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "ITransaction": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts"
+      ],
+      "RepositoryReadOptions": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "BaseUser": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
+      ],
+      "IPasswordAuthenticatedUser": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts"
+      ],
+      "IUserRepository": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts"
+      ],
+      "DrizzleDb": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts"
+      ],
+      "UserRow": [
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
+      ],
       "ISessionStorage": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
@@ -14980,19 +15101,6 @@
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/FileSessionStorage.ts"
-      ],
-      "IRepository": [
-        "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "SESSION_ORM": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
@@ -15514,22 +15622,16 @@
         "src/packages/@nodefony/mongoose/nodefony/config/config.ts"
       ],
       "MongooseOrm": [
-        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
       ],
       "IMongooseConnectorConfig": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
-      "ITransaction": [
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/interfaces/IRepository.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts"
+      "Connection": [
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
       "IColumnInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
@@ -15557,19 +15659,6 @@
       ],
       "IOrmPoolProbe": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts"
-      ],
-      "Criteria": [
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
-      "RepositoryReadOptions": [
-        "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "ServiceWiring": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
@@ -15752,10 +15841,6 @@
       "RedisConfig": [
         "src/packages/@nodefony/redis/nodefony/config/config.ts"
       ],
-      "Connection": [
-        "src/packages/@nodefony/redis/nodefony/service/redis.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
-      ],
       "buildClientOptions": [
         "src/packages/@nodefony/redis/nodefony/service/redis.ts"
       ],
@@ -15844,26 +15929,12 @@
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
       ],
-      "IPasswordAuthenticatedUser": [
-        "src/packages/@nodefony/user/nodefony/contracts/IUserRepository.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts"
-      ],
       "AbstractCrudService": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "IPasswordEncoder": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/encoders/BcryptEncoder.ts"
-      ],
-      "IUserRepository": [
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts"
-      ],
-      "ISocialProvider": [
-        "src/packages/@nodefony/user/nodefony/src/BaseUser.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts"
       ],
       "IVectorSearchOptions": [
         "src/packages/@nodefony/vector/src/adapters/MemoryVectorStore.ts",
@@ -17128,11 +17199,6 @@
       "DrizzleRepository": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
-      "DrizzleDb": [
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleTransaction.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts"
-      ],
       "DrizzleResolvedRelation": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
@@ -17146,12 +17212,6 @@
       "UnknownCriteriaField": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
-      "BaseUser": [
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts"
-      ],
-      "UserRow": [
-        "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts"
       ],
       "IFrontBuilder": [
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"

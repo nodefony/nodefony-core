@@ -38,4 +38,4 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
 
 ## État
 
-✅ P5.5a (scaffold) + P5.5 (contracts + base users) + P5.6 (`BcryptEncoder` + `UserService extends AbstractCrudService`). **32 tests**. Suite = **P5.8** (adapter Mongoose : User entity + `IUserRepository` impl).
+✅ P5.5a + P5.5 + P5.6 (`BcryptEncoder` + `UserService extends AbstractCrudService`). **32 tests**. ✅ **P5.9** Drizzle User + ✅ **P5.8** Mongoose User : adapters `IUserRepository` dans `@nodefony/drizzle`/`@nodefony/mongoose` (convention **entity/ = schéma, src/ = repository** ; + `createdAt`/`updatedAt`). Suite = **P5.14** (session.user, bloqué P6) ; `IUserProvider` (pont security) = à implémenter en P6.

@@ -86,18 +86,18 @@ Deux usages :
 
 ## Adapter User (P5.9 ✅ — ORM SQL par défaut)
 
-`nodefony/src/user/` implémente le contrat `@nodefony/user` (peerDep ajoutée) :
+Convention structure (figée 2026-06-08) : **`nodefony/entity/` = schéma, `nodefony/src/` = repository** (idem `@nodefony/mongoose`). Implémente le contrat `@nodefony/user` (peerDep) :
 
-- **`userTable`** (`userTable.ts`) : `sqliteTable("User")` schema-as-code. Colonnes JSON
+- **`userTable`** (`entity/userTable.ts`) : `sqliteTable("User")` schema-as-code. Colonnes JSON
   (`roles`/`socialProviders`/`metadata`, `mode:"json"`) + booléens (`enabled`/`locked`,
   `integer mode:"boolean"`). ⚠️ **Défauts en `$defaultFn` (JS-level), PAS `.default()`** :
   le DDL dérivé (`getTableConfig`) n'émet pas les `DEFAULT` SQL → une colonne `NOT NULL`
   sans valeur casserait l'INSERT. `$defaultFn` : id UUID, roles/socialProviders `[]`, metadata `{}`,
-  enabled `true`, locked `false`.
+  enabled `true`, locked `false`, `createdAt`/`updatedAt` (`now` ; `updatedAt` régénéré à chaque update via `$onUpdateFn` — pendant SQL du `timestamps:true` Mongoose).
 - **`createUserEntity(orm)` / `registerUserEntity(orm)`** : binding ORM **dynamique** (nom de
   connecteur, ex. `"default"`) — la table est statique mais sa liaison dépend de la config, donc
   pas d'`@entity` figé. Enregistrer **avant** `orm.connect()`.
-- **`DrizzleUserRepository implements IUserRepository`** : décore `IRepository<UserRow>` ; mappe
+- **`DrizzleUserRepository`** (`src/DrizzleUserRepository.ts`) `implements IUserRepository` : décore `IRepository<UserRow>` ; mappe
   ligne ↔ `BaseUser` (les consommateurs reçoivent le comportement `hasRole`/`isActive`/`isLocked`).
   `findByIdentifier` (findOne) + `findBySocialProvider` (scan JSON `json_each` **bindé**, Shadow User
   OAuth). `DrizzleUserRepository.from(orm)` = factory. `withTransaction(tx)` rebind base + db.

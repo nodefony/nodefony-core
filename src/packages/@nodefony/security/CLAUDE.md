@@ -2,6 +2,8 @@
 
 > Audience IA en session. Voir [`MEMORY.md`](./MEMORY.md) (internals concis) + [`README.md`](./README.md) (humain).
 > **Kit de session** : mémoire IA `project_p6_security_kit` (LIRE EN PREMIER avant toute session security) — plan S1-S6, 9 slots anti-refonte, vision Studio.
+>
+> ⚠️ **REVUE 2026-06-08** — décisions ci-dessous **partiellement périmées** (détail + cible : `project_p6_security_kit` §REVUE) : « full stateless » → **hybride** (session BFF + JWT API, révisé 06-06) · **Symfony ≠ modèle** (garder les invariants, virer l'attribution) · ouvrir **Argon2id** · intégrer **Passkeys/WebAuthn + Token Exchange RFC 8693 (agents)** · identité = `IUser` racine + slot agent. **Gros travail = au démarrage P6.**
 
 ## Rôle
 
@@ -11,15 +13,15 @@ webhooks, audit. Consomme `@nodefony/user` (jamais l'inverse).
 
 ## Décisions figées
 
-| Sujet                  | Décision                                                                        | Pourquoi                                            |
-| ---------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Pattern auth           | **`IAuthenticator`** (Symfony 6), PAS Bridge/Factory                            | lisible, extensible, plugins                        |
-| HTTP                   | **full stateless** — JWT cookie `HttpOnly;Secure;SameSite=Strict` (jose)        | cloud-native, scaling horizontal                    |
-| Zero Trust             | zone protégée + anonyme + pas `@Anonymous` → **401**                            | fermé par défaut                                    |
-| Config                 | **`defineSecurityConfig()` + Zod** (12 sections, tout `enabled`, `.describe()`) | type-safe + Studio auto-form + désactivable à chaud |
-| En-têtes               | **natif** (pas la lib helmet)                                                   | 0 dep, contrôle total, nonce CSP par requête        |
-| Identité machine       | un `ServiceAccount` implémente `IUser`                                          | pas de principal séparé                             |
-| Coupling http→security | **type-only** (http importe `Firewall`/`Csrf`/`SecuredArea`)                    | conservé tel quel ; découplage = dette future       |
+| Sujet                  | Décision                                                                        | Pourquoi                                             |
+| ---------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Pattern auth           | **`IAuthenticator`** (supports/authenticate/onSuccess), PAS Bridge/Factory      | lisible, extensible, plugins                         |
+| HTTP                   | **hybride** : session serveur cookie opaque (BFF) web/Studio + JWT API/agents   | révocable + scaling via store partagé (révisé 06-06) |
+| Zero Trust             | zone protégée + anonyme + pas `@Anonymous` → **401**                            | fermé par défaut                                     |
+| Config                 | **`defineSecurityConfig()` + Zod** (12 sections, tout `enabled`, `.describe()`) | type-safe + Studio auto-form + désactivable à chaud  |
+| En-têtes               | **natif** (pas la lib helmet)                                                   | 0 dep, contrôle total, nonce CSP par requête         |
+| Identité machine       | un `ServiceAccount` implémente `IUser`                                          | pas de principal séparé                              |
+| Coupling http→security | **type-only** (http importe `Firewall`/`Csrf`/`SecuredArea`)                    | conservé tel quel ; découplage = dette future        |
 
 ## Structure
 

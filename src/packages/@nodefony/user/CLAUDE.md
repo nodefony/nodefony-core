@@ -51,8 +51,8 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 - ✅ **P5.5a** scaffold workspace : package.json/tsconfig/rollup/index.ts/docs + arbo `nodefony/{contracts,src/encoders,service}/`.
 - ✅ **P5.5** contracts : `IUser` (strict) + `IPasswordAuthenticatedUser` + `ISocialProvider` + `IUserProvider` + `IUserRepository` + `IPasswordEncoder` + `BaseUser` + `AnonymousUser` (+ singleton `anonymousUser`). 11 tests verts. **`IRole`/`IPermission` DIFFÉRÉS → P6.8** (slot réservé/commenté dans le barrel ; format RBAC à figer sur cas voter concret).
 - ✅ **P5.6** `UserService extends AbstractCrudService` (CRUD hérité + `authenticate()` + events credential) + `BcryptEncoder` (`@node-rs/bcrypt`, rounds: 12). 32 tests. Contrat `IUserRepository` affiné → `IPasswordAuthenticatedUser`.
-- ✅ **P5.9** adapter User **Drizzle** (ORM par défaut, fait EN PREMIER) : `@nodefony/drizzle/nodefony/src/user/` (`userTable` schema-as-code, `DrizzleUserRepository implements IUserRepository`, mapping ligne↔`BaseUser`, `findByIdentifier`/`findBySocialProvider` bindé). 8 tests. Cf `@nodefony/drizzle/CLAUDE.md`.
-- ⬜ **P5.8** adapter User Mongoose — après Drizzle.
+- ✅ **P5.9** adapter User **Drizzle** (ORM par défaut) : `@nodefony/drizzle` (`entity/userTable` schema-as-code, `src/DrizzleUserRepository implements IUserRepository`, mapping ligne↔`BaseUser`, `findByIdentifier`/`findBySocialProvider` bindé). 8 tests.
+- ✅ **P5.8** adapter User **Mongoose** : `@nodefony/mongoose` (`entity/userEntity` `timestamps:true`, `src/MongooseUserRepository`, `findBySocialProvider` via `$elemMatch`). 8 tests (ReplSet). **Convention : `entity/` = schéma, `src/` = repository** (idem Drizzle). + `createdAt`/`updatedAt` sur l'entité.
 - ⬜ **P5.10** tests cross-ORM (même `IUser`, 3 adapters CRUD).
 - ⬜ **P5.11** session refactor (`session.user: IUser` + `regenerateId()`).
 

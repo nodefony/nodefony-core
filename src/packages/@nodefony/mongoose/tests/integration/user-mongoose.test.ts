@@ -1,44 +1,48 @@
 import assert from "node:assert/strict";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
-import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
+import { MongooseOrm } from "../../nodefony/src/orm-core/index";
 import {
   registerUserEntity,
   type UserRow,
-} from "../../nodefony/entity/userTable";
-import { DrizzleUserRepository } from "../../nodefony/src/DrizzleUserRepository";
+} from "../../nodefony/entity/userEntity";
+import { MongooseUserRepository } from "../../nodefony/src/MongooseUserRepository";
 
-const ORM = "db_user_test";
+const ORM = "mongo_user_test";
 
-describe("@nodefony/user ↔ Drizzle adapter (P5.9)", () => {
-  let orm: DrizzleOrm;
-  let users: DrizzleUserRepository;
+describe("@nodefony/user ↔ Mongoose adapter (P5.8)", () => {
+  let replset: MongoMemoryReplSet;
+  let orm: MongooseOrm;
+  let users: MongooseUserRepository;
 
   beforeAll(async () => {
-    registerUserEntity(ORM); // AVANT connect (l'adapter crée la table au connect)
-    orm = new DrizzleOrm(ORM, { filename: ":memory:" });
+    registerUserEntity(ORM); // AVANT connect (le modèle est compilé au connect)
+    // Replica set en mémoire : indispensable pour les transactions MongoDB.
+    replset = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+    orm = new MongooseOrm(ORM, replset.getUri());
     await orm.connect();
-    users = DrizzleUserRepository.from(orm);
+    users = MongooseUserRepository.from(orm);
   });
 
   afterAll(async () => {
     await orm.disconnect();
-    // Scoper à NOTRE orm : `unregister("User")` sans orm efface le bucket entier
-    // (toutes ORMs) → contaminerait le banc P7.4 (User@db_test).
+    await replset.stop();
+    // Scoper à NOTRE orm : le bucket "User" du registry est process-wide.
     entityRegistry.unregister("User", ORM);
     ormRegistry.unregister(ORM);
   });
 
-  it("create() → BaseUser avec id généré + défauts ($defaultFn)", async () => {
+  it("create() → BaseUser avec id (ObjectId hex) + défauts du schéma", async () => {
     const u = await users.create({
       identifier: "alice@nodefony.dev",
       roles: ["ROLE_USER"],
       password: "hash$alice",
     });
-    assert.match(u.id, /[0-9a-f-]{36}/); // UUID auto
+    assert.match(u.id, /^[0-9a-f]{24}$/); // virtuel `id` = hex de l'ObjectId
     assert.equal(u.identifier, "alice@nodefony.dev");
     assert.equal(u.password, "hash$alice");
     assert.deepEqual(u.roles, ["ROLE_USER"]);
-    // Comportement BaseUser (pas une ligne nue) + défauts NOT NULL via $defaultFn.
+    // Comportement BaseUser (pas un document nu) + défauts du schéma.
     assert.equal(typeof u.hasRole, "function");
     assert.equal(u.hasRole("ROLE_USER"), true);
     assert.equal(u.isActive(), true); // enabled défaut true
@@ -56,13 +60,13 @@ describe("@nodefony/user ↔ Drizzle adapter (P5.9)", () => {
     assert.equal(await users.findByIdentifier("ghost@nodefony.dev"), null);
   });
 
-  it("compte 100% OAuth : password null persiste", async () => {
+  it("compte 100% OAuth : password null + roles défaut []", async () => {
     const u = await users.create({ identifier: "oauth-only@x.c" });
     assert.equal(u.password, null);
-    assert.deepEqual(u.roles, []); // défaut $defaultFn []
+    assert.deepEqual(u.roles, []);
   });
 
-  it("update() modifie les rôles (mapping conservé)", async () => {
+  it("updateOne() modifie les rôles (mapping conservé)", async () => {
     const updated = await users.updateOne(
       { identifier: "alice@nodefony.dev" },
       { roles: ["ROLE_USER", "ROLE_ADMIN"] },
@@ -73,7 +77,7 @@ describe("@nodefony/user ↔ Drizzle adapter (P5.9)", () => {
     assert.deepEqual(reread?.roles, ["ROLE_USER", "ROLE_ADMIN"]);
   });
 
-  it("findBySocialProvider() scanne le JSON socialProviders (Shadow User)", async () => {
+  it("findBySocialProvider() scanne socialProviders via $elemMatch (Shadow User)", async () => {
     // socialProviders n'est pas dans le contrat IUser → écrit via le repo de base.
     const base = orm.getRepository<UserRow>("User");
     await base.create({

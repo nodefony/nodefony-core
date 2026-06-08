@@ -107,10 +107,11 @@ export type {
 } from "./nodefony/src/orm-core/index";
 
 // ─── Adapter User Drizzle (contrat @nodefony/user — ORM SQL par défaut, P5.9) ─
+// Entité (table) dans entity/, couche d'accès (repository) dans src/.
 export {
   userTable,
   createUserEntity,
   registerUserEntity,
-  DrizzleUserRepository,
-} from "./nodefony/src/user/index";
-export type { UserRow } from "./nodefony/src/user/index";
+} from "./nodefony/entity/userTable";
+export type { UserRow } from "./nodefony/entity/userTable";
+export { DrizzleUserRepository } from "./nodefony/src/DrizzleUserRepository";
