@@ -78,7 +78,10 @@ describe("orm-core ↔ Mongoose adapter (P5.4, store hétérogène)", () => {
 
     assert.equal(await users.count(), 1);
 
-    const updated = await users.update({ id: created.id }, { email: "x@y.z" });
+    const updated = await users.updateOne(
+      { id: created.id },
+      { email: "x@y.z" },
+    );
     assert.equal(updated?.email, "x@y.z");
 
     assert.equal(await users.delete({ id: created.id }), 1);

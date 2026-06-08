@@ -127,12 +127,33 @@ export interface IRepository<T = unknown> {
   create(data: Partial<T>): Promise<T>;
 
   /**
-   * Met à jour les entités correspondant au critère et retourne l'entité mise à jour, ou `null`.
+   * Met à jour **au plus une** entité correspondant au critère, de façon
+   * **atomique**, et retourne sa version persistée (ou `null` si aucune ne
+   * correspond).
    *
-   * @param criteria - filtre de sélection.
+   * Atomicité : une **seule** requête (`UPDATE … RETURNING` SQL /
+   * `findOneAndUpdate` Mongo), jamais un `UPDATE` suivi d'une relecture séparée
+   * — cette dernière renverrait `null` à tort dès que le critère porte sur un
+   * champ modifié (ex. `updateOne({ status: "pending" }, { status: "done" })`).
+   *
+   * @param criteria - filtre de sélection. Un champ inconnu de l'entité lève
+   *   `UnknownCriteriaField` (mêmes règles que `find`).
    * @param data - champs à modifier.
+   * @returns l'entité mise à jour, ou `null` si le critère ne matche rien.
    */
-  update(criteria: Criteria<T>, data: Partial<T>): Promise<T | null>;
+  updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null>;
+
+  /**
+   * Met à jour **toutes** les entités correspondant au critère et retourne le
+   * **nombre** de lignes modifiées (parité de signature avec
+   * {@link IRepository.delete}).
+   *
+   * @param criteria - filtre de sélection. Un champ inconnu lève
+   *   `UnknownCriteriaField`.
+   * @param data - champs à modifier.
+   * @returns le nombre d'entités mises à jour.
+   */
+  updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number>;
 
   /**
    * Supprime les entités correspondant au critère.

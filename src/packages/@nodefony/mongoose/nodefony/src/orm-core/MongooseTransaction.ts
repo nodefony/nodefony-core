@@ -14,6 +14,7 @@ import type { ITransaction } from "@nodefony/orm-core";
  */
 export class MongooseTransaction implements ITransaction {
   readonly #session: ClientSession;
+  #done = false;
 
   /**
    * @param session - session MongoDB transactionnelle sous-jacente.
@@ -22,13 +23,31 @@ export class MongooseTransaction implements ITransaction {
     this.#session = session;
   }
 
-  /** Valide la transaction (mode non managé). */
+  /** Indique si la transaction est déjà terminée (commit ou rollback). */
+  isDone(): boolean {
+    return this.#done;
+  }
+
+  /**
+   * Valide la transaction (no-op si déjà terminée — idempotent, parité avec
+   * `DrizzleTransaction`). En mode managé (défaut via `IOrm.transaction`), le
+   * commit/abort est piloté par `session.withTransaction` : un appel manuel est
+   * inutile, et l'idempotence évite un double-commit accidentel.
+   */
   async commit(): Promise<void> {
+    if (this.#done) {
+      return;
+    }
+    this.#done = true;
     await this.#session.commitTransaction();
   }
 
-  /** Annule la transaction (mode non managé). */
+  /** Annule la transaction (no-op si déjà terminée — idempotent). */
   async rollback(): Promise<void> {
+    if (this.#done) {
+      return;
+    }
+    this.#done = true;
     await this.#session.abortTransaction();
   }
 

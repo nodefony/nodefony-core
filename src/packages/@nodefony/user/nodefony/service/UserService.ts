@@ -119,7 +119,7 @@ export class UserService extends AbstractCrudService<
     plainPassword: string,
   ): Promise<IPasswordAuthenticatedUser | null> {
     const password = await this.encoder.hash(plainPassword);
-    const updated = await this.repository.update(
+    const updated = await this.repository.updateOne(
       { id } as Criteria<IPasswordAuthenticatedUser>,
       { password },
     );
@@ -169,7 +169,7 @@ export class UserService extends AbstractCrudService<
 
     if (this.encoder.needsRehash(hash)) {
       const fresh = await this.encoder.hash(plain);
-      const rehashed = await this.repository.update(
+      const rehashed = await this.repository.updateOne(
         { id: user.id } as Criteria<IPasswordAuthenticatedUser>,
         { password: fresh },
       );

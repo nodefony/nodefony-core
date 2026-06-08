@@ -1,6 +1,10 @@
 import type { ClientSession, QueryFilter, Model } from "mongoose";
 import { RequestContext, redactSecrets } from "nodefony";
-import { isFieldOperators, queryFlowMonitor } from "@nodefony/orm-core";
+import {
+  isFieldOperators,
+  queryFlowMonitor,
+  UnknownCriteriaField,
+} from "@nodefony/orm-core";
 import type {
   Criteria,
   FieldOperators,
@@ -124,7 +128,37 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   }
 
   /**
+   * Valide qu'un champ de critère existe sur le schéma (strict B2, parité
+   * Drizzle) et renvoie sa clé Mongo (`id` → `_id`, PK). Un champ inconnu lève
+   * {@link UnknownCriteriaField} au lieu d'être passé tel quel à Mongo (qui
+   * donnait 0 résultat silencieux — et divergeait de Drizzle qui, lui, renvoyait
+   * tout). Échoue tôt et pareil sur les deux drivers.
+   *
+   * @param field - clé brute du critère.
+   * @returns la clé Mongo résolue.
+   * @throws UnknownCriteriaField si le champ n'existe pas sur le schéma.
+   */
+  #resolveField(field: string): string {
+    const key = field === "id" ? "_id" : field;
+    const paths = this.#model.schema.paths as Record<string, unknown>;
+    // `_id` toujours valide ; chemin direct ; ou chemin imbriqué (`a.b` → racine `a`).
+    if (
+      key === "_id" ||
+      paths[key] !== undefined ||
+      paths[key.split(".")[0]] !== undefined
+    ) {
+      return key;
+    }
+    throw new UnknownCriteriaField(
+      field,
+      this.#model.modelName,
+      Object.keys(paths),
+    );
+  }
+
+  /**
    * Traduit le critère portable : `id` → `_id` (PK MongoDB) + opérateurs riches.
+   * Chaque champ est validé contre le schéma (strict, cf {@link MongooseRepository.#resolveField}).
    */
   #filter(criteria?: Criteria<T>): QueryFilter<Record<string, unknown>> {
     if (!criteria) {
@@ -132,7 +166,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     }
     const out: Record<string, unknown> = {};
     for (const [field, value] of Object.entries(criteria)) {
-      const key = field === "id" ? "_id" : field;
+      const key = this.#resolveField(field);
       out[key] = isFieldOperators(value) ? this.#mongoOps(value) : value;
     }
     return out as QueryFilter<Record<string, unknown>>;
@@ -217,16 +251,41 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     );
   }
 
-  async update(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
+  async updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
+    const filter = this.#filter(criteria);
+    // Atomique : `findOneAndUpdate({ new: true })` → 1 round-trip, retourne le
+    // document RÉELLEMENT modifié (pas de relecture séparée qui renverrait null
+    // à tort si le critère portait sur un champ modifié — bug B1).
+    return this.#prof(
+      () => this.#descr("findOneAndUpdate", filter),
+      async () => {
+        const doc = await this.#model
+          .findOneAndUpdate(filter, data as Record<string, unknown>, {
+            // `returnDocument: "after"` = renvoie le doc APRÈS modif (forme non
+            // dépréciée de l'ancien `new: true` — Mongoose 9).
+            returnDocument: "after",
+            session: this.#session ?? undefined,
+          })
+          .exec();
+        return doc ? this.#plain(doc) : null;
+      },
+      (doc) => (doc ? 1 : 0),
+    );
+  }
+
+  async updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number> {
     const filter = this.#filter(criteria);
     return this.#prof(
       () => this.#descr("updateMany", filter),
       async () => {
-        await this.#model.updateMany(filter, data as Record<string, unknown>, {
-          session: this.#session ?? undefined,
-        });
-        return this.findOne(criteria);
+        const res = await this.#model.updateMany(
+          filter,
+          data as Record<string, unknown>,
+          { session: this.#session ?? undefined },
+        );
+        return res.modifiedCount ?? 0;
       },
+      (n) => n,
     );
   }
 

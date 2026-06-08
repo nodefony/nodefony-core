@@ -95,7 +95,7 @@ class SessionStorage implements ISessionStorage {
     };
     const existing = await repo.findOne({ session_id: id });
     if (existing) {
-      await repo.update({ session_id: id }, fields as Partial<SessionRow>);
+      await repo.updateOne({ session_id: id }, fields as Partial<SessionRow>);
     } else {
       await repo.create({
         session_id: id,

@@ -24,6 +24,9 @@ export type {
 export { OPERATOR_KEYS, isFieldOperators } from "./nodefony/src/criteria";
 export type { OperatorKey } from "./nodefony/src/criteria";
 
+// ─── Erreurs ORM data-level (aucun couplage API) ─────────────────────────────
+export { UnknownCriteriaField } from "./nodefony/src/errors";
+
 // ─── Runtime (P5.2) — registres singletons + classes de base ────────────────
 export { OrmRegistry, ormRegistry } from "./nodefony/src/OrmRegistry";
 export { EntityRegistry, entityRegistry } from "./nodefony/src/EntityRegistry";

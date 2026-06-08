@@ -186,7 +186,10 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
 
   it("Event : 3 FK + JSON start/end + eager-load calendar/room/creator", async () => {
     const creator = await users.create({ identifier: "dave" });
-    const cal = await calendars.create({ summary: "Cal", creatorId: creator.id });
+    const cal = await calendars.create({
+      summary: "Cal",
+      creatorId: creator.id,
+    });
     const room = await rooms.create({ name: "salle-event" });
     const ev = await events.create({
       summary: "Standup",
@@ -211,7 +214,10 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
 
   it("Event : auto-référence parentEventId (récurrence) + eager-load parent", async () => {
     const creator = await users.create({ identifier: "erin" });
-    const cal = await calendars.create({ summary: "Rec", creatorId: creator.id });
+    const cal = await calendars.create({
+      summary: "Rec",
+      creatorId: creator.id,
+    });
     const master = await events.create({
       summary: "Daily (maître)",
       calendarId: cal.id,
@@ -247,7 +253,10 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
 
     const all = await recordings.find({ roomId: room.id });
     assert.equal(all.length, 2);
-    assert.equal(all.some((r) => r.eventId === null), true); // FK nullable OK
+    assert.equal(
+      all.some((r) => r.eventId === null),
+      true,
+    ); // FK nullable OK
 
     const planned = await recordings.findOne(
       { roomId: room.id, eventId: ev.id },
@@ -264,7 +273,7 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
     assert.equal(rec.deletedAt ?? null, null); // actif
 
     const ts = Date.now();
-    await recordings.update({ id: rec.id }, { deletedAt: ts });
+    await recordings.updateOne({ id: rec.id }, { deletedAt: ts });
 
     const after = await recordings.findOne({ id: rec.id });
     assert.ok(after, "la ligne existe toujours (pas de delete physique)");
@@ -273,7 +282,10 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
 
   it("Tag : contrainte UNIQUE sur name + N-N EventTag", async () => {
     const creator = await users.create({ identifier: "gina" });
-    const cal = await calendars.create({ summary: "C2", creatorId: creator.id });
+    const cal = await calendars.create({
+      summary: "C2",
+      creatorId: creator.id,
+    });
     const ev = await events.create({
       summary: "Tagué",
       calendarId: cal.id,
@@ -299,11 +311,26 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
 
   it("Opérateurs riches : filtrer les events par statut ($in) et summary ($like)", async () => {
     const creator = await users.create({ identifier: "hugo" });
-    const cal = await calendars.create({ summary: "Ops", creatorId: creator.id });
+    const cal = await calendars.create({
+      summary: "Ops",
+      creatorId: creator.id,
+    });
     const base = { calendarId: cal.id, creatorId: creator.id };
-    await events.create({ ...base, summary: "ops-confirmed", status: "confirmed" });
-    await events.create({ ...base, summary: "ops-tentative", status: "tentative" });
-    await events.create({ ...base, summary: "ops-cancelled", status: "cancelled" });
+    await events.create({
+      ...base,
+      summary: "ops-confirmed",
+      status: "confirmed",
+    });
+    await events.create({
+      ...base,
+      summary: "ops-tentative",
+      status: "tentative",
+    });
+    await events.create({
+      ...base,
+      summary: "ops-cancelled",
+      status: "cancelled",
+    });
 
     const active = await events.find({
       creatorId: creator.id,
@@ -321,14 +348,21 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
 
   it("Transaction : commit persiste, rollback annule (Event + Recording atomiques)", async () => {
     const creator = await users.create({ identifier: "iris" });
-    const cal = await calendars.create({ summary: "Tx", creatorId: creator.id });
+    const cal = await calendars.create({
+      summary: "Tx",
+      creatorId: creator.id,
+    });
     const room = await rooms.create({ name: "salle-tx" });
 
     // commit
     await orm.transaction(async (tx) => {
       const ev = await events
         .withTransaction(tx)
-        .create({ summary: "tx-ok", calendarId: cal.id, creatorId: creator.id });
+        .create({
+          summary: "tx-ok",
+          calendarId: cal.id,
+          creatorId: creator.id,
+        });
       await recordings
         .withTransaction(tx)
         .create({ roomId: room.id, eventId: ev.id });
@@ -340,7 +374,11 @@ describe("orm-core ↔ modèle mediasoup (banc Drizzle)", () => {
       orm.transaction(async (tx) => {
         await events
           .withTransaction(tx)
-          .create({ summary: "tx-ko", calendarId: cal.id, creatorId: creator.id });
+          .create({
+            summary: "tx-ko",
+            calendarId: cal.id,
+            creatorId: creator.id,
+          });
         throw new Error("boom");
       }),
       /boom/,

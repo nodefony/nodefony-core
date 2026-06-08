@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-08T11:38:42.252Z",
+  "generated": "2026-06-08T12:36:17.337Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 832,
-    "symbols": 1704,
-    "classes": 240,
+    "files": 833,
+    "symbols": 1706,
+    "classes": 241,
     "interfaces": 422,
     "types": 220,
     "enums": 3,
-    "functions": 339,
+    "functions": 340,
     "constants": 480
   },
   "symbols": {
@@ -6779,6 +6779,17 @@
       "module": "@nodefony/orm-core",
       "description": "Singleton process-wide partagé. Les entités s'y enregistrent (via le décorateur `@entity` en P5.3 ou {@link Entity.register}). La classe {@link EntityRegistry} reste instanciable pour des registres…"
     },
+    "UnknownCriteriaField": {
+      "name": "UnknownCriteriaField",
+      "kind": "class",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/errors.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Erreurs typées du socle ORM — **data-level uniquement** (aucun couplage à une couche API/transport : ces erreurs décrivent des fautes sur les données, pas sur une requête HTTP/GraphQL). Une surface…"
+    },
     "@nodefony/orm-core:Orm": {
       "name": "Orm",
       "kind": "class",
@@ -12400,6 +12411,7 @@
         "AgentError",
         "LLMError",
         "MemoryError",
+        "UnknownCriteriaField",
         "RagError",
         "VectorError",
         "FrontendError",
@@ -17110,6 +17122,10 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "isFieldOperators": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "UnknownCriteriaField": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],

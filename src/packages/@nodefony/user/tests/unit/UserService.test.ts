@@ -50,7 +50,7 @@ class MemoryUserRepo implements IUserRepository {
     return Promise.resolve<IPasswordAuthenticatedUser>(user);
   }
 
-  update(
+  updateOne(
     criteria: Criteria<IPasswordAuthenticatedUser>,
     data: Partial<IPasswordAuthenticatedUser>,
   ) {
@@ -59,6 +59,20 @@ class MemoryUserRepo implements IUserRepository {
     if ("password" in data) user.password = data.password ?? null;
     if (data.roles) user.roles = [...data.roles];
     return Promise.resolve<IPasswordAuthenticatedUser>(user);
+  }
+
+  updateMany(
+    criteria: Criteria<IPasswordAuthenticatedUser>,
+    data: Partial<IPasswordAuthenticatedUser>,
+  ) {
+    let n = 0;
+    for (const user of this.store.values()) {
+      if (!this.match(user, criteria)) continue;
+      if ("password" in data) user.password = data.password ?? null;
+      if (data.roles) user.roles = [...data.roles];
+      n += 1;
+    }
+    return Promise.resolve(n);
   }
 
   delete(criteria: Criteria<IPasswordAuthenticatedUser>) {
@@ -144,7 +158,7 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       service.on("onUpdated", () => {
         fired = true;
       });
-      const updated = await service.update(
+      const updated = await service.updateOne(
         { id: created.id },
         { roles: ["ROLE_ADMIN"] },
       );
@@ -203,7 +217,10 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
 
     it("mauvais mot de passe : null + raison bad_credentials", async () => {
       const { service } = makeService();
-      await service.createUser({ identifier: "a@x.io", plainPassword: "s3cret" });
+      await service.createUser({
+        identifier: "a@x.io",
+        plainPassword: "s3cret",
+      });
       let reason = "";
       service.on("onAuthenticationFailure", (_id, r) => {
         reason = r as string;

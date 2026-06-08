@@ -81,10 +81,7 @@ export abstract class AbstractCrudService<
    * @param id - identifiant primaire.
    * @param options - eager-load portable.
    */
-  findById(
-    id: string,
-    options?: RepositoryReadOptions,
-  ): Promise<T | null> {
+  findById(id: string, options?: RepositoryReadOptions): Promise<T | null> {
     return this.repository.findOne({ id } as Criteria<T>, options);
   }
 
@@ -114,15 +111,25 @@ export abstract class AbstractCrudService<
   }
 
   /**
-   * Met à jour : `beforeUpdate` → persistance → `afterUpdate` → `onUpdated`.
+   * Met à jour **au plus une** entité : `beforeUpdate` → persistance atomique
+   * → `afterUpdate` → `onUpdated`.
    *
-   * @param criteria - filtre de sélection.
+   * S'appuie sur {@link IRepository.updateOne} (atomique, `RETURNING` /
+   * `findOneAndUpdate`) : l'entité retournée reflète l'écriture, donc l'event
+   * `onUpdated` part de façon fiable même quand le critère porte sur un champ
+   * modifié (corrige le faux `null` de l'ancien `update` + relecture).
+   *
+   * `updateMany` (mise à jour en masse) n'est volontairement **pas** exposée
+   * ici : c'est une primitive de niveau repository (`IRepository.updateMany`) —
+   * on la remontera dans un service le jour où un usage métier la réclame.
+   *
+   * @param criteria - filtre de sélection (champ inconnu → `UnknownCriteriaField`).
    * @param data - champs à modifier.
    * @returns l'entité mise à jour, ou `null` si aucune ne correspond (pas d'event).
    */
-  async update(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
+  async updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
     const prepared = await this.beforeUpdate(criteria, data);
-    const updated = await this.repository.update(criteria, prepared);
+    const updated = await this.repository.updateOne(criteria, prepared);
     if (updated !== null) {
       await this.afterUpdate(updated);
       this.fire("onUpdated", updated);
