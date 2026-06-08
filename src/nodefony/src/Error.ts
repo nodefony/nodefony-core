@@ -75,39 +75,75 @@ const jsonNodefony: JsonDescriptor = {
   },
 };
 
-// TODO(orm-session): remplacer par un registre IErrorAdapter — @nodefony/mongoose
-// s'enregistre lui-même, le core ne doit pas connaître les ORMs
-let _mongooseAdapter: {
-  isError(e: Error): boolean;
-  errorToString(e: unknown): string;
-} | null = null;
-
 /**
- * Enregistre l'adapter Mongoose pour la détection et le formatage des erreurs ORM.
+ * Adapter d'erreurs d'une bibliothèque tierce (driver ORM, client externe…).
  *
- * Appelé par `@nodefony/mongoose` au boot — le core ne dépend pas de l'ORM.
- *
- * @param adapter - implémentation `{ isError, errorToString }` ou `null` pour désactiver.
+ * Permet au core de **reconnaître** (`isError`) et **formater** (`errorToString`)
+ * une famille d'erreurs sans dépendre de la bibliothèque : le module tiers fournit
+ * l'implémentation et s'enregistre via {@link registerErrorAdapter}. Le core reste
+ * agnostique — il ne nomme aucun driver.
  */
-export function registerMongooseAdapter(
-  adapter: typeof _mongooseAdapter,
-): void {
-  _mongooseAdapter = adapter;
+export interface IErrorAdapter {
+  /** Vrai si l'erreur relève de la famille gérée par cet adapter. */
+  isError(e: Error): boolean;
+  /** Formate l'erreur en message lisible. */
+  errorToString(e: unknown): string;
 }
 
-const isMongooseError = function (error: Error) {
-  try {
-    return _mongooseAdapter?.isError(error) ?? false;
-  } catch (e) {
-    return false;
+// Registre lazy des adapters d'erreurs tiers (clé = nom du module, ex. "mongoose").
+// `null` tant qu'aucun adapter n'est enregistré → zéro allocation au boot (le core
+// n'alloue pas « au cas où »). Itéré uniquement quand une `Error` est classifiée.
+let _errorAdapters: Map<string, IErrorAdapter> | null = null;
+
+/**
+ * Enregistre un adapter d'erreurs tiers sous une clé (ex. le nom du driver ORM
+ * `"mongoose"`). Inversion de dépendance : le module s'enregistre lui-même à son
+ * boot, le core ne connaît aucune bibliothèque. `null` retire l'adapter (teardown,
+ * tests).
+ *
+ * @param name - clé unique de l'adapter (nom du module/driver).
+ * @param adapter - implémentation `{ isError, errorToString }`, ou `null` pour retirer.
+ */
+export function registerErrorAdapter(
+  name: string,
+  adapter: IErrorAdapter | null,
+): void {
+  if (adapter === null) {
+    _errorAdapters?.delete(name);
+    return;
   }
+  if (_errorAdapters === null) {
+    _errorAdapters = new Map();
+  }
+  _errorAdapters.set(name, adapter);
+}
+
+/**
+ * Premier adapter dont relève l'erreur, ou `null`. Gratuit tant qu'aucun adapter
+ * n'est enregistré (registre `null`). Un adapter qui throw est ignoré — il ne doit
+ * jamais casser la classification d'une erreur.
+ */
+const findErrorAdapter = function (error: Error): IErrorAdapter | null {
+  if (_errorAdapters === null) {
+    return null;
+  }
+  for (const adapter of _errorAdapters.values()) {
+    try {
+      if (adapter.isError(error)) {
+        return adapter;
+      }
+    } catch {
+      /* un adapter défaillant ne doit pas casser la détection */
+    }
+  }
+  return null;
 };
 
 /**
  * Erreur Nodefony — wrapper riche autour de `Error` natif qui ajoute :
  * - Un `code` numérique (HTTP status ou code custom — pas un string).
  * - Un `errorType` détecté automatiquement (TypeError, SystemError,
- *   AssertionError, MongooseError, ClientError, etc.).
+ *   AssertionError, OrmError, ClientError, etc.).
  * - Une sérialisation `toJSON()` filtrée qui exclut `context`, `resolver`,
  *   `container`, `secure` (références circulaires).
  * - Un `toString()` coloré (cli-color) qui adapte le format selon
@@ -123,13 +159,17 @@ const isMongooseError = function (error: Error) {
  * throw new nodefonyError("user not found", 404);
  * ```
  *
- * @remarks L'adapter ORM Mongoose est injecté via `registerMongooseAdapter`
- *   pour découpler le core des modules ORM. Sans adapter, ce type n'est pas détecté.
+ * @remarks Les erreurs de bibliothèques tierces (drivers ORM…) sont reconnues
+ *   et formatées via un adapter injecté par `registerErrorAdapter` — le core
+ *   reste découplé des modules. Sans adapter enregistré, l'erreur retombe sur la
+ *   classification générique.
  */
 class nodefonyError extends Error {
   public override code: number | null;
   public error?: Error;
   public errorType: string;
+  /** Adapter d'erreur tiers résolu (erreur ORM…) quand `errorType === "OrmError"`. */
+  #errorAdapter: IErrorAdapter | null = null;
   //public actual : string
   [key: string]: any;
 
@@ -170,7 +210,7 @@ class nodefonyError extends Error {
   }
 
   /**
-   * Détecte la catégorie d'une erreur (TypeError, SystemError, MongooseError, etc.).
+   * Détecte la catégorie d'une erreur (TypeError, SystemError, OrmError, etc.).
    *
    * Utilisée par `getType()` pour peupler `errorType` et copier les champs
    * spécifiques au type (errno, syscall, bytesParsed, etc.).
@@ -188,8 +228,8 @@ class nodefonyError extends Error {
         return "SyntaxError";
       case error instanceof assert.AssertionError:
         return "AssertionError";
-      case isMongooseError(error):
-        return "MongooseError";
+      case findErrorAdapter(error) !== null:
+        return "OrmError";
       case error instanceof Error:
         if (error.errno) {
           return "SystemError";
@@ -238,6 +278,11 @@ class nodefonyError extends Error {
         case "ClientError":
           this.bytesParsed = error.bytesParsed;
           this.rawPacket = error.rawPacket;
+          return errorType;
+        case "OrmError":
+          // Mémorise l'adapter résolu (sur l'erreur native originale) pour que
+          // `toString()` délègue son rendu sans re-détecter sur le wrapper.
+          this.#errorAdapter = findErrorAdapter(error);
           return errorType;
         default:
           return error.constructor.name;
@@ -310,8 +355,8 @@ class nodefonyError extends Error {
       ${clc.white("BytesParsed :")} ${this.bytesParsed}
       ${clc.white("RawPacket :")} ${this.rawPacket}`;
         break;
-      case "MongooseError":
-        return _mongooseAdapter?.errorToString(this) ?? this.message;
+      case "OrmError":
+        return this.#errorAdapter?.errorToString(this) ?? this.message;
       default:
         if (Nodefony.getKernel()?.environment === "prod") {
           return ` ${clc.blue("Type :")} ${this.errorType} ${clc.red(

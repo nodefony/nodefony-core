@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-08T16:01:54.235Z",
+  "generated": "2026-06-08T17:17:56.544Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 832,
-    "symbols": 1710,
+    "symbols": 1711,
     "classes": 238,
-    "interfaces": 425,
+    "interfaces": 426,
     "types": 221,
     "enums": 3,
     "functions": 339,
@@ -113,13 +113,22 @@
       "decorators": [],
       "description": "Erreur Nodefony — wrapper riche autour de `Error` natif qui ajoute : - Un `code` numérique (HTTP status ou code custom — pas un string). - Un `errorType` détecté automatiquement (TypeError, SystemE…"
     },
-    "registerMongooseAdapter": {
-      "name": "registerMongooseAdapter",
+    "IErrorAdapter": {
+      "name": "IErrorAdapter",
+      "kind": "interface",
+      "file": "src/nodefony/src/Error.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Adapter d'erreurs d'une bibliothèque tierce (driver ORM, client externe…). Permet au core de **reconnaître** (`isError`) et **formater** (`errorToString`) une famille d'erreurs sans dépendre de la …"
+    },
+    "registerErrorAdapter": {
+      "name": "registerErrorAdapter",
       "kind": "function",
       "file": "src/nodefony/src/Error.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Enregistre l'adapter Mongoose pour la détection et le formatage des erreurs ORM. Appelé par `@nodefony/mongoose` au boot — le core ne dépend pas de l'ORM."
+      "description": "Enregistre un adapter d'erreurs tiers sous une clé (ex. le nom du driver ORM `\"mongoose\"`). Inversion de dépendance : le module s'enregistre lui-même à son boot, le core ne connaît aucune bibliothè…"
     },
     "Event": {
       "name": "Event",
@@ -13858,7 +13867,7 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts"
       ],
-      "registerMongooseAdapter": [
+      "registerErrorAdapter": [
         "src/packages/@nodefony/mongoose/index.ts"
       ],
       "defineMongooseConfig": [

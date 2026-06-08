@@ -1,6 +1,9 @@
 import { expect } from "chai";
 import assert from "node:assert";
-import { nodefonyError } from "../index";
+import { nodefonyError, registerErrorAdapter } from "../index";
+
+/** Famille d'erreur tierce simulée (façon `mongoose.Error`) pour le registre. */
+class FakeOrmError extends Error {}
 
 describe("nodefonyError", () => {
   describe("construction", () => {
@@ -139,6 +142,53 @@ describe("nodefonyError", () => {
       const str = e.toString();
       expect(str).to.be.a("string");
       expect(str).to.include("readable error");
+    });
+  });
+
+  describe("adapter d'erreurs tiers (registre IErrorAdapter — C2)", () => {
+    // Registre process-wide → toujours retirer l'adapter après chaque test.
+    afterEach(() => {
+      registerErrorAdapter("fake-orm", null);
+    });
+
+    it("une erreur reconnue par un adapter → errorType 'OrmError'", () => {
+      registerErrorAdapter("fake-orm", {
+        isError: (e: Error): boolean => e instanceof FakeOrmError,
+        errorToString: (e: unknown): string => `FAKE: ${(e as Error).message}`,
+      });
+      const e = new nodefonyError(new FakeOrmError("db down"));
+      expect(e.errorType).to.equal("OrmError");
+    });
+
+    it("toString délègue le rendu à l'adapter résolu", () => {
+      registerErrorAdapter("fake-orm", {
+        isError: (e: Error): boolean => e instanceof FakeOrmError,
+        errorToString: (e: unknown): string => `FAKE: ${(e as Error).message}`,
+      });
+      const e = new nodefonyError(new FakeOrmError("db down"));
+      expect(e.toString()).to.equal("FAKE: db down");
+    });
+
+    it("registre vidé (null) → classification générique (constructor.name)", () => {
+      registerErrorAdapter("fake-orm", {
+        isError: (e: Error): boolean => e instanceof FakeOrmError,
+        errorToString: (): string => "FAKE",
+      });
+      registerErrorAdapter("fake-orm", null);
+      const e = new nodefonyError(new FakeOrmError("x"));
+      expect(e.errorType).to.equal("FakeOrmError");
+    });
+
+    it("un adapter qui throw n'empêche pas la classification", () => {
+      registerErrorAdapter("fake-orm", {
+        isError: (): boolean => {
+          throw new Error("adapter boom");
+        },
+        errorToString: (): string => "x",
+      });
+      // Ne doit pas throw ; l'erreur native reste classifiée normalement.
+      const e = new nodefonyError(new Error("plain"));
+      expect(e.errorType).to.equal("Error");
     });
   });
 });

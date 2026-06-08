@@ -15,7 +15,7 @@ import {
   Kernel,
   Module,
   services,
-  registerMongooseAdapter,
+  registerErrorAdapter,
   setOrmHealthProvider,
   setOrmRichProvider,
 } from "nodefony";
@@ -109,8 +109,8 @@ class Mongoose extends Module {
       flow: buildOrmFlow(),
     }));
     // Détection/format des erreurs Mongoose dans `nodefonyError` (core découplé) :
-    // jusqu'ici dormant (aucun appelant) → activé par la refonte.
-    registerMongooseAdapter({
+    // s'enregistre sous la clé "mongoose" dans le registre générique d'adapters.
+    registerErrorAdapter("mongoose", {
       isError: (e: Error): boolean => e instanceof mongoose.Error,
       errorToString: (e: unknown): string => String((e as Error)?.message ?? e),
     });
