@@ -19,7 +19,7 @@ Les décisions complètes sont **persistées en mémoire IA** (survivent au `/cl
 
 ### ⚡ Séquencement actuel (figé 2026-06-05)
 
-**Config ✅** → **durcissement ORM Ph.1/2/2.5/3 ✅** → **🥇 durcissement WebSocket** (prochaine session, perf-first — `project_ws_hardening_kit`) → **ORM Ph.4 couplage** → **POC API souveraine** → **P6 Security**.
+**Config ✅** → **durcissement ORM Ph.1/2/2.5/3 ✅** → **durcissement WebSocket ✅** → **ORM Ph.4 couplage C2/C5 ✅** (`58381df`/`7ac0bac`) + **couverture ORM 109→160 tests** (`953ccc2`) → **🥇 POC API souveraine** → **P6 Security**.
 Boussole : durcir les fondations (orm, realtime, core, http, framework) AVANT P6 — P6 se greffe dessus.
 
 ### 🔀 Virage ORM (décidé 2026-06-02) — ✅ audit 2026-06-08 · ✅ **Ph.1 Seq OUT** (`716fce6`) · ✅ **Ph.2 Mongoose REFAIT 2026-06-08** (`51d9ea8`)
@@ -30,8 +30,8 @@ Boussole : durcir les fondations (orm, realtime, core, http, framework) AVANT P6
 - ✅ **Config ORM unifiée Zod (2026-06-08)** — audit [`docs/audits/orm-config-pattern-2026-06.md`](docs/audits/orm-config-pattern-2026-06.md) : **drizzle ET mongoose** portent leur config en **Zod pur** (`schema.ts` → `defineXConfig` parse+env+freeze → validée `onKernelRegister` → `this.set("<orm>Config")`) + augmentent `NodefonyModuleConfig` (typage `use()`). Drizzle : `filename` optionnel, chemin SQLite résolu **au boot** dans `DrizzleService` (plus de deref kernel top-level). 🐞 **fix redis** : lisait `this.options?.redis` (namespace inexistant) → ignorait la config app via `use()` → corrigé en `this.options` (flat, conforme au merge Kernel). Tests : drizzle 33 / mongoose 24 / redis 13 verts.
 - ✅ **Ph.3 kernel/orm RETIRÉ (`5ba6bd1`)** : 3 fichiers (254 L) + chaîne morte `@entities`/`addEntity`/`loadEntity`/`EntityConstructor` + 3 méthodes Kernel (`getOrm`/`getORM`/`getOrmStrategy`) + exports `index.ts:226`. 0 réf pendante (grep). Build 19/19, core 1559/1559, mémoire HTTP 9/9, serveur boote. (`@nodefony/orm-core` = socle moderne GARDÉ.) `config.orm?:string` laissé pour Ph.4 (redesign gating).
 - ✅ **Ph.2.5 contrat CRUD durci (`220c00a`)** : audit [`docs/audits/orm-solidity-2026-06.md`](docs/audits/orm-solidity-2026-06.md). `IRepository.update`→`updateOne` (atomique RETURNING/`findOneAndUpdate`) + `updateMany` (number) ; **B2 critère strict** (`UnknownCriteriaField`, drizzle+mongoose) ; savepoint validé ; tx mongoose idempotente. Découplage ORM↔API (0 import API dans orm-core, testé).
-- ⏸️ **PROCHAINE = durcissement WebSocket (AVANT Ph.4)** — `project_ws_hardening_kit` : 3 trous test+code (backpressure sortante absente / heartbeat `keepalive*` déclaré en Zod mais NON câblé / latence non mesurée). PERF-FIRST. Politique backpressure à trancher. + fix gate mémoire WS faux positif (`31283d8` : sonde `/memory` force `global.gc` + `start.sh --expose-gc` — c'était du garbage non collecté, PAS une fuite).
-- **Dette C5** (audit) : montage data plane ORM + sondes santé étaient **déclenchés par le seul module Drizzle** → **atténué (Ph.2)** : le module Mongoose câble aussi (`registerOrmAdminApi`/health/rich providers, GLOBAUX) → app Mongoose-only n'est plus muette. Factorisation `wireOrmAdminPlane(kernel)` (1 seul appel/driver) = **Ph.4**.
+- ✅ **Ph.4 couplage core↔ORM FAIT (2026-06-08)** : **C2** (`58381df`) registre générique `IErrorAdapter` dans le core (`registerErrorAdapter(name, adapter)` + `findErrorAdapter`) → le core ne nomme plus aucun ORM (`registerMongooseAdapter`/`_sequelizeAdapter` supprimés, errorType `"OrmError"`). **C5** (`7ac0bac`) `wireOrmAdminPlane(kernel)` + `resolveOrmFlowEnabled(kernel)` dans orm-core → bloc data plane dupliqué (drizzle+mongoose) factorisé, 1 ligne/driver. **+ couverture ORM massivement renforcée** (`953ccc2`) : **109→160 tests** (socle orm-core Orm/monitors/Entity/errors +23, invariants avancés updateMany/savepoints/cardinalités/garde-fou m2m +14, transactions +4, Services +10) + garde-fou seuils v8 (orm-core 80,8 / drizzle 78,7 / mongoose 75,4 %).
+- **Dette C5 RÉSOLUE (Ph.4, `7ac0bac`)** : `wireOrmAdminPlane(kernel)` appelé par chaque driver (idempotent, global) — fin de la duplication du montage data plane.
 - **MikroORM (P7.8/P7.9) = abandonné** (0 code, traces docs/types seulement). → ⏭️.
 - ⭐ **Drizzle = référence** (`extends Service`, 100 % propre). **Migrations** (absentes) : déléguer `drizzle-kit` (versioned) + façade `IMigrator` Studio — hors chemin critique.
 
@@ -355,13 +355,14 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 
 ```
 ╔══════════════════════════════════════════════════════════════════╗
-║  🥇  DURCISSEMENT ORM   (project_orm_hardening_kit)               ║
+║  🥇  POC API SOUVERAINE   (project_api_souveraine_poc)            ║
 ╠══════════════════════════════════════════════════════════════════╣
-║  • Sequelize → SUPPRIMÉ ✅ (Ph.1, 716fce6)                        ║
-║  • Mongoose → REFAIT NEUF (extends Service, Drizzle)  ◀ PH.2 ICI  ║
-║  • Orm core kernel/orm/{Orm,Connector,Entity} → RETIRER du core   ║
-║  • Drizzle = référence.                                           ║
-║  Séquencement : config ✅ → Seq OUT ✅ → Mongoose → … → P6.       ║
+║  Durcissement ORM Ph.1-4 ✅ COMPLET : Seq OUT, Mongoose refait,   ║
+║  kernel/orm OUT, C2 IErrorAdapter, C5 wireOrmAdminPlane.          ║
+║  Couverture ORM 160 tests + garde-fou seuils v8.                  ║
+║  • 1 service → N surfaces (REST + WS + GraphQL) via ResourceCtrl  ║
+║  • contrat CRUD figé (Ph.2.5) → adaptateurs minces                ║
+║  PUIS → P6 Security (bloqueur MVP).                               ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 
