@@ -525,6 +525,27 @@ const websocketSchema = z
           "réseau de façon synchrone (ws@8.18+). true = meilleur débit ; false = un event par " +
           "tick d'event loop (latence plus régulière, plus équitable entre connexions).",
       ),
+    // ── Backpressure SORTANTE (politique Nodefony, PAS une option ws) ──
+    maxBackpressure: z
+      .number()
+      .int()
+      .nonnegative()
+      .default(4 * 1024 * 1024)
+      .describe(
+        "Seuil (octets) du buffer d'envoi par connexion (`ws.bufferedAmount`) au-delà duquel " +
+          "`backpressurePolicy` s'applique. Borne la RAM d'envoi face à un client LENT À " +
+          "RECEVOIR (anti-OOM) ; broadcast() amplifie (un seul lent peut plomber la diffusion). " +
+          "0 = désactivé. Défaut 4 MiB.",
+      ),
+    backpressurePolicy: z
+      .enum(["drop", "close"])
+      .default("drop")
+      .describe(
+        "Action quand `ws.bufferedAmount` dépasse `maxBackpressure`. 'drop' = sauter la frame " +
+          "pour ce client (il reste connecté, dégradable — idéal télémétrie/broadcast, défaut). " +
+          "'close' = fermer le client (RFC 6455 close 1013 « Try Again Later »). La fusion " +
+          "(coalesce) relève de la couche canal realtime, pas du transport.",
+      ),
   })
   .describe(
     "Serveur WebSocket (`ws@8`). Les options ci-dessus (+ loose : `verifyClient`, " +

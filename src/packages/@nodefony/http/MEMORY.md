@@ -329,7 +329,7 @@ Extension de l'`AuditErrorEntry` :
 7. `Controller.execute(null)` → handshake handler
 8. `ws "message"` → `Controller.execute(message)`
 
-## WS keep-alive — heartbeat (G2, 2026-06-08)
+## WS keep-alive (G2) + backpressure sortante (G1) — 2026-06-08
 
 `ws@8` n'a **0 keep-alive natif** (≠ ancienne lib `websocket` theturtle32 qui pingait/droppait seule via **1-2 timers PAR connexion** = anti-pattern). Les knobs `keepaliveInterval`/`keepaliveGracePeriod` (Zod) étaient déclarés mais **non câblés** (config menteuse) → recâblés.
 
@@ -337,7 +337,8 @@ Extension de l'`AuditErrorEntry` :
 - **Sémantique** : ping tous les `keepaliveInterval` (déf. 20s) ; `terminate()` (close abrupt, pas `close()` — pair mort, pas de handshake) si pas de pong sous `keepaliveGracePeriod` (déf. 10s). Half-open réclamé en ~`interval+grace`. RFC 6455 §5.5.2 (pair **MUST** pong) / §5.5.3 (pong non sollicité OK → `trackPong` rafraîchit sur **tout** pong). `keepaliveInterval<=0` → désactivé (`null`).
 - **Câblé ws + wss** : `createServer`→`startHeartbeat` ; `onConnection`→`trackPong` ; `terminate`→`clearInterval`. Coût = **2 timers fixes** (5151+5152), constant quel que soit N connexions.
 - **Options `ws@8` désormais TOUTES déclarées+câblées** (Zod) : `perMessageDeflate`(false, anti zip-bomb)/`skipUTF8Validation`(false, §8.1)/`autoPong`(true, §5.5.2)/`allowSynchronousEvents`(true)/`maxPayload`(1 MiB, durci vs 100 MiB ws). `new WebSocketServer({...this.options, server, clientTracking:true})` — `server`+`clientTracking` **forcés** (broadcast()+heartbeat en dépendent). `keepalive*`/`closeTimeout` = knobs Nodefony, **pas** options ws (ws les ignore).
-- **Trou restant G1** : backpressure **sortante** (`bufferedAmount` jamais lu → OOM si client lent à recevoir) → politique `drop` (déf.) / `close` 1013, réglable Zod. `coalesce` = couche canal (realtime), pas transport.
+- **Backpressure SORTANTE (G1, LIVRÉ)** : `Response.send()`/`broadcast()` gatent via `decideSend(ws,max,policy)` (`src/context/websocket/wsBackpressure.ts`) **AVANT** `client.send()`. Lit `ws.bufferedAmount` (O(1)), **0 alloc sous le seuil** (nominal inchangé). Config Zod `maxBackpressure` (déf **4 MiB**, `0`=off) + `backpressurePolicy` `drop`(déf)|`close`. `drop` = saute la frame (client reste connecté, dégradable, idéal broadcast/télémétrie) ; `close` = `close(1013)` « Try Again Later ». Compteur `_nfDrops` lazy/socket (sonde) + **WARNING 1×/conn** au 1er drop. Seuil/politique relus depuis `wss.options` (ws conserve nos clés via le spread). `coalesce` = couche **canal realtime**, PAS transport. Démo live : flood 17.6 MiB à un lecteur `paused` → drop à 4 MiB, socket reste OPEN, 0 OOM.
+- **Trou restant G3** : latence p95/p99 non mesurée + fragmentation (RFC §5.4) non testée + `perMessageDeflate` (zip-bomb) à auditer.
 
 ## Gotchas critiques
 
@@ -367,7 +368,7 @@ Extension de l'`AuditErrorEntry` :
 
 **Fichiers test** : chaque `.ts` dans `nodefony/tests/` doit commencer par `/// <reference types="node" />`.
 
-## Tests — vitest 100% (mocha SUPPRIMÉ 2026-06-05) — 339 unit / 400 intég / 9 gate
+## Tests — vitest 100% (mocha SUPPRIMÉ 2026-06-05) — 346 unit / 400 intég / 9 gate
 
 Runner unique = **Vitest 4**, 3 suites = 3 configs (séquentielles pour intég+load) :
 

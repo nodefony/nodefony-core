@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-08T15:51:20.371Z",
+  "generated": "2026-06-08T16:01:54.235Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 831,
-    "symbols": 1704,
+    "files": 832,
+    "symbols": 1710,
     "classes": 238,
-    "interfaces": 423,
-    "types": 219,
+    "interfaces": 425,
+    "types": 221,
     "enums": 3,
     "functions": 339,
-    "constants": 482
+    "constants": 484
   },
   "symbols": {
     "Cli": {
@@ -12292,6 +12292,56 @@
       "module": "@nodefony/http",
       "description": "Coerce un code (applicatif / HTTP / WS) en code de fermeture WebSocket VALIDE et conforme RFC 6455 §7.4, en PRÉFÉRANT les codes standard §7.4.1 quand le sens existe : - code déjà valide émissible (…"
     },
+    "IWsBackpressureOptions": {
+      "name": "IWsBackpressureOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Options de backpressure SORTANTE (serveur → client). Knobs Nodefony (pas des options `ws`) ; `ws` les conserve quand même dans `wss.options` car son constructeur fait `{ ...defaults, ...options }` …"
+    },
+    "IBackpressureSocket": {
+      "name": "IBackpressureSocket",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": "Ws",
+      "description": "Socket augmentée d'un compteur de drops (number lazy — lu par la sonde socket)."
+    },
+    "WsBackpressurePolicy": {
+      "name": "WsBackpressurePolicy",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Politique appliquée quand le buffer d'envoi d'un client dépasse le seuil."
+    },
+    "WsSendDecision": {
+      "name": "WsSendDecision",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Décision pour une frame : l'émettre, la sauter, ou (socket fermée) ne rien faire."
+    },
+    "readBackpressureOptions": {
+      "name": "readBackpressureOptions",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Relit le seuil + la politique depuis les options du `WebSocketServer`. `ws` préserve nos clés custom (`maxBackpressure`/`backpressurePolicy`) dans `wss.options` via le spread de son constructeur. A…"
+    },
+    "decideSend": {
+      "name": "decideSend",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/websocket/wsBackpressure.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Décide si une frame doit partir vers `ws` selon la backpressure SORTANTE (serveur → client). Protège la RAM d'envoi du serveur quand le client est lent à RECEVOIR (ne lit pas assez vite → `ws.buffe…"
+    },
     "binaryByteLength": {
       "name": "binaryByteLength",
       "kind": "function",
@@ -12602,6 +12652,9 @@
       ],
       "HttpResponse": [
         "Http2Response"
+      ],
+      "Ws": [
+        "IBackpressureSocket"
       ]
     },
     "implementedBy": {
@@ -17336,6 +17389,18 @@
       ],
       "responseTimeoutType": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Response.ts"
+      ],
+      "decideSend": [
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+      ],
+      "readBackpressureOptions": [
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+      ],
+      "IBackpressureSocket": [
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
+      ],
+      "WsSendDecision": [
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/Response.ts"
       ],
       "ProxyType": [
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
