@@ -262,7 +262,7 @@ export const TraceView = observer(() => {
   const ormLogs = useMemo(
     () =>
       logs.filter((l) =>
-        /orm|sql|query|sequelize|drizzle|mongoose|database|\bdb\b/i.test(
+        /orm|sql|query|drizzle|mongoose|database|\bdb\b/i.test(
           `${l.moduleName} ${l.msgid} ${recordMessage(l)}`,
         ),
       ),

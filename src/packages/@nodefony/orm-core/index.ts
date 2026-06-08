@@ -2,8 +2,8 @@
  * `@nodefony/orm-core` — fondation multi-ORM de Nodefony.
  *
  * Expose les contrats abstraits (`IOrm`, `IEntity`, `IRepository`,
- * `ITransaction`) consommés par les adapters (`@nodefony/sequelize`,
- * `@nodefony/mongoose`, `@nodefony/drizzle`...). Lib pure : aucun runtime
+ * `ITransaction`) consommés par les adapters (`@nodefony/mongoose`,
+ * `@nodefony/drizzle`...). Lib pure : aucun runtime
  * Module, pas d'enregistrement dans `@modules()`. Les drivers concrets sont les
  * Modules ; ils s'enregistrent eux-mêmes dans le `OrmRegistry` à leur boot.
  */

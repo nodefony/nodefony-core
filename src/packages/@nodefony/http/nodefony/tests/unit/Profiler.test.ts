@@ -120,12 +120,12 @@ describe("Profiler — unit", () => {
       p.collect(
         ctx({
           profilerQueries: [
-            { sql: "SELECT 1", durationMs: 0.4, connector: "sequelize" },
+            { sql: "SELECT 1", durationMs: 0.4, connector: "drizzle" },
             {
               sql: "SELECT 2",
               durationMs: 1.2,
               rows: 3,
-              connector: "sequelize",
+              connector: "drizzle",
             },
           ],
         }) as never,
@@ -133,7 +133,7 @@ describe("Profiler — unit", () => {
       const q = p.get("req-1")!.queries;
       expect(q).to.have.length(2);
       expect(q![1]).to.deep.include({ sql: "SELECT 2", rows: 3 });
-      expect(q![0].connector).to.equal("sequelize");
+      expect(q![0].connector).to.equal("drizzle");
     });
 
     it("leaves queries undefined when no adapter pushed (empty/null)", () => {

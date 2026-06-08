@@ -118,7 +118,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
    *  2. **flux ORM agrégé** ({@link queryFlowMonitor}, process-wide) — compte le
    *     débit + la latence ; n'extrait le SQL que sur le chemin **lent** (rare).
    *
-   * POURQUOI lecture directe de l'ALS (≠ tap par-requête de Sequelize) :
+   * POURQUOI lecture directe de l'ALS (≠ tap par-requête d'un autre ORM) :
    * `better-sqlite3` est **synchrone**, sans pool → l'ALS reste valide pendant
    * `await builder`. Les deux drapeaux sont lus **avant toute allocation** →
    * coût nul quand rien n'observe (prod, bancs de charge hors kernel).
@@ -142,7 +142,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       // toSQL UNIQUEMENT sur le chemin lent (rare) — l'agrégat ne paie jamais
       // la sérialisation du texte au cas nominal.
       const sql =
-        durationMs >= queryFlowMonitor.slowMs ? this.#safeSql(builder) : undefined;
+        durationMs >= queryFlowMonitor.slowMs
+          ? this.#safeSql(builder)
+          : undefined;
       queryFlowMonitor.record(this.#ormName, durationMs, sql);
     }
     if (buf) {
@@ -328,7 +330,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       .update(this.#table)
       .set(data as Record<string, unknown>);
     await this.#prof(
-      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<unknown>,
+      (where
+        ? builder.where(where)
+        : builder) as unknown as ProfiledQuery<unknown>,
     );
     return this.findOne(criteria);
   }

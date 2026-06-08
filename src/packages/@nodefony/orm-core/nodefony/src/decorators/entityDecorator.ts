@@ -30,7 +30,7 @@ export interface EntityOptions<S = unknown> {
    */
   domain?: string;
 
-  /** Schéma natif du driver (attributs Sequelize, schéma Mongoose...). */
+  /** Schéma natif du driver (schéma Mongoose, schéma Drizzle...). */
   schema?: S;
 
   /** Relations déclaratives vers d'autres entités. */

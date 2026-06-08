@@ -5,8 +5,7 @@
  * **Module bootable** : enregistré dans `@modules()`, son {@link DrizzleService}
  * connecte au boot un {@link DrizzleOrm} par connecteur configuré (ORM par défaut
  * SQL recommandé). Expose aussi les **classes adapter** (orm-core) pour un usage
- * direct/banc-test. 3ᵉ driver concret du socle multi-ORM (après Sequelize +
- * Mongoose) ; type-safe-first (a figé la forme des opérateurs riches, ADR-0003 #3).
+ * direct/banc-test. driver concret du socle multi-ORM (avec Mongoose) ; type-safe-first (a figé la forme des opérateurs riches, ADR-0003 #3).
  */
 import {
   Kernel,

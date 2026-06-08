@@ -155,7 +155,7 @@ export const HTTP_CONFIG_SECTIONS: ConfigSection[] = [
       {
         key: "session.handler",
         type: "string",
-        constraint: "files · sequelize · drizzle · mongoose",
+        constraint: "files · drizzle · mongoose",
         defaultValue: code('"files"'),
         mutability: "boot",
         description:

@@ -9,7 +9,7 @@
  *
  * Lib pure ORM-agnostique : les contrats sont effacés à la compilation, les classes
  * de base (`BaseUser`, `AnonymousUser`, `BcryptEncoder`) et `UserService` sont
- * consommés via DI. Les entités persistées (Sequelize/Mongoose/Drizzle) étendent
+ * consommés via DI. Les entités persistées (Mongoose/Drizzle) étendent
  * `BaseUser` ou implémentent `IUser` dans chaque adapter.
  *
  * @remarks P5.5 livré (contracts + base users). Restent : P5.6 (`UserService` +

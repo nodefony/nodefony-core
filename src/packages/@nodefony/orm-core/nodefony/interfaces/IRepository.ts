@@ -15,7 +15,7 @@ export type OrmCriteria = Record<string, unknown>;
  * Forme tranchée en P7.4 (ADR-0003 risque #3) : objet d'opérateurs `$`-préfixés.
  * Raison : (1) familier (convention Mongo) ; (2) mappable par les **trois**
  * drivers — Mongoose en (quasi) identité (`$gt`/`$in` natifs, `$like`→`$regex`),
- * Sequelize via `Op.*`, Drizzle via `gt()`/`inArray()`/`like()`. Le sous-ensemble
+ * Drizzle via `gt()`/`inArray()`/`like()` (selon l'adapter). Le sous-ensemble
  * est volontairement minimal = intersection portable des 3 ORM.
  *
  * Plusieurs opérateurs sur le même champ se combinent en `AND`
@@ -71,7 +71,7 @@ export type Criteria<T> = {
  * Options de lecture (`find`/`findOne`) portables cross-ORM.
  *
  * `relations` charge des associations **déclarées** dans `@entity` (eager-load :
- * `include` Sequelize / `populate` Mongoose / `with` Drizzle) sans descendre au
+ * `populate` Mongoose / `with` Drizzle) sans descendre au
  * natif pour le cas commun. Les jointures arbitraires restent du ressort de
  * `IOrm.getNativeConnection()`.
  */

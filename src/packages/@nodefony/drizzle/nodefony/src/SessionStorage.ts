@@ -9,7 +9,7 @@ import { SESSION_ORM, type SessionRow } from "../entity/sessionEntity";
  * `@nodefony/orm-core`.
  *
  * Implémente le contrat {@link ISessionStorage} consommé par le `SessionsService`
- * de `@nodefony/http` — alternative portable à la version Sequelize. Persiste via
+ * de `@nodefony/http` — store de session portable. Persiste via
  * le repository orm-core de l'entité `session` (connecteur `default`, table créée
  * au boot par `DrizzleOrm`). Le GC supprime les sessions expirées avec un
  * opérateur riche portable (`updatedAt < cutoff`).

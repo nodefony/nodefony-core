@@ -23,8 +23,6 @@ import { controllers } from "@nodefony/framework";
 // dispatch d'une commande de module (namespace `test:<action>`).
 import BatchTestCommand from "./nodefony/command/BatchTestCommand";
 import DaemonTestCommand from "./nodefony/command/DaemonTestCommand";
-// Entité de démo Sequelize (orm-core) — enregistrée au top-level (side-effect).
-import "./nodefony/entity/auditEntity";
 // Fixture "gros schéma" Dolibarr (410 tables, GPLv3, .gitignore) sur l'ORM Drizzle
 // par défaut — register au top-level AVANT le onBoot du DrizzleService (qui crée les
 // tables via CREATE TABLE IF NOT EXISTS depuis l'entityRegistry).

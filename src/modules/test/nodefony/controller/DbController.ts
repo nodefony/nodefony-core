@@ -9,7 +9,7 @@ import { ormRegistry } from "@nodefony/orm-core";
  * même `requestId`** (propagé par l'ALS `RequestContext` tout au long du pipeline) :
  *  1. les logs DEBUG du kernel (entrée de requête) ;
  *  2. les logs applicatifs de CE controller (`msgid: "DB-DEMO"`) ;
- *  3. les requêtes SQL réelles tracées par l'ORM (Drizzle `default` + Sequelize) ;
+ *  3. les requêtes SQL réelles tracées par l'ORM (Drizzle `default`) ;
  *  4. la ligne récapitulative `req` de fin (désormais corrélée — fix teardown).
  *
  * → Dans l'onglet **Explorer** de la page Logs, coller ce `requestId` (ou cliquer
@@ -23,7 +23,7 @@ class DbController extends Controller {
   }
 
   /**
-   * Exécute 2 comptages ORM réels (Drizzle `default`/User + Sequelize/AuditLog) en
+   * Exécute un comptage ORM réel (Drizzle `default`/User) en
    * loggant chaque étape → trace complète sous un seul `requestId`.
    */
   @Get("/trace")
@@ -55,28 +55,8 @@ class DbController extends Controller {
       this.log(e as Error, "ERROR", "DB-DEMO", "comptage User échoué");
     }
 
-    // ── Sequelize (connecteur "sequelize") : entité AuditLog ───────────────
-    let audit: number | null = null;
-    try {
-      const orm = ormRegistry.get("sequelize");
-      const repo = orm?.getRepository<unknown>("AuditLog");
-      if (repo) {
-        this.log(
-          "SELECT count(*) FROM AuditLog (sequelize)",
-          "DEBUG",
-          "DB-DEMO",
-        );
-        audit = await repo.count();
-        this.log(`AuditLog : ${audit} ligne(s)`, "INFO", "DB-DEMO");
-      } else {
-        this.log("Repository AuditLog indisponible", "WARNING", "DB-DEMO");
-      }
-    } catch (e) {
-      this.log(e as Error, "ERROR", "DB-DEMO", "comptage AuditLog échoué");
-    }
-
     this.log("Trace DB — fin", "INFO", "DB-DEMO");
-    return this.renderJson({ requestId, users, audit });
+    return this.renderJson({ requestId, users });
   }
 }
 

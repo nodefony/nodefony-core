@@ -5,11 +5,10 @@ import mariadb from "../assets/db-logos/mariadb.svg";
 import mongodb from "../assets/db-logos/mongodb.svg";
 import redis from "../assets/db-logos/redis.svg";
 import drizzle from "../assets/db-logos/drizzle.svg";
-import sequelize from "../assets/db-logos/sequelize.svg";
 
 /**
  * Table de logos par nom de **driver/base** (sqlite, postgres…) OU de **vendor
- * ORM** (drizzle, sequelize…). Logos officiels (devicon colorés ; drizzle =
+ * ORM** (drizzle…). Logos officiels (devicon colorés ; drizzle =
  * simple-icons recoloré). Mongoose réutilise le logo MongoDB (sa base).
  */
 const LOGOS: Record<string, string> = {
@@ -27,7 +26,6 @@ const LOGOS: Record<string, string> = {
   redis,
   // ORM (vendor)
   drizzle,
-  sequelize,
 };
 
 /** `true` si un logo existe pour ce nom (driver ou vendor). */

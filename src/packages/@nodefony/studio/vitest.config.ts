@@ -9,7 +9,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  * Mirror de la config @nodefony/frontend : les tests unit importent la SOURCE
  * pure des providers realtime (`nodefony/realtime/providers.ts` → node:os/v8/
  * perf_hooks uniquement), PAS le dist Rollup ni @nodefony/http/framework → pas
- * besoin d'aliaser sequelize/mongoose.
+ * besoin d'aliaser un stub ORM.
  *
  * Compat mocha+chai sans réécriture :
  *  - `globals: true` → describe/it globaux.

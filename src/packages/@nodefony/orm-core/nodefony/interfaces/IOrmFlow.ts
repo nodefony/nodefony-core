@@ -38,7 +38,7 @@ export interface ISlowQuery {
 export interface IQueryFlow {
   /** Connecteur ORM (clé du registre, ex. `"default"`). */
   connector: string;
-  /** Vendor de l'adapter (`drizzle`, `sequelize`, `mongoose`), `""` si inconnu. */
+  /** Vendor de l'adapter (`drizzle`, `mongoose`), `""` si inconnu. */
   vendor: string;
   /** Requêtes mesurées depuis le boot (le débit/s = Δtotal / Δts côté lecteur). */
   total: number;

@@ -551,7 +551,7 @@ const sessionSchema = z
       .boolean()
       .default(true)
       .describe(
-        "Utilise les transactions pour le storage (handler `sequelize`/`drizzle`).",
+        "Utilise les transactions pour le storage (handler `drizzle`).",
       ),
     use_strict_mode: z
       .boolean()
@@ -570,7 +570,7 @@ const sessionSchema = z
       .default("files")
       .describe(
         "Storage de session : nom d'un service DI ou handler enregistré " +
-          "(`files` | `sequelize` | `drizzle` | `mongoose`).",
+          "(`files` | `drizzle` | `mongoose`).",
       ),
     save_path: z
       .string()
@@ -640,7 +640,7 @@ const sessionSchema = z
   })
   .describe(
     "Gestionnaire de sessions (cookie chiffré AES-256-CTR). Handlers : " +
-      "files (défaut) · sequelize · drizzle · mongoose.",
+      "files (défaut) · drizzle · mongoose.",
   );
 
 // ───────────────────────── racine ───────────────────────────────────────────

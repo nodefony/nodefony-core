@@ -32,7 +32,7 @@ export interface DrizzleOrmOptions {
  * Adapter Drizzle (driver `better-sqlite3`) **branché sur `@nodefony/orm-core`**
  * — 3ᵉ adapter du banc multi-ORM (P7.4), choix SQL #1 moderne.
  *
- * Particularité vs Sequelize/Mongoose : Drizzle est **schema-as-code** — il n'y
+ * Particularité vs les autres ORM : Drizzle est **schema-as-code** — il n'y
  * a pas de « compilation » de modèle. `entity.schema` *est* déjà une table
  * Drizzle (`sqliteTable(...)`). L'adapter :
  * - dérive le DDL de chaque table via `getTableConfig()` et le crée (dev/test ;
@@ -73,7 +73,7 @@ export class DrizzleOrm extends Orm {
     return entityRegistry.list().filter((entity) => entity.orm === this.name);
   }
 
-  /** FK déterministe camelCase `<entité>Id` (parité avec Sequelize/Mongoose). */
+  /** FK déterministe camelCase `<entité>Id` (parité avec Mongoose). */
   #foreignKey(entityName: string): string {
     return `${entityName.charAt(0).toLowerCase()}${entityName.slice(1)}Id`;
   }

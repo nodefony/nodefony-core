@@ -87,7 +87,6 @@ export interface SchemaCtx {
 function vendorColor(vendor: string): string {
   const v = vendor.toLowerCase();
   if (v.includes("drizzle")) return "lime";
-  if (v.includes("sequelize")) return "blue";
   if (v.includes("mongoose")) return "green";
   return "teal";
 }

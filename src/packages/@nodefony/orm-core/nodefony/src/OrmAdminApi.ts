@@ -47,7 +47,7 @@ function oneParam(req: IAdminRequest, key: string): string | undefined {
 
 /**
  * Vendor de l'adapter dérivé de son nom de classe (`DrizzleOrm` → `drizzle`,
- * `SequelizeOrm`/`Sequelize` → `sequelize`…). Dette : remplacer par un
+ * `DrizzleOrm`/`Drizzle` → `drizzle`…). Dette : remplacer par un
  * `IOrm.vendor` déclaré par chaque adapter (P7.1). `""` si indéterminé.
  */
 function vendorOf(orm: unknown): string {

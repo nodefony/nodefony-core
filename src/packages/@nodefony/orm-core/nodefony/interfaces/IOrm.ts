@@ -6,8 +6,7 @@ import type { IOrmProbe } from "./IOrmProbe";
 /**
  * Contrat d'une instance ORM gérée par le framework (une par connexion logique).
  *
- * Implémenté par chaque adapter (`@nodefony/sequelize`, `@nodefony/mongoose`,
- * `@nodefony/drizzle`...) et enregistré dans `OrmRegistry` sous un nom unique
+ * Implémenté par chaque adapter (`@nodefony/mongoose`, `@nodefony/drizzle`...) et enregistré dans `OrmRegistry` sous un nom unique
  * (ex. `"db_principale"`, `"db_logs"`) pour le support multi-ORM simultané.
  */
 export interface IOrm {

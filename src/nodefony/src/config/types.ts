@@ -32,7 +32,6 @@ export type KnownModule =
   | "@nodefony/redis"
   | "@nodefony/drizzle"
   | "@nodefony/mongoose"
-  | "@nodefony/sequelize"
   // Accepte tout module tiers en gardant l'autocomplétion des littéraux ci-dessus.
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   | (string & {});
@@ -211,7 +210,7 @@ export interface AppConfigInput {
   /**
    * ORM par défaut (commandes CLI + modules sans ORM explicite). Multi-ORM :
    * la forme cible (`{ driver: "drizzle" }`) et le défaut sont définis par le
-   * chantier ORM — pas de défaut framework figé ici (Sequelize est retiré).
+   * chantier ORM — pas de défaut framework figé ici.
    * @reactivity boot
    */
   orm?: string;

@@ -43,7 +43,7 @@ export interface ProfileQuery {
   durationMs: number;
   /** Lignes affectées/retournées, si connu. */
   rows?: number;
-  /** Connecteur émetteur (`drizzle`, `sequelize`, `mongoose`…). */
+  /** Connecteur émetteur (`drizzle`, `mongoose`…). */
   connector?: string;
 }
 

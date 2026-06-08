@@ -29,7 +29,7 @@ export interface ITransaction {
   /**
    * Expose l'objet transaction natif du driver (trappe bas niveau).
    *
-   * @typeParam C - type natif attendu (ex. `Transaction` Sequelize).
+   * @typeParam C - type natif attendu (ex. `Transaction` de l'ORM).
    */
   getNative<C = unknown>(): C;
 }

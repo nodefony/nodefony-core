@@ -3,8 +3,8 @@ import type { IOrm } from "../interfaces/index";
 /**
  * Registre process-wide des instances ORM enregistrées sous un nom unique.
  *
- * Support multi-ORM natif : chaque driver (`@nodefony/sequelize`,
- * `@nodefony/mongoose`, `@nodefony/drizzle`...) s'enregistre à son boot via
+ * Support multi-ORM natif : chaque driver (`@nodefony/mongoose`,
+ * `@nodefony/drizzle`...) s'enregistre à son boot via
  * {@link OrmRegistry.register} sous une clé logique (`"db_principale"`,
  * `"db_logs"`...). Les consommateurs (repositories, session storage, security)
  * résolvent l'ORM voulu par cette clé, jamais par référence directe au driver.

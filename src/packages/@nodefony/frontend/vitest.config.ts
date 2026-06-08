@@ -8,7 +8,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *
  * Mirror simplifié de la config framework : ici les tests unit importent la
  * SOURCE pure (ViteConfigGenerator.ts → node:path + une classe d'erreur), pas
- * le dist Rollup de @nodefony/http → pas besoin d'aliaser sequelize/mongoose.
+ * le dist Rollup de @nodefony/http → pas besoin d'aliaser un stub ORM.
  *
  * Compat mocha+chai sans réécriture :
  *  - `globals: true` → describe/it globaux.

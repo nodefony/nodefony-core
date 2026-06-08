@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-07T21:58:19.871Z",
+  "generated": "2026-06-08T08:20:34.775Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 837,
-    "symbols": 1709,
-    "classes": 250,
-    "interfaces": 429,
-    "types": 215,
+    "files": 824,
+    "symbols": 1691,
+    "classes": 240,
+    "interfaces": 426,
+    "types": 212,
     "enums": 3,
-    "functions": 335,
+    "functions": 333,
     "constants": 477
   },
   "symbols": {
@@ -112,14 +112,6 @@
       "implements": [],
       "decorators": [],
       "description": "Erreur Nodefony — wrapper riche autour de `Error` natif qui ajoute : - Un `code` numérique (HTTP status ou code custom — pas un string). - Un `errorType` détecté automatiquement (TypeError, SystemE…"
-    },
-    "registerSequelizeAdapter": {
-      "name": "registerSequelizeAdapter",
-      "kind": "function",
-      "file": "src/nodefony/src/Error.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "description": "Enregistre l'adapter Sequelize pour la détection et le formatage des erreurs ORM. Appelé par `@nodefony/sequelize` au boot — le core ne dépend pas de l'ORM."
     },
     "registerMongooseAdapter": {
       "name": "registerMongooseAdapter",
@@ -398,18 +390,6 @@
         "services"
       ],
       "description": "`@nodefony/security` — couche de sécurité de Nodefony (refonte 2026, P6). HTTP **full stateless** (JWT cookie), pattern **`IAuthenticator`** (Symfony 6), **Zero Trust** par défaut, config type-safe…"
-    },
-    "Sequelize": {
-      "name": "Sequelize",
-      "kind": "class",
-      "file": "src/packages/@nodefony/sequelize/index.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize",
-      "extends": "Module",
-      "implements": [],
-      "decorators": [
-        "services"
-      ]
     },
     "Studio": {
       "name": "Studio",
@@ -4384,7 +4364,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Table Drizzle de stockage des sessions (schema-as-code). Équivalent portable de l'entité session legacy Sequelize : mêmes champs logiques (`session_id` PK, `context`, sacs `Attributes`/`flashBag`/`…"
+      "description": "Table Drizzle de stockage des sessions (schema-as-code). Équivalent portable de l'entité session legacy : mêmes champs logiques (`session_id` PK, `context`, sacs `Attributes`/`flashBag`/`metaBag` e…"
     },
     "DrizzleService": {
       "name": "DrizzleService",
@@ -4408,7 +4388,7 @@
         "ISessionStorage"
       ],
       "decorators": [],
-      "description": "Stockage de session **Drizzle** (driver `better-sqlite3`), branché sur `@nodefony/orm-core`. Implémente le contrat {@link ISessionStorage} consommé par le `SessionsService` de `@nodefony/http` — al…"
+      "description": "Stockage de session **Drizzle** (driver `better-sqlite3`), branché sur `@nodefony/orm-core`. Implémente le contrat {@link ISessionStorage} consommé par le `SessionsService` de `@nodefony/http` — st…"
     },
     "FrameworkConfig": {
       "name": "FrameworkConfig",
@@ -6411,7 +6391,7 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "extends": null,
-      "description": "Contrat d'une instance ORM gérée par le framework (une par connexion logique). Implémenté par chaque adapter (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefony/drizzle`...) et enregistré dans…"
+      "description": "Contrat d'une instance ORM gérée par le framework (une par connexion logique). Implémenté par chaque adapter (`@nodefony/mongoose`, `@nodefony/drizzle`...) et enregistré dans `OrmRegistry` sous un …"
     },
     "ISlowQuery": {
       "name": "ISlowQuery",
@@ -6564,7 +6544,7 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "extends": null,
-      "description": "Options de lecture (`find`/`findOne`) portables cross-ORM. `relations` charge des associations **déclarées** dans `@entity` (eager-load : `include` Sequelize / `populate` Mongoose / `with` Drizzle)…"
+      "description": "Options de lecture (`find`/`findOne`) portables cross-ORM. `relations` charge des associations **déclarées** dans `@entity` (eager-load : `populate` Mongoose / `with` Drizzle) sans descendre au nat…"
     },
     "IRepository": {
       "name": "IRepository",
@@ -6778,7 +6758,7 @@
       "extends": null,
       "implements": [],
       "decorators": [],
-      "description": "Registre process-wide des instances ORM enregistrées sous un nom unique. Support multi-ORM natif : chaque driver (`@nodefony/sequelize`, `@nodefony/mongoose`, `@nodefony/drizzle`...) s'enregistre à…"
+      "description": "Registre process-wide des instances ORM enregistrées sous un nom unique. Support multi-ORM natif : chaque driver (`@nodefony/mongoose`, `@nodefony/drizzle`...) s'enregistre à son boot via {@link Or…"
     },
     "ormRegistry": {
       "name": "ormRegistry",
@@ -7444,81 +7424,6 @@
       ],
       "decorators": [],
       "description": "Zone sécurisée concrète — pattern d'URL compilé + métadonnées d'authentification. Objet **léger** (pas un Service DI : zéro besoin d'event/log par zone, hot-path). Le firewall en instancie une par …"
-    },
-    "SequelizeCommand": {
-      "name": "SequelizeCommand",
-      "kind": "class",
-      "file": "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize",
-      "extends": "Command",
-      "implements": [],
-      "decorators": []
-    },
-    "@nodefony/sequelize:Session": {
-      "name": "Session",
-      "kind": "class",
-      "file": "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize",
-      "extends": "Entity",
-      "implements": [],
-      "decorators": []
-    },
-    "ConnectorSequelise": {
-      "name": "ConnectorSequelise",
-      "kind": "class",
-      "file": "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize",
-      "extends": "Connector",
-      "implements": [],
-      "decorators": []
-    },
-    "@nodefony/sequelize:Sequelize": {
-      "name": "Sequelize",
-      "kind": "class",
-      "file": "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize",
-      "extends": "Orm",
-      "implements": [],
-      "decorators": []
-    },
-    "Strategy": {
-      "name": "Strategy",
-      "kind": "type",
-      "file": "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize"
-    },
-    "Models": {
-      "name": "Models",
-      "kind": "type",
-      "file": "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize"
-    },
-    "SequelizeService": {
-      "name": "SequelizeService",
-      "kind": "class",
-      "file": "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize",
-      "extends": "Service",
-      "implements": [],
-      "decorators": [],
-      "description": "Service bootable orm-core du module `@nodefony/sequelize`. Au boot du kernel (`onBoot`), instancie un {@link SequelizeOrm} (adapter orm-core) **par connecteur** déclaré dans `config.orm.connectors`…"
-    },
-    "@nodefony/sequelize:SessionStorage": {
-      "name": "SessionStorage",
-      "kind": "class",
-      "file": "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize",
-      "extends": null,
-      "implements": [],
-      "decorators": []
     },
     "StudioController": {
       "name": "StudioController",
@@ -10873,7 +10778,7 @@
       "extends": "Orm",
       "implements": [],
       "decorators": [],
-      "description": "Adapter Drizzle (driver `better-sqlite3`) **branché sur `@nodefony/orm-core`** — 3ᵉ adapter du banc multi-ORM (P7.4), choix SQL #1 moderne. Particularité vs Sequelize/Mongoose : Drizzle est **schem…"
+      "description": "Adapter Drizzle (driver `better-sqlite3`) **branché sur `@nodefony/orm-core`** — 3ᵉ adapter du banc multi-ORM (P7.4), choix SQL #1 moderne. Particularité vs les autres ORM : Drizzle est **schema-as…"
     },
     "DrizzleOrmOptions": {
       "name": "DrizzleOrmOptions",
@@ -12122,43 +12027,6 @@
       "decorators": [],
       "description": "Token du visiteur non authentifié — Zero Trust : un visiteur EST un utilisateur anonyme (jamais `null`). Porte le singleton gelé `anonymousUser` → **zéro allocation d'utilisateur** par requête non …"
     },
-    "SequelizeOrm": {
-      "name": "SequelizeOrm",
-      "kind": "class",
-      "file": "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize",
-      "extends": "Orm",
-      "implements": [],
-      "decorators": [],
-      "description": "Adapter Sequelize **branché sur `@nodefony/orm-core`** (P5.4). Implémentation propre et minimale du contrat {@link Orm}/`IOrm`, **distincte** du service legacy `nodefony/service/orm.ts` (qui étend …"
-    },
-    "SequelizeRepository": {
-      "name": "SequelizeRepository",
-      "kind": "class",
-      "file": "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize",
-      "extends": null,
-      "implements": [
-        "IRepository"
-      ],
-      "decorators": [],
-      "description": "Repository portable (contrat {@link IRepository}) au-dessus d'un modèle Sequelize compilé. Traduit le CRUD abstrait en appels Sequelize et **renvoie des objets plats** (`get({ plain: true })`) — ja…"
-    },
-    "SequelizeTransaction": {
-      "name": "SequelizeTransaction",
-      "kind": "class",
-      "file": "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts",
-      "exported": true,
-      "module": "@nodefony/sequelize",
-      "extends": null,
-      "implements": [
-        "ITransaction"
-      ],
-      "decorators": [],
-      "description": "Adapte une transaction Sequelize au contrat portable {@link ITransaction}. Obtenue dans le callback de `SequelizeOrm.transaction()`, qui gère le commit/rollback automatique (commit si la closure ré…"
-    },
     "BcryptEncoder": {
       "name": "BcryptEncoder",
       "kind": "class",
@@ -12408,7 +12276,6 @@
         "RedisService",
         "Connection",
         "Firewall",
-        "SequelizeService",
         "ServerHttp",
         "ServerHttps",
         "Statics",
@@ -12456,7 +12323,6 @@
         "Realtime",
         "Redis",
         "Security",
-        "Sequelize",
         "Studio"
       ],
       "FileClass": [
@@ -12505,8 +12371,7 @@
         "AssetsPublish",
         "Certificates",
         "Network",
-        "ProxyGenerate",
-        "SequelizeCommand"
+        "ProxyGenerate"
       ],
       "IClusterMessage": [
         "IClusterProbeCtl",
@@ -12589,7 +12454,6 @@
         "MemoryInvalidInputError"
       ],
       "Entity": [
-        "Session",
         "Session"
       ],
       "Document": [
@@ -12600,10 +12464,8 @@
       ],
       "Orm": [
         "Mongoose",
-        "Sequelize",
         "DrizzleOrm",
-        "MongooseOrm",
-        "SequelizeOrm"
+        "MongooseOrm"
       ],
       "RagError": [
         "RagInvalidInputError",
@@ -12616,9 +12478,6 @@
         "AccessDeniedError",
         "AuthenticationError",
         "DocumentationError"
-      ],
-      "Connector": [
-        "ConnectorSequelise"
       ],
       "RealtimeController": [
         "StudioRealtimeController"
@@ -12786,13 +12645,11 @@
       ],
       "IRepository": [
         "DrizzleRepository",
-        "MongooseRepository",
-        "SequelizeRepository"
+        "MongooseRepository"
       ],
       "ITransaction": [
         "DrizzleTransaction",
-        "MongooseTransaction",
-        "SequelizeTransaction"
+        "MongooseTransaction"
       ],
       "IUserRepository": [
         "DrizzleUserRepository"
@@ -12853,8 +12710,7 @@
         "Mongoose",
         "Realtime",
         "Redis",
-        "Security",
-        "Sequelize"
+        "Security"
       ],
       "entities": [
         "Mongoose"
@@ -12931,8 +12787,7 @@
         "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
-        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
-        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
       ],
       "Service": [
         "src/nodefony/src/Cli.ts",
@@ -12964,8 +12819,6 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -13016,8 +12869,6 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -13063,8 +12914,6 @@
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -13107,7 +12956,6 @@
         "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/sequelize/index.ts",
         "src/packages/@nodefony/studio/index.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Module.ts",
@@ -13117,8 +12965,7 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
-        "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
-        "src/packages/@nodefony/sequelize/nodefony/config/config.ts"
+        "src/packages/@nodefony/drizzle/nodefony/config/config.ts"
       ],
       "Message": [
         "src/nodefony/src/Container.ts",
@@ -13208,8 +13055,6 @@
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
@@ -13232,8 +13077,6 @@
         "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
-        "src/packages/@nodefony/sequelize/nodefony/config/config.ts",
-        "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
       ],
@@ -13327,7 +13170,6 @@
         "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/redis/index.ts",
         "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/sequelize/index.ts",
         "src/packages/@nodefony/studio/index.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
@@ -13353,9 +13195,6 @@
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
@@ -13414,8 +13253,7 @@
         "src/packages/@nodefony/mongoose/index.ts",
         "src/packages/@nodefony/realtime/index.ts",
         "src/packages/@nodefony/redis/index.ts",
-        "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/sequelize/index.ts"
+        "src/packages/@nodefony/security/index.ts"
       ],
       "registerLogDriver": [
         "src/modules/test/index.ts",
@@ -13721,7 +13559,6 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
@@ -13772,7 +13609,6 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
       ],
@@ -13897,8 +13733,7 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts"
       ],
       "entities": [
-        "src/packages/@nodefony/mongoose/index.ts",
-        "src/packages/@nodefony/sequelize/index.ts"
+        "src/packages/@nodefony/mongoose/index.ts"
       ],
       "ISession": [
         "src/packages/@nodefony/mongoose/index.ts",
@@ -13913,8 +13748,7 @@
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
       "SessionStorage": [
-        "src/packages/@nodefony/mongoose/index.ts",
-        "src/packages/@nodefony/sequelize/index.ts"
+        "src/packages/@nodefony/mongoose/index.ts"
       ],
       "withTimeout": [
         "src/packages/@nodefony/realtime/index.ts",
@@ -14060,9 +13894,6 @@
         "src/packages/@nodefony/security/index.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
-      "SequelizeService": [
-        "src/packages/@nodefony/sequelize/index.ts"
-      ],
       "StudioController": [
         "src/packages/@nodefony/studio/index.ts"
       ],
@@ -14090,8 +13921,7 @@
         "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
-        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
-        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
       ],
       "loadEnv": [
         "src/nodefony/src/bin/nodefony.ts"
@@ -14289,10 +14119,8 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/orm/Connector.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
       "CommandArgs": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -14344,9 +14172,7 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/orm/Orm.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+        "src/packages/@nodefony/mongoose/nodefony/service/orm.ts"
       ],
       "isClusterMessage": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -14382,7 +14208,6 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/errors/AccessDeniedError.ts",
         "src/packages/@nodefony/security/nodefony/errors/AuthenticationError.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
         "src/packages/@nodefony/documentation/nodefony/src/errors/DocumentationError.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
@@ -14608,8 +14433,7 @@
         "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts",
-        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
-        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
@@ -14656,9 +14480,7 @@
         "src/modules/test/nodefony/controller/RouteController.ts"
       ],
       "Connector": [
-        "src/nodefony/src/kernel/orm/Orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts"
+        "src/nodefony/src/kernel/orm/Orm.ts"
       ],
       "ClusterManager": [
         "src/nodefony/src/service/cluster/clusterMaster.ts"
@@ -14822,27 +14644,23 @@
       ],
       "entityRegistry": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
-        "src/modules/test/nodefony/entity/auditEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/modules/test/nodefony/entity/dolibarr/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
       ],
       "IEntity": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
-        "src/modules/test/nodefony/entity/auditEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
         "src/modules/test/nodefony/entity/dolibarr/index.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/user/userTable.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
       ],
       "userTable": [
         "src/modules/mediasoup/nodefony/entity/schema.ts"
@@ -14855,8 +14673,7 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "ormRegistry": [
         "src/modules/test/nodefony/controller/DbController.ts",
@@ -15042,9 +14859,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "SESSION_ORM": [
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts"
@@ -15263,8 +15078,7 @@
       ],
       "redactSecrets": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts"
       ],
       "getLogDriver": [
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts"
@@ -15571,23 +15385,18 @@
         "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts"
       ],
       "IColumnInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
       "IConnectionInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "IOrmProbe": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
@@ -15609,15 +15418,13 @@
         "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "RepositoryReadOptions": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "ServiceWiring": [
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
@@ -15638,8 +15445,7 @@
       "FieldOperators": [
         "src/packages/@nodefony/orm-core/nodefony/src/criteria.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "IEntityRelation": [
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
@@ -15836,18 +15642,6 @@
       "ISecurityAreaConfig": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
         "src/packages/@nodefony/security/nodefony/src/SecuredArea.ts"
-      ],
-      "ConnectorSequelise": [
-        "src/packages/@nodefony/sequelize/nodefony/command/sync.ts"
-      ],
-      "Sequelize": [
-        "src/packages/@nodefony/sequelize/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/sequelize/nodefony/service/orm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeTransaction.ts"
-      ],
-      "SequelizeOrm": [
-        "src/packages/@nodefony/sequelize/nodefony/service/SequelizeService.ts"
       ],
       "readStatsSnapshot": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
@@ -17180,8 +16974,7 @@
       ],
       "isFieldOperators": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "BaseUser": [
         "src/packages/@nodefony/drizzle/nodefony/src/user/DrizzleUserRepository.ts"
@@ -17222,8 +17015,7 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "IProfilerQuery": [
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeRepository.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "buildMetaData": [
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
@@ -17401,12 +17193,6 @@
       ],
       "anonymousUser": [
         "src/packages/@nodefony/security/nodefony/src/token/AnonymousToken.ts"
-      ],
-      "SequelizeRepository": [
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
-      ],
-      "SequelizeTransaction": [
-        "src/packages/@nodefony/sequelize/nodefony/src/orm-core/SequelizeOrm.ts"
       ],
       "sanitizeRequestId": [
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",

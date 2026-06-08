@@ -21,7 +21,6 @@ const sourcemapPathTransform = createPathTransform({
 const external: string[] = [
   "nodefony",
   "@nodefony/http",
-  "@nodefony/sequelize",
   // Obligatoire : le registre orm-core est un singleton process-wide. S'il était
   // bundlé ici, le module aurait sa PROPRE instance d'entityRegistry → l'entité
   // enregistrée ne serait pas vue par les ORM (résolus via le package partagé).

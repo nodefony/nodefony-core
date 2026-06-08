@@ -17,17 +17,17 @@ describe("@entity", () => {
   });
 
   it("stocke la métadonnée + auto-register le descripteur (name défaut = classe)", () => {
-    @entity({ orm: "sequelize", schema: { id: "uuid" } })
+    @entity({ orm: "drizzle", schema: { id: "uuid" } })
     class Foo {}
 
     const meta = getEntityMeta(Foo);
     assert.ok(meta);
     assert.equal(meta.name, "Foo");
-    assert.equal(meta.orm, "sequelize");
+    assert.equal(meta.orm, "drizzle");
     assert.deepEqual(meta.schema, { id: "uuid" });
     assert.equal(meta.target, Foo);
     // descripteur poussé dans le registre singleton
-    assert.equal(entityRegistry.has("Foo", "sequelize"), true);
+    assert.equal(entityRegistry.has("Foo", "drizzle"), true);
     assert.equal(entityRegistry.get("Foo").schema, meta.schema);
   });
 
@@ -41,7 +41,7 @@ describe("@entity", () => {
 
   it("relations transmises au descripteur", () => {
     @entity({
-      orm: "sequelize",
+      orm: "drizzle",
       name: "User",
       relations: [{ type: "one-to-many", target: "Room", field: "rooms" }],
     })
@@ -60,14 +60,14 @@ describe("@entity", () => {
 
 describe("@repository", () => {
   it("lie repo → entity via métadonnée (tag pur, pas de registre)", () => {
-    @repository("repository.user", { entity: "User", orm: "sequelize" })
+    @repository("repository.user", { entity: "User", orm: "drizzle" })
     class UserRepo {}
 
     const meta = getRepositoryMeta(UserRepo);
     assert.ok(meta);
     assert.equal(meta.name, "repository.user");
     assert.equal(meta.entity, "User");
-    assert.equal(meta.orm, "sequelize");
+    assert.equal(meta.orm, "drizzle");
     assert.equal(meta.target, UserRepo);
     assert.equal(hasRepositoryMeta(UserRepo), true);
   });

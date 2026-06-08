@@ -962,7 +962,7 @@ export const DashboardSupervision = observer(() => {
   const slowMultiConn = new Set(slowQueries.map((q) => q.connector)).size > 1;
   const flowTotal = flowConns.reduce((a, c) => a + c.total, 0);
   // Connecteurs tracés sur la courbe multi-séries = ceux ayant eu ≥1 requête
-  // (cache les connecteurs idle, ex. sequelize à 0). Ordre stable (registre).
+  // (cache les connecteurs idle, ex. un connecteur à 0). Ordre stable (registre).
   const flowSeriesConns = flowConns
     .filter((c) => c.total > 0)
     .map((c) => c.connector);
