@@ -1,39 +1,28 @@
-import path from "node:path";
-import { Kernel, Nodefony } from "nodefony";
-
-/** Config d'une connexion Drizzle (driver `better-sqlite3`). */
-export interface DrizzleConnectorConfig {
-  /** Fichier SQLite. `":memory:"` ou absent → base éphémère en mémoire. */
-  filename?: string;
-}
-
-/** Config du module `@nodefony/drizzle` : N connexions nommées. */
-export interface DrizzleModuleConfig {
-  /** Connexions indexées par nom (= clé dans le `ormRegistry`). */
-  connectors: Record<string, DrizzleConnectorConfig>;
-}
-
 /**
- * Config par défaut : une connexion `default` sur un fichier SQLite local.
- * Surcharge possible côté app via `nodefony/config/modules/drizzle-config.ts`.
+ * @nodefony/drizzle — Configuration par défaut du module.
+ *
+ * Source de vérité = `./schema.ts` (Zod). Ce fichier expose les défauts dérivés
+ * via `drizzleConfigSchema.parse({})` — toujours valides par construction, passés
+ * au `super(..., config)` du Module class.
+ *
+ * SURCHARGE PAR L'APPLICATION (manifeste `use()`, fusion récursive) :
+ *
+ *   // nodefony.config.ts
+ *   use("@nodefony/drizzle", {
+ *     connectors: { default: { filename: ":memory:" } },
+ *   });
+ *
+ * SURCHARGE PAR ENVIRONNEMENT (précédence max, appliquée dans le builder) :
+ *   DRIZZLE_DB_FILE
+ *
+ * ⚠️ Le chemin SQLite par défaut du connecteur (kernel-dépendant) n'est PAS posé
+ * ici (schéma pur, `filename` optionnel) : il est résolu au boot par
+ * `DrizzleService.connectAll()` quand le kernel existe. Plus de deref kernel au
+ * top-level (cf CLAUDE.md racine + audit config ORM 2026-06).
  */
-const config: DrizzleModuleConfig = {
-  connectors: {
-    default: {
-      // Getter (lazy) : la résolution via le kernel est différée à la LECTURE
-      // (au boot/merge de config, le kernel existe). Le module reste ainsi
-      // IMPORTABLE sans kernel — indispensable pour tester un module consommateur
-      // (`import "@nodefony/drizzle"` n'évalue plus `getKernel().path` à la volée).
-      get filename(): string {
-        return path.resolve(
-          (Nodefony.getKernel() as Kernel).path,
-          "nodefony",
-          "databases",
-          "nodefony-drizzle.db",
-        );
-      },
-    },
-  },
-};
+import { drizzleConfigSchema, type DrizzleConfig } from "./schema";
+
+const config: DrizzleConfig = drizzleConfigSchema.parse({});
 
 export default config;
+export type { DrizzleConfig };

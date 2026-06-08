@@ -11,6 +11,7 @@ const external: string[] = [
   "@nodefony/user",
   "drizzle-orm",
   "better-sqlite3",
+  "zod",
   "tslib",
 ];
 

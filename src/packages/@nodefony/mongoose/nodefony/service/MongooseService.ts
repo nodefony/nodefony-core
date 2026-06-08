@@ -1,12 +1,13 @@
 import mongoose from "mongoose";
+import type { ConnectOptions } from "mongoose";
 import { Service } from "nodefony";
 import type { Container, Event, Module } from "nodefony";
 import { queryFlowMonitor } from "@nodefony/orm-core";
 import { MongooseOrm } from "../src/orm-core/MongooseOrm";
 import type {
-  MongooseConnectorConfig,
-  MongooseModuleConfig,
-} from "../config/config";
+  IMongooseConfig,
+  IMongooseConnectorConfig,
+} from "../interfaces/IMongooseConfig";
 
 const serviceName = "mongoose";
 
@@ -46,10 +47,6 @@ class MongooseService extends Service {
           ? flag === "1" || flag === "true"
           : this.kernel?.environment !== "production",
       );
-      // Trace Mongoose des requêtes (dev) si demandé en config.
-      if ((this.options as unknown as MongooseModuleConfig).debug) {
-        mongoose.set("debug", true);
-      }
       await this.connectAll().catch((e: Error) => {
         this.log(e, "ERROR");
         throw e;
@@ -62,17 +59,26 @@ class MongooseService extends Service {
     });
   }
 
-  /** Connecte tous les connecteurs déclarés en config. */
+  /** Config validée (Zod) exposée par le Module au `onKernelRegister`. */
+  #config(): IMongooseConfig | undefined {
+    return this.module.get?.("mongooseConfig") as IMongooseConfig | undefined;
+  }
+
+  /** Connecte tous les connecteurs déclarés en config (validée Zod). */
   async connectAll(): Promise<void> {
-    const connectors =
-      (this.options as unknown as MongooseModuleConfig).connectors ?? {};
+    const config = this.#config();
+    // Trace Mongoose des requêtes (dev) si demandé en config.
+    if (config?.debug) {
+      mongoose.set("debug", true);
+    }
+    const connectors = config?.connectors ?? {};
     for (const [name, cfg] of Object.entries(connectors)) {
       await this.#connectOne(name, cfg);
     }
   }
 
   /** Assemble l'URI de connexion à partir de la config (`uri` ou composants). */
-  static buildUri(cfg: MongooseConnectorConfig): string {
+  static buildUri(cfg: IMongooseConnectorConfig): string {
     if (cfg.uri) {
       return cfg.uri;
     }
@@ -83,9 +89,17 @@ class MongooseService extends Service {
   }
 
   /** Connecte un connecteur (URI + options d'auth/pool). */
-  async #connectOne(name: string, cfg: MongooseConnectorConfig): Promise<void> {
+  async #connectOne(
+    name: string,
+    cfg: IMongooseConnectorConfig,
+  ): Promise<void> {
     const uri = MongooseService.buildUri(cfg);
-    const orm = new MongooseOrm(name, uri, cfg.options);
+    // `options` = `ConnectOptions` Mongoose (validées par Mongoose, pas re-modélisées en Zod).
+    const orm = new MongooseOrm(
+      name,
+      uri,
+      cfg.options as ConnectOptions | undefined,
+    );
     await orm.connect();
     this.#orms.set(name, orm);
     this.log(`Mongoose ORM "${name}" connected (${orm.safeTarget()})`, "INFO");

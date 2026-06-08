@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-08T11:10:45.847Z",
+  "generated": "2026-06-08T11:38:42.252Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 824,
-    "symbols": 1692,
+    "files": 832,
+    "symbols": 1704,
     "classes": 240,
-    "interfaces": 426,
-    "types": 212,
+    "interfaces": 422,
+    "types": 220,
     "enums": 3,
-    "functions": 333,
-    "constants": 478
+    "functions": 339,
+    "constants": 480
   },
   "symbols": {
     "Cli": {
@@ -4309,23 +4309,36 @@
       "module": "@nodefony/documentation",
       "description": "Construit le slug d'un fichier à partir de sa source et de son chemin relatif (POSIX, sans `.md`). Inverse jamais utilisé (slug = clé, pas chemin)."
     },
-    "DrizzleConnectorConfig": {
-      "name": "DrizzleConnectorConfig",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+    "defineDrizzleConfig": {
+      "name": "defineDrizzleConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "extends": null,
-      "description": "Config d'une connexion Drizzle (driver `better-sqlite3`)."
+      "description": "Builder type-safe de la configuration de `@nodefony/drizzle`. Aligné sur `defineMongooseConfig` (l'autre driver ORM) : source unique (`./schema.ts`), VALIDE + applique l'ENV + GÈLE. Le **chemin SQL…"
     },
-    "DrizzleModuleConfig": {
-      "name": "DrizzleModuleConfig",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+    "drizzleConfigJsonSchema": {
+      "name": "drizzleConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "extends": null,
-      "description": "Config du module `@nodefony/drizzle` : N connexions nommées."
+      "description": "JSON Schema introspectable de la config Drizzle — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
+    },
+    "DrizzleConfig": {
+      "name": "DrizzleConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Type de sortie (config normalisée + défauts appliqués)."
+    },
+    "drizzleConfigSchema": {
+      "name": "drizzleConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
     },
     "SessionEntity": {
       "name": "SessionEntity",
@@ -4364,6 +4377,30 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Table Drizzle de stockage des sessions (schema-as-code). Équivalent portable de l'entité session legacy : mêmes champs logiques (`session_id` PK, `context`, sacs `Attributes`/`flashBag`/`metaBag` e…"
+    },
+    "IDrizzleConfig": {
+      "name": "IDrizzleConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/interfaces/IDrizzleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Configuration normalisée et gelée de `@nodefony/drizzle` (sortie du builder {@link defineDrizzleConfig}, consommée par le `DrizzleService`). Type **dérivé du schéma Zod** — NE PAS redéclarer les ch…"
+    },
+    "IDrizzleConfigInput": {
+      "name": "IDrizzleConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/interfaces/IDrizzleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Entrée du builder `defineDrizzleConfig` — tous les champs portant un défaut sont optionnels (l'app ne fournit que ce qu'elle surcharge dans `use()`)."
+    },
+    "IDrizzleConnectorConfig": {
+      "name": "IDrizzleConnectorConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/drizzle/nodefony/interfaces/IDrizzleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Définition d'une connexion Drizzle nommée (sous-objet de `connectors`)."
     },
     "DrizzleService": {
       "name": "DrizzleService",
@@ -6319,23 +6356,36 @@
       "module": "@nodefony/memory",
       "extends": null
     },
-    "MongooseConnectorConfig": {
-      "name": "MongooseConnectorConfig",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
+    "defineMongooseConfig": {
+      "name": "defineMongooseConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "extends": null,
-      "description": "Config d'une connexion Mongoose. Soit une `uri` complète (`mongodb://…` / `mongodb+srv://…`), soit les composants `host`/`port`/`dbname` (assemblés en `mongodb://host:port/dbname`). Les credentials…"
+      "description": "Builder type-safe de la configuration de `@nodefony/mongoose`. Principes (alignés sur `defineRedisConfig` / `defineRealtimeConfig`) : - **Source unique** : `./schema.ts` (Zod). Le builder VALIDE, a…"
     },
-    "MongooseModuleConfig": {
-      "name": "MongooseModuleConfig",
-      "kind": "interface",
-      "file": "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
+    "mongooseConfigJsonSchema": {
+      "name": "mongooseConfigJsonSchema",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts",
       "exported": true,
       "module": "@nodefony/mongoose",
-      "extends": null,
-      "description": "Config du module `@nodefony/mongoose` : N connexions nommées."
+      "description": "JSON Schema introspectable de la config Mongoose — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
+    },
+    "MongooseConfig": {
+      "name": "MongooseConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/mongoose/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Type de sortie (config normalisée + défauts appliqués)."
+    },
+    "mongooseConfigSchema": {
+      "name": "mongooseConfigSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/config/schema.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose"
     },
     "@nodefony/mongoose:SessionEntity": {
       "name": "SessionEntity",
@@ -6366,6 +6416,30 @@
       "exported": true,
       "module": "@nodefony/mongoose",
       "description": "ORM cible du stockage de session (connecteur par défaut du module)."
+    },
+    "IMongooseConfig": {
+      "name": "IMongooseConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/mongoose/nodefony/interfaces/IMongooseConfig.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Configuration normalisée et gelée de `@nodefony/mongoose` (sortie du builder {@link defineMongooseConfig}, consommée par le `MongooseService`). Type **dérivé du schéma Zod** — NE PAS redéclarer les…"
+    },
+    "IMongooseConfigInput": {
+      "name": "IMongooseConfigInput",
+      "kind": "type",
+      "file": "src/packages/@nodefony/mongoose/nodefony/interfaces/IMongooseConfig.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Entrée du builder `defineMongooseConfig` — tous les champs portant un défaut sont optionnels (l'app ne fournit que ce qu'elle surcharge dans `use()`)."
+    },
+    "IMongooseConnectorConfig": {
+      "name": "IMongooseConnectorConfig",
+      "kind": "type",
+      "file": "src/packages/@nodefony/mongoose/nodefony/interfaces/IMongooseConfig.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Définition d'une connexion Mongoose nommée (sous-objet de `connectors`)."
     },
     "MongooseService": {
       "name": "MongooseService",
@@ -12980,7 +13054,7 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
-        "src/packages/@nodefony/drizzle/nodefony/config/config.ts"
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "Message": [
         "src/nodefony/src/Container.ts",
@@ -13087,7 +13161,6 @@
         "src/nodefony/src/Error.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
-        "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts"
@@ -13379,8 +13452,23 @@
         "src/packages/@nodefony/drizzle/index.ts",
         "src/packages/@nodefony/mongoose/index.ts"
       ],
+      "defineDrizzleConfig": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
+      "drizzleConfigJsonSchema": [
+        "src/packages/@nodefony/drizzle/index.ts"
+      ],
       "DrizzleService": [
         "src/packages/@nodefony/drizzle/index.ts"
+      ],
+      "IDrizzleConfig": [
+        "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "IDrizzleConfigInput": [
+        "src/packages/@nodefony/drizzle/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts"
       ],
       "IAdminBroker": [
         "src/packages/@nodefony/framework/index.ts",
@@ -13753,8 +13841,23 @@
       "registerMongooseAdapter": [
         "src/packages/@nodefony/mongoose/index.ts"
       ],
+      "defineMongooseConfig": [
+        "src/packages/@nodefony/mongoose/index.ts"
+      ],
+      "mongooseConfigJsonSchema": [
+        "src/packages/@nodefony/mongoose/index.ts"
+      ],
       "MongooseService": [
         "src/packages/@nodefony/mongoose/index.ts"
+      ],
+      "IMongooseConfig": [
+        "src/packages/@nodefony/mongoose/index.ts",
+        "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
+      ],
+      "IMongooseConfigInput": [
+        "src/packages/@nodefony/mongoose/index.ts",
+        "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts"
       ],
       "withTimeout": [
         "src/packages/@nodefony/realtime/index.ts",
@@ -14832,6 +14935,14 @@
       "DocSource": [
         "src/packages/@nodefony/documentation/nodefony/src/docScanner.ts"
       ],
+      "drizzleConfigSchema": [
+        "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
+        "src/packages/@nodefony/drizzle/nodefony/config/defineDrizzleConfig.ts",
+        "src/packages/@nodefony/drizzle/nodefony/interfaces/IDrizzleConfig.ts"
+      ],
+      "DrizzleConfig": [
+        "src/packages/@nodefony/drizzle/nodefony/config/config.ts"
+      ],
       "entity": [
         "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/sessionEntity.ts"
@@ -14844,10 +14955,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
-      "DrizzleConnectorConfig": [
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
-      ],
-      "DrizzleModuleConfig": [
+      "IDrizzleConnectorConfig": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "ISessionStorage": [
@@ -15389,13 +15497,18 @@
       "IInMemoryStoreConfig": [
         "src/packages/@nodefony/memory/src/services/MemoryService.ts"
       ],
+      "mongooseConfigSchema": [
+        "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
+        "src/packages/@nodefony/mongoose/nodefony/config/defineMongooseConfig.ts",
+        "src/packages/@nodefony/mongoose/nodefony/interfaces/IMongooseConfig.ts"
+      ],
+      "MongooseConfig": [
+        "src/packages/@nodefony/mongoose/nodefony/config/config.ts"
+      ],
       "MongooseOrm": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
-      "MongooseConnectorConfig": [
-        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
-      ],
-      "MongooseModuleConfig": [
+      "IMongooseConnectorConfig": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
       "ITransaction": [

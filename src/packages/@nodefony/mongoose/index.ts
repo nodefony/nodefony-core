@@ -6,6 +6,9 @@
  * configuré. Refonte 2026-06-08 (Ph.2 virage ORM) : ne dérive plus de l'`Orm`
  * legacy du core — le service `extends Service` et orchestre des adapters
  * orm-core autonomes (modèle `DrizzleService`). Le core ne connaît plus l'ORM.
+ *
+ * Config = source de vérité Zod (`nodefony/config/schema.ts`), validée au boot
+ * via {@link defineMongooseConfig} (style `@nodefony/redis`/`@nodefony/realtime`).
  */
 import mongoose from "mongoose";
 import {
@@ -24,12 +27,61 @@ import {
   buildOrmFlow,
 } from "@nodefony/orm-core";
 import config from "./nodefony/config/config";
+import {
+  defineMongooseConfig,
+  mongooseConfigJsonSchema,
+} from "./nodefony/config/defineMongooseConfig";
 import MongooseService from "./nodefony/service/MongooseService";
+import type {
+  IMongooseConfig,
+  IMongooseConfigInput,
+} from "./nodefony/interfaces/IMongooseConfig";
+
+// Augmente le registre du core (declaration merging) pour que
+// `use("@nodefony/mongoose", …)` auto-complète les clés typées du module.
+declare module "nodefony" {
+  interface NodefonyModuleConfig {
+    "@nodefony/mongoose": IMongooseConfigInput;
+  }
+}
 
 @services([MongooseService])
 class Mongoose extends Module {
+  /**
+   * Module **optionnel** (driver NoSQL externe, opt-in) : un échec de son boot
+   * (Mongo injoignable) ne tue jamais le process — le store de session dégrade
+   * gracieusement (`#repo()` → null). Résilience cloud-native (l'orchestrateur
+   * relèvera Mongo). Convention-frère `@nodefony/redis`.
+   */
+  static override critical = false;
+
   constructor(kernel: Kernel) {
     super("mongoose", kernel, import.meta.url, config);
+  }
+
+  /**
+   * Valide la config (défauts + `module.options` + surcharge env) au boot via
+   * `defineMongooseConfig`, et l'expose au container sous `mongooseConfig` pour
+   * que le `MongooseService` la consomme sans redupliquer la validation. Plante
+   * propre avec messages clairs si la config est invalide (convention Zod).
+   */
+  override async onKernelRegister(): Promise<this> {
+    let validated: IMongooseConfig;
+    try {
+      validated = defineMongooseConfig(
+        (this.options ?? {}) as IMongooseConfigInput,
+      );
+    } catch (e) {
+      const issues =
+        e instanceof Error && "issues" in e && Array.isArray(e.issues)
+          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
+              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+              .join(" · ")
+          : (e as Error).message;
+      throw new Error(`[@nodefony/mongoose] Invalid config: ${issues}`);
+    }
+    this.set("mongooseConfig", validated);
+    return this;
   }
 
   /**
@@ -68,10 +120,16 @@ class Mongoose extends Module {
 
 export default Mongoose;
 export { mongoose, MongooseService };
+export { defineMongooseConfig, mongooseConfigJsonSchema };
+export {
+  mongooseConfigSchema,
+  type MongooseConfig,
+} from "./nodefony/config/schema";
 export type {
-  MongooseConnectorConfig,
-  MongooseModuleConfig,
-} from "./nodefony/config/config";
+  IMongooseConfig,
+  IMongooseConfigInput,
+  IMongooseConnectorConfig,
+} from "./nodefony/interfaces/IMongooseConfig";
 
 // ─── Stockage de session Mongoose (consommé par @nodefony/http) ─────────────
 // L'import de l'entité exécute son décorateur `@entity` → modèle compilé au boot.

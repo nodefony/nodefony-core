@@ -22,12 +22,52 @@ import {
   buildOrmFlow,
 } from "@nodefony/orm-core";
 import config from "./nodefony/config/config";
+import {
+  defineDrizzleConfig,
+  drizzleConfigJsonSchema,
+} from "./nodefony/config/defineDrizzleConfig";
 import DrizzleService from "./nodefony/service/DrizzleService";
+import type {
+  IDrizzleConfig,
+  IDrizzleConfigInput,
+} from "./nodefony/interfaces/IDrizzleConfig";
+
+// Augmente le registre du core (declaration merging) → `use("@nodefony/drizzle", …)` typé.
+declare module "nodefony" {
+  interface NodefonyModuleConfig {
+    "@nodefony/drizzle": IDrizzleConfigInput;
+  }
+}
 
 @services([DrizzleService])
 class Drizzle extends Module {
   constructor(kernel: Kernel) {
     super("drizzle", kernel, import.meta.url, config);
+  }
+
+  /**
+   * Valide la config (défauts + `module.options` + surcharge env) au boot via
+   * `defineDrizzleConfig`, et l'expose au container sous `drizzleConfig` pour que
+   * le `DrizzleService` la consomme. Plante propre si la config est invalide
+   * (convention Zod, alignée sur `@nodefony/mongoose` — audit config ORM 2026-06).
+   */
+  override async onKernelRegister(): Promise<this> {
+    let validated: IDrizzleConfig;
+    try {
+      validated = defineDrizzleConfig(
+        (this.options ?? {}) as IDrizzleConfigInput,
+      );
+    } catch (e) {
+      const issues =
+        e instanceof Error && "issues" in e && Array.isArray(e.issues)
+          ? (e.issues as Array<{ path: (string | number)[]; message: string }>)
+              .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+              .join(" · ")
+          : (e as Error).message;
+      throw new Error(`[@nodefony/drizzle] Invalid config: ${issues}`);
+    }
+    this.set("drizzleConfig", validated);
+    return this;
   }
 
   /**
@@ -61,10 +101,16 @@ class Drizzle extends Module {
 
 export default Drizzle;
 export { DrizzleService };
+export { defineDrizzleConfig, drizzleConfigJsonSchema };
+export {
+  drizzleConfigSchema,
+  type DrizzleConfig,
+} from "./nodefony/config/schema";
 export type {
-  DrizzleConnectorConfig,
-  DrizzleModuleConfig,
-} from "./nodefony/config/config";
+  IDrizzleConfig,
+  IDrizzleConfigInput,
+  IDrizzleConnectorConfig,
+} from "./nodefony/interfaces/IDrizzleConfig";
 
 // ─── Stockage de session Drizzle (consommé par @nodefony/http) ──────────────
 // L'import de l'entité exécute son décorateur `@entity` → table créée au boot.
