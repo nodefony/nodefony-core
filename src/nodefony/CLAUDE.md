@@ -158,7 +158,7 @@ RequestContext.isProfiling();      // bool — buffer queries actif (dev profile
 RequestContext.pushQuery({ sql, durationMs, rows?, connector? }); // no-op si !isProfiling
 ```
 
-**Seam profiler ORM (`queries`)** : `HttpKernel.handleHttp` alloue `payload.queries: IProfilerQuery[]` **uniquement en dev** (profiler actif) ; les adapters ORM y poussent via `pushQuery()` (gratuit en prod = buffer absent). ⚠️ Ne PAS lire l'ALS depuis un callback détaché (pool ORM, listener) → `isProfiling()` y est faux ; capturer la réf du buffer dans le contexte valide (cf adapter Sequelize `#prof`).
+**Seam profiler ORM (`queries`)** : `HttpKernel.handleHttp` alloue `payload.queries: IProfilerQuery[]` **uniquement en dev** (profiler actif) ; les adapters ORM y poussent via `pushQuery()` (gratuit en prod = buffer absent). ⚠️ Ne PAS lire l'ALS depuis un callback détaché (pool ORM, listener) → `isProfiling()` y est faux ; capturer la réf du buffer dans le contexte valide (cf adapter Drizzle `#prof`).
 
 **✅ BUGS résolus** (2026-05-20, cf [`../../BUG_REPORT.md`](../../BUG_REPORT.md)) :
 

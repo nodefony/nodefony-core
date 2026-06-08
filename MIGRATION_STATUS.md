@@ -22,10 +22,10 @@ Les décisions complètes sont **persistées en mémoire IA** (survivent au `/cl
 **Config (`defineConfig`) ✅ CLOS** → **🥇 durcissement ORM** → (Realtime reste S1) → **POC API souveraine** → **P6 Security**.
 Boussole : durcir les fondations (orm, realtime, core, http, framework) AVANT P6 — P6 se greffe dessus.
 
-### 🔀 Virage ORM (décidé 2026-06-02) — ✅ audit pré-chantier livré 2026-06-08, exécution à venir
+### 🔀 Virage ORM (décidé 2026-06-02) — ✅ audit 2026-06-08 · ✅ **Ph.1 Sequelize OUT 2026-06-08 (`716fce6`)**
 
-- 📋 **Audit complet** : [`docs/audits/orm-state-and-hardening-2026-06.md`](docs/audits/orm-state-and-hardening-2026-06.md) + mémoire `project_orm_audit_state`. **Plan 5 phases** (~2080 L mortes, ~1250 à refaire) : Ph.1 Seq OUT ∥ Ph.2 Mongoose REFAIT → Ph.3 kernel/orm OUT → Ph.4 couplage (C2/C5) → API souveraine → P6.
-- **Sequelize = SUPPRESSION COMPLÈTE** (package + consommateurs + tests retirés). Lignes P5.7/P7.1/P7.3 → **caduques**.
+- 📋 **Audit complet** : [`docs/audits/orm-state-and-hardening-2026-06.md`](docs/audits/orm-state-and-hardening-2026-06.md) + mémoire `project_orm_audit_state`. **Plan 5 phases** (~2080 L mortes, ~1250 à refaire) : **Ph.1 Seq OUT ✅** ∥ Ph.2 Mongoose REFAIT → Ph.3 kernel/orm OUT → Ph.4 couplage (C2/C5) → API souveraine → P6.
+- ✅ **Sequelize SUPPRIMÉ (Ph.1, `716fce6`)** : package + tous consommateurs + tests + ~2820 L de `package-lock` + mentions code/docs vivantes (0 résidu). Gates vertes (build 19/19, core 1559, http 436, fw 190, mémoire 9/9). Lignes P5.7/P7.1/P7.3 → **caduques**.
 - **Mongoose = REFAIT NEUF** sur modèle Drizzle (`class …Service extends Service`, plus `extends Orm` core) + réimplémenter 4 sondes Studio (`describeEntity`/`describeConnection`/`ping`/tap flux). Lignes P5.8/P7.2/P7.5 → **à refaire**.
 - **Orm core `src/nodefony/src/kernel/orm/{Orm,Connector,Entity}` → à RETIRER** (3 fichiers, 254 L). ⚠️ **Piège homonyme** : c'est le LEGACY du workspace `nodefony`, **PAS** `@nodefony/orm-core` (socle moderne validé ADR-0003, à **GARDER**). Maintenu vivant par les `service/orm.ts` legacy de Seq+Mongoose.
 - **Dette C5** (audit) : montage data plane ORM + sondes santé **déclenché par le module Drizzle** → app Mongoose-only = Studio ORM muet → factoriser `wireOrmAdminPlane(kernel)` appelé par chaque driver.
@@ -354,11 +354,11 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 ╔══════════════════════════════════════════════════════════════════╗
 ║  🥇  DURCISSEMENT ORM   (project_orm_hardening_kit)               ║
 ╠══════════════════════════════════════════════════════════════════╣
-║  • Sequelize → SUPPRESSION COMPLÈTE (package + tests + conso)     ║
-║  • Mongoose → REFAIT NEUF (extends Service, modèle Drizzle)       ║
+║  • Sequelize → SUPPRIMÉ ✅ (Ph.1, 716fce6)                        ║
+║  • Mongoose → REFAIT NEUF (extends Service, Drizzle)  ◀ PH.2 ICI  ║
 ║  • Orm core kernel/orm/{Orm,Connector,Entity} → RETIRER du core   ║
 ║  • Drizzle = référence.                                           ║
-║  Séquencement : config ✅ → ORM → POC API souveraine → P6.        ║
+║  Séquencement : config ✅ → Seq OUT ✅ → Mongoose → … → P6.       ║
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 

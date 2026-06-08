@@ -1,8 +1,8 @@
 # @nodefony/drizzle
 
 Adapter [Drizzle ORM](https://orm.drizzle.team/) pour Nodefony, branché sur
-[`@nodefony/orm-core`](../orm-core). 3ᵉ driver concret du socle multi-ORM (après
-`@nodefony/sequelize` et `@nodefony/mongoose`), **type-safe-first**.
+[`@nodefony/orm-core`](../orm-core). driver concret du socle multi-ORM (avec
+`@nodefony/mongoose`), **type-safe-first**.
 
 > Driver de référence : `better-sqlite3` (tests, embarqué). Pour Postgres/MySQL,
 > changer le client et le constructeur de table (`pgTable`/`mysqlTable`) — le
@@ -58,7 +58,9 @@ import { DrizzleOrm } from "@nodefony/drizzle";
 
 // 1) Schema-as-code : la table EST le schéma de l'entité.
 const usersTable = sqliteTable("User", {
-  id: text("id").primaryKey().$defaultFn(() => randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
   email: text("email").notNull().unique(),
   age: integer("age").notNull(),
 });
@@ -70,7 +72,9 @@ class UserEntity {}
 const orm = new DrizzleOrm("db", { filename: ":memory:" });
 await orm.connect();
 
-const users = orm.getRepository<{ id: string; email: string; age: number }>("User");
+const users = orm.getRepository<{ id: string; email: string; age: number }>(
+  "User",
+);
 ```
 
 ## CRUD portable
@@ -78,7 +82,7 @@ const users = orm.getRepository<{ id: string; email: string; age: number }>("Use
 ```typescript
 const u = await users.create({ email: "a@b.c", age: 30 });
 await users.findOne({ id: u.id });
-await users.find();                       // tous
+await users.find(); // tous
 await users.update({ id: u.id }, { age: 31 });
 await users.delete({ id: u.id });
 await users.count();
@@ -86,7 +90,7 @@ await users.count();
 
 ## Critères riches (opérateurs `$`-préfixés, typés)
 
-Forme **portable cross-ORM** (identique sur Sequelize/Mongoose) :
+Forme **portable cross-ORM** (identique sur Mongoose) :
 
 ```typescript
 await users.find({ age: { $gt: 25 } });
@@ -94,7 +98,7 @@ await users.find({ age: { $gte: 20, $lte: 40 } }); // AND
 await users.find({ age: { $in: [20, 40] } });
 await users.find({ age: { $nin: [20, 40] } });
 await users.find({ age: { $ne: 30 } });
-await users.find({ email: { $like: "u2%" } });     // sémantique SQL (`%`, `_`)
+await users.find({ email: { $like: "u2%" } }); // sémantique SQL (`%`, `_`)
 ```
 
 Opérateurs supportés : `$eq $ne $gt $gte $lt $lte $in $nin $like`. Une valeur nue
@@ -104,7 +108,9 @@ Opérateurs supportés : `$eq $ne $gt $gte $lt $lte $in $nin $like`. Une valeur 
 
 ```typescript
 const roomsTable = sqliteTable("Room", {
-  id: text("id").primaryKey().$defaultFn(() => randomUUID()),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => randomUUID()),
   name: text("name").notNull(),
   userId: text("userId").notNull(),
 });
@@ -128,7 +134,9 @@ Pagination/tri : `{ limit, offset, order: [["age", "DESC"]] }`.
 
 ```typescript
 await orm.transaction(async (tx) => {
-  const owner = await users.withTransaction(tx).create({ email: "x@y.z", age: 1 });
+  const owner = await users
+    .withTransaction(tx)
+    .create({ email: "x@y.z", age: 1 });
   await rooms.withTransaction(tx).create({ name: "general", userId: owner.id });
   // throw ⇒ rollback de TOUT ; sinon commit automatique
 });

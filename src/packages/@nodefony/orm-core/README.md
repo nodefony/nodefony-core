@@ -6,8 +6,8 @@ SQL + Mongoose pour MongoDB + Redis pour le cache), avec une API portable et une
 trappe vers le driver natif pour les cas avancés.
 
 > Package **lib pure** : il n'expose pas de `Module` runtime et n'est pas listé
-> dans `@modules()`. Ce sont les **drivers** (`@nodefony/sequelize`,
-> `@nodefony/mongoose`, `@nodefony/drizzle`...) qui sont des modules Nodefony et
+> dans `@modules()`. Ce sont les **drivers** (`@nodefony/mongoose`,
+> `@nodefony/drizzle`...) qui sont des modules Nodefony et
 > qui s'enregistrent eux-mêmes dans le `OrmRegistry`.
 
 ## Quel ORM par défaut ?
@@ -20,12 +20,11 @@ multi-ORM simultané imposé).
 
 **Recommandations (nouveau développement) :**
 
-| Besoin                | ORM recommandé | Pourquoi                                                                 |
-| --------------------- | -------------- | ----------------------------------------------------------------------- |
-| **SQL** (défaut)      | **Drizzle**    | Type-safe-first (aligné TypeScript strict), léger, SQL brut via tag `sql` |
-| **NoSQL / documentaire** | **Mongoose** | Standard MongoDB, schémas + populate                                     |
-| Apps très complexes   | MikroORM       | Data Mapper + Unit of Work + Identity Map (option)                       |
-| Legacy existant       | Sequelize      | **Maintenance descendante** — pas de nouveau développement              |
+| Besoin                   | ORM recommandé | Pourquoi                                                                  |
+| ------------------------ | -------------- | ------------------------------------------------------------------------- |
+| **SQL** (défaut)         | **Drizzle**    | Type-safe-first (aligné TypeScript strict), léger, SQL brut via tag `sql` |
+| **NoSQL / documentaire** | **Mongoose**   | Standard MongoDB, schémas + populate                                      |
+| Apps très complexes      | MikroORM       | Data Mapper + Unit of Work + Identity Map (option)                        |
 
 > ⚠️ Les transactions **cross-ORM (2PC) ne sont pas garanties** : une transaction
 > porte sur un seul ORM / une seule connexion.
@@ -34,32 +33,87 @@ multi-ORM simultané imposé).
 
 ```
 @nodefony/orm-core   ← IOrm, IEntity, IRepository, ITransaction + OrmRegistry (P5.2)
-   ↑           ↑              ↑                ↑
-sequelize   mongoose      drizzle          mikroorm        (drivers = Modules)
-   └───────────┴────────────────┴──────────────┘
+       ↑              ↑                ↑
+   mongoose      drizzle          mikroorm        (drivers = Modules)
+       └────────────────┴──────────────┘
             consommés par : @nodefony/user, session storage, security, app
 ```
 
 ## Contrats exposés
 
-| Interface           | Rôle                                                                 |
-| ------------------- | ------------------------------------------------------------------- |
-| `IOrm`              | Instance ORM (connexion logique) : connect, repository, transaction |
-| `IEntity<S,M>`      | Entité enregistrée : nom logique, ORM cible, schéma, modèle natif    |
-| `IRepository<T>`    | CRUD portable : `find/findOne/create/update/delete/count`           |
-| `ITransaction`      | Unité de travail : `commit/rollback/savepoint/rollbackTo`           |
-| `Criteria<T>`       | Filtre typé par champ + opérateurs riches ; `OrmCriteria` = échappatoire |
+| Interface        | Rôle                                                                     |
+| ---------------- | ------------------------------------------------------------------------ |
+| `IOrm`           | Instance ORM (connexion logique) : connect, repository, transaction      |
+| `IEntity<S,M>`   | Entité enregistrée : nom logique, ORM cible, schéma, modèle natif        |
+| `IRepository<T>` | CRUD portable : `find/findOne/create/update/delete/count`                |
+| `ITransaction`   | Unité de travail : `commit/rollback/savepoint/rollbackTo`                |
+| `Criteria<T>`    | Filtre typé par champ + opérateurs riches ; `OrmCriteria` = échappatoire |
 
 ### Critères riches (opérateurs typés)
 
 `Criteria<T>` type-vérifie chaque champ et accepte des **opérateurs `$`-préfixés**
 typés (`FieldOperators<V>`) — forme portable identique sur les 3 drivers (mappée en
-`Op.*` Sequelize, `$`/`$regex` Mongoose, `eq()/gt()/inArray()` Drizzle) :
+`# @nodefony/orm-core
+
+Fondation **multi-ORM** de Nodefony. Définit les contrats abstraits permettant de
+charger **plusieurs ORM simultanément** dans le même process (ex. Drizzle pour
+SQL + Mongoose pour MongoDB + Redis pour le cache), avec une API portable et une
+trappe vers le driver natif pour les cas avancés.
+
+> Package **lib pure** : il n'expose pas de `Module` runtime et n'est pas listé
+> dans `@modules()`. Ce sont les **drivers** (`@nodefony/mongoose`,
+> `@nodefony/drizzle`...) qui sont des modules Nodefony et
+> qui s'enregistrent eux-mêmes dans le `OrmRegistry`.
+
+## Quel ORM par défaut ?
+
+**Par design : aucun.** orm-core est une abstraction Repository — on choisit l'ORM
+par application via l'injection de dépendances (`@Inject('repository.<entité>.<orm>')`),
+jamais en dur. Le framework ne couple aucun ORM ; la valeur recherchée est de
+**pouvoir changer d'ORM dans le temps** sans réécrire le métier (pas de
+multi-ORM simultané imposé).
+
+**Recommandations (nouveau développement) :**
+
+| Besoin                   | ORM recommandé | Pourquoi                                                                  |
+| ------------------------ | -------------- | ------------------------------------------------------------------------- |
+| **SQL** (défaut)         | **Drizzle**    | Type-safe-first (aligné TypeScript strict), léger, SQL brut via tag `sql` |
+| **NoSQL / documentaire** | **Mongoose**   | Standard MongoDB, schémas + populate                                      |
+| Apps très complexes      | MikroORM       | Data Mapper + Unit of Work + Identity Map (option)                        |
+
+> ⚠️ Les transactions **cross-ORM (2PC) ne sont pas garanties** : une transaction
+> porte sur un seul ORM / une seule connexion.
+
+## Architecture
+
+```
+@nodefony/orm-core   ← IOrm, IEntity, IRepository, ITransaction + OrmRegistry (P5.2)
+       ↑              ↑                ↑
+   mongoose      drizzle          mikroorm        (drivers = Modules)
+       └────────────────┴──────────────┘
+            consommés par : @nodefony/user, session storage, security, app
+```
+
+## Contrats exposés
+
+| Interface        | Rôle                                                                     |
+| ---------------- | ------------------------------------------------------------------------ |
+| `IOrm`           | Instance ORM (connexion logique) : connect, repository, transaction      |
+| `IEntity<S,M>`   | Entité enregistrée : nom logique, ORM cible, schéma, modèle natif        |
+| `IRepository<T>` | CRUD portable : `find/findOne/create/update/delete/count`                |
+| `ITransaction`   | Unité de travail : `commit/rollback/savepoint/rollbackTo`                |
+| `Criteria<T>`    | Filtre typé par champ + opérateurs riches ; `OrmCriteria` = échappatoire |
+
+### Critères riches (opérateurs typés)
+
+`Criteria<T>` type-vérifie chaque champ et accepte des **opérateurs `$`-préfixés**
+typés (`FieldOperators<V>`) — forme portable identique sur les 3 drivers (mappée en
+/`$regex` Mongoose, `eq()/gt()/inArray()` Drizzle) :
 
 ```typescript
 await users.find({ age: { $gte: 18, $lt: 65 } }); // plusieurs opérateurs = AND
 await users.find({ id: { $in: ids } });
-await users.find({ email: { $like: "a%" } });      // sémantique SQL (`%`, `_`)
+await users.find({ email: { $like: "a%" } }); // sémantique SQL (`%`, `_`)
 ```
 
 Opérateurs : `$eq $ne $gt $gte $lt $lte $in $nin $like`. Une valeur nue = égalité.
@@ -131,7 +185,7 @@ class UserRepository implements IRepository<UserEntity> {
 - ✅ Interfaces (`IOrm`, `IEntity`, `IRepository`, `ITransaction`) — P5.1.
 - ✅ `OrmRegistry`, `EntityRegistry`, `Orm`/`Entity` base classes — P5.2.
 - ✅ Décorateurs `@entity` / `@repository` — P5.3.
-- ✅ Adapters Sequelize + Mongoose (CRUD/relations/tx portables) — P5.4.
+- ✅ Adapter Mongoose (CRUD/relations/tx portables) — P5.4.
 - ✅ Adapter Drizzle + opérateurs riches typés (`FieldOperators`/`isFieldOperators`)
   — P7.4 ; **4 risques ADR-0003 traités** (cf `docs/adr/0003`).
 

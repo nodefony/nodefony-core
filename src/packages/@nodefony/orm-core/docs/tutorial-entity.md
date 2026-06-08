@@ -33,39 +33,29 @@ donc passer de SQLite à MySQL sans toucher à l'entité.
 
 ## 2. Choisir le moteur : le connecteur (config)
 
-Le **driver** vit dans la config du module ORM. Exemple réel (`@nodefony/sequelize`) :
+Le **driver** vit dans la config du module ORM. Exemple réel (`@nodefony/drizzle`) :
 
 ```ts
-// nodefony/config/modules/sequelize-config.ts
-export default {
-  connectors: {
-    sequelize: {
-      // ← le NOM du connecteur (= entity.orm)
-      dialect: "sqlite", // ← ICI on choisit le moteur
-      storage: "nodefony/databases/nodefony-sequelize.db",
-    },
-    // pour MySQL : { dialect: "mysql", host, port, database, username, password }
+// nodefony.config.ts → use("@nodefony/drizzle", { connectors: { … } })
+connectors: {
+  default: {
+    // ← le NOM du connecteur (= entity.orm)
+    filename: "nodefony/databases/nodefony-drizzle.db", // ← un fichier SQLite
   },
-};
+  // pour Postgres/MySQL : changer le client Drizzle + les params de connexion
+}
 ```
 
-Drizzle, c'est encore plus court (`@nodefony/drizzle`) :
-
-```ts
-// connecteur "default" = un fichier SQLite
-connectors: { default: { filename: "nodefony/databases/nodefony-drizzle.db" } }
-```
-
-> Tu n'as **rien** à connecter à la main : le service du module (`DrizzleService`,
-> `SequelizeService`) ouvre chaque connecteur au démarrage du serveur (`onBoot`) et
-> l'enregistre dans le `ormRegistry`.
+> Tu n'as **rien** à connecter à la main : le service du module (`DrizzleService`)
+> ouvre chaque connecteur au démarrage du serveur (`onBoot`) et l'enregistre dans
+> le `ormRegistry`.
 
 ## 3. Décrire la table : l'entité
 
 Une entité = un objet `IEntity` : `{ orm, name, schema }`. Le **`schema`** dépend de
-la famille d'ORM (c'est la seule chose qui change entre Drizzle et Sequelize).
+la famille d'ORM (c'est la seule chose qui change selon l'ORM).
 
-### Version Drizzle (schéma `sqliteTable`)
+### Schéma Drizzle (`sqliteTable`)
 
 ```ts
 // nodefony/entity/post.ts
@@ -97,35 +87,12 @@ const postEntity: IEntity = {
 entityRegistry.register(postEntity);
 ```
 
-### Version Sequelize (schéma `DataTypes`)
-
-```ts
-// nodefony/entity/auditEntity.ts
-import { sequelize } from "@nodefony/sequelize"; // ⚠ via le package, jamais "sequelize"
-import { entityRegistry } from "@nodefony/orm-core";
-import type { IEntity } from "@nodefony/orm-core";
-
-const { DataTypes } = sequelize;
-
-const auditEntity: IEntity = {
-  orm: "sequelize", // ← le NOM du connecteur (Sequelize)
-  name: "AuditLog",
-  schema: {
-    id: {
-      type: DataTypes.UUID,
-      defaultValue: DataTypes.UUIDV4,
-      primaryKey: true,
-    },
-    action: { type: DataTypes.STRING, allowNull: false },
-    target: { type: DataTypes.STRING, allowNull: true },
-  },
-};
-
-entityRegistry.register(auditEntity);
-```
+> Autre famille d'ORM (ex. Mongoose) : même `IEntity`, seul le `schema` change
+> (schéma Mongoose au lieu d'une table Drizzle) — l'`orm` reste le **nom du
+> connecteur** déclaré dans la config.
 
 > **Différence à retenir** : `orm: "sqlite"/"mysql"` n'existe PAS — on met le **nom
-> du connecteur** (`"default"`, `"sequelize"`). Le moteur, lui, est dans la config.
+> du connecteur** (`"default"`). Le moteur, lui, est dans la config.
 
 ## 4. Enregistrer l'entité (le `import` qui compte)
 
@@ -140,7 +107,7 @@ import "./nodefony/entity/post"; // ← exécute le register() à l'import
 > ⚠️ **Piège singleton** : si ton entité est dans un _module_ (pas l'app racine),
 > le `rollup.config.ts` du module **doit** lister `@nodefony/orm-core` dans ses
 > `external`. Sinon le module embarque sa propre copie du registre et ton entité
-> reste invisible pour l'ORM. (Les modules `@nodefony/drizzle`, `sequelize`, `test`
+> reste invisible pour l'ORM. (Les modules `@nodefony/drizzle` et `test`
 > le font déjà.)
 
 Au démarrage, le service de l'ORM lit le registre et **crée la table** automatiquement
@@ -223,11 +190,10 @@ Plusieurs opérateurs sur un même champ = **ET** (`{ age: { $gte: 18, $lt: 65 }
 
 ## 8. Pièges qui font perdre du temps
 
-- **`orm:` = nom de connecteur, pas le driver.** `"default"`, `"sequelize"` — jamais
-  `"sqlite"`.
-- **Schéma lié à la famille d'ORM.** Drizzle = `sqliteTable`, Sequelize = `DataTypes`.
+- **`orm:` = nom de connecteur, pas le driver.** `"default"` — jamais `"sqlite"`.
+- **Schéma lié à la famille d'ORM.** Drizzle = `sqliteTable` (schema-as-code).
   On peut changer sqlite↔mysql (même famille) sans toucher l'entité ; changer
-  Drizzle↔Sequelize = réécrire le `schema`.
+  de famille d'ORM = réécrire le `schema`.
 - **L'`import` de l'entité doit s'exécuter** (side-effect) avant le boot, sinon la
   table n'existe pas.
 - **Dans un module : externaliser `@nodefony/orm-core`** (rollup) sinon registre
@@ -238,5 +204,4 @@ Plusieurs opérateurs sur un même champ = **ET** (`{ age: { $gte: 18, $lt: 65 }
 ## Pour aller plus loin
 
 - [`index.md`](./index.md) — référence complète (contrats, transactions, eager-load).
-- Exemples réels du repo : `nodefony/entity/user.ts` (Drizzle) et
-  `src/modules/test/nodefony/entity/auditEntity.ts` (Sequelize).
+- Exemple réel du repo : `nodefony/entity/user.ts` (Drizzle).

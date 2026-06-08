@@ -15,21 +15,21 @@ mot de passe (`BcryptEncoder`) et le `UserService` (CRUD + `authenticate()`).
 
 Symfony sépare `security-core` (le modèle utilisateur) de `security-bundle` (le firewall).
 Nodefony fait pareil : `@nodefony/user` est consommé par `@nodefony/security`, jamais l'inverse.
-Tout module qui a juste besoin du type `IUser` (framework, orm-*, agent, studio…) importe ce module
+Tout module qui a juste besoin du type `IUser` (framework, orm-\*, agent, studio…) importe ce module
 léger sans tirer la couche sécurité.
 
 ## Couches du modèle utilisateur
 
 1. **Contrat strict** `IUser` (framework) — `id` UUID, `identifier`, `roles` plat, `hasRole/isActive/isLocked`.
 2. **POJO partagé** `BaseUser implements IUser` — champs anti-migration (`socialProviders`, `metadata`, `currentRole`, `password?`).
-3. **Classes par ORM** (étanches) — `SequelizeUser`/`MongooseUser` étendent `BaseUser` ; Drizzle = schéma + mapping repo.
+3. **Classes par ORM** (étanches) — `MongooseUser` étend `BaseUser` ; Drizzle = schéma + mapping repo.
 
 ## Fourniture & persistance
 
 - `IUserProvider` : `loadUserByIdentifier`, `loadUserByOAuth`, `refreshUser`. Pattern **Shadow User**
   (une ligne locale est créée même pour une auth OAuth).
 - `IUserRepository extends IRepository<IUser>` (de `@nodefony/orm-core`) — accès persistance portable
-  entre Sequelize / Mongoose / Drizzle.
+  entre Mongoose / Drizzle.
 
 ## Statut
 

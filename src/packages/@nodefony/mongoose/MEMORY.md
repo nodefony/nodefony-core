@@ -19,15 +19,15 @@ Driver Mongoose (v8). Deux socles cohabitent :
 - peerDep P5.4 : `@nodefony/orm-core: "*"`. devDep test : `mongodb-memory-server` (11.x).
 - Test : `npx mocha --config .mocharc.json` (mocha+tsx, `MongoMemoryReplSet`). **6 verts** (`tests/integration/orm-core-mongoose.test.ts`). timeout 120s (1er run télécharge le binaire mongod ~84 Mo).
 
-## Gotchas / findings hétérogènes (vs Sequelize)
+## Gotchas / findings hétérogènes (vs SQL)
 
-- **PK `_id` (ObjectId) ≠ `id`** : le contrat suppose `id`. L'adapter traduit `{id}`→`{_id}` en lecture et expose le virtuel `id` (hex string) en sortie → contrat `id: string` respecté malgré l'ObjectId. (Sequelize : `id` = vraie colonne.)
-- **Relations sans FK SQL** : `one-to-many` = réf ObjectId injectée sur l'enfant + **virtual populate** sur le parent (`localField:_id`/`foreignField:fk`). `many-to-one`/`one-to-one` = champ réf sur la source. `many-to-many` → native. (Sequelize : `hasMany`/`belongsTo` auto-FK.)
+- **PK `_id` (ObjectId) ≠ `id`** : le contrat suppose `id`. L'adapter traduit `{id}`→`{_id}` en lecture et expose le virtuel `id` (hex string) en sortie → contrat `id: string` respecté malgré l'ObjectId. (SQL : `id` = vraie colonne.)
+- **Relations sans FK SQL** : `one-to-many` = réf ObjectId injectée sur l'enfant + **virtual populate** sur le parent (`localField:_id`/`foreignField:fk`). `many-to-one`/`one-to-one` = champ réf sur la source. `many-to-many` → native. (SQL : FK auto.)
 - **Transactions = replica set obligatoire** : un MongoDB standalone n'a PAS de transactions. Test via `MongoMemoryReplSet`. `transaction()` = `session.withTransaction` (managé, retries auto).
 - **virtuals** : pour exposer `id` + relations populées dans le plain object, schéma créé avec `{toObject:{virtuals:true}, toJSON:{virtuals:true}}` + `toObject({virtuals:true})` à la sérialisation.
-- `eager-load` même API que Sequelize : `findOne(criteria, {relations:["rooms"]})` → `populate` (Mongo) vs `include` (SQL). **Portabilité confirmée.**
+- `eager-load` même API que les adapters SQL : `findOne(criteria, {relations:["rooms"]})` → `populate` (Mongo) vs `include` (SQL). **Portabilité confirmée.**
 
 ## Liens
 
 - ADR : `docs/adr/0003-...` (verdict P5.4 + portabilité 2 adapters).
-- `@nodefony/orm-core` (contrats), `@nodefony/sequelize` (1er adapter SQL, parité du test).
+- `@nodefony/orm-core` (contrats), `@nodefony/drizzle` (adapter SQL, parité du test).

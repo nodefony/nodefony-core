@@ -4,7 +4,7 @@
 
 **User Core** de Nodefony : contrat `IUser` + implémentations de base + encoders + `UserService`.
 Module **séparé** de `@nodefony/security` pour que tout module consommant un utilisateur
-(security, framework, orm-*, agent, llm, rag, realtime, **studio**) importe un type léger sans
+(security, framework, orm-\*, agent, llm, rag, realtime, **studio**) importe un type léger sans
 tirer toute la couche security. Découpage calqué sur `symfony/security-core` ↔ `security-bundle`.
 
 ## Nature : LIB ORM-agnostique (pas de logique métier)
@@ -14,7 +14,7 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 - Classes de base concrètes (`BaseUser`, `AnonymousUser`, `BcryptEncoder`) + `UserService` consommés
   via DI.
 - **PAS** de driver ORM en dur : les entités persistées étendent `BaseUser` (ou implémentent `IUser`)
-  dans chaque adapter (`@nodefony/sequelize/mongoose/drizzle`). Repo via DI pur.
+  dans chaque adapter (`@nodefony/mongoose/drizzle`). Repo via DI pur.
 
 ## Décisions figées
 
@@ -37,7 +37,7 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 - **`id: string`** (UUID, **pas** `string|number`).
 - `IUser.roles: string[]` reste **plat** (perf ALS + logs structurés). RBAC dynamique = `IRole`/`IPermission` (niveau B, P6.8).
 - **`IUserProvider`** API étendue : `loadUserByIdentifier` + `loadUserByOAuth(provider,providerId)` + `refreshUser(user)`. Pattern **Shadow User** (ligne locale même en auth OAuth).
-- **`IUserRepository`** étend `IRepository<IPasswordAuthenticatedUser>` de `@nodefony/orm-core` (peerDep) — ORM-agnostique. **Affiné P5.6** : la persistance EST la frontière credential (le repo lit/écrit le hash) ; le split protège les consommateurs *en aval* (`IUserProvider` rend `IUser`), pas le stockage.
+- **`IUserRepository`** étend `IRepository<IPasswordAuthenticatedUser>` de `@nodefony/orm-core` (peerDep) — ORM-agnostique. **Affiné P5.6** : la persistance EST la frontière credential (le repo lit/écrit le hash) ; le split protège les consommateurs _en aval_ (`IUserProvider` rend `IUser`), pas le stockage.
 - **`BcryptEncoder` (P5.6)** : `@node-rs/bcrypt` (NAPI Rust) en **peerDep optionnelle** + externalisé rollup (binaire natif jamais bundlé). `verify` délègue la promesse (0 async superflu). `needsRehash` parse le coût `$2[aby]$NN$`.
 - **`UserService` (P5.6)** étend **`AbstractCrudService<IPasswordAuthenticatedUser, IUserRepository>`** (orm-core) : CRUD générique hérité (`find/findOne/findById/count/create/update/delete` + events `onCreated/onUpdated/onDeleted`). N'ajoute que le credential : `createUser` (hache `plainPassword` → `create`), `findByIdentifier`, `changePassword` (→ `onPasswordChanged`), `authenticate` (leurre anti-timing + re-hash transparent ; → `onAuthenticated`/`onAuthenticationFailure`). C'est la 1ère validation réelle du pattern AbstractCrudService.
 
@@ -52,7 +52,7 @@ tirer toute la couche security. Découpage calqué sur `symfony/security-core` �
 - ✅ **P5.5** contracts : `IUser` (strict) + `IPasswordAuthenticatedUser` + `ISocialProvider` + `IUserProvider` + `IUserRepository` + `IPasswordEncoder` + `BaseUser` + `AnonymousUser` (+ singleton `anonymousUser`). 11 tests verts. **`IRole`/`IPermission` DIFFÉRÉS → P6.8** (slot réservé/commenté dans le barrel ; format RBAC à figer sur cas voter concret).
 - ✅ **P5.6** `UserService extends AbstractCrudService` (CRUD hérité + `authenticate()` + events credential) + `BcryptEncoder` (`@node-rs/bcrypt`, rounds: 12). 32 tests. Contrat `IUserRepository` affiné → `IPasswordAuthenticatedUser`.
 - ✅ **P5.9** adapter User **Drizzle** (ORM par défaut, fait EN PREMIER) : `@nodefony/drizzle/nodefony/src/user/` (`userTable` schema-as-code, `DrizzleUserRepository implements IUserRepository`, mapping ligne↔`BaseUser`, `findByIdentifier`/`findBySocialProvider` bindé). 8 tests. Cf `@nodefony/drizzle/CLAUDE.md`.
-- ⬜ **P5.7/5.8** adapters User Sequelize (legacy) / Mongoose — après Drizzle.
+- ⬜ **P5.8** adapter User Mongoose — après Drizzle.
 - ⬜ **P5.10** tests cross-ORM (même `IUser`, 3 adapters CRUD).
 - ⬜ **P5.11** session refactor (`session.user: IUser` + `regenerateId()`).
 
