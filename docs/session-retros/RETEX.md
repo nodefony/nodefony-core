@@ -43,6 +43,11 @@ src/packages/@nodefony/http` (implicite via les `npm run build/test`), un `git a
   l'arbre transitif est bien pruné (−2820 L, symlink `node_modules/@nodefony/X` retiré) mais l'entrée `"src/packages/@nodefony/X"`
   reste, marquée `"extraneous": true` → un futur `npm ci` serait incohérent. → la **retirer à la main** (Edit du bloc), puis
   `node -e JSON.parse` + `npm install --package-lock-only` pour confirmer que npm ne la réintroduit pas.
+- `[1× — 2026-06-08]` **un script `test: "vitest run"` SANS `vitest` en devDep = latemment cassé** : drizzle ET mongoose
+  déclaraient le script mais pas la dep → binaire introuvable, et `npm install` dit « up to date » (il ne devine pas une dep
+  manquante non déclarée). → **déclarer la devDep** puis install. Diagnostiquer la résolution avec
+  **`node --input-type=module -e "await import.meta.resolve('x')"` (ESM)**, PAS `require.resolve` (trompeur : échoue sur un
+  package `exports` import-only comme `@nodefony/http` alors que l'`import` ESM marche → faux négatif).
 - Ces frictions sont **déjà graduées** — ne pas les redupliquer ici, juste les rappeler :
   - `npm run clean` détruit le **dist racine** (app) → `npm run build` foreground + `npx rollup -c`
     racine avant tout start → [[feedback_root_dist_stale_modules]].
@@ -149,6 +154,16 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
 
 ## 🧩 Modules / docs / front (frictions du jour)
 
+- `[1× — 2026-06-08]` **« pattern module » = CHECKLIST COMPLÈTE, pas juste le code qui compile** : refonte mongoose
+  livrée « OK » (build vert), mais j'avais zappé (a) la **config Zod** (schema/define/interfaces/validate/augment
+  `NodefonyModuleConfig`), (b) les **artefacts module** `CLAUDE.md`/`README.md`/`docs/`, (c) le flag `critical`. Le user a
+  dû relancer 3× (« les config on les repense », « regarde les patterns module pour rien oublier »). → avant de dire « fait »,
+  **comparer à un module frère COMPLET** (drizzle/redis) artefact par artefact (config Zod + `declare module` + CLAUDE/README/docs
+  - `critical` + test config + zod en dep/external rollup). Le « fait » d'un module ≠ « ça build ».
+- `[1× — 2026-06-08]` **renouveau = 0 back-compat + séparer les FAMILLES de modules** : pour la config, ne pas garder
+  d'alias de types legacy (« on repense », pas « on migre en douceur ») ; et bien distinguer **infra** (redis = connexions
+  génériques) de **ORM** (drizzle/mongoose) — redis n'est PAS un ORM, juste une référence du _pattern_ config. Mélanger les
+  familles brouille la logique (le user : « redis est à part, il n'a pas lieu d'être un ORM »).
 - `[1× — 2026-06-06]` **BUREAU ≠ GRILLE** : un « bureau » composable = fenêtres LIBRES (px/fraction,
   chevauchement, z-order) + « Ranger » à la demande — PAS une grille à colonnes figées NI un tiling/reflow
   (les deux rejetés par le user). Demander le PARADIGME (stacking OS vs tiling) avant de coder un « canvas ».
@@ -402,6 +417,12 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-08]` **`this.options` d'un module est FLAT (config `use()` deep-mergée par le Kernel)** : `Kernel.ts`
+  fait `mod.options = extend(true, {}, mod.options, entry.config)` → lire la config d'un module via `this.options.<clé>`
+  directement, JAMAIS sous un namespace `this.options?.<nomModule>`. **Bug réel** : `@nodefony/redis` lisait
+  `this.options?.redis` (clé inexistante) → toute config app via `use("@nodefony/redis", …)` **ignorée silencieusement**
+  (corrigé). → **vérifier le flux RÉEL (Kernel.ts) avant de copier un « frère »** : redis était un mauvais modèle sur ce
+  point (realtime/mongoose = flat = correct). Convention-frère ≠ copier le premier frère venu — copier le frère JUSTE.
 - `[1× — 2026-06-08]` **ne JAMAIS se fier à l'ordre de N listeners sur le même event kernel** : `proxy:generate`
   (son `generate()` enregistré tôt sur `onReady`) firait AVANT le listener de montage statique (server-static,
   enregistré plus tard à `onReady`) → `mounts` vide. Fix robuste = rendre le consommateur **auto-suffisant** :
