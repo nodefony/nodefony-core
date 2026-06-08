@@ -104,6 +104,13 @@ build` + tester le **bin directement** (`./bin/nodefony --version`) avant d'enqu
   (nouveau `--profile proxy`), pas un fichier compose séparé (convention-frère). Vérifier `git ls-files docker/`
   - `find docker -type f` quand on ajoute à un répertoire qu'on n'a pas créé.
 
+## 🧭 Conception / fondation / vocabulaire (frictions du jour)
+
+- `[1× — 2026-06-08]` **convention-frère ≠ copier les défauts du frère.** Adapter User Mongoose : j'ai répliqué la structure Drizzle (`src/user/` + entité dans `src/`) alors que le module a DÉJÀ un `entity/` (sessionEntity) → incohérence `entity/` vs `src/user/`, reprise **2×** par le user. → avant de copier un frère, **vérifier qu'il est cohérent** ; trancher UNE règle (`entity/`=schéma, `src/`=repo) et l'appliquer aux DEUX modules.
+- `[2× — 2026-06-08]` **emprunt de nom d'un autre framework = réflexe à tuer** (au-delà de [[feedback_nodefony_not_symfony_clone]]) : pas que « Symfony » — proposé `IPrincipal` (Spring/.NET) → rejeté pareil. → penser le **besoin/concept** d'abord, nommer en **vocabulaire Nodefony** ; ne pas plaquer un terme étranger pour « faire sérieux ».
+- `[1× — 2026-06-08]` **fondation (user/sécu) = AUDIT avant code.** Le user a stoppé P5.8 pour exiger un audit (état de l'art NIST 800-63B/OWASP/WebAuthn/OAuth 2.1 + code réel + décisions datées). Révélé : décisions de mai périmées (full-stateless, MikroORM) + `IUserProvider` **jamais implémenté**. → sur une brique structurante, confronter **état de l'art + code + décisions** AVANT de coder.
+- `[1× — 2026-06-08]` **« durci/complet » sans préciser le niveau = survente, challengée.** Dit ORM mongoose « durcissement complet » → 0 test E2E système (memory-server + boot hors-kernel, pas de serveur réel). → distinguer **unit / composant / E2E système** ; jamais « complet » sans le niveau atteint.
+
 ## 🧹 Refonte / consolidation (frictions du jour)
 
 - `[1× — 2026-06-06]` **changer le TYPE d'un contrat (interface) casse les `implements`, PAS les casts** : unifier
