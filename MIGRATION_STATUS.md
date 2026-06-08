@@ -35,11 +35,12 @@ Boussole : durcir les fondations (orm, realtime, core, http, framework) AVANT P6
 - **MikroORM (P7.8/P7.9) = abandonné** (0 code, traces docs/types seulement). → ⏭️.
 - ⭐ **Drizzle = référence** (`extends Service`, 100 % propre). **Migrations** (absentes) : déléguer `drizzle-kit` (versioned) + façade `IMigrator` Studio — hors chemin critique.
 
-### 🔐 Sécurité (P6) — décisions figées 2026-05-20
+### 🔐 Sécurité (P6) — décisions **EN REVUE 2026-06-08** (les « figées 2026-05-20 » ont divergé — cf mémoire `project_p6_security_kit` §REVUE)
 
-Passport ❌ · Sessions HTTP RAM ❌ (JWT cookie `HttpOnly;Secure;SameSite` only) · pattern `IAuthenticator` (pas « Bridge ») ·
-3 tokens core (Anonymous/UserPassword/Jwt) + 2 étendus (OAuth2 `arctic`/mTLS) · CSRF SameSite+Origin + `@CsrfProtect` opt-in ·
-`defineSecurityConfig()` + Zod · Zero Trust (route sans décorateur → 403). `BcryptEncoder`/`UserService` vivent dans **@nodefony/user**.
+Passport ❌ · **Session HYBRIDE** : session serveur cookie opaque (BFF) web/Studio + **JWT réservé API/agents** (révisé 2026-06-06 — PLUS « full stateless ») · pattern authenticator (pas « Bridge », **pas « Symfony »**) ·
+auth de base (Anonymous/UserPassword/Jwt/OAuth2 `arctic`/mTLS/APIKeys) **+ à intégrer P6 : Passkeys/WebAuthn (FIDO2), Token Exchange RFC 8693 (délégation agents), DPoP, Argon2id, OAuth 2.1+PKCE** ·
+CSRF SameSite+Origin + `@CsrfProtect` opt-in · `defineSecurityConfig()` + Zod · Zero Trust ·
+identité = **`IUser` racine + slot agent/service** (`kind`/`onBehalfOf`, PAS `IPrincipal`) · `BcryptEncoder`/`UserService`/**`IUserProvider` (à implémenter)** dans **@nodefony/user** · gros travail = au démarrage P6.
 
 ### Autres (résumés — détail en mémoire)
 
@@ -70,7 +71,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
 
 ---
 
-## 📊 Avancement (vérifié code · **2026-06-05**)
+## 📊 Avancement (vérifié code · **2026-06-05** · ligne P7/ORM resync **2026-06-08**)
 
 > Comptage **autorité = emoji en 1ʳᵉ cellule** de la roadmap (1 ligne = 1 tâche). `◀` = chemin critique MVP.
 
@@ -81,9 +82,9 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P2  Cycle de vie Context  █████████░  89%   8✅  0🔶  1⬜
  P3  Logs structurés       ███████░░░  73%   7✅  3🔶  1⬜
  P4  Tests symbiose        ██████████ 100%   6✅  0🔶  0⬜
- P5  Session/User/ORM core ██████░░░░  58%   9✅  3🔶  6⬜   ◀ (virage ORM : P5.7/P5.8 à recadrer)
+ P5  Session/User/ORM core ███████░░░  71%  11✅  2🔶  4⬜   ◀ (resync 2026-06-08 : P5.11+P5.13 confirmés code ; reste P5.8 Mongoose User + P5.14 bloqué P6)
  P6  Security              █░░░░░░░░░  12%   0✅  4🔶 13⬜   ◀ bloqueur MVP (0 test = 0 tâche close)
- P7  ORM drivers           █████░░░░░  50%   2✅  5🔶  2⬜   (% va bouger post-virage : sequelize/mikroorm sortent)
+ P7  ORM drivers           ████████░░  80%   3✅  2🔶  0⬜   (post-virage ; reste P7.5 E2E système + P7.7 redis)
  P8  CLI + Monitoring      ██████░░░░  63%   2✅  1🔶  1⬜
  P9  Polish + clôture      ████░░░░░░  38%   1✅  1🔶  2⬜
  P10 Studio (admin web)    ███████░░░  65%   5✅  7🔶  1⬜   (workspace + Jumeau, maj 2026-06-06)
@@ -94,7 +95,7 @@ Reste ⬜ **LB.3b** (CLI `syslog:filter`, dette dispatch CLI). Console Logs Stud
  P15 Mediasoup + SIP       ░░░░░░░░░░   0%   0✅  0🔶  8⬜   (banc ORM `mod/mediasoup` ≠ implé P15)
  P16 Cloud-Native (8 axes) ███░░░░░░░  26%   8✅  1🔶 24⬜
 ────────────────────────────────────────────────────────────────────────
- GLOBAL                    █████░░░░░  51%  76✅ 35🔶 73⬜   (184 tâches)
+ GLOBAL                    █████░░░░░  53%  79✅ 31🔶 69⬜   (179 tâches · resync P5+P7 ; reste P1-P16 daté 2026-06-05)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -153,7 +154,7 @@ unifié HTTP+WS, `logRequest` pluggable, hooks security (`beforeResolve`/`afterA
 `forward` cross-module, decorators × pipeline, **concurrence 100 req** (unicité ALS), WS pipeline (7 fichiers),
 DI scopes (singleton/transient), lifecycle session.
 
-### P5 — Session + User + ORM Core (58 %) ◀ chemin critique
+### P5 — Session + User + ORM Core (71 %) ◀ chemin critique
 
 | #        | Tâche                                       | État                                                                                                                                                                                                                                                                                                                                                                    |
 | -------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -202,17 +203,23 @@ DI scopes (singleton/transient), lifecycle session.
 
 ### P7 — ORM Drivers (≈80 % — virage ORM Ph.1+Ph.2 ✅)
 
-| #       | Tâche                                  | État                                                                                  |
-| ------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
-| ⏭️ P7.1 | ~~Sequelize (legacy)~~                 | **SUPPRESSION COMPLÈTE** (virage ORM, `716fce6`)                                      |
-| ✅ P7.2 | Mongoose — adapter orm-core            | **refait (Ph.2)** : `MongooseService extends Service` + `describeConnection`/flow tap |
-| ⏭️ P7.3 | ~~Tests intégration Sequelize~~        | caduc                                                                                 |
-| ✅ P7.4 | ⭐ **`@nodefony/drizzle`** (référence) | `DrizzleOrm`/`DrizzleRepository`, 8 tests                                             |
-| ✅ P7.5 | Tests Mongoose                         | 17 verts (orm-core ReplSet + session hybride `MONGO_TEST_URI`)                        |
-| ✅ P7.6 | Tests Drizzle (SQLite/PG)              | banc orm-core 8 tests                                                                 |
-| 🔶 P7.7 | `@nodefony/redis` refactor             | conventions/config Zod faites                                                         |
-| ⏭️ P7.8 | ~~`@nodefony/mikroorm`~~               | **abandonné** (jamais commencé, module absent)                                        |
-| ⏭️ P7.9 | ~~Tests MikroORM~~                     | caduc                                                                                 |
+| #       | Tâche                                  | État                                                                                                                                                                                                                                                                                         |
+| ------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ⏭️ P7.1 | ~~Sequelize (legacy)~~                 | **SUPPRESSION COMPLÈTE** (virage ORM, `716fce6`)                                                                                                                                                                                                                                             |
+| ✅ P7.2 | Mongoose — adapter orm-core            | **refait (Ph.2)** : `MongooseService extends Service` + `describeConnection`/flow tap                                                                                                                                                                                                        |
+| ⏭️ P7.3 | ~~Tests intégration Sequelize~~        | caduc                                                                                                                                                                                                                                                                                        |
+| ✅ P7.4 | ⭐ **`@nodefony/drizzle`** (référence) | `DrizzleOrm`/`DrizzleRepository`, 8 tests                                                                                                                                                                                                                                                    |
+| 🔶 P7.5 | Tests Mongoose                         | 38 verts via `mongodb-memory-server` (mongod réel hermétique) — niveau **module/composant** : adapter orm-core, SessionStorage CRUD, transactions, eager-load, garde-fous. ⚠️ **boot hors-kernel** + **0 E2E** (pas de serveur Nodefony bootté ni MongoDB Docker persistant) → reste à faire |
+| ✅ P7.6 | Tests Drizzle (SQLite/PG)              | banc orm-core 8 tests                                                                                                                                                                                                                                                                        |
+| 🔶 P7.7 | `@nodefony/redis` refactor             | conventions/config Zod faites                                                                                                                                                                                                                                                                |
+| ⏭️ P7.8 | ~~`@nodefony/mikroorm`~~               | **abandonné** (jamais commencé, module absent)                                                                                                                                                                                                                                               |
+| ⏭️ P7.9 | ~~Tests MikroORM~~                     | caduc                                                                                                                                                                                                                                                                                        |
+
+> ⚠️ **Gap intégration ORM (à ne pas survendre comme « durci complet »)** : la couverture (160 tests
+> orm-core+drizzle+mongoose) valide le **contrat portable, les adaptateurs et les invariants** au niveau
+> module — sur SQLite et `mongodb-memory-server`. Il **manque l'intégration E2E système** : aucun test
+> ne boote un **Kernel Nodefony réel** + serveur HTTP + requête `controller → service → ORM` contre un
+> **MongoDB/Postgres Docker persistant**. Banc E2E prévu via [[project_mediasoup_test_db]] (POC API souveraine).
 
 ### P8 — CLI + Monitoring (63 %)
 
