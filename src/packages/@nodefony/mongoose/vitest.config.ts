@@ -17,5 +17,16 @@ export default defineConfig({
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     testTimeout: 120000,
     hookTimeout: 120000,
+    coverage: {
+      provider: "v8",
+      // `all` = compter aussi les fichiers non importés (garde-fou honnête).
+      all: true,
+      include: ["index.ts", "nodefony/**/*.ts"],
+      exclude: ["nodefony/interfaces/**", "**/*.d.ts", "**/dist/**"],
+      reporter: ["text", "text-summary"],
+      reportsDirectory: ".coverage",
+      // Plancher CI (≈ mesuré − 3 pts). À relever au fil des tests.
+      thresholds: { lines: 72, statements: 72, functions: 66, branches: 58 },
+    },
   },
 });
