@@ -87,6 +87,8 @@ export class MongooseOrm extends Orm {
         new mongoose.Schema(entity.schema as SchemaDefinition, {
           toObject: { virtuals: true },
           toJSON: { virtuals: true },
+          // Horodatages auto (createdAt/updatedAt) si l'entité les déclare.
+          timestamps: entity.timestamps ?? false,
         }),
       );
     }

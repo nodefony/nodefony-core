@@ -8,18 +8,20 @@ import type { ISocialProvider } from "@nodefony/user";
  * Table Drizzle de l'utilisateur Nodefony (schema-as-code) — implémentation SQL
  * **par défaut** du contrat `@nodefony/user` (P5.9, ORM recommandé #1).
  *
- * Colonnes calquées sur {@link BaseUser} : identité (`id`/`identifier`),
- * credential (`password` nullable = compte 100 % OAuth), rôles **plats** JSON,
- * statut (`enabled`/`locked`), profil de session (`currentRole`) et les
- * **champs anti-migration** JSON (`socialProviders`, `metadata`) — aucun ajout
- * de provider ne demande de migration.
+ * Colonnes calquées sur `BaseUser` : identité (`id`/`identifier`), credential
+ * (`password` nullable = compte 100 % OAuth), rôles **plats** JSON, statut
+ * (`enabled`/`locked`), profil de session (`currentRole`), les **champs
+ * anti-migration** JSON (`socialProviders`, `metadata`) et les **horodatages**
+ * (`createdAt`/`updatedAt`, ms epoch). Aucun ajout de provider ne demande de
+ * migration.
  *
  * ⚠️ **Valeurs par défaut en `$defaultFn` (JS-level), pas `.default()` (SQL)** :
  * l'adapter dérive le DDL via `getTableConfig()` qui n'émet **pas** les `DEFAULT`
  * SQL → une colonne `NOT NULL` sans valeur à l'`INSERT` casserait. Les
- * `$defaultFn` sont appliqués par Drizzle au moment de l'insert, indépendamment
- * du DDL : `id` (UUID), `roles`/`socialProviders` (`[]`), `metadata` (`{}`),
- * `enabled` (`true`), `locked` (`false`).
+ * `$defaultFn` sont appliqués par Drizzle au moment de l'insert : `id` (UUID),
+ * `roles`/`socialProviders` (`[]`), `metadata` (`{}`), `enabled` (`true`),
+ * `locked` (`false`), `createdAt`/`updatedAt` (`now`). `updatedAt` est régénéré à
+ * chaque update via `$onUpdateFn` (pendant SQL du `timestamps: true` Mongoose).
  */
 export const userTable = sqliteTable("User", {
   id: text("id")
@@ -46,11 +48,18 @@ export const userTable = sqliteTable("User", {
     .$type<Record<string, unknown>>()
     .notNull()
     .$defaultFn(() => ({})),
+  createdAt: integer("createdAt", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date())
+    .$onUpdateFn(() => new Date()),
 });
 
 /**
  * Forme plate d'une ligne `User` renvoyée par le repository de base (colonnes JSON
- * déjà désérialisées + booléens par le `mode` Drizzle). Mappée en `BaseUser`.
+ * déjà désérialisées + booléens + dates par le `mode` Drizzle). Mappée en `BaseUser`.
  */
 export interface UserRow {
   id: string;
@@ -62,6 +71,8 @@ export interface UserRow {
   currentRole: string | null;
   socialProviders: ISocialProvider[];
   metadata: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /**
@@ -77,6 +88,8 @@ export interface UserRow {
  */
 export function createUserEntity(orm: string): IEntity {
   // `module: "user"` → l'entité est regroupée sous @nodefony/user dans l'ERD Studio.
+  // (Horodatages = colonnes explicites ci-dessus ; le flag `timestamps` IEntity ne
+  // concerne que les ORM qui les gèrent au niveau schéma, ex. Mongoose.)
   return { orm, name: "User", module: "user", schema: userTable };
 }
 

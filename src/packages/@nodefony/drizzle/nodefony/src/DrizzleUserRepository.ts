@@ -10,9 +10,9 @@ import type {
   IPasswordAuthenticatedUser,
   IUserRepository,
 } from "@nodefony/user";
-import type { DrizzleDb } from "../orm-core/DrizzleRepository";
-import type { DrizzleOrm } from "../orm-core/DrizzleOrm";
-import type { UserRow } from "./userTable";
+import type { DrizzleDb } from "./orm-core/DrizzleRepository";
+import type { DrizzleOrm } from "./orm-core/DrizzleOrm";
+import type { UserRow } from "../entity/userTable";
 
 /** Critère typé sur la ligne `User` (sous-ensemble compatible avec le contrat). */
 type UserCriteria = Criteria<UserRow>;
@@ -23,7 +23,7 @@ type UserCriteria = Criteria<UserRow>;
  *
  * Décore le repository portable générique (`IRepository<UserRow>` de
  * {@link DrizzleOrm}) de deux responsabilités propres à l'utilisateur :
- * - **mapping ligne ↔ {@link BaseUser}** : les consommateurs reçoivent un objet
+ * - **mapping ligne ↔ `BaseUser`** : les consommateurs reçoivent un objet
  *   porteur du comportement (`hasRole`/`isActive`/`isLocked`), pas une ligne nue ;
  * - **finders métier** : `findByIdentifier` (lookup unique) et
  *   `findBySocialProvider` (recherche dans le JSON `socialProviders` via

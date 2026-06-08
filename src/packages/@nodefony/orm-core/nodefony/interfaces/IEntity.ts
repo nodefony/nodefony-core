@@ -59,6 +59,14 @@ export interface IEntity<S = unknown, M = unknown> {
   /** Modèle compilé natif, renseigné après connexion de l'ORM. */
   model?: M;
 
+  /**
+   * Active la gestion **automatique** des horodatages `createdAt`/`updatedAt` par
+   * l'adapter qui la supporte nativement (Mongoose `timestamps: true`). Les ORM
+   * schema-as-code (Drizzle) les expriment en colonnes → ce flag y est sans effet.
+   * **Optionnel**, défaut `false`.
+   */
+  readonly timestamps?: boolean;
+
   /** Relations déclarées vers d'autres entités (par nom logique). */
   readonly relations?: ReadonlyArray<IEntityRelation>;
 }

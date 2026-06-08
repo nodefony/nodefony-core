@@ -120,3 +120,13 @@ export {
   MongooseRepository,
   MongooseTransaction,
 } from "./nodefony/src/orm-core/index";
+
+// ─── Adapter User Mongoose (contrat @nodefony/user — P5.8) ──────────────────
+// Entité (schéma) dans entity/, couche d'accès (repository) dans src/.
+export {
+  userSchema,
+  createUserEntity,
+  registerUserEntity,
+} from "./nodefony/entity/userEntity";
+export type { UserRow } from "./nodefony/entity/userEntity";
+export { MongooseUserRepository } from "./nodefony/src/MongooseUserRepository";
