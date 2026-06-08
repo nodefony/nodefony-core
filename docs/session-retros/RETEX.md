@@ -335,6 +335,11 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🔎 Vérification / preuve runtime (frictions du jour)
 
+- `[1× — 2026-06-08]` **gate mémoire sans GC forcé = on mesure le GARBAGE, pas une fuite** :
+  `ws-messages-load sustained` affichait ~180 MB / 5000 frames WS → transitoire non collecté (sonde
+  `/memory` lisait `heapUsed` sans `global.gc()`, serveur sans `--expose-gc`). GC forcé → < 30 MB. Règle :
+  **toute sonde/gate mémoire force le GC avant `heapUsed`**. Et **prouver « pré-existant » par ISOLATION**
+  (test sans import ORM + repro serveur frais), jamais par citation de doc (le user s'en méfie à raison).
 - `[1× — 2026-06-07]` **prouver un parse côté serveur SANS toucher au banc = curl loopback (trusted) avec le header brut** :
   pour valider le parse `Forwarded` RFC 7239 en runtime, `curl -H "Forwarded: for=…;proto=https" localhost:5151` +
   lire le **log `req`** (`GET 200 <scheme>://<host>/… <ms> <IP>`) → le scheme/IP résolus sont visibles directement.
@@ -417,6 +422,11 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-08]` **config knob DÉCLARÉ ≠ CÂBLÉ (config qui ment)** : `keepaliveInterval`/
+  `keepaliveGracePeriod` existent en Zod (`http/config/schema.ts`, desc « détecte les zombies ») mais
+  **0 consommateur** → aucun heartbeat WS implémenté. Auditer une config = **vérifier les CONSOMMATEURS**
+  d'un knob, pas sa seule déclaration. + committer une phase touchant le pipeline request (SessionStorage)
+  SANS `memory.test` = miss (le gate pipeline vaut aussi pour le storage de session) — rattrapé.
 - `[1× — 2026-06-08]` **`this.options` d'un module est FLAT (config `use()` deep-mergée par le Kernel)** : `Kernel.ts`
   fait `mod.options = extend(true, {}, mod.options, entry.config)` → lire la config d'un module via `this.options.<clé>`
   directement, JAMAIS sous un namespace `this.options?.<nomModule>`. **Bug réel** : `@nodefony/redis` lisait
