@@ -83,6 +83,35 @@ describe("Drizzle avancé — updateMany + savepoints", () => {
       /invalid savepoint name/,
     );
   });
+
+  it("API transaction : getNative + isDone + commit manuel idempotent", async () => {
+    await users.delete({});
+    await orm.transaction(async (tx) => {
+      assert.ok(tx.getNative()); // expose le db Drizzle (trappe bas niveau)
+      await users
+        .withTransaction(tx)
+        .create({ email: "idem", age: 1, active: true });
+      await tx.commit(); // commit explicite → marque terminée
+      assert.equal((tx as unknown as { isDone(): boolean }).isDone(), true);
+      // Le wrapper managé rappellera commit() → no-op (idempotent), pas de double COMMIT.
+    });
+    assert.ok(await users.findOne({ email: "idem" }));
+  });
+
+  it("rollback manuel puis throw → rollback managé idempotent (rien persisté)", async () => {
+    const before = await users.count();
+    await assert.rejects(
+      orm.transaction(async (tx) => {
+        await users
+          .withTransaction(tx)
+          .create({ email: "rb", age: 9, active: true });
+        await tx.rollback(); // rollback explicite → marque terminée
+        throw new Error("boom"); // wrapper rappelle rollback() → no-op
+      }),
+      /boom/,
+    );
+    assert.equal(await users.count(), before);
+  });
 });
 
 // ─────────────── eager-load many-to-one / one-to-one (FK source) ────────────

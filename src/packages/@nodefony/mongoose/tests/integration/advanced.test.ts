@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
+import type { Connection } from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { entity, entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import type { IRepository, ITransaction } from "@nodefony/orm-core";
-import { MongooseOrm } from "../../nodefony/src/orm-core/index";
+import {
+  MongooseOrm,
+  MongooseTransaction,
+} from "../../nodefony/src/orm-core/index";
 
 // Tests AVANCÉS = invariants NÔTRES (pas la lib) : contrat updateMany, savepoints
 // = NO-OP documenté (Mongo n'en a pas), cardinalités d'eager-load (ref source),
@@ -174,6 +178,54 @@ describe("Mongoose avancé — eager-load many-to-one / one-to-one", () => {
     );
     assert.ok(p);
     assert.equal((p.author as Author)?.name, "Verne");
+  });
+});
+
+// ─────── API ITransaction bas niveau : commit/rollback/isDone/getNative ──────
+// Le mode managé (`session.withTransaction`) ne passe PAS par commit()/rollback()
+// de MongooseTransaction → on les exerce ici directement (idempotence du contrat).
+describe("Mongoose avancé — API ITransaction (idempotence bas niveau)", () => {
+  let orm: MongooseOrm;
+  beforeAll(async () => {
+    orm = new MongooseOrm("mongo_adv_tx", replset.getUri());
+    await orm.connect();
+  });
+  afterAll(async () => {
+    await orm.disconnect();
+    ormRegistry.unregister("mongo_adv_tx");
+  });
+
+  it("commit : isDone bascule, getNative expose la session, 2ᵉ appel no-op", async () => {
+    const conn = orm.getNativeConnection<Connection>();
+    const session = await conn.startSession();
+    try {
+      session.startTransaction();
+      const tx = new MongooseTransaction(session);
+      assert.equal(tx.isDone(), false);
+      assert.equal(tx.getNative(), session);
+      await tx.commit();
+      assert.equal(tx.isDone(), true);
+      // Idempotent : commit/rollback après terminaison = no-op (pas d'erreur).
+      await tx.commit();
+      await tx.rollback();
+    } finally {
+      await session.endSession();
+    }
+  });
+
+  it("rollback : isDone bascule, 2ᵉ appel + commit ultérieur no-op", async () => {
+    const conn = orm.getNativeConnection<Connection>();
+    const session = await conn.startSession();
+    try {
+      session.startTransaction();
+      const tx = new MongooseTransaction(session);
+      await tx.rollback();
+      assert.equal(tx.isDone(), true);
+      await tx.rollback();
+      await tx.commit();
+    } finally {
+      await session.endSession();
+    }
   });
 });
 
