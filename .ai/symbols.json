@@ -1,12 +1,12 @@
 {
-  "generated": "2026-06-08T21:20:01.779Z",
+  "generated": "2026-06-09T06:13:41.172Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 834,
-    "symbols": 1720,
+    "files": 835,
+    "symbols": 1723,
     "classes": 239,
-    "interfaces": 427,
+    "interfaces": 430,
     "types": 223,
     "enums": 3,
     "functions": 343,
@@ -815,6 +815,33 @@
       "extends": "Array",
       "implements": [],
       "decorators": []
+    },
+    "IBootFailure": {
+      "name": "IBootFailure",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/bootReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Rapport de boot — **vérité unique** sur le résultat du démarrage du Kernel, calculé une fois à `onPostReady` et consommé par N canaux (rendu écran dev via `BootReporter`, log structuré prod, code d…"
+    },
+    "IBootServerInfo": {
+      "name": "IBootServerInfo",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/bootReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un serveur réseau réellement en écoute à la fin du boot."
+    },
+    "IBootReport": {
+      "name": "IBootReport",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/bootReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Verdict agrégé du dernier boot. `healthy=false` ⇒ le boot est raté ou dégradé de façon bloquante (typiquement : profil serveur attendu mais 0 serveur en écoute)."
     },
     "CliKernel": {
       "name": "CliKernel",
@@ -14254,7 +14281,8 @@
       ],
       "SysExit": [
         "src/nodefony/src/kernel/CliKernel.ts",
-        "src/nodefony/src/kernel/Kernel.ts"
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "CliDefaultOptions": [
         "src/nodefony/src/kernel/CliKernel.ts"
@@ -14388,6 +14416,17 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "readListenerTags": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "IBootReport": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/service/dev/BootReporter.ts"
+      ],
+      "IBootFailure": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/service/dev/BootReporter.ts"
+      ],
+      "IBootServerInfo": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "ServiceConstructor": [

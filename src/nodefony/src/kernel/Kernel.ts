@@ -46,6 +46,7 @@ import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { readListenerTags } from "./lifecycleTags";
+import type { IBootReport, IBootFailure, IBootServerInfo } from "./bootReport";
 
 // Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
 const colorLogEvent = (): string => logColor.cyanBgBlue("EVENT KERNEL");
@@ -373,6 +374,20 @@ class Kernel extends Service implements IKernel {
   // les logs sont différés ; passé à `null`, addModule() log immédiatement.
   private pendingModuleAddLogs: string[] | null = [];
   /**
+   * Échecs de boot non fatals (fail-soft) agrégés pour le {@link IBootReport}.
+   * **Lazy** : reste `null` tant qu'aucun module/hook n'échoue → 0 allocation sur
+   * un boot nominal (règle perf core).
+   */
+  private bootFailures: IBootFailure[] | null = null;
+  /**
+   * Serveurs réellement en écoute, figés à `onPostReady`. `null` tant que le boot
+   * n'a pas atteint cette phase ; `[]` si profil serveur mais rien n'écoute (cas
+   * du garde-fou 0-serveur).
+   */
+  private bootServers: IBootServerInfo[] | null = null;
+  /** Horodatage (`Date.now()`) du début de `start()` — base de `durationMs`. */
+  private bootStartedAt: number = 0;
+  /**
    * Construit le Kernel. **Side effect critique** : appelle `Nodefony.setKernel(this)` →
    * écrase le singleton global. Isoler les tests avec un mock minimal pour éviter de
    * polluer les autres tests qui dépendent de `Nodefony.getKernel()`.
@@ -443,6 +458,9 @@ class Kernel extends Service implements IKernel {
    * @throws Toute exception du pipeline est loggée CRITIC puis re-throw.
    */
   async start(): Promise<this> {
+    if (this.bootStartedAt === 0) {
+      this.bootStartedAt = Date.now();
+    }
     this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
     this.trunk = await this.isTrunk();
     this.initializeLog();
@@ -691,6 +709,11 @@ class Kernel extends Service implements IKernel {
           return this.finishOrPark(0);
         }
         return this.initServers().then(async (servers) => {
+          // Fige la vérité « serveurs en écoute » + verdict AVANT `onPostReady` :
+          // le BootReporter (listener de `onPostReady`) doit lire un report complet.
+          this.captureBootServers(servers);
+          const report = this.getBootReport();
+          this.logBootVerdict(report);
           if (global && global.gc) {
             this.memoryUsage("MEMORY POST READY ");
             setTimeout(() => {
@@ -706,6 +729,14 @@ class Kernel extends Service implements IKernel {
               servers.map((server) => {
                 server.showBanner();
               });
+              // GARDE-FOU 0-serveur : profil serveur attendu mais rien n'écoute →
+              // boot raté. On NE laisse PAS le process s'éteindre en exit 0
+              // trompeur : `terminate(EX_UNAVAILABLE)` porte un code SÉMANTIQUE,
+              // lu par l'orchestrateur (k8s → pod failed) ET le DevSupervisor
+              // (message honnête + pas de retry). Cf BootReport.healthy.
+              if (!report.healthy && report.serversExpected) {
+                return this.terminate(SysExit.UNAVAILABLE);
+              }
               if (this.setCommandComplete(Events.onPostReady)) {
                 this.log(`Live cycle terminate`, "DEBUG");
                 return this;
@@ -937,14 +968,34 @@ class Kernel extends Service implements IKernel {
    */
   private async loadModulesFromManifest(): Promise<void> {
     for (const entry of this.resolveModuleEntries()) {
-      const mod = await this.loadModule(entry.name);
-      if (entry.config) {
-        // Config colocalisée (`use(name, config)`) : deep-merge sous la config
-        // DEFAULT du module fraîchement chargé, AVANT sa validation Zod
-        // (`onKernelRegister`). Même sémantique de merge que les overrides legacy
-        // `module-<nom>` (`extend(true, {}, …)`) — 1 seule recette de merge.
-        mod.options = extend(true, {}, mod.options, entry.config);
-        this.log(`MODULE CONFIG (use) : ${entry.name}`, "DEBUG");
+      try {
+        const mod = await this.loadModule(entry.name);
+        if (entry.config) {
+          // Config colocalisée (`use(name, config)`) : deep-merge sous la config
+          // DEFAULT du module fraîchement chargé, AVANT sa validation Zod
+          // (`onKernelRegister`). Même sémantique de merge que les overrides legacy
+          // `module-<nom>` (`extend(true, {}, …)`) — 1 seule recette de merge.
+          mod.options = extend(true, {}, mod.options, entry.config);
+          this.log(`MODULE CONFIG (use) : ${entry.name}`, "DEBUG");
+        }
+      } catch (error) {
+        // Résilience PAR-ENTRÉE : un module du manifeste introuvable/périmé
+        // (`import()` qui throw « Cannot find package », typiquement un dist
+        // racine périmé après pull/merge) ne doit PAS interrompre le chargement
+        // des modules SUIVANTS (sinon 1 module masque N autres en silence). On
+        // collecte l'échec (verdict de boot) et on continue. La vraie criticité
+        // est tranchée en aval par le garde-fou 0-serveur (`onPostReady`) : si un
+        // module manquant casse les serveurs → boot `unhealthy` → exit non-zéro.
+        const msg = error instanceof Error ? error.message : String(error);
+        this.log(
+          `MODULE LOAD: échec non bloquant (fail-soft) de "${entry.name}" — ${msg}`,
+          "WARNING",
+        );
+        this.recordBootFailure({
+          module: entry.name,
+          reason: msg,
+          phase: "load",
+        });
       }
     }
   }
@@ -1682,6 +1733,7 @@ class Kernel extends Service implements IKernel {
     owner: string | undefined,
     critical: boolean | undefined,
     timedOut: boolean,
+    phase: "lifecycle" | "init",
   ): boolean {
     const who = owner ?? "(anonyme)";
     const fatal = critical !== false && this.environment === "production";
@@ -1695,7 +1747,129 @@ class Kernel extends Service implements IKernel {
     if (this.debug && error instanceof Error && error.stack) {
       this.log(error.stack, "DEBUG");
     }
+    // Fail-soft → agrégé dans le BootReport (le boot continue, mais on garde la
+    // trace pour le verdict final : « N modules ignorés (raison) »).
+    if (!fatal) {
+      this.recordBootFailure({ module: who, reason: msg, phase, timedOut });
+    }
     return fatal;
+  }
+
+  /**
+   * Enregistre un échec de boot **non fatal** (fail-soft) dans le buffer agrégé,
+   * alloué paresseusement au premier échec (0 allocation si le boot est nominal).
+   *
+   * @param failure - module en échec + raison + étape.
+   */
+  private recordBootFailure(failure: IBootFailure): void {
+    (this.bootFailures ??= []).push(failure);
+  }
+
+  /**
+   * Fige la liste des serveurs **réellement en écoute** à `onPostReady`
+   * (`initServers()` ne retourne un serveur qu'une fois son `listen()` résolu).
+   * Source de vérité de {@link getBootReport}.
+   *
+   * @param servers - instances de serveurs retournées par `initServers()`.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private captureBootServers(servers: any[]): void {
+    if (!servers.length) {
+      this.bootServers = [];
+      return;
+    }
+    this.bootServers = servers.map((s) => ({
+      type: typeof s?.type === "string" ? s.type : "server",
+      port: Number(s?.port ?? 0),
+      address: typeof s?.address === "string" ? s.address : undefined,
+    }));
+  }
+
+  /**
+   * Verdict agrégé du dernier boot (vérité unique, recalculable à la demande pour
+   * l'introspection Studio/IA). `healthy=false` ⇒ un profil serveur a fini sans
+   * aucun serveur en écoute (garde-fou 0-serveur). Les modules ignorés seuls
+   * laissent le boot `healthy` (dégradé mais vivant).
+   *
+   * @returns le {@link IBootReport}.
+   */
+  getBootReport(): IBootReport {
+    const serversListening = this.bootServers ?? [];
+    const serversExpected = Boolean(this.runProfile?.servers);
+    const modulesSkipped = this.bootFailures ?? [];
+    return {
+      durationMs: this.bootStartedAt > 0 ? Date.now() - this.bootStartedAt : 0,
+      modulesLoaded: Object.keys(this.modules),
+      modulesSkipped,
+      serversExpected,
+      serversListening,
+      healthy: !(serversExpected && serversListening.length === 0),
+      remediation: this.bootRemediationHint(modulesSkipped) ?? undefined,
+    };
+  }
+
+  /**
+   * Action corrective suggérée d'après les raisons d'échec — surfacée dans le
+   * verdict (écran + log). Heuristique : un `import()` qui échoue (« Cannot find
+   * package/module ») pointe presque toujours un `dist/` périmé après pull/merge.
+   *
+   * @param skipped - modules ignorés.
+   * @returns une phrase d'action, ou `null`.
+   */
+  private bootRemediationHint(skipped: IBootFailure[]): string | null {
+    const moduleNotFound = skipped.some((f) =>
+      /Cannot find package|Cannot find module|ERR_MODULE_NOT_FOUND/i.test(
+        f.reason,
+      ),
+    );
+    if (moduleNotFound) {
+      return "dist périmé probable ⇒ npm run clean && npm run build";
+    }
+    return null;
+  }
+
+  /**
+   * Log structuré du verdict de boot — émis **toujours** (prod incluse), donc
+   * indépendant du `BootReporter` (qui n'existe qu'en dev). En non-TTY/prod c'est
+   * la seule trace écran ; en dev TTY animé le sink est muté → va au backplane,
+   * et le `BootReporter` rend le verdict joli (✓/⚠/⛔).
+   *
+   * @param report - verdict à logger.
+   */
+  private logBootVerdict(report: IBootReport): void {
+    const skipped = report.modulesSkipped;
+    if (!report.healthy) {
+      const reasons = skipped
+        .map((f) => `${f.module}: ${f.reason}`)
+        .join(" · ");
+      this.log(
+        `BOOT ÉCHEC — profil serveur mais aucun serveur en écoute` +
+          (skipped.length
+            ? ` · ${skipped.length} module(s) ignoré(s) : ${reasons}`
+            : "") +
+          (report.remediation ? ` — ${report.remediation}` : ""),
+        "CRITIC",
+      );
+      return;
+    }
+    if (skipped.length) {
+      this.log(
+        `BOOT dégradé — ${report.modulesLoaded.length} module(s) chargé(s), ` +
+          `${skipped.length} ignoré(s) : ` +
+          skipped.map((f) => `${f.module} (${f.reason})`).join(" · "),
+        "WARNING",
+      );
+      return;
+    }
+    const ports = report.serversListening
+      .map((s) => `${s.type}:${s.port}`)
+      .join(", ");
+    this.log(
+      `BOOT ok — ${report.modulesLoaded.length} module(s), ` +
+        `${report.serversListening.length} serveur(s) en écoute` +
+        (ports ? ` (${ports})` : ""),
+      "NOTICE",
+    );
   }
 
   /**
@@ -1729,7 +1903,15 @@ class Kernel extends Service implements IKernel {
         warnMs,
         onListenerError: (error: unknown, info: IGuardedListenerInfo) => {
           const { owner, critical } = readListenerTags(info.listener);
-          if (this.isBootErrorFatal(error, owner, critical, info.timedOut)) {
+          if (
+            this.isBootErrorFatal(
+              error,
+              owner,
+              critical,
+              info.timedOut,
+              "lifecycle",
+            )
+          ) {
             fatalError = error;
             hasFatal = true;
             return true; // stoppe la chaîne lifecycle (le reste ne boote pas)
@@ -1805,7 +1987,7 @@ class Kernel extends Service implements IKernel {
       );
     } catch (error) {
       const timedOut = error instanceof TimeoutError;
-      if (this.isBootErrorFatal(error, owner, critical, timedOut)) {
+      if (this.isBootErrorFatal(error, owner, critical, timedOut, "init")) {
         throw error;
       }
     }

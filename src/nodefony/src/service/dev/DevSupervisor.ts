@@ -10,6 +10,7 @@ import {
 import net from "node:net";
 import path from "node:path";
 import { watch, type FSWatcher } from "chokidar";
+import { SysExit } from "../../cli/sysexits";
 
 /** Options du superviseur de dev. */
 export interface DevSupervisorOptions {
@@ -288,6 +289,25 @@ export class DevSupervisor {
   #onChildCrash(code: number | null, signal: NodeJS.Signals | null): void {
     const uptime = Date.now() - this.#childSpawnedAt;
     const killed = signal === "SIGTERM" || signal === "SIGKILL";
+    // Boot raté SÉMANTIQUE (canal = code de sortie, pas d'IPC) : le Kernel enfant
+    // s'est arrêté « sans jamais démarrer » — soit aucun serveur en écoute
+    // (EX_UNAVAILABLE, garde-fou 0-serveur), soit config invalide (EX_CONFIG).
+    // Ce n'est NI un crash runtime à retry, NI un arrêt propre : message honnête
+    // + on attend une correction (le watch relancera à la prochaine sauvegarde).
+    // Le « pourquoi » détaillé a déjà été imprimé par l'enfant (stdout hérité).
+    if (!killed && (code === SysExit.UNAVAILABLE || code === SysExit.CONFIG)) {
+      const why =
+        code === SysExit.CONFIG
+          ? "configuration invalide"
+          : "aucun serveur démarré";
+      this.#log(
+        `le serveur ne démarre pas (${why}, code ${code}) — ` +
+          `corrige puis sauvegarde (voir le diagnostic ci-dessus)`,
+        "red",
+      );
+      this.#spawnRetries = 0;
+      return;
+    }
     if (killed || !code) {
       this.#log(
         `serveur arrêté (${signal ?? `code ${code}`}) — en attente d'un changement`,

@@ -329,6 +329,12 @@ export type {
   TypeKernelOptions,
 } from "./kernel/Kernel";
 
+export type {
+  IBootReport,
+  IBootFailure,
+  IBootServerInfo,
+} from "./kernel/bootReport";
+
 export type { OptionsCommandInterface } from "./command/Command";
 
 // ─── Branchement Node-only : ALS → Pdu.requestId (corrélation log↔requête) ────

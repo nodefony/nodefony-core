@@ -1,11 +1,13 @@
 import readline from "node:readline";
 import type Kernel from "../../kernel/Kernel";
+import type { IBootReport, IBootFailure } from "../../kernel/bootReport";
 import Syslog from "../../syslog/Syslog";
 
 /** Frames braille du spinner (rotation fluide, 10 étapes). */
 const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 const GREEN = "\x1b[32m";
 const RED = "\x1b[31m";
+const YELLOW = "\x1b[33m";
 const CYAN = "\x1b[36m";
 const DIM = "\x1b[2m";
 const RESET = "\x1b[0m";
@@ -177,16 +179,74 @@ class BootReporter {
     this.#doFinish();
   }
 
-  /** Récap final + rend la main au Syslog (idempotent sur le sink). */
+  /**
+   * Récap final + rend la main au Syslog (idempotent sur le sink). Le verdict
+   * écran ↙ vient du {@link Kernel.getBootReport} (vérité unique) :
+   * - sain → `✓ Prêt · N modules · K serveurs (:5151…)`,
+   * - dégradé (modules ignorés, serveurs up) → + lignes `⚠`,
+   * - **garde-fou 0-serveur** → bloc `⛔` non silencieux + action corrective.
+   */
   #doFinish(): void {
     if (this.#done) return;
     this.#done = true;
     this.#stopTimer();
     if (this.#animated) Syslog.setSinkEnabled(true);
     const dt = ((performance.now() - this.#bootStart) / 1000).toFixed(2);
+    const report = this.#kernel.getBootReport();
+    if (!report.healthy && report.serversExpected) {
+      this.#renderBootFailure(report, dt);
+      return;
+    }
+    const n = report.modulesLoaded.length;
+    const k = report.serversListening.length;
+    const servers = k
+      ? ` ${DIM}·${RESET} ${k} serveur${k > 1 ? "s" : ""} ` +
+        `${DIM}(${report.serversListening
+          .map((s) => `${s.type}:${s.port}`)
+          .join(", ")})${RESET}`
+      : "";
     process.stdout.write(
-      `\n  ${GREEN}✓ Prêt${RESET} ${DIM}en ${dt}s${RESET}\n\n`,
+      `\n  ${GREEN}✓ Prêt${RESET} ${DIM}en ${dt}s${RESET}` +
+        ` ${DIM}·${RESET} ${n} module${n > 1 ? "s" : ""}${servers}\n`,
     );
+    if (report.modulesSkipped.length) {
+      this.#renderSkipped(report.modulesSkipped);
+    }
+    process.stdout.write("\n");
+  }
+
+  /**
+   * Bloc ⛔ **non silencieux** : un profil serveur a fini sans aucun serveur en
+   * écoute. Liste les modules en cause + l'action corrective. Le process va
+   * s'arrêter (le Kernel a déjà décidé `terminate(EX_UNAVAILABLE)`).
+   */
+  #renderBootFailure(report: IBootReport, dt: string): void {
+    process.stdout.write(
+      `\n  ${RED}⛔ Aucun serveur n'a démarré${RESET} ` +
+        `${DIM}(boot en ${dt}s — le process va s'arrêter)${RESET}\n`,
+    );
+    for (const f of report.modulesSkipped) {
+      process.stdout.write(
+        `     ${RED}✗${RESET} ${f.module} ${DIM}— ${f.reason}${RESET}\n`,
+      );
+    }
+    if (report.remediation) {
+      process.stdout.write(`     ${CYAN}→ ${report.remediation}${RESET}\n`);
+    }
+    process.stdout.write("\n");
+  }
+
+  /** Lignes ⚠ des modules ignorés (boot dégradé mais serveurs en écoute). */
+  #renderSkipped(skipped: IBootFailure[]): void {
+    const m = skipped.length;
+    process.stdout.write(
+      `  ${YELLOW}⚠ ${m} module${m > 1 ? "s" : ""} ignoré${m > 1 ? "s" : ""}${RESET}\n`,
+    );
+    for (const f of skipped) {
+      process.stdout.write(
+        `     ${YELLOW}·${RESET} ${f.module} ${DIM}— ${f.reason}${RESET}\n`,
+      );
+    }
   }
 
   /** Vite a commencé à compiler (`onFrontendStart`) — ouvre la phase Vite dynamique. */

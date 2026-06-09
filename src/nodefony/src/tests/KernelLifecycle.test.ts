@@ -778,3 +778,110 @@ describe("Kernel lifecycle — onReady()", () => {
     await assert.doesNotReject(() => k.onReady());
   });
 });
+
+// ─── BootReport — verdict de boot + garde-fou 0-serveur ─────────────────────────
+// Diagnostic de boot (option A : code de sortie, pas d'IPC). On valide la VÉRITÉ
+// (`getBootReport`) + la résilience par-entrée du chargement de modules. Le câblage
+// `terminate(EX_UNAVAILABLE)` + le message DevSupervisor sont couverts en intégration.
+describe("Kernel — BootReport (verdict de boot)", () => {
+  function serverProfile(k: Kernel): void {
+    (k as any).runProfile = {
+      servers: true,
+      lifetime: "longrunning",
+      interactive: false,
+    };
+  }
+
+  it("boot vierge : 0 module ignoré, 0 serveur, console → healthy", () => {
+    const k = mkKernel();
+    const r = k.getBootReport();
+    assert.deepStrictEqual(r.modulesSkipped, []);
+    assert.deepStrictEqual(r.serversListening, []);
+    assert.strictEqual(r.serversExpected, false);
+    assert.strictEqual(r.healthy, true); // console : pas de garde-fou
+  });
+
+  it("GARDE-FOU : profil serveur + 0 serveur en écoute → healthy=false", () => {
+    const k = mkKernel();
+    serverProfile(k);
+    (k as any).bootServers = [];
+    const r = k.getBootReport();
+    assert.strictEqual(r.serversExpected, true);
+    assert.strictEqual(r.serversListening.length, 0);
+    assert.strictEqual(r.healthy, false);
+  });
+
+  it("profil serveur + ≥1 serveur en écoute → healthy + ports listés", () => {
+    const k = mkKernel();
+    serverProfile(k);
+    (k as any).bootServers = [
+      { type: "http", port: 5151, address: "127.0.0.1" },
+      { type: "https", port: 5152, address: "127.0.0.1" },
+    ];
+    const r = k.getBootReport();
+    assert.strictEqual(r.healthy, true);
+    assert.strictEqual(r.serversListening.length, 2);
+    assert.strictEqual(r.serversListening[0].port, 5151);
+  });
+
+  it("modules ignorés mais serveurs up = DÉGRADÉ mais healthy", () => {
+    const k = mkKernel();
+    serverProfile(k);
+    (k as any).bootServers = [{ type: "http", port: 5151 }];
+    (k as any).recordBootFailure({
+      module: "@scope/peripheral",
+      reason: "boom",
+      phase: "init",
+    });
+    const r = k.getBootReport();
+    assert.strictEqual(r.healthy, true); // un serveur écoute → vivant
+    assert.strictEqual(r.modulesSkipped.length, 1);
+    assert.strictEqual(r.modulesSkipped[0].module, "@scope/peripheral");
+  });
+
+  it("remediation : « Cannot find package » → indice dist périmé", () => {
+    const k = mkKernel();
+    (k as any).recordBootFailure({
+      module: "@nodefony/sequelize",
+      reason: "Cannot find package @nodefony/sequelize",
+      phase: "load",
+    });
+    const r = k.getBootReport();
+    assert.match(r.remediation ?? "", /dist périmé/);
+    assert.match(r.remediation ?? "", /npm run clean && npm run build/);
+  });
+
+  it("recordBootFailure est lazy : null par défaut, alloué au 1er échec", () => {
+    const k = mkKernel();
+    assert.strictEqual((k as any).bootFailures, null); // 0 alloc sur boot nominal
+    (k as any).recordBootFailure({ module: "a", reason: "x", phase: "load" });
+    (k as any).recordBootFailure({ module: "b", reason: "y", phase: "load" });
+    assert.strictEqual((k as any).bootFailures.length, 2);
+    assert.strictEqual(k.getBootReport().modulesSkipped.length, 2);
+  });
+
+  it("loadModulesFromManifest : un module introuvable n'arrête PAS les suivants", async () => {
+    const k = mkKernel();
+    // Manifeste résolu mocké (évite gating env/cli) : bad en 1er, puis 2 sains.
+    (k as any).resolveModuleEntries = () => [
+      { name: "@scope/bad" },
+      { name: "@scope/good1" },
+      { name: "@scope/good2", config: { foo: 1 } },
+    ];
+    const loaded: string[] = [];
+    (k as any).loadModule = async (name: string) => {
+      if (name === "@scope/bad") {
+        throw new Error("Cannot find package @scope/bad");
+      }
+      loaded.push(name);
+      return { options: {} };
+    };
+    await (k as any).loadModulesFromManifest();
+    // Les modules APRÈS le manquant ont bien été chargés (anti-masquage).
+    assert.deepStrictEqual(loaded, ["@scope/good1", "@scope/good2"]);
+    const r = k.getBootReport();
+    assert.strictEqual(r.modulesSkipped.length, 1);
+    assert.strictEqual(r.modulesSkipped[0].module, "@scope/bad");
+    assert.strictEqual(r.modulesSkipped[0].phase, "load");
+  });
+});
