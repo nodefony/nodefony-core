@@ -61,6 +61,24 @@ cmd` EXPLICITE par module**, jamais enchaîner `cmd2` en comptant sur un cwd imp
   lancé en background n'avait pas régénéré tous les dist (drizzle/studio manquants) → 2 boots ratés.
   → build complet **foreground** et vérifier `ls dist/index.js` des modules clés avant start. (variante
   du pattern « created dist menteur » — à fusionner si revu.)
+- `[1× — 2026-06-09]` **build turbo répété en itération = douleur user** : `npm run build` (turbo, tout le
+  monorepo) à CHAQUE petit changement → « build long !!! ». → en itération, builder **CIBLÉ** workspace par
+  workspace (`cd src/nodefony && npm run build` + le seul workspace touché) ; réserver le turbo complet aux
+  merges/refactors croisés. Un changement de type du core qui n'impacte que le runtime des consommateurs
+  (ils importent le dist) ne nécessite PAS de les rebuilder.
+- `[1× — 2026-06-09]` **multi-restarts du DevSupervisor empilent les boots dans `/tmp/nodefony-server.log`** :
+  plusieurs « ✓ Prêt » dans le log → on diagnostique un VIEUX boot et on conclut à tort que le code ne marche
+  pas (vécu sur le détail ORM, qui marchait en réalité). → AVANT de diagnostiquer un boot : `grep -c "✓  Prêt"`
+  le log ; si > 1, ne lire que le DERNIER bloc (ou `stop.sh` + `start.sh` propre, log neuf).
+- `[1× — 2026-06-09]` **`onServersReady` émis en fire-and-forget** (`Kernel.initServers` : `fireAsync(…)` NON
+  awaité) → ses listeners courent APRÈS le récap `onPostReady` (race microtask) : un détail posé par un listener
+  `onServersReady` (ex. report ORM) n'est pas vu par le récap. → **`await fireAsync("onServersReady")`** garantit
+  que ses listeners ont fini avant `onPostReady` (boot-only, surcoût négligeable).
+- `[1× — 2026-06-09]` **ajouter une méthode PUBLIQUE au `Kernel` casse `IKernel → Kernel`** : un consommateur
+  cross-module passe `this.kernel: IKernel` à un param typé `Kernel` (classe) ; ça compile tant qu'`IKernel`
+  couvre l'API publique, mais une nouvelle méthode du Kernel non déclarée dans `IKernel` → TS2345 « not
+  assignable » (latent, révélé par rebuild turbo). → (1) déclarer la nouvelle API publique dans `IKernel` ;
+  (2) typer les consommateurs cross-module sur le **contrat `IKernel`**, jamais la classe concrète.
 - ✅ **CORRIGÉ 2026-06-01** — `dist/types` des packages manquants au pre-push typecheck (vu 3× : orm-core ×2,
   user ×1) **bloquait `git push`** (TS2307). **Cause racine** : le core `nodefony` importe http/framework/
   security/user/orm-core (cycle inversé — ces packages ne sont PAS des deps turbo du core) → `turbo run
