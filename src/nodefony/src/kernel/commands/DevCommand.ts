@@ -49,8 +49,11 @@ class Dev extends Command {
     const kernel = this.kernel as Kernel | null;
     if (!kernel) return;
     this.#reporter = new BootReporter(kernel, {
+      // Gate TTY CENTRALISÉ du Kernel (résolu 1× au boot, NO_TTY-aware) plutôt
+      // qu'une relecture directe de `process.stdout.isTTY` → cohérent avec la
+      // couleur ANSI et surchargeable en test/CI.
       debug: Boolean(kernel.debug),
-      tty: process.stdout.isTTY === true,
+      tty: kernel.isTTY,
     });
     this.#reporter.attach();
   }

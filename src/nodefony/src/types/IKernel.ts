@@ -1,5 +1,6 @@
 import type { IService } from "./IService";
 import type { IModule } from "./IModule";
+import type { IBootReport } from "../kernel/bootReport";
 import type FileClass from "../FileClass";
 import type { EnvironmentType, DebugType } from "./globals";
 import type { ICliKernel } from "./ICliKernel";
@@ -99,4 +100,14 @@ export interface IKernel extends IService {
   getNetwork(): KernelNetworkResult;
   checkPath(myPath: string): string | null;
   isCommandComplete(progress: number): boolean;
+
+  // ─── Diagnostic de boot (BootReport + canal de détails par phase) ────────────
+  /** Verdict agrégé du dernier boot (modules, serveurs, santé) — vérité unique. */
+  getBootReport(): IBootReport;
+  /** AJOUTE une ligne de détail à afficher sous une phase de boot (canal neutre). */
+  reportBootLine(phase: string, line: string): void;
+  /** REMPLACE les lignes de détail d'une phase (producteur idempotent). */
+  setBootLines(phase: string, lines: string[]): void;
+  /** Lignes de détail déclarées pour une phase de boot. */
+  getBootLines(phase: string): string[];
 }

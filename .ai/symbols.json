@@ -1,15 +1,15 @@
 {
-  "generated": "2026-06-09T06:13:41.172Z",
+  "generated": "2026-06-09T20:17:17.551Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
     "files": 835,
-    "symbols": 1723,
+    "symbols": 1724,
     "classes": 239,
     "interfaces": 430,
     "types": 223,
     "enums": 3,
-    "functions": 343,
+    "functions": 344,
     "constants": 485
   },
   "symbols": {
@@ -6961,6 +6961,14 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Branche le « plan d'administration » ORM dans le kernel — montage **idempotent** appelé par CHAQUE driver à son `onKernelBoot`. Factorise la dette C5 : le bloc était jusqu'ici recopié à l'identique…"
+    },
+    "reportOrmBootLines": {
+      "name": "reportOrmBootLines",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Pousse dans le BootReporter une ligne par ORM enregistré (« nom → driver (cible) ») pour que la phase de boot « Services & ORM » RACONTE les connexions mises en place, au lieu d'une phase muette. I…"
     },
     "resolveOrmFlowEnabled": {
       "name": "resolveOrmFlowEnabled",
@@ -14420,6 +14428,7 @@
       ],
       "IBootReport": [
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/types/IKernel.ts",
         "src/nodefony/src/service/dev/BootReporter.ts"
       ],
       "IBootFailure": [
@@ -14880,7 +14889,8 @@
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/buildOrmLeanHealth.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
       ],
       "ContextType": [
         "src/modules/test/nodefony/controller/DecoratorController.ts",

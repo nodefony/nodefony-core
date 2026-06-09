@@ -10,6 +10,7 @@ const RED = "\x1b[31m";
 const YELLOW = "\x1b[33m";
 const CYAN = "\x1b[36m";
 const DIM = "\x1b[2m";
+const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
 
 /** Une phase de boot = l'event Kernel qui la CLÔT + son libellé affiché. */
@@ -149,8 +150,44 @@ class BootReporter {
     if (this.#done) return;
     const now = performance.now();
     this.#freeze(`${GREEN}✓${RESET}`, label, now - this.#phaseStart);
+    this.#renderPhaseDetail(label);
     this.#phaseStart = now;
     this.#phaseIndex++;
+  }
+
+  /**
+   * Lignes de détail SOUS une phase qui vient de se figer — pour que le boot
+   * RACONTE ce qui se passe (pas une phase muette). Deux sources :
+   * - le canal NEUTRE `Kernel.getBootLines(phase)` que tout module alimente
+   *   (`reportBootLine` — ex. ORM : « drizzle → sqlite »), le core restant
+   *   agnostique ;
+   * - un digest intégré pour `Modules` (liste lisible, dérivée du Kernel).
+   */
+  #renderPhaseDetail(label: string): void {
+    let lines = this.#kernel.getBootLines(label);
+    if (label === "Modules" && lines.length === 0) {
+      lines = this.#moduleDigest();
+    }
+    for (const line of lines) {
+      process.stdout.write(`       ${DIM}${line}${RESET}\n`);
+    }
+  }
+
+  /**
+   * Digest lisible des modules chargés (noms courts, ~6 par ligne) affiché sous
+   * la phase « Modules ». Donne au dev la composition réelle de son app d'un
+   * coup d'œil.
+   */
+  #moduleDigest(): string[] {
+    const names = Object.keys(this.#kernel.modules).map((m) =>
+      m.replace(/^@nodefony\//, ""),
+    );
+    if (!names.length) return [];
+    const out: string[] = [];
+    for (let i = 0; i < names.length; i += 8) {
+      out.push(names.slice(i, i + 8).join(" · "));
+    }
+    return out;
   }
 
   /**
@@ -181,8 +218,8 @@ class BootReporter {
 
   /**
    * Récap final + rend la main au Syslog (idempotent sur le sink). Le verdict
-   * écran ↙ vient du {@link Kernel.getBootReport} (vérité unique) :
-   * - sain → `✓ Prêt · N modules · K serveurs (:5151…)`,
+   * écran vient du {@link Kernel.getBootReport} (vérité unique) :
+   * - sain → bloc « Prêt » : identité + serveurs HTTP|WS (URLs cliquables),
    * - dégradé (modules ignorés, serveurs up) → + lignes `⚠`,
    * - **garde-fou 0-serveur** → bloc `⛔` non silencieux + action corrective.
    */
@@ -197,22 +234,50 @@ class BootReporter {
       this.#renderBootFailure(report, dt);
       return;
     }
-    const n = report.modulesLoaded.length;
-    const k = report.serversListening.length;
-    const servers = k
-      ? ` ${DIM}·${RESET} ${k} serveur${k > 1 ? "s" : ""} ` +
-        `${DIM}(${report.serversListening
-          .map((s) => `${s.type}:${s.port}`)
-          .join(", ")})${RESET}`
-      : "";
-    process.stdout.write(
-      `\n  ${GREEN}✓ Prêt${RESET} ${DIM}en ${dt}s${RESET}` +
-        ` ${DIM}·${RESET} ${n} module${n > 1 ? "s" : ""}${servers}\n`,
-    );
+    this.#renderReady(report, dt);
     if (report.modulesSkipped.length) {
       this.#renderSkipped(report.modulesSkipped);
     }
     process.stdout.write("\n");
+  }
+
+  /**
+   * Récap « prêt » : chaque serveur sur sa ligne, `➜  LABEL  url` (label aligné,
+   * URL cliquable cyan) — mise en avant des 4 points d'entrée (HTTP, HTTP/2, WS,
+   * WSS : le différenciateur Nodefony HTTP + WebSocket co-citoyens). L'identité
+   * (version · env · pid) est déjà posée par `Kernel.printDevHeader` en TÊTE.
+   */
+  #renderReady(report: IBootReport, dt: string): void {
+    process.stdout.write(
+      `\n  ${GREEN}${BOLD}✓  Prêt${RESET} ${DIM}en ${dt}s${RESET}\n\n`,
+    );
+    // Ordre figé + libellés parlants (https ⇒ HTTP/2, wss ⇒ WSS).
+    const rows: ReadonlyArray<readonly [string, string]> = [
+      ["http", "HTTP"],
+      ["https", "HTTP/2"],
+      ["ws", "WS"],
+      ["wss", "WSS"],
+    ];
+    for (const [scheme, label] of rows) {
+      const url = report.serversListening.find((s) => s.scheme === scheme)?.url;
+      if (!url) continue;
+      process.stdout.write(
+        `     ${GREEN}➜${RESET}  ${BOLD}${label.padEnd(7)}${RESET}` +
+          `${CYAN}${url}${RESET}\n`,
+      );
+    }
+    // Données (ORM) — détail différé, posé à `onServersReady` (registre peuplé) :
+    // les ORM se connectent aux hooks `onReady` des services, trop tard pour un
+    // affichage inline sous la phase « Services & ORM ».
+    const orm = this.#kernel.getBootLines("Services & ORM");
+    if (orm.length) {
+      process.stdout.write(`\n     ${DIM}Données${RESET}\n`);
+      for (const line of orm) {
+        process.stdout.write(
+          `     ${GREEN}➜${RESET}  ${CYAN}${line}${RESET}\n`,
+        );
+      }
+    }
   }
 
   /**

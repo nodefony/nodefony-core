@@ -51,6 +51,14 @@ import type { IBootReport, IBootFailure, IBootServerInfo } from "./bootReport";
 // Tag d'event — couleur gatée au boot (gratuit hors TTY ; logs DEBUG only).
 const colorLogEvent = (): string => logColor.cyanBgBlue("EVENT KERNEL");
 
+// Nom de service serveur → scheme d'URL conventionnel (pour le BootReport).
+const SERVER_SCHEME: Readonly<Record<string, string>> = {
+  http: "http",
+  https: "https",
+  websocket: "ws",
+  "websocket-secure": "wss",
+};
+
 export interface TypeKernelOptions extends DefaultOptionsService {
   node_start?: NodefonyStartType;
   /**
@@ -387,6 +395,13 @@ class Kernel extends Service implements IKernel {
   private bootServers: IBootServerInfo[] | null = null;
   /** Horodatage (`Date.now()`) du début de `start()` — base de `durationMs`. */
   private bootStartedAt: number = 0;
+  /**
+   * Lignes de détail de boot par phase (canal NEUTRE) : un module pousse via
+   * {@link reportBootLine} ce qu'il veut voir RACONTÉ sous sa phase (ex. un
+   * adapter ORM : « drizzle → sqlite »). Le core reste agnostique du contenu.
+   * Lazy : `null` tant qu'aucune ligne (dev-only en pratique).
+   */
+  private bootLines: Map<string, string[]> | null = null;
   /**
    * Construit le Kernel. **Side effect critique** : appelle `Nodefony.setKernel(this)` →
    * écrase le singleton global. Isoler les tests avec un mock minimal pour éviter de
@@ -769,10 +784,12 @@ class Kernel extends Service implements IKernel {
       return await httpKernel
         .initServers()
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .then((servers: any[]) => {
-          this.fireAsync("onServersReady").catch((e) => {
-            throw e;
-          });
+        .then(async (servers: any[]) => {
+          // ATTENDRE la diffusion `onServersReady` (vs fire-and-forget) garantit
+          // que ses listeners (report ORM du BootReporter, sondes cluster…) ont
+          // FINI avant d'enchaîner sur `onPostReady`/le récap. Boot-only : le
+          // surcoût = la durée (faible) de ces listeners.
+          await this.fireAsync("onServersReady");
           return servers;
         })
         .catch((e: Error) => {
@@ -1778,11 +1795,25 @@ class Kernel extends Service implements IKernel {
       this.bootServers = [];
       return;
     }
-    this.bootServers = servers.map((s) => ({
-      type: typeof s?.type === "string" ? s.type : "server",
-      port: Number(s?.port ?? 0),
-      address: typeof s?.address === "string" ? s.address : undefined,
-    }));
+    this.bootServers = servers.map((s) => {
+      const type = typeof s?.type === "string" ? s.type : "server";
+      const port = Number(s?.port ?? 0);
+      const address = typeof s?.address === "string" ? s.address : undefined;
+      const scheme = SERVER_SCHEME[type] ?? type;
+      // host : adresse de bind résolue (IPv6 entre crochets pour une URL valide).
+      const host = address
+        ? address.includes(":")
+          ? `[${address}]`
+          : address
+        : "127.0.0.1";
+      return {
+        type,
+        scheme,
+        port,
+        address,
+        url: `${scheme}://${host}:${port}`,
+      };
+    });
   }
 
   /**
@@ -1806,6 +1837,52 @@ class Kernel extends Service implements IKernel {
       healthy: !(serversExpected && serversListening.length === 0),
       remediation: this.bootRemediationHint(modulesSkipped) ?? undefined,
     };
+  }
+
+  /**
+   * Déclare une ligne de détail à afficher SOUS une phase de boot (canal NEUTRE
+   * dev-only : le `BootReporter` la rend ; le core ne connaît pas son contenu).
+   * Un adapter ORM/frontend/… l'appelle à son hook de phase pour que le boot
+   * RACONTE ce qu'il met en place — sans coupler le core au domaine du module.
+   *
+   * @param phase - libellé de la phase (cf `BootReporter` PHASES, ex. « Services & ORM »).
+   * @param line - ligne lisible (ex. « drizzle → sqlite (./var/app.db) »).
+   */
+  reportBootLine(phase: string, line: string): void {
+    const map = (this.bootLines ??= new Map());
+    const lines = map.get(phase);
+    if (lines) {
+      lines.push(line);
+    } else {
+      map.set(phase, [line]);
+    }
+  }
+
+  /**
+   * REMPLACE les lignes de détail d'une phase (vs {@link reportBootLine} qui
+   * AJOUTE). Pour un producteur idempotent invoqué plusieurs fois qui reconstruit
+   * la liste complète à chaque appel (ex. le wiring ORM, déclenché par N drivers,
+   * itère tout le registre → « dernier gagne »).
+   *
+   * @param phase - libellé de la phase.
+   * @param lines - liste complète des lignes (remplace l'existant ; vide = efface).
+   */
+  setBootLines(phase: string, lines: string[]): void {
+    if (!lines.length) {
+      this.bootLines?.delete(phase);
+      return;
+    }
+    (this.bootLines ??= new Map()).set(phase, [...lines]);
+  }
+
+  /**
+   * Lignes de détail déclarées pour une phase de boot (vide si aucune).
+   *
+   * @param phase - libellé de la phase.
+   * @returns lignes dans l'ordre de déclaration.
+   */
+  getBootLines(phase: string): string[] {
+    return this.bootLines?.get(phase) ?? [];
   }
 
   /**
@@ -1861,13 +1938,11 @@ class Kernel extends Service implements IKernel {
       );
       return;
     }
-    const ports = report.serversListening
-      .map((s) => `${s.type}:${s.port}`)
-      .join(", ");
+    const urls = report.serversListening.map((s) => s.url).join(", ");
     this.log(
       `BOOT ok — ${report.modulesLoaded.length} module(s), ` +
         `${report.serversListening.length} serveur(s) en écoute` +
-        (ports ? ` (${ports})` : ""),
+        (urls ? ` (${urls})` : ""),
       "NOTICE",
     );
   }

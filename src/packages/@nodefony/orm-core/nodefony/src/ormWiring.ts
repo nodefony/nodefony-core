@@ -6,6 +6,7 @@ import {
   buildOrmFlow,
 } from "./OrmAdminApi";
 import { buildOrmLeanHealth } from "./buildOrmLeanHealth";
+import { ormRegistry } from "./OrmRegistry";
 
 /**
  * Branche le « plan d'administration » ORM dans le kernel — montage **idempotent**
@@ -39,6 +40,44 @@ export function wireOrmAdminPlane(kernel: Kernel | null | undefined): void {
     health: await buildConnectionHealth(),
     flow: buildOrmFlow(),
   }));
+  // Les ORM se créent/connectent aux hooks `onReady` des SERVICES, donc APRÈS ce
+  // `onKernelBoot` : le registre est encore vide ici. On diffère le report à
+  // `onServersReady` (registre peuplé, avant `onPostReady`) → lu par le récap.
+  kernel?.once("onServersReady", () => reportOrmBootLines(kernel));
+}
+
+/**
+ * Pousse dans le BootReporter une ligne par ORM enregistré (« nom → driver
+ * (cible) ») pour que la phase de boot « Services & ORM » RACONTE les connexions
+ * mises en place, au lieu d'une phase muette. Idempotent : reconstruit la liste
+ * complète depuis le registre et REMPLACE (sûr d'être appelé par N drivers).
+ *
+ * `describeConnection()` ne révèle JAMAIS de credential (redaction côté adapter).
+ * Le libellé « Services & ORM » doit matcher une phase du `BootReporter` (core).
+ *
+ * @param kernel - kernel courant (`this.kernel` du module driver), ou nullish.
+ */
+export function reportOrmBootLines(kernel: Kernel | null | undefined): void {
+  if (!kernel) {
+    return;
+  }
+  const lines: string[] = [];
+  for (const name of ormRegistry.list()) {
+    try {
+      const orm = ormRegistry.get(name);
+      // describeConnection est optionnel dans IOrm (sonde data plane) → guard.
+      const info = orm.describeConnection?.();
+      if (!info) {
+        continue;
+      }
+      const target = info.target ? ` ${info.target}` : "";
+      const state = orm.isConnected() ? "" : " (non connecté)";
+      lines.push(`${name} → ${info.driver}${target}${state}`);
+    } catch {
+      /* adapter pas prêt / registre incohérent → on saute cette entrée */
+    }
+  }
+  kernel.setBootLines("Services & ORM", lines);
 }
 
 /**

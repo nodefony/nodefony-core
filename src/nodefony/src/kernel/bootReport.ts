@@ -32,12 +32,16 @@ export interface IBootFailure {
 
 /** Un serveur réseau réellement en écoute à la fin du boot. */
 export interface IBootServerInfo {
-  /** Type de serveur (`http` | `https` | `websocket` | `websocketSecure`). */
+  /** Nom de service interne (`http` | `https` | `websocket` | `websocket-secure`). */
   type: string;
+  /** Scheme d'URL court et conventionnel (`http` | `https` | `ws` | `wss`). */
+  scheme: string;
   /** Port d'écoute effectif. */
   port: number;
   /** Adresse de bind (`127.0.0.1`, `0.0.0.0`…), si connue. */
   address?: string;
+  /** URL complète d'accès (`scheme://host:port`) — cliquable au terminal. */
+  url: string;
 }
 
 /**
