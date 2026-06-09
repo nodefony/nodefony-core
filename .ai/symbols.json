@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-09T20:17:17.551Z",
+  "generated": "2026-06-09T20:20:21.776Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -13191,8 +13191,7 @@
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/nodefony/src/service/dev/BootReporter.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "Message": [
         "src/nodefony/src/Container.ts",
@@ -13318,7 +13317,8 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/types/IModule.ts",
         "src/nodefony/src/types/IService.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
       ],
       "DynamicParam": [
         "src/nodefony/src/Service.ts",

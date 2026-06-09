@@ -1,5 +1,5 @@
 import { setOrmHealthProvider, setOrmRichProvider } from "nodefony";
-import type { Kernel, IAdminRegistry } from "nodefony";
+import type { IKernel, IAdminRegistry } from "nodefony";
 import {
   registerOrmAdminApi,
   buildConnectionHealth,
@@ -28,7 +28,7 @@ import { ormRegistry } from "./OrmRegistry";
  *
  * @param kernel - kernel courant (`this.kernel` du module driver), ou nullish.
  */
-export function wireOrmAdminPlane(kernel: Kernel | null | undefined): void {
+export function wireOrmAdminPlane(kernel: IKernel | null | undefined): void {
   const broker = kernel?.container?.get("adminBroker") as
     | IAdminRegistry
     | undefined;
@@ -57,7 +57,7 @@ export function wireOrmAdminPlane(kernel: Kernel | null | undefined): void {
  *
  * @param kernel - kernel courant (`this.kernel` du module driver), ou nullish.
  */
-export function reportOrmBootLines(kernel: Kernel | null | undefined): void {
+export function reportOrmBootLines(kernel: IKernel | null | undefined): void {
   if (!kernel) {
     return;
   }
@@ -94,7 +94,7 @@ export function reportOrmBootLines(kernel: Kernel | null | undefined): void {
  * @returns `true` si la sonde de flux doit être activée.
  */
 export function resolveOrmFlowEnabled(
-  kernel: Kernel | null | undefined,
+  kernel: IKernel | null | undefined,
 ): boolean {
   const flag = process.env.NODEFONY_ORM_FLOW;
   return flag !== undefined
