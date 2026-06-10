@@ -18,6 +18,10 @@ import LifecycleController from "./nodefony/controller/LifecycleController";
 import DomainController from "./nodefony/controller/DomainController";
 import DomainClassController from "./nodefony/controller/DomainClassController";
 import DbController from "./nodefony/controller/DbController";
+// POC « API souveraine » — Phase 1 (JETABLE — supprimer le dossier nodefony/poc/
+// + ces 2 imports + les 2 entrées @controllers après la revue Phase 6).
+import PocBookController from "./nodefony/poc/PocBookController";
+import PocInvokeController from "./nodefony/poc/PocInvokeController";
 import { controllers } from "@nodefony/framework";
 // Commandes CLI de démo — bancs pour les 3 modes de boot (server/batch/daemon) et le
 // dispatch d'une commande de module (namespace `test:<action>`).
@@ -46,6 +50,9 @@ registerDolibarrEntities("default");
   DomainController,
   DomainClassController,
   DbController,
+  // POC API souveraine (JETABLE)
+  PocBookController,
+  PocInvokeController,
 ])
 class Test extends Module {
   constructor(kernel: Kernel) {

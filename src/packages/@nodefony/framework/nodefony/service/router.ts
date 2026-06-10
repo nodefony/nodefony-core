@@ -66,11 +66,22 @@ class Router extends Service {
     );
   }
 
-  resolve(context: ContextType): Resolver {
+  /**
+   * Résout une route pour un contexte donné.
+   *
+   * @param context - le contexte HTTP/WS courant (porte container, méthode, URL…).
+   * @param cleanPathOverride - quand fourni, le matching se fait sur CE pathname au
+   *   lieu de `context.request.url` — permet de router un path **porté par un message**
+   *   (WS-RPC `invoke`) vers une action, sans muter l'URL de la connexion (état partagé).
+   *   `undefined` (cas hot path normal) → comportement inchangé.
+   * @returns un `Resolver` (`.resolve === true` si une route a matché).
+   */
+  resolve(context: ContextType, cleanPathOverride?: string): Resolver {
     const resolver = new Resolver(context);
     // L5a perf : pathname normalisé UNE fois (constant pour la requête) — évite
     // que chaque Route.match du scan O(N) recalcule URL.pathname + regex + alloc.
-    const cleanPath = Route.cleanPathname(context);
+    // `cleanPathOverride` (WS-RPC invoke) court-circuite le pathname de la connexion.
+    const cleanPath = cleanPathOverride ?? Route.cleanPathname(context);
     // Pass 1 : match path + method
     for (let i = 0; i < routes.length; i++) {
       try {

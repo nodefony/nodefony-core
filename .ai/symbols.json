@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-09T20:20:21.776Z",
+  "generated": "2026-06-10T17:37:48.218Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 835,
-    "symbols": 1724,
-    "classes": 239,
-    "interfaces": 430,
+    "files": 838,
+    "symbols": 1728,
+    "classes": 241,
+    "interfaces": 431,
     "types": 223,
     "enums": 3,
     "functions": 344,
-    "constants": 485
+    "constants": 486
   },
   "symbols": {
     "Cli": {
@@ -3920,6 +3920,49 @@
       "decorators": [
         "controller"
       ]
+    },
+    "PocBookController": {
+      "name": "PocBookController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/poc/PocBookController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE. L'action `byAuthor` est écrite **UNE fois**. Elle ne voit AUCUNE information de transport : juste un `@Param` normalisé. Elle est joignable p…"
+    },
+    "PocBook": {
+      "name": "PocBook",
+      "kind": "interface",
+      "file": "src/modules/test/nodefony/poc/pocBookService.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": null,
+      "description": "POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE. La « logique métier » écrite **une seule fois** : un service trivial en mémoire. Le but du POC n'est PAS le CRUD ici, mais de prouver qu'une …"
+    },
+    "pocBookService": {
+      "name": "pocBookService",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/poc/pocBookService.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Logique métier unique — aucune notion de transport ici."
+    },
+    "PocInvokeController": {
+      "name": "PocInvokeController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/poc/PocInvokeController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE (mais valide la BRIQUE). Le **pont WS-RPC `invoke`** : une socket connectée ici reçoit des messages `{ id, path }` et le serveur RE-ROUTE le p…"
     },
     "AngularController": {
       "name": "AngularController",
@@ -12641,6 +12684,8 @@
         "RouteController",
         "SessionRuntimeController",
         "WebsocketController",
+        "PocBookController",
+        "PocInvokeController",
         "AngularController",
         "PocController",
         "VueController",
@@ -12963,6 +13008,8 @@
         "RouteController",
         "SessionRuntimeController",
         "WebsocketController",
+        "PocBookController",
+        "PocInvokeController",
         "AngularController",
         "PocController",
         "VueController",
@@ -13522,6 +13569,12 @@
       "DbController": [
         "src/modules/test/index.ts"
       ],
+      "PocBookController": [
+        "src/modules/test/index.ts"
+      ],
+      "PocInvokeController": [
+        "src/modules/test/index.ts"
+      ],
       "registerDolibarrEntities": [
         "src/modules/test/index.ts"
       ],
@@ -13624,6 +13677,8 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -13679,6 +13734,8 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "controller": [
@@ -13699,6 +13756,8 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -13847,6 +13906,8 @@
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
+        "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
         "src/modules/test-frontend-vue/nodefony/controller/VueController.ts",
@@ -14951,6 +15012,9 @@
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IContext.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
+      ],
+      "pocBookService": [
+        "src/modules/test/nodefony/poc/PocBookController.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"

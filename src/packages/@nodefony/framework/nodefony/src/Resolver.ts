@@ -200,7 +200,22 @@ class Resolver extends Service implements IResolver {
     throw new Error(`Route Controller not found`);
   }
 
-  async callController(data?: unknown[], reload: boolean = false) {
+  /**
+   * Exécute l'action résolue et retourne sa **valeur brute**, SANS la rendre sur
+   * le transport (pas de `returnController`/`send`). Découple « exécuter → valeur »
+   * de « rendre la valeur » : un appelant multi-transport (WS-RPC `invoke`, futur
+   * GraphQL) réutilise la MÊME action puis emballe le résultat à sa façon
+   * (`{ id, result }`, champ GraphQL…). Le pipeline HTTP/WS normal passe par
+   * {@link callController} (= `executeAction` + rendu).
+   *
+   * @param data - args supplémentaires (message WS brut legacy) concaténés aux variables de route.
+   * @param reload - force `newController()` (le container peut déjà porter un AUTRE controller).
+   * @returns la valeur retournée par l'action + son `RedirectMeta` éventuel.
+   */
+  async executeAction(
+    data?: unknown[],
+    reload: boolean = false,
+  ): Promise<{ result: unknown; redirectMeta: RedirectMeta | undefined }> {
     let controller = this.get("controller") as Controller;
     if (!controller || reload) {
       controller = await this.newController();
@@ -233,20 +248,26 @@ class Resolver extends Service implements IResolver {
       proto,
       this.actionName!,
     );
-    // Pas de try/catch re-throw (no-op) : les erreurs de l'action remontent
-    // seules jusqu'à HttpKernel.onError. Pas de `await` avant return (microtask
-    // en moins) — le rejet se propage via la promesse retournée.
     if (typeof controller[methodKey] === "function") {
-      const actionResult = (
-        controller[methodKey] as (...a: unknown[]) => unknown
-      )(...args);
-      return this._handleRedirect(actionResult, redirectMeta);
+      return {
+        result: (controller[methodKey] as (...a: unknown[]) => unknown)(
+          ...args,
+        ),
+        redirectMeta,
+      };
     }
     if (this.action) {
-      const actionResult = this.action(...args);
-      return this._handleRedirect(actionResult, redirectMeta);
+      return { result: this.action(...args), redirectMeta };
     }
     throw new Error(`Route Action not found`);
+  }
+
+  async callController(data?: unknown[], reload: boolean = false) {
+    // Pas de try/catch re-throw (no-op) : les erreurs de l'action remontent
+    // seules jusqu'à HttpKernel.onError. Pas de `await` superflu — le rejet se
+    // propage via la promesse retournée. callController = exécuter PUIS rendre.
+    const { result, redirectMeta } = await this.executeAction(data, reload);
+    return this._handleRedirect(result, redirectMeta);
   }
 
   private _buildParamArgs(metas: ParamMeta[]): unknown[] {
