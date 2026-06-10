@@ -70,7 +70,7 @@ class ResourceController<T = unknown> extends Controller {
    * du scope V4.3. Une sous-classe peut rétrograder (`static scope =
    * "request"`) si elle doit porter de l'état per-request sur `this`.
    */
-  static scope: ControllerScope = "singleton";
+  static override scope: ControllerScope = "singleton";
 
   /**
    * Service de ressource — état de BOOT (posé 1× ici, jamais réassigné).
