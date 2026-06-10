@@ -22,6 +22,8 @@ import DbController from "./nodefony/controller/DbController";
 // + ces 2 imports + les 2 entrées @controllers après la revue Phase 6).
 import PocBookController from "./nodefony/poc/PocBookController";
 import PocInvokeController from "./nodefony/poc/PocInvokeController";
+// POC Phase 2 (V4.2) — ResourceController souverain stateless + singleton.
+import PocBookResourceController from "./nodefony/poc/PocBookResourceController";
 import { controllers } from "@nodefony/framework";
 // Commandes CLI de démo — bancs pour les 3 modes de boot (server/batch/daemon) et le
 // dispatch d'une commande de module (namespace `test:<action>`).
@@ -53,6 +55,7 @@ registerDolibarrEntities("default");
   // POC API souveraine (JETABLE)
   PocBookController,
   PocInvokeController,
+  PocBookResourceController,
 ])
 class Test extends Module {
   constructor(kernel: Kernel) {

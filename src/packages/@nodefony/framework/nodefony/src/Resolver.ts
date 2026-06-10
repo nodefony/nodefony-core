@@ -249,7 +249,17 @@ class Resolver implements IResolver {
     reload: boolean = false,
   ): Promise<{ result: unknown; redirectMeta: RedirectMeta | undefined }> {
     let controller = this.context.container?.get("controller") as Controller;
-    if (!controller || reload) {
+    // Le pointeur "controller" du container est PARTAGÉ par la connexion (WS)
+    // et réécrit par tout re-routage (invoke, forward). S'il porte une AUTRE
+    // classe que celle de la route courante (connexion WS dont un message a
+    // invoké une autre action), le réutiliser chercherait `actionName` sur la
+    // mauvaise instance → "Route Action not found". Court-circuité par
+    // `!controller` sur le hot path HTTP (container de requête vierge) → 0 coût.
+    if (
+      !controller ||
+      reload ||
+      (this.controller && !(controller instanceof this.controller))
+    ) {
       controller = await this.newController();
     }
     // V4.3 — `module` est posé à la création (`_createController`), plus par

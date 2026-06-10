@@ -1,16 +1,16 @@
 {
-  "generated": "2026-06-10T21:23:00.659Z",
+  "generated": "2026-06-10T21:37:14.526Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 838,
-    "symbols": 1734,
-    "classes": 241,
-    "interfaces": 432,
+    "files": 840,
+    "symbols": 1738,
+    "classes": 243,
+    "interfaces": 433,
     "types": 224,
     "enums": 3,
     "functions": 348,
-    "constants": 486
+    "constants": 487
   },
   "symbols": {
     "Cli": {
@@ -3934,6 +3934,19 @@
       ],
       "description": "POC « API souveraine » — Phase 1 — ÉCHAFAUDAGE JETABLE. L'action `byAuthor` est écrite **UNE fois**. Elle ne voit AUCUNE information de transport : juste un `@Param` normalisé. Elle est joignable p…"
     },
+    "PocBookResourceController": {
+      "name": "PocBookResourceController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/poc/PocBookResourceController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "ResourceController",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "POC « API souveraine » — Phase 2 (V4.2) — le premier client RÉEL du modèle stateless + singleton : - `ResourceController` → `static scope = \"singleton\"` HÉRITÉ (aucun décorateur ici — c'est le défa…"
+    },
     "PocBook": {
       "name": "PocBook",
       "kind": "interface",
@@ -3950,6 +3963,14 @@
       "exported": true,
       "module": "modules/test",
       "description": "Logique métier unique — aucune notion de transport ici."
+    },
+    "pocBookResourceService": {
+      "name": "pocBookResourceService",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/poc/pocBookService.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Forme `IResourceService<PocBook>` (V4.2) — prouve que le contrat STRUCTUREL du `ResourceController` accepte un simple objet en mémoire (pas d'ORM, pas de `Service` DI). Read-only volontaire : pas d…"
     },
     "PocInvokeController": {
       "name": "PocInvokeController",
@@ -5113,6 +5134,26 @@
       "module": "@nodefony/framework",
       "extends": null,
       "description": "Interface-marqueur du hook **per-request** d'un {@link Controller} : `initialize` est appelé par le {@link Resolver} à CHAQUE requête, avant l'action (hot path — jamais gardé/borné, contrairement a…"
+    },
+    "ResourceController": {
+      "name": "ResourceController",
+      "kind": "class",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [],
+      "description": "Controller de ressource **souverain** (V4.2 — POC API souveraine, Phase 2) : la logique métier est écrite UNE fois dans le service de ressource, les actions de la sous-classe ne sont que des portes…"
+    },
+    "IResourceService": {
+      "name": "IResourceService",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
+      "exported": true,
+      "module": "@nodefony/framework",
+      "extends": null,
+      "description": "Contrat structurel du service de ressource consommé par un {@link ResourceController} — aligné sur `AbstractCrudService` (`@nodefony/orm-core`) SANS en dépendre : le framework ne connaît pas l'ORM,…"
     },
     "Route": {
       "name": "Route",
@@ -12740,8 +12781,12 @@
         "VueController",
         "DocumentationController",
         "AdminApiController",
+        "ResourceController",
         "StudioController",
         "RealtimeController"
+      ],
+      "ResourceController": [
+        "PocBookResourceController"
       ],
       "AgentError": [
         "AgentShutdownError",
@@ -13058,6 +13103,7 @@
         "SessionRuntimeController",
         "WebsocketController",
         "PocBookController",
+        "PocBookResourceController",
         "PocInvokeController",
         "AngularController",
         "PocController",
@@ -13621,6 +13667,9 @@
       "PocInvokeController": [
         "src/modules/test/index.ts"
       ],
+      "PocBookResourceController": [
+        "src/modules/test/index.ts"
+      ],
       "registerDolibarrEntities": [
         "src/modules/test/index.ts"
       ],
@@ -13734,10 +13783,15 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
+      ],
+      "ResourceController": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts"
       ],
       "Resolver": [
         "src/packages/@nodefony/framework/index.ts",
@@ -13781,6 +13835,7 @@
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts",
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
@@ -13803,6 +13858,7 @@
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts",
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
@@ -13962,6 +14018,7 @@
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebSocketController.ts",
         "src/modules/test/nodefony/poc/PocBookController.ts",
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts",
         "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/modules/test-frontend-angular/nodefony/controller/AngularController.ts",
         "src/modules/test-frontend-react/nodefony/controller/PocController.ts",
@@ -13985,6 +14042,7 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
@@ -15011,6 +15069,7 @@
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
@@ -15064,6 +15123,12 @@
       ],
       "pocBookService": [
         "src/modules/test/nodefony/poc/PocBookController.ts"
+      ],
+      "pocBookResourceService": [
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts"
+      ],
+      "PocBook": [
+        "src/modules/test/nodefony/poc/PocBookResourceController.ts"
       ],
       "ITool": [
         "src/packages/@nodefony/agent/src/tools/ToolRegistry.ts"
@@ -15284,7 +15349,8 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts"
       ],
       "ControllerScope": [
-        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+        "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts"
       ],
       "ControllerConstructor": [
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",

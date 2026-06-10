@@ -28,3 +28,21 @@ export const pocBookService = {
     return BOOKS.filter((b) => b.authorId === authorId);
   },
 };
+
+/**
+ * Forme `IResourceService<PocBook>` (V4.2) — prouve que le contrat STRUCTUREL
+ * du `ResourceController` accepte un simple objet en mémoire (pas d'ORM, pas
+ * de `Service` DI). Read-only volontaire : pas de `create`/`updateOne`/`delete`
+ * → les helpers d'écriture du `ResourceController` répondent 501.
+ */
+export const pocBookResourceService = {
+  find(criteria?: Record<string, unknown>): PocBook[] {
+    if (criteria?.authorId !== undefined) {
+      return BOOKS.filter((b) => b.authorId === String(criteria.authorId));
+    }
+    return [...BOOKS];
+  },
+  findById(id: string): PocBook | null {
+    return BOOKS.find((b) => b.id === id) ?? null;
+  },
+};

@@ -62,7 +62,10 @@ class PocInvokeController extends Controller {
     // (PocInvokeController) sous "controller" → sans reload, on réutiliserait
     // l'instance courante (sans `byAuthor`) → "Route Action not found".
     const { result } = await resolver.executeAction(undefined, true);
-    return this.renderJson({ id, result, path });
+    // La valeur brute peut être un THENABLE (action async — ex. helpers
+    // `ResourceController` V4.2) : le pont déballe avant d'envelopper, comme
+    // `returnController` le fait pour REST.
+    return this.renderJson({ id, result: await Promise.resolve(result), path });
   }
 }
 
