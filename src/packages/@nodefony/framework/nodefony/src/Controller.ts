@@ -3,6 +3,7 @@ import {
   Module,
   Container,
   Event,
+  RequestContext,
   //typeOf,
   //EnvironmentType,
   //DebugType,
@@ -60,18 +61,108 @@ type ReadStreamOptions = {
 
 class Controller extends Service implements IController {
   static prefix: string = "/";
-  route?: Route | null = null;
-  request: contextRequest = null;
-  response: HttpResponse | Http2Response | WebsocketResponse | null = null;
-  context?: ContextType;
-  method?: HTTPMethod;
-  queryGet: Record<string, unknown> = {};
-  query: Record<string, unknown> = {};
-  queryFile: unknown[] = [];
-  queryPost: Record<string, unknown> = {};
+  // V4.1 — état per-request en champs SHADOW privés (null par défaut, 0 alloc :
+  // remplace 4 snapshots `{}`/`[]` alloués par construction). Les accessors
+  // publics dérivent du `context` LIVE (`shadow ?? dérivation`) : plus de
+  // re-snapshot `once("onRequestEnd")` — la valeur est toujours fraîche, et un
+  // listener par requête disparaît. Les setters absorbent les écritures
+  // userland/tests (champ shadow prioritaire, comportement legacy intact).
+  #context: ContextType | null = null;
+  #route: Route | null = null;
+  #request: contextRequest = null;
+  #response: HttpResponse | Http2Response | WebsocketResponse | null = null;
+  #method: HTTPMethod | null = null;
+  #queryGet: Record<string, unknown> | null = null;
+  #query: Record<string, unknown> | null = null;
+  #queryFile: unknown[] | null = null;
+  #queryPost: Record<string, unknown> | null = null;
   //metaData: Data;
   module?: Module;
   template?: Eta | null;
+
+  /**
+   * Contexte transport courant. Per-request : champ posé par `setContext`
+   * (constructor) — coût d'accès inchangé. Singleton stateless (V4.3) : champ
+   * jamais posé → lecture de l'ALS `RequestContext` (le `HttpKernel` y place
+   * le contexte à l'entrée du scope, V4.1) — chaque appel de helper retrouve
+   * LA requête en cours, jamais celle d'une requête concurrente.
+   */
+  get context(): ContextType | undefined {
+    return this.#context ?? RequestContext.getContext<ContextType>();
+  }
+  set context(context: ContextType | undefined) {
+    this.#context = context ?? null;
+  }
+
+  /**
+   * Route matchée. Per-request : posée par le Resolver via `setRoute`.
+   * Sans champ (singleton) : dérive du Resolver de la requête courante
+   * (`context.resolver`), donc toujours la route de CETTE requête.
+   */
+  get route(): Route | null {
+    return this.#route ?? this.context?.resolver?.route ?? null;
+  }
+
+  get request(): contextRequest {
+    return this.#request ?? this.context?.request ?? null;
+  }
+  set request(request: contextRequest) {
+    this.#request = request;
+  }
+
+  get response(): HttpResponse | Http2Response | WebsocketResponse | null {
+    return this.#response ?? this.context?.response ?? null;
+  }
+  set response(
+    response: HttpResponse | Http2Response | WebsocketResponse | null,
+  ) {
+    this.#response = response;
+  }
+
+  get method(): HTTPMethod | undefined {
+    return (
+      this.#method ?? (this.context?.method as HTTPMethod | null) ?? undefined
+    );
+  }
+  set method(method: HTTPMethod | undefined) {
+    this.#method = method ?? null;
+  }
+
+  get queryGet(): Record<string, unknown> {
+    return (this.#queryGet ??
+      (this.context?.request as HttpRequest | Http2Request | null)
+        ?.queryGet) as Record<string, unknown>;
+  }
+  set queryGet(value: Record<string, unknown>) {
+    this.#queryGet = value;
+  }
+
+  get query(): Record<string, unknown> {
+    return (this.#query ??
+      (this.context?.request as HttpRequest | Http2Request | null)
+        ?.query) as Record<string, unknown>;
+  }
+  set query(value: Record<string, unknown>) {
+    this.#query = value;
+  }
+
+  get queryFile(): unknown[] {
+    return (this.#queryFile ??
+      (this.context?.request as HttpRequest | Http2Request | null)
+        ?.queryFile) as unknown[];
+  }
+  set queryFile(value: unknown[]) {
+    this.#queryFile = value;
+  }
+
+  get queryPost(): Record<string, unknown> {
+    return (this.#queryPost ??
+      (this.context?.request as HttpRequest | Http2Request | null)
+        ?.queryPost) as Record<string, unknown>;
+  }
+  set queryPost(value: Record<string, unknown>) {
+    this.#queryPost = value;
+  }
 
   /**
    * Session courante, ou `null`. Getter direct sur `context.session` (peuplé au
@@ -98,22 +189,10 @@ class Controller extends Service implements IController {
   }
 
   setContext(context: ContextType) {
-    const request = context.request as HttpRequest | Http2Request;
-    this.context = context;
-    this.method = this.context.method as HTTPMethod;
-    this.response = this.context.response;
-    this.request = this.context.request;
-    this.queryGet = request?.queryGet;
-    this.query = request?.query;
-    this.queryFile = request?.queryFile;
-    this.queryPost = request?.queryPost;
-    // `session` est un getter sur `context.session` (plus d'event onSessionStart) :
-    // disponible dès que le point d'activation du pipeline l'a ouverte.
-    this.once("onRequestEnd", () => {
-      this.query = request?.query;
-      this.queryFile = request?.queryFile;
-      this.queryPost = request?.queryPost;
-    });
+    // V4.1 — un seul write : tout l'état per-request (request/response/method/
+    // query*) dérive du context via les accessors, toujours frais (le
+    // re-snapshot `once("onRequestEnd")` n'a plus de raison d'être).
+    this.#context = context;
   }
 
   setContextJson(encoding: BufferEncoding = "utf-8") {
@@ -214,7 +293,8 @@ class Controller extends Service implements IController {
   }
 
   setRoute(route: Route): Route {
-    return (this.route = route);
+    this.#route = route;
+    return route;
   }
 
   getSession(): Session | undefined | null {

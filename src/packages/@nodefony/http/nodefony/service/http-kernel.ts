@@ -831,6 +831,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           scheme: context.scheme,
           traceparent: context.traceparent,
           queries: profilerQueries ?? undefined,
+          // V4.1 — le contexte transport voyage dans l'ALS : les controllers
+          // singleton (stateless) le retrouvent sans le porter sur `this`.
+          context,
         },
         async (): Promise<HttpContext> => {
           // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
@@ -1050,6 +1053,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           requestId: wsRunId,
           scheme: wsScheme,
           ...(wsTrace ? { traceparent: wsTrace } : {}),
+          // V4.1 — même seam que HTTP : contexte WS accessible via l'ALS
+          // (messages inclus — AsyncResource.bind propage la bulle, BUG-001).
+          context,
         },
         async () => {
           await this.onConnect(context as WebsocketContext, error);

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-10T20:26:02.677Z",
+  "generated": "2026-06-10T21:09:47.175Z",
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
@@ -14968,6 +14968,7 @@
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
         "src/packages/@nodefony/framework/nodefony/src/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
