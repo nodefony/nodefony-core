@@ -461,6 +461,12 @@ KERNEL/CONTEXT")` colore à la SOURCE (constantes module, multi-modules) ; `cli-
 
 ## 🧱 Core / pipeline / perf (frictions du jour)
 
+- `[1× — 2026-06-10]` **code de close WS au handshake : viser le code WS DIRECTEMENT, pas un statut HTTP** :
+  `error-renderer.renderWebsocket` a 2 branches selon `context.rejected` ; au handshake (`rejected===false`) il
+  **clampe tout code `<1000` → 1011** → un `HttpError(403)` ne devient PAS 1008. Pour fermer en **1008** (Policy
+  Violation, anti-CSWSH), lever `new HttpError(msg, 1008, ctx)` (code WS 1000-4999 laissé passer tel quel). Tracé en
+  lisant `renderWebsocket` AVANT de coder → close 1008 du 1ᵉʳ coup. + Pré-check Content-Length AVANT le streaming =
+  rideau cheap (rejet sans lire) ; le compteur `Parser.write` est la défense en profondeur (chunked/menteur).
 - `[1× — 2026-06-08]` **config knob DÉCLARÉ ≠ CÂBLÉ (config qui ment)** : `keepaliveInterval`/
   `keepaliveGracePeriod` existent en Zod (`http/config/schema.ts`, desc « détecte les zombies ») mais
   **0 consommateur** → aucun heartbeat WS implémenté. Auditer une config = **vérifier les CONSOMMATEURS**
@@ -639,6 +645,10 @@ server`/`nodefony worker`/`nodefony-core` (`process.title`/`exec -a`) → `pkill
 
 ## 🧪 Tests / hygiène (frictions du jour)
 
+- `[1× — 2026-06-10]` **`this.timeout()` est une API MOCHA, pas Vitest** : `describe("…", function(){ this.timeout(N) … })`
+  → sous Vitest `this` n'a pas `.timeout` → le fichier **ÉCHOUE AU CHARGEMENT** (« 0 test », erreur pointée sur la ligne
+  `describe`), PAS un test rouge. → timeout = **3ᵉ argument de `it(name, fn, ms)`** ; `describe` en arrow `() => {}`.
+  Vu sur 2 fichiers neufs (body-limit, websocket-origin) chargeant 0 test pendant que les 419 autres passaient.
 - `[1× — 2026-06-08]` **`@vitest/coverage-v8` doit vivre à la RACINE du mono-repo** (à côté de `vitest` hoisté) :
   déclaré dans un seul workspace, il n'est PAS hoisté → `vitest` (racine) fait `ERR_MODULE_NOT_FOUND` au `--coverage`.
   Source unique racine (anti-dérive de version aussi). `npm install` simple ne le hoiste pas s'il est déjà résolu local.
